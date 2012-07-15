@@ -18,47 +18,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import bz2, logging, optparse, os, signal, sqlite3, sys, time
-from binascii import b2a_hex
+from bisect import insort
 from logging import getLevelName
 
-class main(object):
+
+class Log(object):
 
     _log_id = _packet_id = -1
     _protocol_date = None
 
-    def __new__(cls):
-        self = object.__new__(cls)
-        parser = optparse.OptionParser()
-        parser.add_option('-f', '--follow', action="store_true",
-            help='output appended data as the file grows')
-        parser.add_option('-s', '--sleep-interval', type="float", default=1,
-            help='with -f, sleep for approximately N seconds (default 1.0)'
-                 ' between iterations', metavar='N')
-        parser.add_option('-F', '--flush', action="append", type="int",
-            help='with -f, tell process PID to flush logs approximately N'
-                 ' seconds (see -s)', metavar='PID')
-        options, (db_path,) = parser.parse_args()
-        if options.sleep_interval <= 0:
-            parser.error("sleep_interval must be positive")
-        self._default_name, _ = os.path.splitext(os.path.basename(db_path))
+    def __init__(self, db_path):
+        self._default_name = os.path.splitext(os.path.basename(db_path))[0]
         self._db = sqlite3.connect(db_path)
-        if options.follow:
-            try:
-                pid_list = options.flush or ()
-                while True:
-                    self._emit_many()
-                    for pid in pid_list:
-                        os.kill(pid, signal.SIGRTMIN)
-                    time.sleep(options.sleep_interval)
-            except KeyboardInterrupt:
-                pass
-        else:
-            self._emit_many()
 
-    def _emit_many(self):
+    def __iter__(self):
         db =  self._db
         try:
             db.execute("BEGIN")
+            yield
             nl = db.execute("SELECT * FROM log WHERE id>?",
                             (self._log_id,))
             np = db.execute("SELECT * FROM packet WHERE id>?",
@@ -70,13 +47,13 @@ class main(object):
                 p = None
             for self._log_id, date, name, level, pathname, lineno, msg in nl:
                 while p and p[1] < date:
-                    self._packet(*p)
+                    yield self._packet(*p)
                     p = np.fetchone()
-                self._emit(date, name, getLevelName(level), msg.splitlines())
+                yield date, name, getLevelName(level), msg.splitlines()
             if p:
-                self._packet(*p)
+                yield self._packet(*p)
                 for p in np:
-                    self._packet(*p)
+                    yield self._packet(*p)
         finally:
             db.rollback()
 
@@ -130,7 +107,7 @@ class main(object):
                     msg.append("Can't decode packet")
                 else:
                     msg += logger(*args)
-        self._emit(date, name, 'PACKET', msg)
+        return date, name, 'PACKET', msg
 
     def error(self, code, message):
         return "%s (%s)" % (code, message),
@@ -148,6 +125,64 @@ class main(object):
             return map(t.__mod__, node_list)
         return ()
 
+
+def emit_many(log_list):
+    log_list = [(log, iter(log).next) for log in log_list]
+    for x in log_list: # try to start all transactions at the same time
+        x[1]()
+    event_list = []
+    for log, next in log_list:
+        try:
+            event = next()
+        except StopIteration:
+            continue
+        event_list.append((-event[0], next, log._emit, event))
+    if event_list:
+        event_list.sort()
+        while True:
+            key, next, emit, event = event_list.pop()
+            try:
+                next_date = - event_list[-1][0]
+            except IndexError:
+                next_date = float('inf')
+            try:
+                while event[0] <= next_date:
+                    emit(*event)
+                    event = next()
+            except StopIteration:
+                if not event_list:
+                    break
+            else:
+                insort(event_list, (-event[0], next, emit, event))
+
+def main():
+    parser = optparse.OptionParser()
+    parser.add_option('-f', '--follow', action="store_true",
+        help='output appended data as the file grows')
+    parser.add_option('-F', '--flush', action="append", type="int",
+        help='with -f, tell process PID to flush logs approximately N'
+              ' seconds (see -s)', metavar='PID')
+    parser.add_option('-s', '--sleep-interval', type="float", default=1,
+        help='with -f, sleep for approximately N seconds (default 1.0)'
+              ' between iterations', metavar='N')
+    options, args = parser.parse_args()
+    if options.sleep_interval <= 0:
+        parser.error("sleep_interval must be positive")
+    if not args:
+        parser.error("no log specified")
+    log_list = map(Log, args)
+    if options.follow:
+        try:
+            pid_list = options.flush or ()
+            while True:
+                emit_many(log_list)
+                for pid in pid_list:
+                    os.kill(pid, signal.SIGRTMIN)
+                time.sleep(options.sleep_interval)
+        except KeyboardInterrupt:
+            pass
+    else:
+        emit_many(log_list)
 
 if __name__ == "__main__":
     main()
