@@ -90,6 +90,13 @@ class BackupApplication(object):
             # [[tid]]
             self.tid_list = tuple([] for _ in xrange(pt.getPartitions()))
             try:
+                while True:
+                    for node in pt.getNodeSet(readable=True):
+                        if not app.isStorageReady(node.getUUID()):
+                            break
+                    else:
+                        break
+                    poll(1)
                 node, conn, uuid, num_partitions, num_replicas = \
                     bootstrap.getPrimaryConnection(self.connector_handler)
                 try:
@@ -180,6 +187,8 @@ class BackupApplication(object):
                 for cell in pt.getCellList(offset, readable=True):
                     node = cell.getNode()
                     assert node.isConnected()
+                    if not app.isStorageReady(node.getUUID()):
+                        continue
                     node_list.append(node)
                     if last_max_tid <= cell.backup_tid:
                         # This is the last time we can increase

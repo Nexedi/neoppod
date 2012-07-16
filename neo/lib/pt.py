@@ -127,7 +127,10 @@ class PartitionTable(object):
         except IndexError:
             return False
 
-    def getNodeSet(self):
+    def getNodeSet(self, readable=False):
+        if readable:
+            return set(x.getNode() for row in self.partition_list for x in row
+                                   if x.isReadable())
         return set(x.getNode() for row in self.partition_list for x in row)
 
     def getConnectedNodeList(self):
