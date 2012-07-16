@@ -113,8 +113,9 @@ class Replicator(object):
         for offset, p in self.partition_dict.iteritems():
             if offset not in outdated_set:
                 tid = min(tid, p.next_trans, p.next_obj)
-        if tid not in (ZERO_TID, INVALID_TID):
+        if ZERO_TID != tid != INVALID_TID:
             return add64(tid, -1)
+        return ZERO_TID
 
     def populate(self):
         app = self.app
@@ -292,7 +293,9 @@ class Replicator(object):
         del self.current_partition, self.replicate_tid, self.next_backup_tid
         p = self.partition_dict[offset]
         p.next_obj = add64(tid, 1)
-        self.app.dm.setBackupTID(self.getBackupTID())
+        dm = self.app.dm
+        if dm.getBackupTID() is not None:
+            dm.setBackupTID(self.getBackupTID())
         if not p.max_ttid:
             p = Packets.NotifyReplicationDone(offset, tid)
             self.app.master_conn.notify(p)

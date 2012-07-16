@@ -33,8 +33,7 @@ class BaseMasterHandler(EventHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, state):
-        logging.warning('ignoring notify cluster information in %s',
-                self.__class__.__name__)
+        self.app.changeClusterState(state)
 
     def notifyLastOID(self, conn, oid):
         self.app.dm.setLastOID(oid)

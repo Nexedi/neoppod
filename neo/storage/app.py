@@ -18,7 +18,8 @@ import sys
 from collections import deque
 
 from neo.lib import logging
-from neo.lib.protocol import uuid_str, CellStates, NodeTypes, Packets
+from neo.lib.protocol import uuid_str, \
+    CellStates, ClusterStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
@@ -311,6 +312,10 @@ class Application(object):
             # Abort any replication, whether we are feeding or out-of-date.
             for node in self.nm.getStorageList(only_identified=True):
                 node.getConnection().close()
+
+    def changeClusterState(self, state):
+        if state == ClusterStates.STOPPING_BACKUP:
+            self.dm.setBackupTID(None)
 
     def wait(self):
         # change handler
