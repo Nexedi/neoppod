@@ -21,7 +21,6 @@ from .handler import EventHandler
 from .protocol import uuid_str, Packets
 from .connection import ClientConnection
 
-NO_SERVER = ('0.0.0.0', 0)
 
 class BootstrapManager(EventHandler):
     """
@@ -29,7 +28,7 @@ class BootstrapManager(EventHandler):
     """
     accepted = False
 
-    def __init__(self, app, name, node_type, uuid=None, server=NO_SERVER):
+    def __init__(self, app, name, node_type, uuid=None, server=None):
         """
         Manage the bootstrap stage of a non-master node, it lookup for the
         primary master node, connect to it then returns when the master node
