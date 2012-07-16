@@ -27,21 +27,29 @@ class Log(object):
     _log_id = _packet_id = -1
     _protocol_date = None
 
-    def __init__(self, db_path, decode_all, date_format):
+    def __init__(self, db_path, decode_all=False, date_format=None,
+                                filter_from=None):
         self._date_format = '%F %T' if date_format is None else date_format
         self._decode_all = decode_all
         self._default_name = os.path.splitext(os.path.basename(db_path))[0]
         self._db = sqlite3.connect(db_path)
+        self._filter_from = filter_from
 
     def __iter__(self):
         db =  self._db
         try:
             db.execute("BEGIN")
             yield
-            nl = db.execute("SELECT * FROM log WHERE id>?",
-                            (self._log_id,))
-            np = db.execute("SELECT * FROM packet WHERE id>?",
-                            (self._packet_id,))
+            nl = "SELECT * FROM log WHERE id>?"
+            np = "SELECT * FROM packet WHERE id>?"
+            date = self._filter_from
+            if date:
+                self._filter_from
+                date = " AND date>=%f" % date
+                nl += date
+                np += date
+            nl = db.execute(nl, (self._log_id,))
+            np = db.execute(np, (self._packet_id,))
             try:
                 p = np.next()
                 self._reload(p[1])
@@ -172,12 +180,19 @@ def main():
     parser.add_option('-s', '--sleep-interval', type="float", default=1,
         help='with -f, sleep for approximately N seconds (default 1.0)'
               ' between iterations', metavar='N')
+    parser.add_option('--from', dest='filter_from', type="float",
+        help='show records more recent that timestamp N if N > 0,'
+             ' or now+N if N < 0', metavar='N')
     options, args = parser.parse_args()
     if options.sleep_interval <= 0:
         parser.error("sleep_interval must be positive")
     if not args:
         parser.error("no log specified")
-    log_list = [Log(db_path, options.all, options.date) for db_path in args]
+    filter_from = options.filter_from
+    if filter_from and filter_from < 0:
+        filter_from += time.time()
+    log_list = [Log(db_path, options.all, options.date, filter_from)
+                for db_path in args]
     if options.follow:
         try:
             pid_list = options.flush or ()
