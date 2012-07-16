@@ -27,7 +27,9 @@ class Log(object):
     _log_id = _packet_id = -1
     _protocol_date = None
 
-    def __init__(self, db_path):
+    def __init__(self, db_path, decode_all, date_format):
+        self._date_format = '%F %T' if date_format is None else date_format
+        self._decode_all = decode_all
         self._default_name = os.path.splitext(os.path.basename(db_path))[0]
         self._db = sqlite3.connect(db_path)
 
@@ -75,11 +77,12 @@ class Log(object):
             self._next_protocol = float('inf')
 
     def _emit(self, date, name, levelname, msg_list):
-        d = int(date)
-        prefix = '%s.%04u %-9s %-10s ' % (
-            time.strftime('%F %T', time.localtime(d)),
-            int((date - d) * 10000), levelname,
-            name or self._default_name)
+        prefix = self._date_format
+        if prefix:
+            d = int(date)
+            prefix = '%s.%04u ' % (time.strftime(prefix, time.localtime(d)),
+                                   int((date - d) * 10000))
+        prefix += '%-9s %-10s ' % (levelname, name or self._default_name)
         for msg in msg_list:
             print prefix + msg
 
@@ -93,11 +96,8 @@ class Log(object):
             Packets[code] = p = type('UnknownPacket[%u]' % code, (object,), {})
         msg = ['#0x%04x %-30s %s' % (msg_id, p.__name__, peer)]
         if body is not None:
-            try:
-                logger = getattr(self, p.handler_method_name)
-            except AttributeError:
-                pass
-            else:
+            logger = getattr(self, p.handler_method_name, None)
+            if logger or self._decode_all:
                 p = p()
                 p._id = msg_id
                 p._body = body
@@ -106,7 +106,10 @@ class Log(object):
                 except self.PacketMalformedError:
                     msg.append("Can't decode packet")
                 else:
-                    msg += logger(*args)
+                    if logger:
+                        msg += logger(*args)
+                    elif args:
+                        msg = '%s \t| %r' % (msg[0], args),
         return date, name, 'PACKET', msg
 
     def error(self, code, message):
@@ -157,6 +160,10 @@ def emit_many(log_list):
 
 def main():
     parser = optparse.OptionParser()
+    parser.add_option('-a', '--all', action="store_true",
+        help='decode all packets')
+    parser.add_option('-d', '--date', metavar='FORMAT',
+        help='custom date format, according to strftime(3)')
     parser.add_option('-f', '--follow', action="store_true",
         help='output appended data as the file grows')
     parser.add_option('-F', '--flush', action="append", type="int",
@@ -170,7 +177,7 @@ def main():
         parser.error("sleep_interval must be positive")
     if not args:
         parser.error("no log specified")
-    log_list = map(Log, args)
+    log_list = [Log(db_path, options.all, options.date) for db_path in args]
     if options.follow:
         try:
             pid_list = options.flush or ()
