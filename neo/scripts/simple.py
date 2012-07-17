@@ -47,7 +47,7 @@ def main():
     cluster = functional.NEOCluster(args, **dict((x, getattr(options, x))
                                                  for x, _ in option_list))
     try:
-        cluster.start()
+        cluster.run()
         logging.info("Cluster running ...")
         signal.pause()
     finally:
