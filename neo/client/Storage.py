@@ -20,6 +20,7 @@ import ZODB.interfaces
 
 from functools import wraps
 from neo.lib import logging
+from neo.lib.locking import Lock
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
 from .app import Application
@@ -87,6 +88,17 @@ class Storage(BaseStorage.BaseStorage,
             'dynamic_master_list': dynamic_master_list,
             '_app': _app,
         }
+        snapshot_lock = Lock()
+        acquire = snapshot_lock.acquire
+        release = snapshot_lock.release
+        def _setSnapshotTid(tid):
+            acquire()
+            try:
+                if self._snapshot_tid <= tid:
+                    self._snapshot_tid = add64(tid, 1)
+            finally:
+                release()
+        self._setSnapshotTid = _setSnapshotTid
 
     @property
     def _cache(self):
@@ -137,7 +149,7 @@ class Storage(BaseStorage.BaseStorage,
         #      a temporary Storage object is used to commit.
         #      See also testZODB.NEOZODBTests.checkMultipleUndoInOneTransaction
         if self._snapshot_tid:
-            self._snapshot_tid = add64(tid, 1)
+            self._setSnapshotTid(tid)
         return tid
 
     @check_read_only
@@ -221,7 +233,7 @@ class Storage(BaseStorage.BaseStorage,
     def sync(self, force=True):
         # Increment by one, as we will use this as an excluded upper
         # bound (loadBefore).
-        self._snapshot_tid = add64(self.lastTransaction(), 1)
+        self._setSnapshotTid(self.lastTransaction())
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """

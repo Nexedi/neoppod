@@ -107,31 +107,3 @@ if 1:
                 pass
             self._flush_invalidations()
         #Connection.afterCompletion = afterCompletion
-
-
-    class _DB(object):
-        """
-        Wrapper to DB instance that properly initialize Connection objects
-        with NEO storages.
-        It forces the connection to always create a new instance of the
-        storage, because we don't implement IMVCCStorage completely.
-        """
-
-        def __new__(cls, db, connection):
-            if db._storage.__class__.__module__ != 'neo.client.Storage':
-                return db
-            self = object.__new__(cls)
-            self._db = db
-            self._connection = connection
-            return self
-
-        def __getattr__(self, attr):
-            result = getattr(self._db, attr)
-            if attr == 'storage':
-                self.storage = result = result.new_instance()
-                self._connection._db = self._db
-            return result
-
-    Connection_init = Connection.__init__
-    Connection.__init__ = lambda self, db, *args, **kw: \
-        Connection_init(self, _DB(db, self), *args, **kw)
