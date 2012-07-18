@@ -752,9 +752,9 @@ class NEOThreadedTest(NeoTestBase):
         super(NEOThreadedTest, self)._tearDown(success)
         ServerNode.resetPorts()
         if success:
-            q = logging.db.execute
-            q("UPDATE packet SET body=NULL")
-            q("VACUUM")
+            with logging as db:
+                db.execute("UPDATE packet SET body=NULL")
+                db.execute("VACUUM")
 
     def getUnpickler(self, conn):
         reader = conn._reader

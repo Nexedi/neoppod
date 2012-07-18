@@ -66,7 +66,7 @@ class NEOLogger(Logger):
         self.parent = root = getLogger()
         if not root.handlers:
             root.addHandler(self.default_root_handler)
-        self.db = None
+        self._db = None
         self._record_queue = deque()
         self._record_size = 0
         self._async = set()
@@ -82,6 +82,13 @@ class NEOLogger(Logger):
         self._release = _release
         self.backlog()
 
+    def __enter__(self):
+        self._acquire()
+        return self._db
+
+    def __exit__(self, t, v, tb):
+        self._release()
+
     def __async(wrapped):
         def wrapper(self):
             self._async.add(wrapped)
@@ -91,21 +98,20 @@ class NEOLogger(Logger):
 
     @__async
     def flush(self):
-        if self.db is None:
+        if self._db is None:
             return
         try:
-            self.db.execute("BEGIN")
+            self._db.execute("BEGIN")
             for r in self._record_queue:
                 self._emit(r)
         finally:
             # Always commit, to not lose any record that we could emit.
-            self.db.commit()
+            self._db.commit()
         self._record_queue.clear()
         self._record_size = 0
 
     def backlog(self, max_size=1<<24):
-        self._acquire()
-        try:
+        with self:
             self._max_size = max_size
             if max_size is None:
                 self.flush()
@@ -113,26 +119,23 @@ class NEOLogger(Logger):
                 q = self._record_queue
                 while max_size < self._record_size:
                     self._record_size -= RECORD_SIZE + len(q.popleft().msg)
-        finally:
-            self._release()
 
     def setup(self, filename=None, reset=False):
-        self._acquire()
-        try:
+        with self:
             from . import protocol as p
             global uuid_str
             uuid_str = p.uuid_str
-            if self.db is not None:
-                self.db.close()
+            if self._db is not None:
+                self._db.close()
                 if not filename:
-                    self.db = None
+                    self._db = None
                     self._record_queue.clear()
                     self._record_size = 0
                     return
             if filename:
-                self.db = sqlite3.connect(filename, isolation_level=None,
-                                                    check_same_thread=False)
-                q = self.db.execute
+                self._db = sqlite3.connect(filename, isolation_level=None,
+                                                     check_same_thread=False)
+                q = self._db.execute
                 if reset:
                     for t in 'log', 'packet':
                         q('DROP TABLE IF EXISTS ' + t)
@@ -167,8 +170,6 @@ class NEOLogger(Logger):
                         break
                 else:
                     q("INSERT INTO protocol VALUES (?,?)", (time(), p))
-        finally:
-            self._release()
     __del__ = setup
 
     def isEnabledFor(self, level):
@@ -179,11 +180,11 @@ class NEOLogger(Logger):
             ip, port = r.addr
             peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
                                       uuid_str(r.uuid), ip, port)
-            self.db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
+            self._db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
                 (r.created, r._name, r.msg_id, r.code, peer, buffer(r.msg)))
         else:
             pathname = os.path.relpath(r.pathname, *neo.__path__)
-            self.db.execute("INSERT INTO log VALUES (NULL,?,?,?,?,?,?)",
+            self._db.execute("INSERT INTO log VALUES (NULL,?,?,?,?,?,?)",
                 (r.created, r._name, r.levelno, pathname, r.lineno, r.msg))
 
     def _queue(self, record):
@@ -205,7 +206,7 @@ class NEOLogger(Logger):
             self._release()
 
     def callHandlers(self, record):
-        if self.db is not None:
+        if self._db is not None:
             record.msg = record.getMessage()
             record.args = None
             if record.exc_info:
@@ -218,7 +219,7 @@ class NEOLogger(Logger):
             self.parent.callHandlers(record)
 
     def packet(self, connection, packet, outgoing):
-        if self.db is not None:
+        if self._db is not None:
             ip, port = connection.getAddress()
             self._queue(PacketRecord(
                 created=time(),
