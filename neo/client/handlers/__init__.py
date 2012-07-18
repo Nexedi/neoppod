@@ -25,14 +25,8 @@ class BaseHandler(EventHandler):
         self.dispatcher = app.dispatcher
 
     def dispatch(self, conn, packet, kw={}):
-        # Before calling superclass's dispatch method, lock the connection.
-        # This covers the case where handler sends a response to received
-        # packet.
-        conn.lock()
-        try:
-            super(BaseHandler, self).dispatch(conn, packet, kw)
-        finally:
-            conn.release()
+        assert conn._lock._is_owned()
+        super(BaseHandler, self).dispatch(conn, packet, kw)
 
     def packetReceived(self, conn, packet, kw={}):
         """Redirect all received packet to dispatcher thread."""

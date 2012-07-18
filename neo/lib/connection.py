@@ -728,36 +728,21 @@ class ServerConnection(Connection):
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
 
+    def __metaclass__(name, base, d):
+        for k in ('analyse', 'answer', 'checkTimeout',
+                  'process', 'readable', 'writable'):
+            d[k] = lockCheckWrapper(getattr(base[0], k).im_func)
+        return type(name, base, d)
+
     def __init__(self, *args, **kwargs):
         # _lock is only here for lock debugging purposes. Do not use.
         self._lock = lock = RLock()
-        self.acquire = lock.acquire
-        self.release = lock.release
+        self.lock = lock.acquire
+        self.unlock = lock.release
         self.dispatcher = kwargs.pop('dispatcher')
         self.dispatcher.needPollThread()
-        self.lock()
-        try:
+        with lock:
             super(MTClientConnection, self).__init__(*args, **kwargs)
-        finally:
-            self.unlock()
-
-    def lock(self, blocking = 1):
-        return self.acquire(blocking = blocking)
-
-    def unlock(self):
-        self.release()
-
-    @lockCheckWrapper
-    def writable(self, *args, **kw):
-        return super(MTClientConnection, self).writable(*args, **kw)
-
-    @lockCheckWrapper
-    def readable(self, *args, **kw):
-        return super(MTClientConnection, self).readable(*args, **kw)
-
-    @lockCheckWrapper
-    def analyse(self, *args, **kw):
-        return super(MTClientConnection, self).analyse(*args, **kw)
 
     def notify(self, *args, **kw):
         self.lock()
@@ -793,22 +778,9 @@ class MTClientConnection(ClientConnection):
         finally:
             self.unlock()
 
-    @lockCheckWrapper
-    def answer(self, *args, **kw):
-        return super(MTClientConnection, self).answer(*args, **kw)
-
-    @lockCheckWrapper
-    def checkTimeout(self, *args, **kw):
-        return super(MTClientConnection, self).checkTimeout(*args, **kw)
-
     def close(self):
         self.lock()
         try:
             super(MTClientConnection, self).close()
         finally:
-            self.release()
-
-    @lockCheckWrapper
-    def process(self, *args, **kw):
-        return super(MTClientConnection, self).process(*args, **kw)
-
+            self.unlock()
