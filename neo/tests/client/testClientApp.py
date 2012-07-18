@@ -49,9 +49,9 @@ def getPartitionTable(self):
         self.master_conn = _getMasterConnection(self)
     return self.pt
 
-def _ask(self, conn, packet, handler=None):
+def _ask(self, conn, packet, handler=None, **kw):
     self.setHandlerData(None)
-    conn.ask(packet)
+    conn.ask(packet, **kw)
     if handler is None:
         raise NotImplementedError
     else:
@@ -490,9 +490,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         txn_context = self._begin(app, txn, tid)
         self.f_called = False
         self.f_called_with_tid = None
-        def hook(tid):
-            self.f_called = True
-            self.f_called_with_tid = tid
         packet = Packets.AnswerTransactionFinished(ttid, tid)
         packet.setId(0)
         app.master_conn = Mock({
@@ -501,9 +498,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'fakeReceived': packet,
         })
         txn_context['txn_voted'] = True
-        app.tpc_finish(txn, None, hook)
-        self.assertTrue(self.f_called)
-        self.assertEqual(self.f_called_with_tid, tid)
+        app.tpc_finish(txn, None)
         self.checkAskFinishTransaction(app.master_conn)
         #self.checkDispatcherRegisterCalled(app, app.master_conn)
         self.assertEqual(app._txn_container.get(txn), None)

@@ -218,10 +218,10 @@ class Application(object):
             self.setHandlerData(None)
 
     @profiler_decorator
-    def _ask(self, conn, packet, handler=None):
+    def _ask(self, conn, packet, handler=None, **kw):
         self.setHandlerData(None)
         queue = self._getThreadQueue()
-        msg_id = conn.ask(packet, queue=queue)
+        msg_id = conn.ask(packet, queue=queue, **kw)
         get = queue.get
         _handlePacket = self._handlePacket
         while True:
@@ -242,15 +242,15 @@ class Application(object):
         return self.getHandlerData()
 
     @profiler_decorator
-    def _askStorage(self, conn, packet):
+    def _askStorage(self, conn, packet, **kw):
         """ Send a request to a storage node and process its answer """
-        return self._ask(conn, packet, handler=self.storage_handler)
+        return self._ask(conn, packet, handler=self.storage_handler, **kw)
 
     @profiler_decorator
-    def _askPrimary(self, packet):
+    def _askPrimary(self, packet, **kw):
         """ Send a request to the primary master and process its answer """
         return self._ask(self._getMasterConnection(), packet,
-            handler=self.primary_handler)
+            handler=self.primary_handler, **kw)
 
     @profiler_decorator
     def _getMasterConnection(self):
@@ -766,11 +766,7 @@ class Application(object):
             # Call finish on master
             cache_dict = txn_context['cache_dict']
             tid = self._askPrimary(Packets.AskFinishTransaction(
-                txn_context['ttid'], cache_dict))
-
-            # Call function given by ZODB
-            if f is not None:
-                f(tid)
+                txn_context['ttid'], cache_dict), callback=f)
 
             # Update cache
             self._cache_lock_acquire()

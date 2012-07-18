@@ -16,7 +16,7 @@
 
 from neo.lib import logging
 from neo.lib.pt import MTPartitionTable as PartitionTable
-from neo.lib.protocol import NodeTypes, NodeStates, ProtocolError
+from neo.lib.protocol import NodeTypes, NodeStates, Packets, ProtocolError
 from neo.lib.util import dump
 from . import BaseHandler, AnswerBaseHandler
 from ..exception import NEOStorageError
@@ -89,6 +89,13 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
 
 class PrimaryNotificationsHandler(BaseHandler):
     """ Handler that process the notifications from the primary master """
+
+    def packetReceived(self, conn, packet, kw={}):
+        if type(packet) is Packets.AnswerTransactionFinished:
+            callback = kw.pop('callback')
+            if callback is not None:
+                callback(packet.decode()[1])
+        BaseHandler.packetReceived(self, conn, packet, kw)
 
     def connectionClosed(self, conn):
         app = self.app

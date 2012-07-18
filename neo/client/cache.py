@@ -228,3 +228,5 @@ class ClientCache(object):
         else:
             if item.next_tid is None:
                 item.next_tid = tid
+            else:
+                assert item.next_tid <= tid, (item, oid, tid)
