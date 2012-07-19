@@ -179,8 +179,11 @@ class ClientCache(object):
         if size < max_size:
             item = self._load(oid, next_tid)
             if item:
-                assert not (item.data or item.level)
                 assert item.tid == tid and item.next_tid == next_tid
+                if item.level: # already stored
+                    assert item.data == data
+                    return
+                assert not item.data
                 self._history_size -= 1
             else:
                 item = CacheItem()
@@ -221,12 +224,31 @@ class ClientCache(object):
 
     def invalidate(self, oid, tid):
         """Mark data record as being valid only up to given tid"""
-        try:
-            item = self._oid_dict[oid][-1]
-        except KeyError:
-            pass
+        item = self._oid_dict[oid][-1]
+        if item.next_tid is None:
+            item.next_tid = tid
         else:
-            if item.next_tid is None:
-                item.next_tid = tid
-            else:
-                assert item.next_tid <= tid, (item, oid, tid)
+            assert item.next_tid <= tid, (item, oid, tid)
+
+
+def test(self):
+    cache = ClientCache()
+    self.assertEqual(cache.load(1, 10), None)
+    self.assertEqual(cache.load(1, None), None)
+    self.assertRaises(KeyError, cache.invalidate, 1, 10)
+    data = 'foo', 5, 10
+    # 2 identical stores happens if 2 threads got a cache miss at the same time
+    cache.store(1, *data)
+    cache.store(1, *data)
+    self.assertEqual(cache.load(1, 10), data)
+    self.assertEqual(cache.load(1, None), None)
+    data = 'bar', 10, None
+    cache.store(1, *data)
+    self.assertEqual(cache.load(1, None), data)
+    cache.invalidate(1, 20)
+    self.assertEqual(cache.load(1, 20), ('bar', 10, 20))
+
+if __name__ == '__main__':
+    import unittest
+    unittest.TextTestRunner().run(type('', (unittest.TestCase,), {
+        'runTest': test})())

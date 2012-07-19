@@ -511,26 +511,52 @@ class Test(NEOThreadedTest):
                 l1.release()
                 l2.acquire()
             orig(conn, packet, kw, handler)
+        def _loadFromStorage(orig, *args):
+            try:
+                return orig(*args)
+            finally:
+                l1.release()
+                l2.acquire()
         cluster = NEOCluster()
         try:
             cluster.start()
             t1, c1 = cluster.getTransaction()
-            c1.root()['x'] = x = PCounter()
+            c1.root()['x'] = x1 = PCounter()
             t1.commit()
             t1.begin()
-            x.value = 1
+            x1.value = 1
             t2, c2 = cluster.getTransaction()
-            x = c2.root()['x']
+            x2 = c2.root()['x']
             p = Patch(cluster.client, _handlePacket=_handlePacket)
             try:
                 t = self.newThread(t1.commit)
                 l1.acquire()
                 t2.abort()
-                l2.release()
-                t.join()
             finally:
                 del p
-            self.assertEqual(x.value, 1)
+                l2.release()
+            t.join()
+            self.assertEqual(x2.value, 1)
+
+            return # Following is disabled due to deadlock
+                   # caused by client load lock
+            t1.begin()
+            x1.value = 0
+            x2._p_deactivate()
+            cluster.client._cache.clear()
+            p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
+            try:
+                t = self.newThread(x2._p_activate)
+                l1.acquire()
+                t1.commit()
+                t1.begin()
+            finally:
+                del p
+                l2.release()
+            t.join()
+            x1._p_deactivate()
+            self.assertEqual(x2.value, 1)
+            self.assertEqual(x1.value, 0)
         finally:
             cluster.stop()
 
@@ -540,12 +566,13 @@ class Test(NEOThreadedTest):
             cluster.start()
             # Initialize objects
             t1, c1 = cluster.getTransaction()
-            c1.root()['x'] = x = PCounter()
+            c1.root()['x'] = x1 = PCounter()
             c1.root()['y'] = y = PCounter()
             y.value = 1
             t1.commit()
             # Get pickle of y
             t1.begin()
+            x = c1._storage.load(x1._p_oid)[0]
             y = c1._storage.load(y._p_oid)[0]
             # Start the testing transaction
             # (at this time, we still have x=0 and y=1)
@@ -557,30 +584,67 @@ class Test(NEOThreadedTest):
             client.setPoll(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
-            client.store(x._p_oid, x._p_serial, y, '', txn)
+            client.store(x1._p_oid, x1._p_serial, y, '', txn)
             # Delay invalidation for x
             master_client = cluster.master.filterConnection(cluster.client)
             try:
                 master_client.add(lambda conn, packet:
                     isinstance(packet, Packets.InvalidateObjects))
-                client.tpc_finish(txn, None)
-                client.close()
+                tid = client.tpc_finish(txn, None)
                 client.setPoll(0)
                 cluster.client.setPoll(1)
                 # Change to x is committed. Testing connection must ask the
                 # storage node to return original value of x, even if we
                 # haven't processed yet any invalidation for x.
-                x = c2.root()['x']
+                x2 = c2.root()['x']
                 cluster.client._cache.clear() # bypass cache
-                self.assertEqual(x.value, 0)
+                self.assertEqual(x2.value, 0)
             finally:
                 master_client()
-            x._p_deactivate()
+            x2._p_deactivate()
             t1.abort() # process invalidation and sync connection storage
-            self.assertEqual(x.value, 0)
+            self.assertEqual(x2.value, 0)
             # New testing transaction. Now we can see the last value of x.
             t2.abort()
-            self.assertEqual(x.value, 1)
+            self.assertEqual(x2.value, 1)
+
+            # Now test cache invalidation during a load from a storage
+            l1 = threading.Lock(); l1.acquire()
+            l2 = threading.Lock(); l2.acquire()
+            def _loadFromStorage(orig, *args):
+                try:
+                    return orig(*args)
+                finally:
+                    l1.release()
+                    l2.acquire()
+            x2._p_deactivate()
+            cluster.client._cache.clear()
+            p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
+            try:
+                t = self.newThread(x2._p_activate)
+                l1.acquire()
+                # At this point, x could not be found the cache and the result
+                # from the storage (which is <value=1, next_tid=None>) is about
+                # to processed.
+                # Now modify x to receive an invalidation for it.
+                cluster.client.setPoll(0)
+                client.setPoll(1)
+                txn = transaction.Transaction()
+                client.tpc_begin(txn)
+                client.store(x2._p_oid, tid, x, '', txn)
+                tid = client.tpc_finish(txn, None)
+                client.close()
+                client.setPoll(0)
+                cluster.client.setPoll(1)
+                t1.abort() # make sure invalidation is processed
+            finally:
+                del p
+                # Resume processing of answer from storage. An entry should be
+                # added in cache for x=1 with a fixed next_tid (i.e. not None)
+                l2.release()
+            t.join()
+            self.assertEqual(x2.value, 1)
+            self.assertEqual(x1.value, 0)
         finally:
             cluster.stop()
 

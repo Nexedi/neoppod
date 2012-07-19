@@ -18,6 +18,7 @@ from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.lib.locking import Empty
 from random import shuffle
+from thread import get_ident
 import heapq
 import time
 import os
@@ -97,6 +98,7 @@ class Application(object):
         # no self-assigned UUID, primary master will supply us one
         self.uuid = None
         self._cache = ClientCache()
+        self._loading = {}
         self.new_oid_list = []
         self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self)
@@ -408,17 +410,29 @@ class Application(object):
         # TODO:
         # - rename parameters (here? and in handlers & packet definitions)
 
+        acquire = self._cache_lock_acquire
+        release = self._cache_lock_release
         self._load_lock_acquire()
         try:
-            result = self._loadFromCache(oid, tid, before_tid)
-            if not result:
-                result = self._loadFromStorage(oid, tid, before_tid)
-                self._cache_lock_acquire()
+            acquire()
+            try:
+                result = self._loadFromCache(oid, tid, before_tid)
+                if result:
+                    return result
+                loading_key = oid, get_ident()
+                self._loading[loading_key] = None
+                release()
                 try:
-                    self._cache.store(oid, *result)
+                    result = self._loadFromStorage(oid, tid, before_tid)
                 finally:
-                    self._cache_lock_release()
-            return result
+                    acquire()
+                    invalidated = self._loading.pop(loading_key)
+                if invalidated and not result[2]:
+                    result = result[0], result[1], invalidated
+                self._cache.store(oid, *result)
+                return result
+            finally:
+                release()
         finally:
             self._load_lock_release()
 
@@ -450,15 +464,11 @@ class Application(object):
         """
         Load from local cache, return None if not found.
         """
-        self._cache_lock_acquire()
-        try:
-            if at_tid:
-                result = self._cache.load(oid, at_tid + '*')
-                assert not result or result[1] == at_tid
-                return result
-            return self._cache.load(oid, before_tid)
-        finally:
-            self._cache_lock_release()
+        if at_tid:
+            result = self._cache.load(oid, at_tid + '*')
+            assert not result or result[1] == at_tid
+            return result
+        return self._cache.load(oid, before_tid)
 
     @profiler_decorator
     def tpc_begin(self, transaction, tid=None, status=' '):
@@ -772,6 +782,7 @@ class Application(object):
             self._cache_lock_acquire()
             try:
                 cache = self._cache
+                loading = self._loading
                 for oid, data in cache_dict.iteritems():
                     if data is CHECKED_SERIAL:
                         # this is just a remain of
@@ -779,7 +790,12 @@ class Application(object):
                         # was modified).
                         continue
                     # Update ex-latest value in cache
-                    cache.invalidate(oid, tid)
+                    try:
+                        cache.invalidate(oid, tid)
+                    except KeyError:
+                        for k in loading:
+                            if k[0] == oid and not loading[k]:
+                                loading[k] = tid
                     if data is not None:
                         # Store in cache with no next_tid
                         cache.store(oid, data, tid, None)

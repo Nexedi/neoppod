@@ -20,6 +20,7 @@ from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from .. import NeoUnitTestBase, buildUrlFromString, ADDRESS_TYPE
 from neo.client.app import Application
+from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 from neo.lib.protocol import NodeTypes, Packet, Packets, Errors, INVALID_TID, \
@@ -159,6 +160,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         #self.assertEqual(len(calls), 1)
         #self.assertEqual(calls[0].getParam(0), conn)
         #self.assertTrue(isinstance(calls[0].getParam(2), Queue))
+
+    testCache = testCache
 
     def test_registerDB(self):
         app = self.getApp()
