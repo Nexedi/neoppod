@@ -238,6 +238,7 @@ def test(self):
     self.assertRaises(KeyError, cache.invalidate, 1, 10)
     data = 'foo', 5, 10
     # 2 identical stores happens if 2 threads got a cache miss at the same time
+    # (which currently never happens in NEO, due to a lock)
     cache.store(1, *data)
     cache.store(1, *data)
     self.assertEqual(cache.load(1, 10), data)

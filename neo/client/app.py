@@ -18,7 +18,6 @@ from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.lib.locking import Empty
 from random import shuffle
-from thread import get_ident
 import heapq
 import time
 import os
@@ -98,7 +97,7 @@ class Application(object):
         # no self-assigned UUID, primary master will supply us one
         self.uuid = None
         self._cache = ClientCache()
-        self._loading = {}
+        self._loading_oid = None
         self.new_oid_list = []
         self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self)
@@ -412,6 +411,10 @@ class Application(object):
 
         acquire = self._cache_lock_acquire
         release = self._cache_lock_release
+        # XXX: Is it possible this giant lock ?
+        #      See commit b77c946d67c9d7cc1e9ee9b15437568dee144aa4
+        #      for a way to invalidate cache properly when several loads
+        #      are done simultaneously.
         self._load_lock_acquire()
         try:
             acquire()
@@ -419,16 +422,14 @@ class Application(object):
                 result = self._loadFromCache(oid, tid, before_tid)
                 if result:
                     return result
-                loading_key = oid, get_ident()
-                self._loading[loading_key] = None
+                self._loading_oid = oid
+            finally:
                 release()
-                try:
-                    result = self._loadFromStorage(oid, tid, before_tid)
-                finally:
-                    acquire()
-                    invalidated = self._loading.pop(loading_key)
-                if invalidated and not result[2]:
-                    result = result[0], result[1], invalidated
+            result = self._loadFromStorage(oid, tid, before_tid)
+            acquire()
+            try:
+                if not (self._loading_oid or result[2]):
+                    result = result[0], result[1], self._loading_invalidated
                 self._cache.store(oid, *result)
                 return result
             finally:
@@ -782,7 +783,6 @@ class Application(object):
             self._cache_lock_acquire()
             try:
                 cache = self._cache
-                loading = self._loading
                 for oid, data in cache_dict.iteritems():
                     if data is CHECKED_SERIAL:
                         # this is just a remain of
@@ -793,9 +793,7 @@ class Application(object):
                     try:
                         cache.invalidate(oid, tid)
                     except KeyError:
-                        for k in loading:
-                            if k[0] == oid and not loading[k]:
-                                loading[k] = tid
+                        pass
                     if data is not None:
                         # Store in cache with no next_tid
                         cache.store(oid, data, tid, None)

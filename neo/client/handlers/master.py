@@ -113,14 +113,14 @@ class PrimaryNotificationsHandler(BaseHandler):
         app._cache_lock_acquire()
         try:
             invalidate = app._cache.invalidate
-            loading = app._loading
+            loading = app._loading_oid
             for oid in oid_list:
                 try:
                     invalidate(oid, tid)
                 except KeyError:
-                    for k in loading:
-                        if k[0] == oid and not loading[k]:
-                            loading[k] = tid
+                    if oid == loading:
+                        app._loading_oid = None
+                        app._loading_invalidated = tid
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, oid_list)

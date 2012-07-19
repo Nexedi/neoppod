@@ -511,12 +511,6 @@ class Test(NEOThreadedTest):
                 l1.release()
                 l2.acquire()
             orig(conn, packet, kw, handler)
-        def _loadFromStorage(orig, *args):
-            try:
-                return orig(*args)
-            finally:
-                l1.release()
-                l2.acquire()
         cluster = NEOCluster()
         try:
             cluster.start()
@@ -537,26 +531,6 @@ class Test(NEOThreadedTest):
                 l2.release()
             t.join()
             self.assertEqual(x2.value, 1)
-
-            return # Following is disabled due to deadlock
-                   # caused by client load lock
-            t1.begin()
-            x1.value = 0
-            x2._p_deactivate()
-            cluster.client._cache.clear()
-            p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
-            try:
-                t = self.newThread(x2._p_activate)
-                l1.acquire()
-                t1.commit()
-                t1.begin()
-            finally:
-                del p
-                l2.release()
-            t.join()
-            x1._p_deactivate()
-            self.assertEqual(x2.value, 1)
-            self.assertEqual(x1.value, 0)
         finally:
             cluster.stop()
 
