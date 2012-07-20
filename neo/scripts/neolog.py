@@ -32,6 +32,9 @@ class Log(object):
         self._date_format = '%F %T' if date_format is None else date_format
         self._decode_all = decode_all
         self._default_name = os.path.splitext(os.path.basename(db_path))[0]
+        # WKRD: Python does not support URI so we can't open in read-only mode
+        #       See http://bugs.python.org/issue13773
+        os.stat(db_path) # do not create empty DB if file is missing
         self._db = sqlite3.connect(db_path)
         self._filter_from = filter_from
 
