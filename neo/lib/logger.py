@@ -27,7 +27,7 @@ from logging import getLogger, Formatter, Logger, LogRecord, StreamHandler, \
     DEBUG, WARNING
 from time import time
 from traceback import format_exception
-import bz2, inspect, neo, os, signal, sqlite3, threading
+import bz2, inspect, neo, os, signal, sqlite3, sys, threading
 
 # Stats for storage node of matrix test (py2.7:SQLite)
 RECORD_SIZE = ( 234360832 # extra memory used
@@ -101,14 +101,29 @@ class NEOLogger(Logger):
         if self._db is None:
             return
         try:
-            self._db.execute("BEGIN")
             for r in self._record_queue:
                 self._emit(r)
         finally:
             # Always commit, to not lose any record that we could emit.
-            self._db.commit()
+            self.commit()
         self._record_queue.clear()
         self._record_size = 0
+
+    def commit(self):
+        try:
+            self._db.commit()
+        except sqlite3.OperationalError, e:
+            x = e.args[0]
+            if x == 'database is locked':
+                sys.stderr.write('%s: retrying to emit log...' % x)
+                while e.args[0] == x:
+                    try:
+                        self._db.commit()
+                    except sqlite3.OperationalError, e:
+                        continue
+                    sys.stderr.write(' ok\n')
+                    return
+            raise
 
     def backlog(self, max_size=1<<24):
         with self:
@@ -133,8 +148,7 @@ class NEOLogger(Logger):
                     self._record_size = 0
                     return
             if filename:
-                self._db = sqlite3.connect(filename, isolation_level=None,
-                                                     check_same_thread=False)
+                self._db = sqlite3.connect(filename, check_same_thread=False)
                 q = self._db.execute
                 if reset:
                     for t in 'log', 'packet':
@@ -169,7 +183,8 @@ class NEOLogger(Logger):
                     if p == t:
                         break
                 else:
-                    q("INSERT INTO protocol VALUES (?,?)", (time(), p))
+                    with self._db:
+                        q("INSERT INTO protocol VALUES (?,?)", (time(), p))
     __del__ = setup
 
     def isEnabledFor(self, level):
@@ -193,6 +208,7 @@ class NEOLogger(Logger):
         try:
             if self._max_size is None:
                 self._emit(record)
+                self.commit()
             else:
                 self._record_size += RECORD_SIZE + len(record.msg)
                 q = self._record_queue
