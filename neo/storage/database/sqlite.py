@@ -19,6 +19,7 @@ from array import array
 from hashlib import sha1
 import re
 import string
+import traceback
 
 from . import DatabaseManager, LOG_QUERIES
 from .manager import CreationUndone
@@ -35,6 +36,23 @@ def splitOIDField(tid, oids):
     for i in xrange(0, len(oids), 8):
         append(oids[i:i+8])
     return oid_list
+
+def retry_if_locked(f, *args):
+    try:
+        return f(*args)
+    except sqlite3.OperationalError, e:
+        x = e.args[0]
+        if x == 'database is locked':
+            msg = traceback.format_exception_only(type(e), e)
+            msg += traceback.format_stack()
+            logging.warning(''.join(msg))
+            while e.args[0] == x:
+                try:
+                    return f(*args)
+                except sqlite3.OperationalError, e:
+                    pass
+        raise
+
 
 class SQLiteDatabaseManager(DatabaseManager):
     """This class manages a database on SQLite.
@@ -63,13 +81,13 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def begin(self):
         q = self.query
-        q("BEGIN IMMEDIATE")
+        retry_if_locked(q, "BEGIN IMMEDIATE")
         return q
 
     if LOG_QUERIES:
         def commit(self):
             logging.debug('committing...')
-            self.conn.commit()
+            retry_if_locked(self.conn.commit)
 
         def rollback(self):
             logging.debug('aborting...')
@@ -84,9 +102,10 @@ class SQLiteDatabaseManager(DatabaseManager):
             logging.debug('querying %s...', ''.join(printable_char_list))
             return self.conn.execute(query)
     else:
-        commit = property(lambda self: self.conn.commit)
         rollback = property(lambda self: self.conn.rollback)
         query = property(lambda self: self.conn.execute)
+        def commit(self):
+            retry_if_locked(self.conn.commit)
 
     def setup(self, reset = 0):
         self._config.clear()
