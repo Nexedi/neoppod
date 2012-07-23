@@ -90,20 +90,20 @@ if 1:
         Connection_open = Connection.open
         Connection.open = open
 
-        # Storage.sync usually implements a "network barrier" (at least
-        # in NEO, but ZEO should be fixed to do the same), which is quite
-        # slow so we prefer to not call it where it's not useful.
-        # I don't know any legitimate use of DB access outside a transaction.
+    # IStorage implementations usually need to provide a "network barrier",
+    # at least for NEO & ZEO, to make sure we have an up-to-date view of
+    # the storage. It's unclear whether sync() is a good place to do this
+    # because a round-trip to the server introduces latency and we prefer
+    # it's not done when it's not useful.
+    # For example, we know we are up-to-date after a successful commit,
+    # so this should not be done in afterCompletion(), and anyway, we don't
+    # know any legitimate use of DB access outside a transaction.
 
-        # But old versions of ERP5 (before 2010-10-29 17:15:34) and maybe other
-        # applications do not always call 'transaction.begin()' when they should
-        # so this patch disabled as a precaution, at least as long as we support
-        # old software. This should also be discussed on zodb-dev ML first.
-
-        def afterCompletion(self, *ignored):
-            try:
-                self._readCurrent.clear()
-            except AttributeError: # BBB: ZODB < 3.10
-                pass
-            self._flush_invalidations()
-        #Connection.afterCompletion = afterCompletion
+    def afterCompletion(self, *ignored):
+        try:
+            self._readCurrent.clear()
+        except AttributeError: # BBB: ZODB < 3.10
+            pass
+        # PATCH: do not call sync()
+        self._flush_invalidations()
+    Connection.afterCompletion = afterCompletion

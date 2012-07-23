@@ -653,12 +653,7 @@ class NEOCluster(object):
     def stop(self):
         if hasattr(self, '_db') and self.client.em._timeout == 0:
             self.client.setPoll(True)
-        sync = Storage.Storage.sync.im_func
-        Storage.Storage.sync = lambda self, force=True: None
-        try:
-            self.__dict__.pop('_db', self.client).close()
-        finally:
-            Storage.Storage.sync = sync
+        self.__dict__.pop('_db', self.client).close()
         try:
             Serialized.release(stop=
                 self.admin_list + self.storage_list + self.master_list)
