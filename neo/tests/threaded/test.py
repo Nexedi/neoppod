@@ -525,7 +525,7 @@ class Test(NEOThreadedTest):
             try:
                 t = self.newThread(t1.commit)
                 l1.acquire()
-                t2.abort()
+                t2.begin()
             finally:
                 del p
                 l2.release()
@@ -576,10 +576,10 @@ class Test(NEOThreadedTest):
             finally:
                 master_client()
             x2._p_deactivate()
-            t1.abort() # process invalidation and sync connection storage
+            t1.begin() # process invalidation and sync connection storage
             self.assertEqual(x2.value, 0)
             # New testing transaction. Now we can see the last value of x.
-            t2.abort()
+            t2.begin()
             self.assertEqual(x2.value, 1)
 
             # Now test cache invalidation during a load from a storage
@@ -610,7 +610,7 @@ class Test(NEOThreadedTest):
                 client.close()
                 client.setPoll(0)
                 cluster.client.setPoll(1)
-                t1.abort() # make sure invalidation is processed
+                t1.begin() # make sure invalidation is processed
             finally:
                 del p
                 # Resume processing of answer from storage. An entry should be
