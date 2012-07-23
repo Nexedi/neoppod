@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.util import bin, p64
 from neo.lib.protocol import uuid_str, ClusterStates, NodeStates, NodeTypes, \
@@ -62,17 +63,14 @@ class TerminalNeoCTL(object):
             for (uuid, state) in cell_list))
             for (offset, cell_list) in row_list)
 
-    def formatNodeList(self, node_list):
+    def formatNodeList(self, node_list, _sort_key=itemgetter(2, 0, 1)):
         if not node_list:
             return 'Empty list!'
-        result = []
-        for node_type, address, uuid, state in node_list:
-            if address is None:
-                address = (None, None)
-            ip, port = address
-            result.append('%s - %s - %s:%s - %s' % (node_type, uuid_str(uuid),
-                                                    ip, port, state))
-        return '\n'.join(result)
+        node_list.sort(key=_sort_key)
+        return '\n'.join(
+            '%s - %s - %s - %s' % (node_type, uuid_str(uuid),
+                                   address and '%s:%s' % address, state)
+            for node_type, address, uuid, state in node_list)
 
     # Actual actions
     def getPartitionRowList(self, params):
