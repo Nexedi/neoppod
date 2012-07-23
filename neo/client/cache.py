@@ -225,21 +225,24 @@ class ClientCache(object):
 
     def invalidate(self, oid, tid):
         """Mark data record as being valid only up to given tid"""
-        item = self._oid_dict[oid][-1]
-        if item.next_tid is None:
-            item.next_tid = tid
+        try:
+            item = self._oid_dict[oid][-1]
+        except KeyError:
+            pass
         else:
-            assert item.next_tid <= tid, (item, oid, tid)
+            if item.next_tid is None:
+                item.next_tid = tid
+            else:
+                assert item.next_tid <= tid, (item, oid, tid)
 
 
 def test(self):
     cache = ClientCache()
     self.assertEqual(cache.load(1, 10), None)
     self.assertEqual(cache.load(1, None), None)
-    self.assertRaises(KeyError, cache.invalidate, 1, 10)
+    cache.invalidate(1, 10)
     data = '5', 5, 10
     # 2 identical stores happens if 2 threads got a cache miss at the same time
-    # (which currently never happens in NEO, due to a lock)
     cache.store(1, *data)
     cache.store(1, *data)
     self.assertEqual(cache.load(1, 10), data)

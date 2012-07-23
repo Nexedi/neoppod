@@ -538,6 +538,7 @@ class Test(NEOThreadedTest):
         cluster = NEOCluster()
         try:
             cluster.start()
+            cache = cluster.client._cache
             # Initialize objects
             t1, c1 = cluster.getTransaction()
             c1.root()['x'] = x1 = PCounter()
@@ -571,7 +572,7 @@ class Test(NEOThreadedTest):
                 # storage node to return original value of x, even if we
                 # haven't processed yet any invalidation for x.
                 x2 = c2.root()['x']
-                cluster.client._cache.clear() # bypass cache
+                cache.clear() # bypass cache
                 self.assertEqual(x2.value, 0)
             finally:
                 master_client()
@@ -592,7 +593,7 @@ class Test(NEOThreadedTest):
                     l1.release()
                     l2.acquire()
             x2._p_deactivate()
-            cluster.client._cache.clear()
+            cache._remove(cache._oid_dict[x2._p_oid].pop())
             p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
             try:
                 t = self.newThread(x2._p_activate)

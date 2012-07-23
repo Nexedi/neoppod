@@ -110,10 +110,7 @@ class PrimaryNotificationsHandler(BaseHandler):
                         # was modified).
                         continue
                     # Update ex-latest value in cache
-                    try:
-                        cache.invalidate(oid, tid)
-                    except KeyError:
-                        pass
+                    cache.invalidate(oid, tid)
                     if data is not None:
                         # Store in cache with no next_tid
                         cache.store(oid, data, tid, None)
@@ -142,12 +139,10 @@ class PrimaryNotificationsHandler(BaseHandler):
             invalidate = app._cache.invalidate
             loading = app._loading_oid
             for oid in oid_list:
-                try:
-                    invalidate(oid, tid)
-                except KeyError:
-                    if oid == loading:
-                        app._loading_oid = None
-                        app._loading_invalidated = tid
+                invalidate(oid, tid)
+                if oid == loading:
+                    app._loading_oid = None
+                    app._loading_invalidated = tid
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, oid_list)
