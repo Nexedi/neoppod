@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
+from bisect import insort
 
 class CacheItem(object):
 
@@ -37,6 +38,9 @@ class CacheItem(object):
             except AttributeError:
                 pass
         return '<%s%s>' % (self.__class__.__name__, s)
+
+    def __lt__(self, other):
+        return self.tid < other.tid
 
 class ClientCache(object):
     """In-memory pickle cache based on Multi-Queue cache algorithm
@@ -198,10 +202,7 @@ class ClientCache(object):
                     self._oid_dict[oid] = [item]
                 else:
                     if next_tid:
-                        for i, x in enumerate(item_list):
-                            if tid < x.tid:
-                                break
-                        item_list.insert(i, item)
+                        insort(item_list, item)
                     else:
                         prev = item_list[-1]
                         item.counter = prev.counter
@@ -236,18 +237,21 @@ def test(self):
     self.assertEqual(cache.load(1, 10), None)
     self.assertEqual(cache.load(1, None), None)
     self.assertRaises(KeyError, cache.invalidate, 1, 10)
-    data = 'foo', 5, 10
+    data = '5', 5, 10
     # 2 identical stores happens if 2 threads got a cache miss at the same time
     # (which currently never happens in NEO, due to a lock)
     cache.store(1, *data)
     cache.store(1, *data)
     self.assertEqual(cache.load(1, 10), data)
     self.assertEqual(cache.load(1, None), None)
-    data = 'bar', 10, None
+    data = '15', 15, None
     cache.store(1, *data)
     self.assertEqual(cache.load(1, None), data)
     cache.invalidate(1, 20)
-    self.assertEqual(cache.load(1, 20), ('bar', 10, 20))
+    self.assertEqual(cache.load(1, 20), ('15', 15, 20))
+    cache.store(1, '10', 10, 15)
+    cache.store(1, '20', 20, 21)
+    self.assertEqual([5,10,15,20], [x.tid for x in cache._oid_dict[1]])
 
 if __name__ == '__main__':
     import unittest
