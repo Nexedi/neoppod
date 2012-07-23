@@ -167,6 +167,7 @@ RC  - Review output of pylint (CODE)
       must be propagated to client.
 
     Client
+    - Merge Application into Storage (SPEED)
     - Implement C version of mq.py (LOAD LATENCY)
     - Use generic bootstrap module (CODE)
     - Find a way to make ask() from the thread poll to allow send initial packet

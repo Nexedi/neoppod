@@ -20,7 +20,6 @@ import ZODB.interfaces
 
 from functools import wraps
 from neo.lib import logging
-from neo.lib.locking import Lock
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
 from .app import Application
@@ -36,17 +35,6 @@ def check_read_only(func):
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
-
-    # Stores the highest TID visible for current transaction.
-    # First call sets this snapshot by asking master node most recent
-    # committed TID.
-    # As a (positive) side-effect, this forces us to handle all pending
-    # invalidations, so we get a very recent view of the database (which is
-    # good when multiple databases are used in the same program with some
-    # amount of referential integrity).
-    # Should remain None when not bound to a connection,
-    # so that it always read the last revision.
-    _snapshot_tid = None
 
     implements(*filter(None, (
         ZODB.interfaces.IStorage,
@@ -88,17 +76,6 @@ class Storage(BaseStorage.BaseStorage,
             'dynamic_master_list': dynamic_master_list,
             '_app': _app,
         }
-        snapshot_lock = Lock()
-        acquire = snapshot_lock.acquire
-        release = snapshot_lock.release
-        def _setSnapshotTid(tid):
-            acquire()
-            try:
-                if self._snapshot_tid <= tid:
-                    self._snapshot_tid = add64(tid, 1)
-            finally:
-                release()
-        self._setSnapshotTid = _setSnapshotTid
 
     @property
     def _cache(self):
@@ -117,7 +94,7 @@ class Storage(BaseStorage.BaseStorage,
         # it optional.
         assert version == '', 'Versions are not supported'
         try:
-            return self.app.load(oid, None, self._snapshot_tid)[:2]
+            return self.app.load(oid)[:2]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
@@ -143,14 +120,8 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
-        tid = self.app.tpc_finish(transaction=transaction,
+        return self.app.tpc_finish(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict, f=f)
-        # XXX: Note that when undoing changes, the following is useless because
-        #      a temporary Storage object is used to commit.
-        #      See also testZODB.NEOZODBTests.checkMultipleUndoInOneTransaction
-        if self._snapshot_tid:
-            self._setSnapshotTid(tid)
-        return tid
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
@@ -189,9 +160,7 @@ class Storage(BaseStorage.BaseStorage,
     # undo
     @check_read_only
     def undo(self, transaction_id, txn):
-        return self.app.undo(self._snapshot_tid, undone_tid=transaction_id,
-            txn=txn, tryToResolveConflict=self.tryToResolveConflict)
-
+        return self.app.undo(transaction_id, txn, self.tryToResolveConflict)
 
     @check_read_only
     def undoLog(self, first=0, last=-20, filter=None):
@@ -213,7 +182,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def loadEx(self, oid, version):
         try:
-            data, serial, _ = self.app.load(oid, None, self._snapshot_tid)
+            data, serial, _ = self.app.load(oid)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
         return data, serial, ''
@@ -231,9 +200,10 @@ class Storage(BaseStorage.BaseStorage,
             raise POSException.POSKeyError(oid)
 
     def sync(self, force=True):
-        # Increment by one, as we will use this as an excluded upper
-        # bound (loadBefore).
-        self._setSnapshotTid(self.lastTransaction())
+        # XXX: sync() is part of IMVCCStorage and we don't want to be called
+        #      from afterCompletion() so it may not be a good place to ping the
+        #      master here. See also monkey-patch in __init__.py
+        self.app.lastTransaction()
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """

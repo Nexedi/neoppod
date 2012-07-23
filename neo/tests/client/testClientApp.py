@@ -510,13 +510,12 @@ class ClientApplicationTests(NeoUnitTestBase):
         # invalid transaction
         app = self.getApp()
         tid = self.makeTID()
-        snapshot_tid = self.getNextTID()
         txn = self.makeTransactionObject()
         def tryToResolveConflict(oid, conflict_serial, serial, data):
             pass
         app.master_conn = Mock()
         conn = Mock()
-        self.assertRaises(StorageTransactionError, app.undo, snapshot_tid, tid,
+        self.assertRaises(StorageTransactionError, app.undo, tid,
             txn, tryToResolveConflict)
         # no packet sent
         self.checkNoPacketSent(conn)
@@ -552,6 +551,7 @@ class ClientApplicationTests(NeoUnitTestBase):
                 unlock=False):
             store_marker.append((oid, serial, data, data_serial))
         app._store = _store
+        app.last_tid = self.getNextTID()
         return app, conn, store_marker
 
     def test_undoWithResolutionSuccess(self):
@@ -567,7 +567,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
-        snapshot_tid = self.getNextTID()
         app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
             tid2)
         undo_serial = Packets.AnswerObjectUndoSerial({
@@ -583,7 +582,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             return 'solved'
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        app.undo(snapshot_tid, tid1, txn, tryToResolveConflict)
+        app.undo(tid1, txn, tryToResolveConflict)
         # Checking what happened
         moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
         self.assertEqual(moid, oid0)
@@ -610,7 +609,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
-        snapshot_tid = self.getNextTID()
         undo_serial = Packets.AnswerObjectUndoSerial({
             oid0: (tid2, tid0, False)})
         undo_serial.setId(2)
@@ -626,8 +624,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             return None
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        self.assertRaises(UndoError, app.undo, snapshot_tid, tid1, txn,
-            tryToResolveConflict)
+        self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)
         # Checking what happened
         moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
         self.assertEqual(moid, oid0)
@@ -644,8 +641,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             marker.append((oid, conflict_serial, serial, data, committedData))
             raise ConflictError
         # The undo
-        self.assertRaises(UndoError, app.undo, snapshot_tid, tid1, txn,
-            tryToResolveConflict)
+        self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)
         # Checking what happened
         moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
         self.assertEqual(moid, oid0)
@@ -667,7 +663,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
-        snapshot_tid = self.getNextTID()
         transaction_info = Packets.AnswerTransactionInformation(tid1, '', '',
             '', False, (oid0, ))
         transaction_info.setId(1)
@@ -685,7 +680,7 @@ class ClientApplicationTests(NeoUnitTestBase):
                 'is no conflict in this test !'
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        app.undo(snapshot_tid, tid1, txn, tryToResolveConflict)
+        app.undo(tid1, txn, tryToResolveConflict)
         # Checking what happened
         moid, mserial, mdata, mdata_serial = store_marker[0]
         self.assertEqual(moid, oid0)
@@ -765,10 +760,13 @@ class ClientApplicationTests(NeoUnitTestBase):
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
         # TODO: test more connection failure cases
-        # Seventh packet : askNodeInformation succeeded
         all_passed = []
-        def _ask8(_):
+        # askLastTransaction
+        def _ask9(_):
             all_passed.append(1)
+        # Seventh packet : askNodeInformation succeeded
+        def _ask8(_):
+            pass
         # Sixth packet : askPartitionTable succeeded
         def _ask7(_):
             app.pt = Mock({'operational': True})
@@ -799,7 +797,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         def _ask1(_):
             pass
         ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask6, _ask7,
-            _ask8]
+            _ask8, _ask9]
         def _ask_base(conn, _, handler=None):
             ask_func_list.pop(0)(conn)
             app.nm.getByAddress(conn.getAddress())._connection = None

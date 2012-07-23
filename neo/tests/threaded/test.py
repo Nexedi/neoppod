@@ -607,7 +607,6 @@ class Test(NEOThreadedTest):
                 client.tpc_begin(txn)
                 client.store(x2._p_oid, tid, x, '', txn)
                 tid = client.tpc_finish(txn, None)
-                client.close()
                 client.setPoll(0)
                 cluster.client.setPoll(1)
                 t1.begin() # make sure invalidation is processed
@@ -619,6 +618,32 @@ class Test(NEOThreadedTest):
             t.join()
             self.assertEqual(x2.value, 1)
             self.assertEqual(x1.value, 0)
+
+            def _flush_invalidations(orig):
+                l1.release()
+                l2.acquire()
+                orig()
+            x1._p_deactivate()
+            t1.abort()
+            p = Patch(c1, _flush_invalidations=_flush_invalidations)
+            try:
+                t = self.newThread(t1.begin)
+                l1.acquire()
+                cluster.client.setPoll(0)
+                client.setPoll(1)
+                txn = transaction.Transaction()
+                client.tpc_begin(txn)
+                client.store(x2._p_oid, tid, y, '', txn)
+                tid = client.tpc_finish(txn, None)
+                client.close()
+                client.setPoll(0)
+                cluster.client.setPoll(1)
+            finally:
+                del p
+                l2.release()
+            t.join()
+            self.assertEqual(x1.value, 1)
+
         finally:
             cluster.stop()
 

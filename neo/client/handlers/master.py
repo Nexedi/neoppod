@@ -21,6 +21,8 @@ from neo.lib.util import dump
 from . import BaseHandler, AnswerBaseHandler
 from ..exception import NEOStorageError
 
+CHECKED_SERIAL = object()
+
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
 
@@ -91,10 +93,34 @@ class PrimaryNotificationsHandler(BaseHandler):
     """ Handler that process the notifications from the primary master """
 
     def packetReceived(self, conn, packet, kw={}):
-        if type(packet) is Packets.AnswerTransactionFinished:
+        if type(packet) is Packets.AnswerLastTransaction:
+            self.app.last_tid = packet.decode()[0]
+        elif type(packet) is Packets.AnswerTransactionFinished:
+            app = self.app
+            app.last_tid = tid = packet.decode()[1]
             callback = kw.pop('callback')
-            if callback is not None:
-                callback(packet.decode()[1])
+            # Update cache
+            cache = app._cache
+            app._cache_lock_acquire()
+            try:
+                for oid, data in kw.pop('cache_dict').iteritems():
+                    if data is CHECKED_SERIAL:
+                        # this is just a remain of
+                        # checkCurrentSerialInTransaction call, ignore (no data
+                        # was modified).
+                        continue
+                    # Update ex-latest value in cache
+                    try:
+                        cache.invalidate(oid, tid)
+                    except KeyError:
+                        pass
+                    if data is not None:
+                        # Store in cache with no next_tid
+                        cache.store(oid, data, tid, None)
+                if callback is not None:
+                    callback(tid)
+            finally:
+                app._cache_lock_release()
         BaseHandler.packetReceived(self, conn, packet, kw)
 
     def connectionClosed(self, conn):
@@ -110,6 +136,7 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
+        app.last_tid = tid
         app._cache_lock_acquire()
         try:
             invalidate = app._cache.invalidate
@@ -163,5 +190,4 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
             raise NEOStorageError('Already packing')
 
     def answerLastTransaction(self, conn, ltid):
-        self.app.setHandlerData(ltid)
-
+        pass

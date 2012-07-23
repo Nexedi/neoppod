@@ -45,7 +45,7 @@ from .poll import ThreadedPoll, psThreadedPoll
 from .iterator import Iterator
 from .cache import ClientCache
 from .pool import ConnectionPool
-from neo.lib.util import u64, parseMasterList
+from neo.lib.util import p64, u64, parseMasterList
 from neo.lib.profiling import profiler_decorator, PROFILING_ENABLED
 from neo.lib.debug import register as registerLiveDebugger
 from .container import ThreadContainer, TransactionContainer
@@ -65,7 +65,7 @@ else:
     compress = real_compress
     makeChecksum = real_makeChecksum
 
-CHECKED_SERIAL = object()
+CHECKED_SERIAL = master.CHECKED_SERIAL
 
 
 class Application(object):
@@ -100,6 +100,7 @@ class Application(object):
         self._loading_oid = None
         self.new_oid_list = []
         self.last_oid = '\0' * 8
+        self.last_tid = None
         self.storage_event_handler = storage.StorageEventHandler(self)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
@@ -342,6 +343,7 @@ class Application(object):
         handler = self.primary_bootstrap_handler
         ask(conn, Packets.AskNodeInformation(), handler=handler)
         ask(conn, Packets.AskPartitionTable(), handler=handler)
+        self.lastTransaction()
         return self.pt.operational()
 
     def registerDB(self, db, limit):
@@ -425,6 +427,13 @@ class Application(object):
                 self._loading_oid = oid
             finally:
                 release()
+            # When not bound to a ZODB Connection, load() may be the
+            # first method called and last_tid may still be None.
+            # This happens, for example, when opening the DB.
+            if not (tid or before_tid) and self.last_tid:
+                # Do not get something more recent than the last invalidation
+                # we got from master.
+                before_tid = p64(u64(self.last_tid) + 1)
             result = self._loadFromStorage(oid, tid, before_tid)
             acquire()
             try:
@@ -777,34 +786,14 @@ class Application(object):
             # Call finish on master
             cache_dict = txn_context['cache_dict']
             tid = self._askPrimary(Packets.AskFinishTransaction(
-                txn_context['ttid'], cache_dict), callback=f)
-
-            # Update cache
-            self._cache_lock_acquire()
-            try:
-                cache = self._cache
-                for oid, data in cache_dict.iteritems():
-                    if data is CHECKED_SERIAL:
-                        # this is just a remain of
-                        # checkCurrentSerialInTransaction call, ignore (no data
-                        # was modified).
-                        continue
-                    # Update ex-latest value in cache
-                    try:
-                        cache.invalidate(oid, tid)
-                    except KeyError:
-                        pass
-                    if data is not None:
-                        # Store in cache with no next_tid
-                        cache.store(oid, data, tid, None)
-            finally:
-                self._cache_lock_release()
+                txn_context['ttid'], cache_dict),
+                cache_dict=cache_dict, callback=f)
             txn_container.delete(transaction)
             return tid
         finally:
             self._load_lock_release()
 
-    def undo(self, snapshot_tid, undone_tid, txn, tryToResolveConflict):
+    def undo(self, undone_tid, txn, tryToResolveConflict):
         txn_context = self._txn_container.get(txn)
         if txn_context is None:
             raise StorageTransactionError(self, undone_tid)
@@ -831,6 +820,7 @@ class Application(object):
         queue = self._getThreadQueue()
         ttid = txn_context['ttid']
         undo_object_tid_dict = {}
+        snapshot_tid = p64(u64(self.last_tid) + 1)
         for partition, oid_list in partition_oid_dict.iteritems():
             cell_list = getCellList(partition, readable=True)
             # We do want to shuffle before getting one with the smallest
@@ -1027,7 +1017,8 @@ class Application(object):
         return Iterator(self, start, stop)
 
     def lastTransaction(self):
-        return self._askPrimary(Packets.AskLastTransaction())
+        self._askPrimary(Packets.AskLastTransaction())
+        return self.last_tid
 
     def abortVersion(self, src, transaction):
         if self._txn_container.get(transaction) is None:
