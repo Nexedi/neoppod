@@ -19,13 +19,6 @@ RC = Release Critical (for next release)
 RC  - Review XXX in the code (CODE)
 RC  - Review TODO in the code (CODE)
 RC  - Review output of pylint (CODE)
-    - tpc_finish might raise while transaction got successfully committed.
-      This can happen if it gets disconnected from primary master while waiting
-      for AnswerFinishTransaction after primary received it and hence will
-      commit transaction independently from client presence. Client could
-      legitimaltely think transaction is not committed, and might decide to
-      retry. To solve this, client can know if its TTID got successfuly
-      committed by looking at currently unused '(t)trans.ttid' column.
     - Keep-alive (HIGH AVAILABILITY) (implemented, to be reviewed and tested)
       Consider the need to implement a keep-alive system (packets sent
       automatically when there is no activity on the connection for a period
@@ -168,7 +161,7 @@ RC  - Review output of pylint (CODE)
 
     Client
     - Merge Application into Storage (SPEED)
-    - Implement C version of mq.py (LOAD LATENCY)
+    - Optimize cache.py by rewriting it either in C or Cython (LOAD LATENCY)
     - Use generic bootstrap module (CODE)
     - Find a way to make ask() from the thread poll to allow send initial packet
       (requestNodeIdentification) from the connectionCompleted() event instead
@@ -178,8 +171,13 @@ RC  - Review output of pylint (CODE)
       to check if this node is well up or not.
     - Implement restore() ZODB API method to bypass consistency checks during
       imports.
-    - tpc_finish failures (FUNCTIONALITY)
-      New failure cases during tpc_finish must be handled.
+    - tpc_finish might raise while transaction got successfully committed.
+      This can happen if it gets disconnected from primary master while waiting
+      for AnswerFinishTransaction after primary received it and hence will
+      commit transaction independently from client presence. Client could
+      legitimaltely think transaction is not committed, and might decide to
+      retry. To solve this, client can know if its TTID got successfuly
+      committed by looking at currently unused '(t)trans.ttid' column.
     - Fix and reenable deadlock avoidance (SPEED). This is required for
       neo.threaded.test.Test.testDeadlockAvoidance
 
