@@ -605,12 +605,13 @@ class NodeManager(object):
 
     def log(self):
         logging.info('Node manager : %u nodes', len(self._node_set))
-        node_list = [(node, uuid_str(node.getUUID()))
-                     for node in sorted(self._node_set)]
-        max_len = max(len(x[1]) for x in node_list)
-        for node, uuid in node_list:
-            address = node.getAddress() or ''
-            if address:
-                address = '%s:%d' % address
-            logging.info(' * %*s | %8s | %22s | %s',
-                max_len, uuid, node.getType(), address, node.getState())
+        if self._node_set:
+            node_list = [(node, uuid_str(node.getUUID()))
+                         for node in sorted(self._node_set)]
+            max_len = max(len(x[1]) for x in node_list)
+            for node, uuid in node_list:
+                address = node.getAddress() or ''
+                if address:
+                    address = '%s:%d' % address
+                logging.info(' * %*s | %8s | %22s | %s',
+                    max_len, uuid, node.getType(), address, node.getState())
