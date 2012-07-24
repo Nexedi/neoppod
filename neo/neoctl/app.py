@@ -18,7 +18,7 @@ from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.util import bin, p64
 from neo.lib.protocol import uuid_str, ClusterStates, NodeStates, NodeTypes, \
-    ZERO_TID
+    UUID_NAMESPACES, ZERO_TID
 
 action_dict = {
     'print': {
@@ -37,6 +37,10 @@ action_dict = {
     'drop': 'dropNode',
 }
 
+uuid_int = (lambda ns: lambda uuid:
+    (ns[uuid[0]] << 24) + int(uuid[1:])
+    )(dict((str(k)[0], v) for k, v in UUID_NAMESPACES.iteritems()))
+
 class TerminalNeoCTL(object):
     def __init__(self, address):
         self.neoctl = NeoCTL(address)
@@ -54,8 +58,7 @@ class TerminalNeoCTL(object):
     def asClusterState(self, value):
         return getattr(ClusterStates, value.upper())
 
-    def asNode(self, value):
-        return bin(value)
+    asNode = staticmethod(uuid_int)
 
     def formatRowList(self, row_list):
         return '\n'.join('%03d | %s' % (offset,
@@ -201,7 +204,7 @@ class TerminalNeoCTL(object):
                 except StopIteration:
                     pass
                 break
-            source = bin(source) if source else None
+            source = self.asNode(source) if source else None
             if partition:
                 partition_dict[int(partition)] = source
             else:
