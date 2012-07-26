@@ -102,9 +102,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
             node.setConnection(conn)
         service.askNewOIDs(conn, 1)
         self.assertTrue(self.app.tm.getLastOID() > oid1)
-        for node in self.app.nm.getStorageList():
-            conn = node.getConnection()
-            self.assertEqual(self.checkNotifyLastOID(conn, decode=True), (oid2,))
 
     def test_09_askFinishTransaction(self):
         service = self.service

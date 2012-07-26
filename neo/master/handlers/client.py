@@ -55,9 +55,7 @@ class ClientServiceHandler(MasterHandler):
         conn.answer(Packets.AnswerBeginTransaction(app.tm.begin(node, tid)))
 
     def askNewOIDs(self, conn, num_oids):
-        app = self.app
-        conn.answer(Packets.AnswerNewOIDs(app.tm.getNextOIDList(num_oids)))
-        app.broadcastLastOID()
+        conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
 
     def askFinishTransaction(self, conn, ttid, oid_list):
         app = self.app
@@ -86,10 +84,6 @@ class ClientServiceHandler(MasterHandler):
         peer_id = conn.getPeerId()
         tid = app.tm.prepare(ttid, partitions, oid_list, usable_uuid_set,
             peer_id)
-
-        # check if greater and foreign OID was stored
-        if app.tm.updateLastOID(oid_list):
-            app.broadcastLastOID()
 
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some

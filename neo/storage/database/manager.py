@@ -171,18 +171,6 @@ class DatabaseManager(object):
             ptid = str(ptid)
         self.setConfiguration('ptid', ptid)
 
-    def getLastOID(self):
-        """
-            Returns the last OID used
-        """
-        return util.bin(self.getConfiguration('loid'))
-
-    def setLastOID(self, loid):
-        """
-            Set the last OID used
-        """
-        self.setConfiguration('loid', util.dump(loid))
-
     def getBackupTID(self):
         return util.bin(self.getConfiguration('backup_tid'))
 
@@ -195,18 +183,18 @@ class DatabaseManager(object):
         node, and a cell state."""
         raise NotImplementedError
 
-    def _getLastTIDs(self, all=True):
+    def _getLastIDs(self, all=True):
         raise NotImplementedError
 
-    def getLastTIDs(self, all=True):
-        trans, obj = self._getLastTIDs()
+    def getLastIDs(self, all=True):
+        trans, obj, oid = self._getLastIDs()
         if trans:
             tid = max(trans.itervalues())
             if obj:
                 tid = max(tid, max(obj.itervalues()))
         else:
             tid = max(obj.itervalues()) if obj else None
-        return tid, trans, obj
+        return tid, trans, obj, oid
 
     def getUnfinishedTIDList(self):
         """Return a list of unfinished transaction's IDs."""

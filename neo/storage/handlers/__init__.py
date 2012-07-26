@@ -35,9 +35,6 @@ class BaseMasterHandler(EventHandler):
     def notifyClusterInformation(self, conn, state):
         self.app.changeClusterState(state)
 
-    def notifyLastOID(self, conn, oid):
-        self.app.dm.setLastOID(oid)
-
     def notifyNodeInformation(self, conn, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""

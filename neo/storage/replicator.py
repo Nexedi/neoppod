@@ -125,7 +125,7 @@ class Replicator(object):
         self.replicate_dict = {}
         self.source_dict = {}
         self.ttid_set = set()
-        last_tid, last_trans_dict, last_obj_dict = app.dm.getLastTIDs()
+        last_tid, last_trans_dict, last_obj_dict, _ = app.dm.getLastIDs()
         backup_tid = app.dm.getBackupTID()
         if backup_tid and last_tid < backup_tid:
             last_tid = backup_tid
@@ -154,7 +154,7 @@ class Replicator(object):
         abort = False
         added_list = []
         app = self.app
-        last_tid, last_trans_dict, last_obj_dict = app.dm.getLastTIDs()
+        last_tid, last_trans_dict, last_obj_dict, _ = app.dm.getLastIDs()
         for offset, uuid, state in cell_list:
             if uuid == app.uuid:
                 if state in (CellStates.DISCARDED, CellStates.CORRUPTED):

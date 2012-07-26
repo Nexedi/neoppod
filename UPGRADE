@@ -24,6 +24,7 @@ SQL commands to migrate each storage from NEO 0.10.x::
   UPDATE pt, uuid SET pt.uuid=uuid.new, state=state-1 WHERE pt.old=uuid.old;
   ALTER TABLE pt DROP old, ADD PRIMARY KEY (rid, uuid);
   UPDATE config, uuid SET config.value=uuid.new WHERE config.name='uuid' AND uuid.old=config.value;
+  DELETE FROM config WHERE name='loid';
 
 NEO 0.10
 ========

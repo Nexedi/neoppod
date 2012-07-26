@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (10, 1)
+PROTOCOL_VERSION = (11, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1192,14 +1192,6 @@ class ClusterState(Packet):
         PEnum('state', ClusterStates),
     )
 
-class NotifyLastOID(Packet):
-    """
-    Notify last OID generated
-    """
-    _fmt = PStruct('notify_last_oid',
-        POID('last_oid'),
-    )
-
 class ObjectUndoSerial(Packet):
     """
     Ask storage the serial where object data is when undoing given transaction,
@@ -1682,8 +1674,6 @@ class Packets(dict):
                     ClusterInformation)
     AskClusterState, AnswerClusterState = register(
                     ClusterState)
-    NotifyLastOID = register(
-                    NotifyLastOID)
     AskObjectUndoSerial, AnswerObjectUndoSerial = register(
                     ObjectUndoSerial)
     AskHasLock, AnswerHasLock = register(

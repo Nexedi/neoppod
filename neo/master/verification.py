@@ -190,12 +190,6 @@ class VerificationManager(BaseServiceHandler):
 
         return uuid_set
 
-    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
-        # FIXME: this packet should not allowed here, the master already
-        # accepted the current partition table end IDs. As there were manually
-        # approved during recovery, there is no need to check them here.
-        raise RuntimeError
-
     def answerUnfinishedTransactions(self, conn, max_tid, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %r',

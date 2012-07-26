@@ -25,9 +25,10 @@ class VerificationHandler(BaseMasterHandler):
 
     def askLastIDs(self, conn):
         app = self.app
+        ltid, _, _, loid = app.dm.getLastIDs()
         conn.answer(Packets.AnswerLastIDs(
-            app.dm.getLastOID(),
-            app.dm.getLastTIDs()[0],
+            loid,
+            ltid,
             app.pt.getID(),
             app.dm.getBackupTID()))
 

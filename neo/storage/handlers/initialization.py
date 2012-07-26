@@ -47,7 +47,6 @@ class InitializationHandler(BaseMasterHandler):
         app.dm.setPartitionTable(ptid, cell_list)
 
     def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
-        self.app.dm.setLastOID(loid)
         self.app.dm.setBackupTID(backup_tid)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):

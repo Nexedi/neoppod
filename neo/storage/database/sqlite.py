@@ -224,7 +224,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
-    def _getLastTIDs(self, all=True):
+    def _getLastIDs(self, all=True):
         p64 = util.p64
         with self as q:
             trans = dict((partition, p64(tid))
@@ -233,14 +233,18 @@ class SQLiteDatabaseManager(DatabaseManager):
             obj = dict((partition, p64(tid))
                 for partition, tid in q("SELECT partition, MAX(tid)"
                                         " FROM obj GROUP BY partition"))
+            oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
+                                          " GROUP BY partition) as t").next()[0]
             if all:
-                tid = q("SELECT MAX(tid) FROM ttrans").fetchone()[0]
+                tid = q("SELECT MAX(tid) FROM ttrans").next()[0]
                 if tid is not None:
                     trans[None] = p64(tid)
-                tid = q("SELECT MAX(tid) FROM tobj").fetchone()[0]
+                tid, toid = q("SELECT MAX(tid), MAX(oid) FROM tobj").next()
                 if tid is not None:
                     obj[None] = p64(tid)
-        return trans, obj
+                if toid is not None and (oid < toid or oid is None):
+                    oid = toid
+        return trans, obj, None if oid is None else p64(oid)
 
     def getUnfinishedTIDList(self):
         p64 = util.p64

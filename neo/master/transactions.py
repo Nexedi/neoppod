@@ -257,17 +257,6 @@ class TransactionManager(object):
         self._last_oid = oid_list[-1]
         return oid_list
 
-    def updateLastOID(self, oid_list):
-        """
-            Updates the last oid with the max of those supplied if greater than
-            the current known, returns True if changed
-        """
-        max_oid = oid_list and max(oid_list) or None # oid_list might be empty
-        if max_oid > self._last_oid:
-            self._last_oid = max_oid
-            return True
-        return False
-
     def setLastOID(self, oid):
         self._last_oid = max(oid, self._last_oid)
 
@@ -391,6 +380,9 @@ class TransactionManager(object):
         logging.debug('Finish TXN %s for %s (was %s)',
                       dump(tid), node, dump(ttid))
         txn.prepare(tid, oid_list, uuid_list, msg_id)
+        # check if greater and foreign OID was stored
+        if oid_list:
+            self.setLastOID(max(oid_list))
         return tid
 
     def remove(self, uuid, ttid):

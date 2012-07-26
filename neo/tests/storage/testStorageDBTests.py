@@ -126,13 +126,6 @@ class StorageDBTests(NeoUnitTestBase):
         result = db.getPartitionTable()
         self.assertEqual(set(result), set([cell1, cell2]))
 
-    def test_getLastOID(self):
-        db = self.getDB()
-        oid1 = self.getOID(1)
-        db.setLastOID(oid1)
-        result1 = db.getLastOID()
-        self.assertEqual(result1, oid1)
-
     def getOIDs(self, count):
         return map(self.getOID, xrange(count))
 
@@ -153,22 +146,23 @@ class StorageDBTests(NeoUnitTestBase):
     def checkSet(self, list1, list2):
         self.assertEqual(set(list1), set(list2))
 
-    def test_getLastTIDs(self):
+    def test_getLastIDs(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
         oid1, oid2 = self.getOIDs(2)
         txn, objs = self.getTransaction([oid1, oid2])
         self.db.storeTransaction(tid1, objs, txn, False)
         self.db.storeTransaction(tid2, objs, txn, False)
-        self.assertEqual(self.db.getLastTIDs(), (tid2, {0: tid2}, {0: tid2}))
+        self.assertEqual(self.db.getLastIDs(),
+            (tid2, {0: tid2}, {0: tid2}, oid2))
         self.db.storeTransaction(tid3, objs, txn)
         tids = {0: tid2, None: tid3}
-        self.assertEqual(self.db.getLastTIDs(), (tid3, tids, tids))
+        self.assertEqual(self.db.getLastIDs(), (tid3, tids, tids, oid2))
         self.db.storeTransaction(tid4, objs, None)
-        self.assertEqual(self.db.getLastTIDs(),
-            (tid4, tids, {0: tid2, None: tid4}))
+        self.assertEqual(self.db.getLastIDs(),
+            (tid4, tids, {0: tid2, None: tid4}, oid2))
         self.db.finishTransaction(tid3)
-        self.assertEqual(self.db.getLastTIDs(),
-            (tid4, {0: tid3}, {0: tid3, None: tid4}))
+        self.assertEqual(self.db.getLastIDs(),
+            (tid4, {0: tid3}, {0: tid3, None: tid4}, oid2))
 
     def test_getUnfinishedTIDList(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
@@ -320,7 +314,7 @@ class StorageDBTests(NeoUnitTestBase):
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         # nothing in database
-        self.assertEqual(self.db.getLastTIDs(), (None, {}, {}))
+        self.assertEqual(self.db.getLastIDs(), (None, {}, {}, None))
         self.assertEqual(self.db.getUnfinishedTIDList(), [])
         self.assertEqual(self.db.getObject(oid1), None)
         self.assertEqual(self.db.getObject(oid2), None)

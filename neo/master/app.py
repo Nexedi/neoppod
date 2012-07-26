@@ -267,13 +267,6 @@ class Application(object):
             if selector(node):
                 node.notify(packet)
 
-    def broadcastLastOID(self):
-        oid = self.tm.getLastOID()
-        logging.debug('Broadcast last OID to storages : %s', dump(oid))
-        packet = Packets.NotifyLastOID(oid)
-        for node in self.nm.getStorageList(only_identified=True):
-            node.notify(packet)
-
     def provideService(self):
         """
         This is the normal mode for a primary master node. Handle transactions
