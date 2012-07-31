@@ -173,16 +173,13 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         cell_list = []
         node_count = self.count_dict.get(node, 0)
         for offset, row in enumerate(self.partition_list):
-            feeding_cell = None
             max_count = 0
             max_cell = None
             num_cells = 0
             for cell in row:
                 if cell.getNode() is node:
                     break
-                if cell.isFeeding():
-                    feeding_cell = cell
-                else:
+                if not cell.isFeeding():
                     num_cells += 1
                     count = self.count_dict[cell.getNode()]
                     if count > max_count:
@@ -190,30 +187,22 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                         max_cell = cell
 
             else:
-                if num_cells <= self.nr:
-                    row.append(Cell(node, CellStates.OUT_OF_DATE))
-                    cell_list.append((offset, node.getUUID(),
-                        CellStates.OUT_OF_DATE))
-                    node_count += 1
-                elif node_count + 1 < max_count:
-                    if feeding_cell is not None or not max_cell.isReadable():
-                        # If there is a feeding cell already or it is
-                        # out-of-date, just drop the node.
-                        row.remove(max_cell)
-                        cell_list.append((offset, max_cell.getUUID(),
-                                          CellStates.DISCARDED))
-                        self.count_dict[max_cell.getNode()] -= 1
-                    else:
-                        # Otherwise, use it as a feeding cell for safety.
+                if self.nr < num_cells:
+                    if node_count + 1 >= max_count:
+                        continue
+                    if max_cell.isReadable():
                         max_cell.setState(CellStates.FEEDING)
                         cell_list.append((offset, max_cell.getUUID(),
                                           CellStates.FEEDING))
-                        # Don't count a feeding cell.
-                        self.count_dict[max_cell.getNode()] -= 1
-                    row.append(Cell(node, CellStates.OUT_OF_DATE))
-                    cell_list.append((offset, node.getUUID(),
-                                      CellStates.OUT_OF_DATE))
-                    node_count += 1
+                    else:
+                        row.remove(max_cell)
+                        cell_list.append((offset, max_cell.getUUID(),
+                                          CellStates.DISCARDED))
+                    self.count_dict[max_cell.getNode()] -= 1
+                row.append(Cell(node, CellStates.OUT_OF_DATE))
+                cell_list.append((offset, node.getUUID(),
+                                  CellStates.OUT_OF_DATE))
+                node_count += 1
 
         self.count_dict[node] = node_count
         self.log()
