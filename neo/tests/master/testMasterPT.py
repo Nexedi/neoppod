@@ -258,6 +258,13 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         pt.setUpToDate(sn6, 1)
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.getCellList(x)), 2)
+        pt = PartitionTable(12, 0)
+        node_count = 0
+        for node in sn1, sn2, sn3, sn4:
+            pt.addNode(node)
+            node_count += 1
+            self.assertEqual(pt.count_dict.values(),
+                             [12/node_count] * node_count)
 
     def test_15_dropNode(self):
         num_partitions = 4
