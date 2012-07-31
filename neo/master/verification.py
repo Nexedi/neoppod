@@ -93,7 +93,6 @@ class VerificationManager(BaseServiceHandler):
         return state, self
 
     def run(self):
-
         self.app.changeClusterState(ClusterStates.VERIFYING)
         while True:
             try:
@@ -102,14 +101,7 @@ class VerificationManager(BaseServiceHandler):
                 continue
             break
         # At this stage, all non-working nodes are out-of-date.
-        cell_list = self.app.pt.outdate()
-
-        # Tweak the partition table, if the distribution of storage nodes
-        # is not uniform.
-        cell_list.extend(self.app.pt.tweak())
-
-        # If anything changed, send the changes.
-        self.app.broadcastPartitionChanges(cell_list)
+        self.app.broadcastPartitionChanges(self.app.pt.outdate())
 
     def verifyData(self):
         """Verify the data in storage nodes and clean them up, if necessary."""

@@ -184,13 +184,12 @@ class ReplicationTests(NEOThreadedTest):
         another source.
         Here are the different states of partitions over time:
           pt: 0: U|U|U
-          pt: 0: UO|UO|UO
-          pt: 0: FOO|UO.|U.O # node 1 replicates from node 0
-          pt: 0: .OU|UO.|U.O # here node 0 lost partition 0
+          pt: 0: UO.|U.O|FOO
+          pt: 0: UU.|U.O|FOO
+          pt: 0: UU.|U.U|FOO # nodes 1 & 2 replicate from node 0
+          pt: 0: UU.|U.U|.OU # here node 0 lost partition 2
                              # and node 1 must switch to node 2
-          pt: 0: .OU|UO.|U.U
-          pt: 0: .OU|UU.|U.U
-          pt: 0: .UU|UU.|U.U
+          pt: 0: UU.|U.U|.UU
         """
         def connected(orig, *args, **kw):
             patch[0] = s1.filterConnection(s0)
@@ -218,6 +217,7 @@ class ReplicationTests(NEOThreadedTest):
                 s2.start()
                 cluster.tic()
                 cluster.neoctl.enableStorageList([s1.uuid, s2.uuid])
+                cluster.neoctl.tweakPartitionTable()
                 offset, = [offset for offset, row in enumerate(
                                       cluster.master.pt.partition_list)
                                   for cell in row if cell.isFeeding()]

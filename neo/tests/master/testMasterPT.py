@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from collections import defaultdict
 from mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeStates, CellStates
@@ -142,130 +143,6 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         cell = cells[0]
         self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
 
-    def test_14_addNode(self):
-        num_partitions = 5
-        num_replicas = 2
-        pt = PartitionTable(num_partitions, num_replicas)
-        # add nodes
-        uuid1 = self.getStorageUUID()
-        server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1)
-        # add it to an empty pt
-        cell_list = pt.addNode(sn1)
-        self.assertEqual(len(cell_list), 5)
-        # it must be added to all partitions
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 1)
-            self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
-            self.assertEqual(pt.getCellList(x)[0].getNode(), sn1)
-        self.assertEqual(pt.count_dict[sn1], 5)
-        # add same node again, must remain the same
-        cell_list = pt.addNode(sn1)
-        self.assertEqual(len(cell_list), 0)
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 1)
-            self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
-            self.assertEqual(pt.getCellList(x)[0].getNode(), sn1)
-        self.assertEqual(pt.count_dict[sn1], 5)
-        # add a second node to fill the partition table
-        uuid2 = self.getStorageUUID()
-        server2 = ("127.0.0.2", 19002)
-        sn2 = StorageNode(Mock(), server2, uuid2)
-        # add it
-        cell_list = pt.addNode(sn2)
-        self.assertEqual(len(cell_list), 5)
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 2)
-            self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
-            self.assertTrue(pt.getCellList(x)[0].getNode() in (sn1, sn2))
-        # test the most used node is remove from some partition
-        uuid3 = self.getStorageUUID()
-        server3 = ("127.0.0.3", 19001)
-        sn3 = StorageNode(Mock(), server3, uuid3)
-        uuid4 = self.getStorageUUID()
-        server4 = ("127.0.0.4", 19001)
-        sn4 = StorageNode(Mock(), server4, uuid4)
-        uuid5 = self.getStorageUUID()
-        server5 = ("127.0.0.5", 1900)
-        sn5 = StorageNode(Mock(), server5, uuid5)
-        # partition looks like:
-        # 0 : sn1, sn2
-        # 1 : sn1, sn3
-        # 2 : sn1, sn4
-        # 3 : sn1, sn5
-        num_partitions = 4
-        num_replicas = 1
-        pt = PartitionTable(num_partitions, num_replicas)
-        # node most used is out of date, just dropped
-        pt.setCell(0, sn1, CellStates.OUT_OF_DATE)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn1, CellStates.OUT_OF_DATE)
-        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.OUT_OF_DATE)
-        pt.setCell(2, sn4, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn1, CellStates.OUT_OF_DATE)
-        pt.setCell(3, sn5, CellStates.UP_TO_DATE)
-        uuid6 = self.getStorageUUID()
-        server6 = ("127.0.0.6", 19006)
-        sn6 = StorageNode(Mock(), server6, uuid6)
-        # sn1 is removed twice and sn6 is added twice
-        self.assertEqual(sorted(pt.addNode(sn6)), [
-            (0, uuid1, CellStates.DISCARDED),
-            (0, uuid6, CellStates.OUT_OF_DATE),
-            (1, uuid1, CellStates.DISCARDED),
-            (1, uuid6, CellStates.OUT_OF_DATE)])
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 2)
-        # there is a feeding cell, just dropped
-        pt.clear()
-        pt.setCell(0, sn1, CellStates.OUT_OF_DATE)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(0, sn3, CellStates.FEEDING)
-        pt.setCell(1, sn1, CellStates.OUT_OF_DATE)
-        pt.setCell(1, sn2, CellStates.FEEDING)
-        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn4, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn5, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn5, CellStates.UP_TO_DATE)
-        # sn1 is removed twice and sn6 is added twice
-        self.assertEqual(sorted(pt.addNode(sn6)), [
-            (0, uuid1, CellStates.DISCARDED),
-            (0, uuid6, CellStates.OUT_OF_DATE),
-            (1, uuid1, CellStates.DISCARDED),
-            (1, uuid6, CellStates.OUT_OF_DATE)])
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 3)
-        # there is no feeding cell, marked as feeding
-        pt.clear()
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn4, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn5, CellStates.UP_TO_DATE)
-        # sn1 is removed twice and sn6 is added twice
-        self.assertEqual(sorted(pt.addNode(sn6)), [
-            (0, uuid1, CellStates.FEEDING),
-            (0, uuid6, CellStates.OUT_OF_DATE),
-            (1, uuid1, CellStates.FEEDING),
-            (1, uuid6, CellStates.OUT_OF_DATE)])
-        pt.setUpToDate(sn6, 0)
-        pt.setUpToDate(sn6, 1)
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 2)
-        pt = PartitionTable(12, 0)
-        node_count = 0
-        for node in sn1, sn2, sn3, sn4:
-            pt.addNode(node)
-            node_count += 1
-            self.assertEqual(pt.count_dict.values(),
-                             [12/node_count] * node_count)
-
     def test_15_dropNode(self):
         num_partitions = 4
         num_replicas = 2
@@ -376,108 +253,100 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.assertTrue(pt.filled())
         self.assertTrue(pt.operational())
 
+    def _pt_states(self, pt):
+        node_dict = defaultdict(list)
+        for offset, row in enumerate(pt.partition_list):
+            for cell in row:
+                state_list = node_dict[cell.getNode()]
+                if state_list:
+                    self.assertTrue(state_list[-1][0] < offset)
+                state_list.append((offset, str(cell.getState())[0]))
+        return map(dict, sorted(node_dict.itervalues()))
+
+    def checkPT(self, pt, exclude_empty=False):
+        new_pt = PartitionTable(pt.np, pt.nr)
+        new_pt.make(pt.getNodeList() if exclude_empty else pt.count_dict)
+        self.assertEqual(self._pt_states(pt), self._pt_states(new_pt))
+
+    def update(self, pt, change_list=None):
+        if change_list is None:
+            for offset, row in enumerate(pt.partition_list):
+                for cell in list(row):
+                    if cell.isOutOfDate():
+                        pt.setUpToDate(cell.getNode(), offset)
+        else:
+            node_dict = dict((x.getUUID(), x) for x in pt.count_dict)
+            for offset, uuid, state in change_list:
+                if state is CellStates.OUT_OF_DATE:
+                    pt.setUpToDate(node_dict[uuid], offset)
+
+    def tweak(self, pt, drop_list=()):
+        change_list = pt.tweak(drop_list)
+        self.assertFalse(pt.tweak(drop_list))
+        return change_list
+
     def test_17_tweak(self):
-        # remove broken node
-        # remove if too many feeding nodes
-        # remove feeding if all cells are up to date
-        # if too many cells, remove most used cell
-        # if not enought cell, add least used node
-
-        # create nodes
-        uuid1 = self.getStorageUUID()
-        server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
-        uuid2 = self.getStorageUUID()
-        server2 = ("127.0.0.2", 19002)
-        sn2 = StorageNode(Mock(), server2, uuid2, NodeStates.RUNNING)
-        uuid3 = self.getStorageUUID()
-        server3 = ("127.0.0.3", 19003)
-        sn3 = StorageNode(Mock(), server3, uuid3, NodeStates.RUNNING)
-        uuid4 = self.getStorageUUID()
-        server4 = ("127.0.0.4", 19004)
-        sn4 = StorageNode(Mock(), server4, uuid4, NodeStates.RUNNING)
-        uuid5 = self.getStorageUUID()
-        server5 = ("127.0.0.5", 19005)
-        sn5 = StorageNode(Mock(), server5, uuid5, NodeStates.RUNNING)
-        # create partition table
-        # 0 : sn1(discarded), sn2(up), -> sn2 must remain
-        # 1 : sn1(feeding), sn2(feeding), sn3(up) -> one feeding and sn3 must remain
-        # 2 : sn1(feeding), sn2(up), sn3(up) -> sn2 and sn3 must remain, feeding must go away
-        # 3 : sn1(up), sn2(up), sn3(up), sn4(up) -> only 3 cell must remain
-        # 4 : sn1(up), sn5(up) -> one more cell must be added
-        num_partitions = 5
-        num_replicas = 2
-        pt = PartitionTable(num_partitions, num_replicas)
+        sn = [StorageNode(Mock(), None, i + 1, NodeStates.RUNNING)
+              for i in xrange(5)]
+        pt = PartitionTable(5, 2)
         # part 0
-        pt.setCell(0, sn1, CellStates.DISCARDED)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(0, sn[0], CellStates.DISCARDED)
+        pt.setCell(0, sn[1], CellStates.UP_TO_DATE)
         # part 1
-        pt.setCell(1, sn1, CellStates.FEEDING)
-        pt.setCell(1, sn2, CellStates.FEEDING)
-        pt.setCell(1, sn3, CellStates.OUT_OF_DATE)
+        pt.setCell(1, sn[0], CellStates.FEEDING)
+        pt.setCell(1, sn[1], CellStates.FEEDING)
+        pt.setCell(1, sn[2], CellStates.OUT_OF_DATE)
         # part 2
-        pt.setCell(2, sn1, CellStates.FEEDING)
-        pt.setCell(2, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn[0], CellStates.FEEDING)
+        pt.setCell(2, sn[1], CellStates.UP_TO_DATE)
+        pt.setCell(2, sn[2], CellStates.UP_TO_DATE)
         # part 3
-        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn[0], CellStates.UP_TO_DATE)
+        pt.setCell(3, sn[1], CellStates.UP_TO_DATE)
+        pt.setCell(3, sn[2], CellStates.UP_TO_DATE)
+        pt.setCell(3, sn[3], CellStates.UP_TO_DATE)
         # part 4
-        pt.setCell(4, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(4, sn5, CellStates.UP_TO_DATE)
-        # now tweak the table
-        pt.tweak()
-        # check part 1
-        cells =  pt.getCellList(0)
-        self.assertEqual(len(cells), 3)
-        for cell in cells:
-            self.assertNotEqual(cell.getState(), CellStates.DISCARDED)
-            if cell.getNode() == sn2:
-                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
-            else:
-                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.assertTrue(sn2 in [x.getNode() for x in cells])
+        pt.setCell(4, sn[0], CellStates.UP_TO_DATE)
+        pt.setCell(4, sn[4], CellStates.UP_TO_DATE)
 
-        # check part 2
-        cells =  pt.getCellList(1)
-        self.assertEqual(len(cells), 4)
-        for cell in cells:
-            if cell.getNode() == sn1:
-                self.assertEqual(cell.getState(), CellStates.FEEDING)
-            else:
-                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.assertTrue(sn3 in [x.getNode() for x in cells])
-        self.assertTrue(sn1 in [x.getNode() for x in cells])
+        count_dict = defaultdict(int)
+        change_list = self.tweak(pt)
+        for offset, uuid, state in change_list:
+            count_dict[state] += 1
+        self.assertEqual(count_dict, {CellStates.DISCARDED: 3,
+                                      CellStates.OUT_OF_DATE: 5,
+                                      CellStates.UP_TO_DATE: 3})
+        self.update(pt, change_list)
+        self.checkPT(pt)
 
-        # check part 3
-        cells =  pt.getCellList(2)
-        self.assertEqual(len(cells), 3)
-        for cell in cells:
-            if cell.getNode() in (sn2, sn3):
-                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
-            else:
-                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.assertTrue(sn3 in [x.getNode() for x in cells])
-        self.assertTrue(sn2 in [x.getNode() for x in cells])
+        for offset in pt.getAssignedPartitionList(sn[1].getUUID()):
+            pt.removeCell(offset, sn[1])
+        change_list = self.tweak(pt)
+        self.assertEqual(3, len(change_list))
+        self.update(pt, change_list)
+        self.checkPT(pt)
 
-        # check part 4
-        cells =  pt.getCellList(3)
-        self.assertEqual(len(cells), 3)
-        for cell in cells:
-            self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
+        for np, i in (12, 0), (12, 1), (13, 2):
+            pt = PartitionTable(np, i)
+            i += 1
+            pt.make(sn[:i])
+            for n in sn[i:i+3]:
+                self.assertEqual([n], pt.addNodeList([n]))
+                self.update(pt, self.tweak(pt))
+                self.checkPT(pt)
+            pt.clear()
+            pt.make(sn[:i])
+            for n in sn[i:i+3]:
+                self.assertEqual([n], pt.addNodeList([n]))
+                self.tweak(pt)
+            self.update(pt)
+            self.checkPT(pt)
 
-        # check part 5
-        cells =  pt.getCellList(4)
-        self.assertEqual(len(cells), 3)
-        for cell in cells:
-            if cell.getNode() in (sn1, sn5):
-                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
-            else:
-                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.assertTrue(sn1 in [x.getNode() for x in cells])
-        self.assertTrue(sn5 in [x.getNode() for x in cells])
+        pt = PartitionTable(7, 0)
+        pt.make(sn[:1])
+        pt.addNodeList(sn[1:3])
+        self.update(pt, self.tweak(pt, sn[:1]))
+        self.checkPT(pt, True)
 
 
 if __name__ == '__main__':

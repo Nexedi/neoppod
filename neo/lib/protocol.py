@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (11, 1)
+PROTOCOL_VERSION = (12, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1150,6 +1150,16 @@ class AddPendingNodes(Packet):
 
     _answer = Error
 
+class TweakPartitionTable(Packet):
+    """
+    Ask the primary to optimize the partition table. A -> PM.
+    """
+    _fmt = PStruct('tweak_partition_table',
+        PFUUIDList,
+    )
+
+    _answer = Error
+
 class NotifyNodeInformation(Packet):
     """
     Notify information about one or more nodes. PM -> Any.
@@ -1666,6 +1676,8 @@ class Packets(dict):
                     SetNodeState, ignore_when_closed=False)
     AddPendingNodes = register(
                     AddPendingNodes, ignore_when_closed=False)
+    TweakPartitionTable = register(
+                    TweakPartitionTable, ignore_when_closed=False)
     AskNodeInformation, AnswerNodeInformation = register(
                     NodeInformation)
     SetClusterState = register(

@@ -130,37 +130,40 @@ class AdministrationHandler(MasterHandler):
         uuids = ', '.join(map(uuid_str, uuid_list))
         logging.debug('Add nodes %s', uuids)
         app = self.app
-        nm = app.nm
-        em = app.em
-        pt = app.pt
-        cell_list = []
-        uuid_set = set()
-        if app.getClusterState() == ClusterStates.RUNNING:
-            # take all pending nodes
-            for node in nm.getStorageList():
-                if node.isPending():
-                    uuid_set.add(node.getUUID())
-            # keep only selected nodes
-            if uuid_list:
-                uuid_set = uuid_set.intersection(set(uuid_list))
-        # nothing to do
-        if not uuid_set:
-            logging.warning('No nodes added')
-            conn.answer(Errors.Ack('No nodes added'))
-            return
-        uuids = ', '.join(map(uuid_str, uuid_set))
-        logging.info('Adding nodes %s', uuids)
-        # switch nodes to running state
-        node_list = map(nm.getByUUID, uuid_set)
-        for node in node_list:
-            new_cells = pt.addNode(node)
-            cell_list.extend(new_cells)
-            node.setRunning()
-            node.getConnection().notify(Packets.StartOperation())
-        app.broadcastNodesInformation(node_list)
-        # broadcast the new partition table
-        app.broadcastPartitionChanges(cell_list)
-        conn.answer(Errors.Ack('Nodes added: %s' % (uuids, )))
+        state = app.getClusterState()
+        # XXX: Would it be safe to allow more states ?
+        if state not in (ClusterStates.RUNNING,
+                         ClusterStates.STARTING_BACKUP,
+                         ClusterStates.BACKINGUP):
+            raise ProtocolError('Can not add nodes in %s state' % state)
+        # take all pending nodes
+        node_list = list(app.pt.addNodeList(node
+            for node in app.nm.getStorageList()
+            if node.isPending() and node.getUUID() in uuid_list))
+        if node_list:
+            p = Packets.StartOperation()
+            for node in node_list:
+                node.setRunning()
+                node.notify(p)
+            app.broadcastNodesInformation(node_list)
+            conn.answer(Errors.Ack('Nodes added: %s' %
+                ', '.join(uuid_str(x.getUUID()) for x in node_list)))
+        else:
+            logging.warning('No node added')
+            conn.answer(Errors.Ack('No node added'))
+
+    def tweakPartitionTable(self, conn, uuid_list):
+        app = self.app
+        state = app.getClusterState()
+        # XXX: Would it be safe to allow more states ?
+        if state not in (ClusterStates.RUNNING,
+                         ClusterStates.STARTING_BACKUP,
+                         ClusterStates.BACKINGUP):
+            raise ProtocolError('Can not tweak partition table in %s state'
+                                % state)
+        app.broadcastPartitionChanges(app.pt.tweak(
+            map(app.nm.getByUUID, uuid_list)))
+        conn.answer(Errors.Ack(''))
 
     def checkReplicas(self, conn, partition_dict, min_tid, max_tid):
         app = self.app

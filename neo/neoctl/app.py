@@ -34,6 +34,7 @@ action_dict = {
     'check': 'checkReplicas',
     'start': 'startCluster',
     'add': 'enableStorageList',
+    'tweak': 'tweakPartitionTable',
     'drop': 'dropNode',
 }
 
@@ -168,6 +169,14 @@ class TerminalNeoCTL(object):
         else:
             uuid_list = map(self.asNode, params)
         return self.neoctl.enableStorageList(uuid_list)
+
+    def tweakPartitionTable(self, params):
+        """
+          Optimize partition table.
+          No partitition will be assigned to specified storage nodes.
+          Parameters: [node [...]]
+        """
+        return self.neoctl.tweakPartitionTable(map(self.asNode, params))
 
     def dropNode(self, params):
         """

@@ -35,6 +35,16 @@ class Cell(neo.lib.pt.Cell):
 neo.lib.pt.Cell = Cell
 
 
+class MappedNode(object):
+
+    def __init__(self, node):
+        self.node = node
+        self.assigned = set()
+
+    def __getattr__(self, attr):
+        return getattr(self.node, attr)
+
+
 class PartitionTable(neo.lib.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
 
@@ -164,130 +174,101 @@ class PartitionTable(neo.lib.pt.PartitionTable):
 
         return cell_list
 
-    def addNode(self, node):
-        """Add a node. Take it into account that it might not be really a new
-        node. The strategy is, if a row does not contain a good number of
-        cells, add this node to the row, unless the node is already present
-        in the same row. Otherwise, check if this node should replace another
-        cell."""
-        cell_list = []
-        node_count = self.count_dict.get(node, 0)
+    def addNodeList(self, node_list):
+        """Add nodes"""
+        added_list = []
+        for node in node_list:
+            if node not in self.count_dict:
+                self.count_dict[node] = 0
+                added_list.append(node)
+        return added_list
+
+    def tweak(self, drop_list=()):
+        """Optimize partition table
+
+        This is done by computing a minimal diff between current partition table
+        and what make() would do.
+        """
+        assigned_dict = dict((x, {}) for x in self.count_dict)
+        readable_dict = dict((i, set()) for i in xrange(self.np))
         for offset, row in enumerate(self.partition_list):
-            max_count = 0
-            max_cell = None
-            num_cells = 0
             for cell in row:
-                if cell.getNode() is node:
-                    break
-                if not cell.isFeeding():
-                    num_cells += 1
-                    count = self.count_dict[cell.getNode()]
-                    if count > max_count:
-                        max_count = count
-                        max_cell = cell
-
-            else:
-                if self.nr < num_cells:
-                    if node_count + 1 >= max_count:
-                        continue
-                    if max_cell.isReadable():
-                        max_cell.setState(CellStates.FEEDING)
-                        cell_list.append((offset, max_cell.getUUID(),
-                                          CellStates.FEEDING))
-                    else:
-                        row.remove(max_cell)
-                        cell_list.append((offset, max_cell.getUUID(),
-                                          CellStates.DISCARDED))
-                    self.count_dict[max_cell.getNode()] -= 1
-                row.append(Cell(node, CellStates.OUT_OF_DATE))
-                cell_list.append((offset, node.getUUID(),
-                                  CellStates.OUT_OF_DATE))
-                node_count += 1
-
-        self.count_dict[node] = node_count
-        self.log()
-        return cell_list
-
-    def tweak(self):
-        """Test if nodes are distributed uniformly. Otherwise, correct the
-        partition table."""
-        changed_cell_list = []
-
-        for offset, row in enumerate(self.partition_list):
-            removed_cell_list = []
-            feeding_cell = None
-            out_of_date_cell_list = []
-            up_to_date_cell_list = []
+                if cell.isReadable():
+                    readable_dict[offset].add(cell)
+                assigned_dict[cell.getNode()][offset] = cell
+        pt = PartitionTable(self.np, self.nr)
+        drop_list = set(x for x in drop_list if x in assigned_dict)
+        node_set = set(MappedNode(x) for x in assigned_dict
+                                     if x not in drop_list)
+        pt.make(node_set)
+        for offset, row in enumerate(pt.partition_list):
             for cell in row:
-                if cell.getNode().isBroken():
-                    # Remove a broken cell.
-                    removed_cell_list.append(cell)
-                elif cell.isFeeding():
-                    if feeding_cell is None:
-                        feeding_cell = cell
-                    else:
-                        # Remove an excessive feeding cell.
-                        removed_cell_list.append(cell)
-                elif cell.isUpToDate():
-                    up_to_date_cell_list.append(cell)
+                if cell.isReadable():
+                    cell.getNode().assigned.add(offset)
+        def map_nodes():
+            node_list = []
+            for node, assigned in assigned_dict.iteritems():
+                if node in drop_list:
+                    yield node, frozenset()
+                    continue
+                readable = set(offset for offset, cell in assigned.iteritems()
+                                      if cell.isReadable())
+                # the criterion on UUID is purely cosmetic
+                node_list.append((len(readable), len(assigned),
+                                  -node.getUUID(), readable, node))
+            node_list.sort(reverse=1)
+            for _, _, _, readable, node in node_list:
+                assigned = assigned_dict[node]
+                mapped = min(node_set, key=lambda m: (
+                    len(m.assigned.symmetric_difference(assigned)),
+                    len(m.assigned ^ readable)))
+                node_set.remove(mapped)
+                yield node, mapped.assigned
+            assert not node_set
+        changed_list = []
+        uptodate_set = set()
+        remove_dict = dict((i, []) for i in xrange(self.np))
+        for node, mapped in map_nodes():
+            uuid = node.getUUID()
+            assigned = assigned_dict[node]
+            for offset, cell in assigned.iteritems():
+                if offset in mapped:
+                    if cell.isReadable():
+                        uptodate_set.add(offset)
+                        readable_dict[offset].remove(cell)
+                        if cell.isFeeding():
+                            self.count_dict[node] += 1
+                            state = CellStates.UP_TO_DATE
+                            cell.setState(state)
+                            changed_list.append((offset, uuid, state))
                 else:
-                    out_of_date_cell_list.append(cell)
-
-            # If all cells are up-to-date, a feeding cell is not required.
-            if len(out_of_date_cell_list) == 0 and feeding_cell is not None:
-                removed_cell_list.append(feeding_cell)
-
-            ideal_num = self.nr + 1
-            while len(out_of_date_cell_list) + len(up_to_date_cell_list) > \
-                    ideal_num:
-                # This row contains too many cells.
-                if len(up_to_date_cell_list) > 1:
-                    # There are multiple up-to-date cells, so choose whatever
-                    # used too much.
-                    cell_list = out_of_date_cell_list + up_to_date_cell_list
-                else:
-                    # Drop an out-of-date cell.
-                    cell_list = out_of_date_cell_list
-
-                max_count = 0
-                chosen_cell = None
-                for cell in cell_list:
-                    count = self.count_dict[cell.getNode()]
-                    if max_count < count:
-                        max_count = count
-                        chosen_cell = cell
-                removed_cell_list.append(chosen_cell)
-                try:
-                    out_of_date_cell_list.remove(chosen_cell)
-                except ValueError:
-                    up_to_date_cell_list.remove(chosen_cell)
-
-            # Now remove cells really.
-            for cell in removed_cell_list:
-                row.remove(cell)
-                if not cell.isFeeding():
-                    self.count_dict[cell.getNode()] -= 1
-                changed_cell_list.append((offset, cell.getUUID(),
-                    CellStates.DISCARDED))
-
-        # Add cells, if a row contains less than the number of replicas.
-        for offset, row in enumerate(self.partition_list):
-            num_cells = 0
-            for cell in row:
-                if not cell.isFeeding():
-                    num_cells += 1
-            while num_cells <= self.nr:
-                node = self.findLeastUsedNode([cell.getNode() for cell in row])
-                if node is None:
-                    break
-                row.append(Cell(node, CellStates.OUT_OF_DATE))
-                changed_cell_list.append((offset, node.getUUID(),
-                    CellStates.OUT_OF_DATE))
+                    if not cell.isFeeding():
+                        self.count_dict[node] -= 1
+                    remove_dict[offset].append(cell)
+            for offset in mapped.difference(assigned):
                 self.count_dict[node] += 1
-                num_cells += 1
-
-        self.log()
-        return changed_cell_list
+                state = CellStates.OUT_OF_DATE
+                self.partition_list[offset].append(Cell(node, state))
+                changed_list.append((offset, uuid, state))
+        count_dict = self.count_dict.copy()
+        for offset, cell_list in remove_dict.iteritems():
+            if not cell_list:
+                continue
+            row = self.partition_list[offset]
+            feeding = None if offset in uptodate_set else min(
+                readable_dict[offset], key=lambda x: count_dict[x.getNode()])
+            for cell in cell_list:
+                if cell is feeding:
+                    count_dict[cell.getNode()] += 1
+                    if cell.isFeeding():
+                        continue
+                    state = CellStates.FEEDING
+                    cell.setState(state)
+                else:
+                    state = CellStates.DISCARDED
+                    row.remove(cell)
+                changed_list.append((offset, cell.getUUID(), state))
+        return changed_list
 
     def outdate(self, lost_node=None):
         """Outdate all non-working nodes

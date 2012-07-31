@@ -84,6 +84,12 @@ class NeoCTL(object):
             raise RuntimeError(response)
         return response[2]
 
+    def tweakPartitionTable(self, uuid_list=()):
+        response = self.__ask(Packets.TweakPartitionTable(uuid_list))
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
+        return response[2]
+
     def setClusterState(self, state):
         """
           Set cluster state.

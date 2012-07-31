@@ -78,6 +78,7 @@ class AdminEventHandler(EventHandler):
         conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
 
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
+    tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
     setClusterState = forward_ask(Packets.SetClusterState)
     checkReplicas = forward_ask(Packets.CheckReplicas)
 

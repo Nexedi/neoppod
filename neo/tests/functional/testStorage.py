@@ -160,6 +160,7 @@ class StorageTests(NEOFunctionalTest):
         # add it to the partition table
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
         self.neo.expectRunning(stopped[0])
+        self.neo.neoctl.tweakPartitionTable()
         self.neo.expectAssignedCells(stopped[0], number=10)
         self.neo.expectClusterRunning()
 
@@ -298,6 +299,7 @@ class StorageTests(NEOFunctionalTest):
         stopped[0].start()
         self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
+        self.neo.neoctl.tweakPartitionTable()
         self.neo.expectRunning(stopped[0])
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
@@ -356,6 +358,7 @@ class StorageTests(NEOFunctionalTest):
         stopped[0].start()
         self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
+        self.neo.neoctl.tweakPartitionTable()
         self.neo.expectRunning(stopped[0])
         self.neo.expectClusterRunning()
         self.neo.expectAssignedCells(started[0], 10)
@@ -469,6 +472,7 @@ class StorageTests(NEOFunctionalTest):
         stopped[0].start()
         self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
+        self.neo.neoctl.tweakPartitionTable()
         self.neo.expectRunning(stopped[0])
         self.neo.expectClusterRunning()
         self.neo.expectAssignedCells(started[0], 10)
