@@ -302,20 +302,20 @@ class Test(NEOThreadedTest):
     def test_notifyNodeInformation(self):
         # translated from MasterNotificationsHandlerTests
         # (neo.tests.client.testMasterHandler)
-        cluster = NEOCluster()
+        cluster = NEOCluster(replicas=1)
         try:
             cluster.start()
             cluster.db # open DB
             cluster.client.setPoll(0)
-            storage, = cluster.client.nm.getStorageList()
-            conn = storage.getConnection()
+            s0, s1 = cluster.client.nm.getStorageList()
+            conn = s0.getConnection()
             self.assertFalse(conn.isClosed())
             getCellSortKey = cluster.client.cp.getCellSortKey
-            self.assertEqual(getCellSortKey(storage), CELL_CONNECTED)
-            cluster.neoctl.dropNode(cluster.storage.uuid)
-            self.assertFalse(cluster.client.nm.getStorageList())
+            self.assertEqual(getCellSortKey(s0), CELL_CONNECTED)
+            cluster.neoctl.dropNode(s0.getUUID())
+            self.assertEqual([s1], cluster.client.nm.getStorageList())
             self.assertTrue(conn.isClosed())
-            self.assertEqual(getCellSortKey(storage), CELL_GOOD)
+            self.assertEqual(getCellSortKey(s0), CELL_GOOD)
             # XXX: the test originally checked that 'unregister' method
             #      was called (even if it's useless in this case),
             #      but we would need an API to do that easily.

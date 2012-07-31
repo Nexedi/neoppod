@@ -335,6 +335,9 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectStorageNotKnown(started[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(started[1], 10)
+        self.assertRaises(RuntimeError, self.neo.neoctl.dropNode,
+                          started[1].getUUID())
+        self.neo.expectClusterRunning()
 
     def testReplicationThenRunningWithReplicas(self):
         """ Add a replicas to a cluster, wait for the replication to finish,
@@ -392,23 +395,6 @@ class StorageTests(NEOFunctionalTest):
         every 1000 partition when sending a partition table. """
         self.__setup(storage_number=2, partitions=5000, master_count=1)
         self.neo.expectClusterState(ClusterStates.RUNNING)
-
-    def testDropNodeWithOtherPending(self):
-        """ Ensure we can drop a node """
-        # start with one storage
-        (started, stopped) = self.__setup(storage_number=2, replicas=1,
-                pending_number=1, partitions=10)
-        self.neo.expectRunning(started[0])
-        self.neo.expectStorageNotKnown(stopped[0])
-        self.neo.expectOudatedCells(number=0)
-        self.neo.expectClusterRunning()
-
-        # set the second storage in pending state and drop the first
-        stopped[0].start()
-        self.neo.expectPending(stopped[0])
-        self.neo.neoctl.dropNode(started[0].getUUID())
-        self.neo.expectStorageNotKnown(started[0])
-        self.neo.expectPending(stopped[0])
 
     def testRecoveryWithMultiplePT(self):
         # start a cluster with 2 storages and a replica

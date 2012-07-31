@@ -19,6 +19,7 @@ from collections import defaultdict
 from mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeStates, CellStates
+from neo.lib.pt import PartitionTableException
 from neo.master.pt import PartitionTable
 from neo.lib.node import StorageNode
 
@@ -143,64 +144,35 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         cell = cells[0]
         self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
 
-    def test_15_dropNode(self):
-        num_partitions = 4
-        num_replicas = 2
-        pt = PartitionTable(num_partitions, num_replicas)
-        # add nodes
-        uuid1 = self.getStorageUUID()
-        server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
-        uuid2 = self.getStorageUUID()
-        server2 = ("127.0.0.2", 19002)
-        sn2 = StorageNode(Mock(), server2, uuid2, NodeStates.RUNNING)
-        uuid3 = self.getStorageUUID()
-        server3 = ("127.0.0.3", 19001)
-        sn3 = StorageNode(Mock(), server3, uuid3, NodeStates.RUNNING)
-        uuid4 = self.getStorageUUID()
-        server4 = ("127.0.0.4", 19001)
-        sn4 = StorageNode(Mock(), server4, uuid4, NodeStates.RUNNING)
-        # partition looks like:
-        # 0 : sn1, sn2
-        # 1 : sn1, sn3
-        # 2 : sn1, sn3
-        # 3 : sn1, sn4
-        # node is not feeding, so retrive least use node to replace it
-        # so sn2 must be repaced by sn4 in partition 0
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
-        self.assertEqual(sorted(pt.dropNode(sn2)), [
-            (0, uuid2, CellStates.DISCARDED),
-            (0, uuid4, CellStates.OUT_OF_DATE)])
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.getCellList(x)), 2)
-        # same test but with feeding state, no other will be added
-        pt.clear()
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(0, sn2, CellStates.FEEDING)
-        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
-        cell_list = pt.dropNode(sn2)
-        self.assertEqual(len(cell_list), 1)
-        for offset, uuid, state  in cell_list:
-            self.assertEqual(offset, 0)
-            self.assertEqual(state, CellStates.DISCARDED)
-            self.assertEqual(uuid, uuid2)
-        for x in xrange(num_partitions):
-            if x == 0:
-                self.assertEqual(len(pt.getCellList(x)), 1)
-            else:
-                self.assertEqual(len(pt.getCellList(x)), 2)
+    def test_15_dropNodeList(self):
+        sn = [StorageNode(Mock(), None, i + 1, NodeStates.RUNNING)
+              for i in xrange(3)]
+        pt = PartitionTable(3, 0)
+        pt.setCell(0, sn[0], CellStates.OUT_OF_DATE)
+        pt.setCell(1, sn[1], CellStates.FEEDING)
+        pt.setCell(1, sn[2], CellStates.OUT_OF_DATE)
+        pt.setCell(2, sn[0], CellStates.OUT_OF_DATE)
+        pt.setCell(2, sn[1], CellStates.FEEDING)
+        pt.setCell(2, sn[2], CellStates.UP_TO_DATE)
+
+        self.assertEqual(sorted(pt.dropNodeList(sn[:1], True)), [
+            (0, 1, CellStates.DISCARDED),
+            (2, 1, CellStates.DISCARDED),
+            (2, 2, CellStates.UP_TO_DATE)])
+
+        self.assertEqual(sorted(pt.dropNodeList(sn[2:], True)), [
+            (1, 2, CellStates.UP_TO_DATE),
+            (1, 3, CellStates.DISCARDED),
+            (2, 2, CellStates.UP_TO_DATE),
+            (2, 3, CellStates.DISCARDED)])
+
+        self.assertRaises(PartitionTableException, pt.dropNodeList, sn[1:2])
+        pt.setCell(1, sn[2], CellStates.UP_TO_DATE)
+        self.assertEqual(sorted(pt.dropNodeList(sn[1:2])), [
+            (1, 2, CellStates.DISCARDED),
+            (2, 2, CellStates.DISCARDED)])
+
+        self.assertEqual(self.tweak(pt), [(2, 3, CellStates.FEEDING)])
 
     def test_16_make(self):
         num_partitions = 5
@@ -319,8 +291,10 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.update(pt, change_list)
         self.checkPT(pt)
 
-        for offset in pt.getAssignedPartitionList(sn[1].getUUID()):
-            pt.removeCell(offset, sn[1])
+        self.assertRaises(PartitionTableException, pt.dropNodeList, sn[1:4])
+        self.assertEqual(6, len(pt.dropNodeList(sn[1:3], True)))
+        self.assertEqual(3, len(pt.dropNodeList([sn[1]])))
+        pt.addNodeList([sn[1]])
         change_list = self.tweak(pt)
         self.assertEqual(3, len(change_list))
         self.update(pt, change_list)

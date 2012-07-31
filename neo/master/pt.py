@@ -98,35 +98,45 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 min_count = count
         return min_node
 
-    def dropNode(self, node):
-        cell_list = []
-        uuid = node.getUUID()
+    def dropNodeList(self, node_list, simulate=False):
+        partition_list = []
+        change_list = []
+        feeding_list = []
         for offset, row in enumerate(self.partition_list):
-            if row is None:
-                continue
+            new_row = []
+            partition_list.append(new_row)
+            feeding = None
+            drop_readable = uptodate = False
             for cell in row:
-                if cell.getNode() is node:
-                    if not cell.isFeeding():
-                        # If this cell is not feeding, find another node
-                        # to be added.
-                        node_list = [c.getNode() for c in row]
-                        n = self.findLeastUsedNode(node_list)
-                        if n is not None:
-                            row.append(Cell(n,
-                                    CellStates.OUT_OF_DATE))
-                            self.count_dict[n] += 1
-                            cell_list.append((offset, n.getUUID(),
-                                              CellStates.OUT_OF_DATE))
-                    row.remove(cell)
-                    cell_list.append((offset, uuid, CellStates.DISCARDED))
-                    break
-
-        try:
-            del self.count_dict[node]
-        except KeyError:
-            pass
-
-        return cell_list
+                node = cell.getNode()
+                if node in node_list:
+                    change_list.append((offset, node.getUUID(),
+                                        CellStates.DISCARDED))
+                    if cell.isReadable():
+                        drop_readable = True
+                else:
+                    new_row.append(cell)
+                    if cell.isFeeding():
+                        feeding = cell
+                    elif cell.isUpToDate():
+                        uptodate = True
+            if feeding is not None:
+                if len(new_row) < len(row):
+                    change_list.append((offset, feeding.getUUID(),
+                                        CellStates.UP_TO_DATE))
+                    feeding_list.append(feeding)
+            elif drop_readable and not uptodate:
+                raise neo.lib.pt.PartitionTableException(
+                    "Refuse to drop nodes that contain the only readable"
+                    " copies of partition %u" % offset)
+        if not simulate:
+            self.partition_list = partition_list
+            for cell in feeding_list:
+                cell.setState(CellStates.UP_TO_DATE)
+                self.count_dict[cell.getNode()] += 1
+            for node in node_list:
+                self.count_dict.pop(node, None)
+        return change_list
 
     def load(self, ptid, row_list, nm):
         """

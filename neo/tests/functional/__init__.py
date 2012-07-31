@@ -606,7 +606,10 @@ class NEOCluster(object):
 
     def expectClusterState(self, state, *args, **kw):
         def callback(last_try):
-            current_try = self.neoctl.getClusterState()
+            try:
+                current_try = self.neoctl.getClusterState()
+            except NotReadyException:
+                current_try = None
             return current_try == state, current_try
         self.expectCondition(callback, *args, **kw)
 

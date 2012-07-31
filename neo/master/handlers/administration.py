@@ -19,6 +19,7 @@ import random
 from . import MasterHandler
 from ..app import StateChangedException
 from neo.lib import logging
+from neo.lib.pt import PartitionTableException
 from neo.lib.protocol import ClusterStates, NodeStates, Packets, ProtocolError
 from neo.lib.protocol import Errors, uuid_str
 from neo.lib.util import dump
@@ -100,21 +101,18 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
 
         elif state == NodeStates.DOWN and node.isStorage():
-            # update it's state
+            try:
+                cell_list = app.pt.dropNodeList([node],
+                    not modify_partition_table)
+            except PartitionTableException, e:
+                raise ProtocolError(str(e))
             node.setState(state)
             if node.isConnected():
                 # notify itself so it can shutdown
                 node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
                 # close to avoid handle the closure as a connection lost
                 node.getConnection().abort()
-            # modify the partition table if required
-            cell_list = []
-            if modify_partition_table:
-                # remove from pt
-                cell_list = app.pt.dropNode(node)
-                app.nm.remove(node)
-            else:
-                # outdate node in partition table
+            if not modify_partition_table:
                 cell_list = app.pt.outdate()
             app.broadcastPartitionChanges(cell_list)
 
