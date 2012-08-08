@@ -251,21 +251,17 @@ class Application(object):
             if node_list and node.isRunning():
                 node.notify(Packets.NotifyNodeInformation(node_list))
 
-    def broadcastPartitionChanges(self, cell_list, selector=None):
+    def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
         logging.debug('broadcastPartitionChanges')
-        if not cell_list:
-            return
-        if not selector:
-            selector = lambda n: n.isClient() or n.isStorage() or n.isAdmin()
-        self.pt.log()
-        ptid = self.pt.setNextID()
-        packet = Packets.NotifyPartitionChanges(ptid, cell_list)
-        for node in self.nm.getIdentifiedList():
-            if not node.isRunning():
-                continue
-            if selector(node):
-                node.notify(packet)
+        if cell_list:
+            self.pt.log()
+            ptid = self.pt.setNextID()
+            packet = Packets.NotifyPartitionChanges(ptid, cell_list)
+            for node in self.nm.getIdentifiedList():
+                # TODO: notify masters
+                if node.isRunning() and not node.isMaster():
+                    node.notify(packet)
 
     def provideService(self):
         """
