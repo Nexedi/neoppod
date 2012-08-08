@@ -383,6 +383,8 @@ class ListeningConnection(BaseConnection):
 class Connection(BaseConnection):
     """A connection."""
 
+    # XXX: rename isPending, hasPendingMessages & pending methods
+
     connecting = False
     client = False
     server = False
