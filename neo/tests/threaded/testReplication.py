@@ -191,16 +191,13 @@ class ReplicationTests(NEOThreadedTest):
                              # and node 1 must switch to node 2
           pt: 0: UU.|U.U|.UU
         """
-        def connected(orig, *args, **kw):
-            patch[0] = s1.filterConnection(s0)
-            patch[0].add(delayAskFetch,
-                Patch(s0.dm, changePartitionTable=changePartitionTable))
-            return orig(*args, **kw)
         def delayAskFetch(conn, packet):
-            return isinstance(packet, delayed) and packet.decode()[0] == offset
+            return isinstance(packet, delayed) and \
+                   packet.decode()[0] == offset and \
+                   conn in s1.getConnectionList(s0)
         def changePartitionTable(orig, ptid, cell_list):
             if (offset, s0.uuid, CellStates.DISCARDED) in cell_list:
-                patch[0].remove(delayAskFetch)
+                connection_filter.remove(delayAskFetch)
                 # XXX: this is currently not done by
                 #      default for performance reason
                 orig.im_self.dropPartitions((offset,))
@@ -221,13 +218,11 @@ class ReplicationTests(NEOThreadedTest):
                 offset, = [offset for offset, row in enumerate(
                                       cluster.master.pt.partition_list)
                                   for cell in row if cell.isFeeding()]
-                patch = [Patch(s1.replicator, fetchTransactions=connected)]
-                try:
+                with ConnectionFilter() as connection_filter:
+                    connection_filter.add(delayAskFetch,
+                        Patch(s0.dm, changePartitionTable=changePartitionTable))
                     cluster.tic()
-                    self.assertEqual(1, patch[0].filtered_count)
-                    patch[0]()
-                finally:
-                    del patch[:]
+                    self.assertEqual(1, connection_filter.filtered_count)
                 cluster.tic()
                 self.checkPartitionReplicated(s1, s2, offset)
             finally:

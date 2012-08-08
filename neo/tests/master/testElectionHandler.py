@@ -64,12 +64,11 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
         # apply monkey patches
-        self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
 
     def _tearDown(self, success):
         # restore patched methods
-        ClientConnection._addPacket = self._addPacket
+        del ClientConnection._addPacket
         NeoUnitTestBase._tearDown(self, success)
 
     def _checkUnconnected(self, node):
@@ -220,13 +219,12 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.storage_address = (self.local_ip, 2000)
         self.master_address = (self.local_ip, 3000)
         # apply monkey patches
-        self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
 
     def _tearDown(self, success):
         NeoUnitTestBase._tearDown(self, success)
         # restore environnement
-        ClientConnection._addPacket = self._addPacket
+        del ClientConnection._addPacket
 
     def test_requestIdentification1(self):
         """ A non-master node request identification """

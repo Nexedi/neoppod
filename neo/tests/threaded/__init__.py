@@ -19,6 +19,7 @@
 import os, random, socket, sys, tempfile, threading, time, types, weakref
 import traceback
 from collections import deque
+from contextlib import contextmanager
 from itertools import count
 from functools import wraps
 from zlib import decompress
@@ -163,15 +164,17 @@ class SerializedEventManager(EventManager):
 
 class Node(object):
 
-    def filterConnection(self, *peers):
+    def getConnectionList(self, *peers):
         addr = lambda c: c and (c.accepted_from or c.getAddress())
         addr_set = set(addr(c.connector) for peer in peers
             for c in peer.em.connection_dict.itervalues()
             if isinstance(c, Connection))
         addr_set.discard(None)
-        conn_list = (c for c in self.em.connection_dict.itervalues()
+        return (c for c in self.em.connection_dict.itervalues()
             if isinstance(c, Connection) and addr(c.connector) in addr_set)
-        return ConnectionFilter(*conn_list)
+
+    def filterConnection(self, *peers):
+        return ConnectionFilter(self.getConnectionList(*peers))
 
 class ServerNode(Node):
 
@@ -334,16 +337,14 @@ class ClientApplication(Node, neo.client.app.Application):
                 Serialized.background()
     close = __del__
 
-    def filterConnection(self, *peers):
-        conn_list = []
+    def getConnectionList(self, *peers):
         for peer in peers:
             if isinstance(peer, MasterApplication):
                 conn = self._getMasterConnection()
             else:
                 assert isinstance(peer, StorageApplication)
                 conn = self.cp.getConnForNode(self.nm.getByUUID(peer.uuid))
-            conn_list.append(conn)
-        return ConnectionFilter(*conn_list)
+            yield conn
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
@@ -391,59 +392,65 @@ class Patch(object):
 class ConnectionFilter(object):
 
     filtered_count = 0
+    filter_list = []
+    filter_queue = weakref.WeakKeyDictionary()
+    lock = threading.Lock()
+    _addPacket = Connection._addPacket
 
-    def __init__(self, *conns):
+    @contextmanager
+    def __new__(cls, conn_list=()):
+        self = object.__new__(cls)
         self.filter_dict = {}
-        self.lock = threading.Lock()
-        self.conn_list = [(conn, self._patch(conn)) for conn in conns]
+        self.conn_list = frozenset(conn_list)
+        if not cls.filter_list:
+            def _addPacket(conn, packet):
+                with cls.lock:
+                    try:
+                        queue = cls.filter_queue[conn]
+                    except KeyError:
+                        for self in cls.filter_list:
+                            if self(conn, packet):
+                                self.filtered_count += 1
+                                break
+                        else:
+                            return cls._addPacket(conn, packet)
+                        cls.filter_queue[conn] = queue = deque()
+                    p = packet.__new__(packet.__class__)
+                    p.__dict__.update(packet.__dict__)
+                    queue.append(p)
+            Connection._addPacket = _addPacket
+        try:
+            cls.filter_list.append(self)
+            yield self
+        finally:
+            del cls.filter_list[-1:]
+            if not cls.filter_list:
+                Connection._addPacket = cls._addPacket.im_func
+        with cls.lock:
+            cls._retry()
 
-    def _patch(self, conn):
-        assert '_addPacket' not in conn.__dict__, "already patched"
-        lock = self.lock
-        filter_dict = self.filter_dict
-        orig = conn.__class__._addPacket
-        queue = deque()
-        def _addPacket(packet):
-            lock.acquire()
-            try:
-                if not queue:
-                    for filter in filter_dict:
-                        if filter(conn, packet):
-                            self.filtered_count += 1
-                            break
-                    else:
-                        return orig(conn, packet)
-                queue.append(packet)
-            finally:
-                lock.release()
-        conn._addPacket = _addPacket
-        return queue
+    def __call__(self, conn, packet):
+        if not self.conn_list or conn in self.conn_list:
+            for filter in self.filter_dict:
+                if filter(conn, packet):
+                    return True
+        return False
 
-    def __call__(self, revert=1):
-        with self.lock:
-            self.filter_dict.clear()
-            self._retry()
-            if revert:
-                for conn, queue in self.conn_list:
-                    assert not queue
-                    del conn._addPacket
-                del self.conn_list[:]
-
-    def _retry(self):
-        for conn, queue in self.conn_list:
+    @classmethod
+    def _retry(cls):
+        for conn, queue in cls.filter_queue.items():
             while queue:
                 packet = queue.popleft()
-                for filter in self.filter_dict:
-                    if filter(conn, packet):
+                for self in cls.filter_list:
+                    if self(conn, packet):
                         queue.appendleft(packet)
                         break
                 else:
-                    conn.__class__._addPacket(conn, packet)
+                    cls._addPacket(conn, packet)
                     continue
                 break
-
-    def clear(self):
-        self(0)
+            else:
+                del cls.filter_queue[conn]
 
     def add(self, filter, *patches):
         with self.lock:

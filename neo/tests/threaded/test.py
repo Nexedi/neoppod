@@ -141,8 +141,8 @@ class Test(NEOThreadedTest):
         def delayUnlockInformation(conn, packet):
             return isinstance(packet, Packets.NotifyUnlockInformation)
         def onStoreObject(orig, tm, ttid, serial, oid, *args):
-            if oid == resume_oid and delayUnlockInformation in master_storage:
-                master_storage.remove(delayUnlockInformation)
+            if oid == resume_oid and delayUnlockInformation in m2s:
+                m2s.remove(delayUnlockInformation)
             try:
                 return orig(tm, ttid, serial, oid, *args)
             except Exception, e:
@@ -153,18 +153,15 @@ class Test(NEOThreadedTest):
             cluster.start()
             t, c = cluster.getTransaction()
             c.root()[0] = ob = PCounter()
-            master_storage = cluster.master.filterConnection(cluster.storage)
-            try:
+            with cluster.master.filterConnection(cluster.storage) as m2s:
                 resume_oid = None
-                master_storage.add(delayUnlockInformation,
+                m2s.add(delayUnlockInformation,
                     Patch(TransactionManager, storeObject=onStoreObject))
                 t.commit()
                 resume_oid = ob._p_oid
                 ob._p_changed = 1
                 t.commit()
-                self.assertFalse(delayUnlockInformation in master_storage)
-            finally:
-                master_storage()
+                self.assertFalse(delayUnlockInformation in m2s)
         finally:
             cluster.stop()
         self.assertEqual(except_list, [DelayedError])
@@ -561,9 +558,8 @@ class Test(NEOThreadedTest):
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
             # Delay invalidation for x
-            master_client = cluster.master.filterConnection(cluster.client)
-            try:
-                master_client.add(lambda conn, packet:
+            with cluster.master.filterConnection(cluster.client) as m2c:
+                m2c.add(lambda conn, packet:
                     isinstance(packet, Packets.InvalidateObjects))
                 tid = client.tpc_finish(txn, None)
                 client.setPoll(0)
@@ -574,8 +570,6 @@ class Test(NEOThreadedTest):
                 x2 = c2.root()['x']
                 cache.clear() # bypass cache
                 self.assertEqual(x2.value, 0)
-            finally:
-                master_client()
             x2._p_deactivate()
             t1.begin() # process invalidation and sync connection storage
             self.assertEqual(x2.value, 0)
