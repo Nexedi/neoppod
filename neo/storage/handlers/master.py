@@ -65,10 +65,11 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def replicate(self, conn, tid, upstream_name, source_dict):
         self.app.replicator.backup(tid,
-            dict((p, (a, upstream_name))
+            dict((p, a and (a, upstream_name))
                  for p, a in source_dict.iteritems()))
 
     def askTruncate(self, conn, tid):
+        self.app.replicator.cancel()
         self.app.dm.truncate(tid)
         conn.answer(Packets.AnswerTruncate())
 

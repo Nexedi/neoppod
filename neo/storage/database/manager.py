@@ -175,7 +175,9 @@ class DatabaseManager(object):
         return util.bin(self.getConfiguration('backup_tid'))
 
     def setBackupTID(self, backup_tid):
-        return self.setConfiguration('backup_tid', util.dump(backup_tid))
+        tid = util.dump(backup_tid)
+        logging.debug('backup_tid = %s', tid)
+        return self.setConfiguration('backup_tid', tid)
 
     def getPartitionTable(self):
         """Return a whole partition table as a sequence of rows. Each row

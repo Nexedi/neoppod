@@ -527,14 +527,13 @@ class Application(object):
 
         # remove transaction from manager
         self.tm.remove(transaction_node.getUUID(), ttid)
+        assert self.last_transaction < tid, (self.last_transaction, tid)
         self.setLastTransaction(tid)
 
     def getLastTransaction(self):
         return self.last_transaction
 
     def setLastTransaction(self, tid):
-        ltid = self.last_transaction
-        assert tid >= ltid, (tid, ltid)
         self.last_transaction = tid
 
     def setStorageNotReady(self, uuid):

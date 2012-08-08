@@ -22,29 +22,31 @@ import transaction
 import unittest
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
+from neo.storage.replicator import Replicator
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
-from . import NEOCluster, NEOThreadedTest, Patch, predictable_random
+from . import ConnectionFilter, NEOCluster, NEOThreadedTest, Patch, \
+    predictable_random
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
 
 class ReplicationTests(NEOThreadedTest):
 
-    def checksumPartition(self, storage, partition):
+    def checksumPartition(self, storage, partition, max_tid=MAX_TID):
         dm = storage.dm
-        args = partition, None, ZERO_TID, MAX_TID
+        args = partition, None, ZERO_TID, max_tid
         return dm.checkTIDRange(*args), \
             dm.checkSerialRange(min_oid=ZERO_OID, *args)
 
-    def checkPartitionReplicated(self, source, destination, partition):
-        self.assertEqual(self.checksumPartition(source, partition),
-                         self.checksumPartition(destination, partition))
+    def checkPartitionReplicated(self, source, destination, partition, **kw):
+        self.assertEqual(self.checksumPartition(source, partition, **kw),
+                         self.checksumPartition(destination, partition, **kw))
 
-    def checkBackup(self, cluster):
+    def checkBackup(self, cluster, **kw):
         upstream_pt = cluster.upstream.primary_master.pt
         pt = cluster.primary_master.pt
         np = pt.getPartitions()
@@ -56,7 +58,7 @@ class ReplicationTests(NEOThreadedTest):
             for partition in pt.getAssignedPartitionList(storage.uuid):
                 cell_list = upstream_pt.getCellList(partition, readable=True)
                 source = source_dict[random.choice(cell_list).getUUID()]
-                self.checkPartitionReplicated(source, storage, partition)
+                self.checkPartitionReplicated(source, storage, partition, **kw)
                 checked += 1
         return checked
 
@@ -103,6 +105,47 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.RUNNING)
+            finally:
+                backup.stop()
+            def delaySecondary(conn, packet):
+                if isinstance(packet, Packets.Replicate):
+                    tid, upstream_name, source_dict = packet.decode()
+                    return not upstream_name and all(source_dict.itervalues())
+            backup.reset()
+            try:
+                backup.start()
+                backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+                backup.tic()
+                with backup.master.filterConnection(*backup.storage_list) as f:
+                    f.add(delaySecondary)
+                    while not f.filtered_count:
+                        importZODB(1)
+                    upstream.client.setPoll(0)
+                    backup.tic()
+                    backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
+                    backup.tic()
+                backup.tic(force=1)
+                self.assertEqual(np*nr, self.checkBackup(backup,
+                    max_tid=backup.master.getLastTransaction()))
+            finally:
+                backup.stop()
+            backup.reset()
+            try:
+                backup.start()
+                backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+                backup.tic()
+                with ConnectionFilter() as f:
+                    f.add(lambda conn, packet: conn.getUUID() is None and
+                        isinstance(packet, Packets.AddObject))
+                    while not f.filtered_count:
+                        importZODB(1)
+                    upstream.client.setPoll(0)
+                    backup.tic()
+                    backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
+                    backup.tic()
+                backup.tic(force=1)
+                self.assertEqual(np*nr, self.checkBackup(backup,
+                    max_tid=backup.master.getLastTransaction()))
             finally:
                 backup.stop()
         finally:

@@ -184,6 +184,7 @@ class Application(object):
         # start the operation. This cycle will be executed permanently,
         # until the user explicitly requests a shutdown.
         while True:
+            self.cluster_state = None
             self.ready = False
             self.operational = False
             if self.master_node is None:
@@ -207,6 +208,8 @@ class Application(object):
                 raise RuntimeError, 'should not reach here'
             except OperationFailure, msg:
                 logging.error('operation stopped: %s', msg)
+                if self.cluster_state == ClusterStates.STOPPING_BACKUP:
+                    self.dm.setBackupTID(None)
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
             finally:
@@ -309,13 +312,15 @@ class Application(object):
                 _poll()
         finally:
             del self.task_queue
+            self.replicator = Replicator(self)
             # Abort any replication, whether we are feeding or out-of-date.
             for node in self.nm.getStorageList(only_identified=True):
                 node.getConnection().close()
 
     def changeClusterState(self, state):
+        self.cluster_state = state
         if state == ClusterStates.STOPPING_BACKUP:
-            self.dm.setBackupTID(None)
+            self.replicator.stop()
 
     def wait(self):
         # change handler

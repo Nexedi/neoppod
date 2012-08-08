@@ -16,6 +16,7 @@
 
 import random, weakref
 from bisect import bisect
+from collections import defaultdict
 from neo.lib import logging
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.connector import getConnectorHandler
@@ -38,10 +39,17 @@ but are managed by another master in a different cluster.
 When the cluster is in BACKINGUP state, its master acts like a client to the
 master of the main cluster. It gets notified of new data thanks to invalidation,
 and notifies in turn its storage nodes what/when to replicate.
+
 Storages stay in UP_TO_DATE state, even if partitions are synchronized up to
 different tids. Storage nodes remember they are in such state and when
-switching into RUNNING state, the cluster cuts the DB at the last TID for which
-we have all data.
+switching into RUNNING state, the cluster cuts the DB at the "backup TID", which
+is the last TID for which we have all data. This TID can't be guessed from
+'trans' and 'obj' tables, like it is done in normal mode, so:
+- The master must even notify storages of transactions that don't modify their
+  partitions: see Replicate packets without any source.
+- 'backup_tid' properties exist in many places, on the master and the storages,
+  so that the DB can be made consistent again at any moment, without losing
+  any (or little) data.
 
 Out of backup storage nodes assigned to a partition, one is chosen as primary
 for that partition. It means only this node will fetch data from the upstream
@@ -126,12 +134,20 @@ class BackupApplication(object):
                     except AttributeError:
                         pass
             except StateChangedException, e:
+                if e.args[0] != ClusterStates.STOPPING_BACKUP:
+                    raise
                 app.changeClusterState(*e.args)
+                tid = app.backup_tid
+                # Wait for non-primary partitions to catch up,
+                # so that all UP_TO_DATE cells are really UP_TO_DATE.
+                # Any unfinished replication from upstream will be truncated.
+                while pt.getCheckTid(xrange(pt.getPartitions())) < tid:
+                    poll(1)
                 last_tid = app.getLastTransaction()
-                if last_tid < app.backup_tid:
+                if tid < last_tid:
                     logging.warning("Truncating at %s (last_tid was %s)",
                         dump(app.backup_tid), dump(last_tid))
-                    p = Packets.AskTruncate(app.backup_tid)
+                    p = Packets.AskTruncate(tid)
                     connection_list = []
                     for node in app.nm.getStorageList(only_identified=True):
                         conn = node.getConnection()
@@ -140,7 +156,9 @@ class BackupApplication(object):
                     for conn in connection_list:
                         while conn.isPending():
                             poll(1)
-                    app.setLastTransaction(app.backup_tid)
+                    app.setLastTransaction(tid)
+                # If any error happened before reaching this line, we'd go back
+                # to backup mode, which is the right mode to recover.
                 del app.backup_tid
                 break
             finally:
@@ -176,27 +194,22 @@ class BackupApplication(object):
         pt = app.pt
         getByUUID = app.nm.getByUUID
         trigger_set = set()
+        untouched_dict = defaultdict(dict)
         for offset in xrange(pt.getPartitions()):
             try:
                 last_max_tid = self.tid_list[offset][-1]
             except IndexError:
-                last_max_tid = INVALID_TID
+                last_max_tid = prev_tid
             if offset in partition_set:
                 self.tid_list[offset].append(tid)
                 node_list = []
                 for cell in pt.getCellList(offset, readable=True):
                     node = cell.getNode()
                     assert node.isConnected()
-                    if not app.isStorageReady(node.getUUID()):
-                        continue
-                    node_list.append(node)
-                    if last_max_tid <= cell.backup_tid:
-                        # This is the last time we can increase
-                        # 'backup_tid' without replication.
-                        logging.debug(
-                            "partition %u: updating backup_tid of %r to %s",
-                            offset, cell, dump(prev_tid))
-                        cell.backup_tid = prev_tid
+                    assert cell.backup_tid < last_max_tid or \
+                           cell.backup_tid == prev_tid
+                    if app.isStorageReady(node.getUUID()):
+                        node_list.append(node)
                 assert node_list
                 trigger_set.update(node_list)
                 # Make sure we have a primary storage for this partition.
@@ -209,9 +222,16 @@ class BackupApplication(object):
                 for cell in pt.getCellList(offset, readable=True):
                     if last_max_tid <= cell.backup_tid:
                         cell.backup_tid = tid
-                        logging.debug(
-                            "partition %u: updating backup_tid of %r to %s",
-                            offset, cell, dump(tid))
+                        untouched_dict[cell.getNode()][offset] = None
+                    elif last_max_tid <= cell.replicating:
+                        # Same for 'replicating' to avoid useless orders.
+                        logging.debug("silently update replicating order"
+                            " of %s for partition %u, up to %s",
+                            uuid_str(cell.getUUID()), offset,  dump(tid))
+                        cell.replicating = tid
+        for node, untouched_dict in untouched_dict.iteritems():
+            if app.isStorageReady(node.getUUID()):
+                node.notify(Packets.Replicate(tid, '', untouched_dict))
         for node in trigger_set:
             self.triggerBackup(node)
         count = sum(map(len, self.tid_list))
@@ -263,7 +283,10 @@ class BackupApplication(object):
                 try:
                     tid = add64(tid_list[bisect(tid_list, tid)], -1)
                 except IndexError:
-                    tid = app.getLastTransaction()
+                    last_tid = app.getLastTransaction()
+                    if tid < last_tid:
+                        tid = last_tid
+                        node.notify(Packets.Replicate(tid, '', {offset: None}))
         logging.debug("partition %u: updating backup_tid of %r to %s",
                       offset, cell, dump(tid))
         cell.backup_tid = tid
@@ -273,31 +296,31 @@ class BackupApplication(object):
         primary_node = self.primary_partition_dict.get(offset)
         primary = primary_node is node
         result = None if primary else app.pt.setUpToDate(node, offset)
-        if app.getClusterState() == ClusterStates.BACKINGUP:
-            assert cell.isReadable()
-            if result: # was out-of-date
-                max_tid, = [x.backup_tid for x in cell_list
-                                         if x.getNode() is primary_node]
-                if tid < max_tid:
-                    cell.replicating = max_tid
-                    logging.debug(
-                        "ask %s to replicate partition %u up to %s from %s",
-                        uuid_str(node.getUUID()), offset,  dump(max_tid),
-                        uuid_str(primary_node.getUUID()))
-                    node.getConnection().notify(Packets.Replicate(max_tid,
-                        '', {offset: primary_node.getAddress()}))
-            else:
+        assert cell.isReadable()
+        if result: # was out-of-date
+            max_tid, = [x.backup_tid for x in cell_list
+                                     if x.getNode() is primary_node]
+            if tid < max_tid:
+                cell.replicating = max_tid
+                logging.debug(
+                    "ask %s to replicate partition %u up to %s from %s",
+                    uuid_str(node.getUUID()), offset,  dump(max_tid),
+                    uuid_str(primary_node.getUUID()))
+                node.notify(Packets.Replicate(max_tid, '',
+                    {offset: primary_node.getAddress()}))
+        else:
+            if app.getClusterState() == ClusterStates.BACKINGUP:
                 self.triggerBackup(node)
-                if primary:
-                    # Notify secondary storages that they can replicate from
-                    # primary ones, even if they are already replicating.
-                    p = Packets.Replicate(tid, '', {offset: node.getAddress()})
-                    for cell in cell_list:
-                        if max(cell.backup_tid, cell.replicating) < tid:
-                            cell.replicating = tid
-                            logging.debug(
-                                "ask %s to replicate partition %u up to %s from"
-                                " %s", uuid_str(cell.getUUID()), offset,
-                                dump(tid), uuid_str(node.getUUID()))
-                            cell.getNode().getConnection().notify(p)
+            if primary:
+                # Notify secondary storages that they can replicate from
+                # primary ones, even if they are already replicating.
+                p = Packets.Replicate(tid, '', {offset: node.getAddress()})
+                for cell in cell_list:
+                    if max(cell.backup_tid, cell.replicating) < tid:
+                        cell.replicating = tid
+                        logging.debug(
+                            "ask %s to replicate partition %u up to %s from %s",
+                            uuid_str(cell.getUUID()), offset,
+                            dump(tid), uuid_str(node.getUUID()))
+                        cell.getNode().notify(p)
         return result

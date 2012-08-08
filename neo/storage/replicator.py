@@ -53,8 +53,8 @@ TODO: Packing and replication currently fail when then happen at the same time.
 import random
 
 from neo.lib import bootstrap, logging
-from neo.lib.protocol import CellStates, NodeTypes, NodeStates, Packets, \
-    INVALID_TID, ZERO_TID, ZERO_OID
+from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, NodeStates, \
+    Packets, INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection
 from neo.lib.util import add64, dump
 from .handlers.storage import StorageOperationHandler
@@ -117,6 +117,14 @@ class Replicator(object):
             return add64(tid, -1)
         return ZERO_TID
 
+    def updateBackupTID(self):
+        dm = self.app.dm
+        tid = dm.getBackupTID()
+        if tid:
+            new_tid = self.getBackupTID()
+            if tid != new_tid:
+                dm.setBackupTID(new_tid)
+
     def populate(self):
         app = self.app
         pt = app.pt
@@ -126,9 +134,8 @@ class Replicator(object):
         self.source_dict = {}
         self.ttid_set = set()
         last_tid, last_trans_dict, last_obj_dict, _ = app.dm.getLastIDs()
-        backup_tid = app.dm.getBackupTID()
-        if backup_tid and last_tid < backup_tid:
-            last_tid = backup_tid
+        next_tid = app.dm.getBackupTID() or last_tid
+        next_tid = add64(next_tid, 1) if next_tid else ZERO_TID
         outdated_list = []
         for offset in xrange(pt.getPartitions()):
             for cell in pt.getCellList(offset):
@@ -143,7 +150,7 @@ class Replicator(object):
                         p.next_obj = last_obj_dict.get(offset, ZERO_TID)
                         p.max_ttid = INVALID_TID
                     else:
-                        p.next_trans = p.next_obj = last_tid
+                        p.next_trans = p.next_obj = next_tid
                         p.max_ttid = None
         if outdated_list:
             self.app.master_conn.ask(Packets.AskUnfinishedTransactions(),
@@ -182,9 +189,23 @@ class Replicator(object):
             self.abort()
 
     def backup(self, tid, source_dict):
-        for offset in source_dict:
-            self.replicate_dict[offset] = tid
-        self.source_dict.update(source_dict)
+        next_tid = None
+        for offset, source in source_dict.iteritems():
+            if source:
+                self.source_dict[offset] = source
+                self.replicate_dict[offset] = tid
+            elif offset != self.current_partition and \
+                 offset not in self.replicate_dict:
+                # The master did its best to avoid useless replication orders
+                # but there may still be a few, and we may receive redundant
+                # update notification of backup_tid.
+                # So, we do nothing here if we are already replicating.
+                p = self.partition_dict[offset]
+                if not next_tid:
+                    next_tid = add64(tid, 1)
+                p.next_trans = p.next_obj = next_tid
+        if next_tid:
+            self.updateBackupTID()
         self._nextPartition()
 
     def _nextPartition(self):
@@ -207,7 +228,7 @@ class Replicator(object):
         try:
             addr, name = self.source_dict[offset]
         except KeyError:
-            assert self.app.pt.getCell(offset, self.app.uuid).isOutOfDate()
+            assert app.pt.getCell(offset, app.uuid).isOutOfDate()
             node = random.choice([cell.getNode()
                 for cell in app.pt.getCellList(offset, readable=True)
                 if cell.getNodeState() == NodeStates.RUNNING])
@@ -266,17 +287,10 @@ class Replicator(object):
         p = self.partition_dict[offset]
         max_tid = self.replicate_tid
         if min_tid:
-            if p.next_obj < self.next_backup_tid:
-                self.app.dm.setBackupTID(min_tid)
+            p.next_obj = min_tid
         else:
             min_tid = p.next_obj
-            p.next_trans = p.next_obj = add64(max_tid, 1)
-            if self.app.dm.getBackupTID() is None or \
-               self.app.pt.getCell(offset, self.app.uuid).isOutOfDate():
-                self.next_backup_tid = ZERO_TID
-            else:
-                self.next_backup_tid = self.getBackupTID()
-        p.next_obj = min_tid
+            p.next_trans = add64(max_tid, 1)
         object_dict = {}
         for serial, oid in self.app.dm.getReplicationObjectList(min_tid,
                 max_tid, FETCH_COUNT, offset, min_oid):
@@ -290,12 +304,10 @@ class Replicator(object):
     def finish(self):
         offset = self.current_partition
         tid = self.replicate_tid
-        del self.current_partition, self.replicate_tid, self.next_backup_tid
+        del self.current_partition, self.replicate_tid
         p = self.partition_dict[offset]
         p.next_obj = add64(tid, 1)
-        dm = self.app.dm
-        if dm.getBackupTID() is not None:
-            dm.setBackupTID(self.getBackupTID())
+        self.updateBackupTID()
         if not p.max_ttid:
             p = Packets.NotifyReplicationDone(offset, tid)
             self.app.master_conn.notify(p)
@@ -310,8 +322,6 @@ class Replicator(object):
         del self.current_partition
         logging.warning('replication aborted for partition %u%s',
                         offset, message and ' (%s)' % message)
-        if self.app.master_node is None:
-            return
         if offset in self.partition_dict:
             # XXX: Try another partition if possible, to increase probability to
             #      connect to another node. It would be better to explicitely
@@ -325,3 +335,30 @@ class Replicator(object):
                 self._nextPartition()
         else: # partition removed
             self._nextPartition()
+
+    def cancel(self):
+        offset = self.current_partition
+        if offset is not None:
+            logging.info('cancel replication of partition %u', offset)
+            del self.current_partition
+            try:
+                self.replicate_dict.setdefault(offset, self.replicate_tid)
+                del self.replicate_tid
+            except AttributeError:
+                pass
+            self.getCurrentConnection().close()
+
+    def stop(self):
+        d = None, None
+        # Cancel all replication orders from upstream cluster.
+        for offset in self.replicate_dict.keys():
+            addr, name = self.source_dict.get(offset, d)
+            if name:
+                tid = self.replicate_dict.pop(offset)
+                logging.info('cancel replication of partition %u from %r'
+                             ' up to %s', offset, addr, dump(tid))
+        # Close any open connection to an upstream storage,
+        # possibly aborting current replication.
+        node = self.current_node
+        if node is not None is node.getUUID():
+            self.cancel()
