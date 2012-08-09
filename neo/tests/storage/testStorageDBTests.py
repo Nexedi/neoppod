@@ -20,7 +20,6 @@ from mock import Mock
 from neo.lib.util import add64, dump, p64, u64
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
 from .. import NeoUnitTestBase
-from neo.lib.exception import DatabaseFailure
 
 
 class StorageDBTests(NeoUnitTestBase):
@@ -92,29 +91,6 @@ class StorageDBTests(NeoUnitTestBase):
     def test_15_PTID(self):
         db = self.getDB()
         self.checkConfigEntry(db.getPTID, db.setPTID, self.getPTID(1))
-
-    def test_transaction(self):
-        db = self.getDB()
-        x = []
-        class DB(db.__class__):
-            begin    = lambda self: x.append('begin')
-            commit   = lambda self: x.append('commit')
-            rollback = lambda self: x.append('rollback')
-        db.__class__ = DB
-        with db:
-            self.assertEqual(x.pop(), 'begin')
-        self.assertEqual(x.pop(), 'commit')
-        try:
-            with db:
-                self.assertEqual(x.pop(), 'begin')
-                with db:
-                    self.fail()
-            self.fail()
-        except DatabaseFailure:
-            pass
-        self.assertEqual(x.pop(), 'rollback')
-        self.assertRaises(DatabaseFailure, db.__exit__, None, None, None)
-        self.assertFalse(x)
 
     def test_getPartitionTable(self):
         db = self.getDB()

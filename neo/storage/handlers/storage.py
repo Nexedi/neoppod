@@ -98,6 +98,7 @@ class StorageOperationHandler(EventHandler):
             for serial, oid_list in object_dict.iteritems():
                 for oid in oid_list:
                     deleteObject(oid, serial)
+        self.app.dm.commit()
         assert not pack_tid, "TODO"
         if next_tid:
             self.app.replicator.fetchObjects(next_tid, next_oid)

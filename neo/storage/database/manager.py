@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging, util
-from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import ZERO_TID
 
 class CreationUndone(Exception):
@@ -28,7 +27,6 @@ class DatabaseManager(object):
         """
             Initialize the object.
         """
-        self._under_transaction = False
         self._wait = wait
         self._parse(database)
 
@@ -50,32 +48,7 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def __enter__(self):
-        """
-            Begin a transaction
-        """
-        if self._under_transaction:
-            raise DatabaseFailure('A transaction has already begun')
-        r = self.begin()
-        self._under_transaction = True
-        return r
-
-    def __exit__(self, exc_type, exc_value, tb):
-        if not self._under_transaction:
-            raise DatabaseFailure('The transaction has not begun')
-        self._under_transaction = False
-        if exc_type is None:
-            self.commit()
-        else:
-            self.rollback()
-
-    def begin(self):
-        pass
-
     def commit(self):
-        pass
-
-    def rollback(self):
         pass
 
     def _getPartition(self, oid_or_tid):
@@ -91,11 +64,8 @@ class DatabaseManager(object):
         """
             Set a configuration value
         """
-        if self._under_transaction:
-            self._setConfiguration(key, value)
-        else:
-            with self:
-                self._setConfiguration(key, value)
+        self._setConfiguration(key, value)
+        self.commit()
 
     def _setConfiguration(self, key, value):
         raise NotImplementedError
@@ -344,8 +314,8 @@ class DatabaseManager(object):
             else:
                 del refcount[data_id]
         if prune:
-            with self:
-                self._pruneData(data_id_list)
+            self._pruneData(data_id_list)
+            self.commit()
 
     __getDataTID = set()
     def _getDataTID(self, oid, tid=None, before_tid=None):
@@ -465,11 +435,11 @@ class DatabaseManager(object):
 
     def truncate(self, tid):
         assert tid not in (None, ZERO_TID), tid
-        with self:
-            assert self.getBackupTID()
-            self.setBackupTID(tid)
-            for partition in xrange(self.getNumPartitions()):
-                self._deleteRange(partition, tid)
+        assert self.getBackupTID()
+        self.setBackupTID(tid)
+        for partition in xrange(self.getNumPartitions()):
+            self._deleteRange(partition, tid)
+        self.commit()
 
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,

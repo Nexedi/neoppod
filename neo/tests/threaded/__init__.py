@@ -300,11 +300,11 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             pass
 
     def switchTables(self):
-        with self.dm as q:
-            for table in ('trans', 'obj'):
-                q('ALTER TABLE %s RENAME TO tmp' % table)
-                q('ALTER TABLE t%s RENAME TO %s' % (table, table))
-                q('ALTER TABLE tmp RENAME TO t%s' % table)
+        q = self.dm.query
+        for table in 'trans', 'obj':
+            q('ALTER TABLE %s RENAME TO tmp' % table)
+            q('ALTER TABLE t%s RENAME TO %s' % (table, table))
+            q('ALTER TABLE tmp RENAME TO t%s' % table)
 
     def getDataLockInfo(self):
         dm = self.dm

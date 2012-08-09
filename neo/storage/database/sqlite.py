@@ -76,23 +76,13 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
-        self.conn = sqlite3.connect(self.db, isolation_level=None,
-            check_same_thread=False)
+        self.conn = sqlite3.connect(self.db, check_same_thread=False)
 
-    def begin(self):
-        q = self.query
-        retry_if_locked(q, "BEGIN IMMEDIATE")
-        return q
+    def commit(self):
+        logging.debug('committing...')
+        retry_if_locked(self.conn.commit)
 
     if LOG_QUERIES:
-        def commit(self):
-            logging.debug('committing...')
-            retry_if_locked(self.conn.commit)
-
-        def rollback(self):
-            logging.debug('aborting...')
-            self.conn.rollback()
-
         def query(self, query):
             printable_char_list = []
             for c in query.split('\n', 1)[0][:70]:
@@ -102,10 +92,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             logging.debug('querying %s...', ''.join(printable_char_list))
             return self.conn.execute(query)
     else:
-        rollback = property(lambda self: self.conn.rollback)
         query = property(lambda self: self.conn.execute)
-        def commit(self):
-            retry_if_locked(self.conn.commit)
 
     def setup(self, reset = 0):
         self._config.clear()
@@ -226,44 +213,39 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _getLastIDs(self, all=True):
         p64 = util.p64
-        with self as q:
-            trans = dict((partition, p64(tid))
-                for partition, tid in q("SELECT partition, MAX(tid)"
-                                        " FROM trans GROUP BY partition"))
-            obj = dict((partition, p64(tid))
-                for partition, tid in q("SELECT partition, MAX(tid)"
-                                        " FROM obj GROUP BY partition"))
-            oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
-                                          " GROUP BY partition) as t").next()[0]
-            if all:
-                tid = q("SELECT MAX(tid) FROM ttrans").next()[0]
-                if tid is not None:
-                    trans[None] = p64(tid)
-                tid, toid = q("SELECT MAX(tid), MAX(oid) FROM tobj").next()
-                if tid is not None:
-                    obj[None] = p64(tid)
-                if toid is not None and (oid < toid or oid is None):
-                    oid = toid
+        q = self.query
+        trans = dict((partition, p64(tid))
+            for partition, tid in q("SELECT partition, MAX(tid)"
+                                    " FROM trans GROUP BY partition"))
+        obj = dict((partition, p64(tid))
+            for partition, tid in q("SELECT partition, MAX(tid)"
+                                    " FROM obj GROUP BY partition"))
+        oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
+                                      " GROUP BY partition) as t").next()[0]
+        if all:
+            tid = q("SELECT MAX(tid) FROM ttrans").next()[0]
+            if tid is not None:
+                trans[None] = p64(tid)
+            tid, toid = q("SELECT MAX(tid), MAX(oid) FROM tobj").next()
+            if tid is not None:
+                obj[None] = p64(tid)
+            if toid is not None and (oid < toid or oid is None):
+                oid = toid
         return trans, obj, None if oid is None else p64(oid)
 
     def getUnfinishedTIDList(self):
         p64 = util.p64
-        tid_set = set()
-        with self as q:
-            tid_set.update((p64(t[0]) for t in q("SELECT tid FROM ttrans")))
-            tid_set.update((p64(t[0]) for t in q("SELECT tid FROM tobj")))
-        return list(tid_set)
+        return [p64(t[0]) for t in self.query("SELECT tid FROM ttrans"
+                                       " UNION SELECT tid FROM tobj")]
 
     def objectPresent(self, oid, tid, all=True):
         oid = util.u64(oid)
         tid = util.u64(tid)
-        with self as q:
-            r = q("SELECT 1 FROM obj WHERE partition=? AND oid=? AND tid=?",
-                  (self._getPartition(oid), oid, tid)).fetchone()
-            if not r and all:
-                r = q("SELECT 1 FROM tobj WHERE tid=? AND oid=?",
-                      (tid, oid)).fetchone()
-        return bool(r)
+        q = self.query
+        return q("SELECT 1 FROM obj WHERE partition=? AND oid=? AND tid=?",
+                 (self._getPartition(oid), oid, tid)).fetchone() or all and \
+               q("SELECT 1 FROM tobj WHERE tid=? AND oid=?",
+                 (tid, oid)).fetchone()
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
@@ -292,21 +274,21 @@ class SQLiteDatabaseManager(DatabaseManager):
         return serial, r and r[0], compression, checksum, data, value_serial
 
     def doSetPartitionTable(self, ptid, cell_list, reset):
-        with self as q:
-            if reset:
-                q("DELETE FROM pt")
-            for offset, uuid, state in cell_list:
-                # TODO: this logic should move out of database manager
-                # add 'dropCells(cell_list)' to API and use one query
-                # WKRD: Why does SQLite need a statement journal file
-                #       whereas we try to replace only 1 value ?
-                #       We don't want to remove the 'NOT NULL' constraint
-                #       so we must simulate a "REPLACE OR FAIL".
-                q("DELETE FROM pt WHERE rid=? AND uuid=?", (offset, uuid))
-                if state != CellStates.DISCARDED:
-                    q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
-                      (offset, uuid, int(state)))
-            self.setPTID(ptid)
+        q = self.query
+        if reset:
+            q("DELETE FROM pt")
+        for offset, uuid, state in cell_list:
+            # TODO: this logic should move out of database manager
+            # add 'dropCells(cell_list)' to API and use one query
+            # WKRD: Why does SQLite need a statement journal file
+            #       whereas we try to replace only 1 value ?
+            #       We don't want to remove the 'NOT NULL' constraint
+            #       so we must simulate a "REPLACE OR FAIL".
+            q("DELETE FROM pt WHERE rid=? AND uuid=?", (offset, uuid))
+            if state != CellStates.DISCARDED:
+                q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
+                  (offset, uuid, int(state)))
+        self.setPTID(ptid)
 
     def changePartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, False)
@@ -316,20 +298,20 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def dropPartitions(self, offset_list):
         where = " WHERE partition=?"
-        with self as q:
-            for partition in offset_list:
-                data_id_list = [x for x, in
-                    q("SELECT DISTINCT data_id FROM obj" + where,
-                        (partition,)) if x]
-                q("DELETE FROM obj" + where, (partition,))
-                q("DELETE FROM trans" + where, (partition,))
-                self._pruneData(data_id_list)
+        q = self.query
+        for partition in offset_list:
+            args = partition,
+            data_id_list = [x for x, in
+                q("SELECT DISTINCT data_id FROM obj" + where, args) if x]
+            q("DELETE FROM obj" + where, args)
+            q("DELETE FROM trans" + where, args)
+            self._pruneData(data_id_list)
 
     def dropUnfinishedData(self):
-        with self as q:
-            data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
-            q("DELETE FROM tobj")
-            q("DELETE FROM ttrans")
+        q = self.query
+        data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
+        q("DELETE FROM tobj")
+        q("DELETE FROM ttrans")
         self.unlockData(data_id_list, True)
 
     def storeTransaction(self, tid, object_list, transaction, temporary=True):
@@ -337,37 +319,38 @@ class SQLiteDatabaseManager(DatabaseManager):
         tid = u64(tid)
         T = 't' if temporary else ''
         obj_sql = "INSERT OR FAIL INTO %sobj VALUES (?,?,?,?,?)" % T
-        with self as q:
-            for oid, data_id, value_serial in object_list:
-                oid = u64(oid)
-                partition = self._getPartition(oid)
-                if value_serial:
-                    value_serial = u64(value_serial)
-                    (data_id,), = q("SELECT data_id FROM obj"
-                        " WHERE partition=? AND oid=? AND tid=?",
-                        (partition, oid, value_serial))
-                    if temporary:
-                        self.storeData(data_id)
-                try:
-                    q(obj_sql, (partition, oid, tid, data_id, value_serial))
-                except sqlite3.IntegrityError:
-                    # This may happen if a previous replication of 'obj' was
-                    # interrupted.
-                    if not T:
-                        r, = q("SELECT data_id, value_tid FROM obj"
-                               " WHERE partition=? AND oid=? AND tid=?",
-                               (partition, oid, tid))
-                        if r == (data_id, value_serial):
-                            continue
-                    raise
-
-            if transaction:
-                oid_list, user, desc, ext, packed, ttid = transaction
-                partition = self._getPartition(tid)
-                assert packed in (0, 1)
-                q("INSERT OR FAIL INTO %strans VALUES (?,?,?,?,?,?,?,?)" % T,
-                    (partition, tid, packed, buffer(''.join(oid_list)),
-                     buffer(user), buffer(desc), buffer(ext), u64(ttid)))
+        q = self.query
+        for oid, data_id, value_serial in object_list:
+            oid = u64(oid)
+            partition = self._getPartition(oid)
+            if value_serial:
+                value_serial = u64(value_serial)
+                (data_id,), = q("SELECT data_id FROM obj"
+                    " WHERE partition=? AND oid=? AND tid=?",
+                    (partition, oid, value_serial))
+                if temporary:
+                    self.storeData(data_id)
+            try:
+                q(obj_sql, (partition, oid, tid, data_id, value_serial))
+            except sqlite3.IntegrityError:
+                # This may happen if a previous replication of 'obj' was
+                # interrupted.
+                if not T:
+                    r, = q("SELECT data_id, value_tid FROM obj"
+                           " WHERE partition=? AND oid=? AND tid=?",
+                           (partition, oid, tid))
+                    if r == (data_id, value_serial):
+                        continue
+                raise
+        if transaction:
+            oid_list, user, desc, ext, packed, ttid = transaction
+            partition = self._getPartition(tid)
+            assert packed in (0, 1)
+            q("INSERT OR FAIL INTO %strans VALUES (?,?,?,?,?,?,?,?)" % T,
+                (partition, tid, packed, buffer(''.join(oid_list)),
+                 buffer(user), buffer(desc), buffer(ext), u64(ttid)))
+        if temporary:
+            self.commit()
 
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
@@ -381,17 +364,16 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _storeData(self, checksum, data, compression):
         H = buffer(checksum)
-        with self as q:
-            try:
-                return q("INSERT INTO data VALUES (NULL,?,?,?)",
-                    (H, compression,  buffer(data))).lastrowid
-            except sqlite3.IntegrityError, e:
-                if e.args[0] == 'column hash is not unique':
-                    (r, c, d), = q("SELECT id, compression, value"
-                                  " FROM data WHERE hash=?",  (H,))
-                    if c == compression and str(d) == data:
-                        return r
-                raise
+        try:
+            return self.query("INSERT INTO data VALUES (NULL,?,?,?)",
+                (H, compression,  buffer(data))).lastrowid
+        except sqlite3.IntegrityError, e:
+            if e.args[0] == 'column hash is not unique':
+                (r, c, d), = self.query("SELECT id, compression, value"
+                              " FROM data WHERE hash=?",  (H,))
+                if c == compression and str(d) == data:
+                    return r
+            raise
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getPartition(oid)
@@ -415,38 +397,38 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def finishTransaction(self, tid):
         args = util.u64(tid),
-        with self as q:
-            sql = " FROM tobj WHERE tid=?"
-            data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
-            q("INSERT OR FAIL INTO obj SELECT *" + sql, args)
-            q("DELETE FROM tobj WHERE tid=?", args)
-            q("INSERT OR FAIL INTO trans SELECT * FROM ttrans WHERE tid=?",
-              args)
-            q("DELETE FROM ttrans WHERE tid=?", args)
+        q = self.query
+        sql = " FROM tobj WHERE tid=?"
+        data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
+        q("INSERT OR FAIL INTO obj SELECT *" + sql, args)
+        q("DELETE FROM tobj WHERE tid=?", args)
+        q("INSERT OR FAIL INTO trans SELECT * FROM ttrans WHERE tid=?", args)
+        q("DELETE FROM ttrans WHERE tid=?", args)
         self.unlockData(data_id_list)
+        self.commit()
 
     def deleteTransaction(self, tid, oid_list=()):
         u64 = util.u64
         tid = u64(tid)
         getPartition = self._getPartition
-        with self as q:
-            sql = " FROM tobj WHERE tid=?"
-            data_id_list = [x for x, in q("SELECT data_id" + sql, (tid,)) if x]
-            self.unlockData(data_id_list)
-            q("DELETE" + sql, (tid,))
-            q("DELETE FROM ttrans WHERE tid=?", (tid,))
-            q("DELETE FROM trans WHERE partition=? AND tid=?",
-                (getPartition(tid), tid))
-            # delete from obj using indexes
-            data_id_set = set()
-            for oid in oid_list:
-                oid = u64(oid)
-                sql = " FROM obj WHERE partition=? AND oid=? AND tid=?"
-                args = getPartition(oid), oid, tid
-                data_id_set.update(*q("SELECT data_id" + sql, args))
-                q("DELETE" + sql, args)
-            data_id_set.discard(None)
-            self._pruneData(data_id_set)
+        q = self.query
+        sql = " FROM tobj WHERE tid=?"
+        data_id_list = [x for x, in q("SELECT data_id" + sql, (tid,)) if x]
+        self.unlockData(data_id_list)
+        q("DELETE" + sql, (tid,))
+        q("DELETE FROM ttrans WHERE tid=?", (tid,))
+        q("DELETE FROM trans WHERE partition=? AND tid=?",
+            (getPartition(tid), tid))
+        # delete from obj using indexes
+        data_id_set = set()
+        for oid in oid_list:
+            oid = u64(oid)
+            sql = " FROM obj WHERE partition=? AND oid=? AND tid=?"
+            args = getPartition(oid), oid, tid
+            data_id_set.update(*q("SELECT data_id" + sql, args))
+            q("DELETE" + sql, args)
+        data_id_set.discard(None)
+        self._pruneData(data_id_set)
 
     def deleteObject(self, oid, serial=None):
         oid = util.u64(oid)
@@ -455,11 +437,11 @@ class SQLiteDatabaseManager(DatabaseManager):
         if serial:
             sql += " AND tid=?"
             args.append(util.u64(serial))
-        with self as q:
-            data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
-                              if x]
-            q("DELETE" + sql, args)
-            self._pruneData(data_id_list)
+        q = self.query
+        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
+                          if x]
+        q("DELETE" + sql, args)
+        self._pruneData(data_id_list)
 
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         sql = " WHERE partition=?"
@@ -480,13 +462,13 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def getTransaction(self, tid, all=False):
         tid = util.u64(tid)
-        with self as q:
+        q = self.query
+        r = q("SELECT oids, user, description, ext, packed, ttid"
+              " FROM trans WHERE partition=? AND tid=?",
+              (self._getPartition(tid), tid)).fetchone()
+        if not r and all:
             r = q("SELECT oids, user, description, ext, packed, ttid"
-                  " FROM trans WHERE partition=? AND tid=?",
-                  (self._getPartition(tid), tid)).fetchone()
-            if not r and all:
-                r = q("SELECT oids, user, description, ext, packed, ttid"
-                      " FROM ttrans WHERE tid=?", (tid,)).fetchone()
+                  " FROM ttrans WHERE tid=?", (tid,)).fetchone()
         if r:
             oids, user, description, ext, packed, ttid = r
             return splitOIDField(tid, oids), str(user), \
@@ -515,19 +497,18 @@ class SQLiteDatabaseManager(DatabaseManager):
         pack_tid = self._getPackTID()
         result = []
         append = result.append
-        with self as q:
-            for serial, length, value_serial in q("""\
-                    SELECT tid, LENGTH(value), value_tid
-                    FROM obj LEFT JOIN data ON obj.data_id = data.id
-                    WHERE partition=? AND oid=? AND tid>=?
-                    ORDER BY tid DESC LIMIT ?,?""",
-                    (self._getPartition(oid), oid, pack_tid, offset, length)):
-                if length is None:
-                    try:
-                        length = self._getObjectLength(oid, value_serial)
-                    except CreationUndone:
-                        length = 0
-                append((p64(serial), length))
+        for serial, length, value_serial in self.query("""\
+                SELECT tid, LENGTH(value), value_tid
+                FROM obj LEFT JOIN data ON obj.data_id = data.id
+                WHERE partition=? AND oid=? AND tid>=?
+                ORDER BY tid DESC LIMIT ?,?""",
+                (self._getPartition(oid), oid, pack_tid, offset, length)):
+            if length is None:
+                try:
+                    length = self._getObjectLength(oid, value_serial)
+                except CreationUndone:
+                    length = 0
+            append((p64(serial), length))
         return result or None
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
@@ -587,32 +568,33 @@ class SQLiteDatabaseManager(DatabaseManager):
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
         getPartition = self._getPartition
-        with self as q:
-            self._setPackTID(tid)
-            for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid,"
-                    " MAX(tid) FROM obj WHERE tid<=? GROUP BY oid",
-                    (tid,)):
-                partition = getPartition(oid)
-                if q("SELECT 1 FROM obj WHERE partition=?"
-                     " AND oid=? AND tid=? AND data_id IS NULL",
-                     (partition, oid, max_serial)).fetchone():
-                    max_serial += 1
-                elif not count:
-                    continue
-                # There are things to delete for this object
-                data_id_set = set()
-                sql = " FROM obj WHERE partition=? AND oid=? AND tid<?"
-                args = partition, oid, max_serial
-                for serial, data_id in q("SELECT tid, data_id" + sql, args):
-                    data_id_set.add(data_id)
-                    new_serial = updatePackFuture(oid, serial, max_serial)
-                    if new_serial:
-                        new_serial = p64(new_serial)
-                    updateObjectDataForPack(p64(oid), p64(serial),
-                                            new_serial, data_id)
-                q("DELETE" + sql, args)
-                data_id_set.discard(None)
-                self._pruneData(data_id_set)
+        q = self.query
+        self._setPackTID(tid)
+        for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"
+                                        " FROM obj WHERE tid<=? GROUP BY oid",
+                                        (tid,)):
+            partition = getPartition(oid)
+            if q("SELECT 1 FROM obj WHERE partition=?"
+                 " AND oid=? AND tid=? AND data_id IS NULL",
+                 (partition, oid, max_serial)).fetchone():
+                max_serial += 1
+            elif not count:
+                continue
+            # There are things to delete for this object
+            data_id_set = set()
+            sql = " FROM obj WHERE partition=? AND oid=? AND tid<?"
+            args = partition, oid, max_serial
+            for serial, data_id in q("SELECT tid, data_id" + sql, args):
+                data_id_set.add(data_id)
+                new_serial = updatePackFuture(oid, serial, max_serial)
+                if new_serial:
+                    new_serial = p64(new_serial)
+                updateObjectDataForPack(p64(oid), p64(serial),
+                                        new_serial, data_id)
+            q("DELETE" + sql, args)
+            data_id_set.discard(None)
+            self._pruneData(data_id_set)
+        self.commit()
 
     def checkTIDRange(self, partition, length, min_tid, max_tid):
         count, tids, max_tid = self.query("""\
