@@ -71,7 +71,7 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
         self.app.nm.createStorage(uuid=node_1)
         self.app.nm.createStorage(uuid=node_2)
         self.app.nm.createStorage(uuid=node_3)
-        self.assertEqual(self.app.dm.getPartitionTable(), ())
+        self.assertFalse(list(self.app.dm.getPartitionTable()))
         row_list = [(0, ((node_1, CellStates.UP_TO_DATE), (node_2, CellStates.UP_TO_DATE))),
                     (1, ((node_3, CellStates.UP_TO_DATE), (node_1, CellStates.UP_TO_DATE))),
                     (2, ((node_2, CellStates.UP_TO_DATE), (node_3, CellStates.UP_TO_DATE)))]
@@ -80,7 +80,7 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
         self.verification.answerPartitionTable(conn, 2, row_list)
         self.assertTrue(self.app.pt.filled())
         self.assertEqual(self.app.pt.getID(), 2)
-        self.assertNotEqual(self.app.dm.getPartitionTable(), [])
+        self.assertTrue(list(self.app.dm.getPartitionTable()))
 
 
 if __name__ == "__main__":

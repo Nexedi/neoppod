@@ -188,16 +188,22 @@ class NeoUnitTestBase(NeoTestBase):
         assert index >= 0 and index <= 9
         masters = [(buildUrlFromString(self.local_ip),
                      10010 + i) for i in xrange(master_number)]
-        database = '%s@%s%s' % (DB_USER, prefix, index)
+        adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
+        if adapter == 'MySQL':
+            db = '%s@%s%s' % (DB_USER, prefix, index)
+        elif adapter == 'SQLite':
+            db = os.path.join(getTempDirectory(), 'test_neo%s.sqlite' % index)
+        else:
+            assert False, adapter
         return Mock({
                 'getCluster': cluster,
                 'getBind': (masters[0], 10020 + index),
                 'getMasters': (masters, getAddressType((
                         self.local_ip, 0))),
-                'getDatabase': database,
+                'getDatabase': db,
                 'getUUID': uuid,
                 'getReset': False,
-                'getAdapter': 'MySQL',
+                'getAdapter': adapter,
         })
 
     def getNewUUID(self, node_type):
