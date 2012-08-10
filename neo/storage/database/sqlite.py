@@ -112,9 +112,9 @@ class SQLiteDatabaseManager(DatabaseManager):
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
                  rid INTEGER NOT NULL,
-                 uuid INTEGER NOT NULL,
+                 nid INTEGER NOT NULL,
                  state INTEGER NOT NULL,
-                 PRIMARY KEY (rid, uuid))
+                 PRIMARY KEY (rid, nid))
           """)
 
         # The table "trans" stores information on committed transactions.
@@ -277,17 +277,17 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         if reset:
             q("DELETE FROM pt")
-        for offset, uuid, state in cell_list:
+        for offset, nid, state in cell_list:
             # TODO: this logic should move out of database manager
             # add 'dropCells(cell_list)' to API and use one query
             # WKRD: Why does SQLite need a statement journal file
             #       whereas we try to replace only 1 value ?
             #       We don't want to remove the 'NOT NULL' constraint
             #       so we must simulate a "REPLACE OR FAIL".
-            q("DELETE FROM pt WHERE rid=? AND uuid=?", (offset, uuid))
+            q("DELETE FROM pt WHERE rid=? AND nid=?", (offset, nid))
             if state != CellStates.DISCARDED:
                 q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
-                  (offset, uuid, int(state)))
+                  (offset, nid, int(state)))
         self.setPTID(ptid)
 
     def changePartitionTable(self, ptid, cell_list):

@@ -23,6 +23,7 @@ RC  - Review output of pylint (CODE)
       Consider the need to implement a keep-alive system (packets sent
       automatically when there is no activity on the connection for a period
       of time).
+    - Finish renaming UUID into NID everywhere (CODE)
     - Consider using multicast for cluster-wide notifications. (BANDWITH)
       Currently, multi-receivers notifications are sent in unicast to each
       receiver. Multicast should be used.

@@ -152,9 +152,9 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
                  rid INT UNSIGNED NOT NULL,
-                 uuid INT NOT NULL,
+                 nid INT NOT NULL,
                  state TINYINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (rid, uuid)
+                 PRIMARY KEY (rid, nid)
              ) ENGINE = InnoDB""")
 
         p = self._use_partition and """ PARTITION BY LIST (partition) (
@@ -323,17 +323,17 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         if reset:
             q("TRUNCATE pt")
-        for offset, uuid, state in cell_list:
+        for offset, nid, state in cell_list:
             # TODO: this logic should move out of database manager
             # add 'dropCells(cell_list)' to API and use one query
             if state == CellStates.DISCARDED:
-                q("DELETE FROM pt WHERE rid = %d AND uuid = %d"
-                  % (offset, uuid))
+                q("DELETE FROM pt WHERE rid = %d AND nid = %d"
+                  % (offset, nid))
             else:
                 offset_list.append(offset)
                 q("INSERT INTO pt VALUES (%d, %d, %d)"
                   " ON DUPLICATE KEY UPDATE state = %d"
-                  % (offset, uuid, state, state))
+                  % (offset, nid, state, state))
         self.setPTID(ptid)
         if self._use_partition:
             for offset in offset_list:

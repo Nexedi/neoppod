@@ -72,17 +72,17 @@ class DatabaseManager(object):
 
     def getUUID(self):
         """
-            Load an UUID from a database.
+            Load a NID from a database.
         """
-        uuid = self.getConfiguration('uuid')
-        if uuid is not None:
-            return int(uuid)
+        nid = self.getConfiguration('nid')
+        if nid is not None:
+            return int(nid)
 
-    def setUUID(self, uuid):
+    def setUUID(self, nid):
         """
-            Store an UUID into a database.
+            Store a NID into a database.
         """
-        self.setConfiguration('uuid', str(uuid))
+        self.setConfiguration('nid', str(nid))
 
     def getNumPartitions(self):
         """
@@ -151,7 +151,7 @@ class DatabaseManager(object):
 
     def getPartitionTable(self):
         """Return a whole partition table as a sequence of rows. Each row
-        is again a tuple of an offset (row ID), an UUID of a storage
+        is again a tuple of an offset (row ID), the NID of a storage
         node, and a cell state."""
         raise NotImplementedError
 
@@ -238,7 +238,7 @@ class DatabaseManager(object):
     def changePartitionTable(self, ptid, cell_list):
         """Change a part of a partition table. The list of cells is
         a tuple of tuples, each of which consists of an offset (row ID),
-        an UUID of a storage node, and a cell state. The Partition
+        the NID of a storage node, and a cell state. The Partition
         Table ID must be stored as well."""
         raise NotImplementedError
 
@@ -249,8 +249,8 @@ class DatabaseManager(object):
         raise NotImplementedError
 
     def dropPartitions(self, offset_list):
-        """ Drop any data of non-assigned partitions for a given UUID """
-        raise NotImplementedError('this method must be overriden')
+        """Delete all data for specified partitions"""
+        raise NotImplementedError
 
     def dropUnfinishedData(self):
         """Drop any unfinished data from a database."""
@@ -272,7 +272,7 @@ class DatabaseManager(object):
         'unreferenced' means:
         - not in self._uncommitted_data
         - and not referenced by a fully-committed object (storage should have
-          an index or a refcound of all data ids of all objects)
+          an index or a refcount of all data ids of all objects)
         """
         raise NotImplementedError
 
