@@ -42,18 +42,6 @@ RC  - Review output of pylint (CODE)
         - Empty storages rejected during recovery process
       Masters implies in the election process should still reject any connection
       as the primary master is still unknown.
-    - Connections must support 2 simultaneous handlers (CODE)
-      Connections currently define only one handler, which is enough for
-      monothreaded code. But when using multithreaded code, there are 2
-      possible handlers involved in a packet reception:
-      - The first one handles notifications only (nothing special to do
-        regarding multithreading)
-      - The second one handles expected messages (such message must be
-        directed to the right thread)
-      The second handler must be possible to set on the connection when that
-      connection is thread-safe (MT version of connection classes).
-      Also, the code to detect wether a response is expected or not must be
-      genericised and moved out of handlers.
     - Implement transaction garbage collection API (FEATURE)
       NEO packing implementation does not update transaction metadata when
       deleting object revisions. This inconsistency must be made possible to
@@ -72,7 +60,6 @@ RC  - Review output of pylint (CODE)
     - Make SIGINT on primary master change cluster in STOPPING state.
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
-    - Split protocol.py in a 'protocol' module ?
     - Review handler split (CODE)
       The current handler split is the result of small incremental changes. A
       global review is required to make them square.
@@ -142,20 +129,11 @@ RC  - Review output of pylint (CODE)
       increases the risk of starting from underestimated values.
       This risk is (currently) unavoidable when all nodes stop running, but this
       case must be avoided.
-    - Differential partition table updates (BANDWITH)
-      When a storage asks for current partition table (when it connects to a
-      cluster in service state), it must update its knowledge of the partition
-      table. Currently it's done by fetching the entire table. If the master
-      keeps a history of a few last changes to partition table, it would be able
-      to only send a differential update (via the incremental update mechanism)
-    - During recovery phase, store multiple partition tables (ADMINISTATION)
-      When storage nodes know different version of the partition table, the
-      master should be abdle to present them to admin to allow him to choose one
-      when moving on to next phase.
+    - If the cluster can't start automatically because the last partition table
+      is not operational, allow the user to select an older operational one,
+      and truncate the DB.
     - Optimize operational status check by recording which rows are ready
       instead of parsing the whole partition table. (SPEED)
-    - Improve partition table tweaking algorithm to reduce differences between
-      frequently and rarely used nodes (SCALABILITY)
     - tpc_finish failures propagation to client (FUNCTIONALITY)
       When a storage node notifies a problem during lock/unlock phase, an error
       must be propagated to client.
@@ -164,12 +142,8 @@ RC  - Review output of pylint (CODE)
     - Merge Application into Storage (SPEED)
     - Optimize cache.py by rewriting it either in C or Cython (LOAD LATENCY)
     - Use generic bootstrap module (CODE)
-    - Find a way to make ask() from the thread poll to allow send initial packet
-      (requestNodeIdentification) from the connectionCompleted() event instead
-      of app. This requires to know to what thread will wait for the answer.
-    - Discuss about dead storage notification. If a client fails to connect to
-      a storage node supposed in running state, then it should notify the master
-      to check if this node is well up or not.
+    - If too many storage nodes are dead, the client should check the partition
+      table hasn't changed by pinging the master and retry if necessary.
     - Implement restore() ZODB API method to bypass consistency checks during
       imports.
     - tpc_finish might raise while transaction got successfully committed.
@@ -184,13 +158,14 @@ RC  - Review output of pylint (CODE)
 
     Admin
     - Make admin node able to monitor multiple clusters simultaneously
-    - Send notifications (ie: mail) when a storage node is lost
+    - Send notifications (ie: mail) when a storage or master node is lost
 
     Tests
     - Use another mock library that is eggified and maintained.
       See http://garybernhardt.github.com/python-mock-comparison/
       for a comparison of available mocking libraries/frameworks.
     - Fix epoll descriptor leak.
+    - Fix occasional deadlocks in threaded tests.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
