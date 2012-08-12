@@ -248,7 +248,7 @@ class NEOCluster(object):
                  db_user=DB_USER, db_password='',
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
-                 address_type=ADDRESS_TYPE,
+                 address_type=ADDRESS_TYPE, bind_ip=None,
         ):
         if not adapter:
             adapter = 'MySQL'
@@ -269,7 +269,8 @@ class NEOCluster(object):
         else:
             assert False, adapter
         self.address_type = address_type
-        self.local_ip = local_ip = IP_VERSION_FORMAT_DICT[self.address_type]
+        self.local_ip = local_ip = bind_ip or \
+            IP_VERSION_FORMAT_DICT[self.address_type]
         self.setupDB(clear_databases)
         self.process_dict = {}
         self.temp_dir = temp_dir
