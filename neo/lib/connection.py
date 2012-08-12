@@ -550,12 +550,14 @@ class Connection(BaseConnection):
             self._on_close = None
         del self.write_buf[:]
         self.read_buf.clear()
-        if self.connecting:
-            handler.connectionFailed(self)
-            self.connecting = False
-        else:
-            handler.connectionClosed(self)
-        self._handlers.clear()
+        try:
+            if self.connecting:
+                handler.connectionFailed(self)
+                self.connecting = False
+            else:
+                handler.connectionClosed(self)
+        finally:
+            self._handlers.clear()
 
     def _closure(self):
         assert self.connector is not None, self.whoSetConnector()

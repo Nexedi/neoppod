@@ -220,6 +220,41 @@ class ReplicationTests(NEOThreadedTest):
         finally:
             upstream.stop()
 
+    def testBackupUpstreamMasterDead(self):
+        """Check proper behaviour when upstream master is unreachable
+
+        More generally, this checks that when a handler raises when a connection
+        is closed voluntarily, the connection is in a consistent state and can
+        be, for example, closed again after the exception is catched, without
+        assertion failure.
+        """
+        upstream = NEOCluster()
+        try:
+            upstream.start()
+            importZODB = upstream.importZODB()
+            backup = NEOCluster(upstream=upstream)
+            try:
+                backup.start()
+                backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+                backup.tic()
+                conn, = backup.master.getConnectionList(upstream.master)
+                # trigger ping
+                conn.updateTimeout(1)
+                self.assertFalse(conn.isPending())
+                conn.checkTimeout(time.time())
+                self.assertTrue(conn.isPending())
+                # force ping to have expired
+                conn.updateTimeout(1)
+                # connection will be closed before upstream master has time
+                # to answer
+                backup.tic(force=1)
+                new_conn, = backup.master.getConnectionList(upstream.master)
+                self.assertFalse(new_conn is conn)
+            finally:
+                backup.stop()
+        finally:
+            upstream.stop()
+
     def testReplicationAbortedBySource(self):
         """
         Check that a feeding node aborts replication when its partition is
