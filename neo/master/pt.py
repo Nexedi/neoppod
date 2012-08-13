@@ -87,17 +87,6 @@ class PartitionTable(neo.lib.pt.PartitionTable):
 
         self.num_filled_rows = self.np
 
-    def findLeastUsedNode(self, excluded_node_list = ()):
-        min_count = self.np + 1
-        min_node = None
-        for node, count in self.count_dict.iteritems():
-            if min_count > count \
-                    and node not in excluded_node_list \
-                    and node.isRunning():
-                min_node = node
-                min_count = count
-        return min_node
-
     def dropNodeList(self, node_list, simulate=False):
         partition_list = []
         change_list = []

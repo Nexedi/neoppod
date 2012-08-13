@@ -51,34 +51,6 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.operational())
         self.assertFalse(pt.filled())
 
-    def test_11_findLeastUsedNode(self):
-        num_partitions = 5
-        num_replicas = 2
-        pt = PartitionTable(num_partitions, num_replicas)
-        # add nodes
-        uuid1 = self.getStorageUUID()
-        server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        uuid2 = self.getStorageUUID()
-        server2 = ("127.0.0.2", 19001)
-        sn2 = StorageNode(Mock(), server2, uuid2, NodeStates.RUNNING)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn2, CellStates.UP_TO_DATE)
-        uuid3 = self.getStorageUUID()
-        server3 = ("127.0.0.3", 19001)
-        sn3 = StorageNode(Mock(), server3, uuid3, NodeStates.RUNNING)
-        pt.setCell(0, sn3, CellStates.UP_TO_DATE)
-        # test
-        node = pt.findLeastUsedNode()
-        self.assertEqual(node, sn3)
-        node = pt.findLeastUsedNode((sn3, ))
-        self.assertEqual(node, sn2)
-        node = pt.findLeastUsedNode((sn3, sn2))
-        self.assertEqual(node, sn1)
-
     def test_13_outdate(self):
         # create nodes
         uuid1 = self.getStorageUUID()
