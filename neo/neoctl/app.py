@@ -59,6 +59,9 @@ class TerminalNeoCTL(object):
     def asClusterState(self, value):
         return getattr(ClusterStates, value.upper())
 
+    def asTID(self, value):
+        return p64(int(value, 0))
+
     asNode = staticmethod(uuid_int)
 
     def formatRowList(self, row_list):
@@ -197,7 +200,15 @@ class TerminalNeoCTL(object):
 
     def checkReplicas(self, params):
         """
+          Test whether partitions have corrupted meta
+
+          Any corrupted cell is put in CORRUPTED state, possibly make the
+          cluster non operational.
+
           Parameters: [partition]:[reference] ... [min_tid [max_tid]]
+            reference: node id of a storage with known good data
+              If not given, and if the cluster is in backup mode, an upstream
+              cell is automatically taken as reference.
         """
         partition_dict = {}
         params = iter(params)
@@ -207,9 +218,9 @@ class TerminalNeoCTL(object):
             try:
                 partition, source = p.split(':')
             except ValueError:
-                min_tid = p64(p)
+                min_tid = self.asTID(p)
                 try:
-                    max_tid = p64(params.next())
+                    max_tid = self.asTID(params.next())
                 except StopIteration:
                     pass
                 break
@@ -283,6 +294,8 @@ class Application(object):
         return '\n'.join(result)
 
     def usage(self, message):
-        output_list = [message, 'Available commands:', self._usage(action_dict)]
+        output_list = (message, 'Available commands:', self._usage(action_dict),
+            "TID arguments must be integers, e.g. '257684787499560686 or"
+            " '0x3937af2eeeeeeee' for 2012-01-01 12:34:56 UTC")
         return '\n'.join(output_list)
 
