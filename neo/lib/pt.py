@@ -194,6 +194,7 @@ class PartitionTable(object):
         for cell in row:
             if cell.getNode() == node:
                 row.remove(cell)
+                self.num_filled_rows -= not row
                 if not cell.isFeeding():
                     self.count_dict[node] -= 1
                 break

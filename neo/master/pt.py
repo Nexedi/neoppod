@@ -136,6 +136,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 self.count_dict[cell.getNode()] += 1
             for node in node_list:
                 self.count_dict.pop(node, None)
+            self.num_filled_rows = len(filter(None, self.partition_list))
         return change_list
 
     def load(self, ptid, row_list, nm):
@@ -278,6 +279,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     state = CellStates.DISCARDED
                     row.remove(cell)
                 changed_list.append((offset, cell.getUUID(), state))
+        assert self.num_filled_rows == len(filter(None, self.partition_list))
         return changed_list
 
     def outdate(self, lost_node=None):
