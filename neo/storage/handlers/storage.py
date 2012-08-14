@@ -19,7 +19,7 @@ from functools import wraps
 import neo.lib
 from neo.lib.connector import ConnectorConnectionClosedException
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Errors, NodeStates, Packets, \
+from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
     ZERO_HASH, ZERO_TID, ZERO_OID
 from neo.lib.util import add64
 
@@ -168,6 +168,12 @@ class StorageOperationHandler(EventHandler):
     def askFetchTransactions(self, conn, partition, length, min_tid, max_tid,
             tid_list):
         app = self.app
+        if app.tm.isLockedTid(max_tid):
+            # Wow, backup cluster is fast. Requested transactions are still in
+            # ttrans/ttobj so wait a little.
+            app.queueEvent(self.askFetchTransactions, conn,
+                (partition, length, min_tid, max_tid, tid_list))
+            return
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         peer_tid_set = set(tid_list)
@@ -202,6 +208,8 @@ class StorageOperationHandler(EventHandler):
     def askFetchObjects(self, conn, partition, length, min_tid, max_tid,
             min_oid, object_dict):
         app = self.app
+        if app.tm.isLockedTid(max_tid):
+            raise ProtocolError("transactions must be fetched before objects")
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         dm = app.dm

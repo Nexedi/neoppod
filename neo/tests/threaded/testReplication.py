@@ -264,6 +264,18 @@ class ReplicationTests(NEOThreadedTest):
         new_conn, = backup.master.getConnectionList(backup.upstream.master)
         self.assertFalse(new_conn is conn)
 
+    @backup_test()
+    def testBackupDelayedUnlockTransaction(self, backup):
+        upstream = backup.upstream
+        with upstream.master.filterConnection(upstream.storage) as f:
+            f.add(lambda conn, packet:
+                isinstance(packet, Packets.NotifyUnlockInformation))
+            upstream.importZODB()(1)
+            upstream.client.setPoll(0)
+            backup.tic()
+        backup.tic(force=1)
+        self.assertEqual(1, self.checkBackup(backup))
+
     def testReplicationAbortedBySource(self):
         """
         Check that a feeding node aborts replication when its partition is

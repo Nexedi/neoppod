@@ -361,6 +361,12 @@ class TransactionManager(object):
         if transaction_set is not None and not transaction_set:
             del self._uuid_dict[uuid]
 
+    def isLockedTid(self, tid):
+        for t in self._transaction_dict.itervalues():
+            if t.isLocked() and t.getTID() <= tid:
+                return True
+        return False
+
     def loadLocked(self, oid):
         return oid in self._load_lock_dict
 

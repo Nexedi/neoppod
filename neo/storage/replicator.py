@@ -85,6 +85,11 @@ class Replicator(object):
         if node is not None and node.isConnected():
             return node.getConnection()
 
+    # XXX: We can't replicate unfinished transactions but do we need such
+    #      complex code ? Backup mechanism does not rely on this: instead
+    #      the upstream storage delays the answer. Maybe we can do the same
+    #      for internal replication.
+
     def setUnfinishedTIDList(self, max_tid, ttid_list, offset_list):
         """This is a callback from MasterOperationHandler."""
         if ttid_list:
