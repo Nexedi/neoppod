@@ -597,6 +597,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         self.commit()
 
     def checkTIDRange(self, partition, length, min_tid, max_tid):
+        # XXX: SQLite's GROUP_CONCAT is slow (looks like quadratic)
         count, tids, max_tid = self.query("""\
             SELECT COUNT(*), GROUP_CONCAT(tid), MAX(tid)
             FROM (SELECT tid FROM trans
@@ -610,7 +611,7 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def checkSerialRange(self, partition, length, min_tid, max_tid, min_oid):
         u64 = util.u64
-        # We don't ask MySQL to compute everything (like in checkTIDRange)
+        # We don't ask SQLite to compute everything (like in checkTIDRange)
         # because it's difficult to get the last serial _for the last oid_.
         # We would need a function (that could be named 'LAST') that returns the
         # last grouped value, instead of the greatest one.
