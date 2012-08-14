@@ -90,7 +90,7 @@ class MySQLDatabaseManager(DatabaseManager):
             else:
                 break
         self.conn.autocommit(False)
-        self.conn.query("SET SESSION group_concat_max_len = -1")
+        self.conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
         self.conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
 
     def commit(self):
