@@ -145,6 +145,7 @@ class BackupApplication(object):
                     poll(1)
                 last_tid = app.getLastTransaction()
                 if tid < last_tid:
+                    assert tid != ZERO_TID
                     logging.warning("Truncating at %s (last_tid was %s)",
                         dump(app.backup_tid), dump(last_tid))
                     p = Packets.AskTruncate(tid)
