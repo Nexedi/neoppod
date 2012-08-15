@@ -299,16 +299,17 @@ class BackupApplication(object):
         result = None if primary else app.pt.setUpToDate(node, offset)
         assert cell.isReadable()
         if result: # was out-of-date
-            max_tid, = [x.backup_tid for x in cell_list
-                                     if x.getNode() is primary_node]
-            if tid < max_tid:
-                cell.replicating = max_tid
-                logging.debug(
-                    "ask %s to replicate partition %u up to %s from %s",
-                    uuid_str(node.getUUID()), offset,  dump(max_tid),
-                    uuid_str(primary_node.getUUID()))
-                node.notify(Packets.Replicate(max_tid, '',
-                    {offset: primary_node.getAddress()}))
+            if primary_node is not None:
+                max_tid, = [x.backup_tid for x in cell_list
+                                         if x.getNode() is primary_node]
+                if tid < max_tid:
+                    cell.replicating = max_tid
+                    logging.debug(
+                        "ask %s to replicate partition %u up to %s from %s",
+                        uuid_str(node.getUUID()), offset,  dump(max_tid),
+                        uuid_str(primary_node.getUUID()))
+                    node.notify(Packets.Replicate(max_tid, '',
+                        {offset: primary_node.getAddress()}))
         else:
             if app.getClusterState() == ClusterStates.BACKINGUP:
                 self.triggerBackup(node)
