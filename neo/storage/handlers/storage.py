@@ -233,9 +233,9 @@ class StorageOperationHandler(EventHandler):
                                 del object_dict[serial]
                             continue
                     object = dm.getObject(oid, serial)
-                    if object is None:
+                    if not object:
                         conn.answer(Errors.ReplicationError(
-                            "partition %u dropped" % partition))
+                            "partition %u dropped or truncated" % partition))
                         return
                     conn.notify(Packets.AddObject(oid, serial, *object[2:]))
                     yield
