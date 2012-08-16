@@ -20,8 +20,8 @@ from . import MasterHandler
 from ..app import StateChangedException
 from neo.lib import logging
 from neo.lib.pt import PartitionTableException
-from neo.lib.protocol import ClusterStates, NodeStates, Packets, ProtocolError
-from neo.lib.protocol import Errors, uuid_str
+from neo.lib.protocol import ClusterStates, Errors, \
+    NodeStates, NodeTypes, Packets, ProtocolError, uuid_str
 from neo.lib.util import dump
 
 CLUSTER_STATE_WORKFLOW = {
@@ -31,6 +31,10 @@ CLUSTER_STATE_WORKFLOW = {
                                     ClusterStates.STOPPING_BACKUP),
     ClusterStates.STOPPING_BACKUP: (ClusterStates.BACKINGUP,
                                     ClusterStates.STARTING_BACKUP),
+}
+NODE_STATE_WORKFLOW = {
+    NodeTypes.MASTER: (NodeStates.UNKNOWN,),
+    NodeTypes.STORAGE: (NodeStates.UNKNOWN, NodeStates.DOWN),
 }
 
 class AdministrationHandler(MasterHandler):
@@ -72,38 +76,24 @@ class AdministrationHandler(MasterHandler):
         if state != app.cluster_state:
             raise StateChangedException(state)
 
-    def setNodeState(self, conn, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s : %s",
-                     uuid_str(uuid), state, modify_partition_table)
+    def setNodeState(self, conn, uuid, state):
+        logging.info("set node state for %s: %s", uuid_str(uuid), state)
         app = self.app
         node = app.nm.getByUUID(uuid)
         if node is None:
             raise ProtocolError('unknown node')
-
+        if state not in NODE_STATE_WORKFLOW.get(node.getType(), ()):
+            raise ProtocolError('can not switch node to this state')
         if uuid == app.uuid:
-            node.setState(state)
-            # get message for self
-            if state != NodeStates.RUNNING:
-                p = Errors.Ack('node state changed')
-                conn.answer(p)
-                app.shutdown()
+            raise ProtocolError('can not kill primary master node')
 
-        if node.getState() == state:
-            # no change, just notify admin node
-            p = Errors.Ack('node already in %s state' % state)
-            conn.answer(p)
-            return
-
-        if state == NodeStates.RUNNING:
-            # first make sure to have a connection to the node
-            if not node.isConnected():
-                raise ProtocolError('no connection to the node')
-            node.setState(state)
-
-        elif state == NodeStates.DOWN and node.isStorage():
+        state_changed = state != node.getState()
+        message = ('state changed' if state_changed else
+                   'node already in %s state' % state)
+        if node.isStorage():
+            keep = state == NodeStates.UNKNOWN
             try:
-                cell_list = app.pt.dropNodeList([node],
-                    not modify_partition_table)
+                cell_list = app.pt.dropNodeList([node], keep)
             except PartitionTableException, e:
                 raise ProtocolError(str(e))
             node.setState(state)
@@ -112,17 +102,23 @@ class AdministrationHandler(MasterHandler):
                 node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
                 # close to avoid handle the closure as a connection lost
                 node.getConnection().abort()
-            if not modify_partition_table:
+            if keep:
                 cell_list = app.pt.outdate()
+            elif cell_list:
+                message = 'node permanently removed'
             app.broadcastPartitionChanges(cell_list)
-
         else:
             node.setState(state)
 
         # /!\ send the node information *after* the partition table change
-        p = Errors.Ack('state changed')
-        conn.answer(p)
-        app.broadcastNodesInformation([node])
+        conn.answer(Errors.Ack(message))
+        if state_changed:
+            # notify node explicitly because broadcastNodesInformation()
+            # ignores non-running nodes
+            assert not node.isRunning()
+            if node.isConnected():
+                node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
+            app.broadcastNodesInformation([node])
 
     def addPendingNodes(self, conn, uuid_list):
         uuids = ', '.join(map(uuid_str, uuid_list))

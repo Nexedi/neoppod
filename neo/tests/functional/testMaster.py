@@ -41,12 +41,14 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectAllMasters(MASTER_NODE_COUNT)
 
         # Kill
-        killed_uuid_list = self.neo.killSecondaryMaster()
-        # Test sanity check.
-        self.assertEqual(len(killed_uuid_list), 1)
-        uuid = killed_uuid_list[0]
-        # Check node state has changed.
-        self.neo.expectMasterState(uuid, None)
+        primary_uuid = self.neoctl.getPrimary()
+        for master in self.neo.getMasterProcessList():
+            uuid = master.getUUID()
+            if uuid != primary_uuid:
+                break
+        self.neo.neoctl.killNode(uuid)
+        self.neo.expectDead(master)
+        self.assertRaises(RuntimeError, self.neo.neoctl.killNode, primary_uuid)
 
     def testStoppingPrimaryWithTwoSecondaries(self):
         # Wait for masters to stabilize

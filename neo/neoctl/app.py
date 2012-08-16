@@ -17,7 +17,7 @@
 from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.util import bin, p64
-from neo.lib.protocol import uuid_str, ClusterStates, NodeStates, NodeTypes, \
+from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
     UUID_NAMESPACES, ZERO_TID
 
 action_dict = {
@@ -28,7 +28,6 @@ action_dict = {
         'primary': 'getPrimary',
     },
     'set': {
-        'node': 'setNodeState',
         'cluster': 'setClusterState',
     },
     'check': 'checkReplicas',
@@ -36,6 +35,7 @@ action_dict = {
     'add': 'enableStorageList',
     'tweak': 'tweakPartitionTable',
     'drop': 'dropNode',
+    'kill': 'killNode',
 }
 
 uuid_int = (lambda ns: lambda uuid:
@@ -50,9 +50,6 @@ class TerminalNeoCTL(object):
         self.neoctl.close()
 
     # Utility methods (could be functions)
-    def asNodeState(self, value):
-        return getattr(NodeStates, value.upper())
-
     def asNodeType(self, value):
         return getattr(NodeTypes, value.upper())
 
@@ -121,25 +118,6 @@ class TerminalNeoCTL(object):
         assert len(params) == 0
         return str(self.neoctl.getClusterState())
 
-    def setNodeState(self, params):
-        """
-          Set node state, and allow (or not) updating partition table.
-          Parameters: node state [update]
-            node: node to modify
-            state: state to put the node in
-            update: disallow (0, default) or allow (other integer) partition
-                    table to be updated
-        """
-        assert len(params) in (2, 3)
-        node = self.asNode(params[0])
-        state = self.asNodeState(params[1])
-        if len(params) == 3:
-            update_partition_table = bool(int(params[2]))
-        else:
-            update_partition_table = False
-        return self.neoctl.setNodeState(node, state,
-            update_partition_table=update_partition_table)
-
     def setClusterState(self, params):
         """
           Set cluster state.
@@ -181,16 +159,19 @@ class TerminalNeoCTL(object):
         """
         return self.neoctl.tweakPartitionTable(map(self.asNode, params))
 
+    def killNode(self, params):
+        """
+          Kill redundant nodes (either a storage or a secondary master).
+          Parameters: node
+        """
+        return self.neoctl.killNode(self.asNode(*params))
+
     def dropNode(self, params):
         """
-          Set node into DOWN state.
+          Remove storage node permanently.
           Parameters: node
-            node: node the pu into DOWN state
-          Equivalent to:
-            set node state (node) DOWN
         """
-        assert len(params) == 1
-        return self.neoctl.dropNode(self.asNode(params[0]))
+        return self.neoctl.dropNode(self.asNode(*params))
 
     def getPrimary(self, params):
         """

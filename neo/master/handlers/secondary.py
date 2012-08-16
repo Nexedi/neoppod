@@ -14,10 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 from . import MasterHandler
 from neo.lib.handler import EventHandler
 from neo.lib.exception import ElectionFailure, PrimaryFailure
-from neo.lib.protocol import NodeTypes, Packets, uuid_str
+from neo.lib.protocol import NodeStates, NodeTypes, Packets, uuid_str
 from neo.lib import logging
 
 class SecondaryMasterHandler(MasterHandler):
@@ -72,7 +73,8 @@ class PrimaryHandler(EventHandler):
             if node_type != NodeTypes.MASTER:
                 # No interest.
                 continue
-
+            if uuid == app.uuid and state == NodeStates.UNKNOWN:
+                sys.exit()
             # Register new master nodes.
             if app.server == addr:
                 # This is self.

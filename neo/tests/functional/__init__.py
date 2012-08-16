@@ -629,6 +629,12 @@ class NEOCluster(object):
             return current_try, current_try
         self.expectCondition(callback, *args, **kw)
 
+    def expectDead(self, process, *args, **kw):
+        def callback(last_try):
+            current_try = not process.isAlive()
+            return current_try, current_try
+        self.expectCondition(callback, *args, **kw)
+
     def expectStorageNotKnown(self, process, *args, **kw):
         # /!\ Not Known != Unknown
         process_uuid = process.getUUID()

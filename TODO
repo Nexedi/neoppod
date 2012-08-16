@@ -69,9 +69,6 @@ RC  - Review output of pylint (CODE)
       should be made a singleton (saves the CPU time needed to instanciates all
       the copies - often when a connection is established, saves the memory
       used by each copy).
-    - Consider replace setNodeState admin packet by one per action, like
-      dropNode to reduce packet processing complexity and reduce bad actions
-      like set a node in TEMPORARILY_DOWN state.
     - Review node notfications. Eg. A storage don't have to be notified of new
       clients but only when one is lost.
     - Review transactional isolation of various methods

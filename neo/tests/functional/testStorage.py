@@ -179,13 +179,15 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=0)
 
-        started[0].stop()
+        self.neo.neoctl.killNode(started[0].getUUID())
         # Cluster still operational. All cells of first storage should be
         # outdated.
         self.neo.expectUnavailable(started[0])
         self.neo.expectOudatedCells(2)
         self.neo.expectClusterRunning()
 
+        self.assertRaises(RuntimeError, self.neo.neoctl.killNode,
+            started[1].getUUID())
         started[1].stop()
         # Cluster not operational anymore. Only cells of second storage that
         # were shared with the third one should become outdated.

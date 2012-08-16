@@ -100,16 +100,11 @@ class NeoCTL(object):
             raise RuntimeError(response)
         return response[2]
 
-    def setNodeState(self, node, state, update_partition_table=False):
+    def _setNodeState(self, node, state):
         """
-          Set node state, and allow (or not) updating partition table.
+          Kill node, or remove it permanently
         """
-        if update_partition_table:
-            update_partition_table = 1
-        else:
-            update_partition_table = 0
-        packet = Packets.SetNodeState(node, state, update_partition_table)
-        response = self.__ask(packet)
+        response = self.__ask(Packets.SetNodeState(node, state))
         if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
             raise RuntimeError(response)
         return response[2]
@@ -151,12 +146,11 @@ class NeoCTL(object):
         """
         return self.setClusterState(ClusterStates.VERIFYING)
 
+    def killNode(self, node):
+        return self._setNodeState(node, NodeStates.UNKNOWN)
+
     def dropNode(self, node):
-        """
-          Set node into "down" state and remove it from partition table.
-        """
-        return self.setNodeState(node, NodeStates.DOWN,
-                update_partition_table=1)
+        return self._setNodeState(node, NodeStates.DOWN)
 
     def getPrimary(self):
         """

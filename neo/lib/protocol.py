@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (12, 1)
+PROTOCOL_VERSION = (13, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1135,7 +1135,6 @@ class SetNodeState(Packet):
     _fmt = PStruct('set_node_state',
         PUUID('uuid'),
         PFNodeState,
-        PBoolean('modify_partition_table'),
     )
 
     _answer = Error

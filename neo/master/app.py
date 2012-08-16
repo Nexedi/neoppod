@@ -247,7 +247,7 @@ class Application(object):
 
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
-            node_list = node_dict.get(node.getType(), [])
+            node_list = node_dict.get(node.getType())
             if node_list and node.isRunning():
                 node.notify(Packets.NotifyNodeInformation(node_list))
 

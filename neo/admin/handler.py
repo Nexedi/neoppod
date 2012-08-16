@@ -54,21 +54,6 @@ class AdminEventHandler(EventHandler):
         conn.answer(p)
 
     @check_primary_master
-    def setNodeState(self, conn, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s", uuid_str(uuid), state)
-        node = self.app.nm.getByUUID(uuid)
-        if node is None:
-            raise protocol.ProtocolError('invalid uuid')
-        if node.getState() == state and modify_partition_table is False:
-            # no change
-            p = Errors.Ack('no change')
-            conn.answer(p)
-            return
-        # forward to primary master node
-        p = Packets.SetNodeState(uuid, state, modify_partition_table)
-        self.app.master_conn.ask(p, conn=conn, msg_id=conn.getPeerId())
-
-    @check_primary_master
     def askClusterState(self, conn):
         conn.answer(Packets.AnswerClusterState(self.app.cluster_state))
 
@@ -80,6 +65,7 @@ class AdminEventHandler(EventHandler):
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
     tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
     setClusterState = forward_ask(Packets.SetClusterState)
+    setNodeState = forward_ask(Packets.SetNodeState)
     checkReplicas = forward_ask(Packets.CheckReplicas)
 
 
