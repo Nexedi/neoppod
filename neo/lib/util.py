@@ -76,11 +76,11 @@ def getConnectorFromAddress(address):
 
 def parseNodeAddress(address, port_opt=None):
     if address[:1] == '[':
-       (host, port) = address[1:].split(']')
-       if port[:1] == ':':
-           port = port[1:]
-       else:
-           port = port_opt
+        (host, port) = address[1:].split(']')
+        if port[:1] == ':':
+            port = port[1:]
+        else:
+            port = port_opt
     elif address.count(':') == 1:
         (host, port) = address.split(':')
     else:

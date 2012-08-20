@@ -555,9 +555,9 @@ class NEOCluster(object):
         kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
                   getPartitions=partitions, getReset=clear_databases)
         if upstream is not None:
-          self.upstream = weakref.proxy(upstream)
-          kw.update(getUpstreamCluster=upstream.name,
-                    getUpstreamMasters=parseMasterList(upstream.master_nodes))
+            self.upstream = weakref.proxy(upstream)
+            kw.update(getUpstreamCluster=upstream.name,
+                getUpstreamMasters=parseMasterList(upstream.master_nodes))
         self.master_list = [MasterApplication(address=x, **kw)
                             for x in master_list]
         if db_list is None:

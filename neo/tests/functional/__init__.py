@@ -138,7 +138,7 @@ class ChildException(KeyboardInterrupt):
         """Re-raise wrapped exception"""
         type, value, tb = self.args
         if type is KeyboardInterrupt:
-          sys.exit(1)
+            sys.exit(1)
         raise type, value, tb
 
 

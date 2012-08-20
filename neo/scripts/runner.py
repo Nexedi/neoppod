@@ -174,7 +174,7 @@ class NeoTestRunner(unittest.TestResult):
         success = self.testsRun - len(self.errors) - len(self.failures)
         add_status('Directory', self.temp_directory)
         if self.testsRun:
-          add_status('Status', '%.3f%%' % (success * 100.0 / self.testsRun))
+            add_status('Status', '%.3f%%' % (success * 100.0 / self.testsRun))
         for var in os.environ.iterkeys():
             if var.startswith('NEO_TEST'):
                 add_status(var, os.environ[var])
