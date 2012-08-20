@@ -49,14 +49,6 @@ class StorageServiceHandler(BaseServiceHandler):
         if app.packing is not None:
             self.answerPack(conn, False)
 
-    def askLastIDs(self, conn):
-        app = self.app
-        conn.answer(Packets.AnswerLastIDs(
-            app.tm.getLastOID(),
-            app.tm.getLastTID(),
-            app.pt.getID(),
-            app.backup_tid))
-
     def askUnfinishedTransactions(self, conn):
         app = self.app
         if app.backup_tid:

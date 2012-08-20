@@ -59,3 +59,5 @@ class CommandEventHandler(EventHandler):
     answerNodeList = __answer(Packets.AnswerNodeList)
     answerClusterState = __answer(Packets.AnswerClusterState)
     answerPrimary = __answer(Packets.AnswerPrimary)
+    answerLastIDs = __answer(Packets.AnswerLastIDs)
+    answerLastTransaction = __answer(Packets.AnswerLastTransaction)

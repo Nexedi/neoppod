@@ -62,6 +62,8 @@ class AdminEventHandler(EventHandler):
         master_node = self.app.master_node
         conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
 
+    askLastIDs = forward_ask(Packets.AskLastIDs)
+    askLastTransaction = forward_ask(Packets.AskLastTransaction)
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
     tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
     setClusterState = forward_ask(Packets.SetClusterState)
@@ -90,7 +92,7 @@ class MasterEventHandler(EventHandler):
     def dispatch(self, conn, packet, kw={}):
         if 'conn' in kw:
             # expected answer
-            if packet.isError():
+            if packet.isResponse():
                 packet.setId(kw['msg_id'])
                 kw['conn'].answer(packet)
             else:
@@ -126,3 +128,4 @@ class MasterEventHandler(EventHandler):
 
 class MasterRequestEventHandler(EventHandler):
     """ This class handle all answer from primary master node"""
+    # XXX: to be deleted ?

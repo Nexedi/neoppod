@@ -16,12 +16,13 @@
 
 from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import bin, p64
+from neo.lib.util import bin, p64, u64
 from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
     UUID_NAMESPACES, ZERO_TID
 
 action_dict = {
     'print': {
+        'ids': 'getLastIds',
         'pt': 'getPartitionRowList',
         'node': 'getNodeList',
         'cluster': 'getClusterState',
@@ -77,6 +78,17 @@ class TerminalNeoCTL(object):
             for node_type, address, uuid, state in node_list)
 
     # Actual actions
+    def getLastIds(self, params):
+        """
+          Get last ids.
+        """
+        assert not params
+        r = self.neoctl.getLastIds()
+        if r[3]:
+            return "last_tid = 0x%x" % u64(self.neoctl.getLastTransaction())
+        return "last_oid = 0x%x\nlast_tid = 0x%x\nlast_ptid = %u" % (
+            u64(r[0]), u64(r[1]), r[2])
+
     def getPartitionRowList(self, params):
         """
           Get a list of partition rows, bounded by min & max and involving

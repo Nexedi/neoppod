@@ -62,6 +62,18 @@ class MasterHandler(EventHandler):
         state = self.app.getClusterState()
         conn.answer(Packets.AnswerClusterState(state))
 
+    def askLastIDs(self, conn):
+        app = self.app
+        conn.answer(Packets.AnswerLastIDs(
+            app.tm.getLastOID(),
+            app.tm.getLastTID(),
+            app.pt.getID(),
+            app.backup_tid))
+
+    def askLastTransaction(self, conn):
+        conn.answer(Packets.AnswerLastTransaction(
+            self.app.getLastTransaction()))
+
     def askNodeInformation(self, conn):
         nm = self.app.nm
         node_list = []

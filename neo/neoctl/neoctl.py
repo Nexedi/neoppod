@@ -119,6 +119,18 @@ class NeoCTL(object):
             raise RuntimeError(response)
         return response[1]
 
+    def getLastIds(self):
+        response = self.__ask(Packets.AskLastIDs())
+        if response[0] != Packets.AnswerLastIDs:
+            raise RuntimeError(response)
+        return response[1:]
+
+    def getLastTransaction(self):
+        response = self.__ask(Packets.AskLastTransaction())
+        if response[0] != Packets.AnswerLastTransaction:
+            raise RuntimeError(response)
+        return response[1]
+
     def getNodeList(self, node_type=None):
         """
           Get a list of nodes, filtering with given type.

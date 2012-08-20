@@ -104,10 +104,6 @@ class ClientServiceHandler(MasterHandler):
         else:
             conn.answer(Packets.AnswerPack(False))
 
-    def askLastTransaction(self, conn):
-        conn.answer(Packets.AnswerLastTransaction(
-            self.app.getLastTransaction()))
-
     def abortTransaction(self, conn, tid):
         self.app.tm.remove(conn.getUUID(), tid)
 
