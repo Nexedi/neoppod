@@ -64,7 +64,7 @@ class MasterVerificationTests(NeoUnitTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.UNKNOWN)
-        self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
+        self.assertRaises(VerificationFailure, self.verification.connectionClosed, conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 

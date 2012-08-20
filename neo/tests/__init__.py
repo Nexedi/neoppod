@@ -126,7 +126,8 @@ class NeoTestBase(unittest.TestCase):
         test_case, logging.name = self.id().rsplit('.', 1)
         logging.setup(os.path.join(getTempDirectory(), test_case + '.log'))
 
-    def tearDown(self, success='ok' if sys.version_info < (2,7) else 'success'):
+    def tearDown(self,
+            success='ok' if sys.version_info < (2, 7) else 'success'):
         assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
         self._tearDown(sys._getframe(1).f_locals[success])
 
@@ -529,7 +530,7 @@ def _fixMockForInspect():
         # _setupSubclassMethodInterceptors is under the FreeBSD license.
         # See pyMock module for the whole license.
         def _setupSubclassMethodInterceptors(self):
-            methods = inspect.getmembers(self.__class__,inspect.isroutine)
+            methods = inspect.getmembers(self.__class__, inspect.isroutine)
             baseMethods = dict(inspect.getmembers(Mock, inspect.isroutine))
             for m in methods:
                 name = m[0]

@@ -254,7 +254,7 @@ def test(self):
     self.assertEqual(cache.load(1, 20), ('15', 15, 20))
     cache.store(1, '10', 10, 15)
     cache.store(1, '20', 20, 21)
-    self.assertEqual([5,10,15,20], [x.tid for x in cache._oid_dict[1]])
+    self.assertEqual([5, 10, 15, 20], [x.tid for x in cache._oid_dict[1]])
 
 if __name__ == '__main__':
     import unittest
