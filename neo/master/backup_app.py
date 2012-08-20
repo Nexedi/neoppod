@@ -141,6 +141,9 @@ class BackupApplication(object):
                 tid = app.backup_tid
                 # Wait for non-primary partitions to catch up,
                 # so that all UP_TO_DATE cells are really UP_TO_DATE.
+                # XXX: Another possibility could be to outdate such cells, and
+                #      they would be quickly updated at the beginning of the
+                #      RUNNING phase. This may simplify code.
                 # Any unfinished replication from upstream will be truncated.
                 while pt.getCheckTid(xrange(pt.getPartitions())) < tid:
                     poll(1)

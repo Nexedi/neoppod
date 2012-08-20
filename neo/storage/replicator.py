@@ -227,6 +227,8 @@ class Replicator(object):
             return
         app = self.app
         # Choose a partition with no unfinished transaction if possible.
+        # XXX: When leaving backup mode, we should only consider UP_TO_DATE
+        #      cells when leaving backup mode.
         for offset in self.replicate_dict:
             if not self.partition_dict[offset].max_ttid:
                 break

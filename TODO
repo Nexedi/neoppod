@@ -85,6 +85,11 @@ RC  - Review output of pylint (CODE)
       Currently, storage presence is broadcasted to client nodes too early, as
       the storage node would refuse them until it has only up-to-date data (not
       only up-to-date cells, but also a partition table and node states).
+    - In backup mode, 2 simultaneous replication should be possible so that:
+      - outdated cells does not block backup for too long time
+      - constantly modified partitions does not prevent outdated cells to
+        replicate
+      Current behaviour is undefined and the above 2 scenarios may happen.
     - Create a specialized PartitionTable that know the database and replicator
       to remove duplicates and remove logic from handlers (CODE)
     - Consider insert multiple objects at time in the database, with taking care
