@@ -387,7 +387,7 @@ class StorageDBTests(NeoUnitTestBase):
         def check(offset, tid_list, *tids):
             self.assertEqual(self.db.getReplicationTIDList(ZERO_TID,
                 MAX_TID, len(tid_list) + 1, offset), tid_list)
-            expected = [(t, oid_list[offset+i]) for t in tids for i in 0, np]
+            expected = [(t, oid_list[offset+i]) for t in tids for i in (0, np)]
             self.assertEqual(self.db.getReplicationObjectList(ZERO_TID,
                 MAX_TID, len(expected) + 1, offset, ZERO_OID), expected)
         self.db._deleteRange(0, MAX_TID)
