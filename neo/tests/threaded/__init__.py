@@ -675,7 +675,11 @@ class NEOCluster(object):
     @staticmethod
     def tic(force=False):
         # XXX: Should we automatically switch client in slave mode if it isn't ?
-        logging.info('tic ...')
+        f = sys._getframe(1)
+        try:
+            logging.info('tic (%s:%u) ...', f.f_code.co_filename, f.f_lineno)
+        finally:
+            del f
         if force:
             Serialized.tic()
             logging.info('forced tic')
