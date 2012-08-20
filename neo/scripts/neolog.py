@@ -47,7 +47,6 @@ class Log(object):
             np = "SELECT * FROM packet WHERE id>?"
             date = self._filter_from
             if date:
-                self._filter_from
                 date = " AND date>=%f" % date
                 nl += date
                 np += date
