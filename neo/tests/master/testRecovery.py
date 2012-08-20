@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from struct import pack, unpack
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.recovery import RecoveryManager

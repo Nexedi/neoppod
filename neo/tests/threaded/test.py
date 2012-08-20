@@ -16,7 +16,6 @@
 
 import sys
 import threading
-import traceback
 import transaction
 import unittest
 from thread import get_ident

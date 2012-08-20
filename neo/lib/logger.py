@@ -23,7 +23,7 @@
 
 from collections import deque
 from functools import wraps
-from logging import getLogger, Formatter, Logger, LogRecord, StreamHandler, \
+from logging import getLogger, Formatter, Logger, StreamHandler, \
     DEBUG, WARNING
 from time import time
 from traceback import format_exception

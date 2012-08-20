@@ -14,10 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from functools import wraps
 from . import logging
 from .protocol import (
-    NodeStates, Packets, ErrorCodes, Errors, BrokenNodeDisallowedError,
+    NodeStates, Packets, Errors, BrokenNodeDisallowedError,
     NotReadyError, PacketMalformedError, ProtocolError, UnexpectedPacketError)
 
 

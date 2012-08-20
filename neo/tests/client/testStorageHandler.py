@@ -17,12 +17,11 @@
 import unittest
 from mock import Mock
 from .. import NeoUnitTestBase
-from neo.lib.protocol import NodeTypes, LockState
+from neo.lib.protocol import NodeTypes
 from neo.client.handlers.storage import StorageBootstrapHandler, \
        StorageAnswersHandler
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
-from ZODB.POSException import ConflictError
 from neo.lib.exception import NodeNotReady
 from neo.lib.node import NodeManager
 from ZODB.TimeStamp import TimeStamp

@@ -16,12 +16,12 @@
 
 import unittest
 from mock import Mock
-from struct import pack, unpack
+from struct import pack
 from .. import NeoUnitTestBase
-from neo.lib.protocol import NodeTypes, ZERO_TID
+from neo.lib.protocol import NodeTypes
 
 from neo.master.transactions import Transaction, TransactionManager
-from neo.master.transactions import packTID, unpackTID, addTID, DelayedError
+from neo.master.transactions import packTID, unpackTID, addTID
 
 class testTransactionManager(NeoUnitTestBase):
 

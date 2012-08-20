@@ -14,11 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
 from neo.lib.protocol import NodeStates, Packets, ProtocolError
-from neo.lib.util import dump
 from . import MasterHandler
-from ..transactions import DelayedError
 
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """

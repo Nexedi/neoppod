@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import re
 import socket
 from binascii import a2b_hex, b2a_hex
 from hashlib import sha1

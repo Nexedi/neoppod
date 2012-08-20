@@ -17,8 +17,6 @@
 from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, Packets, ProtocolError
 from neo.lib.exception import OperationFailure
-from neo.lib.util import dump
-from neo.lib.connector import ConnectorConnectionClosedException
 from neo.lib.pt import PartitionTableException
 from . import BaseServiceHandler
 

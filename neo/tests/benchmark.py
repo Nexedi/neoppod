@@ -1,6 +1,5 @@
 
 import sys
-import email
 import smtplib
 import optparse
 import platform

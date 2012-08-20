@@ -22,8 +22,7 @@ from .. import NeoUnitTestBase, buildUrlFromString, ADDRESS_TYPE
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
-from neo.client.exception import NEOStorageDoesNotExistError
-from neo.lib.protocol import NodeTypes, Packet, Packets, Errors, INVALID_TID, \
+from neo.lib.protocol import NodeTypes, Packets, Errors, \
     INVALID_PARTITION, UUID_NAMESPACES
 from neo.lib.util import makeChecksum, SOCKET_CONNECTORS_DICT
 import time

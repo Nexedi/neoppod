@@ -20,8 +20,6 @@ import ZODB.interfaces
 
 from functools import wraps
 from neo.lib import logging
-from neo.lib.util import add64
-from neo.lib.protocol import ZERO_TID
 from .app import Application
 from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError
 

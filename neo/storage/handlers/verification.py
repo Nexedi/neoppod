@@ -16,7 +16,7 @@
 
 from . import BaseMasterHandler
 from neo.lib import logging
-from neo.lib.protocol import Packets, Errors, ProtocolError, INVALID_TID
+from neo.lib.protocol import Packets, Errors, INVALID_TID
 from neo.lib.util import dump
 from neo.lib.exception import OperationFailure
 

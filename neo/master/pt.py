@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import neo.lib.pt
-from struct import pack, unpack
 from neo.lib.protocol import CellStates, ZERO_TID
 
 

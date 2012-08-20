@@ -15,9 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlite3
-from array import array
 from hashlib import sha1
-import re
 import string
 import traceback
 

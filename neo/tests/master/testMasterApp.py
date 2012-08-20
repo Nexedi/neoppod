@@ -15,10 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
 from .. import NeoUnitTestBase
 from neo.master.app import Application
-from neo.lib.util import p64, u64
 
 class MasterAppTests(NeoUnitTestBase):
 

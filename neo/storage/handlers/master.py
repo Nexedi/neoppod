@@ -16,7 +16,7 @@
 
 from neo.lib import logging
 from neo.lib.util import dump
-from neo.lib.protocol import CellStates, Packets, ProtocolError
+from neo.lib.protocol import Packets, ProtocolError
 from . import BaseMasterHandler
 
 

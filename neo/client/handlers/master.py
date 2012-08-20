@@ -16,7 +16,7 @@
 
 from neo.lib import logging
 from neo.lib.pt import MTPartitionTable as PartitionTable
-from neo.lib.protocol import NodeTypes, NodeStates, Packets, ProtocolError
+from neo.lib.protocol import NodeStates, Packets, ProtocolError
 from neo.lib.util import dump
 from . import BaseHandler, AnswerBaseHandler
 from ..exception import NEOStorageError

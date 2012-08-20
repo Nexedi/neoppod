@@ -16,7 +16,7 @@
 
 from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import bin, p64, u64
+from neo.lib.util import p64, u64
 from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
     UUID_NAMESPACES, ZERO_TID
 

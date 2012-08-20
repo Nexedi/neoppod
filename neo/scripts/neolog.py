@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import bz2, logging, optparse, os, signal, sqlite3, sys, time
+import bz2, optparse, os, signal, sqlite3, time
 from bisect import insort
 from logging import getLevelName
 

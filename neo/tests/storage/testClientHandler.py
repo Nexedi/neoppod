@@ -20,7 +20,7 @@ from collections import deque
 from neo.lib.util import makeChecksum
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
-from neo.storage.transactions import ConflictError, DelayedError
+from neo.storage.transactions import ConflictError
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.lib.protocol import INVALID_PARTITION, INVALID_TID, INVALID_OID
 from neo.lib.protocol import Packets, LockState, ZERO_HASH

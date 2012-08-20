@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import deque
-from functools import wraps
 from neo.lib import logging
 from neo.lib.connection import ClientConnection
 from neo.lib.connector import ConnectorConnectionClosedException

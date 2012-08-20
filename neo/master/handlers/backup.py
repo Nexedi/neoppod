@@ -16,7 +16,7 @@
 
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import CellStates, ZERO_TID
+from neo.lib.protocol import ZERO_TID
 
 class BackupHandler(EventHandler):
     """Handler dedicated to upstream master during BACKINGUP state"""

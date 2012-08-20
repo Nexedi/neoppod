@@ -20,7 +20,7 @@ from neo.lib.protocol import ZERO_TID
 from datetime import timedelta, datetime
 from neo.lib import logging
 from neo.lib.protocol import uuid_str
-from neo.lib.util import dump, u64, p64
+from neo.lib.util import dump, u64
 
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1

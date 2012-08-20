@@ -14,20 +14,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys, weakref
+import sys, weakref
 from time import time
 
 from neo.lib import logging
 from neo.lib.connector import getConnectorHandler
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID, NotReadyError
+from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
 from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
-from neo.lib.util import dump
 
 class StateChangedException(Exception): pass
 

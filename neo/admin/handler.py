@@ -16,7 +16,7 @@
 
 from neo.lib import logging, protocol
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import uuid_str, Packets, Errors
+from neo.lib.protocol import uuid_str, Packets
 from neo.lib.exception import PrimaryFailure
 
 def check_primary_master(func):

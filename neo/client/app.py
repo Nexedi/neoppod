@@ -20,7 +20,6 @@ from neo.lib.locking import Empty
 from random import shuffle
 import heapq
 import time
-import os
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.POSException import ReadConflictError
@@ -38,7 +37,6 @@ from neo.lib.node import NodeManager
 from neo.lib.connector import getConnectorHandler
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
 from .exception import NEOStorageNotFoundError
-from neo.lib.exception import NeoException
 from .handlers import storage, master
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
 from .poll import ThreadedPoll, psThreadedPoll

@@ -15,9 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.protocol import uuid_str, NodeTypes, NodeStates, Packets
-from neo.lib.protocol import NotReadyError, ProtocolError, \
-                              UnexpectedPacketError
+from neo.lib.protocol import uuid_str, NodeTypes, Packets
+from neo.lib.protocol import NotReadyError
 from neo.lib.exception import ElectionFailure
 from neo.lib.handler import EventHandler
 from . import MasterHandler

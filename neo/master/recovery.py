@@ -14,12 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from struct import pack
-
 from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
-from neo.lib.protocol import NotReadyError, ZERO_OID, ZERO_TID
+from neo.lib.protocol import ZERO_OID
 from .handlers import MasterHandler
 
 

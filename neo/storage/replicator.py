@@ -52,8 +52,8 @@ TODO: Packing and replication currently fail when then happen at the same time.
 
 import random
 
-from neo.lib import bootstrap, logging
-from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, NodeStates, \
+from neo.lib import logging
+from neo.lib.protocol import CellStates, NodeTypes, NodeStates, \
     Packets, INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection
 from neo.lib.util import add64, dump

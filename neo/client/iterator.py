@@ -15,8 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ZODB import BaseStorage
-from zope.interface import implements
-import ZODB.interfaces
 from neo.lib.util import u64, add64
 from .exception import NEOStorageCreationUndoneError, NEOStorageNotFoundError
 

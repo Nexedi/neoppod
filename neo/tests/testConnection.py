@@ -25,9 +25,8 @@ from . import DoNothingConnector
 from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets, ParserState, PACKET_HEADER_FORMAT
+from neo.lib.protocol import Packets, PACKET_HEADER_FORMAT
 from . import NeoUnitTestBase
-from neo.lib.util import ReadBuffer
 from neo.lib.locking import Queue
 
 class ConnectionTests(NeoUnitTestBase):

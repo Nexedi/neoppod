@@ -20,15 +20,13 @@ import transaction
 import ZODB
 import socket
 
-from struct import pack, unpack
+from struct import pack
 from neo.neoctl.neoctl import NeoCTL
 from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
-from neo.lib.util import SOCKET_CONNECTORS_DICT
 from . import NEOCluster, NEOFunctionalTest
-from .. import IP_VERSION_FORMAT_DICT
 
 TREE_SIZE = 6
 

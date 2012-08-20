@@ -21,7 +21,6 @@ from neo.storage.app import Application
 from neo.lib.protocol import CellStates
 from collections import deque
 from neo.lib.pt import PartitionTable
-from neo.lib.util import dump
 from neo.storage.exception import AlreadyPendingError
 
 class StorageAppTests(NeoUnitTestBase):

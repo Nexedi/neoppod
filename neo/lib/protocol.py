@@ -17,7 +17,6 @@
 import socket
 import sys
 import traceback
-from socket import inet_ntoa, inet_aton
 from cStringIO import StringIO
 from struct import Struct
 try:

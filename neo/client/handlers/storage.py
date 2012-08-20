@@ -18,7 +18,7 @@ from ZODB.TimeStamp import TimeStamp
 from ZODB.POSException import ConflictError
 
 from neo.lib import logging
-from neo.lib.protocol import NodeTypes, ProtocolError, LockState, ZERO_TID
+from neo.lib.protocol import LockState, ZERO_TID
 from neo.lib.util import dump
 from neo.lib.exception import NodeNotReady
 from . import BaseHandler, AnswerBaseHandler

@@ -15,25 +15,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import random
-import sys
 import time
-import threading
-import transaction
 import unittest
 from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
-from neo.storage.replicator import Replicator
-from neo.storage.transactions import TransactionManager, \
-    DelayedError, ConflictError
-from neo.lib.connection import MTClientConnection
-from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
+from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, Patch, \
     predictable_random
-from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
 
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):

@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import math, os, random, sys, time
+import math, random, sys
 from cStringIO import StringIO
-from persistent.TimeStamp import TimeStamp
 from ZODB.utils import p64, u64
 from ZODB.BaseStorage import TransactionRecord
 from ZODB.FileStorage import FileStorage

@@ -23,7 +23,6 @@ from neo.storage.handlers.master import MasterOperationHandler
 from neo.lib.exception import PrimaryFailure, OperationFailure
 from neo.lib.pt import PartitionTable
 from neo.lib.protocol import CellStates, ProtocolError, Packets
-from neo.lib.protocol import INVALID_TID, INVALID_OID
 
 class StorageMasterHandlerTests(NeoUnitTestBase):
 

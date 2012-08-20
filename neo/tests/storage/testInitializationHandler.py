@@ -15,12 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.lib.protocol import CellStates, ProtocolError
+from neo.lib.protocol import CellStates
 from neo.lib.exception import PrimaryFailure
 
 class StorageInitializationHandlerTests(NeoUnitTestBase):

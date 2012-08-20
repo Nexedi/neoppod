@@ -19,7 +19,7 @@ from mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.node import NodeManager
 from neo.lib.pt import PartitionTable
-from neo.lib.protocol import NodeTypes, NodeStates
+from neo.lib.protocol import NodeTypes
 from neo.client.handlers.master import PrimaryBootstrapHandler
 from neo.client.handlers.master import PrimaryNotificationsHandler, \
        PrimaryAnswersHandler

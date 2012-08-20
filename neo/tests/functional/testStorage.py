@@ -22,7 +22,6 @@ from persistent import Persistent
 from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import ClusterStates, NodeStates
 from ZODB.tests.StorageTestBase import zodb_pickle
-from MySQLdb.constants.ER import NO_SUCH_TABLE
 
 class PObject(Persistent):
 

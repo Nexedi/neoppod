@@ -16,8 +16,7 @@
 
 from binascii import a2b_hex
 import unittest
-from mock import Mock
-from neo.lib.util import add64, dump, p64, u64
+from neo.lib.util import add64, p64, u64
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
 from .. import NeoUnitTestBase
 

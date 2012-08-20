@@ -16,7 +16,6 @@
 
 import unittest
 import transaction
-from persistent import Persistent
 from neo.lib.protocol import NodeStates
 
 from . import NEOCluster, NEOFunctionalTest

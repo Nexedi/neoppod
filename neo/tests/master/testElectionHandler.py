@@ -18,7 +18,7 @@ import unittest
 from mock import Mock
 from neo.lib import protocol
 from .. import NeoUnitTestBase
-from neo.lib.protocol import Packet, NodeTypes, NodeStates
+from neo.lib.protocol import NodeTypes, NodeStates
 from neo.master.handlers.election import ClientElectionHandler, \
         ServerElectionHandler
 from neo.master.app import Application
