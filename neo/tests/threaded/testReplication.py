@@ -20,6 +20,7 @@ import time
 import threading
 import transaction
 import unittest
+from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
@@ -200,6 +201,10 @@ class ReplicationTests(NEOThreadedTest):
         try:
             upstream.start()
             importZODB = upstream.importZODB(random=random)
+            # Do not start with an empty DB so that 'primary_dict' below is not
+            # empty on the first iteration.
+            importZODB(1)
+            upstream.client.setPoll(0)
             backup = NEOCluster(partitions=np, replicas=2, storage_count=4,
                                 upstream=upstream)
             try:
@@ -214,11 +219,10 @@ class ReplicationTests(NEOThreadedTest):
                         p = Patch(upstream.master.tm,
                             _on_commit=onTransactionCommitted)
                     else:
-                        primary_dict = {}
+                        primary_dict = defaultdict(list)
                         for k, v in sorted(backup.master.backup_app
                                            .primary_partition_dict.iteritems()):
-                            primary_dict.setdefault(storage_list.index(v._uuid),
-                                                    []).append(k)
+                            primary_dict[storage_list.index(v._uuid)].append(k)
                         if event % 2:
                             storage = slave(primary_dict).pop()
                         else:

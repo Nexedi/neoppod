@@ -21,9 +21,10 @@ from neo.lib import logging
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.connector import getConnectorHandler
 from neo.lib.exception import PrimaryFailure
+from neo.lib.handler import EventHandler
 from neo.lib.node import NodeManager
-from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets
-from neo.lib.protocol import uuid_str, INVALID_TID, ZERO_TID
+from neo.lib.protocol import CellStates, ClusterStates, \
+    NodeStates, NodeTypes, Packets, uuid_str, INVALID_TID, ZERO_TID
 from neo.lib.util import add64, dump
 from .app import StateChangedException
 from .pt import PartitionTable
@@ -144,26 +145,32 @@ class BackupApplication(object):
                 while pt.getCheckTid(xrange(pt.getPartitions())) < tid:
                     poll(1)
                 last_tid = app.getLastTransaction()
+                handler = EventHandler(app)
                 if tid < last_tid:
                     assert tid != ZERO_TID
                     logging.warning("Truncating at %s (last_tid was %s)",
                         dump(app.backup_tid), dump(last_tid))
-                    p = Packets.AskTruncate(tid)
-                    connection_list = []
-                    for node in app.nm.getStorageList(only_identified=True):
-                        conn = node.getConnection()
-                        conn.ask(p)
-                        connection_list.append(conn)
-                    for conn in connection_list:
-                        while conn.isPending():
-                            poll(1)
-                    app.setLastTransaction(tid)
+                # XXX: We want to go through a recovery phase in order to
+                #      initialize the transaction manager, but this is only
+                #      possible if storages already know that we left backup
+                #      mode. To that purpose, we always send a Truncate packet,
+                #      even if there's nothing to truncate.
+                p = Packets.Truncate(tid)
+                for node in app.nm.getStorageList(only_identified=True):
+                    conn = node.getConnection()
+                    conn.setHandler(handler)
+                    node.setState(NodeStates.TEMPORARILY_DOWN)
+                    # Packets will be sent at the beginning of the recovery
+                    # phase.
+                    conn.notify(p)
+                    conn.abort()
                 # If any error happened before reaching this line, we'd go back
                 # to backup mode, which is the right mode to recover.
                 del app.backup_tid
                 break
             finally:
                 del self.primary_partition_dict, self.tid_list
+                pt.clearReplicating()
 
     def nodeLost(self, node):
         getCellList = self.app.pt.getCellList
@@ -205,9 +212,25 @@ class BackupApplication(object):
                 node_list = []
                 for cell in pt.getCellList(offset, readable=True):
                     node = cell.getNode()
-                    assert node.isConnected()
-                    assert cell.backup_tid < last_max_tid or \
-                           cell.backup_tid == prev_tid
+                    assert node.isConnected(), node
+                    if cell.backup_tid == prev_tid:
+                        # Let's given 4 TID t0,t1,t2,t3: if a cell is only
+                        # modified by t0 & t3 and has all data for t0, 4 values
+                        # are possible for its 'backup_tid' until it replicates
+                        # up to t3: t0, t1, t2 or t3 - 1
+                        # Choosing the smallest one (t0) is easier to implement
+                        # but when leaving backup mode, we would always lose
+                        # data if the last full transaction does not modify
+                        # all partitions. t1 is wrong for the same reason.
+                        # So we have chosen the highest one (t3 - 1).
+                        # t2 should also work but maybe harder to implement.
+                        cell.backup_tid = add64(tid, -1)
+                        logging.debug(
+                            "partition %u: updating backup_tid of %r to %s",
+                            offset, cell, dump(cell.backup_tid))
+                    else:
+                        assert cell.backup_tid < last_max_tid, (
+                            cell.backup_tid, last_max_tid, prev_tid, tid)
                     if app.isStorageReady(node.getUUID()):
                         node_list.append(node)
                 assert node_list

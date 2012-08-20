@@ -58,9 +58,13 @@ class StorageServiceHandler(BaseServiceHandler):
             app.backup_tid))
 
     def askUnfinishedTransactions(self, conn):
-        tm = self.app.tm
-        pending_list = tm.registerForNotification(conn.getUUID())
-        last_tid = tm.getLastTID()
+        app = self.app
+        if app.backup_tid:
+            last_tid = app.pt.getBackupTid()
+            pending_list = ()
+        else:
+            last_tid = app.tm.getLastTID()
+            pending_list = app.tm.registerForNotification(conn.getUUID())
         p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)
 
@@ -98,9 +102,6 @@ class StorageServiceHandler(BaseServiceHandler):
                 raise ProtocolError(str(e))
         logging.debug("%s is up for offset %s", node, offset)
         self.app.broadcastPartitionChanges(cell_list)
-
-    def answerTruncate(self, conn):
-        pass
 
     def answerPack(self, conn, status):
         app = self.app

@@ -48,6 +48,8 @@ class IdentificationHandler(MasterHandler):
             handler = app.client_service_handler
             human_readable_node_type = ' client '
         elif node_type == NodeTypes.STORAGE:
+            if app.cluster_state == ClusterStates.STOPPING_BACKUP:
+                raise NotReadyError
             node_ctor = app.nm.createStorage
             manager = app._current_manager
             if manager is None:

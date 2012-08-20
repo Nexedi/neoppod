@@ -354,16 +354,17 @@ class Replicator(object):
             self.getCurrentConnection().close()
 
     def stop(self):
-        d = None, None
-        # Cancel all replication orders from upstream cluster.
-        for offset in self.replicate_dict.keys():
-            addr, name = self.source_dict.get(offset, d)
-            if name:
-                tid = self.replicate_dict.pop(offset)
-                logging.info('cancel replication of partition %u from %r'
-                             ' up to %s', offset, addr, dump(tid))
         # Close any open connection to an upstream storage,
         # possibly aborting current replication.
         node = self.current_node
         if node is not None is node.getUUID():
             self.cancel()
+        # Cancel all replication orders from upstream cluster.
+        for offset in self.replicate_dict.keys():
+            addr, name = self.source_dict.get(offset, (None, None))
+            if name:
+                tid = self.replicate_dict.pop(offset)
+                logging.info('cancel replication of partition %u from %r'
+                             ' up to %s', offset, addr, dump(tid))
+        # Make UP_TO_DATE cells really UP_TO_DATE
+        self._nextPartition()

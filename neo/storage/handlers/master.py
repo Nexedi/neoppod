@@ -68,10 +68,10 @@ class MasterOperationHandler(BaseMasterHandler):
             dict((p, a and (a, upstream_name))
                  for p, a in source_dict.iteritems()))
 
-    def askTruncate(self, conn, tid):
+    def truncate(self, conn, tid):
         self.app.replicator.cancel()
         self.app.dm.truncate(tid)
-        conn.answer(Packets.AnswerTruncate())
+        conn.close()
 
     def checkPartition(self, conn, *args):
         self.app.checker(*args)

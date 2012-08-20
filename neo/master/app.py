@@ -279,10 +279,6 @@ class Application(object):
         try:
             while True:
                 poll(1)
-        except OperationFailure:
-            # If not operational, send Stop Operation packets to storage
-            # nodes and client nodes. Abort connections to client nodes.
-            logging.critical('No longer operational')
         except StateChangedException, e:
             if e.args[0] != ClusterStates.STARTING_BACKUP:
                 raise
@@ -337,13 +333,20 @@ class Application(object):
             self.runManager(RecoveryManager)
             while True:
                 self.runManager(VerificationManager)
-                if self.backup_tid:
-                    if self.backup_app is None:
-                        raise RuntimeError("No upstream cluster to backup"
-                                           " defined in configuration")
-                    self.backup_app.provideService()
-                else:
+                try:
+                    if self.backup_tid:
+                        if self.backup_app is None:
+                            raise RuntimeError("No upstream cluster to backup"
+                                               " defined in configuration")
+                        self.backup_app.provideService()
+                        # Reset connection with storages (and go through a
+                        # recovery phase) when leaving backup mode in order
+                        # to get correct last oid/tid.
+                        self.runManager(RecoveryManager)
+                        continue
                     self.provideService()
+                except OperationFailure:
+                    logging.critical('No longer operational')
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
                         node.notify(Packets.StopOperation())
@@ -463,8 +466,6 @@ class Application(object):
             while self.tm.hasPending():
                 self.em.poll(1)
         except OperationFailure:
-            # If not operational, send Stop Operation packets to storage
-            # nodes and client nodes. Abort connections to client nodes.
             logging.critical('No longer operational')
 
         logging.info("asking remaining nodes to shutdown")

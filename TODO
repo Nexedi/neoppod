@@ -23,6 +23,9 @@ RC  - Review output of pylint (CODE)
       Consider the need to implement a keep-alive system (packets sent
       automatically when there is no activity on the connection for a period
       of time).
+    - When all cells are OUT_OF_DATE in backup mode, the one with most data
+      could become UP_TO_DATE with appropriate backup_tid, so that the cluster
+      stays operational (FEATURE).
     - Finish renaming UUID into NID everywhere (CODE)
     - Consider using multicast for cluster-wide notifications. (BANDWITH)
       Currently, multi-receivers notifications are sent in unicast to each

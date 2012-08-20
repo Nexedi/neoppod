@@ -436,7 +436,7 @@ class DatabaseManager(object):
     def truncate(self, tid):
         assert tid not in (None, ZERO_TID), tid
         assert self.getBackupTID()
-        self.setBackupTID(tid)
+        self.setBackupTID(None) # XXX
         for partition in xrange(self.getNumPartitions()):
             self._deleteRange(partition, tid)
         self.commit()

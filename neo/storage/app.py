@@ -312,6 +312,9 @@ class Application(object):
                 _poll()
         finally:
             del self.task_queue
+            # XXX: Although no handled exception should happen between
+            #      replicator.populate() and the beginning of this 'try'
+            #      clause, the replicator should be reset in a safer place.
             self.replicator = Replicator(self)
             # Abort any replication, whether we are feeding or out-of-date.
             for node in self.nm.getStorageList(only_identified=True):

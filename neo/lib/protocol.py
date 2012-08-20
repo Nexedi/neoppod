@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (13, 1)
+PROTOCOL_VERSION = (14, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1497,12 +1497,12 @@ class ReplicationDone(Packet):
 
 class Truncate(Packet):
     """
+    XXX: Used for both make storage consistent and leave backup mode
     M -> S
     """
-    _fmt = PStruct('ask_truncate',
+    _fmt = PStruct('truncate',
         PTID('tid'),
     )
-    _answer = PFEmpty
 
 
 StaticRegistry = {}
@@ -1723,7 +1723,7 @@ class Packets(dict):
                     AddTransaction)
     AddObject = register(
                     AddObject)
-    AskTruncate, AnswerTruncate = register(
+    Truncate = register(
                     Truncate)
 
 def Errors():

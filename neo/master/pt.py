@@ -311,11 +311,20 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             for cell in row
             if cell.isReadable())
 
+    def clearReplicating(self):
+        for row in self.partition_list:
+            for cell in row:
+                try:
+                    del cell.replicating
+                except AttributeError:
+                    pass
+
     def setBackupTidDict(self, backup_tid_dict):
         for row in self.partition_list:
             for cell in row:
-                cell.backup_tid = backup_tid_dict.get(cell.getUUID(),
-                                                      ZERO_TID)
+                if cell.isReadable():
+                    cell.backup_tid = backup_tid_dict.get(cell.getUUID(),
+                                                          ZERO_TID)
 
     def getBackupTid(self):
         try:

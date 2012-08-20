@@ -16,7 +16,7 @@
 
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import CellStates
+from neo.lib.protocol import CellStates, ZERO_TID
 
 class BackupHandler(EventHandler):
     """Handler dedicated to upstream master during BACKINGUP state"""
@@ -39,7 +39,10 @@ class BackupHandler(EventHandler):
 
     def answerLastTransaction(self, conn, tid):
         app = self.app
-        app.invalidatePartitions(tid, set(xrange(app.pt.getPartitions())))
+        if tid != ZERO_TID:
+            app.invalidatePartitions(tid, set(xrange(app.pt.getPartitions())))
+        else: # upstream DB is empty
+            assert app.app.getLastTransaction() == tid
 
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
