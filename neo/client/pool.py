@@ -78,7 +78,7 @@ class ConnectionPool(object):
     @profiler_decorator
     def _dropConnections(self):
         """Drop connections."""
-        for node_uuid, conn in self.connection_dict.items():
+        for conn in self.connection_dict.values():
             # Drop first connection which looks not used
             conn.lock()
             try:

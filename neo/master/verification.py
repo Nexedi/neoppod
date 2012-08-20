@@ -142,7 +142,6 @@ class VerificationManager(BaseServiceHandler):
             app.em.poll(0)
 
     def verifyTransaction(self, tid):
-        em = self.app.em
         nm = self.app.nm
         uuid_set = set()
 
@@ -193,7 +192,6 @@ class VerificationManager(BaseServiceHandler):
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
         uuid = conn.getUUID()
-        app = self.app
         if not self._gotAnswerFrom(uuid):
             return
         oid_set = set(oid_list)

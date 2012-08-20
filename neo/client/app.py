@@ -676,7 +676,6 @@ class Application(object):
         append = result.append
         resolved_oid_set = set()
         update = resolved_oid_set.update
-        ttid = txn_context['ttid']
         _handleConflicts = self._handleConflicts
         queue = txn_context['queue']
         conflict_serial_dict = txn_context['conflict_serial_dict']

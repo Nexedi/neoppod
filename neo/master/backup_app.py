@@ -193,7 +193,6 @@ class BackupApplication(object):
         prev_tid = app.getLastTransaction()
         app.setLastTransaction(tid)
         pt = app.pt
-        getByUUID = app.nm.getByUUID
         trigger_set = set()
         untouched_dict = defaultdict(dict)
         for offset in xrange(pt.getPartitions()):
@@ -252,7 +251,6 @@ class BackupApplication(object):
                 replicate_list.append(offset)
         if not replicate_list:
             return
-        getByUUID = self.nm.getByUUID
         getCellList = self.pt.getCellList
         source_dict = {}
         address_set = set()

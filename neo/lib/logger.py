@@ -236,7 +236,6 @@ class NEOLogger(Logger):
 
     def packet(self, connection, packet, outgoing):
         if self._db is not None:
-            ip, port = connection.getAddress()
             self._queue(PacketRecord(
                 created=time(),
                 msg_id=packet._id,

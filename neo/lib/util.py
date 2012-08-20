@@ -144,7 +144,6 @@ class ReadBuffer(object):
         pop_chunk = self.content.popleft
         append_data = chunk_list.append
         to_read = size
-        chunk_len = 0
         # select required chunks
         while to_read > 0:
             chunk_size, chunk_data = pop_chunk()
