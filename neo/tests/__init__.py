@@ -526,7 +526,7 @@ def _fixMockForInspect():
         def f(self):
             pass
     if not inspect.getmembers(A, inspect.ismethod):
-        from mock import Mock, MockCallable
+        from mock import MockCallable
         # _setupSubclassMethodInterceptors is under the FreeBSD license.
         # See pyMock module for the whole license.
         def _setupSubclassMethodInterceptors(self):
