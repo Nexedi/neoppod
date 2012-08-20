@@ -43,7 +43,7 @@ class BootstrapManagerTests(NeoUnitTestBase):
 
     # Tests
     def testConnectionCompleted(self):
-        address=("127.0.0.1", self.master_port)
+        address = ("127.0.0.1", self.master_port)
         conn = self.getFakeConnection(address=address)
         self.bootstrap.current = self.app.nm.createMaster(address=address)
         self.bootstrap.connectionCompleted(conn)
@@ -51,7 +51,7 @@ class BootstrapManagerTests(NeoUnitTestBase):
 
     def testHandleNotReady(self):
         # the primary is not ready
-        address=("127.0.0.1", self.master_port)
+        address = ("127.0.0.1", self.master_port)
         conn = self.getFakeConnection(address=address)
         self.bootstrap.current = self.app.nm.createMaster(address=address)
         self.bootstrap.notReady(conn, '')
