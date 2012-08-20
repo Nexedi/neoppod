@@ -220,10 +220,9 @@ class VerificationManager(BaseServiceHandler):
     def oidNotFound(self, conn, message):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
-        app = self.app
         if not self._gotAnswerFrom(uuid):
             return
-        app._object_present = False
+        self.app._object_present = False
 
     def connectionCompleted(self, conn):
         pass
