@@ -82,7 +82,7 @@ class Replicator(object):
 
     def getCurrentConnection(self):
         node = self.current_node
-        if node is not None and node.isConnected():
+        if node is not None and node.isConnected(True):
             return node.getConnection()
 
     # XXX: We can't replicate unfinished transactions but do we need such
