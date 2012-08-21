@@ -145,7 +145,7 @@ class BackupApplication(object):
                 #      they would be quickly updated at the beginning of the
                 #      RUNNING phase. This may simplify code.
                 # Any unfinished replication from upstream will be truncated.
-                while pt.getCheckTid(xrange(pt.getPartitions())) < tid:
+                while pt.getBackupTid(min) < tid:
                     poll(1)
                 last_tid = app.getLastTransaction()
                 handler = EventHandler(app)

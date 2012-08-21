@@ -325,9 +325,9 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     cell.backup_tid = backup_tid_dict.get(cell.getUUID(),
                                                           ZERO_TID)
 
-    def getBackupTid(self):
+    def getBackupTid(self, mean=max):
         try:
-            return min(max(cell.backup_tid for cell in row if cell.isReadable())
+            return min(mean(x.backup_tid for x in row if x.isReadable())
                        for row in self.partition_list)
         except ValueError:
             return ZERO_TID

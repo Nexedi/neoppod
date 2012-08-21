@@ -50,7 +50,7 @@ class StorageServiceHandler(BaseServiceHandler):
     def askUnfinishedTransactions(self, conn):
         app = self.app
         if app.backup_tid:
-            last_tid = app.pt.getBackupTid()
+            last_tid = app.pt.getBackupTid(min)
             pending_list = ()
         else:
             last_tid = app.tm.getLastTID()
