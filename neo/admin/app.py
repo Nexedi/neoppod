@@ -74,7 +74,7 @@ class Application(object):
     def run(self):
         try:
             self._run()
-        except:
+        except Exception:
             logging.exception('Pre-mortem data:')
             self.log()
             raise
