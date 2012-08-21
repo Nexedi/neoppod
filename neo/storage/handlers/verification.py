@@ -16,7 +16,7 @@
 
 from . import BaseMasterHandler
 from neo.lib import logging
-from neo.lib.protocol import Packets, Errors, INVALID_TID
+from neo.lib.protocol import Packets, Errors, INVALID_TID, ZERO_TID
 from neo.lib.util import dump
 from neo.lib.exception import OperationFailure
 
@@ -48,8 +48,16 @@ class VerificationHandler(BaseMasterHandler):
         app.pt.update(ptid, cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
 
-    def startOperation(self, conn):
+    def startOperation(self, conn, backup):
         self.app.operational = True
+        dm = self.app.dm
+        if backup:
+            if dm.getBackupTID():
+                return
+            tid = dm.getLastIDs()[0] or ZERO_TID
+        else:
+            tid = None
+        dm.setBackupTID(tid)
 
     def stopOperation(self, conn):
         raise OperationFailure('operation stopped')

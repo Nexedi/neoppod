@@ -46,9 +46,6 @@ class InitializationHandler(BaseMasterHandler):
 
         app.dm.setPartitionTable(ptid, cell_list)
 
-    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
-        self.app.dm.setBackupTID(backup_tid)
-
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         # XXX: This is safe to ignore those notifications because all of the
         # following applies:

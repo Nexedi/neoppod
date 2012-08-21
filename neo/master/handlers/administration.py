@@ -135,7 +135,7 @@ class AdministrationHandler(MasterHandler):
             for node in app.nm.getStorageList()
             if node.isPending() and node.getUUID() in uuid_list))
         if node_list:
-            p = Packets.StartOperation()
+            p = Packets.StartOperation(bool(app.backup_tid))
             for node in node_list:
                 node.setRunning()
                 node.notify(p)

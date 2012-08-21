@@ -277,7 +277,6 @@ class Application(object):
 
         # ask node list and partition table
         self.pt.clear()
-        self.master_conn.ask(Packets.AskLastIDs())
         self.master_conn.ask(Packets.AskNodeInformation())
         self.master_conn.ask(Packets.AskPartitionTable())
         while self.master_conn.isPending():

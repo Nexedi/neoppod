@@ -25,7 +25,7 @@ except ImportError:
     pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (14, 1)
+PROTOCOL_VERSION = (15, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -769,9 +769,8 @@ class ReelectPrimary(Packet):
 
 class LastIDs(Packet):
     """
-    Ask the last OID, the last TID and the last Partition Table ID that
-    a storage node stores. Used to recover information. PM -> S, S -> PM.
-    Reply to Ask Last IDs. S -> PM, PM -> S.
+    Ask the last OID, the last TID and the last Partition Table ID so that
+    a master recover. PM -> S, S -> PM.
     """
     _answer = PStruct('answer_last_ids',
         POID('last_oid'),
@@ -820,6 +819,9 @@ class StartOperation(Packet):
     Tell a storage nodes to start an operation. Until a storage node receives
     this message, it must not serve client nodes. PM -> S.
     """
+    _fmt = PStruct('start_operation',
+        PBoolean('backup'),
+    )
 
 class StopOperation(Packet):
     """

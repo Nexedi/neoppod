@@ -32,7 +32,7 @@ class StorageServiceHandler(BaseServiceHandler):
         app.setStorageNotReady(uuid)
         # XXX: what other values could happen ?
         if node.isRunning():
-            conn.notify(Packets.StartOperation())
+            conn.notify(Packets.StartOperation(bool(app.backup_tid)))
 
     def nodeLost(self, conn, node):
         logging.info('storage node lost')

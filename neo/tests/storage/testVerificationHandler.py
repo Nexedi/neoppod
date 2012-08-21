@@ -21,7 +21,7 @@ from neo.lib.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
 from neo.lib.protocol import CellStates, ErrorCodes
-from neo.lib.exception import PrimaryFailure, OperationFailure
+from neo.lib.exception import PrimaryFailure
 from neo.lib.util import p64, u64
 
 class StorageVerificationHandlerTests(NeoUnitTestBase):
@@ -94,16 +94,6 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0].getParam(0), ptid)
         self.assertEqual(calls[0].getParam(1), (cell, ))
-
-    def test_11_startOperation(self):
-        conn = self.getMasterConnection()
-        self.assertFalse(self.app.operational)
-        self.verification.startOperation(conn)
-        self.assertTrue(self.app.operational)
-
-    def test_12_stopOperation(self):
-        conn = self.getMasterConnection()
-        self.assertRaises(OperationFailure, self.verification.stopOperation, conn)
 
     def test_13_askUnfinishedTransactions(self):
         # client connection with no data
