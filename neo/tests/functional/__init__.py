@@ -116,32 +116,6 @@ class PortAllocator(object):
     __del__ = reset
 
 
-class ChildException(KeyboardInterrupt):
-    """Wrap any exception into an exception that is not catched by TestCase.run
-
-    The exception is not wrapped and re-raised immediately if there is no need
-    to wrap.
-    """
-
-    def __init__(self, type, value, tb):
-        code = unittest.TestCase.run.im_func.func_code
-        f = tb.tb_frame
-        while f is not None:
-            if f.f_code is code:
-                break
-            f = f.f_back
-        else:
-            raise type, value, tb
-        KeyboardInterrupt.__init__(self, type, value, tb)
-
-    def __call__(self):
-        """Re-raise wrapped exception"""
-        type, value, tb = self.args
-        if type is KeyboardInterrupt:
-            sys.exit(1)
-        raise type, value, tb
-
-
 class NEOProcess(object):
     pid = 0
 
@@ -171,8 +145,6 @@ class NEOProcess(object):
         self.pid = os.fork()
         if self.pid == 0:
             # Child
-            # prevent child from killing anything
-            del self.__class__.__del__
             try:
                 # release SQLite debug log
                 logging.setup()
@@ -181,9 +153,25 @@ class NEOProcess(object):
                     allocator.reset()
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
-                sys.exit()
+                status = 0
+            except SystemExit, e:
+                status = e.code
+                if status is None:
+                    status = 0
+            except KeyboardInterrupt:
+                status = 1
             except:
-                raise ChildException(*sys.exc_info())
+                status = -1
+                traceback.print_exc()
+            finally:
+                # prevent child from killing anything (cf __del__), or
+                # running any other cleanup code normally done by the parent
+                try:
+                    os._exit(status)
+                except:
+                    print >>sys.stderr, status
+                finally:
+                    os._exit(1)
         logging.info('pid %u: %s %s',
             self.pid, command, ' '.join(map(repr, args)))
 
@@ -410,6 +398,14 @@ class NEOCluster(object):
         time.sleep(0.5)
         if error_list:
             raise NodeProcessError('\n'.join(error_list))
+
+    def waitAll(self):
+        for process_list in self.process_dict.itervalues():
+            for process in process_list:
+                try:
+                    process.wait()
+                except (AlreadyStopped, NodeProcessError):
+                    pass
 
     def getNEOCTL(self):
         return self.neoctl
@@ -662,12 +658,6 @@ class NEOFunctionalTest(NeoTestBase):
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         return temp_dir
-
-    def run(self, *args, **kw):
-        try:
-            return super(NEOFunctionalTest, self).run(*args, **kw)
-        except ChildException, e:
-            e()
 
     def runWithTimeout(self, timeout, method, args=(), kwargs=None):
         if kwargs is None:

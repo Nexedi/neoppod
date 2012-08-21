@@ -49,9 +49,9 @@ def main():
     try:
         cluster.run()
         logging.info("Cluster running ...")
-        signal.pause()
+        cluster.waitAll()
     finally:
         cluster.stop()
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
