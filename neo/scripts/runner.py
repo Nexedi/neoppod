@@ -23,7 +23,7 @@ import sys
 import neo
 import os
 
-from neo.tests import getTempDirectory
+from neo.tests import getTempDirectory, __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
 
 # list of test modules
@@ -258,9 +258,31 @@ class NeoTestRunner(unittest.TestResult):
 class TestRunner(BenchmarkRunner):
 
     def add_options(self, parser):
-        parser.add_option('-f', '--functional', action='store_true')
-        parser.add_option('-u', '--unit', action='store_true')
-        parser.add_option('-z', '--zodb', action='store_true')
+        parser.add_option('-f', '--functional', action='store_true',
+            help='Functional tests')
+        parser.add_option('-u', '--unit', action='store_true',
+            help='Unit & threaded tests')
+        parser.add_option('-z', '--zodb', action='store_true',
+            help='ZODB test suite running on a NEO')
+        parser.format_epilog = lambda _: """
+Environment Variables:
+  NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,
+                              MySQL otherwise.
+
+  MySQL specific:
+    NEO_DB_PREFIX             default: %(DB_PREFIX)s
+    NEO_DB_ADMIN              default: %(DB_ADMIN)s
+    NEO_DB_PASSWD             default: %(DB_PASSWD)s
+    NEO_DB_USER               default: %(DB_USER)s
+
+  ZODB tests:
+    NEO_TEST_ZODB_FUNCTIONAL  Clusters are threaded by default. If true,
+                              they are built like in functional tests.
+    NEO_TEST_ZODB_MASTERS     default: 1
+    NEO_TEST_ZODB_PARTITIONS  default: 1
+    NEO_TEST_ZODB_REPLICAS    default: 0
+    NEO_TEST_ZODB_STORAGES    default: 1
+""" % neo_tests__dict__
 
     def load_options(self, options, args):
         if not (options.unit or options.functional or options.zodb or args):
