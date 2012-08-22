@@ -150,6 +150,9 @@ class NEOLogger(Logger):
             if filename:
                 self._db = sqlite3.connect(filename, check_same_thread=False)
                 q = self._db.execute
+                if self._max_size is None:
+                    q("PRAGMA synchronous = OFF")
+                    q("PRAGMA journal_mode = MEMORY")
                 if reset:
                     for t in 'log', 'packet':
                         q('DROP TABLE IF EXISTS ' + t)
