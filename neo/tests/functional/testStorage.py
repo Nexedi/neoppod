@@ -42,13 +42,6 @@ class StorageTests(NEOFunctionalTest):
             self.neo.stop()
         NEOFunctionalTest._tearDown(self, success)
 
-    def queryCount(self, db, query):
-        try:
-            db.query(query)
-        except AttributeError:
-            return db.execute(query).fetchone()[0]
-        return db.store_result().fetch_row()[0][0]
-
     def __setup(self, storage_number=2, pending_number=0, replicas=1,
             partitions=10, master_count=2):
         # create a neo cluster
@@ -81,18 +74,16 @@ class StorageTests(NEOFunctionalTest):
         db = self.neo.getSQLConnection(db_name)
         # wait for the sql transaction to be commited
         def callback(last_try):
-            object_number = self.queryCount(db, 'select count(*) from obj')
+            # One revision per object and two for the root, before and after
+            (object_number,), = db.query('select count(*) from obj')
             return object_number == OBJECT_NUMBER + 2, object_number
         self.neo.expectCondition(callback)
         # no more temporarily objects
-        t_objects = self.queryCount(db, 'select count(*) from tobj')
+        (t_objects,), = db.query('select count(*) from tobj')
         self.assertEqual(t_objects, 0)
-        # One revision per object and two for the root, before and after
-        revisions = self.queryCount(db, 'select count(*) from obj')
-        self.assertEqual(revisions, OBJECT_NUMBER + 2)
         # One object more for the root
         query = 'select count(*) from (select * from obj group by oid) as t'
-        objects = self.queryCount(db, query)
+        (objects,), = db.query(query)
         self.assertEqual(objects, OBJECT_NUMBER + 1)
         # Check object content
         db, conn = self.neo.getZODBConnection()

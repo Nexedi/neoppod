@@ -41,6 +41,7 @@ from .. import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
         ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
 from ..cluster import SocketLock
 from neo.client.Storage import Storage
+from neo.storage.database import buildDatabaseManager
 
 command_dict = {
     NodeTypes.MASTER: 'neomaster',
@@ -426,13 +427,7 @@ class NEOCluster(object):
 
     def getSQLConnection(self, db):
         assert db in self.db_list
-        if self.adapter == 'MySQL':
-            conn = MySQLdb.Connect(user=self.db_user, passwd=self.db_password,
-                                   db=db)
-            conn.autocommit(True)
-        elif self.adapter == 'SQLite':
-            conn = sqlite3.connect(self.db_template % db, isolation_level=None)
-        return conn
+        return buildDatabaseManager(self.adapter, (self.db_template % db,))
 
     def getMasterProcessList(self):
         return self.process_dict.get(NodeTypes.MASTER)

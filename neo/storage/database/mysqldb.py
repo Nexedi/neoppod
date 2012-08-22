@@ -52,8 +52,8 @@ class MySQLDatabaseManager(DatabaseManager):
     # (tested with testOudatedCellsOnDownStorage).
     _use_partition = False
 
-    def __init__(self, database, wait):
-        super(MySQLDatabaseManager, self).__init__(database, wait)
+    def __init__(self, *args, **kw):
+        super(MySQLDatabaseManager, self).__init__(*args, **kw)
         self.conn = None
         self._config = {}
         self._connect()
