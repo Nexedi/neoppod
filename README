@@ -14,9 +14,9 @@ A NEO cluster is composed of the following types of nodes:
 
 - "storage" nodes (mandatory, 1 or more)
 
-  Stores data in a MySQL database, preserving history. All available storage
-  nodes are in use simultaneously. This offers redundancy and data distribution.
-  Other storage backends than MySQL are considered for future release.
+  Stores data, preserving history. All available storage nodes are in use
+  simultaneously. This offers redundancy and data distribution.
+  Available backends: MySQL, SQLite
 
 - "admin" nodes (mandatory for startup, optional after)
 
@@ -56,29 +56,43 @@ Requirements
 
 - Python 2.6.x or 2.7.x
 
-- For storage nodes:
+- For storage nodes using MySQL backend:
 
   - MySQLdb: http://sourceforge.net/projects/mysql-python
 
-- For client nodes: ZODB 3.10.x but it should work with ZODB 3.9.x
+- For client nodes: ZODB 3.9.x or later
 
 Installation
 ============
 
-a. Make neo directory available for python to import (for example, by
+a. NEO can be installed like any other egg (see setup.py). Or you can simply
+   make `neo` directory available for Python to import (for example, by
    adding its container directory to the PYTHONPATH environment variable).
 
-b. Choose a cluster name and setup a MySQL database
+b. Write a neo.conf file like the example provided. If you use MySQL,
+   you'll also need create 1 database per storage node.
 
 c. Start all required nodes::
 
-    neomaster --cluster=<cluster name>
-    neostorage --cluster=<cluster name> --database=user:passwd@db
-    neoadmin --cluster=<cluster name>
+    $ neomaster -f neo.conf
+    $ neostorage -f neo.conf -s storage1
+    $ neostorage -f neo.conf -s storage2
+    $ neoadmin -f neo.conf
 
-d. Tell the cluster it can provide service::
+d. Tell the cluster to initialize storage nodes::
 
-    neoctl -a <admin> start
+    $ neoctl -a <admin> start
+
+e. Clients can connect when the cluster is in RUNNING state::
+
+    $ neoctl -a <admin> print cluster
+    RUNNING
+
+f. See `neomigrate` command to import an existing FileStorage database,
+   or `neoctl` command for more administrative tasks.
+
+Alternatively, you can use `neosimple` command to quickly setup a cluster for
+testing.
 
 How to use
 ==========
@@ -134,6 +148,23 @@ This can also be done manually, which helps if your cluster is in bad state:
    don't become in OUT_OF_DATE state.
 - Next stop remaining nodes with a SIGINT or SIGTERM.
 
+Master-slave asynchronous replication
+-------------------------------------
+
+This is the recommanded way to backup a NEO cluster.
+Once a cluster with appropriate `upstream_cluster` & `upstream_masters`
+configuration is started, you can switch it into backup mode
+using::
+
+  neoctl -a <admin> set cluster STARTING_BACKUP
+
+It remembers it is in such mode when it is stopped, and it can be put back into
+normal mode (RUNNING)  by setting it into STOPPING_BACKUP state.
+
+Packs are currently not replicated, which means packing should always be done
+up to a TID that is already fully replicated, so that the backup cluster has a
+full history (and not random holes).
+
 Deployment
 ==========
 
@@ -145,15 +176,15 @@ NEO has no built-in deployment features such as process daemonization. We use
 
   [program:storage_01]
   priority=10
-  command=neostorage -c neo -s storage_01 -f /neo/neo.conf
+  command=neostorage -s storage_01 -f /neo/neo.conf
 
   [program:master_01]
   priority=20
-  command=neomaster -c neo -s master_01 -f /neo/neo.conf
+  command=neomaster -s master_01 -f /neo/neo.conf
 
   [program:admin]
   priority=20
-  command=neoadmin -c neo -s admin -f /neo/neo.conf
+  command=neoadmin -s admin -f /neo/neo.conf
 
 Developers
 ==========

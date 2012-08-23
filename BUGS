@@ -1,0 +1,30 @@
+Although NEO is considered ready for production use in most cases, there are
+a few bugs to know because they concern basic features of ZODB, or promised
+features of NEO.
+All the listed bugs will be fixed with high priority.
+
+Conflict resolution not fully implemented
+-----------------------------------------
+
+When a cluster has several storage nodes, so-called 'deadlock avoidance' may
+happen to in order to resolve conflicts. In such cases, conflicts will not be
+resolved even if your _p_resolveConflict() method would succeed, leading to a
+normal ConflictError.
+Although this should happen rarely enough not to affect performance, this can
+be an issue if your application can't afford restarting the transaction,
+e.g. because it interacted with external environment.
+
+Master failure not recovered by clients
+---------------------------------------
+
+After a master failure, clients are stuck in a bad state. In particular, caches
+are not flushed, which could lead to data corruption if they reconnect a master.
+This makes secondary masters mostly useless for the moment.
+
+Storage failure or update may lead to POSException or break undoLog()
+---------------------------------------------------------------------
+
+Storage nodes are only queried once at most and if all (for the requested
+partition) failed, the client raises instead of asking the master whether it
+had an up-to-date partition table (and retry if useful).
+In the case of undoLog(), incomplete results may be returned.

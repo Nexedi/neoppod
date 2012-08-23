@@ -195,7 +195,7 @@ class TerminalNeoCTL(object):
 
     def checkReplicas(self, params):
         """
-          Test whether partitions have corrupted meta
+          Test whether partitions have corrupted metadata
 
           Any corrupted cell is put in CORRUPTED state, possibly make the
           cluster non operational.
