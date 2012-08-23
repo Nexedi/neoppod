@@ -113,7 +113,7 @@ class ClientApplicationTests(NeoUnitTestBase):
     def makeOID(self, value=None):
         from random import randint
         if value is None:
-            value = randint(0, 255)
+            value = randint(1, 255)
         return '\00' * 7 + chr(value)
     makeTID = makeOID
 
