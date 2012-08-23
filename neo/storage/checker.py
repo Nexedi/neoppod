@@ -104,11 +104,16 @@ class Checker(object):
         self.next_oid = None
         self.partition = partition
         self.source = source
-        args = partition, CHECK_COUNT, min_tid, max_tid
-        p = Packets.AskCheckTIDRange(*args)
-        for conn, identified in self.conn_dict.items():
-            self.conn_dict[conn] = conn.ask(p) if identified else None
-        self.conn_dict[None] = app.dm.checkTIDRange(*args)
+        def start():
+            if app.tm.isLockedTid(max_tid):
+                app.queueEvent(start)
+                return
+            args = partition, CHECK_COUNT, min_tid, max_tid
+            p = Packets.AskCheckTIDRange(*args)
+            for conn, identified in self.conn_dict.items():
+                self.conn_dict[conn] = conn.ask(p) if identified else None
+            self.conn_dict[None] = app.dm.checkTIDRange(*args)
+        start()
 
     def connected(self, node):
         conn = node.getConnection()

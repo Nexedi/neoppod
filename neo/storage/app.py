@@ -338,9 +338,9 @@ class Application(object):
             if not node.isHidden():
                 break
 
-    def queueEvent(self, some_callable, conn, args, key=None,
+    def queueEvent(self, some_callable, conn=None, args=(), key=None,
             raise_on_duplicate=True):
-        msg_id = conn.getPeerId()
+        msg_id = None if conn is None else conn.getPeerId()
         event_queue_dict = self.event_queue_dict
         if raise_on_duplicate and key in event_queue_dict:
             raise AlreadyPendingError()
@@ -362,14 +362,15 @@ class Application(object):
                 event_queue_dict[key] -= 1
                 if event_queue_dict[key] == 0:
                     del event_queue_dict[key]
-            if conn.isClosed():
-                continue
-            orig_msg_id = conn.getPeerId()
-            try:
-                conn.setPeerId(msg_id)
-                some_callable(conn, *args)
-            finally:
-                conn.setPeerId(orig_msg_id)
+            if conn is None:
+                some_callable(*args)
+            elif not conn.isClosed():
+                orig_msg_id = conn.getPeerId()
+                try:
+                    conn.setPeerId(msg_id)
+                    some_callable(conn, *args)
+                finally:
+                    conn.setPeerId(orig_msg_id)
 
     def logQueuedEvents(self):
         if self.event_queue is None:

@@ -144,29 +144,36 @@ class StorageOperationHandler(EventHandler):
 
     @checkFeedingConnection(check=True)
     def askCheckTIDRange(self, conn, *args):
+        app = self.app
+        if app.tm.isLockedTid(args[3]): # max_tid
+            app.queueEvent(self.askCheckTIDRange, conn, args)
+            return
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         def check():
-            r = self.app.dm.checkTIDRange(*args)
+            r = app.dm.checkTIDRange(*args)
             try:
                 conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectorConnectionClosedException):
                 pass
             yield
-        self.app.newTask(check())
+        app.newTask(check())
 
     @checkFeedingConnection(check=True)
     def askCheckSerialRange(self, conn, *args):
+        app = self.app
+        if app.tm.isLockedTid(args[3]): # max_tid
+            raise ProtocolError("transactions must be checked before objects")
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         def check():
-            r = self.app.dm.checkSerialRange(*args)
+            r = app.dm.checkSerialRange(*args)
             try:
                 conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectorConnectionClosedException):
                 pass
             yield
-        self.app.newTask(check())
+        app.newTask(check())
 
     @checkFeedingConnection(check=False)
     def askFetchTransactions(self, conn, partition, length, min_tid, max_tid,
