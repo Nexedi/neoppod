@@ -162,7 +162,7 @@ class AdministrationHandler(MasterHandler):
     def checkReplicas(self, conn, partition_dict, min_tid, max_tid):
         app = self.app
         pt = app.pt
-        backingup = app.cluster_state == ClusterStates.BACKINGUP
+        backingup = bool(app.backup_tid)
         if not max_tid:
             max_tid = pt.getCheckTid(partition_dict) if backingup else \
                 app.getLastTransaction()
