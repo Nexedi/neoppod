@@ -19,9 +19,8 @@ from mock import Mock
 from struct import pack
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes
-
+from neo.lib.util import packTID, unpackTID, addTID
 from neo.master.transactions import Transaction, TransactionManager
-from neo.master.transactions import packTID, unpackTID, addTID
 
 class testTransactionManager(NeoUnitTestBase):
 
@@ -192,8 +191,8 @@ class testTransactionManager(NeoUnitTestBase):
 
         self.assertEqual(unpackTID(min_tid), min_unpacked_tid)
         self.assertEqual(unpackTID(max_tid), max_unpacked_tid)
-        self.assertEqual(packTID(min_unpacked_tid), min_tid)
-        self.assertEqual(packTID(max_unpacked_tid), max_tid)
+        self.assertEqual(packTID(*min_unpacked_tid), min_tid)
+        self.assertEqual(packTID(*max_unpacked_tid), max_tid)
 
         self.assertEqual(addTID(min_tid, 1), pack('!LL', 0, 1))
         self.assertEqual(addTID(pack('!LL', 0, 2**32 - 1), 1),
@@ -202,7 +201,7 @@ class testTransactionManager(NeoUnitTestBase):
             pack('!LL', 2, 0))
         # Check impossible dates are avoided (2010/11/31 doesn't exist)
         self.assertEqual(
-            unpackTID(addTID(packTID(((2010, 11, 30, 23, 59), 2**32 - 1)), 1)),
+            unpackTID(addTID(packTID((2010, 11, 30, 23, 59), 2**32 - 1), 1)),
             ((2010, 12, 1, 0, 0), 0))
 
     def testTransactionLock(self):

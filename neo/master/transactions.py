@@ -14,79 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from time import time, gmtime
+from time import time
 from struct import pack, unpack
-from neo.lib.protocol import ZERO_TID
-from datetime import timedelta, datetime
 from neo.lib import logging
-from neo.lib.protocol import uuid_str
-from neo.lib.util import dump, u64
-
-TID_LOW_OVERFLOW = 2**32
-TID_LOW_MAX = TID_LOW_OVERFLOW - 1
-SECOND_PER_TID_LOW = 60.0 / TID_LOW_OVERFLOW
-TID_CHUNK_RULES = (
-    (-1900, 0),
-    (-1, 12),
-    (-1, 31),
-    (0, 24),
-    (0, 60),
-)
-
-def packTID(utid):
-    """
-    Pack given 2-tuple containing:
-    - a 5-tuple containing year, month, day, hour and minute
-    - seconds scaled to 60:2**32
-    into a 64 bits TID.
-    """
-    higher, lower = utid
-    assert len(higher) == len(TID_CHUNK_RULES), higher
-    packed_higher = 0
-    for value, (offset, multiplicator) in zip(higher, TID_CHUNK_RULES):
-        assert isinstance(value, (int, long)), value
-        value += offset
-        assert 0 <= value, (value, offset, multiplicator)
-        assert multiplicator == 0 or value < multiplicator, (value,
-            offset, multiplicator)
-        packed_higher *= multiplicator
-        packed_higher += value
-    # If the machine is configured in such way that gmtime() returns leap
-    # seconds (e.g. TZ=right/UTC), then the best we can do is to use
-    # TID_LOW_MAX, because TID format was not designed to support them.
-    # For more information about leap seconds on Unix, see:
-    #   http://en.wikipedia.org/wiki/Unix_time
-    #   http://www.madore.org/~david/computers/unix-leap-seconds.html
-    return pack('!LL', packed_higher, min(lower, TID_LOW_MAX))
-
-def unpackTID(ptid):
-    """
-    Unpack given 64 bits TID in to a 2-tuple containing:
-    - a 5-tuple containing year, month, day, hour and minute
-    - seconds scaled to 60:2**32
-    """
-    packed_higher, lower = unpack('!LL', ptid)
-    higher = []
-    append = higher.append
-    for offset, multiplicator in reversed(TID_CHUNK_RULES):
-        if multiplicator:
-            packed_higher, value = divmod(packed_higher, multiplicator)
-        else:
-            packed_higher, value = 0, packed_higher
-        append(value - offset)
-    higher.reverse()
-    return (tuple(higher), lower)
-
-def addTID(ptid, offset):
-    """
-    Offset given packed TID.
-    """
-    higher, lower = unpackTID(ptid)
-    high_offset, lower = divmod(lower + offset, TID_LOW_OVERFLOW)
-    if high_offset:
-        d = datetime(*higher) + timedelta(0, 60 * high_offset)
-        higher = (d.year, d.month, d.day, d.hour, d.minute)
-    return packTID((higher, lower))
+from neo.lib.protocol import uuid_str, ZERO_TID
+from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class DelayedError(Exception):
     pass
@@ -274,13 +206,7 @@ class TransactionManager(object):
         When constraints allow, prefer decreasing generated TID, to avoid
         fast-forwarding to future dates.
         """
-        tm = time()
-        gmt = gmtime(tm)
-        tid = packTID((
-            (gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
-                gmt.tm_min),
-            int((gmt.tm_sec + (tm - int(tm))) / SECOND_PER_TID_LOW)
-        ))
+        tid = tidFromTime(time())
         min_tid = self._last_tid
         if tid <= min_tid:
             tid  = addTID(min_tid, 1)

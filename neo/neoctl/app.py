@@ -16,7 +16,7 @@
 
 from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import p64, u64
+from neo.lib.util import p64, u64, tidFromTime
 from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
     UUID_NAMESPACES, ZERO_TID
 
@@ -58,6 +58,8 @@ class TerminalNeoCTL(object):
         return getattr(ClusterStates, value.upper())
 
     def asTID(self, value):
+        if '.' in value:
+            return tidFromTime(float(value))
         return p64(int(value, 0))
 
     asNode = staticmethod(uuid_int)
@@ -288,7 +290,8 @@ class Application(object):
 
     def usage(self, message):
         output_list = (message, 'Available commands:', self._usage(action_dict),
-            "TID arguments must be integers, e.g. '257684787499560686 or"
-            " '0x3937af2eeeeeeee' for 2012-01-01 12:34:56 UTC")
+            "TID arguments can be either integers or timestamps as floats,"
+            " e.g. '257684787499560686', '0x3937af2eeeeeeee' or '1325421296.'"
+            " for 2012-01-01 12:34:56 UTC")
         return '\n'.join(output_list)
 
