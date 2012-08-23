@@ -136,11 +136,6 @@ class PartitionTable(object):
     def getConnectedNodeList(self):
         return [node for node in self.getNodeSet() if node.isConnected()]
 
-    def getNodeList(self):
-        """Return all used nodes."""
-        return [node for node, count in self.count_dict.iteritems() \
-                if count > 0]
-
     def getCellList(self, offset, readable=False):
         if readable:
             return filter(Cell.isReadable, self.partition_list[offset])
@@ -344,7 +339,3 @@ class MTPartitionTable(PartitionTable):
     @thread_safe
     def operational(self, *args, **kwargs):
         return PartitionTable.operational(self, *args, **kwargs)
-
-    @thread_safe
-    def getNodeList(self, *args, **kwargs):
-        return PartitionTable.getNodeList(self, *args, **kwargs)

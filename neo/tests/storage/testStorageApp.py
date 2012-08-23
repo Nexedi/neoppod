@@ -47,14 +47,14 @@ class StorageAppTests(NeoUnitTestBase):
         num_partitions = 3
         num_replicas = 2
         self.app.pt = PartitionTable(num_partitions, num_replicas)
-        self.assertEqual(self.app.pt.getNodeList(), [])
+        self.assertFalse(self.app.pt.getNodeSet())
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):
             self.assertFalse(self.app.pt.hasOffset(x))
 
         # load an empty table
         self.app.loadPartitionTable()
-        self.assertEqual(self.app.pt.getNodeList(), [])
+        self.assertFalse(self.app.pt.getNodeSet())
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):
             self.assertFalse(self.app.pt.hasOffset(x))
@@ -68,7 +68,7 @@ class StorageAppTests(NeoUnitTestBase):
 
         self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
         self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
-        self.assertEqual(len(self.app.pt.getNodeList()), 2)
+        self.assertEqual(len(self.app.pt.getNodeSet()), 2)
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):
             if x == 0:
@@ -77,7 +77,7 @@ class StorageAppTests(NeoUnitTestBase):
                 self.assertFalse(self.app.pt.hasOffset(x))
         # load an empty table, everything removed
         self.app.loadPartitionTable()
-        self.assertEqual(self.app.pt.getNodeList(), [])
+        self.assertFalse(self.app.pt.getNodeSet())
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):
             self.assertFalse(self.app.pt.hasOffset(x))
@@ -85,7 +85,7 @@ class StorageAppTests(NeoUnitTestBase):
         # add some node
         self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
         self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
-        self.assertEqual(len(self.app.pt.getNodeList()), 2)
+        self.assertEqual(len(self.app.pt.getNodeSet()), 2)
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):
             if x == 0:

@@ -240,7 +240,7 @@ class PartitionTableTests(NeoUnitTestBase):
             self.assertEqual(len(part), 0)
         self.assertEqual(len(pt.count_dict), 0)
 
-    def test_07_getNodeList(self):
+    def test_07_getNodeSet(self):
         num_partitions = 5
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
@@ -263,12 +263,8 @@ class PartitionTableTests(NeoUnitTestBase):
         pt.setCell(0, sn4, CellStates.DISCARDED) # won't be added
         # must get only two node as feeding and discarded not taken
         # into account
-        self.assertEqual(len(pt.getNodeList()), 2)
-        nodes = pt.getNodeList()
-        self.assertTrue(sn1 in nodes)
-        self.assertTrue(sn2 in nodes)
-        self.assertTrue(sn3 not in nodes)
-        self.assertTrue(sn4 not in nodes)
+        self.assertEqual(pt.getNodeSet(True), set((sn1, sn3)))
+        self.assertEqual(len(pt.getNodeSet()), 3)
 
     def test_08_filled(self):
         num_partitions = 5

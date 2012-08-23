@@ -40,7 +40,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
             self.assertEqual(len(part), 0)
         self.assertEqual(len(pt.count_dict), 0)
         # no nodes or cells for now
-        self.assertEqual(len(pt.getNodeList()), 0)
+        self.assertFalse(pt.getNodeSet())
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.getCellList(x)), 0)
             self.assertEqual(len(pt.getCellList(x, True)), 0)
@@ -209,7 +209,8 @@ class MasterPartitionTableTests(NeoUnitTestBase):
 
     def checkPT(self, pt, exclude_empty=False):
         new_pt = PartitionTable(pt.np, pt.nr)
-        new_pt.make(pt.getNodeList() if exclude_empty else pt.count_dict)
+        new_pt.make(node for node, count in pt.count_dict.iteritems()
+                         if count or not exclude_empty)
         self.assertEqual(self._pt_states(pt), self._pt_states(new_pt))
 
     def update(self, pt, change_list=None):

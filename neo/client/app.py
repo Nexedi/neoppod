@@ -898,12 +898,10 @@ class Application(object):
         # Each storage node will return TIDs only for UP_TO_DATE state and
         # FEEDING state cells
         pt = self.getPartitionTable()
-        storage_node_list = pt.getNodeList()
-
         queue = self._getThreadQueue()
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         tid_set = set()
-        for storage_node in storage_node_list:
+        for storage_node in pt.getNodeSet(True):
             conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue

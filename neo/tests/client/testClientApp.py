@@ -725,7 +725,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             return conn
         app.dispatcher = Dispatcher()
         app.pt = Mock({
-            'getNodeList': (Mock(), Mock()),
+            'getNodeSet': (Mock(), Mock()),
         })
         app.cp = Mock({
             'getConnForNode': ReturnValues(answerTIDs(p1), answerTIDs(p2)),
