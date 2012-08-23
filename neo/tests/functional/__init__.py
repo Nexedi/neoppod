@@ -237,7 +237,7 @@ class NEOCluster(object):
                  db_user=DB_USER, db_password='', name=None,
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
-                 address_type=ADDRESS_TYPE, bind_ip=None, logfile=True,
+                 address_type=ADDRESS_TYPE, bind_ip=None, logger=True,
         ):
         if not adapter:
             adapter = 'MySQL'
@@ -274,14 +274,14 @@ class NEOCluster(object):
                 buildUrlFromString(self.local_ip), x, )
                 for x in master_node_list)
         # create admin node
-        self._newProcess(NodeTypes.ADMIN, logfile and 'admin', admin_port)
+        self._newProcess(NodeTypes.ADMIN, logger and 'admin', admin_port)
         # create master nodes
         for i, port in enumerate(master_node_list):
-            self._newProcess(NodeTypes.MASTER, logfile and 'master_%u' % i,
+            self._newProcess(NodeTypes.MASTER, logger and 'master_%u' % i,
                              port, partitions=partitions, replicas=replicas)
         # create storage nodes
         for i, db in enumerate(db_list):
-            self._newProcess(NodeTypes.STORAGE, logfile and 'storage_%u' % i,
+            self._newProcess(NodeTypes.STORAGE, logger and 'storage_%u' % i,
                              0, adapter=adapter, database=self.db_template(db))
         # create neoctl
         self.neoctl = NeoCTL((self.local_ip, admin_port))
