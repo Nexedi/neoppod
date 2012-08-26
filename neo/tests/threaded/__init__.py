@@ -743,8 +743,8 @@ class NEOCluster(object):
             raise
 
     def extraCellSortKey(self, key):
-        return Patch(self.client.cp, _getCellSortKey=lambda orig, *args:
-            (orig(*args), key(*args)))
+        return Patch(self.client.cp, getCellSortKey=lambda orig, cell:
+            (orig(cell), key(cell)))
 
 
 class NEOThreadedTest(NeoTestBase):

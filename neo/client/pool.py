@@ -95,25 +95,17 @@ class ConnectionPool(object):
 
     @profiler_decorator
     def notifyFailure(self, node):
-        self._notifyFailure(node.getUUID(), time.time() + MAX_FAILURE_AGE)
-
-    def _notifyFailure(self, uuid, at):
-        self.node_failure_dict[uuid] = at
+        self.node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE
 
     @profiler_decorator
     def getCellSortKey(self, cell):
-        return self._getCellSortKey(cell.getUUID(), time.time())
-
-    def _getCellSortKey(self, uuid, now):
+        uuid = cell.getUUID()
         if uuid in self.connection_dict:
-            result = CELL_CONNECTED
-        else:
-            failure = self.node_failure_dict.get(uuid)
-            if failure is None or failure < now:
-                result = CELL_GOOD
-            else:
-                result = CELL_FAILED
-        return result
+            return CELL_CONNECTED
+        failure = self.node_failure_dict.get(uuid)
+        if failure is None or failure < time.time():
+            return CELL_GOOD
+        return CELL_FAILED
 
     @profiler_decorator
     def getConnForCell(self, cell):

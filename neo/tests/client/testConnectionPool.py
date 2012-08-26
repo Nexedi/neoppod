@@ -14,12 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
+import time, unittest
 from mock import Mock, ReturnValues
 
 from .. import NeoUnitTestBase
 from neo.client.app import ConnectionPool
 from neo.client.exception import NEOStorageError
+from neo.client import pool
 
 class ConnectionPoolTests(NeoUnitTestBase):
 
@@ -47,16 +48,22 @@ class ConnectionPoolTests(NeoUnitTestBase):
     # TODO: test getConnForNode (requires splitting complex functionalities)
 
     def test_CellSortKey(self):
-        pool = ConnectionPool(None)
+        cp = ConnectionPool(None)
         node_uuid_1 = self.getStorageUUID()
         node_uuid_2 = self.getStorageUUID()
         node_uuid_3 = self.getStorageUUID()
         # We are connected to node 1
-        pool.connection_dict[node_uuid_1] = None
+        cp.connection_dict[node_uuid_1] = None
+        def uuid_now(func, uuid, now):
+            pool.time = Mock({'time': now})
+            try:
+                return func(Mock({'getUUID': uuid}))
+            finally:
+                pool.time = time
         # A connection to node 3 failed, will be forgotten at 5
-        pool._notifyFailure(node_uuid_3, 5)
-        getCellSortKey = pool._getCellSortKey
-
+        uuid_now(cp.notifyFailure, node_uuid_3, 5 - pool.MAX_FAILURE_AGE)
+        def getCellSortKey(*args):
+            return uuid_now(cp.getCellSortKey, *args)
         # At 0, key values are not ambiguous
         self.assertTrue(getCellSortKey(node_uuid_1, 0) < getCellSortKey(
             node_uuid_2, 0) < getCellSortKey(node_uuid_3, 0))
