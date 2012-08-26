@@ -49,8 +49,7 @@ class Storage(BaseStorage.BaseStorage,
     )))
 
     def __init__(self, master_nodes, name, read_only=False,
-            compress=None, logfile=None, _app=None,
-            dynamic_master_list=None, **kw):
+            compress=None, logfile=None, _app=None, **kw):
         """
         Do not pass those parameters (used internally):
         _app
@@ -63,17 +62,8 @@ class Storage(BaseStorage.BaseStorage,
         # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
         if _app is None:
-            _app = Application(master_nodes, name, compress=compress,
-                dynamic_master_list=dynamic_master_list)
+            _app = Application(master_nodes, name, compress=compress, **kw)
         self.app = _app
-        # Used to clone self (see new_instance & IMVCCStorage definition).
-        self._init_args = (master_nodes, name)
-        self._init_kw = {
-            'read_only': read_only,
-            'compress': compress,
-            'dynamic_master_list': dynamic_master_list,
-            '_app': _app,
-        }
 
     @property
     def _cache(self):
@@ -105,27 +95,23 @@ class Storage(BaseStorage.BaseStorage,
         """
         Note: never blocks in NEO.
         """
-        return self.app.tpc_begin(transaction=transaction, tid=tid,
-                status=status)
+        return self.app.tpc_begin(transaction, tid, status)
 
     @check_read_only
     def tpc_vote(self, transaction):
-        return self.app.tpc_vote(transaction=transaction,
-            tryToResolveConflict=self.tryToResolveConflict)
+        return self.app.tpc_vote(transaction, self.tryToResolveConflict)
 
     @check_read_only
     def tpc_abort(self, transaction):
-        return self.app.tpc_abort(transaction=transaction)
+        return self.app.tpc_abort(transaction)
 
     def tpc_finish(self, transaction, f=None):
-        return self.app.tpc_finish(transaction=transaction,
-            tryToResolveConflict=self.tryToResolveConflict, f=f)
+        return self.app.tpc_finish(transaction, self.tryToResolveConflict, f)
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
         assert version == '', 'Versions are not supported'
-        return self.app.store(oid=oid, serial=serial,
-            data=data, version=version, transaction=transaction)
+        return self.app.store(oid, serial, data, version, transaction)
 
     @check_read_only
     def deleteObject(self, oid, serial, transaction):
@@ -149,10 +135,8 @@ class Storage(BaseStorage.BaseStorage,
     def iterator(self, start=None, stop=None):
         # Iterator lives in its own transaction, so get a fresh snapshot.
         snapshot_tid = self.lastTransaction()
-        if stop is None:
+        if not stop or snapshot_tid < stop:
             stop = snapshot_tid
-        else:
-            stop = min(snapshot_tid, stop)
         return self.app.iterator(start, stop)
 
     # undo
@@ -186,7 +170,7 @@ class Storage(BaseStorage.BaseStorage,
         return data, serial, ''
 
     def __len__(self):
-        return self.app.getStorageSize()
+        return self.app.getObjectCount()
 
     def registerDB(self, db, limit=None):
         self.app.registerDB(db, limit)
@@ -212,9 +196,6 @@ class Storage(BaseStorage.BaseStorage,
         """ Allow import only a part of the source storage """
         return self.app.importFrom(source, start, stop,
                 self.tryToResolveConflict, preindex)
-
-    def restore(self, oid, serial, data, version, prev_txn, transaction):
-        raise NotImplementedError
 
     def pack(self, t, referencesf, gc=False):
         if gc:
@@ -253,6 +234,3 @@ class Storage(BaseStorage.BaseStorage,
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
         self.app.checkCurrentSerialInTransaction(oid, serial, transaction)
-
-    def new_instance(self):
-        return Storage(*self._init_args, **self._init_kw)

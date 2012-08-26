@@ -70,7 +70,7 @@ class Application(object):
     """The client node application."""
 
     def __init__(self, master_nodes, name, compress=True,
-            dynamic_master_list=None, **kw):
+            dynamic_master_list=None):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em, name=name)
@@ -368,8 +368,8 @@ class Application(object):
         finally:
             self._oid_lock_release()
 
-    def getStorageSize(self):
-        # return the last OID used, this is innacurate
+    def getObjectCount(self):
+        # return the last OID used, this is inaccurate
         return int(u64(self.last_oid))
 
     @profiler_decorator
