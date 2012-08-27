@@ -24,8 +24,7 @@ try:
 except ImportError:
     pass
 
-# The protocol version (major, minor).
-PROTOCOL_VERSION = (15, 1)
+PROTOCOL_VERSION = 1
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -570,21 +569,18 @@ class PPTID(PStructItem):
             value = None
         return value
 
-class PProtocol(PStructItem):
+class PProtocol(PNumber):
     """
         The protocol version definition
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!LL')
-
     def _encode(self, writer, version):
-        writer(self.pack(*version))
+        writer(self.pack(version))
 
     def _decode(self, reader):
-        major, minor = self.unpack(reader(self.size))
-        if (major, minor) != PROTOCOL_VERSION:
+        version = self.unpack(reader(self.size))
+        if version != (PROTOCOL_VERSION,):
             raise ProtocolError('protocol version mismatch')
-        return (major, minor)
+        return version
 
 class PChecksum(PItem):
     """
