@@ -1,7 +1,7 @@
 Change History
 ==============
 
-0.10.1 (unreleased)
+0.10.1 (2012-03-13)
 -------------------
 
 - Client didn't limit its memory usage when committing big transactions.
