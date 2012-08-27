@@ -1,7 +1,7 @@
 Change History
 ==============
 
-1.0 (unreleased)
+1.0 (2012-03-28)
 ----------------
 
 This version mainly comes with stabilized SQL tables format and efficient backup
@@ -36,7 +36,7 @@ Other changes are:
 
 Also contains code clean-ups and bugfixes.
 
-0.10.1 (unreleased)
+0.10.1 (2012-03-13)
 -------------------
 
 - Client didn't limit its memory usage when committing big transactions.
