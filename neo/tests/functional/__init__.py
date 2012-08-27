@@ -361,16 +361,25 @@ class NEOCluster(object):
             raise AssertionError('Timeout when starting cluster')
 
     def stop(self, clients=True):
-        error_list = []
+        # Suspend all processes to kill before actually killing them, so that
+        # nodes don't log errors because they get disconnected from other nodes:
+        # otherwise, storage nodes would often flush MB of logs just because we
+        # killed the master first, and waste much file system space.
+        stopped_list = []
         for process_list in self.process_dict.itervalues():
             for process in process_list:
                 try:
-                    process.kill(signal.SIGKILL)
-                    process.wait()
+                    process.kill(signal.SIGSTOP)
+                    stopped_list.append(process)
                 except AlreadyStopped:
                     pass
-                except NodeProcessError, e:
-                    error_list += e.args
+        error_list = []
+        for process in stopped_list:
+            try:
+                process.kill(signal.SIGKILL)
+                process.wait()
+            except NodeProcessError, e:
+                error_list += e.args
         if clients:
             for zodb_storage in self.zodb_storage_list:
                 zodb_storage.close()
