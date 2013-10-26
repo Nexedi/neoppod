@@ -197,9 +197,8 @@ class ReadBuffer(object):
 
     def append(self, data):
         """ Append some data and compute the new buffer size """
-        size = len(data)
-        self.size += size
-        self.content.append((size, data))
+        self.size += len(data)
+        self.content.append(data)
 
     def __len__(self):
         """ Return the current buffer size """
@@ -216,14 +215,14 @@ class ReadBuffer(object):
         to_read = size
         # select required chunks
         while to_read > 0:
-            chunk_size, chunk_data = pop_chunk()
-            to_read -= chunk_size
+            chunk_data = pop_chunk()
+            to_read -= len(chunk_data)
             append_data(chunk_data)
         if to_read < 0:
             # too many bytes consumed, cut the last chunk
             last_chunk = chunk_list[-1]
             keep, let = last_chunk[:to_read], last_chunk[to_read:]
-            self.content.appendleft((-to_read, let))
+            self.content.appendleft(let)
             chunk_list[-1] = keep
         # join all chunks (one copy)
         data = ''.join(chunk_list)
