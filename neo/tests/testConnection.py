@@ -27,7 +27,6 @@ from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets, PACKET_HEADER_FORMAT
 from . import NeoUnitTestBase
-from neo.lib.locking import Queue
 
 class ConnectionTests(NeoUnitTestBase):
 
@@ -850,12 +849,11 @@ class MTConnectionTests(ConnectionTests):
                 dispatcher=self.dispatcher)
 
     def test_MTClientConnectionQueueParameter(self):
-        queue = Queue()
         ask = self._makeClientConnection().ask
         packet = Packets.AskPrimary() # Any non-Ping simple "ask" packet
         # One cannot "ask" anything without a queue
         self.assertRaises(TypeError, ask, packet)
-        ask(packet, queue=queue)
+        ask(packet, queue=object())
         # ... except Ping
         ask(Packets.Ping())
 

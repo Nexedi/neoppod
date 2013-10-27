@@ -15,7 +15,53 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from thread import get_ident
-from neo.lib.locking import Queue
+from neo.lib.locking import Lock, Empty
+from collections import deque
+
+class SimpleQueue(object):
+    """
+    Similar to Queue.Queue but with simpler locking scheme, reducing lock
+    contention on "put" (benchmark shows 60% less time spent in "put").
+    As a result:
+    - only a single consumer possible ("get" vs. "get" race condition)
+    - only a single producer possible ("put" vs. "put" race condition)
+    - no blocking size limit possible
+    - no consumer -> producer notifications (task_done/join API)
+
+    Queue is on the critical path: any moment spent here increases client
+    application wait for object data, transaction completion, etc.
+    As we have a single consumer (client application's thread) and a single
+    producer (lib.dispatcher, which can be called from several threads but
+    serialises calls internally) for each queue, Queue.Queue's locking scheme
+    can be relaxed to reduce latency.
+    """
+    __slots__ = ('_lock', '_unlock', '_popleft', '_append', '_queue')
+    def __init__(self):
+        lock = Lock()
+        self._lock = lock.acquire
+        self._unlock = lock.release
+        self._queue = queue = deque()
+        self._popleft = queue.popleft
+        self._append = queue.append
+
+    def get(self, block):
+        if block:
+            self._lock(False)
+        while True:
+            try:
+                return self._popleft()
+            except IndexError:
+                if not block:
+                    raise Empty
+                self._lock()
+
+    def put(self, item):
+        self._append(item)
+        self._lock(False)
+        self._unlock()
+
+    def empty(self):
+        return not self._queue
 
 class ContainerBase(object):
     def __init__(self):
@@ -44,7 +90,7 @@ class ThreadContainer(ContainerBase):
 
     def _new(self):
         return {
-            'queue': Queue(0),
+            'queue': SimpleQueue(),
             'answer': None,
         }
 
@@ -65,7 +111,7 @@ class TransactionContainer(ContainerBase):
 
     def _new(self, txn):
         return {
-            'queue': Queue(0),
+            'queue': SimpleQueue(),
             'txn': txn,
             'ttid': None,
             'data_dict': {},

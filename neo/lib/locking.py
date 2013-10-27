@@ -1,7 +1,6 @@
 from threading import Lock as threading_Lock
 from threading import RLock as threading_RLock
 from threading import currentThread
-from Queue import Queue as Queue_Queue
 from Queue import Empty
 
 """
@@ -137,46 +136,9 @@ class VerboseLock(VerboseLockBase):
         return self.lock.locked()
     _locked = locked
 
-class VerboseQueue(Queue_Queue):
-    def __init__(self, maxsize=0):
-        if maxsize <= 0:
-            self.put = self._verbose_put
-        Queue_Queue.__init__(self, maxsize=maxsize)
-
-    def _verbose_note(self, fmt, *args):
-        sys.stderr.write(fmt % args + '\n')
-        sys.stderr.flush()
-
-    def get(self, block=True, timeout=None):
-        note = self._verbose_note
-        me = '[%r]%s.get(block=%r, timeout=%r)' % (LockUser(), self, block, timeout)
-        note('%s waiting', me)
-        try:
-            result = Queue_Queue.get(self, block=block, timeout=timeout)
-        except Exception, exc:
-            note('%s got exeption %r', me, exc)
-            raise
-        note('%s got item', me)
-        return result
-
-    def _verbose_put(self, item, block=True, timeout=None):
-        note = self._verbose_note
-        me = '[%r]%s.put(..., block=%r, timeout=%r)' % (LockUser(), self, block, timeout)
-        try:
-            Queue_Queue.put(self, item, block=block, timeout=timeout)
-        except Exception, exc:
-            note('%s got exeption %r', me, exc)
-            raise
-        note('%s put item', me)
-
-    def __repr__(self):
-        return '<%s@%X>' % (self.__class__.__name__, id(self))
-
 if VERBOSE_LOCKING:
     Lock = VerboseLock
     RLock = VerboseRLock
-    Queue = VerboseQueue
 else:
     Lock = threading_Lock
     RLock = threading_RLock
-    Queue = Queue_Queue
