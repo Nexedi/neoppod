@@ -184,6 +184,7 @@ class ClientOperationHandler(EventHandler):
         conn.answer(p)
 
     def askCheckCurrentSerial(self, conn, ttid, serial, oid):
+        self.app.tm.register(conn.getUUID(), ttid)
         self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())
 
     def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
