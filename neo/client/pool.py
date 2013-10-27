@@ -143,21 +143,27 @@ class ConnectionPool(object):
         If no connection exists, create a new one"""
         if node.isRunning():
             uuid = node.getUUID()
-            self.connection_lock_acquire()
             try:
                 # Already connected to node
                 return self.connection_dict[uuid]
             except KeyError:
-                if len(self.connection_dict) > self.max_pool_size:
-                    # must drop some unused connections
-                    self._dropConnections()
-                # Create new connection to node
-                conn = self._initNodeConnection(node)
-                if conn is not None:
-                    self.connection_dict[uuid] = conn
-                return conn
-            finally:
-                self.connection_lock_release()
+                self.connection_lock_acquire()
+                try:
+                    # Second lookup, if another thread initiated connection
+                    # while we were waiting for connection lock.
+                    try:
+                        return self.connection_dict[uuid]
+                    except KeyError:
+                        if len(self.connection_dict) > self.max_pool_size:
+                            # must drop some unused connections
+                            self._dropConnections()
+                        # Create new connection to node
+                        conn = self._initNodeConnection(node)
+                        if conn is not None:
+                            self.connection_dict[uuid] = conn
+                        return conn
+                finally:
+                    self.connection_lock_release()
 
     @profiler_decorator
     def removeConnection(self, node):
