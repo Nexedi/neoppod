@@ -75,16 +75,21 @@ class ClientServiceHandler(MasterHandler):
             raise ProtocolError('No storage node ready for transaction')
 
         identified_node_list = app.nm.getIdentifiedList(pool_set=uuid_set)
-        usable_uuid_set = set(x.getUUID() for x in identified_node_list)
-        partitions = app.pt.getPartitions()
-        peer_id = conn.getPeerId()
-        tid = app.tm.prepare(ttid, partitions, oid_list, usable_uuid_set,
-            peer_id)
 
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some
         # might be not reachable at that time
-        p = Packets.AskLockInformation(ttid, tid, oid_list)
+        p = Packets.AskLockInformation(
+            ttid,
+            app.tm.prepare(
+                ttid,
+                app.pt.getPartitions(),
+                oid_list,
+                set(x.getUUID() for x in identified_node_list),
+                conn.getPeerId(),
+            ),
+            oid_list,
+        )
         for node in identified_node_list:
             node.ask(p, timeout=60)
 
