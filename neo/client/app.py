@@ -722,7 +722,7 @@ class Application(object):
             txn_context['cache_dict'])
         add_involved_nodes = txn_context['involved_nodes'].add
         for node, conn in self.cp.iterateForObject(ttid):
-            logging.debug("voting object %s on %s", dump(ttid),
+            logging.debug("voting transaction %s on %s", dump(ttid),
                 dump(conn.getUUID()))
             try:
                 self._askStorage(conn, packet)
