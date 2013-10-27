@@ -122,16 +122,21 @@ class ConnectionPool(object):
         getConnForNode = self.getConnForNode
         while cell_list:
             new_cell_list = []
-            cell_list = [c for c in cell_list if c.getNode().isRunning()]
+            # Shuffle to randomise node to access...
             shuffle(cell_list)
+            # ...and sort with non-unique keys, to prioritise ranges of
+            # randomised entries.
             cell_list.sort(key=self.getCellSortKey)
             for cell in cell_list:
                 node = cell.getNode()
-                conn = getConnForNode(node)
-                if conn is not None:
-                    yield (node, conn)
-                elif node.isRunning():
-                    new_cell_list.append(cell)
+                if node.isRunning():
+                    conn = getConnForNode(node)
+                    if conn is not None:
+                        yield (node, conn)
+                    # Re-check if node is running, as our knowledge of its
+                    # state can have changed during connection attempt.
+                    elif node.isRunning():
+                        new_cell_list.append(cell)
             cell_list = new_cell_list
             if new_cell_list:
                 # wait a bit to avoid a busy loop
