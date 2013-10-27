@@ -193,7 +193,7 @@ class ClientOperationHandler(EventHandler):
                 dump(oid), dump(serial), dump(ttid),
                 dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
-            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+            conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
             return
         try:
             self.app.tm.checkCurrentSerial(ttid, serial, oid)
