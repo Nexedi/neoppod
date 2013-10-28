@@ -517,8 +517,6 @@ class Application(object):
             checksum = ZERO_HASH
         else:
             assert data_serial is None
-            compression = self.compress
-            compressed_data = data
             size = len(data)
             if self.compress:
                 compressed_data = compress(data)
@@ -527,6 +525,9 @@ class Application(object):
                     compression = 0
                 else:
                     compression = 1
+            else:
+                compression = 0
+                compressed_data = data
             checksum = makeChecksum(compressed_data)
             txn_context['data_size'] += size
         on_timeout = OnTimeout(self.onStoreTimeout, txn_context, oid)
@@ -534,9 +535,7 @@ class Application(object):
         txn_context['data_dict'][oid] = data
         # Store data on each node
         txn_context['object_stored_counter_dict'][oid] = {}
-        object_base_serial_dict = txn_context['object_base_serial_dict']
-        if oid not in object_base_serial_dict:
-            object_base_serial_dict[oid] = serial
+        txn_context['object_base_serial_dict'].setdefault(oid, serial)
         txn_context['object_serial_dict'][oid] = serial
         queue = txn_context['queue']
         involved_nodes = txn_context['involved_nodes']
