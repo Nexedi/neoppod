@@ -39,7 +39,7 @@ class ZODBTestCase(TestCase):
             kw['temp_dir'] = self.getTempDirectory()
         self.neo = NEOCluster(**kw)
         self.neo.start()
-        self._storage = self.neo.getZODBStorage()
+        self.open()
 
     def _tearDown(self, success):
         self._storage.cleanup()
@@ -50,7 +50,5 @@ class ZODBTestCase(TestCase):
     assertEquals = failUnlessEqual = TestCase.assertEqual
     assertNotEquals = failIfEqual = TestCase.assertNotEqual
 
-    def open(self, read_only=False):
-        # required for some tests (see PersitentTests), no-op for NEO ?
-        self._storage._is_read_only = read_only
-
+    def open(self, **kw):
+        self._storage = self.neo.getZODBStorage(**kw)

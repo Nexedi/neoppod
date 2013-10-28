@@ -23,12 +23,8 @@ from neo.lib import logging
 from .app import Application
 from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError
 
-def check_read_only(func):
-    def wrapped(self, *args, **kw):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
-        return func(self, *args, **kw)
-    return wraps(func)(wrapped)
+def raiseReadOnlyError(*args, **kw):
+    raise POSException.ReadOnlyError()
 
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
@@ -61,6 +57,20 @@ class Storage(BaseStorage.BaseStorage,
         BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
         # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
+        if read_only:
+            for method_id in (
+                        'new_oid',
+                        'tpc_begin',
+                        'tpc_vote',
+                        'tpc_abort',
+                        'store',
+                        'deleteObject',
+                        'undo',
+                        'undoLog',
+                        'abortVersion',
+                        'commitVersion',
+                    ):
+                setattr(self, method_id, raiseReadOnlyError)
         if _app is None:
             _app = Application(master_nodes, name, compress=compress, **kw)
         self.app = _app
@@ -86,34 +96,28 @@ class Storage(BaseStorage.BaseStorage,
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
-    @check_read_only
     def new_oid(self):
         return self.app.new_oid()
 
-    @check_read_only
     def tpc_begin(self, transaction, tid=None, status=' '):
         """
         Note: never blocks in NEO.
         """
         return self.app.tpc_begin(transaction, tid, status)
 
-    @check_read_only
     def tpc_vote(self, transaction):
         return self.app.tpc_vote(transaction, self.tryToResolveConflict)
 
-    @check_read_only
     def tpc_abort(self, transaction):
         return self.app.tpc_abort(transaction)
 
     def tpc_finish(self, transaction, f=None):
         return self.app.tpc_finish(transaction, self.tryToResolveConflict, f)
 
-    @check_read_only
     def store(self, oid, serial, data, version, transaction):
         assert version == '', 'Versions are not supported'
         return self.app.store(oid, serial, data, version, transaction)
 
-    @check_read_only
     def deleteObject(self, oid, serial, transaction):
         self.app.store(oid, serial, None, None, transaction)
 
@@ -140,11 +144,9 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.iterator(start, stop)
 
     # undo
-    @check_read_only
     def undo(self, transaction_id, txn):
         return self.app.undo(transaction_id, txn, self.tryToResolveConflict)
 
-    @check_read_only
     def undoLog(self, first=0, last=-20, filter=None):
         return self.app.undoLog(first, last, filter)
 
@@ -154,11 +156,9 @@ class Storage(BaseStorage.BaseStorage,
     def supportsTransactionalUndo(self):
         return True
 
-    @check_read_only
     def abortVersion(self, src, transaction):
         return self.app.abortVersion(src, transaction)
 
-    @check_read_only
     def commitVersion(self, src, dest, transaction):
         return self.app.commitVersion(src, dest, transaction)
 
