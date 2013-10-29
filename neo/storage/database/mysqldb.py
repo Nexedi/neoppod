@@ -297,10 +297,10 @@ class MySQLDatabaseManager(DatabaseManager):
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE partition = %d AND oid = %d') % (partition, oid)
-        if tid is not None:
-            sql += ' AND tid = %d' % tid
-        elif before_tid is not None:
+        if before_tid is not None:
             sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
+        elif tid is not None:
+            sql += ' AND tid = %d' % tid
         else:
             # XXX I want to express "HAVING tid = MAX(tid)", but
             # MySQL does not use an index for a HAVING clause!
@@ -312,11 +312,8 @@ class MySQLDatabaseManager(DatabaseManager):
             return None
         r = q("SELECT tid FROM obj WHERE partition=%d AND oid=%d AND tid>%d"
               " ORDER BY tid LIMIT 1" % (partition, oid, serial))
-        try:
-            next_serial = r[0][0]
-        except IndexError:
-            next_serial = None
-        return serial, next_serial, compression, checksum, data, value_serial
+        return (serial, r[0][0] if r else None, compression, checksum, data,
+            value_serial)
 
     def doSetPartitionTable(self, ptid, cell_list, reset):
         offset_list = []
