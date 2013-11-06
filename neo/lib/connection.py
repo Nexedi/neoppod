@@ -82,8 +82,9 @@ class HandlerSwitcher(object):
 
     def __init__(self, handler):
         # pending handlers and related requests
-        self._pending = [[{}, handler]]
+        self._pending = []
         self._is_handling = False
+        self.setHandler(handler)
 
     def clear(self):
         self.__init__(self.getLastHandler())
