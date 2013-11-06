@@ -20,6 +20,7 @@ from neo.lib.locking import Empty
 from random import shuffle
 import heapq
 import time
+from functools import partial
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.POSException import ReadConflictError
@@ -32,7 +33,7 @@ from neo.lib.protocol import NodeTypes, Packets, \
 from neo.lib.event import EventManager
 from neo.lib.util import makeChecksum as real_makeChecksum, dump
 from neo.lib.locking import Lock
-from neo.lib.connection import MTClientConnection, OnTimeout, ConnectionClosed
+from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.node import NodeManager
 from neo.lib.connector import getConnectorHandler
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
@@ -530,7 +531,11 @@ class Application(object):
                 compressed_data = data
             checksum = makeChecksum(compressed_data)
             txn_context['data_size'] += size
-        on_timeout = OnTimeout(self.onStoreTimeout, txn_context, oid)
+        on_timeout = partial(
+            self.onStoreTimeout,
+            txn_context=txn_context,
+            oid=oid,
+        )
         # Store object in tmp cache
         txn_context['data_dict'][oid] = data
         # Store data on each node

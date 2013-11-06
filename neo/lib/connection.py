@@ -62,19 +62,6 @@ def lockCheckWrapper(func):
         return func(self, *args, **kw)
     return wraps(func)(wrapper)
 
-class OnTimeout(object):
-    """
-      Simple helper class for on_timeout parameter used in HandlerSwitcher
-      class.
-    """
-    def __init__(self, func, *args, **kw):
-        self.func = func
-        self.args = args
-        self.kw = kw
-
-    def __call__(self, conn, msg_id):
-        return self.func(conn, msg_id, *self.args, **self.kw)
-
 class HandlerSwitcher(object):
     _next_timeout = None
     _next_timeout_msg_id = None
