@@ -100,12 +100,10 @@ class ThreadContainer(ContainerBase):
         """
         Implicitely create a thread context if it doesn't exist.
         """
-        my_id = self._getID()
         try:
-            result = self._context_dict[my_id]
+            return self._context_dict[self._getID()]
         except KeyError:
-            result = self._context_dict[my_id] = self._new()
-        return result
+            return self.new()
 
 class TransactionContainer(ContainerBase):
     def _getID(self, txn):
