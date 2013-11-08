@@ -6,7 +6,7 @@ compatibility or transparent migration, so you will have to use the following
 SQL commands to migrate each storage from NEO 0.10.x::
 
   -- make sure 'tobj' & 'ttrans' are empty first
-  -        and all storages have up-to-date partition tables
+  -- and all storages have up-to-date partition tables
   CREATE TABLE new_data (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, hash BINARY(20) NOT NULL UNIQUE, compression TINYINT UNSIGNED NULL, value LONGBLOB NULL) ENGINE = InnoDB SELECT DISTINCT obj.hash as hash FROM obj, data WHERE obj.hash=data.hash ORDER BY serial;
   UPDATE new_data, data SET new_data.compression=data.compression, new_data.value=data.value WHERE new_data.hash=data.hash;
   DROP TABLE data;
