@@ -64,6 +64,8 @@ class SimpleQueue(object):
         return not self._queue
 
 class ContainerBase(object):
+    __slots__ = ('_context_dict', )
+
     def __init__(self):
         self._context_dict = {}
 
