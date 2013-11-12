@@ -59,9 +59,8 @@ class ClientServiceHandler(MasterHandler):
 
         # Collect partitions related to this transaction.
         getPartition = app.pt.getPartition
-        partition_set = set()
+        partition_set = set(getPartition(oid) for oid in oid_list)
         partition_set.add(getPartition(ttid))
-        partition_set.update((getPartition(oid) for oid in oid_list))
 
         # Collect the UUIDs of nodes related to this transaction.
         uuid_set = set()
@@ -76,7 +75,7 @@ class ClientServiceHandler(MasterHandler):
             raise ProtocolError('No storage node ready for transaction')
 
         identified_node_list = app.nm.getIdentifiedList(pool_set=uuid_set)
-        usable_uuid_set = set((x.getUUID() for x in identified_node_list))
+        usable_uuid_set = set(x.getUUID() for x in identified_node_list)
         partitions = app.pt.getPartitions()
         peer_id = conn.getPeerId()
         tid = app.tm.prepare(ttid, partitions, oid_list, usable_uuid_set,
