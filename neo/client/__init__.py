@@ -100,10 +100,7 @@ if 1:
     # know any legitimate use of DB access outside a transaction.
 
     def afterCompletion(self, *ignored):
-        try:
-            self._readCurrent.clear()
-        except AttributeError: # BBB: ZODB < 3.10
-            pass
+        self._readCurrent.clear()
         # PATCH: do not call sync()
         self._flush_invalidations()
     Connection.afterCompletion = afterCompletion

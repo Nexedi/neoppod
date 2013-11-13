@@ -641,14 +641,14 @@ class Application(object):
                     # A later serial has already been resolved, skip.
                     resolved_serial_set.update(conflict_serial_set)
                     continue
-                # BBB: On ZODB < 3.10, tryToResolveConflict returns None
-                #      instead of raising ConflictError.
                 try:
                     new_data = tryToResolveConflict(oid, conflict_serial,
                         serial, data)
                 except ConflictError:
-                    new_data = None
-                if new_data is not None:
+                    logging.info('Conflict resolution failed for '
+                        '%r:%r with %r', dump(oid), dump(serial),
+                        dump(conflict_serial))
+                else:
                     logging.info('Conflict resolution succeeded for '
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
@@ -660,10 +660,6 @@ class Application(object):
                     self._store(txn_context, oid, conflict_serial, new_data)
                     append(oid)
                     continue
-                else:
-                    logging.info('Conflict resolution failed for '
-                        '%r:%r with %r', dump(oid), dump(serial),
-                        dump(conflict_serial))
             raise ConflictError(oid=oid, serials=(conflict_serial,
                 serial), data=data)
         return result

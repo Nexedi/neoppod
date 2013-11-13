@@ -62,7 +62,7 @@ def resolving_tryToResolveConflict(oid, conflict_serial, serial, data):
     return data
 
 def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
-    return None
+    raise ConflictError
 
 class ClientApplicationTests(NeoUnitTestBase):
 

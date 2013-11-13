@@ -30,7 +30,7 @@ class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
 
-    implements(*filter(None, (
+    implements(
         ZODB.interfaces.IStorage,
         # "restore" missing for the moment, but "store" implements this
         # interface.
@@ -41,8 +41,8 @@ class Storage(BaseStorage.BaseStorage,
         # ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
         ZODB.interfaces.IExternalGC,
-        getattr(ZODB.interfaces, 'ReadVerifyingStorage', None), # BBB ZODB 3.9
-    )))
+        ZODB.interfaces.ReadVerifyingStorage,
+    )
 
     def __init__(self, master_nodes, name, read_only=False,
             compress=None, logfile=None, _app=None, **kw):
