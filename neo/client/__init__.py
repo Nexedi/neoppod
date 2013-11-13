@@ -53,43 +53,6 @@ if 1:
 
     Connection.tpc_finish = tpc_finish
 
-    ###
-
-    try:
-        if Connection._nexedi_fix != 5:
-            raise Exception("A different ZODB fix is already applied")
-    except AttributeError:
-        Connection._nexedi_fix = 5
-
-        # Whenever an connection is opened (and there's usually an existing one
-        # in DB pool that can be reused) whereas the transaction is already
-        # started, we must make sure that proper storage setup is done by
-        # calling Connection.newTransaction.
-        # For example, there's no open transaction when a ZPublisher/Publish
-        # transaction begins.
-
-        def open(self, *args, **kw):
-            def _flush_invalidations():
-                acquire = self._db._a
-                try:
-                    self._db._r() # this is a RLock
-                except RuntimeError:
-                    acquire = lambda: None
-                try:
-                    del self._flush_invalidations
-                    self.newTransaction()
-                finally:
-                    acquire()
-                    self._flush_invalidations = _flush_invalidations
-            self._flush_invalidations = _flush_invalidations
-            try:
-                Connection_open(self, *args, **kw)
-            finally:
-                del self._flush_invalidations
-
-        Connection_open = Connection.open
-        Connection.open = open
-
     # IStorage implementations usually need to provide a "network barrier",
     # at least for NEO & ZEO, to make sure we have an up-to-date view of
     # the storage. It's unclear whether sync() is a good place to do this
