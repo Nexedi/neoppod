@@ -16,7 +16,6 @@
 
 from functools import wraps
 from .locking import Lock, Empty
-from .profiling import profiler_decorator
 EMPTY = {}
 NOBODY = []
 
@@ -53,7 +52,6 @@ class Dispatcher:
         self.poll_thread = poll_thread
 
     @giant_lock
-    @profiler_decorator
     def dispatch(self, conn, msg_id, packet, kw):
         """
         Retrieve register-time provided queue, and put conn and packet in it.
@@ -87,7 +85,6 @@ class Dispatcher:
         self.poll_thread.start()
 
     @giant_lock
-    @profiler_decorator
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply."""
         if self.poll_thread is not None:
@@ -95,7 +92,6 @@ class Dispatcher:
         self.message_table.setdefault(id(conn), {})[msg_id] = queue
         self._increfQueue(queue)
 
-    @profiler_decorator
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
         threads excepting responses from that connection """
@@ -116,7 +112,6 @@ class Dispatcher:
             _decrefQueue(queue)
 
     @giant_lock
-    @profiler_decorator
     def forget(self, conn, msg_id):
         """ Forget about a specific message for a specific connection.
         Actually makes it "expected by nobody", so we know we can ignore it,
@@ -132,7 +127,6 @@ class Dispatcher:
         return queue
 
     @giant_lock
-    @profiler_decorator
     def forget_queue(self, queue, flush_queue=True):
         """
         Forget all pending messages for given queue.
@@ -160,13 +154,11 @@ class Dispatcher:
                 except Empty:
                     break
 
-    @profiler_decorator
     def registered(self, conn):
         """Check if a connection is registered into message table."""
         return len(self.message_table.get(id(conn), EMPTY)) != 0
 
     @giant_lock
-    @profiler_decorator
     def pending(self, queue):
         return not queue.empty() or self.queue_dict.get(id(queue), 0) > 0
 

@@ -21,7 +21,6 @@ from neo.lib import logging
 from neo.lib.locking import RLock
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
-from neo.lib.profiling import profiler_decorator
 from neo.lib.exception import NodeNotReady
 from .exception import NEOStorageError
 
@@ -52,7 +51,6 @@ class ConnectionPool(object):
         self.connection_lock_release = l.release
         self.node_failure_dict = {}
 
-    @profiler_decorator
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
         app = self.app
@@ -75,7 +73,6 @@ class ConnectionPool(object):
             logging.info('Connected %r', node)
         return conn
 
-    @profiler_decorator
     def _dropConnections(self):
         """Drop connections."""
         for conn in self.connection_dict.values():
@@ -93,11 +90,9 @@ class ConnectionPool(object):
             finally:
                 conn.unlock()
 
-    @profiler_decorator
     def notifyFailure(self, node):
         self.node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE
 
-    @profiler_decorator
     def getCellSortKey(self, cell):
         uuid = cell.getUUID()
         if uuid in self.connection_dict:
@@ -107,7 +102,6 @@ class ConnectionPool(object):
             return CELL_GOOD
         return CELL_FAILED
 
-    @profiler_decorator
     def getConnForCell(self, cell):
         return self.getConnForNode(cell.getNode())
 
@@ -142,7 +136,6 @@ class ConnectionPool(object):
                 # wait a bit to avoid a busy loop
                 time.sleep(1)
 
-    @profiler_decorator
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
@@ -170,7 +163,6 @@ class ConnectionPool(object):
                 finally:
                     self.connection_lock_release()
 
-    @profiler_decorator
     def removeConnection(self, node):
         """Explicitly remove connection when a node is broken."""
         self.connection_dict.pop(node.getUUID(), None)

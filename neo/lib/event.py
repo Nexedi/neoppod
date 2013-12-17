@@ -18,7 +18,6 @@ from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
 from errno import EINTR, EAGAIN
 from . import logging
-from .profiling import profiler_decorator
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
@@ -187,7 +186,6 @@ class EpollEventManager(object):
             self.reader_set.remove(fd)
             self.epoll.modify(fd, fd in self.writer_set and EPOLLOUT)
 
-    @profiler_decorator
     def addWriter(self, conn):
         connector = conn.getConnector()
         assert connector is not None, conn.whoSetConnector()

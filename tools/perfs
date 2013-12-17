@@ -11,8 +11,6 @@ from ZODB.FileStorage import FileStorage
 from neo.tests import DB_PREFIX
 from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
-from neo.lib.profiling import PROFILING_ENABLED, profiler_decorator, \
-    profiler_report
 
 class ImportBenchmark(BenchmarkRunner):
     """ Test import of a datafs """
@@ -62,7 +60,6 @@ class ImportBenchmark(BenchmarkRunner):
     def runImport(self, neo):
 
         def counter(wrapped, d):
-            @profiler_decorator
             def wrapper(*args, **kw):
                 # count number of tick per second
                 t = int(time())
@@ -134,8 +131,6 @@ class ImportBenchmark(BenchmarkRunner):
 
 def main(args=None):
     ImportBenchmark().run()
-    if PROFILING_ENABLED:
-        print profiler_report()
 
 if __name__ == "__main__":
     main()

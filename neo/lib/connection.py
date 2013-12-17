@@ -22,7 +22,6 @@ from .connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
 from .locking import RLock
-from .profiling import profiler_decorator
 from .protocol import uuid_str, Errors, \
         PacketMalformedError, Packets, ParserState
 from .util import ReadBuffer
@@ -105,7 +104,6 @@ class HandlerSwitcher(object):
         """ Return the last (may be unapplied) handler registered """
         return self._pending[-1][1]
 
-    @profiler_decorator
     def emit(self, request, timeout, on_timeout, kw={}):
         # register the request in the current handler
         _pending = self._pending
@@ -150,7 +148,6 @@ class HandlerSwitcher(object):
         finally:
             self._is_handling = False
 
-    @profiler_decorator
     def _handle(self, connection, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
         logging.packet(connection, packet, False)
@@ -197,7 +194,6 @@ class HandlerSwitcher(object):
         self._next_timeout, self._next_timeout_msg_id, self._next_on_timeout = \
             next_timeout or (None, None, None)
 
-    @profiler_decorator
     def setHandler(self, handler):
         can_apply = len(self._pending) == 1 and not self._pending[0][0]
         if can_apply:
@@ -437,7 +433,6 @@ class Connection(BaseConnection):
     def getPeerId(self):
         return self.peer_id
 
-    @profiler_decorator
     def _getNextId(self):
         next_id = self.cur_id
         self.cur_id = (next_id + 1) & 0xffffffff
@@ -553,7 +548,6 @@ class Connection(BaseConnection):
             self._handlers.handle(self, self._queue.pop(0))
         self.close()
 
-    @profiler_decorator
     def _recv(self):
         """Receive data from a connector."""
         try:
@@ -581,7 +575,6 @@ class Connection(BaseConnection):
             self._base_timeout = time() # last known remote activity
             self.read_buf.append(data)
 
-    @profiler_decorator
     def _send(self):
         """Send data to a connector."""
         if not self.write_buf:
@@ -610,7 +603,6 @@ class Connection(BaseConnection):
             else:
                 self.write_buf = [msg[n:]]
 
-    @profiler_decorator
     def _addPacket(self, packet):
         """Add a packet into the write buffer."""
         if self.connector is None:
@@ -633,7 +625,6 @@ class Connection(BaseConnection):
         self._addPacket(packet)
         return msg_id
 
-    @profiler_decorator
     @not_closed
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None, **kw):
         """
@@ -743,7 +734,6 @@ class MTClientConnection(ClientConnection):
         finally:
             self.unlock()
 
-    @profiler_decorator
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
             queue=None, **kw):
         self.lock()
