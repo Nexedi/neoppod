@@ -52,7 +52,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
            master_list):
         assert primary == self.app.primary_master_node.getAddress(), (
             primary, self.app.primary_master_node)
-        node.setUUID(uuid)
+        assert uuid == node.getUUID(), (uuid, node.getUUID())
 
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
