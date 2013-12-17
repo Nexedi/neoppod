@@ -586,6 +586,7 @@ class Test(NEOThreadedTest):
                     l1.release()
                     l2.acquire()
             x2._p_deactivate()
+            # Remove last version of x from cache
             cache._remove(cache._oid_dict[x2._p_oid].pop())
             p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
             try:
@@ -593,13 +594,13 @@ class Test(NEOThreadedTest):
                 l1.acquire()
                 # At this point, x could not be found the cache and the result
                 # from the storage (which is <value=1, next_tid=None>) is about
-                # to processed.
+                # to be processed.
                 # Now modify x to receive an invalidation for it.
                 cluster.client.setPoll(0)
                 client.setPoll(1)
                 txn = transaction.Transaction()
                 client.tpc_begin(txn)
-                client.store(x2._p_oid, tid, x, '', txn)
+                client.store(x2._p_oid, tid, x, '', txn) # value=0
                 tid = client.tpc_finish(txn, None)
                 client.setPoll(0)
                 cluster.client.setPoll(1)
@@ -613,6 +614,10 @@ class Test(NEOThreadedTest):
             self.assertEqual(x2.value, 1)
             self.assertEqual(x1.value, 0)
 
+            # l1 is acquired and l2 is released
+            # Change x again from 0 to 1, while the checking connection c1
+            # is suspended at the beginning of the transaction t1,
+            # between Storage.sync() and flush of invalidations.
             def _flush_invalidations(orig):
                 l1.release()
                 l2.acquire()
@@ -636,6 +641,9 @@ class Test(NEOThreadedTest):
                 del p
                 l2.release()
             t.join()
+            # A transaction really begins when it acquires the lock to flush
+            # invalidations. The previous lastTransaction() only does a ping
+            # to make sure we have a recent enough view of the DB.
             self.assertEqual(x1.value, 1)
 
         finally:
