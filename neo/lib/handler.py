@@ -75,6 +75,9 @@ class EventHandler(object):
                 message = str(message)
                 conn.answer(Errors.ProtocolError(message))
                 conn.abort()
+        except AssertionError:
+            conn.close()
+            raise
 
     def checkClusterName(self, name):
         # raise an exception if the given name mismatch the current cluster name
