@@ -80,7 +80,7 @@ class Application(object):
         self.uuid = None
         self._cache = ClientCache()
         self._loading_oid = None
-        self.new_oid_list = []
+        self.new_oid_list = ()
         self.last_oid = '\0' * 8
         self.last_tid = None
         self.storage_event_handler = storage.StorageEventHandler(self)
@@ -246,7 +246,7 @@ class Application(object):
             with self._connecting_to_master_node:
                 result = self.master_conn
                 if result is None:
-                    self.new_oid_list = []
+                    self.new_oid_list = ()
                     result = self.master_conn = self._connectToPrimaryNode()
         return result
 
@@ -324,16 +324,16 @@ class Application(object):
         """Get a new OID."""
         self._oid_lock_acquire()
         try:
-            if len(self.new_oid_list) == 0:
+            if not self.new_oid_list:
                 # Get new oid list from master node
                 # we manage a list of oid here to prevent
                 # from asking too many time new oid one by one
                 # from master node
                 self._askPrimary(Packets.AskNewOIDs(100))
-                if len(self.new_oid_list) <= 0:
+                if not self.new_oid_list:
                     raise NEOStorageError('new_oid failed')
-            self.last_oid = self.new_oid_list.pop(0)
-            return self.last_oid
+            self.last_oid = oid = self.new_oid_list.pop()
+            return oid
         finally:
             self._oid_lock_release()
 

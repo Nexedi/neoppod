@@ -189,6 +189,7 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         self.app.setHandlerData(ttid)
 
     def answerNewOIDs(self, conn, oid_list):
+        oid_list.reverse()
         self.app.new_oid_list = oid_list
 
     def answerTransactionFinished(self, conn, _, tid):
