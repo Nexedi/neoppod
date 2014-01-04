@@ -67,8 +67,6 @@ class Storage(BaseStorage.BaseStorage,
                         'deleteObject',
                         'undo',
                         'undoLog',
-                        'abortVersion',
-                        'commitVersion',
                     ):
                 setattr(self, method_id, raiseReadOnlyError)
         if _app is None:
@@ -155,12 +153,6 @@ class Storage(BaseStorage.BaseStorage,
 
     def supportsTransactionalUndo(self):
         return True
-
-    def abortVersion(self, src, transaction):
-        return self.app.abortVersion(src, transaction)
-
-    def commitVersion(self, src, dest, transaction):
-        return self.app.commitVersion(src, dest, transaction)
 
     def loadEx(self, oid, version):
         try:

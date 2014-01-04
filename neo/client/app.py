@@ -465,7 +465,6 @@ class Application(object):
         if answer_ttid is None:
             raise NEOStorageError('tpc_begin failed')
         assert tid in (None, answer_ttid), (tid, answer_ttid)
-        txn_context['txn'] = transaction
         txn_context['ttid'] = answer_ttid
 
     def store(self, oid, serial, data, version, transaction):
@@ -475,7 +474,6 @@ class Application(object):
             raise StorageTransactionError(self, transaction)
         logging.debug('storing oid %s serial %s', dump(oid), dump(serial))
         self._store(txn_context, oid, serial, data)
-        return None
 
     def _store(self, txn_context, oid, serial, data, data_serial=None,
             unlock=False):
@@ -983,16 +981,6 @@ class Application(object):
     def lastTransaction(self):
         self._askPrimary(Packets.AskLastTransaction())
         return self.last_tid
-
-    def abortVersion(self, src, transaction):
-        if self._txn_container.get(transaction) is None:
-            raise StorageTransactionError(self, transaction)
-        return '', []
-
-    def commitVersion(self, src, dest, transaction):
-        if self._txn_container.get(transaction) is None:
-            raise StorageTransactionError(self, transaction)
-        return '', []
 
     def __del__(self):
         """Clear all connection."""

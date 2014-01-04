@@ -114,7 +114,7 @@ class ConnectionPool(object):
         if not cell_list:
             raise NEOStorageError('no storage available')
         getConnForNode = self.getConnForNode
-        while cell_list:
+        while 1:
             new_cell_list = []
             # Shuffle to randomise node to access...
             shuffle(cell_list)
@@ -131,10 +131,11 @@ class ConnectionPool(object):
                     # state can have changed during connection attempt.
                     elif node.isRunning():
                         new_cell_list.append(cell)
+            if not new_cell_list:
+                break
             cell_list = new_cell_list
-            if new_cell_list:
-                # wait a bit to avoid a busy loop
-                time.sleep(1)
+            # wait a bit to avoid a busy loop
+            time.sleep(1)
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
