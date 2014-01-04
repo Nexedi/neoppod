@@ -17,7 +17,7 @@
 from neo.lib import logging
 from neo.lib.pt import MTPartitionTable as PartitionTable
 from neo.lib.protocol import NodeStates, Packets, ProtocolError
-from neo.lib.util import dump
+from neo.lib.util import dump, add64
 from . import BaseHandler, AnswerBaseHandler
 from ..exception import NEOStorageError
 
@@ -96,7 +96,20 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def packetReceived(self, conn, packet, kw={}):
         if type(packet) is Packets.AnswerLastTransaction:
-            self.app.last_tid = packet.decode()[0]
+            app = self.app
+            ltid = packet.decode()[0]
+            if app.last_tid != ltid:
+                if app.master_conn is None:
+                    app._cache_lock_acquire()
+                    try:
+                        oid_list = app._cache.clear_current()
+                        db = app.getDB()
+                        if db is not None:
+                            db.invalidate(app.last_tid and
+                                          add64(app.last_tid, 1), oid_list)
+                    finally:
+                        app._cache_lock_release()
+                app.last_tid = ltid
         elif type(packet) is Packets.AnswerTransactionFinished:
             app = self.app
             app.last_tid = tid = packet.decode()[1]
@@ -125,8 +138,11 @@ class PrimaryNotificationsHandler(BaseHandler):
     def connectionClosed(self, conn):
         app = self.app
         if app.master_conn is not None:
-            logging.critical("connection to primary master node closed")
+            msg = "connection to primary master node closed"
+            logging.critical(msg)
             app.master_conn = None
+            for txn_context in app.txn_contexts():
+                txn_context['error'] = msg
         app.primary_master_node = None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
@@ -151,10 +167,6 @@ class PrimaryNotificationsHandler(BaseHandler):
         finally:
             app._cache_lock_release()
 
-    # For the two methods below, we must not use app._getPartitionTable()
-    # to avoid a dead lock. It is safe to not check the master connection
-    # because it's in the master handler, so the connection is already
-    # established.
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         if self.app.pt.filled():
             self.app.pt.update(ptid, cell_list, self.app.nm)

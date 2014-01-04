@@ -99,7 +99,6 @@ class TransactionContainer(dict):
             'object_stored_counter_dict': {},
             'conflict_serial_dict': {},
             'resolved_conflict_serial_dict': {},
-            'txn_voted': False,
             'involved_nodes': set(),
         }
         return context

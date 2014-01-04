@@ -68,7 +68,6 @@ class Application(object):
         self.dispatcher = Dispatcher(self.poll_thread)
         self.nm = NodeManager(dynamic_master_list)
         self.cp = ConnectionPool(self)
-        self.pt = None
         self.master_conn = None
         self.primary_master_node = None
         self.trying_master_node = None
@@ -116,6 +115,16 @@ class Application(object):
         self._nm_release = lock.release
         self.compress = compress
         registerLiveDebugger(on_log=self.log)
+
+    def __getattr__(self, attr):
+        if attr == 'pt':
+            self._getMasterConnection()
+        return self.__getattribute__(attr)
+
+    @property
+    def txn_contexts(self):
+        # do not iter lazily to avoid race condition
+        return self._txn_container.values
 
     def getHandlerData(self):
         return self._thread_container.answer
@@ -240,13 +249,6 @@ class Application(object):
                     self.new_oid_list = []
                     result = self.master_conn = self._connectToPrimaryNode()
         return result
-
-    def getPartitionTable(self):
-        """ Return the partition table manager, reconnect the PMN if needed """
-        # this ensure the master connection is established and the partition
-        # table is up to date.
-        self._getMasterConnection()
-        return self.pt
 
     def _connectToPrimaryNode(self):
         """
@@ -660,7 +662,6 @@ class Application(object):
 
         ttid = txn_context['ttid']
         # Store data on each node
-        txn_stored_counter = 0
         assert not txn_context['data_dict'], txn_context
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
@@ -674,20 +675,17 @@ class Application(object):
             except ConnectionClosed:
                 continue
             add_involved_nodes(node)
-            txn_stored_counter += 1
 
         # check at least one storage node accepted
-        if txn_stored_counter == 0:
-            logging.error('tpc_vote failed')
-            raise NEOStorageError('tpc_vote failed')
-        # Check if master connection is still alive.
-        # This is just here to lower the probability of detecting a problem
-        # in tpc_finish, as we should do our best to detect problem before
-        # tpc_finish.
-        self._getMasterConnection()
-
-        txn_context['txn_voted'] = True
-        return result
+        if txn_context['involved_nodes']:
+            txn_context['voted'] = None
+            # We must not go further if connection to master was lost since
+            # tpc_begin, to lower the probability of failing during tpc_finish.
+            if 'error' in txn_context:
+                raise NEOStorageError(txn_context['error'])
+            return result
+        logging.error('tpc_vote failed')
+        raise NEOStorageError('tpc_vote failed')
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
@@ -718,7 +716,7 @@ class Application(object):
     def tpc_finish(self, transaction, tryToResolveConflict, f=None):
         """Finish current transaction."""
         txn_container = self._txn_container
-        if not txn_container.get(transaction)['txn_voted']:
+        if 'voted' not in txn_container.get(transaction):
             self.tpc_vote(transaction, tryToResolveConflict)
         self._load_lock_acquire()
         try:
@@ -735,15 +733,13 @@ class Application(object):
 
     def undo(self, undone_tid, txn, tryToResolveConflict):
         txn_context = self._txn_container.get(txn)
-
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
         txn_oid_list = txn_info['oids']
 
         # Regroup objects per partition, to ask a minimum set of storage.
         partition_oid_dict = {}
-        pt = self.getPartitionTable()
         for oid in txn_oid_list:
-            partition = pt.getPartition(oid)
+            partition = self.pt.getPartition(oid)
             try:
                 oid_list = partition_oid_dict[partition]
             except KeyError:
@@ -752,7 +748,7 @@ class Application(object):
 
         # Ask storage the undo serial (serial at which object's previous data
         # is)
-        getCellList = pt.getCellList
+        getCellList = self.pt.getCellList
         getCellSortKey = self.cp.getCellSortKey
         getConnForCell = self.cp.getConnForCell
         queue = self._thread_container.queue
@@ -838,11 +834,10 @@ class Application(object):
         # First get a list of transactions from all storage nodes.
         # Each storage node will return TIDs only for UP_TO_DATE state and
         # FEEDING state cells
-        pt = self.getPartitionTable()
         queue = self._thread_container.queue
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         tid_set = set()
-        for storage_node in pt.getNodeSet(True):
+        for storage_node in self.pt.getNodeSet(True):
             conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue

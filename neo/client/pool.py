@@ -107,7 +107,7 @@ class ConnectionPool(object):
 
     def iterateForObject(self, object_id, readable=False):
         """ Iterate over nodes managing an object """
-        pt = self.app.getPartitionTable()
+        pt = self.app.pt
         if type(object_id) is str:
             object_id = pt.getPartition(object_id)
         cell_list = pt.getCellList(object_id, readable)

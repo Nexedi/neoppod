@@ -649,6 +649,44 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testClientReconnection(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t1, c1 = cluster.getTransaction()
+            c1.root()['x'] = x1 = PCounter()
+            c1.root()['y'] = y = PCounter()
+            y.value = 1
+            t1.commit()
+            x = c1._storage.load(x1._p_oid)[0]
+            y = c1._storage.load(y._p_oid)[0]
+
+            # close connections to master & storage
+            c, = cluster.master.nm.getClientList()
+            c.getConnection().close()
+            c, = cluster.storage.nm.getClientList()
+            c.getConnection().close()
+            cluster.tic()
+
+            # modify x with another client
+            client = ClientApplication(name=cluster.name,
+                                       master_nodes=cluster.master_nodes)
+            cluster.client.setPoll(0)
+            client.setPoll(1)
+            txn = transaction.Transaction()
+            client.tpc_begin(txn)
+            client.store(x1._p_oid, x1._p_serial, y, '', txn)
+            tid = client.tpc_finish(txn, None)
+            client.close()
+            client.setPoll(0)
+            cluster.client.setPoll(1)
+
+            t1.begin()
+            self.assertEqual(x1._p_changed ,None)
+            self.assertEqual(x1.value, 1)
+        finally:
+            cluster.stop()
+
     def testInvalidTTID(self):
         cluster = NEOCluster()
         try:

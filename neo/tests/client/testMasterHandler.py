@@ -29,7 +29,8 @@ class MasterHandlerTests(NeoUnitTestBase):
     def setUp(self):
         super(MasterHandlerTests, self).setUp()
         self.db = Mock()
-        self.app = Mock({'getDB': self.db})
+        self.app = Mock({'getDB': self.db,
+                         'txn_contexts': ()})
         self.app.nm = NodeManager()
         self.app.dispatcher = Mock()
         self._next_port = 3000

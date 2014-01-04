@@ -76,8 +76,8 @@ class ConnectionPoolTests(NeoUnitTestBase):
     def test_iterateForObject_noStorageAvailable(self):
         # no node available
         oid = self.getOID(1)
-        pt = Mock({'getCellList': []})
-        app = Mock({'getPartitionTable': pt})
+        app = Mock()
+        app.pt = Mock({'getCellList': []})
         pool = ConnectionPool(app)
         self.assertRaises(NEOStorageError, pool.iterateForObject(oid).next)
 
@@ -87,8 +87,8 @@ class ConnectionPoolTests(NeoUnitTestBase):
         node = Mock({'__repr__': 'node', 'isRunning': True})
         cell = Mock({'__repr__': 'cell', 'getNode': node})
         conn = Mock({'__repr__': 'conn'})
-        pt = Mock({'getCellList': [cell]})
-        app = Mock({'getPartitionTable': pt})
+        app = Mock()
+        app.pt = Mock({'getCellList': [cell]})
         pool = ConnectionPool(app)
         pool.getConnForNode = Mock({'__call__': ReturnValues(None, conn)})
         self.assertEqual(list(pool.iterateForObject(oid)), [(node, conn)])
@@ -99,8 +99,8 @@ class ConnectionPoolTests(NeoUnitTestBase):
         node = Mock({'__repr__': 'node', 'isRunning': True})
         cell = Mock({'__repr__': 'cell', 'getNode': node})
         conn = Mock({'__repr__': 'conn'})
-        pt = Mock({'getCellList': [cell]})
-        app = Mock({'getPartitionTable': pt})
+        app = Mock()
+        app.pt = Mock({'getCellList': [cell]})
         pool = ConnectionPool(app)
         pool.getConnForNode = Mock({'__call__': conn})
         self.assertEqual(list(pool.iterateForObject(oid)), [(node, conn)])

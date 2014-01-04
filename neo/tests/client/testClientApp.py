@@ -44,11 +44,6 @@ def _getMasterConnection(self):
         self.master_conn = Mock()
     return self.master_conn
 
-def getPartitionTable(self):
-    if self.pt is None:
-        self.master_conn = _getMasterConnection(self)
-    return self.pt
-
 def _ask(self, conn, packet, handler=None, **kw):
     self.setHandlerData(None)
     conn.ask(packet, **kw)
@@ -71,10 +66,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         # apply monkey patches
         self._getMasterConnection = Application._getMasterConnection
         self._ask = Application._ask
-        self.getPartitionTable = Application.getPartitionTable
         Application._getMasterConnection = _getMasterConnection
         Application._ask = _ask
-        Application.getPartitionTable = getPartitionTable
         self._to_stop_list = []
 
     def _tearDown(self, success):
@@ -82,9 +75,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         for app in self._to_stop_list:
             app.close()
         # restore environnement
-        Application._getMasterConnection = self._getMasterConnection
         Application._ask = self._ask
-        Application.getPartitionTable = self.getPartitionTable
+        Application._getMasterConnection = self._getMasterConnection
         NeoUnitTestBase._tearDown(self, success)
 
     # some helpers
@@ -499,7 +491,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getAddress': ('127.0.0.1', 10010),
             'fakeReceived': packet,
         })
-        txn_context['txn_voted'] = True
+        txn_context['voted'] = None
         app.tpc_finish(txn, None)
         self.checkAskFinishTransaction(app.master_conn)
         #self.checkDispatcherRegisterCalled(app, app.master_conn)
