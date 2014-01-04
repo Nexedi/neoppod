@@ -89,6 +89,9 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def answerNodeInformation(self, conn):
         pass
 
+    def answerLastTransaction(self, conn, ltid):
+        pass
+
 class PrimaryNotificationsHandler(BaseHandler):
     """ Handler that process the notifications from the primary master """
 

@@ -254,20 +254,19 @@ class Application(object):
             Lookup for the current primary master node
         """
         logging.debug('connecting to primary master...')
-        ready = False
-        nm = self.nm
-        while not ready:
+        index = 0
+        ask = self._ask
+        handler = self.primary_bootstrap_handler
+        while 1:
             # Get network connection to primary master
-            index = 0
-            connected = False
-            while not connected:
+            while 1:
                 if self.primary_master_node is not None:
                     # If I know a primary master node, pinpoint it.
                     self.trying_master_node = self.primary_master_node
                     self.primary_master_node = None
                 else:
                     # Otherwise, check one by one.
-                    master_list = nm.getMasterList()
+                    master_list = self.nm.getMasterList()
                     try:
                         self.trying_master_node = master_list[index]
                     except IndexError:
@@ -288,36 +287,31 @@ class Application(object):
                                   self.trying_master_node)
                     continue
                 try:
-                    self._ask(conn, Packets.RequestIdentification(
+                    ask(conn, Packets.RequestIdentification(
                             NodeTypes.CLIENT, self.uuid, None, self.name),
-                        handler=self.primary_bootstrap_handler)
+                        handler=handler)
                 except ConnectionClosed:
                     continue
                 # If we reached the primary master node, mark as connected
-                connected = self.primary_master_node is not None and \
-                        self.primary_master_node is self.trying_master_node
+                if self.primary_master_node is not None and \
+                   self.primary_master_node is self.trying_master_node:
+                    break
             logging.info('Connected to %s', self.primary_master_node)
             try:
-                ready = self.identifyToPrimaryNode(conn)
+                # Request identification and required informations to be
+                # operational. Might raise ConnectionClosed so that the new
+                # primary can be looked-up again.
+                logging.info('Initializing from master')
+                ask(conn, Packets.AskNodeInformation(), handler=handler)
+                ask(conn, Packets.AskPartitionTable(), handler=handler)
+                ask(conn, Packets.AskLastTransaction(), handler=handler)
+                if self.pt.operational():
+                    break
             except ConnectionClosed:
                 logging.error('Connection to %s lost', self.trying_master_node)
                 self.primary_master_node = None
         logging.info("Connected and ready")
         return conn
-
-    def identifyToPrimaryNode(self, conn):
-        """
-            Request identification and required informations to be operational.
-            Might raise ConnectionClosed so that the new primary can be
-            looked-up again.
-        """
-        logging.info('Initializing from master')
-        ask = self._ask
-        handler = self.primary_bootstrap_handler
-        ask(conn, Packets.AskNodeInformation(), handler=handler)
-        ask(conn, Packets.AskPartitionTable(), handler=handler)
-        self.lastTransaction()
-        return self.pt.operational()
 
     def registerDB(self, db, limit):
         self._db = db
