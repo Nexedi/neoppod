@@ -17,7 +17,7 @@
 from time import time
 from struct import pack, unpack
 from neo.lib import logging
-from neo.lib.protocol import uuid_str, ZERO_TID
+from neo.lib.protocol import ProtocolError, uuid_str, ZERO_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class DelayedError(Exception):
@@ -295,7 +295,10 @@ class TransactionManager(object):
             Prepare a transaction to be finished
         """
         # XXX: not efficient but the list should be often small
-        txn = self._ttid_dict[ttid]
+        try:
+            txn = self._ttid_dict[ttid]
+        except KeyError:
+            raise ProtocolError("unknown ttid %s" % dump(ttid))
         node = txn.getNode()
         for _, tid in self._queue:
             if ttid == tid:

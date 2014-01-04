@@ -27,7 +27,7 @@ from neo.lib.connection import MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from . import ClientApplication, NEOCluster, NEOThreadedTest, Patch
-from neo.lib.util import makeChecksum
+from neo.lib.util import add64, makeChecksum
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
 class PCounter(Persistent):
@@ -646,6 +646,21 @@ class Test(NEOThreadedTest):
             # to make sure we have a recent enough view of the DB.
             self.assertEqual(x1.value, 1)
 
+        finally:
+            cluster.stop()
+
+    def testInvalidTTID(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            client = cluster.client
+            client.setPoll(1)
+            txn = transaction.Transaction()
+            client.tpc_begin(txn)
+            txn_context = client._txn_container.get(txn)
+            txn_context['ttid'] = add64(txn_context['ttid'], 1)
+            self.assertRaises(POSException.StorageError,
+                              client.tpc_finish, txn, None)
         finally:
             cluster.stop()
 

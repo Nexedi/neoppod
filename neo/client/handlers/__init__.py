@@ -16,6 +16,7 @@
 
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import ProtocolError, Packets
+from ZODB.POSException import StorageError
 
 class BaseHandler(EventHandler):
     """Base class for client-side EventHandler implementations."""
@@ -59,3 +60,5 @@ class AnswerBaseHandler(EventHandler):
     packetReceived = unexpectedInAnswerHandler
     peerBroken = unexpectedInAnswerHandler
 
+    def protocolError(self, conn, message):
+        raise StorageError("protocol error: %s" % message)

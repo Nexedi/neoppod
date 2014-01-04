@@ -733,6 +733,7 @@ class Application(object):
             tid = self._askPrimary(Packets.AskFinishTransaction(
                 txn_context['ttid'], cache_dict),
                 cache_dict=cache_dict, callback=f)
+            assert tid
             return tid
         finally:
             self._load_lock_release()

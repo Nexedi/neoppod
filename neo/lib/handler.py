@@ -162,7 +162,7 @@ class EventHandler(object):
 
     # Error packet handlers.
 
-    def error(self, conn, code, message):
+    def error(self, conn, code, message, **kw):
         try:
             getattr(self, Errors[code])(conn, message)
         except (AttributeError, ValueError):
