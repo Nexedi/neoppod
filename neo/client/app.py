@@ -707,7 +707,9 @@ class Application(object):
             except:
                 logging.exception('Exception in tpc_abort while notifying'
                     'storage node %r of abortion, ignoring.', conn)
-        self._getMasterConnection().notify(p)
+        conn = self.master_conn
+        if conn is not None:
+            conn.notify(p)
         # We don't need to flush queue, as it won't be reused by future
         # transactions (deleted on next line & indexed by transaction object
         # instance).
