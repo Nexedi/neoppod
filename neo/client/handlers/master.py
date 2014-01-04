@@ -80,7 +80,6 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
 
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
-        app.master_conn = conn
 
     def answerPartitionTable(self, conn, ptid, row_list):
         assert row_list

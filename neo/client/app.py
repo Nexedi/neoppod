@@ -107,11 +107,9 @@ class Application(object):
         # _cache_lock is used for the client cache
         self._cache_lock_acquire = lock.acquire
         self._cache_lock_release = lock.release
-        lock = Lock()
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attemps
-        self._connecting_to_master_node_acquire = lock.acquire
-        self._connecting_to_master_node_release = lock.release
+        self._connecting_to_master_node = Lock()
         # _nm ensure exclusive access to the node manager
         lock = Lock()
         self._nm_acquire = lock.acquire
@@ -231,15 +229,16 @@ class Application(object):
 
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
-        # acquire the lock to allow only one thread to connect to the primary
+        # For performance reasons, get 'master_conn' without locking.
         result = self.master_conn
         if result is None:
-            self._connecting_to_master_node_acquire()
-            try:
-                self.new_oid_list = []
-                result = self._connectToPrimaryNode()
-            finally:
-                self._connecting_to_master_node_release()
+            # If not connected, 'master_conn' must be tested again while we have
+            # the lock, to avoid concurrent threads reconnecting.
+            with self._connecting_to_master_node:
+                result = self.master_conn
+                if result is None:
+                    self.new_oid_list = []
+                    result = self.master_conn = self._connectToPrimaryNode()
         return result
 
     def getPartitionTable(self):
