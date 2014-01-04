@@ -245,7 +245,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid = self.makeTID()
         txn = Mock()
         # first, tid is supplied
-        self.assertTrue(app._txn_container.get(txn) is None)
+        self.assertRaises(StorageTransactionError, app._txn_container.get, txn)
         packet = Packets.AnswerBeginTransaction(tid=tid)
         packet.setId(0)
         app.master_conn = Mock({
@@ -419,7 +419,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.checkNotifyPacket(conn1, Packets.AbortTransaction)
         self.checkNotifyPacket(conn2, Packets.AbortTransaction)
         self.checkNotifyPacket(app.master_conn, Packets.AbortTransaction)
-        self.assertEqual(app._txn_container.get(txn), None)
+        self.assertRaises(StorageTransactionError, app._txn_container.get, txn)
 
     def test_tpc_abort3(self):
         """ check that abort is sent to all nodes involved in the transaction """
@@ -503,7 +503,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.tpc_finish(txn, None)
         self.checkAskFinishTransaction(app.master_conn)
         #self.checkDispatcherRegisterCalled(app, app.master_conn)
-        self.assertEqual(app._txn_container.get(txn), None)
+        self.assertRaises(StorageTransactionError, app._txn_container.get, txn)
 
     def test_undo1(self):
         # invalid transaction
@@ -843,16 +843,16 @@ class ClientApplicationTests(NeoUnitTestBase):
         """ Thread context properties must not be visible accross instances
             while remaining in the same thread """
         app1 = self.getApp()
-        app1_local = app1._thread_container.get()
+        app1_local = app1._thread_container
         app2 = self.getApp()
-        app2_local = app2._thread_container.get()
+        app2_local = app2._thread_container
         property_id = 'thread_context_test'
         value = 'value'
-        self.assertRaises(KeyError, app1_local.__getitem__, property_id)
-        self.assertRaises(KeyError, app2_local.__getitem__, property_id)
-        app1_local[property_id] = value
-        self.assertEqual(app1_local[property_id], value)
-        self.assertRaises(KeyError, app2_local.__getitem__, property_id)
+        self.assertFalse(hasattr(app1_local, property_id))
+        self.assertFalse(hasattr(app2_local, property_id))
+        setattr(app1_local, property_id, value)
+        self.assertEqual(getattr(app1_local, property_id), value)
+        self.assertFalse(hasattr(app2_local, property_id))
 
     def test_pack(self):
         app = self.getApp()

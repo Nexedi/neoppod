@@ -14,9 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from thread import get_ident
+import threading
 from neo.lib.locking import Lock, Empty
 from collections import deque
+from ZODB.POSException import StorageTransactionError
 
 class SimpleQueue(object):
     """
@@ -63,54 +64,29 @@ class SimpleQueue(object):
     def empty(self):
         return not self._queue
 
-class ContainerBase(object):
-    __slots__ = ('_context_dict', )
+class ThreadContainer(threading.local):
 
     def __init__(self):
-        self._context_dict = {}
+        self.queue = SimpleQueue()
+        self.answer = None
 
-    def _getID(self, *args, **kw):
-        raise NotImplementedError
+class TransactionContainer(dict):
 
-    def _new(self, *args, **kw):
-        raise NotImplementedError
+    def pop(self, txn):
+        return dict.pop(self, id(txn), None)
 
-    def delete(self, *args, **kw):
-        del self._context_dict[self._getID(*args, **kw)]
-
-    def get(self, *args, **kw):
-        return self._context_dict.get(self._getID(*args, **kw))
-
-    def new(self, *args, **kw):
-        result = self._context_dict[self._getID(*args, **kw)] = self._new(
-            *args, **kw)
-        return result
-
-class ThreadContainer(ContainerBase):
-    def _getID(self):
-        return get_ident()
-
-    def _new(self):
-        return {
-            'queue': SimpleQueue(),
-            'answer': None,
-        }
-
-    def get(self):
-        """
-        Implicitely create a thread context if it doesn't exist.
-        """
+    def get(self, txn):
         try:
-            return self._context_dict[self._getID()]
+            return self[id(txn)]
         except KeyError:
-            return self.new()
+            raise StorageTransactionError("unknown transaction %r" % txn)
 
-class TransactionContainer(ContainerBase):
-    def _getID(self, txn):
-        return id(txn)
-
-    def _new(self, txn):
-        return {
+    def new(self, txn):
+        key = id(txn)
+        if key in self:
+            raise StorageTransactionError("commit of transaction %r"
+                                          " already started" % txn)
+        context = self[key] = {
             'queue': SimpleQueue(),
             'txn': txn,
             'ttid': None,
@@ -126,4 +102,4 @@ class TransactionContainer(ContainerBase):
             'txn_voted': False,
             'involved_nodes': set(),
         }
-
+        return context

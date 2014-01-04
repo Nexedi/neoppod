@@ -120,13 +120,10 @@ class Application(object):
         registerLiveDebugger(on_log=self.log)
 
     def getHandlerData(self):
-        return self._thread_container.get()['answer']
+        return self._thread_container.answer
 
     def setHandlerData(self, data):
-        self._thread_container.get()['answer'] = data
-
-    def _getThreadQueue(self):
-        return self._thread_container.get()['queue']
+        self._thread_container.answer = data
 
     def log(self):
         self.em.log()
@@ -202,7 +199,7 @@ class Application(object):
 
     def _ask(self, conn, packet, handler=None, **kw):
         self.setHandlerData(None)
-        queue = self._getThreadQueue()
+        queue = self._thread_container.queue
         msg_id = conn.ask(packet, queue=queue, **kw)
         get = queue.get
         _handlePacket = self._handlePacket
@@ -454,12 +451,8 @@ class Application(object):
 
     def tpc_begin(self, transaction, tid=None, status=' '):
         """Begin a new transaction."""
-        txn_container = self._txn_container
         # First get a transaction, only one is allowed at a time
-        if txn_container.get(transaction) is not None:
-            # We already begin the same transaction
-            raise StorageTransactionError('Duplicate tpc_begin calls')
-        txn_context = txn_container.new(transaction)
+        txn_context = self._txn_container.new(transaction)
         # use the given TID or request a new one to the master
         answer_ttid = self._askPrimary(Packets.AskBeginTransaction(tid))
         if answer_ttid is None:
@@ -469,11 +462,8 @@ class Application(object):
 
     def store(self, oid, serial, data, version, transaction):
         """Store object."""
-        txn_context = self._txn_container.get(transaction)
-        if txn_context is None:
-            raise StorageTransactionError(self, transaction)
         logging.debug('storing oid %s serial %s', dump(oid), dump(serial))
-        self._store(txn_context, oid, serial, data)
+        self._store(self._txn_container.get(transaction), oid, serial, data)
 
     def _store(self, txn_context, oid, serial, data, data_serial=None,
             unlock=False):
@@ -673,9 +663,6 @@ class Application(object):
     def tpc_vote(self, transaction, tryToResolveConflict):
         """Store current transaction."""
         txn_context = self._txn_container.get(transaction)
-        if txn_context is None or transaction is not txn_context['txn']:
-            raise StorageTransactionError(self, transaction)
-
         result = self.waitStoreResponses(txn_context, tryToResolveConflict)
 
         ttid = txn_context['ttid']
@@ -711,11 +698,9 @@ class Application(object):
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
-        txn_container = self._txn_container
-        txn_context = txn_container.get(transaction)
+        txn_context = self._txn_container.pop(transaction)
         if txn_context is None:
             return
-
         ttid = txn_context['ttid']
         p = Packets.AbortTransaction(ttid)
         getConnForNode = self.cp.getConnForNode
@@ -730,38 +715,30 @@ class Application(object):
                 logging.exception('Exception in tpc_abort while notifying'
                     'storage node %r of abortion, ignoring.', conn)
         self._getMasterConnection().notify(p)
-        queue = txn_context['queue']
         # We don't need to flush queue, as it won't be reused by future
         # transactions (deleted on next line & indexed by transaction object
         # instance).
-        self.dispatcher.forget_queue(queue, flush_queue=False)
-        txn_container.delete(transaction)
+        self.dispatcher.forget_queue(txn_context['queue'], flush_queue=False)
 
     def tpc_finish(self, transaction, tryToResolveConflict, f=None):
         """Finish current transaction."""
         txn_container = self._txn_container
-        txn_context = txn_container.get(transaction)
-        if txn_context is None:
-            raise StorageTransactionError('tpc_finish called for wrong '
-                'transaction')
-        if not txn_context['txn_voted']:
+        if not txn_container.get(transaction)['txn_voted']:
             self.tpc_vote(transaction, tryToResolveConflict)
         self._load_lock_acquire()
         try:
             # Call finish on master
+            txn_context = txn_container.pop(transaction)
             cache_dict = txn_context['cache_dict']
             tid = self._askPrimary(Packets.AskFinishTransaction(
                 txn_context['ttid'], cache_dict),
                 cache_dict=cache_dict, callback=f)
-            txn_container.delete(transaction)
             return tid
         finally:
             self._load_lock_release()
 
     def undo(self, undone_tid, txn, tryToResolveConflict):
         txn_context = self._txn_container.get(txn)
-        if txn_context is None:
-            raise StorageTransactionError(self, undone_tid)
 
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
         txn_oid_list = txn_info['oids']
@@ -782,7 +759,7 @@ class Application(object):
         getCellList = pt.getCellList
         getCellSortKey = self.cp.getCellSortKey
         getConnForCell = self.cp.getConnForCell
-        queue = self._getThreadQueue()
+        queue = self._thread_container.queue
         ttid = txn_context['ttid']
         undo_object_tid_dict = {}
         snapshot_tid = p64(u64(self.last_tid) + 1)
@@ -866,7 +843,7 @@ class Application(object):
         # Each storage node will return TIDs only for UP_TO_DATE state and
         # FEEDING state cells
         pt = self.getPartitionTable()
-        queue = self._getThreadQueue()
+        queue = self._thread_container.queue
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         tid_set = set()
         for storage_node in pt.getNodeSet(True):
@@ -1015,10 +992,8 @@ class Application(object):
         return self.load(oid)[1]
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
-        txn_context = self._txn_container.get(transaction)
-        if txn_context is None:
-              raise StorageTransactionError(self, transaction)
-        self._checkCurrentSerialInTransaction(txn_context, oid, serial)
+        self._checkCurrentSerialInTransaction(
+            self._txn_container.get(transaction), oid, serial)
 
     def _checkCurrentSerialInTransaction(self, txn_context, oid, serial):
         ttid = txn_context['ttid']
