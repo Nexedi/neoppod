@@ -662,16 +662,16 @@ class Test(NEOThreadedTest):
             y = c1._storage.load(y._p_oid)[0]
 
             # close connections to master & storage
+            cluster.client.setPoll(0)
             c, = cluster.master.nm.getClientList()
             c.getConnection().close()
             c, = cluster.storage.nm.getClientList()
             c.getConnection().close()
-            cluster.tic()
+            cluster.tic(force=1)
 
             # modify x with another client
             client = ClientApplication(name=cluster.name,
                                        master_nodes=cluster.master_nodes)
-            cluster.client.setPoll(0)
             client.setPoll(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
