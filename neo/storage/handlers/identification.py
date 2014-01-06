@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2012  Nexedi SA
+# Copyright (C) 2006-2014  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
