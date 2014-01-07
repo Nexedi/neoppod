@@ -23,7 +23,7 @@ from persistent import Persistent
 from ZODB import POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
-from neo.lib.connection import MTClientConnection
+from neo.lib.connection import ConnectionClosed, MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from . import ClientApplication, NEOCluster, NEOThreadedTest, Patch
@@ -702,6 +702,26 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testStorageFailureDuringTpcFinish(self):
+        def answerTransactionFinished(conn, packet):
+            if isinstance(packet, Packets.AnswerTransactionFinished):
+                c, = cluster.storage.getConnectionList(cluster.master)
+                c.abort()
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()['x'] = PCounter()
+            with cluster.master.filterConnection(cluster.client) as m2c:
+                m2c.add(answerTransactionFinished)
+                # XXX: This is an expected failure. A ttid column was added to
+                #      'trans' table to permit recovery, by checking that the
+                #      transaction was really committed.
+                self.assertRaises(ConnectionClosed, t.commit)
+            t.begin()
+            c.root()['x']
+        finally:
+            cluster.stop()
 
 if __name__ == "__main__":
     unittest.main()

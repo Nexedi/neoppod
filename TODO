@@ -151,6 +151,7 @@ RC  - Review output of pylint (CODE)
       legitimaltely think transaction is not committed, and might decide to
       retry. To solve this, client can know if its TTID got successfuly
       committed by looking at currently unused '(t)trans.ttid' column.
+      See neo.threaded.test.Test.testStorageFailureDuringTpcFinish
     - Fix and reenable deadlock avoidance (SPEED). This is required for
       neo.threaded.test.Test.testDeadlockAvoidance
 
