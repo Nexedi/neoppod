@@ -17,60 +17,10 @@
 import unittest
 from mock import Mock
 from .. import NeoUnitTestBase
-from neo.lib.protocol import NodeTypes
-from neo.client.handlers.storage import StorageBootstrapHandler, \
-       StorageAnswersHandler
+from neo.client.handlers.storage import StorageAnswersHandler
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
-from neo.lib.exception import NodeNotReady
-from neo.lib.node import NodeManager
 from ZODB.TimeStamp import TimeStamp
-
-MARKER = []
-
-class StorageBootstrapHandlerTests(NeoUnitTestBase):
-
-    def setUp(self):
-        super(StorageBootstrapHandlerTests, self).setUp()
-        self.app = Mock()
-        self.app.nm = NodeManager()
-        self.handler = StorageBootstrapHandler(self.app)
-        self.app.primary_master_node = node = Mock({
-            'getConnection': self.getFakeConnection(),
-            'getUUID': self.getMasterUUID(),
-            'getAddress': (self.local_ip, 2999)
-        })
-        self._next_port = 3000
-
-    def getKnownStorage(self):
-        node = self.app.nm.createStorage(
-            uuid=self.getStorageUUID(),
-            address=(self.local_ip, self._next_port),
-        )
-        self._next_port += 1
-        conn = self.getFakeConnection(address=node.getAddress(),
-            uuid=node.getUUID())
-        node.setConnection(conn)
-        return node, conn
-
-    def test_notReady(self):
-        conn = self.getFakeConnection()
-        self.assertRaises(NodeNotReady, self.handler.notReady, conn, 'message')
-
-    def test_acceptIdentification1(self):
-        """ Not a storage node """
-        node, conn = self.getKnownStorage()
-        self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
-            node.getUUID(),
-            10, 0, None, self.app.primary_master_node.getAddress(), [])
-        self.checkClosed(conn)
-
-    def test_acceptIdentification2(self):
-        node, conn = self.getKnownStorage()
-        self.handler.acceptIdentification(conn, NodeTypes.STORAGE,
-            node.getUUID(),
-            10, 0, None, self.app.primary_master_node.getAddress(), [])
-        self.checkNotClosed(conn)
 
 class StorageAnswerHandlerTests(NeoUnitTestBase):
 

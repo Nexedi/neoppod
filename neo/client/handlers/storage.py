@@ -50,8 +50,9 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     def _acceptIdentification(self, node,
            uuid, num_partitions, num_replicas, your_uuid, primary,
            master_list):
-        assert primary == self.app.primary_master_node.getAddress(), (
-            primary, self.app.primary_master_node)
+        assert self.app.master_conn is None or \
+          primary == self.app.master_conn.getAddress(), (
+            primary, self.app.master_conn)
         assert uuid == node.getUUID(), (uuid, node.getUUID())
 
 class StorageAnswersHandler(AnswerBaseHandler):
