@@ -60,7 +60,7 @@ Requirements
 
   - MySQLdb: http://sourceforge.net/projects/mysql-python
 
-- For client nodes: ZODB 3.9.x or later
+- For client nodes: ZODB 3.10.x
 
 Installation
 ============

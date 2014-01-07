@@ -1,6 +1,18 @@
 Change History
 ==============
 
+1.1 (2014-01-07)
+----------------
+
+- Client failed at reconnecting properly to master. It could kill the master
+  (during tpc_finish!) or end up with invalid caches (i.e. possible data
+  corruption). Now, connection to master is even optional between
+  transaction.begin() and tpc_begin, as long as partition table contains
+  up-to-date data.
+- Compatibility with ZODB 3.9 has been dropped. Only 3.10.x branch is supported.
+- checkCurrentSerialInTransaction was not working.
+- Optimization and minor bugfixes.
+
 1.0 (2012-08-28)
 ----------------
 
