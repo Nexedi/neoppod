@@ -1,3 +1,2 @@
 graft tools
 include neo.conf CHANGES TODO TESTS.txt ZODB3.patch
-include neo/client/component.xml # required for Python < 2.7

@@ -186,7 +186,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertEqual(ptid, tid)
         self.assertTrue(self.app.packing[0] is conn)
         self.assertEqual(self.app.packing[1], peer_id)
-        self.assertEqual(self.app.packing[2], set([storage_uuid, ]))
+        self.assertEqual(self.app.packing[2], {storage_uuid})
         # Asking again to pack will cause an immediate error
         storage_uuid = self.identifyToMasterNode(port=10022)
         storage_conn = self.getFakeConnection(storage_uuid,

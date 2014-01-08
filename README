@@ -54,7 +54,7 @@ Requirements
 
 - Linux 2.6 or later
 
-- Python 2.6.x or 2.7.x
+- Python 2.7.x
 
 - For storage nodes using MySQL backend:
 

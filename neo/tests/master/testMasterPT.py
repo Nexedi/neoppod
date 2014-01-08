@@ -220,7 +220,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
                     if cell.isOutOfDate():
                         pt.setUpToDate(cell.getNode(), offset)
         else:
-            node_dict = dict((x.getUUID(), x) for x in pt.count_dict)
+            node_dict = {x.getUUID(): x for x in pt.count_dict}
             for offset, uuid, state in change_list:
                 if state is CellStates.OUT_OF_DATE:
                     pt.setUpToDate(node_dict[uuid], offset)

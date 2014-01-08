@@ -99,7 +99,7 @@ class StorageDBTests(NeoUnitTestBase):
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
         db.setPartitionTable(ptid, [cell1, cell2])
         result = db.getPartitionTable()
-        self.assertEqual(set(result), set([cell1, cell2]))
+        self.assertEqual(set(result), {cell1, cell2})
 
     def getOIDs(self, count):
         return map(self.getOID, xrange(count))
@@ -253,7 +253,7 @@ class StorageDBTests(NeoUnitTestBase):
         # add more entries
         db.changePartitionTable(ptid, [cell2])
         result = db.getPartitionTable()
-        self.assertEqual(set(result), set([cell1, cell2]))
+        self.assertEqual(set(result), {cell1, cell2})
         # drop discarded cells
         db.changePartitionTable(ptid, [cell2, cell3])
         result = db.getPartitionTable()

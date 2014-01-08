@@ -263,7 +263,7 @@ class PartitionTableTests(NeoUnitTestBase):
         pt.setCell(0, sn4, CellStates.DISCARDED) # won't be added
         # must get only two node as feeding and discarded not taken
         # into account
-        self.assertEqual(pt.getNodeSet(True), set((sn1, sn3)))
+        self.assertEqual(pt.getNodeSet(True), {sn1, sn3})
         self.assertEqual(len(pt.getNodeSet()), 3)
 
     def test_08_filled(self):

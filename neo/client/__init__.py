@@ -27,7 +27,6 @@ if 1:
     # to tpc_finish/tpc_abort).
 
     _check(Connection.tpc_finish,
-        'f50ed2e5a74f584fa1ecaf1cd70a6b15', # Python 2.6
         'ab9b1b8d82c40e5fffa84f7bc4ea3a8b', # Python 2.7
         )
 
@@ -72,7 +71,6 @@ if 1:
     # know any legitimate use of DB access outside a transaction.
 
     _check(Connection.afterCompletion,
-        '70dfc3df8a455d9f663dec619c607eb5', # Python 2.6
         'cd3a080b80fd957190ff3bb867149448', # Python 2.7
         )
 

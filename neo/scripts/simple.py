@@ -44,8 +44,8 @@ def main():
     options, args = parser.parse_args()
     if options.seed:
         functional.random = random.Random(options.seed)
-    cluster = functional.NEOCluster(args, **dict((x, getattr(options, x))
-                                                 for x, _ in option_list))
+    cluster = functional.NEOCluster(args, **{x: getattr(options, x)
+                                             for x, _ in option_list})
     try:
         cluster.run()
         logging.info("Cluster running ...")

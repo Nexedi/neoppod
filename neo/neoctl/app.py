@@ -41,7 +41,7 @@ action_dict = {
 
 uuid_int = (lambda ns: lambda uuid:
     (ns[uuid[0]] << 24) + int(uuid[1:])
-    )(dict((str(k)[0], v) for k, v in UUID_NAMESPACES.iteritems()))
+    )({str(k)[0]: v for k, v in UUID_NAMESPACES.iteritems()})
 
 class TerminalNeoCTL(object):
     def __init__(self, address):

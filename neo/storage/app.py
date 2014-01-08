@@ -200,7 +200,7 @@ class Application(object):
                     conn.close()
             # create/clear event queue
             self.event_queue = deque()
-            self.event_queue_dict = dict()
+            self.event_queue_dict = {}
             try:
                 self.verifyData()
                 self.initialize()

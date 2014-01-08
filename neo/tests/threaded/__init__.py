@@ -166,9 +166,9 @@ class Node(object):
 
     def getConnectionList(self, *peers):
         addr = lambda c: c and (c.accepted_from or c.getAddress())
-        addr_set = set(addr(c.connector) for peer in peers
+        addr_set = {addr(c.connector) for peer in peers
             for c in peer.em.connection_dict.itervalues()
-            if isinstance(c, Connection))
+            if isinstance(c, Connection)}
         addr_set.discard(None)
         return (c for c in self.em.connection_dict.itervalues()
             if isinstance(c, Connection) and addr(c.connector) in addr_set)
@@ -311,7 +311,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         checksum_dict = dict(dm.query("SELECT id, hash FROM data"))
         assert set(dm._uncommitted_data).issubset(checksum_dict)
         get = dm._uncommitted_data.get
-        return dict((str(v), get(k, 0)) for k, v in checksum_dict.iteritems())
+        return {str(v): get(k, 0) for k, v in checksum_dict.iteritems()}
 
 class ClientApplication(Node, neo.client.app.Application):
 

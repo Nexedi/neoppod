@@ -181,7 +181,7 @@ UUID_NAMESPACES = {
 }
 uuid_str = (lambda ns: lambda uuid:
     ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
-    )(dict((v, str(k)[0]) for k, v in UUID_NAMESPACES.iteritems()))
+    )({v: str(k)[0] for k, v in UUID_NAMESPACES.iteritems()})
 
 class ProtocolError(Exception):
     """ Base class for protocol errors, close the connection """

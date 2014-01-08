@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import defaultdict
 import neo.lib.pt
 from neo.lib.protocol import CellStates, ZERO_TID
 
@@ -188,17 +189,17 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         This is done by computing a minimal diff between current partition table
         and what make() would do.
         """
-        assigned_dict = dict((x, {}) for x in self.count_dict)
-        readable_dict = dict((i, set()) for i in xrange(self.np))
+        assigned_dict = {x: {} for x in self.count_dict}
+        readable_list = [set() for x in xrange(self.np)]
         for offset, row in enumerate(self.partition_list):
             for cell in row:
                 if cell.isReadable():
-                    readable_dict[offset].add(cell)
+                    readable_list[offset].add(cell)
                 assigned_dict[cell.getNode()][offset] = cell
         pt = PartitionTable(self.np, self.nr)
-        drop_list = set(x for x in drop_list if x in assigned_dict)
-        node_set = set(MappedNode(x) for x in assigned_dict
-                                     if x not in drop_list)
+        drop_list = set(drop_list).intersection(assigned_dict)
+        node_set = {MappedNode(x) for x in assigned_dict
+                                  if x not in drop_list}
         pt.make(node_set)
         for offset, row in enumerate(pt.partition_list):
             for cell in row:
@@ -210,8 +211,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 if node in drop_list:
                     yield node, frozenset()
                     continue
-                readable = set(offset for offset, cell in assigned.iteritems()
-                                      if cell.isReadable())
+                readable = {offset for offset, cell in assigned.iteritems()
+                                   if cell.isReadable()}
                 # the criterion on UUID is purely cosmetic
                 node_list.append((len(readable), len(assigned),
                                   -node.getUUID(), readable, node))
@@ -226,7 +227,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             assert not node_set
         changed_list = []
         uptodate_set = set()
-        remove_dict = dict((i, []) for i in xrange(self.np))
+        remove_dict = defaultdict(list)
         for node, mapped in map_nodes():
             uuid = node.getUUID()
             assigned = assigned_dict[node]
@@ -234,7 +235,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 if offset in mapped:
                     if cell.isReadable():
                         uptodate_set.add(offset)
-                        readable_dict[offset].remove(cell)
+                        readable_list[offset].remove(cell)
                         if cell.isFeeding():
                             self.count_dict[node] += 1
                             state = CellStates.UP_TO_DATE
@@ -251,11 +252,9 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 changed_list.append((offset, uuid, state))
         count_dict = self.count_dict.copy()
         for offset, cell_list in remove_dict.iteritems():
-            if not cell_list:
-                continue
             row = self.partition_list[offset]
             feeding = None if offset in uptodate_set else min(
-                readable_dict[offset], key=lambda x: count_dict[x.getNode()])
+                readable_list[offset], key=lambda x: count_dict[x.getNode()])
             for cell in cell_list:
                 if cell is feeding:
                     count_dict[cell.getNode()] += 1
@@ -305,10 +304,10 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         Return a set of all nodes which are part of at least one UP TO DATE
         partition.
         """
-        return set(cell.getNode()
+        return {cell.getNode()
             for row in self.partition_list
             for cell in row
-            if cell.isReadable())
+            if cell.isReadable()}
 
     def clearReplicating(self):
         for row in self.partition_list:

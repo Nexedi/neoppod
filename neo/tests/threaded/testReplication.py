@@ -66,7 +66,7 @@ class ReplicationTests(NEOThreadedTest):
         np = pt.getPartitions()
         self.assertEqual(np, upstream_pt.getPartitions())
         checked = 0
-        source_dict = dict((x.uuid, x) for x in cluster.upstream.storage_list)
+        source_dict = {x.uuid: x for x in cluster.upstream.storage_list}
         for storage in cluster.storage_list:
             self.assertEqual(np, storage.pt.getPartitions())
             for partition in pt.getAssignedPartitionList(storage.uuid):
@@ -349,7 +349,7 @@ class ReplicationTests(NEOThreadedTest):
             cluster.start()
             cluster.populate([range(np*2)] * tid_count)
             cluster.client.setPoll(0)
-            storage_dict = dict((x.uuid, x) for x in cluster.storage_list)
+            storage_dict = {x.uuid: x for x in cluster.storage_list}
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
             cluster.tic()
             check(ClusterStates.RUNNING, 0)

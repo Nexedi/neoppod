@@ -129,9 +129,9 @@ class PartitionTable(object):
 
     def getNodeSet(self, readable=False):
         if readable:
-            return set(x.getNode() for row in self.partition_list for x in row
-                                   if x.isReadable())
-        return set(x.getNode() for row in self.partition_list for x in row)
+            return {x.getNode() for row in self.partition_list for x in row
+                                   if x.isReadable()}
+        return {x.getNode() for row in self.partition_list for x in row}
 
     def getConnectedNodeList(self):
         return [node for node in self.getNodeSet() if node.isConnected()]
@@ -276,8 +276,8 @@ class PartitionTable(object):
             if row is None:
                 line.append('X' * len(node_list))
             else:
-                cell_dict = dict((x.getNode(), cell_state_dict[x.getState()])
-                                 for x in row)
+                cell_dict = {x.getNode(): cell_state_dict[x.getState()]
+                             for x in row}
                 line.append(''.join(cell_dict.get(x, '.') for x in node_list))
         if line:
             append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))

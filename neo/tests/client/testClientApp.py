@@ -337,7 +337,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         txn_context['queue'].put((conn, packet, {}))
         app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
         self.assertEqual(txn_context['object_stored_counter_dict'][oid],
-            {tid: set([uuid])})
+            {tid: {uuid}})
         self.assertEqual(txn_context['cache_dict'][oid], 'DATA')
         self.assertFalse(oid in txn_context['data_dict'])
         self.assertFalse(oid in txn_context['conflict_serial_dict'])

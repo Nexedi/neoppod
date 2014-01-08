@@ -56,25 +56,21 @@ class ClientServiceHandler(MasterHandler):
 
     def askFinishTransaction(self, conn, ttid, oid_list):
         app = self.app
+        pt = app.pt
 
         # Collect partitions related to this transaction.
-        getPartition = app.pt.getPartition
-        partition_set = set(getPartition(oid) for oid in oid_list)
-        partition_set.add(getPartition(ttid))
+        partition_set = set(map(pt.getPartition, oid_list))
+        partition_set.add(pt.getPartition(ttid))
 
         # Collect the UUIDs of nodes related to this transaction.
-        uuid_set = set()
-        isStorageReady = app.isStorageReady
-        for part in partition_set:
-            uuid_set.update((uuid for uuid in (
-                    cell.getUUID() for cell in app.pt.getCellList(part)
-                    if cell.getNodeState() != NodeStates.HIDDEN)
-                if isStorageReady(uuid)))
-
-        if not uuid_set:
+        uuid_list = filter(app.isStorageReady, {cell.getUUID()
+            for part in partition_set
+            for cell in pt.getCellList(part)
+            if cell.getNodeState() != NodeStates.HIDDEN})
+        if not uuid_list:
             raise ProtocolError('No storage node ready for transaction')
 
-        identified_node_list = app.nm.getIdentifiedList(pool_set=uuid_set)
+        identified_node_list = app.nm.getIdentifiedList(pool_set=set(uuid_list))
 
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some
@@ -83,9 +79,9 @@ class ClientServiceHandler(MasterHandler):
             ttid,
             app.tm.prepare(
                 ttid,
-                app.pt.getPartitions(),
+                pt.getPartitions(),
                 oid_list,
-                set(x.getUUID() for x in identified_node_list),
+                {x.getUUID() for x in identified_node_list},
                 conn.getPeerId(),
             ),
             oid_list,
@@ -98,7 +94,7 @@ class ClientServiceHandler(MasterHandler):
         if app.packing is None:
             storage_list = app.nm.getStorageList(only_identified=True)
             app.packing = (conn, conn.getPeerId(),
-                set(x.getUUID() for x in storage_list))
+                {x.getUUID() for x in storage_list})
             p = Packets.AskPack(tid)
             for storage in storage_list:
                 storage.getConnection().ask(p)

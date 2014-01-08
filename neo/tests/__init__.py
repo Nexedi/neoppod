@@ -514,28 +514,3 @@ class DoNothingConnector(Mock):
 
 __builtin__.pdb = lambda depth=0: \
     debug.getPdb().set_trace(sys._getframe(depth+1))
-
-def _fixMockForInspect():
-    """
-    inspect module change broke Mock, see http://bugs.python.org/issue1785
-    Monkey-patch Mock class if needed by replacing predicate parameter on 2nd
-    getmembers call with isroutine (was ismethod).
-    """
-    import inspect
-    class A(object):
-        def f(self):
-            pass
-    if not inspect.getmembers(A, inspect.ismethod):
-        from mock import MockCallable
-        # _setupSubclassMethodInterceptors is under the FreeBSD license.
-        # See pyMock module for the whole license.
-        def _setupSubclassMethodInterceptors(self):
-            methods = inspect.getmembers(self.__class__, inspect.isroutine)
-            baseMethods = dict(inspect.getmembers(Mock, inspect.isroutine))
-            for m in methods:
-                name = m[0]
-                # Don't record calls to methods of Mock base class.
-                if not name in baseMethods:
-                    self.__dict__[name] = MockCallable(name, self, handcrafted=True)
-        Mock._setupSubclassMethodInterceptors = _setupSubclassMethodInterceptors
-_fixMockForInspect()

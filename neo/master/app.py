@@ -282,8 +282,8 @@ class Application(object):
             if e.args[0] != ClusterStates.STARTING_BACKUP:
                 raise
             self.backup_tid = tid = self.getLastTransaction()
-            self.pt.setBackupTidDict(dict((node.getUUID(), tid)
-                for node in self.nm.getStorageList(only_identified=True)))
+            self.pt.setBackupTidDict({node.getUUID(): tid
+                for node in self.nm.getStorageList(only_identified=True)})
 
     def playPrimaryRole(self):
         logging.info('play the primary role with %r', self.listening_conn)

@@ -259,12 +259,12 @@ class MySQLDatabaseManager(DatabaseManager):
     def _getLastIDs(self, all=True):
         p64 = util.p64
         q = self.query
-        trans = dict((partition, p64(tid))
+        trans = {partition: p64(tid)
             for partition, tid in q("SELECT partition, MAX(tid)"
-                                    " FROM trans GROUP BY partition"))
-        obj = dict((partition, p64(tid))
+                                    " FROM trans GROUP BY partition")}
+        obj = {partition: p64(tid)
             for partition, tid in q("SELECT partition, MAX(tid)"
-                                    " FROM obj GROUP BY partition"))
+                                    " FROM obj GROUP BY partition")}
         oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
                                       " GROUP BY partition) as t")[0][0]
         if all:

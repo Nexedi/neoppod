@@ -242,11 +242,11 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
             'getPeerId': 512,
         })
         client_peer_id = 42
-        self.app.packing = (client_conn, client_peer_id, set([conn1.getUUID(),
-            conn2.getUUID()]))
+        self.app.packing = (client_conn, client_peer_id,
+                            {conn1.getUUID(), conn2.getUUID()})
         self.service.answerPack(conn1, False)
         self.checkNoPacketSent(client_conn)
-        self.assertEqual(self.app.packing[2], set([conn2.getUUID(), ]))
+        self.assertEqual(self.app.packing[2], {conn2.getUUID()})
         self.service.answerPack(conn2, False)
         status = self.checkAnswerPacket(client_conn, Packets.AnswerPack,
             decode=True)[0]

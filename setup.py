@@ -9,7 +9,6 @@ Framework :: ZODB
 Intended Audience :: Developers
 License :: OSI Approved :: GNU General Public License (GPL)
 Operating System :: POSIX :: Linux
-Programming Language :: Python :: 2.6
 Programming Language :: Python :: 2.7
 Topic :: Database
 Topic :: Software Development :: Libraries :: Python Modules

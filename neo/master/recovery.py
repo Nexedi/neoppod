@@ -63,8 +63,8 @@ class RecoveryManager(MasterHandler):
                 # A partition table exists, we are starting an existing
                 # cluster.
                 partition_node_set = pt.getReadableCellNodeSet()
-                pending_node_set = set(x for x in partition_node_set
-                    if x.isPending())
+                pending_node_set = {x for x in partition_node_set
+                    if x.isPending()}
                 if app._startup_allowed or \
                         partition_node_set == pending_node_set:
                     allowed_node_set = pending_node_set

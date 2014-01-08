@@ -67,7 +67,7 @@ class NotFound(Exception):
 class PortAllocator(object):
 
     lock = SocketLock('neo.PortAllocator')
-    allocator_set = weakref.WeakKeyDictionary() # BBB: use WeakSet instead
+    allocator_set = weakref.WeakSet()
 
     def __init__(self):
         self.socket_list = []
@@ -81,7 +81,7 @@ class PortAllocator(object):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if not self.lock.locked():
             self.lock.acquire()
-        self.allocator_set[self] = None
+        self.allocator_set.add(self)
         self.socket_list.append(s)
         sock_port_set = self.sock_port_set
         while True:
@@ -109,7 +109,7 @@ class PortAllocator(object):
 
     def reset(self):
         if self.lock.locked():
-            self.allocator_set.pop(self, None)
+            self.allocator_set.discard(self)
             if not self.allocator_set:
                 self.lock.release()
             self.release()
@@ -126,7 +126,7 @@ class NEOProcess(object):
         except ImportError:
             raise NotFound, '%s not found' % (command)
         self.command = command
-        self.arg_dict = dict(('--' + k, v) for k, v in arg_dict.iteritems())
+        self.arg_dict = {'--' + k: v for k, v in arg_dict.iteritems()}
         self.with_uuid = True
         self.setUUID(uuid)
 
