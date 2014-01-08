@@ -25,6 +25,15 @@ from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
+def unique_constraint_message(table, column):
+    c = sqlite3.connect(":memory:")
+    c.execute("CREATE TABLE %s (%s UNIQUE)" % (table, column))
+    try:
+        c.executemany("INSERT INTO %s VALUES(?)" % table, 'xx')
+    except sqlite3.IntegrityError, e:
+        return e.args[0]
+    assert False
+
 def splitOIDField(tid, oids):
     if (len(oids) % 8) != 0 or len(oids) == 0:
         raise DatabaseFailure('invalid oids length for tid %d: %d' % (tid,
@@ -360,13 +369,14 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("DELETE FROM data WHERE id IN (%s)"
               % ",".join(map(str, data_id_list)))
 
-    def _storeData(self, checksum, data, compression):
+    def _storeData(self, checksum, data, compression,
+                   _dup_hash=unique_constraint_message("data", "hash")):
         H = buffer(checksum)
         try:
             return self.query("INSERT INTO data VALUES (NULL,?,?,?)",
                 (H, compression,  buffer(data))).lastrowid
         except sqlite3.IntegrityError, e:
-            if e.args[0] == 'column hash is not unique':
+            if e.args[0] == _dup_hash:
                 (r, c, d), = self.query("SELECT id, compression, value"
                               " FROM data WHERE hash=?",  (H,))
                 if c == compression and str(d) == data:
