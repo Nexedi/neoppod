@@ -189,7 +189,13 @@ class ReadBuffer(object):
         Implementation of a lazy buffer. Main purpose if to reduce useless
         copies of data by storing chunks and join them only when the requested
         size is available.
-    """
+
+        TODO: For better performance, use:
+        - socket.recv_into (64kiB blocks)
+        - struct.unpack_from
+        - and a circular buffer of dynamic size (initial size:
+          twice the length passed to socket.recv_into ?)
+        """
 
     def __init__(self):
         self.size = 0

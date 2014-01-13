@@ -158,6 +158,9 @@ RC  - Review output of pylint (CODE)
     Admin
     - Make admin node able to monitor multiple clusters simultaneously
     - Send notifications (ie: mail) when a storage or master node is lost
+    - Add ctl command to truncate DB at arbitrary TID. 'Truncate' message
+      can be reused. There should also be a way to list last transactions,
+      like fstail for FileStorage.
 
     Tests
     - Use another mock library that is eggified and maintained.
