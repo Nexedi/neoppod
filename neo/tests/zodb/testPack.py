@@ -16,14 +16,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-try:
-    from ZODB.tests.PackableStorage import PackableStorageWithOptionalGC
-except ImportError:
-    from ZODB.tests.PackableStorage import PackableStorage as \
-        PackableStorageWithOptionalGC
-from ZODB.tests.PackableStorage import PackableUndoStorage
+from ZODB.tests.PackableStorage import \
+    PackableStorageWithOptionalGC, PackableUndoStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
+from .. import expectedFailure
 from . import ZODBTestCase
 
 class PackableTests(ZODBTestCase, StorageTestBase,
@@ -31,6 +28,10 @@ class PackableTests(ZODBTestCase, StorageTestBase,
 
     def setUp(self):
         super(PackableTests, self).setUp(cluster_kw={'adapter': 'MySQL'})
+
+    checkPackAllRevisions = expectedFailure()(
+        PackableStorageWithOptionalGC.checkPackAllRevisions)
+    checkPackUndoLog = expectedFailure()(PackableUndoStorage.checkPackUndoLog)
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(PackableTests, 'check')

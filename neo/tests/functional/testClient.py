@@ -26,6 +26,7 @@ from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
+from .. import expectedFailure
 from . import NEOCluster, NEOFunctionalTest
 
 TREE_SIZE = 6
@@ -220,6 +221,7 @@ class ClientTests(NEOFunctionalTest):
 
         self.__checkTree(root['trees'])
 
+    @expectedFailure(AttributeError)
     def testExportFileStorageBug(self):
         # currently fails due to a bug in ZODB.FileStorage
         self.testExport(True)

@@ -85,7 +85,7 @@ def main():
                         revision[:7], os.path.basename(test_home), backend)
                     if tests:
                         subprocess.call([os.path.join(bin, 'neotestrunner'),
-                            '-' + tests, '--title', 'NEO tests ' + title,
+                            '-v' + tests, '--title', 'NEO tests ' + title,
                             ] + sys.argv[1:arg_count])
                     if 'm' in tasks:
                         subprocess.call([os.path.join(bin, 'python'),

@@ -16,6 +16,7 @@
 
 import __builtin__
 import errno
+import functools
 import os
 import random
 import socket
@@ -31,10 +32,27 @@ from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
 from neo.lib.util import getAddressType
 from time import time
 from struct import pack, unpack
+from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 try:
     from ZODB.utils import newTid
 except ImportError:
     pass
+
+def expectedFailure(exception=AssertionError):
+    def decorator(func):
+        def wrapper(*args, **kw):
+            try:
+                func(*args, **kw)
+            except exception, e:
+                # XXX: passing sys.exc_info() causes deadlocks
+                raise _ExpectedFailure((type(e), None, None))
+            raise _UnexpectedSuccess
+        return functools.wraps(func)(wrapper)
+    if callable(exception) and not isinstance(exception, type):
+        func = exception
+        exception = Exception
+        return decorator(func)
+    return decorator
 
 DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
@@ -117,8 +135,6 @@ def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
 class NeoTestBase(unittest.TestCase):
 
     def setUp(self):
-        sys.stdout.write(' * %s ' % (self.id(), ))
-        sys.stdout.flush()
         logging.name = self.setupLog()
         unittest.TestCase.setUp(self)
 
@@ -126,17 +142,15 @@ class NeoTestBase(unittest.TestCase):
         test_case, logging.name = self.id().rsplit('.', 1)
         logging.setup(os.path.join(getTempDirectory(), test_case + '.log'))
 
-    def tearDown(self,
-            success='ok' if sys.version_info < (2, 7) else 'success'):
+    def tearDown(self):
         assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
-        self._tearDown(sys._getframe(1).f_locals[success])
+        self._tearDown(sys._getframe(1).f_locals['success'])
 
     def _tearDown(self, success):
         # Kill all unfinished transactions for next test.
         # Note we don't even abort them because it may require a valid
         # connection to a master node (see Storage.sync()).
         transaction.manager.__init__()
-        print
 
     class failureException(AssertionError):
         def __init__(self, msg=None):

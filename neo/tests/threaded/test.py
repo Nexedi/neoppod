@@ -26,6 +26,7 @@ from neo.storage.transactions import TransactionManager, \
 from neo.lib.connection import ConnectionClosed, MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
+from .. import expectedFailure, _UnexpectedSuccess
 from . import ClientApplication, NEOCluster, NEOThreadedTest, Patch
 from neo.lib.util import add64, makeChecksum
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -237,6 +238,7 @@ class Test(NEOThreadedTest):
         self.assertEqual(self._testDeadlockAvoidance([2, 4]),
             [DelayedError, DelayedError, ConflictError, ConflictError])
 
+    @expectedFailure(POSException.ConflictError)
     def testDeadlockAvoidance(self):
         # This test fail because deadlock avoidance is not fully implemented.
         # 0: C1 -> S1
@@ -717,9 +719,13 @@ class Test(NEOThreadedTest):
                 # XXX: This is an expected failure. A ttid column was added to
                 #      'trans' table to permit recovery, by checking that the
                 #      transaction was really committed.
-                self.assertRaises(ConnectionClosed, t.commit)
+                try:
+                    t.commit()
+                    raise _UnexpectedSuccess
+                except ConnectionClosed:
+                    pass
             t.begin()
-            c.root()['x']
+            expectedFailure(self.assertIn)('x', c.root())
         finally:
             cluster.stop()
 

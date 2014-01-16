@@ -19,11 +19,14 @@ from ZODB.tests.StorageTestBase import StorageTestBase
 from ZODB.tests.TransactionalUndoStorage import TransactionalUndoStorage
 from ZODB.tests.ConflictResolution import ConflictResolvingTransUndoStorage
 
+from .. import expectedFailure
 from . import ZODBTestCase
 
 class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
         ConflictResolvingTransUndoStorage):
-    pass
+
+    checkTransactionalUndoAfterPack = expectedFailure()(
+        TransactionalUndoStorage.checkTransactionalUndoAfterPack)
 
 # Don't run this test. It cannot run with pipelined store, and is not executed
 # on Zeo - but because Zeo doesn't have an iterator, while Neo has.
