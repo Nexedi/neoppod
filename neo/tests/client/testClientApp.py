@@ -502,12 +502,10 @@ class ClientApplicationTests(NeoUnitTestBase):
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        def tryToResolveConflict(oid, conflict_serial, serial, data):
-            pass
         app.master_conn = Mock()
         conn = Mock()
         self.assertRaises(StorageTransactionError, app.undo, tid,
-            txn, tryToResolveConflict)
+            txn, failing_tryToResolveConflict)
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
@@ -612,7 +610,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
             marker.append((oid, conflict_serial, serial, data, committedData))
-            return None
+            raise ConflictError
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
         self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)

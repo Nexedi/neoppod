@@ -797,8 +797,6 @@ class Application(object):
                     data = tryToResolveConflict(oid, current_serial,
                         undone_tid, undo_data, data)
                 except ConflictError:
-                    data = None
-                if data is None:
                     raise UndoError('Some data were modified by a later ' \
                         'transaction', oid)
                 undo_serial = None
