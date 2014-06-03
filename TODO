@@ -148,7 +148,7 @@ RC  - Review output of pylint (CODE)
       This can happen if it gets disconnected from primary master while waiting
       for AnswerFinishTransaction after primary received it and hence will
       commit transaction independently from client presence. Client could
-      legitimaltely think transaction is not committed, and might decide to
+      legitimately think transaction is not committed, and might decide to
       retry. To solve this, client can know if its TTID got successfuly
       committed by looking at currently unused '(t)trans.ttid' column.
       See neo.threaded.test.Test.testStorageFailureDuringTpcFinish
