@@ -227,7 +227,7 @@ class NEOProcess(object):
 
     def isAlive(self):
         try:
-            return psutil.Process(self.pid).status != psutil.STATUS_ZOMBIE
+            return psutil.Process(self.pid).status() != psutil.STATUS_ZOMBIE
         except psutil.NoSuchProcess:
             return False
 

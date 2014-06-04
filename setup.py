@@ -31,7 +31,7 @@ extras_require = {
     'storage-sqlite': [],
     'storage-mysqldb': ['MySQL-python'],
 }
-extras_require['tests'] = ['zope.testing', 'psutil',
+extras_require['tests'] = ['zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
 
 setup(

@@ -192,7 +192,7 @@ class ClusterPdb(object):
                         cluster_dict.commit()
                         break
                     try:
-                        if psutil.Process(pid).status == psutil.STATUS_ZOMBIE:
+                        if psutil.Process(pid).status() == psutil.STATUS_ZOMBIE:
                             break
                     except psutil.NoSuchProcess:
                         raise OSError(errno.ESRCH, 'No such process')
