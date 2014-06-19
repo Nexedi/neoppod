@@ -244,15 +244,6 @@ class MySQLDatabaseManager(DatabaseManager):
             value = e(str(value))
             q("REPLACE INTO config VALUES ('%s', '%s')" % (key, value))
 
-    def _setPackTID(self, tid):
-        self._setConfiguration('_pack_tid', tid)
-
-    def _getPackTID(self):
-        try:
-            return int(self.getConfiguration('_pack_tid'))
-        except TypeError:
-            return -1
-
     def getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
@@ -531,45 +522,19 @@ class MySQLDatabaseManager(DatabaseManager):
             oid_list = splitOIDField(tid, oids)
             return oid_list, user, desc, ext, bool(packed), util.p64(ttid)
 
-    def _getObjectLength(self, oid, value_serial):
-        if value_serial is None:
-            raise CreationUndone
-        r = self.query("""SELECT LENGTH(value), value_tid
-                    FROM obj LEFT JOIN data ON (obj.data_id = data.id)
-                    WHERE partition = %d AND oid = %d AND tid = %d""" %
-            (self._getPartition(oid), oid, value_serial))
-        length, value_serial = r[0]
-        if length is None:
-            logging.info("Multiple levels of indirection when "
-                "searching for object data for oid %d at tid %d."
-                " This causes suboptimal performance.", oid, value_serial)
-            length = self._getObjectLength(oid, value_serial)
-        return length
-
     def getObjectHistory(self, oid, offset = 0, length = 1):
         # FIXME: This method doesn't take client's current ransaction id as
         # parameter, which means it can return transactions in the future of
         # client's transaction.
         oid = util.u64(oid)
         p64 = util.p64
-        pack_tid = self._getPackTID()
-        r = self.query("""SELECT tid, LENGTH(value), value_tid
+        r = self.query("""SELECT tid, LENGTH(value)
                     FROM obj LEFT JOIN data ON (obj.data_id = data.id)
                     WHERE partition = %d AND oid = %d AND tid >= %d
-                    ORDER BY tid DESC LIMIT %d, %d""" \
-                % (self._getPartition(oid), oid, pack_tid, offset, length))
+                    ORDER BY tid DESC LIMIT %d, %d""" %
+            (self._getPartition(oid), oid, self._getPackTID(), offset, length))
         if r:
-            result = []
-            append = result.append
-            for serial, length, value_serial in r:
-                if length is None:
-                    try:
-                        length = self._getObjectLength(oid, value_serial)
-                    except CreationUndone:
-                        length = 0
-                append((p64(serial), length))
-            return result
-        return None
+            return [(p64(tid), length or 0) for tid, length in r]
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
             min_oid):

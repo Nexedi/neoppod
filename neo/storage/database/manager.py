@@ -149,6 +149,15 @@ class DatabaseManager(object):
         logging.debug('backup_tid = %s', tid)
         return self.setConfiguration('backup_tid', tid)
 
+    def _setPackTID(self, tid):
+        self._setConfiguration('_pack_tid', tid)
+
+    def _getPackTID(self):
+        try:
+            return int(self.getConfiguration('_pack_tid'))
+        except TypeError:
+            return -1
+
     def getPartitionTable(self):
         """Return a whole partition table as a sequence of rows. Each row
         is again a tuple of an offset (row ID), the NID of a storage
