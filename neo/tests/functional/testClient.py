@@ -171,19 +171,33 @@ class ClientTests(NEOFunctionalTest):
         db = ZODB.DB(storage=storage)
         return (db, storage)
 
-    def __populate(self, db, tree_size=TREE_SIZE, filestorage_bug=True):
+    def __populate(self, db, tree_size=TREE_SIZE):
+        if isinstance(db.storage, FileStorage):
+            from base64 import b64encode as undo_tid
+        else:
+            undo_tid = lambda x: x
+        def undo(tid=None):
+            db.undo(undo_tid(tid or db.lastTransaction()))
+            transaction.commit()
         conn = db.open()
         root = conn.root()
         root['trees'] = Tree(tree_size)
-        if filestorage_bug:
-            ob = root['trees'].right
-            left = ob.left
-            del ob.left
-            transaction.commit()
-            ob._p_changed = 1
-            transaction.commit()
-            ob.left = left
+        ob = root['trees'].right
+        left = ob.left
+        del ob.left
         transaction.commit()
+        ob._p_changed = 1
+        transaction.commit()
+        t2 = db.lastTransaction()
+        ob.left = left
+        transaction.commit()
+        undo()
+        t4 = db.lastTransaction()
+        undo(t2)
+        undo()
+        undo(t4)
+        undo()
+        undo()
         conn.close()
 
     def testImport(self):
@@ -203,12 +217,12 @@ class ClientTests(NEOFunctionalTest):
         (neo_db, neo_conn) = self.neo.getZODBConnection()
         self.__checkTree(neo_conn.root()['trees'])
 
-    def testExport(self, filestorage_bug=False):
+    def testExport(self):
 
         # create a neo storage
         self.neo.start()
         (neo_db, neo_conn) = self.neo.getZODBConnection()
-        self.__populate(neo_db, filestorage_bug=filestorage_bug)
+        self.__populate(neo_db)
 
         # copy neo to data fs
         dfs_db, dfs_storage  = self.__getDataFS(reset=True)
@@ -220,11 +234,6 @@ class ClientTests(NEOFunctionalTest):
         root = conn.root()
 
         self.__checkTree(root['trees'])
-
-    @expectedFailure(AttributeError)
-    def testExportFileStorageBug(self):
-        # currently fails due to a bug in ZODB.FileStorage
-        self.testExport(True)
 
     def testLockTimeout(self):
         """ Hold a lock on an object to block a second transaction """

@@ -58,10 +58,8 @@ class StorageBootstrapHandler(AnswerBaseHandler):
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
 
-    def answerObject(self, conn, oid, start_serial, end_serial,
-            compression, checksum, data, data_serial):
-        self.app.setHandlerData((oid, start_serial, end_serial,
-                compression, checksum, data))
+    def answerObject(self, conn, oid, *args):
+        self.app.setHandlerData(args)
 
     def answerStoreObject(self, conn, conflicting, oid, serial):
         txn_context = self.app.getHandlerData()

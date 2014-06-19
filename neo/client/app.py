@@ -399,11 +399,11 @@ class Application(object):
                 # Do not get something more recent than the last invalidation
                 # we got from master.
                 before_tid = p64(u64(self.last_tid) + 1)
-            result = self._loadFromStorage(oid, tid, before_tid)
+            data, tid, next_tid, _ = self._loadFromStorage(oid, tid, before_tid)
             acquire()
             try:
-                if not (self._loading_oid or result[2]):
-                    result = result[0], result[1], self._loading_invalidated
+                result = data, tid, (next_tid if self._loading_oid or next_tid
+                                              else self._loading_invalidated)
                 self._cache.store(oid, *result)
                 return result
             finally:
@@ -415,7 +415,7 @@ class Application(object):
         packet = Packets.AskObject(oid, at_tid, before_tid)
         for node, conn in self.cp.iterateForObject(oid, readable=True):
             try:
-                noid, tid, next_tid, compression, checksum, data \
+                tid, next_tid, compression, checksum, data, data_tid \
                     = self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
@@ -425,9 +425,8 @@ class Application(object):
                     logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
                     continue
-                if compression:
-                    data = decompress(data)
-                return data, tid, next_tid
+                return (decompress(data) if compression else data,
+                        tid, next_tid, data_tid)
             raise NEOStorageCreationUndoneError(dump(oid))
         # We didn't got any object from all storage node because of
         # connection error

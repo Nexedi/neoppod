@@ -34,31 +34,25 @@ class Record(BaseStorage.DataRecord):
 class Transaction(BaseStorage.TransactionRecord):
     """ Transaction object yielded by the NEO iterator """
 
-    def __init__(self, app, txn, prev_serial_dict):
+    def __init__(self, app, txn):
         super(Transaction, self).__init__(txn['id'], ' ',
             txn['user_name'], txn['description'], txn['ext'])
         self.app = app
         self.oid_list = txn['oids']
-        self.prev_serial_dict = prev_serial_dict
 
     def __iter__(self):
         """ Iterate over the transaction records """
-        load = self.app.load
+        load = self.app._loadFromStorage
         for oid in self.oid_list:
             try:
-                data, _, next_tid = load(oid, self.tid)
+                data, _, _, data_tid = load(oid, self.tid, None)
             except NEOStorageCreationUndoneError:
-                data = next_tid = None
+                data = data_tid = None
             except NEOStorageNotFoundError:
                 # Transactions are not updated after a pack, so their object
                 # will not be found in the database. Skip them.
                 continue
-            if next_tid is None:
-                prev_tid = self.prev_serial_dict.pop(oid, None)
-            else:
-                prev_tid = self.prev_serial_dict.get(oid)
-                self.prev_serial_dict[oid] = self.tid
-            yield Record(oid, self.tid, data, prev_tid)
+            yield Record(oid, self.tid, data, data_tid)
 
     def __str__(self):
         return 'Transaction #%s: %s %s' \
@@ -70,13 +64,10 @@ def iterator(app, start=None, stop=None):
     if start is None:
         start = ZERO_TID
     stop = min(stop or MAX_TID, app.lastTransaction())
-    # OID -> previous TID mapping
-    # TODO: prune old entries while walking ?
-    prev_serial_dict = {}
     while 1:
         max_tid, chunk = app.transactionLog(start, stop, CHUNK_LENGTH)
         if not chunk:
             break # nothing more
         for txn in chunk:
-            yield Transaction(app, txn, prev_serial_dict)
+            yield Transaction(app, txn)
         start = add64(max_tid, 1)

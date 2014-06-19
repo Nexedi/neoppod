@@ -41,7 +41,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         tid2 = self.getNextTID(tid1)
         the_object = (oid, tid1, tid2, 0, '', 'DATA', None)
         self.handler.answerObject(conn, *the_object)
-        self._checkHandlerData(the_object[:-1])
+        self._checkHandlerData(the_object[1:])
 
     def _getAnswerStoreObjectHandler(self, object_stored_counter_dict,
             conflict_serial_dict, resolved_conflict_serial_dict):
