@@ -18,22 +18,19 @@ LOG_QUERIES = False
 
 from neo.lib.exception import DatabaseFailure
 from .manager import DatabaseManager
-from .sqlite import SQLiteDatabaseManager
 
-DATABASE_MANAGER_DICT = {'SQLite': SQLiteDatabaseManager}
+DATABASE_MANAGER_DICT = {
+    'MySQL': 'mysqldb.MySQLDatabaseManager',
+    'SQLite': 'sqlite.SQLiteDatabaseManager',
+}
 
-try:
-    from .mysqldb import MySQLDatabaseManager
-except ImportError:
-    pass
-else:
-    DATABASE_MANAGER_DICT['MySQL'] = MySQLDatabaseManager
+def getAdapterKlass(name):
+    try:
+        module, name = DATABASE_MANAGER_DICT[name or 'MySQL'].split('.')
+    except KeyError:
+        raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
+    module = getattr(__import__(__name__, fromlist=[module], level=1), module)
+    return getattr(module, name)
 
 def buildDatabaseManager(name, args=(), kw={}):
-    if name is None:
-        name = DATABASE_MANAGER_DICT.keys()[0]
-    adapter_klass = DATABASE_MANAGER_DICT.get(name, None)
-    if adapter_klass is None:
-        raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
-    return adapter_klass(*args, **kw)
-
+    return getAdapterKlass(name)(*args, **kw)
