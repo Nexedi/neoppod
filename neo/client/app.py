@@ -41,7 +41,6 @@ from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
 from .poll import ThreadedPoll, psThreadedPoll
-from .iterator import Iterator
 from .cache import ClientCache
 from .pool import ConnectionPool
 from neo.lib.util import p64, u64, parseMasterList
@@ -939,10 +938,7 @@ class Application(object):
             assert real_tid == tid, (real_tid, tid)
         transaction_iter.close()
 
-    def iterator(self, start, stop):
-        if start is None:
-            start = ZERO_TID
-        return Iterator(self, start, stop)
+    from .iterator import iterator
 
     def lastTransaction(self):
         self._askPrimary(Packets.AskLastTransaction())

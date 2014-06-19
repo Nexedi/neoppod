@@ -134,12 +134,9 @@ class Storage(BaseStorage.BaseStorage,
         except NEOStorageNotFoundError:
             return None
 
-    def iterator(self, start=None, stop=None):
-        # Iterator lives in its own transaction, so get a fresh snapshot.
-        snapshot_tid = self.lastTransaction()
-        if not stop or snapshot_tid < stop:
-            stop = snapshot_tid
-        return self.app.iterator(start, stop)
+    @property
+    def iterator(self):
+        return self.app.iterator
 
     # undo
     def undo(self, transaction_id, txn):
