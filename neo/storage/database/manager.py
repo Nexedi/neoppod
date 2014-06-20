@@ -244,17 +244,12 @@ class DatabaseManager(object):
         # See if object exists at all
         return self._getObject(oid) and False
 
-    def changePartitionTable(self, ptid, cell_list):
+    def changePartitionTable(self, ptid, cell_list, reset=False):
         """Change a part of a partition table. The list of cells is
         a tuple of tuples, each of which consists of an offset (row ID),
         the NID of a storage node, and a cell state. The Partition
-        Table ID must be stored as well."""
-        raise NotImplementedError
-
-    def setPartitionTable(self, ptid, cell_list):
-        """Set a whole partition table. The semantics is the same as
-        changePartitionTable, except that existing data must be
-        thrown away."""
+        Table ID must be stored as well. If reset is True, existing data
+        is first thrown away."""
         raise NotImplementedError
 
     def dropPartitions(self, offset_list):

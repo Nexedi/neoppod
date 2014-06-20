@@ -306,7 +306,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return (serial, r[0][0] if r else None, compression, checksum, data,
             value_serial)
 
-    def doSetPartitionTable(self, ptid, cell_list, reset):
+    def changePartitionTable(self, ptid, cell_list, reset=False):
         offset_list = []
         q = self.query
         if reset:
@@ -333,12 +333,6 @@ class MySQLDatabaseManager(DatabaseManager):
                     except OperationalError, (code, _):
                         if code != 1517: # duplicate partition name
                             raise
-
-    def changePartitionTable(self, ptid, cell_list):
-        self.doSetPartitionTable(ptid, cell_list, False)
-
-    def setPartitionTable(self, ptid, cell_list):
-        self.doSetPartitionTable(ptid, cell_list, True)
 
     def dropPartitions(self, offset_list):
         q = self.query

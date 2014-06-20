@@ -44,7 +44,7 @@ class InitializationHandler(BaseMasterHandler):
             logging.debug('drop data for partitions %r', unassigned_set)
             app.dm.dropPartitions(unassigned_set)
 
-        app.dm.setPartitionTable(ptid, cell_list)
+        app.dm.changePartitionTable(ptid, cell_list, reset=True)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         # XXX: This is safe to ignore those notifications because all of the

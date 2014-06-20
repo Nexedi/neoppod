@@ -271,7 +271,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             data = str(data)
         return serial, r and r[0], compression, checksum, data, value_serial
 
-    def doSetPartitionTable(self, ptid, cell_list, reset):
+    def changePartitionTable(self, ptid, cell_list, reset=False):
         q = self.query
         if reset:
             q("DELETE FROM pt")
@@ -287,12 +287,6 @@ class SQLiteDatabaseManager(DatabaseManager):
                 q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
                   (offset, nid, int(state)))
         self.setPTID(ptid)
-
-    def changePartitionTable(self, ptid, cell_list):
-        self.doSetPartitionTable(ptid, cell_list, False)
-
-    def setPartitionTable(self, ptid, cell_list):
-        self.doSetPartitionTable(ptid, cell_list, True)
 
     def dropPartitions(self, offset_list):
         where = " WHERE partition=?"

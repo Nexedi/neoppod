@@ -68,8 +68,9 @@ class StorageDBTests(NeoUnitTestBase):
         uuid = self.getStorageUUID()
         db.setUUID(uuid)
         self.assertEqual(uuid, db.getUUID())
-        db.setPartitionTable(1,
-            [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)])
+        db.changePartitionTable(1,
+            [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)],
+            reset=True)
 
     def checkConfigEntry(self, get_call, set_call, value):
         # generic test for all configuration entries accessors
@@ -97,7 +98,7 @@ class StorageDBTests(NeoUnitTestBase):
         uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
         cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
-        db.setPartitionTable(ptid, [cell1, cell2])
+        db.changePartitionTable(ptid, [cell1, cell2], 1)
         result = db.getPartitionTable()
         self.assertEqual(set(result), {cell1, cell2})
 
@@ -225,15 +226,15 @@ class StorageDBTests(NeoUnitTestBase):
         # no partition table
         self.assertEqual(list(db.getPartitionTable()), [])
         # set one
-        db.setPartitionTable(ptid, [cell1])
+        db.changePartitionTable(ptid, [cell1], 1)
         result = db.getPartitionTable()
         self.assertEqual(list(result), [cell1])
         # then another
-        db.setPartitionTable(ptid, [cell2])
+        db.changePartitionTable(ptid, [cell2], 1)
         result = db.getPartitionTable()
         self.assertEqual(list(result), [cell2])
         # drop discarded cells
-        db.setPartitionTable(ptid, [cell2, cell3])
+        db.changePartitionTable(ptid, [cell2, cell3], 1)
         result = db.getPartitionTable()
         self.assertEqual(list(result), [])
 
