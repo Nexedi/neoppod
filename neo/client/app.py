@@ -919,23 +919,25 @@ class Application(object):
 
     def importFrom(self, source, start, stop, tryToResolveConflict,
             preindex=None):
+        # TODO: The main difference with BaseStorage implementation is that
+        #       preindex can't be filled with the result 'store' (tid only
+        #       known after 'tpc_finish'. This method could be dropped if we
+        #       implemented IStorageRestoreable (a wrapper around source would
+        #       still be required for partial import).
         if preindex is None:
             preindex = {}
-        transaction_iter = source.iterator(start, stop)
-        for transaction in transaction_iter:
+        for transaction in source.iterator(start, stop):
             tid = transaction.tid
             self.tpc_begin(transaction, tid, transaction.status)
             for r in transaction:
                 oid = r.oid
                 pre = preindex.get(oid)
-                # TODO: bypass conflict resolution, locks...
                 self.store(oid, pre, r.data, r.version, transaction)
                 preindex[oid] = tid
             conflicted = self.tpc_vote(transaction, tryToResolveConflict)
             assert not conflicted, conflicted
             real_tid = self.tpc_finish(transaction, tryToResolveConflict)
             assert real_tid == tid, (real_tid, tid)
-        transaction_iter.close()
 
     from .iterator import iterator
 

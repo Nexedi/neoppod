@@ -142,8 +142,8 @@ RC  - Review output of pylint (CODE)
     - Use generic bootstrap module (CODE)
     - If too many storage nodes are dead, the client should check the partition
       table hasn't changed by pinging the master and retry if necessary.
-    - Implement restore() ZODB API method to bypass consistency checks during
-      imports.
+    - Implement IStorageRestoreable (ZODB API) in order to preserve data
+      serials (i.e. undo information).
     - tpc_finish might raise while transaction got successfully committed.
       This can happen if it gets disconnected from primary master while waiting
       for AnswerFinishTransaction after primary received it and hence will

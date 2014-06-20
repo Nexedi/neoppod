@@ -32,13 +32,8 @@ class Storage(BaseStorage.BaseStorage,
 
     implements(
         ZODB.interfaces.IStorage,
-        # "restore" missing for the moment, but "store" implements this
-        # interface.
         # ZODB.interfaces.IStorageRestoreable,
-        # XXX: imperfect iterator implementation:
-        # - start & stop are not handled (raises if either is not None)
-        # - transaction isolation is not done
-        # ZODB.interfaces.IStorageIteration,
+        ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
         ZODB.interfaces.IExternalGC,
         ZODB.interfaces.ReadVerifyingStorage,
@@ -178,8 +173,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """
-        return self.app.importFrom(source, None, None,
-                self.tryToResolveConflict)
+        return self.importFrom(source)
 
     def importFrom(self, source, start=None, stop=None, preindex=None):
         """ Allow import only a part of the source storage """

@@ -44,18 +44,17 @@ def main(args=None):
 
     # open storages
     from ZODB.FileStorage import FileStorage
-    #from ZEO.ClientStorage import ClientStorage as ZEOStorage
     from neo.client.Storage import Storage as NEOStorage
     if os.path.exists(source):
+        print("NOTE: NEO does not implement IStorageRestoreable interface,"
+              " which means that undo information is not preserved: conflict"
+              " resolution could happen when undoing an old transaction.")
         src = FileStorage(file_name=source, read_only=True)
         dst = NEOStorage(master_nodes=destination, name=cluster,
                          verbose=options.verbose)
     else:
-        print("WARNING: due to a bug in FileStorage (at least up to ZODB trunk"
-              "@121629), output database may be corrupted if input database is"
-              " not packed.")
         src = NEOStorage(master_nodes=source, name=cluster,
-                         verbose=options.verbose)
+                         verbose=options.verbose, read_only=True)
         dst = FileStorage(file_name=destination)
 
     # do the job
