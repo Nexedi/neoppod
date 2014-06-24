@@ -423,7 +423,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return self.conn.insert_id()
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT tid, data_id, value_tid FROM obj'
+        sql = ('SELECT tid, value_tid FROM obj'
                ' WHERE partition = %d AND oid = %d'
               ) % (self._getPartition(oid), oid)
         if tid is not None:
@@ -435,12 +435,7 @@ class MySQLDatabaseManager(DatabaseManager):
             # MySQL does not use an index for a HAVING clause!
             sql += ' ORDER BY tid DESC LIMIT 1'
         r = self.query(sql)
-        if r:
-            (serial, data_id, value_serial), = r
-            if value_serial is None and data_id:
-                return serial, serial
-            return serial, value_serial
-        return None, None
+        return r[0] if r else (None, None)
 
     def finishTransaction(self, tid):
         q = self.query

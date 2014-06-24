@@ -370,7 +370,7 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getPartition(oid)
-        sql = 'SELECT tid, data_id, value_tid FROM obj' \
+        sql = 'SELECT tid, value_tid FROM obj' \
               ' WHERE partition=? AND oid=?'
         if tid is not None:
             r = self.query(sql + ' AND tid=?', (partition, oid, tid))
@@ -381,12 +381,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             r = self.query(sql + ' ORDER BY tid DESC LIMIT 1',
                            (partition, oid))
         r = r.fetchone()
-        if r:
-            serial, data_id, value_serial = r
-            if value_serial is None and data_id:
-                return serial, serial
-            return serial, value_serial
-        return None, None
+        return r or (None, None)
 
     def finishTransaction(self, tid):
         args = util.u64(tid),

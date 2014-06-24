@@ -328,28 +328,20 @@ class DatabaseManager(object):
         tid (int)
             tid corresponding to received parameters
         serial
-            tid at which actual object data is located
+            data tid of the found record
 
-        If 'tid is None', requested object and transaction could
-        not be found.
-        If 'serial is None', requested object exist but has no data (its creation
-        has been undone).
-        If 'tid == serial', it means that requested transaction
-        contains object data.
-        Otherwise, it's an undo transaction which did not involve conflict
-        resolution.
+        (None, None) is returned if requested object and transaction
+        could not be found.
+
+        This method only exists for performance reasons, by not returning data:
+        _getObject already returns these values but it is slower.
         """
         if self.__class__ not in self.__getDataTID:
             self.__getDataTID.add(self.__class__)
             logging.warning("Fallback to generic/slow implementation"
-                " of _getDataTID. It should be overriden by backend storage.")
+                " of _getDataTID. It should be overridden by backend storage.")
         r = self._getObject(oid, tid, before_tid)
-        if r:
-            serial, _, _, data_id, _, value_serial = r
-            if value_serial is None and data_id:
-                return serial, serial
-            return serial, value_serial
-        return None, None
+        return (r[0], r[-1]) if r else (None, None)
 
     def findUndoTID(self, oid, tid, ltid, undone_tid, transaction_object):
         """
@@ -389,17 +381,17 @@ class DatabaseManager(object):
             ltid = u64(ltid)
         undone_tid = u64(undone_tid)
         def getDataTID(tid=None, before_tid=None):
-            tid, value_serial = self._getDataTID(oid, tid, before_tid)
-            if value_serial not in (None, tid):
-                if value_serial >= tid:
-                    raise ValueError("Incorrect value reference found for"
-                                     " oid %d at tid %d: reference = %d"
-                                     % (oid, value_serial, tid))
-                if value_serial != getDataTID(value_serial)[1]:
-                    logging.warning("Multiple levels of indirection"
-                        " when getting data serial for oid %d at tid %d."
-                        " This causes suboptimal performance.", oid, tid)
-            return tid, value_serial
+            tid, data_tid = self._getDataTID(oid, tid, before_tid)
+            current_tid = tid
+            while data_tid:
+                if data_tid < tid:
+                    tid, data_tid = self._getDataTID(oid, data_tid)
+                    if tid is not None:
+                        continue
+                logging.error("Incorrect data serial for oid %s at tid %s",
+                              oid, current_tid)
+                return current_tid, current_tid
+            return current_tid, tid
         if transaction_object:
             current_tid = current_data_tid = u64(transaction_object[2])
         else:
