@@ -45,16 +45,12 @@ class ClientOperationHandler(EventHandler):
             app.queueEvent(self.askObject, conn, (oid, serial, tid))
             return
         o = app.dm.getObject(oid, serial, tid)
-        if o is None:
-            logging.debug('oid = %s does not exist', dump(oid))
-            p = Errors.OidDoesNotExist(dump(oid))
-        elif o is False:
-            logging.debug('oid = %s not found', dump(oid))
-            p = Errors.OidNotFound(dump(oid))
-        else:
+        try:
             serial, next_serial, compression, checksum, data, data_serial = o
-            logging.debug('oid = %s, serial = %s, next_serial = %s',
-                          dump(oid), dump(serial), dump(next_serial))
+        except TypeError:
+            p = (Errors.OidDoesNotExist if o is None else
+                 Errors.OidNotFound)(dump(oid))
+        else:
             if checksum is None:
                 checksum = ZERO_HASH
                 data = ''
