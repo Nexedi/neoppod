@@ -52,7 +52,9 @@ class DatabaseManager(object):
         pass
 
     def _getPartition(self, oid_or_tid):
-        return oid_or_tid % self.getNumPartitions()
+        np = self.getNumPartitions()
+        self._getPartition = lambda x: x % np
+        return self._getPartition(oid_or_tid)
 
     def getConfiguration(self, key):
         """
@@ -97,6 +99,7 @@ class DatabaseManager(object):
             Store the number of partitions into a database.
         """
         self.setConfiguration('partitions', num_partitions)
+        self.__class__._getPartition(self, 0)
 
     def getNumReplicas(self):
         """
