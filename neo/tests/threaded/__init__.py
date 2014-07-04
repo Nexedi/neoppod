@@ -316,8 +316,8 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 class ClientApplication(Node, neo.client.app.Application):
 
     @SerializedEventManager.decorate
-    def __init__(self, master_nodes, name):
-        super(ClientApplication, self).__init__(master_nodes, name)
+    def __init__(self, master_nodes, name, **kw):
+        super(ClientApplication, self).__init__(master_nodes, name, **kw)
         self.em._lock = threading.Lock()
 
     def setPoll(self, master=False):
@@ -545,7 +545,7 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       db_user=DB_USER, db_password=''):
+                       db_user=DB_USER, db_password='', compress=True):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         master_list = [MasterApplication.newAddress()
@@ -577,7 +577,7 @@ class NEOCluster(object):
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
         self.client = ClientApplication(name=self.name,
-            master_nodes=self.master_nodes)
+            master_nodes=self.master_nodes, compress=compress)
         self.neoctl = NeoCTL(self.admin.getVirtualAddress())
 
     # A few shortcuts that work when there's only 1 master/storage/admin
