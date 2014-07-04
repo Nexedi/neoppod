@@ -17,6 +17,18 @@
 from neo.lib import logging, util
 from neo.lib.protocol import ZERO_TID
 
+def fallback(func):
+    def getter(self):
+        cls = self.__class__
+        name = func.__name__
+        assert name not in cls.__dict__
+        logging.info("Fallback to generic/slow implementation of %s."
+            " It should be overridden by backend storage (%s).",
+            name, cls.__name__)
+        setattr(cls, name, func)
+        return getattr(self, name)
+    return property(getter)
+
 class CreationUndone(Exception):
     pass
 
@@ -328,7 +340,7 @@ class DatabaseManager(object):
             self._pruneData(data_id_list)
             self.commit()
 
-    __getDataTID = set()
+    @fallback
     def _getDataTID(self, oid, tid=None, before_tid=None):
         """
         Return a 2-tuple:
@@ -343,10 +355,6 @@ class DatabaseManager(object):
         This method only exists for performance reasons, by not returning data:
         _getObject already returns these values but it is slower.
         """
-        if self.__class__ not in self.__getDataTID:
-            self.__getDataTID.add(self.__class__)
-            logging.warning("Fallback to generic/slow implementation"
-                " of _getDataTID. It should be overridden by backend storage.")
         r = self._getObject(oid, tid, before_tid)
         return (r[0], r[-1]) if r else (None, None)
 
