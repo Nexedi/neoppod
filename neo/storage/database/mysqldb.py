@@ -135,13 +135,13 @@ class MySQLDatabaseManager(DatabaseManager):
         """Escape special characters in a string."""
         return self.conn.escape_string(s)
 
-    def setup(self, reset = 0):
+    def erase(self):
+        self.query(
+            "DROP TABLE IF EXISTS config, pt, trans, obj, data, ttrans, tobj")
+
+    def _setup(self, app):
         self._config.clear()
         q = self.query
-
-        if reset:
-            q('DROP TABLE IF EXISTS config, pt, trans, obj, data, ttrans, tobj')
-
         # The table "config" stores configuration parameters which affect the
         # persistent data.
         q("""CREATE TABLE IF NOT EXISTS config (

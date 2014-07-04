@@ -53,7 +53,7 @@ class StorageDBTests(NeoUnitTestBase):
             self._db = db = self.getDB(reset)
         else:
             if reset:
-                db.setup(reset)
+                db.setup(None, reset)
             else:
                 try:
                     n = db.getNumPartitions()

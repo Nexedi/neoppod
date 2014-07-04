@@ -101,14 +101,13 @@ class SQLiteDatabaseManager(DatabaseManager):
     else:
         query = property(lambda self: self.conn.execute)
 
-    def setup(self, reset = 0):
+    def erase(self):
+        for t in 'config', 'pt', 'trans', 'obj', 'data', 'ttrans', 'tobj':
+            self.query('DROP TABLE IF EXISTS ' + t)
+
+    def _setup(self, app):
         self._config.clear()
         q = self.query
-
-        if reset:
-            for t in 'config', 'pt', 'trans', 'obj', 'data', 'ttrans', 'tobj':
-                q('DROP TABLE IF EXISTS ' + t)
-
         # The table "config" stores configuration parameters which affect the
         # persistent data.
         q("""CREATE TABLE IF NOT EXISTS config (

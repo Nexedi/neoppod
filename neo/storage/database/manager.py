@@ -34,17 +34,21 @@ class DatabaseManager(object):
         """Called during instanciation, to process database parameter."""
         pass
 
-    def setup(self, reset = 0):
-        """Set up a database
+    def setup(self, app, reset=0):
+        """Set up a database, discarding existing data first if reset is True
+        """
+        if reset:
+            self.erase()
+        self._setup(app)
+
+    def _setup(self, app):
+        """To be overriden by the backend to set up a database
 
         It must recover self._uncommitted_data from temporary object table.
         _uncommitted_data is a dict containing refcounts to data of
         write-locked objects, except in case of undo, where the refcount is
         increased later, when the object is read-locked.
         Keys are data ids and values are number of references.
-
-        If reset is true, existing data must be discarded and
-        self._uncommitted_data must be an empty dict.
         """
         raise NotImplementedError
 

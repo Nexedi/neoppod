@@ -81,7 +81,7 @@ class Application(object):
         # ready is True when operational and got all informations
         self.ready = False
 
-        self.dm.setup(reset=config.getReset())
+        self.dm.setup(self, reset=config.getReset())
         self.loadConfiguration()
 
         # force node uuid from command line argument, for testing purpose only
@@ -400,6 +400,7 @@ class Application(object):
             except PrimaryFailure:
                 pass
         # clear database to avoid polluting the cluster at restart
-        self.dm.setup(reset=erase)
+        if erase:
+            self.dm.erase()
         logging.info("Application has been asked to shut down")
         sys.exit()
