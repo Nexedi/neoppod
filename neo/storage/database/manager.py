@@ -14,20 +14,28 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from functools import wraps
 from neo.lib import logging, util
 from neo.lib.protocol import ZERO_TID
 
-def fallback(func):
+def lazymethod(func):
     def getter(self):
         cls = self.__class__
         name = func.__name__
         assert name not in cls.__dict__
+        setattr(cls, name, func(self))
+        return getattr(self, name)
+    return property(getter, doc=func.__doc__)
+
+def fallback(func):
+    def warn(self):
+        cls = self.__class__
+        name = func.__name__
         logging.info("Fallback to generic/slow implementation of %s."
             " It should be overridden by backend storage (%s).",
-            name, cls.__name__)
-        setattr(cls, name, func)
-        return getattr(self, name)
-    return property(getter)
+            func.__name__, self.__class__.__name__)
+        return func
+    return lazymethod(wraps(func)(warn))
 
 class CreationUndone(Exception):
     pass
@@ -67,10 +75,10 @@ class DatabaseManager(object):
     def commit(self):
         pass
 
-    def _getPartition(self, oid_or_tid):
+    @lazymethod
+    def _getPartition(self):
         np = self.getNumPartitions()
-        self._getPartition = lambda x: x % np
-        return self._getPartition(oid_or_tid)
+        return staticmethod(lambda x: x % np)
 
     def getConfiguration(self, key):
         """
@@ -115,7 +123,12 @@ class DatabaseManager(object):
             Store the number of partitions into a database.
         """
         self.setConfiguration('partitions', num_partitions)
-        self.__class__._getPartition(self, 0)
+        cls = self.__class__
+        assert cls is not DatabaseManager
+        try:
+            del cls._getPartition
+        except AttributeError:
+            pass
 
     def getNumReplicas(self):
         """
