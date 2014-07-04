@@ -274,9 +274,7 @@ class TransactionManager(object):
                 dump(oid), dump(ttid), dump(locking_tid))
             raise ConflictError(ZERO_TID)
         if previous_serial is None:
-            history_list = self._app.dm.getObjectHistory(oid)
-            if history_list:
-                previous_serial = history_list[0][0]
+            previous_serial = self._app.dm.getLastObjectTID(oid)
         if previous_serial is not None and previous_serial != serial:
             logging.info('Resolvable conflict on %r:%r',
                 dump(oid), dump(ttid))

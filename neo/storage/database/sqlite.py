@@ -244,6 +244,14 @@ class SQLiteDatabaseManager(DatabaseManager):
                q("SELECT 1 FROM tobj WHERE tid=? AND oid=?",
                  (tid, oid)).fetchone()
 
+    def getLastObjectTID(self, oid):
+        oid = util.u64(oid)
+        r = self.query("SELECT tid FROM obj"
+                       " WHERE partition=? AND oid=?"
+                       " ORDER BY tid DESC LIMIT 1",
+                       (self._getPartition(oid), oid)).fetchone()
+        return r and util.p64(r[0])
+
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
@@ -461,7 +469,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             return splitOIDField(tid, oids), str(user), \
                 str(description), str(ext), packed, util.p64(ttid)
 
-    def getObjectHistory(self, oid, offset=0, length=1):
+    def getObjectHistory(self, oid, offset, length):
         # FIXME: This method doesn't take client's current transaction id as
         # parameter, which means it can return transactions in the future of
         # client's transaction.

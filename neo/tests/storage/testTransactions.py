@@ -189,7 +189,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         serial, obj = self._getObject(1)
         next_serial = self.getNextTID(serial)
         # try to store without the last revision
-        self.app.dm = Mock({'getObjectHistory': [next_serial]})
+        self.app.dm = Mock({'getLastObjectTID': next_serial})
         self.manager.register(uuid, tid)
         self.manager.storeTransaction(tid, *txn)
         self.assertRaises(ConflictError, self.manager.storeObject,

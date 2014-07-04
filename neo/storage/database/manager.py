@@ -207,6 +207,12 @@ class DatabaseManager(object):
         searched from unfinished transactions as well."""
         raise NotImplementedError
 
+    @fallback
+    def getLastObjectTID(self, oid):
+        """Return the latest tid of given oid or None if it does not exist"""
+        r = self.getObject(oid)
+        return r and r[0]
+
     def _getObject(self, oid, tid=None, before_tid=None):
         """
         oid (int)
@@ -241,27 +247,17 @@ class DatabaseManager(object):
                 - data_serial (packed, None)
         """
         u64 = util.u64
-        p64 = util.p64
-        oid = u64(oid)
-        if tid is not None:
-            tid = u64(tid)
-        if before_tid is not None:
-            before_tid = u64(before_tid)
-        result = self._getObject(oid, tid, before_tid)
-        if result:
-            serial, next_serial, compression, checksum, data, data_serial = \
-                result
-            assert before_tid is None or next_serial is None or \
-                   before_tid <= next_serial
-            if serial is not None:
-                serial = p64(serial)
-            if next_serial is not None:
-                next_serial = p64(next_serial)
-            if data_serial is not None:
-                data_serial = p64(data_serial)
-            return serial, next_serial, compression, checksum, data, data_serial
-        # See if object exists at all
-        return self._getObject(oid) and False
+        r = self._getObject(u64(oid), tid and u64(tid),
+                            before_tid and u64(before_tid))
+        try:
+            serial, next_serial, compression, checksum, data, data_serial = r
+        except TypeError:
+            # See if object exists at all
+            return (tid or before_tid) and self.getLastObjectTID(oid) and False
+        return (util.p64(serial),
+                None if next_serial is None else util.p64(next_serial),
+                compression, checksum, data,
+                None if data_serial is None else util.p64(data_serial))
 
     def changePartitionTable(self, ptid, cell_list, reset=False):
         """Change a part of a partition table. The list of cells is
@@ -460,7 +456,7 @@ class DatabaseManager(object):
         area as well."""
         raise NotImplementedError
 
-    def getObjectHistory(self, oid, offset = 0, length = 1):
+    def getObjectHistory(self, oid, offset, length):
         """Return a list of serials and sizes for a given object ID.
         The length specifies the maximum size of such a list. Result starts
         with latest serial, and the list must be sorted in descending order.

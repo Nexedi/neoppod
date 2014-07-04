@@ -282,6 +282,14 @@ class MySQLDatabaseManager(DatabaseManager):
                  % (self._getPartition(oid), oid, tid)) or all and \
                q("SELECT 1 FROM tobj WHERE tid=%d AND oid=%d" % (tid, oid))
 
+    def getLastObjectTID(self, oid):
+        oid = util.u64(oid)
+        r = self.query("SELECT tid FROM obj"
+                       " WHERE partition=%d AND oid=%d"
+                       " ORDER BY tid DESC LIMIT 1"
+                       % (self._getPartition(oid), oid))
+        return util.p64(r[0][0]) if r else None
+
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
@@ -511,7 +519,7 @@ class MySQLDatabaseManager(DatabaseManager):
             oid_list = splitOIDField(tid, oids)
             return oid_list, user, desc, ext, bool(packed), util.p64(ttid)
 
-    def getObjectHistory(self, oid, offset = 0, length = 1):
+    def getObjectHistory(self, oid, offset, length):
         # FIXME: This method doesn't take client's current ransaction id as
         # parameter, which means it can return transactions in the future of
         # client's transaction.
