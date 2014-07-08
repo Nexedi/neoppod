@@ -311,7 +311,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
         q("DELETE FROM tobj")
         q("DELETE FROM ttrans")
-        self.unlockData(data_id_list, True)
+        self.releaseData(data_id_list, True)
 
     def storeTransaction(self, tid, object_list, transaction, temporary=True):
         u64 = util.u64
@@ -328,7 +328,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                     " WHERE partition=? AND oid=? AND tid=?",
                     (partition, oid, value_serial))
                 if temporary:
-                    self.storeData(data_id)
+                    self.holdData(data_id)
             try:
                 q(obj_sql, (partition, oid, tid, data_id, value_serial))
             except sqlite3.IntegrityError:
@@ -361,7 +361,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("DELETE FROM data WHERE id IN (%s)"
               % ",".join(map(str, data_id_list)))
 
-    def _storeData(self, checksum, data, compression,
+    def storeData(self, checksum, data, compression,
                    _dup_hash=unique_constraint_message("data", "hash")):
         H = buffer(checksum)
         try:
@@ -399,7 +399,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         q("DELETE FROM tobj WHERE tid=?", args)
         q("INSERT OR FAIL INTO trans SELECT * FROM ttrans WHERE tid=?", args)
         q("DELETE FROM ttrans WHERE tid=?", args)
-        self.unlockData(data_id_list)
+        self.releaseData(data_id_list)
         self.commit()
 
     def deleteTransaction(self, tid, oid_list=()):
@@ -409,7 +409,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         sql = " FROM tobj WHERE tid=?"
         data_id_list = [x for x, in q("SELECT data_id" + sql, (tid,)) if x]
-        self.unlockData(data_id_list)
+        self.releaseData(data_id_list)
         q("DELETE" + sql, (tid,))
         q("DELETE FROM ttrans WHERE tid=?", (tid,))
         q("DELETE FROM trans WHERE partition=? AND tid=?",

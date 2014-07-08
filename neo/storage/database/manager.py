@@ -308,7 +308,7 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def _storeData(self, checksum, data, compression):
+    def storeData(self, checksum, data, compression):
         """To be overriden by the backend to store object raw data
 
         If same data was already stored, the storage only has to check there's
@@ -316,24 +316,24 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def storeData(self, checksum_or_id, data=None, compression=None):
-        """Store object raw data
+    def holdData(self, checksum_or_id, data=None, compression=None):
+        """Store raw data of temporary object
 
         checksum must be the result of neo.lib.util.makeChecksum(data)
         'compression' indicates if 'data' is compressed.
-        A volatile reference is set to this data until 'unlockData' is called
+        A volatile reference is set to this data until 'releaseData' is called
         with this checksum.
         If called with only an id, it only increment the volatile
         reference to the data matching the id.
         """
         refcount = self._uncommitted_data
         if data is not None:
-            checksum_or_id = self._storeData(checksum_or_id, data, compression)
+            checksum_or_id = self.storeData(checksum_or_id, data, compression)
         refcount[checksum_or_id] = 1 + refcount.get(checksum_or_id, 0)
         return checksum_or_id
 
-    def unlockData(self, data_id_list, prune=False):
-        """Release 1 volatile reference to given list of checksums
+    def releaseData(self, data_id_list, prune=False):
+        """Release 1 volatile reference to given list of data ids
 
         If 'prune' is true, any data that is not referenced anymore (either by
         a volatile reference or by a fully-committed object) is deleted.

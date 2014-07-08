@@ -299,7 +299,7 @@ class TransactionManager(object):
         if data is None:
             data_id = None
         else:
-            data_id = self._app.dm.storeData(checksum, data, compression)
+            data_id = self._app.dm.holdData(checksum, data, compression)
         self._transaction_dict[ttid].addObject(oid, data_id, value_serial)
 
     def abort(self, ttid, even_if_locked=False):
@@ -322,7 +322,7 @@ class TransactionManager(object):
             if not even_if_locked:
                 return
         else:
-            self._app.dm.unlockData([data_id
+            self._app.dm.releaseData([data_id
                 for oid, data_id, value_serial in transaction.getObjectList()
                 if data_id], True)
         # unlock any object
@@ -387,5 +387,5 @@ class TransactionManager(object):
                 if new_serial:
                     data_id = None
                 else:
-                    self._app.dm.storeData(data_id)
+                    self._app.dm.holdData(data_id)
                 transaction.addObject(oid, data_id, new_serial)

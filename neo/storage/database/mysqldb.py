@@ -44,7 +44,7 @@ def splitOIDField(tid, oids):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    # WARNING: some parts are not concurrent safe (ex: storeData)
+    # WARNING: some parts are not concurrent safe (ex: holdData)
     # (there must be only 1 writable connection per DB)
 
     # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
@@ -370,7 +370,7 @@ class MySQLDatabaseManager(DatabaseManager):
         data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
         q("TRUNCATE tobj")
         q("TRUNCATE ttrans")
-        self.unlockData(data_id_list, True)
+        self.releaseData(data_id_list, True)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         e = self.escape
@@ -392,7 +392,7 @@ class MySQLDatabaseManager(DatabaseManager):
                     " WHERE partition=%d AND oid=%d AND tid=%d"
                     % (partition, oid, value_serial))
                 if temporary:
-                    self.storeData(data_id)
+                    self.holdData(data_id)
             else:
                 value_serial = 'NULL'
             q("REPLACE INTO %s VALUES (%d, %d, %d, %s, %s)" % (obj_table,
@@ -415,7 +415,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 " WHERE id IN (%s) AND data_id IS NULL"
                 % ",".join(map(str, data_id_list)))
 
-    def _storeData(self, checksum, data, compression):
+    def storeData(self, checksum, data, compression):
         e = self.escape
         checksum = e(checksum)
         try:
@@ -454,7 +454,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q("DELETE FROM tobj WHERE tid=%d" % tid)
         q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
         q("DELETE FROM ttrans WHERE tid=%d" % tid)
-        self.unlockData(data_id_list)
+        self.releaseData(data_id_list)
         self.commit()
 
     def deleteTransaction(self, tid, oid_list=()):
@@ -464,7 +464,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         sql = " FROM tobj WHERE tid=%d" % tid
         data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
-        self.unlockData(data_id_list)
+        self.releaseData(data_id_list)
         q("DELETE" + sql)
         q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
         q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %

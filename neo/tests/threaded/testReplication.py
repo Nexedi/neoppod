@@ -68,6 +68,7 @@ class ReplicationTests(NEOThreadedTest):
         checked = 0
         source_dict = {x.uuid: x for x in cluster.upstream.storage_list}
         for storage in cluster.storage_list:
+            self.assertFalse(storage.dm._uncommitted_data)
             self.assertEqual(np, storage.pt.getPartitions())
             for partition in pt.getAssignedPartitionList(storage.uuid):
                 cell_list = upstream_pt.getCellList(partition, readable=True)

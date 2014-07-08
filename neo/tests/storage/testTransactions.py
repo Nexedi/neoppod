@@ -120,7 +120,7 @@ class TransactionManagerTests(NeoUnitTestBase):
     def testSimpleCase(self):
         """ One node, one transaction, not abort """
         data_id_list = random.random(), random.random()
-        self.app.dm.mockAddReturnValues(storeData=ReturnValues(*data_id_list))
+        self.app.dm.mockAddReturnValues(holdData=ReturnValues(*data_id_list))
         uuid = self.getClientUUID()
         ttid = self.getNextTID()
         tid, txn = self._getTransaction()
@@ -328,7 +328,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def test_getObjectFromTransaction(self):
         data_id = random.random()
-        self.app.dm.mockAddReturnValues(storeData=ReturnValues(data_id))
+        self.app.dm.mockAddReturnValues(holdData=ReturnValues(data_id))
         uuid = self.getClientUUID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
@@ -374,8 +374,8 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.manager.register(uuid, locking_serial)
         self.manager.storeObject(locking_serial, ram_serial, oid, 0, "3" * 20,
             'bar', None)
-        storeData = self.app.dm.mockGetNamedCalls('storeData')
-        self.assertEqual(storeData.pop(0).params, ("3" * 20, 'bar', 0))
+        holdData = self.app.dm.mockGetNamedCalls('holdData')
+        self.assertEqual(holdData.pop(0).params, ("3" * 20, 'bar', 0))
         orig_object = self.manager.getObjectFromTransaction(locking_serial,
             oid)
         self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)
@@ -406,11 +406,11 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.manager.storeObject(locking_serial, ram_serial, oid, None, None,
             None, orig_serial)
         self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)
-        self.assertEqual(storeData.pop(0).params, (checksum,))
+        self.assertEqual(holdData.pop(0).params, (checksum,))
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
             oid), (oid, checksum, None))
         self.manager.abort(locking_serial, even_if_locked=True)
-        self.assertFalse(storeData)
+        self.assertFalse(holdData)
 
 if __name__ == "__main__":
     unittest.main()
