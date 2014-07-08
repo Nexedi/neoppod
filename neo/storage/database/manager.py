@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import defaultdict
 from functools import wraps
 from neo.lib import logging, util
 from neo.lib.protocol import ZERO_TID
@@ -59,15 +60,16 @@ class DatabaseManager(object):
         """
         if reset:
             self.erase()
+        self._uncommitted_data = defaultdict(int)
         self._setup(app)
 
     def _setup(self, app):
         """To be overriden by the backend to set up a database
 
         It must recover self._uncommitted_data from temporary object table.
-        _uncommitted_data is a dict containing refcounts to data of
-        write-locked objects, except in case of undo, where the refcount is
-        increased later, when the object is read-locked.
+        _uncommitted_data is already instantiated and must be updated with
+        refcounts to data of write-locked objects, except in case of undo,
+        where the refcount is increased later, when the object is read-locked.
         Keys are data ids and values are number of references.
         """
         raise NotImplementedError
@@ -316,20 +318,20 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def holdData(self, checksum_or_id, data=None, compression=None):
+    def holdData(self, checksum_or_id, *args):
         """Store raw data of temporary object
 
-        checksum must be the result of neo.lib.util.makeChecksum(data)
-        'compression' indicates if 'data' is compressed.
+        If 'checksum_or_id' is a checksum, it must be the result of
+        makeChecksum(data) and extra parameters must be (data, compression)
+        where 'compression' indicates if 'data' is compressed.
         A volatile reference is set to this data until 'releaseData' is called
         with this checksum.
         If called with only an id, it only increment the volatile
         reference to the data matching the id.
         """
-        refcount = self._uncommitted_data
-        if data is not None:
-            checksum_or_id = self.storeData(checksum_or_id, data, compression)
-        refcount[checksum_or_id] = 1 + refcount.get(checksum_or_id, 0)
+        if args:
+            checksum_or_id = self.storeData(checksum_or_id, *args)
+        self._uncommitted_data[checksum_or_id] += 1
         return checksum_or_id
 
     def releaseData(self, data_id_list, prune=False):

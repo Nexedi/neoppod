@@ -182,7 +182,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                  PRIMARY KEY (tid, oid))
           """)
 
-        self._uncommitted_data = dict(q("SELECT data_id, count(*)"
+        self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))
 
     def getConfiguration(self, key):

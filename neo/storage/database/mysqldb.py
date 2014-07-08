@@ -217,8 +217,8 @@ class MySQLDatabaseManager(DatabaseManager):
                  PRIMARY KEY (tid, oid)
              ) ENGINE = InnoDB""")
 
-        self._uncommitted_data = dict(q("SELECT data_id, count(*)"
-            " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id") or ())
+        self._uncommitted_data.update(q("SELECT data_id, count(*)"
+            " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))
 
     def getConfiguration(self, key):
         try:
