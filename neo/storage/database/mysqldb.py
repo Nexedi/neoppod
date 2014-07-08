@@ -131,9 +131,10 @@ class MySQLDatabaseManager(DatabaseManager):
             raise DatabaseFailure('MySQL error %d: %s' % (m[0], m[1]))
         return r
 
-    def escape(self, s):
+    @property
+    def escape(self):
         """Escape special characters in a string."""
-        return self.conn.escape_string(s)
+        return self.conn.escape_string
 
     def erase(self):
         self.query(
