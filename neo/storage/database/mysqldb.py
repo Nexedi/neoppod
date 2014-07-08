@@ -82,13 +82,13 @@ class MySQLDatabaseManager(DatabaseManager):
         while True:
             try:
                 self.conn = MySQLdb.connect(**kwd)
+                break
             except Exception:
                 if timeout_at is not None and time.time() >= timeout_at:
                     raise
                 logging.exception('Connection to MySQL failed, retrying.')
                 time.sleep(1)
-            else:
-                break
+        self._active = 0
         self.conn.autocommit(False)
         self.conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
         self.conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
@@ -96,6 +96,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def commit(self):
         logging.debug('committing...')
         self.conn.commit()
+        self._active = 0
 
     def query(self, query):
         """Query data from a database."""
@@ -111,25 +112,23 @@ class MySQLDatabaseManager(DatabaseManager):
                 logging.debug('querying %s...', query_part)
 
             conn.query(query)
-            r = conn.store_result()
-            if r is not None:
-                new_r = []
-                for row in r.fetch_row(r.num_rows()):
-                    new_row = []
-                    for d in row:
-                        if isinstance(d, array):
-                            d = d.tostring()
-                        new_row.append(d)
-                    new_r.append(tuple(new_row))
-                r = tuple(new_r)
-
+            if query.startswith("SELECT "):
+                r = conn.store_result()
+                return tuple([
+                    tuple([d.tostring() if isinstance(d, array) else d
+                           for d in row])
+                    for row in r.fetch_row(r.num_rows())])
+            r = query.split(None, 1)[0]
+            if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
+                self._active = 1
+            else:
+                assert r in ("ALTER", "CREATE", "DROP", "TRUNCATE"), query
         except OperationalError, m:
-            if m[0] in (SERVER_GONE_ERROR, SERVER_LOST):
+            if m[0] in (SERVER_GONE_ERROR, SERVER_LOST) and not self._active:
                 logging.info('the MySQL server is gone; reconnecting')
                 self._connect()
                 return self.query(query)
             raise DatabaseFailure('MySQL error %d: %s' % (m[0], m[1]))
-        return r
 
     @property
     def escape(self):

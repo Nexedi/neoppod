@@ -75,14 +75,14 @@ class StorageTests(NEOFunctionalTest):
         # wait for the sql transaction to be commited
         def callback(last_try):
             # One revision per object and two for the root, before and after
-            (object_number,), = db.query('select count(*) from obj')
+            (object_number,), = db.query('SELECT count(*) FROM obj')
             return object_number == OBJECT_NUMBER + 2, object_number
         self.neo.expectCondition(callback)
         # no more temporarily objects
-        (t_objects,), = db.query('select count(*) from tobj')
+        (t_objects,), = db.query('SELECT count(*) FROM tobj')
         self.assertEqual(t_objects, 0)
         # One object more for the root
-        query = 'select count(*) from (select * from obj group by oid) as t'
+        query = 'SELECT count(*) FROM (SELECT * FROM obj GROUP BY oid) AS t'
         (objects,), = db.query(query)
         self.assertEqual(objects, OBJECT_NUMBER + 1)
         # Check object content

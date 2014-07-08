@@ -55,11 +55,11 @@ class StorageMySQSLdbTests(StorageDBTests):
             (1, 2, '\x01\x02', ),
         )
         self.db.conn = Mock({ 'store_result': result_object })
-        result = self.db.query('QUERY')
+        result = self.db.query('SELECT ')
         self.assertEqual(result, expected_result)
         calls = self.db.conn.mockGetNamedCalls('query')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs('QUERY')
+        calls[0].checkArgs('SELECT ')
 
     def test_query2(self):
         # test the OperationalError exception
@@ -73,12 +73,12 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.connect_called = False
         def connect_hook():
             # mock object, break raise/connect loop
-            self.db.conn = Mock({'num_rows': 0})
+            self.db.conn = Mock()
             self.connect_called = True
         self.db._connect = connect_hook
         # make a query, exception will be raised then connect() will be
         # called and the second query will use the mock object
-        self.db.query('QUERY')
+        self.db.query('INSERT')
         self.assertTrue(self.connect_called)
 
     def test_query3(self):
