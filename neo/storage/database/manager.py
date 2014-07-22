@@ -55,15 +55,15 @@ class DatabaseManager(object):
         """Called during instanciation, to process database parameter."""
         pass
 
-    def setup(self, app, reset=0):
+    def setup(self, reset=0):
         """Set up a database, discarding existing data first if reset is True
         """
         if reset:
             self.erase()
         self._uncommitted_data = defaultdict(int)
-        self._setup(app)
+        self._setup()
 
-    def _setup(self, app):
+    def _setup(self):
         """To be overriden by the backend to set up a database
 
         It must recover self._uncommitted_data from temporary object table.

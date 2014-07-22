@@ -105,7 +105,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         for t in 'config', 'pt', 'trans', 'obj', 'data', 'ttrans', 'tobj':
             self.query('DROP TABLE IF EXISTS ' + t)
 
-    def _setup(self, app):
+    def _setup(self):
         self._config.clear()
         q = self.query
         # The table "config" stores configuration parameters which affect the

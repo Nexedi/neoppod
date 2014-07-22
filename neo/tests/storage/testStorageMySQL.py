@@ -31,7 +31,7 @@ class StorageMySQSLdbTests(StorageDBTests):
         # db manager
         database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
         db = MySQLDatabaseManager(database, 0)
-        db.setup(None, reset)
+        db.setup(reset)
         return db
 
     def test_MySQLDatabaseManagerInit(self):
