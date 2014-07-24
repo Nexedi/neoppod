@@ -58,7 +58,6 @@ class MasterHandler(EventHandler):
         )
 
     def askClusterState(self, conn):
-        assert conn.getUUID() is not None
         state = self.app.getClusterState()
         conn.answer(Packets.AnswerClusterState(state))
 
