@@ -47,7 +47,7 @@ Replication is partial, starting from the greatest stored tid in the partition:
 
 There is no check that item values on both nodes matches.
 
-TODO: Packing and replication currently fail when then happen at the same time.
+TODO: Packing and replication currently fail when they happen at the same time.
 """
 
 import random
@@ -228,7 +228,7 @@ class Replicator(object):
         app = self.app
         # Choose a partition with no unfinished transaction if possible.
         # XXX: When leaving backup mode, we should only consider UP_TO_DATE
-        #      cells when leaving backup mode.
+        #      cells.
         for offset in self.replicate_dict:
             if not self.partition_dict[offset].max_ttid:
                 break

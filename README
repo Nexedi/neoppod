@@ -108,7 +108,6 @@ a. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
 
     %import neo.client
     <zodb_db main>
-        # Main FileStorage database
         <NEOStorage>
             master_nodes 127.0.0.1:10000
             name <cluster name>

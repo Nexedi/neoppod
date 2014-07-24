@@ -77,7 +77,7 @@ class StorageOperationHandler(EventHandler):
                 deleteTransaction(tid)
         assert not pack_tid, "TODO"
         if next_tid:
-            # More than one chunk ? This could a full replication so avoid
+            # More than one chunk ? This could be a full replication so avoid
             # restarting from the beginning by committing now.
             self.app.dm.commit()
             self.app.replicator.fetchTransactions(next_tid)
