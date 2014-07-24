@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import inspect, random, signal, sys
+from logging import getLogger, INFO
 from optparse import OptionParser
 from neo.lib import logging
 from neo.tests import functional
@@ -44,6 +45,7 @@ def main():
     options, args = parser.parse_args()
     if options.seed:
         functional.random = random.Random(options.seed)
+    getLogger().setLevel(INFO)
     cluster = functional.NEOCluster(args, **{x: getattr(options, x)
                                              for x, _ in option_list})
     try:
