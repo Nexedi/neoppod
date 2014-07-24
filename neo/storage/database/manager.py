@@ -30,8 +30,6 @@ def lazymethod(func):
 
 def fallback(func):
     def warn(self):
-        cls = self.__class__
-        name = func.__name__
         logging.info("Fallback to generic/slow implementation of %s."
             " It should be overridden by backend storage (%s).",
             func.__name__, self.__class__.__name__)
@@ -50,6 +48,15 @@ class DatabaseManager(object):
         """
         self._wait = wait
         self._parse(database)
+
+    def __getattr__(self, attr):
+        if attr == "_getPartition":
+            np = self.getNumPartitions()
+            value = lambda x: x % np
+        else:
+            return self.__getattribute__(attr)
+        setattr(self, attr, value)
+        return value
 
     def _parse(self, database):
         """Called during instanciation, to process database parameter."""
@@ -76,11 +83,6 @@ class DatabaseManager(object):
 
     def commit(self):
         pass
-
-    @lazymethod
-    def _getPartition(self):
-        np = self.getNumPartitions()
-        return staticmethod(lambda x: x % np)
 
     def getConfiguration(self, key):
         """
@@ -125,10 +127,8 @@ class DatabaseManager(object):
             Store the number of partitions into a database.
         """
         self.setConfiguration('partitions', num_partitions)
-        cls = self.__class__
-        assert cls is not DatabaseManager
         try:
-            del cls._getPartition
+            del self._getPartition
         except AttributeError:
             pass
 
