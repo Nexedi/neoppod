@@ -23,8 +23,8 @@ import os
 
 # register options
 parser = OptionParser()
-parser.add_option('-v', '--verbose', action = 'store_true',
-                  help = 'print verbose messages')
+parser.add_option('-l', '--logfile',
+                  help = 'log debugging information to specified SQLite DB')
 parser.add_option('-s', '--source', help = 'the source database')
 parser.add_option('-d', '--destination', help = 'the destination database')
 parser.add_option('-c', '--cluster', help = 'the NEO cluster name')
@@ -51,10 +51,10 @@ def main(args=None):
               " resolution could happen when undoing an old transaction.")
         src = FileStorage(file_name=source, read_only=True)
         dst = NEOStorage(master_nodes=destination, name=cluster,
-                         verbose=options.verbose)
+                         logfile=options.logfile)
     else:
         src = NEOStorage(master_nodes=source, name=cluster,
-                         verbose=options.verbose, read_only=True)
+                         logfile=options.logfile, read_only=True)
         dst = FileStorage(file_name=destination)
 
     # do the job
