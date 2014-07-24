@@ -16,9 +16,9 @@
 
 from binascii import a2b_hex
 import MySQLdb
-from MySQLdb import IntegrityError, OperationalError
+from MySQLdb import DataError, IntegrityError, OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
-from MySQLdb.constants.ER import DUP_ENTRY
+from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY
 from array import array
 from hashlib import sha1
 import re
@@ -237,15 +237,26 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         e = self.escape
         self._config[key] = value
-        key = e(str(key))
+        k = e(str(key))
         if value is None:
-            q("DELETE FROM config WHERE name = '%s'" % key)
-        else:
-            value = e(str(value))
-            q("REPLACE INTO config VALUES ('%s', '%s')" % (key, value))
+            q("DELETE FROM config WHERE name = '%s'" % k)
+            return
+        value = str(value)
+        sql = "REPLACE INTO config VALUES ('%s', '%s')" % (k, e(value))
+        try:
+            q(sql)
+        except DataError, (code, _):
+            if code != DATA_TOO_LONG or len(value) < 256 or key != "zodb":
+                raise
+            q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
+            q(sql)
 
     def getPartitionTable(self):
         return self.query("SELECT * FROM pt")
+
+    def getLastTID(self, max_tid):
+        return self.query("SELECT MAX(tid) FROM trans WHERE tid<=%s"
+                          % max_tid)[0][0]
 
     def _getLastIDs(self, all=True):
         p64 = util.p64
@@ -290,6 +301,12 @@ class MySQLDatabaseManager(DatabaseManager):
                        % (self._getPartition(oid), oid))
         return util.p64(r[0][0]) if r else None
 
+    def _getNextTID(self, *args): # partition, oid, tid
+        r = self.query("SELECT tid FROM obj"
+                       " WHERE partition=%d AND oid=%d AND tid>%d"
+                       " ORDER BY tid LIMIT 1" % args)
+        return r[0][0] if r else None
+
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
@@ -309,10 +326,8 @@ class MySQLDatabaseManager(DatabaseManager):
             serial, compression, checksum, data, value_serial = r[0]
         except IndexError:
             return None
-        r = q("SELECT tid FROM obj WHERE partition=%d AND oid=%d AND tid>%d"
-              " ORDER BY tid LIMIT 1" % (partition, oid, serial))
-        return (serial, r[0][0] if r else None, compression, checksum, data,
-            value_serial)
+        return (serial, self._getNextTID(partition, oid, serial),
+                compression, checksum, data, value_serial)
 
     def changePartitionTable(self, ptid, cell_list, reset=False):
         offset_list = []

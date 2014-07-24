@@ -208,6 +208,10 @@ class SQLiteDatabaseManager(DatabaseManager):
     def getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
+    def getLastTID(self, max_tid):
+        return self.query("SELECT MAX(tid) FROM trans WHERE tid<=?",
+                          (max_tid,)).next()[0]
+
     def _getLastIDs(self, all=True):
         p64 = util.p64
         q = self.query
@@ -252,6 +256,12 @@ class SQLiteDatabaseManager(DatabaseManager):
                        (self._getPartition(oid), oid)).fetchone()
         return r and util.p64(r[0])
 
+    def _getNextTID(self, *args): # partition, oid, tid
+        r = self.query("""SELECT tid FROM obj
+                          WHERE partition=? AND oid=? AND tid>?
+                          ORDER BY tid LIMIT 1""", args).fetchone()
+        return r and r[0]
+
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
@@ -269,14 +279,11 @@ class SQLiteDatabaseManager(DatabaseManager):
             serial, compression, checksum, data, value_serial = r.fetchone()
         except TypeError:
             return None
-        r = q("""SELECT tid FROM obj
-                 WHERE partition=? AND oid=? AND tid>?
-                 ORDER BY tid LIMIT 1""",
-              (partition, oid, serial)).fetchone()
         if checksum:
             checksum = str(checksum)
             data = str(data)
-        return serial, r and r[0], compression, checksum, data, value_serial
+        return (serial, self._getNextTID(partition, oid, serial),
+                compression, checksum, data, value_serial)
 
     def changePartitionTable(self, ptid, cell_list, reset=False):
         q = self.query

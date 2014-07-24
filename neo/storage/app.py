@@ -289,7 +289,8 @@ class Application(object):
         """Handle everything, including replications and transactions."""
         logging.info('doing operation')
 
-        _poll = self._poll
+        poll = self._poll
+        _poll = self.em._poll
         isIdle = self.em.isIdle
 
         handler = master.MasterOperationHandler(self)
@@ -301,14 +302,18 @@ class Application(object):
 
         self.task_queue = task_queue = deque()
         try:
+            self.dm.doOperation(self)
             while True:
-                while task_queue and isIdle():
+                while task_queue:
                     try:
-                        task_queue[-1].next()
-                        task_queue.rotate()
+                        while isIdle():
+                            if task_queue[-1].next():
+                                _poll(0)
+                            task_queue.rotate()
+                        break
                     except StopIteration:
                         task_queue.pop()
-                _poll()
+                poll()
         finally:
             del self.task_queue
             # XXX: Although no handled exception should happen between

@@ -19,6 +19,7 @@
 import os, random, socket, sys, tempfile, threading, time, types, weakref
 import traceback
 from collections import deque
+from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from itertools import count
 from functools import wraps
@@ -545,7 +546,8 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       db_user=DB_USER, db_password='', compress=True):
+                       db_user=DB_USER, db_password='', compress=True,
+                       importer=None):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         master_list = [MasterApplication.newAddress()
@@ -573,6 +575,19 @@ class NEOCluster(object):
             db = os.path.join(getTempDirectory(), '%s.sqlite')
         else:
             assert False, adapter
+        if importer:
+            cfg = SafeConfigParser()
+            cfg.add_section("neo")
+            cfg.set("neo", "adapter", adapter)
+            cfg.set("neo", "database", db % tuple(db_list))
+            for name, zodb in importer:
+                cfg.add_section(name)
+                for x in zodb.iteritems():
+                    cfg.set(name, *x)
+            db = os.path.join(getTempDirectory(), '%s.conf')
+            with open(db % tuple(db_list), "w") as f:
+                cfg.write(f)
+            kw["getAdapter"] = "Importer"
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]

@@ -81,6 +81,9 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
+    def doOperation(self, app):
+        pass
+
     def commit(self):
         pass
 
@@ -198,6 +201,14 @@ class DatabaseManager(object):
         node, and a cell state."""
         raise NotImplementedError
 
+    def getLastTID(self, max_tid):
+        """Return greatest tid in trans table that is <= given 'max_tid'
+
+        Required only to import a DB using Importer backend.
+        max_tid must be in unpacked format.
+        """
+        raise NotImplementedError
+
     def _getLastIDs(self, all=True):
         raise NotImplementedError
 
@@ -227,6 +238,19 @@ class DatabaseManager(object):
         """Return the latest tid of given oid or None if it does not exist"""
         r = self.getObject(oid)
         return r and r[0]
+
+    def _getNextTID(self, partition, oid, tid):
+        """
+        partition (int)
+            Must be the result of (oid % self.getPartition(oid))
+        oid (int)
+            Identifier of object to retrieve.
+        tid (int)
+            Exact serial to retrieve.
+
+        If tid is the last revision of oid, None is returned.
+        """
+        raise NotImplementedError
 
     def _getObject(self, oid, tid=None, before_tid=None):
         """

@@ -33,7 +33,9 @@ ZODB API is fully implemented except:
         (full implementation is considered)
 - blobs: not implemented (not considered yet)
 
-There is a simple way to convert FileStorage to NEO and back again.
+Any ZODB like FileStorage can be converted to NEO instanteously,
+which means the database is operational before all data are imported.
+There's also a tool to convert back to FileStorage.
 
 See also http://www.neoppod.org/links for more detailed information about
 features related to scalability.
@@ -88,7 +90,7 @@ e. Clients can connect when the cluster is in RUNNING state::
     $ neoctl -a <admin> print cluster
     RUNNING
 
-f. See `neomigrate` command to import an existing FileStorage database,
+f. See `importer.conf` file to import an existing database,
    or `neoctl` command for more administrative tasks.
 
 Alternatively, you can use `neosimple` command to quickly setup a cluster for

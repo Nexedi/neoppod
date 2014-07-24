@@ -22,6 +22,7 @@ import socket
 
 from struct import pack
 from neo.neoctl.neoctl import NeoCTL
+from neo.lib.util import makeChecksum, u64
 from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
@@ -168,9 +169,7 @@ class ClientTests(NEOFunctionalTest):
         name = os.path.join(self.getTempDirectory(), 'data.fs')
         if reset and os.path.exists(name):
             os.remove(name)
-        storage = FileStorage(file_name=name)
-        db = ZODB.DB(storage=storage)
-        return (db, storage)
+        return FileStorage(file_name=name)
 
     def __populate(self, db, tree_size=TREE_SIZE):
         if isinstance(db.storage, FileStorage):
@@ -204,7 +203,8 @@ class ClientTests(NEOFunctionalTest):
     def testImport(self):
 
         # source database
-        dfs_db, dfs_storage  = self.__getDataFS()
+        dfs_storage  = self.__getDataFS()
+        dfs_db = ZODB.DB(dfs_storage)
         self.__populate(dfs_db)
 
         # create a neo storage
@@ -213,10 +213,17 @@ class ClientTests(NEOFunctionalTest):
 
         # copy data fs to neo
         neo_storage.copyTransactionsFrom(dfs_storage, verbose=0)
+        dfs_db.close()
 
         # check neo content
         (neo_db, neo_conn) = self.neo.getZODBConnection()
         self.__checkTree(neo_conn.root()['trees'])
+
+    def __dump(self, storage):
+        return {u64(t.tid): [(u64(o.oid), o.data_txn and u64(o.data_txn),
+                              None if o.data is None else makeChecksum(o.data))
+                             for o in t]
+                for t in storage.iterator()}
 
     def testExport(self):
 
@@ -224,17 +231,30 @@ class ClientTests(NEOFunctionalTest):
         self.neo.start()
         (neo_db, neo_conn) = self.neo.getZODBConnection()
         self.__populate(neo_db)
+        dump = self.__dump(neo_db.storage)
 
         # copy neo to data fs
-        dfs_db, dfs_storage  = self.__getDataFS(reset=True)
+        dfs_storage  = self.__getDataFS(reset=True)
         neo_storage = self.neo.getZODBStorage()
         dfs_storage.copyTransactionsFrom(neo_storage)
 
         # check data fs content
-        conn = dfs_db.open()
-        root = conn.root()
+        dfs_db = ZODB.DB(dfs_storage)
+        root = dfs_db.open().root()
 
         self.__checkTree(root['trees'])
+        dfs_db.close()
+        self.neo.stop()
+
+        self.neo = NEOCluster(db_list=['test_neo1'], partitions=3,
+            importer=[("root", {
+                "storage": "<filestorage>\npath %s\n</filestorage>"
+                            % dfs_storage.getName()})],
+            temp_dir=self.getTempDirectory())
+        self.neo.start()
+        neo_db, neo_conn = self.neo.getZODBConnection()
+        self.__checkTree(neo_conn.root()['trees'])
+        self.assertEqual(dump, self.__dump(neo_db.storage))
 
     def testLockTimeout(self):
         """ Hold a lock on an object to block a second transaction """

@@ -30,6 +30,7 @@ import tempfile
 import traceback
 import threading
 import psutil
+from ConfigParser import SafeConfigParser
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
@@ -238,7 +239,7 @@ class NEOCluster(object):
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  address_type=ADDRESS_TYPE, bind_ip=None, logger=True,
-        ):
+                 importer=None):
         if not adapter:
             adapter = 'MySQL'
         self.adapter = adapter
@@ -263,6 +264,21 @@ class NEOCluster(object):
         self.local_ip = local_ip = bind_ip or \
             IP_VERSION_FORMAT_DICT[self.address_type]
         self.setupDB(clear_databases)
+        if importer:
+            cfg = SafeConfigParser()
+            cfg.add_section("neo")
+            cfg.set("neo", "adapter", adapter)
+            cfg.set("neo", "database", self.db_template(*db_list))
+            for name, zodb in importer:
+                cfg.add_section(name)
+                for x in zodb.iteritems():
+                    cfg.set(name, *x)
+            importer_conf = os.path.join(temp_dir, 'importer.cfg')
+            with open(importer_conf, 'w') as f:
+                cfg.write(f)
+            adapter = "Importer"
+            self.db_template = str
+            db_list = importer_conf,
         self.process_dict = {}
         self.temp_dir = temp_dir
         self.port_allocator = PortAllocator()
