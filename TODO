@@ -71,6 +71,8 @@ RC  - Review output of pylint (CODE)
       Some methods might not implement proper transaction isolation when they
       should. An example is object history (undoLog), which can see data
       committed by future transactions.
+    - Add a 'devid' storage configuration so that master do not distribute
+      replicated partitions on storages with same 'devid'.
 
     Storage
     - Use HailDB instead of a stand-alone MySQL server.
