@@ -1,6 +1,36 @@
 Change History
 ==============
 
+1.2 (2014-07-30)
+----------------
+
+The most important changes in this version are the work about conversion of
+databases from/to NEO:
+
+- A new 'Importer' storage backend has been implemented and this is now the
+  recommended way to migrate existing Zope databases. See 'importer.conf'
+  example file for more information.
+- 'neomigrate' command refused to run since version 1.0
+- Exported data serials by NEO iterator were wrong. There are still differences
+  with FileStorage:
+
+  - NEO always resolves to original serial, to avoid any indirection
+    (which slightly speeds up undo at the expense of a more complex pack code)
+  - NEO does not make any difference between object deletion and creation undone
+    (data serial always null in storage)
+
+  Apart from that, conversion of database back from NEO should be fixed.
+
+Other changes are:
+
+- A warning was added in 'neo.conf' about a possible misuse of replicas.
+- Compatibility with Python 2.6 has been dropped.
+- Support for recent version of SQlite has been added.
+- A memory leak has been fixed in replication.
+- MySQL backend now fails instead of silently reconnecting if there is any
+  pending change, which could cause data loss.
+- Optimization and minor bugfixes.
+
 1.1 (2014-01-07)
 ----------------
 

@@ -39,7 +39,7 @@ extras_require['tests'] = ['zope.testing', 'psutil>=2',
 
 setup(
     name = 'neoppod',
-    version = '1.1',
+    version = '1.2',
     description = __doc__.strip(),
     author = 'NEOPPOD',
     author_email = 'neo-dev@erp5.org',
