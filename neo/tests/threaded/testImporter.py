@@ -93,6 +93,8 @@ class ImporterTests(NEOThreadedTest):
             cluster.start()
             t, c = cluster.getTransaction()
             r = c.root()["neo"]
+            self.assertRaisesRegexp(NotImplementedError, " getObjectHistory$",
+                                    c.db().history, r._p_oid)
             i = r.walk()
             next(islice(i, 9, None))
             dm.doOperation(cluster.storage) # resume

@@ -24,7 +24,7 @@ try:
 except ImportError:
     pass
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -78,6 +78,7 @@ def ErrorCodes():
     ALREADY_PENDING
     REPLICATION_ERROR
     CHECKING_ERROR
+    BACKEND_NOT_IMPLEMENTED
 
 @Enum
 def ClusterStates():
@@ -185,23 +186,21 @@ uuid_str = (lambda ns: lambda uuid:
 
 class ProtocolError(Exception):
     """ Base class for protocol errors, close the connection """
-    pass
 
 class PacketMalformedError(ProtocolError):
     """ Close the connection and set the node as broken"""
-    pass
 
 class UnexpectedPacketError(ProtocolError):
     """ Close the connection and set the node as broken"""
-    pass
 
 class NotReadyError(ProtocolError):
     """ Just close the connection """
-    pass
 
 class BrokenNodeDisallowedError(ProtocolError):
     """ Just close the connection """
-    pass
+
+class BackendNotImplemented(Exception):
+    """ Method not implemented by backend storage """
 
 class Packet(object):
     """

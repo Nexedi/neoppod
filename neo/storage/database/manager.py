@@ -17,7 +17,7 @@
 from collections import defaultdict
 from functools import wraps
 from neo.lib import logging, util
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import ZERO_TID, BackendNotImplemented
 
 def lazymethod(func):
     def getter(self):
@@ -500,7 +500,7 @@ class DatabaseManager(object):
         The length specifies the maximum size of such a list. Result starts
         with latest serial, and the list must be sorted in descending order.
         If there is no such object ID in a database, return None."""
-        raise NotImplementedError
+        raise BackendNotImplemented(self.getObjectHistory)
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
             min_oid):
@@ -513,7 +513,7 @@ class DatabaseManager(object):
         """Return a list of TIDs in ascending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
-        raise NotImplementedError
+        raise BackendNotImplemented(self.getTIDList)
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         """Return a list of TIDs in ascending order from an initial tid value,

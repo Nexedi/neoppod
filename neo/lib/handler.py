@@ -16,8 +16,9 @@
 
 from . import logging
 from .protocol import (
-    NodeStates, Packets, Errors, BrokenNodeDisallowedError,
-    NotReadyError, PacketMalformedError, ProtocolError, UnexpectedPacketError)
+    NodeStates, Packets, Errors, BackendNotImplemented,
+    BrokenNodeDisallowedError, NotReadyError, PacketMalformedError,
+    ProtocolError, UnexpectedPacketError)
 
 
 class EventHandler(object):
@@ -75,6 +76,11 @@ class EventHandler(object):
                 message = str(message)
                 conn.answer(Errors.ProtocolError(message))
                 conn.abort()
+        except BackendNotImplemented, message:
+            m = message[0]
+            conn.answer(Errors.BackendNotImplemented(
+                "%s.%s does not implement %s"
+                % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
         except AssertionError:
             conn.close()
             raise
@@ -183,3 +189,6 @@ class EventHandler(object):
 
     def ack(self, conn, message):
         logging.debug("no error message: %s", message)
+
+    def backendNotImplemented(self, conn, message):
+        raise NotImplementedError(message)
