@@ -37,6 +37,21 @@ extras_require = {
 extras_require['tests'] = ['zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
 
+try:
+    from docutils.core import publish_string
+except ImportError:
+    pass
+else:
+    from distutils.dist import DistributionMetadata
+    _get_long_description = DistributionMetadata.get_long_description.im_func
+    def get_long_description(self):
+        r = _get_long_description(self)
+        DistributionMetadata.get_long_description = _get_long_description
+        publish_string(r, enable_exit_status=True, settings_overrides={
+            'exit_status_level': 0})
+        return r
+    DistributionMetadata.get_long_description = get_long_description
+
 setup(
     name = 'neoppod',
     version = '1.2',
