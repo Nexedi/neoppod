@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import cPickle as pickle
+import cPickle as pickle, time
 from bisect import bisect, insort
 from collections import defaultdict
 from ConfigParser import SafeConfigParser
@@ -147,6 +147,8 @@ class ZODBIterator(object):
 class ImporterDatabaseManager(DatabaseManager):
     """Proxy that transparently imports data from a ZODB storage
     """
+    _last_commit = 0
+
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
         self.db._connect()
@@ -166,12 +168,16 @@ class ImporterDatabaseManager(DatabaseManager):
         self.compress = main.get('compress', 1)
         self.db = buildDatabaseManager(main['adapter'],
             (main['database'], main['wait']))
-        for x in """commit query erase getConfiguration _setConfiguration
+        for x in """query erase getConfiguration _setConfiguration
                     getPartitionTable changePartitionTable getUnfinishedTIDList
                     dropUnfinishedData storeTransaction finishTransaction
                     storeData
                  """.split():
             setattr(self, x, getattr(self.db, x))
+
+    def commit(self):
+        self.db.commit()
+        self._last_commit = time.time()
 
     def setNumPartitions(self, num_partitions):
         self.db.setNumPartitions(num_partitions)
@@ -230,7 +236,8 @@ class ImporterDatabaseManager(DatabaseManager):
                     pickle.dumps(txn.extension), False, tid), False)
                 logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
                     util.dump(tid), txn.user, txn.description, len(oid_list))
-                self.commit()
+                if self._last_commit + 1 < time.time():
+                    self.commit()
                 self.zodb_tid = u64(tid)
         if self.compress:
             from zlib import compress
@@ -275,6 +282,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 z.next()
             except StopIteration:
                 del zodb_list[0]
+        self._last_commit = 0
         finish()
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
