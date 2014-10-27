@@ -22,9 +22,9 @@ import sys
 from functools import wraps
 import neo
 
-# kill -RTMIN+1 <pid>
-#   Dump information to logs.
 # kill -RTMIN+2 <pid>
+#   Dump information to logs.
+# kill -RTMIN+3 <pid>
 #   Loads (or reloads) neo.debug module.
 #   The content is up to you (it's only imported). It can be a breakpoint.
 
@@ -89,5 +89,5 @@ def register(on_log=None):
         @safe_handler
         def on_log_signal(signum, signal):
             on_log()
-        signal.signal(signal.SIGRTMIN+1, on_log_signal)
-    signal.signal(signal.SIGRTMIN+2, debugHandler)
+        signal.signal(signal.SIGRTMIN+2, on_log_signal)
+    signal.signal(signal.SIGRTMIN+3, debugHandler)

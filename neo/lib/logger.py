@@ -97,6 +97,18 @@ class NEOLogger(Logger):
         return wraps(wrapped)(wrapper)
 
     @__async
+    def reopen(self):
+        if self._db is None:
+            return
+        q = self._db.execute
+        if not q("SELECT id FROM packet LIMIT 1").fetchone():
+            q("DROP TABLE protocol")
+            # DROP TABLE already replaced previous data with zeros,
+            # so VACUUM is not really useful. But here, it should be free.
+            q("VACUUM")
+        self._setup(q("PRAGMA database_list").fetchone()[2])
+
+    @__async
     def flush(self):
         if self._db is None:
             return
@@ -151,6 +163,8 @@ class NEOLogger(Logger):
             q = self._db.execute
             if self._max_size is None:
                 q("PRAGMA synchronous = OFF")
+            if 1: # Not only when logging everything,
+                  # but also for interoperability with logrotate.
                 q("PRAGMA journal_mode = MEMORY")
             if reset:
                 for t in 'log', 'packet':
@@ -185,8 +199,12 @@ class NEOLogger(Logger):
                 if p == t:
                     break
             else:
+                try:
+                    t = self._record_queue[0].created
+                except IndexError:
+                    t = time()
                 with self._db:
-                    q("INSERT INTO protocol VALUES (?,?)", (time(), p))
+                    q("INSERT INTO protocol VALUES (?,?)", (t, p))
 
     def setup(self, filename=None, reset=False):
         with self:
@@ -254,3 +272,4 @@ class NEOLogger(Logger):
 
 logging = NEOLogger()
 signal.signal(signal.SIGRTMIN, lambda signum, frame: logging.flush())
+signal.signal(signal.SIGRTMIN+1, lambda signum, frame: logging.reopen())
