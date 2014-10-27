@@ -135,59 +135,62 @@ class NEOLogger(Logger):
                 while max_size < self._record_size:
                     self._record_size -= RECORD_SIZE + len(q.popleft().msg)
 
+    def _setup(self, filename=None, reset=False):
+        from . import protocol as p
+        global uuid_str
+        uuid_str = p.uuid_str
+        if self._db is not None:
+            self._db.close()
+            if not filename:
+                self._db = None
+                self._record_queue.clear()
+                self._record_size = 0
+                return
+        if filename:
+            self._db = sqlite3.connect(filename, check_same_thread=False)
+            q = self._db.execute
+            if self._max_size is None:
+                q("PRAGMA synchronous = OFF")
+                q("PRAGMA journal_mode = MEMORY")
+            if reset:
+                for t in 'log', 'packet':
+                    q('DROP TABLE IF EXISTS ' + t)
+            q("""CREATE TABLE IF NOT EXISTS log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date REAL NOT NULL,
+                    name TEXT,
+                    level INTEGER NOT NULL,
+                    pathname TEXT,
+                    lineno INTEGER,
+                    msg TEXT)
+              """)
+            q("""CREATE INDEX IF NOT EXISTS _log_i1 ON log(date)""")
+            q("""CREATE TABLE IF NOT EXISTS packet (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date REAL NOT NULL,
+                    name TEXT,
+                    msg_id INTEGER NOT NULL,
+                    code INTEGER NOT NULL,
+                    peer TEXT NOT NULL,
+                    body BLOB)
+              """)
+            q("""CREATE INDEX IF NOT EXISTS _packet_i1 ON packet(date)""")
+            q("""CREATE TABLE IF NOT EXISTS protocol (
+                    date REAL PRIMARY KEY NOT NULL,
+                    text BLOB NOT NULL)
+              """)
+            with open(inspect.getsourcefile(p)) as p:
+                p = buffer(bz2.compress(p.read()))
+            for t, in q("SELECT text FROM protocol ORDER BY date DESC"):
+                if p == t:
+                    break
+            else:
+                with self._db:
+                    q("INSERT INTO protocol VALUES (?,?)", (time(), p))
+
     def setup(self, filename=None, reset=False):
         with self:
-            from . import protocol as p
-            global uuid_str
-            uuid_str = p.uuid_str
-            if self._db is not None:
-                self._db.close()
-                if not filename:
-                    self._db = None
-                    self._record_queue.clear()
-                    self._record_size = 0
-                    return
-            if filename:
-                self._db = sqlite3.connect(filename, check_same_thread=False)
-                q = self._db.execute
-                if self._max_size is None:
-                    q("PRAGMA synchronous = OFF")
-                    q("PRAGMA journal_mode = MEMORY")
-                if reset:
-                    for t in 'log', 'packet':
-                        q('DROP TABLE IF EXISTS ' + t)
-                q("""CREATE TABLE IF NOT EXISTS log (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        date REAL NOT NULL,
-                        name TEXT,
-                        level INTEGER NOT NULL,
-                        pathname TEXT,
-                        lineno INTEGER,
-                        msg TEXT)
-                  """)
-                q("""CREATE INDEX IF NOT EXISTS _log_i1 ON log(date)""")
-                q("""CREATE TABLE IF NOT EXISTS packet (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        date REAL NOT NULL,
-                        name TEXT,
-                        msg_id INTEGER NOT NULL,
-                        code INTEGER NOT NULL,
-                        peer TEXT NOT NULL,
-                        body BLOB)
-                  """)
-                q("""CREATE INDEX IF NOT EXISTS _packet_i1 ON packet(date)""")
-                q("""CREATE TABLE IF NOT EXISTS protocol (
-                        date REAL PRIMARY KEY NOT NULL,
-                        text BLOB NOT NULL)
-                  """)
-                with open(inspect.getsourcefile(p)) as p:
-                    p = buffer(bz2.compress(p.read()))
-                for t, in q("SELECT text FROM protocol ORDER BY date DESC"):
-                    if p == t:
-                        break
-                else:
-                    with self._db:
-                        q("INSERT INTO protocol VALUES (?,?)", (time(), p))
+            self._setup(filename, reset)
     __del__ = setup
 
     def isEnabledFor(self, level):
