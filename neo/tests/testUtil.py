@@ -44,13 +44,10 @@ class UtilTests(NeoUnitTestBase):
         address_type = getAddressType(('127.0.0.1', 0))
         self.assertEqual(address_type, socket.AF_INET)
 
-    def _assertEqualParsedAddress(self, parsed, *args, **kw):
-        self.assertEqual(parsed, parseNodeAddress(*args, **kw))
-
     def test_parseNodeAddress(self):
         """ Parsing of addesses """
-        test = self._assertEqualParsedAddress
-        local_address = socket.gethostbyname('localhost')
+        def test(parsed, *args):
+            self.assertEqual(parsed, parseNodeAddress(*args))
         http_port = socket.getservbyname('http')
         test(('127.0.0.1', 0), '127.0.0.1')
         test(('127.0.0.1', 10), '127.0.0.1:10', 500)
@@ -60,8 +57,9 @@ class UtilTests(NeoUnitTestBase):
         test(('::1', 500), '[::1]', 500)
         test(('::1', http_port), '[::1]:http')
         test(('::1', 0), '[0::01]')
-        test((local_address, 0), 'localhost')
-        test((local_address, 10), 'localhost:10')
+        local_address = lambda port: (('127.0.0.1', port), ('::1', port))
+        self.assertIn(parseNodeAddress('localhost'), local_address(0))
+        self.assertIn(parseNodeAddress('localhost:10'), local_address(10))
 
     def testReadBufferRead(self):
         """ Append some chunk then consume the data """
