@@ -178,9 +178,21 @@ class NeoUnitTestBase(NeoTestBase):
         self.uuid_dict = {}
         NeoTestBase.setUp(self)
 
-    def prepareDatabase(self, number, prefix='test_neo'):
-        """ create empties databases """
-        setupMySQLdb(['%s%u' % (prefix, i) for i in xrange(number)])
+    def prepareDatabase(self, number, prefix=DB_PREFIX):
+        """ create empty databases """
+        adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
+        if adapter == 'MySQL':
+            setupMySQLdb([prefix + str(i) for i in xrange(number)])
+        elif adapter == 'SQLite':
+            temp_dir = getTempDirectory()
+            for i in xrange(number):
+                try:
+                    os.remove(os.path.join(temp_dir, 'test_neo%s.sqlite' % i))
+                except OSError, e:
+                    if e.errno != errno.ENOENT:
+                        raise
+        else:
+            assert False, adapter
 
     def getMasterConfiguration(self, cluster='main', master_number=2,
             replicas=2, partitions=1009, uuid=None):
