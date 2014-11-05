@@ -49,6 +49,13 @@ from .container import ThreadContainer, TransactionContainer
 
 CHECKED_SERIAL = master.CHECKED_SERIAL
 
+try:
+    from Signals.Signals import SignalHandler
+except ImportError:
+    SignalHandler = None
+if SignalHandler:
+    import signal
+    SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
 
 class Application(object):
     """The client node application."""
