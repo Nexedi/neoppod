@@ -157,12 +157,12 @@ class MySQLDatabaseManager(DatabaseManager):
                  PRIMARY KEY (rid, nid)
              ) ENGINE = InnoDB""")
 
-        p = self._use_partition and """ PARTITION BY LIST (partition) (
+        p = self._use_partition and """ PARTITION BY LIST (`partition`) (
             PARTITION dummy VALUES IN (NULL))""" or ''
 
         # The table "trans" stores information on committed transactions.
         q("""CREATE TABLE IF NOT EXISTS trans (
-                 partition SMALLINT UNSIGNED NOT NULL,
+                 `partition` SMALLINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  packed BOOLEAN NOT NULL,
                  oids MEDIUMBLOB NOT NULL,
@@ -170,18 +170,18 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (partition, tid)
+                 PRIMARY KEY (`partition`, tid)
              ) ENGINE = InnoDB""" + p)
 
         # The table "obj" stores committed object metadata.
         q("""CREATE TABLE IF NOT EXISTS obj (
-                 partition SMALLINT UNSIGNED NOT NULL,
+                 `partition` SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (partition, tid, oid),
-                 KEY (partition, oid, tid),
+                 PRIMARY KEY (`partition`, tid, oid),
+                 KEY (`partition`, oid, tid),
                  KEY (data_id)
              ) ENGINE = InnoDB""" + p)
 
@@ -197,7 +197,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
-                 partition SMALLINT UNSIGNED NOT NULL,
+                 `partition` SMALLINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  packed BOOLEAN NOT NULL,
                  oids MEDIUMBLOB NOT NULL,
@@ -209,7 +209,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
         # The table "tobj" stores uncommitted object metadata.
         q("""CREATE TABLE IF NOT EXISTS tobj (
-                 partition SMALLINT UNSIGNED NOT NULL,
+                 `partition` SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
@@ -262,13 +262,13 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         q = self.query
         trans = {partition: p64(tid)
-            for partition, tid in q("SELECT partition, MAX(tid)"
-                                    " FROM trans GROUP BY partition")}
+            for partition, tid in q("SELECT `partition`, MAX(tid)"
+                                    " FROM trans GROUP BY `partition`")}
         obj = {partition: p64(tid)
-            for partition, tid in q("SELECT partition, MAX(tid)"
-                                    " FROM obj GROUP BY partition")}
+            for partition, tid in q("SELECT `partition`, MAX(tid)"
+                                    " FROM obj GROUP BY `partition`")}
         oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
-                                      " GROUP BY partition) as t")[0][0]
+                                      " GROUP BY `partition`) as t")[0][0]
         if all:
             tid = q("SELECT MAX(tid) FROM ttrans")[0][0]
             if tid is not None:
@@ -289,21 +289,21 @@ class MySQLDatabaseManager(DatabaseManager):
         oid = util.u64(oid)
         tid = util.u64(tid)
         q = self.query
-        return q("SELECT 1 FROM obj WHERE partition=%d AND oid=%d AND tid=%d"
+        return q("SELECT 1 FROM obj WHERE `partition`=%d AND oid=%d AND tid=%d"
                  % (self._getPartition(oid), oid, tid)) or all and \
                q("SELECT 1 FROM tobj WHERE tid=%d AND oid=%d" % (tid, oid))
 
     def getLastObjectTID(self, oid):
         oid = util.u64(oid)
         r = self.query("SELECT tid FROM obj"
-                       " WHERE partition=%d AND oid=%d"
+                       " WHERE `partition`=%d AND oid=%d"
                        " ORDER BY tid DESC LIMIT 1"
                        % (self._getPartition(oid), oid))
         return util.p64(r[0][0]) if r else None
 
     def _getNextTID(self, *args): # partition, oid, tid
         r = self.query("SELECT tid FROM obj"
-                       " WHERE partition=%d AND oid=%d AND tid>%d"
+                       " WHERE `partition`=%d AND oid=%d AND tid>%d"
                        " ORDER BY tid LIMIT 1" % args)
         return r[0][0] if r else None
 
@@ -312,7 +312,7 @@ class MySQLDatabaseManager(DatabaseManager):
         partition = self._getPartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
-               ' WHERE partition = %d AND oid = %d') % (partition, oid)
+               ' WHERE `partition` = %d AND oid = %d') % (partition, oid)
         if before_tid is not None:
             sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
         elif tid is not None:
@@ -363,7 +363,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # row count, although we use indexes) when there are rows to
         # delete. It should be done as an idle task, by chunks.
         for partition in offset_list:
-            where = " WHERE partition=%d" % partition
+            where = " WHERE `partition`=%d" % partition
             data_id_list = [x for x, in
                 q("SELECT DISTINCT data_id FROM obj" + where) if x]
             if not self._use_partition:
@@ -404,7 +404,7 @@ class MySQLDatabaseManager(DatabaseManager):
             if value_serial:
                 value_serial = u64(value_serial)
                 (data_id,), = q("SELECT data_id FROM obj"
-                    " WHERE partition=%d AND oid=%d AND tid=%d"
+                    " WHERE `partition`=%d AND oid=%d AND tid=%d"
                     % (partition, oid, value_serial))
                 if temporary:
                     self.holdData(data_id)
@@ -447,7 +447,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         sql = ('SELECT tid, value_tid FROM obj'
-               ' WHERE partition = %d AND oid = %d'
+               ' WHERE `partition` = %d AND oid = %d'
               ) % (self._getPartition(oid), oid)
         if tid is not None:
             sql += ' AND tid = %d' % tid
@@ -482,13 +482,13 @@ class MySQLDatabaseManager(DatabaseManager):
         self.releaseData(data_id_list)
         q("DELETE" + sql)
         q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
-        q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %
+        q("""DELETE FROM trans WHERE `partition` = %d AND tid = %d""" %
             (getPartition(tid), tid))
         # delete from obj using indexes
         data_id_set = set()
         for oid in oid_list:
             oid = u64(oid)
-            sql = " FROM obj WHERE partition=%d AND oid=%d AND tid=%d" \
+            sql = " FROM obj WHERE `partition`=%d AND oid=%d AND tid=%d" \
                % (getPartition(oid), oid, tid)
             data_id_set.update(*q("SELECT data_id" + sql))
             q("DELETE" + sql)
@@ -498,7 +498,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def deleteObject(self, oid, serial=None):
         u64 = util.u64
         oid = u64(oid)
-        sql = " FROM obj WHERE partition=%d AND oid=%d" \
+        sql = " FROM obj WHERE `partition`=%d AND oid=%d" \
             % (self._getPartition(oid), oid)
         if serial:
             sql += ' AND tid=%d' % u64(serial)
@@ -508,7 +508,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self._pruneData(data_id_list)
 
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
-        sql = " WHERE partition=%d" % partition
+        sql = " WHERE `partition`=%d" % partition
         if min_tid:
             sql += " AND %d < tid" % util.u64(min_tid)
         if max_tid:
@@ -524,7 +524,7 @@ class MySQLDatabaseManager(DatabaseManager):
         tid = util.u64(tid)
         q = self.query
         r = q("SELECT oids, user, description, ext, packed, ttid"
-              " FROM trans WHERE partition = %d AND tid = %d"
+              " FROM trans WHERE `partition` = %d AND tid = %d"
               % (self._getPartition(tid), tid))
         if not r and all:
             r = q("SELECT oids, user, description, ext, packed, ttid"
@@ -542,7 +542,7 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         r = self.query("""SELECT tid, LENGTH(value)
                     FROM obj LEFT JOIN data ON (obj.data_id = data.id)
-                    WHERE partition = %d AND oid = %d AND tid >= %d
+                    WHERE `partition` = %d AND oid = %d AND tid >= %d
                     ORDER BY tid DESC LIMIT %d, %d""" %
             (self._getPartition(oid), oid, self._getPackTID(), offset, length))
         if r:
@@ -554,7 +554,7 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         min_tid = u64(min_tid)
         r = self.query('SELECT tid, oid FROM obj'
-                       ' WHERE partition = %d AND tid <= %d'
+                       ' WHERE `partition` = %d AND tid <= %d'
                        ' AND (tid = %d AND %d <= oid OR %d < tid)'
                        ' ORDER BY tid ASC, oid ASC LIMIT %d' % (
             partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))
@@ -562,7 +562,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getTIDList(self, offset, length, partition_list):
         q = self.query
-        r = q("""SELECT tid FROM trans WHERE partition in (%s)
+        r = q("""SELECT tid FROM trans WHERE `partition` in (%s)
                     ORDER BY tid DESC LIMIT %d,%d""" \
                 % (','.join(map(str, partition_list)), offset, length))
         return [util.p64(t[0]) for t in r]
@@ -573,7 +573,7 @@ class MySQLDatabaseManager(DatabaseManager):
         min_tid = u64(min_tid)
         max_tid = u64(max_tid)
         r = self.query("""SELECT tid FROM trans
-                    WHERE partition = %(partition)d
+                    WHERE `partition` = %(partition)d
                     AND tid >= %(min_tid)d AND tid <= %(max_tid)d
                     ORDER BY tid ASC LIMIT %(length)d""" % {
             'partition': partition,
@@ -599,11 +599,11 @@ class MySQLDatabaseManager(DatabaseManager):
         }
         for kw['table'] in 'obj', 'tobj':
             for kw['tid'], in q('SELECT tid FROM %(table)s'
-                  ' WHERE partition=%(partition)d AND oid=%(oid)d'
+                  ' WHERE `partition`=%(partition)d AND oid=%(oid)d'
                   ' AND tid>=%(max_tid)d AND value_tid=%(orig_tid)d'
                   ' ORDER BY tid ASC' % kw):
                 q('UPDATE %(table)s SET value_tid=%(new_tid)s'
-                  ' WHERE partition=%(partition)d AND oid=%(oid)d'
+                  ' WHERE `partition`=%(partition)d AND oid=%(oid)d'
                   ' AND tid=%(tid)d' % kw)
                 if value_serial is None:
                     # First found, mark its serial for future reference.
@@ -622,7 +622,7 @@ class MySQLDatabaseManager(DatabaseManager):
                                         " FROM obj WHERE tid <= %d GROUP BY oid"
                                         % tid):
             partition = getPartition(oid)
-            if q("SELECT 1 FROM obj WHERE partition = %d"
+            if q("SELECT 1 FROM obj WHERE `partition` = %d"
                  " AND oid = %d AND tid = %d AND data_id IS NULL"
                  % (partition, oid, max_serial)):
                 max_serial += 1
@@ -630,7 +630,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 continue
             # There are things to delete for this object
             data_id_set = set()
-            sql = ' FROM obj WHERE partition=%d AND oid=%d' \
+            sql = ' FROM obj WHERE `partition`=%d AND oid=%d' \
                 ' AND tid<%d' % (partition, oid, max_serial)
             for serial, data_id in q('SELECT tid, data_id' + sql):
                 data_id_set.add(data_id)
@@ -648,7 +648,7 @@ class MySQLDatabaseManager(DatabaseManager):
         count, tid_checksum, max_tid = self.query(
             """SELECT COUNT(*), SHA1(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid)
                FROM (SELECT tid FROM trans
-                     WHERE partition = %(partition)s
+                     WHERE `partition` = %(partition)s
                        AND tid >= %(min_tid)d
                        AND tid <= %(max_tid)d
                      ORDER BY tid ASC %(limit)s) AS t""" % {
@@ -670,7 +670,7 @@ class MySQLDatabaseManager(DatabaseManager):
         r = self.query(
             """SELECT tid, oid
                FROM obj
-               WHERE partition = %(partition)s
+               WHERE `partition` = %(partition)s
                  AND tid <= %(max_tid)d
                  AND (tid > %(min_tid)d OR
                       tid = %(min_tid)d AND oid >= %(min_oid)d)
