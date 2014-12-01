@@ -62,6 +62,7 @@ class ConfigurationManager(object):
         return self.__get('database')
 
     def getWait(self):
+        # BUG
         return self.__get('wait')
 
     def getDynamicMasterList(self):
