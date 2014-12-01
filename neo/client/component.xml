@@ -16,8 +16,8 @@
     </key>
     <key name="compress" datatype="boolean">
       <description>
-        If true, enable automatic data compression (compression is only used
-        when compressed size is smaller).
+        If true, data is automatically compressed (unless compressed size is
+        not smaller). This is the default behaviour.
       </description>
     </key>
     <key name="read-only" datatype="boolean">
