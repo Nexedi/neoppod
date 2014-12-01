@@ -111,6 +111,8 @@ class ZODB(object):
         return translate(data)
 
     def __getattr__(self, attr):
+        if attr == '__setstate__':
+            return object.__getattribute__(self, attr)
         return getattr(self.storage, attr)
 
     def getDataTid(self, oid, tid):
@@ -302,8 +304,8 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def getLastIDs(self, all=True):
         tid, _, _, oid = self.db.getLastIDs(all)
-        return (util.p64(max(tid, self.zodb_ltid)), None, None,
-                util.p64(max(oid, self.zodb_loid)))
+        return (max(tid, util.p64(self.zodb_ltid)), None, None,
+                max(oid, util.p64(self.zodb_loid)))
 
     def objectPresent(self, oid, tid, all=True):
         r = self.db.objectPresent(oid, tid, all)
