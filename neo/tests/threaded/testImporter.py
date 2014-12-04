@@ -15,18 +15,118 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import deque
+from cPickle import Pickler, Unpickler
+from cStringIO import StringIO
 from itertools import islice, izip_longest
 import os, time, unittest
 import neo, transaction, ZODB
 from neo.lib import logging
 from neo.lib.util import u64
+from neo.storage.database.importer import Repickler
 from ..fs2zodb import Inode
 from .. import getTempDirectory
 from . import NEOCluster, NEOThreadedTest
 from ZODB.FileStorage import FileStorage
 
 
+class Equal:
+
+    _recurse = {}
+
+    def __hash__(self):
+        return 1
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.__dict__ == other.__dict__
+
+    def __repr__(self):
+        return "<%s(%s)>" % (self.__class__.__name__,
+            ", ".join("%s=%r" % k for k in self.__dict__.iteritems()))
+
+class Reduce(Equal, object):
+
+    state = None
+
+    def __init__(self, *args):
+        self.args = args
+        self._l = []
+        self._d = []
+
+    def append(self, item):
+        self._l.append(item)
+
+    def extend(self, item):
+        self._l.extend(item)
+
+    def __setitem__(self, *args):
+        self._d.append(args)
+
+    def __setstate__(self, state):
+        self.state = state
+
+    def __reduce__(self):
+        r = self.__class__, self.args, self.state, iter(self._l), iter(self._d)
+        return r[:5 if self._d else
+                  4 if self._l else
+                  3 if self.state is not None else
+                  2]
+
+class Obj(Equal):
+
+    state = None
+
+    def __getinitargs__(self):
+        return self.args
+
+    def __init__(self, *args):
+        self.args = args
+
+    def __getstate__(self):
+        return self.state
+
+    def __setstate__(self, state):
+        self.state = state
+
+class NewObj(Obj, object):
+
+    def __init__(self):
+        pass # __getinitargs__ only work with old-style classes
+
+class DummyRepickler(Repickler):
+
+    def __init__(self):
+        Repickler.__init__(self, None)
+
+    _changed = True
+
+    def __setattr__(self, name, value):
+        if name != "_changed":
+            self.__dict__[name] = value
+
+
 class ImporterTests(NEOThreadedTest):
+
+    def testRepickler(self):
+        r2 = Obj("foo")
+        r2.__setstate__("bar")
+        r2 = Reduce(r2)
+        r3 = Reduce(1, 2)
+        r3.__setstate__(NewObj())
+        r4 = Reduce()
+        r4.args = r2.args
+        r4.__setstate__("bar")
+        r4.extend("!!!")
+        r5 = Reduce()
+        r5.append("!!!")
+        r5["foo"] = "bar"
+        state = {r2: r3, r4: r5}
+        p = StringIO()
+        Pickler(p, 1).dump(Obj).dump(state)
+        p = p.getvalue()
+        r = DummyRepickler()(p)
+        load = Unpickler(StringIO(r)).load
+        self.assertIs(Obj, load())
+        self.assertDictEqual(state, load())
 
     def test(self):
         importer = []

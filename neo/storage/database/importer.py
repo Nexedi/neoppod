@@ -14,9 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import cPickle as pickle, time
+import cPickle, pickle, time
 from bisect import bisect, insort
-from collections import defaultdict
+from collections import deque
+from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
 from ZODB.config import storageFromString
 from ZODB.POSException import POSKeyError
@@ -32,6 +33,141 @@ class Reference(object):
     __slots__ = "value",
     def __init__(self, value):
         self.value = value
+
+
+class Repickler(pickle.Unpickler):
+
+    def __init__(self, persistent_map):
+        self._f = StringIO()
+        # Use python implementation for unpickling because loading can not
+        # be customized enough with cPickle.
+        pickle.Unpickler.__init__(self, self._f)
+        # For pickling, it is possible to use the fastest implementation,
+        # which also generates fewer useless PUT opcodes.
+        self._p = cPickle.Pickler(self._f, 1)
+        self.memo = self._p.memo # just a tiny optimization
+
+        def persistent_id(obj):
+            if isinstance(obj, Reference):
+                r = obj.value
+                del obj.value # minimize refcnt like for deque+popleft
+                return r
+        self._p.inst_persistent_id = persistent_id
+
+        def persistent_load(obj):
+            new_obj = persistent_map(obj)
+            if new_obj is not obj:
+                self._changed = True
+            return Reference(new_obj)
+        self.persistent_load = persistent_load
+
+    def _save(self, data):
+        self._p.dump(data.popleft())
+        # remove STOP (no need to truncate since it will always be overridden)
+        self._f.seek(-1, 1)
+
+    def __call__(self, data):
+        f = self._f
+        f.truncate(0)
+        f.write(data)
+        f.reset()
+        self._changed = False
+        try:
+            classmeta = self.load()
+            state = self.load()
+        finally:
+            self.memo.clear()
+        if self._changed:
+            f.truncate(0)
+            try:
+                self._p.dump(classmeta).dump(state)
+            finally:
+                self.memo.clear()
+            return f.getvalue()
+        return data
+
+    dispatch = pickle.Unpickler.dispatch.copy()
+
+    class _noload(object):
+
+        state = None
+
+        def __new__(cls, dump):
+            def load(*args):
+                self = object.__new__(cls)
+                self.dump = dump
+                # We use deque+popleft everywhere to minimize the number of
+                # references at the moment cPickle considers memoizing an
+                # object. This reduces the number of useless PUT opcodes and
+                # usually produces smaller pickles than ZODB. Without this,
+                # they would, on the contrary, increase in size.
+                # We could also use optimize from pickletools module.
+                self.args = deque(args)
+                self._list = deque()
+                self.append = self._list.append
+                self.extend = self._list.extend
+                self._dict = deque()
+                return self
+            return load
+
+        def __setitem__(self, *args):
+            self._dict.append(args)
+
+        def dict(self):
+            while self._dict:
+                yield self._dict.popleft()
+
+        def list(self, pos):
+            pt = self.args.popleft()
+            f = pt._f
+            f.seek(pos + 3) # NONE + EMPTY_TUPLE + REDUCE
+            put = f.read()  # preserve memo if any
+            f.truncate(pos)
+            f.write(self.dump(pt, self.args) + put)
+            while self._list:
+                yield self._list.popleft()
+
+        def __reduce__(self):
+            return None, (), self.state, \
+              self.list(self.args[0]._f.tell()), self.dict()
+
+    @_noload
+    def _obj(self, args):
+        self._f.write(pickle.MARK)
+        while args:
+            self._save(args)
+        return pickle.OBJ
+
+    def _instantiate(self, klass, k):
+        args = self.stack[k+1:]
+        self.stack[k:] = self._obj(klass, *args),
+
+    del dispatch[pickle.NEWOBJ] # ZODB has never used protocol 2
+
+    @_noload
+    def find_class(self, args):
+        module, name = args
+        return pickle.GLOBAL + module + '\n' + name + '\n'
+
+    @_noload
+    def _reduce(self, args):
+        self._save(args)
+        self._save(args)
+        return pickle.REDUCE
+
+    def load_reduce(self):
+        stack = self.stack
+        args = stack.pop()
+        stack[-1] = self._reduce(stack[-1], args)
+    dispatch[pickle.REDUCE] = load_reduce
+
+    def load_build(self):
+        stack = self.stack
+        state = stack.pop()
+        inst = stack[-1]
+        assert inst.state is None
+        inst.state = state
+    dispatch[pickle.BUILD] = load_build
 
 
 class ZODB(object):
@@ -70,45 +206,31 @@ class ZODB(object):
         del self.mountpoints
         return shift_oid
 
-    def translate(self, data):
+    def repickle(self, data):
         if not (self.shift_oid or self.mapping):
-            self.translate = lambda x: x
+            self.repickle = lambda x: x
             return data
-        # We'll have to map oids, so define a reusable pickler for this,
-        # and also a method that will transform pickles.
-        pickler = pickle.Pickler(1)
         u64 = util.u64
         p64 = util.p64
-        def persistent_id(obj):
-            if type(obj) is Reference:
-                obj = obj.value
-                if isinstance(obj, tuple):
-                    oid = u64(obj[0])
-                    cls = obj[1]
-                    assert not hasattr(cls, '__getnewargs__'), cls
-                    try:
-                        return p64(self.mapping[oid]), cls
-                    except KeyError:
-                        if not self.shift_oid:
-                            return obj # common case for root db
-                elif isinstance(obj, str):
-                    oid = u64(obj)
-                else:
-                    raise NotImplementedError(
-                        "Unsupported external reference: %r" % obj)
-                return p64(self.mapping.get(oid, oid + self.shift_oid))
-        pickler.inst_persistent_id = persistent_id
-        dump = pickler.dump
-        from cStringIO import StringIO
-        from ZODB.broken import find_global
-        Unpickler = pickle.Unpickler
-        def translate(data):
-            u = Unpickler(StringIO(data))
-            u.persistent_load = Reference
-            u.find_global = find_global
-            return dump(u.load()).dump(u.load()).getvalue()
-        self.translate = translate
-        return translate(data)
+        def map_oid(obj):
+            if isinstance(obj, tuple) and len(obj) == 2:
+                oid = u64(obj[0])
+                # If this oid pointed to a mount point, drop 2nd item because
+                # it's probably different than the real class of the new oid.
+            elif isinstance(obj, str):
+                oid = u64(obj)
+            else:
+                raise NotImplementedError(
+                    "Unsupported external reference: %r" % obj)
+            try:
+                return p64(self.mapping[oid])
+            except KeyError:
+                if not self.shift_oid:
+                    return obj # common case for root db
+            oid = p64(oid + self.shift_oid)
+            return oid if isinstance(obj, str) else (oid, obj[1])
+        self.repickle = Repickler(map_oid)
+        return self.repickle(data)
 
     def __getattr__(self, attr):
         if attr == '__setstate__':
@@ -200,14 +322,14 @@ class ImporterDatabaseManager(DatabaseManager):
         if zodb_state:
             logging.warning("Ignoring configuration file for oid mapping."
                             " Reloading it from NEO storage.")
-            zodb = pickle.loads(zodb_state)
+            zodb = cPickle.loads(zodb_state)
             for k, v in self.zodb:
                 zodb[k].connect(v["storage"])
         else:
             zodb = {k: ZODB(**v) for k, v in self.zodb}
             x, = (x for x in zodb.itervalues() if not x.oid)
             x.setup(zodb)
-            self.setConfiguration("zodb", pickle.dumps(zodb))
+            self.setConfiguration("zodb", cPickle.dumps(zodb))
         self.zodb_index, self.zodb = zip(*sorted(
             (x.shift_oid, x) for x in zodb.itervalues()))
         self.zodb_ltid = max(x.ltid for x in self.zodb)
@@ -235,7 +357,7 @@ class ImporterDatabaseManager(DatabaseManager):
             if tid:
                 self.storeTransaction(tid, (), (oid_list,
                     str(txn.user), str(txn.description),
-                    pickle.dumps(txn.extension), False, tid), False)
+                    cPickle.dumps(txn.extension), False, tid), False)
                 logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
                     util.dump(tid), txn.user, txn.description, len(oid_list))
                 if self._last_commit + 1 < time.time():
@@ -264,7 +386,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 if data_tid or r.data is None:
                     data_id = None
                 else:
-                    data = zodb.translate(r.data)
+                    data = zodb.repickle(r.data)
                     if compress:
                         compressed_data = compress(data)
                         compression = len(compressed_data) < len(data)
@@ -350,7 +472,7 @@ class ImporterDatabaseManager(DatabaseManager):
         if u_tid <= self.zodb_tid and o:
             return o
         if value:
-            value = zodb.translate(value)
+            value = zodb.repickle(value)
             checksum = util.makeChecksum(value)
         else:
             # CAVEAT: Although we think loadBefore should not return an empty
@@ -372,7 +494,7 @@ class ImporterDatabaseManager(DatabaseManager):
                     shift_oid = zodb.shift_oid
                     return ([p64(u64(x.oid) + shift_oid) for x in txn],
                         txn.user, txn.description,
-                        pickle.dumps(txn.extension), 0, tid)
+                        cPickle.dumps(txn.extension), 0, tid)
         else:
             return self.db.getTransaction(tid, all)
 
