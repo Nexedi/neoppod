@@ -17,10 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import bz2, optparse, os, signal, sqlite3, time
+import bz2, gzip, optparse, os, signal, sqlite3, time
 from bisect import insort
 from logging import getLevelName
 
+comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile)
 
 class Log(object):
 
@@ -31,12 +32,23 @@ class Log(object):
                                 filter_from=None):
         self._date_format = '%F %T' if date_format is None else date_format
         self._decode_all = decode_all
-        self._default_name = os.path.splitext(os.path.basename(db_path))[0]
-        # WKRD: Python does not support URI so we can't open in read-only mode
-        #       See http://bugs.python.org/issue13773
-        os.stat(db_path) # do not create empty DB if file is missing
-        self._db = sqlite3.connect(db_path)
         self._filter_from = filter_from
+        name = os.path.basename(db_path)
+        try:
+            name, ext = name.rsplit(os.extsep, 1)
+            ZipFile = comp_dict[ext]
+        except (KeyError, ValueError):
+            # WKRD: Python does not support URI so we can't open in read-only
+            #       mode. See http://bugs.python.org/issue13773
+            os.stat(db_path) # do not create empty DB if file is missing
+            self._db = sqlite3.connect(db_path)
+        else:
+            import shutil, tempfile
+            with tempfile.NamedTemporaryFile() as f:
+                shutil.copyfileobj(ZipFile(db_path), f)
+                self._db = sqlite3.connect(f.name)
+            name = name.rsplit(os.extsep, 1)[0]
+        self._default_name = name
 
     def __iter__(self):
         db =  self._db
