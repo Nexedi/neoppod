@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import bz2, gzip, optparse, os, signal, sqlite3, time
+import bz2, gzip, errno, optparse, os, signal, sqlite3, sys, time
 from bisect import insort
 from logging import getLevelName
 
@@ -174,6 +174,10 @@ def emit_many(log_list):
                 while event[0] <= next_date:
                     emit(*event)
                     event = next()
+            except IOError, e:
+                if e.errno == errno.EPIPE:
+                    sys.exit(1)
+                raise
             except StopIteration:
                 if not event_list:
                     break
