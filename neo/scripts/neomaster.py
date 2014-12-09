@@ -33,6 +33,10 @@ parser.add_option('-p', '--partitions', help = 'partitions number')
 parser.add_option('-l', '--logfile', help = 'specify a logging file')
 parser.add_option('-D', '--dynamic-master-list', help='path of the file '
     'containing dynamic master node list')
+parser.add_option('-C', '--upstream-cluster',
+    help='the name of cluster to backup')
+parser.add_option('-M', '--upstream-masters',
+    help='list of master nodes in cluster to backup')
 
 defaults = dict(
     bind = '127.0.0.1:10000',
@@ -51,6 +55,8 @@ def main(args=None):
         masters = options.masters,
         replicas = options.replicas,
         partitions = options.partitions,
+        upstream_cluster = options.upstream_cluster,
+        upstream_masters = options.upstream_masters,
     )
     config = ConfigurationManager(
             defaults,
