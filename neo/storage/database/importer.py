@@ -23,10 +23,11 @@ from ZODB.config import storageFromString
 from ZODB.POSException import POSKeyError
 
 from . import buildDatabaseManager, DatabaseManager
-from neo.lib import logging, util
+from neo.lib import logging, patch, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH, MAX_TID
 
+patch.speedupFileStorageTxnLookup()
 
 class Reference(object):
 
@@ -239,7 +240,7 @@ class ZODB(object):
 
     def getDataTid(self, oid, tid):
         try:
-            return self.data_tid[tid][oid]
+            return self.data_tid[tid].get(oid)
         except KeyError:
             assert tid not in self.data_tid, (oid, tid)
             p_tid = util.p64(tid)
@@ -247,8 +248,10 @@ class ZODB(object):
             if txn.tid != p_tid:
                 raise
         u64 = util.u64
-        txn = self.data_tid[tid] = {u64(x.oid): x.data_txn for x in txn}
-        return txn[oid]
+        txn = self.data_tid[tid] = {
+            u64(x.oid): x.data_txn
+            for x in txn if x.data_txn}
+        return txn.get(oid)
 
 
 class ZODBIterator(object):
