@@ -358,11 +358,14 @@ class ImporterDatabaseManager(DatabaseManager):
         tid = None
         def finish():
             if tid:
-                self.storeTransaction(tid, (), (oid_list,
+                self.storeTransaction(tid, object_list, (
+                    (x[0] for x in object_list),
                     str(txn.user), str(txn.description),
                     cPickle.dumps(txn.extension), False, tid), False)
+                self.releaseData(data_id_list)
                 logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
-                    util.dump(tid), txn.user, txn.description, len(oid_list))
+                    util.dump(tid), txn.user, txn.description, len(object_list))
+                del object_list[:], data_id_list[:]
                 if self._last_commit + 1 < time.time():
                     self.commit()
                 self.zodb_tid = u64(tid)
@@ -371,6 +374,8 @@ class ImporterDatabaseManager(DatabaseManager):
         else:
             compress = None
             compression = 0
+        object_list = []
+        data_id_list = []
         while zodb_list:
             zodb_list.sort()
             z = zodb_list[0]
@@ -378,7 +383,6 @@ class ImporterDatabaseManager(DatabaseManager):
             # user/desc/ext from first ZODB are kept.
             if tid != z.tid:
                 finish()
-                oid_list = []
                 txn = z.transaction
                 tid = txn.tid
                 yield 1
@@ -396,14 +400,16 @@ class ImporterDatabaseManager(DatabaseManager):
                         if compression:
                             data = compressed_data
                     checksum = util.makeChecksum(data)
-                    data_id = self.storeData(util.makeChecksum(data), data,
-                                             compression)
-                # Write metadata before next yield. This may not be efficient
-                # but if they were written at the same time as the transaction,
-                # _pruneData could delete imported but not yet referenced data.
-                self.storeTransaction(tid, ((oid, data_id, data_tid),), (),
-                                      False)
-                oid_list.append(oid)
+                    data_id = self.holdData(util.makeChecksum(data), data,
+                                            compression)
+                    data_id_list.append(data_id)
+                object_list.append((oid, data_id, data_tid))
+                # Give the main loop the opportunity to process requests
+                # from other nodes. In particular, clients may commit. If the
+                # storage node exits after such commit, and before we actually
+                # update 'obj' with 'object_list', some rows in 'data' may be
+                # unreferenced. This is not a problem because the leak is
+                # solved when resuming the migration.
                 yield 1
             try:
                 z.next()
