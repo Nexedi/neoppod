@@ -50,7 +50,7 @@ class Application(object):
         self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(),
-            (config.getDatabase(), config.getWait())
+            (config.getDatabase(), config.getEngine(), config.getWait()),
         )
 
         # load master nodes

@@ -61,6 +61,9 @@ class ConfigurationManager(object):
     def getDatabase(self):
         return self.__get('database')
 
+    def getEngine(self):
+        return self.__get('engine', True)
+
     def getWait(self):
         # BUG
         return self.__get('wait')

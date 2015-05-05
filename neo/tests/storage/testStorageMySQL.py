@@ -24,24 +24,19 @@ from neo.storage.database.mysqldb import MySQLDatabaseManager
 NEO_SQL_DATABASE = 'test_mysqldb0'
 NEO_SQL_USER = 'test'
 
-class StorageMySQSLdbTests(StorageDBTests):
+class StorageMySQLdbTests(StorageDBTests):
+
+    engine = None
 
     def getDB(self, reset=0):
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
         database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
-        db = MySQLDatabaseManager(database, 0)
-        db.setup(reset)
-        return db
-
-    def test_MySQLDatabaseManagerInit(self):
-        db = MySQLDatabaseManager('%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE),
-            0)
-        # init
+        db = MySQLDatabaseManager(database, self.engine)
         self.assertEqual(db.db, NEO_SQL_DATABASE)
         self.assertEqual(db.user, NEO_SQL_USER)
-        # & connect
-        self.assertTrue(isinstance(db.conn, MySQLdb.connection))
+        db.setup(reset)
+        return db
 
     def test_query1(self):
         # fake result object
@@ -95,6 +90,10 @@ class StorageMySQSLdbTests(StorageDBTests):
     def test_escape(self):
         self.assertEqual(self.db.escape('a"b'), 'a\\"b')
         self.assertEqual(self.db.escape("a'b"), "a\\'b")
+
+class StorageMySQLdbTokuDBTests(StorageMySQLdbTests):
+
+    engine = "TokuDB"
 
 del StorageDBTests
 

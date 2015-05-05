@@ -294,7 +294,7 @@ class ImporterDatabaseManager(DatabaseManager):
         self.zodb = ((x, dict(config.items(x))) for x in sections)
         self.compress = main.get('compress', 1)
         self.db = buildDatabaseManager(main['adapter'],
-            (main['database'], main['wait']))
+            (main['database'], main.get('engine'), main['wait']))
         for x in """query erase getConfiguration _setConfiguration
                     getPartitionTable changePartitionTable getUnfinishedTIDList
                     dropUnfinishedData storeTransaction finishTransaction

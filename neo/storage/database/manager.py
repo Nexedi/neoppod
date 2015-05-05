@@ -42,10 +42,17 @@ class CreationUndone(Exception):
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
-    def __init__(self, database, wait=0):
+    ENGINES = ()
+
+    def __init__(self, database, engine=None, wait=0):
         """
             Initialize the object.
         """
+        if engine:
+            if engine not in self.ENGINES:
+                raise ValueError("Unsupported engine: %r not in %r"
+                                 % (engine, self.ENGINES))
+            self._engine = engine
         self._wait = wait
         self._parse(database)
 

@@ -44,8 +44,8 @@ def splitOIDField(tid, oids):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    # WARNING: some parts are not concurrent safe (ex: holdData)
-    # (there must be only 1 writable connection per DB)
+    ENGINES = "InnoDB", "TokuDB"
+    _engine = ENGINES[0] # default engine
 
     # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
     # 'select count(*) from obj' sometimes returns incorrect values
@@ -142,12 +142,13 @@ class MySQLDatabaseManager(DatabaseManager):
     def _setup(self):
         self._config.clear()
         q = self.query
+        p = engine = self._engine
         # The table "config" stores configuration parameters which affect the
         # persistent data.
         q("""CREATE TABLE IF NOT EXISTS config (
                  name VARBINARY(255) NOT NULL PRIMARY KEY,
                  value VARBINARY(255) NULL
-             ) ENGINE = InnoDB""")
+             ) ENGINE=""" + engine)
 
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
@@ -155,10 +156,11 @@ class MySQLDatabaseManager(DatabaseManager):
                  nid INT NOT NULL,
                  state TINYINT UNSIGNED NOT NULL,
                  PRIMARY KEY (rid, nid)
-             ) ENGINE = InnoDB""")
+             ) ENGINE=""" + engine)
 
-        p = self._use_partition and """ PARTITION BY LIST (`partition`) (
-            PARTITION dummy VALUES IN (NULL))""" or ''
+        if self._use_partition:
+            p += """ PARTITION BY LIST (`partition`) (
+                PARTITION dummy VALUES IN (NULL))"""
 
         # The table "trans" stores information on committed transactions.
         q("""CREATE TABLE IF NOT EXISTS trans (
@@ -171,7 +173,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL,
                  PRIMARY KEY (`partition`, tid)
-             ) ENGINE = InnoDB""" + p)
+             ) ENGINE=""" + p)
 
         # The table "obj" stores committed object metadata.
         q("""CREATE TABLE IF NOT EXISTS obj (
@@ -183,7 +185,10 @@ class MySQLDatabaseManager(DatabaseManager):
                  PRIMARY KEY (`partition`, tid, oid),
                  KEY (`partition`, oid, tid),
                  KEY (data_id)
-             ) ENGINE = InnoDB""" + p)
+             ) ENGINE=""" + p)
+
+        if engine == "TokuDB":
+            engine += " compression='tokudb_uncompressed'"
 
         # The table "data" stores object data.
         # We'd like to have partial index on 'hash' colum (e.g. hash(4))
@@ -193,7 +198,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  hash BINARY(20) NOT NULL UNIQUE,
                  compression TINYINT UNSIGNED NULL,
                  value LONGBLOB NULL
-             ) ENGINE = InnoDB""")
+             ) ENGINE=""" + engine)
 
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
@@ -205,7 +210,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL
-             ) ENGINE = InnoDB""")
+             ) ENGINE=""" + engine)
 
         # The table "tobj" stores uncommitted object metadata.
         q("""CREATE TABLE IF NOT EXISTS tobj (
@@ -215,7 +220,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
                  PRIMARY KEY (tid, oid)
-             ) ENGINE = InnoDB""")
+             ) ENGINE=""" + engine)
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))

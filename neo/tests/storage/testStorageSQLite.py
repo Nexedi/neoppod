@@ -21,7 +21,7 @@ from neo.storage.database.sqlite import SQLiteDatabaseManager
 class StorageSQLiteTests(StorageDBTests):
 
     def getDB(self, reset=0):
-        db = SQLiteDatabaseManager(':memory:', 0)
+        db = SQLiteDatabaseManager(':memory:')
         db.setup(reset)
         return db
 
