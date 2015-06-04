@@ -195,9 +195,10 @@ class MySQLDatabaseManager(DatabaseManager):
         # but 'UNIQUE' constraint would not work as expected.
         q("""CREATE TABLE IF NOT EXISTS data (
                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                 hash BINARY(20) NOT NULL UNIQUE,
+                 hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
-                 value LONGBLOB NULL
+                 value LONGBLOB NULL,
+                 UNIQUE (hash, compression)
              ) ENGINE=""" + engine)
 
         # The table "ttrans" stores information on uncommitted transactions.
@@ -443,9 +444,10 @@ class MySQLDatabaseManager(DatabaseManager):
                        (checksum, compression,  e(data)))
         except IntegrityError, (code, _):
             if code == DUP_ENTRY:
-                (r, c, d), = self.query("SELECT id, compression, value"
-                                        " FROM data WHERE hash='%s'" % checksum)
-                if c == compression and d == data:
+                (r, d), = self.query("SELECT id, value FROM data"
+                                     " WHERE hash='%s' AND compression=%s"
+                                     % (checksum, compression))
+                if d == data:
                     return r
             raise
         return self.conn.insert_id()

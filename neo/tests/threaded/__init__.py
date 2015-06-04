@@ -309,10 +309,10 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 
     def getDataLockInfo(self):
         dm = self.dm
-        checksum_dict = dict(dm.query("SELECT id, hash FROM data"))
-        assert set(dm._uncommitted_data).issubset(checksum_dict)
+        index = tuple(dm.query("SELECT id, hash, compression FROM data"))
+        assert set(dm._uncommitted_data).issubset(x[0] for x in index)
         get = dm._uncommitted_data.get
-        return {str(v): get(k, 0) for k, v in checksum_dict.iteritems()}
+        return {(str(h), c): get(i, 0) for i, h, c in index}
 
 class ClientApplication(Node, neo.client.app.Application):
 

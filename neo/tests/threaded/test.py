@@ -19,6 +19,7 @@ import threading
 import transaction
 import unittest
 from thread import get_ident
+from zlib import compress
 from persistent import Persistent
 from ZODB import POSException
 from neo.storage.transactions import TransactionManager, \
@@ -47,17 +48,22 @@ class Test(NEOThreadedTest):
             cluster.start()
             storage = cluster.getZODBStorage()
             data_info = {}
-            for data in 'foo', '', 'foo':
-                checksum = makeChecksum(data)
+            compressible = 'x' * 20
+            compressed = compress(compressible)
+            for data in 'foo', '', 'foo', compressed, compressible:
+                if data is compressible:
+                    key = makeChecksum(compressed), 1
+                else:
+                    key = makeChecksum(data), 0
                 oid = storage.new_oid()
                 txn = transaction.Transaction()
                 storage.tpc_begin(txn)
                 r1 = storage.store(oid, None, data, '', txn)
                 r2 = storage.tpc_vote(txn)
-                data_info[checksum] = 1
+                data_info[key] = 1
                 self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 serial = storage.tpc_finish(txn)
-                data_info[checksum] = 0
+                data_info[key] = 0
                 self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 storage._cache.clear()
@@ -99,14 +105,14 @@ class Test(NEOThreadedTest):
             data_info = {}
 
             data = 'foo'
-            checksum = makeChecksum(data)
+            key = makeChecksum(data), 0
             oid = storage.new_oid()
             txn = transaction.Transaction()
             storage.tpc_begin(txn)
             r1 = storage.store(oid, None, data, '', txn)
             r2 = storage.tpc_vote(txn)
             tid = storage.tpc_finish(txn)
-            data_info[checksum] = 0
+            data_info[key] = 0
             storage.sync()
 
             txn = [transaction.Transaction() for x in xrange(3)]
@@ -117,21 +123,21 @@ class Test(NEOThreadedTest):
                 tid = None
             for t in txn:
                 storage.tpc_vote(t)
-            data_info[checksum] = 3
+            data_info[key] = 3
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn[1])
             storage.sync()
-            data_info[checksum] -= 1
+            data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             tid1 = storage.tpc_finish(txn[2])
-            data_info[checksum] -= 1
+            data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn[0])
             storage.sync()
-            data_info[checksum] -= 1
+            data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
         finally:
             cluster.stop()
