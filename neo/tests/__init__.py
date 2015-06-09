@@ -67,7 +67,7 @@ IP_VERSION_FORMAT_DICT = {
 ADDRESS_TYPE = socket.AF_INET
 
 logging.default_root_handler.handle = lambda record: None
-logging.backlog(None)
+logging.backlog(None, 1<<20)
 
 debug.register()
 # prevent "signal only works in main thread" errors in subprocesses

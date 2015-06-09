@@ -137,8 +137,9 @@ class NEOLogger(Logger):
                     return
             raise
 
-    def backlog(self, max_size=1<<24):
+    def backlog(self, max_size=1<<24, max_packet=None):
         with self:
+            self._max_packet = max_packet
             self._max_size = max_size
             if max_size is None:
                 self.flush()
@@ -219,8 +220,11 @@ class NEOLogger(Logger):
             ip, port = r.addr
             peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
                                       uuid_str(r.uuid), ip, port)
+            msg = r.msg
+            if msg is not None:
+                msg = buffer(msg)
             self._db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
-                (r.created, r._name, r.msg_id, r.code, peer, buffer(r.msg)))
+                (r.created, r._name, r.msg_id, r.code, peer, msg))
         else:
             pathname = os.path.relpath(r.pathname, *neo.__path__)
             self._db.execute("INSERT INTO log VALUES (NULL,?,?,?,?,?,?)",
@@ -260,6 +264,9 @@ class NEOLogger(Logger):
 
     def packet(self, connection, packet, outgoing):
         if self._db is not None:
+            body = packet._body
+            if self._max_packet and self._max_packet < len(body):
+                body = None
             self._queue(PacketRecord(
                 created=time(),
                 msg_id=packet._id,
@@ -267,7 +274,7 @@ class NEOLogger(Logger):
                 outgoing=outgoing,
                 uuid=connection.getUUID(),
                 addr=connection.getAddress(),
-                msg=packet._body))
+                msg=body))
 
 
 logging = NEOLogger()
