@@ -161,7 +161,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  hash BLOB NOT NULL,
                  compression INTEGER NOT NULL,
-                 value BLOB NULL)
+                 value BLOB NOT NULL)
           """)
         q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
                  data(hash, compression)

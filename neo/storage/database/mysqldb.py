@@ -197,7 +197,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
-                 value LONGBLOB NULL,
+                 value LONGBLOB NOT NULL,
                  UNIQUE (hash, compression)
              ) ENGINE=""" + engine)
 
