@@ -110,6 +110,8 @@ class ClientOperationHandler(EventHandler):
 
     def askStoreObject(self, conn, oid, serial,
             compression, checksum, data, data_serial, ttid, unlock):
+        if 1 < compression:
+            raise ProtocolError('invalid compression value')
         # register the transaction
         self.app.tm.register(conn.getUUID(), ttid)
         if data or checksum != ZERO_HASH:

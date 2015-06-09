@@ -300,6 +300,9 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         except StandardError: # AttributeError & ProgrammingError
             pass
 
+    def getAdapter(self):
+        return self._init_args['getAdapter']
+
     def switchTables(self):
         q = self.dm.query
         for table in 'trans', 'obj':
@@ -312,7 +315,11 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         index = tuple(dm.query("SELECT id, hash, compression FROM data"))
         assert set(dm._uncommitted_data).issubset(x[0] for x in index)
         get = dm._uncommitted_data.get
-        return {(str(h), c): get(i, 0) for i, h, c in index}
+        return {(str(h), c & 0x7f): get(i, 0) for i, h, c in index}
+
+    def sqlCount(self, table):
+        (r,), = self.dm.query("SELECT COUNT(*) FROM " + table)
+        return r
 
 class ClientApplication(Node, neo.client.app.Application):
 

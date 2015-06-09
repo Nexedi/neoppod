@@ -23,6 +23,7 @@ from array import array
 from hashlib import sha1
 import re
 import string
+import struct
 import time
 
 from . import DatabaseManager, LOG_QUERIES
@@ -197,8 +198,13 @@ class MySQLDatabaseManager(DatabaseManager):
                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
-                 value LONGBLOB NOT NULL,
+                 value MEDIUMBLOB NOT NULL,
                  UNIQUE (hash, compression)
+             ) ENGINE=""" + engine)
+
+        q("""CREATE TABLE IF NOT EXISTS bigdata (
+                 id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                 value MEDIUMBLOB NOT NULL
              ) ENGINE=""" + engine)
 
         # The table "ttrans" stores information on uncommitted transactions.
@@ -332,6 +338,9 @@ class MySQLDatabaseManager(DatabaseManager):
             serial, compression, checksum, data, value_serial = r[0]
         except IndexError:
             return None
+        if compression and compression & 0x80:
+            compression &= 0x7f
+            data = ''.join(self._bigData(data))
         return (serial, self._getNextTID(partition, oid, serial),
                 compression, checksum, data, value_serial)
 
@@ -428,17 +437,64 @@ class MySQLDatabaseManager(DatabaseManager):
         if temporary:
             self.commit()
 
+    _structLL = struct.Struct(">LL")
+    _unpackLL = _structLL.unpack
+
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
         if data_id_list:
-            self.query("DELETE data FROM data"
-                " LEFT JOIN obj ON (id = data_id)"
-                " WHERE id IN (%s) AND data_id IS NULL"
-                % ",".join(map(str, data_id_list)))
+            q = self.query
+            id_list = []
+            bigid_list = []
+            for id, value in q("SELECT id, IF(compression < 128, NULL, value)"
+                               " FROM data LEFT JOIN obj ON (id = data_id)"
+                               " WHERE id IN (%s) AND data_id IS NULL"
+                               % ",".join(map(str, data_id_list))):
+                id_list.append(str(id))
+                if value:
+                    bigdata_id, length = self._unpackLL(value)
+                    bigid_list += xrange(bigdata_id,
+                                         bigdata_id + (length + 0x7fffff >> 23))
+            if id_list:
+                q("DELETE FROM data WHERE id IN (%s)" % ",".join(id_list))
+                if bigid_list:
+                    q("DELETE FROM bigdata WHERE id IN (%s)"
+                      % ",".join(map(str, bigid_list)))
 
-    def storeData(self, checksum, data, compression):
+    def _bigData(self, value):
+        bigdata_id, length = self._unpackLL(value)
+        q = self.query
+        return (q("SELECT value FROM bigdata WHERE id=%s" % i)[0][0]
+            for i in xrange(bigdata_id,
+                            bigdata_id + (length + 0x7fffff >> 23)))
+
+    def storeData(self, checksum, data, compression, _pack=_structLL.pack):
         e = self.escape
         checksum = e(checksum)
+        if 0x1000000 <= len(data): # 16M (MEDIUMBLOB limit)
+            compression |= 0x80
+            q = self.query
+            for r, d in q("SELECT id, value FROM data"
+                          " WHERE hash='%s' AND compression=%s"
+                          % (checksum, compression)):
+                i = 0
+                for d in self._bigData(d):
+                    j = i + len(d)
+                    if data[i:j] != d:
+                        raise IntegrityError(DUP_ENTRY)
+                    i = j
+                if j != len(data):
+                    raise IntegrityError(DUP_ENTRY)
+                return r
+            i = 'NULL'
+            length = len(data)
+            for j in xrange(0, length, 0x800000): # 8M
+                q("INSERT INTO bigdata VALUES (%s, '%s')"
+                  % (i, e(data[j:j+0x800000])))
+                if not j:
+                    i = bigdata_id = self.conn.insert_id()
+                i += 1
+            data = _pack(bigdata_id, length)
         try:
             self.query("INSERT INTO data VALUES (NULL, '%s', %d, '%s')" %
                        (checksum, compression,  e(data)))
@@ -451,6 +507,8 @@ class MySQLDatabaseManager(DatabaseManager):
                     return r
             raise
         return self.conn.insert_id()
+
+    del _structLL
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         sql = ('SELECT tid, value_tid FROM obj'
@@ -547,10 +605,11 @@ class MySQLDatabaseManager(DatabaseManager):
         # client's transaction.
         oid = util.u64(oid)
         p64 = util.p64
-        r = self.query("""SELECT tid, LENGTH(value)
-                    FROM obj LEFT JOIN data ON (obj.data_id = data.id)
-                    WHERE `partition` = %d AND oid = %d AND tid >= %d
-                    ORDER BY tid DESC LIMIT %d, %d""" %
+        r = self.query("SELECT tid, IF(compression < 128, LENGTH(value),"
+            "  CAST(CONV(HEX(SUBSTR(value, 5, 4)), 16, 10) AS INT))"
+            " FROM obj LEFT JOIN data ON (obj.data_id = data.id)"
+            " WHERE `partition` = %d AND oid = %d AND tid >= %d"
+            " ORDER BY tid DESC LIMIT %d, %d" %
             (self._getPartition(oid), oid, self._getPackTID(), offset, length))
         if r:
             return [(p64(tid), length or 0) for tid, length in r]

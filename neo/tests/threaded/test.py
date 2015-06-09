@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
 import threading
 import transaction
@@ -50,7 +51,18 @@ class Test(NEOThreadedTest):
             data_info = {}
             compressible = 'x' * 20
             compressed = compress(compressible)
-            for data in 'foo', '', 'foo', compressed, compressible:
+            oid_list = []
+            if cluster.storage.getAdapter() == 'SQLite':
+                big = None
+                data = 'foo', '', 'foo', compressed, compressible
+            else:
+                big = os.urandom(65536) * 600
+                assert len(big) < len(compress(big))
+                data = ('foo', big, '', 'foo', big[:2**24-1], big,
+                        compressed, compressible, big[:2**24])
+                self.assertFalse(cluster.storage.sqlCount('bigdata'))
+            self.assertFalse(cluster.storage.sqlCount('data'))
+            for data in data:
                 if data is compressible:
                     key = makeChecksum(compressed), 1
                 else:
@@ -69,6 +81,20 @@ class Test(NEOThreadedTest):
                 storage._cache.clear()
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 self.assertEqual((data, serial), storage.load(oid, ''))
+                oid_list.append((oid, data, serial))
+            if big:
+                self.assertTrue(cluster.storage.sqlCount('bigdata'))
+            self.assertTrue(cluster.storage.sqlCount('data'))
+            for i, (oid, data, serial) in enumerate(oid_list, 1):
+                storage._cache.clear()
+                cluster.storage.dm.deleteObject(oid)
+                self.assertRaises(POSException.POSKeyError,
+                    storage.load, oid, '')
+                for oid, data, serial in oid_list[i:]:
+                    self.assertEqual((data, serial), storage.load(oid, ''))
+            if big:
+                self.assertFalse(cluster.storage.sqlCount('bigdata'))
+            self.assertFalse(cluster.storage.sqlCount('data'))
         finally:
             cluster.stop()
 
@@ -94,6 +120,30 @@ class Test(NEOThreadedTest):
                             storage._cache.clear()
                     self.assertRaises(POSException.POSKeyError,
                         storage.load, oid, '')
+        finally:
+            cluster.stop()
+
+    def testCreationUndoneHistory(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            storage = cluster.getZODBStorage()
+            oid = storage.new_oid()
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn)
+            storage.store(oid, None, 'foo', '', txn)
+            storage.tpc_vote(txn)
+            tid1 = storage.tpc_finish(txn)
+            storage.tpc_begin(txn)
+            storage.undo(tid1, txn)
+            tid2 = storage.tpc_finish(txn)
+            storage.tpc_begin(txn)
+            storage.undo(tid2, txn)
+            tid3 = storage.tpc_finish(txn)
+            expected = [(tid1, 3), (tid2, 0), (tid3, 3)]
+            for x in storage.history(oid, 10):
+                self.assertEqual((x['tid'], x['size']), expected.pop())
+            self.assertFalse(expected)
         finally:
             cluster.stop()
 
