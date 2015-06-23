@@ -17,6 +17,7 @@
 import unittest
 from time import time
 from mock import Mock
+from neo.lib import connection
 from neo.lib.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
      HandlerSwitcher, CRITICAL_TIMEOUT
@@ -37,6 +38,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.handler = Mock({'__repr__': 'Fake Handler'})
         self.address = ("127.0.0.7", 93413)
         self.node = Mock({'getAddress': self.address})
+        connection.connect_limit = 0
 
     def _makeListeningConnection(self, addr):
         # create instance after monkey patches

@@ -21,11 +21,12 @@ from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
+from neo.lib.connection import ClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, Patch, \
-    predictable_random
+    predictable_random, Serialized
 
 
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
@@ -260,6 +261,31 @@ class ReplicationTests(NEOThreadedTest):
         backup.tic(force=1)
         new_conn, = backup.master.getConnectionList(backup.upstream.master)
         self.assertFalse(new_conn is conn)
+
+    @backup_test()
+    def testBackupUpstreamStorageDead(self, backup):
+        upstream = backup.upstream
+        with ConnectionFilter() as f:
+            f.add(lambda conn, packet:
+                isinstance(packet, Packets.InvalidateObjects))
+            upstream.importZODB()(1)
+            upstream.client.setPoll(0)
+        count = [0]
+        def __init__(orig, *args, **kw):
+            count[0] += 1
+            orig(*args, **kw)
+        p = Patch(ClientConnection, __init__=__init__)
+        try:
+            upstream.storage.listening_conn.close()
+            Serialized.tic(); self.assertEqual(count[0], 0)
+            Serialized.tic(); count[0] or Serialized.tic()
+            Serialized.tic(); self.assertEqual(count[0], 2)
+            Serialized.tic(); self.assertEqual(count[0], 2)
+            time.sleep(1.1)
+            Serialized.tic(); self.assertEqual(count[0], 3)
+            Serialized.tic(); self.assertEqual(count[0], 3)
+        finally:
+            del p
 
     @backup_test()
     def testBackupDelayedUnlockTransaction(self, backup):

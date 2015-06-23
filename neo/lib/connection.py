@@ -28,6 +28,8 @@ from .util import ReadBuffer
 
 CRITICAL_TIMEOUT = 30
 
+connect_limit = 0
+
 class ConnectionClosed(Exception):
     pass
 
@@ -548,6 +550,18 @@ class Connection(BaseConnection):
             self._handlers.handle(self, self._queue.pop(0))
         self.close()
 
+    def _delayed_closure(self):
+        # Wait at least 1 second between connection failures.
+        global connect_limit
+        t = time()
+        if t < connect_limit:
+            self.checkTimeout = lambda t: t < connect_limit or \
+                self._delayed_closure()
+            self.readable = self.writable = lambda: None
+        else:
+            connect_limit = t + 1
+            self._closure()
+
     def _recv(self):
         """Receive data from a connector."""
         try:
@@ -556,7 +570,7 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionRefusedException:
             assert self.connecting
-            self._closure()
+            self._delayed_closure()
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
@@ -671,7 +685,7 @@ class ClientConnection(Connection):
             else:
                 self._connectionCompleted()
         except ConnectorConnectionRefusedException:
-            self._closure()
+            self._delayed_closure()
         except ConnectorException:
             # unhandled connector exception
             self._closure()
@@ -680,7 +694,7 @@ class ClientConnection(Connection):
     def writable(self):
         """Called when self is writable."""
         if self.connector.getError():
-            self._closure()
+            self._delayed_closure()
         else:
             self._connectionCompleted()
             self.writable()

@@ -57,9 +57,7 @@ class ClientElectionHandler(BaseElectionHandler):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
         assert node is not None, (uuid_str(self.app.uuid), addr)
-        assert node.isUnknown(), (uuid_str(self.app.uuid), node.whoSetState(),
-          node)
-        # connection never success, node is still in unknown state
+        # node may still be in unknown state
         self.app.negotiating_master_node_set.discard(addr)
         super(ClientElectionHandler, self).connectionFailed(conn)
 

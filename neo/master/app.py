@@ -190,12 +190,12 @@ class Application(object):
                 while (self.unconnected_master_node_set or
                         self.negotiating_master_node_set):
                     for addr in self.unconnected_master_node_set:
+                        self.negotiating_master_node_set.add(addr)
                         ClientConnection(self.em, client_handler,
                             # XXX: Ugly, but the whole election code will be
                             # replaced soon
                             node=getByAddress(addr),
                             connector=self.connector_handler())
-                        self.negotiating_master_node_set.add(addr)
                     self.unconnected_master_node_set.clear()
                     self.em.poll(1)
             except ElectionFailure, m:
