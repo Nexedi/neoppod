@@ -1,4 +1,4 @@
-"""Example of script starting a debugger on RTMIN+2 signal
+"""Example of script starting a debugger on RTMIN+3 signal
 
 The pdb is launched in a separate thread in order not to trigger timeouts.
 The prompt is accessible through network in case that the process is daemonized:
