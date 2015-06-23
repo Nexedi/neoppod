@@ -329,6 +329,13 @@ class ClientApplication(Node, neo.client.app.Application):
         self.em._lock = threading.Lock()
 
     def setPoll(self, master=False):
+        """Set whether this thread runs freely or not
+
+        The client must be switched in master mode (by passing True) before
+        doing any synchronous call to the ZODB, otherwise the test deadlocks.
+        When called with master=False, the cluster is suspended and will only
+        processe packets upon NEOCluster.tic() calls.
+        """
         if master:
             self.em._timeout = 1
             if not self.em._lock.acquire(0):

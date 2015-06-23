@@ -1469,7 +1469,13 @@ class AddObject(Packet):
 
 class Replicate(Packet):
     """
+    Notify a storage node to replicate partitions up to given 'tid'
+    and from given sources.
     M -> S
+
+    - upstream_name: replicate from an upstream cluster
+    - address: address of the source storage node, or None if there's no new
+               data up to 'tid' for the given partition
     """
     _fmt = PStruct('replicate',
         PTID('tid'),

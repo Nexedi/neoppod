@@ -263,6 +263,11 @@ class ReplicationTests(NEOThreadedTest):
 
     @backup_test()
     def testBackupDelayedUnlockTransaction(self, backup):
+        """
+        Check that a backup storage node is put on hold by upstream if
+        the requested transaction is still locked. Such case happens when
+        the backup cluster reacts very quickly to a new transaction.
+        """
         upstream = backup.upstream
         with upstream.master.filterConnection(upstream.storage) as f:
             f.add(lambda conn, packet:
