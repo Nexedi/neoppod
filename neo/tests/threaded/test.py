@@ -785,5 +785,20 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testEmptyTransaction(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            txn = transaction.Transaction()
+            storage = cluster.getZODBStorage()
+            storage.tpc_begin(txn)
+            storage.tpc_vote(txn)
+            serial = storage.tpc_finish(txn)
+            t, = storage.iterator()
+            self.assertEqual(t.tid, serial)
+            self.assertFalse(t.oid_list)
+        finally:
+            cluster.stop()
+
 if __name__ == "__main__":
     unittest.main()

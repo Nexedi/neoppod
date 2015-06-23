@@ -20,7 +20,7 @@ import string
 import traceback
 
 from . import DatabaseManager, LOG_QUERIES
-from .manager import CreationUndone
+from .manager import CreationUndone, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
@@ -37,16 +37,6 @@ def unique_constraint_message(table, *columns):
     except sqlite3.IntegrityError, e:
         return e.args[0]
     assert False
-
-def splitOIDField(tid, oids):
-    if (len(oids) % 8) != 0 or len(oids) == 0:
-        raise DatabaseFailure('invalid oids length for tid %d: %d' % (tid,
-            len(oids)))
-    oid_list = []
-    append = oid_list.append
-    for i in xrange(0, len(oids), 8):
-        append(oids[i:i+8])
-    return oid_list
 
 def retry_if_locked(f, *args):
     try:

@@ -36,6 +36,12 @@ def fallback(func):
         return func
     return lazymethod(wraps(func)(warn))
 
+def splitOIDField(tid, oids):
+    if len(oids) % 8:
+        raise DatabaseFailure('invalid oids length for tid %s: %s'
+            % (tid, len(oids)))
+    return [oids[i:i+8] for i in xrange(0, len(oids), 8)]
+
 class CreationUndone(Exception):
     pass
 
