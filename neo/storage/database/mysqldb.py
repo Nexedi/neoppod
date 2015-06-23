@@ -33,6 +33,11 @@ from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
 
+def getPrintableQuery(query, max=70):
+    return ''.join(c if c in string.printable and c not in '\t\x0b\x0c\r'
+        else '\\x%02x' % ord(c) for c in query)
+
+
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
@@ -92,35 +97,31 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def query(self, query):
         """Query data from a database."""
-        conn = self.conn
-        try:
-            if LOG_QUERIES:
-                printable_char_list = []
-                for c in query.split('\n', 1)[0][:70]:
-                    if c not in string.printable or c in '\t\x0b\x0c\r':
-                        c = '\\x%02x' % ord(c)
-                    printable_char_list.append(c)
-                query_part = ''.join(printable_char_list)
-                logging.debug('querying %s...', query_part)
-
-            conn.query(query)
-            if query.startswith("SELECT "):
-                r = conn.store_result()
-                return tuple([
-                    tuple([d.tostring() if isinstance(d, array) else d
-                           for d in row])
-                    for row in r.fetch_row(r.num_rows())])
-            r = query.split(None, 1)[0]
-            if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
-                self._active = 1
-            else:
-                assert r in ("ALTER", "CREATE", "DROP", "TRUNCATE"), query
-        except OperationalError, m:
-            if m[0] in (SERVER_GONE_ERROR, SERVER_LOST) and not self._active:
+        if LOG_QUERIES:
+            logging.debug('querying %s...',
+                getPrintableQuery(query.split('\n', 1)[0][:70]))
+        while 1:
+            conn = self.conn
+            try:
+                conn.query(query)
+                if query.startswith("SELECT "):
+                    r = conn.store_result()
+                    return tuple([
+                        tuple([d.tostring() if isinstance(d, array) else d
+                              for d in row])
+                        for row in r.fetch_row(r.num_rows())])
+                break
+            except OperationalError, m:
+                if self._active or m[0] not in (SERVER_GONE_ERROR, SERVER_LOST):
+                    raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
+                        % (m[0], m[1], getPrintableQuery(query[:1000])))
                 logging.info('the MySQL server is gone; reconnecting')
                 self._connect()
-                return self.query(query)
-            raise DatabaseFailure('MySQL error %d: %s' % (m[0], m[1]))
+        r = query.split(None, 1)[0]
+        if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
+            self._active = 1
+        else:
+            assert r in ("ALTER", "CREATE", "DROP", "TRUNCATE"), query
 
     @property
     def escape(self):
