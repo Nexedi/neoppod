@@ -22,7 +22,6 @@ import ZODB
 import socket
 import signal
 import random
-import weakref
 import MySQLdb
 import sqlite3
 import unittest
@@ -38,9 +37,8 @@ from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump
-from .. import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
+from .. import cluster, DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
         ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
-from ..cluster import SocketLock
 from neo.client.Storage import Storage
 from neo.storage.database import buildDatabaseManager
 
@@ -67,55 +65,49 @@ class NotFound(Exception):
 
 class PortAllocator(object):
 
-    lock = SocketLock('neo.PortAllocator')
-    allocator_set = weakref.WeakSet()
-
     def __init__(self):
         self.socket_list = []
-        # WKRD: this is a workaround for a weird bug allowing the same port to
-        # be bound more than once, causing later failure in tests, when
-        # different processes try to bind to the same port.
-        self.sock_port_set = set()
+        self.tried_port_set = set()
 
     def allocate(self, address_type, local_ip):
-        s = socket.socket(address_type, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if not self.lock.locked():
-            self.lock.acquire()
-        self.allocator_set.add(self)
-        self.socket_list.append(s)
-        sock_port_set = self.sock_port_set
+        min_port = n = 16384
+        max_port = min_port + n
+        tried_port_set = self.tried_port_set
         while True:
-            # Do not let the system choose the port to avoid conflicts
-            # with other software. IOW, use a range different than:
-            # - /proc/sys/net/ipv4/ip_local_port_range on Linux
-            # - what IANA recommends (49152 to 65535)
-            port = random.randint(16384, 32767)
+            s = socket.socket(address_type, socket.SOCK_STREAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Find an unreserved port.
+            while True:
+                # Do not let the system choose the port to avoid conflicts
+                # with other software. IOW, use a range different than:
+                # - /proc/sys/net/ipv4/ip_local_port_range on Linux
+                # - what IANA recommends (49152 to 65535)
+                port = random.randrange(min_port, max_port)
+                if port not in tried_port_set:
+                    tried_port_set.add(port)
+                    try:
+                        s.bind((local_ip, port))
+                        break
+                    except socket.error, e:
+                        if e.errno != errno.EADDRINUSE:
+                            raise
+                elif len(tried_port_set) >= n:
+                    raise RuntimeError("No free port")
+            # Reserve port.
             try:
-                s.bind((local_ip, port))
+                s.listen(1)
+                self.socket_list.append(s)
+                return port
             except socket.error, e:
                 if e.errno != errno.EADDRINUSE:
                     raise
-            else:
-                if port not in sock_port_set:
-                    sock_port_set.add(port)
-                    return port
-                logging.warning('Same port allocated twice: %s in %s',
-                    port, sock_port_set)
 
     def release(self):
         for s in self.socket_list:
             s.close()
         self.__init__()
 
-    def reset(self):
-        if self.lock.locked():
-            self.allocator_set.discard(self)
-            if not self.allocator_set:
-                self.lock.release()
-            self.release()
-
-    __del__ = reset
+    __del__ = release
 
 
 class NEOProcess(object):
@@ -150,9 +142,6 @@ class NEOProcess(object):
             try:
                 # release SQLite debug log
                 logging.setup()
-                # release system-wide lock
-                for allocator in PortAllocator.allocator_set.copy():
-                    allocator.reset()
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
                 status = 0
@@ -350,7 +339,6 @@ class NEOCluster(object):
             return True
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
-        self.port_allocator.reset()
 
     def start(self, except_storages=()):
         """ Do a complete start of a cluster """

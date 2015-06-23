@@ -20,53 +20,12 @@ import mmap
 import os
 import psutil
 import signal
-import socket
 import sys
 import tempfile
 from cPickle import dumps, loads
 from functools import wraps
 from time import time, sleep
 from neo.lib import debug
-
-
-class SocketLock(object):
-    """Basic system-wide lock"""
-
-    _socket = None
-
-    def __init__(self, address, family=socket.AF_UNIX, type=socket.SOCK_DGRAM):
-        if family == socket.AF_UNIX:
-            address = '\0' + address
-        self.address = address
-        self.socket_args = family, type
-
-    def locked(self):
-        return self._socket is not None
-
-    def acquire(self, blocking=1):
-        assert self._socket is None
-        s = socket.socket(*self.socket_args)
-        try:
-            while True:
-                try:
-                    s.bind(self.address)
-                except socket.error, e:
-                    if e[0] != errno.EADDRINUSE:
-                        raise
-                    if not blocking:
-                        return False
-                    sleep(1)
-                else:
-                    self._socket = s
-                    return True
-        finally:
-            if self._socket is None:
-                s.close()
-
-    def release(self):
-        s = self._socket
-        del self._socket
-        s.close()
 
 
 class ClusterDict(dict):
