@@ -280,14 +280,21 @@ class BaseConnection(object):
             self.connector = None
             self.aborted = False
 
+    def _getReprInfo(self):
+        return [
+            ('uuid', uuid_str(self.getUUID())),
+            ('address', self.addr and '%s:%d' % self.addr or '?'),
+            ('handler', self.getHandler()),
+        ], ['closed'] if self.isClosed() else []
+
     def __repr__(self):
         address = self.addr and '%s:%d' % self.addr or '?'
-        return '<%s(uuid=%s, address=%s, closed=%s, handler=%s) at %x>' % (
+        r, flags = self._getReprInfo()
+        r = map('%s=%s'.__mod__, r)
+        r += flags
+        return '<%s(%s) at %x>' % (
             self.__class__.__name__,
-            uuid_str(self.getUUID()),
-            address,
-            int(self.isClosed()),
-            self.getHandler(),
+            ', '.join(r),
             id(self),
         )
 
@@ -387,6 +394,16 @@ class Connection(BaseConnection):
         self._queue = []
         self._on_close = None
         self._parser_state = ParserState()
+
+    def _getReprInfo(self):
+        r, flags = super(Connection, self)._getReprInfo()
+        if self._queue:
+            r.append(('len(queue)', len(self._queue)))
+        if self._on_close is not None:
+            r.append(('on_close', getattr(self._on_close, '__name__', '?')))
+        flags.extend(x for x in ('aborted', 'connecting', 'client', 'server')
+                       if getattr(self, x))
+        return r, flags
 
     def setOnClose(self, callback):
         self._on_close = callback
