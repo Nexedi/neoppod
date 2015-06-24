@@ -115,10 +115,6 @@ class Application(object):
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attemps
         self._connecting_to_master_node = Lock()
-        # _nm ensure exclusive access to the node manager
-        lock = Lock()
-        self._nm_acquire = lock.acquire
-        self._nm_release = lock.release
         self.compress = compress
         registerLiveDebugger(on_log=self.log)
 

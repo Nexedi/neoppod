@@ -123,14 +123,13 @@ class ConnectionPool(object):
             cell_list.sort(key=self.getCellSortKey)
             for cell in cell_list:
                 node = cell.getNode()
-                if node.isRunning():
-                    conn = getConnForNode(node)
-                    if conn is not None:
-                        yield (node, conn)
-                    # Re-check if node is running, as our knowledge of its
-                    # state can have changed during connection attempt.
-                    elif node.isRunning():
-                        new_cell_list.append(cell)
+                conn = getConnForNode(node)
+                if conn is not None:
+                    yield node, conn
+                # Re-check if node is running, as our knowledge of its
+                # state can have changed during connection attempt.
+                elif node.isRunning():
+                    new_cell_list.append(cell)
             if not new_cell_list:
                 break
             cell_list = new_cell_list
