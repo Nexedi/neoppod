@@ -800,5 +800,32 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testRecycledClientUUID(self):
+        def delayNotifyInformation(conn, packet):
+            return isinstance(packet, Packets.NotifyNodeInformation)
+        def notReady(orig, *args):
+            m2s.remove(delayNotifyInformation)
+            return orig(*args)
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            cluster.getTransaction()
+            with cluster.master.filterConnection(cluster.storage) as m2s:
+                m2s.add(delayNotifyInformation)
+                cluster.client.master_conn.close()
+                cluster.client.setPoll(0)
+                client = ClientApplication(name=cluster.name,
+                                           master_nodes=cluster.master_nodes)
+                p = Patch(client.storage_bootstrap_handler, notReady=notReady)
+                try:
+                    client.setPoll(1)
+                    x = client.load(ZERO_TID)
+                finally:
+                    del p
+                    client.close()
+                self.assertNotIn(delayNotifyInformation, m2s)
+        finally:
+            cluster.stop()
+
 if __name__ == "__main__":
     unittest.main()

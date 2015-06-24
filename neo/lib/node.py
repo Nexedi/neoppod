@@ -409,6 +409,7 @@ class NodeManager(object):
             # XXX: It's probably a bug to include connecting nodes but there's
             #      no API yet to update manager when connection is established.
             if node.isConnected(connecting=True):
+                assert node in self._node_set, node
                 self._identified_dict[uuid] = node
             else:
                 self._identified_dict.pop(uuid, None)

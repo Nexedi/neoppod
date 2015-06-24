@@ -52,9 +52,11 @@ class IdentificationHandler(EventHandler):
                 if node is None:
                     node = app.nm.createClient(uuid=uuid)
                 elif node.isConnected():
-                    # cut previous connection
-                    node.getConnection().close()
-                    assert not node.isConnected()
+                    # This can happen if we haven't processed yet a notification
+                    # from the master, telling us the existing node is not
+                    # running anymore. If we accept the new client, we won't
+                    # know what to do with this late notification.
+                    raise NotReadyError('uuid conflict: retry later')
                 node.setRunning()
             elif node_type == NodeTypes.STORAGE:
                 if node is None:
