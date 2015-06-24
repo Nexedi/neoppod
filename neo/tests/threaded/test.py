@@ -31,6 +31,7 @@ from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
 from .. import expectedFailure, _UnexpectedSuccess
 from . import ClientApplication, NEOCluster, NEOThreadedTest, Patch
 from neo.lib.util import add64, makeChecksum
+from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
 class PCounter(Persistent):
@@ -708,6 +709,10 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testClientReconnection(self):
+        conn = [None]
+        def getConnForNode(orig, node):
+            self.assertTrue(node.isRunning())
+            return conn.pop()
         cluster = NEOCluster()
         try:
             cluster.start()
@@ -739,6 +744,14 @@ class Test(NEOThreadedTest):
             client.setPoll(0)
             cluster.client.setPoll(1)
 
+            # Check reconnection to storage.
+            p = Patch(cluster.client.cp, getConnForNode=getConnForNode)
+            self.assertFalse(cluster.client.history(x1._p_oid))
+            del p
+            self.assertFalse(conn)
+            self.assertTrue(cluster.client.history(x1._p_oid))
+
+            # Check successful reconnection to master.
             t1.begin()
             self.assertEqual(x1._p_changed ,None)
             self.assertEqual(x1.value, 1)

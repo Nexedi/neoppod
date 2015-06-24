@@ -130,7 +130,7 @@ class ConnectionPool(object):
                 # state can have changed during connection attempt.
                 elif node.isRunning():
                     new_cell_list.append(cell)
-            if not new_cell_list:
+            if not new_cell_list or self.app.master_conn is None:
                 break
             cell_list = new_cell_list
             # wait a bit to avoid a busy loop
