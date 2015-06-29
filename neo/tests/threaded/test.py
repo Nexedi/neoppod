@@ -840,5 +840,17 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testAutostart(self):
+        def startCluster():
+            getClusterState = cluster.neoctl.getClusterState
+            self.assertEqual(ClusterStates.RECOVERING, getClusterState())
+            cluster.storage_list[2].start()
+        cluster = NEOCluster(storage_count=3, autostart=3)
+        try:
+            cluster.startCluster = startCluster
+            cluster.start(cluster.storage_list[:2])
+        finally:
+            cluster.stop()
+
 if __name__ == "__main__":
     unittest.main()

@@ -66,10 +66,12 @@ class RecoveryManager(MasterHandler):
                     node_list = [node for node in node_list if node.isPending()]
                 elif not all(node.isPending() for node in node_list):
                     continue
-            elif app._startup_allowed:
+            elif app._startup_allowed or app.autostart:
                 # No partition table and admin allowed startup, we are
                 # creating a new cluster out of all pending nodes.
                 node_list = app.nm.getStorageList(only_identified=True)
+                if not app._startup_allowed and len(node_list) < app.autostart:
+                    continue
             else:
                 continue
             if node_list and not any(node.getConnection().isPending()

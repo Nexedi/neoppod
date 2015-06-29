@@ -33,6 +33,10 @@ parser.add_option('-p', '--partitions', help = 'partitions number')
 parser.add_option('-l', '--logfile', help = 'specify a logging file')
 parser.add_option('-D', '--dynamic-master-list', help='path of the file '
     'containing dynamic master node list')
+parser.add_option('-A', '--autostart',
+    help='minimum number of pending storage nodes to automatically start'
+         ' new cluster (to avoid unwanted recreation of the cluster,'
+         ' this should be the total number of storage nodes)')
 parser.add_option('-C', '--upstream-cluster',
     help='the name of cluster to backup')
 parser.add_option('-M', '--upstream-masters',
@@ -55,6 +59,7 @@ def main(args=None):
         masters = options.masters,
         replicas = options.replicas,
         partitions = options.partitions,
+        autostart = options.autostart,
         upstream_cluster = options.upstream_cluster,
         upstream_masters = options.upstream_masters,
     )

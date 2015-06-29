@@ -100,3 +100,8 @@ class ConfigurationManager(object):
 
     def getUpstreamMasters(self):
         return util.parseMasterList(self.__get('upstream_masters'))
+
+    def getAutostart(self):
+        n = self.__get('autostart', True)
+        if n:
+            return int(n)

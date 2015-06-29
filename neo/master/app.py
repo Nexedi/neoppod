@@ -56,6 +56,7 @@ class Application(object):
 
         self.name = config.getCluster()
         self.server = config.getBind()
+        self.autostart = config.getAutostart()
 
         self.storage_readiness = set()
         master_addresses, connector_name = config.getMasters()

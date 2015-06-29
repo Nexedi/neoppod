@@ -561,7 +561,7 @@ class NEOCluster(object):
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
                        db_user=DB_USER, db_password='', compress=True,
-                       importer=None):
+                       importer=None, autostart=None):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         master_list = [MasterApplication.newAddress()
@@ -574,7 +574,8 @@ class NEOCluster(object):
             self.upstream = weakref.proxy(upstream)
             kw.update(getUpstreamCluster=upstream.name,
                 getUpstreamMasters=parseMasterList(upstream.master_nodes))
-        self.master_list = [MasterApplication(address=x, **kw)
+        self.master_list = [MasterApplication(getAutostart=autostart,
+                                              address=x, **kw)
                             for x in master_list]
         if db_list is None:
             if storage_count is None:
@@ -647,20 +648,20 @@ class NEOCluster(object):
                 node.start()
         self.tic()
         if fast_startup:
-            self._startCluster()
+            self.startCluster()
         if storage_list is None:
             storage_list = self.storage_list
         for node in storage_list:
             node.start()
         self.tic()
         if not fast_startup:
-            self._startCluster()
+            self.startCluster()
             self.tic()
         state = self.neoctl.getClusterState()
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
-    def _startCluster(self):
+    def startCluster(self):
         try:
             self.neoctl.startCluster()
         except RuntimeError:
