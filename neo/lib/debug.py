@@ -47,12 +47,9 @@ def debugHandler(sig, frame):
 def getPdb():
     try: # try ipython if available
         import IPython
-        try:
-            shell = get_ipython()
-        except NameError:
-            shell = IPython.frontend.terminal.embed.InteractiveShellEmbed()
+        shell = IPython.terminal.embed.InteractiveShellEmbed()
         return IPython.core.debugger.Pdb(shell.colors)
-    except ImportError:
+    except (AttributeError, ImportError):
         import pdb
         return pdb.Pdb()
 
