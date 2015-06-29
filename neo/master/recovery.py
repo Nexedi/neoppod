@@ -58,35 +58,30 @@ class RecoveryManager(MasterHandler):
         poll = app.em.poll
         while 1:
             poll(1)
-            allowed_node_set = set()
             if pt.filled():
                 # A partition table exists, we are starting an existing
                 # cluster.
-                partition_node_set = pt.getReadableCellNodeSet()
-                pending_node_set = {x for x in partition_node_set
-                    if x.isPending()}
-                if app._startup_allowed or \
-                        partition_node_set == pending_node_set:
-                    allowed_node_set = pending_node_set
-                    node_list = pt.getConnectedNodeList
+                node_list = pt.getReadableCellNodeSet()
+                if app._startup_allowed:
+                    node_list = [node for node in node_list if node.isPending()]
+                elif not all(node.isPending() for node in node_list):
+                    continue
             elif app._startup_allowed:
                 # No partition table and admin allowed startup, we are
                 # creating a new cluster out of all pending nodes.
-                allowed_node_set = set(app.nm.getStorageList(
-                    only_identified=True))
-                node_list = lambda: allowed_node_set
-            if allowed_node_set:
-                for node in allowed_node_set:
-                    assert node.isPending(), node
-                    if node.getConnection().isPending():
-                        break
-                else:
-                    node_list = node_list()
-                    break
+                node_list = app.nm.getStorageList(only_identified=True)
+            else:
+                continue
+            if node_list and not any(node.getConnection().isPending()
+                                     for node in node_list):
+                if pt.filled():
+                    node_list = pt.getConnectedNodeList()
+                break
 
         logging.info('startup allowed')
 
         for node in node_list:
+            assert node.isPending(), node
             node.setRunning()
         app.broadcastNodesInformation(node_list)
 
