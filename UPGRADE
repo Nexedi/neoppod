@@ -1,3 +1,39 @@
+NEO 1.4
+=======
+
+The schema of `data` table in MySQL/SQLite backends has changed and there is
+no transparent migration because the changes are optional and this table may
+be huge. You can either use the following SQL commands to upgrade each storage,
+or migrate data to new nodes with replication.
+
+MySQL
+-----
+
+::
+
+  ALTER TABLE data
+    -- minor optimization
+    MODIFY value MEDIUMBLOB NOT NULL,
+    -- fix store of multiple values that only differ by the compression flag
+    DROP KEY hash, ADD UNIQUE (hash, compression);
+
+SQLite
+------
+
+::
+
+  -- In SQLite, ALTER TABLE is limited so it's all or nothing
+  -- (here the added 'NOT NULL' on value column is cosmetic)
+  CREATE TABLE new_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hash BLOB NOT NULL,
+    compression INTEGER NOT NULL,
+    value BLOB NOT NULL);
+  INSERT INTO new_data SELECT * FROM data;
+  CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON new_data(hash, compression);
+  DROP TABLE data;
+  ALTER TABLE new_data RENAME TO data;
+
 NEO 1.0
 =======
 
