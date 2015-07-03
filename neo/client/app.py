@@ -20,6 +20,7 @@ from neo.lib.locking import Empty
 from random import shuffle
 import heapq
 import time
+import weakref
 from functools import partial
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
@@ -56,6 +57,16 @@ except ImportError:
 if SignalHandler:
     import signal
     SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
+
+class app_set(weakref.WeakSet):
+
+    def on_log(self):
+        for app in self:
+            app.log()
+
+app_set = app_set()
+registerLiveDebugger(app_set.on_log)
+
 
 class Application(object):
     """The client node application."""
@@ -116,7 +127,7 @@ class Application(object):
         # node connection attemps
         self._connecting_to_master_node = Lock()
         self.compress = compress
-        registerLiveDebugger(on_log=self.log)
+        app_set.add(self) # to register self.on_log
 
     def __getattr__(self, attr):
         if attr == 'pt':

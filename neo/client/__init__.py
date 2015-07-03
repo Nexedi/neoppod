@@ -12,6 +12,8 @@
 #
 ##############################################################################
 
+import app # set up signal handers early enough to do it in the main thread
+
 if 1:
     from hashlib import md5
     from ZODB.Connection import Connection
