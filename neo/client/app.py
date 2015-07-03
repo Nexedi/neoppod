@@ -148,8 +148,9 @@ class Application(object):
     def log(self):
         self.em.log()
         self.nm.log()
-        if self.pt is not None:
-            self.pt.log()
+        pt = self.__dict__.get('pt')
+        if pt is not None:
+            pt.log()
 
     def _handlePacket(self, conn, packet, kw={}, handler=None):
         """
