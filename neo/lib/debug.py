@@ -44,14 +44,14 @@ def debugHandler(sig, frame):
         neo.__path__)
     imp.load_module('neo.debug', file, filename, (suffix, mode, type))
 
-def getPdb():
+def getPdb(**kw):
     try: # try ipython if available
         import IPython
         shell = IPython.terminal.embed.InteractiveShellEmbed()
-        return IPython.core.debugger.Pdb(shell.colors)
+        return IPython.core.debugger.Pdb(shell.colors, **kw)
     except (AttributeError, ImportError):
         import pdb
-        return pdb.Pdb()
+        return pdb.Pdb(**kw)
 
 _debugger = None
 

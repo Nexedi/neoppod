@@ -11,8 +11,8 @@ The prompt is accessible through network in case that the process is daemonized:
 
 if 1:
     import socket, sys, threading
-    #from neo.lib.debug import getPdb
-    from pdb import Pdb as getPdb
+    from neo.lib.debug import getPdb
+    #from pdb import Pdb as getPdb
 
     class Socket(object):
 
@@ -51,7 +51,7 @@ if 1:
                 self._socket.setblocking(1)
             return False
 
-    def pdb(app):
+    def pdb(app_set):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.bind(('127.0.0.1', 0))
@@ -60,14 +60,24 @@ if 1:
             _socket = Socket(s.accept()[0])
         finally:
             s.close()
+        try:
+            app, = app_set
+        except ValueError:
+            app = None
         getPdb(stdin=_socket, stdout=_socket).set_trace()
-        app # this is Application instance
+        app # this is Application instance (see 'app_set' if there are several)
 
-    f = sys._getframe(3)
     try:
-        while f.f_code.co_name != 'run' or \
-              f.f_locals.get('self').__class__.__name__ != 'Application':
-            f = f.f_back
-        threading.Thread(target=pdb, args=(f.f_locals['self'],)).start()
-    finally:
-        del f
+        app_set = sys.modules['neo.client.app'].app_set
+    except KeyError:
+        f = sys._getframe(3)
+        try:
+            while f.f_code.co_name != 'run' or \
+                  f.f_locals.get('self').__class__.__name__ != 'Application':
+                f = f.f_back
+            app_set = f.f_locals['self'],
+        except AttributeError:
+            app_set = ()
+        finally:
+            del f
+    threading.Thread(target=pdb, args=(app_set,)).start()
