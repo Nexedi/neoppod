@@ -443,9 +443,7 @@ class Application(object):
                 return (decompress(data) if compression else data,
                         tid, next_tid, data_tid)
             raise NEOStorageCreationUndoneError(dump(oid))
-        # We didn't got any object from all storage node because of
-        # connection error
-        raise NEOStorageError('connection failure')
+        raise NEOStorageError("storage down or corrupted data")
 
     def _loadFromCache(self, oid, at_tid=None, before_tid=None):
         """
