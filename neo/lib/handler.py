@@ -174,9 +174,13 @@ class EventHandler(object):
         except (AttributeError, ValueError):
             raise UnexpectedPacketError(message)
 
+    # XXX: For some errors, the connection should have been closed by the remote
+    #      peer. But what happens if it's not the case because of some bug ?
     def protocolError(self, conn, message):
-        # the connection should have been closed by the remote peer
         logging.error('protocol error: %s', message)
+
+    def notReadyError(self, conn, message):
+        logging.error('not ready: %s', message)
 
     def timeoutError(self, conn, message):
         logging.error('timeout error: %s', message)
