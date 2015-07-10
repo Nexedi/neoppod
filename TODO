@@ -1,5 +1,3 @@
-RC = Release Critical (for next release)
-
   Documentation
     - Clarify node state signification, and consider renaming them in the code.
       Ideas:
@@ -16,9 +14,7 @@ RC = Release Critical (for next release)
     node where the most important changes are needed.
 
     General
-RC  - Review XXX in the code (CODE)
-RC  - Review TODO in the code (CODE)
-RC  - Review output of pylint (CODE)
+    - Review XXX/TODO code tags (CODE)
     - When all cells are OUT_OF_DATE in backup mode, the one with most data
       could become UP_TO_DATE with appropriate backup_tid, so that the cluster
       stays operational. (FEATURE)
