@@ -1,7 +1,7 @@
 Change History
 ==============
 
-1.4 (unreleased)
+1.4 (2015-07-13)
 ----------------
 
 This version comes with a change in the SQL tables format, to fix a potential
@@ -34,6 +34,10 @@ bug.
 
   - Client could get stuck forever on unreadable cells when not connected to the
     master.
+
+  - Client could only instantiate NEOStorage from the main thread, and the
+    RTMIN+2 signal displayed logs for only 1 NEOStorage. Now, RTMIN+2 & RTMIN+3
+    are setup when neo.client module is imported.
 
 - Plus fixes and improvements to logging and debugging.
 
