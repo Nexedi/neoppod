@@ -79,9 +79,6 @@ class ConnectionTests(NeoUnitTestBase):
     def _checkWriterRemoved(self, n=1):
         self.assertEqual(len(self.em.mockGetNamedCalls("removeWriter")), n)
 
-    def _checkShutdown(self, n=1):
-        self.assertEqual(len(self.connector.mockGetNamedCalls("shutdown")), n)
-
     def _checkClose(self, n=1):
         self.assertEqual(len(self.connector.mockGetNamedCalls("close")), n)
 
@@ -523,7 +520,6 @@ class ConnectionTests(NeoUnitTestBase):
             self.assertTrue(bc.pending())
             self._checkWriterRemoved(0)
             self._checkReaderRemoved(0)
-            self._checkShutdown(0)
             self._checkClose(0)
         finally:
             del DoNothingConnector.send
@@ -550,7 +546,6 @@ class ConnectionTests(NeoUnitTestBase):
             self.assertFalse(bc.pending())
             self._checkWriterRemoved(1)
             self._checkReaderRemoved(0)
-            self._checkShutdown(0)
             self._checkClose(0)
         finally:
             del DoNothingConnector.send
@@ -578,7 +573,6 @@ class ConnectionTests(NeoUnitTestBase):
             self.assertFalse(bc.pending())
             self._checkWriterRemoved(1)
             self._checkReaderRemoved(1)
-            self._checkShutdown(1)
             self._checkClose(1)
         finally:
             del DoNothingConnector.send
@@ -610,7 +604,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkUnregistered(0)
             self._checkWriterRemoved(0)
             self._checkReaderRemoved(0)
-            self._checkShutdown(0)
             self._checkClose(0)
         finally:
             del DoNothingConnector.receive
@@ -710,7 +703,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkReaderAdded(1)
             self._checkWriterRemoved(1)
             self._checkReaderRemoved(0)
-            self._checkShutdown(0)
             self._checkClose(0)
         finally:
             del DoNothingConnector.send

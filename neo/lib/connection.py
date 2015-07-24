@@ -275,7 +275,6 @@ class BaseConnection(object):
             em.removeReader(self)
             em.removeWriter(self)
             em.unregister(self)
-            self.connector.shutdown()
             self.connector.close()
             self.connector = None
             self.aborted = False

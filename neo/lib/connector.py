@@ -105,13 +105,6 @@ class SocketConnector:
             raise ConnectorException, 'getNewConnection failed: %s:%s' % \
                 (err, errmsg)
 
-    def shutdown(self):
-        # This may fail if the socket is not connected.
-        try:
-            self.socket.shutdown(socket.SHUT_RDWR)
-        except socket.error:
-            pass
-
     def receive(self):
         try:
             return self.socket.recv(4096)
