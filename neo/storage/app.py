@@ -346,27 +346,25 @@ class Application(object):
 
     def queueEvent(self, some_callable, conn=None, args=(), key=None,
             raise_on_duplicate=True):
-        msg_id = None if conn is None else conn.getPeerId()
         event_queue_dict = self.event_queue_dict
-        if raise_on_duplicate and key in event_queue_dict:
+        n = event_queue_dict.get(key)
+        if n and raise_on_duplicate:
             raise AlreadyPendingError()
-        else:
-            self.event_queue.append((key, some_callable, msg_id, conn, args))
-            if key is not None:
-                try:
-                    event_queue_dict[key] += 1
-                except KeyError:
-                    event_queue_dict[key] = 1
+        msg_id = None if conn is None else conn.getPeerId()
+        self.event_queue.append((key, some_callable, msg_id, conn, args))
+        if key is not None:
+            event_queue_dict[key] = n + 1 if n else 1
 
     def executeQueuedEvents(self):
-        l = len(self.event_queue)
         p = self.event_queue.popleft
         event_queue_dict = self.event_queue_dict
-        for _ in xrange(l):
+        for _ in xrange(len(self.event_queue)):
             key, some_callable, msg_id, conn, args = p()
             if key is not None:
-                event_queue_dict[key] -= 1
-                if event_queue_dict[key] == 0:
+                n = event_queue_dict[key] - 1
+                if n:
+                    event_queue_dict[key] = n
+                else:
                     del event_queue_dict[key]
             if conn is None:
                 some_callable(*args)

@@ -27,8 +27,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
 
     def notReady(self, conn, message):
-        app = self.app
-        app.trying_master_node = None
+        self.app.trying_master_node = None
 
     def _acceptIdentification(self, node, uuid, num_partitions,
             num_replicas, your_uuid, primary, known_master_list):

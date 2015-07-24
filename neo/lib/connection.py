@@ -283,12 +283,11 @@ class BaseConnection(object):
     def _getReprInfo(self):
         return [
             ('uuid', uuid_str(self.getUUID())),
-            ('address', self.addr and '%s:%d' % self.addr or '?'),
+            ('address', '%s:%u' % self.addr if self.addr else '?'),
             ('handler', self.getHandler()),
         ], ['closed'] if self.isClosed() else []
 
     def __repr__(self):
-        address = self.addr and '%s:%d' % self.addr or '?'
         r, flags = self._getReprInfo()
         r = map('%s=%s'.__mod__, r)
         r += flags
@@ -305,9 +304,6 @@ class BaseConnection(object):
             logging.debug('Set handler %r on %r', handler, self)
         else:
             logging.debug('Delay handler %r on %r', handler, self)
-
-    def getEventManager(self):
-        return self.em
 
     def getUUID(self):
         return None
@@ -357,7 +353,7 @@ class ListeningConnection(BaseConnection):
             new_s, addr = self.connector.getNewConnection()
             logging.debug('accepted a connection from %s:%d', *addr)
             handler = self.getHandler()
-            new_conn = ServerConnection(self.getEventManager(), handler,
+            new_conn = ServerConnection(self.em, handler,
                 connector=new_s, addr=addr)
             handler.connectionAccepted(new_conn)
         except ConnectorTryAgainException:
@@ -365,9 +361,6 @@ class ListeningConnection(BaseConnection):
 
     def getAddress(self):
         return self.connector.getAddress()
-
-    def writable(self):
-        return False
 
     def isListening(self):
         return True
@@ -466,8 +459,7 @@ class Connection(BaseConnection):
     def checkTimeout(self, t):
         # first make sure we don't timeout on answers we already received
         if self._base_timeout and not self._queue:
-            timeout = t - self._base_timeout
-            if self._timeout <= timeout:
+            if self._timeout <= t - self._base_timeout:
                 handlers = self._handlers
                 if handlers.isPending():
                     msg_id = handlers.timeout(self)
@@ -521,15 +513,14 @@ class Connection(BaseConnection):
         """
           Returns True if there are messages queued and awaiting processing.
         """
-        return len(self._queue) != 0
+        return not not self._queue
 
     def process(self):
         """
           Process a pending packet.
         """
         # check out packet and process it with current handler
-        packet = self._queue.pop(0)
-        self._handlers.handle(self, packet)
+        self._handlers.handle(self, self._queue.pop(0))
         self.updateTimeout()
 
     def pending(self):
@@ -665,7 +656,7 @@ class Connection(BaseConnection):
         packet.setId(msg_id)
         self._addPacket(packet)
         handlers = self._handlers
-        t = not handlers.isPending() and time() or None
+        t = None if handlers.isPending() else time()
         handlers.emit(packet, timeout, on_timeout, kw)
         self.updateTimeout(t)
         return msg_id
@@ -784,7 +775,7 @@ class MTClientConnection(ClientConnection):
                 self.dispatcher.register(self, msg_id, queue)
             self._addPacket(packet)
             handlers = self._handlers
-            t = not handlers.isPending() and time() or None
+            t = None if handlers.isPending() else time()
             handlers.emit(packet, timeout, on_timeout, kw)
             self.updateTimeout(t)
             return msg_id

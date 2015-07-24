@@ -88,9 +88,6 @@ class SocketConnector:
     def getError(self):
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
 
-    def getAddress(self):
-        raise NotImplementedError
-
     def getDescriptor(self):
         # this descriptor must only be used by the event manager, where it
         # guarantee unicity only while the connector is opened and registered
@@ -142,31 +139,24 @@ class SocketConnector:
         return self.socket.close()
 
     def __repr__(self):
-        if self.is_closed:
-            fileno = '?'
-        else:
-            fileno = self.socket_fd
-        result = '<%s at 0x%x fileno %s %s, ' % (self.__class__.__name__,
-                 id(self), fileno, self.socket.getsockname())
         if self.is_closed is None:
-            result += 'never opened'
+            state = 'never opened'
         else:
             if self.is_closed:
-                result += 'closed '
+                state = 'closed '
             else:
-                result += 'opened '
+                state = 'opened '
             if self.is_listening:
-                result += 'listening'
+                state += 'listening'
             else:
                 if self.accepted_from is None:
-                    result += 'to'
+                    state += 'to '
                 else:
-                    result += 'from'
-                result += ' %s' % (self.remote_addr, )
-        return result + '>'
-
-    def _accept(self):
-        raise NotImplementedError
+                    state += 'from '
+                state += str(self.remote_addr)
+        return '<%s at 0x%x fileno %s %s, %s>' % (self.__class__.__name__,
+            id(self), '?' if self.is_closed else self.socket_fd,
+            self.getAddress(), state)
 
 class SocketConnectorIPv4(SocketConnector):
     " Wrapper for IPv4 sockets"

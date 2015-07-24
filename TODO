@@ -25,7 +25,7 @@
       becomes true, without waking up needlessly in the meantime) or null
       (don't wait at all).
     - Implements delayed connection acceptation.
-      Currently, any node that connects to early to another that is busy for
+      Currently, any node that connects too early to another that is busy for
       some reasons is immediately rejected with the 'not ready' error code. This
       should be replaced by a queue in the listening node that keep a pool a
       nodes that will be accepted late, when the conditions will be satisfied.

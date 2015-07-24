@@ -63,15 +63,12 @@ class ConnectionPool(object):
             app._ask(conn, p, handler=app.storage_bootstrap_handler)
         except ConnectionClosed:
             logging.error('Connection to %r failed', node)
-            self.notifyFailure(node)
-            conn = None
         except NodeNotReady:
             logging.info('%r not ready', node)
-            self.notifyFailure(node)
-            conn = None
         else:
             logging.info('Connected %r', node)
-        return conn
+            return conn
+        self.notifyFailure(node)
 
     def _dropConnections(self):
         """Drop connections."""

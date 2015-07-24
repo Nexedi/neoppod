@@ -628,7 +628,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionCompleted(1)
         self._checkConnectionFailed(0)
         # check call to event manager
-        self.assertFalse(bc.getEventManager() is None)
+        self.assertIsNot(bc.em, None)
         self._checkReaderAdded(1)
         self._checkWriterAdded(0)
 
@@ -652,7 +652,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionCompleted(0)
         self._checkConnectionFailed(0)
         # check call to event manager
-        self.assertFalse(bc.getEventManager() is None)
+        self.assertIsNot(bc.em, None)
         self._checkReaderAdded(1)
         self._checkWriterAdded(1)
 

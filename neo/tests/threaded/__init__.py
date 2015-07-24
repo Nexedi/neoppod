@@ -183,7 +183,6 @@ class ServerNode(Node):
 
     class __metaclass__(type):
         def __init__(cls, name, bases, d):
-            type.__init__(cls, name, bases, d)
             if Node not in bases and threading.Thread not in cls.__mro__:
                 cls.__bases__ = bases + (threading.Thread,)
                 cls.node_type = getattr(NodeTypes, name[:-11].upper())
