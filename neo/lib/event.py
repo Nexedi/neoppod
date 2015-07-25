@@ -14,13 +14,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os, thread
 from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
-from errno import EAGAIN, EINTR, ENOENT
+from errno import EAGAIN, EEXIST, EINTR, ENOENT
 from . import logging
+from .locking import Lock
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
+
+    _trigger_exit = False
 
     def __init__(self):
         self.connection_dict = {}
@@ -28,8 +32,12 @@ class EpollEventManager(object):
         self.writer_set = set()
         self.epoll = epoll()
         self._pending_processing = []
+        self._trigger_fd, w = os.pipe()
+        os.close(w)
+        self._trigger_lock = Lock()
 
     def close(self):
+        os.close(self._trigger_fd)
         for c in self.connection_dict.values():
             c.close()
         del self.__dict__
@@ -150,6 +158,12 @@ class EpollEventManager(object):
             try:
                 conn = self.connection_dict[fd]
             except KeyError:
+                if fd == self._trigger_fd:
+                    with self._trigger_lock:
+                        self.epoll.unregister(fd)
+                        if self._trigger_exit:
+                            del self._trigger_exit
+                            thread.exit()
                 continue
             if conn.readable():
                 self._addPendingConnection(conn)
@@ -157,6 +171,16 @@ class EpollEventManager(object):
         t = time()
         for conn in self.connection_dict.values():
             conn.checkTimeout(t)
+
+    def wakeup(self, exit=False):
+        with self._trigger_lock:
+            self._trigger_exit |= exit
+            try:
+                self.epoll.register(self._trigger_fd)
+            except IOError, e:
+                # Ignore if 'wakeup' is called several times in a row.
+                if e.errno != EEXIST:
+                    raise
 
     def addReader(self, conn):
         connector = conn.getConnector()

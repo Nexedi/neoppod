@@ -15,18 +15,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from logging import DEBUG, ERROR
-from threading import Thread, Event, enumerate as thread_enum
+from threading import Thread, enumerate as thread_enum
 from neo.lib import logging
 from neo.lib.locking import Lock
 
 class _ThreadedPoll(Thread):
     """Polling thread."""
 
+    stopping = False
+
     def __init__(self, em, **kw):
         Thread.__init__(self, **kw)
         self.em = em
         self.daemon = True
-        self._stop = Event()
 
     def run(self):
         _log = logging.log
@@ -34,25 +35,24 @@ class _ThreadedPoll(Thread):
             # Ignore errors due to garbage collection on exit
             try:
                 _log(*args, **kw)
-            except:
-                if not self.stopping():
+            except Exception:
+                if not self.stopping:
                     raise
         log(DEBUG, 'Started %s', self)
-        while not self.stopping():
-            try:
-                # XXX: Delay cannot be infinite here, because we need
-                #      to check connection timeout and thread shutdown.
-                self.em.poll(1)
-            except:
-                log(ERROR, 'poll raised, retrying', exc_info=1)
-        log(DEBUG, 'Threaded poll stopped')
-        self._stop.clear()
+        try:
+            while 1:
+                try:
+                    # XXX: Delay can't be infinite here, because we need
+                    #      to check connection timeouts.
+                    self.em.poll(1)
+                except Exception:
+                    log(ERROR, 'poll raised, retrying', exc_info=1)
+        finally:
+            log(DEBUG, 'Threaded poll stopped')
 
     def stop(self):
-        self._stop.set()
-
-    def stopping(self):
-        return self._stop.isSet()
+        self.stopping = True
+        self.em.wakeup(True)
 
 class ThreadedPoll(object):
     """
@@ -81,7 +81,7 @@ class ThreadedPoll(object):
         self._status_lock_acquire()
         try:
             thread = self._thread
-            if thread.stopping():
+            if thread.stopping:
                 # XXX: ideally, we should wake thread up here, to be sure not
                 # to wait forever.
                 thread.join()
