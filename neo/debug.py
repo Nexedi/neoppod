@@ -9,7 +9,8 @@ The prompt is accessible through network in case that the process is daemonized:
   <neo.master.app.Application object at 0x1fc9750>
 """
 
-if 1:
+IF = 'pdb'
+if IF == 'pdb':
     import socket, sys, threading
     from neo.lib.debug import getPdb
     #from pdb import Pdb as getPdb
@@ -81,3 +82,11 @@ if 1:
         finally:
             del f
     threading.Thread(target=pdb, args=(app_set,)).start()
+
+elif IF == 'frames':
+    import sys, traceback
+    write = sys.stderr.write
+    for thread_id, frame in sys._current_frames().iteritems():
+        write("Thread %s:\n" % thread_id)
+        traceback.print_stack(frame)
+    write("End of dump\n")
