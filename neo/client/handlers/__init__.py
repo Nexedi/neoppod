@@ -26,7 +26,7 @@ class BaseHandler(EventHandler):
         self.dispatcher = app.dispatcher
 
     def dispatch(self, conn, packet, kw={}):
-        assert conn._lock._is_owned()
+        assert conn.lock._is_owned() # XXX: see also lockCheckWrapper
         super(BaseHandler, self).dispatch(conn, packet, kw)
 
     def packetReceived(self, conn, packet, kw={}):

@@ -92,16 +92,12 @@ class EpollEventManager(object):
             if not self._pending_processing:
                 return
         to_process = self._pending_processing.pop(0)
-        to_process.lock()
         try:
-            try:
-                to_process.process()
-            finally:
-                # ...and requeue if there are pending messages
-                if to_process.hasPendingMessages():
-                    self._addPendingConnection(to_process)
+            to_process.process()
         finally:
-            to_process.unlock()
+            # ...and requeue if there are pending messages
+            if to_process.hasPendingMessages():
+                self._addPendingConnection(to_process)
         # Non-blocking call: as we handled a packet, we should just offer
         # poll a chance to fetch & send already-available data, but it must
         # not delay us.
@@ -122,12 +118,7 @@ class EpollEventManager(object):
         for fd, event in event_list:
             if event & EPOLLIN:
                 conn = self.connection_dict[fd]
-                conn.lock()
-                try:
-                    conn.readable()
-                finally:
-                    conn.unlock()
-                if conn.hasPendingMessages():
+                if conn.readable():
                     self._addPendingConnection(conn)
             if event & EPOLLOUT:
                 wlist.append(fd)
@@ -140,11 +131,7 @@ class EpollEventManager(object):
                 conn = self.connection_dict[fd]
             except KeyError:
                 continue
-            conn.lock()
-            try:
-                conn.writable()
-            finally:
-                conn.unlock()
+            conn.writable()
 
         for fd in elist:
             # This can fail, if a connection is closed in previous calls to
@@ -153,21 +140,12 @@ class EpollEventManager(object):
                 conn = self.connection_dict[fd]
             except KeyError:
                 continue
-            conn.lock()
-            try:
-                conn.readable()
-            finally:
-                conn.unlock()
-            if conn.hasPendingMessages():
+            if conn.readable():
                 self._addPendingConnection(conn)
 
         t = time()
         for conn in self.connection_dict.values():
-            conn.lock()
-            try:
-                conn.checkTimeout(t)
-            finally:
-                conn.unlock()
+            conn.checkTimeout(t)
 
     def addReader(self, conn):
         connector = conn.getConnector()

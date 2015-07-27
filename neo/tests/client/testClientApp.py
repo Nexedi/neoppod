@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import threading
 import unittest
 from cPickle import dumps
 from mock import Mock, ReturnValues
@@ -43,6 +44,11 @@ def _getMasterConnection(self):
         self.pt = Mock({'getCellList': ()})
         self.master_conn = Mock()
     return self.master_conn
+
+def getConnection(kw):
+    conn = Mock(kw)
+    conn.lock = threading.RLock()
+    return conn
 
 def _ask(self, conn, packet, handler=None, **kw):
     self.setHandlerData(None)
@@ -110,7 +116,7 @@ class ClientApplicationTests(NeoUnitTestBase):
     makeTID = makeOID
 
     def getNodeCellConn(self, index=1, address=('127.0.0.1', 10000), uuid=None):
-        conn = Mock({
+        conn = getConnection({
             'getAddress': address,
             '__repr__': 'connection mock',
             'getUUID': uuid,
@@ -167,8 +173,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         response_packet = Packets.AnswerNewOIDs(test_oid_list[:])
         response_packet.setId(0)
         app.master_conn = Mock({'getNextId': test_msg_id, '_addPacket': None,
-                                'expectMessage': None, 'lock': None,
-                                'unlock': None,
+                                'expectMessage': None,
                                 # Test-specific method
                                 'fakeReceived': response_packet})
         new_oid = app.new_oid()
@@ -434,12 +439,12 @@ class ClientApplicationTests(NeoUnitTestBase):
         packet2 = Packets.AnswerStoreObject(conflicting=1, oid=oid1, serial=tid)
         packet3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid)
         [p.setId(i) for p, i in zip([packet1, packet2, packet3], range(3))]
-        conn1 = Mock({'__repr__': 'conn1', 'getAddress': address1,
-                      'fakeReceived': packet1, 'getUUID': uuid1})
-        conn2 = Mock({'__repr__': 'conn2', 'getAddress': address2,
-                      'fakeReceived': packet2, 'getUUID': uuid2})
-        conn3 = Mock({'__repr__': 'conn3', 'getAddress': address3,
-                      'fakeReceived': packet3, 'getUUID': uuid3})
+        conn1 = getConnection({'__repr__': 'conn1', 'getAddress': address1,
+                               'fakeReceived': packet1, 'getUUID': uuid1})
+        conn2 = getConnection({'__repr__': 'conn2', 'getAddress': address2,
+                               'fakeReceived': packet2, 'getUUID': uuid2})
+        conn3 = getConnection({'__repr__': 'conn3', 'getAddress': address3,
+                              'fakeReceived': packet3, 'getUUID': uuid3})
         node1 = Mock({'__repr__': 'node1', '__hash__': 1, 'getConnection': conn1})
         node2 = Mock({'__repr__': 'node2', '__hash__': 2, 'getConnection': conn2})
         node3 = Mock({'__repr__': 'node3', '__hash__': 3, 'getConnection': conn3})
@@ -520,7 +525,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         transaction_info = Packets.AnswerTransactionInformation(tid1, '', '',
             '', False, (oid0, ))
         transaction_info.setId(1)
-        conn = Mock({
+        conn = getConnection({
             'getNextId': 1,
             'fakeReceived': transaction_info,
             'getAddress': ('127.0.0.1', 10020),
@@ -706,7 +711,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         asked = []
         def answerTIDs(packet):
-            conn = Mock({'getAddress': packet})
+            conn = getConnection({'getAddress': packet})
             app.nm.createStorage(address=conn.getAddress())
             def ask(p, queue, **kw):
                 asked.append(p)

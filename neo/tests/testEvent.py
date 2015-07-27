@@ -104,13 +104,9 @@ class EventTests(NeoUnitTestBase):
         self.assertEqual(data, 10)
         # need to rebuild completely this test and the the packet queue
         # check readable conn
-        #self.assertEqual(len(r_conn.mockGetNamedCalls("lock")), 1)
-        #self.assertEqual(len(r_conn.mockGetNamedCalls("unlock")), 1)
         #self.assertEqual(len(r_conn.mockGetNamedCalls("readable")), 1)
         #self.assertEqual(len(r_conn.mockGetNamedCalls("writable")), 0)
         # check writable conn
-        #self.assertEqual(len(w_conn.mockGetNamedCalls("lock")), 1)
-        #self.assertEqual(len(w_conn.mockGetNamedCalls("unlock")), 1)
         #self.assertEqual(len(w_conn.mockGetNamedCalls("readable")), 0)
         #self.assertEqual(len(w_conn.mockGetNamedCalls("writable")), 1)
 

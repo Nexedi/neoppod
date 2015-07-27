@@ -175,11 +175,8 @@ class Application(object):
                 handler = self.primary_handler
             else:
                 raise ValueError, 'Unknown node type: %r' % (node.__class__, )
-        conn.lock()
-        try:
+        with conn.lock:
             handler.dispatch(conn, packet, kw)
-        finally:
-            conn.unlock()
 
     def _waitAnyMessage(self, queue, block=True):
         """

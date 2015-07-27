@@ -41,28 +41,6 @@ def not_closed(func):
     return wraps(func)(decorator)
 
 
-def lockCheckWrapper(func):
-    """
-    This function is to be used as a wrapper around
-    MT(Client|Server)Connection class methods.
-
-    It uses a "_" method on RLock class, so it might stop working without
-    notice (sadly, RLock does not offer any "acquired" method, but that one
-    will do as it checks that current thread holds this lock).
-
-    It requires moniroted class to have an RLock instance in self._lock
-    property.
-    """
-    def wrapper(self, *args, **kw):
-        if not self._lock._is_owned():
-            import traceback
-            logging.warning('%s called on %s instance without being locked.'
-                ' Stack:\n%s', func.func_code.co_name,
-                self.__class__.__name__, ''.join(traceback.format_stack()))
-        # Call anyway
-        return func(self, *args, **kw)
-    return wraps(func)(wrapper)
-
 class HandlerSwitcher(object):
     _next_timeout = None
     _next_timeout_msg_id = None
@@ -250,11 +228,8 @@ class BaseConnection(object):
     def checkTimeout(self, t):
         pass
 
-    def lock(self):
-        return 1
-
-    def unlock(self):
-        return None
+    def lockWrapper(self, func):
+        return func
 
     def getConnector(self):
         return self.connector
@@ -495,6 +470,7 @@ class Connection(BaseConnection):
         self.analyse()
         if self.aborted:
             self.em.removeReader(self)
+        return not not self._queue
 
     def analyse(self):
         """Analyse received data."""
@@ -562,8 +538,8 @@ class Connection(BaseConnection):
         global connect_limit
         t = time()
         if t < connect_limit:
-            self.checkTimeout = lambda t: t < connect_limit or \
-                self._delayed_closure()
+            self.checkTimeout = self.lockWrapper(lambda t:
+                t < connect_limit or self._delayed_closure())
             self.readable = self.writable = lambda: None
         else:
             connect_limit = t + 1
@@ -707,7 +683,7 @@ class ClientConnection(Connection):
             self.writable()
 
     def _connectionCompleted(self):
-        self.writable = super(ClientConnection, self).writable
+        self.writable = self.lockWrapper(super(ClientConnection, self).writable)
         self.connecting = False
         self.updateTimeout(time())
         self.getHandler().connectionCompleted(self)
@@ -729,36 +705,53 @@ class ServerConnection(Connection):
         self.updateTimeout(time())
 
 
+class MTConnectionType(type):
+
+    def __init__(cls, *args):
+        if __debug__:
+            for name in 'analyse', 'answer':
+                setattr(cls, name, cls.lockCheckWrapper(name))
+        for name in ('close', 'checkTimeout', 'notify',
+                     'process', 'readable', 'writable'):
+            setattr(cls, name, cls.__class__.lockWrapper(cls, name))
+
+    def lockCheckWrapper(cls, name):
+        def wrapper(self, *args, **kw):
+            # XXX: Unfortunately, RLock does not has any public method
+            #      to test whether we own the lock or not.
+            assert self.lock._is_owned(), (self, args, kw)
+            return getattr(super(cls, self), name)(*args, **kw)
+        return wraps(getattr(cls, name).im_func)(wrapper)
+
+    def lockWrapper(cls, name):
+        def wrapper(self, *args, **kw):
+            with self.lock:
+                return getattr(super(cls, self), name)(*args, **kw)
+        return wraps(getattr(cls, name).im_func)(wrapper)
+
+
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
 
-    def __metaclass__(name, base, d):
-        for k in ('analyse', 'answer', 'checkTimeout',
-                  'process', 'readable', 'writable'):
-            d[k] = lockCheckWrapper(getattr(base[0], k).im_func)
-        return type(name, base, d)
+    __metaclass__ = MTConnectionType
+
+    def lockWrapper(self, func):
+        lock = self.lock
+        def wrapper(*args, **kw):
+            with lock:
+                return func(*args, **kw)
+        return wrapper
 
     def __init__(self, *args, **kwargs):
-        # _lock is only here for lock debugging purposes. Do not use.
-        self._lock = lock = RLock()
-        self.lock = lock.acquire
-        self.unlock = lock.release
+        self.lock = lock = RLock()
         self.dispatcher = kwargs.pop('dispatcher')
         self.dispatcher.needPollThread()
         with lock:
             super(MTClientConnection, self).__init__(*args, **kwargs)
 
-    def notify(self, *args, **kw):
-        self.lock()
-        try:
-            return super(MTClientConnection, self).notify(*args, **kw)
-        finally:
-            self.unlock()
-
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
             queue=None, **kw):
-        self.lock()
-        try:
+        with self.lock:
             if self.isClosed():
                 raise ConnectionClosed
             # XXX: Here, we duplicate Connection.ask because we need to call
@@ -778,12 +771,3 @@ class MTClientConnection(ClientConnection):
             handlers.emit(packet, timeout, on_timeout, kw)
             self.updateTimeout(t)
             return msg_id
-        finally:
-            self.unlock()
-
-    def close(self):
-        self.lock()
-        try:
-            super(MTClientConnection, self).close()
-        finally:
-            self.unlock()

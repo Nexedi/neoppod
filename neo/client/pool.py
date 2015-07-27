@@ -72,8 +72,7 @@ class ConnectionPool(object):
         """Drop connections."""
         for conn in self.connection_dict.values():
             # Drop first connection which looks not used
-            conn.lock()
-            try:
+            with conn.lock:
                 if not conn.pending() and \
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
@@ -82,8 +81,6 @@ class ConnectionPool(object):
                         'storage node %s:%d closed', *conn.getAddress())
                     if len(self.connection_dict) <= self.max_pool_size:
                         break
-            finally:
-                conn.unlock()
 
     def notifyFailure(self, node):
         self.node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE

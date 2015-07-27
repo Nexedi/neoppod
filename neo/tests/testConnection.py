@@ -587,7 +587,7 @@ class ConnectionTests(NeoUnitTestBase):
         DoNothingConnector.receive = receive
         try:
             bc = self._makeConnection()
-            bc._queue = Mock()
+            bc._queue = Mock({'__len__': 0})
             self._checkReadBuf(bc, '')
             self.assertFalse(bc.aborted)
             bc.readable()
