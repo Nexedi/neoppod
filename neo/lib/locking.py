@@ -90,14 +90,18 @@ class VerboseLockBase(object):
                         me, self, blocking, owner)
             self._note('Owner traceback:\n%s', owner.formatStack())
             self._note('My traceback:\n%s', me.formatStack())
-        self.waiting.append(me)
+        if blocking:
+            self.waiting.append(me)
         try:
-            return self.lock.acquire(blocking)
+            locked = self.lock.acquire(blocking)
         finally:
+            if blocking:
+                self.waiting.remove(me)
+        if locked:
             self.owner = me
-            self.waiting.remove(me)
             self._note('[%r]%s.acquire(%s) Lock granted. Waiting: %r',
                     me, self, blocking, self.waiting)
+        return locked
 
     __enter__ = acquire
 
