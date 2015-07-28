@@ -30,7 +30,10 @@ import os
 
 class LockUser(object):
     def __init__(self, level=0):
-        self.ident = currentThread().getName()
+        t = currentThread()
+        self.ident = t.getName()
+        if self.ident != 'MainThread':
+            self.ident = t.ident
         # This class is instanciated from a place desiring to known what
         # called it.
         # limit=1 would return execution position in this method
@@ -88,8 +91,8 @@ class VerboseLockBase(object):
             else:
                 self._note('[%r]%s.acquire(%s): debug lock triggered: %r',
                         me, self, blocking, owner)
-            self._note('Owner traceback:\n%s', owner.formatStack())
-            self._note('My traceback:\n%s', me.formatStack())
+            self._note('[%r] Owner traceback:\n%s', me, owner.formatStack())
+            self._note('[%r] My traceback:\n%s', me, me.formatStack())
         if blocking:
             self.waiting.append(me)
         try:
