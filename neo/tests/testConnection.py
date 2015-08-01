@@ -395,7 +395,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkSend(1, "testdatasecondthird")
             # connection closed -> buffers flushed
             self._checkWriteBuf(bc, '')
-            self._checkReaderRemoved(1)
             self._checkConnectionClosed(1)
             self._checkUnregistered(1)
         finally:
@@ -571,8 +570,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkUnregistered(1)
             # nothing else pending, so writer has been removed
             self.assertFalse(bc.pending())
-            self._checkWriterRemoved(1)
-            self._checkReaderRemoved(1)
             self._checkClose(1)
         finally:
             del DoNothingConnector.send
@@ -735,8 +732,6 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionFailed(0)
         self._checkUnregistered(1)
         self._checkReaderAdded(1)
-        self._checkWriterRemoved(1)
-        self._checkReaderRemoved(1)
 
     def test_14_ServerConnection(self):
         bc = self._makeServerConnection()

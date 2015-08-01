@@ -246,10 +246,7 @@ class BaseConnection(object):
     def close(self):
         """Close the connection."""
         if self.connector is not None:
-            em = self.em
-            em.removeReader(self)
-            em.removeWriter(self)
-            em.unregister(self)
+            self.em.unregister(self)
             self.connector.close()
             self.connector = None
             self.aborted = False
@@ -538,6 +535,10 @@ class Connection(BaseConnection):
         global connect_limit
         t = time()
         if t < connect_limit:
+            # Fake _addPacket so that if does not
+            # try to reenable polling for writing.
+            self.write_buf[:] = '',
+            self.em.unregister(self, check_timeout=True)
             self.checkTimeout = self.lockWrapper(lambda t:
                 t < connect_limit or self._delayed_closure())
             self.readable = self.writable = lambda: None

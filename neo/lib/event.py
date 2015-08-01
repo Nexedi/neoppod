@@ -16,7 +16,7 @@
 
 from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
-from errno import EINTR, EAGAIN
+from errno import EAGAIN, EINTR, ENOENT
 from . import logging
 
 class EpollEventManager(object):
@@ -61,12 +61,15 @@ class EpollEventManager(object):
                 append(conn)
         return result
 
+    # epoll_wait always waits for EPOLLERR & EPOLLHUP so we're forced
+    # to unregister when we want to ignore all events for a connection.
+
     def register(self, conn):
         fd = conn.getConnector().getDescriptor()
         self.connection_dict[fd] = conn
         self.epoll.register(fd)
 
-    def unregister(self, conn):
+    def unregister(self, conn, check_timeout=False):
         new_pending_processing = [x for x in self._pending_processing
                                   if x is not conn]
         # Check that we removed at most one entry from
@@ -74,8 +77,16 @@ class EpollEventManager(object):
         assert len(new_pending_processing) > len(self._pending_processing) - 2
         self._pending_processing = new_pending_processing
         fd = conn.getConnector().getDescriptor()
-        self.epoll.unregister(fd)
-        del self.connection_dict[fd]
+        try:
+            self.epoll.unregister(fd)
+        except IOError, e:
+            if e.errno != ENOENT:
+                raise
+        else:
+            self.reader_set.discard(fd)
+            self.writer_set.discard(fd)
+        if not check_timeout:
+            del self.connection_dict[fd]
 
     def isIdle(self):
         return not (self._pending_processing or self.writer_set)
