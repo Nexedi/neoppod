@@ -123,6 +123,17 @@ class EpollEventManager(object):
         self._poll(timeout=0)
 
     def _poll(self, timeout=1):
+        if timeout:
+            timeout = None
+            for conn in self.connection_dict.itervalues():
+                t = conn.getTimeout()
+                if t and (timeout is None or t < timeout):
+                    timeout = t
+                    timeout_conn = conn
+            # Make sure epoll_wait does not return too early, because it has a
+            # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
+            # See also https://bugs.python.org/issue20452 (fixed in Python 3).
+            timeout = .001 + max(0, timeout - time()) if timeout else -1
         try:
             event_list = self.epoll.poll(timeout)
         except IOError, exc:
@@ -131,7 +142,11 @@ class EpollEventManager(object):
                     exc.errno)
             elif exc.errno != EINTR:
                 raise
-            event_list = ()
+            return
+        if not event_list:
+            if timeout > 0:
+                timeout_conn.onTimeout()
+            return
         wlist = []
         elist = []
         for fd, event in event_list:
@@ -167,10 +182,6 @@ class EpollEventManager(object):
                 continue
             if conn.readable():
                 self._addPendingConnection(conn)
-
-        t = time()
-        for conn in self.connection_dict.values():
-            conn.checkTimeout(t)
 
     def wakeup(self, exit=False):
         with self._trigger_lock:

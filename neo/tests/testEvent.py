@@ -96,12 +96,12 @@ class EventTests(NeoUnitTestBase):
           (r_connector.getDescriptor(), EPOLLIN),
           (w_connector.getDescriptor(), EPOLLOUT),
         )})
-        em.poll(timeout=10)
+        em.poll(timeout=1)
         # check it called poll on epoll
         self.assertEqual(len(em.epoll.mockGetNamedCalls("poll")), 1)
         call = em.epoll.mockGetNamedCalls("poll")[0]
         data = call.getParam(0)
-        self.assertEqual(data, 10)
+        self.assertEqual(data, -1)
         # need to rebuild completely this test and the the packet queue
         # check readable conn
         #self.assertEqual(len(r_conn.mockGetNamedCalls("readable")), 1)

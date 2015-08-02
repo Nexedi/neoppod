@@ -42,8 +42,6 @@ class _ThreadedPoll(Thread):
         try:
             while 1:
                 try:
-                    # XXX: Delay can't be infinite here, because we need
-                    #      to check connection timeouts.
                     self.em.poll(1)
                 except Exception:
                     log(ERROR, 'poll raised, retrying', exc_info=1)

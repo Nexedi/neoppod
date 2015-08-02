@@ -137,7 +137,7 @@ class SerializedEventManager(EventManager):
 
     def _poll(self, timeout=1):
         if self._pending_processing:
-            assert timeout <= 0
+            assert timeout == 0, timeout
         elif 0 == self._timeout == timeout == Serialized.pending == len(
             self.writer_set):
             return
@@ -365,7 +365,7 @@ class NeoCTL(neo.neoctl.app.NeoCTL):
     @SerializedEventManager.decorate
     def __init__(self, *args, **kw):
         super(NeoCTL, self).__init__(*args, **kw)
-        self.em._timeout = -1
+        self.em._timeout = 1
 
 
 class LoggerThreadName(str):
@@ -466,7 +466,7 @@ class ConnectionFilter(object):
 
 class NEOCluster(object):
 
-    BaseConnection_checkTimeout = staticmethod(BaseConnection.checkTimeout)
+    BaseConnection_getTimeout = staticmethod(BaseConnection.getTimeout)
     SocketConnector_makeClientConnection = staticmethod(
         SocketConnector.makeClientConnection)
     SocketConnector_makeListeningConnection = staticmethod(
@@ -517,7 +517,7 @@ class NEOCluster(object):
         # TODO: 'sleep' should 'tic' in a smart way, so that storages can be
         #       safely started even if the cluster isn't.
         bootstrap.sleep = lambda seconds: None
-        BaseConnection.checkTimeout = lambda self, t: None
+        BaseConnection.getTimeout = lambda self: None
         SocketConnector.makeClientConnection = makeClientConnection
         SocketConnector.makeListeningConnection = lambda self, addr: \
             cls.SocketConnector_makeListeningConnection(self, BIND)
@@ -533,7 +533,7 @@ class NEOCluster(object):
         if cls._patch_count:
             return
         bootstrap.sleep = time.sleep
-        BaseConnection.checkTimeout = cls.BaseConnection_checkTimeout
+        BaseConnection.getTimeout = cls.BaseConnection_getTimeout
         SocketConnector.makeClientConnection = \
             cls.SocketConnector_makeClientConnection
         SocketConnector.makeListeningConnection = \

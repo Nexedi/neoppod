@@ -22,6 +22,7 @@ from functools import wraps
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
 from neo.lib.connection import ClientConnection
+from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
@@ -249,17 +250,22 @@ class ReplicationTests(NEOThreadedTest):
         """
         conn, = backup.master.getConnectionList(backup.upstream.master)
         # trigger ping
-        conn.updateTimeout(1)
         self.assertFalse(conn.isPending())
-        conn.checkTimeout(time.time())
+        conn.onTimeout()
         self.assertTrue(conn.isPending())
         # force ping to have expired
-        conn.updateTimeout(1)
         # connection will be closed before upstream master has time
         # to answer
-        backup.tic(force=1)
+        def _poll(orig, self, timeout):
+            if backup.master.em is self:
+                p.revert()
+                conn.onTimeout()
+            else:
+                orig(self, timeout)
+        with Patch(EventManager, _poll=_poll) as p:
+            backup.tic(force=1)
         new_conn, = backup.master.getConnectionList(backup.upstream.master)
-        self.assertFalse(new_conn is conn)
+        self.assertIsNot(new_conn, conn)
 
     @backup_test()
     def testBackupUpstreamStorageDead(self, backup):
@@ -277,11 +283,12 @@ class ReplicationTests(NEOThreadedTest):
             upstream.storage.listening_conn.close()
             Serialized.tic(); self.assertEqual(count[0], 0)
             Serialized.tic(); count[0] or Serialized.tic()
+            t = time.time()
+            # XXX: review API for checking timeouts
+            backup.storage.em._timeout = 1
             Serialized.tic(); self.assertEqual(count[0], 2)
-            Serialized.tic(); self.assertEqual(count[0], 2)
-            time.sleep(1.1)
             Serialized.tic(); self.assertEqual(count[0], 3)
-            Serialized.tic(); self.assertEqual(count[0], 3)
+            self.assertTrue(t + 1 <= time.time())
 
     @backup_test()
     def testBackupDelayedUnlockTransaction(self, backup):

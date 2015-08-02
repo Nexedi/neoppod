@@ -789,8 +789,12 @@ class ConnectionTests(NeoUnitTestBase):
             p.setId(packet_id)
             conn.connector.receive = [''.join(p.encode())].pop
             conn.readable()
-            conn.checkTimeout(connection.time())
+            checkTimeout()
             conn.process()
+        def checkTimeout():
+            timeout = conn.getTimeout()
+            if timeout and timeout <= connection.time():
+                conn.onTimeout()
         try:
             for use_case, expected in use_case_list:
                 i = iter(use_case)
@@ -801,7 +805,7 @@ class ConnectionTests(NeoUnitTestBase):
                 conn.ask(Packets.Ping())
                 for t in i:
                     set_time(t)
-                    conn.checkTimeout(connection.time())
+                    checkTimeout()
                     packet_id = i.next()
                     if packet_id is None:
                         conn.ask(Packets.Ping())
@@ -810,11 +814,11 @@ class ConnectionTests(NeoUnitTestBase):
                 i = iter(expected)
                 for t in i:
                     set_time(t - .1)
-                    conn.checkTimeout(connection.time())
+                    checkTimeout()
                     set_time(t)
                     # this test method relies on the fact that only
                     # conn.close is called in case of a timeout
-                    conn.checkTimeout(connection.time())
+                    checkTimeout()
                     self.assertEqual(closed.pop(), connection.time())
                     answer(i.next())
                 self.assertFalse(conn.isPending())

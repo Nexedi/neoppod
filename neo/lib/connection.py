@@ -225,7 +225,7 @@ class BaseConnection(object):
     def cancelRequests(self, *args, **kw):
         return self._handlers.cancelRequests(self, *args, **kw)
 
-    def checkTimeout(self, t):
+    def getTimeout(self):
         pass
 
     def lockWrapper(self, func):
@@ -351,7 +351,8 @@ class Connection(BaseConnection):
     client = False
     server = False
     peer_id = None
-    _base_timeout = None
+    _next_timeout = None
+    _timeout = 0
 
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
@@ -428,25 +429,26 @@ class Connection(BaseConnection):
 
     def updateTimeout(self, t=None):
         if not self._queue:
-            if t:
-                self._base_timeout = t
+            if not t:
+                t = self._next_timeout - self._timeout
             self._timeout = self._handlers.getNextTimeout() or self.KEEP_ALIVE
+            self._next_timeout = t + self._timeout
 
-    def checkTimeout(self, t):
-        # first make sure we don't timeout on answers we already received
-        if self._base_timeout and not self._queue:
-            if self._timeout <= t - self._base_timeout:
-                handlers = self._handlers
-                if handlers.isPending():
-                    msg_id = handlers.timeout(self)
-                    if msg_id is None:
-                        self._base_timeout = t
-                    else:
-                        logging.info('timeout for #0x%08x with %r',
-                                     msg_id, self)
-                        self.close()
-                else:
-                    self.idle()
+    def getTimeout(self):
+        if not self._queue:
+            return self._next_timeout
+
+    def onTimeout(self):
+        handlers = self._handlers
+        if handlers.isPending():
+            msg_id = handlers.timeout(self)
+            if msg_id is None:
+                self._next_timeout = time() + self._timeout
+            else:
+                logging.info('timeout for #0x%08x with %r', msg_id, self)
+                self.close()
+        else:
+            self.idle()
 
     def abort(self):
         """Abort dealing with this connection."""
@@ -544,8 +546,8 @@ class Connection(BaseConnection):
             # try to reenable polling for writing.
             self.write_buf[:] = '',
             self.em.unregister(self, check_timeout=True)
-            self.checkTimeout = self.lockWrapper(lambda t:
-                t < connect_limit or self._delayed_closure())
+            self.getTimeout = lambda: connect_limit
+            self.onTimeout = self.lockWrapper(self._delayed_closure)
             self.readable = self.writable = lambda: None
         else:
             connect_limit = t + 1
@@ -575,7 +577,8 @@ class Connection(BaseConnection):
                 logging.debug('Connection %r closed in recv', self.connector)
                 self._closure()
                 return
-            self._base_timeout = time() # last known remote activity
+            # last known remote activity
+            self._next_timeout = time() + self._timeout
             self.read_buf.append(data)
 
     def _send(self):
@@ -639,7 +642,11 @@ class Connection(BaseConnection):
         handlers = self._handlers
         t = None if handlers.isPending() else time()
         handlers.emit(packet, timeout, on_timeout, kw)
-        self.updateTimeout(t)
+        if not self._queue:
+            next_timeout = self._next_timeout
+            self.updateTimeout(t)
+            if self._next_timeout < next_timeout:
+                self.em.wakeup()
         return msg_id
 
     @not_closed
@@ -717,7 +724,7 @@ class MTConnectionType(type):
         if __debug__:
             for name in 'analyse', 'answer':
                 setattr(cls, name, cls.lockCheckWrapper(name))
-        for name in ('close', 'checkTimeout', 'notify',
+        for name in ('close', 'notify', 'onTimeout',
                      'process', 'readable', 'writable'):
             setattr(cls, name, cls.__class__.lockWrapper(cls, name))
 
@@ -775,5 +782,9 @@ class MTClientConnection(ClientConnection):
             handlers = self._handlers
             t = None if handlers.isPending() else time()
             handlers.emit(packet, timeout, on_timeout, kw)
-            self.updateTimeout(t)
+            if not self._queue:
+                next_timeout = self._next_timeout
+                self.updateTimeout(t)
+                if self._next_timeout < next_timeout:
+                    self.em.wakeup()
             return msg_id
