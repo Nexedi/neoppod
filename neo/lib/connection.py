@@ -252,11 +252,16 @@ class BaseConnection(object):
             self.aborted = False
 
     def _getReprInfo(self):
-        return [
+        r = [
             ('uuid', uuid_str(self.getUUID())),
             ('address', '%s:%u' % self.addr if self.addr else '?'),
             ('handler', self.getHandler()),
-        ], ['closed'] if self.isClosed() else []
+        ]
+        connector = self.connector
+        if connector is None:
+            return r, ['closed']
+        r.append(('fd', connector.getDescriptor()))
+        return r, ['aborted'] if self.isAborted() else []
 
     def __repr__(self):
         r, flags = self._getReprInfo()
