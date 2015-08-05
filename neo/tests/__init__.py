@@ -26,6 +26,7 @@ import unittest
 import MySQLdb
 import transaction
 
+from functools import wraps
 from mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
@@ -47,7 +48,7 @@ def expectedFailure(exception=AssertionError):
                 # XXX: passing sys.exc_info() causes deadlocks
                 raise _ExpectedFailure((type(e), None, None))
             raise _UnexpectedSuccess
-        return functools.wraps(func)(wrapper)
+        return wraps(func)(wrapper)
     if callable(exception) and not isinstance(exception, type):
         func = exception
         exception = Exception
@@ -513,6 +514,45 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkAnswerObjectPresent(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerObjectPresent, **kw)
+
+
+class Patch(object):
+
+    applied = False
+
+    def __init__(self, patched, **patch):
+        (name, patch), = patch.iteritems()
+        wrapped = getattr(patched, name)
+        wrapper = lambda *args, **kw: patch(wrapped, *args, **kw)
+        self._patched = patched
+        self._name = name
+        self._wrapper = wraps(wrapped)(wrapper)
+        try:
+            orig = patched.__dict__[name]
+            self._revert = lambda: setattr(patched, name, orig)
+        except KeyError:
+            self._revert = lambda: delattr(patched, name)
+
+    def apply(self):
+        assert not self.applied
+        setattr(self._patched, self._name, self._wrapper)
+        self.applied = True
+
+    def revert(self):
+        del self.applied
+        self._revert()
+
+    def __del__(self):
+        if self.applied:
+            self.revert()
+
+    def __enter__(self):
+        self.apply()
+        return self
+
+    def __exit__(self, t, v, tb):
+        self.__del__()
+
 
 connector_cpt = 0
 

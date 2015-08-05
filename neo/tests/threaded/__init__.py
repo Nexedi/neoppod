@@ -36,7 +36,7 @@ from neo.lib.connector import SocketConnector, \
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList, p64
-from .. import NeoTestBase, getTempDirectory, setupMySQLdb, \
+from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
@@ -386,23 +386,6 @@ class LoggerThreadName(str):
             return str.__str__(self)
 
 
-class Patch(object):
-
-    def __init__(self, patched, **patch):
-        (name, patch), = patch.iteritems()
-        wrapped = getattr(patched, name)
-        wrapper = lambda *args, **kw: patch(wrapped, *args, **kw)
-        orig = patched.__dict__.get(name)
-        setattr(patched, name, wraps(wrapped)(wrapper))
-        if orig is None:
-            self._revert = lambda: delattr(patched, name)
-        else:
-            self._revert = lambda: setattr(patched, name, orig)
-
-    def __del__(self):
-        self._revert()
-
-
 class ConnectionFilter(object):
 
     filtered_count = 0
@@ -469,6 +452,8 @@ class ConnectionFilter(object):
     def add(self, filter, *patches):
         with self.lock:
             self.filter_dict[filter] = patches
+            for p in patches:
+                p.apply()
 
     def remove(self, *filters):
         with self.lock:

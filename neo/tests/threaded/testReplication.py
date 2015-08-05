@@ -25,7 +25,8 @@ from neo.lib.connection import ClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
-from . import ConnectionFilter, NEOCluster, NEOThreadedTest, Patch, \
+from .. import Patch
+from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, Serialized
 
 
@@ -225,10 +226,8 @@ class ReplicationTests(NEOThreadedTest):
                         # a second replication partially and aborts.
                         p = Patch(backup.storage_list[storage].replicator,
                                   fetchObjects=fetchObjects)
-                    try:
+                    with p:
                         importZODB(lambda x: counts[0] > 1)
-                    finally:
-                        del p
                     upstream.client.setPoll(0)
                     if event > 5:
                         backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
@@ -274,8 +273,7 @@ class ReplicationTests(NEOThreadedTest):
         def __init__(orig, *args, **kw):
             count[0] += 1
             orig(*args, **kw)
-        p = Patch(ClientConnection, __init__=__init__)
-        try:
+        with Patch(ClientConnection, __init__=__init__):
             upstream.storage.listening_conn.close()
             Serialized.tic(); self.assertEqual(count[0], 0)
             Serialized.tic(); count[0] or Serialized.tic()
@@ -284,8 +282,6 @@ class ReplicationTests(NEOThreadedTest):
             time.sleep(1.1)
             Serialized.tic(); self.assertEqual(count[0], 3)
             Serialized.tic(); self.assertEqual(count[0], 3)
-        finally:
-            del p
 
     @backup_test()
     def testBackupDelayedUnlockTransaction(self, backup):

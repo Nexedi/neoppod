@@ -28,8 +28,8 @@ from neo.storage.transactions import TransactionManager, \
 from neo.lib.connection import ConnectionClosed, MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
-from .. import expectedFailure, _UnexpectedSuccess
-from . import ClientApplication, NEOCluster, NEOThreadedTest, Patch
+from .. import expectedFailure, _UnexpectedSuccess, Patch
+from . import ClientApplication, NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -271,14 +271,11 @@ class Test(NEOThreadedTest):
             o1.value += 1
             o2.value += 2
 
-            p = (Patch(TransactionManager, storeObject=onStoreObject),
-                 Patch(MTClientConnection, ask=onAsk))
-            try:
+            with Patch(TransactionManager, storeObject=onStoreObject), \
+                 Patch(MTClientConnection, ask=onAsk):
                 t = self.newThread(t1.commit)
                 t2.commit()
                 t.join()
-            finally:
-                del p
             t1.begin()
             t2.begin()
             self.assertEqual(o1.value, 3)
@@ -578,6 +575,7 @@ class Test(NEOThreadedTest):
             x2 = c2.root()['x']
             p = Patch(cluster.client, _handlePacket=_handlePacket)
             try:
+                p.apply()
                 t = self.newThread(t1.commit)
                 l1.acquire()
                 t2.begin()
@@ -649,6 +647,7 @@ class Test(NEOThreadedTest):
             cache._remove(cache._oid_dict[x2._p_oid].pop())
             p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
             try:
+                p.apply()
                 t = self.newThread(x2._p_activate)
                 l1.acquire()
                 # At this point, x could not be found the cache and the result
@@ -685,6 +684,7 @@ class Test(NEOThreadedTest):
             t1.abort()
             p = Patch(c1, _flush_invalidations=_flush_invalidations)
             try:
+                p.apply()
                 t = self.newThread(t1.begin)
                 l1.acquire()
                 cluster.client.setPoll(0)
@@ -745,9 +745,8 @@ class Test(NEOThreadedTest):
             cluster.client.setPoll(1)
 
             # Check reconnection to storage.
-            p = Patch(cluster.client.cp, getConnForNode=getConnForNode)
-            self.assertFalse(cluster.client.history(x1._p_oid))
-            del p
+            with Patch(cluster.client.cp, getConnForNode=getConnForNode):
+                self.assertFalse(cluster.client.history(x1._p_oid))
             self.assertFalse(conn)
             self.assertTrue(cluster.client.history(x1._p_oid))
 
@@ -831,6 +830,7 @@ class Test(NEOThreadedTest):
                                            master_nodes=cluster.master_nodes)
                 p = Patch(client.storage_bootstrap_handler, notReady=notReady)
                 try:
+                    p.apply()
                     client.setPoll(1)
                     x = client.load(ZERO_TID)
                 finally:
