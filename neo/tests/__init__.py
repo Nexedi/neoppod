@@ -30,7 +30,6 @@ from functools import wraps
 from mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
-from neo.lib.util import getAddressType
 from time import time
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
@@ -203,8 +202,7 @@ class NeoUnitTestBase(NeoTestBase):
         return Mock({
                 'getCluster': cluster,
                 'getBind': masters[0],
-                'getMasters': (masters, getAddressType((
-                        self.local_ip, 0))),
+                'getMasters': masters,
                 'getReplicas': replicas,
                 'getPartitions': partitions,
                 'getUUID': uuid,
@@ -226,8 +224,7 @@ class NeoUnitTestBase(NeoTestBase):
         return Mock({
                 'getCluster': cluster,
                 'getBind': (masters[0], 10020 + index),
-                'getMasters': (masters, getAddressType((
-                        self.local_ip, 0))),
+                'getMasters': masters,
                 'getDatabase': db,
                 'getUUID': uuid,
                 'getReset': False,
@@ -552,30 +549,6 @@ class Patch(object):
 
     def __exit__(self, t, v, tb):
         self.__del__()
-
-
-connector_cpt = 0
-
-class DoNothingConnector(Mock):
-    def __init__(self, s=None):
-        logging.info("initializing connector")
-        global connector_cpt
-        self.desc = connector_cpt
-        connector_cpt += 1
-        self.packet_cpt = 0
-        Mock.__init__(self)
-
-    def getAddress(self):
-        return self.addr
-
-    def makeClientConnection(self, addr):
-        self.addr = addr
-
-    def makeListeningConnection(self, addr):
-        self.addr = addr
-
-    def getDescriptor(self):
-        return self.desc
 
 
 __builtin__.pdb = lambda depth=0: \

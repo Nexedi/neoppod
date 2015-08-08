@@ -206,6 +206,7 @@ class BaseConnection(object):
         Timeouts in HandlerSwitcher are only there to prioritize some packets.
     """
 
+    from .connector import SocketConnector as ConnectorClass
     KEEP_ALIVE = 60
 
     def __init__(self, event_manager, handler, connector, addr=None):
@@ -318,19 +319,18 @@ attributeTracker.track(BaseConnection)
 class ListeningConnection(BaseConnection):
     """A listen connection."""
 
-    def __init__(self, event_manager, handler, addr, connector, **kw):
+    def __init__(self, event_manager, handler, addr):
         logging.debug('listening to %s:%d', *addr)
-        BaseConnection.__init__(self, event_manager, handler,
-                                addr=addr, connector=connector)
-        self.connector.makeListeningConnection(addr)
+        connector = self.ConnectorClass(addr)
+        BaseConnection.__init__(self, event_manager, handler, connector, addr)
+        connector.makeListeningConnection()
 
     def readable(self):
         try:
-            new_s, addr = self.connector.getNewConnection()
+            connector, addr = self.connector.accept()
             logging.debug('accepted a connection from %s:%d', *addr)
             handler = self.getHandler()
-            new_conn = ServerConnection(self.em, handler,
-                connector=new_s, addr=addr)
+            new_conn = ServerConnection(self.em, handler, connector, addr)
             handler.connectionAccepted(new_conn)
         except ConnectorTryAgainException:
             pass
@@ -668,14 +668,15 @@ class ClientConnection(Connection):
     connecting = True
     client = True
 
-    def __init__(self, event_manager, handler, node, connector):
+    def __init__(self, event_manager, handler, node):
         addr = node.getAddress()
+        connector = self.ConnectorClass(addr)
         Connection.__init__(self, event_manager, handler, connector, addr)
         node.setConnection(self)
         handler.connectionStarted(self)
         try:
             try:
-                self.connector.makeClientConnection(addr)
+                connector.makeClientConnection()
             except ConnectorInProgressException:
                 event_manager.addWriter(self)
             else:

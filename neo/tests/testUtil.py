@@ -15,34 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-
 import socket
-from . import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
-from neo.lib.util import ReadBuffer, getAddressType, parseNodeAddress, \
-    getConnectorFromAddress, SOCKET_CONNECTORS_DICT
+from . import NeoUnitTestBase
+from neo.lib.util import ReadBuffer, parseNodeAddress
 
 class UtilTests(NeoUnitTestBase):
-
-    def test_getConnectorFromAddress(self):
-        """ Connector name must correspond to address type """
-        connector = getConnectorFromAddress((
-                            IP_VERSION_FORMAT_DICT[socket.AF_INET], 0))
-        self.assertEqual(connector, SOCKET_CONNECTORS_DICT[socket.AF_INET])
-        connector = getConnectorFromAddress((
-                            IP_VERSION_FORMAT_DICT[socket.AF_INET6], 0))
-        self.assertEqual(connector, SOCKET_CONNECTORS_DICT[socket.AF_INET6])
-        self.assertRaises(ValueError, getConnectorFromAddress, ('', 0))
-        self.assertRaises(ValueError, getConnectorFromAddress, ('test', 0))
-
-    def test_getAddressType(self):
-        """ Get the type on an IP Address """
-        self.assertRaises(ValueError, getAddressType, ('', 0))
-        address_type = getAddressType(('::1', 0))
-        self.assertEqual(address_type, socket.AF_INET6)
-        address_type = getAddressType(('0.0.0.0', 0))
-        self.assertEqual(address_type, socket.AF_INET)
-        address_type = getAddressType(('127.0.0.1', 0))
-        self.assertEqual(address_type, socket.AF_INET)
 
     def test_parseNodeAddress(self):
         """ Parsing of addesses """

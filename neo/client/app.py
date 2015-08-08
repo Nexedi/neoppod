@@ -36,7 +36,6 @@ from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.node import NodeManager
-from neo.lib.connector import getConnectorHandler
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
 from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
@@ -80,8 +79,6 @@ class Application(object):
         # Internal Attributes common to all thread
         self._db = None
         self.name = name
-        master_addresses, connector_name = parseMasterList(master_nodes)
-        self.connector_handler = getConnectorHandler(connector_name)
         self.dispatcher = Dispatcher(self.poll_thread)
         self.nm = NodeManager(dynamic_master_list)
         self.cp = ConnectionPool(self)
@@ -90,7 +87,7 @@ class Application(object):
         self.trying_master_node = None
 
         # load master node list
-        for address in master_addresses:
+        for address in parseMasterList(master_nodes):
             self.nm.createMaster(address=address)
 
         # no self-assigned UUID, primary master will supply us one
@@ -290,7 +287,6 @@ class Application(object):
                 conn = MTClientConnection(self.em,
                         self.notifications_handler,
                         node=self.trying_master_node,
-                        connector=self.connector_handler(),
                         dispatcher=self.dispatcher)
                 # Query for primary master node
                 if conn.getConnector() is None:

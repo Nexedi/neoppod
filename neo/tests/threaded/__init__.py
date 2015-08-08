@@ -35,7 +35,7 @@ from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException, ConnectorTryAgainException
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
-from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList, p64
+from neo.lib.util import parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
@@ -166,7 +166,7 @@ class SerializedEventManager(EventManager):
 class Node(object):
 
     def getConnectionList(self, *peers):
-        addr = lambda c: c and (c.accepted_from or c.getAddress())
+        addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
         addr_set = {addr(c.connector) for peer in peers
             for c in peer.em.connection_dict.itervalues()
             if isinstance(c, Connection)}
@@ -467,10 +467,8 @@ class ConnectionFilter(object):
 class NEOCluster(object):
 
     BaseConnection_getTimeout = staticmethod(BaseConnection.getTimeout)
-    SocketConnector_makeClientConnection = staticmethod(
-        SocketConnector.makeClientConnection)
-    SocketConnector_makeListeningConnection = staticmethod(
-        SocketConnector.makeListeningConnection)
+    SocketConnector_bind = staticmethod(SocketConnector._bind)
+    SocketConnector_connect = staticmethod(SocketConnector._connect)
     SocketConnector_receive = staticmethod(SocketConnector.receive)
     SocketConnector_send = staticmethod(SocketConnector.send)
     _patch_count = 0
@@ -489,12 +487,6 @@ class NEOCluster(object):
         cls._patch_count += 1
         if cls._patch_count > 1:
             return
-        def makeClientConnection(self, addr):
-            real_addr = ServerNode.resolv(addr)
-            try:
-                return cls.SocketConnector_makeClientConnection(self, real_addr)
-            finally:
-                self.remote_addr = addr
         def send(self, msg):
             result = cls.SocketConnector_send(self, msg)
             if type(Serialized.pending) is not frozenset:
@@ -518,9 +510,10 @@ class NEOCluster(object):
         #       safely started even if the cluster isn't.
         bootstrap.sleep = lambda seconds: None
         BaseConnection.getTimeout = lambda self: None
-        SocketConnector.makeClientConnection = makeClientConnection
-        SocketConnector.makeListeningConnection = lambda self, addr: \
-            cls.SocketConnector_makeListeningConnection(self, BIND)
+        SocketConnector._bind = lambda self, addr: \
+            cls.SocketConnector_bind(self, BIND)
+        SocketConnector._connect = lambda self, addr: \
+            cls.SocketConnector_connect(self, ServerNode.resolv(addr))
         SocketConnector.receive = receive
         SocketConnector.send = send
         Serialized.init()
@@ -534,10 +527,8 @@ class NEOCluster(object):
             return
         bootstrap.sleep = time.sleep
         BaseConnection.getTimeout = cls.BaseConnection_getTimeout
-        SocketConnector.makeClientConnection = \
-            cls.SocketConnector_makeClientConnection
-        SocketConnector.makeListeningConnection = \
-            cls.SocketConnector_makeListeningConnection
+        SocketConnector._bind = cls.SocketConnector_bind
+        SocketConnector._connect = cls.SocketConnector_connect
         SocketConnector.receive = cls.SocketConnector_receive
         SocketConnector.send = cls.SocketConnector_send
 

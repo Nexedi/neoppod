@@ -19,7 +19,6 @@ from bisect import bisect
 from collections import defaultdict
 from neo.lib import logging
 from neo.lib.bootstrap import BootstrapManager
-from neo.lib.connector import getConnectorHandler
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
 from neo.lib.node import NodeManager
@@ -67,11 +66,10 @@ class BackupApplication(object):
 
     pt = None
 
-    def __init__(self, app, name, master_addresses, connector_name):
+    def __init__(self, app, name, master_addresses):
         self.app = weakref.proxy(app)
         self.name = name
         self.nm = NodeManager()
-        self.connector_handler = getConnectorHandler(connector_name)
         for master_address in master_addresses:
             self.nm.createMaster(address=master_address)
 
@@ -107,7 +105,7 @@ class BackupApplication(object):
                         break
                     poll(1)
                 node, conn, uuid, num_partitions, num_replicas = \
-                    bootstrap.getPrimaryConnection(self.connector_handler)
+                    bootstrap.getPrimaryConnection()
                 try:
                     app.changeClusterState(ClusterStates.BACKINGUP)
                     del bootstrap, node

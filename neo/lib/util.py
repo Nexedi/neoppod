@@ -23,11 +23,6 @@ from Queue import deque
 from struct import pack, unpack
 from time import gmtime
 
-SOCKET_CONNECTORS_DICT = {
-    socket.AF_INET : 'SocketConnectorIPv4',
-    socket.AF_INET6: 'SocketConnectorIPv6',
-}
-
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
 SECOND_PER_TID_LOW = 60.0 / TID_LOW_OVERFLOW
@@ -125,25 +120,6 @@ def makeChecksum(s):
     return sha1(s).digest()
 
 
-def getAddressType(address):
-    "Return the type (IPv4 or IPv6) of an ip"
-    (host, port) = address
-
-    for af_type in SOCKET_CONNECTORS_DICT:
-        try :
-            socket.inet_pton(af_type, host)
-        except:
-            continue
-        else:
-            break
-    else:
-        raise ValueError("Unknown type of host", host)
-    return af_type
-
-def getConnectorFromAddress(address):
-    address_type = getAddressType(address)
-    return SOCKET_CONNECTORS_DICT[address_type]
-
 def parseNodeAddress(address, port_opt=None):
     if address[:1] == '[':
         (host, port) = address[1:].split(']')
@@ -164,24 +140,12 @@ def parseNodeAddress(address, port_opt=None):
 
 def parseMasterList(masters, except_node=None):
     assert masters, 'At least one master must be defined'
-    # load master node list
-    socket_connector = None
     master_node_list = []
-    for node in masters.split(' '):
-        if not node:
-            continue
+    for node in masters.split():
         address = parseNodeAddress(node)
-
-        if (address != except_node):
+        if address != except_node:
             master_node_list.append(address)
-
-        socket_connector_temp = getConnectorFromAddress(address)
-        if socket_connector is None:
-            socket_connector = socket_connector_temp
-        elif socket_connector != socket_connector_temp:
-            raise TypeError("Wrong connector type : you're trying to use "
-                "ipv6 and ipv4 simultaneously")
-    return master_node_list, socket_connector
+    return master_node_list
 
 
 class ReadBuffer(object):

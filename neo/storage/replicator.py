@@ -254,8 +254,7 @@ class Replicator(object):
                 self.fetchTransactions()
         else:
             assert name or node.getUUID() != app.uuid, "loopback connection"
-            conn = ClientConnection(app.em, StorageOperationHandler(app),
-                node=node, connector=app.connector_handler())
+            conn = ClientConnection(app.em, StorageOperationHandler(app), node)
             conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
                 None if name else app.uuid, app.server, name or app.name))
         if previous_node is not None and previous_node.isConnected():

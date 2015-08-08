@@ -25,7 +25,7 @@ from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.lib.protocol import NodeTypes, Packets, Errors, \
     INVALID_PARTITION, UUID_NAMESPACES
-from neo.lib.util import makeChecksum, SOCKET_CONNECTORS_DICT
+from neo.lib.util import makeChecksum
 import time
 
 class Dispatcher(object):
@@ -95,10 +95,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         return txn_context
 
     def getApp(self, master_nodes=None, name='test', **kw):
-        connector = SOCKET_CONNECTORS_DICT[ADDRESS_TYPE]
         if master_nodes is None:
             master_nodes = '%s:10010' % buildUrlFromString(self.local_ip)
-        app = Application(master_nodes, name, connector, **kw)
+        app = Application(master_nodes, name, **kw)
         self._to_stop_list.append(app)
         app.dispatcher = Mock({ })
         return app
@@ -750,7 +749,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         # the third will not be ready
         # after the third, the partition table will be operational
         # (as if it was connected to the primary master node)
-        from .. import DoNothingConnector
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
         # TODO: test more connection failure cases
@@ -797,7 +795,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             app.nm.getByAddress(conn.getAddress())._connection = None
         app._ask = _ask_base
         # faked environnement
-        app.connector_handler = DoNothingConnector
         app.em = Mock({'getConnectionList': []})
         app.pt = Mock({ 'operational': False})
         app.master_conn = app._connectToPrimaryNode()

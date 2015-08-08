@@ -54,7 +54,7 @@ class ConnectionPool(object):
         app = self.app
         logging.debug('trying to connect to %s - %s', node, node.getState())
         conn = MTClientConnection(app.em, app.storage_event_handler, node,
-            connector=app.connector_handler(), dispatcher=app.dispatcher)
+                                  dispatcher=app.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
             app.uuid, None, app.name)
         try:

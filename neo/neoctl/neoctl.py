@@ -14,11 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.connector import getConnectorHandler
 from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
-from neo.lib.util import getConnectorFromAddress
 from neo.lib.node import NodeManager
 from .handler import CommandEventHandler
 
@@ -31,8 +29,6 @@ class NeoCTL(object):
     connected = False
 
     def __init__(self, address):
-        connector_name = getConnectorFromAddress(address)
-        self.connector_handler = getConnectorHandler(connector_name)
         self.nm = nm = NodeManager()
         self.server = nm.createAdmin(address=address)
         self.em = EventManager()
@@ -47,7 +43,7 @@ class NeoCTL(object):
     def __getConnection(self):
         if not self.connected:
             self.connection = ClientConnection(self.em, self.handler,
-                    node=self.server, connector=self.connector_handler())
+                                               self.server)
             while not self.connected:
                 self.em.poll(1)
                 if self.connection is None:

@@ -19,12 +19,8 @@ import sys
 import traceback
 from cStringIO import StringIO
 from struct import Struct
-try:
-    from .util import getAddressType
-except ImportError:
-    pass
 
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -449,65 +445,6 @@ class PEnum(PStructItem):
             enum = self._enum.__class__.__name__
             raise ValueError, 'Invalid code for %s enum: %r' % (enum, code)
 
-class PAddressIPGeneric(PStructItem):
-
-    def __init__(self, name, format):
-        PStructItem.__init__(self, name, format)
-
-    def encode(self, writer, address):
-        host, port = address
-        host = socket.inet_pton(self.af_type, host)
-        writer(self.pack(host, port))
-
-    def decode(self, reader):
-        data = reader(self.size)
-        address = self.unpack(data)
-        host, port = address
-        host =  socket.inet_ntop(self.af_type, host)
-        return (host, port)
-
-class PAddressIPv4(PAddressIPGeneric):
-    af_type = socket.AF_INET
-
-    def __init__(self, name):
-        PAddressIPGeneric.__init__(self, name, '!4sH')
-
-class PAddressIPv6(PAddressIPGeneric):
-    af_type = socket.AF_INET6
-
-    def __init__(self, name):
-        PAddressIPGeneric.__init__(self, name, '!16sH')
-
-class PAddress(PStructItem):
-    """
-        An host address (IPv4/IPv6)
-    """
-
-    address_format_dict = {
-        socket.AF_INET: PAddressIPv4('ipv4'),
-        socket.AF_INET6: PAddressIPv6('ipv6'),
-    }
-
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!L')
-
-    def _encode(self, writer, address):
-        if address is None:
-            writer(self.pack(INVALID_ADDRESS_TYPE))
-            return
-        af_type = getAddressType(address)
-        writer(self.pack(af_type))
-        encoder = self.address_format_dict[af_type]
-        encoder.encode(writer, address)
-
-    def _decode(self, reader):
-        af_type  = self.unpack(reader(self.size))[0]
-        if af_type == INVALID_ADDRESS_TYPE:
-            return None
-        decoder = self.address_format_dict[af_type]
-        host, port = decoder.decode(reader)
-        return (host, port)
-
 class PString(PStructItem):
     """
         A variable-length string
@@ -522,6 +459,29 @@ class PString(PStructItem):
     def _decode(self, reader):
         length = self.unpack(reader(self.size))[0]
         return reader(length)
+
+class PAddress(PString):
+    """
+        An host address (IPv4/IPv6)
+    """
+
+    def __init__(self, name):
+        PString.__init__(self, name)
+        self._port = Struct('!H')
+
+    def _encode(self, writer, address):
+        if address:
+            host, port = address
+            PString._encode(self, writer, host)
+            writer(self._port.pack(port))
+        else:
+            PString._encode(self, writer, '')
+
+    def _decode(self, reader):
+        host = PString._decode(self, reader)
+        if host:
+            p = self._port
+            return host, p.unpack(reader(p.size))[0]
 
 class PBoolean(PStructItem):
     """

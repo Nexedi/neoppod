@@ -46,7 +46,7 @@ class Checker(object):
                 conn.asClient()
             else:
                 conn = ClientConnection(app.em, StorageOperationHandler(app),
-                    node=node, connector=app.connector_handler())
+                                        node)
                 conn.ask(Packets.RequestIdentification(
                     NodeTypes.STORAGE, uuid, app.server, name))
             self.conn_dict[conn] = node.isIdentified()

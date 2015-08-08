@@ -19,52 +19,51 @@ import errno
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
-# Read by calling getConnectorHandler.
+# Read by calling SocketConnector.__new__
 connector_registry = {}
-DEFAULT_CONNECTOR = 'SocketConnectorIPv4'
-
 def registerConnectorHandler(connector_handler):
-    connector_registry[connector_handler.__name__] = connector_handler
+    connector_registry[connector_handler.af_type] = connector_handler
 
-def getConnectorHandler(connector=None):
-    if connector is None:
-        connector = DEFAULT_CONNECTOR
-    if isinstance(connector, basestring):
-        connector_handler = connector_registry.get(connector)
-    else:
-        # Allow to directly provide a handler class without requiring to
-        # register it first.
-        connector_handler = connector
-    return connector_handler
-
-class SocketConnector:
+class SocketConnector(object):
     """ This class is a wrapper for a socket """
 
-    is_listening = False
-    remote_addr = None
-    is_closed = None
+    is_closed = is_server = None
 
-    def __init__(self, s=None, accepted_from=None):
-        self.accepted_from = accepted_from
-        if accepted_from is not None:
-            self.remote_addr = accepted_from
-            self.is_listening = False
-            self.is_closed = False
+    def __new__(cls, addr, s=None):
         if s is None:
-            self.socket = socket.socket(self.af_type, socket.SOCK_STREAM)
+            host, port = addr
+            for af_type, cls in connector_registry.iteritems():
+                try :
+                    socket.inet_pton(af_type, host)
+                    break
+                except socket.error:
+                    pass
+            else:
+                raise ValueError("Unknown type of host", host)
+        self = object.__new__(cls)
+        self.addr = cls._normAddress(addr)
+        if s is None:
+            s = socket.socket(af_type, socket.SOCK_STREAM)
         else:
-            self.socket = s
-        self.socket_fd = self.socket.fileno()
+            self.is_server = True
+            self.is_closed = False
+        self.socket = s
+        self.socket_fd = s.fileno()
         # always use non-blocking sockets
-        self.socket.setblocking(0)
+        s.setblocking(0)
         # disable Nagle algorithm to reduce latency
-        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        return self
 
-    def makeClientConnection(self, addr):
-        self.is_closed = False
-        self.remote_addr = addr
+    # Threaded tests monkey-patch the following 2 operations.
+    _connect = lambda self, addr: self.socket.connect(addr)
+    _bind = lambda self, addr: self.socket.bind(addr)
+
+    def makeClientConnection(self):
+        assert self.is_closed is None
+        self.is_server = self.is_closed = False
         try:
-            self.socket.connect(addr)
+            self._connect(self.addr)
         except socket.error, (err, errmsg):
             if err == errno.EINPROGRESS:
                 raise ConnectorInProgressException
@@ -73,12 +72,12 @@ class SocketConnector:
             raise ConnectorException, 'makeClientConnection to %s failed:' \
                 ' %s:%s' % (addr, err, errmsg)
 
-    def makeListeningConnection(self, addr):
+    def makeListeningConnection(self):
+        assert self.is_closed is None
         self.is_closed = False
-        self.is_listening = True
         try:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind(addr)
+            self._bind(self.addr)
             self.socket.listen(5)
         except socket.error, (err, errmsg):
             self.socket.close()
@@ -94,15 +93,22 @@ class SocketConnector:
         # in epoll
         return self.socket_fd
 
-    def getNewConnection(self):
+    @staticmethod
+    def _normAddress(addr):
+        return addr
+
+    def getAddress(self):
+        return self._normAddress(self.socket.getsockname())
+
+    def accept(self):
         try:
-            (new_s, addr) = self._accept()
-            new_s = self.__class__(new_s, accepted_from=addr)
-            return (new_s, addr)
+            s, addr = self.socket.accept()
+            s = self.__class__(addr, s)
+            return s, s.addr
         except socket.error, (err, errmsg):
             if err == errno.EAGAIN:
                 raise ConnectorTryAgainException
-            raise ConnectorException, 'getNewConnection failed: %s:%s' % \
+            raise ConnectorException, 'accept failed: %s:%s' % \
                 (err, errmsg)
 
     def receive(self):
@@ -139,14 +145,14 @@ class SocketConnector:
                 state = 'closed '
             else:
                 state = 'opened '
-            if self.is_listening:
+            if self.is_server is None:
                 state += 'listening'
             else:
-                if self.accepted_from is None:
-                    state += 'to '
-                else:
+                if self.is_server:
                     state += 'from '
-                state += str(self.remote_addr)
+                else:
+                    state += 'to '
+                state += str(self.addr)
         return '<%s at 0x%x fileno %s %s, %s>' % (self.__class__.__name__,
             id(self), '?' if self.is_closed else self.socket_fd,
             self.getAddress(), state)
@@ -155,22 +161,13 @@ class SocketConnectorIPv4(SocketConnector):
     " Wrapper for IPv4 sockets"
     af_type = socket.AF_INET
 
-    def _accept(self):
-        return self.socket.accept()
-
-    def getAddress(self):
-        return self.socket.getsockname()
-
 class SocketConnectorIPv6(SocketConnector):
     " Wrapper for IPv6 sockets"
     af_type = socket.AF_INET6
 
-    def _accept(self):
-        new_s, addr =  self.socket.accept()
-        return new_s, addr[:2]
-
-    def getAddress(self):
-        return self.socket.getsockname()[:2]
+    @staticmethod
+    def _normAddress(addr):
+        return addr[:2]
 
 registerConnectorHandler(SocketConnectorIPv4)
 registerConnectorHandler(SocketConnectorIPv6)

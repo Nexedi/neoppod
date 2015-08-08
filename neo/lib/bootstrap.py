@@ -116,7 +116,7 @@ class BootstrapManager(EventHandler):
             logging.info('Got a new UUID: %s', uuid_str(self.uuid))
         self.accepted = True
 
-    def getPrimaryConnection(self, connector_handler):
+    def getPrimaryConnection(self):
         """
         Primary lookup/connection process.
         Returns when the connection is made.
@@ -140,8 +140,7 @@ class BootstrapManager(EventHandler):
                     sleep(1)
             if conn is None:
                 # open the connection
-                conn = ClientConnection(em, self, self.current,
-                    connector_handler())
+                conn = ClientConnection(em, self, self.current)
             # still processing
             em.poll(1)
         return (self.current, conn, self.uuid, self.num_partitions,

@@ -21,7 +21,6 @@ from neo.lib.connection import ListeningConnection
 from neo.lib.exception import PrimaryFailure
 from .handler import AdminEventHandler, MasterEventHandler, \
     MasterRequestEventHandler
-from neo.lib.connector import getConnectorHandler
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.pt import PartitionTable
 from neo.lib.protocol import ClusterStates, Errors, \
@@ -39,8 +38,7 @@ class Application(object):
         self.name = config.getCluster()
         self.server = config.getBind()
 
-        self.master_addresses, connector_name = config.getMasters()
-        self.connector_handler = getConnectorHandler(connector_name)
+        self.master_addresses = config.getMasters()
         logging.debug('IP address is %s, port is %d', *self.server)
 
         # The partition table is initialized after getting the number of
@@ -87,8 +85,7 @@ class Application(object):
 
         # Make a listening port.
         handler = AdminEventHandler(self)
-        self.listening_conn = ListeningConnection(self.em, handler,
-            addr=self.server, connector=self.connector_handler())
+        self.listening_conn = ListeningConnection(self.em, handler, self.server)
 
         while self.cluster_state != ClusterStates.STOPPING:
             self.connectToPrimary()
@@ -120,7 +117,7 @@ class Application(object):
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN,
                 self.uuid, self.server)
-        data = bootstrap.getPrimaryConnection(self.connector_handler)
+        data = bootstrap.getPrimaryConnection()
         (node, conn, uuid, num_partitions, num_replicas) = data
         nm.update([(node.getType(), node.getAddress(), node.getUUID(),
                     NodeStates.RUNNING)])

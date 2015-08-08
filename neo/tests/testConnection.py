@@ -17,17 +17,43 @@
 import unittest
 from time import time
 from mock import Mock
-from neo.lib import connection
-from neo.lib.connection import ListeningConnection, Connection, \
-     ClientConnection, ServerConnection, MTClientConnection, \
+from neo.lib import connection, logging
+from neo.lib.connection import BaseConnection, ListeningConnection, \
+     Connection, ClientConnection, ServerConnection, MTClientConnection, \
      HandlerSwitcher, CRITICAL_TIMEOUT
-from neo.lib.connector import getConnectorHandler, registerConnectorHandler
-from . import DoNothingConnector
+from neo.lib.connector import registerConnectorHandler
 from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets, PACKET_HEADER_FORMAT
-from . import NeoUnitTestBase
+from . import NeoUnitTestBase, Patch
+
+
+connector_cpt = 0
+
+class DummyConnector(Mock):
+    def __init__(self, addr, s=None):
+        logging.info("initializing connector")
+        global connector_cpt
+        self.desc = connector_cpt
+        connector_cpt += 1
+        self.packet_cpt = 0
+        self.addr = addr
+        Mock.__init__(self)
+
+    def getAddress(self):
+        return self.addr
+
+    def getDescriptor(self):
+        return self.desc
+
+    accept = getError = makeClientConnection = makeListeningConnection = \
+    receive = send = lambda *args, **kw: None
+
+
+dummy_connector = Patch(BaseConnection,
+    ConnectorClass=lambda orig, self, *args, **kw: DummyConnector(*args, **kw))
+
 
 class ConnectionTests(NeoUnitTestBase):
 
@@ -41,25 +67,23 @@ class ConnectionTests(NeoUnitTestBase):
         connection.connect_limit = 0
 
     def _makeListeningConnection(self, addr):
-        # create instance after monkey patches
-        self.connector = DoNothingConnector()
-        return ListeningConnection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, addr=addr)
+        with dummy_connector:
+            conn = ListeningConnection(self.em, self.handler, addr)
+        self.connector = conn.connector
+        return conn
 
     def _makeConnection(self):
-        self.connector = DoNothingConnector()
-        return Connection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, addr=self.address)
+        addr = self.address
+        self.connector = DummyConnector(addr)
+        return Connection(self.em, self.handler, self.connector, addr)
 
     def _makeClientConnection(self):
-        self.connector = DoNothingConnector()
-        return ClientConnection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, node=self.node)
+        with dummy_connector:
+            conn = ClientConnection(self.em, self.handler, self.node)
+        self.connector = conn.connector
+        return conn
 
-    def _makeServerConnection(self):
-        self.connector = DoNothingConnector()
-        return ServerConnection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, addr=self.address)
+    _makeServerConnection = _makeConnection
 
     def _checkRegistered(self, n=1):
         self.assertEqual(len(self.em.mockGetNamedCalls("register")), n)
@@ -82,8 +106,8 @@ class ConnectionTests(NeoUnitTestBase):
     def _checkClose(self, n=1):
         self.assertEqual(len(self.connector.mockGetNamedCalls("close")), n)
 
-    def _checkGetNewConnection(self, n=1):
-        calls = self.connector.mockGetNamedCalls('getNewConnection')
+    def _checkAccept(self, n=1):
+        calls = self.connector.mockGetNamedCalls('accept')
         self.assertEqual(len(calls), n)
 
     def _checkSend(self, n=1, data=None):
@@ -120,7 +144,6 @@ class ConnectionTests(NeoUnitTestBase):
     def _checkMakeClientConnection(self, n=1):
         calls = self.connector.mockGetNamedCalls("makeClientConnection")
         self.assertEqual(len(calls), n)
-        self.assertEqual(calls[n-1].getParam(0), self.address)
 
     def _checkPacketReceived(self, n=1):
         calls = self.handler.mockGetNamedCalls('packetReceived')
@@ -140,28 +163,17 @@ class ConnectionTests(NeoUnitTestBase):
     def _checkWriteBuf(self, bc, data):
         self.assertEqual(''.join(bc.write_buf), data)
 
-    def test_01_BaseConnection1(self):
-        # init with connector
-        registerConnectorHandler(DoNothingConnector)
-        connector = getConnectorHandler("DoNothingConnector")()
-        self.assertFalse(connector is None)
-        bc = self._makeConnection()
-        self.assertFalse(bc.connector is None)
-        self._checkRegistered(1)
-
-    def test_01_BaseConnection2(self):
+    def test_01_BaseConnection(self):
         # init with address
         bc = self._makeConnection()
         self.assertEqual(bc.getAddress(), self.address)
+        self.assertIsNot(bc.connector, None)
         self._checkRegistered(1)
 
     def test_02_ListeningConnection1(self):
         # test init part
-        def getNewConnection(self):
-            return self, ('', 0)
-        DoNothingConnector.getNewConnection = getNewConnection
         addr = ("127.0.0.7", 93413)
-        try:
+        with Patch(DummyConnector, accept=lambda orig, self: (self, ('', 0))):
             bc = self._makeListeningConnection(addr=addr)
             self.assertEqual(bc.getAddress(), addr)
             self._checkRegistered()
@@ -169,18 +181,15 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkMakeListeningConnection()
             # test readable
             bc.readable()
-            self._checkGetNewConnection()
+            self._checkAccept()
             self._checkConnectionAccepted()
-        finally:
-            del DoNothingConnector.getNewConnection
 
     def test_02_ListeningConnection2(self):
         # test with exception raise when getting new connection
-        def getNewConnection(self):
+        def accept(orig, self):
             raise ConnectorTryAgainException
-        DoNothingConnector.getNewConnection = getNewConnection
         addr = ("127.0.0.7", 93413)
-        try:
+        with Patch(DummyConnector, accept=accept):
             bc = self._makeListeningConnection(addr=addr)
             self.assertEqual(bc.getAddress(), addr)
             self._checkRegistered()
@@ -188,10 +197,8 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkMakeListeningConnection()
             # test readable
             bc.readable()
-            self._checkGetNewConnection(1)
+            self._checkAccept(1)
             self._checkConnectionAccepted(0)
-        finally:
-            del DoNothingConnector.getNewConnection
 
     def test_03_Connection(self):
         bc = self._makeConnection()
@@ -229,38 +236,29 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_Connection_recv1(self):
         # patch receive method to return data
-        def receive(self):
-            return "testdata"
-        DoNothingConnector.receive = receive
-        try:
+        with Patch(DummyConnector, receive=lambda orig, self: "testdata"):
             bc = self._makeConnection()
             self._checkReadBuf(bc, '')
             bc._recv()
             self._checkReadBuf(bc, 'testdata')
-        finally:
-            del DoNothingConnector.receive
 
     def test_Connection_recv2(self):
         # patch receive method to raise try again
-        def receive(self):
+        def receive(orig, self):
             raise ConnectorTryAgainException
-        DoNothingConnector.receive = receive
-        try:
+        with Patch(DummyConnector, receive=receive):
             bc = self._makeConnection()
             self._checkReadBuf(bc, '')
             bc._recv()
             self._checkReadBuf(bc, '')
             self._checkConnectionClosed(0)
             self._checkUnregistered(0)
-        finally:
-            del DoNothingConnector.receive
 
     def test_Connection_recv3(self):
         # patch receive method to raise ConnectorConnectionRefusedException
-        def receive(self):
+        def receive(orig, self):
             raise ConnectorConnectionRefusedException
-        DoNothingConnector.receive = receive
-        try:
+        with Patch(DummyConnector, receive=receive):
             bc = self._makeConnection()
             self._checkReadBuf(bc, '')
             # fake client connection instance with connecting attribute
@@ -269,23 +267,18 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkReadBuf(bc, '')
             self._checkConnectionFailed(1)
             self._checkUnregistered(1)
-        finally:
-            del DoNothingConnector.receive
 
     def test_Connection_recv4(self):
         # patch receive method to raise any other connector error
-        def receive(self):
+        def receive(orig, self):
             raise ConnectorException
-        DoNothingConnector.receive = receive
-        try:
+        with Patch(DummyConnector, receive=receive):
             bc = self._makeConnection()
             self._checkReadBuf(bc, '')
             self.assertRaises(ConnectorException, bc._recv)
             self._checkReadBuf(bc, '')
             self._checkConnectionClosed(1)
             self._checkUnregistered(1)
-        finally:
-            del DoNothingConnector.receive
 
     def test_Connection_send1(self):
         # no data, nothing done
@@ -299,10 +292,7 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_Connection_send2(self):
         # send all data
-        def send(self, data):
-            return len(data)
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata"]
@@ -311,15 +301,10 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriteBuf(bc, '')
             self._checkConnectionClosed(0)
             self._checkUnregistered(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_send3(self):
         # send part of the data
-        def send(self, data):
-            return len(data)/2
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)//2):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata"]
@@ -328,15 +313,10 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriteBuf(bc, 'data')
             self._checkConnectionClosed(0)
             self._checkUnregistered(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_send4(self):
         # send multiple packet
-        def send(self, data):
-            return len(data)
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata", "second", "third"]
@@ -345,15 +325,10 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriteBuf(bc, '')
             self._checkConnectionClosed(0)
             self._checkUnregistered(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_send5(self):
         # send part of multiple packet
-        def send(self, data):
-            return len(data)/2
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)//2):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata", "second", "third"]
@@ -362,15 +337,12 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriteBuf(bc, 'econdthird')
             self._checkConnectionClosed(0)
             self._checkUnregistered(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_send6(self):
         # raise try again
-        def send(self, data):
+        def send(orig, self, data):
             raise ConnectorTryAgainException
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=send):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata", "second", "third"]
@@ -379,15 +351,12 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriteBuf(bc, 'testdatasecondthird')
             self._checkConnectionClosed(0)
             self._checkUnregistered(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_send7(self):
         # raise other error
-        def send(self, data):
+        def send(orig, self, data):
             raise ConnectorException
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=send):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata", "second", "third"]
@@ -397,8 +366,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriteBuf(bc, '')
             self._checkConnectionClosed(1)
             self._checkUnregistered(1)
-        finally:
-            del DoNothingConnector.send
 
     def test_07_Connection_addPacket(self):
         # new packet
@@ -499,10 +466,7 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_Connection_writable1(self):
         # with pending operation after send
-        def send(self, data):
-            return len(data)/2
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)//2):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata"]
@@ -520,15 +484,10 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriterRemoved(0)
             self._checkReaderRemoved(0)
             self._checkClose(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_writable2(self):
         # without pending operation after send
-        def send(self, data):
-            return len(data)
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata"]
@@ -546,15 +505,10 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriterRemoved(1)
             self._checkReaderRemoved(0)
             self._checkClose(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_writable3(self):
         # without pending operation after send and aborted set to true
-        def send(self, data):
-            return len(data)
-        DoNothingConnector.send = send
-        try:
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)):
             bc = self._makeConnection()
             self._checkWriteBuf(bc, '')
             bc.write_buf = ["testdata"]
@@ -571,18 +525,15 @@ class ConnectionTests(NeoUnitTestBase):
             # nothing else pending, so writer has been removed
             self.assertFalse(bc.pending())
             self._checkClose(1)
-        finally:
-            del DoNothingConnector.send
 
     def test_Connection_readable(self):
         # With aborted set to false
         # patch receive method to return data
-        def receive(self):
+        def receive(orig, self):
             p = Packets.AnswerPrimary(self.getNewUUID(None))
             p.setId(1)
             return ''.join(p.encode())
-        DoNothingConnector.receive = receive
-        try:
+        with Patch(DummyConnector, receive=receive):
             bc = self._makeConnection()
             bc._queue = Mock({'__len__': 0})
             self._checkReadBuf(bc, '')
@@ -602,8 +553,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriterRemoved(0)
             self._checkReaderRemoved(0)
             self._checkClose(0)
-        finally:
-            del DoNothingConnector.receive
 
     def test_ClientConnection_init1(self):
         # create a good client connection
@@ -624,14 +573,10 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_ClientConnection_init2(self):
         # raise connection in progress
-        makeClientConnection_org = DoNothingConnector.makeClientConnection
-        def makeClientConnection(self, *args, **kw):
+        def makeClientConnection(orig, self):
             raise ConnectorInProgressException
-        DoNothingConnector.makeClientConnection = makeClientConnection
-        try:
+        with Patch(DummyConnector, makeClientConnection=makeClientConnection):
             bc = self._makeClientConnection()
-        finally:
-            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
         self.assertFalse(bc.isServer())
@@ -648,14 +593,10 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_ClientConnection_init3(self):
         # raise another error, connection must fail
-        makeClientConnection_org = DoNothingConnector.makeClientConnection
-        def makeClientConnection(self, *args, **kw):
+        def makeClientConnection(orig, self):
             raise ConnectorException
-        DoNothingConnector.makeClientConnection = makeClientConnection
-        try:
+        with Patch(DummyConnector, makeClientConnection=makeClientConnection):
             self.assertRaises(ConnectorException, self._makeClientConnection)
-        finally:
-            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # since the exception was raised, the connection is not created
         # check call to handler
         self._checkConnectionStarted(1)
@@ -667,18 +608,11 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_ClientConnection_writable1(self):
         # with a non connecting connection, will call parent's method
-        def makeClientConnection(self, *args, **kw):
-            return "OK"
-        def send(self, data):
-            return len(data)
-        makeClientConnection_org = DoNothingConnector.makeClientConnection
-        DoNothingConnector.send = send
-        DoNothingConnector.makeClientConnection = makeClientConnection
-        try:
-            try:
-                bc = self._makeClientConnection()
-            finally:
-                DoNothingConnector.makeClientConnection = makeClientConnection_org
+        with Patch(DummyConnector, send=lambda orig, self, data: len(data)), \
+             Patch(DummyConnector,
+                   makeClientConnection=lambda orig, self: "OK") as p:
+            bc = self._makeClientConnection()
+            p.revert()
             # check connector created and connection initialize
             self.assertFalse(bc.connecting)
             self._checkWriteBuf(bc, '')
@@ -701,19 +635,12 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkWriterRemoved(1)
             self._checkReaderRemoved(0)
             self._checkClose(0)
-        finally:
-            del DoNothingConnector.send
 
     def test_ClientConnection_writable2(self):
         # with a connecting connection, must not call parent's method
         # with errors, close connection
-        def getError(self):
-            return True
-        DoNothingConnector.getError = getError
-        try:
+        with Patch(DummyConnector, getError=lambda orig, self: True):
             bc = self._makeClientConnection()
-        finally:
-            del DoNothingConnector.getError
         # check connector created and connection initialize
         self._checkWriteBuf(bc, '')
         bc.write_buf = ["testdata"]
@@ -836,10 +763,11 @@ class MTConnectionTests(ConnectionTests):
         self.dispatcher = Mock({'__repr__': 'Fake Dispatcher'})
 
     def _makeClientConnection(self):
-        self.connector = DoNothingConnector()
-        return MTClientConnection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, node=self.node,
-                dispatcher=self.dispatcher)
+        with dummy_connector:
+            conn = MTClientConnection(self.em, self.handler, self.node,
+                                      dispatcher=self.dispatcher)
+        self.connector = conn.connector
+        return conn
 
     def test_MTClientConnectionQueueParameter(self):
         ask = self._makeClientConnection().ask

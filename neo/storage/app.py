@@ -24,7 +24,6 @@ from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import OperationFailure, PrimaryFailure
-from neo.lib.connector import getConnectorHandler
 from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
@@ -54,9 +53,7 @@ class Application(object):
         )
 
         # load master nodes
-        master_addresses, connector_name = config.getMasters()
-        self.connector_handler = getConnectorHandler(connector_name)
-        for master_address in master_addresses :
+        for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
 
         # set the bind address
@@ -177,8 +174,7 @@ class Application(object):
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)
-        self.listening_conn = ListeningConnection(self.em, handler,
-            addr=self.server, connector=self.connector_handler())
+        self.listening_conn = ListeningConnection(self.em, handler, self.server)
         self.server = self.listening_conn.getAddress()
 
         # Connect to a primary master node, verify data, and
@@ -234,7 +230,7 @@ class Application(object):
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name,
                 NodeTypes.STORAGE, self.uuid, self.server)
-        data = bootstrap.getPrimaryConnection(self.connector_handler)
+        data = bootstrap.getPrimaryConnection()
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node
         self.master_conn = conn

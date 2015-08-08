@@ -18,7 +18,6 @@ import sys, weakref
 from time import time
 
 from neo.lib import logging
-from neo.lib.connector import getConnectorHandler
 from neo.lib.debug import register as registerLiveDebugger
 from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
@@ -59,9 +58,7 @@ class Application(object):
         self.autostart = config.getAutostart()
 
         self.storage_readiness = set()
-        master_addresses, connector_name = config.getMasters()
-        self.connector_handler = getConnectorHandler(connector_name)
-        for master_address in master_addresses:
+        for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
 
         logging.debug('IP address is %s, port is %d', *self.server)
@@ -102,7 +99,7 @@ class Application(object):
                 raise ValueError("upstream cluster name must be"
                                  " different from cluster name")
             self.backup_app = BackupApplication(self, upstream_cluster,
-                                                *config.getUpstreamMasters())
+                                                config.getUpstreamMasters())
 
         self.administration_handler = administration.AdministrationHandler(
             self)
@@ -141,8 +138,7 @@ class Application(object):
     def _run(self):
         """Make sure that the status is sane and start a loop."""
         # Make a listening port.
-        self.listening_conn = ListeningConnection(self.em, None,
-            addr=self.server, connector=self.connector_handler())
+        self.listening_conn = ListeningConnection(self.em, None, self.server)
 
         # Start a normal operation.
         while self.cluster_state != ClusterStates.STOPPING:
@@ -196,8 +192,7 @@ class Application(object):
                         ClientConnection(self.em, client_handler,
                             # XXX: Ugly, but the whole election code will be
                             # replaced soon
-                            node=getByAddress(addr),
-                            connector=self.connector_handler())
+                            getByAddress(addr))
                     self.unconnected_master_node_set.clear()
                     self.em.poll(1)
             except ElectionFailure, m:
@@ -381,9 +376,7 @@ class Application(object):
 
         # Reconnect to primary master node.
         primary_handler = secondary.PrimaryHandler(self)
-        ClientConnection(self.em, primary_handler,
-            node=self.primary_master_node,
-            connector=self.connector_handler())
+        ClientConnection(self.em, primary_handler, self.primary_master_node)
 
         # and another for the future incoming connections
         self.listening_conn.setHandler(
