@@ -76,6 +76,7 @@ class ConnectionPool(object):
                 if not conn.pending() and \
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
+                    conn.setReconnectionNoDelay()
                     conn.close()
                     logging.debug('_dropConnections: connection to '
                         'storage node %s:%d closed', *conn.getAddress())
@@ -125,8 +126,6 @@ class ConnectionPool(object):
             if not new_cell_list or self.app.master_conn is None:
                 break
             cell_list = new_cell_list
-            # wait a bit to avoid a busy loop
-            time.sleep(1)
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node

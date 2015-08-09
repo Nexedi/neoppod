@@ -20,15 +20,13 @@ from time import time
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
-        ConnectorConnectionClosedException
+        ConnectorConnectionClosedException, ConnectorDelayedConnection
 from .locking import RLock
 from .protocol import uuid_str, Errors, \
         PacketMalformedError, Packets, ParserState
 from .util import ReadBuffer
 
 CRITICAL_TIMEOUT = 30
-
-connect_limit = 0
 
 class ConnectionClosed(Exception):
     pass
@@ -215,8 +213,6 @@ class BaseConnection(object):
         self.connector = connector
         self.addr = addr
         self._handlers = HandlerSwitcher(handler)
-        event_manager.register(self)
-        event_manager.addReader(self)
 
     # XXX: do not use getHandler
     getHandler      = property(lambda self: self._handlers.getHandler)
@@ -324,6 +320,7 @@ class ListeningConnection(BaseConnection):
         connector = self.ConnectorClass(addr)
         BaseConnection.__init__(self, event_manager, handler, connector, addr)
         connector.makeListeningConnection()
+        event_manager.register(self)
 
     def readable(self):
         try:
@@ -505,6 +502,10 @@ class Connection(BaseConnection):
     def pending(self):
         return self.connector is not None and self.write_buf
 
+    @property
+    def setReconnectionNoDelay(self):
+        return self.connector.setReconnectionNoDelay
+
     def close(self):
         if self.connector is None:
             assert self._on_close is None
@@ -537,22 +538,6 @@ class Connection(BaseConnection):
             self._handlers.handle(self, self._queue.pop(0))
         self.close()
 
-    def _delayed_closure(self):
-        # Wait at least 1 second between connection failures.
-        global connect_limit
-        t = time()
-        if t < connect_limit:
-            # Fake _addPacket so that if does not
-            # try to reenable polling for writing.
-            self.write_buf[:] = '',
-            self.em.unregister(self, check_timeout=True)
-            self.getTimeout = lambda: connect_limit
-            self.onTimeout = self.lockWrapper(self._delayed_closure)
-            self.readable = self.writable = lambda: None
-        else:
-            connect_limit = t + 1
-            self._closure()
-
     def _recv(self):
         """Receive data from a connector."""
         try:
@@ -561,7 +546,7 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionRefusedException:
             assert self.connecting
-            self._delayed_closure()
+            self._closure()
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
@@ -674,24 +659,42 @@ class ClientConnection(Connection):
         Connection.__init__(self, event_manager, handler, connector, addr)
         node.setConnection(self)
         handler.connectionStarted(self)
+        self._connect()
+
+    def _connect(self):
         try:
-            try:
-                connector.makeClientConnection()
-            except ConnectorInProgressException:
-                event_manager.addWriter(self)
-            else:
-                self._connectionCompleted()
+            self.connector.makeClientConnection()
+        except ConnectorInProgressException:
+            self.em.register(self)
+            self.em.addWriter(self)
+        except ConnectorDelayedConnection, c:
+            connect_limit, = c.args
+            self.getTimeout = lambda: connect_limit
+            self.onTimeout = self._delayedConnect
+            self.em.register(self, timeout_only=True)
+            # Fake _addPacket so that if does not
+            # try to reenable polling for writing.
+            self.write_buf.insert(0, '')
         except ConnectorConnectionRefusedException:
-            self._delayed_closure()
+            self._closure()
         except ConnectorException:
             # unhandled connector exception
             self._closure()
             raise
+        else:
+            self.em.register(self)
+            if self.write_buf:
+                self.em.addWriter(self)
+            self._connectionCompleted()
+
+    def _delayedConnect(self):
+        del self.getTimeout, self.onTimeout, self.write_buf[0]
+        self._connect()
 
     def writable(self):
         """Called when self is writable."""
         if self.connector.getError():
-            self._delayed_closure()
+            self._closure()
         else:
             self._connectionCompleted()
             self.writable()
@@ -701,6 +704,7 @@ class ClientConnection(Connection):
         self.connecting = False
         self.updateTimeout(time())
         self.getHandler().connectionCompleted(self)
+
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
@@ -716,6 +720,7 @@ class ServerConnection(Connection):
 
     def __init__(self, *args, **kw):
         Connection.__init__(self, *args, **kw)
+        self.em.register(self)
         self.updateTimeout(time())
 
 
@@ -725,7 +730,7 @@ class MTConnectionType(type):
         if __debug__:
             for name in 'analyse', 'answer':
                 setattr(cls, name, cls.lockCheckWrapper(name))
-        for name in ('close', 'notify', 'onTimeout',
+        for name in ('_delayedConnect', 'close', 'notify', 'onTimeout',
                      'process', 'readable', 'writable'):
             setattr(cls, name, cls.__class__.lockWrapper(cls, name))
 

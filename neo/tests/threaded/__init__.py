@@ -29,7 +29,7 @@ import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
-from neo.lib import bootstrap, logging
+from neo.lib import logging
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException, ConnectorTryAgainException
@@ -467,6 +467,7 @@ class ConnectionFilter(object):
 class NEOCluster(object):
 
     BaseConnection_getTimeout = staticmethod(BaseConnection.getTimeout)
+    CONNECT_LIMIT = SocketConnector.CONNECT_LIMIT
     SocketConnector_bind = staticmethod(SocketConnector._bind)
     SocketConnector_connect = staticmethod(SocketConnector._connect)
     SocketConnector_receive = staticmethod(SocketConnector.receive)
@@ -506,10 +507,8 @@ class NEOCluster(object):
                 if data:
                     return data
                 raise
-        # TODO: 'sleep' should 'tic' in a smart way, so that storages can be
-        #       safely started even if the cluster isn't.
-        bootstrap.sleep = lambda seconds: None
         BaseConnection.getTimeout = lambda self: None
+        SocketConnector.CONNECT_LIMIT = 0
         SocketConnector._bind = lambda self, addr: \
             cls.SocketConnector_bind(self, BIND)
         SocketConnector._connect = lambda self, addr: \
@@ -525,8 +524,8 @@ class NEOCluster(object):
         cls._patch_count -= 1
         if cls._patch_count:
             return
-        bootstrap.sleep = time.sleep
         BaseConnection.getTimeout = cls.BaseConnection_getTimeout
+        SocketConnector.CONNECT_LIMIT = cls.CONNECT_LIMIT
         SocketConnector._bind = cls.SocketConnector_bind
         SocketConnector._connect = cls.SocketConnector_connect
         SocketConnector.receive = cls.SocketConnector_receive

@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from time import sleep
-
 from . import logging
 from .handler import EventHandler
 from .protocol import uuid_str, Packets
@@ -135,9 +133,6 @@ class BootstrapManager(EventHandler):
                 master_list = nm.getMasterList()
                 index = (index + 1) % len(master_list)
                 self.current = master_list[index]
-                if index == 0:
-                    # tried all known masters, sleep a bit
-                    sleep(1)
             if conn is None:
                 # open the connection
                 conn = ClientConnection(em, self, self.current)

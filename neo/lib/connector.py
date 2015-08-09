@@ -16,6 +16,7 @@
 
 import socket
 import errno
+from time import time
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
@@ -28,6 +29,8 @@ class SocketConnector(object):
     """ This class is a wrapper for a socket """
 
     is_closed = is_server = None
+    connect_limit = {}
+    CONNECT_LIMIT = 1
 
     def __new__(cls, addr, s=None):
         if s is None:
@@ -61,9 +64,17 @@ class SocketConnector(object):
 
     def makeClientConnection(self):
         assert self.is_closed is None
+        addr = self.addr
+        try:
+            connect_limit = self.connect_limit[addr]
+            if time() < connect_limit:
+                raise ConnectorDelayedConnection(connect_limit)
+        except KeyError:
+            pass
+        self.connect_limit[addr] = time() + self.CONNECT_LIMIT
         self.is_server = self.is_closed = False
         try:
-            self._connect(self.addr)
+            self._connect(addr)
         except socket.error, (err, errmsg):
             if err == errno.EINPROGRESS:
                 raise ConnectorInProgressException
@@ -135,7 +146,16 @@ class SocketConnector(object):
 
     def close(self):
         self.is_closed = True
+        try:
+            if self.connect_limit[self.addr] < time():
+                del self.connect_limit[self.addr]
+        except KeyError:
+            pass
         return self.socket.close()
+
+    def setReconnectionNoDelay(self):
+        """Mark as successful so that we can reconnect without delay"""
+        self.connect_limit.pop(self.addr, None)
 
     def __repr__(self):
         if self.is_closed is None:
@@ -187,3 +207,5 @@ class ConnectorConnectionClosedException(ConnectorException):
 class ConnectorConnectionRefusedException(ConnectorException):
     pass
 
+class ConnectorDelayedConnection(ConnectorException):
+    pass

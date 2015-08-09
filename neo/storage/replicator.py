@@ -319,6 +319,7 @@ class Replicator(object):
             self.app.master_conn.notify(p)
         logging.debug("partition %u replicated up to %s from %r",
                       offset, dump(tid), self.current_node)
+        self.getCurrentConnection().setReconnectionNoDelay()
         self._nextPartition()
 
     def abort(self, message=''):

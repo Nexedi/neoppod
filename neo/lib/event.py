@@ -76,12 +76,16 @@ class EpollEventManager(object):
     # epoll_wait always waits for EPOLLERR & EPOLLHUP so we're forced
     # to unregister when we want to ignore all events for a connection.
 
-    def register(self, conn):
+    def register(self, conn, timeout_only=False):
         fd = conn.getConnector().getDescriptor()
         self.connection_dict[fd] = conn
-        self.epoll.register(fd)
+        if timeout_only:
+            self.wakeup()
+        else:
+            self.epoll.register(fd)
+            self.addReader(conn)
 
-    def unregister(self, conn, check_timeout=False):
+    def unregister(self, conn):
         new_pending_processing = [x for x in self._pending_processing
                                   if x is not conn]
         # Check that we removed at most one entry from
@@ -90,16 +94,17 @@ class EpollEventManager(object):
         self._pending_processing = new_pending_processing
         fd = conn.getConnector().getDescriptor()
         try:
+            del self.connection_dict[fd]
+            self.unregistered.append(fd)
             self.epoll.unregister(fd)
+        except KeyError:
+            pass
         except IOError, e:
             if e.errno != ENOENT:
                 raise
         else:
             self.reader_set.discard(fd)
             self.writer_set.discard(fd)
-        if not check_timeout:
-            del self.connection_dict[fd]
-            self.unregistered.append(fd)
 
     def isIdle(self):
         return not (self._pending_processing or self.writer_set)

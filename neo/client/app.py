@@ -263,7 +263,7 @@ class Application(object):
             Lookup for the current primary master node
         """
         logging.debug('connecting to primary master...')
-        index = 0
+        index = -1
         ask = self._ask
         handler = self.primary_bootstrap_handler
         while 1:
@@ -276,13 +276,8 @@ class Application(object):
                 else:
                     # Otherwise, check one by one.
                     master_list = self.nm.getMasterList()
-                    try:
-                        self.trying_master_node = master_list[index]
-                    except IndexError:
-                        time.sleep(1)
-                        index = 0
-                        self.trying_master_node = master_list[0]
-                    index += 1
+                    index = (index + 1) % len(master_list)
+                    self.trying_master_node = master_list[index]
                 # Connect to master
                 conn = MTClientConnection(self.em,
                         self.notifications_handler,

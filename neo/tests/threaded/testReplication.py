@@ -21,6 +21,7 @@ from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
+from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
@@ -276,12 +277,13 @@ class ReplicationTests(NEOThreadedTest):
             upstream.importZODB()(1)
             upstream.client.setPoll(0)
         count = [0]
-        def __init__(orig, *args, **kw):
+        def _connect(orig, conn):
             count[0] += 1
-            orig(*args, **kw)
-        with Patch(ClientConnection, __init__=__init__):
+            orig(conn)
+        with Patch(ClientConnection, _connect=_connect):
             upstream.storage.listening_conn.close()
             Serialized.tic(); self.assertEqual(count[0], 0)
+            SocketConnector.CONNECT_LIMIT = 1
             Serialized.tic(); count[0] or Serialized.tic()
             t = time.time()
             # XXX: review API for checking timeouts

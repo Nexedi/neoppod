@@ -72,7 +72,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.connector = conn.connector
         return conn
 
-    def _makeConnection(self):
+    def _makeServerConnection(self):
         addr = self.address
         self.connector = DummyConnector(addr)
         return Connection(self.em, self.handler, self.connector, addr)
@@ -83,16 +83,13 @@ class ConnectionTests(NeoUnitTestBase):
         self.connector = conn.connector
         return conn
 
-    _makeServerConnection = _makeConnection
+    _makeConnection = _makeClientConnection
 
     def _checkRegistered(self, n=1):
         self.assertEqual(len(self.em.mockGetNamedCalls("register")), n)
 
     def _checkUnregistered(self, n=1):
         self.assertEqual(len(self.em.mockGetNamedCalls("unregister")), n)
-
-    def _checkReaderAdded(self, n=1):
-        self.assertEqual(len(self.em.mockGetNamedCalls("addReader")), n)
 
     def _checkReaderRemoved(self, n=1):
         self.assertEqual(len(self.em.mockGetNamedCalls("removeReader")), n)
@@ -177,7 +174,6 @@ class ConnectionTests(NeoUnitTestBase):
             bc = self._makeListeningConnection(addr=addr)
             self.assertEqual(bc.getAddress(), addr)
             self._checkRegistered()
-            self._checkReaderAdded()
             self._checkMakeListeningConnection()
             # test readable
             bc.readable()
@@ -193,7 +189,6 @@ class ConnectionTests(NeoUnitTestBase):
             bc = self._makeListeningConnection(addr=addr)
             self.assertEqual(bc.getAddress(), addr)
             self._checkRegistered()
-            self._checkReaderAdded()
             self._checkMakeListeningConnection()
             # test readable
             bc.readable()
@@ -203,7 +198,6 @@ class ConnectionTests(NeoUnitTestBase):
     def test_03_Connection(self):
         bc = self._makeConnection()
         self.assertEqual(bc.getAddress(), self.address)
-        self._checkReaderAdded(1)
         self._checkReadBuf(bc, '')
         self._checkWriteBuf(bc, '')
         self.assertEqual(bc.cur_id, 0)
@@ -568,7 +562,6 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionFailed(0)
         # check call to event manager
         self.assertIsNot(bc.em, None)
-        self._checkReaderAdded(1)
         self._checkWriterAdded(0)
 
     def test_ClientConnection_init2(self):
@@ -588,7 +581,6 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionFailed(0)
         # check call to event manager
         self.assertIsNot(bc.em, None)
-        self._checkReaderAdded(1)
         self._checkWriterAdded(1)
 
     def test_ClientConnection_init3(self):
@@ -603,7 +595,6 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionCompleted(0)
         self._checkConnectionFailed(1)
         # check call to event manager
-        self._checkReaderAdded(1)
         self._checkWriterAdded(0)
 
     def test_ClientConnection_writable1(self):
@@ -621,7 +612,6 @@ class ConnectionTests(NeoUnitTestBase):
             self.assertFalse(bc.aborted)
             # call
             self._checkConnectionCompleted(1)
-            self._checkReaderAdded(1)
             bc.writable()
             self.assertFalse(bc.pending())
             self.assertFalse(bc.aborted)
@@ -631,7 +621,6 @@ class ConnectionTests(NeoUnitTestBase):
             self._checkConnectionCompleted(1)
             self._checkConnectionFailed(0)
             self._checkUnregistered(0)
-            self._checkReaderAdded(1)
             self._checkWriterRemoved(1)
             self._checkReaderRemoved(0)
             self._checkClose(0)
@@ -648,7 +637,6 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertFalse(bc.aborted)
         # call
         self._checkConnectionCompleted(1)
-        self._checkReaderAdded(1)
         bc.writable()
         self.assertFalse(bc.connecting)
         self.assertFalse(bc.pending())
@@ -658,12 +646,10 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionCompleted(1)
         self._checkConnectionFailed(0)
         self._checkUnregistered(1)
-        self._checkReaderAdded(1)
 
     def test_14_ServerConnection(self):
         bc = self._makeServerConnection()
         self.assertEqual(bc.getAddress(), ("127.0.0.7", 93413))
-        self._checkReaderAdded(1)
         self._checkReadBuf(bc, '')
         self._checkWriteBuf(bc, '')
         self.assertEqual(bc.cur_id, 0)
