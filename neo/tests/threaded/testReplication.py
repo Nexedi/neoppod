@@ -287,6 +287,7 @@ class ReplicationTests(NEOThreadedTest):
             # XXX: review API for checking timeouts
             backup.storage.em._blocking = 1
             Serialized.tic(); self.assertEqual(count[0], 2)
+            Serialized.tic(); self.assertEqual(count[0], 2)
             Serialized.tic(); self.assertEqual(count[0], 3)
             self.assertTrue(t + 1 <= time.time())
 
