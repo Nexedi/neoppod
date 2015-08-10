@@ -45,6 +45,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """
 
     def notReady(self, conn, message):
+        conn.close()
         raise NodeNotReady(message)
 
     def _acceptIdentification(self, node,
