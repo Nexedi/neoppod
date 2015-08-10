@@ -18,7 +18,7 @@ import time
 from random import shuffle
 
 from neo.lib import logging
-from neo.lib.locking import RLock
+from neo.lib.locking import Lock
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
@@ -46,9 +46,7 @@ class ConnectionPool(object):
         # Define a lock in order to create one connection to
         # a storage node at a time to avoid multiple connections
         # to the same node.
-        l = RLock()
-        self.connection_lock_acquire = l.acquire
-        self.connection_lock_release = l.release
+        self._lock = Lock()
         self.node_failure_dict = {}
 
     def _initNodeConnection(self, node):
@@ -142,8 +140,7 @@ class ConnectionPool(object):
                 # Already connected to node
                 return self.connection_dict[uuid]
             except KeyError:
-                self.connection_lock_acquire()
-                try:
+                with self._lock:
                     # Second lookup, if another thread initiated connection
                     # while we were waiting for connection lock.
                     try:
@@ -156,9 +153,7 @@ class ConnectionPool(object):
                         conn = self._initNodeConnection(node)
                         if conn is not None:
                             self.connection_dict[uuid] = conn
-                        return conn
-                finally:
-                    self.connection_lock_release()
+                            return conn
 
     def removeConnection(self, node):
         """Explicitly remove connection when a node is broken."""
