@@ -256,12 +256,12 @@ class ReplicationTests(NEOThreadedTest):
         # force ping to have expired
         # connection will be closed before upstream master has time
         # to answer
-        def _poll(orig, self, timeout):
+        def _poll(orig, self, blocking):
             if backup.master.em is self:
                 p.revert()
                 conn.onTimeout()
             else:
-                orig(self, timeout)
+                orig(self, blocking)
         with Patch(EventManager, _poll=_poll) as p:
             backup.tic(force=1)
         new_conn, = backup.master.getConnectionList(backup.upstream.master)
@@ -285,7 +285,7 @@ class ReplicationTests(NEOThreadedTest):
             Serialized.tic(); count[0] or Serialized.tic()
             t = time.time()
             # XXX: review API for checking timeouts
-            backup.storage.em._timeout = 1
+            backup.storage.em._blocking = 1
             Serialized.tic(); self.assertEqual(count[0], 2)
             Serialized.tic(); self.assertEqual(count[0], 3)
             self.assertTrue(t + 1 <= time.time())

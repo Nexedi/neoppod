@@ -113,7 +113,7 @@ class Serialized(object):
 class SerializedEventManager(EventManager):
 
     _lock = None
-    _timeout = 0
+    _blocking = 0
 
     @classmethod
     def decorate(cls, func):
@@ -135,10 +135,10 @@ class SerializedEventManager(EventManager):
         self.__class__ = SerializedEventManager
         self._super__init__()
 
-    def _poll(self, timeout=1):
+    def _poll(self, blocking):
         if self._pending_processing:
-            assert timeout == 0, timeout
-        elif 0 == self._timeout == timeout == Serialized.pending == len(
+            assert blocking == 0, blocking
+        elif 0 == self._blocking == blocking == Serialized.pending == len(
             self.writer_set):
             return
         else:
@@ -151,11 +151,11 @@ class SerializedEventManager(EventManager):
             # TODO: Detect where a message is sent to jump immediately to nodes
             #       that will do something.
             Serialized.tic(self._lock)
-            if timeout != 0:
-                timeout = self._timeout
-                if timeout != 0 and Serialized.pending == 1:
-                    Serialized.pending = timeout = 0
-        EventManager._poll(self, timeout)
+            if blocking != 0:
+                blocking = self._blocking
+                if blocking != 0 and Serialized.pending == 1:
+                    Serialized.pending = blocking = 0
+        EventManager._poll(self, blocking)
 
     def addReader(self, conn):
         EventManager.addReader(self, conn)
@@ -336,12 +336,12 @@ class ClientApplication(Node, neo.client.app.Application):
         processe packets upon NEOCluster.tic() calls.
         """
         if master:
-            self.em._timeout = 1
+            self.em._blocking = 1
             if not self.em._lock.acquire(0):
                 Serialized.background()
         else:
             Serialized.release(wake_other=0); Serialized.acquire()
-            self.em._timeout = 0
+            self.em._blocking = 0
 
     def __del__(self):
         try:
@@ -365,7 +365,7 @@ class NeoCTL(neo.neoctl.app.NeoCTL):
     @SerializedEventManager.decorate
     def __init__(self, *args, **kw):
         super(NeoCTL, self).__init__(*args, **kw)
-        self.em._timeout = 1
+        self.em._blocking = 1
 
 
 class LoggerThreadName(str):
@@ -672,7 +672,7 @@ class NEOCluster(object):
             return db
 
     def stop(self):
-        if hasattr(self, '_db') and self.client.em._timeout == 0:
+        if hasattr(self, '_db') and self.client.em._blocking == 0:
             self.client.setPoll(True)
         self.__dict__.pop('_db', self.client).close()
         try:
@@ -714,7 +714,7 @@ class NEOCluster(object):
 
     def getZODBStorage(self, **kw):
         # automatically put client in master mode
-        if self.client.em._timeout == 0:
+        if self.client.em._blocking == 0:
             self.client.setPoll(True)
         return Storage.Storage(None, self.name, _app=self.client, **kw)
 

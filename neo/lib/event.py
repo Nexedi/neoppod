@@ -104,10 +104,10 @@ class EpollEventManager(object):
         if conn not in pending_processing:
             pending_processing.append(conn)
 
-    def poll(self, timeout=1):
+    def poll(self, blocking=1):
         if not self._pending_processing:
             # Fetch messages from polled file descriptors
-            self._poll(timeout=timeout)
+            self._poll(blocking)
             if not self._pending_processing:
                 return
         to_process = self._pending_processing.pop(0)
@@ -120,10 +120,10 @@ class EpollEventManager(object):
         # Non-blocking call: as we handled a packet, we should just offer
         # poll a chance to fetch & send already-available data, but it must
         # not delay us.
-        self._poll(timeout=0)
+        self._poll(0)
 
-    def _poll(self, timeout=1):
-        if timeout:
+    def _poll(self, blocking):
+        if blocking:
             timeout = None
             for conn in self.connection_dict.itervalues():
                 t = conn.getTimeout()
@@ -133,9 +133,9 @@ class EpollEventManager(object):
             # Make sure epoll_wait does not return too early, because it has a
             # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
             # See also https://bugs.python.org/issue20452 (fixed in Python 3).
-            timeout = .001 + max(0, timeout - time()) if timeout else -1
+            blocking = .001 + max(0, timeout - time()) if timeout else -1
         try:
-            event_list = self.epoll.poll(timeout)
+            event_list = self.epoll.poll(blocking)
         except IOError, exc:
             if exc.errno in (0, EAGAIN):
                 logging.info('epoll.poll triggered undocumented error %r',
@@ -144,7 +144,7 @@ class EpollEventManager(object):
                 raise
             return
         if not event_list:
-            if timeout > 0:
+            if blocking > 0:
                 timeout_conn.onTimeout()
             return
         wlist = []

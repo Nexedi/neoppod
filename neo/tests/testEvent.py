@@ -96,7 +96,7 @@ class EventTests(NeoUnitTestBase):
           (r_connector.getDescriptor(), EPOLLIN),
           (w_connector.getDescriptor(), EPOLLOUT),
         )})
-        em.poll(timeout=1)
+        em.poll(1)
         # check it called poll on epoll
         self.assertEqual(len(em.epoll.mockGetNamedCalls("poll")), 1)
         call = em.epoll.mockGetNamedCalls("poll")[0]
