@@ -468,12 +468,12 @@ class Connection(BaseConnection):
     def readable(self):
         """Called when self is readable."""
         self._recv()
-        self.analyse()
+        self._analyse()
         if self.aborted:
             self.em.removeReader(self)
         return not not self._queue
 
-    def analyse(self):
+    def _analyse(self):
         """Analyse received data."""
         try:
             while True:
@@ -728,7 +728,7 @@ class MTConnectionType(type):
 
     def __init__(cls, *args):
         if __debug__:
-            for name in 'analyse', 'answer':
+            for name in 'answer',:
                 setattr(cls, name, cls.lockCheckWrapper(name))
         for name in ('_delayedConnect', 'close', 'notify', 'onTimeout',
                      'process', 'readable', 'writable'):

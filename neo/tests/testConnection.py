@@ -376,7 +376,7 @@ class ConnectionTests(NeoUnitTestBase):
         bc = self._makeConnection()
         bc._queue = Mock()
         self._checkReadBuf(bc, '')
-        bc.analyse()
+        bc._analyse()
         self._checkPacketReceived(0)
         self._checkReadBuf(bc, '')
 
@@ -387,13 +387,13 @@ class ConnectionTests(NeoUnitTestBase):
         p_data_1, p_data_2 = p_data[:data_edge], p_data[data_edge:]
         # append an incomplete packet, nothing is done
         bc.read_buf.append(p_data_1)
-        bc.analyse()
+        bc._analyse()
         self._checkPacketReceived(0)
         self.assertNotEqual(len(bc.read_buf), 0)
         self.assertNotEqual(len(bc.read_buf), len(p_data))
         # append the rest of the packet
         bc.read_buf.append(p_data_2)
-        bc.analyse()
+        bc._analyse()
         # check packet decoded
         self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
@@ -414,7 +414,7 @@ class ConnectionTests(NeoUnitTestBase):
         p2.setId(2)
         self._appendPacketToReadBuf(bc, p2)
         self.assertEqual(len(bc.read_buf), len(p1) + len(p2))
-        bc.analyse()
+        bc._analyse()
         # check two packets decoded
         self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 2)
         # packet 1
@@ -437,7 +437,7 @@ class ConnectionTests(NeoUnitTestBase):
         p = Packets.Ping()
         p.setId(1)
         self._appendToReadBuf(bc, '%s%sdatadatadatadata' % p.encode())
-        bc.analyse()
+        bc._analyse()
         self._checkPacketReceived(1) # ping packet
         self._checkClose(1) # malformed packet
 
@@ -448,7 +448,7 @@ class ConnectionTests(NeoUnitTestBase):
         p = Packets.AnswerPrimary(self.getNewUUID(None))
         p.setId(1)
         self._appendPacketToReadBuf(bc, p)
-        bc.analyse()
+        bc._analyse()
         # check packet decoded
         self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
