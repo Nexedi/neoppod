@@ -34,7 +34,6 @@ UNIT_TEST_MODULES = [
     # generic parts
     'neo.tests.testBootstrap',
     'neo.tests.testConnection',
-    'neo.tests.testEvent',
     'neo.tests.testHandler',
     'neo.tests.testNodes',
     'neo.tests.testDispatcher',
