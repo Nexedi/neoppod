@@ -15,8 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from threading import Thread, enumerate as thread_enum
-from neo.lib import logging
-from neo.lib.locking import Lock
+from . import logging
+from .locking import Lock
 
 class _ThreadedPoll(Thread):
     """Polling thread."""

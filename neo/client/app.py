@@ -16,7 +16,6 @@
 
 from cPickle import dumps, loads
 from zlib import compress, decompress
-from neo.lib.locking import Empty
 from random import shuffle
 import heapq
 import time
@@ -33,19 +32,18 @@ from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, ZERO_HASH, ZERO_TID
 from neo.lib.event import EventManager
 from neo.lib.util import makeChecksum, dump
-from neo.lib.locking import Lock
+from neo.lib.locking import Empty, Lock, SimpleQueue
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.node import NodeManager
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
 from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
-from .poll import ThreadedPoll, psThreadedPoll
+from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
 from .pool import ConnectionPool
 from neo.lib.util import p64, u64, parseMasterList
 from neo.lib.debug import register as registerLiveDebugger
-from .container import ThreadContainer, TransactionContainer
 
 CHECKED_SERIAL = master.CHECKED_SERIAL
 
@@ -57,41 +55,55 @@ if SignalHandler:
     import signal
     SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
 
-class app_set(weakref.WeakSet):
 
-    def on_log(self):
-        for app in self:
-            app.log()
+class TransactionContainer(dict):
 
-app_set = app_set()
-registerLiveDebugger(app_set.on_log)
+    def pop(self, txn):
+        return dict.pop(self, id(txn), None)
+
+    def get(self, txn):
+        try:
+            return self[id(txn)]
+        except KeyError:
+            raise StorageTransactionError("unknown transaction %r" % txn)
+
+    def new(self, txn):
+        key = id(txn)
+        if key in self:
+            raise StorageTransactionError("commit of transaction %r"
+                                          " already started" % txn)
+        context = self[key] = {
+            'queue': SimpleQueue(),
+            'txn': txn,
+            'ttid': None,
+            'data_dict': {},
+            'data_size': 0,
+            'cache_dict': {},
+            'cache_size': 0,
+            'object_base_serial_dict': {},
+            'object_serial_dict': {},
+            'object_stored_counter_dict': {},
+            'conflict_serial_dict': {},
+            'resolved_conflict_serial_dict': {},
+            'involved_nodes': set(),
+        }
+        return context
 
 
-class Application(object):
+class Application(ThreadedApplication):
     """The client node application."""
 
     def __init__(self, master_nodes, name, compress=True,
             dynamic_master_list=None):
-        # Start polling thread
-        self.em = EventManager()
-        self.poll_thread = ThreadedPoll(self.em, name=name)
-        psThreadedPoll()
+        super(Application, self).__init__(parseMasterList(master_nodes),
+                                          name, dynamic_master_list)
         # Internal Attributes common to all thread
         self._db = None
-        self.name = name
-        self.dispatcher = Dispatcher(self.poll_thread)
-        self.nm = NodeManager(dynamic_master_list)
         self.cp = ConnectionPool(self)
-        self.master_conn = None
         self.primary_master_node = None
         self.trying_master_node = None
 
-        # load master node list
-        for address in parseMasterList(master_nodes):
-            self.nm.createMaster(address=address)
-
         # no self-assigned UUID, primary master will supply us one
-        self.uuid = None
         self._cache = ClientCache()
         self._loading_oid = None
         self.new_oid_list = ()
@@ -103,8 +115,6 @@ class Application(object):
         self.primary_handler = master.PrimaryAnswersHandler(self)
         self.primary_bootstrap_handler = master.PrimaryBootstrapHandler(self)
         self.notifications_handler = master.PrimaryNotificationsHandler( self)
-        # Internal attribute distinct between thread
-        self._thread_container = ThreadContainer()
         self._txn_container = TransactionContainer()
         # Lock definition :
         # _load_lock is used to make loading and storing atomic
@@ -124,7 +134,11 @@ class Application(object):
         # node connection attemps
         self._connecting_to_master_node = Lock()
         self.compress = compress
-        app_set.add(self) # to register self.on_log
+
+    def close(self):
+        self.cp.flush()
+        self._txn_container.clear()
+        super(Application, self).close()
 
     def __getattr__(self, attr):
         if attr == 'pt':
@@ -135,45 +149,6 @@ class Application(object):
     def txn_contexts(self):
         # do not iter lazily to avoid race condition
         return self._txn_container.values
-
-    def getHandlerData(self):
-        return self._thread_container.answer
-
-    def setHandlerData(self, data):
-        self._thread_container.answer = data
-
-    def log(self):
-        self.em.log()
-        self.nm.log()
-        pt = self.__dict__.get('pt')
-        if pt is not None:
-            pt.log()
-
-    def _handlePacket(self, conn, packet, kw={}, handler=None):
-        """
-          conn
-            The connection which received the packet (forwarded to handler).
-          packet
-            The packet to handle.
-          handler
-            The handler to use to handle packet.
-            If not given, it will be guessed from connection's not type.
-        """
-        if handler is None:
-            # Guess the handler to use based on the type of node on the
-            # connection
-            node = self.nm.getByAddress(conn.getAddress())
-            if node is None:
-                raise ValueError, 'Expecting an answer from a node ' \
-                    'which type is not known... Is this right ?'
-            if node.isStorage():
-                handler = self.storage_handler
-            elif node.isMaster():
-                handler = self.primary_handler
-            else:
-                raise ValueError, 'Unknown node type: %r' % (node.__class__, )
-        with conn.lock:
-            handler.dispatch(conn, packet, kw)
 
     def _waitAnyMessage(self, queue, block=True):
         """
@@ -211,29 +186,6 @@ class Application(object):
         finally:
             # Don't leave access to thread context, even if a raise happens.
             self.setHandlerData(None)
-
-    def _ask(self, conn, packet, handler=None, **kw):
-        self.setHandlerData(None)
-        queue = self._thread_container.queue
-        msg_id = conn.ask(packet, queue=queue, **kw)
-        get = queue.get
-        _handlePacket = self._handlePacket
-        while True:
-            qconn, qpacket, kw = get(True)
-            is_forgotten = isinstance(qpacket, ForgottenPacket)
-            if conn is qconn:
-                # check fake packet
-                if qpacket is None:
-                    raise ConnectionClosed
-                if msg_id == qpacket.getId():
-                    if is_forgotten:
-                        raise ValueError, 'ForgottenPacket for an ' \
-                            'explicitely expected packet.'
-                    _handlePacket(qconn, qpacket, kw, handler)
-                    break
-            if not is_forgotten and qpacket is not None:
-                _handlePacket(qconn, qpacket, kw)
-        return self.getHandlerData()
 
     def _askStorage(self, conn, packet, **kw):
         """ Send a request to a storage node and process its answer """
@@ -945,20 +897,6 @@ class Application(object):
     def lastTransaction(self):
         self._askPrimary(Packets.AskLastTransaction())
         return self.last_tid
-
-    def __del__(self):
-        """Clear all connection."""
-        # Due to bug in ZODB, close is not always called when shutting
-        # down zope, so use __del__ to close connections
-        for conn in self.em.getConnectionList():
-            conn.close()
-        self.cp.flush()
-        self.master_conn = None
-        # Stop polling thread
-        logging.debug('Stopping %s', self.poll_thread)
-        self.poll_thread.stop()
-        psThreadedPoll()
-    close = __del__
 
     def pack(self, t):
         tid = repr(TimeStamp(*time.gmtime(t)[:5] + (t % 60, )))

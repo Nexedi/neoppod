@@ -15,10 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.handler import MTEventHandler
 from neo.lib.pt import MTPartitionTable as PartitionTable
 from neo.lib.protocol import NodeStates, Packets, ProtocolError
 from neo.lib.util import dump, add64
-from . import BaseHandler, AnswerBaseHandler
+from . import AnswerBaseHandler
 from ..exception import NEOStorageError
 
 CHECKED_SERIAL = object()
@@ -91,7 +92,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def answerLastTransaction(self, conn, ltid):
         pass
 
-class PrimaryNotificationsHandler(BaseHandler):
+class PrimaryNotificationsHandler(MTEventHandler):
     """ Handler that process the notifications from the primary master """
 
     def packetReceived(self, conn, packet, kw={}):
@@ -133,7 +134,7 @@ class PrimaryNotificationsHandler(BaseHandler):
                     callback(tid)
             finally:
                 app._cache_lock_release()
-        BaseHandler.packetReceived(self, conn, packet, kw)
+        MTEventHandler.packetReceived(self, conn, packet, kw)
 
     def connectionClosed(self, conn):
         app = self.app

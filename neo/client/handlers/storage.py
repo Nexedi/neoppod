@@ -21,11 +21,12 @@ from neo.lib import logging
 from neo.lib.protocol import LockState, ZERO_TID
 from neo.lib.util import dump
 from neo.lib.exception import NodeNotReady
-from . import BaseHandler, AnswerBaseHandler
+from neo.lib.handler import MTEventHandler
+from . import AnswerBaseHandler
 from ..exception import NEOStorageError, NEOStorageNotFoundError
 from ..exception import NEOStorageDoesNotExistError
 
-class StorageEventHandler(BaseHandler):
+class StorageEventHandler(MTEventHandler):
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByAddress(conn.getAddress())

@@ -29,12 +29,12 @@ import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
-from neo.client.container import SimpleQueue
-from neo.client.poll import _ThreadedPoll
+from neo.lib.threaded_poll import _ThreadedPoll
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException
+from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
