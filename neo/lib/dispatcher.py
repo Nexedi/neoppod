@@ -43,13 +43,12 @@ def giant_lock(func):
 class Dispatcher:
     """Register a packet, connection pair as expecting a response packet."""
 
-    def __init__(self, poll_thread=None):
+    def __init__(self):
         self.message_table = {}
         self.queue_dict = {}
         lock = Lock()
         self.lock_acquire = lock.acquire
         self.lock_release = lock.release
-        self.poll_thread = poll_thread
 
     @giant_lock
     def dispatch(self, conn, msg_id, packet, kw):
@@ -81,14 +80,9 @@ class Dispatcher:
         except KeyError:
             queue_dict[queue_id] = 1
 
-    def needPollThread(self):
-        self.poll_thread.start()
-
     @giant_lock
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply."""
-        if self.poll_thread is not None:
-            self.needPollThread()
         self.message_table.setdefault(id(conn), {})[msg_id] = queue
         self._increfQueue(queue)
 

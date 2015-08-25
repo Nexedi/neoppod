@@ -23,7 +23,6 @@ from .event import EventManager
 from .locking import SimpleQueue
 from .node import NodeManager
 from .protocol import Packets
-from .threaded_poll import ThreadedPoll, psThreadedPoll
 
 class app_set(weakref.WeakSet):
 
@@ -48,11 +47,11 @@ class ThreadedApplication(object):
     def __init__(self, master_nodes, name, dynamic_master_list=None):
         # Start polling thread
         self.em = EventManager()
-        self.poll_thread = ThreadedPoll(self.em, name=name)
-        psThreadedPoll()
+        self.poll_thread = threading.Thread(target=self.run, name=name)
+        self.poll_thread.daemon = True
         # Internal Attributes common to all thread
         self.name = name
-        self.dispatcher = Dispatcher(self.poll_thread)
+        self.dispatcher = Dispatcher()
         self.nm = NodeManager(dynamic_master_list)
         self.master_conn = None
 
@@ -78,8 +77,27 @@ class ThreadedApplication(object):
             conn.close()
         # Stop polling thread
         logging.debug('Stopping %s', self.poll_thread)
-        self.poll_thread.stop()
-        psThreadedPoll()
+        self.em.wakeup(True)
+
+    def start(self):
+        self.poll_thread.is_alive() or self.poll_thread.start()
+
+    def run(self):
+        logging.debug("Started %s", self.poll_thread)
+        try:
+            self._run()
+        finally:
+            logging.debug("Poll thread stopped")
+
+    def _run(self):
+        poll = self.em.poll
+        while 1:
+            try:
+                while 1:
+                    poll(1)
+            except Exception:
+                self.log()
+                logging.error("poll raised, retrying", exc_info=1)
 
     def getHandlerData(self):
         return self._thread_container.answer

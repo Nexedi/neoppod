@@ -24,8 +24,7 @@ class DispatcherTests(NeoTestBase):
 
     def setUp(self):
         NeoTestBase.setUp(self)
-        self.fake_thread = Mock({'stopping': True})
-        self.dispatcher = Dispatcher(self.fake_thread)
+        self.dispatcher = Dispatcher()
 
     def testRegister(self):
         conn = object()
@@ -38,7 +37,6 @@ class DispatcherTests(NeoTestBase):
         self.assertEqual(queue.get(block=False), (conn, MARKER, {}))
         self.assertTrue(queue.empty())
         self.assertFalse(self.dispatcher.dispatch(conn, 2, None, {}))
-        self.assertEqual(len(self.fake_thread.mockGetNamedCalls('start')), 1)
 
     def testUnregister(self):
         conn = object()

@@ -215,6 +215,7 @@ class Application(ThreadedApplication):
             Lookup for the current primary master node
         """
         logging.debug('connecting to primary master...')
+        self.start()
         index = -1
         ask = self._ask
         handler = self.primary_bootstrap_handler

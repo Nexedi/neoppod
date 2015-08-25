@@ -764,7 +764,6 @@ class MTClientConnection(ClientConnection):
     def __init__(self, *args, **kwargs):
         self.lock = lock = RLock()
         self.dispatcher = kwargs.pop('dispatcher')
-        self.dispatcher.needPollThread()
         with lock:
             super(MTClientConnection, self).__init__(*args, **kwargs)
 

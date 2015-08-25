@@ -797,6 +797,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # faked environnement
         app.em = Mock({'getConnectionList': []})
         app.pt = Mock({ 'operational': False})
+        app.start = lambda: None
         app.master_conn = app._connectToPrimaryNode()
         self.assertEqual(len(all_passed), 1)
         self.assertTrue(app.master_conn is not None)

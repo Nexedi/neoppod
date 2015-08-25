@@ -29,7 +29,6 @@ import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
-from neo.lib.threaded_poll import _ThreadedPoll
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
@@ -167,6 +166,9 @@ class Serialized(object):
     def __init__(self, app, busy=True):
         self._epoll = app.em.epoll
         app.em.epoll = self
+        # XXX: It may have been initialized before the SimpleQueue is patched.
+        thread_container = getattr(app, '_thread_container', None)
+        thread_container is None or thread_container.__init__()
         if busy:
             self._busy.add(self) # block tic until app waits for polling
 
@@ -370,6 +372,17 @@ class ClientApplication(Node, neo.client.app.Application):
 
     def __init__(self, master_nodes, name, **kw):
         super(ClientApplication, self).__init__(master_nodes, name, **kw)
+        self.poll_thread.node_name = name
+
+    def run(self):
+        try:
+            super(ClientApplication, self).run()
+        finally:
+            self.em.epoll.exit()
+
+    def start(self):
+        isinstance(self.em.epoll, Serialized) or Serialized(self)
+        super(ClientApplication, self).start()
 
     def getConnectionList(self, *peers):
         for peer in peers:
@@ -399,9 +412,8 @@ class LoggerThreadName(str):
         return id(self)
 
     def __str__(self):
-        t = threading.currentThread()
         try:
-            return t.name if isinstance(t, _ThreadedPoll) else t.node_name
+            return threading.currentThread().node_name
         except AttributeError:
             return str.__str__(self)
 
@@ -497,8 +509,6 @@ class NEOCluster(object):
     SimpleQueue__init__ = staticmethod(SimpleQueue.__init__)
     SocketConnector_bind = staticmethod(SocketConnector._bind)
     SocketConnector_connect = staticmethod(SocketConnector._connect)
-    _ThreadedPoll_run = staticmethod(_ThreadedPoll.run)
-    _ThreadedPoll_start = staticmethod(_ThreadedPoll.start)
     _patch_count = 0
     _resource_dict = weakref.WeakValueDictionary()
 
@@ -525,14 +535,6 @@ class NEOCluster(object):
                     return True
                 return lock(False)
             self._lock = _lock
-        def start(self):
-            Serialized(self)
-            cls._ThreadedPoll_start(self)
-        def run(self):
-            try:
-                cls._ThreadedPoll_run(self)
-            finally:
-                self.em.epoll.exit()
         BaseConnection.getTimeout = lambda self: None
         SimpleQueue.__init__ = __init__
         SocketConnector.CONNECT_LIMIT = 0
@@ -540,8 +542,6 @@ class NEOCluster(object):
             cls.SocketConnector_bind(self, BIND)
         SocketConnector._connect = lambda self, addr: \
             cls.SocketConnector_connect(self, ServerNode.resolv(addr))
-        _ThreadedPoll.run = run
-        _ThreadedPoll.start = start
         Serialized.init()
 
     @staticmethod
@@ -556,8 +556,6 @@ class NEOCluster(object):
         SocketConnector.CONNECT_LIMIT = cls.CONNECT_LIMIT
         SocketConnector._bind = cls.SocketConnector_bind
         SocketConnector._connect = cls.SocketConnector_connect
-        _ThreadedPoll.run = cls._ThreadedPoll_run
-        _ThreadedPoll.start = cls._ThreadedPoll_start
         Serialized.stop()
 
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
@@ -650,7 +648,6 @@ class NEOCluster(object):
 
     def start(self, storage_list=None, fast_startup=False):
         self._patch()
-        self.client._thread_container.__init__()
         for node_type in 'master', 'admin':
             for node in getattr(self, node_type + '_list'):
                 node.start()
