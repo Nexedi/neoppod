@@ -1,6 +1,8 @@
-from threading import Lock as threading_Lock
-from threading import RLock as threading_RLock
-from threading import currentThread
+import os
+import sys
+import threading
+import traceback
+from time import time
 from Queue import Empty
 
 """
@@ -20,20 +22,14 @@ from Queue import Empty
   classes).
 """
 
-__all__ = ['Lock', 'RLock', 'Queue', 'Empty']
-
 VERBOSE_LOCKING = False
 
-import traceback
-import sys
-import os
 
 class LockUser(object):
-    def __init__(self, level=0):
-        t = currentThread()
-        self.ident = t.getName()
-        if self.ident != 'MainThread':
-            self.ident = t.ident
+
+    def __init__(self, message, level=0):
+        t = threading.currentThread()
+        ident = getattr(t, 'node_name', t.name)
         # This class is instanciated from a place desiring to known what
         # called it.
         # limit=1 would return execution position in this method
@@ -41,59 +37,57 @@ class LockUser(object):
         # limit=3 returns execution position in caller's caller
         # Additionnal level value (should be positive only) can be used when
         # more intermediate calls are involved
-        self.stack = stack = traceback.extract_stack()[:-(2 + level)]
+        self.stack = stack = traceback.extract_stack()[:-2-level]
         path, line_number, func_name, line = stack[-1]
         # Simplify path. Only keep 3 last path elements. It is enough for
         # current Neo directory structure.
         path = os.path.join('...', *path.split(os.path.sep)[-3:])
-        self.caller = (path, line_number, func_name, line)
+        self.time = time()
+        self.ident = "%s@%r %s:%s %s" % (
+            ident, self.time, path, line_number, line)
+        self.note(message)
+        self.ident = ident
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.ident == other.ident
 
     def __repr__(self):
-        return '%s@%s:%s %s' % (self.ident, self.caller[0], self.caller[1],
-                self.caller[3])
+        return "%s@%r" % (self.ident, self.time)
 
     def formatStack(self):
         return ''.join(traceback.format_list(self.stack))
 
+    def note():
+        write = sys.stderr.write
+        flush = sys.stderr.flush
+        def note(self, message):
+            write("[%s] %s\n" % (self.ident, message))
+            flush()
+        return note
+    note = note()
+
+
 class VerboseLockBase(object):
-    def __init__(self, reentrant=False, debug_lock=False):
-        self.reentrant = reentrant
-        self.debug_lock = debug_lock
+
+    _error_class = threading.ThreadError
+    _release_error = 'release unlocked lock'
+
+    def __init__(self, check_owner, name=None, verbose=None):
+        self._check_owner = check_owner
+        self._name = name or '<%s@%X>' % (self.__class__.__name__, id(self))
         self.owner = None
         self.waiting = []
-        self._note('%s@%X created by %r', self.__class__.__name__, id(self),
-                LockUser(1))
-
-    def _note(self, fmt, *args):
-        sys.stderr.write(fmt % args + '\n')
-        sys.stderr.flush()
-
-    def _getOwner(self):
-        if self._locked():
-            owner = self.owner
-        else:
-            owner = None
-        return owner
+        LockUser(repr(self) + " created", 1)
 
     def acquire(self, blocking=1):
-        me = LockUser()
-        owner = self._getOwner()
-        self._note('[%r]%s.acquire(%s) Waiting for lock. Owned by:%r ' \
-                'Waiting:%r', me, self, blocking, owner, self.waiting)
-        if (self.debug_lock and owner is not None) or  \
-                (not self.reentrant and blocking and me == owner):
-            if me == owner:
-                self._note('[%r]%s.acquire(%s): Deadlock detected: ' \
-                    ' I already own this lock:%r', me, self, blocking, owner)
-            else:
-                self._note('[%r]%s.acquire(%s): debug lock triggered: %r',
-                        me, self, blocking, owner)
-            self._note('[%r] Owner traceback:\n%s', me, owner.formatStack())
-            self._note('[%r] My traceback:\n%s', me, me.formatStack())
+        owner = self.owner if self._locked() else None
+        me = LockUser("%s.acquire(%s). Owned by %r. Waiting: %r"
+                      % (self, blocking, owner, self.waiting))
         if blocking:
+            if self._check_owner and me == owner:
+                me.note("I already own this lock: %r" % owner)
+                me.note("Owner traceback:\n%s" % owner.formatStack())
+                me.note("My traceback:\n%s" % me.formatStack())
             self.waiting.append(me)
         try:
             locked = self.lock.acquire(blocking)
@@ -102,16 +96,20 @@ class VerboseLockBase(object):
                 self.waiting.remove(me)
         if locked:
             self.owner = me
-            self._note('[%r]%s.acquire(%s) Lock granted. Waiting: %r',
-                    me, self, blocking, self.waiting)
+            me.note("Lock granted. Waiting: " + repr(self.waiting))
         return locked
 
     __enter__ = acquire
 
     def release(self):
-        me = LockUser()
-        self._note('[%r]%s.release() Waiting: %r', me, self, self.waiting)
-        return self.lock.release()
+        me = LockUser("%s.release(). Waiting: %r" % (self, self.waiting))
+        try:
+            return self.lock.release()
+        except self._error_class:
+            t, v, tb = sys.exc_info()
+            if str(v) == self._release_error:
+                raise t, "%s %s (%s)" % (v, self, me), tb
+            raise
 
     def __exit__(self, t, v, tb):
         self.release()
@@ -120,13 +118,17 @@ class VerboseLockBase(object):
         raise NotImplementedError
 
     def __repr__(self):
-        return '<%s@%X>' % (self.__class__.__name__, id(self))
+        return self._name
+
 
 class VerboseRLock(VerboseLockBase):
-    def __init__(self, verbose=None, debug_lock=False):
-        super(VerboseRLock, self).__init__(reentrant=True,
-                debug_lock=debug_lock)
-        self.lock = threading_RLock()
+
+    _error_class = RuntimeError
+    _release_error = 'cannot release un-acquired lock'
+
+    def __init__(self, **kw):
+        super(VerboseRLock, self).__init__(check_owner=False, **kw)
+        self.lock = threading.RLock()
 
     def _locked(self):
         return self.lock._RLock__block.locked()
@@ -135,17 +137,30 @@ class VerboseRLock(VerboseLockBase):
         return self.lock._is_owned()
 
 class VerboseLock(VerboseLockBase):
-    def __init__(self, verbose=None, debug_lock=False):
-        super(VerboseLock, self).__init__(debug_lock=debug_lock)
-        self.lock = threading_Lock()
+
+    def __init__(self, check_owner=True, **kw):
+        super(VerboseLock, self).__init__(check_owner, **kw)
+        self.lock = threading.Lock()
 
     def locked(self):
         return self.lock.locked()
     _locked = locked
 
+class VerboseSemaphore(VerboseLockBase):
+
+    def __init__(self, value=1, check_owner=True, **kw):
+        super(VerboseSemaphore, self).__init__(check_owner, **kw)
+        self.lock = threading.Semaphore(value)
+
+    def _locked(self):
+        return not self.lock._Semaphore__value
+
+
 if VERBOSE_LOCKING:
     Lock = VerboseLock
     RLock = VerboseRLock
+    Semaphore = VerboseSemaphore
 else:
-    Lock = threading_Lock
-    RLock = threading_RLock
+    Lock = threading.Lock
+    RLock = threading.RLock
+    Semaphore = threading.Semaphore
