@@ -482,6 +482,12 @@ class ConnectionFilter(object):
                 del self.filter_dict[filter]
             self._retry()
 
+    def discard(self, *filters):
+        try:
+            self.remove(*filters)
+        except KeyError:
+            pass
+
     def __contains__(self, filter):
         return filter in self.filter_dict
 

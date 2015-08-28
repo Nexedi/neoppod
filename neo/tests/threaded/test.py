@@ -819,7 +819,7 @@ class Test(NEOThreadedTest):
         def delayNotifyInformation(conn, packet):
             return isinstance(packet, Packets.NotifyNodeInformation)
         def notReady(orig, *args):
-            m2s.remove(delayNotifyInformation)
+            m2s.discard(delayNotifyInformation)
             return orig(*args)
         cluster = NEOCluster()
         try:
