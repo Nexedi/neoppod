@@ -72,6 +72,7 @@ class Serialized(object):
         cls._lock_list = deque() # FIFO of Semaphore
         cls._lock_lock = threading.Lock()
         cls._pdb = False
+        cls.blocking = threading.Event()
         cls.pending = 0
 
     @classmethod
@@ -172,9 +173,16 @@ class SerializedEventManager(EventManager):
             Serialized.tic(self._lock)
             if blocking != 0:
                 blocking = self._blocking
-                if blocking != 0 and Serialized.pending == 1:
-                    Serialized.pending = blocking = 0
-        EventManager._poll(self, blocking)
+                if blocking != 0:
+                    if Serialized.pending == 1:
+                        Serialized.pending = blocking = 0
+                    else:
+                        Serialized.blocking.set()
+        try:
+            EventManager._poll(self, blocking)
+        finally:
+            if blocking:
+                Serialized.blocking.clear()
 
     def addReader(self, conn):
         EventManager.addReader(self, conn)
@@ -716,13 +724,14 @@ class NEOCluster(object):
         self._unpatch()
 
     @staticmethod
-    def tic(force=False):
-        # XXX: Should we automatically switch client in slave mode if it isn't ?
+    def tic(force=False, slave=False):
         f = sys._getframe(1)
         try:
             logging.info('tic (%s:%u) ...', f.f_code.co_filename, f.f_lineno)
         finally:
             del f
+        if slave:
+            return Serialized.blocking.wait()
         if force:
             Serialized.tic()
             logging.info('forced tic')

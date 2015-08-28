@@ -77,6 +77,7 @@ class Test(NEOThreadedTest):
                 self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 serial = storage.tpc_finish(txn)
                 data_info[key] = 0
+                cluster.tic(slave=1)
                 self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 storage._cache.clear()
@@ -183,6 +184,7 @@ class Test(NEOThreadedTest):
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             tid1 = storage.tpc_finish(txn[2])
+            cluster.tic(slave=1)
             data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
@@ -401,6 +403,7 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             c.root()[0] = 'ok'
             t.commit()
+            cluster.tic(slave=1)
             data_info = cluster.storage.getDataLockInfo()
             self.assertEqual(data_info.values(), [0, 0])
             # (obj|trans) become t(obj|trans)
