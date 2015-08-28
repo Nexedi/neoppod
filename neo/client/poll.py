@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from logging import DEBUG, ERROR
 from threading import Thread, enumerate as thread_enum
 from neo.lib import logging
 from neo.lib.locking import Lock
@@ -30,23 +29,15 @@ class _ThreadedPoll(Thread):
         self.daemon = True
 
     def run(self):
-        _log = logging.log
-        def log(*args, **kw):
-            # Ignore errors due to garbage collection on exit
-            try:
-                _log(*args, **kw)
-            except Exception:
-                if not self.stopping:
-                    raise
-        log(DEBUG, 'Started %s', self)
+        logging.debug('Started %s', self)
         try:
             while 1:
                 try:
                     self.em.poll(1)
                 except Exception:
-                    log(ERROR, 'poll raised, retrying', exc_info=1)
+                    logging.error('poll raised, retrying', exc_info=1)
         finally:
-            log(DEBUG, 'Threaded poll stopped')
+            logging.debug('Threaded poll stopped')
 
     def stop(self):
         self.stopping = True
