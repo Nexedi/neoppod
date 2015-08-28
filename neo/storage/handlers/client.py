@@ -172,8 +172,11 @@ class ClientOperationHandler(EventHandler):
     def askObjectHistory(self, conn, oid, first, last):
         if first >= last:
             raise ProtocolError('invalid offsets')
-
         app = self.app
+        if app.tm.loadLocked(oid):
+            # Delay the response.
+            app.queueEvent(self.askObjectHistory, conn, (oid, first, last))
+            return
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
             p = Errors.OidNotFound(dump(oid))
