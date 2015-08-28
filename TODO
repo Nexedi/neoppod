@@ -160,7 +160,6 @@
       See http://garybernhardt.github.com/python-mock-comparison/
       for a comparison of available mocking libraries/frameworks.
     - Fix epoll descriptor leak.
-    - Fix occasional deadlocks in threaded tests.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
