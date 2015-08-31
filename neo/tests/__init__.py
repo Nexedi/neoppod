@@ -519,11 +519,15 @@ class Patch(object):
 
     def __init__(self, patched, **patch):
         (name, patch), = patch.iteritems()
-        wrapped = getattr(patched, name)
-        wrapper = lambda *args, **kw: patch(wrapped, *args, **kw)
         self._patched = patched
         self._name = name
-        self._wrapper = wraps(wrapped)(wrapper)
+        if callable(patch):
+            wrapped = getattr(patched, name, None)
+            func = patch
+            patch = lambda *args, **kw: func(wrapped, *args, **kw)
+            if callable(wrapped):
+                patch = wraps(wrapped)(patch)
+        self._patch = patch
         try:
             orig = patched.__dict__[name]
             self._revert = lambda: setattr(patched, name, orig)
@@ -532,7 +536,7 @@ class Patch(object):
 
     def apply(self):
         assert not self.applied
-        setattr(self._patched, self._name, self._wrapper)
+        setattr(self._patched, self._name, self._patch)
         self.applied = True
 
     def revert(self):
