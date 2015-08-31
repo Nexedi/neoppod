@@ -26,7 +26,7 @@ if not os.path.exists('mock.py'):
 zodb_require = ['ZODB3>=3.10', 'ZODB3<3.11dev']
 
 extras_require = {
-    'admin': [],
+    'admin': ['bottle'],
     'client': zodb_require,
     'ctl': [],
     'master': [],

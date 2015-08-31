@@ -534,9 +534,8 @@ class Test(NEOThreadedTest):
             # tell admin to shutdown the cluster
             cluster.neoctl.setClusterState(ClusterStates.STOPPING)
             # all nodes except clients should exit
-            cluster.join(cluster.master_list
-                       + cluster.storage_list
-                       + cluster.admin_list)
+            cluster.join(cluster.master_list + cluster.storage_list,
+                         (cluster.admin,))
         finally:
             cluster.stop()
         cluster.reset() # reopen DB to check partition tables

@@ -47,7 +47,7 @@ class MasterTests(NEOFunctionalTest):
                 break
         neoctl.killNode(uuid)
         self.neo.expectDead(master)
-        self.assertRaises(RuntimeError, neoctl.killNode, primary_uuid)
+        self.assertRaises(IOError, neoctl.killNode, primary_uuid)
 
     def testStoppingPrimaryWithTwoSecondaries(self):
         # Wait for masters to stabilize

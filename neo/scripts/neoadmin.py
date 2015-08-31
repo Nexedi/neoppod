@@ -29,6 +29,7 @@ defaults = dict(
     masters = '127.0.0.1:10000',
 )
 
+
 def main(args=None):
     # build configuration dict from command line options
     (options, args) = parser.parse_args(args=args)
@@ -39,6 +40,5 @@ def main(args=None):
 
     # and then, load and run the application
     from neo.admin.app import Application
-    app = Application(config)
-    app.run()
-
+    host, port = config.getBind()
+    Application(config).serve(host=host, port=port)

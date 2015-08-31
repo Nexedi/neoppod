@@ -135,10 +135,16 @@ class ThreadedApplication(BaseApplication):
             handler.dispatch(conn, packet, kw)
 
     def _ask(self, conn, packet, handler=None, **kw):
-        self.setHandlerData(None)
-        queue = self._thread_container.queue
-        msg_id = conn.ask(packet, queue=queue, **kw)
-        get = queue.get
+        # The following line is more than optimization. If an admin node sends
+        # a packet that causes the master to disconnect (e.g. stop a cluster),
+        # we want at least to return the answer for this request, even if the
+        # polling thread already exited and cleared self.__dict__: returning
+        # the result of getHandlerData() would raise an AttributeError.
+        # This is tested by testShutdown (neo.tests.threaded.test.Test).
+        thread_container = self._thread_container
+        thread_container.answer = None
+        msg_id = conn.ask(packet, queue=thread_container.queue, **kw)
+        get = thread_container.queue.get
         _handlePacket = self._handlePacket
         while True:
             qconn, qpacket, kw = get(True)
@@ -152,7 +158,6 @@ class ThreadedApplication(BaseApplication):
                         raise ValueError, 'ForgottenPacket for an ' \
                             'explicitely expected packet.'
                     _handlePacket(qconn, qpacket, kw, handler)
-                    break
+                    return thread_container.answer # see above comment
             if not is_forgotten and qpacket is not None:
                 _handlePacket(qconn, qpacket, kw)
-        return self.getHandlerData()
