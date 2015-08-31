@@ -359,7 +359,7 @@ class NEOCluster(object):
                         pending_count += 1
                     if pending_count == target[0]:
                         neoctl.startCluster()
-            except (NotReadyException, RuntimeError):
+            except (NotReadyException, IOError):
                 pass
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')

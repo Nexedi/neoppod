@@ -661,6 +661,11 @@ class ClientConnection(Connection):
         handler.connectionStarted(self)
         self._connect()
 
+    def convertToMT(self, dispatcher):
+        assert self.__class__ is ClientConnection, self
+        self.__class__ = MTClientConnection
+        self._initMT(dispatcher)
+
     def _connect(self):
         try:
             self.connector.makeClientConnection()
@@ -762,10 +767,13 @@ class MTClientConnection(ClientConnection):
         return wrapper
 
     def __init__(self, *args, **kwargs):
-        self.lock = lock = RLock()
-        self.dispatcher = kwargs.pop('dispatcher')
-        with lock:
+        self._initMT(kwargs.pop('dispatcher'))
+        with self.lock:
             super(MTClientConnection, self).__init__(*args, **kwargs)
+
+    def _initMT(self, dispatcher):
+        self.lock = RLock()
+        self.dispatcher = dispatcher
 
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
             queue=None, **kw):

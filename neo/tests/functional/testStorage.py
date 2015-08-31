@@ -176,7 +176,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectOudatedCells(2)
         self.neo.expectClusterRunning()
 
-        self.assertRaises(RuntimeError, self.neo.neoctl.killNode,
+        self.assertRaises(IOError, self.neo.neoctl.killNode,
             started[1].getUUID())
         started[1].stop()
         # Cluster not operational anymore. Only cells of second storage that
@@ -327,7 +327,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectStorageNotKnown(started[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(started[1], 10)
-        self.assertRaises(RuntimeError, self.neo.neoctl.dropNode,
+        self.assertRaises(IOError, self.neo.neoctl.dropNode,
                           started[1].getUUID())
         self.neo.expectClusterRunning()
 
