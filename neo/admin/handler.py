@@ -14,102 +14,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib import logging, protocol
-from neo.lib.handler import EventHandler
-from neo.lib.protocol import uuid_str, Packets
+from bottle import HTTPError
+from neo.lib.handler import AnswerBaseHandler, EventHandler, MTEventHandler
 from neo.lib.pt import PartitionTable
 from neo.lib.exception import PrimaryFailure
 
-def check_primary_master(func):
-    def wrapper(self, *args, **kw):
-        if self.app.master_conn is not None:
-            return func(self, *args, **kw)
-        raise protocol.NotReadyError('Not connected to a primary master.')
-    return wrapper
-
-def forward_ask(klass):
-    return check_primary_master(lambda self, conn, *args, **kw:
-        self.app.master_conn.ask(klass(*args, **kw),
-                                 conn=conn, msg_id=conn.getPeerId()))
-
-class AdminEventHandler(EventHandler):
-    """This class deals with events for administrating cluster."""
-
-    @check_primary_master
-    def askPartitionList(self, conn, min_offset, max_offset, uuid):
-        logging.info("ask partition list from %s to %s for %s",
-                     min_offset, max_offset, uuid_str(uuid))
-        self.app.sendPartitionTable(conn, min_offset, max_offset, uuid)
-
-    @check_primary_master
-    def askNodeList(self, conn, node_type):
-        if node_type is None:
-            node_type = 'all'
-            node_filter = None
-        else:
-            node_filter = lambda n: n.getType() is node_type
-        logging.info("ask list of %s nodes", node_type)
-        node_list = self.app.nm.getList(node_filter)
-        node_information_list = [node.asTuple() for node in node_list ]
-        p = Packets.AnswerNodeList(node_information_list)
-        conn.answer(p)
-
-    @check_primary_master
-    def askClusterState(self, conn):
-        conn.answer(Packets.AnswerClusterState(self.app.cluster_state))
-
-    @check_primary_master
-    def askPrimary(self, conn):
-        master_node = self.app.master_node
-        conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
-
-    @check_primary_master
-    def flushLog(self, conn):
-        self.app.master_conn.send(Packets.FlushLog())
-        super(AdminEventHandler, self).flushLog(conn)
-
-    askLastIDs = forward_ask(Packets.AskLastIDs)
-    askLastTransaction = forward_ask(Packets.AskLastTransaction)
-    addPendingNodes = forward_ask(Packets.AddPendingNodes)
-    askRecovery = forward_ask(Packets.AskRecovery)
-    tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
-    setClusterState = forward_ask(Packets.SetClusterState)
-    setNodeState = forward_ask(Packets.SetNodeState)
-    setNumReplicas = forward_ask(Packets.SetNumReplicas)
-    checkReplicas = forward_ask(Packets.CheckReplicas)
-    truncate = forward_ask(Packets.Truncate)
-    repair = forward_ask(Packets.Repair)
-
-
-class MasterEventHandler(EventHandler):
-    """ This class is just used to dispatch message to right handler"""
-
-    def _connectionLost(self, conn):
-        app = self.app
-        if app.listening_conn: # if running
-            assert app.master_conn in (conn, None)
-            conn.cancelRequests("connection to master lost")
-            app.reset()
-            app.uuid = None
-            raise PrimaryFailure
+class MasterBootstrapHandler(EventHandler):
 
     def connectionFailed(self, conn):
-        self._connectionLost(conn)
+        raise AssertionError
 
     def connectionClosed(self, conn):
-        self._connectionLost(conn)
-
-    def dispatch(self, conn, packet, kw={}):
-        if 'conn' in kw:
-            # expected answer
-            if packet.isResponse():
-                packet.setId(kw['msg_id'])
-                kw['conn'].answer(packet)
-            else:
-                self.app.request_handler.dispatch(conn, packet, kw)
-        else:
-            # unexpected answers and notifications
-            super(MasterEventHandler, self).dispatch(conn, packet, kw)
+        app = self.app
+        try:
+            app.__dict__.pop('pt').clear()
+        except KeyError:
+            pass
+        if app.master_conn is not None:
+            assert app.master_conn is conn
+            raise PrimaryFailure
 
     def answerClusterState(self, conn, state):
         self.app.cluster_state = state
@@ -124,7 +47,26 @@ class MasterEventHandler(EventHandler):
     def notifyClusterInformation(self, conn, cluster_state):
         self.app.cluster_state = cluster_state
 
+class MasterEventHandler(MasterBootstrapHandler, MTEventHandler):
 
-class MasterRequestEventHandler(EventHandler):
+    pass
+
+class PrimaryAnswersHandler(AnswerBaseHandler):
     """ This class handle all answer from primary master node"""
-    # XXX: to be deleted ?
+
+    def ack(self, conn, message):
+        super(PrimaryAnswersHandler, self).ack(conn, message)
+        self.app.setHandlerData(message)
+
+    def denied(self, conn, message):
+        raise HTTPError(405, message)
+
+    def protocolError(self, conn, message):
+        raise HTTPError(500, message)
+
+    def answerClusterState(self, conn, state):
+        self.app.cluster_state = state
+
+    answerRecovery = \
+    answerTweakPartitionTable = \
+        lambda self, conn, *args: self.app.setHandlerData(args)

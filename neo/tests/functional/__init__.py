@@ -702,14 +702,16 @@ class NEOCluster(object):
     def expectStorageUnknown(self, process, *args, **kw):
         process_uuid = process.getUUID()
         def expected_storage_not_known(last_try):
-            for storage in self.getStorageList():
-                if storage[2] == process_uuid:
-                    return False, storage
+            try:
+                for storage in self.getStorageList():
+                    if storage[2] == process_uuid:
+                        return False, storage
+            except NotReadyException:
+                return False, None
             return True, None
         self.expectCondition(expected_storage_not_known, *args, **kw)
 
     def __del__(self):
-        self.neoctl.close()
         if self.cleanup_on_delete:
             os.removedirs(self.temp_dir)
 

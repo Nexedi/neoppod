@@ -20,13 +20,15 @@ import os, random, select, socket, sys, tempfile
 import thread, threading, time, traceback, weakref
 from collections import deque
 from contextlib import contextmanager
+from cStringIO import StringIO
 from itertools import count
 from functools import partial, wraps
+from urllib import splitquery
 from zlib import decompress
-import transaction, ZODB
+import bottle, transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
-from neo.admin.handler import MasterEventHandler
+from neo.admin.handler import MasterBootstrapHandler
 from neo.client import Storage
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, \
@@ -38,6 +40,7 @@ from neo.lib.protocol import uuid_str, \
     ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from neo.master.recovery import  RecoveryManager
+from neo.neoctl.neoctl import NotReadyException
 from .. import (getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch,
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX)
@@ -237,7 +240,7 @@ class Serialized(object):
                 next_lock.release()
                 cls._sched_lock.acquire()
 
-    def __init__(self, app, busy=True):
+    def __init__(self, app):
         if self._disabled:
             return
         self._epoll = app.em.epoll
@@ -245,8 +248,7 @@ class Serialized(object):
         # XXX: It may have been initialized before the SimpleQueue is patched.
         thread_container = getattr(app, '_thread_container', None)
         thread_container is None or thread_container.__init__()
-        if busy:
-            self._busy.add(self) # block tic until app waits for polling
+        self._busy.add(self) # block tic until app waits for polling
 
     def __getattr__(self, attr):
         if attr in ('close', 'modify', 'register', 'unregister'):
@@ -284,23 +286,6 @@ class Serialized(object):
             cls._epoll.unregister(fd)
             self._release_next()
 
-class TestSerialized(Serialized):
-
-    def __init__(*args):
-        Serialized.__init__(busy=False, *args)
-
-    def poll(self, timeout):
-        if timeout:
-            for x in TIC_LOOP:
-                r = self._epoll.poll(0)
-                if r:
-                    return r
-                Serialized.tic(step=1, timeout=.001)
-            ConnectionFilter.log()
-            raise Exception("tic is looping forever")
-        return self._epoll.poll(timeout)
-
-
 class Node(object):
 
     def getConnectionList(self, *peers):
@@ -320,6 +305,26 @@ class Node(object):
 
     def filterConnection(self, *peers):
         return ConnectionFilter(self.getConnectionList(*peers))
+
+    def start(self):
+        isinstance(self.em.epoll, Serialized) or Serialized(self)
+        super(Node, self).start()
+
+    def _run(self):
+        try:
+            super(Node, self)._run()
+        finally:
+            self._afterRun()
+            if isinstance(self.em.epoll, Serialized):
+                self.em.epoll.exit()
+
+    def _afterRun(self):
+        logging.debug('stopping %r', self)
+        try:
+            self.listening_conn.close()
+            self.listening_conn = None
+        except AttributeError:
+            pass
 
 class ServerNode(Node):
 
@@ -391,26 +396,6 @@ class ServerNode(Node):
         self.close()
         self.__init__(**init_args)
 
-    def start(self):
-        Serialized(self)
-        threading.Thread.start(self)
-
-    def run(self):
-        try:
-            super(ServerNode, self).run()
-        finally:
-            self._afterRun()
-            logging.debug('stopping %r', self)
-            if isinstance(self.em.epoll, Serialized):
-                self.em.epoll.exit()
-
-    def _afterRun(self):
-        try:
-            self.listening_conn.close()
-            self.listening_conn = None
-        except AttributeError:
-            pass
-
     def getListeningAddress(self):
         try:
             return self.listening_conn.getAddress()
@@ -420,8 +405,39 @@ class ServerNode(Node):
     def stop(self):
         self.em.wakeup(thread.exit)
 
-class AdminApplication(ServerNode, neo.admin.app.Application):
-    pass
+class ThreadedNode(Node):
+
+    def __init__(self, *args, **kw):
+        self._on_thread_exit = kw.pop("on_thread_exit", None)
+        super(ThreadedNode, self).__init__(*args, **kw)
+        self.poll_thread.node_name = getattr(self, 'node_name', self.name)
+
+    def _afterRun(self):
+        pass
+
+    def _close(self):
+        x = self._on_thread_exit
+        x is None or x()
+        super(ThreadedNode, self)._close()
+
+class AdminApplication(ThreadedNode, ServerNode, neo.admin.app.Application):
+
+    def interrupt_main(self):
+        pass
+
+    def start(self):
+        super(AdminApplication, self).start()
+        return # XXX
+        host, port = BIND
+        l = threading.Lock()
+        l.acquire()
+        self.start = l.release
+        try:
+            self.run = lambda: self.serve(host=host, port=port)
+            threading.Thread.start(self)
+            l.acquire()
+        finally:
+            del self.start, self.run
 
 class MasterApplication(ServerNode, neo.master.app.Application):
     pass
@@ -454,13 +470,12 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         (r,), = self.dm.query("SELECT COUNT(*) FROM " + table)
         return r
 
-class ClientApplication(Node, neo.client.app.Application):
+class ClientApplication(ThreadedNode, neo.client.app.Application):
 
     max_reconnection_to_master = 10
 
-    def __init__(self, master_nodes, name, **kw):
-        super(ClientApplication, self).__init__(master_nodes, name, **kw)
-        self.poll_thread.node_name = name
+    def __init__(self, *args, **kw):
+        super(ClientApplication, self).__init__(*args, **kw)
         # Smaller cache to speed up tests that checks behaviour when it's too
         # small. See also NEOCluster.cache_size
         self._cache.max_size //= 1024
@@ -497,10 +512,26 @@ class ClientApplication(Node, neo.client.app.Application):
                 conn.close()
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
+    # Bypass HTTP layer
+    base_url = '/'
 
-    def __init__(self, *args, **kw):
-        super(NeoCTL, self).__init__(*args, **kw)
-        TestSerialized(self)
+    def __init__(self, cluster):
+        self._cluster = cluster
+
+    def _open(self, path):
+        environ = {'REQUEST_METHOD': 'GET'}
+        environ['PATH_INFO'], environ['QUERY_STRING'] = splitquery(path)
+        bottle.request.bind(environ)
+        route, args = self._cluster.admin.bottle.match(environ)
+        try:
+            result = route.call(*args)
+            if isinstance(result, Exception):
+                raise result
+        except bottle.HTTPError, e:
+            if e.status_code != 503:
+                sys.exit(e.body)
+            raise NotReadyException
+        return StringIO(result or '')
 
 
 class LoggerThreadName(str):
@@ -655,6 +686,7 @@ class ConnectionFilter(object):
 
 class NEOCluster(object):
 
+    admin = None
     SSL = None
 
     def __init__(orig, self): # temporary definition for SimpleQueue patch
@@ -726,7 +758,7 @@ class NEOCluster(object):
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
-        kw = dict(replicas=replicas, adapter=adapter,
+        self._server_kw = kw = dict(replicas=replicas, adapter=adapter,
             partitions=partitions, reset=clear_databases, dedup=dedup)
         kw['cluster'] = weak_self = weakref.proxy(self)
         kw['ssl'] = self.SSL
@@ -759,13 +791,13 @@ class NEOCluster(object):
         kw['wait'] = 0
         self.storage_list = [StorageApplication(database=db(x), **kw)
                              for x in db_list]
-        self.admin_list = [AdminApplication(**kw)]
+        self.neoctl = NeoCTL(weak_self)
 
     def __repr__(self):
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
                                      self.name, id(self))
 
-    # A few shortcuts that work when there's only 1 master/storage/admin
+    # A few shortcuts that work when there's only 1 master/storage
     @property
     def master(self):
         master, = self.master_list
@@ -774,10 +806,6 @@ class NEOCluster(object):
     def storage(self):
         storage, = self.storage_list
         return storage
-    @property
-    def admin(self):
-        admin, = self.admin_list
-        return admin
     ###
 
     # More handy shortcuts for tests
@@ -808,11 +836,13 @@ class NEOCluster(object):
     def start(self, storage_list=None, master_list=None, recovering=False):
         self.started = True
         self._patch()
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
         if master_list is None:
             master_list = self.master_list
         if storage_list is None:
             storage_list = self.storage_list
+        self.admin = AdminApplication(
+            on_thread_exit=lambda: delattr(self, "admin"),
+            **self._server_kw)
         def sendPartitionTable(release, orig, *args):
             orig(*args)
             release()
@@ -828,15 +858,14 @@ class NEOCluster(object):
             orig(handler, conn, state)
             if state in expected_state:
                 release()
-        with Serialized.until(MasterEventHandler,
+        with Serialized.until(MasterBootstrapHandler,
                 sendPartitionTable=sendPartitionTable) as tic1, \
              Serialized.until(RecoveryManager, dispatch=dispatch) as tic2, \
-             Serialized.until(MasterEventHandler,
+             Serialized.until(MasterBootstrapHandler,
                 notifyClusterInformation=notifyClusterInformation) as tic3:
             for node in master_list:
                 node.start()
-            for node in self.admin_list:
-                node.start()
+            self.admin.start()
             tic1()
             for node in storage_list:
                 node.start()
@@ -866,39 +895,36 @@ class NEOCluster(object):
         if self.started:
             del self.started
             logging.debug("stopping %s", self)
+            admin = self.admin
+            admin is None or admin.close()
             client = self.__dict__.get("client")
             client is None or self.__dict__.pop("db", client).close()
-            node_list = self.admin_list + self.storage_list + self.master_list
+            node_list = self.storage_list + self.master_list
             for node in node_list:
                 node.stop()
-            try:
-                node_list.append(client.poll_thread)
-            except AttributeError: # client is None or thread is already stopped
-                pass
-            self.join(node_list)
-            self.neoctl.close()
-            del self.neoctl
+            self.join(node_list, (admin, client))
             logging.debug("stopped %s", self)
             self._unpatch()
         if clear_database is None:
             try:
-                for node_type in 'admin', 'storage', 'master':
-                    for node in getattr(self, node_type + '_list'):
-                        node.close()
+                for node in self.storage_list:
+                    node.close()
+                for node in self.master_list:
+                    node.close()
             except:
                 __print_exc()
                 raise
         else:
-            for node_type in 'master', 'storage', 'admin':
+            for node_type in 'master', 'storage':
                 reset_kw = kw.copy()
                 if node_type == 'storage':
                     reset_kw['reset'] = clear_database
                 for node in getattr(self, node_type + '_list'):
                     node.resetNode(**reset_kw)
 
-    def _newClient(self):
+    def _newClient(self, **kw):
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
-                                 compress=self.compress, ssl=self.SSL)
+                                 compress=self.compress, ssl=self.SSL, **kw)
 
     @contextmanager
     def newClient(self, with_db=False):
@@ -918,14 +944,7 @@ class NEOCluster(object):
 
     @cached_property
     def client(self):
-        client = self._newClient()
-        # Make sure client won't be reused after it was closed.
-        def close():
-            client = self.client
-            del self.client, client.close
-            client.close()
-        client.close = close
-        return client
+        return self._newClient(on_thread_exit=lambda: delattr(self, "client"))
 
     @cached_property
     def db(self):
@@ -950,8 +969,13 @@ class NEOCluster(object):
             state = self.getNodeState(node)
             assert state == NodeStates.RUNNING, state
 
-    def join(self, thread_list, timeout=5):
+    def join(self, thread_list, threaded_node_list=(), timeout=5):
         timeout += time.time()
+        for node in threaded_node_list:
+            try:
+                thread_list.append(node.poll_thread)
+            except AttributeError:
+                pass # node is None or thread is already stopped
         while thread_list:
             # Map with repr before that threads become unprintable.
             assert time.time() < timeout, map(repr, thread_list)

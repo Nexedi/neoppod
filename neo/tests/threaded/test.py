@@ -852,9 +852,8 @@ class Test(NEOThreadedTest):
             t1.commit()
         self.assertRaises(ConnectionClosed, t2.join)
         # all nodes except clients should exit
-        cluster.join(cluster.master_list
-                   + cluster.storage_list
-                   + cluster.admin_list)
+        cluster.join(cluster.master_list + cluster.storage_list,
+                     (cluster.admin,))
         cluster.stop() # stop and reopen DB to check partition tables
         cluster.start()
         pt = cluster.admin.pt
@@ -2753,8 +2752,8 @@ class Test(NEOThreadedTest):
     @with_cluster(start_cluster=0, master_count=2)
     def testIdentifyUnknownMaster(self, cluster):
         m0, m1 = cluster.master_list
-        cluster.master_nodes = ()
-        m0.resetNode()
+        with Patch(cluster, master_nodes=()):
+            m0.resetNode()
         cluster.start(master_list=(m0,))
         m1.start()
         self.tic()

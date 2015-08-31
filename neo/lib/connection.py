@@ -607,6 +607,14 @@ class ClientConnection(Connection):
         handler.connectionStarted(self)
         self._connect()
 
+    def convertToMT(self, dispatcher):
+        # XXX: The bootstrap code of the client should at least been moved to
+        #      threaded_app so that the admin can reuse it. Ideally, we'd like
+        #      to also merge with BootstrapManager.
+        assert self.__class__ is ClientConnection, self
+        self.__class__ = MTClientConnection
+        self._initMT(dispatcher)
+
     def _connect(self):
         try:
             connected = self.connector.makeClientConnection()
@@ -701,11 +709,14 @@ class MTClientConnection(ClientConnection):
                 return func(*args, **kw)
         return wrapper
 
-    def __init__(self, *args, **kwargs):
-        self.lock = lock = RLock()
-        self.dispatcher = kwargs.pop('dispatcher')
-        with lock:
-            super(MTClientConnection, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kw):
+        self._initMT(kw.pop('dispatcher'))
+        with self.lock:
+            super(MTClientConnection, self).__init__(*args, **kw)
+
+    def _initMT(self, dispatcher):
+        self.lock = RLock()
+        self.dispatcher = dispatcher
 
     # Alias without lock (cheaper than super())
     _ask = ClientConnection.ask.__func__

@@ -72,7 +72,9 @@ class ThreadedApplication(BaseApplication):
             logging.debug('Stopping %s', self.poll_thread)
             self.em.wakeup(thread.exit)
         else:
-            super(ThreadedApplication, self).close()
+            self._close()
+
+    _close = BaseApplication.close.__func__
 
     def start(self):
         self.poll_thread.is_alive() or self.poll_thread.start()
@@ -82,7 +84,7 @@ class ThreadedApplication(BaseApplication):
         try:
             self._run()
         finally:
-            super(ThreadedApplication, self).close()
+            self._close()
             logging.debug("Poll thread stopped")
 
     def _run(self):
@@ -135,8 +137,15 @@ class ThreadedApplication(BaseApplication):
             handler.dispatch(conn, packet, kw)
 
     def _ask(self, conn, packet, handler=None, **kw):
-        self.setHandlerData(None)
-        queue = self._thread_container.queue
+        # The following line is more than optimization. If an admin node sends
+        # a packet that causes the master to disconnect (e.g. stop a cluster),
+        # we want at least to return the answer for this request, even if the
+        # polling thread already exited and cleared self.__dict__: returning
+        # the result of getHandlerData() would raise an AttributeError.
+        # This is tested by testShutdown (neo.tests.threaded.test.Test).
+        thread_container = self._thread_container
+        thread_container.answer = None
+        queue = thread_container.queue
         msg_id = conn.ask(packet, queue=queue, **kw)
         get = queue.get
         _handlePacket = self._handlePacket
@@ -144,6 +153,5 @@ class ThreadedApplication(BaseApplication):
             qconn, qpacket, kw = get(True)
             if conn is qconn and msg_id == qpacket.getId():
                 _handlePacket(qconn, qpacket, kw, handler)
-                break
+                return thread_container.answer # see above comment
             _handlePacket(qconn, qpacket, kw)
-        return self.getHandlerData()

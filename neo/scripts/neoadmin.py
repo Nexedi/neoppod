@@ -19,6 +19,7 @@
 
 from neo.lib import logging
 
+
 def main(args=None):
     from neo.admin.app import Application
     config = Application.option_parser.parse(args)
@@ -28,5 +29,5 @@ def main(args=None):
 
     # and then, load and run the application
     app = Application(config)
-    app.run()
+    app.serve()
 

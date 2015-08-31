@@ -47,7 +47,7 @@ get3rdParty(x, '3rdparty/' + x, 'https://lab.nexedi.com/nexedi/erp5'
 zodb_require = ['ZODB3>=3.10dev']
 
 extras_require = {
-    'admin': [],
+    'admin': ['bottle'],
     'client': zodb_require,
     'ctl': [],
     'master': [],
