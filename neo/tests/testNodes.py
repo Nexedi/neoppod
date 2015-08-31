@@ -222,29 +222,6 @@ class NodeManagerTests(NeoUnitTestBase):
         self.checkByServer(self.admin)
         self.checkByUUID(self.admin)
 
-    def testReInit(self):
-        """ Check that the manager clear all its content """
-        manager = self.manager
-        self.checkNodes([])
-        self.checkStorages([])
-        self.checkMasters([])
-        self.checkClients([])
-        self._addMaster()
-        self.checkMasters([self.master])
-        manager.init()
-        self.checkNodes([])
-        self.checkMasters([])
-        self._addStorage()
-        self.checkStorages([self.storage])
-        manager.init()
-        self.checkNodes([])
-        self.checkStorages([])
-        self._addClient()
-        self.checkClients([self.client])
-        manager.init()
-        self.checkNodes([])
-        self.checkClients([])
-
     def testUpdate(self):
         """ Check manager content update """
         # set up four nodes

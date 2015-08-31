@@ -34,18 +34,18 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager(config.getDynamicMasterList())
+        for address in config.getMasters():
+            self.nm.createMaster(address=address)
 
         self.name = config.getCluster()
         self.server = config.getBind()
 
-        self.master_addresses = config.getMasters()
         logging.debug('IP address is %s, port is %d', *self.server)
 
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
         self.uuid = config.getUUID()
-        self.primary_master_node = None
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
         self.cluster_state = None
@@ -105,22 +105,14 @@ class Application(object):
         the attempt of a connection periodically.
 
         Note that I do not accept any connection from non-master nodes
-        at this stage."""
-
-        nm = self.nm
-        nm.init()
+        at this stage.
+        """
         self.cluster_state = None
-
-        for address in self.master_addresses:
-            self.nm.createMaster(address=address)
-
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN,
                 self.uuid, self.server)
         data = bootstrap.getPrimaryConnection()
         (node, conn, uuid, num_partitions, num_replicas) = data
-        nm.update([(node.getType(), node.getAddress(), node.getUUID(),
-                    NodeStates.RUNNING)])
         self.master_node = node
         self.master_conn = conn
         self.uuid = uuid

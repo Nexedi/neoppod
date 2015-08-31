@@ -556,13 +556,6 @@ class NodeManager(object):
     def createFromNodeType(self, node_type, **kw):
         return self._createNode(self._getClassFromNodeType(node_type), **kw)
 
-    def init(self):
-        self._node_set.clear()
-        self._type_dict.clear()
-        self._state_dict.clear()
-        self._uuid_dict.clear()
-        self._address_dict.clear()
-
     def update(self, node_list):
         for node_type, addr, uuid, state in node_list:
             # This should be done here (although klass might not be used in this

@@ -97,6 +97,12 @@ class MasterTests(NEOFunctionalTest):
         # Stop the cluster (so we can start processes manually)
         self.neo.killMasters()
 
+        # Restart admin to make sure it knows all masters.
+        admin, = self.neo.getAdminProcessList()
+        admin.kill()
+        admin.wait()
+        admin.start()
+
         # Start the first master.
         first_master = master_list[0]
         first_master.start()
