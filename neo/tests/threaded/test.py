@@ -77,7 +77,7 @@ class Test(NEOThreadedTest):
                 self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 serial = storage.tpc_finish(txn)
                 data_info[key] = 0
-                cluster.tic(slave=1)
+                self.tic()
                 self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 storage._cache.clear()
@@ -184,7 +184,7 @@ class Test(NEOThreadedTest):
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             tid1 = storage.tpc_finish(txn[2])
-            cluster.tic(slave=1)
+            self.tic()
             data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
@@ -360,7 +360,7 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             cluster.db # open DB
-            cluster.client.setPoll(0)
+            self.background(0)
             s0, s1 = cluster.client.nm.getStorageList()
             conn = s0.getConnection()
             self.assertFalse(conn.isClosed())
@@ -403,7 +403,7 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             c.root()[0] = 'ok'
             t.commit()
-            cluster.tic(slave=1)
+            self.tic()
             data_info = cluster.storage.getDataLockInfo()
             self.assertEqual(data_info.values(), [0, 0])
             # (obj|trans) become t(obj|trans)
@@ -475,7 +475,7 @@ class Test(NEOThreadedTest):
             # drop one
             cluster.neoctl.dropNode(s1.uuid)
             checkNodeState(None)
-            cluster.tic() # Let node state update reach remaining storage
+            self.tic() # Let node state update reach remaining storage
             checkNodeState(None)
             self.assertEqual([], cluster.getOudatedCells())
             # restart with s2 only
@@ -487,7 +487,7 @@ class Test(NEOThreadedTest):
             checkNodeState(None)
             # then restart it, it must be in pending state
             s1.start()
-            cluster.tic()
+            self.tic()
             checkNodeState(NodeStates.PENDING)
         finally:
             cluster.stop()
@@ -517,7 +517,7 @@ class Test(NEOThreadedTest):
             storage.connectToPrimary = sys.exit
             # send an unexpected to master so it aborts connection to storage
             storage.master_conn.answer(Packets.Pong())
-            cluster.tic(force=1)
+            self.tic()
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.VERIFYING)
         finally:
@@ -532,10 +532,10 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             c.root()[''] = ''
             t.commit()
-            cluster.client.setPoll(0)
+            self.background(0)
             # tell admin to shutdown the cluster
             cluster.neoctl.setClusterState(ClusterStates.STOPPING)
-            cluster.tic()
+            self.tic()
             # all nodes except clients should exit
             for master in cluster.master_list:
                 master.join(5)
@@ -609,10 +609,8 @@ class Test(NEOThreadedTest):
             # (at this time, we still have x=0 and y=1)
             t2, c2 = cluster.getTransaction()
             # Copy y to x using a different Master-Client connection
-            cluster.client.setPoll(0)
             client = ClientApplication(name=cluster.name,
                                        master_nodes=cluster.master_nodes)
-            client.setPoll(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
@@ -621,8 +619,6 @@ class Test(NEOThreadedTest):
                 m2c.add(lambda conn, packet:
                     isinstance(packet, Packets.InvalidateObjects))
                 tid = client.tpc_finish(txn, None)
-                client.setPoll(0)
-                cluster.client.setPoll(1)
                 # Change to x is committed. Testing connection must ask the
                 # storage node to return original value of x, even if we
                 # haven't processed yet any invalidation for x.
@@ -657,14 +653,10 @@ class Test(NEOThreadedTest):
                 # from the storage (which is <value=1, next_tid=None>) is about
                 # to be processed.
                 # Now modify x to receive an invalidation for it.
-                cluster.client.setPoll(0)
-                client.setPoll(1)
                 txn = transaction.Transaction()
                 client.tpc_begin(txn)
                 client.store(x2._p_oid, tid, x, '', txn) # value=0
                 tid = client.tpc_finish(txn, None)
-                client.setPoll(0)
-                cluster.client.setPoll(1)
                 t1.begin() # make sure invalidation is processed
             finally:
                 del p
@@ -690,15 +682,11 @@ class Test(NEOThreadedTest):
                 p.apply()
                 t = self.newThread(t1.begin)
                 l1.acquire()
-                cluster.client.setPoll(0)
-                client.setPoll(1)
                 txn = transaction.Transaction()
                 client.tpc_begin(txn)
                 client.store(x2._p_oid, tid, y, '', txn)
                 tid = client.tpc_finish(txn, None)
                 client.close()
-                client.setPoll(0)
-                cluster.client.setPoll(1)
             finally:
                 del p
                 l2.release()
@@ -728,24 +716,23 @@ class Test(NEOThreadedTest):
             y = c1._storage.load(y._p_oid)[0]
 
             # close connections to master & storage
-            cluster.client.setPoll(0)
+            self.background(0)
             c, = cluster.master.nm.getClientList()
             c.getConnection().close()
             c, = cluster.storage.nm.getClientList()
             c.getConnection().close()
-            cluster.tic(force=1)
+            self.tic()
 
             # modify x with another client
             client = ClientApplication(name=cluster.name,
                                        master_nodes=cluster.master_nodes)
-            client.setPoll(1)
+            self.background(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
             tid = client.tpc_finish(txn, None)
             client.close()
-            client.setPoll(0)
-            cluster.client.setPoll(1)
+            self.tic()
 
             # Check reconnection to storage.
             with Patch(cluster.client.cp, getConnForNode=getConnForNode):
@@ -765,7 +752,7 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             client = cluster.client
-            client.setPoll(1)
+            self.background(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             txn_context = client._txn_container.get(txn)
@@ -828,13 +815,13 @@ class Test(NEOThreadedTest):
             with cluster.master.filterConnection(cluster.storage) as m2s:
                 m2s.add(delayNotifyInformation)
                 cluster.client.master_conn.close()
-                cluster.client.setPoll(0)
+                self.background(0)
                 client = ClientApplication(name=cluster.name,
                                            master_nodes=cluster.master_nodes)
                 p = Patch(client.storage_bootstrap_handler, notReady=notReady)
                 try:
                     p.apply()
-                    client.setPoll(1)
+                    self.background(1)
                     x = client.load(ZERO_TID)
                 finally:
                     del p

@@ -204,6 +204,7 @@ class ImporterTests(NEOThreadedTest):
                 t.commit()
                 if cluster.storage.dm._import:
                     last_import = i
+            self.tic()
             self.assertTrue(last_import and not cluster.storage.dm._import)
             i = len(src_root) + 1
             self.assertEqual(sorted(r.walk()), sorted(
