@@ -136,6 +136,12 @@ class BootstrapManager(EventHandler):
             if conn is None:
                 # open the connection
                 conn = ClientConnection(em, self, self.current)
+                # Yes, the connection may be already closed. This happens when
+                # the kernel reacts so quickly to a closed port that 'connect'
+                # fails on the first call. In such case, poll(1) would deadlock
+                # if there's no other connection to timeout.
+                if conn.isClosed():
+                    continue
             # still processing
             em.poll(1)
         return (self.current, conn, self.uuid, self.num_partitions,
