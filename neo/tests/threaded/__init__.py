@@ -29,6 +29,7 @@ import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
+from neo.client.container import SimpleQueue
 from neo.client.poll import _ThreadedPoll
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, Connection
@@ -96,7 +97,8 @@ class Serialized(object):
 
     @classmethod
     def background(cls, background):
-        if cls._background != background:
+        prev = cls._background
+        if prev != background:
             if background:
                 cls._background = background
                 cls._sched_lock.release()
@@ -107,6 +109,7 @@ class Serialized(object):
                 cls._epoll.unregister(fd)
                 cls.idle(None)
                 cls._background = background
+        return prev
 
     @classmethod
     def idle(cls, owner):
@@ -530,6 +533,7 @@ class NEOCluster(object):
 
     BaseConnection_getTimeout = staticmethod(BaseConnection.getTimeout)
     CONNECT_LIMIT = SocketConnector.CONNECT_LIMIT
+    SimpleQueue__init__ = staticmethod(SimpleQueue.__init__)
     SocketConnector_bind = staticmethod(SocketConnector._bind)
     SocketConnector_connect = staticmethod(SocketConnector._connect)
     _ThreadedPoll_run = staticmethod(_ThreadedPoll.run)
@@ -550,6 +554,16 @@ class NEOCluster(object):
         cls._patch_count += 1
         if cls._patch_count > 1:
             return
+        def __init__(self):
+            cls.SimpleQueue__init__(self)
+            lock = self._lock
+            def _lock(blocking=True):
+                if blocking:
+                    while not lock(False):
+                        Serialized.tic(step=1)
+                    return True
+                return lock(False)
+            self._lock = _lock
         def start(self):
             Serialized(self)
             cls._ThreadedPoll_start(self)
@@ -559,6 +573,7 @@ class NEOCluster(object):
             finally:
                 self.em.epoll.exit()
         BaseConnection.getTimeout = lambda self: None
+        SimpleQueue.__init__ = __init__
         SocketConnector.CONNECT_LIMIT = 0
         SocketConnector._bind = lambda self, addr: \
             cls.SocketConnector_bind(self, BIND)
@@ -569,13 +584,15 @@ class NEOCluster(object):
         Serialized.init()
 
     @staticmethod
-    def _unpatch():
+    def _unpatch(background):
         cls = NEOCluster
         assert cls._patch_count > 0
         cls._patch_count -= 1
         if cls._patch_count:
+            Serialized.background(background)
             return
         BaseConnection.getTimeout = cls.BaseConnection_getTimeout
+        SimpleQueue.__init__ = cls.SimpleQueue__init__
         SocketConnector.CONNECT_LIMIT = cls.CONNECT_LIMIT
         SocketConnector._bind = cls.SocketConnector_bind
         SocketConnector._connect = cls.SocketConnector_connect
@@ -673,6 +690,7 @@ class NEOCluster(object):
 
     def start(self, storage_list=None, fast_startup=False):
         self._patch()
+        self.client._thread_container.__init__()
         for node_type in 'master', 'admin':
             for node in getattr(self, node_type + '_list'):
                 node.start()
@@ -719,7 +737,7 @@ class NEOCluster(object):
 
     def stop(self):
         logging.debug("stopping %s", self)
-        Serialized.background(True)
+        background = Serialized.background(True)
         self.__dict__.pop('_db', self.client).close()
         node_list = self.admin_list + self.storage_list + self.master_list
         for node in node_list:
@@ -731,7 +749,7 @@ class NEOCluster(object):
         if client.is_alive():
             client.join()
         logging.debug("stopped %s", self)
-        self._unpatch()
+        self._unpatch(background)
 
     def getNodeState(self, node):
         uuid = node.uuid
@@ -745,8 +763,6 @@ class NEOCluster(object):
                      if cell[1] == CellStates.OUT_OF_DATE]
 
     def getZODBStorage(self, **kw):
-        # automatically let nodes running in the background
-        Serialized.background(True)
         return Storage.Storage(None, self.name, _app=self.client, **kw)
 
     def importZODB(self, dummy_zodb=None, random=random):
@@ -807,7 +823,6 @@ class NEOThreadedTest(NeoTestBase):
                 db.execute("UPDATE packet SET body=NULL")
                 db.execute("VACUUM")
 
-    background = Serialized.background
     tic = Serialized.tic
 
     def getUnpickler(self, conn):

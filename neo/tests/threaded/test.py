@@ -360,7 +360,6 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             cluster.db # open DB
-            self.background(0)
             s0, s1 = cluster.client.nm.getStorageList()
             conn = s0.getConnection()
             self.assertFalse(conn.isClosed())
@@ -532,7 +531,6 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             c.root()[''] = ''
             t.commit()
-            self.background(0)
             # tell admin to shutdown the cluster
             cluster.neoctl.setClusterState(ClusterStates.STOPPING)
             self.tic()
@@ -716,7 +714,6 @@ class Test(NEOThreadedTest):
             y = c1._storage.load(y._p_oid)[0]
 
             # close connections to master & storage
-            self.background(0)
             c, = cluster.master.nm.getClientList()
             c.getConnection().close()
             c, = cluster.storage.nm.getClientList()
@@ -726,7 +723,6 @@ class Test(NEOThreadedTest):
             # modify x with another client
             client = ClientApplication(name=cluster.name,
                                        master_nodes=cluster.master_nodes)
-            self.background(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
@@ -752,7 +748,6 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             client = cluster.client
-            self.background(1)
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             txn_context = client._txn_container.get(txn)
@@ -815,13 +810,11 @@ class Test(NEOThreadedTest):
             with cluster.master.filterConnection(cluster.storage) as m2s:
                 m2s.add(delayNotifyInformation)
                 cluster.client.master_conn.close()
-                self.background(0)
                 client = ClientApplication(name=cluster.name,
                                            master_nodes=cluster.master_nodes)
                 p = Patch(client.storage_bootstrap_handler, notReady=notReady)
                 try:
                     p.apply()
-                    self.background(1)
                     x = client.load(ZERO_TID)
                 finally:
                     del p

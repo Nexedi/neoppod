@@ -89,7 +89,6 @@ class ReplicationTests(NEOThreadedTest):
             upstream.start()
             importZODB = upstream.importZODB()
             importZODB(3)
-            self.background(0)
             backup = NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
                                 upstream=upstream)
             try:
@@ -100,7 +99,6 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 # Normal case, following upstream cluster closely.
                 importZODB(17)
-                self.background(0)
                 self.tic()
                 self.assertEqual(np*nr, self.checkBackup(backup))
             # Check that a backup cluster can be restarted.
@@ -112,7 +110,6 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.BACKINGUP)
                 importZODB(17)
-                self.background(0)
                 self.tic()
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
@@ -138,7 +135,6 @@ class ReplicationTests(NEOThreadedTest):
                     f.add(delaySecondary)
                     while not f.filtered_count:
                         importZODB(1)
-                    self.background(0)
                     self.tic()
                     backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                     self.tic()
@@ -157,7 +153,6 @@ class ReplicationTests(NEOThreadedTest):
                         isinstance(packet, Packets.AddObject))
                     while not f.filtered_count:
                         importZODB(1)
-                    self.background(0)
                     self.tic()
                     backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                     self.tic()
@@ -200,7 +195,6 @@ class ReplicationTests(NEOThreadedTest):
             # Do not start with an empty DB so that 'primary_dict' below is not
             # empty on the first iteration.
             importZODB(1)
-            self.background(0)
             backup = NEOCluster(partitions=np, replicas=2, storage_count=4,
                                 upstream=upstream)
             try:
@@ -229,7 +223,6 @@ class ReplicationTests(NEOThreadedTest):
                                   fetchObjects=fetchObjects)
                     with p:
                         importZODB(lambda x: counts[0] > 1)
-                    self.background(0)
                     if event > 5:
                         backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
                     self.tic()
@@ -274,7 +267,6 @@ class ReplicationTests(NEOThreadedTest):
             f.add(lambda conn, packet:
                 isinstance(packet, Packets.InvalidateObjects))
             upstream.importZODB()(1)
-            self.background(0)
         count = [0]
         def _connect(orig, conn):
             count[0] += 1
@@ -305,7 +297,6 @@ class ReplicationTests(NEOThreadedTest):
             f.add(lambda conn, packet:
                 isinstance(packet, Packets.NotifyUnlockInformation))
             upstream.importZODB()(1)
-            self.background(0)
             self.tic()
         self.tic()
         self.assertEqual(1, self.checkBackup(backup))
@@ -342,7 +333,6 @@ class ReplicationTests(NEOThreadedTest):
             try:
                 cluster.start([s0])
                 cluster.populate([range(np*2)] * np)
-                self.background(0)
                 s1.start()
                 s2.start()
                 self.tic()
@@ -386,7 +376,6 @@ class ReplicationTests(NEOThreadedTest):
             checker.CHECK_COUNT = 2
             cluster.start()
             cluster.populate([range(np*2)] * tid_count)
-            self.background(0)
             storage_dict = {x.uuid: x for x in cluster.storage_list}
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
             self.tic()
