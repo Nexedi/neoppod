@@ -74,7 +74,7 @@ class ThreadedPoll(object):
                 # XXX: ideally, we should wake thread up here, to be sure not
                 # to wait forever.
                 thread.join()
-            if not thread.isAlive():
+            if not thread.is_alive():
                 if self._started:
                     self.newThread()
                 else:

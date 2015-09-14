@@ -263,7 +263,7 @@ class ServerNode(Node):
         return self._init_args['address']
 
     def resetNode(self):
-        assert not self.isAlive()
+        assert not self.is_alive()
         kw = self._init_args
         self.__dict__.clear()
         self.__init__(**kw)
@@ -715,10 +715,10 @@ class NEOCluster(object):
             client or Serialized.background()
             for node_type in 'admin', 'storage', 'master':
                 for node in getattr(self, node_type + '_list'):
-                    if node.isAlive():
+                    if node.is_alive():
                         node.join()
             client = self.client.poll_thread
-            if client.isAlive():
+            if client.is_alive():
                 client.join()
         finally:
             # Acquire again in case there's another cluster running, otherwise
@@ -847,7 +847,7 @@ class NEOThreadedTest(NeoTestBase):
 
         def join(self, timeout=None):
             threading.Thread.join(self, timeout)
-            if not self.isAlive() and self.__exc_info:
+            if not self.is_alive() and self.__exc_info:
                 etype, value, tb = self.__exc_info
                 del self.__exc_info
                 raise etype, value, tb

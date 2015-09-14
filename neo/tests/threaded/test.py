@@ -539,12 +539,12 @@ class Test(NEOThreadedTest):
             # all nodes except clients should exit
             for master in cluster.master_list:
                 master.join(5)
-                self.assertFalse(master.isAlive())
+                self.assertFalse(master.is_alive())
             for storage in cluster.storage_list:
                 storage.join(5)
-                self.assertFalse(storage.isAlive())
+                self.assertFalse(storage.is_alive())
             cluster.admin.join(5)
-            self.assertFalse(cluster.admin.isAlive())
+            self.assertFalse(cluster.admin.is_alive())
         finally:
             cluster.stop()
         cluster.reset() # reopen DB to check partition tables

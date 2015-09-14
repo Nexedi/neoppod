@@ -659,7 +659,7 @@ class NEOFunctionalTest(NeoTestBase):
         thread.daemon = True
         thread.start()
         thread.join(timeout)
-        self.assertFalse(thread.isAlive(), 'Run timeout')
+        self.assertFalse(thread.is_alive(), 'Run timeout')
         if exc_list:
             assert len(exc_list) == 1, exc_list
             exc = exc_list[0]
