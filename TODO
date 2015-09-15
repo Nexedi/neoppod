@@ -156,9 +156,8 @@
       like fstail for FileStorage.
 
     Tests
-    - Use another mock library that is eggified and maintained.
-      See http://garybernhardt.github.com/python-mock-comparison/
-      for a comparison of available mocking libraries/frameworks.
+    - Use another mock library: Python 3.3+ has unittest.mock, which is
+      available for earlier versions at https://pypi.python.org/pypi/mock
     - Fix epoll descriptor leak.
 
   Later
