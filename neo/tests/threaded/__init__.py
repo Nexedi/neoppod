@@ -35,7 +35,7 @@ from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
-from neo.lib.util import parseMasterList, p64
+from neo.lib.util import cached_property, parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
@@ -297,7 +297,7 @@ class ServerNode(Node):
     def resetNode(self):
         assert not self.is_alive()
         kw = self._init_args
-        self.__dict__.clear()
+        self.close()
         self.__init__(**kw)
 
     def start(self):
@@ -374,9 +374,9 @@ class ClientApplication(Node, neo.client.app.Application):
         super(ClientApplication, self).__init__(master_nodes, name, **kw)
         self.poll_thread.node_name = name
 
-    def run(self):
+    def _run(self):
         try:
-            super(ClientApplication, self).run()
+            super(ClientApplication, self)._run()
         finally:
             self.em.epoll.exit()
 
@@ -559,6 +559,7 @@ class NEOCluster(object):
                        importer=None, autostart=None):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
+        self.compress = compress
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
@@ -601,8 +602,6 @@ class NEOCluster(object):
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
-        self.client = ClientApplication(name=self.name,
-            master_nodes=self.master_nodes, compress=compress)
         self.neoctl = NeoCTL(self.admin.getVirtualAddress())
 
     def __repr__(self):
@@ -636,8 +635,7 @@ class NEOCluster(object):
                 kw['clear_database'] = clear_database
             for node in getattr(self, node_type + '_list'):
                 node.resetNode(**kw)
-        self.client = ClientApplication(name=self.name,
-            master_nodes=self.master_nodes)
+        self.neoctl.close()
         self.neoctl = NeoCTL(self.admin.getVirtualAddress())
 
     def start(self, storage_list=None, fast_startup=False):
@@ -660,6 +658,22 @@ class NEOCluster(object):
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
+    @cached_property
+    def client(self):
+        client = ClientApplication(name=self.name,
+            master_nodes=self.master_nodes, compress=self.compress)
+        # Make sure client won't be reused after it was closed.
+        def close():
+            client = self.client
+            del self.client, client.close
+            client.close()
+        client.close = close
+        return client
+
+    @cached_property
+    def db(self):
+        return ZODB.DB(storage=self.getZODBStorage())
+
     def startCluster(self):
         try:
             self.neoctl.startCluster()
@@ -678,14 +692,6 @@ class NEOCluster(object):
         for node in storage_list:
             assert self.getNodeState(node) == NodeStates.RUNNING
 
-    @property
-    def db(self):
-        try:
-            return self._db
-        except AttributeError:
-            self._db = db = ZODB.DB(storage=self.getZODBStorage())
-            return db
-
     def join(self, thread_list, timeout=5):
         timeout += time.time()
         while thread_list:
@@ -695,11 +701,12 @@ class NEOCluster(object):
 
     def stop(self):
         logging.debug("stopping %s", self)
-        self.__dict__.pop('_db', self.client).close()
+        client = self.__dict__.get("client")
+        client is None or self.__dict__.pop("db", client).close()
         node_list = self.admin_list + self.storage_list + self.master_list
         for node in node_list:
             node.em.wakeup(True)
-        node_list.append(self.client.poll_thread)
+        client is None or node_list.append(client.poll_thread)
         self.join(node_list)
         logging.debug("stopped %s", self)
         self._unpatch()
@@ -751,7 +758,6 @@ class NEOCluster(object):
             for node_type in 'admin', 'storage', 'master':
                 for node in getattr(self, node_type + '_list'):
                     node.close()
-            self.client.em.close()
         except:
             __print_exc()
             raise

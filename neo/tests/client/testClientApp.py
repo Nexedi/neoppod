@@ -795,6 +795,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             app.nm.getByAddress(conn.getAddress())._connection = None
         app._ask = _ask_base
         # faked environnement
+        app.em.close()
         app.em = Mock({'getConnectionList': []})
         app.pt = Mock({ 'operational': False})
         app.start = lambda: None

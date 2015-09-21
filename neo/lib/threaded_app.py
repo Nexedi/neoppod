@@ -73,11 +73,14 @@ class ThreadedApplication(object):
     def close(self):
         # Clear all connection
         self.master_conn = None
-        for conn in self.em.getConnectionList():
-            conn.close()
-        # Stop polling thread
-        logging.debug('Stopping %s', self.poll_thread)
-        self.em.wakeup(True)
+        if self.poll_thread.is_alive():
+            for conn in self.em.getConnectionList():
+                conn.close()
+            # Stop polling thread
+            logging.debug('Stopping %s', self.poll_thread)
+            self.em.wakeup(True)
+        else:
+            self.em.close()
 
     def start(self):
         self.poll_thread.is_alive() or self.poll_thread.start()
@@ -87,6 +90,7 @@ class ThreadedApplication(object):
         try:
             self._run()
         finally:
+            self.em.close()
             logging.debug("Poll thread stopped")
 
     def _run(self):

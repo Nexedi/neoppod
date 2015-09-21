@@ -22,19 +22,16 @@ from . import NEOCluster, NEOFunctionalTest
 
 class ClusterTests(NEOFunctionalTest):
 
-    def setUp(self):
-        NEOFunctionalTest.setUp(self)
-        self.neo = None
-
     def _tearDown(self, success):
-        if self.neo is not None:
+        if hasattr(self, "neo"):
             self.neo.stop()
+            del self.neo
         NEOFunctionalTest._tearDown(self, success)
 
     def testClusterStartup(self):
-        neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,
+        neo = self.neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,
                          temp_dir=self.getTempDirectory())
-        neoctl = neo.getNEOCTL()
+        neoctl = neo.neoctl
         neo.run()
         # Runing a new cluster doesn't exit Recovery state.
         s1, s2 = neo.getStorageProcessList()
@@ -75,7 +72,6 @@ class ClusterTests(NEOFunctionalTest):
     def testClusterBreaks(self):
         self.neo = NEOCluster(['test_neo1'],
                 master_count=1, temp_dir=self.getTempDirectory())
-        neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
@@ -87,7 +83,6 @@ class ClusterTests(NEOFunctionalTest):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
                  partitions=2, master_count=1, replicas=0,
                  temp_dir=self.getTempDirectory())
-        neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
@@ -99,7 +94,6 @@ class ClusterTests(NEOFunctionalTest):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
                          partitions=2, replicas=1, master_count=1,
                          temp_dir=self.getTempDirectory())
-        neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
         self.neo.start()
         self.neo.expectClusterRunning()
@@ -112,7 +106,6 @@ class ClusterTests(NEOFunctionalTest):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
             partitions=10, replicas=0, master_count=MASTER_COUNT,
             temp_dir=self.getTempDirectory())
-        neoctl = self.neo.getNEOCTL()
         self.neo.start()
         self.neo.expectClusterRunning()
         self.neo.expectAllMasters(MASTER_COUNT, NodeStates.RUNNING)
@@ -126,7 +119,6 @@ class ClusterTests(NEOFunctionalTest):
         # start a cluster
         self.neo = NEOCluster(['test_neo1'], replicas=0,
             temp_dir=self.getTempDirectory())
-        neoctl = self.neo.getNEOCTL()
         self.neo.start()
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(0)

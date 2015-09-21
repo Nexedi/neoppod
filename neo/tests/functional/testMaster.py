@@ -29,8 +29,6 @@ class MasterTests(NEOFunctionalTest):
                 temp_dir=self.getTempDirectory())
         self.neo.stop()
         self.neo.run()
-        self.storage = self.neo.getZODBStorage()
-        self.neoctl = self.neo.getNEOCTL()
 
     def _tearDown(self, success):
         self.neo.stop()
@@ -41,14 +39,15 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectAllMasters(MASTER_NODE_COUNT, NodeStates.RUNNING)
 
         # Kill
-        primary_uuid = self.neoctl.getPrimary()
+        neoctl = self.neo.neoctl
+        primary_uuid = neoctl.getPrimary()
         for master in self.neo.getMasterProcessList():
             uuid = master.getUUID()
             if uuid != primary_uuid:
                 break
-        self.neo.neoctl.killNode(uuid)
+        neoctl.killNode(uuid)
         self.neo.expectDead(master)
-        self.assertRaises(RuntimeError, self.neo.neoctl.killNode, primary_uuid)
+        self.assertRaises(RuntimeError, neoctl.killNode, primary_uuid)
 
     def testStoppingPrimaryWithTwoSecondaries(self):
         # Wait for masters to stabilize

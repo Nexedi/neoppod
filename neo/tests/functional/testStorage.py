@@ -33,13 +33,10 @@ OBJECT_NUMBER = 100
 
 class StorageTests(NEOFunctionalTest):
 
-    def setUp(self):
-        NEOFunctionalTest.setUp(self)
-        self.neo = None
-
     def _tearDown(self, success):
-        if self.neo is not None:
+        if hasattr(self, "neo"):
             self.neo.stop()
+            del self.neo
         NEOFunctionalTest._tearDown(self, success)
 
     def __setup(self, storage_number=2, pending_number=0, replicas=1,

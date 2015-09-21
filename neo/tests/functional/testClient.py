@@ -21,7 +21,6 @@ import ZODB
 import socket
 
 from struct import pack
-from neo.neoctl.neoctl import NeoCTL
 from neo.lib.util import makeChecksum, u64
 from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
@@ -78,8 +77,8 @@ class ClientTests(NEOFunctionalTest):
         )
 
     def _tearDown(self, success):
-        if self.neo is not None:
-            self.neo.stop()
+        self.neo.stop()
+        del self.neo
         NEOFunctionalTest._tearDown(self, success)
 
     def __setup(self):
@@ -261,7 +260,6 @@ class ClientTests(NEOFunctionalTest):
         def test():
             self.neo = NEOCluster(['test_neo1'], replicas=0,
                 temp_dir=self.getTempDirectory())
-            neoctl = self.neo.getNEOCTL()
             self.neo.start()
             # BUG: The following 2 lines creates 2 app, i.e. 2 TCP connections
             #      to the storage, so there may be a race condition at network
@@ -295,7 +293,6 @@ class ClientTests(NEOFunctionalTest):
                 temp_dir = self.getTempDirectory(),
                 address_type = socket.AF_INET6
                 )
-            neoctl = NeoCTL(('::1', 0))
             self.neo.start()
             db1, conn1 = self.neo.getZODBConnection()
             db2, conn2 = self.neo.getZODBConnection()
@@ -310,7 +307,6 @@ class ClientTests(NEOFunctionalTest):
         def test():
             self.neo = NEOCluster(['test_neo1'], replicas=0,
                 temp_dir=self.getTempDirectory())
-            neoctl = self.neo.getNEOCTL()
             self.neo.start()
             db1, conn1 = self.neo.getZODBConnection()
             db2, conn2 = self.neo.getZODBConnection()
@@ -353,9 +349,6 @@ class ClientTests(NEOFunctionalTest):
             master. This OID must be intercepted at commit, used for next OID
             generations and persistently saved on storage nodes.
         """
-        self.neo = NEOCluster(['test_neo1'], replicas=0,
-            temp_dir=self.getTempDirectory())
-        neoctl = self.neo.getNEOCTL()
         self.neo.start()
         db1, conn1 = self.neo.getZODBConnection()
         st1 = conn1._storage

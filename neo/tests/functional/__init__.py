@@ -400,9 +400,6 @@ class NEOCluster(object):
                 except (AlreadyStopped, NodeProcessError):
                     pass
 
-    def getNEOCTL(self):
-        return self.neoctl
-
     def getZODBStorage(self, **kw):
         master_nodes = self.master_nodes.replace('/', ' ')
         result = Storage(
@@ -629,6 +626,7 @@ class NEOCluster(object):
         self.expectCondition(expected_storage_not_known, *args, **kw)
 
     def __del__(self):
+        self.neoctl.close()
         if self.cleanup_on_delete:
             os.removedirs(self.temp_dir)
 

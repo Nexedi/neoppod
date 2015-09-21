@@ -158,7 +158,6 @@
     Tests
     - Use another mock library: Python 3.3+ has unittest.mock, which is
       available for earlier versions at https://pypi.python.org/pypi/mock
-    - Fix epoll descriptor leak.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might

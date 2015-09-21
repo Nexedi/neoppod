@@ -42,6 +42,10 @@ class MasterRecoveryTests(NeoUnitTestBase):
         self.master_address = ('127.0.0.1', self.master_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
 
+    def _tearDown(self, success):
+        self.app.close()
+        NeoUnitTestBase._tearDown(self, success)
+
     # Common methods
     def identifyToMasterNode(self, node_type=NodeTypes.STORAGE, ip="127.0.0.1",
                              port=10021):

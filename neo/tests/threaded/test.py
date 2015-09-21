@@ -828,6 +828,7 @@ class Test(NEOThreadedTest):
             cluster.start(cluster.storage_list[:2])
         finally:
             cluster.stop()
+            del cluster.startCluster
 
 if __name__ == "__main__":
     unittest.main()

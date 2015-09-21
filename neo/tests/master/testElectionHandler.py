@@ -55,6 +55,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         # create an application object
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)
+        self.app.em.close()
         self.app.pt.clear()
         self.app.em = Mock()
         self.app.uuid = self.getMasterUUID()
@@ -206,6 +207,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         # create an application object
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)
+        self.app.em.close()
         self.app.pt.clear()
         self.app.name = 'NEOCLUSTER'
         self.app.em = Mock()

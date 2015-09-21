@@ -23,6 +23,7 @@ import socket
 import sys
 import tempfile
 import unittest
+import weakref
 import MySQLdb
 import transaction
 
@@ -549,7 +550,7 @@ class Patch(object):
 
     def __enter__(self):
         self.apply()
-        return self
+        return weakref.proxy(self)
 
     def __exit__(self, t, v, tb):
         self.__del__()

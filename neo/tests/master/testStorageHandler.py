@@ -30,6 +30,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # create an application object
         config = self.getMasterConfiguration(master_number=1, replicas=1)
         self.app = Application(config)
+        self.app.em.close()
         self.app.pt.clear()
         self.app.em = Mock()
         self.service = StorageServiceHandler(self.app)

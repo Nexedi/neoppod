@@ -27,6 +27,10 @@ class MasterAppTests(NeoUnitTestBase):
         self.app = Application(config)
         self.app.pt.clear()
 
+    def _tearDown(self, success):
+        self.app.close()
+        NeoUnitTestBase._tearDown(self, success)
+
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send
         master_uuid = self.getMasterUUID()
