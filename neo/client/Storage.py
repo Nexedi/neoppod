@@ -212,7 +212,14 @@ class Storage(BaseStorage.BaseStorage,
         pass
 
     def close(self):
-        self.app.close()
+        # WARNING: This does not handle the case where an app is shared by
+        #          several Storage instances, but this is something that only
+        #          happens in threaded tests (and this method is not called on
+        #          extra Storages).
+        app = self.app
+        if app is not None:
+            self.app = None
+            app.close()
 
     def getTid(self, oid):
         try:
