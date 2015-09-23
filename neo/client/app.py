@@ -93,10 +93,9 @@ class TransactionContainer(dict):
 class Application(ThreadedApplication):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, compress=True,
-            dynamic_master_list=None):
+    def __init__(self, master_nodes, name, compress=True, **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
-                                          name, dynamic_master_list)
+                                          name, **kw)
         # Internal Attributes common to all thread
         self._db = None
         self.cp = ConnectionPool(self)
@@ -134,11 +133,6 @@ class Application(ThreadedApplication):
         # node connection attemps
         self._connecting_to_master_node = Lock()
         self.compress = compress
-
-    def close(self):
-        self.cp.flush()
-        self._txn_container.clear()
-        super(Application, self).close()
 
     def __getattr__(self, attr):
         if attr == 'pt':

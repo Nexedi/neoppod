@@ -37,7 +37,6 @@ class VerificationManager(BaseServiceHandler):
     """
 
     def __init__(self, app):
-        BaseServiceHandler.__init__(self, app)
         self._oid_set = set()
         self._tid_set = set()
         self._uuid_set = set()

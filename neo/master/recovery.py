@@ -27,7 +27,6 @@ class RecoveryManager(MasterHandler):
     """
 
     def __init__(self, app):
-        super(RecoveryManager, self).__init__(app)
         # The target node's uuid to request next.
         self.target_ptid = None
         self.backup_tid_dict = {}

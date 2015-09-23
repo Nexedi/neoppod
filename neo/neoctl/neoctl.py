@@ -14,31 +14,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo.lib.app import BaseApplication
 from neo.lib.connection import ClientConnection
-from neo.lib.event import EventManager
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
-from neo.lib.node import NodeManager
 from .handler import CommandEventHandler
 
 class NotReadyException(Exception):
     pass
 
-class NeoCTL(object):
+class NeoCTL(BaseApplication):
 
     connection = None
     connected = False
 
     def __init__(self, address):
-        self.nm = nm = NodeManager()
-        self.server = nm.createAdmin(address=address)
-        self.em = EventManager()
+        super(NeoCTL, self).__init__()
+        self.server = self.nm.createAdmin(address=address)
         self.handler = CommandEventHandler(self)
         self.response_queue = []
-
-    def close(self):
-        self.em.close()
-        self.nm.close()
-        del self.__dict__
 
     def __getConnection(self):
         if not self.connected:

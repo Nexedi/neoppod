@@ -265,8 +265,6 @@ class BaseConnection(object):
             id(self),
         )
 
-    __del__ = close
-
     def setHandler(self, handler):
         if self._handlers.setHandler(handler):
             logging.debug('Set handler %r on %r', handler, self)

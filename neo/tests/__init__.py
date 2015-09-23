@@ -17,6 +17,7 @@
 import __builtin__
 import errno
 import functools
+import gc
 import os
 import random
 import socket
@@ -146,6 +147,7 @@ class NeoTestBase(unittest.TestCase):
     def tearDown(self):
         assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
         self._tearDown(sys._getframe(1).f_locals['success'])
+        assert not gc.garbage, gc.garbage
 
     def _tearDown(self, success):
         # Kill all unfinished transactions for next test.

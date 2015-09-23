@@ -332,18 +332,17 @@ class MasterApplication(ServerNode, neo.master.app.Application):
 
 class StorageApplication(ServerNode, neo.storage.app.Application):
 
+    dm = type('', (), {'close': lambda self: None})()
+
     def resetNode(self, clear_database=False):
         self._init_args['getReset'] = clear_database
-        dm = self.dm
         super(StorageApplication, self).resetNode()
-        if dm and not clear_database:
-            self.dm = dm
 
     def _afterRun(self):
         super(StorageApplication, self)._afterRun()
         try:
             self.dm.close()
-            self.dm = None
+            del self.dm
         except StandardError: # AttributeError & ProgrammingError
             pass
 
@@ -706,7 +705,10 @@ class NEOCluster(object):
         node_list = self.admin_list + self.storage_list + self.master_list
         for node in node_list:
             node.em.wakeup(True)
-        client is None or node_list.append(client.poll_thread)
+        try:
+            node_list.append(client.poll_thread)
+        except AttributeError: # client is None or thread is already stopped
+            pass
         self.join(node_list)
         logging.debug("stopped %s", self)
         self._unpatch()

@@ -16,12 +16,11 @@
 
 import threading, weakref
 from . import logging
+from .app import BaseApplication
 from .connection import ConnectionClosed
 from .debug import register as registerLiveDebugger
 from .dispatcher import Dispatcher, ForgottenPacket
-from .event import EventManager
 from .locking import SimpleQueue
-from .node import NodeManager
 from .protocol import Packets
 
 class app_set(weakref.WeakSet):
@@ -41,18 +40,16 @@ class ThreadContainer(threading.local):
         self.answer = None
 
 
-class ThreadedApplication(object):
+class ThreadedApplication(BaseApplication):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, dynamic_master_list=None):
-        # Start polling thread
-        self.em = EventManager()
+    def __init__(self, master_nodes, name, **kw):
+        super(ThreadedApplication, self).__init__(**kw)
         self.poll_thread = threading.Thread(target=self.run, name=name)
         self.poll_thread.daemon = True
         # Internal Attributes common to all thread
         self.name = name
         self.dispatcher = Dispatcher()
-        self.nm = NodeManager(dynamic_master_list)
         self.master_conn = None
 
         # load master node list
@@ -65,11 +62,6 @@ class ThreadedApplication(object):
         self._thread_container = ThreadContainer()
         app_set.add(self) # to register self.on_log
 
-    def __del__(self):
-        # Due to bug in ZODB, close is not always called when shutting
-        # down zope, so use __del__ to close connections
-        self.close()
-
     def close(self):
         # Clear all connection
         self.master_conn = None
@@ -80,7 +72,7 @@ class ThreadedApplication(object):
             logging.debug('Stopping %s', self.poll_thread)
             self.em.wakeup(True)
         else:
-            self.em.close()
+            super(ThreadedApplication, self).close()
 
     def start(self):
         self.poll_thread.is_alive() or self.poll_thread.start()
@@ -90,7 +82,7 @@ class ThreadedApplication(object):
         try:
             self._run()
         finally:
-            self.em.close()
+            super(ThreadedApplication, self).close()
             logging.debug("Poll thread stopped")
 
     def _run(self):

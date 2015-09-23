@@ -18,11 +18,10 @@ import sys, weakref
 from time import time
 
 from neo.lib import logging
+from neo.lib.app import BaseApplication
 from neo.lib.debug import register as registerLiveDebugger
 from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
-from neo.lib.node import NodeManager
-from neo.lib.event import EventManager
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
 from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
@@ -38,7 +37,7 @@ from .transactions import TransactionManager
 from .verification import VerificationManager
 
 
-class Application(object):
+class Application(BaseApplication):
     """The master node application."""
     packing = None
     # Latest completely commited TID
@@ -48,9 +47,7 @@ class Application(object):
     uuid = None
 
     def __init__(self, config):
-        # Internal attributes.
-        self.em = EventManager()
-        self.nm = NodeManager(config.getDynamicMasterList())
+        super(Application, self).__init__(config.getDynamicMasterList())
         self.tm = TransactionManager(self.onTransactionCommitted)
 
         self.name = config.getCluster()
@@ -113,9 +110,7 @@ class Application(object):
         self.listening_conn = None
         if self.backup_app is not None:
             self.backup_app.close()
-        self.nm.close()
-        self.em.close()
-        del self.__dict__
+        super(Application, self).close()
 
     def log(self):
         self.em.log()
@@ -387,8 +382,10 @@ class Application(object):
 
     def runManager(self, manager_klass):
         self._current_manager = manager_klass(self)
-        self._current_manager.run()
-        self._current_manager = None
+        try:
+            self._current_manager.run()
+        finally:
+            self._current_manager = None
 
     def changeClusterState(self, state):
         """

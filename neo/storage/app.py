@@ -18,10 +18,10 @@ import sys
 from collections import deque
 
 from neo.lib import logging
+from neo.lib.app import BaseApplication
 from neo.lib.protocol import uuid_str, \
     CellStates, ClusterStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
-from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import OperationFailure, PrimaryFailure
 from neo.lib.pt import PartitionTable
@@ -37,16 +37,14 @@ from .transactions import TransactionManager
 
 from neo.lib.debug import register as registerLiveDebugger
 
-class Application(object):
+class Application(BaseApplication):
     """The storage node application."""
 
     def __init__(self, config):
+        super(Application, self).__init__(config.getDynamicMasterList())
         # set the cluster name
         self.name = config.getCluster()
 
-        # Internal attributes.
-        self.em = EventManager()
-        self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(),
             (config.getDatabase(), config.getEngine(), config.getWait()),
@@ -89,13 +87,8 @@ class Application(object):
 
     def close(self):
         self.listening_conn = None
-        self.nm.close()
-        self.em.close()
-        try:
-            self.dm.close()
-        except AttributeError:
-            pass
-        del self.__dict__
+        self.dm.close()
+        super(Application, self).close()
 
     def _poll(self):
         self.em.poll(1)

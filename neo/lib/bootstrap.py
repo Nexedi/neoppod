@@ -32,7 +32,6 @@ class BootstrapManager(EventHandler):
         primary master node, connect to it then returns when the master node
         is ready.
         """
-        EventHandler.__init__(self, app)
         self.primary = None
         self.server = server
         self.node_type = node_type

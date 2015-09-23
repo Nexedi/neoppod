@@ -15,8 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.node import NodeManager
-from neo.lib.event import EventManager
+from neo.lib.app import BaseApplication
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import PrimaryFailure
 from .handler import AdminEventHandler, MasterEventHandler, \
@@ -27,13 +26,11 @@ from neo.lib.protocol import ClusterStates, Errors, \
     NodeTypes, NodeStates, Packets
 from neo.lib.debug import register as registerLiveDebugger
 
-class Application(object):
+class Application(BaseApplication):
     """The storage node application."""
 
     def __init__(self, config):
-        # Internal attributes.
-        self.em = EventManager()
-        self.nm = NodeManager(config.getDynamicMasterList())
+        super(Application, self).__init__(config.getDynamicMasterList())
         for address in config.getMasters():
             self.nm.createMaster(address=address)
 
@@ -54,9 +51,7 @@ class Application(object):
 
     def close(self):
         self.listening_conn = None
-        self.nm.close()
-        self.em.close()
-        del self.__dict__
+        super(Application, self).close()
 
     def reset(self):
         self.bootstrapped = False

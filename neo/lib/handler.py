@@ -19,13 +19,23 @@ from .protocol import (
     NodeStates, Packets, Errors, BackendNotImplemented,
     BrokenNodeDisallowedError, NotReadyError, PacketMalformedError,
     ProtocolError, UnexpectedPacketError)
+from .util import cached_property
 
 
 class EventHandler(object):
     """This class handles events."""
 
-    def __init__(self, app):
+    def __new__(cls, app, *args, **kw):
+        try:
+            return app._handlers[cls]
+        except AttributeError: # for BackupApplication
+            self = object.__new__(cls)
+        except KeyError:
+            self = object.__new__(cls)
+            if cls.__init__ is object.__init__:
+                app._handlers[cls] = self
         self.app = app
+        return self
 
     def __repr__(self):
         return self.__class__.__name__
@@ -201,9 +211,9 @@ class EventHandler(object):
 class MTEventHandler(EventHandler):
     """Base class of handler implementations for MTClientConnection"""
 
-    def __init__(self, app):
-        super(MTEventHandler, self).__init__(app)
-        self.dispatcher = app.dispatcher
+    @cached_property
+    def dispatcher(self):
+        return self.app.dispatcher
 
     def dispatch(self, conn, packet, kw={}):
         assert conn.lock._is_owned() # XXX: see also lockCheckWrapper
