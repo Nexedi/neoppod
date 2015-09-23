@@ -40,24 +40,19 @@ def not_closed(func):
 
 
 class HandlerSwitcher(object):
+    _is_handling = False
     _next_timeout = None
     _next_timeout_msg_id = None
     _next_on_timeout = None
+    _pending = ({}, None),
 
     def __init__(self, handler):
         # pending handlers and related requests
         self._pending = []
-        self._is_handling = False
         self.setHandler(handler)
 
-    def clear(self):
-        self.__init__(self.getLastHandler())
-        try:
-            del (self._next_timeout,
-                 self._next_timeout_msg_id,
-                 self._next_on_timeout)
-        except AttributeError:
-            pass
+    def close(self):
+        self.__dict__.clear()
 
     def isPending(self):
         return bool(self._pending[0][0])
@@ -530,7 +525,7 @@ class Connection(BaseConnection):
             else:
                 handler.connectionClosed(self)
         finally:
-            self._handlers.clear()
+            self._handlers.close()
 
     def _closure(self):
         assert self.connector is not None, self.whoSetConnector()
