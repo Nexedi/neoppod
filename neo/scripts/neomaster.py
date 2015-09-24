@@ -43,26 +43,10 @@ defaults = dict(
 def main(args=None):
     # build configuration dict from command line options
     (options, args) = parser.parse_args(args=args)
-    arguments = dict(
-        uuid = options.uuid or None,
-        bind = options.bind,
-        cluster = options.cluster,
-        masters = options.masters,
-        replicas = options.replicas,
-        partitions = options.partitions,
-        autostart = options.autostart,
-        upstream_cluster = options.upstream_cluster,
-        upstream_masters = options.upstream_masters,
-    )
-    config = ConfigurationManager(
-            defaults,
-            options.file,
-            options.section or 'master',
-            arguments,
-    )
+    config = ConfigurationManager(defaults, options, 'master')
 
     # setup custom logging
-    logging.setup(options.logfile)
+    logging.setup(config.getLogfile())
 
     # and then, load and run the application
     from neo.master.app import Application

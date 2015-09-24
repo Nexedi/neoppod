@@ -32,22 +32,10 @@ defaults = dict(
 def main(args=None):
     # build configuration dict from command line options
     (options, args) = parser.parse_args(args=args)
-    arguments = dict(
-        uuid = options.uuid,
-        cluster = options.cluster,
-        masters = options.masters,
-        bind = options.bind,
-    )
-
-    config = ConfigurationManager(
-            defaults,
-            options.file,
-            options.section or 'admin',
-            arguments,
-    )
+    config = ConfigurationManager(defaults, options, 'admin')
 
     # setup custom logging
-    logging.setup(options.logfile)
+    logging.setup(config.getLogfile())
 
     # and then, load and run the application
     from neo.admin.app import Application

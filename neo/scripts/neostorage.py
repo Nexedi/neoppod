@@ -45,26 +45,10 @@ def main(args=None):
     #       letting it slip through in a long option list.
     #       We should drop support configation files to make such check useful.
     (options, args) = parser.parse_args(args=args)
-    arguments = dict(
-        uuid = options.uuid,
-        bind = options.bind,
-        cluster = options.cluster,
-        masters = options.masters,
-        database = options.database,
-        engine = options.engine,
-        reset = options.reset,
-        adapter = options.adapter,
-        wait = options.wait,
-    )
-    config = ConfigurationManager(
-            defaults,
-            options.file,
-            options.section or 'storage',
-            arguments,
-    )
+    config = ConfigurationManager(defaults, options, 'storage')
 
     # setup custom logging
-    logging.setup(options.logfile)
+    logging.setup(config.getLogfile())
 
     # and then, load and run the application
     from neo.storage.app import Application

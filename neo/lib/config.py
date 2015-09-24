@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from optparse import OptionParser
 from ConfigParser import SafeConfigParser, NoOptionError
 from . import util
@@ -44,14 +45,18 @@ class ConfigurationManager(object):
     command line arguments
     """
 
-    def __init__(self, defaults, config_file, section, argument_list):
+    def __init__(self, defaults, options, section):
+        self.argument_list = options = {k: v
+            for k, v in options.__dict__.iteritems()
+            if v is not None}
         self.defaults = defaults
-        self.argument_list = argument_list
-        self.parser = None
-        if config_file is not None:
+        config_file = options.pop('file', None)
+        if config_file:
             self.parser = SafeConfigParser(defaults)
             self.parser.read(config_file)
-        self.section = section
+        else:
+            self.parser = None
+        self.section = options.pop('section', section)
 
     def __get(self, key, optional=False):
         value = self.argument_list.get(key)
@@ -66,6 +71,14 @@ class ConfigurationManager(object):
         if value is None and not optional:
             raise RuntimeError("Option '%s' is undefined'" % (key, ))
         return value
+
+    def __getPath(self, *args, **kw):
+        path = self.__get(*args, **kw)
+        if path:
+            return os.path.expanduser(path)
+
+    def getLogfile(self):
+        return self.__getPath('logfile', True)
 
     def getMasters(self):
         """ Get the master node list except itself """
