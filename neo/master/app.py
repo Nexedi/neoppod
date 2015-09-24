@@ -133,7 +133,7 @@ class Application(BaseApplication):
     def _run(self):
         """Make sure that the status is sane and start a loop."""
         # Make a listening port.
-        self.listening_conn = ListeningConnection(self.em, None, self.server)
+        self.listening_conn = ListeningConnection(self, None, self.server)
 
         # Start a normal operation.
         while self.cluster_state != ClusterStates.STOPPING:
@@ -184,7 +184,7 @@ class Application(BaseApplication):
                         self.negotiating_master_node_set):
                     for addr in self.unconnected_master_node_set:
                         self.negotiating_master_node_set.add(addr)
-                        ClientConnection(self.em, client_handler,
+                        ClientConnection(self, client_handler,
                             # XXX: Ugly, but the whole election code will be
                             # replaced soon
                             getByAddress(addr))
@@ -371,7 +371,7 @@ class Application(BaseApplication):
 
         # Reconnect to primary master node.
         primary_handler = secondary.PrimaryHandler(self)
-        ClientConnection(self.em, primary_handler, self.primary_master_node)
+        ClientConnection(self, primary_handler, self.primary_master_node)
 
         # and another for the future incoming connections
         self.listening_conn.setHandler(

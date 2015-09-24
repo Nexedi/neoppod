@@ -167,7 +167,7 @@ class Application(BaseApplication):
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)
-        self.listening_conn = ListeningConnection(self.em, handler, self.server)
+        self.listening_conn = ListeningConnection(self, handler, self.server)
         self.server = self.listening_conn.getAddress()
 
         # Connect to a primary master node, verify data, and

@@ -226,7 +226,7 @@ class Application(ThreadedApplication):
                     index = (index + 1) % len(master_list)
                     self.trying_master_node = master_list[index]
                 # Connect to master
-                conn = MTClientConnection(self.em,
+                conn = MTClientConnection(self,
                         self.notifications_handler,
                         node=self.trying_master_node,
                         dispatcher=self.dispatcher)

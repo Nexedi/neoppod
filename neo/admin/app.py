@@ -80,7 +80,7 @@ class Application(BaseApplication):
 
         # Make a listening port.
         handler = AdminEventHandler(self)
-        self.listening_conn = ListeningConnection(self.em, handler, self.server)
+        self.listening_conn = ListeningConnection(self, handler, self.server)
 
         while self.cluster_state != ClusterStates.STOPPING:
             self.connectToPrimary()

@@ -60,7 +60,7 @@ class ConnectionTests(NeoUnitTestBase):
     def setUp(self):
         NeoUnitTestBase.setUp(self)
         self.app = Mock({'__repr__': 'Fake App'})
-        self.em = Mock({'__repr__': 'Fake Em'})
+        self.em = self.app.em = Mock({'__repr__': 'Fake Em'})
         self.handler = Mock({'__repr__': 'Fake Handler'})
         self.address = ("127.0.0.7", 93413)
         self.node = Mock({'getAddress': self.address})
@@ -68,7 +68,7 @@ class ConnectionTests(NeoUnitTestBase):
 
     def _makeListeningConnection(self, addr):
         with dummy_connector:
-            conn = ListeningConnection(self.em, self.handler, addr)
+            conn = ListeningConnection(self.app, self.handler, addr)
         self.connector = conn.connector
         return conn
 
@@ -79,7 +79,7 @@ class ConnectionTests(NeoUnitTestBase):
 
     def _makeClientConnection(self):
         with dummy_connector:
-            conn = ClientConnection(self.em, self.handler, self.node)
+            conn = ClientConnection(self.app, self.handler, self.node)
         self.connector = conn.connector
         return conn
 
@@ -750,7 +750,7 @@ class MTConnectionTests(ConnectionTests):
 
     def _makeClientConnection(self):
         with dummy_connector:
-            conn = MTClientConnection(self.em, self.handler, self.node,
+            conn = MTClientConnection(self.app, self.handler, self.node,
                                       dispatcher=self.dispatcher)
         self.connector = conn.connector
         return conn

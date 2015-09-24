@@ -35,8 +35,7 @@ class NeoCTL(BaseApplication):
 
     def __getConnection(self):
         if not self.connected:
-            self.connection = ClientConnection(self.em, self.handler,
-                                               self.server)
+            self.connection = ClientConnection(self, self.handler, self.server)
             # Never delay reconnection to master. This speeds up unit tests
             # and it should not change anything for normal use.
             self.connection.setReconnectionNoDelay()

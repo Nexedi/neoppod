@@ -308,12 +308,12 @@ attributeTracker.track(BaseConnection)
 class ListeningConnection(BaseConnection):
     """A listen connection."""
 
-    def __init__(self, event_manager, handler, addr):
+    def __init__(self, app, handler, addr):
         logging.debug('listening to %s:%d', *addr)
         connector = self.ConnectorClass(addr)
-        BaseConnection.__init__(self, event_manager, handler, connector, addr)
+        BaseConnection.__init__(self, app.em, handler, connector, addr)
         connector.makeListeningConnection()
-        event_manager.register(self)
+        self.em.register(self)
 
     def readable(self):
         try:
@@ -646,10 +646,10 @@ class ClientConnection(Connection):
     connecting = True
     client = True
 
-    def __init__(self, event_manager, handler, node):
+    def __init__(self, app, handler, node):
         addr = node.getAddress()
         connector = self.ConnectorClass(addr)
-        Connection.__init__(self, event_manager, handler, connector, addr)
+        Connection.__init__(self, app.em, handler, connector, addr)
         node.setConnection(self)
         handler.connectionStarted(self)
         self._connect()

@@ -53,7 +53,7 @@ class ConnectionPool(object):
         """Init a connection to a given storage node."""
         app = self.app
         logging.debug('trying to connect to %s - %s', node, node.getState())
-        conn = MTClientConnection(app.em, app.storage_event_handler, node,
+        conn = MTClientConnection(app, app.storage_event_handler, node,
                                   dispatcher=app.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
             app.uuid, None, app.name)

@@ -119,7 +119,8 @@ class BootstrapManager(EventHandler):
         Returns when the connection is made.
         """
         logging.info('connecting to a primary master node')
-        em, nm = self.app.em, self.app.nm
+        app = self.app
+        poll = app.em.poll
         index = 0
         self.current = None
         conn = None
@@ -129,12 +130,12 @@ class BootstrapManager(EventHandler):
                 # conn closed
                 conn = None
                 # select a master
-                master_list = nm.getMasterList()
+                master_list = app.nm.getMasterList()
                 index = (index + 1) % len(master_list)
                 self.current = master_list[index]
             if conn is None:
                 # open the connection
-                conn = ClientConnection(em, self, self.current)
+                conn = ClientConnection(app, self, self.current)
                 # Yes, the connection may be already closed. This happens when
                 # the kernel reacts so quickly to a closed port that 'connect'
                 # fails on the first call. In such case, poll(1) would deadlock
@@ -142,7 +143,7 @@ class BootstrapManager(EventHandler):
                 if conn.isClosed():
                     continue
             # still processing
-            em.poll(1)
+            poll(1)
         return (self.current, conn, self.uuid, self.num_partitions,
             self.num_replicas)
 
