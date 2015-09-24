@@ -17,17 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from optparse import OptionParser
+from neo.lib.config import getOptionParser
 import time
 import os
 
 # register options
-parser = OptionParser()
-parser.add_option('-l', '--logfile',
-                  help = 'log debugging information to specified SQLite DB')
-parser.add_option('-s', '--source', help = 'the source database')
-parser.add_option('-d', '--destination', help = 'the destination database')
-parser.add_option('-c', '--cluster', help = 'the NEO cluster name')
+parser = getOptionParser()
+parser.add_option('-s', '--source', help='the source database')
+parser.add_option('-d', '--destination', help='the destination database')
+parser.add_option('-c', '--cluster', help='the NEO cluster name')
 
 def main(args=None):
     # parse options

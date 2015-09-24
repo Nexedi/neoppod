@@ -17,22 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from optparse import OptionParser
 from neo.lib import logging
-from neo.lib.config import ConfigurationManager
+from neo.lib.config import getServerOptionParser, ConfigurationManager
 
-parser = OptionParser()
-parser.add_option('-f', '--file', help = 'specify a configuration file')
-parser.add_option('-s', '--section', help = 'specify a configuration section')
+parser = getServerOptionParser()
 parser.add_option('-u', '--uuid', help='the node UUID (testing purpose)')
-parser.add_option('-b', '--bind', help = 'the local address to bind to')
-parser.add_option('-c', '--cluster', help = 'the cluster name')
-parser.add_option('-m', '--masters', help = 'master node list')
 parser.add_option('-r', '--replicas', help = 'replicas number')
 parser.add_option('-p', '--partitions', help = 'partitions number')
-parser.add_option('-l', '--logfile', help = 'specify a logging file')
-parser.add_option('-D', '--dynamic-master-list', help='path of the file '
-    'containing dynamic master node list')
 parser.add_option('-A', '--autostart',
     help='minimum number of pending storage nodes to automatically start'
          ' new cluster (to avoid unwanted recreation of the cluster,'

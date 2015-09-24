@@ -17,15 +17,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from optparse import OptionParser
 from neo.lib import logging
+from neo.lib.config import getOptionParser
 from neo.lib.util import parseNodeAddress
 
-parser = OptionParser()
+parser = getOptionParser()
 parser.add_option('-a', '--address', help = 'specify the address (ip:port) ' \
     'of an admin node', default = '127.0.0.1:9999')
 parser.add_option('--handler', help = 'specify the connection handler')
-parser.add_option('-l', '--logfile', help = 'specify a logging file')
 
 def main(args=None):
     (options, args) = parser.parse_args(args=args)
