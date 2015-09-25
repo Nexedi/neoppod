@@ -18,9 +18,7 @@ from functools import wraps
 from time import time
 
 from . import attributeTracker, logging
-from .connector import ConnectorException, ConnectorTryAgainException, \
-        ConnectorInProgressException, ConnectorConnectionRefusedException, \
-        ConnectorConnectionClosedException, ConnectorDelayedConnection
+from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
 from .protocol import uuid_str, Errors, \
         PacketMalformedError, Packets, ParserState
@@ -30,14 +28,6 @@ CRITICAL_TIMEOUT = 30
 
 class ConnectionClosed(Exception):
     pass
-
-def not_closed(func):
-    def decorator(self, *args, **kw):
-        if self.connector is None:
-            raise ConnectorConnectionClosedException
-        return func(self, *args, **kw)
-    return wraps(func)(decorator)
-
 
 class HandlerSwitcher(object):
     _is_handling = False
@@ -316,14 +306,11 @@ class ListeningConnection(BaseConnection):
         self.em.register(self)
 
     def readable(self):
-        try:
-            connector, addr = self.connector.accept()
-            logging.debug('accepted a connection from %s:%d', *addr)
-            handler = self.getHandler()
-            new_conn = ServerConnection(self.em, handler, connector, addr)
-            handler.connectionAccepted(new_conn)
-        except ConnectorTryAgainException:
-            pass
+        connector, addr = self.connector.accept()
+        logging.debug('accepted a connection from %s:%d', *addr)
+        handler = self.getHandler()
+        new_conn = ServerConnection(self.em, handler, connector, addr)
+        handler.connectionAccepted(new_conn)
 
     def getAddress(self):
         return self.connector.getAddress()
@@ -347,7 +334,6 @@ class Connection(BaseConnection):
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
         self.read_buf = ReadBuffer()
-        self.write_buf = []
         self.cur_id = 0
         self.aborted = False
         self.uuid = None
@@ -444,39 +430,47 @@ class Connection(BaseConnection):
         """Abort dealing with this connection."""
         logging.debug('aborting a connector for %r', self)
         self.aborted = True
-        assert self.write_buf
+        assert self.pending()
         if self._on_close is not None:
             self._on_close()
             self._on_close = None
 
     def writable(self):
         """Called when self is writable."""
-        self._send()
-        if not self.write_buf and self.connector is not None:
-            if self.aborted:
-                self.close()
-            else:
-                self.em.removeWriter(self)
+        try:
+            if self.connector.send():
+                if self.aborted:
+                    self.close()
+                else:
+                    self.em.removeWriter(self)
+        except ConnectorException:
+            self._closure()
 
     def readable(self):
         """Called when self is readable."""
-        self._recv()
-        self._analyse()
-        if self.aborted:
-            self.em.removeReader(self)
-        return not not self._queue
-
-    def _analyse(self):
-        """Analyse received data."""
+        # last known remote activity
+        self._next_timeout = time() + self._timeout
+        read_buf = self.read_buf
         try:
-            while True:
-                packet = Packets.parse(self.read_buf, self._parser_state)
-                if packet is None:
-                    break
-                self._queue.append(packet)
+            try:
+                if self.connector.receive(read_buf):
+                    self.em.addWriter(self)
+            finally:
+                # A connector may read some data
+                # before raising ConnectorException
+                while 1:
+                    packet = Packets.parse(read_buf, self._parser_state)
+                    if packet is None:
+                        break
+                    self._queue.append(packet)
+        except ConnectorException:
+            self._closure()
         except PacketMalformedError, e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
+        if self.aborted:
+            self.em.removeReader(self)
+        return not not self._queue
 
     def hasPendingMessages(self):
         """
@@ -493,7 +487,8 @@ class Connection(BaseConnection):
         self.updateTimeout()
 
     def pending(self):
-        return self.connector is not None and self.write_buf
+        connector = self.connector
+        return connector is not None and connector.queued
 
     @property
     def setReconnectionNoDelay(self):
@@ -503,7 +498,6 @@ class Connection(BaseConnection):
         if self.connector is None:
             assert self._on_close is None
             assert not self.read_buf
-            assert not self.write_buf
             assert not self.isPending()
             return
         # process the network events with the last registered handler to
@@ -514,7 +508,6 @@ class Connection(BaseConnection):
         if self._on_close is not None:
             self._on_close()
             self._on_close = None
-        del self.write_buf[:]
         self.read_buf.clear()
         try:
             if self.connecting:
@@ -531,89 +524,28 @@ class Connection(BaseConnection):
             self._handlers.handle(self, self._queue.pop(0))
         self.close()
 
-    def _recv(self):
-        """Receive data from a connector."""
-        try:
-            data = self.connector.receive()
-        except ConnectorTryAgainException:
-            pass
-        except ConnectorConnectionRefusedException:
-            assert self.connecting
-            self._closure()
-        except ConnectorConnectionClosedException:
-            # connection resetted by peer, according to the man, this error
-            # should not occurs but it seems it's false
-            logging.debug('Connection reset by peer: %r', self.connector)
-            self._closure()
-        except:
-            logging.debug('Unknown connection error: %r', self.connector)
-            self._closure()
-            # unhandled connector exception
-            raise
-        else:
-            if not data:
-                logging.debug('Connection %r closed in recv', self.connector)
-                self._closure()
-                return
-            # last known remote activity
-            self._next_timeout = time() + self._timeout
-            self.read_buf.append(data)
-
-    def _send(self):
-        """Send data to a connector."""
-        if not self.write_buf:
-            return
-        msg = ''.join(self.write_buf)
-        try:
-            n = self.connector.send(msg)
-        except ConnectorTryAgainException:
-            pass
-        except ConnectorConnectionClosedException:
-            # connection resetted by peer
-            logging.debug('Connection reset by peer: %r', self.connector)
-            self._closure()
-        except:
-            logging.debug('Unknown connection error: %r', self.connector)
-            # unhandled connector exception
-            self._closure()
-            raise
-        else:
-            if not n:
-                logging.debug('Connection %r closed in send', self.connector)
-                self._closure()
-                return
-            if n == len(msg):
-                del self.write_buf[:]
-            else:
-                self.write_buf = [msg[n:]]
-
     def _addPacket(self, packet):
         """Add a packet into the write buffer."""
-        if self.connector is None:
-            return
-
-        was_empty = not self.write_buf
-
-        self.write_buf.extend(packet.encode())
-
-        if was_empty:
+        if self.connector.queue(packet.encode()):
             # enable polling for writing.
             self.em.addWriter(self)
         logging.packet(self, packet, True)
 
-    @not_closed
     def notify(self, packet):
         """ Then a packet with a new ID """
+        if self.isClosed():
+            raise ConnectionClosed
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self._addPacket(packet)
         return msg_id
 
-    @not_closed
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None, **kw):
         """
         Send a packet with a new ID and register the expectation of an answer
         """
+        if self.isClosed():
+            raise ConnectionClosed
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self._addPacket(packet)
@@ -627,9 +559,10 @@ class Connection(BaseConnection):
                 self.em.wakeup()
         return msg_id
 
-    @not_closed
     def answer(self, packet, msg_id=None):
         """ Answer to a packet by re-using its ID for the packet answer """
+        if self.isClosed():
+            raise ConnectionClosed
         if msg_id is None:
             msg_id = self.getPeerId()
         packet.setId(msg_id)
@@ -656,32 +589,25 @@ class ClientConnection(Connection):
 
     def _connect(self):
         try:
-            self.connector.makeClientConnection()
-        except ConnectorInProgressException:
-            self.em.register(self)
-            self.em.addWriter(self)
+            connected = self.connector.makeClientConnection()
         except ConnectorDelayedConnection, c:
             connect_limit, = c.args
             self.getTimeout = lambda: connect_limit
             self.onTimeout = self._delayedConnect
             self.em.register(self, timeout_only=True)
-            # Fake _addPacket so that if does not
-            # try to reenable polling for writing.
-            self.write_buf.insert(0, '')
-        except ConnectorConnectionRefusedException:
-            self._closure()
         except ConnectorException:
-            # unhandled connector exception
             self._closure()
-            raise
         else:
             self.em.register(self)
-            if self.write_buf:
-                self.em.addWriter(self)
-            self._connectionCompleted()
+            if connected:
+                self._connectionCompleted()
+                # A client connection usually has a pending packet to send
+                # from the beginning. It would be too smart to detect when
+                # it's not required to poll for writing.
+            self.em.addWriter(self)
 
     def _delayedConnect(self):
-        del self.getTimeout, self.onTimeout, self.write_buf[0]
+        del self.getTimeout, self.onTimeout
         self._connect()
 
     def writable(self):

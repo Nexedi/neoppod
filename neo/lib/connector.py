@@ -17,6 +17,7 @@
 import socket
 import errno
 from time import time
+from . import logging
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
@@ -56,7 +57,18 @@ class SocketConnector(object):
         s.setblocking(0)
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.queued = []
         return self
+
+    def queue(self, data):
+        was_empty = not self.queued
+        self.queued += data
+        return was_empty
+
+    def _error(self, op, exc):
+        logging.debug("%s failed for %s: %s (%s)",
+            op, self, errno.errorcode[exc.errno], exc.strerror)
+        raise ConnectorException
 
     # Threaded tests monkey-patch the following 2 operations.
     _connect = lambda self, addr: self.socket.connect(addr)
@@ -68,20 +80,23 @@ class SocketConnector(object):
         try:
             connect_limit = self.connect_limit[addr]
             if time() < connect_limit:
+                # Next call to queue() must return False
+                # in order not to enable polling for writing.
+                self.queued or self.queued.append('')
                 raise ConnectorDelayedConnection(connect_limit)
+            if self.queued and not self.queued[0]:
+                del self.queued[0]
         except KeyError:
             pass
         self.connect_limit[addr] = time() + self.CONNECT_LIMIT
         self.is_server = self.is_closed = False
         try:
             self._connect(addr)
-        except socket.error, (err, errmsg):
-            if err == errno.EINPROGRESS:
-                raise ConnectorInProgressException
-            if err == errno.ECONNREFUSED:
-                raise ConnectorConnectionRefusedException
-            raise ConnectorException, 'makeClientConnection to %s failed:' \
-                ' %s:%s' % (addr, err, errmsg)
+        except socket.error, e:
+            if e.errno == errno.EINPROGRESS:
+                return False
+            self._error('connect', e)
+        return True
 
     def makeListeningConnection(self):
         assert self.is_closed is None
@@ -90,10 +105,9 @@ class SocketConnector(object):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._bind(self.addr)
             self.socket.listen(5)
-        except socket.error, (err, errmsg):
+        except socket.error, e:
             self.socket.close()
-            raise ConnectorException, 'makeListeningConnection on %s failed:' \
-                    ' %s:%s' % (addr, err, errmsg)
+            self._error('listen', e)
 
     def getError(self):
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -116,33 +130,39 @@ class SocketConnector(object):
             s, addr = self.socket.accept()
             s = self.__class__(addr, s)
             return s, s.addr
-        except socket.error, (err, errmsg):
-            if err == errno.EAGAIN:
-                raise ConnectorTryAgainException
-            raise ConnectorException, 'accept failed: %s:%s' % \
-                (err, errmsg)
+        except socket.error, e:
+            self._error('accept', e)
 
-    def receive(self):
+    def receive(self, read_buf):
         try:
-            return self.socket.recv(4096)
-        except socket.error, (err, errmsg):
-            if err == errno.EAGAIN:
-                raise ConnectorTryAgainException
-            if err in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
-                raise ConnectorConnectionRefusedException
-            if err in (errno.ECONNRESET, errno.ETIMEDOUT):
-                raise ConnectorConnectionClosedException
-            raise ConnectorException, 'receive failed: %s:%s' % (err, errmsg)
+            data = self.socket.recv(4096)
+        except socket.error, e:
+            self._error('recv', e)
+        if data:
+            read_buf.append(data)
+            return
+        logging.debug('%r closed in recv', self)
+        raise ConnectorException
 
-    def send(self, msg):
-        try:
-            return self.socket.send(msg)
-        except socket.error, (err, errmsg):
-            if err == errno.EAGAIN:
-                raise ConnectorTryAgainException
-            if err in (errno.ECONNRESET, errno.ETIMEDOUT, errno.EPIPE):
-                raise ConnectorConnectionClosedException
-            raise ConnectorException, 'send failed: %s:%s' % (err, errmsg)
+    def send(self):
+        msg = ''.join(self.queued)
+        if msg:
+            try:
+                n = self.socket.send(msg)
+            except socket.error, e:
+                self._error('send', e)
+            # Do nothing special if n == 0:
+            # - it never happens for simple sockets;
+            # - for SSL sockets, this is always the case unless everything
+            #   could be sent.
+            if n != len(msg):
+                self.queued[:] = msg[n:],
+                return False
+            del self.queued[:]
+        else:
+            assert not self.queued
+        return True
+
 
     def close(self):
         self.is_closed = True
@@ -193,18 +213,6 @@ registerConnectorHandler(SocketConnectorIPv4)
 registerConnectorHandler(SocketConnectorIPv6)
 
 class ConnectorException(Exception):
-    pass
-
-class ConnectorTryAgainException(ConnectorException):
-    pass
-
-class ConnectorInProgressException(ConnectorException):
-    pass
-
-class ConnectorConnectionClosedException(ConnectorException):
-    pass
-
-class ConnectorConnectionRefusedException(ConnectorException):
     pass
 
 class ConnectorDelayedConnection(ConnectorException):

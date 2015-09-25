@@ -16,8 +16,7 @@
 
 from collections import deque
 from neo.lib import logging
-from neo.lib.connection import ClientConnection
-from neo.lib.connector import ConnectorConnectionClosedException
+from neo.lib.connection import ClientConnection, ConnectionClosed
 from neo.lib.protocol import NodeTypes, Packets, ZERO_OID
 from neo.lib.util import add64, dump
 from .handlers.storage import StorageOperationHandler
@@ -85,7 +84,7 @@ class Checker(object):
                         if self.conn_dict:
                             break
                         msg = "no replica"
-                    except ConnectorConnectionClosedException:
+                    except ConnectionClosed:
                         msg = "connection closed"
                     finally:
                         conn_set.update(self.conn_dict)

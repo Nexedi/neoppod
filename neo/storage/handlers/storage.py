@@ -16,7 +16,7 @@
 
 import weakref
 from functools import wraps
-from neo.lib.connector import ConnectorConnectionClosedException
+from neo.lib.connection import ConnectionClosed
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
     ZERO_HASH
@@ -154,7 +154,7 @@ class StorageOperationHandler(EventHandler):
             r = app.dm.checkTIDRange(*args)
             try:
                 conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)
-            except (weakref.ReferenceError, ConnectorConnectionClosedException):
+            except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
         app.newTask(check())
@@ -170,7 +170,7 @@ class StorageOperationHandler(EventHandler):
             r = app.dm.checkSerialRange(*args)
             try:
                 conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id)
-            except (weakref.ReferenceError, ConnectorConnectionClosedException):
+            except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
         app.newTask(check())
@@ -211,7 +211,7 @@ class StorageOperationHandler(EventHandler):
                 conn.answer(Packets.AnswerFetchTransactions(
                     pack_tid, next_tid, peer_tid_set), msg_id)
                 yield
-            except (weakref.ReferenceError, ConnectorConnectionClosedException):
+            except (weakref.ReferenceError, ConnectionClosed):
                 pass
         app.newTask(push())
 
@@ -253,6 +253,6 @@ class StorageOperationHandler(EventHandler):
                 conn.answer(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)
                 yield
-            except (weakref.ReferenceError, ConnectorConnectionClosedException):
+            except (weakref.ReferenceError, ConnectionClosed):
                 pass
         app.newTask(push())

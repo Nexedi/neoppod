@@ -31,8 +31,7 @@ import neo.client.app, neo.neoctl.app
 from neo.client import Storage
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, Connection
-from neo.lib.connector import SocketConnector, \
-    ConnectorConnectionRefusedException
+from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import cached_property, parseMasterList, p64
@@ -322,7 +321,7 @@ class ServerNode(Node):
         try:
             return self.listening_conn.getAddress()
         except AttributeError:
-            raise ConnectorConnectionRefusedException
+            raise ConnectorException
 
 class AdminApplication(ServerNode, neo.admin.app.Application):
     pass
