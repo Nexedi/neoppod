@@ -103,13 +103,21 @@ def getTempDirectory():
     except KeyError:
         neo_dir = os.path.join(tempfile.gettempdir(), 'neo_tests')
         while True:
-            temp_dir = os.path.join(neo_dir, repr(time()))
+            temp_name = repr(time())
+            temp_dir = os.path.join(neo_dir, temp_name)
             try:
                 os.makedirs(temp_dir)
                 break
             except OSError, e:
                 if e.errno != errno.EEXIST:
                     raise
+        last = os.path.join(neo_dir, "last")
+        try:
+            os.remove(last)
+        except OSError, e:
+            if e.errno != errno.ENOENT:
+                raise
+        os.symlink(temp_name, last)
         os.environ['TEMP'] = temp_dir
         print 'Using temp directory %r.' % temp_dir
     return temp_dir
