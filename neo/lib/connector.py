@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import socket
+import ssl
 import errno
 from time import time
 from . import logging
@@ -108,6 +109,14 @@ class SocketConnector(object):
         except socket.error, e:
             self.socket.close()
             self._error('listen', e)
+
+    def ssl(self, ssl):
+        self.socket = ssl.wrap_socket(self.socket,
+            server_side=self.is_server,
+            do_handshake_on_connect=False,
+            suppress_ragged_eofs=False)
+        self.__class__ = self.SSLHandshakeConnectorClass
+        self.queued or self.queued.append('')
 
     def getError(self):
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -211,6 +220,62 @@ class SocketConnectorIPv6(SocketConnector):
 
 registerConnectorHandler(SocketConnectorIPv4)
 registerConnectorHandler(SocketConnectorIPv6)
+
+
+def overlay_connector_class(cls):
+    name = cls.__name__[1:]
+    alias = name + 'ConnectorClass'
+    for base in connector_registry.itervalues():
+        setattr(base, alias, type(name + base.__name__,
+            cls.__bases__ + (base,), cls.__dict__))
+    return cls
+
+@overlay_connector_class
+class _SSL:
+
+    def _error(self, op, exc):
+        if isinstance(exc, ssl.SSLError):
+            logging.debug("%s failed for %s: %s", op, self, exc)
+            raise ConnectorException
+        SocketConnector._error(self, op, exc)
+
+    def receive(self, read_buf):
+        try:
+            while 1:
+                read_buf.append(self.socket.recv(4096))
+        except ssl.SSLWantReadError:
+            pass
+        except socket.error, e:
+            self._error('recv', e)
+
+@overlay_connector_class
+class _SSLHandshake(_SSL):
+
+    def receive(self, read_buf=None):
+        # ???Writer  |  send  | receive
+        # -----------+--------+--------
+        # want read  | remove |   -
+        # want write |   -    |  add
+        try:
+            self.socket.do_handshake()
+        except ssl.SSLWantReadError:
+            return read_buf is None
+        except ssl.SSLWantWriteError:
+            return read_buf is not None
+        except socket.error, e:
+            self._error('SSL handshake', e)
+        if not self.queued[0]:
+            del self.queued[0]
+        self.__class__ = self.SSLConnectorClass
+        cipher, proto, bits = self.socket.cipher()
+        logging.debug("SSL handshake done for %s: %s %s", self, cipher, bits)
+        if read_buf is None:
+            return self.send()
+        self.receive(read_buf)
+        return self.queued
+
+    send = receive
+
 
 class ConnectorException(Exception):
     pass

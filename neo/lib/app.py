@@ -14,13 +14,38 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from . import logging
 from .event import EventManager
 from .node import NodeManager
 
 
 class BaseApplication(object):
 
-    def __init__(self, dynamic_master_list=None):
+    ssl = None
+
+    def __init__(self, ssl=None, dynamic_master_list=None):
+        if ssl:
+            if not all(ssl):
+                raise ValueError("To enable encryption, 3 files must be"
+                    " provided: the CA certificate, and the certificate"
+                    " of this node with its private key.")
+            ca, cert, key = ssl
+            import ssl
+            version, version_name = max((getattr(ssl, k), k)
+                for k in dir(ssl) if k.startswith("PROTOCOL_TLSv"))
+            self.ssl = context = ssl.SSLContext(version)
+            context.options |= (0
+                | ssl.OP_CIPHER_SERVER_PREFERENCE
+                | ssl.OP_NO_COMPRESSION
+                )
+            context.set_ciphers(ssl._RESTRICTED_SERVER_CIPHERS)
+            context.verify_mode = ssl.CERT_REQUIRED
+            context.load_verify_locations(ca)
+            context.load_cert_chain(cert, key)
+            context.verify_flags |= ssl.VERIFY_X509_STRICT | (
+                context.cert_store_stats()['crl'] and ssl.VERIFY_CRL_CHECK_LEAF)
+            logging.info("TLS %s enabled for %s",
+                float(version_name[13:].replace("_", ".")), self)
         self._handlers = {}
         self.em = EventManager()
         self.nm = NodeManager(dynamic_master_list)

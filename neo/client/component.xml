@@ -39,5 +39,20 @@
         be added/removed without requiring a config change each time.
       </description>
     </key>
+    <key name="ca" datatype="existing-file">
+      <description>
+        Certificate authority in PEM format.
+      </description>
+    </key>
+    <key name="cert" datatype="existing-file">
+      <description>
+        Certificate in PEM format.
+      </description>
+    </key>
+    <key name="key" datatype="existing-file">
+      <description>
+        Private key in PEM format.
+      </description>
+    </key>
   </sectiontype>
 </component>

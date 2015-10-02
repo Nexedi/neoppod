@@ -41,7 +41,8 @@ class Application(BaseApplication):
     """The storage node application."""
 
     def __init__(self, config):
-        super(Application, self).__init__(config.getDynamicMasterList())
+        super(Application, self).__init__(
+            config.getSSL(), config.getDynamicMasterList())
         # set the cluster name
         self.name = config.getCluster()
 

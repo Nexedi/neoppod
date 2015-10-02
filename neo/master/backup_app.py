@@ -74,6 +74,7 @@ class BackupApplication(object):
             self.nm.createMaster(address=master_address)
 
     em = property(lambda self: self.app.em)
+    ssl = property(lambda self: self.app.ssl)
 
     def close(self):
         self.nm.close()

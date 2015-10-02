@@ -65,7 +65,9 @@ class Storage(BaseStorage.BaseStorage,
                     ):
                 setattr(self, method_id, raiseReadOnlyError)
         if _app is None:
-            _app = Application(master_nodes, name, compress=compress, **kw)
+            ssl = [kw.pop(x, None) for x in ('ca', 'cert', 'key')]
+            _app = Application(master_nodes, name, compress=compress,
+                               ssl=ssl if any(ssl) else None, **kw)
         self.app = _app
 
     @property

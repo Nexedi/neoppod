@@ -40,23 +40,12 @@ There's also a tool to convert back to FileStorage.
 See also http://www.neoppod.org/links for more detailed information about
 features related to scalability.
 
-Disclaimer
-==========
-
-In addition of the disclaimer contained in the licence this code is
-released under, please consider the following.
-
-NEO does not implement any authentication mechanism between its nodes, and
-does not encrypt data exchanged between nodes either.
-If you want to protect your cluster from malicious nodes, or your data from
-being snooped, please consider encrypted tunelling (such as openvpn).
-
 Requirements
 ============
 
 - Linux 2.6 or later
 
-- Python 2.7.x
+- Python 2.7.x (2.7.9 or later for SSL support)
 
 - For storage nodes using MySQL backend:
 
@@ -165,6 +154,24 @@ normal mode (RUNNING)  by setting it into STOPPING_BACKUP state.
 Packs are currently not replicated, which means packing should always be done
 up to a TID that is already fully replicated, so that the backup cluster has a
 full history (and not random holes).
+
+SSL support
+-----------
+
+In addition to any external solution like OpenVPN, NEO has builtin SSL support
+to authenticate and encrypt communications between nodes.
+
+All commands and configuration files have options to specify a CA certificate,
+the node certificate and the node private key. A certificate can be shared
+by several nodes.
+
+NEO always uses the latest SSL protocol supported by the Python interpreter,
+without fallback to older versions. A "SSL: WRONG_VERSION_NUMBER" error means
+that a node runs in an older environment (Python + OpenSSL) than others.
+
+Note also that you can't mix non-SSL nodes and SSL nodes, even between a
+upstream cluster and a backup one. In doing so, connections can get stuck,
+or fail with malformed packets or SSL handshake errors.
 
 Deployment
 ==========

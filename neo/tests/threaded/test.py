@@ -29,7 +29,7 @@ from neo.lib.connection import ConnectionClosed, MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from .. import expectedFailure, _UnexpectedSuccess, Patch
-from . import ClientApplication, NEOCluster, NEOThreadedTest
+from . import NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -601,8 +601,7 @@ class Test(NEOThreadedTest):
             # (at this time, we still have x=0 and y=1)
             t2, c2 = cluster.getTransaction()
             # Copy y to x using a different Master-Client connection
-            client = ClientApplication(name=cluster.name,
-                                       master_nodes=cluster.master_nodes)
+            client = cluster.newClient()
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
@@ -715,8 +714,7 @@ class Test(NEOThreadedTest):
             self.tic()
 
             # modify x with another client
-            client = ClientApplication(name=cluster.name,
-                                       master_nodes=cluster.master_nodes)
+            client = cluster.newClient()
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
@@ -804,8 +802,7 @@ class Test(NEOThreadedTest):
             with cluster.master.filterConnection(cluster.storage) as m2s:
                 m2s.add(delayNotifyInformation)
                 cluster.client.master_conn.close()
-                client = ClientApplication(name=cluster.name,
-                                           master_nodes=cluster.master_nodes)
+                client = cluster.newClient()
                 p = Patch(client.storage_bootstrap_handler, notReady=notReady)
                 try:
                     p.apply()

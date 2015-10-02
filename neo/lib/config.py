@@ -25,6 +25,9 @@ def getOptionParser():
     parser = OptionParser()
     parser.add_option('-l', '--logfile',
         help='log debugging information to specified SQLite DB')
+    parser.add_option('--ca', help='certificate authority in PEM format')
+    parser.add_option('--cert', help='certificate in PEM format')
+    parser.add_option('--key', help='private key in PEM format')
     return parser
 
 def getServerOptionParser():
@@ -79,6 +82,11 @@ class ConfigurationManager(object):
 
     def getLogfile(self):
         return self.__getPath('logfile', True)
+
+    def getSSL(self):
+        r = [self.__getPath(key, True) for key in ('ca', 'cert', 'key')]
+        if any(r):
+            return r
 
     def getMasters(self):
         """ Get the master node list except itself """

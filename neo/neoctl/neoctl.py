@@ -27,8 +27,8 @@ class NeoCTL(BaseApplication):
     connection = None
     connected = False
 
-    def __init__(self, address):
-        super(NeoCTL, self).__init__()
+    def __init__(self, address, **kw):
+        super(NeoCTL, self).__init__(**kw)
         self.server = self.nm.createAdmin(address=address)
         self.handler = CommandEventHandler(self)
         self.response_queue = []

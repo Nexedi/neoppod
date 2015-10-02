@@ -502,6 +502,8 @@ class ConnectionFilter(object):
 
 class NEOCluster(object):
 
+    SSL = None
+
     def __init__(orig, self): # temporary definition for SimpleQueue patch
         orig(self)
         lock = self._lock
@@ -563,7 +565,8 @@ class NEOCluster(object):
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
         weak_self = weakref.proxy(self)
         kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
-                  getPartitions=partitions, getReset=clear_databases)
+                  getPartitions=partitions, getReset=clear_databases,
+                  getSSL=self.SSL)
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(getUpstreamCluster=upstream.name,
@@ -600,7 +603,7 @@ class NEOCluster(object):
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress())
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
 
     def __repr__(self):
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
@@ -634,7 +637,7 @@ class NEOCluster(object):
             for node in getattr(self, node_type + '_list'):
                 node.resetNode(**kw)
         self.neoctl.close()
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress())
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
 
     def start(self, storage_list=None, fast_startup=False):
         self._patch()
@@ -656,10 +659,13 @@ class NEOCluster(object):
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
+    def newClient(self):
+        return ClientApplication(name=self.name, master_nodes=self.master_nodes,
+                                 compress=self.compress, ssl=self.SSL)
+
     @cached_property
     def client(self):
-        client = ClientApplication(name=self.name,
-            master_nodes=self.master_nodes, compress=self.compress)
+        client = self.newClient()
         # Make sure client won't be reused after it was closed.
         def close():
             client = self.client

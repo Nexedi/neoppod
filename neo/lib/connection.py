@@ -299,6 +299,7 @@ class ListeningConnection(BaseConnection):
     """A listen connection."""
 
     def __init__(self, app, handler, addr):
+        self._ssl = app.ssl
         logging.debug('listening to %s:%d', *addr)
         connector = self.ConnectorClass(addr)
         BaseConnection.__init__(self, app.em, handler, connector, addr)
@@ -310,6 +311,9 @@ class ListeningConnection(BaseConnection):
         logging.debug('accepted a connection from %s:%d', *addr)
         handler = self.getHandler()
         new_conn = ServerConnection(self.em, handler, connector, addr)
+        if self._ssl:
+            connector.ssl(self._ssl)
+            self.em.addWriter(new_conn)
         handler.connectionAccepted(new_conn)
 
     def getAddress(self):
@@ -580,6 +584,7 @@ class ClientConnection(Connection):
     client = True
 
     def __init__(self, app, handler, node):
+        self._ssl = app.ssl
         addr = node.getAddress()
         connector = self.ConnectorClass(addr)
         Connection.__init__(self, app.em, handler, connector, addr)
@@ -619,6 +624,8 @@ class ClientConnection(Connection):
             self.writable()
 
     def _connectionCompleted(self):
+        if self._ssl:
+            self.connector.ssl(self._ssl)
         self.writable = self.lockWrapper(super(ClientConnection, self).writable)
         self.connecting = False
         self.updateTimeout(time())

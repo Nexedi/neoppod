@@ -168,6 +168,3 @@
     - Investigate delta compression for stored data
       Idea would be to have a few most recent revisions being stored fully, and
       older revision delta-compressed, in order to save space.
-    - Consider using multicast for cluster-wide notifications. (BANDWITH)
-      Currently, multi-receivers notifications are sent in unicast to each
-      receiver. Multicast should be used.

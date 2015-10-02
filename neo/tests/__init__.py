@@ -68,6 +68,9 @@ IP_VERSION_FORMAT_DICT = {
 
 ADDRESS_TYPE = socket.AF_INET
 
+SSL = os.path.dirname(__file__) + os.sep
+SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
+
 logging.default_root_handler.handle = lambda record: None
 logging.backlog(None, 1<<20)
 

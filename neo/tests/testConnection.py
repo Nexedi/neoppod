@@ -56,6 +56,7 @@ class ConnectionTests(NeoUnitTestBase):
     def setUp(self):
         NeoUnitTestBase.setUp(self)
         self.app = Mock({'__repr__': 'Fake App'})
+        self.app.ssl = None
         self.em = self.app.em = Mock({'__repr__': 'Fake Em'})
         self.handler = Mock({'__repr__': 'Fake Handler'})
         self.address = ("127.0.0.7", 93413)

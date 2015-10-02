@@ -47,7 +47,8 @@ class Application(BaseApplication):
     uuid = None
 
     def __init__(self, config):
-        super(Application, self).__init__(config.getDynamicMasterList())
+        super(Application, self).__init__(
+            config.getSSL(), config.getDynamicMasterList())
         self.tm = TransactionManager(self.onTransactionCommitted)
 
         self.name = config.getCluster()

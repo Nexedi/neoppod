@@ -38,7 +38,7 @@ from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump
 from .. import cluster, DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
-        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
+        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory, SSL
 from neo.client.Storage import Storage
 from neo.storage.database import buildDatabaseManager
 
@@ -223,6 +223,8 @@ class NEOProcess(object):
 
 class NEOCluster(object):
 
+    SSL = None
+
     def __init__(self, db_list, master_count=1, partitions=1, replicas=0,
                  db_user=DB_USER, db_password='', name=None,
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
@@ -289,7 +291,7 @@ class NEOCluster(object):
             self._newProcess(NodeTypes.STORAGE, logger and 'storage_%u' % i,
                              0, adapter=adapter, database=self.db_template(db))
         # create neoctl
-        self.neoctl = NeoCTL((self.local_ip, admin_port))
+        self.neoctl = NeoCTL((self.local_ip, admin_port), ssl=self.SSL)
 
     def _newProcess(self, node_type, logfile=None, port=None, **kw):
         self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)
@@ -301,6 +303,8 @@ class NEOCluster(object):
             kw['logfile'] = os.path.join(self.temp_dir, logfile + '.log')
         if port is not None:
             kw['bind'] = '%s:%u' % (buildUrlFromString(self.local_ip), port)
+        if self.SSL:
+            kw['ca'], kw['cert'], kw['key'] = self.SSL
         self.process_dict.setdefault(node_type, []).append(
             NEOProcess(command_dict[node_type], uuid, kw))
 
@@ -402,6 +406,8 @@ class NEOCluster(object):
 
     def getZODBStorage(self, **kw):
         master_nodes = self.master_nodes.replace('/', ' ')
+        if self.SSL:
+            kw['ca'], kw['cert'], kw['key'] = self.SSL
         result = Storage(
             master_nodes=master_nodes,
             name=self.cluster_name,
@@ -632,6 +638,15 @@ class NEOCluster(object):
 
 
 class NEOFunctionalTest(NeoTestBase):
+
+    def setUp(self):
+        if random.randint(0, 1):
+            NEOCluster.SSL = SSL
+        super(NEOFunctionalTest, self).setUp()
+
+    def _tearDown(self, success):
+        super(NEOFunctionalTest, self)._tearDown(success)
+        NEOCluster.SSL = None
 
     def setupLog(self):
         logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))

@@ -42,5 +42,6 @@ def main(args=None):
         logging.setup(options.logfile)
     from neo.neoctl.app import Application
 
-    print Application(address).execute(args)
+    ssl = options.ca, options.cert, options.key
+    print Application(address, ssl=ssl if any(ssl) else None).execute(args)
 

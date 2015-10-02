@@ -30,7 +30,8 @@ class Application(BaseApplication):
     """The storage node application."""
 
     def __init__(self, config):
-        super(Application, self).__init__(config.getDynamicMasterList())
+        super(Application, self).__init__(
+            config.getSSL(), config.getDynamicMasterList())
         for address in config.getMasters():
             self.nm.createMaster(address=address)
 

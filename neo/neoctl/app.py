@@ -44,8 +44,8 @@ uuid_int = (lambda ns: lambda uuid:
     )({str(k)[0]: v for k, v in UUID_NAMESPACES.iteritems()})
 
 class TerminalNeoCTL(object):
-    def __init__(self, address):
-        self.neoctl = NeoCTL(address)
+    def __init__(self, *args, **kw):
+        self.neoctl = NeoCTL(*args, **kw)
 
     def __del__(self):
         self.neoctl.close()
@@ -231,8 +231,8 @@ class TerminalNeoCTL(object):
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, address):
-        self.neoctl = TerminalNeoCTL(address)
+    def __init__(self, *args, **kw):
+        self.neoctl = TerminalNeoCTL(*args, **kw)
 
     def execute(self, args):
         """Execute the command given."""
