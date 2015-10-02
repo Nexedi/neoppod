@@ -33,7 +33,13 @@ def main(args=None):
     else:
         address = ('127.0.0.1', 9999)
 
-    logging.setup(options.logfile)
+    if options.logfile:
+        # Contrary to daemons, we log everything to disk automatically
+        # because a user using -l option here:
+        # - is certainly debugging an issue and wants everything,
+        # - would not have to time to send SIGRTMIN before neoctl exits.
+        logging.backlog(None)
+        logging.setup(options.logfile)
     from neo.neoctl.app import Application
 
     print Application(address).execute(args)
