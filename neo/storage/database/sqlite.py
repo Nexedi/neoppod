@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sqlite3
 from hashlib import sha1
 import string
@@ -70,7 +71,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         self._connect()
 
     def _parse(self, database):
-        self.db = database
+        self.db = os.path.expanduser(database)
 
     def close(self):
         self.conn.close()

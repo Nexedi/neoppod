@@ -21,6 +21,7 @@ from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY
 from array import array
 from hashlib import sha1
+import os
 import re
 import string
 import struct
@@ -57,9 +58,9 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
-        # expected pattern : [user[:password]@]database[(.|/)unix_socket]
+        # expected pattern : [user[:password]@]database[(~|.|/)unix_socket]
         self.user, self.passwd, self.db, self.socket = re.match(
-            '(?:([^:]+)(?::(.*))?@)?([^./]+)(.+)?$', database).groups()
+            '(?:([^:]+)(?::(.*))?@)?([^~./]+)(.+)?$', database).groups()
 
     def close(self):
         self.conn.close()
@@ -69,7 +70,7 @@ class MySQLDatabaseManager(DatabaseManager):
         if self.passwd is not None:
             kwd['passwd'] = self.passwd
         if self.socket:
-            kwd['unix_socket'] = self.socket
+            kwd['unix_socket'] = os.path.expanduser(self.socket)
         logging.info('connecting to MySQL on the database %s with user %s',
                      self.db, self.user)
         if self._wait < 0:

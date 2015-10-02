@@ -102,7 +102,7 @@ class ConfigurationManager(object):
         return self.__get('wait')
 
     def getDynamicMasterList(self):
-        return self.__get('dynamic_master_list', optional=True)
+        return self.__getPath('dynamic_master_list', optional=True)
 
     def getAdapter(self):
         return self.__get('adapter')

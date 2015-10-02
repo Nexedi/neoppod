@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import cPickle, pickle, time
 from bisect import bisect, insort
 from collections import deque
@@ -286,7 +287,7 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def _parse(self, database):
         config = SafeConfigParser()
-        config.read(database)
+        config.read(os.path.expanduser(database))
         sections = config.sections()
         # XXX: defaults copy & pasted from elsewhere - refactoring needed
         main = {'adapter': 'MySQL', 'wait': 0}
