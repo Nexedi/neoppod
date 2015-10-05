@@ -1,6 +1,38 @@
 Change History
 ==============
 
+1.5 (2015-10-05)
+----------------
+
+In this version, the connectivity between nodes has been greatly improved:
+
+- Added SSL support.
+- IPv4 & IPv6 can be mixed: some nodes can have an IPv4 binding address,
+  whereas other listen on IPv6.
+- Version 1.4 fixed several cases where nodes could reconnect too quickly,
+  using 100% CPU and flooding logs. This is now fixed completely, for example
+  when a backup storage node was rejected because the upstream cluster was not
+  ready.
+- Tickless poll loop, for lower latency and CPU usage: nodes don't wake up
+  every second anymore to check if a timeout has expired.
+- Connections could be wrongly processed before being polled (for reading or
+  writing). This happened if a file descriptor number was reallocated by the
+  kernel for a connection, just after a connection was closed.
+
+Other changes are:
+
+- IStorage: history() did not wait the oid to be unlocked. This means that the
+  latest version of an object could be missing from the result.
+- Log files can now be specified in configuration files.
+- ~(user) construction are expanded for all paths in configuration (file or
+  command line). This does not concern non-daemon executables like neoctl.
+- For neoctl, -l option now logs everything on disk automatically.
+- The admin node do not reset anymore the list of known masters from
+  configuration when reconnecting, for consistency with client nodes.
+- Code refactoring and improvements to logging and debugging.
+- An notable change in the test suite is that the occasional deadlocks that
+  affected threaded tests have been fixed.
+
 1.4 (2015-07-13)
 ----------------
 
