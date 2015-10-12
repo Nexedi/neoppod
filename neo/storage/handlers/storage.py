@@ -23,8 +23,8 @@ from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
 
 def checkConnectionIsReplicatorConnection(func):
     def wrapper(self, conn, *args, **kw):
-        assert self.app.replicator.getCurrentConnection() is conn
-        return func(self, conn, *args, **kw)
+        if self.app.replicator.getCurrentConnection() is conn:
+            return func(self, conn, *args, **kw)
     return wraps(func)(wrapper)
 
 def checkFeedingConnection(check):

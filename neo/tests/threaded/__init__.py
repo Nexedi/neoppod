@@ -83,6 +83,10 @@ class Serialized(object):
     The epoll object of each node is hooked so that thread switching happens
     before polling for network activity. An extra epoll object is used to
     detect which node has a readable epoll object.
+
+    XXX: It seems wrong to rely only on epoll as way to know if there are
+         pending network messages. I had rare random failures due to tic()
+         returning prematurely.
     """
     check_timeout = False
 
