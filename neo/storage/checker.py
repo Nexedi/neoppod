@@ -184,7 +184,7 @@ class Checker(object):
                 return
         try:
             count, _, max_tid = args
-        except ValueError:
+        except ValueError: # AnswerCheckSerialRange
             count, _, self.next_tid, _, max_oid = args
             if count < CHECK_COUNT:
                 logging.debug("partition %u checked from %s to %s",
@@ -192,8 +192,7 @@ class Checker(object):
                 self._nextPartition()
                 return
             self.next_oid = add64(max_oid, 1)
-        else:
-            (count, _, max_tid), = answer_set
+        else: # AnswerCheckTIDRange
             if count < CHECK_COUNT:
                 self.next_tid = self.min_tid
                 self.next_oid = ZERO_OID
