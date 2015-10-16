@@ -21,7 +21,12 @@ from neo.lib.protocol import NodeTypes, Packets, ZERO_OID
 from neo.lib.util import add64, dump
 from .handlers.storage import StorageOperationHandler
 
-CHECK_COUNT = 4000
+# TODO: Use a dynamic value such that each chunk takes a few seconds to compute,
+#       because a too small value wastes network bandwidth. However, a too big
+#       one prevents the storage from replying quickly to other requests, so
+#       checkRange() must also be changed to process a chunk in several times,
+#       with a total time that must not cause timeouts.
+CHECK_COUNT = 40000
 
 class Checker(object):
 
