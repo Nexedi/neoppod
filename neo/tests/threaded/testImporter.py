@@ -193,11 +193,20 @@ class ImporterTests(NEOThreadedTest):
             cluster.start()
             t, c = cluster.getTransaction()
             r = c.root()["neo"]
+            # Test retrieving of an object from ZODB when next serial in NEO.
+            r._p_changed = 1
+            t.commit()
+            t.begin()
+            storage = c.db().storage
+            storage._cache.clear()
+            storage.loadBefore(r._p_oid, r._p_serial)
+            ##
             self.assertRaisesRegexp(NotImplementedError, " getObjectHistory$",
                                     c.db().history, r._p_oid)
             i = r.walk()
             next(islice(i, 9, None))
-            dm.doOperation(cluster.storage) # resume
+            logging.info("start migration")
+            dm.doOperation(cluster.storage)
             deque(i, maxlen=0)
             last_import = None
             for i, r in enumerate(r.treeFromFs(src_root, 10)):

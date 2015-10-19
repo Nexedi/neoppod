@@ -491,8 +491,11 @@ class ImporterDatabaseManager(DatabaseManager):
             #         except clause because it would be crazy to import a
             #         NEO DB using this backend.
             checksum = None
-        return (serial, next_serial or
-            db._getNextTID(db._getPartition(u_oid), u_oid, u_tid),
+        if not next_serial:
+            next_serial = db._getNextTID(db._getPartition(u_oid), u_oid, u_tid)
+            if next_serial:
+                next_serial = p64(next_serial)
+        return (serial, next_serial,
             0, checksum, value, zodb.getDataTid(z_oid, u_tid))
 
     def getTransaction(self, tid, all=False):
