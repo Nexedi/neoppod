@@ -91,6 +91,25 @@ class StorageMySQLdbTests(StorageDBTests):
         self.assertEqual(self.db.escape('a"b'), 'a\\"b')
         self.assertEqual(self.db.escape("a'b"), "a\\'b")
 
+    def test_max_allowed_packet(self):
+        EXTRA = 2
+        # Check EXTRA
+        x = "SELECT '%s'" % ('x' * (self.db._max_allowed_packet - 11))
+        assert len(x) + EXTRA == self.db._max_allowed_packet
+        self.assertRaises(DatabaseFailure, self.db.query, x + ' ')
+        self.db.query(x)
+        # Check MySQLDatabaseManager._max_allowed_packet
+        query_list = []
+        query = self.db.query
+        self.db.query = lambda query: query_list.append(EXTRA + len(query))
+        self.assertEqual(2, max(len(self.db.escape(chr(x)))
+                                for x in xrange(256)))
+        self.assertEqual(2, len(self.db.escape('\0')))
+        self.db.storeData('\0' * 20, '\0' * (2**24-1), 0)
+        size, = query_list
+        max_allowed = self.db.__class__._max_allowed_packet
+        self.assertTrue(max_allowed - 1024 < size <= max_allowed, size)
+
 class StorageMySQLdbTokuDBTests(StorageMySQLdbTests):
 
     engine = "TokuDB"

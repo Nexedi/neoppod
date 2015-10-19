@@ -50,6 +50,8 @@ class MySQLDatabaseManager(DatabaseManager):
     # (tested with testOudatedCellsOnDownStorage).
     _use_partition = False
 
+    _max_allowed_packet = 32769 * 1024
+
     def __init__(self, *args, **kw):
         super(MySQLDatabaseManager, self).__init__(*args, **kw)
         self.conn = None
@@ -87,9 +89,18 @@ class MySQLDatabaseManager(DatabaseManager):
                 logging.exception('Connection to MySQL failed, retrying.')
                 time.sleep(1)
         self._active = 0
-        self.conn.autocommit(False)
-        self.conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
-        self.conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
+        conn = self.conn
+        conn.autocommit(False)
+        conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
+        conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
+        conn.query("SHOW VARIABLES WHERE variable_name='max_allowed_packet'")
+        r = conn.store_result()
+        (name, value), = r.fetch_row(r.num_rows())
+        if int(value) < self._max_allowed_packet:
+            raise DatabaseFailure("Global variable %r is too small."
+                " Minimal value must be %uk."
+                % (name, self._max_allowed_packet // 1024))
+        self._max_allowed_packet = int(value)
 
     def commit(self):
         logging.debug('committing...')
