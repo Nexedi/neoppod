@@ -133,16 +133,17 @@ class Serialized(object):
             p.set_trace(sys._getframe(3))
 
     @classmethod
-    def tic(cls, step=-1, check_timeout=()):
+    def tic(cls, step=-1, check_timeout=(), quiet=False):
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
         with cls._tic_lock, cls.pdb():
-            f = sys._getframe(1)
-            try:
-                logging.info('tic (%s:%u) ...',
-                    f.f_code.co_filename, f.f_lineno)
-            finally:
-                del f
+            if not quiet:
+                f = sys._getframe(1)
+                try:
+                    logging.info('tic (%s:%u) ...',
+                        f.f_code.co_filename, f.f_lineno)
+                finally:
+                    del f
             if cls._busy:
                 with cls._busy_cond:
                     while cls._busy:
@@ -513,8 +514,9 @@ class NEOCluster(object):
         lock = self._lock
         def _lock(blocking=True):
             if blocking:
+                logging.info('<SimpleQueue>._lock.acquire()')
                 while not lock(False):
-                    Serialized.tic(step=1)
+                    Serialized.tic(step=1, quiet=True)
                 return True
             return lock(False)
         self._lock = _lock
