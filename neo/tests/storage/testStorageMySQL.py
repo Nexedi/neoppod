@@ -18,6 +18,7 @@ import unittest
 import MySQLdb
 from mock import Mock
 from neo.lib.exception import DatabaseFailure
+from neo.lib.util import p64
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 
@@ -109,6 +110,15 @@ class StorageMySQLdbTests(StorageDBTests):
         size, = query_list
         max_allowed = self.db.__class__._max_allowed_packet
         self.assertTrue(max_allowed - 1024 < size <= max_allowed, size)
+        # Check storeTransaction
+        for count, max_allowed_packet in (7, 64), (6, 65), (1, 215):
+            self.db._max_allowed_packet = max_allowed_packet
+            del query_list[:]
+            self.db.storeTransaction(p64(0),
+                ((p64(1<<i),0,None) for i in xrange(10)), None)
+            self.assertEqual(max(query_list), max_allowed_packet)
+            self.assertEqual(len(query_list), count)
+
 
 class StorageMySQLdbTokuDBTests(StorageMySQLdbTests):
 

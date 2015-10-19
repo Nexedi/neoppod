@@ -417,6 +417,9 @@ class MySQLDatabaseManager(DatabaseManager):
             obj_table = 'obj'
             trans_table = 'trans'
         q = self.query
+        sql = ["REPLACE INTO %s VALUES " % obj_table]
+        values_max = self._max_allowed_packet - len(sql[0])
+        values_size = 0
         for oid, data_id, value_serial in object_list:
             oid = u64(oid)
             partition = self._getPartition(oid)
@@ -429,8 +432,20 @@ class MySQLDatabaseManager(DatabaseManager):
                     self.holdData(data_id)
             else:
                 value_serial = 'NULL'
-            q("REPLACE INTO %s VALUES (%d, %d, %d, %s, %s)" % (obj_table,
-                partition, oid, tid, data_id or 'NULL', value_serial))
+            value = "(%s,%s,%s,%s,%s)," % (
+                partition, oid, tid, data_id or 'NULL', value_serial)
+            values_size += len(value)
+            # actually: max_values < values_size + EXTRA - len(final comma)
+            # (test_max_allowed_packet checks that EXTRA == 2)
+            if values_max <= values_size:
+                sql[-1] = sql[-1][:-1] # remove final comma
+                q(''.join(sql))
+                del sql[1:]
+                values_size = len(value)
+            sql.append(value)
+        if values_size:
+            sql[-1] = value[:-1] # remove final comma
+            q(''.join(sql))
         if transaction:
             oid_list, user, desc, ext, packed, ttid = transaction
             partition = self._getPartition(tid)
