@@ -299,7 +299,7 @@ class ImporterDatabaseManager(DatabaseManager):
         for x in """query erase getConfiguration _setConfiguration
                     getPartitionTable changePartitionTable getUnfinishedTIDList
                     dropUnfinishedData storeTransaction finishTransaction
-                    storeData
+                    storeData _pruneData
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
