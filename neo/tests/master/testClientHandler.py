@@ -124,18 +124,17 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         })
         ttid = self.getNextTID()
         service.askBeginTransaction(conn, ttid)
-        oid_list = []
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         # No packet sent if storage node is not ready
         self.assertFalse(self.app.isStorageReady(storage_uuid))
-        service.askFinishTransaction(conn, ttid, oid_list)
+        service.askFinishTransaction(conn, ttid, (), ())
         self.checkNoPacketSent(storage_conn)
         self.app.tm.abortFor(self.app.nm.getByUUID(client_uuid))
         # ...but AskLockInformation is sent if it is ready
         self.app.setStorageReady(storage_uuid)
         self.assertTrue(self.app.isStorageReady(storage_uuid))
-        service.askFinishTransaction(conn, ttid, oid_list)
+        service.askFinishTransaction(conn, ttid, (), ())
         self.checkAskLockInformation(storage_conn)
         self.assertEqual(len(self.app.tm.registerForNotification(storage_uuid)), 1)
         txn = self.app.tm[ttid]

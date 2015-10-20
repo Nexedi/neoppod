@@ -736,7 +736,8 @@ class NEOCluster(object):
                      if cell[1] == CellStates.OUT_OF_DATE]
 
     def getZODBStorage(self, **kw):
-        return Storage.Storage(None, self.name, _app=self.client, **kw)
+        kw['_app'] = kw.pop('client', self.client)
+        return Storage.Storage(None, self.name, **kw)
 
     def importZODB(self, dummy_zodb=None, random=random):
         if dummy_zodb is None:

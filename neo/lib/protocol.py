@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -850,6 +850,9 @@ class FinishTransaction(Packet):
     _fmt = PStruct('ask_finish_transaction',
         PTID('tid'),
         PFOidList,
+        PList('checked_list',
+            POID('oid'),
+        ),
     )
 
     _answer = PStruct('answer_information_locked',

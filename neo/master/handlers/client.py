@@ -54,12 +54,13 @@ class ClientServiceHandler(MasterHandler):
     def askNewOIDs(self, conn, num_oids):
         conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
 
-    def askFinishTransaction(self, conn, ttid, oid_list):
+    def askFinishTransaction(self, conn, ttid, oid_list, checked_list):
         app = self.app
         pt = app.pt
 
         # Collect partitions related to this transaction.
-        partition_set = set(map(pt.getPartition, oid_list))
+        lock_oid_list = oid_list + checked_list
+        partition_set = set(map(pt.getPartition, lock_oid_list))
         partition_set.add(pt.getPartition(ttid))
 
         # Collect the UUIDs of nodes related to this transaction.
@@ -84,7 +85,7 @@ class ClientServiceHandler(MasterHandler):
                 {x.getUUID() for x in identified_node_list},
                 conn.getPeerId(),
             ),
-            oid_list,
+            lock_oid_list,
         )
         for node in identified_node_list:
             node.ask(p, timeout=60)

@@ -22,7 +22,7 @@ import unittest
 from thread import get_ident
 from zlib import compress
 from persistent import Persistent
-from ZODB import POSException
+from ZODB import DB, POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import ConnectionClosed, MTClientConnection
@@ -30,7 +30,7 @@ from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from .. import expectedFailure, _UnexpectedSuccess, Patch
 from . import NEOCluster, NEOThreadedTest
-from neo.lib.util import add64, makeChecksum
+from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
@@ -687,6 +687,48 @@ class Test(NEOThreadedTest):
             # to make sure we have a recent enough view of the DB.
             self.assertEqual(x1.value, 1)
 
+        finally:
+            cluster.stop()
+
+    def testReadVerifyingStorage(self):
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+            t1, c1 = cluster.getTransaction()
+            c1.root()['x'] = x = PCounter()
+            t1.commit()
+            t1.begin()
+            x._p_deactivate()
+            # We need a second client for external invalidations.
+            t2 = transaction.TransactionManager()
+            db = DB(storage=cluster.getZODBStorage(client=cluster.newClient()))
+            try:
+                c2 = db.open(t2)
+                t2.begin()
+                r = c2.root()
+                r['y'] = None
+                r['x']._p_activate()
+                c2.readCurrent(r['x'])
+                # Force the new tid to be even, like the modified oid and
+                # unlike the oid on which we used readCurrent. Thus we check
+                # that the node containing only the partition 1 is also
+                # involved in tpc_finish.
+                with Patch(cluster.master.tm, begin=lambda orig, node, tid:
+                        orig(node, p64(u64(x._p_serial) + 2 & ~1))):
+                    t2.commit()
+                for storage in cluster.storage_list:
+                    self.assertFalse(storage.tm._transaction_dict)
+            finally:
+                db.close()
+            # Clearing cache is the easiest way to check we did't get an
+            # invalidation, which would cause a failure in _setstate_noncurrent
+            c1._storage._cache.clear()
+            self.assertFalse(x.value)
+            t0, t1, t2 = c1._storage.iterator()
+            self.assertEqual(map(u64, t0.oid_list), [0])
+            self.assertEqual(map(u64, t1.oid_list), [0, 1])
+            # Check oid 1 is part of transaction metadata.
+            self.assertEqual(t2.oid_list, t1.oid_list)
         finally:
             cluster.stop()
 

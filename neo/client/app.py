@@ -45,7 +45,7 @@ from .pool import ConnectionPool
 from neo.lib.util import p64, u64, parseMasterList
 from neo.lib.debug import register as registerLiveDebugger
 
-CHECKED_SERIAL = master.CHECKED_SERIAL
+CHECKED_SERIAL = object()
 
 try:
     from Signals.Signals import SignalHandler
@@ -664,13 +664,18 @@ class Application(ThreadedApplication):
         txn_container = self._txn_container
         if 'voted' not in txn_container.get(transaction):
             self.tpc_vote(transaction, tryToResolveConflict)
+        checked_list = []
         self._load_lock_acquire()
         try:
             # Call finish on master
             txn_context = txn_container.pop(transaction)
             cache_dict = txn_context['cache_dict']
+            checked_list = [oid for oid, data  in cache_dict.iteritems()
+                                if data is CHECKED_SERIAL]
+            for oid in checked_list:
+                del cache_dict[oid]
             tid = self._askPrimary(Packets.AskFinishTransaction(
-                txn_context['ttid'], cache_dict),
+                txn_context['ttid'], cache_dict, checked_list),
                 cache_dict=cache_dict, callback=f)
             assert tid
             return tid

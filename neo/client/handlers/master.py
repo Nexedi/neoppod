@@ -22,7 +22,6 @@ from neo.lib.util import dump, add64
 from . import AnswerBaseHandler
 from ..exception import NEOStorageError
 
-CHECKED_SERIAL = object()
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
@@ -120,11 +119,6 @@ class PrimaryNotificationsHandler(MTEventHandler):
             app._cache_lock_acquire()
             try:
                 for oid, data in kw.pop('cache_dict').iteritems():
-                    if data is CHECKED_SERIAL:
-                        # this is just a remain of
-                        # checkCurrentSerialInTransaction call, ignore (no data
-                        # was modified).
-                        continue
                     # Update ex-latest value in cache
                     cache.invalidate(oid, tid)
                     if data is not None:
