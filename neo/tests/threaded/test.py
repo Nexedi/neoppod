@@ -697,8 +697,6 @@ class Test(NEOThreadedTest):
             t1, c1 = cluster.getTransaction()
             c1.root()['x'] = x = PCounter()
             t1.commit()
-            t1.begin()
-            x._p_deactivate()
             # We need a second client for external invalidations.
             t2 = transaction.TransactionManager()
             db = DB(storage=cluster.getZODBStorage(client=cluster.newClient()))
@@ -720,10 +718,12 @@ class Test(NEOThreadedTest):
                     self.assertFalse(storage.tm._transaction_dict)
             finally:
                 db.close()
-            # Clearing cache is the easiest way to check we did't get an
-            # invalidation, which would cause a failure in _setstate_noncurrent
-            c1._storage._cache.clear()
-            self.assertFalse(x.value)
+            # Check we did't get an invalidation, which would cause an
+            # assertion failure in the cache. Connection does the same check in
+            # _setstate_noncurrent so this could be also done by starting a
+            # transaction before the last one, and clearing the cache before
+            # reloading x.
+            c1._storage.load(x._p_oid)
             t0, t1, t2 = c1._storage.iterator()
             self.assertEqual(map(u64, t0.oid_list), [0])
             self.assertEqual(map(u64, t1.oid_list), [0, 1])

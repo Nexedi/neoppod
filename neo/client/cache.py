@@ -205,6 +205,7 @@ class ClientCache(object):
                         insort(item_list, item)
                     else:
                         prev = item_list[-1]
+                        assert prev.next_tid <= tid, (prev, item)
                         item.counter = prev.counter
                         prev.counter = 0
                         if prev.level > 1:
@@ -275,6 +276,7 @@ def test(self):
     cache.store(1, '10', 10, 15)
     cache.store(1, '20', 20, 21)
     self.assertEqual([5, 10, 15, 20], [x.tid for x in cache._oid_dict[1]])
+    self.assertRaises(AssertionError, cache.store, 1, '20', 20, None)
 
 if __name__ == '__main__':
     import unittest
