@@ -1,11 +1,11 @@
-Patch to ZODB3 for ZODB unit tests.
+Patch to ZODB 3.10.5 for ZODB unit tests.
 See also monkey-patch to Connection.tpc_finish in neo/client/__init__.py
 
-Index: src/ZODB/tests/BasicStorage.py
-===================================================================
---- src/ZODB/tests/BasicStorage.py	(revision 122777)
-+++ src/ZODB/tests/BasicStorage.py	(working copy)
-@@ -72,8 +72,10 @@
+diff --git a/src/ZODB/tests/BasicStorage.py b/src/ZODB/tests/BasicStorage.py
+index 8e72272..61bc801 100644
+--- a/src/ZODB/tests/BasicStorage.py
++++ b/src/ZODB/tests/BasicStorage.py
+@@ -72,8 +72,10 @@ def checkSerialIsNoneForInitialRevision(self):
          r1 = self._storage.store(oid, None, zodb_pickle(MinPO(11)),
                                         '', txn)
          r2 = self._storage.tpc_vote(txn)
@@ -17,11 +17,11 @@ Index: src/ZODB/tests/BasicStorage.py
          data, revid = self._storage.load(oid, '')
          value = zodb_unpickle(data)
          eq(value, MinPO(11))
-Index: src/ZODB/tests/TransactionalUndoStorage.py
-===================================================================
---- src/ZODB/tests/TransactionalUndoStorage.py	(revision 122777)
-+++ src/ZODB/tests/TransactionalUndoStorage.py	(working copy)
-@@ -76,6 +76,12 @@
+diff --git a/src/ZODB/tests/TransactionalUndoStorage.py b/src/ZODB/tests/TransactionalUndoStorage.py
+index 72adac2..698e288 100644
+--- a/src/ZODB/tests/TransactionalUndoStorage.py
++++ b/src/ZODB/tests/TransactionalUndoStorage.py
+@@ -76,6 +76,12 @@ def _transaction_vote(self, trans):
      def _transaction_newserial(self, oid):
          return self.__serials[oid]
  
@@ -34,7 +34,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
      def _multi_obj_transaction(self, objs):
          newrevs = {}
          t = Transaction()
-@@ -85,7 +91,7 @@
+@@ -85,7 +91,7 @@ def _multi_obj_transaction(self, objs):
              self._transaction_store(oid, rev, data, '', t)
              newrevs[oid] = None
          self._transaction_vote(t)
@@ -43,7 +43,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          for oid in newrevs.keys():
              newrevs[oid] = self._transaction_newserial(oid)
          return newrevs
-@@ -218,9 +224,9 @@
+@@ -218,9 +224,9 @@ def checkTwoObjectUndo(self):
          self._transaction_store(oid2, revid2, p51, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -54,7 +54,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          eq(revid1, revid2)
          # Update those same two objects
          t = Transaction()
-@@ -230,9 +236,9 @@
+@@ -230,9 +236,9 @@ def checkTwoObjectUndo(self):
          self._transaction_store(oid2, revid2, p52, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -65,7 +65,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          eq(revid1, revid2)
          # Make sure the objects have the current value
          data, revid1 = self._storage.load(oid1, '')
-@@ -288,11 +294,12 @@
+@@ -288,11 +294,12 @@ def checkTwoObjectUndoAtOnce(self):
          tid1 = info[1]['id']
          t = Transaction()
          oids = self._begin_undos_vote(t, tid, tid1)
@@ -82,7 +82,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          data, revid1 = self._storage.load(oid1, '')
          eq(zodb_unpickle(data), MinPO(30))
          data, revid2 = self._storage.load(oid2, '')
-@@ -326,7 +333,7 @@
+@@ -326,7 +333,7 @@ def checkTwoObjectUndoAgain(self):
          self._transaction_store(oid2, revid2, p52, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -91,7 +91,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          revid1 = self._transaction_newserial(oid1)
          revid2 = self._transaction_newserial(oid2)
          eq(revid1, revid2)
-@@ -346,7 +353,7 @@
+@@ -346,7 +353,7 @@ def checkTwoObjectUndoAgain(self):
          self._transaction_store(oid2, revid2, p53, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -100,7 +100,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          revid1 = self._transaction_newserial(oid1)
          revid2 = self._transaction_newserial(oid2)
          eq(revid1, revid2)
-@@ -358,10 +365,11 @@
+@@ -358,10 +365,11 @@ def checkTwoObjectUndoAgain(self):
          tid = info[1]['id']
          t = Transaction()
          oids = self._begin_undos_vote(t, tid)
@@ -116,7 +116,7 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          data, revid1 = self._storage.load(oid1, '')
          eq(zodb_unpickle(data), MinPO(33))
          data, revid2 = self._storage.load(oid2, '')
-@@ -397,7 +405,7 @@
+@@ -397,7 +405,7 @@ def checkNotUndoable(self):
          self._transaction_store(oid1, revid1, p81, '', t)
          self._transaction_store(oid2, revid2, p91, '', t)
          self._transaction_vote(t)
@@ -125,11 +125,11 @@ Index: src/ZODB/tests/TransactionalUndoStorage.py
          revid1 = self._transaction_newserial(oid1)
          revid2 = self._transaction_newserial(oid2)
          eq(revid1, revid2)
-Index: src/ZODB/tests/StorageTestBase.py
-===================================================================
---- src/ZODB/tests/StorageTestBase.py	(revision 122777)
-+++ src/ZODB/tests/StorageTestBase.py	(working copy)
-@@ -134,7 +134,7 @@
+diff --git a/src/ZODB/tests/StorageTestBase.py b/src/ZODB/tests/StorageTestBase.py
+index 9737ec4..43f29ed 100644
+--- a/src/ZODB/tests/StorageTestBase.py
++++ b/src/ZODB/tests/StorageTestBase.py
+@@ -134,7 +134,7 @@ def handle_serials(oid, *args):
  
      A helper for function _handle_all_serials().
      """
@@ -138,7 +138,7 @@ Index: src/ZODB/tests/StorageTestBase.py
  
  def import_helper(name):
      __import__(name)
-@@ -191,7 +191,9 @@
+@@ -191,7 +191,9 @@ def _dostore(self, oid=None, revid=None, data=None,
              # Finish the transaction
              r2 = self._storage.tpc_vote(t)
              revid = handle_serials(oid, r1, r2)
@@ -149,7 +149,7 @@ Index: src/ZODB/tests/StorageTestBase.py
          except:
              self._storage.tpc_abort(t)
              raise
-@@ -211,8 +213,8 @@
+@@ -211,8 +213,8 @@ def _undo(self, tid, expected_oids=None, note=None):
          self._storage.tpc_begin(t)
          undo_result = self._storage.undo(tid, t)
          vote_result = self._storage.tpc_vote(t)
@@ -160,11 +160,11 @@ Index: src/ZODB/tests/StorageTestBase.py
              oids = undo_result and undo_result[1] or []
              oids.extend(oid for (oid, _) in vote_result or ())
              self.assertEqual(len(oids), len(expected_oids), repr(oids))
-Index: src/ZODB/tests/MTStorage.py
-===================================================================
---- src/ZODB/tests/MTStorage.py	(revision 122777)
-+++ src/ZODB/tests/MTStorage.py	(working copy)
-@@ -155,10 +155,12 @@
+diff --git a/src/ZODB/tests/MTStorage.py b/src/ZODB/tests/MTStorage.py
+index e01c802..b57de28 100644
+--- a/src/ZODB/tests/MTStorage.py
++++ b/src/ZODB/tests/MTStorage.py
+@@ -155,10 +155,12 @@ def dostore(self, i):
          r2 = self.storage.tpc_vote(t)
          self.pause()
  
@@ -178,11 +178,11 @@ Index: src/ZODB/tests/MTStorage.py
          self.oids[oid] = revid
  
  class ExtStorageClientThread(StorageClientThread):
-Index: src/ZODB/tests/RevisionStorage.py
-===================================================================
---- src/ZODB/tests/RevisionStorage.py	(revision 122777)
-+++ src/ZODB/tests/RevisionStorage.py	(working copy)
-@@ -150,10 +150,12 @@
+diff --git a/src/ZODB/tests/RevisionStorage.py b/src/ZODB/tests/RevisionStorage.py
+index 9113757..ddd2dde 100644
+--- a/src/ZODB/tests/RevisionStorage.py
++++ b/src/ZODB/tests/RevisionStorage.py
+@@ -150,10 +150,12 @@ def helper(tid, revid, x):
                  # Finish the transaction
                  r2 = self._storage.tpc_vote(t)
                  newrevid = handle_serials(oid, r1, r2)
@@ -196,11 +196,11 @@ Index: src/ZODB/tests/RevisionStorage.py
              return newrevid
          revid1 = helper(1, None, 1)
          revid2 = helper(2, revid1, 2)
-Index: src/ZODB/interfaces.py
-===================================================================
---- src/ZODB/interfaces.py	(revision 122777)
-+++ src/ZODB/interfaces.py	(working copy)
-@@ -776,6 +776,10 @@
+diff --git a/src/ZODB/interfaces.py b/src/ZODB/interfaces.py
+index 44ded35..db5c525 100644
+--- a/src/ZODB/interfaces.py
++++ b/src/ZODB/interfaces.py
+@@ -776,6 +776,10 @@ def tpc_finish(transaction, func = lambda tid: None):
          called while the storage transaction lock is held.  It takes
          the new transaction id generated by the transaction.
  
@@ -211,7 +211,7 @@ Index: src/ZODB/interfaces.py
          """
  
      def tpc_vote(transaction):
-@@ -794,8 +798,6 @@
+@@ -794,8 +798,6 @@ def tpc_vote(transaction):
          The return value can be either None or a sequence of object-id
          and serial pairs giving new serials for objects who's ids were
          passed to previous store calls in the same transaction.
