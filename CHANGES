@@ -1,6 +1,35 @@
 Change History
 ==============
 
+1.5.1 (2015-10-26)
+------------------
+
+Several bugs and performance issues have been fixed in this release, mainly
+in the storage node.
+
+- Importer storage backend:
+
+  - Fix retrieval of an object from ZODB when next serial in NEO.
+  - Fix crash of storage nodes when a transaction is aborted.
+  - Faster resumption when many transactions
+    have already been imported to MySQL.
+
+- MySQL storage backend:
+
+  - Refuse to start if max_allowed_packet is too small.
+  - Faster commit of transaction metadata.
+
+- Replication & checking of replicas:
+
+  - Fix crash when a corruption is found while checking TIDs.
+    2 other issues remain unfixed: see BUGS file.
+  - Speed up checking of replicas, at the cost of storage nodes being
+    less responsive to other events.
+
+- The master wrongly sent invalidations for objects on which only readCurrent
+  was called, which caused invalid entries in client caches, or assertion
+  failures in Connection._setstate_noncurrent.
+
 1.5 (2015-10-05)
 ----------------
 
