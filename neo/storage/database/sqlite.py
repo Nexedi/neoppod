@@ -206,6 +206,16 @@ class SQLiteDatabaseManager(DatabaseManager):
     def getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
+    # A test with a table of 20 million lines and SQLite 3.8.7.1 shows that
+    # it's not worth changing getLastTID:
+    # - It already returns the result in less than 2 seconds, without reading
+    #   the whole table (this is 4-7 times faster than MySQL).
+    # - Strangely, a "GROUP BY partition" clause makes SQLite almost twice
+    #   slower.
+    # - Getting MAX(tid) is immediate with a "AND partition=?" condition so one
+    #   way to speed up the following 2 methods is to repeat the queries for
+    #   each partition (and finish in Python with max() for getLastTID).
+
     def getLastTID(self, max_tid):
         return self.query("SELECT MAX(tid) FROM trans WHERE tid<=?",
                           (max_tid,)).next()[0]

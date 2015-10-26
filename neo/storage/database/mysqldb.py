@@ -271,8 +271,8 @@ class MySQLDatabaseManager(DatabaseManager):
         return self.query("SELECT * FROM pt")
 
     def getLastTID(self, max_tid):
-        return self.query("SELECT MAX(tid) FROM trans WHERE tid<=%s"
-                          % max_tid)[0][0]
+        return self.query("SELECT MAX(t) FROM (SELECT MAX(tid) as t FROM trans"
+            " WHERE tid<=%s GROUP BY `partition`) as t" % max_tid)[0][0]
 
     def _getLastIDs(self, all=True):
         p64 = util.p64
