@@ -660,7 +660,45 @@ class Application(ThreadedApplication):
         self.dispatcher.forget_queue(txn_context['queue'], flush_queue=False)
 
     def tpc_finish(self, transaction, tryToResolveConflict, f=None):
-        """Finish current transaction."""
+        """Finish current transaction
+
+        To avoid inconsistencies between several databases involved in the
+        same transaction, an IStorage implementation must do its best not to
+        fail in tpc_finish. In particular, making a transaction permanent
+        should ideally be as simple as switching a bit permanently.
+
+        In NEO, tpc_finish breaks this promise by not ensuring earlier that all
+        data and metadata are written, and it is for example vulnerable to
+        ENOSPC errors. In other words, some work should be moved to tpc_vote.
+
+        TODO: - In tpc_vote, all involved storage nodes must be asked to write
+                all metadata to ttrans/tobj and _commit_. AskStoreTransaction
+                can be extended for this: for nodes that don't store anything
+                in ttrans, it can just contain the ttid. The final tid is not
+                known yet, so ttrans/tobj would contain the ttid.
+              - In tpc_finish, AskLockInformation is still required for read
+                locking, ttrans.tid must be updated with the final value and
+                ttrans _committed_.
+              - The Verification phase would need some change because
+                ttrans/tobj may contain data for which tpc_finish was not
+                called. The ttid is also in trans so a mapping ttid<->tid is
+                always possible and can be forwarded via the master so that all
+                storage are still able to update the tid column with the final
+                value when moving rows from tobj to obj.
+              The resulting cost is:
+              - additional RPCs in tpc_vote
+              - 1 updated row in ttrans + commit
+
+        TODO: We should recover from master failures when the transaction got
+              successfully committed. More precisely, we should not raise:
+              - if any failure happens after all storage nodes have processed
+                successfully the LockInformation packets from the master;
+              - and if we can reconnect to the cluster to check that the ttid
+                got successfuly committed, which is possible because storage
+                nodes remember the ttid of all transactions.
+              See neo.threaded.test.Test.testStorageFailureDuringTpcFinish
+              This bug exists in ZEO.
+        """
         txn_container = self._txn_container
         if 'voted' not in txn_container.get(transaction):
             self.tpc_vote(transaction, tryToResolveConflict)

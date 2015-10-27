@@ -16,13 +16,6 @@ Although this should happen rarely enough not to affect performance, this can
 be an issue if your application can't afford restarting the transaction,
 e.g. because it interacted with external environment.
 
-Client always raises in tpc_finish if a failure happen
-------------------------------------------------------
-
-This is wrong because the failure may actually happen just after the transaction
-is actually committed. Client should not raise if it can reconnect and note
-that the transaction exist.
-
 Storage failure or update may lead to POSException or break undoLog()
 ---------------------------------------------------------------------
 

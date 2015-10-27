@@ -58,9 +58,12 @@
       committed by future transactions.
     - Add a 'devid' storage configuration so that master do not distribute
       replicated partitions on storages with same 'devid'.
+    - Make tpc_finish safer as described in its __doc__: moving work to
+      tpc_vote and recover from master failure when possible.
 
     Storage
-    - Use HailDB instead of a stand-alone MySQL server.
+    - Use libmysqld instead of a stand-alone MySQL server.
+    - It should be possible to defer the commit at the end of finishTransaction.
     - Notify master when storage becomes available for clients (LATENCY)
       Currently, storage presence is broadcasted to client nodes too early, as
       the storage node would refuse them until it has only up-to-date data (not
@@ -131,14 +134,6 @@
       table hasn't changed by pinging the master and retry if necessary.
     - Implement IStorageRestoreable (ZODB API) in order to preserve data
       serials (i.e. undo information).
-    - tpc_finish might raise while transaction got successfully committed.
-      This can happen if it gets disconnected from primary master while waiting
-      for AnswerFinishTransaction after primary received it and hence will
-      commit transaction independently from client presence. Client could
-      legitimately think transaction is not committed, and might decide to
-      retry. To solve this, client can know if its TTID got successfuly
-      committed by looking at currently unused '(t)trans.ttid' column.
-      See neo.threaded.test.Test.testStorageFailureDuringTpcFinish
     - Fix and reenable deadlock avoidance (SPEED). This is required for
       neo.threaded.test.Test.testDeadlockAvoidance
 
