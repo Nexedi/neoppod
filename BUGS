@@ -1,11 +1,11 @@
 Although NEO is considered ready for production use in most cases, there are
-a few bugs to know because they concern basic features of ZODB, or promised
-features of NEO.
+a few bugs to know because they concern basic features of ZODB (marked with Z),
+or promised features of NEO (marked with N).
 
 All the listed bugs will be fixed with high priority.
 
-Conflict resolution not fully implemented
------------------------------------------
+(Z) Conflict resolution not fully implemented
+---------------------------------------------
 
 When a cluster has several storage nodes, so-called 'deadlock avoidance' may
 happen to in order to resolve conflicts. In such cases, conflicts will not be
@@ -16,8 +16,8 @@ Although this should happen rarely enough not to affect performance, this can
 be an issue if your application can't afford restarting the transaction,
 e.g. because it interacted with external environment.
 
-Storage failure or update may lead to POSException or break undoLog()
----------------------------------------------------------------------
+(N) Storage failure or update may lead to POSException or break undoLog()
+-------------------------------------------------------------------------
 
 Storage nodes are only queried once at most and if all (for the requested
 partition) failed, the client raises instead of asking the master whether it
@@ -25,8 +25,8 @@ had an up-to-date partition table (and retry if useful).
 
 In the case of undoLog(), incomplete results may be returned.
 
-Storage does not discard answers from aborted replications
-----------------------------------------------------------
+(N) Storage does not discard answers from aborted replications
+--------------------------------------------------------------
 
 In some cases, this can lead to data corruption (wrong AnswerFetch*) or crashes
 (e.g. KeyError because self.current_partition is None at the beginning of
@@ -41,8 +41,8 @@ Workaround: do not replicate or tweak while checking replicas.
 Currently, this can be reproduced by running testBackupNodeLost
 (neo.tests.threaded.testReplication.ReplicationTests) many times.
 
-A backup cell may be wrongly marked as corrupted while checking replicas
-------------------------------------------------------------------------
+(N) A backup cell may be wrongly marked as corrupted while checking replicas
+----------------------------------------------------------------------------
 
 This happens in the following conditions:
 
