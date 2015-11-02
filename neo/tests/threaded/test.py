@@ -438,6 +438,14 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
         cluster.reset()
+        di0 = s0.getDataLockInfo()
+        k, = (k for k, v in di0.iteritems() if v == 1)
+        di0[k] = 0 # r[2] = 'ok'
+        self.assertEqual(di0.values(), [0, 0, 0, 0, 0])
+        di1 = s1.getDataLockInfo()
+        k, = (k for k, v in di1.iteritems() if v == 1)
+        del di1[k] # x.value = 1
+        self.assertEqual(di1.values(), [0])
         try:
             cluster.start()
             t, c = cluster.getTransaction()
@@ -445,6 +453,8 @@ class Test(NEOThreadedTest):
             self.assertEqual(r[0].value, 0)
             self.assertEqual(r[1].value, 0)
             self.assertEqual(r[2], 'ok')
+            self.assertEqual(di0, s0.getDataLockInfo())
+            self.assertEqual(di1, s1.getDataLockInfo())
         finally:
             cluster.stop()
 

@@ -562,14 +562,13 @@ class MySQLDatabaseManager(DatabaseManager):
         getPartition = self._getPartition
         q = self.query
         sql = " FROM tobj WHERE tid=%d" % tid
-        data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
-        self.releaseData(data_id_list)
+        data_id_set = {x for x, in q("SELECT data_id" + sql) if x}
+        self.releaseData(data_id_set)
         q("DELETE" + sql)
         q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
         q("""DELETE FROM trans WHERE `partition` = %d AND tid = %d""" %
             (getPartition(tid), tid))
         # delete from obj using indexes
-        data_id_set = set()
         for oid in oid_list:
             oid = u64(oid)
             sql = " FROM obj WHERE `partition`=%d AND oid=%d AND tid=%d" \
