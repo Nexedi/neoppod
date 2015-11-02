@@ -133,6 +133,9 @@ class VerificationManager(BaseServiceHandler):
                     if node.isStorage():
                         node.notify(packet)
             else:
+                if app.getLastTransaction() < tid: # XXX: refactoring needed
+                    app.setLastTransaction(tid)
+                    app.tm.setLastTID(tid)
                 packet = Packets.CommitTransaction(tid)
                 for node in getIdentifiedList(pool_set=uuid_set):
                     node.notify(packet)
@@ -221,7 +224,7 @@ class VerificationManager(BaseServiceHandler):
         logging.info('OID not found: %s', message)
         if not self._gotAnswerFrom(uuid):
             return
-        self.app._object_present = False
+        self._object_present = False
 
     def connectionCompleted(self, conn):
         pass

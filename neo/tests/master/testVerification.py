@@ -188,25 +188,6 @@ class MasterVerificationTests(NeoUnitTestBase):
         verification.answerObjectPresent(conn, new_oid, new_tid)
         self.assertTrue(uuid not in self.verification._uuid_set)
 
-    def test_15_oidNotFound(self):
-        verification = self.verification
-        uuid = self.identifyToMasterNode()
-        # do nothing as asking_uuid_dict is True
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(len(self.verification._uuid_set), 0)
-        self.app._object_present = True
-        self.assertTrue(self.app._object_present)
-        verification.oidNotFound(conn, "msg")
-        self.assertTrue(self.app._object_present)
-        # do work as asking_uuid_dict is False
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(len(self.verification._uuid_set), 0)
-        self.verification._uuid_set.add(uuid)
-        self.assertTrue(self.app._object_present)
-        verification.oidNotFound(conn, "msg")
-        self.assertFalse(self.app._object_present)
-        self.assertTrue(uuid not in self.verification._uuid_set)
-
 if __name__ == '__main__':
     unittest.main()
 

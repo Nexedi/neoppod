@@ -319,6 +319,7 @@ class ServerNode(Node):
     def _afterRun(self):
         try:
             self.listening_conn.close()
+            self.listening_conn = None
         except AttributeError:
             pass
 
@@ -349,16 +350,11 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             del self.dm
         except StandardError: # AttributeError & ProgrammingError
             pass
+        if self.master_conn:
+            self.master_conn.close()
 
     def getAdapter(self):
         return self._init_args['getAdapter']
-
-    def switchTables(self):
-        q = self.dm.query
-        for table in 'trans', 'obj':
-            q('ALTER TABLE %s RENAME TO tmp' % table)
-            q('ALTER TABLE t%s RENAME TO %s' % (table, table))
-            q('ALTER TABLE tmp RENAME TO t%s' % table)
 
     def getDataLockInfo(self):
         dm = self.dm
@@ -780,6 +776,18 @@ class NEOCluster(object):
         return Patch(self.client.cp, getCellSortKey=lambda orig, cell:
             (orig(cell), key(cell)))
 
+    def moduloTID(self, partition):
+        """Force generation of TIDs that will be stored in given partition"""
+        partition = p64(partition)
+        master = self.primary_master
+        return Patch(master.tm, _nextTID=lambda orig, *args:
+            orig(*args) if args else orig(partition, master.pt.getPartitions()))
+
+    def getStorageList(self, *args, **kw):
+        pt = self.primary_master.pt
+        uuid_set = {cell.getUUID() for offset in args
+                                   for cell in pt.getCellList(offset, **kw)}
+        return (s for s in self.storage_list if s.uuid in uuid_set)
 
 class NEOThreadedTest(NeoTestBase):
 
