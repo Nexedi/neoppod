@@ -57,22 +57,6 @@ class VerificationManager(BaseServiceHandler):
             if not uuid_set:
                 break
 
-    def _gotAnswerFrom(self, uuid):
-        """
-        Returns True if answer from given uuid is waited upon by
-        _askStorageNodesAndWait, False otherwise.
-
-        Also, mark this uuid as having answered, so it stops being waited upon
-        by _askStorageNodesAndWait.
-        """
-        try:
-            self._uuid_set.remove(uuid)
-        except KeyError:
-            result = False
-        else:
-            result = True
-        return result
-
     def getHandler(self):
         return self
 
@@ -184,18 +168,14 @@ class VerificationManager(BaseServiceHandler):
         return uuid_set
 
     def answerUnfinishedTransactions(self, conn, max_tid, tid_list):
-        uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %r',
                      map(dump, tid_list), conn)
-        if not self._gotAnswerFrom(uuid):
-            return
+        self._uuid_set.remove(conn.getUUID())
         self._tid_set.update(tid_list)
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
-        uuid = conn.getUUID()
-        if not self._gotAnswerFrom(uuid):
-            return
+        self._uuid_set.remove(conn.getUUID())
         oid_set = set(oid_list)
         if self._oid_set is None:
             # Someone does not agree.
@@ -208,22 +188,17 @@ class VerificationManager(BaseServiceHandler):
                 (dump(tid, ))
 
     def tidNotFound(self, conn, message):
-        uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
-        if not self._gotAnswerFrom(uuid):
-            return
+        self._uuid_set.remove(conn.getUUID())
         self._oid_set = None
 
     def answerObjectPresent(self, conn, oid, tid):
-        uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
-        self._gotAnswerFrom(uuid)
+        self._uuid_set.remove(conn.getUUID())
 
     def oidNotFound(self, conn, message):
-        uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
-        if not self._gotAnswerFrom(uuid):
-            return
+        self._uuid_set.remove(conn.getUUID())
         self._object_present = False
 
     def connectionCompleted(self, conn):

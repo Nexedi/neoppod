@@ -46,7 +46,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.master.testMasterPT',
     'neo.tests.master.testRecovery',
     'neo.tests.master.testStorageHandler',
-    'neo.tests.master.testVerification',
     'neo.tests.master.testTransactions',
     # storage application
     'neo.tests.storage.testClientHandler',
