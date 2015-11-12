@@ -29,10 +29,11 @@ class Log(object):
     _protocol_date = None
 
     def __init__(self, db_path, decode_all=False, date_format=None,
-                                filter_from=None):
+                                filter_from=None, node_list=None):
         self._date_format = '%F %T' if date_format is None else date_format
         self._decode_all = decode_all
         self._filter_from = filter_from
+        self._node_list = node_list
         name = os.path.basename(db_path)
         try:
             name, ext = name.rsplit(os.extsep, 1)
@@ -99,12 +100,16 @@ class Log(object):
             self._next_protocol = float('inf')
 
     def _emit(self, date, name, levelname, msg_list):
+        if not name:
+            name = self._default_name
+        if self._node_list and name not in self._node_list:
+            return
         prefix = self._date_format
         if prefix:
             d = int(date)
             prefix = '%s.%04u ' % (time.strftime(prefix, time.localtime(d)),
                                    int((date - d) * 10000))
-        prefix += '%-9s %-10s ' % (levelname, name or self._default_name)
+        prefix += '%-9s %-10s ' % (levelname, name)
         for msg in msg_list:
             print prefix + msg
 
@@ -195,6 +200,9 @@ def main():
     parser.add_option('-F', '--flush', action="append", type="int",
         help='with -f, tell process PID to flush logs approximately N'
               ' seconds (see -s)', metavar='PID')
+    parser.add_option('-n', '--node', action="append",
+        help='only show log entries from the given node'
+             ' (only useful for logs produced by threaded tests)')
     parser.add_option('-s', '--sleep-interval', type="float", default=1,
         help='with -f, sleep for approximately N seconds (default 1.0)'
               ' between iterations', metavar='N')
@@ -209,7 +217,8 @@ def main():
     filter_from = options.filter_from
     if filter_from and filter_from < 0:
         filter_from += time.time()
-    log_list = [Log(db_path, options.all, options.date, filter_from)
+    log_list = [Log(db_path, options.all, options.date, filter_from,
+                    options.node)
                 for db_path in args]
     if options.follow:
         try:
