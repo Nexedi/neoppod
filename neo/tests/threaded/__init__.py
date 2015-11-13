@@ -786,11 +786,25 @@ class NEOCluster(object):
         return Patch(master.tm, _nextTID=lambda orig, *args:
             orig(*args) if args else orig(partition, master.pt.getPartitions()))
 
-    def getStorageList(self, *args, **kw):
-        pt = self.primary_master.pt
-        uuid_set = {cell.getUUID() for offset in args
-                                   for cell in pt.getCellList(offset, **kw)}
-        return (s for s in self.storage_list if s.uuid in uuid_set)
+    def sortStorageList(self):
+        """Sort storages so that storage_list[i] has partition i for all i"""
+        pt = [{x.getUUID() for x in x}
+            for x in self.primary_master.pt.partition_list]
+        r = []
+        x = [iter(pt[0])]
+        try:
+            while 1:
+                try:
+                    r.append(next(x[-1]))
+                except StopIteration:
+                    del r[-1], x[-1]
+                else:
+                    x.append(iter(pt[len(r)].difference(r)))
+        except IndexError:
+            assert len(r) == len(self.storage_list)
+        x = {x.uuid: x for x in self.storage_list}
+        self.storage_list[:] = (x[r] for r in r)
+        return self.storage_list
 
 class NEOThreadedTest(NeoTestBase):
 

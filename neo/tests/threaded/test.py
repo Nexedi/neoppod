@@ -407,8 +407,7 @@ class Test(NEOThreadedTest):
         cluster = NEOCluster(partitions=2, storage_count=2)
         try:
             cluster.start()
-            s0, = cluster.getStorageList(0)
-            s1, = cluster.getStorageList(1)
+            s0, s1 = cluster.sortStorageList()
             t, c = cluster.getTransaction()
             r = c.root()
             r[0] = x = PCounter()
