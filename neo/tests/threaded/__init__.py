@@ -329,6 +329,9 @@ class ServerNode(Node):
         except AttributeError:
             raise ConnectorException
 
+    def stop(self):
+        self.em.wakeup(True)
+
 class AdminApplication(ServerNode, neo.admin.app.Application):
     pass
 
@@ -711,7 +714,7 @@ class NEOCluster(object):
         client is None or self.__dict__.pop("db", client).close()
         node_list = self.admin_list + self.storage_list + self.master_list
         for node in node_list:
-            node.em.wakeup(True)
+            node.stop()
         try:
             node_list.append(client.poll_thread)
         except AttributeError: # client is None or thread is already stopped
