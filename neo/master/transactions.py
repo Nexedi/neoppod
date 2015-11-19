@@ -190,7 +190,8 @@ class TransactionManager(object):
         return oid_list
 
     def setLastOID(self, oid):
-        self._last_oid = max(oid, self._last_oid)
+        if self._last_oid < oid:
+            self._last_oid = oid
 
     def getLastOID(self):
         return self._last_oid
@@ -245,7 +246,8 @@ class TransactionManager(object):
         """
             Set the last TID, keep the previous if lower
         """
-        self._last_tid = max(self._last_tid, tid)
+        if self._last_tid < tid:
+            self._last_tid = tid
 
     def reset(self):
         """
@@ -340,9 +342,7 @@ class TransactionManager(object):
             instanciation time.
         """
         logging.debug('Lock TXN %s for %s', dump(ttid), uuid_str(uuid))
-        assert ttid in self._ttid_dict, "Transaction not started"
-        txn = self._ttid_dict[ttid]
-        if txn.lock(uuid) and self._queue[0][1] == ttid:
+        if self._ttid_dict[ttid].lock(uuid) and self._queue[0][1] == ttid:
             # all storage are locked and we unlock the commit queue
             self._unlockPending()
 
@@ -352,8 +352,7 @@ class TransactionManager(object):
             current transactions
         """
         unlock = False
-        # iterate over a copy because _unlockPending may alter the dict
-        for ttid, txn in self._ttid_dict.items():
+        for ttid, txn in self._ttid_dict.iteritems():
             if txn.forget(uuid) and self._queue[0][1] == ttid:
                 unlock = True
         if unlock:
@@ -365,12 +364,11 @@ class TransactionManager(object):
         pop = queue.pop
         insert = queue.insert
         on_commit = self._on_commit
-        get = self._ttid_dict.get
+        ttid_dict = self._ttid_dict
         while queue:
             uuid, ttid = pop(0)
-            txn = get(ttid, None)
-            # _queue can contain un-prepared transactions
-            if txn is not None and txn.locked():
+            txn = ttid_dict[ttid]
+            if txn.locked():
                 on_commit(txn)
             else:
                 insert(0, (uuid, ttid))

@@ -43,13 +43,11 @@ class IdentificationHandler(MasterHandler):
         if node_type == NodeTypes.CLIENT:
             if app.cluster_state != ClusterStates.RUNNING:
                 raise NotReadyError
-            node_ctor = app.nm.createClient
             handler = app.client_service_handler
             human_readable_node_type = ' client '
         elif node_type == NodeTypes.STORAGE:
             if app.cluster_state == ClusterStates.STOPPING_BACKUP:
                 raise NotReadyError
-            node_ctor = app.nm.createStorage
             manager = app._current_manager
             if manager is None:
                 manager = app
@@ -57,11 +55,9 @@ class IdentificationHandler(MasterHandler):
                 uuid is not None and node is not None)
             human_readable_node_type = ' storage (%s) ' % (state, )
         elif node_type == NodeTypes.MASTER:
-            node_ctor = app.nm.createMaster
             handler = app.secondary_master_handler
             human_readable_node_type = ' master '
         elif node_type == NodeTypes.ADMIN:
-            node_ctor = app.nm.createAdmin
             handler = app.administration_handler
             human_readable_node_type = 'n admin '
         else:
@@ -70,7 +66,8 @@ class IdentificationHandler(MasterHandler):
         uuid = app.getNewUUID(uuid, address, node_type)
         logging.info('Accept a' + human_readable_node_type + uuid_str(uuid))
         if node is None:
-            node = node_ctor(uuid=uuid, address=address)
+            node = app.nm.createFromNodeType(node_type,
+                uuid=uuid, address=address)
         node.setUUID(uuid)
         node.setState(state)
         node.setConnection(conn)

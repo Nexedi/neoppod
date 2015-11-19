@@ -83,9 +83,8 @@ class MasterHandler(EventHandler):
         conn.answer(Packets.AnswerNodeInformation())
 
     def askPartitionTable(self, conn):
-        ptid = self.app.pt.getID()
-        row_list = self.app.pt.getRowList()
-        conn.answer(Packets.AnswerPartitionTable(ptid, row_list))
+        pt = self.app.pt
+        conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
 
 
 DISCONNECTED_STATE_DICT = {

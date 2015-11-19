@@ -180,7 +180,7 @@ class DatabaseManager(object):
         """
         ptid = self.getConfiguration('ptid')
         if ptid is not None:
-            return long(ptid)
+            return int(ptid)
 
     def setPTID(self, ptid):
         """
