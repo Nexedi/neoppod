@@ -34,6 +34,7 @@ from . import NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
+from neo.storage.handlers.verification import VerificationHandler
 
 class PCounter(Persistent):
     value = 0
@@ -1032,6 +1033,31 @@ class Test(NEOThreadedTest):
             self.assertNotIn('x', c.root())
         finally:
             cluster.stop()
+
+    def testStorageLostDuringRecovery(self):
+        # Initialize a cluster.
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+        finally:
+            cluster.stop()
+        cluster.reset()
+        # Restart with a connection failure for the first AskPartitionTable.
+        # The master must not be stuck in RECOVERING state
+        # or re-make the partition table.
+        def make(*args):
+            sys.exit()
+        def askPartitionTable(orig, self, conn):
+            p.revert()
+            conn.close()
+        try:
+            with Patch(cluster.master.pt, make=make), Patch(VerificationHandler,
+                    askPartitionTable=askPartitionTable) as p:
+                cluster.start()
+                self.assertFalse(p.applied)
+        finally:
+            cluster.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

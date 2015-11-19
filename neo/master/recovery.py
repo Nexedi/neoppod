@@ -28,6 +28,7 @@ class RecoveryManager(MasterHandler):
     def __init__(self, app):
         # The target node's uuid to request next.
         self.target_ptid = None
+        self.ask_pt = []
         self.backup_tid_dict = {}
 
     def getHandler(self):
@@ -105,8 +106,22 @@ class RecoveryManager(MasterHandler):
         pt.log()
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        assert node is not None
+        uuid = conn.getUUID()
+        node = self.app.nm.getByUUID(uuid)
+        try:
+            i = self.ask_pt.index(uuid)
+        except ValueError:
+            pass
+        else:
+            del self.ask_pt[i]
+            if not i:
+                if self.ask_pt:
+                    self.app.nm.getByUUID(self.ask_pt[0]) \
+                        .ask(Packets.AskPartitionTable())
+                else:
+                    logging.warning("Waiting for %r to come back."
+                        " No other node has version %s of the partition table.",
+                        node, self.target_ptid)
         if node.getState() == new_state:
             return
         node.setState(new_state)
@@ -121,24 +136,29 @@ class RecoveryManager(MasterHandler):
         tm = self.app.tm
         tm.setLastOID(loid)
         tm.setLastTID(ltid)
-        if lptid > self.target_ptid:
-            # something newer
-            self.target_ptid = lptid
-            conn.ask(Packets.AskPartitionTable())
-        self.backup_tid_dict[conn.getUUID()] = backup_tid
+        uuid = conn.getUUID()
+        if self.target_ptid <= lptid:
+            # Maybe a newer partition table.
+            if self.target_ptid == lptid and self.ask_pt:
+                # Another node is already asked.
+                self.ask_pt.append(uuid)
+            elif self.target_ptid < lptid or self.ask_pt is not ():
+                # No node asked yet for the newest partition table.
+                self.target_ptid = lptid
+                self.ask_pt = [uuid]
+                conn.ask(Packets.AskPartitionTable())
+        self.backup_tid_dict[uuid] = backup_tid
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        if ptid != self.target_ptid:
-            # If this is not from a target node, ignore it.
-            logging.warn('Got %s while waiting %s', dump(ptid),
-                    dump(self.target_ptid))
-        else:
+        # If this is not from a target node, ignore it.
+        if ptid == self.target_ptid:
             try:
                 new_nodes = self.app.pt.load(ptid, row_list, self.app.nm)
             except IndexError:
                 raise ProtocolError('Invalid offset')
             self._notifyAdmins(Packets.NotifyNodeInformation(new_nodes),
                                Packets.SendPartitionTable(ptid, row_list))
+            self.ask_pt = ()
             self.app.backup_tid = self.backup_tid_dict[conn.getUUID()]
 
     def _notifyAdmins(self, *packets):
