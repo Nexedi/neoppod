@@ -42,18 +42,19 @@ def unique_constraint_message(table, *columns):
 def retry_if_locked(f, *args):
     try:
         return f(*args)
-    except sqlite3.OperationalError, e:
+    except sqlite3.OperationalError as e:
         x = e.args[0]
-        if x == 'database is locked':
-            msg = traceback.format_exception_only(type(e), e)
-            msg += traceback.format_stack()
-            logging.warning(''.join(msg))
-            while e.args[0] == x:
-                try:
-                    return f(*args)
-                except sqlite3.OperationalError, e:
-                    pass
-        raise
+        if x != 'database is locked':
+            raise
+        msg = traceback.format_exception_only(type(e), e)
+        msg += traceback.format_stack()
+        logging.warning(''.join(msg))
+        while 1:
+            try:
+                return f(*args)
+            except sqlite3.OperationalError as e:
+                if e.args[0] != x:
+                    raise
 
 
 class SQLiteDatabaseManager(DatabaseManager):

@@ -124,18 +124,19 @@ class NEOLogger(Logger):
     def commit(self):
         try:
             self._db.commit()
-        except sqlite3.OperationalError, e:
+        except sqlite3.OperationalError as e:
             x = e.args[0]
-            if x == 'database is locked':
-                sys.stderr.write('%s: retrying to emit log...' % x)
-                while e.args[0] == x:
-                    try:
-                        self._db.commit()
-                    except sqlite3.OperationalError, e:
-                        continue
-                    sys.stderr.write(' ok\n')
-                    return
-            raise
+            if x != 'database is locked':
+                raise
+            sys.stderr.write('%s: retrying to emit log...' % x)
+            while 1:
+                try:
+                    self._db.commit()
+                    break
+                except sqlite3.OperationalError as e:
+                    if e.args[0] != x:
+                        raise
+            sys.stderr.write(' ok\n')
 
     def backlog(self, max_size=1<<24, max_packet=None):
         with self:
