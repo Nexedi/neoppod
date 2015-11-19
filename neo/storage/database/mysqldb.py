@@ -141,8 +141,8 @@ class MySQLDatabaseManager(DatabaseManager):
         return self.conn.escape_string
 
     def erase(self):
-        self.query(
-            "DROP TABLE IF EXISTS config, pt, trans, obj, data, ttrans, tobj")
+        self.query("DROP TABLE IF EXISTS"
+            " config, pt, trans, obj, data, bigdata, ttrans, tobj")
 
     def _setup(self):
         self._config.clear()
