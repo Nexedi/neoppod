@@ -203,6 +203,9 @@ class Application(BaseApplication):
                 # Wait until the connections are closed.
                 self.primary = None
                 self.primary_master_node = None
+                # XXX: Since poll does not wake up anymore every second,
+                #      the following time condition should be reviewed.
+                #      See also playSecondaryRole.
                 t = time() + 10
                 while self.em.getClientList() and time() < t:
                     try:
@@ -356,6 +359,7 @@ class Application(BaseApplication):
 
         # Wait for an announcement. If this is too long, probably
         # the primary master is down.
+        # XXX: Same remark as in electPrimary.
         t = time() + 10
         while self.primary_master_node is None:
             self.em.poll(1)

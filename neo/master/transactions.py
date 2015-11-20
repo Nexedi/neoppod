@@ -378,6 +378,10 @@ class TransactionManager(object):
         """
             Abort pending transactions initiated by a node
         """
+        # BUG: As soon as we have started to lock a transaction,
+        #      we should complete it even if the client is lost.
+        #      Of course, we won't reply to the FinishTransaction
+        #      finish but we'll send invalidations to all clients.
         logging.debug('Abort TXN for %s', node)
         uuid = node.getUUID()
         # XXX: this loop is usefull only during an import
