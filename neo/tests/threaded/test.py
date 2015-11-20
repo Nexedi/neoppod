@@ -948,8 +948,12 @@ class Test(NEOThreadedTest):
                     raise _UnexpectedSuccess
                 except ConnectionClosed, e:
                     e = type(e), None, None
+            # Also check that the master reset the last oid to a correct value.
+            self.assertTrue(cluster.client.new_oid_list)
             t.begin()
-            self.assertIn('x', c.root())
+            self.assertEqual(1, u64(c.root()['x']._p_oid))
+            self.assertFalse(cluster.client.new_oid_list)
+            self.assertEqual(2, u64(cluster.client.new_oid()))
         finally:
             cluster.stop()
         raise _ExpectedFailure(e)

@@ -264,8 +264,6 @@ class Application(BaseApplication):
         """
         logging.info('provide service')
         poll = self.em.poll
-        self.tm.reset()
-
         self.changeClusterState(ClusterStates.RUNNING)
 
         # Now everything is passive.

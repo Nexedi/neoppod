@@ -17,7 +17,6 @@
 from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
-from neo.lib.protocol import ZERO_OID
 from .handlers import MasterHandler
 
 
@@ -49,6 +48,7 @@ class RecoveryManager(MasterHandler):
         """
         logging.info('begin the recovery of the status')
         app = self.app
+        app.tm.reset()
         pt = app.pt
         app.changeClusterState(ClusterStates.RECOVERING)
         pt.clear()
@@ -88,8 +88,6 @@ class RecoveryManager(MasterHandler):
 
         if pt.getID() is None:
             logging.info('creating a new partition table')
-            # reset IDs generators & build new partition with running nodes
-            app.tm.setLastOID(ZERO_OID)
             pt.make(node_list)
             self._notifyAdmins(Packets.SendPartitionTable(
                 pt.getID(), pt.getRowList()))
@@ -102,7 +100,6 @@ class RecoveryManager(MasterHandler):
                 pt.setBackupTidDict(self.backup_tid_dict)
                 app.backup_tid = pt.getBackupTid()
 
-        app.setLastTransaction(app.tm.getLastTID())
         logging.debug('cluster starts with loid=%s and this partition table :',
                       dump(app.tm.getLastOID()))
         pt.log()
@@ -121,11 +118,9 @@ class RecoveryManager(MasterHandler):
         conn.ask(Packets.AskLastIDs())
 
     def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
-        # Get max values.
-        if loid is not None:
-            self.app.tm.setLastOID(loid)
-        if ltid is not None:
-            self.app.tm.setLastTID(ltid)
+        tm = self.app.tm
+        tm.setLastOID(loid)
+        tm.setLastTID(ltid)
         if lptid > self.target_ptid:
             # something newer
             self.target_ptid = lptid

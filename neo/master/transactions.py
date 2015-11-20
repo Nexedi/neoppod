@@ -17,7 +17,7 @@
 from time import time
 from struct import pack, unpack
 from neo.lib import logging
-from neo.lib.protocol import ProtocolError, uuid_str, ZERO_TID
+from neo.lib.protocol import ProtocolError, uuid_str, ZERO_OID, ZERO_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
 class DelayedError(Exception):
@@ -155,15 +155,18 @@ class TransactionManager(object):
     """
         Manage current transactions
     """
-    _last_tid = ZERO_TID
 
     def __init__(self, on_commit):
+        self._on_commit = on_commit
+        self.reset()
+
+    def reset(self):
         # ttid -> transaction
         self._ttid_dict = {}
         # node -> transactions mapping
         self._node_dict = {}
-        self._last_oid = None
-        self._on_commit = on_commit
+        self._last_oid = ZERO_OID
+        self._last_tid = ZERO_TID
         # queue filled with ttids pointing to transactions with increasing tids
         self._queue = []
 
@@ -182,8 +185,6 @@ class TransactionManager(object):
 
     def getNextOIDList(self, num_oids):
         """ Generate a new OID list """
-        if self._last_oid is None:
-            raise RuntimeError, 'I do not know the last OID'
         oid = unpack('!Q', self._last_oid)[0] + 1
         oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
         self._last_oid = oid_list[-1]
@@ -248,14 +249,6 @@ class TransactionManager(object):
         """
         if self._last_tid < tid:
             self._last_tid = tid
-
-    def reset(self):
-        """
-            Discard all manager content
-            This doesn't reset the last TID.
-        """
-        self._ttid_dict = {}
-        self._node_dict = {}
 
     def hasPending(self):
         """
