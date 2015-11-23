@@ -72,7 +72,7 @@ class IdentificationHandler(MasterHandler):
         node.setState(state)
         node.setConnection(conn)
         conn.setHandler(handler)
-        app.broadcastNodesInformation([node])
+        app.broadcastNodesInformation([node], node)
         return uuid
 
 class SecondaryIdentificationHandler(MasterHandler):

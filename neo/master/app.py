@@ -221,7 +221,7 @@ class Application(BaseApplication):
                 self.primary = self.primary is None
                 break
 
-    def broadcastNodesInformation(self, node_list):
+    def broadcastNodesInformation(self, node_list, exclude=None):
         """
           Broadcast changes for a set a nodes
           Send only one packet per connection to reduce bandwidth
@@ -243,7 +243,7 @@ class Application(BaseApplication):
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType())
-            if node_list and node.isRunning():
+            if node_list and node.isRunning() and node is not exclude:
                 node.notify(Packets.NotifyNodeInformation(node_list))
 
     def broadcastPartitionChanges(self, cell_list):
