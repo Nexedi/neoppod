@@ -530,6 +530,43 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testVerificationWithNodesWithoutReadableCells(self):
+        def onLockTransaction(storage, die_after):
+            def lock(orig, *args, **kw):
+                if die_after:
+                    orig(*args, **kw)
+                sys.exit()
+            return Patch(storage.tm, lock=lock)
+        cluster = NEOCluster(replicas=1)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()[0] = None
+            s0, s1 = cluster.storage_list
+            with onLockTransaction(s0, False), onLockTransaction(s1, True):
+                self.assertRaises(ConnectionClosed, t.commit)
+            s0.resetNode()
+            s0.start()
+            t.begin()
+            c.root()[1] = None
+            t.commit()
+            cluster.master.stop()
+            x = cluster.master, s1
+            cluster.join(x)
+            for x in x:
+                x.resetNode()
+                x.start()
+            # Verification must drop the first transaction because it's only
+            # locked on a node without any readable cell, and other nodes may
+            # have cleared ttrans/tobj (which is the case here).
+            self.tic()
+            t.begin()
+            s0.stop() # force client to ask s1
+            self.assertEqual(sorted(c.root()), [1])
+            t0, t1 = c._storage.iterator()
+        finally:
+            cluster.stop()
+
     def testDropUnfinishedData(self):
         def lock(orig, *args, **kw):
             orig(*args, **kw)

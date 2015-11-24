@@ -78,6 +78,27 @@ class VerificationManager(BaseServiceHandler):
         getIdentifiedList = app.nm.getIdentifiedList
 
         # Gather all transactions that may have been partially finished.
+        # It's safe to query outdated cells from nodes with readable cells.
+        # For other nodes, it's more complicated:
+        #  1. pt: U|U  ltid: 10
+        #  2. S1: restart with voted ttid=13
+        #     S2: stop with locked ttid=13
+        #  3. pt: U|O  ltid: 10
+        #  4. verification drops ttid=13 because it's not locked
+        #  5. new commits -> ltid: 20
+        #  6. S1 restarted, S2 started
+        #  7. ttid=13 must be dropped
+        # And we can't ignore ttid < last tid for all nodes, even if the
+        # master serializes unlock notifications:
+        #  1. pt: U.|.U  ltid: 15
+        #  2. unlock ttid=18 to S1
+        #  3. unlock ttid=20 to S2
+        #  4. S1 stopped before unlocking ttid=18
+        #  5. S2 unlocks ttid=20
+        #  6. back to recovery, S1 started
+        #  7. verification must validate ttid=18
+        # So for nodes without any readable cell, and only for them, we only
+        # check if they have locked transactions. Replication will do the rest.
         self._askStorageNodesAndWait(Packets.AskLockedTransactions(),
             [x for x in getIdentifiedList() if x.isStorage()])
 
@@ -122,10 +143,14 @@ class VerificationManager(BaseServiceHandler):
     def answerLockedTransactions(self, conn, tid_dict):
         uuid = conn.getUUID()
         self._uuid_set.remove(uuid)
+        app = self.app
+        node = app.nm.getByUUID(uuid)
+        vote = any(x[1].isReadable() for x in app.pt.iterNodeCell(node))
         for ttid, tid in tid_dict.iteritems():
             if tid:
                 self._locked_dict[ttid] = tid
-            self._voted_dict[ttid].add(uuid)
+            if vote:
+                self._voted_dict[ttid].add(uuid)
 
     def answerFinalTID(self, conn, tid):
         self._uuid_set.remove(conn.getUUID())
