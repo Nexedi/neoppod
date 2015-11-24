@@ -425,7 +425,7 @@ class ConnectionFilter(object):
     filtered_count = 0
     filter_list = []
     filter_queue = weakref.WeakKeyDictionary()
-    lock = threading.Lock()
+    lock = threading.RLock()
     _addPacket = Connection._addPacket
 
     @contextmanager
