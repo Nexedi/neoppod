@@ -255,7 +255,7 @@ class NEOLogger(Logger):
             record.msg = record.getMessage()
             record.args = None
             if record.exc_info:
-                record.msg += '\n' + ''.join(
+                record.msg = (record.msg and record.msg + '\n') + ''.join(
                     format_exception(*record.exc_info)).strip()
                 record.exc_info = None
             self._queue(record)

@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 from . import logging
 from .protocol import (
     NodeStates, Packets, Errors, BackendNotImplemented,
@@ -92,8 +93,15 @@ class EventHandler(object):
                 "%s.%s does not implement %s"
                 % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
         except AssertionError:
-            conn.close()
-            raise
+            e = sys.exc_info()
+            try:
+                try:
+                    conn.close()
+                except Exception:
+                    logging.exception("")
+                raise e[0], e[1], e[2]
+            finally:
+                del e
 
     def checkClusterName(self, name):
         # raise an exception if the given name mismatch the current cluster name
