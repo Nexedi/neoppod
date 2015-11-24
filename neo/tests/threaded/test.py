@@ -26,6 +26,7 @@ from ZODB import DB, POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import ConnectionClosed, MTClientConnection
+from neo.lib.exception import OperationFailure
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from .. import expectedFailure, _ExpectedFailure, _UnexpectedSuccess, Patch
@@ -829,8 +830,7 @@ class Test(NEOThreadedTest):
     def testStorageFailureDuringTpcFinish(self):
         def answerTransactionFinished(conn, packet):
             if isinstance(packet, Packets.AnswerTransactionFinished):
-                c, = cluster.storage.getConnectionList(cluster.master)
-                c.abort()
+                raise OperationFailure
         cluster = NEOCluster()
         try:
             cluster.start()
