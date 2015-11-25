@@ -233,6 +233,12 @@ class DatabaseManager(object):
                 tid = max(tid, max(obj.itervalues()))
         else:
             tid = max(obj.itervalues()) if obj else None
+        # TODO: Replication can't be resumed from the tids in 'trans' and 'obj'
+        #       because outdated cells are writable and may contain recently
+        #       committed data. We must save somewhere where replication was
+        #       interrupted and return this information. For the moment, we
+        #       tell the replicator to resume from the beginning.
+        trans = obj = {}
         return tid, trans, obj, oid
 
     def getUnfinishedTIDList(self):

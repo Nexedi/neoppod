@@ -122,24 +122,6 @@ class StorageDBTests(NeoUnitTestBase):
     def checkSet(self, list1, list2):
         self.assertEqual(set(list1), set(list2))
 
-    def test_getLastIDs(self):
-        tid1, tid2, tid3, tid4 = self.getTIDs(4)
-        oid1, oid2 = self.getOIDs(2)
-        txn, objs = self.getTransaction([oid1, oid2])
-        self.db.storeTransaction(tid1, objs, txn, False)
-        self.db.storeTransaction(tid2, objs, txn, False)
-        self.assertEqual(self.db.getLastIDs(),
-            (tid2, {0: tid2}, {0: tid2}, oid2))
-        self.db.storeTransaction(tid3, objs, txn)
-        tids = {0: tid2, None: tid3}
-        self.assertEqual(self.db.getLastIDs(), (tid3, tids, tids, oid2))
-        self.db.storeTransaction(tid4, objs, None)
-        self.assertEqual(self.db.getLastIDs(),
-            (tid4, tids, {0: tid2, None: tid4}, oid2))
-        self.db.finishTransaction(tid3)
-        self.assertEqual(self.db.getLastIDs(),
-            (tid4, {0: tid3}, {0: tid3, None: tid4}, oid2))
-
     def test_getUnfinishedTIDList(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
         oid1, oid2 = self.getOIDs(2)

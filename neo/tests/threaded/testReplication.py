@@ -21,6 +21,7 @@ from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
+from neo.storage.replicator import Replicator
 from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
@@ -351,6 +352,36 @@ class ReplicationTests(NEOThreadedTest):
             finally:
                 cluster.stop()
             cluster.reset(True)
+
+    def testResumingReplication(self):
+        cluster = NEOCluster(replicas=1)
+        try:
+            s0, s1 = cluster.storage_list
+            cluster.start(storage_list=(s0,))
+            t, c = cluster.getTransaction()
+            r = c.root()
+            r._p_changed = 1
+            t.commit()
+            s1.start()
+            self.tic()
+            with Patch(Replicator, connected=lambda *_: None):
+                cluster.enableStorageList((s1,))
+                cluster.neoctl.tweakPartitionTable()
+                r._p_changed = 1
+                t.commit()
+                self.tic()
+                s1.stop()
+                cluster.join((s1,))
+            t0, t1, t2 = c._storage.iterator()
+            s1.resetNode()
+            s1.start()
+            self.tic()
+            self.assertEqual([], cluster.getOutdatedCells())
+            s0.stop()
+            cluster.join((s0,))
+            t0, t1, t2 = c._storage.iterator()
+        finally:
+            cluster.stop()
 
     def testCheckReplicas(self):
         from neo.storage import checker

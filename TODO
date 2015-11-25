@@ -86,6 +86,9 @@
       not degrade performance for client nodes. But when there's only 1 storage
       left for a partition, it may be wanted to guarantee a minimum speed to
       avoid complete data loss if another failure happens too early.
+    - Find a way not to always start replication from the beginning. Currently,
+      a temporarily down nodes can't replicate from where it was interrupted,
+      which is an issue on big databases. (SPEED)
     - Pack segmentation & throttling (HIGH AVAILABILITY)
       In its current implementation, pack runs in one call on all storage nodes
       at the same time, which lcoks down the whole cluster. This task should
