@@ -17,6 +17,7 @@
 from collections import defaultdict
 from functools import wraps
 from neo.lib import logging, util
+from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import ZERO_TID, BackendNotImplemented
 
 def lazymethod(func):
@@ -93,6 +94,22 @@ class DatabaseManager(object):
         Keys are data ids and values are number of references.
         """
         raise NotImplementedError
+
+    def nonempty(self, table):
+        """Check whether table is empty or return None if it does not exist"""
+        raise NotImplementedError
+
+    def _checkNoUnfinishedTransactions(self, *hint):
+        if self.nonempty('ttrans') or self.nonempty('tobj'):
+            raise DatabaseFailure(
+                "The database can not be upgraded because you have unfinished"
+                " transactions. Use an older version of NEO to verify them.")
+
+    def _getVersion(self):
+        version = int(self.getConfiguration("version") or 0)
+        if self.VERSION < version:
+            raise DatabaseFailure("The database can not be downgraded.")
+        return version
 
     def doOperation(self, app):
         pass
@@ -194,10 +211,18 @@ class DatabaseManager(object):
     def getBackupTID(self):
         return util.bin(self.getConfiguration('backup_tid'))
 
-    def setBackupTID(self, backup_tid):
-        tid = util.dump(backup_tid)
+    def _setBackupTID(self, tid):
+        tid = util.dump(tid)
         logging.debug('backup_tid = %s', tid)
-        return self.setConfiguration('backup_tid', tid)
+        return self._setConfiguration('backup_tid', tid)
+
+    def getTruncateTID(self):
+        return util.bin(self.getConfiguration('truncate_tid'))
+
+    def _setTruncateTID(self, tid):
+        tid = util.dump(tid)
+        logging.debug('truncate_tid = %s', tid)
+        return self._setConfiguration('truncate_tid', tid)
 
     def _setPackTID(self, tid):
         self._setConfiguration('_pack_tid', tid)
@@ -222,10 +247,10 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def _getLastIDs(self, all=True):
+    def _getLastIDs(self):
         raise NotImplementedError
 
-    def getLastIDs(self, all=True):
+    def getLastIDs(self):
         trans, obj, oid = self._getLastIDs()
         if trans:
             tid = max(trans.itervalues())
@@ -241,16 +266,16 @@ class DatabaseManager(object):
         trans = obj = {}
         return tid, trans, obj, oid
 
-    def getUnfinishedTIDList(self):
-        """Return a list of unfinished transaction's IDs."""
+    def _getUnfinishedTIDDict(self):
         raise NotImplementedError
 
-    def objectPresent(self, oid, tid, all = True):
-        """Return true iff an object specified by a given pair of an
-        object ID and a transaction ID is present in a database.
-        Otherwise, return false. If all is true, the object must be
-        searched from unfinished transactions as well."""
-        raise NotImplementedError
+    def getUnfinishedTIDDict(self):
+        trans, obj = self._getUnfinishedTIDDict()
+        obj = dict.fromkeys(obj)
+        obj.update(trans)
+        p64 = util.p64
+        return {p64(ttid): None if tid is None else p64(tid)
+                for ttid, tid in obj.iteritems()}
 
     @fallback
     def getLastObjectTID(self, oid):
@@ -478,14 +503,18 @@ class DatabaseManager(object):
             data_tid = p64(data_tid)
         return p64(current_tid), data_tid, is_current
 
-    def finishTransaction(self, tid):
-        """Finish a transaction specified by a given ID, by moving
-        temporarily data to a finished area."""
+    def lockTransaction(self, tid, ttid):
+        """Mark voted transaction 'ttid' as committed with given 'tid'"""
         raise NotImplementedError
 
-    def deleteTransaction(self, tid, oid_list=()):
-        """Delete a transaction and its content specified by a given ID and
-        an oid list"""
+    def unlockTransaction(self, tid, ttid):
+        """Finalize a transaction by moving data to a finished area."""
+        raise NotImplementedError
+
+    def abortTransaction(self, ttid):
+        raise NotImplementedError
+
+    def deleteTransaction(self, tid):
         raise NotImplementedError
 
     def deleteObject(self, oid, serial=None):
@@ -498,13 +527,14 @@ class DatabaseManager(object):
         and max_tid (included)"""
         raise NotImplementedError
 
-    def truncate(self, tid):
-        assert tid not in (None, ZERO_TID), tid
-        assert self.getBackupTID()
-        self.setBackupTID(None) # XXX
-        for partition in xrange(self.getNumPartitions()):
-            self._deleteRange(partition, tid)
-        self.commit()
+    def truncate(self):
+        tid = self.getTruncateTID()
+        if tid:
+            assert tid != ZERO_TID, tid
+            for partition in xrange(self.getNumPartitions()):
+                self._deleteRange(partition, tid)
+            self._setTruncateTID(None)
+            self.commit()
 
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,

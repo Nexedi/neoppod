@@ -76,7 +76,7 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
                     (2, ((node_2, CellStates.UP_TO_DATE), (node_3, CellStates.UP_TO_DATE)))]
         self.assertFalse(self.app.pt.filled())
         # send a complete new table and ack
-        self.verification.answerPartitionTable(conn, 2, row_list)
+        self.verification.sendPartitionTable(conn, 2, row_list)
         self.assertTrue(self.app.pt.filled())
         self.assertEqual(self.app.pt.getID(), 2)
         self.assertTrue(list(self.app.dm.getPartitionTable()))

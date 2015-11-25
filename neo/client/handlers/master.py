@@ -102,11 +102,17 @@ class PrimaryNotificationsHandler(MTEventHandler):
                 if app.master_conn is None:
                     app._cache_lock_acquire()
                     try:
-                        oid_list = app._cache.clear_current()
                         db = app.getDB()
-                        if db is not None:
-                            db.invalidate(app.last_tid and
-                                          add64(app.last_tid, 1), oid_list)
+                        if app.last_tid < ltid:
+                            oid_list = app._cache.clear_current()
+                            db is None or db.invalidate(
+                                app.last_tid and add64(app.last_tid, 1),
+                                oid_list)
+                        else:
+                            # The DB was truncated. It happens so
+                            # rarely that we don't need to optimize.
+                            app._cache.clear()
+                            db is None or db.invalidateCache()
                     finally:
                         app._cache_lock_release()
                 app.last_tid = ltid

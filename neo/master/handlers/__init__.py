@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
     BrokenNodeDisallowedError,
@@ -22,6 +23,10 @@ from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
+
+    def connectionCompleted(self, conn, new=None):
+        if new is None:
+            super(MasterHandler, self).connectionCompleted(conn)
 
     def requestIdentification(self, conn, node_type, uuid, address, name):
         self.checkClusterName(name)
@@ -61,25 +66,31 @@ class MasterHandler(EventHandler):
         state = self.app.getClusterState()
         conn.answer(Packets.AnswerClusterState(state))
 
-    def askLastIDs(self, conn):
+    def askRecovery(self, conn):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(
-            app.tm.getLastOID(),
-            app.tm.getLastTID(),
+        conn.answer(Packets.AnswerRecovery(
             app.pt.getID(),
-            app.backup_tid))
+            app.backup_tid and app.pt.getBackupTid(),
+            app.truncate_tid))
+
+    def askLastIDs(self, conn):
+        tm = self.app.tm
+        conn.answer(Packets.AnswerLastIDs(tm.getLastOID(), tm.getLastTID()))
 
     def askLastTransaction(self, conn):
         conn.answer(Packets.AnswerLastTransaction(
             self.app.getLastTransaction()))
 
-    def askNodeInformation(self, conn):
+    def _notifyNodeInformation(self, conn):
         nm = self.app.nm
         node_list = []
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getClientList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
         conn.notify(Packets.NotifyNodeInformation(node_list))
+
+    def askNodeInformation(self, conn):
+        self._notifyNodeInformation(conn)
         conn.answer(Packets.AnswerNodeInformation())
 
     def askPartitionTable(self, conn):
@@ -94,15 +105,18 @@ DISCONNECTED_STATE_DICT = {
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
-    def nodeLost(self, conn, node):
-        # This method provides a hook point overridable by service classes.
-        # It is triggered when a connection to a node gets lost.
-        pass
+    def connectionCompleted(self, conn, new):
+        self._notifyNodeInformation(conn)
+        pt = self.app.pt
+        conn.notify(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
         if node is None:
             return # for example, when a storage is removed by an admin
+        assert node.isStorage(), node
+        logging.info('storage node lost')
         if new_state != NodeStates.BROKEN:
             new_state = DISCONNECTED_STATE_DICT.get(node.getType(),
                     NodeStates.DOWN)
@@ -117,10 +131,13 @@ class BaseServiceHandler(MasterHandler):
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
-            self.app.nm.remove(node)
-        self.app.broadcastNodesInformation([node])
-        # clean node related data in specialized handlers
-        self.nodeLost(conn, node)
+            app.nm.remove(node)
+        app.broadcastNodesInformation([node])
+        if app.truncate_tid:
+            raise StoppedOperation
+        app.broadcastPartitionChanges(app.pt.outdate(node))
+        if not app.pt.operational():
+            raise StoppedOperation
 
     def notifyReady(self, conn):
         self.app.setStorageReady(conn.getUUID())

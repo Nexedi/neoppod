@@ -16,9 +16,10 @@
 
 from binascii import a2b_hex
 import MySQLdb
-from MySQLdb import DataError, IntegrityError, OperationalError
+from MySQLdb import DataError, IntegrityError, \
+    OperationalError, ProgrammingError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
-from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY
+from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
 from array import array
 from hashlib import sha1
 import os
@@ -42,6 +43,7 @@ def getPrintableQuery(query, max=70):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
+    VERSION = 1
     ENGINES = "InnoDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
@@ -144,16 +146,33 @@ class MySQLDatabaseManager(DatabaseManager):
         self.query("DROP TABLE IF EXISTS"
             " config, pt, trans, obj, data, bigdata, ttrans, tobj")
 
+    def nonempty(self, table):
+        try:
+            return bool(self.query("SELECT 1 FROM %s LIMIT 1" % table))
+        except ProgrammingError, (code, _):
+            if code != NO_SUCH_TABLE:
+                raise
+
     def _setup(self):
         self._config.clear()
         q = self.query
         p = engine = self._engine
-        # The table "config" stores configuration parameters which affect the
-        # persistent data.
-        q("""CREATE TABLE IF NOT EXISTS config (
-                 name VARBINARY(255) NOT NULL PRIMARY KEY,
-                 value VARBINARY(255) NULL
-             ) ENGINE=""" + engine)
+
+        if self.nonempty("config") is None:
+            # The table "config" stores configuration
+            # parameters which affect the persistent data.
+            q("""CREATE TABLE config (
+                     name VARBINARY(255) NOT NULL PRIMARY KEY,
+                     value VARBINARY(255) NULL
+                 ) ENGINE=""" + engine)
+        else:
+            # Automatic migration.
+            version = self._getVersion()
+            if version < 1:
+                self._checkNoUnfinishedTransactions()
+                q("DROP TABLE IF EXISTS ttrans")
+
+        self._setConfiguration("version", self.VERSION)
 
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
@@ -214,7 +233,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
                  `partition` SMALLINT UNSIGNED NOT NULL,
-                 tid BIGINT UNSIGNED NOT NULL,
+                 tid BIGINT UNSIGNED,
                  packed BOOLEAN NOT NULL,
                  oids MEDIUMBLOB NOT NULL,
                  user BLOB NOT NULL,
@@ -274,7 +293,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return self.query("SELECT MAX(t) FROM (SELECT MAX(tid) as t FROM trans"
             " WHERE tid<=%s GROUP BY `partition`) as t" % max_tid)[0][0]
 
-    def _getLastIDs(self, all=True):
+    def _getLastIDs(self):
         p64 = util.p64
         q = self.query
         trans = {partition: p64(tid)
@@ -285,29 +304,21 @@ class MySQLDatabaseManager(DatabaseManager):
                                     " FROM obj GROUP BY `partition`")}
         oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
                                       " GROUP BY `partition`) as t")[0][0]
-        if all:
-            tid = q("SELECT MAX(tid) FROM ttrans")[0][0]
-            if tid is not None:
-                trans[None] = p64(tid)
-            tid, toid = q("SELECT MAX(tid), MAX(oid) FROM tobj")[0]
-            if tid is not None:
-                obj[None] = p64(tid)
-            if toid is not None and (oid < toid or oid is None):
-                oid = toid
         return trans, obj, None if oid is None else p64(oid)
 
-    def getUnfinishedTIDList(self):
-        p64 = util.p64
-        return [p64(t[0]) for t in self.query("SELECT tid FROM ttrans"
-                                       " UNION SELECT tid FROM tobj")]
-
-    def objectPresent(self, oid, tid, all = True):
-        oid = util.u64(oid)
-        tid = util.u64(tid)
+    def _getUnfinishedTIDDict(self):
         q = self.query
-        return q("SELECT 1 FROM obj WHERE `partition`=%d AND oid=%d AND tid=%d"
-                 % (self._getPartition(oid), oid, tid)) or all and \
-               q("SELECT 1 FROM tobj WHERE tid=%d AND oid=%d" % (tid, oid))
+        return q("SELECT ttid, tid FROM ttrans"), (ttid
+            for ttid, in q("SELECT DISTINCT tid FROM tobj"))
+
+    def getFinalTID(self, ttid):
+        ttid = util.u64(ttid)
+        # MariaDB is smart enough to realize that 'ttid' is constant.
+        r = self.query("SELECT tid FROM trans"
+            " WHERE `partition`=%s AND tid>=ttid AND ttid=%s LIMIT 1"
+            % (self._getPartition(ttid), ttid))
+        if r:
+            return util.p64(r[0][0])
 
     def getLastObjectTID(self, oid):
         oid = util.u64(oid)
@@ -450,9 +461,9 @@ class MySQLDatabaseManager(DatabaseManager):
             oid_list, user, desc, ext, packed, ttid = transaction
             partition = self._getPartition(tid)
             assert packed in (0, 1)
-            q("REPLACE INTO %s VALUES (%d,%d,%i,'%s','%s','%s','%s',%d)" % (
-                trans_table, partition, tid, packed, e(''.join(oid_list)),
-                e(user), e(desc), e(ext), u64(ttid)))
+            q("REPLACE INTO %s VALUES (%s,%s,%s,'%s','%s','%s','%s',%s)" % (
+                trans_table, partition, 'NULL' if temporary else tid, packed,
+                e(''.join(oid_list)), e(user), e(desc), e(ext), u64(ttid)))
         if temporary:
             self.commit()
 
@@ -544,40 +555,40 @@ class MySQLDatabaseManager(DatabaseManager):
         r = self.query(sql)
         return r[0] if r else (None, None)
 
-    def finishTransaction(self, tid):
+    def lockTransaction(self, tid, ttid):
+        u64 = util.u64
+        self.query("UPDATE ttrans SET tid=%d WHERE ttid=%d LIMIT 1"
+                   % (u64(tid), u64(ttid)))
+        self.commit()
+
+    def unlockTransaction(self, tid, ttid):
         q = self.query
-        tid = util.u64(tid)
-        sql = " FROM tobj WHERE tid=%d" % tid
+        u64 = util.u64
+        tid = u64(tid)
+        sql = " FROM tobj WHERE tid=%d" % u64(ttid)
         data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
-        q("INSERT INTO obj SELECT *" + sql)
-        q("DELETE FROM tobj WHERE tid=%d" % tid)
+        q("INSERT INTO obj SELECT `partition`, oid, %d, data_id, value_tid %s"
+          % (tid, sql))
+        q("DELETE" + sql)
         q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
         q("DELETE FROM ttrans WHERE tid=%d" % tid)
         self.releaseData(data_id_list)
         self.commit()
 
-    def deleteTransaction(self, tid, oid_list=()):
-        u64 = util.u64
-        tid = u64(tid)
-        getPartition = self._getPartition
+    def abortTransaction(self, ttid):
+        ttid = util.u64(ttid)
         q = self.query
-        sql = " FROM tobj WHERE tid=%d" % tid
+        sql = " FROM tobj WHERE tid=%s" % ttid
         data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
-        self.releaseData(data_id_list)
         q("DELETE" + sql)
-        q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
-        q("""DELETE FROM trans WHERE `partition` = %d AND tid = %d""" %
-            (getPartition(tid), tid))
-        # delete from obj using indexes
-        data_id_list = set(data_id_list)
-        for oid in oid_list:
-            oid = u64(oid)
-            sql = " FROM obj WHERE `partition`=%d AND oid=%d AND tid=%d" \
-               % (getPartition(oid), oid, tid)
-            data_id_list.update(*q("SELECT data_id" + sql))
-            q("DELETE" + sql)
-        data_id_list.discard(None)
-        self._pruneData(data_id_list)
+        q("DELETE FROM ttrans WHERE ttid=%s" % ttid)
+        self.releaseData(data_id_list, True)
+
+    def deleteTransaction(self, tid):
+        tid = util.u64(tid)
+        getPartition = self._getPartition
+        self.query("DELETE FROM trans WHERE `partition`=%s AND tid=%s" %
+            (self._getPartition(tid), tid))
 
     def deleteObject(self, oid, serial=None):
         u64 = util.u64

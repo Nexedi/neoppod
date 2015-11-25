@@ -299,15 +299,19 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     yield offset, cell
                     break
 
-    def getReadableCellNodeSet(self):
+    def getOperationalNodeSet(self):
         """
         Return a set of all nodes which are part of at least one UP TO DATE
-        partition.
+        partition. An empty list is returned if these nodes aren't enough to
+        become operational.
         """
-        return {cell.getNode()
-            for row in self.partition_list
-            for cell in row
-            if cell.isReadable()}
+        node_set = set()
+        for row in self.partition_list:
+            if not any(cell.isReadable() and cell.getNode().isPending()
+                       for cell in row):
+                return () # not operational
+            node_set.update(cell.getNode() for cell in row if cell.isReadable())
+        return node_set
 
     def clearReplicating(self):
         for row in self.partition_list:

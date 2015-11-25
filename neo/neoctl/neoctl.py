@@ -120,6 +120,12 @@ class NeoCTL(BaseApplication):
             raise RuntimeError(response)
         return response[1]
 
+    def getRecovery(self):
+        response = self.__ask(Packets.AskRecovery())
+        if response[0] != Packets.AnswerRecovery:
+            raise RuntimeError(response)
+        return response[1:]
+
     def getNodeList(self, node_type=None):
         """
           Get a list of nodes, filtering with given type.
@@ -162,6 +168,12 @@ class NeoCTL(BaseApplication):
         if response[0] != Packets.AnswerPrimary:
             raise RuntimeError(response)
         return response[1]
+
+    def truncate(self, tid):
+        response = self.__ask(Packets.Truncate(tid))
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
+        return response[2]
 
     def checkReplicas(self, *args):
         response = self.__ask(Packets.CheckReplicas(*args))

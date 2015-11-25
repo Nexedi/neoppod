@@ -21,7 +21,7 @@ from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
-from neo.lib.exception import OperationFailure
+from neo.lib.exception import StoppedOperation
 
 class MasterStorageHandlerTests(NeoUnitTestBase):
 
@@ -114,24 +114,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.checkNotifyUnlockInformation(storage_conn_1)
         self.checkNotifyUnlockInformation(storage_conn_2)
 
-    def test_12_askLastIDs(self):
-        service = self.service
-        node, conn = self.identifyToMasterNode()
-        # give a uuid
-        conn = self.getFakeConnection(node.getUUID(), self.storage_address)
-        ptid = self.app.pt.getID()
-        oid = self.getOID(1)
-        tid = self.getNextTID()
-        self.app.tm.setLastOID(oid)
-        self.app.tm.setLastTID(tid)
-        service.askLastIDs(conn)
-        packet = self.checkAnswerLastIDs(conn)
-        loid, ltid, lptid, backup_tid = packet.decode()
-        self.assertEqual(loid, oid)
-        self.assertEqual(ltid, tid)
-        self.assertEqual(lptid, ptid)
-        self.assertEqual(backup_tid, None)
-
     def test_13_askUnfinishedTransactions(self):
         service = self.service
         node, conn = self.identifyToMasterNode()
@@ -173,63 +155,9 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # drop the second, no storage node left
         lptid = self.app.pt.getID()
         self.assertEqual(node2.getState(), NodeStates.RUNNING)
-        self.assertRaises(OperationFailure, method, conn2)
+        self.assertRaises(StoppedOperation, method, conn2)
         self.assertEqual(node2.getState(), state)
         self.assertEqual(lptid, self.app.pt.getID())
-
-    def test_nodeLostAfterAskLockInformation(self):
-        # 2 storage nodes, one will die
-        node1, conn1 = self._getStorage()
-        node2, conn2 = self._getStorage()
-        # client nodes, to distinguish answers for the sample transactions
-        client1, cconn1 = self._getClient()
-        client2, cconn2 = self._getClient()
-        client3, cconn3 = self._getClient()
-        oid_list = [self.getOID(), ]
-
-        # Some shortcuts to simplify test code
-        self.app.pt = Mock({'operational': True})
-
-        # Register some transactions
-        tm = self.app.tm
-        # Transaction 1: 2 storage nodes involved, one will die and the other
-        # already answered node lock
-        msg_id_1 = 1
-        ttid1 = tm.begin(client1)
-        tid1 = tm.prepare(ttid1, 1, oid_list,
-            [node1.getUUID(), node2.getUUID()], msg_id_1)
-        tm.lock(ttid1, node2.getUUID())
-        # storage 1 request a notification at commit
-        tm. registerForNotification(node1.getUUID())
-        self.checkNoPacketSent(cconn1)
-        # Storage 1 dies
-        node1.setTemporarilyDown()
-        self.service.nodeLost(conn1, node1)
-        # T1: last locking node lost, client receives AnswerTransactionFinished
-        self.checkAnswerTransactionFinished(cconn1)
-        self.checkNotifyTransactionFinished(conn1)
-        self.checkNotifyUnlockInformation(conn2)
-        # ...and notifications are sent to other clients
-        self.checkInvalidateObjects(cconn2)
-        self.checkInvalidateObjects(cconn3)
-
-        # Transaction 2: 2 storage nodes involved, one will die
-        msg_id_2 = 2
-        ttid2 = tm.begin(node1)
-        tid2 = tm.prepare(ttid2, 1, oid_list,
-            [node1.getUUID(), node2.getUUID()], msg_id_2)
-        # T2: pending locking answer, client keeps waiting
-        self.checkNoPacketSent(cconn2, check_notify=False)
-        tm.remove(node1.getUUID(), ttid2)
-
-        # Transaction 3: 1 storage node involved, which won't die
-        msg_id_3 = 3
-        ttid3 = tm.begin(node1)
-        tid3 = tm.prepare(ttid3, 1, oid_list,
-            [node2.getUUID(), ], msg_id_3)
-        # T3: action not significant to this transacion, so no response
-        self.checkNoPacketSent(cconn3, check_notify=False)
-        tm.remove(node1.getUUID(), ttid3)
 
     def test_answerPack(self):
         # Note: incomming status has no meaning here, so it's left to False.

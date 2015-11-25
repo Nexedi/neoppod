@@ -424,7 +424,7 @@ class ReplicationTests(NEOThreadedTest):
             check(ClusterStates.RUNNING, 1)
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
             self.tic()
-            check(ClusterStates.VERIFYING, 4)
+            check(ClusterStates.RECOVERING, 4)
         finally:
             checker.CHECK_COUNT = CHECK_COUNT
             cluster.stop()

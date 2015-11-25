@@ -20,9 +20,6 @@ from . import MasterHandler
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
 
-    def connectionCompleted(self, conn):
-        pass
-
     def connectionLost(self, conn, new_state):
         # cancel its transactions and forgot the node
         app = self.app
@@ -59,9 +56,10 @@ class ClientServiceHandler(MasterHandler):
         pt = app.pt
 
         # Collect partitions related to this transaction.
-        lock_oid_list = oid_list + checked_list
-        partition_set = set(map(pt.getPartition, lock_oid_list))
-        partition_set.add(pt.getPartition(ttid))
+        getPartition = pt.getPartition
+        partition_set = set(map(getPartition, oid_list))
+        partition_set.update(map(getPartition, checked_list))
+        partition_set.add(getPartition(ttid))
 
         # Collect the UUIDs of nodes related to this transaction.
         uuid_list = filter(app.isStorageReady, {cell.getUUID()
@@ -85,7 +83,6 @@ class ClientServiceHandler(MasterHandler):
                 {x.getUUID() for x in identified_node_list},
                 conn.getPeerId(),
             ),
-            lock_oid_list,
         )
         for node in identified_node_list:
             node.ask(p, timeout=60)

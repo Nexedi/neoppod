@@ -16,8 +16,8 @@
 
 from neo.lib import logging
 from neo.lib.handler import EventHandler
-from neo.lib.exception import PrimaryFailure, OperationFailure
-from neo.lib.protocol import uuid_str, NodeStates, NodeTypes
+from neo.lib.exception import PrimaryFailure, StoppedOperation
+from neo.lib.protocol import uuid_str, NodeStates, NodeTypes, Packets
 
 class BaseMasterHandler(EventHandler):
 
@@ -27,7 +27,7 @@ class BaseMasterHandler(EventHandler):
             raise PrimaryFailure('connection lost')
 
     def stopOperation(self, conn):
-        raise OperationFailure('operation stopped')
+        raise StoppedOperation
 
     def reelectPrimary(self, conn):
         raise PrimaryFailure('re-election occurs')
@@ -48,7 +48,7 @@ class BaseMasterHandler(EventHandler):
                     erase = state == NodeStates.DOWN
                     self.app.shutdown(erase=erase)
                 elif state == NodeStates.HIDDEN:
-                    raise OperationFailure
+                    raise StoppedOperation
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
                 logging.info('Notified of non-running client, abort (%s)',
                         uuid_str(uuid))
@@ -56,3 +56,6 @@ class BaseMasterHandler(EventHandler):
 
     def answerUnfinishedTransactions(self, conn, *args, **kw):
         self.app.replicator.setUnfinishedTIDList(*args, **kw)
+
+    def askFinalTID(self, conn, ttid):
+        conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))

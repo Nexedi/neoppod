@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -722,16 +722,24 @@ class ReelectPrimary(Packet):
     Force a re-election of a primary master node. M -> M.
     """
 
+class Recovery(Packet):
+    """
+    Ask all data needed by master to recover. PM -> S, S -> PM.
+    """
+    _answer = PStruct('answer_recovery',
+        PPTID('ptid'),
+        PTID('backup_tid'),
+        PTID('truncate_tid'),
+    )
+
 class LastIDs(Packet):
     """
-    Ask the last OID, the last TID and the last Partition Table ID so that
-    a master recover. PM -> S, S -> PM.
+    Ask the last OID/TID so that a master can initialize its TransactionManager.
+    PM -> S, S -> PM.
     """
     _answer = PStruct('answer_last_ids',
         POID('last_oid'),
         PTID('last_tid'),
-        PPTID('last_ptid'),
-        PTID('backup_tid'),
     )
 
 class PartitionTable(Packet):
@@ -775,6 +783,8 @@ class StartOperation(Packet):
     this message, it must not serve client nodes. PM -> S.
     """
     _fmt = PStruct('start_operation',
+        # XXX: Is this boolean needed ? Maybe this
+        #      can be deduced from cluster state.
         PBoolean('backup'),
     )
 
@@ -786,8 +796,8 @@ class StopOperation(Packet):
 
 class UnfinishedTransactions(Packet):
     """
-    Ask unfinished transactions  PM -> S.
-    Answer unfinished transactions  S -> PM.
+    Ask unfinished transactions  S -> PM.
+    Answer unfinished transactions  PM -> S.
     """
     _answer = PStruct('answer_unfinished_transactions',
         PTID('max_tid'),
@@ -796,36 +806,36 @@ class UnfinishedTransactions(Packet):
         ),
     )
 
-class ObjectPresent(Packet):
+class LockedTransactions(Packet):
     """
-    Ask if an object is present. If not present, OID_NOT_FOUND should be
-    returned. PM -> S.
-    Answer that an object is present. PM -> S.
+    Ask locked transactions  PM -> S.
+    Answer locked transactions  S -> PM.
     """
-    _fmt = PStruct('object_present',
-        POID('oid'),
+    _answer = PStruct('answer_locked_transactions',
+        PDict('tid_dict',
+            PTID('ttid'),
+            PTID('tid'),
+        ),
+    )
+
+class FinalTID(Packet):
+    """
+    Return final tid if ttid has been committed. * -> S.
+    """
+    _fmt = PStruct('final_tid',
+        PTID('ttid'),
+    )
+
+    _answer = PStruct('final_tid',
         PTID('tid'),
     )
 
-    _answer = PStruct('object_present',
-        POID('oid'),
-        PTID('tid'),
-    )
-
-class DeleteTransaction(Packet):
-    """
-    Delete a transaction. PM -> S.
-    """
-    _fmt = PStruct('delete_transaction',
-        PTID('tid'),
-        PFOidList,
-    )
-
-class CommitTransaction(Packet):
+class ValidateTransaction(Packet):
     """
     Commit a transaction. PM -> S.
     """
-    _fmt = PStruct('commit_transaction',
+    _fmt = PStruct('validate_transaction',
+        PTID('ttid'),
         PTID('tid'),
     )
 
@@ -878,11 +888,10 @@ class LockInformation(Packet):
     _fmt = PStruct('ask_lock_informations',
         PTID('ttid'),
         PTID('tid'),
-        PFOidList,
     )
 
     _answer = PStruct('answer_information_locked',
-        PTID('tid'),
+        PTID('ttid'),
     )
 
 class InvalidateObjects(Packet):
@@ -899,7 +908,7 @@ class UnlockInformation(Packet):
     Unlock information on a transaction. PM -> S.
     """
     _fmt = PStruct('notify_unlock_information',
-        PTID('tid'),
+        PTID('ttid'),
     )
 
 class GenerateOIDs(Packet):
@@ -961,10 +970,17 @@ class StoreTransaction(Packet):
         PString('extension'),
         PFOidList,
     )
+    _answer = PFEmpty
 
-    _answer = PStruct('answer_store_transaction',
+class VoteTransaction(Packet):
+    """
+    Ask to store a transaction. C -> S.
+    Answer if transaction has been stored. S -> C.
+    """
+    _fmt = PStruct('ask_vote_transaction',
         PTID('tid'),
     )
+    _answer = PFEmpty
 
 class GetObject(Packet):
     """
@@ -1462,12 +1478,13 @@ class ReplicationDone(Packet):
 
 class Truncate(Packet):
     """
-    XXX: Used for both make storage consistent and leave backup mode
-    M -> S
+    Request DB to be truncated. Also used to leave backup mode.
     """
     _fmt = PStruct('truncate',
         PTID('tid'),
     )
+
+    _answer = Error
 
 
 StaticRegistry = {}
@@ -1586,6 +1603,8 @@ class Packets(dict):
                     ReelectPrimary)
     NotifyNodeInformation = register(
                     NotifyNodeInformation)
+    AskRecovery, AnswerRecovery = register(
+                    Recovery)
     AskLastIDs, AnswerLastIDs = register(
                     LastIDs)
     AskPartitionTable, AnswerPartitionTable = register(
@@ -1600,12 +1619,12 @@ class Packets(dict):
                     StopOperation)
     AskUnfinishedTransactions, AnswerUnfinishedTransactions = register(
                     UnfinishedTransactions)
-    AskObjectPresent, AnswerObjectPresent = register(
-                    ObjectPresent)
-    DeleteTransaction = register(
-                    DeleteTransaction)
-    CommitTransaction = register(
-                    CommitTransaction)
+    AskLockedTransactions, AnswerLockedTransactions = register(
+                    LockedTransactions)
+    AskFinalTID, AnswerFinalTID = register(
+                    FinalTID)
+    ValidateTransaction = register(
+                    ValidateTransaction)
     AskBeginTransaction, AnswerBeginTransaction = register(
                     BeginTransaction)
     AskFinishTransaction, AnswerTransactionFinished = register(
@@ -1624,6 +1643,8 @@ class Packets(dict):
                     AbortTransaction)
     AskStoreTransaction, AnswerStoreTransaction = register(
                     StoreTransaction)
+    AskVoteTransaction, AnswerVoteTransaction = register(
+                    VoteTransaction)
     AskObject, AnswerObject = register(
                     GetObject)
     AskTIDs, AnswerTIDs = register(

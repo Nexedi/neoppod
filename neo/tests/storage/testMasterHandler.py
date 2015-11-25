@@ -20,7 +20,7 @@ from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
-from neo.lib.exception import PrimaryFailure, OperationFailure
+from neo.lib.exception import PrimaryFailure
 from neo.lib.pt import PartitionTable
 from neo.lib.protocol import CellStates, ProtocolError, Packets
 
@@ -104,57 +104,8 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(ptid2, cells)
 
-    def test_16_stopOperation1(self):
-        # OperationFailure
-        conn = self.getFakeConnection(is_server=False)
-        self.assertRaises(OperationFailure, self.operation.stopOperation, conn)
-
     def _getConnection(self):
         return self.getFakeConnection()
-
-    def test_askLockInformation1(self):
-        """ Unknown transaction """
-        self.app.tm = Mock({'__contains__': False})
-        conn = self._getConnection()
-        oid_list = [self.getOID(1), self.getOID(2)]
-        tid = self.getNextTID()
-        ttid = self.getNextTID()
-        handler = self.operation
-        self.assertRaises(ProtocolError, handler.askLockInformation, conn,
-            ttid, tid, oid_list)
-
-    def test_askLockInformation2(self):
-        """ Lock transaction """
-        self.app.tm = Mock({'__contains__': True})
-        conn = self._getConnection()
-        tid = self.getNextTID()
-        ttid = self.getNextTID()
-        oid_list = [self.getOID(1), self.getOID(2)]
-        self.operation.askLockInformation(conn, ttid, tid, oid_list)
-        calls = self.app.tm.mockGetNamedCalls('lock')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(ttid, tid, oid_list)
-        self.checkAnswerInformationLocked(conn)
-
-    def test_notifyUnlockInformation1(self):
-        """ Unknown transaction """
-        self.app.tm = Mock({'__contains__': False})
-        conn = self._getConnection()
-        tid = self.getNextTID()
-        handler = self.operation
-        self.assertRaises(ProtocolError, handler.notifyUnlockInformation,
-                conn, tid)
-
-    def test_notifyUnlockInformation2(self):
-        """ Unlock transaction """
-        self.app.tm = Mock({'__contains__': True})
-        conn = self._getConnection()
-        tid = self.getNextTID()
-        self.operation.notifyUnlockInformation(conn, tid)
-        calls = self.app.tm.mockGetNamedCalls('unlock')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(tid)
-        self.checkNoPacketSent(conn)
 
     def test_askPack(self):
         self.app.dm = Mock({'pack': None})

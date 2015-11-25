@@ -612,18 +612,29 @@ class Application(ThreadedApplication):
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
             txn_context['cache_dict'])
-        add_involved_nodes = txn_context['involved_nodes'].add
+        queue = txn_context['queue']
+        trans_nodes = []
         for node, conn in self.cp.iterateForObject(ttid):
             logging.debug("voting transaction %s on %s", dump(ttid),
                 dump(conn.getUUID()))
             try:
-                self._askStorage(conn, packet)
+                conn.ask(packet, queue=queue)
             except ConnectionClosed:
                 continue
-            add_involved_nodes(node)
-
+            trans_nodes.append(node)
         # check at least one storage node accepted
-        if txn_context['involved_nodes']:
+        if trans_nodes:
+            involved_nodes = txn_context['involved_nodes']
+            packet = Packets.AskVoteTransaction(ttid)
+            for node in involved_nodes.difference(trans_nodes):
+                conn = self.cp.getConnForNode(node)
+                if conn is not None:
+                    try:
+                        conn.ask(packet, queue=queue)
+                    except ConnectionClosed:
+                        pass
+            involved_nodes.update(trans_nodes)
+            self.waitResponses(queue)
             txn_context['voted'] = None
             # We must not go further if connection to master was lost since
             # tpc_begin, to lower the probability of failing during tpc_finish.
@@ -667,27 +678,14 @@ class Application(ThreadedApplication):
         fail in tpc_finish. In particular, making a transaction permanent
         should ideally be as simple as switching a bit permanently.
 
-        In NEO, tpc_finish breaks this promise by not ensuring earlier that all
-        data and metadata are written, and it is for example vulnerable to
-        ENOSPC errors. In other words, some work should be moved to tpc_vote.
-
-        TODO: - In tpc_vote, all involved storage nodes must be asked to write
-                all metadata to ttrans/tobj and _commit_. AskStoreTransaction
-                can be extended for this: for nodes that don't store anything
-                in ttrans, it can just contain the ttid. The final tid is not
-                known yet, so ttrans/tobj would contain the ttid.
-              - In tpc_finish, AskLockInformation is still required for read
-                locking, ttrans.tid must be updated with the final value and
-                ttrans _committed_.
-              - The Verification phase would need some change because
-                ttrans/tobj may contain data for which tpc_finish was not
-                called. The ttid is also in trans so a mapping ttid<->tid is
-                always possible and can be forwarded via the master so that all
-                storage are still able to update the tid column with the final
-                value when moving rows from tobj to obj.
-              The resulting cost is:
-              - additional RPCs in tpc_vote
-              - 1 updated row in ttrans + commit
+        In NEO, all the data (with the exception of the tid, simply because
+        it is not known yet) is already flushed on disk at the end on the vote.
+        During tpc_finish, all nodes storing the transaction metadata are asked
+        to commit by saving the new tid and flushing again: for SQL backends,
+        it's just an UPDATE of 1 cell. At last, the metadata is moved to
+        a final place so that the new transaction is readable, but this is
+        something that can always be replayed (during the verification phase)
+        if any failure happens.
 
         TODO: We should recover from master failures when the transaction got
               successfully committed. More precisely, we should not raise:

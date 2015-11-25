@@ -112,8 +112,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     answerCheckCurrentSerial = answerStoreObject
 
-    def answerStoreTransaction(self, conn, _):
+    def answerStoreTransaction(self, conn):
         pass
+
+    answerVoteTransaction = answerStoreTransaction
 
     def answerTIDsFrom(self, conn, tid_list):
         logging.debug('Get %u TIDs from %r', len(tid_list), conn)

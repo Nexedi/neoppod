@@ -23,14 +23,14 @@ from neo.lib.protocol import uuid_str, \
     CellStates, ClusterStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.connection import ListeningConnection
-from neo.lib.exception import OperationFailure, PrimaryFailure
+from neo.lib.exception import StoppedOperation, PrimaryFailure
 from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager
 from .exception import AlreadyPendingError
-from .handlers import identification, verification, initialization
+from .handlers import identification, initialization
 from .handlers import master, hidden
 from .replicator import Replicator
 from .transactions import TransactionManager
@@ -193,14 +193,11 @@ class Application(BaseApplication):
             self.event_queue = deque()
             self.event_queue_dict = {}
             try:
-                self.verifyData()
                 self.initialize()
                 self.doOperation()
                 raise RuntimeError, 'should not reach here'
-            except OperationFailure, msg:
+            except StoppedOperation, msg:
                 logging.error('operation stopped: %s', msg)
-                if self.cluster_state == ClusterStates.STOPPING_BACKUP:
-                    self.dm.setBackupTID(None)
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
             finally:
@@ -247,30 +244,11 @@ class Application(BaseApplication):
             self.pt = PartitionTable(num_partitions, num_replicas)
             self.loadPartitionTable()
 
-    def verifyData(self):
-        """Verify data under the control by a primary master node.
-        Connections from client nodes may not be accepted at this stage."""
-        logging.info('verifying data')
-
-        handler = verification.VerificationHandler(self)
-        self.master_conn.setHandler(handler)
-        _poll = self._poll
-
-        while not self.operational:
-            _poll()
-
     def initialize(self):
-        """ Retreive partition table and node informations from the primary """
         logging.debug('initializing...')
         _poll = self._poll
-        handler = initialization.InitializationHandler(self)
-        self.master_conn.setHandler(handler)
-
-        # ask node list and partition table
-        self.pt.clear()
-        self.master_conn.ask(Packets.AskNodeInformation())
-        self.master_conn.ask(Packets.AskPartitionTable())
-        while self.master_conn.isPending():
+        self.master_conn.setHandler(initialization.InitializationHandler(self))
+        while not self.operational:
             _poll()
         self.ready = True
         self.replicator.populate()

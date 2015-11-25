@@ -26,7 +26,7 @@ class IdentificationHandler(MasterHandler):
             **kw)
         handler = conn.getHandler()
         assert not isinstance(handler, IdentificationHandler), handler
-        handler.connectionCompleted(conn)
+        handler.connectionCompleted(conn, True)
 
     def _setupNode(self, conn, node_type, uuid, address, node):
         app = self.app
@@ -72,7 +72,7 @@ class IdentificationHandler(MasterHandler):
         node.setState(state)
         node.setConnection(conn)
         conn.setHandler(handler)
-        app.broadcastNodesInformation([node])
+        app.broadcastNodesInformation([node], node)
         return uuid
 
 class SecondaryIdentificationHandler(MasterHandler):

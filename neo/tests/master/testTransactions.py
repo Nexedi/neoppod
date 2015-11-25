@@ -112,19 +112,6 @@ class testTransactionManager(NeoUnitTestBase):
         # ...and the lock is available
         txnman.begin(client, self.getNextTID())
 
-    def test_getNextOIDList(self):
-        txnman = TransactionManager(lambda tid, txn: None)
-        # must raise as we don"t have one
-        self.assertEqual(txnman.getLastOID(), None)
-        self.assertRaises(RuntimeError, txnman.getNextOIDList, 1)
-        # ask list
-        txnman.setLastOID(self.getOID(1))
-        oid_list = txnman.getNextOIDList(15)
-        self.assertEqual(len(oid_list), 15)
-        # begin from 1, so generated oid from 2 to 16
-        for i, oid in zip(xrange(len(oid_list)), oid_list):
-            self.assertEqual(oid, self.getOID(i+2))
-
     def test_forget(self):
         client1 = Mock({'__hash__': 1})
         client2 = Mock({'__hash__': 2})

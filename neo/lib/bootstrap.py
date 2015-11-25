@@ -41,9 +41,6 @@ class BootstrapManager(EventHandler):
         self.num_partitions = None
         self.current = None
 
-    def notifyNodeInformation(self, conn, node_list):
-        pass
-
     def announcePrimary(self, conn):
         # We found the primary master early enough to be notified of election
         # end. Lucky. Anyway, we must carry on with identification request, so

@@ -67,29 +67,6 @@ class MasterRecoveryTests(NeoUnitTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
-    def test_09_answerLastIDs(self):
-        recovery = self.recovery
-        uuid = self.identifyToMasterNode()
-        oid1 = self.getOID(1)
-        oid2 = self.getOID(2)
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID(tid1)
-        ptid1 = self.getPTID(1)
-        ptid2 = self.getPTID(2)
-        self.app.tm.setLastOID(oid1)
-        self.app.tm.setLastTID(tid1)
-        self.app.pt.setID(ptid1)
-        # send information which are later to what PMN knows, this must update target node
-        conn = self.getFakeConnection(uuid, self.storage_port)
-        self.assertTrue(ptid2 > self.app.pt.getID())
-        self.assertTrue(oid2 > self.app.tm.getLastOID())
-        self.assertTrue(tid2 > self.app.tm.getLastTID())
-        recovery.answerLastIDs(conn, oid2, tid2, ptid2, None)
-        self.assertEqual(oid2, self.app.tm.getLastOID())
-        self.assertEqual(tid2, self.app.tm.getLastTID())
-        self.assertEqual(ptid2, recovery.target_ptid)
-
-
     def test_10_answerPartitionTable(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)

@@ -16,7 +16,7 @@
 
 from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, Packets, ProtocolError
-from neo.lib.exception import OperationFailure
+from neo.lib.exception import StoppedOperation
 from neo.lib.pt import PartitionTableException
 from . import BaseServiceHandler
 
@@ -24,25 +24,27 @@ from . import BaseServiceHandler
 class StorageServiceHandler(BaseServiceHandler):
     """ Handler dedicated to storages during service state """
 
-    def connectionCompleted(self, conn):
-        # TODO: unit test
+    def connectionCompleted(self, conn, new):
         app = self.app
         uuid = conn.getUUID()
         node = app.nm.getByUUID(uuid)
         app.setStorageNotReady(uuid)
+        if new:
+            super(StorageServiceHandler, self).connectionCompleted(conn, new)
         # XXX: what other values could happen ?
         if node.isRunning():
             conn.notify(Packets.StartOperation(bool(app.backup_tid)))
 
-    def nodeLost(self, conn, node):
-        logging.info('storage node lost')
-        assert not node.isRunning(), node.getState()
+    def connectionLost(self, conn, new_state):
         app = self.app
-        app.broadcastPartitionChanges(app.pt.outdate(node))
-        if not app.pt.operational():
-            raise OperationFailure, 'cannot continue operation'
+        node = app.nm.getByUUID(conn.getUUID())
+        super(StorageServiceHandler, self).connectionLost(conn, new_state)
         app.tm.forget(conn.getUUID())
-        if app.getClusterState() == ClusterStates.BACKINGUP:
+        if (app.getClusterState() == ClusterStates.BACKINGUP
+            # Also check if we're exiting, because backup_app is not usable
+            # in this case. Maybe cluster state should be set to something
+            # else, like STOPPING, during cleanup (__del__/close).
+            and app.listening_conn):
             app.backup_app.nodeLost(node)
         if app.packing is not None:
             self.answerPack(conn, False)
@@ -74,7 +76,7 @@ class StorageServiceHandler(BaseServiceHandler):
                                     CellStates.CORRUPTED))
         self.app.broadcastPartitionChanges(change_list)
         if not self.app.pt.operational():
-            raise OperationFailure('cannot continue operation')
+            raise StoppedOperation
 
     def notifyReplicationDone(self, conn, offset, tid):
         app = self.app

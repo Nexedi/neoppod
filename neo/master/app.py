@@ -24,7 +24,7 @@ from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
-from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
+from neo.lib.exception import ElectionFailure, PrimaryFailure, StoppedOperation
 
 class StateChangedException(Exception): pass
 
@@ -45,6 +45,7 @@ class Application(BaseApplication):
     backup_tid = None
     backup_app = None
     uuid = None
+    truncate_tid = None
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -77,7 +78,6 @@ class Application(BaseApplication):
         self.primary = None
         self.primary_master_node = None
         self.cluster_state = None
-        self._startup_allowed = False
 
         uuid = config.getUUID()
         if uuid:
@@ -221,7 +221,7 @@ class Application(BaseApplication):
                 self.primary = self.primary is None
                 break
 
-    def broadcastNodesInformation(self, node_list):
+    def broadcastNodesInformation(self, node_list, exclude=None):
         """
           Broadcast changes for a set a nodes
           Send only one packet per connection to reduce bandwidth
@@ -243,7 +243,7 @@ class Application(BaseApplication):
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType())
-            if node_list and node.isRunning():
+            if node_list and node.isRunning() and node is not exclude:
                 node.notify(Packets.NotifyNodeInformation(node_list))
 
     def broadcastPartitionChanges(self, cell_list):
@@ -254,7 +254,6 @@ class Application(BaseApplication):
             ptid = self.pt.setNextID()
             packet = Packets.NotifyPartitionChanges(ptid, cell_list)
             for node in self.nm.getIdentifiedList():
-                # TODO: notify masters
                 if node.isRunning() and not node.isMaster():
                     node.notify(packet)
 
@@ -266,8 +265,6 @@ class Application(BaseApplication):
         """
         logging.info('provide service')
         poll = self.em.poll
-        self.tm.reset()
-
         self.changeClusterState(ClusterStates.RUNNING)
 
         # Now everything is passive.
@@ -278,8 +275,13 @@ class Application(BaseApplication):
             if e.args[0] != ClusterStates.STARTING_BACKUP:
                 raise
             self.backup_tid = tid = self.getLastTransaction()
-            self.pt.setBackupTidDict({node.getUUID(): tid
-                for node in self.nm.getStorageList(only_identified=True)})
+            packet = Packets.StartOperation(True)
+            tid_dict = {}
+            for node in self.nm.getStorageList(only_identified=True):
+                tid_dict[node.getUUID()] = tid
+                if node.isRunning():
+                    node.notify(packet)
+            self.pt.setBackupTidDict(tid_dict)
 
     def playPrimaryRole(self):
         logging.info('play the primary role with %r', self.listening_conn)
@@ -323,30 +325,46 @@ class Application(BaseApplication):
                     in_conflict)
                 in_conflict.setUUID(None)
 
-        # recover the cluster status at startup
+        # Do not restart automatically if ElectionFailure is raised, in order
+        # to avoid a split of the database. For example, with 2 machines with
+        # a master and a storage on each one and replicas=1, the secondary
+        # master becomes primary in case of network failure between the 2
+        # machines but must not start automatically: otherwise, each storage
+        # node would diverge.
+        self._startup_allowed = False
         try:
-            self.runManager(RecoveryManager)
             while True:
-                self.runManager(VerificationManager)
+                self.runManager(RecoveryManager)
                 try:
-                    if self.backup_tid:
-                        if self.backup_app is None:
-                            raise RuntimeError("No upstream cluster to backup"
-                                               " defined in configuration")
-                        self.backup_app.provideService()
-                        # Reset connection with storages (and go through a
-                        # recovery phase) when leaving backup mode in order
-                        # to get correct last oid/tid.
-                        self.runManager(RecoveryManager)
-                        continue
-                    self.provideService()
-                except OperationFailure:
+                    self.runManager(VerificationManager)
+                    if not self.backup_tid:
+                        self.provideService()
+                        # self.provideService only returns without raising
+                        # when switching to backup mode.
+                    if self.backup_app is None:
+                        raise RuntimeError("No upstream cluster to backup"
+                                           " defined in configuration")
+                    truncate = Packets.Truncate(
+                        self.backup_app.provideService())
+                except StoppedOperation, e:
                     logging.critical('No longer operational')
+                    truncate = Packets.Truncate(*e.args) if e.args else None
+                    # Automatic restart except if we truncate or retry to.
+                    self._startup_allowed = not (self.truncate_tid or truncate)
+                node_list = []
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
-                        node.notify(Packets.StopOperation())
+                        conn = node.getConnection()
+                        conn.notify(Packets.StopOperation())
                         if node.isClient():
-                            node.getConnection().abort()
+                            conn.abort()
+                            continue
+                        if truncate:
+                            conn.notify(truncate)
+                        if node.isRunning():
+                            node.setPending()
+                            node_list.append(node)
+                self.broadcastNodesInformation(node_list)
         except StateChangedException, e:
             assert e.args[0] == ClusterStates.STOPPING
             self.shutdown()
@@ -427,7 +445,7 @@ class Application(BaseApplication):
                 continue # keep handler
             if type(handler) is not type(conn.getLastHandler()):
                 conn.setHandler(handler)
-                handler.connectionCompleted(conn)
+                handler.connectionCompleted(conn, new=False)
         self.cluster_state = state
 
     def getNewUUID(self, uuid, address, node_type):
@@ -461,7 +479,7 @@ class Application(BaseApplication):
             # wait for all transaction to be finished
             while self.tm.hasPending():
                 self.em.poll(1)
-        except OperationFailure:
+        except StoppedOperation:
             logging.critical('No longer operational')
 
         logging.info("asking remaining nodes to shutdown")

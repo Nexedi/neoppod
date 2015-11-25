@@ -463,9 +463,6 @@ class NeoUnitTestBase(NeoTestBase):
     def checkAskTransactionInformation(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.AskTransactionInformation, **kw)
 
-    def checkAskObjectPresent(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskObjectPresent, **kw)
-
     def checkAskObject(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.AskObject, **kw)
 
@@ -514,17 +511,11 @@ class NeoUnitTestBase(NeoTestBase):
     def checkAnswerObjectHistory(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerObjectHistory, **kw)
 
-    def checkAnswerStoreTransaction(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerStoreTransaction, **kw)
-
     def checkAnswerStoreObject(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerStoreObject, **kw)
 
     def checkAnswerPartitionTable(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerPartitionTable, **kw)
-
-    def checkAnswerObjectPresent(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerObjectPresent, **kw)
 
 
 class Patch(object):

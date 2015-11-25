@@ -15,9 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
-from neo.lib.protocol import ZERO_OID
 from .handlers import MasterHandler
 
 
@@ -29,7 +27,9 @@ class RecoveryManager(MasterHandler):
     def __init__(self, app):
         # The target node's uuid to request next.
         self.target_ptid = None
+        self.ask_pt = []
         self.backup_tid_dict = {}
+        self.truncate_dict = {}
 
     def getHandler(self):
         return self
@@ -51,7 +51,7 @@ class RecoveryManager(MasterHandler):
         app = self.app
         pt = app.pt
         app.changeClusterState(ClusterStates.RECOVERING)
-        pt.setID(None)
+        pt.clear()
 
         # collect the last partition table available
         poll = app.em.poll
@@ -60,11 +60,15 @@ class RecoveryManager(MasterHandler):
             if pt.filled():
                 # A partition table exists, we are starting an existing
                 # cluster.
-                node_list = pt.getReadableCellNodeSet()
+                node_list = pt.getOperationalNodeSet()
                 if app._startup_allowed:
                     node_list = [node for node in node_list if node.isPending()]
-                elif not all(node.isPending() for node in node_list):
-                    continue
+                elif node_list:
+                    # we want all nodes to be there if we're going to truncate
+                    if app.truncate_tid:
+                        node_list = pt.getNodeSet()
+                    if not all(node.isPending() for node in node_list):
+                        continue
             elif app._startup_allowed or app.autostart:
                 # No partition table and admin allowed startup, we are
                 # creating a new cluster out of all pending nodes.
@@ -76,6 +80,17 @@ class RecoveryManager(MasterHandler):
             if node_list and not any(node.getConnection().isPending()
                                      for node in node_list):
                 if pt.filled():
+                    if app.truncate_tid:
+                        node_list = app.nm.getIdentifiedList(pool_set={uuid
+                            for uuid, tid in self.truncate_dict.iteritems()
+                            if not tid or app.truncate_tid < tid})
+                        if node_list:
+                            truncate = Packets.Truncate(app.truncate_tid)
+                            for node in node_list:
+                                conn = node.getConnection()
+                                conn.notify(truncate)
+                                self.connectionCompleted(conn, False)
+                            continue
                     node_list = pt.getConnectedNodeList()
                 break
 
@@ -88,64 +103,81 @@ class RecoveryManager(MasterHandler):
 
         if pt.getID() is None:
             logging.info('creating a new partition table')
-            # reset IDs generators & build new partition with running nodes
-            app.tm.setLastOID(ZERO_OID)
             pt.make(node_list)
-            self._broadcastPartitionTable(pt.getID(), pt.getRowList())
-        elif app.backup_tid:
-            pt.setBackupTidDict(self.backup_tid_dict)
-            app.backup_tid = pt.getBackupTid()
+            self._notifyAdmins(Packets.SendPartitionTable(
+                pt.getID(), pt.getRowList()))
+        else:
+            cell_list = pt.outdate()
+            if cell_list:
+                self._notifyAdmins(Packets.NotifyPartitionChanges(
+                    pt.setNextID(), cell_list))
+            if app.backup_tid:
+                pt.setBackupTidDict(self.backup_tid_dict)
+                app.backup_tid = pt.getBackupTid()
 
-        app.setLastTransaction(app.tm.getLastTID())
-        logging.debug('cluster starts with loid=%s and this partition table :',
-                      dump(app.tm.getLastOID()))
+        logging.debug('cluster starts this partition table:')
         pt.log()
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        assert node is not None
+        uuid = conn.getUUID()
+        self.backup_tid_dict.pop(uuid, None)
+        self.truncate_dict.pop(uuid, None)
+        node = self.app.nm.getByUUID(uuid)
+        try:
+            i = self.ask_pt.index(uuid)
+        except ValueError:
+            pass
+        else:
+            del self.ask_pt[i]
+            if not i:
+                if self.ask_pt:
+                    self.app.nm.getByUUID(self.ask_pt[0]) \
+                        .ask(Packets.AskPartitionTable())
+                else:
+                    logging.warning("Waiting for %r to come back."
+                        " No other node has version %s of the partition table.",
+                        node, self.target_ptid)
         if node.getState() == new_state:
             return
         node.setState(new_state)
         # broadcast to all so that admin nodes gets informed
         self.app.broadcastNodesInformation([node])
 
-    def connectionCompleted(self, conn):
+    def connectionCompleted(self, conn, new):
         # ask the last IDs to perform the recovery
-        conn.ask(Packets.AskLastIDs())
+        conn.ask(Packets.AskRecovery())
 
-    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
-        # Get max values.
-        if loid is not None:
-            self.app.tm.setLastOID(loid)
-        if ltid is not None:
-            self.app.tm.setLastTID(ltid)
-        if lptid > self.target_ptid:
-            # something newer
-            self.target_ptid = lptid
-            conn.ask(Packets.AskPartitionTable())
-        self.backup_tid_dict[conn.getUUID()] = backup_tid
+    def answerRecovery(self, conn, ptid, backup_tid, truncate_tid):
+        uuid = conn.getUUID()
+        if self.target_ptid <= ptid:
+            # Maybe a newer partition table.
+            if self.target_ptid == ptid and self.ask_pt:
+                # Another node is already asked.
+                self.ask_pt.append(uuid)
+            elif self.target_ptid < ptid or self.ask_pt is not ():
+                # No node asked yet for the newest partition table.
+                self.target_ptid = ptid
+                self.ask_pt = [uuid]
+                conn.ask(Packets.AskPartitionTable())
+        self.backup_tid_dict[uuid] = backup_tid
+        self.truncate_dict[uuid] = truncate_tid
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        if ptid != self.target_ptid:
-            # If this is not from a target node, ignore it.
-            logging.warn('Got %s while waiting %s', dump(ptid),
-                    dump(self.target_ptid))
-        else:
-            self._broadcastPartitionTable(ptid, row_list)
-            self.app.backup_tid = self.backup_tid_dict[conn.getUUID()]
+        # If this is not from a target node, ignore it.
+        if ptid == self.target_ptid:
+            app = self.app
+            try:
+                new_nodes = app.pt.load(ptid, row_list, app.nm)
+            except IndexError:
+                raise ProtocolError('Invalid offset')
+            self._notifyAdmins(Packets.NotifyNodeInformation(new_nodes),
+                               Packets.SendPartitionTable(ptid, row_list))
+            self.ask_pt = ()
+            uuid = conn.getUUID()
+            app.backup_tid = self.backup_tid_dict[uuid]
+            app.truncate_tid = self.truncate_dict[uuid]
 
-    def _broadcastPartitionTable(self, ptid, row_list):
-        try:
-            new_nodes = self.app.pt.load(ptid, row_list, self.app.nm)
-        except IndexError:
-            raise ProtocolError('Invalid offset')
-        else:
-            notification = Packets.NotifyNodeInformation(new_nodes)
-            ptid = self.app.pt.getID()
-            row_list = self.app.pt.getRowList()
-            partition_table = Packets.SendPartitionTable(ptid, row_list)
-            # notify the admin nodes
-            for node in self.app.nm.getAdminList(only_identified=True):
-                node.notify(notification)
-                node.notify(partition_table)
+    def _notifyAdmins(self, *packets):
+        for node in self.app.nm.getAdminList(only_identified=True):
+            for packet in packets:
+                node.notify(packet)

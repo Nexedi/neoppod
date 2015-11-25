@@ -16,12 +16,20 @@
 
 from neo.lib import logging
 from neo.lib.util import dump
-from neo.lib.protocol import Packets, ProtocolError
+from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
 from . import BaseMasterHandler
 
 
 class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
+
+    def startOperation(self, conn, backup):
+        # XXX: see comment in protocol
+        assert self.app.operational and backup
+        dm = self.app.dm
+        if not dm.getBackupTID():
+            dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
+            dm.commit()
 
     def notifyTransactionFinished(self, conn, *args, **kw):
         self.app.replicator.transactionFinished(*args, **kw)
@@ -42,17 +50,11 @@ class MasterOperationHandler(BaseMasterHandler):
         # Check changes for replications
         app.replicator.notifyPartitionChanges(cell_list)
 
-    def askLockInformation(self, conn, ttid, tid, oid_list):
-        if not ttid in self.app.tm:
-            raise ProtocolError('Unknown transaction')
-        self.app.tm.lock(ttid, tid, oid_list)
-        if not conn.isClosed():
-            conn.answer(Packets.AnswerInformationLocked(ttid))
+    def askLockInformation(self, conn, ttid, tid):
+        self.app.tm.lock(ttid, tid)
+        conn.answer(Packets.AnswerInformationLocked(ttid))
 
     def notifyUnlockInformation(self, conn, ttid):
-        if not ttid in self.app.tm:
-            raise ProtocolError('Unknown transaction')
-        # TODO: send an answer
         self.app.tm.unlock(ttid)
 
     def askPack(self, conn, tid):
@@ -60,17 +62,11 @@ class MasterOperationHandler(BaseMasterHandler):
         logging.info('Pack started, up to %s...', dump(tid))
         app.dm.pack(tid, app.tm.updateObjectDataForPack)
         logging.info('Pack finished.')
-        if not conn.isClosed():
-            conn.answer(Packets.AnswerPack(True))
+        conn.answer(Packets.AnswerPack(True))
 
     def replicate(self, conn, tid, upstream_name, source_dict):
         self.app.replicator.backup(tid, {p: a and (a, upstream_name)
                                          for p, a in source_dict.iteritems()})
-
-    def truncate(self, conn, tid):
-        self.app.replicator.cancel()
-        self.app.dm.truncate(tid)
-        conn.close()
 
     def checkPartition(self, conn, *args):
         self.app.checker(*args)
