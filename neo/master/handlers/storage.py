@@ -34,15 +34,16 @@ class StorageServiceHandler(BaseServiceHandler):
         if node.isRunning():
             conn.notify(Packets.StartOperation(bool(app.backup_tid)))
 
-    def nodeLost(self, conn, node):
-        logging.info('storage node lost')
-        assert not node.isRunning(), node.getState()
+    def connectionLost(self, conn, new_state):
         app = self.app
-        app.broadcastPartitionChanges(app.pt.outdate(node))
-        if not app.pt.operational():
-            raise OperationFailure, 'cannot continue operation'
+        node = app.nm.getByUUID(conn.getUUID())
+        super(StorageServiceHandler, self).connectionLost(conn, new_state)
         app.tm.forget(conn.getUUID())
-        if app.getClusterState() == ClusterStates.BACKINGUP:
+        if (app.getClusterState() == ClusterStates.BACKINGUP
+            # Also check if we're exiting, because backup_app is not usable
+            # in this case. Maybe cluster state should be set to something
+            # else, like STOPPING, during cleanup (__del__/close).
+            and app.listening_conn):
             app.backup_app.nodeLost(node)
         if app.packing is not None:
             self.answerPack(conn, False)

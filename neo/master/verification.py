@@ -21,21 +21,7 @@ from neo.lib.protocol import ClusterStates, Packets, NodeStates
 from .handlers import BaseServiceHandler
 
 
-class VerificationFailure(Exception):
-    """
-        Exception raised each time the cluster integrity failed.
-          - An required storage node is missing
-          - A transaction or an object is missing on a node
-    """
-    pass
-
-
 class VerificationManager(BaseServiceHandler):
-    """
-      Manager for verification step of a NEO cluster:
-        - Wait for at least one available storage per partition
-        - Check if all expected content is present
-    """
 
     def __init__(self, app):
         self._locked_dict = {}
@@ -44,18 +30,13 @@ class VerificationManager(BaseServiceHandler):
 
     def _askStorageNodesAndWait(self, packet, node_list):
         poll = self.app.em.poll
-        operational = self.app.pt.operational
         uuid_set = self._uuid_set
         uuid_set.clear()
         for node in node_list:
             uuid_set.add(node.getUUID())
             node.ask(packet)
-        while True:
+        while uuid_set:
             poll(1)
-            if not operational():
-                raise VerificationFailure
-            if not uuid_set:
-                break
 
     def getHandler(self):
         return self
@@ -76,26 +57,13 @@ class VerificationManager(BaseServiceHandler):
         return state, self
 
     def run(self):
-        self.app.changeClusterState(ClusterStates.VERIFYING)
-        while True:
-            try:
-                self.verifyData()
-            except VerificationFailure:
-                continue
-            break
-        # At this stage, all non-working nodes are out-of-date.
-        self.app.broadcastPartitionChanges(self.app.pt.outdate())
+        app = self.app
+        app.changeClusterState(ClusterStates.VERIFYING)
+        if not app.backup_tid:
+            self.verifyData()
 
     def verifyData(self):
         app = self.app
-
-        # wait for any missing node
-        logging.debug('waiting for the cluster to be operational')
-        while not app.pt.operational():
-            app.em.poll(1)
-        if app.backup_tid:
-            return
-
         logging.info('start to verify data')
         getIdentifiedList = app.nm.getIdentifiedList
 
@@ -156,7 +124,6 @@ class VerificationManager(BaseServiceHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def nodeLost(self, conn, node):
-        if not self.app.pt.operational():
-            raise VerificationFailure, 'cannot continue verification'
-
+    def connectionLost(self, conn, new_state):
+        self._uuid_set.discard(conn.getUUID())
+        super(VerificationManager, self).connectionLost(conn, new_state)

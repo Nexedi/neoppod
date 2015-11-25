@@ -49,6 +49,7 @@ class VerificationHandler(BaseMasterHandler):
 
     def startOperation(self, conn, backup):
         self.app.operational = True
+        # XXX: see comment in protocol
         dm = self.app.dm
         if backup:
             if dm.getBackupTID():

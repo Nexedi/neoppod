@@ -77,7 +77,7 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
         self.neo.killStorage()
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
 
     def testClusterBreaksWithTwoNodes(self):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
@@ -88,7 +88,7 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
         self.neo.killStorage()
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
 
     def testClusterDoesntBreakWithTwoNodesOneReplica(self):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
@@ -127,7 +127,7 @@ class ClusterTests(NEOFunctionalTest):
         self.assertEqual(len(self.neo.getClientlist()), 1)
         # drop the storage, the cluster is no more operational...
         self.neo.getStorageProcessList()[0].stop()
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
         # ...and the client gets disconnected
         self.assertEqual(len(self.neo.getClientlist()), 0)
         # restart storage so that the cluster is operational again

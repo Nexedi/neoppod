@@ -179,7 +179,7 @@ class StorageTests(NEOFunctionalTest):
         # Cluster not operational anymore. Only cells of second storage that
         # were shared with the third one should become outdated.
         self.neo.expectUnavailable(started[1])
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
         self.neo.expectOudatedCells(3)
 
     def testVerificationTriggered(self):
@@ -200,7 +200,7 @@ class StorageTests(NEOFunctionalTest):
         # stop it, the cluster must switch to verification
         started[0].stop()
         self.neo.expectUnavailable(started[0])
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
         # client must have been disconnected
         self.assertEqual(len(self.neo.getClientlist()), 0)
         conn.close()
@@ -245,7 +245,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectUnavailable(started[1])
         self.neo.expectUnavailable(started[2])
         self.neo.expectOudatedCells(number=20)
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
 
     def testConflictingStorageRejected(self):
         """ Check that a storage coming after the recovery process with the same
@@ -403,7 +403,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectUnavailable(started[0])
         self.neo.expectUnavailable(started[1])
         self.neo.expectOudatedCells(number=10)
-        self.neo.expectClusterVerifying()
+        self.neo.expectClusterRecovering()
         # XXX: need to sync with storages first
         self.neo.stop()
 

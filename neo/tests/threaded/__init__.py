@@ -33,7 +33,7 @@ from neo.lib import logging
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import cached_property, parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
@@ -478,6 +478,8 @@ class ConnectionFilter(object):
                         queue.appendleft(packet)
                         break
                 else:
+                    if conn.isClosed():
+                        return
                     cls._addPacket(conn, packet)
                     continue
                 break
@@ -731,9 +733,12 @@ class NEOCluster(object):
                 return node[3]
 
     def getOutdatedCells(self):
-        return [cell for row in self.neoctl.getPartitionRowList()[1]
-                     for cell in row[1]
-                     if cell[1] == CellStates.OUT_OF_DATE]
+        # Ask the admin instead of the primary master to check that it is
+        # notified of every change.
+        return [(i, cell.getUUID())
+            for i, row in enumerate(self.admin.pt.partition_list)
+            for cell in row
+            if not cell.isReadable()]
 
     def getZODBStorage(self, **kw):
         kw['_app'] = kw.pop('client', self.client)

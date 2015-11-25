@@ -51,7 +51,7 @@ class RecoveryManager(MasterHandler):
         app = self.app
         pt = app.pt
         app.changeClusterState(ClusterStates.RECOVERING)
-        pt.setID(None)
+        pt.clear()
 
         # collect the last partition table available
         poll = app.em.poll
@@ -60,7 +60,7 @@ class RecoveryManager(MasterHandler):
             if pt.filled():
                 # A partition table exists, we are starting an existing
                 # cluster.
-                node_list = pt.getReadableCellNodeSet()
+                node_list = pt.getOperationalNodeSet()
                 if app._startup_allowed:
                     node_list = [node for node in node_list if node.isPending()]
                 elif not all(node.isPending() for node in node_list):
@@ -91,10 +91,16 @@ class RecoveryManager(MasterHandler):
             # reset IDs generators & build new partition with running nodes
             app.tm.setLastOID(ZERO_OID)
             pt.make(node_list)
-            self._broadcastPartitionTable(pt.getID(), pt.getRowList())
-        elif app.backup_tid:
-            pt.setBackupTidDict(self.backup_tid_dict)
-            app.backup_tid = pt.getBackupTid()
+            self._notifyAdmins(Packets.SendPartitionTable(
+                pt.getID(), pt.getRowList()))
+        else:
+            cell_list = pt.outdate()
+            if cell_list:
+                self._notifyAdmins(Packets.NotifyPartitionChanges(
+                    pt.setNextID(), cell_list))
+            if app.backup_tid:
+                pt.setBackupTidDict(self.backup_tid_dict)
+                app.backup_tid = pt.getBackupTid()
 
         app.setLastTransaction(app.tm.getLastTID())
         logging.debug('cluster starts with loid=%s and this partition table :',
@@ -132,20 +138,15 @@ class RecoveryManager(MasterHandler):
             logging.warn('Got %s while waiting %s', dump(ptid),
                     dump(self.target_ptid))
         else:
-            self._broadcastPartitionTable(ptid, row_list)
+            try:
+                new_nodes = self.app.pt.load(ptid, row_list, self.app.nm)
+            except IndexError:
+                raise ProtocolError('Invalid offset')
+            self._notifyAdmins(Packets.NotifyNodeInformation(new_nodes),
+                               Packets.SendPartitionTable(ptid, row_list))
             self.app.backup_tid = self.backup_tid_dict[conn.getUUID()]
 
-    def _broadcastPartitionTable(self, ptid, row_list):
-        try:
-            new_nodes = self.app.pt.load(ptid, row_list, self.app.nm)
-        except IndexError:
-            raise ProtocolError('Invalid offset')
-        else:
-            notification = Packets.NotifyNodeInformation(new_nodes)
-            ptid = self.app.pt.getID()
-            row_list = self.app.pt.getRowList()
-            partition_table = Packets.SendPartitionTable(ptid, row_list)
-            # notify the admin nodes
-            for node in self.app.nm.getAdminList(only_identified=True):
-                node.notify(notification)
-                node.notify(partition_table)
+    def _notifyAdmins(self, *packets):
+        for node in self.app.nm.getAdminList(only_identified=True):
+            for packet in packets:
+                node.notify(packet)

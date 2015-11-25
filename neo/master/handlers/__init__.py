@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.exception import OperationFailure
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
     BrokenNodeDisallowedError,
@@ -94,15 +95,13 @@ DISCONNECTED_STATE_DICT = {
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
-    def nodeLost(self, conn, node):
-        # This method provides a hook point overridable by service classes.
-        # It is triggered when a connection to a node gets lost.
-        pass
-
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
         if node is None:
             return # for example, when a storage is removed by an admin
+        assert node.isStorage(), node
+        logging.info('storage node lost')
         if new_state != NodeStates.BROKEN:
             new_state = DISCONNECTED_STATE_DICT.get(node.getType(),
                     NodeStates.DOWN)
@@ -117,10 +116,11 @@ class BaseServiceHandler(MasterHandler):
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
-            self.app.nm.remove(node)
-        self.app.broadcastNodesInformation([node])
-        # clean node related data in specialized handlers
-        self.nodeLost(conn, node)
+            app.nm.remove(node)
+        app.broadcastNodesInformation([node])
+        app.broadcastPartitionChanges(app.pt.outdate(node))
+        if not app.pt.operational():
+            raise OperationFailure("cannot continue operation")
 
     def notifyReady(self, conn):
         self.app.setStorageReady(conn.getUUID())

@@ -775,6 +775,8 @@ class StartOperation(Packet):
     this message, it must not serve client nodes. PM -> S.
     """
     _fmt = PStruct('start_operation',
+        # XXX: Is this boolean needed ? Maybe this
+        #      can be deduced from cluster state.
         PBoolean('backup'),
     )
 

@@ -394,6 +394,62 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testRestartStoragesWithReplicas(self):
+        """
+        Check that the master must discard its partition table when the
+        cluster is not operational anymore. Which means that it must go back
+        to RECOVERING state and remain there as long as the partition table
+        can't be operational.
+        This also checks that if the master remains the primary one after going
+        back to recovery, it automatically starts the cluster if possible
+        (i.e. without manual intervention).
+        """
+        outdated = []
+        def doOperation(orig):
+            outdated.append(cluster.getOutdatedCells())
+            orig()
+        def stop():
+            with cluster.master.filterConnection(s0) as m2s0:
+                m2s0.add(lambda conn, packet:
+                    isinstance(packet, Packets.NotifyPartitionChanges))
+                s1.stop()
+                cluster.join((s1,))
+                self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+                self.assertEqual(cluster.getOutdatedCells(),
+                                 [(0, s1.uuid), (1, s1.uuid)])
+                s0.stop()
+                cluster.join((s0,))
+            self.assertNotEqual(getClusterState(), ClusterStates.RUNNING)
+            s0.resetNode()
+            s1.resetNode()
+        cluster = NEOCluster(storage_count=2, partitions=2, replicas=1)
+        try:
+            cluster.start()
+            s0, s1 = cluster.storage_list
+            getClusterState = cluster.neoctl.getClusterState
+            if 1:
+                # Scenario 1: When all storage nodes are restarting,
+                # we want a chance to not restart with outdated cells.
+                stop()
+                with Patch(s1, doOperation=doOperation):
+                    s0.start()
+                    s1.start()
+                    self.tic()
+                self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+                self.assertEqual(outdated, [[]])
+            if 1:
+                # Scenario 2: When only the first storage node to be stopped
+                # is started, the cluster must be able to restart.
+                stop()
+                s1.start()
+                self.tic()
+                # The master doesn't wait for s0 to come back.
+                self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+                self.assertEqual(cluster.getOutdatedCells(),
+                                [(0, s0.uuid), (1, s0.uuid)])
+        finally:
+            cluster.stop()
+
     def testVerificationCommitUnfinishedTransactions(self):
         """ Verification step should commit locked transactions """
         def delayUnlockInformation(conn, packet):
@@ -588,12 +644,17 @@ class Test(NEOThreadedTest):
             cluster.start()
             # prevent storage to reconnect, in order to easily test
             # that cluster becomes non-operational
-            storage.connectToPrimary = sys.exit
-            # send an unexpected to master so it aborts connection to storage
-            storage.master_conn.answer(Packets.Pong())
+            with Patch(storage, connectToPrimary=sys.exit):
+                # send an unexpected to master so it aborts connection to storage
+                storage.master_conn.answer(Packets.Pong())
+                self.tic()
+            self.assertEqual(cluster.neoctl.getClusterState(),
+                             ClusterStates.RECOVERING)
+            storage.resetNode()
+            storage.start()
             self.tic()
             self.assertEqual(cluster.neoctl.getClusterState(),
-                             ClusterStates.VERIFYING)
+                             ClusterStates.RUNNING)
         finally:
             cluster.stop()
 

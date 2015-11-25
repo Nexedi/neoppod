@@ -16,12 +16,19 @@
 
 from neo.lib import logging
 from neo.lib.util import dump
-from neo.lib.protocol import Packets, ProtocolError
+from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
 from . import BaseMasterHandler
 
 
 class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
+
+    def startOperation(self, conn, backup):
+        # XXX: see comment in protocol
+        assert self.app.operational and backup
+        dm = self.app.dm
+        if not dm.getBackupTID():
+            dm.setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
 
     def notifyTransactionFinished(self, conn, *args, **kw):
         self.app.replicator.transactionFinished(*args, **kw)
