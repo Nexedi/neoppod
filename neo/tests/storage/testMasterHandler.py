@@ -112,50 +112,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
     def _getConnection(self):
         return self.getFakeConnection()
 
-    def test_askLockInformation1(self):
-        """ Unknown transaction """
-        self.app.tm = Mock({'__contains__': False})
-        conn = self._getConnection()
-        oid_list = [self.getOID(1), self.getOID(2)]
-        tid = self.getNextTID()
-        ttid = self.getNextTID()
-        handler = self.operation
-        self.assertRaises(ProtocolError, handler.askLockInformation, conn,
-            ttid, tid, oid_list)
-
-    def test_askLockInformation2(self):
-        """ Lock transaction """
-        self.app.tm = Mock({'__contains__': True})
-        conn = self._getConnection()
-        tid = self.getNextTID()
-        ttid = self.getNextTID()
-        oid_list = [self.getOID(1), self.getOID(2)]
-        self.operation.askLockInformation(conn, ttid, tid, oid_list)
-        calls = self.app.tm.mockGetNamedCalls('lock')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(ttid, tid, oid_list)
-        self.checkAnswerInformationLocked(conn)
-
-    def test_notifyUnlockInformation1(self):
-        """ Unknown transaction """
-        self.app.tm = Mock({'__contains__': False})
-        conn = self._getConnection()
-        tid = self.getNextTID()
-        handler = self.operation
-        self.assertRaises(ProtocolError, handler.notifyUnlockInformation,
-                conn, tid)
-
-    def test_notifyUnlockInformation2(self):
-        """ Unlock transaction """
-        self.app.tm = Mock({'__contains__': True})
-        conn = self._getConnection()
-        tid = self.getNextTID()
-        self.operation.notifyUnlockInformation(conn, tid)
-        calls = self.app.tm.mockGetNamedCalls('unlock')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(tid)
-        self.checkNoPacketSent(conn)
-
     def test_askPack(self):
         self.app.dm = Mock({'pack': None})
         conn = self.getFakeConnection()

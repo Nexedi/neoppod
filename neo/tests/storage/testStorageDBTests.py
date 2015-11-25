@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from binascii import a2b_hex
+from contextlib import contextmanager
 import unittest
 from neo.lib.util import add64, p64, u64
 from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
@@ -80,6 +81,17 @@ class StorageDBTests(NeoUnitTestBase):
         set_call(value * 2)
         self.assertEqual(get_call(), value * 2)
 
+    @contextmanager
+    def commitTransaction(self, tid, objs, txn, commit=True):
+        ttid = txn[-1]
+        self.db.storeTransaction(ttid, objs, txn)
+        self.db.lockTransaction(tid, ttid)
+        yield
+        if commit:
+            self.db.unlockTransaction(tid, ttid)
+        elif commit is not None:
+            self.db.abortTransaction(ttid)
+
     def test_UUID(self):
         db = self.getDB()
         self.checkConfigEntry(db.getUUID, db.setUUID, 123)
@@ -122,38 +134,24 @@ class StorageDBTests(NeoUnitTestBase):
     def checkSet(self, list1, list2):
         self.assertEqual(set(list1), set(list2))
 
-    def test_getUnfinishedTIDList(self):
+    def test_getUnfinishedTIDDict(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
         oid1, oid2 = self.getOIDs(2)
         txn, objs = self.getTransaction([oid1, oid2])
-        # nothing pending
-        self.db.storeTransaction(tid1, objs, txn, False)
-        self.checkSet(self.db.getUnfinishedTIDList(), [])
         # one unfinished txn
-        self.db.storeTransaction(tid2, objs, txn)
-        self.checkSet(self.db.getUnfinishedTIDList(), [tid2])
-        # no changes
-        self.db.storeTransaction(tid3, objs, None, False)
-        self.checkSet(self.db.getUnfinishedTIDList(), [tid2])
-        # a second txn known by objs only
-        self.db.storeTransaction(tid4, objs, None)
-        self.checkSet(self.db.getUnfinishedTIDList(), [tid2, tid4])
-
-    def test_objectPresent(self):
-        tid = self.getNextTID()
-        oid = self.getOID(1)
-        txn, objs = self.getTransaction([oid])
-        # not present
-        self.assertFalse(self.db.objectPresent(oid, tid, all=True))
-        self.assertFalse(self.db.objectPresent(oid, tid, all=False))
-        # available in temp table
-        self.db.storeTransaction(tid, objs, txn)
-        self.assertTrue(self.db.objectPresent(oid, tid, all=True))
-        self.assertFalse(self.db.objectPresent(oid, tid, all=False))
-        # available in both tables
-        self.db.finishTransaction(tid)
-        self.assertTrue(self.db.objectPresent(oid, tid, all=True))
-        self.assertTrue(self.db.objectPresent(oid, tid, all=False))
+        with self.commitTransaction(tid2, objs, txn):
+            expected = {txn[-1]: tid2}
+            self.assertEqual(self.db.getUnfinishedTIDDict(), expected)
+            # no changes
+            self.db.storeTransaction(tid3, objs, None, False)
+            self.assertEqual(self.db.getUnfinishedTIDDict(), expected)
+            # a second txn known by objs only
+            expected[tid4] = None
+            self.db.storeTransaction(tid4, objs, None)
+            self.assertEqual(self.db.getUnfinishedTIDDict(), expected)
+            self.db.abortTransaction(tid4)
+        # nothing pending
+        self.assertEqual(self.db.getUnfinishedTIDDict(), {})
 
     def test_getObject(self):
         oid1, = self.getOIDs(1)
@@ -169,27 +167,26 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getObject(oid1, tid1), None)
         self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
         # one non-commited version
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.assertEqual(self.db.getObject(oid1), None)
-        self.assertEqual(self.db.getObject(oid1, tid1), None)
-        self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
+        with self.commitTransaction(tid1, objs1, txn1):
+            self.assertEqual(self.db.getObject(oid1), None)
+            self.assertEqual(self.db.getObject(oid1, tid1), None)
+            self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
         # one commited version
-        self.db.finishTransaction(tid1)
         self.assertEqual(self.db.getObject(oid1), OBJECT_T1_NO_NEXT)
         self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
         self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
             FOUND_BUT_NOT_VISIBLE)
         # two version available, one non-commited
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.assertEqual(self.db.getObject(oid1), OBJECT_T1_NO_NEXT)
-        self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
-        self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
-            FOUND_BUT_NOT_VISIBLE)
-        self.assertEqual(self.db.getObject(oid1, tid2), FOUND_BUT_NOT_VISIBLE)
-        self.assertEqual(self.db.getObject(oid1, before_tid=tid2),
-            OBJECT_T1_NO_NEXT)
+        with self.commitTransaction(tid2, objs2, txn2):
+            self.assertEqual(self.db.getObject(oid1), OBJECT_T1_NO_NEXT)
+            self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
+            self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
+                FOUND_BUT_NOT_VISIBLE)
+            self.assertEqual(self.db.getObject(oid1, tid2),
+                FOUND_BUT_NOT_VISIBLE)
+            self.assertEqual(self.db.getObject(oid1, before_tid=tid2),
+                OBJECT_T1_NO_NEXT)
         # two commited versions
-        self.db.finishTransaction(tid2)
         self.assertEqual(self.db.getObject(oid1), OBJECT_T2)
         self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NEXT)
         self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
@@ -242,82 +239,28 @@ class StorageDBTests(NeoUnitTestBase):
         result = db.getPartitionTable()
         self.assertEqual(list(result), [cell1])
 
-    def test_dropUnfinishedData(self):
-        oid1, oid2 = self.getOIDs(2)
-        tid1, tid2 = self.getTIDs(2)
-        txn1, objs1 = self.getTransaction([oid1])
-        txn2, objs2 = self.getTransaction([oid1])
-        # nothing
-        self.assertEqual(self.db.getObject(oid1), None)
-        self.assertEqual(self.db.getObject(oid2), None)
-        self.assertEqual(self.db.getUnfinishedTIDList(), [])
-        # one is still pending
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.finishTransaction(tid1)
-        result = self.db.getObject(oid1)
-        self.assertEqual(result, (tid1, None, 1, "0"*20, '', None))
-        self.assertEqual(self.db.getObject(oid2), None)
-        self.assertEqual(self.db.getUnfinishedTIDList(), [tid2])
-        # drop it
-        self.db.dropUnfinishedData()
-        self.assertEqual(self.db.getUnfinishedTIDList(), [])
-        result = self.db.getObject(oid1)
-        self.assertEqual(result, (tid1, None, 1, "0"*20, '', None))
-        self.assertEqual(self.db.getObject(oid2), None)
-
-    def test_storeTransaction(self):
+    def test_commitTransaction(self):
         oid1, oid2 = self.getOIDs(2)
         tid1, tid2 = self.getTIDs(2)
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         # nothing in database
         self.assertEqual(self.db.getLastIDs(), (None, {}, {}, None))
-        self.assertEqual(self.db.getUnfinishedTIDList(), [])
+        self.assertEqual(self.db.getUnfinishedTIDDict(), {})
         self.assertEqual(self.db.getObject(oid1), None)
         self.assertEqual(self.db.getObject(oid2), None)
         self.assertEqual(self.db.getTransaction(tid1, True), None)
         self.assertEqual(self.db.getTransaction(tid2, True), None)
         self.assertEqual(self.db.getTransaction(tid1, False), None)
         self.assertEqual(self.db.getTransaction(tid2, False), None)
-        # store in temporary tables
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        result = self.db.getTransaction(tid1, True)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, True)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
-        self.assertEqual(self.db.getTransaction(tid1, False), None)
-        self.assertEqual(self.db.getTransaction(tid2, False), None)
-        # commit pending transaction
-        self.db.finishTransaction(tid1)
-        self.db.finishTransaction(tid2)
-        result = self.db.getTransaction(tid1, True)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, True)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
-        result = self.db.getTransaction(tid1, False)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, False)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
-
-    def test_askFinishTransaction(self):
-        oid1, oid2 = self.getOIDs(2)
-        tid1, tid2 = self.getTIDs(2)
-        txn1, objs1 = self.getTransaction([oid1])
-        txn2, objs2 = self.getTransaction([oid2])
-        # stored but not finished
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        result = self.db.getTransaction(tid1, True)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
-        result = self.db.getTransaction(tid2, True)
-        self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
-        self.assertEqual(self.db.getTransaction(tid1, False), None)
-        self.assertEqual(self.db.getTransaction(tid2, False), None)
-        # stored and finished
-        self.db.finishTransaction(tid1)
-        self.db.finishTransaction(tid2)
+        with self.commitTransaction(tid1, objs1, txn1), \
+             self.commitTransaction(tid2, objs2, txn2):
+            self.assertEqual(self.db.getTransaction(tid1, True),
+                             ([oid1], 'user', 'desc', 'ext', False, p64(1)))
+            self.assertEqual(self.db.getTransaction(tid2, True),
+                             ([oid2], 'user', 'desc', 'ext', False, p64(2)))
+            self.assertEqual(self.db.getTransaction(tid1, False), None)
+            self.assertEqual(self.db.getTransaction(tid2, False), None)
         result = self.db.getTransaction(tid1, True)
         self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
         result = self.db.getTransaction(tid2, True)
@@ -328,32 +271,29 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(result, ([oid2], 'user', 'desc', 'ext', False, p64(2)))
 
     def test_deleteTransaction(self):
-        oid1, oid2 = self.getOIDs(2)
-        tid1, tid2 = self.getTIDs(2)
-        txn1, objs1 = self.getTransaction([oid1])
-        txn2, objs2 = self.getTransaction([oid2])
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.finishTransaction(tid1)
-        self.db.deleteTransaction(tid1, [oid1])
-        self.db.deleteTransaction(tid2, [oid2])
-        self.assertEqual(self.db.getTransaction(tid1, True), None)
-        self.assertEqual(self.db.getTransaction(tid2, True), None)
+        txn, objs = self.getTransaction([])
+        tid = txn[-1]
+        self.db.storeTransaction(tid, objs, txn, False)
+        self.assertEqual(self.db.getTransaction(tid), txn)
+        self.db.deleteTransaction(tid)
+        self.assertEqual(self.db.getTransaction(tid), None)
 
     def test_deleteObject(self):
         oid1, oid2 = self.getOIDs(2)
         tid1, tid2 = self.getTIDs(2)
         txn1, objs1 = self.getTransaction([oid1, oid2])
         txn2, objs2 = self.getTransaction([oid1, oid2])
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.finishTransaction(tid1)
-        self.db.finishTransaction(tid2)
+        tid1 = txn1[-1]
+        tid2 = txn2[-1]
+        self.db.storeTransaction(tid1, objs1, txn1, False)
+        self.db.storeTransaction(tid2, objs2, txn2, False)
+        self.assertEqual(self.db.getObject(oid1, tid=tid1),
+            (tid1, tid2, 1, "0" * 20, '', None))
         self.db.deleteObject(oid1)
-        self.assertEqual(self.db.getObject(oid1, tid=tid1), None)
-        self.assertEqual(self.db.getObject(oid1, tid=tid2), None)
+        self.assertIs(self.db.getObject(oid1, tid=tid1), None)
+        self.assertIs(self.db.getObject(oid1, tid=tid2), None)
         self.db.deleteObject(oid2, serial=tid1)
-        self.assertFalse(self.db.getObject(oid2, tid=tid1))
+        self.assertIs(self.db.getObject(oid2, tid=tid1), False)
         self.assertEqual(self.db.getObject(oid2, tid=tid2),
             (tid2, None, 1, "0" * 20, '', None))
 
@@ -364,8 +304,7 @@ class StorageDBTests(NeoUnitTestBase):
         oid_list = self.getOIDs(np * 2)
         for tid in t1, t2, t3:
             txn, objs = self.getTransaction(oid_list)
-            self.db.storeTransaction(tid, objs, txn)
-            self.db.finishTransaction(tid)
+            self.db.storeTransaction(tid, objs, txn, False)
         def check(offset, tid_list, *tids):
             self.assertEqual(self.db.getReplicationTIDList(ZERO_TID,
                 MAX_TID, len(tid_list) + 1, offset), tid_list)
@@ -386,9 +325,9 @@ class StorageDBTests(NeoUnitTestBase):
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         # get from temporary table or not
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.finishTransaction(tid1)
+        with self.commitTransaction(tid1, objs1, txn1), \
+             self.commitTransaction(tid2, objs2, txn2, None):
+            pass
         result = self.db.getTransaction(tid1, True)
         self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False, p64(1)))
         result = self.db.getTransaction(tid2, True)
@@ -405,15 +344,13 @@ class StorageDBTests(NeoUnitTestBase):
         txn2, objs2 = self.getTransaction([oid])
         txn3, objs3 = self.getTransaction([oid])
         # one revision
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.finishTransaction(tid1)
+        self.db.storeTransaction(tid1, objs1, txn1, False)
         result = self.db.getObjectHistory(oid, 0, 3)
         self.assertEqual(result, [(tid1, 0)])
         result = self.db.getObjectHistory(oid, 1, 1)
         self.assertEqual(result, None)
         # two revisions
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.finishTransaction(tid2)
+        self.db.storeTransaction(tid2, objs2, txn2, False)
         result = self.db.getObjectHistory(oid, 0, 3)
         self.assertEqual(result, [(tid2, 0), (tid1, 0)])
         result = self.db.getObjectHistory(oid, 1, 3)
@@ -427,8 +364,7 @@ class StorageDBTests(NeoUnitTestBase):
         oid = self.getOID(1)
         for tid in tid_list:
             txn, objs = self.getTransaction([oid])
-            self.db.storeTransaction(tid, objs, txn)
-            self.db.finishTransaction(tid)
+            self.db.storeTransaction(tid, objs, txn, False)
         return tid_list
 
     def test_getTIDList(self):

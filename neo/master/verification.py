@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import defaultdict
 from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import ClusterStates, Packets, NodeStates
@@ -37,10 +38,9 @@ class VerificationManager(BaseServiceHandler):
     """
 
     def __init__(self, app):
-        self._oid_set = set()
-        self._tid_set = set()
+        self._locked_dict = {}
+        self._voted_dict = defaultdict(set)
         self._uuid_set = set()
-        self._object_present = False
 
     def _askStorageNodesAndWait(self, packet, node_list):
         poll = self.app.em.poll
@@ -87,7 +87,6 @@ class VerificationManager(BaseServiceHandler):
         self.app.broadcastPartitionChanges(self.app.pt.outdate())
 
     def verifyData(self):
-        """Verify the data in storage nodes and clean them up, if necessary."""
         app = self.app
 
         # wait for any missing node
@@ -100,106 +99,59 @@ class VerificationManager(BaseServiceHandler):
         logging.info('start to verify data')
         getIdentifiedList = app.nm.getIdentifiedList
 
-        # Gather all unfinished transactions.
-        self._askStorageNodesAndWait(Packets.AskUnfinishedTransactions(),
+        # Gather all transactions that may have been partially finished.
+        self._askStorageNodesAndWait(Packets.AskLockedTransactions(),
             [x for x in getIdentifiedList() if x.isStorage()])
 
-        # Gather OIDs for each unfinished TID, and verify whether the
-        # transaction can be finished or must be aborted. This could be
-        # in parallel in theory, but not so easy. Thus do it one-by-one
-        # at the moment.
-        for tid in self._tid_set:
-            uuid_set = self.verifyTransaction(tid)
-            if uuid_set is None:
-                packet = Packets.DeleteTransaction(tid, self._oid_set or [])
-                # Make sure that no node has this transaction.
-                for node in getIdentifiedList():
-                    if node.isStorage():
-                        node.notify(packet)
+        # Some nodes may have already unlocked these transactions and
+        # _locked_dict is incomplete, but we can ask them the final tid.
+        for ttid, voted_set in self._voted_dict.iteritems():
+            if ttid in self._locked_dict:
+                continue
+            partition = app.pt.getPartition(ttid)
+            for node in getIdentifiedList(pool_set={cell.getUUID()
+                    # If an outdated cell had unlocked ttid, then either
+                    # it is already in _locked_dict or a readable cell also
+                    # unlocked it.
+                    for cell in app.pt.getCellList(partition, readable=True)
+                    } - voted_set):
+                self._askStorageNodesAndWait(Packets.AskFinalTID(ttid), (node,))
+                if self._tid is not None:
+                    self._locked_dict[ttid] = self._tid
+                    break
             else:
-                if app.getLastTransaction() < tid: # XXX: refactoring needed
-                    app.setLastTransaction(tid)
-                    app.tm.setLastTID(tid)
-                packet = Packets.CommitTransaction(tid)
+                # Transaction not locked. No need to tell nodes to delete it,
+                # since they drop any unfinished data just before being
+                # operational.
+                pass
+
+        # Finish all transactions for which we know that tpc_finish was called
+        # but not fully processed. This may include replicas with transactions
+        # that were not even locked.
+        for ttid, tid in self._locked_dict.iteritems():
+            uuid_set = self._voted_dict.get(ttid)
+            if uuid_set:
+                packet = Packets.ValidateTransaction(ttid, tid)
                 for node in getIdentifiedList(pool_set=uuid_set):
                     node.notify(packet)
-            self._oid_set = set()
-            # If possible, send the packets now.
-            app.em.poll(0)
+            if app.getLastTransaction() < tid: # XXX: refactoring needed
+                app.setLastTransaction(tid)
+                app.tm.setLastTID(tid)
 
-    def verifyTransaction(self, tid):
-        nm = self.app.nm
-        uuid_set = set()
+        # If possible, send the packets now.
+        app.em.poll(0)
 
-        # Determine to which nodes I should ask.
-        partition = self.app.pt.getPartition(tid)
-        uuid_list = [cell.getUUID() for cell \
-                in self.app.pt.getCellList(partition, readable=True)]
-        if len(uuid_list) == 0:
-            raise VerificationFailure
-        uuid_set.update(uuid_list)
+    def answerLockedTransactions(self, conn, tid_dict):
+        uuid = conn.getUUID()
+        self._uuid_set.remove(uuid)
+        for ttid, tid in tid_dict.iteritems():
+            if tid:
+                self._locked_dict[ttid] = tid
+            self._voted_dict[ttid].add(uuid)
 
-        # Gather OIDs.
-        node_list = self.app.nm.getIdentifiedList(pool_set=uuid_list)
-        if len(node_list) == 0:
-            raise VerificationFailure
-        self._askStorageNodesAndWait(Packets.AskTransactionInformation(tid),
-            node_list)
-
-        if self._oid_set is None or len(self._oid_set) == 0:
-            # Not commitable.
-            return None
-        # Verify that all objects are present.
-        for oid in self._oid_set:
-            partition = self.app.pt.getPartition(oid)
-            object_uuid_list = [cell.getUUID() for cell \
-                        in self.app.pt.getCellList(partition, readable=True)]
-            if len(object_uuid_list) == 0:
-                raise VerificationFailure
-            uuid_set.update(object_uuid_list)
-
-            self._object_present = True
-            self._askStorageNodesAndWait(Packets.AskObjectPresent(oid, tid),
-                nm.getIdentifiedList(pool_set=object_uuid_list))
-            if not self._object_present:
-                # Not commitable.
-                return None
-
-        return uuid_set
-
-    def answerUnfinishedTransactions(self, conn, max_tid, tid_list):
-        logging.info('got unfinished transactions %s from %r',
-                     map(dump, tid_list), conn)
+    def answerFinalTID(self, conn, tid):
         self._uuid_set.remove(conn.getUUID())
-        self._tid_set.update(tid_list)
-
-    def answerTransactionInformation(self, conn, tid,
-                                           user, desc, ext, packed, oid_list):
-        self._uuid_set.remove(conn.getUUID())
-        oid_set = set(oid_list)
-        if self._oid_set is None:
-            # Someone does not agree.
-            pass
-        elif len(self._oid_set) == 0:
-            # This is the first answer.
-            self._oid_set.update(oid_set)
-        elif self._oid_set != oid_set:
-            raise ValueError, "Inconsistent transaction %s" % \
-                (dump(tid, ))
-
-    def tidNotFound(self, conn, message):
-        logging.info('TID not found: %s', message)
-        self._uuid_set.remove(conn.getUUID())
-        self._oid_set = None
-
-    def answerObjectPresent(self, conn, oid, tid):
-        logging.info('object %s:%s found', dump(oid), dump(tid))
-        self._uuid_set.remove(conn.getUUID())
-
-    def oidNotFound(self, conn, message):
-        logging.info('OID not found: %s', message)
-        self._uuid_set.remove(conn.getUUID())
-        self._object_present = False
+        self._tid = tid
 
     def connectionCompleted(self, conn):
         pass

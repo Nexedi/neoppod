@@ -16,8 +16,7 @@
 
 from . import BaseMasterHandler
 from neo.lib import logging
-from neo.lib.protocol import Packets, Errors, INVALID_TID, ZERO_TID
-from neo.lib.util import dump
+from neo.lib.protocol import Packets, ZERO_TID
 from neo.lib.exception import OperationFailure
 
 class VerificationHandler(BaseMasterHandler):
@@ -62,31 +61,14 @@ class VerificationHandler(BaseMasterHandler):
     def stopOperation(self, conn):
         raise OperationFailure('operation stopped')
 
-    def askUnfinishedTransactions(self, conn):
-        tid_list = self.app.dm.getUnfinishedTIDList()
-        conn.answer(Packets.AnswerUnfinishedTransactions(INVALID_TID, tid_list))
+    def askLockedTransactions(self, conn):
+        conn.answer(Packets.AnswerLockedTransactions(
+            self.app.dm.getUnfinishedTIDDict()))
 
-    def askTransactionInformation(self, conn, tid):
-        app = self.app
-        t = app.dm.getTransaction(tid, all=True)
-        if t is None:
-            p = Errors.TidNotFound('%s does not exist' % dump(tid))
-        else:
-            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
-                    t[4], t[0])
-        conn.answer(p)
+    def askFinalTID(self, conn, ttid):
+        conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))
 
-    def askObjectPresent(self, conn, oid, tid):
-        if self.app.dm.objectPresent(oid, tid):
-            p = Packets.AnswerObjectPresent(oid, tid)
-        else:
-            p = Errors.OidNotFound(
-                          '%s:%s do not exist' % (dump(oid), dump(tid)))
-        conn.answer(p)
-
-    def deleteTransaction(self, conn, tid, oid_list):
-        self.app.dm.deleteTransaction(tid, oid_list)
-
-    def commitTransaction(self, conn, tid):
-        self.app.dm.finishTransaction(tid)
-
+    def validateTransaction(self, conn, ttid, tid):
+        dm = self.app.dm
+        dm.lockTransaction(tid, ttid)
+        dm.unlockTransaction(tid, ttid)

@@ -162,7 +162,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
                  partition INTEGER NOT NULL,
-                 tid INTEGER NOT NULL,
+                 tid INTEGER,
                  packed BOOLEAN NOT NULL,
                  oids BLOB NOT NULL,
                  user BLOB NOT NULL,
@@ -221,7 +221,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         return self.query("SELECT MAX(tid) FROM trans WHERE tid<=?",
                           (max_tid,)).next()[0]
 
-    def _getLastIDs(self, all=True):
+    def _getLastIDs(self):
         p64 = util.p64
         q = self.query
         trans = {partition: p64(tid)
@@ -232,30 +232,21 @@ class SQLiteDatabaseManager(DatabaseManager):
                                     " FROM obj GROUP BY partition")}
         oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
                                       " GROUP BY partition) as t").next()[0]
-        if all:
-            tid = q("SELECT MAX(tid) FROM ttrans").next()[0]
-            if tid is not None:
-                trans[None] = p64(tid)
-            tid, toid = q("SELECT MAX(tid), MAX(oid) FROM tobj").next()
-            if tid is not None:
-                obj[None] = p64(tid)
-            if toid is not None and (oid < toid or oid is None):
-                oid = toid
         return trans, obj, None if oid is None else p64(oid)
 
-    def getUnfinishedTIDList(self):
-        p64 = util.p64
-        return [p64(t[0]) for t in self.query("SELECT tid FROM ttrans"
-                                       " UNION SELECT tid FROM tobj")]
-
-    def objectPresent(self, oid, tid, all=True):
-        oid = util.u64(oid)
-        tid = util.u64(tid)
+    def _getUnfinishedTIDDict(self):
         q = self.query
-        return q("SELECT 1 FROM obj WHERE partition=? AND oid=? AND tid=?",
-                 (self._getPartition(oid), oid, tid)).fetchone() or all and \
-               q("SELECT 1 FROM tobj WHERE tid=? AND oid=?",
-                 (tid, oid)).fetchone()
+        return q("SELECT ttid, tid FROM ttrans"), (ttid
+            for ttid, in q("SELECT DISTINCT tid FROM tobj"))
+
+    def getFinalTID(self, ttid):
+        ttid = util.u64(ttid)
+        # As of SQLite 3.8.7.1, 'tid>=ttid' would ignore the index on tid,
+        # even though ttid is a constant.
+        for tid, in self.query("SELECT tid FROM trans"
+                " WHERE partition=? AND tid>=? AND ttid=? LIMIT 1",
+                (self._getPartition(ttid), ttid, ttid)):
+            return util.p64(tid)
 
     def getLastObjectTID(self, oid):
         oid = util.u64(oid)
@@ -362,7 +353,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             partition = self._getPartition(tid)
             assert packed in (0, 1)
             q("INSERT OR FAIL INTO %strans VALUES (?,?,?,?,?,?,?,?)" % T,
-                (partition, tid, packed, buffer(''.join(oid_list)),
+                (partition, None if temporary else tid,
+                 packed, buffer(''.join(oid_list)),
                  buffer(user), buffer(desc), buffer(ext), u64(ttid)))
         if temporary:
             self.commit()
@@ -407,40 +399,41 @@ class SQLiteDatabaseManager(DatabaseManager):
         r = r.fetchone()
         return r or (None, None)
 
-    def finishTransaction(self, tid):
-        args = util.u64(tid),
+    def lockTransaction(self, tid, ttid):
+        u64 = util.u64
+        self.query("UPDATE ttrans SET tid=? WHERE ttid=?",
+                   (u64(tid), u64(ttid)))
+        self.commit()
+
+    def unlockTransaction(self, tid, ttid):
         q = self.query
+        u64 = util.u64
+        tid = u64(tid)
+        ttid = u64(ttid)
         sql = " FROM tobj WHERE tid=?"
-        data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
-        q("INSERT OR FAIL INTO obj SELECT *" + sql, args)
-        q("DELETE FROM tobj WHERE tid=?", args)
-        q("INSERT OR FAIL INTO trans SELECT * FROM ttrans WHERE tid=?", args)
-        q("DELETE FROM ttrans WHERE tid=?", args)
+        data_id_list = [x for x, in q("SELECT data_id" + sql, (ttid,)) if x]
+        q("INSERT INTO obj SELECT partition, oid, ?, data_id, value_tid" + sql,
+          (tid, ttid))
+        q("DELETE" + sql, (ttid,))
+        q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
+        q("DELETE FROM ttrans WHERE tid=?", (tid,))
         self.releaseData(data_id_list)
         self.commit()
 
-    def deleteTransaction(self, tid, oid_list=()):
-        u64 = util.u64
-        tid = u64(tid)
-        getPartition = self._getPartition
+    def abortTransaction(self, ttid):
+        args = util.u64(ttid),
         q = self.query
         sql = " FROM tobj WHERE tid=?"
-        data_id_list = [x for x, in q("SELECT data_id" + sql, (tid,)) if x]
-        self.releaseData(data_id_list)
-        q("DELETE" + sql, (tid,))
-        q("DELETE FROM ttrans WHERE tid=?", (tid,))
-        q("DELETE FROM trans WHERE partition=? AND tid=?",
-            (getPartition(tid), tid))
-        # delete from obj using indexes
-        data_id_list = set(data_id_list)
-        for oid in oid_list:
-            oid = u64(oid)
-            sql = " FROM obj WHERE partition=? AND oid=? AND tid=?"
-            args = getPartition(oid), oid, tid
-            data_id_list.update(*q("SELECT data_id" + sql, args))
-            q("DELETE" + sql, args)
-        data_id_list.discard(None)
-        self._pruneData(data_id_list)
+        data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
+        q("DELETE" + sql, args)
+        q("DELETE FROM ttrans WHERE ttid=?", args)
+        self.releaseData(data_id_list, True)
+
+    def deleteTransaction(self, tid):
+        tid = util.u64(tid)
+        getPartition = self._getPartition
+        self.query("DELETE FROM trans WHERE partition=? AND tid=?",
+            (self._getPartition(tid), tid))
 
     def deleteObject(self, oid, serial=None):
         oid = util.u64(oid)

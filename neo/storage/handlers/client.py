@@ -19,7 +19,7 @@ from neo.lib.handler import EventHandler
 from neo.lib.util import dump, makeChecksum
 from neo.lib.protocol import Packets, LockState, Errors, ProtocolError, \
     ZERO_HASH, INVALID_PARTITION
-from ..transactions import ConflictError, DelayedError
+from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
 import time
 
@@ -68,21 +68,17 @@ class ClientOperationHandler(EventHandler):
     def abortTransaction(self, conn, ttid):
         self.app.tm.abort(ttid)
 
-    def askStoreTransaction(self, conn, ttid, user, desc, ext, oid_list):
+    def askStoreTransaction(self, conn, ttid, *txn_info):
         self.app.tm.register(conn.getUUID(), ttid)
-        self.app.tm.storeTransaction(ttid, oid_list, user, desc, ext, False)
-        conn.answer(Packets.AnswerStoreTransaction(ttid))
+        self.app.tm.vote(ttid, txn_info)
+        conn.answer(Packets.AnswerStoreTransaction())
+
+    def askVoteTransaction(self, conn, ttid):
+        self.app.tm.vote(ttid)
+        conn.answer(Packets.AnswerVoteTransaction())
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
             data_serial, ttid, unlock, request_time):
-        if ttid not in self.app.tm:
-            # transaction was aborted, cancel this event
-            logging.info('Forget store of %s:%s by %s delayed by %s',
-                    dump(oid), dump(serial), dump(ttid),
-                    dump(self.app.tm.getLockingTID(oid)))
-            # send an answer as the client side is waiting for it
-            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
-            return
         try:
             self.app.tm.storeObject(ttid, serial, oid, compression,
                     checksum, data, data_serial, unlock)
@@ -101,6 +97,13 @@ class ClientOperationHandler(EventHandler):
                     raise_on_duplicate=unlock)
             except AlreadyPendingError:
                 conn.answer(Errors.AlreadyPending(dump(oid)))
+        except NotRegisteredError:
+            # transaction was aborted, cancel this event
+            logging.info('Forget store of %s:%s by %s delayed by %s',
+                    dump(oid), dump(serial), dump(ttid),
+                    dump(self.app.tm.getLockingTID(oid)))
+            # send an answer as the client side is waiting for it
+            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
@@ -189,14 +192,6 @@ class ClientOperationHandler(EventHandler):
         self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())
 
     def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
-        if ttid not in self.app.tm:
-            # transaction was aborted, cancel this event
-            logging.info('Forget serial check of %s:%s by %s delayed by %s',
-                dump(oid), dump(serial), dump(ttid),
-                dump(self.app.tm.getLockingTID(oid)))
-            # send an answer as the client side is waiting for it
-            conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
-            return
         try:
             self.app.tm.checkCurrentSerial(ttid, serial, oid)
         except ConflictError, err:
@@ -210,6 +205,13 @@ class ClientOperationHandler(EventHandler):
                     serial, oid, request_time), key=(oid, ttid))
             except AlreadyPendingError:
                 conn.answer(Errors.AlreadyPending(dump(oid)))
+        except NotRegisteredError:
+            # transaction was aborted, cancel this event
+            logging.info('Forget serial check of %s:%s by %s delayed by %s',
+                dump(oid), dump(serial), dump(ttid),
+                dump(self.app.tm.getLockingTID(oid)))
+            # send an answer as the client side is waiting for it
+            conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time

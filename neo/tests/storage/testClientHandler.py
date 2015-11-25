@@ -191,18 +191,6 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.operation.askObjectHistory(conn, oid2, 1, 2)
         self.checkAnswerObjectHistory(conn)
 
-    def test_askStoreTransaction(self):
-        conn = self._getConnection(uuid=self.getClientUUID())
-        tid = self.getNextTID()
-        user = 'USER'
-        desc = 'DESC'
-        ext = 'EXT'
-        oid_list = (self.getOID(1), self.getOID(2))
-        self.operation.askStoreTransaction(conn, tid, user, desc, ext, oid_list)
-        calls = self.app.tm.mockGetNamedCalls('storeTransaction')
-        self.assertEqual(len(calls), 1)
-        self.checkAnswerStoreTransaction(conn)
-
     def _getObject(self):
         oid = self.getOID(0)
         serial = self.getNextTID()

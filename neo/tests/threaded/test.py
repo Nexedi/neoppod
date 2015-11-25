@@ -21,7 +21,7 @@ import transaction
 import unittest
 from thread import get_ident
 from zlib import compress
-from persistent import Persistent
+from persistent import Persistent, GHOST
 from ZODB import DB, POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
@@ -398,47 +398,62 @@ class Test(NEOThreadedTest):
         """ Verification step should commit locked transactions """
         def delayUnlockInformation(conn, packet):
             return isinstance(packet, Packets.NotifyUnlockInformation)
-        def onStoreTransaction(storage, die=False):
-            def storeTransaction(orig, *args, **kw):
-                orig(*args, **kw)
+        def onLockTransaction(storage, die=False):
+            def lock(orig, *args, **kw):
                 if die:
                     sys.exit()
+                orig(*args, **kw)
                 storage.master_conn.close()
-            return Patch(storage.dm, storeTransaction=storeTransaction)
+            return Patch(storage.tm, lock=lock)
         cluster = NEOCluster(partitions=2, storage_count=2)
         try:
             cluster.start()
             s0, s1 = cluster.sortStorageList()
             t, c = cluster.getTransaction()
             r = c.root()
-            r[0] = x = PCounter()
+            r[0] = PCounter()
             tids = [r._p_serial]
-            t.commit()
-            tids.append(r._p_serial)
-            r[1] = PCounter()
-            with onStoreTransaction(s0), onStoreTransaction(s1):
+            with onLockTransaction(s0), onLockTransaction(s1):
                 self.assertRaises(ConnectionClosed, t.commit)
+            self.assertEqual(r._p_state, GHOST)
             self.tic()
             t.begin()
-            y = r[1]
-            self.assertEqual(y.value, 0)
-            assert [u64(o._p_oid) for o in (r, x, y)] == range(3)
-            r[2] = 'ok'
-            with cluster.master.filterConnection(s0) as m2s, \
-                 cluster.moduloTID(1):
-                m2s.add(delayUnlockInformation)
-                t.commit()
-                x.value = 1
-                # s0 will accept to store y (because it's not locked) but will
-                # never lock the transaction (packets from master delayed),
-                # so the last transaction will be dropped.
-                y.value = 2
-                with onStoreTransaction(s1, die=True):
+            x = r[0]
+            self.assertEqual(x.value, 0)
+            cluster.master.tm._last_oid = x._p_oid
+            tids.append(r._p_serial)
+            r[1] = PCounter()
+            c.readCurrent(x)
+            with cluster.moduloTID(1):
+                with onLockTransaction(s0), onLockTransaction(s1):
                     self.assertRaises(ConnectionClosed, t.commit)
+                self.tic()
+                t.begin()
+                # The following line checks that s1 moved the transaction
+                # metadata to final place during the verification phase.
+                # If it didn't, a NEOStorageError would be raised.
+                self.assertEqual(3, len(c.db().history(r._p_oid, 4)))
+                y = r[1]
+                self.assertEqual(y.value, 0)
+                self.assertEqual([u64(o._p_oid) for o in (r, x, y)], range(3))
+                r[2] = 'ok'
+                with cluster.master.filterConnection(s0) as m2s:
+                    m2s.add(delayUnlockInformation)
+                    t.commit()
+                    x.value = 1
+                    # s0 will accept to store y (because it's not locked) but will
+                    # never lock the transaction (packets from master delayed),
+                    # so the last transaction will be dropped.
+                    y.value = 2
+                    di0 = s0.getDataLockInfo()
+                    with onLockTransaction(s1, die=True):
+                        self.assertRaises(ConnectionClosed, t.commit)
         finally:
             cluster.stop()
         cluster.reset()
-        di0 = s0.getDataLockInfo()
+        (k, v), = set(s0.getDataLockInfo().iteritems()
+                      ).difference(di0.iteritems())
+        self.assertEqual(v, 1)
         k, = (k for k, v in di0.iteritems() if v == 1)
         di0[k] = 0 # r[2] = 'ok'
         self.assertEqual(di0.values(), [0, 0, 0, 0, 0])
@@ -455,6 +470,29 @@ class Test(NEOThreadedTest):
             self.assertEqual(r[2], 'ok')
             self.assertEqual(di0, s0.getDataLockInfo())
             self.assertEqual(di1, s1.getDataLockInfo())
+        finally:
+            cluster.stop()
+
+    def testDropUnfinishedData(self):
+        def lock(orig, *args, **kw):
+            orig(*args, **kw)
+            storage.master_conn.close()
+        r = []
+        def dropUnfinishedData(orig):
+            r.append(len(orig.__self__.getUnfinishedTIDDict()))
+            orig()
+            r.append(len(orig.__self__.getUnfinishedTIDDict()))
+        cluster = NEOCluster(partitions=2, storage_count=2, replicas=1)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()._p_changed = 1
+            storage = cluster.storage_list[0]
+            with Patch(storage.tm, lock=lock), \
+                 Patch(storage.dm, dropUnfinishedData=dropUnfinishedData):
+                t.commit()
+                self.tic()
+            self.assertEqual(r, [1, 0])
         finally:
             cluster.stop()
 
@@ -907,6 +945,28 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
             del cluster.startCluster
+
+    def testAbortVotedTransaction(self):
+        r = []
+        def tpc_finish(*args, **kw):
+            for storage in cluster.storage_list:
+                r.append(len(storage.dm.getUnfinishedTIDDict()))
+            raise NEOStorageError
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()['x'] = PCounter()
+            with Patch(cluster.client, tpc_finish=tpc_finish):
+                self.assertRaises(NEOStorageError, t.commit)
+                self.tic()
+            self.assertEqual(r, [1, 1])
+            for storage in cluster.storage_list:
+                self.assertFalse(storage.dm.getUnfinishedTIDDict())
+            t.begin()
+            self.assertNotIn('x', c.root())
+        finally:
+            cluster.stop()
 
 if __name__ == "__main__":
     unittest.main()

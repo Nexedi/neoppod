@@ -297,8 +297,9 @@ class ImporterDatabaseManager(DatabaseManager):
         self.db = buildDatabaseManager(main['adapter'],
             (main['database'], main.get('engine'), main['wait']))
         for x in """query erase getConfiguration _setConfiguration
-                    getPartitionTable changePartitionTable getUnfinishedTIDList
-                    dropUnfinishedData storeTransaction finishTransaction
+                    getPartitionTable changePartitionTable
+                    getUnfinishedTIDDict dropUnfinishedData abortTransaction
+                    storeTransaction lockTransaction unlockTransaction
                     storeData _pruneData
                  """.split():
             setattr(self, x, getattr(self.db, x))
@@ -421,7 +422,7 @@ class ImporterDatabaseManager(DatabaseManager):
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
         self._import = None
-        for x in """getObject objectPresent getReplicationTIDList
+        for x in """getObject getReplicationTIDList
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
@@ -434,22 +435,10 @@ class ImporterDatabaseManager(DatabaseManager):
         zodb = self.zodb[bisect(self.zodb_index, oid) - 1]
         return zodb, oid - zodb.shift_oid
 
-    def getLastIDs(self, all=True):
-        tid, _, _, oid = self.db.getLastIDs(all)
+    def getLastIDs(self):
+        tid, _, _, oid = self.db.getLastIDs()
         return (max(tid, util.p64(self.zodb_ltid)), None, None,
                 max(oid, util.p64(self.zodb_loid)))
-
-    def objectPresent(self, oid, tid, all=True):
-        r = self.db.objectPresent(oid, tid, all)
-        if not r:
-            u_oid = util.u64(oid)
-            u_tid = util.u64(tid)
-            if self.inZodb(u_oid, u_tid):
-                zodb, oid = self.zodbFromOid(u_oid)
-                try:
-                    return zodb.loadSerial(util.p64(oid), tid)
-                except POSKeyError:
-                    pass
 
     def getObject(self, oid, tid=None, before_tid=None):
         u64 = util.u64
@@ -510,6 +499,16 @@ class ImporterDatabaseManager(DatabaseManager):
                         cPickle.dumps(txn.extension), 0, tid)
         else:
             return self.db.getTransaction(tid, all)
+
+    def getFinalTID(self, ttid):
+        if u64(ttid) <= self.zodb_ltid and self._import:
+            raise NotImplementedError
+        return self.db.getFinalTID(ttid)
+
+    def deleteTransaction(self, tid):
+        if u64(tid) <= self.zodb_ltid and self._import:
+            raise NotImplementedError
+        self.db.deleteTransaction(tid)
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         p64 = util.p64

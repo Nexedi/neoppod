@@ -359,7 +359,12 @@ class TransactionManager(object):
             self._unlockPending()
 
     def _unlockPending(self):
-        # unlock pending transactions
+        """Serialize transaction unlocks
+
+        This should rarely delay unlocks since the time needed to lock a
+        transaction is roughly constant. The most common case where reordering
+        is required is when some storages are already busy by other tasks.
+        """
         queue = self._queue
         pop = queue.pop
         insert = queue.insert

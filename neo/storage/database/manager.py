@@ -222,10 +222,10 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def _getLastIDs(self, all=True):
+    def _getLastIDs(self):
         raise NotImplementedError
 
-    def getLastIDs(self, all=True):
+    def getLastIDs(self):
         trans, obj, oid = self._getLastIDs()
         if trans:
             tid = max(trans.itervalues())
@@ -241,16 +241,16 @@ class DatabaseManager(object):
         trans = obj = {}
         return tid, trans, obj, oid
 
-    def getUnfinishedTIDList(self):
-        """Return a list of unfinished transaction's IDs."""
+    def _getUnfinishedTIDDict(self):
         raise NotImplementedError
 
-    def objectPresent(self, oid, tid, all = True):
-        """Return true iff an object specified by a given pair of an
-        object ID and a transaction ID is present in a database.
-        Otherwise, return false. If all is true, the object must be
-        searched from unfinished transactions as well."""
-        raise NotImplementedError
+    def getUnfinishedTIDDict(self):
+        trans, obj = self._getUnfinishedTIDDict()
+        obj = dict.fromkeys(obj)
+        obj.update(trans)
+        p64 = util.p64
+        return {p64(ttid): None if tid is None else p64(tid)
+                for ttid, tid in obj.iteritems()}
 
     @fallback
     def getLastObjectTID(self, oid):
@@ -478,14 +478,18 @@ class DatabaseManager(object):
             data_tid = p64(data_tid)
         return p64(current_tid), data_tid, is_current
 
-    def finishTransaction(self, tid):
-        """Finish a transaction specified by a given ID, by moving
-        temporarily data to a finished area."""
+    def lockTransaction(self, tid, ttid):
+        """Mark voted transaction 'ttid' as committed with given 'tid'"""
         raise NotImplementedError
 
-    def deleteTransaction(self, tid, oid_list=()):
-        """Delete a transaction and its content specified by a given ID and
-        an oid list"""
+    def unlockTransaction(self, tid, ttid):
+        """Finalize a transaction by moving data to a finished area."""
+        raise NotImplementedError
+
+    def abortTransaction(self, ttid):
+        raise NotImplementedError
+
+    def deleteTransaction(self, tid):
         raise NotImplementedError
 
     def deleteObject(self, oid, serial=None):

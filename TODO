@@ -58,8 +58,6 @@
       committed by future transactions.
     - Add a 'devid' storage configuration so that master do not distribute
       replicated partitions on storages with same 'devid'.
-    - Make tpc_finish safer as described in its __doc__: moving work to
-      tpc_vote and recover from master failure when possible.
 
     Storage
     - Use libmysqld instead of a stand-alone MySQL server.

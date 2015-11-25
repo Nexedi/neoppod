@@ -42,17 +42,11 @@ class MasterOperationHandler(BaseMasterHandler):
         # Check changes for replications
         app.replicator.notifyPartitionChanges(cell_list)
 
-    def askLockInformation(self, conn, ttid, tid, oid_list):
-        if not ttid in self.app.tm:
-            raise ProtocolError('Unknown transaction')
-        self.app.tm.lock(ttid, tid, oid_list)
-        if not conn.isClosed():
-            conn.answer(Packets.AnswerInformationLocked(ttid))
+    def askLockInformation(self, conn, ttid, tid):
+        self.app.tm.lock(ttid, tid)
+        conn.answer(Packets.AnswerInformationLocked(ttid))
 
     def notifyUnlockInformation(self, conn, ttid):
-        if not ttid in self.app.tm:
-            raise ProtocolError('Unknown transaction')
-        # TODO: send an answer
         self.app.tm.unlock(ttid)
 
     def askPack(self, conn, tid):
@@ -60,8 +54,7 @@ class MasterOperationHandler(BaseMasterHandler):
         logging.info('Pack started, up to %s...', dump(tid))
         app.dm.pack(tid, app.tm.updateObjectDataForPack)
         logging.info('Pack finished.')
-        if not conn.isClosed():
-            conn.answer(Packets.AnswerPack(True))
+        conn.answer(Packets.AnswerPack(True))
 
     def replicate(self, conn, tid, upstream_name, source_dict):
         self.app.replicator.backup(tid, {p: a and (a, upstream_name)
