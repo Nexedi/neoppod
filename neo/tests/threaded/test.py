@@ -383,7 +383,7 @@ class Test(NEOThreadedTest):
         s1, s2 = cluster.storage_list
         try:
             cluster.start()
-            self.assertEqual([], cluster.getOudatedCells())
+            self.assertEqual([], cluster.getOutdatedCells())
         finally:
             cluster.stop()
         # restart it with one storage only
@@ -507,13 +507,13 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             checkNodeState(NodeStates.RUNNING)
-            self.assertEqual([], cluster.getOudatedCells())
+            self.assertEqual([], cluster.getOutdatedCells())
             # drop one
             cluster.neoctl.dropNode(s1.uuid)
             checkNodeState(None)
             self.tic() # Let node state update reach remaining storage
             checkNodeState(None)
-            self.assertEqual([], cluster.getOudatedCells())
+            self.assertEqual([], cluster.getOutdatedCells())
             # restart with s2 only
         finally:
             cluster.stop()

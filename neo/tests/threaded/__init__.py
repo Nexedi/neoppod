@@ -729,7 +729,7 @@ class NEOCluster(object):
             if node[2] == uuid:
                 return node[3]
 
-    def getOudatedCells(self):
+    def getOutdatedCells(self):
         return [cell for row in self.neoctl.getPartitionRowList()[1]
                      for cell in row[1]
                      if cell[1] == CellStates.OUT_OF_DATE]
