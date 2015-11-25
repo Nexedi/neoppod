@@ -331,6 +331,7 @@ class Application(BaseApplication):
         # machines but must not start automatically: otherwise, each storage
         # node would diverge.
         self._startup_allowed = False
+        self.truncate_tid = None
         try:
             while True:
                 self.runManager(RecoveryManager)
@@ -345,12 +346,10 @@ class Application(BaseApplication):
                     if self.backup_app is None:
                         raise RuntimeError("No upstream cluster to backup"
                                            " defined in configuration")
-                    self.backup_app.provideService()
-                    # All connections to storages are aborted when leaving
-                    # backup mode so restart loop completely (recovery).
-                    continue
+                    self.truncate_tid = self.backup_app.provideService()
                 except OperationFailure:
                     logging.critical('No longer operational')
+                    self.truncate_tid = None
                 node_list = []
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
@@ -442,7 +441,7 @@ class Application(BaseApplication):
                 continue # keep handler
             if type(handler) is not type(conn.getLastHandler()):
                 conn.setHandler(handler)
-                handler.connectionCompleted(conn)
+                handler.connectionCompleted(conn, new=False)
         self.cluster_state = state
 
     def getNewUUID(self, uuid, address, node_type):

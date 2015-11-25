@@ -24,6 +24,10 @@ from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
+    def connectionCompleted(self, conn, new=None):
+        if new is None:
+            super(MasterHandler, self).connectionCompleted(conn)
+
     def requestIdentification(self, conn, node_type, uuid, address, name):
         self.checkClusterName(name)
         app = self.app
@@ -74,13 +78,16 @@ class MasterHandler(EventHandler):
         conn.answer(Packets.AnswerLastTransaction(
             self.app.getLastTransaction()))
 
-    def askNodeInformation(self, conn):
+    def _notifyNodeInformation(self, conn):
         nm = self.app.nm
         node_list = []
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getClientList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
         conn.notify(Packets.NotifyNodeInformation(node_list))
+
+    def askNodeInformation(self, conn):
+        self._notifyNodeInformation(conn)
         conn.answer(Packets.AnswerNodeInformation())
 
     def askPartitionTable(self, conn):
@@ -94,6 +101,11 @@ DISCONNECTED_STATE_DICT = {
 
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
+
+    def connectionCompleted(self, conn, new):
+        self._notifyNodeInformation(conn)
+        pt = self.app.pt
+        conn.notify(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
 
     def connectionLost(self, conn, new_state):
         app = self.app

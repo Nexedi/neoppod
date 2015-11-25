@@ -20,9 +20,6 @@ from . import MasterHandler
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
 
-    def connectionCompleted(self, conn):
-        pass
-
     def connectionLost(self, conn, new_state):
         # cancel its transactions and forgot the node
         app = self.app

@@ -34,7 +34,7 @@ from . import NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
-from neo.storage.handlers.verification import VerificationHandler
+from neo.storage.handlers.initialization import InitializationHandler
 
 class PCounter(Persistent):
     value = 0
@@ -1051,8 +1051,9 @@ class Test(NEOThreadedTest):
             p.revert()
             conn.close()
         try:
-            with Patch(cluster.master.pt, make=make), Patch(VerificationHandler,
-                    askPartitionTable=askPartitionTable) as p:
+            with Patch(cluster.master.pt, make=make), \
+                 Patch(InitializationHandler,
+                       askPartitionTable=askPartitionTable) as p:
                 cluster.start()
                 self.assertFalse(p.applied)
         finally:

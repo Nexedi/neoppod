@@ -152,24 +152,18 @@ class BackupApplication(object):
                     assert tid != ZERO_TID
                     logging.warning("Truncating at %s (last_tid was %s)",
                         dump(app.backup_tid), dump(last_tid))
-                # XXX: We want to go through a recovery phase in order to
-                #      initialize the transaction manager, but this is only
-                #      possible if storages already know that we left backup
-                #      mode. To that purpose, we always send a Truncate packet,
-                #      even if there's nothing to truncate.
-                p = Packets.Truncate(tid)
-                for node in app.nm.getStorageList(only_identified=True):
-                    conn = node.getConnection()
-                    conn.setHandler(handler)
-                    node.setState(NodeStates.TEMPORARILY_DOWN)
-                    # Packets will be sent at the beginning of the recovery
-                    # phase.
-                    conn.notify(p)
-                    conn.abort()
+                    # We will really truncate so do not start automatically
+                    # if there's any missing storage.
+                    app._startup_allowed = False
                 # If any error happened before reaching this line, we'd go back
                 # to backup mode, which is the right mode to recover.
                 del app.backup_tid
-                break
+                # We will go through a recovery phase in order to reset the
+                # transaction manager and this is only possible if storages
+                # already know that we left backup mode. To that purpose, we
+                # always stop operation with a tid, even if there's nothing to
+                # truncate.
+                return tid
             finally:
                 del self.primary_partition_dict, self.tid_list
                 pt.clearReplicating()

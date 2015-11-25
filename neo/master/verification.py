@@ -137,9 +137,6 @@ class VerificationManager(BaseServiceHandler):
         self._uuid_set.remove(conn.getUUID())
         self._tid = tid
 
-    def connectionCompleted(self, conn):
-        pass
-
     def connectionLost(self, conn, new_state):
         self._uuid_set.discard(conn.getUUID())
         super(VerificationManager, self).connectionLost(conn, new_state)

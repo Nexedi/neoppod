@@ -24,12 +24,13 @@ from . import BaseServiceHandler
 class StorageServiceHandler(BaseServiceHandler):
     """ Handler dedicated to storages during service state """
 
-    def connectionCompleted(self, conn):
-        # TODO: unit test
+    def connectionCompleted(self, conn, new):
         app = self.app
         uuid = conn.getUUID()
         node = app.nm.getByUUID(uuid)
         app.setStorageNotReady(uuid)
+        if new:
+            super(StorageServiceHandler, self).connectionCompleted(conn, new)
         # XXX: what other values could happen ?
         if node.isRunning():
             conn.notify(Packets.StartOperation(bool(app.backup_tid)))

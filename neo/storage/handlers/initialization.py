@@ -15,24 +15,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import BaseMasterHandler
-from neo.lib import logging, protocol
+from neo.lib import logging
+from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
 
 class InitializationHandler(BaseMasterHandler):
 
     def answerNodeInformation(self, conn):
         pass
 
-    def answerPartitionTable(self, conn, ptid, row_list):
+    def sendPartitionTable(self, conn, ptid, row_list):
         app = self.app
         pt = app.pt
         pt.load(ptid, row_list, self.app.nm)
         if not pt.filled():
-            raise protocol.ProtocolError('Partial partition table received')
-        logging.debug('Got the partition table:')
-        self.app.pt.log()
+            raise ProtocolError('Partial partition table received')
         # Install the partition table into the database for persistency.
         cell_list = []
-        num_partitions = app.pt.getPartitions()
+        num_partitions = pt.getPartitions()
         unassigned_set = set(xrange(num_partitions))
         for offset in xrange(num_partitions):
             for cell in pt.getCellList(offset):
@@ -46,12 +45,39 @@ class InitializationHandler(BaseMasterHandler):
 
         app.dm.changePartitionTable(ptid, cell_list, reset=True)
 
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
-        # XXX: This is safe to ignore those notifications because all of the
-        # following applies:
-        # - we first ask for node information, and *then* partition
-        #   table content, so it is possible to get notifyPartitionChanges
-        #   packets in between (or even before asking for node information).
-        # - this handler will be changed after receiving answerPartitionTable
-        #   and before handling the next packet
-        logging.debug('ignoring notifyPartitionChanges during initialization')
+    def truncate(self, conn, tid):
+        self.app.dm.truncate(tid)
+
+    def askLastIDs(self, conn):
+        app = self.app
+        ltid, _, _, loid = app.dm.getLastIDs()
+        conn.answer(Packets.AnswerLastIDs(
+            loid,
+            ltid,
+            app.pt.getID(),
+            app.dm.getBackupTID()))
+
+    def askPartitionTable(self, conn):
+        pt = self.app.pt
+        conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
+
+    def askLockedTransactions(self, conn):
+        conn.answer(Packets.AnswerLockedTransactions(
+            self.app.dm.getUnfinishedTIDDict()))
+
+    def validateTransaction(self, conn, ttid, tid):
+        dm = self.app.dm
+        dm.lockTransaction(tid, ttid)
+        dm.unlockTransaction(tid, ttid)
+
+    def startOperation(self, conn, backup):
+        self.app.operational = True
+        # XXX: see comment in protocol
+        dm = self.app.dm
+        if backup:
+            if dm.getBackupTID():
+                return
+            tid = dm.getLastIDs()[0] or ZERO_TID
+        else:
+            tid = None
+        dm.setBackupTID(tid)

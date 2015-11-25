@@ -504,11 +504,9 @@ class DatabaseManager(object):
 
     def truncate(self, tid):
         assert tid not in (None, ZERO_TID), tid
-        assert self.getBackupTID()
-        self.setBackupTID(None) # XXX
         for partition in xrange(self.getNumPartitions()):
             self._deleteRange(partition, tid)
-        self.commit()
+        self.setBackupTID(None) # this also commits
 
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,

@@ -128,7 +128,10 @@ class RecoveryManager(MasterHandler):
         # broadcast to all so that admin nodes gets informed
         self.app.broadcastNodesInformation([node])
 
-    def connectionCompleted(self, conn):
+    def connectionCompleted(self, conn, new):
+        tid = self.app.truncate_tid
+        if tid:
+            conn.notify(Packets.Truncate(tid))
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskLastIDs())
 

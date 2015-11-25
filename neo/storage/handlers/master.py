@@ -67,10 +67,5 @@ class MasterOperationHandler(BaseMasterHandler):
         self.app.replicator.backup(tid, {p: a and (a, upstream_name)
                                          for p, a in source_dict.iteritems()})
 
-    def truncate(self, conn, tid):
-        self.app.replicator.cancel()
-        self.app.dm.truncate(tid)
-        conn.close()
-
     def checkPartition(self, conn, *args):
         self.app.checker(*args)

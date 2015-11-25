@@ -17,7 +17,7 @@
 from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.exception import PrimaryFailure, OperationFailure
-from neo.lib.protocol import uuid_str, NodeStates, NodeTypes
+from neo.lib.protocol import uuid_str, NodeStates, NodeTypes, Packets
 
 class BaseMasterHandler(EventHandler):
 
