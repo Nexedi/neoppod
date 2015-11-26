@@ -219,11 +219,12 @@ class TestSerialized(Serialized):
 
     def poll(self, timeout):
         if timeout:
-            while 1:
+            for x in xrange(1000):
                 r = self._epoll.poll(0)
                 if r:
                     return r
                 Serialized.tic(step=1)
+            raise Exception("tic is looping forever")
         return self._epoll.poll(timeout)
 
 
@@ -704,7 +705,7 @@ class NEOCluster(object):
     def join(self, thread_list, timeout=5):
         timeout += time.time()
         while thread_list:
-            assert time.time() < timeout
+            assert time.time() < timeout, thread_list
             Serialized.tic()
             thread_list = [t for t in thread_list if t.is_alive()]
 

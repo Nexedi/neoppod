@@ -560,6 +560,9 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testShutdown(self):
+        # BUG: Due to bugs in election, master nodes sometimes crash, or they
+        #      declare themselves primary too quickly. The consequence is
+        #      often an endless tic loop.
         cluster = NEOCluster(master_count=3, partitions=10,
                              replicas=1, storage_count=3)
         try:
