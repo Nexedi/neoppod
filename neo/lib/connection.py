@@ -433,9 +433,12 @@ class Connection(BaseConnection):
 
     def abort(self):
         """Abort dealing with this connection."""
+        assert self.pending()
+        if self.connecting:
+            self.close()
+            return
         logging.debug('aborting a connector for %r', self)
         self.aborted = True
-        assert self.pending()
         if self._on_close is not None:
             self._on_close()
             self._on_close = None

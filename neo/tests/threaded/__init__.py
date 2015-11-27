@@ -278,8 +278,8 @@ class ServerNode(Node):
         if not address:
             address = self.newAddress()
         if cluster is None:
-            master_nodes = kw['master_nodes']
-            name = kw['name']
+            master_nodes = kw.get('master_nodes', ())
+            name = kw.get('name', 'test')
         else:
             master_nodes = kw.get('master_nodes', cluster.master_nodes)
             name = kw.get('name', cluster.name)
@@ -292,7 +292,7 @@ class ServerNode(Node):
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
         kw.update(getCluster=name, getBind=address,
-                  getMasters=parseMasterList(master_nodes, address))
+            getMasters=master_nodes and parseMasterList(master_nodes, address))
         super(ServerNode, self).__init__(Mock(kw))
 
     def getVirtualAddress(self):
