@@ -129,9 +129,6 @@ class EventHandler(object):
         """Called when a connection failed."""
         logging.debug('connection failed for %r', conn)
 
-    def connectionAccepted(self, conn):
-        """Called when a connection is accepted."""
-
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %r', conn)
@@ -251,7 +248,6 @@ class AnswerBaseHandler(EventHandler):
     connectionStarted = unexpectedInAnswerHandler
     connectionCompleted = unexpectedInAnswerHandler
     connectionFailed = unexpectedInAnswerHandler
-    connectionAccepted = unexpectedInAnswerHandler
     timeoutExpired = unexpectedInAnswerHandler
     connectionClosed = unexpectedInAnswerHandler
     packetReceived = unexpectedInAnswerHandler

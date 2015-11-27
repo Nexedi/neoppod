@@ -309,12 +309,13 @@ class ListeningConnection(BaseConnection):
     def readable(self):
         connector, addr = self.connector.accept()
         logging.debug('accepted a connection from %s:%d', *addr)
-        handler = self.getHandler()
-        new_conn = ServerConnection(self.em, handler, connector, addr)
+        conn = ServerConnection(self.em, self.getHandler(), connector, addr)
         if self._ssl:
-            connector.ssl(self._ssl)
-            self.em.addWriter(new_conn)
-        handler.connectionAccepted(new_conn)
+            conn.connecting = True
+            connector.ssl(self._ssl, conn._connected)
+            self.em.addWriter(conn)
+        else:
+            conn._connected()
 
     def getAddress(self):
         return self.connector.getAddress()
@@ -328,7 +329,7 @@ class Connection(BaseConnection):
 
     # XXX: rename isPending, hasPendingMessages & pending methods
 
-    connecting = False
+    connecting = True
     client = False
     server = False
     peer_id = None
@@ -576,11 +577,14 @@ class Connection(BaseConnection):
     def idle(self):
         self.ask(Packets.Ping())
 
+    def _connected(self):
+        self.connecting = False
+        self.getHandler().connectionCompleted(self)
+
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
 
-    connecting = True
     client = True
 
     def __init__(self, app, handler, node):
@@ -605,7 +609,7 @@ class ClientConnection(Connection):
         else:
             self.em.register(self)
             if connected:
-                self._connectionCompleted()
+                self._maybeConnected()
                 # A client connection usually has a pending packet to send
                 # from the beginning. It would be too smart to detect when
                 # it's not required to poll for writing.
@@ -620,16 +624,16 @@ class ClientConnection(Connection):
         if self.connector.getError():
             self._closure()
         else:
-            self._connectionCompleted()
+            self._maybeConnected()
             self.writable()
 
-    def _connectionCompleted(self):
-        if self._ssl:
-            self.connector.ssl(self._ssl)
+    def _maybeConnected(self):
         self.writable = self.lockWrapper(super(ClientConnection, self).writable)
-        self.connecting = False
         self.updateTimeout(time())
-        self.getHandler().connectionCompleted(self)
+        if self._ssl:
+            self.connector.ssl(self._ssl, self._connected)
+        else:
+            self._connected()
 
 
 class ServerConnection(Connection):

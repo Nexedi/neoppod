@@ -110,12 +110,13 @@ class SocketConnector(object):
             self.socket.close()
             self._error('listen', e)
 
-    def ssl(self, ssl):
+    def ssl(self, ssl, on_handshake_done=None):
         self.socket = ssl.wrap_socket(self.socket,
             server_side=self.is_server,
             do_handshake_on_connect=False,
             suppress_ragged_eofs=False)
         self.__class__ = self.SSLHandshakeConnectorClass
+        self.on_handshake_done = on_handshake_done
         self.queued or self.queued.append('')
 
     def getError(self):
@@ -269,6 +270,9 @@ class _SSLHandshake(_SSL):
         self.__class__ = self.SSLConnectorClass
         cipher, proto, bits = self.socket.cipher()
         logging.debug("SSL handshake done for %s: %s %s", self, cipher, bits)
+        if self.on_handshake_done:
+            self.on_handshake_done()
+        del self.on_handshake_done
         if read_buf is None:
             return self.send()
         self.receive(read_buf)
