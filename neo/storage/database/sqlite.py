@@ -425,21 +425,22 @@ class SQLiteDatabaseManager(DatabaseManager):
         getPartition = self._getPartition
         q = self.query
         sql = " FROM tobj WHERE tid=?"
-        data_id_set = {x for x, in q("SELECT data_id" + sql, (tid,)) if x}
-        self.releaseData(data_id_set)
+        data_id_list = [x for x, in q("SELECT data_id" + sql, (tid,)) if x]
+        self.releaseData(data_id_list)
         q("DELETE" + sql, (tid,))
         q("DELETE FROM ttrans WHERE tid=?", (tid,))
         q("DELETE FROM trans WHERE partition=? AND tid=?",
             (getPartition(tid), tid))
         # delete from obj using indexes
+        data_id_list = set(data_id_list)
         for oid in oid_list:
             oid = u64(oid)
             sql = " FROM obj WHERE partition=? AND oid=? AND tid=?"
             args = getPartition(oid), oid, tid
-            data_id_set.update(*q("SELECT data_id" + sql, args))
+            data_id_list.update(*q("SELECT data_id" + sql, args))
             q("DELETE" + sql, args)
-        data_id_set.discard(None)
-        self._pruneData(data_id_set)
+        data_id_list.discard(None)
+        self._pruneData(data_id_list)
 
     def deleteObject(self, oid, serial=None):
         oid = util.u64(oid)
