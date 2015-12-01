@@ -19,6 +19,7 @@ import random
 from . import MasterHandler
 from ..app import StateChangedException
 from neo.lib import logging
+from neo.lib.exception import StoppedOperation
 from neo.lib.pt import PartitionTableException
 from neo.lib.protocol import ClusterStates, Errors, \
     NodeStates, NodeTypes, Packets, ProtocolError, uuid_str
@@ -158,6 +159,13 @@ class AdministrationHandler(MasterHandler):
         app.broadcastPartitionChanges(app.pt.tweak(
             map(app.nm.getByUUID, uuid_list)))
         conn.answer(Errors.Ack(''))
+
+    def truncate(self, conn, tid):
+        app = self.app
+        if app.cluster_state != ClusterStates.RUNNING:
+            raise ProtocolError('Can not truncate in this state')
+        conn.answer(Errors.Ack(''))
+        raise StoppedOperation(tid)
 
     def checkReplicas(self, conn, partition_dict, min_tid, max_tid):
         app = self.app

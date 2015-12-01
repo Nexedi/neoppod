@@ -28,7 +28,8 @@ class MasterOperationHandler(BaseMasterHandler):
         assert self.app.operational and backup
         dm = self.app.dm
         if not dm.getBackupTID():
-            dm.setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
+            dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
+            dm.commit()
 
     def notifyTransactionFinished(self, conn, *args, **kw):
         self.app.replicator.transactionFinished(*args, **kw)

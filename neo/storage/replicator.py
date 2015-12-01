@@ -128,7 +128,8 @@ class Replicator(object):
         if tid:
             new_tid = self.getBackupTID()
             if tid != new_tid:
-                dm.setBackupTID(new_tid)
+                dm._setBackupTID(new_tid)
+                dm.commit()
 
     def populate(self):
         app = self.app

@@ -23,7 +23,7 @@ class ElectionFailure(NeoException):
 class PrimaryFailure(NeoException):
     pass
 
-class OperationFailure(NeoException):
+class StoppedOperation(NeoException):
     pass
 
 class DatabaseFailure(NeoException):

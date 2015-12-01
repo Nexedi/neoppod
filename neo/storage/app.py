@@ -23,7 +23,7 @@ from neo.lib.protocol import uuid_str, \
     CellStates, ClusterStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.connection import ListeningConnection
-from neo.lib.exception import OperationFailure, PrimaryFailure
+from neo.lib.exception import StoppedOperation, PrimaryFailure
 from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
@@ -196,7 +196,7 @@ class Application(BaseApplication):
                 self.initialize()
                 self.doOperation()
                 raise RuntimeError, 'should not reach here'
-            except OperationFailure, msg:
+            except StoppedOperation, msg:
                 logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)

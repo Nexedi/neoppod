@@ -59,9 +59,18 @@ class VerificationManager(BaseServiceHandler):
     def run(self):
         app = self.app
         app.changeClusterState(ClusterStates.VERIFYING)
+        app.tm.reset()
         if not app.backup_tid:
             self.verifyData()
+        # This is where storages truncate if requested:
+        # - we make sure all nodes are running with a truncate_tid value saved
+        # - there's no unfinished data
+        # - just before they return the last tid/oid
+        self._askStorageNodesAndWait(Packets.AskLastIDs(),
+            [x for x in app.nm.getIdentifiedList() if x.isStorage()])
         app.setLastTransaction(app.tm.getLastTID())
+        # Just to not return meaningless information in AnswerRecovery.
+        app.truncate_tid = None
 
     def verifyData(self):
         app = self.app
@@ -97,33 +106,18 @@ class VerificationManager(BaseServiceHandler):
         # Finish all transactions for which we know that tpc_finish was called
         # but not fully processed. This may include replicas with transactions
         # that were not even locked.
-        all_set = set()
         for ttid, tid in self._locked_dict.iteritems():
             uuid_set = self._voted_dict.get(ttid)
             if uuid_set:
-                all_set |= uuid_set
                 packet = Packets.ValidateTransaction(ttid, tid)
                 for node in getIdentifiedList(pool_set=uuid_set):
                     node.notify(packet)
 
-        # Ask last oid/tid again for nodes that recovers locked transactions.
-        # In fact, this is mainly for the last oid since the last tid can be
-        # deduced from max(self._locked_dict.values()).
-        # If getLastIDs is not always instantaneous for some backends, we
-        # should split AskLastIDs to not ask the last oid/tid at the end of
-        # recovery phase (and instead ask all nodes once, here).
-        # With this request, we also prefer to make sure all nodes validate
-        # successfully before switching to RUNNING state.
-        self._askStorageNodesAndWait(Packets.AskLastIDs(),
-            getIdentifiedList(all_set))
-
-    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
+    def answerLastIDs(self, conn, loid, ltid):
         self._uuid_set.remove(conn.getUUID())
         tm = self.app.tm
         tm.setLastOID(loid)
         tm.setLastTID(ltid)
-        ptid = self.app.pt.getID()
-        assert lptid < ptid if None != lptid != ptid else not backup_tid
 
     def answerLockedTransactions(self, conn, tid_dict):
         uuid = conn.getUUID()

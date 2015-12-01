@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
 from .handlers import MasterHandler
 
@@ -30,6 +29,7 @@ class RecoveryManager(MasterHandler):
         self.target_ptid = None
         self.ask_pt = []
         self.backup_tid_dict = {}
+        self.truncate_dict = {}
 
     def getHandler(self):
         return self
@@ -49,7 +49,6 @@ class RecoveryManager(MasterHandler):
         """
         logging.info('begin the recovery of the status')
         app = self.app
-        app.tm.reset()
         pt = app.pt
         app.changeClusterState(ClusterStates.RECOVERING)
         pt.clear()
@@ -64,8 +63,12 @@ class RecoveryManager(MasterHandler):
                 node_list = pt.getOperationalNodeSet()
                 if app._startup_allowed:
                     node_list = [node for node in node_list if node.isPending()]
-                elif not all(node.isPending() for node in node_list):
-                    continue
+                elif node_list:
+                    # we want all nodes to be there if we're going to truncate
+                    if app.truncate_tid:
+                        node_list = pt.getNodeSet()
+                    if not all(node.isPending() for node in node_list):
+                        continue
             elif app._startup_allowed or app.autostart:
                 # No partition table and admin allowed startup, we are
                 # creating a new cluster out of all pending nodes.
@@ -77,6 +80,17 @@ class RecoveryManager(MasterHandler):
             if node_list and not any(node.getConnection().isPending()
                                      for node in node_list):
                 if pt.filled():
+                    if app.truncate_tid:
+                        node_list = app.nm.getIdentifiedList(pool_set={uuid
+                            for uuid, tid in self.truncate_dict.iteritems()
+                            if not tid or app.truncate_tid < tid})
+                        if node_list:
+                            truncate = Packets.Truncate(app.truncate_tid)
+                            for node in node_list:
+                                conn = node.getConnection()
+                                conn.notify(truncate)
+                                self.connectionCompleted(conn, False)
+                            continue
                     node_list = pt.getConnectedNodeList()
                 break
 
@@ -101,12 +115,13 @@ class RecoveryManager(MasterHandler):
                 pt.setBackupTidDict(self.backup_tid_dict)
                 app.backup_tid = pt.getBackupTid()
 
-        logging.debug('cluster starts with loid=%s and this partition table :',
-                      dump(app.tm.getLastOID()))
+        logging.debug('cluster starts this partition table:')
         pt.log()
 
     def connectionLost(self, conn, new_state):
         uuid = conn.getUUID()
+        self.backup_tid_dict.pop(uuid, None)
+        self.truncate_dict.pop(uuid, None)
         node = self.app.nm.getByUUID(uuid)
         try:
             i = self.ask_pt.index(uuid)
@@ -129,40 +144,38 @@ class RecoveryManager(MasterHandler):
         self.app.broadcastNodesInformation([node])
 
     def connectionCompleted(self, conn, new):
-        tid = self.app.truncate_tid
-        if tid:
-            conn.notify(Packets.Truncate(tid))
         # ask the last IDs to perform the recovery
-        conn.ask(Packets.AskLastIDs())
+        conn.ask(Packets.AskRecovery())
 
-    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
-        tm = self.app.tm
-        tm.setLastOID(loid)
-        tm.setLastTID(ltid)
+    def answerRecovery(self, conn, ptid, backup_tid, truncate_tid):
         uuid = conn.getUUID()
-        if self.target_ptid <= lptid:
+        if self.target_ptid <= ptid:
             # Maybe a newer partition table.
-            if self.target_ptid == lptid and self.ask_pt:
+            if self.target_ptid == ptid and self.ask_pt:
                 # Another node is already asked.
                 self.ask_pt.append(uuid)
-            elif self.target_ptid < lptid or self.ask_pt is not ():
+            elif self.target_ptid < ptid or self.ask_pt is not ():
                 # No node asked yet for the newest partition table.
-                self.target_ptid = lptid
+                self.target_ptid = ptid
                 self.ask_pt = [uuid]
                 conn.ask(Packets.AskPartitionTable())
         self.backup_tid_dict[uuid] = backup_tid
+        self.truncate_dict[uuid] = truncate_tid
 
     def answerPartitionTable(self, conn, ptid, row_list):
         # If this is not from a target node, ignore it.
         if ptid == self.target_ptid:
+            app = self.app
             try:
-                new_nodes = self.app.pt.load(ptid, row_list, self.app.nm)
+                new_nodes = app.pt.load(ptid, row_list, app.nm)
             except IndexError:
                 raise ProtocolError('Invalid offset')
             self._notifyAdmins(Packets.NotifyNodeInformation(new_nodes),
                                Packets.SendPartitionTable(ptid, row_list))
             self.ask_pt = ()
-            self.app.backup_tid = self.backup_tid_dict[conn.getUUID()]
+            uuid = conn.getUUID()
+            app.backup_tid = self.backup_tid_dict[uuid]
+            app.truncate_tid = self.truncate_dict[uuid]
 
     def _notifyAdmins(self, *packets):
         for node in self.app.nm.getAdminList(only_identified=True):

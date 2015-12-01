@@ -24,7 +24,7 @@ from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
-from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
+from neo.lib.exception import ElectionFailure, PrimaryFailure, StoppedOperation
 
 class StateChangedException(Exception): pass
 
@@ -45,6 +45,7 @@ class Application(BaseApplication):
     backup_tid = None
     backup_app = None
     uuid = None
+    truncate_tid = None
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -331,12 +332,9 @@ class Application(BaseApplication):
         # machines but must not start automatically: otherwise, each storage
         # node would diverge.
         self._startup_allowed = False
-        self.truncate_tid = None
         try:
             while True:
                 self.runManager(RecoveryManager)
-                # Automatic restart if we become non-operational.
-                self._startup_allowed = True
                 try:
                     self.runManager(VerificationManager)
                     if not self.backup_tid:
@@ -346,10 +344,13 @@ class Application(BaseApplication):
                     if self.backup_app is None:
                         raise RuntimeError("No upstream cluster to backup"
                                            " defined in configuration")
-                    self.truncate_tid = self.backup_app.provideService()
-                except OperationFailure:
+                    truncate = Packets.Truncate(
+                        self.backup_app.provideService())
+                except StoppedOperation, e:
                     logging.critical('No longer operational')
-                    self.truncate_tid = None
+                    truncate = Packets.Truncate(*e.args) if e.args else None
+                    # Automatic restart except if we truncate or retry to.
+                    self._startup_allowed = not (self.truncate_tid or truncate)
                 node_list = []
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
@@ -357,7 +358,10 @@ class Application(BaseApplication):
                         conn.notify(Packets.StopOperation())
                         if node.isClient():
                             conn.abort()
-                        elif node.isRunning():
+                            continue
+                        if truncate:
+                            conn.notify(truncate)
+                        if node.isRunning():
                             node.setPending()
                             node_list.append(node)
                 self.broadcastNodesInformation(node_list)
@@ -475,7 +479,7 @@ class Application(BaseApplication):
             # wait for all transaction to be finished
             while self.tm.hasPending():
                 self.em.poll(1)
-        except OperationFailure:
+        except StoppedOperation:
             logging.critical('No longer operational')
 
         logging.info("asking remaining nodes to shutdown")

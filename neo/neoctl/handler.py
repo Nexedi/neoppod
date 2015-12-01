@@ -61,3 +61,4 @@ class CommandEventHandler(EventHandler):
     answerPrimary = __answer(Packets.AnswerPrimary)
     answerLastIDs = __answer(Packets.AnswerLastIDs)
     answerLastTransaction = __answer(Packets.AnswerLastTransaction)
+    answerRecovery = __answer(Packets.AnswerRecovery)

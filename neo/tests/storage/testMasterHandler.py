@@ -20,7 +20,7 @@ from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
-from neo.lib.exception import PrimaryFailure, OperationFailure
+from neo.lib.exception import PrimaryFailure
 from neo.lib.pt import PartitionTable
 from neo.lib.protocol import CellStates, ProtocolError, Packets
 
@@ -103,11 +103,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(ptid2, cells)
-
-    def test_16_stopOperation1(self):
-        # OperationFailure
-        conn = self.getFakeConnection(is_server=False)
-        self.assertRaises(OperationFailure, self.operation.stopOperation, conn)
 
     def _getConnection(self):
         return self.getFakeConnection()

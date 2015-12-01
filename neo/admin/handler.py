@@ -65,10 +65,12 @@ class AdminEventHandler(EventHandler):
     askLastIDs = forward_ask(Packets.AskLastIDs)
     askLastTransaction = forward_ask(Packets.AskLastTransaction)
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
+    askRecovery = forward_ask(Packets.AskRecovery)
     tweakPartitionTable = forward_ask(Packets.TweakPartitionTable)
     setClusterState = forward_ask(Packets.SetClusterState)
     setNodeState = forward_ask(Packets.SetNodeState)
     checkReplicas = forward_ask(Packets.CheckReplicas)
+    truncate = forward_ask(Packets.Truncate)
 
 
 class MasterEventHandler(EventHandler):

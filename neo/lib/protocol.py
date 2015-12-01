@@ -722,16 +722,24 @@ class ReelectPrimary(Packet):
     Force a re-election of a primary master node. M -> M.
     """
 
+class Recovery(Packet):
+    """
+    Ask all data needed by master to recover. PM -> S, S -> PM.
+    """
+    _answer = PStruct('answer_recovery',
+        PPTID('ptid'),
+        PTID('backup_tid'),
+        PTID('truncate_tid'),
+    )
+
 class LastIDs(Packet):
     """
-    Ask the last OID, the last TID and the last Partition Table ID so that
-    a master recover. PM -> S, S -> PM.
+    Ask the last OID/TID so that a master can initialize its TransactionManager.
+    PM -> S, S -> PM.
     """
     _answer = PStruct('answer_last_ids',
         POID('last_oid'),
         PTID('last_tid'),
-        PPTID('last_ptid'),
-        PTID('backup_tid'),
     )
 
 class PartitionTable(Packet):
@@ -1470,12 +1478,13 @@ class ReplicationDone(Packet):
 
 class Truncate(Packet):
     """
-    XXX: Used for both make storage consistent and leave backup mode
-    M -> S
+    Request DB to be truncated. Also used to leave backup mode.
     """
     _fmt = PStruct('truncate',
         PTID('tid'),
     )
+
+    _answer = Error
 
 
 StaticRegistry = {}
@@ -1594,6 +1603,8 @@ class Packets(dict):
                     ReelectPrimary)
     NotifyNodeInformation = register(
                     NotifyNodeInformation)
+    AskRecovery, AnswerRecovery = register(
+                    Recovery)
     AskLastIDs, AnswerLastIDs = register(
                     LastIDs)
     AskPartitionTable, AnswerPartitionTable = register(

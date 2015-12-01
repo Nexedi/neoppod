@@ -194,10 +194,18 @@ class DatabaseManager(object):
     def getBackupTID(self):
         return util.bin(self.getConfiguration('backup_tid'))
 
-    def setBackupTID(self, backup_tid):
-        tid = util.dump(backup_tid)
+    def _setBackupTID(self, tid):
+        tid = util.dump(tid)
         logging.debug('backup_tid = %s', tid)
-        return self.setConfiguration('backup_tid', tid)
+        return self._setConfiguration('backup_tid', tid)
+
+    def getTruncateTID(self):
+        return util.bin(self.getConfiguration('truncate_tid'))
+
+    def _setTruncateTID(self, tid):
+        tid = util.dump(tid)
+        logging.debug('truncate_tid = %s', tid)
+        return self._setConfiguration('truncate_tid', tid)
 
     def _setPackTID(self, tid):
         self._setConfiguration('_pack_tid', tid)
@@ -502,11 +510,14 @@ class DatabaseManager(object):
         and max_tid (included)"""
         raise NotImplementedError
 
-    def truncate(self, tid):
-        assert tid not in (None, ZERO_TID), tid
-        for partition in xrange(self.getNumPartitions()):
-            self._deleteRange(partition, tid)
-        self.setBackupTID(None) # this also commits
+    def truncate(self):
+        tid = self.getTruncateTID()
+        if tid:
+            assert tid != ZERO_TID, tid
+            for partition in xrange(self.getNumPartitions()):
+                self._deleteRange(partition, tid)
+            self._setTruncateTID(None)
+            self.commit()
 
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,

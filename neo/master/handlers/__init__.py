@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.exception import OperationFailure
+from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
     BrokenNodeDisallowedError,
@@ -66,13 +66,16 @@ class MasterHandler(EventHandler):
         state = self.app.getClusterState()
         conn.answer(Packets.AnswerClusterState(state))
 
-    def askLastIDs(self, conn):
+    def askRecovery(self, conn):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(
-            app.tm.getLastOID(),
-            app.tm.getLastTID(),
+        conn.answer(Packets.AnswerRecovery(
             app.pt.getID(),
-            app.backup_tid))
+            app.backup_tid and app.pt.getBackupTid(),
+            app.truncate_tid))
+
+    def askLastIDs(self, conn):
+        tm = self.app.tm
+        conn.answer(Packets.AnswerLastIDs(tm.getLastOID(), tm.getLastTID()))
 
     def askLastTransaction(self, conn):
         conn.answer(Packets.AnswerLastTransaction(
@@ -130,9 +133,11 @@ class BaseServiceHandler(MasterHandler):
             logging.info('drop a pending node from the node manager')
             app.nm.remove(node)
         app.broadcastNodesInformation([node])
+        if app.truncate_tid:
+            raise StoppedOperation
         app.broadcastPartitionChanges(app.pt.outdate(node))
         if not app.pt.operational():
-            raise OperationFailure("cannot continue operation")
+            raise StoppedOperation
 
     def notifyReady(self, conn):
         self.app.setStorageReady(conn.getUUID())

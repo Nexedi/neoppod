@@ -21,7 +21,7 @@ from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
-from neo.lib.exception import OperationFailure
+from neo.lib.exception import StoppedOperation
 
 class MasterStorageHandlerTests(NeoUnitTestBase):
 
@@ -114,24 +114,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.checkNotifyUnlockInformation(storage_conn_1)
         self.checkNotifyUnlockInformation(storage_conn_2)
 
-    def test_12_askLastIDs(self):
-        service = self.service
-        node, conn = self.identifyToMasterNode()
-        # give a uuid
-        conn = self.getFakeConnection(node.getUUID(), self.storage_address)
-        ptid = self.app.pt.getID()
-        oid = self.getOID(1)
-        tid = self.getNextTID()
-        self.app.tm.setLastOID(oid)
-        self.app.tm.setLastTID(tid)
-        service.askLastIDs(conn)
-        packet = self.checkAnswerLastIDs(conn)
-        loid, ltid, lptid, backup_tid = packet.decode()
-        self.assertEqual(loid, oid)
-        self.assertEqual(ltid, tid)
-        self.assertEqual(lptid, ptid)
-        self.assertEqual(backup_tid, None)
-
     def test_13_askUnfinishedTransactions(self):
         service = self.service
         node, conn = self.identifyToMasterNode()
@@ -173,7 +155,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # drop the second, no storage node left
         lptid = self.app.pt.getID()
         self.assertEqual(node2.getState(), NodeStates.RUNNING)
-        self.assertRaises(OperationFailure, method, conn2)
+        self.assertRaises(StoppedOperation, method, conn2)
         self.assertEqual(node2.getState(), state)
         self.assertEqual(lptid, self.app.pt.getID())
 

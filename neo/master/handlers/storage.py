@@ -16,7 +16,7 @@
 
 from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, Packets, ProtocolError
-from neo.lib.exception import OperationFailure
+from neo.lib.exception import StoppedOperation
 from neo.lib.pt import PartitionTableException
 from . import BaseServiceHandler
 
@@ -76,7 +76,7 @@ class StorageServiceHandler(BaseServiceHandler):
                                     CellStates.CORRUPTED))
         self.app.broadcastPartitionChanges(change_list)
         if not self.app.pt.operational():
-            raise OperationFailure('cannot continue operation')
+            raise StoppedOperation
 
     def notifyReplicationDone(self, conn, offset, tid):
         app = self.app

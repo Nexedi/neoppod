@@ -46,16 +46,23 @@ class InitializationHandler(BaseMasterHandler):
         app.dm.changePartitionTable(ptid, cell_list, reset=True)
 
     def truncate(self, conn, tid):
-        self.app.dm.truncate(tid)
+        dm = self.app.dm
+        dm._setBackupTID(None)
+        dm._setTruncateTID(tid)
+        dm.commit()
+
+    def askRecovery(self, conn):
+        app = self.app
+        conn.answer(Packets.AnswerRecovery(
+            app.pt.getID(),
+            app.dm.getBackupTID(),
+            app.dm.getTruncateTID()))
 
     def askLastIDs(self, conn):
-        app = self.app
-        ltid, _, _, loid = app.dm.getLastIDs()
-        conn.answer(Packets.AnswerLastIDs(
-            loid,
-            ltid,
-            app.pt.getID(),
-            app.dm.getBackupTID()))
+        dm = self.app.dm
+        dm.truncate()
+        ltid, _, _, loid = dm.getLastIDs()
+        conn.answer(Packets.AnswerLastIDs(loid, ltid))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
@@ -80,4 +87,5 @@ class InitializationHandler(BaseMasterHandler):
             tid = dm.getLastIDs()[0] or ZERO_TID
         else:
             tid = None
-        dm.setBackupTID(tid)
+        dm._setBackupTID(tid)
+        dm.commit()

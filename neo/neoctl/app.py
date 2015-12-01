@@ -37,6 +37,7 @@ action_dict = {
     'tweak': 'tweakPartitionTable',
     'drop': 'dropNode',
     'kill': 'killNode',
+    'truncate': 'truncate',
 }
 
 uuid_int = (lambda ns: lambda uuid:
@@ -85,11 +86,14 @@ class TerminalNeoCTL(object):
           Get last ids.
         """
         assert not params
-        r = self.neoctl.getLastIds()
-        if r[3]:
-            return "last_tid = 0x%x" % u64(self.neoctl.getLastTransaction())
-        return "last_oid = 0x%x\nlast_tid = 0x%x\nlast_ptid = %u" % (
-            u64(r[0]), u64(r[1]), r[2])
+        ptid, backup_tid, truncate_tid = self.neoctl.getRecovery()
+        if backup_tid:
+            ltid = self.neoctl.getLastTransaction()
+            r = "backup_tid = 0x%x" % u64(backup_tid)
+        else:
+            loid, ltid = self.neoctl.getLastIds()
+            r = "last_oid = 0x%x" % u64(loid)
+        return r + "\nlast_tid = 0x%x\nlast_ptid = %u" % (u64(ltid), ptid)
 
     def getPartitionRowList(self, params):
         """
@@ -192,6 +196,19 @@ class TerminalNeoCTL(object):
           Get primary master node.
         """
         return uuid_str(self.neoctl.getPrimary())
+
+    def truncate(self, params):
+        """
+          Truncate the database at the given tid.
+
+          The cluster must be in RUNNING state, without any pending transaction.
+          This causes the cluster to go back in RECOVERING state, waiting all
+          nodes to be pending (do not use 'start' command unless you're sure
+          the missing nodes don't need to be truncated).
+
+          Parameters: tid
+        """
+        self.neoctl.truncate(self.asTID(*params))
 
     def checkReplicas(self, params):
         """

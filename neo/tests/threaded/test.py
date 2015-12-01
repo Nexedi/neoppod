@@ -26,7 +26,7 @@ from ZODB import DB, POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import ConnectionClosed, MTClientConnection
-from neo.lib.exception import OperationFailure
+from neo.lib.exception import StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from .. import expectedFailure, _ExpectedFailure, _UnexpectedSuccess, Patch
@@ -933,7 +933,7 @@ class Test(NEOThreadedTest):
     def testStorageFailureDuringTpcFinish(self):
         def answerTransactionFinished(conn, packet):
             if isinstance(packet, Packets.AnswerTransactionFinished):
-                raise OperationFailure
+                raise StoppedOperation
         cluster = NEOCluster()
         try:
             cluster.start()
@@ -1056,6 +1056,64 @@ class Test(NEOThreadedTest):
                        askPartitionTable=askPartitionTable) as p:
                 cluster.start()
                 self.assertFalse(p.applied)
+        finally:
+            cluster.stop()
+
+    def testTruncate(self):
+        calls = [0, 0]
+        def dieFirst(i):
+            def f(orig, *args, **kw):
+                calls[i] += 1
+                if calls[i] == 1:
+                    sys.exit()
+                return orig(*args, **kw)
+            return f
+        cluster = NEOCluster(replicas=1)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            r = c.root()
+            tids = []
+            for x in xrange(4):
+                r[x] = None
+                t.commit()
+                tids.append(r._p_serial)
+            truncate_tid = tids[2]
+            r['x'] = PCounter()
+            s0, s1 = cluster.storage_list
+            with Patch(s0.tm, unlock=dieFirst(0)), \
+                 Patch(s1.dm, truncate=dieFirst(1)):
+                t.commit()
+                cluster.neoctl.truncate(truncate_tid)
+                self.tic()
+                getClusterState = cluster.neoctl.getClusterState
+                # Unless forced, the cluster waits all nodes to be up,
+                # so that all nodes are truncated.
+                self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
+                self.assertEqual(calls, [1, 0])
+                s0.resetNode()
+                s0.start()
+                # s0 died with unfinished data, and before processing the
+                # Truncate packet from the master.
+                self.assertFalse(s0.dm.getTruncateTID())
+                self.assertEqual(s1.dm.getTruncateTID(), truncate_tid)
+                self.tic()
+                self.assertEqual(calls, [1, 1])
+                self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
+            s1.resetNode()
+            with Patch(s1.dm, truncate=dieFirst(1)):
+                s1.start()
+                self.assertEqual(s0.dm.getLastIDs()[0], truncate_tid)
+                self.assertEqual(s1.dm.getLastIDs()[0], r._p_serial)
+                self.tic()
+                self.assertEqual(calls, [1, 2])
+                self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+            t.begin()
+            self.assertEqual(r, dict.fromkeys(xrange(3)))
+            self.assertEqual(r._p_serial, truncate_tid)
+            self.assertEqual(1, u64(c._storage.new_oid()))
+            for s in cluster.storage_list:
+                self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
         finally:
             cluster.stop()
 
