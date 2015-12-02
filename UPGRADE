@@ -1,3 +1,21 @@
+NEO 1.6
+=======
+
+The `ttrans` table in MySQL/SQLite backends is automatically upgraded at
+startup.
+
+However, because the algorithm to verify unfinished data has changed in a way
+that such data can not be migrated, a storage node will refuse to start to
+if either `ttrans` or `tobj` are not empty.
+
+Therefore, you must first stop NEO cleanly, before upgrading the code. If any
+temporary table is not empty, you are requested to restart with an older
+version of NEO.
+
+The change in `ttrans` is such that NEO < 1.6 is still usable after a
+successful upgrade to NEO >= 1.6, provided you always make sure that `ttrans`
+and `tobj` are empty when switching from one to another.
+
 NEO 1.4
 =======
 

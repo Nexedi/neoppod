@@ -1,6 +1,64 @@
 Change History
 ==============
 
+1.6 (2015-12-02)
+----------------
+
+This release has changes in storage format. The upgrade is done automatically,
+but only if the cluster was stopped cleanly: see UPGRADE notes for more
+information.
+
+- NEO did not ensure that all data and metadata were written on disk before
+  tpc_finish, and it was for example vulnerable to ENOSPC errors. In order to
+  minimize the risk of failures during tpc_finish, the writing of metadata to
+  temporary tables is now done in tpc_vote. See commit `7eb7cf1`_ for more
+  information about possible changes on performance side.
+
+  This change comes with a new algorithm to verify unfinished data, which also
+  fixes a bug discarding transactions with objects for which readCurrent was
+  called.
+
+- The RECOVERING/VERIFYING phases, as well as transitions from/to other states,
+  have been completely reviewed, to fix many bugs:
+
+  - Possible corruption of partition table.
+  - The cluster could be stuck in RECOVERING or VERIFYING state.
+  - The probability to have cells out-of-date when restarting several storage
+    nodes simultaneously has been reduced.
+  - During recovery, a newly elected master now always waits all the storage
+    nodes with readable cells to be pending, in order to avoid a split of the
+    database.
+  - The last tid/oid could be wrong in several cases, for example after
+    transactions are recovered during VERIFYING phase.
+
+- neoctl gets a new command to truncate the database at an arbitrary TID.
+  Internally, NEO was already able to truncate the database, because this was
+  necessary to make the database consistent when leaving the backup mode.
+  However, there were several bugs that caused the database to be partially
+  truncated:
+
+  - The master now first stores persistently the decision to truncate,
+    so that it can recover from any kind of connection failure.
+  - The cluster goes back to RUNNING state only after an acknowledgment from
+    all storage nodes (including those without any readable cell) that they
+    truncated.
+
+- Storage:
+
+  - As a workaround to fix holes if replication is interrupted after new data
+    is committed, outdated cells always restart to replicate from the beginning.
+  - The deletion of partial transactions during verification didn't try to free
+    the associated raw data.
+  - The MySQL backend didn't drop the 'bigdata' table when erasing the database.
+
+- Handshaking SSL connections could be stuck when they're aborted.
+
+- 'neoctl print ids' displays a new value in backup mode: the higher common TID
+  up to which all readable cells have replicated, i.e. the TID at which the
+  database would be truncated when leaving the backup mode.
+
+.. _7eb7cf1: http://git.erp5.org/gitweb/neoppod.git/commit/7eb7cf1?js=1
+
 1.5.1 (2015-10-26)
 ------------------
 
