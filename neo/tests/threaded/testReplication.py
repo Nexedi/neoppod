@@ -253,6 +253,7 @@ class ReplicationTests(NEOThreadedTest):
         def _poll(orig, self, blocking):
             if backup.master.em is self:
                 p.revert()
+                conn._next_timeout = 0
                 conn.onTimeout()
             else:
                 orig(self, blocking)

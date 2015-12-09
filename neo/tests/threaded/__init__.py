@@ -30,8 +30,10 @@ import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
 from neo.lib import logging
-from neo.lib.connection import BaseConnection, Connection
+from neo.lib.connection import BaseConnection, \
+    ClientConnection, Connection, ListeningConnection
 from neo.lib.connector import SocketConnector, ConnectorException
+from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import cached_property, parseMasterList, p64
@@ -828,6 +830,21 @@ class NEOThreadedTest(NeoTestBase):
                 db.execute("VACUUM")
 
     tic = Serialized.tic
+
+    def getLoopbackConnection(self):
+        app = MasterApplication(getSSL=NEOCluster.SSL,
+            getReplicas=0, getPartitions=1)
+        handler = EventHandler(app)
+        app.listening_conn = ListeningConnection(app, handler, app.server)
+        node = app.nm.createMaster(address=app.listening_conn.getAddress(),
+                                   uuid=app.uuid)
+        conn = ClientConnection.__new__(ClientConnection)
+        def reset():
+            conn.__dict__.clear()
+            conn.__init__(app, handler, node)
+            conn.reset = reset
+        reset()
+        return conn
 
     def getUnpickler(self, conn):
         reader = conn._reader

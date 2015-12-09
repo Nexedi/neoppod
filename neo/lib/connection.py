@@ -422,12 +422,18 @@ class Connection(BaseConnection):
     def onTimeout(self):
         handlers = self._handlers
         if handlers.isPending():
-            msg_id = handlers.timeout(self)
-            if msg_id is None:
-                self._next_timeout = time() + self._timeout
-            else:
-                logging.info('timeout for #0x%08x with %r', msg_id, self)
-                self.close()
+            # It is possible that another thread used ask() while getting a
+            # timeout from epoll, so we must check again the value of
+            # _next_timeout (we know that _queue is still empty).
+            # Although this test is only useful for MTClientConnection,
+            # it's not worth complicating the code more.
+            if self._next_timeout <= time():
+                msg_id = handlers.timeout(self)
+                if msg_id is None:
+                    self._next_timeout = time() + self._timeout
+                else:
+                    logging.info('timeout for #0x%08x with %r', msg_id, self)
+                    self.close()
         else:
             self.idle()
 

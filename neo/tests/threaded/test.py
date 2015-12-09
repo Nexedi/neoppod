@@ -1176,6 +1176,19 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testConnectionTimeout(self):
+        conn = self.getLoopbackConnection()
+        conn.KEEP_ALIVE
+        with Patch(conn, KEEP_ALIVE=0):
+            while conn.connecting:
+                conn.em.poll(1)
+            def onTimeout(orig):
+                conn.idle()
+                orig()
+            with Patch(conn, onTimeout=onTimeout):
+                conn.em.poll(1)
+        self.assertFalse(conn.isClosed())
+
 
 if __name__ == "__main__":
     unittest.main()
