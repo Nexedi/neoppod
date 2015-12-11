@@ -139,6 +139,10 @@ class Application(ThreadedApplication):
             self._getMasterConnection()
         return self.__getattribute__(attr)
 
+    def log(self):
+        super(Application, self).log()
+        logging.info("%r", self._cache)
+
     @property
     def txn_contexts(self):
         # do not iter lazily to avoid race condition

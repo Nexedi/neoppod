@@ -80,6 +80,16 @@ class ClientCache(object):
         self._size = 0
         self._history_size = 0
 
+    def __repr__(self):
+        return ("<%s history_size=%s oid_count=%s size=%s time=%s"
+                " queue_length=%r (life_time=%s max_history_size=%s"
+                " max_size=%s)>") % (
+            self.__class__.__name__, self._history_size,
+            len(self._oid_dict), self._size, self._time,
+            [sum(1 for x in self._iterQueue(x))
+             for x in xrange(len(self._queue_list))],
+            self._life_time, self._max_history_size, self._max_size)
+
     def _iterQueue(self, level):
         """for debugging purpose"""
         if level < len(self._queue_list):
@@ -255,6 +265,7 @@ class ClientCache(object):
 
 def test(self):
     cache = ClientCache()
+    repr(cache)
     self.assertEqual(cache.load(1, 10), None)
     self.assertEqual(cache.load(1, None), None)
     cache.invalidate(1, 10)
@@ -277,6 +288,7 @@ def test(self):
     cache.store(1, '20', 20, 21)
     self.assertEqual([5, 10, 15, 20], [x.tid for x in cache._oid_dict[1]])
     self.assertRaises(AssertionError, cache.store, 1, '20', 20, None)
+    repr(cache)
 
 if __name__ == '__main__':
     import unittest
