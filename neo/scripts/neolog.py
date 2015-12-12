@@ -119,9 +119,11 @@ class Log(object):
             self._reload(date)
         try:
             p = self.Packets[code]
+            msg = p.__name__
         except KeyError:
-            Packets[code] = p = type('UnknownPacket[%u]' % code, (object,), {})
-        msg = ['#0x%04x %-30s %s' % (msg_id, p.__name__, peer)]
+            msg = 'UnknownPacket[%u]' % code
+            body = None
+        msg = ['#0x%04x %-30s %s' % (msg_id, msg, peer)]
         if body is not None:
             logger = getattr(self, p.handler_method_name, None)
             if logger or self._decode_all:
