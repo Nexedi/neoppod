@@ -17,25 +17,63 @@
 import inspect
 from functools import wraps
 
+def check_signature(reference, function):
+    # args, varargs, varkw, defaults
+    A, B, C, D = inspect.getargspec(reference)
+    a, b, c, d = inspect.getargspec(function)
+    x = len(A) - len(a)
+    if x < 0: # ignore extra default parameters
+        if x + len(d) < 0:
+            return False
+        del a[x:]
+        d = d[:x] or None
+    elif x: # different signature
+        # We have no need yet to support methods with default parameters.
+        return a == A[:-x] and (b or a and c) and not (d or D)
+    return a == A and b == B and c == C and d == D
+
 def implements(obj, ignore=()):
-    tobj = type(obj)
     ignore = set(ignore)
     not_implemented = []
+    wrong_signature = []
+    if isinstance(obj, type):
+        tobj = obj
+    else:
+        tobj = type(obj)
+    mro = tobj.mro()
+    mro.reverse()
+    base = []
     for name in dir(obj):
-        method = getattr(obj if issubclass(tobj, type) or name in obj.__dict__
-                             else tobj, name)
-        if inspect.ismethod(method):
+        for x in mro:
             try:
-                method.__abstract__
-                ignore.remove(name)
-            except KeyError:
-                not_implemented.append(name)
+                x = getattr(x, name)
+                break
             except AttributeError:
-                not_implemented.extend(func.__name__
-                    for func in getattr(method, "__requires__", ())
-                    if not hasattr(obj, func.__name__))
-    assert not ignore, ignore
-    assert not not_implemented, not_implemented
+                pass
+        if hasattr(x, "__abstract__") or hasattr(x, "__requires__"):
+            base.append((name, x.__func__))
+    try:
+        while 1:
+            name, func = base.pop()
+            x = getattr(obj, name)
+            if x.im_class is tobj:
+                x = x.__func__
+                if x is func:
+                    try:
+                        x = func.__requires__
+                    except AttributeError:
+                        try:
+                            ignore.remove(name)
+                        except KeyError:
+                            not_implemented.append(name)
+                    else:
+                        base.extend((x.__name__, x) for x in x)
+                elif not check_signature(func, x):
+                    wrong_signature.append(name)
+    except IndexError: # base empty
+        assert not ignore, ignore
+        assert not not_implemented, not_implemented
+        assert not wrong_signature, wrong_signature
     return obj
 
 def _set_code(func):
