@@ -505,11 +505,6 @@ class ImporterDatabaseManager(DatabaseManager):
             raise NotImplementedError
         return self.db.getFinalTID(ttid)
 
-    def deleteTransaction(self, tid):
-        if u64(tid) <= self.zodb_ltid and self._import:
-            raise NotImplementedError
-        self.db.deleteTransaction(tid)
-
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         p64 = util.p64
         tid = p64(self.zodb_tid)
