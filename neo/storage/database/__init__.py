@@ -17,7 +17,6 @@
 LOG_QUERIES = False
 
 from neo.lib.exception import DatabaseFailure
-from .manager import DatabaseManager
 
 DATABASE_MANAGER_DICT = {
     'Importer': 'importer.ImporterDatabaseManager',

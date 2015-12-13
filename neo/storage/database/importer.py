@@ -23,10 +23,13 @@ from ConfigParser import SafeConfigParser
 from ZODB.config import storageFromString
 from ZODB.POSException import POSKeyError
 
-from . import buildDatabaseManager, DatabaseManager
+from . import buildDatabaseManager
+from .manager import DatabaseManager
 from neo.lib import logging, patch, util
 from neo.lib.exception import DatabaseFailure
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH, MAX_TID
+from neo.lib.interfaces import implements
+from neo.lib.protocol import BackendNotImplemented, CellStates, \
+    MAX_TID, ZERO_HASH, ZERO_OID, ZERO_TID
 
 patch.speedupFileStorageTxnLookup()
 
@@ -280,6 +283,9 @@ class ImporterDatabaseManager(DatabaseManager):
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
         self.db._connect()
+        implements(self, """_getNextTID checkSerialRange checkTIDRange
+            deleteObject deleteTransaction dropPartitions getLastTID
+            getReplicationObjectList getTIDList nonempty""".split())
 
     _uncommitted_data = property(
         lambda self: self.db._uncommitted_data,
@@ -549,3 +555,8 @@ class ImporterDatabaseManager(DatabaseManager):
                                                    length, partition)
         return r
 
+    def getObjectHistory(self, *args, **kw):
+        raise BackendNotImplemented(self.getObjectHistory)
+
+    def pack(self, *args, **kw):
+        raise BackendNotImplemented(self.pack)

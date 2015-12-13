@@ -28,10 +28,11 @@ import string
 import struct
 import time
 
-from . import DatabaseManager, LOG_QUERIES
-from .manager import CreationUndone, splitOIDField
+from . import LOG_QUERIES
+from .manager import CreationUndone, DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
+from neo.lib.interfaces import implements
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
 
@@ -40,6 +41,7 @@ def getPrintableQuery(query, max=70):
         else '\\x%02x' % ord(c) for c in query)
 
 
+@implements
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 

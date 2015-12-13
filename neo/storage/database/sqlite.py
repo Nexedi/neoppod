@@ -20,10 +20,11 @@ from hashlib import sha1
 import string
 import traceback
 
-from . import DatabaseManager, LOG_QUERIES
-from .manager import CreationUndone, splitOIDField
+from . import LOG_QUERIES
+from .manager import CreationUndone, DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
+from neo.lib.interfaces import implements
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 
 def unique_constraint_message(table, *columns):
@@ -57,6 +58,7 @@ def retry_if_locked(f, *args):
                     raise
 
 
+@implements
 class SQLiteDatabaseManager(DatabaseManager):
     """This class manages a database on SQLite.
 
