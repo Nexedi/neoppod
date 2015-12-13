@@ -505,6 +505,13 @@ class ImporterDatabaseManager(DatabaseManager):
             raise NotImplementedError
         return self.db.getFinalTID(ttid)
 
+    def _deleteRange(self, partition, min_tid=None, max_tid=None):
+        # Even if everything is imported, we can't truncate below
+        # because it would import again if we restart with this backend.
+        if u64(min_tid) < self.zodb_ltid:
+            raise NotImplementedError
+        self.db._deleteRange(partition, min_tid, max_tid)
+
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         p64 = util.p64
         tid = p64(self.zodb_tid)
