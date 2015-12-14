@@ -43,5 +43,6 @@ def main(args=None):
     from neo.neoctl.app import Application
 
     ssl = options.ca, options.cert, options.key
-    print Application(address, ssl=ssl if any(ssl) else None).execute(args)
-
+    r = Application(address, ssl=ssl if any(ssl) else None).execute(args)
+    if r is not None:
+        print r
