@@ -75,13 +75,6 @@ class Storage(BaseStorage.BaseStorage,
         return self.app._cache
 
     def load(self, oid, version=''):
-        # In order to know if it was safe to get the last revision of an object
-        # instead of using loadBefore(), ZODB.Connection._setstate relies on
-        # the fact that retrieving data from a remote storage forces incoming
-        # invalidations to be received.
-        # But in NEO, invalidations are not received from the same network
-        # connection that the one used to retrieve data.
-        # So we must implement load() like a loadBefore().
         # XXX: interface definition states that version parameter is
         # mandatory, while some ZODB tests do not provide it. For now, make
         # it optional.
