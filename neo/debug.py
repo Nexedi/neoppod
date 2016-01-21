@@ -12,12 +12,15 @@ The prompt is accessible through network in case that the process is daemonized:
 IF = 'pdb'
 if IF == 'pdb':
     import socket, sys, threading
-    from neo.lib.debug import getPdb
-    #from pdb import Pdb as getPdb
+    # Unfortunately, IPython does not always print to given stdout.
+    #from neo.lib.debug import getPdb
+    from pdb import Pdb as getPdb
 
     class Socket(object):
 
         def __init__(self, socket):
+            # In case that the default timeout is not None.
+            socket.settimeout(None)
             self._socket = socket
             self._buf = ''
 
@@ -55,9 +58,12 @@ if IF == 'pdb':
     def pdb(app_set):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            # For better security, maybe we should use a unix socket.
+            s.settimeout(60)
             s.bind(('127.0.0.1', 0))
             s.listen(0)
             print 'Listening to %u' % s.getsockname()[1]
+            sys.stdout.flush() # BBB: On Python 3, print() takes a 'flush' arg.
             _socket = Socket(s.accept()[0])
         finally:
             s.close()
@@ -69,7 +75,7 @@ if IF == 'pdb':
         app # this is Application instance (see 'app_set' if there are several)
 
     try:
-        app_set = sys.modules['neo.client.app'].app_set
+        app_set = sys.modules['neo.lib.threaded_app'].app_set
     except KeyError:
         f = sys._getframe(3)
         try:
