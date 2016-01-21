@@ -519,6 +519,28 @@ class NeoUnitTestBase(NeoTestBase):
 
 
 class Patch(object):
+    """
+    Patch attributes and revert later automatically.
+
+    Usage:
+
+      with Patch(someObject, attrToPatch=newValue, [otherAttr=...]) as patch:
+        [... code that runs with patches ...]
+      [... code that runs without patch ...]
+
+      ' as patch' is optional: 'patch.revert()' can be used to revert patches
+      in the middle of the 'with' clause.
+
+    Or:
+
+      patch = Patch(...)
+      patch.apply()
+
+      In this case, patches are automatically reverted when 'patch' is deleted.
+
+    For patched callables, the new one receives the original value as first
+    argument.
+    """
 
     applied = False
 
