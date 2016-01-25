@@ -1,6 +1,19 @@
 Change History
 ==============
 
+1.6.1 (2016-01-25)
+------------------
+
+NEO repository has moved to https://lab.nexedi.com/nexedi/neoppod.git
+
+- client: fix spurious connection timeouts
+- client: add cache stats to information dumped on SIGRTMIN+2
+- storage: when using the Importer backend, allow truncation after the last
+  tid to import, during or after the import
+- neoctl: don't print 'None' on successful check/truncate commands
+- neolog: fix crash on unknown packets
+- plus a few other changes for debugging and developers
+
 1.6 (2015-12-02)
 ----------------
 
@@ -53,11 +66,11 @@ information.
 
 - Handshaking SSL connections could be stuck when they're aborted.
 
-- 'neoctl print ids' displays a new value in backup mode: the higher common TID
+- 'neoctl print ids' displays a new value in backup mode: the highest common TID
   up to which all readable cells have replicated, i.e. the TID at which the
   database would be truncated when leaving the backup mode.
 
-.. _7eb7cf1: http://git.erp5.org/gitweb/neoppod.git/commit/7eb7cf1?js=1
+.. _7eb7cf1: https://lab.nexedi.com/nexedi/neoppod/commit/7eb7cf1
 
 1.5.1 (2015-10-26)
 ------------------
