@@ -121,7 +121,7 @@ class ClientCache(object):
             item.expire = self._time + self._life_time
         else:
             self._size -= len(item.data)
-            item.data = None
+            item.data = item.next_tid = None
             if self._history_size < self._max_history_size:
                 self._history_size += 1
             else:
@@ -193,11 +193,17 @@ class ClientCache(object):
         if size < max_size:
             item = self._load(oid, next_tid)
             if item:
-                assert item.tid == tid and item.next_tid == next_tid
+                # We don't handle late invalidations for cached oids, because
+                # the caller is not supposed to explicitely asks for tids after
+                # app.last_tid (and the cache should be empty when app.last_tid
+                # is still None).
+                assert item.tid == tid, (item, tid)
                 if item.level: # already stored
-                    assert item.data == data
+                    assert item.next_tid == next_tid and item.data == data
                     return
                 assert not item.data
+                # Possible case of late invalidation.
+                item.next_tid = next_tid
                 self._history_size -= 1
             else:
                 item = CacheItem()
@@ -289,6 +295,15 @@ def test(self):
     self.assertEqual([5, 10, 15, 20], [x.tid for x in cache._oid_dict[1]])
     self.assertRaises(AssertionError, cache.store, 1, '20', 20, None)
     repr(cache)
+    # Test late invalidations.
+    cache.clear()
+    cache.store(1, '10*', 10, None)
+    cache._max_size = cache._size
+    cache.store(2, '10', 10, None)
+    self.assertEqual(cache._queue_list[0].oid, 1)
+    data = '10', 10, 15
+    cache.store(1, *data)
+    self.assertEqual(cache.load(1, 15), data)
 
 if __name__ == '__main__':
     import unittest
