@@ -38,7 +38,7 @@ from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import cached_property, parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
-    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
@@ -592,7 +592,7 @@ class NEOCluster(object):
                        for _ in xrange(storage_count)]
         if adapter == 'MySQL':
             setupMySQLdb(db_list, db_user, db_password, clear_databases)
-            db = '%s:%s@%%s' % (db_user, db_password)
+            db = '%s:%s@%%s%s' % (db_user, db_password, DB_SOCKET)
         elif adapter == 'SQLite':
             db = os.path.join(getTempDirectory(), '%s.sqlite')
         else:

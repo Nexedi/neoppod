@@ -215,6 +215,7 @@ Environment Variables:
                               MySQL otherwise.
 
   MySQL specific:
+    NEO_DB_SOCKET             default: libmysqlclient.so default
     NEO_DB_PREFIX             default: %(DB_PREFIX)s
     NEO_DB_ADMIN              default: %(DB_ADMIN)s
     NEO_DB_PASSWD             default: %(DB_PASSWD)s

@@ -60,6 +60,7 @@ DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
 DB_PASSWD = os.getenv('NEO_DB_PASSWD', '')
 DB_USER = os.getenv('NEO_DB_USER', 'test')
+DB_SOCKET = os.getenv('NEO_DB_SOCKET', '')
 
 IP_VERSION_FORMAT_DICT = {
     socket.AF_INET:  '127.0.0.1',
@@ -127,7 +128,8 @@ def getTempDirectory():
 
 def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
     from MySQLdb.constants.ER import BAD_DB_ERROR
-    conn = MySQLdb.Connect(user=DB_ADMIN, passwd=DB_PASSWD)
+    kw = {'unix_socket': os.path.expanduser(DB_SOCKET)} if DB_SOCKET else {}
+    conn = MySQLdb.connect(user=DB_ADMIN, passwd=DB_PASSWD, **kw)
     cursor = conn.cursor()
     for database in db_list:
         try:
@@ -230,7 +232,7 @@ class NeoUnitTestBase(NeoTestBase):
                      10010 + i) for i in xrange(master_number)]
         adapter = os.getenv('NEO_TESTS_ADAPTER', 'MySQL')
         if adapter == 'MySQL':
-            db = '%s@%s%s' % (DB_USER, prefix, index)
+            db = '%s@%s%s%s' % (DB_USER, prefix, index, DB_SOCKET)
         elif adapter == 'SQLite':
             db = os.path.join(getTempDirectory(), 'test_neo%s.sqlite' % index)
         else:

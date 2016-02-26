@@ -19,23 +19,22 @@ import MySQLdb
 from mock import Mock
 from neo.lib.exception import DatabaseFailure
 from neo.lib.util import p64
+from .. import DB_PREFIX, DB_SOCKET, DB_USER
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 
-NEO_SQL_DATABASE = 'test_mysqldb0'
-NEO_SQL_USER = 'test'
 
 class StorageMySQLdbTests(StorageDBTests):
 
     engine = None
 
     def getDB(self, reset=0):
-        self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
+        self.prepareDatabase(number=1, prefix=DB_PREFIX)
         # db manager
-        database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
+        database = '%s@%s0%s' % (DB_USER, DB_PREFIX, DB_SOCKET)
         db = MySQLDatabaseManager(database, self.engine)
-        self.assertEqual(db.db, NEO_SQL_DATABASE)
-        self.assertEqual(db.user, NEO_SQL_USER)
+        self.assertEqual(db.db, DB_PREFIX + '0')
+        self.assertEqual(db.user, DB_USER)
         db.setup(reset)
         return db
 

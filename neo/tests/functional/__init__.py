@@ -37,8 +37,8 @@ from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump
-from .. import cluster, DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
-        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory, SSL
+from .. import ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL, \
+    buildUrlFromString, cluster, getTempDirectory, NeoTestBase, setupMySQLdb
 from neo.client.Storage import Storage
 from neo.storage.database import buildDatabaseManager
 
@@ -244,7 +244,8 @@ class NEOCluster(object):
         if adapter == 'MySQL':
             self.db_user = db_user
             self.db_password = db_password
-            self.db_template = ('%s:%s@%%s' % (db_user, db_password)).__mod__
+            self.db_template = ('%s:%s@%%s%s' % (db_user, db_password,
+                                                 DB_SOCKET)).__mod__
         elif adapter == 'SQLite':
             self.db_template = (lambda t: lambda db:
                 ':memory:' if db is None else db if os.sep in db else t % db
