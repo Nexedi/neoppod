@@ -7,7 +7,7 @@ All the listed bugs will be fixed with high priority.
 (Z) Conflict resolution not fully implemented
 ---------------------------------------------
 
-When a cluster has several storage nodes, so-called 'deadlock avoidance' may
+Even with a single storage node, so-called 'deadlock avoidance' may
 happen to in order to resolve conflicts. In such cases, conflicts will not be
 resolved even if your _p_resolveConflict() method would succeed, leading to a
 normal ConflictError.
