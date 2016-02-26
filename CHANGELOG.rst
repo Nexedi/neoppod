@@ -93,7 +93,7 @@ in the storage node.
 - Replication & checking of replicas:
 
   - Fix crash when a corruption is found while checking TIDs.
-    2 other issues remain unfixed: see BUGS file.
+    2 other issues remain unfixed: see BUGS.rst file.
   - Speed up checking of replicas, at the cost of storage nodes being
     less responsive to other events.
 

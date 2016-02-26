@@ -62,8 +62,8 @@ setup(
     license = 'GPL 2+',
     platforms = ["any"],
     classifiers=classifiers.splitlines(),
-    long_description = ".. contents::\n\n" + open('README').read()
-                     + "\n" + open('CHANGES').read(),
+    long_description = ".. contents::\n\n" + open('README.rst').read()
+                     + "\n" + open('CHANGELOG.rst').read(),
     packages = find_packages(),
     py_modules = ['mock'],
     entry_points = {
