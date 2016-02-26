@@ -29,8 +29,9 @@ A NEO cluster is composed of the following types of nodes:
 
 ZODB API is fully implemented except:
 
-- pack: only old revisions of objects are removed for the moment
-        (full implementation is considered)
+- pack: only old revisions of objects are removed (it should be possible
+  to use `zc.zodbdgc <https://pypi.python.org/pypi/zc.zodbdgc>`_
+  for garbage collection)
 - blobs: not implemented (not considered yet)
 
 Any ZODB like FileStorage can be converted to NEO instanteously,
@@ -49,7 +50,7 @@ Requirements
 
 - For storage nodes using MySQL backend:
 
-  - MySQLdb: http://sourceforge.net/projects/mysql-python
+  - MySQLdb: https://github.com/farcepest/MySQLdb1
 
 - For client nodes: ZODB 3.10.x
 
