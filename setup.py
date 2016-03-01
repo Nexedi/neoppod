@@ -31,7 +31,7 @@ extras_require = {
     'ctl': [],
     'master': [],
     'storage-sqlite': [],
-    'storage-mysqldb': ['MySQL-python'],
+    'storage-mysqldb': ['mysqlclient'],
     'storage-importer': zodb_require,
 }
 extras_require['tests'] = ['zope.testing', 'psutil>=2',

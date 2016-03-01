@@ -50,7 +50,7 @@ Requirements
 
 - For storage nodes using MySQL backend:
 
-  - MySQLdb: https://github.com/farcepest/MySQLdb1
+  - MySQLdb: https://github.com/PyMySQL/mysqlclient-python
 
 - For client nodes: ZODB 3.10.x
 
