@@ -121,7 +121,7 @@ class ClientCache(object):
             item.expire = self._time + self._life_time
         else:
             self._size -= len(item.data)
-            item.data = item.next_tid = None
+            item.data = None
             if self._history_size < self._max_history_size:
                 self._history_size += 1
             else:
