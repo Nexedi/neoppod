@@ -60,6 +60,7 @@ class ClientCache(object):
       - Each access "ages" objects in cache, and an aging object is moved to
         shorter-lived queue as it ages without being accessed, or in the
         history queue if it's really too old.
+      - The history queue only contains items with counter > 0
     """
 
     __slots__ = ('_life_time', '_max_history_size', '_max_size',
@@ -159,7 +160,10 @@ class ClientCache(object):
         for head in self._queue_list[1:]:
             if head and head.expire < time:
                 self._remove(head)
-                self._add(head)
+                if head.level or head.counter:
+                    self._add(head)
+                else:
+                    self._oid_dict[head.oid].remove(head)
                 break
 
     def _load(self, oid, before_tid=None):
@@ -223,10 +227,14 @@ class ClientCache(object):
                         prev = item_list[-1]
                         assert prev.next_tid <= tid, (prev, item)
                         item.counter = prev.counter
-                        prev.counter = 0
-                        if prev.level > 1:
-                            self._fetched(prev)
-                        item_list.append(item)
+                        if prev.level:
+                            prev.counter = 0
+                            if prev.level > 1:
+                                self._fetched(prev)
+                            item_list.append(item)
+                        else:
+                            self._remove(prev)
+                            item_list[-1] = item
             item.data = data
             self._fetched(item)
             self._size += size
@@ -234,8 +242,11 @@ class ClientCache(object):
                 for head in self._queue_list[1:]:
                     while head:
                         next = self._remove(head)
-                        head.level = 0
-                        self._add(head)
+                        if head.counter:
+                            head.level = 0
+                            self._add(head)
+                        else:
+                            self._oid_dict[head.oid].remove(head)
                         if self._size <= max_size:
                             return
                         head = next
