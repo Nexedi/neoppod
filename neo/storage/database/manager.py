@@ -396,13 +396,18 @@ class DatabaseManager(object):
 
     @abstract
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
-        """Store a transaction temporarily, if temporary is true. Note
-        that this transaction is not finished yet. The list of objects
-        contains tuples, each of which consists of an object ID,
-        a data_id and object serial.
+        """Write transaction metadata
+
+        The list of objects contains tuples, each of which consists of
+        an object ID, a data_id and object serial.
         The transaction is either None or a tuple of the list of OIDs,
         user information, a description, extension information and transaction
-        pack state (True for packed)."""
+        pack state (True for packed).
+
+        If 'temporary', the transaction is stored into ttrans/tobj tables,
+        (instead of trans/obj). The caller is in charge of committing, which
+        is always the case at tpc_vote.
+        """
 
     @abstract
     def _pruneData(self, data_id_list):

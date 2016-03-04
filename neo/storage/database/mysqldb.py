@@ -465,8 +465,6 @@ class MySQLDatabaseManager(DatabaseManager):
             q("REPLACE INTO %s VALUES (%s,%s,%s,'%s','%s','%s','%s',%s)" % (
                 trans_table, partition, 'NULL' if temporary else tid, packed,
                 e(''.join(oid_list)), e(user), e(desc), e(ext), u64(ttid)))
-        if temporary:
-            self.commit()
 
     _structLL = struct.Struct(">LL")
     _unpackLL = _structLL.unpack

@@ -174,7 +174,9 @@ class TransactionManager(object):
             txn_info = oid_list, user, desc, ext, False, ttid
             transaction.has_trans = True
         # store metadata to temporary table
-        self._app.dm.storeTransaction(ttid, object_list, txn_info)
+        dm = self._app.dm
+        dm.storeTransaction(ttid, object_list, txn_info)
+        dm.commit()
 
     def lock(self, ttid, tid):
         """

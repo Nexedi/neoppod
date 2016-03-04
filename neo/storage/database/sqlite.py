@@ -376,8 +376,6 @@ class SQLiteDatabaseManager(DatabaseManager):
                 (partition, None if temporary else tid,
                  packed, buffer(''.join(oid_list)),
                  buffer(user), buffer(desc), buffer(ext), u64(ttid)))
-        if temporary:
-            self.commit()
 
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
