@@ -24,6 +24,7 @@ from .locking import Lock
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
 
+    _timeout = None
     _trigger_exit = False
 
     def __init__(self):
@@ -134,12 +135,13 @@ class EpollEventManager(object):
 
     def _poll(self, blocking):
         if blocking:
-            timeout = None
+            timeout = self._timeout
+            timeout_object = self
             for conn in self.connection_dict.itervalues():
                 t = conn.getTimeout()
                 if t and (timeout is None or t < timeout):
                     timeout = t
-                    timeout_conn = conn
+                    timeout_object = conn
             # Make sure epoll_wait does not return too early, because it has a
             # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
             # See also https://bugs.python.org/issue20452 (fixed in Python 3).
@@ -185,8 +187,17 @@ class EpollEventManager(object):
                 if conn.readable():
                     self._addPendingConnection(conn)
         elif blocking > 0:
-            logging.debug('timeout triggered for %r', timeout_conn)
-            timeout_conn.onTimeout()
+            logging.debug('timeout triggered for %r', timeout_object)
+            timeout_object.onTimeout()
+
+    def onTimeout(self):
+        on_timeout = self._on_timeout
+        del self._on_timeout
+        self._timeout = None
+        on_timeout()
+
+    def setTimeout(self, *args):
+        self._timeout, self._on_timeout = args
 
     def wakeup(self, exit=False):
         with self._trigger_lock:

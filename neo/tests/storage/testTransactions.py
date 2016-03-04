@@ -76,6 +76,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         # no history
         self.app.dm = Mock({'getObjectHistory': []})
         self.app.pt = Mock({'isAssigned': True})
+        self.app.em = Mock({'setTimeout': None})
         self.manager = TransactionManager(self.app)
         self.ltid = None
 

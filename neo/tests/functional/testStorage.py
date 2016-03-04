@@ -71,6 +71,7 @@ class StorageTests(NEOFunctionalTest):
         db = self.neo.getSQLConnection(db_name)
         # wait for the sql transaction to be commited
         def callback(last_try):
+            db.commit() # to get a fresh view
             # One revision per object and two for the root, before and after
             (object_number,), = db.query('SELECT count(*) FROM obj')
             return object_number == OBJECT_NUMBER + 2, object_number

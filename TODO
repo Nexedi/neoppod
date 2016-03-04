@@ -61,7 +61,6 @@
 
     Storage
     - Use libmysqld instead of a stand-alone MySQL server.
-    - It should be possible to defer the commit at the end of finishTransaction.
     - Notify master when storage becomes available for clients (LATENCY)
       Currently, storage presence is broadcasted to client nodes too early, as
       the storage node would refuse them until it has only up-to-date data (not

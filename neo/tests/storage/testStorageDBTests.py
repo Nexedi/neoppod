@@ -89,6 +89,7 @@ class StorageDBTests(NeoUnitTestBase):
         yield
         if commit:
             self.db.unlockTransaction(tid, ttid)
+            self.db.commit()
         elif commit is not None:
             self.db.abortTransaction(ttid)
 

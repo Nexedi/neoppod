@@ -78,15 +78,14 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _parse(self, database):
         self.db = os.path.expanduser(database)
 
-    def close(self):
+    def _close(self):
         self.conn.close()
 
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
 
-    def commit(self):
-        logging.debug('committing...')
+    def _commit(self):
         retry_if_locked(self.conn.commit)
 
     if LOG_QUERIES:
@@ -439,7 +438,6 @@ class SQLiteDatabaseManager(DatabaseManager):
         q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
         q("DELETE FROM ttrans WHERE tid=?", (tid,))
         self.releaseData(data_id_list)
-        self.commit()
 
     def abortTransaction(self, ttid):
         args = util.u64(ttid),

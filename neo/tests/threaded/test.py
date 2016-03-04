@@ -601,6 +601,7 @@ class Test(NEOThreadedTest):
             t.commit()
             storage.stop()
             cluster.join((storage,))
+            storage.em.onTimeout() # deferred commit
             storage.resetNode()
             storage.start()
             t.begin()

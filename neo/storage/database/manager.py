@@ -62,6 +62,7 @@ class DatabaseManager(object):
                                  % (engine, self.ENGINES))
             self._engine = engine
         self._wait = wait
+        self._deferred = 0
         self._parse(database)
 
     def __getattr__(self, attr):
@@ -119,8 +120,35 @@ class DatabaseManager(object):
     def doOperation(self, app):
         pass
 
+    def _close(self):
+        """Backend-specific code to close the database"""
+
+    @requires(_close)
+    def close(self):
+        self._deferredCommit()
+        self._close()
+
+    def _commit(self):
+        """Backend-specific code to commit the pending changes"""
+
+    @requires(_commit)
     def commit(self):
-        pass
+        logging.debug('committing...')
+        self._commit()
+        # Instead of cancelling a timeout that would be set to defer a commit,
+        # we simply use to a boolean so that _deferredCommit() does nothing.
+        # IOW, epoll may wait wake up for nothing but that should be rare,
+        # because most immediate commits are usually quickly followed by
+        # deferred commits.
+        self._deferred = 0
+
+    def deferCommit(self):
+        self._deferred = 1
+        return self._deferredCommit
+
+    def _deferredCommit(self):
+        if self._deferred:
+            self.commit()
 
     @abstract
     def getConfiguration(self, key):
@@ -513,7 +541,10 @@ class DatabaseManager(object):
 
     @abstract
     def lockTransaction(self, tid, ttid):
-        """Mark voted transaction 'ttid' as committed with given 'tid'"""
+        """Mark voted transaction 'ttid' as committed with given 'tid'
+
+        All pending changes are committed just before returning to the caller.
+        """
 
     @abstract
     def unlockTransaction(self, tid, ttid):

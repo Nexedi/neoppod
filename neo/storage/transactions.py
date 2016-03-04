@@ -197,7 +197,9 @@ class TransactionManager(object):
         """
         tid = self._transaction_dict[ttid].getTID()
         logging.debug('Unlock TXN %s (ttid=%s)', dump(tid), dump(ttid))
-        self._app.dm.unlockTransaction(tid, ttid)
+        dm = self._app.dm
+        dm.unlockTransaction(tid, ttid)
+        self._app.em.setTimeout(time() + 1, dm.deferCommit())
         self.abort(ttid, even_if_locked=True)
 
     def getLockingTID(self, oid):

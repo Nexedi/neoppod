@@ -68,7 +68,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.user, self.passwd, self.db, self.socket = re.match(
             '(?:([^:]+)(?::(.*))?@)?([^~./]+)(.+)?$', database).groups()
 
-    def close(self):
+    def _close(self):
         self.conn.close()
 
     def _connect(self):
@@ -106,8 +106,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 % (name, self._max_allowed_packet // 1024))
         self._max_allowed_packet = int(value)
 
-    def commit(self):
-        logging.debug('committing...')
+    def _commit(self):
         self.conn.commit()
         self._active = 0
 
@@ -575,7 +574,6 @@ class MySQLDatabaseManager(DatabaseManager):
         q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
         q("DELETE FROM ttrans WHERE tid=%d" % tid)
         self.releaseData(data_id_list)
-        self.commit()
 
     def abortTransaction(self, ttid):
         ttid = util.u64(ttid)

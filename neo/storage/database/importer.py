@@ -306,7 +306,7 @@ class ImporterDatabaseManager(DatabaseManager):
                     getPartitionTable changePartitionTable
                     getUnfinishedTIDDict dropUnfinishedData abortTransaction
                     storeTransaction lockTransaction unlockTransaction
-                    storeData _pruneData
+                    storeData _pruneData deferCommit
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
