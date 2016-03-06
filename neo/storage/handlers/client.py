@@ -17,7 +17,7 @@
 from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.util import dump, makeChecksum, add64
-from neo.lib.protocol import Packets, LockState, Errors, ProtocolError, \
+from neo.lib.protocol import Packets, Errors, ProtocolError, \
     ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
@@ -158,17 +158,6 @@ class ClientOperationHandler(EventHandler):
         else:
             p = Packets.AnswerObjectUndoSerial(object_tid_dict)
         conn.answer(p)
-
-    def askHasLock(self, conn, ttid, oid):
-        locking_tid = self.app.tm.getLockingTID(oid)
-        logging.info('%r check lock of %r:%r', conn, dump(ttid), dump(oid))
-        if locking_tid is None:
-            state = LockState.NOT_LOCKED
-        elif locking_tid is ttid:
-            state = LockState.GRANTED
-        else:
-            state = LockState.GRANTED_TO_OTHER
-        conn.answer(Packets.AnswerHasLock(oid, state))
 
     def askObjectHistory(self, conn, oid, first, last):
         if first >= last:

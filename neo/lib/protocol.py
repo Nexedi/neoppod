@@ -146,12 +146,6 @@ def CellStates():
     # readable nor writable.
     CORRUPTED
 
-@Enum
-def LockState():
-    NOT_LOCKED
-    GRANTED
-    GRANTED_TO_OTHER
-
 # used for logging
 node_state_prefix_dict = {
     NodeStates.RUNNING: 'R',
@@ -1241,22 +1235,6 @@ class ObjectUndoSerial(Packet):
         ),
     )
 
-class HasLock(Packet):
-    """
-    Ask a storage is oid is locked by another transaction.
-    C -> S
-    Answer whether a transaction holds the write lock for requested object.
-    """
-    _fmt = PStruct('has_load_lock',
-        PTID('tid'),
-        POID('oid'),
-    )
-
-    _answer = PStruct('answer_has_lock',
-        POID('oid'),
-        PEnum('lock_state', LockState),
-    )
-
 class CheckCurrentSerial(Packet):
     """
     Verifies if given serial is current for object oid in the database, and
@@ -1703,8 +1681,6 @@ class Packets(dict):
                     ClusterState)
     AskObjectUndoSerial, AnswerObjectUndoSerial = register(
                     ObjectUndoSerial)
-    AskHasLock, AnswerHasLock = register(
-                    HasLock)
     AskTIDsFrom, AnswerTIDsFrom = register(
                     TIDListFrom)
     AskPack, AnswerPack = register(

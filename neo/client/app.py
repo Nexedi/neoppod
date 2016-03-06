@@ -19,7 +19,6 @@ from zlib import compress, decompress
 from random import shuffle
 import heapq
 import time
-from functools import partial
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.POSException import ReadConflictError
@@ -443,11 +442,6 @@ class Application(ThreadedApplication):
                 compressed_data = data
             checksum = makeChecksum(compressed_data)
             txn_context['data_size'] += size
-        on_timeout = partial(
-            self.onStoreTimeout,
-            txn_context=txn_context,
-            oid=oid,
-        )
         # Store object in tmp cache
         txn_context['data_dict'][oid] = data
         # Store data on each node
@@ -460,8 +454,7 @@ class Application(ThreadedApplication):
             checksum, compressed_data, data_serial, ttid, unlock)
         for node, conn in self.cp.iterateForObject(oid):
             try:
-                conn.ask(packet, on_timeout=on_timeout, queue=queue,
-                         oid=oid, serial=serial)
+                conn.ask(packet, queue=queue, oid=oid, serial=serial)
                 add_involved_nodes(node)
             except ConnectionClosed:
                 continue
@@ -471,16 +464,6 @@ class Application(ThreadedApplication):
         while txn_context['data_size'] >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
         self._waitAnyTransactionMessage(txn_context, False)
-
-    def onStoreTimeout(self, conn, msg_id, txn_context, oid):
-        # NOTE: this method is called from poll thread, don't use
-        #       thread-specific value !
-        txn_context.setdefault('timeout_dict', {})[oid] = msg_id
-        # Ask the storage if someone locks the object.
-        # By sending a message with a smaller timeout,
-        # the connection will be kept open.
-        conn.ask(Packets.AskHasLock(txn_context['ttid'], oid),
-                 timeout=5, queue=txn_context['queue'])
 
     def _handleConflicts(self, txn_context, tryToResolveConflict):
         result = []

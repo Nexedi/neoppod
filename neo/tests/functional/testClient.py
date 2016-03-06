@@ -254,33 +254,6 @@ class ClientTests(NEOFunctionalTest):
         self.__checkTree(neo_conn.root()['trees'])
         self.assertEqual(dump, self.__dump(neo_db.storage))
 
-    def testLockTimeout(self):
-        """ Hold a lock on an object to block a second transaction """
-        def test():
-            self.neo = NEOCluster(['test_neo1'], replicas=0,
-                temp_dir=self.getTempDirectory())
-            self.neo.start()
-            # BUG: The following 2 lines creates 2 app, i.e. 2 TCP connections
-            #      to the storage, so there may be a race condition at network
-            #      level and 'st2.store' may be effective before 'st1.store'.
-            db1, conn1 = self.neo.getZODBConnection()
-            db2, conn2 = self.neo.getZODBConnection()
-            st1, st2 = conn1._storage, conn2._storage
-            t1, t2 = transaction.Transaction(), transaction.Transaction()
-            t1.user = t2.user = u'user'
-            t1.description = t2.description = u'desc'
-            oid = st1.new_oid()
-            rev = '\0' * 8
-            data = zodb_pickle(PObject())
-            st2.tpc_begin(t2)
-            st1.tpc_begin(t1)
-            st1.store(oid, rev, data, '', t1)
-            # this store will be delayed
-            st2.store(oid, rev, data, '', t2)
-            # the vote will timeout as t1 never release the lock
-            self.assertRaises(ConflictError, st2.tpc_vote, t2)
-        self.runWithTimeout(40, test)
-
     def testIPv6Client(self):
         """ Test the connectivity of an IPv6 connection for neo client """
 
