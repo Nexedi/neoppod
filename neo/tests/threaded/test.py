@@ -2060,7 +2060,7 @@ class Test(NEOThreadedTest):
             if (isinstance(packet, Packets.AnswerStoreObject)
                 and packet.decode()[0]):
                 conn, = cluster.client.getConnectionList(app)
-                kw = conn._handlers._pending[0][0][packet._id][3]
+                kw = conn._handlers._pending[0][0][packet._id][2]
                 return 1 == u64(kw['oid']) and delay_conflict[app.uuid].pop()
         def writeA(orig, txn_context, oid, serial, data):
             if u64(oid) == 1:
