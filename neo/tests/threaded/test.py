@@ -318,40 +318,67 @@ class Test(NEOThreadedTest):
             t.commit()
             self.assertEqual(ob._p_changed, 0)
             oid = ob._p_oid
-            tid1 = ob._p_serial
-            self.assertNotEqual(tid1, ZERO_TID)
+            tid0 = ob._p_serial
+            self.assertNotEqual(tid0, ZERO_TID)
             del ob, t, c
 
             # then check resolution
             t1, c1 = cluster.getTransaction()
             t2, c2 = cluster.getTransaction()
+            t3, c3 = cluster.getTransaction()
             o1 = c1.root()['with_resolution']
             o2 = c2.root()['with_resolution']
+            o3 = c3.root()['with_resolution']
             self.assertEqual(o1.value, 0)
             self.assertEqual(o2.value, 0)
-            o1.value += 1
-            o2.value += 2
+            self.assertEqual(o3.value, 0)
+            o1.value += 3
+            o2.value += 5
+            o3.value += 7
+
             t1.commit()
             self.assertEqual(o1._p_changed, 0)
-            tid2 = o1._p_serial
-            self.assertTrue(tid1 < tid2)
-            self.assertEqual(o1.value, 1)
-            self.assertEqual(o2.value, 2)
-            t2.commit()
-            self.assertEqual(o2._p_changed, None)
+            self.assertEqual(o1.value, 3)
+            tid1 = o1._p_serial
+
+            resolved = []
+            last = (t2.get(), t3.get()).index
+            def _handleConflicts(orig, txn_context, *args):
+                resolved.append(last(txn_context['txn']))
+                return orig(txn_context, *args)
+            def tpc_vote(orig, transaction, *args):
+                (l3 if last(transaction) else l2)()
+                return orig(transaction, *args)
+            with Patch(cluster.client, _handleConflicts=_handleConflicts):
+                with LockLock() as l3, Patch(cluster.client, tpc_vote=tpc_vote):
+                    with LockLock() as l2:
+                        tt = []
+                        for t, l in (t2, l2), (t3, l3):
+                            tt.append(self.newThread(t.commit))
+                            l()
+                    tt.pop(0).join()
+                    self.assertEqual(o2._p_changed, None)
+                    self.assertEqual(o2.value, 8)
+                    tid2 = o2._p_serial
+                tt.pop(0).join()
+                self.assertEqual(o3._p_changed, None)
+                self.assertEqual(o3.value, 15)
+                tid3 = o3._p_serial
+
+            self.assertEqual(resolved, [0, 1, 1])
+            self.assertTrue(tid0 < tid1 < tid2 < tid3)
             t1.begin()
             t2.begin()
-            self.assertEqual(o2.value, 3)
-            self.assertEqual(o1.value, 3)
-            tid3 = o1._p_serial
-            self.assertTrue(tid2 < tid3)
-            self.assertEqual(tid3, o2._p_serial)
+            t3.begin()
+            self.assertIs(o1._p_changed, None)
+            self.assertIs(o2._p_changed, None)
+            self.assertEqual(o3._p_changed, 0)
+            self.assertEqual(o1.value, 15)
+            self.assertEqual(o2.value, 15)
 
             # check history
-            history = c1.db().history
-            self.assertEqual([x['tid'] for x in history(oid, size=1)], [tid3])
-            self.assertEqual([x['tid'] for x in history(oid, size=10)],
-                             [tid3, tid2, tid1])
+            self.assertEqual([x['tid'] for x in c1.db().history(oid, size=10)],
+                             [tid3, tid2, tid1, tid0])
         finally:
             cluster.stop()
 
