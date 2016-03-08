@@ -16,13 +16,14 @@
 
 # XXX: Consider using ClusterStates.STOPPING to stop clusters
 
-import os, random, select, socket, sys, tempfile, threading, time, weakref
-import traceback
+import os, random, select, socket, sys, tempfile
+import thread, threading, time, traceback, weakref
 from collections import deque
 from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from itertools import count
 from functools import wraps
+from thread import get_ident
 from zlib import decompress
 from mock import Mock
 import transaction, ZODB
@@ -42,6 +43,37 @@ from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
+
+
+class LockLock(object):
+    """Double lock used as synchronisation point between 2 threads
+
+    Used to wait that a slave thread has reached a specific location, and to
+    keep it suspended there. It resumes on __exit__
+    """
+
+    def __init__(self):
+        self._l = threading.Lock(), threading.Lock()
+
+    def __call__(self):
+        """Define synchronisation point for both threads"""
+        if self._owner == thread.get_ident():
+            self._l[0].acquire()
+        else:
+            self._l[0].release()
+            self._l[1].acquire()
+
+    def __enter__(self):
+        self._owner = thread.get_ident()
+        for l in self._l:
+            l.acquire(0)
+        return self
+
+    def __exit__(self, t, v, tb):
+        try:
+            self._l[1].release()
+        except thread.error:
+            pass
 
 
 class FairLock(deque):

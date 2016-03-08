@@ -30,7 +30,7 @@ from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
 from .. import expectedFailure, _ExpectedFailure, _UnexpectedSuccess, Patch
-from . import NEOCluster, NEOThreadedTest
+from . import LockLock, NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -751,12 +751,9 @@ class Test(NEOThreadedTest):
             self.assertEqual(list(s.dm.getPartitionTable()), pt)
 
     def testInternalInvalidation(self):
-        l1 = threading.Lock(); l1.acquire()
-        l2 = threading.Lock(); l2.acquire()
         def _handlePacket(orig, conn, packet, kw={}, handler=None):
             if type(packet) is Packets.AnswerTransactionFinished:
-                l1.release()
-                l2.acquire()
+                ll()
             orig(conn, packet, kw, handler)
         cluster = NEOCluster()
         try:
@@ -768,15 +765,11 @@ class Test(NEOThreadedTest):
             x1.value = 1
             t2, c2 = cluster.getTransaction()
             x2 = c2.root()['x']
-            p = Patch(cluster.client, _handlePacket=_handlePacket)
-            try:
-                p.apply()
+            with LockLock() as ll, Patch(cluster.client,
+                    _handlePacket=_handlePacket):
                 t = self.newThread(t1.commit)
-                l1.acquire()
+                ll()
                 t2.begin()
-            finally:
-                del p
-                l2.release()
             t.join()
             self.assertEqual(x2.value, 1)
         finally:
@@ -824,22 +817,18 @@ class Test(NEOThreadedTest):
             self.assertEqual(x2.value, 1)
 
             # Now test cache invalidation during a load from a storage
-            l1 = threading.Lock(); l1.acquire()
-            l2 = threading.Lock(); l2.acquire()
+            ll = LockLock()
             def _loadFromStorage(orig, *args):
                 try:
                     return orig(*args)
                 finally:
-                    l1.release()
-                    l2.acquire()
+                    ll()
             x2._p_deactivate()
             # Remove last version of x from cache
             cache._remove(cache._oid_dict[x2._p_oid].pop())
-            p = Patch(cluster.client, _loadFromStorage=_loadFromStorage)
-            try:
-                p.apply()
+            with ll, Patch(cluster.client, _loadFromStorage=_loadFromStorage):
                 t = self.newThread(x2._p_activate)
-                l1.acquire()
+                ll()
                 # At this point, x could not be found the cache and the result
                 # from the storage (which is <value=1, next_tid=None>) is about
                 # to be processed.
@@ -849,11 +838,8 @@ class Test(NEOThreadedTest):
                 client.store(x2._p_oid, tid, x, '', txn) # value=0
                 tid = client.tpc_finish(txn, None)
                 t1.begin() # make sure invalidation is processed
-            finally:
-                del p
                 # Resume processing of answer from storage. An entry should be
                 # added in cache for x=1 with a fixed next_tid (i.e. not None)
-                l2.release()
             t.join()
             self.assertEqual(x2.value, 1)
             self.assertEqual(x1.value, 0)
@@ -863,24 +849,18 @@ class Test(NEOThreadedTest):
             # is suspended at the beginning of the transaction t1,
             # between Storage.sync() and flush of invalidations.
             def _flush_invalidations(orig):
-                l1.release()
-                l2.acquire()
+                ll()
                 orig()
             x1._p_deactivate()
             t1.abort()
-            p = Patch(c1, _flush_invalidations=_flush_invalidations)
-            try:
-                p.apply()
+            with ll, Patch(c1, _flush_invalidations=_flush_invalidations):
                 t = self.newThread(t1.begin)
-                l1.acquire()
+                ll()
                 txn = transaction.Transaction()
                 client.tpc_begin(txn)
                 client.store(x2._p_oid, tid, y, '', txn)
                 tid = client.tpc_finish(txn, None)
                 client.close()
-            finally:
-                del p
-                l2.release()
             t.join()
             # A transaction really begins when it acquires the lock to flush
             # invalidations. The previous lastTransaction() only does a ping
