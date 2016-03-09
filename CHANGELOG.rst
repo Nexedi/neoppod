@@ -1,6 +1,17 @@
 Change History
 ==============
 
+1.6.2 (2016-03-09)
+------------------
+
+- storage: switch to a maintained fork of MySQL-python (mysqlclient)
+- storage: for better performance, the backend commit after an unlocked
+  transaction is deferred by 1 second, with the hope it's merged by a
+  subsequent commit (in case of a crash, the transaction is unlocked again),
+  so there are only 2 commits per transaction during high activity
+- client: optimize cache by not keeping items with counter=0 in history queue
+- client: fix possible assertion failure on load in case of a late invalidation
+
 1.6.1 (2016-01-25)
 ------------------
 
