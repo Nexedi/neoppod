@@ -16,6 +16,27 @@ Although this should happen rarely enough not to affect performance, this can
 be an issue if your application can't afford restarting the transaction,
 e.g. because it interacted with external environment.
 
+(Z) Storage nodes rejecting clients after other clients got disconnected from the master
+----------------------------------------------------------------------------------------
+
+Client nodes ignore the state of the connection to the master node when reading
+data from storage, as long as their partition tables are recent enough. This
+way, they are able to finish read-only transactions even if they can't reach
+the master, which may be useful for high availability. The downside is that the
+master node ignores their node ids are still used, which causes "uuid"
+conflicts when reallocating them.
+
+Since an unused NEO Storage should not insist in staying connected to master
+node, solutions are:
+
+- change the way node ids are generated (either random or always increasing),
+- or make storage nodes reject clients that aren't known by the master, but
+  this drops the ability to perform read-only operations as described above
+  (a client that is not connected to the master would be forced to reconnect
+  before any query to the storage).
+
+Workaround: restart clients that aren't connected to the master
+
 (N) Storage failure or update may lead to POSException or break undoLog()
 -------------------------------------------------------------------------
 
