@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import deque
 from time import time
 from struct import pack, unpack
 from neo.lib import logging
@@ -121,7 +122,7 @@ class Transaction(object):
         self._lock_wait_uuid_set = set(uuid_list)
         self._prepared = True
 
-    def forget(self, uuid):
+    def storageLost(self, uuid):
         """
             Given storage was lost while waiting for its lock, stop waiting
             for it.
@@ -134,6 +135,14 @@ class Transaction(object):
             self._lock_wait_uuid_set.discard(uuid)
             self._uuid_set.discard(uuid)
             return self.locked()
+        return False
+
+    def clientLost(self, node):
+        if self._node is node:
+            if self._prepared:
+                self._node = None # orphan
+            else:
+                return True # abort
         return False
 
     def lock(self, uuid):
@@ -163,19 +172,26 @@ class TransactionManager(object):
     def reset(self):
         # ttid -> transaction
         self._ttid_dict = {}
-        # node -> transactions mapping
-        self._node_dict = {}
         self._last_oid = ZERO_OID
         self._last_tid = ZERO_TID
         # queue filled with ttids pointing to transactions with increasing tids
-        self._queue = []
+        self._queue = deque()
 
     def __getitem__(self, ttid):
         """
             Return the transaction object for this TID
         """
-        # XXX: used by unit tests only
-        return self._ttid_dict[ttid]
+        try:
+            return self._ttid_dict[ttid]
+        except KeyError:
+            raise ProtocolError("unknown ttid %s" % dump(ttid))
+
+    def __delitem__(self, ttid):
+        try:
+            self._queue.remove(ttid)
+        except ValueError:
+            pass
+        del self._ttid_dict[ttid]
 
     def __contains__(self, ttid):
         """
@@ -272,61 +288,44 @@ class TransactionManager(object):
         """
         if tid is None:
             # No TID requested, generate a temporary one
-            ttid = self._nextTID()
+            tid = self._nextTID()
         else:
             # Use of specific TID requested, queue it immediately and update
             # last TID.
-            self._queue.append((node.getUUID(), tid))
+            self._queue.append(tid)
             self.setLastTID(tid)
-            ttid = tid
-        txn = Transaction(node, ttid)
-        self._ttid_dict[ttid] = txn
-        self._node_dict.setdefault(node, {})[ttid] = txn
+        txn = self._ttid_dict[tid] = Transaction(node, tid)
         logging.debug('Begin %s', txn)
-        return ttid
+        return tid
 
     def prepare(self, ttid, divisor, oid_list, uuid_list, msg_id):
         """
             Prepare a transaction to be finished
         """
-        # XXX: not efficient but the list should be often small
-        try:
-            txn = self._ttid_dict[ttid]
-        except KeyError:
-            raise ProtocolError("unknown ttid %s" % dump(ttid))
-        node = txn.getNode()
-        for _, tid in self._queue:
-            if ttid == tid:
-                break
+        txn = self[ttid]
+        # maybe not the fastest but _queue should be often small
+        if ttid in self._queue:
+            tid = ttid
         else:
             tid = self._nextTID(ttid, divisor)
-            self._queue.append((node.getUUID(), ttid))
+            self._queue.append(ttid)
         logging.debug('Finish TXN %s for %s (was %s)',
-                      dump(tid), node, dump(ttid))
+                      dump(tid), txn.getNode(), dump(ttid))
         txn.prepare(tid, oid_list, uuid_list, msg_id)
         # check if greater and foreign OID was stored
         if oid_list:
             self.setLastOID(max(oid_list))
         return tid
 
-    def remove(self, uuid, ttid):
+    def abort(self, ttid, uuid):
         """
-            Remove a transaction, commited or aborted
+            Abort a transaction
         """
-        logging.debug('Remove TXN %s', dump(ttid))
-        try:
-            # only in case of an import:
-            self._queue.remove((uuid, ttid))
-        except ValueError:
-            # finish might not have been started
-            pass
-        ttid_dict = self._ttid_dict
-        if ttid in ttid_dict:
-            txn = ttid_dict[ttid]
-            node = txn.getNode()
-            # ...and tried to finish
-            del ttid_dict[ttid]
-            del self._node_dict[node][ttid]
+        logging.debug('Abort TXN %s for %s', dump(ttid), uuid_str(uuid))
+        if self[ttid].isPrepared():
+            raise ProtocolError("commit already requested for ttid %s"
+                                % dump(ttid))
+        del self[ttid]
 
     def lock(self, ttid, uuid):
         """
@@ -335,19 +334,20 @@ class TransactionManager(object):
             instanciation time.
         """
         logging.debug('Lock TXN %s for %s', dump(ttid), uuid_str(uuid))
-        if self._ttid_dict[ttid].lock(uuid) and self._queue[0][1] == ttid:
+        if self[ttid].lock(uuid) and self._queue[0] == ttid:
             # all storage are locked and we unlock the commit queue
             self._unlockPending()
 
-    def forget(self, uuid):
+    def storageLost(self, uuid):
         """
             A storage node has been lost, don't expect a reply from it for
             current transactions
         """
         unlock = False
         for ttid, txn in self._ttid_dict.iteritems():
-            if txn.forget(uuid) and self._queue[0][1] == ttid:
+            if txn.storageLost(uuid) and self._queue[0] == ttid:
                 unlock = True
+                # do not break: we must call forget() on all transactions
         if unlock:
             self._unlockPending()
 
@@ -359,41 +359,20 @@ class TransactionManager(object):
         is required is when some storages are already busy by other tasks.
         """
         queue = self._queue
-        pop = queue.pop
-        insert = queue.insert
-        on_commit = self._on_commit
-        ttid_dict = self._ttid_dict
+        self._on_commit(self._ttid_dict.pop(queue.popleft()))
         while queue:
-            uuid, ttid = pop(0)
-            txn = ttid_dict[ttid]
-            if txn.locked():
-                on_commit(txn)
-            else:
-                insert(0, (uuid, ttid))
+            ttid = queue[0]
+            txn = self._ttid_dict[ttid]
+            if not txn.locked():
                 break
+            del queue[0], self._ttid_dict[ttid]
+            self._on_commit(txn)
 
-    def abortFor(self, node):
-        """
-            Abort pending transactions initiated by a node
-        """
-        # BUG: As soon as we have started to lock a transaction,
-        #      we should complete it even if the client is lost.
-        #      Of course, we won't reply to the FinishTransaction
-        #      finish but we'll send invalidations to all clients.
-        logging.debug('Abort TXN for %s', node)
+    def clientLost(self, node):
         uuid = node.getUUID()
-        # XXX: this loop is usefull only during an import
-        for nuuid, ntid in list(self._queue):
-            if nuuid == uuid:
-                self._queue.remove((uuid, ntid))
-        if node in self._node_dict:
-            # remove transactions
-            remove = self.remove
-            for ttid in self._node_dict[node].keys():
-                if not self._ttid_dict[ttid].isPrepared():
-                    remove(uuid, ttid)
-            # discard node entry
-            del self._node_dict[node]
+        for txn in self._ttid_dict.values():
+            if txn.clientLost(node):
+                del self[txn.getTTID()]
 
     def log(self):
         logging.info('Transactions:')

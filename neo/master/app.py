@@ -540,8 +540,6 @@ class Application(BaseApplication):
             if node is not None and node.isConnected():
                 node.getConnection().notify(notify_finished)
 
-        # remove transaction from manager
-        self.tm.remove(transaction_node.getUUID(), ttid)
         assert self.last_transaction < tid, (self.last_transaction, tid)
         self.setLastTransaction(tid)
 

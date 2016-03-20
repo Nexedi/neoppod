@@ -26,7 +26,7 @@ class ClientServiceHandler(MasterHandler):
         if app.listening_conn: # if running
             node = app.nm.getByUUID(conn.getUUID())
             assert node is not None
-            app.tm.abortFor(node)
+            app.tm.clientLost(node)
             node.setState(NodeStates.DOWN)
             app.broadcastNodesInformation([node])
             app.nm.remove(node)
@@ -100,5 +100,5 @@ class ClientServiceHandler(MasterHandler):
             conn.answer(Packets.AnswerPack(False))
 
     def abortTransaction(self, conn, tid):
-        self.app.tm.remove(conn.getUUID(), tid)
+        self.app.tm.abort(tid, conn.getUUID())
 

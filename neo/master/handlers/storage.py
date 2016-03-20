@@ -39,7 +39,7 @@ class StorageServiceHandler(BaseServiceHandler):
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
         super(StorageServiceHandler, self).connectionLost(conn, new_state)
-        app.tm.forget(conn.getUUID())
+        app.tm.storageLost(conn.getUUID())
         if (app.getClusterState() == ClusterStates.BACKINGUP
             # Also check if we're exiting, because backup_app is not usable
             # in this case. Maybe cluster state should be set to something
@@ -61,10 +61,6 @@ class StorageServiceHandler(BaseServiceHandler):
         conn.answer(p)
 
     def answerInformationLocked(self, conn, ttid):
-        tm = self.app.tm
-        if ttid not in tm:
-            raise ProtocolError('Unknown transaction')
-        # transaction locked on this storage node
         self.app.tm.lock(ttid, conn.getUUID())
 
     def notifyPartitionCorrupted(self, conn, partition, cell_list):

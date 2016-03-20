@@ -130,7 +130,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertFalse(self.app.isStorageReady(storage_uuid))
         service.askFinishTransaction(conn, ttid, (), ())
         self.checkNoPacketSent(storage_conn)
-        self.app.tm.abortFor(self.app.nm.getByUUID(client_uuid))
         # ...but AskLockInformation is sent if it is ready
         self.app.setStorageReady(storage_uuid)
         self.assertTrue(self.app.isStorageReady(storage_uuid))
