@@ -207,6 +207,12 @@ class TransactionManager(object):
         self._app.em.setTimeout(time() + 1, dm.deferCommit())
         self.abort(ttid, even_if_locked=True)
 
+    def getFinalTID(self, ttid):
+        try:
+            return self._transaction_dict[ttid].getTID()
+        except KeyError:
+            return self._app.dm.getFinalTID(ttid)
+
     def getLockingTID(self, oid):
         return self._store_lock_dict.get(oid)
 

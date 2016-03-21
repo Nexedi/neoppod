@@ -145,6 +145,9 @@ class ClientOperationHandler(EventHandler):
         tid_list = app.dm.getTIDList(first, last - first, partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
+    def askFinalTID(self, conn, ttid):
+        conn.answer(Packets.AnswerFinalTID(self.app.tm.getFinalTID(ttid)))
+
     def askObjectUndoSerial(self, conn, ttid, ltid, undone_tid, oid_list):
         app = self.app
         findUndoTID = app.dm.findUndoTID

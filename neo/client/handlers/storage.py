@@ -156,6 +156,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
                                undo_object_tid_dict):
         undo_object_tid_dict.update(object_tid_dict)
 
+    def answerFinalTID(self, conn, tid):
+        self.app.setHandlerData(tid)
+
     def answerHasLock(self, conn, oid, status):
         store_msg_id = self.app.getHandlerData()['timeout_dict'].pop(oid)
         if status == LockState.GRANTED_TO_OTHER:

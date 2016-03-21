@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.protocol import NodeStates, Packets, ProtocolError
+from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
@@ -87,6 +87,21 @@ class ClientServiceHandler(MasterHandler):
         for node in identified_node_list:
             node.ask(p, timeout=60)
 
+    def askFinalTID(self, conn, ttid):
+        tm = self.app.tm
+        if tm.getLastTID() < ttid:
+            # Invalid ttid, or aborted transaction.
+            tid = None
+        elif ttid in tm:
+            # Transaction is being finished.
+            # We'll answer when it is unlocked.
+            tm[ttid].registerForNotification(conn.getUUID())
+            return
+        else:
+            # Transaction committed ? Tell client to ask storages.
+            tid = MAX_TID
+        conn.answer(Packets.AnswerFinalTID(tid))
+
     def askPack(self, conn, tid):
         app = self.app
         if app.packing is None:
@@ -100,5 +115,6 @@ class ClientServiceHandler(MasterHandler):
             conn.answer(Packets.AnswerPack(False))
 
     def abortTransaction(self, conn, tid):
+        # BUG: The replicator may wait this transaction to be finished.
         self.app.tm.abort(tid, conn.getUUID())
 

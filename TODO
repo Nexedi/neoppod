@@ -92,9 +92,6 @@
       be split in chunks and processed in "background" on storage nodes.
       Packing throttling should probably be at the lowest possible priority
       (below interactive use and below replication).
-    - tpc_finish failures propagation to master (FUNCTIONALITY)
-      When asked to lock transaction data, if something goes wrong the master
-      node must be informed.
     - Verify data checksum on reception (FUNCTIONALITY)
       In current implementation, client generates a checksum before storing,
       which is only checked upon load. This doesn't prevent from storing
@@ -122,9 +119,6 @@
       and truncate the DB.
     - Optimize operational status check by recording which rows are ready
       instead of parsing the whole partition table. (SPEED)
-    - tpc_finish failures propagation to client (FUNCTIONALITY)
-      When a storage node notifies a problem during lock/unlock phase, an error
-      must be propagated to client.
 
     Client
     - Merge Application into Storage (SPEED)

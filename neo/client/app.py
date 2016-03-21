@@ -29,7 +29,7 @@ from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
 from neo.lib.protocol import NodeTypes, Packets, \
-    INVALID_PARTITION, ZERO_HASH, ZERO_TID
+    INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
 from neo.lib.event import EventManager
 from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock, SimpleQueue
@@ -690,16 +690,6 @@ class Application(ThreadedApplication):
         a final place so that the new transaction is readable, but this is
         something that can always be replayed (during the verification phase)
         if any failure happens.
-
-        TODO: We should recover from master failures when the transaction got
-              successfully committed. More precisely, we should not raise:
-              - if any failure happens after all storage nodes have processed
-                successfully the LockInformation packets from the master;
-              - and if we can reconnect to the cluster to check that the ttid
-                got successfuly committed, which is possible because storage
-                nodes remember the ttid of all transactions.
-              See neo.threaded.test.Test.testStorageFailureDuringTpcFinish
-              This bug exists in ZEO.
         """
         txn_container = self._txn_container
         if 'voted' not in txn_container.get(transaction):
@@ -714,13 +704,42 @@ class Application(ThreadedApplication):
                                 if data is CHECKED_SERIAL]
             for oid in checked_list:
                 del cache_dict[oid]
-            tid = self._askPrimary(Packets.AskFinishTransaction(
-                txn_context['ttid'], cache_dict, checked_list),
-                cache_dict=cache_dict, callback=f)
-            assert tid
+            ttid = txn_context['ttid']
+            p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
+            try:
+                tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
+                assert tid
+            except ConnectionClosed:
+                tid = self._getFinalTID(ttid)
+                if not tid:
+                    raise
             return tid
         finally:
             self._load_lock_release()
+
+    def _getFinalTID(self, ttid):
+        try:
+            p = Packets.AskFinalTID(ttid)
+            while 1:
+                try:
+                    tid = self._askPrimary(p)
+                    break
+                except ConnectionClosed:
+                    pass
+            if tid == MAX_TID:
+                while 1:
+                    for _, conn in self.cp.iterateForObject(
+                            ttid, readable=True):
+                        try:
+                            return self._askStorage(conn, p)
+                        except ConnectionClosed:
+                            pass
+                    self._getMasterConnection()
+            elif tid:
+                return tid
+        except Exception:
+            logging.exception("Failed to get final tid for TXN %s",
+                              dump(ttid))
 
     def undo(self, undone_tid, txn, tryToResolveConflict):
         txn_context = self._txn_container.get(txn)

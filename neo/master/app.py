@@ -519,11 +519,11 @@ class Application(BaseApplication):
         tid = txn.getTID()
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
-        transaction_finished = Packets.AnswerTransactionFinished(ttid, tid)
         for client_node in self.nm.getClientList(only_identified=True):
             c = client_node.getConnection()
             if client_node is transaction_node:
-                c.answer(transaction_finished, msg_id=txn.getMessageId())
+                c.answer(Packets.AnswerTransactionFinished(ttid, tid),
+                         msg_id=txn.getMessageId())
             else:
                 c.notify(invalidate_objects)
 
@@ -533,12 +533,16 @@ class Application(BaseApplication):
         for storage_uuid in txn.getUUIDList():
             getByUUID(storage_uuid).getConnection().notify(notify_unlock)
 
-        # Notify storage that have replications blocked by this transaction
+        # Notify storage that have replications blocked by this transaction,
+        # and clients that try to recover from a failure during tpc_finish.
         notify_finished = Packets.NotifyTransactionFinished(ttid, tid)
-        for storage_uuid in txn.getNotificationUUIDList():
-            node = getByUUID(storage_uuid)
-            if node is not None and node.isConnected():
-                node.getConnection().notify(notify_finished)
+        for uuid in txn.getNotificationUUIDList():
+            node = getByUUID(uuid)
+            if node.isClient():
+                # There should be only 1 client interested.
+                node.answer(Packets.AnswerFinalTID(tid))
+            else:
+                node.notify(notify_finished)
 
         assert self.last_transaction < tid, (self.last_transaction, tid)
         self.setLastTransaction(tid)

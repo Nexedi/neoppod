@@ -25,15 +25,16 @@ from persistent import Persistent, GHOST
 from ZODB import DB, POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
-from neo.lib.connection import ConnectionClosed, MTClientConnection
+from neo.lib.connection import MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_TID
-from .. import expectedFailure, _ExpectedFailure, _UnexpectedSuccess, Patch
+from .. import expectedFailure, Patch
 from . import LockLock, NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
+from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.initialization import InitializationHandler
 
 class PCounter(Persistent):
@@ -498,7 +499,7 @@ class Test(NEOThreadedTest):
             r[0] = PCounter()
             tids = [r._p_serial]
             with onLockTransaction(s0), onLockTransaction(s1):
-                self.assertRaises(ConnectionClosed, t.commit)
+                t.commit()
             self.assertEqual(r._p_state, GHOST)
             self.tic()
             t.begin()
@@ -510,7 +511,7 @@ class Test(NEOThreadedTest):
             c.readCurrent(x)
             with cluster.moduloTID(1):
                 with onLockTransaction(s0), onLockTransaction(s1):
-                    self.assertRaises(ConnectionClosed, t.commit)
+                    t.commit()
                 self.tic()
                 t.begin()
                 # The following line checks that s1 moved the transaction
@@ -531,7 +532,7 @@ class Test(NEOThreadedTest):
                     y.value = 2
                     di0 = s0.getDataLockInfo()
                     with onLockTransaction(s1, die=True):
-                        self.assertRaises(ConnectionClosed, t.commit)
+                        self.commitWithStorageFailure(cluster.client, t)
         finally:
             cluster.stop()
         cluster.reset()
@@ -571,7 +572,7 @@ class Test(NEOThreadedTest):
             c.root()[0] = None
             s0, s1 = cluster.storage_list
             with onLockTransaction(s0, False), onLockTransaction(s1, True):
-                self.assertRaises(ConnectionClosed, t.commit)
+                self.commitWithStorageFailure(cluster.client, t)
             s0.resetNode()
             s0.start()
             t.begin()
@@ -635,7 +636,7 @@ class Test(NEOThreadedTest):
             storage.dm.setConfiguration("version", None)
             c.root()._p_changed = 1
             with Patch(storage.tm, lock=lambda *_: sys.exit()):
-                self.assertRaises(ConnectionClosed, t.commit)
+                self.commitWithStorageFailure(cluster.client, t)
             self.assertRaises(DatabaseFailure, storage.resetNode)
         finally:
             cluster.stop()
@@ -1008,23 +1009,64 @@ class Test(NEOThreadedTest):
             c.root()['x'] = PCounter()
             with cluster.master.filterConnection(cluster.client) as m2c:
                 m2c.add(answerTransactionFinished)
-                # XXX: This is an expected failure. A ttid column was added to
-                #      'trans' table to permit recovery, by checking that the
-                #      transaction was really committed.
-                try:
-                    t.commit()
-                    raise _UnexpectedSuccess
-                except ConnectionClosed, e:
-                    e = type(e), None, None
+                # After a storage failure during tpc_finish, the client
+                # reconnects and checks that the transaction was really
+                # committed.
+                t.commit()
             # Also check that the master reset the last oid to a correct value.
-            self.assertTrue(cluster.client.new_oid_list)
             t.begin()
             self.assertEqual(1, u64(c.root()['x']._p_oid))
             self.assertFalse(cluster.client.new_oid_list)
             self.assertEqual(2, u64(cluster.client.new_oid()))
         finally:
             cluster.stop()
-        raise _ExpectedFailure(e)
+
+    def testClientFailureDuringTpcFinish(self):
+        def delayAskLockInformation(conn, packet):
+            if isinstance(packet, Packets.AskLockInformation):
+                cluster.client.master_conn.close()
+                return True
+        def askFinalTID(orig, *args):
+            m2s.remove(delayAskLockInformation)
+            orig(*args)
+        def _getFinalTID(orig, ttid):
+            m2s.remove(delayAskLockInformation)
+            self.tic()
+            return orig(ttid)
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            r = c.root()
+            r['x'] = PCounter()
+            tid0 = r._p_serial
+            with cluster.master.filterConnection(cluster.storage) as m2s:
+                m2s.add(delayAskLockInformation,
+                    Patch(ClientServiceHandler, askFinalTID=askFinalTID))
+                t.commit() # the final TID is returned by the master
+            t.begin()
+            r['x'].value += 1
+            tid1 = r._p_serial
+            self.assertTrue(tid0 < tid1)
+            with cluster.master.filterConnection(cluster.storage) as m2s:
+                m2s.add(delayAskLockInformation,
+                    Patch(cluster.client, _getFinalTID=_getFinalTID))
+                t.commit() # the final TID is returned by the storage backend
+            t.begin()
+            r['x'].value += 1
+            tid2 = r['x']._p_serial
+            self.assertTrue(tid1 < tid2)
+            with cluster.master.filterConnection(cluster.storage) as m2s:
+                m2s.add(delayAskLockInformation,
+                    Patch(cluster.client, _getFinalTID=_getFinalTID))
+                m2s.add(lambda conn, packet:
+                    isinstance(packet, Packets.NotifyUnlockInformation))
+                t.commit() # the final TID is returned by the storage (tm)
+            t.begin()
+            self.assertEqual(r['x'].value, 2)
+            self.assertTrue(tid2 < r['x']._p_serial)
+        finally:
+            cluster.stop()
 
     def testEmptyTransaction(self):
         cluster = NEOCluster()

@@ -202,3 +202,6 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
 
     def answerLastTransaction(self, conn, ltid):
         pass
+
+    def answerFinalTID(self, conn, tid):
+        self.app.setHandlerData(tid)

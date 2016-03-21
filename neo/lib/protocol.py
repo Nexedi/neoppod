@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -820,7 +820,7 @@ class LockedTransactions(Packet):
 
 class FinalTID(Packet):
     """
-    Return final tid if ttid has been committed. * -> S.
+    Return final tid if ttid has been committed. * -> S. C -> PM.
     """
     _fmt = PStruct('final_tid',
         PTID('ttid'),

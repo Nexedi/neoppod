@@ -102,13 +102,13 @@ class Transaction(object):
 
     def registerForNotification(self, uuid):
         """
-            Register a storage node that requires a notification at commit
+            Register a node that requires a notification at commit
         """
         self._notification_set.add(uuid)
 
     def getNotificationUUIDList(self):
         """
-            Returns the list of storage waiting for the transaction to be
+            Returns the list of nodes waiting for the transaction to be
             finished
         """
         return list(self._notification_set)
@@ -128,6 +128,7 @@ class Transaction(object):
             for it.
             Does nothing if the node was not part of the transaction.
         """
+        self._notification_set.discard(uuid)
         # XXX: We might lose information that a storage successfully locked
         # data but was later found to be disconnected. This loss has no impact
         # on current code, but it might be disturbing to reader or future code.
@@ -143,6 +144,8 @@ class Transaction(object):
                 self._node = None # orphan
             else:
                 return True # abort
+        else:
+            self._notification_set.discard(uuid)
         return False
 
     def lock(self, uuid):

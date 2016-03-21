@@ -32,7 +32,7 @@ import neo.client.app, neo.neoctl.app
 from neo.client import Storage
 from neo.lib import logging
 from neo.lib.connection import BaseConnection, \
-    ClientConnection, Connection, ListeningConnection
+    ClientConnection, Connection, ConnectionClosed, ListeningConnection
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
@@ -909,6 +909,10 @@ class NEOThreadedTest(NeoTestBase):
                 etype, value, tb = self.__exc_info
                 del self.__exc_info
                 raise etype, value, tb
+
+    def commitWithStorageFailure(self, client, txn):
+        with Patch(client, _getFinalTID=lambda *_: None):
+            self.assertRaises(ConnectionClosed, txn.commit)
 
 
 def predictable_random(seed=None):
