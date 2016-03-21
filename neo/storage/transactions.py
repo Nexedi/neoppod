@@ -17,7 +17,7 @@
 from time import time
 from neo.lib import logging
 from neo.lib.util import dump
-from neo.lib.protocol import uuid_str, ZERO_TID
+from neo.lib.protocol import ProtocolError, uuid_str, ZERO_TID
 
 class ConflictError(Exception):
     """
@@ -183,7 +183,10 @@ class TransactionManager(object):
             Lock a transaction
         """
         logging.debug('Lock TXN %s (ttid=%s)', dump(tid), dump(ttid))
-        transaction = self._transaction_dict[ttid]
+        try:
+            transaction = self._transaction_dict[ttid]
+        except KeyError:
+            raise ProtocolError("unknown ttid %s" % dump(ttid))
         # remember that the transaction has been locked
         transaction.lock()
         self._load_lock_dict.update(
@@ -339,6 +342,10 @@ class TransactionManager(object):
             Abort any non-locked transaction of a node
         """
         logging.debug('Abort for %s', uuid_str(uuid))
+        # BUG: Discarding voted transactions must only be a decision of the
+        #      master, and for this, we'll need to review how transactions are
+        #      aborted. As a workaround, we rely on the fact that lock() will
+        #      disconnect from the master in case of LockInformation.
         # abort any non-locked transaction of this node
         for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, [])]:
             self.abort(ttid)
