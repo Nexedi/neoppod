@@ -264,7 +264,6 @@ class ClientCache(object):
                 assert item.next_tid <= tid, (item, oid, tid)
 
     def clear_current(self):
-        oid_list = []
         for oid, item_list in self._oid_dict.items():
             item = item_list[-1]
             if item.next_tid is None:
@@ -276,8 +275,6 @@ class ClientCache(object):
                 # probably not worth it.
                 if not item_list:
                     del self._oid_dict[oid]
-                oid_list.append(oid)
-        return oid_list
 
 
 def test(self):
@@ -295,11 +292,11 @@ def test(self):
     data = '15', 15, None
     cache.store(1, *data)
     self.assertEqual(cache.load(1, None), data)
-    self.assertEqual(cache.clear_current(), [1])
+    cache.clear_current()
     self.assertEqual(cache.load(1, None), None)
     cache.store(1, *data)
     cache.invalidate(1, 20)
-    self.assertEqual(cache.clear_current(), [])
+    cache.clear_current()
     self.assertEqual(cache.load(1, 20), ('15', 15, 20))
     cache.store(1, '10', 10, 15)
     cache.store(1, '20', 20, 21)

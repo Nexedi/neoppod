@@ -332,10 +332,7 @@ class Application(ThreadedApplication):
 
         acquire = self._cache_lock_acquire
         release = self._cache_lock_release
-        # XXX: Is it possible this giant lock ?
-        #      See commit b77c946d67c9d7cc1e9ee9b15437568dee144aa4
-        #      for a way to invalidate cache properly when several loads
-        #      are done simultaneously.
+        # XXX: Consider using a more fine-grained lock.
         self._load_lock_acquire()
         try:
             acquire()
@@ -356,14 +353,20 @@ class Application(ThreadedApplication):
             data, tid, next_tid, _ = self._loadFromStorage(oid, tid, before_tid)
             acquire()
             try:
-                result = data, tid, (next_tid if self._loading_oid or next_tid
-                                              else self._loading_invalidated)
-                self._cache.store(oid, *result)
-                return result
+                if self._loading_oid:
+                    # Common case (no race condition).
+                    self._cache.store(oid, data, tid, next_tid)
+                elif self._loading_invalidated:
+                    # oid has just been invalidated.
+                    if not next_tid:
+                        next_tid = self._loading_invalidated
+                    self._cache.store(oid, data, tid, next_tid)
+                # Else, we just reconnected to the master.
             finally:
                 release()
         finally:
             self._load_lock_release()
+        return data, tid, next_tid
 
     def _loadFromStorage(self, oid, at_tid, before_tid):
         packet = Packets.AskObject(oid, at_tid, before_tid)

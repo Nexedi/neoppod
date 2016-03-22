@@ -102,19 +102,24 @@ class PrimaryNotificationsHandler(MTEventHandler):
                 if app.master_conn is None:
                     app._cache_lock_acquire()
                     try:
-                        db = app.getDB()
                         if app.last_tid < ltid:
-                            oid_list = app._cache.clear_current()
-                            db is None or db.invalidate(
-                                app.last_tid and add64(app.last_tid, 1),
-                                oid_list)
+                            app._cache.clear_current()
+                            # In the past, we tried not to invalidate the
+                            # Connection caches entirely, using the list of
+                            # oids that are invalidated by clear_current.
+                            # This was wrong because these caches may have
+                            # entries that are not in the NEO cache anymore.
                         else:
                             # The DB was truncated. It happens so
                             # rarely that we don't need to optimize.
                             app._cache.clear()
-                            db is None or db.invalidateCache()
+                        # Make sure a parallel load won't refill the cache
+                        # with garbage.
+                        app._loading_oid = app._loading_invalidated = None
                     finally:
                         app._cache_lock_release()
+                    db = app.getDB()
+                    db is None or db.invalidateCache()
                 app.last_tid = ltid
         elif type(packet) is Packets.AnswerTransactionFinished:
             app = self.app
