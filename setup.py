@@ -23,7 +23,7 @@ if not os.path.exists('mock.py'):
         raise EnvironmentError("MD5 checksum mismatch downloading 'mock.py'")
     open('mock.py', 'w').write(mock_py)
 
-zodb_require = ['ZODB3>=3.10', 'ZODB3<3.11dev']
+zodb_require = ['ZODB3>=3.10dev']
 
 extras_require = {
     'admin': [],

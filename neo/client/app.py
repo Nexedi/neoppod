@@ -566,8 +566,10 @@ class Application(ThreadedApplication):
                     self._store(txn_context, oid, conflict_serial, new_data)
                     append(oid)
                     continue
+            # With recent ZODB, get_pickle_metadata (from ZODB.utils) does
+            # not support empty values, so do not pass 'data' in this case.
             raise ConflictError(oid=oid, serials=(conflict_serial,
-                serial), data=data)
+                serial), data=data or None)
         return result
 
     def waitResponses(self, queue):
@@ -961,7 +963,7 @@ class Application(ThreadedApplication):
         return self.last_tid
 
     def pack(self, t):
-        tid = repr(TimeStamp(*time.gmtime(t)[:5] + (t % 60, )))
+        tid = TimeStamp(*time.gmtime(t)[:5] + (t % 60, )).raw()
         if tid == ZERO_TID:
             raise NEOStorageError('Invalid pack time')
         self._askPrimary(Packets.AskPack(tid))
