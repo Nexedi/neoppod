@@ -42,7 +42,10 @@ class PCounter(Persistent):
 
 class PCounterWithResolution(PCounter):
     def _p_resolveConflict(self, old, saved, new):
-        new['value'] += saved['value'] - old.get('value', 0)
+        new['value'] = (
+          saved.get('value', 0)
+          + new.get('value', 0)
+          - old.get('value', 0))
         return new
 
 class Test(NEOThreadedTest):
@@ -151,6 +154,43 @@ class Test(NEOThreadedTest):
             self.assertFalse(expected)
         finally:
             cluster.stop()
+
+    def testUndoConflict(self, conflict_during_store=False):
+        def waitResponses(orig, *args):
+            orig(*args)
+            p.revert()
+            ob.value += 3
+            t.commit()
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()[0] = ob = PCounterWithResolution()
+            t.commit()
+            ob.value += 1
+            t.commit()
+            tid = ob._p_serial
+            storage = cluster.db.storage
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn)
+            if conflict_during_store:
+                with Patch(cluster.client, waitResponses=waitResponses) as p:
+                    storage.undo(tid, txn)
+            else:
+                ob.value += 3
+                t.commit()
+                storage.undo(tid, txn)
+            storage.tpc_finish(txn)
+            value = ob.value
+            ob._p_invalidate() # BUG: this should not be required
+            self.assertEqual(ob.value, 3)
+            expectedFailure(self.assertNotEqual)(value, 4)
+        finally:
+            cluster.stop()
+
+    @expectedFailure(POSException.ConflictError)
+    def testUndoConflictDuringStore(self):
+        self.testUndoConflict(True)
 
     def testStorageDataLock(self):
         cluster = NEOCluster()

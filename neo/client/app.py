@@ -538,7 +538,8 @@ class Application(ThreadedApplication):
                 if data is CHECKED_SERIAL:
                     raise ReadConflictError(oid=oid, serials=(conflict_serial,
                         serial))
-                if data: # XXX: can 'data' be None ???
+                # TODO: data can be None if a conflict happens during undo
+                if data:
                     txn_context['data_size'] -= len(data)
                 resolved_serial_set = resolved_conflict_serial_dict.setdefault(
                     oid, set())
