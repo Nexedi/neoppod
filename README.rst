@@ -136,7 +136,7 @@ in STOPPING state using neoctl::
 This can also be done manually, which helps if your cluster is in bad state:
 
 - Stop all master nodes first with a SIGINT or SIGTERM, so that storage nodes
-   don't become in OUT_OF_DATE state.
+  don't become in OUT_OF_DATE state.
 - Next stop remaining nodes with a SIGINT or SIGTERM.
 
 Master-slave asynchronous replication
