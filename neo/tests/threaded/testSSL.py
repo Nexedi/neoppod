@@ -33,7 +33,8 @@ class SSLMixin:
 
 class SSLTests(SSLMixin, test.Test):
     # exclude expected failures
-    testDeadlockAvoidance = testStorageFailureDuringTpcFinish = None
+    testDeadlockAvoidance = None
+    testUndoConflict = testUndoConflictDuringStore = None
 
     def testAbortConnection(self):
         for after_handshake in 1, 0:
