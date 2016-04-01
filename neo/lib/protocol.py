@@ -78,12 +78,35 @@ def ErrorCodes():
 
 @Enum
 def ClusterStates():
+    # Once the primary master is elected, the cluster has a state, which is
+    # initially RECOVERING, during which the master:
+    # - first recovers its own data by reading it from storage nodes;
+    # - waits for the partition table be operational;
+    # - automatically switch to VERIFYING if the cluster can be safely started.
+    # Whenever the partition table becomes non-operational again, the cluster
+    # goes back to this state.
     RECOVERING
+    # Transient state, used to:
+    # - replay the transaction log, in case of unclean shutdown;
+    # - and actually truncate the DB if the user asked to do so.
+    # Then, the cluster either goes to RUNNING or STARTING_BACKUP state.
     VERIFYING
+    # Normal operation. The DB is read-writable by clients.
     RUNNING
+    # Transient state to shutdown the whole cluster.
     STOPPING
+    # Transient state, during which the master (re)connect to the upstream
+    # master.
     STARTING_BACKUP
+    # Backup operation. The master is notified of new transactions thanks to
+    # invalidations and orders storage nodes to fetch them from upstream.
+    # Because cells are synchronized independently, the DB is often
+    # inconsistent.
+    # TODO: allow clients to connect for read-only operations
     BACKINGUP
+    # Transient state, when the user decides to go back to RUNNING state.
+    # The master stays in this state until the DB is consistent again.
+    # In case of failure, the cluster will go back to backup mode.
     STOPPING_BACKUP
 
 @Enum
