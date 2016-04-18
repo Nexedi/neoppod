@@ -86,6 +86,7 @@ class TransactionContainer(dict):
             'conflict_serial_dict': {},
             'resolved_conflict_serial_dict': {},
             'involved_nodes': set(),
+            'checked_nodes': set(),
         }
         return context
 
@@ -663,7 +664,9 @@ class Application(ThreadedApplication):
         p = Packets.AbortTransaction(ttid)
         getConnForNode = self.cp.getConnForNode
         # cancel transaction one all those nodes
-        for node in txn_context['involved_nodes']:
+        nodes = txn_context['involved_nodes']
+        nodes |= txn_context['checked_nodes']
+        for node in nodes:
             conn = getConnForNode(node)
             if conn is None:
                 continue
@@ -995,11 +998,15 @@ class Application(ThreadedApplication):
         # after stores, and skips oids that have been succeessfully stored.
         assert oid not in txn_context['cache_dict'], (oid, txn_context)
         txn_context['data_dict'].setdefault(oid, CHECKED_SERIAL)
+        checked_nodes = txn_context['checked_nodes']
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
         for node, conn in self.cp.iterateForObject(oid):
             try:
                 conn.ask(packet, queue=queue)
             except ConnectionClosed:
                 continue
+            checked_nodes.add(node)
+        if not checked_nodes:
+            raise NEOStorageError("checkCurrent failed")
         self._waitAnyTransactionMessage(txn_context, False)
 
