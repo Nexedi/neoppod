@@ -55,7 +55,7 @@ import random
 from neo.lib import logging
 from neo.lib.protocol import CellStates, NodeTypes, NodeStates, \
     Packets, INVALID_TID, ZERO_TID, ZERO_OID
-from neo.lib.connection import ClientConnection
+from neo.lib.connection import ClientConnection, ConnectionClosed
 from neo.lib.util import add64, dump
 from .handlers.storage import StorageOperationHandler
 
@@ -256,8 +256,12 @@ class Replicator(object):
         else:
             assert name or node.getUUID() != app.uuid, "loopback connection"
             conn = ClientConnection(app, StorageOperationHandler(app), node)
-            conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
-                None if name else app.uuid, app.server, name or app.name))
+            try:
+                conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
+                    None if name else app.uuid, app.server, name or app.name))
+            except ConnectionClosed:
+                if previous_node is self.current_node:
+                    return
         if previous_node is not None and previous_node.isConnected():
             app.closeClient(previous_node.getConnection())
 
