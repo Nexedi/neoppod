@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib.app import BaseApplication
-from neo.lib.connection import ClientConnection
+from neo.lib.connection import ClientConnection, ConnectionClosed
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
 from .handler import CommandEventHandler
 
@@ -38,11 +38,14 @@ class NeoCTL(BaseApplication):
             self.connection = ClientConnection(self, self.handler, self.server)
             # Never delay reconnection to master. This speeds up unit tests
             # and it should not change anything for normal use.
-            self.connection.setReconnectionNoDelay()
+            try:
+                self.connection.setReconnectionNoDelay()
+            except ConnectionClosed:
+                self.connection = None
             while not self.connected:
-                self.em.poll(1)
                 if self.connection is None:
                     raise NotReadyException('not connected')
+                self.em.poll(1)
         return self.connection
 
     def __ask(self, packet):

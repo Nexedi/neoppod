@@ -506,7 +506,10 @@ class Connection(BaseConnection):
 
     @property
     def setReconnectionNoDelay(self):
-        return self.connector.setReconnectionNoDelay
+        try:
+            return self.connector.setReconnectionNoDelay
+        except AttributeError:
+            raise ConnectionClosed
 
     def close(self):
         if self.connector is None:
