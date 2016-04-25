@@ -145,7 +145,7 @@ class Transaction(object):
             else:
                 return True # abort
         else:
-            self._notification_set.discard(uuid)
+            self._notification_set.discard(node.getUUID())
         return False
 
     def lock(self, uuid):
@@ -372,7 +372,6 @@ class TransactionManager(object):
             self._on_commit(txn)
 
     def clientLost(self, node):
-        uuid = node.getUUID()
         for txn in self._ttid_dict.values():
             if txn.clientLost(node):
                 del self[txn.getTTID()]
