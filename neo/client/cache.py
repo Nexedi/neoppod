@@ -123,9 +123,8 @@ class ClientCache(object):
         else:
             self._size -= len(item.data)
             item.data = None
-            if self._history_size < self._max_history_size:
-                self._history_size += 1
-            else:
+            self._history_size += 1
+            if self._max_history_size < self._history_size:
                 self._remove(head)
                 item_list = self._oid_dict[head.oid]
                 item_list.remove(head)
@@ -135,7 +134,10 @@ class ClientCache(object):
     def _remove(self, item):
         level = item.level
         if level is not None:
-            item.level = level - 1
+            if level:
+                item.level = level - 1
+            else:
+                self._history_size -= 1
             next = item.next
             if next is item:
                 self._queue_list[level] = next = None
@@ -208,7 +210,6 @@ class ClientCache(object):
                 assert not item.data
                 # Possible case of late invalidation.
                 item.next_tid = next_tid
-                self._history_size -= 1
             else:
                 item = CacheItem()
                 item.oid = oid
@@ -312,6 +313,9 @@ def test(self):
     data = '10', 10, 15
     cache.store(1, *data)
     self.assertEqual(cache.load(1, 15), data)
+    self.assertEqual(1, cache._history_size)
+    cache.clear_current()
+    self.assertEqual(0, cache._history_size)
 
 if __name__ == '__main__':
     import unittest
