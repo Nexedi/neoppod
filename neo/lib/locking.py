@@ -18,13 +18,11 @@ from Queue import Empty
   This file defines a VerboseLock class implementing basic lock API and
   logging in appropriate places with extensive details.
 
-  It can be globaly toggled by changing VERBOSE_LOCKING value.
+  It can be toggled globally by setting NEO_VERBOSE_LOCKING environment
+  variable to a non-empty value before this module is loaded.
   There is no overhead at all when disabled (passthrough to threading
   classes).
 """
-
-VERBOSE_LOCKING = False
-
 
 class LockUser(object):
 
@@ -157,7 +155,7 @@ class VerboseSemaphore(VerboseLockBase):
         return not self.lock._Semaphore__value
 
 
-if VERBOSE_LOCKING:
+if os.getenv('NEO_VERBOSE_LOCKING'):
     Lock = VerboseLock
     RLock = VerboseRLock
     Semaphore = VerboseSemaphore
