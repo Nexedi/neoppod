@@ -87,7 +87,7 @@ class ClientCache(object):
                 " max_size=%s)>") % (
             self.__class__.__name__, self._history_size,
             len(self._oid_dict), self._size, self._time,
-            [sum(1 for x in self._iterQueue(x))
+            [sum(1 for _ in self._iterQueue(x))
              for x in xrange(len(self._queue_list))],
             self._life_time, self._max_history_size, self._max_size)
 
