@@ -117,11 +117,6 @@ class Storage(BaseStorage.BaseStorage,
             raise POSException.POSKeyError(oid)
 
     def loadBefore(self, oid, tid):
-        # XXX: FileStorage return an empty string for a deleted object
-        #      but it may cause EOFError exceptions in ZODB.Connection
-        #      and it makes impossible to store empty values.
-        #      We think it's wrong behaviour and raise POSKeyError instead.
-        #      Or maybe we should return None?
         try:
             return self.app.load(oid, None, tid)
         except NEOStorageDoesNotExistError:
