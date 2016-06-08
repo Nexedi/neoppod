@@ -1,4 +1,4 @@
-Patch to ZODB 4.2.0 for ZODB unit tests.
+Patch to ZODB 4.3.1 for ZODB unit tests.
 See also monkey-patch to Connection.tpc_finish in neo/client/__init__.py
 
 diff --git a/src/ZODB/interfaces.py b/src/ZODB/interfaces.py
@@ -113,7 +113,7 @@ index f0a2b72..5305807 100644
              oids.extend(oid for (oid, _) in vote_result or ())
              self.assertEqual(len(oids), len(expected_oids), repr(oids))
 diff --git a/src/ZODB/tests/TransactionalUndoStorage.py b/src/ZODB/tests/TransactionalUndoStorage.py
-index a9490e1..b3f2ded 100644
+index 0ee68b2..1c88720 100644
 --- a/src/ZODB/tests/TransactionalUndoStorage.py
 +++ b/src/ZODB/tests/TransactionalUndoStorage.py
 @@ -73,6 +73,12 @@ def _transaction_vote(self, trans):
@@ -138,7 +138,7 @@ index a9490e1..b3f2ded 100644
          for oid in newrevs.keys():
              newrevs[oid] = self._transaction_newserial(oid)
          return newrevs
-@@ -215,9 +221,9 @@ def checkTwoObjectUndo(self):
+@@ -219,9 +225,9 @@ def checkTwoObjectUndo(self):
          self._transaction_store(oid2, revid2, p51, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -149,7 +149,7 @@ index a9490e1..b3f2ded 100644
          eq(revid1, revid2)
          # Update those same two objects
          t = Transaction()
-@@ -227,9 +233,9 @@ def checkTwoObjectUndo(self):
+@@ -231,9 +237,9 @@ def checkTwoObjectUndo(self):
          self._transaction_store(oid2, revid2, p52, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -160,24 +160,21 @@ index a9490e1..b3f2ded 100644
          eq(revid1, revid2)
          # Make sure the objects have the current value
          data, revid1 = self._storage.load(oid1, '')
-@@ -285,11 +291,12 @@ def checkTwoObjectUndoAtOnce(self):
+@@ -289,10 +295,11 @@ def checkTwoObjectUndoAtOnce(self):
          tid1 = info[1]['id']
          t = Transaction()
          oids = self._begin_undos_vote(t, tid, tid1)
 -        self._storage.tpc_finish(t)
 +        serial = self._storage.tpc_finish(t)
-         # We get the finalization stuff called an extra time:
--        eq(len(oids), 4)
--        unless(oid1 in oids)
--        unless(oid2 in oids)
+         # We may get the finalization stuff called an extra time,
+         # depending on the implementation.
+-        self.assertEqual(set(oids), set((oid1, oid2)))
 +        if serial is None:
-+            eq(len(oids), 4)
-+            unless(oid1 in oids)
-+            unless(oid2 in oids)
++            self.assertEqual(set(oids), {oid1, oid2})
          data, revid1 = self._storage.load(oid1, '')
          eq(zodb_unpickle(data), MinPO(30))
          data, revid2 = self._storage.load(oid2, '')
-@@ -323,7 +330,7 @@ def checkTwoObjectUndoAgain(self):
+@@ -326,7 +333,7 @@ def checkTwoObjectUndoAgain(self):
          self._transaction_store(oid2, revid2, p52, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -186,7 +183,7 @@ index a9490e1..b3f2ded 100644
          revid1 = self._transaction_newserial(oid1)
          revid2 = self._transaction_newserial(oid2)
          eq(revid1, revid2)
-@@ -343,7 +350,7 @@ def checkTwoObjectUndoAgain(self):
+@@ -346,7 +353,7 @@ def checkTwoObjectUndoAgain(self):
          self._transaction_store(oid2, revid2, p53, '', t)
          # Finish the transaction
          self._transaction_vote(t)
@@ -195,7 +192,7 @@ index a9490e1..b3f2ded 100644
          revid1 = self._transaction_newserial(oid1)
          revid2 = self._transaction_newserial(oid2)
          eq(revid1, revid2)
-@@ -355,10 +362,11 @@ def checkTwoObjectUndoAgain(self):
+@@ -358,10 +365,11 @@ def checkTwoObjectUndoAgain(self):
          tid = info[1]['id']
          t = Transaction()
          oids = self._begin_undos_vote(t, tid)
@@ -211,7 +208,7 @@ index a9490e1..b3f2ded 100644
          data, revid1 = self._storage.load(oid1, '')
          eq(zodb_unpickle(data), MinPO(33))
          data, revid2 = self._storage.load(oid2, '')
-@@ -395,7 +403,7 @@ def checkNotUndoable(self):
+@@ -398,7 +406,7 @@ def checkNotUndoable(self):
          self._transaction_store(oid1, revid1, p81, '', t)
          self._transaction_store(oid2, revid2, p91, '', t)
          self._transaction_vote(t)
