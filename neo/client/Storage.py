@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ZODB import BaseStorage, ConflictResolution, POSException
-from zope.interface import implements
+from zope.interface import implementer
 import ZODB.interfaces
 
 from functools import wraps
@@ -26,11 +26,7 @@ from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError
 def raiseReadOnlyError(*args, **kw):
     raise POSException.ReadOnlyError()
 
-class Storage(BaseStorage.BaseStorage,
-              ConflictResolution.ConflictResolvingStorage):
-    """Wrapper class for neoclient."""
-
-    implements(
+@implementer(
         ZODB.interfaces.IStorage,
         # ZODB.interfaces.IStorageRestoreable,
         ZODB.interfaces.IStorageIteration,
@@ -38,6 +34,9 @@ class Storage(BaseStorage.BaseStorage,
         ZODB.interfaces.IExternalGC,
         ZODB.interfaces.ReadVerifyingStorage,
     )
+class Storage(BaseStorage.BaseStorage,
+              ConflictResolution.ConflictResolvingStorage):
+    """Wrapper class for neoclient."""
 
     def __init__(self, master_nodes, name, read_only=False,
             compress=None, logfile=None, _app=None, **kw):
