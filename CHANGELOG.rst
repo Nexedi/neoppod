@@ -1,6 +1,30 @@
 Change History
 ==============
 
+1.6.3 (2016-06-15)
+------------------
+
+- Added support for ZODB 4.x
+
+- Clients are now able to recover from failures during tpc_finish when the
+  transaction got successfully committed.
+
+- Other fixes related to node disconnection:
+
+  - storage: fix crash when a client disconnects just after it requested to
+    finish a transaction
+  - storage: fix crash when trying to replicate from an unreachable node
+  - master: do never abort a prepared transaction (for example,
+    a client disconnecting during tpc_finish could cause a crash)
+  - client: fix invalidation issues when reconnecting to the master
+
+- Client:
+
+  - fix abort for storages where only current serials were checked
+  - fix the count of history items in the cache
+
+- neoctl: better error message when connection to admin fails
+
 1.6.2 (2016-03-09)
 ------------------
 
