@@ -142,7 +142,9 @@ class Serialized(object):
 
     @classmethod
     def stop(cls):
-        assert not cls._fd_dict, cls._fd_dict
+        assert not cls._fd_dict, ("file descriptor leak (%r)\nThis may happen"
+            " when a test fails, in which case you can see the real exception"
+            " by disabling this one." % cls._fd_dict)
         del(cls._busy, cls._busy_cond, cls._epoll, cls._fd_dict,
             cls._pdb, cls._sched_lock, cls._tic_lock)
 

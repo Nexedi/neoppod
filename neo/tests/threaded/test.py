@@ -1004,11 +1004,13 @@ class Test(NEOThreadedTest):
 
             # modify x with another client
             client = cluster.newClient()
-            txn = transaction.Transaction()
-            client.tpc_begin(txn)
-            client.store(x1._p_oid, x1._p_serial, y, '', txn)
-            tid = client.tpc_finish(txn, None)
-            client.close()
+            try:
+                txn = transaction.Transaction()
+                client.tpc_begin(txn)
+                client.store(x1._p_oid, x1._p_serial, y, '', txn)
+                tid = client.tpc_finish(txn, None)
+            finally:
+                client.close()
             self.tic()
 
             # Check reconnection to storage.
