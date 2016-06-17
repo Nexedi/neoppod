@@ -23,6 +23,7 @@ from thread import get_ident
 from zlib import compress
 from persistent import Persistent, GHOST
 from ZODB import DB, POSException
+from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
@@ -169,22 +170,20 @@ class Test(NEOThreadedTest):
             t.commit()
             ob.value += 1
             t.commit()
-            tid = ob._p_serial
-            storage = cluster.db.storage
+            undo = TransactionalUndo(cluster.db, (ob._p_serial,))
             txn = transaction.Transaction()
-            storage.tpc_begin(txn)
+            undo.tpc_begin(txn)
             if conflict_during_store:
                 with Patch(cluster.client, waitResponses=waitResponses) as p:
-                    storage.undo(tid, txn)
+                    undo.commit(txn)
             else:
                 ob.value += 3
                 t.commit()
-                storage.undo(tid, txn)
-            storage.tpc_finish(txn)
-            value = ob.value
-            ob._p_invalidate() # BUG: this should not be required
+                undo.commit(txn)
+            undo.tpc_vote(txn)
+            undo.tpc_finish(txn)
+            t.begin()
             self.assertEqual(ob.value, 3)
-            expectedFailure(self.assertNotEqual)(value, 4)
         finally:
             cluster.stop()
 
