@@ -15,10 +15,14 @@ Topic :: Software Development :: Libraries :: Python Modules
 """
 
 if not os.path.exists('mock.py'):
-    import cStringIO, hashlib, urllib, zipfile
-    mock_py = zipfile.ZipFile(cStringIO.StringIO(urllib.urlopen(
-        'http://downloads.sf.net/sourceforge/python-mock/pythonmock-0.1.0.zip'
-        ).read())).read('mock.py')
+    import cStringIO, hashlib,subprocess,  urllib, zipfile
+    x = 'pythonmock-0.1.0.zip'
+    try:
+        x = subprocess.check_output(('git', 'cat-file', 'blob', x))
+    except (OSError, subprocess.CalledProcessError):
+        x = urllib.urlopen(
+            'http://downloads.sf.net/sourceforge/python-mock/' + x).read()
+    mock_py = zipfile.ZipFile(cStringIO.StringIO(x)).read('mock.py')
     if hashlib.md5(mock_py).hexdigest() != '79f42f390678e5195d9ce4ae43bd18ec':
         raise EnvironmentError("MD5 checksum mismatch downloading 'mock.py'")
     open('mock.py', 'w').write(mock_py)
