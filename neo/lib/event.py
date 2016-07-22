@@ -49,8 +49,8 @@ class EpollEventManager(object):
 
     def getConnectionList(self):
         # XXX: use index
-        return [x for x in self.connection_dict.itervalues()
-            if not x.isAborted()]
+                return [x for x in self.connection_dict.itervalues()
+                          if not x.isAborted()]
 
     def getClientList(self):
         # XXX: use index
@@ -135,13 +135,14 @@ class EpollEventManager(object):
 
     def _poll(self, blocking):
         if blocking:
-            timeout = self._timeout
-            timeout_object = self
-            for conn in self.connection_dict.itervalues():
-                t = conn.getTimeout()
-                if t and (timeout is None or t < timeout):
-                    timeout = t
-                    timeout_object = conn
+            if 1:
+                    timeout = self._timeout
+                    timeout_object = self
+                    for conn in self.connection_dict.itervalues():
+                        t = conn.getTimeout()
+                        if t and (timeout is None or t < timeout):
+                            timeout = t
+                            timeout_object = conn
             # Make sure epoll_wait does not return too early, because it has a
             # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
             # See also https://bugs.python.org/issue20452 (fixed in Python 3).
@@ -155,38 +156,40 @@ class EpollEventManager(object):
             elif exc.errno != EINTR:
                 raise
             return
-        if event_list:
-            self.unregistered = unregistered = []
-            wlist = []
-            elist = []
-            for fd, event in event_list:
-                if event & EPOLLIN:
-                    conn = self.connection_dict[fd]
+        else:
+            if event_list:
+                self.unregistered = unregistered = []
+                wlist = []
+                elist = []
+                for fd, event in event_list:
+                    if event & EPOLLIN:
+                        conn = self.connection_dict[fd]
+                        if conn.readable():
+                            self._addPendingConnection(conn)
+                    if event & EPOLLOUT:
+                        wlist.append(fd)
+                    if event & (EPOLLERR | EPOLLHUP):
+                        elist.append(fd)
+                for fd in wlist:
+                    if fd not in unregistered:
+                        self.connection_dict[fd].writable()
+                for fd in elist:
+                    if fd in unregistered:
+                        continue
+                    try:
+                        conn = self.connection_dict[fd]
+                    except KeyError:
+                        assert fd == self._trigger_fd, fd
+                        with self._trigger_lock:
+                            self.epoll.unregister(fd)
+                            if self._trigger_exit:
+                                del self._trigger_exit
+                                thread.exit()
+                        continue
                     if conn.readable():
                         self._addPendingConnection(conn)
-                if event & EPOLLOUT:
-                    wlist.append(fd)
-                if event & (EPOLLERR | EPOLLHUP):
-                    elist.append(fd)
-            for fd in wlist:
-                if fd not in unregistered:
-                    self.connection_dict[fd].writable()
-            for fd in elist:
-                if fd in unregistered:
-                    continue
-                try:
-                    conn = self.connection_dict[fd]
-                except KeyError:
-                    assert fd == self._trigger_fd, fd
-                    with self._trigger_lock:
-                        self.epoll.unregister(fd)
-                        if self._trigger_exit:
-                            del self._trigger_exit
-                            thread.exit()
-                    continue
-                if conn.readable():
-                    self._addPendingConnection(conn)
-        elif blocking > 0:
+                return
+        if blocking > 0:
             logging.debug('timeout triggered for %r', timeout_object)
             timeout_object.onTimeout()
 
