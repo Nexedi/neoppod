@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import math
 from bisect import insort
 
@@ -64,7 +65,8 @@ class ClientCache(object):
     """
 
     __slots__ = ('_life_time', '_max_history_size', '_max_size',
-                 '_queue_list', '_oid_dict', '_time', '_size', '_history_size')
+                 '_queue_list', '_oid_dict', '_time', '_size', '_history_size',
+                 '_nhit', '_nmiss')
 
     def __init__(self, life_time=10000, max_history_size=100000,
                                         max_size=20*1024*1024):
@@ -80,11 +82,14 @@ class ClientCache(object):
         self._time = 0
         self._size = 0
         self._history_size = 0
+        self._nhit = self._nmiss = 0
 
     def __repr__(self):
-        return ("<%s oid_count=%s size=%s time=%s queue_length=%r"
+        nload = self._nhit + self._nmiss
+        return ("<%s #loads=%s #oids=%s size=%s time=%s queue_length=%r"
                 " (life_time=%s max_history_size=%s max_size=%s)>") % (
             self.__class__.__name__,
+            nload and '%s (%.3g%% hit)' % (nload, 100 * self._nhit / nload),
             len(self._oid_dict), self._size, self._time,
             [self._history_size] + [
                 sum(1 for _ in self._iterQueue(level))
@@ -160,7 +165,7 @@ class ClientCache(object):
         # XXX It might be better to adjust the level according to the object
         # size. See commented factor for example.
         item.level = 1 + int(_log(counter, 2)
-                             # * (1.01 - float(len(item.data)) / self._max_size)
+                             # * (1.01 - len(item.data) / self._max_size)
                             )
         self._add(item)
 
@@ -195,8 +200,10 @@ class ClientCache(object):
         if item:
             data = item.data
             if data is not None:
+                self._nhit += 1
                 self._fetched(item)
                 return data, item.tid, item.next_tid
+        self._nmiss += 1
 
     def store(self, oid, data, tid, next_tid):
         """Store a new data record in the cache"""
