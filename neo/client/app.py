@@ -235,12 +235,6 @@ class Application(ThreadedApplication):
                         self.notifications_handler,
                         node=self.trying_master_node,
                         dispatcher=self.dispatcher)
-                # Query for primary master node
-                if conn.getConnector() is None:
-                    # This happens if a connection could not be established.
-                    logging.error('Connection to master node %s failed',
-                                  self.trying_master_node)
-                    continue
                 try:
                     ask(conn, Packets.RequestIdentification(
                             NodeTypes.CLIENT, self.uuid, None, self.name),
