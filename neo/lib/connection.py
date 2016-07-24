@@ -228,8 +228,7 @@ class BaseConnection(object):
     def close(self):
         """Close the connection."""
         if self.connector is not None:
-            self.em.unregister(self)
-            self.connector.close()
+            self.em.unregister(self, True)
             self.connector = None
             self.aborted = False
 
@@ -672,9 +671,11 @@ class MTConnectionType(type):
         if __debug__:
             for name in 'answer',:
                 setattr(cls, name, cls.lockCheckWrapper(name))
-        for name in ('_delayedConnect', 'close', 'notify', 'onTimeout',
-                     'process', 'readable', 'writable'):
+        for name in 'close', 'notify':
             setattr(cls, name, cls.__class__.lockWrapper(cls, name))
+        for name in ('_delayedConnect', 'onTimeout',
+                     'process', 'readable', 'writable'):
+            setattr(cls, name, cls.__class__.lockWrapper(cls, name, True))
 
     def lockCheckWrapper(cls, name):
         def wrapper(self, *args, **kw):
@@ -684,10 +685,18 @@ class MTConnectionType(type):
             return getattr(super(cls, self), name)(*args, **kw)
         return wraps(getattr(cls, name).im_func)(wrapper)
 
-    def lockWrapper(cls, name):
-        def wrapper(self, *args, **kw):
-            with self.lock:
-                return getattr(super(cls, self), name)(*args, **kw)
+    def lockWrapper(cls, name, maybe_closed=False):
+        if maybe_closed:
+            def wrapper(self):
+                with self.lock:
+                    if self.isClosed():
+                        logging.info("%r.%s()", self, name)
+                    else:
+                        return getattr(super(cls, self), name)()
+        else:
+            def wrapper(self, *args, **kw):
+                with self.lock:
+                    return getattr(super(cls, self), name)(*args, **kw)
         return wraps(getattr(cls, name).im_func)(wrapper)
 
 

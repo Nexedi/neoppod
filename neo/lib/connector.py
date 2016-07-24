@@ -174,14 +174,19 @@ class SocketConnector(object):
         return True
 
 
-    def close(self):
+    def shutdown(self):
         self.is_closed = True
         try:
             if self.connect_limit[self.addr] < time():
                 del self.connect_limit[self.addr]
         except KeyError:
             pass
-        return self.socket.close()
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except socket.error, e:
+            if e.errno != errno.ENOTCONN:
+                raise
+        return self.socket.close
 
     def setReconnectionNoDelay(self):
         """Mark as successful so that we can reconnect without delay"""

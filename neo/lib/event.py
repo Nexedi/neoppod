@@ -21,6 +21,16 @@ from errno import EAGAIN, EEXIST, EINTR, ENOENT
 from . import logging
 from .locking import Lock
 
+@apply
+def dictionary_changed_size_during_iteration():
+    d = {}; i = iter(d); d[0] = 0
+    try:
+        next(i)
+    except RuntimeError as e:
+        return str(e)
+    raise AssertionError
+
+
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
 
@@ -29,10 +39,6 @@ class EpollEventManager(object):
 
     def __init__(self):
         self.connection_dict = {}
-        # Initialize a dummy 'unregistered' for the very rare case a registered
-        # connection is closed before the first call to poll. We don't care
-        # leaking a few integers for connections closed between 2 polls.
-        self.unregistered = []
         self.reader_set = set()
         self.writer_set = set()
         self.epoll = epoll()
@@ -40,6 +46,18 @@ class EpollEventManager(object):
         self._trigger_fd, w = os.pipe()
         os.close(w)
         self._trigger_lock = Lock()
+        close_list = []
+        self._closeAppend = close_list.append
+        l = Lock()
+        self._closeAcquire = l.acquire
+        _release = l.release
+        def release():
+            try:
+                while close_list:
+                    close_list.pop()()
+            finally:
+                _release()
+        self._closeRelease = release
 
     def close(self):
         os.close(self._trigger_fd)
@@ -49,8 +67,15 @@ class EpollEventManager(object):
 
     def getConnectionList(self):
         # XXX: use index
+        while 1:
+            # See _poll() about the use of self.connection_dict.itervalues()
+            try:
                 return [x for x in self.connection_dict.itervalues()
                           if not x.isAborted()]
+            except RuntimeError, e:
+                if str(e) != dictionary_changed_size_during_iteration:
+                    raise
+                logging.info("%r", e)
 
     def getClientList(self):
         # XXX: use index
@@ -86,17 +111,17 @@ class EpollEventManager(object):
             self.epoll.register(fd)
             self.addReader(conn)
 
-    def unregister(self, conn):
+    def unregister(self, conn, close=False):
         new_pending_processing = [x for x in self._pending_processing
                                   if x is not conn]
         # Check that we removed at most one entry from
         # self._pending_processing .
         assert len(new_pending_processing) > len(self._pending_processing) - 2
         self._pending_processing = new_pending_processing
-        fd = conn.getConnector().getDescriptor()
+        connector = conn.getConnector()
+        fd = connector.getDescriptor()
         try:
             del self.connection_dict[fd]
-            self.unregistered.append(fd)
             self.epoll.unregister(fd)
         except KeyError:
             pass
@@ -106,6 +131,10 @@ class EpollEventManager(object):
         else:
             self.reader_set.discard(fd)
             self.writer_set.discard(fd)
+        if close:
+            self._closeAppend(connector.shutdown())
+            if self._closeAcquire(0):
+                self._closeRelease()
 
     def isIdle(self):
         return not (self._pending_processing or self.writer_set)
@@ -135,7 +164,13 @@ class EpollEventManager(object):
 
     def _poll(self, blocking):
         if blocking:
-            if 1:
+            # self.connection_dict may be changed at any time by another thread,
+            # which may cause itervalues() to fail. But this happens so rarely,
+            # that for performance reasons, we prefer to retry, rather than:
+            # - protect self.connection_dict with a lock
+            # - or iterate over an atomic copy.
+            while 1:
+                try:
                     timeout = self._timeout
                     timeout_object = self
                     for conn in self.connection_dict.itervalues():
@@ -143,10 +178,21 @@ class EpollEventManager(object):
                         if t and (timeout is None or t < timeout):
                             timeout = t
                             timeout_object = conn
+                    break
+                except RuntimeError, e:
+                    if str(e) != dictionary_changed_size_during_iteration:
+                        raise
+                    logging.info("%r", e)
             # Make sure epoll_wait does not return too early, because it has a
             # granularity of 1ms and Python 2.7 rounds the timeout towards zero.
             # See also https://bugs.python.org/issue20452 (fixed in Python 3).
             blocking = .001 + max(0, timeout - time()) if timeout else -1
+        # From this point, and until we have processed all fds returned by
+        # epoll, we must prevent any fd from being closed, because they could
+        # be reallocated by new connection, either by this thread or by another.
+        # Sockets to close are queued, and they're really closed in the
+        # 'finally' clause.
+        self._closeAcquire()
         try:
             event_list = self.epoll.poll(blocking)
         except IOError, exc:
@@ -158,12 +204,14 @@ class EpollEventManager(object):
             return
         else:
             if event_list:
-                self.unregistered = unregistered = []
                 wlist = []
                 elist = []
                 for fd, event in event_list:
                     if event & EPOLLIN:
-                        conn = self.connection_dict[fd]
+                        try:
+                            conn = self.connection_dict[fd]
+                        except KeyError:
+                            continue
                         if conn.readable():
                             self._addPendingConnection(conn)
                     if event & EPOLLOUT:
@@ -171,24 +219,27 @@ class EpollEventManager(object):
                     if event & (EPOLLERR | EPOLLHUP):
                         elist.append(fd)
                 for fd in wlist:
-                    if fd not in unregistered:
-                        self.connection_dict[fd].writable()
-                for fd in elist:
-                    if fd in unregistered:
-                        continue
                     try:
                         conn = self.connection_dict[fd]
                     except KeyError:
-                        assert fd == self._trigger_fd, fd
-                        with self._trigger_lock:
-                            self.epoll.unregister(fd)
-                            if self._trigger_exit:
-                                del self._trigger_exit
-                                thread.exit()
+                        continue
+                    conn.writable()
+                for fd in elist:
+                    try:
+                        conn = self.connection_dict[fd]
+                    except KeyError:
+                        if fd == self._trigger_fd:
+                            with self._trigger_lock:
+                                self.epoll.unregister(fd)
+                                if self._trigger_exit:
+                                    del self._trigger_exit
+                                    thread.exit()
                         continue
                     if conn.readable():
                         self._addPendingConnection(conn)
                 return
+        finally:
+            self._closeRelease()
         if blocking > 0:
             logging.debug('timeout triggered for %r', timeout_object)
             timeout_object.onTimeout()
