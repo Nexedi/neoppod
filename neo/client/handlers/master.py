@@ -149,6 +149,10 @@ class PrimaryNotificationsHandler(MTEventHandler):
             app.master_conn = None
             for txn_context in app.txn_contexts():
                 txn_context['error'] = msg
+        try:
+            del app.pt
+        except AttributeError:
+            pass
         app.primary_master_node = None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 

@@ -27,7 +27,6 @@ class NEOStorageDoesNotExistError(NEOStorageNotFoundError):
     This error is a refinement of NEOStorageNotFoundError: this means
     that some object was not found, but also that it does not exist at all.
     """
-    pass
 
 class NEOStorageCreationUndoneError(NEOStorageDoesNotExistError):
     """
@@ -35,3 +34,13 @@ class NEOStorageCreationUndoneError(NEOStorageDoesNotExistError):
     some object existed at some point, but its creation was undone.
     """
 
+# TODO: Inherit from transaction.interfaces.TransientError
+#       (not recognized yet by ERP5 as a transient error).
+class NEOPrimaryMasterLost(POSException.ReadConflictError):
+    """
+    A read operation to a storage node failed because we get disconnected from
+    the primary master (which causes all connections to storages to be closed
+    as well). The connection failure to the master may be temporary so we'd
+    like to restart the transaction; if it isn't, we'll get failures when
+    trying to reconnect.
+    """

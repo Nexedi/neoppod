@@ -586,7 +586,12 @@ class NodeManager(object):
                     logging.debug('droping node %r (%r), found with %s '
                         '%s %s %s', node, node.isConnected(), *log_args)
                     if node.isConnected():
-                        # cut this connection, node removed by handler
+                        # Cut this connection, node removed by handler.
+                        # It's important for a storage to disconnect nodes that
+                        # aren't connected to the primary master, in order to
+                        # avoid conflict of node id. The clients will first
+                        # reconnect to the master because they cleared their
+                        # partition table upon disconnection.
                         node.getConnection().close()
                     self.remove(node)
                 else:

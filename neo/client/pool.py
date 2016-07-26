@@ -22,7 +22,7 @@ from neo.lib.locking import Lock
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
-from .exception import NEOStorageError
+from .exception import NEOPrimaryMasterLost, NEOStorageError
 
 # How long before we might retry a connection to a node to which connection
 # failed in the past.
@@ -52,6 +52,8 @@ class ConnectionPool(object):
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
         app = self.app
+        if app.master_conn is None:
+            raise NEOPrimaryMasterLost
         logging.debug('trying to connect to %s - %s', node, node.getState())
         conn = MTClientConnection(app, app.storage_event_handler, node,
                                   dispatcher=app.dispatcher)
@@ -123,9 +125,11 @@ class ConnectionPool(object):
                 # state can have changed during connection attempt.
                 elif node.isRunning():
                     new_cell_list.append(cell)
-            if not new_cell_list or self.app.master_conn is None:
+            if not new_cell_list:
                 break
             cell_list = new_cell_list
+        if self.app.master_conn is None:
+            raise NEOPrimaryMasterLost
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node

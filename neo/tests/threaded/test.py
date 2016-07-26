@@ -22,6 +22,7 @@ import unittest
 from thread import get_ident
 from zlib import compress
 from persistent import Persistent, GHOST
+from transaction.interfaces import TransientError
 from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, \
@@ -36,6 +37,7 @@ from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 from neo.master.handlers.client import ClientServiceHandler
+from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.initialization import InitializationHandler
 
 class PCounter(Persistent):
@@ -979,10 +981,6 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testClientReconnection(self):
-        conn = [None]
-        def getConnForNode(orig, node):
-            self.assertTrue(node.isRunning())
-            return conn.pop()
         cluster = NEOCluster()
         try:
             cluster.start()
@@ -1012,15 +1010,11 @@ class Test(NEOThreadedTest):
                 client.close()
             self.tic()
 
-            # Check reconnection to storage.
-            with Patch(cluster.client.cp, getConnForNode=getConnForNode):
-                self.assertFalse(cluster.client.history(x1._p_oid))
-            self.assertFalse(conn)
+            # Check reconnection to the master and storage.
             self.assertTrue(cluster.client.history(x1._p_oid))
-
-            # Check successful reconnection to master.
+            self.assertIsNot(None, cluster.client.master_conn)
             t1.begin()
-            self.assertEqual(x1._p_changed ,None)
+            self.assertEqual(x1._p_changed, None)
             self.assertEqual(x1.value, 1)
         finally:
             cluster.stop()
@@ -1279,6 +1273,30 @@ class Test(NEOThreadedTest):
             with Patch(conn, onTimeout=onTimeout):
                 conn.em.poll(1)
         self.assertFalse(conn.isClosed())
+
+    def testClientDisconnectedFromMaster(self):
+        def disconnect(conn, packet):
+            if isinstance(packet, Packets.AskObject):
+                m2c.close()
+                #return True
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            m2c, = cluster.master.getConnectionList(cluster.client)
+            cluster.client._cache.clear()
+            with cluster.client.filterConnection(cluster.storage) as c2s:
+                c2s.add(disconnect)
+                # Storages are currently notified of clients that get
+                # disconnected from the master and disconnect them in turn.
+                # Should it change, the clients would have to disconnect on
+                # their own.
+                self.assertRaises(TransientError, getattr, c, "root")
+            with Patch(ClientOperationHandler,
+                    askObject=lambda orig, self, conn, *args: conn.close()):
+                self.assertRaises(NEOStorageError, getattr, c, "root")
+        finally:
+            cluster.stop()
 
 
 if __name__ == "__main__":
