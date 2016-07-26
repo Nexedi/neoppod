@@ -267,6 +267,13 @@ class TransactionManager(object):
             logging.info('Possible deadlock on %r:%r with %r',
                 dump(oid), dump(ttid), dump(locking_tid))
             raise ConflictError(ZERO_TID)
+        # XXX: Consider locking before reporting a conflict:
+        #      - That would speed up the case of cascading conflict resolution
+        #        by avoiding incremental resolution, assuming that the time to
+        #        resolve a conflict is often constant: "C+A vs. B -> C+A+B"
+        #        rarely costs more than "C+A vs. C+B -> C+A+B".
+        #      - That would slow down of cascading unresolvable conflicts but
+        #        if that happens, the application should be reviewed.
         if previous_serial is None:
             previous_serial = self._app.dm.getLastObjectTID(oid)
         if previous_serial is not None and previous_serial != serial:
