@@ -93,9 +93,11 @@ class ConnectionPool(object):
         if uuid in self.connection_dict:
             return CELL_CONNECTED
         failure = self.node_failure_dict.get(uuid)
-        if failure is None or failure < time.time():
-            return CELL_GOOD
-        return CELL_FAILED
+        if failure:
+            if time.time() < failure:
+                return CELL_FAILED
+            self.node_failure_dict.pop(uuid, None)
+        return CELL_GOOD
 
     def getConnForCell(self, cell):
         return self.getConnForNode(cell.getNode())
