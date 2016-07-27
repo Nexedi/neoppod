@@ -654,24 +654,18 @@ class Application(ThreadedApplication):
         txn_context = self._txn_container.pop(transaction)
         if txn_context is None:
             return
-        ttid = txn_context['ttid']
-        p = Packets.AbortTransaction(ttid)
-        getConnForNode = self.cp.getConnForNode
-        # cancel transaction one all those nodes
-        nodes = txn_context['involved_nodes']
-        nodes |= txn_context['checked_nodes']
-        for node in nodes:
-            conn = getConnForNode(node)
-            if conn is None:
-                continue
-            try:
-                conn.notify(p)
-            except:
-                logging.exception('Exception in tpc_abort while notifying'
-                    'storage node %r of abortion, ignoring.', conn)
-        conn = self.master_conn
-        if conn is not None:
-            conn.notify(p)
+        p = Packets.AbortTransaction(txn_context['ttid'])
+        # cancel transaction on all those nodes
+        nodes = map(self.cp.getConnForNode,
+            txn_context['involved_nodes'] |
+            txn_context['checked_nodes'])
+        nodes.append(self.master_conn)
+        for conn in nodes:
+            if conn is not None:
+                try:
+                    conn.notify(p)
+                except ConnectionClosed:
+                    pass
         # We don't need to flush queue, as it won't be reused by future
         # transactions (deleted on next line & indexed by transaction object
         # instance).
