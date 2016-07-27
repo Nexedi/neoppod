@@ -113,7 +113,7 @@ index 9737ec4..43f29ed 100644
              oids.extend(oid for (oid, _) in vote_result or ())
              self.assertEqual(len(oids), len(expected_oids), repr(oids))
 diff --git a/src/ZODB/tests/TransactionalUndoStorage.py b/src/ZODB/tests/TransactionalUndoStorage.py
-index 72adac2..698e288 100644
+index 72adac2..203736a 100644
 --- a/src/ZODB/tests/TransactionalUndoStorage.py
 +++ b/src/ZODB/tests/TransactionalUndoStorage.py
 @@ -76,6 +76,12 @@ def _transaction_vote(self, trans):
@@ -220,3 +220,16 @@ index 72adac2..698e288 100644
          revid1 = self._transaction_newserial(oid1)
          revid2 = self._transaction_newserial(oid2)
          eq(revid1, revid2)
+@@ -683,9 +691,9 @@ def undo(i):
+             tid = p64(i + 1)
+             eq(txn.tid, tid)
+ 
+-            L1 = [(rec.oid, rec.tid, rec.data_txn) for rec in txn]
+-            L2 = [(oid, revid, None) for _tid, oid, revid in orig
+-                  if _tid == tid]
++            L1 = {(rec.oid, rec.tid, rec.data_txn) for rec in txn}
++            L2 = {(oid, revid, None) for _tid, oid, revid in orig
++                  if _tid == tid}
+ 
+             eq(L1, L2)
+ 
