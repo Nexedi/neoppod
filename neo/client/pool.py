@@ -39,9 +39,8 @@ CELL_FAILED = 1
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
 
-    def __init__(self, app, max_pool_size = 25):
+    def __init__(self, app):
         self.app = app
-        self.max_pool_size = max_pool_size
         self.connection_dict = {}
         # Define a lock in order to create one connection to
         # a storage node at a time to avoid multiple connections
@@ -69,21 +68,6 @@ class ConnectionPool(object):
             logging.info('Connected %r', node)
             return conn
         self.notifyFailure(node)
-
-    def _dropConnections(self):
-        """Drop connections."""
-        for conn in self.connection_dict.values():
-            # Drop first connection which looks not used
-            with conn.lock:
-                if not conn.pending() and \
-                        not self.app.dispatcher.registered(conn):
-                    del self.connection_dict[conn.getUUID()]
-                    conn.setReconnectionNoDelay()
-                    conn.close()
-                    logging.debug('_dropConnections: connection to '
-                        'storage node %s:%d closed', *conn.getAddress())
-                    if len(self.connection_dict) <= self.max_pool_size:
-                        break
 
     def notifyFailure(self, node):
         self.node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE
@@ -148,9 +132,6 @@ class ConnectionPool(object):
                     try:
                         return self.connection_dict[uuid]
                     except KeyError:
-                        if len(self.connection_dict) > self.max_pool_size:
-                            # must drop some unused connections
-                            self._dropConnections()
                         # Create new connection to node
                         conn = self._initNodeConnection(node)
                         if conn is not None:
@@ -161,7 +142,12 @@ class ConnectionPool(object):
         """Explicitly remove connection when a node is broken."""
         self.connection_dict.pop(node.getUUID(), None)
 
-    def flush(self):
-        """Remove all connections"""
-        self.connection_dict.clear()
-
+    def closeAll(self):
+        with self._lock:
+            while 1:
+                try:
+                    conn = self.connection_dict.popitem()[1]
+                except KeyError:
+                    break
+                conn.setReconnectionNoDelay()
+                conn.close()

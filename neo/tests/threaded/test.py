@@ -688,8 +688,7 @@ class Test(NEOThreadedTest):
             cluster.start()
             t, c = cluster.getTransaction()
             c.root()[0] = 'ok'
-            while cluster.client.cp.connection_dict:
-                cluster.client.cp._dropConnections()
+            cluster.client.cp.closeAll()
             t.commit() # store request
         finally:
             cluster.stop()
@@ -699,8 +698,7 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             t, c = cluster.getTransaction()
-            while cluster.client.cp.connection_dict:
-                cluster.client.cp._dropConnections()
+            cluster.client.cp.closeAll()
             tid, (t1,) = cluster.client.transactionLog(
                 ZERO_TID, c.db().lastTransaction(), 10)
         finally:
@@ -711,8 +709,7 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             t, c = cluster.getTransaction()
-            while cluster.client.cp.connection_dict:
-                cluster.client.cp._dropConnections()
+            cluster.client.cp.closeAll()
             t1, = cluster.client.undoLog(0, 10)
         finally:
             cluster.stop()
