@@ -355,17 +355,9 @@ class TransactionManager(object):
             Abort any non-locked transaction of a node
         """
         logging.debug('Abort for %s', uuid_str(uuid))
-        # BUG: Discarding voted transactions must only be a decision of the
-        #      master, and for this, we'll need to review how transactions are
-        #      aborted. As a workaround, we rely on the fact that lock() will
-        #      disconnect from the master in case of LockInformation.
         # abort any non-locked transaction of this node
-        for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, [])]:
+        for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, ())]:
             self.abort(ttid)
-        # cleanup _uuid_dict if no transaction remains for this node
-        transaction_set = self._uuid_dict.get(uuid)
-        if transaction_set is not None and not transaction_set:
-            del self._uuid_dict[uuid]
 
     def isLockedTid(self, tid):
         for t in self._transaction_dict.itervalues():
