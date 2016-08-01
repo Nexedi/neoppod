@@ -130,16 +130,14 @@ class TransactionManager(object):
         self._store_lock_dict = {}
         self._load_lock_dict = {}
 
-    def register(self, uuid, ttid):
+    def register(self, conn, ttid):
         """
             Register a transaction, it may be already registered
         """
-        logging.debug('Register TXN %s for %s', dump(ttid), uuid_str(uuid))
-        transaction = self._transaction_dict.get(ttid)
-        if transaction is None:
-            transaction = Transaction(uuid, ttid)
-            self._transaction_dict[ttid] = transaction
-        return transaction
+        if ttid not in self._transaction_dict:
+            uuid = conn.getUUID()
+            logging.debug('Register TXN %s for %s', dump(ttid), uuid_str(uuid))
+            self._transaction_dict[ttid] = Transaction(uuid, ttid)
 
     def getObjectFromTransaction(self, ttid, oid):
         """

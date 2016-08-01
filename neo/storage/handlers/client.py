@@ -69,7 +69,7 @@ class ClientOperationHandler(EventHandler):
         self.app.tm.abort(ttid)
 
     def askStoreTransaction(self, conn, ttid, *txn_info):
-        self.app.tm.register(conn.getUUID(), ttid)
+        self.app.tm.register(conn, ttid)
         self.app.tm.vote(ttid, txn_info)
         conn.answer(Packets.AnswerStoreTransaction())
 
@@ -116,7 +116,7 @@ class ClientOperationHandler(EventHandler):
         if 1 < compression:
             raise ProtocolError('invalid compression value')
         # register the transaction
-        self.app.tm.register(conn.getUUID(), ttid)
+        self.app.tm.register(conn, ttid)
         if data or checksum != ZERO_HASH:
             # TODO: return an appropriate error packet
             assert makeChecksum(data) == checksum
@@ -191,7 +191,7 @@ class ClientOperationHandler(EventHandler):
         conn.answer(p)
 
     def askCheckCurrentSerial(self, conn, ttid, serial, oid):
-        self.app.tm.register(conn.getUUID(), ttid)
+        self.app.tm.register(conn, ttid)
         self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())
 
     def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
