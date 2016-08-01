@@ -129,17 +129,15 @@ class TransactionManager(object):
         self._transaction_dict = {}
         self._store_lock_dict = {}
         self._load_lock_dict = {}
-        self._uuid_dict = {}
 
     def register(self, uuid, ttid):
         """
             Register a transaction, it may be already registered
         """
         logging.debug('Register TXN %s for %s', dump(ttid), uuid_str(uuid))
-        transaction = self._transaction_dict.get(ttid, None)
+        transaction = self._transaction_dict.get(ttid)
         if transaction is None:
             transaction = Transaction(uuid, ttid)
-            self._uuid_dict.setdefault(uuid, set()).add(transaction)
             self._transaction_dict[ttid] = transaction
         return transaction
 
@@ -160,7 +158,6 @@ class TransactionManager(object):
         self._transaction_dict.clear()
         self._store_lock_dict.clear()
         self._load_lock_dict.clear()
-        self._uuid_dict.clear()
 
     def vote(self, ttid, txn_info=None):
         """
@@ -341,11 +338,6 @@ class TransactionManager(object):
                 'aborting %s:%s but %s has the lock.' % (dump(ttid), dump(oid),
                     dump(write_locking_tid))
         # remove the transaction
-        uuid = transaction.getUUID()
-        self._uuid_dict[uuid].discard(transaction)
-        # clean node index if there is no more current transactions
-        if not self._uuid_dict[uuid]:
-            del self._uuid_dict[uuid]
         del self._transaction_dict[ttid]
         # some locks were released, some pending locks may now succeed
         self._app.executeQueuedEvents()
@@ -356,8 +348,9 @@ class TransactionManager(object):
         """
         logging.debug('Abort for %s', uuid_str(uuid))
         # abort any non-locked transaction of this node
-        for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, ())]:
-            self.abort(ttid)
+        for transaction in self._transaction_dict.values():
+            if transaction.getUUID() == uuid:
+                self.abort(transaction.getTTID())
 
     def isLockedTid(self, tid):
         for t in self._transaction_dict.itervalues():
