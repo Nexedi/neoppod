@@ -136,7 +136,7 @@ class MySQLDatabaseManager(DatabaseManager):
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1
         else:
-            assert r in ("ALTER", "CREATE", "DROP", "TRUNCATE"), query
+            assert r in ("ALTER", "CREATE", "DROP"), query
 
     @property
     def escape(self):
@@ -364,7 +364,7 @@ class MySQLDatabaseManager(DatabaseManager):
         offset_list = []
         q = self.query
         if reset:
-            q("TRUNCATE pt")
+            q("DELETE FROM pt")
         for offset, nid, state in cell_list:
             # TODO: this logic should move out of database manager
             # add 'dropCells(cell_list)' to API and use one query
@@ -414,8 +414,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def dropUnfinishedData(self):
         q = self.query
         data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
-        q("TRUNCATE tobj")
-        q("TRUNCATE ttrans")
+        q("DELETE FROM tobj")
+        q("DELETE FROM ttrans")
         self.releaseData(data_id_list, True)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
