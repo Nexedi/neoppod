@@ -16,6 +16,7 @@
 
 import random
 import time
+import transaction
 import unittest
 from collections import defaultdict
 from functools import wraps
@@ -353,6 +354,36 @@ class ReplicationTests(NEOThreadedTest):
             finally:
                 cluster.stop()
             cluster.reset(True)
+
+    def testClientReadingDuringTweak(self):
+        # XXX: Currently, the test passes because data of dropped cells are not
+        #      deleted while the cluster is operational: this is only done
+        #      during the RECOVERING phase. But we'll want to be able to free
+        #      disk space without service interruption, and for this the client
+        #      may have to retry reading data from the new cells. If s0 deleted
+        #      all data for partition 1, the test would fail with a POSKeyError.
+        cluster = NEOCluster(partitions=2, storage_count=2)
+        s0, s1 = cluster.storage_list
+        try:
+            cluster.start([s0])
+            storage = cluster.getZODBStorage()
+            oid = p64(1)
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn)
+            storage.store(oid, None, 'foo', '', txn)
+            storage.tpc_finish(txn)
+            storage._cache.clear()
+            s1.start()
+            self.tic()
+            cluster.neoctl.enableStorageList([s1.uuid])
+            cluster.neoctl.tweakPartitionTable()
+            with cluster.master.filterConnection(cluster.client) as m2c:
+                m2c.add(lambda conn, packet:
+                    isinstance(packet, Packets.NotifyPartitionChanges))
+                self.tic()
+                self.assertEqual('foo', storage.load(oid)[0])
+        finally:
+            cluster.stop()
 
     def testResumingReplication(self):
         cluster = NEOCluster(replicas=1)
