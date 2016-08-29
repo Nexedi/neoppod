@@ -58,6 +58,11 @@
       committed by future transactions.
     - Add a 'devid' storage configuration so that master do not distribute
       replicated partitions on storages with same 'devid'.
+    - Fix race conditions between client-to-storage operations and moved
+      partitions. Currently, reads succeed because feeding nodes don't delete
+      anything while the cluster is operational, for performance reasons:
+      deletion of dropped partitions must be reimplemented in a scalable way.
+      (HIGH AVAILABILITY)
 
     Storage
     - Use libmysqld instead of a stand-alone MySQL server.
@@ -74,8 +79,6 @@
       to remove duplicates and remove logic from handlers (CODE)
     - Consider insert multiple objects at time in the database, with taking care
       of maximum SQL request size allowed. (SPEED)
-    - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
-      consider using query(request, args) instead of query(request % args)
     - Make listening address and port optionnal, and if they are not provided
       listen on all interfaces on any available port.
     - Make replication speed configurable (HIGH AVAILABILITY)
@@ -151,7 +154,6 @@
     - Decentralize primary master tasks as much as possible (consider
       distributed lock mechanisms, ...)
     - Choose how to compute the storage size
-    - Make storage check if the OID match with it's partitions during a store
     - Investigate delta compression for stored data
       Idea would be to have a few most recent revisions being stored fully, and
       older revision delta-compressed, in order to save space.
