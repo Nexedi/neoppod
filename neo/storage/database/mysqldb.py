@@ -396,7 +396,8 @@ class MySQLDatabaseManager(DatabaseManager):
         for partition in offset_list:
             where = " WHERE `partition`=%d" % partition
             data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj" + where) if x]
+                q("SELECT DISTINCT data_id FROM obj USE INDEX(PRIMARY)" + where)
+                if x]
             if not self._use_partition:
                 q("DELETE FROM obj" + where)
                 q("DELETE FROM trans" + where)
