@@ -1,0 +1,336 @@
+Wire proto
+----------
+
+# all in network byte-order
+
+PktHeader
+	.id	u32	// autoincrement on ask (?)
+	.code	u16	// defined by seqno if register(...) call in Packets
+	.length	u32	// whole pkt length
+
+# response_code = 0x8000 | code
+
+
+List
+	.len	u32
+	[len]items
+
+Dict
+	.len	u32
+	[len] key, value
+
+Enum
+	.value	s32	// None -> -1
+
+String
+	.len	u32
+	[len] strdata
+
+Address
+	.host	String
+	.port	u16	// present only if .host != ''
+
+Bool
+	.value	u8
+
+Number
+	.value	u32
+
+Index
+	.value	u64
+
+PTID
+	.value	u64	// 0 <-> None
+
+Protocol
+	Number		// encode <- version, decode -> check version
+
+Checksum
+	.checksum [20]u8
+
+UUID
+	.uuid	s32	// 0 <-> None
+
+TID
+	.tid	[8]byte	// None <-> \xff*8
+
+POID = PTID
+
+
+~~~~~~~~
+
+NodeList []
+	type	NodeType
+	address	Address
+	uuid	UUID
+	state	NodeState
+
+CellList []
+	uuid	UUID
+	state	CellState
+
+RowList  []
+	offset	Number	// u32
+	cell_list CellList
+
+HistoryList []
+	serial	TID
+	size	Number	// u32
+
+UUIDList []
+	uuid	UUID
+
+TidList []
+	tid	TID
+
+OidList	[]
+	oid	OID
+
+~~~~~~~~
+
+Notify
+	.message	String
+
+Error
+	.code		Number
+	.message	String
+
+Ping
+	ø
+	_answer = PFEmpty
+
+CloseClient
+	ø
+
+RequestIdentification
+	.protocol_version	PProtocol
+	.node_type		NodeType
+	.uuid			UUID
+	.address		Address
+	.name			String
+
+TODO
+
+
+
+Storage related messages
+------------------------
+
+NotifyReady		S -> M
+
+Recovery		PM -> S		S -> PM
+LastIDs			PM -> S		S -> PM
+
+PartitionTable		PM -> S		S -> PM
+NotifyPartitionTable	PM -> S, C
+PartitionChanges	PM -> S, C		// subset of NotifyPartitionTable (?)
+
+StartOperation		PM -> S
+StopOperation		PM -> S
+
+UnfinishedTransactions	S -> PM		PM -> S
+LockedTransactions	PM -> S		S -> PM
+
+FinalTID		* -> S , C -> PM (?)
+ValidateTransaction	PM -> S
+
+NotifyTransactionFinished M -> S
+
+LockInformation		PM -> S		S -> PM
+UnlockInformation	PM -> S
+
+StoreObject  C -> S
+	.oid		OID
+	.serial		TID	// original serial
+	.data		String
+	.data_serial	TID
+	.tid		tid	// current txn id
+	.unlock		bool
+
+AnswerStoreObject  S -> C
+	.conflicting	bool
+	.oid		OID
+	.serial		TID
+
+GetObject  C -> S
+	.oid
+	.serial
+	.tid
+
+AnswerGetObject  S -> C
+	.oid		OID
+	.serial_start	TID
+	.serial_end	TID
+	.data		String
+	.data_serial	TID
+
+
+AbortTransaction	C -> S, PM
+	.tid
+
+StoreTransaction	C -> S		S -> C
+	.tid			TID
+	user, description, ext	String
+	oidv			[]OID
+
+
+VoteTransaction		C -> S		S -> C
+	.tid
+
+
+TIDList  C -> S
+	first, last	Index	// u64 [first, last)
+	partition	Number	// u32
+
+AnswerTIDList  S -> C
+	tidv	[]TID
+
+TIDListFrom  C -> S
+	min_tid, max_tid  TID
+	length		  Number
+	partition	  Number
+
+AnswerTIDListFrom  S -> C
+	tidv	[]TID
+
+TransactionInformation  * -> S
+	tid	TID
+
+AnswerTransactionInformation  S -> *
+	tid	TID
+	user, description, extension	String
+	packed	bool
+	oidv	[]OID
+
+ObjectHistory  C -> S
+	oid	OID
+	first, last	Index	// [first, last]
+
+AnswerObjectHistory
+	oid	  OID
+	historyv  []strict{serial TID; size Number}
+
+ObjectUndoSerial  C -> S
+	tid		TID
+	ltid		TID	// ?
+	undone_tid	TID	// ?
+	oidv		[]OID
+
+AnswerObjectUndoSerial  S -> C
+	{} oid ->
+		.current_serial	TID
+		.undo_serial	TID
+		.is_current	bool
+
+HasLock  C -> S
+	tid	TID
+	oid	OID
+
+AnswerHasLock  S -> C
+	oid		OID
+	lock_state	LockState	// not_locket, granted, granted_to_other:w
+
+CheckCurrentSerial  C -> S	AnswerCheckCurrentSerial  S -> C
+	tid	TID			conflicting	bool
+	serial	TID			oid		OID
+	oid	OID			serial		TID
+
+Pack	C -> M -> S
+	tid	TID
+
+CheckPartition	M -> S
+	partition		Number
+	upstream_name		String
+	address			Address
+	min_tid, max_tid	TID
+
+CheckTIDRange	S -> S				AnswerCheckTIDRange	S -> S
+	partition		Number			count		Number
+	length			Number			checksum	Checksum
+	min_tid, max_tid	TID			max_tid		TID
+
+CheckSerialRange  S -> S
+
+ParitionCorrupted  S -> M
+	partition	Number
+	uuidv		[]UUID
+
+
+
+~~~~~~~~
+(?)
+NotifyNodeIntormation
+NodeInformation
+
+TODO
+
+
+
+
+Tables
+------
+
+- config
+	.name	str
+	.value	str
+	(name, nid, partitions, ptid, replicas, version, zodb=pickle...)
+
+- pt
+	.rid	int	// = row id = part of oid space
+	.nid	int
+	.state	tinyint	// = cell state
+
+	pkey (rid, nid)
+
+# committed txns
+- trans
+	.partition	smallint
+	.tid		bigint
+	.packed		bool
+	.oids		mediumblob	// []oid
+	.user		blob
+	.description	blob
+	.ext		blob
+	.ttid		bigint		// XXX ?
+
+	pkey (partition, tid)
+
+# committed object metadata
+- obj
+	.partition	smallint
+	.oid		bigint
+	.tid		bigint
+	.data_id	bigint | NULL	// -> data.id
+	.value_tid	bigint | NULL	// XXX ?	(у нас NULL)
+
+	pkey (partition, tid, oid)
+	key (partition, oid, tid)
+	key data_id
+
+# object data
+- data
+	.id		bigint
+	.hash		sha1		// UNIQUE (hash, compression)
+	.compression	tinyint
+	.value		mediumblob
+
+	key id
+	key (hash, compression)	// <- from UNIQUE ^^^
+
+- (bigdata)
+
+# uncommitted transactions
+# (= trans)
+- ttrans
+	.partition	smallint
+	.tid		bigint
+	.packed		bool
+	.oids		mediumblob	// []oid
+	.user		blob
+	.description	blob
+	.ext		blob
+	ttid		bigint		// XXX ?
+
+# uncommitted object metadata
+# (= obj)
+- tobj
