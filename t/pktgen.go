@@ -1,3 +1,7 @@
+// TODO text what it does (generates code for pkt.go)
+
+// +build ignore
+
 package main
 
 import (
@@ -20,7 +24,9 @@ func main() {
 
 	ncode := 0
 
-	//ast.Print(fset, f)
+	// ast.Print(fset, f)
+	// return
+
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
 		gdecl, ok := decl.(*ast.GenDecl)
@@ -57,8 +63,13 @@ func main() {
 					panic(fmt.Sprintf("%#v not supported", fieldv.Type))
 				}
 
-				for _, field := range fieldv.Names {
-					fmt.Printf("%s(%d).%s\t%s\n", tname, ncode, field.Name, ftype)
+				if len(fieldv.Names) != 0 {
+					for _, field := range fieldv.Names {
+						fmt.Printf("%s(%d).%s\t%s\n", tname, ncode, field.Name, ftype)
+					}
+				} else {
+					// no names means embedding
+					fmt.Printf("%s(%d).<%s>\n", tname, ncode, ftype)
 				}
 			}
 

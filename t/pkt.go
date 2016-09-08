@@ -7,6 +7,6 @@ type Header struct {
 }
 
 type Notify struct {
-	// Header
+	Header
 	Message	string
 }
