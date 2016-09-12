@@ -94,23 +94,31 @@ type UUID int32
 
 // TODO UUID_NAMESPACES
 
+// XXX -> NodeInfo      (and use []NodeInfo) ?
+type NodeList []struct {
+	NodeType
+	Address         PAddress        // TODO
+	UUID
+	NodeState
+}
+
+// XXX -> CellInfo      (and use []CellInfo) ?
 type CellList []struct {
 	UUID      UUID          // XXX maybe simply 'UUID' ?
 	CellState CellState     // ----///----
 }
 
+// XXX -> RowInfo       (and use []RowInfo) ?
 type RowList []struct {
 	Offset   uint32  // PNumber
 	CellList CellList
 }
 
 
-type OIDList []struct {
-	OID     OID
-}
 
 // XXX link request <-> answer ?
 // TODO ensure len(encoded packet header) == 10
+// XXX -> PktHeader ?
 type Packet struct {
 	Id   uint32
 	Code uint16 // XXX we don't need this as field - this is already encoded in type
@@ -325,8 +333,8 @@ type AnswerBeginTransaction struct {
 type FinishTransaction struct {
 	Packet
         TID         TID
-        OIDList     OIDList
-        CheckedList OIDList
+        OIDList     []OID
+        CheckedList []OID
 }
 
 type AnswerFinishTransaction struct {
@@ -361,7 +369,7 @@ type AnswerLockInformation struct {
 type InvalidateObjects struct {
 	Packet
         TID     TID
-        OidList OidList
+        OidList []OID
 }
 
 // Unlock information on a transaction. PM -> S.
@@ -380,7 +388,7 @@ type GenerateOIDs struct {
 // XXX answer_new_oids ?
 type AnswerGenerateOIDs struct {
 	Packet
-        OidList
+        OidList []OID
 }
 
 
@@ -423,7 +431,7 @@ type StoreTransaction struct {
         User            string
         Description     string
         Extension       string
-        OidList
+        OidList         []OID
 	// TODO _answer = PFEmpty
 }
 
@@ -457,4 +465,139 @@ type AnswerGetObject struct {
         Data            []byte          // XXX or string ?
         DataSerial      TID
 }
+
+// Ask for TIDs between a range of offsets. The order of TIDs is descending,
+// and the range is [first, last). C -> S.
+// Answer the requested TIDs. S -> C.
+type TIDList struct {
+	Packet
+	Fisrt           uint64  // PIndex       XXX this is TID actually ?
+	Last            uint64  // PIndex       ----//----
+	Partition       uint32  // PNumber
+}
+
+// XXX answer_tids ?
+type AnswerTIDList struct {
+	Packet
+        TIDList []TID
+}
+
+// Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
+// C -> S.
+// Answer the requested TIDs. S -> C
+type TIDListFrom struct {
+	Packet
+	MinTID          TID
+	MaxTID          TID
+	Length          uint32  // PNumber
+	Partition       uint32  // PNumber
+}
+
+// XXX answer_tids ?
+type AnswerTIDListFrom struct {
+	Packet
+	TidList []TID
+}
+
+// Ask information about a transaction. Any -> S.
+// Answer information (user, description) about a transaction. S -> Any.
+type TransactionInformation struct {
+	Packet
+	TID     TID
+}
+
+type AnswerTransactionInformation struct {
+	Packet
+        TID             TID
+        User            string
+        Description     string
+        Extension       string
+        Packed          bool
+        OidList         []OID
+}
+
+// Ask history information for a given object. The order of serials is
+// descending, and the range is [first, last]. C -> S.
+// Answer history information (serial, size) for an object. S -> C.
+type ObjectHistory struct {
+	Packet
+	OID     OID
+	First   uint64  // PIndex       XXX this is actually TID
+	Last    uint64  // PIndex       ----//----
+}
+
+type AnswerObjectHistory struct {
+	Packet
+	OID         OID
+        HistoryList []struct {
+	        Serial  TID
+	        Size    uint32  // PNumber
+	}
+}
+
+// All the following messages are for neoctl to admin node
+// Ask information about partition
+// Answer information about partition
+type PartitionList struct {
+	Packet
+	MinOffset   uint32      // PNumber
+	MaxOffset   uint32      // PNumber
+	UUID        UUID
+}
+
+type AnswerPartitionList struct {
+	Packet
+	PTID    PTID
+        RowList RowList
+    )
+
+// Ask information about nodes
+// Answer information about nodes
+type NodeList struct {
+	Packet
+        NodeType
+}
+
+type AnswerNodeList struct {
+	Packet
+        NodeList
+}
+
+// Set the node state
+type SetNodeState struct {
+	Packet
+	UUID
+        NodeState
+
+	// XXX _answer = Error ?
+}
+
+// Ask the primary to include some pending node in the partition table
+type AddPendingNodes struct {
+	Packet
+        UUIDList []UUID
+
+	// XXX _answer = Error ?
+}
+
+// Ask the primary to optimize the partition table. A -> PM.
+type TweakPartitionTable struct {
+	Packet
+        UUIDList []UUID
+
+	// XXX _answer = Error ?
+}
+
+// Notify information about one or more nodes. PM -> Any.
+type NotifyNodeInformation struct {
+	Packet
+        NodeList
+}
+
+// Ask node information
+type NodeInformation struct {
+	Packet
+	// XXX _answer = PFEmpty
+}
+
 
