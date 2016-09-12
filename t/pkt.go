@@ -577,7 +577,7 @@ type AddPendingNodes struct {
 	Packet
         UUIDList []UUID
 
-	// XXX _answer = Error ?
+	// XXX _answer = Error
 }
 
 // Ask the primary to optimize the partition table. A -> PM.
@@ -585,7 +585,7 @@ type TweakPartitionTable struct {
 	Packet
         UUIDList []UUID
 
-	// XXX _answer = Error ?
+	// XXX _answer = Error
 }
 
 // Notify information about one or more nodes. PM -> Any.
@@ -600,4 +600,213 @@ type NodeInformation struct {
 	// XXX _answer = PFEmpty
 }
 
+// Set the cluster state
+type SetClusterState struct {
+	Packet
+	State   ClusterState
 
+	// XXX _answer = Error
+}
+
+// Notify information about the cluster
+type ClusterInformation struct {
+	Packet
+	State   ClusterState
+}
+
+// Ask state of the cluster
+// Answer state of the cluster
+type ClusterState struct {
+	Packet
+        State   ClusterState
+}
+
+
+// Ask storage the serial where object data is when undoing given transaction,
+// for a list of OIDs.
+// C -> S
+// Answer serials at which object data is when undoing a given transaction.
+// object_tid_dict has the following format:
+//     key: oid
+//     value: 3-tuple
+//         current_serial (TID)
+//             The latest serial visible to the undoing transaction.
+//         undo_serial (TID)
+//             Where undone data is (tid at which data is before given undo).
+//         is_current (bool)
+//             If current_serial's data is current on storage.
+// S -> C
+type ObjectUndoSerial struct {
+	Packet
+        TID             TID
+        LTID            TID
+        UndoneTID       TID
+        OidList         []OID
+}
+
+// XXX answer_undo_transaction ?
+type AnswerObjectUndoSerial struct {
+	Packet
+	ObjectTIDDict map[OID]struct {
+                CurrentSerial   TID
+                UndoSerial      TID
+                IsCurrent       bool
+	}
+}
+
+// Ask a storage is oid is locked by another transaction.
+// C -> S
+// Answer whether a transaction holds the write lock for requested object.
+type HasLock struct {
+	Packet
+        TID     TID
+        OID     OID
+}
+
+type AnswerHasLock struct {
+	Packet
+        OID       OID
+        LockState LockState
+}
+
+
+// Verifies if given serial is current for object oid in the database, and
+// take a write lock on it (so that this state is not altered until
+// transaction ends).
+// Answer to AskCheckCurrentSerial.
+// Same structure as AnswerStoreObject, to handle the same way, except there
+// is nothing to invalidate in any client's cache.
+type CheckCurrentSerial struct {
+	Packet
+	TID     TID
+	Serial  TID
+	OID     OID
+}
+
+// XXX answer_store_object ?
+type AnswerCheckCurrentSerial struct {
+        Conflicting     bool
+        OID             OID
+        Serial          TID
+}
+
+// Request a pack at given TID.
+// C -> M
+// M -> S
+// Inform that packing it over.
+// S -> M
+// M -> C
+type Pack struct {
+	Packet
+        TID     TID
+}
+
+type AnswerPack struct {
+	Packet
+	Status  bool
+}
+
+
+// ctl -> A
+// A -> M
+type CheckReplicas struct {
+	Packet
+	PartitionDict map[uint32/*PNumber*/]UUID        // partition -> source
+	MinTID  TID
+	MaxTID  TID
+
+	// XXX _answer = Error
+}
+
+// M -> S
+type CheckPartition struct {
+	Packet
+	Partition uint32  // PNumber
+	Source    struct {
+		UpstreamName string
+		Address      PAddress
+	}
+	MinTID    TID
+	MaxTID    TID
+}
+
+
+// Ask some stats about a range of transactions.
+// Used to know if there are differences between a replicating node and
+// reference node.
+// S -> S
+// Stats about a range of transactions.
+// Used to know if there are differences between a replicating node and
+// reference node.
+// S -> S
+type CheckTIDRange struct {
+	Packet
+        Partition uint32        // PNumber
+        Length    uint32        // PNumber
+        MinTID    TID
+        MaxTID    TID
+}
+
+type AnswerCheckTIDRange struct {
+	Packet
+	Count    uint32         // PNumber
+	Checksum PChecksum      // TODO
+        MaxTID   TID
+}
+
+// Ask some stats about a range of object history.
+// Used to know if there are differences between a replicating node and
+// reference node.
+// S -> S
+// Stats about a range of object history.
+// Used to know if there are differences between a replicating node and
+// reference node.
+// S -> S
+type CheckSerialRange struct {
+	Packet
+        Partition       uint32  // PNumber
+        Length          uint32  // PNumber
+        MinTID          TID
+        MaxTID          TID
+        MinOID          OID
+}
+
+type AnswerCheckSerialRange struct {
+        Count           uint32  // PNumber
+        TidChecksum     PChecksum
+        MaxTID          TID
+        OidChecksum     PChecksum
+        MaxOID          OID
+}
+
+// S -> M
+type PartitionCorrupted struct {
+	Packet
+        Partition       uint32  // PNumber
+        CellList        []UUID
+}
+
+
+// Ask last committed TID.
+// C -> M
+// Answer last committed TID.
+// M -> C
+type LastTransaction struct {
+	Packet
+}
+
+type AnswerLastTransaction struct {
+	Packet
+	TID     TID
+}
+
+
+// Notify that node is ready to serve requests.
+// S -> M
+type NotifyReady struct {
+	Packet
+}
+
+// replication
+
+// TODO
