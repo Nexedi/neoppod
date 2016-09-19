@@ -1,0 +1,33 @@
+Count: 2179  Time=0.35s (772s)  Lock=0.00s (0s)  Rows_sent=0.6 (1374), Rows_examined=0.6 (1374), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid FROM trans
+  WHERE `partition` = N
+  AND tid >= N AND tid <= N
+  ORDER BY tid ASC LIMIT N
+
+Count: 118277  Time=0.00s (68s)  Lock=0.00s (3s)  Rows_sent=1.0 (118277), Rows_examined=2.1 (246683), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid, compression, data.hash, value, value_tid FROM obj LEFT JOIN data ON (obj.data_id = data.id) WHERE `partition` = N AND oid = N AND tid < N ORDER BY tid DESC LIMIT N
+
+Count: 4270  Time=0.01s (50s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.0 (0), root[root]@localhost
+  commit
+
+Count: 2838  Time=0.01s (14s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.5 (1313), Rows_affected=0.3 (936), root[root]@localhost
+  INSERT INTO trans SELECT * FROM ttrans WHERE tid=N
+
+Count: 122392  Time=0.00s (12s)  Lock=0.00s (2s)  Rows_sent=0.0 (507), Rows_examined=0.7 (88967), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid FROM obj WHERE `partition`=N AND oid=N AND tid>N ORDER BY tid LIMIT N
+
+Count: 2838  Time=0.00s (12s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.5 (1313), Rows_affected=0.3 (936), root[root]@localhost
+  DELETE FROM ttrans WHERE tid=N
+
+Count: 936  Time=0.00s (4s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=1.1 (989), Rows_affected=1.0 (936), root[root]@localhost
+  UPDATE ttrans SET tid=N WHERE ttid=N LIMIT N
+
+Count: 2797  Time=0.00s (4s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=1.0 (2713), root[root]@localhost
+  INSERT INTO data VALUES (NULL, 'S', N, 'S')
+
+Count: 4267  Time=0.00s (3s)  Lock=0.00s (0s)  Rows_sent=0.8 (3356), Rows_examined=0.8 (3356), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid FROM obj WHERE `partition`=N AND oid=N ORDER BY tid DESC LIMIT N
+
+Count: 2838  Time=0.00s (2s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=1.0 (2803), Rows_affected=1.0 (2803), root[root]@localhost
+  INSERT INTO obj SELECT `partition`, oid, N, data_id, value_tid  FROM tobj WHERE tid=N
+

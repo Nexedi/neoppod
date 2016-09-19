@@ -1,0 +1,30 @@
+Count: 979463  Time=0.00s (393s)  Lock=0.00s (30s)  Rows_sent=1.0 (979463), Rows_examined=2.0 (1999173), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid, compression, data.hash, value, value_tid FROM obj LEFT JOIN data ON (obj.data_id = data.id) WHERE `partition` = N AND oid = N AND tid < N ORDER BY tid DESC LIMIT N
+
+Count: 8115  Time=0.01s (101s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.0 (0), root[root]@localhost
+  commit
+
+Count: 979815  Time=0.00s (94s)  Lock=0.00s (20s)  Rows_sent=0.0 (163), Rows_examined=9.9 (9741734), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid FROM obj WHERE `partition`=N AND oid=N AND tid>N ORDER BY tid LIMIT N
+
+Count: 5755  Time=0.00s (27s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.7 (3868), Rows_affected=0.4 (2093), root[root]@localhost
+  INSERT INTO trans SELECT * FROM ttrans WHERE tid=N
+
+Count: 5755  Time=0.00s (24s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.7 (3868), Rows_affected=0.4 (2093), root[root]@localhost
+  DELETE FROM ttrans WHERE tid=N
+
+Count: 8  Time=1.51s (12s)  Lock=0.00s (0s)  Rows_sent=3.0 (24), Rows_examined=3.0 (24), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT `partition`, MAX(tid) FROM trans GROUP BY `partition`
+
+Count: 2094  Time=0.00s (9s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=1.3 (2652), Rows_affected=1.0 (2090), root[root]@localhost
+  UPDATE ttrans SET tid=N WHERE ttid=N LIMIT N
+
+Count: 5670  Time=0.00s (7s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.9 (5000), root[root]@localhost
+  INSERT INTO data VALUES (NULL, 'S', N, 'S')
+
+Count: 36  Time=0.19s (6s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.0 (0), root[root]@localhost
+  DELETE FROM trans WHERE `partition`=N
+
+Count: 7755  Time=0.00s (4s)  Lock=0.00s (0s)  Rows_sent=0.8 (6555), Rows_examined=0.8 (6555), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid FROM obj WHERE `partition`=N AND oid=N ORDER BY tid DESC LIMIT N
+

@@ -1,0 +1,30 @@
+Count: 553125  Time=0.00s (234s)  Lock=0.00s (17s)  Rows_sent=1.0 (553125), Rows_examined=2.1 (1139491), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid, compression, data.hash, value, value_tid FROM obj LEFT JOIN data ON (obj.data_id = data.id) WHERE `partition` = N AND oid = N AND tid < N ORDER BY tid DESC LIMIT N
+
+Count: 553365  Time=0.00s (52s)  Lock=0.00s (12s)  Rows_sent=0.0 (150), Rows_examined=3.3 (1813748), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT tid FROM obj WHERE `partition`=N AND oid=N AND tid>N ORDER BY tid LIMIT N
+
+Count: 4014  Time=0.01s (50s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.0 (0), root[root]@localhost
+  commit
+
+Count: 17  Time=1.49s (25s)  Lock=0.00s (0s)  Rows_sent=3.0 (51), Rows_examined=3.0 (51), Rows_affected=0.0 (0), root[root]@localhost
+  SELECT `partition`, MAX(tid) FROM trans GROUP BY `partition`
+
+Count: 144  Time=0.16s (23s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.0 (0), root[root]@localhost
+  DELETE FROM trans WHERE `partition`=N
+
+Count: 2731  Time=0.00s (12s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.6 (1680), Rows_affected=0.4 (1028), root[root]@localhost
+  INSERT INTO trans SELECT * FROM ttrans WHERE tid=N
+
+Count: 2728  Time=0.00s (11s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.6 (1677), Rows_affected=0.4 (1028), root[root]@localhost
+  DELETE FROM ttrans WHERE tid=N
+
+Count: 1  Time=6.32s (6s)  Lock=0.00s (0s)  Rows_sent=1.0 (1), Rows_examined=10655437.0 (10655437), Rows_affected=0.0 (0), root[root]@localhost
+  select * from trans where tid=N
+
+Count: 1031  Time=0.00s (4s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=1.2 (1234), Rows_affected=1.0 (1027), root[root]@localhost
+  UPDATE ttrans SET tid=N WHERE ttid=N LIMIT N
+
+Count: 2954  Time=0.00s (3s)  Lock=0.00s (0s)  Rows_sent=0.0 (0), Rows_examined=0.0 (0), Rows_affected=0.9 (2568), root[root]@localhost
+  INSERT INTO data VALUES (NULL, 'S', N, 'S')
+
