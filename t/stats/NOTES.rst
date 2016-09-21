@@ -85,7 +85,7 @@ Analysis
     # Rows_affected: 0
     #
     # explain: id   select_type     table   type    possible_keys   key     key_len ref     rows    r_rows  filtered        r_filtered      Extra
-    # explain: 1    SIMPLE  trans   range   PRIMARY PRIMARY 10      NULL    1       1001.00 100.00  100.00  Using where; Using index
+    # explain: 1    SIMPLE          trans   range   PRIMARY         PRIMARY 10      NULL    1       1001.00 100.00  100.00  Using where; Using index
     #
     use neo0;
     SET timestamp=1474317299;
@@ -103,7 +103,7 @@ Analysis
     # Rows_affected: 0
     #
     # explain: id   select_type     table   type    possible_keys   key     key_len ref     rows    r_rows  filtered        r_filtered      Extra
-    # explain: 1    SIMPLE  trans   range   PRIMARY PRIMARY 10      NULL    81      81.00   75.31   100.00  Using where; Using index
+    # explain: 1    SIMPLE          trans   range   PRIMARY         PRIMARY 10      NULL    81      81.00   75.31   100.00  Using where; Using index
     #
     use neo0;
     SET timestamp=1474317301;
@@ -121,7 +121,7 @@ Analysis
     # Rows_affected: 0
     #
     # explain: id   select_type     table   type    possible_keys   key     key_len ref     rows    r_rows  filtered        r_filtered      Extra
-    # explain: 1    SIMPLE  trans   range   PRIMARY PRIMARY 10      NULL    1       0.00    100.00  100.00  Using where; Using index
+    # explain: 1    SIMPLE          trans   range   PRIMARY         PRIMARY 10      NULL    1       0.00    100.00  100.00  Using where; Using index
     #
     use neo0;
     SET timestamp=1474317359;
@@ -132,3 +132,56 @@ Analysis
 
 
 - Why this happens is question.
+
+
+----------------------------------------
+
+After upgrade to MariaDB 10.1.17::
+
+    # Time: 160921 10:47:15
+    # User@Host: root[root] @ localhost []
+    # Thread_id: 6  Schema: neo1  QC_hit: No
+    # Query_time: 4.118192  Lock_time: 0.000024  Rows_sent: 0  Rows_examined: 8476058
+    # Rows_affected: 0
+    #
+    # explain: id   select_type     table   type    possible_keys       key             key_len ref             rows    r_rows          filtered        r_filtered      Extra
+    # explain: 1    SIMPLE          obj     ref     PRIMARY,partition   partition       10      const,const     1       8476058.00      100.00          0.00            Using where; Using index
+    #
+    SET timestamp=1474447635;
+    SELECT tid FROM obj WHERE `partition`=5 AND oid=79613 AND tid>268544235197088772 ORDER BY tid LIMIT 1;
+
+
+    # a slow query caught:
+    MariaDB [neo1]> show processlist;
+    +----+------+-----------+------+---------+------+----------------------------+------------------------------------------------------------------------------------------------------+----------+
+    | Id | User | Host      | db   | Command | Time | State                      | Info                                                                                                 | Progress |
+    +----+------+-----------+------+---------+------+----------------------------+------------------------------------------------------------------------------------------------------+----------+
+    |  3 | root | localhost | neo0 | Sleep   |    8 |                            | NULL                                                                                                 |    0.000 |
+    |  4 | root | localhost | neo2 | Sleep   |   15 |                            | NULL                                                                                                 |    0.000 |
+    |  5 | root | localhost | neo3 | Sleep   |   11 |                            | NULL                                                                                                 |    0.000 |
+    |  6 | root | localhost | neo1 | Query   |    3 | Queried about 7710000 rows | SELECT tid FROM obj WHERE `partition`=5 AND oid=79613 AND tid>268544341634012678 ORDER BY tid LIMIT  |    0.000 |
+    | 10 | root | localhost | neo1 | Query   |    0 | init                       | show processlist                                                                                     |    0.000 |
+    +----+------+-----------+------+---------+------+----------------------------+------------------------------------------------------------------------------------------------------+----------+
+    5 rows in set (0.00 sec)
+
+    MariaDB [neo1]> show explain for 6;
+    +------+-------------+-------+------+-------------------+-----------+---------+-------------+------+------------------------------------------+
+    | id   | select_type | table | type | possible_keys     | key       | key_len | ref         | rows | Extra                                    |
+    +------+-------------+-------+------+-------------------+-----------+---------+-------------+------+------------------------------------------+
+    |    1 | SIMPLE      | obj   | ref  | PRIMARY,partition | partition | 10      | const,const |    1 | Using where; Using index; Using filesort |
+    +------+-------------+-------+------+-------------------+-----------+---------+-------------+------+------------------------------------------+
+    1 row in set, 1 warning (0.01 sec)
+
+    # NOTE the difference:
+    #   * type:         'ref' vs 'range'
+    #   * key_len:      10 vs 18                (partition, oid)  vs  (partition, oid, tid)
+    #   * ref:          const,const vs NULL
+    #   * "Using filesort"
+
+    MariaDB [neo1]> explain SELECT tid FROM obj WHERE `partition`=5 AND oid=79613 AND tid>268544341634012678 ORDER BY tid LIMIT 1;
+    +------+-------------+-------+-------+-------------------+-----------+---------+------+------+--------------------------+
+    | id   | select_type | table | type  | possible_keys     | key       | key_len | ref  | rows | Extra                    |
+    +------+-------------+-------+-------+-------------------+-----------+---------+------+------+--------------------------+
+    |    1 | SIMPLE      | obj   | range | PRIMARY,partition | partition | 18      | NULL |   24 | Using where; Using index |
+    +------+-------------+-------+-------+-------------------+-----------+---------+------+------+--------------------------+
+    1 row in set (0.00 sec)
