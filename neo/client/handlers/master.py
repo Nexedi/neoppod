@@ -99,7 +99,10 @@ class PrimaryNotificationsHandler(MTEventHandler):
             app = self.app
             ltid = packet.decode()[0]
             if app.last_tid != ltid:
-                if app.master_conn is None:
+                # Either we're connecting or we already know the last tid
+                # via invalidations.
+                assert app.master_conn is None, app.master_conn
+                if 1:
                     app._cache_lock_acquire()
                     try:
                         if app.last_tid < ltid:

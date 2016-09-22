@@ -28,6 +28,14 @@ class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
     checkTransactionalUndoAfterPack = expectedFailure()(
         TransactionalUndoStorage.checkTransactionalUndoAfterPack)
 
+for x in ('checkUndoMultipleConflictResolution',
+          'checkUndoMultipleConflictResolutionReversed'):
+    try:
+        setattr(UndoTests, x,
+            expectedFailure(KeyError)(getattr(TransactionalUndoStorage, x)))
+    except AttributeError:
+        pass
+
 if __name__ == "__main__":
     suite = unittest.makeSuite(UndoTests, 'check')
     unittest.main(defaultTest='suite')

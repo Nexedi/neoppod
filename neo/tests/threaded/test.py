@@ -632,7 +632,8 @@ class Test(NEOThreadedTest):
             t.begin()
             s0.stop() # force client to ask s1
             self.assertEqual(sorted(c.root()), [1])
-            t0, t1 = c._storage.iterator()
+            self.tic()
+            t0, t1 = c.db().storage.iterator()
         finally:
             cluster.stop()
 
@@ -884,7 +885,7 @@ class Test(NEOThreadedTest):
 
             # Now test cache invalidation during a load from a storage
             ll = LockLock()
-            def _loadFromStorage(orig, *args):
+            def break_after(orig, *args):
                 try:
                     return orig(*args)
                 finally:
@@ -892,7 +893,7 @@ class Test(NEOThreadedTest):
             x2._p_deactivate()
             # Remove last version of x from cache
             cache._remove(cache._oid_dict[x2._p_oid].pop())
-            with ll, Patch(cluster.client, _loadFromStorage=_loadFromStorage):
+            with ll, Patch(cluster.client, _loadFromStorage=break_after):
                 t = self.newThread(x2._p_activate)
                 ll()
                 # At this point, x could not be found the cache and the result
@@ -910,16 +911,18 @@ class Test(NEOThreadedTest):
             self.assertEqual(x2.value, 1)
             self.assertEqual(x1.value, 0)
 
-            # l1 is acquired and l2 is released
+            def invalidations(conn):
+                try:
+                    return conn._storage._invalidations
+                except AttributeError: # BBB: ZODB < 5
+                    return conn._invalidated
+
             # Change x again from 0 to 1, while the checking connection c1
             # is suspended at the beginning of the transaction t1,
             # between Storage.sync() and flush of invalidations.
-            def _flush_invalidations(orig):
-                ll()
-                orig()
             x1._p_deactivate()
             t1.abort()
-            with ll, Patch(c1, _flush_invalidations=_flush_invalidations):
+            with ll, Patch(c1._storage, sync=break_after):
                 t = self.newThread(t1.begin)
                 ll()
                 txn = transaction.Transaction()
@@ -927,10 +930,14 @@ class Test(NEOThreadedTest):
                 client.store(x2._p_oid, tid, y, '', txn)
                 tid = client.tpc_finish(txn, None)
                 client.close()
+                self.assertEqual(invalidations(c1), {x1._p_oid})
             t.join()
-            # A transaction really begins when it acquires the lock to flush
-            # invalidations. The previous lastTransaction() only does a ping
-            # to make sure we have a recent enough view of the DB.
+            # A transaction really begins when it gets the last tid from the
+            # storage, just before flushing invalidations (on ZODB < 5, it's
+            # when it acquires the lock to flush invalidations). The previous
+            # call to sync() only does a ping to make sure we have a recent
+            # enough view of the DB.
+            self.assertFalse(invalidations(c1))
             self.assertEqual(x1.value, 1)
 
         finally:
@@ -969,7 +976,7 @@ class Test(NEOThreadedTest):
             # transaction before the last one, and clearing the cache before
             # reloading x.
             c1._storage.load(x._p_oid)
-            t0, t1, t2 = c1._storage.iterator()
+            t0, t1, t2 = c1.db().storage.iterator()
             self.assertEqual(map(u64, t0.oid_list), [0])
             self.assertEqual(map(u64, t1.oid_list), [0, 1])
             # Check oid 1 is part of transaction metadata.
@@ -1282,6 +1289,7 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             m2c, = cluster.master.getConnectionList(cluster.client)
             cluster.client._cache.clear()
+            c.cacheMinimize()
             with cluster.client.filterConnection(cluster.storage) as c2s:
                 c2s.add(disconnect)
                 # Storages are currently notified of clients that get

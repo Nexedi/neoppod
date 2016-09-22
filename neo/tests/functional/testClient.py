@@ -335,7 +335,7 @@ class ClientTests(NEOFunctionalTest):
             t3.description = 'desc'
             st3.tpc_begin(t3)
             # retreive the last revision
-            data, serial = st3.load(oid, '')
+            data, serial = st3.load(oid)
             # try to store again, should not be delayed
             st3.store(oid, serial, data, '', t3)
             # the vote should not timeout

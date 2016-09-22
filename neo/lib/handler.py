@@ -226,8 +226,9 @@ class MTEventHandler(EventHandler):
 
     def packetReceived(self, conn, packet, kw={}):
         """Redirect all received packet to dispatcher thread."""
-        if packet.isResponse() and type(packet) is not Packets.Pong:
-            if not self.dispatcher.dispatch(conn, packet.getId(), packet, kw):
+        if packet.isResponse():
+            if not (self.dispatcher.dispatch(conn, packet.getId(), packet, kw)
+                    or type(packet) is Packets.Pong):
                 raise ProtocolError('Unexpected response packet from %r: %r'
                                     % (conn, packet))
         else:
