@@ -330,7 +330,12 @@ class MySQLDatabaseManager(DatabaseManager):
         return util.p64(r[0][0]) if r else None
 
     def _getNextTID(self, *args): # partition, oid, tid
+                       #" USE INDEX(PRIMARY)"
+                       # " USE KEY(`partition`, oid, tid)"     says 'tid' is not in 'oid' XXX why ?
+                       # ANSWER -> index name is SHOW INDEX FROM tbl; -> Key_name
+                       # " FORCE INDEX(`partition`)"
         r = self.query("SELECT tid FROM obj"
+                       " USE INDEX(`partition`)"
                        " WHERE `partition`=%d AND oid=%d AND tid>%d"
                        " ORDER BY tid LIMIT 1" % args)
         return r[0][0] if r else None
@@ -667,9 +672,13 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         min_tid = u64(min_tid)
         max_tid = u64(max_tid)
+        # AND tid >= %(min_tid)d AND tid <= %(max_tid)d
+        # ORDER BY tid ASC LIMIT %(length)d""" % {
+        # ORDER BY tid ASC LIMIT %(length)d""" % {
         r = self.query("""SELECT tid FROM trans
+                    FORCE INDEX FOR ORDER BY (PRIMARY)
                     WHERE `partition` = %(partition)d
-                    AND tid >= %(min_tid)d AND tid <= %(max_tid)d
+                    AND tid BETWEEN %(min_tid)d AND %(max_tid)d
                     ORDER BY tid ASC LIMIT %(length)d""" % {
             'partition': partition,
             'min_tid': min_tid,
