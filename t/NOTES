@@ -334,3 +334,31 @@ Tables
 # uncommitted object metadata
 # (= obj)
 - tobj
+
+
+Partition Table (general & current-py)
+--------------------------------------
+
+	#Np (how-many partitions)    #R (replication factor)
+Cell
+	.node   (-> .uuid, .addr)
+	.state
+
+PT
+	.id↑
+	.partition_list [#Np] of []Cell
+	.count_dict     {} node -> #node_used_in_pt
+
+
+	 Pt
+	+-+
+	| |
+	+-+  +----------+ +------------+ +-----+
+	| |  |node,state| |node2,state2| |cell3| ...
+	+-+  +----------+ +------------+ +-----+
+     Np	| |
+	+-+
+	| |
+	+-+     oid -> PTentry (as PT[oid % Np]
+	| |     tid
+	+-+
