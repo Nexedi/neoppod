@@ -258,36 +258,43 @@ Slow case (neo0)::
     Handler_commit                                                  :       1       +1
     Handler_read_key                                                :       1       +1
     Handler_read_next                                               :       1       +1
-    Innodb_background_log_sync                                      :       368     +2
-    Innodb_master_thread_idle_loops                                 :       367     +2
+    Innodb_background_log_sync                                      :       368     +2                  XXX why ?!!! (xtradb only)
+    Innodb_master_thread_idle_loops                                 :       367     +2                  XXX why ?!!!
     Last_query_cost                                                 :       2.742333        +2.742333
-    Qcache_not_cached                                               :       16      +16
-    Queries                                                         :       262341  +21
+    Qcache_not_cached                                               :       16      +16                 XXX why so many?
+    Queries                                                         :       262341  +21                 XXX ----//----
     Questions                                                       :       3       +2
-    Rows_read                                                       :       2       +2
-    Rows_sent                                                       :       2       +2
+    Rows_read                                                       :       2       +2                  NOTE 1 more vs good
+    Rows_sent                                                       :       2       +2                  NOTE ----//----
     Rows_tmp_read                                                   :       780     +780
     Select_range                                                    :       1       +1
     Slow_queries                                                    :       1       +1
-    Table_locks_immediate                                           :       24      +24			XXX
+    Table_locks_immediate                                           :       24      +24			XXX so many ~= Qcache_not_cached
     Threads_running                                                 :       1       +-1
-    Tokudb_basement_deserialization_fixed_key                       :       2229717 +14386
-    Tokudb_basements_fetched_target_query                           :       1215707 +14386
-    Tokudb_basements_fetched_target_query_bytes                     :       16668472320     +152982528
-    Tokudb_basements_fetched_target_query_seconds                   :       12.56421        +0.02178
-    Tokudb_cachetable_cleaner_executions                            :       592     +2
+
+    Tokudb_basement_deserialization_fixed_key                       :       2229717 +14386              XXX many "basement nodes" are loaded(?)
+    Tokudb_basements_fetched_target_query                           :       1215707 +14386              XXX ----//----
+    Tokudb_basements_fetched_target_query_bytes                     :       16668472320     +152982528  XXX ----//----
+    Tokudb_basements_fetched_target_query_seconds                   :       12.56421        +0.02178    XXX ----//----
+
+    # cache growed / was used a lot
+    Tokudb_cachetable_cleaner_executions                            :       592     +2                  XXX #times cleaner thread has executed
     Tokudb_cachetable_evictions                                     :       9600    +51
-    Tokudb_cachetable_pool_cachetable_total_items_processed         :       19415   +8
+    Tokudb_cachetable_pool_cachetable_total_items_processed         :       19415   +8                  XXX cachetab pool: #total of work items processed
     Tokudb_cachetable_size_cachepressure                            :       8077172 +-83113
-    Tokudb_cachetable_size_current                                  :       1144918868      +37576872	XXX
-    Tokudb_cachetable_size_leaf                                     :       1131549588      +37662332
-    Tokudb_cachetable_size_nonleaf                                  :       13368032        +-82340
-    Tokudb_cachetable_size_rollback                                 :       1248    +-3120
-    Tokudb_cursor_skip_deleted_leaf_entry                           :       796652814       +6456408
+    Tokudb_cachetable_size_current                                  :       1144918868      +37576872	XXX +35M "items" (not sure it is in bytes)
+    Tokudb_cachetable_size_leaf                                     :       1131549588      +37662332   XXX ~ same
+    Tokudb_cachetable_size_nonleaf                                  :       13368032        +-82340     NOTE _decreased_
+    Tokudb_cachetable_size_rollback                                 :       1248    +-3120              NOTE #bytes in CT (rollback nodes) _decreased_
+
+    Tokudb_cursor_skip_deleted_leaf_entry                           :       796652814       +6456408    XXX NOTE (!) was described in article to cause slowness
+
     Tokudb_filesystem_fsync_num                                     :       992     +1			XXX
-    Tokudb_filesystem_fsync_time                                    :       9154018 +7358			XXX
+    Tokudb_filesystem_fsync_time                                    :       9154018 +7358		XXX (us) = 7.4ms
+
     Tokudb_leaf_decompression_to_memory_seconds                     :       221.668309      +1.089154	XXX <-- !!!
     Tokudb_leaf_deserialization_to_memory_seconds                   :       36.807413       +0.189991	XXX <-- !!!
+
     Tokudb_leaf_node_full_evictions                                 :       9223    +49
     Tokudb_leaf_node_full_evictions_bytes                           :       319606176       +157852
     Tokudb_leaf_node_partial_evictions                              :       2212174 +12893
@@ -528,3 +535,6 @@ NOTE::
 
 
 NOTE -> performance_schema      (requires server restart)
+
+
+TODO tokudb vs innodb bin log (regoogle)

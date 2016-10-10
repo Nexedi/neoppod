@@ -1,0 +1,27 @@
+    AAA 268557254261782968 268557254363747334 1001 2
+    0.001 ((1L, 'SIMPLE', 'trans', 'range', 'PRIMARY', 'PRIMARY', '10', None, 1L, 0.0, 100.0, 100.0, 'Using where; Using index'),)
+    Bytes_received                                                  :       289     +273
+    Bytes_sent                                                      :       11232   +11221
+    Com_select                                                      :       1       +1
+    Com_show_status                                                 :       2       +1
+    Handler_commit                                                  :       1       +1
+    Handler_read_key                                                :       1       +1
+    Last_query_cost                                                 :       1.532333        +1.532333
+    Queries                                                         :       699860  +2
+    Questions                                                       :       3       +2
+    Rows_read                                                       :       1       +1
+    Rows_sent                                                       :       1       +1
+    Rows_tmp_read                                                   :       780     +780
+    Select_range                                                    :       1       +1
+    Table_locks_immediate                                           :       1       +1
+    Tokudb_basement_deserialization_fixed_key                       :       4243753 +1
+    Tokudb_basements_fetched_target_query                           :       3215002 +1
+    Tokudb_basements_fetched_target_query_bytes                     :       44778189312     +17408
+    Tokudb_basements_fetched_target_query_seconds                   :       34.811946       +3.99999999701e-06
+    Tokudb_cachetable_size_current                                  :       1081618155      +122560
+    Tokudb_cachetable_size_leaf                                     :       1063377598      +122560
+    Tokudb_leaf_decompression_to_memory_seconds                     :       373.862982      +0.000122999999974
+    Tokudb_leaf_deserialization_to_memory_seconds                   :       63.778401       +2.50000000008e-05
+    Tokudb_txn_begin                                                :       698705  +2
+    Tokudb_txn_commits                                              :       698654  +1
+    (0.000)
