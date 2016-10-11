@@ -299,6 +299,7 @@ Slow case (neo0)::
     Tokudb_leaf_node_full_evictions_bytes                           :       319606176       +157852
     Tokudb_leaf_node_partial_evictions                              :       2212174 +12893
     Tokudb_leaf_node_partial_evictions_bytes                        :       174814689660    +1069000238
+
     Tokudb_locktree_memory_size                                     :       0       +-402
     Tokudb_locktree_sto_eligible_num                                :       0       +-5
     Tokudb_logger_next_lsn                                          :       2301973637      +1
@@ -311,11 +312,14 @@ Slow case (neo0)::
     Tokudb_nonleaf_node_partial_evictions                           :       2389    +42
     Tokudb_nonleaf_node_partial_evictions_bytes                     :       1542323 +16128
     Tokudb_promotion_leaf_roots_injected_into                       :       1250    +1
-    Tokudb_search_tries_gt_height                                   :       316     +3
-    Tokudb_search_tries_gt_heightplus3                              :       315     +3
-    Tokudb_total_search_retries                                     :       3315714 +31446			XXX <-- !!!
+
+    Tokudb_search_tries_gt_height                                   :       316     +3                  XXX search requiring more tries than the height of tree
+    Tokudb_search_tries_gt_heightplus3                              :       315     +3                  XXX ----//---- _plus_ 3
+    Tokudb_total_search_retries                                     :       3315714 +31446		XXX <-- !!! "total search tries due to TRY_AGAIN"
+
     Tokudb_txn_begin                                                :       262163  +18			XXX
     Tokudb_txn_commits                                              :       262138  +20
+
     Uptime                                                          :       369     +2
     Uptime_since_flush_status                                       :       2       +2
     (0.431)
