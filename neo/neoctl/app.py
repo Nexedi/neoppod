@@ -90,11 +90,11 @@ class TerminalNeoCTL(object):
         if backup_tid:
             ltid = self.neoctl.getLastTransaction()
 #            r = "backup_tid = 0x%x" % u64(backup_tid)
-            r = "backup_tid: %s" %(unpackTID(u64(backup_tid)))
+            r = "backup_tid: %s" %(unpackTID(backup_tid))
         else:
             loid, ltid = self.neoctl.getLastIds()
             r = "last_oid = 0x%x" % u64(loid)
-        return r + "\nlast_tid: %s\nlast_ptid: %s" % (unpackTID(u64(ltid)), unpackTID(u64(ptid)))
+        return r + "\nlast_tid: %s\nlast_ptid: %s" % (unpackTID(ltid), unpackTID(ptid))
 #        return r + "\nlast_tid = 0x%x\nlast_ptid = %u" % (u64(ltid), ptid)
 
     def getPartitionRowList(self, params):
