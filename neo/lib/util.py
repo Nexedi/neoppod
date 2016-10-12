@@ -81,6 +81,16 @@ def unpackTID(ptid):
     higher.reverse()
     return (tuple(higher), lower)
 
+def timeStringFromTID(ptid):
+    """
+    Returns a string in the format "yyyy-mm-dd hh:mm:ss" from a TID
+    """
+    higher, lower = unpackTID(ptid)
+    seconds = lower * SECOND_PER_TID_LOW
+
+    return '%04d-%02d-%02d %02d:%02d:%09.6f' % (higher[0], higher[1], higher[2],
+                                                higher[3], higher[4], seconds)
+
 def addTID(ptid, offset):
     """
     Offset given packed TID.
