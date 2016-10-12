@@ -542,3 +542,11 @@ NOTE -> performance_schema      (requires server restart)
 
 
 TODO tokudb vs innodb bin log (regoogle)
+
+https://www.percona.com/blog/2016/03/22/tokudb-impacts-innodb-performance/
+https://bugs.launchpad.net/percona-server/+bug/1550352
+? https://github.com/percona/tokudb-engine/wiki/Binary-Log-Group-Commit-with-TokuDB
+
+2READ:
+
+https://github.com/percona/tokudb-engine/wiki
