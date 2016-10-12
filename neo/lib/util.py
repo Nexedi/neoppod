@@ -69,7 +69,7 @@ def unpackTID(ptid):
     - a 5-tuple containing year, month, day, hour and minute
     - seconds scaled to 60:2**32
     """
-    packed_higher, lower = unpack('!LL', ptid)
+    packed_higher, lower = unpack('!Q', ptid)
     higher = []
     append = higher.append
     for offset, multiplicator in reversed(TID_CHUNK_RULES):
