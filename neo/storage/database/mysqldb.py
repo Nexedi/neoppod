@@ -331,6 +331,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _getNextTID(self, *args): # partition, oid, tid
         r = self.query("SELECT tid FROM obj"
+                       " USE INDEX(`partition`)"
                        " WHERE `partition`=%d AND oid=%d AND tid>%d"
                        " ORDER BY tid LIMIT 1" % args)
         return r[0][0] if r else None
