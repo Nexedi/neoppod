@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+# writes to N1 periodically
+
+from ZODB import DB
+from neo.client.Storage import Storage
+from neo.lib import logging
+import transaction
+from time import sleep
+
+import subprocess
+from logging import getLogger, DEBUG, INFO
+from neo.lib import logging
+
+def main():
+    getLogger().setLevel(DEBUG)
+    master = subprocess.check_output("neoctl -a 127.0.0.1:5551 print node |grep MASTER |awk '{print $5}'", shell=True)
+    print "master:", `master`
+    kw = {
+            'master_nodes': master,
+            'name':         'neo1',
+    }
+
+    stor = Storage(**kw)
+    db = DB(stor)
+    conn = db.open()
+    root = conn.root()
+
+    print 'Connected to db ok, starting...'
+
+    i = 0
+    while 1:
+        i += 1
+        root.obj = i
+        txn = transaction.get()
+        note = 'change #%i' % i
+        txn.note(note)
+        txn.commit()
+        print(note)
+        sleep(1)
+
+
+if __name__ == '__main__':
+    main()
