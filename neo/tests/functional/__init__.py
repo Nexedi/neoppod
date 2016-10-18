@@ -274,7 +274,10 @@ class NEOCluster(object):
         self.process_dict = {}
         self.temp_dir = temp_dir
         self.port_allocator = PortAllocator()
-        admin_port = self.port_allocator.allocate(address_type, local_ip)
+        try:
+            admin_port = int(os.getenv('NEO_ADMIN_PORT'))
+        except (TypeError, ValueError):
+            admin_port = self.port_allocator.allocate(address_type, local_ip)
         self.cluster_name = name or 'neo_%s' % random.randint(0, 100)
         master_node_list = [self.port_allocator.allocate(address_type, local_ip)
                             for i in xrange(master_count)]

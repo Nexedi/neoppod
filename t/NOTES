@@ -5,14 +5,17 @@ Application (master)
     .tm     TransactionManager
     .pt     PartitionTable
 
+    .listening_conn             ListeningConnection
+    .primary                ?
+    .primary_master_node    ?
+    .cluster_state
+
     .backup_app     BackupApplication
 
     .admin_handler              AdministrationHandler
     .secondary_master_handler   SecondaryMasterHandler
     .client_service_handler     ClientServiceHandler
     .storage_service_handler    StorageServiceHandler
-
-    .listening_conn             ListeningConnection
 
 
 Handlers
@@ -72,6 +75,9 @@ EventHandler
             -> conn.setPeerId(pkt.getId())
             -> getattr(self, pkt.handler_method_name) (conn, *pkt.decode(), **kw)
 
+
+
+IdentificationHandler < MasterHandler
 
 Connections
 -----------
