@@ -103,6 +103,7 @@ class Application(BaseApplication):
             self)
         self.secondary_master_handler = secondary.SecondaryMasterHandler(self)
         self.client_service_handler = client.ClientServiceHandler(self)
+        self.client_ro_service_handler = client.ClientROServiceHandler(self)
         self.storage_service_handler = storage.StorageServiceHandler(self)
 
         registerLiveDebugger(on_log=self.log)
@@ -418,7 +419,6 @@ class Application(BaseApplication):
             return
 
         # select the storage handler
-        client_handler = self.client_service_handler
         if state in (ClusterStates.RUNNING, ClusterStates.STARTING_BACKUP,
                      ClusterStates.BACKINGUP, ClusterStates.STOPPING_BACKUP):
             storage_handler = self.storage_service_handler
@@ -435,10 +435,13 @@ class Application(BaseApplication):
             conn = node.getConnection()
             conn.notify(notification_packet)
             if node.isClient():
-                if state != ClusterStates.RUNNING:
+                if state == ClusterStates.RUNNING:
+                    handler = self.client_service_handler
+                elif state == ClusterStates.BACKINGUP:
+                    handler = self.client_ro_service_handler
+                else:
                     conn.abort()
                     continue
-                handler = client_handler
             elif node.isStorage() and storage_handler:
                 handler = storage_handler
             else:

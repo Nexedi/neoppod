@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID
+from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, NotReadyError
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
@@ -118,3 +118,18 @@ class ClientServiceHandler(MasterHandler):
         # BUG: The replicator may wait this transaction to be finished.
         self.app.tm.abort(tid, conn.getUUID())
 
+
+# like ClientServiceHandler but read-only
+class ClientROServiceHandler(ClientServiceHandler):
+
+    def _readOnly(self, *args, **kw):  raise NotReadyError('read-only access')
+
+    askBeginTransaction     = _readOnly
+    askNewOIDs              = _readOnly
+    askFinishTransaction    = _readOnly
+    askFinalTID             = _readOnly
+    askPack                 = _readOnly
+    abortTransaction        = _readOnly
+
+    # XXX also override askLastIDs to return backup_tid as last_tid ?
+    # XXX ----//---- askLastTransaction ?
