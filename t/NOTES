@@ -10,7 +10,8 @@ Application (master)
     .primary_master_node    ?
     .cluster_state
 
-    .backup_app     BackupApplication
+    .current_manager    None | RecoveryManager | VerificationManager
+    .backup_app         BackupApplication
 
     .admin_handler              AdministrationHandler
     .secondary_master_handler   SecondaryMasterHandler
@@ -74,6 +75,9 @@ EventHandler
         -> .dispatch(conn, pkt, **kw)
             -> conn.setPeerId(pkt.getId())
             -> getattr(self, pkt.handler_method_name) (conn, *pkt.decode(), **kw)
+
+           except ...:
+               reply error
 
 
 
@@ -202,3 +206,20 @@ EventManager
     .removeReader(conn)
     .addWriter(conn)
     .removeWriter(conn)
+
+
+--------
+
+# M waits for S* to connect so PT is filled
+RecoveryManager < MasterHandler
+    ...
+
+# Finish all transactions for which we know that tpc_finish was called but not fully processed
+#
+# ( abort(?) / commit half-way finished transactions  (commit if we know tpc_finish was started)
+#   XXX no actual abort happens since .verifyData():
+#     Transaction not locked. No need to tell nodes to delete it,
+#     since they drop any unfinished data just before being
+#     operational. )
+VerificationManager < BaseServiceHandler
+    ...
