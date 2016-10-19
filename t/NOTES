@@ -344,6 +344,9 @@ Cell
 	.node   (-> .uuid, .addr)
 	.state
 
+	.backup_tid         # last tid this cell has all data for
+	.replicating        # currently replicating up to this (.replicating) tid
+
 PT
 	.id↑
 	.partition_list [#Np] of []Cell
