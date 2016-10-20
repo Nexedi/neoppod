@@ -16,7 +16,7 @@
 
 from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import p64, u64, tidFromTime, unpackTID
+from neo.lib.util import p64, u64, tidFromTime, unpackTID, getFormattedTime
 from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
     UUID_NAMESPACES, ZERO_TID
 
@@ -89,12 +89,12 @@ class TerminalNeoCTL(object):
         ptid, backup_tid, truncate_tid = self.neoctl.getRecovery()
         if backup_tid:
             ltid = self.neoctl.getLastTransaction()
-            r = "backup_tid = 0x%x (%s)" %(u64(backup_tid), unpackTID(backup_tid))
+            r = "backup_tid = 0x%x (%s)" %(u64(backup_tid), getFormattedTime(unpackTID(backup_tid)))
         else:
             loid, ltid = self.neoctl.getLastIds()
-            r = "last_oid= 0x%x (%s)" %(u64(loid), unpackTID(loid))
+            r = "last_oid = 0x%x (%d/%d/%d %d:%d:%d)" %(u64(loid), getFormattedTime(unpackTID(loid)))
 #       I have no idea what ptid is currently and it's causing problems, so I'm going to leave it here temporarily
-        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % (u64(ltid), unpackTID(ltid), ptid)
+        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % (u64(ltid), getFormattedTime(unpackTID(ltid)), ptid)
 
     def getPartitionRowList(self, params):
         """

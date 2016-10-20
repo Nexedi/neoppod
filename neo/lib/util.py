@@ -147,6 +147,11 @@ def parseMasterList(masters, except_node=None):
             master_node_list.append(address)
     return master_node_list
 
+#Returns a string in the format "dd/mm/yy hh:mm:ss" from a tuple, returned from unpackTID
+def getFormattedTime(timeTuple):
+    return '%d/%d/%d %d:%d:%d' %(timeTuple[0][2], timeTuple[0][1], timeTuple[0][0]%100, timeTuple[0][3], timeTuple[0][4], timeTuple[1])
+
+
 
 class ReadBuffer(object):
     """
