@@ -147,6 +147,18 @@ def parseMasterList(masters, except_node=None):
             master_node_list.append(address)
     return master_node_list
 
+# Returns a string in the format "yyyy-mm-dd hh:mm:ss" from a TID
+def timeStringFromTID(ptid):
+    timeTuple = unpackTID(ptid)
+    seconds = timeTuple[1] * SECOND_PER_TID_LOW
+    while (seconds>=60):
+        seconds-=60
+
+    return '%04d-%02d-%02d %02d:%02d:%02d' %(timeTuple[0][0], timeTuple[0][1], \
+                                             timeTuple[0][2], timeTuple[0][3], \
+                                             timeTuple[0][4], seconds)
+
+
 
 class ReadBuffer(object):
     """
