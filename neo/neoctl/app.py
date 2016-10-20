@@ -89,12 +89,13 @@ class TerminalNeoCTL(object):
         ptid, backup_tid, truncate_tid = self.neoctl.getRecovery()
         if backup_tid:
             ltid = self.neoctl.getLastTransaction()
-            r = "backup_tid = 0x%x (%s)" %(u64(backup_tid), getFormattedTime(unpackTID(backup_tid)))
+            r = "backup_tid = 0x%x (%s)" %(u64(backup_tid), \
+                                           timeStringFromTID(backup_tid))
         else:
             loid, ltid = self.neoctl.getLastIds()
-            r = "last_oid = 0x%x (%s)" %(u64(loid), getFormattedTime(unpackTID(loid)))
-#       I have no idea what ptid is currently and it's causing problems, so I'm going to leave it here temporarily
-        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % (u64(ltid), getFormattedTime(unpackTID(ltid)), ptid)
+            r = "last_oid = 0x%x (%s)" %(u64(loid), timeStringFromTID(loid))
+        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % \
+                                    (u64(ltid), timeStringFromTID(ltid), ptid)
 
     def getPartitionRowList(self, params):
         """
