@@ -154,9 +154,8 @@ def timeStringFromTID(ptid):
     while (seconds>=60):
         seconds-=60
 
-    return '%04d-%02d-%02d %02d:%02d:%02d' %(timeTuple[0][0], timeTuple[0][1], \
-                                             timeTuple[0][2], timeTuple[0][3], \
-                                             timeTuple[0][4], seconds)
+    return '%04d-%02d-%02d %02d:%02d:%09.6f'%(timeTuple[0][0], timeTuple[0][1],\
+            timeTuple[0][2], timeTuple[0][3], timeTuple[0][4], seconds)
 
 
 
