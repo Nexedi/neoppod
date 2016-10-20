@@ -92,7 +92,7 @@ class TerminalNeoCTL(object):
             r = "backup_tid = 0x%x (%s)" %(u64(backup_tid), getFormattedTime(unpackTID(backup_tid)))
         else:
             loid, ltid = self.neoctl.getLastIds()
-            r = "last_oid = 0x%x (%d/%d/%d %d:%d:%d)" %(u64(loid), getFormattedTime(unpackTID(loid)))
+            r = "last_oid = 0x%x (%s)" %(u64(loid), getFormattedTime(unpackTID(loid)))
 #       I have no idea what ptid is currently and it's causing problems, so I'm going to leave it here temporarily
         return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % (u64(ltid), getFormattedTime(unpackTID(ltid)), ptid)
 
