@@ -1,22 +1,48 @@
-Application (master)
+BaseApplication
     .em     EventManager
     .nm     NodeManager
 
-    .tm     TransactionManager
-    .pt     PartitionTable
+(master) Application < BaseApplication
+    .tm     (master) TransactionManager
+    .pt     (master) PartitionTable
 
-    .listening_conn             ListeningConnection
-    .primary                ?
+    .listening_conn         ListeningConnection
+    .primary                bool    # "am I primary"
     .primary_master_node    ?
     .cluster_state
 
     .current_manager    None | RecoveryManager | VerificationManager
     .backup_app         BackupApplication
 
+    .backup_tid
+    .truncate_tid
+
     .admin_handler              AdministrationHandler
     .secondary_master_handler   SecondaryMasterHandler
     .client_service_handler     ClientServiceHandler
     .storage_service_handler    StorageServiceHandler
+
+(storage) Application < BaseApplication
+    .tm     (storage) TransactionManager
+    .dm     DatabaseManager     (Importer | MySQL | SQLite)
+
+    .pt     ? PartitionTable
+
+    .checker        Checker
+    .replicator     Replicator
+
+    .listening_conn ListeningConnection
+    .master_conn
+    .master_node
+
+    .event_queue        deque   (key, callable, msg_id, conn, args)
+    .event_queue_dict   {}      key -> count(.event_queue, key)
+
+    .task_queue         deque
+
+    .operational        bool
+
+    .ready              bool    # when .operational=T and "got all informations"
 
 
 Handlers

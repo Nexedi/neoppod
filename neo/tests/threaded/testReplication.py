@@ -33,6 +33,7 @@ from .. import Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
 
 
+# NOTE
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
         def wrapper(self):
@@ -53,6 +54,7 @@ def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     return decorator
 
 
+# NOTE
 class ReplicationTests(NEOThreadedTest):
 
     def checksumPartition(self, storage, partition, max_tid=MAX_TID):

@@ -109,7 +109,7 @@ class EpollEventManager(object):
             self.wakeup()
         else:
             self.epoll.register(fd)
-            self.addReader(conn)
+            self.addReader(conn)        # FIXME implicitly adding addReader
 
     def unregister(self, conn, close=False):
         new_pending_processing = [x for x in self._pending_processing
@@ -136,6 +136,7 @@ class EpollEventManager(object):
             if self._closeAcquire(0):
                 self._closeRelease()
 
+    # NOTE
     def isIdle(self):
         return not (self._pending_processing or self.writer_set)
 
@@ -150,7 +151,7 @@ class EpollEventManager(object):
             self._poll(blocking)
             if not self._pending_processing:
                 return
-        to_process = self._pending_processing.pop(0)
+        to_process = self._pending_processing.pop(0)    # FIXME only 1 element - ._pending_processing may grow
         try:
             to_process.process()
         finally:

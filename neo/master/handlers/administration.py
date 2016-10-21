@@ -68,7 +68,7 @@ class AdministrationHandler(MasterHandler):
                         'entering cluster' % (node, ))
             app._startup_allowed = True
             state = app.cluster_state
-        elif state == ClusterStates.STARTING_BACKUP:
+        elif state == ClusterStates.STARTING_BACKUP:    # NOTE
             if app.tm.hasPending() or app.nm.getClientList(True):
                 raise ProtocolError("Can not switch to %s state with pending"
                     " transactions or connected clients" % state)
@@ -136,7 +136,7 @@ class AdministrationHandler(MasterHandler):
             for node in app.nm.getStorageList()
             if node.isPending() and node.getUUID() in uuid_list))
         if node_list:
-            p = Packets.StartOperation(bool(app.backup_tid))
+            p = Packets.StartOperation(bool(app.backup_tid))    # NOTE ...
             for node in node_list:
                 node.setRunning()
                 node.notify(p)

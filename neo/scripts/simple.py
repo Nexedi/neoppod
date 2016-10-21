@@ -20,7 +20,8 @@ from logging import getLogger, INFO
 from optparse import OptionParser
 from neo.lib import logging
 from neo.tests import functional
-logging.backlog()
+#logging.backlog()
+logging.backlog(max_size=None)
 del logging.default_root_handler.handle
 
 def main():

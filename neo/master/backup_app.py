@@ -93,7 +93,7 @@ class BackupApplication(object):
         while True:
             app.changeClusterState(ClusterStates.STARTING_BACKUP)
             bootstrap = BootstrapManager(self, self.name, NodeTypes.CLIENT)
-            # {offset -> node}
+            # {offset -> node}      (primary storage for off which will be talking to upstream cluster)
             self.primary_partition_dict = {}
             # [[tid]]
             self.tid_list = tuple([] for _ in xrange(pt.getPartitions()))
@@ -193,6 +193,8 @@ class BackupApplication(object):
         for node in trigger_set:
             self.triggerBackup(node)
 
+    # NOTE called by backup_app.invalidateObjects() when it has info that
+    # partitions in partition_set were updated in upstream cluster (up to `tid`)
     def invalidatePartitions(self, tid, partition_set):
         app = self.app
         prev_tid = app.getLastTransaction()
@@ -211,7 +213,7 @@ class BackupApplication(object):
                 for cell in pt.getCellList(offset, readable=True):
                     node = cell.getNode()
                     assert node.isConnected(), node
-                    if cell.backup_tid == prev_tid:
+                    if cell.backup_tid == prev_tid:                                 # XXX ?
                         # Let's given 4 TID t0,t1,t2,t3: if a cell is only
                         # modified by t0 & t3 and has all data for t0, 4 values
                         # are possible for its 'backup_tid' until it replicates
@@ -238,8 +240,8 @@ class BackupApplication(object):
                     self.primary_partition_dict[offset] = \
                         random.choice(node_list)
             else:
-                # Partition not touched, so increase 'backup_tid' of all
-                # "up-to-date" replicas, without having to replicate.
+                # Partition not touched, so increase 'backup_tid' of all    NOTE
+                # "up-to-date" replicas, without having to replicate.       (probably relates to backup_tid=tid initial bug)
                 for cell in pt.getCellList(offset, readable=True):
                     if last_max_tid <= cell.backup_tid:
                         cell.backup_tid = tid
@@ -252,7 +254,7 @@ class BackupApplication(object):
                         cell.replicating = tid
         for node, untouched_dict in untouched_dict.iteritems():
             if app.isStorageReady(node.getUUID()):
-                node.notify(Packets.Replicate(tid, '', untouched_dict))
+                node.notify(Packets.Replicate(tid, '', untouched_dict))     # NOTE Mb -> Sb  (notify tid brings no new data)
         for node in trigger_set:
             self.triggerBackup(node)
         count = sum(map(len, self.tid_list))
@@ -288,9 +290,10 @@ class BackupApplication(object):
             source_dict[offset] = addr
             logging.debug("ask %s to replicate partition %u up to %s from %r",
                 uuid_str(node.getUUID()), offset,  dump(tid), addr)
-        node.getConnection().notify(Packets.Replicate(
+        node.getConnection().notify(Packets.Replicate(              # NOTE Mb -> Sb  (notify to trigger replicate up to tid)
             tid, self.name, source_dict))
 
+    # NOTE feedback from Sb -> Mb a partition (requested by invalidatePartitions->triggerBackup) has been replicated
     def notifyReplicationDone(self, node, offset, tid):
         app = self.app
         cell = app.pt.getCell(offset, node.getUUID())

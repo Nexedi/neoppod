@@ -251,7 +251,7 @@ class Application(BaseApplication):
         while not self.operational:
             _poll()
         self.ready = True
-        self.replicator.populate()
+        self.replicator.populate()  # TODO study what's inside
         self.master_conn.notify(Packets.NotifyReady())
 
     def doOperation(self):
@@ -275,6 +275,7 @@ class Application(BaseApplication):
             while True:
                 while task_queue:
                     try:
+                        # NOTE backup/importer processed under isIdle
                         while isIdle():
                             if task_queue[-1].next():
                                 _poll(0)

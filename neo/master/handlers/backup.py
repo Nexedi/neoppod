@@ -37,6 +37,7 @@ class BackupHandler(EventHandler):
     def notifyNodeInformation(self, conn, node_list):
         self.app.nm.update(node_list)
 
+    # NOTE invalidation from M -> Mb (all partitions)
     def answerLastTransaction(self, conn, tid):
         app = self.app
         if tid != ZERO_TID:
@@ -44,6 +45,7 @@ class BackupHandler(EventHandler):
         else: # upstream DB is empty
             assert app.app.getLastTransaction() == tid
 
+    # NOTE invalidation from M -> Mb
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
         getPartition = app.app.pt.getPartition

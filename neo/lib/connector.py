@@ -164,7 +164,7 @@ class SocketConnector(object):
             # Do nothing special if n == 0:
             # - it never happens for simple sockets;
             # - for SSL sockets, this is always the case unless everything
-            #   could be sent.
+            #   could be sent.  # NOTE queue may grow up indefinitely in this case!
             if n != len(msg):
                 self.queued[:] = msg[n:],
                 return False

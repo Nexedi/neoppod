@@ -181,7 +181,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             app._cache_lock_release()
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
-        if self.app.pt.filled():
+        if self.app.pt.filled():    # XXX wrong
             self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def notifyNodeInformation(self, conn, node_list):

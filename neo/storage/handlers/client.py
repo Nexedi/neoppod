@@ -126,6 +126,7 @@ class ClientOperationHandler(EventHandler):
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             data_serial, ttid, unlock, time.time())
 
+    # NOTE
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
             min_tid, max_tid, length, partition)))

@@ -70,7 +70,7 @@
       Currently, storage presence is broadcasted to client nodes too early, as
       the storage node would refuse them until it has only up-to-date data (not
       only up-to-date cells, but also a partition table and node states).
-    - In backup mode, 2 simultaneous replication should be possible so that:
+    - In backup mode, 2 simultaneous replication should be possible so that:    NOTE
       - outdated cells does not block backup for too long time
       - constantly modified partitions does not prevent outdated cells to
         replicate
@@ -86,7 +86,7 @@
       not degrade performance for client nodes. But when there's only 1 storage
       left for a partition, it may be wanted to guarantee a minimum speed to
       avoid complete data loss if another failure happens too early.
-    - Find a way not to always start replication from the beginning. Currently,
+    - Find a way not to always start replication from the beginning. Currently, NOTE
       a temporarily down nodes can't replicate from where it was interrupted,
       which is an issue on big databases. (SPEED)
     - Pack segmentation & throttling (HIGH AVAILABILITY)
@@ -106,7 +106,7 @@
     - Check replicas: (HIGH AVAILABILITY)
       - Automatically tell corrupted cells to fix their data when a good source
         is known.
-      - Add an option to also check all rows of trans/obj/data, instead of only
+      - Add an option to also check all rows of trans/obj/data, instead of only     NOTE
         keys (trans.tid & obj.{tid,oid}).
 
     Master
@@ -131,7 +131,7 @@
       table hasn't changed by pinging the master and retry if necessary.
     - Implement IStorageRestoreable (ZODB API) in order to preserve data
       serials (i.e. undo information).
-    - Fix and reenable deadlock avoidance (SPEED). This is required for
+    - Fix and reenable deadlock avoidance (SPEED). This is required for             NOTE
       neo.threaded.test.Test.testDeadlockAvoidance
 
     Admin

@@ -69,6 +69,11 @@ def dump(stor, tidmin, tidmax):
 
 
 def mkneostor():
+    from logging import getLogger, INFO, DEBUG
+    from neo.lib import logging
+    #getLogger().setLevel(DEBUG)
+    logging.backlog(max_size=None, max_packet=None) # log everything & without bufferring
+
     from neo.client.Storage import Storage as NEOStorage
     etc1 = 'etc1'
     """
@@ -97,6 +102,8 @@ def mkneostor():
     }
 
     stor = NEOStorage(**kw)
+    from time import sleep
+    sleep(2)
     return stor
 
 

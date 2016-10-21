@@ -346,7 +346,7 @@ class Application(BaseApplication):
                         raise RuntimeError("No upstream cluster to backup"
                                            " defined in configuration")
                     truncate = Packets.Truncate(
-                        self.backup_app.provideService())
+                        self.backup_app.provideService())   # NOTE enter to backup main loop
                 except StoppedOperation, e:
                     logging.critical('No longer operational')
                     truncate = Packets.Truncate(*e.args) if e.args else None
@@ -445,7 +445,7 @@ class Application(BaseApplication):
             elif node.isStorage() and storage_handler:
                 handler = storage_handler
             else:
-                continue # keep handler
+                continue # keep handler             # FIXME handler can be not setup-yet at all
             if type(handler) is not type(conn.getLastHandler()):
                 conn.setHandler(handler)
                 handler.connectionCompleted(conn, new=False)
@@ -522,12 +522,14 @@ class Application(BaseApplication):
         tid = txn.getTID()
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
+        # NOTE send invalidation to clients
         for client_node in self.nm.getClientList(only_identified=True):
             c = client_node.getConnection()
             if client_node is transaction_node:
                 c.answer(Packets.AnswerTransactionFinished(ttid, tid),
                          msg_id=txn.getMessageId())
             else:
+                # NOTE notifies clients sequentially & irregardless of whether client was subscribed
                 c.notify(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.

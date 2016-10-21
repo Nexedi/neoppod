@@ -179,6 +179,7 @@ class StorageOperationHandler(EventHandler):
     def askFetchTransactions(self, conn, partition, length, min_tid, max_tid,
             tid_list):
         app = self.app
+        # NOTE XXX
         if app.tm.isLockedTid(max_tid):
             # Wow, backup cluster is fast. Requested transactions are still in
             # ttrans/ttobj so wait a little.

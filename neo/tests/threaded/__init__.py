@@ -611,6 +611,7 @@ class NEOCluster(object):
         kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
                   getPartitions=partitions, getReset=clear_databases,
                   getSSL=self.SSL)
+        # NOTE
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(getUpstreamCluster=upstream.name,

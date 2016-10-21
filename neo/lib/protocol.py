@@ -199,6 +199,7 @@ UUID_NAMESPACES = {
     NodeTypes.CLIENT: -0x20,
     NodeTypes.ADMIN: -0x30,
 }
+# ex: 'S1', 'M1', ...
 uuid_str = (lambda ns: lambda uuid:
     ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
     )({v: str(k)[0] for k, v in UUID_NAMESPACES.iteritems()})
@@ -751,7 +752,7 @@ class Recovery(Packet):
     """
     _answer = PStruct('answer_recovery',
         PPTID('ptid'),
-        PTID('backup_tid'),
+        PTID('backup_tid'),     # NOTE
         PTID('truncate_tid'),
     )
 
@@ -787,7 +788,7 @@ class NotifyPartitionTable(Packet):
 class PartitionChanges(Packet):
     """
     Notify a subset of a partition table. This is used to notify changes.
-    PM -> S, C.
+    PM -> S, C.     XXX also -> A (see RecoveryManager)
     """
     _fmt = PStruct('notify_partition_changes',
         PPTID('ptid'),
@@ -917,6 +918,7 @@ class LockInformation(Packet):
         PTID('ttid'),
     )
 
+# NOTE
 class InvalidateObjects(Packet):
     """
     Invalidate objects. PM -> C.
@@ -1398,6 +1400,7 @@ class NotifyReady(Packet):
     """
     pass
 
+# NOTE
 # replication
 
 class FetchTransactions(Packet):
@@ -1469,6 +1472,7 @@ class AddObject(Packet):
         PTID('data_serial'),
     )
 
+# NOTE
 class Replicate(Packet):
     """
     Notify a storage node to replicate partitions up to given 'tid'
