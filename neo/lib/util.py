@@ -150,6 +150,7 @@ def parseMasterList(masters, except_node=None):
 # Returns a string in the format "yyyy-mm-dd hh:mm:ss" from a TID
 def timeStringFromTID(ptid):
     timeTuple = unpackTID(ptid)
+    print timeTuple
     seconds = timeTuple[1] * SECOND_PER_TID_LOW
     while (seconds>=60):
         seconds-=60
