@@ -153,11 +153,9 @@ def timeStringFromTID(ptid):
     seconds = timeTuple[1] * SECOND_PER_TID_LOW
     while (seconds>=60):
         seconds-=60
-    fractionSeconds = seconds - int(seconds)
 
-    return '%04d-%02d-%02d %02d:%02d:%02d%07.6f' \
-          %(timeTuple[0][0], timeTuple[0][1], timeTuple[0][2], timeTuple[0][3],\
-            timeTuple[0][4], int(seconds), fractionSeconds)
+    return '%04d-%02d-%02d %02d:%02d:%09.6f'%(timeTuple[0][0], timeTuple[0][1],\
+            timeTuple[0][2], timeTuple[0][3], timeTuple[0][4], seconds)
 
 
 
