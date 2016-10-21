@@ -36,6 +36,7 @@ TID_CHUNK_RULES = (
 
 def tidFromTime(tm):
     gmt = gmtime(tm)
+    print tm        #for debugging
     return packTID(
         (gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour, gmt.tm_min),
         int((gmt.tm_sec + (tm - int(tm))) / SECOND_PER_TID_LOW))
@@ -150,7 +151,7 @@ def parseMasterList(masters, except_node=None):
 # Returns a string in the format "yyyy-mm-dd hh:mm:ss" from a TID
 def timeStringFromTID(ptid):
     timeTuple = unpackTID(ptid)
-    print timeTuple
+    print timeTuple             #for debugging
     seconds = timeTuple[1] * SECOND_PER_TID_LOW
     while (seconds>=60):
         seconds-=60
