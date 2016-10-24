@@ -72,7 +72,6 @@ class Partition(object):
                                                       if hasattr(self, x)),
             id(self))
 
-# NOTE
 class Replicator(object):
 
     current_node = None

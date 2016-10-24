@@ -65,15 +65,15 @@ class ClientOperationHandler(EventHandler):
             assert node is not None, conn
             self.app.nm.remove(node)
 
-    def abortTransaction(self, conn, ttid):                 # NOTE rw
+    def abortTransaction(self, conn, ttid):
         self.app.tm.abort(ttid)
 
-    def askStoreTransaction(self, conn, ttid, *txn_info):   # NOTE rw
+    def askStoreTransaction(self, conn, ttid, *txn_info):
         self.app.tm.register(conn, ttid)
         self.app.tm.vote(ttid, txn_info)
         conn.answer(Packets.AnswerStoreTransaction())
 
-    def askVoteTransaction(self, conn, ttid):               # NOTE rw
+    def askVoteTransaction(self, conn, ttid):
         self.app.tm.vote(ttid)
         conn.answer(Packets.AnswerVoteTransaction())
 
@@ -111,7 +111,7 @@ class ClientOperationHandler(EventHandler):
                     logging.info('StoreObject delay: %.02fs', duration)
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
-    def askStoreObject(self, conn, oid, serial,             # NOTE rw
+    def askStoreObject(self, conn, oid, serial,
             compression, checksum, data, data_serial, ttid, unlock):
         if 1 < compression:
             raise ProtocolError('invalid compression value')
@@ -145,10 +145,9 @@ class ClientOperationHandler(EventHandler):
         tid_list = app.dm.getTIDList(first, last - first, partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
-    def askFinalTID(self, conn, ttid):                      # NOTE rw
+    def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.tm.getFinalTID(ttid)))
 
-    # XXX not sure about rw (TODO recheck)
     def askObjectUndoSerial(self, conn, ttid, ltid, undone_tid, oid_list):
         app = self.app
         findUndoTID = app.dm.findUndoTID
@@ -191,7 +190,6 @@ class ClientOperationHandler(EventHandler):
             p = Packets.AnswerObjectHistory(oid, history_list)
         conn.answer(p)
 
-    # XXX should not be rw, but recheck
     def askCheckCurrentSerial(self, conn, ttid, serial, oid):
         self.app.tm.register(conn, ttid)
         self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())
@@ -224,3 +222,16 @@ class ClientOperationHandler(EventHandler):
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
             conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
 
+
+# like ClientOperationHandler but read-only & only up-to backup_tid
+class ClientROOperationHandler(ClientOperationHandler):
+
+    def _readOnly(self, *args, **kw):   raise NotReadyError('read-only access')
+
+    abortTransaction        = _readOnly
+    askStoreTransaction     = _readOnly
+    askVoteTransaction      = _readOnly
+    askStoreObject          = _readOnly
+    askFinalTID             = _readOnly
+    # askObjectUndoSerial is used in undo() but itself is read-only query
+    askCheckCurrentSerial   = _readOnly     # takes write lock & is only used when going to commit

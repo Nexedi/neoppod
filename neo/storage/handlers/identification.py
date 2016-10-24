@@ -48,7 +48,10 @@ class IdentificationHandler(EventHandler):
                 raise BrokenNodeDisallowedError
             # choose the handler according to the node type
             if node_type == NodeTypes.CLIENT:
-                handler = ClientOperationHandler    # NOTE
+                if app.dm.getBackupTID():
+                    handler = ClientROOperationHandler
+                else:
+                    handler = ClientOperationHandler
                 if node is None:
                     node = app.nm.createClient(uuid=uuid)
                 elif node.isConnected():

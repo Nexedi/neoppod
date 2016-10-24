@@ -28,13 +28,14 @@ BaseApplication
 
     .pt     ? PartitionTable
 
-    .checker        Checker
+    .checker        Checker         # checks sha1([]tid  -- XXX only tid list, not other metadata & data)
     .replicator     Replicator
 
     .listening_conn ListeningConnection
     .master_conn
     .master_node
 
+    # (queued events are executed at some txn boundaries & locks)
     .event_queue        deque   (key, callable, msg_id, conn, args)
     .event_queue_dict   {}      key -> count(.event_queue, key)
 

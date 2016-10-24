@@ -119,7 +119,7 @@ class ClientServiceHandler(MasterHandler):
         self.app.tm.abort(tid, conn.getUUID())
 
 
-# like ClientServiceHandler but read-only
+# like ClientServiceHandler but read-only & only up-to backup_tid
 class ClientROServiceHandler(ClientServiceHandler):
 
     def _readOnly(self, *args, **kw):  raise NotReadyError('read-only access')

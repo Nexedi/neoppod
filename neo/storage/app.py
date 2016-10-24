@@ -251,7 +251,7 @@ class Application(BaseApplication):
         while not self.operational:
             _poll()
         self.ready = True
-        self.replicator.populate()  # TODO study what's inside
+        self.replicator.populate()
         self.master_conn.notify(Packets.NotifyReady())
 
     def doOperation(self):
