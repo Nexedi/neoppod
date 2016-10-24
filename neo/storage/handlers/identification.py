@@ -19,7 +19,7 @@ from neo.lib.handler import EventHandler
 from neo.lib.protocol import uuid_str, NodeTypes, NotReadyError, Packets
 from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
 from .storage import StorageOperationHandler
-from .client import ClientOperationHandler
+from .client import ClientOperationHandler, ClientROOperationHandler
 
 class IdentificationHandler(EventHandler):
     """ Handler used for incoming connections during operation state """

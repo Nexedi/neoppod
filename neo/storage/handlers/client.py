@@ -224,6 +224,7 @@ class ClientOperationHandler(EventHandler):
 
 
 # like ClientOperationHandler but read-only & only up-to backup_tid
+# XXX naming -> ClientReadOnlyHandler ?
 class ClientROOperationHandler(ClientOperationHandler):
 
     def _readOnly(self, *args, **kw):   raise NotReadyError('read-only access')
@@ -235,3 +236,7 @@ class ClientROOperationHandler(ClientOperationHandler):
     askFinalTID             = _readOnly
     # askObjectUndoSerial is used in undo() but itself is read-only query
     askCheckCurrentSerial   = _readOnly     # takes write lock & is only used when going to commit
+
+    # XXX askTIDsFrom       - cut tids in reply to backup_tid ?
+    # XXX askTIDs           ----//---- ?
+    # XXX askObjectHistory  ----//---- ?
