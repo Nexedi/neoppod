@@ -65,15 +65,15 @@ class ClientOperationHandler(EventHandler):
             assert node is not None, conn
             self.app.nm.remove(node)
 
-    def abortTransaction(self, conn, ttid):
+    def abortTransaction(self, conn, ttid):                 # NOTE rw
         self.app.tm.abort(ttid)
 
-    def askStoreTransaction(self, conn, ttid, *txn_info):
+    def askStoreTransaction(self, conn, ttid, *txn_info):   # NOTE rw
         self.app.tm.register(conn, ttid)
         self.app.tm.vote(ttid, txn_info)
         conn.answer(Packets.AnswerStoreTransaction())
 
-    def askVoteTransaction(self, conn, ttid):
+    def askVoteTransaction(self, conn, ttid):               # NOTE rw
         self.app.tm.vote(ttid)
         conn.answer(Packets.AnswerVoteTransaction())
 
@@ -111,7 +111,7 @@ class ClientOperationHandler(EventHandler):
                     logging.info('StoreObject delay: %.02fs', duration)
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
-    def askStoreObject(self, conn, oid, serial,
+    def askStoreObject(self, conn, oid, serial,             # NOTE rw
             compression, checksum, data, data_serial, ttid, unlock):
         if 1 < compression:
             raise ProtocolError('invalid compression value')
@@ -126,7 +126,6 @@ class ClientOperationHandler(EventHandler):
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             data_serial, ttid, unlock, time.time())
 
-    # NOTE
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
             min_tid, max_tid, length, partition)))
@@ -146,9 +145,10 @@ class ClientOperationHandler(EventHandler):
         tid_list = app.dm.getTIDList(first, last - first, partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
-    def askFinalTID(self, conn, ttid):
+    def askFinalTID(self, conn, ttid):                      # NOTE rw
         conn.answer(Packets.AnswerFinalTID(self.app.tm.getFinalTID(ttid)))
 
+    # XXX not sure about rw (TODO recheck)
     def askObjectUndoSerial(self, conn, ttid, ltid, undone_tid, oid_list):
         app = self.app
         findUndoTID = app.dm.findUndoTID
@@ -191,6 +191,7 @@ class ClientOperationHandler(EventHandler):
             p = Packets.AnswerObjectHistory(oid, history_list)
         conn.answer(p)
 
+    # XXX should not be rw, but recheck
     def askCheckCurrentSerial(self, conn, ttid, serial, oid):
         self.app.tm.register(conn, ttid)
         self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())

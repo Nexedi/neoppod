@@ -102,8 +102,8 @@ def mkneostor():
     }
 
     stor = NEOStorage(**kw)
-    from time import sleep
-    sleep(2)
+    #from time import sleep
+    #sleep(2)
     return stor
 
 
