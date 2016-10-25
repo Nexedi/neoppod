@@ -119,9 +119,11 @@ class ClientServiceHandler(MasterHandler):
         self.app.tm.abort(tid, conn.getUUID())
 
 
-# like ClientServiceHandler but read-only & only up-to backup_tid
+# like ClientServiceHandler but read-only & only for tid <= backup_tid
+# XXX naming -> (?) ClientReadOnlyHandler
 class ClientROServiceHandler(ClientServiceHandler):
 
+    # XXX somehow make sure to propagate this to raiseReadOnlyError() on client ?
     def _readOnly(self, *args, **kw):  raise NotReadyError('read-only access')
 
     askBeginTransaction     = _readOnly
@@ -131,5 +133,12 @@ class ClientROServiceHandler(ClientServiceHandler):
     askPack                 = _readOnly
     abortTransaction        = _readOnly
 
-    # XXX also override askLastIDs to return backup_tid as last_tid ?
-    # XXX ----//---- askLastTransaction ?
+    # XXX LastIDs is not used by client at all, and it requires work to determine
+    # last_oid up to backup_tid, so just make it non-functional for client.
+    askLastIDs              = _readOnly
+
+    # like in MasterHandler but returns backup_tid instead of last_tid
+    def askLastTransaction(self, conn):
+        backup_tid = self.app.backup_tid
+        assert backup_tid is not None   # in BACKUPING mode it is always set
+        conn.answer(Packets.AnswerLastTransaction(backup_tid))
