@@ -45,6 +45,19 @@ BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
 
 
+#   T1                          T2
+#
+#   __enter__
+#   __call__ (wait)
+#
+#                               __call__
+#                   <---------  (wakeup T1)
+#                               (sleep)
+#
+#   __exit__
+#   (wakeup T2)     ---------->
+#
+#                 both T1 & T2 run
 class LockLock(object):
     """Double lock used as synchronisation point between 2 threads
 
@@ -76,6 +89,7 @@ class LockLock(object):
             pass
 
 
+# = FIFO lock
 class FairLock(deque):
     """Same as a threading.Lock except that waiting threads are queued, so that
     the first one waiting for the lock is the first to get it. This is useful
