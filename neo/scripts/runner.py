@@ -126,7 +126,8 @@ class NeoTestRunner(unittest.TextTestResult):
                 print "Import of %s failed : %s" % (test_module, err)
                 traceback.print_exc()
                 continue
-            suite.addTests(loader.loadTestsFromModule(test_module))
+            if 1 or test_module.__name__ == 'neo.tests.functional.testStorage':
+                suite.addTests(loader.loadTestsFromModule(test_module))
         suite.run(self)
 
     def startTest(self, test):
