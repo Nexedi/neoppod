@@ -335,7 +335,7 @@ class MySQLDatabaseManager(DatabaseManager):
                        # ANSWER -> index name is SHOW INDEX FROM tbl; -> Key_name
                        # " FORCE INDEX(`partition`)"
         r = self.query("SELECT tid FROM obj"
-                       " USE INDEX(`partition`)"
+                       " FORCE INDEX(`partition`)"
                        " WHERE `partition`=%d AND oid=%d AND tid>%d"
                        " ORDER BY tid LIMIT 1" % args)
         return r[0][0] if r else None
