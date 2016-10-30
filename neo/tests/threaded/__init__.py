@@ -164,7 +164,7 @@ class Serialized(object):
 
     @classmethod
     def _sort_key(cls, fd_event):
-        return -cls._fd_dict[fd_event[0]]._last
+        return -cls._fd_dict[fd_event[0]]._last     # NOTE ._last set to time.time()
 
     @classmethod
     @contextmanager
@@ -198,11 +198,11 @@ class Serialized(object):
                 with cls._busy_cond:
                     while cls._busy:
                         cls._busy_cond.wait()
-            for app in check_timeout:
+            for app in check_timeout:   # XXX hack (?), used only in 1 place
                 app.em.epoll.check_timeout = True
                 app.em.wakeup()
                 del app
-            while step:
+            while step: # used as step=-1 (default), =1 (twice), =2 (once)
                 event_list = cls._epoll.poll(0)
                 if not event_list:
                     break
@@ -212,7 +212,8 @@ class Serialized(object):
                 for fd, event in event_list:
                     self = cls._fd_dict[fd]
                     self._release_next = next_lock.release
-                    next_lock = self._lock
+                    next_lock = self._lock  # XXX what is self._lock
+                                            # XXX ? set in .release_next() ?
                 del self
                 next_lock.release()
                 cls._sched_lock.acquire()
