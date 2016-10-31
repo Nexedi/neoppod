@@ -33,8 +33,8 @@ class SSLMixin:
 
 class SSLTests(SSLMixin, test.Test):
     # exclude expected failures
-    testDeadlockAvoidance = None
-    testUndoConflict = testUndoConflictDuringStore = None
+    testDeadlockAvoidance = None                            # XXX why this fails?
+    testUndoConflict = testUndoConflictDuringStore = None   # XXX why this fails?
 
     def testAbortConnection(self):
         for after_handshake in 1, 0:
@@ -60,7 +60,7 @@ class SSLTests(SSLMixin, test.Test):
 
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL
-    testBackupNodeLost = testBackupNormalCase = None
+    testBackupNodeLost = testBackupNormalCase = None        # TODO recheck
 
 
 if __name__ == "__main__":

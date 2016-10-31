@@ -228,10 +228,13 @@ class Serialized(object):
             self._busy.add(self) # block tic until app waits for polling
 
     def __getattr__(self, attr):
+        # to original .app.epoll.xxx(
         if attr in ('close', 'modify', 'register', 'unregister'):
             return getattr(self._epoll, attr)
         return self.__getattribute__(attr)
 
+    # NOTE poll() / _release_next() (& exit()) are adjusted hooks for
+    #      interaction with scheduler   (in .tic())
     def poll(self, timeout):
         if self.check_timeout:
             assert timeout >= 0, (self, timeout)
@@ -263,7 +266,7 @@ class Serialized(object):
             cls._epoll.unregister(fd)
             self._release_next()
 
-class TestSerialized(Serialized):
+class TestSerialized(Serialized):   # NOTE used only in .NeoCTL
 
     def __init__(*args):
         Serialized.__init__(busy=False, *args)
@@ -295,7 +298,7 @@ class Node(object):
 
 class ServerNode(Node):
 
-    _server_class_dict = {}
+    _server_class_dict = {}     # virt-ip -> class
 
     class __metaclass__(type):
         def __init__(cls, name, bases, d):
@@ -314,12 +317,12 @@ class ServerNode(Node):
 
     @classmethod
     def newAddress(cls):
-        address = cls._virtual_ip, len(cls._node_list)
+        address = cls._virtual_ip, len(cls._node_list)  # NOTE addr is vip, #node
         cls._node_list.append(None)
         return address
 
     @classmethod
-    def resolv(cls, address):
+    def resolv(cls, address):   # (vip, #node) -> (vip', port)
         try:
             cls = cls._server_class_dict[address[0]]
         except KeyError:
@@ -345,6 +348,7 @@ class ServerNode(Node):
         self.node_name = '%s_%u' % (self.node_type, port)
         kw.update(getCluster=name, getBind=address,
             getMasters=master_nodes and parseMasterList(master_nodes, address))
+        # -> app.__init__()  ; Mock serves as config
         super(ServerNode, self).__init__(Mock(kw))
 
     def getVirtualAddress(self):
@@ -411,6 +415,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
     def getAdapter(self):
         return self._init_args['getAdapter']
 
+    # get {} oid -> nlocks     ; !0 - in staging area for commit (and for how many txn), oid from whole DB
     def getDataLockInfo(self):
         dm = self.dm
         index = tuple(dm.query("SELECT id, hash, compression FROM data"))
@@ -472,6 +477,8 @@ class LoggerThreadName(str):
             return str.__str__(self)
 
 
+# filters-out packet which are detected by filter-criterions setup with .add()
+# for a packed detected tobe filtered; further pkts on same conn are always filtered
 class ConnectionFilter(object):
 
     filtered_count = 0
@@ -626,7 +633,6 @@ class NEOCluster(object):
         kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
                   getPartitions=partitions, getReset=clear_databases,
                   getSSL=self.SSL)
-        # NOTE
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(getUpstreamCluster=upstream.name,
@@ -833,7 +839,7 @@ class NEOCluster(object):
             __print_exc()
             raise
 
-    def extraCellSortKey(self, key):
+    def extraCellSortKey(self, key):    # XXX unused?
         return Patch(self.client.cp, getCellSortKey=lambda orig, cell:
             (orig(cell), key(cell)))
 
@@ -896,7 +902,7 @@ class NEOThreadedTest(NeoTestBase):
         reset()
         return conn
 
-    def getUnpickler(self, conn):
+    def getUnpickler(self, conn):   # XXX not used?
         reader = conn._reader
         def unpickler(data, compression=False):
             if compression:

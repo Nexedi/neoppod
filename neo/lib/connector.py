@@ -32,7 +32,7 @@ class SocketConnector(object):
 
     is_closed = is_server = None
     connect_limit = {}
-    CONNECT_LIMIT = 1
+    CONNECT_LIMIT = 1   # XXX actually this is (RE-)CONNECT_THROTTLE
 
     def __new__(cls, addr, s=None):
         if s is None:

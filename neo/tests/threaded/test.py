@@ -189,7 +189,7 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
-    @expectedFailure(POSException.ConflictError)
+    @expectedFailure(POSException.ConflictError)    # TODO recheck
     def testUndoConflictDuringStore(self):
         self.testUndoConflict(True)
 
@@ -338,7 +338,7 @@ class Test(NEOThreadedTest):
         self.assertEqual(self._testDeadlockAvoidance([2, 4]),
             [DelayedError, DelayedError, ConflictError, ConflictError])
 
-    @expectedFailure(POSException.ConflictError)
+    @expectedFailure(POSException.ConflictError)        # XXX recheck
     def testDeadlockAvoidance(self):
         # This test fail because deadlock avoidance is not fully implemented.
         # 0: C1 -> S1
