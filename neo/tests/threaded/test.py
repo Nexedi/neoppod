@@ -1152,6 +1152,8 @@ class Test(NEOThreadedTest):
             getClusterState = cluster.neoctl.getClusterState
             self.assertEqual(ClusterStates.RECOVERING, getClusterState())
             cluster.storage_list[2].start()
+            self.tic()
+            self.assertEqual(ClusterStates.RUNNING, getClusterState())
         cluster = NEOCluster(storage_count=3, autostart=3)
         try:
             cluster.startCluster = startCluster
