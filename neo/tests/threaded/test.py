@@ -750,7 +750,7 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
-    def test2Clusters(self):
+    def test2Clusters(self):    # NOTE
         cluster1 = NEOCluster()
         cluster2 = NEOCluster()
         try:
@@ -787,7 +787,7 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testShutdown(self):
-        # BUG: Due to bugs in election, master nodes sometimes crash, or they
+        # BUG: Due to bugs in election, master nodes sometimes crash, or they   # <- NOTE
         #      declare themselves primary too quickly. The consequence is
         #      often an endless tic loop.
         cluster = NEOCluster(master_count=3, partitions=10,
@@ -1001,7 +1001,7 @@ class Test(NEOThreadedTest):
             c.getConnection().close()
             c, = cluster.storage.nm.getClientList()
             c.getConnection().close()
-            self.tic()
+            #self.tic()     # NOTE works ok with tic() commented
 
             # modify x with another client
             client = cluster.newClient()
@@ -1012,7 +1012,7 @@ class Test(NEOThreadedTest):
                 tid = client.tpc_finish(txn, None)
             finally:
                 client.close()
-            self.tic()
+            #self.tic()     # NOTE ----//----
 
             # Check reconnection to the master and storage.
             self.assertTrue(cluster.client.history(x1._p_oid))
