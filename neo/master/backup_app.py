@@ -213,7 +213,8 @@ class BackupApplication(object):
                 for cell in pt.getCellList(offset, readable=True):
                     node = cell.getNode()
                     assert node.isConnected(), node
-                    if cell.backup_tid == prev_tid:                                 # XXX ?
+                    if cell.backup_tid == prev_tid:
+                        """
                         # Let's given 4 TID t0,t1,t2,t3: if a cell is only
                         # modified by t0 & t3 and has all data for t0, 4 values
                         # are possible for its 'backup_tid' until it replicates
@@ -224,10 +225,12 @@ class BackupApplication(object):
                         # all partitions. t1 is wrong for the same reason.
                         # So we have chosen the highest one (t3 - 1).
                         # t2 should also work but maybe harder to implement.
-                        cell.backup_tid = add64(tid, -1)
+                        cell.backup_tid = add64(tid, -1)    # XXX wrong! (we did not yet pulled the data)
                         logging.debug(
                             "partition %u: updating backup_tid of %r to %s",
                             offset, cell, dump(cell.backup_tid))
+                        """
+                        pass
                     else:
                         assert cell.backup_tid < last_max_tid, (
                             cell.backup_tid, last_max_tid, prev_tid, tid)
@@ -240,8 +243,8 @@ class BackupApplication(object):
                     self.primary_partition_dict[offset] = \
                         random.choice(node_list)
             else:
-                # Partition not touched, so increase 'backup_tid' of all    NOTE
-                # "up-to-date" replicas, without having to replicate.       (probably relates to backup_tid=tid initial bug)
+                # Partition not touched, so increase 'backup_tid' of all
+                # "up-to-date" replicas, without having to replicate.
                 for cell in pt.getCellList(offset, readable=True):
                     if last_max_tid <= cell.backup_tid:
                         cell.backup_tid = tid

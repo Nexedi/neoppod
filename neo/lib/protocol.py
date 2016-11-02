@@ -1472,7 +1472,6 @@ class AddObject(Packet):
         PTID('data_serial'),
     )
 
-# NOTE
 class Replicate(Packet):
     """
     Notify a storage node to replicate partitions up to given 'tid'

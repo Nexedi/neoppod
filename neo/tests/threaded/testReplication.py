@@ -33,7 +33,6 @@ from .. import Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
 
 
-# NOTE
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
         def wrapper(self):
@@ -54,7 +53,38 @@ def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     return decorator
 
 
-# NOTE
+# handy tool to get various ids of a cluster in tests
+class IDs:
+
+    def __init__(self, cluster):
+        self.cluster = cluster
+
+    def _recovery(self):
+        return self.cluster.neoctl.getRecovery()
+
+    @property
+    def ptid(self):
+        return self._recovery()[0]
+
+    @property
+    def backup_tid(self):
+        return self._recovery()[1]
+
+    @property
+    def truncated_tid(self):
+        return self._recovery()[2]
+
+    @property
+    def last_tid(self):
+        return self.cluster.master.getLastTransaction()
+
+    # XXX and attributes
+    @property
+    def cluster_state(self):
+        return self.cluster.neoctl.getClusterState()
+
+
+
 class ReplicationTests(NEOThreadedTest):
 
     def checksumPartition(self, storage, partition, max_tid=MAX_TID):
@@ -95,6 +125,10 @@ class ReplicationTests(NEOThreadedTest):
             importZODB(3)
             backup = NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
                                 upstream=upstream)
+            U = IDs(upstream)
+            B = IDs(backup)
+
+            # U -> B propagation
             try:
                 backup.start()
                 # Initialize & catch up.
@@ -104,8 +138,12 @@ class ReplicationTests(NEOThreadedTest):
                 # Normal case, following upstream cluster closely.
                 importZODB(17)
                 self.tic()
+                self.assertEqual(B.backup_tid, U.last_tid)
+                self.assertEqual(B.last_tid,   U.last_tid)
                 self.assertEqual(np*nr, self.checkBackup(backup))
+
             # Check that a backup cluster can be restarted.
+            # (U -> B propagation after restart)
             finally:
                 backup.stop()
             backup.reset()
@@ -115,38 +153,78 @@ class ReplicationTests(NEOThreadedTest):
                                  ClusterStates.BACKINGUP)
                 importZODB(17)
                 self.tic()
+                self.assertEqual(B.backup_tid, U.last_tid)
+                self.assertEqual(B.last_tid,   U.last_tid)
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
                 self.tic()
                 # Stop backing up, nothing truncated.
                 backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                 self.tic()
+                self.assertEqual(B.backup_tid, None)
+                self.assertEqual(B.last_tid,   U.last_tid)
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.RUNNING)
             finally:
                 backup.stop()
+
+            # U -> B propagation with Mb -> Sb (Replicate) delayed
+            from neo.storage.database import manager as dbmanager
+            from neo.master import handlers as mhandler
+            #dbmanager.X = 1
+            #mhandler.X = 1
             def delaySecondary(conn, packet):
                 if isinstance(packet, Packets.Replicate):
                     tid, upstream_name, source_dict = packet.decode()
-                    return not upstream_name and all(source_dict.itervalues())
+                    print 'REPLICATE tid: %r, upstream_name: %r, source_dict: %r' % \
+                            (tid, upstream_name, source_dict)
+                    return True
+                    #return not upstream_name and all(source_dict.itervalues())
+                    return upstream_name != ""
             backup.reset()
             try:
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
+                u_last_tid0 = U.last_tid
+                self.assertEqual(B.backup_tid, u_last_tid0)
+                self.assertEqual(B.last_tid,   u_last_tid0)
+                print
+                print 'B.backup_tid: %r' % B.backup_tid
                 with backup.master.filterConnection(*backup.storage_list) as f:
-                    f.add(delaySecondary)
+                    f.add(delaySecondary)       # NOTE delays backup pickup Mb -> Sb
+                    print 'B.backup_tid: %r' % B.backup_tid
                     while not f.filtered_count:
+                        print 'B.backup_tid: %r' % B.backup_tid
                         importZODB(1)
+                    print 'B.backup_tid: %r' % B.backup_tid
                     self.tic()
+                    print 'B.backup_tid: %r' % B.backup_tid
+                    print
+                    print 'u_last_tid0:  %r' % u_last_tid0
+                    print 'U.last_tid:   %r' % U.last_tid
+                    print 'B.backup_tid: %r' % B.backup_tid
+                    self.assertGreater(U.last_tid, u_last_tid0)
+                    self.assertEqual(B.backup_tid, u_last_tid0)
+                    self.assertEqual(B.last_tid,   U.last_tid)
                     backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                     self.tic()
+                    self.assertEqual(B.cluster_state, ClusterStates.RECOVERING)
+                    self.assertEqual(B.backup_tid, None)
+                    self.assertEqual(B.last_tid,   U.last_tid)  # not-yet truncated
                 self.tic()
+                self.assertEqual(B.cluster_state, ClusterStates.RUNNING)
+                self.assertEqual(B.backup_tid, None)
+                self.assertEqual(B.last_tid,   u_last_tid0)  # truncated after recovery
                 self.assertEqual(np*nr, self.checkBackup(backup,
                     max_tid=backup.master.getLastTransaction()))
             finally:
                 backup.stop()
+                dbmanager.X = 0
+                mhandler.X = 0
+
+            # S -> Sb (AddObject) delayed
             backup.reset()
             try:
                 backup.start()
@@ -158,8 +236,11 @@ class ReplicationTests(NEOThreadedTest):
                     while not f.filtered_count:
                         importZODB(1)
                     self.tic()
+                    # TODO assert B.last_tid = U.last_tid
+                    #      assert B.backup_tid < U.last_tid
                     backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                     self.tic()
+                    # TODO assert B.last_tid = B^.backup_tid  ( < U.last_tid )
                 self.tic()
                 self.assertEqual(np*nr, self.checkBackup(backup,
                     max_tid=backup.master.getLastTransaction()))

@@ -477,8 +477,9 @@ class LoggerThreadName(str):
             return str.__str__(self)
 
 
-# filters-out packet which are detected by filter-criterions setup with .add()
-# for a packed detected tobe filtered; further pkts on same conn are always filtered
+# catch & delay packets which are detected by filter-criterions setup with .add().
+# for a packed detected to be filtered; further pkts on same conn are always filtered.
+# delayed packets are delivered after `with ConnnectionFilter` ends.
 class ConnectionFilter(object):
 
     filtered_count = 0
@@ -488,7 +489,7 @@ class ConnectionFilter(object):
     _addPacket = Connection._addPacket
 
     @contextmanager
-    def __new__(cls, conn_list=()):
+    def __new__(cls, conn_list=()):     # NOTE conn_list=() -> for all connections
         self = object.__new__(cls)
         self.filter_dict = {}
         self.conn_list = frozenset(conn_list)
