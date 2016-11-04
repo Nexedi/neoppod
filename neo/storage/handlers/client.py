@@ -23,6 +23,8 @@ from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
 import time
 
+import traceback
+
 # Log stores taking (incl. lock delays) more than this many seconds.
 # Set to None to disable.
 SLOW_STORE = 2
@@ -45,6 +47,7 @@ class ClientOperationHandler(EventHandler):
             app.queueEvent(self.askObject, conn, (oid, serial, tid))
             return
         o = app.dm.getObject(oid, serial, tid)
+        print 'AAA %r' % o
         try:
             serial, next_serial, compression, checksum, data, data_serial = o
         except TypeError:
@@ -252,6 +255,7 @@ class ClientROOperationHandler(ClientOperationHandler):
         super(ClientROOperationHandler, self).askTransactionInformation(conn, tid)
 
     def askObject(self, conn, oid, serial, tid):
+        print '\n\n\nASK OBJECT %r, %r, %r\n\n\n' % (oid, serial, tid)
         backup_tid = self.app.dm.getBackupTID()
         if serial and serial > backup_tid:
             # obj lookup will find nothing, but return properly either
@@ -264,7 +268,9 @@ class ClientROOperationHandler(ClientOperationHandler):
         if not serial and not tid:
             tid = add64(backup_tid, 1)
 
+        print '-> %r %r %r' % (oid, serial, tid)
         super(ClientROOperationHandler, self).askObject(conn, oid, serial, tid)
+        print 'XXX'
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         backup_tid = self.app.dm.getBackupTID()

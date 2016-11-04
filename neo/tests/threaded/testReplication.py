@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from logging import getLogger, INFO, DEBUG
+
 import random
 import time
 import transaction
@@ -32,6 +34,10 @@ from neo.lib.util import p64
 from .. import Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
 
+# dump log to stderr
+logging.backlog(max_size=None)
+del logging.default_root_handler.handle
+getLogger().setLevel(DEBUG)
 
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
@@ -51,40 +57,6 @@ def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
                 upstream.stop()
         return wraps(wrapped)(wrapper)
     return decorator
-
-
-"""
-# handy tool to get various ids of a cluster in tests
-# XXX move to NEOCluster ?
-class IDs:
-
-    def __init__(self, cluster):
-        self.cluster = cluster
-
-    def _recovery(self):
-        return self.cluster.neoctl.getRecovery()
-
-    @property
-    def ptid(self):
-        return self._recovery()[0]
-
-    @property
-    def backup_tid(self):
-        return self._recovery()[1]
-
-    @property
-    def truncated_tid(self):
-        return self._recovery()[2]
-
-    @property
-    def last_tid(self):
-        return self.cluster.master.getLastTransaction()
-
-    # XXX and attributes
-    @property
-    def cluster_state(self):
-        return self.cluster.neoctl.getClusterState()
-"""
 
 
 
@@ -546,6 +518,43 @@ class ReplicationTests(NEOThreadedTest):
         finally:
             checker.CHECK_COUNT = CHECK_COUNT
             cluster.stop()
+
+
+    @backup_test()
+    def testBackupReadAccess(self, backup):
+        """Check data can be read from backup cluster by clients"""
+        B = backup
+        U = B.upstream
+        S = U.getZODBStorage()
+        Sb = B.getZODBStorage()
+
+        oid_list = []
+        tid_list = []
+
+        for i in xrange(10):
+            # store new data to U
+            txn = transaction.Transaction()
+            S.tpc_begin(txn)
+            oid = S.new_oid()
+            S.store(oid, None, '%s-%i' % (oid, i), '', txn)
+            S.tpc_vote(txn)
+            tid = S.tpc_finish(txn)
+            oid_list.append(oid)
+            tid_list.append(tid)
+
+            # make sure data propagated to B
+            self.tic()
+            self.assertEqual(B.backup_tid, U.last_tid)
+            self.assertEqual(B.last_tid,   U.last_tid)
+            self.assertEqual(1, self.checkBackup(B))
+
+            # try to read data from B
+            Sb._cache.clear()
+            for j, oid in enumerate(oid_list):
+                data = Sb.load(oid, '')
+                self.assertEqual(data, '%s-%s' % (oid, j))
+            #Sb.loadSerial(oid, tid)
+            #Sb.loadBefore(oid, tid)
 
 if __name__ == "__main__":
     unittest.main()
