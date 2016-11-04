@@ -918,7 +918,6 @@ class LockInformation(Packet):
         PTID('ttid'),
     )
 
-# NOTE
 class InvalidateObjects(Packet):
     """
     Invalidate objects. PM -> C.
