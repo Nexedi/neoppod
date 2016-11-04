@@ -169,7 +169,8 @@ class ReplicationTests(NEOThreadedTest):
             finally:
                 backup.stop()
 
-            # U -> B propagation with Mb -> Sb (Replicate) delayed
+            # U -> B propagation with Mb -> Sb' (secondary, Replicate from primary Sb) delayed
+            # TODO also test: "U -> B propagation with Mb -> Sb (Replicate) delayed" ?
             from neo.storage.database import manager as dbmanager
             from neo.master import handlers as mhandler
             #dbmanager.X = 1
@@ -179,9 +180,9 @@ class ReplicationTests(NEOThreadedTest):
                     tid, upstream_name, source_dict = packet.decode()
                     print 'REPLICATE tid: %r, upstream_name: %r, source_dict: %r' % \
                             (tid, upstream_name, source_dict)
-                    return True
-                    #return not upstream_name and all(source_dict.itervalues())
-                    return upstream_name != ""
+                    #return True
+                    return not upstream_name and all(source_dict.itervalues())
+                    #return upstream_name != ""
             backup.reset()
             try:
                 backup.start()
@@ -190,23 +191,16 @@ class ReplicationTests(NEOThreadedTest):
                 u_last_tid0 = U.last_tid
                 self.assertEqual(B.backup_tid, u_last_tid0)
                 self.assertEqual(B.last_tid,   u_last_tid0)
-                print
-                print 'B.backup_tid: %r' % B.backup_tid
                 with backup.master.filterConnection(*backup.storage_list) as f:
-                    f.add(delaySecondary)       # NOTE delays backup pickup Mb -> Sb
-                    print 'B.backup_tid: %r' % B.backup_tid
+                    f.add(delaySecondary)
                     while not f.filtered_count:
-                        print 'B.backup_tid: %r' % B.backup_tid
                         importZODB(1)
-                    print 'B.backup_tid: %r' % B.backup_tid
                     self.tic()
-                    print 'B.backup_tid: %r' % B.backup_tid
-                    print
-                    print 'u_last_tid0:  %r' % u_last_tid0
-                    print 'U.last_tid:   %r' % U.last_tid
-                    print 'B.backup_tid: %r' % B.backup_tid
+                    # there were new commits
                     self.assertGreater(U.last_tid, u_last_tid0)
-                    self.assertEqual(B.backup_tid, u_last_tid0)
+                    # is not updated for data (but can be pre-updated to tid-1 on first synced txn) XXX text
+                    self.assertLess(B.backup_tid, U.last_tid)
+                    # info about last_tid is synced fully
                     self.assertEqual(B.last_tid,   U.last_tid)
                     backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                     self.tic()
@@ -224,7 +218,7 @@ class ReplicationTests(NEOThreadedTest):
                 dbmanager.X = 0
                 mhandler.X = 0
 
-            # S -> Sb (AddObject) delayed
+            # S -> Sb (AddObject) delayed   XXX not only S -> Sb: also Sb -> Sb'
             backup.reset()
             try:
                 backup.start()

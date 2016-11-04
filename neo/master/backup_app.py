@@ -225,7 +225,7 @@ class BackupApplication(object):
                         # all partitions. t1 is wrong for the same reason.
                         # So we have chosen the highest one (t3 - 1).
                         # t2 should also work but maybe harder to implement.
-                        cell.backup_tid = add64(tid, -1)    # XXX wrong! (we did not yet pulled the data)
+                        cell.backup_tid = add64(tid, -1)
                         logging.debug(
                             "partition %u: updating backup_tid of %r to %s",
                             offset, cell, dump(cell.backup_tid))
