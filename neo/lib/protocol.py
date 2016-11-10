@@ -75,6 +75,7 @@ def ErrorCodes():
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
+    READ_ONLY_ACCESS
 
 @Enum
 def ClusterStates():

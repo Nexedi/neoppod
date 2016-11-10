@@ -16,9 +16,9 @@
 
 from neo.lib import logging
 from neo.lib.handler import EventHandler
-from neo.lib.util import dump, makeChecksum
+from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, LockState, Errors, ProtocolError, \
-    ZERO_HASH, INVALID_PARTITION
+    Errors, ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
 import time
@@ -130,7 +130,7 @@ class ClientOperationHandler(EventHandler):
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
             min_tid, max_tid, length, partition)))
 
-    def askTIDs(self, conn, first, last, partition):
+    def _askTIDs(self, first, last, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
@@ -143,6 +143,10 @@ class ClientOperationHandler(EventHandler):
             partition_list = [partition]
 
         tid_list = app.dm.getTIDList(first, last - first, partition_list)
+        return tid_list
+
+    def askTIDs(self, conn, first, last, partition):
+        tid_list = self._askTIDs(first, last, partition)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
     def askFinalTID(self, conn, ttid):
@@ -222,3 +226,63 @@ class ClientOperationHandler(EventHandler):
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
             conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
 
+
+# like ClientOperationHandler but read-only & only for tid <= backup_tid
+class ClientROOperationHandler(ClientOperationHandler):
+
+    def _readOnly(self, conn, *args, **kw):
+        p = Errors.ReadOnlyAccess('read-only access because cluster is in backuping mode')
+        conn.answer(p)
+
+    abortTransaction        = _readOnly
+    askStoreTransaction     = _readOnly
+    askVoteTransaction      = _readOnly
+    askStoreObject          = _readOnly
+    askFinalTID             = _readOnly
+    askCheckCurrentSerial   = _readOnly     # takes write lock & is only used when going to commit
+
+    # below operations: like in ClientOperationHandler but cut tid <= backup_tid
+
+    def askTransactionInformation(self, conn, tid):
+        backup_tid = self.app.dm.getBackupTID()
+        if tid > backup_tid:
+            p = Errors.TidNotFound('tids > %s are not fully fetched yet' % dump(backup_tid))
+            conn.answer(p)
+            return
+        super(ClientROOperationHandler, self).askTransactionInformation(conn, tid)
+
+    def askObject(self, conn, oid, serial, tid):
+        backup_tid = self.app.dm.getBackupTID()
+        if serial and serial > backup_tid:
+            # obj lookup will find nothing, but return properly either
+            # OidDoesNotExist or OidNotFound
+            serial = ZERO_TID
+        if tid:
+            tid = min(tid, add64(backup_tid, 1))
+
+        # limit "latest obj" query to tid <= backup_tid
+        if not serial and not tid:
+            tid = add64(backup_tid, 1)
+
+        super(ClientROOperationHandler, self).askObject(conn, oid, serial, tid)
+
+    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
+        backup_tid = self.app.dm.getBackupTID()
+        max_tid = min(max_tid, backup_tid)
+        # NOTE we don't need to adjust min_tid: if min_tid > max_tid
+        #      db.getReplicationTIDList will return empty [], which is correct
+        super(ClientROOperationHandler, self).askTIDsFrom(
+                conn, min_tid, max_tid, length, partition)
+
+    def askTIDs(self, conn, first, last, partition):
+        backup_tid = self.app.dm.getBackupTID()
+        tid_list = self._askTIDs(first, last, partition)
+        tid_list = filter(lambda tid: tid <= backup_tid, tid_list)
+        conn.answer(Packets.AnswerTIDs(tid_list))
+
+    # FIXME askObjectUndoSerial to limit tid <= backup_tid
+    # (askObjectUndoSerial is used in undo() but itself is read-only query)
+
+    # FIXME askObjectHistory to limit tid <= backup_tid
+    # TODO dm.getObjectHistory has to be first fixed for this
+    #def askObjectHistory(self, conn, oid, first, last):
