@@ -330,8 +330,6 @@ class Application(ThreadedApplication):
         # TODO:
         # - rename parameters (here? and in handlers & packet definitions)
 
-        print 'QQQ client load  oid: %r  tid: %r  before_tid: %r' % (oid, tid, before_tid)
-
         acquire = self._cache_lock_acquire
         release = self._cache_lock_release
         # XXX: Consider using a more fine-grained lock.
@@ -352,7 +350,6 @@ class Application(ThreadedApplication):
                 # Do not get something more recent than the last invalidation
                 # we got from master.
                 before_tid = p64(u64(self.last_tid) + 1)
-            print '\t.last_tid: %r' % self.last_tid
             data, tid, next_tid, _ = self._loadFromStorage(oid, tid, before_tid)
             acquire()
             try:
@@ -372,7 +369,6 @@ class Application(ThreadedApplication):
         return data, tid, next_tid
 
     def _loadFromStorage(self, oid, at_tid, before_tid):
-        print 'QQQ2 client loadFromStor  oid: %r  at_tid: %r  before_tid: %r' % (oid, at_tid, before_tid)
         packet = Packets.AskObject(oid, at_tid, before_tid)
         for node, conn in self.cp.iterateForObject(oid, readable=True):
             try:

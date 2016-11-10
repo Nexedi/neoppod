@@ -75,7 +75,7 @@ def ErrorCodes():
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
-    READ_ONLY_ACCESS        # TODO use it
+    READ_ONLY_ACCESS
 
 @Enum
 def ClusterStates():
@@ -1400,7 +1400,6 @@ class NotifyReady(Packet):
     """
     pass
 
-# NOTE
 # replication
 
 class FetchTransactions(Packet):

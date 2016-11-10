@@ -28,7 +28,6 @@ from logging import getLogger, Formatter, Logger, StreamHandler, \
 from time import time
 from traceback import format_exception
 import bz2, inspect, neo, os, signal, sqlite3, sys, threading
-from cStringIO import StringIO
 
 # Stats for storage node of matrix test (py2.7:SQLite)
 RECORD_SIZE = ( 234360832 # extra memory used
@@ -226,13 +225,10 @@ class NEOLogger(Logger):
                                       uuid_str(r.uuid), ip, port)
             msg = r.msg
             pktcls = protocol.StaticRegistry[r.code]
-            #bmsg = StringIO(msg)
-            #hmsg = protocol.Packets.parse(bmsg, protocol.ParserState())
             print 'PACKET %s %s\t%s\t%s\t%s %s' % (r.created, r._name, r.msg_id,
                     pktcls.__name__, peer, r.pkt.decode())
             if msg is not None:
                 msg = buffer(msg)
-
             self._db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
                 (r.created, r._name, r.msg_id, r.code, peer, msg))
         else:

@@ -257,7 +257,6 @@ class ClientROOperationHandler(ClientOperationHandler):
 
     def askObject(self, conn, oid, serial, tid):
         backup_tid = self.app.dm.getBackupTID()
-        print '\n\n\nASK OBJECT %r, %r, %r  (backup_tid: %r)' % (oid, serial, tid, backup_tid)
         if serial and serial > backup_tid:
             # obj lookup will find nothing, but return properly either
             # OidDoesNotExist or OidNotFound
@@ -269,9 +268,7 @@ class ClientROOperationHandler(ClientOperationHandler):
         if not serial and not tid:
             tid = add64(backup_tid, 1)
 
-        print '-> asking as oid: %r  serial: %r  tid: %r' % (oid, serial, tid)
         super(ClientROOperationHandler, self).askObject(conn, oid, serial, tid)
-        print '(ask object done)'
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         backup_tid = self.app.dm.getBackupTID()

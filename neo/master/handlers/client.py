@@ -142,5 +142,4 @@ class ClientROServiceHandler(ClientServiceHandler):
     def askLastTransaction(self, conn):
         assert self.app.backup_tid is not None   # we are in BACKUPING mode
         backup_tid = self.app.pt.getBackupTid()
-        print '\n\n\nASK LAST_TID -> %r\n' % backup_tid
         conn.answer(Packets.AnswerLastTransaction(backup_tid))

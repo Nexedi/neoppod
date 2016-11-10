@@ -81,8 +81,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.load(oid)[:2]
         except NEOStorageNotFoundError:
-            raise
-            #raise POSException.POSKeyError(oid)
+            raise POSException.POSKeyError(oid)
 
     def new_oid(self):
         return self.app.new_oid()
