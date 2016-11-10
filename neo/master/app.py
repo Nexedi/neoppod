@@ -522,7 +522,6 @@ class Application(BaseApplication):
         tid = txn.getTID()
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
-        # NOTE send invalidation to clients
         for client_node in self.nm.getClientList(only_identified=True):
             c = client_node.getConnection()
             if client_node is transaction_node:

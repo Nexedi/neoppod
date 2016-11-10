@@ -525,8 +525,8 @@ class ReplicationTests(NEOThreadedTest):
         """Check data can be read from backup cluster by clients"""
         B = backup
         U = B.upstream
-        S = U.getZODBStorage()
-        Sb = B.getZODBStorage()
+        Z = U.getZODBStorage()
+        #Zb = B.getZODBStorage()
 
         oid_list = []
         tid_list = []
@@ -534,11 +534,11 @@ class ReplicationTests(NEOThreadedTest):
         for i in xrange(10):
             # store new data to U
             txn = transaction.Transaction()
-            S.tpc_begin(txn)
-            oid = S.new_oid()
-            S.store(oid, None, '%s-%i' % (oid, i), '', txn)
-            S.tpc_vote(txn)
-            tid = S.tpc_finish(txn)
+            Z.tpc_begin(txn)
+            oid = Z.new_oid()
+            Z.store(oid, None, '%s-%i' % (oid, i), '', txn)
+            Z.tpc_vote(txn)
+            tid = Z.tpc_finish(txn)
             oid_list.append(oid)
             tid_list.append(tid)
 
@@ -548,13 +548,20 @@ class ReplicationTests(NEOThreadedTest):
             self.assertEqual(B.last_tid,   U.last_tid)
             self.assertEqual(1, self.checkBackup(B))
 
+            print '\n\n111 tid: %r, last_tid: %r, backup_tid: %r' % (tid, B.backup_tid, U.last_tid)
+
             # try to read data from B
-            Sb._cache.clear()
+            # XXX we open new storage every time becasue invalidations are not yet implemented in read-only mode.
+            Zb = B.getZODBStorage()
+            #Zb.sync()
+            #Zb._cache.clear()
             for j, oid in enumerate(oid_list):
-                data = Sb.load(oid, '')
+                data = Zb.load(oid, '')
                 self.assertEqual(data, '%s-%s' % (oid, j))
-            #Sb.loadSerial(oid, tid)
-            #Sb.loadBefore(oid, tid)
+            #Zb.loadSerial(oid, tid)
+            #Zb.loadBefore(oid, tid)
+
+            # TODO close Zb / client
 
 if __name__ == "__main__":
     unittest.main()

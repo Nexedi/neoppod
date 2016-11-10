@@ -120,7 +120,6 @@ class ClientServiceHandler(MasterHandler):
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid
-# XXX naming -> (?) ClientReadOnlyHandler
 class ClientROServiceHandler(ClientServiceHandler):
 
     # XXX somehow make sure to propagate this to raiseReadOnlyError() on client ?
@@ -139,6 +138,9 @@ class ClientROServiceHandler(ClientServiceHandler):
 
     # like in MasterHandler but returns backup_tid instead of last_tid
     def askLastTransaction(self, conn):
-        backup_tid = self.app.backup_tid
+        # XXX wrong vvv
+        backup_tid = self.app.backup_tid    # FIXME this is not regularly updated - only on request from outside ?
+                                            # XXX yes -> see askRecovery in master/handlers/
         assert backup_tid is not None   # in BACKUPING mode it is always set
+        print '\n\n\nASK LAST_TID -> %r\n' % backup_tid
         conn.answer(Packets.AnswerLastTransaction(backup_tid))

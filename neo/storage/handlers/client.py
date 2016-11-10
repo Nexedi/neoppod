@@ -231,7 +231,6 @@ class ClientOperationHandler(EventHandler):
 
 
 # like ClientOperationHandler but read-only & only for tid <= backup_tid
-# XXX naming -> ClientReadOnlyHandler ?
 class ClientROOperationHandler(ClientOperationHandler):
 
     def _readOnly(self, *args, **kw):   raise NotReadyError('read-only access')
@@ -255,8 +254,8 @@ class ClientROOperationHandler(ClientOperationHandler):
         super(ClientROOperationHandler, self).askTransactionInformation(conn, tid)
 
     def askObject(self, conn, oid, serial, tid):
-        print '\n\n\nASK OBJECT %r, %r, %r\n\n\n' % (oid, serial, tid)
         backup_tid = self.app.dm.getBackupTID()
+        print '\n\n\nASK OBJECT %r, %r, %r  (backup_tid: %r)\n\n\n' % (oid, serial, tid, backup_tid)
         if serial and serial > backup_tid:
             # obj lookup will find nothing, but return properly either
             # OidDoesNotExist or OidNotFound

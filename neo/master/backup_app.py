@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2012-2016  Nexedi SA
 #
@@ -95,7 +96,7 @@ class BackupApplication(object):
             bootstrap = BootstrapManager(self, self.name, NodeTypes.CLIENT)
             # {offset -> node}      (primary storage for off which will be talking to upstream cluster)
             self.primary_partition_dict = {}
-            # [[tid]]
+            # [[tid]]   part -> []tid↑  (currently scheduled-for-sync txns)
             self.tid_list = tuple([] for _ in xrange(pt.getPartitions()))
             try:
                 while True:
@@ -208,13 +209,12 @@ class BackupApplication(object):
             except IndexError:
                 last_max_tid = prev_tid
             if offset in partition_set:
-                self.tid_list[offset].append(tid)
+                self.tid_list[offset].append(tid)   # XXX check tid is ↑
                 node_list = []
                 for cell in pt.getCellList(offset, readable=True):
                     node = cell.getNode()
                     assert node.isConnected(), node
                     if cell.backup_tid == prev_tid:
-                        """
                         # Let's given 4 TID t0,t1,t2,t3: if a cell is only
                         # modified by t0 & t3 and has all data for t0, 4 values
                         # are possible for its 'backup_tid' until it replicates
@@ -229,8 +229,6 @@ class BackupApplication(object):
                         logging.debug(
                             "partition %u: updating backup_tid of %r to %s",
                             offset, cell, dump(cell.backup_tid))
-                        """
-                        pass
                     else:
                         assert cell.backup_tid < last_max_tid, (
                             cell.backup_tid, last_max_tid, prev_tid, tid)
@@ -301,13 +299,13 @@ class BackupApplication(object):
         app = self.app
         cell = app.pt.getCell(offset, node.getUUID())
         tid_list = self.tid_list[offset]
-        if tid_list: # may be empty if the cell is out-of-date
+        if tid_list: # may be empty if the cell is out-of-date      # XXX check how
                      # or if we're not fully initialized
-            if tid < tid_list[0]:
+            if tid < tid_list[0]:                                   # XXX why this is possible?
                 cell.replicating = tid
             else:
                 try:
-                    tid = add64(tid_list[bisect(tid_list, tid)], -1)
+                    tid = add64(tid_list[bisect(tid_list, tid)], -1)    # XXX why -1 ?
                 except IndexError:
                     last_tid = app.getLastTransaction()
                     if tid < last_tid:
@@ -316,9 +314,11 @@ class BackupApplication(object):
         logging.debug("partition %u: updating backup_tid of %r to %s",
                       offset, cell, dump(tid))
         cell.backup_tid = tid
+        # TODO provide invalidation feedback about new txns to read-only clients connected to backup cluster
+        # NOTE ^^^ not only here but also hooked to in-progress feedback from fetchObjects (storage)
         # Forget tids we won't need anymore.
         cell_list = app.pt.getCellList(offset, readable=True)
-        del tid_list[:bisect(tid_list, min(x.backup_tid for x in cell_list))]
+        del tid_list[:bisect(tid_list, min(x.backup_tid for x in cell_list))]   # XXX not only for primary Sb ?
         primary_node = self.primary_partition_dict.get(offset)
         primary = primary_node is node
         result = None if primary else app.pt.setUpToDate(node, offset)

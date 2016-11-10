@@ -105,6 +105,7 @@ class StorageOperationHandler(EventHandler):
         self.app.dm.commit()
         assert not pack_tid, "TODO"
         if next_tid:
+            # TODO also provide feedback to master about current replication state (tid)
             self.app.replicator.fetchObjects(next_tid, next_oid)
         else:
             self.app.replicator.finish()
