@@ -366,7 +366,6 @@ class Replicator(object):
         node = self.current_node
         if node is not None is node.getUUID():
             self.cancel()
-        # NOTE
         # Cancel all replication orders from upstream cluster.
         for offset in self.replicate_dict.keys():
             addr, name = self.source_dict.get(offset, (None, None))

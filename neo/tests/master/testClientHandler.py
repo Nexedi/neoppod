@@ -34,7 +34,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.app.em = Mock()
         self.app.loid = '\0' * 8
         self.app.tm.setLastTID('\0' * 8)
-        self.service = ClientServiceHandler(self.app)   # TODO tests for RO handler
+        self.service = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022
         self.storage_port = 10021

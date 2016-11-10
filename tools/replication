@@ -33,7 +33,6 @@ class DummyObject(Persistent):
     def __init__(self, data):
         self._data = None
 
-# NOTE
 class ReplicationBenchmark(BenchmarkRunner):
     """ Test replication process """
 

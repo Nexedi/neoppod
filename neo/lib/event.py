@@ -136,8 +136,7 @@ class EpollEventManager(object):
             if self._closeAcquire(0):
                 self._closeRelease()
 
-    # NOTE
-    def isIdle(self):
+    def isIdle(self):   # NOTE
         return not (self._pending_processing or self.writer_set)
 
     def _addPendingConnection(self, conn):

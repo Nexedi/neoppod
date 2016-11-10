@@ -751,7 +751,6 @@ class NEOCluster(object):
         self.enableStorageList(storage_list)
 
     def newClient(self):
-        print '%r: newClient()' % self
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
                                  compress=self.compress, ssl=self.SSL)
 

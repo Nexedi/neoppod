@@ -23,8 +23,6 @@ from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
 import time
 
-import traceback
-
 # Log stores taking (incl. lock delays) more than this many seconds.
 # Set to None to disable.
 SLOW_STORE = 2
@@ -47,7 +45,6 @@ class ClientOperationHandler(EventHandler):
             app.queueEvent(self.askObject, conn, (oid, serial, tid))
             return
         o = app.dm.getObject(oid, serial, tid)
-        print 'askObject -> %r' % (o,)
         try:
             serial, next_serial, compression, checksum, data, data_serial = o
         except TypeError:
@@ -242,7 +239,6 @@ class ClientROOperationHandler(ClientOperationHandler):
     askVoteTransaction      = _readOnly
     askStoreObject          = _readOnly
     askFinalTID             = _readOnly
-    # askObjectUndoSerial is used in undo() but itself is read-only query   XXX or cut <= backup_tid ?
     askCheckCurrentSerial   = _readOnly     # takes write lock & is only used when going to commit
 
     # below operations: like in ClientOperationHandler but cut tid <= backup_tid
@@ -283,6 +279,9 @@ class ClientROOperationHandler(ClientOperationHandler):
         tid_list = self._askTIDs(first, last, partition)
         tid_list = filter(lambda tid: tid <= backup_tid, tid_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
+
+    # FIXME askObjectUndoSerial to limit tid <= backup_tid
+    # (askObjectUndoSerial is used in undo() but itself is read-only query)
 
     # FIXME askObjectHistory to limit tid <= backup_tid
     # TODO dm.getObjectHistory has to be first fixed for this
