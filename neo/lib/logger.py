@@ -273,6 +273,7 @@ class NEOLogger(Logger):
             self.parent.callHandlers(record)
 
     def packet(self, connection, packet, outgoing):
+        return
         if True or self._db is not None:
             body = packet._body
             if self._max_packet and self._max_packet < len(body):

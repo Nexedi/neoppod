@@ -698,6 +698,7 @@ class NEOCluster(object):
 
     @property
     def backup_tid(self):
+        # TODO -> self.master.pt.getBackupTid() ?
         return self.neoctl.getRecovery()[1]
 
     @property

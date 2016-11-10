@@ -111,7 +111,6 @@ class RecoveryManager(MasterHandler):
             if cell_list:
                 self._notifyAdmins(Packets.NotifyPartitionChanges(
                     pt.setNextID(), cell_list))
-            # NOTE
             if app.backup_tid:
                 pt.setBackupTidDict(self.backup_tid_dict)
                 app.backup_tid = pt.getBackupTid()
@@ -148,7 +147,6 @@ class RecoveryManager(MasterHandler):
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskRecovery())
 
-    # NOTE
     def answerRecovery(self, conn, ptid, backup_tid, truncate_tid):
         uuid = conn.getUUID()
         if self.target_ptid <= ptid:

@@ -18,7 +18,7 @@ from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, LockState, Errors, ProtocolError, \
-    ZERO_HASH, INVALID_PARTITION
+    Errors, ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
 import time
@@ -47,7 +47,7 @@ class ClientOperationHandler(EventHandler):
             app.queueEvent(self.askObject, conn, (oid, serial, tid))
             return
         o = app.dm.getObject(oid, serial, tid)
-        print 'AAA %r' % o
+        print 'askObject -> %r' % (o,)
         try:
             serial, next_serial, compression, checksum, data, data_serial = o
         except TypeError:
@@ -233,7 +233,9 @@ class ClientOperationHandler(EventHandler):
 # like ClientOperationHandler but read-only & only for tid <= backup_tid
 class ClientROOperationHandler(ClientOperationHandler):
 
-    def _readOnly(self, *args, **kw):   raise NotReadyError('read-only access')
+    def _readOnly(self, conn, *args, **kw):
+        p = Errors.ReadOnlyAccess('read-only access because cluster is in backuping mode')
+        conn.answer(p)
 
     abortTransaction        = _readOnly
     askStoreTransaction     = _readOnly
@@ -255,7 +257,7 @@ class ClientROOperationHandler(ClientOperationHandler):
 
     def askObject(self, conn, oid, serial, tid):
         backup_tid = self.app.dm.getBackupTID()
-        print '\n\n\nASK OBJECT %r, %r, %r  (backup_tid: %r)\n\n\n' % (oid, serial, tid, backup_tid)
+        print '\n\n\nASK OBJECT %r, %r, %r  (backup_tid: %r)' % (oid, serial, tid, backup_tid)
         if serial and serial > backup_tid:
             # obj lookup will find nothing, but return properly either
             # OidDoesNotExist or OidNotFound
@@ -267,9 +269,9 @@ class ClientROOperationHandler(ClientOperationHandler):
         if not serial and not tid:
             tid = add64(backup_tid, 1)
 
-        print '-> %r %r %r' % (oid, serial, tid)
+        print '-> asking as oid: %r  serial: %r  tid: %r' % (oid, serial, tid)
         super(ClientROOperationHandler, self).askObject(conn, oid, serial, tid)
-        print 'XXX'
+        print '(ask object done)'
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         backup_tid = self.app.dm.getBackupTID()

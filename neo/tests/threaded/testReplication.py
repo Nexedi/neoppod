@@ -34,10 +34,13 @@ from neo.lib.util import p64
 from .. import Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
 
+from ZODB.POSException import ReadOnlyError
+from neo.client.exception import NEOStorageError
+
 # dump log to stderr
 logging.backlog(max_size=None)
 del logging.default_root_handler.handle
-getLogger().setLevel(DEBUG)
+getLogger().setLevel(INFO)
 
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
@@ -57,7 +60,6 @@ def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
                 upstream.stop()
         return wraps(wrapped)(wrapper)
     return decorator
-
 
 
 class ReplicationTests(NEOThreadedTest):
@@ -522,17 +524,17 @@ class ReplicationTests(NEOThreadedTest):
 
     @backup_test()
     def testBackupReadAccess(self, backup):
-        """Check data can be read from backup cluster by clients"""
+        """Check backup cluster can be used in read-only mode by ZODB clients"""
         B = backup
         U = B.upstream
         Z = U.getZODBStorage()
-        #Zb = B.getZODBStorage()
+        #Zb = B.getZODBStorage()    # XXX see below about invalidations
 
         oid_list = []
         tid_list = []
 
         for i in xrange(10):
-            # store new data to U
+            # commit new data to U
             txn = transaction.Transaction()
             Z.tpc_begin(txn)
             oid = Z.new_oid()
@@ -548,20 +550,32 @@ class ReplicationTests(NEOThreadedTest):
             self.assertEqual(B.last_tid,   U.last_tid)
             self.assertEqual(1, self.checkBackup(B))
 
-            print '\n\n111 tid: %r, last_tid: %r, backup_tid: %r' % (tid, B.backup_tid, U.last_tid)
-
-            # try to read data from B
-            # XXX we open new storage every time becasue invalidations are not yet implemented in read-only mode.
+            # read data from B and verify it is what it should be
+            # XXX we open new storage every time because invalidations are not
+            # yet implemented in read-only mode.
             Zb = B.getZODBStorage()
-            #Zb.sync()
-            #Zb._cache.clear()
             for j, oid in enumerate(oid_list):
-                data = Zb.load(oid, '')
+                data, serial = Zb.load(oid, '')
                 self.assertEqual(data, '%s-%s' % (oid, j))
-            #Zb.loadSerial(oid, tid)
-            #Zb.loadBefore(oid, tid)
+                self.assertEqual(serial, tid_list[j])
 
-            # TODO close Zb / client
+            # close storage because client app is otherwise shared in threaded
+            # tests and we need to refresh last_tid on next run
+            # (see above about invalidations not working)
+            Zb.close()
+
+        # try to commit something to backup storage and make sure it is really read-only
+        Zb = B.getZODBStorage()
+        Zb._cache._max_size = 0     # make stores do work in sync way
+        txn = transaction.Transaction()
+        self.assertRaises(ReadOnlyError, Zb.tpc_begin, txn)
+        self.assertRaises(ReadOnlyError, Zb.new_oid)
+        self.assertRaises(ReadOnlyError, Zb.store, oid_list[-1], tid_list[-1], 'somedata', '', txn)
+        # tpc_vote first checks whether there were store replies - thus not ReadOnlyError
+        self.assertRaises(NEOStorageError, Zb.tpc_vote, txn)
+
+        Zb.close()
+
 
 if __name__ == "__main__":
     unittest.main()

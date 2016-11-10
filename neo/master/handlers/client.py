@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, NotReadyError
+from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
@@ -122,8 +122,10 @@ class ClientServiceHandler(MasterHandler):
 # like ClientServiceHandler but read-only & only for tid <= backup_tid
 class ClientROServiceHandler(ClientServiceHandler):
 
-    # XXX somehow make sure to propagate this to raiseReadOnlyError() on client ?
-    def _readOnly(self, *args, **kw):  raise NotReadyError('read-only access')
+    def _readOnly(self, conn, *args, **kw):
+        p = Errors.ReadOnlyAccess('read-only access because cluster is in backuping mode')
+        conn.answer(p)
+
 
     askBeginTransaction     = _readOnly
     askNewOIDs              = _readOnly
@@ -138,9 +140,7 @@ class ClientROServiceHandler(ClientServiceHandler):
 
     # like in MasterHandler but returns backup_tid instead of last_tid
     def askLastTransaction(self, conn):
-        # XXX wrong vvv
-        backup_tid = self.app.backup_tid    # FIXME this is not regularly updated - only on request from outside ?
-                                            # XXX yes -> see askRecovery in master/handlers/
-        assert backup_tid is not None   # in BACKUPING mode it is always set
+        assert self.app.backup_tid is not None   # we are in BACKUPING mode
+        backup_tid = self.app.pt.getBackupTid()
         print '\n\n\nASK LAST_TID -> %r\n' % backup_tid
         conn.answer(Packets.AnswerLastTransaction(backup_tid))

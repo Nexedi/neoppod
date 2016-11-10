@@ -70,6 +70,7 @@ class IdentificationHandler(EventHandler):
             else:
                 raise ProtocolError('reject non-client-or-storage node')
             # apply the handler and set up the connection
+            print 'S: -> handler: %s' % handler
             handler = handler(self.app)
             conn.setHandler(handler)
             node.setConnection(conn, app.uuid < uuid)
