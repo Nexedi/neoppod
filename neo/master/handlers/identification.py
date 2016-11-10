@@ -41,9 +41,12 @@ class IdentificationHandler(MasterHandler):
 
         state = NodeStates.RUNNING
         if node_type == NodeTypes.CLIENT:
-            if app.cluster_state != ClusterStates.RUNNING:
+            if app.cluster_state == ClusterStates.RUNNING:
+                handler = app.client_service_handler
+            elif app.cluster_state == ClusterStates.BACKINGUP:
+                handler = app.client_ro_service_handler
+            else:
                 raise NotReadyError
-            handler = app.client_service_handler
             human_readable_node_type = ' client '
         elif node_type == NodeTypes.STORAGE:
             if app.cluster_state == ClusterStates.STOPPING_BACKUP:

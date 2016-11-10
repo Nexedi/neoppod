@@ -17,10 +17,12 @@
 import random
 import time
 import transaction
+from ZODB.POSException import ReadOnlyError, POSKeyError
 import unittest
 from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
+from neo.client.exception import NEOStorageError
 from neo.storage.checker import CHECK_COUNT
 from neo.storage.replicator import Replicator
 from neo.lib.connector import SocketConnector
@@ -460,6 +462,100 @@ class ReplicationTests(NEOThreadedTest):
         finally:
             checker.CHECK_COUNT = CHECK_COUNT
             cluster.stop()
+
+    @backup_test()
+    def testBackupReadOnlyAccess(self, backup):
+        """Check backup cluster can be used in read-only mode by ZODB clients"""
+        B = backup
+        U = B.upstream
+        Z = U.getZODBStorage()
+        #Zb = B.getZODBStorage()    # XXX see below about invalidations
+
+        oid_list = []
+        tid_list = []
+
+        # S -> Sb link stops working during [cutoff, recover) test iterations
+        cutoff  = 4
+        recover = 7
+        def delayReplication(conn, packet):
+            return isinstance(packet, Packets.AnswerFetchTransactions)
+
+        with ConnectionFilter() as f:
+            for i in xrange(10):
+                if i == cutoff:
+                    f.add(delayReplication)
+                if i == recover:
+                    # .remove() removes the filter and retransmits all packets
+                    # that were queued once first filtered packed was detected
+                    # on a connection.
+                    f.remove(delayReplication)
+
+                # commit new data to U
+                txn = transaction.Transaction()
+                txn.note('test transaction %i' % i)
+                Z.tpc_begin(txn)
+                oid = Z.new_oid()
+                Z.store(oid, None, '%s-%i' % (oid, i), '', txn)
+                Z.tpc_vote(txn)
+                tid = Z.tpc_finish(txn)
+                oid_list.append(oid)
+                tid_list.append(tid)
+
+                # make sure data propagated to B  (depending on cutoff)
+                self.tic()
+                if cutoff <= i < recover:
+                    self.assertLess(B.backup_tid, U.last_tid)
+                else:
+                    self.assertEqual(B.backup_tid, U.last_tid)
+                self.assertEqual(B.last_tid,   U.last_tid)
+                self.assertEqual(1, self.checkBackup(B, max_tid=B.backup_tid))
+
+                # read data from B and verify it is what it should be
+                # XXX we open new ZODB storage every time because invalidations
+                # are not yet implemented in read-only mode.
+                Zb = B.getZODBStorage()
+                for j, oid in enumerate(oid_list):
+                    if cutoff <= i < recover and j >= cutoff:
+                        self.assertRaises(POSKeyError, Zb.load, oid, '')
+                    else:
+                        data, serial = Zb.load(oid, '')
+                        self.assertEqual(data, '%s-%s' % (oid, j))
+                        self.assertEqual(serial, tid_list[j])
+
+                # verify how transaction log & friends behave under potentially
+                # not-yet-fully fetched backup state (transactions committed at
+                # [cutoff, recover) should not be there; otherwise transactions
+                # should be fully there)
+                Zb = B.getZODBStorage()
+                Btxn_list = list(Zb.iterator())
+                self.assertEqual(len(Btxn_list), cutoff if cutoff <= i < recover
+                                                 else i+1)
+                for j, txn in enumerate(Btxn_list):
+                    self.assertEqual(txn.tid, tid_list[j])
+                    self.assertEqual(txn.description, 'test transaction %i' % j)
+                    obj, = txn
+                    self.assertEqual(obj.oid, oid_list[j])
+                    self.assertEqual(obj.data, '%s-%s' % (obj.oid, j))
+
+                # TODO test askObjectHistory once it is fixed
+
+                # try to commit something to backup storage and make sure it is
+                # really read-only
+                Zb._cache._max_size = 0     # make store() do work in sync way
+                txn = transaction.Transaction()
+                self.assertRaises(ReadOnlyError, Zb.tpc_begin, txn)
+                self.assertRaises(ReadOnlyError, Zb.new_oid)
+                self.assertRaises(ReadOnlyError, Zb.store, oid_list[-1],
+                                            tid_list[-1], 'somedata', '', txn)
+                # tpc_vote first checks whether there were store replies -
+                # thus not ReadOnlyError
+                self.assertRaises(NEOStorageError, Zb.tpc_vote, txn)
+
+                # close storage because client app is otherwise shared in
+                # threaded tests and we need to refresh last_tid on next run
+                # (XXX see above about invalidations not working)
+                Zb.close()
+
 
 if __name__ == "__main__":
     unittest.main()

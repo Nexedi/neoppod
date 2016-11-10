@@ -310,6 +310,8 @@ class BackupApplication(object):
         logging.debug("partition %u: updating backup_tid of %r to %s",
                       offset, cell, dump(tid))
         cell.backup_tid = tid
+        # TODO provide invalidation feedback about new txns to read-only clients connected to backup cluster
+        # NOTE ^^^ not only here but also hooked to in-progress feedback from fetchObjects (storage)
         # Forget tids we won't need anymore.
         cell_list = app.pt.getCellList(offset, readable=True)
         del tid_list[:bisect(tid_list, min(x.backup_tid for x in cell_list))]
