@@ -668,10 +668,20 @@ class NEOCluster(object):
         return admin
     ###
 
+    # More handy shortcuts for tests
+    @property
+    def backup_tid(self):
+        return self.neoctl.getRecovery()[1]
+
+    @property
+    def last_tid(self):
+        return self.primary_master.getLastTransaction()
+
     @property
     def primary_master(self):
         master, = [master for master in self.master_list if master.primary]
         return master
+    ###
 
     def reset(self, clear_database=False):
         for node_type in 'master', 'storage', 'admin':

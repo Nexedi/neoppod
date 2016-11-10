@@ -142,7 +142,7 @@ class ReplicationTests(NEOThreadedTest):
                     self.tic()
                 self.tic()
                 self.assertEqual(np*nr, self.checkBackup(backup,
-                    max_tid=backup.master.getLastTransaction()))
+                    max_tid=backup.last_tid))
             finally:
                 backup.stop()
             backup.reset()
@@ -160,7 +160,7 @@ class ReplicationTests(NEOThreadedTest):
                     self.tic()
                 self.tic()
                 self.assertEqual(np*nr, self.checkBackup(backup,
-                    max_tid=backup.master.getLastTransaction()))
+                    max_tid=backup.last_tid))
             finally:
                 backup.stop()
         finally:
