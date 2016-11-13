@@ -63,7 +63,7 @@ def iterator(app, start=None, stop=None):
     """NEO transaction iterator"""
     if start is None:
         start = ZERO_TID
-    stop = min(stop or MAX_TID, app.lastTransaction())
+    stop = min(stop or MAX_TID, app.last_tid)
     while 1:
         max_tid, chunk = app.transactionLog(start, stop, CHUNK_LENGTH)
         if not chunk:

@@ -12,15 +12,11 @@
 #
 ##############################################################################
 
-import app # set up signal handers early enough to do it in the main thread
-
-if 1:
+def patch():
     from hashlib import md5
     from ZODB.Connection import Connection
 
-    def _check(f, *args):
-        h = md5(f.func_code.co_code).hexdigest()
-        assert h in args, h
+    H = lambda f: md5(f.func_code.co_code).hexdigest()
 
     # Allow serial to be returned as late as tpc_finish
     #
@@ -28,9 +24,7 @@ if 1:
     # removing the requirement to serialise second commit phase (tpc_vote
     # to tpc_finish/tpc_abort).
 
-    _check(Connection.tpc_finish,
-        'ab9b1b8d82c40e5fffa84f7bc4ea3a8b', # Python 2.7
-        )
+    h = H(Connection.tpc_finish)
 
     def tpc_finish(self, transaction):
         """Indicate confirmation that the transaction is done."""
@@ -61,18 +55,27 @@ if 1:
         # </patch>
         self._tpc_cleanup()
 
-    Connection.tpc_finish = tpc_finish
+    global OLD_ZODB
+    OLD_ZODB = h in (
+        'ab9b1b8d82c40e5fffa84f7bc4ea3a8b', # Python 2.7
+        )
 
-    # IStorage implementations usually need to provide a "network barrier",
-    # at least for NEO & ZEO, to make sure we have an up-to-date view of
-    # the storage. It's unclear whether sync() is a good place to do this
-    # because a round-trip to the server introduces latency and we prefer
-    # it's not done when it's not useful.
-    # For example, we know we are up-to-date after a successful commit,
-    # so this should not be done in afterCompletion(), and anyway, we don't
-    # know any legitimate use of DB access outside a transaction.
+    if OLD_ZODB:
+        Connection.tpc_finish = tpc_finish
+    elif hasattr(Connection, '_handle_serial'): # merged upstream ?
+        assert hasattr(Connection, '_warn_about_returned_serial')
 
-    _check(Connection.afterCompletion,
+    # sync() is used to provide a "network barrier", which is required for
+    # NEO & ZEO to make sure our view of the storage includes all changes done
+    # so far by other clients. But a round-trip to the server introduces
+    # latency so it must not be done when it's not useful. Note also that a
+    # successful commit (which ends with a response from the master) already
+    # acts as a "network barrier".
+    # BBB: What this monkey-patch does has been merged in ZODB5.
+    if not hasattr(Connection, '_flush_invalidations'):
+        return
+
+    assert H(Connection.afterCompletion) in (
         'cd3a080b80fd957190ff3bb867149448', # Python 2.7
         )
 
@@ -81,3 +84,7 @@ if 1:
         # PATCH: do not call sync()
         self._flush_invalidations()
     Connection.afterCompletion = afterCompletion
+
+patch()
+
+import app # set up signal handers early enough to do it in the main thread

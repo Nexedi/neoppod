@@ -38,6 +38,7 @@ class Dispatcher(object):
 
 def _getMasterConnection(self):
     if self.master_conn is None:
+        self.last_tid = None
         self.uuid = 1 + (UUID_NAMESPACES[NodeTypes.CLIENT] << 24)
         self.num_partitions = 10
         self.num_replicas = 1

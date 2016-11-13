@@ -404,14 +404,14 @@ class ReplicationTests(NEOThreadedTest):
                 self.tic()
                 s1.stop()
                 cluster.join((s1,))
-            t0, t1, t2 = c._storage.iterator()
+            t0, t1, t2 = c.db().storage.iterator()
             s1.resetNode()
             s1.start()
             self.tic()
             self.assertEqual([], cluster.getOutdatedCells())
             s0.stop()
             cluster.join((s0,))
-            t0, t1, t2 = c._storage.iterator()
+            t0, t1, t2 = c.db().storage.iterator()
         finally:
             cluster.stop()
 

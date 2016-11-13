@@ -16,7 +16,7 @@
 
 from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import p64, u64, tidFromTime
+from neo.lib.util import p64, u64, tidFromTime, timeStringFromTID
 from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
     UUID_NAMESPACES, ZERO_TID
 
@@ -89,11 +89,13 @@ class TerminalNeoCTL(object):
         ptid, backup_tid, truncate_tid = self.neoctl.getRecovery()
         if backup_tid:
             ltid = self.neoctl.getLastTransaction()
-            r = "backup_tid = 0x%x" % u64(backup_tid)
+            r = "backup_tid = 0x%x (%s)" % (u64(backup_tid),
+                                            timeStringFromTID(backup_tid))
         else:
             loid, ltid = self.neoctl.getLastIds()
-            r = "last_oid = 0x%x" % u64(loid)
-        return r + "\nlast_tid = 0x%x\nlast_ptid = %u" % (u64(ltid), ptid)
+            r = "last_oid = 0x%x" % (u64(loid))
+        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % \
+                                    (u64(ltid), timeStringFromTID(ltid), ptid)
 
     def getPartitionRowList(self, params):
         """
@@ -311,4 +313,3 @@ class Application(object):
             " e.g. '257684787499560686', '0x3937af2eeeeeeee' or '1325421296.'"
             " for 2012-01-01 12:34:56 UTC")
         return '\n'.join(output_list)
-

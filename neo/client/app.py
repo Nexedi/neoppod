@@ -24,7 +24,9 @@ from functools import partial
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.POSException import ReadConflictError
-from ZODB.ConflictResolution import ResolvedSerial
+from . import OLD_ZODB
+if OLD_ZODB:
+  from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
@@ -108,7 +110,6 @@ class Application(ThreadedApplication):
         self._loading_oid = None
         self.new_oid_list = ()
         self.last_oid = '\0' * 8
-        self.last_tid = None
         self.storage_event_handler = storage.StorageEventHandler(self)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
@@ -136,8 +137,12 @@ class Application(ThreadedApplication):
         self.compress = compress
 
     def __getattr__(self, attr):
-        if attr == 'pt':
-            self._getMasterConnection()
+        if attr in ('last_tid', 'pt'):
+            if self._connecting_to_master_node.locked():
+                if attr == 'last_tid':
+                    return
+            else:
+                self._getMasterConnection()
         return self.__getattribute__(attr)
 
     def log(self):
@@ -603,7 +608,7 @@ class Application(ThreadedApplication):
                 logging.error('tpc_store failed')
                 raise NEOStorageError('tpc_store failed')
             elif oid in resolved_oid_set:
-                append((oid, ResolvedSerial))
+                append((oid, ResolvedSerial) if OLD_ZODB else oid)
         return result
 
     def tpc_vote(self, transaction, tryToResolveConflict):
@@ -950,9 +955,8 @@ class Application(ThreadedApplication):
 
     from .iterator import iterator
 
-    def lastTransaction(self):
-        self._askPrimary(Packets.AskLastTransaction())
-        return self.last_tid
+    def sync(self):
+        self._askPrimary(Packets.Ping())
 
     def pack(self, t):
         tid = TimeStamp(*time.gmtime(t)[:5] + (t % 60, )).raw()

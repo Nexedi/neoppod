@@ -159,11 +159,8 @@ class Storage(BaseStorage.BaseStorage,
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
-    def sync(self, force=True):
-        # XXX: sync() is part of IMVCCStorage and we don't want to be called
-        #      from afterCompletion() so it may not be a good place to ping the
-        #      master here. See also monkey-patch in __init__.py
-        self.app.lastTransaction()
+    def sync(self):
+        return self.app.sync()
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """
@@ -186,7 +183,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def lastTransaction(self):
         # Used in ZODB unit tests
-        return self.app.lastTransaction()
+        return self.app.last_tid
 
     def _clear_temp(self):
         raise NotImplementedError
