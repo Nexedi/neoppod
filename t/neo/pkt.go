@@ -74,21 +74,6 @@ const (
 	GRANTED_TO_OTHER
 )
 
-// XXX move out of here ?
-type TID uint64  // XXX or [8]byte ?
-type OID uint64  // XXX or [8]byte ?
-
-const (
-	INVALID_UUID UUID = 0
-	INVALID_TID  TID = 0xffffffffffffffff    // 1<<64 - 1
-	INVALID_OID  OID = 0xffffffffffffffff    // 1<<64 - 1
-	ZERO_TID     TID = 0        // XXX or simply TID{} ?
-	ZERO_OID     OID = 0        // XXX or simply OID{} ?
-	// OID_LEN = 8
-	// TID_LEN = 8
-	MAX_TID      TID = 0x7fffffffffffffff    // SQLite does not accept numbers above 2^63-1
-)
-
 // An UUID (node identifier, 4-bytes signed integer)
 type UUID int32
 
