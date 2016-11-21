@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 6
+PROTOCOL_VERSION = 7
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
