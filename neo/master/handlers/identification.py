@@ -32,12 +32,16 @@ class IdentificationHandler(MasterHandler):
         app = self.app
         if node:
             if node.isRunning():
-                # cloned/evil/buggy node connecting to us
-                raise ProtocolError('already connected')
+                if uuid > 0:
+                    # cloned/evil/buggy node connecting to us
+                    raise ProtocolError('already connected')
+                # The peer wants a temporary id that's already assigned.
+                # Let's give it another one.
+                node = uuid = None
             else:
                 assert not node.isConnected()
-            node.setAddress(address)
-            node.setRunning()
+                node.setAddress(address)
+                node.setRunning()
 
         state = NodeStates.RUNNING
         if node_type == NodeTypes.CLIENT:

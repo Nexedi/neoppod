@@ -1290,6 +1290,8 @@ class Test(NEOThreadedTest):
             m2c, = cluster.master.getConnectionList(cluster.client)
             cluster.client._cache.clear()
             c.cacheMinimize()
+            # Make the master disconnects the client when the latter is about
+            # to send a AskObject packet to the storage node.
             with cluster.client.filterConnection(cluster.storage) as c2s:
                 c2s.add(disconnect)
                 # Storages are currently notified of clients that get
@@ -1297,9 +1299,23 @@ class Test(NEOThreadedTest):
                 # Should it change, the clients would have to disconnect on
                 # their own.
                 self.assertRaises(TransientError, getattr, c, "root")
-            with Patch(ClientOperationHandler,
-                    askObject=lambda orig, self, conn, *args: conn.close()):
-                self.assertRaises(NEOStorageError, getattr, c, "root")
+            uuid = cluster.client.uuid
+            # Let's use a second client to steal the node id of the first one.
+            client = cluster.newClient()
+            try:
+                client.sync()
+                self.assertEqual(uuid, client.uuid)
+                # The client reconnects successfully to the master and storage,
+                # with a different node id. This time, we get a different error
+                # if it's only disconnected from the storage.
+                with Patch(ClientOperationHandler,
+                        askObject=lambda orig, self, conn, *args: conn.close()):
+                    self.assertRaises(NEOStorageError, getattr, c, "root")
+                self.assertNotEqual(uuid, cluster.client.uuid)
+                # Second reconnection, for a successful load.
+                c.root
+            finally:
+                client.close()
         finally:
             cluster.stop()
 
