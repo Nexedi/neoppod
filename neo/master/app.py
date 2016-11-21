@@ -40,7 +40,7 @@ from .verification import VerificationManager
 class Application(BaseApplication):
     """The master node application."""
     packing = None
-    # Latest completely commited TID
+    # Latest completely committed TID
     last_transaction = ZERO_TID
     backup_tid = None
     backup_app = None
@@ -261,7 +261,7 @@ class Application(BaseApplication):
     def provideService(self):
         """
         This is the normal mode for a primary master node. Handle transactions
-        and stop the service only if a catastrophy happens or the user commits
+        and stop the service only if a catastrophe happens or the user commits
         a shutdown.
         """
         logging.info('provide service')
@@ -298,7 +298,7 @@ class Application(BaseApplication):
                 # secondaries, rather than the other way around. This requires
                 # a bit more work when a new master joins a cluster but makes
                 # it easier to resolve UUID conflicts with minimal cluster
-                # impact, and ensure primary master unicity (primary masters
+                # impact, and ensure primary master uniqueness (primary masters
                 # become noisy, in that they actively try to maintain
                 # connections to all other master nodes, so duplicate
                 # primaries will eventually get in touch with each other and

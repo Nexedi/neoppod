@@ -329,7 +329,7 @@ class ParseError(Exception):
 
 class PItem(object):
     """
-        Base class for any packet item, _encode and _decode must be overriden
+        Base class for any packet item, _encode and _decode must be overridden
         by subclasses.
     """
     def __init__(self, name):
@@ -1491,8 +1491,8 @@ class Replicate(Packet):
 
 class ReplicationDone(Packet):
     """
-    Notify the master node that a partition has been successully replicated from
-    a storage to another.
+    Notify the master node that a partition has been successfully replicated
+    from a storage to another.
     S -> M
     """
     _fmt = PStruct('notify_replication_done',
@@ -1527,7 +1527,7 @@ def register(request, ignore_when_closed=None):
         # By default, on a closed connection:
         # - request: ignore
         # - answer: keep
-        # - nofitication: keep
+        # - notification: keep
         ignore_when_closed = answer is not None
     request._ignore_when_closed = ignore_when_closed
     if answer in (Error, None):
@@ -1564,7 +1564,7 @@ class ParserState(object):
 
 class Packets(dict):
     """
-    Packet registry that check packet code unicity and provide an index
+    Packet registry that checks packet code uniqueness and provides an index
     """
     def __metaclass__(name, base, d):
         for k, v in d.iteritems():

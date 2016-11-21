@@ -16,7 +16,7 @@
 #
 
 def speedupFileStorageTxnLookup():
-    """Speed up lookup of start position when instanciating an iterator
+    """Speed up lookup of start position when instantiating an iterator
 
     FileStorage does not index the file positions of transactions.
     With this patch, we use the existing {oid->file_pos} index to bisect the

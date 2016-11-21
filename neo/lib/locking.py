@@ -12,7 +12,7 @@ from Queue import Empty
   Python threading module contains a simple logging mechanism, but:
     - It's limitted to RLock class
     - It's enabled instance by instance
-    - Choice to log or not is done at instanciation
+    - Choice to log or not is done at instantiation
     - It does not emit any log before trying to acquire lock
 
   This file defines a VerboseLock class implementing basic lock API and
@@ -29,7 +29,7 @@ class LockUser(object):
     def __init__(self, message, level=0):
         t = threading.currentThread()
         ident = getattr(t, 'node_name', t.name)
-        # This class is instanciated from a place desiring to known what
+        # This class is instantiated from a place desiring to known what
         # called it.
         # limit=1 would return execution position in this method
         # limit=2 would return execution position in caller

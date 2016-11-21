@@ -970,7 +970,7 @@ class Test(NEOThreadedTest):
                     self.assertFalse(storage.tm._transaction_dict)
             finally:
                 db.close()
-            # Check we did't get an invalidation, which would cause an
+            # Check we didn't get an invalidation, which would cause an
             # assertion failure in the cache. Connection does the same check in
             # _setstate_noncurrent so this could be also done by starting a
             # transaction before the last one, and clearing the cache before

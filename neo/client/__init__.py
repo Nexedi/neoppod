@@ -87,4 +87,4 @@ def patch():
 
 patch()
 
-import app # set up signal handers early enough to do it in the main thread
+import app # set up signal handlers early enough to do it in the main thread

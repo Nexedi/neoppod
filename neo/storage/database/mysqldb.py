@@ -216,7 +216,7 @@ class MySQLDatabaseManager(DatabaseManager):
             engine += " compression='tokudb_uncompressed'"
 
         # The table "data" stores object data.
-        # We'd like to have partial index on 'hash' colum (e.g. hash(4))
+        # We'd like to have partial index on 'hash' column (e.g. hash(4))
         # but 'UNIQUE' constraint would not work as expected.
         q("""CREATE TABLE IF NOT EXISTS data (
                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -630,7 +630,7 @@ class MySQLDatabaseManager(DatabaseManager):
             return oid_list, user, desc, ext, bool(packed), util.p64(ttid)
 
     def getObjectHistory(self, oid, offset, length):
-        # FIXME: This method doesn't take client's current ransaction id as
+        # FIXME: This method doesn't take client's current transaction id as
         # parameter, which means it can return transactions in the future of
         # client's transaction.
         oid = util.u64(oid)

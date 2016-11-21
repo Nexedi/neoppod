@@ -72,7 +72,7 @@ class HandlerSwitcher(object):
         _pending = self._pending
         if self._is_handling:
             # If this is called while handling a packet, the response is to
-            # be excpected for the current handler...
+            # be expected for the current handler...
             (request_dict, _) = _pending[0]
         else:
             # ...otherwise, queue for the latest handler
@@ -100,7 +100,7 @@ class HandlerSwitcher(object):
                 # on_timeout sent a packet with a smaller timeout
                 # so keep the connection open
                 return
-        # Notify that a timeout occured
+        # Notify that a timeout occurred
         return msg_id
 
     def handle(self, connection, packet):

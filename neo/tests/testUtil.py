@@ -22,7 +22,7 @@ from neo.lib.util import ReadBuffer, parseNodeAddress
 class UtilTests(NeoUnitTestBase):
 
     def test_parseNodeAddress(self):
-        """ Parsing of addesses """
+        """ Parsing of addresses """
         def test(parsed, *args):
             self.assertEqual(parsed, parseNodeAddress(*args))
         http_port = socket.getservbyname('http')

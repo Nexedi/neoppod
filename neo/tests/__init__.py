@@ -312,7 +312,7 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
 
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception wxas raised """
+        """ Check if the UnexpectedPacketError exception was raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
 
     def checkIdenficationRequired(self, method, *args, **kwargs):
@@ -320,11 +320,11 @@ class NeoUnitTestBase(NeoTestBase):
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
     def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception wxas raised """
+        """ Check if the BrokenNodeDisallowedError exception was raised """
         self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
 
     def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception wxas raised """
+        """ Check if the NotReadyError exception was raised """
         self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
 
     def checkAborted(self, conn):
@@ -372,7 +372,7 @@ class NeoUnitTestBase(NeoTestBase):
             self.assertEqual(found_uuid, uuid)
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
-    # in tests if more accurates checks are required
+    # in tests if more accurate checks are required
 
     def checkErrorPacket(self, conn, decode=False):
         """ Check if an error packet was answered """

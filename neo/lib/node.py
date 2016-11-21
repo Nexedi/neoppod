@@ -227,7 +227,7 @@ class Node(object):
         self.setState(NodeStates.PENDING)
 
     def asTuple(self):
-        """ Returned tuple is intented to be used in procotol encoders """
+        """ Returned tuple is intended to be used in protocol encoders """
         return (self.getType(), self._address, self._uuid, self._state)
 
     def __gt__(self, node):
@@ -337,7 +337,7 @@ class NodeManager(object):
     def __init__(self, master_db=None):
         """
         master_db (string)
-        Path to a file containing master nodes's addresses. Used to automate
+        Path to a file containing master nodes' addresses. Used to automate
         master list updates. If not provided, no automation will happen.
         """
         self._node_set = set()
@@ -583,7 +583,7 @@ class NodeManager(object):
                     'Discrepancy between node_by_uuid (%r) and ' \
                     'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
                 if state == NodeStates.DOWN:
-                    logging.debug('droping node %r (%r), found with %s '
+                    logging.debug('dropping node %r (%r), found with %s '
                         '%s %s %s', node, node.isConnected(), *log_args)
                     if node.isConnected():
                         # Cut this connection, node removed by handler.

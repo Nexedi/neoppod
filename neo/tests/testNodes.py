@@ -301,7 +301,7 @@ class MasterDBTests(NeoUnitTestBase):
 
     def testInitialAccessRights(self):
         """
-        Verify MasterDB raises immediately on instanciation if it cannot
+        Verify MasterDB raises immediately on instantiation if it cannot
         create a non-existing database. This does not guarantee any later
         open will succeed, but makes the simple error case obvious.
         """

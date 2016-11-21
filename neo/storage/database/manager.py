@@ -76,7 +76,7 @@ class DatabaseManager(object):
 
     @abstract
     def _parse(self, database):
-        """Called during instanciation, to process database parameter."""
+        """Called during instantiation, to process database parameter."""
 
     def setup(self, reset=0):
         """Set up a database, discarding existing data first if reset is True
@@ -92,7 +92,7 @@ class DatabaseManager(object):
 
     @abstract
     def _setup(self):
-        """To be overriden by the backend to set up a database
+        """To be overridden by the backend to set up a database
 
         It must recover self._uncommitted_data from temporary object table.
         _uncommitted_data is already instantiated and must be updated with
@@ -411,7 +411,7 @@ class DatabaseManager(object):
 
     @abstract
     def _pruneData(self, data_id_list):
-        """To be overriden by the backend to delete any unreferenced data
+        """To be overridden by the backend to delete any unreferenced data
 
         'unreferenced' means:
         - not in self._uncommitted_data
@@ -421,7 +421,7 @@ class DatabaseManager(object):
 
     @abstract
     def storeData(self, checksum, data, compression):
-        """To be overriden by the backend to store object raw data
+        """To be overridden by the backend to store object raw data
 
         If same data was already stored, the storage only has to check there's
         no hash collision.
@@ -485,7 +485,7 @@ class DatabaseManager(object):
         tid
             Transation doing the undo
         ltid
-            Upper (exclued) bound of transactions visible to transaction doing
+            Upper (excluded) bound of transactions visible to transaction doing
             the undo.
         undone_tid
             Transaction to undo
@@ -636,7 +636,7 @@ class DatabaseManager(object):
     @abstract
     def checkTIDRange(self, partition, length, min_tid, max_tid):
         """
-        Generate a diggest from transaction list.
+        Generate a digest from transaction list.
         min_tid (packed)
             TID at which verification starts.
         length (int)
@@ -653,7 +653,7 @@ class DatabaseManager(object):
     @abstract
     def checkSerialRange(self, partition, length, min_tid, max_tid, min_oid):
         """
-        Generate a diggest from object list.
+        Generate a digest from object list.
         min_oid (packed)
             OID at which verification starts.
         min_tid (packed)

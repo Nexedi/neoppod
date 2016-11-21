@@ -183,7 +183,7 @@ class NEOProcess(object):
             self.wait()
         except:
             # We can ignore all exceptions at this point, since there is no
-            # garanteed way to handle them (other objects we would depend on
+            # guaranteed way to handle them (other objects we would depend on
             # might already have been deleted).
             pass
 
@@ -565,7 +565,7 @@ class NEOCluster(object):
         def callback(last_try):
             current_try = self.getPrimary()
             if None not in (uuid, current_try) and uuid != current_try:
-                raise AssertionError, 'An unexpected primary arised: %r, ' \
+                raise AssertionError, 'An unexpected primary arose: %r, ' \
                     'expected %r' % (dump(current_try), dump(uuid))
             return uuid is None or uuid == current_try, current_try
         self.expectCondition(callback, *args, **kw)

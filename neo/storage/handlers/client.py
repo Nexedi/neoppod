@@ -88,7 +88,7 @@ class ClientOperationHandler(EventHandler):
         except DelayedError:
             # locked by a previous transaction, retry later
             # If we are unlocking, we want queueEvent to raise
-            # AlreadyPendingError, to avoid making lcient wait for an unneeded
+            # AlreadyPendingError, to avoid making client wait for an unneeded
             # response.
             try:
                 self.app.queueEvent(self._askStoreObject, conn, (oid, serial,

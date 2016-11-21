@@ -334,7 +334,7 @@ class TransactionManager(object):
         """
             Set that a node has locked the transaction.
             If transaction is completely locked, calls function given at
-            instanciation time.
+            instantiation time.
         """
         logging.debug('Lock TXN %s for %s', dump(ttid), uuid_str(uuid))
         if self[ttid].lock(uuid) and self._queue[0] == ttid:

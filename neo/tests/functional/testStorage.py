@@ -69,7 +69,7 @@ class StorageTests(NEOFunctionalTest):
 
     def __checkDatabase(self, db_name):
         db = self.neo.getSQLConnection(db_name)
-        # wait for the sql transaction to be commited
+        # wait for the sql transaction to be committed
         def callback(last_try):
             db.commit() # to get a fresh view
             # One revision per object and two for the root, before and after
@@ -185,7 +185,7 @@ class StorageTests(NEOFunctionalTest):
 
     def testVerificationTriggered(self):
         """ Check that the verification stage is executed when a storage node
-        required to be operationnal is lost, and the cluster come back in
+        required to be operational is lost, and the cluster come back in
         running state when the storage is up again """
 
         # start neo with one storages

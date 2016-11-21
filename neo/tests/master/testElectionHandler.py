@@ -225,7 +225,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def _tearDown(self, success):
         NeoUnitTestBase._tearDown(self, success)
-        # restore environnement
+        # restore environment
         del ClientConnection._addPacket
 
     def test_requestIdentification1(self):

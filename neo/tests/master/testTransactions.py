@@ -169,7 +169,7 @@ class testTransactionManager(NeoUnitTestBase):
         """
         Transaction lock is present to ensure invalidation TIDs are sent in
         strictly increasing order.
-        Note: this implementation might change later, to allow more paralelism.
+        Note: this implementation might change later, for more parallelism.
         """
         client_uuid, client = self.makeNode(NodeTypes.CLIENT)
         tm = TransactionManager(lambda tid, txn: None)

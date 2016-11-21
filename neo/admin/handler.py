@@ -74,7 +74,7 @@ class AdminEventHandler(EventHandler):
 
 
 class MasterEventHandler(EventHandler):
-    """ This class is just used to dispacth message to right handler"""
+    """ This class is just used to dispatch message to right handler"""
 
     def _connectionLost(self, conn):
         app = self.app

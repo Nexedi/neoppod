@@ -170,7 +170,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
                 dump(oid), conn)
         # HasLock design required that storage is multi-threaded so that
-        # it can answer to AskHasLock while processing store resquests.
+        # it can answer to AskHasLock while processing store requests.
         # This means that the 2 cases (granted to us or nobody) are legitimate,
         # either because it gave us the lock but is/was slow to store our data,
         # or because the storage took a lot of time processing a previous

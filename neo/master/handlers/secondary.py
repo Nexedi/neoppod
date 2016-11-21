@@ -51,7 +51,7 @@ class PrimaryHandler(EventHandler):
         app = self.app
         addr = conn.getAddress()
         node = app.nm.getByAddress(addr)
-        # connection successfull, set it as running
+        # connection successful, set it as running
         node.setRunning()
         conn.ask(Packets.RequestIdentification(
             NodeTypes.MASTER,

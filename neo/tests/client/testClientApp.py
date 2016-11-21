@@ -81,7 +81,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # stop threads
         for app in self._to_stop_list:
             app.close()
-        # restore environnement
+        # restore environment
         Application._ask = self._ask
         Application._getMasterConnection = self._getMasterConnection
         NeoUnitTestBase._tearDown(self, success)
@@ -596,7 +596,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         Object oid previous revision before tid1 is tid0.
         Transaction tid2 modified oid (and contains its data).
 
-        Undo is rejeced with a raise, because conflict resolution fails.
+        Undo is rejected with a raise, because conflict resolution fails.
         """
         oid0 = self.makeOID(1)
         tid0 = self.getNextTID()
@@ -795,7 +795,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             ask_func_list.pop(0)(conn)
             app.nm.getByAddress(conn.getAddress())._connection = None
         app._ask = _ask_base
-        # faked environnement
+        # fake environment
         app.em.close()
         app.em = Mock({'getConnectionList': []})
         app.pt = Mock({ 'operational': False})
@@ -831,11 +831,11 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertTrue(self.test_ok)
         # check NEOStorageError is raised when the primary connection is lost
         app.master_conn = None
-        # check disabled since we reonnect to pmn
+        # check disabled since we reconnect to pmn
         #self.assertRaises(NEOStorageError, app._askPrimary, packet)
 
     def test_threadContextIsolation(self):
-        """ Thread context properties must not be visible accross instances
+        """ Thread context properties must not be visible across instances
             while remaining in the same thread """
         app1 = self.getApp()
         app1_local = app1._thread_container

@@ -150,7 +150,7 @@ class ThreadedApplication(BaseApplication):
                 if msg_id == qpacket.getId():
                     if is_forgotten:
                         raise ValueError, 'ForgottenPacket for an ' \
-                            'explicitely expected packet.'
+                            'explicitly expected packet.'
                     _handlePacket(qconn, qpacket, kw, handler)
                     break
             if not is_forgotten and qpacket is not None:

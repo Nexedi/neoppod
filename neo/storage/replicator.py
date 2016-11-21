@@ -336,7 +336,7 @@ class Replicator(object):
                         offset, message and ' (%s)' % message)
         if offset in self.partition_dict:
             # XXX: Try another partition if possible, to increase probability to
-            #      connect to another node. It would be better to explicitely
+            #      connect to another node. It would be better to explicitly
             #      search for another node instead.
             tid = self.replicate_dict.pop(offset, None) or self.replicate_tid
             if self.replicate_dict:

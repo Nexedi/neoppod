@@ -330,7 +330,7 @@ class HandlerSwitcherTests(NeoUnitTestBase):
         r2 = self._makeRequest(2)
         a2 = self._makeAnswer(2)
         h = self._makeHandler()
-        # emit requests aroung state setHandler
+        # emit requests around state setHandler
         self._handlers.emit(r1, 0, None)
         applied = self._handlers.setHandler(h)
         self.assertFalse(applied)
