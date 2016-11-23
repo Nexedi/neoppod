@@ -1,4 +1,5 @@
 #!/bin/sh -xe
+# run neo-2 cluster connected to neo-1 as upstream
 
 N1M=`neoctl -a 127.0.0.1:5551 print node |grep MASTER |awk '{print $5}'`
 
