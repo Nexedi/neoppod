@@ -3,8 +3,13 @@
 // filestorage support  XXX text
 package storage
 
+import (
+	"os"
+	. "../"
+)
+
 type FileStorage struct {
-    fd int
+    f *os.File	// XXX naming -> file ?
 }
 
 // IStorage
@@ -36,32 +41,32 @@ type DataRec struct {
 }
 
 
-func (TxnRecHead *rh) MarshalFS() []byte {
+func (rh *TxnRecHead) MarshalFS() []byte {
     panic("TODO")
 }
 
-func (TxnRecHead *rh) UnmarshalFS(data []byte) {
-    TODO
+func (rh *TxnRecHead) UnmarshalFS(data []byte) {
+    //TODO
 }
 
 
 
 func NewFileStorage(path string) (*FileStorage, error) {
-    fd, err := ...Open(path, O_RDONLY)
+    f, err := os.Open(path)	// note opens in O_RDONLY
     if err != nil {
         return nil, err
     }
     // TODO read file header
-    Read(fd, 4) != "FS21" -> invalid header
-    return &FileStorage{fd: fd}
+    //Read(f, 4) != "FS21" -> invalid header
+    return &FileStorage{f: f}, nil
 }
 
 func (f *FileStorage) Close() error {
-    err := Os.Close(f.fd)
+    err := f.f.Close()
     if err != nil {
         return err
     }
-    f.fd = -1
+    f.f = nil
     return nil
 }
 
@@ -70,5 +75,6 @@ func (f *FileStorage) Iterate(start, stop Tid) IStorageIterator {
         panic("TODO start/stop support")
     }
 
-
+    // TODO
+    return nil
 }

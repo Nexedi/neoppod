@@ -5,7 +5,7 @@
 package main
 
 import (
-	"../../storage"	// XXX rel ok?
+	_ "../../storage"	// XXX rel ok?
 )
 
 

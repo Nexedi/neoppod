@@ -18,10 +18,13 @@ const (
 	INVALID_TID  Tid = 1<<64 - 1            // 0xffffffffffffffff   TODO recheck it is the same
 	INVALID_OID  Oid = 0xffffffffffffffff   // 1<<64 - 1
 	ZERO_TID     Tid = 0        // XXX or simply TID{} ?    // XXX -> TID0 ?
+	TID0         Tid = ZERO_TID // XXX ^^^ choose 1
+
 	ZERO_OID     Oid = 0        // XXX or simply OID{} ?    // XXX -> OID0
 	// OID_LEN = 8
 	// TID_LEN = 8
 	MAX_TID      Tid = 0x7fffffffffffffff    // SQLite does not accept numbers above 2^63-1 // XXX -> TIDMAX ?
+	TIDMAX       Tid = MAX_TID		 // XXX ^^^ choose 1
 )
 
 
