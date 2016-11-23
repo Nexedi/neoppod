@@ -37,9 +37,11 @@ from .. import Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
 
 # dump log to stderr
+"""
 logging.backlog(max_size=None)
 del logging.default_root_handler.handle
 getLogger().setLevel(INFO)
+"""
 
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
@@ -183,7 +185,8 @@ class ReplicationTests(NEOThreadedTest):
                     self.assertEqual(backup.last_tid,   upstream.last_tid)  # not-yet truncated
                 self.tic()
                 self.assertEqual(backup.cluster_state, ClusterStates.RUNNING)
-                self.assertEqual(backup.backup_tid, None)
+                self.assertEqual(np*nr, self.checkBackup(backup,
+                    max_tid=backup.last_tid))
                 self.assertEqual(backup.last_tid,   u_last_tid0)  # truncated after recovery
                 self.assertEqual(np*nr, self.checkBackup(backup, max_tid=backup.last_tid))
             finally:
@@ -213,7 +216,8 @@ class ReplicationTests(NEOThreadedTest):
                     self.assertEqual(backup.last_tid, u_last_tid1) # = B^.backup_tid
                 self.tic()
                 self.assertEqual(backup.cluster_state, ClusterStates.RUNNING)
-                self.assertEqual(backup.backup_tid, None)
+                self.assertEqual(np*nr, self.checkBackup(backup,
+                    max_tid=backup.last_tid))
                 self.assertEqual(backup.last_tid,   u_last_tid1)  # truncated after recovery
                 self.assertEqual(np*nr, self.checkBackup(backup, max_tid=backup.last_tid))
             finally:
@@ -520,7 +524,6 @@ class ReplicationTests(NEOThreadedTest):
             checker.CHECK_COUNT = CHECK_COUNT
             cluster.stop()
 
-
     @backup_test()
     def testBackupReadOnlyAccess(self, backup):
         """Check backup cluster can be used in read-only mode by ZODB clients"""
@@ -543,8 +546,9 @@ class ReplicationTests(NEOThreadedTest):
                 if i == cutoff:
                     f.add(delayReplication)
                 if i == recover:
-                    # removes the filter and retransmits all packets that were
-                    # queued once first filtered packed was detected on a connection.
+                    # .remove() removes the filter and retransmits all packets
+                    # that were queued once first filtered packed was detected
+                    # on a connection.
                     f.remove(delayReplication)
 
                 # commit new data to U
@@ -558,7 +562,7 @@ class ReplicationTests(NEOThreadedTest):
                 oid_list.append(oid)
                 tid_list.append(tid)
 
-                # make sure data propagated to B
+                # make sure data propagated to B  (depending on cutoff)
                 self.tic()
                 if cutoff <= i < recover:
                     self.assertLess(B.backup_tid, U.last_tid)
@@ -579,35 +583,38 @@ class ReplicationTests(NEOThreadedTest):
                         self.assertEqual(data, '%s-%s' % (oid, j))
                         self.assertEqual(serial, tid_list[j])
 
-                # verify how transaction log & friends behave under potentially not-yet-fully
-                # fetched backup state (transactions committed at [cutoff, recover) should
-                # not be there; otherwise transactions should be fully there)
+                # verify how transaction log & friends behave under potentially
+                # not-yet-fully fetched backup state (transactions committed at
+                # [cutoff, recover) should not be there; otherwise transactions
+                # should be fully there)
                 Zb = B.getZODBStorage()
                 Btxn_list = list(Zb.iterator())
-                self.assertEqual(len(Btxn_list), cutoff if cutoff <= i < recover else i+1)
+                self.assertEqual(len(Btxn_list), cutoff if cutoff <= i < recover
+                                                 else i+1)
                 for j, txn in enumerate(Btxn_list):
                     self.assertEqual(txn.tid, tid_list[j])
                     self.assertEqual(txn.description, 'test transaction %i' % j)
-                    obj_list = list(txn)
-                    self.assertEqual(len(obj_list), 1)
-                    obj = obj_list[0]
+                    obj, = txn
                     self.assertEqual(obj.oid, oid_list[j])
                     self.assertEqual(obj.data, '%s-%s' % (obj.oid, j))
 
                 # TODO test askObjectHistory once it is fixed
 
-                # try to commit something to backup storage and make sure it is really read-only
-                Zb._cache._max_size = 0     # make stores do work in sync way
+                # try to commit something to backup storage and make sure it is
+                # really read-only
+                Zb._cache._max_size = 0     # make store() do work in sync way
                 txn = transaction.Transaction()
                 self.assertRaises(ReadOnlyError, Zb.tpc_begin, txn)
                 self.assertRaises(ReadOnlyError, Zb.new_oid)
-                self.assertRaises(ReadOnlyError, Zb.store, oid_list[-1], tid_list[-1], 'somedata', '', txn)
-                # tpc_vote first checks whether there were store replies - thus not ReadOnlyError
+                self.assertRaises(ReadOnlyError, Zb.store, oid_list[-1],
+                                            tid_list[-1], 'somedata', '', txn)
+                # tpc_vote first checks whether there were store replies -
+                # thus not ReadOnlyError
                 self.assertRaises(NEOStorageError, Zb.tpc_vote, txn)
 
-                # close storage because client app is otherwise shared in threaded
-                # tests and we need to refresh last_tid on next run
-                # (see above about invalidations not working)
+                # close storage because client app is otherwise shared in
+                # threaded tests and we need to refresh last_tid on next run
+                # (XXX see above about invalidations not working)
                 Zb.close()
 
 

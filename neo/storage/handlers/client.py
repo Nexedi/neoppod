@@ -142,12 +142,10 @@ class ClientOperationHandler(EventHandler):
         else:
             partition_list = [partition]
 
-        tid_list = app.dm.getTIDList(first, last - first, partition_list)
-        return tid_list
+        return app.dm.getTIDList(first, last - first, partition_list)
 
-    def askTIDs(self, conn, first, last, partition):
-        tid_list = self._askTIDs(first, last, partition)
-        conn.answer(Packets.AnswerTIDs(tid_list))
+    def askTIDs(self, conn, *args):
+        conn.answer(Packets.AnswerTIDs(self._askTIDs(*args)))
 
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.tm.getFinalTID(ttid)))
@@ -228,50 +226,54 @@ class ClientOperationHandler(EventHandler):
 
 
 # like ClientOperationHandler but read-only & only for tid <= backup_tid
-class ClientROOperationHandler(ClientOperationHandler):
+class ClientReadOnlyOperationHandler(ClientOperationHandler):
 
     def _readOnly(self, conn, *args, **kw):
-        p = Errors.ReadOnlyAccess('read-only access because cluster is in backuping mode')
-        conn.answer(p)
+        conn.answer(Errors.ReadOnlyAccess(
+            'read-only access because cluster is in backuping mode'))
 
     abortTransaction        = _readOnly
     askStoreTransaction     = _readOnly
     askVoteTransaction      = _readOnly
     askStoreObject          = _readOnly
     askFinalTID             = _readOnly
-    askCheckCurrentSerial   = _readOnly     # takes write lock & is only used when going to commit
+    # takes write lock & is only used when going to commit
+    askCheckCurrentSerial   = _readOnly
 
     # below operations: like in ClientOperationHandler but cut tid <= backup_tid
 
     def askTransactionInformation(self, conn, tid):
         backup_tid = self.app.dm.getBackupTID()
         if tid > backup_tid:
-            p = Errors.TidNotFound('tids > %s are not fully fetched yet' % dump(backup_tid))
-            conn.answer(p)
+            conn.answer(Errors.TidNotFound(
+                'tids > %s are not fully fetched yet' % dump(backup_tid)))
             return
-        super(ClientROOperationHandler, self).askTransactionInformation(conn, tid)
+        super(ClientReadOnlyOperationHandler, self).askTransactionInformation(
+            conn, tid)
 
     def askObject(self, conn, oid, serial, tid):
         backup_tid = self.app.dm.getBackupTID()
-        if serial and serial > backup_tid:
-            # obj lookup will find nothing, but return properly either
-            # OidDoesNotExist or OidNotFound
-            serial = ZERO_TID
-        if tid:
+        if serial:
+            if serial > backup_tid:
+                # obj lookup will find nothing, but return properly either
+                # OidDoesNotExist or OidNotFound
+                serial = ZERO_TID
+        elif tid:
             tid = min(tid, add64(backup_tid, 1))
 
         # limit "latest obj" query to tid <= backup_tid
-        if not serial and not tid:
+        else:
             tid = add64(backup_tid, 1)
 
-        super(ClientROOperationHandler, self).askObject(conn, oid, serial, tid)
+        super(ClientReadOnlyOperationHandler, self).askObject(
+            conn, oid, serial, tid)
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         backup_tid = self.app.dm.getBackupTID()
         max_tid = min(max_tid, backup_tid)
         # NOTE we don't need to adjust min_tid: if min_tid > max_tid
         #      db.getReplicationTIDList will return empty [], which is correct
-        super(ClientROOperationHandler, self).askTIDsFrom(
+        super(ClientReadOnlyOperationHandler, self).askTIDsFrom(
                 conn, min_tid, max_tid, length, partition)
 
     def askTIDs(self, conn, first, last, partition):

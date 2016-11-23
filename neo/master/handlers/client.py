@@ -120,12 +120,11 @@ class ClientServiceHandler(MasterHandler):
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid
-class ClientROServiceHandler(ClientServiceHandler):
+class ClientReadOnlyServiceHandler(ClientServiceHandler):
 
     def _readOnly(self, conn, *args, **kw):
-        p = Errors.ReadOnlyAccess('read-only access because cluster is in backuping mode')
-        conn.answer(p)
-
+        conn.answer(Errors.ReadOnlyAccess(
+            'read-only access because cluster is in backuping mode'))
 
     askBeginTransaction     = _readOnly
     askNewOIDs              = _readOnly

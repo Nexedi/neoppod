@@ -103,7 +103,7 @@ class Application(BaseApplication):
             self)
         self.secondary_master_handler = secondary.SecondaryMasterHandler(self)
         self.client_service_handler = client.ClientServiceHandler(self)
-        self.client_ro_service_handler = client.ClientROServiceHandler(self)
+        self.client_ro_service_handler = client.ClientReadOnlyServiceHandler(self)
         self.storage_service_handler = storage.StorageServiceHandler(self)
 
         registerLiveDebugger(on_log=self.log)

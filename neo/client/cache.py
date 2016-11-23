@@ -102,6 +102,12 @@ class ClientCache(object):
                     if item is head:
                         break
 
+    def _remove_from_oid_dict(self, item):
+        item_list = self._oid_dict[item.oid]
+        item_list.remove(item)
+        if not item_list:
+            del self._oid_dict[item.oid]
+
     def _add(self, item):
         level = item.level
         try:
@@ -126,10 +132,7 @@ class ClientCache(object):
             self._history_size += 1
             if self._max_history_size < self._history_size:
                 self._remove(head)
-                item_list = self._oid_dict[head.oid]
-                item_list.remove(head)
-                if not item_list:
-                    del self._oid_dict[head.oid]
+                self._remove_from_oid_dict(head)
 
     def _remove(self, item):
         level = item.level
@@ -165,7 +168,7 @@ class ClientCache(object):
                 if head.level or head.counter:
                     self._add(head)
                 else:
-                    self._oid_dict[head.oid].remove(head)
+                    self._remove_from_oid_dict(head)
                 break
 
     def _load(self, oid, before_tid=None):
@@ -247,7 +250,7 @@ class ClientCache(object):
                             head.level = 0
                             self._add(head)
                         else:
-                            self._oid_dict[head.oid].remove(head)
+                            self._remove_from_oid_dict(head)
                         if self._size <= max_size:
                             return
                         head = next
