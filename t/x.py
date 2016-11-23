@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# kirr: I used this to log-trace how access to a cluster looks in client logs
+#       (connect, receiving invalidations, etc)
 
 from ZODB import DB
 from neo.client.Storage import Storage

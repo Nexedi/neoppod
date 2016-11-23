@@ -31,40 +31,40 @@ from neo.tests.benchmark import BenchmarkRunner
 # list of test modules
 # each of them have to import its TestCase classes
 UNIT_TEST_MODULES = [
-    # # generic parts
-    # 'neo.tests.testBootstrap',
-    # 'neo.tests.testConnection',
-    # 'neo.tests.testHandler',
-    # 'neo.tests.testNodes',
-    # 'neo.tests.testDispatcher',
-    # 'neo.tests.testUtil',
-    # 'neo.tests.testPT',
-    # # master application
-    # 'neo.tests.master.testClientHandler',
-    # 'neo.tests.master.testElectionHandler',
-    # 'neo.tests.master.testMasterApp',
-    # 'neo.tests.master.testMasterPT',
-    # 'neo.tests.master.testRecovery',
-    # 'neo.tests.master.testStorageHandler',
-    # 'neo.tests.master.testTransactions',
-    # # storage application
-    # 'neo.tests.storage.testClientHandler',
-    # 'neo.tests.storage.testInitializationHandler',
-    # 'neo.tests.storage.testMasterHandler',
-    # 'neo.tests.storage.testStorageApp',
-    # 'neo.tests.storage.testStorage' + os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
-    # 'neo.tests.storage.testIdentificationHandler',
-    # 'neo.tests.storage.testTransactions',
-    # # client application
-    # 'neo.tests.client.testClientApp',
-    # 'neo.tests.client.testMasterHandler',
-    # 'neo.tests.client.testStorageHandler',
-    # 'neo.tests.client.testConnectionPool',
+    # generic parts
+    'neo.tests.testBootstrap',
+    'neo.tests.testConnection',
+    'neo.tests.testHandler',
+    'neo.tests.testNodes',
+    'neo.tests.testDispatcher',
+    'neo.tests.testUtil',
+    'neo.tests.testPT',
+    # master application
+    'neo.tests.master.testClientHandler',
+    'neo.tests.master.testElectionHandler',
+    'neo.tests.master.testMasterApp',
+    'neo.tests.master.testMasterPT',
+    'neo.tests.master.testRecovery',
+    'neo.tests.master.testStorageHandler',
+    'neo.tests.master.testTransactions',
+    # storage application
+    'neo.tests.storage.testClientHandler',
+    'neo.tests.storage.testInitializationHandler',
+    'neo.tests.storage.testMasterHandler',
+    'neo.tests.storage.testStorageApp',
+    'neo.tests.storage.testStorage' + os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
+    'neo.tests.storage.testIdentificationHandler',
+    'neo.tests.storage.testTransactions',
+    # client application
+    'neo.tests.client.testClientApp',
+    'neo.tests.client.testMasterHandler',
+    'neo.tests.client.testStorageHandler',
+    'neo.tests.client.testConnectionPool',
     # light functional tests
-#   'neo.tests.threaded.test',
-#   'neo.tests.threaded.testImporter',
+    'neo.tests.threaded.test',
+    'neo.tests.threaded.testImporter',
     'neo.tests.threaded.testReplication',
-#   'neo.tests.threaded.testSSL',
+    'neo.tests.threaded.testSSL',
 ]
 
 FUNC_TEST_MODULES = [
@@ -126,6 +126,7 @@ class NeoTestRunner(unittest.TextTestResult):
                 print "Import of %s failed : %s" % (test_module, err)
                 traceback.print_exc()
                 continue
+            # NOTE it is also possible to run individual tests via `python -m unittest ...`
             if 1 or test_module.__name__ == 'neo.tests.functional.testStorage':
                 suite.addTests(loader.loadTestsFromModule(test_module))
         suite.run(self)

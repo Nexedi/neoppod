@@ -18,7 +18,7 @@ from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, LockState, Errors, ProtocolError, \
-    Errors, ZERO_HASH, INVALID_PARTITION
+    ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, DelayedError, NotRegisteredError
 from ..exception import AlreadyPendingError
 import time
