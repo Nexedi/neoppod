@@ -58,13 +58,6 @@ class ClientOperationHandler(EventHandler):
                 compression, checksum, data, data_serial)
         conn.answer(p)
 
-    def connectionLost(self, conn, new_state):
-        uuid = conn.getUUID()
-        node = self.app.nm.getByUUID(uuid)
-        if self.app.listening_conn: # if running
-            assert node is not None, conn
-            self.app.nm.remove(node)
-
     def abortTransaction(self, conn, ttid):
         self.app.tm.abort(ttid)
 

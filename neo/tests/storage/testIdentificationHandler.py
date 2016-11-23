@@ -17,7 +17,7 @@
 import unittest
 from mock import Mock
 from .. import NeoUnitTestBase
-from neo.lib.protocol import NodeTypes, NotReadyError, \
+from neo.lib.protocol import NodeStates, NodeTypes, NotReadyError, \
         BrokenNodeDisallowedError
 from neo.lib.pt import PartitionTable
 from neo.storage.app import Application
@@ -81,7 +81,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         """ accepted client must be connected and running """
         uuid = self.getClientUUID()
         conn = self.getFakeConnection(uuid=uuid)
-        node = self.app.nm.createClient(uuid=uuid)
+        node = self.app.nm.createClient(uuid=uuid, state=NodeStates.RUNNING)
         master = (self.local_ip, 3000)
         self.app.master_node = Mock({
           'getAddress': master,

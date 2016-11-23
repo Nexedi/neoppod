@@ -1061,17 +1061,40 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testClientFailureDuringTpcFinish(self):
-        def delayAskLockInformation(conn, packet):
-            if isinstance(packet, Packets.AskLockInformation):
+        """
+        Third scenario:
+
+          C                   M                   S     | TID known by
+           ---- Finish ----->                           |
+           ---- Disconnect --   ----- Lock ------>      |
+                                ----- C down ---->      |
+           ---- Connect ---->                           | M
+                                ----- C up ------>      |
+                                <---- Locked -----      |
+        ------------------------------------------------+--------------
+                                -- unlock ...           |
+           ---- FinalTID --->                           | S (TM)
+           ---- Connect + FinalTID -------------->      |
+                                   ... unlock --->      |
+        ------------------------------------------------+--------------
+                                                        | S (DM)
+        """
+        def delayAnswerLockInformation(conn, packet):
+            if isinstance(packet, Packets.AnswerInformationLocked):
                 cluster.client.master_conn.close()
                 return True
         def askFinalTID(orig, *args):
-            m2s.remove(delayAskLockInformation)
+            s2m.remove(delayAnswerLockInformation)
             orig(*args)
         def _getFinalTID(orig, ttid):
-            m2s.remove(delayAskLockInformation)
+            s2m.remove(delayAnswerLockInformation)
             self.tic()
             return orig(ttid)
+        def _connectToPrimaryNode(orig):
+            conn = orig()
+            self.tic()
+            s2m.remove(delayAnswerLockInformation)
+            return conn
         cluster = NEOCluster()
         try:
             cluster.start()
@@ -1079,25 +1102,30 @@ class Test(NEOThreadedTest):
             r = c.root()
             r['x'] = PCounter()
             tid0 = r._p_serial
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayAskLockInformation,
+            with cluster.storage.filterConnection(cluster.master) as s2m:
+                s2m.add(delayAnswerLockInformation,
                     Patch(ClientServiceHandler, askFinalTID=askFinalTID))
                 t.commit() # the final TID is returned by the master
             t.begin()
             r['x'].value += 1
             tid1 = r._p_serial
             self.assertTrue(tid0 < tid1)
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayAskLockInformation,
+            with cluster.storage.filterConnection(cluster.master) as s2m:
+                s2m.add(delayAnswerLockInformation,
                     Patch(cluster.client, _getFinalTID=_getFinalTID))
                 t.commit() # the final TID is returned by the storage backend
             t.begin()
             r['x'].value += 1
             tid2 = r['x']._p_serial
             self.assertTrue(tid1 < tid2)
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayAskLockInformation,
-                    Patch(cluster.client, _getFinalTID=_getFinalTID))
+            # The whole test would be simpler if we always delayed the
+            # AskLockInformation packet. However, it would also delay
+            # NotifyNodeInformation and the client would fail to connect
+            # to the storage node.
+            with cluster.storage.filterConnection(cluster.master) as s2m, \
+                 cluster.master.filterConnection(cluster.storage) as m2s:
+                s2m.add(delayAnswerLockInformation, Patch(cluster.client,
+                    _connectToPrimaryNode=_connectToPrimaryNode))
                 m2s.add(lambda conn, packet:
                     isinstance(packet, Packets.NotifyUnlockInformation))
                 t.commit() # the final TID is returned by the storage (tm)
