@@ -15,8 +15,8 @@ type Xid struct {
 
 const (
 	INVALID_UUID UUID = 0
-	INVALID_TID  TID = 0xffffffffffffffff    // 1<<64 - 1
-	INVALID_OID  OID = 0xffffffffffffffff    // 1<<64 - 1
+	INVALID_TID  TID = 1<<64 - 1            // 0xffffffffffffffff   TODO recheck it is the same
+	INVALID_OID  OID = 0xffffffffffffffff   // 1<<64 - 1
 	ZERO_TID     TID = 0        // XXX or simply TID{} ?    // XXX -> TID0 ?
 	ZERO_OID     OID = 0        // XXX or simply OID{} ?    // XXX -> OID0
 	// OID_LEN = 8
