@@ -1,7 +1,7 @@
 // XXX license
 
 // filestorage support  XXX text
-package neo
+package storage
 
 type FileStorage struct {
     fd int

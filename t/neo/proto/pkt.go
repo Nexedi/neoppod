@@ -1,4 +1,4 @@
-package pkt
+package proto
 
 // TODO .TID -> .Tid etc ?
 

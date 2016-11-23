@@ -14,16 +14,19 @@ type Xid struct {
 }
 
 const (
-	INVALID_UUID UUID = 0
-	INVALID_TID  TID = 1<<64 - 1            // 0xffffffffffffffff   TODO recheck it is the same
-	INVALID_OID  OID = 0xffffffffffffffff   // 1<<64 - 1
-	ZERO_TID     TID = 0        // XXX or simply TID{} ?    // XXX -> TID0 ?
-	ZERO_OID     OID = 0        // XXX or simply OID{} ?    // XXX -> OID0
+	//INVALID_UUID UUID = 0
+	INVALID_TID  Tid = 1<<64 - 1            // 0xffffffffffffffff   TODO recheck it is the same
+	INVALID_OID  Oid = 0xffffffffffffffff   // 1<<64 - 1
+	ZERO_TID     Tid = 0        // XXX or simply TID{} ?    // XXX -> TID0 ?
+	ZERO_OID     Oid = 0        // XXX or simply OID{} ?    // XXX -> OID0
 	// OID_LEN = 8
 	// TID_LEN = 8
-	MAX_TID      TID = 0x7fffffffffffffff    // SQLite does not accept numbers above 2^63-1 // XXX -> TIDMAX ?
+	MAX_TID      Tid = 0x7fffffffffffffff    // SQLite does not accept numbers above 2^63-1 // XXX -> TIDMAX ?
 )
 
+
+
+// ----------------------------------------
 
 type TxnStatus byte
 
@@ -32,7 +35,7 @@ type TxnStatus byte
 // Information about single storage transaction
 // XXX -> storage.ITransactionInformation
 //type IStorageTransactionInformation interface {
-type IStorageTransactionInformation struct {
+type StorageTransactionInformation struct {
     Tid         Tid
     Status      TxnStatus
     User        []byte
@@ -40,7 +43,7 @@ type IStorageTransactionInformation struct {
     Extension   []byte
 
     // TODO iter -> IStorageRecordInformation
-    Iter() IStorageRecordIterator
+    Iter	IStorageRecordIterator
 }
 
 // Information about single storage record
