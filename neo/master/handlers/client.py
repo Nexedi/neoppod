@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID
+from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
@@ -118,3 +118,27 @@ class ClientServiceHandler(MasterHandler):
         # BUG: The replicator may wait this transaction to be finished.
         self.app.tm.abort(tid, conn.getUUID())
 
+
+# like ClientServiceHandler but read-only & only for tid <= backup_tid
+class ClientReadOnlyServiceHandler(ClientServiceHandler):
+
+    def _readOnly(self, conn, *args, **kw):
+        conn.answer(Errors.ReadOnlyAccess(
+            'read-only access because cluster is in backuping mode'))
+
+    askBeginTransaction     = _readOnly
+    askNewOIDs              = _readOnly
+    askFinishTransaction    = _readOnly
+    askFinalTID             = _readOnly
+    askPack                 = _readOnly
+    abortTransaction        = _readOnly
+
+    # XXX LastIDs is not used by client at all, and it requires work to determine
+    # last_oid up to backup_tid, so just make it non-functional for client.
+    askLastIDs              = _readOnly
+
+    # like in MasterHandler but returns backup_tid instead of last_tid
+    def askLastTransaction(self, conn):
+        assert self.app.backup_tid is not None   # we are in BACKUPING mode
+        backup_tid = self.app.pt.getBackupTid()
+        conn.answer(Packets.AnswerLastTransaction(backup_tid))
