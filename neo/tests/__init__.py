@@ -32,6 +32,7 @@ from functools import wraps
 from mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
+from neo.lib.util import cached_property
 from time import time
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
@@ -193,6 +194,15 @@ class NeoUnitTestBase(NeoTestBase):
     def setUp(self):
         self.uuid_dict = {}
         NeoTestBase.setUp(self)
+
+    @cached_property
+    def nm(self):
+        from neo.lib import node
+        return node.NodeManager()
+
+    def createStorage(self, *args):
+        return self.nm.createStorage(**dict(zip(
+            ('address', 'uuid', 'state'), args)))
 
     def prepareDatabase(self, number, prefix=DB_PREFIX):
         """ create empty databases """

@@ -172,60 +172,6 @@ class Node(object):
             id(self),
         )
 
-    def isMaster(self):
-        return False
-
-    def isStorage(self):
-        return False
-
-    def isClient(self):
-        return False
-
-    def isAdmin(self):
-        return False
-
-    def isRunning(self):
-        return self._state == NodeStates.RUNNING
-
-    def isUnknown(self):
-        return self._state == NodeStates.UNKNOWN
-
-    def isTemporarilyDown(self):
-        return self._state == NodeStates.TEMPORARILY_DOWN
-
-    def isDown(self):
-        return self._state == NodeStates.DOWN
-
-    def isBroken(self):
-        return self._state == NodeStates.BROKEN
-
-    def isHidden(self):
-        return self._state == NodeStates.HIDDEN
-
-    def isPending(self):
-        return self._state == NodeStates.PENDING
-
-    def setRunning(self):
-        self.setState(NodeStates.RUNNING)
-
-    def setUnknown(self):
-        self.setState(NodeStates.UNKNOWN)
-
-    def setTemporarilyDown(self):
-        self.setState(NodeStates.TEMPORARILY_DOWN)
-
-    def setDown(self):
-        self.setState(NodeStates.DOWN)
-
-    def setBroken(self):
-        self.setState(NodeStates.BROKEN)
-
-    def setHidden(self):
-        self.setState(NodeStates.HIDDEN)
-
-    def setPending(self):
-        self.setState(NodeStates.PENDING)
-
     def asTuple(self):
         """ Returned tuple is intended to be used in protocol encoders """
         return (self.getType(), self._address, self._uuid, self._state)
@@ -236,12 +182,6 @@ class Node(object):
             return self._uuid > node._uuid
         return self._address > node._address
 
-    def getType(self):
-        try:
-            return NODE_CLASS_MAPPING[self.__class__]
-        except KeyError:
-            raise NotImplementedError
-
     def whoSetState(self):
         """
           Debugging method: call this method to know who set the current
@@ -251,43 +191,6 @@ class Node(object):
 
 attributeTracker.track(Node)
 
-class MasterNode(Node):
-    """This class represents a master node."""
-
-    def isMaster(self):
-        return True
-
-class StorageNode(Node):
-    """This class represents a storage node."""
-
-    def isStorage(self):
-        return True
-
-class ClientNode(Node):
-    """This class represents a client node."""
-
-    def isClient(self):
-        return True
-
-class AdminNode(Node):
-    """This class represents an admin node."""
-
-    def isAdmin(self):
-        return True
-
-
-NODE_TYPE_MAPPING = {
-    NodeTypes.MASTER: MasterNode,
-    NodeTypes.STORAGE: StorageNode,
-    NodeTypes.CLIENT: ClientNode,
-    NodeTypes.ADMIN: AdminNode,
-}
-NODE_CLASS_MAPPING = {
-    StorageNode: NodeTypes.STORAGE,
-    MasterNode: NodeTypes.MASTER,
-    ClientNode: NodeTypes.CLIENT,
-    AdminNode: NodeTypes.ADMIN,
-}
 
 class MasterDB(object):
     """
@@ -361,7 +264,7 @@ class NodeManager(object):
         self._node_set.add(node)
         self._updateAddress(node, None)
         self._updateUUID(node, None)
-        self.__updateSet(self._type_dict, None, node.__class__, node)
+        self.__updateSet(self._type_dict, None, node.getType(), node)
         self.__updateSet(self._state_dict, None, node.getState(), node)
         self._updateIdentified(node)
         if node.isMaster() and self._master_db is not None:
@@ -372,24 +275,18 @@ class NodeManager(object):
             logging.warning('removing unknown node %r, ignoring', node)
             return
         self._node_set.remove(node)
-        self.__drop(self._address_dict, node.getAddress())
-        self.__drop(self._uuid_dict, node.getUUID())
+        # a node may have not be indexed by uuid or address, eg.:
+        # - a client or admin node that don't have listening address
+        self._address_dict.pop(node.getAddress(), None)
+        # - a master known by address but without UUID
+        self._uuid_dict.pop(node.getUUID(), None)
         self.__dropSet(self._state_dict, node.getState(), node)
-        self.__dropSet(self._type_dict, node.__class__, node)
+        self.__dropSet(self._type_dict, node.getType(), node)
         uuid = node.getUUID()
         if uuid in self._identified_dict:
             del self._identified_dict[uuid]
         if node.isMaster() and self._master_db is not None:
             self._master_db.discard(node.getAddress())
-
-    def __drop(self, index_dict, key):
-        try:
-            del index_dict[key]
-        except KeyError:
-            # a node may have not be indexed by uuid or address, eg.:
-            # - a master known by address but without UUID
-            # - a client or admin node that don't have listening address
-            pass
 
     def __update(self, index_dict, old_key, new_key, node):
         """ Update an index from old to new key """
@@ -421,15 +318,14 @@ class NodeManager(object):
         self.__update(self._uuid_dict, old_uuid, node.getUUID(), node)
 
     def __dropSet(self, set_dict, key, node):
-        if key in set_dict and node in set_dict[key]:
+        if key in set_dict:
             set_dict[key].remove(node)
 
     def __updateSet(self, set_dict, old_key, new_key, node):
         """ Update a set index from old to new key """
         if old_key in set_dict:
             set_dict[old_key].remove(node)
-        if new_key is not None:
-            set_dict.setdefault(new_key, set()).add(node)
+        set_dict.setdefault(new_key, set()).add(node)
 
     def _updateState(self, node, old_state):
         assert not node.isDown(), node
@@ -457,34 +353,15 @@ class NodeManager(object):
         # TODO: use an index
         return [x for x in self._node_set if x.isConnected()]
 
-    def __getList(self, index_dict, key):
-        return index_dict.setdefault(key, set())
-
     def getByStateList(self, state):
         """ Get a node list filtered per the node state """
-        return list(self.__getList(self._state_dict, state))
+        return list(self._state_dict.get(state, ()))
 
-    def __getTypeList(self, type_klass, only_identified=False):
-        node_set = self.__getList(self._type_dict, type_klass)
+    def _getTypeList(self, node_type, only_identified=False):
+        node_set = self._type_dict.get(node_type, ())
         if only_identified:
             return [x for x in node_set if x.getUUID() in self._identified_dict]
         return list(node_set)
-
-    def getMasterList(self, only_identified=False):
-        """ Return a list with master nodes """
-        return self.__getTypeList(MasterNode, only_identified)
-
-    def getStorageList(self, only_identified=False):
-        """ Return a list with storage nodes """
-        return self.__getTypeList(StorageNode, only_identified)
-
-    def getClientList(self, only_identified=False):
-        """ Return a list with client nodes """
-        return self.__getTypeList(ClientNode, only_identified)
-
-    def getAdminList(self, only_identified=False):
-        """ Return a list with admin nodes """
-        return self.__getTypeList(AdminNode, only_identified)
 
     def getByAddress(self, address):
         """ Return the node that match with a given address """
@@ -493,12 +370,6 @@ class NodeManager(object):
     def getByUUID(self, uuid):
         """ Return the node that match with a given UUID """
         return self._uuid_dict.get(uuid, None)
-
-    def hasAddress(self, address):
-        return address in self._address_dict
-
-    def hasUUID(self, uuid):
-        return uuid in self._uuid_dict
 
     def _createNode(self, klass, address=None, uuid=None, **kw):
         by_address = self.getByAddress(address)
@@ -531,36 +402,14 @@ class NodeManager(object):
             assert node.__class__ is klass, (node.__class__, klass)
         return node
 
-    def createMaster(self, **kw):
-        """ Create and register a new master """
-        return self._createNode(MasterNode, **kw)
-
-    def createStorage(self, **kw):
-        """ Create and register a new storage """
-        return self._createNode(StorageNode, **kw)
-
-    def createClient(self, **kw):
-        """ Create and register a new client """
-        return self._createNode(ClientNode, **kw)
-
-    def createAdmin(self, **kw):
-        """ Create and register a new admin """
-        return self._createNode(AdminNode, **kw)
-
-    def _getClassFromNodeType(self, node_type):
-        klass = NODE_TYPE_MAPPING.get(node_type)
-        if klass is None:
-            raise ValueError('Unknown node type : %s' % node_type)
-        return klass
-
     def createFromNodeType(self, node_type, **kw):
-        return self._createNode(self._getClassFromNodeType(node_type), **kw)
+        return self._createNode(NODE_TYPE_MAPPING[node_type], **kw)
 
     def update(self, node_list):
         for node_type, addr, uuid, state in node_list:
             # This should be done here (although klass might not be used in this
             # iteration), as it raises if type is not valid.
-            klass = self._getClassFromNodeType(node_type)
+            klass = NODE_TYPE_MAPPING[node_type]
 
             # lookup in current table
             node_by_uuid = self.getByUUID(uuid)
@@ -614,3 +463,40 @@ class NodeManager(object):
                     address = '%s:%d' % address
                 logging.info(' * %*s | %8s | %22s | %s',
                     max_len, uuid, node.getType(), address, node.getState())
+
+
+@apply
+def NODE_TYPE_MAPPING():
+    def setmethod(cls, attr, value):
+        assert not hasattr(cls, attr), (cls, attr)
+        setattr(cls, attr, value)
+    def setfullmethod(cls, attr, value):
+        value.__name__ = attr
+        setmethod(cls, attr, value)
+    def camel_case(enum):
+        return str(enum).replace('_', ' ').title().replace(' ', '')
+    def setStateAccessors(state):
+        name = camel_case(state)
+        setfullmethod(Node, 'set' + name, lambda self: self.setState(state))
+        setfullmethod(Node, 'is' + name, lambda self: self._state == state)
+    map(setStateAccessors, NodeStates)
+
+    node_type_dict = {}
+    getType = lambda node_type: staticmethod(lambda: node_type)
+    true = staticmethod(lambda: True)
+    createNode = lambda cls: lambda self, **kw: self._createNode(cls, **kw)
+    getList = lambda node_type: lambda self, only_identified=False: \
+        self._getTypeList(node_type, only_identified)
+    bases = Node,
+    for node_type in NodeTypes:
+        name = camel_case(node_type)
+        is_name = 'is' + name
+        setmethod(Node, is_name, bool)
+        node_type_dict[node_type] = cls = type(name + 'Node', bases, {
+            'getType': getType(node_type),
+            is_name: true,
+            })
+        setfullmethod(NodeManager, 'create' + name, createNode(cls))
+        setfullmethod(NodeManager, 'get%sList' % name, getList(node_type))
+
+    return node_type_dict
