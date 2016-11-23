@@ -26,6 +26,7 @@ class Node(object):
     """This class represents a node."""
 
     _connection = None
+    _identified = False
 
     def __init__(self, manager, address=None, uuid=None,
             state=NodeStates.UNKNOWN):
@@ -34,7 +35,6 @@ class Node(object):
         self._uuid = uuid
         self._manager = manager
         self._last_state_change = time()
-        self._identified = False
         manager.add(self)
 
     def notify(self, packet):
@@ -83,7 +83,6 @@ class Node(object):
         old_uuid = self._uuid
         self._uuid = uuid
         self._manager._updateUUID(self, old_uuid)
-        self._manager._updateIdentified(self)
         if self._connection is not None:
             self._connection.setUUID(uuid)
 
@@ -97,7 +96,6 @@ class Node(object):
         assert self._connection is not None
         del self._connection
         self._identified = False
-        self._manager._updateIdentified(self)
 
     def setConnection(self, connection, force=None):
         """
@@ -136,7 +134,6 @@ class Node(object):
             conn.close()
         assert not connection.isClosed(), connection
         connection.setOnClose(self.onConnectionClosed)
-        self._manager._updateIdentified(self)
 
     def getConnection(self):
         """
@@ -163,12 +160,13 @@ class Node(object):
         return self._identified
 
     def __repr__(self):
-        return '<%s(uuid=%s, address=%s, state=%s, connection=%r) at %x>' % (
+        return '<%s(uuid=%s, address=%s, state=%s, connection=%r%s) at %x>' % (
             self.__class__.__name__,
             uuid_str(self._uuid),
             self._address,
             self._state,
             self._connection,
+            '' if self._identified else ', not identified',
             id(self),
         )
 
@@ -248,7 +246,6 @@ class NodeManager(object):
         self._uuid_dict = {}
         self._type_dict = {}
         self._state_dict = {}
-        self._identified_dict = {}
         if master_db is not None:
             self._master_db = db = MasterDB(master_db)
             for addr in db:
@@ -266,7 +263,6 @@ class NodeManager(object):
         self._updateUUID(node, None)
         self.__updateSet(self._type_dict, None, node.getType(), node)
         self.__updateSet(self._state_dict, None, node.getState(), node)
-        self._updateIdentified(node)
         if node.isMaster() and self._master_db is not None:
             self._master_db.add(node.getAddress())
 
@@ -283,8 +279,6 @@ class NodeManager(object):
         self.__dropSet(self._state_dict, node.getState(), node)
         self.__dropSet(self._type_dict, node.getType(), node)
         uuid = node.getUUID()
-        if uuid in self._identified_dict:
-            del self._identified_dict[uuid]
         if node.isMaster() and self._master_db is not None:
             self._master_db.discard(node.getAddress())
 
@@ -299,17 +293,6 @@ class NodeManager(object):
             assert index_dict.get(new_key, node) is node, 'Adding %r at %r ' \
                 'would overwrite %r' % (node, new_key, index_dict[new_key])
             index_dict[new_key] = node
-
-    def _updateIdentified(self, node):
-        uuid = node.getUUID()
-        if uuid:
-            # XXX: It's probably a bug to include connecting nodes but there's
-            #      no API yet to update manager when connection is established.
-            if node.isConnected(connecting=True):
-                assert node in self._node_set, node
-                self._identified_dict[uuid] = node
-            else:
-                self._identified_dict.pop(uuid, None)
 
     def _updateAddress(self, node, old_address):
         self.__update(self._address_dict, old_address, node.getAddress(), node)
@@ -341,10 +324,8 @@ class NodeManager(object):
             Returns a generator to iterate over identified nodes
             pool_set is an iterable of UUIDs allowed
         """
-        if pool_set is not None:
-            identified_nodes = self._identified_dict.items()
-            return [v for k, v in identified_nodes if k in pool_set]
-        return self._identified_dict.values()
+        return [x for x in self._node_set if x.isIdentified() and (
+            pool_set is None or x.getUUID() in pool_set)]
 
     def getConnectedList(self):
         """
@@ -360,7 +341,7 @@ class NodeManager(object):
     def _getTypeList(self, node_type, only_identified=False):
         node_set = self._type_dict.get(node_type, ())
         if only_identified:
-            return [x for x in node_set if x.getUUID() in self._identified_dict]
+            return [x for x in node_set if x.isIdentified()]
         return list(node_set)
 
     def getByAddress(self, address):

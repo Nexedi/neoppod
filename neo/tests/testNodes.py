@@ -113,10 +113,6 @@ class NodeManagerTests(NeoUnitTestBase):
     def checkByUUID(self, node):
         self.assertEqual(node, self.nm.getByUUID(node.getUUID()))
 
-    def checkIdentified(self, node_list, pool_set=None):
-        identified_node_list = self.nm.getIdentifiedList(pool_set)
-        self.assertEqual(set(identified_node_list), set(node_list))
-
     def testInit(self):
         """ Check the manager is empty when started """
         manager = self.nm
@@ -212,30 +208,6 @@ class NodeManagerTests(NeoUnitTestBase):
         # admin is still here but in UNKNOWN state
         self.checkNodes([self.master, self.admin, new_storage])
         self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
-
-    def testIdentified(self):
-        # set up four nodes
-        self._addMaster()
-        self._addStorage()
-        self._addClient()
-        self._addAdmin()
-        # switch node to connected
-        self.checkIdentified([])
-        self.master.setConnection(Mock())
-        self.checkIdentified([self.master])
-        self.storage.setConnection(Mock())
-        self.checkIdentified([self.master, self.storage])
-        self.client.setConnection(Mock())
-        self.checkIdentified([self.master, self.storage, self.client])
-        self.admin.setConnection(Mock())
-        self.checkIdentified([self.master, self.storage, self.client, self.admin])
-        # check the pool_set attribute
-        self.checkIdentified([self.master], pool_set=[self.master.getUUID()])
-        self.checkIdentified([self.storage], pool_set=[self.storage.getUUID()])
-        self.checkIdentified([self.client], pool_set=[self.client.getUUID()])
-        self.checkIdentified([self.admin], pool_set=[self.admin.getUUID()])
-        self.checkIdentified([self.master, self.storage], pool_set=[
-                self.master.getUUID(), self.storage.getUUID()])
 
 class MasterDBTests(NeoUnitTestBase):
     def _checkMasterDB(self, path, expected_master_list):

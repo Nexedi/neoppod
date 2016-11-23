@@ -63,7 +63,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         uuid = self.getNewUUID(node_type)
         node = nm.createFromNodeType(node_type, address=(ip, port),
                 uuid=uuid)
-        conn = self.getFakeConnection(node.getUUID(), node.getAddress())
+        conn = self.getFakeConnection(node.getUUID(), node.getAddress(), True)
         node.setConnection(conn)
         return (node, conn)
 

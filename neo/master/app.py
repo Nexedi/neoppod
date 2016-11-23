@@ -308,6 +308,11 @@ class Application(BaseApplication):
                 # masters will reconnect nevertheless, but it's dirty.
                 # Currently, it's not trivial to preserve connected nodes,
                 # because of poor node status tracking during election.
+                # XXX: The above comment is partially wrong in that the primary
+                # master is now responsible of allocating node ids, and all
+                # other nodes must only create/update/remove nodes when
+                # processing node notification. We probably want to keep the
+                # current behaviour: having only server connections.
                 conn.abort()
 
         # If I know any storage node, make sure that they are not in the

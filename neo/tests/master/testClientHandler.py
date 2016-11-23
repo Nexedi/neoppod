@@ -108,10 +108,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # do the right job
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         storage_uuid = self.storage_uuid
-        storage_conn = self.getFakeConnection(storage_uuid, self.storage_address)
+        storage_conn = self.getFakeConnection(storage_uuid,
+            self.storage_address, is_server=True)
         storage2_uuid = self.identifyToMasterNode(port=10022)
         storage2_conn = self.getFakeConnection(storage2_uuid,
-            (self.storage_address[0], self.storage_address[1] + 1))
+            (self.storage_address[0], self.storage_address[1] + 1),
+            is_server=True)
         self.app.setStorageReady(storage2_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.pt = Mock({
@@ -176,7 +178,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         conn = self.getFakeConnection(peer_id=peer_id)
         storage_uuid = self.storage_uuid
         storage_conn = self.getFakeConnection(storage_uuid,
-            self.storage_address)
+            self.storage_address, is_server=True)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(conn)
@@ -189,7 +191,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # Asking again to pack will cause an immediate error
         storage_uuid = self.identifyToMasterNode(port=10022)
         storage_conn = self.getFakeConnection(storage_uuid,
-            self.storage_address)
+            self.storage_address, is_server=True)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(storage_conn)
