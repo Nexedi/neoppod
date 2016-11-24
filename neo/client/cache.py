@@ -307,6 +307,7 @@ def test(self):
     self.assertEqual([5, 10, 15, 20], [x.tid for x in cache._oid_dict[1]])
     self.assertRaises(AssertionError, cache.store, 1, '20', 20, None)
     repr(cache)
+    map(repr, cache._queue_list)
     # Test late invalidations.
     cache.clear()
     cache.store(1, '10*', 10, None)
