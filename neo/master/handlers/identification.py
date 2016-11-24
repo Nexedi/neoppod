@@ -30,18 +30,32 @@ class IdentificationHandler(MasterHandler):
 
     def _setupNode(self, conn, node_type, uuid, address, node):
         app = self.app
-        if node:
-            if node.isRunning():
-                if uuid > 0:
-                    # cloned/evil/buggy node connecting to us
-                    raise ProtocolError('already connected')
-                # The peer wants a temporary id that's already assigned.
-                # Let's give it another one.
-                node = uuid = None
+        by_addr = address and app.nm.getByAddress(address)
+        while 1:
+            if by_addr:
+                if not by_addr.isConnected():
+                    if node is by_addr:
+                        break
+                    if not node or uuid < 0:
+                        # In case of address conflict for a peer with temporary
+                        # ids, we'll generate a new id.
+                        node = by_addr
+                        break
+            elif node:
+                if node.isConnected():
+                    if uuid < 0:
+                        # The peer wants a temporary id that's already assigned.
+                        # Let's give it another one.
+                        node = uuid = None
+                        break
+                else:
+                    node.setAddress(address)
+                    break
+                # Id conflict for a storage node.
             else:
-                assert not node.isConnected()
-                node.setAddress(address)
-                node.setRunning()
+                break
+            # cloned/evil/buggy node connecting to us
+            raise ProtocolError('already connected')
 
         state = NodeStates.RUNNING
         if node_type == NodeTypes.CLIENT:
@@ -68,14 +82,15 @@ class IdentificationHandler(MasterHandler):
             handler = app.administration_handler
             human_readable_node_type = 'n admin '
         else:
-            raise NotImplementedError(node_type)
+            raise ProtocolError
 
         uuid = app.getNewUUID(uuid, address, node_type)
         logging.info('Accept a' + human_readable_node_type + uuid_str(uuid))
         if node is None:
             node = app.nm.createFromNodeType(node_type,
                 uuid=uuid, address=address)
-        node.setUUID(uuid)
+        else:
+            node.setUUID(uuid)
         node.setState(state)
         node.setConnection(conn)
         conn.setHandler(handler)

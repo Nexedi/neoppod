@@ -18,7 +18,7 @@ from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
-    BrokenNodeDisallowedError,
+    BrokenNodeDisallowedError, ProtocolError,
 )
 
 class MasterHandler(EventHandler):
@@ -33,12 +33,11 @@ class MasterHandler(EventHandler):
         app = self.app
         node = app.nm.getByUUID(uuid)
         if node:
-            assert node_type is not NodeTypes.MASTER or node.getAddress() in (
-                address, None), (node, address)
+            if node_type is NodeTypes.MASTER and not (
+               None != address == node.getAddress()):
+                raise ProtocolError
             if node.isBroken():
                 raise BrokenNodeDisallowedError
-        else:
-            node = app.nm.getByAddress(address)
         peer_uuid = self._setupNode(conn, node_type, uuid, address, node)
         if app.primary:
             primary_address = app.server

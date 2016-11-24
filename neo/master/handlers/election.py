@@ -126,8 +126,8 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
             logging.info('reject a connection from a non-master')
             raise NotReadyError
 
-        if node is None:
-            node = app.nm.createMaster(address=address)
+        if node is None is app.nm.getByAddress(address):
+            app.nm.createMaster(address=address)
 
         self.elect(conn, address)
         return uuid
