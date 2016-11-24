@@ -2,7 +2,9 @@
 *.pyo
 *.swp
 *~
+/.coverage
 /build/
 /dist/
+/htmlcov/
 /mock.py
 /neoppod.egg-info/

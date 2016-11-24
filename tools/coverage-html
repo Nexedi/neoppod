@@ -1,0 +1,11 @@
+#!/bin/sh -e
+for COV in coverage python-coverage
+do type $COV && break
+done >/dev/null 2>&1 || exit
+
+$COV html "$@"
+# https://bitbucket.org/ned/coveragepy/issues/474/javascript-in-html-captures-all-keys
+sed -i "
+/assign_shortkeys *=/s/$/return;/
+/^ *\.bind('keydown',/s,^,//,
+" htmlcov/coverage_html.js

@@ -20,11 +20,19 @@ import unittest
 import logging
 import time
 import sys
-import neo
 import os
+import re
 from collections import Counter, defaultdict
 from cStringIO import StringIO
 from unittest.runner import _WritelnDecorator
+
+if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
+    # Start coverage as soon as possible.
+    import coverage
+    coverage = coverage.Coverage()
+    coverage.start()
+
+import neo
 from neo.tests import getTempDirectory, __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
 
@@ -201,6 +209,8 @@ class NeoTestRunner(unittest.TextTestResult):
 class TestRunner(BenchmarkRunner):
 
     def add_options(self, parser):
+        parser.add_option('-c', '--coverage', action='store_true',
+            help='Enable coverage (not working yet for functional tests)')
         parser.add_option('-f', '--functional', action='store_true',
             help='Functional tests')
         parser.add_option('-u', '--unit', action='store_true',
@@ -238,6 +248,7 @@ Environment Variables:
             functional = options.functional,
             zodb = options.zodb,
             verbosity = 2 if options.verbose else 1,
+            coverage = options.coverage,
         )
 
     def start(self):
@@ -254,6 +265,9 @@ Environment Variables:
         except KeyboardInterrupt:
             config['mail_to'] = None
             traceback.print_exc()
+        if config.coverage:
+            coverage.stop()
+            coverage.save()
         # build report
         self._successful = runner.wasSuccessful()
         return runner.buildReport(self.add_status)
