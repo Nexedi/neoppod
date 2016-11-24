@@ -38,7 +38,7 @@ extras_require = {
     'storage-mysqldb': ['mysqlclient'],
     'storage-importer': zodb_require,
 }
-extras_require['tests'] = ['zope.testing', 'psutil>=2',
+extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
 
 try:

@@ -15,6 +15,7 @@
 
     General
     - Review XXX/TODO code tags (CODE)
+    - Coverage for functional tests (i.e. collect results from subprocesses)
     - When all cells are OUT_OF_DATE in backup mode, the one with most data
       could become UP_TO_DATE with appropriate backup_tid, so that the cluster
       stays operational. (FEATURE)
