@@ -105,13 +105,9 @@ class Application(BaseApplication):
         """
         self.cluster_state = None
         # search, find, connect and identify to the primary master
-        bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN,
-                self.uuid, self.server)
-        data = bootstrap.getPrimaryConnection()
-        (node, conn, uuid, num_partitions, num_replicas) = data
-        self.master_node = node
-        self.master_conn = conn
-        self.uuid = uuid
+        bootstrap = BootstrapManager(self, NodeTypes.ADMIN, self.server)
+        self.master_node, self.master_conn, num_partitions, num_replicas = \
+            bootstrap.getPrimaryConnection()
 
         if self.pt is None:
             self.pt = PartitionTable(num_partitions, num_replicas)

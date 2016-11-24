@@ -120,8 +120,6 @@ class MasterEventHandler(EventHandler):
     def notifyClusterInformation(self, conn, cluster_state):
         self.app.cluster_state = cluster_state
 
-    def notifyNodeInformation(self, conn, node_list):
-        self.app.nm.update(node_list)
 
 class MasterRequestEventHandler(EventHandler):
     """ This class handle all answer from primary master node"""

@@ -27,14 +27,14 @@ from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
-from neo.lib.connection import MTClientConnection
+from neo.lib.connection import ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
-    ZERO_TID
+    ZERO_OID, ZERO_TID
 from .. import expectedFailure, Patch
 from . import LockLock, NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum, p64, u64
-from neo.client.exception import NEOStorageError
+from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.client import ClientOperationHandler
@@ -1344,6 +1344,58 @@ class Test(NEOThreadedTest):
                 c.root
             finally:
                 client.close()
+        finally:
+            cluster.stop()
+
+    def testIdTimestamp(self):
+        """
+        Given a master M, a storage S, and 2 clients Ca and Cb.
+
+        While Ca(id=1) is being identified by S:
+        1. connection between Ca and M breaks
+        2. M -> S: C1 down
+        3. Cb connect to M: id=1
+        4. M -> S: C1 up
+        5. S processes RequestIdentification from Ca with id=1
+
+        At 5, S must reject Ca, otherwise Cb can't connect to S. This is where
+        id timestamps come into play: with C1 up since t2, S rejects Ca due to
+        a request with t1  < t2.
+
+        To avoid issues with clocks that are out of sync, the client gets its
+        connection timestamp by being notified about itself from the master.
+        """
+        s2c = []
+        def __init__(orig, self, *args, **kw):
+            orig(self, *args, **kw)
+            self.readable = bool
+            s2c.append(self)
+            ll()
+        def connectToStorage(client):
+            next(client.cp.iterateForObject(0))
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            Ca = cluster.client
+            Ca.pt      # only connect to the master
+            # In a separate thread, connect to the storage but suspend the
+            # processing of the RequestIdentification packet, until the
+            # storage is notified about the existence of the other client.
+            with LockLock() as ll, Patch(ServerConnection, __init__=__init__):
+                t = self.newThread(connectToStorage, Ca)
+                ll()
+            s2c, = s2c
+            m2c, = cluster.master.getConnectionList(cluster.client)
+            m2c.close()
+            Cb = cluster.newClient()
+            try:
+                Cb.pt  # only connect to the master
+                del s2c.readable
+                self.assertRaises(NEOPrimaryMasterLost, t.join)
+                self.assertTrue(s2c.isClosed())
+                connectToStorage(Cb)
+            finally:
+                Cb.close()
         finally:
             cluster.stop()
 

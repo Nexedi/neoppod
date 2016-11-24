@@ -240,10 +240,10 @@ class Application(ThreadedApplication):
                         self.notifications_handler,
                         node=self.trying_master_node,
                         dispatcher=self.dispatcher)
+                p = Packets.RequestIdentification(
+                    NodeTypes.CLIENT, self.uuid, None, self.name, None)
                 try:
-                    ask(conn, Packets.RequestIdentification(
-                            NodeTypes.CLIENT, self.uuid, None, self.name),
-                        handler=handler)
+                    ask(conn, p, handler=handler)
                 except ConnectionClosed:
                     continue
                 # If we reached the primary master node, mark as connected

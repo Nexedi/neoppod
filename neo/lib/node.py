@@ -27,6 +27,7 @@ class Node(object):
 
     _connection = None
     _identified = False
+    id_timestamp = None
 
     def __init__(self, manager, address=None, uuid=None,
             state=NodeStates.UNKNOWN):
@@ -172,7 +173,8 @@ class Node(object):
 
     def asTuple(self):
         """ Returned tuple is intended to be used in protocol encoders """
-        return (self.getType(), self._address, self._uuid, self._state)
+        return (self.getType(), self._address, self._uuid, self._state,
+                self.id_timestamp)
 
     def __gt__(self, node):
         # sort per UUID if defined
@@ -348,9 +350,11 @@ class NodeManager(object):
         """ Return the node that match with a given address """
         return self._address_dict.get(address, None)
 
-    def getByUUID(self, uuid):
+    def getByUUID(self, uuid, *id_timestamp):
         """ Return the node that match with a given UUID """
-        return self._uuid_dict.get(uuid, None)
+        node = self._uuid_dict.get(uuid)
+        if not id_timestamp or node and (node.id_timestamp,) == id_timestamp:
+            return node
 
     def _createNode(self, klass, address=None, uuid=None, **kw):
         by_address = self.getByAddress(address)
@@ -386,8 +390,9 @@ class NodeManager(object):
     def createFromNodeType(self, node_type, **kw):
         return self._createNode(NODE_TYPE_MAPPING[node_type], **kw)
 
-    def update(self, node_list):
-        for node_type, addr, uuid, state in node_list:
+    def update(self, app, node_list):
+        node_set = self._node_set.copy() if app.id_timestamp is None else None
+        for node_type, addr, uuid, state, id_timestamp in node_list:
             # This should be done here (although klass might not be used in this
             # iteration), as it raises if type is not valid.
             klass = NODE_TYPE_MAPPING[node_type]
@@ -397,14 +402,14 @@ class NodeManager(object):
             node_by_addr = self.getByAddress(addr)
             node = node_by_uuid or node_by_addr
 
-            log_args = node_type, uuid_str(uuid), addr, state
+            log_args = node_type, uuid_str(uuid), addr, state, id_timestamp
             if node is None:
                 if state == NodeStates.DOWN:
-                    logging.debug('NOT creating node %s %s %s %s', *log_args)
-                else:
-                    node = self._createNode(klass, address=addr, uuid=uuid,
-                            state=state)
-                    logging.debug('creating node %r', node)
+                    logging.debug('NOT creating node %s %s %s %s %s', *log_args)
+                    continue
+                node = self._createNode(klass, address=addr, uuid=uuid,
+                        state=state)
+                logging.debug('creating node %r', node)
             else:
                 assert isinstance(node, klass), 'node %r is not ' \
                     'of expected type: %r' % (node, klass)
@@ -414,7 +419,7 @@ class NodeManager(object):
                     'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
                 if state == NodeStates.DOWN:
                     logging.debug('dropping node %r (%r), found with %s '
-                        '%s %s %s', node, node.isConnected(), *log_args)
+                        '%s %s %s %s', node, node.isConnected(), *log_args)
                     if node.isConnected():
                         # Cut this connection, node removed by handler.
                         # It's important for a storage to disconnect nodes that
@@ -424,12 +429,20 @@ class NodeManager(object):
                         # partition table upon disconnection.
                         node.getConnection().close()
                     self.remove(node)
-                else:
-                    logging.debug('updating node %r to %s %s %s %s',
-                        node, *log_args)
-                    node.setUUID(uuid)
-                    node.setAddress(addr)
-                    node.setState(state)
+                    continue
+                logging.debug('updating node %r to %s %s %s %s %s',
+                    node, *log_args)
+                node.setUUID(uuid)
+                node.setAddress(addr)
+                node.setState(state)
+            node.id_timestamp = id_timestamp
+            if app.uuid == uuid:
+                app.id_timestamp = id_timestamp
+        if node_set:
+            # For the first notification, we receive a full list of nodes from
+            # the master. Remove all unknown nodes from a previous connection.
+            for node in node_set - self._node_set:
+                self.remove(node)
         self.log()
 
     def log(self):

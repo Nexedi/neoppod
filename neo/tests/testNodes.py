@@ -183,15 +183,15 @@ class NodeManagerTests(NeoUnitTestBase):
         old_uuid = self.storage.getUUID()
         new_uuid = self.getStorageUUID()
         node_list = (
-            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN),
-            (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING),
+            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN, None),
+            (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING, None),
             (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid,
-                NodeStates.RUNNING),
+                NodeStates.RUNNING, None),
             (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
-                NodeStates.UNKNOWN),
+                NodeStates.UNKNOWN, None),
         )
         # update manager content
-        manager.update(node_list)
+        manager.update(Mock(), node_list)
         # - the client gets down
         self.checkClients([])
         # - master change it's address

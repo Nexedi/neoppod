@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys, weakref
+from collections import defaultdict
 from time import time
 
 from neo.lib import logging
@@ -44,7 +45,6 @@ class Application(BaseApplication):
     last_transaction = ZERO_TID
     backup_tid = None
     backup_app = None
-    uuid = None
     truncate_tid = None
 
     def __init__(self, config):
@@ -79,9 +79,7 @@ class Application(BaseApplication):
         self.primary_master_node = None
         self.cluster_state = None
 
-        uuid = config.getUUID()
-        if uuid:
-            self.uuid = uuid
+        self.uuid = config.getUUID()
 
         # election related data
         self.unconnected_master_node_set = set()
@@ -227,19 +225,20 @@ class Application(BaseApplication):
           Broadcast changes for a set a nodes
           Send only one packet per connection to reduce bandwidth
         """
-        node_dict = {}
+        node_dict = defaultdict(list)
         # group modified nodes by destination node type
         for node in node_list:
             node_info = node.asTuple()
-            def assign_for_notification(node_type):
-                # helper function
-                node_dict.setdefault(node_type, []).append(node_info)
-            if node.isMaster() or node.isStorage():
-                # client get notifications for master and storage only
-                assign_for_notification(NodeTypes.CLIENT)
-            if node.isMaster() or node.isStorage() or node.isClient():
-                assign_for_notification(NodeTypes.STORAGE)
-                assign_for_notification(NodeTypes.ADMIN)
+            if node.isAdmin():
+                continue
+            node_dict[NodeTypes.ADMIN].append(node_info)
+            node_dict[NodeTypes.STORAGE].append(node_info)
+            if node.isClient():
+                continue
+            node_dict[NodeTypes.CLIENT].append(node_info)
+            if node.isStorage():
+                continue
+            node_dict[NodeTypes.MASTER].append(node_info)
 
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
@@ -498,7 +497,7 @@ class Application(BaseApplication):
                 conn.setHandler(handler)
                 conn.notify(Packets.NotifyNodeInformation(((
                   node.getType(), node.getAddress(), node.getUUID(),
-                  NodeStates.TEMPORARILY_DOWN),)))
+                  NodeStates.TEMPORARILY_DOWN, None),)))
                 conn.abort()
             elif conn.pending():
                 conn.abort()

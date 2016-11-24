@@ -32,9 +32,8 @@ class ClientServiceHandler(MasterHandler):
             app.nm.remove(node)
 
     def _notifyNodeInformation(self, conn):
-        # send informations about master and storages only
         nm = self.app.nm
-        node_list = []
+        node_list = [nm.getByUUID(conn.getUUID()).asTuple()] # for id_timestamp
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
         conn.notify(Packets.NotifyNodeInformation(node_list))

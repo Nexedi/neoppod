@@ -165,6 +165,10 @@ class EventHandler(object):
             return
         conn.close()
 
+    def notifyNodeInformation(self, conn, node_list):
+        app = self.app
+        app.nm.update(app, node_list)
+
     def ping(self, conn):
         conn.answer(Packets.Pong())
 

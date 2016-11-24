@@ -87,6 +87,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             raise ProtocolError('No UUID supplied')
         app.uuid = your_uuid
         logging.info('Got an UUID: %s', dump(app.uuid))
+        app.id_timestamp = None
 
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
@@ -179,13 +180,14 @@ class PrimaryNotificationsHandler(MTEventHandler):
             self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def notifyNodeInformation(self, conn, node_list):
-        nm = self.app.nm
-        nm.update(node_list)
+        super(PrimaryNotificationsHandler, self).notifyNodeInformation(
+            conn, node_list)
         # XXX: 'update' automatically closes DOWN nodes. Do we really want
         #      to do the same thing for nodes in other non-running states ?
-        for node_type, addr, uuid, state in node_list:
-            if state != NodeStates.RUNNING:
-                node = nm.getByUUID(uuid)
+        getByUUID = self.app.nm.getByUUID
+        for node in node_list:
+            if node[3] != NodeStates.RUNNING:
+                node = getByUUID(node[2])
                 if node and node.isConnected():
                     node.getConnection().close()
 

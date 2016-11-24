@@ -56,6 +56,11 @@ class BaseElectionHandler(EventHandler):
 
 class ClientElectionHandler(BaseElectionHandler):
 
+    def notifyNodeInformation(self, conn, node_list):
+        # XXX: For the moment, do nothing because
+        # we'll close this connection and reconnect.
+        pass
+
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
@@ -71,6 +76,7 @@ class ClientElectionHandler(BaseElectionHandler):
             app.uuid,
             app.server,
             app.name,
+            None,
         ))
         super(ClientElectionHandler, self).connectionCompleted(conn)
 

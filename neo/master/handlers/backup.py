@@ -31,9 +31,6 @@ class BackupHandler(EventHandler):
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         self.app.pt.update(ptid, cell_list, self.app.nm)
 
-    def notifyNodeInformation(self, conn, node_list):
-        self.app.nm.update(node_list)
-
     def answerLastTransaction(self, conn, tid):
         app = self.app
         if tid != ZERO_TID:

@@ -30,7 +30,7 @@ class MasterHandler(EventHandler):
         elif new:
             self._notifyNodeInformation(conn)
 
-    def requestIdentification(self, conn, node_type, uuid, address, name):
+    def requestIdentification(self, conn, node_type, uuid, address, name, _):
         self.checkClusterName(name)
         app = self.app
         node = app.nm.getByUUID(uuid)

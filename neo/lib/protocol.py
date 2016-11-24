@@ -595,6 +595,13 @@ class PTID(PItem):
 # same definition, for now
 POID = PTID
 
+class PFloat(PStructItemOrNone):
+    """
+        A float number (8-bytes length)
+    """
+    _fmt = '!d'
+    _None = '\xff' * 8
+
 # common definitions
 
 PFEmpty = PStruct('no_content')
@@ -608,6 +615,7 @@ PFNodeList = PList('node_list',
         PAddress('address'),
         PUUID('uuid'),
         PFNodeState,
+        PFloat('id_timestamp'),
     ),
 )
 
@@ -689,6 +697,7 @@ class RequestIdentification(Packet):
         PUUID('uuid'),
         PAddress('address'),
         PString('name'),
+        PFloat('id_timestamp'),
     )
 
     _answer = PStruct('accept_identification',

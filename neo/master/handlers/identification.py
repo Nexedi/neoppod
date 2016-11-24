@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from time import time
 from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, \
     NotReadyError, ProtocolError, uuid_str
@@ -91,6 +92,7 @@ class IdentificationHandler(MasterHandler):
                 uuid=uuid, address=address)
         else:
             node.setUUID(uuid)
+        node.id_timestamp = time()
         node.setState(state)
         node.setConnection(conn)
         conn.setHandler(handler)

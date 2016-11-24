@@ -28,7 +28,7 @@ class BootstrapManagerTests(NeoUnitTestBase):
         # create an application object
         config = self.getStorageConfiguration()
         self.app = Application(config)
-        self.bootstrap = BootstrapManager(self.app, 'main', NodeTypes.STORAGE)
+        self.bootstrap = BootstrapManager(self.app,  NodeTypes.STORAGE)
         # define some variable to simulate client and storage node
         self.master_port = 10010
         self.storage_port = 10020
