@@ -385,9 +385,9 @@ class PStructItem(PItem):
     """
         A single value encoded with struct
     """
-    def __init__(self, name, fmt):
+    def __init__(self, name):
         PItem.__init__(self, name)
-        struct = Struct(fmt)
+        struct = Struct(self._fmt)
         self.pack = struct.pack
         self.unpack = struct.unpack
         self.size = struct.size
@@ -398,12 +398,23 @@ class PStructItem(PItem):
     def _decode(self, reader):
         return self.unpack(reader(self.size))[0]
 
+class PStructItemOrNone(PStructItem):
+
+    def _encode(self, writer, value):
+        return writer(self._None if value is None else self.pack(value))
+
+    def _decode(self, reader):
+        value = reader(self.size)
+        return None if value == self._None else self.unpack(value)[0]
+
 class PList(PStructItem):
     """
         A list of homogeneous items
     """
+    _fmt = '!L'
+
     def __init__(self, name, item):
-        PStructItem.__init__(self, name, '!L')
+        PStructItem.__init__(self, name)
         self._item = item
 
     def _encode(self, writer, items):
@@ -421,8 +432,10 @@ class PDict(PStructItem):
     """
         A dictionary with custom key and value formats
     """
+    _fmt = '!L'
+
     def __init__(self, name, key, value):
-        PStructItem.__init__(self, name, '!L')
+        PStructItem.__init__(self, name)
         self._key = key
         self._value = value
 
@@ -448,15 +461,15 @@ class PEnum(PStructItem):
     """
         Encapsulate an enumeration value
     """
+    _fmt = '!l'
+
     def __init__(self, name, enum):
-        PStructItem.__init__(self, name, '!l')
+        PStructItem.__init__(self, name)
         self._enum = enum
 
     def _encode(self, writer, item):
         if item is None:
             item = -1
-        else:
-            assert isinstance(item, int), item
         writer(self.pack(item))
 
     def _decode(self, reader):
@@ -473,8 +486,7 @@ class PString(PStructItem):
     """
         A variable-length string
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!L')
+    _fmt = '!L'
 
     def _encode(self, writer, value):
         writer(self.pack(len(value)))
@@ -511,46 +523,26 @@ class PBoolean(PStructItem):
     """
         A boolean value, encoded as a single byte
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!B')
-
-    def _encode(self, writer, value):
-        writer(self.pack(bool(value)))
-
-    def _decode(self, reader):
-        return bool(self.unpack(reader(self.size))[0])
+    _fmt = '!?'
 
 class PNumber(PStructItem):
     """
         A integer number (4-bytes length)
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!L')
+    _fmt = '!L'
 
 class PIndex(PStructItem):
     """
         A big integer to defined indexes in a huge list.
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!Q')
+    _fmt = '!Q'
 
-class PPTID(PStructItem):
+class PPTID(PStructItemOrNone):
     """
         A None value means an invalid PTID
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!Q')
-
-    def _encode(self, writer, value):
-        if value is None:
-            value = 0
-        PStructItem._encode(self, writer, value)
-
-    def _decode(self, reader):
-        value = PStructItem._decode(self, reader)
-        if value == 0:
-            value = None
-        return value
+    _fmt = '!Q'
+    _None = Struct(_fmt).pack(0)
 
 class PProtocol(PNumber):
     """
@@ -576,18 +568,12 @@ class PChecksum(PItem):
     def _decode(self, reader):
         return reader(20)
 
-class PUUID(PStructItem):
+class PUUID(PStructItemOrNone):
     """
         An UUID (node identifier, 4-bytes signed integer)
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!l')
-
-    def _encode(self, writer, uuid):
-        writer(self.pack(uuid or 0))
-
-    def _decode(self, reader):
-        return self.unpack(reader(self.size))[0] or None
+    _fmt = '!l'
+    _None = Struct(_fmt).pack(0)
 
 class PTID(PItem):
     """
