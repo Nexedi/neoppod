@@ -16,8 +16,17 @@ type StorageApplication struct {
 
 func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
 	fmt.Printf("stor: serving new client %s <-> %s\n", conn.LocalAddr(), conn.RemoteAddr())
-	fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
-	conn.Close()	// XXX err
+	//fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
+	//conn.Close()	// XXX err
+
+	// TODO read PktHeader (fixed length)  (-> length, PktType (by .code))
+	// TODO PktHeader
+	rxbuf := bytes.Buffer{}
+	rxl := io.LimitedReader{R: conn, N: PktHeadLen}
+
+	// read first pkt chunk: header + some data (all in 1 read call)
+	rxl.N = 4096
+	n, err := rxbuf.ReadFrom(rxl)
 }
 
 
@@ -30,8 +39,6 @@ type Server interface {
 	// ServeConn is usually run in separate goroutine	XXX text
 	ServeConn(ctx context.Context, conn net.Conn)	// XXX error ?
 }
-
-// srv.ServeConn(ctx context.Context, conn net.Conn)
 
 // Run service on a listener
 // - accept incoming connection on the listener
@@ -71,8 +78,7 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 
 // TODO text
 // XXX move -> generic place ?
-// XXX get (net, laddr) from srv ?
-// XXX split -> separate Listen()
+// XXX split -> separate Listen() & Serve()
 func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
 	l, err := net.Listen(net_, laddr)
 	if err != nil {

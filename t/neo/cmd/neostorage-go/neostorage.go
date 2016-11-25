@@ -9,7 +9,7 @@ import (
 	neo "../.."
 	"fmt"
 	"context"
-	"time"
+	_ "time"
 )
 
 
@@ -17,18 +17,20 @@ import (
 // cluster, masterv, bind ...
 
 func main() {
-	var t neo.Tid = neo.MAX_TID
-	fmt.Printf("%T %x\n", t, t)
-	println("TODO")
+	// var t neo.Tid = neo.MAX_TID
+	// fmt.Printf("%T %x\n", t, t)
+	// println("TODO")
 
 	storsrv := &neo.StorageApplication{}
 
+	/*
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(5 * time.Second)
 		cancel()
 	}()
-	//ctx := context.Background()
+	*/
+	ctx := context.Background()
 
 	err := neo.ListenAndServe(ctx, "tcp", "localhost:1234", storsrv)
 	fmt.Println(err)
