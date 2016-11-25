@@ -19,10 +19,37 @@ func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
 	//fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
 	//conn.Close()	// XXX err
 
+	// TODO: use bytes.Buffer{}
+	//	 .Bytes() -> buf -> can grow up again up to buf[:cap(buf)]
+	//	 NewBuffer(buf) -> can use same buffer for later reading via bytes.Buffer
+
 	// TODO read PktHeader (fixed length)  (-> length, PktType (by .code))
 	// TODO PktHeader
-	rxbuf := bytes.Buffer{}
-	rxl := io.LimitedReader{R: conn, N: PktHeadLen}
+	//rxbuf := bytes.Buffer{}
+	rxbuf := bytes.NewBuffer(make([]byte, 4096))
+	n, err := conn.Read(rxbuf.Bytes())
+
+	// first read to read pkt header and hopefully up to page of data in 1 syscall
+	rxbuf := Buffer{make([]byte, 4096}
+	n, err := io.ReadAtLeast(conn, rxbuf, PktHeadLen)
+	if err != nil {
+		panic(err)	// TODO
+	}
+	id	:= binary.BigEndian.Uint32(rxbuf[0:])
+	code	:= binary.BigEndian.Uint16(rxbuf[4:])
+	length	:= binary.BigEndian.Uint32(rxbuf[6:])
+
+	if length < PktHeadLen {
+		panic()	// XXX err	(length is a whole packet len with header)
+	}
+
+	if length > len(rxbuf) {
+		// TODO grow rxbuf
+		panic()
+	}
+
+	// read rest of pkt data, if we need to
+	n2, err := io.ReadFull(conn, rxbuf[n:length])
 
 	// read first pkt chunk: header + some data (all in 1 read call)
 	rxl.N = 4096
