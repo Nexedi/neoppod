@@ -4,11 +4,20 @@ package neo
 
 import (
 	"context"
+	"net"
+	"fmt"
 )
 
 // NEO Storage application
 
+// XXX naming
 type StorageApplication struct {
+}
+
+func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
+	fmt.Printf("stor: serving new client %s <-> %s\n", conn.LocalAddr(), conn.RemoteAddr())
+	fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
+	conn.Close()	// XXX err
 }
 
 
@@ -32,24 +41,26 @@ type Server interface {
 // XXX text
 // XXX move -> generic place ?
 func Serve(ctx context.Context, l net.Listener, srv Server) error {
+	fmt.Printf("stor: serving on %s ...\n", l.Addr())
+
 	// close listener when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - listener close will signal to all accepts to
 	//   terminate with an error )
 	retch := make(chan struct{})
 	defer func() { close(retch) }()
-	go func(
+	go func() {
 		select {
 		case <-ctx.Done():
 		case <-retch:
 		}
 		l.Close() // XXX err
-	)()
+	}()
 
 	// main Accept -> ServeConn loop
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			// TODO check done channel of l/srv somehow
+			// TODO err == closed <-> ctx was cancelled
 			// TODO err -> net.Error && .Temporary() -> some throttling
 			return err
 		}
@@ -62,8 +73,8 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 // XXX move -> generic place ?
 // XXX get (net, laddr) from srv ?
 // XXX split -> separate Listen()
-func ListenAndServe(ctx context.Context, net, laddr string, srv Server) error {
-	l, err := net.Listen(net, laddr)
+func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
+	l, err := net.Listen(net_, laddr)
 	if err != nil {
 		return err
 	}
