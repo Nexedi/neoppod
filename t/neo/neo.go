@@ -1,30 +1,36 @@
-// XXX license
+// TODO copyright / license
+
+// Package neo implements distributed object storage for ZODB
+// TODO text
+package neo
 
 // ZODB types
-package neo // XXX -> zodb ?
-
 // XXX naming -> TID, OID ?
-type Tid uint64  // XXX or [8]byte ?
-type Oid uint64  // XXX or [8]byte ?
+type Tid uint64  // transaction identifier	TODO encode as BE
+type Oid uint64  // object identifier		TODO encode as BE
 
+/*
 // XXX "extended" oid - oid + serial, completely specifying object revision
 type Xid struct {
     Tid
     Oid
 }
+*/
 
 const (
 	//INVALID_UUID UUID = 0
-	INVALID_TID  Tid = 1<<64 - 1            // 0xffffffffffffffff   TODO recheck it is the same
-	INVALID_OID  Oid = 0xffffffffffffffff   // 1<<64 - 1
-	ZERO_TID     Tid = 0        // XXX or simply TID{} ?    // XXX -> TID0 ?
+	INVALID_TID  Tid = 1<<64 - 1            // 0xffffffffffffffff
+	INVALID_OID  Oid = 1<<64 - 1
+	ZERO_TID     Tid = 0        // XXX or simply TID{} ?
 	TID0         Tid = ZERO_TID // XXX ^^^ choose 1
 
 	ZERO_OID     Oid = 0        // XXX or simply OID{} ?    // XXX -> OID0
 	// OID_LEN = 8
 	// TID_LEN = 8
-	MAX_TID      Tid = 0x7fffffffffffffff    // SQLite does not accept numbers above 2^63-1 // XXX -> TIDMAX ?
-	TIDMAX       Tid = MAX_TID		 // XXX ^^^ choose 1
+	MAX_TID      Tid = 1<<63 - 1		// 0x7fffffffffffffff
+	                                        // SQLite does not accept numbers above 2^63-1
+						// ZODB also defines maxtid to be max signed int64 since baee84a6 (Jun 7 2016)
+	TIDMAX       Tid = MAX_TID		// XXX ^^^ choose 1
 )
 
 

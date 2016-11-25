@@ -6,6 +6,8 @@ package main
 
 import (
 	_ "../../storage"	// XXX rel ok?
+	neo "../.."
+	"fmt"
 )
 
 
@@ -13,6 +15,7 @@ import (
 // cluster, masterv, bind ...
 
 func main() {
-	// TODO
+	var t neo.Tid = neo.MAX_TID
+	fmt.Printf("%T %x\n", t, t)
 	println("TODO")
 }
