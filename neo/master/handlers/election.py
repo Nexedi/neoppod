@@ -23,6 +23,9 @@ from . import MasterHandler
 
 class BaseElectionHandler(EventHandler):
 
+    def _notifyNodeInformation(self, conn):
+        pass
+
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 

@@ -114,7 +114,6 @@ class BackupApplication(object):
                         raise RuntimeError("inconsistent number of partitions")
                     self.pt = PartitionTable(num_partitions, num_replicas)
                     conn.setHandler(BackupHandler(self))
-                    conn.ask(Packets.AskNodeInformation())
                     conn.ask(Packets.AskPartitionTable())
                     conn.ask(Packets.AskLastTransaction())
                     # debug variable to log how big 'tid_list' can be.

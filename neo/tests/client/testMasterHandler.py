@@ -44,69 +44,6 @@ class MasterHandlerTests(NeoUnitTestBase):
         node.setConnection(conn)
         return node, conn
 
-class MasterBootstrapHandlerTests(MasterHandlerTests):
-
-    def setUp(self):
-        super(MasterBootstrapHandlerTests, self).setUp()
-        self.handler = PrimaryBootstrapHandler(self.app)
-
-    def checkCalledOnApp(self, method, index=0):
-        calls = self.app.mockGetNamedCalls(method)
-        self.assertTrue(len(calls) > index)
-        return calls[index].params
-
-    def test_notReady(self):
-        conn = self.getFakeConnection()
-        self.handler.notReady(conn, 'message')
-        self.assertEqual(self.app.trying_master_node, None)
-
-    def test_acceptIdentification1(self):
-        """ Non-master node """
-        node, conn = self.getKnownMaster()
-        self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
-            node.getUUID(), 100, 0, None, None, [])
-        self.checkClosed(conn)
-
-    def test_acceptIdentification2(self):
-        """ No UUID supplied """
-        node, conn = self.getKnownMaster()
-        uuid = self.getMasterUUID()
-        addr = conn.getAddress()
-        self.checkProtocolErrorRaised(self.handler.acceptIdentification,
-            conn, NodeTypes.MASTER, uuid, 100, 0, None,
-            addr, [(addr, uuid)],
-        )
-
-    def test_acceptIdentification3(self):
-        """ identification accepted  """
-        node, conn = self.getKnownMaster()
-        uuid = self.getMasterUUID()
-        addr = conn.getAddress()
-        your_uuid = self.getClientUUID()
-        self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid,
-            100, 2, your_uuid, addr, [(addr, uuid)])
-        self.assertEqual(self.app.uuid, your_uuid)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertTrue(isinstance(self.app.pt, PartitionTable))
-
-    def _getMasterList(self, uuid_list):
-        port = 1000
-        master_list = []
-        for uuid in uuid_list:
-            master_list.append((('127.0.0.1', port), uuid))
-            port += 1
-        return master_list
-
-    def test_answerPartitionTable(self):
-        conn = self.getFakeConnection()
-        self.app.pt = Mock()
-        ptid = 0
-        row_list = ([], [])
-        self.handler.answerPartitionTable(conn, ptid, row_list)
-        load_calls = self.app.pt.mockGetNamedCalls('load')
-        self.assertEqual(len(load_calls), 1)
-        # load_calls[0].checkArgs(ptid, row_list, self.app.nm)
-
 
 class MasterNotificationsHandlerTests(MasterHandlerTests):
 

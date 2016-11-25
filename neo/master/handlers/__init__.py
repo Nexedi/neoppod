@@ -27,6 +27,8 @@ class MasterHandler(EventHandler):
     def connectionCompleted(self, conn, new=None):
         if new is None:
             super(MasterHandler, self).connectionCompleted(conn)
+        elif new:
+            self._notifyNodeInformation(conn)
 
     def requestIdentification(self, conn, node_type, uuid, address, name):
         self.checkClusterName(name)
@@ -87,10 +89,6 @@ class MasterHandler(EventHandler):
         node_list.extend(n.asTuple() for n in nm.getClientList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
         conn.notify(Packets.NotifyNodeInformation(node_list))
-
-    def askNodeInformation(self, conn):
-        self._notifyNodeInformation(conn)
-        conn.answer(Packets.AnswerNodeInformation())
 
     def askPartitionTable(self, conn):
         pt = self.app.pt

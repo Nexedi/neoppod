@@ -30,6 +30,16 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         self.app.trying_master_node = None
         conn.close()
 
+    def answerPartitionTable(self, conn, ptid, row_list):
+        assert row_list
+        self.app.pt.load(ptid, row_list, self.app.nm)
+
+    def answerLastTransaction(*args):
+        pass
+
+class PrimaryNotificationsHandler(MTEventHandler):
+    """ Handler that process the notifications from the primary master """
+
     def _acceptIdentification(self, node, uuid, num_partitions,
             num_replicas, your_uuid, primary, known_master_list):
         app = self.app
@@ -81,23 +91,8 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
 
-    def answerPartitionTable(self, conn, ptid, row_list):
-        assert row_list
-        self.app.pt.load(ptid, row_list, self.app.nm)
-
-    def answerNodeInformation(self, conn):
-        pass
-
     def answerLastTransaction(self, conn, ltid):
-        pass
-
-class PrimaryNotificationsHandler(MTEventHandler):
-    """ Handler that process the notifications from the primary master """
-
-    def packetReceived(self, conn, packet, kw={}):
-        if type(packet) is Packets.AnswerLastTransaction:
             app = self.app
-            ltid = packet.decode()[0]
             if app.last_tid != ltid:
                 # Either we're connecting or we already know the last tid
                 # via invalidations.
@@ -124,15 +119,15 @@ class PrimaryNotificationsHandler(MTEventHandler):
                     db = app.getDB()
                     db is None or db.invalidateCache()
                 app.last_tid = ltid
-        elif type(packet) is Packets.AnswerTransactionFinished:
+
+    def answerTransactionFinished(self, conn, _, tid, callback, cache_dict):
             app = self.app
-            app.last_tid = tid = packet.decode()[1]
-            callback = kw.pop('callback')
+            app.last_tid = tid
             # Update cache
             cache = app._cache
             app._cache_lock_acquire()
             try:
-                for oid, data in kw.pop('cache_dict').iteritems():
+                for oid, data in cache_dict.iteritems():
                     # Update ex-latest value in cache
                     cache.invalidate(oid, tid)
                     if data is not None:
@@ -142,7 +137,6 @@ class PrimaryNotificationsHandler(MTEventHandler):
                     callback(tid)
             finally:
                 app._cache_lock_release()
-        MTEventHandler.packetReceived(self, conn, packet, kw)
 
     def connectionClosed(self, conn):
         app = self.app

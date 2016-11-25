@@ -41,14 +41,6 @@ class StorageEventHandler(MTEventHandler):
         self.app.cp.removeConnection(node)
         super(StorageEventHandler, self).connectionFailed(conn)
 
-
-class StorageBootstrapHandler(AnswerBaseHandler):
-    """ Handler used when connecting to a storage node """
-
-    def notReady(self, conn, message):
-        conn.close()
-        raise NodeNotReady(message)
-
     def _acceptIdentification(self, node,
            uuid, num_partitions, num_replicas, your_uuid, primary,
            master_list):
@@ -56,6 +48,13 @@ class StorageBootstrapHandler(AnswerBaseHandler):
           primary == self.app.master_conn.getAddress(), (
             primary, self.app.master_conn)
         assert uuid == node.getUUID(), (uuid, node.getUUID())
+
+class StorageBootstrapHandler(AnswerBaseHandler):
+    """ Handler used when connecting to a storage node """
+
+    def notReady(self, conn, message):
+        conn.close()
+        raise NodeNotReady(message)
 
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
