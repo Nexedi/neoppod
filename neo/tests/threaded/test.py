@@ -1135,6 +1135,25 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testMasterFailureBeforeVote(self):
+        def waitStoreResponses(orig, *args):
+            result = orig(*args)
+            m2c, = cluster.master.getConnectionList(orig.__self__)
+            m2c.close()
+            self.tic()
+            return result
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()['x'] = PCounter() # 1 store() to each storage
+            with Patch(cluster.client, waitStoreResponses=waitStoreResponses):
+                self.assertRaises(POSException.StorageError, t.commit)
+            self.assertEqual(cluster.neoctl.getClusterState(),
+                             ClusterStates.RUNNING)
+        finally:
+            cluster.stop()
+
     def testEmptyTransaction(self):
         cluster = NEOCluster()
         try:
