@@ -240,10 +240,10 @@ class Application(ThreadedApplication):
                         self.notifications_handler,
                         node=self.trying_master_node,
                         dispatcher=self.dispatcher)
+                p = Packets.RequestIdentification(
+                    NodeTypes.CLIENT, self.uuid, None, self.name, None)
                 try:
-                    ask(conn, Packets.RequestIdentification(
-                            NodeTypes.CLIENT, self.uuid, None, self.name),
-                        handler=handler)
+                    ask(conn, p, handler=handler)
                 except ConnectionClosed:
                     continue
                 # If we reached the primary master node, mark as connected
@@ -256,7 +256,6 @@ class Application(ThreadedApplication):
                 # operational. Might raise ConnectionClosed so that the new
                 # primary can be looked-up again.
                 logging.info('Initializing from master')
-                ask(conn, Packets.AskNodeInformation(), handler=handler)
                 ask(conn, Packets.AskPartitionTable(), handler=handler)
                 ask(conn, Packets.AskLastTransaction(), handler=handler)
                 if self.pt.operational():

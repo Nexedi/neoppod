@@ -50,6 +50,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
                 self.getClientUUID(),
                 None,
                 self.app.name,
+                None,
         )
         self.app.ready = True
         self.assertRaises(
@@ -60,6 +61,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
                 self.getStorageUUID(),
                 None,
                 self.app.name,
+                None,
         )
 
     def test_requestIdentification3(self):
@@ -75,6 +77,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
                 uuid,
                 None,
                 self.app.name,
+                None,
         )
 
     def test_requestIdentification2(self):
@@ -87,7 +90,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
           'getAddress': master,
         })
         self.identification.requestIdentification(conn, NodeTypes.CLIENT, uuid,
-                None, self.app.name)
+                None, self.app.name, None)
         self.assertTrue(node.isRunning())
         self.assertTrue(node.isConnected())
         self.assertEqual(node.getUUID(), uuid)

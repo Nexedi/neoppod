@@ -165,6 +165,10 @@ class EventHandler(object):
             return
         conn.close()
 
+    def notifyNodeInformation(self, conn, node_list):
+        app = self.app
+        app.nm.update(app, node_list)
+
     def ping(self, conn):
         conn.answer(Packets.Pong())
 
@@ -227,6 +231,9 @@ class MTEventHandler(EventHandler):
     def packetReceived(self, conn, packet, kw={}):
         """Redirect all received packet to dispatcher thread."""
         if packet.isResponse():
+            if packet.poll_thread:
+                self.dispatch(conn, packet, kw)
+                kw = {}
             if not (self.dispatcher.dispatch(conn, packet.getId(), packet, kw)
                     or type(packet) is Packets.Pong):
                 raise ProtocolError('Unexpected response packet from %r: %r'
@@ -254,3 +261,6 @@ class AnswerBaseHandler(EventHandler):
     packetReceived = unexpectedInAnswerHandler
     peerBroken = unexpectedInAnswerHandler
     protocolError = unexpectedInAnswerHandler
+
+    def acceptIdentification(*args):
+        pass

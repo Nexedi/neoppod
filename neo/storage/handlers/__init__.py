@@ -38,8 +38,8 @@ class BaseMasterHandler(EventHandler):
     def notifyNodeInformation(self, conn, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
-        self.app.nm.update(node_list)
-        for node_type, addr, uuid, state in node_list:
+        super(BaseMasterHandler, self).notifyNodeInformation(conn, node_list)
+        for node_type, _, uuid, state, _ in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
                 logging.info("I was told I'm %s", state)

@@ -753,11 +753,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
         # TODO: test more connection failure cases
-        all_passed = []
         # askLastTransaction
-        def _ask9(_):
-            all_passed.append(1)
-        # Seventh packet : askNodeInformation succeeded
         def _ask8(_):
             pass
         # Sixth packet : askPartitionTable succeeded
@@ -789,8 +785,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # telling us what its address is.)
         def _ask1(_):
             pass
-        ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask6, _ask7,
-            _ask8, _ask9]
+        ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask6, _ask7, _ask8]
         def _ask_base(conn, _, handler=None):
             ask_func_list.pop(0)(conn)
             app.nm.getByAddress(conn.getAddress())._connection = None
@@ -801,7 +796,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.pt = Mock({ 'operational': False})
         app.start = lambda: None
         app.master_conn = app._connectToPrimaryNode()
-        self.assertEqual(len(all_passed), 1)
+        self.assertFalse(ask_func_list)
         self.assertTrue(app.master_conn is not None)
         self.assertTrue(app.pt.operational())
 

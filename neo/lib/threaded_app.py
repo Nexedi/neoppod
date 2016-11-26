@@ -43,6 +43,8 @@ class ThreadContainer(threading.local):
 class ThreadedApplication(BaseApplication):
     """The client node application."""
 
+    uuid = None
+
     def __init__(self, master_nodes, name, **kw):
         super(ThreadedApplication, self).__init__(**kw)
         self.poll_thread = threading.Thread(target=self.run, name=name)
@@ -56,8 +58,6 @@ class ThreadedApplication(BaseApplication):
         for address in master_nodes:
             self.nm.createMaster(address=address)
 
-        # no self-assigned UUID, primary master will supply us one
-        self.uuid = None
         # Internal attribute distinct between thread
         self._thread_container = ThreadContainer()
         app_set.add(self) # to register self.on_log

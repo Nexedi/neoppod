@@ -144,18 +144,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertEqual(len(txn.getOIDList()), 0)
         self.assertEqual(len(txn.getUUIDList()), 1)
 
-    def test_askNodeInformations(self):
-        # check that only informations about master and storages nodes are
-        # send to a client
-        self.app.nm.createClient()
-        conn = self.getFakeConnection()
-        self.service.askNodeInformation(conn)
-        calls = conn.mockGetNamedCalls('notify')
-        self.assertEqual(len(calls), 1)
-        packet = calls[0].getParam(0)
-        (node_list, ) = packet.decode()
-        self.assertEqual(len(node_list), 2)
-
     def test_connectionClosed(self):
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,

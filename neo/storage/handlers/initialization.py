@@ -20,9 +20,6 @@ from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
 
 class InitializationHandler(BaseMasterHandler):
 
-    def answerNodeInformation(self, conn):
-        pass
-
     def sendPartitionTable(self, conn, ptid, row_list):
         app = self.app
         pt = app.pt

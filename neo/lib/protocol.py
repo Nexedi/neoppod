@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 7
+PROTOCOL_VERSION = 8
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -234,6 +234,7 @@ class Packet(object):
     _code = None
     _fmt = None
     _id = None
+    poll_thread = False
 
     def __init__(self, *args, **kw):
         assert self._code is not None, "Packet class not registered"
@@ -594,6 +595,13 @@ class PTID(PItem):
 # same definition, for now
 POID = PTID
 
+class PFloat(PStructItemOrNone):
+    """
+        A float number (8-bytes length)
+    """
+    _fmt = '!d'
+    _None = '\xff' * 8
+
 # common definitions
 
 PFEmpty = PStruct('no_content')
@@ -607,6 +615,7 @@ PFNodeList = PList('node_list',
         PAddress('address'),
         PUUID('uuid'),
         PFNodeState,
+        PFloat('id_timestamp'),
     ),
 )
 
@@ -680,6 +689,7 @@ class RequestIdentification(Packet):
     Request a node identification. This must be the first packet for any
     connection. Any -> Any.
     """
+    poll_thread = True
 
     _fmt = PStruct('request_identification',
         PProtocol('protocol_version'),
@@ -687,6 +697,7 @@ class RequestIdentification(Packet):
         PUUID('uuid'),
         PAddress('address'),
         PString('name'),
+        PFloat('id_timestamp'),
     )
 
     _answer = PStruct('accept_identification',
@@ -867,6 +878,8 @@ class FinishTransaction(Packet):
     Finish a transaction. C -> PM.
     Answer when a transaction is finished. PM -> C.
     """
+    poll_thread = True
+
     _fmt = PStruct('ask_finish_transaction',
         PTID('tid'),
         PFOidList,
@@ -1152,12 +1165,6 @@ class NotifyNodeInformation(Packet):
         PFNodeList,
     )
 
-class NodeInformation(Packet):
-    """
-    Ask node information
-    """
-    _answer = PFEmpty
-
 class SetClusterState(Packet):
     """
     Set the cluster state
@@ -1373,6 +1380,7 @@ class LastTransaction(Packet):
     Answer last committed TID.
     M -> C
     """
+    poll_thread = True
 
     _answer = PStruct('answer_last_transaction',
         PTID('tid'),
@@ -1521,6 +1529,7 @@ def register(request, ignore_when_closed=None):
     # build a class for the answer
     answer = type('Answer%s' % (request.__name__, ), (Packet, ), {})
     answer._fmt = request._answer
+    answer.poll_thread = request.poll_thread
     # compute the answer code
     code = code | RESPONSE_MASK
     answer._request = request
@@ -1673,8 +1682,6 @@ class Packets(dict):
                     AddPendingNodes, ignore_when_closed=False)
     TweakPartitionTable = register(
                     TweakPartitionTable, ignore_when_closed=False)
-    AskNodeInformation, AnswerNodeInformation = register(
-                    NodeInformation)
     SetClusterState = register(
                     SetClusterState, ignore_when_closed=False)
     NotifyClusterInformation = register(

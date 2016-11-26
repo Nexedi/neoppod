@@ -119,7 +119,7 @@ class NEOProcess(object):
         except ImportError:
             raise NotFound, '%s not found' % (command)
         self.command = command
-        self.arg_dict = {'--' + k: v for k, v in arg_dict.iteritems()}
+        self.arg_dict = arg_dict
         self.with_uuid = True
         self.setUUID(uuid)
 
@@ -131,11 +131,11 @@ class NEOProcess(object):
         args = []
         self.with_uuid = with_uuid
         for arg, param in self.arg_dict.iteritems():
-            if with_uuid is False and arg == '--uuid':
-                continue
-            args.append(arg)
+            args.append('--' + arg)
             if param is not None:
                 args.append(str(param))
+        if with_uuid:
+            args += '--uuid', str(self.uuid)
         self.pid = os.fork()
         if self.pid == 0:
             # Child
@@ -213,7 +213,6 @@ class NEOProcess(object):
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
-        self.arg_dict['--uuid'] = str(uuid)
 
     def isAlive(self):
         try:
@@ -297,7 +296,6 @@ class NEOCluster(object):
     def _newProcess(self, node_type, logfile=None, port=None, **kw):
         self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)
         uuid += UUID_NAMESPACES[node_type] << 24
-        kw['uuid'] = uuid
         kw['cluster'] = self.cluster_name
         kw['masters'] = self.master_nodes
         if logfile:
@@ -483,13 +481,9 @@ class NEOCluster(object):
         return self.__getNodeList(NodeTypes.CLIENT, state)
 
     def __getNodeState(self, node_type, uuid):
-        node_list = self.__getNodeList(node_type)
-        for node_type, address, node_uuid, state in node_list:
-            if node_uuid == uuid:
-                break
-        else:
-            state = None
-        return state
+        for node in self.__getNodeList(node_type):
+            if node[2] == uuid:
+                return node[3]
 
     def getMasterNodeState(self, uuid):
         return self.__getNodeState(NodeTypes.MASTER, uuid)

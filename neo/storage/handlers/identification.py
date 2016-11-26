@@ -27,7 +27,8 @@ class IdentificationHandler(EventHandler):
     def connectionLost(self, conn, new_state):
         logging.warning('A connection was lost during identification')
 
-    def requestIdentification(self, conn, node_type, uuid, address, name):
+    def requestIdentification(self, conn, node_type, uuid, address, name,
+                              id_timestamp):
         self.checkClusterName(name)
         app = self.app
         # reject any incoming connections if not ready
@@ -41,7 +42,7 @@ class IdentificationHandler(EventHandler):
         else:
             if uuid == app.uuid:
                 raise ProtocolError("uuid conflict or loopback connection")
-            node = app.nm.getByUUID(uuid)
+            node = app.nm.getByUUID(uuid, id_timestamp)
             if node is None:
                 # Do never create node automatically, or we could get id
                 # conflicts. We must only rely on the notifications from the
@@ -56,12 +57,7 @@ class IdentificationHandler(EventHandler):
                     handler = ClientReadOnlyOperationHandler
                 else:
                     handler = ClientOperationHandler
-                if node.isConnected(): # XXX
-                    # This can happen if we haven't processed yet a notification
-                    # from the master, telling us the existing node is not
-                    # running anymore. If we accept the new client, we won't
-                    # know what to do with this late notification.
-                    raise NotReadyError('uuid conflict: retry later')
+                assert not node.isConnected(), node
                 assert node.isRunning(), node
             elif node_type == NodeTypes.STORAGE:
                 handler = StorageOperationHandler

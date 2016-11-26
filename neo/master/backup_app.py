@@ -65,6 +65,7 @@ There is no UUID conflict between the 2 clusters:
 class BackupApplication(object):
 
     pt = None
+    uuid = None
 
     def __init__(self, app, name, master_addresses):
         self.app = weakref.proxy(app)
@@ -92,7 +93,7 @@ class BackupApplication(object):
         pt = app.pt
         while True:
             app.changeClusterState(ClusterStates.STARTING_BACKUP)
-            bootstrap = BootstrapManager(self, self.name, NodeTypes.CLIENT)
+            bootstrap = BootstrapManager(self, NodeTypes.CLIENT)
             # {offset -> node}
             self.primary_partition_dict = {}
             # [[tid]]
@@ -105,7 +106,7 @@ class BackupApplication(object):
                     else:
                         break
                     poll(1)
-                node, conn, uuid, num_partitions, num_replicas = \
+                node, conn, num_partitions, num_replicas = \
                     bootstrap.getPrimaryConnection()
                 try:
                     app.changeClusterState(ClusterStates.BACKINGUP)
@@ -114,7 +115,6 @@ class BackupApplication(object):
                         raise RuntimeError("inconsistent number of partitions")
                     self.pt = PartitionTable(num_partitions, num_replicas)
                     conn.setHandler(BackupHandler(self))
-                    conn.ask(Packets.AskNodeInformation())
                     conn.ask(Packets.AskPartitionTable())
                     conn.ask(Packets.AskLastTransaction())
                     # debug variable to log how big 'tid_list' can be.
