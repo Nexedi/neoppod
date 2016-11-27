@@ -157,7 +157,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
 
     def testOudatedCellsOnDownStorage(self):
-        """ Check that the storage cells are set as oudated when the node is
+        """ Check that the storage cells are set as outdated when the node is
         down, the cluster remains up since there is a replica """
 
         # populate the two storages
@@ -444,7 +444,7 @@ class StorageTests(NEOFunctionalTest):
         st.tpc_begin(t)
         st.store(oid, rev, data, '', t)
 
-        # start the oudated storage
+        # start the outdated storage
         stopped[0].start()
         self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])

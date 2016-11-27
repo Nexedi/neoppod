@@ -85,7 +85,7 @@ class StorageServiceHandler(BaseServiceHandler):
             try:
                 cell_list = self.app.pt.setUpToDate(node, offset)
                 if not cell_list:
-                    raise ProtocolError('Non-oudated partition')
+                    raise ProtocolError('Non-outdated partition')
             except PartitionTableException, e:
                 raise ProtocolError(str(e))
         logging.debug("%s is up for offset %s", node, offset)

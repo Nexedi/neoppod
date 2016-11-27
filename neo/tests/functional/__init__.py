@@ -573,12 +573,12 @@ class NEOCluster(object):
     def expectOudatedCells(self, number, *args, **kw):
         def callback(last_try):
             row_list = self.neoctl.getPartitionRowList()[1]
-            number_of_oudated = 0
+            number_of_outdated = 0
             for row in row_list:
                 for cell in row[1]:
                     if cell[1] == CellStates.OUT_OF_DATE:
-                        number_of_oudated += 1
-            return number_of_oudated == number, number_of_oudated
+                        number_of_outdated += 1
+            return number_of_outdated == number, number_of_outdated
         self.expectCondition(callback, *args, **kw)
 
     def expectAssignedCells(self, process, number, *args, **kw):
