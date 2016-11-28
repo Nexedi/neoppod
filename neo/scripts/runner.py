@@ -56,7 +56,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.master.testTransactions',
     # storage application
     'neo.tests.storage.testClientHandler',
-    'neo.tests.storage.testInitializationHandler',
     'neo.tests.storage.testMasterHandler',
     'neo.tests.storage.testStorageApp',
     'neo.tests.storage.testStorage' + os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),

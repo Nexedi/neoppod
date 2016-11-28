@@ -92,25 +92,6 @@ class MasterAppTests(NeoUnitTestBase):
         self.checkNoPacketSent(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
 
-    def test_storageReadinessAPI(self):
-        uuid_1 = self.getStorageUUID()
-        uuid_2 = self.getStorageUUID()
-        self.assertFalse(self.app.isStorageReady(uuid_1))
-        self.assertFalse(self.app.isStorageReady(uuid_2))
-        # Must not raise, nor change readiness
-        self.app.setStorageNotReady(uuid_1)
-        self.assertFalse(self.app.isStorageReady(uuid_1))
-        self.assertFalse(self.app.isStorageReady(uuid_2))
-        # Mark as ready, only one must change
-        self.app.setStorageReady(uuid_1)
-        self.assertTrue(self.app.isStorageReady(uuid_1))
-        self.assertFalse(self.app.isStorageReady(uuid_2))
-        self.app.setStorageReady(uuid_2)
-        # Mark not ready, only one must change
-        self.app.setStorageNotReady(uuid_1)
-        self.assertFalse(self.app.isStorageReady(uuid_1))
-        self.assertTrue(self.app.isStorageReady(uuid_2))
-
 if __name__ == '__main__':
     unittest.main()
 

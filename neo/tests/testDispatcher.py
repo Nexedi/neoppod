@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mock import Mock
 from . import NeoTestBase
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
 from Queue import Queue
@@ -25,88 +24,6 @@ class DispatcherTests(NeoTestBase):
     def setUp(self):
         NeoTestBase.setUp(self)
         self.dispatcher = Dispatcher()
-
-    def testRegister(self):
-        conn = object()
-        queue = Queue()
-        MARKER = object()
-        self.dispatcher.register(conn, 1, queue)
-        self.assertTrue(queue.empty())
-        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER, {}))
-        self.assertFalse(queue.empty())
-        self.assertEqual(queue.get(block=False), (conn, MARKER, {}))
-        self.assertTrue(queue.empty())
-        self.assertFalse(self.dispatcher.dispatch(conn, 2, None, {}))
-
-    def testUnregister(self):
-        conn = object()
-        queue = Mock()
-        self.dispatcher.register(conn, 2, queue)
-        self.dispatcher.unregister(conn)
-        self.assertEqual(len(queue.mockGetNamedCalls('put')), 1)
-        self.assertFalse(self.dispatcher.dispatch(conn, 2, None, {}))
-
-    def testRegistered(self):
-        conn1 = object()
-        conn2 = object()
-        self.assertFalse(self.dispatcher.registered(conn1))
-        self.assertFalse(self.dispatcher.registered(conn2))
-        self.dispatcher.register(conn1, 1, Mock())
-        self.assertTrue(self.dispatcher.registered(conn1))
-        self.assertFalse(self.dispatcher.registered(conn2))
-        self.dispatcher.register(conn2, 2, Mock())
-        self.assertTrue(self.dispatcher.registered(conn1))
-        self.assertTrue(self.dispatcher.registered(conn2))
-        self.dispatcher.unregister(conn1)
-        self.assertFalse(self.dispatcher.registered(conn1))
-        self.assertTrue(self.dispatcher.registered(conn2))
-        self.dispatcher.unregister(conn2)
-        self.assertFalse(self.dispatcher.registered(conn1))
-        self.assertFalse(self.dispatcher.registered(conn2))
-
-    def testPending(self):
-        conn1 = object()
-        conn2 = object()
-        class Queue(object):
-            _empty = True
-
-            def empty(self):
-                return self._empty
-
-            def put(self, value):
-                pass
-        queue1 = Queue()
-        queue2 = Queue()
-        self.dispatcher.register(conn1, 1, queue1)
-        self.assertTrue(self.dispatcher.pending(queue1))
-        self.dispatcher.register(conn2, 2, queue1)
-        self.assertTrue(self.dispatcher.pending(queue1))
-        self.dispatcher.register(conn2, 3, queue2)
-        self.assertTrue(self.dispatcher.pending(queue1))
-        self.assertTrue(self.dispatcher.pending(queue2))
-
-        self.dispatcher.dispatch(conn1, 1, None, {})
-        self.assertTrue(self.dispatcher.pending(queue1))
-        self.assertTrue(self.dispatcher.pending(queue2))
-        self.dispatcher.dispatch(conn2, 2, None, {})
-        self.assertFalse(self.dispatcher.pending(queue1))
-        self.assertTrue(self.dispatcher.pending(queue2))
-
-        queue1._empty = False
-        self.assertTrue(self.dispatcher.pending(queue1))
-        queue1._empty = True
-
-        self.dispatcher.register(conn1, 4, queue1)
-        self.dispatcher.register(conn2, 5, queue1)
-        self.assertTrue(self.dispatcher.pending(queue1))
-        self.assertTrue(self.dispatcher.pending(queue2))
-
-        self.dispatcher.unregister(conn2)
-        self.assertTrue(self.dispatcher.pending(queue1))
-        self.assertFalse(self.dispatcher.pending(queue2))
-        self.dispatcher.unregister(conn1)
-        self.assertFalse(self.dispatcher.pending(queue1))
-        self.assertFalse(self.dispatcher.pending(queue2))
 
     def testForget(self):
         conn = object()

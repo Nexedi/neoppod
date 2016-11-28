@@ -17,101 +17,15 @@
 import unittest
 from mock import Mock
 from .. import NeoUnitTestBase
-from neo.lib.node import NodeManager
-from neo.client.handlers.master import PrimaryNotificationsHandler, \
-       PrimaryAnswersHandler
+from neo.client.handlers.master import PrimaryAnswersHandler
 from neo.client.exception import NEOStorageError
 
 class MasterHandlerTests(NeoUnitTestBase):
+
     def setUp(self):
         super(MasterHandlerTests, self).setUp()
-        self.db = Mock()
-        self.app = Mock({'getDB': self.db,
-                         'txn_contexts': ()})
-        self.app.nm = NodeManager()
-        self.app.dispatcher = Mock()
-        self._next_port = 3000
-
-    def getKnownMaster(self):
-        node = self.app.nm.createMaster(address=(
-            self.local_ip, self._next_port),
-        )
-        self._next_port += 1
-        conn = self.getFakeConnection(address=node.getAddress())
-        node.setConnection(conn)
-        return node, conn
-
-
-class MasterNotificationsHandlerTests(MasterHandlerTests):
-
-    def setUp(self):
-        super(MasterNotificationsHandlerTests, self).setUp()
-        self.handler = PrimaryNotificationsHandler(self.app)
-
-    def test_connectionClosed(self):
-        conn = self.getFakeConnection()
-        node = Mock()
-        self.app.master_conn = conn
-        self.app.primary_master_node = node
-        self.handler.connectionClosed(conn)
-        self.assertEqual(self.app.master_conn, None)
-        self.assertEqual(self.app.primary_master_node, None)
-
-    def test_invalidateObjects(self):
-        conn = self.getFakeConnection()
-        tid = self.getNextTID()
-        oid1, oid2, oid3 = self.getOID(1), self.getOID(2), self.getOID(3)
-        self.app._cache = Mock({
-            'invalidate': None,
-        })
-        self.handler.invalidateObjects(conn, tid, [oid1, oid3])
-        cache_calls = self.app._cache.mockGetNamedCalls('invalidate')
-        self.assertEqual(len(cache_calls), 2)
-        cache_calls[0].checkArgs(oid1, tid)
-        cache_calls[1].checkArgs(oid3, tid)
-        invalidation_calls = self.db.mockGetNamedCalls('invalidate')
-        self.assertEqual(len(invalidation_calls), 1)
-        invalidation_calls[0].checkArgs(tid, [oid1, oid3])
-
-    def test_notifyPartitionChanges(self):
-        conn = self.getFakeConnection()
-        self.app.pt = Mock({'filled': True})
-        ptid = 0
-        cell_list = (Mock(), Mock())
-        self.handler.notifyPartitionChanges(conn, ptid, cell_list)
-        update_calls = self.app.pt.mockGetNamedCalls('update')
-        self.assertEqual(len(update_calls), 1)
-        update_calls[0].checkArgs(ptid, cell_list, self.app.nm)
-
-
-class MasterAnswersHandlerTests(MasterHandlerTests):
-
-    def setUp(self):
-        super(MasterAnswersHandlerTests, self).setUp()
+        self.app = Mock()
         self.handler = PrimaryAnswersHandler(self.app)
-
-    def test_answerBeginTransaction(self):
-        tid = self.getNextTID()
-        conn = self.getFakeConnection()
-        self.handler.answerBeginTransaction(conn, tid)
-        calls = self.app.mockGetNamedCalls('setHandlerData')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(tid)
-
-    def test_answerNewOIDs(self):
-        conn = self.getFakeConnection()
-        oid1, oid2, oid3 = self.getOID(0), self.getOID(1), self.getOID(2)
-        self.handler.answerNewOIDs(conn, [oid1, oid2, oid3])
-        self.assertEqual(self.app.new_oid_list, [oid3, oid2, oid1])
-
-    def test_answerTransactionFinished(self):
-        conn = self.getFakeConnection()
-        ttid2 = self.getNextTID()
-        tid2 = self.getNextTID()
-        self.handler.answerTransactionFinished(conn, ttid2, tid2)
-        calls = self.app.mockGetNamedCalls('setHandlerData')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(tid2)
 
     def test_answerPack(self):
         self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)

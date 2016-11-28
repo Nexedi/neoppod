@@ -20,9 +20,8 @@ from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
-from neo.lib.exception import PrimaryFailure
 from neo.lib.pt import PartitionTable
-from neo.lib.protocol import CellStates, Packets
+from neo.lib.protocol import CellStates
 
 class StorageMasterHandlerTests(NeoUnitTestBase):
 
@@ -53,13 +52,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
     def getMasterConnection(self):
         address = ("127.0.0.1", self.master_port)
         return self.getFakeConnection(uuid=self.master_uuid, address=address)
-
-    def test_07_connectionClosed2(self):
-        # primary has closed the connection
-        conn = self.getMasterConnection()
-        self.app.listening_conn = object() # mark as running
-        self.assertRaises(PrimaryFailure, self.operation.connectionClosed, conn)
-        self.checkNoPacketSent(conn)
 
     def test_14_notifyPartitionChanges1(self):
         # old partition change -> do nothing
@@ -103,20 +95,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(ptid2, cells)
-
-    def _getConnection(self):
-        return self.getFakeConnection()
-
-    def test_askPack(self):
-        self.app.dm = Mock({'pack': None})
-        conn = self.getFakeConnection()
-        tid = self.getNextTID()
-        self.operation.askPack(conn, tid)
-        calls = self.app.dm.mockGetNamedCalls('pack')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(tid, self.app.tm.updateObjectDataForPack)
-        # Content has no meaning here, don't check.
-        self.checkAnswerPacket(conn, Packets.AnswerPack)
 
 if __name__ == "__main__":
     unittest.main()

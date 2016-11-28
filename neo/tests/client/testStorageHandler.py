@@ -19,8 +19,6 @@ from mock import Mock
 from .. import NeoUnitTestBase
 from neo.client.handlers.storage import StorageAnswersHandler
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
-from neo.client.exception import NEOStorageDoesNotExistError
-from ZODB.TimeStamp import TimeStamp
 
 class StorageAnswerHandlerTests(NeoUnitTestBase):
 
@@ -28,20 +26,6 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         super(StorageAnswerHandlerTests, self).setUp()
         self.app = Mock()
         self.handler = StorageAnswersHandler(self.app)
-
-    def _checkHandlerData(self, ref):
-        calls = self.app.mockGetNamedCalls('setHandlerData')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(ref)
-
-    def test_answerObject(self):
-        conn = self.getFakeConnection()
-        oid = self.getOID(0)
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID(tid1)
-        the_object = (oid, tid1, tid2, 0, '', 'DATA', None)
-        self.handler.answerObject(conn, *the_object)
-        self._checkHandlerData(the_object[1:])
 
     def _getAnswerStoreObjectHandler(self, object_stored_counter_dict,
             conflict_serial_dict, resolved_conflict_serial_dict):
@@ -119,85 +103,10 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         self._getAnswerStoreObjectHandler({oid: {tid: 1}}, {},
             {oid: {tid}}).answerStoreObject(conn, 1, oid, tid_2)
 
-    def test_answerStoreObject_4(self):
-        uuid = self.getStorageUUID()
-        conn = self.getFakeConnection(uuid=uuid)
-        oid = self.getOID(0)
-        tid = self.getNextTID()
-        # no conflict
-        object_stored_counter_dict = {oid: {}}
-        conflict_serial_dict = {}
-        resolved_conflict_serial_dict = {}
-        h = self._getAnswerStoreObjectHandler(object_stored_counter_dict,
-            conflict_serial_dict, resolved_conflict_serial_dict)
-        h.app.getHandlerData()['cache_dict'] = {oid: None}
-        h.answerStoreObject(conn, 0, oid, tid)
-        self.assertFalse(oid in conflict_serial_dict)
-        self.assertFalse(oid in resolved_conflict_serial_dict)
-        self.assertEqual(object_stored_counter_dict[oid], {tid: {uuid}})
-
-    def test_answerTransactionInformation(self):
-        conn = self.getFakeConnection()
-        tid = self.getNextTID()
-        user = 'USER'
-        desc = 'DESC'
-        ext = 'EXT'
-        packed = False
-        oid_list = [self.getOID(0), self.getOID(1)]
-        self.handler.answerTransactionInformation(conn, tid, user, desc, ext,
-            packed, oid_list)
-        self._checkHandlerData(({
-            'time': TimeStamp(tid).timeTime(),
-            'user_name': user,
-            'description': desc,
-            'id': tid,
-            'oids': oid_list,
-            'packed': packed,
-        }, ext))
-
-    def test_oidNotFound(self):
-        conn = self.getFakeConnection()
-        self.assertRaises(NEOStorageNotFoundError, self.handler.oidNotFound,
-            conn, 'message')
-
-    def test_oidDoesNotExist(self):
-        conn = self.getFakeConnection()
-        self.assertRaises(NEOStorageDoesNotExistError,
-            self.handler.oidDoesNotExist, conn, 'message')
-
     def test_tidNotFound(self):
         conn = self.getFakeConnection()
         self.assertRaises(NEOStorageNotFoundError, self.handler.tidNotFound,
             conn, 'message')
-
-    def test_answerTIDs(self):
-        uuid = self.getStorageUUID()
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID(tid1)
-        tid_list = [tid1, tid2]
-        conn = self.getFakeConnection(uuid=uuid)
-        tid_set = set()
-        StorageAnswersHandler(Mock()).answerTIDs(conn, tid_list, tid_set)
-        self.assertEqual(tid_set, set(tid_list))
-
-    def test_answerObjectUndoSerial(self):
-        uuid = self.getStorageUUID()
-        conn = self.getFakeConnection(uuid=uuid)
-        oid1 = self.getOID(1)
-        oid2 = self.getOID(2)
-        tid0 = self.getNextTID()
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID()
-        tid3 = self.getNextTID()
-        undo_dict = {}
-        handler = StorageAnswersHandler(Mock())
-        handler.answerObjectUndoSerial(conn, {oid1: [tid0, tid1]}, undo_dict)
-        self.assertEqual(undo_dict, {oid1: [tid0, tid1]})
-        handler.answerObjectUndoSerial(conn, {oid2: [tid2, tid3]}, undo_dict)
-        self.assertEqual(undo_dict, {
-            oid1: [tid0, tid1],
-            oid2: [tid2, tid3],
-        })
 
 if __name__ == '__main__':
     unittest.main()

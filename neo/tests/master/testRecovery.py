@@ -36,11 +36,8 @@ class MasterRecoveryTests(NeoUnitTestBase):
             node.setState(NodeStates.RUNNING)
 
         # define some variable to simulate client and storage node
-        self.client_port = 11022
         self.storage_port = 10021
         self.master_port = 10011
-        self.master_address = ('127.0.0.1', self.master_port)
-        self.storage_address = ('127.0.0.1', self.storage_port)
 
     def _tearDown(self, success):
         self.app.close()
@@ -58,15 +55,6 @@ class MasterRecoveryTests(NeoUnitTestBase):
         return uuid
 
     # Tests
-    def test_01_connectionClosed(self):
-        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)
-        self.recovery.connectionClosed(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)
-
     def test_10_answerPartitionTable(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)

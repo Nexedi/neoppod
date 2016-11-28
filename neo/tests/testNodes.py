@@ -29,16 +29,6 @@ class NodesTests(NeoUnitTestBase):
         NeoUnitTestBase.setUp(self)
         self.nm = Mock()
 
-    def _updatedByAddress(self, node, index=0):
-        calls = self.nm.mockGetNamedCalls('_updateAddress')
-        self.assertEqual(len(calls), index + 1)
-        self.assertEqual(calls[index].getParam(0), node)
-
-    def _updatedByUUID(self, node, index=0):
-        calls = self.nm.mockGetNamedCalls('_updateUUID')
-        self.assertEqual(len(calls), index + 1)
-        self.assertEqual(calls[index].getParam(0), node)
-
     def testInit(self):
         """ Check the node initialization """
         address = ('127.0.0.1', 10000)
@@ -59,23 +49,6 @@ class NodesTests(NeoUnitTestBase):
         self.assertEqual(node.getState(), NodeStates.RUNNING)
         self.assertTrue(previous_time < node.getLastStateChange())
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
-
-    def testAddress(self):
-        """ Check if the node is indexed by address """
-        node = Node(self.nm)
-        self.assertEqual(node.getAddress(), None)
-        address = ('127.0.0.1', 10000)
-        node.setAddress(address)
-        self._updatedByAddress(node)
-
-    def testUUID(self):
-        """ As for Address but UUID """
-        node = Node(self.nm)
-        self.assertEqual(node.getAddress(), None)
-        uuid = self.getNewUUID(None)
-        node.setUUID(uuid)
-        self._updatedByUUID(node)
-
 
 class NodeManagerTests(NeoUnitTestBase):
 

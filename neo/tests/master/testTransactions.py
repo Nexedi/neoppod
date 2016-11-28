@@ -20,12 +20,9 @@ from struct import pack
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes
 from neo.lib.util import packTID, unpackTID, addTID
-from neo.master.transactions import Transaction, TransactionManager
+from neo.master.transactions import TransactionManager
 
 class testTransactionManager(NeoUnitTestBase):
-
-    def makeTID(self, i):
-        return pack('!Q', i)
 
     def makeOID(self, i):
         return pack('!Q', i)
@@ -34,58 +31,6 @@ class testTransactionManager(NeoUnitTestBase):
         uuid = self.getNewUUID(node_type)
         node = Mock({'getUUID': uuid, '__hash__': uuid, '__repr__': 'FakeNode'})
         return uuid, node
-
-    def testTransaction(self):
-        # test data
-        node = Mock({'__repr__': 'Node'})
-        tid = self.makeTID(1)
-        ttid = self.makeTID(2)
-        oid_list = (oid1, oid2) = [self.makeOID(1), self.makeOID(2)]
-        uuid_list = (uuid1, uuid2) = [self.getStorageUUID(),
-                                      self.getStorageUUID()]
-        msg_id = 1
-        # create transaction object
-        txn = Transaction(node, ttid)
-        txn.prepare(tid, oid_list, uuid_list, msg_id)
-        self.assertEqual(txn.getUUIDList(), uuid_list)
-        self.assertEqual(txn.getOIDList(), oid_list)
-        # lock nodes one by one
-        self.assertFalse(txn.lock(uuid1))
-        self.assertTrue(txn.lock(uuid2))
-        # check that repr() works
-        repr(txn)
-
-    def testManager(self):
-        # test data
-        node = Mock({'__hash__': 1})
-        msg_id = 1
-        oid_list = (oid1, oid2) = self.makeOID(1), self.makeOID(2)
-        uuid_list = uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
-        client_uuid = self.getClientUUID()
-        # create transaction manager
-        callback = Mock()
-        txnman = TransactionManager(on_commit=callback)
-        self.assertFalse(txnman.hasPending())
-        self.assertEqual(txnman.registerForNotification(uuid1), [])
-        # begin the transaction
-        ttid = txnman.begin(node)
-        self.assertTrue(ttid is not None)
-        self.assertEqual(len(txnman.registerForNotification(uuid1)), 1)
-        self.assertTrue(txnman.hasPending())
-        # prepare the transaction
-        tid = txnman.prepare(ttid, 1, oid_list, uuid_list, msg_id)
-        self.assertTrue(txnman.hasPending())
-        self.assertEqual(txnman.registerForNotification(uuid1), [ttid])
-        txn = txnman[ttid]
-        self.assertEqual(txn.getTID(), tid)
-        self.assertEqual(txn.getUUIDList(), list(uuid_list))
-        self.assertEqual(txn.getOIDList(), list(oid_list))
-        # lock nodes
-        txnman.lock(ttid, uuid1)
-        self.assertEqual(len(callback.getNamedCalls('__call__')), 0)
-        txnman.lock(ttid, uuid2)
-        self.assertEqual(len(callback.getNamedCalls('__call__')), 1)
-        self.assertEqual(txnman.registerForNotification(uuid1), [])
 
     def test_storageLost(self):
         client1 = Mock({'__hash__': 1})
