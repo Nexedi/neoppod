@@ -219,14 +219,11 @@ class Application(BaseApplication):
                 conn.close()
 
         # search, find, connect and identify to the primary master
-        bootstrap = BootstrapManager(self, self.name,
-                NodeTypes.STORAGE, self.uuid, self.server)
-        data = bootstrap.getPrimaryConnection()
-        (node, conn, uuid, num_partitions, num_replicas) = data
-        self.master_node = node
-        self.master_conn = conn
+        bootstrap = BootstrapManager(self, NodeTypes.STORAGE, self.server)
+        self.master_node, self.master_conn, num_partitions, num_replicas = \
+            bootstrap.getPrimaryConnection()
+        uuid = self.uuid
         logging.info('I am %s', uuid_str(uuid))
-        self.uuid = uuid
         self.dm.setUUID(uuid)
 
         # Reload a partition table from the database. This is necessary

@@ -27,13 +27,11 @@ class StorageServiceHandler(BaseServiceHandler):
     def connectionCompleted(self, conn, new):
         app = self.app
         uuid = conn.getUUID()
-        node = app.nm.getByUUID(uuid)
         app.setStorageNotReady(uuid)
         if new:
             super(StorageServiceHandler, self).connectionCompleted(conn, new)
-        # XXX: what other values could happen ?
-        if node.isRunning():
-            conn.notify(Packets.StartOperation(bool(app.backup_tid)))
+        if app.nm.getByUUID(uuid).isRunning(): # node may be PENDING
+            conn.notify(Packets.StartOperation(app.backup_tid))
 
     def connectionLost(self, conn, new_state):
         app = self.app
@@ -85,7 +83,7 @@ class StorageServiceHandler(BaseServiceHandler):
             try:
                 cell_list = self.app.pt.setUpToDate(node, offset)
                 if not cell_list:
-                    raise ProtocolError('Non-oudated partition')
+                    raise ProtocolError('Non-outdated partition')
             except PartitionTableException, e:
                 raise ProtocolError(str(e))
         logging.debug("%s is up for offset %s", node, offset)

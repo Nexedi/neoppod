@@ -108,7 +108,7 @@ class Storage(BaseStorage.BaseStorage,
     def deleteObject(self, oid, serial, transaction):
         self.app.store(oid, serial, None, None, transaction)
 
-    # mutliple revisions
+    # multiple revisions
     def loadSerial(self, oid, serial):
         try:
             return self.app.load(oid, serial)[0]

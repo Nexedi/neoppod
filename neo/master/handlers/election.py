@@ -23,6 +23,9 @@ from . import MasterHandler
 
 class BaseElectionHandler(EventHandler):
 
+    def _notifyNodeInformation(self, conn):
+        pass
+
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
@@ -53,6 +56,11 @@ class BaseElectionHandler(EventHandler):
 
 class ClientElectionHandler(BaseElectionHandler):
 
+    def notifyNodeInformation(self, conn, node_list):
+        # XXX: For the moment, do nothing because
+        # we'll close this connection and reconnect.
+        pass
+
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
@@ -68,6 +76,7 @@ class ClientElectionHandler(BaseElectionHandler):
             app.uuid,
             app.server,
             app.name,
+            None,
         ))
         super(ClientElectionHandler, self).connectionCompleted(conn)
 
@@ -126,8 +135,8 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
             logging.info('reject a connection from a non-master')
             raise NotReadyError
 
-        if node is None:
-            node = app.nm.createMaster(address=address)
+        if node is None is app.nm.getByAddress(address):
+            app.nm.createMaster(address=address)
 
         self.elect(conn, address)
         return uuid

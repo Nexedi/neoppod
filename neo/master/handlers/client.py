@@ -31,14 +31,12 @@ class ClientServiceHandler(MasterHandler):
             app.broadcastNodesInformation([node])
             app.nm.remove(node)
 
-    def askNodeInformation(self, conn):
-        # send informations about master and storages only
+    def _notifyNodeInformation(self, conn):
         nm = self.app.nm
-        node_list = []
+        node_list = [nm.getByUUID(conn.getUUID()).asTuple()] # for id_timestamp
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
         conn.notify(Packets.NotifyNodeInformation(node_list))
-        conn.answer(Packets.AnswerNodeInformation())
 
     def askBeginTransaction(self, conn, tid):
         """

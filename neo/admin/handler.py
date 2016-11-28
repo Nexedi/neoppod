@@ -74,7 +74,7 @@ class AdminEventHandler(EventHandler):
 
 
 class MasterEventHandler(EventHandler):
-    """ This class is just used to dispacth message to right handler"""
+    """ This class is just used to dispatch message to right handler"""
 
     def _connectionLost(self, conn):
         app = self.app
@@ -106,11 +106,6 @@ class MasterEventHandler(EventHandler):
     def answerClusterState(self, conn, state):
         self.app.cluster_state = state
 
-    def answerNodeInformation(self, conn):
-        # XXX: This will no more exists when the initialization module will be
-        # implemented for factorize code (as done for bootstrap)
-        logging.debug("answerNodeInformation")
-
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         self.app.pt.update(ptid, cell_list, self.app.nm)
 
@@ -125,8 +120,6 @@ class MasterEventHandler(EventHandler):
     def notifyClusterInformation(self, conn, cluster_state):
         self.app.cluster_state = cluster_state
 
-    def notifyNodeInformation(self, conn, node_list):
-        self.app.nm.update(node_list)
 
 class MasterRequestEventHandler(EventHandler):
     """ This class handle all answer from primary master node"""

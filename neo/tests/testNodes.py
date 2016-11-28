@@ -18,8 +18,7 @@ import unittest
 from mock import Mock
 from neo.lib import protocol
 from neo.lib.protocol import NodeTypes, NodeStates
-from neo.lib.node import Node, MasterNode, StorageNode, \
-    ClientNode, AdminNode, NodeManager, MasterDB
+from neo.lib.node import Node, NodeManager, MasterDB
 from . import NeoUnitTestBase, getTempDirectory
 from time import time
 from os import chmod, mkdir, rmdir, unlink
@@ -29,15 +28,15 @@ class NodesTests(NeoUnitTestBase):
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
-        self.manager = Mock()
+        self.nm = Mock()
 
     def _updatedByAddress(self, node, index=0):
-        calls = self.manager.mockGetNamedCalls('_updateAddress')
+        calls = self.nm.mockGetNamedCalls('_updateAddress')
         self.assertEqual(len(calls), index + 1)
         self.assertEqual(calls[index].getParam(0), node)
 
     def _updatedByUUID(self, node, index=0):
-        calls = self.manager.mockGetNamedCalls('_updateUUID')
+        calls = self.nm.mockGetNamedCalls('_updateUUID')
         self.assertEqual(len(calls), index + 1)
         self.assertEqual(calls[index].getParam(0), node)
 
@@ -45,7 +44,7 @@ class NodesTests(NeoUnitTestBase):
         """ Check the node initialization """
         address = ('127.0.0.1', 10000)
         uuid = self.getNewUUID(None)
-        node = Node(self.manager, address=address, uuid=uuid)
+        node = Node(self.nm, address=address, uuid=uuid)
         self.assertEqual(node.getState(), NodeStates.UNKNOWN)
         self.assertEqual(node.getAddress(), address)
         self.assertEqual(node.getUUID(), uuid)
@@ -53,7 +52,7 @@ class NodesTests(NeoUnitTestBase):
 
     def testState(self):
         """ Check if the last changed time is updated when state is changed """
-        node = Node(self.manager)
+        node = Node(self.nm)
         self.assertEqual(node.getState(), NodeStates.UNKNOWN)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
         previous_time = node.getLastStateChange()
@@ -64,7 +63,7 @@ class NodesTests(NeoUnitTestBase):
 
     def testAddress(self):
         """ Check if the node is indexed by address """
-        node = Node(self.manager)
+        node = Node(self.nm)
         self.assertEqual(node.getAddress(), None)
         address = ('127.0.0.1', 10000)
         node.setAddress(address)
@@ -72,107 +71,51 @@ class NodesTests(NeoUnitTestBase):
 
     def testUUID(self):
         """ As for Address but UUID """
-        node = Node(self.manager)
+        node = Node(self.nm)
         self.assertEqual(node.getAddress(), None)
         uuid = self.getNewUUID(None)
         node.setUUID(uuid)
         self._updatedByUUID(node)
 
-    def testTypes(self):
-        """ Check that the abstract node has no type """
-        node = Node(self.manager)
-        self.assertRaises(NotImplementedError, node.getType)
-        self.assertFalse(node.isStorage())
-        self.assertFalse(node.isMaster())
-        self.assertFalse(node.isClient())
-        self.assertFalse(node.isAdmin())
-
-    def testMaster(self):
-        """ Check Master sub class """
-        node = MasterNode(self.manager)
-        self.assertEqual(node.getType(), protocol.NodeTypes.MASTER)
-        self.assertTrue(node.isMaster())
-        self.assertFalse(node.isStorage())
-        self.assertFalse(node.isClient())
-        self.assertFalse(node.isAdmin())
-
-    def testStorage(self):
-        """ Check Storage sub class """
-        node = StorageNode(self.manager)
-        self.assertEqual(node.getType(), protocol.NodeTypes.STORAGE)
-        self.assertTrue(node.isStorage())
-        self.assertFalse(node.isMaster())
-        self.assertFalse(node.isClient())
-        self.assertFalse(node.isAdmin())
-
-    def testClient(self):
-        """ Check Client sub class """
-        node = ClientNode(self.manager)
-        self.assertEqual(node.getType(), protocol.NodeTypes.CLIENT)
-        self.assertTrue(node.isClient())
-        self.assertFalse(node.isMaster())
-        self.assertFalse(node.isStorage())
-        self.assertFalse(node.isAdmin())
-
-    def testAdmin(self):
-        """ Check Admin sub class """
-        node = AdminNode(self.manager)
-        self.assertEqual(node.getType(), protocol.NodeTypes.ADMIN)
-        self.assertTrue(node.isAdmin())
-        self.assertFalse(node.isMaster())
-        self.assertFalse(node.isStorage())
-        self.assertFalse(node.isClient())
-
 
 class NodeManagerTests(NeoUnitTestBase):
 
-    def setUp(self):
-        NeoUnitTestBase.setUp(self)
-        self.manager = NodeManager()
-
     def _addStorage(self):
-        self.storage = StorageNode(self.manager, ('127.0.0.1', 1000), self.getStorageUUID())
+        self.storage = self.nm.createStorage(
+            address=('127.0.0.1', 1000), uuid=self.getStorageUUID())
 
     def _addMaster(self):
-        self.master = MasterNode(self.manager, ('127.0.0.1', 2000), self.getMasterUUID())
+        self.master = self.nm.createMaster(
+            address=('127.0.0.1', 2000), uuid=self.getMasterUUID())
 
     def _addClient(self):
-        self.client = ClientNode(self.manager, None, self.getClientUUID())
+        self.client = self.nm.createClient(uuid=self.getClientUUID())
 
     def _addAdmin(self):
-        self.admin = AdminNode(self.manager, ('127.0.0.1', 4000), self.getAdminUUID())
+        self.admin = self.nm.createAdmin(
+            address=('127.0.0.1', 4000), uuid=self.getAdminUUID())
 
     def checkNodes(self, node_list):
-        manager = self.manager
-        self.assertEqual(sorted(manager.getList()), sorted(node_list))
+        self.assertEqual(sorted(self.nm.getList()), sorted(node_list))
 
     def checkMasters(self, master_list):
-        manager = self.manager
-        self.assertEqual(manager.getMasterList(), master_list)
+        self.assertEqual(self.nm.getMasterList(), master_list)
 
     def checkStorages(self, storage_list):
-        manager = self.manager
-        self.assertEqual(manager.getStorageList(), storage_list)
+        self.assertEqual(self.nm.getStorageList(), storage_list)
 
     def checkClients(self, client_list):
-        manager = self.manager
-        self.assertEqual(manager.getClientList(), client_list)
+        self.assertEqual(self.nm.getClientList(), client_list)
 
     def checkByServer(self, node):
-        node_found = self.manager.getByAddress(node.getAddress())
-        self.assertEqual(node_found, node)
+        self.assertEqual(node, self.nm.getByAddress(node.getAddress()))
 
     def checkByUUID(self, node):
-        node_found = self.manager.getByUUID(node.getUUID())
-        self.assertEqual(node_found, node)
-
-    def checkIdentified(self, node_list, pool_set=None):
-        identified_node_list = self.manager.getIdentifiedList(pool_set)
-        self.assertEqual(set(identified_node_list), set(node_list))
+        self.assertEqual(node, self.nm.getByUUID(node.getUUID()))
 
     def testInit(self):
         """ Check the manager is empty when started """
-        manager = self.manager
+        manager = self.nm
         self.checkNodes([])
         self.checkMasters([])
         self.checkStorages([])
@@ -186,7 +129,7 @@ class NodeManagerTests(NeoUnitTestBase):
 
     def testAdd(self):
         """ Check if new nodes are registered in the manager """
-        manager = self.manager
+        manager = self.nm
         self.checkNodes([])
         # storage
         self._addStorage()
@@ -225,7 +168,7 @@ class NodeManagerTests(NeoUnitTestBase):
     def testUpdate(self):
         """ Check manager content update """
         # set up four nodes
-        manager = self.manager
+        manager = self.nm
         self._addMaster()
         self._addStorage()
         self._addClient()
@@ -240,15 +183,15 @@ class NodeManagerTests(NeoUnitTestBase):
         old_uuid = self.storage.getUUID()
         new_uuid = self.getStorageUUID()
         node_list = (
-            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN),
-            (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING),
+            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN, None),
+            (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING, None),
             (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid,
-                NodeStates.RUNNING),
+                NodeStates.RUNNING, None),
             (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
-                NodeStates.UNKNOWN),
+                NodeStates.UNKNOWN, None),
         )
         # update manager content
-        manager.update(node_list)
+        manager.update(Mock(), node_list)
         # - the client gets down
         self.checkClients([])
         # - master change it's address
@@ -266,31 +209,6 @@ class NodeManagerTests(NeoUnitTestBase):
         self.checkNodes([self.master, self.admin, new_storage])
         self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
 
-    def testIdentified(self):
-        # set up four nodes
-        manager = self.manager
-        self._addMaster()
-        self._addStorage()
-        self._addClient()
-        self._addAdmin()
-        # switch node to connected
-        self.checkIdentified([])
-        self.master.setConnection(Mock())
-        self.checkIdentified([self.master])
-        self.storage.setConnection(Mock())
-        self.checkIdentified([self.master, self.storage])
-        self.client.setConnection(Mock())
-        self.checkIdentified([self.master, self.storage, self.client])
-        self.admin.setConnection(Mock())
-        self.checkIdentified([self.master, self.storage, self.client, self.admin])
-        # check the pool_set attribute
-        self.checkIdentified([self.master], pool_set=[self.master.getUUID()])
-        self.checkIdentified([self.storage], pool_set=[self.storage.getUUID()])
-        self.checkIdentified([self.client], pool_set=[self.client.getUUID()])
-        self.checkIdentified([self.admin], pool_set=[self.admin.getUUID()])
-        self.checkIdentified([self.master, self.storage], pool_set=[
-                self.master.getUUID(), self.storage.getUUID()])
-
 class MasterDBTests(NeoUnitTestBase):
     def _checkMasterDB(self, path, expected_master_list):
         db = list(MasterDB(path))
@@ -301,7 +219,7 @@ class MasterDBTests(NeoUnitTestBase):
 
     def testInitialAccessRights(self):
         """
-        Verify MasterDB raises immediately on instanciation if it cannot
+        Verify MasterDB raises immediately on instantiation if it cannot
         create a non-existing database. This does not guarantee any later
         open will succeed, but makes the simple error case obvious.
         """

@@ -63,7 +63,7 @@ class MasterTests(NEOFunctionalTest):
         # BUG: The following check expects neoctl to reconnect before
         #      the election finishes.
         self.assertEqual(self.neo.getPrimary(), None)
-        # Check that a primary master arised.
+        # Check that a primary master arose.
         self.neo.expectPrimary(timeout=10)
         # Check that the uuid really changed.
         new_uuid = self.neo.getPrimary()
@@ -83,7 +83,7 @@ class MasterTests(NEOFunctionalTest):
         uuid, = self.neo.killPrimary()
         # Check the state of the primary we just killed
         self.neo.expectMasterState(uuid, (None, NodeStates.UNKNOWN))
-        # Check that a primary master arised.
+        # Check that a primary master arose.
         self.neo.expectPrimary(timeout=10)
         # Check that the uuid really changed.
         self.assertNotEqual(self.neo.getPrimary(), uuid)

@@ -187,7 +187,7 @@ class TransactionManagerTests(NeoUnitTestBase):
                 ttid1, serial, *obj)
 
     def testResolvableConflict(self):
-        """ Try to store an object with the lastest revision """
+        """ Try to store an object with the latest revision """
         uuid = self.getClientUUID()
         tid, txn = self._getTransaction()
         serial, obj = self._getObject(1)

@@ -41,14 +41,6 @@ class StorageEventHandler(MTEventHandler):
         self.app.cp.removeConnection(node)
         super(StorageEventHandler, self).connectionFailed(conn)
 
-
-class StorageBootstrapHandler(AnswerBaseHandler):
-    """ Handler used when connecting to a storage node """
-
-    def notReady(self, conn, message):
-        conn.close()
-        raise NodeNotReady(message)
-
     def _acceptIdentification(self, node,
            uuid, num_partitions, num_replicas, your_uuid, primary,
            master_list):
@@ -56,6 +48,13 @@ class StorageBootstrapHandler(AnswerBaseHandler):
           primary == self.app.master_conn.getAddress(), (
             primary, self.app.master_conn)
         assert uuid == node.getUUID(), (uuid, node.getUUID())
+
+class StorageBootstrapHandler(AnswerBaseHandler):
+    """ Handler used when connecting to a storage node """
+
+    def notReady(self, conn, message):
+        conn.close()
+        raise NodeNotReady(message)
 
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
@@ -170,7 +169,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
                 dump(oid), conn)
         # HasLock design required that storage is multi-threaded so that
-        # it can answer to AskHasLock while processing store resquests.
+        # it can answer to AskHasLock while processing store requests.
         # This means that the 2 cases (granted to us or nobody) are legitimate,
         # either because it gave us the lock but is/was slow to store our data,
         # or because the storage took a lot of time processing a previous

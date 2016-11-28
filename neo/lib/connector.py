@@ -124,8 +124,8 @@ class SocketConnector(object):
 
     def getDescriptor(self):
         # this descriptor must only be used by the event manager, where it
-        # guarantee unicity only while the connector is opened and registered
-        # in epoll
+        # guarantee uniqueness only while the connector is opened and
+        # registered in epoll
         return self.socket_fd
 
     @staticmethod

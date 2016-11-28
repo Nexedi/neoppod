@@ -29,11 +29,7 @@ from unittest.runner import _WritelnDecorator
 if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     # Start coverage as soon as possible.
     import coverage
-    coverage = coverage.Coverage(source=('neo',), omit=(
-      'neo/debug.py',
-      'neo/scripts/runner.py',
-      'neo/tests/*',
-      ))
+    coverage = coverage.Coverage()
     coverage.start()
 
 import neo

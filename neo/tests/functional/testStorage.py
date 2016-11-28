@@ -69,7 +69,7 @@ class StorageTests(NEOFunctionalTest):
 
     def __checkDatabase(self, db_name):
         db = self.neo.getSQLConnection(db_name)
-        # wait for the sql transaction to be commited
+        # wait for the sql transaction to be committed
         def callback(last_try):
             db.commit() # to get a fresh view
             # One revision per object and two for the root, before and after
@@ -157,7 +157,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
 
     def testOudatedCellsOnDownStorage(self):
-        """ Check that the storage cells are set as oudated when the node is
+        """ Check that the storage cells are set as outdated when the node is
         down, the cluster remains up since there is a replica """
 
         # populate the two storages
@@ -185,7 +185,7 @@ class StorageTests(NEOFunctionalTest):
 
     def testVerificationTriggered(self):
         """ Check that the verification stage is executed when a storage node
-        required to be operationnal is lost, and the cluster come back in
+        required to be operational is lost, and the cluster come back in
         running state when the storage is up again """
 
         # start neo with one storages
@@ -444,7 +444,7 @@ class StorageTests(NEOFunctionalTest):
         st.tpc_begin(t)
         st.store(oid, rev, data, '', t)
 
-        # start the oudated storage
+        # start the outdated storage
         stopped[0].start()
         self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])

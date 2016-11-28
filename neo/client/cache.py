@@ -203,7 +203,7 @@ class ClientCache(object):
             item = self._load(oid, next_tid)
             if item:
                 # We don't handle late invalidations for cached oids, because
-                # the caller is not supposed to explicitely asks for tids after
+                # the caller is not supposed to explicitly asks for tids after
                 # app.last_tid (and the cache should be empty when app.last_tid
                 # is still None).
                 assert item.tid == tid, (item, tid)

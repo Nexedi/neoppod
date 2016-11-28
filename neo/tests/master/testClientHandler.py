@@ -108,10 +108,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # do the right job
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         storage_uuid = self.storage_uuid
-        storage_conn = self.getFakeConnection(storage_uuid, self.storage_address)
+        storage_conn = self.getFakeConnection(storage_uuid,
+            self.storage_address, is_server=True)
         storage2_uuid = self.identifyToMasterNode(port=10022)
         storage2_conn = self.getFakeConnection(storage2_uuid,
-            (self.storage_address[0], self.storage_address[1] + 1))
+            (self.storage_address[0], self.storage_address[1] + 1),
+            is_server=True)
         self.app.setStorageReady(storage2_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.pt = Mock({
@@ -142,18 +144,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertEqual(len(txn.getOIDList()), 0)
         self.assertEqual(len(txn.getUUIDList()), 1)
 
-    def test_askNodeInformations(self):
-        # check that only informations about master and storages nodes are
-        # send to a client
-        self.app.nm.createClient()
-        conn = self.getFakeConnection()
-        self.service.askNodeInformation(conn)
-        calls = conn.mockGetNamedCalls('notify')
-        self.assertEqual(len(calls), 1)
-        packet = calls[0].getParam(0)
-        (node_list, ) = packet.decode()
-        self.assertEqual(len(node_list), 2)
-
     def test_connectionClosed(self):
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
@@ -176,7 +166,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         conn = self.getFakeConnection(peer_id=peer_id)
         storage_uuid = self.storage_uuid
         storage_conn = self.getFakeConnection(storage_uuid,
-            self.storage_address)
+            self.storage_address, is_server=True)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(conn)
@@ -189,7 +179,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # Asking again to pack will cause an immediate error
         storage_uuid = self.identifyToMasterNode(port=10022)
         storage_conn = self.getFakeConnection(storage_uuid,
-            self.storage_address)
+            self.storage_address, is_server=True)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(storage_conn)

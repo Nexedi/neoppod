@@ -132,7 +132,7 @@ class Application(ThreadedApplication):
         self._cache_lock_acquire = lock.acquire
         self._cache_lock_release = lock.release
         # _connecting_to_master_node is used to prevent simultaneous master
-        # node connection attemps
+        # node connection attempts
         self._connecting_to_master_node = Lock()
         self.compress = compress
 
@@ -240,10 +240,10 @@ class Application(ThreadedApplication):
                         self.notifications_handler,
                         node=self.trying_master_node,
                         dispatcher=self.dispatcher)
+                p = Packets.RequestIdentification(
+                    NodeTypes.CLIENT, self.uuid, None, self.name, None)
                 try:
-                    ask(conn, Packets.RequestIdentification(
-                            NodeTypes.CLIENT, self.uuid, None, self.name),
-                        handler=handler)
+                    ask(conn, p, handler=handler)
                 except ConnectionClosed:
                     continue
                 # If we reached the primary master node, mark as connected
@@ -256,7 +256,6 @@ class Application(ThreadedApplication):
                 # operational. Might raise ConnectionClosed so that the new
                 # primary can be looked-up again.
                 logging.info('Initializing from master')
-                ask(conn, Packets.AskNodeInformation(), handler=handler)
                 ask(conn, Packets.AskPartitionTable(), handler=handler)
                 ask(conn, Packets.AskLastTransaction(), handler=handler)
                 if self.pt.operational():
@@ -324,7 +323,7 @@ class Application(ThreadedApplication):
                 object existed, but its creation was undone
 
         Note that loadSerial is used during conflict resolution to load
-        object's current version, which is not visible to us normaly (it was
+        object's current version, which is not visible to us normally (it was
         committed after our snapshot was taken).
         """
         # TODO:
@@ -987,7 +986,7 @@ class Application(ThreadedApplication):
         queue = txn_context['queue']
         txn_context['object_stored_counter_dict'][oid] = {}
         # ZODB.Connection performs calls 'checkCurrentSerialInTransaction'
-        # after stores, and skips oids that have been succeessfully stored.
+        # after stores, and skips oids that have been successfully stored.
         assert oid not in txn_context['cache_dict'], (oid, txn_context)
         txn_context['data_dict'].setdefault(oid, CHECKED_SERIAL)
         checked_nodes = txn_context['checked_nodes']

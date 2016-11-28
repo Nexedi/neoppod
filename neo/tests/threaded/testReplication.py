@@ -302,7 +302,7 @@ class ReplicationTests(NEOThreadedTest):
 
         More generally, this checks that when a handler raises when a connection
         is closed voluntarily, the connection is in a consistent state and can
-        be, for example, closed again after the exception is catched, without
+        be, for example, closed again after the exception is caught, without
         assertion failure.
         """
         conn, = backup.master.getConnectionList(backup.upstream.master)

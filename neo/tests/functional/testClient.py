@@ -43,7 +43,7 @@ class Tree(Persistent):
         self.left = Tree(depth)
 
 
-# simple persitent object with conflict resolution
+# simple persistent object with conflict resolution
 class PCounter(Persistent):
 
     _value = 0
@@ -131,7 +131,7 @@ class ClientTests(NEOFunctionalTest):
         c2.root()['other']
         c1.root()['item'] = 1
         t1.commit()
-        # load objet from zope cache
+        # load object from zope cache
         self.assertEqual(c1.root()['item'], 1)
         self.assertEqual(c2.root()['item'], 0)
 
@@ -334,7 +334,7 @@ class ClientTests(NEOFunctionalTest):
             t3.user = 'user'
             t3.description = 'desc'
             st3.tpc_begin(t3)
-            # retreive the last revision
+            # retrieve the last revision
             data, serial = st3.load(oid)
             # try to store again, should not be delayed
             st3.store(oid, serial, data, '', t3)

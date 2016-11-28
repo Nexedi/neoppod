@@ -20,16 +20,13 @@ from neo.lib.protocol import Packets, ProtocolError, ZERO_TID
 
 class InitializationHandler(BaseMasterHandler):
 
-    def answerNodeInformation(self, conn):
-        pass
-
     def sendPartitionTable(self, conn, ptid, row_list):
         app = self.app
         pt = app.pt
         pt.load(ptid, row_list, self.app.nm)
         if not pt.filled():
             raise ProtocolError('Partial partition table received')
-        # Install the partition table into the database for persistency.
+        # Install the partition table into the database for persistence.
         cell_list = []
         num_partitions = pt.getPartitions()
         unassigned_set = set(xrange(num_partitions))

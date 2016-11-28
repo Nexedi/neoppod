@@ -27,13 +27,13 @@ class IdentificationHandler(EventHandler):
     def connectionLost(self, conn, new_state):
         logging.warning('A connection was lost during identification')
 
-    def requestIdentification(self, conn, node_type,
-                                        uuid, address, name):
+    def requestIdentification(self, conn, node_type, uuid, address, name,
+                              id_timestamp):
         self.checkClusterName(name)
-        # reject any incoming connections if not ready
-        if not self.app.ready:
-            raise NotReadyError
         app = self.app
+        # reject any incoming connections if not ready
+        if not app.ready:
+            raise NotReadyError
         if uuid is None:
             if node_type != NodeTypes.STORAGE:
                 raise ProtocolError('reject anonymous non-storage node')
@@ -42,9 +42,14 @@ class IdentificationHandler(EventHandler):
         else:
             if uuid == app.uuid:
                 raise ProtocolError("uuid conflict or loopback connection")
-            node = app.nm.getByUUID(uuid)
-            # If this node is broken, reject it.
-            if node is not None and node.isBroken():
+            node = app.nm.getByUUID(uuid, id_timestamp)
+            if node is None:
+                # Do never create node automatically, or we could get id
+                # conflicts. We must only rely on the notifications from the
+                # master to recognize nodes. So this is not always an error:
+                # maybe there are incoming notifications.
+                raise NotReadyError('unknown node: retry later')
+            if node.isBroken():
                 raise BrokenNodeDisallowedError
             # choose the handler according to the node type
             if node_type == NodeTypes.CLIENT:
@@ -52,20 +57,9 @@ class IdentificationHandler(EventHandler):
                     handler = ClientReadOnlyOperationHandler
                 else:
                     handler = ClientOperationHandler
-                if node is None:
-                    node = app.nm.createClient(uuid=uuid)
-                elif node.isConnected():
-                    # This can happen if we haven't processed yet a notification
-                    # from the master, telling us the existing node is not
-                    # running anymore. If we accept the new client, we won't
-                    # know what to do with this late notification.
-                    raise NotReadyError('uuid conflict: retry later')
-                node.setRunning()
+                assert not node.isConnected(), node
+                assert node.isRunning(), node
             elif node_type == NodeTypes.STORAGE:
-                if node is None:
-                    logging.error('reject an unknown storage node %s',
-                        uuid_str(uuid))
-                    raise NotReadyError
                 handler = StorageOperationHandler
             else:
                 raise ProtocolError('reject non-client-or-storage node')

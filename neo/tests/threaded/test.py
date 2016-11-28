@@ -27,14 +27,14 @@ from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
-from neo.lib.connection import MTClientConnection
+from neo.lib.connection import ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
-    ZERO_TID
+    ZERO_OID, ZERO_TID
 from .. import expectedFailure, Patch
 from . import LockLock, NEOCluster, NEOThreadedTest
 from neo.lib.util import add64, makeChecksum, p64, u64
-from neo.client.exception import NEOStorageError
+from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.client import ClientOperationHandler
@@ -970,7 +970,7 @@ class Test(NEOThreadedTest):
                     self.assertFalse(storage.tm._transaction_dict)
             finally:
                 db.close()
-            # Check we did't get an invalidation, which would cause an
+            # Check we didn't get an invalidation, which would cause an
             # assertion failure in the cache. Connection does the same check in
             # _setstate_noncurrent so this could be also done by starting a
             # transaction before the last one, and clearing the cache before
@@ -1061,17 +1061,40 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testClientFailureDuringTpcFinish(self):
-        def delayAskLockInformation(conn, packet):
-            if isinstance(packet, Packets.AskLockInformation):
+        """
+        Third scenario:
+
+          C                   M                   S     | TID known by
+           ---- Finish ----->                           |
+           ---- Disconnect --   ----- Lock ------>      |
+                                ----- C down ---->      |
+           ---- Connect ---->                           | M
+                                ----- C up ------>      |
+                                <---- Locked -----      |
+        ------------------------------------------------+--------------
+                                -- unlock ...           |
+           ---- FinalTID --->                           | S (TM)
+           ---- Connect + FinalTID -------------->      |
+                                   ... unlock --->      |
+        ------------------------------------------------+--------------
+                                                        | S (DM)
+        """
+        def delayAnswerLockInformation(conn, packet):
+            if isinstance(packet, Packets.AnswerInformationLocked):
                 cluster.client.master_conn.close()
                 return True
         def askFinalTID(orig, *args):
-            m2s.remove(delayAskLockInformation)
+            s2m.remove(delayAnswerLockInformation)
             orig(*args)
         def _getFinalTID(orig, ttid):
-            m2s.remove(delayAskLockInformation)
+            s2m.remove(delayAnswerLockInformation)
             self.tic()
             return orig(ttid)
+        def _connectToPrimaryNode(orig):
+            conn = orig()
+            self.tic()
+            s2m.remove(delayAnswerLockInformation)
+            return conn
         cluster = NEOCluster()
         try:
             cluster.start()
@@ -1079,25 +1102,30 @@ class Test(NEOThreadedTest):
             r = c.root()
             r['x'] = PCounter()
             tid0 = r._p_serial
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayAskLockInformation,
+            with cluster.storage.filterConnection(cluster.master) as s2m:
+                s2m.add(delayAnswerLockInformation,
                     Patch(ClientServiceHandler, askFinalTID=askFinalTID))
                 t.commit() # the final TID is returned by the master
             t.begin()
             r['x'].value += 1
             tid1 = r._p_serial
             self.assertTrue(tid0 < tid1)
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayAskLockInformation,
+            with cluster.storage.filterConnection(cluster.master) as s2m:
+                s2m.add(delayAnswerLockInformation,
                     Patch(cluster.client, _getFinalTID=_getFinalTID))
                 t.commit() # the final TID is returned by the storage backend
             t.begin()
             r['x'].value += 1
             tid2 = r['x']._p_serial
             self.assertTrue(tid1 < tid2)
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayAskLockInformation,
-                    Patch(cluster.client, _getFinalTID=_getFinalTID))
+            # The whole test would be simpler if we always delayed the
+            # AskLockInformation packet. However, it would also delay
+            # NotifyNodeInformation and the client would fail to connect
+            # to the storage node.
+            with cluster.storage.filterConnection(cluster.master) as s2m, \
+                 cluster.master.filterConnection(cluster.storage) as m2s:
+                s2m.add(delayAnswerLockInformation, Patch(cluster.client,
+                    _connectToPrimaryNode=_connectToPrimaryNode))
                 m2s.add(lambda conn, packet:
                     isinstance(packet, Packets.NotifyUnlockInformation))
                 t.commit() # the final TID is returned by the storage (tm)
@@ -1292,6 +1320,8 @@ class Test(NEOThreadedTest):
             m2c, = cluster.master.getConnectionList(cluster.client)
             cluster.client._cache.clear()
             c.cacheMinimize()
+            # Make the master disconnects the client when the latter is about
+            # to send a AskObject packet to the storage node.
             with cluster.client.filterConnection(cluster.storage) as c2s:
                 c2s.add(disconnect)
                 # Storages are currently notified of clients that get
@@ -1299,9 +1329,75 @@ class Test(NEOThreadedTest):
                 # Should it change, the clients would have to disconnect on
                 # their own.
                 self.assertRaises(TransientError, getattr, c, "root")
-            with Patch(ClientOperationHandler,
-                    askObject=lambda orig, self, conn, *args: conn.close()):
-                self.assertRaises(NEOStorageError, getattr, c, "root")
+            uuid = cluster.client.uuid
+            # Let's use a second client to steal the node id of the first one.
+            client = cluster.newClient()
+            try:
+                client.sync()
+                self.assertEqual(uuid, client.uuid)
+                # The client reconnects successfully to the master and storage,
+                # with a different node id. This time, we get a different error
+                # if it's only disconnected from the storage.
+                with Patch(ClientOperationHandler,
+                        askObject=lambda orig, self, conn, *args: conn.close()):
+                    self.assertRaises(NEOStorageError, getattr, c, "root")
+                self.assertNotEqual(uuid, cluster.client.uuid)
+                # Second reconnection, for a successful load.
+                c.root
+            finally:
+                client.close()
+        finally:
+            cluster.stop()
+
+    def testIdTimestamp(self):
+        """
+        Given a master M, a storage S, and 2 clients Ca and Cb.
+
+        While Ca(id=1) is being identified by S:
+        1. connection between Ca and M breaks
+        2. M -> S: C1 down
+        3. Cb connect to M: id=1
+        4. M -> S: C1 up
+        5. S processes RequestIdentification from Ca with id=1
+
+        At 5, S must reject Ca, otherwise Cb can't connect to S. This is where
+        id timestamps come into play: with C1 up since t2, S rejects Ca due to
+        a request with t1  < t2.
+
+        To avoid issues with clocks that are out of sync, the client gets its
+        connection timestamp by being notified about itself from the master.
+        """
+        s2c = []
+        def __init__(orig, self, *args, **kw):
+            orig(self, *args, **kw)
+            self.readable = bool
+            s2c.append(self)
+            ll()
+        def connectToStorage(client):
+            next(client.cp.iterateForObject(0))
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            Ca = cluster.client
+            Ca.pt      # only connect to the master
+            # In a separate thread, connect to the storage but suspend the
+            # processing of the RequestIdentification packet, until the
+            # storage is notified about the existence of the other client.
+            with LockLock() as ll, Patch(ServerConnection, __init__=__init__):
+                t = self.newThread(connectToStorage, Ca)
+                ll()
+            s2c, = s2c
+            m2c, = cluster.master.getConnectionList(cluster.client)
+            m2c.close()
+            Cb = cluster.newClient()
+            try:
+                Cb.pt  # only connect to the master
+                del s2c.readable
+                self.assertRaises(NEOPrimaryMasterLost, t.join)
+                self.assertTrue(s2c.isClosed())
+                connectToStorage(Cb)
+            finally:
+                Cb.close()
         finally:
             cluster.stop()
 

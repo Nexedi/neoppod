@@ -43,7 +43,7 @@ def main(args=None):
     # TODO: Forbid using "reset" along with any unneeded argument.
     #       "reset" is too dangerous to let user a chance of accidentally
     #       letting it slip through in a long option list.
-    #       We should drop support configation files to make such check useful.
+    #       We should drop support configuration files to make such check useful.
     (options, args) = parser.parse_args(args=args)
     config = ConfigurationManager(defaults, options, 'storage')
 

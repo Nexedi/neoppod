@@ -34,7 +34,7 @@ ZODB API is fully implemented except:
   for garbage collection)
 - blobs: not implemented (not considered yet)
 
-Any ZODB like FileStorage can be converted to NEO instanteously,
+Any ZODB like FileStorage can be converted to NEO instantaneously,
 which means the database is operational before all data are imported.
 There's also a tool to convert back to FileStorage.
 

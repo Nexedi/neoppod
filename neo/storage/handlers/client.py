@@ -58,13 +58,6 @@ class ClientOperationHandler(EventHandler):
                 compression, checksum, data, data_serial)
         conn.answer(p)
 
-    def connectionLost(self, conn, new_state):
-        uuid = conn.getUUID()
-        node = self.app.nm.getByUUID(uuid)
-        if self.app.listening_conn: # if running
-            assert node is not None, conn
-            self.app.nm.remove(node)
-
     def abortTransaction(self, conn, ttid):
         self.app.tm.abort(ttid)
 
@@ -88,7 +81,7 @@ class ClientOperationHandler(EventHandler):
         except DelayedError:
             # locked by a previous transaction, retry later
             # If we are unlocking, we want queueEvent to raise
-            # AlreadyPendingError, to avoid making lcient wait for an unneeded
+            # AlreadyPendingError, to avoid making client wait for an unneeded
             # response.
             try:
                 self.app.queueEvent(self._askStoreObject, conn, (oid, serial,

@@ -142,7 +142,7 @@ def parseNodeAddress(address, port_opt=None):
     else:
         host = address
         port = port_opt
-    # Resolve (maybe) and cast to cannonical form
+    # Resolve (maybe) and cast to canonical form
     # XXX: Always pick the first result. This might not be what is desired, and
     # if so this function should either take a hint on the desired address type
     # or return either raw host & port or getaddrinfo return value.

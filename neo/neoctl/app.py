@@ -174,7 +174,7 @@ class TerminalNeoCTL(object):
     def tweakPartitionTable(self, params):
         """
           Optimize partition table.
-          No partitition will be assigned to specified storage nodes.
+          No partition will be assigned to specified storage nodes.
           Parameters: [node [...]]
         """
         return self.neoctl.tweakPartitionTable(map(self.asNode, params))
@@ -294,7 +294,7 @@ class Application(object):
                 if docstring is None:
                     docstring = '(no docstring)'
                 docstring_line_list = docstring.split('\n')
-                # Strip empty lines at begining & end of line list
+                # Strip empty lines at beginning & end of line list
                 for end in (0, -1):
                     while len(docstring_line_list) \
                           and docstring_line_list[end] == '':

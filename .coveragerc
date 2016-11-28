@@ -1,0 +1,6 @@
+[run]
+source = neo
+omit =
+    neo/debug.py
+    neo/scripts/runner.py
+    neo/tests/*

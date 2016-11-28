@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 7
+PROTOCOL_VERSION = 8
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -235,6 +235,7 @@ class Packet(object):
     _code = None
     _fmt = None
     _id = None
+    poll_thread = False
 
     def __init__(self, *args, **kw):
         assert self._code is not None, "Packet class not registered"
@@ -330,7 +331,7 @@ class ParseError(Exception):
 
 class PItem(object):
     """
-        Base class for any packet item, _encode and _decode must be overriden
+        Base class for any packet item, _encode and _decode must be overridden
         by subclasses.
     """
     def __init__(self, name):
@@ -386,9 +387,9 @@ class PStructItem(PItem):
     """
         A single value encoded with struct
     """
-    def __init__(self, name, fmt):
+    def __init__(self, name):
         PItem.__init__(self, name)
-        struct = Struct(fmt)
+        struct = Struct(self._fmt)
         self.pack = struct.pack
         self.unpack = struct.unpack
         self.size = struct.size
@@ -399,12 +400,23 @@ class PStructItem(PItem):
     def _decode(self, reader):
         return self.unpack(reader(self.size))[0]
 
+class PStructItemOrNone(PStructItem):
+
+    def _encode(self, writer, value):
+        return writer(self._None if value is None else self.pack(value))
+
+    def _decode(self, reader):
+        value = reader(self.size)
+        return None if value == self._None else self.unpack(value)[0]
+
 class PList(PStructItem):
     """
         A list of homogeneous items
     """
+    _fmt = '!L'
+
     def __init__(self, name, item):
-        PStructItem.__init__(self, name, '!L')
+        PStructItem.__init__(self, name)
         self._item = item
 
     def _encode(self, writer, items):
@@ -422,8 +434,10 @@ class PDict(PStructItem):
     """
         A dictionary with custom key and value formats
     """
+    _fmt = '!L'
+
     def __init__(self, name, key, value):
-        PStructItem.__init__(self, name, '!L')
+        PStructItem.__init__(self, name)
         self._key = key
         self._value = value
 
@@ -449,15 +463,15 @@ class PEnum(PStructItem):
     """
         Encapsulate an enumeration value
     """
+    _fmt = '!l'
+
     def __init__(self, name, enum):
-        PStructItem.__init__(self, name, '!l')
+        PStructItem.__init__(self, name)
         self._enum = enum
 
     def _encode(self, writer, item):
         if item is None:
             item = -1
-        else:
-            assert isinstance(item, int), item
         writer(self.pack(item))
 
     def _decode(self, reader):
@@ -474,8 +488,7 @@ class PString(PStructItem):
     """
         A variable-length string
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!L')
+    _fmt = '!L'
 
     def _encode(self, writer, value):
         writer(self.pack(len(value)))
@@ -512,46 +525,26 @@ class PBoolean(PStructItem):
     """
         A boolean value, encoded as a single byte
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!B')
-
-    def _encode(self, writer, value):
-        writer(self.pack(bool(value)))
-
-    def _decode(self, reader):
-        return bool(self.unpack(reader(self.size))[0])
+    _fmt = '!?'
 
 class PNumber(PStructItem):
     """
         A integer number (4-bytes length)
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!L')
+    _fmt = '!L'
 
 class PIndex(PStructItem):
     """
         A big integer to defined indexes in a huge list.
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!Q')
+    _fmt = '!Q'
 
-class PPTID(PStructItem):
+class PPTID(PStructItemOrNone):
     """
         A None value means an invalid PTID
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!Q')
-
-    def _encode(self, writer, value):
-        if value is None:
-            value = 0
-        PStructItem._encode(self, writer, value)
-
-    def _decode(self, reader):
-        value = PStructItem._decode(self, reader)
-        if value == 0:
-            value = None
-        return value
+    _fmt = '!Q'
+    _None = Struct(_fmt).pack(0)
 
 class PProtocol(PNumber):
     """
@@ -577,18 +570,12 @@ class PChecksum(PItem):
     def _decode(self, reader):
         return reader(20)
 
-class PUUID(PStructItem):
+class PUUID(PStructItemOrNone):
     """
         An UUID (node identifier, 4-bytes signed integer)
     """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!l')
-
-    def _encode(self, writer, uuid):
-        writer(self.pack(uuid or 0))
-
-    def _decode(self, reader):
-        return self.unpack(reader(self.size))[0] or None
+    _fmt = '!l'
+    _None = Struct(_fmt).pack(0)
 
 class PTID(PItem):
     """
@@ -609,6 +596,13 @@ class PTID(PItem):
 # same definition, for now
 POID = PTID
 
+class PFloat(PStructItemOrNone):
+    """
+        A float number (8-bytes length)
+    """
+    _fmt = '!d'
+    _None = '\xff' * 8
+
 # common definitions
 
 PFEmpty = PStruct('no_content')
@@ -622,6 +616,7 @@ PFNodeList = PList('node_list',
         PAddress('address'),
         PUUID('uuid'),
         PFNodeState,
+        PFloat('id_timestamp'),
     ),
 )
 
@@ -695,6 +690,7 @@ class RequestIdentification(Packet):
     Request a node identification. This must be the first packet for any
     connection. Any -> Any.
     """
+    poll_thread = True
 
     _fmt = PStruct('request_identification',
         PProtocol('protocol_version'),
@@ -702,6 +698,7 @@ class RequestIdentification(Packet):
         PUUID('uuid'),
         PAddress('address'),
         PString('name'),
+        PFloat('id_timestamp'),
     )
 
     _answer = PStruct('accept_identification',
@@ -882,6 +879,8 @@ class FinishTransaction(Packet):
     Finish a transaction. C -> PM.
     Answer when a transaction is finished. PM -> C.
     """
+    poll_thread = True
+
     _fmt = PStruct('ask_finish_transaction',
         PTID('tid'),
         PFOidList,
@@ -1167,12 +1166,6 @@ class NotifyNodeInformation(Packet):
         PFNodeList,
     )
 
-class NodeInformation(Packet):
-    """
-    Ask node information
-    """
-    _answer = PFEmpty
-
 class SetClusterState(Packet):
     """
     Set the cluster state
@@ -1388,6 +1381,7 @@ class LastTransaction(Packet):
     Answer last committed TID.
     M -> C
     """
+    poll_thread = True
 
     _answer = PStruct('answer_last_transaction',
         PTID('tid'),
@@ -1492,8 +1486,8 @@ class Replicate(Packet):
 
 class ReplicationDone(Packet):
     """
-    Notify the master node that a partition has been successully replicated from
-    a storage to another.
+    Notify the master node that a partition has been successfully replicated
+    from a storage to another.
     S -> M
     """
     _fmt = PStruct('notify_replication_done',
@@ -1528,7 +1522,7 @@ def register(request, ignore_when_closed=None):
         # By default, on a closed connection:
         # - request: ignore
         # - answer: keep
-        # - nofitication: keep
+        # - notification: keep
         ignore_when_closed = answer is not None
     request._ignore_when_closed = ignore_when_closed
     if answer in (Error, None):
@@ -1536,6 +1530,7 @@ def register(request, ignore_when_closed=None):
     # build a class for the answer
     answer = type('Answer%s' % (request.__name__, ), (Packet, ), {})
     answer._fmt = request._answer
+    answer.poll_thread = request.poll_thread
     # compute the answer code
     code = code | RESPONSE_MASK
     answer._request = request
@@ -1565,7 +1560,7 @@ class ParserState(object):
 
 class Packets(dict):
     """
-    Packet registry that check packet code unicity and provide an index
+    Packet registry that checks packet code uniqueness and provides an index
     """
     def __metaclass__(name, base, d):
         for k, v in d.iteritems():
@@ -1688,8 +1683,6 @@ class Packets(dict):
                     AddPendingNodes, ignore_when_closed=False)
     TweakPartitionTable = register(
                     TweakPartitionTable, ignore_when_closed=False)
-    AskNodeInformation, AnswerNodeInformation = register(
-                    NodeInformation)
     SetClusterState = register(
                     SetClusterState, ignore_when_closed=False)
     NotifyClusterInformation = register(

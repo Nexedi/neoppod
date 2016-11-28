@@ -81,7 +81,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # stop threads
         for app in self._to_stop_list:
             app.close()
-        # restore environnement
+        # restore environment
         Application._ask = self._ask
         Application._getMasterConnection = self._getMasterConnection
         NeoUnitTestBase._tearDown(self, success)
@@ -596,7 +596,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         Object oid previous revision before tid1 is tid0.
         Transaction tid2 modified oid (and contains its data).
 
-        Undo is rejeced with a raise, because conflict resolution fails.
+        Undo is rejected with a raise, because conflict resolution fails.
         """
         oid0 = self.makeOID(1)
         tid0 = self.getNextTID()
@@ -753,11 +753,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
         # TODO: test more connection failure cases
-        all_passed = []
         # askLastTransaction
-        def _ask9(_):
-            all_passed.append(1)
-        # Seventh packet : askNodeInformation succeeded
         def _ask8(_):
             pass
         # Sixth packet : askPartitionTable succeeded
@@ -789,19 +785,18 @@ class ClientApplicationTests(NeoUnitTestBase):
         # telling us what its address is.)
         def _ask1(_):
             pass
-        ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask6, _ask7,
-            _ask8, _ask9]
+        ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask6, _ask7, _ask8]
         def _ask_base(conn, _, handler=None):
             ask_func_list.pop(0)(conn)
             app.nm.getByAddress(conn.getAddress())._connection = None
         app._ask = _ask_base
-        # faked environnement
+        # fake environment
         app.em.close()
         app.em = Mock({'getConnectionList': []})
         app.pt = Mock({ 'operational': False})
         app.start = lambda: None
         app.master_conn = app._connectToPrimaryNode()
-        self.assertEqual(len(all_passed), 1)
+        self.assertFalse(ask_func_list)
         self.assertTrue(app.master_conn is not None)
         self.assertTrue(app.pt.operational())
 
@@ -831,11 +826,11 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertTrue(self.test_ok)
         # check NEOStorageError is raised when the primary connection is lost
         app.master_conn = None
-        # check disabled since we reonnect to pmn
+        # check disabled since we reconnect to pmn
         #self.assertRaises(NEOStorageError, app._askPrimary, packet)
 
     def test_threadContextIsolation(self):
-        """ Thread context properties must not be visible accross instances
+        """ Thread context properties must not be visible across instances
             while remaining in the same thread """
         app1 = self.getApp()
         app1_local = app1._thread_container

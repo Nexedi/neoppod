@@ -225,13 +225,13 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def _tearDown(self, success):
         NeoUnitTestBase._tearDown(self, success)
-        # restore environnement
+        # restore environment
         del ClientConnection._addPacket
 
     def test_requestIdentification1(self):
         """ A non-master node request identification """
         node, conn = self.identifyToMasterNode()
-        args = (node.getUUID(), node.getAddress(), self.app.name)
+        args = node.getUUID(), node.getAddress(), self.app.name, None
         self.assertRaises(protocol.NotReadyError,
             self.election.requestIdentification,
             conn, NodeTypes.CLIENT, *args)
@@ -240,7 +240,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         """ A broken master node request identification """
         node, conn = self.identifyToMasterNode()
         node.setBroken()
-        args = (node.getUUID(), node.getAddress(), self.app.name)
+        args = node.getUUID(), node.getAddress(), self.app.name, None
         self.assertRaises(protocol.BrokenNodeDisallowedError,
             self.election.requestIdentification,
             conn, NodeTypes.MASTER, *args)
@@ -248,7 +248,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
     def test_requestIdentification4(self):
         """ No conflict """
         node, conn = self.identifyToMasterNode()
-        args = (node.getUUID(), node.getAddress(), self.app.name)
+        args = node.getUUID(), node.getAddress(), self.app.name, None
         self.election.requestIdentification(conn,
             NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
@@ -280,11 +280,12 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         conn = self.__getClient()
         self.checkNotReadyErrorRaised(
             self.election.requestIdentification,
-            conn=conn,
-            node_type=NodeTypes.CLIENT,
-            uuid=conn.getUUID(),
-            address=conn.getAddress(),
-            name=self.app.name
+            conn,
+            NodeTypes.CLIENT,
+            conn.getUUID(),
+            conn.getAddress(),
+            self.app.name,
+            None,
         )
 
     def _requestIdentification(self):
@@ -297,6 +298,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
             peer_uuid,
             address,
             self.app.name,
+            None,
         )
         node_type, uuid, partitions, replicas, _peer_uuid, primary, \
             master_list = self.checkAcceptIdentification(conn, decode=True)

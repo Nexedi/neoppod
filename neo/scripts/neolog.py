@@ -146,15 +146,14 @@ class Log(object):
 
     def notifyNodeInformation(self, node_list):
         node_list.sort(key=lambda x: x[2])
-        node_list = [(self.uuid_str(uuid), str(node_type),
-                      '%s:%u' % address if address else '?', state)
-                     for node_type, address, uuid, state in node_list]
+        node_list = [(self.uuid_str(x[2]), str(x[0]),
+                      '%s:%u' % x[1] if x[1] else '?', str(x[3]))
+                     + ((repr(x[4]),) if len(x) > 4 else ()) # BBB
+                     for x in node_list]
         if node_list:
-            t = ' ! %%%us | %%%us | %%%us | %%s' % (
-                max(len(x[0]) for x in node_list),
-                max(len(x[1]) for x in node_list),
-                max(len(x[2]) for x in node_list))
-            return map(t.__mod__, node_list)
+            t = ''.join(' %%%us |' % max(len(x[i]) for x in node_list)
+                        for i in xrange(len(node_list[0]) - 1))
+            return map((' !' + t + ' %s').__mod__, node_list)
         return ()
 
 

@@ -119,7 +119,7 @@ class NEOProcess(object):
         except ImportError:
             raise NotFound, '%s not found' % (command)
         self.command = command
-        self.arg_dict = {'--' + k: v for k, v in arg_dict.iteritems()}
+        self.arg_dict = arg_dict
         self.with_uuid = True
         self.setUUID(uuid)
 
@@ -131,11 +131,11 @@ class NEOProcess(object):
         args = []
         self.with_uuid = with_uuid
         for arg, param in self.arg_dict.iteritems():
-            if with_uuid is False and arg == '--uuid':
-                continue
-            args.append(arg)
+            args.append('--' + arg)
             if param is not None:
                 args.append(str(param))
+        if with_uuid:
+            args += '--uuid', str(self.uuid)
         self.pid = os.fork()
         if self.pid == 0:
             # Child
@@ -183,7 +183,7 @@ class NEOProcess(object):
             self.wait()
         except:
             # We can ignore all exceptions at this point, since there is no
-            # garanteed way to handle them (other objects we would depend on
+            # guaranteed way to handle them (other objects we would depend on
             # might already have been deleted).
             pass
 
@@ -213,7 +213,6 @@ class NEOProcess(object):
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
-        self.arg_dict['--uuid'] = str(uuid)
 
     def isAlive(self):
         try:
@@ -305,7 +304,6 @@ class NEOCluster(object):
     def _newProcess(self, node_type, logfile=None, port=None, **kw):
         self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)
         uuid += UUID_NAMESPACES[node_type] << 24
-        kw['uuid'] = uuid
         kw['cluster'] = self.cluster_name
         kw['masters'] = self.master_nodes
         if logfile:
@@ -491,13 +489,9 @@ class NEOCluster(object):
         return self.__getNodeList(NodeTypes.CLIENT, state)
 
     def __getNodeState(self, node_type, uuid):
-        node_list = self.__getNodeList(node_type)
-        for node_type, address, node_uuid, state in node_list:
-            if node_uuid == uuid:
-                break
-        else:
-            state = None
-        return state
+        for node in self.__getNodeList(node_type):
+            if node[2] == uuid:
+                return node[3]
 
     def getMasterNodeState(self, uuid):
         return self.__getNodeState(NodeTypes.MASTER, uuid)
@@ -573,7 +567,7 @@ class NEOCluster(object):
         def callback(last_try):
             current_try = self.getPrimary()
             if None not in (uuid, current_try) and uuid != current_try:
-                raise AssertionError, 'An unexpected primary arised: %r, ' \
+                raise AssertionError, 'An unexpected primary arose: %r, ' \
                     'expected %r' % (dump(current_try), dump(uuid))
             return uuid is None or uuid == current_try, current_try
         self.expectCondition(callback, *args, **kw)
@@ -581,12 +575,12 @@ class NEOCluster(object):
     def expectOudatedCells(self, number, *args, **kw):
         def callback(last_try):
             row_list = self.neoctl.getPartitionRowList()[1]
-            number_of_oudated = 0
+            number_of_outdated = 0
             for row in row_list:
                 for cell in row[1]:
                     if cell[1] == CellStates.OUT_OF_DATE:
-                        number_of_oudated += 1
-            return number_of_oudated == number, number_of_oudated
+                        number_of_outdated += 1
+            return number_of_outdated == number, number_of_outdated
         self.expectCondition(callback, *args, **kw)
 
     def expectAssignedCells(self, process, number, *args, **kw):

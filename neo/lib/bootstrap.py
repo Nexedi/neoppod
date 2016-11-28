@@ -26,7 +26,7 @@ class BootstrapManager(EventHandler):
     """
     accepted = False
 
-    def __init__(self, app, name, node_type, uuid=None, server=None):
+    def __init__(self, app, node_type, server=None):
         """
         Manage the bootstrap stage of a non-master node, it lookup for the
         primary master node, connect to it then returns when the master node
@@ -35,11 +35,11 @@ class BootstrapManager(EventHandler):
         self.primary = None
         self.server = server
         self.node_type = node_type
-        self.uuid = uuid
-        self.name = name
         self.num_replicas = None
         self.num_partitions = None
         self.current = None
+
+    uuid = property(lambda self: self.app.uuid)
 
     def announcePrimary(self, conn):
         # We found the primary master early enough to be notified of election
@@ -55,7 +55,7 @@ class BootstrapManager(EventHandler):
         EventHandler.connectionCompleted(self, conn)
         self.current.setRunning()
         conn.ask(Packets.RequestIdentification(self.node_type, self.uuid,
-            self.server, self.name))
+            self.server, self.app.name, None))
 
     def connectionFailed(self, conn):
         """
@@ -106,8 +106,9 @@ class BootstrapManager(EventHandler):
         self.num_replicas = num_replicas
         if self.uuid != your_uuid:
             # got an uuid from the primary master
-            self.uuid = your_uuid
+            self.app.uuid = your_uuid
             logging.info('Got a new UUID: %s', uuid_str(self.uuid))
+        self.app.id_timestamp = None
         self.accepted = True
 
     def getPrimaryConnection(self):
@@ -141,8 +142,4 @@ class BootstrapManager(EventHandler):
                     continue
             # still processing
             poll(1)
-        return (self.current, conn, self.uuid, self.num_partitions,
-            self.num_replicas)
-
-
-
+        return self.current, conn, self.num_partitions, self.num_replicas
