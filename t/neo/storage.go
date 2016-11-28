@@ -4,8 +4,12 @@ package neo
 
 import (
 	"context"
+	"encoding/binary"
 	"net"
 	"fmt"
+	"io"
+
+	//"../neo/proto"
 )
 
 // NEO Storage application
@@ -14,46 +18,56 @@ import (
 type StorageApplication struct {
 }
 
+
+/*
+// XXX change to bytes.Buffer if we need to access it as I/O
+type Buffer struct {
+	buf	[]byte
+}
+*/
+
 func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
 	fmt.Printf("stor: serving new client %s <-> %s\n", conn.LocalAddr(), conn.RemoteAddr())
 	//fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
 	//conn.Close()	// XXX err
 
+	/*
 	// TODO: use bytes.Buffer{}
 	//	 .Bytes() -> buf -> can grow up again up to buf[:cap(buf)]
 	//	 NewBuffer(buf) -> can use same buffer for later reading via bytes.Buffer
-
 	// TODO read PktHeader (fixed length)  (-> length, PktType (by .code))
-	// TODO PktHeader
 	//rxbuf := bytes.Buffer{}
 	rxbuf := bytes.NewBuffer(make([]byte, 4096))
 	n, err := conn.Read(rxbuf.Bytes())
+	*/
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
-	rxbuf := Buffer{make([]byte, 4096}
+	rxbuf := make([]byte, 4096)
 	n, err := io.ReadAtLeast(conn, rxbuf, PktHeadLen)
 	if err != nil {
-		panic(err)	// TODO
+		panic(err)	// XXX err
 	}
-	id	:= binary.BigEndian.Uint32(rxbuf[0:])
-	code	:= binary.BigEndian.Uint16(rxbuf[4:])
+
+	_/*id*/  = binary.BigEndian.Uint32(rxbuf[0:])	// XXX -> PktHeader.Decode() ?
+	_/*code*/= binary.BigEndian.Uint16(rxbuf[4:])
 	length	:= binary.BigEndian.Uint32(rxbuf[6:])
 
 	if length < PktHeadLen {
-		panic()	// XXX err	(length is a whole packet len with header)
+		panic("TODO pkt.length < PktHeadLen")	// XXX err	(length is a whole packet len with header)
 	}
 
-	if length > len(rxbuf) {
-		// TODO grow rxbuf
-		panic()
+	if length > uint32(len(rxbuf)) {
+		// grow rxbuf
+		rxbuf2 := make([]byte, length)
+		copy(rxbuf2, rxbuf[:n])
+		rxbuf = rxbuf2
 	}
 
 	// read rest of pkt data, if we need to
-	n2, err := io.ReadFull(conn, rxbuf[n:length])
-
-	// read first pkt chunk: header + some data (all in 1 read call)
-	rxl.N = 4096
-	n, err := rxbuf.ReadFrom(rxl)
+	_, err = io.ReadFull(conn, rxbuf[n:length])
+	if err != nil {
+		panic(err)	// XXX err
+	}
 }
 
 
@@ -72,7 +86,6 @@ type Server interface {
 // - for every accepted connection spawn srv.ServeConn() in separate goroutine.
 //
 // the listener is closed when Serve returns.
-// XXX text
 // XXX move -> generic place ?
 func Serve(ctx context.Context, l net.Listener, srv Server) error {
 	fmt.Printf("stor: serving on %s ...\n", l.Addr())
