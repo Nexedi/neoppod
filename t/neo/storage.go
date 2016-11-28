@@ -55,6 +55,9 @@ func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
 	if length < PktHeadLen {
 		panic("TODO pkt.length < PktHeadLen")	// XXX err	(length is a whole packet len with header)
 	}
+	if length > MAX_PACKET_SIZE {
+		panic("TODO message too big")	// XXX err
+	}
 
 	if length > uint32(len(rxbuf)) {
 		// grow rxbuf

@@ -204,7 +204,7 @@ class ReadBuffer(object):
             keep, let = last_chunk[:to_read], last_chunk[to_read:]
             self.content.appendleft(let)
             chunk_list[-1] = keep
-        # join all chunks (one copy)
+        # join all chunks (one copy)    // XXX only 1 chunk -> no copy at all
         data = ''.join(chunk_list)
         assert len(data) == size
         return data

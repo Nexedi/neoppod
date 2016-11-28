@@ -750,7 +750,7 @@ class Recovery(Packet):
     """
     _answer = PStruct('answer_recovery',
         PPTID('ptid'),
-        PTID('backup_tid'),     # NOTE
+        PTID('backup_tid'),
         PTID('truncate_tid'),
     )
 

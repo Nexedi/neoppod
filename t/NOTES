@@ -270,6 +270,56 @@ NodeInformation
 TODO
 
 
+Storage communications
+----------------------
+
+* bootstrap (connect to primary master):
+
+>M	RequestIdentification
+<M	AcceptIdentification	(AnswerRequestIdentification)
+
+* init (under master command go through recovery / verification)
+
+(BaseMasterHandler)
+<M	AskRecovery
+>M	AnswerRecovery		(ptid, backup_tid, truncate_tid)
+
+<M	AskPartitionTable
+>M	AnswerPartitionTable	(ptid, []PtRow)
+
+# neoctl start
+<M	NotifyNodeInformation	(S1.state=RUNNING)
+# S: "I was told I'm RUNNING"
+
+<M	NotifyClusterInformation	(state=VERIFYING)
+<M	NotifyNodeInformation		(S1.state=RUNNING)	# again, why?
+# S: "I was told I'm RUNNING"
+
+<M	NotifyPartitionTable	(ptid=1, `node 0: S1, R`)
+# S saves PT info locally
+
+# M asks about unfinished transactions
+<M	AskLockedTransactions
+>M	AnswerLockedTransactions	{} ttid -> tid	# in example we have empty
+
+<M	AskLastIDs
+>M	AnswerLastIDs			(last_oid, last_tid)
+
+<M	NotifyClusterInformation	(state=RUNNING)
+
+<M	StartOperation
+>M	NotifyReady
+
+--- also in base/init handlers:
+<M	StopOperation
+<M	AskFinalTID
+# >M	answerUnfinishedTransactions (only upon S request)
+# <M	ReelectPrimary			?
+<M	Truncate
+<M	Validatetransactions
+
+
+* operation (serve clients):
 
 
 Tables

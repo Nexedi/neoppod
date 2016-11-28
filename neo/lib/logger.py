@@ -224,9 +224,11 @@ class NEOLogger(Logger):
             peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
                                       uuid_str(r.uuid), ip, port)
             msg = r.msg
+            """
             pktcls = protocol.StaticRegistry[r.code]
             print 'PACKET %s %s\t%s\t%s\t%s %s' % (r.created, r._name, r.msg_id,
                     pktcls.__name__, peer, r.pkt.decode())
+            """
             if msg is not None:
                 msg = buffer(msg)
             self._db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
@@ -269,8 +271,8 @@ class NEOLogger(Logger):
             self.parent.callHandlers(record)
 
     def packet(self, connection, packet, outgoing):
-        return
-        if True or self._db is not None:
+        #if True or self._db is not None:
+        if self._db is not None:
             body = packet._body
             if self._max_packet and self._max_packet < len(body):
                 body = None
