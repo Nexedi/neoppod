@@ -56,14 +56,18 @@ TID
 
 POID = PTID
 
+Float
+	.value	float64	// '\xff' * 8 if None
+
 
 ~~~~~~~~
 
 NodeList []
-	type	NodeType
-	address	Address
-	uuid	UUID
-	state	NodeState
+	type		NodeType
+	address		Address
+	uuid		UUID
+	state		NodeState
+	id_timestamp	Float
 
 CellList []
 	uuid	UUID
@@ -108,6 +112,7 @@ RequestIdentification
 	.uuid			UUID
 	.address		Address
 	.name			String
+	.id_timestamp		Float
 
 TODO
 
