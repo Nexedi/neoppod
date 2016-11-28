@@ -30,6 +30,7 @@ if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     # Start coverage as soon as possible.
     import coverage
     coverage = coverage.Coverage()
+    coverage.neotestrunner = []
     coverage.start()
 
 import neo
@@ -210,7 +211,7 @@ class TestRunner(BenchmarkRunner):
 
     def add_options(self, parser):
         parser.add_option('-c', '--coverage', action='store_true',
-            help='Enable coverage (not working yet for functional tests)')
+            help='Enable coverage')
         parser.add_option('-f', '--functional', action='store_true',
             help='Functional tests')
         parser.add_option('-u', '--unit', action='store_true',
@@ -267,6 +268,8 @@ Environment Variables:
             traceback.print_exc()
         if config.coverage:
             coverage.stop()
+            if coverage.neotestrunner:
+                coverage.combine(coverage.neotestrunner)
             coverage.save()
         # build report
         self._successful = runner.wasSuccessful()
