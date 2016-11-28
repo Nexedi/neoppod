@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	PROTOCOL_VERSION = 7
+	PROTOCOL_VERSION = 8
 
 	MIN_PACKET_SIZE = 10    // XXX link this to len(pkthead) ?
 	MAX_PACKET_SIZE = 0x4000000
@@ -94,12 +94,16 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64	// XXX move to common place ?
 
+// TODO None encodes as '\xff' * 8	(XXX use nan for None ?)
+type Float float64
+
 // NOTE original NodeList = []NodeInfo
 type NodeInfo struct {
 	NodeType
 	Address
 	UUID
 	NodeState
+	IdTimestamp Float
 }
 
 // XXX -> CellInfo      (and use []CellInfo) ?
@@ -162,6 +166,7 @@ type RequestIdentification struct {
 	UUID            UUID
 	Address
 	Name            string
+	IdTimestamp	Float
 }
 
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
