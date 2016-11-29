@@ -41,36 +41,7 @@ func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
 	n, err := conn.Read(rxbuf.Bytes())
 	*/
 
-	// first read to read pkt header and hopefully up to page of data in 1 syscall
-	rxbuf := make([]byte, 4096)
-	n, err := io.ReadAtLeast(conn, rxbuf, PktHeadLen)
-	if err != nil {
-		panic(err)	// XXX err
-	}
-
-	_/*id*/  = binary.BigEndian.Uint32(rxbuf[0:])	// XXX -> PktHeader.Decode() ?
-	_/*code*/= binary.BigEndian.Uint16(rxbuf[4:])
-	length	:= binary.BigEndian.Uint32(rxbuf[6:])
-
-	if length < PktHeadLen {
-		panic("TODO pkt.length < PktHeadLen")	// XXX err	(length is a whole packet len with header)
-	}
-	if length > MAX_PACKET_SIZE {
-		panic("TODO message too big")	// XXX err
-	}
-
-	if length > uint32(len(rxbuf)) {
-		// grow rxbuf
-		rxbuf2 := make([]byte, length)
-		copy(rxbuf2, rxbuf[:n])
-		rxbuf = rxbuf2
-	}
-
-	// read rest of pkt data, if we need to
-	_, err = io.ReadFull(conn, rxbuf[n:length])
-	if err != nil {
-		panic(err)	// XXX err
-	}
+	recvPkt()
 }
 
 

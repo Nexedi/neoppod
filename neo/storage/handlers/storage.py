@@ -154,7 +154,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkTIDRange(*args)
             try:
-                conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)
+                conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)    # NOTE msg_id: out-of-order answer
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
@@ -170,7 +170,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkSerialRange(*args)
             try:
-                conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id)
+                conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id) # NOTE msg_id: out-of-order answer
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
@@ -211,7 +211,7 @@ class StorageOperationHandler(EventHandler):
                             tid, user, desc, ext, packed, ttid, oid_list))
                         yield
                 conn.answer(Packets.AnswerFetchTransactions(
-                    pack_tid, next_tid, peer_tid_set), msg_id)
+                    pack_tid, next_tid, peer_tid_set), msg_id)          # NOTE msg_id: out-of-order answer
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
@@ -253,7 +253,7 @@ class StorageOperationHandler(EventHandler):
                     conn.notify(Packets.AddObject(oid, serial, *object[2:]))
                     yield
                 conn.answer(Packets.AnswerFetchObjects(
-                    pack_tid, next_tid, next_oid, object_dict), msg_id)
+                    pack_tid, next_tid, next_oid, object_dict), msg_id)     # NOTE msg_id: out-of-order answer
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
                 pass

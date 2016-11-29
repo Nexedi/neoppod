@@ -34,7 +34,8 @@ class HandlerSwitcher(object):
     _next_timeout = None
     _next_timeout_msg_id = None
     _next_on_timeout = None
-    _pending = ({}, None),
+    _pending = ({}, None),      # ( {msgid -> (answer_klass, timeout, on_timeout, kw)},
+                                #   handler )
 
     def __init__(self, handler):
         # pending handlers and related requests

@@ -530,7 +530,7 @@ class Application(BaseApplication):
             c = client_node.getConnection()
             if client_node is transaction_node:
                 c.answer(Packets.AnswerTransactionFinished(ttid, tid),
-                         msg_id=txn.getMessageId())
+                         msg_id=txn.getMessageId())                     # NOTE msgid: out-of-order answer
             else:
                 # NOTE notifies clients sequentially & irregardless of whether client was subscribed
                 c.notify(invalidate_objects)

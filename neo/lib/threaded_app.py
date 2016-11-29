@@ -147,7 +147,7 @@ class ThreadedApplication(BaseApplication):
                 # check fake packet
                 if qpacket is None:
                     raise ConnectionClosed
-                if msg_id == qpacket.getId():
+                if msg_id == qpacket.getId():   # NOTE selector on msg_id
                     if is_forgotten:
                         raise ValueError, 'ForgottenPacket for an ' \
                             'explicitly expected packet.'
