@@ -138,11 +138,11 @@ class Application(ThreadedApplication):
 
     def __getattr__(self, attr):
         if attr in ('last_tid', 'pt'):
-            if self._connecting_to_master_node.locked():
-                if attr == 'last_tid':
-                    return
-            else:
-                self._getMasterConnection()
+            self._getMasterConnection()
+            # XXX: There's still a risk that we get disconnected from the
+            #      master at this precise moment and for 'pt', we'd raise
+            #      AttributeError. Should we catch it and loop until it
+            #      succeeds?
         return self.__getattribute__(attr)
 
     def log(self):
