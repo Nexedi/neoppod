@@ -1742,3 +1742,22 @@ def Errors():
                 registry_dict)(handler_method_name_dict)
 
 Errors = Errors()
+
+# Common helpers between the 'neo' module and 'neolog'.
+
+from datetime import datetime
+from operator import itemgetter
+
+def formatNodeList(node_list, prefix='', _sort_key=itemgetter(2)):
+    if node_list:
+        node_list.sort(key=_sort_key)
+        node_list = [(
+                uuid_str(uuid), str(node_type),
+                ('[%s]:%s' if ':' in addr[0] else '%s:%s')
+                % addr if addr else '', str(state),
+                str(id_timestamp and datetime.utcfromtimestamp(id_timestamp)))
+            for node_type, addr, uuid, state, id_timestamp in node_list]
+        t = ''.join('%%-%us | ' % max(len(x[i]) for x in node_list)
+                    for i in xrange(len(node_list[0]) - 1))
+        return map((prefix + t + '%s').__mod__, node_list)
+    return ()

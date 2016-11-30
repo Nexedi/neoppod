@@ -219,8 +219,8 @@ class NEOLogger(Logger):
     def _emit(self, r):
         if type(r) is PacketRecord:
             ip, port = r.addr
-            peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
-                                      uuid_str(r.uuid), ip, port)
+            peer = ('%s %s ([%s]:%s)' if ':' in ip else '%s %s (%s:%s)') % (
+                '>' if r.outgoing else '<', uuid_str(r.uuid), ip, port)
             msg = r.msg
             if msg is not None:
                 msg = buffer(msg)

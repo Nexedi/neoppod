@@ -20,6 +20,7 @@
 import bz2, gzip, errno, optparse, os, signal, sqlite3, sys, time
 from bisect import insort
 from logging import getLevelName
+from functools import partial
 
 comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile)
 
@@ -94,6 +95,11 @@ class Log(object):
         for x in 'uuid_str', 'Packets', 'PacketMalformedError':
             setattr(self, x, g[x])
         try:
+            self.notifyNodeInformation = partial(g['formatNodeList'],
+                                                 prefix=' ! ')
+        except KeyError:
+            self.notifyNodeInformation = None
+        try:
             self._next_protocol, = q("SELECT date FROM protocol WHERE date>?",
                                      (date,)).next()
         except StopIteration:
@@ -143,18 +149,6 @@ class Log(object):
 
     def error(self, code, message):
         return "%s (%s)" % (code, message),
-
-    def notifyNodeInformation(self, node_list):
-        node_list.sort(key=lambda x: x[2])
-        node_list = [(self.uuid_str(x[2]), str(x[0]),
-                      '%s:%u' % x[1] if x[1] else '?', str(x[3]))
-                     + ((repr(x[4]),) if len(x) > 4 else ()) # BBB
-                     for x in node_list]
-        if node_list:
-            t = ''.join(' %%%us |' % max(len(x[i]) for x in node_list)
-                        for i in xrange(len(node_list[0]) - 1))
-            return map((' !' + t + ' %s').__mod__, node_list)
-        return ()
 
 
 def emit_many(log_list):

@@ -14,11 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from operator import itemgetter
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.util import p64, u64, tidFromTime, timeStringFromTID
-from neo.lib.protocol import uuid_str, ClusterStates, NodeTypes, \
-    UUID_NAMESPACES, ZERO_TID
+from neo.lib.protocol import uuid_str, formatNodeList, \
+    ClusterStates, NodeTypes, UUID_NAMESPACES, ZERO_TID
 
 action_dict = {
     'print': {
@@ -71,15 +70,6 @@ class TerminalNeoCTL(object):
             for (uuid, state) in cell_list))
             for (offset, cell_list) in row_list)
 
-    def formatNodeList(self, node_list, _sort_key=itemgetter(2, 0, 1)):
-        if not node_list:
-            return 'Empty list!'
-        node_list.sort(key=_sort_key)
-        return '\n'.join(
-            '%s - %s - %s - %s' % (node_type, uuid_str(uuid),
-                                   address and '%s:%s' % address, state)
-            for node_type, address, uuid, state in node_list)
-
     # Actual actions
     def getLastIds(self, params):
         """
@@ -94,7 +84,7 @@ class TerminalNeoCTL(object):
         else:
             loid, ltid = self.neoctl.getLastIds()
             r = "last_oid = 0x%x" % (u64(loid))
-        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %u" % \
+        return r + "\nlast_tid = 0x%x (%s)\nlast_ptid = %s" % \
                                     (u64(ltid), timeStringFromTID(ltid), ptid)
 
     def getPartitionRowList(self, params):
@@ -129,7 +119,7 @@ class TerminalNeoCTL(object):
         else:
             node_type = None
         node_list = self.neoctl.getNodeList(node_type=node_type)
-        return self.formatNodeList(node_list)
+        return '\n'.join(formatNodeList(node_list)) or 'Empty list!'
 
     def getClusterState(self, params):
         """

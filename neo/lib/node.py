@@ -19,7 +19,8 @@ from os.path import exists, getsize
 import json
 
 from . import attributeTracker, logging
-from .protocol import uuid_str, NodeTypes, NodeStates, ProtocolError
+from .protocol import formatNodeList, uuid_str, \
+    NodeTypes, NodeStates, ProtocolError
 
 
 class Node(object):
@@ -161,10 +162,12 @@ class Node(object):
         return self._identified
 
     def __repr__(self):
-        return '<%s(uuid=%s, address=%s, state=%s, connection=%r%s) at %x>' % (
+        addr = self._address
+        return '<%s(uuid=%s%s, state=%s, connection=%r%s) at %x>' % (
             self.__class__.__name__,
             uuid_str(self._uuid),
-            self._address,
+            ', address=' + ('[%s]:%s' if ':' in addr[0] else '%s:%s') % addr
+            if addr else '',
             self._state,
             self._connection,
             '' if self._identified else ', not identified',
@@ -448,16 +451,8 @@ class NodeManager(object):
     def log(self):
         logging.info('Node manager : %u nodes', len(self._node_set))
         if self._node_set:
-            node_list = [(node, uuid_str(node.getUUID()))
-                         for node in sorted(self._node_set)]
-            max_len = max(len(x[1]) for x in node_list)
-            for node, uuid in node_list:
-                address = node.getAddress() or ''
-                if address:
-                    address = '%s:%d' % address
-                logging.info(' * %*s | %8s | %22s | %s',
-                    max_len, uuid, node.getType(), address, node.getState())
-
+            logging.info('\n'.join(formatNodeList(
+                map(Node.asTuple, self._node_set), ' * ')))
 
 @apply
 def NODE_TYPE_MAPPING():
