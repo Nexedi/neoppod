@@ -4,10 +4,8 @@ package neo
 
 import (
 	"context"
-	"encoding/binary"
 	"net"
 	"fmt"
-	"io"
 
 	//"../neo/proto"
 )

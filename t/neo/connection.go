@@ -60,11 +60,17 @@ type Conn struct {
 	rxq	  chan Pkt	// XXX chan &Pkt ?
 }
 
+// Buffer with packet data
+type PktBuf struct {
+	PktHead
+	Body	[]byte
+}
+
 
 // Send packet via connection
 // XXX vs cancel
 func (Conn *c) Send(pkt Pkt) error {
-	pkt.MsgId = ...	// TODO next msgid, or using same msgid as received
+	pkt.MsgId = 0	// TODO next msgid, or using same msgid as received
 	_, err := c.nodeLink.peerLink.Write(pkt.WholeBuffer())	// TODO -> sendPkt(pkt)
 	if err != nil {
 		// TODO data could be written partially and thus the message stream is now broken
@@ -76,7 +82,7 @@ func (Conn *c) Send(pkt Pkt) error {
 // Receive packet from connection
 // XXX vs cancel
 func (Conn *c) Recv() (PktBuf, error) {
-	pkt, ok <- rxq
+	pkt, ok := <-rxq
 	if !ok {
 		return PktBuf{}, io.EOF	// XXX check erroring & other errors?
 	}
@@ -108,7 +114,7 @@ func NewNodeLink(c net.Conn) *NodeLink {
 func (nl *NodeLink) NewConn() *Conn {
 	c := &Conn{nodeLink: nl, rxq: make(chan Pkt)}
 	// XXX locking
-	nl.connTab[...] = c	// XXX also check not a duplicate
+	nl.connTab[0] = c	// FIXME 0 -> msgid; XXX also check not a duplicate
 	return c
 }
 
@@ -135,7 +141,7 @@ func (nl *NodeLink) serveRecv() error {
 				continue
 			}
 
-			conn = nl.NewConn(...)	// XXX should also update connTab
+			conn = nl.NewConn()
 			// TODO avoid spawning goroutine for each new Ask request -
 			//	- by keeping pool of read inactive goroutine / conn pool
 			go nl.handleNewConn(conn)
@@ -152,13 +158,6 @@ func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
 	nl.handleNewConn = h	// NOTE can change handler at runtime XXX do we need this?
 }
 
-
-// information about (received ?) packet
-// XXX place?
-type PktBuf struct {
-	PktHead
-	Body	[]byte
-}
 
 // receive 1 packet from peer
 func (c *NodeLink) recvPkt() (pkt Pkt, err error) {
