@@ -42,6 +42,11 @@ from .. import ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL, \
 from neo.client.Storage import Storage
 from neo.storage.database import buildDatabaseManager
 
+try:
+    coverage = sys.modules['neo.scripts.runner'].coverage
+except (AttributeError, KeyError):
+    coverage = None
+
 command_dict = {
     NodeTypes.MASTER: 'neomaster',
     NodeTypes.STORAGE: 'neostorage',
@@ -111,6 +116,10 @@ class PortAllocator(object):
 
 
 class NEOProcess(object):
+
+    _coverage_fd = None
+    _coverage_prefix = os.path.join(getTempDirectory(), 'coverage-')
+    _coverage_index = 0
     pid = 0
 
     def __init__(self, command, uuid, arg_dict):
@@ -136,12 +145,40 @@ class NEOProcess(object):
                 args.append(str(param))
         if with_uuid:
             args += '--uuid', str(self.uuid)
+        global coverage
+        if coverage:
+            cls = self.__class__
+            cls._coverage_index += 1
+            coverage_data_path = cls._coverage_prefix + str(cls._coverage_index)
+        self._coverage_fd, w = os.pipe()
+        def save_coverage(*args):
+            if coverage:
+                coverage.stop()
+                coverage.save()
+            if args:
+                os.close(w)
+                os.kill(os.getpid(), signal.SIGSTOP)
         self.pid = os.fork()
-        if self.pid == 0:
+        if self.pid:
+            # Wait that the signal to kill the child is set up.
+            os.close(w)
+            os.read(self._coverage_fd, 1)
+            if coverage:
+                coverage.neotestrunner.append(coverage_data_path)
+        else:
             # Child
             try:
                 # release SQLite debug log
                 logging.setup()
+                signal.signal(signal.SIGTERM, lambda *args: sys.exit())
+                if coverage:
+                    coverage.stop()
+                    from coverage import Coverage
+                    coverage = Coverage(coverage_data_path)
+                    coverage.start()
+                signal.signal(signal.SIGUSR2, save_coverage)
+                os.close(self._coverage_fd)
+                os.write(w, '\0')
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
                 status = 0
@@ -158,6 +195,7 @@ class NEOProcess(object):
                 # prevent child from killing anything (cf __del__), or
                 # running any other cleanup code normally done by the parent
                 try:
+                    save_coverage()
                     os._exit(status)
                 except:
                     print >>sys.stderr, status
@@ -165,6 +203,15 @@ class NEOProcess(object):
                     os._exit(1)
         logging.info('pid %u: %s %s',
             self.pid, command, ' '.join(map(repr, args)))
+
+    def child_coverage(self):
+        r = self._coverage_fd
+        if r is not None:
+            try:
+                os.read(r, 1)
+            finally:
+                os.close(r)
+                del self._coverage_fd
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
@@ -186,12 +233,14 @@ class NEOProcess(object):
             # guaranteed way to handle them (other objects we would depend on
             # might already have been deleted).
             pass
+        assert self._coverage_fd is None, self._coverage_fd
 
-    def wait(self, options=0):
+    def wait(self):
         if self.pid == 0:
             raise AlreadyStopped
-        result = os.WEXITSTATUS(os.waitpid(self.pid, options)[1])
+        result = os.WEXITSTATUS(os.waitpid(self.pid, 0)[1])
         self.pid = 0
+        self.child_coverage()
         if result:
             raise NodeProcessError('%r %r exited with status %r' % (
                 self.command, self.arg_dict, result))
@@ -384,10 +433,12 @@ class NEOCluster(object):
         for process_list in self.process_dict.itervalues():
             for process in process_list:
                 try:
-                    process.kill(signal.SIGSTOP)
+                    process.kill(signal.SIGUSR2)
                     stopped_list.append(process)
                 except AlreadyStopped:
                     pass
+        for process in stopped_list:
+            process.child_coverage()
         error_list = []
         for process in stopped_list:
             try:

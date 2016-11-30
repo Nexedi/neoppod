@@ -93,51 +93,50 @@ class PrimaryNotificationsHandler(MTEventHandler):
         app.pt = PartitionTable(num_partitions, num_replicas)
 
     def answerLastTransaction(self, conn, ltid):
-            app = self.app
-            if app.last_tid != ltid:
-                # Either we're connecting or we already know the last tid
-                # via invalidations.
-                assert app.master_conn is None, app.master_conn
-                if 1:
-                    app._cache_lock_acquire()
-                    try:
-                        if app.last_tid < ltid:
-                            app._cache.clear_current()
-                            # In the past, we tried not to invalidate the
-                            # Connection caches entirely, using the list of
-                            # oids that are invalidated by clear_current.
-                            # This was wrong because these caches may have
-                            # entries that are not in the NEO cache anymore.
-                        else:
-                            # The DB was truncated. It happens so
-                            # rarely that we don't need to optimize.
-                            app._cache.clear()
-                        # Make sure a parallel load won't refill the cache
-                        # with garbage.
-                        app._loading_oid = app._loading_invalidated = None
-                    finally:
-                        app._cache_lock_release()
-                    db = app.getDB()
-                    db is None or db.invalidateCache()
-                app.last_tid = ltid
-
-    def answerTransactionFinished(self, conn, _, tid, callback, cache_dict):
-            app = self.app
-            app.last_tid = tid
-            # Update cache
-            cache = app._cache
+        app = self.app
+        if app.last_tid != ltid:
+            # Either we're connecting or we already know the last tid
+            # via invalidations.
+            assert app.master_conn is None, app.master_conn
             app._cache_lock_acquire()
             try:
-                for oid, data in cache_dict.iteritems():
-                    # Update ex-latest value in cache
-                    cache.invalidate(oid, tid)
-                    if data is not None:
-                        # Store in cache with no next_tid
-                        cache.store(oid, data, tid, None)
-                if callback is not None:
-                    callback(tid)
+                if app.last_tid < ltid:
+                    app._cache.clear_current()
+                    # In the past, we tried not to invalidate the
+                    # Connection caches entirely, using the list of
+                    # oids that are invalidated by clear_current.
+                    # This was wrong because these caches may have
+                    # entries that are not in the NEO cache anymore.
+                else:
+                    # The DB was truncated. It happens so
+                    # rarely that we don't need to optimize.
+                    app._cache.clear()
+                # Make sure a parallel load won't refill the cache
+                # with garbage.
+                app._loading_oid = app._loading_invalidated = None
             finally:
                 app._cache_lock_release()
+            db = app.getDB()
+            db is None or db.invalidateCache()
+            app.last_tid = ltid
+
+    def answerTransactionFinished(self, conn, _, tid, callback, cache_dict):
+        app = self.app
+        app.last_tid = tid
+        # Update cache
+        cache = app._cache
+        app._cache_lock_acquire()
+        try:
+            for oid, data in cache_dict.iteritems():
+                # Update ex-latest value in cache
+                cache.invalidate(oid, tid)
+                if data is not None:
+                    # Store in cache with no next_tid
+                    cache.store(oid, data, tid, None)
+            if callback is not None:
+                callback(tid)
+        finally:
+            app._cache_lock_release()
 
     def connectionClosed(self, conn):
         app = self.app

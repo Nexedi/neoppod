@@ -162,7 +162,10 @@ class TransactionManager(object):
             Store transaction information received from client node
         """
         logging.debug('Vote TXN %s', dump(ttid))
-        transaction = self._transaction_dict[ttid]
+        try:
+            transaction = self._transaction_dict[ttid]
+        except KeyError:
+            raise ProtocolError("unknown ttid %s" % dump(ttid))
         object_list = transaction.getObjectList()
         if txn_info:
             user, desc, ext, oid_list = txn_info
@@ -195,7 +198,10 @@ class TransactionManager(object):
         """
             Unlock transaction
         """
-        tid = self._transaction_dict[ttid].getTID()
+        try:
+            tid = self._transaction_dict[ttid].getTID()
+        except KeyError:
+            raise ProtocolError("unknown ttid %s" % dump(ttid))
         logging.debug('Unlock TXN %s (ttid=%s)', dump(tid), dump(ttid))
         dm = self._app.dm
         dm.unlockTransaction(tid, ttid)

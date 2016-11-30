@@ -647,6 +647,10 @@ class Application(ThreadedApplication):
             txn_context['voted'] = None
             # We must not go further if connection to master was lost since
             # tpc_begin, to lower the probability of failing during tpc_finish.
+            # IDEA: We can improve in 2 opposite directions:
+            #       - In the case of big transactions, it would be useful to
+            #         also detect failures earlier.
+            #       - If possible, recover from master failure.
             if 'error' in txn_context:
                 raise NEOStorageError(txn_context['error'])
             return result
