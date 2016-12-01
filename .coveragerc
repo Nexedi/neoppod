@@ -4,4 +4,8 @@ source = neo
 omit =
     neo/debug.py
     neo/scripts/runner.py
-    neo/tests/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
