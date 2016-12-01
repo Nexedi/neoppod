@@ -57,9 +57,6 @@ def _ask(self, conn, packet, handler=None, **kw):
         handler.dispatch(conn, conn.fakeReceived())
     return self.getHandlerData()
 
-def resolving_tryToResolveConflict(oid, conflict_serial, serial, data):
-    return data
-
 def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
     raise ConflictError
 
@@ -85,10 +82,8 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     # some helpers
 
-    def _begin(self, app, txn, tid=None):
+    def _begin(self, app, txn, tid):
         txn_context = app._txn_container.new(txn)
-        if tid is None:
-            tid = self.makeTID()
         txn_context['ttid'] = tid
         return txn_context
 
@@ -315,7 +310,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.store(oid, tid, 'DATA', None, txn)
         self.checkAskStoreObject(conn)
         txn_context['queue'].put((conn, packet, {}))
-        app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
+        app.waitStoreResponses(txn_context, None) # no conflict in this test
         self.assertEqual(txn_context['object_stored_counter_dict'][oid],
             {tid: {uuid}})
         self.assertEqual(txn_context['cache_dict'][oid], 'DATA')
@@ -541,13 +536,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         conn.ask = lambda p, queue=None, **kw: \
             type(p) is Packets.AskObjectUndoSerial and \
             queue.put((conn, undo_serial, kw))
-        def tryToResolveConflict(oid, conflict_serial, serial, data,
-                committedData=''):
-            raise Exception, 'Test called conflict resolution, but there ' \
-                'is no conflict in this test !'
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        app.undo(tid1, txn, tryToResolveConflict)
+        app.undo(tid1, txn, None) # no conflict resolution in this test
         # Checking what happened
         moid, mserial, mdata, mdata_serial = store_marker[0]
         self.assertEqual(moid, oid0)

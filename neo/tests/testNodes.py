@@ -14,13 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import shutil
 import unittest
 from mock import Mock
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
 from . import NeoUnitTestBase, getTempDirectory
 from time import time
-from os import chmod, mkdir, rmdir, unlink
+from os import chmod, mkdir, rmdir
 from os.path import join, exists
 
 class NodesTests(NeoUnitTestBase):
@@ -182,12 +183,6 @@ class NodeManagerTests(NeoUnitTestBase):
         self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
 
 class MasterDBTests(NeoUnitTestBase):
-    def _checkMasterDB(self, path, expected_master_list):
-        db = list(MasterDB(path))
-        db_set = set(db)
-        # Generic sanity check
-        self.assertEqual(len(db), len(db_set))
-        self.assertEqual(db_set, set(expected_master_list))
 
     def testInitialAccessRights(self):
         """
@@ -227,9 +222,7 @@ class MasterDBTests(NeoUnitTestBase):
             db2 = MasterDB(db_file)
             self.assertFalse(address in db2, [x for x in db2])
         finally:
-            if exists(db_file):
-                unlink(db_file)
-            rmdir(directory)
+            shutil.rmtree(directory)
 
     def testPersistence(self):
         temp_dir = getTempDirectory()
@@ -253,9 +246,7 @@ class MasterDBTests(NeoUnitTestBase):
             self.assertFalse(address in db3, [x for x in db3])
             self.assertTrue(address2 in db3, [x for x in db3])
         finally:
-            if exists(db_file):
-                unlink(db_file)
-            rmdir(directory)
+            shutil.rmtree(directory)
 
 if __name__ == '__main__':
     unittest.main()

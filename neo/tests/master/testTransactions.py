@@ -40,7 +40,7 @@ class testTransactionManager(NeoUnitTestBase):
         storage_2_uuid = self.getStorageUUID()
         oid_list = [self.makeOID(1), ]
 
-        tm = TransactionManager(lambda tid, txn: None)
+        tm = TransactionManager(None)
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
@@ -117,7 +117,7 @@ class testTransactionManager(NeoUnitTestBase):
         Note: this implementation might change later, for more parallelism.
         """
         client_uuid, client = self.makeNode(NodeTypes.CLIENT)
-        tm = TransactionManager(lambda tid, txn: None)
+        tm = TransactionManager(None)
         # With a requested TID, lock spans from begin to remove
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
@@ -134,7 +134,7 @@ class testTransactionManager(NeoUnitTestBase):
 
     def testClientDisconectsAfterBegin(self):
         client_uuid1, node1 = self.makeNode(NodeTypes.CLIENT)
-        tm = TransactionManager(lambda tid, txn: None)
+        tm = TransactionManager(None)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tm.begin(node1, tid1)

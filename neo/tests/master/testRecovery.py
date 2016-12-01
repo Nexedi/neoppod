@@ -56,6 +56,10 @@ class MasterRecoveryTests(NeoUnitTestBase):
 
     # Tests
     def test_10_answerPartitionTable(self):
+        # XXX: This test does much less that it seems, because all 'for' loops
+        #      iterate over empty lists. Currently, only testRecovery covers
+        #      some paths in NodeManager._createNode: apart from that, we could
+        #      delete it entirely.
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
         # not from target node, ignore
