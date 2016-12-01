@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
 from neo.lib.protocol import NodeStates, CellStates
 from neo.lib.pt import Cell, PartitionTable, PartitionTableException
 from . import NeoUnitTestBase

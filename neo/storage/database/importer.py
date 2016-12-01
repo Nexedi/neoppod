@@ -28,8 +28,7 @@ from .manager import DatabaseManager
 from neo.lib import logging, patch, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import implements
-from neo.lib.protocol import BackendNotImplemented, CellStates, \
-    MAX_TID, ZERO_HASH, ZERO_OID, ZERO_TID
+from neo.lib.protocol import BackendNotImplemented, MAX_TID
 
 patch.speedupFileStorageTxnLookup()
 

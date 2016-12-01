@@ -17,7 +17,6 @@
 
 import traceback
 import unittest
-import logging
 import time
 import sys
 import os
@@ -33,7 +32,6 @@ if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     coverage.neotestrunner = []
     coverage.start()
 
-import neo
 from neo.tests import getTempDirectory, __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
 

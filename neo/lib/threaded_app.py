@@ -21,7 +21,6 @@ from .connection import ConnectionClosed
 from .debug import register as registerLiveDebugger
 from .dispatcher import Dispatcher, ForgottenPacket
 from .locking import SimpleQueue
-from .protocol import Packets
 
 class app_set(weakref.WeakSet):
 

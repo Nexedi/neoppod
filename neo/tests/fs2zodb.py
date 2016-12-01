@@ -16,7 +16,6 @@
 
 import os, stat, time
 from persistent import Persistent
-from persistent.TimeStamp import TimeStamp
 from BTrees.OOBTree import OOBTree
 
 class Inode(OOBTree):

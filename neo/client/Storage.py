@@ -18,7 +18,6 @@ from ZODB import BaseStorage, ConflictResolution, POSException
 from zope.interface import implementer
 import ZODB.interfaces
 
-from functools import wraps
 from neo.lib import logging
 from .app import Application
 from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError

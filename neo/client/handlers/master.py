@@ -17,8 +17,8 @@
 from neo.lib import logging
 from neo.lib.handler import MTEventHandler
 from neo.lib.pt import MTPartitionTable as PartitionTable
-from neo.lib.protocol import NodeStates, Packets, ProtocolError
-from neo.lib.util import dump, add64
+from neo.lib.protocol import NodeStates, ProtocolError
+from neo.lib.util import dump
 from . import AnswerBaseHandler
 from ..exception import NEOStorageError
 
