@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import random
+import sys
 import time
 import transaction
 from ZODB.POSException import ReadOnlyError, POSKeyError
@@ -31,7 +32,7 @@ from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
-from .. import Patch
+from .. import expectedFailure, Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
 
 
@@ -305,6 +306,33 @@ class ReplicationTests(NEOThreadedTest):
             self.tic()
         self.tic()
         self.assertEqual(1, self.checkBackup(backup))
+
+    def testSafeTweak(self):
+        """
+        Check that tweak always tries to keep a minimum of (replicas + 1)
+        readable cells, otherwise we have less/no redundancy as long as
+        replication has not finished.
+        """
+        def changePartitionTable(orig, *args):
+            orig(*args)
+            sys.exit()
+        cluster = NEOCluster(partitions=3, replicas=1, storage_count=3)
+        s0, s1, s2 = cluster.storage_list
+        try:
+            cluster.start([s0, s1])
+            s2.start()
+            self.tic()
+            cluster.enableStorageList([s2])
+            # 2 UP_TO_DATE cells should become FEEDING,
+            # and be dropped only when the replication is done,
+            # so that 1 storage can still die without data loss.
+            with Patch(s0.dm, changePartitionTable=changePartitionTable):
+                cluster.neoctl.tweakPartitionTable()
+                self.tic()
+            expectedFailure(self.assertEqual)(cluster.neoctl.getClusterState(),
+                             ClusterStates.RUNNING)
+        finally:
+            cluster.stop()
 
     def testReplicationAbortedBySource(self):
         """
