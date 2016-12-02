@@ -18,7 +18,7 @@ from collections import deque
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
 from itertools import islice, izip_longest
-import os, time, unittest
+import os, unittest
 import neo, transaction, ZODB
 from neo.lib import logging
 from neo.lib.util import u64

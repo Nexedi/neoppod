@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import inspect
-from functools import wraps
 
 def check_signature(reference, function):
     # args, varargs, varkw, defaults

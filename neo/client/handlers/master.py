@@ -17,8 +17,8 @@
 from neo.lib import logging
 from neo.lib.handler import MTEventHandler
 from neo.lib.pt import MTPartitionTable as PartitionTable
-from neo.lib.protocol import NodeStates, Packets, ProtocolError
-from neo.lib.util import dump, add64
+from neo.lib.protocol import NodeStates, ProtocolError
+from neo.lib.util import dump
 from . import AnswerBaseHandler
 from ..exception import NEOStorageError
 
@@ -94,13 +94,14 @@ class PrimaryNotificationsHandler(MTEventHandler):
 
     def answerLastTransaction(self, conn, ltid):
         app = self.app
-        if app.last_tid != ltid:
+        app_last_tid = app.__dict__.get('last_tid', '')
+        if app_last_tid != ltid:
             # Either we're connecting or we already know the last tid
             # via invalidations.
             assert app.master_conn is None, app.master_conn
             app._cache_lock_acquire()
             try:
-                if app.last_tid < ltid:
+                if app_last_tid < ltid:
                     app._cache.clear_current()
                     # In the past, we tried not to invalidate the
                     # Connection caches entirely, using the list of

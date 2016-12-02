@@ -16,7 +16,6 @@
 
 from collections import defaultdict
 from neo.lib import logging
-from neo.lib.util import dump
 from neo.lib.protocol import ClusterStates, Packets, NodeStates
 from .handlers import BaseServiceHandler
 

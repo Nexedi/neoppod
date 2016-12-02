@@ -22,8 +22,7 @@ from .handler import AdminEventHandler, MasterEventHandler, \
     MasterRequestEventHandler
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.pt import PartitionTable
-from neo.lib.protocol import ClusterStates, Errors, \
-    NodeTypes, NodeStates, Packets
+from neo.lib.protocol import ClusterStates, Errors, NodeTypes, Packets
 from neo.lib.debug import register as registerLiveDebugger
 
 class Application(BaseApplication):

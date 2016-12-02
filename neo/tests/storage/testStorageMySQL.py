@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import MySQLdb
+from MySQLdb import OperationalError
 from mock import Mock
 from neo.lib.exception import DatabaseFailure
 from neo.lib.util import p64
@@ -59,7 +59,6 @@ class StorageMySQLdbTests(StorageDBTests):
     def test_query2(self):
         # test the OperationalError exception
         # fake object, raise exception during the first call
-        from MySQLdb import OperationalError
         from MySQLdb.constants.CR import SERVER_GONE_ERROR
         class FakeConn(object):
             def query(*args):
@@ -78,7 +77,6 @@ class StorageMySQLdbTests(StorageDBTests):
 
     def test_query3(self):
         # OperationalError > raise DatabaseFailure exception
-        from MySQLdb import OperationalError
         class FakeConn(object):
             def close(self):
                 pass

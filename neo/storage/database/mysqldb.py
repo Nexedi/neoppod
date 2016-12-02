@@ -29,7 +29,7 @@ import struct
 import time
 
 from . import LOG_QUERIES
-from .manager import CreationUndone, DatabaseManager, splitOIDField
+from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import implements

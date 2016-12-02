@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import inspect, random, signal, sys
+import inspect, random
 from logging import getLogger, INFO, DEBUG
 from optparse import OptionParser
 from neo.lib import logging

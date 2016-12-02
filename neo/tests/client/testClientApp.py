@@ -19,7 +19,7 @@ import unittest
 from cPickle import dumps
 from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
-from .. import NeoUnitTestBase, buildUrlFromString, ADDRESS_TYPE
+from .. import NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError

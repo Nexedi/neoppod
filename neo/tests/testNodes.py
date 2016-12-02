@@ -16,9 +16,8 @@
 
 import unittest
 from mock import Mock
-from neo.lib import protocol
 from neo.lib.protocol import NodeTypes, NodeStates
-from neo.lib.node import Node, NodeManager, MasterDB
+from neo.lib.node import Node, MasterDB
 from . import NeoUnitTestBase, getTempDirectory
 from time import time
 from os import chmod, mkdir, rmdir, unlink

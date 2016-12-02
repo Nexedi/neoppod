@@ -26,7 +26,6 @@ from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
-from .. import expectedFailure
 from . import NEOCluster, NEOFunctionalTest
 
 TREE_SIZE = 6

@@ -23,8 +23,8 @@ from neo.lib.bootstrap import BootstrapManager
 from neo.lib.exception import PrimaryFailure
 from neo.lib.handler import EventHandler
 from neo.lib.node import NodeManager
-from neo.lib.protocol import CellStates, ClusterStates, \
-    NodeStates, NodeTypes, Packets, uuid_str, INVALID_TID, ZERO_TID
+from neo.lib.protocol import ClusterStates, \
+    NodeTypes, Packets, uuid_str, ZERO_TID
 from neo.lib.util import add64, dump
 from .app import StateChangedException
 from .pt import PartitionTable

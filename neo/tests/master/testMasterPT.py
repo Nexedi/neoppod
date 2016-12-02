@@ -16,7 +16,6 @@
 
 import unittest
 from collections import defaultdict
-from mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeStates, CellStates
 from neo.lib.pt import PartitionTableException

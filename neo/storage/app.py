@@ -21,7 +21,6 @@ from neo.lib import logging
 from neo.lib.app import BaseApplication
 from neo.lib.protocol import uuid_str, \
     CellStates, ClusterStates, NodeTypes, Packets
-from neo.lib.node import NodeManager
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import StoppedOperation, PrimaryFailure
 from neo.lib.pt import PartitionTable

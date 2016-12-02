@@ -19,7 +19,6 @@ from zlib import compress, decompress
 from random import shuffle
 import heapq
 import time
-import weakref
 from functools import partial
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
@@ -32,20 +31,17 @@ from persistent.TimeStamp import TimeStamp
 from neo.lib import logging
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
-from neo.lib.event import EventManager
 from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock, SimpleQueue
 from neo.lib.connection import MTClientConnection, ConnectionClosed
-from neo.lib.node import NodeManager
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
 from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
-from neo.lib.dispatcher import Dispatcher, ForgottenPacket
+from neo.lib.dispatcher import ForgottenPacket
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
 from .pool import ConnectionPool
 from neo.lib.util import p64, u64, parseMasterList
-from neo.lib.debug import register as registerLiveDebugger
 
 CHECKED_SERIAL = object()
 
@@ -138,11 +134,11 @@ class Application(ThreadedApplication):
 
     def __getattr__(self, attr):
         if attr in ('last_tid', 'pt'):
-            if self._connecting_to_master_node.locked():
-                if attr == 'last_tid':
-                    return
-            else:
-                self._getMasterConnection()
+            self._getMasterConnection()
+            # XXX: There's still a risk that we get disconnected from the
+            #      master at this precise moment and for 'pt', we'd raise
+            #      AttributeError. Should we catch it and loop until it
+            #      succeeds?
         return self.__getattribute__(attr)
 
     def log(self):
