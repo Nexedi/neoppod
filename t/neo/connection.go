@@ -15,6 +15,8 @@
 package neo
 
 import (
+	"encoding/binary"
+	"io"
 	"net"
 )
 
@@ -44,7 +46,7 @@ type NodeLink struct {		// XXX naming (-> PeerLink ?)
 
 	// TODO locking
 	connTab  map[uint32]*Conn	// msgid -> connection associated with msgid
-	handleNewConn func(conn *Conn)	// handler for new connections	XXX -> ConnHandler (a-la Handler in net/http ?)
+	handleNewConn func(conn *Conn)	// handler for new connections	XXX -> ConnHandler (a-la Handler in net/http) ?
 
 	// TODO peerLink .LocalAddr() vs .RemoteAddr() -> msgid even/odd ? (XXX vs NAT ?)
 }
@@ -57,7 +59,7 @@ type NodeLink struct {		// XXX naming (-> PeerLink ?)
 // TODO goroutine guarantee (looks to be safe, but if not check whether we need it)
 type Conn struct {
 	nodeLink  *NodeLink
-	rxq	  chan Pkt	// XXX chan &Pkt ?
+	rxq	  chan *PktBuf
 }
 
 // Buffer with packet data
@@ -67,52 +69,69 @@ type PktBuf struct {
 }
 
 
-// Send packet via connection
-// XXX vs cancel
-func (Conn *c) Send(pkt Pkt) error {
-	pkt.MsgId = 0	// TODO next msgid, or using same msgid as received
-	_, err := c.nodeLink.peerLink.Write(pkt.WholeBuffer())	// TODO -> sendPkt(pkt)
+// Make a new NodeLink from already established net.Conn
+func NewNodeLink(c net.Conn) *NodeLink {
+	nl := NodeLink{
+		peerLink: c,
+		connTab:  map[uint32]*Conn{},
+	}
+	// XXX run serveRecv() in a goroutine here?
+	return &nl
+}
+
+// send raw packet to peer
+func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
+	n, err := nl.peerLink.Write(pkt.WholeBuffer())	// XXX WholeBuffer
 	if err != nil {
+		// XXX do we need to retry if err is temporary?
 		// TODO data could be written partially and thus the message stream is now broken
 		// -> close connection / whole NodeLink ?
 	}
 	return err
 }
 
-// Receive packet from connection
-// XXX vs cancel
-func (Conn *c) Recv() (PktBuf, error) {
-	pkt, ok := <-rxq
-	if !ok {
-		return PktBuf{}, io.EOF	// XXX check erroring & other errors?
+// receive raw packet from peer
+func (nl *NodeLink) recvPkt() (pkt *PktBuf, err error) {
+	// TODO organize rx buffers management (freelist etc)
+
+	// first read to read pkt header and hopefully up to page of data in 1 syscall
+	rxbuf := make([]byte, 4096)
+	n, err := io.ReadAtLeast(nl.peerLink, rxbuf, PktHeadLen)
+	if err != nil {
+		panic(err)	// XXX err
 	}
+
+	pkt.Id   = binary.BigEndian.Uint32(rxbuf[0:])	// XXX -> PktHeader.Decode() ?
+	pkt.Code = binary.BigEndian.Uint16(rxbuf[4:])
+	pkt.Len  = binary.BigEndian.Uint32(rxbuf[6:])
+
+	if pkt.Len < PktHeadLen {
+		panic("TODO pkt.Len < PktHeadLen")	// XXX err	(length is a whole packet len with header)
+	}
+	if pkt.Len > MAX_PACKET_SIZE {
+		panic("TODO message too big")	// XXX err
+	}
+
+	if pkt.Len > uint32(len(rxbuf)) {
+		// grow rxbuf
+		rxbuf2 := make([]byte, pkt.Len)
+		copy(rxbuf2, rxbuf[:n])
+		rxbuf = rxbuf2
+	}
+
+	// read rest of pkt data, if we need to
+	_, err = io.ReadFull(nl.peerLink, rxbuf[n:pkt.Len])
+	if err != nil {
+		panic(err)	// XXX err
+	}
+
 	return pkt, nil
 }
 
-// Close connection
-// Any blocked Send() or Recv() will be unblocked and return error
-// XXX vs cancel
-func (Conn *c) Close() error {	// XXX do we need error here?
-	// TODO adjust c.nodeLink.connTab + more ?
-	// TODO interrupt Send/Recv
-	panic("TODO Conn.Close")
-}
-
-
-
-// Make a new NodeLink from already established net.Conn
-func NewNodeLink(c net.Conn) *NodeLink {
-	nl := NodeLink{
-		peerLink: c,
-		connTab:  {},	//make(map[uint32]*Conn),
-	}
-	// XXX run serveRecv() in a goroutine here?
-	return &nl
-}
 
 // Make a connection on top of node-node link
 func (nl *NodeLink) NewConn() *Conn {
-	c := &Conn{nodeLink: nl, rxq: make(chan Pkt)}
+	c := &Conn{nodeLink: nl, rxq: make(chan *PktBuf)}
 	// XXX locking
 	nl.connTab[0] = c	// FIXME 0 -> msgid; XXX also check not a duplicate
 	return c
@@ -159,43 +178,35 @@ func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
 }
 
 
-// receive 1 packet from peer
-func (c *NodeLink) recvPkt() (pkt Pkt, err error) {
-	// TODO organize rx buffers management (freelist etc)
 
-	// first read to read pkt header and hopefully up to page of data in 1 syscall
-	rxbuf := make([]byte, 4096)
-	n, err := io.ReadAtLeast(c.peerLink, rxbuf, PktHeadLen)
-	if err != nil {
-		panic(err)	// XXX err
+
+// Send packet via connection
+// XXX vs cancel
+func (c *Conn) Send(pkt *PktBuf) error {
+	pkt.Id = 0	// TODO next msgid, or using same msgid as received
+	err := c.nodeLink.sendPkt(pkt)
+	return err	// XXX do we need to adjust err ?
+}
+
+// Receive packet from connection
+// XXX vs cancel
+func (c *Conn) Recv() (*PktBuf, error) {
+	pkt, ok := <-c.rxq
+	if !ok {
+		return nil, io.EOF	// XXX check erroring & other errors?
 	}
-
-	pkt.Id     = binary.BigEndian.Uint32(rxbuf[0:])	// XXX -> PktHeader.Decode() ?
-	pkt.Code   = binary.BigEndian.Uint16(rxbuf[4:])
-	pkt.Length = binary.BigEndian.Uint32(rxbuf[6:])
-
-	if pkt.Length < PktHeadLen {
-		panic("TODO pkt.Length < PktHeadLen")	// XXX err	(length is a whole packet len with header)
-	}
-	if pkt.Length > MAX_PACKET_SIZE {
-		panic("TODO message too big")	// XXX err
-	}
-
-	if pkt.Length > uint32(len(rxbuf)) {
-		// grow rxbuf
-		rxbuf2 := make([]byte, pkt.Length)
-		copy(rxbuf2, rxbuf[:n])
-		rxbuf = rxbuf2
-	}
-
-	// read rest of pkt data, if we need to
-	_, err = io.ReadFull(c.peerLink, rxbuf[n:pkt.Length])
-	if err != nil {
-		panic(err)	// XXX err
-	}
-
 	return pkt, nil
 }
+
+// Close connection
+// Any blocked Send() or Recv() will be unblocked and return error
+// XXX vs cancel
+func (c *Conn) Close() error {	// XXX do we need error here?
+	// TODO adjust c.nodeLink.connTab + more ?
+	// TODO interrupt Send/Recv
+	panic("TODO Conn.Close")
+}
+
 
 
 

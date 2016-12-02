@@ -39,7 +39,7 @@ func (stor *StorageApplication) ServeConn(ctx context.Context, conn net.Conn) {
 	n, err := conn.Read(rxbuf.Bytes())
 	*/
 
-	recvPkt()
+	//recvPkt()
 }
 
 

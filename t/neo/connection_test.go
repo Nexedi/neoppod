@@ -44,7 +44,7 @@ func TestNodeLink(t *testing.T) {
 	go func() {
 		err := nl1.sendPkt(...)
 		if err != nil {
-			t.Fatal(...)
+			t.Fatal(...)	// XXX bad in goroutine
 		}
 	}()
 	pkt, err := nl2.recvPkt(...)
@@ -54,6 +54,7 @@ func TestNodeLink(t *testing.T) {
 	// TODO check pkt == what was sent
 	// TODO also check ^^^ in opposite direction
 
+/*
 	// test 1 channels on top of nodelink
 	c1 := nl1.NewConn()
 	nl2.HandleNewConn(func(c *Conn) {
@@ -67,4 +68,5 @@ func TestNodeLink(t *testing.T) {
 	// TODO check pkt2 is pkt1 + small modification
 
 	// test 2 channels with replies comming in reversed time order
+	*/
 }
