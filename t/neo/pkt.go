@@ -99,7 +99,7 @@ type Checksum [20]byte
 type PTid uint64	// XXX move to common place ?
 
 // TODO None encodes as '\xff' * 8	(XXX use nan for None ?)
-type Float float64
+type Float64 float64
 
 // NOTE original NodeList = []NodeInfo
 type NodeInfo struct {
@@ -107,19 +107,19 @@ type NodeInfo struct {
 	Address
 	UUID
 	NodeState
-	IdTimestamp Float
+	IdTimestamp Float64
 }
 
-// XXX -> CellInfo      (and use []CellInfo) ?
-type CellList []struct {
+//type CellList []struct {
+type CellInfo struct {
 	UUID      UUID          // XXX maybe simply 'UUID' ?
 	CellState CellState     // ----///----
 }
 
-// XXX -> RowInfo       (and use []RowInfo) ?
-type RowList []struct {
+//type RowList []struct {
+type RowInfo struct {
 	Offset   uint32  // PNumber
-	CellList CellList
+	CellList []CellInfo
 }
 
 
@@ -240,7 +240,7 @@ type PartitionTable struct {
 type AnswerPartitionTable struct {
 	PktHead
         PTid
-        RowList RowList
+        RowList []RowInfo
 }
 
 
@@ -248,7 +248,7 @@ type AnswerPartitionTable struct {
 type NotifyPartitionTable struct {
 	PktHead
         PTid
-        RowList RowList
+        RowList []RowInfo
 }
 
 // Notify a subset of a partition table. This is used to notify changes.
@@ -556,7 +556,7 @@ type PartitionList struct {
 type AnswerPartitionList struct {
 	PktHead
 	PTid
-        RowList RowList
+        RowList []RowInfo
 }
 
 // Ask information about nodes

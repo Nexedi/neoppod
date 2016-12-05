@@ -31,17 +31,17 @@ import (
 // created and data is sent over it, on peer's side another corresponding
 // new connection will be created - accepting first packet "request" - and all
 // further communication send/receive exchange will be happenning in between
-// those 2 connections. TODO conn close
+// those 2 connections.
 //
 // For a node to be able to accept new incoming connection it has to register
 // corresponding handler with .HandleNewConn() . Without such handler
 // registered the node will be able to only initiate new connections, not
 // accept new ones from its peer.
 //
-// TODO NodeLink close
+// A NodeLink has to be explicitly closed, once it is no longer needed.
 //
 // It is safe to use NodeLink from multiple goroutines simultaneously.
-type NodeLink struct {		// XXX naming (-> PeerLink ?)
+type NodeLink struct {
 	peerLink net.Conn		// raw conn to peer
 
 	// TODO locking
@@ -56,7 +56,7 @@ type NodeLink struct {		// XXX naming (-> PeerLink ?)
 // Data can be sent and received over it.
 // Once connection is no longer needed it has to be closed.
 //
-// TODO goroutine guarantee (looks to be safe, but if not check whether we need it)
+// It is safe to use Conn from multiple goroutines simultaneously.
 type Conn struct {
 	nodeLink  *NodeLink
 	rxq	  chan *PktBuf
@@ -64,8 +64,14 @@ type Conn struct {
 
 // Buffer with packet data
 type PktBuf struct {
-	PktHead
-	Body	[]byte
+	//PktHead
+	Data	[]byte	// whole packet data including all headers
+}
+
+// Get pointer to packet header
+func (pkt *PktBuf) Head() *PktHead {
+	// XXX check len(Data) < PktHead ?
+	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
 }
 
 
@@ -177,6 +183,13 @@ func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
 	nl.handleNewConn = h	// NOTE can change handler at runtime XXX do we need this?
 }
 
+// Close node-node link.
+// IO on connections established over it is automatically interrupted with an error.
+// XXX ^^^ recheck
+func (nl *NodeLink) Close() error {
+	// TODO
+	return nil
+}
 
 
 
