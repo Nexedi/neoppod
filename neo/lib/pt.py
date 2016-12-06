@@ -243,10 +243,10 @@ class PartitionTable(object):
         """Help debugging partition table management.
 
         Output sample:
-          pt: node 0: 67ae354b4ed240a0594d042cf5c01b28, R
-          pt: node 1: a68a01e8bf93e287bd505201c1405bc2, R
-          pt: node 2: ad7ffe8ceef4468a0c776f3035c7a543, R
-          pt: node 3: df57d7298678996705cd0092d84580f4, R
+          pt: node 0: S1, R
+          pt: node 1: S2, R
+          pt: node 2: S3, R
+          pt: node 3: S4, R
           pt: 00: .UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.
           pt: 11: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
 
