@@ -24,6 +24,7 @@ from collections import defaultdict
 from functools import wraps
 from neo.lib import logging
 from neo.client.exception import NEOStorageError
+from neo.master.handlers.backup import BackupHandler
 from neo.storage.checker import CHECK_COUNT
 from neo.storage.replicator import Replicator
 from neo.lib.connector import SocketConnector
@@ -306,6 +307,31 @@ class ReplicationTests(NEOThreadedTest):
             self.tic()
         self.tic()
         self.assertEqual(1, self.checkBackup(backup))
+
+    def testBackupEarlyInvalidation(self):
+        """
+        The backup master must ignore notification before being fully
+        initialized.
+        """
+        upstream = NEOCluster()
+        try:
+            upstream.start()
+            backup = NEOCluster(upstream=upstream)
+            try:
+                backup.start()
+                with ConnectionFilter() as f:
+                    f.add(lambda conn, packet:
+                        isinstance(packet, Packets.AskPartitionTable) and
+                        isinstance(conn.getHandler(), BackupHandler))
+                    backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+                    upstream.importZODB()(1)
+                    self.tic()
+                self.tic()
+                self.assertTrue(backup.master.isAlive())
+            finally:
+                backup.stop()
+        finally:
+            upstream.stop()
 
     def testSafeTweak(self):
         """

@@ -113,6 +113,7 @@ class BackupApplication(object):
                     del bootstrap, node
                     if num_partitions != pt.getPartitions():
                         raise RuntimeError("inconsistent number of partitions")
+                    self.ignore_invalidations = True
                     self.pt = PartitionTable(num_partitions, num_replicas)
                     conn.setHandler(BackupHandler(self))
                     conn.ask(Packets.AskPartitionTable())
