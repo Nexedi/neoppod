@@ -10,7 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// NEO | Work with bigendian data
+// NEO | Bigendian/native conversion
 
 package neo
 
@@ -22,6 +22,8 @@ import (
 type be16 uint16
 type be32 uint32
 type be64 uint64
+
+// XXX naming ntoh{s,l,q} ?
 
 func ntoh16(v be16) uint16 {
 	b := (*[2]byte)(unsafe.Pointer(&v))

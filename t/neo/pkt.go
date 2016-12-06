@@ -127,9 +127,9 @@ type RowInfo struct {
 // XXX link request <-> answer ?
 // TODO ensure len(encoded packet header) == 10
 type PktHead struct {
-	Id   uint32 // XXX -> MsgId and same vvv ?
-	Code uint16 // XXX we don't need this as field - this is already encoded in type
-	Len  uint32 // XXX we don't need this as field - only on the wire
+	MsgId   be32
+	MsgCode be16
+	Len	be32	// whole packet length (including header)
 }
 
 // TODO generate .Encode() / .Decode()
