@@ -19,110 +19,132 @@ import (
 	"unsafe"
 )
 
-// XXX temp
-type xbe16 uint16
-type xbe32 uint32
-type xbe64 uint64
-
 // uintX has alignment requirement =X; [X]byte has alignment requirement 1.
 // That's why we can use [X]byte and this way keep a struct packed, even if Go
 // does not support packed structs in general.
-type be16 [2]byte
-type be32 [4]byte
-type be64 [8]byte
-
-// XXX this way compiler does not preclears return
-// (on [2]byte it preclears)
-// https://github.com/golang/go/issues/15925
-type zbe16 struct { b0, b1 byte }
+//
+// XXX SSA backend does not handle arrays well - it handles structs better -
+// e.g. there are unnecessary clears in array case:
+//	https://github.com/golang/go/issues/15925
+//
+// so in the end we use hand-crafted array-like byte-structs.
+type be16 struct {
+	_0 byte
+	_1 byte
+}
+type be32 struct {
+	_0 byte
+	_1 byte
+	_2 byte
+	_3 byte
+}
+type be64 struct {
+	_0 byte
+	_1 byte
+	_2 byte
+	_3 byte
+	_4 byte
+	_5 byte
+	_6 byte
+	_7 byte
+}
 
 // XXX naming ntoh{s,l,q} ?
 
+// good
 func ntoh16(v be16) uint16 {
-	//b := (*[2]byte)(unsafe.Pointer(&v))
-	return binary.BigEndian.Uint16(v[:])
-}
-
-func ntoh16_z(v zbe16) uint16 {
 	b := (*[2]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint16(b[:])
+	//return  uint16(v._1) | uint16(v._0)<<8	XXX gives bad code
 }
 
-func hton16_z(v uint16) zbe16 {
-	return zbe16{byte(v >> 8), byte(v)}
+// bad
+func ntoh16_1(v be16) uint16 {
+	//return  uint16(v._1) | uint16(v._0)<<8
+	return  uint16(v._0)<<8 | uint16(v._1)
 }
 
-
-/* NOTE ^^^ is as efficient
-func ntoh16_2(v be16) uint16 {
-	//b := (*[2]byte)(unsafe.Pointer(&v))
-	return uint16(v[1]) | uint16(v[0])<<8
-}
-*/
-
-func hton16_1(v uint16) (r be16) {
-	r[0] = byte(v >> 8)
-	r[1] = byte(v)
-	return r
-	//return [2]byte{byte(v >> 8), byte(v)}
+// good
+func hton16(v uint16) be16 {
+	return be16{byte(v>>8), byte(v)}
 }
 
-/* FIXME compiler emits instruction to pre-clear r, probably because of &r */
-func hton16_2(v uint16) (r be16) {
-	//b := (*[2]byte)(unsafe.Pointer(&r))
-	binary.BigEndian.PutUint16(r[:], v)
-	return r
-}
-
-func hton16_3x(v uint16) xbe16 {
-	return *(*xbe16)(unsafe.Pointer(&v))
-	//b := (*be16)(unsafe.Pointer(&v))
-	//return *b
-}
-
-func hton16_3(v uint16) be16 {
-	return be16{4,5}
-	//return *(*be16)(unsafe.Pointer(&v))
-	//b := (*be16)(unsafe.Pointer(&v))
-	//return *b
-}
-
-// NOTE here we are leveraging BigEndian.Uint16^2 = identity
-func hton16(v uint16) xbe16 {
-	// FIXME just doing
-	//	return be16(ntoh16(be16(v)))
-	// emits more prologue/epilogue
-	b := (*[2]byte)(unsafe.Pointer(&v))
-	return xbe16( binary.BigEndian.Uint16(b[:]) )
-}
-
-
-/*
+// good
 func ntoh32(v be32) uint32 {
 	b := (*[4]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint32(b[:])
 }
 
-func hton32(v uint32) be32 {
-	b := (*[4]byte)(unsafe.Pointer(&v))
-	return be32( binary.BigEndian.Uint32(b[:]) )
+// baaaadd
+func ntoh32_1(v be32) uint32 {
+	return  uint32(v._3) | uint32(v._2)<<8 | uint32(v._1)<<16 | uint32(v._0)<<24
 }
 
+// good
+func hton32(v uint32) be32 {
+	return be32{byte(v>>24), byte(v>>16), byte(v>>8), byte(v)}
+}
+
+// good
+func hton32_1(v uint32) (r be32) {
+	r._0 = byte(v>>24)
+	r._1 = byte(v>>16)
+	r._2 = byte(v>>8)
+	r._3 = byte(v)
+	return r
+}
+
+// bad (partly (!?) preclears r)
+func hton32_2(v uint32) (r be32) {
+	b := (*[4]byte)(unsafe.Pointer(&r))
+	binary.BigEndian.PutUint32(b[:], v)
+	return r
+}
+
+// good
 func ntoh64(v be64) uint64 {
 	b := (*[8]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint64(b[:])
 }
 
+// baad (+local temp; r = temp)
 func hton64(v uint64) be64 {
-	b := (*[8]byte)(unsafe.Pointer(&v))
-	return be64( binary.BigEndian.Uint64(b[:]) )
+	return be64{byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32),
+		    byte(v>>24), byte(v>>16), byte(v>>8),  byte(v)}
 }
-*/
+
+// bad (pre-clears r)
+func hton64_1(v uint64) (r be64) {
+	r._0 = byte(v>>56)
+	r._1 = byte(v>>48)
+	r._2 = byte(v>>40)
+	r._3 = byte(v>>32)
+	r._4 = byte(v>>24)
+	r._5 = byte(v>>16)
+	r._6 = byte(v>>8)
+	r._7 = byte(v)
+	return r
+}
+
+// bad (pre-clears r)
+func hton64_2(v uint64) (r be64) {
+	b := (*[8]byte)(unsafe.Pointer(&r))
+	binary.BigEndian.PutUint64(b[:], v)
+	return r
+}
+
+// bad (pre-clears r)
+func hton64_3(v uint64) (r be64) {
+	b := (*[8]byte)(unsafe.Pointer(&v))
+	*(*uint64)(unsafe.Pointer(&r)) = binary.BigEndian.Uint64(b[:])
+	return
+}
+
 
 type A struct {
 	z be16
 }
 
 func zzz(a *A, v uint16) {
-	a.z = hton16_1(v)
+	a.z = hton16(v)
 }
