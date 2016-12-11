@@ -35,9 +35,14 @@ type be64 struct { _0, _1, _2, _3, _4, _5, _6, _7 byte }
 
 // XXX naming ntoh{s,l,q} ?
 
-func ntoh16(v be16) uint16 {
-	return _ntoh16_0(v)	// XXX becomes bad - why?
-}
+func ntoh16(v be16) uint16 { return _ntoh16_0(v) }	// FIXME becomes bad - why??? !!!
+func hton16(v uint16) be16 { return _hton16_0(v) }	// good
+func ntoh32(v be32) uint32 { return _ntoh32_0(v) }	// FIXME becomes bad - why??? !!!
+func hton32(v uint32) be32 { return _hton32_0(v) }	// good
+func ntoh64(v be64) uint64 { return _ntoh64_0(v) }	// bad: on-stack temp
+//func ntoh64(v be64) uint64 { return _ntoh64_1(v) }	// bad: on-stack temp
+//func hton64(v uint64) be64 { return _hton64_0(v) }	// bad: on-stack temp
+func hton64(v uint64) be64 { return _hton64_1(v) }	// bad: pre-clears r (here twice)
 
 // ----------------------------------------
 
@@ -47,6 +52,7 @@ func _ntoh16_0(v be16) uint16 {
 	return binary.BigEndian.Uint16(b[:])
 }
 
+
 // bad (unnecessary MOVBLZX AL, AX + shifts not combined into ROLW $8)
 // XXX why?
 func _ntoh16_1(v be16) uint16 {
@@ -54,7 +60,7 @@ func _ntoh16_1(v be16) uint16 {
 }
 
 // good
-func hton16(v uint16) be16 {
+func _hton16_0(v uint16) be16 {
 	return be16{byte(v>>8), byte(v)}
 }
 
@@ -75,7 +81,7 @@ func _hton16_2(v uint16) (r be16) {
 // ----------------------------------------
 
 // good
-func ntoh32(v be32) uint32 {
+func _ntoh32_0(v be32) uint32 {
 	b := (*[4]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint32(b[:])
 }
@@ -87,7 +93,7 @@ func _ntoh32_1(v be32) uint32 {
 }
 
 // good
-func hton32(v uint32) be32 {
+func _hton32_0(v uint32) be32 {
 	return be32{byte(v>>24), byte(v>>16), byte(v>>8), byte(v)}
 }
 
@@ -111,7 +117,7 @@ func hton32_2(v uint32) (r be32) {
 // ----------------------------------------
 
 // good
-func ntoh64(v be64) uint64 {
+func _ntoh64_0(v be64) uint64 {
 	b := (*[8]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint64(b[:])
 }
@@ -123,13 +129,13 @@ func _ntoh64_1(v be64) uint64 {
 }
 
 // baad (+local temp; r = temp)
-func hton64(v uint64) be64 {
+func _hton64_0(v uint64) be64 {
 	return be64{byte(v>>56), byte(v>>48), byte(v>>40), byte(v>>32),
 		    byte(v>>24), byte(v>>16), byte(v>>8),  byte(v)}
 }
 
 // bad (pre-clears r)
-func hton64_1(v uint64) (r be64) {
+func _hton64_1(v uint64) (r be64) {
 	r._0 = byte(v>>56)
 	r._1 = byte(v>>48)
 	r._2 = byte(v>>40)
@@ -153,13 +159,4 @@ func hton64_3(v uint64) (r be64) {
 	b := (*[8]byte)(unsafe.Pointer(&v))
 	*(*uint64)(unsafe.Pointer(&r)) = binary.BigEndian.Uint64(b[:])
 	return
-}
-
-
-type A struct {
-	z be16
-}
-
-func zzz(a *A, v uint16) {
-	a.z = hton16(v)
 }
