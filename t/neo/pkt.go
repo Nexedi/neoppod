@@ -169,7 +169,7 @@ type RequestIdentification struct {
 	UUID            UUID
 	Address
 	Name            string
-	IdTimestamp	Float
+	IdTimestamp	Float64
 }
 
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
