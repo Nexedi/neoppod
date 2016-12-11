@@ -19,19 +19,48 @@ import (
 	"testing"
 )
 
-func xsend(c *Conn, pkt PktBuf) {
+func xsend(c *Conn, pkt *PktBuf) {
 	err := c.Send(pkt)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err)	// XXX make sure this happens in main goroutine
 	}
 }
 
-func xrecv(c *Conn) PktBuf {
+func xrecv(c *Conn) *PktBuf {
 	pkt, err := c.Recv()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err)	// XXX make sure this happens in main goroutine
 	}
 	return pkt
+}
+
+func xsendPkt(nl *NodeLink, pkt *PktBuf) {
+	err := nl.sendPkt(pkt)
+	if err != nil {
+		panic("TODO")
+	}
+	return err
+}
+
+func xrecvPkt(nl *NodeLink) *PktBuf {
+	pkt, err := nl.recvPkt()
+	if err != nil {
+		panic("TODO")
+	}
+	return pkt
+}
+
+func xspawn(funcv ...func()) {
+	for f := range funcv {
+		go func() {
+			defer func() {
+				e := recover()
+				if e == nil {
+					return
+				}
+			}
+		}
+	}
 }
 
 func TestNodeLink(t *testing.T) {
@@ -40,19 +69,41 @@ func TestNodeLink(t *testing.T) {
 	nl1 := NewNodeLink(node1)
 	nl2 := NewNodeLink(node2)
 
+	// TODO setup context
+	// TODO on context.cancel -> nl{1,2} -> Close
+	// TODO every func: run with exception catcher (including t.Fatal)
+	//	if caught:
+	//		* ctx.cancel
+	//		* wait all for finish
+	//		* rethrough in main
+
 	// first check raw exchange works
 	go func() {
-		err := nl1.sendPkt(...)
+		pkt = ...
+		err := nl1.sendPkt(pkt)
 		if err != nil {
 			t.Fatal(...)	// XXX bad in goroutine
 		}
+		pkt, err = nl1.recvPkt()
+		if err != nil {
+			t.Fatal(...)
+		}
+		// TODO check pkt == what was sent back
 	}()
-	pkt, err := nl2.recvPkt(...)
-	if err != nil {
-		t.Fatal(...)
+	go func() {
+		pkt, err := nl2.recvPkt()
+		if err != nil {
+			t.Fatal(...)
+		}
+		// TODO check pkt == what was sent
+
+		// TODO change pkt a bit
+		// send pkt back
+		err = nl2.sendPkt(pkt)
+		if err != nil {
+			t.Fatal(...)	// XXX bad in goroutine
+		}
 	}
-	// TODO check pkt == what was sent
-	// TODO also check ^^^ in opposite direction
 
 /*
 	// test 1 channels on top of nodelink
