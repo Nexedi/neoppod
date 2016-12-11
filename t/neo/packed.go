@@ -55,13 +55,12 @@ type be64 struct {
 func ntoh16(v be16) uint16 {
 	b := (*[2]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint16(b[:])
-	//return  uint16(v._1) | uint16(v._0)<<8	XXX gives bad code
 }
 
-// bad
-func ntoh16_1(v be16) uint16 {
-	//return  uint16(v._1) | uint16(v._0)<<8
-	return  uint16(v._0)<<8 | uint16(v._1)
+// bad (unnecessary MOVBLZX AL, AX + shifts not combined into ROLW $8)
+// XXX why?
+func _ntoh16_1(v be16) uint16 {
+	return  uint16(v._1) | uint16(v._0)<<8
 }
 
 // good
@@ -70,13 +69,30 @@ func hton16(v uint16) be16 {
 }
 
 // good
+func _hton16_1(v uint16) (r be16) {
+	r._0 = byte(v>>8)
+	r._1 = byte(v)
+	return r
+}
+
+// bad (partly (!?) preclears r)
+func _hton16_2(v uint16) (r be16) {
+	b := (*[2]byte)(unsafe.Pointer(&r))
+	binary.BigEndian.PutUint16(b[:], v)
+	return r
+}
+
+// ----------------------------------------
+
+// good
 func ntoh32(v be32) uint32 {
 	b := (*[4]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint32(b[:])
 }
 
-// baaaadd
-func ntoh32_1(v be32) uint32 {
+// baaaadd (unnecessary MOVBLZX AL, AX + shifts not combined into BSWAPL)
+// XXX why?
+func _ntoh32_1(v be32) uint32 {
 	return  uint32(v._3) | uint32(v._2)<<8 | uint32(v._1)<<16 | uint32(v._0)<<24
 }
 
@@ -85,8 +101,9 @@ func hton32(v uint32) be32 {
 	return be32{byte(v>>24), byte(v>>16), byte(v>>8), byte(v)}
 }
 
+
 // good
-func hton32_1(v uint32) (r be32) {
+func _hton32_1(v uint32) (r be32) {
 	r._0 = byte(v>>24)
 	r._1 = byte(v>>16)
 	r._2 = byte(v>>8)
@@ -100,6 +117,8 @@ func hton32_2(v uint32) (r be32) {
 	binary.BigEndian.PutUint32(b[:], v)
 	return r
 }
+
+// ----------------------------------------
 
 // good
 func ntoh64(v be64) uint64 {
