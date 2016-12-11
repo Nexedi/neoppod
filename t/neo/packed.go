@@ -28,31 +28,21 @@ import (
 //	https://github.com/golang/go/issues/15925
 //
 // so in the end we use hand-crafted array-like byte-structs.
-type be16 struct {
-	_0 byte
-	_1 byte
-}
-type be32 struct {
-	_0 byte
-	_1 byte
-	_2 byte
-	_3 byte
-}
-type be64 struct {
-	_0 byte
-	_1 byte
-	_2 byte
-	_3 byte
-	_4 byte
-	_5 byte
-	_6 byte
-	_7 byte
-}
+type be16 struct { _0, _1 byte }
+type be32 struct { _0, _1, _2, _3 byte }
+type be64 struct { _0, _1, _2, _3, _4, _5, _6, _7 byte }
+
 
 // XXX naming ntoh{s,l,q} ?
 
-// good
 func ntoh16(v be16) uint16 {
+	return _ntoh16_0(v)	// XXX becomes bad - why?
+}
+
+// ----------------------------------------
+
+// good
+func _ntoh16_0(v be16) uint16 {
 	b := (*[2]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint16(b[:])
 }
@@ -124,6 +114,12 @@ func hton32_2(v uint32) (r be32) {
 func ntoh64(v be64) uint64 {
 	b := (*[8]byte)(unsafe.Pointer(&v))
 	return binary.BigEndian.Uint64(b[:])
+}
+
+// good (XXX why vs _ntoh32_1 ?)
+func _ntoh64_1(v be64) uint64 {
+	return  uint64(v._7) | uint64(v._6)<<8 | uint64(v._5)<<16 | uint64(v._4)<<24 |
+		uint64(v._3)<<32 | uint64(v._2)<<40 | uint64(v._1)<<48 | uint64(v._0)<<56
 }
 
 // baad (+local temp; r = temp)
