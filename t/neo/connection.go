@@ -105,7 +105,7 @@ func (nl *NodeLink) recvPkt() (pkt *PktBuf, err error) {
 	rxbuf := make([]byte, 4096)
 	n, err := io.ReadAtLeast(nl.peerLink, rxbuf, PktHeadLen)
 	if err != nil {
-		panic(err)	// XXX err
+		return nil, err	// XXX err adjust ?
 	}
 
 	pkth := pkt.Header()
@@ -187,10 +187,9 @@ func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
 
 // Close node-node link.
 // IO on connections established over it is automatically interrupted with an error.
-// XXX ^^^ recheck
 func (nl *NodeLink) Close() error {
-	// TODO
-	return nil
+	// TODO adjust connTab & friends
+	return nl.peerLink.Close()
 }
 
 

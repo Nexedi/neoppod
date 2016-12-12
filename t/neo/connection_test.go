@@ -15,21 +15,27 @@
 package neo
 
 import (
+	//"fmt"
+
+	"io"
 	"net"
 	"testing"
+	"time"
 )
 
 func xsend(c *Conn, pkt *PktBuf) {
 	err := c.Send(pkt)
 	if err != nil {
-		t.Fatal(err)	// XXX make sure this happens in main goroutine
+		//t.Fatal(err)	// XXX make sure this happens in main goroutine
+		panic("TODO")
 	}
 }
 
 func xrecv(c *Conn) *PktBuf {
 	pkt, err := c.Recv()
 	if err != nil {
-		t.Fatal(err)	// XXX make sure this happens in main goroutine
+		//t.Fatal(err)	// XXX make sure this happens in main goroutine
+		panic("TODO")
 	}
 	return pkt
 }
@@ -39,7 +45,6 @@ func xsendPkt(nl *NodeLink, pkt *PktBuf) {
 	if err != nil {
 		panic("TODO")
 	}
-	return err
 }
 
 func xrecvPkt(nl *NodeLink) *PktBuf {
@@ -50,6 +55,7 @@ func xrecvPkt(nl *NodeLink) *PktBuf {
 	return pkt
 }
 
+/*
 func xspawn(funcv ...func()) {
 	for f := range funcv {
 		go func() {
@@ -62,13 +68,59 @@ func xspawn(funcv ...func()) {
 		}
 	}
 }
+*/
+
+// run f in a goroutine, see its return error, if != nil -> t.Fatal in main goroutine
+func xgo(t *testing.T, f func() error) {
+	var err error
+	done := make(chan struct{})
+	go func() {
+		err = f()
+		close(done)
+	}()
+	<-done
+	if err != nil {
+		t.Fatal(err)	// TODO adjust lineno (report not here)
+	}
+}
+
+// delay a bit
+// needed e.g. to test Close interaction with waiting read or write
+// (we cannot easily sync and make sure e.g. read is started and became asleep)
+func tdelay() {
+	time.Sleep(1*time.Millisecond)
+}
+
 
 func TestNodeLink(t *testing.T) {
-	// TODO verify NodeLink via net.Pipe
+	// verify NodeLink via net.Pipe
 	node1, node2 := net.Pipe()
 	nl1 := NewNodeLink(node1)
 	nl2 := NewNodeLink(node2)
 
+	// Close vs recv
+	xgo(t, func() error {
+		tdelay()
+		return nl1.Close()
+	})
+	pkt, err := nl1.recvPkt()
+	if !(pkt == nil && err == io.ErrClosedPipe) {
+		t.Fatalf("NodeLink.recvPkt() after close: pkt = %v  err = %v", pkt, err)
+	}
+
+	// Close vs send
+	xgo(t, func() error {
+		tdelay()
+		return nl2.Close()
+	})
+	pkt = &PktBuf{[]byte("hello world")}
+	err = nl2.sendPkt(pkt)
+	if err != io.ErrClosedPipe {
+		t.Fatalf("NodeLink.sendPkt() after close: err = %v", err)
+	}
+
+
+/*
 	// TODO setup context
 	// TODO on context.cancel -> nl{1,2} -> Close
 	// TODO every func: run with exception catcher (including t.Fatal)
@@ -104,6 +156,7 @@ func TestNodeLink(t *testing.T) {
 			t.Fatal(...)	// XXX bad in goroutine
 		}
 	}
+*/
 
 /*
 	// test 1 channels on top of nodelink
