@@ -102,6 +102,17 @@ func xwait(t *testing.T, w interface { Wait() error }) {
 	}
 }
 
+// Prepare PktBuf with content
+func mkpkt(msgid uint32, msgcode uint16, payload []byte) *PktBuf {
+	pkt := &PktBuf{make([]byte, PktHeadLen + len(payload))}
+	pkth := pkt.Header()
+	pkth.MsgId = hton32(msgid)
+	pkth.MsgCode = hton16(msgcode)
+	pkth.Len = hton32(PktHeadLen + 4)
+	copy(pkt.Payload(), payload)
+	return pkt
+}
+
 // delay a bit
 // needed e.g. to test Close interaction with waiting read or write
 // (we cannot easily sync and make sure e.g. read is started and became asleep)
@@ -152,23 +163,12 @@ func TestNodeLink(t *testing.T) {
 	//		* wait all for finish
 	//		* rethrough in main
 	nl1, nl2 = nodeLinkPipe()
-	g, ctx := errgroup.WithContext(context.Background())
-	// XXX move vvv also to g ?
-	go func() {
-		<-ctx.Done()
-		//time.Sleep(100*time.Millisecond)
-		t.Log("ctx was Done - closing nodelinks")
-		nl1.Close()	// XXX err
-		nl2.Close()	// XXX err
-	}()
 
 	// check raw exchange works
+	g, ctx := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		// send ping; wait for pong
-		pkt := &PktBuf{make([]byte, PktHeadLen + 4)}
-		pkth := pkt.Header()
-		pkth.Len = hton32(PktHeadLen + 4)
-		copy(pkt.Payload(), "ping")
+		pkt := mkpkt(1, 2, []byte("ping"))
 		err := nl1.sendPkt(pkt)
 		if err != nil {
 			t.Errorf("nl1.sendPkt: %v", err)
@@ -179,7 +179,8 @@ func TestNodeLink(t *testing.T) {
 			t.Errorf("nl1.recvPkt: %v", err)
 			return err
 		}
-		if !bytes.Equal(pkt.Data, []byte("pong")) {
+		// TODO vvv also check msgid, msgcode
+		if !bytes.Equal(pkt.Payload(), []byte("pong")) {
 			// XXX vvv -> util ?
 			e := fmt.Errorf("nl1 received: %v  ; want \"pong\"", pkt.Data)
 			t.Error(e)
@@ -194,13 +195,14 @@ func TestNodeLink(t *testing.T) {
 			t.Errorf("nl2.recvPkt: %v", err)
 			return err
 		}
-		if !bytes.Equal(pkt.Data, []byte("ping")) {
+		// TODO vvv also check msgid, msgcode
+		if !bytes.Equal(pkt.Payload(), []byte("ping")) {
 			// XXX vvv -> util ?
 			e := fmt.Errorf("nl2 received: %v  ; want \"ping\"", pkt.Data)
 			t.Error(e)
 			return e
 		}
-		pkt = &PktBuf{[]byte("pong")}
+		pkt = mkpkt(3, 4, []byte("pong"))
 		err = nl2.sendPkt(pkt)
 		if err != nil {
 			t.Errorf("nl2.sendPkt: %v", err)
@@ -209,14 +211,46 @@ func TestNodeLink(t *testing.T) {
 		return nil
 	})
 
+	g2 := &errgroup.Group{}
+	g2.Go(func() error {
+		<-ctx.Done()
+		ev := xerror.Errorv{}
+		ev.addif( nl1.Close() )
+		ev.addif( nl2.Close() )
+		return ev.Reduce()	// nil if len==0; [0] if len==1; [...] otherwise
+
+		/*
+		for c := range []io.Closer{nl1, nl2} {
+			err := c.Close()
+			if err != nil {
+				ev = append(ev, err)
+			}
+		}
+		*/
+		/*
+		err := nl1.Close()
+		err2 := nl2.Close()
+		if err == nil {
+			err = err2
+		}
+		*/
+	})
+
+	xwait(g)
+	xwait(g2)
+
+	// close nodelinks either when checks are done, or upon first error
+	closed := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		nl1.Close()	// XXX err
+		nl2.Close()	// XXX err
+		close(closed)
+	}()
+
 	xwait(t, g)
-	t.Fatal("bbb")
-	/*
-	err = g.Wait()
-	if err != nil {
-		t.Fatal("raw exchange verification failed")
-	}
-	*/
+	<-closed
+
 
 /*
 	// test 1 channels on top of nodelink
