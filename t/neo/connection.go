@@ -15,6 +15,8 @@
 package neo
 
 import (
+	//"fmt"
+
 	//"encoding/binary"
 	"io"
 	"net"
@@ -66,13 +68,18 @@ type Conn struct {
 // Buffer with packet data
 type PktBuf struct {
 	//PktHead
-	Data	[]byte	// whole packet data including all headers
+	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
 
 // Get pointer to packet header
 func (pkt *PktBuf) Header() *PktHead {
 	// XXX check len(Data) < PktHead ?
 	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
+}
+
+// Get packet payload
+func (pkt *PktBuf) Payload() []byte {
+	return pkt.Data[PktHeadLen:]
 }
 
 
@@ -98,12 +105,13 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 }
 
 // receive raw packet from peer
-func (nl *NodeLink) recvPkt() (pkt *PktBuf, err error) {
+func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// TODO organize rx buffers management (freelist etc)
+	// TODO cleanup lots of ntoh32(...)
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
-	rxbuf := make([]byte, 4096)
-	n, err := io.ReadAtLeast(nl.peerLink, rxbuf, PktHeadLen)
+	pkt := &PktBuf{make([]byte, 4096)}
+	n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
 	if err != nil {
 		return nil, err	// XXX err adjust ?
 	}
@@ -120,17 +128,21 @@ func (nl *NodeLink) recvPkt() (pkt *PktBuf, err error) {
 		panic("TODO message too big")	// XXX err
 	}
 
-	if ntoh32(pkth.Len) > uint32(len(rxbuf)) {
+	if ntoh32(pkth.Len) > uint32(cap(pkt.Data)) {
 		// grow rxbuf
 		rxbuf2 := make([]byte, ntoh32(pkth.Len))
-		copy(rxbuf2, rxbuf[:n])
-		rxbuf = rxbuf2
+		copy(rxbuf2, pkt.Data[:n])
+		pkt.Data = rxbuf2
 	}
+	// cut .Data len to length of packet
+	pkt.Data = pkt.Data[:ntoh32(pkth.Len)]
 
 	// read rest of pkt data, if we need to
-	_, err = io.ReadFull(nl.peerLink, rxbuf[n:ntoh32(pkth.Len)])
-	if err != nil {
-		panic(err)	// XXX err
+	if n < len(pkt.Data) {
+		_, err = io.ReadFull(nl.peerLink, pkt.Data[n:])
+		if err != nil {
+			panic(err)	// XXX err
+		}
 	}
 
 	return pkt, nil

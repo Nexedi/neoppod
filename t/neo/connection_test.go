@@ -17,10 +17,15 @@ package neo
 import (
 	//"fmt"
 
+	"bytes"
+	"context"
 	"io"
+	"fmt"
 	"net"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func xsend(c *Conn, pkt *PktBuf) {
@@ -70,17 +75,30 @@ func xspawn(funcv ...func()) {
 }
 */
 
-// run f in a goroutine, see its return error, if != nil -> t.Fatal in main goroutine
-func xgo(t *testing.T, f func() error) {
-	var err error
-	done := make(chan struct{})
-	go func() {
-		err = f()
-		close(done)
-	}()
-	<-done
+
+// // run f in a goroutine; check its return error; if != nil -> t.Fatal in main goroutine
+// func xgo(t *testing.T, f func() error) {
+// 	var err error
+// 	done := make(chan struct{})
+// 	go func() {
+// 		err = f()
+// 		close(done)
+// 		if err != nil {
+// 			panic(err)	// XXX temp - see vvv
+// 		}
+// 	}()
+// 	/* FIXME below just blocks main goroutine waiting for f() to complete
+// 	<-done
+// 	if err != nil {
+// 		t.Fatal(err)	// TODO adjust lineno (report calling location, not here)
+// 	}
+// 	*/
+// }
+
+func xwait(t *testing.T, w interface { Wait() error }) {
+	err := w.Wait()
 	if err != nil {
-		t.Fatal(err)	// TODO adjust lineno (report not here)
+		t.Fatal(err)	// TODO include caller location
 	}
 }
 
@@ -91,15 +109,21 @@ func tdelay() {
 	time.Sleep(1*time.Millisecond)
 }
 
+// create NodeLinks connected via net.Pipe
+func nodeLinkPipe() (nl1, nl2 *NodeLink) {
+	node1, node2 := net.Pipe()
+	nl1 = NewNodeLink(node1)
+	nl2 = NewNodeLink(node2)
+	return nl1, nl2
+}
+
 
 func TestNodeLink(t *testing.T) {
-	// verify NodeLink via net.Pipe
-	node1, node2 := net.Pipe()
-	nl1 := NewNodeLink(node1)
-	nl2 := NewNodeLink(node2)
+	nl1, nl2 := nodeLinkPipe()
 
-	// Close vs recv
-	xgo(t, func() error {
+	// Close vs recvPkt
+	g := &errgroup.Group{}
+	g.Go(func() error {
 		tdelay()
 		return nl1.Close()
 	})
@@ -107,56 +131,92 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && err == io.ErrClosedPipe) {
 		t.Fatalf("NodeLink.recvPkt() after close: pkt = %v  err = %v", pkt, err)
 	}
+	xwait(t, g)
 
-	// Close vs send
-	xgo(t, func() error {
+	// Close vs sendPkt
+	g = &errgroup.Group{}
+	g.Go(func() error {
 		tdelay()
 		return nl2.Close()
 	})
-	pkt = &PktBuf{[]byte("hello world")}
+	pkt = &PktBuf{[]byte("data")}
 	err = nl2.sendPkt(pkt)
 	if err != io.ErrClosedPipe {
 		t.Fatalf("NodeLink.sendPkt() after close: err = %v", err)
 	}
+	xwait(t, g)
 
-
-/*
-	// TODO setup context
-	// TODO on context.cancel -> nl{1,2} -> Close
-	// TODO every func: run with exception catcher (including t.Fatal)
+	// TODO (?) every func: run with exception catcher (including t.Fatal)
 	//	if caught:
 	//		* ctx.cancel
 	//		* wait all for finish
 	//		* rethrough in main
-
-	// first check raw exchange works
+	nl1, nl2 = nodeLinkPipe()
+	g, ctx := errgroup.WithContext(context.Background())
+	// XXX move vvv also to g ?
 	go func() {
-		pkt = ...
+		<-ctx.Done()
+		//time.Sleep(100*time.Millisecond)
+		t.Log("ctx was Done - closing nodelinks")
+		nl1.Close()	// XXX err
+		nl2.Close()	// XXX err
+	}()
+
+	// check raw exchange works
+	g.Go(func() error {
+		// send ping; wait for pong
+		pkt := &PktBuf{make([]byte, PktHeadLen + 4)}
+		pkth := pkt.Header()
+		pkth.Len = hton32(PktHeadLen + 4)
+		copy(pkt.Payload(), "ping")
 		err := nl1.sendPkt(pkt)
 		if err != nil {
-			t.Fatal(...)	// XXX bad in goroutine
+			t.Errorf("nl1.sendPkt: %v", err)
+			return err
 		}
 		pkt, err = nl1.recvPkt()
 		if err != nil {
-			t.Fatal(...)
+			t.Errorf("nl1.recvPkt: %v", err)
+			return err
 		}
-		// TODO check pkt == what was sent back
-	}()
-	go func() {
+		if !bytes.Equal(pkt.Data, []byte("pong")) {
+			// XXX vvv -> util ?
+			e := fmt.Errorf("nl1 received: %v  ; want \"pong\"", pkt.Data)
+			t.Error(e)
+			return e
+		}
+		return nil
+	})
+	g.Go(func() error {
+		// wait for ping; send pong
 		pkt, err := nl2.recvPkt()
 		if err != nil {
-			t.Fatal(...)
+			t.Errorf("nl2.recvPkt: %v", err)
+			return err
 		}
-		// TODO check pkt == what was sent
-
-		// TODO change pkt a bit
-		// send pkt back
+		if !bytes.Equal(pkt.Data, []byte("ping")) {
+			// XXX vvv -> util ?
+			e := fmt.Errorf("nl2 received: %v  ; want \"ping\"", pkt.Data)
+			t.Error(e)
+			return e
+		}
+		pkt = &PktBuf{[]byte("pong")}
 		err = nl2.sendPkt(pkt)
 		if err != nil {
-			t.Fatal(...)	// XXX bad in goroutine
+			t.Errorf("nl2.sendPkt: %v", err)
+			return err
 		}
+		return nil
+	})
+
+	xwait(t, g)
+	t.Fatal("bbb")
+	/*
+	err = g.Wait()
+	if err != nil {
+		t.Fatal("raw exchange verification failed")
 	}
-*/
+	*/
 
 /*
 	// test 1 channels on top of nodelink
