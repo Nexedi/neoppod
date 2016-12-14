@@ -28,22 +28,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"lab.nexedi.com/kirr/go123/exc"
-	"lab.nexedi.com/kirr/go123/myname"
+	//"lab.nexedi.com/kirr/go123/myname"
 	"lab.nexedi.com/kirr/go123/xerr"
 )
-
-// run function which raises exception, and return exception as error, if any
-// XXX -> exc.Runx ?
-func runx(xf func()) (err error) {
-	//here := my.FuncName()
-	here := myname.Func()
-	defer exc.Catch(func(e *exc.Error) {
-		err = exc.Addcallingcontext(here, e)
-	})
-
-	xf()
-	return
-}
 
 // XXX move me out of here ?
 type workGroup struct {
@@ -53,7 +40,7 @@ type workGroup struct {
 // like errgroup.Go but translates exceptions to errors
 func (wg *workGroup) Gox(xf func ()) {
 	wg.Go(func() error {
-		return runx(xf)
+		return exc.Runx(xf)
 	})
 }
 
@@ -178,14 +165,9 @@ func TestNodeLink(t *testing.T) {
 	}
 	xwait(wg)
 
-	// TODO (?) every func: run with exception catcher (including t.Fatal)
-	//	if caught:
-	//		* ctx.cancel
-	//		* wait all for finish
-	//		* rethrough in main
+	// check raw exchange works
 	nl1, nl2 = nodeLinkPipe()
 
-	// check raw exchange works
 	wg, ctx := WorkGroupCtx(context.Background())
 	wg.Gox(func() {
 		// send ping; wait for pong
@@ -214,9 +196,9 @@ func TestNodeLink(t *testing.T) {
 	xwait(wgclose)
 
 
-
-/*
 	// test 1 channels on top of nodelink
+	nl1, nl2 = nodeLinkPipe()
+
 	c1 := nl1.NewConn()
 	nl2.HandleNewConn(func(c *Conn) {
 		pkt := xrecv(c)	// XXX t.Fatal() must be called from main goroutine -> context.Cancel ?
@@ -229,5 +211,4 @@ func TestNodeLink(t *testing.T) {
 	// TODO check pkt2 is pkt1 + small modification
 
 	// test 2 channels with replies comming in reversed time order
-	*/
 }
