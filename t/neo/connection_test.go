@@ -95,14 +95,9 @@ func xrecvPkt(nl *NodeLink) *PktBuf {
 	return pkt
 }
 
-func xwait(t *testing.T, w interface { Wait() error }) {
+func xwait(w interface { Wait() error }) {
 	err := w.Wait()
 	exc.Raiseif(err)
-/*
-	if err != nil {		// XXX -> exc.Raise ?
-		t.Fatal(err)	// TODO include caller location
-	}
-*/
 }
 
 // Prepare PktBuf with content
@@ -168,7 +163,7 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && err == io.ErrClosedPipe) {
 		t.Fatalf("NodeLink.recvPkt() after close: pkt = %v  err = %v", pkt, err)
 	}
-	xwait(t, wg)
+	xwait(wg)
 
 	// Close vs sendPkt
 	wg = WorkGroup()
@@ -181,7 +176,7 @@ func TestNodeLink(t *testing.T) {
 	if err != io.ErrClosedPipe {
 		t.Fatalf("NodeLink.sendPkt() after close: err = %v", err)
 	}
-	xwait(t, wg)
+	xwait(wg)
 
 	// TODO (?) every func: run with exception catcher (including t.Fatal)
 	//	if caught:
@@ -198,23 +193,6 @@ func TestNodeLink(t *testing.T) {
 		xsendPkt(nl1, pkt)
 		pkt = xrecvPkt(nl1)
 		xverifyPkt(pkt, 3, 4, []byte("pong"))
-		/*
-		err := nl1.sendPkt(pkt)
-		if err != nil {
-			t.Errorf("nl1.sendPkt: %v", err)
-			return err
-		}
-		pkt, err = nl1.recvPkt()
-		if err != nil {
-			t.Errorf("nl1.recvPkt: %v", err)
-			return err
-		}
-		err = verifyPkt("nl1 received", t, pkt, 3, 4, []byte("pong"))
-		if err != nil {
-			return err
-		}
-		return nil
-		*/
 	})
 	wg.Gox(func() {
 		// wait for ping; send pong
@@ -222,24 +200,6 @@ func TestNodeLink(t *testing.T) {
 		xverifyPkt(pkt, 1, 2, []byte("ping"))
 		pkt = mkpkt(3, 4, []byte("pong"))
 		xsendPkt(nl2, pkt)
-		/*
-		pkt, err := nl2.recvPkt()
-		if err != nil {
-			t.Errorf("nl2.recvPkt: %v", err)
-			return err
-		}
-		err = verifyPkt("nl2 received", t, pkt, 1, 2, []byte("ping"))
-		if err != nil {
-			return err
-		}
-		pkt = mkpkt(3, 4, []byte("pong"))
-		err = nl2.sendPkt(pkt)
-		if err != nil {
-			t.Errorf("nl2.sendPkt: %v", err)
-			return err
-		}
-		return nil
-		*/
 	})
 
 	// close nodelinks either when checks are done, or upon first error
@@ -250,8 +210,8 @@ func TestNodeLink(t *testing.T) {
 		xclose(nl2)
 	})
 
-	xwait(t, wg)
-	xwait(t, wgclose)
+	xwait(wg)
+	xwait(wgclose)
 
 
 
