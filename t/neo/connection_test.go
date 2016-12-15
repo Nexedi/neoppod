@@ -196,10 +196,39 @@ func TestNodeLink(t *testing.T) {
 	xwait(wgclose)
 
 
-	// test 1 channels on top of nodelink
+	// test channels on top of nodelink
 	nl1, nl2 = nodeLinkPipe()
 
-	c1 := nl1.NewConn()
+	// Close vs Recv
+	c := nl1.NewConn()
+	wg = WorkGroup()
+	wg.Gox(func() {
+		tdelay()
+		xclose(c)
+	})
+	pkt, err = c.Recv()
+	if !(pkt == nil && err == io.ErrClosedPipe) {
+		t.Fatalf("Conn.Recv() after close: pkt = %v  err = %v", pkt, err)
+	}
+	xwait(wg)
+
+	// Close vs Send
+	c = nl1.NewConn()
+	wg = WorkGroup()
+	wg.Gox(func() {
+		tdelay()
+		xclose(c)
+	})
+	pkt = &PktBuf{[]byte("data")}
+	err = c.Send(pkt)
+	if err != io.ErrClosedPipe {
+		t.Fatalf("Conn.Send() after close: err = %v", err)
+	}
+	xwait(wg)
+
+
+/*
+
 	nl2.HandleNewConn(func(c *Conn) {
 		pkt := xrecv(c)	// XXX t.Fatal() must be called from main goroutine -> context.Cancel ?
 		// change pkt a bit (TODO) and send it back
@@ -211,4 +240,5 @@ func TestNodeLink(t *testing.T) {
 	// TODO check pkt2 is pkt1 + small modification
 
 	// test 2 channels with replies comming in reversed time order
+*/
 }

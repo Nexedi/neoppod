@@ -15,9 +15,6 @@
 package neo
 
 import (
-	//"fmt"
-
-	//"encoding/binary"
 	"io"
 	"net"
 	"unsafe"
@@ -67,13 +64,12 @@ type Conn struct {
 
 // Buffer with packet data
 type PktBuf struct {
-	//PktHead
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
 
 // Get pointer to packet header
 func (pkt *PktBuf) Header() *PktHead {
-	// XXX check len(Data) < PktHead ?
+	// XXX check len(Data) < PktHead ? -> no, Data has to be allocated with cap >= PktHeadLen
 	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
 }
 
@@ -108,6 +104,8 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// TODO organize rx buffers management (freelist etc)
 	// TODO cleanup lots of ntoh32(...)
+	// XXX do we need to retry if err is temporary?
+	// TODO on error framing is broken -> close connection / whole NodeLink ?
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
@@ -117,10 +115,8 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	}
 
 	pkth := pkt.Header()
-	//pkt.Id   = binary.BigEndian.Uint32(rxbuf[0:])	// XXX -> PktHeader.Decode() ?
-	//pkt.Code = binary.BigEndian.Uint16(rxbuf[4:])
-	//pkt.Len  = binary.BigEndian.Uint32(rxbuf[6:])
 
+	// XXX -> better PktHeader.Decode() ?
 	if ntoh32(pkth.Len) < PktHeadLen {
 		panic("TODO pkt.Len < PktHeadLen")	// XXX err	(length is a whole packet len with header)
 	}
@@ -141,12 +137,20 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	if n < len(pkt.Data) {
 		_, err = io.ReadFull(nl.peerLink, pkt.Data[n:])
 		if err != nil {
-			panic(err)	// XXX err
+			return nil, err	// XXX err adjust ?
 		}
 	}
 
 	return pkt, nil
 }
+
+// Close node-node link.
+// IO on connections established over it is automatically interrupted with an error.
+func (nl *NodeLink) Close() error {
+	// TODO adjust connTab & friends
+	return nl.peerLink.Close()
+}
+
 
 
 // Make a connection on top of node-node link
@@ -197,14 +201,6 @@ func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
 	nl.handleNewConn = h	// NOTE can change handler at runtime XXX do we need this?
 }
 
-// Close node-node link.
-// IO on connections established over it is automatically interrupted with an error.
-func (nl *NodeLink) Close() error {
-	// TODO adjust connTab & friends
-	return nl.peerLink.Close()
-}
-
-
 
 // Send packet via connection
 // XXX vs cancel
@@ -215,8 +211,8 @@ func (c *Conn) Send(pkt *PktBuf) error {
 }
 
 // Receive packet from connection
-// XXX vs cancel
 func (c *Conn) Recv() (*PktBuf, error) {
+	// TODO also select on closech
 	pkt, ok := <-c.rxq
 	if !ok {
 		return nil, io.EOF	// XXX check erroring & other errors?
