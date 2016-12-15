@@ -16,17 +16,14 @@
 
 import threading
 import unittest
-from cPickle import dumps
 from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from .. import NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
-from neo.lib.protocol import NodeTypes, Packets, Errors, \
-    INVALID_PARTITION, UUID_NAMESPACES
+from neo.lib.protocol import NodeTypes, Packets, Errors, UUID_NAMESPACES
 from neo.lib.util import makeChecksum
-import time
 
 class Dispatcher(object):
 
@@ -60,9 +57,6 @@ def _ask(self, conn, packet, handler=None, **kw):
         handler.dispatch(conn, conn.fakeReceived())
     return self.getHandlerData()
 
-def resolving_tryToResolveConflict(oid, conflict_serial, serial, data):
-    return data
-
 def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
     raise ConflictError
 
@@ -88,10 +82,8 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     # some helpers
 
-    def _begin(self, app, txn, tid=None):
+    def _begin(self, app, txn, tid):
         txn_context = app._txn_container.new(txn)
-        if tid is None:
-            tid = self.makeTID()
         txn_context['ttid'] = tid
         return txn_context
 
@@ -159,28 +151,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         #self.assertTrue(isinstance(calls[0].getParam(2), Queue))
 
     testCache = testCache
-
-    def test_registerDB(self):
-        app = self.getApp()
-        dummy_db = []
-        app.registerDB(dummy_db, None)
-        self.assertTrue(app.getDB() is dummy_db)
-
-    def test_new_oid(self):
-        app = self.getApp()
-        test_msg_id = 50
-        test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
-        response_packet = Packets.AnswerNewOIDs(test_oid_list[:])
-        response_packet.setId(0)
-        app.master_conn = Mock({'getNextId': test_msg_id, '_addPacket': None,
-                                'expectMessage': None,
-                                # Test-specific method
-                                'fakeReceived': response_packet})
-        new_oid = app.new_oid()
-        self.assertTrue(new_oid in test_oid_list)
-        self.assertEqual(len(app.new_oid_list), 1)
-        self.assertTrue(app.new_oid_list[0] in test_oid_list)
-        self.assertNotEqual(app.new_oid_list[0], new_oid)
 
     def test_load(self):
         app = self.getApp()
@@ -340,83 +310,12 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.store(oid, tid, 'DATA', None, txn)
         self.checkAskStoreObject(conn)
         txn_context['queue'].put((conn, packet, {}))
-        app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
+        app.waitStoreResponses(txn_context, None) # no conflict in this test
         self.assertEqual(txn_context['object_stored_counter_dict'][oid],
             {tid: {uuid}})
         self.assertEqual(txn_context['cache_dict'][oid], 'DATA')
         self.assertFalse(oid in txn_context['data_dict'])
         self.assertFalse(oid in txn_context['conflict_serial_dict'])
-
-    def test_tpc_vote1(self):
-        app = self.getApp()
-        txn = self.makeTransactionObject()
-        # invalid transaction > StorageTransactionError
-        self.assertRaises(StorageTransactionError, app.tpc_vote, txn,
-            resolving_tryToResolveConflict)
-
-    def test_tpc_vote3(self):
-        app = self.getApp()
-        tid = self.makeTID()
-        txn = self.makeTransactionObject()
-        self._begin(app, txn, tid)
-        # response -> OK
-        packet = Packets.AnswerStoreTransaction(tid=tid)
-        packet.setId(0)
-        conn = Mock({
-            'getNextId': 1,
-            'fakeReceived': packet,
-        })
-        node = Mock({
-            '__hash__': 1,
-            '__repr__': 'FakeNode',
-        })
-        app.cp = self.getConnectionPool([(node, conn)])
-        app.tpc_vote(txn, resolving_tryToResolveConflict)
-        self.checkAskStoreTransaction(conn)
-        self.checkDispatcherRegisterCalled(app, conn)
-
-    def test_tpc_abort1(self):
-        # ignore mismatch transaction
-        app = self.getApp()
-        tid = self.makeTID()
-        txn = self.makeTransactionObject()
-        old_txn = object()
-        self._begin(app, old_txn, tid)
-        app.master_conn = Mock()
-        conn = Mock()
-        cell = Mock()
-        app.cp = Mock({'getConnForCell': ReturnValues(None, cell)})
-        app.tpc_abort(txn)
-        # no packet sent
-        self.checkNoPacketSent(conn)
-        self.checkNoPacketSent(app.master_conn)
-        txn_context = app._txn_container.get(old_txn)
-        self.assertTrue(txn_context['txn'] is old_txn)
-        self.assertEqual(txn_context['ttid'], tid)
-
-    def test_tpc_abort2(self):
-        # 2 nodes : 1 transaction in the first, 2 objects in the second
-        # connections to each node should received only one packet to abort
-        # and transaction must also be aborted on the master node
-        # for simplicity, just one cell per partition
-        oid1, oid2 = self.makeOID(2), self.makeOID(4) # on partition 0
-        app, tid = self.getApp(), self.makeTID(1)     # on partition 1
-        txn = self.makeTransactionObject()
-        txn_context = self._begin(app, txn, tid)
-        app.master_conn = Mock({'__hash__': 0})
-        app.num_partitions = 2
-        cell1 = Mock({ 'getNode': 'NODE1', '__hash__': 1 })
-        cell2 = Mock({ 'getNode': 'NODE2', '__hash__': 2 })
-        conn1, conn2 = Mock({ 'getNextId': 1, }), Mock({ 'getNextId': 2, })
-        app.cp = Mock({ 'getConnForNode': ReturnValues(conn1, conn2), })
-        # fake data
-        txn_context['involved_nodes'].update([cell1, cell2])
-        app.tpc_abort(txn)
-        # will check if there was just one call/packet :
-        self.checkNotifyPacket(conn1, Packets.AbortTransaction)
-        self.checkNotifyPacket(conn2, Packets.AbortTransaction)
-        self.checkNotifyPacket(app.master_conn, Packets.AbortTransaction)
-        self.assertRaises(StorageTransactionError, app._txn_container.get, txn)
 
     def test_tpc_abort3(self):
         """ check that abort is sent to all nodes involved in the transaction """
@@ -470,37 +369,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.tpc_abort(txn)
         self.checkAbortTransaction(conn2)
         self.checkAbortTransaction(conn3)
-
-    def test_tpc_finish1(self):
-        # transaction mismatch: raise
-        app = self.getApp()
-        txn = self.makeTransactionObject()
-        app.master_conn = Mock()
-        self.assertRaises(StorageTransactionError, app.tpc_finish, txn, None)
-        # no packet sent
-        self.checkNoPacketSent(app.master_conn)
-
-    def test_tpc_finish3(self):
-        # transaction is finished
-        app = self.getApp()
-        tid = self.makeTID()
-        ttid = self.makeTID()
-        txn = self.makeTransactionObject()
-        txn_context = self._begin(app, txn, tid)
-        self.f_called = False
-        self.f_called_with_tid = None
-        packet = Packets.AnswerTransactionFinished(ttid, tid)
-        packet.setId(0)
-        app.master_conn = Mock({
-            'getNextId': 1,
-            'getAddress': ('127.0.0.1', 10010),
-            'fakeReceived': packet,
-        })
-        txn_context['voted'] = None
-        app.tpc_finish(txn, None)
-        self.checkAskFinishTransaction(app.master_conn)
-        #self.checkDispatcherRegisterCalled(app, app.master_conn)
-        self.assertRaises(StorageTransactionError, app._txn_container.get, txn)
 
     def test_undo1(self):
         # invalid transaction
@@ -668,80 +536,15 @@ class ClientApplicationTests(NeoUnitTestBase):
         conn.ask = lambda p, queue=None, **kw: \
             type(p) is Packets.AskObjectUndoSerial and \
             queue.put((conn, undo_serial, kw))
-        def tryToResolveConflict(oid, conflict_serial, serial, data,
-                committedData=''):
-            raise Exception, 'Test called conflict resolution, but there ' \
-                'is no conflict in this test !'
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        app.undo(tid1, txn, tryToResolveConflict)
+        app.undo(tid1, txn, None) # no conflict resolution in this test
         # Checking what happened
         moid, mserial, mdata, mdata_serial = store_marker[0]
         self.assertEqual(moid, oid0)
         self.assertEqual(mserial, tid1)
         self.assertEqual(mdata, None)
         self.assertEqual(mdata_serial, tid0)
-
-    def test_undoLog(self):
-        app = self.getApp()
-        app.num_partitions = 2
-        uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
-        # two nodes, two partition, two transaction, two objects :
-        tid1, tid2 = self.makeTID(1), self.makeTID(2)
-        oid1, oid2 = self.makeOID(1), self.makeOID(2)
-        # TIDs packets supplied by _ask hook
-        # TXN info packets
-        extension = dumps({})
-        p1 = Packets.AnswerTIDs([tid1])
-        p2 = Packets.AnswerTIDs([tid2])
-        p3 = Packets.AnswerTransactionInformation(tid1, '', '',
-                extension, False, (oid1, ))
-        p4 = Packets.AnswerTransactionInformation(tid2, '', '',
-                extension, False, (oid2, ))
-        p1.setId(0)
-        p2.setId(1)
-        p3.setId(2)
-        p4.setId(3)
-        conn = Mock({
-            'getNextId': 1,
-            'getUUID': ReturnValues(uuid1, uuid2),
-            'fakeGetApp': app,
-            'fakeReceived': ReturnValues(p3, p4),
-            'getAddress': ('127.0.0.1', 10021),
-        })
-        asked = []
-        def answerTIDs(packet):
-            conn = getConnection({'getAddress': packet})
-            app.nm.createStorage(address=conn.getAddress())
-            def ask(p, queue, **kw):
-                asked.append(p)
-                queue.put((conn, packet, kw))
-            conn.ask = ask
-            return conn
-        app.dispatcher = Dispatcher()
-        app.pt = Mock({
-            'getNodeSet': (Mock(), Mock()),
-        })
-        app.cp = Mock({
-            'getConnForNode': ReturnValues(answerTIDs(p1), answerTIDs(p2)),
-            'iterateForObject': [(Mock(), conn)]
-        })
-        def txn_filter(info):
-            return info['id'] > '\x00' * 8
-        first = 0
-        last = 4
-        result = app.undoLog(first, last, filter=txn_filter)
-        pfirst, plast, ppartition = asked.pop().decode()
-        self.assertEqual(pfirst, first)
-        self.assertEqual(plast, last)
-        self.assertEqual(ppartition, INVALID_PARTITION)
-        pfirst, plast, ppartition = asked.pop().decode()
-        self.assertEqual(pfirst, first)
-        self.assertEqual(plast, last)
-        self.assertEqual(ppartition, INVALID_PARTITION)
-        self.assertEqual(result[0]['id'], tid1)
-        self.assertEqual(result[1]['id'], tid2)
-        self.assertFalse(asked)
 
     def test_connectToPrimaryNode(self):
         # here we have three master nodes :
@@ -799,65 +602,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertFalse(ask_func_list)
         self.assertTrue(app.master_conn is not None)
         self.assertTrue(app.pt.operational())
-
-    def test_askPrimary(self):
-        """ _askPrimary is private but test it anyway """
-        app = self.getApp()
-        conn = Mock()
-        app.master_conn = conn
-        app.primary_handler = Mock()
-        self.test_ok = False
-        def _ask_hook(app, conn, packet, handler=None):
-            conn.ask(packet)
-            self.assertTrue(handler is app.primary_handler)
-            self.test_ok = True
-        _ask_old = Application._ask
-        Application._ask = _ask_hook
-        packet = Packets.AskBeginTransaction()
-        packet.setId(0)
-        try:
-            app._askPrimary(packet)
-        finally:
-            Application._ask = _ask_old
-        # check packet sent, connection locked during process and dispatcher updated
-        self.checkAskNewTid(conn)
-        self.checkDispatcherRegisterCalled(app, conn)
-        # and _ask called
-        self.assertTrue(self.test_ok)
-        # check NEOStorageError is raised when the primary connection is lost
-        app.master_conn = None
-        # check disabled since we reconnect to pmn
-        #self.assertRaises(NEOStorageError, app._askPrimary, packet)
-
-    def test_threadContextIsolation(self):
-        """ Thread context properties must not be visible across instances
-            while remaining in the same thread """
-        app1 = self.getApp()
-        app1_local = app1._thread_container
-        app2 = self.getApp()
-        app2_local = app2._thread_container
-        property_id = 'thread_context_test'
-        value = 'value'
-        self.assertFalse(hasattr(app1_local, property_id))
-        self.assertFalse(hasattr(app2_local, property_id))
-        setattr(app1_local, property_id, value)
-        self.assertEqual(getattr(app1_local, property_id), value)
-        self.assertFalse(hasattr(app2_local, property_id))
-
-    def test_pack(self):
-        app = self.getApp()
-        marker = []
-        def askPrimary(packet):
-            marker.append(packet)
-        app._askPrimary = askPrimary
-        # XXX: could not identify a value causing TimeStamp to return ZERO_TID
-        #self.assertRaises(NEOStorageError, app.pack, )
-        self.assertEqual(len(marker), 0)
-        now = time.time()
-        app.pack(now)
-        self.assertEqual(len(marker), 1)
-        self.assertEqual(type(marker[0]), Packets.AskPack)
-        # XXX: how to validate packet content ?
 
 if __name__ == '__main__':
     unittest.main()

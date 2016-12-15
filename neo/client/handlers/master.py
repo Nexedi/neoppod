@@ -120,6 +120,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             db = app.getDB()
             db is None or db.invalidateCache()
             app.last_tid = ltid
+        app.ignore_invalidations = False
 
     def answerTransactionFinished(self, conn, _, tid, callback, cache_dict):
         app = self.app
@@ -159,6 +160,8 @@ class PrimaryNotificationsHandler(MTEventHandler):
 
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
+        if app.ignore_invalidations:
+            return
         app.last_tid = tid
         app._cache_lock_acquire()
         try:

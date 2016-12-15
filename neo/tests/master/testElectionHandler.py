@@ -258,21 +258,10 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.assertEqual(node.getUUID(), new_uuid)
         self.assertNotEqual(node.getUUID(), uuid)
 
-    def _getNodeList(self):
-        return [x.asTuple() for x in self.app.nm.getList()]
-
     def __getClient(self):
         uuid = self.getClientUUID()
         conn = self.getFakeConnection(uuid=uuid, address=self.client_address)
         self.app.nm.createClient(uuid=uuid, address=self.client_address)
-        return conn
-
-    def __getMaster(self, port=1000, register=True):
-        uuid = self.getMasterUUID()
-        address = ('127.0.0.1', port)
-        conn = self.getFakeConnection(uuid=uuid, address=address)
-        if register:
-            self.app.nm.createMaster(uuid=uuid, address=address)
         return conn
 
     def testRequestIdentification1(self):

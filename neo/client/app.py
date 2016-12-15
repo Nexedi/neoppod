@@ -220,6 +220,7 @@ class Application(ThreadedApplication):
         ask = self._ask
         handler = self.primary_bootstrap_handler
         while 1:
+            self.ignore_invalidations = True
             # Get network connection to primary master
             while 1:
                 if self.primary_master_node is not None:

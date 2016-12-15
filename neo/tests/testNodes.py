@@ -14,13 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import shutil
 import unittest
 from mock import Mock
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
 from . import NeoUnitTestBase, getTempDirectory
 from time import time
-from os import chmod, mkdir, rmdir, unlink
+from os import chmod, mkdir, rmdir
 from os.path import join, exists
 
 class NodesTests(NeoUnitTestBase):
@@ -28,16 +29,6 @@ class NodesTests(NeoUnitTestBase):
     def setUp(self):
         NeoUnitTestBase.setUp(self)
         self.nm = Mock()
-
-    def _updatedByAddress(self, node, index=0):
-        calls = self.nm.mockGetNamedCalls('_updateAddress')
-        self.assertEqual(len(calls), index + 1)
-        self.assertEqual(calls[index].getParam(0), node)
-
-    def _updatedByUUID(self, node, index=0):
-        calls = self.nm.mockGetNamedCalls('_updateUUID')
-        self.assertEqual(len(calls), index + 1)
-        self.assertEqual(calls[index].getParam(0), node)
 
     def testInit(self):
         """ Check the node initialization """
@@ -59,23 +50,6 @@ class NodesTests(NeoUnitTestBase):
         self.assertEqual(node.getState(), NodeStates.RUNNING)
         self.assertTrue(previous_time < node.getLastStateChange())
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
-
-    def testAddress(self):
-        """ Check if the node is indexed by address """
-        node = Node(self.nm)
-        self.assertEqual(node.getAddress(), None)
-        address = ('127.0.0.1', 10000)
-        node.setAddress(address)
-        self._updatedByAddress(node)
-
-    def testUUID(self):
-        """ As for Address but UUID """
-        node = Node(self.nm)
-        self.assertEqual(node.getAddress(), None)
-        uuid = self.getNewUUID(None)
-        node.setUUID(uuid)
-        self._updatedByUUID(node)
-
 
 class NodeManagerTests(NeoUnitTestBase):
 
@@ -209,12 +183,6 @@ class NodeManagerTests(NeoUnitTestBase):
         self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
 
 class MasterDBTests(NeoUnitTestBase):
-    def _checkMasterDB(self, path, expected_master_list):
-        db = list(MasterDB(path))
-        db_set = set(db)
-        # Generic sanity check
-        self.assertEqual(len(db), len(db_set))
-        self.assertEqual(db_set, set(expected_master_list))
 
     def testInitialAccessRights(self):
         """
@@ -254,9 +222,7 @@ class MasterDBTests(NeoUnitTestBase):
             db2 = MasterDB(db_file)
             self.assertFalse(address in db2, [x for x in db2])
         finally:
-            if exists(db_file):
-                unlink(db_file)
-            rmdir(directory)
+            shutil.rmtree(directory)
 
     def testPersistence(self):
         temp_dir = getTempDirectory()
@@ -280,9 +246,7 @@ class MasterDBTests(NeoUnitTestBase):
             self.assertFalse(address in db3, [x for x in db3])
             self.assertTrue(address2 in db3, [x for x in db3])
         finally:
-            if exists(db_file):
-                unlink(db_file)
-            rmdir(directory)
+            shutil.rmtree(directory)
 
 if __name__ == '__main__':
     unittest.main()

@@ -29,7 +29,8 @@ class BackupHandler(EventHandler):
         self.app.pt.load(ptid, row_list, self.app.nm)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
-        self.app.pt.update(ptid, cell_list, self.app.nm)
+        if self.app.pt.filled():
+            self.app.pt.update(ptid, cell_list, self.app.nm)
 
     # NOTE invalidation from M -> Mb (all partitions)
     def answerLastTransaction(self, conn, tid):
@@ -38,10 +39,13 @@ class BackupHandler(EventHandler):
             app.invalidatePartitions(tid, set(xrange(app.pt.getPartitions())))
         else: # upstream DB is empty
             assert app.app.getLastTransaction() == tid
+        app.ignore_invalidations = False
 
     # NOTE invalidation from M -> Mb
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
+        if app.ignore_invalidations:
+            return
         getPartition = app.app.pt.getPartition
         partition_set = set(map(getPartition, oid_list))
         partition_set.add(getPartition(tid))

@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock, ReturnValues
+from mock import Mock
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.lib.protocol import CellStates
@@ -140,25 +140,6 @@ class StorageAppTests(NeoUnitTestBase):
         self.app.queueEvent(event, conn, ("test3", ), key=key,
             raise_on_duplicate=False)
         self.assertEqual(len(self.app.event_queue), 2)
-
-    def test_03_executeQueuedEvents(self):
-        self.assertEqual(len(self.app.event_queue), 0)
-        msg_id = 1325136
-        msg_id_2 = 1325137
-        event = Mock({'__repr__': 'event'})
-        conn = Mock({'__repr__': 'conn', 'getPeerId': ReturnValues(msg_id, msg_id_2)})
-        self.app.queueEvent(event, conn, ("test", ))
-        self.app.executeQueuedEvents()
-        self.assertEqual(len(event.mockGetNamedCalls("__call__")), 1)
-        call = event.mockGetNamedCalls("__call__")[0]
-        params = call.getParam(1)
-        self.assertEqual(params, "test")
-        params = call.kwparams
-        self.assertEqual(params, {})
-        calls = conn.mockGetNamedCalls("setPeerId")
-        self.assertEqual(len(calls), 2)
-        calls[0].checkArgs(msg_id)
-        calls[1].checkArgs(msg_id_2)
 
 if __name__ == '__main__':
     unittest.main()

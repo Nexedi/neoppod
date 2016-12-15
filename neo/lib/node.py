@@ -281,8 +281,8 @@ class NodeManager(object):
         self._address_dict.pop(node.getAddress(), None)
         # - a master known by address but without UUID
         self._uuid_dict.pop(node.getUUID(), None)
-        self.__dropSet(self._state_dict, node.getState(), node)
-        self.__dropSet(self._type_dict, node.getType(), node)
+        self._state_dict[node.getState()].remove(node)
+        self._type_dict[node.getType()].remove(node)
         uuid = node.getUUID()
         if node.isMaster() and self._master_db is not None:
             self._master_db.discard(node.getAddress())
@@ -304,10 +304,6 @@ class NodeManager(object):
 
     def _updateUUID(self, node, old_uuid):
         self.__update(self._uuid_dict, old_uuid, node.getUUID(), node)
-
-    def __dropSet(self, set_dict, key, node):
-        if key in set_dict:
-            set_dict[key].remove(node)
 
     def __updateSet(self, set_dict, old_key, new_key, node):
         """ Update a set index from old to new key """

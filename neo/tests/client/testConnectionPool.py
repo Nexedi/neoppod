@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time, unittest
-from mock import Mock, ReturnValues
+from mock import Mock
 
 from .. import NeoUnitTestBase
 from neo.client.app import ConnectionPool
@@ -23,27 +23,6 @@ from neo.client.exception import NEOStorageError
 from neo.client import pool
 
 class ConnectionPoolTests(NeoUnitTestBase):
-
-    def test_removeConnection(self):
-        app = None
-        pool = ConnectionPool(app)
-        test_node_uuid = self.getStorageUUID()
-        other_node_uuid = self.getStorageUUID()
-        test_node = Mock({'getUUID': test_node_uuid})
-        other_node = Mock({'getUUID': other_node_uuid})
-        # Test sanity check
-        self.assertEqual(getattr(pool, 'connection_dict', None), {})
-        # Call must not raise if node is not known
-        self.assertEqual(len(pool.connection_dict), 0)
-        pool.removeConnection(test_node)
-        # Test that removal with another uuid doesn't affect entry
-        pool.connection_dict[test_node_uuid] = None
-        self.assertEqual(len(pool.connection_dict), 1)
-        pool.removeConnection(other_node)
-        self.assertEqual(len(pool.connection_dict), 1)
-        # Test that removeConnection works
-        pool.removeConnection(test_node)
-        self.assertEqual(len(pool.connection_dict), 0)
 
     # TODO: test getConnForNode (requires splitting complex functionalities)
 
@@ -80,30 +59,6 @@ class ConnectionPoolTests(NeoUnitTestBase):
         app.pt = Mock({'getCellList': []})
         pool = ConnectionPool(app)
         self.assertRaises(NEOStorageError, pool.iterateForObject(oid).next)
-
-    def test_iterateForObject_connectionRefused(self):
-        # connection refused at the first try
-        oid = self.getOID(1)
-        node = Mock({'__repr__': 'node', 'isRunning': True})
-        cell = Mock({'__repr__': 'cell', 'getNode': node})
-        conn = Mock({'__repr__': 'conn'})
-        app = Mock()
-        app.pt = Mock({'getCellList': [cell]})
-        pool = ConnectionPool(app)
-        pool.getConnForNode = Mock({'__call__': ReturnValues(None, conn)})
-        self.assertEqual(list(pool.iterateForObject(oid)), [(node, conn)])
-
-    def test_iterateForObject_connectionAccepted(self):
-        # connection accepted
-        oid = self.getOID(1)
-        node = Mock({'__repr__': 'node', 'isRunning': True})
-        cell = Mock({'__repr__': 'cell', 'getNode': node})
-        conn = Mock({'__repr__': 'conn'})
-        app = Mock()
-        app.pt = Mock({'getCellList': [cell]})
-        pool = ConnectionPool(app)
-        pool.getConnForNode = Mock({'__call__': conn})
-        self.assertEqual(list(pool.iterateForObject(oid)), [(node, conn)])
 
 if __name__ == '__main__':
     unittest.main()
