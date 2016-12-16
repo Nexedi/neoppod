@@ -207,7 +207,7 @@ func TestNodeLink(t *testing.T) {
 		xclose(c)
 	})
 	pkt, err = c.Recv()
-	if !(pkt == nil && err == io.ErrClosedPipe) {
+	if !(pkt == nil && err == ErrClosedConn) {
 		t.Fatalf("Conn.Recv() after close: pkt = %v  err = %v", pkt, err)
 	}
 	xwait(wg)
@@ -221,10 +221,12 @@ func TestNodeLink(t *testing.T) {
 	})
 	pkt = &PktBuf{[]byte("data")}
 	err = c.Send(pkt)
-	if err != io.ErrClosedPipe {
+	if err != ErrClosedConn {
 		t.Fatalf("Conn.Send() after close: err = %v", err)
 	}
 	xwait(wg)
+
+	// TODO check NodeLink.Close -> aborts Conn.Send/Recv
 
 
 /*
