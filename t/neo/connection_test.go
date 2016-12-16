@@ -226,7 +226,27 @@ func TestNodeLink(t *testing.T) {
 	}
 	xwait(wg)
 
-	// TODO check NodeLink.Close -> aborts Conn.Send/Recv
+	// NodeLink.Close vs Conn.Send/Recv
+	c11 := nl1.NewConn()
+	c12 := nl1.NewConn()
+	wg = WorkGroup()
+	wg.Gox(func() {
+		pkt, err := c11.Recv()
+		if !(pkt == nil && err == ErrClosedConn) {
+			exc.Raisef("Conn.Recv() after NodeLink.close: pkt = %v  err = %v", pkt, err)
+		}
+	})
+	wg.Gox(func() {
+		pkt := &PktBuf{[]byte("data")}
+		err := c12.Send(pkt)
+		if err != ErrClosedConn {
+			exc.Raisef("Conn.Send() after close: err = %v", err)
+		}
+	})
+	tdelay()
+	xclose(nl1)
+	xwait(wg)
+	xclose(nl2)	// for completeness
 
 
 /*

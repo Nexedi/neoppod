@@ -101,9 +101,12 @@ func NewNodeLink(c net.Conn) *NodeLink {
 // Close node-node link.
 // IO on connections established over it is automatically interrupted with an error.
 func (nl *NodeLink) Close() error {
-	// TODO adjust connTab & friends
 	close(nl.closed)
-	return nl.peerLink.Close()
+	err := nl.peerLink.Close()
+	// TODO close active Conns
+	// XXX wait for serve{Send,Recv} to complete
+	nl.wg.Wait()
+
 }
 
 // send raw packet to peer
@@ -190,11 +193,12 @@ func (nl *NodeLink) serveRecv() {
 			panic(err)	// XXX err
 		}
 
-		// if we don't yet have connection established for pkt.MsgId spawn connection-serving goroutine
+		// if we don't yet have connection established for pkt.MsgId -
+		// spawn connection-serving goroutine
 		// XXX connTab locking
 		conn := nl.connTab[ntoh32(pkt.Header().MsgId)]
 		if conn == nil {
-			if nl.handleNewConn == nil {	// TODO check != nil in ctor, not here
+			if nl.handleNewConn == nil {
 				// we are not accepting incoming connections - ignore packet
 				// XXX also log?
 				continue
@@ -224,9 +228,10 @@ func (nl *NodeLink) serveSend() {
 	for {
 		select {
 		case <-nl.closed:
-			return
+			break
 
 		case txreq := <-nl.txreq:
+			pkt.Header().MsgId = hton32(0)	// TODO next msgid, or using same msgid as received
 			err := nl.sendPkt(txreq.pkt)
 			if err != nil {
 				// XXX also close whole nodeLink since tx framing now can be broken?
@@ -249,7 +254,6 @@ var ErrClosedConn = errors.New("read/write on closed connection")
 
 // Send packet via connection
 func (c *Conn) Send(pkt *PktBuf) error {
-	pkt.Header().MsgId = hton32(0)	// TODO next msgid, or using same msgid as received
 	select {
 	case <-c.closed:
 		return ErrClosedConn
