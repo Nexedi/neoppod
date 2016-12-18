@@ -77,14 +77,14 @@ class ConnectionTests(NeoUnitTestBase):
         use_case_list = (
             # (a) For a single packet sent at T,
             #     the limit time for the answer is T + (1 * CRITICAL_TIMEOUT)
-            ((), (1., 0)),
+            ((), (1., 1)),
             # (b) Same as (a), even if send another packet at (T + CT/2).
             #     But receiving a packet (at T + CT - ε) resets the timeout
             #     (which means the limit for the 2nd one is T + 2*CT)
-            ((.5, None), (1., 0, 2., 1)),
+            ((.5, None), (1., 1, 2., 3)),
             # (c) Same as (b) with a first answer at well before the limit
             #     (T' = T + CT/2). The limit for the second one is T' + CT.
-            ((.1, None, .5, 1), (1.5, 0)),
+            ((.1, None, .5, 3), (1.5, 1)),
         )
 
         def set_time(t):
@@ -106,7 +106,7 @@ class ConnectionTests(NeoUnitTestBase):
         try:
             for use_case, expected in use_case_list:
                 i = iter(use_case)
-                conn.cur_id = 0
+                conn.cur_id = 1     # XXX -> conn._reset() ?
                 set_time(0)
                 # No timeout when no pending request
                 self.assertEqual(conn._handlers.getNextTimeout(), None)
