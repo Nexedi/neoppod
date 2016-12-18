@@ -316,7 +316,7 @@ class Connection(BaseConnection):
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
         self.read_buf = ReadBuffer()
-        self.cur_id = 0
+        # NOTE .cur_id will be set in Server|Client to maintain `cur_id % 2 == const` invariant
         self.aborted = False
         self.uuid = None
         self._queue = []
@@ -347,11 +347,14 @@ class Connection(BaseConnection):
             del self._timeout
         except AttributeError:
             self.client = True
+            self.cur_id |= 1 # client has `.cur_id % 2 == 1`
         else:
             assert self.client
 
     def asServer(self):
         self.server = True
+        # server has `.cur_id % 2 == 0`
+        self.cur_id = (self.cur_id + 1) & 0xfffffffe
 
     def _closeClient(self):
         if self.server:
@@ -389,7 +392,7 @@ class Connection(BaseConnection):
 
     def _getNextId(self):
         next_id = self.cur_id
-        self.cur_id = (next_id + 1) & 0xffffffff
+        self.cur_id = (next_id + 2) & 0xffffffff
         return next_id
 
     def getTimeout(self):
@@ -593,6 +596,7 @@ class ClientConnection(Connection):
     """A connection from this node to a remote node."""
 
     client = True
+    cur_id = 1      # cur_id % 2 is 1 for client initiated "streams"
 
     def __init__(self, app, handler, node):
         self._ssl = app.ssl
@@ -644,6 +648,7 @@ class ServerConnection(Connection):
     """A connection from a remote node to this node."""
 
     server = True
+    cur_id = 0      # cur_id % 2 is 0 for server initated "streams"
 
     def __init__(self, *args, **kw):
         Connection.__init__(self, *args, **kw)
