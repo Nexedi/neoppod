@@ -1,6 +1,48 @@
 Change History
 ==============
 
+1.7.0 (2016-12-19)
+------------------
+
+- Identification issues, mainly caused by id conflicts, are fixed:
+
+  - Storage nodes now only accept clients that are known by the master.
+  - When reconnecting to a master, a client get a new id if the previous id is
+    already reallocated to another client.
+  - The consequences were either crashes or clients being unable to connect.
+
+- Added support for the latest versions of ZODB (4.4.4 & 5.0.1). A notable
+  change is that lastTransaction() does not ping the master anymore (but it
+  still causes a connection to the master if the client is disconnected).
+
+- A cluster in BACKUPING state can now serve regular clients in read-only mode.
+  But without invalidation yet, so clients must reconnect whenever they want
+  to see newer data.
+
+- Fixed crash of client nodes (including backup master) while trying to process
+  notifications before complete initialization, instead of ignoring them.
+
+- Client:
+
+  - Fix race condition leading to invalid mapping between internal connection
+    objects and their file descriptors. This resulted in KeyError exceptions.
+  - Fix item eviction from cache, which could break loading from storage.
+  - Better exception handling in tpc_abort.
+  - Do not limit the number of open connections to storage nodes.
+
+- Storage:
+
+  - Fix crash when a client loses connection to the master just before voting.
+  - MySQL: Force index for a few queries. Unfortunately, this is not perfect
+    because sometimes MySQL still ignores our hints.
+  - MySQL: Do not use unsafe TRUNCATE statement.
+
+- Make 'neoctl print ids' display time of TIDs.
+- Various neoctl/neolog formatting improvements/fixes.
+- Plus a few other changes for debugging and developers, as well as small
+  optimizations.
+
+
 1.6.3 (2016-06-15)
 ------------------
 
