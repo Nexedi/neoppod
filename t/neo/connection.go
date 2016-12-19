@@ -20,6 +20,8 @@ import (
 	"net"
 	"sync"
 	"unsafe"
+
+	"fmt"
 )
 
 // NodeLink is a node-node link in NEO
@@ -50,7 +52,9 @@ type NodeLink struct {
 	connTab  map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
-	handleNewConn func(conn *Conn)	// handler for new connections	XXX -> ConnHandler (a-la Handler in net/http) ?
+	serveWg sync.WaitGroup
+
+	handleNewConn func(conn *Conn)	// handler for new connections
 
 	txreq	chan txReq		// tx requests from Conns go via here
 	closed  chan struct{}
@@ -95,6 +99,10 @@ type ConnRole int
 const (
 	ConnServer ConnRole = iota	// connection created as server
 	ConnClient			// connection created as client
+
+	// for testing: do not spawn serveRecv & serveSend
+	connNoRecvSend ConnRole = 1<<16
+	connFlagsMask  ConnRole = (1<<32 - 1) << 16
 )
 
 // Make a new NodeLink from already established net.Conn
@@ -106,7 +114,7 @@ const (
 // net.Listen/net.Accept and client role for connections created via net.Dial.
 func NewNodeLink(conn net.Conn, role ConnRole) *NodeLink {
 	var nextConnId uint32
-	switch role {
+	switch role&^connFlagsMask {
 	case ConnServer:
 		nextConnId = 0	// all initiated by us connId will be even
 	case ConnClient:
@@ -122,8 +130,11 @@ func NewNodeLink(conn net.Conn, role ConnRole) *NodeLink {
 		txreq:      make(chan txReq),
 		closed:     make(chan struct{}),
 	}
-	// TODO go nl.serveRecv()
-	// TODO go nl.serveSend()
+	if role&connNoRecvSend == 0 {
+		nl.serveWg.Add(2)
+		go nl.serveRecv()
+		go nl.serveSend()
+	}
 	return &nl
 }
 
@@ -133,17 +144,16 @@ func (nl *NodeLink) Close() error {
 	close(nl.closed)
 	err := nl.peerLink.Close()
 
-	// TODO wait for serve{Send,Recv} to complete
-	//nl.wg.Wait()
+	// wait for serve{Send,Recv} to complete
+	fmt.Printf("%p serveWg.Wait ...\n", nl)
+	nl.serveWg.Wait()
+	fmt.Printf("%p\t (wait) -> woken up\n", nl)
 
 	// close active Conns
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
 	for _, conn := range nl.connTab {
-		// FIXME it also wants to lock conntab -> conn.close() ?
-		println("conn", conn.connId, " -> closing ...")
-		// XXX only interrupt, not close? Or allow multiple conn.Close() ?
-		conn.close()	// XXX err -> errv
+		conn.close()
 	}
 	nl.connTab = nil	// clear + mark closed
 	return err
@@ -233,9 +243,12 @@ func (nl *NodeLink) NewConn() *Conn {
 // serveRecv handles incoming packets routing them to either appropriate
 // already-established connection or to new serving goroutine.
 func (nl *NodeLink) serveRecv() {
+	defer nl.serveWg.Done()
 	for {
 		// receive 1 packet
+		println(nl, "serveRecv -> recv...")
 		pkt, err := nl.recvPkt()
+		fmt.Printf("%p\t (recv) -> %v\n", nl, err)
 		if err != nil {
 			// this might be just error on close - simply stop in such case
 			select {
@@ -248,13 +261,15 @@ func (nl *NodeLink) serveRecv() {
 
 		// pkt.ConnId -> Conn
 		connId := ntoh32(pkt.Header().ConnId)
-		accept := false
+		var handleNewConn func(conn *Conn)
 
 		nl.connMu.Lock()
 		conn := nl.connTab[connId]
-		if conn == nil && nl.handleNewConn != nil {
-			conn = nl.newConn(connId)
-			accept = true
+		if conn == nil {
+			handleNewConn = nl.handleNewConn
+			if handleNewConn != nil {
+				conn = nl.newConn(connId)
+			}
 		}
 		nl.connMu.Unlock()
 
@@ -266,10 +281,10 @@ func (nl *NodeLink) serveRecv() {
 
 		// we are accepting new incoming connection - spawn
 		// connection-serving goroutine
-		if accept {
+		if handleNewConn != nil {
 			// TODO avoid spawning goroutine for each new Ask request -
 			//	- by keeping pool of read inactive goroutine / conn pool ?
-			go nl.handleNewConn(conn)
+			go handleNewConn(conn)
 		}
 
 		// route packet to serving goroutine handler
@@ -287,12 +302,17 @@ type txReq struct {
 // serveSend handles requests to transmit packets from client connections and
 // serially executes them over associated node link.
 func (nl *NodeLink) serveSend() {
+	defer nl.serveWg.Done()
+runloop:
 	for {
+		fmt.Printf("%p serveSend -> select ...\n", nl)
 		select {
 		case <-nl.closed:
-			break
+			fmt.Printf("%p\t (send) -> closed\n", nl)
+			break runloop
 
 		case txreq := <-nl.txreq:
+			fmt.Printf("%p\t (send) -> txreq\n", nl)
 			err := nl.sendPkt(txreq.pkt)
 			if err != nil {
 				// XXX also close whole nodeLink since tx framing now can be broken?
@@ -300,12 +320,15 @@ func (nl *NodeLink) serveSend() {
 			txreq.errch <- err
 		}
 	}
+
+	fmt.Printf("%p\t (send) -> exit\n", nl)
 }
 
-// XXX move to NodeLink ctor
+// XXX move to NodeLink ctor ?
 // Set handler for new incoming connections
 func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
-	// XXX locking
+	nl.connMu.Lock()
+	defer nl.connMu.Unlock()
 	nl.handleNewConn = h	// NOTE can change handler at runtime XXX do we need this?
 }
 

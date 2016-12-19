@@ -88,7 +88,7 @@ func xwait(w interface { Wait() error }) {
 }
 
 // Prepare PktBuf with content
-func mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
+func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	pkt := &PktBuf{make([]byte, PktHeadLen + len(payload))}
 	h := pkt.Header()
 	h.ConnId = hton32(connid)
@@ -96,6 +96,11 @@ func mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	h.Len = hton32(PktHeadLen + 4)
 	copy(pkt.Payload(), payload)
 	return pkt
+}
+
+func mkpkt(msgcode uint16, payload []byte) *PktBuf {
+	// in Conn exchange connid is automatically set by Conn.Send
+	return _mkpkt(0, msgcode, payload)
 }
 
 // Verify PktBuf is as expected
@@ -126,12 +131,15 @@ func tdelay() {
 	time.Sleep(1*time.Millisecond)
 }
 
+func _nodeLinkPipe(flags ConnRole) (nl1, nl2 *NodeLink) {
+	node1, node2 := net.Pipe()
+	nl1 = NewNodeLink(node1, ConnClient | flags)
+	nl2 = NewNodeLink(node2, ConnServer | flags)
+	return nl1, nl2
+}
 // create NodeLinks connected via net.Pipe
 func nodeLinkPipe() (nl1, nl2 *NodeLink) {
-	node1, node2 := net.Pipe()
-	nl1 = NewNodeLink(node1, ConnClient)
-	nl2 = NewNodeLink(node2, ConnServer)
-	return nl1, nl2
+	return _nodeLinkPipe(0)
 }
 
 
@@ -141,6 +149,7 @@ func TestNodeLink(t *testing.T) {
 	nl1, nl2 := nodeLinkPipe()
 
 	// Close vs recvPkt
+	println("111")
 	wg := WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -153,6 +162,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 
 	// Close vs sendPkt
+	println("222")
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -166,12 +176,13 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 
 	// check raw exchange works
-	nl1, nl2 = nodeLinkPipe()
+	println("333")
+	nl1, nl2 = _nodeLinkPipe(connNoRecvSend)
 
 	wg, ctx := WorkGroupCtx(context.Background())
 	wg.Gox(func() {
 		// send ping; wait for pong
-		pkt := mkpkt(1, 2, []byte("ping"))
+		pkt := _mkpkt(1, 2, []byte("ping"))
 		xsendPkt(nl1, pkt)
 		pkt = xrecvPkt(nl1)
 		xverifyPkt(pkt, 3, 4, []byte("pong"))
@@ -180,7 +191,7 @@ func TestNodeLink(t *testing.T) {
 		// wait for ping; send pong
 		pkt = xrecvPkt(nl2)
 		xverifyPkt(pkt, 1, 2, []byte("ping"))
-		pkt = mkpkt(3, 4, []byte("pong"))
+		pkt = _mkpkt(3, 4, []byte("pong"))
 		xsendPkt(nl2, pkt)
 	})
 
@@ -196,7 +207,8 @@ func TestNodeLink(t *testing.T) {
 	xwait(wgclose)
 
 
-	// test channels on top of nodelink
+	// Test connections on top of nodelink
+	println("444")
 	nl1, nl2 = nodeLinkPipe()
 
 	// Close vs Recv
@@ -250,19 +262,22 @@ func TestNodeLink(t *testing.T) {
 	xclose(c12)
 	xclose(nl2)	// for completeness
 
-
-/*
-
+	// Conn accept + exchange
+	nl1, nl2 = nodeLinkPipe()
 	nl2.HandleNewConn(func(c *Conn) {
-		pkt := xrecv(c)	// XXX t.Fatal() must be called from main goroutine -> context.Cancel ?
-		// change pkt a bit (TODO) and send it back
-		err = c.Send(pkt)	// XXX err
-		c.Close()		// XXX err
+		// TODO raised err -> errch
+		pkt := xrecv(c)
+		xverifyPkt(pkt, c.connId, 33, []byte("ping"))
+
+		// change pkt a bit and send it back
+		xsend(c, mkpkt(34, []byte("pong")))
+		xclose(c)
 	})
-	c1.Send(pkt)	// XXX err
-	pkt2 := c1.Recv()	// XXX err
-	// TODO check pkt2 is pkt1 + small modification
+	c1 := nl1.NewConn()
+	pkt = mkpkt(33, []byte("ping"))
+	xsend(c1, pkt)
+	pkt2 := xrecv(c1)
+	xverifyPkt(pkt2, c1.connId, 34, []byte("pong"))
 
 	// test 2 channels with replies comming in reversed time order
-*/
 }
