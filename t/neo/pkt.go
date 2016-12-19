@@ -127,7 +127,7 @@ type RowInfo struct {
 // XXX link request <-> answer ?
 // TODO ensure len(encoded packet header) == 10
 type PktHead struct {
-	MsgId   be32
+	ConnId  be32	// NOTE is .msgid in py
 	MsgCode be16
 	Len	be32	// whole packet length (including header)
 }

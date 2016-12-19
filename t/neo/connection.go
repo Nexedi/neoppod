@@ -18,6 +18,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 	"unsafe"
 )
 
@@ -45,15 +46,20 @@ import (
 type NodeLink struct {
 	peerLink net.Conn		// raw conn to peer
 
-	// TODO locking
-	connTab  map[uint32]*Conn	// msgid -> connection associated with msgid
+	connMu   sync.Mutex	// TODO -> RW ?
+	connTab  map[uint32]*Conn	// connid -> connection associated with connid
+	nextConnId uint32		// next connId to use for Conn initiated by us
+
+
 	handleNewConn func(conn *Conn)	// handler for new connections	XXX -> ConnHandler (a-la Handler in net/http) ?
 
-	// TODO peerLink .LocalAddr() vs .RemoteAddr() -> msgid even/odd ? (XXX vs NAT ?)
 	txreq	chan txReq		// tx requests from Conns go here
-
+					// (received pkt go dispatched to connTab[connid].rxq)
 	closed  chan struct{}
 }
+
+
+
 
 // Conn is a connection established over NodeLink
 //
@@ -63,12 +69,14 @@ type NodeLink struct {
 // It is safe to use Conn from multiple goroutines simultaneously.
 type Conn struct {
 	nodeLink  *NodeLink
+	connId    uint32
 	rxq	  chan *PktBuf
 	txerr     chan error	// transmit errors go back here
 	closed    chan struct{}
 }
 
 // Buffer with packet data
+// XXX move me out of here
 type PktBuf struct {
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
@@ -85,13 +93,36 @@ func (pkt *PktBuf) Payload() []byte {
 }
 
 
+type ConnRole int
+const (
+	ConnServer ConnRole = iota	// connection created as server
+	ConnClient			// connection created as client
+)
+
 // Make a new NodeLink from already established net.Conn
-func NewNodeLink(c net.Conn) *NodeLink {
+//
+// role specifies how to treat conn - either as server or client one.
+// The differrence in between client and server roles are in connid % 2		XXX text
+//
+// Usually server role should be used for connections created via
+// net.Listen/net.Accept and client role for connections created via net.Dial.
+func NewNodeLink(conn net.Conn, role ConnRole) *NodeLink {
+	var nextConnId uint32
+	switch role {
+	case ConnServer:
+		nextConnId = 0
+	case ConnClient:
+		nextConnId = 1
+	default:
+		panic("invalid conn role")
+	}
+
 	nl := NodeLink{
-		peerLink: c,
-		connTab:  map[uint32]*Conn{},
-		txreq:    make(chan txReq),
-		closed:   make(chan struct{}),
+		peerLink:   conn,
+		connTab:    map[uint32]*Conn{},
+		nextConnId: nextConnId,
+		txreq:      make(chan txReq),
+		closed:     make(chan struct{}),
 	}
 	// TODO go nl.serveRecv()
 	// TODO go nl.serveSend()
@@ -103,10 +134,18 @@ func NewNodeLink(c net.Conn) *NodeLink {
 func (nl *NodeLink) Close() error {
 	close(nl.closed)
 	err := nl.peerLink.Close()
-	// TODO close active Conns
+	// close active Conns
+	nl.connMu.Lock()
+	defer nl.connMu.Unlock()
+	for _, conn := range nl.connTab {
+		// FIXME it also wants to lock conntab -> conn.close() ?
+		println("conn", conn.connId, " -> closing ...")
+		conn.Close()	// XXX err
+	}
+	nl.connTab = nil	// XXX ok? vs panic on NewConn after close ?
 	// XXX wait for serve{Send,Recv} to complete
-	nl.wg.Wait()
-
+	//nl.wg.Wait()
+	return err
 }
 
 // send raw packet to peer
@@ -171,8 +210,11 @@ func (nl *NodeLink) NewConn() *Conn {
 		txerr: make(chan error),
 		closed: make(chan struct{}),
 	}
-	// XXX locking
-	nl.connTab[0] = c	// FIXME 0 -> msgid; XXX also check not a duplicate
+	nl.connMu.Lock()
+	defer nl.connMu.Unlock()
+	c.connId = nl.nextConnId
+	nl.nextConnId += 2
+	nl.connTab[c.connId] = c
 	return c
 }
 
@@ -193,10 +235,10 @@ func (nl *NodeLink) serveRecv() {
 			panic(err)	// XXX err
 		}
 
-		// if we don't yet have connection established for pkt.MsgId -
+		// if we don't yet have connection established for pkt.ConnId -
 		// spawn connection-serving goroutine
 		// XXX connTab locking
-		conn := nl.connTab[ntoh32(pkt.Header().MsgId)]
+		conn := nl.connTab[ntoh32(pkt.Header().ConnId)]
 		if conn == nil {
 			if nl.handleNewConn == nil {
 				// we are not accepting incoming connections - ignore packet
@@ -231,7 +273,6 @@ func (nl *NodeLink) serveSend() {
 			break
 
 		case txreq := <-nl.txreq:
-			pkt.Header().MsgId = hton32(0)	// TODO next msgid, or using same msgid as received
 			err := nl.sendPkt(txreq.pkt)
 			if err != nil {
 				// XXX also close whole nodeLink since tx framing now can be broken?
@@ -254,6 +295,10 @@ var ErrClosedConn = errors.New("read/write on closed connection")
 
 // Send packet via connection
 func (c *Conn) Send(pkt *PktBuf) error {
+	// set pkt connid associated with this connection
+	// TODO for new Conn - it should be set by serveSend ?
+	pkt.Header().ConnId = hton32(c.connId)
+
 	select {
 	case <-c.closed:
 		return ErrClosedConn
@@ -290,6 +335,11 @@ func (c *Conn) Close() error {	// XXX do we need error here?
 }
 
 
+
+// TODO
+//func Dial(ctx context.Context, network, address string) (*NodeLink, error)	// + tls.Config
+//func Listen(network, laddr string) (net.Listener, error)	// + tls.Config
+//	ln.Accept -> will return net.Conn wrapped in NodeLink
 
 
 

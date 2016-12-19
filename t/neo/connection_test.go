@@ -88,10 +88,10 @@ func xwait(w interface { Wait() error }) {
 }
 
 // Prepare PktBuf with content
-func mkpkt(msgid uint32, msgcode uint16, payload []byte) *PktBuf {
+func mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	pkt := &PktBuf{make([]byte, PktHeadLen + len(payload))}
 	h := pkt.Header()
-	h.MsgId = hton32(msgid)
+	h.ConnId = hton32(connid)
 	h.MsgCode = hton16(msgcode)
 	h.Len = hton32(PktHeadLen + 4)
 	copy(pkt.Payload(), payload)
@@ -99,12 +99,12 @@ func mkpkt(msgid uint32, msgcode uint16, payload []byte) *PktBuf {
 }
 
 // Verify PktBuf is as expected
-func xverifyPkt(pkt *PktBuf, msgid uint32, msgcode uint16, payload []byte) {
+func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 	errv := xerr.Errorv{}
 	h := pkt.Header()
 	// TODO include caller location
-	if ntoh32(h.MsgId) != msgid {
-		errv.Appendf("header: unexpected msgid %v  (want %v)", ntoh32(h.MsgId), msgid)
+	if ntoh32(h.ConnId) != connid {
+		errv.Appendf("header: unexpected connid %v  (want %v)", ntoh32(h.ConnId), connid)
 	}
 	if ntoh16(h.MsgCode) != msgcode {
 		errv.Appendf("header: unexpected msgcode %v  (want %v)", ntoh16(h.MsgCode), msgcode)
@@ -129,8 +129,8 @@ func tdelay() {
 // create NodeLinks connected via net.Pipe
 func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
-	nl1 = NewNodeLink(node1)
-	nl2 = NewNodeLink(node2)
+	nl1 = NewNodeLink(node1, ConnClient)
+	nl2 = NewNodeLink(node2, ConnServer)
 	return nl1, nl2
 }
 
@@ -138,6 +138,7 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
+	println("111")
 	nl1, nl2 := nodeLinkPipe()
 
 	// Close vs recvPkt
@@ -197,6 +198,7 @@ func TestNodeLink(t *testing.T) {
 
 
 	// test channels on top of nodelink
+	println("222")
 	nl1, nl2 = nodeLinkPipe()
 
 	// Close vs Recv
@@ -227,6 +229,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 
 	// NodeLink.Close vs Conn.Send/Recv
+	println("333")
 	c11 := nl1.NewConn()
 	c12 := nl1.NewConn()
 	wg = WorkGroup()
@@ -248,6 +251,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 	xclose(nl2)	// for completeness
 
+	println("444")
 
 /*
 
