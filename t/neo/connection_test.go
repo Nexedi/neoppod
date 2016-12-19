@@ -225,6 +225,10 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 
 	// Close vs Send
+	println("444.2")
+	//xclose(nl2)	// so it does not receive what nl1 sends XXX wrong ->
+	//this will just make Send return error right after call
+	// TODO what is needed is nl2.serveRecv shutdown
 	c = nl1.NewConn()
 	wg = WorkGroup()
 	wg.Gox(func() {

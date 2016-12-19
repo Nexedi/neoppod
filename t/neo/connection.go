@@ -100,8 +100,8 @@ const (
 	ConnServer ConnRole = iota	// connection created as server
 	ConnClient			// connection created as client
 
-	// for testing: do not spawn serveRecv & serveSend
-	connNoRecvSend ConnRole = 1<<16
+	// for testing:
+	connNoRecvSend ConnRole = 1<<16	// do not spawn serveRecv & serveSend
 	connFlagsMask  ConnRole = (1<<32 - 1) << 16
 )
 
@@ -314,6 +314,7 @@ runloop:
 		case txreq := <-nl.txreq:
 			fmt.Printf("%p\t (send) -> txreq\n", nl)
 			err := nl.sendPkt(txreq.pkt)
+			fmt.Printf("%p\t (send) -> err: %v\n", nl, err)
 			if err != nil {
 				// XXX also close whole nodeLink since tx framing now can be broken?
 			}
@@ -369,6 +370,7 @@ func (c *Conn) Recv() (*PktBuf, error) {
 // worker for Close() & co
 func (c *Conn) close() {
 	c.closeOnce.Do(func() {
+		fmt.Printf("%p Conn.close\n", c)
 		close(c.closed)	// XXX better just close c.rxq + ??? for tx
 	})
 }
