@@ -67,6 +67,9 @@ type Conn struct {
 	connId    uint32
 	rxq	  chan *PktBuf	// received packets for this Conn go here
 	txerr     chan error	// transmit errors for this Conn go back here
+
+	// Conn has to be explicitly closed by user; it can also be closed by NodeLink.Close
+	closeOnce sync.Once
 	closed    chan struct{}
 }
 
@@ -142,8 +145,7 @@ func (nl *NodeLink) Close() error {
 		// XXX only interrupt, not close? Or allow multiple conn.Close() ?
 		conn.close()	// XXX err -> errv
 	}
-	nl.connTab = nil	// XXX ok? vs panic on NewConn after close ?
-
+	nl.connTab = nil	// clear + mark closed
 	return err
 }
 
@@ -219,6 +221,9 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 func (nl *NodeLink) NewConn() *Conn {
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
+	if nl.connTab == nil {
+		panic("NewConn() on closed node-link")
+	}
 	c := nl.newConn(nl.nextConnId)
 	nl.nextConnId += 2
 	return c
@@ -340,7 +345,9 @@ func (c *Conn) Recv() (*PktBuf, error) {
 
 // worker for Close() & co
 func (c *Conn) close() {
-	close(c.closed)	// XXX better just close c.rxq + ??? for tx
+	c.closeOnce.Do(func() {
+		close(c.closed)	// XXX better just close c.rxq + ??? for tx
+	})
 }
 
 // Close connection
