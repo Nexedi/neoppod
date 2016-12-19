@@ -47,19 +47,14 @@ type NodeLink struct {
 	peerLink net.Conn		// raw conn to peer
 
 	connMu   sync.Mutex	// TODO -> RW ?
-	connTab  map[uint32]*Conn	// connid -> connection associated with connid
+	connTab  map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
-
 
 	handleNewConn func(conn *Conn)	// handler for new connections	XXX -> ConnHandler (a-la Handler in net/http) ?
 
-	txreq	chan txReq		// tx requests from Conns go here
-					// (received pkt go dispatched to connTab[connid].rxq)
+	txreq	chan txReq		// tx requests from Conns go via here
 	closed  chan struct{}
 }
-
-
-
 
 // Conn is a connection established over NodeLink
 //
@@ -70,8 +65,8 @@ type NodeLink struct {
 type Conn struct {
 	nodeLink  *NodeLink
 	connId    uint32
-	rxq	  chan *PktBuf
-	txerr     chan error	// transmit errors go back here
+	rxq	  chan *PktBuf	// received packets for this Conn go here
+	txerr     chan error	// transmit errors for this Conn go back here
 	closed    chan struct{}
 }
 
@@ -110,9 +105,9 @@ func NewNodeLink(conn net.Conn, role ConnRole) *NodeLink {
 	var nextConnId uint32
 	switch role {
 	case ConnServer:
-		nextConnId = 0
+		nextConnId = 0	// all initiated by us connId will be even
 	case ConnClient:
-		nextConnId = 1
+		nextConnId = 1	// ----//---- odd
 	default:
 		panic("invalid conn role")
 	}
@@ -134,17 +129,21 @@ func NewNodeLink(conn net.Conn, role ConnRole) *NodeLink {
 func (nl *NodeLink) Close() error {
 	close(nl.closed)
 	err := nl.peerLink.Close()
+
+	// TODO wait for serve{Send,Recv} to complete
+	//nl.wg.Wait()
+
 	// close active Conns
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
 	for _, conn := range nl.connTab {
 		// FIXME it also wants to lock conntab -> conn.close() ?
 		println("conn", conn.connId, " -> closing ...")
-		conn.Close()	// XXX err
+		// XXX only interrupt, not close? Or allow multiple conn.Close() ?
+		conn.close()	// XXX err -> errv
 	}
 	nl.connTab = nil	// XXX ok? vs panic on NewConn after close ?
-	// XXX wait for serve{Send,Recv} to complete
-	//nl.wg.Wait()
+
 	return err
 }
 
@@ -203,18 +202,25 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	return pkt, nil
 }
 
-// Make a connection on top of node-node link
-func (nl *NodeLink) NewConn() *Conn {
+
+// worker for NewConn() & friends. Must be called with connMu held.
+func (nl *NodeLink) newConn(connId uint32) *Conn {
 	c := &Conn{nodeLink: nl,
+		connId: connId,
 		rxq: make(chan *PktBuf),
 		txerr: make(chan error),
 		closed: make(chan struct{}),
 	}
+	nl.connTab[connId] = c
+	return c
+}
+
+// Create a connection on top of node-node link
+func (nl *NodeLink) NewConn() *Conn {
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
-	c.connId = nl.nextConnId
+	c := nl.newConn(nl.nextConnId)
 	nl.nextConnId += 2
-	nl.connTab[c.connId] = c
 	return c
 }
 
@@ -235,20 +241,29 @@ func (nl *NodeLink) serveRecv() {
 			panic(err)	// XXX err
 		}
 
-		// if we don't yet have connection established for pkt.ConnId -
-		// spawn connection-serving goroutine
-		// XXX connTab locking
-		conn := nl.connTab[ntoh32(pkt.Header().ConnId)]
-		if conn == nil {
-			if nl.handleNewConn == nil {
-				// we are not accepting incoming connections - ignore packet
-				// XXX also log?
-				continue
-			}
+		// pkt.ConnId -> Conn
+		connId := ntoh32(pkt.Header().ConnId)
+		accept := false
 
-			conn = nl.NewConn()
+		nl.connMu.Lock()
+		conn := nl.connTab[connId]
+		if conn == nil && nl.handleNewConn != nil {
+			conn = nl.newConn(connId)
+			accept = true
+		}
+		nl.connMu.Unlock()
+
+		// we have not accepted incoming connection - ignore packet
+		if conn == nil {
+			// XXX also log?
+			continue
+		}
+
+		// we are accepting new incoming connection - spawn
+		// connection-serving goroutine
+		if accept {
 			// TODO avoid spawning goroutine for each new Ask request -
-			//	- by keeping pool of read inactive goroutine / conn pool
+			//	- by keeping pool of read inactive goroutine / conn pool ?
 			go nl.handleNewConn(conn)
 		}
 
@@ -295,8 +310,7 @@ var ErrClosedConn = errors.New("read/write on closed connection")
 
 // Send packet via connection
 func (c *Conn) Send(pkt *PktBuf) error {
-	// set pkt connid associated with this connection
-	// TODO for new Conn - it should be set by serveSend ?
+	// set pkt connId associated with this connection
 	pkt.Header().ConnId = hton32(c.connId)
 
 	select {
@@ -324,13 +338,20 @@ func (c *Conn) Recv() (*PktBuf, error) {
 	}
 }
 
+// worker for Close() & co
+func (c *Conn) close() {
+	close(c.closed)	// XXX better just close c.rxq + ??? for tx
+}
+
 // Close connection
 // Any blocked Send() or Recv() will be unblocked and return error
 // XXX Send() - if started - will first complete (not to break framing)
 func (c *Conn) Close() error {	// XXX do we need error here?
-	// TODO adjust c.nodeLink.connTab + more ?
-	// XXX check for double close?
-	close(c.closed)	// XXX better just close c.rxq + ??? for tx
+	// adjust nodeLink.connTab
+	c.nodeLink.connMu.Lock()
+	delete(c.nodeLink.connTab, c.connId)
+	c.nodeLink.connMu.Unlock()
+	c.close()
 	return nil
 }
 
