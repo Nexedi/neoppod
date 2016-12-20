@@ -21,8 +21,10 @@ import (
 	"sync"
 	"unsafe"
 
-	//"fmt"
+	"fmt"
 )
+// XXX temp
+var _ = fmt.Println
 
 // NodeLink is a node-node link in NEO
 //
@@ -182,10 +184,13 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
-	n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
+	// TODO reenable, but NOTE next packet can be also prefetched here
+	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
+	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
 	if err != nil {
 		return nil, err	// XXX err adjust ?
 	}
+	//println("read head:", n)
 
 	pkth := pkt.Header()
 
@@ -212,6 +217,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		if err != nil {
 			return nil, err	// XXX err adjust ?
 		}
+		//println("read data:", len(pkt.Data)-n)
 	}
 
 	return pkt, nil
@@ -264,6 +270,7 @@ func (nl *NodeLink) serveRecv() {
 
 		// pkt.ConnId -> Conn
 		connId := ntoh32(pkt.Header().ConnId)
+		//fmt.Printf("%p\t (recv) -> connId: %v\n", nl, connId)
 		var handleNewConn func(conn *Conn)
 
 		nl.connMu.Lock()
@@ -273,6 +280,8 @@ func (nl *NodeLink) serveRecv() {
 			if handleNewConn != nil {
 				conn = nl.newConn(connId)
 			}
+
+			// FIXME update connTab with born conn
 		}
 		nl.connMu.Unlock()
 
@@ -287,6 +296,7 @@ func (nl *NodeLink) serveRecv() {
 		if handleNewConn != nil {
 			// TODO avoid spawning goroutine for each new Ask request -
 			//	- by keeping pool of read inactive goroutine / conn pool ?
+			//println("+ handle", connId)
 			go handleNewConn(conn)
 		}
 

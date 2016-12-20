@@ -93,7 +93,7 @@ func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	h := pkt.Header()
 	h.ConnId = hton32(connid)
 	h.MsgCode = hton16(msgcode)
-	h.Len = hton32(PktHeadLen + 4)
+	h.Len = hton32(PktHeadLen + uint32(len(payload)))
 	copy(pkt.Payload(), payload)
 	return pkt
 }
@@ -263,7 +263,6 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)	// for completeness
 
 	// Conn accept + exchange
-	println("000")
 	nl1, nl2 = nodeLinkPipe()
 	nl2.HandleNewConn(func(c *Conn) {
 		// TODO raised err -> errch
@@ -281,7 +280,7 @@ func TestNodeLink(t *testing.T) {
 	xverifyPkt(pkt2, c1.connId, 34, []byte("pong"))
 
 	// test 2 channels with replies comming in reversed time order
-	println("111")
+	nl1, nl2 = nodeLinkPipe()
 	order := map[uint16]struct { // "order" in which to process requests
 		start chan int       // processing starts when start chan is ready
 		next  uint16         // after processing this switch to next
@@ -292,7 +291,7 @@ func TestNodeLink(t *testing.T) {
 	go func() {
 		order[2].start <- 0
 	}()
-	println("aaa")
+	c1 = nl1.NewConn()	// XXX temp?
 	c2 := nl1.NewConn()
 	nl2.HandleNewConn(func(c *Conn) {
 		pkt := xrecv(c)
@@ -311,26 +310,17 @@ func TestNodeLink(t *testing.T) {
 
 	xsend(c1, mkpkt(1, []byte("")))
 	xsend(c2, mkpkt(2, []byte("")))
-	println("bbb")
 
 	wg = WorkGroup()
-	echoTest := func(c *Conn, msgCode uint16) func() {
+	echoWait := func(c *Conn, msgCode uint16) func() {
 		return func() {
-			/*
-			pkt := mkpkt(msgCode, []byte(""))
-			xsend(c, pkt)
-			*/
-			pkt2 := xrecv(c)
-			println("recv", msgCode)
-			xverifyPkt(pkt2, c.connId, msgCode, []byte(""))
+			pkt := xrecv(c)
+			xverifyPkt(pkt, c.connId, msgCode, []byte(""))
 		}
 	}
-	wg.Gox(echoTest(c1, 1))
-	wg.Gox(echoTest(c2, 2))
-
-	println("ccc")
+	wg.Gox(echoWait(c1, 1))
+	wg.Gox(echoWait(c2, 2))
 	xwait(wg)
-	println("ddd")
 
 	xclose(c1)
 	xclose(c2)
