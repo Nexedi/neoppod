@@ -220,7 +220,7 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 	c := &Conn{nodeLink: nl,
 		connId: connId,
 		rxq: make(chan *PktBuf),
-		txerr: make(chan error),
+		txerr: make(chan error, 1), // NOTE non-blocking - see Conn.Send
 		closed: make(chan struct{}),
 	}
 	nl.connTab[connId] = c
@@ -341,15 +341,43 @@ var ErrClosedConn = errors.New("read/write on closed connection")
 func (c *Conn) Send(pkt *PktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = hton32(c.connId)
+	var err error
 
 	select {
 	case <-c.closed:
 		return ErrClosedConn
 
 	case c.nodeLink.txreq <- txReq{pkt, c.txerr}:
-		err := <-c.txerr
-		return err	// XXX adjust err with c?
+		select {
+		// tx request was sent to serveSend and is being transmitted on the wire.
+		// the transmission may block for indefinitely long though and
+		// we cannot interrupt it as the only way to interrup is
+		// .nodeLink.Close() which will close all other Conns.
+		//
+		// That's why we are also checking for c.closed while waiting
+		// for reply from serveSend (and leave pkt to finish transmitting).
+		//
+		// NOTE after we return straight here serveSend won't be blocked on
+		// c.txerr<- because that backchannel is a non-blocking one.
+		case <-c.closed:
+			return ErrClosedConn
+
+		case err = <-c.txerr:
+		}
 	}
+
+	// if we got transmission error maybe it was due to underlying NodeLink
+	// being closed. If our Conn was also requested to be closed adjust err
+	// to ErrClosedConn along the way.
+	if err != nil {
+		select {
+		case <-c.closed:
+			err = ErrClosedConn
+		default:
+		}
+	}
+
+	return err
 }
 
 // Receive packet from connection

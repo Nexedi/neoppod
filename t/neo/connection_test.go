@@ -131,42 +131,22 @@ func tdelay() {
 	time.Sleep(1*time.Millisecond)
 }
 
-func _nodeLinkPipe(flags ConnRole) (nl1, nl2 *NodeLink) {
+func _nodeLinkPipe(flags1, flags2 ConnRole) (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
-	nl1 = NewNodeLink(node1, ConnClient | flags)
-	nl2 = NewNodeLink(node2, ConnServer | flags)
+	nl1 = NewNodeLink(node1, ConnClient | flags1)
+	nl2 = NewNodeLink(node2, ConnServer | flags2)
 	return nl1, nl2
 }
 // create NodeLinks connected via net.Pipe
 func nodeLinkPipe() (nl1, nl2 *NodeLink) {
-	return _nodeLinkPipe(0)
-}
-
-func TestPipe(t *testing.T) {
-	p1, p2 := net.Pipe()
-	wg := WorkGroup()
-	wg.Gox(func() {
-		tdelay()
-		println("aaa")
-		xclose(p1)
-		println("bbb")
-	})
-	println("111")
-	_, err := p1.Write([]byte("data"))
-	println("222")
-	if err != io.ErrClosedPipe {
-		t.Fatalf("unexpected err = %v", err)
-	}
-	xwait(wg)
-	xclose(p2)
+	return _nodeLinkPipe(0, 0)
 }
 
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
 	// Close vs recvPkt
-	println("111")
-	nl1, nl2 := _nodeLinkPipe(connNoRecvSend)
+	nl1, nl2 := _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
 	wg := WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -180,29 +160,22 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)
 
 	// Close vs sendPkt
-	println("222")
-	nl1, nl2 = _nodeLinkPipe(connNoRecvSend)
+	nl1, nl2 = _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
-		println("close(nl1) aaa")
 		xclose(nl1)
-		println("close(nl1) bbb")
 	})
 	pkt = &PktBuf{[]byte("data")}
-	println("zzz")
 	err = nl1.sendPkt(pkt)
-	println("qqq")
 	if err != io.ErrClosedPipe {
 		t.Fatalf("NodeLink.sendPkt() after close: err = %v", err)
 	}
 	xwait(wg)
 	xclose(nl2)
-	return
 
 	// check raw exchange works
-	println("333")
-	nl1, nl2 = _nodeLinkPipe(connNoRecvSend)
+	nl1, nl2 = _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
 
 	wg, ctx := WorkGroupCtx(context.Background())
 	wg.Gox(func() {
@@ -233,10 +206,9 @@ func TestNodeLink(t *testing.T) {
 
 
 	// Test connections on top of nodelink
-	println("444")
-	nl1, nl2 = nodeLinkPipe()
 
 	// Close vs Recv
+	nl1, nl2 = _nodeLinkPipe(0, connNoRecvSend)
 	c := nl1.NewConn()
 	wg = WorkGroup()
 	wg.Gox(func() {
@@ -248,12 +220,11 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Conn.Recv() after close: pkt = %v  err = %v", pkt, err)
 	}
 	xwait(wg)
+	xclose(nl1)
+	xclose(nl2)
 
 	// Close vs Send
-	println("444.2")
-	//xclose(nl2)	// so it does not receive what nl1 sends XXX wrong ->
-	//this will just make Send return error right after call
-	// TODO what is needed is nl2.serveRecv shutdown
+	nl1, nl2 = _nodeLinkPipe(0, connNoRecvSend)
 	c = nl1.NewConn()
 	wg = WorkGroup()
 	wg.Gox(func() {
@@ -266,6 +237,8 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Conn.Send() after close: err = %v", err)
 	}
 	xwait(wg)
+
+	return
 
 	// NodeLink.Close vs Conn.Send/Recv
 	c11 := nl1.NewConn()
