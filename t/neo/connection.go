@@ -161,7 +161,7 @@ func (nl *NodeLink) Close() error {
 
 // send raw packet to peer
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
-	_, err := nl.peerLink.Write(pkt.Data)
+	_, err := nl.peerLink.Write(pkt.Data)	// FIXME write Data in full
 	if err != nil {
 		// XXX do we need to retry if err is temporary?
 		// TODO data could be written partially and thus the message stream is now broken

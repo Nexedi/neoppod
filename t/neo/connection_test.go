@@ -142,14 +142,31 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 	return _nodeLinkPipe(0)
 }
 
+func TestPipe(t *testing.T) {
+	p1, p2 := net.Pipe()
+	wg := WorkGroup()
+	wg.Gox(func() {
+		tdelay()
+		println("aaa")
+		xclose(p1)
+		println("bbb")
+	})
+	println("111")
+	_, err := p1.Write([]byte("data"))
+	println("222")
+	if err != io.ErrClosedPipe {
+		t.Fatalf("unexpected err = %v", err)
+	}
+	xwait(wg)
+	xclose(p2)
+}
 
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
-	nl1, nl2 := nodeLinkPipe()
-
 	// Close vs recvPkt
 	println("111")
+	nl1, nl2 := _nodeLinkPipe(connNoRecvSend)
 	wg := WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -160,20 +177,28 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("NodeLink.recvPkt() after close: pkt = %v  err = %v", pkt, err)
 	}
 	xwait(wg)
+	xclose(nl2)
 
 	// Close vs sendPkt
 	println("222")
+	nl1, nl2 = _nodeLinkPipe(connNoRecvSend)
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
-		xclose(nl2)
+		println("close(nl1) aaa")
+		xclose(nl1)
+		println("close(nl1) bbb")
 	})
 	pkt = &PktBuf{[]byte("data")}
-	err = nl2.sendPkt(pkt)
+	println("zzz")
+	err = nl1.sendPkt(pkt)
+	println("qqq")
 	if err != io.ErrClosedPipe {
 		t.Fatalf("NodeLink.sendPkt() after close: err = %v", err)
 	}
 	xwait(wg)
+	xclose(nl2)
+	return
 
 	// check raw exchange works
 	println("333")
