@@ -238,8 +238,6 @@ func TestNodeLink(t *testing.T) {
 	}
 	xwait(wg)
 
-	return
-
 	// NodeLink.Close vs Conn.Send/Recv
 	c11 := nl1.NewConn()
 	c12 := nl1.NewConn()
@@ -280,6 +278,10 @@ func TestNodeLink(t *testing.T) {
 	xsend(c1, pkt)
 	pkt2 := xrecv(c1)
 	xverifyPkt(pkt2, c1.connId, 34, []byte("pong"))
+
+	xclose(c1)
+	xclose(nl1)
+	xclose(nl2)
 
 	// test 2 channels with replies comming in reversed time order
 }
