@@ -333,6 +333,29 @@ class ReplicationTests(NEOThreadedTest):
         finally:
             upstream.stop()
 
+    @backup_test()
+    def testBackupTid(self, backup):
+        """
+        Check that the backup cluster does not claim it has all the data just
+        after it came back whereas new transactions were committed during its
+        absence.
+        """
+        importZODB = backup.upstream.importZODB()
+        importZODB(1)
+        self.tic()
+        last_tid = backup.upstream.last_tid
+        self.assertEqual(last_tid, backup.backup_tid)
+        backup.stop()
+        importZODB(1)
+        backup.reset()
+        with ConnectionFilter() as f:
+            f.add(lambda conn, packet:
+                isinstance(packet, Packets.AskFetchTransactions))
+            backup.start()
+            self.assertEqual(last_tid, backup.backup_tid)
+        self.tic()
+        self.assertEqual(1, self.checkBackup(backup))
+
     def testSafeTweak(self):
         """
         Check that tweak always tries to keep a minimum of (replicas + 1)

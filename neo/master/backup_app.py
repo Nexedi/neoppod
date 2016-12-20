@@ -194,9 +194,8 @@ class BackupApplication(object):
         for node in trigger_set:
             self.triggerBackup(node)
 
-    def invalidatePartitions(self, tid, partition_set):
+    def invalidatePartitions(self, tid, prev_tid, partition_set):
         app = self.app
-        prev_tid = app.getLastTransaction()
         app.setLastTransaction(tid)
         pt = app.pt
         trigger_set = set()

@@ -34,10 +34,18 @@ class BackupHandler(EventHandler):
 
     def answerLastTransaction(self, conn, tid):
         app = self.app
-        if tid != ZERO_TID:
-            app.invalidatePartitions(tid, set(xrange(app.pt.getPartitions())))
-        else: # upstream DB is empty
-            assert app.app.getLastTransaction() == tid
+        prev_tid = app.app.getLastTransaction()
+        if prev_tid < tid:
+            # Since we don't know which partitions were modified during our
+            # absence, we must force replication on all storages. As long as
+            # they haven't done this first check, our backup tid will remain
+            # inferior to this 'tid'. We don't know the real prev_tid, which is:
+            #   >= app.app.getLastTransaction()
+            #   < tid
+            # but passing 'tid' is good enough.
+            app.invalidatePartitions(tid, tid, xrange(app.pt.getPartitions()))
+        elif prev_tid != tid:
+            raise RuntimeError("upstream DB truncated")
         app.ignore_invalidations = False
 
     def invalidateObjects(self, conn, tid, oid_list):
@@ -47,4 +55,5 @@ class BackupHandler(EventHandler):
         getPartition = app.app.pt.getPartition
         partition_set = set(map(getPartition, oid_list))
         partition_set.add(getPartition(tid))
-        app.invalidatePartitions(tid, partition_set)
+        prev_tid = app.app.getLastTransaction()
+        app.invalidatePartitions(tid, prev_tid, partition_set)
