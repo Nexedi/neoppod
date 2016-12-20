@@ -411,7 +411,7 @@ func (c *Conn) close() {
 
 // Close connection
 // Any blocked Send() or Recv() will be unblocked and return error
-// XXX Send() - if started - will first complete (not to break framing)
+// XXX Send() - if started - will first complete (not to break framing) XXX <- in background
 func (c *Conn) Close() error {	// XXX do we need error here?
 	// adjust nodeLink.connTab
 	c.nodeLink.connMu.Lock()
