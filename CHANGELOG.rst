@@ -42,7 +42,6 @@ Change History
 - Plus a few other changes for debugging and developers, as well as small
   optimizations.
 
-
 1.6.3 (2016-06-15)
 ------------------
 
