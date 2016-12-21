@@ -21,10 +21,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"fmt"
+	//"fmt"
 )
-// XXX temp
-var _ = fmt.Println
 
 // NodeLink is a node-node link in NEO
 //
@@ -54,8 +52,8 @@ type NodeLink struct {
 	connTab  map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
-	serveWg sync.WaitGroup
-
+	serveWg       sync.WaitGroup	// for serve{Send,Recv}
+	//handleWg      sync.WaitGroup	// for spawned handlers	XXX do we need this + .Wait() ?
 	handleNewConn func(conn *Conn)	// handler for new connections
 
 	txreq	chan txReq		// tx requests from Conns go via here
@@ -280,8 +278,6 @@ func (nl *NodeLink) serveRecv() {
 			if handleNewConn != nil {
 				conn = nl.newConn(connId)
 			}
-
-			// FIXME update connTab with born conn
 		}
 		nl.connMu.Unlock()
 
@@ -422,7 +418,7 @@ func (c *Conn) close() {
 // Close connection
 // Any blocked Send() or Recv() will be unblocked and return error
 // XXX Send() - if started - will first complete (not to break framing) XXX <- in background
-func (c *Conn) Close() error {	// XXX do we need error here?
+func (c *Conn) Close() error {
 	// adjust nodeLink.connTab
 	c.nodeLink.connMu.Lock()
 	delete(c.nodeLink.connTab, c.connId)
