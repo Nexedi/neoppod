@@ -15,12 +15,9 @@
 package neo
 
 import (
-	//"fmt"
-
 	"bytes"
 	"context"
 	"io"
-	//"fmt"
 	"net"
 	"testing"
 	"time"
@@ -28,7 +25,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"lab.nexedi.com/kirr/go123/exc"
-	//"lab.nexedi.com/kirr/go123/myname"
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
@@ -118,7 +114,7 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 		errv.Appendf("header: unexpected length %v  (want %v)", ntoh32(h.Len), PktHeadLen + len(payload))
 	}
 	if !bytes.Equal(pkt.Payload(), payload) {
-		errv.Appendf("payload differ")	// XXX also print payload ?
+		errv.Appendf("payload differ")
 	}
 
 	exc.Raiseif( errv.Err() )
@@ -131,13 +127,14 @@ func tdelay() {
 	time.Sleep(1*time.Millisecond)
 }
 
+// create NodeLinks connected via net.Pipe
 func _nodeLinkPipe(flags1, flags2 ConnRole) (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
 	nl1 = NewNodeLink(node1, ConnClient | flags1)
 	nl2 = NewNodeLink(node2, ConnServer | flags2)
 	return nl1, nl2
 }
-// create NodeLinks connected via net.Pipe
+
 func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 	return _nodeLinkPipe(0, 0)
 }
@@ -174,7 +171,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 	xclose(nl2)
 
-	// check raw exchange works
+	// raw exchange
 	nl1, nl2 = _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
 
 	wg, ctx := WorkGroupCtx(context.Background())
@@ -286,10 +283,10 @@ func TestNodeLink(t *testing.T) {
 	xsend(c, mkpkt(35, []byte("ping2")))
 	pkt = xrecv(c)
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
+	nl2.Wait()
 
 	xclose(c)
 	xclose(nl1)
-	nl2.Wait()
 	xclose(nl2)
 
 	// test 2 channels with replies comming in reversed time order
@@ -304,6 +301,7 @@ func TestNodeLink(t *testing.T) {
 	close(replyOrder[2].start)
 
 	nl2.HandleNewConn(func(c *Conn) {
+		// TODO raised err -> errch
 		pkt := xrecv(c)
 		n := ntoh16(pkt.Header().MsgCode)
 		x := replyOrder[n]
@@ -332,10 +330,10 @@ func TestNodeLink(t *testing.T) {
 	}
 	xechoWait(c2, 2)
 	xechoWait(c1, 1)
+	nl2.Wait()
 
 	xclose(c1)
 	xclose(c2)
 	xclose(nl1)
-	nl2.Wait()
 	xclose(nl2)
 }

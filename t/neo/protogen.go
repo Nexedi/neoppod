@@ -1,4 +1,4 @@
-// TODO text what it does (generates code for pkt.go)
+// TODO text what it does (generates code for proto.go)
 
 // +build ignore
 
@@ -17,7 +17,7 @@ func main() {
 	fset := token.NewFileSet()
 
 	var mode parser.Mode = 0	// parser.Trace
-	f, err := parser.ParseFile(fset, "pkt.go", nil, mode)
+	f, err := parser.ParseFile(fset, "proto.go", nil, mode)
 	if err != nil {
 		panic(err)	// XXX log
 	}

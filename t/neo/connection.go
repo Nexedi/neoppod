@@ -10,7 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// NEO | Connection management
+// NEO. Connection management
 
 package neo
 
@@ -20,8 +20,6 @@ import (
 	"net"
 	"sync"
 	"unsafe"
-
-	//"fmt"
 )
 
 // NodeLink is a node-node link in NEO
@@ -48,8 +46,8 @@ import (
 type NodeLink struct {
 	peerLink net.Conn		// raw conn to peer
 
-	connMu   sync.Mutex	// TODO -> RW ?
-	connTab  map[uint32]*Conn	// connId -> Conn associated with connId
+	connMu     sync.Mutex	// TODO -> RW ?
+	connTab    map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
 	serveWg       sync.WaitGroup	// for serve{Send,Recv}
@@ -72,43 +70,28 @@ type Conn struct {
 	rxq	  chan *PktBuf	// received packets for this Conn go here
 	txerr     chan error	// transmit errors for this Conn go back here
 
-	// Conn has to be explicitly closed by user; it can also be closed by NodeLink.Close
+	// once because: Conn has to be explicitly closed by user; it can also
+	// be closed by NodeLink.Close .
 	closeOnce sync.Once
 	closed    chan struct{}
 }
 
-// Buffer with packet data
-// XXX move me out of here
-type PktBuf struct {
-	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
-}
-
-// Get pointer to packet header
-func (pkt *PktBuf) Header() *PktHead {
-	// XXX check len(Data) < PktHead ? -> no, Data has to be allocated with cap >= PktHeadLen
-	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
-}
-
-// Get packet payload
-func (pkt *PktBuf) Payload() []byte {
-	return pkt.Data[PktHeadLen:]
-}
-
-
-type ConnRole int
+// A role our end of NodeLink is intended to play
+type LinkRole int
 const (
-	ConnServer ConnRole = iota	// connection created as server
-	ConnClient			// connection created as client
+	LinkServer ConnRole = iota	// link created as server
+	LinkClient			// link created as client
 
 	// for testing:
-	connNoRecvSend ConnRole = 1<<16	// do not spawn serveRecv & serveSend
-	connFlagsMask  ConnRole = (1<<32 - 1) << 16
+	linkNoRecvSend ConnRole = 1<<16	// do not spawn serveRecv & serveSend
+	linkFlagsMask  ConnRole = (1<<32 - 1) << 16
 )
 
 // Make a new NodeLink from already established net.Conn
 //
 // role specifies how to treat conn - either as server or client one.
-// The difference in between client and server roles are in connid % 2		XXX text
+// The difference in between client and server roles is only in how connection
+// ids are allocated for connections initiated at our side: there is no overlap in identifiers if one side always allocates them as even and its peer as odd. in connId % 2		XXX text
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
