@@ -128,10 +128,10 @@ func tdelay() {
 }
 
 // create NodeLinks connected via net.Pipe
-func _nodeLinkPipe(flags1, flags2 ConnRole) (nl1, nl2 *NodeLink) {
+func _nodeLinkPipe(flags1, flags2 LinkRole) (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
-	nl1 = NewNodeLink(node1, ConnClient | flags1)
-	nl2 = NewNodeLink(node2, ConnServer | flags2)
+	nl1 = NewNodeLink(node1, LinkClient | flags1)
+	nl2 = NewNodeLink(node2, LinkServer | flags2)
 	return nl1, nl2
 }
 
@@ -143,7 +143,7 @@ func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
 	// Close vs recvPkt
-	nl1, nl2 := _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
+	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg := WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -157,7 +157,7 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)
 
 	// Close vs sendPkt
-	nl1, nl2 = _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
+	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -172,7 +172,7 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)
 
 	// raw exchange
-	nl1, nl2 = _nodeLinkPipe(connNoRecvSend, connNoRecvSend)
+	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 
 	wg, ctx := WorkGroupCtx(context.Background())
 	wg.Gox(func() {
@@ -205,7 +205,7 @@ func TestNodeLink(t *testing.T) {
 	// Test connections on top of nodelink
 
 	// Close vs Recv
-	nl1, nl2 = _nodeLinkPipe(0, connNoRecvSend)
+	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c := nl1.NewConn()
 	wg = WorkGroup()
 	wg.Gox(func() {
@@ -221,7 +221,7 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)
 
 	// Close vs Send
-	nl1, nl2 = _nodeLinkPipe(0, connNoRecvSend)
+	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c = nl1.NewConn()
 	wg = WorkGroup()
 	wg.Gox(func() {

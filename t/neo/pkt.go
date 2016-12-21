@@ -14,6 +14,12 @@
 
 package neo
 
+import (
+	"unsafe"
+)
+
+// TODO organize rx buffers management (freelist etc)
+
 // Buffer with packet data
 type PktBuf struct {
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?

@@ -19,7 +19,6 @@ import (
 	"io"
 	"net"
 	"sync"
-	"unsafe"
 )
 
 // NodeLink is a node-node link in NEO
@@ -79,46 +78,48 @@ type Conn struct {
 // A role our end of NodeLink is intended to play
 type LinkRole int
 const (
-	LinkServer ConnRole = iota	// link created as server
+	LinkServer LinkRole = iota	// link created as server
 	LinkClient			// link created as client
 
 	// for testing:
-	linkNoRecvSend ConnRole = 1<<16	// do not spawn serveRecv & serveSend
-	linkFlagsMask  ConnRole = (1<<32 - 1) << 16
+	linkNoRecvSend LinkRole = 1<<16	// do not spawn serveRecv & serveSend
+	linkFlagsMask  LinkRole = (1<<32 - 1) << 16
 )
 
 // Make a new NodeLink from already established net.Conn
 //
-// role specifies how to treat conn - either as server or client one.
-// The difference in between client and server roles is only in how connection
-// ids are allocated for connections initiated at our side: there is no overlap in identifiers if one side always allocates them as even and its peer as odd. in connId % 2		XXX text
+// Role specifies how to treat our role on the link - either as client or
+// server one. The difference in between client and server roles is only in
+// how connection ids are allocated for connections initiated at our side:
+// there is no conflict in identifiers if one side always allocates them as
+// even (server) and its peer as odd (client).
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
-func NewNodeLink(conn net.Conn, role ConnRole) *NodeLink {
+func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	var nextConnId uint32
-	switch role&^connFlagsMask {
-	case ConnServer:
+	switch role&^linkFlagsMask {
+	case LinkServer:
 		nextConnId = 0	// all initiated by us connId will be even
-	case ConnClient:
+	case LinkClient:
 		nextConnId = 1	// ----//---- odd
 	default:
 		panic("invalid conn role")
 	}
 
-	nl := NodeLink{
+	nl := &NodeLink{
 		peerLink:   conn,
 		connTab:    map[uint32]*Conn{},
 		nextConnId: nextConnId,
 		txreq:      make(chan txReq),
 		closed:     make(chan struct{}),
 	}
-	if role&connNoRecvSend == 0 {
+	if role&linkNoRecvSend == 0 {
 		nl.serveWg.Add(2)
 		go nl.serveRecv()
 		go nl.serveSend()
 	}
-	return &nl
+	return nl
 }
 
 // Close node-node link.
@@ -138,9 +139,7 @@ func (nl *NodeLink) Close() error {
 	err := nl.peerLink.Close()
 
 	// wait for serve{Send,Recv} to complete
-	//fmt.Printf("%p serveWg.Wait ...\n", nl)
 	nl.serveWg.Wait()
-	//fmt.Printf("%p\t (wait) -> woken up\n", nl)
 
 	// XXX do we want to also Wait for handlers here?
 	// (problem is peerLink is closed first so this might cause handlers to see errors)
@@ -174,15 +173,16 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	if err != nil {
 		return nil, err	// XXX err adjust ?
 	}
-	//println("read head:", n)
 
 	pkth := pkt.Header()
 
 	// XXX -> better PktHeader.Decode() ?
 	if ntoh32(pkth.Len) < PktHeadLen {
+		// TODO err + close nodelink (framing broken)
 		panic("TODO pkt.Len < PktHeadLen")	// XXX err	(length is a whole packet len with header)
 	}
 	if ntoh32(pkth.Len) > MAX_PACKET_SIZE {
+		// TODO err + close nodelink (framing broken) (?)
 		panic("TODO message too big")	// XXX err
 	}
 
@@ -201,7 +201,6 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		if err != nil {
 			return nil, err	// XXX err adjust ?
 		}
-		//println("read data:", len(pkt.Data)-n)
 	}
 
 	return pkt, nil
@@ -234,14 +233,12 @@ func (nl *NodeLink) NewConn() *Conn {
 
 
 // serveRecv handles incoming packets routing them to either appropriate
-// already-established connection or to new serving goroutine.
+// already-established connection or to new handling goroutine.
 func (nl *NodeLink) serveRecv() {
 	defer nl.serveWg.Done()
 	for {
 		// receive 1 packet
-		//println(nl, "serveRecv -> recv...")
 		pkt, err := nl.recvPkt()
-		//fmt.Printf("%p\t (recv) -> %v\n", nl, err)
 		if err != nil {
 			// this might be just error on close - simply stop in such case
 			select {
@@ -254,7 +251,6 @@ func (nl *NodeLink) serveRecv() {
 
 		// pkt.ConnId -> Conn
 		connId := ntoh32(pkt.Header().ConnId)
-		//fmt.Printf("%p\t (recv) -> connId: %v\n", nl, connId)
 		var handleNewConn func(conn *Conn)
 
 		nl.connMu.Lock()
@@ -278,7 +274,6 @@ func (nl *NodeLink) serveRecv() {
 		if handleNewConn != nil {
 			// TODO avoid spawning goroutine for each new Ask request -
 			//	- by keeping pool of read inactive goroutine / conn pool ?
-			//println("+ handle", connId)
 			go func() {
 				nl.handleWg.Add(1)
 				defer nl.handleWg.Done()
@@ -310,24 +305,19 @@ func (nl *NodeLink) serveSend() {
 	defer nl.serveWg.Done()
 runloop:
 	for {
-		//fmt.Printf("%p serveSend -> select ...\n", nl)
 		select {
 		case <-nl.closed:
-			//fmt.Printf("%p\t (send) -> closed\n", nl)
 			break runloop
 
 		case txreq := <-nl.txreq:
-			//fmt.Printf("%p\t (send) -> txreq\n", nl)
 			err := nl.sendPkt(txreq.pkt)
-			//fmt.Printf("%p\t (send) -> err: %v\n", nl, err)
 			if err != nil {
 				// XXX also close whole nodeLink since tx framing now can be broken?
+				//     -> not here - this logic should be in sendPkt
 			}
 			txreq.errch <- err
 		}
 	}
-
-	//fmt.Printf("%p\t (send) -> exit\n", nl)
 }
 
 // XXX move to NodeLink ctor ?
@@ -362,8 +352,8 @@ func (c *Conn) Send(pkt *PktBuf) error {
 		// That's why we are also checking for c.closed while waiting
 		// for reply from serveSend (and leave pkt to finish transmitting).
 		//
-		// NOTE after we return straight here serveSend won't be blocked on
-		// c.txerr<- because that backchannel is a non-blocking one.
+		// NOTE after we return straight here serveSend won't be later
+		// blocked on c.txerr<- because that backchannel is a non-blocking one.
 		case <-c.closed:
 			return ErrClosedConn
 
@@ -392,13 +382,9 @@ func (c *Conn) Send(pkt *PktBuf) error {
 func (c *Conn) Recv() (*PktBuf, error) {
 	select {
 	case <-c.closed:
-		// XXX closed c.rxq might be just indicator for this
 		return nil, ErrClosedConn
 
-	case pkt, ok := <-c.rxq:
-		if !ok {			// see ^^^
-			return nil, io.EOF	// XXX check erroring & other errors?
-		}
+	case pkt := <-c.rxq:
 		return pkt, nil
 	}
 }
@@ -406,14 +392,15 @@ func (c *Conn) Recv() (*PktBuf, error) {
 // worker for Close() & co
 func (c *Conn) close() {
 	c.closeOnce.Do(func() {
-		//fmt.Printf("%p Conn.close\n", c)
-		close(c.closed)	// XXX better just close c.rxq + ??? for tx
+		close(c.closed)
 	})
 }
 
 // Close connection
 // Any blocked Send() or Recv() will be unblocked and return error
-// XXX Send() - if started - will first complete (not to break framing) XXX <- in background
+//
+// NOTE for Send() - once transmission was started - it will complete in the
+// background on the wire not to break framing.
 func (c *Conn) Close() error {
 	// adjust nodeLink.connTab
 	c.nodeLink.connMu.Lock()
