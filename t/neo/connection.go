@@ -53,7 +53,7 @@ type NodeLink struct {
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
 	serveWg       sync.WaitGroup	// for serve{Send,Recv}
-	//handleWg      sync.WaitGroup	// for spawned handlers	XXX do we need this + .Wait() ?
+	handleWg      sync.WaitGroup	// for spawned handlers
 	handleNewConn func(conn *Conn)	// handler for new connections
 
 	txreq	chan txReq		// tx requests from Conns go via here
@@ -158,6 +158,9 @@ func (nl *NodeLink) Close() error {
 	//fmt.Printf("%p serveWg.Wait ...\n", nl)
 	nl.serveWg.Wait()
 	//fmt.Printf("%p\t (wait) -> woken up\n", nl)
+
+	// XXX do we want to also Wait for handlers here?
+	// (problem is peerLink is closed first so this might cause handlers to see errors)
 
 	return err
 }
@@ -293,12 +296,22 @@ func (nl *NodeLink) serveRecv() {
 			// TODO avoid spawning goroutine for each new Ask request -
 			//	- by keeping pool of read inactive goroutine / conn pool ?
 			//println("+ handle", connId)
-			go handleNewConn(conn)
+			go func() {
+				nl.handleWg.Add(1)
+				defer nl.handleWg.Done()
+				handleNewConn(conn)
+			}()
 		}
 
 		// route packet to serving goroutine handler
 		conn.rxq <- pkt
 	}
+}
+
+// wait for all handlers spawned for accepted connections to complete
+// XXX naming -> WaitHandlers ?
+func (nl *NodeLink) Wait() {
+	nl.handleWg.Wait()
 }
 
 

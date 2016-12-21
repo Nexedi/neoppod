@@ -264,7 +264,6 @@ func TestNodeLink(t *testing.T) {
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
-	hdone := make(chan struct{})
 	nl2.HandleNewConn(func(c *Conn) {
 		// TODO raised err -> errch
 		pkt := xrecv(c)
@@ -279,7 +278,6 @@ func TestNodeLink(t *testing.T) {
 		xsend(c, mkpkt(36, []byte("pong2")))
 
 		xclose(c)
-		close(hdone)
 	})
 	c = nl1.NewConn()
 	xsend(c, mkpkt(33, []byte("ping")))
@@ -288,10 +286,10 @@ func TestNodeLink(t *testing.T) {
 	xsend(c, mkpkt(35, []byte("ping2")))
 	pkt = xrecv(c)
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
-	<-hdone
 
 	xclose(c)
 	xclose(nl1)
+	nl2.Wait()
 	xclose(nl2)
 
 	// test 2 channels with replies comming in reversed time order
@@ -324,25 +322,20 @@ func TestNodeLink(t *testing.T) {
 
 	c1 := nl1.NewConn()
 	c2 := nl1.NewConn()
-	println("111")
 	xsend(c1, mkpkt(1, []byte("")))
-	println("222")
 	xsend(c2, mkpkt(2, []byte("")))
-	println("333")
 
 	// replies must be coming in reverse order
 	xechoWait := func(c *Conn, msgCode uint16) {
 		pkt := xrecv(c)
 		xverifyPkt(pkt, c.connId, msgCode, []byte(""))
 	}
-	println("aaa")
 	xechoWait(c2, 2)
-	println("bbb")
 	xechoWait(c1, 1)
-	println("ccc")
 
 	xclose(c1)
 	xclose(c2)
 	xclose(nl1)
+	nl2.Wait()
 	xclose(nl2)
 }
