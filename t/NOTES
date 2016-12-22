@@ -321,6 +321,25 @@ Storage communications
 
 * operation (serve clients):
 
+<C	RequestIdentification
+>C	AnswerRequestIdentification
+
+# XXX why here? -> root initialization (?)
+<C	GetObject
+>C	Error
+
+<C	StoreObject
+>C	AnswerStoreObject
+
+<C	StoreTransaction
+>C	AnswerStoreTransaction
+
+<M	LockInformation
+>M	AnswerLockInformation
+<M	UnlockInformation
+
+<M	NotifyNodeInformation	# C1 disconnects
+
 
 Tables
 ------
