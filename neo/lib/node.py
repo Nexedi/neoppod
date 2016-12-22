@@ -450,6 +450,7 @@ class NodeManager(object):
             logging.info('\n'.join(formatNodeList(
                 map(Node.asTuple, self._node_set), ' * ')))
 
+# node_type -> node_klass
 @apply
 def NODE_TYPE_MAPPING():
     def setmethod(cls, attr, value):

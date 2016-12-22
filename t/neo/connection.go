@@ -15,6 +15,7 @@
 package neo
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -411,11 +412,41 @@ func (c *Conn) Close() error {
 }
 
 
+// for convinience: Dial/Listen
 
-// TODO
-//func Dial(ctx context.Context, network, address string) (*NodeLink, error)	// + tls.Config
-//func Listen(network, laddr string) (net.Listener, error)	// + tls.Config
-//	ln.Accept -> will return net.Conn wrapped in NodeLink
+// Connect to address on named network and wrap the connection as NodeLink
+// TODO +tls.Config
+func Dial(ctx context.Context, network, address string) (*NodeLink, error) {
+	d := net.Dialer{}
+	peerConn, err := d.DialContext(ctx, network, address)
+	if err != nil {
+		return nil, err
+	}
+	return NewNodeLink(peerConn, LinkClient), nil
+}
+
+// like net.Listener but Accept returns net.Conn wrapped in NodeLink
+type Listener struct {
+	net.Listener
+}
+
+func (l *Listener) Accept() (*NodeLink, error) {
+	peerConn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return NewNodeLink(peerConn, LinkServer), nil
+}
+
+// TODO +tls.Config +ctx
+func Listen(network, laddr string) (*Listener, error) {
+	l, err := net.Listen(network, laddr)
+	if err != nil {
+		return nil, err
+	}
+	return &Listener{l}, nil
+}
+
 
 
 

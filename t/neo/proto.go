@@ -169,7 +169,7 @@ type RequestIdentification struct {
 	ProtocolVersion uint32		// TODO py.PProtocol upon decoding checks for != PROTOCOL_VERSION
 	NodeType        NodeType        // XXX name
 	UUID            UUID
-	Address
+	Address				// where requesting node is also accepting connectios
 	Name            string
 	IdTimestamp	Float64
 }

@@ -588,7 +588,7 @@ HandlerSwitcher
 
 
 ServerConnection <Connection
-    KEEP_ALICE = Connection.KEEP_ALIVE + 5
+    KEEP_ALIVE = Connection.KEEP_ALIVE + 5
     server = True
 
 # main worker class for handling data exchanging
@@ -676,3 +676,22 @@ RecoveryManager < MasterHandler
 #     operational. )
 VerificationManager < BaseServiceHandler
     ...
+
+
+--------
+
+Node
+	.state
+	.address
+	.uuid
+	.manager	# -> NodeManager
+
+	.connection
+	._identified
+
+NodeManager
+	[]Node
+	{} address	-> Node
+	{} uuid		-> Node
+	{} type		-> set<Node>
+	{} state	-> set<Node>
