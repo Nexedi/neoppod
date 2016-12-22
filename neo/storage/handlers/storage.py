@@ -183,6 +183,10 @@ class StorageOperationHandler(EventHandler):
         if app.tm.isLockedTid(max_tid):
             # Wow, backup cluster is fast. Requested transactions are still in
             # ttrans/ttobj so wait a little.
+            # This can also happen for internal replication, when
+            #   NotifyTransactionFinished(M->S) + AskFetchTransactions(S->S)
+            # is faster than
+            #   NotifyUnlockInformation(M->S)
             app.queueEvent(self.askFetchTransactions, conn,
                 (partition, length, min_tid, max_tid, tid_list))
             return

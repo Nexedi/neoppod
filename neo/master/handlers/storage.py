@@ -53,7 +53,10 @@ class StorageServiceHandler(BaseServiceHandler):
             last_tid = app.pt.getBackupTid(min)
             pending_list = ()
         else:
-            last_tid = app.tm.getLastTID()
+            # This can't be app.tm.getLastTID() for imported transactions,
+            # because outdated cells must at least wait that they're locked.
+            # For normal transactions, it would not matter.
+            last_tid = app.getLastTransaction()
             pending_list = app.tm.registerForNotification(conn.getUUID())
         p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)

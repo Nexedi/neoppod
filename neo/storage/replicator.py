@@ -92,6 +92,7 @@ class Replicator(object):
 
     def setUnfinishedTIDList(self, max_tid, ttid_list, offset_list):
         """This is a callback from MasterOperationHandler."""
+        assert self.ttid_set.issubset(ttid_list), (self.ttid_set, ttid_list)
         if ttid_list:
             self.ttid_set.update(ttid_list)
             max_ttid = max(ttid_list)
