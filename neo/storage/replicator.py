@@ -214,6 +214,10 @@ class Replicator(object):
             self.updateBackupTID()
         self._nextPartition()
 
+    def _nextPartitionSortKey(self, offset):
+        p = self.partition_dict[offset]
+        return p.next_obj, bool(p.max_ttid)
+
     def _nextPartition(self):
         # XXX: One connection to another storage may remain open forever.
         #      All other previous connections are automatically closed
@@ -227,12 +231,12 @@ class Replicator(object):
         if self.current_partition is not None or not self.replicate_dict:
             return
         app = self.app
-        # Choose a partition with no unfinished transaction if possible.
+        # Start replicating the partition which is furthest behind,
+        # to increase the overall backup_tid as soon as possible.
+        # Then prefer a partition with no unfinished transaction.
         # XXX: When leaving backup mode, we should only consider UP_TO_DATE
         #      cells.
-        for offset in self.replicate_dict:
-            if not self.partition_dict[offset].max_ttid:
-                break
+        offset = min(self.replicate_dict, key=self._nextPartitionSortKey)
         try:
             addr, name = self.source_dict[offset]
         except KeyError:

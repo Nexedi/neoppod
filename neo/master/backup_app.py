@@ -57,9 +57,9 @@ for that partition. It means only this node will fetch data from the upstream
 cluster, to minimize bandwidth between clusters. Other replicas will
 synchronize from the primary node.
 
-There is no UUID conflict between the 2 clusters:
+There is no conflict of node id between the 2 clusters:
 - Storage nodes connect anonymously to upstream.
-- Master node receives a new from upstream master and uses it only when
+- The master node gets an id from the upstream master and uses it only when
   communicating with it.
 """
 
@@ -197,9 +197,8 @@ class BackupApplication(object):
 
     # NOTE called by backup_app.invalidateObjects() when it has info that
     # partitions in partition_set were updated in upstream cluster (up to `tid`)
-    def invalidatePartitions(self, tid, partition_set):
+    def invalidatePartitions(self, tid, prev_tid, partition_set):
         app = self.app
-        prev_tid = app.getLastTransaction()
         app.setLastTransaction(tid)
         pt = app.pt
         trigger_set = set()
@@ -315,8 +314,9 @@ class BackupApplication(object):
         logging.debug("partition %u: updating backup_tid of %r to %s",
                       offset, cell, dump(tid))
         cell.backup_tid = tid
-        # TODO provide invalidation feedback about new txns to read-only clients connected to backup cluster
-        # NOTE ^^^ not only here but also hooked to in-progress feedback from fetchObjects (storage)
+        # TODO: Provide invalidation feedback about new txns to read-only
+        #       clients connected to backup cluster. Not only here but also
+        #       hooked to in-progress feedback from fetchObjects (storage).
         # Forget tids we won't need anymore.
         cell_list = app.pt.getCellList(offset, readable=True)
         del tid_list[:bisect(tid_list, min(x.backup_tid for x in cell_list))]   # XXX not only for primary Sb ?
