@@ -61,6 +61,9 @@ class StorageServiceHandler(BaseServiceHandler):
         p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)
 
+    def notifyDeadlock(self, conn, *args):
+        self.app.tm.deadlock(conn.getUUID(), *args)
+
     def answerInformationLocked(self, conn, ttid):
         self.app.tm.lock(ttid, conn.getUUID())
 

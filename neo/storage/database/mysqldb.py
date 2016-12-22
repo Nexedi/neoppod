@@ -541,6 +541,15 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         return self.conn.insert_id()
 
+    def loadData(self, data_id):
+        compression, hash, value = self.query(
+            "SELECT compression, hash, value FROM data where id=%s"
+            % data_id)[0]
+        if compression and compression & 0x80:
+            compression &= 0x7f
+            data = ''.join(self._bigData(data))
+        return compression, hash, value
+
     del _structLL
 
     def _getDataTID(self, oid, tid=None, before_tid=None):

@@ -14,11 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from zlib import decompress
 from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
-from neo.lib.protocol import MAX_TID
-from neo.lib.util import dump
+from neo.lib.protocol import Packets
+from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
 from . import AnswerBaseHandler
@@ -75,16 +76,74 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # receive the conflict answer from the first store on S2.
             logging.info('%r report a conflict for %r with %r',
                          conn, dump(oid), dump(conflict))
-            if conflict != MAX_TID:
-                # If this conflict is not already resolved, mark it for
-                # resolution.
-                if conflict <= txn_context.resolved_dict.get(oid, ''):
-                    return
-            txn_context.conflict_dict[oid] = serial, conflict
+            # If this conflict is not already resolved, mark it for
+            # resolution.
+            if  txn_context.resolved_dict.get(oid, '') < conflict:
+                txn_context.conflict_dict[oid] = serial, conflict
         else:
             txn_context.written(self.app, conn.getUUID(), oid)
 
     answerCheckCurrentSerial = answerStoreObject
+
+    def answerRebaseTransaction(self, conn, oid_list):
+        txn_context = self.app.getHandlerData()
+        ttid = txn_context.ttid
+        queue = txn_context.queue
+        try:
+            for oid in oid_list:
+                # We could have an extra parameter to tell the storage if we
+                # still have the data, and in this case revert what was done
+                # in Transaction.written. This would save bandwidth in case of
+                # conflict.
+                conn.ask(Packets.AskRebaseObject(ttid, oid),
+                         queue=queue, oid=oid)
+        except ConnectionClosed:
+            txn_context.involved_nodes[conn.getUUID()] = 2
+
+    def answerRebaseObject(self, conn, conflict, oid):
+        if conflict:
+            txn_context = self.app.getHandlerData()
+            serial, conflict, data = conflict
+            assert serial and serial < conflict, (serial, conflict)
+            resolved = conflict <= txn_context.resolved_dict.get(oid, '')
+            try:
+                cached = txn_context.cache_dict.pop(oid)
+            except KeyError:
+                if resolved:
+                    # We should still be waiting for an answer from this node.
+                    assert conn.uuid in txn_context.data_dict[oid][1]
+                    return
+                assert oid in txn_context.data_dict
+                if oid in txn_context.conflict_dict:
+                    # Another node already reported the conflict, by answering
+                    # to this rebase or to the previous store.
+                    # Filling conflict_dict again would be a no-op.
+                    assert txn_context.conflict_dict[oid] == (serial, conflict)
+                    return
+                # A node has not answered yet to a previous store. Do not wait
+                # it to report the conflict because it may fail before.
+            else:
+                # The data for this oid are now back on client side.
+                # Revert what was done in Transaction.written
+                assert not resolved
+                if data is None: # undo or CHECKED_SERIAL
+                    data = cached
+                else:
+                    compression, checksum, data = data
+                    if checksum != makeChecksum(data):
+                        raise NEOStorageError(
+                            'wrong checksum while getting back data for'
+                            ' object %s during rebase of transaction %s'
+                            % (dump(oid), dump(txn_context.ttid)))
+                    if compression:
+                        data = decompress(data)
+                    size = len(data)
+                    txn_context.data_size += size
+                    if cached:
+                        assert cached == data
+                        txn_context.cache_size -= size
+                txn_context.data_dict[oid] = data, None
+            txn_context.conflict_dict[oid] = serial, conflict
 
     def answerStoreTransaction(self, conn):
         pass

@@ -4,18 +4,6 @@ or promised features of NEO (marked with N).
 
 All the listed bugs will be fixed with high priority.
 
-(Z) Conflict resolution not fully implemented
----------------------------------------------
-
-Even with a single storage node, so-called 'deadlock avoidance' may
-happen to in order to resolve conflicts. In such cases, conflicts will not be
-resolved even if your _p_resolveConflict() method would succeed, leading to a
-normal ConflictError.
-
-Although this should happen rarely enough not to affect performance, this can
-be an issue if your application can't afford restarting the transaction,
-e.g. because it interacted with external environment.
-
 (N) Storage failure or update may lead to POSException or break undoLog()
 -------------------------------------------------------------------------
 

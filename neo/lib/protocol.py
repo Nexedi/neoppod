@@ -398,6 +398,19 @@ class PStructItemOrNone(PStructItem):
         value = reader(self.size)
         return None if value == self._None else self.unpack(value)[0]
 
+class POption(PStruct):
+
+    def _encode(self, writer, value):
+        if value is None:
+            writer('\0')
+        else:
+            writer('\1')
+            PStruct._encode(self, writer, value)
+
+    def _decode(self, reader):
+        if '\0\1'.index(reader(1)):
+            return PStruct._decode(self, reader)
+
 class PList(PStructItem):
     """
         A list of homogeneous items
@@ -949,14 +962,60 @@ class GenerateOIDs(Packet):
         PFOidList,
     )
 
+class Deadlock(Packet):
+    """
+    Ask master to generate a new TTID that will be used by the client
+    to rebase a transaction. S -> PM -> C
+    """
+    _fmt = PStruct('notify_deadlock',
+        PTID('ttid'),
+        PTID('locking_tid'),
+    )
+
+class RebaseTransaction(Packet):
+    """
+    Rebase transaction. C -> S.
+    """
+    _fmt = PStruct('ask_rebase_transaction',
+        PTID('ttid'),
+        PTID('locking_tid'),
+    )
+
+    _answer = PStruct('answer_rebase_transaction',
+        PFOidList,
+    )
+
+class RebaseObject(Packet):
+    """
+    Rebase object. C -> S.
+
+    XXX: It is a request packet to simplify the implementation. For more
+         efficiency, this should be turned into a notification, and the
+         RebaseTransaction should answered once all objects are rebased
+         (so that the client can still wait on something).
+    """
+    _fmt = PStruct('ask_rebase_object',
+        PTID('ttid'),
+        PTID('oid'),
+    )
+
+    _answer = PStruct('answer_rebase_object',
+        POption('conflict',
+            PTID('serial'),
+            PTID('conflict_serial'),
+            POption('data',
+                PBoolean('compression'),
+                PChecksum('checksum'),
+                PString('data'),
+            ),
+        )
+    )
+
 class StoreObject(Packet):
     """
     Ask to store an object. Send an OID, an original serial, a current
     transaction ID, and data. C -> S.
     As for IStorage, 'serial' is ZERO_TID for new objects.
-    Answered 'conflict' value means:
-    - MAX_TID: deadlock
-    - else: conflict
     """
     _fmt = PStruct('ask_store_object',
         POID('oid'),
@@ -1658,6 +1717,12 @@ class Packets(dict):
                     UnlockInformation)
     AskNewOIDs, AnswerNewOIDs = register(
                     GenerateOIDs)
+    NotifyDeadlock = register(
+                    Deadlock)
+    AskRebaseTransaction, AnswerRebaseTransaction = register(
+                    RebaseTransaction)
+    AskRebaseObject, AnswerRebaseObject = register(
+                    RebaseObject)
     AskStoreObject, AnswerStoreObject = register(
                     StoreObject)
     AbortTransaction = register(

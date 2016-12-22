@@ -463,6 +463,11 @@ class DatabaseManager(object):
         no hash collision.
         """
 
+    @abstract
+    def loadData(self, data_id):
+        """Inverse of storeData
+        """
+
     def holdData(self, checksum_or_id, *args):
         """Store raw data of temporary object
 

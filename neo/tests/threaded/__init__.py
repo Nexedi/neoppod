@@ -413,6 +413,9 @@ class ClientApplication(Node, neo.client.app.Application):
     def __init__(self, master_nodes, name, **kw):
         super(ClientApplication, self).__init__(master_nodes, name, **kw)
         self.poll_thread.node_name = name
+        # Smaller cache to speed up tests that checks behaviour when it's too
+        # small. See also NEOCluster.cache_size
+        self._cache._max_size //= 1024
 
     def _run(self):
         try:
@@ -432,6 +435,10 @@ class ClientApplication(Node, neo.client.app.Application):
                 assert isinstance(peer, StorageApplication)
                 conn = self.cp.getConnForNode(self.nm.getByUUID(peer.uuid))
             yield conn
+
+    def extraCellSortKey(self, key):
+        return Patch(self.cp, getCellSortKey=lambda orig, cell:
+            (orig(cell), key(cell)))
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
@@ -885,10 +892,6 @@ class NEOCluster(object):
         txn = transaction.TransactionManager()
         return txn, (self.db if db is None else db).open(txn)
 
-    def extraCellSortKey(self, key):
-        return Patch(self.client.cp, getCellSortKey=lambda orig, cell:
-            (orig(cell), key(cell)))
-
     def moduloTID(self, partition):
         """Force generation of TIDs that will be stored in given partition"""
         partition = p64(partition)
@@ -974,6 +977,8 @@ class NEOThreadedTest(NeoTestBase):
                 self.__exc_info = None
             except:
                 self.__exc_info = sys.exc_info()
+                if self.__exc_info[0] is NEOThreadedTest.failureException:
+                    traceback.print_exception(*self.__exc_info)
 
         def join(self, timeout=None):
             threading.Thread.join(self, timeout)
@@ -1002,6 +1007,44 @@ class NEOThreadedTest(NeoTestBase):
     def noConnection(jar, storage):
         return Patch(jar.db().storage.app.cp, getConnForNode=lambda orig, node:
             None if node.getUUID() == storage.uuid else orig(node))
+
+    @staticmethod
+    def readCurrent(ob):
+        ob._p_activate()
+        ob._p_jar.readCurrent(ob)
+
+
+class ThreadId(list):
+
+    def __call__(self):
+        try:
+            return self.index(thread.get_ident())
+        except ValueError:
+            i = len(self)
+            self.append(thread.get_ident())
+            return i
+
+
+@apply
+class RandomConflictDict(dict):
+    # One must not depend on how Python iterates over dict keys, because this
+    # is implementation-defined behaviour. This patch makes sure of that when
+    # resolving conflicts.
+
+    def __new__(cls):
+        from neo.client.transactions import Transaction
+        def __init__(orig, self, *args):
+            orig(self, *args)
+            assert self.conflict_dict == {}
+            self.conflict_dict = dict.__new__(cls)
+        return Patch(Transaction, __init__=__init__)
+
+    def popitem(self):
+        try:
+            k = random.choice(list(self))
+        except IndexError:
+            raise KeyError
+        return k, self.pop(k)
 
 
 def predictable_random(seed=None):

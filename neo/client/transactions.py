@@ -17,14 +17,22 @@
 from ZODB.POSException import StorageTransactionError
 from neo.lib.connection import ConnectionClosed
 from neo.lib.locking import SimpleQueue
+from neo.lib.protocol import Packets
 from .exception import NEOStorageError
 
+@apply
+class _WakeupPacket(object):
+
+    handler_method_name = 'pong'
+    decode = tuple
+    getId = int
 
 class Transaction(object):
 
     cache_size = 0  # size of data in cache_dict
     data_size = 0   # size of data in data_dict
     error = None
+    locking_tid = None
     voted = False
     ttid = None     # XXX: useless, except for testBackupReadOnlyAccess
 
@@ -45,6 +53,9 @@ class Transaction(object):
         # status: 0 -> check only, 1 -> store, 2 -> failed
         self.involved_nodes = {}                 # {node_id: status}
 
+    def wakeup(self, conn):
+        self.queue.put((conn, _WakeupPacket, {}))
+
     def write(self, app, packet, object_id, store=1, **kw):
         uuid_list = []
         pt = app.pt
@@ -53,7 +64,7 @@ class Transaction(object):
         for cell in pt.getCellList(object_id):
             node = cell.getNode()
             uuid = node.getUUID()
-            status = involved.setdefault(uuid, store)
+            status = involved.get(uuid, -1)
             if status < store:
                 involved[uuid] = store
             elif status > 1:
@@ -61,6 +72,13 @@ class Transaction(object):
             conn = app.cp.getConnForNode(node)
             if conn is not None:
                 try:
+                    if status < 0 and self.locking_tid and 'oid' in kw:
+                        # A deadlock happened but this node is not aware of it.
+                        # Tell it to write-lock with the same locking tid as
+                        # for the other nodes. The condition on kw is because
+                        # we don't need that for transaction metadata.
+                        conn.ask(Packets.AskRebaseTransaction(
+                            self.ttid, self.locking_tid), queue=self.queue)
                     conn.ask(packet, queue=self.queue, **kw)
                     uuid_list.append(uuid)
                     continue

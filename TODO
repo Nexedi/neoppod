@@ -125,6 +125,7 @@
     - Add ctl command to list last transactions, like fstail for FileStorage.
 
     Tests
+    - Split neo/tests/threaded/test.py
     - Use another mock library: Python 3.3+ has unittest.mock, which is
       available for earlier versions at https://pypi.python.org/pypi/mock
 

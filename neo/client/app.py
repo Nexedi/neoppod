@@ -417,24 +417,16 @@ class Application(ThreadedApplication):
         while 1:
             # We iterate over conflict_dict, and clear it,
             # because new items may be added by calls to _store.
+            # This is also done atomically, to avoid race conditions
+            # with PrimaryNotificationsHandler.notifyDeadlock
             try:
                 oid, (serial, conflict_serial) = pop_conflict()
             except KeyError:
                 return
-            if conflict_serial == MAX_TID:
-              if 1:
-                # XXX: disable deadlock avoidance code until it is fixed
-                logging.info('Deadlock avoidance on %r:%r',
-                    dump(oid), dump(serial))
-                # 'data' parameter of ConflictError is only used to report the
-                # class of the object. It doesn't matter if 'data' is None
-                # because the transaction is too big.
-                try:
-                    data = data_dict[oid][0]
-                except KeyError:
-                    # succesfully stored on another storage node
-                    data = txn_context.cache_dict[oid]
-              else:
+            try:
+                data = data_dict.pop(oid)[0]
+            except KeyError:
+                assert oid is conflict_serial is None, (oid, conflict_serial)
                 # Storage refused us from taking object lock, to avoid a
                 # possible deadlock. TID is actually used for some kind of
                 # "locking priority": when a higher value has the lock,
@@ -443,11 +435,15 @@ class Application(ThreadedApplication):
                 # To recover, we must ask storages to release locks we
                 # hold (to let possibly-competing transactions acquire
                 # them), and requeue our already-sent store requests.
-                logging.info('Deadlock avoidance triggered on %r:%r',
-                    dump(oid), dump(serial))
-                raise NotImplementedError
+                ttid = txn_context.ttid
+                logging.info('Deadlock avoidance triggered for TXN %s'
+                  ' with new locking TID %s', dump(ttid), dump(serial))
+                txn_context.locking_tid = serial
+                packet = Packets.AskRebaseTransaction(ttid, serial)
+                for uuid, status in txn_context.involved_nodes.iteritems():
+                    if status < 2:
+                        self._askStorageForWrite(txn_context, uuid, packet)
             else:
-                data = data_dict.pop(oid)[0]
                 if data is CHECKED_SERIAL:
                     raise ReadConflictError(oid=oid, serials=(conflict_serial,
                         serial))
@@ -457,12 +453,17 @@ class Application(ThreadedApplication):
                 if self.last_tid < conflict_serial:
                     self.sync() # possible late invalidation (very rare)
                 try:
-                    new_data = tryToResolveConflict(oid, conflict_serial,
+                    data = tryToResolveConflict(oid, conflict_serial,
                         serial, data)
                 except ConflictError:
                     logging.info('Conflict resolution failed for '
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
+                    # With recent ZODB, get_pickle_metadata (from ZODB.utils)
+                    # does not support empty values, so do not pass 'data'
+                    # in this case.
+                    raise ConflictError(oid=oid, serials=(conflict_serial,
+                        serial), data=data or None)
                 else:
                     logging.info('Conflict resolution succeeded for '
                         '%r:%r with %r', dump(oid), dump(serial),
@@ -470,12 +471,18 @@ class Application(ThreadedApplication):
                     # Mark this conflict as resolved
                     resolved_dict[oid] = conflict_serial
                     # Try to store again
-                    self._store(txn_context, oid, conflict_serial, new_data)
-                    continue
-            # With recent ZODB, get_pickle_metadata (from ZODB.utils) does
-            # not support empty values, so do not pass 'data' in this case.
-            raise ConflictError(oid=oid, serials=(conflict_serial,
-                serial), data=data or None)
+                    self._store(txn_context, oid, conflict_serial, data)
+
+    def _askStorageForWrite(self, txn_context, uuid, packet):
+          node = self.nm.getByUUID(uuid)
+          if node is not None:
+              conn = self.cp.getConnForNode(node)
+              if conn is not None:
+                  try:
+                      return conn.ask(packet, queue=txn_context.queue)
+                  except ConnectionClosed:
+                      pass
+          txn_context.involved_nodes[uuid] = 2
 
     def waitResponses(self, queue):
         """Wait for all requests to be answered (or their connection to be
@@ -510,16 +517,7 @@ class Application(ThreadedApplication):
         packet = Packets.AskVoteTransaction(ttid)
         for uuid, status in involved_nodes.iteritems():
             if status == 1 and uuid not in trans_nodes:
-                node = self.nm.getByUUID(uuid)
-                if node is not None:
-                    conn = self.cp.getConnForNode(node)
-                    if conn is not None:
-                        try:
-                            conn.ask(packet, queue=queue)
-                            continue
-                        except ConnectionClosed:
-                            pass
-                involved_nodes[uuid] = 2
+                self._askStorageForWrite(txn_context, uuid, packet)
         self.waitResponses(txn_context.queue)
         # If there are failed nodes, ask the master whether they can be
         # disconnected while keeping the cluster operational. If possible,
