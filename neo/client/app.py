@@ -874,7 +874,7 @@ class Application(ThreadedApplication):
         # after stores, and skips oids that have been successfully stored.
         assert oid not in txn_context.cache_dict, oid
         assert oid not in txn_context.data_dict, oid
-        packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
+        packet = Packets.AskCheckCurrentSerial(ttid, oid, serial)
         txn_context.data_dict[oid] = CHECKED_SERIAL, txn_context.write(
             self, packet, oid, 0, oid=oid, serial=serial)
         self._waitAnyTransactionMessage(txn_context, False)

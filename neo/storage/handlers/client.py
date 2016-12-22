@@ -162,20 +162,20 @@ class ClientOperationHandler(EventHandler):
             p = Packets.AnswerObjectHistory(oid, history_list)
         conn.answer(p)
 
-    def askCheckCurrentSerial(self, conn, ttid, serial, oid):
+    def askCheckCurrentSerial(self, conn, ttid, oid, serial):
         self.app.tm.register(conn, ttid)
-        self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())
+        self._askCheckCurrentSerial(conn, ttid, oid, serial, time.time())
 
-    def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
+    def _askCheckCurrentSerial(self, conn, ttid, oid, serial, request_time):
         try:
-            self.app.tm.checkCurrentSerial(ttid, serial, oid)
+            self.app.tm.checkCurrentSerial(ttid, oid, serial)
         except ConflictError, err:
             # resolvable or not
             conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askCheckCurrentSerial, conn,
-                (ttid, serial, oid, request_time))
+                (ttid, oid, serial, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget serial check of %s:%s by %s delayed by %s',

@@ -1259,8 +1259,8 @@ class CheckCurrentSerial(Packet):
     """
     _fmt = PStruct('ask_check_current_serial',
         PTID('tid'),
-        PTID('serial'),
         POID('oid'),
+        PTID('serial'),
     )
 
     _answer = StoreObject._answer

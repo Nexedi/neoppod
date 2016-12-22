@@ -291,7 +291,7 @@ class TransactionManager(EventQueue):
         logging.debug('Transaction %s storing %s', dump(ttid), dump(oid))
         self._store_lock_dict[oid] = ttid
 
-    def checkCurrentSerial(self, ttid, serial, oid):
+    def checkCurrentSerial(self, ttid, oid, serial):
         try:
             transaction = self._transaction_dict[ttid]
         except KeyError:
