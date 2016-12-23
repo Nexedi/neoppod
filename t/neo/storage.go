@@ -39,6 +39,43 @@ type Buffer struct {
 func (stor *StorageApplication) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("stor: serving new node %s <-> %s\n", link.peerLink.LocalAddr(), link.peerLink.RemoteAddr())
 
+	pktri, err := expect(RequestIdentification)
+	if err != nil {
+		send(err)
+		return
+	}
+
+	if pktri.ProtocolVersion != PROTOCOL_VERSION {
+		sendErr("...")
+		return
+	}
+
+	(.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
+
+	send(AcceptIdentification{...})
+	// TODO mark link as identified
+
+
+	pkt, err := recv()
+	if err != nil {
+		err
+		return
+	}
+
+	switch pkt.MsgCode {
+	case GetObject:
+		req := GetObject{}
+		err = req.Decode(pkt.Payload())
+		if err != nil {
+			sendErr("malformed GetObject packet:", err)
+		}
+
+		-> DM.getObject(req.Oid, req.Serial, req.Tid)
+
+	case StoreObject:
+	case StoreTransaction:
+	}
+
 
 
 	//fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
