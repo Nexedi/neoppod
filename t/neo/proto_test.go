@@ -10,28 +10,18 @@
 //
 // See COPYING file for full licensing terms.
 
-// NEO. Packets and packet buffers management
+// NEO. Protocol definition. Tests
 
 package neo
 
 import (
+	"testing"
 	"unsafe"
 )
 
-// TODO organize rx buffers management (freelist etc)
-
-// Buffer with packet data
-type PktBuf struct {
-	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
-}
-
-// Get pointer to packet header
-func (pkt *PktBuf) Header() *PktHead {
-	// XXX check len(Data) < PktHead ? -> no, Data has to be allocated with cap >= PktHeadLen
-	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
-}
-
-// Get packet payload
-func (pkt *PktBuf) Payload() []byte {
-	return pkt.Data[PktHeadLen:]
+func TestPktHeader(t *testing.T) {
+	// make sure PktHeader is really packed
+	if unsafe.Sizeof(PktHead{}) != 10 {
+		t.Fatalf("sizeof(PktHead) = %v  ; want 10", unsafe.Sizeof(PktHead{}))
+	}
 }

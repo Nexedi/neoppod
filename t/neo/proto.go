@@ -1,22 +1,15 @@
 // NEO. Protocol description
 
 package neo
-//package proto
-
-/*
-import (
-	. "../"
-)
-*/
 
 const (
 	PROTOCOL_VERSION = 8
 
-	MIN_PACKET_SIZE = 10    // XXX link this to len(pkthead) ?
-	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size
+	MIN_PACKET_SIZE = 10	// XXX unsafe.Sizeof(PktHead{}) give _typed_ constant (uintptr)
+	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size ?
 	MAX_PACKET_SIZE = 0x4000000
 
-	RESPONSE_MASK   = 0x800
+	RESPONSE_MASK   = 0x8000
 )
 
 type ErrorCode int
@@ -100,7 +93,7 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64	// XXX move to common place ?
 
-// TODO None encodes as '\xff' * 8	(XXX use nan for None ?)
+// TODO None encodes as '\xff' * 8	(-> use NaN for None)
 type Float64 float64
 
 // NOTE original NodeList = []NodeInfo
@@ -114,8 +107,8 @@ type NodeInfo struct {
 
 //type CellList []struct {
 type CellInfo struct {
-	UUID      UUID          // XXX maybe simply 'UUID' ?
-	CellState CellState     // ----///----
+	UUID
+	CellState
 }
 
 //type RowList []struct {
@@ -127,7 +120,7 @@ type RowInfo struct {
 
 
 // XXX link request <-> answer ?
-// TODO ensure len(encoded packet header) == 10
+// XXX naming -> PktHeader ?
 type PktHead struct {
 	ConnId  be32	// NOTE is .msgid in py
 	MsgCode be16
@@ -169,7 +162,7 @@ type RequestIdentification struct {
 	ProtocolVersion uint32		// TODO py.PProtocol upon decoding checks for != PROTOCOL_VERSION
 	NodeType        NodeType        // XXX name
 	UUID            UUID
-	Address				// where requesting node is also accepting connectios
+	Address				// where requesting node is also accepting connections
 	Name            string
 	IdTimestamp	Float64
 }
@@ -182,7 +175,7 @@ type AcceptIdentification struct {
 	NumPartitions   uint32          // PNumber
 	NumReplicas     uint32          // PNumber
 	YourUUID        UUID
-	Primary         Address        // TODO
+	Primary         Address
 	KnownMasterList []struct {
 		Address
 		UUID    UUID
@@ -664,7 +657,7 @@ type AnswerObjectUndoSerial struct {
 	}
 }
 
-// Ask a storage is oid is locked by another transaction.
+// Ask a storage if oid is locked by another transaction.
 // C -> S
 // Answer whether a transaction holds the write lock for requested object.
 type HasLock struct {

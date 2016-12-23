@@ -172,19 +172,19 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
 	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
 	if err != nil {
-		return nil, err	// XXX err adjust ?
+		return nil, err	// XXX err adjust ? -> (?) framing error
 	}
 
 	pkth := pkt.Header()
 
 	// XXX -> better PktHeader.Decode() ?
 	if ntoh32(pkth.Len) < PktHeadLen {
-		// TODO err + close nodelink (framing broken)
-		panic("TODO pkt.Len < PktHeadLen")	// XXX err	(length is a whole packet len with header)
+		// TODO framing error -> nl.CloseWithError(err)
+		panic("TODO pkt.Len < PktHeadLen")	// length is a whole packet len with header
 	}
 	if ntoh32(pkth.Len) > MAX_PACKET_SIZE {
-		// TODO err + close nodelink (framing broken) (?)
-		panic("TODO message too big")	// XXX err
+		// TODO framing error -> nl.CloseWithError(err)
+		panic("TODO message too big")
 	}
 
 	if ntoh32(pkth.Len) > uint32(cap(pkt.Data)) {
@@ -200,7 +200,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	if n < len(pkt.Data) {
 		_, err = io.ReadFull(nl.peerLink, pkt.Data[n:])
 		if err != nil {
-			return nil, err	// XXX err adjust ?
+			return nil, err	// XXX err adjust ? -> (?) framing error
 		}
 	}
 
@@ -247,7 +247,7 @@ func (nl *NodeLink) serveRecv() {
 				// XXX check err actually what is on interrupt?
 				return
 			}
-			panic(err)	// XXX err
+			panic(err)	// XXX err -> if !temporary -> nl.closeWithError(err)
 		}
 
 		// pkt.ConnId -> Conn
@@ -438,7 +438,8 @@ func (l *Listener) Accept() (*NodeLink, error) {
 	return NewNodeLink(peerConn, LinkServer), nil
 }
 
-// TODO +tls.Config +ctx
+// TODO +tls.Config
+// TODO +ctx		-> no as .Close() will interrupt all .Accept()
 func Listen(network, laddr string) (*Listener, error) {
 	l, err := net.Listen(network, laddr)
 	if err != nil {

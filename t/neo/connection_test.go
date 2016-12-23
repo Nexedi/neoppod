@@ -10,7 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// NEO | Connection management. Tests
+// NEO. Connection management. Tests
 
 package neo
 
