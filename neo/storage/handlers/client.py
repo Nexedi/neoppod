@@ -77,7 +77,7 @@ class ClientOperationHandler(EventHandler):
                     checksum, data, data_serial, unlock)
         except ConflictError, err:
             # resolvable or not
-            conn.answer(Packets.AnswerStoreObject(1, oid, err.getTID()))
+            conn.answer(Packets.AnswerStoreObject(1, oid, err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
             # If we are unlocking, we want queueEvent to raise
@@ -194,8 +194,7 @@ class ClientOperationHandler(EventHandler):
             self.app.tm.checkCurrentSerial(ttid, serial, oid)
         except ConflictError, err:
             # resolvable or not
-            conn.answer(Packets.AnswerCheckCurrentSerial(1, oid,
-                err.getTID()))
+            conn.answer(Packets.AnswerCheckCurrentSerial(1, oid, err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
             try:

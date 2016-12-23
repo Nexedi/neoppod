@@ -17,18 +17,8 @@
 import unittest
 from mock import Mock
 from .. import NeoUnitTestBase
-from neo.storage.transactions import Transaction, TransactionManager
+from neo.storage.transactions import TransactionManager
 
-
-class TransactionTests(NeoUnitTestBase):
-
-    def testLock(self):
-        txn = Transaction(self.getClientUUID(), self.getNextTID())
-        self.assertFalse(txn.isLocked())
-        txn.lock()
-        self.assertTrue(txn.isLocked())
-        # disallow lock more than once
-        self.assertRaises(AssertionError, txn.lock)
 
 class TransactionManagerTests(NeoUnitTestBase):
 
