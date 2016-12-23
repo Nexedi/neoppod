@@ -83,7 +83,27 @@ type UUID int32
 
 type Address struct {
 	Host string
-	Port uint16	// TODO if Host == 0 -> Port not added to wire (see py.PAddress)
+	Port uint16
+}
+
+// NOTE if Host == "" -> Port not added to wire (see py.PAddress):
+func (a *Address) NEOEncode(b []byte) int {
+	n := a.Host.NEOEncode(b[0:])
+	if a.Host != "" {
+		BigEndian.PutUint16(b[n:], a.Port)
+		n += 2
+	}
+	return n
+}
+
+func (a *Address) NEODecode(b []byte) int {
+	n := a.Host.NEODecode(b)
+	if a.Host != "" {
+		n += a.Port.NEODecode(b[n:])
+	} else {
+		a.Port = 0
+	}
+	return n
 }
 
 // A SHA1 hash
@@ -93,8 +113,28 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64	// XXX move to common place ?
 
-// TODO None encodes as '\xff' * 8	(-> use NaN for None)
 type Float64 float64
+
+// NOTE py.None encodes as '\xff' * 8	(-> use NaN for None)
+// NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
+func (f Float64) NEOEncode(b []byte) int {
+	var fu uint64
+	if !math.IsNaN(f) {
+		fu = math.Float64Bits(f)
+	} else {
+		// convert all NaNs to canonical \xff * 8
+		fu = 1<<64 - 1
+	}
+
+	BigEndian.PutUint64(b, fu)
+	return 8
+}
+
+func (f *Float64) NEODecode(b []byte) int {
+	fu := BigEndian.Uint64(b)
+	f *= math.Float64FromBits(fu)
+	return 8
+}
 
 // NOTE original NodeList = []NodeInfo
 type NodeInfo struct {

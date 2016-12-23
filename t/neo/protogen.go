@@ -37,8 +37,8 @@ func main() {
 
 	ncode := 0
 
-	// ast.Print(fset, f)
-	// return
+	//ast.Print(fset, f)
+	//return
 
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
@@ -57,11 +57,9 @@ func main() {
 				continue
 			}
 
-			/*
-			fmt.Printf("%s:\n", tname)
-			fmt.Println(tstruct)
-			ast.Print(fset, tstruct)
-			*/
+			//fmt.Printf("\n%s:\n", tname)
+			//fmt.Println(tstruct)
+			//ast.Print(fset, tstruct)
 
 			if ncode != 0 {
 				fmt.Println()
