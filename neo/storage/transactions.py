@@ -290,7 +290,10 @@ class TransactionManager(object):
             if not even_if_locked:
                 return
         else:
-            self._app.dm.abortTransaction(ttid)
+            dm = self._app.dm
+            dm.abortTransaction(ttid)
+            dm.releaseData([x[1] for x in transaction.store_dict.itervalues()],
+                           True)
         # unlock any object
         for oid in transaction.store_dict, transaction.checked_set:
             for oid in oid:

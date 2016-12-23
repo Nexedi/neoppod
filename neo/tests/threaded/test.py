@@ -211,15 +211,21 @@ class Test(NEOThreadedTest):
             data_info[key] = 0
             storage.sync()
 
-            txn = [transaction.Transaction() for x in xrange(3)]
+            txn = [transaction.Transaction() for x in xrange(4)]
             for t in txn:
                 storage.tpc_begin(t)
-                storage.store(tid and oid or storage.new_oid(),
+                storage.store(oid if tid else storage.new_oid(),
                               tid, data, '', t)
                 tid = None
+            data_info[key] = 4
+            storage.sync()
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
+
+            storage.tpc_abort(txn.pop())
             for t in txn:
                 storage.tpc_vote(t)
-            data_info[key] = 3
+            storage.sync()
+            data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn[1])

@@ -578,11 +578,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def abortTransaction(self, ttid):
         ttid = util.u64(ttid)
         q = self.query
-        sql = " FROM tobj WHERE tid=%s" % ttid
-        data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
-        q("DELETE" + sql)
+        q("DELETE FROM tobj WHERE tid=%s" % ttid)
         q("DELETE FROM ttrans WHERE ttid=%s" % ttid)
-        self.releaseData(data_id_list, True)
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)

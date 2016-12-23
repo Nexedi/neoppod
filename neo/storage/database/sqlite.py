@@ -439,11 +439,8 @@ class SQLiteDatabaseManager(DatabaseManager):
     def abortTransaction(self, ttid):
         args = util.u64(ttid),
         q = self.query
-        sql = " FROM tobj WHERE tid=?"
-        data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
-        q("DELETE" + sql, args)
+        q("DELETE FROM tobj WHERE tid=?", args)
         q("DELETE FROM ttrans WHERE ttid=?", args)
-        self.releaseData(data_id_list, True)
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)
