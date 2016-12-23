@@ -16,10 +16,7 @@ package neo
 
 import (
 	"context"
-	"net"
 	"fmt"
-
-	//"../neo/proto"
 )
 
 // NEO Storage application
@@ -39,6 +36,7 @@ type Buffer struct {
 func (stor *StorageApplication) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("stor: serving new node %s <-> %s\n", link.peerLink.LocalAddr(), link.peerLink.RemoteAddr())
 
+/*
 	pktri, err := expect(RequestIdentification)
 	if err != nil {
 		send(err)
@@ -75,6 +73,7 @@ func (stor *StorageApplication) ServeLink(ctx context.Context, link *NodeLink) {
 	case StoreObject:
 	case StoreTransaction:
 	}
+*/
 
 
 
