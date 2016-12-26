@@ -24,14 +24,14 @@ from neo.lib.config import getServerOptionParser, ConfigurationManager
 parser = getServerOptionParser()
 parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
                   'process. Previously assigned UUID takes precedence (ie ' \
-                  'you should always use -R with this switch)')
-parser.add_option('-R', '--reset', action = 'store_true',
-                  help = 'remove an existing database if any')
+                  'you should always use --reset with this switch)')
 parser.add_option('-a', '--adapter', help = 'database adapter to use')
 parser.add_option('-d', '--database', help = 'database connections string')
 parser.add_option('-e', '--engine', help = 'database engine')
 parser.add_option('-w', '--wait', help='seconds to wait for backend to be '
     'available, before erroring-out (-1 = infinite)', type='float', default=0)
+parser.add_option('--reset', action='store_true',
+                  help='remove an existing database if any, and exit')
 
 defaults = dict(
     bind = '127.0.0.1',
