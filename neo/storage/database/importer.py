@@ -281,7 +281,6 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
-        self.db._connect()
         implements(self, """_getNextTID checkSerialRange checkTIDRange
             deleteObject deleteTransaction dropPartitions getLastTID
             getReplicationObjectList getTIDList nonempty""".split())
