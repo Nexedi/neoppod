@@ -52,6 +52,8 @@ class DatabaseManager(object):
 
     ENGINES = ()
 
+    _deferred = 0
+
     def __init__(self, database, engine=None, wait=0):
         """
             Initialize the object.
@@ -62,8 +64,8 @@ class DatabaseManager(object):
                                  % (engine, self.ENGINES))
             self._engine = engine
         self._wait = wait
-        self._deferred = 0
         self._parse(database)
+        self._connect()
 
     def __getattr__(self, attr):
         if attr == "_getPartition":
@@ -77,6 +79,10 @@ class DatabaseManager(object):
     @abstract
     def _parse(self, database):
         """Called during instantiation, to process database parameter."""
+
+    @abstract
+    def _connect(self):
+        """Connect to the database"""
 
     def setup(self, reset=0):
         """Set up a database, discarding existing data first if reset is True

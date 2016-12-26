@@ -69,11 +69,6 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     VERSION = 1
 
-    def __init__(self, *args, **kw):
-        super(SQLiteDatabaseManager, self).__init__(*args, **kw)
-        self._config = {}
-        self._connect()
-
     def _parse(self, database):
         self.db = os.path.expanduser(database)
 
@@ -83,6 +78,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
+        self._config = {}
 
     def _commit(self):
         retry_if_locked(self.conn.commit)

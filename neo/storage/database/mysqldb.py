@@ -56,12 +56,6 @@ class MySQLDatabaseManager(DatabaseManager):
 
     _max_allowed_packet = 32769 * 1024
 
-    def __init__(self, *args, **kw):
-        super(MySQLDatabaseManager, self).__init__(*args, **kw)
-        self.conn = None
-        self._config = {}
-        self._connect()
-
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
         # expected pattern : [user[:password]@]database[(~|.|/)unix_socket]
@@ -93,6 +87,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 logging.exception('Connection to MySQL failed, retrying.')
                 time.sleep(1)
         self._active = 0
+        self._config = {}
         conn = self.conn
         conn.autocommit(False)
         conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))

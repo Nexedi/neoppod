@@ -308,6 +308,9 @@ class ImporterDatabaseManager(DatabaseManager):
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
+    def _connect(self):
+        pass
+
     def commit(self):
         self.db.commit()
         self._last_commit = time.time()
