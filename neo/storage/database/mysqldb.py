@@ -471,6 +471,11 @@ class MySQLDatabaseManager(DatabaseManager):
     _structLL = struct.Struct(">LL")
     _unpackLL = _structLL.unpack
 
+    def getOrphanList(self):
+        return [x for x, in self.query(
+            "SELECT id FROM data LEFT JOIN obj ON (id=data_id)"
+            " WHERE data_id IS NULL")]
+
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
         if data_id_list:
@@ -491,6 +496,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 if bigid_list:
                     q("DELETE FROM bigdata WHERE id IN (%s)"
                       % ",".join(map(str, bigid_list)))
+                return len(id_list)
+        return 0
 
     def _bigData(self, value):
         bigdata_id, length = self._unpackLL(value)

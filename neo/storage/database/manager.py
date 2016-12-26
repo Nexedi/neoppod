@@ -410,6 +410,20 @@ class DatabaseManager(object):
         """
 
     @abstract
+    def getOrphanList(self):
+        """Return the list of data id that is not referenced by the obj table
+
+        This is a repair method, and it's usually expensive.
+        There was a bug that did not free data of transactions that were
+        aborted before vote. This method is used to reclaim the wasted space.
+        """
+
+    def pruneOrphan(self):
+        n = self._pruneData(self.getOrphanList())
+        self.commit()
+        return n
+
+    @abstract
     def _pruneData(self, data_id_list):
         """To be overridden by the backend to delete any unreferenced data
 
@@ -417,6 +431,8 @@ class DatabaseManager(object):
         - not in self._uncommitted_data
         - and not referenced by a fully-committed object (storage should have
           an index or a refcount of all data ids of all objects)
+
+        The returned value is the number of deleted rows from the data table.
         """
 
     @abstract

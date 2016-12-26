@@ -130,6 +130,10 @@ class ConfigurationManager(object):
         # only from command line
         return self.argument_list.get('reset', False)
 
+    def getPruneOrphan(self):
+        # only from command line
+        return self.argument_list.get('prune_orphan', False)
+
     def getUUID(self):
         # only from command line
         uuid = self.argument_list.get('uuid', None)

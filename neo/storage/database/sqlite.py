@@ -376,6 +376,11 @@ class SQLiteDatabaseManager(DatabaseManager):
                  packed, buffer(''.join(oid_list)),
                  buffer(user), buffer(desc), buffer(ext), u64(ttid)))
 
+    def getOrphanList(self):
+        return [x for x, in self.query(
+            "SELECT id FROM data LEFT JOIN obj ON (id=data_id)"
+            " WHERE data_id IS NULL")]
+
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
         if data_id_list:
@@ -385,6 +390,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                 % ",".join(map(str, data_id_list))))
             q("DELETE FROM data WHERE id IN (%s)"
               % ",".join(map(str, data_id_list)))
+            return len(data_id_list)
+        return 0
 
     def storeData(self, checksum, data, compression,
             _dup=unique_constraint_message("data", "hash", "compression")):
