@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 import sys
 import smtplib
 import optparse
@@ -34,13 +34,13 @@ class BenchmarkRunner(object):
         parser.add_option('', '--repeat', type='int', default=1)
         self.add_options(parser)
         # check common arguments
-        options, self._args = parser.parse_args()
+        options, args = parser.parse_args()
         if bool(options.mail_to) ^ bool(options.mail_from):
             sys.exit('Need a sender and recipients to mail report')
         mail_server = options.mail_server or MAIL_SERVER
         # check specifics arguments
         self._config = AttributeDict()
-        self._config.update(self.load_options(options, self._args))
+        self._config.update(self.load_options(options, args))
         self._config.update(
             title = options.title or self.__class__.__name__,
             mail_from = options.mail_from,
@@ -87,7 +87,7 @@ class BenchmarkRunner(object):
             try:
                 s.sendmail(self._config.mail_from, recipient, mail)
             except smtplib.SMTPRecipientsRefused:
-                print "Mail for %s fails" % recipient
+                print("Mail for %s fails" % recipient)
         s.close()
 
     def run(self):
@@ -95,9 +95,10 @@ class BenchmarkRunner(object):
         report = self.build_report(report)
         if self._config.mail_to:
             self.send_report(subject, report)
-        print subject
-        print
-        print report
+        print(subject)
+        if report:
+            print()
+            print(report, end='')
 
     def was_successful(self):
         return self._successful

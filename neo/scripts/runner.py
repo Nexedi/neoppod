@@ -23,6 +23,7 @@ import os
 import re
 from collections import Counter, defaultdict
 from cStringIO import StringIO
+from fnmatch import fnmatchcase
 from unittest.runner import _WritelnDecorator
 
 if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
@@ -114,17 +115,32 @@ class NeoTestRunner(unittest.TextTestResult):
     def wasSuccessful(self):
         return not (self.failures or self.errors or self.unexpectedSuccesses)
 
-    def run(self, name, modules):
-        print '\n', name
+    def run(self, name, modules, only):
         suite = unittest.TestSuite()
-        loader = unittest.defaultTestLoader
+        loader = unittest.TestLoader()
+        if only:
+            exclude = only[0] == '!'
+            test_only = only[exclude + 1:]
+            only = only[exclude]
+            if test_only:
+                def getTestCaseNames(testCaseClass):
+                    tests = loader.__class__.getTestCaseNames(
+                        loader, testCaseClass)
+                    x = testCaseClass.__name__ + '.'
+                    return [t for t in tests
+                              if exclude != any(fnmatchcase(x + t, o)
+                                                for o in test_only)]
+                loader.getTestCaseNames = getTestCaseNames
+                if not only:
+                    only = '*'
+        else:
+            print '\n', name
         for test_module in modules:
             # load prefix if supplied
             if isinstance(test_module, tuple):
-                test_module, prefix = test_module
-                loader.testMethodPrefix = prefix
-            else:
-                loader.testMethodPrefix = 'test'
+                test_module, loader.testMethodPrefix = test_module
+            if only and exclude == fnmatchcase(test_module, only):
+                continue
             try:
                 test_module = __import__(test_module, globals(), locals(), ['*'])
             except ImportError, err:
@@ -201,7 +217,8 @@ class NeoTestRunner(unittest.TextTestResult):
         for test in self.unexpectedSuccesses:
             body.write("UNEXPECTED SUCCESS: %s\n" % self.getDescription(test))
         self.stream = _WritelnDecorator(body)
-        self.printErrors()
+        self.printErrorList('ERROR', self.errors)
+        self.printErrorList('FAIL', self.failures)
         return subject, body.getvalue()
 
 class TestRunner(BenchmarkRunner):
@@ -217,7 +234,12 @@ class TestRunner(BenchmarkRunner):
             help='ZODB test suite running on a NEO')
         parser.add_option('-v', '--verbose', action='store_true',
             help='Verbose output')
+        parser.usage += " [[!] module [test...]]"
         parser.format_epilog = lambda _: """
+Positional:
+  Filter by given module/test. These arguments are shell patterns.
+  This implies -ufz if none of this option is passed.
+
 Environment Variables:
   NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,
                               MySQL otherwise.
@@ -239,27 +261,31 @@ Environment Variables:
 """ % neo_tests__dict__
 
     def load_options(self, options, args):
-        if not (options.unit or options.functional or options.zodb or args):
-            sys.exit('Nothing to run, please give one of -f, -u, -z')
+        if not (options.unit or options.functional or options.zodb):
+            if not args:
+                sys.exit('Nothing to run, please give one of -f, -u, -z')
+            options.unit = options.functional = options.zodb = True
         return dict(
             unit = options.unit,
             functional = options.functional,
             zodb = options.zodb,
             verbosity = 2 if options.verbose else 1,
             coverage = options.coverage,
+            only = args,
         )
 
     def start(self):
         config = self._config
+        only = config.only
         # run requested tests
         runner = NeoTestRunner(config.title or 'Neo', config.verbosity)
         try:
             if config.unit:
-                runner.run('Unit tests', UNIT_TEST_MODULES)
+                runner.run('Unit tests', UNIT_TEST_MODULES, only)
             if config.functional:
-                runner.run('Functional tests', FUNC_TEST_MODULES)
+                runner.run('Functional tests', FUNC_TEST_MODULES, only)
             if config.zodb:
-                runner.run('ZODB tests', ZODB_TEST_MODULES)
+                runner.run('ZODB tests', ZODB_TEST_MODULES, only)
         except KeyboardInterrupt:
             config['mail_to'] = None
             traceback.print_exc()
@@ -268,7 +294,13 @@ Environment Variables:
             if coverage.neotestrunner:
                 coverage.combine(coverage.neotestrunner)
             coverage.save()
+        if runner.dots:
+            print
         # build report
+        if only and not config.mail_to:
+            runner._buildSummary = lambda *args: (
+                runner.__class__._buildSummary(runner, *args)[0], '')
+            self.build_report = str
         self._successful = runner.wasSuccessful()
         return runner.buildReport(self.add_status)
 
