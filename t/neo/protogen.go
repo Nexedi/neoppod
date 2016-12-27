@@ -209,15 +209,36 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	// [len]item
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
+	d.n = 0
 	d.emit("%v = make(%v, l)", assignto, typ)
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("for i := 0; i < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
-	d.n = 0
 	d.emitobjtype("a", obj, typ.Elem())	// XXX also obj.Elem() ?
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
+	d.emit("}")
+	//d.emit("%v = string(data[:l])", assignto)
+	d.emit("}")
+	d.n = 0
+}
+
+func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
+	// len  u32
+	// [len](key, value)
+	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
+	d.emit("data = data[%v:]", d.n)
+	d.n = 0
+	d.emit("%v = make(%v, l)", assignto, typ)
+	// TODO size check
+	// TODO if size(item)==const - check l in one go
+	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
+	d.emit("m := %v", assignto)
+	d.emit("for i := 0; i < l; i++ {")
+	d.emitobjtype("key", obj, typ.Key())	// TODO -> :=
+	d.emitobjtype("m[key]", obj, typ.Elem())
+	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
 	d.emit("}")
 	//d.emit("%v = string(data[:l])", assignto)
 	d.emit("}")
@@ -238,8 +259,8 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 	case *types.Slice:
 		d.emitslice(assignto, obj, u)
 
-	//case *types.Map:
-	//	// TODO
+	case *types.Map:
+		d.emitmap(assignto, obj, u)
 
 
 	case *types.Struct:

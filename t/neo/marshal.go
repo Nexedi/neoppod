@@ -304,3 +304,18 @@ func (p *AnswerUnfinishedTransactions) NEODecode(data []byte) (int, error) {
 func (p *LockedTransactions) NEODecode(data []byte) (int, error) {
 	return 0 /* + TODO variable part */, nil
 }
+
+func (p *AnswerLockedTransactions) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.TidDict = make(map[neo.Tid]neo.Tid, l)
+		m := p.TidDict
+		for i := 0; i < l; i++ {
+			key = BigEndian.Uint64(data[0:])
+			m[key] = BigEndian.Uint64(data[8:])
+			data = data[16:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}

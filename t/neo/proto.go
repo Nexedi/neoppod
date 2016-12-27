@@ -327,12 +327,12 @@ type AnswerUnfinishedTransactions struct {
 // Answer locked transactions  S -> PM.
 type LockedTransactions struct {
 }
-/*
 
 type AnswerLockedTransactions struct {
 	TidDict map[Tid]Tid     // ttid -> tid
 }
 
+/*
 // Return final tid if ttid has been committed. * -> S. C -> PM.
 type FinalTID struct {
 	TTID    Tid
