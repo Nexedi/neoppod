@@ -49,3 +49,34 @@ func (p *RowInfo) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+func (p *Notify) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Message = string(data[:l])
+		data = data[l:]
+	}
+	return 0 /* + TODO variable part */, nil
+}
+func (p *Error) NEODecode(data []byte) (int, error) {
+	p.Code = BigEndian.Uint32(data[0:])
+	{
+		l := BigEndian.Uint32(data[4:])
+		data = data[8:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Message = string(data[:l])
+		data = data[l:]
+	}
+	return 0 /* + TODO variable part */, nil
+}
+func (p *Ping) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+func (p *CloseClient) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}

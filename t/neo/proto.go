@@ -177,7 +177,6 @@ type RowInfo struct {
 
 
 
-/*
 // // XXX link request <-> answer ?
 // // XXX naming -> PktHeader ?
 // type PktHead struct {
@@ -186,7 +185,6 @@ type RowInfo struct {
 // 	Len	be32	// whole packet length (including header)
 // }
 
-// TODO generate .Encode() / .Decode()
 
 // General purpose notification (remote logging)
 type Notify struct {
@@ -210,6 +208,7 @@ type Ping struct {
 type CloseClient struct {
 }
 
+/*
 // Request a node identification. This must be the first packet for any
 // connection. Any -> Any.
 type RequestIdentification struct {

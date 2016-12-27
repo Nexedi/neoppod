@@ -209,6 +209,7 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
 	d.emit("%v = make(%v, l)", assignto, typ)
+	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("for i := 0; i < l; i++ {")
