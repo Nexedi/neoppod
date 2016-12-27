@@ -484,3 +484,50 @@ func (p *AbortTransaction) NEODecode(data []byte) (int, error) {
 	p.Tid = BigEndian.Uint64(data[0:])
 	return 8 /* + TODO variable part */, nil
 }
+
+func (p *StoreTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.User = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Description = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Extension = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.OidList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.OidList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *VoteTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
