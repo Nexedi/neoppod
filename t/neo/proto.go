@@ -274,13 +274,13 @@ type AnswerLastIDs struct {
 type PartitionTable struct {
 }
 
-/*
 type AnswerPartitionTable struct {
         PTid
         RowList []RowInfo
 }
 
 
+/*
 // Send rows in a partition table to update other nodes. PM -> S, C.
 type NotifyPartitionTable struct {
         PTid

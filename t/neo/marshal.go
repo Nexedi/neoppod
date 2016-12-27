@@ -179,3 +179,26 @@ func (p *AnswerLastIDs) NEODecode(data []byte) (int, error) {
 func (p *PartitionTable) NEODecode(data []byte) (int, error) {
 	return 0 /* + TODO variable part */, nil
 }
+func (p *AnswerPartitionTable) NEODecode(data []byte) (int, error) {
+	p.PTid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.RowList = make([]neo.RowInfo, l)
+		for i := 0; i < l; i++ {
+			p.RowList[i].Offset = BigEndian.Uint32(data[0:])
+			{
+				l := BigEndian.Uint32(data[4:])
+				data = data[8:]
+				p.RowList[i].CellList = make([]neo.CellInfo, l)
+				for i := 0; i < l; i++ {
+					p.RowList[i].CellList[i].UUID = int32(BigEndian.Uint32(data[0:]))
+					p.RowList[i].CellList[i].CellState = int32(BigEndian.Uint32(data[4:]))
+					data = data[8:]
+				}
+			}
+			data = data[0:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
