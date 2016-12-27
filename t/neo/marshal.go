@@ -80,3 +80,69 @@ func (p *Ping) NEODecode(data []byte) (int, error) {
 func (p *CloseClient) NEODecode(data []byte) (int, error) {
 	return 0 /* + TODO variable part */, nil
 }
+func (p *RequestIdentification) NEODecode(data []byte) (int, error) {
+	p.ProtocolVersion = BigEndian.Uint32(data[0:])
+	p.NodeType = int32(BigEndian.Uint32(data[4:]))
+	p.UUID = int32(BigEndian.Uint32(data[8:]))
+	{
+		l := BigEndian.Uint32(data[12:])
+		data = data[16:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Address.Host = string(data[:l])
+		data = data[l:]
+	}
+	p.Address.Port = BigEndian.Uint16(data[0:])
+	{
+		l := BigEndian.Uint32(data[2:])
+		data = data[6:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Name = string(data[:l])
+		data = data[l:]
+	}
+	p.IdTimestamp = float64_NEODecode(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
+	p.NodeType = int32(BigEndian.Uint32(data[0:]))
+	p.MyUUID = int32(BigEndian.Uint32(data[4:]))
+	p.NumPartitions = BigEndian.Uint32(data[8:])
+	p.NumReplicas = BigEndian.Uint32(data[12:])
+	p.YourUUID = int32(BigEndian.Uint32(data[16:]))
+	{
+		l := BigEndian.Uint32(data[20:])
+		data = data[24:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Primary.Host = string(data[:l])
+		data = data[l:]
+	}
+	p.Primary.Port = BigEndian.Uint16(data[0:])
+	{
+		l := BigEndian.Uint32(data[2:])
+		data = data[6:]
+		p.KnownMasterList = make([]struct {
+			neo.Address
+			UUID neo.UUID
+		}, l)
+		for i := 0; i < l; i++ {
+			{
+				l := BigEndian.Uint32(data[0:])
+				data = data[4:]
+				if len(data) < l {
+					return 0, ErrDecodeOverflow
+				}
+				p.KnownMasterList[i].Address.Host = string(data[:l])
+				data = data[l:]
+			}
+			p.KnownMasterList[i].Address.Port = BigEndian.Uint16(data[0:])
+			p.KnownMasterList[i].UUID = int32(BigEndian.Uint32(data[2:]))
+			data = data[6:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}

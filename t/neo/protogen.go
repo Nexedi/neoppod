@@ -268,7 +268,7 @@ func gendecode(typespec *ast.TypeSpec) string {
 
 	d.emitobjtype("p", obj, typ)
 
-	d.emit("return %v /* + TODO variable part */, nil", d.n)
+	d.emit("return %v /* + TODO variable part */, nil", d.n)	// FIXME n is wrong after reset
 	d.emit("}")
 	return d.buf.String()
 

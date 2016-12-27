@@ -208,7 +208,6 @@ type Ping struct {
 type CloseClient struct {
 }
 
-/*
 // Request a node identification. This must be the first packet for any
 // connection. Any -> Any.
 type RequestIdentification struct {
@@ -234,6 +233,7 @@ type AcceptIdentification struct {
 	}
 }
 
+/*
 // Ask current primary master's uuid. CTL -> A.
 type PrimaryMaster struct {
 }
