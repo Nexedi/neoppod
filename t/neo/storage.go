@@ -63,7 +63,7 @@ func (stor *StorageApplication) ServeLink(ctx context.Context, link *NodeLink) {
 	switch pkt.MsgCode {
 	case GetObject:
 		req := GetObject{}
-		err = req.Decode(pkt.Payload())
+		err = req.NEODecode(pkt.Payload())
 		if err != nil {
 			sendErr("malformed GetObject packet:", err)
 		}

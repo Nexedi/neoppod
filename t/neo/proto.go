@@ -81,6 +81,18 @@ type UUID int32
 
 // TODO UUID_NAMESPACES
 
+// NEOEncoder is interface for marshaling objects to wire format in NEO
+type NEOEncoder interface {
+	// NEOEncodedLen() int	?
+	// XXX len(buf) must be >= NEOEncodedLen()
+	NEOEncode(buf []byte) (nwrote int)
+}
+
+// NEODecoder is interface for unmarshalling objects from wire format in NEO
+type NEODecoder interface {
+	NEODecode(data []byte) (nread int)
+}
+
 type Address struct {
 	Host string
 	Port uint16
@@ -88,7 +100,7 @@ type Address struct {
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
 func (a *Address) NEOEncode(b []byte) int {
-	n := a.Host.NEOEncode(b[0:])
+	n := string_NEOEncode(a.Host, b[0:])
 	if a.Host != "" {
 		BigEndian.PutUint16(b[n:], a.Port)
 		n += 2
@@ -97,9 +109,10 @@ func (a *Address) NEOEncode(b []byte) int {
 }
 
 func (a *Address) NEODecode(b []byte) int {
-	n := a.Host.NEODecode(b)
+	n := string_NEODecode(&a.Host, b)
 	if a.Host != "" {
-		n += a.Port.NEODecode(b[n:])
+		a.Port = BigEndian.Uint16(b[n:])
+		n += 2
 	} else {
 		a.Port = 0
 	}
@@ -115,7 +128,7 @@ type PTid uint64	// XXX move to common place ?
 
 type Float64 float64
 
-// NOTE py.None encodes as '\xff' * 8	(-> use NaN for None)
+// NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
 func (f Float64) NEOEncode(b []byte) int {
 	var fu uint64
@@ -171,7 +184,6 @@ type PktHead struct {
 
 // General purpose notification (remote logging)
 type Notify struct {
-	PktHead
 	Message string
 }
 
@@ -179,26 +191,22 @@ type Notify struct {
 // any other message, even if such a message does not expect a reply
 // usually. Any -> Any.
 type Error struct {
-	PktHead
 	Code    uint32  // PNumber
 	Message string
 }
 
 // Check if a peer is still alive. Any -> Any.
 type Ping struct {
-	PktHead
 	// TODO _answer = PFEmpty
 }
 
 // Tell peer it can close the connection if it has finished with us. Any -> Any
 type CloseClient struct {
-	PktHead
 }
 
 // Request a node identification. This must be the first packet for any
 // connection. Any -> Any.
 type RequestIdentification struct {
-	PktHead
 	ProtocolVersion uint32		// TODO py.PProtocol upon decoding checks for != PROTOCOL_VERSION
 	NodeType        NodeType        // XXX name
 	UUID            UUID
@@ -209,7 +217,6 @@ type RequestIdentification struct {
 
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
 type AcceptIdentification struct {
-	PktHead
 	NodeType        NodeType        // XXX name
 	MyUUID          UUID
 	NumPartitions   uint32          // PNumber
@@ -224,31 +231,25 @@ type AcceptIdentification struct {
 
 // Ask current primary master's uuid. CTL -> A.
 type PrimaryMaster struct {
-	PktHead
 }
 
 type AnswerPrimary struct {
-	PktHead
 	PrimaryUUID UUID
 }
 
 // Announce a primary master node election. PM -> SM.
 type AnnouncePrimary struct {
-	PktHead
 }
 
 // Force a re-election of a primary master node. M -> M.
 type ReelectPrimary struct {
-	PktHead
 }
 
 // Ask all data needed by master to recover. PM -> S, S -> PM.
 type Recovery struct {
-	PktHead
 }
 
 type AnswerRecovery struct {
-	PktHead
 	PTid
 	BackupTID   Tid
 	TruncateTID Tid
@@ -257,11 +258,9 @@ type AnswerRecovery struct {
 // Ask the last OID/TID so that a master can initialize its TransactionManager.
 // PM -> S, S -> PM.
 type LastIDs struct {
-	PktHead
 }
 
 type AnswerLastIDs struct {
-	PktHead
 	LastOID Oid
 	LastTID Tid
 }
@@ -269,11 +268,9 @@ type AnswerLastIDs struct {
 // Ask the full partition table. PM -> S.
 // Answer rows in a partition table. S -> PM.
 type PartitionTable struct {
-	PktHead
 }
 
 type AnswerPartitionTable struct {
-	PktHead
         PTid
         RowList []RowInfo
 }
@@ -281,7 +278,6 @@ type AnswerPartitionTable struct {
 
 // Send rows in a partition table to update other nodes. PM -> S, C.
 type NotifyPartitionTable struct {
-	PktHead
         PTid
         RowList []RowInfo
 }
@@ -289,8 +285,6 @@ type NotifyPartitionTable struct {
 // Notify a subset of a partition table. This is used to notify changes.
 // PM -> S, C.
 type PartitionChanges struct {
-	PktHead
-
         PTid
         CellList []struct {
 	        // XXX does below correlate with Cell inside top-level CellList ?
@@ -303,7 +297,6 @@ type PartitionChanges struct {
 // Tell a storage nodes to start an operation. Until a storage node receives
 // this message, it must not serve client nodes. PM -> S.
 type StartOperation struct {
-	PktHead
         // XXX: Is this boolean needed ? Maybe this
         //      can be deduced from cluster state.
         Backup bool
@@ -312,17 +305,14 @@ type StartOperation struct {
 // Tell a storage node to stop an operation. Once a storage node receives
 // this message, it must not serve client nodes. PM -> S.
 type StopOperation struct {
-	PktHead
 }
 
 // Ask unfinished transactions  S -> PM.
 // Answer unfinished transactions  PM -> S.
 type UnfinishedTransactions struct {
-	PktHead
 }
 
 type AnswerUnfinishedTransactions struct {
-	PktHead
 	MaxTID  Tid
 	TidList []struct{
 		UnfinishedTID Tid
@@ -332,28 +322,23 @@ type AnswerUnfinishedTransactions struct {
 // Ask locked transactions  PM -> S.
 // Answer locked transactions  S -> PM.
 type LockedTransactions struct {
-	PktHead
 }
 
 type AnswerLockedTransactions struct {
-	PktHead
 	TidDict map[Tid]Tid     // ttid -> tid
 }
 
 // Return final tid if ttid has been committed. * -> S. C -> PM.
 type FinalTID struct {
-	PktHead
 	TTID    Tid
 }
 
 type AnswerFinalTID struct {
-	PktHead
         Tid     Tid
 }
 
 // Commit a transaction. PM -> S.
 type ValidateTransaction struct {
-	PktHead
         TTID Tid
         Tid  Tid
 }
@@ -362,26 +347,22 @@ type ValidateTransaction struct {
 // Ask to begin a new transaction. C -> PM.
 // Answer when a transaction begin, give a TID if necessary. PM -> C.
 type BeginTransaction struct {
-	PktHead
 	Tid     Tid
 }
 
 type AnswerBeginTransaction struct {
-	PktHead
 	Tid     Tid
 }
 
 // Finish a transaction. C -> PM.
 // Answer when a transaction is finished. PM -> C.
 type FinishTransaction struct {
-	PktHead
         Tid         Tid
         OIDList     []Oid
         CheckedList []Oid
 }
 
 type AnswerFinishTransaction struct {
-	PktHead
         TTID    Tid
         Tid     Tid
 }
@@ -389,7 +370,6 @@ type AnswerFinishTransaction struct {
 // Notify that a transaction blocking a replication is now finished
 // M -> S
 type NotifyTransactionFinished struct {
-	PktHead
         TTID    Tid
         MaxTID  Tid
 }
@@ -397,7 +377,6 @@ type NotifyTransactionFinished struct {
 // Lock information on a transaction. PM -> S.
 // Notify information on a transaction locked. S -> PM.
 type LockInformation struct {
-	PktHead
         Ttid Tid
         Tid  Tid
 }
@@ -410,27 +389,23 @@ type AnswerLockInformation struct {
 // Invalidate objects. PM -> C.
 // XXX ask_finish_transaction ?
 type InvalidateObjects struct {
-	PktHead
         Tid     Tid
         OidList []Oid
 }
 
 // Unlock information on a transaction. PM -> S.
 type UnlockInformation struct {
-	PktHead
         TTID    Tid
 }
 
 // Ask new object IDs. C -> PM.
 // Answer new object IDs. PM -> C.
 type GenerateOIDs struct {
-	PktHead
 	NumOIDs uint32  // PNumber
 }
 
 // XXX answer_new_oids ?
 type AnswerGenerateOIDs struct {
-	PktHead
         OidList []Oid
 }
 
@@ -442,7 +417,6 @@ type AnswerGenerateOIDs struct {
 // if this serial is newer than the current transaction ID, a client
 // node must not try to resolve the conflict. S -> C.
 type StoreObject struct {
-	PktHead
         Oid             Oid
         Serial          Tid
         Compression     bool
@@ -454,7 +428,6 @@ type StoreObject struct {
 }
 
 type AnswerStoreObject struct {
-	PktHead
 	Conflicting     bool
 	Oid             Oid
 	Serial          Tid
@@ -462,14 +435,12 @@ type AnswerStoreObject struct {
 
 // Abort a transaction. C -> S, PM.
 type AbortTransaction struct {
-	PktHead
 	Tid     Tid
 }
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type StoreTransaction struct {
-	PktHead
         Tid             Tid
         User            string
         Description     string
@@ -481,7 +452,6 @@ type StoreTransaction struct {
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type VoteTransaction struct {
-	PktHead
         Tid     Tid
 	// TODO _answer = PFEmpty
 }
@@ -491,7 +461,6 @@ type VoteTransaction struct {
 // a TID is specified, an object right before the TID will be returned. C -> S.
 // Answer the requested object. S -> C.
 type GetObject struct {
-	PktHead
 	Oid     Oid
 	Serial  Tid
 	Tid     Tid
@@ -499,7 +468,6 @@ type GetObject struct {
 
 // XXX answer_object ?
 type AnswerGetObject struct {
-	PktHead
         Oid             Oid
         SerialStart     Tid
         SerialEnd       Tid
@@ -513,7 +481,6 @@ type AnswerGetObject struct {
 // and the range is [first, last). C -> S.
 // Answer the requested TIDs. S -> C.
 type TIDList struct {
-	PktHead
 	First           uint64  // PIndex       XXX this is TID actually ? -> no it is offset in list
 	Last            uint64  // PIndex       ----//----
 	Partition       uint32  // PNumber
@@ -521,7 +488,6 @@ type TIDList struct {
 
 // XXX answer_tids ?
 type AnswerTIDList struct {
-	PktHead
         TIDList []Tid
 }
 
@@ -529,7 +495,6 @@ type AnswerTIDList struct {
 // C -> S.
 // Answer the requested TIDs. S -> C
 type TIDListFrom struct {
-	PktHead
 	MinTID          Tid
 	MaxTID          Tid
 	Length          uint32  // PNumber
@@ -538,19 +503,16 @@ type TIDListFrom struct {
 
 // XXX answer_tids ?
 type AnswerTIDListFrom struct {
-	PktHead
 	TidList []Tid
 }
 
 // Ask information about a transaction. Any -> S.
 // Answer information (user, description) about a transaction. S -> Any.
 type TransactionInformation struct {
-	PktHead
 	Tid     Tid
 }
 
 type AnswerTransactionInformation struct {
-	PktHead
         Tid             Tid
         User            string
         Description     string
@@ -563,14 +525,12 @@ type AnswerTransactionInformation struct {
 // descending, and the range is [first, last]. C -> S.
 // Answer history information (serial, size) for an object. S -> C.
 type ObjectHistory struct {
-	PktHead
 	Oid     Oid
 	First   uint64  // PIndex       XXX this is actually TID
 	Last    uint64  // PIndex       ----//----
 }
 
 type AnswerObjectHistory struct {
-	PktHead
 	Oid         Oid
         HistoryList []struct {
 	        Serial  Tid
@@ -582,14 +542,12 @@ type AnswerObjectHistory struct {
 // Ask information about partition
 // Answer information about partition
 type PartitionList struct {
-	PktHead
 	MinOffset   uint32      // PNumber
 	MaxOffset   uint32      // PNumber
 	UUID        UUID
 }
 
 type AnswerPartitionList struct {
-	PktHead
 	PTid
         RowList []RowInfo
 }
@@ -597,18 +555,15 @@ type AnswerPartitionList struct {
 // Ask information about nodes
 // Answer information about nodes
 type X_NodeList struct {
-	PktHead
         NodeType
 }
 
 type AnswerNodeList struct {
-	PktHead
         NodeList []NodeInfo
 }
 
 // Set the node state
 type SetNodeState struct {
-	PktHead
 	UUID
         NodeState
 
@@ -617,7 +572,6 @@ type SetNodeState struct {
 
 // Ask the primary to include some pending node in the partition table
 type AddPendingNodes struct {
-	PktHead
         UUIDList []UUID
 
 	// XXX _answer = Error
@@ -625,7 +579,6 @@ type AddPendingNodes struct {
 
 // Ask the primary to optimize the partition table. A -> PM.
 type TweakPartitionTable struct {
-	PktHead
         UUIDList []UUID
 
 	// XXX _answer = Error
@@ -633,19 +586,16 @@ type TweakPartitionTable struct {
 
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
-	PktHead
         NodeList []NodeInfo
 }
 
 // Ask node information
 type NodeInformation struct {
-	PktHead
 	// XXX _answer = PFEmpty
 }
 
 // Set the cluster state
 type SetClusterState struct {
-	PktHead
 	State   ClusterState
 
 	// XXX _answer = Error
@@ -653,14 +603,12 @@ type SetClusterState struct {
 
 // Notify information about the cluster
 type ClusterInformation struct {
-	PktHead
 	State   ClusterState
 }
 
 // Ask state of the cluster
 // Answer state of the cluster
 type X_ClusterState struct {	// XXX conflicts with ClusterState enum
-	PktHead
         State   ClusterState
 }
 
@@ -680,7 +628,6 @@ type X_ClusterState struct {	// XXX conflicts with ClusterState enum
 //             If current_serial's data is current on storage.
 // S -> C
 type ObjectUndoSerial struct {
-	PktHead
         Tid             Tid
         LTID            Tid
         UndoneTID       Tid
@@ -689,7 +636,6 @@ type ObjectUndoSerial struct {
 
 // XXX answer_undo_transaction ?
 type AnswerObjectUndoSerial struct {
-	PktHead
 	ObjectTIDDict map[Oid]struct {
                 CurrentSerial   Tid
                 UndoSerial      Tid
@@ -701,13 +647,11 @@ type AnswerObjectUndoSerial struct {
 // C -> S
 // Answer whether a transaction holds the write lock for requested object.
 type HasLock struct {
-	PktHead
         Tid     Tid
         Oid     Oid
 }
 
 type AnswerHasLock struct {
-	PktHead
         Oid       Oid
         LockState LockState
 }
@@ -720,7 +664,6 @@ type AnswerHasLock struct {
 // Same structure as AnswerStoreObject, to handle the same way, except there
 // is nothing to invalidate in any client's cache.
 type CheckCurrentSerial struct {
-	PktHead
 	Tid     Tid
 	Serial  Tid
 	Oid     Oid
@@ -740,12 +683,10 @@ type AnswerCheckCurrentSerial struct {
 // S -> M
 // M -> C
 type Pack struct {
-	PktHead
         Tid     Tid
 }
 
 type AnswerPack struct {
-	PktHead
 	Status  bool
 }
 
@@ -753,7 +694,6 @@ type AnswerPack struct {
 // ctl -> A
 // A -> M
 type CheckReplicas struct {
-	PktHead
 	PartitionDict map[uint32/*PNumber*/]UUID        // partition -> source
 	MinTID  Tid
 	MaxTID  Tid
@@ -763,7 +703,6 @@ type CheckReplicas struct {
 
 // M -> S
 type CheckPartition struct {
-	PktHead
 	Partition uint32  // PNumber
 	Source    struct {
 		UpstreamName string
@@ -783,7 +722,6 @@ type CheckPartition struct {
 // reference node.
 // S -> S
 type CheckTIDRange struct {
-	PktHead
         Partition uint32        // PNumber
         Length    uint32        // PNumber
         MinTID    Tid
@@ -791,7 +729,6 @@ type CheckTIDRange struct {
 }
 
 type AnswerCheckTIDRange struct {
-	PktHead
 	Count    uint32         // PNumber
 	Checksum Checksum
         MaxTID   Tid
@@ -806,7 +743,6 @@ type AnswerCheckTIDRange struct {
 // reference node.
 // S -> S
 type CheckSerialRange struct {
-	PktHead
         Partition       uint32  // PNumber
         Length          uint32  // PNumber
         MinTID          Tid
@@ -824,7 +760,6 @@ type AnswerCheckSerialRange struct {
 
 // S -> M
 type PartitionCorrupted struct {
-	PktHead
         Partition       uint32  // PNumber
         CellList        []UUID
 }
@@ -835,11 +770,9 @@ type PartitionCorrupted struct {
 // Answer last committed TID.
 // M -> C
 type LastTransaction struct {
-	PktHead
 }
 
 type AnswerLastTransaction struct {
-	PktHead
 	Tid     Tid
 }
 
@@ -847,7 +780,6 @@ type AnswerLastTransaction struct {
 // Notify that node is ready to serve requests.
 // S -> M
 type NotifyReady struct {
-	PktHead
 }
 
 // replication
