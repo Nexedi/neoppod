@@ -538,3 +538,42 @@ func (p *GetObject) NEODecode(data []byte) (int, error) {
 	p.Tid = BigEndian.Uint64(data[16:])
 	return 24 /* + TODO variable part */, nil
 }
+
+func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
+	p.Oid = BigEndian.Uint64(data[0:])
+	p.SerialStart = BigEndian.Uint64(data[8:])
+	p.SerialEnd = BigEndian.Uint64(data[16:])
+	p.Compression = bool((data[24:])[0])
+	p.Checksum[0] = (data[25:])[0]
+	p.Checksum[1] = (data[26:])[0]
+	p.Checksum[2] = (data[27:])[0]
+	p.Checksum[3] = (data[28:])[0]
+	p.Checksum[4] = (data[29:])[0]
+	p.Checksum[5] = (data[30:])[0]
+	p.Checksum[6] = (data[31:])[0]
+	p.Checksum[7] = (data[32:])[0]
+	p.Checksum[8] = (data[33:])[0]
+	p.Checksum[9] = (data[34:])[0]
+	p.Checksum[10] = (data[35:])[0]
+	p.Checksum[11] = (data[36:])[0]
+	p.Checksum[12] = (data[37:])[0]
+	p.Checksum[13] = (data[38:])[0]
+	p.Checksum[14] = (data[39:])[0]
+	p.Checksum[15] = (data[40:])[0]
+	p.Checksum[16] = (data[41:])[0]
+	p.Checksum[17] = (data[42:])[0]
+	p.Checksum[18] = (data[43:])[0]
+	p.Checksum[19] = (data[44:])[0]
+	{
+		l := BigEndian.Uint32(data[45:])
+		data = data[49:]
+		p.Data = make([]byte, l)
+		for i := 0; i < l; i++ {
+			a := &p.Data[i]
+			a = (data[0:])[0]
+			data = data[1:]
+		}
+	}
+	p.DataSerial = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
