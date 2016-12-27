@@ -49,11 +49,13 @@ func pos(x interface { Pos() token.Pos }) token.Position {
 }
 
 func main() {
+	var err error
+
 	log.SetFlags(0)
+
 	//typeMap := map[string]*PacketType{}	// XXX needed ?
 
 	// go through proto.go and collect packets type definitions
-
 	var mode parser.Mode = 0	// parser.Trace
 	var fv []*ast.File
 	for _, src := range []string{"proto.go", "neo.go"} {
@@ -65,7 +67,7 @@ func main() {
 	}
 
 	conf := types.Config{Importer: importer.Default()}
-	_, err := conf.Check("neo", fset, fv, info)
+	_, err = conf.Check("neo", fset, fv, info)
 	if err != nil {
 		log.Fatalf("typecheck: %v", err)
 	}
@@ -77,7 +79,7 @@ func main() {
 	//return
 
 	f := fv[0]	// proto.go comes first
-	out := Buffer{}
+	buf := Buffer{}
 
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
@@ -101,35 +103,7 @@ func main() {
 				//fmt.Println(t)
 				//ast.Print(fset, t)
 
-				out.WriteString(gendecode(typespec))
-				/*
-				PacketType{name: typename, msgCode: ncode}
-
-				// if ncode != 0 {
-				// 	fmt.Println()
-				// }
-
-				for _, fieldv := range t.Fields.List {
-					// we only support simple types like uint16
-					ftype, ok := fieldv.Type.(*ast.Ident)
-					if !ok {
-						// TODO log
-						// TODO proper error message
-						panic(fmt.Sprintf("%#v not supported", fieldv.Type))
-					}
-
-					if len(fieldv.Names) != 0 {
-						for _, field := range fieldv.Names {
-							fmt.Printf("%s(%d).%s\t%s\n", typename, ncode, field.Name, ftype)
-						}
-					} else {
-						// no names means embedding
-						fmt.Printf("%s(%d).<%s>\n", typename, ncode, ftype)
-					}
-				}
-
-				ncode++
-				*/
+				buf.WriteString(gendecode(typespec))
 			}
 		}
 
@@ -137,14 +111,13 @@ func main() {
 		//ast.Print(fset, gdecl)
 	}
 
-	// format & emit out
-	outf, err := format.Source(out.Bytes())
+	// format & emit bufferred code
+	code, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)	// should not happen
 	}
 
-	_, err = os.Stdout.Write(outf)
-	//_, err = os.Stdout.Write(out.Bytes())
+	_, err = os.Stdout.Write(code)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -208,7 +181,7 @@ func (d *decoder) emit(format string, a ...interface{}) {
 func (d *decoder) decodedBasic (obj types.Object, typ *types.Basic) string {
 	bdec, ok := basicDecode[typ.Kind()]
 	if !ok {
-		log.Fatalf("%v: basic type %v not supported", pos(obj), typ)
+		log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), typ)
 	}
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(bdec.decode, dataptr)

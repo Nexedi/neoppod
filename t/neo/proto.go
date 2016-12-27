@@ -1,5 +1,7 @@
 // NEO. Protocol description
 
+//go:generate sh -c "go run protogen.go >marshal.go"
+
 package neo
 
 // XXX move imports out of here
@@ -54,7 +56,7 @@ const (
 	ADMIN
 )
 
-type NodeState int
+type NodeState int32
 const (
 	RUNNING NodeState = iota //short: R     // XXX tag prefix name ?
 	TEMPORARILY_DOWN         //short: T
@@ -152,7 +154,6 @@ func float64_NEODecode(b []byte) float64 {
 	return math.Float64frombits(fu)
 }
 
-/*
 // NOTE original NodeList = []NodeInfo
 type NodeInfo struct {
 	NodeType
@@ -162,6 +163,7 @@ type NodeInfo struct {
 	IdTimestamp float64
 }
 
+/*
 //type CellList []struct {
 type CellInfo struct {
 	UUID
