@@ -280,13 +280,13 @@ type AnswerPartitionTable struct {
 }
 
 
-/*
 // Send rows in a partition table to update other nodes. PM -> S, C.
 type NotifyPartitionTable struct {
         PTid
         RowList []RowInfo
 }
 
+/*
 // Notify a subset of a partition table. This is used to notify changes.
 // PM -> S, C.
 type PartitionChanges struct {
