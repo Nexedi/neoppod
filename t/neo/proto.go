@@ -481,7 +481,6 @@ type AnswerGetObject struct {
         DataSerial      Tid
 }
 
-/*
 // Ask for TIDs between a range of offsets. The order of TIDs is descending,
 // and the range is [first, last). C -> S.
 // Answer the requested TIDs. S -> C.
@@ -542,6 +541,7 @@ type AnswerObjectHistory struct {
 	        Size    uint32  // PNumber
 	}
 }
+/*
 
 // All the following messages are for neoctl to admin node
 // Ask information about partition

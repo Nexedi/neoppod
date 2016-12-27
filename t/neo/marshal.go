@@ -577,3 +577,120 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 	p.DataSerial = BigEndian.Uint64(data[0:])
 	return 8 /* + TODO variable part */, nil
 }
+
+func (p *TIDList) NEODecode(data []byte) (int, error) {
+	p.First = BigEndian.Uint64(data[0:])
+	p.Last = BigEndian.Uint64(data[8:])
+	p.Partition = BigEndian.Uint32(data[16:])
+	return 20 /* + TODO variable part */, nil
+}
+
+func (p *AnswerTIDList) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.TIDList = make([]neo.Tid, l)
+		for i := 0; i < l; i++ {
+			a := &p.TIDList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *TIDListFrom) NEODecode(data []byte) (int, error) {
+	p.MinTID = BigEndian.Uint64(data[0:])
+	p.MaxTID = BigEndian.Uint64(data[8:])
+	p.Length = BigEndian.Uint32(data[16:])
+	p.Partition = BigEndian.Uint32(data[20:])
+	return 24 /* + TODO variable part */, nil
+}
+
+func (p *AnswerTIDListFrom) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.TidList = make([]neo.Tid, l)
+		for i := 0; i < l; i++ {
+			a := &p.TidList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *TransactionInformation) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.User = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Description = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Extension = string(data[:l])
+		data = data[l:]
+	}
+	p.Packed = bool((data[0:])[0])
+	{
+		l := BigEndian.Uint32(data[1:])
+		data = data[5:]
+		p.OidList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.OidList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *ObjectHistory) NEODecode(data []byte) (int, error) {
+	p.Oid = BigEndian.Uint64(data[0:])
+	p.First = BigEndian.Uint64(data[8:])
+	p.Last = BigEndian.Uint64(data[16:])
+	return 24 /* + TODO variable part */, nil
+}
+
+func (p *AnswerObjectHistory) NEODecode(data []byte) (int, error) {
+	p.Oid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.HistoryList = make([]struct {
+			Serial neo.Tid
+			Size   uint32
+		}, l)
+		for i := 0; i < l; i++ {
+			a := &p.HistoryList[i]
+			a.Serial = BigEndian.Uint64(data[0:])
+			a.Size = BigEndian.Uint32(data[8:])
+			data = data[12:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
