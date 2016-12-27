@@ -4,8 +4,8 @@ package neo
 
 // XXX move imports out of here
 import (
-	"encoding/binary"
-	"math"
+	//"encoding/binary"
+	//"math"
 )
 
 const (
@@ -105,28 +105,27 @@ type Address struct {
 }
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
+// func (a *Address) NEOEncode(b []byte) int {
+// 	n := string_NEOEncode(a.Host, b[0:])
+// 	if a.Host != "" {
+// 		BigEndian.PutUint16(b[n:], a.Port)
+// 		n += 2
+// 	}
+// 	return n
+// }
+// 
+// func (a *Address) NEODecode(b []byte) int {
+// 	n := string_NEODecode(&a.Host, b)
+// 	if a.Host != "" {
+// 		a.Port = BigEndian.Uint16(b[n:])
+// 		n += 2
+// 	} else {
+// 		a.Port = 0
+// 	}
+// 	return n
+// }
+
 /*
-func (a *Address) NEOEncode(b []byte) int {
-	n := string_NEOEncode(a.Host, b[0:])
-	if a.Host != "" {
-		BigEndian.PutUint16(b[n:], a.Port)
-		n += 2
-	}
-	return n
-}
-
-func (a *Address) NEODecode(b []byte) int {
-	n := string_NEODecode(&a.Host, b)
-	if a.Host != "" {
-		a.Port = BigEndian.Uint16(b[n:])
-		n += 2
-	} else {
-		a.Port = 0
-	}
-	return n
-}
-*/
-
 // A SHA1 hash
 type Checksum [20]byte
 
@@ -180,15 +179,13 @@ type RowInfo struct {
 
 
 
-/*
-// XXX link request <-> answer ?
-// XXX naming -> PktHeader ?
-type PktHead struct {
-	ConnId  be32	// NOTE is .msgid in py
-	MsgCode be16
-	Len	be32	// whole packet length (including header)
-}
-*/
+// // XXX link request <-> answer ?
+// // XXX naming -> PktHeader ?
+// type PktHead struct {
+// 	ConnId  be32	// NOTE is .msgid in py
+// 	MsgCode be16
+// 	Len	be32	// whole packet length (including header)
+// }
 
 // TODO generate .Encode() / .Decode()
 
@@ -704,7 +701,7 @@ type AnswerPack struct {
 // ctl -> A
 // A -> M
 type CheckReplicas struct {
-	PartitionDict map[uint32/*PNumber*/]UUID        // partition -> source
+	PartitionDict map[uint32]UUID        // partition -> source	(PNumber)
 	MinTID  Tid
 	MaxTID  Tid
 
@@ -795,3 +792,4 @@ type NotifyReady struct {
 // replication
 
 // TODO
+*/
