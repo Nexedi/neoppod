@@ -286,7 +286,6 @@ type NotifyPartitionTable struct {
         RowList []RowInfo
 }
 
-/*
 // Notify a subset of a partition table. This is used to notify changes.
 // PM -> S, C.
 type PartitionChanges struct {
@@ -299,6 +298,7 @@ type PartitionChanges struct {
         }
 }
 
+/*
 // Tell a storage nodes to start an operation. Until a storage node receives
 // this message, it must not serve client nodes. PM -> S.
 type StartOperation struct {

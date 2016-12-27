@@ -251,3 +251,24 @@ func (p *NotifyPartitionTable) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+
+func (p *PartitionChanges) NEODecode(data []byte) (int, error) {
+	p.PTid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.CellList = make([]struct {
+			Offset    uint32
+			UUID      neo.UUID
+			CellState neo.CellState
+		}, l)
+		for i := 0; i < l; i++ {
+			a := &p.CellList[i]
+			a.Offset = BigEndian.Uint32(data[0:])
+			a.UUID = int32(BigEndian.Uint32(data[4:]))
+			a.CellState = int32(BigEndian.Uint32(data[8:]))
+			data = data[12:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
