@@ -66,7 +66,6 @@ UNIT_TEST_MODULES = [
     # client application
     'neo.tests.client.testClientApp',
     'neo.tests.client.testMasterHandler',
-    'neo.tests.client.testStorageHandler',
     'neo.tests.client.testConnectionPool',
     # light functional tests
     'neo.tests.threaded.test',

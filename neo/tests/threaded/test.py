@@ -1459,5 +1459,38 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testLateConflictOnReplica(self):
+        """
+        Already resolved conflict: check the case of a storage node that
+        reports a conflict after that this conflict was fully resolved with
+        another node.
+        """
+        def answerStoreObject(orig, conn, conflicting, *args):
+            if not conflicting:
+                p.revert()
+                ll()
+            orig(conn, conflicting, *args)
+        cluster = NEOCluster(replicas=1)
+        try:
+            cluster.start()
+            s0, s1 = cluster.storage_list
+            t1, c1 = cluster.getTransaction()
+            c1.root()['x'] = x = PCounterWithResolution()
+            t1.commit()
+            x.value += 1
+            t2, c2 = cluster.getTransaction()
+            c2.root()['x'].value += 2
+            t2.commit()
+            with LockLock() as ll, s1.filterConnection(cluster.client) as f, \
+                    Patch(cluster.client.storage_handler,
+                          answerStoreObject=answerStoreObject) as p:
+                f.add(lambda conn, packet:
+                    isinstance(packet, Packets.AnswerStoreObject))
+                t = self.newThread(t1.commit)
+                ll()
+            t.join()
+        finally:
+            cluster.stop()
+
 if __name__ == "__main__":
     unittest.main()
