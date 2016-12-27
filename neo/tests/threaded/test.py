@@ -1340,11 +1340,11 @@ class Test(NEOThreadedTest):
         reports a conflict after that this conflict was fully resolved with
         another node.
         """
-        def answerStoreObject(orig, conn, conflicting, *args):
-            if not conflicting:
+        def answerStoreObject(orig, conn, conflict, **kw):
+            if not conflict:
                 p.revert()
                 ll()
-            orig(conn, conflicting, *args)
+            orig(conn, conflict, **kw)
         if 1:
             s0, s1 = cluster.storage_list
             t1, c1 = cluster.getTransaction()

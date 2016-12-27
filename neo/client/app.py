@@ -460,7 +460,8 @@ class Application(ThreadedApplication):
             checksum, compressed_data, data_serial, ttid, unlock)
         for node, conn in self.cp.iterateForObject(oid):
             try:
-                conn.ask(packet, on_timeout=on_timeout, queue=queue)
+                conn.ask(packet, on_timeout=on_timeout, queue=queue,
+                         oid=oid, serial=serial)
                 add_involved_nodes(node)
             except ConnectionClosed:
                 continue
@@ -1001,7 +1002,7 @@ class Application(ThreadedApplication):
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
         for node, conn in self.cp.iterateForObject(oid):
             try:
-                conn.ask(packet, queue=queue)
+                conn.ask(packet, queue=queue, oid=oid, serial=serial)
             except ConnectionClosed:
                 continue
             checked_nodes.add(node)

@@ -964,9 +964,7 @@ class StoreObject(Packet):
     )
 
     _answer = PStruct('answer_store_object',
-        PBoolean('conflicting'),
-        POID('oid'),
-        PTID('serial'),
+        PTID('conflict'),
     )
 
 class AbortTransaction(Packet):
@@ -1274,11 +1272,7 @@ class CheckCurrentSerial(Packet):
         POID('oid'),
     )
 
-    _answer = PStruct('answer_store_object',
-        PBoolean('conflicting'),
-        POID('oid'),
-        PTID('serial'),
-    )
+    _answer = StoreObject._answer
 
 class Pack(Packet):
     """

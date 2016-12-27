@@ -62,28 +62,28 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, oid, *args):
         self.app.setHandlerData(args)
 
-    def answerStoreObject(self, conn, conflicting, oid, serial):
+    def answerStoreObject(self, conn, conflict, oid, serial):
         txn_context = self.app.getHandlerData()
         object_stored_counter_dict = txn_context[
             'object_stored_counter_dict'][oid]
-        if conflicting:
+        if conflict:
             # Warning: if a storage (S1) is much faster than another (S2), then
             # we may process entirely a conflict with S1 (i.e. we received the
             # answer to the store of the resolved object on S1) before we
             # receive the conflict answer from the first store on S2.
             logging.info('%r report a conflict for %r with %r',
-                         conn, dump(oid), dump(serial))
+                         conn, dump(oid), dump(conflict))
             # If this conflict is not already resolved, mark it for
             # resolution.
-            if serial not in txn_context[
+            if conflict not in txn_context[
                     'resolved_conflict_serial_dict'].get(oid, ()):
-                if serial in object_stored_counter_dict and serial != ZERO_TID:
+                if ZERO_TID != conflict in object_stored_counter_dict:
                     raise NEOStorageError('Storages %s accepted object %s'
                         ' for serial %s but %s reports a conflict for it.' % (
-                        map(dump, object_stored_counter_dict[serial]),
-                        dump(oid), dump(serial), dump(conn.getUUID())))
+                        map(dump, object_stored_counter_dict[conflict]),
+                        dump(oid), dump(conflict), dump(conn.getUUID())))
                 conflict_serial_dict = txn_context['conflict_serial_dict']
-                conflict_serial_dict.setdefault(oid, set()).add(serial)
+                conflict_serial_dict.setdefault(oid, set()).add(conflict)
         else:
             uuid_set = object_stored_counter_dict.get(serial)
             if uuid_set is None: # store to first storage node

@@ -77,7 +77,7 @@ class ClientOperationHandler(EventHandler):
                     checksum, data, data_serial, unlock)
         except ConflictError, err:
             # resolvable or not
-            conn.answer(Packets.AnswerStoreObject(1, oid, err.tid))
+            conn.answer(Packets.AnswerStoreObject(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
             # If we are unlocking, we want queueEvent to raise
@@ -96,13 +96,13 @@ class ClientOperationHandler(EventHandler):
                     dump(oid), dump(serial), dump(ttid),
                     dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
-            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+            conn.answer(Packets.AnswerStoreObject(None))
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('StoreObject delay: %.02fs', duration)
-            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+            conn.answer(Packets.AnswerStoreObject(None))
 
     def askStoreObject(self, conn, oid, serial,
             compression, checksum, data, data_serial, ttid, unlock):
@@ -194,7 +194,7 @@ class ClientOperationHandler(EventHandler):
             self.app.tm.checkCurrentSerial(ttid, serial, oid)
         except ConflictError, err:
             # resolvable or not
-            conn.answer(Packets.AnswerCheckCurrentSerial(1, oid, err.tid))
+            conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
             try:
@@ -208,13 +208,13 @@ class ClientOperationHandler(EventHandler):
                 dump(oid), dump(serial), dump(ttid),
                 dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
-            conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
+            conn.answer(Packets.AnswerCheckCurrentSerial(None))
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
-            conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
+            conn.answer(Packets.AnswerCheckCurrentSerial(None))
 
 
 # like ClientOperationHandler but read-only & only for tid <= backup_tid
