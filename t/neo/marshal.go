@@ -319,3 +319,29 @@ func (p *AnswerLockedTransactions) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+
+func (p *FinalTID) NEODecode(data []byte) (int, error) {
+	p.TTID = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *AnswerFinalTID) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *ValidateTransaction) NEODecode(data []byte) (int, error) {
+	p.TTID = BigEndian.Uint64(data[0:])
+	p.Tid = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+
+func (p *BeginTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *AnswerBeginTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
