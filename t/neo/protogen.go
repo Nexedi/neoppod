@@ -80,6 +80,7 @@ func main() {
 
 	f := fv[0]	// proto.go comes first
 	buf := Buffer{}
+	buf.WriteString("package neo\n")
 
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)

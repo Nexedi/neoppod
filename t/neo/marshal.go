@@ -1,3 +1,5 @@
+package neo
+
 func (p *Address) NEODecode(data []byte) (int, error) {
 	{
 		l := BigEndian.Uint32(data[0:])
