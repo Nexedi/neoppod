@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import threading
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import wraps
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
@@ -53,6 +55,7 @@ class DatabaseManager(object):
     ENGINES = ()
 
     _deferred = 0
+    _duplicating = _repairing = None
 
     def __init__(self, database, engine=None, wait=0):
         """
@@ -71,10 +74,26 @@ class DatabaseManager(object):
         if attr == "_getPartition":
             np = self.getNumPartitions()
             value = lambda x: x % np
-        else:
+        elif self._duplicating is None:
             return self.__getattribute__(attr)
+        else:
+            value = getattr(self._duplicating, attr)
         setattr(self, attr, value)
         return value
+
+    @contextmanager
+    def _duplicate(self):
+        cls = self.__class__
+        db = cls.__new__(cls)
+        db._duplicating = self
+        try:
+            db._connect()
+        finally:
+            del db._duplicating
+        try:
+            yield db
+        finally:
+            db.close()
 
     @abstract
     def _parse(self, database):
@@ -424,11 +443,6 @@ class DatabaseManager(object):
         aborted before vote. This method is used to reclaim the wasted space.
         """
 
-    def pruneOrphan(self):
-        n = self._pruneData(self.getOrphanList())
-        self.commit()
-        return n
-
     @abstract
     def _pruneData(self, data_id_list):
         """To be overridden by the backend to delete any unreferenced data
@@ -603,6 +617,37 @@ class DatabaseManager(object):
                 self._deleteRange(partition, tid)
             self._setTruncateTID(None)
             self.commit()
+
+    def repair(self, weak_app, dry_run):
+        t = self._repairing
+        if t and t.is_alive():
+            logging.error('already repairing')
+            return
+        def repair():
+            l = threading.Lock()
+            l.acquire()
+            def finalize():
+                try:
+                    if data_id_list and not dry_run:
+                        self.commit()
+                        logging.info("repair: deleted %s orphan records",
+                                     self._pruneData(data_id_list))
+                        self.commit()
+                finally:
+                    l.release()
+            try:
+                with self._duplicate() as db:
+                    data_id_list = db.getOrphanList()
+                logging.info("repair: found %s records that may be orphan",
+                             len(data_id_list))
+                weak_app().em.wakeup(finalize)
+                l.acquire()
+            finally:
+                del self._repairing
+            logging.info("repair: done")
+        t = self._repairing = threading.Thread(target=repair)
+        t.daemon = 1
+        t.start()
 
     @abstract
     def getTransaction(self, tid, all = False):

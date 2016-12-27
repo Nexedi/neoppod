@@ -172,6 +172,12 @@ class NeoCTL(BaseApplication):
             raise RuntimeError(response)
         return response[1]
 
+    def repair(self, *args):
+        response = self.__ask(Packets.Repair(*args))
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
+        return response[2]
+
     def truncate(self, tid):
         response = self.__ask(Packets.Truncate(tid))
         if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:

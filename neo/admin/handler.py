@@ -71,6 +71,7 @@ class AdminEventHandler(EventHandler):
     setNodeState = forward_ask(Packets.SetNodeState)
     checkReplicas = forward_ask(Packets.CheckReplicas)
     truncate = forward_ask(Packets.Truncate)
+    repair = forward_ask(Packets.Repair)
 
 
 class MasterEventHandler(EventHandler):

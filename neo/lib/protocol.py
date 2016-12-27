@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 8
+PROTOCOL_VERSION = 9
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1175,6 +1175,25 @@ class SetClusterState(Packet):
 
     _answer = Error
 
+class Repair(Packet):
+    """
+    Ask storage nodes to repair their databases. ctl -> A -> M
+    """
+    _flags = map(PBoolean, ('dry_run',
+        # 'prune_orphan' (commented because it's the only option for the moment)
+        ))
+    _fmt = PStruct('repair',
+        PFUUIDList,
+        *_flags)
+
+    _answer = Error
+
+class RepairOne(Packet):
+    """
+    See Repair. M -> S
+    """
+    _fmt = PStruct('repair', *Repair._flags)
+
 class ClusterInformation(Packet):
     """
     Notify information about the cluster
@@ -1684,6 +1703,10 @@ class Packets(dict):
                     TweakPartitionTable, ignore_when_closed=False)
     SetClusterState = register(
                     SetClusterState, ignore_when_closed=False)
+    Repair = register(
+                    Repair)
+    NotifyRepair = register(
+                    RepairOne)
     NotifyClusterInformation = register(
                     ClusterInformation)
     AskClusterState, AnswerClusterState = register(

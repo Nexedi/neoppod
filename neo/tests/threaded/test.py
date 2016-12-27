@@ -17,6 +17,7 @@
 import os
 import sys
 import threading
+import time
 import transaction
 import unittest
 from thread import get_ident
@@ -1424,6 +1425,39 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testPruneOrphan(self):
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+            cluster.importZODB()(3)
+            bad = []
+            ok = []
+            def data_args(value):
+                return makeChecksum(value), value, 0
+            node_list = []
+            for i, s in enumerate(cluster.storage_list):
+                node_list.append(s.uuid)
+                if i:
+                    s.dm.holdData(*data_args('boo'))
+                ok.append(s.getDataLockInfo())
+                for i in xrange(3 - i):
+                    s.dm.storeData(*data_args('!' * i))
+                bad.append(s.getDataLockInfo())
+                s.dm.commit()
+            def check(dry_run, expected):
+                cluster.neoctl.repair(node_list, dry_run)
+                for e, s in zip(expected, cluster.storage_list):
+                    while 1:
+                        self.tic()
+                        if s.dm._repairing is None:
+                            break
+                        time.sleep(.1)
+                    self.assertEqual(e, s.getDataLockInfo())
+            check(1, bad)
+            check(0, ok)
+            check(1, ok)
+        finally:
+            cluster.stop()
 
 if __name__ == "__main__":
     unittest.main()

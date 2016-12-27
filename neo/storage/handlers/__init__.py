@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import weakref
 from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.exception import PrimaryFailure, StoppedOperation
@@ -59,3 +60,7 @@ class BaseMasterHandler(EventHandler):
 
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))
+
+    def notifyRepair(self, conn, *args):
+        app = self.app
+        app.dm.repair(weakref.ref(app), *args)

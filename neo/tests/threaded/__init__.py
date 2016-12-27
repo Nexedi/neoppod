@@ -367,7 +367,7 @@ class ServerNode(Node):
             raise ConnectorException
 
     def stop(self):
-        self.em.wakeup(True)
+        self.em.wakeup(thread.exit)
 
 class AdminApplication(ServerNode, neo.admin.app.Application):
     pass

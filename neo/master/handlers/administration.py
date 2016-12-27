@@ -147,6 +147,19 @@ class AdministrationHandler(MasterHandler):
             logging.warning('No node added')
             conn.answer(Errors.Ack('No node added'))
 
+    def repair(self, conn, uuid_list, *args):
+        getByUUID = self.app.nm.getByUUID
+        node_list = []
+        for uuid in uuid_list:
+            node = getByUUID(uuid)
+            if node is None or not (node.isStorage() and node.isIdentified()):
+                raise ProtocolError("invalid storage node %s" % uuid_str(uuid))
+            node_list.append(node)
+        repair = Packets.NotifyRepair(*args)
+        for node in node_list:
+            node.notify(repair)
+        conn.answer(Errors.Ack(''))
+
     def tweakPartitionTable(self, conn, uuid_list):
         app = self.app
         state = app.getClusterState()
