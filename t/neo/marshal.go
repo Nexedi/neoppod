@@ -370,3 +370,65 @@ func (p *FinishTransaction) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+
+func (p *AnswerFinishTransaction) NEODecode(data []byte) (int, error) {
+	p.TTID = BigEndian.Uint64(data[0:])
+	p.Tid = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+
+func (p *NotifyTransactionFinished) NEODecode(data []byte) (int, error) {
+	p.TTID = BigEndian.Uint64(data[0:])
+	p.MaxTID = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+
+func (p *LockInformation) NEODecode(data []byte) (int, error) {
+	p.Ttid = BigEndian.Uint64(data[0:])
+	p.Tid = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+
+func (p *AnswerLockInformation) NEODecode(data []byte) (int, error) {
+	p.Ttid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *InvalidateObjects) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.OidList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.OidList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *UnlockInformation) NEODecode(data []byte) (int, error) {
+	p.TTID = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *GenerateOIDs) NEODecode(data []byte) (int, error) {
+	p.NumOIDs = BigEndian.Uint32(data[0:])
+	return 4 /* + TODO variable part */, nil
+}
+
+func (p *AnswerGenerateOIDs) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.OidList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.OidList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}

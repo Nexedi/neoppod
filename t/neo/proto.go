@@ -366,7 +366,6 @@ type FinishTransaction struct {
         CheckedList []Oid
 }
 
-/*
 type AnswerFinishTransaction struct {
         TTID    Tid
         Tid     Tid
@@ -415,6 +414,7 @@ type AnswerGenerateOIDs struct {
 }
 
 
+/*
 // Ask to store an object. Send an OID, an original serial, a current
 // transaction ID, and data. C -> S.
 // Answer if an object has been stored. If an object is in conflict,
