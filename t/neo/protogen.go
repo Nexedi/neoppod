@@ -105,6 +105,7 @@ func main() {
 				//ast.Print(fset, t)
 
 				buf.WriteString(gendecode(typespec))
+				buf.WriteString("\n")
 			}
 		}
 
