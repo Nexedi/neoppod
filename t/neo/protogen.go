@@ -203,6 +203,24 @@ func (d *decoder) emitstrbytes(assignto string) {
 	d.n = 0
 }
 
+func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice) {
+	// len	u32
+	// [len]item
+	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
+	d.emit("data = data[%v:]", d.n)
+	d.emit("%v = make(%v, l)", assignto, typ)
+	// TODO if size(item)==const - check l in one go
+	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
+	d.emit("for i := 0; i < l; i++ {")
+	d.n = 0
+	d.emitobjtype(assignto + "[i]", obj, typ.Elem())	// XXX also obj.Elem() ?
+	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
+	d.emit("}")
+	//d.emit("%v = string(data[:l])", assignto)
+	d.emit("}")
+	d.n = 0
+}
+
 // top-level driver for emitting decode code for obj/type
 func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type) {
 	switch u := typ.Underlying().(type) {
@@ -214,8 +232,8 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 
 		d.emit("%s = %s", assignto, d.decodedBasic(obj, u))
 
-	//case *types.Slice:
-	//	// TODO
+	case *types.Slice:
+		d.emitslice(assignto, obj, u)
 
 	//case *types.Map:
 	//	// TODO

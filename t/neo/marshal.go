@@ -35,3 +35,17 @@ func (p *CellInfo) NEODecode(data []byte) (int, error) {
 	p.CellState = int32(BigEndian.Uint32(data[4:]))
 	return 8 /* + TODO variable part */, nil
 }
+func (p *RowInfo) NEODecode(data []byte) (int, error) {
+	p.Offset = BigEndian.Uint32(data[0:])
+	{
+		l := BigEndian.Uint32(data[4:])
+		data = data[8:]
+		p.CellList = make([]neo.CellInfo, l)
+		for i := 0; i < l; i++ {
+			p.CellList[i].UUID = int32(BigEndian.Uint32(data[0:]))
+			p.CellList[i].CellState = int32(BigEndian.Uint32(data[4:]))
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}

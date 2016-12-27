@@ -169,7 +169,6 @@ type CellInfo struct {
 	CellState
 }
 
-/*
 //type RowList []struct {
 type RowInfo struct {
 	Offset   uint32  // PNumber
@@ -178,6 +177,7 @@ type RowInfo struct {
 
 
 
+/*
 // // XXX link request <-> answer ?
 // // XXX naming -> PktHeader ?
 // type PktHead struct {
