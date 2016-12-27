@@ -298,7 +298,6 @@ type PartitionChanges struct {
         }
 }
 
-/*
 // Tell a storage nodes to start an operation. Until a storage node receives
 // this message, it must not serve client nodes. PM -> S.
 type StartOperation struct {
@@ -328,6 +327,7 @@ type AnswerUnfinishedTransactions struct {
 // Answer locked transactions  S -> PM.
 type LockedTransactions struct {
 }
+/*
 
 type AnswerLockedTransactions struct {
 	TidDict map[Tid]Tid     // ttid -> tid

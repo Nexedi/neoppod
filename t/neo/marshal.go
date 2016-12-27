@@ -272,3 +272,35 @@ func (p *PartitionChanges) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+
+func (p *StartOperation) NEODecode(data []byte) (int, error) {
+	p.Backup = bool((data[0:])[0])
+	return 1 /* + TODO variable part */, nil
+}
+
+func (p *StopOperation) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *UnfinishedTransactions) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *AnswerUnfinishedTransactions) NEODecode(data []byte) (int, error) {
+	p.MaxTID = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.TidList = make([]struct{ UnfinishedTID neo.Tid }, l)
+		for i := 0; i < l; i++ {
+			a := &p.TidList[i]
+			a.UnfinishedTID = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *LockedTransactions) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
