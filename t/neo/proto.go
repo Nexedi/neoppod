@@ -67,7 +67,7 @@ const (
 	UNKNOWN                  //short: U
 )
 
-type CellState int
+type CellState int32
 const (
 	// NOTE cell states description is in protocol.py
 	UP_TO_DATE CellState = iota //short: U     // XXX tag prefix name ?
@@ -163,13 +163,13 @@ type NodeInfo struct {
 	IdTimestamp float64
 }
 
-/*
 //type CellList []struct {
 type CellInfo struct {
 	UUID
 	CellState
 }
 
+/*
 //type RowList []struct {
 type RowInfo struct {
 	Offset   uint32  // PNumber

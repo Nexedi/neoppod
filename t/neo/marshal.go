@@ -30,3 +30,8 @@ func (p *NodeInfo) NEODecode(data []byte) (int, error) {
 	p.IdTimestamp = float64_NEODecode(data[10:])
 	return 18 /* + TODO variable part */, nil
 }
+func (p *CellInfo) NEODecode(data []byte) (int, error) {
+	p.UUID = int32(BigEndian.Uint32(data[0:]))
+	p.CellState = int32(BigEndian.Uint32(data[4:]))
+	return 8 /* + TODO variable part */, nil
+}
