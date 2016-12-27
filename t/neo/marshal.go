@@ -531,3 +531,10 @@ func (p *VoteTransaction) NEODecode(data []byte) (int, error) {
 	p.Tid = BigEndian.Uint64(data[0:])
 	return 8 /* + TODO variable part */, nil
 }
+
+func (p *GetObject) NEODecode(data []byte) (int, error) {
+	p.Oid = BigEndian.Uint64(data[0:])
+	p.Serial = BigEndian.Uint64(data[8:])
+	p.Tid = BigEndian.Uint64(data[16:])
+	return 24 /* + TODO variable part */, nil
+}

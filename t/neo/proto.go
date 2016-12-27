@@ -460,7 +460,6 @@ type VoteTransaction struct {
 	// TODO _answer = PFEmpty
 }
 
-/*
 // Ask a stored object by its OID and a serial or a TID if given. If a serial
 // is specified, the specified revision of an object will be returned. If
 // a TID is specified, an object right before the TID will be returned. C -> S.
@@ -471,6 +470,7 @@ type GetObject struct {
 	Tid     Tid
 }
 
+/*
 // XXX answer_object ?
 type AnswerGetObject struct {
         Oid             Oid
