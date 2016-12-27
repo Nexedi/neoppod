@@ -18,8 +18,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/importer"
 	"go/parser"
 	"go/token"
 	"go/types"
@@ -40,32 +42,39 @@ var info = &types.Info{
 }
 
 // complete position of a node
-func pos(n ast.Node) {
+func pos(n ast.Node) token.Position {
 	return fset.Position(n.Pos())
 }
 
 func main() {
-	typeMap := map[string]*PacketType{}	// XXX needed ?
+	log.SetFlags(0)
+	//typeMap := map[string]*PacketType{}	// XXX needed ?
 
 	// go through proto.go and collect packets type definitions
 
 	var mode parser.Mode = 0	// parser.Trace
-	f, err := parser.ParseFile(fset, "proto.go", nil, mode)
-	if err != nil {
-		log.Fatal(err)	// parse error
+	var fv []*ast.File
+	for _, src := range []string{"proto.go", "neo.go"} {
+		f, err := parser.ParseFile(fset, src, nil, mode)
+		if err != nil {
+			log.Fatalf("parse: %v", err)
+		}
+		fv = append(fv, f)
 	}
 
-	conf := types.Config{}
-	pkg, err := conf.Check("proto", fset, []*ast.File{f}, info)
+	conf := types.Config{Importer: importer.Default()}
+	_, err := conf.Check("neo", fset, fv, info)
 	if err != nil {
-		log.Fatal(err)	// typecheck error
+		log.Fatalf("typecheck: %v", err)
 	}
 
 
-	ncode := 0
+	//ncode := 0
 
 	//ast.Print(fset, f)
 	//return
+
+	f := fv[0]	// proto.go comes first
 
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
@@ -76,18 +85,21 @@ func main() {
 
 		for _, spec := range gendecl.Specs {
 			typespec := spec.(*ast.TypeSpec) // must be because tok = TYPE
-			typename := typespec.Name.Name
+			//typename := typespec.Name.Name
 
-			switch t := typespec.Type.(type) {
+			switch typespec.Type.(type) {
 			default:
 				// we are only interested in struct types
 				continue
 
 			case *ast.StructType:
 				//fmt.Printf("\n%s:\n", typename)
+				//continue
 				//fmt.Println(t)
 				//ast.Print(fset, t)
 
+				gendecode(typespec)
+				/*
 				PacketType{name: typename, msgCode: ncode}
 
 				// if ncode != 0 {
@@ -114,6 +126,7 @@ func main() {
 				}
 
 				ncode++
+				*/
 			}
 		}
 
@@ -122,23 +135,61 @@ func main() {
 	}
 }
 
+/*
 // wiresize returns wire size of a type
 // type must be of fixed size (e.g. not a slice or map)
 // XXX ast.Expr -> ?
 func wiresize(*ast.Expr) int {
 	// TODO
 }
+*/
+
+// info about wire decode/encode of a basic type
+type basicXXX struct {
+	wireSize int
+	decode string
+	//encode string
+}
+
+var basicDecode = map[types.BasicKind]basicXXX {
+	// %v will be `data[n:n+wireSize]`	XXX or `data[n:]` ?
+	types.Bool:	{1, "bool((%v)[0])"},
+	types.Int8:	{1, "int8((%v)[0])"},
+	types.Int16:	{2, "int16(BigEndian.Uint16(%v))"},
+	types.Int32:	{4, "int32(BigEndian.Uint32(%v))"},
+	types.Int64:	{8, "int64(BigEndian.Uint64(%v))"},
+
+	types.Uint8:	{1, "(%v)[0]"},
+	types.Uint16:	{2, "BigEndian.Uint16(%v)"},
+	types.Uint32:	{4, "BigEndian.Uint32(%v)"},
+	types.Uint64:	{8, "BigEndian.Uint64(%v)"},
+
+	types.Float64:	{8, "float64_NEODecode(%v)"},
+
+	// XXX string ?
+}
+
+// bytes.Buffer + bell&whistless
+type Buffer struct {
+	bytes.Buffer
+}
+
+func (b *Buffer) Printf(format string, a ...interface{}) (n int, err error) {
+	return fmt.Fprintf(b, format, a...)
+}
+
 
 func gendecode(typespec *ast.TypeSpec) string {
-	buf := butes.Buffer{}
+	buf := Buffer{}
+	emitf := buf.Printf
 
 	typename := typespec.Name.Name
 	t := typespec.Type.(*ast.StructType)	// must be
-	fmt.Fprintf(&buf, "func (p *%s) NEODecode(data []byte) int {\n", typename)
+	emitf("func (p *%s) NEODecode(data []byte) int {\n", typename)
 
 	n := 0	// current decode pos in data
 
-	for _, fieldv := t.Fields.List {
+	for _, fieldv := range t.Fields.List {
 		// type B struct { ... }
 		//
 		// type A struct {
@@ -151,9 +202,49 @@ func gendecode(typespec *ast.TypeSpec) string {
 			fieldnamev = []*ast.Ident{fieldv.Type.(*ast.Ident)}
 		}
 
-		for fieldname := range fieldnamev {
-			switch fieldtype := fieldv.Type.(type) {
+		// decode basic fixed types (not string)
+		decodeBasic := func(typ *types.Basic) string {
+			bdec, ok := basicDecode[typ.Kind()]
+			if !ok {
+				log.Fatalf("%v: basic type %v not supported", pos(fieldv), typ)
+			}
+			dataptr := fmt.Sprintf("data[%v:]", n)
+			decoded := fmt.Sprintf(bdec.decode, dataptr)
+			n += bdec.wireSize
+			return decoded
+		}
+
+		emitstrbytes := func(fieldname string) {
+			emitf("{ l := %v", decodeBasic(types.Typ[types.Uint32]))
+		}
+
+
+		for _, fieldname := range fieldnamev {
+			fieldtype := info.Types[fieldv.Type].Type
+			switch u := fieldtype.Underlying().(type) {
 			// we are processing:	<fieldname> <fieldtype>
+
+			// bool, uint32, string, ...
+			case *types.Basic:
+				if u.Kind() == types.String {
+					emitstrbytes(fieldname.Name)
+					continue
+				}
+
+				emitf("p.%s = %s", fieldname, decodeBasic(u))
+
+			case *types.Slice:
+				// TODO
+
+			case *types.Map:
+				// TODO
+
+
+			// TODO types.Struct
+
+
+
+			/*
 
 			// simple types like uint16
 			case *ast.Ident:
@@ -169,10 +260,10 @@ func gendecode(typespec *ast.TypeSpec) string {
 
 				// len	  u32
 				// [len] items
-				emit("length = Uint32(data[%s:])", n)
+				emitf("length = Uint32(data[%s:])", n)
 				n += 4
-				emit("for ; length != 0; length-- {")
-				emit("}")
+				emitf("for ; length != 0; length-- {")
+				emitf("}")
 
 
 
@@ -180,16 +271,17 @@ func gendecode(typespec *ast.TypeSpec) string {
 			case *ast.MapType:
 				// len	  u32
 				// [len] key, value
-				emit("length = Uint32(data[%s:])", n)
+				emitf("length = Uint32(data[%s:])", n)
 				n += 4
 
 				keysize := wiresize(fieldtype.Key)
 				valsize := wiresize(fieldtype.Value)
 
 			// XXX *ast.StructType ?
+			*/
 
 			default:
-				panic()	// TODO
+				log.Fatalf("%v: field %v has unsupported type %v", pos(fieldv), fieldname, fieldtype)
 			}
 		}
 	}

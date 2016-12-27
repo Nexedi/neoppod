@@ -2,6 +2,12 @@
 
 package neo
 
+// XXX move imports out of here
+import (
+	"encoding/binary"
+	"math"
+)
+
 const (
 	PROTOCOL_VERSION = 8
 
@@ -40,7 +46,7 @@ const (
 	STOPPING_BACKUP
 )
 
-type NodeType int
+type NodeType int32
 const (
 	MASTER NodeType = iota
 	STORAGE
@@ -99,6 +105,7 @@ type Address struct {
 }
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
+/*
 func (a *Address) NEOEncode(b []byte) int {
 	n := string_NEOEncode(a.Host, b[0:])
 	if a.Host != "" {
@@ -118,6 +125,7 @@ func (a *Address) NEODecode(b []byte) int {
 	}
 	return n
 }
+*/
 
 // A SHA1 hash
 type Checksum [20]byte
@@ -130,23 +138,23 @@ type Float64 float64
 
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
-func (f Float64) NEOEncode(b []byte) int {
+// func (f Float64) NEOEncode(b []byte) int {
+func float64_NEOEncode(f float64, b []byte) {
 	var fu uint64
 	if !math.IsNaN(f) {
-		fu = math.Float64Bits(f)
+		fu = math.Float64bits(f)
 	} else {
 		// convert all NaNs to canonical \xff * 8
 		fu = 1<<64 - 1
 	}
 
-	BigEndian.PutUint64(b, fu)
-	return 8
+	binary.BigEndian.PutUint64(b, fu)
 }
 
-func (f *Float64) NEODecode(b []byte) int {
-	fu := BigEndian.Uint64(b)
-	f *= math.Float64FromBits(fu)
-	return 8
+//func (f *Float64) NEODecode(b []byte) int {
+func float64_NEODecode(b []byte) float64 {
+	fu := binary.BigEndian.Uint64(b)
+	return math.Float64frombits(fu)
 }
 
 // NOTE original NodeList = []NodeInfo
@@ -172,6 +180,7 @@ type RowInfo struct {
 
 
 
+/*
 // XXX link request <-> answer ?
 // XXX naming -> PktHeader ?
 type PktHead struct {
@@ -179,6 +188,7 @@ type PktHead struct {
 	MsgCode be16
 	Len	be32	// whole packet length (including header)
 }
+*/
 
 // TODO generate .Encode() / .Decode()
 
