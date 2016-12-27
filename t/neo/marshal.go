@@ -146,3 +146,36 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+func (p *PrimaryMaster) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+func (p *AnswerPrimary) NEODecode(data []byte) (int, error) {
+	p.PrimaryUUID = int32(BigEndian.Uint32(data[0:]))
+	return 4 /* + TODO variable part */, nil
+}
+func (p *AnnouncePrimary) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+func (p *ReelectPrimary) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+func (p *Recovery) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+func (p *AnswerRecovery) NEODecode(data []byte) (int, error) {
+	p.PTid = BigEndian.Uint64(data[0:])
+	p.BackupTID = BigEndian.Uint64(data[8:])
+	p.TruncateTID = BigEndian.Uint64(data[16:])
+	return 24 /* + TODO variable part */, nil
+}
+func (p *LastIDs) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+func (p *AnswerLastIDs) NEODecode(data []byte) (int, error) {
+	p.LastOID = BigEndian.Uint64(data[0:])
+	p.LastTID = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+func (p *PartitionTable) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}

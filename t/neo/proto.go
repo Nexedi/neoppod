@@ -233,7 +233,6 @@ type AcceptIdentification struct {
 	}
 }
 
-/*
 // Ask current primary master's uuid. CTL -> A.
 type PrimaryMaster struct {
 }
@@ -275,6 +274,7 @@ type AnswerLastIDs struct {
 type PartitionTable struct {
 }
 
+/*
 type AnswerPartitionTable struct {
         PTid
         RowList []RowInfo
