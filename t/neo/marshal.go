@@ -345,3 +345,28 @@ func (p *AnswerBeginTransaction) NEODecode(data []byte) (int, error) {
 	p.Tid = BigEndian.Uint64(data[0:])
 	return 8 /* + TODO variable part */, nil
 }
+
+func (p *FinishTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.OIDList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.OIDList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.CheckedList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.CheckedList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}

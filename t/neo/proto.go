@@ -358,7 +358,6 @@ type AnswerBeginTransaction struct {
 	Tid     Tid
 }
 
-/*
 // Finish a transaction. C -> PM.
 // Answer when a transaction is finished. PM -> C.
 type FinishTransaction struct {
@@ -367,6 +366,7 @@ type FinishTransaction struct {
         CheckedList []Oid
 }
 
+/*
 type AnswerFinishTransaction struct {
         TTID    Tid
         Tid     Tid
