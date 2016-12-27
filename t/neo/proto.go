@@ -4,8 +4,8 @@ package neo
 
 // XXX move imports out of here
 import (
-	//"encoding/binary"
-	//"math"
+	"encoding/binary"
+	"math"
 )
 
 const (
@@ -125,7 +125,6 @@ type Address struct {
 // 	return n
 // }
 
-/*
 // A SHA1 hash
 type Checksum [20]byte
 
@@ -133,11 +132,9 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64	// XXX move to common place ?
 
-type Float64 float64
 
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
-// func (f Float64) NEOEncode(b []byte) int {
 func float64_NEOEncode(f float64, b []byte) {
 	var fu uint64
 	if !math.IsNaN(f) {
@@ -150,19 +147,19 @@ func float64_NEOEncode(f float64, b []byte) {
 	binary.BigEndian.PutUint64(b, fu)
 }
 
-//func (f *Float64) NEODecode(b []byte) int {
 func float64_NEODecode(b []byte) float64 {
 	fu := binary.BigEndian.Uint64(b)
 	return math.Float64frombits(fu)
 }
 
+/*
 // NOTE original NodeList = []NodeInfo
 type NodeInfo struct {
 	NodeType
 	Address
 	UUID
 	NodeState
-	IdTimestamp Float64
+	IdTimestamp float64
 }
 
 //type CellList []struct {
@@ -219,7 +216,7 @@ type RequestIdentification struct {
 	UUID            UUID
 	Address				// where requesting node is also accepting connections
 	Name            string
-	IdTimestamp	Float64
+	IdTimestamp	float64
 }
 
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?

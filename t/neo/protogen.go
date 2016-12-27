@@ -43,9 +43,9 @@ var info = &types.Info{
 	Defs:  make(map[*ast.Ident]types.Object),
 }
 
-// complete position of a node
-func pos(n ast.Node) token.Position {
-	return fset.Position(n.Pos())
+// complete position of something with .Pos()
+func pos(x interface { Pos() token.Pos }) token.Position {
+	return fset.Position(x.Pos())
 }
 
 func main() {
@@ -194,120 +194,174 @@ func (b *Buffer) Printfln(format string, a ...interface{}) (n int, err error) {
 }
 
 
-func gendecode(typespec *ast.TypeSpec) string {
-	buf := Buffer{}
-	emit := buf.Printfln
+// state of decode codegen
+type decoder struct {
+	buf Buffer	// buffer for generated code
+	n int		// current decode position in data
+}
 
-	typename := typespec.Name.Name
-	t := typespec.Type.(*ast.StructType)	// must be
-	emit("func (p *%s) NEODecode(data []byte) (int, error) {", typename)
+func (d *decoder) emit(format string, a ...interface{}) {
+	fmt.Fprintf(&d.buf, format+"\n", a...)
+}
 
-	n := 0	// current decode pos in data
-
-	for _, fieldv := range t.Fields.List {
-		// type B struct { ... }
-		//
-		// type A struct {
-		//	x, y int	<- fieldv
-		//	B		<- fieldv
-
-		// embedding: change `B` -> `B B` (field type must be Ident)
-		fieldnamev := fieldv.Names
-		if fieldnamev == nil {
-			fieldnamev = []*ast.Ident{fieldv.Type.(*ast.Ident)}
-		}
-
-		// decode basic fixed types (not string)
-		decodeBasic := func(typ *types.Basic) string {
-			bdec, ok := basicDecode[typ.Kind()]
-			if !ok {
-				log.Fatalf("%v: basic type %v not supported", pos(fieldv), typ)
-			}
-			dataptr := fmt.Sprintf("data[%v:]", n)
-			decoded := fmt.Sprintf(bdec.decode, dataptr)
-			n += bdec.wireSize
-			return decoded
-		}
-
-		emitstrbytes := func(fieldname string) {
-			emit("{ l := %v", decodeBasic(types.Typ[types.Uint32]))
-			emit("data = data[%v:]", n)
-			emit("if len(data) < l { return 0, ErrDecodeOverflow }")
-			emit("p.%v = string(data[:l])", fieldname)
-			emit("data = data[l:]")
-			emit("}")
-			n = 0
-		}
-
-
-		for _, fieldname := range fieldnamev {
-			fieldtype := info.Types[fieldv.Type].Type
-			switch u := fieldtype.Underlying().(type) {
-			// we are processing:	<fieldname> <fieldtype>
-
-			// bool, uint32, string, ...
-			case *types.Basic:
-				if u.Kind() == types.String {
-					emitstrbytes(fieldname.Name)
-					continue
-				}
-
-				emit("p.%s = %s", fieldname, decodeBasic(u))
-
-			case *types.Slice:
-				// TODO
-
-			case *types.Map:
-				// TODO
-
-
-			// TODO types.Struct
-
-
-
-			/*
-
-			// simple types like uint16
-			case *ast.Ident:
-				// TODO
-
-			// array or slice
-			case *ast.ArrayType:
-				if fieldtype.Len != nil {
-					log.Fatalf("%s: TODO arrays not suported", pos(fieldtype))
-				}
-
-				eltsize := wiresize(fieldtype.Elt)	// TODO
-
-				// len	  u32
-				// [len] items
-				emit("length = Uint32(data[%s:])", n)
-				n += 4
-				emit("for ; length != 0; length-- {")
-				emit("}")
-
-
-
-			// map
-			case *ast.MapType:
-				// len	  u32
-				// [len] key, value
-				emit("length = Uint32(data[%s:])", n)
-				n += 4
-
-				keysize := wiresize(fieldtype.Key)
-				valsize := wiresize(fieldtype.Value)
-
-			// XXX *ast.StructType ?
-			*/
-
-			default:
-				log.Fatalf("%v: field %v has unsupported type %v", pos(fieldv), fieldname, fieldtype)
-			}
-		}
+// emit code for decode basic fixed types (not string), but do not assign it
+func (d *decoder) decodedBasic (obj types.Object, typ *types.Basic) string {
+	bdec, ok := basicDecode[typ.Kind()]
+	if !ok {
+		log.Fatalf("%v: basic type %v not supported", pos(obj), typ)
 	}
+	dataptr := fmt.Sprintf("data[%v:]", d.n)
+	decoded := fmt.Sprintf(bdec.decode, dataptr)
+	d.n += bdec.wireSize
+	return decoded
+}
 
-	emit("return %v /* + TODO variable part */, nil", n)
-	emit("}")
-	return buf.String()
+// emit code for decode next string or []byte
+func (d *decoder) emitstrbytes(assignto string) {
+	// len	u32
+	// [len]byte
+	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
+	d.emit("data = data[%v:]", d.n)
+	d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
+	d.emit("%v = string(data[:l])", assignto)
+	d.emit("data = data[l:]")
+	d.emit("}")
+	d.n = 0
+}
+
+// top-level driver for emitting decode code for obj/type
+func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type) {
+	switch u := typ.Underlying().(type) {
+	case *types.Basic:
+		if u.Kind() == types.String {
+			d.emitstrbytes(assignto)
+			break
+		}
+
+		d.emit("%s = %s", assignto, d.decodedBasic(obj, u))
+
+	//case *types.Slice:
+	//	// TODO
+
+	//case *types.Map:
+	//	// TODO
+
+
+	case *types.Struct:
+		for i := 0; i < u.NumFields(); i++ {
+			v := u.Field(i)
+			d.emitobjtype(assignto + "." + v.Name(), v, v.Type())
+		}
+
+	default:
+		log.Fatalf("%v: %v has unsupported type %v (%v)", pos(obj),
+			obj.Name(), typ, u)
+	}
+}
+
+
+// generate decoder func for a type declaration typespec
+func gendecode(typespec *ast.TypeSpec) string {
+	d := decoder{}
+	// prologue
+	d.emit("func (p *%s) NEODecode(data []byte) (int, error) {", typespec.Name.Name)
+
+	//n := 0
+	//t := typespec.Type.(*ast.StructType)	// must be
+
+	// type & object which refers to this type
+	typ := info.Types[typespec.Type].Type
+	obj := info.Defs[typespec.Name]
+
+	d.emitobjtype("p", obj, typ)
+
+	d.emit("return %v /* + TODO variable part */, nil", d.n)
+	d.emit("}")
+	return d.buf.String()
+
+
+//	for _, fieldv := range t.Fields.List {
+//		// type B struct { ... }
+//		//
+//		// type A struct {
+//		//	x, y int	<- fieldv
+//		//	B		<- fieldv
+//
+//		// embedding: change `B` -> `B B` (field type must be Ident)
+//		fieldnamev := fieldv.Names
+//		if fieldnamev == nil {
+//			fieldnamev = []*ast.Ident{fieldv.Type.(*ast.Ident)}
+//		}
+//
+//
+//		for _, fieldname := range fieldnamev {
+//			fieldtype := info.Types[fieldv.Type].Type
+//
+//			switch u := fieldtype.Underlying().(type) {
+//			// we are processing:	<fieldname> <fieldtype>
+//
+//			// bool, uint32, string, ...
+//			case *types.Basic:
+//				if u.Kind() == types.String {
+//					emitstrbytes(fieldname.Name)
+//					continue
+//				}
+//
+//				emit("p.%s = %s", fieldname, decodeBasic(u))
+//
+//			case *types.Slice:
+//				// TODO
+//
+//			case *types.Map:
+//				// TODO
+//
+//
+//			//case *types.Struct:
+//				// TODO
+//
+//
+//
+//			/*
+//
+//			// simple types like uint16
+//			case *ast.Ident:
+//				// TODO
+//
+//			// array or slice
+//			case *ast.ArrayType:
+//				if fieldtype.Len != nil {
+//					log.Fatalf("%s: TODO arrays not suported", pos(fieldtype))
+//				}
+//
+//				eltsize := wiresize(fieldtype.Elt)	// TODO
+//
+//				// len	  u32
+//				// [len] items
+//				emit("length = Uint32(data[%s:])", n)
+//				n += 4
+//				emit("for ; length != 0; length-- {")
+//				emit("}")
+//
+//
+//
+//			// map
+//			case *ast.MapType:
+//				// len	  u32
+//				// [len] key, value
+//				emit("length = Uint32(data[%s:])", n)
+//				n += 4
+//
+//				keysize := wiresize(fieldtype.Key)
+//				valsize := wiresize(fieldtype.Value)
+//
+//			// XXX *ast.StructType ?
+//			*/
+//
+//			default:
+//				log.Fatalf("%v: field %v has unsupported type %v (%v)", pos(fieldv),
+//					fieldname, fieldtype, u)
+//			}
+//		}
+//	}
+
 }
