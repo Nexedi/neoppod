@@ -204,6 +204,7 @@ func (d *decoder) emitstrbytes(assignto string) {
 	d.n = 0
 }
 
+// TODO optimize for []byte
 func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice) {
 	// len	u32
 	// [len]item
@@ -256,6 +257,19 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 
 		d.emit("%s = %s", assignto, d.decodedBasic(obj, u))
 
+	case *types.Array:
+		// TODO optimize for [...]byte
+		var i int64	// XXX because `u.Len() int64`
+		for i = 0; i < u.Len(); i++ {
+			d.emitobjtype(fmt.Sprintf("%v[%v]", assignto, i), obj, u.Elem())
+		}
+
+	case *types.Struct:
+		for i := 0; i < u.NumFields(); i++ {
+			v := u.Field(i)
+			d.emitobjtype(assignto + "." + v.Name(), v, v.Type())
+		}
+
 	case *types.Slice:
 		d.emitslice(assignto, obj, u)
 
@@ -263,11 +277,6 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 		d.emitmap(assignto, obj, u)
 
 
-	case *types.Struct:
-		for i := 0; i < u.NumFields(); i++ {
-			v := u.Field(i)
-			d.emitobjtype(assignto + "." + v.Name(), v, v.Type())
-		}
 
 	default:
 		log.Fatalf("%v: %v has unsupported type %v (%v)", pos(obj),
