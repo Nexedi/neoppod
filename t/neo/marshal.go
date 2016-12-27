@@ -45,8 +45,9 @@ func (p *RowInfo) NEODecode(data []byte) (int, error) {
 		data = data[8:]
 		p.CellList = make([]neo.CellInfo, l)
 		for i := 0; i < l; i++ {
-			p.CellList[i].UUID = int32(BigEndian.Uint32(data[0:]))
-			p.CellList[i].CellState = int32(BigEndian.Uint32(data[4:]))
+			a := &p.CellList[i]
+			a.UUID = int32(BigEndian.Uint32(data[0:]))
+			a.CellState = int32(BigEndian.Uint32(data[4:]))
 			data = data[8:]
 		}
 	}
@@ -139,17 +140,18 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 			UUID neo.UUID
 		}, l)
 		for i := 0; i < l; i++ {
+			a := &p.KnownMasterList[i]
 			{
 				l := BigEndian.Uint32(data[0:])
 				data = data[4:]
 				if len(data) < l {
 					return 0, ErrDecodeOverflow
 				}
-				p.KnownMasterList[i].Address.Host = string(data[:l])
+				a.Address.Host = string(data[:l])
 				data = data[l:]
 			}
-			p.KnownMasterList[i].Address.Port = BigEndian.Uint16(data[0:])
-			p.KnownMasterList[i].UUID = int32(BigEndian.Uint32(data[2:]))
+			a.Address.Port = BigEndian.Uint16(data[0:])
+			a.UUID = int32(BigEndian.Uint32(data[2:]))
 			data = data[6:]
 		}
 	}
@@ -205,14 +207,16 @@ func (p *AnswerPartitionTable) NEODecode(data []byte) (int, error) {
 		data = data[12:]
 		p.RowList = make([]neo.RowInfo, l)
 		for i := 0; i < l; i++ {
-			p.RowList[i].Offset = BigEndian.Uint32(data[0:])
+			a := &p.RowList[i]
+			a.Offset = BigEndian.Uint32(data[0:])
 			{
 				l := BigEndian.Uint32(data[4:])
 				data = data[8:]
-				p.RowList[i].CellList = make([]neo.CellInfo, l)
+				a.CellList = make([]neo.CellInfo, l)
 				for i := 0; i < l; i++ {
-					p.RowList[i].CellList[i].UUID = int32(BigEndian.Uint32(data[0:]))
-					p.RowList[i].CellList[i].CellState = int32(BigEndian.Uint32(data[4:]))
+					a := &a.CellList[i]
+					a.UUID = int32(BigEndian.Uint32(data[0:]))
+					a.CellState = int32(BigEndian.Uint32(data[4:]))
 					data = data[8:]
 				}
 			}
