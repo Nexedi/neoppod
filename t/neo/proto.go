@@ -431,7 +431,6 @@ type StoreObject struct {
         Unlock          bool
 }
 
-/*
 type AnswerStoreObject struct {
 	Conflicting     bool
 	Oid             Oid
@@ -443,6 +442,7 @@ type AbortTransaction struct {
 	Tid     Tid
 }
 
+/*
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type StoreTransaction struct {

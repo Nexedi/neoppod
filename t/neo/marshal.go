@@ -472,3 +472,15 @@ func (p *StoreObject) NEODecode(data []byte) (int, error) {
 	p.Unlock = bool((data[16:])[0])
 	return 17 /* + TODO variable part */, nil
 }
+
+func (p *AnswerStoreObject) NEODecode(data []byte) (int, error) {
+	p.Conflicting = bool((data[0:])[0])
+	p.Oid = BigEndian.Uint64(data[1:])
+	p.Serial = BigEndian.Uint64(data[9:])
+	return 17 /* + TODO variable part */, nil
+}
+
+func (p *AbortTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
