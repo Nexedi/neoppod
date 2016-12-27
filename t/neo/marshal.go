@@ -694,3 +694,383 @@ func (p *AnswerObjectHistory) NEODecode(data []byte) (int, error) {
 	}
 	return 0 /* + TODO variable part */, nil
 }
+
+func (p *PartitionList) NEODecode(data []byte) (int, error) {
+	p.MinOffset = BigEndian.Uint32(data[0:])
+	p.MaxOffset = BigEndian.Uint32(data[4:])
+	p.UUID = int32(BigEndian.Uint32(data[8:]))
+	return 12 /* + TODO variable part */, nil
+}
+
+func (p *AnswerPartitionList) NEODecode(data []byte) (int, error) {
+	p.PTid = BigEndian.Uint64(data[0:])
+	{
+		l := BigEndian.Uint32(data[8:])
+		data = data[12:]
+		p.RowList = make([]neo.RowInfo, l)
+		for i := 0; i < l; i++ {
+			a := &p.RowList[i]
+			a.Offset = BigEndian.Uint32(data[0:])
+			{
+				l := BigEndian.Uint32(data[4:])
+				data = data[8:]
+				a.CellList = make([]neo.CellInfo, l)
+				for i := 0; i < l; i++ {
+					a := &a.CellList[i]
+					a.UUID = int32(BigEndian.Uint32(data[0:]))
+					a.CellState = int32(BigEndian.Uint32(data[4:]))
+					data = data[8:]
+				}
+			}
+			data = data[0:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *X_NodeList) NEODecode(data []byte) (int, error) {
+	p.NodeType = int32(BigEndian.Uint32(data[0:]))
+	return 4 /* + TODO variable part */, nil
+}
+
+func (p *AnswerNodeList) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.NodeList = make([]neo.NodeInfo, l)
+		for i := 0; i < l; i++ {
+			a := &p.NodeList[i]
+			a.NodeType = int32(BigEndian.Uint32(data[0:]))
+			{
+				l := BigEndian.Uint32(data[4:])
+				data = data[8:]
+				if len(data) < l {
+					return 0, ErrDecodeOverflow
+				}
+				a.Address.Host = string(data[:l])
+				data = data[l:]
+			}
+			a.Address.Port = BigEndian.Uint16(data[0:])
+			a.UUID = int32(BigEndian.Uint32(data[2:]))
+			a.NodeState = int32(BigEndian.Uint32(data[6:]))
+			a.IdTimestamp = float64_NEODecode(data[10:])
+			data = data[18:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *SetNodeState) NEODecode(data []byte) (int, error) {
+	p.UUID = int32(BigEndian.Uint32(data[0:]))
+	p.NodeState = int32(BigEndian.Uint32(data[4:]))
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *AddPendingNodes) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.UUIDList = make([]neo.UUID, l)
+		for i := 0; i < l; i++ {
+			a := &p.UUIDList[i]
+			a = int32(BigEndian.Uint32(data[0:]))
+			data = data[4:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *TweakPartitionTable) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.UUIDList = make([]neo.UUID, l)
+		for i := 0; i < l; i++ {
+			a := &p.UUIDList[i]
+			a = int32(BigEndian.Uint32(data[0:]))
+			data = data[4:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *NotifyNodeInformation) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.NodeList = make([]neo.NodeInfo, l)
+		for i := 0; i < l; i++ {
+			a := &p.NodeList[i]
+			a.NodeType = int32(BigEndian.Uint32(data[0:]))
+			{
+				l := BigEndian.Uint32(data[4:])
+				data = data[8:]
+				if len(data) < l {
+					return 0, ErrDecodeOverflow
+				}
+				a.Address.Host = string(data[:l])
+				data = data[l:]
+			}
+			a.Address.Port = BigEndian.Uint16(data[0:])
+			a.UUID = int32(BigEndian.Uint32(data[2:]))
+			a.NodeState = int32(BigEndian.Uint32(data[6:]))
+			a.IdTimestamp = float64_NEODecode(data[10:])
+			data = data[18:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *NodeInformation) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *SetClusterState) NEODecode(data []byte) (int, error) {
+	p.State = int32(BigEndian.Uint32(data[0:]))
+	return 4 /* + TODO variable part */, nil
+}
+
+func (p *ClusterInformation) NEODecode(data []byte) (int, error) {
+	p.State = int32(BigEndian.Uint32(data[0:]))
+	return 4 /* + TODO variable part */, nil
+}
+
+func (p *X_ClusterState) NEODecode(data []byte) (int, error) {
+	p.State = int32(BigEndian.Uint32(data[0:]))
+	return 4 /* + TODO variable part */, nil
+}
+
+func (p *ObjectUndoSerial) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	p.LTID = BigEndian.Uint64(data[8:])
+	p.UndoneTID = BigEndian.Uint64(data[16:])
+	{
+		l := BigEndian.Uint32(data[24:])
+		data = data[28:]
+		p.OidList = make([]neo.Oid, l)
+		for i := 0; i < l; i++ {
+			a := &p.OidList[i]
+			a = BigEndian.Uint64(data[0:])
+			data = data[8:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.ObjectTIDDict = make(map[neo.Oid]struct {
+			CurrentSerial neo.Tid
+			UndoSerial    neo.Tid
+			IsCurrent     bool
+		}, l)
+		m := p.ObjectTIDDict
+		for i := 0; i < l; i++ {
+			key = BigEndian.Uint64(data[0:])
+			m[key].CurrentSerial = BigEndian.Uint64(data[8:])
+			m[key].UndoSerial = BigEndian.Uint64(data[16:])
+			m[key].IsCurrent = bool((data[24:])[0])
+			data = data[25:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *HasLock) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	p.Oid = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+
+func (p *AnswerHasLock) NEODecode(data []byte) (int, error) {
+	p.Oid = BigEndian.Uint64(data[0:])
+	p.LockState = int32(BigEndian.Uint32(data[8:]))
+	return 12 /* + TODO variable part */, nil
+}
+
+func (p *CheckCurrentSerial) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	p.Serial = BigEndian.Uint64(data[8:])
+	p.Oid = BigEndian.Uint64(data[16:])
+	return 24 /* + TODO variable part */, nil
+}
+
+func (p *AnswerCheckCurrentSerial) NEODecode(data []byte) (int, error) {
+	p.Conflicting = bool((data[0:])[0])
+	p.Oid = BigEndian.Uint64(data[1:])
+	p.Serial = BigEndian.Uint64(data[9:])
+	return 17 /* + TODO variable part */, nil
+}
+
+func (p *Pack) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *AnswerPack) NEODecode(data []byte) (int, error) {
+	p.Status = bool((data[0:])[0])
+	return 1 /* + TODO variable part */, nil
+}
+
+func (p *CheckReplicas) NEODecode(data []byte) (int, error) {
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		p.PartitionDict = make(map[uint32]neo.UUID, l)
+		m := p.PartitionDict
+		for i := 0; i < l; i++ {
+			key = BigEndian.Uint32(data[0:])
+			m[key] = int32(BigEndian.Uint32(data[4:]))
+			data = data[8:]
+		}
+	}
+	p.MinTID = BigEndian.Uint64(data[0:])
+	p.MaxTID = BigEndian.Uint64(data[8:])
+	return 16 /* + TODO variable part */, nil
+}
+
+func (p *CheckPartition) NEODecode(data []byte) (int, error) {
+	p.Partition = BigEndian.Uint32(data[0:])
+	{
+		l := BigEndian.Uint32(data[4:])
+		data = data[8:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Source.UpstreamName = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if len(data) < l {
+			return 0, ErrDecodeOverflow
+		}
+		p.Source.Address.Host = string(data[:l])
+		data = data[l:]
+	}
+	p.Source.Address.Port = BigEndian.Uint16(data[0:])
+	p.MinTID = BigEndian.Uint64(data[2:])
+	p.MaxTID = BigEndian.Uint64(data[10:])
+	return 18 /* + TODO variable part */, nil
+}
+
+func (p *CheckTIDRange) NEODecode(data []byte) (int, error) {
+	p.Partition = BigEndian.Uint32(data[0:])
+	p.Length = BigEndian.Uint32(data[4:])
+	p.MinTID = BigEndian.Uint64(data[8:])
+	p.MaxTID = BigEndian.Uint64(data[16:])
+	return 24 /* + TODO variable part */, nil
+}
+
+func (p *AnswerCheckTIDRange) NEODecode(data []byte) (int, error) {
+	p.Count = BigEndian.Uint32(data[0:])
+	p.Checksum[0] = (data[4:])[0]
+	p.Checksum[1] = (data[5:])[0]
+	p.Checksum[2] = (data[6:])[0]
+	p.Checksum[3] = (data[7:])[0]
+	p.Checksum[4] = (data[8:])[0]
+	p.Checksum[5] = (data[9:])[0]
+	p.Checksum[6] = (data[10:])[0]
+	p.Checksum[7] = (data[11:])[0]
+	p.Checksum[8] = (data[12:])[0]
+	p.Checksum[9] = (data[13:])[0]
+	p.Checksum[10] = (data[14:])[0]
+	p.Checksum[11] = (data[15:])[0]
+	p.Checksum[12] = (data[16:])[0]
+	p.Checksum[13] = (data[17:])[0]
+	p.Checksum[14] = (data[18:])[0]
+	p.Checksum[15] = (data[19:])[0]
+	p.Checksum[16] = (data[20:])[0]
+	p.Checksum[17] = (data[21:])[0]
+	p.Checksum[18] = (data[22:])[0]
+	p.Checksum[19] = (data[23:])[0]
+	p.MaxTID = BigEndian.Uint64(data[24:])
+	return 32 /* + TODO variable part */, nil
+}
+
+func (p *CheckSerialRange) NEODecode(data []byte) (int, error) {
+	p.Partition = BigEndian.Uint32(data[0:])
+	p.Length = BigEndian.Uint32(data[4:])
+	p.MinTID = BigEndian.Uint64(data[8:])
+	p.MaxTID = BigEndian.Uint64(data[16:])
+	p.MinOID = BigEndian.Uint64(data[24:])
+	return 32 /* + TODO variable part */, nil
+}
+
+func (p *AnswerCheckSerialRange) NEODecode(data []byte) (int, error) {
+	p.Count = BigEndian.Uint32(data[0:])
+	p.TidChecksum[0] = (data[4:])[0]
+	p.TidChecksum[1] = (data[5:])[0]
+	p.TidChecksum[2] = (data[6:])[0]
+	p.TidChecksum[3] = (data[7:])[0]
+	p.TidChecksum[4] = (data[8:])[0]
+	p.TidChecksum[5] = (data[9:])[0]
+	p.TidChecksum[6] = (data[10:])[0]
+	p.TidChecksum[7] = (data[11:])[0]
+	p.TidChecksum[8] = (data[12:])[0]
+	p.TidChecksum[9] = (data[13:])[0]
+	p.TidChecksum[10] = (data[14:])[0]
+	p.TidChecksum[11] = (data[15:])[0]
+	p.TidChecksum[12] = (data[16:])[0]
+	p.TidChecksum[13] = (data[17:])[0]
+	p.TidChecksum[14] = (data[18:])[0]
+	p.TidChecksum[15] = (data[19:])[0]
+	p.TidChecksum[16] = (data[20:])[0]
+	p.TidChecksum[17] = (data[21:])[0]
+	p.TidChecksum[18] = (data[22:])[0]
+	p.TidChecksum[19] = (data[23:])[0]
+	p.MaxTID = BigEndian.Uint64(data[24:])
+	p.OidChecksum[0] = (data[32:])[0]
+	p.OidChecksum[1] = (data[33:])[0]
+	p.OidChecksum[2] = (data[34:])[0]
+	p.OidChecksum[3] = (data[35:])[0]
+	p.OidChecksum[4] = (data[36:])[0]
+	p.OidChecksum[5] = (data[37:])[0]
+	p.OidChecksum[6] = (data[38:])[0]
+	p.OidChecksum[7] = (data[39:])[0]
+	p.OidChecksum[8] = (data[40:])[0]
+	p.OidChecksum[9] = (data[41:])[0]
+	p.OidChecksum[10] = (data[42:])[0]
+	p.OidChecksum[11] = (data[43:])[0]
+	p.OidChecksum[12] = (data[44:])[0]
+	p.OidChecksum[13] = (data[45:])[0]
+	p.OidChecksum[14] = (data[46:])[0]
+	p.OidChecksum[15] = (data[47:])[0]
+	p.OidChecksum[16] = (data[48:])[0]
+	p.OidChecksum[17] = (data[49:])[0]
+	p.OidChecksum[18] = (data[50:])[0]
+	p.OidChecksum[19] = (data[51:])[0]
+	p.MaxOID = BigEndian.Uint64(data[52:])
+	return 60 /* + TODO variable part */, nil
+}
+
+func (p *PartitionCorrupted) NEODecode(data []byte) (int, error) {
+	p.Partition = BigEndian.Uint32(data[0:])
+	{
+		l := BigEndian.Uint32(data[4:])
+		data = data[8:]
+		p.CellList = make([]neo.UUID, l)
+		for i := 0; i < l; i++ {
+			a := &p.CellList[i]
+			a = int32(BigEndian.Uint32(data[0:]))
+			data = data[4:]
+		}
+	}
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *LastTransaction) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}
+
+func (p *AnswerLastTransaction) NEODecode(data []byte) (int, error) {
+	p.Tid = BigEndian.Uint64(data[0:])
+	return 8 /* + TODO variable part */, nil
+}
+
+func (p *NotifyReady) NEODecode(data []byte) (int, error) {
+	return 0 /* + TODO variable part */, nil
+}

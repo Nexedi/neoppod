@@ -36,7 +36,7 @@ const (
 	READ_ONLY_ACCESS
 )
 
-type ClusterState int
+type ClusterState int32
 const (
 	// NOTE cluster states descriptions is in protocol.py
 	RECOVERING ClusterState = iota
@@ -77,7 +77,7 @@ const (
 	CORRUPTED                   //short: C
 )
 
-type LockState int
+type LockState int32
 const (
 	NOT_LOCKED LockState = iota
 	GRANTED
@@ -541,7 +541,6 @@ type AnswerObjectHistory struct {
 	        Size    uint32  // PNumber
 	}
 }
-/*
 
 // All the following messages are for neoctl to admin node
 // Ask information about partition
@@ -790,4 +789,3 @@ type NotifyReady struct {
 // replication
 
 // TODO
-*/
