@@ -10,7 +10,7 @@ func (p *Address) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Host = string(data[:l])
@@ -25,7 +25,7 @@ func (p *NodeInfo) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[4:])
 		data = data[8:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Address.Host = string(data[:l])
@@ -64,7 +64,7 @@ func (p *Notify) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Message = string(data[:l])
@@ -78,7 +78,7 @@ func (p *Error) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[4:])
 		data = data[8:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Message = string(data[:l])
@@ -102,7 +102,7 @@ func (p *RequestIdentification) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[12:])
 		data = data[16:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Address.Host = string(data[:l])
@@ -112,7 +112,7 @@ func (p *RequestIdentification) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[2:])
 		data = data[6:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Name = string(data[:l])
@@ -131,7 +131,7 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[20:])
 		data = data[24:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Primary.Host = string(data[:l])
@@ -150,7 +150,7 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 			{
 				l := binary.BigEndian.Uint32(data[0:])
 				data = data[4:]
-				if len(data) < l {
+				if uint32(len(data)) < l {
 					return 0, ErrDecodeOverflow
 				}
 				a.Address.Host = string(data[:l])
@@ -496,7 +496,7 @@ func (p *StoreTransaction) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[8:])
 		data = data[12:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.User = string(data[:l])
@@ -505,7 +505,7 @@ func (p *StoreTransaction) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Description = string(data[:l])
@@ -514,7 +514,7 @@ func (p *StoreTransaction) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Extension = string(data[:l])
@@ -637,7 +637,7 @@ func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[8:])
 		data = data[12:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.User = string(data[:l])
@@ -646,7 +646,7 @@ func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Description = string(data[:l])
@@ -655,7 +655,7 @@ func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Extension = string(data[:l])
@@ -750,7 +750,7 @@ func (p *AnswerNodeList) NEODecode(data []byte) (int, error) {
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
-				if len(data) < l {
+				if uint32(len(data)) < l {
 					return 0, ErrDecodeOverflow
 				}
 				a.Address.Host = string(data[:l])
@@ -811,7 +811,7 @@ func (p *NotifyNodeInformation) NEODecode(data []byte) (int, error) {
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
-				if len(data) < l {
+				if uint32(len(data)) < l {
 					return 0, ErrDecodeOverflow
 				}
 				a.Address.Host = string(data[:l])
@@ -942,7 +942,7 @@ func (p *CheckPartition) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[4:])
 		data = data[8:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Source.UpstreamName = string(data[:l])
@@ -951,7 +951,7 @@ func (p *CheckPartition) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if len(data) < l {
+		if uint32(len(data)) < l {
 			return 0, ErrDecodeOverflow
 		}
 		p.Source.Address.Host = string(data[:l])

@@ -203,7 +203,7 @@ func (d *decoder) emitstrbytes(assignto string) {
 	// [len]byte
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
-	d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
+	d.emit("if uint32(len(data)) < l { return 0, ErrDecodeOverflow }")
 	d.emit("%v = string(data[:l])", assignto)
 	d.emit("data = data[l:]")
 	d.emit("}")
