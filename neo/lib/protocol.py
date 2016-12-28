@@ -236,14 +236,10 @@ class Packet(object):
     _id = None
     poll_thread = False
 
-    def __init__(self, *args, **kw):
+    def __init__(self, *args):
         assert self._code is not None, "Packet class not registered"
-        if args or kw:
-            args = list(args)
+        if args:
             buf = StringIO()
-            # load named arguments
-            for item in self._fmt._items[len(args):]:
-                args.append(kw.get(item._name))
             self._fmt.encode(buf.write, args)
             self._body = buf.getvalue()
         else:
