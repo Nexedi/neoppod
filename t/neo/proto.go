@@ -7,6 +7,7 @@ package neo
 // XXX move imports out of here
 import (
 	"encoding/binary"
+	"errors"
 	"math"
 )
 
@@ -88,6 +89,8 @@ const (
 type UUID int32
 
 // TODO UUID_NAMESPACES
+
+var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
 // NEOEncoder is interface for marshaling objects to wire format in NEO
 type NEOEncoder interface {
