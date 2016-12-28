@@ -14,7 +14,7 @@ const (
 	PROTOCOL_VERSION = 8
 
 	MIN_PACKET_SIZE = 10	// XXX unsafe.Sizeof(PktHead{}) give _typed_ constant (uintptr)
-	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size ?
+	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size ? XXX -> pkt.go ?
 	MAX_PACKET_SIZE = 0x4000000
 
 	RESPONSE_MASK   = 0x8000

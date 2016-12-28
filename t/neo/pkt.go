@@ -25,6 +25,13 @@ type PktBuf struct {
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
 
+// XXX naming -> PktHeader ?
+type PktHead struct {
+	ConnId  be32	// NOTE is .msgid in py
+	MsgCode be16
+	Len	be32	// whole packet length (including header)
+}
+
 // Get pointer to packet header
 func (pkt *PktBuf) Header() *PktHead {
 	// XXX check len(Data) < PktHead ? -> no, Data has to be allocated with cap >= PktHeadLen
