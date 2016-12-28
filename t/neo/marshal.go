@@ -280,7 +280,7 @@ func (p *PartitionChanges) NEODecode(data []byte) (int, error) {
 }
 
 func (p *StartOperation) NEODecode(data []byte) (int, error) {
-	p.Backup = bool((data[0:])[0])
+	p.Backup = byte2bool((data[0:])[0])
 	return 1 /* + TODO variable part */, nil
 }
 
@@ -442,7 +442,7 @@ func (p *AnswerGenerateOIDs) NEODecode(data []byte) (int, error) {
 func (p *StoreObject) NEODecode(data []byte) (int, error) {
 	p.Oid = Oid(binary.BigEndian.Uint64(data[0:]))
 	p.Serial = Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Compression = bool((data[16:])[0])
+	p.Compression = byte2bool((data[16:])[0])
 	p.Checksum[0] = (data[17:])[0]
 	p.Checksum[1] = (data[18:])[0]
 	p.Checksum[2] = (data[19:])[0]
@@ -475,12 +475,12 @@ func (p *StoreObject) NEODecode(data []byte) (int, error) {
 	}
 	p.DataSerial = Tid(binary.BigEndian.Uint64(data[0:]))
 	p.Tid = Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Unlock = bool((data[16:])[0])
+	p.Unlock = byte2bool((data[16:])[0])
 	return 17 /* + TODO variable part */, nil
 }
 
 func (p *AnswerStoreObject) NEODecode(data []byte) (int, error) {
-	p.Conflicting = bool((data[0:])[0])
+	p.Conflicting = byte2bool((data[0:])[0])
 	p.Oid = Oid(binary.BigEndian.Uint64(data[1:]))
 	p.Serial = Tid(binary.BigEndian.Uint64(data[9:]))
 	return 17 /* + TODO variable part */, nil
@@ -549,7 +549,7 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 	p.Oid = Oid(binary.BigEndian.Uint64(data[0:]))
 	p.SerialStart = Tid(binary.BigEndian.Uint64(data[8:]))
 	p.SerialEnd = Tid(binary.BigEndian.Uint64(data[16:]))
-	p.Compression = bool((data[24:])[0])
+	p.Compression = byte2bool((data[24:])[0])
 	p.Checksum[0] = (data[25:])[0]
 	p.Checksum[1] = (data[26:])[0]
 	p.Checksum[2] = (data[27:])[0]
@@ -661,7 +661,7 @@ func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
 		p.Extension = string(data[:l])
 		data = data[l:]
 	}
-	p.Packed = bool((data[0:])[0])
+	p.Packed = byte2bool((data[0:])[0])
 	{
 		l := binary.BigEndian.Uint32(data[1:])
 		data = data[5:]
@@ -877,7 +877,7 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 			key = Oid(binary.BigEndian.Uint64(data[0:]))
 			m[key].CurrentSerial = Tid(binary.BigEndian.Uint64(data[8:]))
 			m[key].UndoSerial = Tid(binary.BigEndian.Uint64(data[16:]))
-			m[key].IsCurrent = bool((data[24:])[0])
+			m[key].IsCurrent = byte2bool((data[24:])[0])
 			data = data[25:]
 		}
 	}
@@ -904,7 +904,7 @@ func (p *CheckCurrentSerial) NEODecode(data []byte) (int, error) {
 }
 
 func (p *AnswerCheckCurrentSerial) NEODecode(data []byte) (int, error) {
-	p.Conflicting = bool((data[0:])[0])
+	p.Conflicting = byte2bool((data[0:])[0])
 	p.Oid = Oid(binary.BigEndian.Uint64(data[1:]))
 	p.Serial = Tid(binary.BigEndian.Uint64(data[9:]))
 	return 17 /* + TODO variable part */, nil
@@ -916,7 +916,7 @@ func (p *Pack) NEODecode(data []byte) (int, error) {
 }
 
 func (p *AnswerPack) NEODecode(data []byte) (int, error) {
-	p.Status = bool((data[0:])[0])
+	p.Status = byte2bool((data[0:])[0])
 	return 1 /* + TODO variable part */, nil
 }
 

@@ -156,7 +156,7 @@ type basicXXX struct {
 
 var basicDecode = map[types.BasicKind]basicXXX {
 	// %v will be `data[n:n+wireSize]`	XXX or `data[n:]` ?
-	types.Bool:	{1, "bool((%v)[0])"},
+	types.Bool:	{1, "byte2bool((%v)[0])"},
 	types.Int8:	{1, "int8((%v)[0])"},
 	types.Int16:	{2, "int16(binary.BigEndian.Uint16(%v))"},
 	types.Int32:	{4, "int32(binary.BigEndian.Uint32(%v))"},

@@ -138,6 +138,11 @@ type Checksum [20]byte
 type PTid uint64	// XXX move to common place ?
 
 
+// XXX move -> marshalutil.go ?
+func byte2bool(b byte) bool {
+	return b != 0
+}
+
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
 func float64_NEOEncode(f float64, b []byte) {
