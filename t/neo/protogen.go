@@ -252,7 +252,20 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emitobjtype("key:", obj, typ.Key())
-	d.emitobjtype("m[key]", obj, typ.Elem())
+
+	switch typ.Elem().Underlying().(type) {
+	// basic types can be directly assigned to map entry
+	case *types.Basic:
+		// XXX handle string
+		d.emitobjtype("m[key]", obj, typ.Elem())
+
+	// otherwise assign via temporary
+	default:
+		d.emit("var v %v", typeName(typ.Elem()))
+		d.emitobjtype("v", obj, typ.Elem())
+		d.emit("m[key] = v")
+	}
+
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
 	d.emit("}")
 	//d.emit("%v = string(data[:l])", assignto)

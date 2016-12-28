@@ -875,9 +875,15 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 		m := p.ObjectTIDDict
 		for i := 0; uint32(i) < l; i++ {
 			key := Oid(binary.BigEndian.Uint64(data[0:]))
-			m[key].CurrentSerial = Tid(binary.BigEndian.Uint64(data[8:]))
-			m[key].UndoSerial = Tid(binary.BigEndian.Uint64(data[16:]))
-			m[key].IsCurrent = byte2bool((data[24:])[0])
+			var v struct {
+				CurrentSerial Tid
+				UndoSerial    Tid
+				IsCurrent     bool
+			}
+			v.CurrentSerial = Tid(binary.BigEndian.Uint64(data[8:]))
+			v.UndoSerial = Tid(binary.BigEndian.Uint64(data[16:]))
+			v.IsCurrent = byte2bool((data[24:])[0])
+			m[key] = v
 			data = data[25:]
 		}
 	}
