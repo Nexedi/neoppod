@@ -224,7 +224,7 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
 	d.n = 0
-	d.emit("%v = make(%v, l)", assignto, typ)
+	d.emit("%v = make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
@@ -244,7 +244,7 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
 	d.n = 0
-	d.emit("%v = make(%v, l)", assignto, typ)
+	d.emit("%v = make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
