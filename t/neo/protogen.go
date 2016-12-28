@@ -261,7 +261,14 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 			break
 		}
 
-		d.emit("%s = %s", assignto, d.decodedBasic(obj, u))
+		decoded := d.decodedBasic(obj, u)
+		if typ != u {
+			// typ is a named type over some basic, like
+			// type ClusterState int32
+			// -> need to cast
+			decoded = fmt.Sprintf("%v(%v)", typ, decoded)
+		}
+		d.emit("%s = %s", assignto, decoded)
 
 	case *types.Array:
 		// TODO optimize for [...]byte
