@@ -249,7 +249,7 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("m := %v", assignto)
-	d.emit("for i := 0; i < l; i++ {")
+	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emitobjtype("key", obj, typ.Key())	// TODO -> :=
 	d.emitobjtype("m[key]", obj, typ.Elem())
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
