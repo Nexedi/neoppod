@@ -552,9 +552,28 @@ class Patch(object):
 
     For patched callables, the new one receives the original value as first
     argument.
+
+    Alternative usage:
+
+      @Patch(someObject)
+      def funcToPatch(orig, ...):
+        ...
+      ...
+      funcToPatch.revert()
+
+      The decorator applies the patch immediately.
     """
 
     applied = False
+
+    def __new__(cls, patched, **patch):
+        if patch:
+            return object.__new__(cls)
+        def patch(func):
+            self = cls(patched, **{func.__name__: func})
+            self.apply()
+            return self
+        return patch
 
     def __init__(self, patched, **patch):
         (name, patch), = patch.iteritems()

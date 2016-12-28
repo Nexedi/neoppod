@@ -33,7 +33,8 @@ if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     coverage.neotestrunner = []
     coverage.start()
 
-from neo.tests import getTempDirectory, __dict__ as neo_tests__dict__
+from neo.tests import getTempDirectory, NeoTestBase, Patch, \
+    __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
 
 # list of test modules
@@ -226,6 +227,9 @@ class TestRunner(BenchmarkRunner):
     def add_options(self, parser):
         parser.add_option('-c', '--coverage', action='store_true',
             help='Enable coverage')
+        parser.add_option('-C', '--cov-unit', action='store_true',
+            help='Same as -c but output 1 file per test,'
+                 ' in the temporary test directory')
         parser.add_option('-f', '--functional', action='store_true',
             help='Functional tests')
         parser.add_option('-u', '--unit', action='store_true',
@@ -261,6 +265,8 @@ Environment Variables:
 """ % neo_tests__dict__
 
     def load_options(self, options, args):
+        if options.coverage and options.cov_unit:
+            sys.exit('-c conflicts with -C')
         if not (options.unit or options.functional or options.zodb):
             if not args:
                 sys.exit('Nothing to run, please give one of -f, -u, -z')
@@ -271,6 +277,7 @@ Environment Variables:
             zodb = options.zodb,
             verbosity = 2 if options.verbose else 1,
             coverage = options.coverage,
+            cov_unit = options.cov_unit,
             only = args,
         )
 
@@ -279,6 +286,21 @@ Environment Variables:
         only = config.only
         # run requested tests
         runner = NeoTestRunner(config.title or 'Neo', config.verbosity)
+        if config.cov_unit:
+            from coverage import Coverage
+            cov_dir = runner.temp_directory + '/coverage'
+            os.mkdir(cov_dir)
+            @Patch(NeoTestBase)
+            def setUp(orig, self):
+                orig(self)
+                self.__coverage = Coverage('%s/%s' % (cov_dir, self.id()))
+                self.__coverage.start()
+            @Patch(NeoTestBase)
+            def _tearDown(orig, self, success):
+                self.__coverage.stop()
+                self.__coverage.save()
+                del self.__coverage
+                orig(self, success)
         try:
             if config.unit:
                 runner.run('Unit tests', UNIT_TEST_MODULES, only)
