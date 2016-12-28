@@ -318,7 +318,7 @@ func (p *AnswerLockedTransactions) NEODecode(data []byte) (int, error) {
 		p.TidDict = make(map[Tid]Tid, l)
 		m := p.TidDict
 		for i := 0; uint32(i) < l; i++ {
-			key = Tid(binary.BigEndian.Uint64(data[0:]))
+			key := Tid(binary.BigEndian.Uint64(data[0:]))
 			m[key] = Tid(binary.BigEndian.Uint64(data[8:]))
 			data = data[16:]
 		}
@@ -874,7 +874,7 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 		}, l)
 		m := p.ObjectTIDDict
 		for i := 0; uint32(i) < l; i++ {
-			key = Oid(binary.BigEndian.Uint64(data[0:]))
+			key := Oid(binary.BigEndian.Uint64(data[0:]))
 			m[key].CurrentSerial = Tid(binary.BigEndian.Uint64(data[8:]))
 			m[key].UndoSerial = Tid(binary.BigEndian.Uint64(data[16:]))
 			m[key].IsCurrent = byte2bool((data[24:])[0])
@@ -927,7 +927,7 @@ func (p *CheckReplicas) NEODecode(data []byte) (int, error) {
 		p.PartitionDict = make(map[uint32]UUID, l)
 		m := p.PartitionDict
 		for i := 0; uint32(i) < l; i++ {
-			key = binary.BigEndian.Uint32(data[0:])
+			key := binary.BigEndian.Uint32(data[0:])
 			m[key] = UUID(int32(binary.BigEndian.Uint32(data[4:])))
 			data = data[8:]
 		}

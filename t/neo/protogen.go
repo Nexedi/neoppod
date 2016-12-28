@@ -250,7 +250,7 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
-	d.emitobjtype("key", obj, typ.Key())	// TODO -> :=
+	d.emitobjtype("key:", obj, typ.Key())
 	d.emitobjtype("m[key]", obj, typ.Elem())
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
 	d.emit("}")
@@ -275,7 +275,9 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 			// -> need to cast
 			decoded = fmt.Sprintf("%v(%v)", typeName(typ), decoded)
 		}
-		d.emit("%s = %s", assignto, decoded)
+		// NOTE no space before "=" - to be able to merge with ":"
+		// prefix and become defining assignment
+		d.emit("%s= %s", assignto, decoded)
 
 	case *types.Array:
 		// TODO optimize for [...]byte
