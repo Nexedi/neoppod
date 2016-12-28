@@ -21,6 +21,7 @@ from .. import NeoUnitTestBase
 from neo.client.app import ConnectionPool
 from neo.client.exception import NEOStorageError
 from neo.client import pool
+from neo.lib.util import p64
 
 class ConnectionPoolTests(NeoUnitTestBase):
 
@@ -54,7 +55,7 @@ class ConnectionPoolTests(NeoUnitTestBase):
 
     def test_iterateForObject_noStorageAvailable(self):
         # no node available
-        oid = self.getOID(1)
+        oid = p64(1)
         app = Mock()
         app.pt = Mock({'getCellList': []})
         pool = ConnectionPool(app)

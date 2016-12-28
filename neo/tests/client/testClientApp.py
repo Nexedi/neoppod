@@ -68,6 +68,9 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     # some helpers
 
+    def checkAskObject(self, conn):
+        return self.checkAskPacket(conn, Packets.AskObject)
+
     def _begin(self, app, txn, tid):
         txn_context = app._txn_container.new(txn)
         txn_context['ttid'] = tid

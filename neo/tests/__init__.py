@@ -281,18 +281,6 @@ class NeoUnitTestBase(NeoTestBase):
     def getNextTID(self, ltid=None):
         return newTid(ltid)
 
-    def getPTID(self, i=None):
-        """ Return an integer PTID """
-        if i is None:
-            return random.randint(1, 2**64)
-        return i
-
-    def getOID(self, i=None):
-        """ Return a 8-bytes OID """
-        if i is None:
-            return os.urandom(8)
-        return pack('!Q', i)
-
     def getFakeConnector(self, descriptor=None):
         return Mock({
             '__repr__': 'FakeConnector',
@@ -321,18 +309,6 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if the ProtocolError exception was raised """
         self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
 
-    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception was raised """
-        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
-
-    def checkIdenficationRequired(self, method, *args, **kwargs):
-        """ Check is the identification_required decorator is applied """
-        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
-
-    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception was raised """
-        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
-
     def checkNotReadyErrorRaised(self, method, *args, **kwargs):
         """ Check if the NotReadyError exception was raised """
         self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
@@ -341,35 +317,18 @@ class NeoUnitTestBase(NeoTestBase):
         """ Ensure the connection was aborted """
         self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
 
-    def checkNotAborted(self, conn):
-        """ Ensure the connection was not aborted """
-        self.assertEqual(len(conn.mockGetNamedCalls('abort')), 0)
-
     def checkClosed(self, conn):
         """ Ensure the connection was closed """
         self.assertEqual(len(conn.mockGetNamedCalls('close')), 1)
 
-    def checkNotClosed(self, conn):
-        """ Ensure the connection was not closed """
-        self.assertEqual(len(conn.mockGetNamedCalls('close')), 0)
-
     def _checkNoPacketSend(self, conn, method_id):
-        call_list = conn.mockGetNamedCalls(method_id)
-        self.assertEqual(len(call_list), 0, call_list)
+        self.assertEqual([], conn.mockGetNamedCalls(method_id))
 
-    def checkNoPacketSent(self, conn, check_notify=True, check_answer=True,
-            check_ask=True):
+    def checkNoPacketSent(self, conn):
         """ check if no packet were sent """
-        if check_notify:
-            self._checkNoPacketSend(conn, 'notify')
-        if check_answer:
-            self._checkNoPacketSend(conn, 'answer')
-        if check_ask:
-            self._checkNoPacketSend(conn, 'ask')
-
-    def checkNoUUIDSet(self, conn):
-        """ ensure no UUID was set on the connection """
-        self.assertEqual(len(conn.mockGetNamedCalls('setUUID')), 0)
+        self._checkNoPacketSend(conn, 'notify')
+        self._checkNoPacketSend(conn, 'answer')
+        self._checkNoPacketSend(conn, 'ask')
 
     def checkUUIDSet(self, conn, uuid=None, check_intermediate=True):
         """ ensure UUID was set on the connection """
@@ -384,150 +343,40 @@ class NeoUnitTestBase(NeoTestBase):
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurate checks are required
 
-    def checkErrorPacket(self, conn, decode=False):
+    def checkErrorPacket(self, conn):
         """ Check if an error packet was answered """
         calls = conn.mockGetNamedCalls("answer")
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), Packets.Error)
-        if decode:
-            return packet.decode()
         return packet
 
-    def checkAskPacket(self, conn, packet_type, decode=False):
+    def checkAskPacket(self, conn, packet_type):
         """ Check if an ask-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), packet_type)
-        if decode:
-            return packet.decode()
         return packet
 
-    def checkAnswerPacket(self, conn, packet_type, decode=False):
+    def checkAnswerPacket(self, conn, packet_type):
         """ Check if an answer-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('answer')
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), packet_type)
-        if decode:
-            return packet.decode()
         return packet
 
-    def checkNotifyPacket(self, conn, packet_type, packet_number=0, decode=False):
+    def checkNotifyPacket(self, conn, packet_type, packet_number=0):
         """ Check if a notify-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('notify')
         packet = calls.pop(packet_number).getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), packet_type)
-        if decode:
-            return packet.decode()
         return packet
-
-    def checkNotify(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.Notify, **kw)
-
-    def checkNotifyNodeInformation(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.NotifyNodeInformation, **kw)
-
-    def checkSendPartitionTable(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.SendPartitionTable, **kw)
-
-    def checkStartOperation(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.StartOperation, **kw)
-
-    def checkInvalidateObjects(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.InvalidateObjects, **kw)
-
-    def checkAbortTransaction(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.AbortTransaction, **kw)
-
-    def checkNotifyLastOID(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.NotifyLastOID, **kw)
-
-    def checkAnswerTransactionFinished(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerTransactionFinished, **kw)
-
-    def checkAnswerInformationLocked(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerInformationLocked, **kw)
-
-    def checkAskLockInformation(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskLockInformation, **kw)
-
-    def checkNotifyUnlockInformation(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.NotifyUnlockInformation, **kw)
-
-    def checkNotifyTransactionFinished(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.NotifyTransactionFinished, **kw)
-
-    def checkRequestIdentification(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.RequestIdentification, **kw)
-
-    def checkAskPrimary(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskPrimary)
-
-    def checkAskUnfinishedTransactions(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskUnfinishedTransactions)
-
-    def checkAskTransactionInformation(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskTransactionInformation, **kw)
-
-    def checkAskObject(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskObject, **kw)
-
-    def checkAskStoreObject(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskStoreObject, **kw)
-
-    def checkAskStoreTransaction(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskStoreTransaction, **kw)
-
-    def checkAskFinishTransaction(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskFinishTransaction, **kw)
-
-    def checkAskNewTid(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskBeginTransaction, **kw)
-
-    def checkAskLastIDs(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.AskLastIDs, **kw)
-
-    def checkAcceptIdentification(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AcceptIdentification, **kw)
-
-    def checkAnswerPrimary(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerPrimary, **kw)
-
-    def checkAnswerLastIDs(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerLastIDs, **kw)
-
-    def checkAnswerUnfinishedTransactions(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerUnfinishedTransactions, **kw)
-
-    def checkAnswerObject(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerObject, **kw)
-
-    def checkAnswerTransactionInformation(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerTransactionInformation, **kw)
-
-    def checkAnswerBeginTransaction(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerBeginTransaction, **kw)
-
-    def checkAnswerTids(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerTIDs, **kw)
-
-    def checkAnswerTidsFrom(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerTIDsFrom, **kw)
-
-    def checkAnswerObjectHistory(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerObjectHistory, **kw)
-
-    def checkAnswerStoreObject(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerStoreObject, **kw)
-
-    def checkAnswerPartitionTable(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerPartitionTable, **kw)
 
 
 class Patch(object):

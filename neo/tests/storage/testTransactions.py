@@ -17,6 +17,7 @@
 import unittest
 from mock import Mock
 from .. import NeoUnitTestBase
+from neo.lib.util import p64
 from neo.storage.transactions import TransactionManager
 
 
@@ -36,7 +37,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def test_updateObjectDataForPack(self):
         ram_serial = self.getNextTID()
-        oid = self.getOID(1)
+        oid = p64(1)
         orig_serial = self.getNextTID()
         uuid = self.getClientUUID()
         locking_serial = self.getNextTID()

@@ -20,6 +20,7 @@ from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
+from neo.lib.util import p64
 from neo.lib.protocol import INVALID_TID, INVALID_OID, Packets, LockState
 
 class StorageClientHandlerTests(NeoUnitTestBase):
@@ -91,7 +92,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(1, 1, [1, ])
-        self.checkAnswerTids(conn)
+        self.checkAnswerPacket(conn, Packets.AnswerTIDs)
 
     def test_26_askObjectHistory1(self):
         # invalid offsets => error
@@ -108,7 +109,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         ltid = self.getNextTID()
         undone_tid = self.getNextTID()
         # Keep 2 entries here, so we check findUndoTID is called only once.
-        oid_list = [self.getOID(1), self.getOID(2)]
+        oid_list = map(p64, (1, 2))
         obj2_data = [] # Marker
         self.app.tm = Mock({
             'getObjectFromTransaction': None,
@@ -134,7 +135,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
             conn = self._getConnection()
             self.operation.askHasLock(conn, tid_1, oid)
             p_oid, p_status = self.checkAnswerPacket(conn,
-                Packets.AnswerHasLock, decode=True)
+                Packets.AnswerHasLock).decode()
             self.assertEqual(oid, p_oid)
             self.assertEqual(status, p_status)
 

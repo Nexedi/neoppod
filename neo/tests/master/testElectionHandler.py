@@ -18,7 +18,7 @@ import unittest
 from mock import Mock
 from neo.lib import protocol
 from .. import NeoUnitTestBase
-from neo.lib.protocol import NodeTypes, NodeStates
+from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.election import ClientElectionHandler, \
         ServerElectionHandler
 from neo.master.app import Application
@@ -47,6 +47,9 @@ class MasterClientElectionTestBase(NeoUnitTestBase):
         )
         node.setConnection(conn)
         return (node, conn)
+
+    def checkAcceptIdentification(self, conn):
+        return self.checkAnswerPacket(conn, Packets.AcceptIdentification)
 
 class MasterClientElectionTests(MasterClientElectionTestBase):
 
@@ -91,7 +94,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         self.election.connectionCompleted(conn)
         self._checkUnconnected(node)
         self.assertTrue(node.isUnknown())
-        self.checkRequestIdentification(conn)
+        self.checkAskPacket(conn, Packets.RequestIdentification)
 
     def _setNegociating(self, node):
         self._checkUnconnected(node)
@@ -252,9 +255,8 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.election.requestIdentification(conn,
             NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
-        args = self.checkAcceptIdentification(conn, decode=True)
         (node_type, uuid, partitions, replicas, new_uuid, primary_uuid,
-            master_list) = args
+            master_list) = self.checkAcceptIdentification(conn).decode()
         self.assertEqual(node.getUUID(), new_uuid)
         self.assertNotEqual(node.getUUID(), uuid)
 
@@ -290,7 +292,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
             None,
         )
         node_type, uuid, partitions, replicas, _peer_uuid, primary, \
-            master_list = self.checkAcceptIdentification(conn, decode=True)
+            master_list = self.checkAcceptIdentification(conn).decode()
         self.assertEqual(node_type, NodeTypes.MASTER)
         self.assertEqual(uuid, self.app.uuid)
         self.assertEqual(partitions, self.app.pt.getPartitions())
