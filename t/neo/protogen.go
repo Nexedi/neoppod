@@ -48,6 +48,12 @@ func pos(x interface { Pos() token.Pos }) token.Position {
 	return fset.Position(x.Pos())
 }
 
+// get type name relative to neo package
+var neoQualifier types.Qualifier
+func typeName(typ types.Type) string {
+	return types.TypeString(typ, neoQualifier)
+}
+
 func main() {
 	var err error
 
@@ -67,10 +73,11 @@ func main() {
 	}
 
 	conf := types.Config{Importer: importer.Default()}
-	_, err = conf.Check("neo", fset, fv, info)
+	neoPkg, err := conf.Check("neo", fset, fv, info)
 	if err != nil {
 		log.Fatalf("typecheck: %v", err)
 	}
+	neoQualifier = types.RelativeTo(neoPkg)
 
 
 	//ncode := 0
@@ -266,7 +273,7 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 			// typ is a named type over some basic, like
 			// type ClusterState int32
 			// -> need to cast
-			decoded = fmt.Sprintf("%v(%v)", typ, decoded)
+			decoded = fmt.Sprintf("%v(%v)", typeName(typ), decoded)
 		}
 		d.emit("%s = %s", assignto, decoded)
 
