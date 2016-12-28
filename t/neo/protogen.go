@@ -230,7 +230,8 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
-	d.emitobjtype("a", obj, typ.Elem())	// XXX also obj.Elem() ?
+	// XXX try to avoid (*) in a
+	d.emitobjtype("(*a)", obj, typ.Elem())	// XXX also obj.Elem() ?
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
 	d.emit("}")
 	//d.emit("%v = string(data[:l])", assignto)

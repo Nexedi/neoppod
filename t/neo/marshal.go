@@ -52,8 +52,8 @@ func (p *RowInfo) NEODecode(data []byte) (int, error) {
 		p.CellList = make([]CellInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			a.UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
-			a.CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 			data = data[8:]
 		}
 	}
@@ -153,11 +153,11 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 				if uint32(len(data)) < l {
 					return 0, ErrDecodeOverflow
 				}
-				a.Address.Host = string(data[:l])
+				(*a).Address.Host = string(data[:l])
 				data = data[l:]
 			}
-			a.Address.Port = binary.BigEndian.Uint16(data[0:])
-			a.UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+			(*a).Address.Port = binary.BigEndian.Uint16(data[0:])
+			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
 			data = data[6:]
 		}
 	}
@@ -214,15 +214,15 @@ func (p *AnswerPartitionTable) NEODecode(data []byte) (int, error) {
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			a.Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0:])
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
-				a.CellList = make([]CellInfo, l)
+				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
-					a := &a.CellList[i]
-					a.UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
-					a.CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+					a := &(*a).CellList[i]
+					(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+					(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 					data = data[8:]
 				}
 			}
@@ -240,15 +240,15 @@ func (p *NotifyPartitionTable) NEODecode(data []byte) (int, error) {
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			a.Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0:])
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
-				a.CellList = make([]CellInfo, l)
+				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
-					a := &a.CellList[i]
-					a.UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
-					a.CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+					a := &(*a).CellList[i]
+					(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+					(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 					data = data[8:]
 				}
 			}
@@ -270,9 +270,9 @@ func (p *PartitionChanges) NEODecode(data []byte) (int, error) {
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			a.Offset = binary.BigEndian.Uint32(data[0:])
-			a.UUID = UUID(int32(binary.BigEndian.Uint32(data[4:])))
-			a.CellState = CellState(int32(binary.BigEndian.Uint32(data[8:])))
+			(*a).Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[4:])))
+			(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[8:])))
 			data = data[12:]
 		}
 	}
@@ -300,7 +300,7 @@ func (p *AnswerUnfinishedTransactions) NEODecode(data []byte) (int, error) {
 		p.TidList = make([]struct{ UnfinishedTID Tid }, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TidList[i]
-			a.UnfinishedTID = Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a).UnfinishedTID = Tid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -360,7 +360,7 @@ func (p *FinishTransaction) NEODecode(data []byte) (int, error) {
 		p.OIDList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OIDList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -370,7 +370,7 @@ func (p *FinishTransaction) NEODecode(data []byte) (int, error) {
 		p.CheckedList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CheckedList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -408,7 +408,7 @@ func (p *InvalidateObjects) NEODecode(data []byte) (int, error) {
 		p.OidList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -432,7 +432,7 @@ func (p *AnswerGenerateOIDs) NEODecode(data []byte) (int, error) {
 		p.OidList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -469,7 +469,7 @@ func (p *StoreObject) NEODecode(data []byte) (int, error) {
 		p.Data = make([]byte, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.Data[i]
-			a = (data[0:])[0]
+			(*a) = (data[0:])[0]
 			data = data[1:]
 		}
 	}
@@ -526,7 +526,7 @@ func (p *StoreTransaction) NEODecode(data []byte) (int, error) {
 		p.OidList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -576,7 +576,7 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 		p.Data = make([]byte, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.Data[i]
-			a = (data[0:])[0]
+			(*a) = (data[0:])[0]
 			data = data[1:]
 		}
 	}
@@ -598,7 +598,7 @@ func (p *AnswerTIDList) NEODecode(data []byte) (int, error) {
 		p.TIDList = make([]Tid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TIDList[i]
-			a = Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Tid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -620,7 +620,7 @@ func (p *AnswerTIDListFrom) NEODecode(data []byte) (int, error) {
 		p.TidList = make([]Tid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TidList[i]
-			a = Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Tid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -668,7 +668,7 @@ func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
 		p.OidList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -693,8 +693,8 @@ func (p *AnswerObjectHistory) NEODecode(data []byte) (int, error) {
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.HistoryList[i]
-			a.Serial = Tid(binary.BigEndian.Uint64(data[0:]))
-			a.Size = binary.BigEndian.Uint32(data[8:])
+			(*a).Serial = Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a).Size = binary.BigEndian.Uint32(data[8:])
 			data = data[12:]
 		}
 	}
@@ -716,15 +716,15 @@ func (p *AnswerPartitionList) NEODecode(data []byte) (int, error) {
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			a.Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0:])
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
-				a.CellList = make([]CellInfo, l)
+				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
-					a := &a.CellList[i]
-					a.UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
-					a.CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+					a := &(*a).CellList[i]
+					(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+					(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 					data = data[8:]
 				}
 			}
@@ -746,20 +746,20 @@ func (p *AnswerNodeList) NEODecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			a.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a).NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
 				if uint32(len(data)) < l {
 					return 0, ErrDecodeOverflow
 				}
-				a.Address.Host = string(data[:l])
+				(*a).Address.Host = string(data[:l])
 				data = data[l:]
 			}
-			a.Address.Port = binary.BigEndian.Uint16(data[0:])
-			a.UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
-			a.NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
-			a.IdTimestamp = float64_NEODecode(data[10:])
+			(*a).Address.Port = binary.BigEndian.Uint16(data[0:])
+			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+			(*a).NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
+			(*a).IdTimestamp = float64_NEODecode(data[10:])
 			data = data[18:]
 		}
 	}
@@ -779,7 +779,7 @@ func (p *AddPendingNodes) NEODecode(data []byte) (int, error) {
 		p.UUIDList = make([]UUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.UUIDList[i]
-			a = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -793,7 +793,7 @@ func (p *TweakPartitionTable) NEODecode(data []byte) (int, error) {
 		p.UUIDList = make([]UUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.UUIDList[i]
-			a = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -807,20 +807,20 @@ func (p *NotifyNodeInformation) NEODecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			a.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a).NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
 				if uint32(len(data)) < l {
 					return 0, ErrDecodeOverflow
 				}
-				a.Address.Host = string(data[:l])
+				(*a).Address.Host = string(data[:l])
 				data = data[l:]
 			}
-			a.Address.Port = binary.BigEndian.Uint16(data[0:])
-			a.UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
-			a.NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
-			a.IdTimestamp = float64_NEODecode(data[10:])
+			(*a).Address.Port = binary.BigEndian.Uint16(data[0:])
+			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+			(*a).NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
+			(*a).IdTimestamp = float64_NEODecode(data[10:])
 			data = data[18:]
 		}
 	}
@@ -856,7 +856,7 @@ func (p *ObjectUndoSerial) NEODecode(data []byte) (int, error) {
 		p.OidList = make([]Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			a = Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = Oid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
@@ -1061,7 +1061,7 @@ func (p *PartitionCorrupted) NEODecode(data []byte) (int, error) {
 		p.CellList = make([]UUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			a = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
