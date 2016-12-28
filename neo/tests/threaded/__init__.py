@@ -461,7 +461,7 @@ class ConnectionFilter(object):
 
     filtered_count = 0
     filter_list = []
-    filter_queue = weakref.WeakKeyDictionary()
+    filter_queue = weakref.WeakKeyDictionary() # XXX: see the end of __new__
     lock = threading.RLock()
     _addPacket = Connection._addPacket
 
@@ -477,7 +477,7 @@ class ConnectionFilter(object):
                         queue = cls.filter_queue[conn]
                     except KeyError:
                         for self in cls.filter_list:
-                            if self(conn, packet):
+                            if self._test(conn, packet):
                                 self.filtered_count += 1
                                 break
                         else:
@@ -494,10 +494,13 @@ class ConnectionFilter(object):
             del cls.filter_list[-1:]
             if not cls.filter_list:
                 Connection._addPacket = cls._addPacket.im_func
-        with cls.lock:
-            cls._retry()
+            # Retry even in case of exception, at least to avoid leaks in
+            # filter_queue. Sometimes, WeakKeyDictionary only does the job
+            # only an explicit call to gc.collect.
+            with cls.lock:
+                cls._retry()
 
-    def __call__(self, conn, packet):
+    def _test(self, conn, packet):
         if not self.conn_list or conn in self.conn_list:
             for filter in self.filter_dict:
                 if filter(conn, packet):
@@ -510,7 +513,7 @@ class ConnectionFilter(object):
             while queue:
                 packet = queue.popleft()
                 for self in cls.filter_list:
-                    if self(conn, packet):
+                    if self._test(conn, packet):
                         queue.appendleft(packet)
                         break
                 else:
