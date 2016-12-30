@@ -55,6 +55,8 @@ if SignalHandler:
 
 
 class TransactionContainer(dict):
+    # IDEA: Drop this container and use the new set_data/data API on
+    #       transactions (requires transaction >= 1.6).
 
     def pop(self, txn):
         return dict.pop(self, id(txn), None)
@@ -74,17 +76,24 @@ class TransactionContainer(dict):
             'queue': SimpleQueue(),
             'txn': txn,
             'ttid': None,
+            # data being stored
             'data_dict': {},
             'data_size': 0,
+            # data stored: this will go to the cache on tpc_finish
             'cache_dict': {},
             'cache_size': 0,
-            'object_base_serial_dict': {},
-            'object_serial_dict': {},
-            'object_stored_counter_dict': {},
-            'conflict_serial_dict': {},
-            'resolved_conflict_serial_dict': {},
-            'involved_nodes': set(),
-            'checked_nodes': set(),
+            # serial being stored
+            'object_serial_dict': {},            # {oid: serial}
+            # track successful stores/checks
+            'object_stored_counter_dict': {},    # {oid: {serial: {storage_id}}}
+            # conflicts to resolve
+            'conflict_serial_dict': {},          # {oid: {serial}}
+            # resolved conflicts
+            'resolved_conflict_serial_dict': {}, # {oid: {serial}}
+            # nodes with at least 1 store (object or transaction)
+            'involved_nodes': set(),             # {node}
+            # nodes with at least 1 check
+            'checked_nodes': set(),              # {node}
         }
         return context
 
@@ -443,7 +452,6 @@ class Application(ThreadedApplication):
         txn_context['data_dict'][oid] = data
         # Store data on each node
         txn_context['object_stored_counter_dict'][oid] = {}
-        txn_context['object_base_serial_dict'].setdefault(oid, serial)
         txn_context['object_serial_dict'][oid] = serial
         queue = txn_context['queue']
         involved_nodes = txn_context['involved_nodes']
@@ -478,7 +486,6 @@ class Application(ThreadedApplication):
         append = result.append
         # Check for conflicts
         data_dict = txn_context['data_dict']
-        object_base_serial_dict = txn_context['object_base_serial_dict']
         object_serial_dict = txn_context['object_serial_dict']
         conflict_serial_dict = txn_context['conflict_serial_dict'].copy()
         txn_context['conflict_serial_dict'].clear()
@@ -559,8 +566,6 @@ class Application(ThreadedApplication):
                         dump(conflict_serial))
                     # Mark this conflict as resolved
                     resolved_serial_set.update(conflict_serial_set)
-                    # Base serial changes too, as we resolved a conflict
-                    object_base_serial_dict[oid] = conflict_serial
                     # Try to store again
                     self._store(txn_context, oid, conflict_serial, new_data)
                     append(oid)
