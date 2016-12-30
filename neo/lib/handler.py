@@ -207,9 +207,6 @@ class EventHandler(object):
     def brokenNodeDisallowedError(self, conn, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
-    def alreadyPendingError(self, conn, message):
-        logging.error('already pending error: %s', message)
-
     def ack(self, conn, message):
         logging.debug("no error message: %s", message)
 

@@ -20,7 +20,6 @@ from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, Errors, ProtocolError, \
     ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, DelayedError, NotRegisteredError
-from ..exception import AlreadyPendingError
 import time
 
 # Log stores taking (incl. lock delays) more than this many seconds.
@@ -71,25 +70,17 @@ class ClientOperationHandler(EventHandler):
         conn.answer(Packets.AnswerVoteTransaction())
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
-            data_serial, ttid, unlock, request_time):
+            data_serial, ttid, request_time):
         try:
             self.app.tm.storeObject(ttid, serial, oid, compression,
-                    checksum, data, data_serial, unlock)
+                    checksum, data, data_serial)
         except ConflictError, err:
             # resolvable or not
             conn.answer(Packets.AnswerStoreObject(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
-            # If we are unlocking, we want queueEvent to raise
-            # AlreadyPendingError, to avoid making client wait for an unneeded
-            # response.
-            try:
-                self.app.queueEvent(self._askStoreObject, conn, (oid, serial,
-                    compression, checksum, data, data_serial, ttid,
-                    unlock, request_time), key=(oid, ttid),
-                    raise_on_duplicate=unlock)
-            except AlreadyPendingError:
-                conn.answer(Errors.AlreadyPending(dump(oid)))
+            self.app.queueEvent(self._askStoreObject, conn, (oid, serial,
+                compression, checksum, data, data_serial, ttid, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget store of %s:%s by %s delayed by %s',
@@ -105,7 +96,7 @@ class ClientOperationHandler(EventHandler):
             conn.answer(Packets.AnswerStoreObject(None))
 
     def askStoreObject(self, conn, oid, serial,
-            compression, checksum, data, data_serial, ttid, unlock):
+            compression, checksum, data, data_serial, ttid):
         if 1 < compression:
             raise ProtocolError('invalid compression value')
         # register the transaction
@@ -117,7 +108,7 @@ class ClientOperationHandler(EventHandler):
         else:
             checksum = data = None
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
-            data_serial, ttid, unlock, time.time())
+            data_serial, ttid, time.time())
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
@@ -186,11 +177,8 @@ class ClientOperationHandler(EventHandler):
             conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
-            try:
-                self.app.queueEvent(self._askCheckCurrentSerial, conn, (ttid,
-                    serial, oid, request_time), key=(oid, ttid))
-            except AlreadyPendingError:
-                conn.answer(Errors.AlreadyPending(dump(oid)))
+            self.app.queueEvent(self._askCheckCurrentSerial, conn,
+                (ttid, serial, oid, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget serial check of %s:%s by %s delayed by %s',

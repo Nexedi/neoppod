@@ -28,7 +28,6 @@ from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager
-from .exception import AlreadyPendingError
 from .handlers import identification, initialization
 from .handlers import master, hidden
 from .replicator import Replicator
@@ -70,7 +69,6 @@ class Application(BaseApplication):
 
         # operation related data
         self.event_queue = None
-        self.event_queue_dict = None
         self.operational = False
 
         # ready is True when operational and got all informations
@@ -190,7 +188,6 @@ class Application(BaseApplication):
                     conn.close()
             # create/clear event queue
             self.event_queue = deque()
-            self.event_queue_dict = {}
             try:
                 self.initialize()
                 self.doOperation()
@@ -308,28 +305,14 @@ class Application(BaseApplication):
             if not node.isHidden():
                 break
 
-    def queueEvent(self, some_callable, conn=None, args=(), key=None,
-            raise_on_duplicate=True):
-        event_queue_dict = self.event_queue_dict
-        n = event_queue_dict.get(key)
-        if n and raise_on_duplicate:
-            raise AlreadyPendingError()
+    def queueEvent(self, some_callable, conn=None, args=()):
         msg_id = None if conn is None else conn.getPeerId()
-        self.event_queue.append((key, some_callable, msg_id, conn, args))
-        if key is not None:
-            event_queue_dict[key] = n + 1 if n else 1
+        self.event_queue.append((some_callable, msg_id, conn, args))
 
     def executeQueuedEvents(self):
         p = self.event_queue.popleft
-        event_queue_dict = self.event_queue_dict
         for _ in xrange(len(self.event_queue)):
-            key, some_callable, msg_id, conn, args = p()
-            if key is not None:
-                n = event_queue_dict[key] - 1
-                if n:
-                    event_queue_dict[key] = n
-                else:
-                    del event_queue_dict[key]
+            some_callable, msg_id, conn, args = p()
             if conn is None:
                 some_callable(*args)
             elif not conn.isClosed():
@@ -344,9 +327,8 @@ class Application(BaseApplication):
         if self.event_queue is None:
             return
         logging.info("Pending events:")
-        for key, event, _msg_id, _conn, args in self.event_queue:
-            logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
-                _msg_id, _conn, args)
+        for event, msg_id, conn, args in self.event_queue:
+            logging.info('  %r: %r %r', event.__name__, msg_id, conn)
 
     def newTask(self, iterator):
         try:

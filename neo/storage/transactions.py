@@ -74,12 +74,6 @@ class Transaction(object):
         assert oid not in self.checked_set, dump(oid)
         self.store_dict[oid] = oid, data_id, value_serial
 
-    def cancel(self, oid):
-        try:
-            return self.store_dict.pop(oid)[1]
-        except KeyError:
-            self.checked_set.remove(oid)
-
 
 class TransactionManager(object):
     """
@@ -178,7 +172,7 @@ class TransactionManager(object):
     def getLockingTID(self, oid):
         return self._store_lock_dict.get(oid)
 
-    def lockObject(self, ttid, serial, oid, unlock=False):
+    def lockObject(self, ttid, serial, oid):
         """
             Take a write lock on given object, checking that "serial" is
             current.
@@ -188,19 +182,6 @@ class TransactionManager(object):
         """
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid)
-        if locking_tid == ttid and unlock:
-            logging.info('Deadlock resolution on %r:%r', dump(oid), dump(ttid))
-            # A duplicate store means client is resolving a deadlock, so
-            # drop the lock it held on this object, and drop object data for
-            # consistency.
-            del self._store_lock_dict[oid]
-            data_id = self._transaction_dict[ttid].cancel(oid)
-            if data_id:
-                self._app.dm.pruneData((data_id,))
-            # Give a chance to pending events to take that lock now.
-            self._app.executeQueuedEvents()
-            # Attemp to acquire lock again.
-            locking_tid = self._store_lock_dict.get(oid)
         if locking_tid is None:
             previous_serial = None
         elif locking_tid == ttid:
@@ -250,11 +231,11 @@ class TransactionManager(object):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        self.lockObject(ttid, serial, oid, unlock=True)
+        self.lockObject(ttid, serial, oid)
         transaction.check(oid)
 
     def storeObject(self, ttid, serial, oid, compression, checksum, data,
-            value_serial, unlock=False):
+            value_serial):
         """
             Store an object received from client node
         """
@@ -262,7 +243,7 @@ class TransactionManager(object):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        self.lockObject(ttid, serial, oid, unlock=unlock)
+        self.lockObject(ttid, serial, oid)
         # store object
         if data is None:
             data_id = None

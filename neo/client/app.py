@@ -417,8 +417,7 @@ class Application(ThreadedApplication):
         logging.debug('storing oid %s serial %s', dump(oid), dump(serial))
         self._store(self._txn_container.get(transaction), oid, serial, data)
 
-    def _store(self, txn_context, oid, serial, data, data_serial=None,
-            unlock=False):
+    def _store(self, txn_context, oid, serial, data, data_serial=None):
         ttid = txn_context['ttid']
         if data is None:
             # This is some undo: either a no-data object (undoing object
@@ -451,7 +450,7 @@ class Application(ThreadedApplication):
         involved_nodes = txn_context['involved_nodes']
         add_involved_nodes = involved_nodes.add
         packet = Packets.AskStoreObject(oid, serial, compression,
-            checksum, compressed_data, data_serial, ttid, unlock)
+            checksum, compressed_data, data_serial, ttid)
         for node, conn in self.cp.iterateForObject(oid):
             try:
                 conn.ask(packet, queue=queue, oid=oid, serial=serial)
@@ -499,27 +498,9 @@ class Application(ThreadedApplication):
                 # To recover, we must ask storages to release locks we
                 # hold (to let possibly-competing transactions acquire
                 # them), and requeue our already-sent store requests.
-                # XXX: currently, brute-force is implemented: we send
-                # object data again.
-                # WARNING: not maintained code
                 logging.info('Deadlock avoidance triggered on %r:%r',
                     dump(oid), dump(serial))
-                for store_oid, store_data in data_dict.iteritems():
-                    store_serial = object_serial_dict[store_oid]
-                    if store_data is CHECKED_SERIAL:
-                        self._checkCurrentSerialInTransaction(txn_context,
-                            store_oid, store_serial)
-                    else:
-                        if store_data is None:
-                            # Some undo
-                            logging.warning('Deadlock avoidance cannot reliably'
-                                ' work with undo, this must be implemented.')
-                            conflict_serial = ZERO_TID
-                            break
-                        self._store(txn_context, store_oid, store_serial,
-                            store_data, unlock=True)
-                else:
-                    continue
+                raise NotImplementedError
             else:
                 data = data_dict.pop(oid)
                 if data is CHECKED_SERIAL:

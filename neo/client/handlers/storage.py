@@ -156,7 +156,3 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerFinalTID(self, conn, tid):
         self.app.setHandlerData(tid)
-
-    def alreadyPendingError(self, conn, message):
-        pass
-

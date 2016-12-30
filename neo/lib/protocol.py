@@ -71,7 +71,6 @@ def ErrorCodes():
     OID_DOES_NOT_EXIST
     PROTOCOL_ERROR
     BROKEN_NODE
-    ALREADY_PENDING
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
@@ -954,7 +953,6 @@ class StoreObject(Packet):
         PString('data'),
         PTID('data_serial'),
         PTID('tid'),
-        PBoolean('unlock'),
     )
 
     _answer = PStruct('answer_store_object',
