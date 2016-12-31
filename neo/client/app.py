@@ -80,14 +80,12 @@ class TransactionContainer(dict):
             # data stored: this will go to the cache on tpc_finish
             'cache_dict': {},
             'cache_size': 0,
-            # serial being stored
-            'object_serial_dict': {},            # {oid: serial}
             # track successful stores/checks
             'object_stored_counter_dict': {},    # {oid: {serial: {storage_id}}}
             # conflicts to resolve
-            'conflict_serial_dict': {},          # {oid: {serial}}
+            'conflict_dict': {},                 # {oid: (base_serial, serial)}
             # resolved conflicts
-            'resolved_conflict_serial_dict': {}, # {oid: {serial}}
+            'resolved_dict': {},                 # {oid: serial}
             # nodes with at least 1 store (object or transaction)
             'involved_nodes': set(),             # {node}
             # nodes with at least 1 check
@@ -441,7 +439,6 @@ class Application(ThreadedApplication):
         txn_context['data_dict'][oid] = data
         # Store data on each node
         txn_context['object_stored_counter_dict'][oid] = {}
-        txn_context['object_serial_dict'][oid] = serial
         queue = txn_context['queue']
         involved_nodes = txn_context['involved_nodes']
         add_involved_nodes = involved_nodes.add
@@ -461,19 +458,17 @@ class Application(ThreadedApplication):
         self._waitAnyTransactionMessage(txn_context, False)
 
     def _handleConflicts(self, txn_context, tryToResolveConflict):
-        result = []
-        append = result.append
-        # Check for conflicts
         data_dict = txn_context['data_dict']
-        object_serial_dict = txn_context['object_serial_dict']
-        conflict_serial_dict = txn_context['conflict_serial_dict'].copy()
-        txn_context['conflict_serial_dict'].clear()
-        resolved_conflict_serial_dict = txn_context[
-            'resolved_conflict_serial_dict']
-        for oid, conflict_serial_set in conflict_serial_dict.iteritems():
-            conflict_serial = max(conflict_serial_set)
-            serial = object_serial_dict[oid]
-            if ZERO_TID in conflict_serial_set:
+        pop_conflict = txn_context['conflict_dict'].popitem
+        resolved_dict = txn_context['resolved_dict']
+        while 1:
+            # We iterate over conflict_dict, and clear it,
+            # because new items may be added by calls to _store.
+            try:
+                oid, (serial, conflict_serial) = pop_conflict()
+            except KeyError:
+                return
+            if conflict_serial == ZERO_TID:
               if 1:
                 # XXX: disable deadlock avoidance code until it is fixed
                 logging.info('Deadlock avoidance on %r:%r',
@@ -484,6 +479,7 @@ class Application(ThreadedApplication):
                 try:
                     data = data_dict[oid]
                 except KeyError:
+                    # succesfully stored on another storage node
                     data = txn_context['cache_dict'][oid]
               else:
                 # Storage refused us from taking object lock, to avoid a
@@ -505,13 +501,6 @@ class Application(ThreadedApplication):
                 # TODO: data can be None if a conflict happens during undo
                 if data:
                     txn_context['data_size'] -= len(data)
-                resolved_serial_set = resolved_conflict_serial_dict.setdefault(
-                    oid, set())
-                if resolved_serial_set and conflict_serial <= max(
-                        resolved_serial_set):
-                    # A later serial has already been resolved, skip.
-                    resolved_serial_set.update(conflict_serial_set)
-                    continue
                 if self.last_tid < conflict_serial:
                     self.sync() # possible late invalidation (very rare)
                 try:
@@ -526,16 +515,14 @@ class Application(ThreadedApplication):
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
                     # Mark this conflict as resolved
-                    resolved_serial_set.update(conflict_serial_set)
+                    resolved_dict[oid] = conflict_serial
                     # Try to store again
                     self._store(txn_context, oid, conflict_serial, new_data)
-                    append(oid)
                     continue
             # With recent ZODB, get_pickle_metadata (from ZODB.utils) does
             # not support empty values, so do not pass 'data' in this case.
             raise ConflictError(oid=oid, serials=(conflict_serial,
                 serial), data=data or None)
-        return result
 
     def waitResponses(self, queue):
         """Wait for all requests to be answered (or their connection to be
@@ -546,24 +533,17 @@ class Application(ThreadedApplication):
             _waitAnyMessage(queue)
 
     def waitStoreResponses(self, txn_context, tryToResolveConflict):
-        result = []
-        append = result.append
-        resolved_oid_set = set()
-        update = resolved_oid_set.update
         _handleConflicts = self._handleConflicts
         queue = txn_context['queue']
-        conflict_serial_dict = txn_context['conflict_serial_dict']
+        conflict_dict = txn_context['conflict_dict']
         pending = self.dispatcher.pending
         _waitAnyTransactionMessage = self._waitAnyTransactionMessage
-        while pending(queue) or conflict_serial_dict:
+        while pending(queue) or conflict_dict:
             # Note: handler data can be overwritten by _handleConflicts
             # so we must set it for each iteration.
             _waitAnyTransactionMessage(txn_context)
-            if conflict_serial_dict:
-                conflicts = _handleConflicts(txn_context,
-                    tryToResolveConflict)
-                if conflicts:
-                    update(conflicts)
+            if conflict_dict:
+                _handleConflicts(txn_context, tryToResolveConflict)
 
         # Check for never-stored objects, and update result for all others
         for oid, store_dict in \
@@ -571,9 +551,10 @@ class Application(ThreadedApplication):
             if not store_dict:
                 logging.error('tpc_store failed')
                 raise NEOStorageError('tpc_store failed')
-            elif oid in resolved_oid_set:
-                append((oid, ResolvedSerial) if OLD_ZODB else oid)
-        return result
+        if OLD_ZODB:
+            return [(oid, ResolvedSerial)
+                for oid in txn_context['resolved_dict']]
+        return txn_context['resolved_dict']
 
     def tpc_vote(self, transaction, tryToResolveConflict):
         """Store current transaction."""
@@ -950,7 +931,6 @@ class Application(ThreadedApplication):
 
     def _checkCurrentSerialInTransaction(self, txn_context, oid, serial):
         ttid = txn_context['ttid']
-        txn_context['object_serial_dict'][oid] = serial
         # Placeholders
         queue = txn_context['queue']
         txn_context['object_stored_counter_dict'][oid] = {}

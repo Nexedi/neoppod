@@ -72,17 +72,17 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # receive the conflict answer from the first store on S2.
             logging.info('%r report a conflict for %r with %r',
                          conn, dump(oid), dump(conflict))
-            # If this conflict is not already resolved, mark it for
-            # resolution.
-            if conflict not in txn_context[
-                    'resolved_conflict_serial_dict'].get(oid, ()):
-                if ZERO_TID != conflict in object_stored_counter_dict:
+            if conflict != ZERO_TID:
+                # If this conflict is not already resolved, mark it for
+                # resolution.
+                if conflict <= txn_context['resolved_dict'].get(oid, ZERO_TID):
+                    return
+                if conflict in object_stored_counter_dict:
                     raise NEOStorageError('Storages %s accepted object %s'
                         ' for serial %s but %s reports a conflict for it.' % (
                         map(dump, object_stored_counter_dict[conflict]),
                         dump(oid), dump(conflict), dump(conn.getUUID())))
-                conflict_serial_dict = txn_context['conflict_serial_dict']
-                conflict_serial_dict.setdefault(oid, set()).add(conflict)
+            txn_context['conflict_dict'][oid] = serial, conflict
         else:
             uuid_set = object_stored_counter_dict.get(serial)
             if uuid_set is None: # store to first storage node
