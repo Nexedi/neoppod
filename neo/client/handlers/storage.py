@@ -66,6 +66,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
         object_stored_counter_dict = txn_context[
             'object_stored_counter_dict'][oid]
         if conflict:
+            # Conflicts can not be resolved now because 'conn' is locked.
+            # We must postpone the resolution (by queuing the conflict in
+            # 'conflict_dict') to avoid any deadlock with another thread that
+            # also resolves a conflict successfully to the same storage nodes.
             # Warning: if a storage (S1) is much faster than another (S2), then
             # we may process entirely a conflict with S1 (i.e. we received the
             # answer to the store of the resolved object on S1) before we

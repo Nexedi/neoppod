@@ -1362,5 +1362,22 @@ class Test(NEOThreadedTest):
                 ll()
             t.join()
 
+    @with_cluster()
+    def testSameNewOidAndConflictOnBigValue(self, cluster):
+        storage = cluster.getZODBStorage()
+        oid = storage.new_oid()
+
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        storage.store(oid, None, 'foo', '', txn)
+        storage.tpc_vote(txn)
+        storage.tpc_finish(txn)
+
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        storage.store(oid, None, '*' * storage._cache._max_size, '', txn)
+        self.assertRaises(POSException.ConflictError, storage.tpc_vote, txn)
+
+
 if __name__ == "__main__":
     unittest.main()

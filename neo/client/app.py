@@ -455,6 +455,9 @@ class Application(ThreadedApplication):
 
         while txn_context['data_size'] >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
+            # Do not loop forever if conflicts happen on a big amount of data.
+            if not self.dispatcher.pending(queue):
+                return
         self._waitAnyTransactionMessage(txn_context, False)
 
     def _handleConflicts(self, txn_context, tryToResolveConflict):
