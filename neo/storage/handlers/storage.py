@@ -147,7 +147,7 @@ class StorageOperationHandler(EventHandler):
     def askCheckTIDRange(self, conn, *args):
         app = self.app
         if app.tm.isLockedTid(args[3]): # max_tid
-            app.queueEvent(self.askCheckTIDRange, conn, args)
+            app.tm.queueEvent(self.askCheckTIDRange, conn, args)
             return
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
@@ -187,7 +187,7 @@ class StorageOperationHandler(EventHandler):
             #   NotifyTransactionFinished(M->S) + AskFetchTransactions(S->S)
             # is faster than
             #   NotifyUnlockInformation(M->S)
-            app.queueEvent(self.askFetchTransactions, conn,
+            app.tm.queueEvent(self.askFetchTransactions, conn,
                 (partition, length, min_tid, max_tid, tid_list))
             return
         msg_id = conn.getPeerId()

@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+from ..app import monotonic_time
 from . import MasterHandler
 from neo.lib.handler import EventHandler
 from neo.lib.exception import ElectionFailure, PrimaryFailure
@@ -38,7 +39,7 @@ class SecondaryMasterHandler(MasterHandler):
 
     def _notifyNodeInformation(self, conn):
         node_list = [n.asTuple() for n in self.app.nm.getMasterList()]
-        conn.notify(Packets.NotifyNodeInformation(node_list))
+        conn.notify(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
 class PrimaryHandler(EventHandler):
     """ Handler used by secondaries to handle primary master"""
@@ -72,8 +73,9 @@ class PrimaryHandler(EventHandler):
     def notifyClusterInformation(self, conn, state):
         self.app.cluster_state = state
 
-    def notifyNodeInformation(self, conn, node_list):
-        super(PrimaryHandler, self).notifyNodeInformation(conn, node_list)
+    def notifyNodeInformation(self, conn, timestamp, node_list):
+        super(PrimaryHandler, self).notifyNodeInformation(
+            conn, timestamp, node_list)
         for node_type, _, uuid, state, _ in node_list:
             assert node_type == NodeTypes.MASTER, node_type
             if uuid == self.app.uuid and state == NodeStates.UNKNOWN:

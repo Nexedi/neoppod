@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
+from ..app import monotonic_time
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
@@ -36,7 +37,7 @@ class ClientServiceHandler(MasterHandler):
         node_list = [nm.getByUUID(conn.getUUID()).asTuple()] # for id_timestamp
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.notify(Packets.NotifyNodeInformation(node_list))
+        conn.notify(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askBeginTransaction(self, conn, tid):
         """

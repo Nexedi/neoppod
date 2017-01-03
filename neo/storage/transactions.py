@@ -16,6 +16,7 @@
 
 from time import time
 from neo.lib import logging
+from neo.lib.handler import EventQueue
 from neo.lib.util import dump
 from neo.lib.protocol import ProtocolError, uuid_str, ZERO_TID
 
@@ -75,12 +76,13 @@ class Transaction(object):
         self.store_dict[oid] = oid, data_id, value_serial
 
 
-class TransactionManager(object):
+class TransactionManager(EventQueue):
     """
         Manage pending transaction and locks
     """
 
     def __init__(self, app):
+        EventQueue.__init__(self)
         self._app = app
         self._transaction_dict = {}
         self._store_lock_dict = {}
@@ -109,6 +111,7 @@ class TransactionManager(object):
         """
             Reset the transaction manager
         """
+        EventQueue.__init__(self)
         self._transaction_dict.clear()
         self._store_lock_dict.clear()
         self._load_lock_dict.clear()
@@ -290,7 +293,7 @@ class TransactionManager(object):
         # remove the transaction
         del self._transaction_dict[ttid]
         # some locks were released, some pending locks may now succeed
-        self._app.executeQueuedEvents()
+        self.executeQueuedEvents()
 
     def abortFor(self, uuid):
         """
@@ -319,6 +322,7 @@ class TransactionManager(object):
         logging.info('  Write locks:')
         for oid, ttid in self._store_lock_dict.iteritems():
             logging.info('    %r by %r', dump(oid), dump(ttid))
+        self.logQueuedEvents()
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial, data_id):
         lock_tid = self.getLockingTID(oid)

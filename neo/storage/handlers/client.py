@@ -41,7 +41,7 @@ class ClientOperationHandler(EventHandler):
         app = self.app
         if app.tm.loadLocked(oid):
             # Delay the response.
-            app.queueEvent(self.askObject, conn, (oid, serial, tid))
+            app.tm.queueEvent(self.askObject, conn, (oid, serial, tid))
             return
         o = app.dm.getObject(oid, serial, tid)
         try:
@@ -79,7 +79,7 @@ class ClientOperationHandler(EventHandler):
             conn.answer(Packets.AnswerStoreObject(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
-            self.app.queueEvent(self._askStoreObject, conn, (oid, serial,
+            self.app.tm.queueEvent(self._askStoreObject, conn, (oid, serial,
                 compression, checksum, data, data_serial, ttid, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event
@@ -156,7 +156,7 @@ class ClientOperationHandler(EventHandler):
         app = self.app
         if app.tm.loadLocked(oid):
             # Delay the response.
-            app.queueEvent(self.askObjectHistory, conn, (oid, first, last))
+            app.tm.queueEvent(self.askObjectHistory, conn, (oid, first, last))
             return
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
@@ -177,7 +177,7 @@ class ClientOperationHandler(EventHandler):
             conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
         except DelayedError:
             # locked by a previous transaction, retry later
-            self.app.queueEvent(self._askCheckCurrentSerial, conn,
+            self.app.tm.queueEvent(self._askCheckCurrentSerial, conn,
                 (ttid, serial, oid, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event

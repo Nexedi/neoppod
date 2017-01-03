@@ -39,6 +39,7 @@ from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.client import ClientOperationHandler
+from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
 
 class PCounter(Persistent):
@@ -1093,18 +1094,28 @@ class Test(NEOThreadedTest):
 
     @with_cluster()
     def testRecycledClientUUID(self, cluster):
-        def notReady(orig, *args):
-            m2s.discard(delayNotifyInformation)
-            return orig(*args)
-        if 1:
-            cluster.getTransaction()
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                delayNotifyInformation = m2s.delayNotifyNodeInformation()
-                cluster.client.master_conn.close()
-                with cluster.newClient() as client, Patch(
-                        client.storage_bootstrap_handler, notReady=notReady):
-                    x = client.load(ZERO_TID)
-                self.assertNotIn(delayNotifyInformation, m2s)
+        l = threading.Semaphore(0)
+        idle = []
+        def requestIdentification(orig, *args):
+            orig(*args)
+            idle.append(cluster.storage.em.isIdle())
+            l.release()
+        cluster.db
+        with cluster.master.filterConnection(cluster.storage) as m2s:
+            delayNotifyInformation = m2s.delayNotifyNodeInformation()
+            cluster.client.master_conn.close()
+            with cluster.newClient() as client:
+                with Patch(IdentificationHandler,
+                           requestIdentification=requestIdentification):
+                    load = self.newThread(client.load, ZERO_TID)
+                    l.acquire()
+                    m2s.remove(delayNotifyInformation) # 2 packets pending
+                    # Identification of the second client is retried
+                    # after each processed notification:
+                    l.acquire() # first client down
+                    l.acquire() # new client up
+                load.join()
+                self.assertEqual(idle, [1, 1, 0])
 
     @with_cluster(start_cluster=0, storage_count=3, autostart=3)
     def testAutostart(self, cluster):

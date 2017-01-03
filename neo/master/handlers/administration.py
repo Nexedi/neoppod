@@ -17,7 +17,7 @@
 import random
 
 from . import MasterHandler
-from ..app import StateChangedException
+from ..app import monotonic_time, StateChangedException
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.pt import PartitionTableException
@@ -103,7 +103,8 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
             if node.isConnected():
                 # notify itself so it can shutdown
-                node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
+                node.notify(Packets.NotifyNodeInformation(
+                    monotonic_time(), [node.asTuple()]))
                 # close to avoid handle the closure as a connection lost
                 node.getConnection().abort()
             if keep:
@@ -121,7 +122,8 @@ class AdministrationHandler(MasterHandler):
             # ignores non-running nodes
             assert not node.isRunning()
             if node.isConnected():
-                node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
+                node.notify(Packets.NotifyNodeInformation(
+                    monotonic_time(), [node.asTuple()]))
             app.broadcastNodesInformation([node])
 
     def addPendingNodes(self, conn, uuid_list):

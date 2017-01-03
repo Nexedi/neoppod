@@ -20,11 +20,9 @@
       could become UP_TO_DATE with appropriate backup_tid, so that the cluster
       stays operational. (FEATURE)
     - Finish renaming UUID into NID everywhere (CODE)
-    - Implements delayed connection acceptation.
+    - Delayed connection acceptation even when a storage node is not ready ?
       Currently, any node that connects too early to another that is busy for
-      some reasons is immediately rejected with the 'not ready' error code. This
-      should be replaced by a queue in the listening node that keep a pool a
-      nodes that will be accepted late, when the conditions will be satisfied.
+      some reasons is immediately rejected with the 'not ready' error code.
       This is mainly the case for :
         - Client rejected before the cluster is operational
         - Empty storages rejected during recovery process

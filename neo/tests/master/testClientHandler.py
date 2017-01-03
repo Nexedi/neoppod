@@ -19,8 +19,8 @@ from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.util import p64
 from neo.lib.protocol import NodeTypes, NodeStates, Packets
-from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
+from neo.master.handlers.client import ClientServiceHandler
 
 class MasterClientHandlerTests(NeoUnitTestBase):
 

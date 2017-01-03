@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+from collections import deque
 from . import logging
 from .connection import ConnectionClosed
 from .protocol import (
@@ -166,9 +167,9 @@ class EventHandler(object):
             return
         conn.close()
 
-    def notifyNodeInformation(self, conn, node_list):
+    def notifyNodeInformation(self, conn, *args):
         app = self.app
-        app.nm.update(app, node_list)
+        app.nm.update(app, *args)
 
     def ping(self, conn):
         conn.answer(Packets.Pong())
@@ -265,3 +266,33 @@ class AnswerBaseHandler(EventHandler):
 
     def connectionClosed(self, conn):
         raise ConnectionClosed
+
+
+class EventQueue(object):
+
+    def __init__(self):
+        self._event_queue = deque()
+
+    def queueEvent(self, some_callable, conn=None, args=()):
+        msg_id = None if conn is None else conn.getPeerId()
+        self._event_queue.append((some_callable, msg_id, conn, args))
+
+    def executeQueuedEvents(self):
+        p = self._event_queue.popleft
+        for _ in xrange(len(self._event_queue)):
+            some_callable, msg_id, conn, args = p()
+            if conn is None:
+                some_callable(*args)
+            elif not conn.isClosed():
+                orig_msg_id = conn.getPeerId()
+                try:
+                    conn.setPeerId(msg_id)
+                    some_callable(conn, *args)
+                finally:
+                    conn.setPeerId(orig_msg_id)
+
+    def logQueuedEvents(self):
+        if self._event_queue:
+            logging.info(" Pending events:")
+            for event, msg_id, conn, args in self._event_queue:
+                logging.info('  %r: %r %r', event.__name__, msg_id, conn)

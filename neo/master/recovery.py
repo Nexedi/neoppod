@@ -16,6 +16,7 @@
 
 from neo.lib import logging
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
+from .app import monotonic_time
 from .handlers import MasterHandler
 
 
@@ -170,8 +171,9 @@ class RecoveryManager(MasterHandler):
                 new_nodes = app.pt.load(ptid, row_list, app.nm)
             except IndexError:
                 raise ProtocolError('Invalid offset')
-            self._notifyAdmins(Packets.NotifyNodeInformation(new_nodes),
-                               Packets.SendPartitionTable(ptid, row_list))
+            self._notifyAdmins(
+                Packets.NotifyNodeInformation(monotonic_time(), new_nodes),
+                Packets.SendPartitionTable(ptid, row_list))
             self.ask_pt = ()
             uuid = conn.getUUID()
             app.backup_tid = self.backup_tid_dict[uuid]

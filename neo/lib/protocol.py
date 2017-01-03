@@ -1148,6 +1148,7 @@ class NotifyNodeInformation(Packet):
     Notify information about one or more nodes. PM -> Any.
     """
     _fmt = PStruct('notify_node_informations',
+        PFloat('id_timestamp'),
         PFNodeList,
     )
 
@@ -1748,3 +1749,8 @@ def formatNodeList(node_list, prefix='', _sort_key=itemgetter(2)):
                     for i in xrange(len(node_list[0]) - 1))
         return map((prefix + t + '%s').__mod__, node_list)
     return ()
+
+NotifyNodeInformation._neolog = staticmethod(lambda timestamp, node_list:
+    ((timestamp,), formatNodeList(node_list, ' ! ')))
+
+Error._neolog = staticmethod(lambda *args: ((), ("%s (%s)" % args,)))

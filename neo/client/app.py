@@ -225,6 +225,7 @@ class Application(ThreadedApplication):
             self.ignore_invalidations = True
             # Get network connection to primary master
             while 1:
+                self.nm.reset()
                 if self.primary_master_node is not None:
                     # If I know a primary master node, pinpoint it.
                     self.trying_master_node = self.primary_master_node

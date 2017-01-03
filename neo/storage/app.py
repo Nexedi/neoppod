@@ -68,7 +68,6 @@ class Application(BaseApplication):
         self.master_node = None
 
         # operation related data
-        self.event_queue = None
         self.operational = False
 
         # ready is True when operational and got all informations
@@ -93,7 +92,6 @@ class Application(BaseApplication):
 
     def log(self):
         self.em.log()
-        self.logQueuedEvents()
         self.nm.log()
         self.tm.log()
         if self.pt is not None:
@@ -186,8 +184,6 @@ class Application(BaseApplication):
             for conn in self.em.getConnectionList():
                 if conn not in (self.listening_conn, self.master_conn):
                     conn.close()
-            # create/clear event queue
-            self.event_queue = deque()
             try:
                 self.initialize()
                 self.doOperation()
@@ -304,31 +300,6 @@ class Application(BaseApplication):
             _poll()
             if not node.isHidden():
                 break
-
-    def queueEvent(self, some_callable, conn=None, args=()):
-        msg_id = None if conn is None else conn.getPeerId()
-        self.event_queue.append((some_callable, msg_id, conn, args))
-
-    def executeQueuedEvents(self):
-        p = self.event_queue.popleft
-        for _ in xrange(len(self.event_queue)):
-            some_callable, msg_id, conn, args = p()
-            if conn is None:
-                some_callable(*args)
-            elif not conn.isClosed():
-                orig_msg_id = conn.getPeerId()
-                try:
-                    conn.setPeerId(msg_id)
-                    some_callable(conn, *args)
-                finally:
-                    conn.setPeerId(orig_msg_id)
-
-    def logQueuedEvents(self):
-        if self.event_queue is None:
-            return
-        logging.info("Pending events:")
-        for event, msg_id, conn, args in self.event_queue:
-            logging.info('  %r: %r %r', event.__name__, msg_id, conn)
 
     def newTask(self, iterator):
         try:
