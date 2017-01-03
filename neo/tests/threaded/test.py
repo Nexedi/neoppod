@@ -431,6 +431,43 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testDelayedLoad(self):
+        """
+        Check that a storage node delays reads from the database,
+        when the requested data may still be in a temporary place.
+        """
+        l = threading.Lock()
+        l.acquire()
+        idle = []
+        def askObject(orig, *args):
+            orig(*args)
+            idle.append(cluster.storage.em.isIdle())
+            l.release()
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            r = c.root()
+            r[''] = ''
+            with Patch(ClientOperationHandler, askObject=askObject):
+                with cluster.master.filterConnection(cluster.storage) as m2s:
+                    m2s.add(lambda conn, packet: # delay unlock
+                        isinstance(packet, Packets.NotifyUnlockInformation))
+                    t.commit()
+                    c.cacheMinimize()
+                    cluster.client._cache.clear()
+                    load = self.newThread(r._p_activate)
+                    l.acquire()
+                l.acquire()
+                # The request from the client is processed again
+                # (upon reception on unlock notification from the master),
+                # once exactly, and now with success.
+            load.join()
+            self.assertEqual(idle, [1, 0])
+            self.assertIn('', r)
+        finally:
+            cluster.stop()
+
     def test_notifyNodeInformation(self):
         # translated from MasterNotificationsHandlerTests
         # (neo.tests.client.testMasterHandler)

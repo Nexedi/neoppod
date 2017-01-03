@@ -16,12 +16,11 @@
 
 import unittest
 from mock import Mock, ReturnValues
-from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.lib.util import p64
-from neo.lib.protocol import INVALID_TID, INVALID_OID, Packets, LockState
+from neo.lib.protocol import INVALID_TID, Packets, LockState
 
 class StorageClientHandlerTests(NeoUnitTestBase):
 
@@ -31,11 +30,6 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
-        self.app.transaction_dict = {}
-        self.app.store_lock_dict = {}
-        self.app.load_lock_dict = {}
-        self.app.event_queue = deque()
-        self.app.event_queue_dict = {}
         self.app.tm = Mock({'__contains__': True})
         # handler
         self.operation = ClientOperationHandler(self.app)
@@ -59,19 +53,6 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock({'getNumPartitions': 1})
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkErrorPacket(conn)
-
-    def test_24_askObject1(self):
-        # delayed response
-        conn = self._getConnection()
-        self.app.dm = Mock()
-        self.app.tm = Mock({'loadLocked': True})
-        self.app.load_lock_dict[INVALID_OID] = object()
-        self.assertEqual(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_TID, tid=INVALID_TID)
-        self.assertEqual(len(self.app.event_queue), 1)
-        self.checkNoPacketSent(conn)
-        self.assertEqual(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
 
     def test_25_askTIDs1(self):
         # invalid offsets => error
@@ -110,7 +91,6 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         undone_tid = self.getNextTID()
         # Keep 2 entries here, so we check findUndoTID is called only once.
         oid_list = map(p64, (1, 2))
-        obj2_data = [] # Marker
         self.app.tm = Mock({
             'getObjectFromTransaction': None,
         })
