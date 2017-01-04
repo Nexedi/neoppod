@@ -502,6 +502,7 @@ class ReplicationTests(NEOThreadedTest):
             storage = cluster.getZODBStorage()
             oid = storage.new_oid()
             tid = None
+            expected = 'UO'
             for n in 1, 0:
                 # On first iteration, the transaction will block replication
                 # until tpc_finish.
@@ -517,12 +518,13 @@ class ReplicationTests(NEOThreadedTest):
                     cluster.enableStorageList((s1,))
                     cluster.neoctl.tweakPartitionTable()
                 self.tic()
-                self.assertEqual(n, len(cluster.getOutdatedCells()))
+                self.assertPartitionTable(cluster, expected)
                 storage.tpc_vote(txn)
-                self.assertEqual(n, len(cluster.getOutdatedCells()))
+                self.assertPartitionTable(cluster, expected)
                 tid = storage.tpc_finish(txn)
                 self.tic() # replication resumes and ends
-                self.assertFalse(cluster.getOutdatedCells())
+                expected = 'UU'
+                self.assertPartitionTable(cluster, expected)
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
         finally:

@@ -929,6 +929,9 @@ class NEOThreadedTest(NeoTestBase):
         with Patch(client, _getFinalTID=lambda *_: None):
             self.assertRaises(ConnectionClosed, txn.commit)
 
+    def assertPartitionTable(self, cluster, stats):
+        self.assertEqual(stats, '|'.join(cluster.admin.pt.formatRows()))
+
 
 def predictable_random(seed=None):
     # Because we have 2 running threads when client works, we can't
