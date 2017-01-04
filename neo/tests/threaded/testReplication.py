@@ -494,6 +494,40 @@ class ReplicationTests(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def testReplicationBlockedByUnfinished(self):
+        cluster = NEOCluster(replicas=1)
+        try:
+            s0, s1 = cluster.storage_list
+            cluster.start(storage_list=(s0,))
+            storage = cluster.getZODBStorage()
+            oid = storage.new_oid()
+            tid = None
+            for n in 1, 0:
+                # On first iteration, the transaction will block replication
+                # until tpc_finish.
+                # We do a second iteration as a quick check that the cluster
+                # remains functional after such a scenario.
+                txn = transaction.Transaction()
+                storage.tpc_begin(txn)
+                tid = storage.store(oid, tid, 'foo', '', txn)
+                if n:
+                    # Start the outdated storage.
+                    s1.start()
+                    self.tic()
+                    cluster.enableStorageList((s1,))
+                    cluster.neoctl.tweakPartitionTable()
+                self.tic()
+                self.assertEqual(n, len(cluster.getOutdatedCells()))
+                storage.tpc_vote(txn)
+                self.assertEqual(n, len(cluster.getOutdatedCells()))
+                tid = storage.tpc_finish(txn)
+                self.tic() # replication resumes and ends
+                self.assertFalse(cluster.getOutdatedCells())
+            self.assertEqual(cluster.neoctl.getClusterState(),
+                             ClusterStates.RUNNING)
+        finally:
+            cluster.stop()
+
     def testCheckReplicas(self):
         from neo.storage import checker
         def corrupt(offset):
