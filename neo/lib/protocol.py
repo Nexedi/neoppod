@@ -940,10 +940,12 @@ class StoreObject(Packet):
     """
     Ask to store an object. Send an OID, an original serial, a current
     transaction ID, and data. C -> S.
-    Answer if an object has been stored. If an object is in conflict,
-    a serial of the conflicting transaction is returned. In this case,
-    if this serial is newer than the current transaction ID, a client
-    node must not try to resolve the conflict. S -> C.
+    As for IStorage, 'serial' is ZERO_TID for new objects.
+    Answered 'conflict' value means:
+    - None: lockless
+    - serial: ok
+    - MAX_TID: deadlock
+    - else: conflict
     """
     _fmt = PStruct('ask_store_object',
         POID('oid'),

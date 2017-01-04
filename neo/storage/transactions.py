@@ -18,7 +18,7 @@ from time import time
 from neo.lib import logging
 from neo.lib.handler import EventQueue
 from neo.lib.util import dump
-from neo.lib.protocol import ProtocolError, uuid_str, ZERO_TID
+from neo.lib.protocol import Packets, ProtocolError, uuid_str, MAX_TID
 
 class ConflictError(Exception):
     """
@@ -87,6 +87,54 @@ class TransactionManager(EventQueue):
         self._transaction_dict = {}
         self._store_lock_dict = {}
         self._load_lock_dict = {}
+        self._replicated = {}
+        self._replicating = set()
+        from neo.lib.util import u64
+        np = app.pt.getPartitions()
+        self.getPartition = lambda oid: u64(oid) % np
+
+    def replicating(self, offset_list):
+        self._replicating.update(offset_list)
+        # TODO: The following assertions will fail if a replicated partition is
+        #       dropped and this partition is added again.
+        isdisjoint = set(offset_list).isdisjoint
+        assert isdisjoint(self._replicated), (offset_list, self._replicated)
+        assert isdisjoint(map(self.getPartition, self._store_lock_dict)), (
+            offset_list, self._store_lock_dict)
+        self._app.master_conn.ask(Packets.AskUnfinishedTransactions(),
+                                  offset_list=offset_list)
+
+    def replicated(self, partition, tid):
+        # also called for readable cells in BACKINGUP state
+        self._replicating.discard(partition)
+        self._replicated[partition] = tid
+        self._notifyReplicated()
+
+    def _notifyReplicated(self):
+        getPartition = self.getPartition
+        store_lock_dict = self._store_lock_dict
+        replicated = self._replicated
+        notify = set(replicated)
+        # We sort transactions so that in case of muliple stores/checks for the
+        # same oid, the lock is taken by the highest ttid, which will delay
+        # new transactions.
+        for ttid, txn in sorted(self._transaction_dict.iteritems()):
+            for oid in txn.store_dict, txn.checked_set:
+              for oid in oid:
+                partition = getPartition(oid)
+                if partition in replicated:
+                    if store_lock_dict.get(oid, ttid) != ttid:
+                        # We have a "multi-lock" store, i.e. an
+                        # initially-lockless store to a partition that became
+                        # replicated.
+                        notify.discard(partition)
+                    store_lock_dict[oid] = ttid
+        for partition in notify:
+            # For this partition, all oids of all pending transactions
+            # are now locked normally and we don't rely anymore on other
+            # readable cells to check locks: we're really up-to-date.
+            self._app.master_conn.notify(Packets.NotifyReplicationDone(
+                partition, replicated.pop(partition)))
 
     def register(self, conn, ttid):
         """
@@ -106,15 +154,6 @@ class TransactionManager(EventQueue):
             return self._transaction_dict[ttid].store_dict[oid]
         except KeyError:
             return None
-
-    def reset(self):
-        """
-            Reset the transaction manager
-        """
-        EventQueue.__init__(self)
-        self._transaction_dict.clear()
-        self._store_lock_dict.clear()
-        self._load_lock_dict.clear()
 
     def vote(self, ttid, txn_info=None):
         """
@@ -183,36 +222,56 @@ class TransactionManager(EventQueue):
                 DelayedError
                 ConflictError
         """
-        # check if the object if locked
-        locking_tid = self._store_lock_dict.get(oid)
-        if locking_tid is None:
-            previous_serial = None
-        elif locking_tid == ttid:
+        partition = self.getPartition(oid)
+        if partition in self._replicating:
+            # We're out-of-date so maybe:
+            # - we don't have all data to check for conflicts
+            # - we missed stores/check that would lock this one
+            # However, this transaction may have begun after we started to
+            # replicate, and we're expected to store it in full.
+            # Since there's at least 1 other (readable) cell that will do this
+            # check, we accept this store/check without taking a lock.
+            return
+        locked = self._store_lock_dict.get(oid)
+        if locked:
+            if locked < ttid:
+                # We have a bigger "TTID" than locking transaction, so we are
+                # younger: enter waiting queue so we are handled when lock gets
+                # released. We also want to delay (instead of conflict) if the
+                # client is so faster that it is committing another transaction
+                # before we processed UnlockInformation from the master.
+                logging.info('Store delayed for %r:%r by %r', dump(oid),
+                             dump(ttid), dump(locked))
+                raise DelayedError
+            transaction = self._transaction_dict[ttid]
+            if partition in self._replicated and (
+               oid in transaction.store_dict or oid in transaction.checked_set):
+                # This is a consequence of not having taken a lock during
+                # replication. After a ConflictError, we may be asked to "lock"
+                # it again. The current lock is a special one that only delays
+                # new transactions.
+                # For the cluster, we're still out-of-date and like above,
+                # at least 1 other (readable) cell checks for conflicts.
+                return
+            if locked != ttid:
+                # We have a smaller "TTID" than locking transaction, so we are
+                # older: this is a possible deadlock case, as we might already
+                # hold locks the younger transaction is waiting upon. Tell
+                # client that all involved storage nodes must rebase the
+                # already locked oids for this transaction.
+                logging.info('Possible deadlock on %r:%r with %r',
+                             dump(oid), dump(ttid), dump(locked))
+                raise ConflictError(MAX_TID)
             # If previous store was an undo, next store must be based on
             # undo target.
-            previous_serial = self._transaction_dict[ttid].store_dict[oid][2]
+            previous_serial = transaction.store_dict[oid][2]
             if previous_serial is None:
                 # XXX: use some special serial when previous store was not
                 # an undo ? Maybe it should just not happen.
                 logging.info('Transaction %s storing %s more than once',
                              dump(ttid), dump(oid))
-        elif locking_tid < ttid:
-            # We have a bigger TTID than locking transaction, so we are younger:
-            # enter waiting queue so we are handled when lock gets released.
-            # We also want to delay (instead of conflict) if the client is
-            # so faster that it is committing another transaction before we
-            # processed UnlockInformation from the master.
-            logging.info('Store delayed for %r:%r by %r', dump(oid),
-                    dump(ttid), dump(locking_tid))
-            raise DelayedError
         else:
-            # We have a smaller TTID than locking transaction, so we are older:
-            # this is a possible deadlock case, as we might already hold locks
-            # the younger transaction is waiting upon. Make client release
-            # locks & reacquire them by notifying it of the possible deadlock.
-            logging.info('Possible deadlock on %r:%r with %r',
-                dump(oid), dump(ttid), dump(locking_tid))
-            raise ConflictError(ZERO_TID)
+            previous_serial = None
         # XXX: Consider locking before reporting a conflict:
         #      - That would speed up the case of cascading conflict resolution
         #        by avoiding incremental resolution, assuming that the time to
@@ -228,14 +287,16 @@ class TransactionManager(EventQueue):
             raise ConflictError(previous_serial)
         logging.debug('Transaction %s storing %s', dump(ttid), dump(oid))
         self._store_lock_dict[oid] = ttid
+        return serial
 
     def checkCurrentSerial(self, ttid, serial, oid):
         try:
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        self.lockObject(ttid, serial, oid)
+        locked = self.lockObject(ttid, serial, oid)
         transaction.check(oid)
+        return locked
 
     def storeObject(self, ttid, serial, oid, compression, checksum, data,
             value_serial):
@@ -246,13 +307,14 @@ class TransactionManager(EventQueue):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        self.lockObject(ttid, serial, oid)
+        locked = self.lockObject(ttid, serial, oid)
         # store object
         if data is None:
             data_id = None
         else:
             data_id = self._app.dm.holdData(checksum, data, compression)
         transaction.store(oid, data_id, value_serial)
+        return locked
 
     def abort(self, ttid, even_if_locked=False):
         """
@@ -286,12 +348,24 @@ class TransactionManager(EventQueue):
                     assert lock_ttid in (ttid, None), ('Transaction %s tried'
                         ' to release the lock on oid %s, but it was held by %s'
                         % (dump(ttid), dump(oid), dump(lock_ttid)))
-                write_locking_tid = self._store_lock_dict.pop(oid)
+                try:
+                    write_locking_tid = self._store_lock_dict.pop(oid)
+                except KeyError:
+                    # Lockless store (we were replicating this partition).
+                    continue
+                if ttid < write_locking_tid:
+                    # Several lockless stores for this oid and among them,
+                    # a higher ttid is still pending.
+                    assert self.getPartition(oid) in self._replicated, (
+                        oid, ttid, write_locking_tid, self._replicated)
+                    continue
                 assert write_locking_tid == ttid, ('Inconsistent locking'
                     ' state: aborting %s:%s but %s has the lock.'
                     % (dump(ttid), dump(oid), dump(write_locking_tid)))
         # remove the transaction
         del self._transaction_dict[ttid]
+        if self._replicated:
+            self._notifyReplicated()
         # some locks were released, some pending locks may now succeed
         self.executeQueuedEvents()
 

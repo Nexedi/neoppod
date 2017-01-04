@@ -410,6 +410,8 @@ class Application(ThreadedApplication):
     def store(self, oid, serial, data, version, transaction):
         """Store object."""
         logging.debug('storing oid %s serial %s', dump(oid), dump(serial))
+        if not serial: # BBB
+            serial = ZERO_TID
         self._store(self._txn_container.get(transaction), oid, serial, data)
 
     def _store(self, txn_context, oid, serial, data, data_serial=None):
@@ -472,7 +474,7 @@ class Application(ThreadedApplication):
                 oid, (serial, conflict_serial) = pop_conflict()
             except KeyError:
                 return
-            if conflict_serial == ZERO_TID:
+            if conflict_serial == MAX_TID:
               if 1:
                 # XXX: disable deadlock avoidance code until it is fixed
                 logging.info('Deadlock avoidance on %r:%r',

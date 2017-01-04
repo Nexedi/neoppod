@@ -61,7 +61,9 @@
       partitions. Currently, reads succeed because feeding nodes don't delete
       anything while the cluster is operational, for performance reasons:
       deletion of dropped partitions must be reimplemented in a scalable way.
-      (HIGH AVAILABILITY)
+      The same thing happens for writes: storage nodes must discard
+      stores/checks of dropped partitions (in lockObject, that can be done by
+      raising ConflictError(None)). (HIGH AVAILABILITY)
 
     Storage
     - Use libmysqld instead of a stand-alone MySQL server.

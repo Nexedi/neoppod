@@ -72,7 +72,7 @@ class ClientOperationHandler(EventHandler):
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
             data_serial, ttid, request_time):
         try:
-            self.app.tm.storeObject(ttid, serial, oid, compression,
+            locked = self.app.tm.storeObject(ttid, serial, oid, compression,
                     checksum, data, data_serial)
         except ConflictError, err:
             # resolvable or not
@@ -93,7 +93,7 @@ class ClientOperationHandler(EventHandler):
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('StoreObject delay: %.02fs', duration)
-            conn.answer(Packets.AnswerStoreObject(None))
+            conn.answer(Packets.AnswerStoreObject(locked))
 
     def askStoreObject(self, conn, oid, serial,
             compression, checksum, data, data_serial, ttid):
@@ -171,7 +171,7 @@ class ClientOperationHandler(EventHandler):
 
     def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
         try:
-            self.app.tm.checkCurrentSerial(ttid, serial, oid)
+            locked = self.app.tm.checkCurrentSerial(ttid, serial, oid)
         except ConflictError, err:
             # resolvable or not
             conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
@@ -191,7 +191,7 @@ class ClientOperationHandler(EventHandler):
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
-            conn.answer(Packets.AnswerCheckCurrentSerial(None))
+            conn.answer(Packets.AnswerCheckCurrentSerial(locked))
 
 
 # like ClientOperationHandler but read-only & only for tid <= backup_tid

@@ -136,7 +136,7 @@ class Replicator(object):
         app = self.app
         pt = app.pt
         uuid = app.uuid
-        self.partition_dict = p = {}
+        self.partition_dict = {}
         self.replicate_dict = {}
         self.source_dict = {}
         self.ttid_set = set()
@@ -160,8 +160,7 @@ class Replicator(object):
                         p.next_trans = p.next_obj = next_tid
                         p.max_ttid = None
         if outdated_list:
-            self.app.master_conn.ask(Packets.AskUnfinishedTransactions(),
-                                     offset_list=outdated_list)
+            self.app.tm.replicating(outdated_list)
 
     def notifyPartitionChanges(self, cell_list):
         """This is a callback from MasterOperationHandler."""
@@ -190,8 +189,7 @@ class Replicator(object):
                     p.max_ttid = INVALID_TID
                     added_list.append(offset)
         if added_list:
-            self.app.master_conn.ask(Packets.AskUnfinishedTransactions(),
-                                     offset_list=added_list)
+            self.app.tm.replicating(added_list)
         if abort:
             self.abort()
 
@@ -326,8 +324,7 @@ class Replicator(object):
         p.next_obj = add64(tid, 1)
         self.updateBackupTID()
         if not p.max_ttid:
-            p = Packets.NotifyReplicationDone(offset, tid)
-            self.app.master_conn.notify(p)
+            self.app.tm.replicated(offset, tid)
         logging.debug("partition %u replicated up to %s from %r",
                       offset, dump(tid), self.current_node)
         self.getCurrentConnection().setReconnectionNoDelay()

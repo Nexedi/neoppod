@@ -33,7 +33,7 @@ from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID
 from .. import expectedFailure, Patch
-from . import LockLock, NEOThreadedTest, with_cluster
+from . import ConnectionFilter, LockLock, NEOThreadedTest, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -1351,11 +1351,11 @@ class Test(NEOThreadedTest):
         reports a conflict after that this conflict was fully resolved with
         another node.
         """
-        def answerStoreObject(orig, conn, conflict, **kw):
-            if not conflict:
+        def answerStoreObject(orig, conn, conflict, oid, serial):
+            if conflict == serial:
                 p.revert()
                 ll()
-            orig(conn, conflict, **kw)
+            orig(conn, conflict, oid, serial)
         if 1:
             s0, s1 = cluster.storage_list
             t1, c1 = cluster.getTransaction()
@@ -1388,6 +1388,36 @@ class Test(NEOThreadedTest):
         storage.tpc_begin(txn)
         storage.store(oid, None, '*' * storage._cache._max_size, '', txn)
         self.assertRaises(POSException.ConflictError, storage.tpc_vote, txn)
+
+    @with_cluster(replicas=1)
+    def testConflictWithOutOfDateCell(self, cluster):
+        """
+        C1         S1         S0         C2
+        begin      down                  begin
+                              U <------- commit
+                   up (remaining out-of-date due to suspended replication)
+        store ---> O (stored lockless)
+             `--------------> conflict
+        resolve -> stored lockless
+               `------------> locked
+        committed
+        """
+        s0, s1 = cluster.storage_list
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x = PCounterWithResolution()
+        t1.commit()
+        s1.stop()
+        cluster.join((s1,))
+        x.value += 1
+        t2, c2 = cluster.getTransaction()
+        c2.root()['x'].value += 2
+        t2.commit()
+        with ConnectionFilter() as f:
+            f.delayAskFetchTransactions()
+            s1.resetNode()
+            s1.start()
+            self.tic()
+            t1.commit()
 
 
 if __name__ == "__main__":

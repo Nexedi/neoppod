@@ -31,8 +31,8 @@ class MasterOperationHandler(BaseMasterHandler):
             dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
             dm.commit()
 
-    def notifyTransactionFinished(self, conn, *args, **kw):
-        self.app.replicator.transactionFinished(*args, **kw)
+    def notifyTransactionFinished(self, conn, *args):
+        self.app.replicator.transactionFinished(*args)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that

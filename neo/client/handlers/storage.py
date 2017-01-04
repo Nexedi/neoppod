@@ -17,7 +17,7 @@
 from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import MAX_TID
 from neo.lib.util import dump
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
@@ -62,10 +62,13 @@ class StorageAnswersHandler(AnswerBaseHandler):
         self.app.setHandlerData(args)
 
     def answerStoreObject(self, conn, conflict, oid, serial):
+        if not conflict:
+            # Ignore if not locked on storage side.
+            return
         txn_context = self.app.getHandlerData()
         object_stored_counter_dict = txn_context[
             'object_stored_counter_dict'][oid]
-        if conflict:
+        if conflict != serial:
             # Conflicts can not be resolved now because 'conn' is locked.
             # We must postpone the resolution (by queuing the conflict in
             # 'conflict_dict') to avoid any deadlock with another thread that
@@ -76,10 +79,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # receive the conflict answer from the first store on S2.
             logging.info('%r report a conflict for %r with %r',
                          conn, dump(oid), dump(conflict))
-            if conflict != ZERO_TID:
+            if conflict != MAX_TID:
                 # If this conflict is not already resolved, mark it for
                 # resolution.
-                if conflict <= txn_context['resolved_dict'].get(oid, ZERO_TID):
+                if conflict <= txn_context['resolved_dict'].get(oid, ''):
                     return
                 if conflict in object_stored_counter_dict:
                     raise NEOStorageError('Storages %s accepted object %s'

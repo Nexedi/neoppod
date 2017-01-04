@@ -38,13 +38,14 @@ from neo.lib.debug import register as registerLiveDebugger
 class Application(BaseApplication):
     """The storage node application."""
 
+    tm = None
+
     def __init__(self, config):
         super(Application, self).__init__(
             config.getSSL(), config.getDynamicMasterList())
         # set the cluster name
         self.name = config.getCluster()
 
-        self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(),
             (config.getDatabase(), config.getEngine(), config.getWait()),
         )
@@ -93,7 +94,8 @@ class Application(BaseApplication):
     def log(self):
         self.em.log()
         self.nm.log()
-        self.tm.log()
+        if self.tm:
+            self.tm.log()
         if self.pt is not None:
             self.pt.log()
 
@@ -184,6 +186,7 @@ class Application(BaseApplication):
             for conn in self.em.getConnectionList():
                 if conn not in (self.listening_conn, self.master_conn):
                     conn.close()
+            self.tm = TransactionManager(self)
             try:
                 self.initialize()
                 self.doOperation()
@@ -194,6 +197,7 @@ class Application(BaseApplication):
                 logging.error('primary master is down: %s', msg)
             finally:
                 self.checker = Checker(self)
+            del self.tm
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
@@ -256,7 +260,6 @@ class Application(BaseApplication):
 
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
-        self.tm.reset()
 
         self.task_queue = task_queue = deque()
         try:
