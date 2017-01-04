@@ -244,8 +244,8 @@ class Application(BaseApplication):
         while not self.operational:
             _poll()
         self.ready = True
-        self.replicator.populate()
         self.master_conn.notify(Packets.NotifyReady())
+        self.replicator.populate()
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""

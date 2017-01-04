@@ -51,6 +51,7 @@ from .verification import VerificationManager
 class Application(BaseApplication):
     """The master node application."""
     packing = None
+    storage_readiness = 0
     # Latest completely committed TID
     last_transaction = ZERO_TID
     backup_tid = None
@@ -66,7 +67,7 @@ class Application(BaseApplication):
         self.server = config.getBind()
         self.autostart = config.getAutostart()
 
-        self.storage_readiness = set()
+        self.storage_ready_dict = {}
         for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
 
@@ -574,11 +575,16 @@ class Application(BaseApplication):
         self.last_transaction = tid
 
     def setStorageNotReady(self, uuid):
-        self.storage_readiness.discard(uuid)
+        self.storage_ready_dict.pop(uuid, None)
 
     def setStorageReady(self, uuid):
-        self.storage_readiness.add(uuid)
+        if uuid not in self.storage_ready_dict:
+            self.storage_readiness = self.storage_ready_dict[uuid] = \
+                self.storage_readiness + 1
 
     def isStorageReady(self, uuid):
-        return uuid in self.storage_readiness
+        return uuid in self.storage_ready_dict
 
+    def getStorageReadySet(self, readiness):
+        return {k for k, v in self.storage_ready_dict.iteritems()
+                  if v <= readiness}

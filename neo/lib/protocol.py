@@ -75,6 +75,7 @@ def ErrorCodes():
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
     READ_ONLY_ACCESS
+    INCOMPLETE_TRANSACTION
 
 @Enum
 def ClusterStates():
@@ -862,6 +863,18 @@ class BeginTransaction(Packet):
         PTID('tid'),
     )
 
+class FailedVote(Packet):
+    """
+    Report storage nodes for which vote failed. C -> M
+    True is returned if it's still possible to finish the transaction.
+    """
+    _fmt = PStruct('failed_vote',
+        PTID('tid'),
+        PFUUIDList,
+    )
+
+    _answer = Error
+
 class FinishTransaction(Packet):
     """
     Finish a transaction. C -> PM.
@@ -1634,6 +1647,8 @@ class Packets(dict):
                     ValidateTransaction)
     AskBeginTransaction, AnswerBeginTransaction = register(
                     BeginTransaction)
+    FailedVote = register(
+                    FailedVote)
     AskFinishTransaction, AnswerTransactionFinished = register(
                     FinishTransaction, ignore_when_closed=False)
     AskLockInformation, AnswerInformationLocked = register(

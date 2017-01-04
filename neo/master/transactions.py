@@ -18,6 +18,7 @@ from collections import deque
 from time import time
 from struct import pack, unpack
 from neo.lib import logging
+from neo.lib.handler import EventQueue
 from neo.lib.protocol import ProtocolError, uuid_str, ZERO_OID, ZERO_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
 
@@ -31,16 +32,18 @@ class Transaction(object):
     _tid = None
     _msg_id = None
     _oid_list = None
+    _failed = frozenset()
     _prepared = False
     # uuid dict hold flag to known who has locked the transaction
     _uuid_set = None
     _lock_wait_uuid_set = None
 
-    def __init__(self, node, ttid):
+    def __init__(self, node, storage_readiness, ttid):
         """
             Prepare the transaction, set OIDs and UUIDs related to it
         """
         self._node = node
+        self._storage_readiness = storage_readiness
         self._ttid = ttid
         self._birth = time()
         # store storage uuids that must be notified at commit
@@ -113,13 +116,13 @@ class Transaction(object):
         """
         return list(self._notification_set)
 
-    def prepare(self, tid, oid_list, uuid_list, msg_id):
+    def prepare(self, tid, oid_list, uuid_set, msg_id):
 
         self._tid = tid
         self._oid_list = oid_list
         self._msg_id = msg_id
-        self._uuid_set = set(uuid_list)
-        self._lock_wait_uuid_set = set(uuid_list)
+        self._uuid_set = uuid_set
+        self._lock_wait_uuid_set = uuid_set.copy()
         self._prepared = True
 
     def storageLost(self, uuid):
@@ -163,7 +166,7 @@ class Transaction(object):
         return not self._lock_wait_uuid_set
 
 
-class TransactionManager(object):
+class TransactionManager(EventQueue):
     """
         Manage current transactions
     """
@@ -173,6 +176,7 @@ class TransactionManager(object):
         self.reset()
 
     def reset(self):
+        EventQueue.__init__(self)
         # ttid -> transaction
         self._ttid_dict = {}
         self._last_oid = ZERO_OID
@@ -195,6 +199,7 @@ class TransactionManager(object):
         except ValueError:
             pass
         del self._ttid_dict[ttid]
+        self.executeQueuedEvents()
 
     def __contains__(self, ttid):
         """
@@ -285,7 +290,7 @@ class TransactionManager(object):
             txn.registerForNotification(uuid)
         return self._ttid_dict.keys()
 
-    def begin(self, node, tid=None):
+    def begin(self, node, storage_readiness, tid=None):
         """
             Generate a new TID
         """
@@ -297,28 +302,91 @@ class TransactionManager(object):
             # last TID.
             self._queue.append(tid)
             self.setLastTID(tid)
-        txn = self._ttid_dict[tid] = Transaction(node, tid)
+        txn = self._ttid_dict[tid] = Transaction(node, storage_readiness, tid)
         logging.debug('Begin %s', txn)
         return tid
 
-    def prepare(self, ttid, divisor, oid_list, uuid_list, msg_id):
+    def vote(self, app, ttid, uuid_list):
+        """
+            Check that the transaction can be voted
+            when the client reports failed nodes.
+        """
+        txn = self[ttid]
+        # The client does not know which nodes are not expected to have
+        # transactions in full. Let's filter out them.
+        failed = app.getStorageReadySet(txn._storage_readiness)
+        failed.intersection_update(uuid_list)
+        if failed:
+            operational = app.pt.operational
+            if not operational(failed):
+                # No way to commit this transaction because there are
+                # non-replicated storage nodes with failed stores.
+                return False
+            failed = failed.copy()
+            for t in self._ttid_dict.itervalues():
+                failed |= t._failed
+            if not operational(failed):
+                # Other transactions were voted and unless they're aborted,
+                # we won't be able to finish this one, because that would make
+                # the cluster non-operational. Let's tell the caller to retry
+                # later.
+                return
+            # Allow the client to finish the transaction,
+            # even if it will disconnect storage nodes.
+            txn._failed = failed
+        return True
+
+    def prepare(self, app, ttid, oid_list, checked_list, msg_id):
         """
             Prepare a transaction to be finished
         """
         txn = self[ttid]
+        pt = app.pt
+
+        failed = txn._failed
+        if failed and not pt.operational(failed):
+            return None, None
+        ready = app.getStorageReadySet(txn._storage_readiness)
+        getPartition = pt.getPartition
+        partition_set = set(map(getPartition, oid_list))
+        partition_set.update(map(getPartition, checked_list))
+        partition_set.add(getPartition(ttid))
+        node_list = []
+        uuid_set = set()
+        for partition in partition_set:
+            for cell in pt.getCellList(partition):
+                node = cell.getNode()
+                if node.isIdentified():
+                    uuid = node.getUUID()
+                    if uuid in uuid_set:
+                        continue
+                    if uuid in failed:
+                        # This will commit a new PT with outdated cells before
+                        # locking the transaction, which is important during
+                        # the verification phase.
+                        node.getConnection().close()
+                    elif uuid in ready:
+                        uuid_set.add(uuid)
+                        node_list.append(node)
+        # A node that was not ready at the beginning of the transaction
+        # can't have readable cells. And if we're still operational without
+        # the 'failed' nodes, then there must still be 1 node in 'ready'
+        # that is UP.
+        assert node_list, (ready, failed)
+
         # maybe not the fastest but _queue should be often small
         if ttid in self._queue:
             tid = ttid
         else:
-            tid = self._nextTID(ttid, divisor)
+            tid = self._nextTID(ttid, pt.getPartitions())
             self._queue.append(ttid)
         logging.debug('Finish TXN %s for %s (was %s)',
                       dump(tid), txn.getNode(), dump(ttid))
-        txn.prepare(tid, oid_list, uuid_list, msg_id)
+        txn.prepare(tid, oid_list, uuid_set, msg_id)
         # check if greater and foreign OID was stored
         if oid_list:
             self.setLastOID(max(oid_list))
-        return tid
+        return tid, node_list
 
     def abort(self, ttid, uuid):
         """
@@ -350,7 +418,7 @@ class TransactionManager(object):
         for ttid, txn in self._ttid_dict.iteritems():
             if txn.storageLost(uuid) and self._queue[0] == ttid:
                 unlock = True
-                # do not break: we must call forget() on all transactions
+                # do not break: we must call storageLost() on all transactions
         if unlock:
             self._unlockPending()
 
@@ -370,6 +438,7 @@ class TransactionManager(object):
                 break
             del queue[0], self._ttid_dict[ttid]
             self._on_commit(txn)
+        self.executeQueuedEvents()
 
     def clientLost(self, node):
         for txn in self._ttid_dict.values():
@@ -380,4 +449,4 @@ class TransactionManager(object):
         logging.info('Transactions:')
         for txn in self._ttid_dict.itervalues():
             logging.info('  %r', txn)
-
+        self.logQueuedEvents()

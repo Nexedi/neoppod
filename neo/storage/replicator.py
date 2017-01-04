@@ -29,7 +29,7 @@ partitions.
 
 2 parts, done sequentially:
 - Transaction (metadata) replication
-- Object (data) replication
+- Object (metadata+data) replication
 
 Both parts follow the same mechanism:
 - The range of data to replicate is split into chunks of FETCH_COUNT items
@@ -37,15 +37,52 @@ Both parts follow the same mechanism:
 - For every chunk, the requesting node sends to seeding node the list of items
   it already has.
 - Before answering, the seeding node sends 1 packet for every missing item.
+  For items that are already on the replicating node, there is no check that
+  values matches.
 - The seeding node finally answers with the list of items to delete (usually
   empty).
 
-Replication is partial, starting from the greatest stored tid in the partition:
-- For transactions, this tid is excluded from replication.
-- For objects, this tid is included unless the storage already knows it has
-  all oids for it.
+Internal replication, which is similar to RAID1 (and as opposed to asynchronous
+replication to a backup cluster) requires extra care with respect to
+transactions. The transition of a cell from OUT_OF_DATE to UP_TO_DATE is done
+is several steps.
 
-There is no check that item values on both nodes matches.
+A replicating node can not depend on other nodes to fetch the data
+recently/being committed because that can not be done atomically: it could miss
+writes between the processing of its request by a source node and the reception
+of the answer.
+
+Therefore, outdated cells are writable: a storage node asks the master for
+transactions being committed and then it is expected to fully receive from the
+client any transaction that is started after this answer.
+
+Which has in turn other consequences:
+- The client must not fail to write to a storage node after the above request
+  to the master: for this, the storage must have announced it is ready, and it
+  must delay identification of unknown clients (those for which it hasn't
+  received yet a notification from the master).
+- Writes must be accepted blindly (i.e. without taking a write-lock) when a
+  storage node lacks the data to check for conflicts. This is possible because
+  1 up-to-date cell (for each partition) is enough to do these checks.
+- Because the client can not reliably know if a storage node is expected to
+  receive a transaction in full, all writes must succeed.
+- Even if the replication is finished, we have to wait that we don't have any
+  lockless writes left before announcing to the master that we're up-to-date.
+
+To sum up:
+1. ask unfinished transactions -> (last_transaction, ttid_list)
+2. replicate to last_transaction
+3. wait for all ttid_list to be finished -> new last_transaction
+4. replicate to last_transaction
+5. no lockless write anymore, except to (oid, ttid) that were already
+   stored/checked without taking a lock
+6. wait for all transactions with lockless writes to be finished
+7. announce we're up-to-date
+
+For any failed write, the client marks the storage node as failed and stops
+writing to it for the transaction. Unless there's no failed write, vote ends
+with an extra request to the master: the transaction will only succeed if the
+failed nodes can be disconnected, forcing them to replicate the missing data.
 
 TODO: Packing and replication currently fail when they happen at the same time.
 """
@@ -84,11 +121,6 @@ class Replicator(object):
         node = self.current_node
         if node is not None and node.isConnected(True):
             return node.getConnection()
-
-    # XXX: We can't replicate unfinished transactions but do we need such
-    #      complex code ? Backup mechanism does not rely on this: instead
-    #      the upstream storage delays the answer. Maybe we can do the same
-    #      for internal replication.
 
     def setUnfinishedTIDList(self, max_tid, ttid_list, offset_list):
         """This is a callback from MasterOperationHandler."""

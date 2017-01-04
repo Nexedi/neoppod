@@ -38,7 +38,7 @@ from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
-from .pool import ConnectionPool
+from .pool import ConnectionPool, InvolvedNodeDict
 from neo.lib.util import p64, u64, parseMasterList
 
 CHECKED_SERIAL = object()
@@ -80,16 +80,12 @@ class TransactionContainer(dict):
             # data stored: this will go to the cache on tpc_finish
             'cache_dict': {},
             'cache_size': 0,
-            # track successful stores/checks
-            'object_stored_counter_dict': {},    # {oid: {serial: {storage_id}}}
             # conflicts to resolve
             'conflict_dict': {},                 # {oid: (base_serial, serial)}
             # resolved conflicts
             'resolved_dict': {},                 # {oid: serial}
-            # nodes with at least 1 store (object or transaction)
-            'involved_nodes': set(),             # {node}
-            # nodes with at least 1 check
-            'checked_nodes': set(),              # {node}
+            # status: 0 -> check only, 1 -> store, 2 -> failed
+            'involved_nodes': InvolvedNodeDict(), # {node_id: status}
         }
         return context
 
@@ -369,7 +365,7 @@ class Application(ThreadedApplication):
 
     def _loadFromStorage(self, oid, at_tid, before_tid):
         packet = Packets.AskObject(oid, at_tid, before_tid)
-        for node, conn in self.cp.iterateForObject(oid, readable=True):
+        for conn in self.cp.iterateForObject(oid):
             try:
                 tid, next_tid, compression, checksum, data, data_tid \
                     = self._askStorage(conn, packet)
@@ -440,21 +436,11 @@ class Application(ThreadedApplication):
             txn_context['data_size'] += size
         # Store object in tmp cache
         txn_context['data_dict'][oid] = data
-        # Store data on each node
-        txn_context['object_stored_counter_dict'][oid] = {}
         queue = txn_context['queue']
-        involved_nodes = txn_context['involved_nodes']
-        add_involved_nodes = involved_nodes.add
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid)
-        for node, conn in self.cp.iterateForObject(oid):
-            try:
-                conn.ask(packet, queue=queue, oid=oid, serial=serial)
-                add_involved_nodes(node)
-            except ConnectionClosed:
-                continue
-        if not involved_nodes:
-            raise NEOStorageError("Store failed")
+        for ask in self.cp.iterateForWrite(oid, txn_context['involved_nodes']):
+            ask(packet, queue=queue, oid=oid, serial=serial)
 
         while txn_context['data_size'] >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
@@ -550,13 +536,8 @@ class Application(ThreadedApplication):
             _waitAnyTransactionMessage(txn_context)
             if conflict_dict:
                 _handleConflicts(txn_context, tryToResolveConflict)
-
-        # Check for never-stored objects, and update result for all others
-        for oid, store_dict in \
-                txn_context['object_stored_counter_dict'].iteritems():
-            if not store_dict:
-                logging.error('tpc_store failed')
-                raise NEOStorageError('tpc_store failed')
+        if txn_context['data_dict']:
+            raise NEOStorageError('could not store/check all oids')
         if OLD_ZODB:
             return [(oid, ResolvedSerial)
                 for oid in txn_context['resolved_dict']]
@@ -566,48 +547,48 @@ class Application(ThreadedApplication):
         """Store current transaction."""
         txn_context = self._txn_container.get(transaction)
         result = self.waitStoreResponses(txn_context, tryToResolveConflict)
-
         ttid = txn_context['ttid']
-        # Store data on each node
-        assert not txn_context['data_dict'], txn_context
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
             txn_context['cache_dict'])
         queue = txn_context['queue']
-        trans_nodes = []
-        for node, conn in self.cp.iterateForObject(ttid):
-            logging.debug("voting transaction %s on %s", dump(ttid),
-                dump(conn.getUUID()))
+        involved_nodes = txn_context['involved_nodes']
+        # Ask in parallel all involved storage nodes to commit object metadata.
+        # Nodes that store the transaction metadata get a special packet.
+        trans_nodes = [ask(packet, queue=queue)
+            for ask in self.cp.iterateForWrite(ttid, involved_nodes)]
+        packet = Packets.AskVoteTransaction(ttid)
+        for uuid, status in involved_nodes.iteritems():
+            if status == 1 and uuid not in trans_nodes:
+                node = self.nm.getByUUID(uuid)
+                if node is not None:
+                    conn = self.cp.getConnForNode(node)
+                    if conn is not None:
+                        involved_nodes.ask(conn)(packet, queue=queue)
+                        continue
+                involved_nodes[uuid] = 2
+        self.waitResponses(queue)
+        # If there are failed nodes, ask the master whether they can be
+        # disconnected while keeping the cluster operational. If possible,
+        # this will happen during tpc_finish.
+        failed = [node.getUUID()
+            for node in self.nm.getStorageList()
+            if node.isRunning() and involved_nodes.get(node.getUUID()) == 2]
+        if failed:
             try:
-                conn.ask(packet, queue=queue)
+                self._askPrimary(Packets.FailedVote(ttid, failed))
             except ConnectionClosed:
-                continue
-            trans_nodes.append(node)
-        # check at least one storage node accepted
-        if trans_nodes:
-            involved_nodes = txn_context['involved_nodes']
-            packet = Packets.AskVoteTransaction(ttid)
-            for node in involved_nodes.difference(trans_nodes):
-                conn = self.cp.getConnForNode(node)
-                if conn is not None:
-                    try:
-                        conn.ask(packet, queue=queue)
-                    except ConnectionClosed:
-                        pass
-            involved_nodes.update(trans_nodes)
-            self.waitResponses(queue)
-            txn_context['voted'] = None
-            # We must not go further if connection to master was lost since
-            # tpc_begin, to lower the probability of failing during tpc_finish.
-            # IDEA: We can improve in 2 opposite directions:
-            #       - In the case of big transactions, it would be useful to
-            #         also detect failures earlier.
-            #       - If possible, recover from master failure.
-            if 'error' in txn_context:
-                raise NEOStorageError(txn_context['error'])
-            return result
-        logging.error('tpc_vote failed')
-        raise NEOStorageError('tpc_vote failed')
+                pass
+        txn_context['voted'] = None
+        # We must not go further if connection to master was lost since
+        # tpc_begin, to lower the probability of failing during tpc_finish.
+        # IDEA: We can improve in 2 opposite directions:
+        #       - In the case of big transactions, it would be useful to
+        #         also detect failures earlier.
+        #       - If possible, recover from master failure.
+        if 'error' in txn_context:
+            raise NEOStorageError(txn_context['error'])
+        return result
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
@@ -616,11 +597,12 @@ class Application(ThreadedApplication):
             return
         p = Packets.AbortTransaction(txn_context['ttid'])
         # cancel transaction on all those nodes
-        nodes = map(self.cp.getConnForNode,
-            txn_context['involved_nodes'] |
-            txn_context['checked_nodes'])
-        nodes.append(self.master_conn)
-        for conn in nodes:
+        conns = [self.master_conn]
+        for uuid in txn_context['involved_nodes']:
+            node = self.nm.getByUUID(uuid)
+            if node is not None:
+                conns.append(self.cp.getConnForNode(node))
+        for conn in conns:
             if conn is not None:
                 try:
                     conn.notify(p)
@@ -685,8 +667,7 @@ class Application(ThreadedApplication):
                     pass
             if tid == MAX_TID:
                 while 1:
-                    for _, conn in self.cp.iterateForObject(
-                            ttid, readable=True):
+                    for conn in self.cp.iterateForObject(ttid):
                         try:
                             return self._askStorage(conn, p)
                         except ConnectionClosed:
@@ -777,7 +758,7 @@ class Application(ThreadedApplication):
 
     def _getTransactionInformation(self, tid):
         packet = Packets.AskTransactionInformation(tid)
-        for node, conn in self.cp.iterateForObject(tid, readable=True):
+        for conn in self.cp.iterateForObject(tid):
             try:
                 txn_info, txn_ext = self._askStorage(conn, packet)
             except ConnectionClosed:
@@ -838,7 +819,7 @@ class Application(ThreadedApplication):
         # request a tid list for each partition
         for offset in xrange(self.pt.getPartitions()):
             p = Packets.AskTIDsFrom(start, stop, limit, offset)
-            for node, conn in self.cp.iterateForObject(offset, readable=True):
+            for conn in self.cp.iterateForObject(offset):
                 try:
                     r = self._askStorage(conn, p)
                     break
@@ -864,7 +845,7 @@ class Application(ThreadedApplication):
     def history(self, oid, size=1, filter=None):
         # Get history informations for object first
         packet = Packets.AskObjectHistory(oid, 0, size)
-        for node, conn in self.cp.iterateForObject(oid, readable=True):
+        for conn in self.cp.iterateForObject(oid):
             try:
                 history_list = self._askStorage(conn, packet)
             except ConnectionClosed:
@@ -939,20 +920,13 @@ class Application(ThreadedApplication):
         ttid = txn_context['ttid']
         # Placeholders
         queue = txn_context['queue']
-        txn_context['object_stored_counter_dict'][oid] = {}
         # ZODB.Connection performs calls 'checkCurrentSerialInTransaction'
         # after stores, and skips oids that have been successfully stored.
         assert oid not in txn_context['cache_dict'], (oid, txn_context)
         txn_context['data_dict'].setdefault(oid, CHECKED_SERIAL)
-        checked_nodes = txn_context['checked_nodes']
+        involved_nodes = txn_context['involved_nodes']
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
-        for node, conn in self.cp.iterateForObject(oid):
-            try:
-                conn.ask(packet, queue=queue, oid=oid, serial=serial)
-            except ConnectionClosed:
-                continue
-            checked_nodes.add(node)
-        if not checked_nodes:
-            raise NEOStorageError("checkCurrent failed")
+        for ask in self.cp.iterateForWrite(oid, involved_nodes, 0):
+            ask(packet, queue=queue, oid=oid, serial=serial)
         self._waitAnyTransactionMessage(txn_context, False)
 

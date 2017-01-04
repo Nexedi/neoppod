@@ -115,7 +115,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # connection to SN close
         self.assertFalse(oid in cache._oid_dict)
         conn = Mock({'getAddress': ('', 0)})
-        app.cp = Mock({'iterateForObject': [(Mock(), conn)]})
+        app.cp = Mock({'iterateForObject': (conn,)})
         def fakeReceived(packet):
             packet.setId(0)
             conn.fakeReceived = iter((packet,)).next

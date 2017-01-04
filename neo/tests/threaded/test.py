@@ -1419,6 +1419,49 @@ class Test(NEOThreadedTest):
             self.tic()
             t1.commit()
 
+    @with_cluster(replicas=1)
+    def testReplicaDisconnectionDuringCommit(self, cluster):
+        """
+        S0         C         S1
+          <------- c1+=1 -->
+          <------- c2+=2 --> C-S1 closed
+          <------- c3+=3
+        U                    U
+                   finish    O
+                             U
+        down
+                   loads <--
+        """
+        count = [0]
+        def ask(orig, self, packet, **kw):
+            if (isinstance(packet, Packets.AskStoreObject)
+                and self.getUUID() == s1.uuid):
+                count[0] += 1
+                if count[0] == 2:
+                    self.close()
+            return orig(self, packet, **kw)
+        s0, s1 = cluster.storage_list
+        t, c = cluster.getTransaction()
+        r = c.root()
+        for x in xrange(3):
+            r[x] = PCounter()
+        t.commit()
+        for x in xrange(3):
+            r[x].value += x
+        with ConnectionFilter() as f, Patch(MTClientConnection, ask=ask):
+            f.delayAskFetchTransactions()
+            t.commit()
+            self.assertEqual(count[0], 2)
+            self.assertPartitionTable(cluster, 'UO')
+        self.tic()
+        s0.stop()
+        cluster.join((s0,))
+        cluster.client._cache.clear()
+        value_list = []
+        for x in xrange(3):
+            r[x]._p_deactivate()
+            value_list.append(r[x].value)
+        self.assertEqual(value_list, range(3))
 
 if __name__ == "__main__":
     unittest.main()

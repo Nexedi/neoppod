@@ -39,8 +39,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # define some variable to simulate client and storage node
         self.client_port = 11022
         self.storage_port = 10021
-        self.master_port = 10010
-        self.master_address = ('127.0.0.1', self.master_port)
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
         self.storage_uuid = self.getStorageUUID()
@@ -62,105 +60,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
             state=NodeStates.RUNNING,
         )
         return uuid
-
-    def checkAnswerBeginTransaction(self, conn):
-        return self.checkAnswerPacket(conn, Packets.AnswerBeginTransaction)
-
-    # Tests
-    def test_07_askBeginTransaction(self):
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID()
-        service = self.service
-        tm_org = self.app.tm
-        self.app.tm = tm = Mock({
-            'begin': '\x00\x00\x00\x00\x00\x00\x00\x01',
-        })
-        # client call it
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        client_node = self.app.nm.getByUUID(client_uuid)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.askBeginTransaction(conn, None)
-        calls = tm.mockGetNamedCalls('begin')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(client_node, None)
-        self.checkAnswerBeginTransaction(conn)
-        # Client asks for a TID
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.app.tm = tm_org
-        service.askBeginTransaction(conn, tid1)
-        calls = tm.mockGetNamedCalls('begin')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(client_node, None)
-        packet = self.checkAnswerBeginTransaction(conn)
-        self.assertEqual(packet.decode(), (tid1, ))
-
-    def test_08_askNewOIDs(self):
-        service = self.service
-        oid1, oid2 = p64(1), p64(2)
-        self.app.tm.setLastOID(oid1)
-        # client call it
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        for node in self.app.nm.getStorageList():
-            conn = self.getFakeConnection(node.getUUID(), node.getAddress())
-            node.setConnection(conn)
-        service.askNewOIDs(conn, 1)
-        self.assertTrue(self.app.tm.getLastOID() > oid1)
-
-    def test_09_askFinishTransaction(self):
-        service = self.service
-        # do the right job
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        storage_uuid = self.storage_uuid
-        storage_conn = self.getFakeConnection(storage_uuid,
-            self.storage_address, is_server=True)
-        storage2_uuid = self.identifyToMasterNode(port=10022)
-        storage2_conn = self.getFakeConnection(storage2_uuid,
-            (self.storage_address[0], self.storage_address[1] + 1),
-            is_server=True)
-        self.app.setStorageReady(storage2_uuid)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.app.pt = Mock({
-            'getPartition': 0,
-            'getCellList': [
-                Mock({'getUUID': storage_uuid}),
-                Mock({'getUUID': storage2_uuid}),
-            ],
-            'getPartitions': 2,
-        })
-        ttid = self.getNextTID()
-        service.askBeginTransaction(conn, ttid)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
-        # No packet sent if storage node is not ready
-        self.assertFalse(self.app.isStorageReady(storage_uuid))
-        service.askFinishTransaction(conn, ttid, (), ())
-        self.checkNoPacketSent(storage_conn)
-        # ...but AskLockInformation is sent if it is ready
-        self.app.setStorageReady(storage_uuid)
-        self.assertTrue(self.app.isStorageReady(storage_uuid))
-        service.askFinishTransaction(conn, ttid, (), ())
-        self.checkAskPacket(storage_conn, Packets.AskLockInformation)
-        self.assertEqual(len(self.app.tm.registerForNotification(storage_uuid)), 1)
-        txn = self.app.tm[ttid]
-        pending_ttid = list(self.app.tm.registerForNotification(storage_uuid))[0]
-        self.assertEqual(ttid, pending_ttid)
-        self.assertEqual(len(txn.getOIDList()), 0)
-        self.assertEqual(len(txn.getUUIDList()), 1)
-
-    def test_connectionClosed(self):
-        # give a client uuid which have unfinished transactions
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
-                                                port = self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.app.listening_conn = object() # mark as running
-        lptid = self.app.pt.getID()
-        self.assertEqual(self.app.nm.getByUUID(client_uuid).getState(),
-                NodeStates.RUNNING)
-        self.service.connectionClosed(conn)
-        # node must be have been remove, and no more transaction must remains
-        self.assertEqual(self.app.nm.getByUUID(client_uuid), None)
-        self.assertEqual(lptid, self.app.pt.getID())
 
     def test_askPack(self):
         self.assertEqual(self.app.packing, None)

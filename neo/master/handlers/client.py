@@ -45,46 +45,35 @@ class ClientServiceHandler(MasterHandler):
         """
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
-        conn.answer(Packets.AnswerBeginTransaction(app.tm.begin(node, tid)))
+        tid = app.tm.begin(node, app.storage_readiness, tid)
+        conn.answer(Packets.AnswerBeginTransaction(tid))
 
     def askNewOIDs(self, conn, num_oids):
         conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
 
+    def failedVote(self, conn, *args):
+        app = self.app
+        ok = app.tm.vote(app, *args)
+        if ok is None:
+            app.tm.queueEvent(self.failedVote, conn, args)
+        else:
+            conn.answer((Errors.Ack if ok else Errors.IncompleteTransaction)())
+
     def askFinishTransaction(self, conn, ttid, oid_list, checked_list):
         app = self.app
-        pt = app.pt
-
-        # Collect partitions related to this transaction.
-        getPartition = pt.getPartition
-        partition_set = set(map(getPartition, oid_list))
-        partition_set.update(map(getPartition, checked_list))
-        partition_set.add(getPartition(ttid))
-
-        # Collect the UUIDs of nodes related to this transaction.
-        uuid_list = filter(app.isStorageReady, {cell.getUUID()
-            for part in partition_set
-            for cell in pt.getCellList(part)
-            if cell.getNodeState() != NodeStates.HIDDEN})
-        if not uuid_list:
-            raise ProtocolError('No storage node ready for transaction')
-
-        identified_node_list = app.nm.getIdentifiedList(pool_set=set(uuid_list))
-
-        # Request locking data.
-        # build a new set as we may not send the message to all nodes as some
-        # might be not reachable at that time
-        p = Packets.AskLockInformation(
+        tid, node_list = app.tm.prepare(
+            app,
             ttid,
-            app.tm.prepare(
-                ttid,
-                pt.getPartitions(),
-                oid_list,
-                {x.getUUID() for x in identified_node_list},
-                conn.getPeerId(),
-            ),
+            oid_list,
+            checked_list,
+            conn.getPeerId(),
         )
-        for node in identified_node_list:
-            node.ask(p, timeout=60)
+        if tid:
+            p = Packets.AskLockInformation(ttid, tid)
+            for node in node_list:
+                node.ask(p, timeout=60)
+        else:
+            conn.answer(Errors.IncompleteTransaction())
 
     def askFinalTID(self, conn, ttid):
         tm = self.app.tm

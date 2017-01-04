@@ -204,6 +204,10 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         oid_list.reverse()
         self.app.new_oid_list = oid_list
 
+    def incompleteTransaction(self, conn, message):
+        raise NEOStorageError("storage nodes for which vote failed can not be"
+            " disconnected without making the cluster non-operational")
+
     def answerTransactionFinished(self, conn, _, tid):
         self.app.setHandlerData(tid)
 

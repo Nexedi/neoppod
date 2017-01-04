@@ -983,7 +983,10 @@ class NEOThreadedTest(NeoTestBase):
             self.assertRaises(ConnectionClosed, txn.commit)
 
     def assertPartitionTable(self, cluster, stats):
-        self.assertEqual(stats, '|'.join(cluster.admin.pt.formatRows()))
+        pt = cluster.admin.pt
+        index = [x.uuid for x in cluster.storage_list].index
+        self.assertEqual(stats, '|'.join(pt._formatRows(sorted(
+            pt.count_dict, key=lambda x: index(x.getUUID())))))
 
 
 def predictable_random(seed=None):

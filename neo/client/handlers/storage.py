@@ -22,6 +22,7 @@ from neo.lib.util import dump
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
 from . import AnswerBaseHandler
+from ..pool import InvolvedNodeDict
 from ..exception import NEOStorageError, NEOStorageNotFoundError
 from ..exception import NEOStorageDoesNotExistError
 
@@ -31,7 +32,7 @@ class StorageEventHandler(MTEventHandler):
         node = self.app.nm.getByAddress(conn.getAddress())
         assert node is not None
         self.app.cp.removeConnection(node)
-        self.app.dispatcher.unregister(conn)
+        super(StorageEventHandler, self).connectionLost(conn, new_state)
 
     def connectionFailed(self, conn):
         # Connection to a storage node failed
@@ -63,11 +64,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerStoreObject(self, conn, conflict, oid, serial):
         if not conflict:
-            # Ignore if not locked on storage side.
+            # Ignore if not locked on storage side. We only had to receive
+            # this answer, so that this storage is not marked as failed.
             return
         txn_context = self.app.getHandlerData()
-        object_stored_counter_dict = txn_context[
-            'object_stored_counter_dict'][oid]
         if conflict != serial:
             # Conflicts can not be resolved now because 'conn' is locked.
             # We must postpone the resolution (by queuing the conflict in
@@ -84,36 +84,24 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 # resolution.
                 if conflict <= txn_context['resolved_dict'].get(oid, ''):
                     return
-                if conflict in object_stored_counter_dict:
-                    raise NEOStorageError('Storages %s accepted object %s'
-                        ' for serial %s but %s reports a conflict for it.' % (
-                        map(dump, object_stored_counter_dict[conflict]),
-                        dump(oid), dump(conflict), dump(conn.getUUID())))
             txn_context['conflict_dict'][oid] = serial, conflict
         else:
-            uuid_set = object_stored_counter_dict.get(serial)
-            if uuid_set is None: # store to first storage node
-                object_stored_counter_dict[serial] = uuid_set = set()
-                try:
-                    data = txn_context['data_dict'].pop(oid)
-                except KeyError: # multiple undo
-                    assert txn_context['cache_dict'][oid] is None, oid
+            try:
+                data = txn_context['data_dict'].pop(oid)
+            except KeyError: # replica, or multiple undo
+                return
+            if type(data) is str:
+                size = len(data)
+                txn_context['data_size'] -= size
+                size += txn_context['cache_size']
+                if size < self.app._cache._max_size:
+                    txn_context['cache_size'] = size
                 else:
-                    if type(data) is str:
-                        size = len(data)
-                        txn_context['data_size'] -= size
-                        size += txn_context['cache_size']
-                        if size < self.app._cache._max_size:
-                            txn_context['cache_size'] = size
-                        else:
-                            # Do not cache data past cache max size, as it
-                            # would just flush it on tpc_finish. This also
-                            # prevents memory errors for big transactions.
-                            data = None
-                    txn_context['cache_dict'][oid] = data
-            else: # replica
-                assert oid not in txn_context['data_dict'], oid
-            uuid_set.add(conn.getUUID())
+                    # Do not cache data past cache max size, as it
+                    # would just flush it on tpc_finish. This also
+                    # prevents memory errors for big transactions.
+                    data = None
+            txn_context['cache_dict'][oid] = data
 
     answerCheckCurrentSerial = answerStoreObject
 
@@ -121,6 +109,15 @@ class StorageAnswersHandler(AnswerBaseHandler):
         pass
 
     answerVoteTransaction = answerStoreTransaction
+
+    def connectionClosed(self, conn):
+        txn_context = self.app.getHandlerData()
+        # XXX: A 'Transaction' class would be cleaner.
+        if type(txn_context) is dict:
+            involved_nodes = txn_context.get('involved_nodes')
+            if type(involved_nodes) is InvolvedNodeDict:
+                involved_nodes[conn.getUUID()] = 2
+        super(StorageAnswersHandler, self).connectionClosed(conn)
 
     def answerTIDsFrom(self, conn, tid_list):
         logging.debug('Get %u TIDs from %r', len(tid_list), conn)
