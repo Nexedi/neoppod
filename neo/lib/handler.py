@@ -16,6 +16,7 @@
 
 import sys
 from . import logging
+from .connection import ConnectionClosed
 from .protocol import (
     NodeStates, Packets, Errors, BackendNotImplemented,
     BrokenNodeDisallowedError, NotReadyError, PacketMalformedError,
@@ -261,3 +262,6 @@ class AnswerBaseHandler(EventHandler):
 
     def acceptIdentification(*args):
         pass
+
+    def connectionClosed(self, conn):
+        raise ConnectionClosed

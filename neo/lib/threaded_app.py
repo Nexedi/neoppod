@@ -17,7 +17,6 @@
 import thread, threading, weakref
 from . import logging
 from .app import BaseApplication
-from .connection import ConnectionClosed
 from .debug import register as registerLiveDebugger
 from .dispatcher import Dispatcher
 from .locking import SimpleQueue
@@ -141,14 +140,8 @@ class ThreadedApplication(BaseApplication):
         _handlePacket = self._handlePacket
         while True:
             qconn, qpacket, kw = get(True)
-            if conn is qconn:
-                # check fake packet
-                if qpacket is None:
-                    raise ConnectionClosed
-                if msg_id == qpacket.getId():
-                    _handlePacket(qconn, qpacket, kw, handler)
-                    break
-            elif qpacket is None:
-                continue
+            if conn is qconn and msg_id == qpacket.getId():
+                _handlePacket(qconn, qpacket, kw, handler)
+                break
             _handlePacket(qconn, qpacket, kw)
         return self.getHandlerData()

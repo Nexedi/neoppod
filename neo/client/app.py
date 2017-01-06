@@ -172,9 +172,6 @@ class Application(ThreadedApplication):
                 conn, packet, kw = get(block)
             except Empty:
                 break
-            if packet is None:
-                # connection was closed
-                continue
             block = False
             try:
                 _handlePacket(conn, packet, kw)
