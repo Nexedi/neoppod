@@ -484,7 +484,10 @@ class ConnectionFilter(object):
                         else:
                             return cls._addPacket(conn, packet)
                         cls.filter_queue[conn] = queue = deque()
-                    p = packet.__new__(packet.__class__)
+                    p = packet.__class__
+                    logging.debug("queued %s#0x%04x for %s",
+                                  p.__name__, packet.getId(), conn)
+                    p = packet.__new__(p)
                     p.__dict__.update(packet.__dict__)
                     queue.append(p)
             Connection._addPacket = _addPacket
@@ -520,7 +523,10 @@ class ConnectionFilter(object):
                 else:
                     if conn.isClosed():
                         return
-                    cls._addPacket(conn, packet)
+                    # Use the thread that created the packet to reinject it,
+                    # to avoid a race condition on Connector.queued.
+                    conn.em.wakeup(lambda conn=conn, packet=packet:
+                        conn.isClosed() or cls._addPacket(conn, packet))
                     continue
                 break
             else:
