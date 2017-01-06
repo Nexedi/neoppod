@@ -19,9 +19,13 @@ from ZODB.tests.BasicStorage import BasicStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
 from . import ZODBTestCase
+from .. import Patch, threaded
 
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
-    pass
+
+    def check_checkCurrentSerialInTransaction(self):
+        with Patch(threaded, MAX_TIC_COUNT=100000):
+            super(BasicTests, self).check_checkCurrentSerialInTransaction()
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(BasicTests, 'check')

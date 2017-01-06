@@ -43,6 +43,7 @@ from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
+MAX_TIC_COUNT = 100
 
 
 class LockLock(object):
@@ -255,7 +256,7 @@ class TestSerialized(Serialized):
 
     def poll(self, timeout):
         if timeout:
-            for x in xrange(1000):
+            for x in xrange(MAX_TIC_COUNT):
                 r = self._epoll.poll(0)
                 if r:
                     return r
@@ -556,9 +557,11 @@ class NEOCluster(object):
         def _lock(blocking=True):
             if blocking:
                 logging.info('<SimpleQueue>._lock.acquire()')
-                while not lock(False):
+                for i in xrange(MAX_TIC_COUNT):
+                    if lock(False):
+                        return True
                     Serialized.tic(step=1, quiet=True)
-                return True
+                raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
     _patches = (
