@@ -229,6 +229,8 @@ class TestRunner(BenchmarkRunner):
         parser.add_option('-C', '--cov-unit', action='store_true',
             help='Same as -c but output 1 file per test,'
                  ' in the temporary test directory')
+        parser.add_option('-l', '--loop', type='int', default=1,
+            help='Repeat tests several times')
         parser.add_option('-f', '--functional', action='store_true',
             help='Functional tests')
         parser.add_option('-u', '--unit', action='store_true',
@@ -271,6 +273,7 @@ Environment Variables:
                 sys.exit('Nothing to run, please give one of -f, -u, -z')
             options.unit = options.functional = options.zodb = True
         return dict(
+            loop = options.loop,
             unit = options.unit,
             functional = options.functional,
             zodb = options.zodb,
@@ -301,12 +304,13 @@ Environment Variables:
                 del self.__coverage
                 orig(self, success)
         try:
-            if config.unit:
-                runner.run('Unit tests', UNIT_TEST_MODULES, only)
-            if config.functional:
-                runner.run('Functional tests', FUNC_TEST_MODULES, only)
-            if config.zodb:
-                runner.run('ZODB tests', ZODB_TEST_MODULES, only)
+            for _ in xrange(config.loop):
+                if config.unit:
+                    runner.run('Unit tests', UNIT_TEST_MODULES, only)
+                if config.functional:
+                    runner.run('Functional tests', FUNC_TEST_MODULES, only)
+                if config.zodb:
+                    runner.run('ZODB tests', ZODB_TEST_MODULES, only)
         except KeyboardInterrupt:
             config['mail_to'] = None
             traceback.print_exc()
