@@ -46,7 +46,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.testConnection',
     'neo.tests.testHandler',
     'neo.tests.testNodes',
-    'neo.tests.testDispatcher',
     'neo.tests.testUtil',
     'neo.tests.testPT',
     # master application

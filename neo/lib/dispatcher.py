@@ -19,18 +19,6 @@ from .locking import Lock, Empty
 EMPTY = {}
 NOBODY = []
 
-class ForgottenPacket(object):
-    """
-      Instances of this class will be pushed to queue when an expected answer
-      is being forgotten. Its purpose is similar to pushing "None" when
-      connection is closed, but the meaning is different.
-    """
-    def __init__(self, msg_id):
-        self.msg_id = msg_id
-
-    def getId(self):
-        return self.msg_id
-
 def giant_lock(func):
     def wrapped(self, *args, **kw):
         self.lock_acquire()
@@ -88,7 +76,7 @@ class Dispatcher:
 
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
-        threads excepting responses from that connection """
+        threads expecting responses from that connection """
         self.lock_acquire()
         try:
             message_table = self.message_table.pop(id(conn), EMPTY)
@@ -104,21 +92,6 @@ class Dispatcher:
                 queue.put((conn, None, None))
                 notified_set.add(queue_id)
             _decrefQueue(queue)
-
-    @giant_lock
-    def forget(self, conn, msg_id):
-        """ Forget about a specific message for a specific connection.
-        Actually makes it "expected by nobody", so we know we can ignore it,
-        and not detect it as an error. """
-        message_table = self.message_table[id(conn)]
-        queue = message_table[msg_id]
-        if queue is NOBODY:
-            raise KeyError, 'Already expected by NOBODY: %r, %r' % (
-                conn, msg_id)
-        queue.put((conn, ForgottenPacket(msg_id), None))
-        self.queue_dict[id(queue)] -= 1
-        message_table[msg_id] = NOBODY
-        return queue
 
     @giant_lock
     def forget_queue(self, queue, flush_queue=True):
@@ -137,9 +110,7 @@ class Dispatcher:
                     found += 1
                     message_table[msg_id] = NOBODY
         refcount = self.queue_dict.pop(id(queue), 0)
-        if refcount != found:
-            raise ValueError('We hit a refcount bug: %s queue uses ' \
-                'expected, %s found' % (refcount, found))
+        assert refcount == found, (refcount, found)
         if flush_queue:
             get = queue.get
             while True:

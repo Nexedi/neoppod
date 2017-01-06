@@ -36,7 +36,6 @@ from neo.lib.connection import MTClientConnection, ConnectionClosed
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
 from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
-from neo.lib.dispatcher import ForgottenPacket
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
 from .pool import ConnectionPool
@@ -173,8 +172,8 @@ class Application(ThreadedApplication):
                 conn, packet, kw = get(block)
             except Empty:
                 break
-            if packet is None or isinstance(packet, ForgottenPacket):
-                # connection was closed or some packet was forgotten
+            if packet is None:
+                # connection was closed
                 continue
             block = False
             try:
