@@ -976,10 +976,11 @@ class StoreObject(Packet):
 
 class AbortTransaction(Packet):
     """
-    Abort a transaction. C -> S, PM.
+    Abort a transaction. C -> PM -> S.
     """
     _fmt = PStruct('abort_transaction',
         PTID('tid'),
+        PFUUIDList, # unused for PM -> S
     )
 
 class StoreTransaction(Packet):

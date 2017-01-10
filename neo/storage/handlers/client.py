@@ -57,9 +57,6 @@ class ClientOperationHandler(EventHandler):
                 compression, checksum, data, data_serial)
         conn.answer(p)
 
-    def abortTransaction(self, conn, ttid):
-        self.app.tm.abort(ttid)
-
     def askStoreTransaction(self, conn, ttid, *txn_info):
         self.app.tm.register(conn, ttid)
         self.app.tm.vote(ttid, txn_info)
@@ -201,7 +198,6 @@ class ClientReadOnlyOperationHandler(ClientOperationHandler):
         conn.answer(Errors.ReadOnlyAccess(
             'read-only access because cluster is in backuping mode'))
 
-    abortTransaction        = _readOnly
     askStoreTransaction     = _readOnly
     askVoteTransaction      = _readOnly
     askStoreObject          = _readOnly

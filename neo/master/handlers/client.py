@@ -74,6 +74,12 @@ class ClientServiceHandler(MasterHandler):
                 node.ask(p, timeout=60)
         else:
             conn.answer(Errors.IncompleteTransaction())
+            # It's simpler to abort automatically rather than asking the client
+            # to send a notification on tpc_abort, since it would have keep the
+            # transaction longer in list of transactions.
+            # This should happen so rarely that we don't try to minimize the
+            # number of abort notifications by looking the modified partitions.
+            self.abortTransaction(conn, ttid, app.getStorageReadySet())
 
     def askFinalTID(self, conn, ttid):
         tm = self.app.tm
@@ -102,9 +108,24 @@ class ClientServiceHandler(MasterHandler):
         else:
             conn.answer(Packets.AnswerPack(False))
 
-    def abortTransaction(self, conn, tid):
-        # BUG: The replicator may wait this transaction to be finished.
-        self.app.tm.abort(tid, conn.getUUID())
+    def abortTransaction(self, conn, tid, uuid_list):
+        # Consider a failure when the connection between the storage and the
+        # client breaks while the answer to the first write is sent back.
+        # In other words, the client can not know the exact set of nodes that
+        # know this transaction, and it sends us all nodes it considered for
+        # writing.
+        # We must also add those that are waiting for this transaction to be
+        # finished (returned by tm.abort), because they may have join the
+        # cluster after that the client started to abort.
+        app = self.app
+        involved = app.tm.abort(tid, conn.getUUID())
+        involved.update(uuid_list)
+        involved.intersection_update(app.getStorageReadySet())
+        if involved:
+            p = Packets.AbortTransaction(tid, ())
+            getByUUID = app.nm.getByUUID
+            for involved in involved:
+                getByUUID(involved).notify(p)
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid

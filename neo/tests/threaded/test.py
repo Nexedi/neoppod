@@ -32,7 +32,7 @@ from neo.lib.connection import ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID
-from .. import expectedFailure, Patch
+from .. import expectedFailure, Patch, TransactionalResource
 from . import ConnectionFilter, LockLock, NEOThreadedTest, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
@@ -1462,6 +1462,98 @@ class Test(NEOThreadedTest):
             r[x]._p_deactivate()
             value_list.append(r[x].value)
         self.assertEqual(value_list, range(3))
+
+    @with_cluster(replicas=1, partitions=3, storage_count=3)
+    def testMasterArbitratingVote(self, cluster):
+        """
+        p\S 1  2  3
+        0   U  U  .
+        1   .  U  U
+        2   U  .  U
+
+        With the above setup, check when a client C1 fails to connect to S2
+        and another C2 fails to connect to S1.
+
+        For the first 2 scenarios:
+        - C1 first votes (the master accepts)
+        - C2 vote is delayed until C1 decides to finish or abort
+        """
+        def delayAbort(conn, packet):
+            return isinstance(packet, Packets.AbortTransaction)
+        def noConnection(jar, storage):
+            return Patch(jar.db().storage.app.cp,
+                getConnForNode=lambda orig, node:
+                    None if node.getUUID() == storage.uuid else orig(node))
+        def c1_vote(txn):
+            def vote(orig, *args):
+                result = orig(*args)
+                ll()
+                return result
+            with LockLock() as ll, Patch(cluster.master.tm, vote=vote):
+                commit2.start()
+                ll()
+            if c1_aborts:
+                raise Exception
+        pt = [{x.getUUID() for x in x}
+            for x in cluster.master.pt.partition_list]
+        cluster.storage_list.sort(key=lambda x:
+            (x.uuid not in pt[0], x.uuid in pt[1]))
+        pt = 'UU.|.UU|U.U'
+        self.assertPartitionTable(cluster, pt)
+        s1, s2, s3 = cluster.storage_list
+        t1, c1 = cluster.getTransaction()
+        with cluster.newClient(1) as db:
+            t2, c2 = cluster.getTransaction(db)
+            with noConnection(c1, s2), noConnection(c2, s1):
+                cluster.client.cp.connection_dict[s2.uuid].close()
+                self.tic()
+                for c1_aborts in 0, 1:
+                    # 0: C1 finishes, C2 vote fails
+                    # 1: C1 aborts, C2 finishes
+                    #
+                    # Although we try to modify the same oid, there's no
+                    # conflict because each storage node sees a single
+                    # and different transaction: vote to storages is done
+                    # in parallel, and the master must be involved as an
+                    # arbitrator, which ultimately rejects 1 of the 2
+                    # transactions, preferably before the second phase of
+                    # the commit.
+                    t1.begin(); c1.root()._p_changed = 1
+                    t2.begin(); c2.root()._p_changed = 1
+                    commit2 = self.newPausedThread(t2.commit)
+                    TransactionalResource(t1, 1, tpc_vote=c1_vote)
+                    with ConnectionFilter() as f:
+                        if not c1_aborts:
+                            f.add(delayAbort)
+                        f.delayAskFetchTransactions(lambda _:
+                            f.discard(delayAbort))
+                        try:
+                            t1.commit()
+                            self.assertFalse(c1_aborts)
+                        except Exception:
+                            self.assertTrue(c1_aborts)
+                        try:
+                            commit2.join()
+                            self.assertTrue(c1_aborts)
+                        except NEOStorageError:
+                            self.assertFalse(c1_aborts)
+                        self.tic()
+                        self.assertPartitionTable(cluster,
+                            'OU.|.UU|O.U' if c1_aborts else 'UO.|.OU|U.U')
+                    self.tic()
+                    self.assertPartitionTable(cluster, pt)
+                # S3 fails while C1 starts to finish
+                with ConnectionFilter() as f:
+                    f.add(lambda conn, packet: conn.getUUID() == s3.uuid and
+                        isinstance(packet, Packets.AcceptIdentification))
+                    t1.begin(); c1.root()._p_changed = 1
+                    TransactionalResource(t1, 0, tpc_finish=lambda *_:
+                        cluster.master.nm.getByUUID(s3.uuid)
+                        .getConnection().close())
+                    self.assertRaises(NEOStorageError, t1.commit)
+                    self.assertPartitionTable(cluster, 'UU.|.UO|U.O')
+                self.tic()
+                self.assertPartitionTable(cluster, pt)
 
 if __name__ == "__main__":
     unittest.main()

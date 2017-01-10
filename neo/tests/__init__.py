@@ -37,6 +37,7 @@ from time import time
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 try:
+    from transaction.interfaces import IDataManager
     from ZODB.utils import newTid
 except ImportError:
     pass
@@ -376,6 +377,30 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
+
+
+class TransactionalResource(object):
+
+    class _sortKey(object):
+
+        def __init__(self, last):
+            self._last = last
+
+        def __cmp__(self, other):
+            assert type(self) is not type(other), other
+            return 1 if self._last else -1
+
+    def __init__(self, txn, last, **kw):
+        self.sortKey = lambda: self._sortKey(last)
+        for k in kw:
+            assert callable(IDataManager.get(k)), k
+        self.__dict__.update(kw)
+        txn.get().join(self)
+
+    def __getattr__(self, attr):
+        if callable(IDataManager.get(attr)):
+            return lambda *_: None
+        return self.__getattribute__(attr)
 
 
 class Patch(object):

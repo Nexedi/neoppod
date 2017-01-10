@@ -57,6 +57,10 @@ class MasterOperationHandler(BaseMasterHandler):
     def notifyUnlockInformation(self, conn, ttid):
         self.app.tm.unlock(ttid)
 
+    def abortTransaction(self, conn, ttid, _):
+        self.app.tm.abort(ttid)
+        self.app.replicator.transactionFinished(ttid)
+
     def askPack(self, conn, tid):
         app = self.app
         logging.info('Pack started, up to %s...', dump(tid))

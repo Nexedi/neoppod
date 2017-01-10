@@ -324,9 +324,8 @@ class TransactionManager(EventQueue):
             Note: does not alter persistent content.
         """
         if ttid not in self._transaction_dict:
-            # the tid may be unknown as the transaction is aborted on every node
-            # of the partition, even if no data was received (eg. conflict on
-            # another node)
+            assert not even_if_locked
+            # See how the master processes AbortTransaction from the client.
             return
         logging.debug('Abort TXN %s', dump(ttid))
         transaction = self._transaction_dict[ttid]

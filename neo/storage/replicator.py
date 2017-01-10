@@ -135,14 +135,19 @@ class Replicator(object):
             self.replicate_dict[offset] = max_tid
         self._nextPartition()
 
-    def transactionFinished(self, ttid, max_tid):
+    def transactionFinished(self, ttid, max_tid=None):
         """ Callback from MasterOperationHandler """
-        self.ttid_set.remove(ttid)
+        try:
+            self.ttid_set.remove(ttid)
+        except KeyError:
+            assert max_tid is None, max_tid
+            return
         min_ttid = min(self.ttid_set) if self.ttid_set else INVALID_TID
         for offset, p in self.partition_dict.iteritems():
             if p.max_ttid and p.max_ttid < min_ttid:
                 p.max_ttid = None
-                self.replicate_dict[offset] = max_tid
+                if max_tid:
+                    self.replicate_dict[offset] = max_tid
         self._nextPartition()
 
     def getBackupTID(self):
@@ -355,7 +360,9 @@ class Replicator(object):
         p = self.partition_dict[offset]
         p.next_obj = add64(tid, 1)
         self.updateBackupTID()
-        if not p.max_ttid:
+        if p.max_ttid:
+            logging.debug("unfinished transactions: %r", self.ttid_set)
+        else:
             self.app.tm.replicated(offset, tid)
         logging.debug("partition %u replicated up to %s from %r",
                       offset, dump(tid), self.current_node)

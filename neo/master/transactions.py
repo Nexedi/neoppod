@@ -393,10 +393,12 @@ class TransactionManager(EventQueue):
             Abort a transaction
         """
         logging.debug('Abort TXN %s for %s', dump(ttid), uuid_str(uuid))
-        if self[ttid].isPrepared():
+        txn = self[ttid]
+        if txn.isPrepared():
             raise ProtocolError("commit already requested for ttid %s"
                                 % dump(ttid))
         del self[ttid]
+        return txn._notification_set
 
     def lock(self, ttid, uuid):
         """

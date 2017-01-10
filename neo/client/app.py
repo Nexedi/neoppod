@@ -595,19 +595,16 @@ class Application(ThreadedApplication):
         txn_context = self._txn_container.pop(transaction)
         if txn_context is None:
             return
-        p = Packets.AbortTransaction(txn_context['ttid'])
-        # cancel transaction on all those nodes
-        conns = [self.master_conn]
-        for uuid in txn_context['involved_nodes']:
-            node = self.nm.getByUUID(uuid)
-            if node is not None:
-                conns.append(self.cp.getConnForNode(node))
-        for conn in conns:
-            if conn is not None:
-                try:
-                    conn.notify(p)
-                except ConnectionClosed:
-                    pass
+        try:
+            notify = self.master_conn.notify
+        except AttributeError:
+            pass
+        else:
+            try:
+                notify(Packets.AbortTransaction(txn_context['ttid'],
+                                                txn_context['involved_nodes']))
+            except ConnectionClosed:
+                pass
         # We don't need to flush queue, as it won't be reused by future
         # transactions (deleted on next line & indexed by transaction object
         # instance).

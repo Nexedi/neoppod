@@ -585,6 +585,6 @@ class Application(BaseApplication):
     def isStorageReady(self, uuid):
         return uuid in self.storage_ready_dict
 
-    def getStorageReadySet(self, readiness):
+    def getStorageReadySet(self, readiness=float('inf')):
         return {k for k, v in self.storage_ready_dict.iteritems()
                   if v <= readiness}

@@ -956,13 +956,12 @@ class NEOThreadedTest(NeoTestBase):
             return obj
         return unpickler
 
-    class newThread(threading.Thread):
+    class newPausedThread(threading.Thread):
 
         def __init__(self, func, *args, **kw):
             threading.Thread.__init__(self)
             self.__target = func, args, kw
             self.daemon = True
-            self.start()
 
         def run(self):
             try:
@@ -977,6 +976,12 @@ class NEOThreadedTest(NeoTestBase):
                 etype, value, tb = self.__exc_info
                 del self.__exc_info
                 raise etype, value, tb
+
+    class newThread(newPausedThread):
+
+        def __init__(self, *args, **kw):
+            NEOThreadedTest.newPausedThread.__init__(self, *args, **kw)
+            self.start()
 
     def commitWithStorageFailure(self, client, txn):
         with Patch(client, _getFinalTID=lambda *_: None):
