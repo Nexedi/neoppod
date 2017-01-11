@@ -888,9 +888,15 @@ class NEOCluster(object):
 
 class NEOThreadedTest(NeoTestBase):
 
+    __run_count = {}
+
     def setupLog(self):
-        log_file = os.path.join(getTempDirectory(), self.id() + '.log')
-        logging.setup(log_file)
+        test_id = self.id()
+        i = self.__run_count.get(test_id, 0)
+        self.__run_count[test_id] = 1 + i
+        if i:
+            test_id += '-%s' % i
+        logging.setup(os.path.join(getTempDirectory(), test_id + '.log'))
         return LoggerThreadName()
 
     def _tearDown(self, success):
