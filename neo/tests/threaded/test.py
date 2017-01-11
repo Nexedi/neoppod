@@ -889,23 +889,28 @@ class Test(NEOThreadedTest):
     def testExternalInvalidation(self):
         cluster = NEOCluster()
         try:
-            cluster.start()
+            self._testExternalInvalidation(cluster)
+        finally:
+            cluster.stop()
+
+    def _testExternalInvalidation(self, cluster):
+        cluster.start()
+        # Initialize objects
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x1 = PCounter()
+        c1.root()['y'] = y = PCounter()
+        y.value = 1
+        t1.commit()
+        # Get pickle of y
+        t1.begin()
+        x = c1._storage.load(x1._p_oid)[0]
+        y = c1._storage.load(y._p_oid)[0]
+        # Start the testing transaction
+        # (at this time, we still have x=0 and y=1)
+        t2, c2 = cluster.getTransaction()
+        # Copy y to x using a different Master-Client connection
+        with cluster.newClient() as client:
             cache = cluster.client._cache
-            # Initialize objects
-            t1, c1 = cluster.getTransaction()
-            c1.root()['x'] = x1 = PCounter()
-            c1.root()['y'] = y = PCounter()
-            y.value = 1
-            t1.commit()
-            # Get pickle of y
-            t1.begin()
-            x = c1._storage.load(x1._p_oid)[0]
-            y = c1._storage.load(y._p_oid)[0]
-            # Start the testing transaction
-            # (at this time, we still have x=0 and y=1)
-            t2, c2 = cluster.getTransaction()
-            # Copy y to x using a different Master-Client connection
-            client = cluster.newClient()
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
@@ -984,9 +989,6 @@ class Test(NEOThreadedTest):
             self.assertFalse(invalidations(c1))
             self.assertEqual(x1.value, 1)
 
-        finally:
-            cluster.stop()
-
     def testReadVerifyingStorage(self):
         cluster = NEOCluster(storage_count=2, partitions=2)
         try:
@@ -995,11 +997,8 @@ class Test(NEOThreadedTest):
             c1.root()['x'] = x = PCounter()
             t1.commit()
             # We need a second client for external invalidations.
-            t2 = transaction.TransactionManager()
-            db = DB(storage=cluster.getZODBStorage(client=cluster.newClient()))
-            try:
-                c2 = db.open(t2)
-                t2.begin()
+            with cluster.newClient(1) as db:
+                t2, c2 = cluster.getTransaction(db)
                 r = c2.root()
                 r['y'] = None
                 r['x']._p_activate()
@@ -1012,8 +1011,6 @@ class Test(NEOThreadedTest):
                     t2.commit()
                 for storage in cluster.storage_list:
                     self.assertFalse(storage.tm._transaction_dict)
-            finally:
-                db.close()
             # Check we didn't get an invalidation, which would cause an
             # assertion failure in the cache. Connection does the same check in
             # _setstate_noncurrent so this could be also done by starting a
@@ -1048,14 +1045,11 @@ class Test(NEOThreadedTest):
             self.tic()
 
             # modify x with another client
-            client = cluster.newClient()
-            try:
+            with cluster.newClient() as client:
                 txn = transaction.Transaction()
                 client.tpc_begin(txn)
                 client.store(x1._p_oid, x1._p_serial, y, '', txn)
                 tid = client.tpc_finish(txn, None)
-            finally:
-                client.close()
             self.tic()
 
             # Check reconnection to the master and storage.
@@ -1226,14 +1220,9 @@ class Test(NEOThreadedTest):
             with cluster.master.filterConnection(cluster.storage) as m2s:
                 m2s.add(delayNotifyInformation)
                 cluster.client.master_conn.close()
-                client = cluster.newClient()
-                p = Patch(client.storage_bootstrap_handler, notReady=notReady)
-                try:
-                    p.apply()
+                with cluster.newClient() as client, Patch(
+                        client.storage_bootstrap_handler, notReady=notReady):
                     x = client.load(ZERO_TID)
-                finally:
-                    del p
-                    client.close()
                 self.assertNotIn(delayNotifyInformation, m2s)
         finally:
             cluster.stop()
@@ -1392,8 +1381,7 @@ class Test(NEOThreadedTest):
                 self.assertRaises(TransientError, getattr, c, "root")
             uuid = cluster.client.uuid
             # Let's use a second client to steal the node id of the first one.
-            client = cluster.newClient()
-            try:
+            with cluster.newClient() as client:
                 client.sync()
                 self.assertEqual(uuid, client.uuid)
                 # The client reconnects successfully to the master and storage,
@@ -1405,8 +1393,6 @@ class Test(NEOThreadedTest):
                 self.assertNotEqual(uuid, cluster.client.uuid)
                 # Second reconnection, for a successful load.
                 c.root
-            finally:
-                client.close()
         finally:
             cluster.stop()
 
@@ -1450,15 +1436,12 @@ class Test(NEOThreadedTest):
             s2c, = s2c
             m2c, = cluster.master.getConnectionList(cluster.client)
             m2c.close()
-            Cb = cluster.newClient()
-            try:
+            with cluster.newClient() as Cb:
                 Cb.pt  # only connect to the master
                 del s2c.readable
                 self.assertRaises(NEOPrimaryMasterLost, t.join)
                 self.assertTrue(s2c.isClosed())
                 connectToStorage(Cb)
-            finally:
-                Cb.close()
         finally:
             cluster.stop()
 

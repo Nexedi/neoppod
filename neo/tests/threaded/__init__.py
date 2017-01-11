@@ -725,13 +725,29 @@ class NEOCluster(object):
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
-    def newClient(self):
+    def _newClient(self):
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
                                  compress=self.compress, ssl=self.SSL)
 
+    @contextmanager
+    def newClient(self, with_db=False):
+        x = self._newClient()
+        try:
+            t = x.poll_thread
+            closed = []
+            if with_db:
+                x = ZODB.DB(storage=self.getZODBStorage(client=x))
+            else:
+                # XXX: Do nothing if finally if the caller already closed it.
+                x.close = lambda: closed.append(x.__class__.close(x))
+            yield x
+        finally:
+            closed or x.close()
+            self.join((t,))
+
     @cached_property
     def client(self):
-        client = self.newClient()
+        client = self._newClient()
         # Make sure client won't be reused after it was closed.
         def close():
             client = self.client
@@ -825,9 +841,9 @@ class NEOCluster(object):
             for o in oid_list:
                 tid_dict[o] = i
 
-    def getTransaction(self):
+    def getTransaction(self, db=None):
         txn = transaction.TransactionManager()
-        return txn, self.db.open(transaction_manager=txn)
+        return txn, (self.db if db is None else db).open(txn)
 
     def __del__(self, __print_exc=traceback.print_exc):
         try:
