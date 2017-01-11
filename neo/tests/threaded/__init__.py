@@ -22,7 +22,7 @@ from collections import deque
 from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from itertools import count
-from functools import wraps
+from functools import partial, wraps
 from thread import get_ident
 from zlib import decompress
 from mock import Mock
@@ -36,7 +36,7 @@ from neo.lib.connection import BaseConnection, \
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER
@@ -552,6 +552,22 @@ class ConnectionFilter(object):
 
     def __contains__(self, filter):
         return filter in self.filter_dict
+
+    def byPacket(self, packet_type, *args):
+        patches = []
+        other = []
+        for x in args:
+            (patches if isinstance(x, Patch) else other).append(x)
+        def delay(conn, packet):
+            return isinstance(packet, packet_type) and False not in (
+                callback(conn) for callback in other)
+        self.add(delay, *patches)
+        return delay
+
+    def __getattr__(self, attr):
+        if attr.startswith('delay'):
+            return partial(self.byPacket, getattr(Packets, attr[5:]))
+        return self.__getattribute__(attr)
 
 class NEOCluster(object):
 

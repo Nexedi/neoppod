@@ -155,8 +155,7 @@ class ReplicationTests(NEOThreadedTest):
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
                 with ConnectionFilter() as f:
-                    f.add(lambda conn, packet: conn.getUUID() is None and
-                        isinstance(packet, Packets.AddObject))
+                    f.delayAddObject(lambda conn: conn.getUUID() is None)
                     while not f.filtered_count:
                         importZODB(1)
                     self.tic()
@@ -271,8 +270,7 @@ class ReplicationTests(NEOThreadedTest):
     def testBackupUpstreamStorageDead(self, backup):
         upstream = backup.upstream
         with ConnectionFilter() as f:
-            f.add(lambda conn, packet:
-                isinstance(packet, Packets.InvalidateObjects))
+            f.delayInvalidateObjects()
             upstream.importZODB()(1)
         count = [0]
         def _connect(orig, conn):
@@ -301,8 +299,7 @@ class ReplicationTests(NEOThreadedTest):
         """
         upstream = backup.upstream
         with upstream.master.filterConnection(upstream.storage) as f:
-            f.add(lambda conn, packet:
-                isinstance(packet, Packets.NotifyUnlockInformation))
+            f.delayNotifyUnlockInformation()
             upstream.importZODB()(1)
             self.tic()
         self.tic()
@@ -320,8 +317,7 @@ class ReplicationTests(NEOThreadedTest):
             try:
                 backup.start()
                 with ConnectionFilter() as f:
-                    f.add(lambda conn, packet:
-                        isinstance(packet, Packets.AskPartitionTable) and
+                    f.delayAskPartitionTable(lambda conn:
                         isinstance(conn.getHandler(), BackupHandler))
                     backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                     upstream.importZODB()(1)
@@ -349,8 +345,7 @@ class ReplicationTests(NEOThreadedTest):
         importZODB(1)
         backup.reset()
         with ConnectionFilter() as f:
-            f.add(lambda conn, packet:
-                isinstance(packet, Packets.AskFetchTransactions))
+            f.delayAskFetchTransactions()
             backup.start()
             self.assertEqual(last_tid, backup.backup_tid)
         self.tic()
@@ -457,8 +452,7 @@ class ReplicationTests(NEOThreadedTest):
             cluster.neoctl.enableStorageList([s1.uuid])
             cluster.neoctl.tweakPartitionTable()
             with cluster.master.filterConnection(cluster.client) as m2c:
-                m2c.add(lambda conn, packet:
-                    isinstance(packet, Packets.NotifyPartitionChanges))
+                m2c.delayNotifyPartitionChanges()
                 self.tic()
                 self.assertEqual('foo', storage.load(oid)[0])
         finally:

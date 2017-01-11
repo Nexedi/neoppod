@@ -248,8 +248,6 @@ class Test(NEOThreadedTest):
 
     def testDelayedUnlockInformation(self):
         except_list = []
-        def delayUnlockInformation(conn, packet):
-            return isinstance(packet, Packets.NotifyUnlockInformation)
         def onStoreObject(orig, tm, ttid, serial, oid, *args):
             if oid == resume_oid and delayUnlockInformation in m2s:
                 m2s.remove(delayUnlockInformation)
@@ -265,13 +263,13 @@ class Test(NEOThreadedTest):
             c.root()[0] = ob = PCounter()
             with cluster.master.filterConnection(cluster.storage) as m2s:
                 resume_oid = None
-                m2s.add(delayUnlockInformation,
+                delayUnlockInformation = m2s.delayNotifyUnlockInformation(
                     Patch(TransactionManager, storeObject=onStoreObject))
                 t.commit()
                 resume_oid = ob._p_oid
                 ob._p_changed = 1
                 t.commit()
-                self.assertFalse(delayUnlockInformation in m2s)
+                self.assertNotIn(delayUnlockInformation, m2s)
         finally:
             cluster.stop()
         self.assertEqual(except_list, [DelayedError])
@@ -451,8 +449,7 @@ class Test(NEOThreadedTest):
             r[''] = ''
             with Patch(ClientOperationHandler, askObject=askObject):
                 with cluster.master.filterConnection(cluster.storage) as m2s:
-                    m2s.add(lambda conn, packet: # delay unlock
-                        isinstance(packet, Packets.NotifyUnlockInformation))
+                    m2s.delayNotifyUnlockInformation()
                     t.commit()
                     c.cacheMinimize()
                     cluster.client._cache.clear()
@@ -524,8 +521,7 @@ class Test(NEOThreadedTest):
             orig()
         def stop():
             with cluster.master.filterConnection(s0) as m2s0:
-                m2s0.add(lambda conn, packet:
-                    isinstance(packet, Packets.NotifyPartitionChanges))
+                m2s0.delayNotifyPartitionChanges()
                 s1.stop()
                 cluster.join((s1,))
                 self.assertEqual(getClusterState(), ClusterStates.RUNNING)
@@ -566,8 +562,6 @@ class Test(NEOThreadedTest):
 
     def testVerificationCommitUnfinishedTransactions(self):
         """ Verification step should commit locked transactions """
-        def delayUnlockInformation(conn, packet):
-            return isinstance(packet, Packets.NotifyUnlockInformation)
         def onLockTransaction(storage, die=False):
             def lock(orig, *args, **kw):
                 if die:
@@ -608,7 +602,7 @@ class Test(NEOThreadedTest):
                 self.assertEqual([u64(o._p_oid) for o in (r, x, y)], range(3))
                 r[2] = 'ok'
                 with cluster.master.filterConnection(s0) as m2s:
-                    m2s.add(delayUnlockInformation)
+                    m2s.delayNotifyUnlockInformation()
                     t.commit()
                     x.value = 1
                     # s0 will accept to store y (because it's not locked) but will
@@ -916,8 +910,7 @@ class Test(NEOThreadedTest):
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
             # Delay invalidation for x
             with cluster.master.filterConnection(cluster.client) as m2c:
-                m2c.add(lambda conn, packet:
-                    isinstance(packet, Packets.InvalidateObjects))
+                m2c.delayInvalidateObjects()
                 tid = client.tpc_finish(txn, None)
                 # Change to x is committed. Testing connection must ask the
                 # storage node to return original value of x, even if we
@@ -1164,8 +1157,7 @@ class Test(NEOThreadedTest):
                  cluster.master.filterConnection(cluster.storage) as m2s:
                 s2m.add(delayAnswerLockInformation, Patch(cluster.client,
                     _connectToPrimaryNode=_connectToPrimaryNode))
-                m2s.add(lambda conn, packet:
-                    isinstance(packet, Packets.NotifyUnlockInformation))
+                m2s.delayNotifyUnlockInformation()
                 t.commit() # the final TID is returned by the storage (tm)
             t.begin()
             self.assertEqual(r['x'].value, 2)
@@ -1208,8 +1200,6 @@ class Test(NEOThreadedTest):
             cluster.stop()
 
     def testRecycledClientUUID(self):
-        def delayNotifyInformation(conn, packet):
-            return isinstance(packet, Packets.NotifyNodeInformation)
         def notReady(orig, *args):
             m2s.discard(delayNotifyInformation)
             return orig(*args)
@@ -1218,7 +1208,7 @@ class Test(NEOThreadedTest):
             cluster.start()
             cluster.getTransaction()
             with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayNotifyInformation)
+                delayNotifyInformation = m2s.delayNotifyNodeInformation()
                 cluster.client.master_conn.close()
                 with cluster.newClient() as client, Patch(
                         client.storage_bootstrap_handler, notReady=notReady):
@@ -1504,8 +1494,7 @@ class Test(NEOThreadedTest):
             with LockLock() as ll, s1.filterConnection(cluster.client) as f, \
                     Patch(cluster.client.storage_handler,
                           answerStoreObject=answerStoreObject) as p:
-                f.add(lambda conn, packet:
-                    isinstance(packet, Packets.AnswerStoreObject))
+                f.delayAnswerStoreObject()
                 t = self.newThread(t1.commit)
                 ll()
             t.join()
