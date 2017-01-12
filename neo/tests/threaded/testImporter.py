@@ -172,8 +172,7 @@ class ImporterTests(NEOThreadedTest):
             c.db().close()
         #del importer[0][1][importer.pop()[0]]
         # Start NEO cluster with transparent import of a multi-base ZODB.
-        cluster = NEOCluster(compress=False, importer=importer)
-        try:
+        with NEOCluster(compress=False, importer=importer) as cluster:
             # Suspend import for a while, so that import
             # is finished in the middle of the below 'for' loop.
             # Use a slightly different main loop for storage so that it
@@ -220,8 +219,6 @@ class ImporterTests(NEOThreadedTest):
                 (x[i:] or '.', sorted(y), sorted(z))
                 for x, y, z in os.walk(src_root)))
             t.commit()
-        finally:
-            cluster.stop()
 
 
 if __name__ == "__main__":

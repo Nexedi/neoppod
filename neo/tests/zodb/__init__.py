@@ -44,7 +44,10 @@ class ZODBTestCase(TestCase):
     def _tearDown(self, success):
         self._storage.cleanup()
         try:
-            self.neo.stop()
+            if functional:
+                self.neo.stop()
+            else:
+                self.neo.stop(None)
         except Exception:
             if success:
                 raise
