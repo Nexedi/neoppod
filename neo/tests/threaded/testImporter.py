@@ -18,7 +18,7 @@ from collections import deque
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
 from itertools import islice, izip_longest
-import os, unittest
+import os, shutil, unittest
 import neo, transaction, ZODB
 from neo.lib import logging
 from neo.lib.util import u64
@@ -131,6 +131,7 @@ class ImporterTests(NEOThreadedTest):
     def test(self):
         importer = []
         fs_dir = os.path.join(getTempDirectory(), self.id())
+        shutil.rmtree(fs_dir, 1) # for --loop
         os.mkdir(fs_dir)
         src_root, = neo.__path__
         fs_list = "root", "client", "master", "tests"
