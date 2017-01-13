@@ -16,7 +16,7 @@
 
 import shutil
 import unittest
-from mock import Mock
+from .mock import Mock
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
 from . import NeoUnitTestBase, getTempDirectory

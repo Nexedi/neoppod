@@ -25,7 +25,7 @@ from itertools import count
 from functools import partial, wraps
 from thread import get_ident
 from zlib import decompress
-from mock import Mock
+from ..mock import Mock
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app

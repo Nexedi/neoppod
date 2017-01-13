@@ -29,7 +29,7 @@ import MySQLdb
 import transaction
 
 from functools import wraps
-from mock import Mock
+from .mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
 from neo.lib.util import cached_property

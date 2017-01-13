@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
+from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.lib.protocol import CellStates

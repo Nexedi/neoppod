@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
+from ..mock import Mock
 from ZODB.POSException import StorageTransactionError, ConflictError
 from .. import NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application

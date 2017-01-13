@@ -6,5 +6,5 @@
 /build/
 /dist/
 /htmlcov/
-/mock.py
+/neo/tests/mock.py
 /neoppod.egg-info/

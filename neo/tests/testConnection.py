@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 from time import time
-from mock import Mock
+from .mock import Mock
 from neo.lib import connection, logging
 from neo.lib.connection import BaseConnection, ClientConnection, \
     MTClientConnection, CRITICAL_TIMEOUT

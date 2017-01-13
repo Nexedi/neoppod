@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock, ReturnValues
+from ..mock import Mock, ReturnValues
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler

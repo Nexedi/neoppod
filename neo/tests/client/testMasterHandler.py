@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
+from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.client.handlers.master import PrimaryAnswersHandler
 from neo.client.exception import NEOStorageError

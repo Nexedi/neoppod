@@ -16,7 +16,7 @@
 
 import unittest
 from MySQLdb import OperationalError
-from mock import Mock
+from ..mock import Mock
 from neo.lib.exception import DatabaseFailure
 from neo.lib.util import p64
 from .. import DB_PREFIX, DB_SOCKET, DB_USER
