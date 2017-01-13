@@ -191,11 +191,6 @@ class Storage(BaseStorage.BaseStorage,
         # seems used only by FileStorage
         raise NotImplementedError
 
-    def cleanup(self):
-        # Used in unit tests to remove local database files.
-        # We have no such thing, so make this method a no-op.
-        pass
-
     def close(self):
         # WARNING: This does not handle the case where an app is shared by
         #          several Storage instances, but this is something that only
