@@ -367,7 +367,7 @@ class Test(NEOThreadedTest):
             tid1 = o1._p_serial
 
             resolved = []
-            last = (t2.get(), t3.get()).index
+            last = lambda txn: txn._extension['last'] # BBB
             def _handleConflicts(orig, txn_context, *args):
                 resolved.append(last(txn_context['txn']))
                 return orig(txn_context, *args)
@@ -378,7 +378,8 @@ class Test(NEOThreadedTest):
                 with LockLock() as l3, Patch(cluster.client, tpc_vote=tpc_vote):
                     with LockLock() as l2:
                         tt = []
-                        for t, l in (t2, l2), (t3, l3):
+                        for i, t, l in (0, t2, l2), (1, t3, l3):
+                            t.get().setExtendedInfo('last', i)
                             tt.append(self.newThread(t.commit))
                             l()
                     tt.pop(0).join()

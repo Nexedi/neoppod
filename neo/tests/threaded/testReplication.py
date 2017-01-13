@@ -556,7 +556,7 @@ class ReplicationTests(NEOThreadedTest):
 
                 # commit new data to U
                 txn = transaction.Transaction()
-                txn.note('test transaction %i' % i)
+                txn.note(u'test transaction %s' % i)
                 Z.tpc_begin(txn)
                 oid = Z.new_oid()
                 Z.store(oid, None, '%s-%i' % (oid, i), '', txn)
