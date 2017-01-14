@@ -213,6 +213,7 @@ func (d *decoder) emitstrbytes(assignto string) {
 	d.emit("if uint32(len(data)) < l { return 0, ErrDecodeOverflow }")
 	d.emit("%v = string(data[:l])", assignto)
 	d.emit("data = data[l:]")
+	d.emit("nread += %v + l", d.n)
 	d.emit("}")
 	d.n = 0
 }
@@ -223,6 +224,7 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	// [len]item
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
+	d.emit("nread += %v", d.n)
 	d.n = 0
 	d.emit("%v = make(%v, l)", assignto, typeName(typ))
 	// TODO size check
@@ -233,6 +235,7 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	// XXX try to avoid (*) in a
 	d.emitobjtype("(*a)", obj, typ.Elem())	// XXX also obj.Elem() ?
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
+	d.emit("nread += %v", d.n)
 	d.emit("}")
 	//d.emit("%v = string(data[:l])", assignto)
 	d.emit("}")
@@ -244,6 +247,7 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	// [len](key, value)
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
 	d.emit("data = data[%v:]", d.n)
+	d.emit("nread += %v", d.n)
 	d.n = 0
 	d.emit("%v = make(%v, l)", assignto, typeName(typ))
 	// TODO size check
@@ -267,6 +271,7 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	}
 
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
+	d.emit("nread += %v", d.n)
 	d.emit("}")
 	//d.emit("%v = string(data[:l])", assignto)
 	d.emit("}")
@@ -326,6 +331,7 @@ func gendecode(typespec *ast.TypeSpec) string {
 	d := decoder{}
 	// prologue
 	d.emit("func (p *%s) NEODecode(data []byte) (int, error) {", typespec.Name.Name)
+	d.emit("var nread uint32")
 
 	//n := 0
 	//t := typespec.Type.(*ast.StructType)	// must be
@@ -336,7 +342,7 @@ func gendecode(typespec *ast.TypeSpec) string {
 
 	d.emitobjtype("p", obj, typ)
 
-	d.emit("return %v /* + TODO variable part */, nil", d.n)	// FIXME n is wrong after reset
+	d.emit("return int(nread) + %v, nil", d.n)
 	d.emit("}")
 	return d.buf.String()
 
