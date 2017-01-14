@@ -101,7 +101,7 @@ type NEOEncoder interface {
 
 // NEODecoder is interface for unmarshalling objects from wire format in NEO
 type NEODecoder interface {
-	NEODecode(data []byte) (nread int)
+	NEODecode(data []byte) (nread int, err error)
 }
 
 type Address struct {

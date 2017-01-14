@@ -15,6 +15,7 @@
 package neo
 
 import (
+	"reflect"
 	"testing"
 	"unsafe"
 )
@@ -24,4 +25,44 @@ func TestPktHeader(t *testing.T) {
 	if unsafe.Sizeof(PktHead{}) != 10 {
 		t.Fatalf("sizeof(PktHead) = %v  ; want 10", unsafe.Sizeof(PktHead{}))
 	}
+}
+
+// test encoding/decoding of packets
+func TestPktMarshal(t *testing.T) {
+	var testv = []struct {
+		pkt     NEODecoder	//interface {NEOEncoder; NEODecoder}
+		encoded string	// []byte
+	} {
+		{&Ping{}, ""},
+		{&Error{Code: 0x01020304, Message: "hello"}, "\x01\x02\x03\x04\x05hello"},
+	}
+
+	for _, tt := range testv {
+		// TODO check encoding
+
+		// check decoding
+		data := tt.encoded + "noise"
+		typ := reflect.TypeOf(tt.pkt).Elem()	// type of *pkt
+		pkt2 := reflect.New(typ).Interface().(NEODecoder)
+		n, err := pkt2.NEODecode([]byte(data))	// XXX
+		if err != nil {
+			t.Errorf("%v: decode error %v", typ, err)
+		}
+		if n != len(tt.encoded) {
+			t.Errorf("%v: nread = %v  ; want %v", typ, n, len(tt.encoded))
+		}
+	}
+/*
+	// empty
+	pkt := Ping{}
+	n, err := pkt.NEODecode([]byte{})
+	if !(n==0 && err==nil) { t.Fatal("zzz") }
+
+	// uint32 + string
+	pkt := Error{}
+	n, err := pkt.NEODecode([]byte{"\x01\x02\x03\x04\x05helloworld"})
+	n == 10 && err == nil
+	pkt.Code == 0x01020304
+	pkt.Message == "hello"
+*/
 }
