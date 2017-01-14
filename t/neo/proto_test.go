@@ -51,18 +51,9 @@ func TestPktMarshal(t *testing.T) {
 		if n != len(tt.encoded) {
 			t.Errorf("%v: nread = %v  ; want %v", typ, n, len(tt.encoded))
 		}
-	}
-/*
-	// empty
-	pkt := Ping{}
-	n, err := pkt.NEODecode([]byte{})
-	if !(n==0 && err==nil) { t.Fatal("zzz") }
 
-	// uint32 + string
-	pkt := Error{}
-	n, err := pkt.NEODecode([]byte{"\x01\x02\x03\x04\x05helloworld"})
-	n == 10 && err == nil
-	pkt.Code == 0x01020304
-	pkt.Message == "hello"
-*/
+		// TODO reflect.DeepEqual(pkt, pkt2)
+
+		// TODO cut data and check decoding gives error
+	}
 }
