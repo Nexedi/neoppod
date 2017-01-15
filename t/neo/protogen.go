@@ -11,7 +11,7 @@
 // See COPYING file for full licensing terms.
 
 // NEO. Protocol definition. Code generator
-// TODO text what it does (generates code for proto.go)
+// TODO text what it does (generates marshal code for proto.go)
 
 // +build ignore
 
