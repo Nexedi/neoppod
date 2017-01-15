@@ -105,10 +105,26 @@ func TestPktMarshal(t *testing.T) {
 		 hex("0000000b") + "hello world" +
 		 hex("0a0b0c0d0e0f01030a0b0c0d0e0f010401")},
 
-		// TODO bool, [], map
-		// TODO Address, Checksum, Tid, PTid
+		// PTid, [] (of [] of ...)
+		{&AnswerPartitionTable{
+			PTid:	0x0102030405060708,
+			RowList: []RowInfo{
+				{1, []CellInfo{{11, UP_TO_DATE}, {17, OUT_OF_DATE}}},
+				{2, []CellInfo{{11, FEEDING}}},
+				{7, []CellInfo{{11, CORRUPTED}, {15, DISCARDED}, {23, UP_TO_DATE}}},
+			},
+		 },
 
-		// bool: StoreObject, AnswerGetObject
+		 hex("")},
+
+		/*
+		// uint32, Address, string, float64
+		{&RequestIdentification{...}},	// TODO
+		*/
+
+		// TODO float64 (+ nan !nan ...)
+		// TODO [](!byte), map
+		// TODO Address, PTid
 	}
 
 	for _, tt := range testv {
