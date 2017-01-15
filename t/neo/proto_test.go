@@ -34,7 +34,7 @@ func TestPktMarshal(t *testing.T) {
 		encoded string	// []byte
 	} {
 		{&Ping{}, ""},
-		{&Error{Code: 0x01020304, Message: "hello"}, "\x01\x02\x03\x04\x05hello"},
+		{&Error{Code: 0x01020304, Message: "hello"}, "\x01\x02\x03\x04\x00\x00\x00\x05hello"},
 	}
 
 	for _, tt := range testv {
@@ -52,8 +52,18 @@ func TestPktMarshal(t *testing.T) {
 			t.Errorf("%v: nread = %v  ; want %v", typ, n, len(tt.encoded))
 		}
 
-		// TODO reflect.DeepEqual(pkt, pkt2)
+		if !reflect.DeepEqual(pkt2, tt.pkt) {
+			t.Errorf("%v: decode result unexpected: %v  ; want %v", typ, pkt2, tt.pkt)
+		}
 
-		// TODO cut data and check decoding gives error
+		// decode must overflow on cut data
+		for l := len(tt.encoded)-1; l >= 0; l-- {
+			data = tt.encoded[:l]	// XXX also check on original byte [:l] ?
+			n, err = pkt2.NEODecode([]byte(data))	// XXX
+			if !(n==0 && err==ErrDecodeOverflow) {
+				t.Errorf("%v: decode overflow not detected on [:%v]", typ, l)
+			}
+
+		}
 	}
 }
