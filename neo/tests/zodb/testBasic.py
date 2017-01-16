@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
 import unittest
 from ZODB.tests.BasicStorage import BasicStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
@@ -24,7 +25,11 @@ from .. import Patch, threaded
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
 
     def check_checkCurrentSerialInTransaction(self):
-        with Patch(threaded, MAX_TIC_COUNT=100000):
+        x = time.time() + 10
+        def tic_loop():
+            while time.time() < x:
+                yield
+        with Patch(threaded, TIC_LOOP=tic_loop()):
             super(BasicTests, self).check_checkCurrentSerialInTransaction()
 
 if __name__ == "__main__":
