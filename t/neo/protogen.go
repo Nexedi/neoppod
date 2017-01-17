@@ -275,6 +275,8 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 //
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happenned)
+
+// TODO -> walkType and hook decoder/encoder via interface
 func (d *decoder) decodeType(assignto string, typ types.Type, obj types.Object) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
