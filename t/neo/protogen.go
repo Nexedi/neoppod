@@ -169,8 +169,9 @@ func (d *decoder) emit(format string, a ...interface{}) {
 	fmt.Fprintf(&d.buf, format+"\n", a...)
 }
 
-// emit expression code to decode basic fixed types (not string); but do not assign it
-func (d *decoder) decodedBasic(obj types.Object, typ *types.Basic) string {
+// emit code to decode basic fixed types (not string)
+// userType is type actually used in source (for which typ is underlying), or nil
+func (d *decoder) decodeBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
 	bdec, ok := basicTypes[typ.Kind()]
 	if !ok {
 		log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), typ)
@@ -178,7 +179,15 @@ func (d *decoder) decodedBasic(obj types.Object, typ *types.Basic) string {
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(bdec.decode, dataptr)
 	d.n += bdec.wireSize
-	return decoded
+	if userType != nil && userType != typ {
+		// userType is a named type over some basic, like
+		// type ClusterState int32
+		// -> need to cast
+		decoded = fmt.Sprintf("%v(%v)", typeName(userType), decoded)
+	}
+	// NOTE no space before "=" - to be able to merge with ":"
+	// prefix and become defining assignment
+	d.emit("%s= %s", assignto, decoded)
 }
 
 // emit code for decode next string or []byte
@@ -186,7 +195,8 @@ func (d *decoder) decodedBasic(obj types.Object, typ *types.Basic) string {
 func (d *decoder) decodeStrBytes(assignto string) {
 	// len	u32
 	// [len]byte
-	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
+	d.emit("{")
+	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("if uint32(len(data)) < l { return 0, ErrDecodeOverflow }")
 	d.emit("%v = string(data[:l])", assignto)
@@ -197,10 +207,11 @@ func (d *decoder) decodeStrBytes(assignto string) {
 }
 
 // TODO optimize for []byte
-func (d *decoder) decodeSlice(assignto string, obj types.Object, typ *types.Slice) {
+func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Object) {
 	// len	u32
 	// [len]item
-	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
+	d.emit("{")
+	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
@@ -220,10 +231,11 @@ func (d *decoder) decodeSlice(assignto string, obj types.Object, typ *types.Slic
 	d.n = 0
 }
 
-func (d *decoder) decodeMap(assignto string, obj types.Object, typ *types.Map) {
+func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 	// len  u32
 	// [len](key, value)
-	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
+	d.emit("{")
+	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
@@ -257,6 +269,10 @@ func (d *decoder) decodeMap(assignto string, obj types.Object, typ *types.Map) {
 }
 
 // top-level driver for emitting decode code for type
+// the code emitted is of kind:
+//
+//	<assignto> = decode(typ)
+//
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happenned)
 func (d *decoder) decodeType(assignto string, typ types.Type, obj types.Object) {
@@ -267,16 +283,7 @@ func (d *decoder) decodeType(assignto string, typ types.Type, obj types.Object) 
 			break
 		}
 
-		decoded := d.decodedBasic(obj, u)
-		if typ != u {
-			// typ is a named type over some basic, like
-			// type ClusterState int32
-			// -> need to cast
-			decoded = fmt.Sprintf("%v(%v)", typeName(typ), decoded)
-		}
-		// NOTE no space before "=" - to be able to merge with ":"
-		// prefix and become defining assignment
-		d.emit("%s= %s", assignto, decoded)
+		d.decodeBasic(assignto, u, typ, obj)
 
 	case *types.Array:
 		// TODO optimize for [...]byte
@@ -292,10 +299,10 @@ func (d *decoder) decodeType(assignto string, typ types.Type, obj types.Object) 
 		}
 
 	case *types.Slice:
-		d.decodeSlice(assignto, obj, u)
+		d.decodeSlice(assignto, u, obj)
 
 	case *types.Map:
-		d.decodeMap(assignto, obj, u)
+		d.decodeMap(assignto, u, obj)
 
 
 
