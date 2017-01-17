@@ -31,7 +31,6 @@ class ClusterTests(NEOFunctionalTest):
     def testClusterStartup(self):
         neo = self.neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,
                          temp_dir=self.getTempDirectory())
-        neoctl = neo.neoctl
         neo.run()
         # Runing a new cluster doesn't exit Recovery state.
         s1, s2 = neo.getStorageProcessList()
@@ -40,7 +39,7 @@ class ClusterTests(NEOFunctionalTest):
         neo.expectClusterRecovering()
         # When allowing cluster to exit Recovery, it reaches Running state and
         # all present storage nodes reach running state.
-        neoctl.startCluster()
+        neo.startCluster()
         neo.expectRunning(s1)
         neo.expectRunning(s2)
         neo.expectClusterRunning()
@@ -64,7 +63,7 @@ class ClusterTests(NEOFunctionalTest):
         neo.expectPending(s1)
         neo.expectUnknown(s2)
         neo.expectClusterRecovering()
-        neoctl.startCluster()
+        neo.startCluster()
         neo.expectRunning(s1)
         neo.expectUnknown(s2)
         neo.expectClusterRunning()

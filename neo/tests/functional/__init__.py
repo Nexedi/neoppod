@@ -416,6 +416,18 @@ class NEOCluster(object):
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
 
+    def startCluster(self):
+        # Even if the storage nodes are in the expected state, there may still
+        # be activity between them and the master, preventing the cluster to
+        # start.
+        def start(last_try):
+            try:
+                self.neoctl.startCluster()
+            except (NotReadyException, RuntimeError):
+                return False, e
+            return True, None
+        self.expectCondition(start)
+
     def stop(self, clients=True):
         # Suspend all processes to kill before actually killing them, so that
         # nodes don't log errors because they get disconnected from other nodes:

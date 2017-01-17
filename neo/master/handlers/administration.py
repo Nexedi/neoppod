@@ -64,6 +64,9 @@ class AdministrationHandler(MasterHandler):
             for node in storage_list:
                 assert node.isPending(), node
                 if node.getConnection().isPending():
+                    # XXX: It's wrong to use ProtocolError here. We must reply
+                    #      less aggressively because the admin has no way to
+                    #      know that there's still pending activity.
                     raise ProtocolError('Cannot exit recovery now: node %r is '
                         'entering cluster' % (node, ))
             app._startup_allowed = True
