@@ -31,6 +31,13 @@ func hex(s string) string {
 	return string(b)
 }
 
+// uint16 -> string as encoded on the wire
+func u16(v uint16) string {
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], v)
+	return string(b[:])
+}
+
 // uint32 -> string as encoded on the wire
 func u32(v uint32) string {
 	var b [4]byte
@@ -158,14 +165,24 @@ func TestPktMarshal(t *testing.T) {
 			u64(5) + u64(4) + u64(3) + hex("01"),
 		},
 
-		/*
-		// uint32, Address, string, float64
-		{&RequestIdentification{...}},	// TODO
-		*/
+		// uint32, []uint32
+		{&PartitionCorrupted{7, []UUID{1,3,9,4}},
+		 u32(7) + u32(4) + u32(1) + u32(3) + u32(9) + u32(4),
+		},
 
-		// TODO float64 (+ nan !nan ...)
-		// TODO map	<- AnswerLockedTransactions, AnswerObjectUndoSerial, CheckReplicas
-		// TODO Address,
+		// uint32, Address, string, float64
+		{&RequestIdentification{8, CLIENT, 17, Address{"localhost", 7777}, "myname", 0.12345678},
+
+		 u32(8) + u32(2) + u32(17) + u32(9) +
+		 "localhost" + u16(7777) +
+		 u32(6) + "myname" +
+		 hex("3fbf9add1091c895"),
+		},
+
+
+		// TODO special for:
+		// - float64 (+ nan !nan ...)
+		// - Address,
 	}
 
 	for _, tt := range testv {
