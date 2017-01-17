@@ -135,28 +135,27 @@ import (
 
 
 // info about wire decode/encode of a basic type
-type basicXXX struct {
+type basicCodec struct {
 	wireSize int
 	decode string
-	//encode string
+	encode string
 }
 
-var basicDecode = map[types.BasicKind]basicXXX {
-	// %v will be `data[n:n+wireSize]`	XXX or `data[n:]` ?
-	types.Bool:	{1, "byte2bool((%v)[0])"},
-	types.Int8:	{1, "int8((%v)[0])"},
-	types.Int16:	{2, "int16(binary.BigEndian.Uint16(%v))"},
-	types.Int32:	{4, "int32(binary.BigEndian.Uint32(%v))"},
-	types.Int64:	{8, "int64(binary.BigEndian.Uint64(%v))"},
+var basicTypes = map[types.BasicKind]basicCodec {
+	// decode: %v    will be `data[n:]`  (and made sure data has more enough bytes to read)
+	// encode: %v %v will be `data[n:]`, value
+	types.Bool:	{1, "byte2bool((%v)[0])", "(%v)[0] = bool2byte(%v)"},
+	types.Int8:	{1, "int8((%v)[0])", "(%v)[0] = uint8(%v)" },
+	types.Int16:	{2, "int16(binary.BigEndian.Uint16(%v))", "binary.BigEndian.PutUint16(uint16(%v))"},
+	types.Int32:	{4, "int32(binary.BigEndian.Uint32(%v))", "binary.BigEndian.PutUint32(uint32(%v))"},
+	types.Int64:	{8, "int64(binary.BigEndian.Uint64(%v))", "binary.BigEndian.PutUint64(uint64(%v))"},
 
-	types.Uint8:	{1, "(%v)[0]"},
-	types.Uint16:	{2, "binary.BigEndian.Uint16(%v)"},
-	types.Uint32:	{4, "binary.BigEndian.Uint32(%v)"},
-	types.Uint64:	{8, "binary.BigEndian.Uint64(%v)"},
+	types.Uint8:	{1, "(%v)[0]", "(%v)[0] = %v"},
+	types.Uint16:	{2, "binary.BigEndian.Uint16(%v)", "binary.BigEndian.PutUint16(%v, %v)"},
+	types.Uint32:	{4, "binary.BigEndian.Uint32(%v)", "binary.BigEndian.PutUint32(%v, %v)"},
+	types.Uint64:	{8, "binary.BigEndian.Uint64(%v)", "binary.BigEndian.PutUint64(%v, %v)"},
 
-	types.Float64:	{8, "float64_NEODecode(%v)"},
-
-	// XXX string ?
+	types.Float64:	{8, "float64_NEODecode(%v)", "float64_NEOEncode(%v, %v)"},
 }
 
 
@@ -170,9 +169,9 @@ func (d *decoder) emit(format string, a ...interface{}) {
 	fmt.Fprintf(&d.buf, format+"\n", a...)
 }
 
-// emit code for decode basic fixed types (not string), but do not assign it
-func (d *decoder) decodedBasic (obj types.Object, typ *types.Basic) string {
-	bdec, ok := basicDecode[typ.Kind()]
+// emit expression code to decode basic fixed types (not string); but do not assign it
+func (d *decoder) decodedBasic(obj types.Object, typ *types.Basic) string {
+	bdec, ok := basicTypes[typ.Kind()]
 	if !ok {
 		log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), typ)
 	}
@@ -183,7 +182,8 @@ func (d *decoder) decodedBasic (obj types.Object, typ *types.Basic) string {
 }
 
 // emit code for decode next string or []byte
-func (d *decoder) emitstrbytes(assignto string) {
+// TODO []byte support
+func (d *decoder) decodeStrBytes(assignto string) {
 	// len	u32
 	// [len]byte
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
@@ -197,7 +197,7 @@ func (d *decoder) emitstrbytes(assignto string) {
 }
 
 // TODO optimize for []byte
-func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice) {
+func (d *decoder) decodeSlice(assignto string, obj types.Object, typ *types.Slice) {
 	// len	u32
 	// [len]item
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
@@ -211,7 +211,7 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 	// XXX try to avoid (*) in a
-	d.emitobjtype("(*a)", obj, typ.Elem())	// XXX also obj.Elem() ?
+	d.decodeObject("(*a)", obj, typ.Elem())	// XXX also obj.Elem() ?
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
 	d.emit("nread += %v", d.n)
 	d.emit("}")
@@ -220,7 +220,7 @@ func (d *decoder) emitslice(assignto string, obj types.Object, typ *types.Slice)
 	d.n = 0
 }
 
-func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
+func (d *decoder) decodeMap(assignto string, obj types.Object, typ *types.Map) {
 	// len  u32
 	// [len](key, value)
 	d.emit("{ l := %v", d.decodedBasic(nil, types.Typ[types.Uint32]))
@@ -233,18 +233,18 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
-	d.emitobjtype("key:", obj, typ.Key())
+	d.decodeObject("key:", obj, typ.Key())
 
 	switch typ.Elem().Underlying().(type) {
 	// basic types can be directly assigned to map entry
 	case *types.Basic:
 		// XXX handle string
-		d.emitobjtype("m[key]", obj, typ.Elem())
+		d.decodeObject("m[key]", obj, typ.Elem())
 
 	// otherwise assign via temporary
 	default:
 		d.emit("var v %v", typeName(typ.Elem()))
-		d.emitobjtype("v", obj, typ.Elem())
+		d.decodeObject("v", obj, typ.Elem())
 		d.emit("m[key] = v")
 	}
 
@@ -257,11 +257,11 @@ func (d *decoder) emitmap(assignto string, obj types.Object, typ *types.Map) {
 }
 
 // top-level driver for emitting decode code for obj/type
-func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type) {
+func (d *decoder) decodeObject(assignto string, obj types.Object, typ types.Type) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
 		if u.Kind() == types.String {
-			d.emitstrbytes(assignto)
+			d.decodeStrBytes(assignto)
 			break
 		}
 
@@ -280,20 +280,20 @@ func (d *decoder) emitobjtype(assignto string, obj types.Object, typ types.Type)
 		// TODO optimize for [...]byte
 		var i int64	// XXX because `u.Len() int64`
 		for i = 0; i < u.Len(); i++ {
-			d.emitobjtype(fmt.Sprintf("%v[%v]", assignto, i), obj, u.Elem())
+			d.decodeObject(fmt.Sprintf("%v[%v]", assignto, i), obj, u.Elem())
 		}
 
 	case *types.Struct:
 		for i := 0; i < u.NumFields(); i++ {
 			v := u.Field(i)
-			d.emitobjtype(assignto + "." + v.Name(), v, v.Type())
+			d.decodeObject(assignto + "." + v.Name(), v, v.Type())
 		}
 
 	case *types.Slice:
-		d.emitslice(assignto, obj, u)
+		d.decodeSlice(assignto, obj, u)
 
 	case *types.Map:
-		d.emitmap(assignto, obj, u)
+		d.decodeMap(assignto, obj, u)
 
 
 
@@ -318,7 +318,7 @@ func gendecode(typespec *ast.TypeSpec) string {
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
 
-	d.emitobjtype("p", obj, typ)
+	d.decodeObject("p", obj, typ)
 
 	d.emit("return int(nread) + %v, nil", d.n)
 	d.emit("}")

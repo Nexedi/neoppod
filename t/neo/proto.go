@@ -145,7 +145,7 @@ func byte2bool(b byte) bool {
 
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
-func float64_NEOEncode(f float64, b []byte) {
+func float64_NEOEncode(b []byte, f float64) {
 	var fu uint64
 	if !math.IsNaN(f) {
 		fu = math.Float64bits(f)

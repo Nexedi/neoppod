@@ -89,6 +89,7 @@ func testPktMarshal(t *testing.T, pkt NEODecoder, encoded string) {
 	// decode must overflow on cut data	TODO reenable
 	/*
 	for l := len(encoded)-1; l >= 0; l-- {
+		// NOTE cap must not be > l
 		data = encoded[:l]	// XXX also check on original byte [:l] ?
 		n, err = pkt2.NEODecode([]byte(data))	// XXX
 		if !(n==0 && err==ErrDecodeOverflow) {
