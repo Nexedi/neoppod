@@ -60,7 +60,7 @@ const (
 type NodeState int32
 const (
 	RUNNING NodeState = iota //short: R     // XXX tag prefix name ?
-	TEMPORARILY_DOWN         //short: T
+	TEMPORARILY_DOWN	 //short: T
 	DOWN                     //short: D
 	BROKEN                   //short: B
 	HIDDEN                   //short: H
@@ -283,35 +283,35 @@ type PartitionTable struct {
 }
 
 type AnswerPartitionTable struct {
-        PTid
-        RowList []RowInfo
+	PTid
+	RowList []RowInfo
 }
 
 
 // Send rows in a partition table to update other nodes. PM -> S, C.
 type NotifyPartitionTable struct {
-        PTid
-        RowList []RowInfo
+	PTid
+	RowList []RowInfo
 }
 
 // Notify a subset of a partition table. This is used to notify changes.
 // PM -> S, C.
 type PartitionChanges struct {
-        PTid
-        CellList []struct {
-	        // XXX does below correlate with Cell inside top-level CellList ?
-	        Offset    uint32  // PNumber
-	        UUID      UUID
-                CellState CellState
-        }
+	PTid
+	CellList []struct {
+		// XXX does below correlate with Cell inside top-level CellList ?
+		Offset    uint32  // PNumber
+		UUID      UUID
+		CellState CellState
+	}
 }
 
 // Tell a storage nodes to start an operation. Until a storage node receives
 // this message, it must not serve client nodes. PM -> S.
 type StartOperation struct {
-        // XXX: Is this boolean needed ? Maybe this
-        //      can be deduced from cluster state.
-        Backup bool
+	// XXX: Is this boolean needed ? Maybe this
+	//      can be deduced from cluster state.
+	Backup bool
 }
 
 // Tell a storage node to stop an operation. Once a storage node receives
@@ -346,13 +346,13 @@ type FinalTID struct {
 }
 
 type AnswerFinalTID struct {
-        Tid     Tid
+	Tid     Tid
 }
 
 // Commit a transaction. PM -> S.
 type ValidateTransaction struct {
-        TTID Tid
-        Tid  Tid
+	TTID Tid
+	Tid  Tid
 }
 
 
@@ -369,45 +369,45 @@ type AnswerBeginTransaction struct {
 // Finish a transaction. C -> PM.
 // Answer when a transaction is finished. PM -> C.
 type FinishTransaction struct {
-        Tid         Tid
-        OIDList     []Oid
-        CheckedList []Oid
+	Tid	 Tid
+	OIDList     []Oid
+	CheckedList []Oid
 }
 
 type AnswerFinishTransaction struct {
-        TTID    Tid
-        Tid     Tid
+	TTID    Tid
+	Tid     Tid
 }
 
 // Notify that a transaction blocking a replication is now finished
 // M -> S
 type NotifyTransactionFinished struct {
-        TTID    Tid
-        MaxTID  Tid
+	TTID    Tid
+	MaxTID  Tid
 }
 
 // Lock information on a transaction. PM -> S.
 // Notify information on a transaction locked. S -> PM.
 type LockInformation struct {
-        Ttid Tid
-        Tid  Tid
+	Ttid Tid
+	Tid  Tid
 }
 
 // XXX AnswerInformationLocked ?
 type AnswerLockInformation struct {
-        Ttid Tid
+	Ttid Tid
 }
 
 // Invalidate objects. PM -> C.
 // XXX ask_finish_transaction ?
 type InvalidateObjects struct {
-        Tid     Tid
-        OidList []Oid
+	Tid     Tid
+	OidList []Oid
 }
 
 // Unlock information on a transaction. PM -> S.
 type UnlockInformation struct {
-        TTID    Tid
+	TTID    Tid
 }
 
 // Ask new object IDs. C -> PM.
@@ -418,7 +418,7 @@ type GenerateOIDs struct {
 
 // XXX answer_new_oids ?
 type AnswerGenerateOIDs struct {
-        OidList []Oid
+	OidList []Oid
 }
 
 
@@ -429,14 +429,14 @@ type AnswerGenerateOIDs struct {
 // if this serial is newer than the current transaction ID, a client
 // node must not try to resolve the conflict. S -> C.
 type StoreObject struct {
-        Oid             Oid
-        Serial          Tid
-        Compression     bool
-        Checksum        Checksum
-        Data            []byte          // XXX or string ?
-        DataSerial      Tid
-        Tid             Tid
-        Unlock          bool
+	Oid             Oid
+	Serial          Tid
+	Compression     bool
+	Checksum        Checksum
+	Data            []byte          // XXX or string ?
+	DataSerial      Tid
+	Tid             Tid
+	Unlock          bool
 }
 
 type AnswerStoreObject struct {
@@ -453,18 +453,18 @@ type AbortTransaction struct {
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type StoreTransaction struct {
-        Tid             Tid
-        User            string
-        Description     string
-        Extension       string
-        OidList         []Oid
+	Tid	     Tid
+	User            string
+	Description     string
+	Extension       string
+	OidList         []Oid
 	// TODO _answer = PFEmpty
 }
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type VoteTransaction struct {
-        Tid     Tid
+	Tid     Tid
 	// TODO _answer = PFEmpty
 }
 
@@ -480,13 +480,13 @@ type GetObject struct {
 
 // XXX answer_object ?
 type AnswerGetObject struct {
-        Oid             Oid
-        SerialStart     Tid
-        SerialEnd       Tid
-        Compression     bool
-        Checksum        Checksum
-        Data            []byte          // XXX or string ?
-        DataSerial      Tid
+	Oid             Oid
+	SerialStart     Tid
+	SerialEnd       Tid
+	Compression     bool
+	Checksum        Checksum
+	Data            []byte          // XXX or string ?
+	DataSerial      Tid
 }
 
 // Ask for TIDs between a range of offsets. The order of TIDs is descending,
@@ -500,7 +500,7 @@ type TIDList struct {
 
 // XXX answer_tids ?
 type AnswerTIDList struct {
-        TIDList []Tid
+	TIDList []Tid
 }
 
 // Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
@@ -525,12 +525,12 @@ type TransactionInformation struct {
 }
 
 type AnswerTransactionInformation struct {
-        Tid             Tid
-        User            string
-        Description     string
-        Extension       string
-        Packed          bool
-        OidList         []Oid
+	Tid             Tid
+	User            string
+	Description     string
+	Extension       string
+	Packed          bool
+	OidList         []Oid
 }
 
 // Ask history information for a given object. The order of serials is
@@ -544,7 +544,7 @@ type ObjectHistory struct {
 
 type AnswerObjectHistory struct {
 	Oid         Oid
-        HistoryList []struct {
+	HistoryList []struct {
 	        Serial  Tid
 	        Size    uint32  // PNumber
 	}
@@ -561,44 +561,44 @@ type PartitionList struct {
 
 type AnswerPartitionList struct {
 	PTid
-        RowList []RowInfo
+	RowList []RowInfo
 }
 
 // Ask information about nodes
 // Answer information about nodes
 type X_NodeList struct {
-        NodeType
+	NodeType
 }
 
 type AnswerNodeList struct {
-        NodeList []NodeInfo
+	NodeList []NodeInfo
 }
 
 // Set the node state
 type SetNodeState struct {
 	UUID
-        NodeState
+	NodeState
 
 	// XXX _answer = Error ?
 }
 
 // Ask the primary to include some pending node in the partition table
 type AddPendingNodes struct {
-        UUIDList []UUID
+	UUIDList []UUID
 
 	// XXX _answer = Error
 }
 
 // Ask the primary to optimize the partition table. A -> PM.
 type TweakPartitionTable struct {
-        UUIDList []UUID
+	UUIDList []UUID
 
 	// XXX _answer = Error
 }
 
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
-        NodeList []NodeInfo
+	NodeList []NodeInfo
 }
 
 // Ask node information
@@ -621,7 +621,7 @@ type ClusterInformation struct {
 // Ask state of the cluster
 // Answer state of the cluster
 type X_ClusterState struct {	// XXX conflicts with ClusterState enum
-        State   ClusterState
+	State   ClusterState
 }
 
 
@@ -640,18 +640,18 @@ type X_ClusterState struct {	// XXX conflicts with ClusterState enum
 //             If current_serial's data is current on storage.
 // S -> C
 type ObjectUndoSerial struct {
-        Tid             Tid
-        LTID            Tid
-        UndoneTID       Tid
-        OidList         []Oid
+	Tid             Tid
+	LTID            Tid
+	UndoneTID       Tid
+	OidList         []Oid
 }
 
 // XXX answer_undo_transaction ?
 type AnswerObjectUndoSerial struct {
 	ObjectTIDDict map[Oid]struct {
-                CurrentSerial   Tid
-                UndoSerial      Tid
-                IsCurrent       bool
+		CurrentSerial   Tid
+		UndoSerial      Tid
+		IsCurrent       bool
 	}
 }
 
@@ -659,13 +659,13 @@ type AnswerObjectUndoSerial struct {
 // C -> S
 // Answer whether a transaction holds the write lock for requested object.
 type HasLock struct {
-        Tid     Tid
-        Oid     Oid
+	Tid     Tid
+	Oid     Oid
 }
 
 type AnswerHasLock struct {
-        Oid       Oid
-        LockState LockState
+	Oid       Oid
+	LockState LockState
 }
 
 
@@ -683,9 +683,9 @@ type CheckCurrentSerial struct {
 
 // XXX answer_store_object ?
 type AnswerCheckCurrentSerial struct {
-        Conflicting     bool
-        Oid             Oid
-        Serial          Tid
+	Conflicting     bool
+	Oid             Oid
+	Serial          Tid
 }
 
 // Request a pack at given TID.
@@ -695,7 +695,7 @@ type AnswerCheckCurrentSerial struct {
 // S -> M
 // M -> C
 type Pack struct {
-        Tid     Tid
+	Tid     Tid
 }
 
 type AnswerPack struct {
@@ -734,16 +734,16 @@ type CheckPartition struct {
 // reference node.
 // S -> S
 type CheckTIDRange struct {
-        Partition uint32        // PNumber
-        Length    uint32        // PNumber
-        MinTID    Tid
-        MaxTID    Tid
+	Partition uint32        // PNumber
+	Length    uint32        // PNumber
+	MinTID    Tid
+	MaxTID    Tid
 }
 
 type AnswerCheckTIDRange struct {
 	Count    uint32         // PNumber
 	Checksum Checksum
-        MaxTID   Tid
+	MaxTID   Tid
 }
 
 // Ask some stats about a range of object history.
@@ -755,25 +755,25 @@ type AnswerCheckTIDRange struct {
 // reference node.
 // S -> S
 type CheckSerialRange struct {
-        Partition       uint32  // PNumber
-        Length          uint32  // PNumber
-        MinTID          Tid
-        MaxTID          Tid
-        MinOID          Oid
+	Partition       uint32  // PNumber
+	Length          uint32  // PNumber
+	MinTID          Tid
+	MaxTID          Tid
+	MinOID          Oid
 }
 
 type AnswerCheckSerialRange struct {
-        Count           uint32  // PNumber
-        TidChecksum     Checksum
-        MaxTID          Tid
-        OidChecksum     Checksum
-        MaxOID          Oid
+	Count           uint32  // PNumber
+	TidChecksum     Checksum
+	MaxTID          Tid
+	OidChecksum     Checksum
+	MaxOID          Oid
 }
 
 // S -> M
 type PartitionCorrupted struct {
-        Partition       uint32  // PNumber
-        CellList        []UUID
+	Partition       uint32  // PNumber
+	CellList        []UUID
 }
 
 

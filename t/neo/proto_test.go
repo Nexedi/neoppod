@@ -16,6 +16,7 @@ package neo
 
 import (
 	hexpkg "encoding/hex"
+	"encoding/binary"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -28,6 +29,20 @@ func hex(s string) string {
 		panic(err)
 	}
 	return string(b)
+}
+
+// uint32 -> string as encoded on the wire
+func u32(v uint32) string {
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:], v)
+	return string(b[:])
+}
+
+// uint64 -> string as encoded on the wire
+func u64(v uint64) string {
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], v)
+	return string(b[:])
 }
 
 func TestPktHeader(t *testing.T) {
@@ -86,7 +101,7 @@ func TestPktMarshal(t *testing.T) {
 		// empty
 		{&Ping{}, ""},
 
-		// uint32, string	XXX string -> Notify?
+		// uint32, string
 		{&Error{Code: 0x01020304, Message: "hello"}, "\x01\x02\x03\x04\x00\x00\x00\x05hello"},
 
 		// Oid, Tid, bool, Checksum, []byte
@@ -106,7 +121,7 @@ func TestPktMarshal(t *testing.T) {
 		 hex("0000000b") + "hello world" +
 		 hex("0a0b0c0d0e0f01030a0b0c0d0e0f010401")},
 
-		// PTid, [] (of [] of ...)
+		// PTid, [] (of [] of {UUID, CellState})
 		{&AnswerPartitionTable{
 			PTid:	0x0102030405060708,
 			RowList: []RowInfo{
@@ -123,14 +138,34 @@ func TestPktMarshal(t *testing.T) {
 			hex("00000007000000030000000b000000040000000f000000030000001700000000"),
 		},
 
+		// map[Oid]struct {Tid,Tid,bool}
+		{&AnswerObjectUndoSerial{
+			ObjectTIDDict: map[Oid]struct{
+						CurrentSerial   Tid
+						UndoSerial      Tid
+						IsCurrent       bool
+				} {
+				1: {1, 0, false},
+				2: {7, 1, true},
+				8: {7, 1, false},
+				5: {4, 3, true},
+			}},
+
+		 u32(4) +
+			u64(1) + u64(1) + u64(0) + hex("00") +
+			u64(2) + u64(7) + u64(1) + hex("01") +
+			u64(8) + u64(7) + u64(1) + hex("00") +
+			u64(5) + u64(4) + u64(3) + hex("01"),
+		},
+
 		/*
 		// uint32, Address, string, float64
 		{&RequestIdentification{...}},	// TODO
 		*/
 
 		// TODO float64 (+ nan !nan ...)
-		// TODO [](!byte), map
-		// TODO Address, PTid
+		// TODO map	<- AnswerLockedTransactions, AnswerObjectUndoSerial, CheckReplicas
+		// TODO Address,
 	}
 
 	for _, tt := range testv {
