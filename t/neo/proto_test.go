@@ -37,6 +37,7 @@ func TestPktHeader(t *testing.T) {
 	}
 }
 
+// test marshalling for one packet type
 func testPktMarshal(t *testing.T, pkt NEODecoder, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
 	pkt2 := reflect.New(typ).Interface().(NEODecoder)
@@ -118,8 +119,8 @@ func TestPktMarshal(t *testing.T) {
 		 hex("0102030405060708") +
 		 hex("00000003") +
 			hex("00000001000000020000000b000000000000001100000001") +
-			hex("00000002000000010000000b00000003") +
-			hex("00000007000000030000000b000000040000000e000000030000001700000000"),
+			hex("00000002000000010000000b00000002") +
+			hex("00000007000000030000000b000000040000000f000000030000001700000000"),
 		},
 
 		/*
