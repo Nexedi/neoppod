@@ -139,7 +139,8 @@ class NeoTestRunner(unittest.TextTestResult):
             # load prefix if supplied
             if isinstance(test_module, tuple):
                 test_module, loader.testMethodPrefix = test_module
-            if only and exclude == fnmatchcase(test_module, only):
+            if only and not (exclude and test_only or
+                             exclude != fnmatchcase(test_module, only)):
                 continue
             try:
                 test_module = __import__(test_module, globals(), locals(), ['*'])
