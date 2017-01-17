@@ -211,7 +211,7 @@ func (d *decoder) decodeSlice(assignto string, obj types.Object, typ *types.Slic
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 	// XXX try to avoid (*) in a
-	d.decodeObject("(*a)", obj, typ.Elem())	// XXX also obj.Elem() ?
+	d.decodeType("(*a)", typ.Elem(), obj)
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
 	d.emit("nread += %v", d.n)
 	d.emit("}")
@@ -233,18 +233,18 @@ func (d *decoder) decodeMap(assignto string, obj types.Object, typ *types.Map) {
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
-	d.decodeObject("key:", obj, typ.Key())
+	d.decodeType("key:", typ.Key(), obj)
 
 	switch typ.Elem().Underlying().(type) {
 	// basic types can be directly assigned to map entry
 	case *types.Basic:
 		// XXX handle string
-		d.decodeObject("m[key]", obj, typ.Elem())
+		d.decodeType("m[key]", typ.Elem(), obj)
 
 	// otherwise assign via temporary
 	default:
 		d.emit("var v %v", typeName(typ.Elem()))
-		d.decodeObject("v", obj, typ.Elem())
+		d.decodeType("v", typ.Elem(), obj)
 		d.emit("m[key] = v")
 	}
 
@@ -256,8 +256,10 @@ func (d *decoder) decodeMap(assignto string, obj types.Object, typ *types.Map) {
 	d.n = 0
 }
 
-// top-level driver for emitting decode code for obj/type
-func (d *decoder) decodeObject(assignto string, obj types.Object, typ types.Type) {
+// top-level driver for emitting decode code for type
+// obj is object that uses this type in source program (so in case of an error
+// we can point to source location for where it happenned)
+func (d *decoder) decodeType(assignto string, typ types.Type, obj types.Object) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
 		if u.Kind() == types.String {
@@ -280,13 +282,13 @@ func (d *decoder) decodeObject(assignto string, obj types.Object, typ types.Type
 		// TODO optimize for [...]byte
 		var i int64	// XXX because `u.Len() int64`
 		for i = 0; i < u.Len(); i++ {
-			d.decodeObject(fmt.Sprintf("%v[%v]", assignto, i), obj, u.Elem())
+			d.decodeType(fmt.Sprintf("%v[%v]", assignto, i), u.Elem(), obj)
 		}
 
 	case *types.Struct:
 		for i := 0; i < u.NumFields(); i++ {
 			v := u.Field(i)
-			d.decodeObject(assignto + "." + v.Name(), v, v.Type())
+			d.decodeType(assignto + "." + v.Name(), v.Type(), v)
 		}
 
 	case *types.Slice:
@@ -318,7 +320,7 @@ func gendecode(typespec *ast.TypeSpec) string {
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
 
-	d.decodeObject("p", obj, typ)
+	d.decodeType("p", typ, obj)
 
 	d.emit("return int(nread) + %v, nil", d.n)
 	d.emit("}")
