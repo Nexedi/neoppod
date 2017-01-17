@@ -149,7 +149,11 @@ class NeoTestRunner(unittest.TextTestResult):
                 traceback.print_exc()
                 continue
             suite.addTests(loader.loadTestsFromModule(test_module))
-        suite.run(self)
+        try:
+            suite.run(self)
+        finally:
+            # Workaround weird behaviour of Python.
+            self._previousTestClass = None
 
     def startTest(self, test):
         super(NeoTestRunner, self).startTest(test)
