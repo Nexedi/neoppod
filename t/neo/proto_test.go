@@ -180,7 +180,7 @@ func TestPktMarshal(t *testing.T) {
 		},
 
 
-		// TODO special for:
+		// TODO special cases for:
 		// - float64 (+ nan !nan ...)
 		// - Address,
 	}
