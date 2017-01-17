@@ -321,7 +321,8 @@ class ServerNode(Node):
             master_nodes = kw.get('master_nodes', cluster.master_nodes)
             name = kw.get('name', cluster.name)
         port = address[1]
-        self._node_list[port] = weakref.proxy(self)
+        if address is not BIND:
+            self._node_list[port] = weakref.proxy(self)
         self._init_args = init_args = kw.copy()
         init_args['cluster'] = cluster
         init_args['address'] = address
@@ -933,20 +934,17 @@ class NEOThreadedTest(NeoTestBase):
 
     tic = Serialized.tic
 
+    @contextmanager
     def getLoopbackConnection(self):
-        app = MasterApplication(getSSL=NEOCluster.SSL,
-            getReplicas=0, getPartitions=1)
-        handler = EventHandler(app)
-        app.listening_conn = ListeningConnection(app, handler, app.server)
-        node = app.nm.createMaster(address=app.listening_conn.getAddress(),
-                                   uuid=app.uuid)
-        conn = ClientConnection.__new__(ClientConnection)
-        def reset():
-            conn.__dict__.clear()
-            conn.__init__(app, handler, node)
-            conn.reset = reset
-        reset()
-        return conn
+        app = MasterApplication(address=BIND,
+            getSSL=NEOCluster.SSL, getReplicas=0, getPartitions=1)
+        try:
+            handler = EventHandler(app)
+            app.listening_conn = ListeningConnection(app, handler, app.server)
+            yield ClientConnection(app, handler, app.nm.createMaster(
+                address=app.listening_conn.getAddress(), uuid=app.uuid))
+        finally:
+            app.close()
 
     def getUnpickler(self, conn):
         reader = conn._reader

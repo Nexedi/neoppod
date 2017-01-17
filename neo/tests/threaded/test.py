@@ -1209,17 +1209,17 @@ class Test(NEOThreadedTest):
                 self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
 
     def testConnectionTimeout(self):
-        conn = self.getLoopbackConnection()
-        conn.KEEP_ALIVE
-        with Patch(conn, KEEP_ALIVE=0):
-            while conn.connecting:
-                conn.em.poll(1)
+        with self.getLoopbackConnection() as conn:
+            conn.KEEP_ALIVE
             def onTimeout(orig):
                 conn.idle()
                 orig()
-            with Patch(conn, onTimeout=onTimeout):
-                conn.em.poll(1)
-        self.assertFalse(conn.isClosed())
+            with Patch(conn, KEEP_ALIVE=0):
+                while conn.connecting:
+                    conn.em.poll(1)
+                with Patch(conn, onTimeout=onTimeout):
+                    conn.em.poll(1)
+            self.assertFalse(conn.isClosed())
 
     @with_cluster()
     def testClientDisconnectedFromMaster(self, cluster):
