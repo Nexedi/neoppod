@@ -59,7 +59,7 @@ else:
 
 setup(
     name = 'neoppod',
-    version = '1.7.0',
+    version = '1.7.1',
     description = __doc__.strip(),
     author = 'Nexedi SA',
     author_email = 'neo-dev@erp5.org',
