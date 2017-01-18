@@ -89,16 +89,16 @@ class Storage(BaseStorage.BaseStorage,
         """
         Note: never blocks in NEO.
         """
-        return self.app.tpc_begin(transaction, tid, status)
+        return self.app.tpc_begin(self, transaction, tid, status)
 
     def tpc_vote(self, transaction):
-        return self.app.tpc_vote(transaction, self.tryToResolveConflict)
+        return self.app.tpc_vote(transaction)
 
     def tpc_abort(self, transaction):
         return self.app.tpc_abort(transaction)
 
     def tpc_finish(self, transaction, f=None):
-        return self.app.tpc_finish(transaction, self.tryToResolveConflict, f)
+        return self.app.tpc_finish(transaction, f)
 
     def store(self, oid, serial, data, version, transaction):
         assert version == '', 'Versions are not supported'
@@ -128,7 +128,7 @@ class Storage(BaseStorage.BaseStorage,
 
     # undo
     def undo(self, transaction_id, txn):
-        return self.app.undo(transaction_id, txn, self.tryToResolveConflict)
+        return self.app.undo(transaction_id, txn)
 
     def undoLog(self, first=0, last=-20, filter=None):
         return self.app.undoLog(first, last, filter)
@@ -167,8 +167,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def importFrom(self, source, start=None, stop=None, preindex=None):
         """ Allow import only a part of the source storage """
-        return self.app.importFrom(source, start, stop,
-                self.tryToResolveConflict, preindex)
+        return self.app.importFrom(self, source, start, stop, preindex)
 
     def pack(self, t, referencesf, gc=False):
         if gc:

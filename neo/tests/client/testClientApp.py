@@ -43,9 +43,6 @@ def _ask(self, conn, packet, handler=None, **kw):
         handler.dispatch(conn, conn.fakeReceived())
     return self.getHandlerData()
 
-def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
-    raise ConflictError
-
 class ClientApplicationTests(NeoUnitTestBase):
 
     def setUp(self):
@@ -182,11 +179,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         app.master_conn = Mock()
-        conn = Mock()
-        self.assertRaises(StorageTransactionError, app.undo, tid,
-            txn, failing_tryToResolveConflict)
+        self.assertRaises(StorageTransactionError, app.undo, tid, txn)
         # no packet sent
-        self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
 
     def test_connectToPrimaryNode(self):

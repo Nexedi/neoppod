@@ -184,6 +184,8 @@ class Application(ThreadedApplication):
         finally:
             # Don't leave access to thread context, even if a raise happens.
             self.setHandlerData(None)
+        if txn_context['conflict_dict']:
+            self._handleConflicts(txn_context)
 
     def _askStorage(self, conn, packet, **kw):
         """ Send a request to a storage node and process its answer """
@@ -392,7 +394,7 @@ class Application(ThreadedApplication):
             return result
         return self._cache.load(oid, before_tid)
 
-    def tpc_begin(self, transaction, tid=None, status=' '):
+    def tpc_begin(self, storage, transaction, tid=None, status=' '):
         """Begin a new transaction."""
         # First get a transaction, only one is allowed at a time
         txn_context = self._txn_container.new(transaction)
@@ -401,6 +403,7 @@ class Application(ThreadedApplication):
         if answer_ttid is None:
             raise NEOStorageError('tpc_begin failed')
         assert tid in (None, answer_ttid), (tid, answer_ttid)
+        txn_context['Storage'] = storage
         txn_context['ttid'] = answer_ttid
 
     def store(self, oid, serial, data, version, transaction):
@@ -444,15 +447,13 @@ class Application(ThreadedApplication):
 
         while txn_context['data_size'] >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
-            # Do not loop forever if conflicts happen on a big amount of data.
-            if not self.dispatcher.pending(queue):
-                return
         self._waitAnyTransactionMessage(txn_context, False)
 
-    def _handleConflicts(self, txn_context, tryToResolveConflict):
+    def _handleConflicts(self, txn_context):
         data_dict = txn_context['data_dict']
         pop_conflict = txn_context['conflict_dict'].popitem
         resolved_dict = txn_context['resolved_dict']
+        tryToResolveConflict = txn_context['Storage'].tryToResolveConflict
         while 1:
             # We iterate over conflict_dict, and clear it,
             # because new items may be added by calls to _store.
@@ -524,18 +525,12 @@ class Application(ThreadedApplication):
         while pending(queue):
             _waitAnyMessage(queue)
 
-    def waitStoreResponses(self, txn_context, tryToResolveConflict):
-        _handleConflicts = self._handleConflicts
+    def waitStoreResponses(self, txn_context):
         queue = txn_context['queue']
-        conflict_dict = txn_context['conflict_dict']
         pending = self.dispatcher.pending
         _waitAnyTransactionMessage = self._waitAnyTransactionMessage
-        while pending(queue) or conflict_dict:
-            # Note: handler data can be overwritten by _handleConflicts
-            # so we must set it for each iteration.
+        while pending(queue):
             _waitAnyTransactionMessage(txn_context)
-            if conflict_dict:
-                _handleConflicts(txn_context, tryToResolveConflict)
         if txn_context['data_dict']:
             raise NEOStorageError('could not store/check all oids')
         if OLD_ZODB:
@@ -543,10 +538,10 @@ class Application(ThreadedApplication):
                 for oid in txn_context['resolved_dict']]
         return txn_context['resolved_dict']
 
-    def tpc_vote(self, transaction, tryToResolveConflict):
+    def tpc_vote(self, transaction):
         """Store current transaction."""
         txn_context = self._txn_container.get(transaction)
-        result = self.waitStoreResponses(txn_context, tryToResolveConflict)
+        result = self.waitStoreResponses(txn_context)
         ttid = txn_context['ttid']
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
@@ -610,7 +605,7 @@ class Application(ThreadedApplication):
         # instance).
         self.dispatcher.forget_queue(txn_context['queue'], flush_queue=False)
 
-    def tpc_finish(self, transaction, tryToResolveConflict, f=None):
+    def tpc_finish(self, transaction, f=None):
         """Finish current transaction
 
         To avoid inconsistencies between several databases involved in the
@@ -629,7 +624,7 @@ class Application(ThreadedApplication):
         """
         txn_container = self._txn_container
         if 'voted' not in txn_container.get(transaction):
-            self.tpc_vote(transaction, tryToResolveConflict)
+            self.tpc_vote(transaction)
         checked_list = []
         self._load_lock_acquire()
         try:
@@ -676,7 +671,7 @@ class Application(ThreadedApplication):
             logging.exception("Failed to get final tid for TXN %s",
                               dump(ttid))
 
-    def undo(self, undone_tid, txn, tryToResolveConflict):
+    def undo(self, undone_tid, txn):
         txn_context = self._txn_container.get(txn)
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
         txn_oid_list = txn_info['oids']
@@ -739,8 +734,8 @@ class Application(ThreadedApplication):
                         'conflict')
                 # Resolve conflict
                 try:
-                    data = tryToResolveConflict(oid, current_serial,
-                        undone_tid, undo_data, data)
+                    data = txn_context['Storage'].tryToResolveConflict(
+                        oid, current_serial, undone_tid, undo_data, data)
                 except ConflictError:
                     raise UndoError('Some data were modified by a later ' \
                         'transaction', oid)
@@ -864,8 +859,7 @@ class Application(ThreadedApplication):
                 self._insertMetadata(txn_info, txn_ext)
             return result
 
-    def importFrom(self, source, start, stop, tryToResolveConflict,
-            preindex=None):
+    def importFrom(self, storage, source, start, stop, preindex=None):
         # TODO: The main difference with BaseStorage implementation is that
         #       preindex can't be filled with the result 'store' (tid only
         #       known after 'tpc_finish'. This method could be dropped if we
@@ -875,15 +869,15 @@ class Application(ThreadedApplication):
             preindex = {}
         for transaction in source.iterator(start, stop):
             tid = transaction.tid
-            self.tpc_begin(transaction, tid, transaction.status)
+            self.tpc_begin(storage, transaction, tid, transaction.status)
             for r in transaction:
                 oid = r.oid
                 pre = preindex.get(oid)
                 self.store(oid, pre, r.data, r.version, transaction)
                 preindex[oid] = tid
-            conflicted = self.tpc_vote(transaction, tryToResolveConflict)
+            conflicted = self.tpc_vote(transaction)
             assert not conflicted, conflicted
-            real_tid = self.tpc_finish(transaction, tryToResolveConflict)
+            real_tid = self.tpc_finish(transaction)
             assert real_tid == tid, (real_tid, tid)
 
     from .iterator import iterator

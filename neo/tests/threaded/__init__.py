@@ -711,6 +711,10 @@ class NEOCluster(object):
     def primary_master(self):
         master, = [master for master in self.master_list if master.primary]
         return master
+
+    @property
+    def cache_size(self):
+        return self.client._cache._max_size
     ###
 
     def __enter__(self):

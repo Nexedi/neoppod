@@ -369,12 +369,12 @@ class Test(NEOThreadedTest):
 
             resolved = []
             last = lambda txn: txn._extension['last'] # BBB
-            def _handleConflicts(orig, txn_context, *args):
+            def _handleConflicts(orig, txn_context):
                 resolved.append(last(txn_context['txn']))
-                return orig(txn_context, *args)
-            def tpc_vote(orig, transaction, *args):
+                orig(txn_context)
+            def tpc_vote(orig, transaction):
                 (l3 if last(transaction) else l2)()
-                return orig(transaction, *args)
+                return orig(transaction)
             with Patch(cluster.client, _handleConflicts=_handleConflicts):
                 with LockLock() as l3, Patch(cluster.client, tpc_vote=tpc_vote):
                     with LockLock() as l2:
@@ -820,12 +820,12 @@ class Test(NEOThreadedTest):
         with cluster.newClient() as client:
             cache = cluster.client._cache
             txn = transaction.Transaction()
-            client.tpc_begin(txn)
+            client.tpc_begin(None, txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
             # Delay invalidation for x
             with cluster.master.filterConnection(cluster.client) as m2c:
                 m2c.delayInvalidateObjects()
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
                 # Change to x is committed. Testing connection must ask the
                 # storage node to return original value of x, even if we
                 # haven't processed yet any invalidation for x.
@@ -857,9 +857,9 @@ class Test(NEOThreadedTest):
                 # to be processed.
                 # Now modify x to receive an invalidation for it.
                 txn = transaction.Transaction()
-                client.tpc_begin(txn)
+                client.tpc_begin(None, txn)
                 client.store(x2._p_oid, tid, x, '', txn) # value=0
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
                 t1.begin() # make sure invalidation is processed
                 # Resume processing of answer from storage. An entry should be
                 # added in cache for x=1 with a fixed next_tid (i.e. not None)
@@ -882,9 +882,9 @@ class Test(NEOThreadedTest):
                 t = self.newThread(t1.begin)
                 ll()
                 txn = transaction.Transaction()
-                client.tpc_begin(txn)
+                client.tpc_begin(None, txn)
                 client.store(x2._p_oid, tid, y, '', txn)
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
                 client.close()
                 self.assertEqual(invalidations(c1), {x1._p_oid})
             t.join()
@@ -950,9 +950,9 @@ class Test(NEOThreadedTest):
             # modify x with another client
             with cluster.newClient() as client:
                 txn = transaction.Transaction()
-                client.tpc_begin(txn)
+                client.tpc_begin(None, txn)
                 client.store(x1._p_oid, x1._p_serial, y, '', txn)
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
             self.tic()
 
             # Check reconnection to the master and storage.
@@ -967,11 +967,11 @@ class Test(NEOThreadedTest):
         if 1:
             client = cluster.client
             txn = transaction.Transaction()
-            client.tpc_begin(txn)
+            client.tpc_begin(None, txn)
             txn_context = client._txn_container.get(txn)
             txn_context['ttid'] = add64(txn_context['ttid'], 1)
             self.assertRaises(POSException.StorageError,
-                              client.tpc_finish, txn, None)
+                              client.tpc_finish, txn)
 
     @with_cluster()
     def testStorageFailureDuringTpcFinish(self, cluster):
@@ -1386,8 +1386,8 @@ class Test(NEOThreadedTest):
 
         txn = transaction.Transaction()
         storage.tpc_begin(txn)
-        storage.store(oid, None, '*' * storage._cache._max_size, '', txn)
-        self.assertRaises(POSException.ConflictError, storage.tpc_vote, txn)
+        self.assertRaises(POSException.ConflictError, storage.store,
+                          oid, None, '*' * cluster.cache_size, '', txn)
 
     @with_cluster(replicas=1)
     def testConflictWithOutOfDateCell(self, cluster):
