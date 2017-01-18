@@ -423,7 +423,7 @@ class NEOCluster(object):
         def start(last_try):
             try:
                 self.neoctl.startCluster()
-            except (NotReadyException, RuntimeError):
+            except (NotReadyException, RuntimeError), e:
                 return False, e
             return True, None
         self.expectCondition(start)
