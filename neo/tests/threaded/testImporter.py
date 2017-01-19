@@ -224,7 +224,7 @@ class ImporterTests(NEOThreadedTest):
                     last_import = i
             self.tic()
             # Same as above. We want last_import smaller enough compared to i
-            assert i / 3 < last_import < i - 3, (last_import, i)
+            assert i / 3 < last_import < i - 2, (last_import, i)
             self.assertFalse(cluster.storage.dm._import)
             i = len(src_root) + 1
             self.assertEqual(sorted(r.walk()), sorted(
