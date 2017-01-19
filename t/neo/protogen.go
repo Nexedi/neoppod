@@ -116,6 +116,7 @@ import (
 
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
+				buf.WriteString(generateCodecCode(typespec, &encoder{SizeOnly: true}))
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
@@ -193,6 +194,7 @@ type CodecCodeGen interface {
 type encoder struct {
 	Buffer	// XXX
 	n int
+	SizeOnly bool // generate code only to compute encoded size
 }
 
 type decoder struct {
@@ -212,8 +214,12 @@ func (d *decoder) generatedCode() string {
 }
 
 func (e *encoder) genPrologue(recvName, typeName string) {
-	e.emit("func (%s *%s) NEOEncode(data []byte) {", recvName, typeName)
-	//e.emit("var nwrote uint32")
+	if e.SizeOnly {
+		e.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
+		e.emit("var size uint32")
+	} else {
+		e.emit("func (%s *%s) NEOEncode(data []byte) {", recvName, typeName)
+	}
 }
 
 func (d *decoder) genPrologue(recvName, typeName string) {
@@ -222,10 +228,9 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 }
 
 func (e *encoder) genEpilogue() {
-	//e.emit("return int(nwrote) + %v /*, nil*/", e.n)
-	//e.emit("\noverflow:")
-	//e.emit("panic(0)	//return 0, ErrEncodeOverflow")
-	//e.emit("goto overflow")	// TODO remove
+	if e.SizeOnly {
+		e.emit("return int(size) + %v", e.n)
+	}
 	e.emit("}\n")
 }
 
@@ -247,9 +252,11 @@ func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type, o
 		path = fmt.Sprintf("%v(%v)", typeName(typ), path)
 	}
 	e.n += basic.wireSize
-	// NOTE no space before "=" - to be able to merge with ":"
-	// prefix and become defining assignment
-	e.emit(basic.encode, dataptr, path)
+	if !e.SizeOnly {
+		// NOTE no space before "=" - to be able to merge with ":"
+		// prefix and become defining assignment
+		e.emit(basic.encode, dataptr, path)
+	}
 }
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
@@ -276,10 +283,12 @@ func (e *encoder) genStrBytes(path string) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
 	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
-	e.emit("data = data[%v:]", e.n)
-	e.emit("if uint32(len(data)) < l { goto overflow }")
-	e.emit("copy(data, %v)", path)
-	e.emit("nwrote += %v + l", e.n)
+	if !e.SizeOnly {
+		e.emit("data = data[%v:]", e.n)
+		e.emit("copy(data, %v)", path)
+	} else {
+		e.emit("size += %v + l", e.n)
+	}
 	e.emit("}")
 	e.n = 0
 }
@@ -303,17 +312,23 @@ func (d *decoder) genStrBytes(assignto string) {
 func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
-	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
-	e.emit("data = data[%v:]", e.n)
-	e.emit("nwrote += %v", e.n)
+	if !e.SizeOnly {
+		e.genBasic("l", types.Typ[types.Uint32], nil, nil)
+		e.emit("data = data[%v:]", e.n)
+	} else {
+		e.emit("size += %v", e.n)
+	}
 	e.n = 0
-	// TODO size check
-	// TODO if size(item)==const - check l in one go
+	// TODO if size(item)==const - size update in one go
 	e.emit("for i := 0; uint32(i) <l; i++ {")
 	e.emit("a := &%s[i]", path)
 	codegenType("(*a)", typ.Elem(), obj, e)
-	e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
-	e.emit("nwrote += %v", e.n)
+	if !e.SizeOnly {
+		e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
+	} else {
+		e.emit("_ = a")	// FIXME try to remove
+		e.emit("size += %v", e.n)
+	}
 	e.emit("}")
 	// see vvv
 	e.emit("}")
