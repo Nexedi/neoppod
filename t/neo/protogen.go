@@ -116,7 +116,8 @@ import (
 
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
-				buf.WriteString(gendecode(typespec))
+				//buf.WriteString(generateCodecCode(typespec, &encoder{}))
+				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 				buf.WriteString("\n")
 
 				pktCode++
@@ -173,6 +174,9 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 
 // interface of codegenerator for coder/decoder
 type CodecCodeGen interface {
+	genPrologue(recvName, typeName string)
+	genEpilogue()
+
 	// emit code to process basic fixed types (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
 	genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object)
@@ -182,6 +186,8 @@ type CodecCodeGen interface {
 
 	// XXX particular case of slice
 	genStrBytes(path string)
+
+	generatedCode() string
 }
 
 // encode/decode codegen
@@ -198,20 +204,35 @@ type decoder struct {
 //var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
+func (d *decoder) generatedCode() string {
+	return d.String()	// XXX -> d.buf.String() ?
+}
+
+func (d *decoder) genPrologue(recvName, typeName string) {
+	d.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", recvName, typeName)
+	d.emit("var nread uint32")
+}
+
+func (d *decoder) genEpilogue() {
+	d.emit("return int(nread) + %v, nil", d.n)
+	d.emit("\noverflow:")
+	d.emit("return 0, ErrDecodeOverflow")
+	d.emit("}")
+}
+
 func (/*e*/d *encoder) genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object) {
 	basic := basicTypes[typ.Kind()]
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
-	decoded := fmt.Sprintf(basic.decode, dataptr)
-	d.n += basic.wireSize
 	if userType != nil && userType != typ {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
 		// -> need to cast
-		decoded = fmt.Sprintf("%v(%v)", typeName(userType), decoded)
+		path = fmt.Sprintf("%v(%v)", typeName(userType), path)
 	}
+	d.n += basic.wireSize
 	// NOTE no space before "=" - to be able to merge with ":"
 	// prefix and become defining assignment
-	d.emit("%s= %s", path, decoded)
+	d.emit(basic.encode, dataptr, path)
 }
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
@@ -358,26 +379,16 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 }
 
 
-// generate decoder func for a type declaration typespec
-func gendecode(typespec *ast.TypeSpec) string {
-	d := decoder{}
-	// prologue
-	d.emit("func (p *%s) NEODecode(data []byte) (int, error) {", typespec.Name.Name)
-	d.emit("var nread uint32")
-
-	//n := 0
-	//t := typespec.Type.(*ast.StructType)	// must be
+// generate encoder/decoder funcs for a type declaration typespec
+func generateCodecCode(typespec *ast.TypeSpec, codec CodecCodeGen) string {
+	codec.genPrologue("p", typespec.Name.Name)
 
 	// type & object which refers to this type
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
 
-	codegenType("p", typ, obj, &d)
+	codegenType("p", typ, obj, codec)
 
-	d.emit("return int(nread) + %v, nil", d.n)
-	d.emit("\noverflow:")
-	d.emit("return 0, ErrDecodeOverflow")
-	d.emit("}")
-	//return d.buf.String()
-	return d.String()
+	codec.genEpilogue()
+	return codec.generatedCode()
 }
