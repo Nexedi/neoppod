@@ -12,6 +12,9 @@
 
 // NEO. Protocol definition. Code generator
 // TODO text what it does (generates marshal code for proto.go)
+//
+// NOTE we do no try to emit clean/very clever code - for cases where compiler
+// can do a good job the work is delegated to it.
 
 // +build ignore
 
