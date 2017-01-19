@@ -118,7 +118,6 @@ import (
 
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
-				buf.WriteString("\n")
 
 				pktCode++
 			}
@@ -227,7 +226,7 @@ func (e *encoder) genEpilogue() {
 	e.emit("\noverflow:")
 	e.emit("panic(0)	//return 0, ErrEncodeOverflow")
 	e.emit("goto overflow")	// TODO remove
-	e.emit("}")
+	e.emit("}\n")
 }
 
 func (d *decoder) genEpilogue() {
@@ -235,7 +234,7 @@ func (d *decoder) genEpilogue() {
 	d.emit("\noverflow:")
 	d.emit("return 0, ErrDecodeOverflow")
 	d.emit("goto overflow")	// TODO remove
-	d.emit("}")
+	d.emit("}\n")
 }
 
 func (/*e*/d *encoder) genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object) {
