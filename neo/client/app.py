@@ -533,15 +533,11 @@ class Application(ThreadedApplication):
             _waitAnyTransactionMessage(txn_context)
         if txn_context['data_dict']:
             raise NEOStorageError('could not store/check all oids')
-        if OLD_ZODB:
-            return [(oid, ResolvedSerial)
-                for oid in txn_context['resolved_dict']]
-        return txn_context['resolved_dict']
 
     def tpc_vote(self, transaction):
         """Store current transaction."""
         txn_context = self._txn_container.get(transaction)
-        result = self.waitStoreResponses(txn_context)
+        self.waitStoreResponses(txn_context)
         ttid = txn_context['ttid']
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
@@ -583,7 +579,10 @@ class Application(ThreadedApplication):
         #       - If possible, recover from master failure.
         if 'error' in txn_context:
             raise NEOStorageError(txn_context['error'])
-        return result
+        if OLD_ZODB:
+            return [(oid, ResolvedSerial)
+                for oid in txn_context['resolved_dict']]
+        return txn_context['resolved_dict']
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
