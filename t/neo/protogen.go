@@ -213,7 +213,7 @@ func (d *decoder) generatedCode() string {
 }
 
 func (e *encoder) genPrologue(recvName, typeName string) {
-	e.emit("func (%s *%s) NEOEncode(data []byte) (int, error) {", recvName, typeName)
+	e.emit("func (%s *%s) NEOEncode(data []byte) int /*(int, error)*/ {", recvName, typeName)
 	e.emit("var nwrote uint32")
 }
 
@@ -225,7 +225,7 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 func (e *encoder) genEpilogue() {
 	e.emit("return int(nwrote) + %v /*, nil*/", e.n)
 	e.emit("\noverflow:")
-	e.emit("panic()	//return 0, ErrDecodeOverflow")
+	e.emit("panic(0)	//return 0, ErrEncodeOverflow")
 	e.emit("}")
 }
 
