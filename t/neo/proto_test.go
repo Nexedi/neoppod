@@ -82,6 +82,14 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 		t.Errorf("%v: encodedLen = %v  ; want %v", typ, n, len(encoded))
 	}
 
+	buf := make([]byte, n)
+	pkt.NEOEncode(buf)
+	if string(buf) != encoded {
+		t.Errorf("%v: encode result unexpected:", typ)
+		t.Errorf("\thave: %s", hexpkg.EncodeToString(buf))
+		t.Errorf("\twant: %s", hexpkg.EncodeToString([]byte(encoded)))
+	}
+
 	// TODO encode - check == encoded
 	// TODO encode(smaller buf) -> panic
 
