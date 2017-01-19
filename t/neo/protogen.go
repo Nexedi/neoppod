@@ -365,11 +365,12 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 // [len](key, value)
 func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 	e.emit("{")
+	e.emit("l := uint32(len(%s))", path)
+	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
 	if !e.SizeOnly {
-		e.emit("l := uint32(len(%s))", path)
-		e.genBasic("l", types.Typ[types.Uint32], nil, nil)
 		e.emit("data = data[%v:]", e.n)
 	} else {
+		e.emit("_ = l")	// FIXME remove
 		e.emit("size += %v", e.n)
 	}
 	e.n = 0

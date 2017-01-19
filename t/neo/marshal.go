@@ -1015,7 +1015,9 @@ overflow:
 func (p *AnswerLockedTransactions) NEOEncodedLen() int {
 	var size uint32
 	{
-		size += 0
+		l := uint32(len(p.TidDict))
+		_ = l
+		size += 4
 		for key, v := range p.TidDict {
 			_ = key
 			_ = v
@@ -2812,7 +2814,9 @@ overflow:
 func (p *AnswerObjectUndoSerial) NEOEncodedLen() int {
 	var size uint32
 	{
-		size += 0
+		l := uint32(len(p.ObjectTIDDict))
+		_ = l
+		size += 4
 		for key, v := range p.ObjectTIDDict {
 			_ = key
 			_ = v
@@ -3014,7 +3018,9 @@ overflow:
 func (p *CheckReplicas) NEOEncodedLen() int {
 	var size uint32
 	{
-		size += 0
+		l := uint32(len(p.PartitionDict))
+		_ = l
+		size += 4
 		for key, v := range p.PartitionDict {
 			_ = key
 			_ = v
