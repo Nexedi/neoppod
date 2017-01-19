@@ -201,7 +201,7 @@ func (d *decoder) decodeStrBytes(assignto string) {
 	d.emit("{")
 	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
-	d.emit("if uint32(len(data)) < l { return 0, ErrDecodeOverflow }")
+	d.emit("if uint32(len(data)) < l { goto overflow }")
 	d.emit("%v= string(data[:l])", assignto)
 	d.emit("data = data[l:]")
 	d.emit("nread += %v + l", d.n)
@@ -221,7 +221,7 @@ func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Objec
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
-	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
+	//d.emit("if len(data) < l { goto overflow }")
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 	// XXX try to avoid (*) in a
@@ -245,7 +245,7 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
-	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
+	//d.emit("if len(data) < l { goto overflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.decodeType("key:", typ.Key(), obj)
@@ -335,6 +335,8 @@ func gendecode(typespec *ast.TypeSpec) string {
 	d.decodeType("p", typ, obj)
 
 	d.emit("return int(nread) + %v, nil", d.n)
+	d.emit("\noverflow:")
+	d.emit("return 0, ErrDecodeOverflow")
 	d.emit("}")
 	return d.buf.String()
 }
