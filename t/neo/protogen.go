@@ -268,15 +268,23 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 	d.emit("%s= %s", assignto, decoded)
 }
 
-// emit code for decode next string or []byte
+// emit code to encode/decode next string or []byte
+// len	u32
+// [len]byte
 // TODO []byte support
 func (e *encoder) genStrBytes(path string) {
-	e.emit("// TODO strbytes")
+	e.emit("{")
+	e.emit("l := uint32(len(%s))", path)
+	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
+	e.emit("data = data[%v:]", e.n)
+	e.emit("if uint32(len(data)) < l { goto overflow }")
+	e.emit("copy(data, %v)", path)
+	e.emit("nwrote += %v + l", e.n)
+	e.emit("}")
+	e.n = 0
 }
 
 func (d *decoder) genStrBytes(assignto string) {
-	// len	u32
-	// [len]byte
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)

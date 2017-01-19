@@ -10,7 +10,16 @@ import (
 
 func (p *Address) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
-	// TODO strbytes
+	{
+		l := uint32(len(p.Host))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Host)
+		nwrote += 4 + l
+	}
 	binary.BigEndian.PutUint16(data[0:], p.Port)
 	return int(nwrote) + 2 /*, nil*/
 
@@ -44,12 +53,21 @@ overflow:
 func (p *NodeInfo) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
-	// TODO strbytes
-	binary.BigEndian.PutUint16(data[4:], p.Address.Port)
-	binary.BigEndian.PutUint32(data[6:], uint32(int32(p.UUID)))
-	binary.BigEndian.PutUint32(data[10:], uint32(int32(p.NodeState)))
-	float64_NEOEncode(data[14:], p.IdTimestamp)
-	return int(nwrote) + 22 /*, nil*/
+	{
+		l := uint32(len(p.Address.Host))
+		binary.BigEndian.PutUint32(data[4:], l)
+		data = data[8:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Address.Host)
+		nwrote += 8 + l
+	}
+	binary.BigEndian.PutUint16(data[0:], p.Address.Port)
+	binary.BigEndian.PutUint32(data[2:], uint32(int32(p.UUID)))
+	binary.BigEndian.PutUint32(data[6:], uint32(int32(p.NodeState)))
+	float64_NEOEncode(data[10:], p.IdTimestamp)
+	return int(nwrote) + 18 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
@@ -144,7 +162,16 @@ overflow:
 
 func (p *Notify) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
-	// TODO strbytes
+	{
+		l := uint32(len(p.Message))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Message)
+		nwrote += 4 + l
+	}
 	return int(nwrote) + 0 /*, nil*/
 
 overflow:
@@ -176,8 +203,17 @@ overflow:
 func (p *Error) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
 	binary.BigEndian.PutUint32(data[0:], p.Code)
-	// TODO strbytes
-	return int(nwrote) + 4 /*, nil*/
+	{
+		l := uint32(len(p.Message))
+		binary.BigEndian.PutUint32(data[4:], l)
+		data = data[8:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Message)
+		nwrote += 8 + l
+	}
+	return int(nwrote) + 0 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
@@ -251,11 +287,29 @@ func (p *RequestIdentification) NEOEncode(data []byte) int /*(int, error)*/ {
 	binary.BigEndian.PutUint32(data[0:], p.ProtocolVersion)
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.NodeType)))
 	binary.BigEndian.PutUint32(data[8:], uint32(int32(p.UUID)))
-	// TODO strbytes
-	binary.BigEndian.PutUint16(data[12:], p.Address.Port)
-	// TODO strbytes
-	float64_NEOEncode(data[14:], p.IdTimestamp)
-	return int(nwrote) + 22 /*, nil*/
+	{
+		l := uint32(len(p.Address.Host))
+		binary.BigEndian.PutUint32(data[12:], l)
+		data = data[16:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Address.Host)
+		nwrote += 16 + l
+	}
+	binary.BigEndian.PutUint16(data[0:], p.Address.Port)
+	{
+		l := uint32(len(p.Name))
+		binary.BigEndian.PutUint32(data[2:], l)
+		data = data[6:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Name)
+		nwrote += 6 + l
+	}
+	float64_NEOEncode(data[0:], p.IdTimestamp)
+	return int(nwrote) + 8 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
@@ -305,10 +359,19 @@ func (p *AcceptIdentification) NEOEncode(data []byte) int /*(int, error)*/ {
 	binary.BigEndian.PutUint32(data[8:], p.NumPartitions)
 	binary.BigEndian.PutUint32(data[12:], p.NumReplicas)
 	binary.BigEndian.PutUint32(data[16:], uint32(int32(p.YourUUID)))
-	// TODO strbytes
-	binary.BigEndian.PutUint16(data[20:], p.Primary.Port)
+	{
+		l := uint32(len(p.Primary.Host))
+		binary.BigEndian.PutUint32(data[20:], l)
+		data = data[24:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Primary.Host)
+		nwrote += 24 + l
+	}
+	binary.BigEndian.PutUint16(data[0:], p.Primary.Port)
 	// TODO slice
-	return int(nwrote) + 22 /*, nil*/
+	return int(nwrote) + 2 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
@@ -1350,11 +1413,38 @@ overflow:
 func (p *StoreTransaction) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
-	// TODO strbytes
-	// TODO strbytes
-	// TODO strbytes
+	{
+		l := uint32(len(p.User))
+		binary.BigEndian.PutUint32(data[8:], l)
+		data = data[12:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.User)
+		nwrote += 12 + l
+	}
+	{
+		l := uint32(len(p.Description))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Description)
+		nwrote += 4 + l
+	}
+	{
+		l := uint32(len(p.Extension))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Extension)
+		nwrote += 4 + l
+	}
 	// TODO slice
-	return int(nwrote) + 8 /*, nil*/
+	return int(nwrote) + 0 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
@@ -1691,12 +1781,39 @@ overflow:
 func (p *AnswerTransactionInformation) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
-	// TODO strbytes
-	// TODO strbytes
-	// TODO strbytes
-	(data[8:])[0] = bool2byte(p.Packed)
+	{
+		l := uint32(len(p.User))
+		binary.BigEndian.PutUint32(data[8:], l)
+		data = data[12:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.User)
+		nwrote += 12 + l
+	}
+	{
+		l := uint32(len(p.Description))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Description)
+		nwrote += 4 + l
+	}
+	{
+		l := uint32(len(p.Extension))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Extension)
+		nwrote += 4 + l
+	}
+	(data[0:])[0] = bool2byte(p.Packed)
 	// TODO slice
-	return int(nwrote) + 9 /*, nil*/
+	return int(nwrote) + 1 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
@@ -2459,12 +2576,30 @@ overflow:
 func (p *CheckPartition) NEOEncode(data []byte) int /*(int, error)*/ {
 	var nwrote uint32
 	binary.BigEndian.PutUint32(data[0:], p.Partition)
-	// TODO strbytes
-	// TODO strbytes
-	binary.BigEndian.PutUint16(data[4:], p.Source.Address.Port)
-	binary.BigEndian.PutUint64(data[6:], uint64(p.MinTID))
-	binary.BigEndian.PutUint64(data[14:], uint64(p.MaxTID))
-	return int(nwrote) + 22 /*, nil*/
+	{
+		l := uint32(len(p.Source.UpstreamName))
+		binary.BigEndian.PutUint32(data[4:], l)
+		data = data[8:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Source.UpstreamName)
+		nwrote += 8 + l
+	}
+	{
+		l := uint32(len(p.Source.Address.Host))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		if uint32(len(data)) < l {
+			goto overflow
+		}
+		copy(data, p.Source.Address.Host)
+		nwrote += 4 + l
+	}
+	binary.BigEndian.PutUint16(data[0:], p.Source.Address.Port)
+	binary.BigEndian.PutUint64(data[2:], uint64(p.MinTID))
+	binary.BigEndian.PutUint64(data[10:], uint64(p.MaxTID))
+	return int(nwrote) + 18 /*, nil*/
 
 overflow:
 	panic(0) //return 0, ErrEncodeOverflow
