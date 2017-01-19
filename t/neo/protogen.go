@@ -224,8 +224,8 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 
 func (e *encoder) genEpilogue() {
 	e.emit("return int(nwrote) + %v /*, nil*/", e.n)
-	e.emit("\noverflow:")
-	e.emit("panic(0)	//return 0, ErrEncodeOverflow")
+	e.emit("\n/*overflow:")
+	e.emit("panic(0) */	//return 0, ErrEncodeOverflow")
 	e.emit("}")
 }
 

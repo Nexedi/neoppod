@@ -143,6 +143,14 @@ func byte2bool(b byte) bool {
 	return b != 0
 }
 
+func bool2byte(b bool) byte {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
+
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
 func float64_NEOEncode(b []byte, f float64) {
