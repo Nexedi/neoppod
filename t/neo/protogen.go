@@ -116,7 +116,7 @@ import (
 
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
-				//buf.WriteString(generateCodecCode(typespec, &encoder{}))
+				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 				buf.WriteString("\n")
 
@@ -150,9 +150,9 @@ var basicTypes = map[types.BasicKind]basicCodec {
 	// encode: %v %v will be `data[n:]`, value
 	types.Bool:	{1, "(%v)[0] = bool2byte(%v)", "byte2bool((%v)[0])"},
 	types.Int8:	{1, "(%v)[0] = uint8(%v)", "int8((%v)[0])"},
-	types.Int16:	{2, "binary.BigEndian.PutUint16(uint16(%v))", "int16(binary.BigEndian.Uint16(%v))"},
-	types.Int32:	{4, "binary.BigEndian.PutUint32(uint32(%v))", "int32(binary.BigEndian.Uint32(%v))"},
-	types.Int64:	{8, "binary.BigEndian.PutUint64(uint64(%v))", "int64(binary.BigEndian.Uint64(%v))"},
+	types.Int16:	{2, "binary.BigEndian.PutUint16(%v, uint16(%v))", "int16(binary.BigEndian.Uint16(%v))"},
+	types.Int32:	{4, "binary.BigEndian.PutUint32(%v, uint32(%v))", "int32(binary.BigEndian.Uint32(%v))"},
+	types.Int64:	{8, "binary.BigEndian.PutUint64(%v, uint64(%v))", "int64(binary.BigEndian.Uint64(%v))"},
 
 	types.Uint8:	{1, "(%v)[0] = %v", "(%v)[0]"},
 	types.Uint16:	{2, "binary.BigEndian.PutUint16(%v, %v)", "binary.BigEndian.Uint16(%v)"},
@@ -201,16 +201,32 @@ type decoder struct {
 	n int		// current decode position in data
 }
 
-//var _ CodecCodeGen = (*encoder)(nil)
+var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
+
+func (e *encoder) generatedCode() string {
+	return e.String()	// XXX -> d.buf.String() ?
+}
 
 func (d *decoder) generatedCode() string {
 	return d.String()	// XXX -> d.buf.String() ?
 }
 
+func (e *encoder) genPrologue(recvName, typeName string) {
+	e.emit("func (%s *%s) NEOEncode(data []byte) (int, error) {", recvName, typeName)
+	e.emit("var nwrote uint32")
+}
+
 func (d *decoder) genPrologue(recvName, typeName string) {
 	d.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", recvName, typeName)
 	d.emit("var nread uint32")
+}
+
+func (e *encoder) genEpilogue() {
+	e.emit("return int(nwrote) + %v /*, nil*/", e.n)
+	e.emit("\noverflow:")
+	e.emit("panic()	//return 0, ErrDecodeOverflow")
+	e.emit("}")
 }
 
 func (d *decoder) genEpilogue() {
@@ -227,7 +243,7 @@ func (/*e*/d *encoder) genBasic(path string, typ *types.Basic, userType types.Ty
 		// userType is a named type over some basic, like
 		// type ClusterState int32
 		// -> need to cast
-		path = fmt.Sprintf("%v(%v)", typeName(userType), path)
+		path = fmt.Sprintf("%v(%v)", typeName(typ), path)
 	}
 	d.n += basic.wireSize
 	// NOTE no space before "=" - to be able to merge with ":"
@@ -253,6 +269,10 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 
 // emit code for decode next string or []byte
 // TODO []byte support
+func (e *encoder) genStrBytes(path string) {
+	e.emit("// TODO strbytes")
+}
+
 func (d *decoder) genStrBytes(assignto string) {
 	// len	u32
 	// [len]byte
@@ -265,6 +285,10 @@ func (d *decoder) genStrBytes(assignto string) {
 	d.emit("nread += %v + l", d.n)
 	d.emit("}")
 	d.n = 0
+}
+
+func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
+	e.emit("// TODO slice")
 }
 
 // TODO optimize for []byte
@@ -290,6 +314,10 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
 	d.n = 0
+}
+
+func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
+	e.emit("// TODO map")
 }
 
 func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
@@ -379,7 +407,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 }
 
 
-// generate encoder/decoder funcs for a type declaration typespec
+// generate encoder/decode funcs for a type declaration typespec
 func generateCodecCode(typespec *ast.TypeSpec, codec CodecCodeGen) string {
 	codec.genPrologue("p", typespec.Name.Name)
 
