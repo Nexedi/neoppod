@@ -385,7 +385,7 @@ class Patch(object):
 
     Usage:
 
-      with Patch(someObject, attrToPatch=newValue, [otherAttr=...]) as patch:
+      with Patch(someObject, attrToPatch=newValue) as patch:
         [... code that runs with patches ...]
       [... code that runs without patch ...]
 
