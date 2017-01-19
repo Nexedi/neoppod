@@ -175,13 +175,13 @@ func (d *decoder) emit(format string, a ...interface{}) {
 // emit code to decode basic fixed types (not string)
 // userType is type actually used in source (for which typ is underlying), or nil
 func (d *decoder) decodeBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
-	bdec, ok := basicTypes[typ.Kind()]
+	basic, ok := basicTypes[typ.Kind()]
 	if !ok {
 		log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), typ)
 	}
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
-	decoded := fmt.Sprintf(bdec.decode, dataptr)
-	d.n += bdec.wireSize
+	decoded := fmt.Sprintf(basic.decode, dataptr)
+	d.n += basic.wireSize
 	if userType != nil && userType != typ {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
@@ -202,7 +202,7 @@ func (d *decoder) decodeStrBytes(assignto string) {
 	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("if uint32(len(data)) < l { return 0, ErrDecodeOverflow }")
-	d.emit("%v = string(data[:l])", assignto)
+	d.emit("%v= string(data[:l])", assignto)
 	d.emit("data = data[l:]")
 	d.emit("nread += %v + l", d.n)
 	d.emit("}")
@@ -218,7 +218,7 @@ func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Objec
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
-	d.emit("%v = make(%v, l)", assignto, typeName(typ))
+	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
@@ -229,7 +229,7 @@ func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Objec
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
 	d.emit("nread += %v", d.n)
 	d.emit("}")
-	//d.emit("%v = string(data[:l])", assignto)
+	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
 	d.n = 0
 }
@@ -242,7 +242,7 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
-	d.emit("%v = make(%v, l)", assignto, typeName(typ))
+	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { return 0, ErrDecodeOverflow }")
@@ -266,7 +266,7 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
 	d.emit("nread += %v", d.n)
 	d.emit("}")
-	//d.emit("%v = string(data[:l])", assignto)
+	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
 	d.n = 0
 }
