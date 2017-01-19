@@ -95,6 +95,10 @@ import (
 			continue
 		}
 
+		//fmt.Println(gendecl)
+		//ast.Print(fset, gendecl)
+		//continue
+
 		for _, spec := range gendecl.Specs {
 			typespec := spec.(*ast.TypeSpec) // must be because tok = TYPE
 			typename := typespec.Name.Name
@@ -106,9 +110,9 @@ import (
 
 			case *ast.StructType:
 				//fmt.Printf("\n%s:\n", typename)
+				//fmt.Println(typespec)
+				//ast.Print(fset, typespec)
 				//continue
-				//fmt.Println(t)
-				//ast.Print(fset, t)
 
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
@@ -118,9 +122,6 @@ import (
 				pktCode++
 			}
 		}
-
-		//fmt.Println(gdecl)
-		//ast.Print(fset, gdecl)
 	}
 
 	// format & emit bufferred code
@@ -136,28 +137,28 @@ import (
 }
 
 
-// info about wire decode/encode of a basic type
+// info about encode/decode of a basic fixed-size type
 type basicCodec struct {
 	wireSize int
-	decode string
 	encode string
+	decode string
 }
 
 var basicTypes = map[types.BasicKind]basicCodec {
 	// decode: %v    will be `data[n:]`  (and made sure data has more enough bytes to read)
 	// encode: %v %v will be `data[n:]`, value
-	types.Bool:	{1, "byte2bool((%v)[0])", "(%v)[0] = bool2byte(%v)"},
-	types.Int8:	{1, "int8((%v)[0])", "(%v)[0] = uint8(%v)" },
-	types.Int16:	{2, "int16(binary.BigEndian.Uint16(%v))", "binary.BigEndian.PutUint16(uint16(%v))"},
-	types.Int32:	{4, "int32(binary.BigEndian.Uint32(%v))", "binary.BigEndian.PutUint32(uint32(%v))"},
-	types.Int64:	{8, "int64(binary.BigEndian.Uint64(%v))", "binary.BigEndian.PutUint64(uint64(%v))"},
+	types.Bool:	{1, "(%v)[0] = bool2byte(%v)", "byte2bool((%v)[0])"},
+	types.Int8:	{1, "(%v)[0] = uint8(%v)", "int8((%v)[0])"},
+	types.Int16:	{2, "binary.BigEndian.PutUint16(uint16(%v))", "int16(binary.BigEndian.Uint16(%v))"},
+	types.Int32:	{4, "binary.BigEndian.PutUint32(uint32(%v))", "int32(binary.BigEndian.Uint32(%v))"},
+	types.Int64:	{8, "binary.BigEndian.PutUint64(uint64(%v))", "int64(binary.BigEndian.Uint64(%v))"},
 
-	types.Uint8:	{1, "(%v)[0]", "(%v)[0] = %v"},
-	types.Uint16:	{2, "binary.BigEndian.Uint16(%v)", "binary.BigEndian.PutUint16(%v, %v)"},
-	types.Uint32:	{4, "binary.BigEndian.Uint32(%v)", "binary.BigEndian.PutUint32(%v, %v)"},
-	types.Uint64:	{8, "binary.BigEndian.Uint64(%v)", "binary.BigEndian.PutUint64(%v, %v)"},
+	types.Uint8:	{1, "(%v)[0] = %v", "(%v)[0]"},
+	types.Uint16:	{2, "binary.BigEndian.PutUint16(%v, %v)", "binary.BigEndian.Uint16(%v)"},
+	types.Uint32:	{4, "binary.BigEndian.PutUint32(%v, %v)", "binary.BigEndian.Uint32(%v)"},
+	types.Uint64:	{8, "binary.BigEndian.PutUint64(%v, %v)", "binary.BigEndian.Uint64(%v)"},
 
-	types.Float64:	{8, "float64_NEODecode(%v)", "float64_NEOEncode(%v, %v)"},
+	types.Float64:	{8, "float64_NEOEncode(%v, %v)", "float64_NEODecode(%v)"},
 }
 
 
