@@ -212,8 +212,8 @@ func (d *decoder) generatedCode() string {
 }
 
 func (e *encoder) genPrologue(recvName, typeName string) {
-	e.emit("func (%s *%s) NEOEncode(data []byte) int /*(int, error)*/ {", recvName, typeName)
-	e.emit("var nwrote uint32")
+	e.emit("func (%s *%s) NEOEncode(data []byte) {", recvName, typeName)
+	//e.emit("var nwrote uint32")
 }
 
 func (d *decoder) genPrologue(recvName, typeName string) {
@@ -222,10 +222,10 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 }
 
 func (e *encoder) genEpilogue() {
-	e.emit("return int(nwrote) + %v /*, nil*/", e.n)
-	e.emit("\noverflow:")
-	e.emit("panic(0)	//return 0, ErrEncodeOverflow")
-	e.emit("goto overflow")	// TODO remove
+	//e.emit("return int(nwrote) + %v /*, nil*/", e.n)
+	//e.emit("\noverflow:")
+	//e.emit("panic(0)	//return 0, ErrEncodeOverflow")
+	//e.emit("goto overflow")	// TODO remove
 	e.emit("}\n")
 }
 
@@ -268,7 +268,7 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 	d.emit("%s= %s", assignto, decoded)
 }
 
-// emit code to encode/decode next string or []byte
+// emit code to encode/decode string or []byte
 // len	u32
 // [len]byte
 // TODO []byte support
@@ -296,14 +296,31 @@ func (d *decoder) genStrBytes(assignto string) {
 	d.n = 0
 }
 
+// emit code to encode/decode slice
+// len	u32
+// [len]item
+// TODO optimize for []byte
 func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
-	e.emit("// TODO slice")
+	e.emit("{")
+	e.emit("l := uint32(len(%s))", path)
+	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
+	e.emit("data = data[%v:]", e.n)
+	e.emit("nwrote += %v", e.n)
+	e.n = 0
+	// TODO size check
+	// TODO if size(item)==const - check l in one go
+	e.emit("for i := 0; uint32(i) <l; i++ {")
+	e.emit("a := &%s[i]", path)
+	codegenType("(*a)", typ.Elem(), obj, e)
+	e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
+	e.emit("nwrote += %v", e.n)
+	e.emit("}")
+	// see vvv
+	e.emit("}")
+	e.n = 0
 }
 
-// TODO optimize for []byte
 func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) {
-	// len	u32
-	// [len]item
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)

@@ -94,9 +94,12 @@ var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
 // NEOEncoder is interface for marshaling objects to wire format in NEO
 type NEOEncoder interface {
-	// NEOEncodedLen() int	?
-	// XXX len(buf) must be >= NEOEncodedLen()
-	NEOEncode(buf []byte) (nwrote int)
+	// compute how much space is needed to encode
+	NEOEncodedLen() int
+
+	// perform the encoding.
+	// len(buf) must be >= NEOEncodedLen()	// XXX check in tests it will panic
+	NEOEncode(buf []byte)
 }
 
 // NEODecoder is interface for unmarshalling objects from wire format in NEO
