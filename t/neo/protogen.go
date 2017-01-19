@@ -237,19 +237,19 @@ func (d *decoder) genEpilogue() {
 	d.emit("}\n")
 }
 
-func (/*e*/d *encoder) genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object) {
+func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object) {
 	basic := basicTypes[typ.Kind()]
-	dataptr := fmt.Sprintf("data[%v:]", d.n)
+	dataptr := fmt.Sprintf("data[%v:]", e.n)
 	if userType != nil && userType != typ {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
 		// -> need to cast
 		path = fmt.Sprintf("%v(%v)", typeName(typ), path)
 	}
-	d.n += basic.wireSize
+	e.n += basic.wireSize
 	// NOTE no space before "=" - to be able to merge with ":"
 	// prefix and become defining assignment
-	d.emit(basic.encode, dataptr, path)
+	e.emit(basic.encode, dataptr, path)
 }
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
