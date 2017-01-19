@@ -174,7 +174,7 @@ func (d *decoder) emit(format string, a ...interface{}) {
 
 // emit code to decode basic fixed types (not string)
 // userType is type actually used in source (for which typ is underlying), or nil
-func (d *decoder) decodeBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
+func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
 	basic, ok := basicTypes[typ.Kind()]
 	if !ok {
 		log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), typ)
@@ -195,11 +195,11 @@ func (d *decoder) decodeBasic(assignto string, typ *types.Basic, userType types.
 
 // emit code for decode next string or []byte
 // TODO []byte support
-func (d *decoder) decodeStrBytes(assignto string) {
+func (d *decoder) genStrBytes(assignto string) {
 	// len	u32
 	// [len]byte
 	d.emit("{")
-	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
+	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("if uint32(len(data)) < l { goto overflow }")
 	d.emit("%v= string(data[:l])", assignto)
@@ -210,11 +210,11 @@ func (d *decoder) decodeStrBytes(assignto string) {
 }
 
 // TODO optimize for []byte
-func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Object) {
+func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) {
 	// len	u32
 	// [len]item
 	d.emit("{")
-	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
+	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
@@ -225,7 +225,7 @@ func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Objec
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 	// XXX try to avoid (*) in a
-	d.decodeType("(*a)", typ.Elem(), obj)
+	codegenType("(*a)", typ.Elem(), obj, d)
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
 	d.emit("nread += %v", d.n)
 	d.emit("}")
@@ -234,11 +234,11 @@ func (d *decoder) decodeSlice(assignto string, typ *types.Slice, obj types.Objec
 	d.n = 0
 }
 
-func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
+func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	// len  u32
 	// [len](key, value)
 	d.emit("{")
-	d.decodeBasic("l:", types.Typ[types.Uint32], nil, nil)
+	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
@@ -248,18 +248,18 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 	//d.emit("if len(data) < l { goto overflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
-	d.decodeType("key:", typ.Key(), obj)
+	codegenType("key:", typ.Key(), obj, d)
 
 	switch typ.Elem().Underlying().(type) {
 	// basic types can be directly assigned to map entry
 	case *types.Basic:
 		// XXX handle string
-		d.decodeType("m[key]", typ.Elem(), obj)
+		codegenType("m[key]", typ.Elem(), obj, d)
 
 	// otherwise assign via temporary
 	default:
 		d.emit("var v %v", typeName(typ.Elem()))
-		d.decodeType("v", typ.Elem(), obj)
+		codegenType("v", typ.Elem(), obj, d)
 		d.emit("m[key] = v")
 	}
 
@@ -271,7 +271,20 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 	d.n = 0
 }
 
-// top-level driver for emitting decode code for type
+// interface of codegenerator for coder/decoder
+type CodecCodeGen interface {
+	// emit code to process basic fixed types (not string)
+	// userType is type actually used in source (for which typ is underlying), or nil
+	genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object)
+
+	genSlice(path string, typ *types.Slice, obj types.Object)
+	genMap(path string, typ *types.Map, obj types.Object)
+
+	// XXX particular case of slice
+	genStrBytes(path string)
+}
+
+// top-level driver for emitting encode/decode code for a type
 // the code emitted is of kind:
 //
 //	<assignto> = decode(typ)
@@ -279,35 +292,34 @@ func (d *decoder) decodeMap(assignto string, typ *types.Map, obj types.Object) {
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happenned)
 
-// TODO -> walkType and hook decoder/encoder via interface
-func (d *decoder) decodeType(assignto string, typ types.Type, obj types.Object) {
+func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCodeGen) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
 		if u.Kind() == types.String {
-			d.decodeStrBytes(assignto)
+			codegen.genStrBytes(path)
 			break
 		}
 
-		d.decodeBasic(assignto, u, typ, obj)
+		codegen.genBasic(path, u, typ, obj)
 
 	case *types.Array:
 		// TODO optimize for [...]byte
 		var i int64	// XXX because `u.Len() int64`
 		for i = 0; i < u.Len(); i++ {
-			d.decodeType(fmt.Sprintf("%v[%v]", assignto, i), u.Elem(), obj)
+			codegenType(fmt.Sprintf("%v[%v]", path, i), u.Elem(), obj, codegen)
 		}
 
 	case *types.Struct:
 		for i := 0; i < u.NumFields(); i++ {
 			v := u.Field(i)
-			d.decodeType(assignto + "." + v.Name(), v.Type(), v)
+			codegenType(path + "." + v.Name(), v.Type(), v, codegen)
 		}
 
 	case *types.Slice:
-		d.decodeSlice(assignto, u, obj)
+		codegen.genSlice(path, u, obj)
 
 	case *types.Map:
-		d.decodeMap(assignto, u, obj)
+		codegen.genMap(path, u, obj)
 
 
 
@@ -332,7 +344,7 @@ func gendecode(typespec *ast.TypeSpec) string {
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
 
-	d.decodeType("p", typ, obj)
+	codegenType("p", typ, obj, &d)
 
 	d.emit("return int(nread) + %v, nil", d.n)
 	d.emit("\noverflow:")
