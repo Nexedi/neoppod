@@ -357,13 +357,37 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.n = 0
 }
 
+// generate code to encode/decode map
+// len  u32
+// [len](key, value)
 func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
-	e.emit("// TODO map")
+	e.emit("{")
+	if !e.SizeOnly {
+		e.emit("l := uint32(len(%s))", path)
+		e.genBasic("l", types.Typ[types.Uint32], nil, nil)
+		e.emit("data = data[%v:]", e.n)
+	} else {
+		e.emit("size += %v", e.n)
+	}
+	e.n = 0
+	// TODO if size(item)==const - size update in one go
+	e.emit("for key, v := range %s {", path)
+	codegenType("key", typ.Key(), obj, e)
+	codegenType("v", typ.Elem(), obj, e)
+	if !e.SizeOnly {
+		e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
+	} else {
+		e.emit("_ = key")	// FIXME remove
+		e.emit("_ = v")		// FIXME remove
+		e.emit("size += %v", e.n)
+	}
+	e.emit("}")
+	// XXX vvv ?
+	e.emit("}")
+	e.n = 0
 }
 
 func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
-	// len  u32
-	// [len](key, value)
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
 	d.emit("data = data[%v:]", d.n)

@@ -1014,12 +1014,28 @@ overflow:
 
 func (p *AnswerLockedTransactions) NEOEncodedLen() int {
 	var size uint32
-	// TODO map
+	{
+		size += 0
+		for key, v := range p.TidDict {
+			_ = key
+			_ = v
+			size += 16
+		}
+	}
 	return int(size) + 0
 }
 
 func (p *AnswerLockedTransactions) NEOEncode(data []byte) {
-	// TODO map
+	{
+		l := uint32(len(p.TidDict))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for key, v := range p.TidDict {
+			binary.BigEndian.PutUint64(data[0:], uint64(key))
+			binary.BigEndian.PutUint64(data[8:], uint64(v))
+			data = data[16:]
+		}
+	}
 }
 
 func (p *AnswerLockedTransactions) NEODecode(data []byte) (int, error) {
@@ -2795,12 +2811,30 @@ overflow:
 
 func (p *AnswerObjectUndoSerial) NEOEncodedLen() int {
 	var size uint32
-	// TODO map
+	{
+		size += 0
+		for key, v := range p.ObjectTIDDict {
+			_ = key
+			_ = v
+			size += 25
+		}
+	}
 	return int(size) + 0
 }
 
 func (p *AnswerObjectUndoSerial) NEOEncode(data []byte) {
-	// TODO map
+	{
+		l := uint32(len(p.ObjectTIDDict))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for key, v := range p.ObjectTIDDict {
+			binary.BigEndian.PutUint64(data[0:], uint64(key))
+			binary.BigEndian.PutUint64(data[8:], uint64(v.CurrentSerial))
+			binary.BigEndian.PutUint64(data[16:], uint64(v.UndoSerial))
+			(data[24:])[0] = bool2byte(v.IsCurrent)
+			data = data[25:]
+		}
+	}
 }
 
 func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
@@ -2979,12 +3013,28 @@ overflow:
 
 func (p *CheckReplicas) NEOEncodedLen() int {
 	var size uint32
-	// TODO map
+	{
+		size += 0
+		for key, v := range p.PartitionDict {
+			_ = key
+			_ = v
+			size += 8
+		}
+	}
 	return int(size) + 16
 }
 
 func (p *CheckReplicas) NEOEncode(data []byte) {
-	// TODO map
+	{
+		l := uint32(len(p.PartitionDict))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for key, v := range p.PartitionDict {
+			binary.BigEndian.PutUint32(data[0:], key)
+			binary.BigEndian.PutUint32(data[4:], uint32(int32(v)))
+			data = data[8:]
+		}
+	}
 	binary.BigEndian.PutUint64(data[0:], uint64(p.MinTID))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
 }
