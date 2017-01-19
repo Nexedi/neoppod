@@ -162,23 +162,60 @@ var basicTypes = map[types.BasicKind]basicCodec {
 }
 
 
-// state of decode codegen
+// Buffer + bell & whistles
+type Buffer struct {
+	bytes.Buffer
+}
+
+func (b *Buffer) emit(format string, a ...interface{}) {
+	fmt.Fprintf(b, format+"\n", a...)
+}
+
+// interface of codegenerator for coder/decoder
+type CodecCodeGen interface {
+	// emit code to process basic fixed types (not string)
+	// userType is type actually used in source (for which typ is underlying), or nil
+	genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object)
+
+	genSlice(path string, typ *types.Slice, obj types.Object)
+	genMap(path string, typ *types.Map, obj types.Object)
+
+	// XXX particular case of slice
+	genStrBytes(path string)
+}
+
+// encode/decode codegen
+type encoder struct {
+	Buffer	// XXX
+	n int
+}
+
 type decoder struct {
-	buf bytes.Buffer	// buffer for generated code
-	n int			// current decode position in data
+	Buffer	// buffer for generated code
+	n int		// current decode position in data
 }
 
-func (d *decoder) emit(format string, a ...interface{}) {
-	fmt.Fprintf(&d.buf, format+"\n", a...)
-}
+//var _ CodecCodeGen = (*encoder)(nil)
+var _ CodecCodeGen = (*decoder)(nil)
 
-// emit code to decode basic fixed types (not string)
-// userType is type actually used in source (for which typ is underlying), or nil
-func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
-	basic, ok := basicTypes[typ.Kind()]
-	if !ok {
-		log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), typ)
+func (/*e*/d *encoder) genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object) {
+	basic := basicTypes[typ.Kind()]
+	dataptr := fmt.Sprintf("data[%v:]", d.n)
+	decoded := fmt.Sprintf(basic.decode, dataptr)
+	d.n += basic.wireSize
+	if userType != nil && userType != typ {
+		// userType is a named type over some basic, like
+		// type ClusterState int32
+		// -> need to cast
+		decoded = fmt.Sprintf("%v(%v)", typeName(userType), decoded)
 	}
+	// NOTE no space before "=" - to be able to merge with ":"
+	// prefix and become defining assignment
+	d.emit("%s= %s", path, decoded)
+}
+
+func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
+	basic := basicTypes[typ.Kind()]
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
 	d.n += basic.wireSize
@@ -271,19 +308,6 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.n = 0
 }
 
-// interface of codegenerator for coder/decoder
-type CodecCodeGen interface {
-	// emit code to process basic fixed types (not string)
-	// userType is type actually used in source (for which typ is underlying), or nil
-	genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object)
-
-	genSlice(path string, typ *types.Slice, obj types.Object)
-	genMap(path string, typ *types.Map, obj types.Object)
-
-	// XXX particular case of slice
-	genStrBytes(path string)
-}
-
 // top-level driver for emitting encode/decode code for a type
 // the code emitted is of kind:
 //
@@ -300,6 +324,10 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 			break
 		}
 
+		_, ok := basicTypes[u.Kind()]
+		if !ok {
+			log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), u)
+		}
 		codegen.genBasic(path, u, typ, obj)
 
 	case *types.Array:
@@ -350,5 +378,6 @@ func gendecode(typespec *ast.TypeSpec) string {
 	d.emit("\noverflow:")
 	d.emit("return 0, ErrDecodeOverflow")
 	d.emit("}")
-	return d.buf.String()
+	//return d.buf.String()
+	return d.String()
 }
