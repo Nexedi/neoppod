@@ -59,10 +59,16 @@ func TestPktHeader(t *testing.T) {
 	}
 }
 
+// XXX move me out of here?
+type NEOCodec interface {
+	NEOEncoder
+	NEODecoder
+}
+
 // test marshalling for one packet type
-func testPktMarshal(t *testing.T, pkt NEODecoder, encoded string) {
+func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
-	pkt2 := reflect.New(typ).Interface().(NEODecoder)
+	pkt2 := reflect.New(typ).Interface().(NEOCodec)
 	defer func() {
 		if e := recover(); e != nil {
 			t.Errorf("%v: panic ↓↓↓:", typ)
@@ -70,7 +76,14 @@ func testPktMarshal(t *testing.T, pkt NEODecoder, encoded string) {
 		}
 	}()
 
-	// TODO check encoding
+	// check encoding
+	n := pkt.NEOEncodedLen()
+	if n != len(encoded) {
+		t.Errorf("%v: encodedLen = %v  ; want %v", typ, n, len(encoded))
+	}
+
+	// TODO encode - check == encoded
+	// TODO encode(smaller buf) -> panic
 
 	// check decoding
 	data := encoded + "noise"
@@ -103,7 +116,7 @@ func testPktMarshal(t *testing.T, pkt NEODecoder, encoded string) {
 // test encoding/decoding of packets
 func TestPktMarshal(t *testing.T) {
 	var testv = []struct {
-		pkt     NEODecoder	//interface {NEOEncoder; NEODecoder}
+		pkt     NEOCodec
 		encoded string	// []byte
 	} {
 		// empty
