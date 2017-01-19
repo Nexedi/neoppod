@@ -55,15 +55,17 @@ func main() {
 	log.SetFlags(0)
 
 	// go through proto.go and collect packets type definitions
-	var mode parser.Mode = 0	// parser.Trace
 	var fv []*ast.File
 	for _, src := range []string{"proto.go", "neo.go"} {
-		f, err := parser.ParseFile(fset, src, nil, mode)
+		f, err := parser.ParseFile(fset, src, nil, 0)
 		if err != nil {
 			log.Fatalf("parse: %v", err)
 		}
 		fv = append(fv, f)
 	}
+
+	//ast.Print(fset, fv[0])
+	//return
 
 	conf := types.Config{Importer: importer.Default()}
 	neoPkg, err := conf.Check("neo", fset, fv, info)
@@ -72,11 +74,6 @@ func main() {
 	}
 	neoQualifier = types.RelativeTo(neoPkg)
 
-
-	//ncode := 0
-
-	//ast.Print(fset, f)
-	//return
 
 	// prologue
 	f := fv[0]	// proto.go comes first
@@ -90,6 +87,7 @@ import (
 `)
 
 	// go over packet types declaration and generate marshal code for them
+	pktCode := 0
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
 		gendecl, ok := decl.(*ast.GenDecl)
@@ -99,7 +97,7 @@ import (
 
 		for _, spec := range gendecl.Specs {
 			typespec := spec.(*ast.TypeSpec) // must be because tok = TYPE
-			//typename := typespec.Name.Name
+			typename := typespec.Name.Name
 
 			switch typespec.Type.(type) {
 			default:
@@ -112,8 +110,12 @@ import (
 				//fmt.Println(t)
 				//ast.Print(fset, t)
 
+				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
+
 				buf.WriteString(gendecode(typespec))
 				buf.WriteString("\n")
+
+				pktCode++
 			}
 		}
 
