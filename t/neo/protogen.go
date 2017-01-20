@@ -289,6 +289,7 @@ func (e *encoder) genStrBytes(path string) {
 	if !e.SizeOnly {
 		e.emit("data = data[%v:]", e.n)
 		e.emit("copy(data, %v)", path)
+		e.emit("data = data[l:]")
 	} else {
 		e.emit("size += %v + l", e.n)
 	}

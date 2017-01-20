@@ -167,6 +167,7 @@ func TestPktMarshal(t *testing.T) {
 			hex("00000007000000030000000b000000040000000f000000030000001700000000"),
 		},
 
+		/*
 		// map[Oid]struct {Tid,Tid,bool}
 		{&AnswerObjectUndoSerial{
 			ObjectTIDDict: map[Oid]struct{
@@ -186,6 +187,7 @@ func TestPktMarshal(t *testing.T) {
 			u64(8) + u64(7) + u64(1) + hex("00") +
 			u64(5) + u64(4) + u64(3) + hex("01"),
 		},
+		*/
 
 		// uint32, []uint32
 		{&PartitionCorrupted{7, []UUID{1,3,9,4}},

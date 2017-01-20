@@ -23,6 +23,7 @@ func (p *Address) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Host)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Port)
 }
@@ -65,6 +66,7 @@ func (p *NodeInfo) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[4:], l)
 		data = data[8:]
 		copy(data, p.Address.Host)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Address.Port)
 	binary.BigEndian.PutUint32(data[2:], uint32(int32(p.UUID)))
@@ -190,6 +192,7 @@ func (p *Notify) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Message)
+		data = data[l:]
 	}
 }
 
@@ -230,6 +233,7 @@ func (p *Error) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[4:], l)
 		data = data[8:]
 		copy(data, p.Message)
+		data = data[l:]
 	}
 }
 
@@ -315,6 +319,7 @@ func (p *RequestIdentification) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[12:], l)
 		data = data[16:]
 		copy(data, p.Address.Host)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Address.Port)
 	{
@@ -322,6 +327,7 @@ func (p *RequestIdentification) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[2:], l)
 		data = data[6:]
 		copy(data, p.Name)
+		data = data[l:]
 	}
 	float64_NEOEncode(data[0:], p.IdTimestamp)
 }
@@ -395,6 +401,7 @@ func (p *AcceptIdentification) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[20:], l)
 		data = data[24:]
 		copy(data, p.Primary.Host)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Primary.Port)
 	{
@@ -408,6 +415,7 @@ func (p *AcceptIdentification) NEOEncode(data []byte) {
 				binary.BigEndian.PutUint32(data[0:], l)
 				data = data[4:]
 				copy(data, (*a).Address.Host)
+				data = data[l:]
 			}
 			binary.BigEndian.PutUint16(data[0:], (*a).Address.Port)
 			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).UUID)))
@@ -1669,18 +1677,21 @@ func (p *StoreTransaction) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[8:], l)
 		data = data[12:]
 		copy(data, p.User)
+		data = data[l:]
 	}
 	{
 		l := uint32(len(p.Description))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Description)
+		data = data[l:]
 	}
 	{
 		l := uint32(len(p.Extension))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Extension)
+		data = data[l:]
 	}
 	{
 		l := uint32(len(p.OidList))
@@ -2100,18 +2111,21 @@ func (p *AnswerTransactionInformation) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[8:], l)
 		data = data[12:]
 		copy(data, p.User)
+		data = data[l:]
 	}
 	{
 		l := uint32(len(p.Description))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Description)
+		data = data[l:]
 	}
 	{
 		l := uint32(len(p.Extension))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Extension)
+		data = data[l:]
 	}
 	(data[0:])[0] = bool2byte(p.Packed)
 	{
@@ -2425,6 +2439,7 @@ func (p *AnswerNodeList) NEOEncode(data []byte) {
 				binary.BigEndian.PutUint32(data[4:], l)
 				data = data[8:]
 				copy(data, (*a).Address.Host)
+				data = data[l:]
 			}
 			binary.BigEndian.PutUint16(data[0:], (*a).Address.Port)
 			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).UUID)))
@@ -2626,6 +2641,7 @@ func (p *NotifyNodeInformation) NEOEncode(data []byte) {
 				binary.BigEndian.PutUint32(data[4:], l)
 				data = data[8:]
 				copy(data, (*a).Address.Host)
+				data = data[l:]
 			}
 			binary.BigEndian.PutUint16(data[0:], (*a).Address.Port)
 			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).UUID)))
@@ -3091,12 +3107,14 @@ func (p *CheckPartition) NEOEncode(data []byte) {
 		binary.BigEndian.PutUint32(data[4:], l)
 		data = data[8:]
 		copy(data, p.Source.UpstreamName)
+		data = data[l:]
 	}
 	{
 		l := uint32(len(p.Source.Address.Host))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		copy(data, p.Source.Address.Host)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Source.Address.Port)
 	binary.BigEndian.PutUint64(data[2:], uint64(p.MinTID))
