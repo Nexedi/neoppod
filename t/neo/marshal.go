@@ -129,11 +129,7 @@ func (p *RowInfo) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.CellList))
 		size += 8
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.CellList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -671,11 +667,7 @@ func (p *AnswerPartitionTable) NEOEncodedLen() int {
 			{
 				l := uint32(len((*a).CellList))
 				size += 8
-				for i := 0; uint32(i) < l; i++ {
-					a := &(*a).CellList[i]
-					_ = a
-					size += 8
-				}
+				size += l * 8
 			}
 			_ = a
 			size += 0
@@ -756,11 +748,7 @@ func (p *NotifyPartitionTable) NEOEncodedLen() int {
 			{
 				l := uint32(len((*a).CellList))
 				size += 8
-				for i := 0; uint32(i) < l; i++ {
-					a := &(*a).CellList[i]
-					_ = a
-					size += 8
-				}
+				size += l * 8
 			}
 			_ = a
 			size += 0
@@ -836,11 +824,7 @@ func (p *PartitionChanges) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.CellList))
 		size += 12
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.CellList[i]
-			_ = a
-			size += 12
-		}
+		size += l * 12
 	}
 	return int(size) + 0
 }
@@ -955,11 +939,7 @@ func (p *AnswerUnfinishedTransactions) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.TidList))
 		size += 12
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.TidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -2190,11 +2170,7 @@ func (p *AnswerObjectHistory) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.HistoryList))
 		size += 12
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.HistoryList[i]
-			_ = a
-			size += 12
-		}
+		size += l * 12
 	}
 	return int(size) + 0
 }
@@ -2277,11 +2253,7 @@ func (p *AnswerPartitionList) NEOEncodedLen() int {
 			{
 				l := uint32(len((*a).CellList))
 				size += 8
-				for i := 0; uint32(i) < l; i++ {
-					a := &(*a).CellList[i]
-					_ = a
-					size += 8
-				}
+				size += l * 8
 			}
 			_ = a
 			size += 0

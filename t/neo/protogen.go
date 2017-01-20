@@ -174,8 +174,20 @@ func typeSizeFixed(typ types.Type) (wireSize int, ok bool) {
 		if ok {
 			return basic.wireSize, ok
 		}
+
+	case *types.Struct:
+		for i := 0; i < u.NumFields(); i++ {
+			size, ok := typeSizeFixed(u.Field(i).Type())
+			if !ok {
+				goto notfixed
+			}
+			wireSize += size
+		}
+
+		return wireSize, true
 	}
 
+notfixed:
 	// not matched above - not fixed
 	return 0, false
 }
