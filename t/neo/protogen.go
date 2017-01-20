@@ -166,7 +166,7 @@ var basicTypes = map[types.BasicKind]basicCodec {
 	types.Float64:	{8, "float64_NEOEncode(%v, %v)", "float64_NEODecode(%v)"},
 }
 
-// does a type have fixed wire size and what it is
+// does a type have fixed wire size and, if yes, what it is?
 func typeSizeFixed(typ types.Type) (wireSize int, ok bool) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
@@ -185,6 +185,12 @@ func typeSizeFixed(typ types.Type) (wireSize int, ok bool) {
 		}
 
 		return wireSize, true
+
+	case *types.Array:
+		elemSize, ok := typeSizeFixed(u.Elem())
+		if ok {
+			return int(u.Len()) * elemSize, ok
+		}
 	}
 
 notfixed:
@@ -498,17 +504,17 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 		}
 		codegen.genBasic(path, u, typ, obj)
 
+	case *types.Struct:
+		for i := 0; i < u.NumFields(); i++ {
+			v := u.Field(i)
+			codegenType(path + "." + v.Name(), v.Type(), v, codegen)
+		}
+
 	case *types.Array:
 		// TODO optimize for [...]byte
 		var i int64	// XXX because `u.Len() int64`
 		for i = 0; i < u.Len(); i++ {
 			codegenType(fmt.Sprintf("%v[%v]", path, i), u.Elem(), obj, codegen)
-		}
-
-	case *types.Struct:
-		for i := 0; i < u.NumFields(); i++ {
-			v := u.Field(i)
-			codegenType(path + "." + v.Name(), v.Type(), v, codegen)
 		}
 
 	case *types.Slice:

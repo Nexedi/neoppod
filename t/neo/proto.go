@@ -444,7 +444,7 @@ type StoreObject struct {
 	Serial          Tid
 	Compression     bool
 	Checksum        Checksum
-	Data            []byte          // XXX or string ?
+	Data            []byte          // TODO separately (for writev)
 	DataSerial      Tid
 	Tid             Tid
 	Unlock          bool
@@ -496,7 +496,7 @@ type AnswerGetObject struct {
 	SerialEnd       Tid
 	Compression     bool
 	Checksum        Checksum
-	Data            []byte          // XXX or string ?
+	Data            []byte          // TODO separately (for writev)
 	DataSerial      Tid
 }
 
