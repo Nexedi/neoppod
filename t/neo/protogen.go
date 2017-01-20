@@ -166,6 +166,20 @@ var basicTypes = map[types.BasicKind]basicCodec {
 	types.Float64:	{8, "float64_NEOEncode(%v, %v)", "float64_NEODecode(%v)"},
 }
 
+// does a type have fixed wire size and what it is
+func typeSizeFixed(typ types.Type) (wireSize int, ok bool) {
+	switch u := typ.Underlying().(type) {
+	case *types.Basic:
+		basic, ok := basicTypes[u.Kind()]
+		if ok {
+			return basic.wireSize, ok
+		}
+	}
+
+	// not matched above - not fixed
+	return 0, false
+}
+
 
 // Buffer + bell & whistles
 type Buffer struct {
@@ -325,16 +339,21 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	}
 	e.n = 0
 	// TODO if size(item)==const - size update in one go
-	e.emit("for i := 0; uint32(i) <l; i++ {")
-	e.emit("a := &%s[i]", path)
-	codegenType("(*a)", typ.Elem(), obj, e)
-	if !e.SizeOnly {
-		e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
+	elemSize, ok := typeSizeFixed(typ.Elem())
+	if e.SizeOnly && ok {
+		e.emit("size += l * %v", elemSize)
 	} else {
-		e.emit("_ = a")	// FIXME try to remove
-		e.emit("size += %v", e.n)
+		e.emit("for i := 0; uint32(i) <l; i++ {")
+		e.emit("a := &%s[i]", path)
+		codegenType("(*a)", typ.Elem(), obj, e)
+		if !e.SizeOnly {
+			e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
+		} else {
+			e.emit("_ = a")	// FIXME try to remove
+			e.emit("size += %v", e.n)
+		}
+		e.emit("}")
 	}
-	e.emit("}")
 	// see vvv
 	e.emit("}")
 	e.n = 0

@@ -1189,20 +1189,12 @@ func (p *FinishTransaction) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.OIDList))
 		size += 12
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.OIDList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	{
 		l := uint32(len(p.CheckedList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.CheckedList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -1362,11 +1354,7 @@ func (p *InvalidateObjects) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.OidList))
 		size += 12
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.OidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -1456,11 +1444,7 @@ func (p *AnswerGenerateOIDs) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.OidList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.OidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -1506,11 +1490,7 @@ func (p *StoreObject) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.Data))
 		size += 41
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Data[i]
-			_ = a
-			size += 1
-		}
+		size += l * 1
 	}
 	return int(size) + 17
 }
@@ -1666,11 +1646,7 @@ func (p *StoreTransaction) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.OidList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.OidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -1815,11 +1791,7 @@ func (p *AnswerGetObject) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.Data))
 		size += 49
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Data[i]
-			_ = a
-			size += 1
-		}
+		size += l * 1
 	}
 	return int(size) + 8
 }
@@ -1940,11 +1912,7 @@ func (p *AnswerTIDList) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.TIDList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.TIDList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -2017,11 +1985,7 @@ func (p *AnswerTIDListFrom) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.TidList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.TidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -2100,11 +2064,7 @@ func (p *AnswerTransactionInformation) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.OidList))
 		size += 5
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.OidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -2520,11 +2480,7 @@ func (p *AddPendingNodes) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.UUIDList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			_ = a
-			size += 4
-		}
+		size += l * 4
 	}
 	return int(size) + 0
 }
@@ -2570,11 +2526,7 @@ func (p *TweakPartitionTable) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.UUIDList))
 		size += 4
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			_ = a
-			size += 4
-		}
+		size += l * 4
 	}
 	return int(size) + 0
 }
@@ -2781,11 +2733,7 @@ func (p *ObjectUndoSerial) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.OidList))
 		size += 28
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.OidList[i]
-			_ = a
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 0
 }
@@ -3398,11 +3346,7 @@ func (p *PartitionCorrupted) NEOEncodedLen() int {
 	{
 		l := uint32(len(p.CellList))
 		size += 8
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.CellList[i]
-			_ = a
-			size += 4
-		}
+		size += l * 4
 	}
 	return int(size) + 0
 }
