@@ -10,7 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// NEO. Protocol definition. Tests
+// NEO. Protocol. Tests
 
 package neo
 
@@ -80,7 +80,7 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 		}
 	}()
 
-	// check encoding
+	// pkt.encode() == expected
 	n := pkt.NEOEncodedLen()
 	if n != len(encoded) {
 		t.Errorf("%v: encodedLen = %v  ; want %v", typ, n, len(encoded))
@@ -121,9 +121,9 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 		}()
 	}
 
-	// check decoding
-	data := encoded + "noise"
-	n, err := pkt2.NEODecode([]byte(data))	// XXX
+	// pkt.decode() == expected
+	data := []byte(encoded + "noise")
+	n, err := pkt2.NEODecode(data)
 	if err != nil {
 		t.Errorf("%v: decode error %v", typ, err)
 	}
@@ -135,18 +135,14 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 		t.Errorf("%v: decode result unexpected: %v  ; want %v", typ, pkt2, pkt)
 	}
 
-	// decode must overflow on cut data	TODO reenable
-	/*
+	// decode must detect buffer overflow
 	for l := len(encoded)-1; l >= 0; l-- {
-		// NOTE cap must not be > l
-		data = encoded[:l]	// XXX also check on original byte [:l] ?
-		n, err = pkt2.NEODecode([]byte(data))	// XXX
+		n, err = pkt2.NEODecode(data[:l])
 		if !(n==0 && err==ErrDecodeOverflow) {
 			t.Errorf("%v: decode overflow not detected on [:%v]", typ, l)
 		}
 
 	}
-	*/
 }
 
 // test encoding/decoding of packets

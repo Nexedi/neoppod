@@ -194,7 +194,7 @@ func typeSizeFixed(typ types.Type) (wireSize int, ok bool) {
 	}
 
 notfixed:
-	// not matched above - not fixed
+	// everything else is of not fixed wire size
 	return 0, false
 }
 
