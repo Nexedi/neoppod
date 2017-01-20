@@ -17,7 +17,10 @@ package neo
 import (
 	hexpkg "encoding/hex"
 	"encoding/binary"
+	"fmt"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -65,6 +68,7 @@ type NEOCodec interface {
 	NEODecoder
 }
 
+
 // test marshalling for one packet type
 func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
@@ -90,8 +94,32 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 		t.Errorf("\twant: %s", hexpkg.EncodeToString([]byte(encoded)))
 	}
 
-	// TODO encode - check == encoded
-	// TODO encode(smaller buf) -> panic
+	// encode must panic if passed a smaller buffer
+	for l := len(buf)-1; l >= 0; l-- {
+		func() {
+			defer func() {
+				subj := fmt.Sprintf("%v: encode(buf[:encodedLen-%v])", typ, len(encoded)-l)
+				e := recover()
+				if e == nil {
+					t.Errorf("%s did not panic", subj)
+					return
+				}
+
+				err, ok := e.(runtime.Error)
+				if !ok {
+					t.Errorf("%s panic(%#v)  ; want runtime.Error", subj, e)
+				}
+
+				estr := err.Error()
+				if ! (strings.Contains(estr, "slice bounds out of range") ||
+				      strings.Contains(estr, "index out of range")) {
+				      t.Errorf("%s unexpected runtime panic: %v", subj, estr)
+				}
+			}()
+
+			pkt.NEOEncode(buf[:l])
+		}()
+	}
 
 	// check decoding
 	data := encoded + "noise"
