@@ -407,7 +407,8 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 		e.emit("size += %v", e.n)
 	}
 	e.n = 0
-	// TODO if size(item)==const - size update in one go
+	keySize, keyFixed := typeSizeFixed(typ.Key())
+	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	if !e.SizeOnly {
 		// output keys in sorted order on the wire
 		// (easier for debugging & deterministic for testing)
@@ -418,17 +419,23 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 		e.emit("sort.Slice(keyv, func (i, j int) bool { return keyv[i] < keyv[j] })")
 		e.emit("for _, key := range keyv {")
 	} else {
-		e.emit("for key := range %s {", path)
+		if keyFixed && elemFixed {
+			e.emit("size += l * %v", keySize + elemSize)
+		} else {
+			e.emit("for key := range %s {", path)
+		}
 	}
-	codegenType("key", typ.Key(), obj, e)
-	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
-	if !e.SizeOnly {
-		e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
-	} else {
-		e.emit("_ = key")	// FIXME remove
-		e.emit("size += %v", e.n)
+	if !(e.SizeOnly && keyFixed && elemFixed) {
+		codegenType("key", typ.Key(), obj, e)
+		codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
+		if !e.SizeOnly {
+			e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
+		} else {
+			e.emit("_ = key")	// FIXME remove
+			e.emit("size += %v", e.n)
+		}
+		e.emit("}")
 	}
-	e.emit("}")
 	// XXX vvv ?
 	e.emit("}")
 	e.n = 0

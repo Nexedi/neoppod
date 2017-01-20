@@ -1007,10 +1007,7 @@ func (p *AnswerLockedTransactions) NEOEncodedLen() int {
 		l := uint32(len(p.TidDict))
 		_ = l
 		size += 4
-		for key := range p.TidDict {
-			_ = key
-			size += 16
-		}
+		size += l * 16
 	}
 	return int(size) + 0
 }
@@ -2758,10 +2755,7 @@ func (p *AnswerObjectUndoSerial) NEOEncodedLen() int {
 		l := uint32(len(p.ObjectTIDDict))
 		_ = l
 		size += 4
-		for key := range p.ObjectTIDDict {
-			_ = key
-			size += 25
-		}
+		size += l * 25
 	}
 	return int(size) + 0
 }
@@ -2966,10 +2960,7 @@ func (p *CheckReplicas) NEOEncodedLen() int {
 		l := uint32(len(p.PartitionDict))
 		_ = l
 		size += 4
-		for key := range p.PartitionDict {
-			_ = key
-			size += 8
-		}
+		size += l * 8
 	}
 	return int(size) + 16
 }
