@@ -86,6 +86,7 @@ func main() {
 package neo
 import (
 	"encoding/binary"
+	"sort"
 )
 `)
 
@@ -376,14 +377,24 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 	}
 	e.n = 0
 	// TODO if size(item)==const - size update in one go
-	e.emit("for key, v := range %s {", path)
+	if !e.SizeOnly {
+		// output keys in sorted order on the wire
+		// (easier for debugging & deterministic for testing)
+		e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))
+		e.emit("for key := range %s {", path)
+		e.emit("  keyv = append(keyv, key)")
+		e.emit("}")
+		e.emit("sort.Slice(keyv, func (i, j int) bool { return keyv[i] < keyv[j] })")
+		e.emit("for _, key := range keyv {")
+	} else {
+		e.emit("for key := range %s {", path)
+	}
 	codegenType("key", typ.Key(), obj, e)
-	codegenType("v", typ.Elem(), obj, e)
+	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
 	if !e.SizeOnly {
 		e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
 	} else {
 		e.emit("_ = key")	// FIXME remove
-		e.emit("_ = v")		// FIXME remove
 		e.emit("size += %v", e.n)
 	}
 	e.emit("}")
