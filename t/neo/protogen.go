@@ -297,6 +297,7 @@ func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type, o
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
 	basic := basicTypes[typ.Kind()]
+	d.emit("if len(data) < %v { goto overflow }", d.n + basic.wireSize)
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
 	d.n += basic.wireSize
