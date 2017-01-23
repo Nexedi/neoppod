@@ -120,7 +120,7 @@ import (
 
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
-				buf.WriteString(generateCodecCode(typespec, &encoder{SizeOnly: true}))
+				buf.WriteString(generateCodecCode(typespec, &sizer{}))
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
@@ -215,7 +215,7 @@ type CodecCodeGen interface {
 
 	// emit code to process basic fixed types (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
-	genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object)
+	genBasic(path string, typ *types.Basic, userType types.Type)
 
 	genSlice(path string, typ *types.Slice, obj types.Object)
 	genMap(path string, typ *types.Map, obj types.Object)
@@ -227,10 +227,14 @@ type CodecCodeGen interface {
 }
 
 // encode/decode codegen
+type sizer struct {
+	Buffer	// XXX
+	n int
+}
+
 type encoder struct {
 	Buffer	// XXX
 	n int
-	SizeOnly bool // generate code only to compute encoded size
 }
 
 type decoder struct {
@@ -241,6 +245,10 @@ type decoder struct {
 var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
+func (s *sizer) generatedCode() string {
+	return s.String()	// XXX -> d.buf.String() ?
+}
+
 func (e *encoder) generatedCode() string {
 	return e.String()	// XXX -> d.buf.String() ?
 }
@@ -249,13 +257,13 @@ func (d *decoder) generatedCode() string {
 	return d.String()	// XXX -> d.buf.String() ?
 }
 
+func (s *sizer) genPrologue(recvName, typeName string) {
+	s.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
+	s.emit("var size int")
+}
+
 func (e *encoder) genPrologue(recvName, typeName string) {
-	if e.SizeOnly {
-		e.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
-		e.emit("var size uint32")
-	} else {
-		e.emit("func (%s *%s) NEOEncode(data []byte) {", recvName, typeName)
-	}
+	e.emit("func (%s *%s) NEOEncode(data []byte) {", recvName, typeName)
 }
 
 func (d *decoder) genPrologue(recvName, typeName string) {
@@ -263,10 +271,12 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 	d.emit("var nread uint32")
 }
 
+func (e *sizer) genEpilogue() {
+	e.emit("return size + %v", e.n)
+	e.emit("}\n")
+}
+
 func (e *encoder) genEpilogue() {
-	if e.SizeOnly {
-		e.emit("return int(size) + %v", e.n)
-	}
 	e.emit("}\n")
 }
 
@@ -274,11 +284,16 @@ func (d *decoder) genEpilogue() {
 	d.emit("return int(nread) + %v, nil", d.n)
 	d.emit("\noverflow:")
 	d.emit("return 0, ErrDecodeOverflow")
-	d.emit("goto overflow")	// TODO remove
+	d.emit("goto overflow")	// TODO check if overflow used at all and remove
 	d.emit("}\n")
 }
 
-func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type, obj types.Object) {
+func (s *sizer) genBasic(path string, typ *types.Basic, userType types.Type) {
+	basic := basicTypes[typ.Kind()]
+	s.n += basic.wireSize
+}
+
+func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
 	dataptr := fmt.Sprintf("data[%v:]", e.n)
 	if userType != nil && userType != typ {
@@ -288,14 +303,10 @@ func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type, o
 		path = fmt.Sprintf("%v(%v)", typeName(typ), path)
 	}
 	e.n += basic.wireSize
-	if !e.SizeOnly {
-		// NOTE no space before "=" - to be able to merge with ":"
-		// prefix and become defining assignment
-		e.emit(basic.encode, dataptr, path)
-	}
+	e.emit(basic.encode, dataptr, path)
 }
 
-func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type, obj types.Object) {
+func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
 	d.emit("if len(data) < %v { goto overflow }", d.n + basic.wireSize)
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
@@ -316,24 +327,26 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // len	u32
 // [len]byte
 // TODO []byte support
+func (s *sizer) genStrBytes(path string) {
+	s.n += 4
+	s.emit("size += %v + len(%s)", s.n, path)
+	s.n = 0
+}
+
 func (e *encoder) genStrBytes(path string) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
-	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
-	if !e.SizeOnly {
-		e.emit("data = data[%v:]", e.n)
-		e.emit("copy(data, %v)", path)
-		e.emit("data = data[l:]")
-	} else {
-		e.emit("size += %v + l", e.n)
-	}
+	e.genBasic("l", types.Typ[types.Uint32], nil)
+	e.emit("data = data[%v:]", e.n)
+	e.emit("copy(data, %v)", path)
+	e.emit("data = data[l:]")
 	e.emit("}")
 	e.n = 0
 }
 
 func (d *decoder) genStrBytes(assignto string) {
 	d.emit("{")
-	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
+	d.genBasic("l:", types.Typ[types.Uint32], nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("if uint32(len(data)) < l { goto overflow }")
 	d.emit("%v= string(data[:l])", assignto)
@@ -347,32 +360,35 @@ func (d *decoder) genStrBytes(assignto string) {
 // len	u32
 // [len]item
 // TODO optimize for []byte
+func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
+	// if size(item)==const - size update in one go
+	elemSize, ok := typeSizeFixed(typ.Elem())
+	if ok {
+		s.emit("size += 4 + len(%v) * %v", path, elemSize)
+		return
+	}
+
+	s.emit("size += %v + 4", s.n)
+	s.n = 0
+	s.emit("for i := 0; i < len(%v); i++ {", path)
+	s.emit("a := &%s[i]", path)
+	codegenType("(*a)", typ.Elem(), obj, s)
+	s.emit("size += %v", s.n)
+	s.emit("}")
+	s.n = 0
+}
+
 func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
-	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
-	if !e.SizeOnly {
-		e.emit("data = data[%v:]", e.n)
-	} else {
-		e.emit("size += %v", e.n)
-	}
+	e.genBasic("l", types.Typ[types.Uint32], nil)
+	e.emit("data = data[%v:]", e.n)
 	e.n = 0
-	// TODO if size(item)==const - size update in one go
-	elemSize, ok := typeSizeFixed(typ.Elem())
-	if e.SizeOnly && ok {
-		e.emit("size += l * %v", elemSize)
-	} else {
-		e.emit("for i := 0; uint32(i) <l; i++ {")
-		e.emit("a := &%s[i]", path)
-		codegenType("(*a)", typ.Elem(), obj, e)
-		if !e.SizeOnly {
-			e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
-		} else {
-			e.emit("_ = a")	// FIXME try to remove
-			e.emit("size += %v", e.n)
-		}
-		e.emit("}")
-	}
+	e.emit("for i := 0; uint32(i) <l; i++ {")
+	e.emit("a := &%s[i]", path)
+	codegenType("(*a)", typ.Elem(), obj, e)
+	e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
+	e.emit("}")
 	// see vvv
 	e.emit("}")
 	e.n = 0
@@ -380,7 +396,7 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 
 func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) {
 	d.emit("{")
-	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
+	d.genBasic("l:", types.Typ[types.Uint32], nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
@@ -403,46 +419,43 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 // generate code to encode/decode map
 // len  u32
 // [len](key, value)
+func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
+	keySize, keyFixed := typeSizeFixed(typ.Key())
+	elemSize, elemFixed := typeSizeFixed(typ.Elem())
+
+	if keyFixed && elemFixed {
+		s.emit("size += 4 + len(%v) * %v", path, keySize + elemSize)
+		return
+	}
+
+	s.emit("size += %v + 4", s.n)
+	s.n = 0
+	s.emit("for key := range %s {", path)
+	codegenType("key", typ.Key(), obj, s)
+	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, s)
+	s.emit("size += %v", s.n)
+	s.emit("}")
+	s.n = 0
+}
+
 func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
-	e.genBasic("l", types.Typ[types.Uint32], nil, nil)
-	if !e.SizeOnly {
-		e.emit("data = data[%v:]", e.n)
-	} else {
-		e.emit("_ = l")	// FIXME remove
-		e.emit("size += %v", e.n)
-	}
+	e.genBasic("l", types.Typ[types.Uint32], nil)
+	e.emit("data = data[%v:]", e.n)
 	e.n = 0
-	keySize, keyFixed := typeSizeFixed(typ.Key())
-	elemSize, elemFixed := typeSizeFixed(typ.Elem())
-	if !e.SizeOnly {
-		// output keys in sorted order on the wire
-		// (easier for debugging & deterministic for testing)
-		e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))
-		e.emit("for key := range %s {", path)
-		e.emit("  keyv = append(keyv, key)")
-		e.emit("}")
-		e.emit("sort.Slice(keyv, func (i, j int) bool { return keyv[i] < keyv[j] })")
-		e.emit("for _, key := range keyv {")
-	} else {
-		if keyFixed && elemFixed {
-			e.emit("size += l * %v", keySize + elemSize)
-		} else {
-			e.emit("for key := range %s {", path)
-		}
-	}
-	if !(e.SizeOnly && keyFixed && elemFixed) {
-		codegenType("key", typ.Key(), obj, e)
-		codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
-		if !e.SizeOnly {
-			e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
-		} else {
-			e.emit("_ = key")	// FIXME remove
-			e.emit("size += %v", e.n)
-		}
-		e.emit("}")
-	}
+	// output keys in sorted order on the wire
+	// (easier for debugging & deterministic for testing)
+	e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))
+	e.emit("for key := range %s {", path)
+	e.emit("  keyv = append(keyv, key)")
+	e.emit("}")
+	e.emit("sort.Slice(keyv, func (i, j int) bool { return keyv[i] < keyv[j] })")
+	e.emit("for _, key := range keyv {")
+	codegenType("key", typ.Key(), obj, e)
+	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
+	e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
+	e.emit("}")
 	// XXX vvv ?
 	e.emit("}")
 	e.n = 0
@@ -450,7 +463,7 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 
 func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("{")
-	d.genBasic("l:", types.Typ[types.Uint32], nil, nil)
+	d.genBasic("l:", types.Typ[types.Uint32], nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("nread += %v", d.n)
 	d.n = 0
@@ -503,7 +516,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 		if !ok {
 			log.Fatalf("%v: %v: basic type %v not supported", pos(obj), obj.Name(), u)
 		}
-		codegen.genBasic(path, u, typ, obj)
+		codegen.genBasic(path, u, typ)
 
 	case *types.Struct:
 		for i := 0; i < u.NumFields(); i++ {
