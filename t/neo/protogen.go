@@ -230,6 +230,8 @@ type CodecCodeGen interface {
 type sizer struct {
 	Buffer	// XXX
 	n int
+	symLenv []string	// symbolic lengths TODO
+	sizeVarUsed bool	// whether size var was used
 }
 
 type encoder struct {
@@ -239,9 +241,10 @@ type encoder struct {
 
 type decoder struct {
 	Buffer	// buffer for generated code
-	n int		// current decode position in data
+	n int	// current decode position in data
 }
 
+var _ CodecCodeGen = (*sizer)(nil)
 var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
@@ -259,7 +262,9 @@ func (d *decoder) generatedCode() string {
 
 func (s *sizer) genPrologue(recvName, typeName string) {
 	s.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
-	s.emit("var size int")
+	if s.sizeVarUsed {
+		s.emit("var size int")
+	}
 }
 
 func (e *encoder) genPrologue(recvName, typeName string) {
@@ -271,9 +276,16 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 	d.emit("var nread uint32")
 }
 
-func (e *sizer) genEpilogue() {
-	e.emit("return size + %v", e.n)
-	e.emit("}\n")
+func (s *sizer) genEpilogue() {
+	size := fmt.Sprintf("%v", s.n)
+	if len(s.symLenv) > 0 {
+		size += " + " + strings.Join(s.synLenv, " + ")
+	}
+	if s.sizeVarUsed {
+		size += " + size")
+	}
+	s.emit("return %v", size)
+	s.emit("}\n")
 }
 
 func (e *encoder) genEpilogue() {
@@ -329,8 +341,8 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // TODO []byte support
 func (s *sizer) genStrBytes(path string) {
 	s.n += 4
-	s.emit("size += %v + len(%s)", s.n, path)
-	s.n = 0
+	s.symLenv = append(s.symLenv, fmt.Sprintf("len(%s)", path))
+	//s.n = 0
 }
 
 func (e *encoder) genStrBytes(path string) {
