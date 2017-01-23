@@ -22,7 +22,7 @@ from neo.lib.util import dump
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
 from . import AnswerBaseHandler
-from ..pool import InvolvedNodeDict
+from ..transactions import Transaction
 from ..exception import NEOStorageError, NEOStorageNotFoundError
 from ..exception import NEOStorageDoesNotExistError
 
@@ -82,26 +82,26 @@ class StorageAnswersHandler(AnswerBaseHandler):
             if conflict != MAX_TID:
                 # If this conflict is not already resolved, mark it for
                 # resolution.
-                if conflict <= txn_context['resolved_dict'].get(oid, ''):
+                if conflict <= txn_context.resolved_dict.get(oid, ''):
                     return
-            txn_context['conflict_dict'][oid] = serial, conflict
+            txn_context.conflict_dict[oid] = serial, conflict
         else:
             try:
-                data = txn_context['data_dict'].pop(oid)
+                data = txn_context.data_dict.pop(oid)
             except KeyError: # replica, or multiple undo
                 return
             if type(data) is str:
                 size = len(data)
-                txn_context['data_size'] -= size
-                size += txn_context['cache_size']
+                txn_context.data_size -= size
+                size += txn_context.cache_size
                 if size < self.app._cache._max_size:
-                    txn_context['cache_size'] = size
+                    txn_context.cache_size = size
                 else:
                     # Do not cache data past cache max size, as it
                     # would just flush it on tpc_finish. This also
                     # prevents memory errors for big transactions.
                     data = None
-            txn_context['cache_dict'][oid] = data
+            txn_context.cache_dict[oid] = data
 
     answerCheckCurrentSerial = answerStoreObject
 
@@ -112,11 +112,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def connectionClosed(self, conn):
         txn_context = self.app.getHandlerData()
-        # XXX: A 'Transaction' class would be cleaner.
-        if type(txn_context) is dict:
-            involved_nodes = txn_context.get('involved_nodes')
-            if type(involved_nodes) is InvolvedNodeDict:
-                involved_nodes[conn.getUUID()] = 2
+        if type(txn_context) is Transaction:
+            txn_context.involved_nodes[conn.getUUID()] = 2
         super(StorageAnswersHandler, self).connectionClosed(conn)
 
     def answerTIDsFrom(self, conn, tid_list):

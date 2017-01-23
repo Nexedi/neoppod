@@ -37,23 +37,6 @@ CELL_GOOD = 0
 CELL_FAILED = 1
 
 
-class InvolvedNodeDict(dict):
-    # Keys are node ids instead of Node objects because a node may disappear
-    # from the cluster. In any case, we always have to check if the id is
-    # still known by the NodeManager.
-
-    def ask(self, conn):
-        def ask(*args, **kw):
-            try:
-                conn.ask(*args, **kw)
-            except ConnectionClosed:
-                self[conn.getUUID()] = 2
-            else:
-                self.fail = 0
-                return conn.getUUID()
-        return ask
-
-
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
 
@@ -134,26 +117,6 @@ class ConnectionPool(object):
             cell_list = new_cell_list
         if self.app.master_conn is None:
             raise NEOPrimaryMasterLost
-
-    def iterateForWrite(self, object_id, involved, store=1):
-        pt = self.app.pt
-        involved.fail = 1
-        for cell in pt.getCellList(pt.getPartition(object_id)):
-            node = cell.getNode()
-            uuid = node.getUUID()
-            status = involved.setdefault(uuid, store)
-            if status < store:
-                involved[uuid] = store
-            elif status > 1:
-                continue
-            conn = self.getConnForNode(node)
-            if conn is None:
-                involved[uuid] = 2
-            else:
-                yield involved.ask(conn)
-        if involved.fail:
-            raise NEOStorageError(
-                'no storage available for write to partition %s' % object_id)
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node

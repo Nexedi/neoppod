@@ -147,7 +147,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             logging.critical(msg)
             app.master_conn = None
             for txn_context in app.txn_contexts():
-                txn_context['error'] = msg
+                txn_context.error = msg
         try:
             del app.pt
         except AttributeError:

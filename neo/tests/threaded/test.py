@@ -370,7 +370,7 @@ class Test(NEOThreadedTest):
             resolved = []
             last = lambda txn: txn._extension['last'] # BBB
             def _handleConflicts(orig, txn_context):
-                resolved.append(last(txn_context['txn']))
+                resolved.append(last(txn_context.txn))
                 orig(txn_context)
             def tpc_vote(orig, transaction):
                 (l3 if last(transaction) else l2)()
@@ -969,7 +969,7 @@ class Test(NEOThreadedTest):
             txn = transaction.Transaction()
             client.tpc_begin(None, txn)
             txn_context = client._txn_container.get(txn)
-            txn_context['ttid'] = add64(txn_context['ttid'], 1)
+            txn_context.ttid = add64(txn_context.ttid, 1)
             self.assertRaises(POSException.StorageError,
                               client.tpc_finish, txn)
 

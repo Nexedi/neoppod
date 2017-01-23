@@ -70,7 +70,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def _begin(self, app, txn, tid):
         txn_context = app._txn_container.new(txn)
-        txn_context['ttid'] = tid
+        txn_context.ttid = tid
         return txn_context
 
     def getApp(self, master_nodes=None, name='test', **kw):

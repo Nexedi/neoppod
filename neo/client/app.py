@@ -20,8 +20,7 @@ from random import shuffle
 import heapq
 import time
 
-from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
-from ZODB.POSException import ReadConflictError
+from ZODB.POSException import UndoError, ConflictError, ReadConflictError
 from . import OLD_ZODB
 if OLD_ZODB:
   from ZODB.ConflictResolution import ResolvedSerial
@@ -31,14 +30,15 @@ from neo.lib import logging
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
 from neo.lib.util import makeChecksum, dump
-from neo.lib.locking import Empty, Lock, SimpleQueue
+from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from .exception import NEOStorageError, NEOStorageCreationUndoneError
 from .exception import NEOStorageNotFoundError
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
-from .pool import ConnectionPool, InvolvedNodeDict
+from .pool import ConnectionPool
+from .transactions import TransactionContainer
 from neo.lib.util import p64, u64, parseMasterList
 
 CHECKED_SERIAL = object()
@@ -50,44 +50,6 @@ except ImportError:
 if SignalHandler:
     import signal
     SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
-
-
-class TransactionContainer(dict):
-    # IDEA: Drop this container and use the new set_data/data API on
-    #       transactions (requires transaction >= 1.6).
-
-    def pop(self, txn):
-        return dict.pop(self, id(txn), None)
-
-    def get(self, txn):
-        try:
-            return self[id(txn)]
-        except KeyError:
-            raise StorageTransactionError("unknown transaction %r" % txn)
-
-    def new(self, txn):
-        key = id(txn)
-        if key in self:
-            raise StorageTransactionError("commit of transaction %r"
-                                          " already started" % txn)
-        context = self[key] = {
-            'queue': SimpleQueue(),
-            'txn': txn,
-            'ttid': None,
-            # data being stored
-            'data_dict': {},
-            'data_size': 0,
-            # data stored: this will go to the cache on tpc_finish
-            'cache_dict': {},
-            'cache_size': 0,
-            # conflicts to resolve
-            'conflict_dict': {},                 # {oid: (base_serial, serial)}
-            # resolved conflicts
-            'resolved_dict': {},                 # {oid: serial}
-            # status: 0 -> check only, 1 -> store, 2 -> failed
-            'involved_nodes': InvolvedNodeDict(), # {node_id: status}
-        }
-        return context
 
 
 class Application(ThreadedApplication):
@@ -177,14 +139,14 @@ class Application(ThreadedApplication):
         Just like _waitAnyMessage, but for per-transaction exchanges, rather
         than per-thread.
         """
-        queue = txn_context['queue']
+        queue = txn_context.queue
         self.setHandlerData(txn_context)
         try:
             self._waitAnyMessage(queue, block=block)
         finally:
             # Don't leave access to thread context, even if a raise happens.
             self.setHandlerData(None)
-        if txn_context['conflict_dict']:
+        if txn_context.conflict_dict:
             self._handleConflicts(txn_context)
 
     def _askStorage(self, conn, packet, **kw):
@@ -403,8 +365,8 @@ class Application(ThreadedApplication):
         if answer_ttid is None:
             raise NEOStorageError('tpc_begin failed')
         assert tid in (None, answer_ttid), (tid, answer_ttid)
-        txn_context['Storage'] = storage
-        txn_context['ttid'] = answer_ttid
+        txn_context.Storage = storage
+        txn_context.ttid = answer_ttid
 
     def store(self, oid, serial, data, version, transaction):
         """Store object."""
@@ -414,7 +376,7 @@ class Application(ThreadedApplication):
         self._store(self._txn_container.get(transaction), oid, serial, data)
 
     def _store(self, txn_context, oid, serial, data, data_serial=None):
-        ttid = txn_context['ttid']
+        ttid = txn_context.ttid
         if data is None:
             # This is some undo: either a no-data object (undoing object
             # creation) or a back-pointer to an earlier revision (going back to
@@ -436,24 +398,22 @@ class Application(ThreadedApplication):
                 compression = 0
                 compressed_data = data
             checksum = makeChecksum(compressed_data)
-            txn_context['data_size'] += size
+            txn_context.data_size += size
         # Store object in tmp cache
-        txn_context['data_dict'][oid] = data
-        queue = txn_context['queue']
+        txn_context.data_dict[oid] = data
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid)
-        for ask in self.cp.iterateForWrite(oid, txn_context['involved_nodes']):
-            ask(packet, queue=queue, oid=oid, serial=serial)
+        txn_context.write(self, packet, oid, oid=oid, serial=serial)
 
-        while txn_context['data_size'] >= self._cache._max_size:
+        while txn_context.data_size >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
         self._waitAnyTransactionMessage(txn_context, False)
 
     def _handleConflicts(self, txn_context):
-        data_dict = txn_context['data_dict']
-        pop_conflict = txn_context['conflict_dict'].popitem
-        resolved_dict = txn_context['resolved_dict']
-        tryToResolveConflict = txn_context['Storage'].tryToResolveConflict
+        data_dict = txn_context.data_dict
+        pop_conflict = txn_context.conflict_dict.popitem
+        resolved_dict = txn_context.resolved_dict
+        tryToResolveConflict = txn_context.Storage.tryToResolveConflict
         while 1:
             # We iterate over conflict_dict, and clear it,
             # because new items may be added by calls to _store.
@@ -473,7 +433,7 @@ class Application(ThreadedApplication):
                     data = data_dict[oid]
                 except KeyError:
                     # succesfully stored on another storage node
-                    data = txn_context['cache_dict'][oid]
+                    data = txn_context.cache_dict[oid]
               else:
                 # Storage refused us from taking object lock, to avoid a
                 # possible deadlock. TID is actually used for some kind of
@@ -493,7 +453,7 @@ class Application(ThreadedApplication):
                         serial))
                 # TODO: data can be None if a conflict happens during undo
                 if data:
-                    txn_context['data_size'] -= len(data)
+                    txn_context.data_size -= len(data)
                 if self.last_tid < conflict_serial:
                     self.sync() # possible late invalidation (very rare)
                 try:
@@ -526,28 +486,27 @@ class Application(ThreadedApplication):
             _waitAnyMessage(queue)
 
     def waitStoreResponses(self, txn_context):
-        queue = txn_context['queue']
+        queue = txn_context.queue
         pending = self.dispatcher.pending
         _waitAnyTransactionMessage = self._waitAnyTransactionMessage
         while pending(queue):
             _waitAnyTransactionMessage(txn_context)
-        if txn_context['data_dict']:
+        if txn_context.data_dict:
             raise NEOStorageError('could not store/check all oids')
 
     def tpc_vote(self, transaction):
         """Store current transaction."""
         txn_context = self._txn_container.get(transaction)
         self.waitStoreResponses(txn_context)
-        ttid = txn_context['ttid']
+        ttid = txn_context.ttid
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
-            txn_context['cache_dict'])
-        queue = txn_context['queue']
-        involved_nodes = txn_context['involved_nodes']
+            txn_context.cache_dict)
+        queue = txn_context.queue
+        involved_nodes = txn_context.involved_nodes
         # Ask in parallel all involved storage nodes to commit object metadata.
         # Nodes that store the transaction metadata get a special packet.
-        trans_nodes = [ask(packet, queue=queue)
-            for ask in self.cp.iterateForWrite(ttid, involved_nodes)]
+        trans_nodes = txn_context.write(self, packet, ttid)
         packet = Packets.AskVoteTransaction(ttid)
         for uuid, status in involved_nodes.iteritems():
             if status == 1 and uuid not in trans_nodes:
@@ -555,10 +514,13 @@ class Application(ThreadedApplication):
                 if node is not None:
                     conn = self.cp.getConnForNode(node)
                     if conn is not None:
-                        involved_nodes.ask(conn)(packet, queue=queue)
-                        continue
+                        try:
+                            conn.ask(packet, queue=queue)
+                            continue
+                        except ConnectionClosed:
+                            pass
                 involved_nodes[uuid] = 2
-        self.waitResponses(queue)
+        self.waitResponses(txn_context.queue)
         # If there are failed nodes, ask the master whether they can be
         # disconnected while keeping the cluster operational. If possible,
         # this will happen during tpc_finish.
@@ -570,19 +532,19 @@ class Application(ThreadedApplication):
                 self._askPrimary(Packets.FailedVote(ttid, failed))
             except ConnectionClosed:
                 pass
-        txn_context['voted'] = None
+        txn_context.voted = True
         # We must not go further if connection to master was lost since
         # tpc_begin, to lower the probability of failing during tpc_finish.
         # IDEA: We can improve in 2 opposite directions:
         #       - In the case of big transactions, it would be useful to
         #         also detect failures earlier.
         #       - If possible, recover from master failure.
-        if 'error' in txn_context:
-            raise NEOStorageError(txn_context['error'])
+        if txn_context.error:
+            raise NEOStorageError(txn_context.error)
         if OLD_ZODB:
             return [(oid, ResolvedSerial)
-                for oid in txn_context['resolved_dict']]
-        return txn_context['resolved_dict']
+                for oid in txn_context.resolved_dict]
+        return txn_context.resolved_dict
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
@@ -595,14 +557,14 @@ class Application(ThreadedApplication):
             pass
         else:
             try:
-                notify(Packets.AbortTransaction(txn_context['ttid'],
-                                                txn_context['involved_nodes']))
+                notify(Packets.AbortTransaction(txn_context.ttid,
+                                                txn_context.involved_nodes))
             except ConnectionClosed:
                 pass
         # We don't need to flush queue, as it won't be reused by future
         # transactions (deleted on next line & indexed by transaction object
         # instance).
-        self.dispatcher.forget_queue(txn_context['queue'], flush_queue=False)
+        self.dispatcher.forget_queue(txn_context.queue, flush_queue=False)
 
     def tpc_finish(self, transaction, f=None):
         """Finish current transaction
@@ -622,19 +584,19 @@ class Application(ThreadedApplication):
         if any failure happens.
         """
         txn_container = self._txn_container
-        if 'voted' not in txn_container.get(transaction):
+        if not txn_container.get(transaction).voted:
             self.tpc_vote(transaction)
         checked_list = []
         self._load_lock_acquire()
         try:
             # Call finish on master
             txn_context = txn_container.pop(transaction)
-            cache_dict = txn_context['cache_dict']
+            cache_dict = txn_context.cache_dict
             checked_list = [oid for oid, data  in cache_dict.iteritems()
                                 if data is CHECKED_SERIAL]
             for oid in checked_list:
                 del cache_dict[oid]
-            ttid = txn_context['ttid']
+            ttid = txn_context.ttid
             p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
             try:
                 tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
@@ -691,7 +653,7 @@ class Application(ThreadedApplication):
         getCellSortKey = self.cp.getCellSortKey
         getConnForCell = self.cp.getConnForCell
         queue = self._thread_container.queue
-        ttid = txn_context['ttid']
+        ttid = txn_context.ttid
         undo_object_tid_dict = {}
         snapshot_tid = p64(u64(self.last_tid) + 1)
         for partition, oid_list in partition_oid_dict.iteritems():
@@ -733,7 +695,7 @@ class Application(ThreadedApplication):
                         'conflict')
                 # Resolve conflict
                 try:
-                    data = txn_context['Storage'].tryToResolveConflict(
+                    data = txn_context.Storage.tryToResolveConflict(
                         oid, current_serial, undone_tid, undo_data, data)
                 except ConflictError:
                     raise UndoError('Some data were modified by a later ' \
@@ -907,16 +869,12 @@ class Application(ThreadedApplication):
             self._txn_container.get(transaction), oid, serial)
 
     def _checkCurrentSerialInTransaction(self, txn_context, oid, serial):
-        ttid = txn_context['ttid']
-        # Placeholders
-        queue = txn_context['queue']
+        ttid = txn_context.ttid
         # ZODB.Connection performs calls 'checkCurrentSerialInTransaction'
         # after stores, and skips oids that have been successfully stored.
-        assert oid not in txn_context['cache_dict'], (oid, txn_context)
-        txn_context['data_dict'].setdefault(oid, CHECKED_SERIAL)
-        involved_nodes = txn_context['involved_nodes']
+        assert oid not in txn_context.cache_dict, (oid, txn_context)
+        txn_context.data_dict.setdefault(oid, CHECKED_SERIAL)
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
-        for ask in self.cp.iterateForWrite(oid, involved_nodes, 0):
-            ask(packet, queue=queue, oid=oid, serial=serial)
+        txn_context.write(self, packet, oid, 0, oid=oid, serial=serial)
         self._waitAnyTransactionMessage(txn_context, False)
 
