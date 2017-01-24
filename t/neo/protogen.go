@@ -251,14 +251,23 @@ type sizer struct {
 	symLenv []string	// symbolic part of size
 
 	varN int		// suffix to add to variables (size0, size1, ...) - for nested computations
-	varSizeUsed bool	// whether var size was used
+	varUsed map[string]bool	// whether a variable was used
 
 	coderForFunc
 }
 
 // get variable name for varname
-func (s *sizer) var_(varname string) string {
+func (s *sizer) var__(varname string) string {
 	return fmt.Sprintf("%s%d", varname, s.varN)
+}
+
+func (s *sizer) var_(varname string) string {
+	varnameX := s.var__(varname)
+	if s.varUsed == nil {
+		s.varUsed = make(map[string]bool)
+	}
+	s.varUsed[varname] = true
+	return varnameX
 }
 
 // create new sizer for subsize calculation (e.g. for loop)
@@ -289,8 +298,8 @@ func (s *sizer) resultExpr() string {
 	if len(s.symLenv) > 0 {
 		size += " + " + strings.Join(s.symLenv, " + ")
 	}
-	if s.varSizeUsed {
-		size += " + size"
+	if s.varUsed["size"] {
+		size += " + " + s.var__("size")
 	}
 	return size
 }
@@ -301,8 +310,8 @@ func (s *sizer) generatedCode() string {
 	if s.recvName != "" {
 		code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
 	}
-	if s.varSizeUsed {
-		code.emit("var size int")
+	if s.varUsed["size"] {
+		code.emit("var %s int", s.var__("size"))
 	}
 
 	code.Write(s.Bytes())	// XXX -> s.buf.Bytes() ?
@@ -440,7 +449,6 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 		return
 	}
 
-	s.varSizeUsed = true
 	s.n += 4
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
@@ -449,7 +457,7 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	codegenType("(*a)", typ.Elem(), obj, sloop)
 	// FIXME vvv if symLenv is ø; -> turn into "result" function
 	s.emit(sloop.generatedCode())
-	s.emit("size += %v", sloop.resultExpr())
+	s.emit("%v += %v", s.var_("size"), sloop.resultExpr())
 	s.emit("}")
 }
 
@@ -505,13 +513,11 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 	}
 
 	panic("UNTESTED")
-	s.varSizeUsed = true
 	s.n += 4
-	s.emit("size += %v", s.n)
 	s.emit("for key := range %s {", path)
 	codegenType("key", typ.Key(), obj, s)
 	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, s)
-	s.emit("size += %v", s.n)
+	s.emit("%v += %v", s.var_("size"), s.n)
 	s.emit("}")
 }
 
