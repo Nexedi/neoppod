@@ -10,9 +10,7 @@ import (
 // 0. Address
 
 func (p *Address) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.Host)
-	return size + 2
+	return 6 + len(p.Host)
 }
 
 func (p *Address) NEOEncode(data []byte) {
@@ -55,9 +53,7 @@ overflow:
 // 1. NodeInfo
 
 func (p *NodeInfo) NEOEncodedLen() int {
-	var size int
-	size += 8 + len(p.Address.Host)
-	return size + 18
+	return 26 + len(p.Address.Host)
 }
 
 func (p *NodeInfo) NEOEncode(data []byte) {
@@ -120,8 +116,7 @@ overflow:
 // 2. CellInfo
 
 func (p *CellInfo) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *CellInfo) NEOEncode(data []byte) {
@@ -149,9 +144,7 @@ overflow:
 // 3. RowInfo
 
 func (p *RowInfo) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.CellList)*8
-	return size + 4
+	return 8 + len(p.CellList)*8
 }
 
 func (p *RowInfo) NEOEncode(data []byte) {
@@ -207,9 +200,7 @@ overflow:
 // 4. Notify
 
 func (p *Notify) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.Message)
-	return size + 0
+	return 4 + len(p.Message)
 }
 
 func (p *Notify) NEOEncode(data []byte) {
@@ -247,9 +238,7 @@ overflow:
 // 5. Error
 
 func (p *Error) NEOEncodedLen() int {
-	var size int
-	size += 8 + len(p.Message)
-	return size + 0
+	return 8 + len(p.Message)
 }
 
 func (p *Error) NEOEncode(data []byte) {
@@ -292,8 +281,7 @@ overflow:
 // 6. Ping
 
 func (p *Ping) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *Ping) NEOEncode(data []byte) {
@@ -311,8 +299,7 @@ overflow:
 // 7. CloseClient
 
 func (p *CloseClient) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *CloseClient) NEOEncode(data []byte) {
@@ -330,10 +317,7 @@ overflow:
 // 8. RequestIdentification
 
 func (p *RequestIdentification) NEOEncodedLen() int {
-	var size int
-	size += 16 + len(p.Address.Host)
-	size += 6 + len(p.Name)
-	return size + 8
+	return 30 + len(p.Address.Host) + len(p.Name)
 }
 
 func (p *RequestIdentification) NEOEncode(data []byte) {
@@ -416,15 +400,12 @@ overflow:
 // 9. AcceptIdentification
 
 func (p *AcceptIdentification) NEOEncodedLen() int {
-	var size int
-	size += 24 + len(p.Primary.Host)
-	size += 2 + 4
+	size += 30
 	for i := 0; i < len(p.KnownMasterList); i++ {
 		a := &p.KnownMasterList[i]
-		size += 4 + len((*a).Address.Host)
-		size += 6
+		size += 10
 	}
-	return size + 0
+	return 0 + len(p.Primary.Host) + len((*a).Address.Host) + size
 }
 
 func (p *AcceptIdentification) NEOEncode(data []byte) {
@@ -548,8 +529,7 @@ overflow:
 // 10. PrimaryMaster
 
 func (p *PrimaryMaster) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *PrimaryMaster) NEOEncode(data []byte) {
@@ -567,8 +547,7 @@ overflow:
 // 11. AnswerPrimary
 
 func (p *AnswerPrimary) NEOEncodedLen() int {
-	var size int
-	return size + 4
+	return 4
 }
 
 func (p *AnswerPrimary) NEOEncode(data []byte) {
@@ -591,8 +570,7 @@ overflow:
 // 12. AnnouncePrimary
 
 func (p *AnnouncePrimary) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *AnnouncePrimary) NEOEncode(data []byte) {
@@ -610,8 +588,7 @@ overflow:
 // 13. ReelectPrimary
 
 func (p *ReelectPrimary) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *ReelectPrimary) NEOEncode(data []byte) {
@@ -629,8 +606,7 @@ overflow:
 // 14. Recovery
 
 func (p *Recovery) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *Recovery) NEOEncode(data []byte) {
@@ -648,8 +624,7 @@ overflow:
 // 15. AnswerRecovery
 
 func (p *AnswerRecovery) NEOEncodedLen() int {
-	var size int
-	return size + 24
+	return 24
 }
 
 func (p *AnswerRecovery) NEOEncode(data []byte) {
@@ -682,8 +657,7 @@ overflow:
 // 16. LastIDs
 
 func (p *LastIDs) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *LastIDs) NEOEncode(data []byte) {
@@ -701,8 +675,7 @@ overflow:
 // 17. AnswerLastIDs
 
 func (p *AnswerLastIDs) NEOEncodedLen() int {
-	var size int
-	return size + 16
+	return 16
 }
 
 func (p *AnswerLastIDs) NEOEncode(data []byte) {
@@ -730,8 +703,7 @@ overflow:
 // 18. PartitionTable
 
 func (p *PartitionTable) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *PartitionTable) NEOEncode(data []byte) {
@@ -749,14 +721,12 @@ overflow:
 // 19. AnswerPartitionTable
 
 func (p *AnswerPartitionTable) NEOEncodedLen() int {
-	var size int
-	size += 8 + 4
+	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-		size += 4 + len((*a).CellList)*8
-		size += 4
+		size += 8
 	}
-	return size + 0
+	return 0 + len((*a).CellList)*8 + size
 }
 
 func (p *AnswerPartitionTable) NEOEncode(data []byte) {
@@ -840,14 +810,12 @@ overflow:
 // 20. NotifyPartitionTable
 
 func (p *NotifyPartitionTable) NEOEncodedLen() int {
-	var size int
-	size += 8 + 4
+	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-		size += 4 + len((*a).CellList)*8
-		size += 4
+		size += 8
 	}
-	return size + 0
+	return 0 + len((*a).CellList)*8 + size
 }
 
 func (p *NotifyPartitionTable) NEOEncode(data []byte) {
@@ -931,9 +899,7 @@ overflow:
 // 21. PartitionChanges
 
 func (p *PartitionChanges) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.CellList)*12
-	return size + 8
+	return 12 + len(p.CellList)*12
 }
 
 func (p *PartitionChanges) NEOEncode(data []byte) {
@@ -998,8 +964,7 @@ overflow:
 // 22. StartOperation
 
 func (p *StartOperation) NEOEncodedLen() int {
-	var size int
-	return size + 1
+	return 1
 }
 
 func (p *StartOperation) NEOEncode(data []byte) {
@@ -1022,8 +987,7 @@ overflow:
 // 23. StopOperation
 
 func (p *StopOperation) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *StopOperation) NEOEncode(data []byte) {
@@ -1041,8 +1005,7 @@ overflow:
 // 24. UnfinishedTransactions
 
 func (p *UnfinishedTransactions) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *UnfinishedTransactions) NEOEncode(data []byte) {
@@ -1060,9 +1023,7 @@ overflow:
 // 25. AnswerUnfinishedTransactions
 
 func (p *AnswerUnfinishedTransactions) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.TidList)*8
-	return size + 8
+	return 12 + len(p.TidList)*8
 }
 
 func (p *AnswerUnfinishedTransactions) NEOEncode(data []byte) {
@@ -1113,8 +1074,7 @@ overflow:
 // 26. LockedTransactions
 
 func (p *LockedTransactions) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *LockedTransactions) NEOEncode(data []byte) {
@@ -1132,9 +1092,8 @@ overflow:
 // 27. AnswerLockedTransactions
 
 func (p *AnswerLockedTransactions) NEOEncodedLen() int {
-	var size int
 	size += 4 + len(p.TidDict)*16
-	return size + 0
+	return 0
 }
 
 func (p *AnswerLockedTransactions) NEOEncode(data []byte) {
@@ -1189,8 +1148,7 @@ overflow:
 // 28. FinalTID
 
 func (p *FinalTID) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *FinalTID) NEOEncode(data []byte) {
@@ -1213,8 +1171,7 @@ overflow:
 // 29. AnswerFinalTID
 
 func (p *AnswerFinalTID) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *AnswerFinalTID) NEOEncode(data []byte) {
@@ -1237,8 +1194,7 @@ overflow:
 // 30. ValidateTransaction
 
 func (p *ValidateTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 16
+	return 16
 }
 
 func (p *ValidateTransaction) NEOEncode(data []byte) {
@@ -1266,8 +1222,7 @@ overflow:
 // 31. BeginTransaction
 
 func (p *BeginTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *BeginTransaction) NEOEncode(data []byte) {
@@ -1290,8 +1245,7 @@ overflow:
 // 32. AnswerBeginTransaction
 
 func (p *AnswerBeginTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *AnswerBeginTransaction) NEOEncode(data []byte) {
@@ -1314,10 +1268,7 @@ overflow:
 // 33. FinishTransaction
 
 func (p *FinishTransaction) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.OIDList)*8
-	size += 4 + len(p.CheckedList)*8
-	return size + 8
+	return 16 + len(p.OIDList)*8 + len(p.CheckedList)*8
 }
 
 func (p *FinishTransaction) NEOEncode(data []byte) {
@@ -1396,8 +1347,7 @@ overflow:
 // 34. AnswerFinishTransaction
 
 func (p *AnswerFinishTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 16
+	return 16
 }
 
 func (p *AnswerFinishTransaction) NEOEncode(data []byte) {
@@ -1425,8 +1375,7 @@ overflow:
 // 35. NotifyTransactionFinished
 
 func (p *NotifyTransactionFinished) NEOEncodedLen() int {
-	var size int
-	return size + 16
+	return 16
 }
 
 func (p *NotifyTransactionFinished) NEOEncode(data []byte) {
@@ -1454,8 +1403,7 @@ overflow:
 // 36. LockInformation
 
 func (p *LockInformation) NEOEncodedLen() int {
-	var size int
-	return size + 16
+	return 16
 }
 
 func (p *LockInformation) NEOEncode(data []byte) {
@@ -1483,8 +1431,7 @@ overflow:
 // 37. AnswerLockInformation
 
 func (p *AnswerLockInformation) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *AnswerLockInformation) NEOEncode(data []byte) {
@@ -1507,9 +1454,7 @@ overflow:
 // 38. InvalidateObjects
 
 func (p *InvalidateObjects) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.OidList)*8
-	return size + 8
+	return 12 + len(p.OidList)*8
 }
 
 func (p *InvalidateObjects) NEOEncode(data []byte) {
@@ -1560,8 +1505,7 @@ overflow:
 // 39. UnlockInformation
 
 func (p *UnlockInformation) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *UnlockInformation) NEOEncode(data []byte) {
@@ -1584,8 +1528,7 @@ overflow:
 // 40. GenerateOIDs
 
 func (p *GenerateOIDs) NEOEncodedLen() int {
-	var size int
-	return size + 4
+	return 4
 }
 
 func (p *GenerateOIDs) NEOEncode(data []byte) {
@@ -1608,9 +1551,7 @@ overflow:
 // 41. AnswerGenerateOIDs
 
 func (p *AnswerGenerateOIDs) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.OidList)*8
-	return size + 0
+	return 4 + len(p.OidList)*8
 }
 
 func (p *AnswerGenerateOIDs) NEOEncode(data []byte) {
@@ -1656,9 +1597,7 @@ overflow:
 // 42. StoreObject
 
 func (p *StoreObject) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.Data)*1
-	return size + 54
+	return 58 + len(p.Data)*1
 }
 
 func (p *StoreObject) NEOEncode(data []byte) {
@@ -1834,8 +1773,7 @@ overflow:
 // 43. AnswerStoreObject
 
 func (p *AnswerStoreObject) NEOEncodedLen() int {
-	var size int
-	return size + 17
+	return 17
 }
 
 func (p *AnswerStoreObject) NEOEncode(data []byte) {
@@ -1868,8 +1806,7 @@ overflow:
 // 44. AbortTransaction
 
 func (p *AbortTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *AbortTransaction) NEOEncode(data []byte) {
@@ -1892,12 +1829,7 @@ overflow:
 // 45. StoreTransaction
 
 func (p *StoreTransaction) NEOEncodedLen() int {
-	var size int
-	size += 12 + len(p.User)
-	size += 4 + len(p.Description)
-	size += 4 + len(p.Extension)
-	size += 4 + len(p.OidList)*8
-	return size + 0
+	return 24 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
 }
 
 func (p *StoreTransaction) NEOEncode(data []byte) {
@@ -2008,8 +1940,7 @@ overflow:
 // 46. VoteTransaction
 
 func (p *VoteTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *VoteTransaction) NEOEncode(data []byte) {
@@ -2032,8 +1963,7 @@ overflow:
 // 47. GetObject
 
 func (p *GetObject) NEOEncodedLen() int {
-	var size int
-	return size + 24
+	return 24
 }
 
 func (p *GetObject) NEOEncode(data []byte) {
@@ -2066,9 +1996,7 @@ overflow:
 // 48. AnswerGetObject
 
 func (p *AnswerGetObject) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.Data)*1
-	return size + 53
+	return 57 + len(p.Data)*1
 }
 
 func (p *AnswerGetObject) NEOEncode(data []byte) {
@@ -2239,8 +2167,7 @@ overflow:
 // 49. TIDList
 
 func (p *TIDList) NEOEncodedLen() int {
-	var size int
-	return size + 20
+	return 20
 }
 
 func (p *TIDList) NEOEncode(data []byte) {
@@ -2273,9 +2200,7 @@ overflow:
 // 50. AnswerTIDList
 
 func (p *AnswerTIDList) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.TIDList)*8
-	return size + 0
+	return 4 + len(p.TIDList)*8
 }
 
 func (p *AnswerTIDList) NEOEncode(data []byte) {
@@ -2321,8 +2246,7 @@ overflow:
 // 51. TIDListFrom
 
 func (p *TIDListFrom) NEOEncodedLen() int {
-	var size int
-	return size + 24
+	return 24
 }
 
 func (p *TIDListFrom) NEOEncode(data []byte) {
@@ -2360,9 +2284,7 @@ overflow:
 // 52. AnswerTIDListFrom
 
 func (p *AnswerTIDListFrom) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.TidList)*8
-	return size + 0
+	return 4 + len(p.TidList)*8
 }
 
 func (p *AnswerTIDListFrom) NEOEncode(data []byte) {
@@ -2408,8 +2330,7 @@ overflow:
 // 53. TransactionInformation
 
 func (p *TransactionInformation) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *TransactionInformation) NEOEncode(data []byte) {
@@ -2432,12 +2353,7 @@ overflow:
 // 54. AnswerTransactionInformation
 
 func (p *AnswerTransactionInformation) NEOEncodedLen() int {
-	var size int
-	size += 12 + len(p.User)
-	size += 4 + len(p.Description)
-	size += 4 + len(p.Extension)
-	size += 4 + len(p.OidList)*8
-	return size + 1
+	return 25 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
 }
 
 func (p *AnswerTransactionInformation) NEOEncode(data []byte) {
@@ -2553,8 +2469,7 @@ overflow:
 // 55. ObjectHistory
 
 func (p *ObjectHistory) NEOEncodedLen() int {
-	var size int
-	return size + 24
+	return 24
 }
 
 func (p *ObjectHistory) NEOEncode(data []byte) {
@@ -2587,9 +2502,7 @@ overflow:
 // 56. AnswerObjectHistory
 
 func (p *AnswerObjectHistory) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.HistoryList)*12
-	return size + 8
+	return 12 + len(p.HistoryList)*12
 }
 
 func (p *AnswerObjectHistory) NEOEncode(data []byte) {
@@ -2648,8 +2561,7 @@ overflow:
 // 57. PartitionList
 
 func (p *PartitionList) NEOEncodedLen() int {
-	var size int
-	return size + 12
+	return 12
 }
 
 func (p *PartitionList) NEOEncode(data []byte) {
@@ -2682,14 +2594,12 @@ overflow:
 // 58. AnswerPartitionList
 
 func (p *AnswerPartitionList) NEOEncodedLen() int {
-	var size int
-	size += 8 + 4
+	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-		size += 4 + len((*a).CellList)*8
-		size += 4
+		size += 8
 	}
-	return size + 0
+	return 0 + len((*a).CellList)*8 + size
 }
 
 func (p *AnswerPartitionList) NEOEncode(data []byte) {
@@ -2773,8 +2683,7 @@ overflow:
 // 59. X_NodeList
 
 func (p *X_NodeList) NEOEncodedLen() int {
-	var size int
-	return size + 4
+	return 4
 }
 
 func (p *X_NodeList) NEOEncode(data []byte) {
@@ -2797,14 +2706,12 @@ overflow:
 // 60. AnswerNodeList
 
 func (p *AnswerNodeList) NEOEncodedLen() int {
-	var size int
-	size += 0 + 4
+	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-		size += 8 + len((*a).Address.Host)
-		size += 18
+		size += 26
 	}
-	return size + 0
+	return 0 + len((*a).Address.Host) + size
 }
 
 func (p *AnswerNodeList) NEOEncode(data []byte) {
@@ -2890,8 +2797,7 @@ overflow:
 // 61. SetNodeState
 
 func (p *SetNodeState) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *SetNodeState) NEOEncode(data []byte) {
@@ -2919,9 +2825,7 @@ overflow:
 // 62. AddPendingNodes
 
 func (p *AddPendingNodes) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.UUIDList)*4
-	return size + 0
+	return 4 + len(p.UUIDList)*4
 }
 
 func (p *AddPendingNodes) NEOEncode(data []byte) {
@@ -2967,9 +2871,7 @@ overflow:
 // 63. TweakPartitionTable
 
 func (p *TweakPartitionTable) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.UUIDList)*4
-	return size + 0
+	return 4 + len(p.UUIDList)*4
 }
 
 func (p *TweakPartitionTable) NEOEncode(data []byte) {
@@ -3015,14 +2917,12 @@ overflow:
 // 64. NotifyNodeInformation
 
 func (p *NotifyNodeInformation) NEOEncodedLen() int {
-	var size int
-	size += 0 + 4
+	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-		size += 8 + len((*a).Address.Host)
-		size += 18
+		size += 26
 	}
-	return size + 0
+	return 0 + len((*a).Address.Host) + size
 }
 
 func (p *NotifyNodeInformation) NEOEncode(data []byte) {
@@ -3108,8 +3008,7 @@ overflow:
 // 65. NodeInformation
 
 func (p *NodeInformation) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *NodeInformation) NEOEncode(data []byte) {
@@ -3127,8 +3026,7 @@ overflow:
 // 66. SetClusterState
 
 func (p *SetClusterState) NEOEncodedLen() int {
-	var size int
-	return size + 4
+	return 4
 }
 
 func (p *SetClusterState) NEOEncode(data []byte) {
@@ -3151,8 +3049,7 @@ overflow:
 // 67. ClusterInformation
 
 func (p *ClusterInformation) NEOEncodedLen() int {
-	var size int
-	return size + 4
+	return 4
 }
 
 func (p *ClusterInformation) NEOEncode(data []byte) {
@@ -3175,8 +3072,7 @@ overflow:
 // 68. X_ClusterState
 
 func (p *X_ClusterState) NEOEncodedLen() int {
-	var size int
-	return size + 4
+	return 4
 }
 
 func (p *X_ClusterState) NEOEncode(data []byte) {
@@ -3199,9 +3095,7 @@ overflow:
 // 69. ObjectUndoSerial
 
 func (p *ObjectUndoSerial) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.OidList)*8
-	return size + 24
+	return 28 + len(p.OidList)*8
 }
 
 func (p *ObjectUndoSerial) NEOEncode(data []byte) {
@@ -3262,9 +3156,8 @@ overflow:
 // 70. AnswerObjectUndoSerial
 
 func (p *AnswerObjectUndoSerial) NEOEncodedLen() int {
-	var size int
 	size += 4 + len(p.ObjectTIDDict)*25
-	return size + 0
+	return 0
 }
 
 func (p *AnswerObjectUndoSerial) NEOEncode(data []byte) {
@@ -3339,8 +3232,7 @@ overflow:
 // 71. HasLock
 
 func (p *HasLock) NEOEncodedLen() int {
-	var size int
-	return size + 16
+	return 16
 }
 
 func (p *HasLock) NEOEncode(data []byte) {
@@ -3368,8 +3260,7 @@ overflow:
 // 72. AnswerHasLock
 
 func (p *AnswerHasLock) NEOEncodedLen() int {
-	var size int
-	return size + 12
+	return 12
 }
 
 func (p *AnswerHasLock) NEOEncode(data []byte) {
@@ -3397,8 +3288,7 @@ overflow:
 // 73. CheckCurrentSerial
 
 func (p *CheckCurrentSerial) NEOEncodedLen() int {
-	var size int
-	return size + 24
+	return 24
 }
 
 func (p *CheckCurrentSerial) NEOEncode(data []byte) {
@@ -3431,8 +3321,7 @@ overflow:
 // 74. AnswerCheckCurrentSerial
 
 func (p *AnswerCheckCurrentSerial) NEOEncodedLen() int {
-	var size int
-	return size + 17
+	return 17
 }
 
 func (p *AnswerCheckCurrentSerial) NEOEncode(data []byte) {
@@ -3465,8 +3354,7 @@ overflow:
 // 75. Pack
 
 func (p *Pack) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *Pack) NEOEncode(data []byte) {
@@ -3489,8 +3377,7 @@ overflow:
 // 76. AnswerPack
 
 func (p *AnswerPack) NEOEncodedLen() int {
-	var size int
-	return size + 1
+	return 1
 }
 
 func (p *AnswerPack) NEOEncode(data []byte) {
@@ -3513,9 +3400,8 @@ overflow:
 // 77. CheckReplicas
 
 func (p *CheckReplicas) NEOEncodedLen() int {
-	var size int
 	size += 4 + len(p.PartitionDict)*8
-	return size + 16
+	return 16
 }
 
 func (p *CheckReplicas) NEOEncode(data []byte) {
@@ -3580,10 +3466,7 @@ overflow:
 // 78. CheckPartition
 
 func (p *CheckPartition) NEOEncodedLen() int {
-	var size int
-	size += 8 + len(p.Source.UpstreamName)
-	size += 4 + len(p.Source.Address.Host)
-	return size + 18
+	return 30 + len(p.Source.UpstreamName) + len(p.Source.Address.Host)
 }
 
 func (p *CheckPartition) NEOEncode(data []byte) {
@@ -3661,8 +3544,7 @@ overflow:
 // 79. CheckTIDRange
 
 func (p *CheckTIDRange) NEOEncodedLen() int {
-	var size int
-	return size + 24
+	return 24
 }
 
 func (p *CheckTIDRange) NEOEncode(data []byte) {
@@ -3700,8 +3582,7 @@ overflow:
 // 80. AnswerCheckTIDRange
 
 func (p *AnswerCheckTIDRange) NEOEncodedLen() int {
-	var size int
-	return size + 32
+	return 32
 }
 
 func (p *AnswerCheckTIDRange) NEOEncode(data []byte) {
@@ -3829,8 +3710,7 @@ overflow:
 // 81. CheckSerialRange
 
 func (p *CheckSerialRange) NEOEncodedLen() int {
-	var size int
-	return size + 32
+	return 32
 }
 
 func (p *CheckSerialRange) NEOEncode(data []byte) {
@@ -3873,8 +3753,7 @@ overflow:
 // 82. AnswerCheckSerialRange
 
 func (p *AnswerCheckSerialRange) NEOEncodedLen() int {
-	var size int
-	return size + 60
+	return 60
 }
 
 func (p *AnswerCheckSerialRange) NEOEncode(data []byte) {
@@ -4107,9 +3986,7 @@ overflow:
 // 83. PartitionCorrupted
 
 func (p *PartitionCorrupted) NEOEncodedLen() int {
-	var size int
-	size += 4 + len(p.CellList)*4
-	return size + 4
+	return 8 + len(p.CellList)*4
 }
 
 func (p *PartitionCorrupted) NEOEncode(data []byte) {
@@ -4160,8 +4037,7 @@ overflow:
 // 84. LastTransaction
 
 func (p *LastTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *LastTransaction) NEOEncode(data []byte) {
@@ -4179,8 +4055,7 @@ overflow:
 // 85. AnswerLastTransaction
 
 func (p *AnswerLastTransaction) NEOEncodedLen() int {
-	var size int
-	return size + 8
+	return 8
 }
 
 func (p *AnswerLastTransaction) NEOEncode(data []byte) {
@@ -4203,8 +4078,7 @@ overflow:
 // 86. NotifyReady
 
 func (p *NotifyReady) NEOEncodedLen() int {
-	var size int
-	return size + 0
+	return 0
 }
 
 func (p *NotifyReady) NEOEncode(data []byte) {

@@ -31,13 +31,13 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"strings"
 )
 
 // parsed & typechecked input
 var fset = token.NewFileSet()
 var info = &types.Info{
 	Types: make(map[ast.Expr]types.TypeAndValue),
-	//Uses:  make(map[*ast.Ident]types.Object),	XXX seems not needed
 	Defs:  make(map[*ast.Ident]types.Object),
 }
 
@@ -226,12 +226,12 @@ type CodecCodeGen interface {
 	generatedCode() string
 }
 
-// encode/decode codegen
+// sizer/encode/decode codegen
 type sizer struct {
 	Buffer	// XXX
 	n int
-	symLenv []string	// symbolic lengths TODO
-	sizeVarUsed bool	// whether size var was used
+	symLenv []string	// symbolic lengths to add to size
+	varSizeUsed bool	// whether var size was used
 }
 
 type encoder struct {
@@ -262,7 +262,7 @@ func (d *decoder) generatedCode() string {
 
 func (s *sizer) genPrologue(recvName, typeName string) {
 	s.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
-	if s.sizeVarUsed {
+	if s.varSizeUsed {
 		s.emit("var size int")
 	}
 }
@@ -279,10 +279,10 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 func (s *sizer) genEpilogue() {
 	size := fmt.Sprintf("%v", s.n)
 	if len(s.symLenv) > 0 {
-		size += " + " + strings.Join(s.synLenv, " + ")
+		size += " + " + strings.Join(s.symLenv, " + ")
 	}
-	if s.sizeVarUsed {
-		size += " + size")
+	if s.varSizeUsed {
+		size += " + size"
 	}
 	s.emit("return %v", size)
 	s.emit("}\n")
@@ -376,15 +376,19 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	// if size(item)==const - size update in one go
 	elemSize, ok := typeSizeFixed(typ.Elem())
 	if ok {
-		s.emit("size += 4 + len(%v) * %v", path, elemSize)
+		s.n += 4
+		s.symLenv = append(s.symLenv, fmt.Sprintf("len(%v) * %v", path, elemSize))
 		return
 	}
 
-	s.emit("size += %v + 4", s.n)
+	s.varSizeUsed = true
+	s.n += 4
+	s.emit("size += %v", s.n)
 	s.n = 0
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
-	codegenType("(*a)", typ.Elem(), obj, s)
+	//codegenType("(*a)", typ.Elem(), obj, s)
+	codegenType("(*a)", typ.Elem(), obj, &sizer{})
 	s.emit("size += %v", s.n)
 	s.emit("}")
 	s.n = 0
