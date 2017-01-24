@@ -243,7 +243,6 @@ type commonCoder struct {
 	typeName string		// or empty
 	typ      types.Type
 
-	varN    int		// suffix to add to variables (size0, size1, ...) - for nested computations
 	varUsed map[string]bool	// whether a variable was used
 }
 
@@ -255,7 +254,7 @@ func (c *commonCoder) setFunc(recvName, typeName string, typ types.Type) {
 
 // get variable name for varname
 func (c *commonCoder) var__(varname string) string {
-	return fmt.Sprintf("%s%d", varname, c.varN)
+	return varname	// XXX was varname + N
 }
 
 func (c *commonCoder) var_(varname string) string {
