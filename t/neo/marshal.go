@@ -400,6 +400,7 @@ overflow:
 // 9. AcceptIdentification
 
 func (p *AcceptIdentification) NEOEncodedLen() int {
+	var size int
 	size += 30
 	for i := 0; i < len(p.KnownMasterList); i++ {
 		a := &p.KnownMasterList[i]
@@ -721,6 +722,7 @@ overflow:
 // 19. AnswerPartitionTable
 
 func (p *AnswerPartitionTable) NEOEncodedLen() int {
+	var size int
 	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -810,6 +812,7 @@ overflow:
 // 20. NotifyPartitionTable
 
 func (p *NotifyPartitionTable) NEOEncodedLen() int {
+	var size int
 	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -1092,8 +1095,7 @@ overflow:
 // 27. AnswerLockedTransactions
 
 func (p *AnswerLockedTransactions) NEOEncodedLen() int {
-	size += 4 + len(p.TidDict)*16
-	return 0
+	return 4 + len(p.TidDict)*16
 }
 
 func (p *AnswerLockedTransactions) NEOEncode(data []byte) {
@@ -2594,6 +2596,7 @@ overflow:
 // 58. AnswerPartitionList
 
 func (p *AnswerPartitionList) NEOEncodedLen() int {
+	var size int
 	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -2706,6 +2709,7 @@ overflow:
 // 60. AnswerNodeList
 
 func (p *AnswerNodeList) NEOEncodedLen() int {
+	var size int
 	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
@@ -2917,6 +2921,7 @@ overflow:
 // 64. NotifyNodeInformation
 
 func (p *NotifyNodeInformation) NEOEncodedLen() int {
+	var size int
 	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
@@ -3156,8 +3161,7 @@ overflow:
 // 70. AnswerObjectUndoSerial
 
 func (p *AnswerObjectUndoSerial) NEOEncodedLen() int {
-	size += 4 + len(p.ObjectTIDDict)*25
-	return 0
+	return 4 + len(p.ObjectTIDDict)*25
 }
 
 func (p *AnswerObjectUndoSerial) NEOEncode(data []byte) {
@@ -3400,8 +3404,7 @@ overflow:
 // 77. CheckReplicas
 
 func (p *CheckReplicas) NEOEncodedLen() int {
-	size += 4 + len(p.PartitionDict)*8
-	return 16
+	return 20 + len(p.PartitionDict)*8
 }
 
 func (p *CheckReplicas) NEOEncode(data []byte) {

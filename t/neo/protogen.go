@@ -232,6 +232,9 @@ type sizer struct {
 	n int
 	symLenv []string	// symbolic lengths to add to size
 	varSizeUsed bool	// whether var size was used
+
+	recvName string		// receiver/type for top-level func
+	typeName string		// or empty
 }
 
 type encoder struct {
@@ -249,7 +252,26 @@ var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
 func (s *sizer) generatedCode() string {
-	return s.String()	// XXX -> d.buf.String() ?
+	prologue := Buffer{}
+	if s.recvName != "" {
+		prologue.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
+	}
+	if s.varSizeUsed {
+		prologue.emit("var size int")
+	}
+
+	epilogue := Buffer{}
+	size := fmt.Sprintf("%v", s.n)
+	if len(s.symLenv) > 0 {
+		size += " + " + strings.Join(s.symLenv, " + ")
+	}
+	if s.varSizeUsed {
+		size += " + size"
+	}
+	epilogue.emit("return %v", size)
+	epilogue.emit("}\n")
+
+	return prologue.String() + s.String() + epilogue.String()	// XXX -> d.buf.String() ?
 }
 
 func (e *encoder) generatedCode() string {
@@ -261,10 +283,9 @@ func (d *decoder) generatedCode() string {
 }
 
 func (s *sizer) genPrologue(recvName, typeName string) {
-	s.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
-	if s.varSizeUsed {
-		s.emit("var size int")
-	}
+	s.recvName = recvName
+	s.typeName = typeName
+	//s.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
 }
 
 func (e *encoder) genPrologue(recvName, typeName string) {
@@ -277,6 +298,7 @@ func (d *decoder) genPrologue(recvName, typeName string) {
 }
 
 func (s *sizer) genEpilogue() {
+/*
 	size := fmt.Sprintf("%v", s.n)
 	if len(s.symLenv) > 0 {
 		size += " + " + strings.Join(s.symLenv, " + ")
@@ -286,6 +308,7 @@ func (s *sizer) genEpilogue() {
 	}
 	s.emit("return %v", size)
 	s.emit("}\n")
+*/
 }
 
 func (e *encoder) genEpilogue() {
@@ -442,10 +465,12 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 
 	if keyFixed && elemFixed {
-		s.emit("size += 4 + len(%v) * %v", path, keySize + elemSize)
+		s.n += 4
+		s.symLenv = append(s.symLenv, fmt.Sprintf("len(%v) * %v", path, keySize + elemSize))
 		return
 	}
 
+	s.varSizeUsed = true
 	s.emit("size += %v + 4", s.n)
 	s.n = 0
 	s.emit("for key := range %s {", path)
