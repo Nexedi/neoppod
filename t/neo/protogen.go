@@ -222,8 +222,8 @@ type CodecCodeGen interface {
 	genSlice(path string, typ *types.Slice, obj types.Object)
 	genMap(path string, typ *types.Map, obj types.Object)
 
-	// XXX particular case of slice
-	genStrBytes(path string)
+	// particular case of slice or array with 1-byte elem
+	genSlice1(path string, typ types.Type)
 
 	// get generated code.
 	// for top-level functions this is whole function including return and closing }
@@ -514,12 +514,12 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // len	u32
 // [len]byte
 // TODO []byte support
-func (s *sizer) genStrBytes(path string) {
+func (s *sizer) genSlice1(path string, typ types.Type) {
 	s.size.Add(4)
 	s.size.AddExpr("len(%s)", path)
 }
 
-func (e *encoder) genStrBytes(path string) {
+func (e *encoder) genSlice1(path string, typ types.Type) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
 	e.genBasic("l", types.Typ[types.Uint32], nil)
@@ -530,7 +530,7 @@ func (e *encoder) genStrBytes(path string) {
 	e.n = 0
 }
 
-func (d *decoder) genStrBytes(assignto string) {
+func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 
@@ -541,7 +541,22 @@ func (d *decoder) genStrBytes(assignto string) {
 	d.overflowCheckpoint()
 	d.overflowCheckSize.AddExpr("l")
 
-	d.emit("%v= string(data[:l])", assignto)
+	switch t := typ.(type) {
+	case *types.Basic:
+		if t.Kind() != types.String {
+			log.Panicf("bad basic type in slice1: %v", t)
+		}
+		d.emit("%v= string(data[:l])", assignto)
+
+	case *types.Slice:
+		// TODO not copy, but reference data from original
+		d.emit("%v= make(%v, l)", assignto, typeName(typ))
+		d.emit("copy(%v, data[:l])", assignto)
+
+	default:
+		log.Panicf("bad type in slice1: %v", typ)
+	}
+
 	d.emit("data = data[l:]")
 	d.emit("}")
 }
@@ -776,7 +791,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
 		if u.Kind() == types.String {
-			codegen.genStrBytes(path)
+			codegen.genSlice1(path, u)
 			break
 		}
 
@@ -793,14 +808,24 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 		}
 
 	case *types.Array:
-		// TODO optimize for [...]byte
-		var i int64	// XXX because `u.Len() int64`
-		for i = 0; i < u.Len(); i++ {
-			codegenType(fmt.Sprintf("%v[%v]", path, i), u.Elem(), obj, codegen)
+		elemSize, _ := typeSizeFixed(u.Elem())
+		// [...]byte or [...]uint8 - just straight copy
+		if false && elemSize == 1 {
+			//codegen.genStrBytes(path+"[:]")	// FIXME
+			codegen.genSlice1(path, u)	// FIXME
+		} else {
+			var i int64	// XXX because `u.Len() int64`
+			for i = 0; i < u.Len(); i++ {
+				codegenType(fmt.Sprintf("%v[%v]", path, i), u.Elem(), obj, codegen)
+			}
 		}
 
 	case *types.Slice:
-		codegen.genSlice(path, u, obj)
+		if elemSize, _ := typeSizeFixed(u.Elem()); elemSize == 1 {
+			codegen.genSlice1(path, u)
+		} else {
+			codegen.genSlice(path, u, obj)
+		}
 
 	case *types.Map:
 		codegen.genMap(path, u, obj)

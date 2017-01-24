@@ -1456,7 +1456,7 @@ overflow:
 // 43. StoreObject
 
 func (p *StoreObject) NEOEncodedLen() int {
-	return 58 + len(p.Data)*1
+	return 58 + len(p.Data)
 }
 
 func (p *StoreObject) NEOEncode(data []byte) {
@@ -1487,11 +1487,8 @@ func (p *StoreObject) NEOEncode(data []byte) {
 		l := uint32(len(p.Data))
 		binary.BigEndian.PutUint32(data[37:], l)
 		data = data[41:]
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Data[i]
-			(data[0:])[0] = (*a)
-			data = data[1:]
-		}
+		copy(data, p.Data)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
@@ -1529,17 +1526,13 @@ func (p *StoreObject) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[37:])
 		data = data[41:]
-		nread += 41
-		if uint32(len(data)) < 17+l*1 {
+		nread += 41 + l
+		if uint32(len(data)) < 17+l {
 			goto overflow
 		}
-		nread += l * 1
 		p.Data = make([]byte, l)
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Data[i]
-			(*a) = (data[0:])[0]
-			data = data[1:]
-		}
+		copy(p.Data, data[:l])
+		data = data[l:]
 	}
 	p.DataSerial = Tid(binary.BigEndian.Uint64(data[0:]))
 	p.Tid = Tid(binary.BigEndian.Uint64(data[8:]))
@@ -1743,7 +1736,7 @@ overflow:
 // 49. AnswerGetObject
 
 func (p *AnswerGetObject) NEOEncodedLen() int {
-	return 57 + len(p.Data)*1
+	return 57 + len(p.Data)
 }
 
 func (p *AnswerGetObject) NEOEncode(data []byte) {
@@ -1775,11 +1768,8 @@ func (p *AnswerGetObject) NEOEncode(data []byte) {
 		l := uint32(len(p.Data))
 		binary.BigEndian.PutUint32(data[45:], l)
 		data = data[49:]
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Data[i]
-			(data[0:])[0] = (*a)
-			data = data[1:]
-		}
+		copy(data, p.Data)
+		data = data[l:]
 	}
 	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))
 }
@@ -1816,17 +1806,13 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[45:])
 		data = data[49:]
-		nread += 49
-		if uint32(len(data)) < 8+l*1 {
+		nread += 49 + l
+		if uint32(len(data)) < 8+l {
 			goto overflow
 		}
-		nread += l * 1
 		p.Data = make([]byte, l)
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Data[i]
-			(*a) = (data[0:])[0]
-			data = data[1:]
-		}
+		copy(p.Data, data[:l])
+		data = data[l:]
 	}
 	p.DataSerial = Tid(binary.BigEndian.Uint64(data[0:]))
 	return 8 + int(nread), nil
