@@ -608,9 +608,9 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 
 	d.resetPos()
 
+	// if size(item)==const - check overflow in one go
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
-	// if size(item)==const - check l in one go
-	overflowChecked := d.overflowChecked
+	overflowCheckedCur := d.overflowChecked
 	if elemFixed {
 		d.overflowCheckpoint()
 		d.overflowCheckSize.AddExpr("l * %v", elemSize)
@@ -640,7 +640,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 
 	d.emit("}")
 
-	d.overflowChecked = overflowChecked
+	d.overflowChecked = overflowCheckedCur
 
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
@@ -709,26 +709,27 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 
-/*
-	d.emit("data = data[%v:]", d.pos.num)
-	d.emit("%v += %v", d.var_("nread"), d.pos.num)
-	d.flushOverflow()
-	d.pos = size{}	// zero
-*/
-	d.overflowCheckpoint()
 	d.resetPos()
 
-	//d.pos.AddExpr("l")
+	// if size(key,item)==const - check overflow in one go
+	keySize, keyFixed := typeSizeFixed(typ.Key())
+	elemSize, elemFixed := typeSizeFixed(typ.Elem())
+	itemFixed := keyFixed && elemFixed
+	if itemFixed {
+		d.overflowCheckpoint()
+		d.overflowCheckSize.AddExpr("l * %v", keySize + elemSize)
+		d.overflowChecked = true
+
+		d.emit("%v += l * %v", d.var_("nread"), keySize + elemSize)
+	}
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
-	// TODO size check
-	// TODO if size(item)==const - check l in one go
-	//d.emit("if len(data) < l { goto overflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 
-	d.overflowCheckpoint()
-	d.resetPos()
+	if !itemFixed {
+		d.overflowCheckpoint()
+	}
 
 	codegenType("key:", typ.Key(), obj, d)
 
@@ -745,7 +746,15 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 		d.emit("m[key] = v")
 	}
 
-	d.resetPos()
+	// d.resetPos() with nread update optionally skipped
+	if d.n != 0 {
+		d.emit("data = data[%v:]", d.n)
+		if !elemFixed {
+			d.emit("%v += %v", d.var_("nread"), d.n)
+		}
+		d.n = 0
+	}
+
 	d.emit("}")
 
 	d.overflowCheckpoint()

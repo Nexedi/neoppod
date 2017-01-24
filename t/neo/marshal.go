@@ -1032,16 +1032,16 @@ func (p *AnswerLockedTransactions) NEODecode(data []byte) (int, error) {
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
 		nread += 4
+		if uint32(len(data)) < l*16 {
+			goto overflow
+		}
+		nread += l * 16
 		p.TidDict = make(map[Tid]Tid, l)
 		m := p.TidDict
 		for i := 0; uint32(i) < l; i++ {
-			if uint32(len(data)) < 16 {
-				goto overflow
-			}
 			key := Tid(binary.BigEndian.Uint64(data[0:]))
 			m[key] = Tid(binary.BigEndian.Uint64(data[8:]))
 			data = data[16:]
-			nread += 16
 		}
 	}
 	return 0 + int(nread), nil
@@ -2723,6 +2723,10 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
 		nread += 4
+		if uint32(len(data)) < l*25 {
+			goto overflow
+		}
+		nread += l * 25
 		p.ObjectTIDDict = make(map[Oid]struct {
 			CurrentSerial Tid
 			UndoSerial    Tid
@@ -2730,9 +2734,6 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 		}, l)
 		m := p.ObjectTIDDict
 		for i := 0; uint32(i) < l; i++ {
-			if uint32(len(data)) < 25 {
-				goto overflow
-			}
 			key := Oid(binary.BigEndian.Uint64(data[0:]))
 			var v struct {
 				CurrentSerial Tid
@@ -2744,7 +2745,6 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 			v.IsCurrent = byte2bool((data[24:])[0])
 			m[key] = v
 			data = data[25:]
-			nread += 25
 		}
 	}
 	return 0 + int(nread), nil
@@ -2926,19 +2926,16 @@ func (p *CheckReplicas) NEODecode(data []byte) (int, error) {
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
 		nread += 4
+		if uint32(len(data)) < l*8 {
+			goto overflow
+		}
+		nread += l * 8
 		p.PartitionDict = make(map[uint32]UUID, l)
 		m := p.PartitionDict
 		for i := 0; uint32(i) < l; i++ {
-			if uint32(len(data)) < 8 {
-				goto overflow
-			}
 			key := binary.BigEndian.Uint32(data[0:])
 			m[key] = UUID(int32(binary.BigEndian.Uint32(data[4:])))
 			data = data[8:]
-			nread += 8
-		}
-		if uint32(len(data)) < 16 {
-			goto overflow
 		}
 	}
 	p.MinTID = Tid(binary.BigEndian.Uint64(data[0:]))
