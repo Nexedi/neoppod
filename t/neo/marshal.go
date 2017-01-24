@@ -403,9 +403,9 @@ func (p *AcceptIdentification) NEOEncodedLen() int {
 	size += 30
 	for i := 0; i < len(p.KnownMasterList); i++ {
 		a := &p.KnownMasterList[i]
-		size += 10
+		size += 10 + len((*a).Address.Host)
 	}
-	return 0 + len(p.Primary.Host) + len((*a).Address.Host) + size
+	return 0 + len(p.Primary.Host) + size
 }
 
 func (p *AcceptIdentification) NEOEncode(data []byte) {
@@ -724,9 +724,9 @@ func (p *AnswerPartitionTable) NEOEncodedLen() int {
 	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-		size += 8
+		size += 8 + len((*a).CellList)*8
 	}
-	return 0 + len((*a).CellList)*8 + size
+	return 0 + size
 }
 
 func (p *AnswerPartitionTable) NEOEncode(data []byte) {
@@ -813,9 +813,9 @@ func (p *NotifyPartitionTable) NEOEncodedLen() int {
 	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-		size += 8
+		size += 8 + len((*a).CellList)*8
 	}
-	return 0 + len((*a).CellList)*8 + size
+	return 0 + size
 }
 
 func (p *NotifyPartitionTable) NEOEncode(data []byte) {
@@ -2597,9 +2597,9 @@ func (p *AnswerPartitionList) NEOEncodedLen() int {
 	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-		size += 8
+		size += 8 + len((*a).CellList)*8
 	}
-	return 0 + len((*a).CellList)*8 + size
+	return 0 + size
 }
 
 func (p *AnswerPartitionList) NEOEncode(data []byte) {
@@ -2709,9 +2709,9 @@ func (p *AnswerNodeList) NEOEncodedLen() int {
 	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-		size += 26
+		size += 26 + len((*a).Address.Host)
 	}
-	return 0 + len((*a).Address.Host) + size
+	return 0 + size
 }
 
 func (p *AnswerNodeList) NEOEncode(data []byte) {
@@ -2920,9 +2920,9 @@ func (p *NotifyNodeInformation) NEOEncodedLen() int {
 	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-		size += 26
+		size += 26 + len((*a).Address.Host)
 	}
-	return 0 + len((*a).Address.Host) + size
+	return 0 + size
 }
 
 func (p *NotifyNodeInformation) NEOEncode(data []byte) {

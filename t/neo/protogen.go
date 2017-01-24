@@ -388,8 +388,10 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
 	//codegenType("(*a)", typ.Elem(), obj, s)
-	codegenType("(*a)", typ.Elem(), obj, &sizer{})
-	s.emit("size += %v", s.n)
+	sloop := &sizer{}
+	codegenType("(*a)", typ.Elem(), obj, sloop)
+	// FIXME vvv if symLenv is ø; -> turn into "result" function
+	s.emit("size += %v + %v", sloop.n, strings.Join(sloop.symLenv, " + "))
 	s.emit("}")
 	s.n = 0
 }
