@@ -529,12 +529,6 @@ func (d *decoder) genStrBytes(assignto string) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 
-/*
-	d.emit("data = data[%v:]", d.pos.num)
-	d.emit("%v += %v + l", d.var_("nread"), d.pos.num)
-*/
-
-	//d.resetPos()
 	d.emit("data = data[%v:]", d.n)
 	d.emit("%v += %v + l", d.var_("nread"), d.n)
 	d.n = 0
