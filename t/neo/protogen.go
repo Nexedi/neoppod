@@ -267,7 +267,7 @@ func (c *commonCoder) var_(varname string) string {
 
 // information about a size
 // consists of numeric & symbolic parts
-// size is <num> + expr1 + expr2 + ...
+// size is num + expr1 + expr2 + ...
 type size struct {
 	num	int	 // numeric part of size
 	exprv	[]string // symbolic part of size
@@ -277,16 +277,22 @@ func (s *size) Add(n int) {
 	s.num += n
 }
 
-func (s *size) AddExpr(expr string) {
+func (s *size) AddExpr(format string, a ...interface{}) {
+	expr := fmt.Sprintf(format, a...)
 	s.exprv = append(s.exprv, expr)
 }
 
 func (s *size) String() string {
-	sizeExpr := fmt.Sprintf("%v", s.num)
-	if len(s.exprv) != 0 {
-		sizeExpr += " + " + strings.Join(s.exprv, " + ")
+	sizeStr := fmt.Sprintf("%v", s.num)
+	exprStr := s.ExprString()
+	if exprStr != "" {
+		sizeStr += " + " + exprStr
 	}
-	return sizeExpr
+	return sizeStr
+}
+
+func (s *size) ExprString() string {
+	return strings.Join(s.exprv, " + ")
 }
 
 
@@ -319,10 +325,12 @@ var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
 
+/*
 // create new sizer for subsize calculation (e.g. inside loop)
 func (s *sizer) subSizer() *sizer {
 	return &sizer{commonCoder: commonCoder{varN: s.varN + 1}}
 }
+*/
 
 func (s *sizer) resultExpr() string {
 	size := s.size.String()
@@ -447,7 +455,7 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // TODO []byte support
 func (s *sizer) genStrBytes(path string) {
 	s.size.Add(4)
-	s.size.AddExpr(fmt.Sprintf("len(%s)", path))
+	s.size.AddExpr("len(%s)", path)
 }
 
 func (e *encoder) genStrBytes(path string) {
@@ -481,18 +489,34 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	elemSize, ok := typeSizeFixed(typ.Elem())
 	if ok {
 		s.size.Add(4)
-		s.size.AddExpr(fmt.Sprintf("len(%v) * %v", path, elemSize))
+		s.size.AddExpr("len(%v) * %v", path, elemSize)
 		return
 	}
 
 	s.size.Add(4)
+	curSize := s.size
+	s.size = size{}	// zero
+
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
+
+	codegenType("(*a)", typ.Elem(), obj, s)
+
+	// merge-in size updates
+	s.emit("%v += %v", s.var_("size"), s.size.ExprString())
+	s.emit("}")
+	if s.size.num != 0 {
+		curSize.AddExpr("len(%v) * %v", path, s.size.num)
+	}
+	s.size = curSize
+
+	/*
 	sloop := s.subSizer()
 	codegenType("(*a)", typ.Elem(), obj, sloop)
 	s.emit(sloop.generatedCode())
 	s.emit("%v += %v", s.var_("size"), sloop.resultExpr())
 	s.emit("}")
+	*/
 }
 
 // TODO optimize for []byte
@@ -551,7 +575,7 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 
 	if keyFixed && elemFixed {
 		s.size.Add(4)
-		s.size.AddExpr(fmt.Sprintf("len(%v) * %v", path, keySize + elemSize))
+		s.size.AddExpr("len(%v) * %v", path, keySize + elemSize)
 		return
 	}
 

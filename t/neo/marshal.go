@@ -198,16 +198,13 @@ func (p *XXXTest) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.Zzz); i++ {
 		a := &p.Zzz[i]
-		var size1 int
 		for i := 0; i < len((*a)); i++ {
 			a := &(*a)[i]
-
-			size1 += 4 + len((*a))
+			size0 += len((*a))
 		}
-
-		size0 += 4 + size1
+		size0 += len((*a)) * 4
 	}
-	return 12 + size0
+	return 12 + len(p.Zzz)*4 + size0
 }
 
 func (p *XXXTest) NEOEncode(data []byte) {
@@ -490,10 +487,9 @@ func (p *AcceptIdentification) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.KnownMasterList); i++ {
 		a := &p.KnownMasterList[i]
-
-		size0 += 10 + len((*a).Address.Host)
+		size0 += len((*a).Address.Host)
 	}
-	return 30 + len(p.Primary.Host) + size0
+	return 30 + len(p.Primary.Host) + len(p.KnownMasterList)*10 + size0
 }
 
 func (p *AcceptIdentification) NEOEncode(data []byte) {
@@ -775,10 +771,9 @@ func (p *AnswerPartitionTable) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-
-		size0 += 8 + len((*a).CellList)*8
+		size0 += len((*a).CellList) * 8
 	}
-	return 12 + size0
+	return 12 + len(p.RowList)*8 + size0
 }
 
 func (p *AnswerPartitionTable) NEOEncode(data []byte) {
@@ -864,10 +859,9 @@ func (p *NotifyPartitionTable) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-
-		size0 += 8 + len((*a).CellList)*8
+		size0 += len((*a).CellList) * 8
 	}
-	return 12 + size0
+	return 12 + len(p.RowList)*8 + size0
 }
 
 func (p *NotifyPartitionTable) NEOEncode(data []byte) {
@@ -2577,10 +2571,9 @@ func (p *AnswerPartitionList) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
-
-		size0 += 8 + len((*a).CellList)*8
+		size0 += len((*a).CellList) * 8
 	}
-	return 12 + size0
+	return 12 + len(p.RowList)*8 + size0
 }
 
 func (p *AnswerPartitionList) NEOEncode(data []byte) {
@@ -2687,10 +2680,9 @@ func (p *AnswerNodeList) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-
-		size0 += 26 + len((*a).Address.Host)
+		size0 += len((*a).Address.Host)
 	}
-	return 4 + size0
+	return 4 + len(p.NodeList)*26 + size0
 }
 
 func (p *AnswerNodeList) NEOEncode(data []byte) {
@@ -2894,10 +2886,9 @@ func (p *NotifyNodeInformation) NEOEncodedLen() int {
 	var size0 int
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-
-		size0 += 26 + len((*a).Address.Host)
+		size0 += len((*a).Address.Host)
 	}
-	return 4 + size0
+	return 4 + len(p.NodeList)*26 + size0
 }
 
 func (p *NotifyNodeInformation) NEOEncode(data []byte) {
