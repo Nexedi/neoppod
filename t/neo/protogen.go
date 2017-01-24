@@ -606,7 +606,6 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 
-
 	d.resetPos()
 
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
@@ -616,6 +615,8 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 		d.overflowCheckpoint()
 		d.overflowCheckSize.AddExpr("l * %v", elemSize)
 		d.overflowChecked = true
+
+		d.emit("%v += l * %v", d.var_("nread"), elemSize)
 	}
 
 
@@ -628,8 +629,15 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	}
 	codegenType("(*a)", typ.Elem(), obj, d)
 
+	// d.resetPos() with nread update optionally skipped
+	if d.n != 0 {
+		d.emit("data = data[%v:]", d.n)
+		if !elemFixed {
+			d.emit("%v += %v", d.var_("nread"), d.n)
+		}
+		d.n = 0
+	}
 
-	d.resetPos()
 	d.emit("}")
 
 	d.overflowChecked = overflowChecked
