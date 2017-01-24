@@ -338,6 +338,9 @@ type decoder struct {
 	// size that will be checked for overflow at current overflow check point
 	overflowCheckSize size
 
+	// whether overflow was already checked for current decodings
+	overflowChecked bool
+
 	commonCoder
 }
 
@@ -493,7 +496,9 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
 	d.n += basic.wireSize
-	d.overflowCheckSize.Add(basic.wireSize)
+	if !d.overflowChecked {
+		d.overflowCheckSize.Add(basic.wireSize)
+	}
 	if userType != nil && userType != typ {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
@@ -601,50 +606,34 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 
-/*
-	d.emit("data = data[%v:]", d.pos.num)
-	d.emit("%v += %v", d.var_("nread"), d.pos.num)
-	d.flushOverflow()
-	d.pos = size{}	// zero
-*/
 
 	d.resetPos()
-	//d.overflowCheckpoint()
-	//d.pos.AddExpr("l")	// FIXME l*sizeof(elem)
 
-	/*
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	// if size(item)==const - check l in one go
+	overflowChecked := d.overflowChecked
 	if elemFixed {
-		d.emit("if len(data) < l*%v { goto overflow }", elemSize)
+		d.overflowCheckpoint()
+		d.overflowCheckSize.AddExpr("l * %v", elemSize)
+		d.overflowChecked = true
 	}
-	// TODO ^^^ then skip inner overflow checks
-	*/
 
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 
-/*
-	d.flushOverflow()
-	d.pos = size{}	// zero
-*/
-	d.overflowCheckpoint()
+	if !elemFixed {
+		d.overflowCheckpoint()
+	}
 	d.resetPos()
 	codegenType("(*a)", typ.Elem(), obj, d)
 
 
-	/*
-	d.emit("data = data[%v:]", d.pos.num)	// FIXME wrt slice of slice ?
-	d.emit("%v += %v", d.var_("nread"), d.pos.num)
-	*/
 	d.resetPos()
-
 	d.emit("}")
 
-	//d.overflowCheckpoint()
-	//d.resetPos()
+	d.overflowChecked = overflowChecked
 
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
