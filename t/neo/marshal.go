@@ -47,7 +47,6 @@ func (p *Address) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 1. NodeInfo
@@ -110,7 +109,6 @@ func (p *NodeInfo) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 2. CellInfo
@@ -137,7 +135,6 @@ func (p *CellInfo) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 3. RowInfo
@@ -193,7 +190,6 @@ func (p *RowInfo) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 4. Notify
@@ -231,7 +227,6 @@ func (p *Notify) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 5. Error
@@ -274,7 +269,6 @@ func (p *Error) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 6. Ping
@@ -288,10 +282,6 @@ func (p *Ping) NEOEncode(data []byte) {
 
 func (p *Ping) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 7. CloseClient
@@ -305,10 +295,6 @@ func (p *CloseClient) NEOEncode(data []byte) {
 
 func (p *CloseClient) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 8. RequestIdentification
@@ -391,7 +377,6 @@ func (p *RequestIdentification) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 9. AcceptIdentification
@@ -521,7 +506,6 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 10. PrimaryMaster
@@ -535,10 +519,6 @@ func (p *PrimaryMaster) NEOEncode(data []byte) {
 
 func (p *PrimaryMaster) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 11. AnswerPrimary
@@ -560,7 +540,6 @@ func (p *AnswerPrimary) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 12. AnnouncePrimary
@@ -574,10 +553,6 @@ func (p *AnnouncePrimary) NEOEncode(data []byte) {
 
 func (p *AnnouncePrimary) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 13. ReelectPrimary
@@ -591,10 +566,6 @@ func (p *ReelectPrimary) NEOEncode(data []byte) {
 
 func (p *ReelectPrimary) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 14. Recovery
@@ -608,10 +579,6 @@ func (p *Recovery) NEOEncode(data []byte) {
 
 func (p *Recovery) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 15. AnswerRecovery
@@ -643,7 +610,6 @@ func (p *AnswerRecovery) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 16. LastIDs
@@ -657,10 +623,6 @@ func (p *LastIDs) NEOEncode(data []byte) {
 
 func (p *LastIDs) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 17. AnswerLastIDs
@@ -687,7 +649,6 @@ func (p *AnswerLastIDs) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 18. PartitionTable
@@ -701,10 +662,6 @@ func (p *PartitionTable) NEOEncode(data []byte) {
 
 func (p *PartitionTable) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 19. AnswerPartitionTable
@@ -794,7 +751,6 @@ func (p *AnswerPartitionTable) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 20. NotifyPartitionTable
@@ -884,7 +840,6 @@ func (p *NotifyPartitionTable) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 21. PartitionChanges
@@ -949,7 +904,6 @@ func (p *PartitionChanges) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 22. StartOperation
@@ -971,7 +925,6 @@ func (p *StartOperation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 23. StopOperation
@@ -985,10 +938,6 @@ func (p *StopOperation) NEOEncode(data []byte) {
 
 func (p *StopOperation) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 24. UnfinishedTransactions
@@ -1002,10 +951,6 @@ func (p *UnfinishedTransactions) NEOEncode(data []byte) {
 
 func (p *UnfinishedTransactions) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 25. AnswerUnfinishedTransactions
@@ -1056,7 +1001,6 @@ func (p *AnswerUnfinishedTransactions) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 26. LockedTransactions
@@ -1070,10 +1014,6 @@ func (p *LockedTransactions) NEOEncode(data []byte) {
 
 func (p *LockedTransactions) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 27. AnswerLockedTransactions
@@ -1128,7 +1068,6 @@ func (p *AnswerLockedTransactions) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 28. FinalTID
@@ -1150,7 +1089,6 @@ func (p *FinalTID) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 29. AnswerFinalTID
@@ -1172,7 +1110,6 @@ func (p *AnswerFinalTID) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 30. ValidateTransaction
@@ -1199,7 +1136,6 @@ func (p *ValidateTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 31. BeginTransaction
@@ -1221,7 +1157,6 @@ func (p *BeginTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 32. AnswerBeginTransaction
@@ -1243,7 +1178,6 @@ func (p *AnswerBeginTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 33. FinishTransaction
@@ -1322,7 +1256,6 @@ func (p *FinishTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 34. AnswerFinishTransaction
@@ -1349,7 +1282,6 @@ func (p *AnswerFinishTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 35. NotifyTransactionFinished
@@ -1376,7 +1308,6 @@ func (p *NotifyTransactionFinished) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 36. LockInformation
@@ -1403,7 +1334,6 @@ func (p *LockInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 37. AnswerLockInformation
@@ -1425,7 +1355,6 @@ func (p *AnswerLockInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 38. InvalidateObjects
@@ -1476,7 +1405,6 @@ func (p *InvalidateObjects) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 39. UnlockInformation
@@ -1498,7 +1426,6 @@ func (p *UnlockInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 40. GenerateOIDs
@@ -1520,7 +1447,6 @@ func (p *GenerateOIDs) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 41. AnswerGenerateOIDs
@@ -1566,7 +1492,6 @@ func (p *AnswerGenerateOIDs) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 42. StoreObject
@@ -1742,7 +1667,6 @@ func (p *StoreObject) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 43. AnswerStoreObject
@@ -1774,7 +1698,6 @@ func (p *AnswerStoreObject) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 44. AbortTransaction
@@ -1796,7 +1719,6 @@ func (p *AbortTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 45. StoreTransaction
@@ -1907,7 +1829,6 @@ func (p *StoreTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 46. VoteTransaction
@@ -1929,7 +1850,6 @@ func (p *VoteTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 47. GetObject
@@ -1961,7 +1881,6 @@ func (p *GetObject) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 48. AnswerGetObject
@@ -2132,7 +2051,6 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 49. TIDList
@@ -2164,7 +2082,6 @@ func (p *TIDList) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 50. AnswerTIDList
@@ -2210,7 +2127,6 @@ func (p *AnswerTIDList) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 51. TIDListFrom
@@ -2247,7 +2163,6 @@ func (p *TIDListFrom) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 52. AnswerTIDListFrom
@@ -2293,7 +2208,6 @@ func (p *AnswerTIDListFrom) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 53. TransactionInformation
@@ -2315,7 +2229,6 @@ func (p *TransactionInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 54. AnswerTransactionInformation
@@ -2431,7 +2344,6 @@ func (p *AnswerTransactionInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 55. ObjectHistory
@@ -2463,7 +2375,6 @@ func (p *ObjectHistory) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 56. AnswerObjectHistory
@@ -2522,7 +2433,6 @@ func (p *AnswerObjectHistory) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 57. PartitionList
@@ -2554,7 +2464,6 @@ func (p *PartitionList) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 58. AnswerPartitionList
@@ -2644,7 +2553,6 @@ func (p *AnswerPartitionList) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 59. X_NodeList
@@ -2666,7 +2574,6 @@ func (p *X_NodeList) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 60. AnswerNodeList
@@ -2758,7 +2665,6 @@ func (p *AnswerNodeList) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 61. SetNodeState
@@ -2785,7 +2691,6 @@ func (p *SetNodeState) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 62. AddPendingNodes
@@ -2831,7 +2736,6 @@ func (p *AddPendingNodes) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 63. TweakPartitionTable
@@ -2877,7 +2781,6 @@ func (p *TweakPartitionTable) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 64. NotifyNodeInformation
@@ -2969,7 +2872,6 @@ func (p *NotifyNodeInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 65. NodeInformation
@@ -2983,10 +2885,6 @@ func (p *NodeInformation) NEOEncode(data []byte) {
 
 func (p *NodeInformation) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 66. SetClusterState
@@ -3008,7 +2906,6 @@ func (p *SetClusterState) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 67. ClusterInformation
@@ -3030,7 +2927,6 @@ func (p *ClusterInformation) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 68. X_ClusterState
@@ -3052,7 +2948,6 @@ func (p *X_ClusterState) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 69. ObjectUndoSerial
@@ -3113,7 +3008,6 @@ func (p *ObjectUndoSerial) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 70. AnswerObjectUndoSerial
@@ -3188,7 +3082,6 @@ func (p *AnswerObjectUndoSerial) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 71. HasLock
@@ -3215,7 +3108,6 @@ func (p *HasLock) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 72. AnswerHasLock
@@ -3242,7 +3134,6 @@ func (p *AnswerHasLock) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 73. CheckCurrentSerial
@@ -3274,7 +3165,6 @@ func (p *CheckCurrentSerial) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 74. AnswerCheckCurrentSerial
@@ -3306,7 +3196,6 @@ func (p *AnswerCheckCurrentSerial) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 75. Pack
@@ -3328,7 +3217,6 @@ func (p *Pack) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 76. AnswerPack
@@ -3350,7 +3238,6 @@ func (p *AnswerPack) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 77. CheckReplicas
@@ -3415,7 +3302,6 @@ func (p *CheckReplicas) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 78. CheckPartition
@@ -3493,7 +3379,6 @@ func (p *CheckPartition) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 79. CheckTIDRange
@@ -3530,7 +3415,6 @@ func (p *CheckTIDRange) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 80. AnswerCheckTIDRange
@@ -3657,7 +3541,6 @@ func (p *AnswerCheckTIDRange) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 81. CheckSerialRange
@@ -3699,7 +3582,6 @@ func (p *CheckSerialRange) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 82. AnswerCheckSerialRange
@@ -3931,7 +3813,6 @@ func (p *AnswerCheckSerialRange) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 83. PartitionCorrupted
@@ -3982,7 +3863,6 @@ func (p *PartitionCorrupted) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 84. LastTransaction
@@ -3996,10 +3876,6 @@ func (p *LastTransaction) NEOEncode(data []byte) {
 
 func (p *LastTransaction) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 85. AnswerLastTransaction
@@ -4021,7 +3897,6 @@ func (p *AnswerLastTransaction) NEODecode(data []byte) (int, error) {
 
 overflow:
 	return 0, ErrDecodeOverflow
-	goto overflow
 }
 
 // 86. NotifyReady
@@ -4035,8 +3910,4 @@ func (p *NotifyReady) NEOEncode(data []byte) {
 
 func (p *NotifyReady) NEODecode(data []byte) (int, error) {
 	return 0, nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-	goto overflow
 }

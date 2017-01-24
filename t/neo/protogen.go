@@ -211,7 +211,7 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 // interface of codegenerator for coder/decoder
 type CodecCodeGen interface {
 	// tell codegen it should generate code for top-level function
-	setFunc(recvName, typeName string)
+	setFunc(recvName, typeName string, typ types.Type)
 
 	// emit code to process basic fixed types (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
@@ -237,14 +237,16 @@ type CodecCodeGen interface {
 type commonCoder struct {
 	recvName string		// receiver/type for top-level func
 	typeName string		// or empty
+	typ      types.Type
 
 	varN int		// suffix to add to variables (size0, size1, ...) - for nested computations
 	varUsed map[string]bool	// whether a variable was used
 }
 
-func (c *commonCoder) setFunc(recvName, typeName string) {
+func (c *commonCoder) setFunc(recvName, typeName string, typ types.Type) {
 	c.recvName = recvName
 	c.typeName = typeName
+	c.typ = typ
 }
 
 // get variable name for varname
@@ -367,9 +369,11 @@ func (d *decoder) generatedCode() string {
 	}
 	code.emit("return %v, nil", retexpr)
 
-	code.emit("\noverflow:")
-	code.emit("return 0, ErrDecodeOverflow")
-	code.emit("goto overflow")	// TODO check if overflow used at all and remove
+	// overflow is not used only for empty structs
+	if (&types.StdSizes{8, 8}).Sizeof(d.typ) > 0 {
+		code.emit("\noverflow:")
+		code.emit("return 0, ErrDecodeOverflow")
+	}
 	code.emit("}\n")
 
 	return code.String()
@@ -638,12 +642,11 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 
 // generate encoder/decode funcs for a type declaration typespec
 func generateCodecCode(typespec *ast.TypeSpec, codec CodecCodeGen) string {
-	codec.setFunc("p", typespec.Name.Name)
-
 	// type & object which refers to this type
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
 
+	codec.setFunc("p", typespec.Name.Name, typ)
 	codegenType("p", typ, obj, codec)
 
 	return codec.generatedCode()
