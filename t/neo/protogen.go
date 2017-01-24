@@ -198,6 +198,12 @@ notfixed:
 	return 0, false
 }
 
+// does a type have fixed wire size == 1 ?
+func typeSizeFixed1(typ types.Type) bool {
+	wireSize, _ := typeSizeFixed(typ)
+	return wireSize == 1
+}
+
 
 // Buffer + bell & whistles
 type Buffer struct {
@@ -808,9 +814,8 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 		}
 
 	case *types.Array:
-		elemSize, _ := typeSizeFixed(u.Elem())
 		// [...]byte or [...]uint8 - just straight copy
-		if false && elemSize == 1 {
+		if false && typeSizeFixed1(u.Elem()) {
 			//codegen.genStrBytes(path+"[:]")	// FIXME
 			codegen.genSlice1(path, u)	// FIXME
 		} else {
@@ -821,7 +826,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 		}
 
 	case *types.Slice:
-		if elemSize, _ := typeSizeFixed(u.Elem()); elemSize == 1 {
+		if typeSizeFixed1(u.Elem()) {
 			codegen.genSlice1(path, u)
 		} else {
 			codegen.genSlice(path, u, obj)
