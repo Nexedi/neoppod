@@ -401,7 +401,6 @@ overflow:
 
 func (p *AcceptIdentification) NEOEncodedLen() int {
 	var size int
-	size += 30
 	for i := 0; i < len(p.KnownMasterList); i++ {
 		a := &p.KnownMasterList[i]
 
@@ -724,7 +723,6 @@ overflow:
 
 func (p *AnswerPartitionTable) NEOEncodedLen() int {
 	var size int
-	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
 
@@ -815,7 +813,6 @@ overflow:
 
 func (p *NotifyPartitionTable) NEOEncodedLen() int {
 	var size int
-	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
 
@@ -2600,7 +2597,6 @@ overflow:
 
 func (p *AnswerPartitionList) NEOEncodedLen() int {
 	var size int
-	size += 12
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
 
@@ -2714,7 +2710,6 @@ overflow:
 
 func (p *AnswerNodeList) NEOEncodedLen() int {
 	var size int
-	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
 
@@ -2927,7 +2922,6 @@ overflow:
 
 func (p *NotifyNodeInformation) NEOEncodedLen() int {
 	var size int
-	size += 4
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
 

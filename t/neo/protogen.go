@@ -442,7 +442,6 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 
 	s.varSizeUsed = true
 	s.n += 4
-	s.emit("size += %v", s.n)
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
 	//codegenType("(*a)", typ.Elem(), obj, s)
@@ -509,13 +508,11 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 	s.varSizeUsed = true
 	s.n += 4
 	s.emit("size += %v", s.n)
-	s.n = 0
 	s.emit("for key := range %s {", path)
 	codegenType("key", typ.Key(), obj, s)
 	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, s)
 	s.emit("size += %v", s.n)
 	s.emit("}")
-	s.n = 0
 }
 
 func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
