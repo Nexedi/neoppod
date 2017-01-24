@@ -541,7 +541,8 @@ class ConnectionFilter(object):
     def remove(self, *filters):
         with self.lock:
             for filter in filters:
-                del self.filter_dict[filter]
+                for p in self.filter_dict.pop(filter):
+                    p.revert()
             self._retry()
 
     def discard(self, *filters):
@@ -996,6 +997,11 @@ class NEOThreadedTest(NeoTestBase):
         index = [x.uuid for x in cluster.storage_list].index
         self.assertEqual(stats, '|'.join(pt._formatRows(sorted(
             pt.count_dict, key=lambda x: index(x.getUUID())))))
+
+    @staticmethod
+    def noConnection(jar, storage):
+        return Patch(jar.db().storage.app.cp, getConnForNode=lambda orig, node:
+            None if node.getUUID() == storage.uuid else orig(node))
 
 
 def predictable_random(seed=None):

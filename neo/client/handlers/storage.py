@@ -63,12 +63,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
         self.app.setHandlerData(args)
 
     def answerStoreObject(self, conn, conflict, oid, serial):
-        if not conflict:
-            # Ignore if not locked on storage side. We only had to receive
-            # this answer, so that this storage is not marked as failed.
-            return
         txn_context = self.app.getHandlerData()
-        if conflict != serial:
+        if conflict:
             # Conflicts can not be resolved now because 'conn' is locked.
             # We must postpone the resolution (by queuing the conflict in
             # 'conflict_dict') to avoid any deadlock with another thread that
@@ -86,22 +82,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     return
             txn_context.conflict_dict[oid] = serial, conflict
         else:
-            try:
-                data = txn_context.data_dict.pop(oid)
-            except KeyError: # replica, or multiple undo
-                return
-            if type(data) is str:
-                size = len(data)
-                txn_context.data_size -= size
-                size += txn_context.cache_size
-                if size < self.app._cache._max_size:
-                    txn_context.cache_size = size
-                else:
-                    # Do not cache data past cache max size, as it
-                    # would just flush it on tpc_finish. This also
-                    # prevents memory errors for big transactions.
-                    data = None
-            txn_context.cache_dict[oid] = data
+            txn_context.written(self.app, conn.getUUID(), oid)
 
     answerCheckCurrentSerial = answerStoreObject
 
@@ -113,7 +94,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def connectionClosed(self, conn):
         txn_context = self.app.getHandlerData()
         if type(txn_context) is Transaction:
-            txn_context.involved_nodes[conn.getUUID()] = 2
+            txn_context.nodeLost(self.app, conn.getUUID())
         super(StorageAnswersHandler, self).connectionClosed(conn)
 
     def answerTIDsFrom(self, conn, tid_list):

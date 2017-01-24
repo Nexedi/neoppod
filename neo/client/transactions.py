@@ -32,9 +32,9 @@ class Transaction(object):
         self.queue = SimpleQueue()
         self.txn = txn
         # data being stored
-        self.data_dict = {}
+        self.data_dict = {}                      # {oid: (value, [node_id])}
         # data stored: this will go to the cache on tpc_finish
-        self.cache_dict = {}
+        self.cache_dict = {}                     # {oid: value}
         # conflicts to resolve
         self.conflict_dict = {}                  # {oid: (base_serial, serial)}
         # resolved conflicts
@@ -71,6 +71,51 @@ class Transaction(object):
             return uuid_list
         raise NEOStorageError(
             'no storage available for write to partition %s' % object_id)
+
+    def written(self, app, uuid, oid):
+        # When a node that is being disconnected by the master because it was
+        # not part of the transaction that caused a conflict, we may receive a
+        # positive answer (not to be confused with lockless stores) before the
+        # conflict. Because we have no way to identify such case, we must keep
+        # the data in self.data_dict until all nodes have answered so we remain
+        # able to resolve conflicts.
+        try:
+            data, uuid_list = self.data_dict[oid]
+            uuid_list.remove(uuid)
+        except KeyError:
+            # 1. store to S1 and S2
+            # 2. S2 reports a conflict
+            # 3. store to S1 and S2 # conflict resolution
+            # 4. S1 does not report a conflict (lockless)
+            # 5. S2 answers before S1 for the second store
+            return
+        except ValueError:
+            # The most common case for this exception is because nodeLost()
+            # tries all oids blindly. Other possible cases:
+            # - like above (KeyError), but with S2 answering last
+            # - answer to resolved conflict before the first answer from a
+            #   node that was being disconnected by the master
+            return
+        if uuid_list:
+            return
+        del self.data_dict[oid]
+        if type(data) is str:
+            size = len(data)
+            self.data_size -= size
+            size += self.cache_size
+            if size < app._cache._max_size:
+                self.cache_size = size
+            else:
+                # Do not cache data past cache max size, as it
+                # would just flush it on tpc_finish. This also
+                # prevents memory errors for big transactions.
+                data = None
+        self.cache_dict[oid] = data
+
+    def nodeLost(self, app, uuid):
+        self.involved_nodes[uuid] = 2
+        for oid in list(self.data_dict):
+            self.written(app, uuid, oid)
 
 
 class TransactionContainer(dict):

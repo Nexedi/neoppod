@@ -955,8 +955,6 @@ class StoreObject(Packet):
     transaction ID, and data. C -> S.
     As for IStorage, 'serial' is ZERO_TID for new objects.
     Answered 'conflict' value means:
-    - None: lockless
-    - serial: ok
     - MAX_TID: deadlock
     - else: conflict
     """

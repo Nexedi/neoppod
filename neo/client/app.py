@@ -400,10 +400,10 @@ class Application(ThreadedApplication):
             checksum = makeChecksum(compressed_data)
             txn_context.data_size += size
         # Store object in tmp cache
-        txn_context.data_dict[oid] = data
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid)
-        txn_context.write(self, packet, oid, oid=oid, serial=serial)
+        txn_context.data_dict[oid] = data, txn_context.write(
+            self, packet, oid, oid=oid, serial=serial)
 
         while txn_context.data_size >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
@@ -430,7 +430,7 @@ class Application(ThreadedApplication):
                 # class of the object. It doesn't matter if 'data' is None
                 # because the transaction is too big.
                 try:
-                    data = data_dict[oid]
+                    data = data_dict[oid][0]
                 except KeyError:
                     # succesfully stored on another storage node
                     data = txn_context.cache_dict[oid]
@@ -447,7 +447,7 @@ class Application(ThreadedApplication):
                     dump(oid), dump(serial))
                 raise NotImplementedError
             else:
-                data = data_dict.pop(oid)
+                data = data_dict.pop(oid)[0]
                 if data is CHECKED_SERIAL:
                     raise ReadConflictError(oid=oid, serials=(conflict_serial,
                         serial))
@@ -872,9 +872,10 @@ class Application(ThreadedApplication):
         ttid = txn_context.ttid
         # ZODB.Connection performs calls 'checkCurrentSerialInTransaction'
         # after stores, and skips oids that have been successfully stored.
-        assert oid not in txn_context.cache_dict, (oid, txn_context)
-        txn_context.data_dict.setdefault(oid, CHECKED_SERIAL)
+        assert oid not in txn_context.cache_dict, oid
+        assert oid not in txn_context.data_dict, oid
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
-        txn_context.write(self, packet, oid, 0, oid=oid, serial=serial)
+        txn_context.data_dict[oid] = CHECKED_SERIAL, txn_context.write(
+            self, packet, oid, 0, oid=oid, serial=serial)
         self._waitAnyTransactionMessage(txn_context, False)
 

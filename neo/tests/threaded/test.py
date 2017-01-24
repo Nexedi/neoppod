@@ -30,13 +30,15 @@ from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
+from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
-    ZERO_OID, ZERO_TID
+    uuid_str, ZERO_OID, ZERO_TID
 from .. import expectedFailure, Patch, TransactionalResource
 from . import ConnectionFilter, LockLock, NEOThreadedTest, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
+from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
@@ -1352,7 +1354,7 @@ class Test(NEOThreadedTest):
         another node.
         """
         def answerStoreObject(orig, conn, conflict, oid, serial):
-            if conflict == serial:
+            if not conflict:
                 p.revert()
                 ll()
             orig(conn, conflict, oid, serial)
@@ -1480,10 +1482,6 @@ class Test(NEOThreadedTest):
         """
         def delayAbort(conn, packet):
             return isinstance(packet, Packets.AbortTransaction)
-        def noConnection(jar, storage):
-            return Patch(jar.db().storage.app.cp,
-                getConnForNode=lambda orig, node:
-                    None if node.getUUID() == storage.uuid else orig(node))
         def c1_vote(txn):
             def vote(orig, *args):
                 result = orig(*args)
@@ -1504,7 +1502,7 @@ class Test(NEOThreadedTest):
         t1, c1 = cluster.getTransaction()
         with cluster.newClient(1) as db:
             t2, c2 = cluster.getTransaction(db)
-            with noConnection(c1, s2), noConnection(c2, s1):
+            with self.noConnection(c1, s2), self.noConnection(c2, s1):
                 cluster.client.cp.connection_dict[s2.uuid].close()
                 self.tic()
                 for c1_aborts in 0, 1:
@@ -1554,6 +1552,60 @@ class Test(NEOThreadedTest):
                     self.assertPartitionTable(cluster, 'UU.|.UO|U.O')
                 self.tic()
                 self.assertPartitionTable(cluster, pt)
+
+    @with_cluster(replicas=1)
+    def testPartialConflict(self, cluster):
+        """
+        This scenario proves that the client must keep the data of a modified
+        oid until it is successfully stored to all storages. Indeed, if a
+        concurrent transaction fails to commit to all storage nodes, we must
+        handle inconsistent results from replicas.
+
+        C1         S1         S2         C2
+                                         no connection between S1 and C2
+        store ---> locked        <------ commit
+             `--------------> conflict
+        """
+        def begin1(*_):
+            t2.commit()
+            f.add(delayAnswerStoreObject, Patch(Transaction, written=written))
+        def delayAnswerStoreObject(conn, packet):
+            return (isinstance(packet, Packets.AnswerStoreObject)
+                and getattr(conn.getHandler(), 'app', None) is s)
+        def written(orig, *args):
+            orig(*args)
+            f.remove(delayAnswerStoreObject)
+        def sync(orig):
+            mc1.remove(delayMaster)
+            orig()
+        s1 = cluster.storage_list[0]
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x = PCounterWithResolution()
+        t1.commit()
+        with cluster.newClient(1) as db:
+            t2, c2 = cluster.getTransaction(db)
+            with self.noConnection(c2, s1):
+                for s in cluster.storage_list:
+                    logging.info("late answer from %s", uuid_str(s.uuid))
+                    x.value += 1
+                    c2.root()['x'].value += 2
+                    TransactionalResource(t1, 1, tpc_begin=begin1)
+                    s1m, = s1.getConnectionList(cluster.master)
+                    try:
+                        s1.em.removeReader(s1m)
+                        with ConnectionFilter() as f, \
+                             cluster.master.filterConnection(
+                                cluster.client) as mc1:
+                            f.delayAskFetchTransactions()
+                            delayMaster = mc1.delayNotifyNodeInformation(
+                                Patch(cluster.client, sync=sync))
+                            t1.commit()
+                            self.assertPartitionTable(cluster, 'OU')
+                    finally:
+                        s1.em.addReader(s1m)
+                    self.tic()
+                    self.assertPartitionTable(cluster, 'UU')
+        self.assertEqual(x.value, 6)
 
 if __name__ == "__main__":
     unittest.main()

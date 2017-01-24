@@ -266,37 +266,38 @@ class TransactionManager(EventQueue):
             # undo target.
             previous_serial = transaction.store_dict[oid][2]
             if previous_serial is None:
-                # XXX: use some special serial when previous store was not
-                # an undo ? Maybe it should just not happen.
+                # The only valid case is when the previous undo resulted in a
+                # resolved conflict.
+                # Otherwise, this should not happen. For example, when being
+                # disconnected by the master because we missed a transaction,
+                # a conflict may happen after a first store to us, but the
+                # resolution waits for invalidations from the master (to then
+                # load the saved data), which are sent after the notification
+                # we are down, and the client would stop writing to us.
                 logging.info('Transaction %s storing %s more than once',
                              dump(ttid), dump(oid))
+                return
         else:
-            previous_serial = None
-        # XXX: Consider locking before reporting a conflict:
-        #      - That would speed up the case of cascading conflict resolution
-        #        by avoiding incremental resolution, assuming that the time to
-        #        resolve a conflict is often constant: "C+A vs. B -> C+A+B"
-        #        rarely costs more than "C+A vs. C+B -> C+A+B".
-        #      - That would slow down of cascading unresolvable conflicts but
-        #        if that happens, the application should be reviewed.
-        if previous_serial is None:
             previous_serial = self._app.dm.getLastObjectTID(oid)
+        # Locking before reporting a conflict would speed up the case of
+        # cascading conflict resolution by avoiding incremental resolution,
+        # assuming that the time to resolve a conflict is often constant:
+        # "C+A vs. B -> C+A+B" rarely costs more than "C+A vs. C+B -> C+A+B".
+        # However, this would be against the optimistic principle of ZODB.
         if previous_serial is not None and previous_serial != serial:
             logging.info('Resolvable conflict on %r:%r',
                 dump(oid), dump(ttid))
             raise ConflictError(previous_serial)
         logging.debug('Transaction %s storing %s', dump(ttid), dump(oid))
         self._store_lock_dict[oid] = ttid
-        return serial
 
     def checkCurrentSerial(self, ttid, serial, oid):
         try:
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        locked = self.lockObject(ttid, serial, oid)
+        self.lockObject(ttid, serial, oid)
         transaction.check(oid)
-        return locked
 
     def storeObject(self, ttid, serial, oid, compression, checksum, data,
             value_serial):
@@ -307,14 +308,13 @@ class TransactionManager(EventQueue):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        locked = self.lockObject(ttid, serial, oid)
+        self.lockObject(ttid, serial, oid)
         # store object
         if data is None:
             data_id = None
         else:
             data_id = self._app.dm.holdData(checksum, data, compression)
         transaction.store(oid, data_id, value_serial)
-        return locked
 
     def abort(self, ttid, even_if_locked=False):
         """
