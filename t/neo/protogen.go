@@ -579,13 +579,27 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 		return
 	}
 
-	panic("UNTESTED")
 	s.size.Add(4)
+	curSize := s.size
+	s.size = size{}	// zero
+
+	// FIXME for map of map gives ...[key][key] => key -> different variables
 	s.emit("for key := range %s {", path)
 	codegenType("key", typ.Key(), obj, s)
 	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, s)
+
+	// merge-in size updates
+	s.emit("%v += %v", s.var_("size"), s.size.ExprString())
+	s.emit("}")
+	if s.size.num != 0 {
+		curSize.AddExpr("len(%v) * %v", path, s.size.num)
+	}
+	s.size = curSize
+
+/*
 	s.emit("%v += %v", s.var_("size"), s.size)
 	s.emit("}")
+*/
 }
 
 func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {

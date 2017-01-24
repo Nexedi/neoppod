@@ -196,15 +196,13 @@ overflow:
 
 func (p *XXXTest) NEOEncodedLen() int {
 	var size0 int
-	for i := 0; i < len(p.Zzz); i++ {
-		a := &p.Zzz[i]
-		for i := 0; i < len((*a)); i++ {
-			a := &(*a)[i]
-			size0 += len((*a))
+	for key := range p.Zzz {
+		for key := range p.Zzz[key] {
+			size0 += len(p.Zzz[key][key])
 		}
-		size0 += len((*a)) * 4
+		size0 += len(p.Zzz[key]) * 8
 	}
-	return 12 + len(p.Zzz)*4 + size0
+	return 12 + len(p.Zzz)*8 + size0
 }
 
 func (p *XXXTest) NEOEncode(data []byte) {
@@ -214,19 +212,29 @@ func (p *XXXTest) NEOEncode(data []byte) {
 		l := uint32(len(p.Zzz))
 		binary.BigEndian.PutUint32(data[8:], l)
 		data = data[12:]
-		for i := 0; uint32(i) < l; i++ {
-			a := &p.Zzz[i]
+		keyv := make([]int32, 0, l)
+		for key := range p.Zzz {
+			keyv = append(keyv, key)
+		}
+		sort.Slice(keyv, func(i, j int) bool { return keyv[i] < keyv[j] })
+		for _, key := range keyv {
+			binary.BigEndian.PutUint32(data[0:], uint32(key))
 			{
-				l := uint32(len((*a)))
-				binary.BigEndian.PutUint32(data[0:], l)
-				data = data[4:]
-				for i := 0; uint32(i) < l; i++ {
-					a := &(*a)[i]
+				l := uint32(len(p.Zzz[key]))
+				binary.BigEndian.PutUint32(data[4:], l)
+				data = data[8:]
+				keyv := make([]int32, 0, l)
+				for key := range p.Zzz[key] {
+					keyv = append(keyv, key)
+				}
+				sort.Slice(keyv, func(i, j int) bool { return keyv[i] < keyv[j] })
+				for _, key := range keyv {
+					binary.BigEndian.PutUint32(data[0:], uint32(key))
 					{
-						l := uint32(len((*a)))
-						binary.BigEndian.PutUint32(data[0:], l)
-						data = data[4:]
-						copy(data, (*a))
+						l := uint32(len(p.Zzz[key][key]))
+						binary.BigEndian.PutUint32(data[4:], l)
+						data = data[8:]
+						copy(data, p.Zzz[key][key])
 						data = data[l:]
 					}
 					data = data[0:]
@@ -254,36 +262,46 @@ func (p *XXXTest) NEODecode(data []byte) (int, error) {
 		l := binary.BigEndian.Uint32(data[8:])
 		data = data[12:]
 		nread0 += 12
-		p.Zzz = make([][]string, l)
+		p.Zzz = make(map[int32]map[int32]string, l)
+		m := p.Zzz
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.Zzz[i]
+			if len(data) < 4 {
+				goto overflow
+			}
+			key := int32(binary.BigEndian.Uint32(data[0:]))
+			var v map[int32]string
 			{
-				if len(data) < 4 {
+				if len(data) < 8 {
 					goto overflow
 				}
-				l := binary.BigEndian.Uint32(data[0:])
-				data = data[4:]
-				nread0 += 4
-				(*a) = make([]string, l)
+				l := binary.BigEndian.Uint32(data[4:])
+				data = data[8:]
+				nread0 += 8
+				v = make(map[int32]string, l)
+				m := v
 				for i := 0; uint32(i) < l; i++ {
-					a := &(*a)[i]
+					if len(data) < 4 {
+						goto overflow
+					}
+					key := int32(binary.BigEndian.Uint32(data[0:]))
 					{
-						if len(data) < 4 {
+						if len(data) < 8 {
 							goto overflow
 						}
-						l := binary.BigEndian.Uint32(data[0:])
-						data = data[4:]
+						l := binary.BigEndian.Uint32(data[4:])
+						data = data[8:]
 						if uint32(len(data)) < l {
 							goto overflow
 						}
-						(*a) = string(data[:l])
+						m[key] = string(data[:l])
 						data = data[l:]
-						nread0 += 4 + l
+						nread0 += 8 + l
 					}
 					data = data[0:]
 					nread0 += 0
 				}
 			}
+			m[key] = v
 			data = data[0:]
 			nread0 += 0
 		}
