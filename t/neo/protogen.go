@@ -230,9 +230,11 @@ type CodecCodeGen interface {
 	// for not function this is generated code needed for resultExpr()
 	generatedCode() string
 
+/*
 	// get result expression
 	// this is result of computations for not top-level code XXX
 	resultExpr() string
+*/
 }
 
 // common part of codegenerators
@@ -283,16 +285,28 @@ func (s *size) AddExpr(format string, a ...interface{}) {
 }
 
 func (s *size) String() string {
-	sizeStr := fmt.Sprintf("%v", s.num)
+	// num + expr1 + expr2 + ...  (ommiting what is possible)
+	sizev := []string{}
+	if s.num != 0 {
+		sizev = append(sizev, fmt.Sprintf("%v", s.num))
+	}
 	exprStr := s.ExprString()
 	if exprStr != "" {
-		sizeStr += " + " + exprStr
+		sizev = append(sizev, exprStr)
+	}
+	sizeStr := strings.Join(sizev, " + ")
+	if sizeStr == "" {
+		sizeStr = "0"
 	}
 	return sizeStr
 }
 
 func (s *size) ExprString() string {
 	return strings.Join(s.exprv, " + ")
+}
+
+func (s *size) IsZero() bool {
+	return s.num == 0 && len(s.exprv) == 0
 }
 
 
@@ -314,8 +328,16 @@ type encoder struct {
 
 // decoder generates code to decode a packet
 type decoder struct {
-	Buffer	// buffer for generated code
-	n int	// current decode position in data
+	// buffers for generated code
+	// current delayed overflow check will be inserted in between buf & bufCur
+	buf     Buffer
+	bufCur  Buffer
+
+	// current decode position in data.
+	// also = currently collected info for delayed emit of overflow check
+	// .num   - position
+	// .exprv - XXX TODO
+	pos size
 
 	commonCoder
 }
@@ -361,10 +383,6 @@ func (s *sizer) generatedCode() string {
 	return code.String()
 }
 
-func (e *encoder) resultExpr() string {
-	panic("should not be called (?)")	// XXX
-}
-
 func (e *encoder) generatedCode() string {
 	code := Buffer{}
 	// prologue
@@ -380,11 +398,24 @@ func (e *encoder) generatedCode() string {
 	return code.String()
 }
 
-func (d *decoder) resultExpr() string {
-	panic("should not be called (?)")	// XXX
+// XXX place?
+func (d *decoder) emit(format string, a ...interface{}) {
+	d.bufCur.emit(format, a...)
+}
+
+// XXX place?
+func (d *decoder) flushOverflow() {
+	if !d.pos.IsZero() {
+		d.buf.emit("if uint32(len(data)) < %v { goto overflow }", &d.pos)
+	}
+	d.buf.Write(d.bufCur.Bytes())
+	d.bufCur.Reset()
+	// TODO
 }
 
 func (d *decoder) generatedCode() string {
+	d.flushOverflow()
+
 	code := Buffer{}
 	// prologue
 	if d.recvName != "" {
@@ -394,10 +425,10 @@ func (d *decoder) generatedCode() string {
 		code.emit("var %v uint32", d.var__("nread"))
 	}
 
-	code.Write(d.Bytes())	// XXX -> d.buf.Bytes() ?
+	code.Write(d.buf.Bytes())
 
 	// epilogue
-	retexpr := fmt.Sprintf("%v", d.n)
+	retexpr := fmt.Sprintf("%v", d.pos.num)
 	if d.varUsed["nread"] {
 		retexpr += fmt.Sprintf(" + int(%v)", d.var__("nread"))
 	}
@@ -434,10 +465,10 @@ func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type) {
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
-	d.emit("if len(data) < %v { goto overflow }", d.n + basic.wireSize)
-	dataptr := fmt.Sprintf("data[%v:]", d.n)
+	//d.emit("if len(data) < %v { goto overflow }", d.n + basic.wireSize)
+	dataptr := fmt.Sprintf("data[%v:]", d.pos.num)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
-	d.n += basic.wireSize
+	d.pos.Add(basic.wireSize)
 	if userType != nil && userType != typ {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
@@ -472,13 +503,17 @@ func (e *encoder) genStrBytes(path string) {
 func (d *decoder) genStrBytes(assignto string) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
-	d.emit("data = data[%v:]", d.n)
-	d.emit("if uint32(len(data)) < l { goto overflow }")
+	d.emit("data = data[%v:]", d.pos.num)
+	d.emit("%v += %v + l", d.var_("nread"), d.pos.num)
+
+	//d.emit("if uint32(len(data)) < l { goto overflow }")
+	d.flushOverflow()
+	d.pos = size{}	// zero
+	d.pos.AddExpr("l")
+
 	d.emit("%v= string(data[:l])", assignto)
 	d.emit("data = data[l:]")
-	d.emit("%v += %v + l", d.var_("nread"), d.n)
 	d.emit("}")
-	d.n = 0
 }
 
 // emit code to encode/decode slice
@@ -540,9 +575,12 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
-	d.emit("data = data[%v:]", d.n)
-	d.emit("%v += %v", d.var_("nread"), d.n)
-	d.n = 0
+	d.emit("data = data[%v:]", d.pos.num)
+	d.emit("%v += %v", d.var_("nread"), d.pos.num)
+
+	d.flushOverflow()
+	d.pos = size{}	// zero
+	d.pos.AddExpr("l")
 
 	/*
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
@@ -557,13 +595,22 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
+
+	d.flushOverflow()
+	d.pos = size{}	// zero
 	codegenType("(*a)", typ.Elem(), obj, d)
-	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
-	d.emit("%v += %v", d.var_("nread"), d.n)
+
+
+	d.emit("data = data[%v:]", d.pos.num)	// FIXME wrt slice of slice ?
+	d.emit("%v += %v", d.var_("nread"), d.pos.num)
 	d.emit("}")
+
+	d.flushOverflow()
+	d.pos = size{}	// zero
+
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
-	d.n = 0
+	//d.n = 0
 }
 
 // generate code to encode/decode map
@@ -628,15 +675,22 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
-	d.emit("data = data[%v:]", d.n)
-	d.emit("%v += %v", d.var_("nread"), d.n)
-	d.n = 0
+	d.emit("data = data[%v:]", d.pos.num)
+	d.emit("%v += %v", d.var_("nread"), d.pos.num)
+
+	d.flushOverflow()
+	d.pos = size{}	// zero
+	d.pos.AddExpr("l")
+
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
 	// TODO if size(item)==const - check l in one go
 	//d.emit("if len(data) < l { goto overflow }")
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
+
+	d.flushOverflow()
+	d.pos = size{}	// zero
 	codegenType("key:", typ.Key(), obj, d)
 
 	switch typ.Elem().Underlying().(type) {
@@ -652,12 +706,15 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 		d.emit("m[key] = v")
 	}
 
-	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
-	d.emit("%v += %v", d.var_("nread"), d.n)
+	d.emit("data = data[%v:]", d.pos.num)	// FIXME wrt map of map ?
+	d.emit("%v += %v", d.var_("nread"), d.pos.num)
 	d.emit("}")
+
+	d.flushOverflow()
+	d.pos = size{}	// zero
+
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
-	d.n = 0
 }
 
 // top-level driver for emitting encode/decode code for a type
