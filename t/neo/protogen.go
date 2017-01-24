@@ -210,8 +210,8 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 
 // interface of codegenerator for coder/decoder
 type CodecCodeGen interface {
-	genPrologue(recvName, typeName string)
-	genEpilogue()
+	// tell codegen it should generate code for top-level function
+	setFunc(recvName, typeName string)
 
 	// emit code to process basic fixed types (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
@@ -223,44 +223,68 @@ type CodecCodeGen interface {
 	// XXX particular case of slice
 	genStrBytes(path string)
 
+	// get generated code.
+	// for top-level functions this is whole function including return and closing }
+	// for not function this is generated code needed for resultExpr()
 	generatedCode() string
+
+	// get result expression
+	// this is result of computations for not top-level code XXX
+	resultExpr() string
 }
 
 // sizer/encode/decode codegen
-type sizer struct {
-	Buffer	// XXX
-	n int
-	symLenv []string	// symbolic lengths to add to size
-	varSizeUsed bool	// whether var size was used
-
+type coderForFunc struct {
 	recvName string		// receiver/type for top-level func
 	typeName string		// or empty
+}
+
+func (c *coderForFunc) setFunc(recvName, typeName string) {
+	c.recvName = recvName
+	c.typeName = typeName
+}
+
+
+type sizer struct {
+	Buffer			// buffer for code
+	n int			// fixed part of size
+	symLenv []string	// symbolic part of size
+
+	varN int		// suffix to add to variables (size0, size1, ...) - for nested computations
+	varSizeUsed bool	// whether var size was used
+
+	coderForFunc
+}
+
+// get variable name for varname
+func (s *sizer) var_(varname string) string {
+	return fmt.Sprintf("%s%d", varname, s.varN)
+}
+
+// create new sizer for subsize calculation (e.g. for loop)
+func (s *sizer) subSizer() *sizer {
+	return &sizer{varN: s.varN + 1}
 }
 
 type encoder struct {
 	Buffer	// XXX
 	n int
+
+	coderForFunc
 }
 
 type decoder struct {
 	Buffer	// buffer for generated code
 	n int	// current decode position in data
+
+	coderForFunc
 }
 
 var _ CodecCodeGen = (*sizer)(nil)
 var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
-func (s *sizer) generatedCode() string {
-	prologue := Buffer{}
-	if s.recvName != "" {
-		prologue.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
-	}
-	if s.varSizeUsed {
-		prologue.emit("var size int")
-	}
-
-	epilogue := Buffer{}
+func (s *sizer) resultExpr() string {
 	size := fmt.Sprintf("%v", s.n)
 	if len(s.symLenv) > 0 {
 		size += " + " + strings.Join(s.symLenv, " + ")
@@ -268,60 +292,73 @@ func (s *sizer) generatedCode() string {
 	if s.varSizeUsed {
 		size += " + size"
 	}
-	epilogue.emit("return %v", size)
-	epilogue.emit("}\n")
+	return size
+}
 
-	return prologue.String() + s.String() + epilogue.String()	// XXX -> d.buf.String() ?
+func (s *sizer) generatedCode() string {
+	code := Buffer{}
+	// prologue
+	if s.recvName != "" {
+		code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
+	}
+	if s.varSizeUsed {
+		code.emit("var size int")
+	}
+
+	code.Write(s.Bytes())	// XXX -> s.buf.Bytes() ?
+
+	// epilogue
+	if s.recvName != "" {
+		code.emit("return %v", s.resultExpr())
+		code.emit("}\n")
+	}
+
+	return code.String()
+}
+
+func (e *encoder) resultExpr() string {
+	panic("should not be called (?)")
 }
 
 func (e *encoder) generatedCode() string {
-	return e.String()	// XXX -> d.buf.String() ?
+	code := Buffer{}
+	// prologue
+	if e.recvName != "" {
+		code.emit("func (%s *%s) NEOEncode(data []byte) {", e.recvName, e.typeName)
+	}
+
+	code.Write(e.Bytes())	// XXX -> e.buf.Bytes() ?
+
+	// epilogue
+	code.emit("}\n")
+
+	return code.String()
+}
+
+func (d *decoder) resultExpr() string {
+	panic("should not be called (?)")
 }
 
 func (d *decoder) generatedCode() string {
-	return d.String()	// XXX -> d.buf.String() ?
-}
-
-func (s *sizer) genPrologue(recvName, typeName string) {
-	s.recvName = recvName
-	s.typeName = typeName
-	//s.emit("func (%s *%s) NEOEncodedLen() int {", recvName, typeName)
-}
-
-func (e *encoder) genPrologue(recvName, typeName string) {
-	e.emit("func (%s *%s) NEOEncode(data []byte) {", recvName, typeName)
-}
-
-func (d *decoder) genPrologue(recvName, typeName string) {
-	d.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", recvName, typeName)
-	d.emit("var nread uint32")
-}
-
-func (s *sizer) genEpilogue() {
-/*
-	size := fmt.Sprintf("%v", s.n)
-	if len(s.symLenv) > 0 {
-		size += " + " + strings.Join(s.symLenv, " + ")
+	code := Buffer{}
+	// prologue
+	if d.recvName != "" {
+		code.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	}
-	if s.varSizeUsed {
-		size += " + size"
-	}
-	s.emit("return %v", size)
-	s.emit("}\n")
-*/
+	code.emit("var nread uint32")
+
+	code.Write(d.Bytes())	// XXX -> d.buf.Bytes() ?
+
+	// epilogue
+	code.emit("return int(nread) + %v, nil", d.n)
+	code.emit("\noverflow:")
+	code.emit("return 0, ErrDecodeOverflow")
+	code.emit("goto overflow")	// TODO check if overflow used at all and remove
+	code.emit("}\n")
+
+	return code.String()
 }
 
-func (e *encoder) genEpilogue() {
-	e.emit("}\n")
-}
-
-func (d *decoder) genEpilogue() {
-	d.emit("return int(nread) + %v, nil", d.n)
-	d.emit("\noverflow:")
-	d.emit("return 0, ErrDecodeOverflow")
-	d.emit("goto overflow")	// TODO check if overflow used at all and remove
-	d.emit("}\n")
-}
 
 func (s *sizer) genBasic(path string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
@@ -365,7 +402,6 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 func (s *sizer) genStrBytes(path string) {
 	s.n += 4
 	s.symLenv = append(s.symLenv, fmt.Sprintf("len(%s)", path))
-	//s.n = 0
 }
 
 func (e *encoder) genStrBytes(path string) {
@@ -407,16 +443,15 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	s.varSizeUsed = true
 	s.n += 4
 	s.emit("size += %v", s.n)
-	s.n = 0
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
 	//codegenType("(*a)", typ.Elem(), obj, s)
-	sloop := &sizer{}
+	sloop := s.subSizer()
 	codegenType("(*a)", typ.Elem(), obj, sloop)
 	// FIXME vvv if symLenv is ø; -> turn into "result" function
-	s.emit("size += %v + %v", sloop.n, strings.Join(sloop.symLenv, " + "))
+	s.emit(sloop.generatedCode())
+	s.emit("size += %v", sloop.resultExpr())
 	s.emit("}")
-	s.n = 0
 }
 
 func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
@@ -470,8 +505,10 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 		return
 	}
 
+	panic("UNTESTED")
 	s.varSizeUsed = true
-	s.emit("size += %v + 4", s.n)
+	s.n += 4
+	s.emit("size += %v", s.n)
 	s.n = 0
 	s.emit("for key := range %s {", path)
 	codegenType("key", typ.Key(), obj, s)
@@ -591,7 +628,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 
 // generate encoder/decode funcs for a type declaration typespec
 func generateCodecCode(typespec *ast.TypeSpec, codec CodecCodeGen) string {
-	codec.genPrologue("p", typespec.Name.Name)
+	codec.setFunc("p", typespec.Name.Name)
 
 	// type & object which refers to this type
 	typ := info.Types[typespec.Type].Type
@@ -599,6 +636,5 @@ func generateCodecCode(typespec *ast.TypeSpec, codec CodecCodeGen) string {
 
 	codegenType("p", typ, obj, codec)
 
-	codec.genEpilogue()
 	return codec.generatedCode()
 }
