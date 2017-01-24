@@ -234,14 +234,31 @@ type CodecCodeGen interface {
 }
 
 // sizer/encode/decode codegen
-type coderForFunc struct {
+type commonCoder struct {
 	recvName string		// receiver/type for top-level func
 	typeName string		// or empty
+
+	varN int		// suffix to add to variables (size0, size1, ...) - for nested computations
+	varUsed map[string]bool	// whether a variable was used
 }
 
-func (c *coderForFunc) setFunc(recvName, typeName string) {
+func (c *commonCoder) setFunc(recvName, typeName string) {
 	c.recvName = recvName
 	c.typeName = typeName
+}
+
+// get variable name for varname
+func (c *commonCoder) var__(varname string) string {
+	return fmt.Sprintf("%s%d", varname, c.varN)
+}
+
+func (c *commonCoder) var_(varname string) string {
+	varnameX := c.var__(varname)
+	if c.varUsed == nil {
+		c.varUsed = make(map[string]bool)
+	}
+	c.varUsed[varname] = true
+	return varnameX
 }
 
 
@@ -250,43 +267,26 @@ type sizer struct {
 	n int			// fixed part of size
 	symLenv []string	// symbolic part of size
 
-	varN int		// suffix to add to variables (size0, size1, ...) - for nested computations
-	varUsed map[string]bool	// whether a variable was used
-
-	coderForFunc
-}
-
-// get variable name for varname
-func (s *sizer) var__(varname string) string {
-	return fmt.Sprintf("%s%d", varname, s.varN)
-}
-
-func (s *sizer) var_(varname string) string {
-	varnameX := s.var__(varname)
-	if s.varUsed == nil {
-		s.varUsed = make(map[string]bool)
-	}
-	s.varUsed[varname] = true
-	return varnameX
+	commonCoder
 }
 
 // create new sizer for subsize calculation (e.g. for loop)
 func (s *sizer) subSizer() *sizer {
-	return &sizer{varN: s.varN + 1}
+	return &sizer{commonCoder: commonCoder{varN: s.varN + 1}}
 }
 
 type encoder struct {
 	Buffer	// XXX
 	n int
 
-	coderForFunc
+	commonCoder
 }
 
 type decoder struct {
 	Buffer	// buffer for generated code
 	n int	// current decode position in data
 
-	coderForFunc
+	commonCoder
 }
 
 var _ CodecCodeGen = (*sizer)(nil)
@@ -354,12 +354,19 @@ func (d *decoder) generatedCode() string {
 	if d.recvName != "" {
 		code.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	}
-	code.emit("var nread uint32")
+	if d.varUsed["nread"] {
+		code.emit("var %v uint32", d.var__("nread"))
+	}
 
 	code.Write(d.Bytes())	// XXX -> d.buf.Bytes() ?
 
 	// epilogue
-	code.emit("return int(nread) + %v, nil", d.n)
+	retexpr := fmt.Sprintf("%v", d.n)
+	if d.varUsed["nread"] {
+		retexpr += fmt.Sprintf(" + int(%v)", d.var__("nread"))
+	}
+	code.emit("return %v, nil", retexpr)
+
 	code.emit("\noverflow:")
 	code.emit("return 0, ErrDecodeOverflow")
 	code.emit("goto overflow")	// TODO check if overflow used at all and remove
@@ -431,7 +438,7 @@ func (d *decoder) genStrBytes(assignto string) {
 	d.emit("if uint32(len(data)) < l { goto overflow }")
 	d.emit("%v= string(data[:l])", assignto)
 	d.emit("data = data[l:]")
-	d.emit("nread += %v + l", d.n)
+	d.emit("%v += %v + l", d.var_("nread"), d.n)
 	d.emit("}")
 	d.n = 0
 }
@@ -481,7 +488,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 	d.emit("data = data[%v:]", d.n)
-	d.emit("nread += %v", d.n)
+	d.emit("%v += %v", d.var_("nread"), d.n)
 	d.n = 0
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
@@ -492,7 +499,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	// XXX try to avoid (*) in a
 	codegenType("(*a)", typ.Elem(), obj, d)
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
-	d.emit("nread += %v", d.n)
+	d.emit("%v += %v", d.var_("nread"), d.n)
 	d.emit("}")
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
@@ -548,7 +555,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 	d.emit("data = data[%v:]", d.n)
-	d.emit("nread += %v", d.n)
+	d.emit("%v += %v", d.var_("nread"), d.n)
 	d.n = 0
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
@@ -572,7 +579,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	}
 
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt map of map ?
-	d.emit("nread += %v", d.n)
+	d.emit("%v += %v", d.var_("nread"), d.n)
 	d.emit("}")
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
