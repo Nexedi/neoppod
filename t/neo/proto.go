@@ -195,6 +195,13 @@ type RowInfo struct {
 }
 
 
+type XXXTest struct {
+	qqq	uint32
+	aaa	uint32
+	Zzz	[][]string
+}
+
+
 
 // // XXX link request <-> answer ?
 // // XXX naming -> PktHeader ?

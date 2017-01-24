@@ -208,10 +208,12 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 	fmt.Fprintf(b, format+"\n", a...)
 }
 
-// interface of codegenerator for coder/decoder
+// interface of codegenerator for sizer/coder/decoder
 type CodecCodeGen interface {
 	// tell codegen it should generate code for top-level function
 	setFunc(recvName, typeName string, typ types.Type)
+
+	// TODO gen*() -> visit*() ?
 
 	// emit code to process basic fixed types (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
@@ -233,13 +235,13 @@ type CodecCodeGen interface {
 	resultExpr() string
 }
 
-// sizer/encode/decode codegen
+// common part of codegenerators
 type commonCoder struct {
 	recvName string		// receiver/type for top-level func
 	typeName string		// or empty
 	typ      types.Type
 
-	varN int		// suffix to add to variables (size0, size1, ...) - for nested computations
+	varN    int		// suffix to add to variables (size0, size1, ...) - for nested computations
 	varUsed map[string]bool	// whether a variable was used
 }
 
@@ -263,20 +265,40 @@ func (c *commonCoder) var_(varname string) string {
 	return varnameX
 }
 
+// information about a size
+// consists of numeric & symbolic parts
+// size is <num> + expr1 + expr2 + ...
+type size struct {
+	num	int	 // numeric part of size
+	exprv	[]string // symbolic part of size
+}
 
+func (s *size) Add(n int) {
+	s.num += n
+}
+
+func (s *size) AddExpr(expr string) {
+	s.exprv = append(s.exprv, expr)
+}
+
+func (s *size) String() string {
+	sizeExpr := fmt.Sprintf("%v", s.num)
+	if len(s.exprv) != 0 {
+		sizeExpr += " + " + strings.Join(s.exprv, " + ")
+	}
+	return sizeExpr
+}
+
+
+// sizer generates code to compute endoded size of a packet
 type sizer struct {
 	Buffer			// buffer for code
-	n int			// fixed part of size
-	symLenv []string	// symbolic part of size
+	size size
 
 	commonCoder
 }
 
-// create new sizer for subsize calculation (e.g. for loop)
-func (s *sizer) subSizer() *sizer {
-	return &sizer{commonCoder: commonCoder{varN: s.varN + 1}}
-}
-
+// encoder generates code to encode a packet
 type encoder struct {
 	Buffer	// XXX
 	n int
@@ -284,6 +306,7 @@ type encoder struct {
 	commonCoder
 }
 
+// decoder generates code to decode a packet
 type decoder struct {
 	Buffer	// buffer for generated code
 	n int	// current decode position in data
@@ -295,11 +318,14 @@ var _ CodecCodeGen = (*sizer)(nil)
 var _ CodecCodeGen = (*encoder)(nil)
 var _ CodecCodeGen = (*decoder)(nil)
 
+
+// create new sizer for subsize calculation (e.g. inside loop)
+func (s *sizer) subSizer() *sizer {
+	return &sizer{commonCoder: commonCoder{varN: s.varN + 1}}
+}
+
 func (s *sizer) resultExpr() string {
-	size := fmt.Sprintf("%v", s.n)
-	if len(s.symLenv) > 0 {
-		size += " + " + strings.Join(s.symLenv, " + ")
-	}
+	size := s.size.String()
 	if s.varUsed["size"] {
 		size += " + " + s.var__("size")
 	}
@@ -328,7 +354,7 @@ func (s *sizer) generatedCode() string {
 }
 
 func (e *encoder) resultExpr() string {
-	panic("should not be called (?)")
+	panic("should not be called (?)")	// XXX
 }
 
 func (e *encoder) generatedCode() string {
@@ -347,7 +373,7 @@ func (e *encoder) generatedCode() string {
 }
 
 func (d *decoder) resultExpr() string {
-	panic("should not be called (?)")
+	panic("should not be called (?)")	// XXX
 }
 
 func (d *decoder) generatedCode() string {
@@ -382,7 +408,7 @@ func (d *decoder) generatedCode() string {
 
 func (s *sizer) genBasic(path string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
-	s.n += basic.wireSize
+	s.size.Add(basic.wireSize)
 }
 
 func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type) {
@@ -420,8 +446,8 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // [len]byte
 // TODO []byte support
 func (s *sizer) genStrBytes(path string) {
-	s.n += 4
-	s.symLenv = append(s.symLenv, fmt.Sprintf("len(%s)", path))
+	s.size.Add(4)
+	s.size.AddExpr(fmt.Sprintf("len(%s)", path))
 }
 
 func (e *encoder) genStrBytes(path string) {
@@ -450,28 +476,26 @@ func (d *decoder) genStrBytes(assignto string) {
 // emit code to encode/decode slice
 // len	u32
 // [len]item
-// TODO optimize for []byte
 func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	// if size(item)==const - size update in one go
 	elemSize, ok := typeSizeFixed(typ.Elem())
 	if ok {
-		s.n += 4
-		s.symLenv = append(s.symLenv, fmt.Sprintf("len(%v) * %v", path, elemSize))
+		s.size.Add(4)
+		s.size.AddExpr(fmt.Sprintf("len(%v) * %v", path, elemSize))
 		return
 	}
 
-	s.n += 4
+	s.size.Add(4)
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
-	//codegenType("(*a)", typ.Elem(), obj, s)
 	sloop := s.subSizer()
 	codegenType("(*a)", typ.Elem(), obj, sloop)
-	// FIXME vvv if symLenv is ø; -> turn into "result" function
 	s.emit(sloop.generatedCode())
 	s.emit("%v += %v", s.var_("size"), sloop.resultExpr())
 	s.emit("}")
 }
 
+// TODO optimize for []byte
 func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	e.emit("{")
 	e.emit("l := uint32(len(%s))", path)
@@ -488,19 +512,27 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	e.n = 0
 }
 
+// TODO optimize for []byte
 func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 	d.emit("data = data[%v:]", d.n)
 	d.emit("%v += %v", d.var_("nread"), d.n)
 	d.n = 0
+
+	/*
+	elemSize, elemFixed := typeSizeFixed(typ.Elem())
+	// if size(item)==const - check l in one go
+	if elemFixed {
+		d.emit("if len(data) < l*%v { goto overflow }", elemSize)
+	}
+	// TODO ^^^ then skip inner overflow checks
+	*/
+
+
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
-	// TODO size check
-	// TODO if size(item)==const - check l in one go
-	//d.emit("if len(data) < l { goto overflow }")
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
-	// XXX try to avoid (*) in a
 	codegenType("(*a)", typ.Elem(), obj, d)
 	d.emit("data = data[%v:]", d.n)	// FIXME wrt slice of slice ?
 	d.emit("%v += %v", d.var_("nread"), d.n)
@@ -518,17 +550,17 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 
 	if keyFixed && elemFixed {
-		s.n += 4
-		s.symLenv = append(s.symLenv, fmt.Sprintf("len(%v) * %v", path, keySize + elemSize))
+		s.size.Add(4)
+		s.size.AddExpr(fmt.Sprintf("len(%v) * %v", path, keySize + elemSize))
 		return
 	}
 
 	panic("UNTESTED")
-	s.n += 4
+	s.size.Add(4)
 	s.emit("for key := range %s {", path)
 	codegenType("key", typ.Key(), obj, s)
 	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, s)
-	s.emit("%v += %v", s.var_("size"), s.n)
+	s.emit("%v += %v", s.var_("size"), s.size)
 	s.emit("}")
 }
 
