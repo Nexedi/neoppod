@@ -333,10 +333,10 @@ type decoder struct {
 	bufCur  Buffer
 
 	// current decode position in data.
-	// also = currently collected info for delayed emit of overflow check
-	// .num   - position
-	// .exprv - XXX TODO
-	pos size
+	n int
+
+	// size that will be checked for overflow at current overflow check point
+	overflowCheckSize size
 
 	commonCoder
 }
@@ -364,9 +364,9 @@ func (s *sizer) resultExpr() string {
 func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	if s.recvName != "" {
+	//if s.recvName != "" {		XXX remove
 		code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
-	}
+	//}
 	if s.varUsed["size"] {
 		code.emit("var %s int", s.var__("size"))
 	}
@@ -374,10 +374,10 @@ func (s *sizer) generatedCode() string {
 	code.Write(s.Bytes())	// XXX -> s.buf.Bytes() ?
 
 	// epilogue
-	if s.recvName != "" {
+	//if s.recvName != "" {	XXX remove
 		code.emit("return %v", s.resultExpr())
 		code.emit("}\n")
-	}
+	//}
 
 	return code.String()
 }
@@ -403,17 +403,42 @@ func (d *decoder) emit(format string, a ...interface{}) {
 }
 
 // XXX place?
-func (d *decoder) flushOverflow() {
-	if !d.pos.IsZero() {
-		d.buf.emit("if uint32(len(data)) < %v { goto overflow }", &d.pos)
+// data <- data[pos:]
+// add overflow checkpoint	XXX
+// pos  <- 0
+func (d *decoder) resetPos() {
+	if d.n != 0 {
+		d.emit("data = data[%v:]", d.n)
+		d.emit("%v += %v", d.var_("nread"), d.n)
 	}
+
+	d.n = 0
+}
+
+// XXX place?
+// mark current place for delayed insertion of overflow check code
+//
+// delayed: because we go forward in decode path scanning ahead as far as we
+// can - until first variable-size encoded something, and then insert checking
+// condition for accumulated size to here-marked overflow checkpoint.
+//
+// so overflowCheckpoint does:
+// 1. emit overflow checking code for previous overflow checkpoint
+// 2. mark current place as next overflow checkpoint to eventually emit
+func (d *decoder) overflowCheckpoint() {
+	//d.buf.emit("// overflow check point")
+	if !d.overflowCheckSize.IsZero() {
+		d.buf.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheckSize)
+	}
+
+	d.overflowCheckSize = size{}	// zero
+
 	d.buf.Write(d.bufCur.Bytes())
 	d.bufCur.Reset()
-	// TODO
 }
 
 func (d *decoder) generatedCode() string {
-	d.flushOverflow()
+	d.overflowCheckpoint()
 
 	code := Buffer{}
 	// prologue
@@ -427,7 +452,7 @@ func (d *decoder) generatedCode() string {
 	code.Write(d.buf.Bytes())
 
 	// epilogue
-	retexpr := fmt.Sprintf("%v", d.pos.num)
+	retexpr := fmt.Sprintf("%v", d.n)
 	if d.varUsed["nread"] {
 		retexpr += fmt.Sprintf(" + int(%v)", d.var__("nread"))
 	}
@@ -465,9 +490,10 @@ func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type) {
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
 	//d.emit("if len(data) < %v { goto overflow }", d.n + basic.wireSize)
-	dataptr := fmt.Sprintf("data[%v:]", d.pos.num)
+	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
-	d.pos.Add(basic.wireSize)
+	d.n += basic.wireSize
+	d.overflowCheckSize.Add(basic.wireSize)
 	if userType != nil && userType != typ {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
@@ -502,13 +528,19 @@ func (e *encoder) genStrBytes(path string) {
 func (d *decoder) genStrBytes(assignto string) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
+
+/*
 	d.emit("data = data[%v:]", d.pos.num)
 	d.emit("%v += %v + l", d.var_("nread"), d.pos.num)
+*/
 
-	//d.emit("if uint32(len(data)) < l { goto overflow }")
-	d.flushOverflow()
-	d.pos = size{}	// zero
-	d.pos.AddExpr("l")
+	//d.resetPos()
+	d.emit("data = data[%v:]", d.n)
+	d.emit("%v += %v + l", d.var_("nread"), d.n)
+	d.n = 0
+
+	d.overflowCheckpoint()
+	d.overflowCheckSize.AddExpr("l")
 
 	d.emit("%v= string(data[:l])", assignto)
 	d.emit("data = data[l:]")
@@ -574,12 +606,17 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
+
+/*
 	d.emit("data = data[%v:]", d.pos.num)
 	d.emit("%v += %v", d.var_("nread"), d.pos.num)
-
 	d.flushOverflow()
 	d.pos = size{}	// zero
-	d.pos.AddExpr("l")
+*/
+
+	d.resetPos()
+	//d.overflowCheckpoint()
+	//d.pos.AddExpr("l")	// FIXME l*sizeof(elem)
 
 	/*
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
@@ -595,21 +632,28 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 
+/*
 	d.flushOverflow()
 	d.pos = size{}	// zero
+*/
+	d.overflowCheckpoint()
+	d.resetPos()
 	codegenType("(*a)", typ.Elem(), obj, d)
 
 
+	/*
 	d.emit("data = data[%v:]", d.pos.num)	// FIXME wrt slice of slice ?
 	d.emit("%v += %v", d.var_("nread"), d.pos.num)
+	*/
+	d.resetPos()
+
 	d.emit("}")
 
-	d.flushOverflow()
-	d.pos = size{}	// zero
+	//d.overflowCheckpoint()
+	//d.resetPos()
 
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
-	//d.n = 0
 }
 
 // generate code to encode/decode map
@@ -674,12 +718,17 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
+
+/*
 	d.emit("data = data[%v:]", d.pos.num)
 	d.emit("%v += %v", d.var_("nread"), d.pos.num)
-
 	d.flushOverflow()
 	d.pos = size{}	// zero
-	d.pos.AddExpr("l")
+*/
+	d.overflowCheckpoint()
+	d.resetPos()
+
+	//d.pos.AddExpr("l")
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	// TODO size check
@@ -688,8 +737,9 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 
-	d.flushOverflow()
-	d.pos = size{}	// zero
+	d.overflowCheckpoint()
+	d.resetPos()
+
 	codegenType("key:", typ.Key(), obj, d)
 
 	switch typ.Elem().Underlying().(type) {
@@ -705,12 +755,11 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 		d.emit("m[key] = v")
 	}
 
-	d.emit("data = data[%v:]", d.pos.num)	// FIXME wrt map of map ?
-	d.emit("%v += %v", d.var_("nread"), d.pos.num)
+	d.resetPos()
 	d.emit("}")
 
-	d.flushOverflow()
-	d.pos = size{}	// zero
+	d.overflowCheckpoint()
+	d.resetPos()
 
 	//d.emit("%v= string(data[:l])", assignto)
 	d.emit("}")
