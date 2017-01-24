@@ -230,6 +230,7 @@ type CodecCodeGen interface {
 
 	// particular case of slice or array with 1-byte elem
 	genSlice1(path string, typ types.Type)
+	genArray1(path string, typ *types.Array)
 
 	// get generated code.
 	// for top-level functions this is whole function including return and closing }
@@ -519,7 +520,6 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // emit code to encode/decode string or []byte
 // len	u32
 // [len]byte
-// TODO []byte support
 func (s *sizer) genSlice1(path string, typ types.Type) {
 	s.size.Add(4)
 	s.size.AddExpr("len(%s)", path)
@@ -566,6 +566,26 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.emit("data = data[l:]")
 	d.emit("}")
 }
+
+// array with sizeof(elem)==1
+func (s *sizer) genArray1(path string, typ *types.Array) {
+	s.size.Add(int(typ.Len()))
+}
+
+func (e *encoder) genArray1(path string, typ *types.Array) {
+	e.emit("copy(data[%v:], %v[:])", e.n, path)
+	e.n += int(typ.Len())
+}
+
+func (d *decoder) genArray1(assignto string, typ *types.Array) {
+	typLen := int(typ.Len())
+	d.emit("copy(%v[:], data[%v:%v])", assignto, d.n, d.n + typLen)
+	d.n += typLen
+	if !d.overflowChecked {
+		d.overflowCheckSize.Add(typLen)
+	}
+}
+
 
 // emit code to encode/decode slice
 // len	u32
@@ -815,9 +835,8 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 
 	case *types.Array:
 		// [...]byte or [...]uint8 - just straight copy
-		if false && typeSizeFixed1(u.Elem()) {
-			//codegen.genStrBytes(path+"[:]")	// FIXME
-			codegen.genSlice1(path, u)	// FIXME
+		if typeSizeFixed1(u.Elem()) {
+			codegen.genArray1(path, u)
 		} else {
 			var i int64	// XXX because `u.Len() int64`
 			for i = 0; i < u.Len(); i++ {

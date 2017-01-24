@@ -1463,26 +1463,7 @@ func (p *StoreObject) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
 	(data[16:])[0] = bool2byte(p.Compression)
-	(data[17:])[0] = p.Checksum[0]
-	(data[18:])[0] = p.Checksum[1]
-	(data[19:])[0] = p.Checksum[2]
-	(data[20:])[0] = p.Checksum[3]
-	(data[21:])[0] = p.Checksum[4]
-	(data[22:])[0] = p.Checksum[5]
-	(data[23:])[0] = p.Checksum[6]
-	(data[24:])[0] = p.Checksum[7]
-	(data[25:])[0] = p.Checksum[8]
-	(data[26:])[0] = p.Checksum[9]
-	(data[27:])[0] = p.Checksum[10]
-	(data[28:])[0] = p.Checksum[11]
-	(data[29:])[0] = p.Checksum[12]
-	(data[30:])[0] = p.Checksum[13]
-	(data[31:])[0] = p.Checksum[14]
-	(data[32:])[0] = p.Checksum[15]
-	(data[33:])[0] = p.Checksum[16]
-	(data[34:])[0] = p.Checksum[17]
-	(data[35:])[0] = p.Checksum[18]
-	(data[36:])[0] = p.Checksum[19]
+	copy(data[17:], p.Checksum[:])
 	{
 		l := uint32(len(p.Data))
 		binary.BigEndian.PutUint32(data[37:], l)
@@ -1503,26 +1484,7 @@ func (p *StoreObject) NEODecode(data []byte) (int, error) {
 	p.Oid = Oid(binary.BigEndian.Uint64(data[0:]))
 	p.Serial = Tid(binary.BigEndian.Uint64(data[8:]))
 	p.Compression = byte2bool((data[16:])[0])
-	p.Checksum[0] = (data[17:])[0]
-	p.Checksum[1] = (data[18:])[0]
-	p.Checksum[2] = (data[19:])[0]
-	p.Checksum[3] = (data[20:])[0]
-	p.Checksum[4] = (data[21:])[0]
-	p.Checksum[5] = (data[22:])[0]
-	p.Checksum[6] = (data[23:])[0]
-	p.Checksum[7] = (data[24:])[0]
-	p.Checksum[8] = (data[25:])[0]
-	p.Checksum[9] = (data[26:])[0]
-	p.Checksum[10] = (data[27:])[0]
-	p.Checksum[11] = (data[28:])[0]
-	p.Checksum[12] = (data[29:])[0]
-	p.Checksum[13] = (data[30:])[0]
-	p.Checksum[14] = (data[31:])[0]
-	p.Checksum[15] = (data[32:])[0]
-	p.Checksum[16] = (data[33:])[0]
-	p.Checksum[17] = (data[34:])[0]
-	p.Checksum[18] = (data[35:])[0]
-	p.Checksum[19] = (data[36:])[0]
+	copy(p.Checksum[:], data[17:37])
 	{
 		l := binary.BigEndian.Uint32(data[37:])
 		data = data[41:]
@@ -1744,26 +1706,7 @@ func (p *AnswerGetObject) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[8:], uint64(p.SerialStart))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.SerialEnd))
 	(data[24:])[0] = bool2byte(p.Compression)
-	(data[25:])[0] = p.Checksum[0]
-	(data[26:])[0] = p.Checksum[1]
-	(data[27:])[0] = p.Checksum[2]
-	(data[28:])[0] = p.Checksum[3]
-	(data[29:])[0] = p.Checksum[4]
-	(data[30:])[0] = p.Checksum[5]
-	(data[31:])[0] = p.Checksum[6]
-	(data[32:])[0] = p.Checksum[7]
-	(data[33:])[0] = p.Checksum[8]
-	(data[34:])[0] = p.Checksum[9]
-	(data[35:])[0] = p.Checksum[10]
-	(data[36:])[0] = p.Checksum[11]
-	(data[37:])[0] = p.Checksum[12]
-	(data[38:])[0] = p.Checksum[13]
-	(data[39:])[0] = p.Checksum[14]
-	(data[40:])[0] = p.Checksum[15]
-	(data[41:])[0] = p.Checksum[16]
-	(data[42:])[0] = p.Checksum[17]
-	(data[43:])[0] = p.Checksum[18]
-	(data[44:])[0] = p.Checksum[19]
+	copy(data[25:], p.Checksum[:])
 	{
 		l := uint32(len(p.Data))
 		binary.BigEndian.PutUint32(data[45:], l)
@@ -1783,26 +1726,7 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 	p.SerialStart = Tid(binary.BigEndian.Uint64(data[8:]))
 	p.SerialEnd = Tid(binary.BigEndian.Uint64(data[16:]))
 	p.Compression = byte2bool((data[24:])[0])
-	p.Checksum[0] = (data[25:])[0]
-	p.Checksum[1] = (data[26:])[0]
-	p.Checksum[2] = (data[27:])[0]
-	p.Checksum[3] = (data[28:])[0]
-	p.Checksum[4] = (data[29:])[0]
-	p.Checksum[5] = (data[30:])[0]
-	p.Checksum[6] = (data[31:])[0]
-	p.Checksum[7] = (data[32:])[0]
-	p.Checksum[8] = (data[33:])[0]
-	p.Checksum[9] = (data[34:])[0]
-	p.Checksum[10] = (data[35:])[0]
-	p.Checksum[11] = (data[36:])[0]
-	p.Checksum[12] = (data[37:])[0]
-	p.Checksum[13] = (data[38:])[0]
-	p.Checksum[14] = (data[39:])[0]
-	p.Checksum[15] = (data[40:])[0]
-	p.Checksum[16] = (data[41:])[0]
-	p.Checksum[17] = (data[42:])[0]
-	p.Checksum[18] = (data[43:])[0]
-	p.Checksum[19] = (data[44:])[0]
+	copy(p.Checksum[:], data[25:45])
 	{
 		l := binary.BigEndian.Uint32(data[45:])
 		data = data[49:]
@@ -3029,26 +2953,7 @@ func (p *AnswerCheckTIDRange) NEOEncodedLen() int {
 
 func (p *AnswerCheckTIDRange) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Count)
-	(data[4:])[0] = p.Checksum[0]
-	(data[5:])[0] = p.Checksum[1]
-	(data[6:])[0] = p.Checksum[2]
-	(data[7:])[0] = p.Checksum[3]
-	(data[8:])[0] = p.Checksum[4]
-	(data[9:])[0] = p.Checksum[5]
-	(data[10:])[0] = p.Checksum[6]
-	(data[11:])[0] = p.Checksum[7]
-	(data[12:])[0] = p.Checksum[8]
-	(data[13:])[0] = p.Checksum[9]
-	(data[14:])[0] = p.Checksum[10]
-	(data[15:])[0] = p.Checksum[11]
-	(data[16:])[0] = p.Checksum[12]
-	(data[17:])[0] = p.Checksum[13]
-	(data[18:])[0] = p.Checksum[14]
-	(data[19:])[0] = p.Checksum[15]
-	(data[20:])[0] = p.Checksum[16]
-	(data[21:])[0] = p.Checksum[17]
-	(data[22:])[0] = p.Checksum[18]
-	(data[23:])[0] = p.Checksum[19]
+	copy(data[4:], p.Checksum[:])
 	binary.BigEndian.PutUint64(data[24:], uint64(p.MaxTID))
 }
 
@@ -3057,26 +2962,7 @@ func (p *AnswerCheckTIDRange) NEODecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.Count = binary.BigEndian.Uint32(data[0:])
-	p.Checksum[0] = (data[4:])[0]
-	p.Checksum[1] = (data[5:])[0]
-	p.Checksum[2] = (data[6:])[0]
-	p.Checksum[3] = (data[7:])[0]
-	p.Checksum[4] = (data[8:])[0]
-	p.Checksum[5] = (data[9:])[0]
-	p.Checksum[6] = (data[10:])[0]
-	p.Checksum[7] = (data[11:])[0]
-	p.Checksum[8] = (data[12:])[0]
-	p.Checksum[9] = (data[13:])[0]
-	p.Checksum[10] = (data[14:])[0]
-	p.Checksum[11] = (data[15:])[0]
-	p.Checksum[12] = (data[16:])[0]
-	p.Checksum[13] = (data[17:])[0]
-	p.Checksum[14] = (data[18:])[0]
-	p.Checksum[15] = (data[19:])[0]
-	p.Checksum[16] = (data[20:])[0]
-	p.Checksum[17] = (data[21:])[0]
-	p.Checksum[18] = (data[22:])[0]
-	p.Checksum[19] = (data[23:])[0]
+	copy(p.Checksum[:], data[4:24])
 	p.MaxTID = Tid(binary.BigEndian.Uint64(data[24:]))
 	return 32, nil
 
@@ -3121,47 +3007,9 @@ func (p *AnswerCheckSerialRange) NEOEncodedLen() int {
 
 func (p *AnswerCheckSerialRange) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Count)
-	(data[4:])[0] = p.TidChecksum[0]
-	(data[5:])[0] = p.TidChecksum[1]
-	(data[6:])[0] = p.TidChecksum[2]
-	(data[7:])[0] = p.TidChecksum[3]
-	(data[8:])[0] = p.TidChecksum[4]
-	(data[9:])[0] = p.TidChecksum[5]
-	(data[10:])[0] = p.TidChecksum[6]
-	(data[11:])[0] = p.TidChecksum[7]
-	(data[12:])[0] = p.TidChecksum[8]
-	(data[13:])[0] = p.TidChecksum[9]
-	(data[14:])[0] = p.TidChecksum[10]
-	(data[15:])[0] = p.TidChecksum[11]
-	(data[16:])[0] = p.TidChecksum[12]
-	(data[17:])[0] = p.TidChecksum[13]
-	(data[18:])[0] = p.TidChecksum[14]
-	(data[19:])[0] = p.TidChecksum[15]
-	(data[20:])[0] = p.TidChecksum[16]
-	(data[21:])[0] = p.TidChecksum[17]
-	(data[22:])[0] = p.TidChecksum[18]
-	(data[23:])[0] = p.TidChecksum[19]
+	copy(data[4:], p.TidChecksum[:])
 	binary.BigEndian.PutUint64(data[24:], uint64(p.MaxTID))
-	(data[32:])[0] = p.OidChecksum[0]
-	(data[33:])[0] = p.OidChecksum[1]
-	(data[34:])[0] = p.OidChecksum[2]
-	(data[35:])[0] = p.OidChecksum[3]
-	(data[36:])[0] = p.OidChecksum[4]
-	(data[37:])[0] = p.OidChecksum[5]
-	(data[38:])[0] = p.OidChecksum[6]
-	(data[39:])[0] = p.OidChecksum[7]
-	(data[40:])[0] = p.OidChecksum[8]
-	(data[41:])[0] = p.OidChecksum[9]
-	(data[42:])[0] = p.OidChecksum[10]
-	(data[43:])[0] = p.OidChecksum[11]
-	(data[44:])[0] = p.OidChecksum[12]
-	(data[45:])[0] = p.OidChecksum[13]
-	(data[46:])[0] = p.OidChecksum[14]
-	(data[47:])[0] = p.OidChecksum[15]
-	(data[48:])[0] = p.OidChecksum[16]
-	(data[49:])[0] = p.OidChecksum[17]
-	(data[50:])[0] = p.OidChecksum[18]
-	(data[51:])[0] = p.OidChecksum[19]
+	copy(data[32:], p.OidChecksum[:])
 	binary.BigEndian.PutUint64(data[52:], uint64(p.MaxOID))
 }
 
@@ -3170,47 +3018,9 @@ func (p *AnswerCheckSerialRange) NEODecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.Count = binary.BigEndian.Uint32(data[0:])
-	p.TidChecksum[0] = (data[4:])[0]
-	p.TidChecksum[1] = (data[5:])[0]
-	p.TidChecksum[2] = (data[6:])[0]
-	p.TidChecksum[3] = (data[7:])[0]
-	p.TidChecksum[4] = (data[8:])[0]
-	p.TidChecksum[5] = (data[9:])[0]
-	p.TidChecksum[6] = (data[10:])[0]
-	p.TidChecksum[7] = (data[11:])[0]
-	p.TidChecksum[8] = (data[12:])[0]
-	p.TidChecksum[9] = (data[13:])[0]
-	p.TidChecksum[10] = (data[14:])[0]
-	p.TidChecksum[11] = (data[15:])[0]
-	p.TidChecksum[12] = (data[16:])[0]
-	p.TidChecksum[13] = (data[17:])[0]
-	p.TidChecksum[14] = (data[18:])[0]
-	p.TidChecksum[15] = (data[19:])[0]
-	p.TidChecksum[16] = (data[20:])[0]
-	p.TidChecksum[17] = (data[21:])[0]
-	p.TidChecksum[18] = (data[22:])[0]
-	p.TidChecksum[19] = (data[23:])[0]
+	copy(p.TidChecksum[:], data[4:24])
 	p.MaxTID = Tid(binary.BigEndian.Uint64(data[24:]))
-	p.OidChecksum[0] = (data[32:])[0]
-	p.OidChecksum[1] = (data[33:])[0]
-	p.OidChecksum[2] = (data[34:])[0]
-	p.OidChecksum[3] = (data[35:])[0]
-	p.OidChecksum[4] = (data[36:])[0]
-	p.OidChecksum[5] = (data[37:])[0]
-	p.OidChecksum[6] = (data[38:])[0]
-	p.OidChecksum[7] = (data[39:])[0]
-	p.OidChecksum[8] = (data[40:])[0]
-	p.OidChecksum[9] = (data[41:])[0]
-	p.OidChecksum[10] = (data[42:])[0]
-	p.OidChecksum[11] = (data[43:])[0]
-	p.OidChecksum[12] = (data[44:])[0]
-	p.OidChecksum[13] = (data[45:])[0]
-	p.OidChecksum[14] = (data[46:])[0]
-	p.OidChecksum[15] = (data[47:])[0]
-	p.OidChecksum[16] = (data[48:])[0]
-	p.OidChecksum[17] = (data[49:])[0]
-	p.OidChecksum[18] = (data[50:])[0]
-	p.OidChecksum[19] = (data[51:])[0]
+	copy(p.OidChecksum[:], data[32:52])
 	p.MaxOID = Oid(binary.BigEndian.Uint64(data[52:]))
 	return 60, nil
 
