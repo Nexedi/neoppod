@@ -626,7 +626,6 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	if !elemFixed {
 		d.overflowCheckpoint()
 	}
-	d.resetPos()
 	codegenType("(*a)", typ.Elem(), obj, d)
 
 
