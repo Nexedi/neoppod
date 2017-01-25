@@ -289,24 +289,24 @@ func (c *commonCoder) var_(varname string) string {
 	return varname
 }
 
-// information about a size
+// information about symbolic size
 // consists of numeric & symbolic parts
 // size is num + expr1 + expr2 + ...
-type size struct {
+type SymSize struct {
 	num	int	 // numeric part of size
 	exprv	[]string // symbolic part of size
 }
 
-func (s *size) Add(n int) {
+func (s *SymSize) Add(n int) {
 	s.num += n
 }
 
-func (s *size) AddExpr(format string, a ...interface{}) {
+func (s *SymSize) AddExpr(format string, a ...interface{}) {
 	expr := fmt.Sprintf(format, a...)
 	s.exprv = append(s.exprv, expr)
 }
 
-func (s *size) String() string {
+func (s *SymSize) String() string {
 	// num + expr1 + expr2 + ...  (omitting what is possible)
 	sizev := []string{}
 	if s.num != 0 {
@@ -323,11 +323,11 @@ func (s *size) String() string {
 	return sizeStr
 }
 
-func (s *size) ExprString() string {
+func (s *SymSize) ExprString() string {
 	return strings.Join(s.exprv, " + ")
 }
 
-func (s *size) IsZero() bool {
+func (s *SymSize) IsZero() bool {
 	return s.num == 0 && len(s.exprv) == 0
 }
 
@@ -335,7 +335,7 @@ func (s *size) IsZero() bool {
 // sizer generates code to compute encoded size of a packet
 type sizer struct {
 	Buffer			// buffer for code
-	size size
+	size   SymSize
 
 	commonCoder
 }
@@ -359,7 +359,7 @@ type decoder struct {
 	n int
 
 	// size that will be checked for overflow at current overflow check point
-	overflowCheckSize size
+	overflowCheckSize SymSize
 
 	// whether overflow was already checked for current decodings
 	overflowChecked bool
@@ -442,7 +442,7 @@ func (d *decoder) overflowCheckpoint() {
 		d.buf.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheckSize)
 	}
 
-	d.overflowCheckSize = size{}	// zero
+	d.overflowCheckSize = SymSize{}	// zero
 
 	d.buf.Write(d.bufCur.Bytes())
 	d.bufCur.Reset()
@@ -602,7 +602,7 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 
 	s.size.Add(4)
 	curSize := s.size
-	s.size = size{}	// zero
+	s.size = SymSize{} // zero
 
 	s.emit("for i := 0; i < len(%v); i++ {", path)
 	s.emit("a := &%s[i]", path)
@@ -695,7 +695,7 @@ func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 
 	s.size.Add(4)
 	curSize := s.size
-	s.size = size{}	// zero
+	s.size = SymSize{} // zero
 
 	// FIXME for map of map gives ...[key][key] => key -> different variables
 	s.emit("for key := range %s {", path)
