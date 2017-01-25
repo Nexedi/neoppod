@@ -10,6 +10,8 @@
 //
 // See COPYING file for full licensing terms.
 
+// +build ignore
+
 /*
 NEO. Protocol definition. Code generator
 
@@ -30,8 +32,8 @@ maps, ...).
 
 Top-level generation driver is in generateCodecCode(). It accepts type
 specification and something that performs actual leaf-nodes code generation
-(CodecCodeGen interface).  There are 3 particular codegenerators implemented -
-- sizer, encoder & decoder - to generate each of the needed method functions.
+(CodeGenerator interface). There are 3 particular codegenerators implemented -
+- sizer, encoder & decoder - to generate each of the needed method functions. XXX naming
 
 The structure of whole process is very similar to what would be happening at
 runtime if marshalling was reflect based, but statically with go/types we don't
@@ -44,8 +46,6 @@ other.
 NOTE we do no try to emit very clever code - for cases where compiler
 can do a good job the work is delegated to it.
 */
-
-// +build ignore
 
 package main
 
@@ -86,7 +86,7 @@ func main() {
 
 	log.SetFlags(0)
 
-	// go through proto.go and collect packets type definitions
+	// go through proto.go and AST'ify & typecheck it
 	var fv []*ast.File
 	for _, src := range []string{"proto.go", "neo.go"} {
 		f, err := parser.ParseFile(fset, src, nil, 0)
@@ -142,11 +142,6 @@ import (
 				continue
 
 			case *ast.StructType:
-				//fmt.Printf("\n%s:\n", typename)
-				//fmt.Println(typespec)
-				//ast.Print(fset, typespec)
-				//continue
-
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
 				buf.WriteString(generateCodecCode(typespec, &sizer{}))
@@ -179,8 +174,8 @@ type basicCodec struct {
 }
 
 var basicTypes = map[types.BasicKind]basicCodec {
-	// decode: %v    will be `data[n:]`  (and made sure data has more enough bytes to read)
 	// encode: %v %v will be `data[n:]`, value
+	// decode: %v    will be `data[n:]`  (and already made sure data has more enough bytes to read)
 	types.Bool:	{1, "(%v)[0] = bool2byte(%v)", "byte2bool((%v)[0])"},
 	types.Int8:	{1, "(%v)[0] = uint8(%v)", "int8((%v)[0])"},
 	types.Int16:	{2, "binary.BigEndian.PutUint16(%v, uint16(%v))", "int16(binary.BigEndian.Uint16(%v))"},
@@ -234,7 +229,7 @@ func typeSizeFixed1(typ types.Type) bool {
 }
 
 
-// Buffer + bell & whistles
+// bytes.Buffer + bell & whistles
 type Buffer struct {
 	bytes.Buffer
 }
@@ -243,9 +238,8 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 	fmt.Fprintf(b, format+"\n", a...)
 }
 
-// interface of codegenerator for sizer/coder/decoder
-// XXX naming?
-type CodecCodeGen interface {
+// interface of a codegenerator  (for sizer/coder/decoder XXX naming)
+type CodeGenerator interface {
 	// tell codegen it should generate code for top-level function
 	setFunc(recvName, typeName string, typ types.Type)
 
@@ -259,19 +253,15 @@ type CodecCodeGen interface {
 	genMap(path string, typ *types.Map, obj types.Object)
 
 	// particular case of slice or array with 1-byte elem
+	//
+	// NOTE this particular case is kept separate because for 1-byte
+	// elements there are no byteordering issues so data can be directly
+	// either accessed or copied.
 	genSlice1(path string, typ types.Type)
 	genArray1(path string, typ *types.Array)
 
 	// get generated code.
-	// for top-level functions this is whole function including return and closing }
-	// for not function this is generated code needed for resultExpr()
 	generatedCode() string
-
-/*
-	// get result expression
-	// this is result of computations for not top-level code XXX
-	resultExpr() string
-*/
 }
 
 // common part of codegenerators
@@ -381,32 +371,15 @@ type decoder struct {
 	commonCoder
 }
 
-var _ CodecCodeGen = (*sizer)(nil)
-var _ CodecCodeGen = (*encoder)(nil)
-var _ CodecCodeGen = (*decoder)(nil)
+var _ CodeGenerator = (*sizer)(nil)
+var _ CodeGenerator = (*encoder)(nil)
+var _ CodeGenerator = (*decoder)(nil)
 
-
-/*
-// create new sizer for subsize calculation (e.g. inside loop)
-func (s *sizer) subSizer() *sizer {
-	return &sizer{commonCoder: commonCoder{varN: s.varN + 1}}
-}
-*/
-
-func (s *sizer) resultExpr() string {
-	size := s.size.String()
-	if s.varUsed["size"] {
-		size += " + " + s.var__("size")
-	}
-	return size
-}
 
 func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	//if s.recvName != "" {		XXX remove
-		code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
-	//}
+	code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
 	if s.varUsed["size"] {
 		code.emit("var %s int", s.var__("size"))
 	}
@@ -414,10 +387,12 @@ func (s *sizer) generatedCode() string {
 	code.Write(s.Bytes())	// XXX -> s.buf.Bytes() ?
 
 	// epilogue
-	//if s.recvName != "" {	XXX remove
-		code.emit("return %v", s.resultExpr())
-		code.emit("}\n")
-	//}
+	size := s.size.String()
+	if s.varUsed["size"] {
+		size += " + " + s.var__("size")
+	}
+	code.emit("return %v", size)
+	code.emit("}\n")
 
 	return code.String()
 }
@@ -645,14 +620,6 @@ func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 		curSize.AddExpr("len(%v) * %v", path, s.size.num)
 	}
 	s.size = curSize
-
-	/*
-	sloop := s.subSizer()
-	codegenType("(*a)", typ.Elem(), obj, sloop)
-	s.emit(sloop.generatedCode())
-	s.emit("%v += %v", s.var_("size"), sloop.resultExpr())
-	s.emit("}")
-	*/
 }
 
 // TODO optimize for []byte
@@ -843,7 +810,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happenned)
 
-func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCodeGen) {
+func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
 		if u.Kind() == types.String {
@@ -895,7 +862,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 
 // generate encoder/decode funcs for a type declaration typespec
 // XXX name? -> genMethCode ?  generateMethodCode ?
-func generateCodecCode(typespec *ast.TypeSpec, codegen CodecCodeGen) string {
+func generateCodecCode(typespec *ast.TypeSpec, codegen CodeGenerator) string {
 	// type & object which refers to this type
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
