@@ -868,7 +868,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGene
 		if typeSizeFixed1(u.Elem()) {
 			codegen.genArray1(path, u)
 		} else {
-			var i int64	// XXX because `u.Len() int64`
+			var i int64
 			for i = 0; i < u.Len(); i++ {
 				codegenType(fmt.Sprintf("%v[%v]", path, i), u.Elem(), obj, codegen)
 			}
@@ -893,7 +893,7 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGene
 }
 
 
-// generate encoder/decode funcs for a type declaration typespec
+// generate size/encode/decode functions for a type declaration typespec
 // XXX name? -> genMethCode ?  generateMethodCode ?
 func generateCodecCode(typespec *ast.TypeSpec, codegen CodeGenerator) string {
 	// type & object which refers to this type
