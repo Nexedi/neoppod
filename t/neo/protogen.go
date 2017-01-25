@@ -267,11 +267,16 @@ type CodeGenerator interface {
 
 // common part of codegenerators
 type commonCodeGen struct {
+	buf      Buffer		// code is emitted here
 	recvName string		// receiver/type for top-level func
 	typeName string		// or empty
 	typ      types.Type
 
 	varUsed map[string]bool	// whether a variable was used
+}
+
+func (c *commonCodeGen) emit(format string, a ...interface{}) {
+	c.buf.emit(format, a...)
 }
 
 func (c *commonCodeGen) setFunc(recvName, typeName string, typ types.Type) {
@@ -341,26 +346,23 @@ func (s *SymSize) Reset() {
 // XXX naming ok?
 // XXX -> Gen_NEOEncodedLen ?
 type sizeCodeGen struct {
-	Buffer		// buffer for code
-	size   SymSize	// currently accumulated packet size
-
 	commonCodeGen
+	size   SymSize	// currently accumulated packet size
 }
 
 // encoder generates code to encode a packet
 type encoder struct {
-	Buffer	// XXX
-	n int	// current write position in data
-
 	commonCodeGen
+	n int	// current write position in data
 }
 
 // decoder generates code to decode a packet
 type decoder struct {
-	// buffers for generated code
-	// current delayed overflow check will be inserted in between buf & bufCur
-	buf     Buffer
-	bufCur  Buffer
+	commonCodeGen
+
+	// done buffer for generated code
+	// current delayed overflow check will be inserted in between buf & bufDone
+	bufDone Buffer
 
 	// current read position in data.
 	n int
@@ -370,8 +372,6 @@ type decoder struct {
 
 	// whether overflow was already checked for current decodings
 	overflowChecked bool
-
-	commonCodeGen
 }
 
 var _ CodeGenerator = (*sizeCodeGen)(nil)
@@ -387,7 +387,7 @@ func (s *sizeCodeGen) generatedCode() string {
 		code.emit("var %s int", s.var_("size"))
 	}
 
-	code.Write(s.Bytes())	// XXX -> s.buf.Bytes() ?
+	code.Write(s.buf.Bytes())
 
 	// epilogue
 	size := s.size.String()
@@ -405,17 +405,12 @@ func (e *encoder) generatedCode() string {
 	// prologue
 	code.emit("func (%s *%s) NEOEncode(data []byte) {", e.recvName, e.typeName)
 
-	code.Write(e.Bytes())	// XXX -> e.buf.Bytes() ?
+	code.Write(e.buf.Bytes())
 
 	// epilogue
 	code.emit("}\n")
 
 	return code.String()
-}
-
-// XXX place?
-func (d *decoder) emit(format string, a ...interface{}) {
-	d.bufCur.emit(format, a...)
 }
 
 // XXX place?
@@ -448,13 +443,13 @@ func (d *decoder) resetPos() {
 func (d *decoder) overflowCheckpoint() {
 	//d.buf.emit("// overflow check point")
 	if !d.overflowCheckSize.IsZero() {
-		d.buf.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheckSize)
+		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheckSize)
 	}
 
 	d.overflowCheckSize.Reset()
 
-	d.buf.Write(d.bufCur.Bytes())
-	d.bufCur.Reset()
+	d.bufDone.Write(d.buf.Bytes())
+	d.buf.Reset()
 }
 
 func (d *decoder) generatedCode() string {
@@ -467,7 +462,7 @@ func (d *decoder) generatedCode() string {
 		code.emit("var %v uint32", d.var_("nread"))
 	}
 
-	code.Write(d.buf.Bytes())
+	code.Write(d.bufDone.Bytes())
 
 	// epilogue
 	retexpr := fmt.Sprintf("%v", d.n)
