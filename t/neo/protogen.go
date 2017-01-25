@@ -338,9 +338,52 @@ func (s *SymSize) IsZero() bool {
 	return s.num == 0 && len(s.exprv) == 0
 }
 
-// XXX just use `... = SymSize{}` ?
 func (s *SymSize) Reset() {
 	*s = SymSize{}
+}
+
+
+// decoder overflow check state
+type OverflowCheck struct {
+	// size to check for overflow
+	size    SymSize
+
+	// whether overflow was already checked for current decodings
+	// (if yes, size updates will be ignored)
+	checked bool
+
+	// stack operated by {Push,Pop}Checked
+	checkedStk []bool
+}
+
+// push/pop checked state
+func (o *OverflowCheck) PushChecked(checked bool) {
+	o.checkedStk = append(o.checkedStk, o.checked)
+	o.checked = checked
+}
+
+func (o *OverflowCheck) PopChecked() bool {
+	popret := o.checked
+	l := len(o.checkedStk)
+	o.checked = o.checkedStk[l-1]
+	o.checkedStk = o.checkedStk[:l-1]
+	return popret
+}
+
+
+
+// Add and AddExpr update .size accordingly, but only if overflow was not
+// already marked as checked
+func (o *OverflowCheck) Add(n int) {
+	if !o.checked {
+		o.size.Add(n)
+	}
+}
+
+func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
+	if !o.checked {
+		o.size.AddExpr(format, a...)
+	}
 }
 
 
@@ -374,7 +417,7 @@ type encoder struct {
 //
 // overflow checks and, when convenient, nread updates are grouped and emitted
 // so that they are performed in the beginning of greedy fixed-wire-size
-// blocks.
+// blocks - checking as much as possible in one go.
 //
 // TODO more text?
 type decoder struct {
@@ -387,10 +430,7 @@ type decoder struct {
 	n int	// current read position in data.
 
 	// size that will be checked for overflow at current overflow check point
-	overflowCheckSize SymSize
-
-	// whether overflow was already checked for current decodings
-	overflowChecked bool
+	overflowCheck OverflowCheck
 }
 
 var _ CodeGenerator = (*sizeCodeGen)(nil)
@@ -457,15 +497,15 @@ func (d *decoder) resetPos() {
 // 2. mark current place as next overflow checkpoint to eventually emit
 //
 // it is inserted
-// - before reading variable sized item
-// - in the beginning of loop inside	XXX ok?
+// - before reading a variable sized item
+// - in the beginning of a loop inside
 func (d *decoder) overflowCheckpoint() {
 	//d.bufDone.emit("// overflow check point")
-	if !d.overflowCheckSize.IsZero() {
-		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheckSize)
+	if !d.overflowCheck.size.IsZero() {
+		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheck.size)
 	}
 
-	d.overflowCheckSize.Reset()
+	d.overflowCheck.size.Reset()
 
 	d.bufDone.Write(d.buf.Bytes())
 	d.buf.Reset()
@@ -490,7 +530,7 @@ func (d *decoder) generatedCode() string {
 	}
 	code.emit("return %v, nil", retexpr)
 
-	// overflow is not used only for empty structs
+	// `goto overflow` is not used only for empty structs
 	if (&types.StdSizes{8, 8}).Sizeof(d.typ) > 0 {
 		code.emit("\noverflow:")
 		code.emit("return 0, ErrDecodeOverflow")
@@ -524,13 +564,9 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
 	d.n += basic.wireSize
-	if !d.overflowChecked {
-		d.overflowCheckSize.Add(basic.wireSize)
-	}
+	d.overflowCheck.Add(basic.wireSize)
 	if userType != nil && userType != typ {
-		// userType is a named type over some basic, like
-		// type ClusterState int32
-		// -> need to cast
+		// need to cast (like in encode case)
 		decoded = fmt.Sprintf("%v(%v)", typeName(userType), decoded)
 	}
 	// NOTE no space before "=" - to be able to merge with ":"
@@ -566,7 +602,7 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.n = 0
 
 	d.overflowCheckpoint()
-	d.overflowCheckSize.AddExpr("l")
+	d.overflowCheck.AddExpr("l")
 
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -576,7 +612,7 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 		d.emit("%v= string(data[:l])", assignto)
 
 	case *types.Slice:
-		// TODO not copy, but reference data from original
+		// TODO eventually do not copy, but reference data from original
 		d.emit("%v= make(%v, l)", assignto, typeName(typ))
 		d.emit("copy(%v, data[:l])", assignto)
 
@@ -603,9 +639,7 @@ func (d *decoder) genArray1(assignto string, typ *types.Array) {
 	typLen := int(typ.Len())
 	d.emit("copy(%v[:], data[%v:%v])", assignto, d.n, d.n + typLen)
 	d.n += typLen
-	if !d.overflowChecked {
-		d.overflowCheckSize.Add(typLen)
-	}
+	d.overflowCheck.Add(typLen)
 }
 
 
@@ -662,11 +696,11 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 
 	// if size(item)==const - check overflow in one go
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
-	overflowCheckedCur := d.overflowChecked
 	if elemFixed {
 		d.overflowCheckpoint()
-		d.overflowCheckSize.AddExpr("l * %v", elemSize)
-		d.overflowChecked = true
+		d.overflowCheck.AddExpr("l * %v", elemSize)
+		d.overflowCheck.PushChecked(true)
+		defer d.overflowCheck.PopChecked()
 
 		d.emit("%v += l * %v", d.var_("nread"), elemSize)
 	}
@@ -691,8 +725,6 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	}
 
 	d.emit("}")
-
-	d.overflowChecked = overflowCheckedCur
 	d.emit("}")
 }
 
@@ -759,11 +791,11 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	keySize, keyFixed := typeSizeFixed(typ.Key())
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	itemFixed := keyFixed && elemFixed
-	overflowCheckedCur := d.overflowChecked
 	if itemFixed {
 		d.overflowCheckpoint()
-		d.overflowCheckSize.AddExpr("l * %v", keySize + elemSize)
-		d.overflowChecked = true
+		d.overflowCheck.AddExpr("l * %v", keySize + elemSize)
+		d.overflowCheck.PushChecked(true)
+		defer d.overflowCheck.PopChecked()
 
 		d.emit("%v += l * %v", d.var_("nread"), keySize + elemSize)
 	}
@@ -800,8 +832,6 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	}
 
 	d.emit("}")
-
-	d.overflowChecked = overflowCheckedCur
 	d.emit("}")
 }
 
