@@ -10,11 +10,40 @@
 //
 // See COPYING file for full licensing terms.
 
-// NEO. Protocol definition. Code generator
-// TODO text what it does (generates marshal code for proto.go)
-//
-// NOTE we do no try to emit clean/very clever code - for cases where compiler
-// can do a good job the work is delegated to it.
+/*
+NEO. Protocol definition. Code generator
+
+This program generates marshalling code for packet types defined in proto.go .
+For every type 3 methods are generated in accordance with NEOEncoder and
+NEODecoder interfaces:
+
+	NEOEncodedLen() int
+	NEOEncode(buf []byte)
+	NEODecode(data []byte) (nread int, err error)
+
+List of packet types is obtained via searching through proto.go AST - looking
+for appropriate struct declarations there.
+
+Code generation for a type is organized via recursively walking through type's
+(sub-)elements and generating specialized code on leaf items (uintX, slices,
+maps, ...).
+
+Top-level generation driver is in generateCodecCode(). It accepts type
+specification and something that performs actual leaf-nodes code generation
+(CodecCodeGen interface).  There are 3 particular codegenerators implemented -
+- sizer, encoder & decoder - to generate each of the needed method functions.
+
+The structure of whole process is very similar to what would be happening at
+runtime if marshalling was reflect based, but statically with go/types we don't
+spend runtime time on decisions and thus generated marshallers are faster.
+
+For encoding format compatibility with Python NEO (neo/lib/protocol.py) is
+preserved in order for two implementations to be able to communicate to each
+other.
+
+NOTE we do no try to emit very clever code - for cases where compiler
+can do a good job the work is delegated to it.
+*/
 
 // +build ignore
 
@@ -129,7 +158,7 @@ import (
 		}
 	}
 
-	// format & emit bufferred code
+	// format & emit buffered code
 	code, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)	// should not happen
@@ -215,6 +244,7 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 }
 
 // interface of codegenerator for sizer/coder/decoder
+// XXX naming?
 type CodecCodeGen interface {
 	// tell codegen it should generate code for top-level function
 	setFunc(recvName, typeName string, typ types.Type)
@@ -291,7 +321,7 @@ func (s *size) AddExpr(format string, a ...interface{}) {
 }
 
 func (s *size) String() string {
-	// num + expr1 + expr2 + ...  (ommiting what is possible)
+	// num + expr1 + expr2 + ...  (omitting what is possible)
 	sizev := []string{}
 	if s.num != 0 {
 		sizev = append(sizev, fmt.Sprintf("%v", s.num))
@@ -316,7 +346,7 @@ func (s *size) IsZero() bool {
 }
 
 
-// sizer generates code to compute endoded size of a packet
+// sizer generates code to compute encoded size of a packet
 type sizer struct {
 	Buffer			// buffer for code
 	size size
@@ -864,13 +894,14 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodecCod
 
 
 // generate encoder/decode funcs for a type declaration typespec
-func generateCodecCode(typespec *ast.TypeSpec, codec CodecCodeGen) string {
+// XXX name? -> genMethCode ?  generateMethodCode ?
+func generateCodecCode(typespec *ast.TypeSpec, codegen CodecCodeGen) string {
 	// type & object which refers to this type
 	typ := info.Types[typespec.Type].Type
 	obj := info.Defs[typespec.Name]
 
-	codec.setFunc("p", typespec.Name.Name, typ)
-	codegenType("p", typ, obj, codec)
+	codegen.setFunc("p", typespec.Name.Name, typ)
+	codegenType("p", typ, obj, codegen)
 
-	return codec.generatedCode()
+	return codegen.generatedCode()
 }
