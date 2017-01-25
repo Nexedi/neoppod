@@ -2836,7 +2836,7 @@ func (p *CheckReplicas) NEODecode(data []byte) (int, error) {
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
 		nread += 4
-		if uint32(len(data)) < l*8 {
+		if uint32(len(data)) < 16+l*8 {
 			goto overflow
 		}
 		nread += l * 8

@@ -211,6 +211,26 @@ func TestPktMarshal(t *testing.T) {
 			u64(8) + u64(7) + u64(1) + hex("00"),
 		},
 
+		// map[uint32]UUID + trailing ...
+		{&CheckReplicas{
+			PartitionDict: map[uint32]UUID{
+				1: 7,
+				2: 9,
+				7: 3,
+				4: 17,
+			},
+			MinTID: 23,
+			MaxTID: 128,
+			},
+
+		 u32(4) +
+			u32(1) + u32(7) +
+			u32(2) + u32(9) +
+			u32(4) + u32(17) +
+			u32(7) + u32(3) +
+		 u64(23) + u64(128),
+		},
+
 		// uint32, []uint32
 		{&PartitionCorrupted{7, []UUID{1,3,9,4}},
 		 u32(7) + u32(4) + u32(1) + u32(3) + u32(9) + u32(4),

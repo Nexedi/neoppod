@@ -13,7 +13,7 @@
 // +build ignore
 
 /*
-NEO. Protocol definition. Code generator
+NEO. Protocol module. Code generator
 
 This program generates marshalling code for packet types defined in proto.go .
 For every type 3 methods are generated in accordance with NEOEncoder and
@@ -27,7 +27,7 @@ List of packet types is obtained via searching through proto.go AST - looking
 for appropriate struct declarations there.
 
 Code generation for a type is organized via recursively walking through type's
-(sub-)elements and generating specialized code on leaf items (uintX, slices,
+(sub-)elements and generating specialized code on leaf items (intX, slices,
 maps, ...).
 
 Top-level generation driver is in generateCodecCode(). It accepts type
@@ -153,7 +153,7 @@ import (
 		}
 	}
 
-	// format & emit buffered code
+	// format & emit generated code
 	code, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)	// should not happen
@@ -245,7 +245,7 @@ type CodeGenerator interface {
 
 	// generate code to process a basic fixed type (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
-	// path is TODO
+	// path is associated data member (to read from or write to)
 	genBasic(path string, typ *types.Basic, userType types.Type)
 
 	// generate code to process slice or map
@@ -268,6 +268,7 @@ type CodeGenerator interface {
 // common part of codegenerators
 type commonCodeGen struct {
 	buf      Buffer		// code is emitted here
+
 	recvName string		// receiver/type for top-level func
 	typeName string		// or empty
 	typ      types.Type
@@ -285,7 +286,7 @@ func (c *commonCodeGen) setFunc(recvName, typeName string, typ types.Type) {
 	c.typ = typ
 }
 
-// get variable for varname  (and automatically mark var as used)
+// get variable for varname  (and automatically mark this var as used)
 func (c *commonCodeGen) var_(varname string) string {
 	if c.varUsed == nil {
 		c.varUsed = make(map[string]bool)
@@ -294,7 +295,7 @@ func (c *commonCodeGen) var_(varname string) string {
 	return varname
 }
 
-// information about symbolic size
+// symbolic size
 // consists of numeric & symbolic expression parts
 // size is num + expr1 + expr2 + ...
 type SymSize struct {
@@ -337,35 +338,53 @@ func (s *SymSize) IsZero() bool {
 	return s.num == 0 && len(s.exprv) == 0
 }
 
+// XXX just use `... = SymSize{}` ?
 func (s *SymSize) Reset() {
 	*s = SymSize{}
 }
 
 
-// sizeCodeGen generates code to compute encoded size of a packet
 // XXX naming ok?
 // XXX -> Gen_NEOEncodedLen ?
+// sizeCodeGen generates code to compute encoded size of a packet
+//
+// when type is recursively walked for every case symbolic size is added appropriately
+// in case when it was needed to generate loops runtime accumulator variable is additionally used
+// result is: symbolic size + (optionally) runtime accumulator
 type sizeCodeGen struct {
 	commonCodeGen
 	size   SymSize	// currently accumulated packet size
 }
 
 // encoder generates code to encode a packet
+//
+// when type is recursively walked for every case code to update `data[n:]` is generated.
+// no overflow checks are generated as by NEOEncoder interface provided data
+// buffer should have at least NEOEncodedLen() length (the size computed by
+// sizeCodeGen)
 type encoder struct {
 	commonCodeGen
 	n int	// current write position in data
 }
 
 // decoder generates code to decode a packet
+//
+// when type is recursively walked for every case code to decode next item from
+// `data[n:]` is generated.
+//
+// overflow checks and, when convenient, nread updates are grouped and emitted
+// so that they are performed in the beginning of greedy fixed-wire-size
+// blocks.
+//
+// TODO more text?
 type decoder struct {
 	commonCodeGen
 
 	// done buffer for generated code
-	// current delayed overflow check will be inserted in between buf & bufDone
+	// current delayed overflow check will be inserted in between bufDone & buf
 	bufDone Buffer
 
-	// current read position in data.
-	n int
+	n int	// current read position in data.
 
 	// size that will be checked for overflow at current overflow check point
 	overflowCheckSize SymSize
@@ -439,9 +458,9 @@ func (d *decoder) resetPos() {
 //
 // it is inserted
 // - before reading variable sized item
-// - XXX in loops ?
+// - in the beginning of loop inside	XXX ok?
 func (d *decoder) overflowCheckpoint() {
-	//d.buf.emit("// overflow check point")
+	//d.bufDone.emit("// overflow check point")
 	if !d.overflowCheckSize.IsZero() {
 		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheckSize)
 	}
@@ -706,11 +725,6 @@ func (s *sizeCodeGen) genMap(path string, typ *types.Map, obj types.Object) {
 		curSize.AddExpr("len(%v) * %v", path, s.size.num)
 	}
 	s.size = curSize
-
-/*
-	s.emit("%v += %v", s.var_("size"), s.size)
-	s.emit("}")
-*/
 }
 
 func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
@@ -746,6 +760,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	keySize, keyFixed := typeSizeFixed(typ.Key())
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	itemFixed := keyFixed && elemFixed
+	overflowCheckedCur := d.overflowChecked
 	if itemFixed {
 		d.overflowCheckpoint()
 		d.overflowCheckSize.AddExpr("l * %v", keySize + elemSize)
@@ -788,10 +803,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 
 	d.emit("}")
 
-	d.overflowCheckpoint()
-	d.resetPos()
-
-	//d.emit("%v= string(data[:l])", assignto)
+	d.overflowChecked = overflowCheckedCur
 	d.emit("}")
 }
 
