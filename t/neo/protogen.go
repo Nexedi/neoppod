@@ -240,15 +240,16 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 
 // interface of a codegenerator  (for sizer/coder/decoder XXX naming)
 type CodeGenerator interface {
-	// tell codegen it should generate code for top-level function
+	// tell codegen it should generate code for which type & receiver name
 	setFunc(recvName, typeName string, typ types.Type)
 
-	// TODO gen*() -> visit*() ?
-
-	// emit code to process basic fixed types (not string)
+	// generate code to process a basic fixed type (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
+	// path is TODO
 	genBasic(path string, typ *types.Basic, userType types.Type)
 
+	// generate code to process slice or map
+	// (see genBasic for argument details)
 	genSlice(path string, typ *types.Slice, obj types.Object)
 	genMap(path string, typ *types.Map, obj types.Object)
 
@@ -279,18 +280,13 @@ func (c *commonCoder) setFunc(recvName, typeName string, typ types.Type) {
 	c.typ = typ
 }
 
-// get variable name for varname
-func (c *commonCoder) var__(varname string) string {
-	return varname	// XXX was varname + N
-}
-
+// get variable for varname  (and automatically mark var as used)
 func (c *commonCoder) var_(varname string) string {
-	varnameX := c.var__(varname)
 	if c.varUsed == nil {
 		c.varUsed = make(map[string]bool)
 	}
 	c.varUsed[varname] = true
-	return varnameX
+	return varname
 }
 
 // information about a size
@@ -381,7 +377,7 @@ func (s *sizer) generatedCode() string {
 	// prologue
 	code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
 	if s.varUsed["size"] {
-		code.emit("var %s int", s.var__("size"))
+		code.emit("var %s int", s.var_("size"))
 	}
 
 	code.Write(s.Bytes())	// XXX -> s.buf.Bytes() ?
@@ -389,7 +385,7 @@ func (s *sizer) generatedCode() string {
 	// epilogue
 	size := s.size.String()
 	if s.varUsed["size"] {
-		size += " + " + s.var__("size")
+		size += " + " + s.var_("size")
 	}
 	code.emit("return %v", size)
 	code.emit("}\n")
@@ -461,7 +457,7 @@ func (d *decoder) generatedCode() string {
 		code.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	}
 	if d.varUsed["nread"] {
-		code.emit("var %v uint32", d.var__("nread"))
+		code.emit("var %v uint32", d.var_("nread"))
 	}
 
 	code.Write(d.buf.Bytes())
@@ -469,7 +465,7 @@ func (d *decoder) generatedCode() string {
 	// epilogue
 	retexpr := fmt.Sprintf("%v", d.n)
 	if d.varUsed["nread"] {
-		retexpr += fmt.Sprintf(" + int(%v)", d.var__("nread"))
+		retexpr += fmt.Sprintf(" + int(%v)", d.var_("nread"))
 	}
 	code.emit("return %v, nil", retexpr)
 
