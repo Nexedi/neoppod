@@ -170,10 +170,7 @@ overflow:
 func (p *XXXTest) NEOEncodedLen() int {
 	var size int
 	for key := range p.Zzz {
-		for key := range p.Zzz[key] {
-			size += len(p.Zzz[key][key])
-		}
-		size += len(p.Zzz[key]) * 8
+		size += len(p.Zzz[key])
 	}
 	return 12 + len(p.Zzz)*8 + size
 }
@@ -196,22 +193,8 @@ func (p *XXXTest) NEOEncode(data []byte) {
 				l := uint32(len(p.Zzz[key]))
 				binary.BigEndian.PutUint32(data[4:], l)
 				data = data[8:]
-				keyv := make([]int32, 0, l)
-				for key := range p.Zzz[key] {
-					keyv = append(keyv, key)
-				}
-				sort.Slice(keyv, func(i, j int) bool { return keyv[i] < keyv[j] })
-				for _, key := range keyv {
-					binary.BigEndian.PutUint32(data[0:], uint32(key))
-					{
-						l := uint32(len(p.Zzz[key][key]))
-						binary.BigEndian.PutUint32(data[4:], l)
-						data = data[8:]
-						copy(data, p.Zzz[key][key])
-						data = data[l:]
-					}
-					data = data[0:]
-				}
+				copy(data, p.Zzz[key])
+				data = data[l:]
 			}
 			data = data[0:]
 		}
@@ -229,38 +212,23 @@ func (p *XXXTest) NEODecode(data []byte) (int, error) {
 		l := binary.BigEndian.Uint32(data[8:])
 		data = data[12:]
 		nread += 12
-		p.Zzz = make(map[int32]map[int32]string, l)
+		p.Zzz = make(map[int32]string, l)
 		m := p.Zzz
 		for i := 0; uint32(i) < l; i++ {
 			if uint32(len(data)) < 8 {
 				goto overflow
 			}
 			key := int32(binary.BigEndian.Uint32(data[0:]))
-			var v map[int32]string
 			{
 				l := binary.BigEndian.Uint32(data[4:])
 				data = data[8:]
-				nread += 8
-				v = make(map[int32]string, l)
-				m := v
-				for i := 0; uint32(i) < l; i++ {
-					if uint32(len(data)) < 8 {
-						goto overflow
-					}
-					key := int32(binary.BigEndian.Uint32(data[0:]))
-					{
-						l := binary.BigEndian.Uint32(data[4:])
-						data = data[8:]
-						nread += 8 + l
-						if uint32(len(data)) < l {
-							goto overflow
-						}
-						m[key] = string(data[:l])
-						data = data[l:]
-					}
+				nread += 8 + l
+				if uint32(len(data)) < l {
+					goto overflow
 				}
+				m[key] = string(data[:l])
+				data = data[l:]
 			}
-			m[key] = v
 		}
 	}
 	return 0 + int(nread), nil

@@ -198,7 +198,7 @@ type RowInfo struct {
 type XXXTest struct {
 	qqq	uint32
 	aaa	uint32
-	Zzz	map[int32]map[int32]string
+	Zzz	map[int32]string
 }
 
 

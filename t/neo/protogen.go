@@ -745,7 +745,6 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
 	e.emit("data = data[%v:]", e.n)	// XXX wrt map of map?
 	e.emit("}")
-	// XXX vvv ?
 	e.emit("}")
 	e.n = 0
 }
@@ -782,7 +781,6 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	switch typ.Elem().Underlying().(type) {
 	// basic types can be directly assigned to map entry
 	case *types.Basic:
-		// XXX handle string
 		codegenType("m[key]", typ.Elem(), obj, d)
 
 	// otherwise assign via temporary
@@ -795,7 +793,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	// d.resetPos() with nread update optionally skipped
 	if d.n != 0 {
 		d.emit("data = data[%v:]", d.n)
-		if !elemFixed {
+		if !itemFixed {
 			d.emit("%v += %v", d.var_("nread"), d.n)
 		}
 		d.n = 0
