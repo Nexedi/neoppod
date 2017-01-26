@@ -412,6 +412,12 @@ type sizer struct {
 // when type is recursively walked, for every case code to update `data[n:]` is generated.
 // no overflow checks are generated as by NEOEncoder interface provided data
 // buffer should have at least NEOEncodedLen() length (the size computed by sizer).
+//
+// the code emitted is of kind:
+//
+//	encode<typ1>(data[n1:], path1)
+//	encode<typ2>(data[n2:], path2)
+//	...
 type encoder struct {
 	commonCodeGen
 	n int	// current write position in data
@@ -425,6 +431,12 @@ type encoder struct {
 // overflow checks and, when convenient, nread updates are grouped and emitted
 // so that they are performed in the beginning of greedy fixed-wire-size
 // blocks - checking as much as possible to do ahead in one go.
+//
+// the code emitted is of kind:
+//
+//	<assignto1> = decode<typ1>(data[n1:])
+//	<assignto2> = decode<typ2>(data[n2:])
+//	...
 type decoder struct {
 	commonCodeGen
 
@@ -518,10 +530,10 @@ func (d *decoder) overflowCheckPoint() {
 		// if size for overflow check was only numeric - just
 		// accumulate it at compile time
 		//
-		// otherwise accumulate into var(nread) at runtime
+		// otherwise accumulate into var(nread) at runtime.
 		// we do not break runtime accumulation into numeric & symbolic
 		// parts, because just above whole expression num + symbolic
-		// was checked so compiler just computed it
+		// was just given to compiler so compiler shoud have it just computed.
 		// XXX recheck ^^^ actually good with the compiler
 		if d.overflowCheck.size.IsNumeric() {
 			d.nread += d.overflowCheck.size.num
@@ -727,17 +739,15 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 		d.overflowCheck.AddExpr("l * %v", elemSize)
 		d.overflowCheck.PushChecked(true)
 		defer d.overflowCheck.PopChecked()
-
-		//d.emit("%v += l * %v", d.var_("nread"), elemSize)
 	}
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 
-	d.overflowCheckPoint()
+	d.overflowCheckPoint()	// -> overflowCheckPointLoopEntry ?
 	var nreadCur int
-	if !d.overflowCheck.checked {
+	if !d.overflowCheck.checked {	// TODO merge-in into overflow checker
 		nreadCur = d.nread
 		d.nread = 0
 	}
@@ -747,7 +757,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.resetPos()
 
 	d.emit("}")
-	d.overflowCheckPoint()
+	d.overflowCheckPoint()	// -> overflowCheckPointLoopExit("l") ?
 
 	// merge-in numeric nread updates from loop
 	if !d.overflowCheck.checked {
@@ -828,8 +838,6 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 		d.overflowCheck.AddExpr("l * %v", keySize + elemSize)
 		d.overflowCheck.PushChecked(true)
 		defer d.overflowCheck.PopChecked()
-
-		//d.emit("%v += l * %v", d.var_("nread"), keySize + elemSize)
 	}
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
@@ -855,20 +863,20 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.resetPos()
 
 	d.emit("}")
+
+	// TODO overflowCheckPointLoopExit("l")
+
 	d.emit("}")
 }
 
-// top-level driver for emitting encode/decode code for a type
-// the code emitted is of kind:
-//
-//	<assignto> = decode(typ)
+// top-level driver for emitting size/encode/decode code for a type
 //
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happenned)
-
 func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
+		// go puts string into basic, but it is really slice1
 		if u.Kind() == types.String {
 			codegen.genSlice1(path, u)
 			break
@@ -917,7 +925,6 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGene
 
 
 // generate size/encode/decode functions for a type declaration typespec
-// XXX name? -> genMethCode ?  generateMethodCode ?
 func generateCodecCode(typespec *ast.TypeSpec, codegen CodeGenerator) string {
 	// type & object which refers to this type
 	typ := info.Types[typespec.Type].Type
