@@ -33,7 +33,7 @@ maps, ...).
 Top-level generation driver is in generateCodecCode(). It accepts type
 specification and something that performs actual leaf-nodes code generation
 (CodeGenerator interface). There are 3 particular codegenerators implemented -
-- sizeCodeGen, encoder & decoder - to generate each of the needed method functions. XXX naming
+- sizer, encoder & decoder - to generate each of the needed method functions.
 
 The structure of whole process is very similar to what would be happening at
 runtime if marshalling was reflect based, but statically with go/types we don't
@@ -45,6 +45,11 @@ other.
 
 NOTE we do no try to emit very clever code - for cases where compiler
 can do a good job the work is delegated to it.
+
+--------
+
+TODO also types registry tables
+
 */
 
 package main
@@ -144,7 +149,7 @@ import (
 			case *ast.StructType:
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
-				buf.WriteString(generateCodecCode(typespec, &sizeCodeGen{}))
+				buf.WriteString(generateCodecCode(typespec, &sizer{}))
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
@@ -238,14 +243,14 @@ func (b *Buffer) emit(format string, a ...interface{}) {
 	fmt.Fprintf(b, format+"\n", a...)
 }
 
-// interface of a codegenerator  (for sizeCodeGen/coder/decoder XXX naming)
+// interface of a codegenerator  (for sizer/coder/decoder)
 type CodeGenerator interface {
 	// tell codegen it should generate code for which type & receiver name
 	setFunc(recvName, typeName string, typ types.Type)
 
 	// generate code to process a basic fixed type (not string)
 	// userType is type actually used in source (for which typ is underlying), or nil
-	// path is associated data member (to read from or write to)
+	// path is associated data member - e.g. p.Address.Port (to read from or write to)
 	genBasic(path string, typ *types.Basic, userType types.Type)
 
 	// generate code to process slice or map
@@ -387,14 +392,12 @@ func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 }
 
 
-// XXX naming ok?
-// XXX -> Gen_NEOEncodedLen ?
-// sizeCodeGen generates code to compute encoded size of a packet
+// sizer generates code to compute encoded size of a packet
 //
 // when type is recursively walked for every case symbolic size is added appropriately
 // in case when it was needed to generate loops runtime accumulator variable is additionally used
 // result is: symbolic size + (optionally) runtime accumulator
-type sizeCodeGen struct {
+type sizer struct {
 	commonCodeGen
 	size   SymSize	// currently accumulated packet size
 }
@@ -403,8 +406,7 @@ type sizeCodeGen struct {
 //
 // when type is recursively walked for every case code to update `data[n:]` is generated.
 // no overflow checks are generated as by NEOEncoder interface provided data
-// buffer should have at least NEOEncodedLen() length (the size computed by
-// sizeCodeGen)
+// buffer should have at least NEOEncodedLen() length (the size computed by sizer)
 type encoder struct {
 	commonCodeGen
 	n int	// current write position in data
@@ -417,9 +419,7 @@ type encoder struct {
 //
 // overflow checks and, when convenient, nread updates are grouped and emitted
 // so that they are performed in the beginning of greedy fixed-wire-size
-// blocks - checking as much as possible in one go.
-//
-// TODO more text?
+// blocks - checking as much as possible to do ahead in one go.
 type decoder struct {
 	commonCodeGen
 
@@ -429,16 +429,17 @@ type decoder struct {
 
 	n int	// current read position in data.
 
-	// size that will be checked for overflow at current overflow check point
+	// overflow check state and size that will be checked for overflow at
+	// current overflow check point
 	overflowCheck OverflowCheck
 }
 
-var _ CodeGenerator = (*sizeCodeGen)(nil)
+var _ CodeGenerator = (*sizer)(nil)
 var _ CodeGenerator = (*encoder)(nil)
 var _ CodeGenerator = (*decoder)(nil)
 
 
-func (s *sizeCodeGen) generatedCode() string {
+func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
 	code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
@@ -500,6 +501,11 @@ func (d *decoder) resetPos() {
 // - before reading a variable sized item
 // - in the beginning of a loop inside
 func (d *decoder) overflowCheckpoint() {
+	// nop if we know overflow was already checked
+	if d.overflowCheck.checked {
+		return
+	}
+
 	//d.bufDone.emit("// overflow check point")
 	if !d.overflowCheck.size.IsZero() {
 		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheck.size)
@@ -541,7 +547,7 @@ func (d *decoder) generatedCode() string {
 }
 
 // emit code to size/encode/decode basic fixed type
-func (s *sizeCodeGen) genBasic(path string, typ *types.Basic, userType types.Type) {
+func (s *sizer) genBasic(path string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
 	s.size.Add(basic.wireSize)
 }
@@ -577,7 +583,7 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 // emit code to size/encode/decode string or []byte
 // len	u32
 // [len]byte
-func (s *sizeCodeGen) genSlice1(path string, typ types.Type) {
+func (s *sizer) genSlice1(path string, typ types.Type) {
 	s.size.Add(4)
 	s.size.AddExpr("len(%s)", path)
 }
@@ -626,7 +632,7 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 
 // emit code to size/encode/decode array with sizeof(elem)==1
 // [len(A)]byte
-func (s *sizeCodeGen) genArray1(path string, typ *types.Array) {
+func (s *sizer) genArray1(path string, typ *types.Array) {
 	s.size.Add(int(typ.Len()))
 }
 
@@ -646,7 +652,7 @@ func (d *decoder) genArray1(assignto string, typ *types.Array) {
 // emit code to size/encode/decode slice
 // len	u32
 // [len]item
-func (s *sizeCodeGen) genSlice(path string, typ *types.Slice, obj types.Object) {
+func (s *sizer) genSlice(path string, typ *types.Slice, obj types.Object) {
 	s.size.Add(4)
 
 	// if size(item)==const - size update in one go
@@ -682,7 +688,7 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	e.emit("for i := 0; uint32(i) <l; i++ {")
 	e.emit("a := &%s[i]", path)
 	codegenType("(*a)", typ.Elem(), obj, e)
-	e.emit("data = data[%v:]", e.n)	// FIXME wrt slice of slice ?
+	e.emit("data = data[%v:]", e.n)	// XXX wrt slice of slice ?
 	e.emit("}")
 	e.emit("}")
 	e.n = 0
@@ -710,9 +716,8 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 
-	if !elemFixed {
-		d.overflowCheckpoint()
-	}
+	d.overflowCheckpoint()
+
 	codegenType("(*a)", typ.Elem(), obj, d)
 
 	// d.resetPos() with nread update optionally skipped
@@ -731,7 +736,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 // generate code to encode/decode map
 // len  u32
 // [len](key, value)
-func (s *sizeCodeGen) genMap(path string, typ *types.Map, obj types.Object) {
+func (s *sizer) genMap(path string, typ *types.Map, obj types.Object) {
 	keySize, keyFixed := typeSizeFixed(typ.Key())
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 
@@ -804,9 +809,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 
-	if !itemFixed {
-		d.overflowCheckpoint()
-	}
+	d.overflowCheckpoint()
 
 	codegenType("key:", typ.Key(), obj, d)
 

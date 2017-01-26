@@ -68,6 +68,9 @@ type NEOCodec interface {
 	NEODecoder
 }
 
+// TODO for _all_ packet types:
+// zero-value -> encodedlen -> [encodedlen]byte -> decode (= ok) + check for overflow
+// zero-value.encode([<encodedlen]byte) -> panic
 
 // test marshalling for one packet type
 func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
