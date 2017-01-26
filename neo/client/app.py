@@ -544,6 +544,8 @@ class Application(ThreadedApplication):
                     # A later serial has already been resolved, skip.
                     resolved_serial_set.update(conflict_serial_set)
                     continue
+                if self.last_tid < conflict_serial:
+                    self.sync() # possible late invalidation (very rare)
                 try:
                     new_data = tryToResolveConflict(oid, conflict_serial,
                         serial, data)
