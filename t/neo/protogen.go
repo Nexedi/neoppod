@@ -350,7 +350,7 @@ func (s *SymSize) Reset() {
 
 // decoder overflow check state
 type OverflowCheck struct {
-	// size to check for overflow
+	// accumulator for size to check at overflow check point
 	size    SymSize
 
 	// whether overflow was already checked for current decodings
@@ -394,9 +394,9 @@ func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 
 // sizer generates code to compute encoded size of a packet
 //
-// when type is recursively walked for every case symbolic size is added appropriately
-// in case when it was needed to generate loops runtime accumulator variable is additionally used
-// result is: symbolic size + (optionally) runtime accumulator
+// when type is recursively walked, for every case symbolic size is added appropriately.
+// in case when it was needed to generate loops runtime accumulator variable is additionally used.
+// result is: symbolic size + (optionally) runtime accumulator.
 type sizer struct {
 	commonCodeGen
 	size   SymSize	// currently accumulated packet size
@@ -404,9 +404,9 @@ type sizer struct {
 
 // encoder generates code to encode a packet
 //
-// when type is recursively walked for every case code to update `data[n:]` is generated.
+// when type is recursively walked, for every case code to update `data[n:]` is generated.
 // no overflow checks are generated as by NEOEncoder interface provided data
-// buffer should have at least NEOEncodedLen() length (the size computed by sizer)
+// buffer should have at least NEOEncodedLen() length (the size computed by sizer).
 type encoder struct {
 	commonCodeGen
 	n int	// current write position in data
@@ -414,7 +414,7 @@ type encoder struct {
 
 // decoder generates code to decode a packet
 //
-// when type is recursively walked for every case code to decode next item from
+// when type is recursively walked, for every case code to decode next item from
 // `data[n:]` is generated.
 //
 // overflow checks and, when convenient, nread updates are grouped and emitted
@@ -475,6 +475,7 @@ func (e *encoder) generatedCode() string {
 
 // XXX place?
 // data <- data[pos:]
+// nread += pos		XXX clarify about nread update
 // pos  <- 0
 func (d *decoder) resetPos() {
 	if d.n != 0 {
@@ -489,9 +490,9 @@ func (d *decoder) resetPos() {
 // mark current place for delayed insertion of overflow check code
 //
 // delayed: because we go forward in decode path scanning ahead as far as we
-// can - until first variable-size encoded something, and then - knowing fixed
-// size would be read - insert checking condition for accumulated size to
-// here-marked overflow checkpoint.
+// can - until first seeing variable-size encoded something, and then - knowing
+// fixed size would be to read - insert checking condition for accumulated size
+// to here-marked overflow checkpoint.
 //
 // so overflowCheckpoint does:
 // 1. emit overflow checking code for previous overflow checkpoint
@@ -518,6 +519,7 @@ func (d *decoder) overflowCheckpoint() {
 }
 
 func (d *decoder) generatedCode() string {
+	// flush for last overflow check point
 	d.overflowCheckpoint()
 
 	code := Buffer{}
@@ -555,29 +557,30 @@ func (s *sizer) genBasic(path string, typ *types.Basic, userType types.Type) {
 func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
 	dataptr := fmt.Sprintf("data[%v:]", e.n)
-	if userType != nil && userType != typ {
+	if userType != typ && userType != nil {
 		// userType is a named type over some basic, like
 		// type ClusterState int32
 		// -> need to cast
 		path = fmt.Sprintf("%v(%v)", typeName(typ), path)
 	}
-	e.n += basic.wireSize
 	e.emit(basic.encode, dataptr, path)
+	e.n += basic.wireSize
 }
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
 	dataptr := fmt.Sprintf("data[%v:]", d.n)
 	decoded := fmt.Sprintf(basic.decode, dataptr)
-	d.n += basic.wireSize
-	d.overflowCheck.Add(basic.wireSize)
-	if userType != nil && userType != typ {
+	if userType != typ && userType != nil {
 		// need to cast (like in encode case)
 		decoded = fmt.Sprintf("%v(%v)", typeName(userType), decoded)
 	}
 	// NOTE no space before "=" - to be able to merge with ":"
 	// prefix and become defining assignment
 	d.emit("%s= %s", assignto, decoded)
+
+	d.n += basic.wireSize
+	d.overflowCheck.Add(basic.wireSize)
 }
 
 // emit code to size/encode/decode string or []byte
