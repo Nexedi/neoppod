@@ -479,17 +479,14 @@ func (e *encoder) generatedCode() string {
 	return code.String()
 }
 
-// XXX place?
+// XXX place? naming?
 // data <- data[pos:]
-// // nread += pos		XXX clarify about nread update
 // pos  <- 0
 func (d *decoder) resetPos() {
 	if d.n != 0 {
 		d.emit("data = data[%v:]", d.n)
-		//d.emit("%v += %v", d.var_("nread"), d.n)
+		d.n = 0
 	}
-
-	d.n = 0
 }
 
 // XXX place?
@@ -507,6 +504,7 @@ func (d *decoder) resetPos() {
 // it is inserted
 // - before reading a variable sized item
 // - in the beginning of a loop inside
+// - right after loop exit
 func (d *decoder) overflowCheckPoint() {
 	// nop if we know overflow was already checked
 	if d.overflowCheck.checked {
@@ -645,11 +643,7 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.emit("{")
 	d.genBasic("l:", types.Typ[types.Uint32], nil)
 
-	// XXX vvv = resetPos but with nread += ... + l
-	// XXX -> resetPos("l") ?
-	d.emit("data = data[%v:]", d.n)
-	//d.emit("%v += %v + l", d.var_("nread"), d.n)
-	d.n = 0
+	d.resetPos()
 
 	d.overflowCheckPoint()
 	d.overflowCheck.AddExpr("l")
@@ -750,15 +744,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 
 	codegenType("(*a)", typ.Elem(), obj, d)
 
-	// d.resetPos() with nread update optionally skipped
-	// XXX ^^^ criteria to skip is overflowCheck.Checked
-	if d.n != 0 {
-		d.emit("data = data[%v:]", d.n)
-		//if !elemFixed {
-		//	d.emit("%v += %v", d.var_("nread"), d.n)
-		//}
-		d.n = 0
-	}
+	d.resetPos()
 
 	d.emit("}")
 	d.overflowCheckPoint()
@@ -866,14 +852,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 		d.emit("m[key] = v")
 	}
 
-	// d.resetPos() with nread update optionally skipped
-	if d.n != 0 {
-		d.emit("data = data[%v:]", d.n)
-		//if !itemFixed {
-		//	d.emit("%v += %v", d.var_("nread"), d.n)
-		//}
-		d.n = 0
-	}
+	d.resetPos()
 
 	d.emit("}")
 	d.emit("}")
