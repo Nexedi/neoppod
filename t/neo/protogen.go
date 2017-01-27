@@ -738,7 +738,6 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.emit("}")
 }
 
-
 // emit code to size/encode/decode slice
 // len	u32
 // [len]item
