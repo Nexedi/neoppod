@@ -2455,7 +2455,95 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 68. ClusterInformation
+// 68. repairFlags
+
+func (p *repairFlags) NEOEncodedLen() int {
+	return 1
+}
+
+func (p *repairFlags) NEOEncode(data []byte) {
+	(data[0:])[0] = bool2byte(p.DryRun)
+}
+
+func (p *repairFlags) NEODecode(data []byte) (int, error) {
+	if uint32(len(data)) < 1 {
+		goto overflow
+	}
+	p.DryRun = byte2bool((data[0:])[0])
+	return 1, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 69. Repair
+
+func (p *Repair) NEOEncodedLen() int {
+	return 5 + len(p.UUIDList)*4
+}
+
+func (p *Repair) NEOEncode(data []byte) {
+	{
+		l := uint32(len(p.UUIDList))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.UUIDList[i]
+			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
+			data = data[4:]
+		}
+	}
+	(data[0:])[0] = bool2byte(p.repairFlags.DryRun)
+}
+
+func (p *Repair) NEODecode(data []byte) (int, error) {
+	var nread uint32
+	if uint32(len(data)) < 4 {
+		goto overflow
+	}
+	{
+		l := binary.BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if uint32(len(data)) < 1+l*4 {
+			goto overflow
+		}
+		nread += 1 + l*4
+		p.UUIDList = make([]UUID, l)
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.UUIDList[i]
+			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			data = data[4:]
+		}
+	}
+	p.repairFlags.DryRun = byte2bool((data[0:])[0])
+	return 4 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 70. RepairOne
+
+func (p *RepairOne) NEOEncodedLen() int {
+	return 1
+}
+
+func (p *RepairOne) NEOEncode(data []byte) {
+	(data[0:])[0] = bool2byte(p.repairFlags.DryRun)
+}
+
+func (p *RepairOne) NEODecode(data []byte) (int, error) {
+	if uint32(len(data)) < 1 {
+		goto overflow
+	}
+	p.repairFlags.DryRun = byte2bool((data[0:])[0])
+	return 1, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 71. ClusterInformation
 
 func (p *ClusterInformation) NEOEncodedLen() int {
 	return 4
@@ -2476,7 +2564,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 69. X_ClusterState
+// 72. X_ClusterState
 
 func (p *X_ClusterState) NEOEncodedLen() int {
 	return 4
@@ -2497,7 +2585,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 70. ObjectUndoSerial
+// 73. ObjectUndoSerial
 
 func (p *ObjectUndoSerial) NEOEncodedLen() int {
 	return 28 + len(p.OidList)*8
@@ -2547,7 +2635,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 71. AnswerObjectUndoSerial
+// 74. AnswerObjectUndoSerial
 
 func (p *AnswerObjectUndoSerial) NEOEncodedLen() int {
 	return 4 + len(p.ObjectTIDDict)*25
@@ -2611,7 +2699,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 72. HasLock
+// 75. HasLock
 
 func (p *HasLock) NEOEncodedLen() int {
 	return 16
@@ -2634,7 +2722,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 73. AnswerHasLock
+// 76. AnswerHasLock
 
 func (p *AnswerHasLock) NEOEncodedLen() int {
 	return 12
@@ -2657,7 +2745,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 74. CheckCurrentSerial
+// 77. CheckCurrentSerial
 
 func (p *CheckCurrentSerial) NEOEncodedLen() int {
 	return 24
@@ -2682,7 +2770,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 75. AnswerCheckCurrentSerial
+// 78. AnswerCheckCurrentSerial
 
 func (p *AnswerCheckCurrentSerial) NEOEncodedLen() int {
 	return 17
@@ -2707,7 +2795,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 76. Pack
+// 79. Pack
 
 func (p *Pack) NEOEncodedLen() int {
 	return 8
@@ -2728,7 +2816,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 77. AnswerPack
+// 80. AnswerPack
 
 func (p *AnswerPack) NEOEncodedLen() int {
 	return 1
@@ -2749,7 +2837,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 78. CheckReplicas
+// 81. CheckReplicas
 
 func (p *CheckReplicas) NEOEncodedLen() int {
 	return 20 + len(p.PartitionDict)*8
@@ -2803,7 +2891,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 79. CheckPartition
+// 82. CheckPartition
 
 func (p *CheckPartition) NEOEncodedLen() int {
 	return 30 + len(p.Source.UpstreamName) + len(p.Source.Address.Host)
@@ -2865,7 +2953,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 80. CheckTIDRange
+// 83. CheckTIDRange
 
 func (p *CheckTIDRange) NEOEncodedLen() int {
 	return 24
@@ -2892,7 +2980,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 81. AnswerCheckTIDRange
+// 84. AnswerCheckTIDRange
 
 func (p *AnswerCheckTIDRange) NEOEncodedLen() int {
 	return 32
@@ -2917,7 +3005,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 82. CheckSerialRange
+// 85. CheckSerialRange
 
 func (p *CheckSerialRange) NEOEncodedLen() int {
 	return 32
@@ -2946,7 +3034,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 83. AnswerCheckSerialRange
+// 86. AnswerCheckSerialRange
 
 func (p *AnswerCheckSerialRange) NEOEncodedLen() int {
 	return 60
@@ -2975,7 +3063,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 84. PartitionCorrupted
+// 87. PartitionCorrupted
 
 func (p *PartitionCorrupted) NEOEncodedLen() int {
 	return 8 + len(p.CellList)*4
@@ -3021,7 +3109,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 85. LastTransaction
+// 88. LastTransaction
 
 func (p *LastTransaction) NEOEncodedLen() int {
 	return 0
@@ -3034,7 +3122,7 @@ func (p *LastTransaction) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 86. AnswerLastTransaction
+// 89. AnswerLastTransaction
 
 func (p *AnswerLastTransaction) NEOEncodedLen() int {
 	return 8
@@ -3055,7 +3143,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 87. NotifyReady
+// 90. NotifyReady
 
 func (p *NotifyReady) NEOEncodedLen() int {
 	return 0
@@ -3138,24 +3226,27 @@ var pktTypeRegistry = map[int]reflect.Type{
 	65: reflect.TypeOf(NotifyNodeInformation{}),
 	66: reflect.TypeOf(NodeInformation{}),
 	67: reflect.TypeOf(SetClusterState{}),
-	68: reflect.TypeOf(ClusterInformation{}),
-	69: reflect.TypeOf(X_ClusterState{}),
-	70: reflect.TypeOf(ObjectUndoSerial{}),
-	71: reflect.TypeOf(AnswerObjectUndoSerial{}),
-	72: reflect.TypeOf(HasLock{}),
-	73: reflect.TypeOf(AnswerHasLock{}),
-	74: reflect.TypeOf(CheckCurrentSerial{}),
-	75: reflect.TypeOf(AnswerCheckCurrentSerial{}),
-	76: reflect.TypeOf(Pack{}),
-	77: reflect.TypeOf(AnswerPack{}),
-	78: reflect.TypeOf(CheckReplicas{}),
-	79: reflect.TypeOf(CheckPartition{}),
-	80: reflect.TypeOf(CheckTIDRange{}),
-	81: reflect.TypeOf(AnswerCheckTIDRange{}),
-	82: reflect.TypeOf(CheckSerialRange{}),
-	83: reflect.TypeOf(AnswerCheckSerialRange{}),
-	84: reflect.TypeOf(PartitionCorrupted{}),
-	85: reflect.TypeOf(LastTransaction{}),
-	86: reflect.TypeOf(AnswerLastTransaction{}),
-	87: reflect.TypeOf(NotifyReady{}),
+	68: reflect.TypeOf(repairFlags{}),
+	69: reflect.TypeOf(Repair{}),
+	70: reflect.TypeOf(RepairOne{}),
+	71: reflect.TypeOf(ClusterInformation{}),
+	72: reflect.TypeOf(X_ClusterState{}),
+	73: reflect.TypeOf(ObjectUndoSerial{}),
+	74: reflect.TypeOf(AnswerObjectUndoSerial{}),
+	75: reflect.TypeOf(HasLock{}),
+	76: reflect.TypeOf(AnswerHasLock{}),
+	77: reflect.TypeOf(CheckCurrentSerial{}),
+	78: reflect.TypeOf(AnswerCheckCurrentSerial{}),
+	79: reflect.TypeOf(Pack{}),
+	80: reflect.TypeOf(AnswerPack{}),
+	81: reflect.TypeOf(CheckReplicas{}),
+	82: reflect.TypeOf(CheckPartition{}),
+	83: reflect.TypeOf(CheckTIDRange{}),
+	84: reflect.TypeOf(AnswerCheckTIDRange{}),
+	85: reflect.TypeOf(CheckSerialRange{}),
+	86: reflect.TypeOf(AnswerCheckSerialRange{}),
+	87: reflect.TypeOf(PartitionCorrupted{}),
+	88: reflect.TypeOf(LastTransaction{}),
+	89: reflect.TypeOf(AnswerLastTransaction{}),
+	90: reflect.TypeOf(NotifyReady{}),
 }

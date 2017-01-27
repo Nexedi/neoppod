@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	PROTOCOL_VERSION = 8
+	PROTOCOL_VERSION = 9
 
 	MIN_PACKET_SIZE = 10	// XXX unsafe.Sizeof(PktHead{}) give _typed_ constant (uintptr)
 	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size ? XXX -> pkt.go ?
@@ -629,6 +629,25 @@ type SetClusterState struct {
 	State   ClusterState
 
 	// XXX _answer = Error
+}
+
+// XXX only helper: should not be presented as packet
+type repairFlags struct {
+	DryRun   bool
+	// pruneOrphan bool
+
+	// XXX _answer = Error
+}
+
+// Ask storage nodes to repair their databases. ctl -> A -> M
+type Repair struct {
+	UUIDList []UUID
+	repairFlags
+}
+
+// See Repair. M -> S
+type RepairOne struct {
+	repairFlags
 }
 
 // Notify information about the cluster
