@@ -266,7 +266,14 @@ func TestPktMarshalAllOverflowLightly(t *testing.T) {
 		// zero-value for a type
 		pkt := reflect.New(typ).Interface().(NEOCodec)
 		l := pkt.NEOEncodedLen()
-		encoded := strings.Repeat("\x00", l)
-		testPktMarshal(t, pkt, encoded)
+		zerol := make([]byte, l)
+		// this will turn nil slice & map into empty.
+		// we need it so that reflect.DeepEqual works for pkt encode/decode comparision
+		n, err := pkt.NEODecode(zerol)
+		if !(n == l && err == nil) {
+			t.Errorf("%v: zero-decode unexpected: %v, %v  ; want %v, nil", typ, n, err, l)
+		}
+
+		testPktMarshal(t, pkt, string(zerol))
 	}
 }
