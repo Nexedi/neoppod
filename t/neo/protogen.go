@@ -403,8 +403,6 @@ func (o *OverflowCheck) PopChecked() bool {
 	return popret
 }
 
-
-
 // Add and AddExpr update .checkSize accordingly, but only if overflow was not
 // already marked as checked
 func (o *OverflowCheck) Add(n int) {
@@ -518,7 +516,6 @@ func (e *encoder) generatedCode() string {
 	return code.String()
 }
 
-// XXX place? naming?
 // data = data[n:]
 // n    = 0
 func (d *decoder) resetPos() {
@@ -556,7 +553,7 @@ func (d *decoder) overflowCheck() {
 		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflow.checkSize)
 
 		// if size for overflow check was only numeric - just
-		// accumulate it at compile time
+		// accumulate it at generation time
 		//
 		// otherwise accumulate into var(nread) at runtime.
 		// we do not break runtime accumulation into numeric & symbolic
@@ -782,7 +779,7 @@ func (e *encoder) genSlice(path string, typ *types.Slice, obj types.Object) {
 	e.emit("for i := 0; uint32(i) <l; i++ {")
 	e.emit("a := &%s[i]", path)
 	codegenType("(*a)", typ.Elem(), obj, e)
-	e.emit("data = data[%v:]", e.n)	// XXX wrt slice of slice ?
+	e.emit("data = data[%v:]", e.n)
 	e.emit("}")
 	e.emit("}")
 	e.n = 0
@@ -854,6 +851,7 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 	e.genBasic("l", types.Typ[types.Uint32], nil)
 	e.emit("data = data[%v:]", e.n)
 	e.n = 0
+
 	// output keys in sorted order on the wire
 	// (easier for debugging & deterministic for testing)
 	e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))
@@ -861,6 +859,7 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 	e.emit("  keyv = append(keyv, key)")
 	e.emit("}")
 	e.emit("sort.Slice(keyv, func (i, j int) bool { return keyv[i] < keyv[j] })")
+
 	e.emit("for _, key := range keyv {")
 	codegenType("key", typ.Key(), obj, e)
 	codegenType(fmt.Sprintf("%s[key]", path), typ.Elem(), obj, e)
@@ -879,8 +878,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	// if size(key,item)==const - check overflow in one go
 	keySize, keyFixed := typeSizeFixed(typ.Key())
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
-	itemFixed := keyFixed && elemFixed
-	if itemFixed {
+	if keyFixed && elemFixed {
 		d.overflowCheck()
 		d.overflow.AddExpr("l * %v", keySize + elemSize)
 		d.overflow.PushChecked(true)
