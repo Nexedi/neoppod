@@ -48,7 +48,7 @@ can do a good job the work is delegated to it.
 
 --------
 
-TODO also types registry tables
+XXX also types registry tables are generated - document
 
 */
 
@@ -173,7 +173,7 @@ import (
 		}
 	}
 
-	// now packet types registry
+	// now generate packet types registry
 	buf.emit("\n// registry of packet types")
 	buf.emit("var pktTypeRegistry = map[int]reflect.Type {")	// XXX key -> PktCode ?
 
@@ -190,7 +190,7 @@ import (
 
 	buf.emit("}")
 
-	// format & emit generated code
+	// format & output generated code
 	code, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)	// should not happen
@@ -423,7 +423,7 @@ func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 // sizer generates code to compute encoded size of a packet
 //
 // when type is recursively walked, for every case symbolic size is added appropriately.
-// in case when it was needed to generate loops runtime accumulator variable is additionally used.
+// in case when it was needed to generate loops, runtime accumulator variable is additionally used.
 // result is: symbolic size + (optionally) runtime accumulator.
 type sizer struct {
 	commonCodeGen
@@ -436,7 +436,7 @@ type sizer struct {
 // no overflow checks are generated as by NEOEncoder interface provided data
 // buffer should have at least NEOEncodedLen() length (the size computed by sizer).
 //
-// the code emitted is of kind:
+// the code emitted looks like:
 //
 //	encode<typ1>(data[n1:], path1)
 //	encode<typ2>(data[n2:], path2)
@@ -451,11 +451,11 @@ type encoder struct {
 // when type is recursively walked, for every case code to decode next item from
 // `data[n:]` is generated.
 //
-// overflow checks and, when convenient, nread updates are grouped and emitted
-// so that they are performed in the beginning of greedy fixed-wire-size
-// blocks - checking as much as possible to do ahead in one go.
+// overflow checks and nread updates are grouped and emitted so that they are
+// performed in the beginning of greedy fixed-wire-size blocks - checking /
+// updating as much as possible to do ahead in one go.
 //
-// the code emitted is of kind:
+// the code emitted looks like:
 //
 //	if len(data) < wireSize(typ1) + wireSize(typ2) + ... {
 //		goto overflow
@@ -519,8 +519,8 @@ func (e *encoder) generatedCode() string {
 }
 
 // XXX place? naming?
-// data <- data[pos:]
-// pos  <- 0
+// data = data[n:]
+// n    = 0
 func (d *decoder) resetPos() {
 	if d.n != 0 {
 		d.emit("data = data[%v:]", d.n)
@@ -528,18 +528,20 @@ func (d *decoder) resetPos() {
 	}
 }
 
-// mark current place for delayed insertion of overflow check code
+// mark current place for insertion of overflow check code
 //
-// delayed: because we go forward in decode path scanning ahead as far as we
-// can - until first seeing variable-size encoded something, and then - knowing
-// fixed size would be to read - insert checking condition for accumulated size
-// to here-marked overflow checkpoint.
+// The check will be acutally inserted later.
+//
+// later: because first we go forward in decode path scanning ahead as far as
+// we can - until first seeing variable-size encoded something, and then -
+// knowing fixed size would be to read - insert checking condition for
+// accumulated size to here-marked overflow checkpoint.
 //
 // so overflowCheck does:
 // 1. emit overflow checking code for previous overflow checkpoint
 // 2. mark current place as next overflow checkpoint to eventually emit
 //
-// it is inserted
+// it has to be inserted
 // - before reading a variable sized item
 // - in the beginning of a loop inside	(via overflowCheckLoopEntry)
 // - right after loop exit		(via overflowCheckLoopExit)
@@ -559,8 +561,9 @@ func (d *decoder) overflowCheck() {
 		// otherwise accumulate into var(nread) at runtime.
 		// we do not break runtime accumulation into numeric & symbolic
 		// parts, because just above whole expression num + symbolic
-		// was just given to compiler so compiler should have it just computed.
-		// XXX recheck ^^^ actually good with the compiler
+		// was given to compiler as a whole so compiler should have it
+		// just computed fully.
+		// XXX recheck ^^^ is actually good with the compiler
 		if d.overflow.checkSize.IsNumeric() {
 			d.nread += d.overflow.checkSize.num
 		} else {
@@ -574,7 +577,7 @@ func (d *decoder) overflowCheck() {
 	d.buf.Reset()
 }
 
-// overflowCheck variant that should be called at the beginning of a loop inside
+// overflowCheck variant that should be inserted at the beginning of a loop inside
 func (d *decoder) overflowCheckLoopEntry() {
 	if d.overflow.checked {
 		return
@@ -582,13 +585,13 @@ func (d *decoder) overflowCheckLoopEntry() {
 
 	d.overflowCheck()
 
-	// upon entering a loop organize new nread, because what was statically
+	// upon entering a loop organize new nread, because what will be statically
 	// read inside loop should be multiplied by loop len in parent context.
 	d.nreadStk = append(d.nreadStk, d.nread)
 	d.nread = 0
 }
 
-// overflowCheck variant that should be called right after loop exit
+// overflowCheck variant that should be inserted right after loop exit
 func (d *decoder) overflowCheckLoopExit(loopLenExpr string) {
 	if d.overflow.checked {
 		return
@@ -628,6 +631,7 @@ func (d *decoder) generatedCode() string {
 	code.emit("return %v, nil", retexpr)
 
 	// `goto overflow` is not used only for empty structs
+	// NOTE for >0 check actual X in StdSizes{X} does not particularly matter
 	if (&types.StdSizes{8, 8}).Sizeof(d.typ) > 0 {
 		code.emit("\noverflow:")
 		code.emit("return 0, ErrDecodeOverflow")
