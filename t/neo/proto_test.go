@@ -244,6 +244,10 @@ func TestPktMarshal(t *testing.T) {
 		 hex("3fbf9add1091c895"),
 		},
 
+		// TODO we need tests for:
+		// []varsize + trailing
+		// map[]varsize + trailing
+
 
 		// TODO special cases for:
 		// - float64 (+ nan !nan ...)

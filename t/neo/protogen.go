@@ -869,7 +869,12 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 
-	d.overflowCheckPoint()
+	d.overflowCheckPoint()	// -> overflowCheckPointLoopEntry ?
+	var nreadCur int
+	if !d.overflowCheck.checked {	// TODO merge-in into overflow checker
+		nreadCur = d.nread
+		d.nread = 0
+	}
 
 	codegenType("key:", typ.Key(), obj, d)
 
@@ -888,8 +893,15 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.resetPos()
 
 	d.emit("}")
+	d.overflowCheckPoint()	// -> overflowCheckPointLoopExit("l") ?
 
-	// TODO overflowCheckPointLoopExit("l")
+	// merge-in numeric nread updates from loop
+	if !d.overflowCheck.checked {
+		if d.nread != 0 {
+			d.emit("%v += l * %v", d.var_("nread"), d.nread)
+		}
+		d.nread = nreadCur
+	}
 
 	d.emit("}")
 }

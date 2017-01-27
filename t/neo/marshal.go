@@ -231,8 +231,9 @@ func (p *XXXTest) NEODecode(data []byte) (int, error) {
 				data = data[l:]
 			}
 		}
+		nread += l * 8
 	}
-	return 20 + int(nread), nil
+	return 12 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
