@@ -259,20 +259,16 @@ func TestPktMarshal(t *testing.T) {
 	}
 }
 
-// XXX for _all_ packet types:
-// zero-value -> encodedlen -> [encodedlen]byte -> decode (= ok) + check for overflow
-// zero-value.encode([<encodedlen]byte) -> panic
-//
-// same as testPktMarshal but zero-values of _all_ packet types
-// (additional light checks for encode / decode overflow behaviour on all types)
+// For all packet types: same as testPktMarshal but zero-values only
+// this way we additionally lightly check encode / decode overflow behaviour for all types.
 func TestPktMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range pktTypeRegistry {
 		// zero-value for a type
 		pkt := reflect.New(typ).Interface().(NEOCodec)
 		l := pkt.NEOEncodedLen()
 		zerol := make([]byte, l)
-		// this will turn nil slice & map into empty.
-		// we need it so that reflect.DeepEqual works for pkt encode/decode comparision
+		// decoding will turn nil slice & map into empty allocated ones.
+		// we need it so that reflect.DeepEqual works for pkt encode/decode comparison
 		n, err := pkt.NEODecode(zerol)
 		if !(n == l && err == nil) {
 			t.Errorf("%v: zero-decode unexpected: %v, %v  ; want %v, nil", typ, n, err, l)
