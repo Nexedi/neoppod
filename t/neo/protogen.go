@@ -381,10 +381,10 @@ func (s *SymSize) Reset() {
 // decoder overflow check state
 type OverflowCheck struct {
 	// accumulator for size to check at overflow check point
-	size    SymSize
+	checkSize SymSize
 
 	// whether overflow was already checked for current decodings
-	// (if yes, size updates will be ignored)
+	// (if yes, checkSize updates will be ignored)
 	checked bool
 
 	// stack operated by {Push,Pop}Checked
@@ -407,17 +407,17 @@ func (o *OverflowCheck) PopChecked() bool {
 
 
 
-// Add and AddExpr update .size accordingly, but only if overflow was not
+// Add and AddExpr update .checkSize accordingly, but only if overflow was not
 // already marked as checked
 func (o *OverflowCheck) Add(n int) {
 	if !o.checked {
-		o.size.Add(n)
+		o.checkSize.Add(n)
 	}
 }
 
 func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 	if !o.checked {
-		o.size.AddExpr(format, a...)
+		o.checkSize.AddExpr(format, a...)
 	}
 }
 
@@ -473,11 +473,11 @@ type decoder struct {
 	bufDone Buffer
 
 	n     int	// current read position in data.
-	nread int	// numeric part of nread return XXX
+	nread int	// numeric part of total nread return
 
 	// overflow check state and size that will be checked for overflow at
 	// current overflow check point
-	overflowCheck OverflowCheck
+	overflow OverflowCheck
 }
 
 var _ CodeGenerator = (*sizer)(nil)
@@ -530,7 +530,6 @@ func (d *decoder) resetPos() {
 }
 
 // XXX place?
-// XXX naming -> overflowCheck() ?
 // mark current place for delayed insertion of overflow check code
 //
 // delayed: because we go forward in decode path scanning ahead as far as we
@@ -538,7 +537,7 @@ func (d *decoder) resetPos() {
 // fixed size would be to read - insert checking condition for accumulated size
 // to here-marked overflow checkpoint.
 //
-// so overflowCheckPoint does:
+// so overflowCheck does:
 // 1. emit overflow checking code for previous overflow checkpoint
 // 2. mark current place as next overflow checkpoint to eventually emit
 //
@@ -546,15 +545,15 @@ func (d *decoder) resetPos() {
 // - before reading a variable sized item
 // - in the beginning of a loop inside
 // - right after loop exit
-func (d *decoder) overflowCheckPoint() {
+func (d *decoder) overflowCheck() {
 	// nop if we know overflow was already checked
-	if d.overflowCheck.checked {
+	if d.overflow.checked {
 		return
 	}
 
 	//d.bufDone.emit("// overflow check point")
-	if !d.overflowCheck.size.IsZero() {
-		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflowCheck.size)
+	if !d.overflow.checkSize.IsZero() {
+		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflow.checkSize)
 
 		// if size for overflow check was only numeric - just
 		// accumulate it at compile time
@@ -564,14 +563,14 @@ func (d *decoder) overflowCheckPoint() {
 		// parts, because just above whole expression num + symbolic
 		// was just given to compiler so compiler shoud have it just computed.
 		// XXX recheck ^^^ actually good with the compiler
-		if d.overflowCheck.size.IsNumeric() {
-			d.nread += d.overflowCheck.size.num
+		if d.overflow.checkSize.IsNumeric() {
+			d.nread += d.overflow.checkSize.num
 		} else {
-			d.bufDone.emit("%v += %v", d.var_("nread"), &d.overflowCheck.size)
+			d.bufDone.emit("%v += %v", d.var_("nread"), &d.overflow.checkSize)
 		}
 	}
 
-	d.overflowCheck.size.Reset()
+	d.overflow.checkSize.Reset()
 
 	d.bufDone.Write(d.buf.Bytes())
 	d.buf.Reset()
@@ -579,7 +578,7 @@ func (d *decoder) overflowCheckPoint() {
 
 func (d *decoder) generatedCode() string {
 	// flush for last overflow check point
-	d.overflowCheckPoint()
+	d.overflowCheck()
 
 	code := Buffer{}
 	// prologue
@@ -640,7 +639,7 @@ func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Typ
 	d.emit("%s= %s", assignto, decoded)
 
 	d.n += basic.wireSize
-	d.overflowCheck.Add(basic.wireSize)
+	d.overflow.Add(basic.wireSize)
 }
 
 // emit code to size/encode/decode array with sizeof(elem)==1
@@ -658,7 +657,7 @@ func (d *decoder) genArray1(assignto string, typ *types.Array) {
 	typLen := int(typ.Len())
 	d.emit("copy(%v[:], data[%v:%v])", assignto, d.n, d.n + typLen)
 	d.n += typLen
-	d.overflowCheck.Add(typLen)
+	d.overflow.Add(typLen)
 }
 
 // emit code to size/encode/decode string or []byte
@@ -686,8 +685,8 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 
 	d.resetPos()
 
-	d.overflowCheckPoint()
-	d.overflowCheck.AddExpr("l")
+	d.overflowCheck()
+	d.overflow.AddExpr("l")
 
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -764,19 +763,19 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	// if size(item)==const - check overflow in one go
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	if elemFixed {
-		d.overflowCheckPoint()
-		d.overflowCheck.AddExpr("l * %v", elemSize)
-		d.overflowCheck.PushChecked(true)
-		defer d.overflowCheck.PopChecked()
+		d.overflowCheck()
+		d.overflow.AddExpr("l * %v", elemSize)
+		d.overflow.PushChecked(true)
+		defer d.overflow.PopChecked()
 	}
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 	d.emit("a := &%s[i]", assignto)
 
-	d.overflowCheckPoint()	// -> overflowCheckPointLoopEntry ?
+	d.overflowCheck()	// -> overflowCheckLoopEntry ?
 	var nreadCur int
-	if !d.overflowCheck.checked {	// TODO merge-in into overflow checker
+	if !d.overflow.checked {	// TODO merge-in into overflow checker
 		nreadCur = d.nread
 		d.nread = 0
 	}
@@ -786,10 +785,10 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	d.resetPos()
 
 	d.emit("}")
-	d.overflowCheckPoint()	// -> overflowCheckPointLoopExit("l") ?
+	d.overflowCheck()	// -> overflowCheckPointLoopExit("l") ?
 
 	// merge-in numeric nread updates from loop
-	if !d.overflowCheck.checked {
+	if !d.overflow.checked {
 		if d.nread != 0 {
 			d.emit("%v += l * %v", d.var_("nread"), d.nread)
 		}
@@ -863,19 +862,19 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	itemFixed := keyFixed && elemFixed
 	if itemFixed {
-		d.overflowCheckPoint()
-		d.overflowCheck.AddExpr("l * %v", keySize + elemSize)
-		d.overflowCheck.PushChecked(true)
-		defer d.overflowCheck.PopChecked()
+		d.overflowCheck()
+		d.overflow.AddExpr("l * %v", keySize + elemSize)
+		d.overflow.PushChecked(true)
+		defer d.overflow.PopChecked()
 	}
 
 	d.emit("%v= make(%v, l)", assignto, typeName(typ))
 	d.emit("m := %v", assignto)
 	d.emit("for i := 0; uint32(i) < l; i++ {")
 
-	d.overflowCheckPoint()	// -> overflowCheckPointLoopEntry ?
+	d.overflowCheck()	// -> overflowCheckPointLoopEntry ?
 	var nreadCur int
-	if !d.overflowCheck.checked {	// TODO merge-in into overflow checker
+	if !d.overflow.checked {	// TODO merge-in into overflow checker
 		nreadCur = d.nread
 		d.nread = 0
 	}
@@ -897,10 +896,10 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.resetPos()
 
 	d.emit("}")
-	d.overflowCheckPoint()	// -> overflowCheckPointLoopExit("l") ?
+	d.overflowCheck()	// -> overflowCheckPointLoopExit("l") ?
 
 	// merge-in numeric nread updates from loop
-	if !d.overflowCheck.checked {
+	if !d.overflow.checked {
 		if d.nread != 0 {
 			d.emit("%v += l * %v", d.var_("nread"), d.nread)
 		}
