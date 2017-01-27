@@ -122,7 +122,6 @@ func main() {
 	}
 	neoQualifier = types.RelativeTo(neoPkg)
 
-
 	// prologue
 	f := fv[0] // proto.go comes first
 	buf := Buffer{}
@@ -206,11 +205,11 @@ import (
 // info about encode/decode of a basic fixed-size type
 type basicCodec struct {
 	wireSize int
-	encode string
-	decode string
+	encode   string
+	decode   string
 }
 
-var basicTypes = map[types.BasicKind]basicCodec {
+var basicTypes = map[types.BasicKind]basicCodec{
 	// encode: %v %v will be `data[n:]`, value
 	// decode: %v    will be `data[n:]`  (and already made sure data has more enough bytes to read)
 	types.Bool:	{1, "(%v)[0] = bool2byte(%v)", "byte2bool((%v)[0])"},
