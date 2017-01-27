@@ -68,10 +68,6 @@ type NEOCodec interface {
 	NEODecoder
 }
 
-// TODO for _all_ packet types:
-// zero-value -> encodedlen -> [encodedlen]byte -> decode (= ok) + check for overflow
-// zero-value.encode([<encodedlen]byte) -> panic
-
 // test marshalling for one packet type
 func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
@@ -256,5 +252,21 @@ func TestPktMarshal(t *testing.T) {
 
 	for _, tt := range testv {
 		testPktMarshal(t, tt.pkt, tt.encoded)
+	}
+}
+
+// XXX for _all_ packet types:
+// zero-value -> encodedlen -> [encodedlen]byte -> decode (= ok) + check for overflow
+// zero-value.encode([<encodedlen]byte) -> panic
+//
+// same as testPktMarshal but zero-values of _all_ packet types
+// (additional light checks for encode / decode overflow behaviour on all types)
+func TestPktMarshalAllOverflowLightly(t *testing.T) {
+	for _, typ := range pktTypeRegistry {
+		// zero-value for a type
+		pkt := reflect.New(typ).Interface().(NEOCodec)
+		l := pkt.NEOEncodedLen()
+		encoded := strings.Repeat("\x00", l)
+		testPktMarshal(t, pkt, encoded)
 	}
 }

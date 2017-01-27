@@ -132,6 +132,7 @@ func main() {
 package neo
 import (
 	"encoding/binary"
+	"reflect"
 	"sort"
 )
 `)
@@ -176,7 +177,7 @@ import (
 
 	// now packet types registry
 	buf.emit("\n// registry of packet types")
-	buf.emit("var pktTypeRegistry = map[PktCode]reflect.Type {")
+	buf.emit("var pktTypeRegistry = map[int]reflect.Type {")	// XXX key -> PktCode ?
 
 	// ordered by pktCode
 	pktCodeV := []int{}
@@ -186,7 +187,7 @@ import (
 	sort.Ints(pktCodeV)
 
 	for _, pktCode := range pktCodeV {
-		buf.emit("{%v: reflect.TypeOf(&%v{})},", pktCode, pktTypeRegistry[pktCode])
+		buf.emit("%v: reflect.TypeOf(%v{}),", pktCode, pktTypeRegistry[pktCode])
 	}
 
 	buf.emit("}")
