@@ -459,6 +459,9 @@ type encoder struct {
 //
 // the code emitted is of kind:
 //
+//	if len(data) < wireSize(typ1) + wireSize(typ2) + ... {
+//		goto overflow
+//	}
 //	<assignto1> = decode<typ1>(data[n1:])
 //	<assignto2> = decode<typ2>(data[n2:])
 //	...
@@ -527,6 +530,7 @@ func (d *decoder) resetPos() {
 }
 
 // XXX place?
+// XXX naming -> overflowCheck() ?
 // mark current place for delayed insertion of overflow check code
 //
 // delayed: because we go forward in decode path scanning ahead as far as we
