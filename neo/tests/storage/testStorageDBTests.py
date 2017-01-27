@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -103,20 +103,19 @@ class StorageDBTests(NeoUnitTestBase):
 
     def test_15_PTID(self):
         db = self.getDB()
-        self.checkConfigEntry(db.getPTID, db.setPTID, self.getPTID(1))
+        self.checkConfigEntry(db.getPTID, db.setPTID, 1)
 
     def test_getPartitionTable(self):
         db = self.getDB()
-        ptid = self.getPTID(1)
         uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
         cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
-        db.changePartitionTable(ptid, [cell1, cell2], 1)
+        db.changePartitionTable(1, [cell1, cell2], 1)
         result = db.getPartitionTable()
         self.assertEqual(set(result), {cell1, cell2})
 
     def getOIDs(self, count):
-        return map(self.getOID, xrange(count))
+        return map(p64, xrange(count))
 
     def getTIDs(self, count):
         tid_list = [self.getNextTID()]
@@ -198,7 +197,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def test_setPartitionTable(self):
         db = self.getDB()
-        ptid = self.getPTID(1)
+        ptid = 1
         uuid = self.getStorageUUID()
         cell1 = 0, uuid, CellStates.OUT_OF_DATE
         cell2 = 1, uuid, CellStates.UP_TO_DATE
@@ -220,7 +219,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def test_changePartitionTable(self):
         db = self.getDB()
-        ptid = self.getPTID(1)
+        ptid = 1
         uuid = self.getStorageUUID()
         cell1 = 0, uuid, CellStates.OUT_OF_DATE
         cell2 = 1, uuid, CellStates.UP_TO_DATE
@@ -301,7 +300,7 @@ class StorageDBTests(NeoUnitTestBase):
     def test_deleteRange(self):
         np = 4
         self.setNumPartitions(np)
-        t1, t2, t3 = map(self.getOID, (1, 2, 3))
+        t1, t2, t3 = map(p64, (1, 2, 3))
         oid_list = self.getOIDs(np * 2)
         for tid in t1, t2, t3:
             txn, objs = self.getTransaction(oid_list)
@@ -339,7 +338,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getTransaction(tid2, False), None)
 
     def test_getObjectHistory(self):
-        oid = self.getOID(1)
+        oid = p64(1)
         tid1, tid2, tid3 = self.getTIDs(3)
         txn1, objs1 = self.getTransaction([oid])
         txn2, objs2 = self.getTransaction([oid])
@@ -362,7 +361,7 @@ class StorageDBTests(NeoUnitTestBase):
     def _storeTransactions(self, count):
         # use OID generator to know result of tid % N
         tid_list = self.getOIDs(count)
-        oid = self.getOID(1)
+        oid = p64(1)
         for tid in tid_list:
             txn, objs = self.getTransaction([oid])
             self.db.storeTransaction(tid, objs, txn, False)
@@ -446,7 +445,7 @@ class StorageDBTests(NeoUnitTestBase):
         tid3 = self.getNextTID()
         tid4 = self.getNextTID()
         tid5 = self.getNextTID()
-        oid1 = self.getOID(1)
+        oid1 = p64(1)
         foo = db.holdData("3" * 20, 'foo', 0)
         bar = db.holdData("4" * 20, 'bar', 0)
         db.releaseData((foo, bar))

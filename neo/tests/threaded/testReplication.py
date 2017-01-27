@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2016  Nexedi SA
+# Copyright (C) 2012-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -36,7 +36,8 @@ from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64
 from .. import expectedFailure, Patch
-from . import ConnectionFilter, NEOCluster, NEOThreadedTest, predictable_random
+from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
+    predictable_random, with_cluster
 
 # dump log to stderr
 """
@@ -48,19 +49,14 @@ getLogger().setLevel(INFO)
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
     def decorator(wrapped):
         def wrapper(self):
-            upstream = NEOCluster(partitions, **upstream_kw)
-            try:
+            with NEOCluster(partitions, **upstream_kw) as upstream:
                 upstream.start()
-                backup = NEOCluster(partitions, upstream=upstream, **backup_kw)
-                try:
+                with NEOCluster(partitions, upstream=upstream,
+                                **backup_kw) as backup:
                     backup.start()
                     backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                     self.tic()
                     wrapped(self, backup)
-                finally:
-                    backup.stop()
-            finally:
-                upstream.stop()
         return wraps(wrapped)(wrapper)
     return decorator
 
@@ -99,15 +95,18 @@ class ReplicationTests(NEOThreadedTest):
         np = 7
         nr = 2
         check_dict = dict.fromkeys(xrange(np))
-        upstream = NEOCluster(partitions=np, replicas=nr-1, storage_count=3)
-        try:
+        with NEOCluster(partitions=np, replicas=nr-1, storage_count=3
+                        ) as upstream:
             upstream.start()
             importZODB = upstream.importZODB()
             importZODB(3)
-            backup = NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
-                                upstream=upstream)
+            def delaySecondary(conn, packet):
+                if isinstance(packet, Packets.Replicate):
+                    tid, upstream_name, source_dict = packet.decode()
+                    return not upstream_name and all(source_dict.itervalues())
             # U -> B propagation
-            try:
+            with NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
+                            upstream=upstream) as backup:
                 backup.start()
                 # Initialize & catch up.
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
@@ -120,12 +119,9 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(backup.last_tid,   upstream.last_tid)
                 self.assertEqual(np*nr, self.checkBackup(backup))
 
-            # Check that a backup cluster can be restarted.
+                # Check that a backup cluster can be restarted.
             # (U -> B propagation after restart)
-            finally:
                 backup.stop()
-            backup.reset()
-            try:
                 backup.start()
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.BACKINGUP)
@@ -144,7 +140,7 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(np*nr, self.checkBackup(backup))
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.RUNNING)
-            finally:
+
                 backup.stop()
 
             # U -> B propagation with Mb -> Sb' (secondary, Replicate from primary Sb) delayed
@@ -153,16 +149,10 @@ class ReplicationTests(NEOThreadedTest):
             from neo.master import handlers as mhandler
             #dbmanager.X = 1
             #mhandler.X = 1
-            def delaySecondary(conn, packet):
-                if isinstance(packet, Packets.Replicate):
-                    tid, upstream_name, source_dict = packet.decode()
-                    #print 'REPLICATE tid: %r, upstream_name: %r, source_dict: %r' % \
                     #        (tid, upstream_name, source_dict)
                     #return True
                     #return not upstream_name and all(source_dict.itervalues())
                     return upstream_name != ""
-            backup.reset()
-            try:
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
@@ -189,16 +179,13 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(backup.cluster_state, ClusterStates.RUNNING)
                 self.assertEqual(np*nr, self.checkBackup(backup,
                     max_tid=backup.last_tid))
-                self.assertEqual(backup.last_tid,   u_last_tid0)  # truncated after recovery
+
                 self.assertEqual(np*nr, self.checkBackup(backup, max_tid=backup.last_tid))
-            finally:
                 backup.stop()
                 dbmanager.X = 0
                 mhandler.X = 0
 
             # S -> Sb (AddObject) delayed   XXX not only S -> Sb: also Sb -> Sb'
-            backup.reset()
-            try:
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
@@ -206,8 +193,7 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(backup.backup_tid, upstream.last_tid)  # B caught-up with U
                 u_last_tid1 = upstream.last_tid
                 with ConnectionFilter() as f:
-                    f.add(lambda conn, packet: conn.getUUID() is None and
-                        isinstance(packet, Packets.AddObject))
+                    f.delayAddObject(lambda conn: conn.getUUID() is None)
                     while not f.filtered_count:
                         importZODB(1)
                     self.tic()
@@ -222,10 +208,6 @@ class ReplicationTests(NEOThreadedTest):
                     max_tid=backup.last_tid))
                 self.assertEqual(backup.last_tid,   u_last_tid1)  # truncated after recovery
                 self.assertEqual(np*nr, self.checkBackup(backup, max_tid=backup.last_tid))
-            finally:
-                backup.stop()
-        finally:
-            upstream.stop()
 
     @predictable_random()
     def testBackupNodeLost(self):
@@ -251,16 +233,14 @@ class ReplicationTests(NEOThreadedTest):
                 node_list.remove(txn.getNode())
                 node_list[0].getConnection().close()    # disconnect Mb from M
             return orig(txn)
-        upstream = NEOCluster(partitions=np, replicas=0, storage_count=1)
-        try:
+        with NEOCluster(partitions=np, replicas=0, storage_count=1) as upstream:
             upstream.start()
             importZODB = upstream.importZODB(random=random)
             # Do not start with an empty DB so that 'primary_dict' below is not
             # empty on the first iteration.
             importZODB(1)
-            backup = NEOCluster(partitions=np, replicas=2, storage_count=4,
-                                upstream=upstream)
-            try:
+            with NEOCluster(partitions=np, replicas=2, storage_count=4,
+                            upstream=upstream) as backup:
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
@@ -293,10 +273,6 @@ class ReplicationTests(NEOThreadedTest):
                     self.assertEqual(backup.backup_tid, upstream.last_tid)
                     self.assertEqual(backup.last_tid, upstream.last_tid)
                     self.assertEqual(np*3, self.checkBackup(backup))
-            finally:
-                backup.stop()
-        finally:
-            upstream.stop()
 
     @backup_test()
     def testBackupUpstreamMasterDead(self, backup):
@@ -331,8 +307,7 @@ class ReplicationTests(NEOThreadedTest):
     def testBackupUpstreamStorageDead(self, backup):
         upstream = backup.upstream
         with ConnectionFilter() as f:
-            f.add(lambda conn, packet:
-                isinstance(packet, Packets.InvalidateObjects))  # delay M -> Mb
+            f.delayInvalidateObjects()  # delay M -> Mb
             upstream.importZODB()(1)
         count = [0]
         def _connect(orig, conn):
@@ -361,38 +336,29 @@ class ReplicationTests(NEOThreadedTest):
         """
         upstream = backup.upstream
         with upstream.master.filterConnection(upstream.storage) as f:
-            f.add(lambda conn, packet:
-                isinstance(packet, Packets.NotifyUnlockInformation))
+            f.delayNotifyUnlockInformation()
             upstream.importZODB()(1)
             self.tic()
         self.tic()
         # TODO check tids
         self.assertEqual(1, self.checkBackup(backup))
 
-    def testBackupEarlyInvalidation(self):
+    @with_cluster()
+    def testBackupEarlyInvalidation(self, upstream):
         """
-        The backup master must ignore notification before being fully
+        The backup master must ignore notifications before being fully
         initialized.
         """
-        upstream = NEOCluster()
-        try:
-            upstream.start()
-            backup = NEOCluster(upstream=upstream)
-            try:
+        with NEOCluster(upstream=upstream) as backup:
                 backup.start()
                 with ConnectionFilter() as f:
-                    f.add(lambda conn, packet:
-                        isinstance(packet, Packets.AskPartitionTable) and
+                    f.delayAskPartitionTable(lambda conn:
                         isinstance(conn.getHandler(), BackupHandler))
                     backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                     upstream.importZODB()(1)
                     self.tic()
                 self.tic()
-                self.assertTrue(backup.master.isAlive())
-            finally:
-                backup.stop()
-        finally:
-            upstream.stop()
+                self.assertTrue(backup.master.is_alive())
 
     @backup_test()
     def testBackupTid(self, backup):
@@ -408,16 +374,15 @@ class ReplicationTests(NEOThreadedTest):
         self.assertEqual(last_tid, backup.backup_tid)
         backup.stop()
         importZODB(1)
-        backup.reset()
         with ConnectionFilter() as f:
-            f.add(lambda conn, packet:
-                isinstance(packet, Packets.AskFetchTransactions))
+            f.delayAskFetchTransactions()
             backup.start()
             self.assertEqual(last_tid, backup.backup_tid)
         self.tic()
         self.assertEqual(1, self.checkBackup(backup))
 
-    def testSafeTweak(self):
+    @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
+    def testSafeTweak(self, cluster):
         """
         Check that tweak always tries to keep a minimum of (replicas + 1)
         readable cells, otherwise we have less/no redundancy as long as
@@ -426,9 +391,8 @@ class ReplicationTests(NEOThreadedTest):
         def changePartitionTable(orig, *args):
             orig(*args)
             sys.exit()
-        cluster = NEOCluster(partitions=3, replicas=1, storage_count=3)
         s0, s1, s2 = cluster.storage_list
-        try:
+        if 1:
             cluster.start([s0, s1])
             s2.start()
             self.tic()
@@ -441,10 +405,9 @@ class ReplicationTests(NEOThreadedTest):
                 self.tic()
             expectedFailure(self.assertEqual)(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
-        finally:
-            cluster.stop()
 
-    def testReplicationAbortedBySource(self):
+    @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
+    def testReplicationAbortedBySource(self, cluster):
         """
         Check that a feeding node aborts replication when its partition is
         dropped, and that the out-of-date node finishes to replicate from
@@ -469,11 +432,12 @@ class ReplicationTests(NEOThreadedTest):
                 #      default for performance reason
                 orig.im_self.dropPartitions((offset,))
             return orig(ptid, cell_list)
-        np = 3
-        cluster = NEOCluster(partitions=np, replicas=1, storage_count=3)
+        np = cluster.num_partitions
         s0, s1, s2 = cluster.storage_list
         for delayed in Packets.AskFetchTransactions, Packets.AskFetchObjects:
-            try:
+            if cluster.started:
+                cluster.stop(1)
+            if 1:
                 cluster.start([s0])
                 cluster.populate([range(np*2)] * np)
                 s1.start()
@@ -491,20 +455,17 @@ class ReplicationTests(NEOThreadedTest):
                     self.assertEqual(1, connection_filter.filtered_count)
                 self.tic()
                 self.checkPartitionReplicated(s1, s2, offset)
-            finally:
-                cluster.stop()
-            cluster.reset(True)
 
-    def testClientReadingDuringTweak(self):
+    @with_cluster(start_cluster=0, partitions=2, storage_count=2)
+    def testClientReadingDuringTweak(self, cluster):
         # XXX: Currently, the test passes because data of dropped cells are not
         #      deleted while the cluster is operational: this is only done
         #      during the RECOVERING phase. But we'll want to be able to free
         #      disk space without service interruption, and for this the client
         #      may have to retry reading data from the new cells. If s0 deleted
         #      all data for partition 1, the test would fail with a POSKeyError.
-        cluster = NEOCluster(partitions=2, storage_count=2)
         s0, s1 = cluster.storage_list
-        try:
+        if 1:
             cluster.start([s0])
             storage = cluster.getZODBStorage()
             oid = p64(1)
@@ -518,16 +479,13 @@ class ReplicationTests(NEOThreadedTest):
             cluster.neoctl.enableStorageList([s1.uuid])
             cluster.neoctl.tweakPartitionTable()
             with cluster.master.filterConnection(cluster.client) as m2c:
-                m2c.add(lambda conn, packet:
-                    isinstance(packet, Packets.NotifyPartitionChanges))
+                m2c.delayNotifyPartitionChanges()
                 self.tic()
                 self.assertEqual('foo', storage.load(oid)[0])
-        finally:
-            cluster.stop()
 
-    def testResumingReplication(self):
-        cluster = NEOCluster(replicas=1)
-        try:
+    @with_cluster(start_cluster=0, replicas=1)
+    def testResumingReplication(self, cluster):
+        if 1:
             s0, s1 = cluster.storage_list
             cluster.start(storage_list=(s0,))
             t, c = cluster.getTransaction()
@@ -552,10 +510,43 @@ class ReplicationTests(NEOThreadedTest):
             s0.stop()
             cluster.join((s0,))
             t0, t1, t2 = c.db().storage.iterator()
-        finally:
-            cluster.stop()
 
-    def testCheckReplicas(self):
+    @with_cluster(start_cluster=0, replicas=1)
+    def testReplicationBlockedByUnfinished(self, cluster):
+        if 1:
+            s0, s1 = cluster.storage_list
+            cluster.start(storage_list=(s0,))
+            storage = cluster.getZODBStorage()
+            oid = storage.new_oid()
+            tid = None
+            expected = 'UO'
+            for n in 1, 0:
+                # On first iteration, the transaction will block replication
+                # until tpc_finish.
+                # We do a second iteration as a quick check that the cluster
+                # remains functional after such a scenario.
+                txn = transaction.Transaction()
+                storage.tpc_begin(txn)
+                tid = storage.store(oid, tid, 'foo', '', txn)
+                if n:
+                    # Start the outdated storage.
+                    s1.start()
+                    self.tic()
+                    cluster.enableStorageList((s1,))
+                    cluster.neoctl.tweakPartitionTable()
+                self.tic()
+                self.assertPartitionTable(cluster, expected)
+                storage.tpc_vote(txn)
+                self.assertPartitionTable(cluster, expected)
+                tid = storage.tpc_finish(txn)
+                self.tic() # replication resumes and ends
+                expected = 'UU'
+                self.assertPartitionTable(cluster, expected)
+            self.assertEqual(cluster.neoctl.getClusterState(),
+                             ClusterStates.RUNNING)
+
+    @with_cluster(partitions=5, replicas=2, storage_count=3)
+    def testCheckReplicas(self, cluster):
         from neo.storage import checker
         def corrupt(offset):
             s0, s1, s2 = (storage_dict[cell.getUUID()]
@@ -570,14 +561,11 @@ class ReplicationTests(NEOThreadedTest):
               for cell in row[1]
               if cell[1] == CellStates.CORRUPTED]))
             self.assertEqual(expected_state, cluster.neoctl.getClusterState())
-        np = 5
+        np = cluster.num_partitions
         tid_count = np * 3
         corrupt_tid = tid_count // 2
         check_dict = dict.fromkeys(xrange(np))
-        cluster = NEOCluster(partitions=np, replicas=2, storage_count=3)
-        try:
-            checker.CHECK_COUNT = 2
-            cluster.start()
+        with Patch(checker, CHECK_COUNT=2):
             cluster.populate([range(np*2)] * tid_count)
             storage_dict = {x.uuid: x for x in cluster.storage_list}
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
@@ -597,9 +585,6 @@ class ReplicationTests(NEOThreadedTest):
             cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
             self.tic()
             check(ClusterStates.RECOVERING, 4)
-        finally:
-            checker.CHECK_COUNT = CHECK_COUNT
-            cluster.stop()
 
     @backup_test()
     def testBackupReadOnlyAccess(self, backup):
@@ -630,7 +615,7 @@ class ReplicationTests(NEOThreadedTest):
 
                 # commit new data to U
                 txn = transaction.Transaction()
-                txn.note('test transaction %i' % i)
+                txn.note(u'test transaction %s' % i)
                 Z.tpc_begin(txn)
                 oid = Z.new_oid()
                 Z.store(oid, None, '%s-%i' % (oid, i), '', txn)

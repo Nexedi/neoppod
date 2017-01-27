@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015-2016  Nexedi SA
+# Copyright (C) 2015-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -36,12 +36,8 @@ class SSLTests(SSLMixin, test.Test):
     testDeadlockAvoidance = None                            # XXX why this fails?
     testUndoConflict = testUndoConflictDuringStore = None   # XXX why this fails?
 
-    def testAbortConnection(self):
-        for after_handshake in 1, 0:
-            try:
-                conn.reset()
-            except UnboundLocalError:
-                conn = self.getLoopbackConnection()
+    def testAbortConnection(self, after_handshake=1):
+        with self.getLoopbackConnection() as conn:
             conn.ask(Packets.Ping())
             connector = conn.getConnector()
             del connector.connect_limit[connector.addr]
@@ -57,6 +53,9 @@ class SSLTests(SSLMixin, test.Test):
             while fd in conn.em.reader_set:
                 conn.em.poll(1)
             self.assertIs(conn.getConnector(), None)
+
+    def testAbortConnectionBeforeHandshake(self):
+        self.testAbortConnection(0)
 
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL

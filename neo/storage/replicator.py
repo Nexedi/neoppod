@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -92,6 +92,7 @@ class Replicator(object):
 
     def setUnfinishedTIDList(self, max_tid, ttid_list, offset_list):
         """This is a callback from MasterOperationHandler."""
+        assert self.ttid_set.issubset(ttid_list), (self.ttid_set, ttid_list)
         if ttid_list:
             self.ttid_set.update(ttid_list)
             max_ttid = max(ttid_list)

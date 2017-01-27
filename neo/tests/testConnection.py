@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import unittest
 from time import time
-from mock import Mock
+from .mock import Mock
 from neo.lib import connection, logging
 from neo.lib.connection import BaseConnection, ClientConnection, \
     MTClientConnection, CRITICAL_TIMEOUT

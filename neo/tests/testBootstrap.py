@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,7 +18,7 @@ import unittest
 from . import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.lib.bootstrap import BootstrapManager
-from neo.lib.protocol import NodeTypes
+from neo.lib.protocol import NodeTypes, Packets
 
 class BootstrapManagerTests(NeoUnitTestBase):
 
@@ -46,7 +46,7 @@ class BootstrapManagerTests(NeoUnitTestBase):
         conn = self.getFakeConnection(address=address)
         self.bootstrap.current = self.app.nm.createMaster(address=address)
         self.bootstrap.connectionCompleted(conn)
-        self.checkRequestIdentification(conn)
+        self.checkAskPacket(conn, Packets.RequestIdentification)
 
     def testHandleNotReady(self):
         # the primary is not ready

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2016  Nexedi SA
+# Copyright (C) 2014-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,11 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import deque
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
 from itertools import islice, izip_longest
-import os, unittest
+import os, shutil, unittest
 import neo, transaction, ZODB
 from neo.lib import logging
 from neo.lib.util import u64
@@ -129,18 +128,28 @@ class ImporterTests(NEOThreadedTest):
         self.assertDictEqual(state, load())
 
     def test(self):
+        # XXX: Using NEO source files as test data was a bad idea because
+        #      the test breaks easily in case of massive changes in the code,
+        #      or if there are many untracked files.
         importer = []
         fs_dir = os.path.join(getTempDirectory(), self.id())
+        shutil.rmtree(fs_dir, 1) # for --loop
         os.mkdir(fs_dir)
         src_root, = neo.__path__
         fs_list = "root", "client", "master", "tests"
+        def not_pyc(name):
+            return not name.endswith(".pyc")
+        # We use 'hash' to skip roughly half of files.
+        # They'll be added after the migration has started.
         def root_filter(name):
-            if not name.endswith(".pyc"):
+            if not_pyc(name):
                 i = name.find(os.sep)
-                return i < 0 or name[:i] not in fs_list
+                return (i < 0 or name[:i] not in fs_list) and (
+                    '.' not in name or hash(name) & 1)
         def sub_filter(name):
-            return lambda n: n[-4:] != '.pyc' and \
-                n.split(os.sep, 1)[0] in (name, "scripts")
+            return lambda n: not_pyc(n) and (
+                hash(n) & 1 if '.' in n else
+                os.sep in n or n in (name, "scripts"))
         conn_list = []
         iter_list = []
         # Setup several FileStorage databases.
@@ -172,8 +181,7 @@ class ImporterTests(NEOThreadedTest):
             c.db().close()
         #del importer[0][1][importer.pop()[0]]
         # Start NEO cluster with transparent import of a multi-base ZODB.
-        cluster = NEOCluster(compress=False, importer=importer)
-        try:
+        with NEOCluster(compress=False, importer=importer) as cluster:
             # Suspend import for a while, so that import
             # is finished in the middle of the below 'for' loop.
             # Use a slightly different main loop for storage so that it
@@ -193,7 +201,7 @@ class ImporterTests(NEOThreadedTest):
             cluster.start()
             t, c = cluster.getTransaction()
             r = c.root()["neo"]
-            # Test retrieving of an object from ZODB when next serial in NEO.
+            # Test retrieving of an object from ZODB when next serial is in NEO.
             r._p_changed = 1
             t.commit()
             t.begin()
@@ -204,24 +212,25 @@ class ImporterTests(NEOThreadedTest):
             self.assertRaisesRegexp(NotImplementedError, " getObjectHistory$",
                                     c.db().history, r._p_oid)
             i = r.walk()
-            next(islice(i, 9, None))
+            next(islice(i, 4, None))
             logging.info("start migration")
             dm.doOperation(cluster.storage)
-            deque(i, maxlen=0)
-            last_import = None
-            for i, r in enumerate(r.treeFromFs(src_root, 10)):
+            # Adjust if needed. Must remain > 0.
+            assert 14 == sum(1 for i in i)
+            last_import = -1
+            for i, r in enumerate(r.treeFromFs(src_root, 6, not_pyc)):
                 t.commit()
                 if cluster.storage.dm._import:
                     last_import = i
             self.tic()
-            self.assertTrue(last_import and not cluster.storage.dm._import)
+            # Same as above. We want last_import smaller enough compared to i
+            assert i / 3 < last_import < i - 2, (last_import, i)
+            self.assertFalse(cluster.storage.dm._import)
             i = len(src_root) + 1
             self.assertEqual(sorted(r.walk()), sorted(
-                (x[i:] or '.', sorted(y), sorted(z))
+                (x[i:] or '.', sorted(y), sorted(filter(not_pyc, z)))
                 for x, y, z in os.walk(src_root)))
             t.commit()
-        finally:
-            cluster.stop()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,8 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
+from ..mock import Mock
 from .. import NeoUnitTestBase
+from neo.lib.util import p64
 from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
@@ -62,6 +63,9 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         )
         return uuid
 
+    def checkAnswerBeginTransaction(self, conn):
+        return self.checkAnswerPacket(conn, Packets.AnswerBeginTransaction)
+
     # Tests
     def test_07_askBeginTransaction(self):
         tid1 = self.getNextTID()
@@ -87,12 +91,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         calls = tm.mockGetNamedCalls('begin')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(client_node, None)
-        args = self.checkAnswerBeginTransaction(conn, decode=True)
-        self.assertEqual(args, (tid1, ))
+        packet = self.checkAnswerBeginTransaction(conn)
+        self.assertEqual(packet.decode(), (tid1, ))
 
     def test_08_askNewOIDs(self):
         service = self.service
-        oid1, oid2 = self.getOID(1), self.getOID(2)
+        oid1, oid2 = p64(1), p64(2)
         self.app.tm.setLastOID(oid1)
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
@@ -136,7 +140,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.app.setStorageReady(storage_uuid)
         self.assertTrue(self.app.isStorageReady(storage_uuid))
         service.askFinishTransaction(conn, ttid, (), ())
-        self.checkAskLockInformation(storage_conn)
+        self.checkAskPacket(storage_conn, Packets.AskLockInformation)
         self.assertEqual(len(self.app.tm.registerForNotification(storage_uuid)), 1)
         txn = self.app.tm[ttid]
         pending_ttid = list(self.app.tm.registerForNotification(storage_uuid))[0]
@@ -170,8 +174,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(conn)
-        ptid = self.checkAskPacket(storage_conn, Packets.AskPack,
-            decode=True)[0]
+        ptid = self.checkAskPacket(storage_conn, Packets.AskPack).decode()[0]
         self.assertEqual(ptid, tid)
         self.assertTrue(self.app.packing[0] is conn)
         self.assertEqual(self.app.packing[1], peer_id)
@@ -183,8 +186,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         self.service.askPack(conn, tid)
         self.checkNoPacketSent(storage_conn)
-        status = self.checkAnswerPacket(conn, Packets.AnswerPack,
-            decode=True)[0]
+        status = self.checkAnswerPacket(conn, Packets.AnswerPack).decode()[0]
         self.assertFalse(status)
 
 if __name__ == '__main__':

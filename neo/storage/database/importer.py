@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2016  Nexedi SA
+# Copyright (C) 2014-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -281,7 +281,6 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
-        self.db._connect()
         implements(self, """_getNextTID checkSerialRange checkTIDRange
             deleteObject deleteTransaction dropPartitions getLastTID
             getReplicationObjectList getTIDList nonempty""".split())
@@ -305,9 +304,12 @@ class ImporterDatabaseManager(DatabaseManager):
                     getPartitionTable changePartitionTable
                     getUnfinishedTIDDict dropUnfinishedData abortTransaction
                     storeTransaction lockTransaction unlockTransaction
-                    storeData _pruneData deferCommit
+                    storeData getOrphanList _pruneData deferCommit
                  """.split():
             setattr(self, x, getattr(self.db, x))
+
+    def _connect(self):
+        pass
 
     def commit(self):
         self.db.commit()

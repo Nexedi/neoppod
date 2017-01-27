@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,6 +16,7 @@
 
 import unittest
 from .. import NeoUnitTestBase
+from neo.lib.protocol import Packets
 from neo.master.app import Application
 
 class MasterAppTests(NeoUnitTestBase):
@@ -30,6 +31,9 @@ class MasterAppTests(NeoUnitTestBase):
     def _tearDown(self, success):
         self.app.close()
         NeoUnitTestBase._tearDown(self, success)
+
+    def checkNotifyNodeInformation(self, conn):
+        return self.checkNotifyPacket(conn, Packets.NotifyNodeInformation)
 
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send

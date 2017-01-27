@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -267,8 +267,8 @@ class ClientTests(NEOFunctionalTest):
             db2, conn2 = self.neo.getZODBConnection()
             st1, st2 = conn1._storage, conn2._storage
             t1, t2 = transaction.Transaction(), transaction.Transaction()
-            t1.user = t2.user = 'user'
-            t1.description = t2.description = 'desc'
+            t1.user = t2.user = u'user'
+            t1.description = t2.description = u'desc'
             oid = st1.new_oid()
             rev = '\0' * 8
             data = zodb_pickle(PObject())
@@ -311,8 +311,8 @@ class ClientTests(NEOFunctionalTest):
             db2, conn2 = self.neo.getZODBConnection()
             st1, st2 = conn1._storage, conn2._storage
             t1, t2 = transaction.Transaction(), transaction.Transaction()
-            t1.user = t2.user = 'user'
-            t1.description = t2.description = 'desc'
+            t1.user = t2.user = u'user'
+            t1.description = t2.description = u'desc'
             oid = st1.new_oid()
             rev = '\0' * 8
             data = zodb_pickle(PObject())
@@ -330,8 +330,8 @@ class ClientTests(NEOFunctionalTest):
             db3, conn3 = self.neo.getZODBConnection()
             st3 = conn3._storage
             t3 = transaction.Transaction()
-            t3.user = 'user'
-            t3.description = 'desc'
+            t3.user = u'user'
+            t3.description = u'desc'
             st3.tpc_begin(t3)
             # retrieve the last revision
             data, serial = st3.load(oid)

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011-2016  Nexedi SA
+# Copyright (C) 2011-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,6 +17,7 @@
 import os
 import sys
 import threading
+import time
 import transaction
 import unittest
 from thread import get_ident
@@ -32,7 +33,7 @@ from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID
 from .. import expectedFailure, Patch
-from . import LockLock, NEOCluster, NEOThreadedTest
+from . import LockLock, NEOThreadedTest, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -53,10 +54,9 @@ class PCounterWithResolution(PCounter):
 
 class Test(NEOThreadedTest):
 
-    def testBasicStore(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testBasicStore(self, cluster):
+        if 1:
             storage = cluster.getZODBStorage()
             data_info = {}
             compressible = 'x' * 20
@@ -106,13 +106,10 @@ class Test(NEOThreadedTest):
             if big:
                 self.assertFalse(cluster.storage.sqlCount('bigdata'))
             self.assertFalse(cluster.storage.sqlCount('data'))
-        finally:
-            cluster.stop()
 
-    def testDeleteObject(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testDeleteObject(self, cluster):
+        if 1:
             storage = cluster.getZODBStorage()
             for clear_cache in 0, 1:
                 for tst in 'a.', 'bcd.':
@@ -131,13 +128,10 @@ class Test(NEOThreadedTest):
                             storage._cache.clear()
                     self.assertRaises(POSException.POSKeyError,
                         storage.load, oid, '')
-        finally:
-            cluster.stop()
 
-    def testCreationUndoneHistory(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testCreationUndoneHistory(self, cluster):
+        if 1:
             storage = cluster.getZODBStorage()
             oid = storage.new_oid()
             txn = transaction.Transaction()
@@ -155,18 +149,15 @@ class Test(NEOThreadedTest):
             for x in storage.history(oid, 10):
                 self.assertEqual((x['tid'], x['size']), expected.pop())
             self.assertFalse(expected)
-        finally:
-            cluster.stop()
 
-    def testUndoConflict(self, conflict_during_store=False):
+    @with_cluster()
+    def testUndoConflict(self, cluster, conflict_during_store=False):
         def waitResponses(orig, *args):
             orig(*args)
             p.revert()
             ob.value += 3
             t.commit()
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()[0] = ob = PCounterWithResolution()
             t.commit()
@@ -186,17 +177,14 @@ class Test(NEOThreadedTest):
             undo.tpc_finish(txn)
             t.begin()
             self.assertEqual(ob.value, 3)
-        finally:
-            cluster.stop()
 
     @expectedFailure(POSException.ConflictError)    # TODO recheck
     def testUndoConflictDuringStore(self):
         self.testUndoConflict(True)
 
-    def testStorageDataLock(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testStorageDataLock(self, cluster):
+        if 1:
             storage = cluster.getZODBStorage()
             data_info = {}
 
@@ -211,15 +199,21 @@ class Test(NEOThreadedTest):
             data_info[key] = 0
             storage.sync()
 
-            txn = [transaction.Transaction() for x in xrange(3)]
+            txn = [transaction.Transaction() for x in xrange(4)]
             for t in txn:
                 storage.tpc_begin(t)
-                storage.store(tid and oid or storage.new_oid(),
+                storage.store(oid if tid else storage.new_oid(),
                               tid, data, '', t)
                 tid = None
+            data_info[key] = 4
+            storage.sync()
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
+
+            storage.tpc_abort(txn.pop())
             for t in txn:
                 storage.tpc_vote(t)
-            data_info[key] = 3
+            storage.sync()
+            data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn[1])
@@ -236,13 +230,10 @@ class Test(NEOThreadedTest):
             storage.sync()
             data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
-        finally:
-            cluster.stop()
 
-    def testDelayedUnlockInformation(self):
+    @with_cluster(storage_count=1)
+    def testDelayedUnlockInformation(self, cluster):
         except_list = []
-        def delayUnlockInformation(conn, packet):
-            return isinstance(packet, Packets.NotifyUnlockInformation)
         def onStoreObject(orig, tm, ttid, serial, oid, *args):
             if oid == resume_oid and delayUnlockInformation in m2s:
                 m2s.remove(delayUnlockInformation)
@@ -251,25 +242,22 @@ class Test(NEOThreadedTest):
             except Exception, e:
                 except_list.append(e.__class__)
                 raise
-        cluster = NEOCluster(storage_count=1)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()[0] = ob = PCounter()
             with cluster.master.filterConnection(cluster.storage) as m2s:
                 resume_oid = None
-                m2s.add(delayUnlockInformation,
+                delayUnlockInformation = m2s.delayNotifyUnlockInformation(
                     Patch(TransactionManager, storeObject=onStoreObject))
                 t.commit()
                 resume_oid = ob._p_oid
                 ob._p_changed = 1
                 t.commit()
-                self.assertFalse(delayUnlockInformation in m2s)
-        finally:
-            cluster.stop()
+                self.assertNotIn(delayUnlockInformation, m2s)
         self.assertEqual(except_list, [DelayedError])
 
-    def _testDeadlockAvoidance(self, scenario):
+    @with_cluster(storage_count=2, replicas=1)
+    def _testDeadlockAvoidance(self, cluster, scenario):
         except_list = []
         delay = threading.Event(), threading.Event()
         ident = get_ident()
@@ -301,9 +289,7 @@ class Test(NEOThreadedTest):
                     delay[c2].clear()
                     delay[1-c2].set()
 
-        cluster = NEOCluster(storage_count=2, replicas=1)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()[0] = ob = PCounterWithResolution()
             t.commit()
@@ -326,8 +312,6 @@ class Test(NEOThreadedTest):
             t2.begin()
             self.assertEqual(o1.value, 3)
             self.assertEqual(o2.value, 3)
-        finally:
-            cluster.stop()
         return except_list
 
     def testDelayedStore(self):
@@ -349,11 +333,10 @@ class Test(NEOThreadedTest):
         self.assertEqual(self._testDeadlockAvoidance([1, 3]),
             [DelayedError, ConflictError, "???" ])
 
-    def testConflictResolutionTriggered2(self):
+    @with_cluster()
+    def testConflictResolutionTriggered2(self, cluster):
         """ Check that conflict resolution works """
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             # create the initial object
             t, c = cluster.getTransaction()
             c.root()['with_resolution'] = ob = PCounterWithResolution()
@@ -384,7 +367,7 @@ class Test(NEOThreadedTest):
             tid1 = o1._p_serial
 
             resolved = []
-            last = (t2.get(), t3.get()).index
+            last = lambda txn: txn._extension['last'] # BBB
             def _handleConflicts(orig, txn_context, *args):
                 resolved.append(last(txn_context['txn']))
                 return orig(txn_context, *args)
@@ -395,7 +378,8 @@ class Test(NEOThreadedTest):
                 with LockLock() as l3, Patch(cluster.client, tpc_vote=tpc_vote):
                     with LockLock() as l2:
                         tt = []
-                        for t, l in (t2, l2), (t3, l3):
+                        for i, t, l in (0, t2, l2), (1, t3, l3):
+                            t.get().setExtendedInfo('last', i)
                             tt.append(self.newThread(t.commit))
                             l()
                     tt.pop(0).join()
@@ -421,15 +405,45 @@ class Test(NEOThreadedTest):
             # check history
             self.assertEqual([x['tid'] for x in c1.db().history(oid, size=10)],
                              [tid3, tid2, tid1, tid0])
-        finally:
-            cluster.stop()
 
-    def test_notifyNodeInformation(self):
+    @with_cluster()
+    def testDelayedLoad(self, cluster):
+        """
+        Check that a storage node delays reads from the database,
+        when the requested data may still be in a temporary place.
+        """
+        l = threading.Lock()
+        l.acquire()
+        idle = []
+        def askObject(orig, *args):
+            orig(*args)
+            idle.append(cluster.storage.em.isIdle())
+            l.release()
+        if 1:
+            t, c = cluster.getTransaction()
+            r = c.root()
+            r[''] = ''
+            with Patch(ClientOperationHandler, askObject=askObject):
+                with cluster.master.filterConnection(cluster.storage) as m2s:
+                    m2s.delayNotifyUnlockInformation()
+                    t.commit()
+                    c.cacheMinimize()
+                    cluster.client._cache.clear()
+                    load = self.newThread(r._p_activate)
+                    l.acquire()
+                l.acquire()
+                # The request from the client is processed again
+                # (upon reception on unlock notification from the master),
+                # once exactly, and now with success.
+            load.join()
+            self.assertEqual(idle, [1, 0])
+            self.assertIn('', r)
+
+    @with_cluster(replicas=1)
+    def test_notifyNodeInformation(self, cluster):
         # translated from MasterNotificationsHandlerTests
         # (neo.tests.client.testMasterHandler)
-        cluster = NEOCluster(replicas=1)
-        try:
-            cluster.start()
+        if 1:
             cluster.db # open DB
             s0, s1 = cluster.client.nm.getStorageList()
             conn = s0.getConnection()
@@ -444,27 +458,21 @@ class Test(NEOThreadedTest):
             #      was called (even if it's useless in this case),
             #      but we would need an API to do that easily.
             self.assertFalse(cluster.client.dispatcher.registered(conn))
-        finally:
-            cluster.stop()
 
-    def testRestartWithMissingStorage(self):
+    @with_cluster(replicas=1, partitions=10)
+    def testRestartWithMissingStorage(self, cluster):
         # translated from neo.tests.functional.testStorage.StorageTest
-        cluster = NEOCluster(replicas=1, partitions=10)
         s1, s2 = cluster.storage_list
-        try:
-            cluster.start()
+        if 1:
             self.assertEqual([], cluster.getOutdatedCells())
-        finally:
-            cluster.stop()
+        cluster.stop()
         # restart it with one storage only
-        cluster.reset()
-        try:
+        if 1:
             cluster.start(storage_list=(s1,))
             self.assertEqual(NodeStates.UNKNOWN, cluster.getNodeState(s2))
-        finally:
-            cluster.stop()
 
-    def testRestartStoragesWithReplicas(self):
+    @with_cluster(storage_count=2, partitions=2, replicas=1)
+    def testRestartStoragesWithReplicas(self, cluster):
         """
         Check that the master must discard its partition table when the
         cluster is not operational anymore. Which means that it must go back
@@ -480,8 +488,7 @@ class Test(NEOThreadedTest):
             orig()
         def stop():
             with cluster.master.filterConnection(s0) as m2s0:
-                m2s0.add(lambda conn, packet:
-                    isinstance(packet, Packets.NotifyPartitionChanges))
+                m2s0.delayNotifyPartitionChanges()
                 s1.stop()
                 cluster.join((s1,))
                 self.assertEqual(getClusterState(), ClusterStates.RUNNING)
@@ -492,9 +499,7 @@ class Test(NEOThreadedTest):
             self.assertNotEqual(getClusterState(), ClusterStates.RUNNING)
             s0.resetNode()
             s1.resetNode()
-        cluster = NEOCluster(storage_count=2, partitions=2, replicas=1)
-        try:
-            cluster.start()
+        if 1:
             s0, s1 = cluster.storage_list
             getClusterState = cluster.neoctl.getClusterState
             if 1:
@@ -517,13 +522,10 @@ class Test(NEOThreadedTest):
                 self.assertEqual(getClusterState(), ClusterStates.RUNNING)
                 self.assertEqual(cluster.getOutdatedCells(),
                                 [(0, s0.uuid), (1, s0.uuid)])
-        finally:
-            cluster.stop()
 
-    def testVerificationCommitUnfinishedTransactions(self):
+    @with_cluster(partitions=2, storage_count=2)
+    def testVerificationCommitUnfinishedTransactions(self, cluster):
         """ Verification step should commit locked transactions """
-        def delayUnlockInformation(conn, packet):
-            return isinstance(packet, Packets.NotifyUnlockInformation)
         def onLockTransaction(storage, die=False):
             def lock(orig, *args, **kw):
                 if die:
@@ -531,9 +533,7 @@ class Test(NEOThreadedTest):
                 orig(*args, **kw)
                 storage.master_conn.close()
             return Patch(storage.tm, lock=lock)
-        cluster = NEOCluster(partitions=2, storage_count=2)
-        try:
-            cluster.start()
+        if 1:
             s0, s1 = cluster.sortStorageList()
             t, c = cluster.getTransaction()
             r = c.root()
@@ -564,7 +564,7 @@ class Test(NEOThreadedTest):
                 self.assertEqual([u64(o._p_oid) for o in (r, x, y)], range(3))
                 r[2] = 'ok'
                 with cluster.master.filterConnection(s0) as m2s:
-                    m2s.add(delayUnlockInformation)
+                    m2s.delayNotifyUnlockInformation()
                     t.commit()
                     x.value = 1
                     # s0 will accept to store y (because it's not locked) but will
@@ -574,9 +574,7 @@ class Test(NEOThreadedTest):
                     di0 = s0.getDataLockInfo()
                     with onLockTransaction(s1, die=True):
                         self.commitWithStorageFailure(cluster.client, t)
-        finally:
-            cluster.stop()
-        cluster.reset()
+        cluster.stop()
         (k, v), = set(s0.getDataLockInfo().iteritems()
                       ).difference(di0.iteritems())
         self.assertEqual(v, 1)
@@ -587,7 +585,7 @@ class Test(NEOThreadedTest):
         k, = (k for k, v in di1.iteritems() if v == 1)
         del di1[k] # x.value = 1
         self.assertEqual(di1.values(), [0])
-        try:
+        if 1:
             cluster.start()
             t, c = cluster.getTransaction()
             r = c.root()
@@ -596,19 +594,16 @@ class Test(NEOThreadedTest):
             self.assertEqual(r[2], 'ok')
             self.assertEqual(di0, s0.getDataLockInfo())
             self.assertEqual(di1, s1.getDataLockInfo())
-        finally:
-            cluster.stop()
 
-    def testVerificationWithNodesWithoutReadableCells(self):
+    @with_cluster(replicas=1)
+    def testVerificationWithNodesWithoutReadableCells(self, cluster):
         def onLockTransaction(storage, die_after):
             def lock(orig, *args, **kw):
                 if die_after:
                     orig(*args, **kw)
                 sys.exit()
             return Patch(storage.tm, lock=lock)
-        cluster = NEOCluster(replicas=1)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()[0] = None
             s0, s1 = cluster.storage_list
@@ -634,10 +629,9 @@ class Test(NEOThreadedTest):
             self.assertEqual(sorted(c.root()), [1])
             self.tic()
             t0, t1 = c.db().storage.iterator()
-        finally:
-            cluster.stop()
 
-    def testDropUnfinishedData(self):
+    @with_cluster(partitions=2, storage_count=2, replicas=1)
+    def testDropUnfinishedData(self, cluster):
         def lock(orig, *args, **kw):
             orig(*args, **kw)
             storage.master_conn.close()
@@ -646,9 +640,7 @@ class Test(NEOThreadedTest):
             r.append(len(orig.__self__.getUnfinishedTIDDict()))
             orig()
             r.append(len(orig.__self__.getUnfinishedTIDDict()))
-        cluster = NEOCluster(partitions=2, storage_count=2, replicas=1)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()._p_changed = 1
             storage = cluster.storage_list[0]
@@ -657,13 +649,10 @@ class Test(NEOThreadedTest):
                 t.commit()
                 self.tic()
             self.assertEqual(r, [1, 0])
-        finally:
-            cluster.stop()
 
-    def testStorageUpgrade1(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testStorageUpgrade1(self, cluster):
+        if 1:
             storage = cluster.storage
             t, c = cluster.getTransaction()
             storage.dm.setConfiguration("version", None)
@@ -680,42 +669,32 @@ class Test(NEOThreadedTest):
             with Patch(storage.tm, lock=lambda *_: sys.exit()):
                 self.commitWithStorageFailure(cluster.client, t)
             self.assertRaises(DatabaseFailure, storage.resetNode)
-        finally:
-            cluster.stop()
 
-    def testStorageReconnectDuringStore(self):
-        cluster = NEOCluster(replicas=1)
-        try:
-            cluster.start()
+    @with_cluster(replicas=1)
+    def testStorageReconnectDuringStore(self, cluster):
+        if 1:
             t, c = cluster.getTransaction()
             c.root()[0] = 'ok'
             cluster.client.cp.closeAll()
             t.commit() # store request
-        finally:
-            cluster.stop()
 
-    def testStorageReconnectDuringTransactionLog(self):
-        cluster = NEOCluster(storage_count=2, partitions=2)
-        try:
-            cluster.start()
+    @with_cluster(storage_count=2, partitions=2)
+    def testStorageReconnectDuringTransactionLog(self, cluster):
+        if 1:
             t, c = cluster.getTransaction()
             cluster.client.cp.closeAll()
             tid, (t1,) = cluster.client.transactionLog(
                 ZERO_TID, c.db().lastTransaction(), 10)
-        finally:
-            cluster.stop()
 
-    def testStorageReconnectDuringUndoLog(self):
-        cluster = NEOCluster(storage_count=2, partitions=2)
-        try:
-            cluster.start()
+    @with_cluster(storage_count=2, partitions=2)
+    def testStorageReconnectDuringUndoLog(self, cluster):
+        if 1:
             t, c = cluster.getTransaction()
             cluster.client.cp.closeAll()
             t1, = cluster.client.undoLog(0, 10)
-        finally:
-            cluster.stop()
 
-    def testDropNodeThenRestartCluster(self):
+    @with_cluster(storage_count=2, replicas=1)
+    def testDropNodeThenRestartCluster(self, cluster):
         """ Start a cluster with more than one storage, down one, shutdown the
         cluster then restart it. The partition table recovered must not include
         the dropped node """
@@ -724,10 +703,8 @@ class Test(NEOThreadedTest):
             self.assertEqual(cluster.getNodeState(s2), NodeStates.RUNNING)
 
         # start with two storage / one replica
-        cluster = NEOCluster(storage_count=2, replicas=1)
         s1, s2 = cluster.storage_list
-        try:
-            cluster.start()
+        if 1:
             checkNodeState(NodeStates.RUNNING)
             self.assertEqual([], cluster.getOutdatedCells())
             # drop one
@@ -737,39 +714,29 @@ class Test(NEOThreadedTest):
             checkNodeState(None)
             self.assertEqual([], cluster.getOutdatedCells())
             # restart with s2 only
-        finally:
-            cluster.stop()
-        cluster.reset()
-        try:
+        cluster.stop()
+        if 1:
             cluster.start(storage_list=[s2])
             checkNodeState(None)
             # then restart it, it must be in pending state
             s1.start()
             self.tic()
             checkNodeState(NodeStates.PENDING)
-        finally:
-            cluster.stop()
 
-    def test2Clusters(self):    # NOTE
-        cluster1 = NEOCluster()
-        cluster2 = NEOCluster()
-        try:
-            cluster1.start()
-            cluster2.start()
+    @with_cluster()
+    @with_cluster()
+    def test2Clusters(self, cluster1, cluster2):    # NOTE
+        if 1:
             t1, c1 = cluster1.getTransaction()
             t2, c2 = cluster2.getTransaction()
             c1.root()['1'] = c2.root()['2'] = ''
             t1.commit()
             t2.commit()
-        finally:
-            cluster1.stop()
-            cluster2.stop()
 
-    def testAbortStorage(self):
-        cluster = NEOCluster(partitions=2, storage_count=2)
+    @with_cluster(partitions=2, storage_count=2)
+    def testAbortStorage(self, cluster):
         storage = cluster.storage_list[0]
-        try:
-            cluster.start()
+        if 1:
             # prevent storage to reconnect, in order to easily test
             # that cluster becomes non-operational
             with Patch(storage, connectToPrimary=sys.exit):
@@ -783,17 +750,13 @@ class Test(NEOThreadedTest):
             self.tic()
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
-        finally:
-            cluster.stop()
 
-    def testShutdown(self):
-        # BUG: Due to bugs in election, master nodes sometimes crash, or they   # <- NOTE
+    @with_cluster(master_count=3, partitions=10, replicas=1, storage_count=3)
+    def testShutdown(self, cluster):
+        # NOTE vvv
         #      declare themselves primary too quickly. The consequence is
         #      often an endless tic loop.
-        cluster = NEOCluster(master_count=3, partitions=10,
-                             replicas=1, storage_count=3)
-        try:
-            cluster.start()
+        if 1:
             # fill DB a little
             t, c = cluster.getTransaction()
             c.root()[''] = ''
@@ -804,9 +767,7 @@ class Test(NEOThreadedTest):
             cluster.join(cluster.master_list
                        + cluster.storage_list
                        + cluster.admin_list)
-        finally:
-            cluster.stop()
-        cluster.reset() # reopen DB to check partition tables
+        cluster.stop() # stop and reopen DB to check partition tables
         dm = cluster.storage_list[0].dm
         self.assertEqual(1, dm.getPTID())
         pt = list(dm.getPartitionTable())
@@ -817,14 +778,13 @@ class Test(NEOThreadedTest):
             self.assertEqual(s.dm.getPTID(), 1)
             self.assertEqual(list(s.dm.getPartitionTable()), pt)
 
-    def testInternalInvalidation(self):
+    @with_cluster()
+    def testInternalInvalidation(self, cluster):
         def _handlePacket(orig, conn, packet, kw={}, handler=None):
             if type(packet) is Packets.AnswerTransactionFinished:
                 ll()
             orig(conn, packet, kw, handler)
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             t1, c1 = cluster.getTransaction()
             c1.root()['x'] = x1 = PCounter()
             t1.commit()
@@ -839,36 +799,31 @@ class Test(NEOThreadedTest):
                 t2.begin()
             t.join()
             self.assertEqual(x2.value, 1)
-        finally:
-            cluster.stop()
 
-    def testExternalInvalidation(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testExternalInvalidation(self, cluster):
+        # Initialize objects
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x1 = PCounter()
+        c1.root()['y'] = y = PCounter()
+        y.value = 1
+        t1.commit()
+        # Get pickle of y
+        t1.begin()
+        x = c1._storage.load(x1._p_oid)[0]
+        y = c1._storage.load(y._p_oid)[0]
+        # Start the testing transaction
+        # (at this time, we still have x=0 and y=1)
+        t2, c2 = cluster.getTransaction()
+        # Copy y to x using a different Master-Client connection
+        with cluster.newClient() as client:
             cache = cluster.client._cache
-            # Initialize objects
-            t1, c1 = cluster.getTransaction()
-            c1.root()['x'] = x1 = PCounter()
-            c1.root()['y'] = y = PCounter()
-            y.value = 1
-            t1.commit()
-            # Get pickle of y
-            t1.begin()
-            x = c1._storage.load(x1._p_oid)[0]
-            y = c1._storage.load(y._p_oid)[0]
-            # Start the testing transaction
-            # (at this time, we still have x=0 and y=1)
-            t2, c2 = cluster.getTransaction()
-            # Copy y to x using a different Master-Client connection
-            client = cluster.newClient()
             txn = transaction.Transaction()
             client.tpc_begin(txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
             # Delay invalidation for x
             with cluster.master.filterConnection(cluster.client) as m2c:
-                m2c.add(lambda conn, packet:
-                    isinstance(packet, Packets.InvalidateObjects))
+                m2c.delayInvalidateObjects()
                 tid = client.tpc_finish(txn, None)
                 # Change to x is committed. Testing connection must ask the
                 # storage node to return original value of x, even if we
@@ -940,22 +895,15 @@ class Test(NEOThreadedTest):
             self.assertFalse(invalidations(c1))
             self.assertEqual(x1.value, 1)
 
-        finally:
-            cluster.stop()
-
-    def testReadVerifyingStorage(self):
-        cluster = NEOCluster(storage_count=2, partitions=2)
-        try:
-            cluster.start()
+    @with_cluster(storage_count=2, partitions=2)
+    def testReadVerifyingStorage(self, cluster):
+        if 1:
             t1, c1 = cluster.getTransaction()
             c1.root()['x'] = x = PCounter()
             t1.commit()
             # We need a second client for external invalidations.
-            t2 = transaction.TransactionManager()
-            db = DB(storage=cluster.getZODBStorage(client=cluster.newClient()))
-            try:
-                c2 = db.open(t2)
-                t2.begin()
+            with cluster.newClient(1) as db:
+                t2, c2 = cluster.getTransaction(db)
                 r = c2.root()
                 r['y'] = None
                 r['x']._p_activate()
@@ -968,8 +916,6 @@ class Test(NEOThreadedTest):
                     t2.commit()
                 for storage in cluster.storage_list:
                     self.assertFalse(storage.tm._transaction_dict)
-            finally:
-                db.close()
             # Check we didn't get an invalidation, which would cause an
             # assertion failure in the cache. Connection does the same check in
             # _setstate_noncurrent so this could be also done by starting a
@@ -981,13 +927,10 @@ class Test(NEOThreadedTest):
             self.assertEqual(map(u64, t1.oid_list), [0, 1])
             # Check oid 1 is part of transaction metadata.
             self.assertEqual(t2.oid_list, t1.oid_list)
-        finally:
-            cluster.stop()
 
-    def testClientReconnection(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testClientReconnection(self, cluster):
+        if 1:
             t1, c1 = cluster.getTransaction()
             c1.root()['x'] = x1 = PCounter()
             c1.root()['y'] = y = PCounter()
@@ -1004,14 +947,11 @@ class Test(NEOThreadedTest):
             #self.tic()     # NOTE works ok with tic() commented
 
             # modify x with another client
-            client = cluster.newClient()
-            try:
+            with cluster.newClient() as client:
                 txn = transaction.Transaction()
                 client.tpc_begin(txn)
                 client.store(x1._p_oid, x1._p_serial, y, '', txn)
                 tid = client.tpc_finish(txn, None)
-            finally:
-                client.close()
             #self.tic()     # NOTE ----//----
 
             # Check reconnection to the master and storage.
@@ -1020,13 +960,10 @@ class Test(NEOThreadedTest):
             t1.begin()
             self.assertEqual(x1._p_changed, None)
             self.assertEqual(x1.value, 1)
-        finally:
-            cluster.stop()
 
-    def testInvalidTTID(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testInvalidTTID(self, cluster):
+        if 1:
             client = cluster.client
             txn = transaction.Transaction()
             client.tpc_begin(txn)
@@ -1034,16 +971,13 @@ class Test(NEOThreadedTest):
             txn_context['ttid'] = add64(txn_context['ttid'], 1)
             self.assertRaises(POSException.StorageError,
                               client.tpc_finish, txn, None)
-        finally:
-            cluster.stop()
 
-    def testStorageFailureDuringTpcFinish(self):
+    @with_cluster()
+    def testStorageFailureDuringTpcFinish(self, cluster):
         def answerTransactionFinished(conn, packet):
             if isinstance(packet, Packets.AnswerTransactionFinished):
                 raise StoppedOperation
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()['x'] = PCounter()
             with cluster.master.filterConnection(cluster.client) as m2c:
@@ -1057,10 +991,9 @@ class Test(NEOThreadedTest):
             self.assertEqual(1, u64(c.root()['x']._p_oid))
             self.assertFalse(cluster.client.new_oid_list)
             self.assertEqual(2, u64(cluster.client.new_oid()))
-        finally:
-            cluster.stop()
 
-    def testClientFailureDuringTpcFinish(self):
+    @with_cluster()
+    def testClientFailureDuringTpcFinish(self, cluster):
         """
         Third scenario:
 
@@ -1095,9 +1028,7 @@ class Test(NEOThreadedTest):
             self.tic()
             s2m.remove(delayAnswerLockInformation)
             return conn
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             r = c.root()
             r['x'] = PCounter()
@@ -1126,38 +1057,31 @@ class Test(NEOThreadedTest):
                  cluster.master.filterConnection(cluster.storage) as m2s:
                 s2m.add(delayAnswerLockInformation, Patch(cluster.client,
                     _connectToPrimaryNode=_connectToPrimaryNode))
-                m2s.add(lambda conn, packet:
-                    isinstance(packet, Packets.NotifyUnlockInformation))
+                m2s.delayNotifyUnlockInformation()
                 t.commit() # the final TID is returned by the storage (tm)
             t.begin()
             self.assertEqual(r['x'].value, 2)
             self.assertTrue(tid2 < r['x']._p_serial)
-        finally:
-            cluster.stop()
 
-    def testMasterFailureBeforeVote(self):
+    @with_cluster(storage_count=2, partitions=2)
+    def testMasterFailureBeforeVote(self, cluster):
         def waitStoreResponses(orig, *args):
             result = orig(*args)
             m2c, = cluster.master.getConnectionList(orig.__self__)
             m2c.close()
             self.tic()
             return result
-        cluster = NEOCluster(storage_count=2, partitions=2)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()['x'] = PCounter() # 1 store() to each storage
             with Patch(cluster.client, waitStoreResponses=waitStoreResponses):
                 self.assertRaises(POSException.StorageError, t.commit)
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
-        finally:
-            cluster.stop()
 
-    def testEmptyTransaction(self):
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+    @with_cluster()
+    def testEmptyTransaction(self, cluster):
+        if 1:
             txn = transaction.Transaction()
             storage = cluster.getZODBStorage()
             storage.tpc_begin(txn)
@@ -1166,58 +1090,40 @@ class Test(NEOThreadedTest):
             t, = storage.iterator()
             self.assertEqual(t.tid, serial)
             self.assertFalse(t.oid_list)
-        finally:
-            cluster.stop()
 
-    def testRecycledClientUUID(self):
-        def delayNotifyInformation(conn, packet):
-            return isinstance(packet, Packets.NotifyNodeInformation)
+    @with_cluster()
+    def testRecycledClientUUID(self, cluster):
         def notReady(orig, *args):
             m2s.discard(delayNotifyInformation)
             return orig(*args)
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             cluster.getTransaction()
             with cluster.master.filterConnection(cluster.storage) as m2s:
-                m2s.add(delayNotifyInformation)
+                delayNotifyInformation = m2s.delayNotifyNodeInformation()
                 cluster.client.master_conn.close()
-                client = cluster.newClient()
-                p = Patch(client.storage_bootstrap_handler, notReady=notReady)
-                try:
-                    p.apply()
+                with cluster.newClient() as client, Patch(
+                        client.storage_bootstrap_handler, notReady=notReady):
                     x = client.load(ZERO_TID)
-                finally:
-                    del p
-                    client.close()
                 self.assertNotIn(delayNotifyInformation, m2s)
-        finally:
-            cluster.stop()
 
-    def testAutostart(self):
-        def startCluster():
+    @with_cluster(start_cluster=0, storage_count=3, autostart=3)
+    def testAutostart(self, cluster):
+        def startCluster(orig):
             getClusterState = cluster.neoctl.getClusterState
             self.assertEqual(ClusterStates.RECOVERING, getClusterState())
             cluster.storage_list[2].start()
-            self.tic()
+        with Patch(cluster, startCluster=startCluster):
             self.assertEqual(ClusterStates.RUNNING, getClusterState())
-        cluster = NEOCluster(storage_count=3, autostart=3)
-        try:
-            cluster.startCluster = startCluster
             cluster.start(cluster.storage_list[:2])
-        finally:
-            cluster.stop()
-            del cluster.startCluster
 
-    def testAbortVotedTransaction(self):
+    @with_cluster(storage_count=2, partitions=2)
+    def testAbortVotedTransaction(self, cluster):
         r = []
         def tpc_finish(*args, **kw):
             for storage in cluster.storage_list:
                 r.append(len(storage.dm.getUnfinishedTIDDict()))
             raise NEOStorageError
-        cluster = NEOCluster(storage_count=2, partitions=2)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             c.root()['x'] = PCounter()
             with Patch(cluster.client, tpc_finish=tpc_finish):
@@ -1228,17 +1134,11 @@ class Test(NEOThreadedTest):
                 self.assertFalse(storage.dm.getUnfinishedTIDDict())
             t.begin()
             self.assertNotIn('x', c.root())
-        finally:
-            cluster.stop()
 
-    def testStorageLostDuringRecovery(self):
+    @with_cluster(storage_count=2, partitions=2)
+    def testStorageLostDuringRecovery(self, cluster):
         # Initialize a cluster.
-        cluster = NEOCluster(storage_count=2, partitions=2)
-        try:
-            cluster.start()
-        finally:
-            cluster.stop()
-        cluster.reset()
+        cluster.stop()
         # Restart with a connection failure for the first AskPartitionTable.
         # The master must not be stuck in RECOVERING state
         # or re-make the partition table.
@@ -1247,16 +1147,15 @@ class Test(NEOThreadedTest):
         def askPartitionTable(orig, self, conn):
             p.revert()
             conn.close()
-        try:
+        if 1:
             with Patch(cluster.master.pt, make=make), \
                  Patch(InitializationHandler,
                        askPartitionTable=askPartitionTable) as p:
                 cluster.start()
                 self.assertFalse(p.applied)
-        finally:
-            cluster.stop()
 
-    def testTruncate(self):
+    @with_cluster(replicas=1)
+    def testTruncate(self, cluster):
         calls = [0, 0]
         def dieFirst(i):
             def f(orig, *args, **kw):
@@ -1265,9 +1164,7 @@ class Test(NEOThreadedTest):
                     sys.exit()
                 return orig(*args, **kw)
             return f
-        cluster = NEOCluster(replicas=1)
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             r = c.root()
             tids = []
@@ -1311,30 +1208,27 @@ class Test(NEOThreadedTest):
             self.assertEqual(1, u64(c._storage.new_oid()))
             for s in cluster.storage_list:
                 self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
-        finally:
-            cluster.stop()
 
     def testConnectionTimeout(self):
-        conn = self.getLoopbackConnection()
-        conn.KEEP_ALIVE
-        with Patch(conn, KEEP_ALIVE=0):
-            while conn.connecting:
-                conn.em.poll(1)
+        with self.getLoopbackConnection() as conn:
+            conn.KEEP_ALIVE
             def onTimeout(orig):
                 conn.idle()
                 orig()
-            with Patch(conn, onTimeout=onTimeout):
-                conn.em.poll(1)
-        self.assertFalse(conn.isClosed())
+            with Patch(conn, KEEP_ALIVE=0):
+                while conn.connecting:
+                    conn.em.poll(1)
+                with Patch(conn, onTimeout=onTimeout):
+                    conn.em.poll(1)
+            self.assertFalse(conn.isClosed())
 
-    def testClientDisconnectedFromMaster(self):
+    @with_cluster()
+    def testClientDisconnectedFromMaster(self, cluster):
         def disconnect(conn, packet):
             if isinstance(packet, Packets.AskObject):
                 m2c.close()
                 #return True
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             t, c = cluster.getTransaction()
             m2c, = cluster.master.getConnectionList(cluster.client)
             cluster.client._cache.clear()
@@ -1350,8 +1244,7 @@ class Test(NEOThreadedTest):
                 self.assertRaises(TransientError, getattr, c, "root")
             uuid = cluster.client.uuid
             # Let's use a second client to steal the node id of the first one.
-            client = cluster.newClient()
-            try:
+            with cluster.newClient() as client:
                 client.sync()
                 self.assertEqual(uuid, client.uuid)
                 # The client reconnects successfully to the master and storage,
@@ -1363,12 +1256,9 @@ class Test(NEOThreadedTest):
                 self.assertNotEqual(uuid, cluster.client.uuid)
                 # Second reconnection, for a successful load.
                 c.root
-            finally:
-                client.close()
-        finally:
-            cluster.stop()
 
-    def testIdTimestamp(self):
+    @with_cluster()
+    def testIdTimestamp(self, cluster):
         """
         Given a master M, a storage S, and 2 clients Ca and Cb.
 
@@ -1394,9 +1284,7 @@ class Test(NEOThreadedTest):
             ll()
         def connectToStorage(client):
             next(client.cp.iterateForObject(0))
-        cluster = NEOCluster()
-        try:
-            cluster.start()
+        if 1:
             Ca = cluster.client
             Ca.pt      # only connect to the master
             # In a separate thread, connect to the storage but suspend the
@@ -1408,18 +1296,72 @@ class Test(NEOThreadedTest):
             s2c, = s2c
             m2c, = cluster.master.getConnectionList(cluster.client)
             m2c.close()
-            Cb = cluster.newClient()
-            try:
+            with cluster.newClient() as Cb:
                 Cb.pt  # only connect to the master
                 del s2c.readable
                 self.assertRaises(NEOPrimaryMasterLost, t.join)
                 self.assertTrue(s2c.isClosed())
                 connectToStorage(Cb)
-            finally:
-                Cb.close()
-        finally:
-            cluster.stop()
 
+    @with_cluster(storage_count=2, partitions=2)
+    def testPruneOrphan(self, cluster):
+        if 1:
+            cluster.importZODB()(3)
+            bad = []
+            ok = []
+            def data_args(value):
+                return makeChecksum(value), value, 0
+            node_list = []
+            for i, s in enumerate(cluster.storage_list):
+                node_list.append(s.uuid)
+                if i:
+                    s.dm.holdData(*data_args('boo'))
+                ok.append(s.getDataLockInfo())
+                for i in xrange(3 - i):
+                    s.dm.storeData(*data_args('!' * i))
+                bad.append(s.getDataLockInfo())
+                s.dm.commit()
+            def check(dry_run, expected):
+                cluster.neoctl.repair(node_list, dry_run)
+                for e, s in zip(expected, cluster.storage_list):
+                    while 1:
+                        self.tic()
+                        if s.dm._repairing is None:
+                            break
+                        time.sleep(.1)
+                    self.assertEqual(e, s.getDataLockInfo())
+            check(1, bad)
+            check(0, ok)
+            check(1, ok)
+
+    @with_cluster(replicas=1)
+    def testLateConflictOnReplica(self, cluster):
+        """
+        Already resolved conflict: check the case of a storage node that
+        reports a conflict after that this conflict was fully resolved with
+        another node.
+        """
+        def answerStoreObject(orig, conn, conflicting, *args):
+            if not conflicting:
+                p.revert()
+                ll()
+            orig(conn, conflicting, *args)
+        if 1:
+            s0, s1 = cluster.storage_list
+            t1, c1 = cluster.getTransaction()
+            c1.root()['x'] = x = PCounterWithResolution()
+            t1.commit()
+            x.value += 1
+            t2, c2 = cluster.getTransaction()
+            c2.root()['x'].value += 2
+            t2.commit()
+            with LockLock() as ll, s1.filterConnection(cluster.client) as f, \
+                    Patch(cluster.client.storage_handler,
+                          answerStoreObject=answerStoreObject) as p:
+                f.delayAnswerStoreObject()
+                t = self.newThread(t1.commit)
+                ll()
+            t.join()
 
 if __name__ == "__main__":
     unittest.main()

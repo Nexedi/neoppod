@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,7 +16,7 @@
 
 import shutil
 import unittest
-from mock import Mock
+from .mock import Mock
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterDB
 from . import NeoUnitTestBase, getTempDirectory

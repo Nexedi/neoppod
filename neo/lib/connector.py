@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -145,7 +145,7 @@ class SocketConnector(object):
 
     def receive(self, read_buf):
         try:
-            data = self.socket.recv(4096)
+            data = self.socket.recv(65536)
         except socket.error, e:
             self._error('recv', e)
         if data:
@@ -155,6 +155,7 @@ class SocketConnector(object):
         raise ConnectorException
 
     def send(self):
+        # XXX: unefficient for big packets
         msg = ''.join(self.queued)
         if msg:
             try:

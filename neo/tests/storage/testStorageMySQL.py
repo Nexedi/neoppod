@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,7 +16,7 @@
 
 import unittest
 from MySQLdb import OperationalError
-from mock import Mock
+from ..mock import Mock
 from neo.lib.exception import DatabaseFailure
 from neo.lib.util import p64
 from .. import DB_PREFIX, DB_SOCKET, DB_USER
@@ -96,9 +96,11 @@ class StorageMySQLdbTests(StorageDBTests):
         assert len(x) + EXTRA == self.db._max_allowed_packet
         self.assertRaises(DatabaseFailure, self.db.query, x + ' ')
         self.db.query(x)
+        # Reconnection cleared the cache of the config table,
+        # so fill it again with required values before we patch query().
+        self.db.getNumPartitions()
         # Check MySQLDatabaseManager._max_allowed_packet
         query_list = []
-        query = self.db.query
         self.db.query = lambda query: query_list.append(EXTRA + len(query))
         self.assertEqual(2, max(len(self.db.escape(chr(x)))
                                 for x in xrange(256)))

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import threading
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import wraps
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
@@ -54,6 +56,9 @@ class DatabaseManager(object):
 
     ENGINES = ()
 
+    _deferred = 0
+    _duplicating = _repairing = None
+
     def __init__(self, database, engine=None, wait=0):
         """
             Initialize the object.
@@ -64,21 +69,41 @@ class DatabaseManager(object):
                                  % (engine, self.ENGINES))
             self._engine = engine
         self._wait = wait
-        self._deferred = 0
         self._parse(database)
+        self._connect()
 
     def __getattr__(self, attr):
         if attr == "_getPartition":
             np = self.getNumPartitions()
             value = lambda x: x % np
-        else:
+        elif self._duplicating is None:
             return self.__getattribute__(attr)
+        else:
+            value = getattr(self._duplicating, attr)
         setattr(self, attr, value)
         return value
+
+    @contextmanager
+    def _duplicate(self):
+        cls = self.__class__
+        db = cls.__new__(cls)
+        db._duplicating = self
+        try:
+            db._connect()
+        finally:
+            del db._duplicating
+        try:
+            yield db
+        finally:
+            db.close()
 
     @abstract
     def _parse(self, database):
         """Called during instantiation, to process database parameter."""
+
+    @abstract
+    def _connect(self):
+        """Connect to the database"""
 
     def setup(self, reset=0):
         """Set up a database, discarding existing data first if reset is True
@@ -416,6 +441,15 @@ class DatabaseManager(object):
         """
 
     @abstract
+    def getOrphanList(self):
+        """Return the list of data id that is not referenced by the obj table
+
+        This is a repair method, and it's usually expensive.
+        There was a bug that did not free data of transactions that were
+        aborted before vote. This method is used to reclaim the wasted space.
+        """
+
+    @abstract
     def _pruneData(self, data_id_list):
         """To be overridden by the backend to delete any unreferenced data
 
@@ -423,6 +457,8 @@ class DatabaseManager(object):
         - not in self._uncommitted_data
         - and not referenced by a fully-committed object (storage should have
           an index or a refcount of all data ids of all objects)
+
+        The returned value is the number of deleted rows from the data table.
         """
 
     @abstract
@@ -587,6 +623,37 @@ class DatabaseManager(object):
                 self._deleteRange(partition, tid)
             self._setTruncateTID(None)
             self.commit()
+
+    def repair(self, weak_app, dry_run):
+        t = self._repairing
+        if t and t.is_alive():
+            logging.error('already repairing')
+            return
+        def repair():
+            l = threading.Lock()
+            l.acquire()
+            def finalize():
+                try:
+                    if data_id_list and not dry_run:
+                        self.commit()
+                        logging.info("repair: deleted %s orphan records",
+                                     self._pruneData(data_id_list))
+                        self.commit()
+                finally:
+                    l.release()
+            try:
+                with self._duplicate() as db:
+                    data_id_list = db.getOrphanList()
+                logging.info("repair: found %s records that may be orphan",
+                             len(data_id_list))
+                weak_app().em.wakeup(finalize)
+                l.acquire()
+            finally:
+                del self._repairing
+            logging.info("repair: done")
+        t = self._repairing = threading.Thread(target=repair)
+        t.daemon = 1
+        t.start()
 
     @abstract
     def getTransaction(self, tid, all = False):

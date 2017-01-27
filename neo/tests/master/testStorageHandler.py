@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
+from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes, Packets
 from neo.master.handlers.storage import StorageServiceHandler
@@ -71,10 +71,9 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.checkNoPacketSent(client_conn)
         self.assertEqual(self.app.packing[2], {conn2.getUUID()})
         self.service.answerPack(conn2, False)
-        status = self.checkAnswerPacket(client_conn, Packets.AnswerPack,
-            decode=True)[0]
+        packet = self.checkAnswerPacket(client_conn, Packets.AnswerPack)
         # TODO: verify packet peer id
-        self.assertTrue(status)
+        self.assertTrue(packet.decode()[0])
         self.assertEqual(self.app.packing, None)
 
 if __name__ == '__main__':

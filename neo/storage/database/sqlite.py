@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2016  Nexedi SA
+# Copyright (C) 2012-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -69,11 +69,6 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     VERSION = 1
 
-    def __init__(self, *args, **kw):
-        super(SQLiteDatabaseManager, self).__init__(*args, **kw)
-        self._config = {}
-        self._connect()
-
     def _parse(self, database):
         self.db = os.path.expanduser(database)
 
@@ -83,6 +78,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
+        self._config = {}
 
     def _commit(self):
         retry_if_locked(self.conn.commit)
@@ -376,6 +372,11 @@ class SQLiteDatabaseManager(DatabaseManager):
                  packed, buffer(''.join(oid_list)),
                  buffer(user), buffer(desc), buffer(ext), u64(ttid)))
 
+    def getOrphanList(self):
+        return [x for x, in self.query(
+            "SELECT id FROM data LEFT JOIN obj ON (id=data_id)"
+            " WHERE data_id IS NULL")]
+
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
         if data_id_list:
@@ -385,6 +386,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                 % ",".join(map(str, data_id_list))))
             q("DELETE FROM data WHERE id IN (%s)"
               % ",".join(map(str, data_id_list)))
+            return len(data_id_list)
+        return 0
 
     def storeData(self, checksum, data, compression,
             _dup=unique_constraint_message("data", "hash", "compression")):
@@ -439,11 +442,8 @@ class SQLiteDatabaseManager(DatabaseManager):
     def abortTransaction(self, ttid):
         args = util.u64(ttid),
         q = self.query
-        sql = " FROM tobj WHERE tid=?"
-        data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
-        q("DELETE" + sql, args)
+        q("DELETE FROM tobj WHERE tid=?", args)
         q("DELETE FROM ttrans WHERE ttid=?", args)
-        self.releaseData(data_id_list, True)
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)

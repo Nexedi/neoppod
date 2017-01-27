@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2010-2016  Nexedi SA
+# Copyright (C) 2010-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,10 +27,7 @@ class ConflictError(Exception):
 
     def __init__(self, tid):
         Exception.__init__(self)
-        self._tid = tid
-
-    def getTID(self):
-        return self._tid
+        self.tid = tid
 
 
 class DelayedError(Exception):
@@ -47,76 +44,41 @@ class Transaction(object):
     """
         Container for a pending transaction
     """
-    _tid = None
+    tid = None
     has_trans = False
 
     def __init__(self, uuid, ttid):
-        self._uuid = uuid
-        self._ttid = ttid
-        self._object_dict = {}
-        self._locked = False
         self._birth = time()
-        self._checked_set = set()
+        self.uuid = uuid
+        # Consider using lists.
+        self.store_dict = {}
+        self.checked_set = set()
 
     def __repr__(self):
-        return "<%s(ttid=%r, tid=%r, uuid=%r, locked=%r, age=%.2fs) at 0x%x>" \
+        return "<%s(tid=%r, uuid=%r, age=%.2fs) at 0x%x>" \
          % (self.__class__.__name__,
-            dump(self._ttid),
-            dump(self._tid),
-            uuid_str(self._uuid),
-            self.isLocked(),
+            dump(self.tid),
+            uuid_str(self.uuid),
             time() - self._birth,
             id(self))
 
-    def addCheckedObject(self, oid):
-        assert oid not in self._object_dict, dump(oid)
-        self._checked_set.add(oid)
+    def check(self, oid):
+        assert oid not in self.store_dict, dump(oid)
+        assert oid not in self.checked_set, dump(oid)
+        self.checked_set.add(oid)
 
-    def getTTID(self):
-        return self._ttid
-
-    def setTID(self, tid):
-        assert self._tid is None, dump(self._tid)
-        assert tid is not None
-        self._tid = tid
-
-    def getTID(self):
-        return self._tid
-
-    def getUUID(self):
-        return self._uuid
-
-    def lock(self):
-        assert not self._locked
-        self._locked = True
-
-    def isLocked(self):
-        return self._locked
-
-    def addObject(self, oid, data_id, value_serial):
+    def store(self, oid, data_id, value_serial):
         """
             Add an object to the transaction
         """
-        assert oid not in self._checked_set, dump(oid)
-        self._object_dict[oid] = oid, data_id, value_serial
+        assert oid not in self.checked_set, dump(oid)
+        self.store_dict[oid] = oid, data_id, value_serial
 
-    def delObject(self, oid):
+    def cancel(self, oid):
         try:
-            return self._object_dict.pop(oid)[1]
+            return self.store_dict.pop(oid)[1]
         except KeyError:
-            self._checked_set.remove(oid)
-
-    def getObject(self, oid):
-        return self._object_dict[oid]
-
-    def getObjectList(self):
-        return self._object_dict.values()
-
-    def getOIDList(self):
-        return self._object_dict.keys()
-
-    def getLockedOIDList(self):
-        return self._object_dict.keys() + list(self._checked_set)
+            self.checked_set.remove(oid)
 
 
 class TransactionManager(object):
@@ -145,7 +107,7 @@ class TransactionManager(object):
             Return None if not found.
         """
         try:
-            return self._transaction_dict[ttid].getObject(oid)
+            return self._transaction_dict[ttid].store_dict[oid]
         except KeyError:
             return None
 
@@ -166,7 +128,7 @@ class TransactionManager(object):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise ProtocolError("unknown ttid %s" % dump(ttid))
-        object_list = transaction.getObjectList()
+        object_list = transaction.store_dict.itervalues()
         if txn_info:
             user, desc, ext, oid_list = txn_info
             txn_info = oid_list, user, desc, ext, False, ttid
@@ -185,21 +147,20 @@ class TransactionManager(object):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise ProtocolError("unknown ttid %s" % dump(ttid))
-        # remember that the transaction has been locked
-        transaction.lock()
+        assert transaction.tid is None, dump(transaction.tid)
+        assert ttid <= tid, (ttid, tid)
+        transaction.tid = tid
         self._load_lock_dict.update(
-            dict.fromkeys(transaction.getOIDList(), ttid))
-        # commit transaction and remember its definitive TID
+            dict.fromkeys(transaction.store_dict, ttid))
         if transaction.has_trans:
             self._app.dm.lockTransaction(tid, ttid)
-        transaction.setTID(tid)
 
     def unlock(self, ttid):
         """
             Unlock transaction
         """
         try:
-            tid = self._transaction_dict[ttid].getTID()
+            tid = self._transaction_dict[ttid].tid
         except KeyError:
             raise ProtocolError("unknown ttid %s" % dump(ttid))
         logging.debug('Unlock TXN %s (ttid=%s)', dump(tid), dump(ttid))
@@ -210,7 +171,7 @@ class TransactionManager(object):
 
     def getFinalTID(self, ttid):
         try:
-            return self._transaction_dict[ttid].getTID()
+            return self._transaction_dict[ttid].tid
         except KeyError:
             return self._app.dm.getFinalTID(ttid)
 
@@ -233,7 +194,7 @@ class TransactionManager(object):
             # drop the lock it held on this object, and drop object data for
             # consistency.
             del self._store_lock_dict[oid]
-            data_id = self._transaction_dict[ttid].delObject(oid)
+            data_id = self._transaction_dict[ttid].cancel(oid)
             if data_id:
                 self._app.dm.pruneData((data_id,))
             # Give a chance to pending events to take that lock now.
@@ -245,7 +206,7 @@ class TransactionManager(object):
         elif locking_tid == ttid:
             # If previous store was an undo, next store must be based on
             # undo target.
-            previous_serial = self._transaction_dict[ttid].getObject(oid)[2]
+            previous_serial = self._transaction_dict[ttid].store_dict[oid][2]
             if previous_serial is None:
                 # XXX: use some special serial when previous store was not
                 # an undo ? Maybe it should just not happen.
@@ -290,7 +251,7 @@ class TransactionManager(object):
         except KeyError:
             raise NotRegisteredError
         self.lockObject(ttid, serial, oid, unlock=True)
-        transaction.addCheckedObject(oid)
+        transaction.check(oid)
 
     def storeObject(self, ttid, serial, oid, compression, checksum, data,
             value_serial, unlock=False):
@@ -307,7 +268,7 @@ class TransactionManager(object):
             data_id = None
         else:
             data_id = self._app.dm.holdData(checksum, data, compression)
-        transaction.addObject(oid, data_id, value_serial)
+        transaction.store(oid, data_id, value_serial)
 
     def abort(self, ttid, even_if_locked=False):
         """
@@ -323,24 +284,28 @@ class TransactionManager(object):
             return
         logging.debug('Abort TXN %s', dump(ttid))
         transaction = self._transaction_dict[ttid]
-        has_load_lock = transaction.isLocked()
+        locked = transaction.tid
         # if the transaction is locked, ensure we can drop it
-        if has_load_lock:
+        if locked:
             if not even_if_locked:
                 return
         else:
-            self._app.dm.abortTransaction(ttid)
+            dm = self._app.dm
+            dm.abortTransaction(ttid)
+            dm.releaseData([x[1] for x in transaction.store_dict.itervalues()],
+                           True)
         # unlock any object
-        for oid in transaction.getLockedOIDList():
-            if has_load_lock:
-                lock_ttid = self._load_lock_dict.pop(oid, None)
-                assert lock_ttid in (ttid, None), 'Transaction %s tried to ' \
-                    'release the lock on oid %s, but it was held by %s' % (
-                    dump(ttid), dump(oid), dump(lock_ttid))
-            write_locking_tid = self._store_lock_dict.pop(oid)
-            assert write_locking_tid == ttid, 'Inconsistent locking state: ' \
-                'aborting %s:%s but %s has the lock.' % (dump(ttid), dump(oid),
-                    dump(write_locking_tid))
+        for oid in transaction.store_dict, transaction.checked_set:
+            for oid in oid:
+                if locked:
+                    lock_ttid = self._load_lock_dict.pop(oid, None)
+                    assert lock_ttid in (ttid, None), ('Transaction %s tried'
+                        ' to release the lock on oid %s, but it was held by %s'
+                        % (dump(ttid), dump(oid), dump(lock_ttid)))
+                write_locking_tid = self._store_lock_dict.pop(oid)
+                assert write_locking_tid == ttid, ('Inconsistent locking'
+                    ' state: aborting %s:%s but %s has the lock.'
+                    % (dump(ttid), dump(oid), dump(write_locking_tid)))
         # remove the transaction
         del self._transaction_dict[ttid]
         # some locks were released, some pending locks may now succeed
@@ -352,37 +317,35 @@ class TransactionManager(object):
         """
         logging.debug('Abort for %s', uuid_str(uuid))
         # abort any non-locked transaction of this node
-        for transaction in self._transaction_dict.values():
-            if transaction.getUUID() == uuid:
-                self.abort(transaction.getTTID())
+        for ttid, transaction in self._transaction_dict.items():
+            if transaction.uuid == uuid:
+                self.abort(ttid)
 
     def isLockedTid(self, tid):
-        for t in self._transaction_dict.itervalues():
-            if t.isLocked() and t.getTID() <= tid:
-                return True
-        return False
+        return any(None is not t.tid <= tid
+            for t in self._transaction_dict.itervalues())
 
     def loadLocked(self, oid):
         return oid in self._load_lock_dict
 
     def log(self):
         logging.info("Transactions:")
-        for txn in self._transaction_dict.values():
-            logging.info('    %r', txn)
+        for ttid, txn in self._transaction_dict.iteritems():
+            logging.info('    %s %r', dump(ttid), txn)
         logging.info('  Read locks:')
-        for oid, ttid in self._load_lock_dict.items():
+        for oid, ttid in self._load_lock_dict.iteritems():
             logging.info('    %r by %r', dump(oid), dump(ttid))
         logging.info('  Write locks:')
-        for oid, ttid in self._store_lock_dict.items():
+        for oid, ttid in self._store_lock_dict.iteritems():
             logging.info('    %r by %r', dump(oid), dump(ttid))
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial, data_id):
         lock_tid = self.getLockingTID(oid)
         if lock_tid is not None:
             transaction = self._transaction_dict[lock_tid]
-            if transaction.getObject(oid)[2] == orig_serial:
+            if transaction.store_dict[oid][2] == orig_serial:
                 if new_serial:
                     data_id = None
                 else:
                     self._app.dm.holdData(data_id)
-                transaction.addObject(oid, data_id, new_serial)
+                transaction.store(oid, data_id, new_serial)

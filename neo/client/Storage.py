@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -190,11 +190,6 @@ class Storage(BaseStorage.BaseStorage,
     def set_max_oid(self, possible_new_max_oid):
         # seems used only by FileStorage
         raise NotImplementedError
-
-    def cleanup(self):
-        # Used in unit tests to remove local database files.
-        # We have no such thing, so make this method a no-op.
-        pass
 
     def close(self):
         # WARNING: This does not handle the case where an app is shared by

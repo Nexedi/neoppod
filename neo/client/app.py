@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -544,6 +544,8 @@ class Application(ThreadedApplication):
                     # A later serial has already been resolved, skip.
                     resolved_serial_set.update(conflict_serial_set)
                     continue
+                if self.last_tid < conflict_serial:
+                    self.sync() # possible late invalidation (very rare)
                 try:
                     new_data = tryToResolveConflict(oid, conflict_serial,
                         serial, data)

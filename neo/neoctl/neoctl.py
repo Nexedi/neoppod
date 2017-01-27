@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -171,6 +171,12 @@ class NeoCTL(BaseApplication):
         if response[0] != Packets.AnswerPrimary:
             raise RuntimeError(response)
         return response[1]
+
+    def repair(self, *args):
+        response = self.__ask(Packets.Repair(*args))
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
+        return response[2]
 
     def truncate(self, tid):
         response = self.__ask(Packets.Truncate(tid))

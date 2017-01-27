@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import threading, weakref
+import thread, threading, weakref
 from . import logging
 from .app import BaseApplication
 from .connection import ConnectionClosed
@@ -69,7 +69,7 @@ class ThreadedApplication(BaseApplication):
                 conn.close()
             # Stop polling thread
             logging.debug('Stopping %s', self.poll_thread)
-            self.em.wakeup(True)
+            self.em.wakeup(thread.exit)
         else:
             super(ThreadedApplication, self).close()
 

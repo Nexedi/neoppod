@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -64,6 +64,9 @@ class AdministrationHandler(MasterHandler):
             for node in storage_list:
                 assert node.isPending(), node
                 if node.getConnection().isPending():
+                    # XXX: It's wrong to use ProtocolError here. We must reply
+                    #      less aggressively because the admin has no way to
+                    #      know that there's still pending activity.
                     raise ProtocolError('Cannot exit recovery now: node %r is '
                         'entering cluster' % (node, ))
             app._startup_allowed = True
@@ -146,6 +149,19 @@ class AdministrationHandler(MasterHandler):
         else:
             logging.warning('No node added')
             conn.answer(Errors.Ack('No node added'))
+
+    def repair(self, conn, uuid_list, *args):
+        getByUUID = self.app.nm.getByUUID
+        node_list = []
+        for uuid in uuid_list:
+            node = getByUUID(uuid)
+            if node is None or not (node.isStorage() and node.isIdentified()):
+                raise ProtocolError("invalid storage node %s" % uuid_str(uuid))
+            node_list.append(node)
+        repair = Packets.NotifyRepair(*args)
+        for node in node_list:
+            node.notify(repair)
+        conn.answer(Errors.Ack(''))
 
     def tweakPartitionTable(self, conn, uuid_list):
         app = self.app

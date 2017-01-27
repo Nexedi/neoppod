@@ -1,6 +1,35 @@
 Change History
 ==============
 
+1.7.1 (2017-01-18)
+------------------
+
+- Replication:
+
+  - Fixed possibly wrong knowledge of cells' backup_tid when resuming backup.
+    In such case, 'neoctl print ids' gave false impression that the backup
+    cluster was up-to-date. This also resulted in an inconsistent database
+    when leaving backup mode before that the issue resolved by itself.
+  - Storage nodes now select the partition which is furthest behind. Previous
+    criterion was such that in case of high upstream activity, the backup could
+    even be stuck looping on a subset of partitions.
+  - Fixed replication of unfinished imported transactions.
+
+- Fixed abort before vote, to free the storage space used by the transaction.
+  A new 'prune_orphan' neoctl command was added to delete unreferenced raw data
+  in the database.
+
+- Removed short storage option -R to reset the db.
+  Help is reworded to clarify that --reset exits once done.
+
+- The application receiving buffer size has been increased.
+  This speeds up transfer of big packets.
+
+- The master raised AttributeError at exit during recovery.
+
+- At startup, the importer storage backend connected twice to the destination
+  database.
+
 1.7.0 (2016-12-19)
 ------------------
 

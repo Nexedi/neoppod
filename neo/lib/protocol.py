@@ -1,5 +1,5 @@
 
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 8
+PROTOCOL_VERSION = 9
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -237,14 +237,10 @@ class Packet(object):
     _id = None
     poll_thread = False
 
-    def __init__(self, *args, **kw):
+    def __init__(self, *args):
         assert self._code is not None, "Packet class not registered"
-        if args or kw:
-            args = list(args)
+        if args:
             buf = StringIO()
-            # load named arguments
-            for item in self._fmt._items[len(args):]:
-                args.append(kw.get(item._name))
             self._fmt.encode(buf.write, args)
             self._body = buf.getvalue()
         else:
@@ -1176,6 +1172,25 @@ class SetClusterState(Packet):
 
     _answer = Error
 
+class Repair(Packet):
+    """
+    Ask storage nodes to repair their databases. ctl -> A -> M
+    """
+    _flags = map(PBoolean, ('dry_run',
+        # 'prune_orphan' (commented because it's the only option for the moment)
+        ))
+    _fmt = PStruct('repair',
+        PFUUIDList,
+        *_flags)
+
+    _answer = Error
+
+class RepairOne(Packet):
+    """
+    See Repair. M -> S
+    """
+    _fmt = PStruct('repair', *Repair._flags)
+
 class ClusterInformation(Packet):
     """
     Notify information about the cluster
@@ -1685,6 +1700,10 @@ class Packets(dict):
                     TweakPartitionTable, ignore_when_closed=False)
     SetClusterState = register(
                     SetClusterState, ignore_when_closed=False)
+    Repair = register(
+                    Repair)
+    NotifyRepair = register(
+                    RepairOne)
     NotifyClusterInformation = register(
                     ClusterInformation)
     AskClusterState, AnswerClusterState = register(

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -56,12 +56,6 @@ class MySQLDatabaseManager(DatabaseManager):
 
     _max_allowed_packet = 32769 * 1024
 
-    def __init__(self, *args, **kw):
-        super(MySQLDatabaseManager, self).__init__(*args, **kw)
-        self.conn = None
-        self._config = {}
-        self._connect()
-
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
         # expected pattern : [user[:password]@]database[(~|.|/)unix_socket]
@@ -93,6 +87,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 logging.exception('Connection to MySQL failed, retrying.')
                 time.sleep(1)
         self._active = 0
+        self._config = {}
         conn = self.conn
         conn.autocommit(False)
         conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
@@ -475,6 +470,11 @@ class MySQLDatabaseManager(DatabaseManager):
     _structLL = struct.Struct(">LL")
     _unpackLL = _structLL.unpack
 
+    def getOrphanList(self):
+        return [x for x, in self.query(
+            "SELECT id FROM data LEFT JOIN obj ON (id=data_id)"
+            " WHERE data_id IS NULL")]
+
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
         if data_id_list:
@@ -495,6 +495,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 if bigid_list:
                     q("DELETE FROM bigdata WHERE id IN (%s)"
                       % ",".join(map(str, bigid_list)))
+                return len(id_list)
+        return 0
 
     def _bigData(self, value):
         bigdata_id, length = self._unpackLL(value)
@@ -582,11 +584,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def abortTransaction(self, ttid):
         ttid = util.u64(ttid)
         q = self.query
-        sql = " FROM tobj WHERE tid=%s" % ttid
-        data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
-        q("DELETE" + sql)
+        q("DELETE FROM tobj WHERE tid=%s" % ttid)
         q("DELETE FROM ttrans WHERE ttid=%s" % ttid)
-        self.releaseData(data_id_list, True)
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)

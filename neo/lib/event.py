@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, thread
+import os
 from time import time
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
 from errno import EAGAIN, EEXIST, EINTR, ENOENT
@@ -35,7 +35,6 @@ class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
 
     _timeout = None
-    _trigger_exit = False
 
     def __init__(self):
         self.connection_dict = {}
@@ -43,6 +42,7 @@ class EpollEventManager(object):
         self.writer_set = set()
         self.epoll = epoll()
         self._pending_processing = []
+        self._trigger_list = []
         self._trigger_fd, w = os.pipe()
         os.close(w)
         self._trigger_lock = Lock()
@@ -231,9 +231,12 @@ class EpollEventManager(object):
                         if fd == self._trigger_fd:
                             with self._trigger_lock:
                                 self.epoll.unregister(fd)
-                                if self._trigger_exit:
-                                    del self._trigger_exit
-                                    thread.exit()
+                                action_list = self._trigger_list
+                                try:
+                                    while action_list:
+                                        action_list.pop(0)()
+                                finally:
+                                    del action_list[:]
                         continue
                     if conn.readable():
                         self._addPendingConnection(conn)
@@ -253,9 +256,9 @@ class EpollEventManager(object):
     def setTimeout(self, *args):
         self._timeout, self._on_timeout = args
 
-    def wakeup(self, exit=False):
+    def wakeup(self, *actions):
         with self._trigger_lock:
-            self._trigger_exit |= exit
+            self._trigger_list += actions
             try:
                 self.epoll.register(self._trigger_fd)
             except IOError, e:

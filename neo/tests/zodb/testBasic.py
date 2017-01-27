@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,14 +14,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
 import unittest
 from ZODB.tests.BasicStorage import BasicStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
 from . import ZODBTestCase
+from .. import Patch, threaded
 
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
-    pass
+
+    def check_checkCurrentSerialInTransaction(self):
+        x = time.time() + 10
+        def tic_loop():
+            while time.time() < x:
+                yield
+        with Patch(threaded, TIC_LOOP=tic_loop()):
+            super(BasicTests, self).check_checkCurrentSerialInTransaction()
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(BasicTests, 'check')

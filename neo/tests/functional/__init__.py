@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -423,6 +423,18 @@ class NEOCluster(object):
                 pass
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
+
+    def startCluster(self):
+        # Even if the storage nodes are in the expected state, there may still
+        # be activity between them and the master, preventing the cluster to
+        # start.
+        def start(last_try):
+            try:
+                self.neoctl.startCluster()
+            except (NotReadyException, RuntimeError), e:
+                return False, e
+            return True, None
+        self.expectCondition(start)
 
     def stop(self, clients=True):
         # Suspend all processes to kill before actually killing them, so that

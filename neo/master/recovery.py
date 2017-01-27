@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -137,7 +137,7 @@ class RecoveryManager(MasterHandler):
                     logging.warning("Waiting for %r to come back."
                         " No other node has version %s of the partition table.",
                         node, self.target_ptid)
-        if node.getState() == new_state:
+        if node is None or node.getState() == new_state:
             return
         node.setState(new_state)
         # broadcast to all so that admin nodes gets informed

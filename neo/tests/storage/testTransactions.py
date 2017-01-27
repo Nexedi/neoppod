@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2010-2016  Nexedi SA
+# Copyright (C) 2010-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,20 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from mock import Mock
+from ..mock import Mock
 from .. import NeoUnitTestBase
-from neo.storage.transactions import Transaction, TransactionManager
+from neo.lib.util import p64
+from neo.storage.transactions import TransactionManager
 
-
-class TransactionTests(NeoUnitTestBase):
-
-    def testLock(self):
-        txn = Transaction(self.getClientUUID(), self.getNextTID())
-        self.assertFalse(txn.isLocked())
-        txn.lock()
-        self.assertTrue(txn.isLocked())
-        # disallow lock more than once
-        self.assertRaises(AssertionError, txn.lock)
 
 class TransactionManagerTests(NeoUnitTestBase):
 
@@ -46,7 +37,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def test_updateObjectDataForPack(self):
         ram_serial = self.getNextTID()
-        oid = self.getOID(1)
+        oid = p64(1)
         orig_serial = self.getNextTID()
         uuid = self.getClientUUID()
         locking_serial = self.getNextTID()

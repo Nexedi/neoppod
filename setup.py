@@ -14,7 +14,8 @@ Topic :: Database
 Topic :: Software Development :: Libraries :: Python Modules
 """
 
-if not os.path.exists('mock.py'):
+mock = 'neo/tests/mock.py'
+if not os.path.exists(mock):
     import cStringIO, hashlib,subprocess,  urllib, zipfile
     x = 'pythonmock-0.1.0.zip'
     try:
@@ -25,7 +26,7 @@ if not os.path.exists('mock.py'):
     mock_py = zipfile.ZipFile(cStringIO.StringIO(x)).read('mock.py')
     if hashlib.md5(mock_py).hexdigest() != '79f42f390678e5195d9ce4ae43bd18ec':
         raise EnvironmentError("MD5 checksum mismatch downloading 'mock.py'")
-    open('mock.py', 'w').write(mock_py)
+    open(mock, 'w').write(mock_py)
 
 zodb_require = ['ZODB3>=3.10dev']
 
@@ -58,7 +59,7 @@ else:
 
 setup(
     name = 'neoppod',
-    version = '1.7.0',
+    version = '1.7.1',
     description = __doc__.strip(),
     author = 'Nexedi SA',
     author_email = 'neo-dev@erp5.org',
@@ -69,7 +70,6 @@ setup(
     long_description = ".. contents::\n\n" + open('README.rst').read()
                      + "\n" + open('CHANGELOG.rst').read(),
     packages = find_packages(),
-    py_modules = ['mock'],
     entry_points = {
         'console_scripts': [
             # XXX: we'd like not to generate scripts for unwanted features

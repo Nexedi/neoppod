@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,7 +53,10 @@ class StorageServiceHandler(BaseServiceHandler):
             last_tid = app.pt.getBackupTid(min)
             pending_list = ()
         else:
-            last_tid = app.tm.getLastTID()
+            # This can't be app.tm.getLastTID() for imported transactions,
+            # because outdated cells must at least wait that they're locked
+            # at source side. For normal transactions, it would not matter.
+            last_tid = app.getLastTransaction()
             pending_list = app.tm.registerForNotification(conn.getUUID())
         p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)

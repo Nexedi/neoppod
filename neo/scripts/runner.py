@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,6 +23,7 @@ import os
 import re
 from collections import Counter, defaultdict
 from cStringIO import StringIO
+from fnmatch import fnmatchcase
 from unittest.runner import _WritelnDecorator
 
 if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
@@ -32,7 +33,8 @@ if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     coverage.neotestrunner = []
     coverage.start()
 
-from neo.tests import getTempDirectory, __dict__ as neo_tests__dict__
+from neo.tests import getTempDirectory, NeoTestBase, Patch, \
+    __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
 
 # list of test modules
@@ -64,7 +66,6 @@ UNIT_TEST_MODULES = [
     # client application
     'neo.tests.client.testClientApp',
     'neo.tests.client.testMasterHandler',
-    'neo.tests.client.testStorageHandler',
     'neo.tests.client.testConnectionPool',
     # light functional tests
     'neo.tests.threaded.test',
@@ -114,17 +115,33 @@ class NeoTestRunner(unittest.TextTestResult):
     def wasSuccessful(self):
         return not (self.failures or self.errors or self.unexpectedSuccesses)
 
-    def run(self, name, modules):
-        print '\n', name
+    def run(self, name, modules, only):
         suite = unittest.TestSuite()
-        loader = unittest.defaultTestLoader
+        loader = unittest.TestLoader()
+        if only:
+            exclude = only[0] == '!'
+            test_only = only[exclude + 1:]
+            only = only[exclude]
+            if test_only:
+                def getTestCaseNames(testCaseClass):
+                    tests = loader.__class__.getTestCaseNames(
+                        loader, testCaseClass)
+                    x = testCaseClass.__name__ + '.'
+                    return [t for t in tests
+                              if exclude != any(fnmatchcase(x + t, o)
+                                                for o in test_only)]
+                loader.getTestCaseNames = getTestCaseNames
+                if not only:
+                    only = '*'
+        else:
+            print '\n', name
         for test_module in modules:
             # load prefix if supplied
             if isinstance(test_module, tuple):
-                test_module, prefix = test_module
-                loader.testMethodPrefix = prefix
-            else:
-                loader.testMethodPrefix = 'test'
+                test_module, loader.testMethodPrefix = test_module
+            if only and not (exclude and test_only or
+                             exclude != fnmatchcase(test_module, only)):
+                continue
             try:
                 test_module = __import__(test_module, globals(), locals(), ['*'])
             except ImportError, err:
@@ -135,7 +152,11 @@ class NeoTestRunner(unittest.TextTestResult):
             # NOTE it is also possible to run individual tests via `python -m unittest ...`
             if 1 or test_module.__name__ == 'neo.tests.functional.testStorage':
                 suite.addTests(loader.loadTestsFromModule(test_module))
-        suite.run(self)
+        try:
+            suite.run(self)
+        finally:
+            # Workaround weird behaviour of Python.
+            self._previousTestClass = None
 
     def startTest(self, test):
         super(NeoTestRunner, self).startTest(test)
@@ -203,7 +224,8 @@ class NeoTestRunner(unittest.TextTestResult):
         for test in self.unexpectedSuccesses:
             body.write("UNEXPECTED SUCCESS: %s\n" % self.getDescription(test))
         self.stream = _WritelnDecorator(body)
-        self.printErrors()
+        self.printErrorList('ERROR', self.errors)
+        self.printErrorList('FAIL', self.failures)
         return subject, body.getvalue()
 
 class TestRunner(BenchmarkRunner):
@@ -211,6 +233,11 @@ class TestRunner(BenchmarkRunner):
     def add_options(self, parser):
         parser.add_option('-c', '--coverage', action='store_true',
             help='Enable coverage')
+        parser.add_option('-C', '--cov-unit', action='store_true',
+            help='Same as -c but output 1 file per test,'
+                 ' in the temporary test directory')
+        parser.add_option('-l', '--loop', type='int', default=1,
+            help='Repeat tests several times')
         parser.add_option('-f', '--functional', action='store_true',
             help='Functional tests')
         parser.add_option('-u', '--unit', action='store_true',
@@ -219,7 +246,12 @@ class TestRunner(BenchmarkRunner):
             help='ZODB test suite running on a NEO')
         parser.add_option('-v', '--verbose', action='store_true',
             help='Verbose output')
+        parser.usage += " [[!] module [test...]]"
         parser.format_epilog = lambda _: """
+Positional:
+  Filter by given module/test. These arguments are shell patterns.
+  This implies -ufz if none of this option is passed.
+
 Environment Variables:
   NEO_TESTS_ADAPTER           Default is SQLite for threaded clusters,
                               MySQL otherwise.
@@ -241,27 +273,51 @@ Environment Variables:
 """ % neo_tests__dict__
 
     def load_options(self, options, args):
-        if not (options.unit or options.functional or options.zodb or args):
-            sys.exit('Nothing to run, please give one of -f, -u, -z')
+        if options.coverage and options.cov_unit:
+            sys.exit('-c conflicts with -C')
+        if not (options.unit or options.functional or options.zodb):
+            if not args:
+                sys.exit('Nothing to run, please give one of -f, -u, -z')
+            options.unit = options.functional = options.zodb = True
         return dict(
+            loop = options.loop,
             unit = options.unit,
             functional = options.functional,
             zodb = options.zodb,
             verbosity = 2 if options.verbose else 1,
             coverage = options.coverage,
+            cov_unit = options.cov_unit,
+            only = args,
         )
 
     def start(self):
         config = self._config
+        only = config.only
         # run requested tests
         runner = NeoTestRunner(config.title or 'Neo', config.verbosity)
+        if config.cov_unit:
+            from coverage import Coverage
+            cov_dir = runner.temp_directory + '/coverage'
+            os.mkdir(cov_dir)
+            @Patch(NeoTestBase)
+            def setUp(orig, self):
+                orig(self)
+                self.__coverage = Coverage('%s/%s' % (cov_dir, self.id()))
+                self.__coverage.start()
+            @Patch(NeoTestBase)
+            def _tearDown(orig, self, success):
+                self.__coverage.stop()
+                self.__coverage.save()
+                del self.__coverage
+                orig(self, success)
         try:
-            if config.unit:
-                runner.run('Unit tests', UNIT_TEST_MODULES)
-            if config.functional:
-                runner.run('Functional tests', FUNC_TEST_MODULES)
-            if config.zodb:
-                runner.run('ZODB tests', ZODB_TEST_MODULES)
+            for _ in xrange(config.loop):
+                if config.unit:
+                    runner.run('Unit tests', UNIT_TEST_MODULES, only)
+                if config.functional:
+                    runner.run('Functional tests', FUNC_TEST_MODULES, only)
+                if config.zodb:
+                    runner.run('ZODB tests', ZODB_TEST_MODULES, only)
         except KeyboardInterrupt:
             config['mail_to'] = None
             traceback.print_exc()
@@ -270,7 +326,13 @@ Environment Variables:
             if coverage.neotestrunner:
                 coverage.combine(coverage.neotestrunner)
             coverage.save()
+        if runner.dots:
+            print
         # build report
+        if only and not config.mail_to:
+            runner._buildSummary = lambda *args: (
+                runner.__class__._buildSummary(runner, *args)[0], '')
+            self.build_report = str
         self._successful = runner.wasSuccessful()
         return runner.buildReport(self.add_status)
 

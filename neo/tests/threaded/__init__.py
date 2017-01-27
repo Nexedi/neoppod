@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011-2016  Nexedi SA
+# Copyright (C) 2011-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,10 +22,9 @@ from collections import deque
 from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from itertools import count
-from functools import wraps
-from thread import get_ident
+from functools import partial, wraps
 from zlib import decompress
-from mock import Mock
+from ..mock import Mock
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
@@ -36,13 +35,14 @@ from neo.lib.connection import BaseConnection, \
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
+TIC_LOOP = xrange(1000)
 
 
 #   T1                          T2
@@ -273,7 +273,7 @@ class TestSerialized(Serialized):   # NOTE used only in .NeoCTL
 
     def poll(self, timeout):
         if timeout:
-            for x in xrange(1000):
+            for x in TIC_LOOP:
                 r = self._epoll.poll(0)
                 if r:
                     return r
@@ -339,7 +339,8 @@ class ServerNode(Node):
             master_nodes = kw.get('master_nodes', cluster.master_nodes)
             name = kw.get('name', cluster.name)
         port = address[1]
-        self._node_list[port] = weakref.proxy(self)
+        if address is not BIND:
+            self._node_list[port] = weakref.proxy(self)
         self._init_args = init_args = kw.copy()
         init_args['cluster'] = cluster
         init_args['address'] = address
@@ -386,7 +387,7 @@ class ServerNode(Node):
             raise ConnectorException
 
     def stop(self):
-        self.em.wakeup(True)
+        self.em.wakeup(thread.exit)
 
 class AdminApplication(ServerNode, neo.admin.app.Application):
     pass
@@ -484,7 +485,7 @@ class ConnectionFilter(object):
 
     filtered_count = 0
     filter_list = []
-    filter_queue = weakref.WeakKeyDictionary()
+    filter_queue = weakref.WeakKeyDictionary() # XXX: see the end of __new__
     lock = threading.RLock()
     _addPacket = Connection._addPacket
 
@@ -500,13 +501,16 @@ class ConnectionFilter(object):
                         queue = cls.filter_queue[conn]
                     except KeyError:
                         for self in cls.filter_list:
-                            if self(conn, packet):
+                            if self._test(conn, packet):
                                 self.filtered_count += 1
                                 break
                         else:
                             return cls._addPacket(conn, packet)
                         cls.filter_queue[conn] = queue = deque()
-                    p = packet.__new__(packet.__class__)
+                    p = packet.__class__
+                    logging.debug("queued %s#0x%04x for %s",
+                                  p.__name__, packet.getId(), conn)
+                    p = packet.__new__(p)
                     p.__dict__.update(packet.__dict__)
                     queue.append(p)
             Connection._addPacket = _addPacket
@@ -517,10 +521,13 @@ class ConnectionFilter(object):
             del cls.filter_list[-1:]
             if not cls.filter_list:
                 Connection._addPacket = cls._addPacket.im_func
-        with cls.lock:
-            cls._retry()
+            # Retry even in case of exception, at least to avoid leaks in
+            # filter_queue. Sometimes, WeakKeyDictionary only does the job
+            # only an explicit call to gc.collect.
+            with cls.lock:
+                cls._retry()
 
-    def __call__(self, conn, packet):
+    def _test(self, conn, packet):
         if not self.conn_list or conn in self.conn_list:
             for filter in self.filter_dict:
                 if filter(conn, packet):
@@ -533,13 +540,16 @@ class ConnectionFilter(object):
             while queue:
                 packet = queue.popleft()
                 for self in cls.filter_list:
-                    if self(conn, packet):
+                    if self._test(conn, packet):
                         queue.appendleft(packet)
                         break
                 else:
                     if conn.isClosed():
                         return
-                    cls._addPacket(conn, packet)
+                    # Use the thread that created the packet to reinject it,
+                    # to avoid a race condition on Connector.queued.
+                    conn.em.wakeup(lambda conn=conn, packet=packet:
+                        conn.isClosed() or cls._addPacket(conn, packet))
                     continue
                 break
             else:
@@ -566,6 +576,22 @@ class ConnectionFilter(object):
     def __contains__(self, filter):
         return filter in self.filter_dict
 
+    def byPacket(self, packet_type, *args):
+        patches = []
+        other = []
+        for x in args:
+            (patches if isinstance(x, Patch) else other).append(x)
+        def delay(conn, packet):
+            return isinstance(packet, packet_type) and False not in (
+                callback(conn) for callback in other)
+        self.add(delay, *patches)
+        return delay
+
+    def __getattr__(self, attr):
+        if attr.startswith('delay'):
+            return partial(self.byPacket, getattr(Packets, attr[5:]))
+        return self.__getattribute__(attr)
+
 class NEOCluster(object):
 
     SSL = None
@@ -576,9 +602,11 @@ class NEOCluster(object):
         def _lock(blocking=True):
             if blocking:
                 logging.info('<SimpleQueue>._lock.acquire()')
-                while not lock(False):
+                for i in TIC_LOOP:
+                    if lock(False):
+                        return True
                     Serialized.tic(step=1, quiet=True)
-                return True
+                raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
     _patches = (
@@ -619,6 +647,8 @@ class NEOCluster(object):
             patch.revert()
         Serialized.stop()
 
+    started = False
+
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
@@ -627,6 +657,7 @@ class NEOCluster(object):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         self.compress = compress
+        self.num_partitions = partitions
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
@@ -670,7 +701,6 @@ class NEOCluster(object):
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
 
     def __repr__(self):
         return "<%s(%s) at 0x%x>" % (self.__class__.__name__,
@@ -720,18 +750,16 @@ class NEOCluster(object):
         return master
     ###
 
-    def reset(self, clear_database=False):
-        for node_type in 'master', 'storage', 'admin':
-            kw = {}
-            if node_type == 'storage':
-                kw['clear_database'] = clear_database
-            for node in getattr(self, node_type + '_list'):
-                node.resetNode(**kw)
-        self.neoctl.close()
-        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, t, v, tb):
+        self.stop(None)
 
     def start(self, storage_list=None, fast_startup=False):
+        self.started = True
         self._patch()
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
         for node_type in 'master', 'admin':
             for node in getattr(self, node_type + '_list'):
                 node.start()
@@ -750,13 +778,63 @@ class NEOCluster(object):
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
-    def newClient(self):
+    def stop(self, clear_database=False, __print_exc=traceback.print_exc):
+        if self.started:
+            del self.started
+            logging.debug("stopping %s", self)
+            client = self.__dict__.get("client")
+            client is None or self.__dict__.pop("db", client).close()
+            node_list = self.admin_list + self.storage_list + self.master_list
+            for node in node_list:
+                node.stop()
+            try:
+                node_list.append(client.poll_thread)
+            except AttributeError: # client is None or thread is already stopped
+                pass
+            self.join(node_list)
+            self.neoctl.close()
+            del self.neoctl
+            logging.debug("stopped %s", self)
+            self._unpatch()
+        if clear_database is None:
+            try:
+                for node_type in 'admin', 'storage', 'master':
+                    for node in getattr(self, node_type + '_list'):
+                        node.close()
+            except:
+                __print_exc()
+                raise
+        else:
+            for node_type in 'master', 'storage', 'admin':
+                kw = {}
+                if node_type == 'storage':
+                    kw['clear_database'] = clear_database
+                for node in getattr(self, node_type + '_list'):
+                    node.resetNode(**kw)
+
+    def _newClient(self):
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
                                  compress=self.compress, ssl=self.SSL)
 
+    @contextmanager
+    def newClient(self, with_db=False):
+        x = self._newClient()
+        try:
+            t = x.poll_thread
+            closed = []
+            if with_db:
+                x = ZODB.DB(storage=self.getZODBStorage(client=x))
+            else:
+                # XXX: Do nothing if finally if the caller already closed it.
+                x.close = lambda: closed.append(x.__class__.close(x))
+            yield x
+        finally:
+            closed or x.close()
+            self.join((t,))
+
     @cached_property
     def client(self):
-        client = self.newClient()
+        client = self._newClient()
         # Make sure client won't be reused after it was closed.
         def close():
             client = self.client
@@ -793,21 +871,6 @@ class NEOCluster(object):
             assert time.time() < timeout, thread_list
             Serialized.tic()
             thread_list = [t for t in thread_list if t.is_alive()]
-
-    def stop(self):
-        logging.debug("stopping %s", self)
-        client = self.__dict__.get("client")
-        client is None or self.__dict__.pop("db", client).close()
-        node_list = self.admin_list + self.storage_list + self.master_list
-        for node in node_list:
-            node.stop()
-        try:
-            node_list.append(client.poll_thread)
-        except AttributeError: # client is None or thread is already stopped
-            pass
-        self.join(node_list)
-        logging.debug("stopped %s", self)
-        self._unpatch()
 
     def getNodeState(self, node):
         uuid = node.uuid
@@ -850,19 +913,9 @@ class NEOCluster(object):
             for o in oid_list:
                 tid_dict[o] = i
 
-    def getTransaction(self):
+    def getTransaction(self, db=None):
         txn = transaction.TransactionManager()
-        return txn, self.db.open(transaction_manager=txn)
-
-    def __del__(self, __print_exc=traceback.print_exc):
-        try:
-            self.neoctl.close()
-            for node_type in 'admin', 'storage', 'master':
-                for node in getattr(self, node_type + '_list'):
-                    node.close()
-        except:
-            __print_exc()
-            raise
+        return txn, (self.db if db is None else db).open(txn)
 
     def extraCellSortKey(self, key):    # XXX unused?
         return Patch(self.client.cp, getCellSortKey=lambda orig, cell:
@@ -897,9 +950,15 @@ class NEOCluster(object):
 
 class NEOThreadedTest(NeoTestBase):
 
+    __run_count = {}
+
     def setupLog(self):
-        log_file = os.path.join(getTempDirectory(), self.id() + '.log')
-        logging.setup(log_file)
+        test_id = self.id()
+        i = self.__run_count.get(test_id, 0)
+        self.__run_count[test_id] = 1 + i
+        if i:
+            test_id += '-%s' % i
+        logging.setup(os.path.join(getTempDirectory(), test_id + '.log'))
         return LoggerThreadName()
 
     def _tearDown(self, success):
@@ -912,20 +971,17 @@ class NEOThreadedTest(NeoTestBase):
 
     tic = Serialized.tic
 
+    @contextmanager
     def getLoopbackConnection(self):
-        app = MasterApplication(getSSL=NEOCluster.SSL,
-            getReplicas=0, getPartitions=1)
-        handler = EventHandler(app)
-        app.listening_conn = ListeningConnection(app, handler, app.server)
-        node = app.nm.createMaster(address=app.listening_conn.getAddress(),
-                                   uuid=app.uuid)
-        conn = ClientConnection.__new__(ClientConnection)
-        def reset():
-            conn.__dict__.clear()
-            conn.__init__(app, handler, node)
-            conn.reset = reset
-        reset()
-        return conn
+        app = MasterApplication(address=BIND,
+            getSSL=NEOCluster.SSL, getReplicas=0, getPartitions=1)
+        try:
+            handler = EventHandler(app)
+            app.listening_conn = ListeningConnection(app, handler, app.server)
+            yield ClientConnection(app, handler, app.nm.createMaster(
+                address=app.listening_conn.getAddress(), uuid=app.uuid))
+        finally:
+            app.close()
 
     def getUnpickler(self, conn):   # XXX not used?
         reader = conn._reader
@@ -963,6 +1019,9 @@ class NEOThreadedTest(NeoTestBase):
         with Patch(client, _getFinalTID=lambda *_: None):
             self.assertRaises(ConnectionClosed, txn.commit)
 
+    def assertPartitionTable(self, cluster, stats):
+        self.assertEqual(stats, '|'.join(cluster.admin.pt.formatRows()))
+
 
 def predictable_random(seed=None):
     # Because we have 2 running threads when client works, we can't
@@ -982,5 +1041,15 @@ def predictable_random(seed=None):
             finally:
                 administration.random = backup_app.random = replicator.random \
                     = random
+        return wraps(wrapped)(wrapper)
+    return decorator
+
+def with_cluster(start_cluster=True, **cluster_kw):
+    def decorator(wrapped):
+        def wrapper(self, *args, **kw):
+            with NEOCluster(**cluster_kw) as cluster:
+                if start_cluster:
+                    cluster.start()
+                return wrapped(self, cluster, *args, **kw)
         return wraps(wrapped)(wrapper)
     return decorator

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -42,9 +42,11 @@ class ZODBTestCase(TestCase):
         self.open()
 
     def _tearDown(self, success):
-        self._storage.cleanup()
         try:
-            self.neo.stop()
+            if functional:
+                self.neo.stop()
+            else:
+                self.neo.stop(None)
         except Exception:
             if success:
                 raise

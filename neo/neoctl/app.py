@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -36,6 +36,7 @@ action_dict = {
     'tweak': 'tweakPartitionTable',
     'drop': 'dropNode',
     'kill': 'killNode',
+    'prune_orphan': 'pruneOrphan',
     'truncate': 'truncate',
 }
 
@@ -146,20 +147,20 @@ class TerminalNeoCTL(object):
         assert len(params) == 0
         return self.neoctl.startCluster()
 
+    def _getStorageList(self, params):
+        if len(params) == 1 and params[0] == 'all':
+            node_list = self.neoctl.getNodeList(NodeTypes.STORAGE)
+            return [node[2] for node in node_list]
+        return map(self.asNode, params)
+
     def enableStorageList(self, params):
         """
           Enable cluster to make use of pending storages.
-          Parameters: all
-                      node [node [...]]
-            node: if "all", add all pending storage nodes.
+          Parameters: node [node [...]]
+            node: if "all", add all pending storage nodes,
                   otherwise, the list of storage nodes to enable.
         """
-        if len(params) == 1 and params[0] == 'all':
-            node_list = self.neoctl.getNodeList(NodeTypes.STORAGE)
-            uuid_list = [node[2] for node in node_list]
-        else:
-            uuid_list = map(self.asNode, params)
-        return self.neoctl.enableStorageList(uuid_list)
+        return self.neoctl.enableStorageList(self._getStorageList(params))
 
     def tweakPartitionTable(self, params):
         """
@@ -188,6 +189,20 @@ class TerminalNeoCTL(object):
           Get primary master node.
         """
         return uuid_str(self.neoctl.getPrimary())
+
+    def pruneOrphan(self, params):
+        """
+          Fix database by deleting unreferenced raw data
+
+          This can take a long time.
+
+          Parameters: dry_run node [node [...]]
+            dry_run: 0 or 1
+            node: if "all", ask all connected storage nodes to repair,
+                  otherwise, only the given list of storage nodes.
+        """
+        dry_run = "01".index(params.pop(0))
+        return self.neoctl.repair(self._getStorageList(params), dry_run)
 
     def truncate(self, params):
         """

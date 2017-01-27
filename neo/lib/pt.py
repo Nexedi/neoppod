@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2016  Nexedi SA
+# Copyright (C) 2006-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -258,30 +258,34 @@ class PartitionTable(object):
         partition on the line (here, line length is 11 to keep the docstring
         width under 80 column).
         """
-        node_list = sorted(self.count_dict)
         result = ['pt: node %u: %s, %s' % (i, uuid_str(node.getUUID()),
                      protocol.node_state_prefix_dict[node.getState()])
-                  for i, node in enumerate(node_list)]
+                  for i, node in enumerate(sorted(self.count_dict))]
         append = result.append
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
-        cell_state_dict = protocol.cell_state_prefix_dict
         prefix = 0
         prefix_len = int(math.ceil(math.log10(self.np)))
-        for offset, row in enumerate(self.partition_list):
+        for offset, row in enumerate(self.formatRows()):
             if len(line) == max_line_len:
                 append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
                 line = []
                 prefix = offset
-            if row is None:
-                line.append('X' * len(node_list))
-            else:
-                cell_dict = {x.getNode(): cell_state_dict[x.getState()]
-                             for x in row}
-                line.append(''.join(cell_dict.get(x, '.') for x in node_list))
+            line.append(row)
         if line:
             append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
         return result
+
+    def formatRows(self):
+        node_list = sorted(self.count_dict)
+        cell_state_dict = protocol.cell_state_prefix_dict
+        for row in self.partition_list:
+            if row is None:
+                yield 'X' * len(node_list)
+            else:
+                cell_dict = {x.getNode(): cell_state_dict[x.getState()]
+                             for x in row}
+                yield ''.join(cell_dict.get(x, '.') for x in node_list)
 
     def operational(self):
         if not self.filled():

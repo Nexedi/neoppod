@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009-2016  Nexedi SA
+# Copyright (C) 2009-2017  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -15,12 +15,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time, unittest
-from mock import Mock
+from ..mock import Mock
 
 from .. import NeoUnitTestBase
 from neo.client.app import ConnectionPool
 from neo.client.exception import NEOStorageError
 from neo.client import pool
+from neo.lib.util import p64
 
 class ConnectionPoolTests(NeoUnitTestBase):
 
@@ -54,7 +55,7 @@ class ConnectionPoolTests(NeoUnitTestBase):
 
     def test_iterateForObject_noStorageAvailable(self):
         # no node available
-        oid = self.getOID(1)
+        oid = p64(1)
         app = Mock()
         app.pt = Mock({'getCellList': []})
         pool = ConnectionPool(app)
