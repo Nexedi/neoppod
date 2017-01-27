@@ -956,14 +956,11 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGene
 	case *types.Map:
 		codegen.genMap(path, u, obj)
 
-
-
 	default:
 		log.Fatalf("%v: %v has unsupported type %v (%v)", pos(obj),
 			obj.Name(), typ, u)
 	}
 }
-
 
 // generate size/encode/decode functions for a type declaration typespec
 func generateCodecCode(typespec *ast.TypeSpec, codegen CodeGenerator) string {
