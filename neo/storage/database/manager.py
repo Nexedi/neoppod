@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import threading
+import struct, threading
 from collections import defaultdict
 from contextlib import contextmanager
 from functools import wraps
@@ -569,11 +569,14 @@ class DatabaseManager(object):
                 return current_tid, current_tid
             return current_tid, tid
         if transaction_object:
-            current_tid = current_data_tid = u64(transaction_object[2])
+            try:
+                current_tid = current_data_tid = u64(transaction_object[2])
+            except struct.error:
+                current_tid = current_data_tid = tid
         else:
             current_tid, current_data_tid = getDataTID(before_tid=ltid)
-        if current_tid is None:
-            return (None, None, False)
+            if current_tid is None:
+                return None, None, False
         found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
         assert found_undone_tid is not None, (oid, undone_tid)
         is_current = undone_data_tid in (current_data_tid, tid)

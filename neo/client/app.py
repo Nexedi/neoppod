@@ -655,7 +655,13 @@ class Application(ThreadedApplication):
         undo_object_tid_dict = {}
         snapshot_tid = p64(u64(self.last_tid) + 1)
         for partition, oid_list in partition_oid_dict.iteritems():
-            cell_list = getCellList(partition, readable=True)
+            cell_list = [cell
+                for cell in getCellList(partition, readable=True)
+                # Exclude nodes that may have missed previous resolved
+                # conflicts. For example, if a network failure happened only
+                # between the client and the storage, the latter would still
+                # be readable until we commit.
+                if txn_context.involved_nodes.get(cell.getUUID(), 0) < 2]
             # We do want to shuffle before getting one with the smallest
             # key, so that all cells with the same (smallest) key has
             # identical chance to be chosen.
@@ -685,7 +691,11 @@ class Application(ThreadedApplication):
                 # object. This is an undo conflict, try to resolve it.
                 try:
                     # Load the latest version we are supposed to see
-                    data = self.load(oid, current_serial)[0]
+                    if current_serial == ttid:
+                        # XXX: see TODO below
+                        data = txn_context.cache_dict[oid]
+                    else:
+                        data = self.load(oid, current_serial)[0]
                     # Load the version we were undoing to
                     undo_data = self.load(oid, undo_serial)[0]
                 except NEOStorageNotFoundError:
@@ -699,8 +709,14 @@ class Application(ThreadedApplication):
                     raise UndoError('Some data were modified by a later ' \
                         'transaction', oid)
                 undo_serial = None
+                # TODO: The situation is similar to deadlock avoidance.
+                #       Reenable the cache size limit to avoid OOM when there's
+                #       a huge amount conflicting data, and get the data back
+                #       from the storage when it's not in cache_dict anymore.
+                txn_context.cache_size = - float('inf')
             self._store(txn_context, oid, current_serial, data, undo_serial)
 
+        self.waitStoreResponses(txn_context)
         return None, txn_oid_list
 
     def _insertMetadata(self, txn_info, extension):

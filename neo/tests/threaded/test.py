@@ -156,37 +156,45 @@ class Test(NEOThreadedTest):
                 self.assertEqual((x['tid'], x['size']), expected.pop())
             self.assertFalse(expected)
 
-    @with_cluster()
-    def testUndoConflict(self, cluster, conflict_during_store=False):
+    def _testUndoConflict(self, cluster, *inc):
         def waitResponses(orig, *args):
             orig(*args)
             p.revert()
-            ob.value += 3
             t.commit()
-        if 1:
-            t, c = cluster.getTransaction()
-            c.root()[0] = ob = PCounterWithResolution()
+        t, c = cluster.getTransaction()
+        c.root()[0] = ob = PCounterWithResolution()
+        t.commit()
+        tids = []
+        for x in inc:
+            ob.value += x
             t.commit()
-            ob.value += 1
-            t.commit()
-            undo = TransactionalUndo(cluster.db, (ob._p_serial,))
-            txn = transaction.Transaction()
-            undo.tpc_begin(txn)
-            if conflict_during_store:
-                with Patch(cluster.client, waitResponses=waitResponses) as p:
-                    undo.commit(txn)
-            else:
-                ob.value += 3
-                t.commit()
-                undo.commit(txn)
-            undo.tpc_vote(txn)
-            undo.tpc_finish(txn)
-            t.begin()
-            self.assertEqual(ob.value, 3)
+            tids.append(ob._p_serial)
+        undo = TransactionalUndo(cluster.db, tids)
+        txn = transaction.Transaction()
+        undo.tpc_begin(txn)
+        ob.value += 5
+        with Patch(cluster.client, waitResponses=waitResponses) as p:
+            undo.commit(txn)
+        undo.tpc_vote(txn)
+        undo.tpc_finish(txn)
+        t.begin()
+        self.assertEqual(ob.value, 5)
+        return ob
+
+    @with_cluster()
+    def testUndoConflictSmallCache(self, cluster):
+        big = 'x' * cluster.cache_size
+        def resolve(orig, *args):
+            state = orig(*args)
+            state['x'] = big
+            return state
+        with Patch(PCounterWithResolution, _p_resolveConflict=resolve):
+            self.assertEqual(self._testUndoConflict(cluster, 1, 3).x, big)
 
     @expectedFailure(POSException.ConflictError)
-    def testUndoConflictDuringStore(self):
-        self.testUndoConflict(True)
+    @with_cluster()
+    def testUndoConflictDuringStore(self, cluster):
+        self._testUndoConflict(cluster, 1)
 
     @with_cluster()
     def testStorageDataLock(self, cluster):
