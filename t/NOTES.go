@@ -18,3 +18,5 @@
 	stalecucmber
 	og-rek
 	graphite-clickhous/helper/pickle.go
+
+	particular fsIndex: by hand
