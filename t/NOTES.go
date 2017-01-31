@@ -10,3 +10,11 @@
 	io.ReadFull(r, ...)
 
   calls convI2I all the time (no caching) which is not negliable
+
+
+
+- python pickles
+
+	stalecucmber
+	og-rek
+	graphite-clickhous/helper/pickle.go
