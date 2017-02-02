@@ -6,6 +6,8 @@ package neo
 
 // XXX move imports out of here
 import (
+	"./zodb"
+
 	"encoding/binary"
 	"errors"
 	"math"
@@ -281,8 +283,8 @@ type Recovery struct {
 
 type AnswerRecovery struct {
 	PTid
-	BackupTID   Tid
-	TruncateTID Tid
+	BackupTID   zodb.Tid
+	TruncateTID zodb.Tid
 }
 
 // Ask the last OID/TID so that a master can initialize its TransactionManager.
@@ -291,8 +293,8 @@ type LastIDs struct {
 }
 
 type AnswerLastIDs struct {
-	LastOID Oid
-	LastTID Tid
+	LastOID zodb.Oid
+	LastTID zodb.Tid
 }
 
 // Ask the full partition table. PM -> S.
@@ -343,9 +345,9 @@ type UnfinishedTransactions struct {
 }
 
 type AnswerUnfinishedTransactions struct {
-	MaxTID  Tid
+	MaxTID  zodb.Tid
 	TidList []struct{
-		UnfinishedTID Tid
+		UnfinishedTID zodb.Tid
 	}
 }
 
@@ -355,77 +357,77 @@ type LockedTransactions struct {
 }
 
 type AnswerLockedTransactions struct {
-	TidDict map[Tid]Tid     // ttid -> tid
+	TidDict map[zodb.Tid]zodb.Tid     // ttid -> tid
 }
 
 // Return final tid if ttid has been committed. * -> S. C -> PM.
 type FinalTID struct {
-	TTID    Tid
+	TTID    zodb.Tid
 }
 
 type AnswerFinalTID struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 // Commit a transaction. PM -> S.
 type ValidateTransaction struct {
-	TTID Tid
-	Tid  Tid
+	TTID zodb.Tid
+	Tid  zodb.Tid
 }
 
 
 // Ask to begin a new transaction. C -> PM.
 // Answer when a transaction begin, give a TID if necessary. PM -> C.
 type BeginTransaction struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 type AnswerBeginTransaction struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 // Finish a transaction. C -> PM.
 // Answer when a transaction is finished. PM -> C.
 type FinishTransaction struct {
-	Tid	 Tid
-	OIDList     []Oid
-	CheckedList []Oid
+	Tid	 zodb.Tid
+	OIDList     []zodb.Oid
+	CheckedList []zodb.Oid
 }
 
 type AnswerFinishTransaction struct {
-	TTID    Tid
-	Tid     Tid
+	TTID    zodb.Tid
+	Tid     zodb.Tid
 }
 
 // Notify that a transaction blocking a replication is now finished
 // M -> S
 type NotifyTransactionFinished struct {
-	TTID    Tid
-	MaxTID  Tid
+	TTID    zodb.Tid
+	MaxTID  zodb.Tid
 }
 
 // Lock information on a transaction. PM -> S.
 // Notify information on a transaction locked. S -> PM.
 type LockInformation struct {
-	Ttid Tid
-	Tid  Tid
+	Ttid zodb.Tid
+	Tid  zodb.Tid
 }
 
 // XXX AnswerInformationLocked ?
 type AnswerLockInformation struct {
-	Ttid Tid
+	Ttid zodb.Tid
 }
 
 // Invalidate objects. PM -> C.
 // XXX ask_finish_transaction ?
 type InvalidateObjects struct {
-	Tid     Tid
-	OidList []Oid
+	Tid     zodb.Tid
+	OidList []zodb.Oid
 }
 
 // Unlock information on a transaction. PM -> S.
 type UnlockInformation struct {
-	TTID    Tid
+	TTID    zodb.Tid
 }
 
 // Ask new object IDs. C -> PM.
@@ -436,7 +438,7 @@ type GenerateOIDs struct {
 
 // XXX answer_new_oids ?
 type AnswerGenerateOIDs struct {
-	OidList []Oid
+	OidList []zodb.Oid
 }
 
 
@@ -447,42 +449,42 @@ type AnswerGenerateOIDs struct {
 // if this serial is newer than the current transaction ID, a client
 // node must not try to resolve the conflict. S -> C.
 type StoreObject struct {
-	Oid             Oid
-	Serial          Tid
+	Oid             zodb.Oid
+	Serial          zodb.Tid
 	Compression     bool
 	Checksum        Checksum
 	Data            []byte          // TODO separately (for writev)
-	DataSerial      Tid
-	Tid             Tid
+	DataSerial      zodb.Tid
+	Tid             zodb.Tid
 	Unlock          bool
 }
 
 type AnswerStoreObject struct {
 	Conflicting     bool
-	Oid             Oid
-	Serial          Tid
+	Oid             zodb.Oid
+	Serial          zodb.Tid
 }
 
 // Abort a transaction. C -> S, PM.
 type AbortTransaction struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type StoreTransaction struct {
-	Tid	     Tid
+	Tid	     zodb.Tid
 	User            string
 	Description     string
 	Extension       string
-	OidList         []Oid
+	OidList         []zodb.Oid
 	// TODO _answer = PFEmpty
 }
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type VoteTransaction struct {
-	Tid     Tid
+	Tid     zodb.Tid
 	// TODO _answer = PFEmpty
 }
 
@@ -491,20 +493,20 @@ type VoteTransaction struct {
 // a TID is specified, an object right before the TID will be returned. C -> S.
 // Answer the requested object. S -> C.
 type GetObject struct {
-	Oid     Oid
-	Serial  Tid
-	Tid     Tid
+	Oid     zodb.Oid
+	Serial  zodb.Tid
+	Tid     zodb.Tid
 }
 
 // XXX answer_object ?
 type AnswerGetObject struct {
-	Oid             Oid
-	SerialStart     Tid
-	SerialEnd       Tid
+	Oid             zodb.Oid
+	SerialStart     zodb.Tid
+	SerialEnd       zodb.Tid
 	Compression     bool
 	Checksum        Checksum
 	Data            []byte          // TODO separately (for writev)
-	DataSerial      Tid
+	DataSerial      zodb.Tid
 }
 
 // Ask for TIDs between a range of offsets. The order of TIDs is descending,
@@ -518,52 +520,52 @@ type TIDList struct {
 
 // XXX answer_tids ?
 type AnswerTIDList struct {
-	TIDList []Tid
+	TIDList []zodb.Tid
 }
 
 // Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
 // C -> S.
 // Answer the requested TIDs. S -> C
 type TIDListFrom struct {
-	MinTID          Tid
-	MaxTID          Tid
+	MinTID          zodb.Tid
+	MaxTID          zodb.Tid
 	Length          uint32  // PNumber
 	Partition       uint32  // PNumber
 }
 
 // XXX answer_tids ?
 type AnswerTIDListFrom struct {
-	TidList []Tid
+	TidList []zodb.Tid
 }
 
 // Ask information about a transaction. Any -> S.
 // Answer information (user, description) about a transaction. S -> Any.
 type TransactionInformation struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 type AnswerTransactionInformation struct {
-	Tid             Tid
+	Tid             zodb.Tid
 	User            string
 	Description     string
 	Extension       string
 	Packed          bool
-	OidList         []Oid
+	OidList         []zodb.Oid
 }
 
 // Ask history information for a given object. The order of serials is
 // descending, and the range is [first, last]. C -> S.
 // Answer history information (serial, size) for an object. S -> C.
 type ObjectHistory struct {
-	Oid     Oid
+	Oid     zodb.Oid
 	First   uint64  // PIndex       XXX this is actually TID
 	Last    uint64  // PIndex       ----//----
 }
 
 type AnswerObjectHistory struct {
-	Oid         Oid
+	Oid         zodb.Oid
 	HistoryList []struct {
-	        Serial  Tid
+	        Serial  zodb.Tid
 	        Size    uint32  // PNumber
 	}
 }
@@ -677,17 +679,17 @@ type X_ClusterState struct {	// XXX conflicts with ClusterState enum
 //             If current_serial's data is current on storage.
 // S -> C
 type ObjectUndoSerial struct {
-	Tid             Tid
-	LTID            Tid
-	UndoneTID       Tid
-	OidList         []Oid
+	Tid             zodb.Tid
+	LTID            zodb.Tid
+	UndoneTID       zodb.Tid
+	OidList         []zodb.Oid
 }
 
 // XXX answer_undo_transaction ?
 type AnswerObjectUndoSerial struct {
-	ObjectTIDDict map[Oid]struct {
-		CurrentSerial   Tid
-		UndoSerial      Tid
+	ObjectTIDDict map[zodb.Oid]struct {
+		CurrentSerial   zodb.Tid
+		UndoSerial      zodb.Tid
 		IsCurrent       bool
 	}
 }
@@ -696,12 +698,12 @@ type AnswerObjectUndoSerial struct {
 // C -> S
 // Answer whether a transaction holds the write lock for requested object.
 type HasLock struct {
-	Tid     Tid
-	Oid     Oid
+	Tid     zodb.Tid
+	Oid     zodb.Oid
 }
 
 type AnswerHasLock struct {
-	Oid       Oid
+	Oid       zodb.Oid
 	LockState LockState
 }
 
@@ -713,16 +715,16 @@ type AnswerHasLock struct {
 // Same structure as AnswerStoreObject, to handle the same way, except there
 // is nothing to invalidate in any client's cache.
 type CheckCurrentSerial struct {
-	Tid     Tid
-	Serial  Tid
-	Oid     Oid
+	Tid     zodb.Tid
+	Serial  zodb.Tid
+	Oid     zodb.Oid
 }
 
 // XXX answer_store_object ?
 type AnswerCheckCurrentSerial struct {
 	Conflicting     bool
-	Oid             Oid
-	Serial          Tid
+	Oid             zodb.Oid
+	Serial          zodb.Tid
 }
 
 // Request a pack at given TID.
@@ -732,7 +734,7 @@ type AnswerCheckCurrentSerial struct {
 // S -> M
 // M -> C
 type Pack struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 type AnswerPack struct {
@@ -744,8 +746,8 @@ type AnswerPack struct {
 // A -> M
 type CheckReplicas struct {
 	PartitionDict map[uint32]UUID        // partition -> source	(PNumber)
-	MinTID  Tid
-	MaxTID  Tid
+	MinTID  zodb.Tid
+	MaxTID  zodb.Tid
 
 	// XXX _answer = Error
 }
@@ -757,8 +759,8 @@ type CheckPartition struct {
 		UpstreamName string
 		Address      Address
 	}
-	MinTID    Tid
-	MaxTID    Tid
+	MinTID    zodb.Tid
+	MaxTID    zodb.Tid
 }
 
 
@@ -773,14 +775,14 @@ type CheckPartition struct {
 type CheckTIDRange struct {
 	Partition uint32        // PNumber
 	Length    uint32        // PNumber
-	MinTID    Tid
-	MaxTID    Tid
+	MinTID    zodb.Tid
+	MaxTID    zodb.Tid
 }
 
 type AnswerCheckTIDRange struct {
 	Count    uint32         // PNumber
 	Checksum Checksum
-	MaxTID   Tid
+	MaxTID   zodb.Tid
 }
 
 // Ask some stats about a range of object history.
@@ -794,17 +796,17 @@ type AnswerCheckTIDRange struct {
 type CheckSerialRange struct {
 	Partition       uint32  // PNumber
 	Length          uint32  // PNumber
-	MinTID          Tid
-	MaxTID          Tid
-	MinOID          Oid
+	MinTID          zodb.Tid
+	MaxTID          zodb.Tid
+	MinOID          zodb.Oid
 }
 
 type AnswerCheckSerialRange struct {
 	Count           uint32  // PNumber
 	TidChecksum     Checksum
-	MaxTID          Tid
+	MaxTID          zodb.Tid
 	OidChecksum     Checksum
-	MaxOID          Oid
+	MaxOID          zodb.Oid
 }
 
 // S -> M
@@ -822,7 +824,7 @@ type LastTransaction struct {
 }
 
 type AnswerLastTransaction struct {
-	Tid     Tid
+	Tid     zodb.Tid
 }
 
 
