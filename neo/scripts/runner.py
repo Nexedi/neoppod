@@ -33,6 +33,7 @@ if filter(re.compile(r'--coverage$|-\w*c').match, sys.argv[1:]):
     coverage.neotestrunner = []
     coverage.start()
 
+from neo.lib import logging
 from neo.tests import getTempDirectory, NeoTestBase, Patch, \
     __dict__ as neo_tests__dict__
 from neo.tests.benchmark import BenchmarkRunner
@@ -234,6 +235,9 @@ class TestRunner(BenchmarkRunner):
         parser.add_option('-C', '--cov-unit', action='store_true',
             help='Same as -c but output 1 file per test,'
                  ' in the temporary test directory')
+        parser.add_option('-L', '--log', action='store_true',
+            help='Force all logs to be emitted immediately and keep'
+                 ' packet body in logs of successful threaded tests')
         parser.add_option('-l', '--loop', type='int', default=1,
             help='Repeat tests several times')
         parser.add_option('-f', '--functional', action='store_true',
@@ -278,6 +282,7 @@ Environment Variables:
                 sys.exit('Nothing to run, please give one of -f, -u, -z')
             options.unit = options.functional = options.zodb = True
         return dict(
+            log = options.log,
             loop = options.loop,
             unit = options.unit,
             functional = options.functional,
@@ -290,6 +295,8 @@ Environment Variables:
 
     def start(self):
         config = self._config
+        logging.backlog(max_packet=1<<20,
+            **({'max_size': None} if config.log else {}))
         only = config.only
         # run requested tests
         runner = NeoTestRunner(config.title or 'Neo', config.verbosity)

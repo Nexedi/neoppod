@@ -74,7 +74,6 @@ SSL = os.path.dirname(__file__) + os.sep
 SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
 
 logging.default_root_handler.handle = lambda record: None
-logging.backlog(None, 1<<20)
 
 debug.register()
 # prevent "signal only works in main thread" errors in subprocesses

@@ -9,9 +9,6 @@ from email.mime.text import MIMEText
 
 MAIL_SERVER = '127.0.0.1:25'
 
-from neo.lib import logging
-logging.backlog()
-
 class AttributeDict(dict):
 
     def __getattr__(self, item):

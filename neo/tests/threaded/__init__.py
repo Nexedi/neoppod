@@ -927,7 +927,7 @@ class NEOThreadedTest(NeoTestBase):
     def _tearDown(self, success):
         super(NEOThreadedTest, self)._tearDown(success)
         ServerNode.resetPorts()
-        if success:
+        if success and logging._max_size is not None:
             with logging as db:
                 db.execute("UPDATE packet SET body=NULL")
                 db.execute("VACUUM")
