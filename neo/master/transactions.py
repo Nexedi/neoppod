@@ -18,12 +18,9 @@ from collections import deque
 from time import time
 from struct import pack, unpack
 from neo.lib import logging
-from neo.lib.handler import EventQueue
+from neo.lib.handler import DelayEvent, EventQueue
 from neo.lib.protocol import ProtocolError, uuid_str, ZERO_OID, ZERO_TID
 from neo.lib.util import dump, u64, addTID, tidFromTime
-
-class DelayedError(Exception):
-    pass
 
 class Transaction(object):
     """
@@ -330,7 +327,7 @@ class TransactionManager(EventQueue):
                 # we won't be able to finish this one, because that would make
                 # the cluster non-operational. Let's tell the caller to retry
                 # later.
-                return
+                raise DelayEvent
             # Allow the client to finish the transaction,
             # even if it will disconnect storage nodes.
             txn._failed = failed

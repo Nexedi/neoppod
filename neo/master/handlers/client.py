@@ -51,13 +51,14 @@ class ClientServiceHandler(MasterHandler):
     def askNewOIDs(self, conn, num_oids):
         conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
 
+    def getEventQueue(self):
+        # for failedVote
+        return self.app.tm
+
     def failedVote(self, conn, *args):
         app = self.app
-        ok = app.tm.vote(app, *args)
-        if ok is None:
-            app.tm.queueEvent(self.failedVote, conn, args)
-        else:
-            conn.answer((Errors.Ack if ok else Errors.IncompleteTransaction)())
+        conn.answer((Errors.Ack if app.tm.vote(app, *args) else
+                     Errors.IncompleteTransaction)())
 
     def askFinishTransaction(self, conn, ttid, oid_list, checked_list):
         app = self.app

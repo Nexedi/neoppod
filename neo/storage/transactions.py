@@ -16,7 +16,7 @@
 
 from time import time
 from neo.lib import logging
-from neo.lib.handler import EventQueue
+from neo.lib.handler import DelayEvent, EventQueue
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, uuid_str, MAX_TID
 
@@ -30,11 +30,6 @@ class ConflictError(Exception):
         Exception.__init__(self)
         self.tid = tid
 
-
-class DelayedError(Exception):
-    """
-        Raised when an object is locked by a previous transaction
-    """
 
 class NotRegisteredError(Exception):
     """
@@ -219,7 +214,7 @@ class TransactionManager(EventQueue):
             Take a write lock on given object, checking that "serial" is
             current.
             Raises:
-                DelayedError
+                DelayEvent
                 ConflictError
         """
         partition = self.getPartition(oid)
@@ -242,7 +237,7 @@ class TransactionManager(EventQueue):
                 # before we processed UnlockInformation from the master.
                 logging.info('Store delayed for %r:%r by %r', dump(oid),
                              dump(ttid), dump(locked))
-                raise DelayedError
+                raise DelayEvent
             transaction = self._transaction_dict[ttid]
             if partition in self._replicated and (
                oid in transaction.store_dict or oid in transaction.checked_set):

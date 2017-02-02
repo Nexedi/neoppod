@@ -19,7 +19,7 @@ from os.path import exists, getsize
 import json
 
 from . import attributeTracker, logging
-from .handler import EventQueue
+from .handler import DelayEvent, EventQueue
 from .protocol import formatNodeList, uuid_str, \
     NodeTypes, NodeStates, NotReadyError, ProtocolError
 
@@ -358,10 +358,10 @@ class NodeManager(EventQueue):
     def getByUUID(self, uuid, *id_timestamp):
         """Return the node that matches with a given UUID
 
-        If an id timestamp is passed, None is returned if identification must
-        be delayed. This is because we rely only on the notifications from the
-        master to recognize nodes (otherwise, we could get id conflicts) and
-        such notifications may be late in some cases, even when the master
+        If an id timestamp is passed, DelayEvent is raised if identification
+        must be delayed. This is because we rely only on the notifications from
+        the master to recognize nodes (otherwise, we could get id conflicts)
+        and such notifications may be late in some cases, even when the master
         expects us to not reject the connection.
         """
         node = self._uuid_dict.get(uuid)
@@ -369,7 +369,7 @@ class NodeManager(EventQueue):
             id_timestamp, = id_timestamp
             if not node or node.id_timestamp != id_timestamp:
                 if self._timestamp < id_timestamp:
-                    return
+                    raise DelayEvent
                 # The peer got disconnected from the master.
                 raise NotReadyError('unknown by master')
         return node

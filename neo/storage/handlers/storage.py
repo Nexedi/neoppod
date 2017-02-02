@@ -17,7 +17,7 @@
 import weakref
 from functools import wraps
 from neo.lib.connection import ConnectionClosed
-from neo.lib.handler import EventHandler
+from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
     ZERO_HASH
 
@@ -143,12 +143,14 @@ class StorageOperationHandler(EventHandler):
     # Server (all methods must set connection as server so that it isn't closed
     #         if client tasks are finished)
 
+    def getEventQueue(self):
+        return self.app.tm
+
     @checkFeedingConnection(check=True)
     def askCheckTIDRange(self, conn, *args):
         app = self.app
         if app.tm.isLockedTid(args[3]): # max_tid
-            app.tm.queueEvent(self.askCheckTIDRange, conn, args)
-            return
+            raise DelayEvent
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         def check():
@@ -187,9 +189,7 @@ class StorageOperationHandler(EventHandler):
             #   NotifyTransactionFinished(M->S) + AskFetchTransactions(S->S)
             # is faster than
             #   NotifyUnlockInformation(M->S)
-            app.tm.queueEvent(self.askFetchTransactions, conn,
-                (partition, length, min_tid, max_tid, tid_list))
-            return
+            raise DelayEvent
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         peer_tid_set = set(tid_list)

@@ -25,6 +25,10 @@ from .protocol import (
 from .util import cached_property
 
 
+class DelayEvent(Exception):
+    pass
+
+
 class EventHandler(object):
     """This class handles events."""
 
@@ -66,6 +70,9 @@ class EventHandler(object):
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
             method(conn, *args, **kw)
+        except DelayEvent:
+            assert not kw, kw
+            self.getEventQueue().queueEvent(method, conn, args)
         except UnexpectedPacketError, e:
             if not conn.isClosed():
                 self.__unexpectedPacket(conn, packet, *e.args)
@@ -268,31 +275,75 @@ class AnswerBaseHandler(EventHandler):
         raise ConnectionClosed
 
 
+class _DelayedConnectionEvent(EventHandler):
+
+    handler_method_name = '_func'
+    __new__ = object.__new__
+
+    def __init__(self, func, conn, args):
+        self._args = args
+        self._conn = conn
+        self._func = func
+        self._msg_id = conn.getPeerId()
+
+    def __call__(self):
+        conn = self._conn
+        if not conn.isClosed():
+            msg_id = conn.getPeerId()
+            try:
+                self.dispatch(conn, self)
+            finally:
+                conn.setPeerId(msg_id)
+
+    def __repr__(self):
+        return '<%s: 0x%x %s>' % (self._func.__name__, self._msg_id, self._conn)
+
+    def decode(self):
+        return self._args
+
+    def getEventQueue(self):
+        raise
+
+    def getId(self):
+        return self._msg_id
+
+
 class EventQueue(object):
 
     def __init__(self):
         self._event_queue = deque()
+        self._executing_event = -1
 
-    def queueEvent(self, some_callable, conn=None, args=()):
-        msg_id = None if conn is None else conn.getPeerId()
-        self._event_queue.append((some_callable, msg_id, conn, args))
+    def queueEvent(self, func, conn=None, args=()):
+        self._event_queue.append(func if conn is None else
+            _DelayedConnectionEvent(func, conn, args))
 
     def executeQueuedEvents(self):
-        p = self._event_queue.popleft
-        for _ in xrange(len(self._event_queue)):
-            some_callable, msg_id, conn, args = p()
-            if conn is None:
-                some_callable(*args)
-            elif not conn.isClosed():
-                orig_msg_id = conn.getPeerId()
-                try:
-                    conn.setPeerId(msg_id)
-                    some_callable(conn, *args)
-                finally:
-                    conn.setPeerId(orig_msg_id)
+        # Not reentrant. When processing a queued event, calling this method
+        # only tells the caller to retry all events from the beginning, because
+        # events for the same connection must be processed in chronological
+        # order.
+        self._executing_event += 1
+        if self._executing_event:
+            return
+        queue = self._event_queue
+        n = len(queue)
+        while n:
+            try:
+                queue[0]()
+            except DelayEvent:
+                queue.rotate(-1)
+            else:
+                del queue[0]
+            n -= 1
+            if self._executing_event:
+                self._executing_event = 0
+                queue.rotate(-n)
+                n = len(queue)
+        self._executing_event = -1
 
     def logQueuedEvents(self):
         if self._event_queue:
             logging.info(" Pending events:")
-            for event, msg_id, conn, args in self._event_queue:
-                logging.info('  %r: %r %r', event.__name__, msg_id, conn)
+            for event in self._event_queue:
+                logging.info('  %r', event)

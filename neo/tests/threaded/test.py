@@ -26,10 +26,10 @@ from persistent import Persistent, GHOST
 from transaction.interfaces import TransientError
 from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
-from neo.storage.transactions import TransactionManager, \
-    DelayedError, ConflictError
+from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
+from neo.lib.handler import DelayEvent
 from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     uuid_str, ZERO_OID, ZERO_TID
@@ -257,7 +257,7 @@ class Test(NEOThreadedTest):
                 ob._p_changed = 1
                 t.commit()
                 self.assertNotIn(delayUnlockInformation, m2s)
-        self.assertEqual(except_list, [DelayedError])
+        self.assertEqual(except_list, [DelayEvent])
 
     @with_cluster(storage_count=2, replicas=1)
     def _testDeadlockAvoidance(self, cluster, scenario):
@@ -323,7 +323,7 @@ class Test(NEOThreadedTest):
         # 2: C1 commits
         # 3: C2 resolves conflict
         self.assertEqual(self._testDeadlockAvoidance([2, 4]),
-            [DelayedError, DelayedError, ConflictError, ConflictError])
+            [DelayEvent, DelayEvent, ConflictError, ConflictError])
 
     @expectedFailure(POSException.ConflictError)
     def testDeadlockAvoidance(self):
@@ -334,7 +334,7 @@ class Test(NEOThreadedTest):
         # 3: C2 commits
         # 4: C1 resolves conflict
         self.assertEqual(self._testDeadlockAvoidance([1, 3]),
-            [DelayedError, ConflictError, "???" ])
+            [DelayEvent, ConflictError, "???" ])
 
     @with_cluster()
     def testConflictResolutionTriggered2(self, cluster):
@@ -419,9 +419,11 @@ class Test(NEOThreadedTest):
         l.acquire()
         idle = []
         def askObject(orig, *args):
-            orig(*args)
-            idle.append(cluster.storage.em.isIdle())
-            l.release()
+            try:
+                orig(*args)
+            finally:
+                idle.append(cluster.storage.em.isIdle())
+                l.release()
         if 1:
             t, c = cluster.getTransaction()
             r = c.root()
@@ -1099,9 +1101,11 @@ class Test(NEOThreadedTest):
         l = threading.Semaphore(0)
         idle = []
         def requestIdentification(orig, *args):
-            orig(*args)
-            idle.append(cluster.storage.em.isIdle())
-            l.release()
+            try:
+                orig(*args)
+            finally:
+                idle.append(cluster.storage.em.isIdle())
+                l.release()
         cluster.db
         with cluster.master.filterConnection(cluster.storage) as m2s:
             delayNotifyInformation = m2s.delayNotifyNodeInformation()
@@ -1484,9 +1488,10 @@ class Test(NEOThreadedTest):
             return isinstance(packet, Packets.AbortTransaction)
         def c1_vote(txn):
             def vote(orig, *args):
-                result = orig(*args)
-                ll()
-                return result
+                try:
+                    return orig(*args)
+                finally:
+                    ll()
             with LockLock() as ll, Patch(cluster.master.tm, vote=vote):
                 commit2.start()
                 ll()

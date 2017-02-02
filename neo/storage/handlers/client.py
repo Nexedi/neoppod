@@ -15,11 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.handler import EventHandler
+from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, Errors, ProtocolError, \
     ZERO_HASH, INVALID_PARTITION
-from ..transactions import ConflictError, DelayedError, NotRegisteredError
+from ..transactions import ConflictError, NotRegisteredError
 import time
 
 # Log stores taking (incl. lock delays) more than this many seconds.
@@ -37,12 +37,14 @@ class ClientOperationHandler(EventHandler):
                     t[4], t[0])
         conn.answer(p)
 
+    def getEventQueue(self):
+        # for read rpc
+        return self.app.tm
+
     def askObject(self, conn, oid, serial, tid):
         app = self.app
         if app.tm.loadLocked(oid):
-            # Delay the response.
-            app.tm.queueEvent(self.askObject, conn, (oid, serial, tid))
-            return
+            raise DelayEvent
         o = app.dm.getObject(oid, serial, tid)
         try:
             serial, next_serial, compression, checksum, data, data_serial = o
@@ -74,10 +76,6 @@ class ClientOperationHandler(EventHandler):
         except ConflictError, err:
             # resolvable or not
             conn.answer(Packets.AnswerStoreObject(err.tid))
-        except DelayedError:
-            # locked by a previous transaction, retry later
-            self.app.tm.queueEvent(self._askStoreObject, conn, (oid, serial,
-                compression, checksum, data, data_serial, ttid, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget store of %s:%s by %s delayed by %s',
@@ -86,7 +84,7 @@ class ClientOperationHandler(EventHandler):
             # send an answer as the client side is waiting for it
             conn.answer(Packets.AnswerStoreObject(None))
         else:
-            if SLOW_STORE is not None:
+            if request_time and SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('StoreObject delay: %.02fs', duration)
@@ -104,8 +102,13 @@ class ClientOperationHandler(EventHandler):
             assert data_serial is None
         else:
             checksum = data = None
-        self._askStoreObject(conn, oid, serial, compression, checksum, data,
-            data_serial, ttid, time.time())
+        try:
+            self._askStoreObject(conn, oid, serial, compression,
+                checksum, data, data_serial, ttid, None)
+        except DelayEvent:
+            # locked by a previous transaction, retry later
+            self.app.tm.queueEvent(self._askStoreObject, conn, (oid, serial,
+                compression, checksum, data, data_serial, ttid, time.time()))
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
@@ -152,9 +155,7 @@ class ClientOperationHandler(EventHandler):
             raise ProtocolError('invalid offsets')
         app = self.app
         if app.tm.loadLocked(oid):
-            # Delay the response.
-            app.tm.queueEvent(self.askObjectHistory, conn, (oid, first, last))
-            return
+            raise DelayEvent
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
             p = Errors.OidNotFound(dump(oid))
@@ -164,7 +165,12 @@ class ClientOperationHandler(EventHandler):
 
     def askCheckCurrentSerial(self, conn, ttid, oid, serial):
         self.app.tm.register(conn, ttid)
-        self._askCheckCurrentSerial(conn, ttid, oid, serial, time.time())
+        try:
+            self._askCheckCurrentSerial(conn, ttid, oid, serial, None)
+        except DelayEvent:
+            # locked by a previous transaction, retry later
+            self.app.tm.queueEvent(self._askCheckCurrentSerial,
+                conn, (ttid, oid, serial, time.time()))
 
     def _askCheckCurrentSerial(self, conn, ttid, oid, serial, request_time):
         try:
@@ -172,10 +178,6 @@ class ClientOperationHandler(EventHandler):
         except ConflictError, err:
             # resolvable or not
             conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
-        except DelayedError:
-            # locked by a previous transaction, retry later
-            self.app.tm.queueEvent(self._askCheckCurrentSerial, conn,
-                (ttid, oid, serial, request_time))
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget serial check of %s:%s by %s delayed by %s',
@@ -184,7 +186,7 @@ class ClientOperationHandler(EventHandler):
             # send an answer as the client side is waiting for it
             conn.answer(Packets.AnswerCheckCurrentSerial(None))
         else:
-            if SLOW_STORE is not None:
+            if request_time and SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
