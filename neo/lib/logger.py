@@ -14,13 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# WARNING: Log rotating should not be implemented here.
-#          SQLite does not access database only by file descriptor,
-#          and an OperationalError exception would be raised if a log is emitted
-#          between a rename and a reopen.
-#          Fortunately, SQLite allow multiple process to access the same DB,
-#          so an external tool should be able to dump and empty tables.
-
 from collections import deque
 from functools import wraps
 from logging import getLogger, Formatter, Logger, StreamHandler, \
