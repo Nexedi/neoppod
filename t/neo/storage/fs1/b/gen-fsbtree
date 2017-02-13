@@ -14,7 +14,7 @@ echo "// KEY=$KEY  VALUE=$VALUE" >>$out
 echo "// ---- 8< ----" >>$out
 echo >>$out
 make -s -C $Bdir generic |sed	\
-	-e '/package b/a \\nimport "zodb"'	\
+	-e '/package b/a \\nimport "../../../zodb"'	\
 	-e "s/KEY/$KEY/g"	\
 	-e "s/VALUE/$VALUE/g"	\
 	>>$out

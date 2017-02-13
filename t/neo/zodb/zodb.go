@@ -16,6 +16,13 @@ type Xid struct {
 }
 */
 
+const (
+	Tid0	Tid = 0
+	TidMax	Tid = 1<<63 - 1		// 0x7fffffffffffffff
+					// ZODB defines maxtid to be max signed int64 since baee84a6 (Jun 7 2016)
+					// (XXX in neo: SQLite does not accept numbers above 2^63-1)
+)
+
 // ----------------------------------------
 
 type TxnStatus byte

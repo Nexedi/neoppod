@@ -5,7 +5,7 @@ package storage
 
 import (
 	"os"
-	. "../"
+	"../zodb"
 )
 
 type FileStorage struct {
@@ -13,12 +13,12 @@ type FileStorage struct {
 }
 
 // IStorage
-var _ IStorage = (*FileStorage)(nil)
+var _ zodb.IStorage = (*FileStorage)(nil)
 
 type TxnRecHead struct {
-    Tid             Tid
+    Tid             zodb.Tid
     RecLenm8        uint64
-    Status          TxnStatus
+    Status          zodb.TxnStatus
     //UserLen         uint16
     //DescriptionLen  uint16
     //ExtensionLen    uint16
@@ -30,8 +30,8 @@ type TxnRecHead struct {
 }
 
 type DataRec struct {
-    Oid             Oid
-    Tid             Tid
+    Oid             zodb.Oid
+    Tid             zodb.Tid
     PrevDataRecPos  uint64  // previous-record file-position
     TxnPos          uint64  // beginning of transaction record file position
     // 2-bytes with zero values. (Was version length.)
@@ -70,8 +70,8 @@ func (f *FileStorage) Close() error {
     return nil
 }
 
-func (f *FileStorage) Iterate(start, stop Tid) IStorageIterator {
-    if start != TID0 || stop != TIDMAX {
+func (f *FileStorage) Iterate(start, stop zodb.Tid) zodb.IStorageIterator {
+    if start != zodb.Tid0 || stop != zodb.TidMax {
         panic("TODO start/stop support")
     }
 

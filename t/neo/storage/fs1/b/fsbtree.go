@@ -8,7 +8,7 @@
 
 package b
 
-import "zodb"
+import "../../../zodb"
 
 import (
 	"fmt"
