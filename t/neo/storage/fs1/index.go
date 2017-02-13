@@ -13,6 +13,7 @@
 // XXX based on code from ZODB ?
 
 // FileStorage. Index
+package fs1
 
 import (
 )
