@@ -1,8 +1,8 @@
 #!/bin/sh -e
-# generate b.Tree with compile-time KEY=zodb.Oid, VALUE=uint64
+# generate b.Tree with compile-time KEY=zodb.Oid, VALUE=zodb.Tid
 
 KEY=zodb.Oid
-VALUE=uint64
+VALUE=zodb.Tid
 
 b=github.com/cznic/b
 Bdir=`go list -f '{{.Dir}}' $b`
@@ -15,6 +15,7 @@ echo "// ---- 8< ----" >>$out
 echo >>$out
 make -s -C $Bdir generic |sed	\
 	-e '/package b/a \\nimport "../../../zodb"'	\
+	-e 's/package b/package fsb/g'	\
 	-e "s/KEY/$KEY/g"	\
 	-e "s/VALUE/$VALUE/g"	\
 	>>$out
