@@ -40,9 +40,8 @@ var (
 
 type btTpool struct{ sync.Pool }
 
-func (p *btTpool) get(cmp Cmp) *Tree {
+func (p *btTpool) get() *Tree {
 	x := p.Get().(*Tree)
-	x.cmp = cmp
 	return x
 }
 
@@ -96,7 +95,6 @@ type (
 	// Tree is a B+tree.
 	Tree struct {
 		c     int
-		cmp   Cmp
 		first *d
 		last  *d
 		r     interface{}
@@ -202,8 +200,8 @@ func (l *d) mvR(r *d, c int) {
 
 // TreeNew returns a newly created, empty Tree. The compare function is used
 // for key collation.
-func TreeNew(cmp Cmp) *Tree {
-	return btTPool.get(cmp)
+func TreeNew() *Tree {
+	return btTPool.get()
 }
 
 // Clear removes all K/V pairs from the tree.
@@ -359,7 +357,7 @@ func (t *Tree) find(q interface{}, k zodb.Oid) (i int, ok bool) {
 		for l <= h {
 			m := (l + h) >> 1
 			mk = x.x[m].k
-			switch cmp := t.cmp(k, mk); {
+			switch cmp := oidCmp(k, mk); {
 			case cmp > 0:
 				l = m + 1
 			case cmp == 0:
@@ -373,7 +371,7 @@ func (t *Tree) find(q interface{}, k zodb.Oid) (i int, ok bool) {
 		for l <= h {
 			m := (l + h) >> 1
 			mk = x.d[m].k
-			switch cmp := t.cmp(k, mk); {
+			switch cmp := oidCmp(k, mk); {
 			case cmp > 0:
 				l = m + 1
 			case cmp == 0:

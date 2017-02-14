@@ -1,5 +1,5 @@
 #!/bin/sh -e
-# generate b.Tree with compile-time KEY=zodb.Oid, VALUE=int64
+# generate b.Tree with compile-time KEY=zodb.Oid, VALUE=int64 and direct oidCmp calls
 
 KEY=zodb.Oid
 VALUE=int64
@@ -18,4 +18,11 @@ make -s -C $Bdir generic |sed	\
 	-e 's/package b/package fsb/g'	\
 	-e "s/KEY/$KEY/g"	\
 	-e "s/VALUE/$VALUE/g"	\
+ \
+	-e '/cmp *Cmp$/d'	\
+	-e 's/t\.cmp(/oidCmp(/g'	\
+	-e 's/func TreeNew(cmp Cmp)/func TreeNew()/g'	\
+	-e 's/btTPool.get(cmp)/btTPool.get()/g'	\
+	-e 's/func (p \*btTpool) get(cmp Cmp)/func (p *btTpool) get()/g'	\
+	-e '/x\.cmp = cmp$/d'	\
 	>>$out

@@ -37,7 +37,11 @@ import (
 // fsIndex is Oid -> Tid's position mapping used to associate Oid with latest
 // transaction which changed it.
 type fsIndex struct {
-	fsb.Tree
+	*fsb.Tree
+}
+
+func fsIndexNew() *fsIndex {
+	return &fsIndex{fsb.TreeNew()}
 }
 
 
@@ -62,24 +66,23 @@ type fsIndex struct {
 
 const oidPrefixMask zodb.Oid = ((1<<64-1) ^ (1<<16 -1))	// 0xffffffffffff0000
 
-// IndexIOError is the error type returned by index save and load routines
-type IndexIOError struct {
-	Op  string	// operation performed - "save" or "load"
-	Err error	// error that occured during the operation
+// IndexSaveError is the error type returned by index save routines
+type IndexSaveError struct {
+	Err error // error that occured during the operation
 }
 
-func (e *IndexIOError) Error() string {
-	s := "index " + e.Op + ": " + e.Err.Error()
-	return s
+func (e *IndexSaveError) Error() string {
+	return "index save: " + e.Err.Error()
 }
 
 // Save saves the index to a writer
 func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
-	p := pickle.NewEncoder(w)
-
-	err := p.Encode(topPos)
+	var err error
 
 	{
+		p := pickle.NewEncoder(w)
+
+		err = p.Encode(topPos)
 		if err != nil {
 			goto out
 		}
@@ -144,11 +147,14 @@ out:
 
 	// otherwise it is an error returned by writer, which should already
 	// have filename & op as context.
-	return &IndexIOError{"save", err}
+	return &IndexSaveError{err}
 }
 
+// XXX do we need it?
+// func (fsi *fsIndex) SaveFile(topPos int64, path string) error {
+// }
 
-// IndexLoadError is the errortype returned by index load routines
+// IndexLoadError is the error type returned by index load routines
 type IndexLoadError struct {
 	Filename string
 	Pos      int64
@@ -160,6 +166,7 @@ func (e *IndexLoadError) Error() string {
 	if s != "" {
 		s += ": "
 	}
+	s += "index load: "
 	s += "pickle @" + strconv.FormatInt(e.Pos, 10) + ": "
 	s += e.Err.Error()
 	return s
@@ -167,33 +174,36 @@ func (e *IndexLoadError) Error() string {
 
 // LoadIndex loads index from a reader
 func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
-	xr := NewBufReader(r)
-	// by passing bufio.Reader directly we make sure it won't create one internally
-	p := pickle.NewDecoder(xr.Reader)
 	var picklePos int64
 
 	{
+		var ok bool
+		var xtopPos, xv interface{}
+
+		xr := NewBufReader(r)
+		// by passing bufio.Reader directly we make sure it won't create one internally
+		p := pickle.NewDecoder(xr.Reader)
+
 		picklePos = xr.InputOffset()
-		xtopPos, err := p.Decode()
+		xtopPos, err = p.Decode()
 		if err != nil {
 			goto out
 		}
-		var ok bool
 		topPos, ok = xtopPos.(int64)
 		if !ok {
 			err = fmt.Errorf("topPos is %T  (expected int64)", xtopPos)
 			goto out
 		}
 
-		fsi = &fsIndex{}	// TODO cmpFunc ...
+		fsi = fsIndexNew()
 		var oidb [8]byte
 		var posb [8]byte
 
-loop:
+	loop:
 		for {
 			// load/decode next entry
 			picklePos = xr.InputOffset()
-			xv, err := p.Decode()
+			xv, err = p.Decode()
 			if err != nil {
 				goto out
 			}
@@ -269,9 +279,10 @@ out:
 	return 0, nil, &IndexLoadError{IOName(r), picklePos, err}
 }
 
+// XXX LoadIndexFile - do we need it ?
 
 
-// CountReader is an io.Reader that count total bytes read.
+// CountReader is an io.Reader that count total bytes read
 type CountReader struct {
 	io.Reader
 	nread int64
@@ -306,7 +317,6 @@ func NewBufReader(r io.Reader) *BufReader {
 		cr = &CountReader{r, 0}
 	}
 
-
 	return &BufReader{bufio.NewReader(cr), cr}
 }
 
@@ -338,10 +348,7 @@ func IOName(f interface {}) string {
 		return "pipe"
 
 	// XXX SectionReader MultiReader TeeReader
-
-	// bufio.Reader bufio.Writer bufio.Scanner
-
-
+	// XXX bufio.Reader bufio.Writer bufio.Scanner
 	default:
 		return ""
 	}
