@@ -3,6 +3,8 @@
 package fs1
 
 import (
+	"io/ioutil"
+	"os"
 	"sort"
 	"testing"
 
@@ -20,6 +22,25 @@ func (p byOid) Len() int           { return len(p) }
 func (p byOid) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p byOid) Less(i, j int) bool { return p[i].oid < p[j].oid }
 
+var indexTest1 = [...]indexEntry {
+	{0x0000000000000000, 111},
+	{0x0000000000000001, 222},
+	{0x000000000000ffff, 333},
+	{0x0000000000001234, 444},
+	{0x0000000000010002, 555},
+	{0x0000000000010001, 665},
+	{0xffffffffffffffff, 777},
+	{0xfffffffffffffff0, 888},
+	{0x8000000000000000, 999},
+	{0xa000000000000000, 0x7fffffffffffffff},
+}
+
+func setIndex(fsi *fsIndex, kv []indexEntry) {
+	for _, entry := range kv {
+		fsi.Set(entry.oid, entry.pos)
+	}
+}
+
 func TestIndexLookup(t *testing.T) {
 	// the lookup is tested in cznic.b itself
 	// here we only lightly exercise it
@@ -30,23 +51,10 @@ func TestIndexLookup(t *testing.T) {
 	}
 
 
-	tt := [...]indexEntry {
-		{0x0000000000000000, 111},
-		{0x0000000000000001, 222},
-		{0x000000000000ffff, 333},
-		{0x0000000000001234, 444},
-		{0x0000000000010002, 555},
-		{0x0000000000010001, 665},
-		{0xffffffffffffffff, 777},
-		{0xfffffffffffffff0, 888},
-		{0x8000000000000000, 999},
-		{0xa000000000000000, 0x7fffffffffffffff},
-	}
+	tt := indexTest1
 
 	// set
-	for _, entry := range tt {
-		fsi.Set(entry.oid, entry.pos)
-	}
+	setIndex(fsi, tt[:])
 
 	// get
 	for _, entry := range tt {
@@ -91,6 +99,31 @@ func TestIndexLookup(t *testing.T) {
 	}
 }
 
-
+//
 func TestIndexSaveLoad(t *testing.T) {
+	workdir, err := ioutil.TempDir("", "t-index")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(workdir)
+
+	topPos := int64(786)
+	fsi := fsIndexNew()
+	setIndex(fsi, indexTest1[:])
+
+	err = fsi.SaveFile(topPos, workdir + "/1.fs.index")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	topPos2, fsi2, err := LoadIndexFile(workdir + "/1.fs.index")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if topPos2 != topPos {
+		t.Errorf("index load: topPos mismatch: %v  ; want %v", topPos2, topPos)
+	}
+
+	_ = fsi2
 }

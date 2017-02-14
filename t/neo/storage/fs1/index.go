@@ -147,9 +147,23 @@ out:
 	return &IndexSaveError{err}
 }
 
-// XXX do we need it?
-// func (fsi *fsIndex) SaveFile(topPos int64, path string) error {
-// }
+func (fsi *fsIndex) SaveFile(topPos int64, path string) (err error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return &IndexSaveError{err}
+	}
+
+	defer func() {
+		err2 := f.Close()
+		if err2 != nil && err == nil {
+			err = &IndexSaveError{err2}
+		}
+	}()
+
+	err = fsi.Save(topPos, f)
+	return
+
+}
 
 // IndexLoadError is the error type returned by index load routines
 type IndexLoadError struct {
@@ -159,12 +173,13 @@ type IndexLoadError struct {
 }
 
 func (e *IndexLoadError) Error() string {
-	s := e.Filename
-	if s != "" {
-		s += ": "
+	s := "index load: "
+	if e.Filename != "" {
+		s += e.Filename + ": "
 	}
-	s += "index load: "
-	s += "pickle @" + strconv.FormatInt(e.Pos, 10) + ": "
+	if e.Pos != -1 {
+		s += "pickle @" + strconv.FormatInt(e.Pos, 10) + ": "
+	}
 	s += e.Err.Error()
 	return s
 }
@@ -276,7 +291,22 @@ out:
 	return 0, nil, &IndexLoadError{IOName(r), picklePos, err}
 }
 
-// XXX LoadIndexFile - do we need it ?
+func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, nil, &IndexLoadError{path, -1, err}
+	}
+
+	defer func() {
+		err2 := f.Close()
+		if err2 != nil && err == nil {
+			err = &IndexLoadError{path, -1, err}
+			topPos, fsi = 0, nil
+		}
+	}()
+
+	return LoadIndex(f)
+}
 
 
 // CountReader is an io.Reader that count total bytes read
