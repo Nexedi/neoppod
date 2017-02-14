@@ -1,8 +1,8 @@
 #!/bin/sh -e
-# generate b.Tree with compile-time KEY=zodb.Oid, VALUE=zodb.Tid
+# generate b.Tree with compile-time KEY=zodb.Oid, VALUE=int64
 
 KEY=zodb.Oid
-VALUE=zodb.Tid
+VALUE=int64
 
 b=github.com/cznic/b
 Bdir=`go list -f '{{.Dir}}' $b`

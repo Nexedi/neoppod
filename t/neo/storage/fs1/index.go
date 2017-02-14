@@ -36,25 +36,15 @@ type fsIndex struct {
 }
 
 
-// TODO Encode		(__getstate__)
-// TODO Decode		(__setstate__)
-// TODO ? save(pos, fname)
-// TODO ? klass.load(fname)
+// TODO Encode		(__getstate__)	?
+// TODO Decode		(__setstate__)	?
 
-/*
-// __getitem__
-func (fsi *fsIndex) Get(oid zodb.Oid) zodb.Tid {	// XXX ,ok ?
-	tid, ok := fsi.oid2tid.Get(oid)
-	return tid, ok
-}
-*/
-
-// __setitem__ -> Set
+// NOTE Get/Set/... are taken as-is from fsb.Tree
 
 // on-disk index format
 // (changed in 2010 in https://github.com/zopefoundation/ZODB/commit/1bb14faf)
 //
-// pos     (?) (int or long - INT_TYPES)
+// topPos     position pointing just past the last committed transaction
 // (oid[:6], v.toString)   # ._data[oid]-> v (fsBucket().toString())
 // (oid[:6], v.toString)
 // ...
@@ -62,51 +52,61 @@ func (fsi *fsIndex) Get(oid zodb.Oid) zodb.Tid {	// XXX ,ok ?
 //
 //
 // fsBucket.toString():
-// oid[6:8]oid[6:8]oid[6:8]...tid[0:6]tid[0:6]tid[0:6]...
+// oid[6:8]oid[6:8]oid[6:8]...pos[0:6]pos[0:6]pos[0:6]...
 
 
 const oidPrefixMask zodb.Oid = ((1<<64-1) ^ (1<<16 -1))	// 0xffffffffffff0000
 
+// IndexIOError is the error type returned by index save and load routines
+type IndexIOError struct {
+	Op  string	// operation performed - "save" or "load"
+	Err error	// error that occured during the operation
+}
+
+func (e *IndexIOError) Error() string {
+	s := "index " + e.Op + ": " + e.Err.Error()
+	return s
+}
+
 // Save saves the index to a writer
-// XXX proper error context
-func (fsi *fsIndex) Save(fsPos int64, w io.Writer) error {
+func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 	p := pickle.NewEncoder(w)
 
-	err := p.Encode(fsPos)
+	err := p.Encode(topPos)
 	if err != nil {
-		return err
+		goto out
 	}
 
 	var oidb [8]byte
-	var tidb [8]byte
+	var posb [8]byte
 	var oidPrefixCur zodb.Oid	// current oid[0:6] with [6:8] = 00
 	oidBuf := []byte{}		// current oid[6:8]oid[6:8]...
-	tidBuf := []byte{}		// current tid[0:6]tid[0:6]...
+	posBuf := []byte{}		// current pos[0:6]pos[0:6]...
 	var t [2]interface{}		// tuple for (oid, fsBucket.toString())
 
 
 	e, err := fsi.SeekFirst()
-	if err == io.EOF {
-		goto skip	// empty btree
+	if err == io.EOF {	// always only io.EOF indicating an empty btree
+		goto skip
 	}
 
 	for {
-		oid, tid, errStop := e.Next()
+		oid, pos, errStop := e.Next()
 		oidPrefix := oid & oidPrefixMask
 
 		if oidPrefix != oidPrefixCur {
-			// emit pickle for current oid06
+			// emit (oid[:6], oid[6:8]oid[6:8]...pos[0:6]pos[0:6]...)
 			binary.BigEndian.PutUint64(oidb[:], uint64(oid))
 			t[0] = oidb[0:6]
-			t[1] = bytes.Join([][]byte{oidBuf, tidBuf}, nil)
+			t[1] = bytes.Join([][]byte{oidBuf, posBuf}, nil)
 			err = p.Encode(t)
 			if err != nil {
-				return err
+				goto out
 			}
 
 			oidPrefixCur = oidPrefix
 			oidBuf = oidBuf[:0]
-			tidBuf = tidBuf[:0]
+			posBuf = posBuf[:0]
 		}
 
 		if errStop != nil {
@@ -114,21 +114,34 @@ func (fsi *fsIndex) Save(fsPos int64, w io.Writer) error {
 		}
 
 		binary.BigEndian.PutUint64(oidb[:], uint64(oid))
-		binary.BigEndian.PutUint64(tidb[:], uint64(tid))
+		binary.BigEndian.PutUint64(posb[:], uint64(pos))
 
+		// XXX check pos does not overflow 6 bytes
 		oidBuf = append(oidBuf, oidb[6:8]...)
-		tidBuf = append(tidBuf, tidb[0:6]...)
+		posBuf = append(posBuf, posb[0:6]...)
 	}
 
 	e.Close()
 
 skip:
 	err = p.Encode(pickle.None{})
-	return err
+
+out:
+	if err == nil {
+		return err
+	}
+
+	if _, ok := err.(pikle.TypeError); ok {
+		panic(err)	// all our types are expected to be supported by pickle
+	}
+
+	// otherwise it is an error returned by writer, which should already
+	// have filename & op as context.
+	return &IndexIOError{"save", err}
 }
 
 // LoadIndex loads index from a reader
-func LoadIndex(r io.Reader) (fsPos int64, fsi *fsIndex, err error) {
+func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 	p := pickle.NewDecoder(r)
 
 	// if we can know file position we can show it in error context
@@ -140,18 +153,18 @@ func LoadIndex(r io.Reader) (fsPos int64, fsi *fsIndex, err error) {
 		}
 	}
 
-	xpos, err := p.Decode()
+	xtopPos, err := p.Decode()
 	if err != nil {
 		// TODO err
 	}
-	fsPos, ok := xpos.(int64)
+	topPos, ok := xtopPos.(int64)
 	if !ok {
 		// TODO err
 	}
 
 	fsi = &fsIndex{}	// TODO cmpFunc ...
 	var oidb [8]byte
-	var tidb [8]byte
+	var posb [8]byte
 
 loop:
 	for {
@@ -194,22 +207,61 @@ loop:
 
 		n := len(kvBuf) / 8
 		oidBuf := kvBuf[:n*2]
-		tidBuf := kvBuf[n*2:]
+		posBuf := kvBuf[n*2:]
 
 		for i:=0; i<n; i++ {
 			oid := zodb.Oid(binary.BigEndian.Uint16(oidBuf[i*2:]))
 			oid |= oidPrefix
-			copy(tidb[2:], tidBuf[i*6:])
-			tid := zodb.Tid(binary.BigEndian.Uint64(tidb[:]))
+			copy(posb[2:], posBuf[i*6:])
+			tid := zodb.Tid(binary.BigEndian.Uint64(posb[:]))
 
 			fsi.Set(oid, tid)
 		}
 	}
 
-	return fsPos, fsi, nil
+	return topPos, fsi, nil
 
-xerror:
+out:
+	if err == nil {
+		return topPos, fsi, err
+	}
+
+	rname := IOName(r)
+
 	// same for file name
 	rname, _ := r.(interface{ Name() string })
 
+}
+
+
+// IOName returns a "filename" associated with io.Reader, io.Writer, net.Conn, ...
+// if name cannot be deterined - "" is returned.
+func IOName(f interface {}) string {
+	switch f := f.(type) {
+	case *os.File:
+		// XXX better via interface { Name() string } ?
+		//     but Name() is too broad compared to FileName()
+		return f.Name()
+
+	case net.Conn:
+		// XXX not including LocalAddr is ok?
+		return f.RemoteAddr.String()
+
+	case *io.LimitedReader:
+		return IOName(f.R)
+
+
+	case *io.PipeReader:
+		fallthrough
+	case *io.PipeWriter:
+		return "pipe"
+
+	// XXX SectionReader MultiReader TeeReader
+
+	// bufio.Reader bufio.Writer bufio.Scanner
+
+
+	default:
+		return ""
+	}
 }
