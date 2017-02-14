@@ -45,22 +45,19 @@ func fsIndexNew() *fsIndex {
 }
 
 
-// TODO Encode		(__getstate__)	?
-// TODO Decode		(__setstate__)	?
-
 // NOTE Get/Set/... are taken as-is from fsb.Tree
 
 // on-disk index format
 // (changed in 2010 in https://github.com/zopefoundation/ZODB/commit/1bb14faf)
 //
 // topPos     position pointing just past the last committed transaction
-// (oid[:6], v.toString)   # ._data[oid]-> v (fsBucket().toString())
-// (oid[:6], v.toString)
+// (oid[:6], fsBucket)
+// (oid[:6], fsBucket)
 // ...
 // None
 //
 //
-// fsBucket.toString():
+// fsBucket:
 // oid[6:8]oid[6:8]oid[6:8]...pos[0:6]pos[0:6]pos[0:6]...
 
 
@@ -103,7 +100,7 @@ func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 			oid, pos, errStop := e.Next()
 			oidPrefix := oid & oidPrefixMask
 
-			if oidPrefix != oidPrefixCur {
+			if oidPrefix != oidPrefixCur || errStop != nil {
 				// emit (oid[:6], oid[6:8]oid[6:8]...pos[0:6]pos[0:6]...)
 				binary.BigEndian.PutUint64(oidb[:], uint64(oid))
 				t[0] = oidb[0:6]
