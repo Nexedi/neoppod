@@ -7,6 +7,7 @@ package fs1
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"sort"
@@ -173,17 +174,13 @@ func checkIndexEqual(t *testing.T, subject string, topPos1, topPos2 int64, fsi1,
 }
 
 func TestIndexSaveLoad(t *testing.T) {
-	workdir, err := ioutil.TempDir("", "t-index")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(workdir)
+	workdir := xworkdir(t)
 
 	topPos := int64(786)
 	fsi := fsIndexNew()
 	setIndex(fsi, indexTest1[:])
 
-	err = fsi.SaveFile(topPos, workdir + "/1.fs.index")
+	err := fsi.SaveFile(topPos, workdir + "/1.fs.index")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,13 +210,65 @@ func TestIndexLoadFromPy(t *testing.T) {
 	checkIndexEqual(t, "index load", topPosPy, _1fs_indexTopPos, fsiPy, fsiExpect)
 }
 
-var havePyZODB = false
-func init() {
+// test zodb/py can read index data as saved by us
+func TestIndexSaveToPy(t *testing.T) {
+	needZODBPy(t)
+	workdir := xworkdir(t)
+
+	fsi := fsIndexNew()
+	setIndex(fsi, _1fs_indexEntryv[:])
+
+	err := fsi.SaveFile(_1fs_indexTopPos, workdir + "/1.fs.index")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// now ask python part to compare testdata and save-by-us index
+	cmd := exec.Command("./indexcmp", "testdata/1.fs.index", workdir + "/1.fs.index")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("zodb/py read/compare index: %v", err)
+	}
+}
+
+var haveZODBPy = false
+var workRoot string
+
+func TestMain(m *testing.M) {
+	// check whether we have zodb/py
 	cmd := exec.Command("python2", "-c", "import ZODB")
 	err := cmd.Run()
 	if err == nil {
-		havePyZODB = true
+		haveZODBPy = true
 	}
 
-	//println("havePyZODB:", havePyZODB)
+	// setup work root for all tests
+	workRoot, err = ioutil.TempDir("", "t-index")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	exit := m.Run()
+
+	os.RemoveAll(workRoot)
+
+	os.Exit(exit)
+}
+
+func needZODBPy(t *testing.T) {
+	if haveZODBPy {
+		return
+	}
+	t.Skipf("zodb/py is not available")
+}
+
+// create temp dir inside workRoot
+func xworkdir(t *testing.T) string {
+	work, err := ioutil.TempDir(workRoot, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return work
 }

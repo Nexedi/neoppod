@@ -1,0 +1,23 @@
+#!/usr/bin/env python2
+"""compare two index files"""
+
+from ZODB.fsIndex import fsIndex
+import sys
+
+def main():
+    path1, path2 = sys.argv[1:]
+
+    d1 = fsIndex.load(path1)
+    d2 = fsIndex.load(path2)
+
+    topPos1, fsi1 = d1["pos"], d1["index"]
+    topPos2, fsi2 = d2["pos"], d2["index"]
+
+    #print topPos1, topPos2
+    #print fsi1.items()
+    #print fsi2.items()
+    equal = (topPos1 == topPos2 and fsi1.items() == fsi2.items())
+    sys.exit(int(not equal))
+
+if __name__ == '__main__':
+    main()
