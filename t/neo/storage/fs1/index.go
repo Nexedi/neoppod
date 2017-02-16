@@ -61,7 +61,10 @@ func fsIndexNew() *fsIndex {
 // oid[6:8]oid[6:8]oid[6:8]...pos[0:6]pos[0:6]pos[0:6]...
 
 
-const oidPrefixMask zodb.Oid = ((1<<64-1) ^ (1<<16 -1))	// 0xffffffffffff0000
+const (
+	oidPrefixMask zodb.Oid = (1<<64-1) ^ (1<<16 - 1)	// 0xffffffffffff0000
+	posInvalidMask  uint64 = (1<<64-1) ^ (1<<48 - 1)	// 0xffff000000000000
+)
 
 // IndexSaveError is the error type returned by index save routines
 type IndexSaveError struct {
@@ -72,7 +75,7 @@ func (e *IndexSaveError) Error() string {
 	return "index save: " + e.Err.Error()
 }
 
-// Save saves the index to a writer
+// Save saves index to a writer
 func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 	var err error
 
@@ -91,45 +94,47 @@ func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 		posBuf := []byte{}		// current pos[0:6]pos[0:6]...
 		var t [2]interface{}		// tuple for (oid, fsBucket.toString())
 
-		e, err := fsi.SeekFirst()
-		if err == io.EOF {	// always only io.EOF indicating an empty btree
-			goto skip
-		}
+		e, _ := fsi.SeekFirst()
+		if e != nil {
+			defer e.Close()
 
-		for {
-			oid, pos, errStop := e.Next()
-			oidPrefix := oid & oidPrefixMask
+			for  {
+				oid, pos, errStop := e.Next()
+				oidPrefix := oid & oidPrefixMask
 
-			if oidPrefix != oidPrefixCur || errStop != nil {
-				// emit (oid[:6], oid[6:8]oid[6:8]...pos[0:6]pos[0:6]...)
-				binary.BigEndian.PutUint64(oidb[:], uint64(oid))
-				t[0] = oidb[0:6]
-				t[1] = bytes.Join([][]byte{oidBuf, posBuf}, nil)
-				err = p.Encode(t)
-				if err != nil {
+				if oidPrefix != oidPrefixCur || errStop != nil {
+					// emit (oid[0:6], oid[6:8]oid[6:8]...pos[0:6]pos[0:6]...)
+					binary.BigEndian.PutUint64(oidb[:], uint64(oid))
+					t[0] = oidb[0:6]
+					t[1] = bytes.Join([][]byte{oidBuf, posBuf}, nil)
+					err = p.Encode(t)
+					if err != nil {
+						goto out
+					}
+
+					oidPrefixCur = oidPrefix
+					oidBuf = oidBuf[:0]
+					posBuf = posBuf[:0]
+				}
+
+				if errStop != nil {
+					break
+				}
+
+				// check pos does not overflow 6 bytes
+				if uint64(pos) & posInvalidMask != 0 {
+					err = fmt.Errorf("entry position too large: 0x%x", pos)
 					goto out
 				}
 
-				oidPrefixCur = oidPrefix
-				oidBuf = oidBuf[:0]
-				posBuf = posBuf[:0]
+				binary.BigEndian.PutUint64(oidb[:], uint64(oid))
+				binary.BigEndian.PutUint64(posb[:], uint64(pos))
+
+				oidBuf = append(oidBuf, oidb[6:8]...)
+				posBuf = append(posBuf, posb[0:6]...)
 			}
-
-			if errStop != nil {
-				break
-			}
-
-			binary.BigEndian.PutUint64(oidb[:], uint64(oid))
-			binary.BigEndian.PutUint64(posb[:], uint64(pos))
-
-			// XXX check pos does not overflow 6 bytes
-			oidBuf = append(oidBuf, oidb[6:8]...)
-			posBuf = append(posBuf, posb[0:6]...)
 		}
 
-		e.Close()
-
-	skip:
 		err = p.Encode(pickle.None{})
 	}
 

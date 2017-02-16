@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"../../zodb"
+	"./fsb"
 )
 
 type indexEntry struct {
@@ -32,13 +33,46 @@ var indexTest1 = [...]indexEntry {
 	{0xffffffffffffffff, 777},
 	{0xfffffffffffffff0, 888},
 	{0x8000000000000000, 999},
-	{0xa000000000000000, 0x7fffffffffffffff},
+	{0xa000000000000000, 0x0000ffffffffffff},
 }
 
 func setIndex(fsi *fsIndex, kv []indexEntry) {
 	for _, entry := range kv {
 		fsi.Set(entry.oid, entry.pos)
 	}
+}
+
+// test whether two trees are equal
+func treeEqual(a, b *fsb.Tree) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+
+	ea, _ := a.SeekFirst()
+	eb, _ := b.SeekFirst()
+
+	if ea == nil {
+		// this means len(a) == 0 -> len(b) == 0 -> eb = nil
+		return true
+	}
+
+	for {
+		ka, va, stopa := ea.Next()
+		kb, vb, stopb := eb.Next()
+
+		if stopa != nil || stopb != nil {
+			if stopa != stopb {
+				panic("same-length trees iteration did not end at the same time")
+			}
+			break
+		}
+
+		if !(ka == kb && va == vb) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func TestIndexLookup(t *testing.T) {
@@ -125,5 +159,12 @@ func TestIndexSaveLoad(t *testing.T) {
 		t.Errorf("index load: topPos mismatch: %v  ; want %v", topPos2, topPos)
 	}
 
-	_ = fsi2
+	// XXX is it ok to compare trees via reflect.DeepEqual ?
+	if !treeEqual(fsi2.Tree, fsi.Tree) {
+		t.Errorf("index load: trees mismatch: %v  ; want %v", fsi2.Tree, fsi.Tree)
+	}
+
+
+	// TODO check with
+	// {0xb000000000000000, 0x7fffffffffffffff}, // will cause 'entry position too large'
 }
