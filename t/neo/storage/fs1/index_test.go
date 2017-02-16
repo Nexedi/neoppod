@@ -162,9 +162,7 @@ func TestIndexSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if false {
-		defer os.RemoveAll(workdir)
-	}
+	defer os.RemoveAll(workdir)
 
 	topPos := int64(786)
 	fsi := fsIndexNew()
@@ -184,10 +182,9 @@ func TestIndexSaveLoad(t *testing.T) {
 		t.Errorf("index load: topPos mismatch: %v  ; want %v", topPos2, topPos)
 	}
 
-	// XXX is it ok to compare trees via reflect.DeepEqual ?
 	if !treeEqual(fsi2.Tree, fsi.Tree) {
-		//t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", fsi2.Tree.Dump(), fsi.Tree.Dump())
-		t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", treeString(fsi2.Tree), treeString(fsi.Tree))
+		t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", fsi2.Tree.Dump(), fsi.Tree.Dump())
+		//t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", treeString(fsi2.Tree), treeString(fsi.Tree))
 	}
 
 

@@ -52,7 +52,7 @@ func (t *Tree) Dump() string {
 			h := handle(p)
 			n := 0
 			for i, v := range x.x {
-				if v.ch != nil || true {
+				if v.ch != nil || v.k != 0 {
 					n = i + 1
 				}
 			}
@@ -73,7 +73,7 @@ func (t *Tree) Dump() string {
 			h := handle(p)
 			n := 0
 			for i, v := range x.d {
-				if true || (true || &v != nil) {
+				if v.k != 0 || v.v != 0 {
 					n = i + 1
 				}
 			}
