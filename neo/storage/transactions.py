@@ -317,8 +317,8 @@ class TransactionManager(EventQueue):
                 # before we processed UnlockInformation from the master.
                 # Or the locking transaction has already voted and there's no
                 # risk of deadlock if we delay.
-                logging.info('Store delayed for %r:%r by %r', dump(oid),
-                             dump(ttid), dump(locked))
+                logging.info('Lock delayed for %s:%s by %s',
+                             dump(oid), dump(ttid), dump(locked))
                 # A client may have several stores delayed for the same oid
                 # but this is not a problem. EventQueue processes them in order
                 # and only the last one will not result in conflicts (that are
@@ -336,7 +336,7 @@ class TransactionManager(EventQueue):
                 # We have a smaller "TTID" than locking transaction, so we are
                 # older: this is a possible deadlock case, as we might already
                 # hold locks the younger transaction is waiting upon.
-                logging.info('Possible deadlock on %r:%r with %r',
+                logging.info('Deadlock on %s:%s with %s',
                              dump(oid), dump(ttid), dump(locked))
                 # Ask master to give the client a new locking tid, which will
                 # be used to ask all involved storage nodes to rebase the
@@ -382,10 +382,10 @@ class TransactionManager(EventQueue):
         # "C+A vs. B -> C+A+B" rarely costs more than "C+A vs. C+B -> C+A+B".
         # However, this would be against the optimistic principle of ZODB.
         if previous_serial is not None and previous_serial != serial:
-            logging.info('Resolvable conflict on %r:%r',
-                dump(oid), dump(ttid))
+            logging.info('Conflict on %s:%s with %s',
+                dump(oid), dump(ttid), dump(previous_serial))
             raise ConflictError(previous_serial)
-        logging.debug('Transaction %s storing %s', dump(ttid), dump(oid))
+        logging.debug('Transaction %s locking %s', dump(ttid), dump(oid))
         self._store_lock_dict[oid] = ttid
 
     def checkCurrentSerial(self, ttid, oid, serial):
@@ -531,10 +531,10 @@ class TransactionManager(EventQueue):
             logging.info('    %s %r', dump(ttid), txn)
         logging.info('  Read locks:')
         for oid, ttid in self._load_lock_dict.iteritems():
-            logging.info('    %r by %r', dump(oid), dump(ttid))
+            logging.info('    %s by %s', dump(oid), dump(ttid))
         logging.info('  Write locks:')
         for oid, ttid in self._store_lock_dict.iteritems():
-            logging.info('    %r by %r', dump(oid), dump(ttid))
+            logging.info('    %s by %s', dump(oid), dump(ttid))
         self.logQueuedEvents()
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial, data_id):

@@ -456,18 +456,18 @@ class Application(ThreadedApplication):
                     data = tryToResolveConflict(oid, conflict_serial,
                         serial, data)
                 except ConflictError:
-                    logging.info('Conflict resolution failed for '
-                        '%r:%r with %r', dump(oid), dump(serial),
-                        dump(conflict_serial))
+                    logging.info(
+                        'Conflict resolution failed for %s@%s with %s',
+                        dump(oid), dump(serial), dump(conflict_serial))
                     # With recent ZODB, get_pickle_metadata (from ZODB.utils)
                     # does not support empty values, so do not pass 'data'
                     # in this case.
                     raise ConflictError(oid=oid, serials=(conflict_serial,
                         serial), data=data or None)
                 else:
-                    logging.info('Conflict resolution succeeded for '
-                        '%r:%r with %r', dump(oid), dump(serial),
-                        dump(conflict_serial))
+                    logging.info(
+                        'Conflict resolution succeeded for %s@%s with %s',
+                        dump(oid), dump(serial), dump(conflict_serial))
                     # Mark this conflict as resolved
                     resolved_dict[oid] = conflict_serial
                     # Try to store again

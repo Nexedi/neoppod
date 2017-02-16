@@ -18,7 +18,7 @@ from zlib import decompress
 from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
-from neo.lib.protocol import Packets
+from neo.lib.protocol import Packets, uuid_str
 from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
@@ -74,8 +74,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # we may process entirely a conflict with S1 (i.e. we received the
             # answer to the store of the resolved object on S1) before we
             # receive the conflict answer from the first store on S2.
-            logging.info('%r report a conflict for %r with %r',
-                         conn, dump(oid), dump(conflict))
+            logging.info('%s reports a conflict on %s:%s with %s',
+                         uuid_str(conn.getUUID()), dump(oid),
+                         dump(txn_context.ttid), dump(conflict))
             # If this conflict is not already resolved, mark it for
             # resolution.
             if  txn_context.resolved_dict.get(oid, '') < conflict:
