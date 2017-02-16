@@ -468,6 +468,9 @@ type sizer struct {
 //	encode<typ1>(data[n1:], path1)
 //	encode<typ2>(data[n2:], path2)
 //	...
+//
+// TODO encode have to care in NEOEncode to emit preambule such that bound
+// checking is performed only once (currenty compiler emits many of them)
 type encoder struct {
 	commonCodeGen
 	n int // current write position in data
