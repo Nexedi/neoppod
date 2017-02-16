@@ -2,10 +2,13 @@
 
 package fs1
 
+//go:generate ./gen-testdata
+
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
 	"testing"
@@ -80,6 +83,7 @@ func treeEqual(a, b *fsb.Tree) bool {
 	return true
 }
 
+// XXX unneded after Tree.Dump() was made to work ok
 func treeString(t *fsb.Tree) string {
 	entryv := []string{}
 
@@ -156,7 +160,6 @@ func TestIndexLookup(t *testing.T) {
 	}
 }
 
-//
 func TestIndexSaveLoad(t *testing.T) {
 	workdir, err := ioutil.TempDir("", "t-index")
 	if err != nil {
@@ -187,7 +190,18 @@ func TestIndexSaveLoad(t *testing.T) {
 		//t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", treeString(fsi2.Tree), treeString(fsi.Tree))
 	}
 
-
 	// TODO check with
 	// {0xb000000000000000, 0x7fffffffffffffff}, // will cause 'entry position too large'
+}
+
+
+var havePyZODB = false
+func init() {
+	cmd := exec.Command("python2", "-c", "import ZODB")
+	err := cmd.Run()
+	if err == nil {
+		havePyZODB = true
+	}
+
+	println("havePyZODB:", havePyZODB)
 }

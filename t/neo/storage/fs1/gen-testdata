@@ -1,0 +1,38 @@
+#!/usr/bin/env python2
+"""generate reference index and database for tests"""
+
+import ZODB
+import persistent
+import transaction
+
+def commit(user, description, extension):
+    txn = transaction.get()
+    txn.user = user
+    txn.description = description
+    txn.extension = extension
+    txn.commit()
+
+def main():
+    stor = FileStorage("testdata/1.fs", create=True)
+    db   = DB(stor)
+    conn = db.open()
+    root = conn.root()
+    commit(u"root", u"initial database creation", {"x-generator": "zodb/py2"})
+
+    """
+    root["..."] = obj
+
+    txn = transaction.get()
+    txn.user = u"user1"  # XXX
+    txn.description = u"description1" # XXX
+    txn.extension = {"key1": value1, "key2": value2)    # XXX
+    txn.commit()
+    """
+
+    conn.close()
+    db.close()
+    stor.close()
+
+
+if __name__ == '__main__':
+    main()
