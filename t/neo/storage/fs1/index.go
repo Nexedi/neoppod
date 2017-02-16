@@ -58,7 +58,7 @@ func fsIndexNew() *fsIndex {
 //
 //
 // fsBucket:
-// oid[6:8]oid[6:8]oid[6:8]...pos[0:6]pos[0:6]pos[0:6]...
+// oid[6:8]oid[6:8]oid[6:8]...pos[2:8]pos[2:8]pos[2:8]...
 
 
 const (
@@ -91,7 +91,7 @@ func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 		var posb [8]byte
 		var oidPrefixCur zodb.Oid	// current oid[0:6] with [6:8] = 00
 		oidBuf := []byte{}		// current oid[6:8]oid[6:8]...
-		posBuf := []byte{}		// current pos[0:6]pos[0:6]...
+		posBuf := []byte{}		// current pos[2:8]pos[2:8]...
 		var t [2]interface{}		// tuple for (oid, fsBucket.toString())
 
 		e, _ := fsi.SeekFirst()
@@ -103,8 +103,8 @@ func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 				oidPrefix := oid & oidPrefixMask
 
 				if oidPrefix != oidPrefixCur || errStop != nil {
-					// emit (oid[0:6], oid[6:8]oid[6:8]...pos[0:6]pos[0:6]...)
-					binary.BigEndian.PutUint64(oidb[:], uint64(oid))
+					// emit (oid[0:6], oid[6:8]oid[6:8]...pos[2:8]pos[2:8]...)
+					binary.BigEndian.PutUint64(oidb[:], uint64(oidPrefixCur))
 					t[0] = oidb[0:6]
 					t[1] = bytes.Join([][]byte{oidBuf, posBuf}, nil)
 					err = p.Encode(t)
@@ -131,7 +131,7 @@ func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 				binary.BigEndian.PutUint64(posb[:], uint64(pos))
 
 				oidBuf = append(oidBuf, oidb[6:8]...)
-				posBuf = append(posBuf, posb[0:6]...)
+				posBuf = append(posBuf, posb[2:8]...)
 			}
 		}
 

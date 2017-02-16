@@ -162,7 +162,9 @@ func TestIndexSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(workdir)
+	if false {
+		defer os.RemoveAll(workdir)
+	}
 
 	topPos := int64(786)
 	fsi := fsIndexNew()
