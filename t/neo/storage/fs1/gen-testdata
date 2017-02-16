@@ -7,12 +7,22 @@ from persistent import Persistent
 import transaction
 
 import struct
+import time
 import random
 import logging
 
 # convert numeric oid to str
 def oid(v):
     return struct.pack('>Q', v)
+
+# make time.time() predictable
+_xtime = time.mktime(time.strptime("04 Jan 1979", "%d %b %Y"))
+def xtime():
+    global _xtime
+    _xtime += 1.1
+    return _xtime
+time.time = xtime
+
 
 def commit(user, description, extension):
     txn = transaction.get()
@@ -44,6 +54,7 @@ def main():
 
     # generate random changes to objects hooked to top-level root by a/b/c/... key
     random.seed(0)
+
     namev = [_ for _ in "abcdefg"]
     for i in range(50):
         name = random.choice(namev)
