@@ -2,7 +2,7 @@
 
 package fs1
 
-//go:generate ./gen-testdata
+//go:generate ./py/gen-testdata
 
 import (
 	"fmt"
@@ -224,7 +224,7 @@ func TestIndexSaveToPy(t *testing.T) {
 	}
 
 	// now ask python part to compare testdata and save-by-us index
-	cmd := exec.Command("./indexcmp", "testdata/1.fs.index", workdir + "/1.fs.index")
+	cmd := exec.Command("./py/indexcmp", "testdata/1.fs.index", workdir + "/1.fs.index")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
