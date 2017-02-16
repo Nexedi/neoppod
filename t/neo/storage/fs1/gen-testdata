@@ -1,9 +1,18 @@
 #!/usr/bin/env python2
 """generate reference index and database for tests"""
 
-import ZODB
-import persistent
+from ZODB.FileStorage import FileStorage
+from ZODB import DB
+from persistent import Persistent
 import transaction
+
+import struct
+import random
+import logging
+
+# convert numeric oid to str
+def oid(v):
+    return struct.pack('>Q', v)
 
 def commit(user, description, extension):
     txn = transaction.get()
@@ -12,22 +21,40 @@ def commit(user, description, extension):
     txn.extension = extension
     txn.commit()
 
+
+class Object(Persistent):
+    # .value
+    def __init__(self, value):
+        self.value = value
+
+    def __getstate__(self):
+        return self.value
+
+    def __setstate__(self, state):
+        self.value = state
+
 def main():
+    logging.basicConfig()
+
     stor = FileStorage("testdata/1.fs", create=True)
     db   = DB(stor)
     conn = db.open()
     root = conn.root()
-    commit(u"root", u"initial database creation", {"x-generator": "zodb/py2"})
+    assert root._p_oid == oid(0), `root._p_oid`
 
-    """
-    root["..."] = obj
+    # generate random changes to objects hooked to top-level root by a/b/c/... key
+    random.seed(0)
+    namev = [_ for _ in "abcdefg"]
+    for i in range(50):
+        name = random.choice(namev)
+        if name in root:
+            obj = root[name]
+        else:
+            root[name] = obj = Object(None)
 
-    txn = transaction.get()
-    txn.user = u"user1"  # XXX
-    txn.description = u"description1" # XXX
-    txn.extension = {"key1": value1, "key2": value2)    # XXX
-    txn.commit()
-    """
+        obj.value = "%s%i" % (name, i)
+
+        commit(u"user%i" % i, u"step %i" % i, {"x-generator": "zodb/py2 (%s)" % name})
 
     conn.close()
     db.close()
