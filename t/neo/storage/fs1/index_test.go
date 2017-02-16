@@ -3,9 +3,11 @@
 package fs1
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"../../zodb"
@@ -56,6 +58,9 @@ func treeEqual(a, b *fsb.Tree) bool {
 		return true
 	}
 
+	defer ea.Close()
+	defer eb.Close()
+
 	for {
 		ka, va, stopa := ea.Next()
 		kb, vb, stopb := eb.Next()
@@ -73,6 +78,24 @@ func treeEqual(a, b *fsb.Tree) bool {
 	}
 
 	return true
+}
+
+func treeString(t *fsb.Tree) string {
+	entryv := []string{}
+
+	e, _ := t.SeekFirst()
+	if e != nil {
+		defer e.Close()
+		for {
+			k, v, stop := e.Next()
+			if stop != nil {
+				break
+			}
+			entryv = append(entryv, fmt.Sprintf("%v: %v", k, v))
+		}
+	}
+
+	return "{" + strings.Join(entryv, ", ") + "}"
 }
 
 func TestIndexLookup(t *testing.T) {
@@ -161,7 +184,8 @@ func TestIndexSaveLoad(t *testing.T) {
 
 	// XXX is it ok to compare trees via reflect.DeepEqual ?
 	if !treeEqual(fsi2.Tree, fsi.Tree) {
-		t.Errorf("index load: trees mismatch: %v  ; want %v", fsi2.Tree.dump(), fsi.Tree.dump())
+		//t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", fsi2.Tree.Dump(), fsi.Tree.Dump())
+		t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", treeString(fsi2.Tree), treeString(fsi.Tree))
 	}
 
 

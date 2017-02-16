@@ -19,7 +19,7 @@ func isNil(p interface{}) bool {
 	}
 	return false
 }
-func (t *Tree) dump() string {
+func (t *Tree) Dump() string {
 	var buf bytes.Buffer
 	f := strutil.IndentFormatter(&buf, "\t")
 

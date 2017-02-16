@@ -42,6 +42,7 @@ echo >>$out
 sed -n	\
 	-e '/^func isNil(/,/^}/p'	\
 	-e '/^func.* dump()/,/^}/ {
+		s/dump()/Dump()/g
 		s/v\.k != nil/true/g
 		s/v\.v != nil/(true || \&v != nil)/g
 		p
