@@ -160,6 +160,18 @@ func TestIndexLookup(t *testing.T) {
 	}
 }
 
+func checkIndexEqual(t *testing.T, subject string, topPos1, topPos2 int64, fsi1, fsi2 *fsIndex) {
+	if topPos1 != topPos2 {
+		t.Errorf("%s: topPos mismatch: %v  ; want %v", subject, topPos1, topPos2)
+	}
+
+	if !treeEqual(fsi1.Tree, fsi2.Tree) {
+		t.Errorf("%s: trees mismatch:\nhave: %v\nwant: %v", subject, fsi1.Tree.Dump(), fsi2.Tree.Dump())
+		//t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", treeString(fsi2.Tree), treeString(fsi.Tree))
+	}
+
+}
+
 func TestIndexSaveLoad(t *testing.T) {
 	workdir, err := ioutil.TempDir("", "t-index")
 	if err != nil {
@@ -181,19 +193,25 @@ func TestIndexSaveLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if topPos2 != topPos {
-		t.Errorf("index load: topPos mismatch: %v  ; want %v", topPos2, topPos)
-	}
-
-	if !treeEqual(fsi2.Tree, fsi.Tree) {
-		t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", fsi2.Tree.Dump(), fsi.Tree.Dump())
-		//t.Errorf("index load: trees mismatch:\nhave: %v\nwant: %v", treeString(fsi2.Tree), treeString(fsi.Tree))
-	}
+	checkIndexEqual(t, "index load", topPos2, topPos, fsi2, fsi)
 
 	// TODO check with
 	// {0xb000000000000000, 0x7fffffffffffffff}, // will cause 'entry position too large'
 }
 
+
+// test that we can correctly load index data as saved by zodb/py
+func TestIndexLoadFromPy(t *testing.T) {
+	topPosPy, fsiPy, err := LoadIndexFile("testdata/1.fs.index")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fsiExpect := fsIndexNew()
+	setIndex(fsiExpect, _1fs_indexEntryv[:])
+
+	checkIndexEqual(t, "index load", topPosPy, _1fs_indexTopPos, fsiPy, fsiExpect)
+}
 
 var havePyZODB = false
 func init() {
@@ -203,5 +221,5 @@ func init() {
 		havePyZODB = true
 	}
 
-	println("havePyZODB:", havePyZODB)
+	//println("havePyZODB:", havePyZODB)
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-"""generate reference index and database for tests"""
+"""generate reference database and index for tests"""
 
 from ZODB.FileStorage import FileStorage
 from ZODB import DB
@@ -11,9 +11,12 @@ import time
 import random
 import logging
 
-# convert numeric oid to str
-def oid(v):
-    return struct.pack('>Q', v)
+# convert numeric oid to/from str
+def oid(num):
+    return struct.pack('>Q', num)
+
+def oidN(packed):
+    return struct.unpack('>Q', packed)[0]
 
 # make time.time() predictable
 _xtime = time.mktime(time.strptime("04 Jan 1979", "%d %b %Y"))
@@ -70,6 +73,17 @@ def main():
     conn.close()
     db.close()
     stor.close()
+
+    # dump to go what to expect
+    with open("testdata_expect.go", "w") as f:
+        def emit(v):
+            print >>f, v
+        emit("package fs1\n")
+        emit("const _1fs_indexTopPos = %i" % stor._pos)
+        emit("var _1fs_indexEntryv = [...]indexEntry{")
+        for k, v in stor._index.iteritems():
+            emit("\t{%8i, %8i}," % (oidN(k), v))
+        emit("}")
 
 
 if __name__ == '__main__':
