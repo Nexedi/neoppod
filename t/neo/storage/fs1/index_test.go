@@ -161,7 +161,7 @@ func TestIndexSaveLoad(t *testing.T) {
 
 	// XXX is it ok to compare trees via reflect.DeepEqual ?
 	if !treeEqual(fsi2.Tree, fsi.Tree) {
-		t.Errorf("index load: trees mismatch: %v  ; want %v", fsi2.Tree, fsi.Tree)
+		t.Errorf("index load: trees mismatch: %v  ; want %v", fsi2.Tree.dump(), fsi.Tree.dump())
 	}
 
 
