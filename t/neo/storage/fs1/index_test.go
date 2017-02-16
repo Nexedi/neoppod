@@ -261,7 +261,7 @@ func needZODBPy(t *testing.T) {
 	if haveZODBPy {
 		return
 	}
-	t.Skipf("zodb/py is not available")
+	t.Skipf("skipping: zodb/py is not available")
 }
 
 // create temp dir inside workRoot
