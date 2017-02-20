@@ -12,7 +12,7 @@
 //
 // XXX based on code from ZODB ?
 
-// FileStorage. Index
+// FileStorage v1. Index
 package fs1
 
 import (

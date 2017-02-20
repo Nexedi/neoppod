@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# TODO author/copyright
 """compare two index files"""
 
 from ZODB.fsIndex import fsIndex

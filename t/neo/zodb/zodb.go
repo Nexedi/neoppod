@@ -1,10 +1,14 @@
 // TODO copyright / license
 
-// Package zodb defines types and interfaces used in ZODB databases
+// Package zodb defines types, interfaces and errors used in ZODB databases
 
 // XXX partly based on ZODB/py
 
 package zodb
+
+import (
+	"fmt"
+)
 
 // ZODB types
 type Tid uint64  // transaction identifier
@@ -13,8 +17,8 @@ type Oid uint64  // object identifier
 /*
 // XXX "extended" oid - oid + serial, completely specifying object revision
 type Xid struct {
-    Tid
-    Oid
+	Tid
+	Oid
 }
 */
 
@@ -26,6 +30,26 @@ const (
 
 	Oid0	Oid = 0
 )
+
+func (tid Tid) String() string {
+	// XXX also print "tid:" prefix ?
+	return fmt.Sprintf("%016x", uint64(tid))
+}
+
+func (oid Oid) String() string {
+	// XXX also print "oid:" prefix ?
+	return fmt.Sprintf("%016x", uint64(oid))
+}
+
+// ----------------------------------------
+
+type ErrOidMissing struct {
+	Oid	Oid
+}
+
+func (e ErrOidMissing) Error() string {
+	return "%v: no such oid"
+}
 
 // ----------------------------------------
 
@@ -44,61 +68,62 @@ const (
 // XXX -> storage.ITransactionInformation
 //type IStorageTransactionInformation interface {
 type StorageTransactionInformation struct {
-    Tid         Tid
-    Status      TxnStatus
-    User        []byte
-    Description []byte
-    Extension   []byte
+	Tid         Tid
+	Status      TxnStatus
+	User        []byte
+	Description []byte
+	Extension   []byte
 
-    // TODO iter -> IStorageRecordInformation
-    Iter	IStorageRecordIterator
+	// TODO iter -> IStorageRecordInformation
+	Iter	IStorageRecordIterator
 }
 
 // Information about single storage record
 type StorageRecordInformation struct {
-    Oid         Oid
-    Tid         Tid
-    Data        []byte
-    // XXX .version ?
-    // XXX .data_txn    (The previous transaction id)
+	Oid         Oid
+	Tid         Tid
+	Data        []byte
+	// XXX .version ?
+	// XXX .data_txn    (The previous transaction id)
 }
 
 
 
 type IStorage interface {
-    Close() error
+	Close() error
 
-    // Name returns storage name
-    Name() string
+	// StorageName returns storage name
+	StorageName() string
 
-    // History(oid, size=1)
+	// History(oid, size=1)
 
-    // LastTid returns the id of the last committed transaction.
-    // if not transactions have been committed yet, LastTid returns Tid zero value
-    // XXX ^^^ ok ?
-    LastTid() Tid	// XXX -> Tid, ok ?
+	// LastTid returns the id of the last committed transaction.
+	// if not transactions have been committed yet, LastTid returns Tid zero value
+	// XXX ^^^ ok ?
+	LastTid() Tid	// XXX -> Tid, ok ?
 
-    LoadBefore(oid Oid, beforeTid Tid) (data []byte, tid Tid, err error)
-    LoadSerial(oid Oid, serial Tid)    (data []byte, err error)
-    // PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
+	// TODO data []byte -> something allocated from slab ?
+	LoadBefore(oid Oid, beforeTid Tid) (data []byte, tid Tid, err error)
+	LoadSerial(oid Oid, serial Tid)    (data []byte, err error)
+	// PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
 
-    // Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
-    // XXX Restore ?
-    // CheckCurrentSerialInTransaction(oid Oid, serial Tid, txn ITransaction)   // XXX naming
+	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
+	// XXX Restore ?
+	// CheckCurrentSerialInTransaction(oid Oid, serial Tid, txn ITransaction)   // XXX naming
 
-    // tpc_begin(txn)
-    // tpc_vote(txn)
-    // tpc_finish(txn, callback)    XXX clarify about callback
-    // tpc_abort(txn)
+	// tpc_begin(txn)
+	// tpc_vote(txn)
+	// tpc_finish(txn, callback)    XXX clarify about callback
+	// tpc_abort(txn)
 
-    Iterate(start, stop Tid) IStorageIterator   // XXX -> Iter() ?
+	Iterate(start, stop Tid) IStorageIterator   // XXX -> Iter() ?
 }
 
 type IStorageIterator interface {
-    Next() (*StorageTransactionInformation, error)  // XXX -> NextTxn() ?
+	Next() (*StorageTransactionInformation, error)  // XXX -> NextTxn() ?
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
-    Next() (*StorageRecordInformation, error)    // XXX vs ptr & nil ?
-                                                // XXX -> NextTxnObject() ?
+	Next() (*StorageRecordInformation, error)    // XXX vs ptr & nil ?
+	                                            // XXX -> NextTxnObject() ?
 }
