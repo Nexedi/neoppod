@@ -2,6 +2,8 @@
 
 // Package zodb defines types and interfaces used in ZODB databases
 
+// XXX partly based on ZODB/py
+
 package zodb
 
 // ZODB types
@@ -27,7 +29,14 @@ const (
 
 // ----------------------------------------
 
+// TxnStatus represents status of a transaction
 type TxnStatus byte
+
+const (
+	TxnComplete TxnStatus = ' ' // completed transaction that hasn't been packed
+	TxnPacked             = 'p' // completed transaction that has been packed
+	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
+)
 
 // TODO Tid.String(), Oid.String() +verbose, scanning (?)
 
@@ -59,13 +68,18 @@ type StorageRecordInformation struct {
 type IStorage interface {
     Close() error
 
-    // TODO:
-    // Name()
-    // History(oid, size=1)
-    // LastTid()
+    // Name returns storage name
+    Name() string
 
-    // LoadBefore(oid Oid, beforeTid Tid) (data []bytes, tid Tid, err error)
-    // LoadSerial(oid Oid, serial Tid)    (data []bytes, err error)
+    // History(oid, size=1)
+
+    // LastTid returns the id of the last committed transaction.
+    // if not transactions have been committed yet, LastTid returns Tid zero value
+    // XXX ^^^ ok ?
+    LastTid() Tid	// XXX -> Tid, ok ?
+
+    LoadBefore(oid Oid, beforeTid Tid) (data []byte, tid Tid, err error)
+    LoadSerial(oid Oid, serial Tid)    (data []byte, err error)
     // PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
 
     // Store(oid Oid, serial Tid, data []byte, txn ITransaction) error

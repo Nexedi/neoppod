@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 	"unsafe"
+
+	"./zodb"
 )
 
 // decode string as hex; panic on error
@@ -192,9 +194,9 @@ func TestPktMarshal(t *testing.T) {
 
 		// map[Oid]struct {Tid,Tid,bool}
 		{&AnswerObjectUndoSerial{
-			ObjectTIDDict: map[Oid]struct{
-						CurrentSerial   Tid
-						UndoSerial      Tid
+			ObjectTIDDict: map[zodb.Oid]struct{
+						CurrentSerial   zodb.Tid
+						UndoSerial      zodb.Tid
 						IsCurrent       bool
 				} {
 				1: {1, 0, false},
