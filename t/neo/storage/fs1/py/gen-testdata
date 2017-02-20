@@ -2,6 +2,8 @@
 # TODO author/copyright
 """generate reference database and index for tests"""
 
+# TODO generate transactions with backpointers
+
 from ZODB.FileStorage import FileStorage
 from ZODB import DB
 from persistent import Persistent
