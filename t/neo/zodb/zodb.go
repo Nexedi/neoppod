@@ -14,13 +14,18 @@ import (
 type Tid uint64  // transaction identifier
 type Oid uint64  // object identifier
 
-/*
-// XXX "extended" oid - oid + serial, completely specifying object revision
-type Xid struct {
+// XTid is "extended" transaction identifier. It defines a transaction for
+// oid lookup - either exactly by serial, or <beforeTid	XXX
+type XTid struct {
 	Tid
+	TidBefore bool	// XXX merge into Tid itself (high bit) ?
+}
+
+// Xid is "extended" oid - oid + serial/beforeTid, completely specifying object revision	XXX text
+type Xid struct {
+	XTid
 	Oid
 }
-*/
 
 const (
 	Tid0	Tid = 0			// XXX or simply Tid(0) ?
@@ -41,14 +46,40 @@ func (oid Oid) String() string {
 	return fmt.Sprintf("%016x", uint64(oid))
 }
 
+func (xtid XTid) String() string {
+	// XXX also print "tid:" prefix ?
+	s := ""
+	if xtid.TidBefore {
+		s = "<"
+	} else {
+		s = "="
+	}
+
+	return s + xtid.Tid.String()
+}
+
+func (xid Xid) String() string {
+	return xid.XTid.String() + ":" + xid.Oid.String()
+}
+
 // ----------------------------------------
 
+// ErrOidMissing is an error which tells that there is no such oid in the database at all
 type ErrOidMissing struct {
 	Oid	Oid
+	Serial	Tid
+	Before	bool	// XXX
 }
 
 func (e ErrOidMissing) Error() string {
 	return "%v: no such oid"
+}
+
+// ErrOidRevMissing is an error which tells that oid exists in the database,
+// but there is no its revision satisfying serial/beforeTid criteria XXX
+type ErrOidRevMissing struct {
+	Oid	Oid
+
 }
 
 // ----------------------------------------
@@ -103,8 +134,12 @@ type IStorage interface {
 	LastTid() Tid	// XXX -> Tid, ok ?
 
 	// TODO data []byte -> something allocated from slab ?
+	Load(xoid XOid) (data []byte, tid Tid, err error)
+
+	/* generalized ^^^
 	LoadBefore(oid Oid, beforeTid Tid) (data []byte, tid Tid, err error)
 	LoadSerial(oid Oid, serial Tid)    (data []byte, err error)
+	*/
 	// PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error

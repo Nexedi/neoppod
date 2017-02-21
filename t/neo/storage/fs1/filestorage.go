@@ -10,7 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 //
-// XXX based on code from ZODB ?
+// XXX partly based on code from ZODB ?
 
 // FileStorage v1.  XXX text
 package fs1
@@ -26,13 +26,15 @@ import (
 )
 
 type FileStorage struct {
-	f		*os.File	// XXX naming -> file ?
+	f	*os.File	// XXX naming -> file ?
 	index	*fsIndex
 }
 
 // IStorage
 var _ zodb.IStorage = (*FileStorage)(nil)
 
+
+// XXX -> TxnHeader
 type TxnRecHead struct {
 	Tid             zodb.Tid
 	RecLenm8        uint64
@@ -64,17 +66,15 @@ type DataHeader struct {
 
 const DataHeaderSize	= 42
 
-// ErrDataRead is returned on data record read / decode errors
+// ErrData is returned on data record read / decode errors
 type ErrDataRecord struct {
-	Pos	int64
-	Err	error
+	Pos	int64	// position of data record
+	Subj	string	// about what .Err is
+	Err	error	// actual error
 }
 
-func (e *ErrDataRead) Error() string {
-	//return fmt.Sprintf("data read: record @%v: %v", e.Pos, e.Err)
-	// TODO read -> header | payload
-	return fmr.Sprintf("data record @%v: read: %v", e.Pos, e.Err)
-	// XXX -> data record @%v: %v	?
+func (e *ErrDataRecord) Error() string {
+	return fmr.Sprintf("data record @%v: %v: %v", e.Pos, e.Subj, e.Err)
 }
 
 // XXX -> zodb?
@@ -82,15 +82,16 @@ var ErrVersionNonZero = errors.New("non-zero version")
 
 
 
+// decode reads and decodes data record header from a readerAt
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
 func (dh *DataHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[DataHeaderSize]byte) error {
 	n, err := r.ReadAt(tmpBuf[:], pos)
 	if n == DataHeaderSize {
-		err = nil	// we don't mind if it was EOF after full header read	XXX ok?
+		err = nil // we don't mind if it was EOF after full header read
 	}
 
 	if err != nil {
-		return &ErrDataRead{pos, err}
+		return &ErrDataRecord{pos, "read", err}
 	}
 
 	dh.Oid.Decode(tmpBuf[0:])
@@ -101,8 +102,7 @@ func (dh *DataHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[DataHeaderSize]b
 	dh.DataLen = binary.BigEndian.Uint64(tmpBuf[34:])
 
 	if verlen != 0 {
-		// XXX -> ...: header invalid: non-zero version
-		return &ErrDataRead{pos, ErrVersionNonZero}
+		return &ErrDataRecord{pos, "invalid header", ErrVersionNonZero}
 	}
 
 	return nil
@@ -143,8 +143,8 @@ func (fs *FileStorage) LoadBefore(oid zodb.Oid, beforeTid zodb.Tid) (data []byte
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(oid)
 	if !ok {
-		return nil, zodb.Tid(0), zodb.ErrOidMissing{Oid: oid}
-		// XXX -> &ErrOidLoad{oid, zodb.ErrOidMissing}	?
+		// XXX drop oid from ErrOidMissing ?
+		return nil, zodb.Tid(0), &ErrOidLoad{oid, zodb.ErrOidMissing{Oid: oid}}
 	}
 
 	dh := DataHeader{Tid: zodb.TidMax}
@@ -160,7 +160,7 @@ func (fs *FileStorage) LoadBefore(oid zodb.Oid, beforeTid zodb.Tid) (data []byte
 		// check data record consistency
 		if dh.Oid != oid {
 			// ... header invalid:
-			return nil, zodb.Tid(0), &ErrOidLoad{oid, &ErrDataRead{dataPos, "TODO unexpected oid")}
+			return nil, zodb.Tid(0), &ErrOidLoad{oid, &ErrDataRecord{dataPos, "consistency check", "TODO unexpected oid")}
 		}
 
 		if dh.Tid >= prevTid { ... }
@@ -175,7 +175,7 @@ func (fs *FileStorage) LoadBefore(oid zodb.Oid, beforeTid zodb.Tid) (data []byte
 		dataPos = dh.PrevDataRecPos
 		dataPos == 0 {
 			// no such oid revision
-			return ...&ErrOidLoad{oid, zodb.ErrOidRevMissing}
+			return nil, zodb.Tid(0), &ErrOidLoad{oid, zodb.ErrOidRevMissing{oid, "<", beforeTid}}
 		}
 	}
 

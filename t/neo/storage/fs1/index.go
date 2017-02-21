@@ -10,7 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 //
-// XXX based on code from ZODB ?
+// XXX partly based on code from ZODB ?
 
 // FileStorage v1. Index
 package fs1
