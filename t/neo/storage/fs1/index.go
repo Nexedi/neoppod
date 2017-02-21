@@ -152,6 +152,7 @@ out:
 	return &IndexSaveError{err}
 }
 
+// SaveFile saves index to a file
 func (fsi *fsIndex) SaveFile(topPos int64, path string) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
@@ -296,6 +297,7 @@ out:
 	return 0, nil, &IndexLoadError{IOName(r), picklePos, err}
 }
 
+// LoadIndexFile loads index from a file
 func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
 	f, err := os.Open(path)
 	if err != nil {
