@@ -2,8 +2,6 @@
 # TODO author/copyright
 """generate reference database and index for tests"""
 
-# TODO generate transactions with backpointers
-
 from ZODB.FileStorage import FileStorage
 from ZODB import DB
 from persistent import Persistent
@@ -33,11 +31,15 @@ def xtime():
 time.time = xtime
 
 
-def commit(user, description, extension):
+def _precommit(user, description, extension):
     txn = transaction.get()
     txn.user = user
     txn.description = description
     txn.extension = extension
+
+def commit(user, description, extension):
+    _precommit(user, description, extension)
+    txn = transaction.get()
     txn.commit()
 
 
@@ -67,16 +69,23 @@ def main():
     random.seed(0)
 
     namev = [_ for _ in "abcdefg"]
-    for i in range(50):
-        name = random.choice(namev)
-        if name in root:
-            obj = root[name]
-        else:
-            root[name] = obj = Object(None)
+    for i in range(2):
+        for j in range(25):
+            name = random.choice(namev)
+            if name in root:
+                obj = root[name]
+            else:
+                root[name] = obj = Object(None)
 
-        obj.value = "%s%i" % (name, i)
+            obj.value = "%s%i.%i" % (name, i, j)
 
-        commit(u"user%i" % i, u"step %i" % i, {"x-generator": "zodb/py2 (%s)" % name})
+            commit(u"user%i.%i" % (i,j), u"step %i.%i" % (i, j), {"x-generator": "zodb/py2 (%s)" % name})
+
+        # undo a transaction one step before a latest one a couple of times
+        for j in range(2):
+            ul = db.undoLog(1+j, 2+j)[0]
+            _precommit(u"root%i.%i" % (i, j), u"undo %i.%i" % (i, j), {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
+            db.undo(ul["id"])
 
     conn.close()
     db.close()
