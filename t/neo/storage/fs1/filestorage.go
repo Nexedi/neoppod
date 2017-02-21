@@ -53,10 +53,10 @@ type TxnRecHead struct {
 type DataHeader struct {
 	Oid             zodb.Oid
 	Tid             zodb.Tid
-	PrevDataRecPos  uint64  // previous-record file-position
-	TxnPos          uint64  // position of transaction record this data record belongs to
+	PrevDataRecPos  int64	// previous-record file-position
+	TxnPos          int64	// position of transaction record this data record belongs to
 	_		uint16	// 2-bytes with zero values. (Was version length.)
-	DataLen		uint64	// length of following data. if 0 -> following = 8 bytes backpointer
+	DataLen		uint64	// length of following data. if 0 -> following = 8 bytes backpointer	XXX -> int64 too ?
 				// if backpointer == 0 -> oid deleted
 	//Data            []byte
 	//DataRecPos      uint64  // if Data == nil -> byte position of data record containing data
@@ -94,10 +94,10 @@ func (dh *DataHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[DataHeaderSize]b
 		return &ErrDataRecord{pos, "read", err}
 	}
 
-	dh.Oid.Decode(tmpBuf[0:])
-	dh.Tid.Decode(tmpBuf[8:])
-	dh.PrevDataRecPos = binary.BigEndian.Uint64(tmpBuf[16:])
-	dh.TxnPos = binary.BigEndian.Uint64(tmpBuf[24:])
+	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(tmpBuf[0:]))	// XXX -> zodb.Oid.Decode() ?
+	dh.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8:]))	// XXX -> zodb.Tid.Decode() ?
+	dh.PrevDataRecPos = int64(binary.BigEndian.Uint64(tmpBuf[16:]))
+	dh.TxnPos = int64(binary.BigEndian.Uint64(tmpBuf[24:]))
 	verlen := binary.BigEndian.Uint16(tmpBuf[32:])
 	dh.DataLen = binary.BigEndian.Uint64(tmpBuf[34:])
 
@@ -128,6 +128,11 @@ func NewFileStorage(path string) (*FileStorage, error) {
 	// TODO read/recreate index
 }
 
+
+func (fs *FileStorage) LastTid() zodb.Tid {
+	panic("TODO")
+}
+
 // ErrXidLoad is returned when there is an error while loading xid
 type ErrXidLoad struct {
 	Xid	zodb.Xid
@@ -154,7 +159,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 
 	// search backwards for when we first have data record with tid satisfying xid.XTid
 	for {
-		prevTid := dh.Tid
+		//prevTid := dh.Tid
 		err = dh.Decode(fs.f, dataPos)
 		if err != nil {
 			return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
