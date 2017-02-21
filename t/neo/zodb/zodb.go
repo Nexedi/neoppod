@@ -47,8 +47,8 @@ func (oid Oid) String() string {
 }
 
 // XXX move me out of here
-// XXX naming -> bint ?
-func bool2int(b bool) int {
+// bint converts bool to int with true => 1; false => 0
+func bint(b bool) int {
 	if b {
 		return 1
 	} else {
@@ -58,16 +58,7 @@ func bool2int(b bool) int {
 
 func (xtid XTid) String() string {
 	// XXX also print "tid:" prefix ?
-	/*
-	s := ""
-	if xtid.TidBefore {
-		s = "<"
-	} else {
-		s = "="
-	}
-	*/
-
-	return fmt.Sprintf("%c%v", "=<"[bool2int(xtid.TidBefore)], xtid)
+	return fmt.Sprintf("%c%v", "=<"[bint(xtid.TidBefore)], xtid)
 }
 
 func (xid Xid) String() string {
@@ -79,19 +70,20 @@ func (xid Xid) String() string {
 // ErrOidMissing is an error which tells that there is no such oid in the database at all
 type ErrOidMissing struct {
 	Oid	Oid
-	Serial	Tid
-	Before	bool	// XXX
 }
 
 func (e ErrOidMissing) Error() string {
-	return "%v: no such oid"
+	return fmt.Sprintf("%v: no such oid", e.Oid)
 }
 
-// ErrOidRevMissing is an error which tells that oid exists in the database,
-// but there is no its revision satisfying serial/beforeTid criteria XXX
-type ErrOidRevMissing struct {
-	Oid	Oid
+// ErrXidMissing is an error which tells that oid exists in the database,
+// but there is no its revision satisfying xid.XTid search criteria.
+type ErrXidMissing struct {
+	Xid	Xid
+}
 
+func (e *ErrXidMissing) Error() string {
+	return fmt.Sprintf("")	// TODO
 }
 
 // ----------------------------------------

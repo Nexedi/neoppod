@@ -74,7 +74,7 @@ type ErrDataRecord struct {
 }
 
 func (e *ErrDataRecord) Error() string {
-	return fmr.Sprintf("data record @%v: %v: %v", e.Pos, e.Subj, e.Err)
+	return fmt.Sprintf("data record @%v: %v: %v", e.Pos, e.Subj, e.Err)
 }
 
 // XXX -> zodb?
@@ -128,58 +128,67 @@ func NewFileStorage(path string) (*FileStorage, error) {
 	// TODO read/recreate index
 }
 
-// ErrOidLoad is returned when there is an error while loading oid
-type ErrOidLoad struct {
-	Oid	zodb.Oid
+// ErrXidLoad is returned when there is an error while loading xid
+type ErrXidLoad struct {
+	Xid	zodb.Xid
 	Err	error
 }
 
-func (e *ErrOidLoad) Error() string {
-	// TODO include whole (=|<)tid:oid ?
-	return fmt.Sprintf("loading oid %v: %v", e.Oid, e.Err)
+func (e *ErrXidLoad) Error() string {
+	return fmt.Sprintf("loading %v: %v", e.Xid, e.Err)
 }
 
 func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction who changed this oid
-	dataPos, ok := fs.index.Get(oid)
+	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
 		// XXX drop oid from ErrOidMissing ?
-		return nil, zodb.Tid(0), &ErrOidLoad{oid, zodb.ErrOidMissing{Oid: oid}}
+		return nil, zodb.Tid(0), &ErrXidLoad{xid, zodb.ErrOidMissing{Oid: xid.Oid}}
 	}
 
 	dh := DataHeader{Tid: zodb.TidMax}
+	tidBefore := xid.XTid.Tid
+	if !xid.XTid.TidBefore {
+		tidBefore++	// XXX recheck this is ok wrt overflow
+	}
 
-	// search backwards for when we first have data record with tid < beforeTid
+	// search backwards for when we first have data record with tid satisfying xid.XTid
 	for {
 		prevTid := dh.Tid
 		err = dh.Decode(fs.f, dataPos)
 		if err != nil {
-			return nil, zodb.Tid(0), &ErrOidLoad{oid, err}
+			return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
 		}
 
 		// check data record consistency
-		if dh.Oid != oid {
-			// ... header invalid:
-			return nil, zodb.Tid(0), &ErrOidLoad{oid, &ErrDataRecord{dataPos, "consistency check", "TODO unexpected oid")}
-		}
+		// TODO reenable
+		// if dh.Oid != oid {
+		// 	// ... header invalid:
+		// 	return nil, zodb.Tid(0), &ErrXidLoad{xid, &ErrDataRecord{dataPos, "consistency check", "TODO unexpected oid")}
+		// }
 
-		if dh.Tid >= prevTid { ... }
-		if dh.TxnPos >= dataPos - TxnHeaderSize { ... }
-		if dh.PrevDataRecPos >= dh.TxnPos - DataHeaderSize - 8 /* XXX */ { ... }
+		// if dh.Tid >= prevTid { ... }
+		// if dh.TxnPos >= dataPos - TxnHeaderSize { ... }
+		// if dh.PrevDataRecPos >= dh.TxnPos - DataHeaderSize - 8 /* XXX */ { ... }
 
-		if dh.Tid < beforeTid {
+		if dh.Tid < tidBefore {
 			break
 		}
 
 		// continue search
 		dataPos = dh.PrevDataRecPos
-		dataPos == 0 {
+		if dataPos == 0 {
 			// no such oid revision
-			return nil, zodb.Tid(0), &ErrOidLoad{oid, zodb.ErrOidRevMissing{oid, "<", beforeTid}}
+			return nil, zodb.Tid(0), &ErrXidLoad{xid, &zodb.ErrXidMissing{Xid: xid}}
 		}
 	}
 
-	// found dh.Tid < beforeTid
+	// found dh.Tid < tidBefore; check it really satisfies xid.XTid
+	if !xid.XTid.TidBefore && dh.Tid != xid.XTid.Tid {
+		// XXX unify with ^^^
+		return nil, zodb.Tid(0), &ErrXidLoad{xid, &zodb.ErrXidMissing{Xid: xid}}
+	}
+
 	// now read actual data / scan via backpointers
 	if dh.DataLen == 0 {
 		// backpointer - TODO
@@ -191,7 +200,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 		err = nil	// we don't mind to get EOF after full data read   XXX ok?
 	}
 	if err != nil {
-		return nil, zodb.Tid(0), &ErrOidLoad{oid, err}
+		return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
 	}
 
 	return data, dh.Tid, nil
