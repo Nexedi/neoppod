@@ -34,8 +34,7 @@ type FileStorage struct {
 var _ zodb.IStorage = (*FileStorage)(nil)
 
 
-// XXX -> TxnHeader
-type TxnRecHead struct {
+type TxnHeader struct {
 	Tid             zodb.Tid
 	RecLenm8        uint64
 	Status          zodb.TxnStatus

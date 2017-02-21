@@ -12,3 +12,449 @@ var _1fs_indexEntryv = [...]indexEntry{
 	{       6,     8839},
 	{       7,     7507},
 }
+
+var _1fs_dbEntryv = [...]dbEntry{
+	TxnHeader{
+		Tid:	0x0285cbac12c5f933
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac12c5f933,
+			TxnPos:	4,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac2a3d70b3
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac2a3d70b3,
+			TxnPos:	162,
+		},
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbac2a3d70b3,
+			TxnPos:	162,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac2eeeef00
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbac2eeeef00,
+			TxnPos:	444,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac33a06d4c
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac33a06d4c,
+			TxnPos:	589,
+		},
+		DataHeader{
+			Oid:	2,
+			Tid:	0x0285cbac33a06d4c,
+			TxnPos:	589,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac3851eb99
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac3851eb99,
+			TxnPos:	892,
+		},
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbac3851eb99,
+			TxnPos:	892,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac3d0369e6
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac3d0369e6,
+			TxnPos:	1215,
+		},
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbac3d0369e6,
+			TxnPos:	1215,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac41b4e833
+		DataHeader{
+			Oid:	2,
+			Tid:	0x0285cbac41b4e833,
+			TxnPos:	1558,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac46666680
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbac46666680,
+			TxnPos:	1703,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac4b17e4cc
+		DataHeader{
+			Oid:	2,
+			Tid:	0x0285cbac4b17e4cc,
+			TxnPos:	1848,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac4fc96319
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbac4fc96319,
+			TxnPos:	1993,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac547ae166
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac547ae166,
+			TxnPos:	2138,
+		},
+		DataHeader{
+			Oid:	5,
+			Tid:	0x0285cbac547ae166,
+			TxnPos:	2138,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac592c5fb3
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac592c5fb3,
+			TxnPos:	2501,
+		},
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbac592c5fb3,
+			TxnPos:	2501,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac5dddde00
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbac5dddde00,
+			TxnPos:	2887,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac628f5c4c
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbac628f5c4c,
+			TxnPos:	3035,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac6740da99
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbac6740da99,
+			TxnPos:	3183,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac6bf258e6
+		DataHeader{
+			Oid:	5,
+			Tid:	0x0285cbac6bf258e6,
+			TxnPos:	3331,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac70a3d733
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbac70a3d733,
+			TxnPos:	3479,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac75555580
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbac75555580,
+			TxnPos:	3627,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac7a06d3cc
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbac7a06d3cc,
+			TxnPos:	3775,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac7eb85219
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbac7eb85219,
+			TxnPos:	3923,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac8369d066
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbac8369d066,
+			TxnPos:	4071,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac881b4eb3
+		DataHeader{
+			Oid:	2,
+			Tid:	0x0285cbac881b4eb3,
+			TxnPos:	4219,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac8ccccd00
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbac8ccccd00,
+			TxnPos:	4367,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac917e4b4c
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbac917e4b4c,
+			TxnPos:	4515,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac962fc999
+		DataHeader{
+			Oid:	5,
+			Tid:	0x0285cbac962fc999,
+			TxnPos:	4663,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac9ae147e6
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbac9ae147e6,
+			TxnPos:	4811,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbac9f92c633
+		DataHeader{
+			Oid:	0,
+			Tid:	0x0285cbac9f92c633,
+			TxnPos:	4959,
+		},
+		DataHeader{
+			Oid:	7,
+			Tid:	0x0285cbac9f92c633,
+			TxnPos:	4959,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbaca4444480
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbaca4444480,
+			TxnPos:	5365,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbaca8f5c2cc
+		DataHeader{
+			Oid:	5,
+			Tid:	0x0285cbaca8f5c2cc,
+			TxnPos:	5513,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacada74119
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbacada74119,
+			TxnPos:	5661,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacb258bf66
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbacb258bf66,
+			TxnPos:	5809,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacb70a3db3
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbacb70a3db3,
+			TxnPos:	5957,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacbbbbbc00
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbacbbbbbc00,
+			TxnPos:	6105,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacc06d3a4c
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbacc06d3a4c,
+			TxnPos:	6253,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacc51eb899
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbacc51eb899,
+			TxnPos:	6401,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacc9d036e6
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbacc9d036e6,
+			TxnPos:	6549,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacce81b533
+		DataHeader{
+			Oid:	7,
+			Tid:	0x0285cbacce81b533,
+			TxnPos:	6697,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacd3333380
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbacd3333380,
+			TxnPos:	6845,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacd7e4b1cc
+		DataHeader{
+			Oid:	2,
+			Tid:	0x0285cbacd7e4b1cc,
+			TxnPos:	6993,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacdc963019
+		DataHeader{
+			Oid:	1,
+			Tid:	0x0285cbacdc963019,
+			TxnPos:	7141,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbace147ae66
+		DataHeader{
+			Oid:	5,
+			Tid:	0x0285cbace147ae66,
+			TxnPos:	7289,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbace5f92cb3
+		DataHeader{
+			Oid:	7,
+			Tid:	0x0285cbace5f92cb3,
+			TxnPos:	7437,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbaceaaaab00
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbaceaaaab00,
+			TxnPos:	7585,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacef5c294c
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbacef5c294c,
+			TxnPos:	7733,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacf40da799
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbacf40da799,
+			TxnPos:	7881,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacf8bf25e6
+		DataHeader{
+			Oid:	2,
+			Tid:	0x0285cbacf8bf25e6,
+			TxnPos:	8029,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbacfd70a433
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbacfd70a433,
+			TxnPos:	8177,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbad02222280
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbad02222280,
+			TxnPos:	8325,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbad06d3a0cc
+		DataHeader{
+			Oid:	4,
+			Tid:	0x0285cbad06d3a0cc,
+			TxnPos:	8473,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbad0b851f19
+		DataHeader{
+			Oid:	3,
+			Tid:	0x0285cbad0b851f19,
+			TxnPos:	8621,
+		},
+	}
+	TxnHeader{
+		Tid:	0x0285cbad10369d66
+		DataHeader{
+			Oid:	6,
+			Tid:	0x0285cbad10369d66,
+			TxnPos:	8769,
+		},
+	}
+}
