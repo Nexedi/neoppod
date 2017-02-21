@@ -98,10 +98,12 @@ def main():
 
         # database records
         stor = FileStorage(outfs, read_only=True)
+        oidPrevPos = {} # oid -> pos of last drec(oid)
+
         emit("\nvar _1fs_dbEntryv = [...]dbEntry{")
         for txn in stor.iterator():     # txn is TransactionRecord
             emit("\tTxnHeader{")
-            emit("\t\tTid:\t%s" % hex64(txn.tid))
+            emit("\t\tTid:\t%s," % hex64(txn.tid))
             # -> TxnHeader
             #txn.tid, txn.status
             #.user .description .extension
@@ -115,7 +117,7 @@ def main():
                 emit("\t\t\tTid:\t%s," % hex64(drec.tid))
                 # drec: .data .prev (=prev_txn) .pos
 
-                # PrevDataRecPos
+                emit("\t\t\tPrevDataRecPos:\t%i," % oidPrevPos.get(drec.oid, 0))
                 emit("\t\t\tTxnPos:\t%i," % txn._tpos)
                 assert drec.version == ''
                 # DataLen
@@ -123,7 +125,10 @@ def main():
                 #.data .data_txn
                 emit("\t\t},")
 
-            emit("\t}")
+                oidPrevPos[drec.oid] = drec.pos
+
+
+            emit("\t},")
         emit("}")
 
 
