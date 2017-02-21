@@ -139,7 +139,7 @@ func (e *ErrOidLoad) Error() string {
 	return fmt.Sprintf("loading oid %v: %v", e.Oid, e.Err)
 }
 
-func (fs *FileStorage) LoadBefore(oid zodb.Oid, beforeTid zodb.Tid) (data []byte, tid zodb.Tid, err error) {
+func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(oid)
 	if !ok {

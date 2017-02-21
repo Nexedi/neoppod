@@ -46,16 +46,28 @@ func (oid Oid) String() string {
 	return fmt.Sprintf("%016x", uint64(oid))
 }
 
+// XXX move me out of here
+// XXX naming -> bint ?
+func bool2int(b bool) int {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
+
 func (xtid XTid) String() string {
 	// XXX also print "tid:" prefix ?
+	/*
 	s := ""
 	if xtid.TidBefore {
 		s = "<"
 	} else {
 		s = "="
 	}
+	*/
 
-	return s + xtid.Tid.String()
+	return fmt.Sprintf("%c%v", "=<"[bool2int(xtid.TidBefore)], xtid)
 }
 
 func (xid Xid) String() string {
@@ -134,7 +146,7 @@ type IStorage interface {
 	LastTid() Tid	// XXX -> Tid, ok ?
 
 	// TODO data []byte -> something allocated from slab ?
-	Load(xoid XOid) (data []byte, tid Tid, err error)
+	Load(xid Xid) (data []byte, tid Tid, err error)
 
 	/* generalized ^^^
 	LoadBefore(oid Oid, beforeTid Tid) (data []byte, tid Tid, err error)
