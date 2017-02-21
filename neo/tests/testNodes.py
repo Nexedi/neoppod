@@ -164,7 +164,7 @@ class NodeManagerTests(NeoUnitTestBase):
                 NodeStates.UNKNOWN, None),
         )
         # update manager content
-        manager.update(Mock(), node_list)
+        manager.update(Mock(), time(), node_list)
         # - the client gets down
         self.checkClients([])
         # - master change it's address

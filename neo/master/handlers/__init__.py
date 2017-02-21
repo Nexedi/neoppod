@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from ..app import monotonic_time
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
@@ -88,7 +89,7 @@ class MasterHandler(EventHandler):
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getClientList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.notify(Packets.NotifyNodeInformation(node_list))
+        conn.notify(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt

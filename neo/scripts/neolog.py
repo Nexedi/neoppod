@@ -20,7 +20,6 @@
 import bz2, gzip, errno, optparse, os, signal, sqlite3, sys, time
 from bisect import insort
 from logging import getLevelName
-from functools import partial
 
 comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile)
 
@@ -95,11 +94,6 @@ class Log(object):
         for x in 'uuid_str', 'Packets', 'PacketMalformedError':
             setattr(self, x, g[x])
         try:
-            self.notifyNodeInformation = partial(g['formatNodeList'],
-                                                 prefix=' ! ')
-        except KeyError:
-            self.notifyNodeInformation = None
-        try:
             self._next_protocol, = q("SELECT date FROM protocol WHERE date>?",
                                      (date,)).next()
         except StopIteration:
@@ -131,8 +125,8 @@ class Log(object):
             body = None
         msg = ['#0x%04x %-30s %s' % (msg_id, msg, peer)]
         if body is not None:
-            logger = getattr(self, p.handler_method_name, None)
-            if logger or self._decode_all:
+            log = getattr(p, '_neolog', None)
+            if log or self._decode_all:
                 p = p()
                 p._id = msg_id
                 p._body = body
@@ -141,14 +135,12 @@ class Log(object):
                 except self.PacketMalformedError:
                     msg.append("Can't decode packet")
                 else:
-                    if logger:
-                        msg += logger(*args)
-                    elif args:
-                        msg = '%s \t| %r' % (msg[0], args),
+                    if log:
+                        args, extra = log(*args)
+                        msg += extra
+                    if args and self._decode_all:
+                        msg[0] += ' \t| ' + repr(args)
         return date, name, 'PACKET', msg
-
-    def error(self, code, message):
-        return "%s (%s)" % (code, message),
 
 
 def emit_many(log_list):

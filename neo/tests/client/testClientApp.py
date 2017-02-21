@@ -43,9 +43,6 @@ def _ask(self, conn, packet, handler=None, **kw):
         handler.dispatch(conn, conn.fakeReceived())
     return self.getHandlerData()
 
-def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
-    raise ConflictError
-
 class ClientApplicationTests(NeoUnitTestBase):
 
     def setUp(self):
@@ -73,7 +70,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def _begin(self, app, txn, tid):
         txn_context = app._txn_container.new(txn)
-        txn_context['ttid'] = tid
+        txn_context.ttid = tid
         return txn_context
 
     def getApp(self, master_nodes=None, name='test', **kw):
@@ -115,7 +112,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # connection to SN close
         self.assertFalse(oid in cache._oid_dict)
         conn = Mock({'getAddress': ('', 0)})
-        app.cp = Mock({'iterateForObject': [(Mock(), conn)]})
+        app.cp = Mock({'iterateForObject': (conn,)})
         def fakeReceived(packet):
             packet.setId(0)
             conn.fakeReceived = iter((packet,)).next
@@ -182,11 +179,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         app.master_conn = Mock()
-        conn = Mock()
-        self.assertRaises(StorageTransactionError, app.undo, tid,
-            txn, failing_tryToResolveConflict)
+        self.assertRaises(StorageTransactionError, app.undo, tid, txn)
         # no packet sent
-        self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
 
     def test_connectToPrimaryNode(self):

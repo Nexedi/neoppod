@@ -28,7 +28,6 @@ from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager
-from .exception import AlreadyPendingError
 from .handlers import identification, initialization
 from .handlers import master, hidden
 from .replicator import Replicator
@@ -39,13 +38,14 @@ from neo.lib.debug import register as registerLiveDebugger
 class Application(BaseApplication):
     """The storage node application."""
 
+    tm = None
+
     def __init__(self, config):
         super(Application, self).__init__(
             config.getSSL(), config.getDynamicMasterList())
         # set the cluster name
         self.name = config.getCluster()
 
-        self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(),
             (config.getDatabase(), config.getEngine(), config.getWait()),
         )
@@ -69,8 +69,6 @@ class Application(BaseApplication):
         self.master_node = None
 
         # operation related data
-        self.event_queue = None
-        self.event_queue_dict = None
         self.operational = False
 
         # ready is True when operational and got all informations
@@ -95,9 +93,9 @@ class Application(BaseApplication):
 
     def log(self):
         self.em.log()
-        self.logQueuedEvents()
         self.nm.log()
-        self.tm.log()
+        if self.tm:
+            self.tm.log()
         if self.pt is not None:
             self.pt.log()
 
@@ -188,9 +186,7 @@ class Application(BaseApplication):
             for conn in self.em.getConnectionList():
                 if conn not in (self.listening_conn, self.master_conn):
                     conn.close()
-            # create/clear event queue
-            self.event_queue = deque()
-            self.event_queue_dict = {}
+            self.tm = TransactionManager(self)
             try:
                 self.initialize()
                 self.doOperation()
@@ -201,6 +197,7 @@ class Application(BaseApplication):
                 logging.error('primary master is down: %s', msg)
             finally:
                 self.checker = Checker(self)
+            del self.tm
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
@@ -247,8 +244,8 @@ class Application(BaseApplication):
         while not self.operational:
             _poll()
         self.ready = True
-        self.replicator.populate()
         self.master_conn.notify(Packets.NotifyReady())
+        self.replicator.populate()
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
@@ -263,7 +260,6 @@ class Application(BaseApplication):
 
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
-        self.tm.reset()
 
         self.task_queue = task_queue = deque()
         try:
@@ -307,46 +303,6 @@ class Application(BaseApplication):
             _poll()
             if not node.isHidden():
                 break
-
-    def queueEvent(self, some_callable, conn=None, args=(), key=None,
-            raise_on_duplicate=True):
-        event_queue_dict = self.event_queue_dict
-        n = event_queue_dict.get(key)
-        if n and raise_on_duplicate:
-            raise AlreadyPendingError()
-        msg_id = None if conn is None else conn.getPeerId()
-        self.event_queue.append((key, some_callable, msg_id, conn, args))
-        if key is not None:
-            event_queue_dict[key] = n + 1 if n else 1
-
-    def executeQueuedEvents(self):
-        p = self.event_queue.popleft
-        event_queue_dict = self.event_queue_dict
-        for _ in xrange(len(self.event_queue)):
-            key, some_callable, msg_id, conn, args = p()
-            if key is not None:
-                n = event_queue_dict[key] - 1
-                if n:
-                    event_queue_dict[key] = n
-                else:
-                    del event_queue_dict[key]
-            if conn is None:
-                some_callable(*args)
-            elif not conn.isClosed():
-                orig_msg_id = conn.getPeerId()
-                try:
-                    conn.setPeerId(msg_id)
-                    some_callable(conn, *args)
-                finally:
-                    conn.setPeerId(orig_msg_id)
-
-    def logQueuedEvents(self):
-        if self.event_queue is None:
-            return
-        logging.info("Pending events:")
-        for key, event, _msg_id, _conn, args in self.event_queue:
-            logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
-                _msg_id, _conn, args)
 
     def newTask(self, iterator):
         try:

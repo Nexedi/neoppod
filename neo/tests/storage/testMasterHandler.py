@@ -16,7 +16,6 @@
 
 import unittest
 from ..mock import Mock
-from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
@@ -31,10 +30,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
-        self.app.transaction_dict = {}
-        self.app.store_lock_dict = {}
-        self.app.load_lock_dict = {}
-        self.app.event_queue = deque()
         # handler
         self.operation = MasterOperationHandler(self.app)
         # set pmn

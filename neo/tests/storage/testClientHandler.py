@@ -20,7 +20,7 @@ from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.lib.util import p64
-from neo.lib.protocol import INVALID_TID, Packets, LockState
+from neo.lib.protocol import INVALID_TID, Packets
 
 class StorageClientHandlerTests(NeoUnitTestBase):
 
@@ -99,25 +99,6 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         })
         self.operation.askObjectUndoSerial(conn, tid, ltid, undone_tid, oid_list)
         self.checkErrorPacket(conn)
-
-    def test_askHasLock(self):
-        tid_1 = self.getNextTID()
-        tid_2 = self.getNextTID()
-        oid = self.getNextTID()
-        def getLockingTID(oid):
-            return locking_tid
-        self.app.tm.getLockingTID = getLockingTID
-        for locking_tid, status in (
-                    (None, LockState.NOT_LOCKED),
-                    (tid_1, LockState.GRANTED),
-                    (tid_2, LockState.GRANTED_TO_OTHER),
-                ):
-            conn = self._getConnection()
-            self.operation.askHasLock(conn, tid_1, oid)
-            p_oid, p_status = self.checkAnswerPacket(conn,
-                Packets.AnswerHasLock).decode()
-            self.assertEqual(oid, p_oid)
-            self.assertEqual(status, p_status)
 
 if __name__ == "__main__":
     unittest.main()

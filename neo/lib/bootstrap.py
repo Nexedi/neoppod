@@ -38,6 +38,7 @@ class BootstrapManager(EventHandler):
         self.num_replicas = None
         self.num_partitions = None
         self.current = None
+        app.nm.reset()
 
     uuid = property(lambda self: self.app.uuid)
 

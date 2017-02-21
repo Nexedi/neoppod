@@ -258,15 +258,16 @@ class PartitionTable(object):
         partition on the line (here, line length is 11 to keep the docstring
         width under 80 column).
         """
+        node_list = sorted(self.count_dict)
         result = ['pt: node %u: %s, %s' % (i, uuid_str(node.getUUID()),
                      protocol.node_state_prefix_dict[node.getState()])
-                  for i, node in enumerate(sorted(self.count_dict))]
+                  for i, node in enumerate(node_list)]
         append = result.append
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
         prefix = 0
         prefix_len = int(math.ceil(math.log10(self.np)))
-        for offset, row in enumerate(self.formatRows()):
+        for offset, row in enumerate(self._formatRows(node_list)):
             if len(line) == max_line_len:
                 append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
                 line = []
@@ -276,8 +277,7 @@ class PartitionTable(object):
             append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
         return result
 
-    def formatRows(self):
-        node_list = sorted(self.count_dict)
+    def _formatRows(self, node_list):
         cell_state_dict = protocol.cell_state_prefix_dict
         for row in self.partition_list:
             if row is None:
@@ -287,13 +287,15 @@ class PartitionTable(object):
                              for x in row}
                 yield ''.join(cell_dict.get(x, '.') for x in node_list)
 
-    def operational(self):
+    def operational(self, exclude_list=()):
         if not self.filled():
             return False
         for row in self.partition_list:
             for cell in row:
-                if cell.isReadable() and cell.getNode().isRunning():
-                    break
+                if cell.isReadable():
+                    node = cell.getNode()
+                    if node.isRunning() and node.getUUID() not in exclude_list:
+                        break
             else:
                 return False
         return True

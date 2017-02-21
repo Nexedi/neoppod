@@ -404,6 +404,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                     return r
             raise
 
+    def loadData(self, data_id):
+        return self.query("SELECT compression, hash, value"
+                          " FROM data where id=?", (data_id,)).fetchone()
+
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getPartition(oid)
         sql = 'SELECT tid, value_tid FROM obj' \

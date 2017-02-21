@@ -147,7 +147,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
             logging.critical(msg)
             app.master_conn = None
             for txn_context in app.txn_contexts():
-                txn_context['error'] = msg
+                txn_context.error = msg
         try:
             del app.pt
         except AttributeError:
@@ -182,9 +182,9 @@ class PrimaryNotificationsHandler(MTEventHandler):
         if self.app.pt.filled():
             self.app.pt.update(ptid, cell_list, self.app.nm)
 
-    def notifyNodeInformation(self, conn, node_list):
+    def notifyNodeInformation(self, conn, timestamp, node_list):
         super(PrimaryNotificationsHandler, self).notifyNodeInformation(
-            conn, node_list)
+            conn, timestamp, node_list)
         # XXX: 'update' automatically closes DOWN nodes. Do we really want
         #      to do the same thing for nodes in other non-running states ?
         getByUUID = self.app.nm.getByUUID
@@ -193,6 +193,13 @@ class PrimaryNotificationsHandler(MTEventHandler):
                 node = getByUUID(node[2])
                 if node and node.isConnected():
                     node.getConnection().close()
+
+    def notifyDeadlock(self, conn, ttid, locking_tid):
+        for txn_context in self.app.txn_contexts():
+            if txn_context.ttid == ttid:
+                txn_context.conflict_dict[None] = locking_tid, None
+                txn_context.wakeup(conn)
+                break
 
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
@@ -203,6 +210,10 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
     def answerNewOIDs(self, conn, oid_list):
         oid_list.reverse()
         self.app.new_oid_list = oid_list
+
+    def incompleteTransaction(self, conn, message):
+        raise NEOStorageError("storage nodes for which vote failed can not be"
+            " disconnected without making the cluster non-operational")
 
     def answerTransactionFinished(self, conn, _, tid):
         self.app.setHandlerData(tid)

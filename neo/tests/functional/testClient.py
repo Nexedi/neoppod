@@ -23,7 +23,6 @@ import socket
 from struct import pack
 from neo.lib.util import makeChecksum, u64
 from ZODB.FileStorage import FileStorage
-from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
 from . import NEOCluster, NEOFunctionalTest
@@ -40,25 +39,6 @@ class Tree(Persistent):
         depth -= 1
         self.right = Tree(depth)
         self.left = Tree(depth)
-
-
-# simple persistent object with conflict resolution
-class PCounter(Persistent):
-
-    _value = 0
-
-    def value(self):
-        return self._value
-
-    def inc(self):
-        self._value += 1
-
-
-class PCounterWithResolution(PCounter):
-
-    def _p_resolveConflict(self, old, saved, new):
-        new['_value'] = saved['_value'] + new['_value']
-        return new
 
 class PObject(Persistent):
     pass
@@ -92,29 +72,6 @@ class ClientTests(NEOFunctionalTest):
         txn = transaction.TransactionManager()
         conn = self.db.open(transaction_manager=txn)
         return (txn, conn)
-
-    def testConflictResolutionTriggered1(self):
-        """ Check that ConflictError is raised on write conflict """
-        # create the initial objects
-        self.__setup()
-        t, c = self.makeTransaction()
-        c.root()['without_resolution'] = PCounter()
-        t.commit()
-
-        # first with no conflict resolution
-        t1, c1 = self.makeTransaction()
-        t2, c2 = self.makeTransaction()
-        o1 = c1.root()['without_resolution']
-        o2 = c2.root()['without_resolution']
-        self.assertEqual(o1.value(), 0)
-        self.assertEqual(o2.value(), 0)
-        o1.inc()
-        o2.inc()
-        o2.inc()
-        t1.commit()
-        self.assertEqual(o1.value(), 1)
-        self.assertEqual(o2.value(), 2)
-        self.assertRaises(ConflictError, t2.commit)
 
     def testIsolationAtZopeLevel(self):
         """ Check transaction isolation within zope connection """
@@ -254,33 +211,6 @@ class ClientTests(NEOFunctionalTest):
         self.__checkTree(neo_conn.root()['trees'])
         self.assertEqual(dump, self.__dump(neo_db.storage))
 
-    def testLockTimeout(self):
-        """ Hold a lock on an object to block a second transaction """
-        def test():
-            self.neo = NEOCluster(['test_neo1'], replicas=0,
-                temp_dir=self.getTempDirectory())
-            self.neo.start()
-            # BUG: The following 2 lines creates 2 app, i.e. 2 TCP connections
-            #      to the storage, so there may be a race condition at network
-            #      level and 'st2.store' may be effective before 'st1.store'.
-            db1, conn1 = self.neo.getZODBConnection()
-            db2, conn2 = self.neo.getZODBConnection()
-            st1, st2 = conn1._storage, conn2._storage
-            t1, t2 = transaction.Transaction(), transaction.Transaction()
-            t1.user = t2.user = u'user'
-            t1.description = t2.description = u'desc'
-            oid = st1.new_oid()
-            rev = '\0' * 8
-            data = zodb_pickle(PObject())
-            st2.tpc_begin(t2)
-            st1.tpc_begin(t1)
-            st1.store(oid, rev, data, '', t1)
-            # this store will be delayed
-            st2.store(oid, rev, data, '', t2)
-            # the vote will timeout as t1 never release the lock
-            self.assertRaises(ConflictError, st2.tpc_vote, t2)
-        self.runWithTimeout(40, test)
-
     def testIPv6Client(self):
         """ Test the connectivity of an IPv6 connection for neo client """
 
@@ -296,51 +226,6 @@ class ClientTests(NEOFunctionalTest):
             db1, conn1 = self.neo.getZODBConnection()
             db2, conn2 = self.neo.getZODBConnection()
         self.runWithTimeout(40, test)
-
-    def testDelayedLocksCancelled(self):
-        """
-            Hold a lock on an object, try to get another lock on the same
-            object to delay it. Then cancel the second transaction and check
-            that the lock is not hold when the first transaction ends
-        """
-        def test():
-            self.neo = NEOCluster(['test_neo1'], replicas=0,
-                temp_dir=self.getTempDirectory())
-            self.neo.start()
-            db1, conn1 = self.neo.getZODBConnection()
-            db2, conn2 = self.neo.getZODBConnection()
-            st1, st2 = conn1._storage, conn2._storage
-            t1, t2 = transaction.Transaction(), transaction.Transaction()
-            t1.user = t2.user = u'user'
-            t1.description = t2.description = u'desc'
-            oid = st1.new_oid()
-            rev = '\0' * 8
-            data = zodb_pickle(PObject())
-            st1.tpc_begin(t1)
-            st2.tpc_begin(t2)
-            # t1 own the lock
-            st1.store(oid, rev, data, '', t1)
-            # t2 store is delayed
-            st2.store(oid, rev, data, '', t2)
-            # cancel t2, should cancel the store too
-            st2.tpc_abort(t2)
-            # finish t1, should release the lock
-            st1.tpc_vote(t1)
-            st1.tpc_finish(t1)
-            db3, conn3 = self.neo.getZODBConnection()
-            st3 = conn3._storage
-            t3 = transaction.Transaction()
-            t3.user = u'user'
-            t3.description = u'desc'
-            st3.tpc_begin(t3)
-            # retrieve the last revision
-            data, serial = st3.load(oid)
-            # try to store again, should not be delayed
-            st3.store(oid, serial, data, '', t3)
-            # the vote should not timeout
-            st3.tpc_vote(t3)
-            st3.tpc_finish(t3)
-        self.runWithTimeout(10, test)
 
     def testGreaterOIDSaved(self):
         """

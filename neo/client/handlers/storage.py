@@ -14,15 +14,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from zlib import decompress
 from ZODB.TimeStamp import TimeStamp
-from ZODB.POSException import ConflictError
 
 from neo.lib import logging
-from neo.lib.protocol import LockState, ZERO_TID
-from neo.lib.util import dump
+from neo.lib.protocol import Packets
+from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
 from . import AnswerBaseHandler
+from ..transactions import Transaction
 from ..exception import NEOStorageError, NEOStorageNotFoundError
 from ..exception import NEOStorageDoesNotExistError
 
@@ -32,7 +33,7 @@ class StorageEventHandler(MTEventHandler):
         node = self.app.nm.getByAddress(conn.getAddress())
         assert node is not None
         self.app.cp.removeConnection(node)
-        self.app.dispatcher.unregister(conn)
+        super(StorageEventHandler, self).connectionLost(conn, new_state)
 
     def connectionFailed(self, conn):
         # Connection to a storage node failed
@@ -62,59 +63,98 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, oid, *args):
         self.app.setHandlerData(args)
 
-    def answerStoreObject(self, conn, conflicting, oid, serial):
+    def answerStoreObject(self, conn, conflict, oid, serial):
         txn_context = self.app.getHandlerData()
-        object_stored_counter_dict = txn_context[
-            'object_stored_counter_dict'][oid]
-        if conflicting:
+        if conflict:
+            # Conflicts can not be resolved now because 'conn' is locked.
+            # We must postpone the resolution (by queuing the conflict in
+            # 'conflict_dict') to avoid any deadlock with another thread that
+            # also resolves a conflict successfully to the same storage nodes.
             # Warning: if a storage (S1) is much faster than another (S2), then
             # we may process entirely a conflict with S1 (i.e. we received the
             # answer to the store of the resolved object on S1) before we
             # receive the conflict answer from the first store on S2.
             logging.info('%r report a conflict for %r with %r',
-                         conn, dump(oid), dump(serial))
+                         conn, dump(oid), dump(conflict))
             # If this conflict is not already resolved, mark it for
             # resolution.
-            if serial not in txn_context[
-                    'resolved_conflict_serial_dict'].get(oid, ()):
-                if serial in object_stored_counter_dict and serial != ZERO_TID:
-                    raise NEOStorageError('Storages %s accepted object %s'
-                        ' for serial %s but %s reports a conflict for it.' % (
-                        map(dump, object_stored_counter_dict[serial]),
-                        dump(oid), dump(serial), dump(conn.getUUID())))
-                conflict_serial_dict = txn_context['conflict_serial_dict']
-                conflict_serial_dict.setdefault(oid, set()).add(serial)
+            if  txn_context.resolved_dict.get(oid, '') < conflict:
+                txn_context.conflict_dict[oid] = serial, conflict
         else:
-            uuid_set = object_stored_counter_dict.get(serial)
-            if uuid_set is None: # store to first storage node
-                object_stored_counter_dict[serial] = uuid_set = set()
-                try:
-                    data = txn_context['data_dict'].pop(oid)
-                except KeyError: # multiple undo
-                    assert txn_context['cache_dict'][oid] is None, oid
-                else:
-                    if type(data) is str:
-                        size = len(data)
-                        txn_context['data_size'] -= size
-                        size += txn_context['cache_size']
-                        if size < self.app._cache._max_size:
-                            txn_context['cache_size'] = size
-                        else:
-                            # Do not cache data past cache max size, as it
-                            # would just flush it on tpc_finish. This also
-                            # prevents memory errors for big transactions.
-                            data = None
-                    txn_context['cache_dict'][oid] = data
-            else: # replica
-                assert oid not in txn_context['data_dict'], oid
-            uuid_set.add(conn.getUUID())
+            txn_context.written(self.app, conn.getUUID(), oid)
 
     answerCheckCurrentSerial = answerStoreObject
+
+    def answerRebaseTransaction(self, conn, oid_list):
+        txn_context = self.app.getHandlerData()
+        ttid = txn_context.ttid
+        queue = txn_context.queue
+        try:
+            for oid in oid_list:
+                # We could have an extra parameter to tell the storage if we
+                # still have the data, and in this case revert what was done
+                # in Transaction.written. This would save bandwidth in case of
+                # conflict.
+                conn.ask(Packets.AskRebaseObject(ttid, oid),
+                         queue=queue, oid=oid)
+        except ConnectionClosed:
+            txn_context.involved_nodes[conn.getUUID()] = 2
+
+    def answerRebaseObject(self, conn, conflict, oid):
+        if conflict:
+            txn_context = self.app.getHandlerData()
+            serial, conflict, data = conflict
+            assert serial and serial < conflict, (serial, conflict)
+            resolved = conflict <= txn_context.resolved_dict.get(oid, '')
+            try:
+                cached = txn_context.cache_dict.pop(oid)
+            except KeyError:
+                if resolved:
+                    # We should still be waiting for an answer from this node.
+                    assert conn.uuid in txn_context.data_dict[oid][1]
+                    return
+                assert oid in txn_context.data_dict
+                if oid in txn_context.conflict_dict:
+                    # Another node already reported the conflict, by answering
+                    # to this rebase or to the previous store.
+                    # Filling conflict_dict again would be a no-op.
+                    assert txn_context.conflict_dict[oid] == (serial, conflict)
+                    return
+                # A node has not answered yet to a previous store. Do not wait
+                # it to report the conflict because it may fail before.
+            else:
+                # The data for this oid are now back on client side.
+                # Revert what was done in Transaction.written
+                assert not resolved
+                if data is None: # undo or CHECKED_SERIAL
+                    data = cached
+                else:
+                    compression, checksum, data = data
+                    if checksum != makeChecksum(data):
+                        raise NEOStorageError(
+                            'wrong checksum while getting back data for'
+                            ' object %s during rebase of transaction %s'
+                            % (dump(oid), dump(txn_context.ttid)))
+                    if compression:
+                        data = decompress(data)
+                    size = len(data)
+                    txn_context.data_size += size
+                    if cached:
+                        assert cached == data
+                        txn_context.cache_size -= size
+                txn_context.data_dict[oid] = data, None
+            txn_context.conflict_dict[oid] = serial, conflict
 
     def answerStoreTransaction(self, conn):
         pass
 
     answerVoteTransaction = answerStoreTransaction
+
+    def connectionClosed(self, conn):
+        txn_context = self.app.getHandlerData()
+        if type(txn_context) is Transaction:
+            txn_context.nodeLost(self.app, conn.getUUID())
+        super(StorageAnswersHandler, self).connectionClosed(conn)
 
     def answerTIDsFrom(self, conn, tid_list):
         logging.debug('Get %u TIDs from %r', len(tid_list), conn)
@@ -157,34 +197,3 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerFinalTID(self, conn, tid):
         self.app.setHandlerData(tid)
-
-    def answerHasLock(self, conn, oid, status):
-        store_msg_id = self.app.getHandlerData()['timeout_dict'].pop(oid)
-        if status == LockState.GRANTED_TO_OTHER:
-            # Stop expecting the timed-out store request.
-            self.app.dispatcher.forget(conn, store_msg_id)
-            # Object is locked by another transaction, and we have waited until
-            # timeout. To avoid a deadlock, abort current transaction (we might
-            # be locking objects the other transaction is waiting for).
-            raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
-                dump(oid), conn)
-        # HasLock design required that storage is multi-threaded so that
-        # it can answer to AskHasLock while processing store requests.
-        # This means that the 2 cases (granted to us or nobody) are legitimate,
-        # either because it gave us the lock but is/was slow to store our data,
-        # or because the storage took a lot of time processing a previous
-        # store (and did not even considered our lock request).
-        # XXX: But storage nodes are still mono-threaded, so they should
-        #      only answer with GRANTED_TO_OTHER (if they reply!), except
-        #      maybe in very rare cases of race condition. Only log for now.
-        #      This also means that most of the time, if the storage is slow
-        #      to process some store requests, HasLock will timeout in turn
-        #      and the connector will be closed.
-        #      Anyway, it's not clear that HasLock requests are useful.
-        #      Are store requests potentially long to process ? If not,
-        #      we should simply raise a ConflictError on store timeout.
-        logging.info('Store of oid %s delayed (storage overload ?)', dump(oid))
-
-    def alreadyPendingError(self, conn, message):
-        pass
-

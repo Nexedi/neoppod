@@ -31,8 +31,8 @@ class MasterOperationHandler(BaseMasterHandler):
             dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
             dm.commit()
 
-    def notifyTransactionFinished(self, conn, *args, **kw):
-        self.app.replicator.transactionFinished(*args, **kw)
+    def notifyTransactionFinished(self, conn, *args):
+        self.app.replicator.transactionFinished(*args)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
@@ -56,6 +56,10 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def notifyUnlockInformation(self, conn, ttid):
         self.app.tm.unlock(ttid)
+
+    def abortTransaction(self, conn, ttid, _):
+        self.app.tm.abort(ttid)
+        self.app.replicator.transactionFinished(ttid)
 
     def askPack(self, conn, tid):
         app = self.app

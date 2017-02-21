@@ -28,13 +28,14 @@ from .exception import NEOPrimaryMasterLost, NEOStorageError
 # failed in the past.
 MAX_FAILURE_AGE = 600
 
-# Cell list sort keys
+# Cell list sort keys, only for read access
 #   We are connected to storage node hosting cell, high priority
 CELL_CONNECTED = -1
 #   normal priority
 CELL_GOOD = 0
 #   Storage node hosting cell failed recently, low priority
 CELL_FAILED = 1
+
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -86,12 +87,12 @@ class ConnectionPool(object):
     def getConnForCell(self, cell):
         return self.getConnForNode(cell.getNode())
 
-    def iterateForObject(self, object_id, readable=False):
+    def iterateForObject(self, object_id):
         """ Iterate over nodes managing an object """
         pt = self.app.pt
         if type(object_id) is str:
             object_id = pt.getPartition(object_id)
-        cell_list = pt.getCellList(object_id, readable)
+        cell_list = pt.getCellList(object_id, True)
         if not cell_list:
             raise NEOStorageError('no storage available')
         getConnForNode = self.getConnForNode
@@ -106,7 +107,7 @@ class ConnectionPool(object):
                 node = cell.getNode()
                 conn = getConnForNode(node)
                 if conn is not None:
-                    yield node, conn
+                    yield conn
                 # Re-check if node is running, as our knowledge of its
                 # state can have changed during connection attempt.
                 elif node.isRunning():

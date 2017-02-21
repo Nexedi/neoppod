@@ -26,18 +26,18 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def connectionCompleted(self, conn, new):
         app = self.app
-        uuid = conn.getUUID()
-        app.setStorageNotReady(uuid)
         if new:
             super(StorageServiceHandler, self).connectionCompleted(conn, new)
-        if app.nm.getByUUID(uuid).isRunning(): # node may be PENDING
+        if app.nm.getByUUID(conn.getUUID()).isRunning(): # node may be PENDING
             conn.notify(Packets.StartOperation(app.backup_tid))
 
     def connectionLost(self, conn, new_state):
         app = self.app
-        node = app.nm.getByUUID(conn.getUUID())
+        uuid = conn.getUUID()
+        node = app.nm.getByUUID(uuid)
         super(StorageServiceHandler, self).connectionLost(conn, new_state)
-        app.tm.storageLost(conn.getUUID())
+        app.setStorageNotReady(uuid)
+        app.tm.storageLost(uuid)
         if (app.getClusterState() == ClusterStates.BACKINGUP
             # Also check if we're exiting, because backup_app is not usable
             # in this case. Maybe cluster state should be set to something
@@ -60,6 +60,9 @@ class StorageServiceHandler(BaseServiceHandler):
             pending_list = app.tm.registerForNotification(conn.getUUID())
         p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)
+
+    def notifyDeadlock(self, conn, *args):
+        self.app.tm.deadlock(conn.getUUID(), *args)
 
     def answerInformationLocked(self, conn, ttid):
         self.app.tm.lock(ttid, conn.getUUID())

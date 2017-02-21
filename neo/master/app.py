@@ -29,6 +29,16 @@ from neo.lib.exception import ElectionFailure, PrimaryFailure, StoppedOperation
 
 class StateChangedException(Exception): pass
 
+_previous_time = 0
+def monotonic_time():
+    global _previous_time
+    now = time()
+    if _previous_time < now:
+        _previous_time = now
+    else:
+        _previous_time = now = _previous_time + 1e-3
+    return now
+
 from .backup_app import BackupApplication
 from .handlers import election, identification, secondary
 from .handlers import administration, client, storage
@@ -41,6 +51,7 @@ from .verification import VerificationManager
 class Application(BaseApplication):
     """The master node application."""
     packing = None
+    storage_readiness = 0
     # Latest completely committed TID
     last_transaction = ZERO_TID
     backup_tid = None
@@ -56,7 +67,7 @@ class Application(BaseApplication):
         self.server = config.getBind()
         self.autostart = config.getAutostart()
 
-        self.storage_readiness = set()
+        self.storage_ready_dict = {}
         for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
 
@@ -240,11 +251,12 @@ class Application(BaseApplication):
                 continue
             node_dict[NodeTypes.MASTER].append(node_info)
 
+        now = monotonic_time()
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType())
             if node_list and node.isRunning() and node is not exclude:
-                node.notify(Packets.NotifyNodeInformation(node_list))
+                node.notify(Packets.NotifyNodeInformation(now, node_list))
 
     def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
@@ -398,6 +410,7 @@ class Application(BaseApplication):
                 conn.close()
 
         # Reconnect to primary master node.
+        self.nm.reset()
         primary_handler = secondary.PrimaryHandler(self)
         ClientConnection(self, primary_handler, self.primary_master_node)
 
@@ -491,11 +504,12 @@ class Application(BaseApplication):
 
         logging.info("asking remaining nodes to shutdown")
         handler = EventHandler(self)
+        now = monotonic_time()
         for node in self.nm.getConnectedList():
             conn = node.getConnection()
             if node.isStorage():
                 conn.setHandler(handler)
-                conn.notify(Packets.NotifyNodeInformation(((
+                conn.notify(Packets.NotifyNodeInformation(now, ((
                   node.getType(), node.getAddress(), node.getUUID(),
                   NodeStates.TEMPORARILY_DOWN, None),)))
                 conn.abort()
@@ -561,11 +575,16 @@ class Application(BaseApplication):
         self.last_transaction = tid
 
     def setStorageNotReady(self, uuid):
-        self.storage_readiness.discard(uuid)
+        self.storage_ready_dict.pop(uuid, None)
 
     def setStorageReady(self, uuid):
-        self.storage_readiness.add(uuid)
+        if uuid not in self.storage_ready_dict:
+            self.storage_readiness = self.storage_ready_dict[uuid] = \
+                self.storage_readiness + 1
 
     def isStorageReady(self, uuid):
-        return uuid in self.storage_readiness
+        return uuid in self.storage_ready_dict
 
+    def getStorageReadySet(self, readiness=float('inf')):
+        return {k for k, v in self.storage_ready_dict.iteritems()
+                  if v <= readiness}

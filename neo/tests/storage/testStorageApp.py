@@ -19,9 +19,7 @@ from ..mock import Mock
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.lib.protocol import CellStates
-from collections import deque
 from neo.lib.pt import PartitionTable
-from neo.storage.exception import AlreadyPendingError
 
 class StorageAppTests(NeoUnitTestBase):
 
@@ -31,8 +29,6 @@ class StorageAppTests(NeoUnitTestBase):
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
-        self.app.event_queue = deque()
-        self.app.event_queue_dict = {}
 
     def _tearDown(self, success):
         self.app.close()
@@ -120,26 +116,6 @@ class StorageAppTests(NeoUnitTestBase):
         self.assertEqual(len(cell_list), 2)
         self.assertTrue(cell_list[0].getUUID() in (master_uuid, storage_uuid))
         self.assertTrue(cell_list[1].getUUID() in (master_uuid, storage_uuid))
-
-    def test_02_queueEvent(self):
-        self.assertEqual(len(self.app.event_queue), 0)
-        msg_id = 1325136
-        event = Mock({'__repr__': 'event'})
-        conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
-        key = 'foo'
-        self.app.queueEvent(event, conn, ("test", ), key=key)
-        self.assertEqual(len(self.app.event_queue), 1)
-        _key, _event, _msg_id, _conn, args = self.app.event_queue[0]
-        self.assertEqual(key, _key)
-        self.assertEqual(msg_id, _msg_id)
-        self.assertEqual(len(args), 1)
-        self.assertEqual(args[0], "test")
-        self.assertRaises(AlreadyPendingError, self.app.queueEvent, event,
-            conn, ("test2", ), key=key)
-        self.assertEqual(len(self.app.event_queue), 1)
-        self.app.queueEvent(event, conn, ("test3", ), key=key,
-            raise_on_duplicate=False)
-        self.assertEqual(len(self.app.event_queue), 2)
 
 if __name__ == '__main__':
     unittest.main()

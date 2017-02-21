@@ -36,10 +36,11 @@ class BaseMasterHandler(EventHandler):
     def notifyClusterInformation(self, conn, state):
         self.app.changeClusterState(state)
 
-    def notifyNodeInformation(self, conn, node_list):
+    def notifyNodeInformation(self, conn, timestamp, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
-        super(BaseMasterHandler, self).notifyNodeInformation(conn, node_list)
+        super(BaseMasterHandler, self).notifyNodeInformation(
+            conn, timestamp, node_list)
         for node_type, _, uuid, state, _ in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me

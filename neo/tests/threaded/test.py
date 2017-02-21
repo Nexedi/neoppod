@@ -20,25 +20,31 @@ import threading
 import time
 import transaction
 import unittest
+from collections import defaultdict
+from contextlib import contextmanager
 from thread import get_ident
 from zlib import compress
 from persistent import Persistent, GHOST
 from transaction.interfaces import TransientError
 from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
-from neo.storage.transactions import TransactionManager, \
-    DelayedError, ConflictError
+from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
+from neo.lib.handler import DelayEvent
+from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
-    ZERO_OID, ZERO_TID
-from .. import expectedFailure, Patch
-from . import LockLock, NEOThreadedTest, with_cluster
+    Packet, uuid_str, ZERO_OID, ZERO_TID
+from .. import expectedFailure, Patch, TransactionalResource
+from . import ClientApplication, ConnectionFilter, LockLock, NEOThreadedTest, \
+    RandomConflictDict, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
+from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.client import ClientOperationHandler
+from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
 
 class PCounter(Persistent):
@@ -254,7 +260,7 @@ class Test(NEOThreadedTest):
                 ob._p_changed = 1
                 t.commit()
                 self.assertNotIn(delayUnlockInformation, m2s)
-        self.assertEqual(except_list, [DelayedError])
+        self.assertEqual(except_list, [DelayEvent])
 
     @with_cluster(storage_count=2, replicas=1)
     def _testDeadlockAvoidance(self, cluster, scenario):
@@ -320,9 +326,8 @@ class Test(NEOThreadedTest):
         # 2: C1 commits
         # 3: C2 resolves conflict
         self.assertEqual(self._testDeadlockAvoidance([2, 4]),
-            [DelayedError, DelayedError, ConflictError, ConflictError])
+            [DelayEvent, DelayEvent, ConflictError, ConflictError])
 
-    @expectedFailure(POSException.ConflictError)
     def testDeadlockAvoidance(self):
         # This test fail because deadlock avoidance is not fully implemented.
         # 0: C1 -> S1
@@ -331,7 +336,7 @@ class Test(NEOThreadedTest):
         # 3: C2 commits
         # 4: C1 resolves conflict
         self.assertEqual(self._testDeadlockAvoidance([1, 3]),
-            [DelayedError, ConflictError, "???" ])
+            [DelayEvent, DelayEvent, DelayEvent, ConflictError])
 
     @with_cluster()
     def testConflictResolutionTriggered2(self, cluster):
@@ -368,12 +373,12 @@ class Test(NEOThreadedTest):
 
             resolved = []
             last = lambda txn: txn._extension['last'] # BBB
-            def _handleConflicts(orig, txn_context, *args):
-                resolved.append(last(txn_context['txn']))
-                return orig(txn_context, *args)
-            def tpc_vote(orig, transaction, *args):
+            def _handleConflicts(orig, txn_context):
+                resolved.append(last(txn_context.txn))
+                orig(txn_context)
+            def tpc_vote(orig, transaction):
                 (l3 if last(transaction) else l2)()
-                return orig(transaction, *args)
+                return orig(transaction)
             with Patch(cluster.client, _handleConflicts=_handleConflicts):
                 with LockLock() as l3, Patch(cluster.client, tpc_vote=tpc_vote):
                     with LockLock() as l2:
@@ -416,9 +421,11 @@ class Test(NEOThreadedTest):
         l.acquire()
         idle = []
         def askObject(orig, *args):
-            orig(*args)
-            idle.append(cluster.storage.em.isIdle())
-            l.release()
+            try:
+                orig(*args)
+            finally:
+                idle.append(cluster.storage.em.isIdle())
+                l.release()
         if 1:
             t, c = cluster.getTransaction()
             r = c.root()
@@ -819,12 +826,12 @@ class Test(NEOThreadedTest):
         with cluster.newClient() as client:
             cache = cluster.client._cache
             txn = transaction.Transaction()
-            client.tpc_begin(txn)
+            client.tpc_begin(None, txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
             # Delay invalidation for x
             with cluster.master.filterConnection(cluster.client) as m2c:
                 m2c.delayInvalidateObjects()
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
                 # Change to x is committed. Testing connection must ask the
                 # storage node to return original value of x, even if we
                 # haven't processed yet any invalidation for x.
@@ -856,9 +863,9 @@ class Test(NEOThreadedTest):
                 # to be processed.
                 # Now modify x to receive an invalidation for it.
                 txn = transaction.Transaction()
-                client.tpc_begin(txn)
+                client.tpc_begin(None, txn)
                 client.store(x2._p_oid, tid, x, '', txn) # value=0
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
                 t1.begin() # make sure invalidation is processed
                 # Resume processing of answer from storage. An entry should be
                 # added in cache for x=1 with a fixed next_tid (i.e. not None)
@@ -881,9 +888,9 @@ class Test(NEOThreadedTest):
                 t = self.newThread(t1.begin)
                 ll()
                 txn = transaction.Transaction()
-                client.tpc_begin(txn)
+                client.tpc_begin(None, txn)
                 client.store(x2._p_oid, tid, y, '', txn)
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
                 client.close()
                 self.assertEqual(invalidations(c1), {x1._p_oid})
             t.join()
@@ -906,8 +913,7 @@ class Test(NEOThreadedTest):
                 t2, c2 = cluster.getTransaction(db)
                 r = c2.root()
                 r['y'] = None
-                r['x']._p_activate()
-                c2.readCurrent(r['x'])
+                self.readCurrent(r['x'])
                 # Force the new tid to be even, like the modified oid and
                 # unlike the oid on which we used readCurrent. Thus we check
                 # that the node containing only the partition 1 is also
@@ -949,9 +955,9 @@ class Test(NEOThreadedTest):
             # modify x with another client
             with cluster.newClient() as client:
                 txn = transaction.Transaction()
-                client.tpc_begin(txn)
+                client.tpc_begin(None, txn)
                 client.store(x1._p_oid, x1._p_serial, y, '', txn)
-                tid = client.tpc_finish(txn, None)
+                tid = client.tpc_finish(txn)
             self.tic()
 
             # Check reconnection to the master and storage.
@@ -966,11 +972,11 @@ class Test(NEOThreadedTest):
         if 1:
             client = cluster.client
             txn = transaction.Transaction()
-            client.tpc_begin(txn)
+            client.tpc_begin(None, txn)
             txn_context = client._txn_container.get(txn)
-            txn_context['ttid'] = add64(txn_context['ttid'], 1)
+            txn_context.ttid = add64(txn_context.ttid, 1)
             self.assertRaises(POSException.StorageError,
-                              client.tpc_finish, txn, None)
+                              client.tpc_finish, txn)
 
     @with_cluster()
     def testStorageFailureDuringTpcFinish(self, cluster):
@@ -1093,18 +1099,30 @@ class Test(NEOThreadedTest):
 
     @with_cluster()
     def testRecycledClientUUID(self, cluster):
-        def notReady(orig, *args):
-            m2s.discard(delayNotifyInformation)
-            return orig(*args)
-        if 1:
-            cluster.getTransaction()
-            with cluster.master.filterConnection(cluster.storage) as m2s:
-                delayNotifyInformation = m2s.delayNotifyNodeInformation()
-                cluster.client.master_conn.close()
-                with cluster.newClient() as client, Patch(
-                        client.storage_bootstrap_handler, notReady=notReady):
-                    x = client.load(ZERO_TID)
-                self.assertNotIn(delayNotifyInformation, m2s)
+        l = threading.Semaphore(0)
+        idle = []
+        def requestIdentification(orig, *args):
+            try:
+                orig(*args)
+            finally:
+                idle.append(cluster.storage.em.isIdle())
+                l.release()
+        cluster.db
+        with cluster.master.filterConnection(cluster.storage) as m2s:
+            delayNotifyInformation = m2s.delayNotifyNodeInformation()
+            cluster.client.master_conn.close()
+            with cluster.newClient() as client:
+                with Patch(IdentificationHandler,
+                           requestIdentification=requestIdentification):
+                    load = self.newThread(client.load, ZERO_TID)
+                    l.acquire()
+                    m2s.remove(delayNotifyInformation) # 2 packets pending
+                    # Identification of the second client is retried
+                    # after each processed notification:
+                    l.acquire() # first client down
+                    l.acquire() # new client up
+                load.join()
+                self.assertEqual(idle, [1, 1, 0])
 
     @with_cluster(start_cluster=0, storage_count=3, autostart=3)
     def testAutostart(self, cluster):
@@ -1340,11 +1358,11 @@ class Test(NEOThreadedTest):
         reports a conflict after that this conflict was fully resolved with
         another node.
         """
-        def answerStoreObject(orig, conn, conflicting, *args):
-            if not conflicting:
+        def answerStoreObject(orig, conn, conflict, oid, serial):
+            if not conflict:
                 p.revert()
                 ll()
-            orig(conn, conflicting, *args)
+            orig(conn, conflict, oid, serial)
         if 1:
             s0, s1 = cluster.storage_list
             t1, c1 = cluster.getTransaction()
@@ -1361,6 +1379,607 @@ class Test(NEOThreadedTest):
                 t = self.newThread(t1.commit)
                 ll()
             t.join()
+
+    @with_cluster()
+    def testSameNewOidAndConflictOnBigValue(self, cluster):
+        storage = cluster.getZODBStorage()
+        oid = storage.new_oid()
+
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        storage.store(oid, None, 'foo', '', txn)
+        storage.tpc_vote(txn)
+        storage.tpc_finish(txn)
+
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        self.assertRaises(POSException.ConflictError, storage.store,
+                          oid, None, '*' * cluster.cache_size, '', txn)
+
+    @with_cluster(replicas=1)
+    def testConflictWithOutOfDateCell(self, cluster):
+        """
+        C1         S1         S0         C2
+        begin      down                  begin
+                              U <------- commit
+                   up (remaining out-of-date due to suspended replication)
+        store ---> O (stored lockless)
+             `--------------> conflict
+        resolve -> stored lockless
+               `------------> locked
+        committed
+        """
+        s0, s1 = cluster.storage_list
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x = PCounterWithResolution()
+        t1.commit()
+        s1.stop()
+        cluster.join((s1,))
+        x.value += 1
+        t2, c2 = cluster.getTransaction()
+        c2.root()['x'].value += 2
+        t2.commit()
+        with ConnectionFilter() as f:
+            f.delayAskFetchTransactions()
+            s1.resetNode()
+            s1.start()
+            self.tic()
+            t1.commit()
+
+    @with_cluster(replicas=1)
+    def testReplicaDisconnectionDuringCommit(self, cluster):
+        """
+        S0         C         S1
+          <------- c1+=1 -->
+          <------- c2+=2 --> C-S1 closed
+          <------- c3+=3
+        U                    U
+                   finish    O
+                             U
+        down
+                   loads <--
+        """
+        count = [0]
+        def ask(orig, self, packet, **kw):
+            if (isinstance(packet, Packets.AskStoreObject)
+                and self.getUUID() == s1.uuid):
+                count[0] += 1
+                if count[0] == 2:
+                    self.close()
+            return orig(self, packet, **kw)
+        s0, s1 = cluster.storage_list
+        t, c = cluster.getTransaction()
+        r = c.root()
+        for x in xrange(3):
+            r[x] = PCounter()
+        t.commit()
+        for x in xrange(3):
+            r[x].value += x
+        with ConnectionFilter() as f, Patch(MTClientConnection, ask=ask):
+            f.delayAskFetchTransactions()
+            t.commit()
+            self.assertEqual(count[0], 2)
+            self.assertPartitionTable(cluster, 'UO')
+        self.tic()
+        s0.stop()
+        cluster.join((s0,))
+        cluster.client._cache.clear()
+        value_list = []
+        for x in xrange(3):
+            r[x]._p_deactivate()
+            value_list.append(r[x].value)
+        self.assertEqual(value_list, range(3))
+
+    @with_cluster(replicas=1, partitions=3, storage_count=3)
+    def testMasterArbitratingVote(self, cluster):
+        """
+        p\S 1  2  3
+        0   U  U  .
+        1   .  U  U
+        2   U  .  U
+
+        With the above setup, check when a client C1 fails to connect to S2
+        and another C2 fails to connect to S1.
+
+        For the first 2 scenarios:
+        - C1 first votes (the master accepts)
+        - C2 vote is delayed until C1 decides to finish or abort
+        """
+        def delayAbort(conn, packet):
+            return isinstance(packet, Packets.AbortTransaction)
+        def c1_vote(txn):
+            def vote(orig, *args):
+                try:
+                    return orig(*args)
+                finally:
+                    ll()
+            with LockLock() as ll, Patch(cluster.master.tm, vote=vote):
+                commit2.start()
+                ll()
+            if c1_aborts:
+                raise Exception
+        pt = [{x.getUUID() for x in x}
+            for x in cluster.master.pt.partition_list]
+        cluster.storage_list.sort(key=lambda x:
+            (x.uuid not in pt[0], x.uuid in pt[1]))
+        pt = 'UU.|.UU|U.U'
+        self.assertPartitionTable(cluster, pt)
+        s1, s2, s3 = cluster.storage_list
+        t1, c1 = cluster.getTransaction()
+        with cluster.newClient(1) as db:
+            t2, c2 = cluster.getTransaction(db)
+            with self.noConnection(c1, s2), self.noConnection(c2, s1):
+                cluster.client.cp.connection_dict[s2.uuid].close()
+                self.tic()
+                for c1_aborts in 0, 1:
+                    # 0: C1 finishes, C2 vote fails
+                    # 1: C1 aborts, C2 finishes
+                    #
+                    # Although we try to modify the same oid, there's no
+                    # conflict because each storage node sees a single
+                    # and different transaction: vote to storages is done
+                    # in parallel, and the master must be involved as an
+                    # arbitrator, which ultimately rejects 1 of the 2
+                    # transactions, preferably before the second phase of
+                    # the commit.
+                    t1.begin(); c1.root()._p_changed = 1
+                    t2.begin(); c2.root()._p_changed = 1
+                    commit2 = self.newPausedThread(t2.commit)
+                    TransactionalResource(t1, 1, tpc_vote=c1_vote)
+                    with ConnectionFilter() as f:
+                        if not c1_aborts:
+                            f.add(delayAbort)
+                        f.delayAskFetchTransactions(lambda _:
+                            f.discard(delayAbort))
+                        try:
+                            t1.commit()
+                            self.assertFalse(c1_aborts)
+                        except Exception:
+                            self.assertTrue(c1_aborts)
+                        try:
+                            commit2.join()
+                            self.assertTrue(c1_aborts)
+                        except NEOStorageError:
+                            self.assertFalse(c1_aborts)
+                        self.tic()
+                        self.assertPartitionTable(cluster,
+                            'OU.|.UU|O.U' if c1_aborts else 'UO.|.OU|U.U')
+                    self.tic()
+                    self.assertPartitionTable(cluster, pt)
+                # S3 fails while C1 starts to finish
+                with ConnectionFilter() as f:
+                    f.add(lambda conn, packet: conn.getUUID() == s3.uuid and
+                        isinstance(packet, Packets.AcceptIdentification))
+                    t1.begin(); c1.root()._p_changed = 1
+                    TransactionalResource(t1, 0, tpc_finish=lambda *_:
+                        cluster.master.nm.getByUUID(s3.uuid)
+                        .getConnection().close())
+                    self.assertRaises(NEOStorageError, t1.commit)
+                    self.assertPartitionTable(cluster, 'UU.|.UO|U.O')
+                self.tic()
+                self.assertPartitionTable(cluster, pt)
+
+    @with_cluster(replicas=1)
+    def testPartialConflict(self, cluster):
+        """
+        This scenario proves that the client must keep the data of a modified
+        oid until it is successfully stored to all storages. Indeed, if a
+        concurrent transaction fails to commit to all storage nodes, we must
+        handle inconsistent results from replicas.
+
+        C1         S1         S2         C2
+                                         no connection between S1 and C2
+        store ---> locked        <------ commit
+             `--------------> conflict
+        """
+        def begin1(*_):
+            t2.commit()
+            f.add(delayAnswerStoreObject, Patch(Transaction, written=written))
+        def delayAnswerStoreObject(conn, packet):
+            return (isinstance(packet, Packets.AnswerStoreObject)
+                and getattr(conn.getHandler(), 'app', None) is s)
+        def written(orig, *args):
+            orig(*args)
+            f.remove(delayAnswerStoreObject)
+        def sync(orig):
+            mc1.remove(delayMaster)
+            orig()
+        s1 = cluster.storage_list[0]
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x = PCounterWithResolution()
+        t1.commit()
+        with cluster.newClient(1) as db:
+            t2, c2 = cluster.getTransaction(db)
+            with self.noConnection(c2, s1):
+                for s in cluster.storage_list:
+                    logging.info("late answer from %s", uuid_str(s.uuid))
+                    x.value += 1
+                    c2.root()['x'].value += 2
+                    TransactionalResource(t1, 1, tpc_begin=begin1)
+                    s1m, = s1.getConnectionList(cluster.master)
+                    try:
+                        s1.em.removeReader(s1m)
+                        with ConnectionFilter() as f, \
+                             cluster.master.filterConnection(
+                                cluster.client) as mc1:
+                            f.delayAskFetchTransactions()
+                            delayMaster = mc1.delayNotifyNodeInformation(
+                                Patch(cluster.client, sync=sync))
+                            t1.commit()
+                            self.assertPartitionTable(cluster, 'OU')
+                    finally:
+                        s1.em.addReader(s1m)
+                    self.tic()
+                    self.assertPartitionTable(cluster, 'UU')
+        self.assertEqual(x.value, 6)
+
+    @contextmanager
+    def thread_switcher(self, threads, order, expected):
+        self.assertGreaterEqual(len(order), len(expected))
+        thread_id = ThreadId()
+        l = [threading.Lock() for l in xrange(len(threads)+1)]
+        l[0].acquire()
+        end = defaultdict(list)
+        order = iter(order)
+        expected = iter(expected)
+        def sched(orig, *args, **kw):
+            i = thread_id()
+            logging.info('%s: %s%r', i, orig.__name__, args)
+            try:
+                x = u64(kw['oid'])
+            except KeyError:
+                for x in args:
+                    if isinstance(x, Packet):
+                        x = type(x).__name__
+                        break
+                else:
+                    x = orig.__name__
+            try:
+                j = next(order)
+            except StopIteration:
+                end[i].append(x)
+                j = None
+                try:
+                    while 1:
+                        l.pop().release()
+                except IndexError:
+                    pass
+            else:
+                try:
+                    self.assertEqual(next(expected), x)
+                except StopIteration:
+                    end[i].append(x)
+            try:
+                if callable(j):
+                    with contextmanager(j)(*args, **kw) as j:
+                        return orig(*args, **kw)
+                else:
+                    return orig(*args, **kw)
+            finally:
+                if i != j is not None:
+                    try:
+                        l[j].release()
+                    except threading.ThreadError:
+                        l[j].acquire()
+                        threads[j-1].start()
+                    if x != 'StoreTransaction':
+                        try:
+                            l[i].acquire()
+                        except IndexError:
+                            pass
+        def _handlePacket(orig, *args):
+            if isinstance(args[2], Packets.AnswerRebaseTransaction):
+                return sched(orig, *args)
+            return orig(*args)
+        with RandomConflictDict, \
+             Patch(Transaction, write=sched), \
+             Patch(ClientApplication, _handlePacket=_handlePacket), \
+             Patch(ClientApplication, tpc_abort=sched), \
+             Patch(ClientApplication, tpc_begin=sched), \
+             Patch(ClientApplication, _askStorageForWrite=sched):
+            yield end
+        self.assertFalse(list(expected))
+        self.assertFalse(list(order))
+
+    @with_cluster()
+    def _testComplexDeadlockAvoidanceWithOneStorage(self, cluster, changes,
+            order, expected_packets, expected_values,
+            except2=POSException.ReadConflictError):
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        oids = []
+        for x in 'abcd':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+            oids.append(u64(r[x]._p_oid))
+        # The test relies on the implementation-defined behavior that ZODB
+        # processes oids by order of registration. It's also simpler with
+        # oids from a=1 to d=4.
+        self.assertEqual(oids, range(1, 5))
+        t2, c2 = cluster.getTransaction()
+        t3, c3 = cluster.getTransaction()
+        changes(r, c2.root(), c3.root())
+        threads = map(self.newPausedThread, (t2.commit, t3.commit))
+        with self.thread_switcher(threads, order, expected_packets) as end:
+            t1.commit()
+            if except2 is None:
+                threads[0].join()
+            else:
+                self.assertRaises(except2, threads[0].join)
+            threads[1].join()
+        t3.begin()
+        r = c3.root()
+        self.assertEqual(expected_values, [r[x].value for x in 'abcd'])
+        return dict(end)
+
+    def testCascadedDeadlockAvoidanceWithOneStorage1(self):
+        """
+        locking tids: t1 < t2 < t3
+        1. A2 (t2 stores A)
+        2. B1, c2 (t2 checks C)
+        3. A3 (delayed), B3 (delayed), D3 (delayed)
+        4. C1 -> deadlock: B3
+        5. d2 -> deadlock: A3
+        locking tids: t3 < t1 < t2
+        6. t3 commits
+        7. t2 rebase: conflicts on A and D
+        8. t1 rebase: new deadlock on C
+        9. t2 aborts (D non current)
+        all locks released for t1, which rebases and resolves conflicts
+        """
+        def changes(r1, r2, r3):
+            r1['b'].value += 1
+            r1['c'].value += 2
+            r2['a'].value += 3
+            self.readCurrent(r2['c'])
+            self.readCurrent(r2['d'])
+            r3['a'].value += 4
+            r3['b'].value += 5
+            r3['d'].value += 6
+        x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
+            (1, 1, 0, 1, 2, 2, 2, 2, 0, 1, 2, 1, 0, 0, 1, 0, 0, 1),
+            ('tpc_begin', 'tpc_begin', 1, 2, 3, 'tpc_begin', 1, 2, 4, 3, 4,
+             'StoreTransaction', 'RebaseTransaction', 'RebaseTransaction',
+             'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
+             'RebaseTransaction', 'AnswerRebaseTransaction'),
+            [4, 6, 2, 6])
+        try:
+            x[1].remove(1)
+        except ValueError:
+            pass
+        self.assertEqual(x, {0: [2, 'StoreTransaction'], 1: ['tpc_abort']})
+
+    def testCascadedDeadlockAvoidanceWithOneStorage2(self):
+        def changes(r1, r2, r3):
+            r1['a'].value += 1
+            r1['b'].value += 2
+            r1['c'].value += 3
+            r2['a'].value += 4
+            r3['b'].value += 5
+            r3['c'].value += 6
+            self.readCurrent(r2['c'])
+            self.readCurrent(r2['d'])
+            self.readCurrent(r3['d'])
+            def unlock(orig, *args):
+                f.remove(rebase)
+                return orig(*args)
+            rebase = f.delayAskRebaseTransaction(
+                Patch(TransactionManager, unlock=unlock))
+        with ConnectionFilter() as f:
+            x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
+                (0, 1, 1, 0, 1, 2, 2, 2, 2, 0, 1, 2, 1,
+                 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1),
+                ('tpc_begin', 1, 'tpc_begin', 1, 2, 3, 'tpc_begin',
+                 2, 3, 4, 3, 4, 'StoreTransaction', 'RebaseTransaction',
+                 'RebaseTransaction', 'AnswerRebaseTransaction'),
+                [1, 7, 9, 0])
+        x[0].sort(key=str)
+        try:
+            x[1].remove(1)
+        except ValueError:
+            pass
+        self.assertEqual(x, {
+            0: [2, 3, 'AnswerRebaseTransaction',
+                'RebaseTransaction', 'StoreTransaction'],
+            1: ['AnswerRebaseTransaction','RebaseTransaction',
+                'AnswerRebaseTransaction', 'tpc_abort'],
+        })
+
+    def testCascadedDeadlockAvoidanceOnCheckCurrent(self):
+        def changes(*r):
+            for r in r:
+                r['a'].value += 1
+                self.readCurrent(r['b'])
+                self.readCurrent(r['c'])
+        def tic_t1(*args, **kw):
+            yield 0
+            self.tic()
+        end = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
+            (0, 1, 1, 0, 1, 1, 0, 0, 2, 2, 2, 2, 1, tic_t1, 0),
+            ('tpc_begin', 1) * 2, [3, 0, 0, 0], None)
+        self.assertLessEqual(2, end[0].count('RebaseTransaction'))
+
+    def testFailedConflictOnBigValueDuringDeadlockAvoidance(self):
+        def changes(r1, r2, r3):
+            r1['b'].value = 1
+            r1['d'].value = 2
+            r2['a'].value = '*' * r2._p_jar.db().storage._cache._max_size
+            r2['b'].value = 3
+            r2['c'].value = 4
+            r3['a'].value = 5
+            self.readCurrent(r3['c'])
+            self.readCurrent(r3['d'])
+        with ConnectionFilter() as f:
+            x = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
+                (1, 1, 1, 2, 2, 2, 1, 2, 2, 0, 0, 1, 1, 1, 0),
+                ('tpc_begin', 'tpc_begin', 1, 2, 'tpc_begin', 1, 3, 3, 4,
+                'StoreTransaction', 2, 4, 'RebaseTransaction',
+                'AnswerRebaseTransaction', 'tpc_abort'),
+                [5, 1, 0, 2], POSException.ConflictError)
+        self.assertEqual(x, {0: ['StoreTransaction']})
+
+    @with_cluster(replicas=1, partitions=4)
+    def testNotifyReplicated(self, cluster):
+        s0, s1 = cluster.storage_list
+        s1.stop()
+        cluster.join((s1,))
+        s1.resetNode()
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'abcd':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+        t3, c3 = cluster.getTransaction()
+        r['c'].value += 1
+        t1.commit()
+        r['b'].value += 2
+        r['a'].value += 3
+        t2, c2 = cluster.getTransaction()
+        r = c2.root()
+        r['a'].value += 4
+        r['c'].value += 5
+        r['d'].value += 6
+        r = c3.root()
+        r['c'].value += 7
+        r['a'].value += 8
+        r['b'].value += 9
+        t4, c4 = cluster.getTransaction()
+        r = c4.root()
+        r['d'].value += 10
+        threads = map(self.newPausedThread, (t2.commit, t3.commit, t4.commit))
+        def t3_c(*args, **kw):
+            yield 1
+            # We want to resolve the conflict before storing A.
+            self.tic()
+        def t3_resolve(*args, **kw):
+            self.assertPartitionTable(cluster, 'UO|UO|UO|UO')
+            f.remove(delay)
+            self.tic()
+            self.assertPartitionTable(cluster, 'UO|UO|UU|UO')
+            yield
+        def t1_rebase(*args, **kw):
+            self.tic()
+            self.assertPartitionTable(cluster, 'UO|UU|UU|UO')
+            yield
+        def t3_b(*args, **kw):
+            yield 1
+            self.tic()
+            self.assertPartitionTable(cluster, 'UO|UU|UU|UU')
+        def t4_vote(*args, **kw):
+            self.tic()
+            self.assertPartitionTable(cluster, 'UU|UU|UU|UU')
+            yield 0
+        with ConnectionFilter() as f, \
+             self.thread_switcher(threads,
+                (1, 2, 3, 0, 1, 0, 2, t3_c, 1, 3, 2, t3_resolve, 0, 0, 0,
+                 t1_rebase, 2, t3_b, 3, t4_vote),
+                ('tpc_begin', 'tpc_begin', 'tpc_begin', 'tpc_begin', 2, 1, 1,
+                 3, 3, 4, 4, 3, 1, 'RebaseTransaction', 'RebaseTransaction',
+                 'AnswerRebaseTransaction', 'AnswerRebaseTransaction', 2
+                 )) as end:
+            delay = f.delayAskFetchTransactions()
+            s1.start()
+            self.tic()
+            t1.commit()
+            for t in threads:
+                t.join()
+        t4.begin()
+        self.assertEqual([15, 11, 13, 16], [r[x].value for x in 'abcd'])
+        self.assertEqual([2, 2], map(end.pop(2).count,
+            ['RebaseTransaction', 'AnswerRebaseTransaction']))
+        self.assertEqual(end, {
+            0: [1, 'StoreTransaction'],
+            1: ['StoreTransaction'],
+            3: [4, 'StoreTransaction'],
+        })
+
+    @with_cluster(storage_count=2, partitions=2)
+    def testDeadlockAvoidanceBeforeInvolvingAnotherNode(self, cluster):
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'abc':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+        r['a'].value += 1
+        r['c'].value += 2
+        r['b'].value += 3
+        t2, c2 = cluster.getTransaction()
+        r = c2.root()
+        r['c'].value += 4
+        r['a'].value += 5
+        r['b'].value += 6
+        t = self.newPausedThread(t2.commit)
+        def t1_b(*args, **kw):
+            yield 1
+            self.tic()
+        with self.thread_switcher((t,), (1, 0, 1, 0, t1_b, 0, 0, 0, 1),
+            ('tpc_begin', 'tpc_begin', 1, 3, 3, 1, 'RebaseTransaction',
+             2, 'AnswerRebaseTransaction')) as end:
+            t1.commit()
+            t.join()
+        t2.begin()
+        self.assertEqual([6, 9, 6], [r[x].value for x in 'abc'])
+        self.assertEqual([2, 2], map(end.pop(1).count,
+            ['RebaseTransaction', 'AnswerRebaseTransaction']))
+        self.assertEqual(end, {0: ['AnswerRebaseTransaction',
+                                   'StoreTransaction', 'VoteTransaction']})
+
+    @with_cluster(replicas=1)
+    def testConflictAfterDeadlockWithSlowReplica1(self, cluster,
+                                                  slow_rebase=False):
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'ab':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+        r['a'].value += 1
+        r['b'].value += 2
+        s1 = cluster.storage_list[1]
+        with cluster.newClient(1) as db, \
+             (s1.filterConnection(cluster.client) if slow_rebase else
+              cluster.client.filterConnection(s1)) as f, \
+             cluster.client.extraCellSortKey(lambda cell:
+                cell.getUUID() == s1.uuid):
+            t2, c2 = cluster.getTransaction(db)
+            r = c2.root()
+            r['a'].value += 3
+            self.readCurrent(r['b'])
+            t = self.newPausedThread(t2.commit)
+            def tic_t1(*args, **kw):
+                yield 0
+                self.tic()
+            def tic_t2(*args, **kw):
+                yield 1
+                self.tic()
+            def load(orig, *args, **kw):
+                f.remove(delayStore)
+                return orig(*args, **kw)
+            order = [tic_t2, 0, tic_t2, 1, tic_t1, 0, 0, 0, 1, tic_t1, 0]
+            def t1_resolve(*args, **kw):
+                yield
+                f.remove(delay)
+            if slow_rebase:
+                order.append(t1_resolve)
+                delay = f.delayAnswerRebaseObject()
+            else:
+                order[-1] = t1_resolve
+                delay = f.delayAskStoreObject()
+            with self.thread_switcher((t,), order,
+                ('tpc_begin', 'tpc_begin', 1, 1, 2, 2, 'RebaseTransaction',
+                'RebaseTransaction', 'AnswerRebaseTransaction',
+                'StoreTransaction')) as end:
+                t1.commit()
+                t.join()
+            self.assertNotIn(delay, f)
+            t2.begin()
+            end[0].sort(key=str)
+            self.assertEqual(end, {0: [1, 'AnswerRebaseTransaction',
+                                       'StoreTransaction']})
+            self.assertEqual([4, 2], [r[x].value for x in 'ab'])
+
+    def testConflictAfterDeadlockWithSlowReplica2(self):
+        self.testConflictAfterDeadlockWithSlowReplica1(True)
+
 
 if __name__ == "__main__":
     unittest.main()
