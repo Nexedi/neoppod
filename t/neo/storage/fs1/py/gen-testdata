@@ -31,17 +31,12 @@ def xtime():
 time.time = xtime
 
 
-def _precommit(user, description, extension):
+def commit(user, description, extension):
     txn = transaction.get()
     txn.user = user
     txn.description = description
     txn.extension = extension
-
-def commit(user, description, extension):
-    _precommit(user, description, extension)
-    txn = transaction.get()
     txn.commit()
-
 
 class Object(Persistent):
     # .value
@@ -83,9 +78,9 @@ def main():
 
         # undo a transaction one step before a latest one a couple of times
         for j in range(2):
-            ul = db.undoLog(1+j, 2+j)[0]
-            _precommit(u"root%i.%i" % (i, j), u"undo %i.%i" % (i, j), {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
+            ul = db.undoLog(1, 2)[0]
             db.undo(ul["id"])
+            commit(u"root%i.%i" % (i, j), u"undo %i.%i" % (i, j), {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
 
     conn.close()
     db.close()
