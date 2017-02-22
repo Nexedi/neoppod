@@ -58,7 +58,7 @@ func bint(b bool) int {
 
 func (xtid XTid) String() string {
 	// XXX also print "tid:" prefix ?
-	return fmt.Sprintf("%c%v", "=<"[bint(xtid.TidBefore)], xtid)
+	return fmt.Sprintf("%c%v", "=<"[bint(xtid.TidBefore)], xtid.Tid)
 }
 
 func (xid Xid) String() string {

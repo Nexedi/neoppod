@@ -34,6 +34,7 @@ type FileStorage struct {
 var _ zodb.IStorage = (*FileStorage)(nil)
 
 
+// TxnHeader represents header of a transaction record
 type TxnHeader struct {
 	Tid             zodb.Tid
 	RecLenm8        uint64
@@ -52,9 +53,9 @@ type TxnHeader struct {
 type DataHeader struct {
 	Oid             zodb.Oid
 	Tid             zodb.Tid
-	PrevDataRecPos  int64	// previous-record file-position
+	PrevDataRecPos  int64	// previous-record file-position	XXX name
 	TxnPos          int64	// position of transaction record this data record belongs to
-	_		uint16	// 2-bytes with zero values. (Was version length.)
+	//_		uint16	// 2-bytes with zero values. (Was version length.)
 	DataLen		uint64	// length of following data. if 0 -> following = 8 bytes backpointer	XXX -> int64 too ?
 				// if backpointer == 0 -> oid deleted
 	//Data            []byte
@@ -120,11 +121,20 @@ func NewFileStorage(path string) (*FileStorage, error) {
 	if err != nil {
 		return nil, err	// XXX err more context ?
 	}
+
 	// TODO read file header
 	//Read(f, 4) != "FS21" -> invalid header
-	return &FileStorage{f: f}, nil
 
-	// TODO read/recreate index
+	// TODO recreate index if missing / not sane
+	// TODO verify index sane / topPos matches
+	topPos, index, err := LoadIndexFile(path + ".index")
+	if err != nil {
+		panic(err)	// XXX err
+	}
+
+	_ = topPos
+
+	return &FileStorage{f: f, index: index}, nil
 }
 
 
