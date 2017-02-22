@@ -23,6 +23,13 @@ def unpack64(packed):
 def hex64(packed):
     return '0x%016x' % unpack64(packed)
 
+# escape string into valid "..." string
+def escapeqq(s):
+    # this escape almost everything except " character
+    q = s.encode("string_escape")
+    q = q.replace('"', r'\"')
+    return '"' + q + '"'
+
 # make time.time() predictable
 _xtime = time.mktime(time.strptime("04 Jan 1979", "%d %b %Y"))
 def xtime():
@@ -107,7 +114,6 @@ def main():
 
         # database records
         stor = FileStorage(outfs, read_only=True)
-        #oidPrevPos = {} # oid -> pos of last drec(oid)
 
         emit("\nvar _1fs_dbEntryv = [...]dbEntry{")
         for txn in stor.iterator():     # txn is TransactionRecord
@@ -123,9 +129,9 @@ def main():
             emit("\t\tTid:\t%s," % hex64(txn.tid))
             emit("\t\tRecLenm8:\t%i," % th.tlen)
             emit("\t\tStatus:\t'%s'," % txn.status)
-            emit("\t\tUser:\t\t[]byte(\"%s\")," % txn.user.encode('string_escape'))
-            emit("\t\tDescription:\t[]byte(\"%s\")," % txn.description.encode('string_escape'))
-            emit("\t\tExtension:\t[]byte(\"%s\")," % th.ext.encode('string_escape'))
+            emit("\t\tUser:\t\t[]byte(%s)," % escapeqq(txn.user))
+            emit("\t\tDescription:\t[]byte(%s)," % escapeqq(txn.description))
+            emit("\t\tExtension:\t[]byte(%s)," % escapeqq(th.ext))
 
             # -> DataHeader + payload
             for drec in txn:            # drec is itemof(TransactionRecordIterator) = Record
@@ -141,7 +147,6 @@ def main():
                 emit("\t\t\tTid:\t%s," % hex64(drec.tid))
                 # drec: .data .prev (=prev_txn)
 
-                #emit("\t\t\tPrevDataRecPos:\t%i," % oidPrevPos.get(drec.oid, 0))
                 emit("\t\t\tPrevDataRecPos:\t%i," % dh.prev)
                 emit("\t\t\tTxnPos:\t%i," % txn._tpos)
                 assert drec.version == ''
@@ -152,13 +157,10 @@ def main():
                 else:
                     data = drec.data
 
-                emit("\t\t\tData:\t[]byte(\"%s\")," % data.encode('string_escape'))
+                emit("\t\t\tData:\t[]byte(%s)," % escapeqq(data))
 
                 #.data .data_txn
                 emit("\t\t},")
-
-                #oidPrevPos[drec.oid] = drec.pos
-
 
             emit("\t},")
         emit("}")

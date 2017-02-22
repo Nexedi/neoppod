@@ -1009,7 +1009,7 @@ var _1fs_dbEntryv = [...]dbEntry{
 			PrevDataRecPos:	9498,
 			TxnPos:	9774,
 			DataLen:	0,
-			Data:	[]byte("\x00\x00\x00\x00\x00\x00"\xb2"),
+			Data:	[]byte("\x00\x00\x00\x00\x00\x00\"\xb2"),
 		},
 	},
 }
