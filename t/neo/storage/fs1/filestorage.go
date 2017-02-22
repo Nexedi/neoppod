@@ -203,11 +203,21 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 		return nil, zodb.Tid(0), &ErrXidLoad{xid, &zodb.ErrXidMissing{Xid: xid}}
 	}
 
-	// now read actual data / scan via backpointers
-	if dh.DataLen == 0 {
-		// backpointer - TODO
+	// scan via backpointers
+	for dh.DataLen == 0 {
+		var xxx [8]byte	// XXX escapes ?
+		_, err = fs.f.ReadAt(xxx[:], dataPos + DataHeaderSize)
+		if err != nil {
+			panic(err)	// XXX
+		}
+		dataPos = int64(binary.BigEndian.Uint64(xxx[:]))
+		err = dh.Decode(fs.f, dataPos)
+		if err != nil {
+			panic(err)	// XXX
+		}
 	}
 
+	// now read actual data
 	data = make([]byte, dh.DataLen)	// TODO -> slab ?
 	n, err := fs.f.ReadAt(data, dataPos + DataHeaderSize)
 	if n == len(data) {

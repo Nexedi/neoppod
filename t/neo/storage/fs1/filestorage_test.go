@@ -46,7 +46,7 @@ func TestLoad(t *testing.T) {
 				t.Errorf("load %v: %v", xid, err)
 			}
 			if tid != txh.Tid {
-				t.Errorf("load %v: returned tid unexpected: %v", xid)
+				t.Errorf("load %v: returned tid unexpected: %v", xid, tid)
 			}
 			if !bytes.Equal(data, txe.Data()) {
 				t.Errorf("load %v: different data:\nhave: %s\nwant: %s", xid, strconv.Quote(string(data)), strconv.Quote(string(txe.Data())))
