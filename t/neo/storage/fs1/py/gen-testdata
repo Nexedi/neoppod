@@ -114,6 +114,7 @@ def main():
             # do deep-dive into FileStorage
             h = stor._read_txn_header(txn._tpos)
             assert h.tid == txn.tid
+            assert h.tlen == txn._tend - txn._tpos
 
             # -> TxnHeader
             emit("\tTxnHeader{")
