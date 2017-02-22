@@ -151,7 +151,6 @@ def main():
                 emit("\t\t\t\tDataHeader{")
                 emit("\t\t\t\t\tOid:\t%i," % unpack64(drec.oid))
                 emit("\t\t\t\t\tTid:\t%s," % hex64(drec.tid))
-                # drec: .data .prev (=prev_txn)
 
                 emit("\t\t\t\t\tPrevDataRecPos:\t%i," % dh.prev)
                 emit("\t\t\t\t\tTxnPos:\t%i," % txn._tpos)
@@ -160,11 +159,14 @@ def main():
                 emit("\t\t\t\t},")
                 plen = dh.plen
                 if plen == 0:
-                    data = p64(dh.back) # back-pointer or 0 (= delete)
+                    rawdata = p64(dh.back) # back-pointer or 0 (= delete)
+                    data = "[]byte(%s)" % escapeqq(drec.data)     # XXX vs .data = None ?
                 else:
-                    data = drec.data
+                    rawdata = drec.data
+                    data = "nil"
 
-                emit("\t\t\t\t[]byte(%s)," % escapeqq(data))
+                emit("\t\t\t\t[]byte(%s)," % escapeqq(rawdata))
+                emit("\t\t\t\t%s /* same as ^^^ */," % data)
                 emit("\t\t\t},")
 
             emit("\t\t},")
