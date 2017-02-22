@@ -167,9 +167,7 @@ def main():
                 emit("\t\t\t\tData:\t[]byte(%s)," % escapeqq(data))
                 emit("\t\t\t},")
 
-                #.data .data_txn
-                emit("\t\t},")
-
+            emit("\t\t},")
             emit("\t},")
         emit("}")
 
