@@ -109,23 +109,26 @@ def main():
 
         emit("\nvar _1fs_dbEntryv = [...]dbEntry{")
         for txn in stor.iterator():     # txn is TransactionRecord
+            # txn.extension is already depickled dict - we want to put raw data from file
+            # also we need to access txn record legth which is not provided by higher-level iterator
+            # do deep-dive into FileStorage
+            h = stor._read_txn_header(txn._tpos)
+            assert h.tid == txn.tid
+
             # -> TxnHeader
             emit("\tTxnHeader{")
             emit("\t\tTid:\t%s," % hex64(txn.tid))
-            # TODO reclenm8 ?
+            emit("\t\tRecLenm8:\t%i," % h.tlen)
             emit("\t\tStatus:\t'%s'," % txn.status)
-            emit("\t\tUser:\t[]byte(\"%s\")," % txn.user.encode('string_escape'))
+            emit("\t\tUser:\t\t[]byte(\"%s\")," % txn.user.encode('string_escape'))
             emit("\t\tDescription:\t[]byte(\"%s\")," % txn.description.encode('string_escape'))
-            # txn.extension is already depickled dict - we want to put raw data from file
-            h = stor._read_txn_header(txn._tpos)
-            assert h.tid == txn.tid
             emit("\t\tExtension:\t[]byte(\"%s\")," % h.ext.encode('string_escape'))
 
             # txn: ._pos ._tend ._tpos
 
             # -> DataHeader + payload
             for drec in txn:            # drec is itemof(TransactionRecordIterator) = Record
-                emit("\t\tDataHeader{")
+                emit("\n\t\tDataHeader{")
                 emit("\t\t\tOid:\t%i," % unpack64(drec.oid))
                 emit("\t\t\tTid:\t%s," % hex64(drec.tid))
                 # drec: .data .prev (=prev_txn) .pos
