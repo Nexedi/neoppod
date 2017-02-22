@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # TODO author/copyright
 """generate reference database and index for tests"""
 
@@ -80,7 +81,9 @@ def main():
         for j in range(2):
             ul = db.undoLog(1, 2)[0]
             db.undo(ul["id"])
-            commit(u"root%i.%i" % (i, j), u"undo %i.%i" % (i, j), {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
+            commit(u"root%i.%i\nYour\nMagesty " % (i, j),
+                   u"undo %i.%i\nmore detailed description\n\nzzz ..." % (i, j) + "\t"*(i+j),
+                   {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
 
     conn.close()
     db.close()
@@ -106,11 +109,17 @@ def main():
 
         emit("\nvar _1fs_dbEntryv = [...]dbEntry{")
         for txn in stor.iterator():     # txn is TransactionRecord
+            # -> TxnHeader
             emit("\tTxnHeader{")
             emit("\t\tTid:\t%s," % hex64(txn.tid))
-            # -> TxnHeader
-            #txn.tid, txn.status
-            #.user .description .extension
+            # TODO reclenm8 ?
+            emit("\t\tStatus:\t'%s'," % txn.status)
+            emit("\t\tUser:\t[]byte(\"%s\")," % txn.user.encode('string_escape'))
+            emit("\t\tDescription:\t[]byte(\"%s\")," % txn.description.encode('string_escape'))
+            # txn.extension is already depickled dict - we want to put raw data from file
+            h = stor._read_txn_header(txn._tpos)
+            assert h.tid == txn.tid
+            emit("\t\tExtension:\t[]byte(\"%s\")," % h.ext.encode('string_escape'))
 
             # txn: ._pos ._tend ._tpos
 
