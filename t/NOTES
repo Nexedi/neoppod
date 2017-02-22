@@ -341,6 +341,58 @@ Storage communications
 <M	NotifyNodeInformation	# C1 disconnects
 
 
+Commit communications
+---------------------
+
+* tpc_begin
+
+  C -> M	AskBeginTransaction(tid?)
+  C <- M	AnswerBeginTransaction(ttid)
+
+* store(oid, serial, data, ...)
+
+  for S in storagesFor(oid):
+	C -> S	AskStoreObject(oid, serial, ttid ...)
+
+--- eventually ---
+
+  some S from ^^^:
+	C <- S	AnswerStoreObject(conflicting, oid, serial)
+
+* tpc_vote
+
+  - wait for all responses from S (see "eventually" ^^^)
+    if conflicting:
+	resolve conflicts
+
+  for S' in storagesFor(ttid):
+	C -> S'	  AskStoreTransaction(ttid)	# empty answer
+
+  for S'' in (storagesFor(oid) - storagesFor):
+	C -> S''  AskVoteTransaction(ttid)	# empty answer
+
+  - wait for all responses from S' and S'' ^^^
+
+* tpc_finish
+
+C -> M  AskFinishTransaction(ttid, cache_dict, checked_list)
+
+     for S in M.allStorages:
+	M -> S  AskLockInformation(ttid, tid)
+	...
+
+     eventually:
+	M <- S	AnswerInformationLocked(ttid)
+
+C <- M	AnswerTransactionFinished(ttid, tid)
+
+
+* tpc_abort
+
+C -> Sv(participating for oidv & tidv) + M
+	AbortTransaction(ttid)
+
+
 Tables
 ------
 
