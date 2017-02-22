@@ -164,7 +164,7 @@ def main():
                 else:
                     data = drec.data
 
-                emit("\t\t\t\tData:\t[]byte(%s)," % escapeqq(data))
+                emit("\t\t\t\t[]byte(%s)," % escapeqq(data))
                 emit("\t\t\t},")
 
             emit("\t\t},")
