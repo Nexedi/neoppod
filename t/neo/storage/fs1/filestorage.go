@@ -203,6 +203,10 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 		return nil, zodb.Tid(0), &ErrXidLoad{xid, &zodb.ErrXidMissing{Xid: xid}}
 	}
 
+	// even if we will scan back via backpointers, the tid returned should
+	// be of first-found transaction
+	tid = dh.Tid
+
 	// scan via backpointers
 	for dh.DataLen == 0 {
 		var xxx [8]byte	// XXX escapes ?
@@ -227,7 +231,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 		return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
 	}
 
-	return data, dh.Tid, nil
+	return data, tid, nil
 }
 
 func (fs *FileStorage) Close() error {
