@@ -9,6 +9,12 @@ import (
 	"../../zodb"
 )
 
+// one database transaction record
+type dbEntry struct {
+	Header	TxnHeader
+	Entryv	[]txnEntry
+}
+
 // one entry inside transaction
 type txnEntry struct {
 	Header	 DataHeader
@@ -16,6 +22,7 @@ type txnEntry struct {
 	userData []byte		// data client should see on load; nil means same as RawData
 }
 
+// Data returns data a client should see
 func (txe *txnEntry) Data() []byte {
 	data := txe.userData
 	if data == nil {
@@ -24,9 +31,27 @@ func (txe *txnEntry) Data() []byte {
 	return data
 }
 
-type dbEntry struct {
-	Header	TxnHeader
-	Entryv	[]txnEntry
+// successfull result of load for an oid
+type oidLoadedOk struct {
+	tid	zodb.Tid
+	data	[]byte
+}
+
+// current knowledge of what was "before" for an oid as we scan over
+// data base entries
+type beforeMap map[zodb.Oid]oidLoadedOk
+
+func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) {
+	data, tid, err := fs.Load(xid)
+	if err != nil {
+		t.Errorf("load %v: %v", xid, err)
+	}
+	if tid != expect.tid {
+		t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
+	}
+	if !bytes.Equal(data, expect.data) {
+		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, expect.data)
+	}
 }
 
 func TestLoad(t *testing.T) {
@@ -35,22 +60,39 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	before := beforeMap{}
+
 	for _, dbe := range _1fs_dbEntryv {
 		for _, txe := range dbe.Entryv {
 			txh := txe.Header
 
 			// loadSerial
 			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
-			data, tid, err := fs.Load(xid)
-			if err != nil {
-				t.Errorf("load %v: %v", xid, err)
+			checkLoad(t, fs, xid, oidLoadedOk{txh.Tid, txe.Data()})
+			//data, tid, err := fs.Load(xid)
+			//if err != nil {
+			//	t.Errorf("load %v: %v", xid, err)
+			//}
+			//if tid != txh.Tid {
+			//	t.Errorf("load %v: returned tid unexpected: %v", xid, tid)
+			//}
+			//if !bytes.Equal(data, txe.Data()) {
+			//	t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, txe.Data())
+			//}
+
+			// loadBefore
+			// TODO also test loadBefore (TixMax)
+			xid = zodb.Xid{zodb.XTid{txh.Tid, true}, txh.Oid}
+			expect, ok := before[txh.Oid]
+			// TODO also test for getting error when !ok
+			if ok {
+				checkLoad(t, fs, xid, expect)
 			}
-			if tid != txh.Tid {
-				t.Errorf("load %v: returned tid unexpected: %v", xid, tid)
-			}
-			if !bytes.Equal(data, txe.Data()) {
-				t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, txe.Data())
-			}
+
+
+
+			before[txh.Oid] = oidLoadedOk{txh.Tid, txe.Data()}
+
 		}
 	}
 }

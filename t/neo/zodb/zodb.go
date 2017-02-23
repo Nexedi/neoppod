@@ -83,7 +83,7 @@ type ErrXidMissing struct {
 }
 
 func (e *ErrXidMissing) Error() string {
-	return fmt.Sprintf("")	// TODO
+	return fmt.Sprintf("%v: no matching data record found", e.Xid)	// XXX ok?
 }
 
 // ----------------------------------------
