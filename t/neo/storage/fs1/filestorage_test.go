@@ -69,19 +69,8 @@ func TestLoad(t *testing.T) {
 			// loadSerial
 			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
 			checkLoad(t, fs, xid, oidLoadedOk{txh.Tid, txe.Data()})
-			//data, tid, err := fs.Load(xid)
-			//if err != nil {
-			//	t.Errorf("load %v: %v", xid, err)
-			//}
-			//if tid != txh.Tid {
-			//	t.Errorf("load %v: returned tid unexpected: %v", xid, tid)
-			//}
-			//if !bytes.Equal(data, txe.Data()) {
-			//	t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, txe.Data())
-			//}
 
 			// loadBefore
-			// TODO also test loadBefore (TixMax)
 			xid = zodb.Xid{zodb.XTid{txh.Tid, true}, txh.Oid}
 			expect, ok := before[txh.Oid]
 			// TODO also test for getting error when !ok
@@ -89,10 +78,14 @@ func TestLoad(t *testing.T) {
 				checkLoad(t, fs, xid, expect)
 			}
 
-
-
 			before[txh.Oid] = oidLoadedOk{txh.Tid, txe.Data()}
 
 		}
+	}
+
+	// loadBefore with TidMax
+	for oid, expect := range before {
+		xid := zodb.Xid{zodb.XTid{zodb.TidMax, true}, oid}
+		checkLoad(t, fs, xid, expect)
 	}
 }
