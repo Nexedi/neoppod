@@ -28,6 +28,8 @@ import (
 type FileStorage struct {
 	f	*os.File	// XXX naming -> file ?
 	index	*fsIndex
+	topPos	int64		// position pointing just past last committed transaction
+				// (= size(f) when no commit is in progress)
 }
 
 // IStorage
@@ -188,8 +190,15 @@ func OpenFileStorage(path string) (*FileStorage, error) {
 		return nil, err	// XXX err more context ?
 	}
 
-	// TODO read file header
-	//Read(f, 4) != "FS21" -> invalid header
+	// check file magic
+	var xxx [4]byte
+	_, err = f.ReadAt(xxx[:], 0)
+	if err != nil {
+		return nil, err	// XXX err more context
+	}
+	if string(xxx[:]) != "FS21" {
+		return nil, fmt.Errorf("%s: invalid magic %q", path, xxx)	// XXX err?
+	}
 
 	// TODO recreate index if missing / not sane
 	// TODO verify index sane / topPos matches
@@ -198,9 +207,7 @@ func OpenFileStorage(path string) (*FileStorage, error) {
 		panic(err)	// XXX err
 	}
 
-	_ = topPos
-
-	return &FileStorage{f: f, index: index}, nil
+	return &FileStorage{f: f, index: index, topPos: topPos}, nil
 }
 
 
@@ -314,11 +321,18 @@ func (fs *FileStorage) StorageName() string {
 	return "FileStorage v1"
 }
 
-func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	if tidMin != zodb.Tid(0) || tidMax != zodb.TidMax {
-		panic("TODO tidMin/tidMax support")
-	}
 
+type FileStorageIterator struct {
+	txnPos int64	// current (?) transaction position
+
+	tidMin, tidMax zodb.Tid	// iteration range
+}
+
+func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, stop bool, err error) {
 	// TODO
-	return nil
+	return
+}
+
+func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
 }

@@ -102,6 +102,7 @@ func TestLoad(t *testing.T) {
 	}
 	tidv = append(tidv, zodb.TidMax)
 
+	// XXX i -> iMin, j -> iMax ?
 	for i, tidMin := range tidv {
 		for j, tidMax := range tidv {
 			_ = j	// XXX
@@ -114,18 +115,18 @@ func TestLoad(t *testing.T) {
 			txni  := zodb.TxnInfo{}
 			datai := zodb.StorageRecordInformation{}
 
-			// XXX vvv assumes i < j
-			// FIXME first tidMin and last tidMax
-			for k := i; ; k++ {
+			for k := 0; ; k++ {
 				dataIter, stop, err := iter.NextTxn(&txni)
 				if stop || err != nil {
 					break
 				}
 
-				dbe := _1fs_dbEntryv[k]
+				// XXX vvv assumes i < j
+				// FIXME first tidMin and last tidMax
+				dbe := _1fs_dbEntryv[i + k]
 
 				if !reflect.DeepEqual(txni, dbe.Header.TxnInfo) {
-					t.Errorf("iterating tidMin..tidMac (TODO): step XXX: unexpected txn entry.\nhave: %v\nwant: %v", txni, dbe.Header.TxnInfo)
+					t.Errorf("iterating %v..%v: step %v: unexpected txn entry:\nhave: %q\nwant: %q", tidMin, tidMax, k, txni, dbe.Header.TxnInfo)
 				}
 
 				for {

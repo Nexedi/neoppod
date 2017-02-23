@@ -147,7 +147,7 @@ type IStorage interface {
 	// tpc_finish(txn, callback)    XXX clarify about callback
 	// tpc_abort(txn)
 
-	Iterate(tidMin, tidMax Tid) IStorageIterator   // XXX -> Iter() ?
+	Iterate(tidMin, tidMax Tid) IStorageIterator	// XXX , error ?
 }
 
 type IStorageIterator interface {
