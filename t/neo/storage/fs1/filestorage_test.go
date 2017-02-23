@@ -111,16 +111,37 @@ func TestLoad(t *testing.T) {
 
 			txni  := zodb.TxnInfo{}
 			datai := zodb.StorageRecordInformation{}
+			var stop bool
 
-			for {
-				ok, err := iter.NextTxn(&txni)
-				if err != nil {
-					panic(err)	// XXX err
-				}
-				if !ok {
+			// XXX vvv assumes i < j
+			// FIXME first tidMin and last tidMax
+			for k := i; ; k++ {
+				stop, err = iter.NextTxn(&txni)
+				if stop || err != nil {
 					break
 				}
+
+				dbe = _1fs_dbEntryv[k]
+
+				if !reflect.DeepEqual(txni, dbe.Header.TxnInfo) {
+					t.Errorf("iterating tidMin..tidMac (TODO): step XXX: unexpected txn entry.\nhave: %v\nwant: %v", txni, dbe.Header.TxnInfo)
+				}
+
+				for {
+					stop, err = txni.Iter.NextData(&datai)
+					if err != nil {
+						panic(err)	// XXX
+					}
+					if stop {
+						break
+					}
+				}
+
+
+
 			}
+
+			// TODO check err
 
 		}
 	}

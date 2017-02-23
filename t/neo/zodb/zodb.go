@@ -97,19 +97,13 @@ const (
 	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
 )
 
-// Information about single transaction
-// XXX -> storage.ITransactionInformation
-//type IStorageTransactionInformation interface {
-//type StorageTransactionInformation struct {
+// Metadata information about single transaction
 type TxnInfo struct {
 	Tid         Tid
 	Status      TxnStatus
 	User        []byte
 	Description []byte
 	Extension   []byte
-
-	// TODO iter -> IStorageRecordInformation
-	Iter	IStorageRecordIterator
 }
 
 // Information about single storage record
@@ -157,13 +151,15 @@ type IStorage interface {
 }
 
 type IStorageIterator interface {
-	// NextTxn puts information about next storage transaction into *txnInfo.
-	// data put into *txnInfo stays valid until next call to NextTxn().
-	NextTxn(txnInfo *TxnInfo) (ok bool, err error)	// XXX ok -> stop ?
+	// NextTxn yields information about next database transaction:
+	// 1. transaction metadata, and
+	// 2. iterator over transaction data records. 
+	// transaction mentadata is put into *txnInfo stays valid until next call to NextTxn().
+	NextTxn(txnInfo *TxnInfo) (dataIter IStorageRecordIterator, stop bool, err error)	// XXX stop -> io.EOF ?
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
 	// NextData puts information about next storage data record into *dataInfo.
 	// data put into *dataInfo stays vaild until next call to NextData().
-	NextData(dataInfo *StorageRecordInformation) (ok bool, err error)
+	NextData(dataInfo *StorageRecordInformation) (stop bool, err error)	// XXX stop -> io.EOF ?
 }
