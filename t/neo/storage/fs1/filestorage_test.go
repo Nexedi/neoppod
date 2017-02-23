@@ -37,10 +37,6 @@ type oidLoadedOk struct {
 	data	[]byte
 }
 
-// current knowledge of what was "before" for an oid as we scan over
-// data base entries
-type beforeMap map[zodb.Oid]oidLoadedOk
-
 func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) {
 	data, tid, err := fs.Load(xid)
 	if err != nil {
@@ -55,12 +51,15 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 }
 
 func TestLoad(t *testing.T) {
-	fs, err := NewFileStorage("testdata/1.fs")
+	fs, err := OpenFileStorage("testdata/1.fs")
 	if err != nil {
 		t.Fatal(err)
 	}
+	//defer xclose(fs)
 
-	before := beforeMap{}
+	// current knowledge of what was "before" for an oid as we scan over
+	// data base entries
+	before := map[zodb.Oid]oidLoadedOk{}
 
 	for _, dbe := range _1fs_dbEntryv {
 		for _, txe := range dbe.Entryv {
@@ -92,5 +91,23 @@ func TestLoad(t *testing.T) {
 	for oid, expect := range before {
 		xid := zodb.Xid{zodb.XTid{zodb.TidMax, true}, oid}
 		checkLoad(t, fs, xid, expect)
+	}
+
+	// check iterating	XXX move to separate test ?
+	// tids we will use for tid{Min,Max}
+	tidv := []zodb.Tid{zodb.Tid(0)}
+	for _, dbe := range _1fs_dbEntryv {
+		tidv = append(tidv, dbe.Header.Tid)
+	}
+	tidv = append(tidv, zodb.TidMax)
+
+	for i, tidMin := range tidv {
+		for j, tidMax := range tidv {
+			iter := fs.Iterate(tidMin, tidMax)
+
+			if tidMin > tidMax {
+				// expect error / panic or empty iteration ?
+			}
+		}
 	}
 }

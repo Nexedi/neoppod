@@ -116,7 +116,7 @@ func (dh *DataHeader) Decode(r io.ReaderAt, pos int64) error {
 
 
 
-func NewFileStorage(path string) (*FileStorage, error) {
+func OpenFileStorage(path string) (*FileStorage, error) {
 	f, err := os.Open(path)	// XXX opens in O_RDONLY
 	if err != nil {
 		return nil, err	// XXX err more context ?
@@ -248,9 +248,9 @@ func (fs *FileStorage) StorageName() string {
 	return "FileStorage v1"
 }
 
-func (fs *FileStorage) Iterate(start, stop zodb.Tid) zodb.IStorageIterator {
-	if start != zodb.Tid0 || stop != zodb.TidMax {
-		panic("TODO start/stop support")
+func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+	if tidMin != zodb.Tid0 || tidMax != zodb.TidMax {
+		panic("TODO tidMin/tidMax support")
 	}
 
 	// TODO
