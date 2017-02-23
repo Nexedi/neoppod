@@ -98,13 +98,17 @@ func TestLoad(t *testing.T) {
 	// tids we will use for tid{Min,Max}
 	tidv := []zodb.Tid{zodb.Tid(0)}
 	for _, dbe := range _1fs_dbEntryv {
+		//tidv = append(tidv, dbe.Header.Tid-1)	// XXX here?
 		tidv = append(tidv, dbe.Header.Tid)
+		//tidv = append(tidv, dbe.Header.Tid+1)	// XXX here?
 	}
 	tidv = append(tidv, zodb.TidMax)
 
 	// XXX i -> iMin, j -> iMax ?
 	for i, tidMin := range tidv {
+		// TODO test both tidMin, and tidMin - 1
 		for j, tidMax := range tidv {
+			// TODO test both tidMax, and tidMax + 1
 			_ = j	// XXX
 			iter := fs.Iterate(tidMin, tidMax)
 

@@ -108,7 +108,9 @@ func (e *ErrDataRecord) Error() string {
 var ErrVersionNonZero = errors.New("non-zero version")
 
 
-// decode reads and decodes transactione record header from a readerAt
+// decode reads and decodes transaction record header from a readerAt
+// pos: points to header begin	XXX text
+// no requirements are made to previous th state	XXX text
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
 func (th *TxnHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixSize]byte) (n int, err error) {
 	n, err = r.ReadAt(tmpBuf[:], pos)
@@ -145,10 +147,46 @@ func (th *TxnHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixSize]
 	return txnHeaderFixSize + lstr, nil
 }
 
+// decodePrev reads and decodes transaction record header from a readerAt	XXX from next ...
+// pos: points to header begin	XXX text
+// no requirements are made to previous th state	XXX text
+func (th *TxnHeader) decodePrev(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixSize]byte) (posPrev int64, n int, err error) {
+	if pos == 4 {	// XXX 4 -> magicsize
+		panic("no prev")	// TODO
+	}
+
+	n, err = r.ReadAt(tmpBuf[:8], pos - 8)
+	if n == 8 {
+		// -> to readAt() utility
+		err = nil	// we are ok to get EOF after reading it all
+	}
+	if err != nil {
+		panic(err)	// XXX
+	}
+
+	recLenm8 := binary.BigEndian.Uint64(tmpBuf[0:])
+	posPrev = pos - 8 - int64(recLenm8)	// XXX overflow ?
+	n, err = th.decode(r, posPrev, tmpBuf)
+	if err != nil {
+		return 0, 0, err	// XXX +context
+	}
+
+	if th.RecLenm8 != recLenm8 {
+		panic("redunant length mismatch")	// XXX
+	}
+
+	return posPrev, n, nil
+}
+
 // XXX do we need Decode when decode() is there?
 func (th *TxnHeader) Decode(r io.ReaderAt, pos int64) (n int, err error) {
 	var tmpBuf [txnHeaderFixSize]byte
 	return th.decode(r, pos, &tmpBuf)
+}
+
+func (th *TxnHeader) DecodePrev(r io.ReaderAt, pos int64) (posPrev int64, n int, err error) {
+	var tmpBuf [txnHeaderFixSize]byte
+	return th.decodePrev(r, pos, &tmpBuf)
 }
 
 
@@ -212,39 +250,23 @@ func OpenFileStorage(path string) (*FileStorage, error) {
 
 	// read tidMin/tidMax
 	// FIXME support empty file case
-	txnh := TxnHeader{}
-	_, err = txnh.Decode(f, 4)
+	var txnhMin, txnhMax TxnHeader
+	_, err = txnhMin.Decode(f, 4)
 	if err != nil {
 		return nil, err	// XXX +context
 	}
-
-	tidMin := txnh.Tid
-
-	var qqq [8]byte
-	n, err := f.ReadAt(qqq[:], topPos - 8)
-	if n == len(qqq) {
-		err = nil	// we are ok to get EOF after reading it all
-	}
-
-	txnLenm8 := binary.BigEndian.Uint64(qqq[:])
-	_, err = txnh.Decode(f, topPos - 8 - int64(txnLenm8))	// XXX overflow ?
+	_, _, err = txnhMax.DecodePrev(f, topPos)
 	if err != nil {
 		return nil, err	// XXX +context
 	}
-
-	if txnh.RecLenm8 != txnLenm8 {
-		panic("redunant length mismatch")	// XXX
-	}
-
-	tidMax := txnh.Tid
 
 
 	return &FileStorage{
 			f: f,
 			index: index,
 			topPos: topPos,
-			tidMin: tidMin,
-			tidMax: tidMax,
+			tidMin: txnhMin.Tid,
+			tidMax: txnhMax.Tid,
 		}, nil
 }
 
@@ -363,7 +385,7 @@ func (fs *FileStorage) StorageName() string {
 type FileStorageIterator struct {
 	txnPos int64	// current (?) transaction position
 
-	tidMin, tidMax zodb.Tid	// iteration range
+	tidMin, tidMax zodb.Tid	// iteration range: [tidMin, tidMax]
 }
 
 func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, stop bool, err error) {
@@ -372,5 +394,26 @@ func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IS
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+	if tidMin < fs.tidMin {
+		tidMin = fs.tidMin
+	}
+	if tidMin > fs.tidMax {
+		// -> XXX empty
+	}
+
+/*
+	(tidMin - fs.TidMin) vs (fs.TidMax - tidMin)
+
+	// if forward
+	iter := forwardIter{4, tidMin}
+	for {
+		iter.NextTxn(txnh, ...)
+	}
+
+	// txnh should have .Tid <= tidMin but next txn's .Tid is > tidMin
+	posStart := iter.txnPos
+	if t
+*/
+
 	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
 }
