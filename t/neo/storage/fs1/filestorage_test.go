@@ -4,6 +4,7 @@ package fs1
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"../../zodb"
@@ -103,6 +104,7 @@ func TestLoad(t *testing.T) {
 
 	for i, tidMin := range tidv {
 		for j, tidMax := range tidv {
+			_ = j	// XXX
 			iter := fs.Iterate(tidMin, tidMax)
 
 			if tidMin > tidMax {
@@ -111,24 +113,23 @@ func TestLoad(t *testing.T) {
 
 			txni  := zodb.TxnInfo{}
 			datai := zodb.StorageRecordInformation{}
-			var stop bool
 
 			// XXX vvv assumes i < j
 			// FIXME first tidMin and last tidMax
 			for k := i; ; k++ {
-				stop, err = iter.NextTxn(&txni)
+				dataIter, stop, err := iter.NextTxn(&txni)
 				if stop || err != nil {
 					break
 				}
 
-				dbe = _1fs_dbEntryv[k]
+				dbe := _1fs_dbEntryv[k]
 
 				if !reflect.DeepEqual(txni, dbe.Header.TxnInfo) {
 					t.Errorf("iterating tidMin..tidMac (TODO): step XXX: unexpected txn entry.\nhave: %v\nwant: %v", txni, dbe.Header.TxnInfo)
 				}
 
 				for {
-					stop, err = txni.Iter.NextData(&datai)
+					stop, err = dataIter.NextData(&datai)
 					if err != nil {
 						panic(err)	// XXX
 					}
