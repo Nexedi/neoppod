@@ -30,6 +30,9 @@ type FileStorage struct {
 	index	*fsIndex
 	topPos	int64		// position pointing just past last committed transaction
 				// (= size(f) when no commit is in progress)
+
+	// min/max tids committed
+	tidMin, tidMax	zodb.Tid
 }
 
 // IStorage
@@ -207,7 +210,42 @@ func OpenFileStorage(path string) (*FileStorage, error) {
 		panic(err)	// XXX err
 	}
 
-	return &FileStorage{f: f, index: index, topPos: topPos}, nil
+	// read tidMin/tidMax
+	// FIXME support empty file case
+	txnh := TxnHeader{}
+	_, err = txnh.Decode(f, 4)
+	if err != nil {
+		return nil, err	// XXX +context
+	}
+
+	tidMin := txnh.Tid
+
+	var qqq [8]byte
+	n, err := f.ReadAt(qqq[:], topPos - 8)
+	if n == len(qqq) {
+		err = nil	// we are ok to get EOF after reading it all
+	}
+
+	txnLenm8 := binary.BigEndian.Uint64(qqq[:])
+	_, err = txnh.Decode(f, topPos - 8 - int64(txnLenm8))	// XXX overflow ?
+	if err != nil {
+		return nil, err	// XXX +context
+	}
+
+	if txnh.RecLenm8 != txnLenm8 {
+		panic("redunant length mismatch")	// XXX
+	}
+
+	tidMax := txnh.Tid
+
+
+	return &FileStorage{
+			f: f,
+			index: index,
+			topPos: topPos,
+			tidMin: tidMin,
+			tidMax: tidMax,
+		}, nil
 }
 
 
