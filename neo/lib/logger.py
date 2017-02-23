@@ -232,7 +232,7 @@ class NEOLogger(Logger):
                 self._emit(record)
                 self.commit()
             else:
-                self._record_size += RECORD_SIZE + len(record.msg)
+                self._record_size += RECORD_SIZE + len(record.msg or '')
                 q = self._record_queue
                 q.append(record)
                 if record.levelno < WARNING:
