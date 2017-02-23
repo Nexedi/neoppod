@@ -123,6 +123,12 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 // delay a bit
 // needed e.g. to test Close interaction with waiting read or write
 // (we cannot easily sync and make sure e.g. read is started and became asleep)
+//
+// XXX JM suggested to really wait till syscall starts this way:
+// - via polling get traceback for thread that is going to call syscall and eventuall block
+// - if from that traceback we can see that blocking syscall is already called
+//   -> this way we can know that it is already blocking and thus sleep-hack can be avoided
+// this can be done via runtime/pprof -> "goroutine" predefined profile
 func tdelay() {
 	time.Sleep(1*time.Millisecond)
 }

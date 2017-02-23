@@ -4,7 +4,6 @@ package fs1
 
 import (
 	"bytes"
-	"strconv"
 	"testing"
 
 	"../../zodb"
@@ -12,13 +11,13 @@ import (
 
 // one entry inside transaction
 type txnEntry struct {
-	Header	DataHeader
-	rawData	[]byte		// what is on disk, e.g. it can be backpointer
-	data	[]byte		// data client should see on load; nil means same as RawData
+	Header	 DataHeader
+	rawData	 []byte		// what is on disk, e.g. it can be backpointer
+	userData []byte		// data client should see on load; nil means same as RawData
 }
 
 func (txe *txnEntry) Data() []byte {
-	data := txe.data
+	data := txe.userData
 	if data == nil {
 		data = txe.rawData
 	}
@@ -40,7 +39,8 @@ func TestLoad(t *testing.T) {
 		for _, txe := range dbe.Entryv {
 			txh := txe.Header
 
-			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}	// loadSerial
+			// loadSerial
+			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
 			data, tid, err := fs.Load(xid)
 			if err != nil {
 				t.Errorf("load %v: %v", xid, err)
@@ -49,7 +49,7 @@ func TestLoad(t *testing.T) {
 				t.Errorf("load %v: returned tid unexpected: %v", xid, tid)
 			}
 			if !bytes.Equal(data, txe.Data()) {
-				t.Errorf("load %v: different data:\nhave: %s\nwant: %s", xid, strconv.Quote(string(data)), strconv.Quote(string(txe.Data())))
+				t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, txe.Data())
 			}
 		}
 	}
