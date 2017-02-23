@@ -137,13 +137,11 @@ type IStorage interface {
 	// XXX ^^^ ok ?
 	LastTid() Tid	// XXX -> Tid, ok ?
 
+	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	// TODO data []byte -> something allocated from slab ?
 	Load(xid Xid) (data []byte, tid Tid, err error)
 
-	/* generalized ^^^
-	LoadBefore(oid Oid, beforeTid Tid) (data []byte, tid Tid, err error)
-	LoadSerial(oid Oid, serial Tid)    (data []byte, err error)
-	*/
+	// -> Prefetch(xid Xid) ...
 	// PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error

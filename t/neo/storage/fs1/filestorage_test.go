@@ -67,16 +67,21 @@ func TestLoad(t *testing.T) {
 			txh := txe.Header
 
 			// loadSerial
+			// TODO also test for getting error when not found
 			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
 			checkLoad(t, fs, xid, oidLoadedOk{txh.Tid, txe.Data()})
 
 			// loadBefore
+			// TODO also test for getting error when not found
 			xid = zodb.Xid{zodb.XTid{txh.Tid, true}, txh.Oid}
 			expect, ok := before[txh.Oid]
-			// TODO also test for getting error when !ok
 			if ok {
 				checkLoad(t, fs, xid, expect)
 			}
+
+			// loadBefore to get current record
+			xid.Tid += 1
+			checkLoad(t, fs, xid, oidLoadedOk{txh.Tid, txe.Data()})
 
 			before[txh.Oid] = oidLoadedOk{txh.Tid, txe.Data()}
 
