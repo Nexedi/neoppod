@@ -41,28 +41,20 @@ var _ zodb.IStorage = (*FileStorage)(nil)
 
 // TxnHeader represents header of a transaction record
 type TxnHeader struct {
-	RecLenm8        uint64	// XXX consider reorder with zodb.TxnInfo ?
+	// XXX consider reorder with zodb.TxnInfo ?
+	PrevRecLenm8	uint64	// 0 if no previous record
+	RecLenm8        uint64
+
 	zodb.TxnInfo
 
 	// underlying storage for user/desc/extension
 	stringsRam	[]byte
-
-	/*
-	Tid             zodb.Tid
-	RecLenm8        uint64
-	Status          zodb.TxnStatus
-	//UserLen         uint16
-	//DescriptionLen  uint16
-	//ExtensionLen    uint16
-	User            []byte  // TODO Encode ^^^
-	Description     []byte
-	Extension       []byte
-	*/
-
-	//Datav   []DataRec
 }
 
-const txnHeaderFixSize	= 8+8+1+2+2+2	// = 23
+const (
+	txnHeaderFixSize	= 8+8+1+2+2+2		// = 23
+	txnXHeaderFixSize	= 8 + txnHeaderFixSize	// with trail lengthm8 from previous record
+)
 
 // ErrTxnRecord is returned on transaction record read / decode errors
 // XXX merge with ErrDataRecord -> ErrRecord{pos, "transaction|data", "read", err} ?
@@ -112,20 +104,26 @@ var ErrVersionNonZero = errors.New("non-zero version")
 // pos: points to header begin	XXX text
 // no requirements are made to previous th state	XXX text
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
-func (th *TxnHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixSize]byte) (n int, err error) {
-	n, err = r.ReadAt(tmpBuf[:], pos)
+func (th *TxnHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]byte) (n int, err error) {
+	if pos > 4 + 8 {	// XXX -> magic
+		_, err = r.ReadAt(tmpBuf[:], pos - 8)
+	} else {
+		binary.BigEndian.PutUint64(tmpBuf[0:], 0)	// XXX simpler ?
+		_, err = r.ReadAt(tmpBuf[8:], pos)
+	}
 	// XXX EOF after txn header is not good
 	if err != nil {
 		return 0, &ErrTxnRecord{pos, "read", err}
 	}
 
-	th.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[0:]))
-	th.RecLenm8 = uint64(binary.BigEndian.Uint64(tmpBuf[8:]))
-	th.Status = zodb.TxnStatus(tmpBuf[16])
+	th.PrevRecLenm8 = uint64(binary.BigEndian.Uint64(tmpBuf[8-8:]))
+	th.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8+0:]))
+	th.RecLenm8 = uint64(binary.BigEndian.Uint64(tmpBuf[8+8:]))
+	th.Status = zodb.TxnStatus(tmpBuf[8+16])
 
-        luser := binary.BigEndian.Uint16(tmpBuf[17:])
-	ldesc := binary.BigEndian.Uint16(tmpBuf[19:])
-	lext  := binary.BigEndian.Uint16(tmpBuf[21:])
+        luser := binary.BigEndian.Uint16(tmpBuf[8+17:])
+	ldesc := binary.BigEndian.Uint16(tmpBuf[8+19:])
+	lext  := binary.BigEndian.Uint16(tmpBuf[8+21:])
 
 	lstr := int(luser) + int(ldesc) + int(lext)
 	if lstr <= cap(th.stringsRam) {
@@ -150,7 +148,7 @@ func (th *TxnHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixSize]
 // decodePrev reads and decodes transaction record header from a readerAt	XXX from next ...
 // pos: points to header begin	XXX text
 // no requirements are made to previous th state	XXX text
-func (th *TxnHeader) decodePrev(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixSize]byte) (posPrev int64, n int, err error) {
+func (th *TxnHeader) decodePrev(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]byte) (posPrev int64, n int, err error) {
 	if pos == 4 {	// XXX 4 -> magicsize
 		panic("no prev")	// TODO
 	}
@@ -180,12 +178,12 @@ func (th *TxnHeader) decodePrev(r io.ReaderAt, pos int64, tmpBuf *[txnHeaderFixS
 
 // XXX do we need Decode when decode() is there?
 func (th *TxnHeader) Decode(r io.ReaderAt, pos int64) (n int, err error) {
-	var tmpBuf [txnHeaderFixSize]byte
+	var tmpBuf [txnXHeaderFixSize]byte
 	return th.decode(r, pos, &tmpBuf)
 }
 
 func (th *TxnHeader) DecodePrev(r io.ReaderAt, pos int64) (posPrev int64, n int, err error) {
-	var tmpBuf [txnHeaderFixSize]byte
+	var tmpBuf [txnXHeaderFixSize]byte
 	return th.decodePrev(r, pos, &tmpBuf)
 }
 
