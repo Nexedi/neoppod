@@ -21,19 +21,19 @@ type XTid struct {
 	TidBefore bool	// XXX merge into Tid itself (high bit) ?
 }
 
-// Xid is "extended" oid - oid + serial/beforeTid, completely specifying object revision	XXX text
+// Xid is "extended" oid = oid + serial/beforeTid, completely specifying object revision	XXX text
 type Xid struct {
 	XTid
 	Oid
 }
 
 const (
-	Tid0	Tid = 0			// XXX or simply Tid(0) ?
+	//Tid0	Tid = 0			// XXX -> simply Tid(0) ?
 	TidMax	Tid = 1<<63 - 1		// 0x7fffffffffffffff
 					// ZODB defines maxtid to be max signed int64 since baee84a6 (Jun 7 2016)
 					// (XXX in neo: SQLite does not accept numbers above 2^63-1)
 
-	Oid0	Oid = 0
+	//Oid0	Oid = 0			// XXX -> simply Oid(0)
 )
 
 func (tid Tid) String() string {
@@ -62,7 +62,7 @@ func (xtid XTid) String() string {
 }
 
 func (xid Xid) String() string {
-	return xid.XTid.String() + ":" + xid.Oid.String()
+	return xid.XTid.String() + ":" + xid.Oid.String()	// XXX use "·" instead of ":" ?
 }
 
 // ----------------------------------------
@@ -83,7 +83,7 @@ type ErrXidMissing struct {
 }
 
 func (e *ErrXidMissing) Error() string {
-	return fmt.Sprintf("%v: no matching data record found", e.Xid)	// XXX ok?
+	return fmt.Sprintf("%v: no matching data record found", e.Xid)
 }
 
 // ----------------------------------------
@@ -97,12 +97,11 @@ const (
 	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
 )
 
-// TODO Tid.String(), Oid.String() +verbose, scanning (?)
-
-// Information about single storage transaction
+// Information about single transaction
 // XXX -> storage.ITransactionInformation
 //type IStorageTransactionInformation interface {
-type StorageTransactionInformation struct {
+//type StorageTransactionInformation struct {
+type TxnInfo struct {
 	Tid         Tid
 	Status      TxnStatus
 	User        []byte
@@ -114,6 +113,7 @@ type StorageTransactionInformation struct {
 }
 
 // Information about single storage record
+// XXX naming
 type StorageRecordInformation struct {
 	Oid         Oid
 	Tid         Tid
@@ -157,10 +157,13 @@ type IStorage interface {
 }
 
 type IStorageIterator interface {
-	Next() (*StorageTransactionInformation, error)  // XXX -> NextTxn() ?
+	// NextTxn puts information about next storage transaction into *txnInfo.
+	// data put into *txnInfo stays valid until next call to NextTxn().
+	NextTxn(txnInfo *TxnInfo) (ok bool, err error)	// XXX ok -> stop ?
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
-	Next() (*StorageRecordInformation, error)    // XXX vs ptr & nil ?
-	                                            // XXX -> NextTxnObject() ?
+	// NextData puts information about next storage data record into *dataInfo.
+	// data put into *dataInfo stays vaild until next call to NextData().
+	NextData(dataInfo *StorageRecordInformation) (ok bool, err error)
 }

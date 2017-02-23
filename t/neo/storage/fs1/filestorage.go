@@ -249,7 +249,7 @@ func (fs *FileStorage) StorageName() string {
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	if tidMin != zodb.Tid0 || tidMax != zodb.TidMax {
+	if tidMin != zodb.Tid(0) || tidMax != zodb.TidMax {
 		panic("TODO tidMin/tidMax support")
 	}
 

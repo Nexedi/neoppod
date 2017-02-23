@@ -108,6 +108,20 @@ func TestLoad(t *testing.T) {
 			if tidMin > tidMax {
 				// expect error / panic or empty iteration ?
 			}
+
+			txni  := zodb.TxnInfo{}
+			datai := zodb.StorageRecordInformation{}
+
+			for {
+				ok, err := iter.NextTxn(&txni)
+				if err != nil {
+					panic(err)	// XXX err
+				}
+				if !ok {
+					break
+				}
+			}
+
 		}
 	}
 }
