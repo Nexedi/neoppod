@@ -20,6 +20,9 @@ from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
+# BBB: the following 2 constants were added to mysqlclient 1.3.8
+DROP_LAST_PARTITION = 1508
+SAME_NAME_PARTITION = 1517
 from array import array
 from hashlib import sha1
 import os
@@ -121,10 +124,11 @@ class MySQLDatabaseManager(DatabaseManager):
                               for d in row])
                         for row in r.fetch_row(r.num_rows())])
                 break
-            except OperationalError, m:
-                if self._active or m[0] not in (SERVER_GONE_ERROR, SERVER_LOST):
+            except OperationalError as m:
+                code, m = m.args
+                if self._active or SERVER_GONE_ERROR != code != SERVER_LOST:
                     raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
-                        % (m[0], m[1], getPrintableQuery(query[:1000])))
+                        % (code, m, getPrintableQuery(query[:1000])))
                 logging.info('the MySQL server is gone; reconnecting')
                 self._connect()
         r = query.split(None, 1)[0]
@@ -145,8 +149,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def nonempty(self, table):
         try:
             return bool(self.query("SELECT 1 FROM %s LIMIT 1" % table))
-        except ProgrammingError, (code, _):
-            if code != NO_SUCH_TABLE:
+        except ProgrammingError as e:
+            if e.args[0] != NO_SUCH_TABLE:
                 raise
 
     def _setup(self):
@@ -276,8 +280,8 @@ class MySQLDatabaseManager(DatabaseManager):
         sql = "REPLACE INTO config VALUES ('%s', '%s')" % (k, e(value))
         try:
             q(sql)
-        except DataError, (code, _):
-            if code != DATA_TOO_LONG or len(value) < 256 or key != "zodb":
+        except DataError as e:
+            if e.args[0] != DATA_TOO_LONG or len(value) < 256 or key != "zodb":
                 raise
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
@@ -380,8 +384,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 for table in 'trans', 'obj':
                     try:
                         self.conn.query(add % table)
-                    except OperationalError, (code, _):
-                        if code != 1517: # duplicate partition name
+                    except OperationalError as e:
+                        if e.args[0] != SAME_NAME_PARTITION:
                             raise
 
     def dropPartitions(self, offset_list):
@@ -404,8 +408,8 @@ class MySQLDatabaseManager(DatabaseManager):
             for table in 'trans', 'obj':
                 try:
                     self.conn.query(drop % table)
-                except OperationalError, (code, _):
-                    if code != 1508: # already dropped
+                except OperationalError as e:
+                    if e.args[0] != DROP_LAST_PARTITION:
                         raise
 
     def dropUnfinishedData(self):
@@ -531,8 +535,8 @@ class MySQLDatabaseManager(DatabaseManager):
         try:
             self.query("INSERT INTO data VALUES (NULL, '%s', %d, '%s')" %
                        (checksum, compression,  e(data)))
-        except IntegrityError, (code, _):
-            if code == DUP_ENTRY:
+        except IntegrityError as e:
+            if e.args[0] == DUP_ENTRY:
                 (r, d), = self.query("SELECT id, value FROM data"
                                      " WHERE hash='%s' AND compression=%s"
                                      % (checksum, compression))
