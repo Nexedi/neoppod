@@ -1567,6 +1567,21 @@ class Test(NEOThreadedTest):
                 self.tic()
                 self.assertPartitionTable(cluster, pt)
 
+    @with_cluster()
+    def testAbortTransaction(self, cluster):
+        t, c = cluster.getTransaction()
+        r = c.root()
+        r._p_changed = 1
+        def abort(_):
+            raise Exception
+        TransactionalResource(t, 0, tpc_vote=abort)
+        with cluster.client.filterConnection(cluster.storage) as cs:
+            cs.delayAskStoreObject()
+            self.assertRaises(Exception, t.commit)
+        t.begin()
+        r._p_changed = 1
+        t.commit()
+
     @with_cluster(replicas=1)
     def testPartialConflict(self, cluster):
         """

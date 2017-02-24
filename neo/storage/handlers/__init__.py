@@ -20,7 +20,17 @@ from neo.lib.handler import EventHandler
 from neo.lib.exception import PrimaryFailure, StoppedOperation
 from neo.lib.protocol import uuid_str, NodeStates, NodeTypes, Packets
 
-class BaseMasterHandler(EventHandler):
+class BaseHandler(EventHandler):
+
+    def notifyTransactionFinished(self, conn, ttid, max_tid):
+        app = self.app
+        app.tm.abort(ttid)
+        app.replicator.transactionFinished(ttid, max_tid)
+
+    def abortTransaction(self, conn, ttid, _):
+        self.notifyTransactionFinished(conn, ttid, None)
+
+class BaseMasterHandler(BaseHandler):
 
     def connectionLost(self, conn, new_state):
         if self.app.listening_conn: # if running

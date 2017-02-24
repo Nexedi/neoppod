@@ -15,18 +15,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.handler import DelayEvent, EventHandler
+from neo.lib.handler import DelayEvent
 from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, Errors, ProtocolError, \
     ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, NotRegisteredError
+from . import BaseHandler
 import time
 
 # Log stores taking (incl. lock delays) more than this many seconds.
 # Set to None to disable.
 SLOW_STORE = 2
 
-class ClientOperationHandler(EventHandler):
+class ClientOperationHandler(BaseHandler):
 
     def askTransactionInformation(self, conn, tid):
         t = self.app.dm.getTransaction(tid)

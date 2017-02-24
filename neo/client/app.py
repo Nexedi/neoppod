@@ -549,6 +549,24 @@ class Application(ThreadedApplication):
         txn_context = self._txn_container.pop(transaction)
         if txn_context is None:
             return
+        # We want that the involved nodes abort a transaction after any
+        # other packet sent by the client for this transaction. IOW, if we
+        # already have a connection with a storage node, potentially with
+        # a pending write, aborting only via the master may lead to a race
+        # condition. The consequence would be that storage nodes lock oids
+        # forever.
+        p = Packets.AbortTransaction(txn_context.ttid, ())
+        for uuid in txn_context.involved_nodes:
+            try:
+                self.cp.connection_dict[uuid].notify(p)
+            except (KeyError, ConnectionClosed):
+                pass
+        # Because we want to be sure that the involved nodes are notified,
+        # we still have to send the full list to the master. Most of the
+        # time, the storage nodes get 2 AbortTransaction packets, and the
+        # second one is rarely useful. Another option would be that the
+        # storage nodes keep a list of aborted transactions, but the
+        # difficult part would be to avoid a memory leak.
         try:
             notify = self.master_conn.notify
         except AttributeError:

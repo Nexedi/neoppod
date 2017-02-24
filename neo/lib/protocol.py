@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 10
+PROTOCOL_VERSION = 11
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1033,11 +1033,11 @@ class StoreObject(Packet):
 
 class AbortTransaction(Packet):
     """
-    Abort a transaction. C -> PM -> S.
+    Abort a transaction. C -> S and C -> PM -> S.
     """
     _fmt = PStruct('abort_transaction',
         PTID('tid'),
-        PFUUIDList, # unused for PM -> S
+        PFUUIDList, # unused for * -> S
     )
 
 class StoreTransaction(Packet):
