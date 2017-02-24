@@ -115,11 +115,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     assert conn.uuid in txn_context.data_dict[oid][1]
                     return
                 assert oid in txn_context.data_dict
-                if oid in txn_context.conflict_dict:
-                    # Another node already reported the conflict, by answering
-                    # to this rebase or to the previous store.
-                    # Filling conflict_dict again would be a no-op.
-                    assert txn_context.conflict_dict[oid] == (serial, conflict)
+                if serial <= txn_context.conflict_dict.get(oid, ('',))[0]:
+                    # Another node already reported this conflict or a newer,
+                    # by answering to this rebase or to the previous store.
                     return
                 # A node has not answered yet to a previous store. Do not wait
                 # it to report the conflict because it may fail before.
