@@ -382,6 +382,7 @@ class TransactionManager(EventQueue):
         # "C+A vs. B -> C+A+B" rarely costs more than "C+A vs. C+B -> C+A+B".
         # However, this would be against the optimistic principle of ZODB.
         if previous_serial is not None and previous_serial != serial:
+            assert serial < previous_serial, (serial, previous_serial)
             logging.info('Conflict on %s:%s with %s',
                 dump(oid), dump(ttid), dump(previous_serial))
             raise ConflictError(previous_serial)

@@ -144,10 +144,29 @@ class Replicator(object):
             return
         min_ttid = min(self.ttid_set) if self.ttid_set else INVALID_TID
         for offset, p in self.partition_dict.iteritems():
-            if p.max_ttid and p.max_ttid < min_ttid:
-                p.max_ttid = None
+            if p.max_ttid:
                 if max_tid:
+                    # Filling replicate_dict while there are still unfinished
+                    # transactions for this partition is not the most
+                    # efficient (due to the overhead of potentially replicating
+                    # the last transactions in several times), but that's a
+                    # simple way to make sure it is filled even if the
+                    # remaining unfinished transactions are aborted.
                     self.replicate_dict[offset] = max_tid
+                if p.max_ttid < min_ttid:
+                    # no more unfinished transaction for this partition
+                    if not (offset == self.current_partition
+                            or offset in self.replicate_dict):
+                        logging.debug(
+                            "All unfinished transactions have been aborted."
+                            " Mark partition %u as already fully replicated",
+                            offset)
+                        # We don't have anymore the previous value of
+                        # self.replicate_dict[offset], but p.max_ttid is not
+                        # wrong. Anyway here, we're not in backup mode and this
+                        # value will be ignored.
+                        self.app.tm.replicated(offset, p.max_ttid)
+                    p.max_ttid = None
         self._nextPartition()
 
     def getBackupTID(self):
