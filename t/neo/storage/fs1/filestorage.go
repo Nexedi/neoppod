@@ -275,13 +275,19 @@ func OpenFileStorage(path string) (*FileStorage, error) {
 	// read tidMin/tidMax
 	// FIXME support empty file case
 	var txnhMin, txnhMax TxnHeader
-	_, err = txnhMin.Decode(f, 4)
+	err = txnhMin.Load(f, 4)
 	if err != nil {
 		return nil, err	// XXX +context
 	}
-	_, _, err = txnhMax.DecodePrev(f, topPos)
+	err = txnhMax.Load(f, topPos)
+	// XXX expect EOF but .PrevLen must be good
 	if err != nil {
 		return nil, err	// XXX +context
+	}
+
+	err = txhhMax.LoadPrev(f)
+	if err != nil {
+		// XXX
 	}
 
 
@@ -406,10 +412,33 @@ func (fs *FileStorage) StorageName() string {
 }
 
 
-type FileStorageIterator struct {
-	txnPos int64	// current (?) transaction position
+type forwardIter struct {
+	//Pos	int64		// current transaction position
 
-	tidMin, tidMax zodb.Tid	// iteration range: [tidMin, tidMax]
+	Txnh	TxnHeader	// current transaction information
+	TidMax	zodb.Tid	// iterate up to tid <= tidMax
+}
+
+func (fi *forwardIter) NextTxn() error {
+	// XXX from what we start? how to yield 1st elem?
+	err := fi.Txnh.LoadNext()
+	if err != nil {
+		return err
+	}
+
+	// how to make sure last good txnh is preserved?
+	if fi.Txnh.Tid > fi.TidMax {
+		return io.EOF
+	}
+
+	return nil
+}
+
+// TODO backwardIter
+
+type FileStorageIterator struct {
+	forwardIter
+	tidMin		zodb.Tid // iteration range: [tidMin, tidMax]
 }
 
 func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, stop bool, err error) {
@@ -425,11 +454,14 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		// -> XXX empty
 	}
 
-/*
 	(tidMin - fs.TidMin) vs (fs.TidMax - tidMin)
 
-	// if forward
-	iter := forwardIter{4, tidMin}
+	if forward {
+		iter = forwardIter{4, tidMin}
+	} else {
+		iter = backwardIter{fs.topPos, tidMin}
+	}
+
 	for {
 		iter.NextTxn(txnh, ...)
 	}
@@ -437,7 +469,6 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	// txnh should have .Tid <= tidMin but next txn's .Tid is > tidMin
 	posStart := iter.txnPos
 	if t
-*/
 
 	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
 }
