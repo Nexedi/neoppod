@@ -172,54 +172,48 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64) error {
 	txnh.Description = work[luser:luser:ldesc]
 	txnh.Extension	 = work[luser+ldesc:luser+ldesc:lext]
 
-	// XXX make loading strings optional
+	// XXX make strings loading optional
 	txnh.loadString()
 
 	return txnHeaderFixSize + lstr, nil
 }
 
+// loadStrings makes sure strings that are part of transaction header are loaded
 func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
+	// XXX make it no-op if strings are already loaded?
+
 	// we rely on Load leaving len(workMem) = sum of all strings length ...
 	nstr, err = r.ReadAt(txnh.workMem, txnh.Pos + txnHeaderFixSize)
 	if err != nil {
-		return 0, &ErrTxnRecord{txnh.Pos, "read", noEof(err)}
+		return 0, &ErrTxnRecord{txnh.Pos, "read", noEof(err)}	// XXX -> "read strings" ?
 	}
 
 	// ... and presetting x to point to appropriate places in .workMem .
 	// so set len(x) = cap(x) to indicate strings are now loaded.
 	txnh.User = txnh.User[:cap(txnh.User)]
-	txnh.Description = txnh.User[:cap(txnh.Description)]
-	txnh.Extension = txnh.User[:cap(txnh.Extension)]
+	txnh.Description = txnh.Description[:cap(txnh.Description)]
+	txnh.Extension = txnh.Extension[:cap(txnh.Extension)]
 }
 
 // loadPrev reads and decodes previous transaction record header from a readerAt
 // txnh should be already initialized by previous call to load()
-func (txnh *TxnHeader) loadPrev(r io.ReaderAt, tmpBuf *[txnXHeaderFixSize]byte) error {
+func (txnh *TxnHeader) LoadPrev(r io.ReaderAt) error {
 	if txnh.PrevLen == 0 {
 		return io.EOF
 	}
 
-	return txnh.load(r, txnh.Pos - txnh.PrevLen, tmpBuf)
+	return txnh.Load(r, txnh.Pos - txnh.PrevLen)
 }
 
 // loadNext reads and decodes next transaction record header from a readerAt
 // txnh should be already initialized by previous call to load()
-func (txnh *TxnHeader) loadNext(r io.ReaderAt, tmpBuf *[txnXHeaderFixSize]byte) error {
-	return txnh.load(r, txnh.Pos + txnh.Len, tmpBuf)
-}
-
-// XXX do we need Decode when decode() is there?
-func (th *TxnHeader) Decode(r io.ReaderAt, pos int64) (n int, err error) {
-	var tmpBuf [txnXHeaderFixSize]byte
-	return th.decode(r, pos, &tmpBuf)
-}
-
-func (th *TxnHeader) DecodePrev(r io.ReaderAt, pos int64) (posPrev int64, n int, err error) {
-	var tmpBuf [txnXHeaderFixSize]byte
-	return th.decodePrev(r, pos, &tmpBuf)
+func (txnh *TxnHeader) LoadNext(r io.ReaderAt) error {
+	return txnh.Load(r, txnh.Pos + txnh.Len)
 }
 
 
+
+// XXX -> Load ?
 // decode reads and decodes data record header from a readerAt
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
 func (dh *DataHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[dataHeaderSize]byte) error {
