@@ -50,7 +50,7 @@ type TxnHeader struct {
 	// transaction metadata tself
 	zodb.TxnInfo
 
-	// underlying memory for loading and for user/desc/extension
+	// underlying memory for header loading and for user/desc/extension
 	workMem	[]byte
 }
 
@@ -73,12 +73,13 @@ func (e *ErrTxnRecord) Error() string {
 
 // DataHeader represents header of a data record
 type DataHeader struct {
+	Pos		int64	// position of data record
 	Oid             zodb.Oid
 	Tid             zodb.Tid
-	PrevDataRecPos  int64	// previous-record file-position	XXX name
+	PrevRevPos	int64	// position of this oid's previous-revision data record
 	TxnPos          int64	// position of transaction record this data record belongs to
 	//_		uint16	// 2-bytes with zero values. (Was version length.)
-	DataLen		uint64	// length of following data. if 0 -> following = 8 bytes backpointer	XXX -> int64 too ?
+	DataLen		int64	// length of following data. if 0 -> following = 8 bytes backpointer	XXX -> validate in code
 				// if backpointer == 0 -> oid deleted
 	//Data            []byte
 	//DataRecPos      uint64  // if Data == nil -> byte position of data record containing data
@@ -203,7 +204,7 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
 	txnh.Extension = txnh.Extension[:cap(txnh.Extension)]
 }
 
-// loadPrev reads and decodes previous transaction record header from a readerAt
+// LoadPrev reads and decodes previous transaction record header from a readerAt
 // txnh should be already initialized by previous call to load()
 func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	if txnh.PrevLen == 0 {
@@ -213,7 +214,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	return txnh.Load(r, txnh.Pos - txnh.PrevLen, flags)
 }
 
-// loadNext reads and decodes next transaction record header from a readerAt
+// LoadNext reads and decodes next transaction record header from a readerAt
 // txnh should be already initialized by previous call to load()
 func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	return txnh.Load(r, txnh.Pos + txnh.Len, flags)
@@ -226,13 +227,9 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
 func (dh *DataHeader) decode(r io.ReaderAt, pos int64, tmpBuf *[dataHeaderSize]byte) error {
 	n, err := r.ReadAt(tmpBuf[:], pos)
-	// XXX vvv if EOF is after header - record is broken
-	if n == dataHeaderSize {
-		err = nil // we don't mind if it was EOF after full header read
-	}
 
 	if err != nil {
-		return &ErrDataRecord{pos, "read", err}
+		return &ErrDataRecord{pos, "read", noEof(err)}
 	}
 
 	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(tmpBuf[0:]))	// XXX -> zodb.Oid.Decode() ?
