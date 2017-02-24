@@ -450,8 +450,16 @@ type FileStorageIterator struct {
 }
 
 func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, stop bool, err error) {
-	// TODO
-	return
+	err = fsi.forwardIter.NextTxn(LoadAll)
+	if err != nil {
+		return nil, err	// XXX recheck
+	}
+
+	*txnInfo = fsi.forwardIter.Txnh.TxnInfo
+
+	// TODO set dataIter
+
+	return dataIter, nil
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
