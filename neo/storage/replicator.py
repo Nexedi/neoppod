@@ -276,7 +276,8 @@ class Replicator(object):
         try:
             addr, name = self.source_dict[offset]
         except KeyError:
-            assert app.pt.getCell(offset, app.uuid).isOutOfDate()
+            assert app.pt.getCell(offset, app.uuid).isOutOfDate(), (
+                offset, app.pt.getCell(offset, app.uuid).getState())
             node = random.choice([cell.getNode()
                 for cell in app.pt.getCellList(offset, readable=True)
                 if cell.getNodeState() == NodeStates.RUNNING])
@@ -360,7 +361,8 @@ class Replicator(object):
         p = self.partition_dict[offset]
         p.next_obj = add64(tid, 1)
         self.updateBackupTID()
-        if p.max_ttid:
+        if p.max_ttid or offset in self.replicate_dict and \
+                         offset not in self.source_dict:
             logging.debug("unfinished transactions: %r", self.ttid_set)
         else:
             self.app.tm.replicated(offset, tid)

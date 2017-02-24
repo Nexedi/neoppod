@@ -32,7 +32,7 @@ from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
-from neo.lib.util import p64
+from neo.lib.util import p64, u64
 from .. import expectedFailure, Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
@@ -452,39 +452,53 @@ class ReplicationTests(NEOThreadedTest):
             cluster.join((s0,))
             t0, t1, t2 = c.db().storage.iterator()
 
-    @with_cluster(start_cluster=0, replicas=1)
-    def testReplicationBlockedByUnfinished(self, cluster):
-        if 1:
-            s0, s1 = cluster.storage_list
-            cluster.start(storage_list=(s0,))
-            storage = cluster.getZODBStorage()
-            oid = storage.new_oid()
+    @with_cluster(start_cluster=0, replicas=1, partitions=2)
+    def testReplicationBlockedByUnfinished1(self, cluster,
+                                            delay_replication=False):
+        s0, s1 = cluster.storage_list
+        cluster.start(storage_list=(s0,))
+        storage = cluster.getZODBStorage()
+        oid = storage.new_oid()
+        with ConnectionFilter() as f, cluster.moduloTID(1 - u64(oid) % 2):
+            if delay_replication:
+                delay_replication = f.delayAnswerFetchObjects()
             tid = None
-            expected = 'UO'
-            for n in 1, 0:
-                # On first iteration, the transaction will block replication
+            expected = 'U|U'
+            for n in xrange(3):
+                # On second iteration, the transaction will block replication
                 # until tpc_finish.
-                # We do a second iteration as a quick check that the cluster
+                # We do a last iteration as a quick check that the cluster
                 # remains functional after such a scenario.
                 txn = transaction.Transaction()
                 storage.tpc_begin(txn)
-                tid = storage.store(oid, tid, 'foo', '', txn)
-                if n:
+                tid = storage.store(oid, tid, str(n), '', txn)
+                if n == 1:
                     # Start the outdated storage.
                     s1.start()
                     self.tic()
                     cluster.enableStorageList((s1,))
                     cluster.neoctl.tweakPartitionTable()
+                    expected = 'UO|UO'
                 self.tic()
                 self.assertPartitionTable(cluster, expected)
                 storage.tpc_vote(txn)
                 self.assertPartitionTable(cluster, expected)
                 tid = storage.tpc_finish(txn)
-                self.tic() # replication resumes and ends
-                expected = 'UU'
+                if n == 1:
+                    if delay_replication:
+                        self.tic()
+                        self.assertPartitionTable(cluster, expected)
+                        f.remove(delay_replication)
+                        delay_replication = None
+                    self.tic() # replication resumes and ends
+                    expected = 'UU|UU'
                 self.assertPartitionTable(cluster, expected)
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
+        self.checkPartitionReplicated(s0, s1, 0)
+
+    def testReplicationBlockedByUnfinished2(self):
+        self.testReplicationBlockedByUnfinished1(True)
 
     @with_cluster(partitions=5, replicas=2, storage_count=3)
     def testCheckReplicas(self, cluster):
