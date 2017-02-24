@@ -50,8 +50,8 @@ type TxnHeader struct {
 	// transaction metadata tself
 	zodb.TxnInfo
 
-	// underlying storage for user/desc/extension
-	stringsMem	[]byte
+	// underlying memory for loading and for user/desc/extension
+	workMem	[]byte
 }
 
 const (
@@ -103,26 +103,31 @@ func (e *ErrDataRecord) Error() string {
 var ErrVersionNonZero = errors.New("non-zero version")
 
 
-// load reads and decodes transaction record header from a readerAt
+// Load reads and decodes transaction record header from a readerAt
 // pos: points to transaction start
 // no requirements are made to previous txnh state
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
-func (txnh *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]byte) error {
+func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64) error {
+	if cap(txnh.workMem) < txnXHeaderFixSize {
+		txnh.workMem = make([]byte, txnXHeaderFixSize)	// XXX or 0, ... ?
+	}
+	work := txnh.workMem[:txnXHeaderFixSize]	// XXX name
+
 	txnh.Pos = pos
 
 	if pos > 4 + 8 {	// XXX -> magic
 		// read together with previous's txn record redundand length
-		n, err = r.ReadAt(tmpBuf[:], pos - 8)
+		n, err = r.ReadAt(work, pos - 8)
 		n -= 8	// relative to pos
 		if n >= 0 {
-			txnh.PrevLen = 8 + int64(binary.BigEndian.Uint64(tmpBuf[8-8:]))
+			txnh.PrevLen = 8 + int64(binary.BigEndian.Uint64(work[8-8:]))
 			if txnh.PrevLen < txnHeaderFixSize {
 				panic("too small txn prev record length")	// XXX
 			}
 		}
 	} else {
+		n, err = r.ReadAt(work[8:], pos)
 		txnh.PrevLen = 0
-		n, err = r.ReadAt(tmpBuf[8:], pos)
 	}
 
 
@@ -139,38 +144,52 @@ func (txnh *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize
 		return n, &ErrTxnRecord{pos, "read", err}
 	}
 
-	txnh.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8+0:]))
-	txnh.Len = 8 + int64(binary.BigEndian.Uint64(tmpBuf[8+8:]))
-	txnh.Status = zodb.TxnStatus(tmpBuf[8+16])
+	txnh.Tid = zodb.Tid(binary.BigEndian.Uint64(work[8+0:]))
+	txnh.Len = 8 + int64(binary.BigEndian.Uint64(work[8+8:]))
+	txnh.Status = zodb.TxnStatus(work[8+16])
 
 	if txnh.Len < txnHeaderFixSize {
 		panic("too small txn record length")	// XXX
 	}
 
-        luser := binary.BigEndian.Uint16(tmpBuf[8+17:])
-	ldesc := binary.BigEndian.Uint16(tmpBuf[8+19:])
-	lext  := binary.BigEndian.Uint16(tmpBuf[8+21:])
+        luser := binary.BigEndian.Uint16(work[8+17:])
+	ldesc := binary.BigEndian.Uint16(work[8+19:])
+	lext  := binary.BigEndian.Uint16(work[8+21:])
 
-	// XXX load strings only optionally
+	// NOTE we encode whole strings length into len(.workMem)
 	lstr := int(luser) + int(ldesc) + int(lext)
-	if lstr <= cap(txnh.stringsMem) {
-		txnh.stringsMem = txnh.stringsMem[:lstr]
+	if cap(txnh.workMem) < lstr {
+		txnh.workMem = make([]byte, lstr)
 	} else {
-		txnh.stringsMem = make([]byte, lstr)
+		txnh.workMem = txnh.workMem[:lstr]
 	}
 
-	nstr, err = r.ReadAt(txnh.stringsMem, pos + txnHeaderFixSize)
-	// XXX EOF after txn header is not good
-	if err != nil {
-		return 0, &ErrTxnRecord{pos, "read", noEof(err)}
-	}
+	work = txnh.workMem[:lstr]
 
-	txnh.User = txnh.stringsMem[0:luser]
+	// NOTE we encode each x string length into cap(x)
+	//      and set len(x) = 0 to indicate x is not loaded yet
+	txnh.User	 = work[0:0:luser]
+	txnh.Description = work[luser:luser:ldesc]
+	txnh.Extension	 = work[luser+ldesc:luser+ldesc:lext]
 
-	txnh.Description = txnh.stringsMem[luser:luser+ldesc]
-	txnh.Extension = txnh.stringsMem[luser+ldesc:luser+ldesc+lext]
+	// XXX make loading strings optional
+	txnh.loadString()
 
 	return txnHeaderFixSize + lstr, nil
+}
+
+func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
+	// we rely on Load leaving len(workMem) = sum of all strings length ...
+	nstr, err = r.ReadAt(txnh.workMem, txnh.Pos + txnHeaderFixSize)
+	if err != nil {
+		return 0, &ErrTxnRecord{txnh.Pos, "read", noEof(err)}
+	}
+
+	// ... and presetting x to point to appropriate places in .workMem .
+	// so set len(x) = cap(x) to indicate strings are now loaded.
+	txnh.User = txnh.User[:cap(txnh.User)]
+	txnh.Description = txnh.User[:cap(txnh.Description)]
+	txnh.Extension = txnh.User[:cap(txnh.Extension)]
 }
 
 // loadPrev reads and decodes previous transaction record header from a readerAt
