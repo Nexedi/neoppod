@@ -103,11 +103,18 @@ func (e *ErrDataRecord) Error() string {
 var ErrVersionNonZero = errors.New("non-zero version")
 
 
+// flags for TxnHeader.Load
+type TxnLoadFlags int
+const (
+	LoadAll		TxnLoadFlags	= 0x00
+	LoadNoStrings			= 0x01
+)
+
 // Load reads and decodes transaction record header from a readerAt
 // pos: points to transaction start
 // no requirements are made to previous txnh state
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
-func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64) error {
+func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error {
 	if cap(txnh.workMem) < txnXHeaderFixSize {
 		txnh.workMem = make([]byte, txnXHeaderFixSize)	// XXX or 0, ... ?
 	}
@@ -172,8 +179,9 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64) error {
 	txnh.Description = work[luser:luser:ldesc]
 	txnh.Extension	 = work[luser+ldesc:luser+ldesc:lext]
 
-	// XXX make strings loading optional
-	txnh.loadString()
+	if flags & LoadNoString == 0 {
+		txnh.loadString()
+	}
 
 	return txnHeaderFixSize + lstr, nil
 }
@@ -197,18 +205,18 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
 
 // loadPrev reads and decodes previous transaction record header from a readerAt
 // txnh should be already initialized by previous call to load()
-func (txnh *TxnHeader) LoadPrev(r io.ReaderAt) error {
+func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	if txnh.PrevLen == 0 {
 		return io.EOF
 	}
 
-	return txnh.Load(r, txnh.Pos - txnh.PrevLen)
+	return txnh.Load(r, txnh.Pos - txnh.PrevLen, flags)
 }
 
 // loadNext reads and decodes next transaction record header from a readerAt
 // txnh should be already initialized by previous call to load()
-func (txnh *TxnHeader) LoadNext(r io.ReaderAt) error {
-	return txnh.Load(r, txnh.Pos + txnh.Len)
+func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
+	return txnh.Load(r, txnh.Pos + txnh.Len, flags)
 }
 
 
@@ -419,9 +427,9 @@ type forwardIter struct {
 	TidMax	zodb.Tid	// iterate up to tid <= tidMax
 }
 
-func (fi *forwardIter) NextTxn() error {
+func (fi *forwardIter) NextTxn(flags TxnLoadFlags) error {
 	// XXX from what we start? how to yield 1st elem?
-	err := fi.Txnh.LoadNext()
+	err := fi.Txnh.LoadNext(flags)
 	if err != nil {
 		return err
 	}
