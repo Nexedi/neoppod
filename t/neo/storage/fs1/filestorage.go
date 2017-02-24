@@ -47,8 +47,6 @@ type TxnHeader struct {
 			// (0 if there is no previous txn record)
 	Len	int64	// whole transaction record length
 
-	// XXX recheck ^^^ Len are validated on load
-
 	// transaction metadata tself
 	zodb.TxnInfo
 
@@ -106,25 +104,24 @@ var ErrVersionNonZero = errors.New("non-zero version")
 
 
 // load reads and decodes transaction record header from a readerAt
-// pos: points to header begin	XXX text
-// no requirements are made to previous th state	XXX text
+// pos: points to transaction start
+// no requirements are made to previous txnh state
 // XXX io.ReaderAt -> *os.File  (if iface conv costly)
-//func (th *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]byte) (n int, err error) {
-func (th *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]byte) error {
-	th.Pos = pos
+func (txnh *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]byte) error {
+	txnh.Pos = pos
 
 	if pos > 4 + 8 {	// XXX -> magic
 		// read together with previous's txn record redundand length
 		n, err = r.ReadAt(tmpBuf[:], pos - 8)
 		n -= 8	// relative to pos
 		if n >= 0 {
-			th.PrevLenm8 = uint64(binary.BigEndian.Uint64(tmpBuf[8-8:]))
-			if th.PrevLenm8 < txnHeaderFixSize {
+			txnh.PrevLen = 8 + int64(binary.BigEndian.Uint64(tmpBuf[8-8:]))
+			if txnh.PrevLen < txnHeaderFixSize {
 				panic("too small txn prev record length")	// XXX
 			}
 		}
 	} else {
-		th.PrevLenm8 = 0
+		txnh.PrevLen = 0
 		n, err = r.ReadAt(tmpBuf[8:], pos)
 	}
 
@@ -142,11 +139,11 @@ func (th *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]b
 		return n, &ErrTxnRecord{pos, "read", err}
 	}
 
-	th.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8+0:]))
-	th.Lenm8 = uint64(binary.BigEndian.Uint64(tmpBuf[8+8:]))
-	th.Status = zodb.TxnStatus(tmpBuf[8+16])
+	txnh.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8+0:]))
+	txnh.Len = 8 + int64(binary.BigEndian.Uint64(tmpBuf[8+8:]))
+	txnh.Status = zodb.TxnStatus(tmpBuf[8+16])
 
-	if th.Lenm8 < txnHeaderFixSize {
+	if txnh.Len < txnHeaderFixSize {
 		panic("too small txn record length")	// XXX
 	}
 
@@ -156,22 +153,22 @@ func (th *TxnHeader) load(r io.ReaderAt, pos int64, tmpBuf *[txnXHeaderFixSize]b
 
 	// XXX load strings only optionally
 	lstr := int(luser) + int(ldesc) + int(lext)
-	if lstr <= cap(th.stringsMem) {
-		th.stringsMem = th.stringsMem[:lstr]
+	if lstr <= cap(txnh.stringsMem) {
+		txnh.stringsMem = txnh.stringsMem[:lstr]
 	} else {
-		th.stringsMem = make([]byte, lstr)
+		txnh.stringsMem = make([]byte, lstr)
 	}
 
-	nstr, err = r.ReadAt(th.stringsMem, pos + txnHeaderFixSize)
+	nstr, err = r.ReadAt(txnh.stringsMem, pos + txnHeaderFixSize)
 	// XXX EOF after txn header is not good
 	if err != nil {
 		return 0, &ErrTxnRecord{pos, "read", noEof(err)}
 	}
 
-	th.User = th.stringsMem[0:luser]
+	txnh.User = txnh.stringsMem[0:luser]
 
-	th.Description = th.stringsMem[luser:luser+ldesc]
-	th.Extension = th.stringsMem[luser+ldesc:luser+ldesc+lext]
+	txnh.Description = txnh.stringsMem[luser:luser+ldesc]
+	txnh.Extension = txnh.stringsMem[luser+ldesc:luser+ldesc+lext]
 
 	return txnHeaderFixSize + lstr, nil
 }
