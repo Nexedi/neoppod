@@ -11,6 +11,7 @@
 // See COPYING file for full licensing terms.
 //
 // XXX partly based on code from ZODB ?
+// TODO link to format in zodb/py
 
 // FileStorage v1. Index
 package fs1
@@ -33,8 +34,8 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 )
 
-// fsIndex is Oid -> Tid's position mapping used to associate Oid with latest
-// transaction which changed it.
+// fsIndex is Oid -> Data record position mapping used to associate Oid with
+// Data record in latest transaction which changed it.	XXX text
 type fsIndex struct {
 	*fsb.Tree
 }

@@ -36,6 +36,15 @@ const (
 	//Oid0	Oid = 0			// XXX -> simply Oid(0)
 )
 
+func (tid Tid) Valid() bool {
+	// XXX if Tid becomes signed also check wrt 0
+	if tid <= TidMax {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (tid Tid) String() string {
 	// XXX also print "tid:" prefix ?
 	return fmt.Sprintf("%016x", uint64(tid))
@@ -97,6 +106,17 @@ const (
 	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
 )
 
+// Valid returns true if transaction status value is well-known and valid
+func (ts TxnStatus) Valid() bool {
+	switch ts {
+	case TxnComplete, TxnPacked, TxnInprogress:
+		return true
+
+	default:
+		return false
+	}
+}
+
 // Metadata information about single transaction
 type TxnInfo struct {
 	Tid         Tid
@@ -154,12 +174,12 @@ type IStorageIterator interface {
 	// NextTxn yields information about next database transaction:
 	// 1. transaction metadata, and
 	// 2. iterator over transaction data records. 
-	// transaction mentadata is put into *txnInfo stays valid until next call to NextTxn().
+	// transaction metadata is put into *txnInfo and stays valid until next call to NextTxn().
 	NextTxn(txnInfo *TxnInfo) (dataIter IStorageRecordIterator, stop bool, err error)	// XXX stop -> io.EOF ?
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
 	// NextData puts information about next storage data record into *dataInfo.
-	// data put into *dataInfo stays vaild until next call to NextData().
+	// data put into *dataInfo stays valid until next call to NextData().
 	NextData(dataInfo *StorageRecordInformation) (stop bool, err error)	// XXX stop -> io.EOF ?
 }
