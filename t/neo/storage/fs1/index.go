@@ -28,10 +28,9 @@ import (
 	"../../zodb"
 	"./fsb"
 
-	"lab.nexedi.com/kirr/go123/mem"
-
-	//"github.com/hydrogen18/stalecucumber"
 	pickle "github.com/kisielk/og-rek"
+
+	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // fsIndex is Oid -> Tid's position mapping used to associate Oid with latest
@@ -62,8 +61,8 @@ func fsIndexNew() *fsIndex {
 
 
 const (
-	oidPrefixMask zodb.Oid = (1<<64-1) ^ (1<<16 - 1)	// 0xffffffffffff0000
-	posInvalidMask  uint64 = (1<<64-1) ^ (1<<48 - 1)	// 0xffff000000000000
+	oidPrefixMask  zodb.Oid = (1<<64-1) ^ (1<<16 - 1)	// 0xffffffffffff0000
+	posInvalidMask uint64   = (1<<64-1) ^ (1<<48 - 1)	// 0xffff000000000000
 )
 
 // IndexSaveError is the error type returned by index save routines
@@ -315,6 +314,8 @@ func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
 	return LoadIndex(f)
 }
 
+
+// TODO move vvv to common place
 
 // CountReader is an io.Reader that count total bytes read
 type CountReader struct {
