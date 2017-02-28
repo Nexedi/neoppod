@@ -38,7 +38,7 @@ from neo.lib.debug import register as registerLiveDebugger
 class Application(BaseApplication):
     """The storage node application."""
 
-    tm = None
+    checker = replicator = tm = None
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -62,8 +62,6 @@ class Application(BaseApplication):
         # partitions.
         self.pt = None
 
-        self.checker = Checker(self)
-        self.replicator = Replicator(self)
         self.listening_conn = None
         self.master_conn = None
         self.master_node = None
@@ -171,9 +169,9 @@ class Application(BaseApplication):
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permanently,
         # until the user explicitly requests a shutdown.
+        self.ready = False
         while True:
             self.cluster_state = None
-            self.ready = False
             self.operational = False
             if self.master_node is None:
                 # look for the primary master
@@ -182,10 +180,8 @@ class Application(BaseApplication):
             node = self.nm.getByUUID(self.uuid)
             if node is not None and node.isHidden():
                 self.wait()
-            # drop any client node
-            for conn in self.em.getConnectionList():
-                if conn not in (self.listening_conn, self.master_conn):
-                    conn.close()
+            self.checker = Checker(self)
+            self.replicator = Replicator(self)
             self.tm = TransactionManager(self)
             try:
                 self.initialize()
@@ -196,8 +192,15 @@ class Application(BaseApplication):
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
             finally:
-                self.checker = Checker(self)
-            del self.tm
+                self.ready = False
+            # When not ready, we reject any incoming connection so for
+            # consistency, we also close any connection except that to the
+            # master. This includes connections to other storage nodes and any
+            # replication is aborted, whether we are feeding or out-of-date.
+            for conn in self.em.getConnectionList():
+                if conn not in (self.listening_conn, self.master_conn):
+                    conn.close()
+            del self.checker, self.replicator, self.tm
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
@@ -208,11 +211,6 @@ class Application(BaseApplication):
         Note that I do not accept any connection from non-master nodes
         at this stage."""
         pt = self.pt
-
-        # First of all, make sure that I have no connection.
-        for conn in self.em.getConnectionList():
-            if not conn.isListening():
-                conn.close()
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, NodeTypes.STORAGE, self.server)
@@ -245,7 +243,6 @@ class Application(BaseApplication):
             _poll()
         self.ready = True
         self.master_conn.notify(Packets.NotifyReady())
-        self.replicator.populate()
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
@@ -255,8 +252,8 @@ class Application(BaseApplication):
         _poll = self.em._poll
         isIdle = self.em.isIdle
 
-        handler = master.MasterOperationHandler(self)
-        self.master_conn.setHandler(handler)
+        self.master_conn.setHandler(master.MasterOperationHandler(self))
+        self.replicator.populate()
 
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
@@ -277,13 +274,6 @@ class Application(BaseApplication):
                 poll()
         finally:
             del self.task_queue
-            # XXX: Although no handled exception should happen between
-            #      replicator.populate() and the beginning of this 'try'
-            #      clause, the replicator should be reset in a safer place.
-            self.replicator = Replicator(self)
-            # Abort any replication, whether we are feeding or out-of-date.
-            for node in self.nm.getStorageList(only_identified=True):
-                node.getConnection().close()
 
     def changeClusterState(self, state):
         self.cluster_state = state

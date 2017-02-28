@@ -118,12 +118,12 @@ class HandlerSwitcher(object):
             logging.debug('Ignoring packet %r on closed connection %r',
                 packet, connection)
             return
-        msg_id = packet.getId()
-        (request_dict, handler) = self._pending[0]
-        # notifications are not expected
-        if not packet.isResponse():
-            handler.packetReceived(connection, packet)
+        if not packet.isResponse(): # notification
+            # XXX: If there are several handlers, which one to use ?
+            self._pending[0][1].packetReceived(connection, packet)
             return
+        msg_id = packet.getId()
+        request_dict, handler = self._pending[0]
         # checkout the expected answer class
         try:
             klass, _, _, kw = request_dict.pop(msg_id)

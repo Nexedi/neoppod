@@ -61,6 +61,9 @@ class MasterOperationHandler(BaseMasterHandler):
         logging.info('Pack finished.')
         conn.answer(Packets.AnswerPack(True))
 
+    def answerUnfinishedTransactions(self, conn, *args, **kw):
+        self.app.replicator.setUnfinishedTIDList(*args, **kw)
+
     def replicate(self, conn, tid, upstream_name, source_dict):
         self.app.replicator.backup(tid, {p: a and (a, upstream_name)
                                          for p, a in source_dict.iteritems()})

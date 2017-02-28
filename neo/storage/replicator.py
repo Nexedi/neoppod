@@ -286,6 +286,7 @@ class Replicator(object):
         if self.current_partition is not None or not self.replicate_dict:
             return
         app = self.app
+        assert app.master_conn and app.ready, (app.master_conn, app.ready)
         # Start replicating the partition which is furthest behind,
         # to increase the overall backup_tid as soon as possible.
         # Then prefer a partition with no unfinished transaction.

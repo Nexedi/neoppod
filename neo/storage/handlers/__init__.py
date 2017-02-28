@@ -66,9 +66,6 @@ class BaseMasterHandler(BaseHandler):
                         uuid_str(uuid))
                 self.app.tm.abortFor(uuid)
 
-    def answerUnfinishedTransactions(self, conn, *args, **kw):
-        self.app.replicator.setUnfinishedTIDList(*args, **kw)
-
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))
 

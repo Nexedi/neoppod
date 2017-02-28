@@ -474,6 +474,25 @@ class Test(NEOThreadedTest):
             #      but we would need an API to do that easily.
             self.assertFalse(cluster.client.dispatcher.registered(conn))
 
+    @with_cluster(replicas=2)
+    def test_notifyPartitionChanges(self, cluster):
+        cluster.db
+        s0, s1, s2 = cluster.storage_list
+        s1.stop()
+        cluster.join((s1,))
+        s1.resetNode()
+        # This checks that s1 processes any PT update
+        # (by MasterOperationHandler) even if it receives one before the
+        # AnswerUnfinishedTransactions packet.
+        with ConnectionFilter() as f:
+            f.delayAskUnfinishedTransactions()
+            s1.start()
+            self.tic()
+            s2.stop()
+            cluster.join((s2,))
+        self.tic()
+        self.assertPartitionTable(cluster, 'UUO', s1)
+
     @with_cluster(replicas=1, partitions=10)
     def testRestartWithMissingStorage(self, cluster):
         # translated from neo.tests.functional.testStorage.StorageTest
