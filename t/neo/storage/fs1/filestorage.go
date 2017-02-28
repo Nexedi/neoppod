@@ -108,10 +108,10 @@ func (e *ErrDataRecord) Error() string {
 	return fmt.Sprintf("data record @%v: %v: %v", e.Pos, e.Subj, e.Err)
 }
 
-// XXX -> zodb?
-var ErrVersionNonZero = errors.New("non-zero version")
+// // XXX -> zodb?
+// var ErrVersionNonZero = errors.New("non-zero version")
 
-var errPositionBug = errors.New("software bug: invalid position")
+var bugPosition = errors.New("software bug: invalid position")
 
 // noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
 func noEOF(err error) error {
@@ -144,7 +144,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 	txnh.LenPrev = 0
 
 	if pos < txnValidFrom {
-		panic(&ErrTxnRecord{pos, "read", errPositionBug})
+		panic(&ErrTxnRecord{pos, "read", bugPosition})
 	}
 
 	decodeErr := func(format string, a ...interface{}) *ErrTxnRecord {
@@ -265,8 +265,10 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 // decode reads and decodes data record header
 func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[DataHeaderSize]byte) error {
 	if pos < dataValidFrom {
-		panic(&ErrDataRecord{pos, "read", errPositionBug})
+		panic(&ErrDataRecord{pos, "read", bugPosition})
 	}
+
+	dh.Pos = pos
 
 	_, err := r.ReadAt(tmpBuf[:], pos)
 	if err != nil {
@@ -284,22 +286,34 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 		return decodeErr("invalid tid: %v", dh.Tid)
 	}
 
-	// XXX check prev data pos:
-	// < current pos
-	// > ... (valid)
 	dh.PrevRevPos = int64(binary.BigEndian.Uint64(tmpBuf[16:]))
-
-	// XXX txnPos < current pos
-	// XXX > ... valid
 	dh.TxnPos = int64(binary.BigEndian.Uint64(tmpBuf[24:]))
+	if dh.PrevRevPos < dataValidFrom {
+		return decodeErr("invalid prev oid data position: %v", dh.PrevRevPos)
+	}
+	if dh.TxnPos < txnValidFrom {
+		return decodeErr("invalid txn position: %v", dh.TxnPos)
+	}
+
+	if dh.TxnPos + TxnHeaderFixSize > pos {
+		return decodeErr("txn position not decreasing: %v", dh.TxnPos)
+	}
+	if dh.PrevRevPos + DataHeaderSize > dh.TxnPos - 8 {
+		return decodeErr("prev oid data position (%v) overlaps with txn (%v)", dh.PrevRevPos, dh.TxnPos)	// XXX wording
+	}
+
+	// XXX check PrevRevPos vs TxnPos overlap
 
 	verlen := binary.BigEndian.Uint16(tmpBuf[32:])
 	if verlen != 0 {
-		return &ErrDataRecord{pos, "invalid header", ErrVersionNonZero}
+		return decodeErr("non-zero version: #%v", verlen)
 	}
 
-	// XXX check DataLen >= 0
 	dh.DataLen = int64(binary.BigEndian.Uint64(tmpBuf[34:]))
+	if dh.DataLen < 0 {
+		// XXX also check DataLen < max ?
+		return decodeErr("invalid data len: %v", dh.DataLen)
+	}
 
 
 	return nil
