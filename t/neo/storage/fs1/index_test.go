@@ -1,5 +1,16 @@
-// XXX license/copyright
+// Copyright (C) 2017  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 2, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
 
+// FileStorage v1. Index. Tests
 package fs1
 
 //go:generate ./py/gen-testdata
@@ -223,7 +234,7 @@ func TestIndexSaveToPy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// now ask python part to compare testdata and save-by-us index
+	// now ask python part to compare testdata and saved-by-us index
 	cmd := exec.Command("./py/indexcmp", "testdata/1.fs.index", workdir + "/1.fs.index")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
