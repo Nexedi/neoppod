@@ -18,7 +18,6 @@ package fs1
 
 import (
 	"encoding/binary"
-	//"errors"
 	"fmt"
 	"io"
 	"os"
@@ -48,7 +47,7 @@ type TxnHeader struct {
 			// (0 if there is no previous txn record)
 	Len	int64	// whole transaction record length
 
-	// transaction metadata tself
+	// transaction metadata itself
 	zodb.TxnInfo
 
 	// underlying memory for header loading and for user/desc/extension strings
@@ -101,15 +100,17 @@ func (txnh *TxnHeader) err(subj string, err error) *ErrTxnRecord {
 	return &ErrTxnRecord{txnh.Pos, subj, err}
 }
 
-// errf is syntatic shortcut for err and fmt.Errorf
+// errf is syntactic shortcut for err and fmt.Errorf
 func (txnh *TxnHeader) errf(subj, format string, a ...interface{}) *ErrTxnRecord {
 	return txnh.err(subj, fmt.Errorf(format, a...))
 }
 
+// decodeErr is syntactic shortcut for errf("decode", ...)
 func (txnh *TxnHeader) decodeErr(format string, a ...interface{}) *ErrTxnRecord {
 	return txnh.errf("decode", format, a...)
 }
 
+// bug panics with errf("bug", ...)
 func (txnh *TxnHeader) bug(format string, a ...interface{}) {
 	panic(txnh.errf("bug", format, a...))
 }
@@ -131,19 +132,20 @@ func (dh *DataHeader) err(subj string, err error) *ErrDataRecord {
 	return &ErrDataRecord{dh.Pos, subj, err}
 }
 
-// errf is syntatic shortcut for err and fmt.Errorf
+// errf is syntactic shortcut for err and fmt.Errorf
 func (dh *DataHeader) errf(subj, format string, a ...interface{}) *ErrDataRecord {
 	return dh.err(subj, fmt.Errorf(format, a...))
 }
 
-// TODO decodeErr
+// decodeErr is syntactic shortcut for errf("decode", ...)
+func (dh *DataHeader) decodeErr(format string, a ...interface{}) *ErrDataRecord {
+	return dh.errf("decode", format, a...)
+}
 
+// bug panics with errf("bug", ...)
 func (dh *DataHeader) bug(format string, a ...interface{}) {
 	panic(dh.errf("bug", format, a...))
 }
-
-// // XXX -> zodb?
-// var ErrVersionNonZero = errors.New("non-zero version")
 
 // noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
 func noEOF(err error) error {
@@ -160,10 +162,6 @@ const (
 	LoadAll		TxnLoadFlags	= 0x00 // load whole transaction header
 	LoadNoStrings			= 0x01 // do not load user/desc/ext strings
 )
-
-// // it is software bug to pass invalid position to Load*()
-// // this error will be panicked
-// var bugPositionInvalid = errors.New("software bug: invalid position")
 
 // Load reads and decodes transaction record header
 // pos: points to transaction start
@@ -352,6 +350,7 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 // decode reads and decodes data record header
 func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[DataHeaderSize]byte) error {
 	dh.Pos = pos
+	// XXX .Len = 0		= read error ?
 
 	if pos < dataValidFrom {
 		dh.bug("Load() on invalid position")
@@ -360,10 +359,6 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 	_, err := r.ReadAt(tmpBuf[:], pos)
 	if err != nil {
 		return &ErrDataRecord{pos, "read", noEOF(err)}
-	}
-
-	decodeErr := func(format string, a ...interface{}) *ErrDataRecord {
-		return &ErrDataRecord{pos, "decode", fmt.Errorf(format, a...)}
 	}
 
 	// XXX also check oid.Valid() ?
