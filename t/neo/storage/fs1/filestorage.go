@@ -542,10 +542,10 @@ func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 	}
 
 	if dh.Tid != txnh.Tid {
-		return decodeErr(dh, "tid != txn.Tid")	// XXX
+		return decodeErr(dh, "data.tid != txn.Tid")	// XXX
 	}
 	if dh.TxnPos != txnh.Pos {
-		return decodeErr(dh, "txnPos != txn.Pos")	// XXX
+		return decodeErr(dh, "data.txnPos != txn.Pos")	// XXX
 	}
 	if dh.Pos + dh.Len() > txnTailPos {
 		return decodeErr(dh, "data record overlaps txn boundary")	// XXX
@@ -741,7 +741,6 @@ func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IS
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	/*
 	if tidMin < fs.tidMin {
 		tidMin = fs.tidMin
 	}
@@ -766,6 +765,4 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	if t
 
 	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
-	*/
-	return nil
 }
