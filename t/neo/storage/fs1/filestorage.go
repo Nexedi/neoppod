@@ -528,14 +528,20 @@ func Open(path string) (*FileStorage, error) {
 		return nil, err	// XXX +context
 	}
 	err = txnhMax.Load(f, topPos, LoadAll)
-	// XXX expect EOF but .PrevLen must be good
-	if err != nil {
+	// expect EOF but .LenPrev must be good
+	if err != io.EOF {
+		if err == nil {
+			err = fmt.Errorf("no EOF after topPos")	// XXX err context
+		}
 		return nil, err	// XXX +context
+	}
+	if txnhMax.LenPrev <= 0 {
+		panic("could not read LenPrev @topPos")	// XXX err
 	}
 
 	err = txnhMax.LoadPrev(f, LoadAll)
 	if err != nil {
-		// XXX
+		panic(err)	// XXX
 	}
 
 
