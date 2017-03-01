@@ -18,7 +18,7 @@ package fs1
 
 import (
 	"encoding/binary"
-	"errors"
+	//"errors"
 	"fmt"
 	"io"
 	"os"
@@ -131,7 +131,16 @@ func (dh *DataHeader) err(subj string, err error) *ErrDataRecord {
 	return &ErrDataRecord{dh.Pos, subj, err}
 }
 
-// TODO errf, decodeErr
+// errf is syntatic shortcut for err and fmt.Errorf
+func (dh *DataHeader) errf(subj, format string, a ...interface{}) *ErrDataRecord {
+	return dh.err(subj, fmt.Errorf(format, a...))
+}
+
+// TODO decodeErr
+
+func (dh *DataHeader) bug(format string, a ...interface{}) {
+	panic(dh.errf("bug", format, a...))
+}
 
 // // XXX -> zodb?
 // var ErrVersionNonZero = errors.New("non-zero version")
@@ -163,10 +172,10 @@ const (
 //
 // rules for Len/LenPrev returns:
 // Len ==  0			transaction header could not be read
-// Len == -1			EOF is there when reading forward
+// Len == -1			EOF forward
 // Len >= TxnHeaderFixSize	transaction was read normally
 //
-// LenPrev == 0			error reading
+// LenPrev == 0			prev record length could not be read
 // LenPrev == -1		EOF backward
 // LenPrev >= TxnHeaderFixSize	LenPrev was read/checked normally
 func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLoadFlags) error {
@@ -317,31 +326,36 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 //   - TODO
 func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenCur := txnh.Len
+	posCur := txnh.Pos
 	switch lenCur {
 	case 0:
-		txhn.bug("LoadNext() when .Len == error")
+		txnh.bug("LoadNext() when .Len == error")
 	case -1:
 		return io.EOF
 	}
 
 	err := txnh.Load(r, txnh.Pos + lenCur, flags)
-	// TODO XXX
-	if txnh.LenPrev != lenCur {
-	}
-	if err != nil {
+
+	// before checking loading error for next txn, let's first check redundant length
+	// NOTE also: err could be EOF
+	if txnh.LenPrev != 0 && txnh.LenPrev != lenCur {
+		err := txnh.decodeErr("head/tail lengths mismatch: %v, %v", lenCur, txnh.LenPrev)
+		err.Pos = posCur // position of txn for which we discovered problem
 		return err
 	}
+
+	return err
 }
 
 
 
 // decode reads and decodes data record header
 func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[DataHeaderSize]byte) error {
-	if pos < dataValidFrom {
-		panic(&ErrDataRecord{pos, "read", bugPositionInvalid})
-	}
-
 	dh.Pos = pos
+
+	if pos < dataValidFrom {
+		dh.bug("Load() on invalid position")
+	}
 
 	_, err := r.ReadAt(tmpBuf[:], pos)
 	if err != nil {
