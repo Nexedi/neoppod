@@ -410,19 +410,33 @@ func (dh *DataHeader) LoadPrevRev(r io.ReaderAt /* *os.File */) error {
 		return io.EOF	// no more previous revisions
 	}
 
-	err = dh.Load(r, dh.PrevRevPos)
+	posCur := dh.Pos
+
+	err := dh.loadPrevRev(r)
+	if err != nil {
+		// data record @...: loading prev rev: data record @...: ...
+		err = &ErrDataRecord{posCur, "loading prev rev", err}
+	}
+	return err
+}
+
+func (dh *DataHeader) loadPrevRev(r io.ReaderAt /* *os.File */) error {
+	oid := dh.Oid
+	tid := dh.Tid
+
+	err := dh.Load(r, dh.PrevRevPos)
 	if err != nil {
 		return err
 	}
 
 	if dh.Oid != oid {
-		// data record @...: while loading as prev rev for data record @...: oid mismatch ...
-		return ...
+		// XXX vvv valid only if ErrDataRecord prints oid
+		return decodeErr(dh, "oid mismatch")
 	}
 
 	if dh.Tid >= tid {
-		// data record @...: while loading as prev rev for data record @...: tid not decreasing: ...
-		return ...
+		// XXX vvv valid only if ErrDataRecord prints tid
+		return decodeErr(dh, "tid mismatch")
 	}
 
 	return nil
@@ -436,12 +450,12 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 	}
 
 	var xxx [8]byte	// XXX escapes ?
-	_, err = r.ReadAt(xxx[:], dh.Pos + DataHeaderSize)
+	_, err := r.ReadAt(xxx[:], dh.Pos + DataHeaderSize)
 	if err != nil {
 		return dh.err("read data", noEOF(err))
 	}
 
-	backPos = int64(binary.BigEndian.Uint64(xxx[:]))
+	backPos := int64(binary.BigEndian.Uint64(xxx[:]))
 	if backPos < dataValidFrom {
 		return decodeErr(dh, "invalid backpointer: %v", backPos)
 	}
@@ -450,7 +464,29 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 	}
 	// TODO backPos can be also == 0 - (means deleted rev)
 
-	err = dh.Load(r, backPos)
+	posCur := dh.Pos
+	tid := dh.Tid
+
+	// TODO compare this with loadPrevRev() way
+	err = func() error {
+		err := dh.Load(r, backPos)
+		if err != nil {
+			return err
+		}
+
+		// XXX also dh.Oid == oid ?
+		//     but in general back pointer might point to record with different oid
+		if dh.Tid >= tid {
+			return decodeErr(dh, "tid not decreasing")
+		}
+
+		return err
+	}()
+
+	if err != nil {
+		err = &ErrDataRecord{posCur, "loading back rev", err}
+	}
+
 	return err
 }
 
@@ -569,7 +605,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 
 	// now read actual data
 	data = make([]byte, dh.DataLen)	// TODO -> slab ?
-	n, err := fs.file.ReadAt(data, dh.Pos + DataHeaderSize)
+	_, err = fs.file.ReadAt(data, dh.Pos + DataHeaderSize)
 	if err != nil {
 		return nil, zodb.Tid(0), &ErrXidLoad{xid, noEOF(err)}
 	}
