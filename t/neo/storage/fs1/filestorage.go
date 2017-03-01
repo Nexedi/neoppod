@@ -401,7 +401,7 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 	return dh.load(r, pos, &tmpBuf)
 }
 
-// LoadPrevRev reads and decodes previous revision data record
+// LoadPrevRev reads and decodes previous revision data record header
 // prerequisite: dh .Oid .Tid .PrevRevPos are initialized:
 //   - TODO describe how
 // when there is no previous revision: io.EOF is returned
@@ -428,7 +428,30 @@ func (dh *DataHeader) LoadPrevRev(r io.ReaderAt /* *os.File */) error {
 	return nil
 }
 
+// LoadBack reads and decodes data header for revision linked via back-pointer
+// prerequisite: dh XXX     .DataLen == 0
 func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
+	if dh.DataLen != 0 {
+		bug(dh, "LoadBack() on non-backpointer data header")
+	}
+
+	var xxx [8]byte	// XXX escapes ?
+	_, err = r.ReadAt(xxx[:], dh.Pos + DataHeaderSize)
+	if err != nil {
+		return dh.err("read data", noEOF(err))
+	}
+
+	backPos = int64(binary.BigEndian.Uint64(xxx[:]))
+	if backPos < dataValidFrom {
+		return decodeErr(dh, "invalid backpointer: %v", backPos)
+	}
+	if backPos + DataHeaderSize > dh.TxnPos - 8 {
+		return decodeErr(dh, "backpointer (%v) overlaps with txn (%v)", backPos, dh.TxnPos)
+	}
+	// TODO backPos can be also == 0 - (means deleted rev)
+
+	err = dh.Load(r, backPos)
+	return err
 }
 
 
@@ -538,29 +561,17 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 
 	// scan via backpointers
 	for dh.DataLen == 0 {
-		// XXX -> LoadBack() ?
-		var xxx [8]byte	// XXX escapes ?
-		_, err = fs.file.ReadAt(xxx[:], dataPos + DataHeaderSize)
+		err = dh.LoadBack(fs.file)
 		if err != nil {
-			panic(err)	// XXX
-		}
-		dataPos = int64(binary.BigEndian.Uint64(xxx[:]))
-		// XXX check dataPos < dh.Pos
-		// XXX >= dataValidFrom
-		err = dh.Load(fs.file, dataPos)
-		if err != nil {
-			panic(err)	// XXX
+			panic(err)
 		}
 	}
 
 	// now read actual data
 	data = make([]byte, dh.DataLen)	// TODO -> slab ?
-	n, err := fs.file.ReadAt(data, dataPos + DataHeaderSize)
-	if n == len(data) {
-		err = nil	// we don't mind to get EOF after full data read   XXX ok?
-	}
+	n, err := fs.file.ReadAt(data, dh.Pos + DataHeaderSize)
 	if err != nil {
-		return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
+		return nil, zodb.Tid(0), &ErrXidLoad{xid, noEOF(err)}
 	}
 
 	return data, tid, nil
