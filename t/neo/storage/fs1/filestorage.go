@@ -110,6 +110,10 @@ func (txnh *TxnHeader) decodeErr(format string, a ...interface{}) *ErrTxnRecord 
 	return txnh.errf("decode", format, a...)
 }
 
+func (txnh *TxnHeader) bug(format string, a ...interface{}) {
+	panic(txnh.errf("bug", format, a...))
+}
+
 // ErrDataRecord is returned on data record read / decode errors
 type ErrDataRecord struct {
 	Pos	int64	// position of data record
@@ -148,14 +152,23 @@ const (
 	LoadNoStrings			= 0x01 // do not load user/desc/ext strings
 )
 
-// it is software bug to pass invalid position to Load*()
-// this error will be paniced
-var bugPositionInvalid = errors.New("software bug: invalid position")
+// // it is software bug to pass invalid position to Load*()
+// // this error will be panicked
+// var bugPositionInvalid = errors.New("software bug: invalid position")
 
 // Load reads and decodes transaction record header
 // pos: points to transaction start
-// no requirements are made to previous txnh state
+// no prerequisite requirements are made to previous txnh state
 // TODO describe what happens at EOF and when .LenPrev is still valid
+//
+// rules for Len/LenPrev returns:
+// Len ==  0			transaction header could not be read
+// Len == -1			EOF is there when reading forward
+// Len >= TxnHeaderFixSize	transaction was read normally
+//
+// LenPrev == 0			error reading
+// LenPrev == -1		EOF backward
+// LenPrev >= TxnHeaderFixSize	LenPrev was read/checked normally
 func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLoadFlags) error {
 	if cap(txnh.workMem) < txnXHeaderFixSize {
 		txnh.workMem = make([]byte, txnXHeaderFixSize)	// XXX or 0, ... ?
@@ -164,40 +177,49 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 
 	// XXX recheck rules about error exit
 	txnh.Pos = pos
-	txnh.Len = 0
-	txnh.LenPrev = 0
+	txnh.Len = 0		// read error
+	txnh.LenPrev = 0	// read error
 
 	if pos < txnValidFrom {
-		panic(txnh.err("read", bugPositionInvalid))
+		txnh.bug("Load() on invalid position")
 	}
 
 	var n int
 	var err error
 
 	if pos - 8 >= txnValidFrom {
-		// read together with previous's txn record redundand length
+		// read together with previous's txn record redundant length
 		n, err = r.ReadAt(work, pos - 8)
 		n -= 8	// relative to pos
 		if n >= 0 {
 			lenPrev := 8 + int64(binary.BigEndian.Uint64(work[8-8:]))
 			if lenPrev < TxnHeaderFixSize {
-				return txnh.decodeErr("invalid txn prev record length: %v", lenPrev)
+				return txnh.decodeErr("invalid prev record length: %v", lenPrev)
+			}
+			posPrev := txnh.Pos - lenPrev
+			if posPrev < txnValidFrom {
+				return txnh.decodeErr("prev record length goes beyond valid area: %v", lenPrev)
+			}
+			if posPrev < txnValidFrom + TxnHeaderFixSize && posPrev != txnValidFrom {
+				return txnh.decodeErr("prev record does not land exactly at valid area start: %v", posPrev)
 			}
 			txnh.LenPrev = lenPrev
 		}
 	} else {
 		// read only current txn without previous record length
 		n, err = r.ReadAt(work[8:], pos)
+		txnh.LenPrev = -1	// EOF backward
 	}
 
 
 	if err != nil {
 		if err == io.EOF && n == 0 {
-			return err // end of stream
+			txnh.Len = -1	// EOF forward
+			return err	// end of stream
 		}
 
 		// EOF after txn header is not good - because at least
-		// redundand lenght should be also there
+		// redundant length should be also there
 		return txnh.err("read", noEOF(err))
 	}
 
@@ -210,6 +232,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 	if tlen < TxnHeaderFixSize {
 		return txnh.decodeErr("invalid txn record length: %v", tlen)
 	}
+	// XXX also check tlen to not go beyond file size ?
 	txnh.Len = tlen
 
 	txnh.Status = zodb.TxnStatus(work[8+16])
@@ -263,31 +286,45 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt /* *os.File */) error {
 }
 
 // LoadPrev reads and decodes previous transaction record header
-// txnh should be already initialized by previous call to load()
+// prerequisite: txnh .Pos and .LenPrev should be already initialized:
+//   - by successful call to Load() initially			XXX but EOF also works
+//   - by subsequent successful calls to LoadPrev / LoadNext	XXX recheck
 func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenPrev := txnh.LenPrev
-	if lenPrev == 0 {
+	switch lenPrev {	// XXX recheck states for: 1) LenPrev load error  2) EOF
+	case 0:
+		txnh.bug("LoadPrev() when .LenPrev == error")
+	case -1:
 		return io.EOF
 	}
 
+	// here we know: Load already checked txnh.Pos - lenPrev to be valid position
 	err := txnh.Load(r, txnh.Pos - lenPrev, flags)
 	if err != nil {
 		return err
 	}
 
 	if txnh.Len != lenPrev {
-		return txnh.decodeErr("redundant lengths mismatch: %v, %v", txnh.Len, lenPrev)
+		return txnh.decodeErr("head/tail lengths mismatch: %v, %v", txnh.Len, lenPrev)
 	}
 
 	return nil
 }
 
 // LoadNext reads and decodes next transaction record header
-// txnh should be already initialized by previous call to load()
+// prerequisite: txnh .Pos and .Len should be already initialized by:
+//   - previous successful call to Load() initially		XXX ^^^
+//   - TODO
 func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenCur := txnh.Len
+	switch lenCur {
+	case 0:
+		txhn.bug("LoadNext() when .Len == error")
+	case -1:
+		return io.EOF
+	}
 
-	err := txnh.Load(r, txnh.Pos + txnh.Len, flags)
+	err := txnh.Load(r, txnh.Pos + lenCur, flags)
 	// TODO XXX
 	if txnh.LenPrev != lenCur {
 	}
