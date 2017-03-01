@@ -256,9 +256,15 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 
 	// NOTE we encode each x string length into cap(x)
 	//      and set len(x) = 0 to indicate x is not loaded yet
+	//println("workmem len:", len(txnh.workMem), "cap:", cap(txnh.workMem))
+	//println("luser:", luser)
+	//println("ldesc:", ldesc)
+	//println("lext: ", lext)
+	xdesc := luser + ldesc
+	xext  := xdesc + lext
 	txnh.User	 = txnh.workMem[0:0:luser]
-	txnh.Description = txnh.workMem[luser:luser:ldesc]
-	txnh.Extension	 = txnh.workMem[luser+ldesc:luser+ldesc:lext]
+	txnh.Description = txnh.workMem[luser:luser:xdesc]
+	txnh.Extension	 = txnh.workMem[xdesc:xdesc:xext]
 
 	if flags & LoadNoStrings == 0 {
 		err = txnh.loadStrings(r)
