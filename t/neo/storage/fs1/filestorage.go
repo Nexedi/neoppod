@@ -44,8 +44,8 @@ var _ zodb.IStorage = (*FileStorage)(nil)
 type TxnHeader struct {
 	Pos	int64	// position of transaction start
 	LenPrev	int64	// whole previous transaction record length
-			// (0 if there is no previous txn record)
-	Len	int64	// whole transaction record length
+			// (-1 if there is no previous txn record) XXX see rules in Load
+	Len	int64	// whole transaction record length	   XXX see rules in Load
 
 	// transaction metadata itself
 	zodb.TxnInfo
@@ -96,24 +96,10 @@ func (e *ErrTxnRecord) Error() string {
 }
 
 // err creates ErrTxnRecord for transaction located at txnh.Pos
-func (txnh *TxnHeader) err(subj string, err error) *ErrTxnRecord {
+func (txnh *TxnHeader) err(subj string, err error) error {
 	return &ErrTxnRecord{txnh.Pos, subj, err}
 }
 
-// errf is syntactic shortcut for err and fmt.Errorf
-func (txnh *TxnHeader) errf(subj, format string, a ...interface{}) *ErrTxnRecord {
-	return txnh.err(subj, fmt.Errorf(format, a...))
-}
-
-// decodeErr is syntactic shortcut for errf("decode", ...)
-func (txnh *TxnHeader) decodeErr(format string, a ...interface{}) *ErrTxnRecord {
-	return txnh.errf("decode", format, a...)
-}
-
-// bug panics with errf("bug", ...)
-func (txnh *TxnHeader) bug(format string, a ...interface{}) {
-	panic(txnh.errf("bug", format, a...))
-}
 
 // ErrDataRecord is returned on data record read / decode errors
 type ErrDataRecord struct {
@@ -128,24 +114,32 @@ func (e *ErrDataRecord) Error() string {
 
 // err creates ErrDataRecord for data record located at dh.Pos
 // XXX add link to containing txn? (check whether we can do it on data access) ?
-func (dh *DataHeader) err(subj string, err error) *ErrDataRecord {
+func (dh *DataHeader) err(subj string, err error) error {
 	return &ErrDataRecord{dh.Pos, subj, err}
 }
 
+
+// xerr is an interface for something which can create errors
+// it is used by TxnHeader and DataHeader to create appropriate errors with their context
+type xerr interface {
+	err(subj string, err error) error
+}
+
 // errf is syntactic shortcut for err and fmt.Errorf
-func (dh *DataHeader) errf(subj, format string, a ...interface{}) *ErrDataRecord {
-	return dh.err(subj, fmt.Errorf(format, a...))
+func errf(e xerr, subj, format string, a ...interface{}) error {
+	return e.err(subj, fmt.Errorf(format, a...))
 }
 
 // decodeErr is syntactic shortcut for errf("decode", ...)
-func (dh *DataHeader) decodeErr(format string, a ...interface{}) *ErrDataRecord {
-	return dh.errf("decode", format, a...)
+func decodeErr(e xerr, format string, a ...interface{}) error {
+	return errf(e, "decode", format, a...)
 }
 
 // bug panics with errf("bug", ...)
-func (dh *DataHeader) bug(format string, a ...interface{}) {
-	panic(dh.errf("bug", format, a...))
+func bug(e xerr, format string, a ...interface{}) {
+	panic(errf(e, "bug", format, a...))
 }
+
 
 // noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
 func noEOF(err error) error {
@@ -188,7 +182,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 	txnh.LenPrev = 0	// read error
 
 	if pos < txnValidFrom {
-		txnh.bug("Load() on invalid position")
+		bug(txnh, "Load() on invalid position")
 	}
 
 	var n int
@@ -201,14 +195,14 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 		if n >= 0 {
 			lenPrev := 8 + int64(binary.BigEndian.Uint64(work[8-8:]))
 			if lenPrev < TxnHeaderFixSize {
-				return txnh.decodeErr("invalid prev record length: %v", lenPrev)
+				return decodeErr(txnh, "invalid prev record length: %v", lenPrev)
 			}
 			posPrev := txnh.Pos - lenPrev
 			if posPrev < txnValidFrom {
-				return txnh.decodeErr("prev record length goes beyond valid area: %v", lenPrev)
+				return decodeErr(txnh, "prev record length goes beyond valid area: %v", lenPrev)
 			}
 			if posPrev < txnValidFrom + TxnHeaderFixSize && posPrev != txnValidFrom {
-				return txnh.decodeErr("prev record does not land exactly at valid area start: %v", posPrev)
+				return decodeErr(txnh, "prev record does not land exactly at valid area start: %v", posPrev)
 			}
 			txnh.LenPrev = lenPrev
 		}
@@ -232,19 +226,19 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 
 	txnh.Tid = zodb.Tid(binary.BigEndian.Uint64(work[8+0:]))
 	if !txnh.Tid.Valid() {
-		return txnh.decodeErr("invalid tid: %v", txnh.Tid)
+		return decodeErr(txnh, "invalid tid: %v", txnh.Tid)
 	}
 
 	tlen := 8 + int64(binary.BigEndian.Uint64(work[8+8:]))
 	if tlen < TxnHeaderFixSize {
-		return txnh.decodeErr("invalid txn record length: %v", tlen)
+		return decodeErr(txnh, "invalid txn record length: %v", tlen)
 	}
 	// XXX also check tlen to not go beyond file size ?
 	txnh.Len = tlen
 
 	txnh.Status = zodb.TxnStatus(work[8+16])
 	if !txnh.Status.Valid() {
-		return txnh.decodeErr("invalid status: %v", txnh.Status)
+		return decodeErr(txnh, "invalid status: %v", txnh.Status)
 	}
 
 
@@ -300,7 +294,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenPrev := txnh.LenPrev
 	switch lenPrev {	// XXX recheck states for: 1) LenPrev load error  2) EOF
 	case 0:
-		txnh.bug("LoadPrev() when .LenPrev == error")
+		bug(txnh, "LoadPrev() when .LenPrev == error")
 	case -1:
 		return io.EOF
 	}
@@ -312,7 +306,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	}
 
 	if txnh.Len != lenPrev {
-		return txnh.decodeErr("head/tail lengths mismatch: %v, %v", txnh.Len, lenPrev)
+		return decodeErr(txnh, "head/tail lengths mismatch: %v, %v", txnh.Len, lenPrev)
 	}
 
 	return nil
@@ -327,7 +321,7 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	posCur := txnh.Pos
 	switch lenCur {
 	case 0:
-		txnh.bug("LoadNext() when .Len == error")
+		bug(txnh, "LoadNext() when .Len == error")
 	case -1:
 		return io.EOF
 	}
@@ -337,9 +331,8 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	// before checking loading error for next txn, let's first check redundant length
 	// NOTE also: err could be EOF
 	if txnh.LenPrev != 0 && txnh.LenPrev != lenCur {
-		err := txnh.decodeErr("head/tail lengths mismatch: %v, %v", lenCur, txnh.LenPrev)
-		err.Pos = posCur // position of txn for which we discovered problem
-		return err
+		t := &TxnHeader{Pos: posCur} // txn for which we discovered problem
+		return decodeErr(t, "head/tail lengths mismatch: %v, %v", lenCur, txnh.LenPrev)
 	}
 
 	return err
@@ -353,7 +346,7 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 	// XXX .Len = 0		= read error ?
 
 	if pos < dataValidFrom {
-		dh.bug("Load() on invalid position")
+		bug(dh, "Load() on invalid position")
 	}
 
 	_, err := r.ReadAt(tmpBuf[:], pos)
@@ -365,38 +358,37 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(tmpBuf[0:]))	// XXX -> zodb.Oid.Decode() ?
 	dh.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8:]))	// XXX -> zodb.Tid.Decode() ?
 	if !dh.Tid.Valid() {
-		return decodeErr("invalid tid: %v", dh.Tid)
+		return decodeErr(dh, "invalid tid: %v", dh.Tid)
 	}
 
 	dh.PrevRevPos = int64(binary.BigEndian.Uint64(tmpBuf[16:]))
 	dh.TxnPos = int64(binary.BigEndian.Uint64(tmpBuf[24:]))
 	if dh.PrevRevPos < dataValidFrom {
-		return decodeErr("invalid prev oid data position: %v", dh.PrevRevPos)
+		return decodeErr(dh, "invalid prev oid data position: %v", dh.PrevRevPos)
 	}
 	if dh.TxnPos < txnValidFrom {
-		return decodeErr("invalid txn position: %v", dh.TxnPos)
+		return decodeErr(dh, "invalid txn position: %v", dh.TxnPos)
 	}
 
 	if dh.TxnPos + TxnHeaderFixSize > pos {
-		return decodeErr("txn position not decreasing: %v", dh.TxnPos)
+		return decodeErr(dh, "txn position not decreasing: %v", dh.TxnPos)
 	}
 	if dh.PrevRevPos + DataHeaderSize > dh.TxnPos - 8 {
-		return decodeErr("prev oid data position (%v) overlaps with txn (%v)", dh.PrevRevPos, dh.TxnPos)	// XXX wording
+		return decodeErr(dh, "prev oid data position (%v) overlaps with txn (%v)", dh.PrevRevPos, dh.TxnPos)	// XXX wording
 	}
 
 	// XXX check PrevRevPos vs TxnPos overlap
 
 	verlen := binary.BigEndian.Uint16(tmpBuf[32:])
 	if verlen != 0 {
-		return decodeErr("non-zero version: #%v", verlen)
+		return decodeErr(dh, "non-zero version: #%v", verlen)
 	}
 
 	dh.DataLen = int64(binary.BigEndian.Uint64(tmpBuf[34:]))
 	if dh.DataLen < 0 {
 		// XXX also check DataLen < max ?
-		return decodeErr("invalid data len: %v", dh.DataLen)
+		return decodeErr(dh, "invalid data len: %v", dh.DataLen)
 	}
-
 
 	return nil
 }
