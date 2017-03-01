@@ -63,7 +63,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 }
 
 func TestLoad(t *testing.T) {
-	fs, err := OpenFileStorage("testdata/1.fs")
+	fs, err := Open("testdata/1.fs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,6 +140,7 @@ func TestLoad(t *testing.T) {
 				// FIXME first tidMin and last tidMax
 				dbe := _1fs_dbEntryv[i + k]
 
+				// TODO also check .Pos, .LenPrev, .Len
 				if !reflect.DeepEqual(txni, dbe.Header.TxnInfo) {
 					t.Errorf("iterating %v..%v: step %v: unexpected txn entry:\nhave: %q\nwant: %q", tidMin, tidMax, k, txni, dbe.Header.TxnInfo)
 				}

@@ -117,6 +117,7 @@ def main():
         stor = FileStorage(outfs, read_only=True)
 
         emit("\nvar _1fs_dbEntryv = [...]dbEntry{")
+        txnLenPrev = -1
         for txn in stor.iterator():     # txn is TransactionRecord
             # txn.extension is already depickled dict - we want to put raw data from file
             # also we need to access txn record legth which is not provided by higher-level iterator
@@ -125,11 +126,15 @@ def main():
             assert th.tid == txn.tid
             assert th.tlen == txn._tend - txn._tpos
 
+            txnLen = th.tlen + 8
+
             emit("\t{")
 
             # -> TxnHeader
             emit("\t\tTxnHeader{")
-            emit("\t\t\tRecLenm8:\t%i," % th.tlen)
+            emit("\t\t\tPos:\t  %i," % txn._tpos)
+            emit("\t\t\tLenPrev:  %i," % txnLenPrev)
+            emit("\t\t\tLen:\t  %i," % txnLen)
             emit("\t\t\tTxnInfo:\tzodb.TxnInfo{")
             emit("\t\t\t\tTid:\t%s," % hex64(txn.tid))
             emit("\t\t\t\tStatus:\t'%s'," % txn.status)
@@ -138,6 +143,8 @@ def main():
             emit("\t\t\t\tExtension:\t[]byte(%s)," % escapeqq(th.ext))
             emit("\t\t\t},")
             emit("\t\t},")
+
+            txnLenPrev = txnLen
 
             # -> DataHeader + payload
             emit("\n\t\t[]txnEntry{")
@@ -152,10 +159,11 @@ def main():
 
                 emit("\t\t\t{")
                 emit("\t\t\t\tDataHeader{")
+                emit("\t\t\t\t\tPos:\t%i," % drec.pos)
                 emit("\t\t\t\t\tOid:\t%i," % unpack64(drec.oid))
                 emit("\t\t\t\t\tTid:\t%s," % hex64(drec.tid))
 
-                emit("\t\t\t\t\tPrevDataRecPos:\t%i," % dh.prev)
+                emit("\t\t\t\t\tPrevRevPos:\t%i," % dh.prev)
                 emit("\t\t\t\t\tTxnPos:\t%i," % txn._tpos)
                 assert drec.version == ''
                 emit("\t\t\t\t\tDataLen:\t%i," % dh.plen)
