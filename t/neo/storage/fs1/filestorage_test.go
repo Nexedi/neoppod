@@ -105,8 +105,6 @@ func TestLoad(t *testing.T) {
 		checkLoad(t, fs, xid, expect)
 	}
 
-	return
-
 	// check iterating	XXX move to separate test ?
 	// tids we will use for tid{Min,Max}
 	tidv := []zodb.Tid{zodb.Tid(0)}
