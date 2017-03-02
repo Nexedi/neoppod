@@ -772,13 +772,13 @@ const (
 func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	switch {
 	case ti.Flags & iterEOF != 0:
-		println("already eof")
+		//println("already eof")
 		return io.EOF
 
 	case ti.Flags & iterPreloaded != 0:
 		// first element is already there - preloaded by who initialized txnIter
 		ti.Flags &= ^iterPreloaded
-		fmt.Println("preloaded:", ti.Txnh.Tid)
+		//fmt.Println("preloaded:", ti.Txnh.Tid)
 
 	default:
 		var err error
@@ -789,7 +789,7 @@ func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 		}
 		// XXX EOF ^^^ is not expected (range pre-cut to valid tids) ?
 
-		fmt.Println("loaded:", ti.Txnh.Tid)
+		//fmt.Println("loaded:", ti.Txnh.Tid)
 
 		if err != nil {
 			return err
@@ -799,7 +799,7 @@ func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	// XXX how to make sure last good txnh is preserved?
 	if (ti.Flags&iterDir != 0 && ti.Txnh.Tid > ti.TidStop) ||
 	   (ti.Flags&iterDir == 0 && ti.Txnh.Tid < ti.TidStop) {
-		println("-> EOF")
+		//println("-> EOF")
 		ti.Flags |= iterEOF
 		return io.EOF
 	}
@@ -865,7 +865,7 @@ func (fsi *Iterator) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, erro
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	fmt.Printf("\nIterate %v..%v\n", tidMin, tidMax)
+	fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
 	// FIXME case when only 0 or 1 txn present
 	if tidMin < fs.txnhMin.Tid {
 		tidMin = fs.txnhMin.Tid
@@ -873,15 +873,17 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	if tidMax > fs.txnhMax.Tid {
 		tidMax = fs.txnhMax.Tid
 	}
-	if tidMin > tidMax {
-		// -> XXX empty
-	}
 
 	// XXX naming
 	Iter := Iterator{}
 	Iter.txnIter.fs = fs
 	Iter.dataIter.fs = fs
 	Iter.dataIter.Txnh = &Iter.txnIter.Txnh
+
+	if tidMin > tidMax {
+		Iter.txnIter.Flags |= iterEOF	// empty
+		return &Iter
+	}
 
 	// scan either from file start or end, depending which way it is likely closer, to tidMin
 	// XXX put iter into ptr to Iter ^^^
@@ -913,7 +915,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		panic(err)	// XXX
 	}
 
-	fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
+	//fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
 
 	// where to start around tidMin found - let's reinitialize iter to
 	// iterate appropriately forward up to tidMax

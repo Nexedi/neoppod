@@ -124,8 +124,6 @@ func TestLoad(t *testing.T) {
 
 			for ii, tmin := range minv {
 				for jj, tmax := range maxv {
-					iter := fs.Iterate(tmin, tmax)
-
 					// expected number of iteration steps
 					nsteps := j - i + 1
 					nsteps -= ii / 2	// one less point for tidMin+1
@@ -134,7 +132,11 @@ func TestLoad(t *testing.T) {
 						nsteps = 0	// j < i and j == i and ii/jj
 					}
 
+					println()
+					println(len(tidv))
 					fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
+					iter := fs.Iterate(tmin, tmax)
+
 
 					for k := 0; ; k++ {
 						subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tmin, tmax, k+1, nsteps)
