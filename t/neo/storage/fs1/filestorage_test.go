@@ -144,8 +144,8 @@ func TestLoad(t *testing.T) {
 				dbe := _1fs_dbEntryv[i + k]
 
 				// TODO also check .Pos, .LenPrev, .Len
-				if !reflect.DeepEqual(txni, dbe.Header.TxnInfo) {
-					t.Errorf("iterating %v..%v: step %v: unexpected txn entry:\nhave: %q\nwant: %q", tidMin, tidMax, k, txni, dbe.Header.TxnInfo)
+				if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
+					t.Errorf("iterating %v..%v: step %v: unexpected txn entry:\nhave: %q\nwant: %q", tidMin, tidMax, k, *txni, dbe.Header.TxnInfo)
 				}
 
 				for {
