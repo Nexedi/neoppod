@@ -865,7 +865,7 @@ func (fsi *Iterator) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, erro
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
+	//fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
 	// FIXME case when only 0 or 1 txn present
 	if tidMin < fs.txnhMin.Tid {
 		tidMin = fs.txnhMin.Tid
@@ -890,12 +890,12 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	iter := &Iter.txnIter
 
 	if (tidMin - fs.txnhMin.Tid) < (fs.txnhMax.Tid - tidMin) {
-		println("forward")
+		//fmt.Printf("forward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
 		iter.Flags = 1*iterDir | iterPreloaded
 		iter.Txnh.CloneFrom(&fs.txnhMin)
 		iter.TidStop = tidMin - 1	// XXX overflow
 	} else {
-		println("backward")
+		//fmt.Printf("backward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
 		iter.Flags = 0*iterDir | iterPreloaded
 		iter.Txnh.CloneFrom(&fs.txnhMax)
 		iter.TidStop = tidMin

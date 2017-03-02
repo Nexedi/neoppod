@@ -124,6 +124,7 @@ func TestLoad(t *testing.T) {
 
 			for ii, tmin := range minv {
 				for jj, tmax := range maxv {
+					// XXX -> ntxn ?
 					// expected number of iteration steps
 					nsteps := j - i + 1
 					nsteps -= ii / 2	// one less point for tidMin+1
@@ -132,9 +133,7 @@ func TestLoad(t *testing.T) {
 						nsteps = 0	// j < i and j == i and ii/jj
 					}
 
-					println()
-					println(len(tidv))
-					fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
+					//fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
 					iter := fs.Iterate(tmin, tmax)
 
 
@@ -157,23 +156,44 @@ func TestLoad(t *testing.T) {
 
 						dbe := _1fs_dbEntryv[i + ii/2 + k]
 
-						// TODO also check .Pos, .LenPrev, .Len
+						// TODO also check .Pos, .LenPrev, .Len in iter.txnIter.*
 						if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
 							t.Fatalf("%v: unexpected txn entry:\nhave: %q\nwant: %q", subj, *txni, dbe.Header.TxnInfo)
 						}
 
-						for {
+						ndata := len(dbe.Entryv)
+						for kdata := 0; ; kdata++ {
+							dsubj := fmt.Sprintf("%v: dstep %v/%v", subj, kdata, ndata)
 							datai, err := dataIter.NextData()
 							if err != nil {
-								err = okEOF(err)
-								break
+								if err == io.EOF {
+									if kdata != ndata {
+										t.Fatalf("%v: data steps underrun", dsubj)
+									}
+									break
+								}
+								t.Fatalf("%v: %v", dsubj, err)
 							}
 
-							_ = datai
+							if kdata > ndata {
+								t.Fatalf("%v: dsteps overrun", dsubj)
+							}
+
+							txe := dbe.Entryv[kdata]
+
+							// XXX -> func
+							if datai.Oid != txe.Header.Oid {
+								t.Fatalf("%v: oid mismatch ...", dsubj)	// XXX
+							}
+							if datai.Tid != txe.Header.Tid {
+								t.Fatalf("%v: tid mismatch ...", dsubj)	// XXX
+							}
+							if !bytes.Equal(datai.Data, txe.Data()) {
+								t.Fatalf("%v: data mismatch ...", dsubj)	// XXX
+							}
+
+							// TODO .DataTid
 						}
-
-						// TODO check err
-
 
 					}
 				}
