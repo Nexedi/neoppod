@@ -175,11 +175,13 @@ type IStorageIterator interface {
 	// 1. transaction metadata, and
 	// 2. iterator over transaction data records. 
 	// transaction metadata is put into *txnInfo and stays valid until next call to NextTxn().
-	NextTxn(txnInfo *TxnInfo) (dataIter IStorageRecordIterator, stop bool, err error)	// XXX stop -> io.EOF ?
+	// end of iteration is indicated with io.EOF
+	NextTxn(txnInfo *TxnInfo) (dataIter IStorageRecordIterator, err error)
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
 	// NextData puts information about next storage data record into *dataInfo.
 	// data put into *dataInfo stays valid until next call to NextData().
-	NextData(dataInfo *StorageRecordInformation) (stop bool, err error)	// XXX stop -> io.EOF ?
+	// end of iteration is indicated with io.EOF
+	NextData(dataInfo *StorageRecordInformation) error
 }

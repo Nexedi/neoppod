@@ -15,6 +15,7 @@ package fs1
 
 import (
 	"bytes"
+	"io"
 	"reflect"
 	"testing"
 
@@ -131,8 +132,11 @@ func TestLoad(t *testing.T) {
 			datai := zodb.StorageRecordInformation{}
 
 			for k := 0; ; k++ {
-				dataIter, stop, err := iter.NextTxn(&txni)
-				if stop || err != nil {
+				dataIter, err := iter.NextTxn(&txni)
+				if err != nil {
+					if err == io.EOF {
+						err = nil
+					}
 					break
 				}
 
@@ -146,11 +150,11 @@ func TestLoad(t *testing.T) {
 				}
 
 				for {
-					stop, err = dataIter.NextData(&datai)
+					 err = dataIter.NextData(&datai)
 					if err != nil {
-						panic(err)	// XXX
-					}
-					if stop {
+						if err == io.EOF {
+							err = nil
+						}
 						break
 					}
 				}

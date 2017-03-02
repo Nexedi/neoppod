@@ -698,71 +698,117 @@ func (fs *FileStorage) StorageName() string {
 }
 
 
-type forwardIter struct {
+// txnIter is iterator over transactions
+type txnIter struct {
 	fs *FileStorage
 
 	Txnh	TxnHeader	// current transaction information
-	TidMax	zodb.Tid	// iterate up to tid <= tidMax
+	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on .dir
+
+	Dir	int		// iterate forward (> 0) / backward (< 0) / EOF reached (== 0)
 }
 
-func (fi *forwardIter) NextTxn(flags TxnLoadFlags) error {
+func (fi *txnIter) NextTxn(flags TxnLoadFlags) error {
+	if fi.Dir == 0 {
+		return io.EOF
+	}
+
 	// XXX from what we start? how to yield 1st elem?
-	err := fi.Txnh.LoadNext(fi.fs.file, flags)
+	var err error
+
+	if fi.Dir > 0 {
+		err = fi.Txnh.LoadNext(fi.fs.file, flags)
+	} else {
+		// XXX we are ok to get EOF, provided that LenPrev was read ok?
+		err = fi.Txnh.LoadPrev(fi.fs.file, flags)
+	}
+
 	if err != nil {
 		return err
 	}
 
 	// how to make sure last good txnh is preserved?
-	if fi.Txnh.Tid > fi.TidMax {
+	if (fi.Dir > 0 && fi.Txnh.Tid > fi.TidStop) ||
+	   (fi.Dir < 0 && fi.Txnh.Tid < fi.TidStop) {
+		fi.Dir = 0
 		return io.EOF
 	}
 
 	return nil
 }
 
-// TODO backwardIter
 
-type FileStorageIterator struct {
-	forwardIter
-	tidMin		zodb.Tid // iteration range: [tidMin, tidMax]
+type Iterator struct {
+	txnIter txnIter
 }
 
-func (fsi *FileStorageIterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, stop bool, err error) {
-	err = fsi.forwardIter.NextTxn(LoadAll)
+func (fsi *Iterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, err error) {
+	err = fsi.txnIter.NextTxn(LoadAll)
 	if err != nil {
-		return nil, false, err	// XXX recheck
+		return nil, err	// XXX recheck
 	}
 
-	*txnInfo = fsi.forwardIter.Txnh.TxnInfo
+	*txnInfo = fsi.txnIter.Txnh.TxnInfo
 
 	// TODO set dataIter
 
-	return dataIter, false, nil
+	return nil /*dataIter*/, nil
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	if tidMin < fs.tidMin {
 		tidMin = fs.tidMin
 	}
-	if tidMin > fs.tidMax {
+	if tidMax > fs.tidMax {
+		tidMax = fs.tidMax
+	}
+	if tidMin > tidMax {
 		// -> XXX empty
 	}
 
-	(tidMin - fs.TidMin) vs (fs.TidMax - tidMin)
+	// scan either from file start or end, depending which way it is likely closer, to tidMin
+	iter := txnIter{fs: fs}
 
-	if forward {
-		iter = forwardIter{len(Magic), tidMin}
+	if (tidMin - fs.tidMin) < (fs.tidMax - tidMin) {
+		// XXX recheck how we enter loop
+		iter.Dir = +1
+		iter.Txnh.Pos = txnValidFrom	// XXX -> txnStartFrom ?
+		// XXX .LenPrev = 0
+		// XXX .Len = ?
+		iter.TidStop = tidMin
 	} else {
-		iter = backwardIter{fs.topPos, tidMin}
+		// XXX recheck how we enter loop
+		iter.Dir = -1
+		iter.Txnh.Pos = fs.topPos
+		// XXX .LenPrev = ?
+		// XXX .Len = 0
+		iter.TidStop = tidMin
 	}
 
+	var err error
 	for {
-		iter.NextTxn(txnh, ...)
+		err = iter.NextTxn(LoadNoStrings)
+		// XXX err
+		if err == io.EOF {
+			err = nil
+			break
+		}
 	}
 
-	// txnh should have .Tid <= tidMin but next txn's .Tid is > tidMin
-	posStart := iter.txnPos
-	if t
+	if err != nil {
+		panic(err)	// XXX
+	}
 
-	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
+	fmt.Printf("tidRange: %v..%v -> found %v @%v", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
+	return nil
+
+//	// prepare to start iterating from found transaction
+//	// XXX loadStrings() on first step ?
+//	iter.Txnh.Tid
+//
+//	// txnh should have .Tid <= tidMin but next txn's .Tid is > tidMin
+//	posStart := iter.txnPos
+//	if t
+//
+//	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
 }
