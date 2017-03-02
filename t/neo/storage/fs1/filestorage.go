@@ -762,7 +762,7 @@ func (fi *txnIter) NextTxn(flags TxnLoadFlags) error {
 		return err
 	}
 
-	// how to make sure last good txnh is preserved?
+	// XXX how to make sure last good txnh is preserved?
 	if (fi.Dir > 0 && fi.Txnh.Tid > fi.TidStop) ||
 	   (fi.Dir < 0 && fi.Txnh.Tid < fi.TidStop) {
 		fi.Dir = 0
@@ -829,7 +829,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		panic(err)	// XXX
 	}
 
-	fmt.Printf("tidRange: %v..%v -> found %v @%v", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
+	fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
 	return nil
 
 //	// prepare to start iterating from found transaction
