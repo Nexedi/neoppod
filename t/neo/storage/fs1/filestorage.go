@@ -772,6 +772,7 @@ const (
 func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	switch {
 	case ti.Flags & iterEOF != 0:
+		println("already eof")
 		return io.EOF
 
 	case ti.Flags & iterPreloaded != 0:
@@ -798,6 +799,7 @@ func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	// XXX how to make sure last good txnh is preserved?
 	if (ti.Flags&iterDir != 0 && ti.Txnh.Tid > ti.TidStop) ||
 	   (ti.Flags&iterDir == 0 && ti.Txnh.Tid < ti.TidStop) {
+		println("-> EOF")
 		ti.Flags |= iterEOF
 		return io.EOF
 	}

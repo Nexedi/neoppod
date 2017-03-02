@@ -134,18 +134,14 @@ func TestLoad(t *testing.T) {
 						nsteps = 0	// j < i and j == i and ii/jj
 					}
 
-					println(i,j, ii, jj, nsteps)
+					fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
 
 					for k := 0; ; k++ {
 						subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tmin, tmax, k+1, nsteps)
-						if k >= nsteps {
-							t.Fatalf("%v: steps overrun", subj)
-						}
-
 						txni, dataIter, err := iter.NextTxn()
 						if err != nil {
 							if err == io.EOF {
-								if k != nsteps - 1 {
+								if k != nsteps {
 									t.Fatalf("%v: steps underrun", subj)
 								}
 								break
@@ -153,7 +149,11 @@ func TestLoad(t *testing.T) {
 							t.Fatalf("%v: %v", subj, err)
 						}
 
-						dbe := _1fs_dbEntryv[i + k]
+						if k >= nsteps {
+							t.Fatalf("%v: steps overrun", subj)
+						}
+
+						dbe := _1fs_dbEntryv[i + ii/2 + k]
 
 						// TODO also check .Pos, .LenPrev, .Len
 						if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
