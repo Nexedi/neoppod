@@ -116,7 +116,7 @@ func TestLoad(t *testing.T) {
 		tidv = append(tidv, dbe.Header.Tid)
 	}
 
-	// XXX i -> iMin, j -> iMax ?
+	// XXX Fatal -> Error
 	for i, tidMin := range tidv {
 		minv := []zodb.Tid{tidMin-1, tidMin, tidMin+1}
 		for j, tidMax := range tidv {
@@ -134,28 +134,29 @@ func TestLoad(t *testing.T) {
 						nsteps = 0	// j < i and j == i and ii/jj
 					}
 
+					println(i,j, ii, jj, nsteps)
+
 					for k := 0; ; k++ {
 						subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tmin, tmax, k+1, nsteps)
 						if k >= nsteps {
-							t.Errorf("%v: steps overrun", subj)
+							t.Fatalf("%v: steps overrun", subj)
 						}
 
 						txni, dataIter, err := iter.NextTxn()
 						if err != nil {
 							if err == io.EOF {
 								if k != nsteps - 1 {
-									t.Errorf("%v: steps underrun", subj)
+									t.Fatalf("%v: steps underrun", subj)
 								}
 								break
 							}
-							t.Errorf("%v: %v", subj, err)
+							t.Fatalf("%v: %v", subj, err)
 						}
 
 						dbe := _1fs_dbEntryv[i + k]
 
 						// TODO also check .Pos, .LenPrev, .Len
 						if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
-							// XXX fatal temp
 							t.Fatalf("%v: unexpected txn entry:\nhave: %q\nwant: %q", subj, *txni, dbe.Header.TxnInfo)
 						}
 
