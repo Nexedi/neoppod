@@ -15,7 +15,6 @@ package fs1
 
 import (
 	"bytes"
-	"io"
 	"reflect"
 	"testing"
 
@@ -78,6 +77,8 @@ func TestLoad(t *testing.T) {
 		for _, txe := range dbe.Entryv {
 			txh := txe.Header
 
+			// XXX check Load finds data at correct .Pos / etc ?
+
 			// loadSerial
 			// TODO also test for getting error when not found
 			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
@@ -134,9 +135,7 @@ func TestLoad(t *testing.T) {
 			for k := 0; ; k++ {
 				dataIter, err := iter.NextTxn(&txni)
 				if err != nil {
-					if err == io.EOF {
-						err = nil
-					}
+					err = okEOF(err)
 					break
 				}
 
@@ -152,13 +151,12 @@ func TestLoad(t *testing.T) {
 				for {
 					 err = dataIter.NextData(&datai)
 					if err != nil {
-						if err == io.EOF {
-							err = nil
-						}
+						err = okEOF(err)
 						break
 					}
 				}
 
+				// TODO check err
 
 
 			}
