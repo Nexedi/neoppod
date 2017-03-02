@@ -15,6 +15,8 @@ package fs1
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"reflect"
 	"testing"
 
@@ -109,62 +111,70 @@ func TestLoad(t *testing.T) {
 
 	// check iterating	XXX move to separate test ?
 	// tids we will use for tid{Min,Max}
-	tidv := []zodb.Tid{zodb.Tid(0)}
+	tidv := []zodb.Tid{}
 	for _, dbe := range _1fs_dbEntryv {
-		//tidv = append(tidv, dbe.Header.Tid-1)	// XXX here?
 		tidv = append(tidv, dbe.Header.Tid)
-		//tidv = append(tidv, dbe.Header.Tid+1)	// XXX here?
 	}
-	tidv = append(tidv, zodb.TidMax)
 
 	// XXX i -> iMin, j -> iMax ?
 	for i, tidMin := range tidv {
-		// TODO test both tidMin, and tidMin - 1
+		minv := []zodb.Tid{tidMin-1, tidMin, tidMin+1}
 		for j, tidMax := range tidv {
-			// TODO test both tidMax, and tidMax + 1
-			_ = j	// XXX
-			iter := fs.Iterate(tidMin, tidMax)
+			maxv := []zodb.Tid{tidMax-1, tidMax, tidMax+1}
 
-			if tidMin > tidMax {
-				// expect error / panic or empty iteration ?
-			}
+			for ii, tmin := range minv {
+				for jj, tmax := range maxv {
+					iter := fs.Iterate(tmin, tmax)
 
-			//txni  := zodb.TxnInfo{}
-			//datai := zodb.StorageRecordInformation{}
-
-			for k := 0; ; k++ {
-				txni, dataIter, err := iter.NextTxn()
-				if err != nil {
-					err = okEOF(err)
-					break
-				}
-
-				// XXX vvv assumes i < j
-				// FIXME first tidMin and last tidMax
-				dbe := _1fs_dbEntryv[i + k]
-
-				// TODO also check .Pos, .LenPrev, .Len
-				if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
-					t.Errorf("iterating %v..%v: step %v: unexpected txn entry:\nhave: %q\nwant: %q", tidMin, tidMax, k, *txni, dbe.Header.TxnInfo)
-				}
-
-				for {
-					datai, err := dataIter.NextData()
-					if err != nil {
-						err = okEOF(err)
-						break
+					// expected number of iteration steps
+					nsteps := j - i + 1
+					nsteps -= ii / 2	// one less point for tidMin+1
+					nsteps -= (2 - jj) / 2	// one less point for tidMax-1
+					if nsteps < 0 {
+						nsteps = 0	// j < i and j == i and ii/jj
 					}
 
-					_ = datai
+					for k := 0; ; k++ {
+						subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tmin, tmax, k+1, nsteps)
+						if k >= nsteps {
+							t.Errorf("%v: steps overrun", subj)
+						}
+
+						txni, dataIter, err := iter.NextTxn()
+						if err != nil {
+							if err == io.EOF {
+								if k != nsteps - 1 {
+									t.Errorf("%v: steps underrun", subj)
+								}
+								break
+							}
+							t.Errorf("%v: %v", subj, err)
+						}
+
+						dbe := _1fs_dbEntryv[i + k]
+
+						// TODO also check .Pos, .LenPrev, .Len
+						if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
+							// XXX fatal temp
+							t.Fatalf("%v: unexpected txn entry:\nhave: %q\nwant: %q", subj, *txni, dbe.Header.TxnInfo)
+						}
+
+						for {
+							datai, err := dataIter.NextData()
+							if err != nil {
+								err = okEOF(err)
+								break
+							}
+
+							_ = datai
+						}
+
+						// TODO check err
+
+
+					}
 				}
-
-				// TODO check err
-
-
 			}
-
-			// TODO check err
-
 		}
 	}
 }
