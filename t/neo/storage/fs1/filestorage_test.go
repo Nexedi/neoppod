@@ -129,11 +129,11 @@ func TestLoad(t *testing.T) {
 				// expect error / panic or empty iteration ?
 			}
 
-			txni  := zodb.TxnInfo{}
-			datai := zodb.StorageRecordInformation{}
+			//txni  := zodb.TxnInfo{}
+			//datai := zodb.StorageRecordInformation{}
 
 			for k := 0; ; k++ {
-				dataIter, err := iter.NextTxn(&txni)
+				txni, dataIter, err := iter.NextTxn()
 				if err != nil {
 					err = okEOF(err)
 					break
@@ -149,11 +149,13 @@ func TestLoad(t *testing.T) {
 				}
 
 				for {
-					 err = dataIter.NextData(&datai)
+					datai, err := dataIter.NextData()
 					if err != nil {
 						err = okEOF(err)
 						break
 					}
+
+					_ = datai
 				}
 
 				// TODO check err

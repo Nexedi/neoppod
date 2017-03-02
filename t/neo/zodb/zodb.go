@@ -129,11 +129,13 @@ type TxnInfo struct {
 // Information about single storage record
 // XXX naming
 type StorageRecordInformation struct {
-	Oid         Oid
-	Tid         Tid
-	Data        []byte
-	// XXX .version ?
-	// XXX .data_txn    (The previous transaction id)
+	Oid	Oid
+	Tid	Tid
+	Data	[]byte	// nil means: deleted
+
+	// original tid data was committed (e.g. in case of undo)
+	// XXX we don't really need this
+	DataTid	Tid
 }
 
 
@@ -174,14 +176,14 @@ type IStorageIterator interface {
 	// NextTxn yields information about next database transaction:
 	// 1. transaction metadata, and
 	// 2. iterator over transaction data records. 
-	// transaction metadata is put into *txnInfo and stays valid until next call to NextTxn().
+	// transaction metadata stays valid until next call to NextTxn().
 	// end of iteration is indicated with io.EOF
-	NextTxn(txnInfo *TxnInfo) (dataIter IStorageRecordIterator, err error)
+	NextTxn() (*TxnInfo, IStorageRecordIterator, error)
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
-	// NextData puts information about next storage data record into *dataInfo.
-	// data put into *dataInfo stays valid until next call to NextData().
+	// NextData yields information about next storage data record.
+	// returned data stays valid until next call to NextData().
 	// end of iteration is indicated with io.EOF
-	NextData(dataInfo *StorageRecordInformation) error
+	NextData() (*StorageRecordInformation, error)
 }

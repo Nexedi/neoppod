@@ -496,6 +496,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt /* *os.File */) error {
 
 // LoadBack reads and decodes data header for revision linked via back-pointer
 // prerequisite: dh XXX     .DataLen == 0
+// if link is to zero (means deleted record) io.EOF is returned
 func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 	if dh.DataLen != 0 {
 		bug(dh, "LoadBack() on non-backpointer data header")
@@ -508,13 +509,15 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 	}
 
 	backPos := int64(binary.BigEndian.Uint64(xxx[:]))
+	if backPos == 0 {
+		return io.EOF	// oid was deleted
+	}
 	if backPos < dataValidFrom {
 		return decodeErr(dh, "invalid backpointer: %v", backPos)
 	}
 	if backPos + DataHeaderSize > dh.TxnPos - 8 {
 		return decodeErr(dh, "backpointer (%v) overlaps with txn (%v)", backPos, dh.TxnPos)
 	}
-	// TODO backPos can be also == 0 - (means deleted rev)
 
 	posCur := dh.Pos
 	tid := dh.Tid
@@ -545,8 +548,6 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 // LoadNext reads and decodes data header for next data record in the same transaction
 // prerequisite: dh .Pos .DataLen are initialized
 // when there is no more data records: io.EOF is returned
-//
-// XXX NOTE(self): iteration starts with {Pos: txnh.Pos, DataLen: -DataHeaderSize}
 func (dh *DataHeader) LoadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) error {
 	err := dh.loadNext(r, txnh)
 	if err != nil && err != io.EOF {
@@ -583,6 +584,37 @@ func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 	}
 	if dh.Pos + dh.Len() > txnTailPos {
 		return decodeErr(dh, "data record overlaps txn boundary")	// XXX
+	}
+
+	return nil
+}
+
+// LoadData loads data for the data record taking backpointers into account
+// Data is loaded into *buf, which, if needed, is reallocated to hold all loading data size	XXX
+// NOTE on success dh state is changed to data header of original data transaction
+// TODO buf -> slab
+func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error {
+	// scan via backpointers
+	for dh.DataLen == 0 {
+		err := dh.LoadBack(r)
+		if err != nil {
+			if err == io.EOF {
+				*buf = nil // deleted
+				return nil
+			}
+			return err	// XXX recheck
+		}
+	}
+
+	// now read actual data
+	if int64(cap(*buf)) < dh.DataLen {
+		*buf = make([]byte, dh.DataLen)
+	} else {
+		*buf = (*buf)[:dh.DataLen]
+	}
+	_, err := r.ReadAt(*buf, dh.Pos + DataHeaderSize)
+	if err != nil {
+		return dh.err("read data", noEOF(err))	// XXX recheck
 	}
 
 	return nil
@@ -696,19 +728,10 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	// be of first-found transaction
 	tid = dh.Tid
 
-	// scan via backpointers
-	for dh.DataLen == 0 {
-		err = dh.LoadBack(fs.file)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	// now read actual data
-	data = make([]byte, dh.DataLen)	// TODO -> slab ?
-	_, err = fs.file.ReadAt(data, dh.Pos + DataHeaderSize)
+	// TODO data -> slab
+	err = dh.LoadData(fs.file, &data)
 	if err != nil {
-		return nil, zodb.Tid(0), &ErrXidLoad{xid, noEOF(err)}
+		return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
 	}
 
 	return data, tid, nil
@@ -736,61 +759,111 @@ type txnIter struct {
 	Txnh	TxnHeader	// current transaction information
 	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on .dir
 
-	Dir	int		// iterate forward (> 0) / backward (< 0) / EOF reached (== 0)
+	Flags	iterFlags	// iterate forward (> 0) / backward (< 0) / EOF reached (== 0)
 }
 
-func (fi *txnIter) NextTxn(flags TxnLoadFlags) error {
-	var err error
+type iterFlags int
+const (
+	iterDir       iterFlags = 1 << iota // iterate forward (1) or backward (0)
+	iterEOF                             // EOF reached
+	iterPreloaded                       // data for this iteration was alrady preloaded
+)
 
+func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	switch {
-	case fi.Dir & 0x10 != 0:
-		// first element is already there - preloaded by who initialized txnIter
-		fi.Dir &= ^0x10
-		return nil
-
-	case fi.Dir > 0:
-		err = fi.Txnh.LoadNext(fi.fs.file, flags)
-
-	case fi.Dir < 0:
-		err = fi.Txnh.LoadPrev(fi.fs.file, flags)
-
-	default: // fi.Dir == 0:
+	case ti.Flags & iterEOF != 0:
 		return io.EOF
-	}
 
-	if err != nil {
-		return err
+	case ti.Flags & iterPreloaded != 0:
+		// first element is already there - preloaded by who initialized txnIter
+		ti.Flags &= ^iterPreloaded
+		fmt.Println("preloaded:", ti.Txnh.Tid)
+
+	default:
+		var err error
+		if ti.Flags & iterDir != 0 {
+			err = ti.Txnh.LoadNext(ti.fs.file, flags)
+		} else {
+			err = ti.Txnh.LoadPrev(ti.fs.file, flags)
+		}
+		// XXX EOF ^^^ is not expected (range pre-cut to valid tids) ?
+
+		fmt.Println("loaded:", ti.Txnh.Tid)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	// XXX how to make sure last good txnh is preserved?
-	if (fi.Dir > 0 && fi.Txnh.Tid > fi.TidStop) ||
-	   (fi.Dir < 0 && fi.Txnh.Tid < fi.TidStop) {
-		fi.Dir = 0
+	if (ti.Flags&iterDir != 0 && ti.Txnh.Tid > ti.TidStop) ||
+	   (ti.Flags&iterDir == 0 && ti.Txnh.Tid < ti.TidStop) {
+		ti.Flags |= iterEOF
 		return io.EOF
 	}
 
 	return nil
 }
 
+// dataIter is iterator over data records inside one transaction
+type dataIter struct {
+	fs *FileStorage
 
-type Iterator struct {
-	txnIter txnIter
+	Txnh	*TxnHeader	// header of transaction we are iterating inside
+	Datah	DataHeader
+
+	sri	zodb.StorageRecordInformation // ptr to this will be returned by NextData
+	dataBuf	[]byte
 }
 
-func (fsi *Iterator) NextTxn(txnInfo *zodb.TxnInfo) (dataIter zodb.IStorageRecordIterator, err error) {
-	err = fsi.txnIter.NextTxn(LoadAll)
+func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
+	err := di.Datah.LoadNext(di.fs.file, di.Txnh)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
 
-	*txnInfo = fsi.txnIter.Txnh.TxnInfo
+	di.sri.Oid = di.Datah.Oid
+	di.sri.Tid = di.Datah.Tid
+
+	dh := di.Datah
+	di.sri.Data = di.dataBuf
+	err = dh.LoadData(di.fs.file, &di.sri.Data)
+	if err != nil {
+		return nil, err	// XXX recheck
+	}
+
+	// if memory was reallocated - use it next time
+	if cap(di.sri.Data) > cap(di.dataBuf) {
+		di.dataBuf = di.sri.Data
+	}
+
+	di.sri.DataTid = dh.Tid
+	return &di.sri, nil
+}
+
+
+// Iterator is transaction/data-records iterator as specified by zodb.IStorage
+type Iterator struct {
+	txnIter  txnIter
+	dataIter dataIter
+}
+
+func (fsi *Iterator) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
+	err := fsi.txnIter.NextTxn(LoadAll)
+	if err != nil {
+		return nil, nil, err	// XXX recheck
+	}
 
 	// TODO set dataIter
 
-	return nil /*dataIter*/, nil
+	//
+	// XXX NOTE(self): iteration starts with {Pos: txnh.Pos, DataLen: -DataHeaderSize}
+
+	return &fsi.txnIter.Txnh.TxnInfo, &fsi.dataIter, nil
 }
 
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+	fmt.Printf("\nIterate %v..%v\n", tidMin, tidMax)
 	// FIXME case when only 0 or 1 txn present
 	if tidMin < fs.txnhMin.Tid {
 		tidMin = fs.txnhMin.Tid
@@ -802,15 +875,24 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		// -> XXX empty
 	}
 
+	// XXX naming
+	Iter := Iterator{}
+	Iter.txnIter.fs = fs
+	Iter.dataIter.fs = fs
+	Iter.dataIter.Txnh = &Iter.txnIter.Txnh
+
 	// scan either from file start or end, depending which way it is likely closer, to tidMin
-	iter := txnIter{fs: fs}
+	// XXX put iter into ptr to Iter ^^^
+	iter := &Iter.txnIter
 
 	if (tidMin - fs.txnhMin.Tid) < (fs.txnhMax.Tid - tidMin) {
-		iter.Dir = +0x11
+		println("forward")
+		iter.Flags = 1*iterDir | iterPreloaded
 		iter.Txnh.CloneFrom(&fs.txnhMin)
-		iter.TidStop = tidMin
+		iter.TidStop = tidMin - 1	// XXX overflow
 	} else {
-		iter.Dir = -0x11
+		println("backward")
+		iter.Flags = 0*iterDir | iterPreloaded
 		iter.Txnh.CloneFrom(&fs.txnhMax)
 		iter.TidStop = tidMin
 	}
@@ -830,15 +912,20 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	}
 
 	fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
-	return nil
 
-//	// prepare to start iterating from found transaction
-//	// XXX loadStrings() on first step ?
-//	iter.Txnh.Tid
-//
-//	// txnh should have .Tid <= tidMin but next txn's .Tid is > tidMin
-//	posStart := iter.txnPos
-//	if t
-//
-//	return &FileStorageIterator{-1, tidMin, tidMax}	// XXX -1 ok ?
+	// where to start around tidMin found - let's reinitialize iter to
+	// iterate appropriately forward up to tidMax
+	iter.Flags &= ^iterEOF
+	if iter.Flags&iterDir != 0 {
+		// when ^^^ we were searching forward first txn was already found
+		err = iter.Txnh.loadStrings(fs.file)	// XXX ok?	XXX -> move NextTxn() ?
+		if err != nil {
+			panic(err)	// XXX
+		}
+		iter.Flags |= iterPreloaded
+	}
+	iter.Flags |= iterDir
+	iter.TidStop = tidMax
+
+	return &Iter
 }
