@@ -15,7 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from MySQLdb import OperationalError
+from MySQLdb import NotSupportedError, OperationalError
+from MySQLdb.constants.ER import UNKNOWN_STORAGE_ENGINE
 from ..mock import Mock
 from neo.lib.exception import DatabaseFailure
 from neo.lib.util import p64
@@ -35,7 +36,13 @@ class StorageMySQLdbTests(StorageDBTests):
         db = MySQLDatabaseManager(database, self.engine)
         self.assertEqual(db.db, DB_PREFIX + '0')
         self.assertEqual(db.user, DB_USER)
-        db.setup(reset)
+        try:
+            db.setup(reset)
+        except NotSupportedError as m:
+            code, m = m.args
+            if code != UNKNOWN_STORAGE_ENGINE:
+                raise
+            raise unittest.SkipTest(m)
         return db
 
     def test_query1(self):
@@ -117,6 +124,11 @@ class StorageMySQLdbTests(StorageDBTests):
                 ((p64(1<<i),0,None) for i in xrange(10)), None)
             self.assertEqual(max(query_list), max_allowed_packet)
             self.assertEqual(len(query_list), count)
+
+
+class StorageMySQLdbRocksDBTests(StorageMySQLdbTests):
+
+    engine = "RocksDB"
 
 
 class StorageMySQLdbTokuDBTests(StorageMySQLdbTests):

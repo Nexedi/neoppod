@@ -49,7 +49,7 @@ class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
     VERSION = 1
-    ENGINES = "InnoDB", "TokuDB"
+    ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
     # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
