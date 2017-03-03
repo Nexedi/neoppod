@@ -21,7 +21,11 @@ import (
 	"testing"
 
 	"../../zodb"
+
+	"lab.nexedi.com/kirr/go123/exc"
 )
+
+// XXX -> testDbEntry ?
 
 // one database transaction record
 type dbEntry struct {
@@ -51,6 +55,7 @@ type oidLoadedOk struct {
 	data	[]byte
 }
 
+// checkLoad verifies that fs.Load(xid) returns expected result
 func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) {
 	data, tid, err := fs.Load(xid)
 	if err != nil {
@@ -64,12 +69,17 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 	}
 }
 
-func TestLoad(t *testing.T) {
-	fs, err := Open("testdata/1.fs")
+func xfsopen(t *testing.T, path string) *FileStorage {
+	fs, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer xclose(fs)
+	return fs
+}
+
+func TestLoad(t *testing.T) {
+	fs := xfsopen(t, "testdata/1.fs")	// TODO open read-only
+	defer exc.XRun(fs.Close)
 
 	// current knowledge of what was "before" for an oid as we scan over
 	// data base entries
@@ -108,6 +118,11 @@ func TestLoad(t *testing.T) {
 		xid := zodb.Xid{zodb.XTid{zodb.TidMax, true}, oid}
 		checkLoad(t, fs, xid, expect)
 	}
+}
+
+func TestIterate(t *testing.T) {
+	fs := xfsopen(t, "testdata/1.fs")	// TODO open ro
+	defer exc.XRun(fs.Close)
 
 	// check iterating	XXX move to separate test ?
 	// tids we will use for tid{Min,Max}
