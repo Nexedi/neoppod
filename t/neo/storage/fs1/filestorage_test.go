@@ -260,4 +260,7 @@ func TestIterate(t *testing.T) {
 			testIterate(t, fs, tmin, tmax, _1fs_dbEntryv[i + ii/2:][:nsteps])
 		}}
 	}}
+
+	// also check 0..tidMax
+	testIterate(t, fs, 0, zodb.TidMax, _1fs_dbEntryv[:])
 }
