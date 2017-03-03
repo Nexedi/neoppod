@@ -22,14 +22,21 @@ from ZODB.tests.StorageTestBase import StorageTestBase
 from . import ZODBTestCase
 from .. import Patch, threaded
 
+class TIC_LOOP(object):
+
+    def __init__(self):
+        self.stop = time.time() + 10
+
+    def __iter__(self):
+        def tic_loop(t=time.time, x=self.stop):
+            while t() < x:
+                yield
+        return tic_loop()
+
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
 
     def check_checkCurrentSerialInTransaction(self):
-        x = time.time() + 10
-        def tic_loop():
-            while time.time() < x:
-                yield
-        with Patch(threaded, TIC_LOOP=tic_loop()):
+        with Patch(threaded, TIC_LOOP=TIC_LOOP()):
             super(BasicTests, self).check_checkCurrentSerialInTransaction()
 
 if __name__ == "__main__":
