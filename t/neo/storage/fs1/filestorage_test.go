@@ -123,60 +123,86 @@ func TestLoad(t *testing.T) {
 // iterate tidMin..tidMax and expect db entries in expectv
 func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
 	iter := fs.Iterate(tidMin, tidMax)
+	fsi := iter.(*iterator)
 
 	for k := 0; ; k++ {
-		subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tidMin, tidMax, k+1, len(expectv))
+		txnErrorf := func(format string, a ...interface{}) {
+			subj := fmt.Sprintf("iterating %v..%v: step %v/%v:", tidMin, tidMax, k+1, len(expectv))
+			msg  := fmt.Sprintf(format, a...)
+			t.Errorf("%v: %v", subj, msg)
+		}
+
 		txni, dataIter, err := iter.NextTxn()
 		if err != nil {
 			if err == io.EOF {
 				if k != len(expectv) {
-					t.Errorf("%v: steps underrun", subj)
+					txnErrorf("steps underrun")
 				}
 				break
 			}
-			t.Errorf("%v: %v", subj, err)
+			txnErrorf("%v", err)
 		}
 
 		if k >= len(expectv) {
-			t.Errorf("%v: steps overrun", subj)
+			txnErrorf("steps overrun")
 		}
 
 		dbe := expectv[k]
 
-		// TODO also check .Pos, .LenPrev, .Len in iter.txnIter.*
-		if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
-			t.Errorf("%v: unexpected txn entry:\nhave: %q\nwant: %q", subj, *txni, dbe.Header.TxnInfo)
+		// assert txni points to where we expect - this will allow us
+		// not only to check .TxnInfo but also .Pos, .LenPrev, .Len etc in
+		// whole expected TxnHeader
+		if txni != &fsi.txnIter.Txnh.TxnInfo {
+			t.Fatal("unexpected txni pointer")
+		}
+		if !reflect.DeepEqual(fsi.txnIter.Txnh, dbe.Header) {
+			txnErrorf("unexpected txn entry:\nhave: %q\nwant: %q", fsi.txnIter.Txnh, dbe.Header)
 		}
 
-		ndata := len(dbe.Entryv)
 		for kdata := 0; ; kdata++ {
-			dsubj := fmt.Sprintf("%v: dstep %v/%v", subj, kdata, ndata)
+			dataErrorf := func(format string, a...interface{}) {
+				dsubj := fmt.Sprintf("dstep %v/%v", kdata, len(dbe.Entryv))
+				msg   := fmt.Sprintf(format, a...)
+				txnErrorf("%v: %v", dsubj, msg)
+			}
+
 			datai, err := dataIter.NextData()
 			if err != nil {
 				if err == io.EOF {
-					if kdata != ndata {
-						t.Errorf("%v: data steps underrun", dsubj)
+					if kdata != len(dbe.Entryv) {
+						dataErrorf("dsteps underrun")
 					}
 					break
 				}
-				t.Errorf("%v: %v", dsubj, err)
+				dataErrorf("%v", err)
 			}
 
-			if kdata > ndata {
-				t.Errorf("%v: dsteps overrun", dsubj)
+			if kdata > len(dbe.Entryv) {
+				dataErrorf("dsteps overrun")
 			}
 
 			txe := dbe.Entryv[kdata]
+			dh  := txe.Header
 
-			// XXX -> func
-			if datai.Oid != txe.Header.Oid {
-				t.Errorf("%v: oid mismatch ...", dsubj)	// XXX
+			// assert datai pointes to where we expect - this will allow us
+			// not only to check oid/tid/data but also to check whole data header.
+			if datai != &fsi.dataIter.sri {
+				t.Fatal("unexpected datai pointer")
 			}
-			if datai.Tid != txe.Header.Tid {
-				t.Errorf("%v: tid mismatch ...", dsubj)	// XXX
+
+			if !reflect.DeepEqual(fsi.dataIter.Datah, dh) {
+				dataErrorf("unexpected data entry:\nhave: %q\nwant: %q", fsi.dataIter.Datah, dh)
+			}
+
+			// check what was actually returned - since it is not in ^^^ data structure
+			if datai.Oid != dh.Oid {
+				dataErrorf("oid mismatch: have %v;  want %v", datai.Oid, dh.Oid)
+			}
+			if datai.Tid != dh.Tid {
+				dataErrorf("tid mismatch: have %v;  want %v", datai.Tid, dh.Tid)
 			}
 			if !bytes.Equal(datai.Data, txe.Data()) {
-				t.Errorf("%v: data mismatch ...", dsubj)	// XXX
+				dataErrorf("data mismatch:\nhave %q\nwant %q", datai.Data, txe.Data())
 			}
 
 			// TODO .DataTid
