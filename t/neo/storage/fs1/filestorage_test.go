@@ -120,99 +120,99 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
+	iter := fs.Iterate(tidMin, tidMax)
+
+	for k := 0; ; k++ {
+		subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tidMin, tidMax, k+1, len(expectv))
+		txni, dataIter, err := iter.NextTxn()
+		if err != nil {
+			if err == io.EOF {
+				if k != len(expectv) {
+					t.Errorf("%v: steps underrun", subj)
+				}
+				break
+			}
+			t.Errorf("%v: %v", subj, err)
+		}
+
+		if k >= len(expectv) {
+			t.Errorf("%v: steps overrun", subj)
+		}
+
+		dbe := expectv[k]
+
+		// TODO also check .Pos, .LenPrev, .Len in iter.txnIter.*
+		if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
+			t.Errorf("%v: unexpected txn entry:\nhave: %q\nwant: %q", subj, *txni, dbe.Header.TxnInfo)
+		}
+
+		ndata := len(dbe.Entryv)
+		for kdata := 0; ; kdata++ {
+			dsubj := fmt.Sprintf("%v: dstep %v/%v", subj, kdata, ndata)
+			datai, err := dataIter.NextData()
+			if err != nil {
+				if err == io.EOF {
+					if kdata != ndata {
+						t.Errorf("%v: data steps underrun", dsubj)
+					}
+					break
+				}
+				t.Errorf("%v: %v", dsubj, err)
+			}
+
+			if kdata > ndata {
+				t.Errorf("%v: dsteps overrun", dsubj)
+			}
+
+			txe := dbe.Entryv[kdata]
+
+			// XXX -> func
+			if datai.Oid != txe.Header.Oid {
+				t.Errorf("%v: oid mismatch ...", dsubj)	// XXX
+			}
+			if datai.Tid != txe.Header.Tid {
+				t.Errorf("%v: tid mismatch ...", dsubj)	// XXX
+			}
+			if !bytes.Equal(datai.Data, txe.Data()) {
+				t.Errorf("%v: data mismatch ...", dsubj)	// XXX
+			}
+
+			// TODO .DataTid
+		}
+	}
+}
+
 func TestIterate(t *testing.T) {
 	fs := xfsopen(t, "testdata/1.fs")	// TODO open ro
 	defer exc.XRun(fs.Close)
 
-	// check iterating	XXX move to separate test ?
-	// tids we will use for tid{Min,Max}
+	// all []tids in test database
 	tidv := []zodb.Tid{}
 	for _, dbe := range _1fs_dbEntryv {
 		tidv = append(tidv, dbe.Header.Tid)
 	}
 
-	// XXX Fatal -> Error
+	// check all i,j pairs in tidv
+	// for every tid also check ±1 to test edge cases
 	for i, tidMin := range tidv {
+	for j, tidMax := range tidv {
 		minv := []zodb.Tid{tidMin-1, tidMin, tidMin+1}
-		for j, tidMax := range tidv {
-			maxv := []zodb.Tid{tidMax-1, tidMax, tidMax+1}
+		maxv := []zodb.Tid{tidMax-1, tidMax, tidMax+1}
 
-			for ii, tmin := range minv {
-				for jj, tmax := range maxv {
-					// XXX -> ntxn ?
-					// expected number of iteration steps
-					nsteps := j - i + 1
-					nsteps -= ii / 2	// one less point for tidMin+1
-					nsteps -= (2 - jj) / 2	// one less point for tidMax-1
-					if nsteps < 0 {
-						nsteps = 0	// j < i and j == i and ii/jj
-					}
-
-					//fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
-					iter := fs.Iterate(tmin, tmax)
-
-
-					for k := 0; ; k++ {
-						subj := fmt.Sprintf("iterating %v..%v: step %v/%v", tmin, tmax, k+1, nsteps)
-						txni, dataIter, err := iter.NextTxn()
-						if err != nil {
-							if err == io.EOF {
-								if k != nsteps {
-									t.Fatalf("%v: steps underrun", subj)
-								}
-								break
-							}
-							t.Fatalf("%v: %v", subj, err)
-						}
-
-						if k >= nsteps {
-							t.Fatalf("%v: steps overrun", subj)
-						}
-
-						dbe := _1fs_dbEntryv[i + ii/2 + k]
-
-						// TODO also check .Pos, .LenPrev, .Len in iter.txnIter.*
-						if !reflect.DeepEqual(*txni, dbe.Header.TxnInfo) {
-							t.Fatalf("%v: unexpected txn entry:\nhave: %q\nwant: %q", subj, *txni, dbe.Header.TxnInfo)
-						}
-
-						ndata := len(dbe.Entryv)
-						for kdata := 0; ; kdata++ {
-							dsubj := fmt.Sprintf("%v: dstep %v/%v", subj, kdata, ndata)
-							datai, err := dataIter.NextData()
-							if err != nil {
-								if err == io.EOF {
-									if kdata != ndata {
-										t.Fatalf("%v: data steps underrun", dsubj)
-									}
-									break
-								}
-								t.Fatalf("%v: %v", dsubj, err)
-							}
-
-							if kdata > ndata {
-								t.Fatalf("%v: dsteps overrun", dsubj)
-							}
-
-							txe := dbe.Entryv[kdata]
-
-							// XXX -> func
-							if datai.Oid != txe.Header.Oid {
-								t.Fatalf("%v: oid mismatch ...", dsubj)	// XXX
-							}
-							if datai.Tid != txe.Header.Tid {
-								t.Fatalf("%v: tid mismatch ...", dsubj)	// XXX
-							}
-							if !bytes.Equal(datai.Data, txe.Data()) {
-								t.Fatalf("%v: data mismatch ...", dsubj)	// XXX
-							}
-
-							// TODO .DataTid
-						}
-
-					}
-				}
+		for ii, tmin := range minv {
+		for jj, tmax := range maxv {
+			// expected number of txn iteration steps
+			nsteps := j - i + 1
+			nsteps -= ii / 2	// one less point for tidMin+1
+			nsteps -= (2 - jj) / 2	// one less point for tidMax-1
+			if nsteps < 0 {
+				nsteps = 0	// j < i and j == i and ii/jj
 			}
-		}
-	}
+
+			//fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
+
+			testIterate(t, fs, tmin, tmax, _1fs_dbEntryv[i + ii/2:][:nsteps])
+		}}
+	}}
 }
