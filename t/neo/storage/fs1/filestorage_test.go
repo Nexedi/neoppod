@@ -38,6 +38,7 @@ type txnEntry struct {
 	Header	 DataHeader
 	rawData	 []byte		// what is on disk, e.g. it can be backpointer
 	userData []byte		// data client should see on load; nil means same as RawData
+	dataTid  zodb.Tid	// data tid client should see on iter; 0 means same as Header.Tid
 }
 
 // Data returns data a client should see
@@ -47,6 +48,15 @@ func (txe *txnEntry) Data() []byte {
 		data = txe.rawData
 	}
 	return data
+}
+
+// DataTid returns data tid a client should see
+func (txe *txnEntry) DataTid() zodb.Tid {
+	dataTid := txe.dataTid
+	if dataTid == 0 {
+		dataTid = txe.Header.Tid
+	}
+	return dataTid
 }
 
 // successfull result of load for an oid
@@ -127,7 +137,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 
 	for k := 0; ; k++ {
 		txnErrorf := func(format string, a ...interface{}) {
-			subj := fmt.Sprintf("iterating %v..%v: step %v/%v:", tidMin, tidMax, k+1, len(expectv))
+			subj := fmt.Sprintf("iterating %v..%v: step %v#%v", tidMin, tidMax, k, len(expectv))
 			msg  := fmt.Sprintf(format, a...)
 			t.Errorf("%v: %v", subj, msg)
 		}
@@ -155,13 +165,20 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 		if txni != &fsi.txnIter.Txnh.TxnInfo {
 			t.Fatal("unexpected txni pointer")
 		}
-		if !reflect.DeepEqual(fsi.txnIter.Txnh, dbe.Header) {
-			txnErrorf("unexpected txn entry:\nhave: %q\nwant: %q", fsi.txnIter.Txnh, dbe.Header)
+
+		// compare transaction headers modulo .workMem
+		// (workMem is not initialized in _1fs_dbEntryv)
+		txnh1 := fsi.txnIter.Txnh
+		txnh2 := dbe.Header
+		txnh1.workMem = nil
+		txnh2.workMem = nil
+		if !reflect.DeepEqual(txnh1, txnh2) {
+			txnErrorf("unexpected txn entry:\nhave: %q\nwant: %q", txnh1, txnh2)
 		}
 
 		for kdata := 0; ; kdata++ {
 			dataErrorf := func(format string, a...interface{}) {
-				dsubj := fmt.Sprintf("dstep %v/%v", kdata, len(dbe.Entryv))
+				dsubj := fmt.Sprintf("dstep %v#%v", kdata, len(dbe.Entryv))
 				msg   := fmt.Sprintf(format, a...)
 				txnErrorf("%v: %v", dsubj, msg)
 			}
@@ -205,7 +222,9 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 				dataErrorf("data mismatch:\nhave %q\nwant %q", datai.Data, txe.Data())
 			}
 
-			// TODO .DataTid
+			if datai.DataTid != txe.DataTid() {
+				dataErrorf("data tid mismatch: have %v;  want %v", datai.DataTid, txe.DataTid())
+			}
 		}
 	}
 }

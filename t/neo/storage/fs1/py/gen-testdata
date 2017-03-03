@@ -171,13 +171,16 @@ def main():
                 plen = dh.plen
                 if plen == 0:
                     rawdata = p64(dh.back) # back-pointer or 0 (= delete)
-                    data = "/* from %s */ []byte(%s)" % (hex64(drec.data_txn), escapeqq(drec.data))     # XXX vs .data = None ?
+                    data = "[]byte(%s)" % escapeqq(drec.data)
+                    datatid = hex64(drec.data_txn)  # XXX vs .data = None ?
                 else:
                     rawdata = drec.data
                     data = "/* same as ^^^ */ nil"
+                    datatid = "/* same as ^^^ */ 0"
 
                 emit("\t\t\t\t[]byte(%s)," % escapeqq(rawdata))
                 emit("\t\t\t\t%s," % data)
+                emit("\t\t\t\t%s," % datatid)
                 emit("\t\t\t},")
 
             emit("\t\t},")
