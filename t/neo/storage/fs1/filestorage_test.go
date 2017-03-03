@@ -120,6 +120,7 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+// iterate tidMin..tidMax and expect db entries in expectv
 func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
 	iter := fs.Iterate(tidMin, tidMax)
 
@@ -211,7 +212,6 @@ func TestIterate(t *testing.T) {
 			}
 
 			//fmt.Printf("%d%+d .. %d%+d\t -> %d steps\n", i, ii-1, j, jj-1, nsteps)
-
 			testIterate(t, fs, tmin, tmax, _1fs_dbEntryv[i + ii/2:][:nsteps])
 		}}
 	}}
