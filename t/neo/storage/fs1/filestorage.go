@@ -55,6 +55,8 @@ type TxnHeader struct {
 	zodb.TxnInfo
 
 	// underlying memory for header loading and for user/desc/extension strings
+	// invariant: after successful TxnHeader load len(.workMem) = lenUser + lenDesc + lenExt
+	//            as specfied by on-disk header
 	workMem	[]byte
 }
 
@@ -162,6 +164,15 @@ func okEOF(err error) error {
 	return err
 }
 
+
+// --- Transaction record ---
+
+// HeaderLen returns whole transaction header length including variable part.
+// NOTE: data records start right after transaction header.
+func (txnh *TxnHeader) HeaderLen() int64 {
+	return TxnHeaderFixSize + int64(len(txnh.workMem))
+}
+
 // CloneFrom copies txnh2 to txnh making sure underlying slices (.workMem .User
 // .Desc ...) are not shared
 func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
@@ -177,6 +188,7 @@ func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
 	txnh.workMem = workMem
 	copy(workMem, txnh2.workMem)
 
+	// FIXME handle case when strings were already loaded
 	luser := cap(txnh2.User)
 	xdesc := luser + cap(txnh2.Description)
 	xext  := xdesc + cap(txnh2.Extension)
@@ -207,7 +219,7 @@ const (
 // LenPrev >= TxnHeaderFixSize	LenPrev was read/checked normally
 func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLoadFlags) error {
 	if cap(txnh.workMem) < txnXHeaderFixSize {
-		txnh.workMem = make([]byte, txnXHeaderFixSize)	// XXX or 0, ... ?
+		txnh.workMem = make([]byte, txnXHeaderFixSize)
 	}
 	work := txnh.workMem[:txnXHeaderFixSize]
 
@@ -379,6 +391,7 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	return err
 }
 
+// --- Data record ---
 
 // Len returns whole data record length
 func (dh *DataHeader) Len() int64 {
@@ -752,7 +765,16 @@ func (fs *FileStorage) StorageName() string {
 }
 
 
-// txnIter is iterator over transactions
+// iteration
+
+type iterFlags int
+const (
+	iterDir       iterFlags = 1 << iota // iterate forward (1) or backward (0)
+	iterEOF                             // EOF reached
+	iterPreloaded                       // data for this iteration was already preloaded
+)
+
+// txnIter is iterator over transaction records
 type txnIter struct {
 	fs *FileStorage
 
@@ -762,12 +784,23 @@ type txnIter struct {
 	Flags	iterFlags	// iterate forward (> 0) / backward (< 0) / EOF reached (== 0)
 }
 
-type iterFlags int
-const (
-	iterDir       iterFlags = 1 << iota // iterate forward (1) or backward (0)
-	iterEOF                             // EOF reached
-	iterPreloaded                       // data for this iteration was alrady preloaded
-)
+// dataIter is iterator over data records inside one transaction
+type dataIter struct {
+	fs *FileStorage
+
+	Txnh	*TxnHeader	// header of transaction we are iterating inside
+	Datah	DataHeader
+
+	sri	zodb.StorageRecordInformation // ptr to this will be returned by NextData
+	dataBuf	[]byte
+}
+
+// iterator is transaction/data-records iterator as specified by zodb.IStorage
+type iterator struct {
+	txnIter  txnIter
+	dataIter dataIter
+}
+
 
 func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	switch {
@@ -807,17 +840,6 @@ func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	return nil
 }
 
-// dataIter is iterator over data records inside one transaction
-type dataIter struct {
-	fs *FileStorage
-
-	Txnh	*TxnHeader	// header of transaction we are iterating inside
-	Datah	DataHeader
-
-	sri	zodb.StorageRecordInformation // ptr to this will be returned by NextData
-	dataBuf	[]byte
-}
-
 func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
 	err := di.Datah.LoadNext(di.fs.file, di.Txnh)
 	if err != nil {
@@ -844,22 +866,15 @@ func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
 }
 
 
-// Iterator is transaction/data-records iterator as specified by zodb.IStorage
-type Iterator struct {
-	txnIter  txnIter
-	dataIter dataIter
-}
-
-func (fsi *Iterator) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
+func (fsi *iterator) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
 	err := fsi.txnIter.NextTxn(LoadAll)
 	if err != nil {
 		return nil, nil, err	// XXX recheck
 	}
 
-	// TODO set dataIter
-
-	//
-	// XXX NOTE(self): iteration starts with {Pos: txnh.Pos, DataLen: -DataHeaderSize}
+	// set .dataIter to iterate over .txnIter.Txnh
+	fsi.dataIter.Datah.Pos = fsi.txnIter.Txnh.Pos + fsi.txnIter.Txnh.HeaderLen()
+	fsi.dataIter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 
 	return &fsi.txnIter.Txnh.TxnInfo, &fsi.dataIter, nil
 }
@@ -875,7 +890,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	}
 
 	// XXX naming
-	Iter := Iterator{}
+	Iter := iterator{}
 	Iter.txnIter.fs = fs
 	Iter.dataIter.fs = fs
 	Iter.dataIter.Txnh = &Iter.txnIter.Txnh
