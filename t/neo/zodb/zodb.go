@@ -45,35 +45,6 @@ func (tid Tid) Valid() bool {
 	}
 }
 
-func (tid Tid) String() string {
-	// XXX also print "tid:" prefix ?
-	return fmt.Sprintf("%016x", uint64(tid))
-}
-
-func (oid Oid) String() string {
-	// XXX also print "oid:" prefix ?
-	return fmt.Sprintf("%016x", uint64(oid))
-}
-
-// XXX move me out of here
-// bint converts bool to int with true => 1; false => 0
-func bint(b bool) int {
-	if b {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-func (xtid XTid) String() string {
-	// XXX also print "tid:" prefix ?
-	return fmt.Sprintf("%c%v", "=<"[bint(xtid.TidBefore)], xtid.Tid)
-}
-
-func (xid Xid) String() string {
-	return xid.XTid.String() + ":" + xid.Oid.String()	// XXX use "·" instead of ":" ?
-}
-
 // ----------------------------------------
 
 // ErrOidMissing is an error which tells that there is no such oid in the database at all
