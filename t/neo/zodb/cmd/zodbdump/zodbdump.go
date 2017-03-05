@@ -40,6 +40,7 @@ import (
 	"../../../zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/go123/xio"
 )
 
 func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
@@ -48,7 +49,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 	for {
 		txni, dataIter, err := iter.NextTxn()
 		if err != nil {
-			err = okEOF(err)
+			err = xio.OkEOF(err)
 			break
 		}
 
@@ -64,7 +65,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 		for {
 			datai, err := dataIter.NextData()
 			if err != nil {
-				err = okEOF(err)
+				err = xio.OkEOF(err)
 				break
 			}
 
@@ -102,6 +103,8 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 	}
 
 	// XXX check err
+
+	return nil
 }
 
 func usage() {

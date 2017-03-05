@@ -148,21 +148,21 @@ func bug(e xerr, format string, a ...interface{}) {
 }
 
 
-// noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
-func noEOF(err error) error {
-	if err == io.EOF {
-		err = io.ErrUnexpectedEOF
-	}
-	return err
-}
-
-// okEOF returns err, but changes io.EOF -> nil
-func okEOF(err error) error {
-	if err == io.EOF {
-		err = nil
-	}
-	return err
-}
+// // noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
+// func NoEOF(err error) error {
+// 	if err == io.EOF {
+// 		err = io.ErrUnexpectedEOF
+// 	}
+// 	return err
+// }
+// 
+// // okEOF returns err, but changes io.EOF -> nil
+// func okEOF(err error) error {
+// 	if err == io.EOF {
+// 		err = nil
+// 	}
+// 	return err
+// }
 
 
 // --- Transaction record ---
@@ -268,7 +268,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 
 		// EOF after txn header is not good - because at least
 		// redundant length should be also there
-		return txnh.err("read", noEOF(err))
+		return txnh.err("read", xio.NoEOF(err))
 	}
 
 	txnh.Tid = zodb.Tid(binary.BigEndian.Uint64(work[8+0:]))
@@ -327,7 +327,7 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt /* *os.File */) error {
 	// we rely on Load leaving len(workMem) = sum of all strings length ...
 	_, err := r.ReadAt(txnh.workMem, txnh.Pos + TxnHeaderFixSize)
 	if err != nil {
-		return txnh.err("read strings", noEOF(err))
+		return txnh.err("read strings", xio.noEOF(err))
 	}
 
 	// ... and presetting x to point to appropriate places in .workMem .
@@ -418,7 +418,7 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 
 	_, err := r.ReadAt(tmpBuf[:], pos)
 	if err != nil {
-		return dh.err("read", noEOF(err))
+		return dh.err("read", xio.noEOF(err))
 	}
 
 	// XXX also check oid.Valid() ?
@@ -518,7 +518,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 	var xxx [8]byte	// XXX escapes ?
 	_, err := r.ReadAt(xxx[:], dh.Pos + DataHeaderSize)
 	if err != nil {
-		return dh.err("read data", noEOF(err))
+		return dh.err("read data", xio.noEOF(err))
 	}
 
 	backPos := int64(binary.BigEndian.Uint64(xxx[:]))
@@ -627,7 +627,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error
 	}
 	_, err := r.ReadAt(*buf, dh.Pos + DataHeaderSize)
 	if err != nil {
-		return dh.err("read data", noEOF(err))	// XXX recheck
+		return dh.err("read data", xio.noEOF(err))	// XXX recheck
 	}
 
 	return nil
@@ -921,7 +921,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	for {
 		err = iter.NextTxn(LoadNoStrings)
 		if err != nil {
-			err = okEOF(err)
+			err = xio.OkEOF(err)
 			break
 		}
 	}
