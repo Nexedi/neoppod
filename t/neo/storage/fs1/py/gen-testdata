@@ -39,6 +39,7 @@ def xtime():
 time.time = xtime
 
 
+# prepare transaction for a commit
 def precommit(user, description, extension):
     txn = transaction.get()
     txn.user = user
@@ -49,6 +50,7 @@ def precommit(user, description, extension):
 def commit(user, description, extension):
     txn = precommit(user, description, extension)
     txn.commit()
+
 
 class Object(Persistent):
     # .value
@@ -201,7 +203,7 @@ def main():
                         datatid = hex64(drec.data_txn)
                 else:
                     rawdata = drec.data
-                    data = "/* same as ^^^ */ nil"
+                    data = "/* same as ^^^ */ sameAsRaw"
                     datatid = "/* same as ^^^ */ 0"
 
                 emit("\t\t\t\t[]byte(%s)," % escapeqq(rawdata))

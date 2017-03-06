@@ -37,14 +37,16 @@ type dbEntry struct {
 type txnEntry struct {
 	Header	 DataHeader
 	rawData	 []byte		// what is on disk, e.g. it can be backpointer
-	userData []byte		// data client should see on load; nil means same as RawData
+	userData []byte		// data client should see on load; `sameAsRaw` means same as RawData
 	dataTid  zodb.Tid	// data tid client should see on iter; 0 means same as Header.Tid
 }
+
+var sameAsRaw = []byte{0}
 
 // Data returns data a client should see
 func (txe *txnEntry) Data() []byte {
 	data := txe.userData
-	if data == nil {
+	if len(data) > 0 && &data[0] == &sameAsRaw[0] {
 		data = txe.rawData
 	}
 	return data
@@ -74,7 +76,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 	if tid != expect.tid {
 		t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
 	}
-	if !bytes.Equal(data, expect.data) {
+	if !bytes.Equal(data, expect.data) {	// XXX -> reflect.DeepEqual
 		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, expect.data)
 	}
 }

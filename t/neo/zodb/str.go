@@ -6,7 +6,7 @@ package zodb
 
 import (
 	"fmt"
-	"encoding/hex"
+	//"encoding/hex"
 )
 
 func (tid Tid) String() string {
@@ -39,6 +39,7 @@ func (xid Xid) String() string {
 }
 
 
+/*
 func ParseTid(s string) (Tid, error) {
 	// -> scanf("%016x")
 	var b[8]byte
@@ -50,3 +51,4 @@ func ParseTid(s string) (Tid, error) {
 		...
 	}
 }
+*/
