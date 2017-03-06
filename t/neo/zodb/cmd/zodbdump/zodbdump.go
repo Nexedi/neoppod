@@ -51,6 +51,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 	iter := stor.Iterate(tidMin, tidMax)
 
 	// transactions
+	first := true
 	for {
 		txni, dataIter, err := iter.NextTxn()
 		if err != nil {
@@ -63,9 +64,14 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 		}
 
 		// TODO if not first: println
+		vskip := "\n"
+		if first {
+			vskip = ""
+			first = false
+		}
 
-		_, err = fmt.Fprintf(w, "txn %s (%c)\nuser %q\ndescription %q\nextension %q\n",
-				txni.Tid, txni.Status, txni.User, txni.Description, txni.Extension)
+		_, err = fmt.Fprintf(w, "%stxn %s (%c)\nuser %q\ndescription %q\nextension %q\n",
+				vskip, txni.Tid, txni.Status, txni.User, txni.Description, txni.Extension)
 		if err != nil {
 			break
 		}
@@ -106,6 +112,11 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 
 			if !hashOnly && writeData {
 				_, err = w.Write(datai.Data)
+				if err != nil {
+					break
+				}
+
+				_, err = w.Write([]byte("\n"))
 				if err != nil {
 					break
 				}
