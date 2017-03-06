@@ -495,7 +495,7 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 //   - TODO describe how
 // when there is no previous revision: io.EOF is returned
 func (dh *DataHeader) LoadPrevRev(r io.ReaderAt /* *os.File */) error {
-	if dh.PrevRevPos == 0 {	// XXX -> -1 ?
+	if dh.PrevRevPos == 0 {
 		return io.EOF	// no more previous revisions
 	}
 
