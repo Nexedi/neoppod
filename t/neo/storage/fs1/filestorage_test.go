@@ -14,7 +14,6 @@
 package fs1
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"reflect"
@@ -76,7 +75,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 	if tid != expect.tid {
 		t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
 	}
-	if !bytes.Equal(data, expect.data) {	// XXX -> reflect.DeepEqual
+	if !reflect.DeepEqual(data, expect.data) { // NOTE reflect to catch nil != ""
 		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, expect.data)
 	}
 }
@@ -220,7 +219,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 			if datai.Tid != dh.Tid {
 				dataErrorf("tid mismatch: have %v;  want %v", datai.Tid, dh.Tid)
 			}
-			if !bytes.Equal(datai.Data, txe.Data()) {
+			if !reflect.DeepEqual(datai.Data, txe.Data()) { // NOTE reflect to catch nil != ""
 				dataErrorf("data mismatch:\nhave %q\nwant %q", datai.Data, txe.Data())
 			}
 
