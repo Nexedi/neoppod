@@ -38,6 +38,7 @@ import (
 	"os"
 
 	"../../../zodb"
+	"../../../storage/fs1"
 
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xio"
@@ -109,7 +110,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 
 func usage() {
 	fmt.Fprintf(os.Stderr,
-`zodbdump [options] <command> [tidmin..tidmax]
+`zodbdump [options] <storage> [tidmin..tidmax]
 Dump content of a ZODB database.
 
 <storage> is a path to FileStorage	XXX will become URL
@@ -123,8 +124,7 @@ Dump content of a ZODB database.
 
 func main() {
 	hashOnly := false
-	tidMin := zodb.Tid(0)
-	tidMax := zodb.TidMax
+	tidRange := ".." // (0, +inf)
 
 	flag.Usage = usage
 	flag.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
@@ -137,14 +137,19 @@ func main() {
 	}
 	storUrl := argv[0]
 
+
+	var err error
+
 	if len(argv) > 1 {
-		tidMin, tidMax, err = parseTidRange(argv[1])
-		if err != nil {
-			log.Fatal(err)	// XXX recheck
-		}
+		tidRange = argv[1]
 	}
 
-	stor, err = fs1.Open(storUrl)	// TODO read-only
+	tidMin, tidMax, err := zodb.ParseTidRange(tidRange)
+	if err != nil {
+		log.Fatal(err)	// XXX recheck
+	}
+
+	stor, err := fs1.Open(storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}
