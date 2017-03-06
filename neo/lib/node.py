@@ -40,17 +40,20 @@ class Node(object):
         self._last_state_change = time()
         manager.add(self)
 
-    def notify(self, packet):
+    @property
+    def send(self):
         assert self.isConnected(), 'Not connected'
-        self._connection.notify(packet)
+        return self._connection.send
 
-    def ask(self, packet, *args, **kw):
+    @property
+    def ask(self):
         assert self.isConnected(), 'Not connected'
-        self._connection.ask(packet, *args, **kw)
+        return self._connection.ask
 
-    def answer(self, packet, msg_id=None):
+    @property
+    def answer(self):
         assert self.isConnected(), 'Not connected'
-        self._connection.answer(packet, msg_id)
+        return self._connection.answer
 
     def getLastStateChange(self):
         return self._last_state_change

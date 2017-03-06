@@ -326,7 +326,7 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkNoPacketSent(self, conn):
         """ check if no packet were sent """
-        self._checkNoPacketSend(conn, 'notify')
+        self._checkNoPacketSend(conn, 'send')
         self._checkNoPacketSend(conn, 'answer')
         self._checkNoPacketSend(conn, 'ask')
 
@@ -372,7 +372,7 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkNotifyPacket(self, conn, packet_type, packet_number=0):
         """ Check if a notify-packet with the right type is sent """
-        calls = conn.mockGetNamedCalls('notify')
+        calls = conn.mockGetNamedCalls('send')
         packet = calls.pop(packet_number).getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), packet_type)

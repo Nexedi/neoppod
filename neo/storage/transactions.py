@@ -147,7 +147,7 @@ class TransactionManager(EventQueue):
             # are now locked normally and we don't rely anymore on other
             # readable cells to check locks: we're really up-to-date.
             for partition in notify:
-                self._app.master_conn.notify(Packets.NotifyReplicationDone(
+                self._app.master_conn.send(Packets.NotifyReplicationDone(
                     partition, replicated.pop(partition)))
             for oid, ttid in store_lock_dict.iteritems():
                 if getPartition(oid) in notify:
@@ -355,7 +355,7 @@ class TransactionManager(EventQueue):
                 # Ask master to give the client a new locking tid, which will
                 # be used to ask all involved storage nodes to rebase the
                 # already locked oids for this transaction.
-                self._app.master_conn.notify(Packets.NotifyDeadlock(
+                self._app.master_conn.send(Packets.NotifyDeadlock(
                     ttid, transaction.locking_tid))
                 self._rebase(transaction, ttid)
                 raise DelayEvent

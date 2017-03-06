@@ -235,7 +235,7 @@ class Application(BaseApplication):
         self.master_conn.setHandler(initialization.InitializationHandler(self))
         while not self.operational:
             _poll()
-        self.master_conn.notify(Packets.NotifyReady())
+        self.master_conn.send(Packets.NotifyReady())
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""

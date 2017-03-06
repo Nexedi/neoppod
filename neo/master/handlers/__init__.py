@@ -89,7 +89,7 @@ class MasterHandler(EventHandler):
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getClientList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.notify(Packets.NotifyNodeInformation(monotonic_time(), node_list))
+        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
@@ -106,7 +106,7 @@ class BaseServiceHandler(MasterHandler):
     def connectionCompleted(self, conn, new):
         self._notifyNodeInformation(conn)
         pt = self.app.pt
-        conn.notify(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
+        conn.send(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
 
     def connectionLost(self, conn, new_state):
         app = self.app

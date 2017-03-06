@@ -131,7 +131,7 @@ class VerificationManager(BaseServiceHandler):
             if uuid_set:
                 packet = Packets.ValidateTransaction(ttid, tid)
                 for node in getIdentifiedList(pool_set=uuid_set):
-                    node.notify(packet)
+                    node.send(packet)
 
     def answerLastIDs(self, conn, loid, ltid):
         self._uuid_set.remove(conn.getUUID())

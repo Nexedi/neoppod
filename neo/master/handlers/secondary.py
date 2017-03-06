@@ -39,7 +39,7 @@ class SecondaryMasterHandler(MasterHandler):
 
     def _notifyNodeInformation(self, conn):
         node_list = [n.asTuple() for n in self.app.nm.getMasterList()]
-        conn.notify(Packets.NotifyNodeInformation(monotonic_time(), node_list))
+        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
 class PrimaryHandler(EventHandler):
     """ Handler used by secondaries to handle primary master"""

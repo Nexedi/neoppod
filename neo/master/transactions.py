@@ -316,7 +316,7 @@ class TransactionManager(EventQueue):
             logging.info('Deadlock avoidance triggered by %s for %s:'
                 ' new locking tid for TXN %s is %s', uuid_str(storage_id),
                 uuid_str(client.getUUID()), dump(ttid), dump(locking_tid))
-            client.notify(Packets.NotifyDeadlock(ttid, locking_tid))
+            client.send(Packets.NotifyDeadlock(ttid, locking_tid))
 
     def vote(self, app, ttid, uuid_list):
         """

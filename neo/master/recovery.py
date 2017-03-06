@@ -89,7 +89,7 @@ class RecoveryManager(MasterHandler):
                             truncate = Packets.Truncate(app.truncate_tid)
                             for node in node_list:
                                 conn = node.getConnection()
-                                conn.notify(truncate)
+                                conn.send(truncate)
                                 self.connectionCompleted(conn, False)
                             continue
                     node_list = pt.getConnectedNodeList()
@@ -182,4 +182,4 @@ class RecoveryManager(MasterHandler):
     def _notifyAdmins(self, *packets):
         for node in self.app.nm.getAdminList(only_identified=True):
             for packet in packets:
-                node.notify(packet)
+                node.send(packet)

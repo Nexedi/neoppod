@@ -103,7 +103,7 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
             if node.isConnected():
                 # notify itself so it can shutdown
-                node.notify(Packets.NotifyNodeInformation(
+                node.send(Packets.NotifyNodeInformation(
                     monotonic_time(), [node.asTuple()]))
                 # close to avoid handle the closure as a connection lost
                 node.getConnection().abort()
@@ -122,7 +122,7 @@ class AdministrationHandler(MasterHandler):
             # ignores non-running nodes
             assert not node.isRunning()
             if node.isConnected():
-                node.notify(Packets.NotifyNodeInformation(
+                node.send(Packets.NotifyNodeInformation(
                     monotonic_time(), [node.asTuple()]))
             app.broadcastNodesInformation([node])
 
@@ -161,7 +161,7 @@ class AdministrationHandler(MasterHandler):
             node_list.append(node)
         repair = Packets.NotifyRepair(*args)
         for node in node_list:
-            node.notify(repair)
+            node.send(repair)
         conn.answer(Errors.Ack(''))
 
     def tweakPartitionTable(self, conn, uuid_list):
@@ -225,6 +225,6 @@ class AdministrationHandler(MasterHandler):
                             ).getAddress()
                     else:
                         source = '', None
-                node.getConnection().notify(Packets.CheckPartition(
+                node.send(Packets.CheckPartition(
                     offset, source, min_tid, max_tid))
         conn.answer(Errors.Ack(''))

@@ -136,7 +136,7 @@ class HandlerSwitcher(object):
             logging.error('Unexpected answer %r in %r', packet, connection)
             if not connection.isClosed():
                 notification = Packets.Notify('Unexpected answer: %r' % packet)
-                connection.notify(notification)
+                connection.send(notification)
                 connection.abort()
             # handler.peerBroken(connection)
         # apply a pending handler if no more answers are pending
@@ -379,7 +379,7 @@ class Connection(BaseConnection):
         if self.server:
             del self.idle
             self.client = False
-            self.notify(Packets.CloseClient())
+            self.send(Packets.CloseClient())
         else:
             self.close()
 
@@ -548,7 +548,7 @@ class Connection(BaseConnection):
             self.em.addWriter(self)
         logging.packet(self, packet, True)
 
-    def notify(self, packet):
+    def send(self, packet):
         """ Then a packet with a new ID """
         if self.isClosed():
             raise ConnectionClosed
@@ -672,7 +672,7 @@ class MTConnectionType(type):
         if __debug__:
             for name in 'answer',:
                 setattr(cls, name, cls.lockCheckWrapper(name))
-        for name in 'close', 'notify':
+        for name in 'close', 'send':
             setattr(cls, name, cls.__class__.lockWrapper(cls, name))
         for name in ('_delayedConnect', 'onTimeout',
                      'process', 'readable', 'writable'):

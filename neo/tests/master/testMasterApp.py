@@ -92,7 +92,7 @@ class MasterAppTests(NeoUnitTestBase):
 
         self.app.broadcastNodesInformation([s_node])
         # check conn
-        self.assertFalse(client_conn.mockGetNamedCalls('notify'))
+        self.assertFalse(client_conn.mockGetNamedCalls('send'))
         self.checkNoPacketSent(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
 

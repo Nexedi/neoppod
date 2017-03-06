@@ -569,7 +569,7 @@ class Application(ThreadedApplication):
         p = Packets.AbortTransaction(txn_context.ttid, ())
         for uuid in txn_context.involved_nodes:
             try:
-                self.cp.connection_dict[uuid].notify(p)
+                self.cp.connection_dict[uuid].send(p)
             except (KeyError, ConnectionClosed):
                 pass
         # Because we want to be sure that the involved nodes are notified,
@@ -579,7 +579,7 @@ class Application(ThreadedApplication):
         # storage nodes keep a list of aborted transactions, but the
         # difficult part would be to avoid a memory leak.
         try:
-            notify = self.master_conn.notify
+            notify = self.master_conn.send
         except AttributeError:
             pass
         else:

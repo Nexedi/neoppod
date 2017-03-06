@@ -38,7 +38,7 @@ class ClientServiceHandler(MasterHandler):
         node_list = [nm.getByUUID(conn.getUUID()).asTuple()] # for id_timestamp
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.notify(Packets.NotifyNodeInformation(monotonic_time(), node_list))
+        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askBeginTransaction(self, conn, tid):
         """
@@ -132,7 +132,7 @@ class ClientServiceHandler(MasterHandler):
             p = Packets.AbortTransaction(tid, ())
             getByUUID = app.nm.getByUUID
             for involved in involved:
-                getByUUID(involved).notify(p)
+                getByUUID(involved).send(p)
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid

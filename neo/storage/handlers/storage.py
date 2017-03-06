@@ -210,7 +210,7 @@ class StorageOperationHandler(EventHandler):
                                 "partition %u dropped" % partition))
                             return
                         oid_list, user, desc, ext, packed, ttid = t
-                        conn.notify(Packets.AddTransaction(
+                        conn.send(Packets.AddTransaction(
                             tid, user, desc, ext, packed, ttid, oid_list))
                         yield
                 conn.answer(Packets.AnswerFetchTransactions(
@@ -253,7 +253,7 @@ class StorageOperationHandler(EventHandler):
                         conn.answer(Errors.ReplicationError(
                             "partition %u dropped or truncated" % partition))
                         return
-                    conn.notify(Packets.AddObject(oid, serial, *object[2:]))
+                    conn.send(Packets.AddObject(oid, serial, *object[2:]))
                     yield
                 conn.answer(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)

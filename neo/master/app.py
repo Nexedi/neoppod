@@ -208,7 +208,7 @@ class Application(BaseApplication):
 
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in self.em.getClientList():
-                    conn.notify(Packets.ReelectPrimary())
+                    conn.send(Packets.ReelectPrimary())
                     conn.abort()
 
                 # Wait until the connections are closed.
@@ -257,7 +257,7 @@ class Application(BaseApplication):
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType())
             if node_list and node.isRunning() and node is not exclude:
-                node.notify(Packets.NotifyNodeInformation(now, node_list))
+                node.send(Packets.NotifyNodeInformation(now, node_list))
 
     def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
@@ -267,7 +267,7 @@ class Application(BaseApplication):
             packet = Packets.NotifyPartitionChanges(ptid, cell_list)
             for node in self.nm.getIdentifiedList():
                 if node.isRunning() and not node.isMaster():
-                    node.notify(packet)
+                    node.send(packet)
 
     def provideService(self):
         """
@@ -292,7 +292,7 @@ class Application(BaseApplication):
             for node in self.nm.getStorageList(only_identified=True):
                 tid_dict[node.getUUID()] = tid
                 if node.isRunning():
-                    node.notify(packet)
+                    node.send(packet)
             self.pt.setBackupTidDict(tid_dict)
 
     def playPrimaryRole(self):
@@ -304,7 +304,7 @@ class Application(BaseApplication):
             if conn.isListening():
                 conn.setHandler(identification.IdentificationHandler(self))
             else:
-                conn.notify(packet)
+                conn.send(packet)
                 # Primary master should rather establish connections to all
                 # secondaries, rather than the other way around. This requires
                 # a bit more work when a new master joins a cluster but makes
@@ -375,12 +375,12 @@ class Application(BaseApplication):
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
                         conn = node.getConnection()
-                        conn.notify(Packets.StopOperation())
+                        conn.send(Packets.StopOperation())
                         if node.isClient():
                             conn.abort()
                             continue
                         if truncate:
-                            conn.notify(truncate)
+                            conn.send(truncate)
                         if node.isRunning():
                             node.setPending()
                             node_list.append(node)
@@ -453,7 +453,7 @@ class Application(BaseApplication):
         notification_packet = Packets.NotifyClusterInformation(state)
         for node in self.nm.getIdentifiedList():
             conn = node.getConnection()
-            conn.notify(notification_packet)
+            conn.send(notification_packet)
             if node.isClient():
                 if state == ClusterStates.RUNNING:
                     handler = self.client_service_handler
@@ -512,9 +512,9 @@ class Application(BaseApplication):
             conn = node.getConnection()
             if node.isStorage():
                 conn.setHandler(handler)
-                conn.notify(Packets.NotifyNodeInformation(now, ((
-                  node.getType(), node.getAddress(), node.getUUID(),
-                  NodeStates.TEMPORARILY_DOWN, None),)))
+                conn.send(Packets.NotifyNodeInformation(now, ((
+                    node.getType(), node.getAddress(), node.getUUID(),
+                    NodeStates.TEMPORARILY_DOWN, None),)))
                 conn.abort()
             elif conn.pending():
                 conn.abort()
@@ -549,13 +549,13 @@ class Application(BaseApplication):
                 c.answer(Packets.AnswerTransactionFinished(ttid, tid),
                          msg_id=txn.getMessageId())
             else:
-                c.notify(invalidate_objects)
+                c.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.
         notify_unlock = Packets.NotifyUnlockInformation(ttid)
         getByUUID = self.nm.getByUUID
         for storage_uuid in txn.getUUIDList():
-            getByUUID(storage_uuid).getConnection().notify(notify_unlock)
+            getByUUID(storage_uuid).send(notify_unlock)
 
         # Notify storage that have replications blocked by this transaction,
         # and clients that try to recover from a failure during tpc_finish.
@@ -566,7 +566,7 @@ class Application(BaseApplication):
                 # There should be only 1 client interested.
                 node.answer(Packets.AnswerFinalTID(tid))
             else:
-                node.notify(notify_finished)
+                node.send(notify_finished)
 
         assert self.last_transaction < tid, (self.last_transaction, tid)
         self.setLastTransaction(tid)
@@ -583,7 +583,7 @@ class Application(BaseApplication):
         self.tm.executeQueuedEvents()
 
     def startStorage(self, node):
-        node.notify(Packets.StartOperation(self.backup_tid))
+        node.send(Packets.StartOperation(self.backup_tid))
         uuid = node.getUUID()
         assert uuid not in self.storage_starting_set
         if uuid not in self.storage_ready_dict:
