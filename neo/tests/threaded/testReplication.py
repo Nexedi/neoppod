@@ -36,6 +36,7 @@ from neo.lib.util import p64, u64
 from .. import expectedFailure, Patch
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
+from .test import PCounter # XXX
 
 
 def backup_test(partitions=1, upstream_kw={}, backup_kw={}):
@@ -81,6 +82,16 @@ class ReplicationTests(NEOThreadedTest):
                 self.checkPartitionReplicated(source, storage, partition, **kw)
                 checked += 1
         return checked
+
+    def checkReplicas(self, cluster):
+        pt = cluster.primary_master.pt
+        storage_dict = {x.uuid: x for x in cluster.storage_list}
+        for offset in xrange(pt.getPartitions()):
+            checksum_list = [
+                self.checksumPartition(storage_dict[x.getUUID()], offset)
+                for x in pt.getCellList(offset)]
+            self.assertEqual(1, len(set(checksum_list)),
+                             (offset, checksum_list))
 
     def testBackupNormalCase(self):
         np = 7
@@ -423,6 +434,30 @@ class ReplicationTests(NEOThreadedTest):
                 m2c.delayNotifyPartitionChanges()
                 self.tic()
                 self.assertEqual('foo', storage.load(oid)[0])
+
+    @with_cluster(start_cluster=False, storage_count=3, partitions=3)
+    def testAbortingReplication(self, cluster):
+        s1, s2, s3 = cluster.storage_list
+        cluster.start((s1, s2))
+        t, c = cluster.getTransaction()
+        r = c.root()
+        for x in 'ab':
+            r[x] = PCounter()
+        t.commit()
+        cluster.stop(replicas=1)
+        cluster.start((s1, s2))
+        with ConnectionFilter() as f:
+            f.delayAddObject()
+            cluster.neoctl.tweakPartitionTable()
+            s3.start()
+            self.tic()
+            cluster.neoctl.enableStorageList((s3.uuid,))
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+        self.tic()
+        for s in cluster.storage_list:
+            self.assertTrue(s.is_alive())
+        self.checkReplicas(cluster)
 
     @with_cluster(start_cluster=0, replicas=1)
     def testResumingReplication(self, cluster):

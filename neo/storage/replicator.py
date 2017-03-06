@@ -111,6 +111,12 @@ class Partition(object):
 
 class Replicator(object):
 
+    # When the replication of a partition is aborted, the connection to the
+    # feeding node may still be open, e.g. on PT update from the master. In
+    # such case, replication is also aborted on the other side but there may
+    # be a few incoming packets that must be discarded.
+    _conn_msg_id = None
+
     current_node = None
     current_partition = None
 
@@ -121,6 +127,10 @@ class Replicator(object):
         node = self.current_node
         if node is not None and node.isConnected(True):
             return node.getConnection()
+
+    def isReplicatingConnection(self, conn):
+        return conn is self.getCurrentConnection() and \
+            conn.getPeerId() == self._conn_msg_id
 
     def setUnfinishedTIDList(self, max_tid, ttid_list, offset_list):
         """This is a callback from MasterOperationHandler."""
@@ -353,7 +363,7 @@ class Replicator(object):
         max_tid = self.replicate_tid
         tid_list = self.app.dm.getReplicationTIDList(min_tid, max_tid,
             FETCH_COUNT, offset)
-        self.current_node.getConnection().ask(Packets.AskFetchTransactions(
+        self._conn_msg_id = self.current_node.ask(Packets.AskFetchTransactions(
             offset, FETCH_COUNT, min_tid, max_tid, tid_list))
 
     def fetchObjects(self, min_tid=None, min_oid=ZERO_OID):
@@ -372,13 +382,13 @@ class Replicator(object):
                 object_dict[serial].append(oid)
             except KeyError:
                 object_dict[serial] = [oid]
-        self.current_node.getConnection().ask(Packets.AskFetchObjects(
+        self._conn_msg_id = self.current_node.ask(Packets.AskFetchObjects(
             offset, FETCH_COUNT, min_tid, max_tid, min_oid, object_dict))
 
     def finish(self):
         offset = self.current_partition
         tid = self.replicate_tid
-        del self.current_partition, self.replicate_tid
+        del self.current_partition, self._conn_msg_id, self.replicate_tid
         p = self.partition_dict[offset]
         p.next_obj = add64(tid, 1)
         self.updateBackupTID()
@@ -397,6 +407,7 @@ class Replicator(object):
         if offset is None:
             return
         del self.current_partition
+        self._conn_msg_id = None
         logging.warning('replication aborted for partition %u%s',
                         offset, message and ' (%s)' % message)
         if offset in self.partition_dict:
@@ -413,24 +424,19 @@ class Replicator(object):
         else: # partition removed
             self._nextPartition()
 
-    def cancel(self):
-        offset = self.current_partition
-        if offset is not None:
-            logging.info('cancel replication of partition %u', offset)
-            del self.current_partition
-            try:
-                self.replicate_dict.setdefault(offset, self.replicate_tid)
-                del self.replicate_tid
-            except AttributeError:
-                pass
-            self.getCurrentConnection().close()
-
     def stop(self):
         # Close any open connection to an upstream storage,
         # possibly aborting current replication.
         node = self.current_node
         if node is not None is node.getUUID():
-            self.cancel()
+            offset = self.current_partition
+            if offset is not None:
+                logging.info('cancel replication of partition %u', offset)
+                del self.current_partition
+                if self._conn_msg_id is not None:
+                    self.replicate_dict.setdefault(offset, self.replicate_tid)
+                    del self._conn_msg_id, self.replicate_tid
+                self.getCurrentConnection().close()
         # Cancel all replication orders from upstream cluster.
         for offset in self.replicate_dict.keys():
             addr, name = self.source_dict.get(offset, (None, None))

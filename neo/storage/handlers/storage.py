@@ -23,7 +23,7 @@ from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
 
 def checkConnectionIsReplicatorConnection(func):
     def wrapper(self, conn, *args, **kw):
-        if self.app.replicator.getCurrentConnection() is conn:
+        if self.app.replicator.isReplicatingConnection(conn):
             return func(self, conn, *args, **kw)
     return wraps(func)(wrapper)
 
@@ -211,8 +211,8 @@ class StorageOperationHandler(EventHandler):
                                 % partition), msg_id)
                             return
                         oid_list, user, desc, ext, packed, ttid = t
-                        conn.send(Packets.AddTransaction(
-                            tid, user, desc, ext, packed, ttid, oid_list))
+                        conn.send(Packets.AddTransaction(tid, user,
+                            desc, ext, packed, ttid, oid_list), msg_id)
                         yield
                 conn.send(Packets.AnswerFetchTransactions(
                     pack_tid, next_tid, peer_tid_set), msg_id)
@@ -255,7 +255,8 @@ class StorageOperationHandler(EventHandler):
                             "partition %u dropped or truncated"
                             % partition), msg_id)
                         return
-                    conn.send(Packets.AddObject(oid, serial, *object[2:]))
+                    conn.send(Packets.AddObject(oid, serial, *object[2:]),
+                              msg_id)
                     yield
                 conn.send(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)

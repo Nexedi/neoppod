@@ -13,22 +13,6 @@ had an up-to-date partition table (and retry if useful).
 
 In the case of undoLog(), incomplete results may be returned.
 
-(N) Storage does not discard answers from aborted replications
---------------------------------------------------------------
-
-In some cases, this can lead to data corruption (wrong AnswerFetch*) or crashes
-(e.g. KeyError because self.current_partition is None at the beginning of
-Replicator.fetchObjects).
-
-The assumption that aborting the replication of a partition implies the closure
-of the connection turned out to be wrong, e.g. when a partition is aborted by a
-third party, like CORRUPTED/DISCARDED event from the master.
-
-Workaround: do not replicate or tweak while checking replicas.
-
-Currently, this can be reproduced by running testBackupNodeLost
-(neo.tests.threaded.testReplication.ReplicationTests) many times.
-
 (N) A backup cell may be wrongly marked as corrupted while checking replicas
 ----------------------------------------------------------------------------
 
