@@ -39,11 +39,15 @@ def xtime():
 time.time = xtime
 
 
-def commit(user, description, extension):
+def precommit(user, description, extension):
     txn = transaction.get()
     txn.user = user
     txn.description = description
     txn.extension = extension
+    return txn
+
+def commit(user, description, extension):
+    txn = precommit(user, description, extension)
     txn.commit()
 
 class Object(Persistent):
@@ -62,17 +66,17 @@ def main():
 
     outfs = "testdata/1.fs"
 
-    stor = FileStorage(outfs, create=True)
-    db   = DB(stor)
-    conn = db.open()
-    root = conn.root()
-    assert root._p_oid == p64(0), `root._p_oid`
-
     # generate random changes to objects hooked to top-level root by a/b/c/... key
     random.seed(0)
 
     namev = [_ for _ in "abcdefg"]
     for i in range(2):
+        stor = FileStorage(outfs, create=(i == 0))
+        db   = DB(stor)
+        conn = db.open()
+        root = conn.root()
+        assert root._p_oid == p64(0), `root._p_oid`
+
         for j in range(25):
             name = random.choice(namev)
             if name in root:
@@ -92,11 +96,24 @@ def main():
                    u"undo %i.%i\nmore detailed description\n\nzzz ..." % (i, j) + "\t"*(i+j),
                    {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
 
-    # TODO delete an object
+        # delete an object
+        #obj = random.choice(root.values())
+        #txn = precommit(u"root%i\nYour\nRoyal\nMagesty " % i,
+        #                u"delete %i\nalpha beta gamma\n\nqqq ..." % i,
+        #                {"x-generator": "zodb/py2 (delete %s)" % hex64(obj._p_oid)})
+        #stor.tpc_begin(txn)
+        #stor.deleteObject(obj._p_oid, obj._p_serial, txn)
+        #stor.tpc_vote(txn)
+        #stor.tpc_finish(txn)
 
-    conn.close()
-    db.close()
-    stor.close()
+        # close db & rest not to get conflict errors after we touched stor
+        # directly a bit. everything will be reopened on next iteration.
+        conn.close()
+        db.close()
+        stor.close()
+
+
+    # TODO different txn status
 
     # dump to go what to expect
     with open("testdata_expect_test.go", "w") as f:
