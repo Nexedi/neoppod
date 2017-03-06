@@ -50,6 +50,8 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 	var retErr error
 	iter := stor.Iterate(tidMin, tidMax)
 
+	// XXX error handling -> exceptions ?
+
 	// transactions
 	first := true
 	for {
@@ -63,7 +65,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 			goto out
 		}
 
-		// TODO if not first: println
+		// LF in-between txn records
 		vskip := "\n"
 		if first {
 			vskip = ""
