@@ -3,16 +3,18 @@ package fs1
 
 import "../../zodb"
 
-const _1fs_indexTopPos = 9971
+const _1fs_indexTopPos = 11053
 var _1fs_indexEntryv = [...]indexEntry{
-	{       0,     5572},
-	{       1,     7804},
-	{       2,     8728},
-	{       3,     9716},
-	{       4,     9190},
-	{       5,     7958},
-	{       6,     9913},
-	{       7,     8112},
+	{       0,    10536},
+	{       1,    10444},
+	{       2,     5973},
+	{       3,     9721},
+	{       4,     9567},
+	{       5,    10995},
+	{       6,    10247},
+	{       7,     9105},
+	{       8,     8489},
+	{       9,    10794},
 }
 
 var _1fs_dbEntryv = [...]dbEntry{
@@ -938,40 +940,40 @@ var _1fs_dbEntryv = [...]dbEntry{
 		TxnHeader{
 			Pos:	  5500,
 			LenPrev:  196,
-			Len:	  409,
+			Len:	  350,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacce81b533,
+				Tid:	0x0285cbaca8f5c2cc,
 				Status:	' ',
-				User:		[]byte("user1.0"),
-				Description:	[]byte("step 1.0"),
-				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (a)s."),
+				User:		[]byte(""),
+				Description:	[]byte("predelete 2"),
+				Extension:	[]byte(""),
 			},
 		},
 
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	5572,
+					Pos:	5534,
 					Oid:	0,
-					Tid:	0x0285cbacce81b533,
+					Tid:	0x0285cbaca8f5c2cc,
 					PrevRevPos:	2635,
 					TxnPos:	5500,
-					DataLen:	216,
+					DataLen:	196,
 				},
-				[]byte("cpersistent.mapping\nPersistentMapping\nq\x01.}q\x02U\x04dataq\x03}q\x04(U\x01a(U\x08\x00\x00\x00\x00\x00\x00\x00\x07q\x05c__main__\nObject\nq\x06tQU\x01c(U\x08\x00\x00\x00\x00\x00\x00\x00\x02q\x07h\x06tQU\x01b(U\x08\x00\x00\x00\x00\x00\x00\x00\x03q\x08h\x06tQU\x01e(U\x08\x00\x00\x00\x00\x00\x00\x00\x05q\th\x06tQU\x01d(U\x08\x00\x00\x00\x00\x00\x00\x00\x04q\nh\x06tQU\x01g(U\x08\x00\x00\x00\x00\x00\x00\x00\x06q\x0bh\x06tQU\x01f(U\x08\x00\x00\x00\x00\x00\x00\x00\x01q\x0ch\x06tQus."),
+				[]byte("cpersistent.mapping\nPersistentMapping\nq\x01.}q\x02U\x04dataq\x03}q\x04(U\x01c(U\x08\x00\x00\x00\x00\x00\x00\x00\x07q\x05c__main__\nObject\nq\x06tQU\x01b(U\x08\x00\x00\x00\x00\x00\x00\x00\x03q\x07h\x06tQU\x01e(U\x08\x00\x00\x00\x00\x00\x00\x00\x05q\x08h\x06tQU\x01d(U\x08\x00\x00\x00\x00\x00\x00\x00\x04q\th\x06tQU\x01g(U\x08\x00\x00\x00\x00\x00\x00\x00\x06q\nh\x06tQU\x01f(U\x08\x00\x00\x00\x00\x00\x00\x00\x01q\x0bh\x06tQus."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
 			{
 				DataHeader{
-					Pos:	5830,
+					Pos:	5772,
 					Oid:	7,
-					Tid:	0x0285cbacce81b533,
+					Tid:	0x0285cbaca8f5c2cc,
 					PrevRevPos:	0,
 					TxnPos:	5500,
-					DataLen:	29,
+					DataLen:	28,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04a1.0q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x03c0*q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -979,14 +981,44 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  5909,
-			LenPrev:  409,
+			Pos:	  5850,
+			LenPrev:  350,
+			Len:	  181,
+			TxnInfo:	zodb.TxnInfo{
+				Tid:	0x0285cbacada74119,
+				Status:	' ',
+				User:		[]byte("root0\nYour\nRoyal\nMagesty "),
+				Description:	[]byte("delete 0\nalpha beta gamma\n\nqqq ..."),
+				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x13zodb/py2 (delete 2)s."),
+			},
+		},
+
+		[]txnEntry{
+			{
+				DataHeader{
+					Pos:	5973,
+					Oid:	2,
+					Tid:	0x0285cbacada74119,
+					PrevRevPos:	4413,
+					TxnPos:	5850,
+					DataLen:	0,
+				},
+				[]byte("\x00\x00\x00\x00\x00\x00\x00\x00"),
+				/* deleted */ nil,
+				/* deleted */ 0,
+			},
+		},
+	},
+	{
+		TxnHeader{
+			Pos:	  6031,
+			LenPrev:  181,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacd3333380,
+				Tid:	0x0285cbacd7e4b1cc,
 				Status:	' ',
-				User:		[]byte("user1.1"),
-				Description:	[]byte("step 1.1"),
+				User:		[]byte("user1.0"),
+				Description:	[]byte("step 1.0"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (d)s."),
 			},
 		},
@@ -994,14 +1026,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	5981,
+					Pos:	6103,
 					Oid:	4,
-					Tid:	0x0285cbacd3333380,
+					Tid:	0x0285cbacd7e4b1cc,
 					PrevRevPos:	5442,
-					TxnPos:	5909,
+					TxnPos:	6031,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04d1.1q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04d1.0q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1009,14 +1041,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  6060,
+			Pos:	  6182,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacd7e4b1cc,
+				Tid:	0x0285cbacdc963019,
 				Status:	' ',
-				User:		[]byte("user1.2"),
-				Description:	[]byte("step 1.2"),
+				User:		[]byte("user1.1"),
+				Description:	[]byte("step 1.1"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (e)s."),
 			},
 		},
@@ -1024,14 +1056,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	6132,
+					Pos:	6254,
 					Oid:	5,
-					Tid:	0x0285cbacd7e4b1cc,
+					Tid:	0x0285cbacdc963019,
 					PrevRevPos:	5246,
-					TxnPos:	6060,
+					TxnPos:	6182,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04e1.2q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04e1.1q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1039,11 +1071,41 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  6211,
+			Pos:	  6333,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacdc963019,
+				Tid:	0x0285cbace147ae66,
+				Status:	' ',
+				User:		[]byte("user1.2"),
+				Description:	[]byte("step 1.2"),
+				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (g)s."),
+			},
+		},
+
+		[]txnEntry{
+			{
+				DataHeader{
+					Pos:	6405,
+					Oid:	6,
+					Tid:	0x0285cbace147ae66,
+					PrevRevPos:	4721,
+					TxnPos:	6333,
+					DataLen:	29,
+				},
+				[]byte("c__main__\nObject\nq\x01.U\x04g1.2q\x02."),
+				/* same as ^^^ */ nil,
+				/* same as ^^^ */ 0,
+			},
+		},
+	},
+	{
+		TxnHeader{
+			Pos:	  6484,
+			LenPrev:  151,
+			Len:	  151,
+			TxnInfo:	zodb.TxnInfo{
+				Tid:	0x0285cbace5f92cb3,
 				Status:	' ',
 				User:		[]byte("user1.3"),
 				Description:	[]byte("step 1.3"),
@@ -1054,11 +1116,11 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	6283,
+					Pos:	6556,
 					Oid:	6,
-					Tid:	0x0285cbacdc963019,
-					PrevRevPos:	4721,
-					TxnPos:	6211,
+					Tid:	0x0285cbace5f92cb3,
+					PrevRevPos:	6405,
+					TxnPos:	6484,
 					DataLen:	29,
 				},
 				[]byte("c__main__\nObject\nq\x01.U\x04g1.3q\x02."),
@@ -1069,44 +1131,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  6362,
+			Pos:	  6635,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbace147ae66,
+				Tid:	0x0285cbaceaaaab00,
 				Status:	' ',
 				User:		[]byte("user1.4"),
 				Description:	[]byte("step 1.4"),
-				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (g)s."),
-			},
-		},
-
-		[]txnEntry{
-			{
-				DataHeader{
-					Pos:	6434,
-					Oid:	6,
-					Tid:	0x0285cbace147ae66,
-					PrevRevPos:	6283,
-					TxnPos:	6362,
-					DataLen:	29,
-				},
-				[]byte("c__main__\nObject\nq\x01.U\x04g1.4q\x02."),
-				/* same as ^^^ */ nil,
-				/* same as ^^^ */ 0,
-			},
-		},
-	},
-	{
-		TxnHeader{
-			Pos:	  6513,
-			LenPrev:  151,
-			Len:	  151,
-			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbace5f92cb3,
-				Status:	' ',
-				User:		[]byte("user1.5"),
-				Description:	[]byte("step 1.5"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (d)s."),
 			},
 		},
@@ -1114,14 +1146,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	6585,
+					Pos:	6707,
 					Oid:	4,
-					Tid:	0x0285cbace5f92cb3,
-					PrevRevPos:	5981,
-					TxnPos:	6513,
+					Tid:	0x0285cbaceaaaab00,
+					PrevRevPos:	6103,
+					TxnPos:	6635,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04d1.5q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04d1.4q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1129,14 +1161,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  6664,
+			Pos:	  6786,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbaceaaaab00,
+				Tid:	0x0285cbacef5c294c,
 				Status:	' ',
-				User:		[]byte("user1.6"),
-				Description:	[]byte("step 1.6"),
+				User:		[]byte("user1.5"),
+				Description:	[]byte("step 1.5"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (g)s."),
 			},
 		},
@@ -1144,14 +1176,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	6736,
+					Pos:	6858,
 					Oid:	6,
-					Tid:	0x0285cbaceaaaab00,
-					PrevRevPos:	6434,
-					TxnPos:	6664,
+					Tid:	0x0285cbacef5c294c,
+					PrevRevPos:	6556,
+					TxnPos:	6786,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04g1.6q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04g1.5q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1159,14 +1191,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  6815,
+			Pos:	  6937,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacef5c294c,
+				Tid:	0x0285cbacf40da799,
 				Status:	' ',
-				User:		[]byte("user1.7"),
-				Description:	[]byte("step 1.7"),
+				User:		[]byte("user1.6"),
+				Description:	[]byte("step 1.6"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (b)s."),
 			},
 		},
@@ -1174,14 +1206,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	6887,
+					Pos:	7009,
 					Oid:	3,
-					Tid:	0x0285cbacef5c294c,
+					Tid:	0x0285cbacf40da799,
 					PrevRevPos:	3643,
-					TxnPos:	6815,
+					TxnPos:	6937,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04b1.7q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04b1.6q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1189,14 +1221,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  6966,
+			Pos:	  7088,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacf40da799,
+				Tid:	0x0285cbacf8bf25e6,
 				Status:	' ',
-				User:		[]byte("user1.8"),
-				Description:	[]byte("step 1.8"),
+				User:		[]byte("user1.7"),
+				Description:	[]byte("step 1.7"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (f)s."),
 			},
 		},
@@ -1204,14 +1236,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7038,
+					Pos:	7160,
 					Oid:	1,
-					Tid:	0x0285cbacf40da799,
+					Tid:	0x0285cbacf8bf25e6,
 					PrevRevPos:	4567,
-					TxnPos:	6966,
+					TxnPos:	7088,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04f1.8q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04f1.7q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1219,14 +1251,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  7117,
+			Pos:	  7239,
 			LenPrev:  151,
 			Len:	  151,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacf8bf25e6,
+				Tid:	0x0285cbacfd70a433,
 				Status:	' ',
-				User:		[]byte("user1.9"),
-				Description:	[]byte("step 1.9"),
+				User:		[]byte("user1.8"),
+				Description:	[]byte("step 1.8"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (d)s."),
 			},
 		},
@@ -1234,14 +1266,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7189,
+					Pos:	7311,
 					Oid:	4,
-					Tid:	0x0285cbacf8bf25e6,
-					PrevRevPos:	6585,
-					TxnPos:	7117,
+					Tid:	0x0285cbacfd70a433,
+					PrevRevPos:	6707,
+					TxnPos:	7239,
 					DataLen:	29,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x04d1.9q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x04d1.8q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1249,14 +1281,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  7268,
+			Pos:	  7390,
 			LenPrev:  151,
-			Len:	  154,
+			Len:	  409,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbacfd70a433,
+				Tid:	0x0285cbad02222280,
 				Status:	' ',
-				User:		[]byte("user1.10"),
-				Description:	[]byte("step 1.10"),
+				User:		[]byte("user1.9"),
+				Description:	[]byte("step 1.9"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (a)s."),
 			},
 		},
@@ -1264,14 +1296,27 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7342,
-					Oid:	7,
-					Tid:	0x0285cbacfd70a433,
-					PrevRevPos:	5830,
-					TxnPos:	7268,
-					DataLen:	30,
+					Pos:	7462,
+					Oid:	0,
+					Tid:	0x0285cbad02222280,
+					PrevRevPos:	5534,
+					TxnPos:	7390,
+					DataLen:	216,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05a1.10q\x02."),
+				[]byte("cpersistent.mapping\nPersistentMapping\nq\x01.}q\x02U\x04dataq\x03}q\x04(U\x01a(U\x08\x00\x00\x00\x00\x00\x00\x00\x08q\x05c__main__\nObject\nq\x06tQU\x01c(U\x08\x00\x00\x00\x00\x00\x00\x00\x07q\x07h\x06tQU\x01b(U\x08\x00\x00\x00\x00\x00\x00\x00\x03q\x08h\x06tQU\x01e(U\x08\x00\x00\x00\x00\x00\x00\x00\x05q\th\x06tQU\x01d(U\x08\x00\x00\x00\x00\x00\x00\x00\x04q\nh\x06tQU\x01g(U\x08\x00\x00\x00\x00\x00\x00\x00\x06q\x0bh\x06tQU\x01f(U\x08\x00\x00\x00\x00\x00\x00\x00\x01q\x0ch\x06tQus."),
+				/* same as ^^^ */ nil,
+				/* same as ^^^ */ 0,
+			},
+			{
+				DataHeader{
+					Pos:	7720,
+					Oid:	8,
+					Tid:	0x0285cbad02222280,
+					PrevRevPos:	0,
+					TxnPos:	7390,
+					DataLen:	29,
+				},
+				[]byte("c__main__\nObject\nq\x01.U\x04a1.9q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1279,14 +1324,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  7422,
-			LenPrev:  154,
+			Pos:	  7799,
+			LenPrev:  409,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad02222280,
+				Tid:	0x0285cbad06d3a0cc,
 				Status:	' ',
-				User:		[]byte("user1.11"),
-				Description:	[]byte("step 1.11"),
+				User:		[]byte("user1.10"),
+				Description:	[]byte("step 1.10"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (f)s."),
 			},
 		},
@@ -1294,14 +1339,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7496,
+					Pos:	7873,
 					Oid:	1,
-					Tid:	0x0285cbad02222280,
-					PrevRevPos:	7038,
-					TxnPos:	7422,
+					Tid:	0x0285cbad06d3a0cc,
+					PrevRevPos:	7160,
+					TxnPos:	7799,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05f1.11q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05f1.10q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1309,14 +1354,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  7576,
+			Pos:	  7953,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad06d3a0cc,
+				Tid:	0x0285cbad0b851f19,
 				Status:	' ',
-				User:		[]byte("user1.12"),
-				Description:	[]byte("step 1.12"),
+				User:		[]byte("user1.11"),
+				Description:	[]byte("step 1.11"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (c)s."),
 			},
 		},
@@ -1324,14 +1369,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7650,
-					Oid:	2,
-					Tid:	0x0285cbad06d3a0cc,
-					PrevRevPos:	4413,
-					TxnPos:	7576,
+					Pos:	8027,
+					Oid:	7,
+					Tid:	0x0285cbad0b851f19,
+					PrevRevPos:	5772,
+					TxnPos:	7953,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05c1.12q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05c1.11q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1339,14 +1384,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  7730,
+			Pos:	  8107,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad0b851f19,
+				Tid:	0x0285cbad10369d66,
 				Status:	' ',
-				User:		[]byte("user1.13"),
-				Description:	[]byte("step 1.13"),
+				User:		[]byte("user1.12"),
+				Description:	[]byte("step 1.12"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (f)s."),
 			},
 		},
@@ -1354,14 +1399,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7804,
+					Pos:	8181,
 					Oid:	1,
-					Tid:	0x0285cbad0b851f19,
-					PrevRevPos:	7496,
-					TxnPos:	7730,
+					Tid:	0x0285cbad10369d66,
+					PrevRevPos:	7873,
+					TxnPos:	8107,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05f1.13q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05f1.12q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1369,14 +1414,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  7884,
+			Pos:	  8261,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad10369d66,
+				Tid:	0x0285cbad14e81bb3,
 				Status:	' ',
-				User:		[]byte("user1.14"),
-				Description:	[]byte("step 1.14"),
+				User:		[]byte("user1.13"),
+				Description:	[]byte("step 1.13"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (e)s."),
 			},
 		},
@@ -1384,14 +1429,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	7958,
+					Pos:	8335,
 					Oid:	5,
-					Tid:	0x0285cbad10369d66,
-					PrevRevPos:	6132,
-					TxnPos:	7884,
+					Tid:	0x0285cbad14e81bb3,
+					PrevRevPos:	6254,
+					TxnPos:	8261,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05e1.14q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05e1.13q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1399,14 +1444,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8038,
+			Pos:	  8415,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad14e81bb3,
+				Tid:	0x0285cbad19999a00,
 				Status:	' ',
-				User:		[]byte("user1.15"),
-				Description:	[]byte("step 1.15"),
+				User:		[]byte("user1.14"),
+				Description:	[]byte("step 1.14"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (a)s."),
 			},
 		},
@@ -1414,14 +1459,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	8112,
-					Oid:	7,
-					Tid:	0x0285cbad14e81bb3,
-					PrevRevPos:	7342,
-					TxnPos:	8038,
+					Pos:	8489,
+					Oid:	8,
+					Tid:	0x0285cbad19999a00,
+					PrevRevPos:	7720,
+					TxnPos:	8415,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05a1.15q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05a1.14q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1429,14 +1474,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8192,
+			Pos:	  8569,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad19999a00,
+				Tid:	0x0285cbad1e4b184c,
 				Status:	' ',
-				User:		[]byte("user1.16"),
-				Description:	[]byte("step 1.16"),
+				User:		[]byte("user1.15"),
+				Description:	[]byte("step 1.15"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (d)s."),
 			},
 		},
@@ -1444,14 +1489,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	8266,
+					Pos:	8643,
 					Oid:	4,
-					Tid:	0x0285cbad19999a00,
-					PrevRevPos:	7189,
-					TxnPos:	8192,
+					Tid:	0x0285cbad1e4b184c,
+					PrevRevPos:	7311,
+					TxnPos:	8569,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05d1.16q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05d1.15q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1459,14 +1504,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8346,
+			Pos:	  8723,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad1e4b184c,
+				Tid:	0x0285cbad22fc9699,
 				Status:	' ',
-				User:		[]byte("user1.17"),
-				Description:	[]byte("step 1.17"),
+				User:		[]byte("user1.16"),
+				Description:	[]byte("step 1.16"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (g)s."),
 			},
 		},
@@ -1474,14 +1519,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	8420,
+					Pos:	8797,
 					Oid:	6,
-					Tid:	0x0285cbad1e4b184c,
-					PrevRevPos:	6736,
-					TxnPos:	8346,
+					Tid:	0x0285cbad22fc9699,
+					PrevRevPos:	6858,
+					TxnPos:	8723,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05g1.17q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05g1.16q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1489,14 +1534,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8500,
+			Pos:	  8877,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad22fc9699,
+				Tid:	0x0285cbad27ae14e6,
 				Status:	' ',
-				User:		[]byte("user1.18"),
-				Description:	[]byte("step 1.18"),
+				User:		[]byte("user1.17"),
+				Description:	[]byte("step 1.17"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (b)s."),
 			},
 		},
@@ -1504,14 +1549,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	8574,
+					Pos:	8951,
 					Oid:	3,
-					Tid:	0x0285cbad22fc9699,
-					PrevRevPos:	6887,
-					TxnPos:	8500,
+					Tid:	0x0285cbad27ae14e6,
+					PrevRevPos:	7009,
+					TxnPos:	8877,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05b1.18q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05b1.17q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1519,14 +1564,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8654,
+			Pos:	  9031,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad27ae14e6,
+				Tid:	0x0285cbad2c5f9333,
 				Status:	' ',
-				User:		[]byte("user1.19"),
-				Description:	[]byte("step 1.19"),
+				User:		[]byte("user1.18"),
+				Description:	[]byte("step 1.18"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (c)s."),
 			},
 		},
@@ -1534,14 +1579,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	8728,
-					Oid:	2,
-					Tid:	0x0285cbad27ae14e6,
-					PrevRevPos:	7650,
-					TxnPos:	8654,
+					Pos:	9105,
+					Oid:	7,
+					Tid:	0x0285cbad2c5f9333,
+					PrevRevPos:	8027,
+					TxnPos:	9031,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05c1.19q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05c1.18q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1549,14 +1594,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8808,
+			Pos:	  9185,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad2c5f9333,
+				Tid:	0x0285cbad31111180,
 				Status:	' ',
-				User:		[]byte("user1.20"),
-				Description:	[]byte("step 1.20"),
+				User:		[]byte("user1.19"),
+				Description:	[]byte("step 1.19"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (g)s."),
 			},
 		},
@@ -1564,14 +1609,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	8882,
+					Pos:	9259,
 					Oid:	6,
-					Tid:	0x0285cbad2c5f9333,
-					PrevRevPos:	8420,
-					TxnPos:	8808,
+					Tid:	0x0285cbad31111180,
+					PrevRevPos:	8797,
+					TxnPos:	9185,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05g1.20q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05g1.19q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1579,14 +1624,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  8962,
+			Pos:	  9339,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad31111180,
+				Tid:	0x0285cbad35c28fcc,
 				Status:	' ',
-				User:		[]byte("user1.21"),
-				Description:	[]byte("step 1.21"),
+				User:		[]byte("user1.20"),
+				Description:	[]byte("step 1.20"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (b)s."),
 			},
 		},
@@ -1594,14 +1639,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	9036,
+					Pos:	9413,
 					Oid:	3,
-					Tid:	0x0285cbad31111180,
-					PrevRevPos:	8574,
-					TxnPos:	8962,
+					Tid:	0x0285cbad35c28fcc,
+					PrevRevPos:	8951,
+					TxnPos:	9339,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05b1.21q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05b1.20q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1609,14 +1654,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  9116,
+			Pos:	  9493,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad35c28fcc,
+				Tid:	0x0285cbad3a740e19,
 				Status:	' ',
-				User:		[]byte("user1.22"),
-				Description:	[]byte("step 1.22"),
+				User:		[]byte("user1.21"),
+				Description:	[]byte("step 1.21"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (d)s."),
 			},
 		},
@@ -1624,14 +1669,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	9190,
+					Pos:	9567,
 					Oid:	4,
-					Tid:	0x0285cbad35c28fcc,
-					PrevRevPos:	8266,
-					TxnPos:	9116,
+					Tid:	0x0285cbad3a740e19,
+					PrevRevPos:	8643,
+					TxnPos:	9493,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05d1.22q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05d1.21q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1639,14 +1684,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  9270,
+			Pos:	  9647,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad3a740e19,
+				Tid:	0x0285cbad3f258c66,
 				Status:	' ',
-				User:		[]byte("user1.23"),
-				Description:	[]byte("step 1.23"),
+				User:		[]byte("user1.22"),
+				Description:	[]byte("step 1.22"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (b)s."),
 			},
 		},
@@ -1654,14 +1699,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	9344,
+					Pos:	9721,
 					Oid:	3,
-					Tid:	0x0285cbad3a740e19,
-					PrevRevPos:	9036,
-					TxnPos:	9270,
+					Tid:	0x0285cbad3f258c66,
+					PrevRevPos:	9413,
+					TxnPos:	9647,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05b1.23q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05b1.22q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1669,14 +1714,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  9424,
+			Pos:	  9801,
 			LenPrev:  154,
 			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad3f258c66,
+				Tid:	0x0285cbad43d70ab3,
 				Status:	' ',
-				User:		[]byte("user1.24"),
-				Description:	[]byte("step 1.24"),
+				User:		[]byte("user1.23"),
+				Description:	[]byte("step 1.23"),
 				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (g)s."),
 			},
 		},
@@ -1684,14 +1729,14 @@ var _1fs_dbEntryv = [...]dbEntry{
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	9498,
+					Pos:	9875,
 					Oid:	6,
-					Tid:	0x0285cbad3f258c66,
-					PrevRevPos:	8882,
-					TxnPos:	9424,
+					Tid:	0x0285cbad43d70ab3,
+					PrevRevPos:	9259,
+					TxnPos:	9801,
 					DataLen:	30,
 				},
-				[]byte("c__main__\nObject\nq\x01.U\x05g1.24q\x02."),
+				[]byte("c__main__\nObject\nq\x01.U\x05g1.23q\x02."),
 				/* same as ^^^ */ nil,
 				/* same as ^^^ */ 0,
 			},
@@ -1699,61 +1744,164 @@ var _1fs_dbEntryv = [...]dbEntry{
 	},
 	{
 		TxnHeader{
-			Pos:	  9578,
+			Pos:	  9955,
 			LenPrev:  154,
-			Len:	  196,
+			Len:	  154,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad43d70ab3,
+				Tid:	0x0285cbad48888900,
 				Status:	' ',
-				User:		[]byte("root1.0\nYour\nMagesty "),
-				Description:	[]byte("undo 1.0\nmore detailed description\n\nzzz ...\t"),
-				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x1czodb/py2 (undo AoXLrTp0Dhk=)s."),
+				User:		[]byte("user1.24"),
+				Description:	[]byte("step 1.24"),
+				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x0czodb/py2 (f)s."),
 			},
 		},
 
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	9716,
-					Oid:	3,
-					Tid:	0x0285cbad43d70ab3,
-					PrevRevPos:	9344,
-					TxnPos:	9578,
+					Pos:	10029,
+					Oid:	1,
+					Tid:	0x0285cbad48888900,
+					PrevRevPos:	8181,
+					TxnPos:	9955,
+					DataLen:	30,
+				},
+				[]byte("c__main__\nObject\nq\x01.U\x05f1.24q\x02."),
+				/* same as ^^^ */ nil,
+				/* same as ^^^ */ 0,
+			},
+		},
+	},
+	{
+		TxnHeader{
+			Pos:	  10109,
+			LenPrev:  154,
+			Len:	  196,
+			TxnInfo:	zodb.TxnInfo{
+				Tid:	0x0285cbad4d3a074c,
+				Status:	' ',
+				User:		[]byte("root1.0\nYour\nMagesty "),
+				Description:	[]byte("undo 1.0\nmore detailed description\n\nzzz ...\t"),
+				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x1czodb/py2 (undo AoXLrUPXCrM=)s."),
+			},
+		},
+
+		[]txnEntry{
+			{
+				DataHeader{
+					Pos:	10247,
+					Oid:	6,
+					Tid:	0x0285cbad4d3a074c,
+					PrevRevPos:	9875,
+					TxnPos:	10109,
 					DataLen:	0,
 				},
-				[]byte("\x00\x00\x00\x00\x00\x00#L"),
-				[]byte("c__main__\nObject\nq\x01.U\x05b1.21q\x02."),
+				[]byte("\x00\x00\x00\x00\x00\x00$+"),
+				[]byte("c__main__\nObject\nq\x01.U\x05g1.19q\x02."),
 				0x0285cbad31111180,
 			},
 		},
 	},
 	{
 		TxnHeader{
-			Pos:	  9774,
+			Pos:	  10305,
 			LenPrev:  196,
 			Len:	  197,
 			TxnInfo:	zodb.TxnInfo{
-				Tid:	0x0285cbad48888900,
+				Tid:	0x0285cbad51eb8599,
 				Status:	' ',
 				User:		[]byte("root1.1\nYour\nMagesty "),
 				Description:	[]byte("undo 1.1\nmore detailed description\n\nzzz ...\t\t"),
-				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x1czodb/py2 (undo AoXLrT8ljGY=)s."),
+				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x1czodb/py2 (undo AoXLrUiIiQA=)s."),
 			},
 		},
 
 		[]txnEntry{
 			{
 				DataHeader{
-					Pos:	9913,
-					Oid:	6,
-					Tid:	0x0285cbad48888900,
-					PrevRevPos:	9498,
-					TxnPos:	9774,
+					Pos:	10444,
+					Oid:	1,
+					Tid:	0x0285cbad51eb8599,
+					PrevRevPos:	10029,
+					TxnPos:	10305,
 					DataLen:	0,
 				},
-				[]byte("\x00\x00\x00\x00\x00\x00\"\xb2"),
-				[]byte("c__main__\nObject\nq\x01.U\x05g1.20q\x02."),
-				0x0285cbad2c5f9333,
+				[]byte("\x00\x00\x00\x00\x00\x00\x1f\xf5"),
+				[]byte("c__main__\nObject\nq\x01.U\x05f1.12q\x02."),
+				0x0285cbad10369d66,
+			},
+		},
+	},
+	{
+		TxnHeader{
+			Pos:	  10502,
+			LenPrev:  197,
+			Len:	  370,
+			TxnInfo:	zodb.TxnInfo{
+				Tid:	0x0285cbad569d03e6,
+				Status:	' ',
+				User:		[]byte(""),
+				Description:	[]byte("predelete 5"),
+				Extension:	[]byte(""),
+			},
+		},
+
+		[]txnEntry{
+			{
+				DataHeader{
+					Pos:	10536,
+					Oid:	0,
+					Tid:	0x0285cbad569d03e6,
+					PrevRevPos:	7462,
+					TxnPos:	10502,
+					DataLen:	216,
+				},
+				[]byte("cpersistent.mapping\nPersistentMapping\nq\x01.}q\x02U\x04dataq\x03}q\x04(U\x01a(U\x08\x00\x00\x00\x00\x00\x00\x00\x08q\x05c__main__\nObject\nq\x06tQU\x01c(U\x08\x00\x00\x00\x00\x00\x00\x00\x07q\x07h\x06tQU\x01b(U\x08\x00\x00\x00\x00\x00\x00\x00\x03q\x08h\x06tQU\x01e(U\x08\x00\x00\x00\x00\x00\x00\x00\tq\th\x06tQU\x01d(U\x08\x00\x00\x00\x00\x00\x00\x00\x04q\nh\x06tQU\x01g(U\x08\x00\x00\x00\x00\x00\x00\x00\x06q\x0bh\x06tQU\x01f(U\x08\x00\x00\x00\x00\x00\x00\x00\x01q\x0ch\x06tQus."),
+				/* same as ^^^ */ nil,
+				/* same as ^^^ */ 0,
+			},
+			{
+				DataHeader{
+					Pos:	10794,
+					Oid:	9,
+					Tid:	0x0285cbad569d03e6,
+					PrevRevPos:	0,
+					TxnPos:	10502,
+					DataLen:	28,
+				},
+				[]byte("c__main__\nObject\nq\x01.U\x03e1*q\x02."),
+				/* same as ^^^ */ nil,
+				/* same as ^^^ */ 0,
+			},
+		},
+	},
+	{
+		TxnHeader{
+			Pos:	  10872,
+			LenPrev:  370,
+			Len:	  181,
+			TxnInfo:	zodb.TxnInfo{
+				Tid:	0x0285cbad5b4e8233,
+				Status:	' ',
+				User:		[]byte("root1\nYour\nRoyal\nMagesty "),
+				Description:	[]byte("delete 1\nalpha beta gamma\n\nqqq ..."),
+				Extension:	[]byte("}q\x01U\x0bx-generatorq\x02U\x13zodb/py2 (delete 5)s."),
+			},
+		},
+
+		[]txnEntry{
+			{
+				DataHeader{
+					Pos:	10995,
+					Oid:	5,
+					Tid:	0x0285cbad5b4e8233,
+					PrevRevPos:	8335,
+					TxnPos:	10872,
+					DataLen:	0,
+				},
+				[]byte("\x00\x00\x00\x00\x00\x00\x00\x00"),
+				/* deleted */ nil,
+				/* deleted */ 0,
 			},
 		},
 	},

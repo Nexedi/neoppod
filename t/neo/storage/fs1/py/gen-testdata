@@ -97,14 +97,19 @@ def main():
                    {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
 
         # delete an object
-        #obj = random.choice(root.values())
-        #txn = precommit(u"root%i\nYour\nRoyal\nMagesty " % i,
-        #                u"delete %i\nalpha beta gamma\n\nqqq ..." % i,
-        #                {"x-generator": "zodb/py2 (delete %s)" % hex64(obj._p_oid)})
-        #stor.tpc_begin(txn)
-        #stor.deleteObject(obj._p_oid, obj._p_serial, txn)
-        #stor.tpc_vote(txn)
-        #stor.tpc_finish(txn)
+        name = random.choice(root.keys())
+        obj = root[name]
+        root[name] = Object("%s%i*" % (name, i))
+        # NOTE user/ext are kept empty on purpose - to also test this case
+        commit(u"", u"predelete %s" % unpack64(obj._p_oid), {})
+
+        txn = precommit(u"root%i\nYour\nRoyal\nMagesty " % i,
+                        u"delete %i\nalpha beta gamma\n\nqqq ..." % i,
+                        {"x-generator": "zodb/py2 (delete %s)" % unpack64(obj._p_oid)})
+        stor.tpc_begin(txn)
+        stor.deleteObject(obj._p_oid, obj._p_serial, txn)
+        stor.tpc_vote(txn)
+        stor.tpc_finish(txn)
 
         # close db & rest not to get conflict errors after we touched stor
         # directly a bit. everything will be reopened on next iteration.
@@ -188,8 +193,12 @@ def main():
                 plen = dh.plen
                 if plen == 0:
                     rawdata = p64(dh.back) # back-pointer or 0 (= delete)
-                    data = "[]byte(%s)" % escapeqq(drec.data)
-                    datatid = hex64(drec.data_txn)  # XXX vs .data = None ?
+                    if drec.data is None:
+                        data = "/* deleted */ nil"
+                        datatid = "/* deleted */ 0"
+                    else:
+                        data = "[]byte(%s)" % escapeqq(drec.data)
+                        datatid = hex64(drec.data_txn)
                 else:
                     rawdata = drec.data
                     data = "/* same as ^^^ */ nil"
