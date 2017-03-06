@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 # TODO author/copyright
+# TODO move gen .fs & .index part to zodbtools and use it there for tests
 """generate reference database and index for tests"""
 
 from ZODB.FileStorage import FileStorage
@@ -72,7 +73,8 @@ def main():
     random.seed(0)
 
     namev = [_ for _ in "abcdefg"]
-    for i in range(2):
+    Niter = 2
+    for i in range(Niter):
         stor = FileStorage(outfs, create=(i == 0))
         db   = DB(stor)
         conn = db.open()
@@ -111,6 +113,10 @@ def main():
         stor.tpc_begin(txn)
         stor.deleteObject(obj._p_oid, obj._p_serial, txn)
         stor.tpc_vote(txn)
+        # TODO different txn status vvv
+        # XXX vvv it does the thing, but py fs iterator treats this txn as EOF
+        #if i != Niter-1:
+        #    stor.tpc_finish(txn)
         stor.tpc_finish(txn)
 
         # close db & rest not to get conflict errors after we touched stor
@@ -119,8 +125,6 @@ def main():
         db.close()
         stor.close()
 
-
-    # TODO different txn status
 
     # dump to go what to expect
     with open("testdata_expect_test.go", "w") as f:
