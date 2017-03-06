@@ -268,6 +268,10 @@ class TestSerialized(Serialized):
 
 class Node(object):
 
+    @staticmethod
+    def convertInitArgs(**kw):
+        return {'get' + k.capitalize(): v for k, v in kw.iteritems()}
+
     def getConnectionList(self, *peers):
         addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
         addr_set = {addr(c.connector) for peer in peers
@@ -338,11 +342,15 @@ class ServerNode(Node):
     def getVirtualAddress(self):
         return self._init_args['address']
 
-    def resetNode(self):
+    def resetNode(self, **kw):
         assert not self.is_alive()
-        kw = self._init_args
+        kw = self.convertInitArgs(**kw)
+        init_args = self._init_args
+        init_args['getReset'] = False
+        assert set(kw).issubset(init_args), (kw, init_args)
+        init_args.update(kw)
         self.close()
-        self.__init__(**kw)
+        self.__init__(**init_args)
 
     def start(self):
         Serialized(self)
@@ -381,10 +389,6 @@ class MasterApplication(ServerNode, neo.master.app.Application):
 class StorageApplication(ServerNode, neo.storage.app.Application):
 
     dm = type('', (), {'close': lambda self: None})()
-
-    def resetNode(self, clear_database=False):
-        self._init_args['getReset'] = clear_database
-        super(StorageApplication, self).resetNode()
 
     def _afterRun(self):
         super(StorageApplication, self)._afterRun()
@@ -651,10 +655,10 @@ class NEOCluster(object):
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
-        weak_self = weakref.proxy(self)
-        kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
-                  getPartitions=partitions, getReset=clear_databases,
-                  getSSL=self.SSL)
+        kw = Node.convertInitArgs(replicas=replicas, adapter=adapter,
+            partitions=partitions, reset=clear_databases)
+        kw['cluster'] = weak_self = weakref.proxy(self)
+        kw['getSSL'] = self.SSL
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(getUpstreamCluster=upstream.name,
@@ -758,7 +762,7 @@ class NEOCluster(object):
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
-    def stop(self, clear_database=False, __print_exc=traceback.print_exc):
+    def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:
             del self.started
             logging.debug("stopping %s", self)
@@ -786,11 +790,11 @@ class NEOCluster(object):
                 raise
         else:
             for node_type in 'master', 'storage', 'admin':
-                kw = {}
+                reset_kw = kw.copy()
                 if node_type == 'storage':
-                    kw['clear_database'] = clear_database
+                    reset_kw['reset'] = clear_database
                 for node in getattr(self, node_type + '_list'):
-                    node.resetNode(**kw)
+                    node.resetNode(**reset_kw)
 
     def _newClient(self):
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
