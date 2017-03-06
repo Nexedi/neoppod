@@ -50,6 +50,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 	var retErr error
 	iter := stor.Iterate(tidMin, tidMax)
 
+	// transactions
 	for {
 		txni, dataIter, err := iter.NextTxn()
 		if err != nil {
@@ -70,6 +71,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 		}
 
 
+		// data records
 		for {
 			datai, err := dataIter.NextData()
 			if err != nil {
@@ -92,7 +94,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 				entry += "from " + datai.DataTid.String()
 
 			default:
-				entry += fmt.Sprintf("sha1:%s %d", sha1.Sum(datai.Data), len(datai.Data))
+				entry += fmt.Sprintf("sha1:%x %d", sha1.Sum(datai.Data), len(datai.Data))
 				writeData = true
 			}
 
@@ -108,7 +110,6 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 					break
 				}
 			}
-
 		}
 	}
 
