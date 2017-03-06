@@ -174,7 +174,7 @@ func (txnh *TxnHeader) HeaderLen() int64 {
 }
 
 // CloneFrom copies txnh2 to txnh making sure underlying slices (.workMem .User
-// .Desc ...) are not shared
+// .Desc ...) are not shared.
 func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
 	workMem := txnh.workMem
 	lwork2 := len(txnh2.workMem)
@@ -188,7 +188,7 @@ func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
 	txnh.workMem = workMem
 	copy(workMem, txnh2.workMem)
 
-	// FIXME handle case when strings were already loaded
+	// FIXME handle case when strings were already loaded -> set len properly
 	luser := cap(txnh2.User)
 	xdesc := luser + cap(txnh2.Description)
 	xext  := xdesc + cap(txnh2.Extension)
@@ -293,8 +293,12 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 	ldesc := binary.BigEndian.Uint16(work[8+19:])
 	lext  := binary.BigEndian.Uint16(work[8+21:])
 
-	// NOTE we encode whole strings length into len(.workMem)
 	lstr := int(luser) + int(ldesc) + int(lext)
+	if TxnHeaderFixSize + lstr + 8 > txnh.Len {
+		return decodeErr(txnh, "strings overlap with txn boundary: %v / %v", lstr, txnh.Len)
+	}
+
+	// NOTE we encode whole strings length into len(.workMem)
 	if cap(txnh.workMem) < lstr {
 		txnh.workMem = make([]byte, lstr)
 	} else {
