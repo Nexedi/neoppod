@@ -41,17 +41,24 @@ import (
 	"../../../storage/fs1"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/go123/xio"
+	//"lab.nexedi.com/kirr/go123/xio"
 )
 
+// zodbDump dumps contents of a storage in between tidMin..tidMax range to a writer.
+// see top-level documentation for the dump format.
 func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
+	var retErr error
 	iter := stor.Iterate(tidMin, tidMax)
 
 	for {
 		txni, dataIter, err := iter.NextTxn()
 		if err != nil {
-			err = xio.OkEOF(err)
-			break
+			if err == io.EOF {
+				break
+			}
+
+			retErr = err
+			goto out
 		}
 
 		// TODO if not first: println
@@ -66,8 +73,12 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 		for {
 			datai, err := dataIter.NextData()
 			if err != nil {
-				err = xio.OkEOF(err)
-				break
+				if err == io.EOF {
+					break
+				}
+
+				retErr = err
+				goto out
 			}
 
 			entry := "obj " + datai.Oid.String() + " "
@@ -99,11 +110,12 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 			}
 
 		}
-
-		// XXX check err
 	}
 
-	// XXX check err
+out:
+	if retErr != nil {
+		return fmt.Errorf("%s: dump %v..%v: %v", stor, tidMin, tidMax, retErr)
+	}
 
 	return nil
 }
