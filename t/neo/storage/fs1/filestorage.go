@@ -56,7 +56,7 @@ type TxnHeader struct {
 
 	// underlying memory for header loading and for user/desc/extension strings
 	// invariant: after successful TxnHeader load len(.workMem) = lenUser + lenDesc + lenExt
-	//            as specfied by on-disk header
+	//            as specified by on-disk header
 	workMem	[]byte
 }
 
@@ -340,7 +340,7 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt /* *os.File */) error {
 }
 
 // LoadPrev reads and decodes previous transaction record header
-// prerequisite: txnh .Pos and .LenPrev are initialized:
+// prerequisite: txnh .Pos, .LenPrev and .Len are initialized:	XXX (.Len for .Tid)
 //   - by successful call to Load() initially			XXX but EOF also works
 //   - by subsequent successful calls to LoadPrev / LoadNext	XXX recheck
 func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
@@ -352,6 +352,9 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 		return io.EOF
 	}
 
+	lenCur := txnh.Len
+	tidCur := txnh.Tid
+
 	// here we know: Load already checked txnh.Pos - lenPrev to be valid position
 	err := txnh.Load(r, txnh.Pos - lenPrev, flags)
 	if err != nil {
@@ -362,11 +365,16 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 		return decodeErr(txnh, "head/tail lengths mismatch: %v, %v", txnh.Len, lenPrev)
 	}
 
+	// check tid↓ if we had txnh for "cur" loaded
+	if lenCur > 0 && txnh.Tid >= tidCur {
+		return decodeErr(txnh, "tid monitonity broken: %v  ; next: %v", txnh.Tid, tidCur)
+	}
+
 	return nil
 }
 
 // LoadNext reads and decodes next transaction record header
-// prerequisite: txnh .Pos and .Len should be already initialized by:
+// prerequisite: txnh .Pos and .Len should be already initialized by:	XXX also .Tid
 //   - previous successful call to Load() initially		XXX ^^^
 //   - TODO
 func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
@@ -379,6 +387,9 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 		return io.EOF
 	}
 
+	// valid .Len means txnh was read ok
+	tidCur := txnh.Tid
+
 	err := txnh.Load(r, txnh.Pos + lenCur, flags)
 
 	// before checking loading error for next txn, let's first check redundant length
@@ -388,7 +399,16 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 		return decodeErr(t, "head/tail lengths mismatch: %v, %v", lenCur, txnh.LenPrev)
 	}
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	// check tid↑
+	if txnh.Tid <= tidCur {
+		return decodeErr(txnh, "tid monotonity broken: %v  ; prev: %v", txnh.Tid, tidCur)
+	}
+
+	return nil
 }
 
 // --- Data record ---
