@@ -107,5 +107,5 @@ class StorageServiceHandler(BaseServiceHandler):
             if not uid_set:
                 app.packing = None
                 if not client.isClosed():
-                    client.answer(Packets.AnswerPack(True), msg_id=msg_id)
+                    client.send(Packets.AnswerPack(True), msg_id)
 

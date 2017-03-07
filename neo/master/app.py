@@ -544,12 +544,11 @@ class Application(BaseApplication):
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
         for client_node in self.nm.getClientList(only_identified=True):
-            c = client_node.getConnection()
             if client_node is transaction_node:
-                c.answer(Packets.AnswerTransactionFinished(ttid, tid),
-                         msg_id=txn.getMessageId())
+                client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
+                                 msg_id=txn.getMessageId())
             else:
-                c.send(invalidate_objects)
+                client_node.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.
         notify_unlock = Packets.NotifyUnlockInformation(ttid)

@@ -71,7 +71,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.checkNoPacketSent(client_conn)
         self.assertEqual(self.app.packing[2], {conn2.getUUID()})
         self.service.answerPack(conn2, False)
-        packet = self.checkAnswerPacket(client_conn, Packets.AnswerPack)
+        packet = self.checkNotifyPacket(client_conn, Packets.AnswerPack)
         # TODO: verify packet peer id
         self.assertTrue(packet.decode()[0])
         self.assertEqual(self.app.packing, None)

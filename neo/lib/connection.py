@@ -548,14 +548,12 @@ class Connection(BaseConnection):
             self.em.addWriter(self)
         logging.packet(self, packet, True)
 
-    def send(self, packet):
+    def send(self, packet, msg_id=None):
         """ Then a packet with a new ID """
         if self.isClosed():
             raise ConnectionClosed
-        msg_id = self._getNextId()
-        packet.setId(msg_id)
+        packet.setId(self._getNextId() if msg_id is None else msg_id)
         self._addPacket(packet)
-        return msg_id
 
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None, **kw):
         """
@@ -576,13 +574,11 @@ class Connection(BaseConnection):
                 self.em.wakeup()
         return msg_id
 
-    def answer(self, packet, msg_id=None):
+    def answer(self, packet):
         """ Answer to a packet by re-using its ID for the packet answer """
         if self.isClosed():
             raise ConnectionClosed
-        if msg_id is None:
-            msg_id = self.getPeerId()
-        packet.setId(msg_id)
+        packet.setId(self.peer_id)
         assert packet.isResponse(), packet
         self._addPacket(packet)
 

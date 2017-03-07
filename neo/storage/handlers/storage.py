@@ -156,7 +156,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkTIDRange(*args)
             try:
-                conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)
+                conn.send(Packets.AnswerCheckTIDRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
@@ -172,7 +172,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkSerialRange(*args)
             try:
-                conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id)
+                conn.send(Packets.AnswerCheckSerialRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
@@ -206,14 +206,15 @@ class StorageOperationHandler(EventHandler):
                     else:
                         t = dm.getTransaction(tid)
                         if t is None:
-                            conn.answer(Errors.ReplicationError(
-                                "partition %u dropped" % partition))
+                            conn.send(Errors.ReplicationError(
+                                "partition %u dropped"
+                                % partition), msg_id)
                             return
                         oid_list, user, desc, ext, packed, ttid = t
                         conn.send(Packets.AddTransaction(
                             tid, user, desc, ext, packed, ttid, oid_list))
                         yield
-                conn.answer(Packets.AnswerFetchTransactions(
+                conn.send(Packets.AnswerFetchTransactions(
                     pack_tid, next_tid, peer_tid_set), msg_id)
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
@@ -250,12 +251,13 @@ class StorageOperationHandler(EventHandler):
                             continue
                     object = dm.getObject(oid, serial)
                     if not object:
-                        conn.answer(Errors.ReplicationError(
-                            "partition %u dropped or truncated" % partition))
+                        conn.send(Errors.ReplicationError(
+                            "partition %u dropped or truncated"
+                            % partition), msg_id)
                         return
                     conn.send(Packets.AddObject(oid, serial, *object[2:]))
                     yield
-                conn.answer(Packets.AnswerFetchObjects(
+                conn.send(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
