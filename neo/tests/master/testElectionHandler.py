@@ -25,12 +25,6 @@ from neo.master.handlers.election import ClientElectionHandler, \
 from neo.lib.exception import ElectionFailure
 from neo.lib.connection import ClientConnection
 
-# patch connection so that we can register _addPacket messages
-# in mock object
-def _addPacket(self, packet):
-    if self.connector is not None:
-        self.connector._addPacket(packet)
-
 class MasterClientElectionTestBase(NeoUnitTestBase):
 
     def setUp(self):
@@ -67,13 +61,6 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         self.election = ClientElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
-        # apply monkey patches
-        ClientConnection._addPacket = _addPacket
-
-    def _tearDown(self, success):
-        # restore patched methods
-        del ClientConnection._addPacket
-        NeoUnitTestBase._tearDown(self, success)
 
     def _checkUnconnected(self, node):
         addr = node.getAddress()
@@ -223,13 +210,6 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.client_address = (self.local_ip, 1000)
         self.storage_address = (self.local_ip, 2000)
         self.master_address = (self.local_ip, 3000)
-        # apply monkey patches
-        ClientConnection._addPacket = _addPacket
-
-    def _tearDown(self, success):
-        NeoUnitTestBase._tearDown(self, success)
-        # restore environment
-        del ClientConnection._addPacket
 
     def test_requestIdentification1(self):
         """ A non-master node request identification """

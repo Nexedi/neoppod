@@ -719,29 +719,17 @@ class MTClientConnection(ClientConnection):
         with lock:
             super(MTClientConnection, self).__init__(*args, **kwargs)
 
+    # Alias without lock (cheaper than super())
+    _ask = ClientConnection.ask.__func__
+
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
             queue=None, **kw):
         with self.lock:
-            if self.isClosed():
-                raise ConnectionClosed
-            # XXX: Here, we duplicate Connection.ask because we need to call
-            # self.dispatcher.register after setId is called and before
-            # _addPacket is called.
-            msg_id = self._getNextId()
-            packet.setId(msg_id)
             if queue is None:
-                if type(packet) is not Packets.Ping:
-                    raise TypeError, 'Only Ping packet can be asked ' \
-                        'without a queue, got a %r.' % (packet, )
-            else:
-                self.dispatcher.register(self, msg_id, queue)
-            self._addPacket(packet)
-            handlers = self._handlers
-            t = None if handlers.isPending() else time()
-            handlers.emit(packet, timeout, on_timeout, kw)
-            if not self._queue:
-                next_timeout = self._next_timeout
-                self.updateTimeout(t)
-                if self._next_timeout < next_timeout:
-                    self.em.wakeup()
-            return msg_id
+                if type(packet) is Packets.Ping:
+                    return self._ask(packet, timeout, on_timeout, **kw)
+                raise TypeError('Only Ping packet can be asked'
+                    ' without a queue, got a %r.' % packet)
+            msg_id = self._ask(packet, timeout, on_timeout, **kw)
+            self.dispatcher.register(self, msg_id, queue)
+        return msg_id
