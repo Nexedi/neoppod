@@ -12,8 +12,15 @@ import (
 	"../../../storage/fs1"
 	"../../../zodb"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"lab.nexedi.com/kirr/go123/exc"
 )
+
+func diff(a, b string) string {
+	dmp := diffmatchpatch.New()
+	diffv := dmp.DiffMain(a, b, /*checklines=*/false)
+	return dmp.DiffPrettyText(diffv)
+}
 
 func TestZodbDump(t *testing.T) {
 	buf := bytes.Buffer{}
@@ -29,12 +36,13 @@ func TestZodbDump(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dumpOk, err := ioutil.ReadFile("testdata/1.zdump.ok")
+	__, err := ioutil.ReadFile("testdata/1.zdump.ok")
 	if err != nil {
 		t.Fatal(err)
 	}
+	dumpOk := string(__)
 
-	if !bytes.Equal(dumpOk, buf.Bytes()) {
-		t.Errorf("dump different TODO show diff")	// XXX github.com/sergi/go-diff.git
+	if dumpOk != buf.String() {
+		t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
 	}
 }
