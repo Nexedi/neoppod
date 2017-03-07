@@ -53,10 +53,11 @@ class Transaction(object):
         self.lockless = set()
 
     def __repr__(self):
-        return "<%s(tid=%r, uuid=%r, age=%.2fs) at 0x%x>" \
-         % (self.__class__.__name__,
-            dump(self.tid),
+        return "<%s(%s, locking_tid=%s, tid=%s, age=%.2fs) at 0x%x>" % (
+            self.__class__.__name__,
             uuid_str(self.uuid),
+            dump(self.locking_tid),
+            dump(self.tid),
             time() - self._birth,
             id(self))
 
@@ -120,7 +121,9 @@ class TransactionManager(EventQueue):
                                 self._transaction_dict.iteritems()):
             if txn.locking_tid == MAX_TID:
                 break # all remaining transactions are resolving a deadlock
-            for oid in txn.lockless.intersection(txn.serial_dict):
+            assert txn.lockless.issubset(txn.serial_dict), (
+                txn.lockless, txn.serial_dict)
+            for oid in txn.lockless:
                 partition = getPartition(oid)
                 if partition in replicated:
                     if store_lock_dict.get(oid, ttid) != ttid:
@@ -138,7 +141,9 @@ class TransactionManager(EventQueue):
                     partition, replicated.pop(partition)))
             for oid, ttid in store_lock_dict.iteritems():
                 if getPartition(oid) in notify:
-                    self._transaction_dict[ttid].lockless.remove(oid)
+                    # Use 'discard' instead of 'remove', for oids that were
+                    # locked after that the partition was replicated.
+                    self._transaction_dict[ttid].lockless.discard(oid)
 
     def register(self, conn, ttid):
         """

@@ -1935,6 +1935,49 @@ class Test(NEOThreadedTest):
             3: [4, 'StoreTransaction'],
         })
 
+    @with_cluster(replicas=1)
+    def testNotifyReplicated2(self, cluster):
+        s0, s1 = cluster.storage_list
+        s1.stop()
+        cluster.join((s1,))
+        s1.resetNode()
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'ab':
+            r[x] = PCounterWithResolution()
+            t1.commit()
+        r['a'].value += 1
+        r['b'].value += 2
+        t2, c2 = cluster.getTransaction()
+        r = c2.root()
+        r['a'].value += 3
+        r['b'].value += 4
+        thread = self.newPausedThread(t2.commit)
+        def t2_b(*args, **kw):
+            self.assertPartitionTable(cluster, 'UO')
+            f.remove(delay)
+            self.tic()
+            self.assertPartitionTable(cluster, 'UO')
+            yield 0
+        def t2_vote(*args, **kw):
+            self.tic()
+            self.assertPartitionTable(cluster, 'UU')
+            yield 0
+        with ConnectionFilter() as f, \
+             self.thread_switcher((thread,),
+                 (1, 0, 1, 1, t2_b, 0, 0, 1, t2_vote, 0, 0),
+                 ('tpc_begin', 'tpc_begin', 1, 1, 2, 2,
+                  'RebaseTransaction', 'RebaseTransaction', 'StoreTransaction',
+                  'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
+                  )) as end:
+            delay = f.delayAskFetchTransactions()
+            s1.start()
+            self.tic()
+            t1.commit()
+            thread.join()
+        t2.begin()
+        self.assertEqual([4, 6], [r[x].value for x in 'ab'])
+
     @with_cluster(storage_count=2, partitions=2)
     def testDeadlockAvoidanceBeforeInvolvingAnotherNode(self, cluster):
         t1, c1 = cluster.getTransaction()
