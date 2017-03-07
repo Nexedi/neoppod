@@ -6,6 +6,7 @@
 
 from ZODB.FileStorage import FileStorage
 from ZODB import DB
+from ZODB.POSException import UndoError
 from persistent import Persistent
 import transaction
 
@@ -64,6 +65,29 @@ class Object(Persistent):
     def __setstate__(self, state):
         self.value = state
 
+# prepare extension dictionary for subject
+alnum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+def ext(subj):
+    d = {"x-generator": "zodb/py2 (%s)" % subj}
+
+    # also add some random 'x-cookie'
+    cooklen = 5
+    cookie = ""
+    for _ in range(cooklen):
+        cookie += random.choice(alnum)
+
+    xcookie = "x-cookie" + random.choice(alnum)
+    d[xcookie] = cookie
+
+    # shufle extension dict randomly - to likely trigger different ordering on save
+    keyv = d.keys()
+    random.shuffle(keyv)
+    ext = {}
+    for key in keyv:
+        ext[key] = d[key]
+
+    return ext
+
 def main():
     logging.basicConfig()
 
@@ -90,15 +114,28 @@ def main():
 
             obj.value = "%s%i.%i" % (name, i, j)
 
-            commit(u"user%i.%i" % (i,j), u"step %i.%i" % (i, j), {"x-generator": "zodb/py2 (%s)" % name})
+            commit(u"user%i.%i" % (i,j), u"step %i.%i" % (i, j), ext(name))
 
         # undo a transaction one step before a latest one a couple of times
         for j in range(2):
-            ul = db.undoLog(1, 2)[0]
-            db.undo(ul["id"])
-            commit(u"root%i.%i\nYour\nMagesty " % (i, j),
-                   u"undo %i.%i\nmore detailed description\n\nzzz ..." % (i, j) + "\t"*(i+j),
-                   {"x-generator": "zodb/py2 (undo %s)" % ul["id"]})
+            # XXX undoLog, despite what its interface says:
+            #   https://github.com/zopefoundation/ZODB/blob/2490ae09/src/ZODB/interfaces.py#L472
+            # just returns log of all transactions in specified range:
+            #   https://github.com/zopefoundation/ZODB/blob/2490ae09/src/ZODB/FileStorage/FileStorage.py#L1008
+            #   https://github.com/zopefoundation/ZODB/blob/2490ae09/src/ZODB/FileStorage/FileStorage.py#L2103
+            # so we retry undoing next log's txn on conflict.
+            for ul in db.undoLog(1, 20):
+                print j, ul
+                try:
+                    db.undo(ul["id"])
+                    commit(u"root%i.%i\nYour\nMagesty " % (i, j),
+                           u"undo %i.%i\nmore detailed description\n\nzzz ..." % (i, j) + "\t"*(i+j),
+                           ext("undo %s" % ul["id"]))
+                except UndoError:
+                    transaction.abort()
+                    continue
+
+                break
 
         # delete an object
         name = random.choice(root.keys())
@@ -107,11 +144,16 @@ def main():
         # NOTE user/ext are kept empty on purpose - to also test this case
         commit(u"", u"predelete %s" % unpack64(obj._p_oid), {})
 
+        # XXX obj in db could be changed by above undo, but ZODB does not automatically
+        # propagate undo changes to live objects - so obj._p_serial can be stale.
+        # Get serial via history.
+        obj_tid_lastchange = db.history(obj._p_oid)[0]['tid']
+
         txn = precommit(u"root%i\nYour\nRoyal\nMagesty " % i,
                         u"delete %i\nalpha beta gamma\n\nqqq ..." % i,
-                        {"x-generator": "zodb/py2 (delete %s)" % unpack64(obj._p_oid)})
+                        ext("delete %s" % unpack64(obj._p_oid)))
         stor.tpc_begin(txn)
-        stor.deleteObject(obj._p_oid, obj._p_serial, txn)
+        stor.deleteObject(obj._p_oid, obj_tid_lastchange, txn)
         stor.tpc_vote(txn)
         # TODO different txn status vvv
         # XXX vvv it does the thing, but py fs iterator treats this txn as EOF
