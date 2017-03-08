@@ -107,7 +107,7 @@ func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
 					binary.BigEndian.PutUint64(oidb[:], uint64(oidPrefixCur))
 					t[0] = oidb[0:6]
 					t[1] = bytes.Join([][]byte{oidBuf, posBuf}, nil)
-					err = p.Encode(t)
+					err = p.Encode(pickle.Tuple(t[:]))
 					if err != nil {
 						goto out
 					}
@@ -220,13 +220,14 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 	loop:
 		for {
 			// load/decode next entry
+			var v pickle.Tuple
 			picklePos = xr.InputOffset()
 			xv, err = p.Decode()
 			if err != nil {
 				goto out
 			}
 
-			switch xv.(type) {
+			switch xv := xv.(type) {
 			default:
 				err = fmt.Errorf("invalid entry: type %T", xv)
 				goto out
@@ -234,12 +235,15 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 			case pickle.None:
 				break loop
 
+			// we accept tuple or list
+			// XXX accept only tuple ?
+			case pickle.Tuple:
+				v = xv
 			case []interface{}:
-				// so far ok
+				v = pickle.Tuple(xv)
 			}
 
 			// unpack entry tuple -> oidPrefix, fsBucket
-			v := xv.([]interface{})
 			if len(v) != 2 {
 				err = fmt.Errorf("invalid entry: len = %i", len(v))
 				goto out
