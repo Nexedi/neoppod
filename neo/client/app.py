@@ -33,7 +33,7 @@ from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
-    NEOStorageNotFoundError, NEOPrimaryMasterLost)
+    NEOStorageReadRetry, NEOStorageNotFoundError, NEOPrimaryMasterLost)
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
@@ -136,7 +136,8 @@ class Application(ThreadedApplication):
             block = False
             try:
                 _handlePacket(conn, packet, kw)
-            except ConnectionClosed:
+            except (ConnectionClosed, NEOStorageReadRetry):
+                # We also catch NEOStorageReadRetry for ObjectUndoSerial.
                 pass
 
     def _waitAnyTransactionMessage(self, txn_context, block=True):
@@ -264,6 +265,44 @@ class Application(ThreadedApplication):
         # return the last OID used, this is inaccurate
         return int(u64(self.last_oid))
 
+    def _askStorageForRead(self, object_id, packet, askStorage=None):
+        cp = self.cp
+        pt = self.pt
+        if type(object_id) is str:
+            object_id = pt.getPartition(object_id)
+        if askStorage is None:
+            askStorage = self._askStorage
+        # Failure condition with minimal overhead: most of the time, only the
+        # following line is executed. In case of storage errors, we retry each
+        # node at least once, without looping forever.
+        failed = 0
+        while 1:
+            cell_list = pt.getCellList(object_id, True)
+            # Shuffle to randomise node to access...
+            shuffle(cell_list)
+            # ...and sort with non-unique keys, to prioritise ranges of
+            # randomised entries.
+            cell_list.sort(key=cp.getCellSortKey)
+            for cell in cell_list:
+                node = cell.getNode()
+                conn = cp.getConnForNode(node)
+                if conn is not None:
+                    try:
+                        return askStorage(conn, packet)
+                    except ConnectionClosed:
+                        pass
+                    except NEOStorageReadRetry, e:
+                        if e.args[0]:
+                            continue
+                failed += 1
+            if not pt.filled():
+                raise NEOPrimaryMasterLost
+            if len(cell_list) < failed: # too many failures
+                raise NEOStorageError('no storage available')
+            # Do not retry too quickly, for example
+            # when there's an incoming PT update.
+            self.sync()
+
     def load(self, oid, tid=None, before_tid=None):
         """
         Internal method which manage load, loadSerial and loadBefore.
@@ -339,23 +378,20 @@ class Application(ThreadedApplication):
         return data, tid, next_tid
 
     def _loadFromStorage(self, oid, at_tid, before_tid):
-        packet = Packets.AskObject(oid, at_tid, before_tid)
-        for conn in self.cp.iterateForObject(oid):
-            try:
-                tid, next_tid, compression, checksum, data, data_tid \
-                    = self._askStorage(conn, packet)
-            except ConnectionClosed:
-                continue
-
+        def askStorage(conn, packet):
+            tid, next_tid, compression, checksum, data, data_tid \
+                = self._askStorage(conn, packet)
             if data or checksum != ZERO_HASH:
                 if checksum != makeChecksum(data):
                     logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
-                    continue
+                    raise NEOStorageReadRetry(False)
                 return (decompress(data) if compression else data,
                         tid, next_tid, data_tid)
             raise NEOStorageCreationUndoneError(dump(oid))
-        raise NEOStorageError("storage down or corrupted data")
+        return self._askStorageForRead(oid,
+            Packets.AskObject(oid, at_tid, before_tid),
+            askStorage)
 
     def _loadFromCache(self, oid, at_tid=None, before_tid=None):
         """
@@ -647,12 +683,10 @@ class Application(ThreadedApplication):
                     pass
             if tid == MAX_TID:
                 while 1:
-                    for conn in self.cp.iterateForObject(ttid):
-                        try:
-                            return self._askStorage(conn, p)
-                        except ConnectionClosed:
-                            pass
-                    self._getMasterConnection()
+                    try:
+                        return self._askStorageForRead(ttid, p)
+                    except NEOPrimaryMasterLost:
+                        pass
             elif tid:
                 return tid
         except Exception:
@@ -678,37 +712,44 @@ class Application(ThreadedApplication):
         # is)
         getCellList = self.pt.getCellList
         getCellSortKey = self.cp.getCellSortKey
-        getConnForCell = self.cp.getConnForCell
+        getConnForNode = self.cp.getConnForNode
         queue = self._thread_container.queue
         ttid = txn_context.ttid
         undo_object_tid_dict = {}
         snapshot_tid = p64(u64(self.last_tid) + 1)
-        for partition, oid_list in partition_oid_dict.iteritems():
-            cell_list = [cell
-                for cell in getCellList(partition, readable=True)
-                # Exclude nodes that may have missed previous resolved
-                # conflicts. For example, if a network failure happened only
-                # between the client and the storage, the latter would still
-                # be readable until we commit.
-                if txn_context.involved_nodes.get(cell.getUUID(), 0) < 2]
-            # We do want to shuffle before getting one with the smallest
-            # key, so that all cells with the same (smallest) key has
-            # identical chance to be chosen.
-            shuffle(cell_list)
-            storage_conn = getConnForCell(min(cell_list, key=getCellSortKey))
-            storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
-                snapshot_tid, undone_tid, oid_list),
-                queue=queue, undo_object_tid_dict=undo_object_tid_dict)
+        kw = {
+            'queue': queue,
+            'partition_oid_dict': partition_oid_dict,
+            'undo_object_tid_dict': undo_object_tid_dict,
+        }
+        while partition_oid_dict:
+            for partition, oid_list in partition_oid_dict.iteritems():
+                cell_list = [cell
+                    for cell in getCellList(partition, readable=True)
+                    # Exclude nodes that may have missed previous resolved
+                    # conflicts. For example, if a network failure happened
+                    # only between the client and the storage, the latter would
+                    # still be readable until we commit.
+                    if txn_context.involved_nodes.get(cell.getUUID(), 0) < 2]
+                # We do want to shuffle before getting one with the smallest
+                # key, so that all cells with the same (smallest) key has
+                # identical chance to be chosen.
+                shuffle(cell_list)
+                storage_conn = getConnForNode(
+                    min(cell_list, key=getCellSortKey).getNode())
+                storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
+                    snapshot_tid, undone_tid, oid_list),
+                    partition=partition, **kw)
 
-        # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
-        # meaning that objects in transaction's oid_list do not exist any
-        # longer. This is the symptom of a pack, so forbid undoing transaction
-        # when it happens.
-        try:
-            self.waitResponses(queue)
-        except NEOStorageNotFoundError:
-            self.dispatcher.forget_queue(queue)
-            raise UndoError('non-undoable transaction')
+            # Wait for all AnswerObjectUndoSerial. We might get
+            # OidNotFoundError, meaning that objects in transaction's oid_list
+            # do not exist any longer. This is the symptom of a pack, so forbid
+            # undoing transaction when it happens.
+            try:
+                self.waitResponses(queue)
+            except NEOStorageNotFoundError:
+                self.dispatcher.forget_queue(queue)
+                raise UndoError('non-undoable transaction')
 
         # Send undo data to all storage nodes.
         for oid in txn_oid_list:
@@ -754,18 +795,8 @@ class Application(ThreadedApplication):
 
     def _getTransactionInformation(self, tid):
         packet = Packets.AskTransactionInformation(tid)
-        for conn in self.cp.iterateForObject(tid):
-            try:
-                txn_info, txn_ext = self._askStorage(conn, packet)
-            except ConnectionClosed:
-                continue
-            except NEOStorageNotFoundError:
-                # TID not found
-                continue
-            break
-        else:
-            raise NEOStorageError('Transaction %r not found' % (tid, ))
-        return (txn_info, txn_ext)
+        return self._askStorageForRead(tid,
+            Packets.AskTransactionInformation(tid))
 
     def undoLog(self, first, last, filter=None, block=0):
         # XXX: undoLog is broken
@@ -786,6 +817,9 @@ class Application(ThreadedApplication):
             conn.ask(packet, queue=queue, tid_set=tid_set)
 
         # Wait for answers from all storages.
+        # TODO: Results are incomplete when readable cells move concurrently
+        #       from one storage to another. We detect when this happens and
+        #       retry.
         self.waitResponses(queue)
 
         # Reorder tids
@@ -814,15 +848,8 @@ class Application(ThreadedApplication):
         tid_list = []
         # request a tid list for each partition
         for offset in xrange(self.pt.getPartitions()):
-            p = Packets.AskTIDsFrom(start, stop, limit, offset)
-            for conn in self.cp.iterateForObject(offset):
-                try:
-                    r = self._askStorage(conn, p)
-                    break
-                except ConnectionClosed:
-                    pass
-            else:
-                raise NEOStorageError('transactionLog failed')
+            r = self._askStorageForRead(offset,
+                Packets.AskTIDsFrom(start, stop, limit, offset))
             if r:
                 tid_list = list(heapq.merge(tid_list, r))
                 if len(tid_list) >= limit:
@@ -839,17 +866,10 @@ class Application(ThreadedApplication):
         return (tid, txn_list)
 
     def history(self, oid, size=1, filter=None):
-        # Get history informations for object first
         packet = Packets.AskObjectHistory(oid, 0, size)
-        for conn in self.cp.iterateForObject(oid):
-            try:
-                history_list = self._askStorage(conn, packet)
-            except ConnectionClosed:
-                continue
-            # Now that we have object informations, get txn informations
-            result = []
-            # history_list is already sorted descending (by the storage)
-            for serial, size in history_list:
+        result = []
+        # history_list is already sorted descending (by the storage)
+        for serial, size in self._askStorageForRead(oid, packet):
                 txn_info, txn_ext = self._getTransactionInformation(serial)
                 # create history dict
                 txn_info.pop('id')
@@ -861,7 +881,7 @@ class Application(ThreadedApplication):
                 if filter is None or filter(txn_info):
                     result.append(txn_info)
                 self._insertMetadata(txn_info, txn_ext)
-            return result
+        return result
 
     def importFrom(self, storage, source, start, stop, preindex=None):
         # TODO: The main difference with BaseStorage implementation is that

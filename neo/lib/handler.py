@@ -20,8 +20,8 @@ from . import logging
 from .connection import ConnectionClosed
 from .protocol import (
     NodeStates, Packets, Errors, BackendNotImplemented,
-    BrokenNodeDisallowedError, NotReadyError, PacketMalformedError,
-    ProtocolError, UnexpectedPacketError)
+    BrokenNodeDisallowedError, NonReadableCell, NotReadyError,
+    PacketMalformedError, ProtocolError, UnexpectedPacketError)
 from .util import cached_property
 
 
@@ -101,6 +101,8 @@ class EventHandler(object):
             conn.answer(Errors.BackendNotImplemented(
                 "%s.%s does not implement %s"
                 % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
+        except NonReadableCell, e:
+            conn.answer(Errors.NonReadableCell())
         except AssertionError:
             e = sys.exc_info()
             try:

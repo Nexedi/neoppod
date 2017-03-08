@@ -116,8 +116,6 @@
     - Merge Application into Storage (SPEED)
     - Optimize cache.py by rewriting it either in C or Cython (LOAD LATENCY)
     - Use generic bootstrap module (CODE)
-    - If too many storage nodes are dead, the client should check the partition
-      table hasn't changed by pinging the master and retry if necessary.
 
     Admin
     - Make admin node able to monitor multiple clusters simultaneously

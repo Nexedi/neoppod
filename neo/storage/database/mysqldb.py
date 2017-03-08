@@ -299,7 +299,9 @@ class MySQLDatabaseManager(DatabaseManager):
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
 
-    def getPartitionTable(self):
+    def getPartitionTable(self, *nid):
+        if nid:
+            return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
         return self.query("SELECT * FROM pt")
 
     def getLastTID(self, max_tid):
@@ -329,7 +331,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # MariaDB is smart enough to realize that 'ttid' is constant.
         r = self.query("SELECT tid FROM trans"
             " WHERE `partition`=%s AND tid>=ttid AND ttid=%s LIMIT 1"
-            % (self._getPartition(ttid), ttid))
+            % (self._getReadablePartition(ttid), ttid))
         if r:
             return util.p64(r[0][0])
 
@@ -338,7 +340,7 @@ class MySQLDatabaseManager(DatabaseManager):
         r = self.query("SELECT tid FROM obj"
                        " WHERE `partition`=%d AND oid=%d"
                        " ORDER BY tid DESC LIMIT 1"
-                       % (self._getPartition(oid), oid))
+                       % (self._getReadablePartition(oid), oid))
         return util.p64(r[0][0]) if r else None
 
     def _getNextTID(self, *args): # partition, oid, tid
@@ -350,7 +352,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
-        partition = self._getPartition(oid)
+        partition = self._getReadablePartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE `partition` = %d AND oid = %d') % (partition, oid)
@@ -373,7 +375,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return (serial, self._getNextTID(partition, oid, serial),
                 compression, checksum, data, value_serial)
 
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    def _changePartitionTable(self, cell_list, reset=False):
         offset_list = []
         q = self.query
         if reset:
@@ -389,7 +391,6 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("INSERT INTO pt VALUES (%d, %d, %d)"
                   " ON DUPLICATE KEY UPDATE state = %d"
                   % (offset, nid, state, state))
-        self.setPTID(ptid)
         if self._use_partition:
             for offset in offset_list:
                 add = """ALTER TABLE %%s ADD PARTITION (
@@ -572,7 +573,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def _getDataTID(self, oid, tid=None, before_tid=None):
         sql = ('SELECT tid, value_tid FROM obj'
                ' WHERE `partition` = %d AND oid = %d'
-              ) % (self._getPartition(oid), oid)
+              ) % (self._getReadablePartition(oid), oid)
         if tid is not None:
             sql += ' AND tid = %d' % tid
         elif before_tid is not None:
@@ -611,7 +612,6 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)
-        getPartition = self._getPartition
         self.query("DELETE FROM trans WHERE `partition`=%s AND tid=%s" %
             (self._getPartition(tid), tid))
 
@@ -645,7 +645,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         r = q("SELECT oids, user, description, ext, packed, ttid"
               " FROM trans WHERE `partition` = %d AND tid = %d"
-              % (self._getPartition(tid), tid))
+              % (self._getReadablePartition(tid), tid))
         if not r and all:
             r = q("SELECT oids, user, description, ext, packed, ttid"
                   " FROM ttrans WHERE tid = %d" % tid)
@@ -665,7 +665,8 @@ class MySQLDatabaseManager(DatabaseManager):
             " FROM obj LEFT JOIN data ON (obj.data_id = data.id)"
             " WHERE `partition` = %d AND oid = %d AND tid >= %d"
             " ORDER BY tid DESC LIMIT %d, %d" %
-            (self._getPartition(oid), oid, self._getPackTID(), offset, length))
+            (self._getReadablePartition(oid), oid,
+             self._getPackTID(), offset, length))
         if r:
             return [(p64(tid), length or 0) for tid, length in r]
 
@@ -681,12 +682,11 @@ class MySQLDatabaseManager(DatabaseManager):
             partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))
         return [(p64(serial), p64(oid)) for serial, oid in r]
 
-    def getTIDList(self, offset, length, partition_list):
-        q = self.query
-        r = q("""SELECT tid FROM trans WHERE `partition` in (%s)
-                    ORDER BY tid DESC LIMIT %d,%d""" \
-                % (','.join(map(str, partition_list)), offset, length))
-        return [util.p64(t[0]) for t in r]
+    def _getTIDList(self, offset, length, partition_list):
+        return (t[0] for t in self.query(
+            "SELECT tid FROM trans WHERE `partition` in (%s)"
+            " ORDER BY tid DESC LIMIT %d,%d"
+            % (','.join(map(str, partition_list)), offset, length)))
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         u64 = util.u64
@@ -712,7 +712,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # reference is just updated to point to the new data location.
         value_serial = None
         kw = {
-          'partition': self._getPartition(oid),
+          'partition': self._getReadablePartition(oid),
           'oid': oid,
           'orig_tid': orig_serial,
           'max_tid': max_serial,
@@ -736,7 +736,7 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
-        getPartition = self._getPartition
+        getPartition = self._getReadablePartition
         q = self.query
         self._setPackTID(tid)
         for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"

@@ -219,7 +219,9 @@ class SQLiteDatabaseManager(DatabaseManager):
         else:
             q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
 
-    def getPartitionTable(self):
+    def getPartitionTable(self, *nid):
+        if nid:
+            return self.query("SELECT rid, state FROM pt WHERE nid=?", nid)
         return self.query("SELECT * FROM pt")
 
     # A test with a table of 20 million lines and SQLite 3.8.7.1 shows that
@@ -260,7 +262,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         # even though ttid is a constant.
         for tid, in self.query("SELECT tid FROM trans"
                 " WHERE partition=? AND tid>=? AND ttid=? LIMIT 1",
-                (self._getPartition(ttid), ttid, ttid)):
+                (self._getReadablePartition(ttid), ttid, ttid)):
             return util.p64(tid)
 
     def getLastObjectTID(self, oid):
@@ -268,7 +270,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         r = self.query("SELECT tid FROM obj"
                        " WHERE partition=? AND oid=?"
                        " ORDER BY tid DESC LIMIT 1",
-                       (self._getPartition(oid), oid)).fetchone()
+                       (self._getReadablePartition(oid), oid)).fetchone()
         return r and util.p64(r[0])
 
     def _getNextTID(self, *args): # partition, oid, tid
@@ -279,7 +281,7 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
-        partition = self._getPartition(oid)
+        partition = self._getReadablePartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON obj.data_id = data.id'
                ' WHERE partition=? AND oid=?')
@@ -300,7 +302,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         return (serial, self._getNextTID(partition, oid, serial),
                 compression, checksum, data, value_serial)
 
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    def _changePartitionTable(self, cell_list, reset=False):
         q = self.query
         if reset:
             q("DELETE FROM pt")
@@ -315,7 +317,6 @@ class SQLiteDatabaseManager(DatabaseManager):
             if state != CellStates.DISCARDED:
                 q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
                   (offset, nid, int(state)))
-        self.setPTID(ptid)
 
     def dropPartitions(self, offset_list):
         where = " WHERE partition=?"
@@ -409,7 +410,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                           " FROM data where id=?", (data_id,)).fetchone()
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        partition = self._getPartition(oid)
+        partition = self._getReadablePartition(oid)
         sql = 'SELECT tid, value_tid FROM obj' \
               ' WHERE partition=? AND oid=?'
         if tid is not None:
@@ -451,7 +452,6 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)
-        getPartition = self._getPartition
         self.query("DELETE FROM trans WHERE partition=? AND tid=?",
             (self._getPartition(tid), tid))
 
@@ -490,7 +490,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         r = q("SELECT oids, user, description, ext, packed, ttid"
               " FROM trans WHERE partition=? AND tid=?",
-              (self._getPartition(tid), tid)).fetchone()
+              (self._getReadablePartition(tid), tid)).fetchone()
         if not r and all:
             r = q("SELECT oids, user, description, ext, packed, ttid"
                   " FROM ttrans WHERE tid=?", (tid,)).fetchone()
@@ -510,7 +510,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                 FROM obj LEFT JOIN data ON obj.data_id = data.id
                 WHERE partition=? AND oid=? AND tid>=?
                 ORDER BY tid DESC LIMIT ?,?""",
-            (self._getPartition(oid), oid, self._getPackTID(), offset, length))
+            (self._getReadablePartition(oid), oid,
+             self._getPackTID(), offset, length))
             ] or None
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
@@ -525,12 +526,11 @@ class SQLiteDatabaseManager(DatabaseManager):
             ORDER BY tid ASC, oid ASC LIMIT ?""",
             (partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))]
 
-    def getTIDList(self, offset, length, partition_list):
-        p64 = util.p64
-        return [p64(t[0]) for t in self.query("""\
-            SELECT tid FROM trans WHERE partition in (%s)
-            ORDER BY tid DESC LIMIT %d,%d"""
-            % (','.join(map(str, partition_list)), offset, length))]
+    def _getTIDList(self, offset, length, partition_list):
+        return (t[0] for t in self.query(
+            "SELECT tid FROM trans WHERE `partition` in (%s)"
+            " ORDER BY tid DESC LIMIT %d,%d"
+            % (','.join(map(str, partition_list)), offset, length)))
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         u64 = util.u64
@@ -548,7 +548,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         # transaction referencing its value at max_serial or above.
         # If there is, copy value to the first future transaction. Any further
         # reference is just updated to point to the new data location.
-        partition = self._getPartition(oid)
+        partition = self._getReadablePartition(oid)
         value_serial = None
         q = self.query
         for T in '', 't':
@@ -569,7 +569,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         p64 = util.p64
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
-        getPartition = self._getPartition
+        getPartition = self._getReadablePartition
         q = self.query
         self._setPackTID(tid)
         for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"

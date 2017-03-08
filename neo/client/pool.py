@@ -15,14 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-from random import shuffle
-
 from neo.lib import logging
 from neo.lib.locking import Lock
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.lib.exception import NodeNotReady
-from .exception import NEOPrimaryMasterLost, NEOStorageError
+from .exception import NEOPrimaryMasterLost
 
 # How long before we might retry a connection to a node to which connection
 # failed in the past.
@@ -83,40 +81,6 @@ class ConnectionPool(object):
                 return CELL_FAILED
             self.node_failure_dict.pop(uuid, None)
         return CELL_GOOD
-
-    def getConnForCell(self, cell):
-        return self.getConnForNode(cell.getNode())
-
-    def iterateForObject(self, object_id):
-        """ Iterate over nodes managing an object """
-        pt = self.app.pt
-        if type(object_id) is str:
-            object_id = pt.getPartition(object_id)
-        cell_list = pt.getCellList(object_id, True)
-        if not cell_list:
-            raise NEOStorageError('no storage available')
-        getConnForNode = self.getConnForNode
-        while 1:
-            new_cell_list = []
-            # Shuffle to randomise node to access...
-            shuffle(cell_list)
-            # ...and sort with non-unique keys, to prioritise ranges of
-            # randomised entries.
-            cell_list.sort(key=self.getCellSortKey)
-            for cell in cell_list:
-                node = cell.getNode()
-                conn = getConnForNode(node)
-                if conn is not None:
-                    yield conn
-                # Re-check if node is running, as our knowledge of its
-                # state can have changed during connection attempt.
-                elif node.isRunning():
-                    new_cell_list.append(cell)
-            if not new_cell_list:
-                break
-            cell_list = new_cell_list
-        if self.app.master_conn is None:
-            raise NEOPrimaryMasterLost
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node

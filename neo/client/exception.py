@@ -19,6 +19,9 @@ from ZODB import POSException
 class NEOStorageError(POSException.StorageError):
     pass
 
+class NEOStorageReadRetry(NEOStorageError):
+    pass
+
 class NEOStorageNotFoundError(NEOStorageError):
     pass
 

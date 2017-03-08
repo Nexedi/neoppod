@@ -283,11 +283,11 @@ class ImporterDatabaseManager(DatabaseManager):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
         implements(self, """_getNextTID checkSerialRange checkTIDRange
             deleteObject deleteTransaction dropPartitions getLastTID
-            getReplicationObjectList getTIDList nonempty""".split())
+            getReplicationObjectList _getTIDList nonempty""".split())
 
-    _uncommitted_data = property(
-        lambda self: self.db._uncommitted_data,
-        lambda self, value: setattr(self.db, "_uncommitted_data", value))
+    _getPartition = property(lambda self: self.db._getPartition)
+    _getReadablePartition = property(lambda self: self.db._getReadablePartition)
+    _uncommitted_data = property(lambda self: self.db._uncommitted_data)
 
     def _parse(self, database):
         config = SafeConfigParser()
@@ -300,8 +300,8 @@ class ImporterDatabaseManager(DatabaseManager):
         self.compress = main.get('compress', 1)
         self.db = buildDatabaseManager(main['adapter'],
             (main['database'], main.get('engine'), main['wait']))
-        for x in """query erase getConfiguration _setConfiguration
-                    getPartitionTable changePartitionTable
+        for x in """getConfiguration _setConfiguration setNumPartitions
+                    query erase getPartitionTable changePartitionTable
                     getUnfinishedTIDDict dropUnfinishedData abortTransaction
                     storeTransaction lockTransaction unlockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
@@ -315,21 +315,14 @@ class ImporterDatabaseManager(DatabaseManager):
         self.db.commit()
         self._last_commit = time.time()
 
-    def setNumPartitions(self, num_partitions):
-        self.db.setNumPartitions(num_partitions)
-        try:
-            del self._getPartition
-        except AttributeError:
-            pass
-
     def close(self):
         self.db.close()
         if isinstance(self.zodb, list): # _setup called
             for zodb in self.zodb:
                 zodb.close()
 
-    def _setup(self):
-        self.db._setup()
+    def setup(self, reset=0):
+        self.db.setup(reset)
         zodb_state = self.getConfiguration("zodb")
         if zodb_state:
             logging.warning("Ignoring configuration file for oid mapping."

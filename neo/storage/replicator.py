@@ -175,6 +175,7 @@ class Replicator(object):
                         # self.replicate_dict[offset], but p.max_ttid is not
                         # wrong. Anyway here, we're not in backup mode and this
                         # value will be ignored.
+                        # XXX: see NonReadableCell.__doc__
                         self.app.tm.replicated(offset, p.max_ttid)
                     p.max_ttid = None
         self._nextPartition()

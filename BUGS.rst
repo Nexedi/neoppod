@@ -4,15 +4,6 @@ or promised features of NEO (marked with N).
 
 All the listed bugs will be fixed with high priority.
 
-(N) Storage failure or update may lead to POSException or break undoLog()
--------------------------------------------------------------------------
-
-Storage nodes are only queried once at most and if all (for the requested
-partition) failed, the client raises instead of asking the master whether it
-had an up-to-date partition table (and retry if useful).
-
-In the case of undoLog(), incomplete results may be returned.
-
 (N) A backup cell may be wrongly marked as corrupted while checking replicas
 ----------------------------------------------------------------------------
 

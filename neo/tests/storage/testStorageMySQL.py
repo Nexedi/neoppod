@@ -105,7 +105,7 @@ class StorageMySQLdbTests(StorageDBTests):
         self.db.query(x)
         # Reconnection cleared the cache of the config table,
         # so fill it again with required values before we patch query().
-        self.db.getNumPartitions()
+        self.db._getPartition
         # Check MySQLDatabaseManager._max_allowed_packet
         query_list = []
         self.db.query = lambda query: query_list.append(EXTRA + len(query))

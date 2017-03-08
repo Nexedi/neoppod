@@ -90,6 +90,7 @@ class StorageServiceHandler(BaseServiceHandler):
             if not cell_list:
                 return
         else:
+            # TODO: check tid (see NonReadableCell.__doc__)
             try:
                 cell_list = self.app.pt.setUpToDate(node, offset)
                 if not cell_list:

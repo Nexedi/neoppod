@@ -21,7 +21,7 @@ from functools import wraps
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import abstract, requires
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import CellStates, NonReadableCell, ZERO_TID
 
 def lazymethod(func):
     def getter(self):
@@ -73,13 +73,9 @@ class DatabaseManager(object):
         self._connect()
 
     def __getattr__(self, attr):
-        if attr == "_getPartition":
-            np = self.getNumPartitions()
-            value = lambda x: x % np
-        elif self._duplicating is None:
+        if self._duplicating is None:
             return self.__getattribute__(attr)
-        else:
-            value = getattr(self._duplicating, attr)
+        value = getattr(self._duplicating, attr)
         setattr(self, attr, value)
         return value
 
@@ -105,19 +101,10 @@ class DatabaseManager(object):
     def _connect(self):
         """Connect to the database"""
 
-    def setup(self, reset=0):
-        """Set up a database, discarding existing data first if reset is True
-        """
-        if reset:
-            self.erase()
-        self._uncommitted_data = defaultdict(int)
-        self._setup()
-
     @abstract
     def erase(self):
         """"""
 
-    @abstract
     def _setup(self):
         """To be overridden by the backend to set up a database
 
@@ -127,6 +114,16 @@ class DatabaseManager(object):
         where the refcount is increased later, when the object is read-locked.
         Keys are data ids and values are number of references.
         """
+
+    @requires(_setup)
+    def setup(self, reset=0):
+        """Set up a database, discarding existing data first if reset is True
+        """
+        if reset:
+            self.erase()
+        self._readable_set = set()
+        self._uncommitted_data = defaultdict(int)
+        self._setup()
 
     @abstract
     def nonempty(self, table):
@@ -222,7 +219,7 @@ class DatabaseManager(object):
         """
         self.setConfiguration('partitions', num_partitions)
         try:
-            del self._getPartition
+            del self._getPartition, self._getReadablePartition
         except AttributeError:
             pass
 
@@ -295,7 +292,7 @@ class DatabaseManager(object):
             return -1
 
     @abstract
-    def getPartitionTable(self):
+    def getPartitionTable(self, *nid):
         """Return a whole partition table as a sequence of rows. Each row
         is again a tuple of an offset (row ID), the NID of a storage
         node, and a cell state."""
@@ -405,13 +402,47 @@ class DatabaseManager(object):
                 compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
-    @abstract
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    @contextmanager
+    def replicated(self, offset):
+        readable_set = self._readable_set
+        assert offset not in readable_set
+        readable_set.add(offset)
+        try:
+            yield
+        finally:
+            readable_set.remove(offset)
+
+    def _changePartitionTable(self, cell_list, reset=False):
         """Change a part of a partition table. The list of cells is
         a tuple of tuples, each of which consists of an offset (row ID),
-        the NID of a storage node, and a cell state. The Partition
-        Table ID must be stored as well. If reset is True, existing data
-        is first thrown away."""
+        the NID of a storage node, and a cell state. If reset is True,
+        existing data is first thrown away.
+        """
+
+    @requires(_changePartitionTable)
+    def changePartitionTable(self, ptid, cell_list, reset=False):
+        readable_set = self._readable_set
+        if reset:
+            readable_set.clear()
+            np = self.getNumPartitions()
+            def _getPartition(x, np=np):
+                return x % np
+            def _getReadablePartition(x, np=np, r=readable_set):
+                x %= np
+                if x in r:
+                    return x
+                raise NonReadableCell
+            self._getPartition = _getPartition
+            self._getReadablePartition = _getReadablePartition
+        me = self.getUUID()
+        for offset, nid, state in cell_list:
+            if nid == me:
+                if CellStates.UP_TO_DATE != state != CellStates.FEEDING:
+                    readable_set.discard(offset)
+                else:
+                    readable_set.add(offset)
+        self._changePartitionTable(cell_list, reset)
+        self.setPTID(ptid)
 
     @abstract
     def dropPartitions(self, offset_list):
@@ -681,11 +712,19 @@ class DatabaseManager(object):
         min_tid and min_oid and below max_tid, for given partition,
         sorted in ascending order."""
 
-    @abstract
-    def getTIDList(self, offset, length, partition_list):
+    def _getTIDList(self, offset, length, partition_list):
         """Return a list of TIDs in ascending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
+
+    @requires(_getTIDList)
+    def getTIDList(self, offset, length, partition_list):
+        if partition_list:
+            if self._readable_set.issuperset(partition_list):
+                return map(util.p64, self._getTIDList(
+                    offset, length, partition_list))
+            raise NonReadableCell
+        return ()
 
     @abstract
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
