@@ -42,7 +42,39 @@ import (
 
 	"lab.nexedi.com/kirr/go123/mem"
 	//"lab.nexedi.com/kirr/go123/xio"
+
+	pickle "githib.com/kisielk/og-rek"
 )
+
+// dumpb pickles an object to []byte
+func dumpb(obj interface{}) []byte {
+	buf := bytes.Buffer{}
+	p := pickle.NewEncoder(&buf)
+	err := p.Encode(obj)
+}
+
+// normalizeExtPy normalizes extension to the form zodbdump/py would print it.
+// specifically the dictionary pickle inside is analyzed and then ... XXX
+func normalizeExtPy(ext []byte) []byte {
+	// depickle ext
+	r := bufio.NewBuffer(ext)
+	p := pickle.NewDecoder(r)
+	xv, _ := p.Decode()
+	v, ok := xv.(map[interface{}]interface{})
+
+	// on any error (e.g. ext is not pickle at all) or if it was not dict return original
+	if !ok {
+		return ext
+	}
+
+	keyv := make([]*struct{key interface{}, kpickle []byte}, len(v))
+	for i, key := range v {
+		keyv[i].key = key
+		keyv[i].kpickle = dumpb(key)
+	}
+
+
+}
 
 // zodbDump dumps contents of a storage in between tidMin..tidMax range to a writer.
 // see top-level documentation for the dump format.
