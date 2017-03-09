@@ -62,8 +62,8 @@ class StorageAppTests(NeoUnitTestBase):
         storage = self.app.nm.createStorage(uuid=storage_uuid)
         client_uuid = self.getClientUUID()
 
-        self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
-        self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
+        self.app.pt._setCell(0, master, CellStates.UP_TO_DATE)
+        self.app.pt._setCell(0, storage, CellStates.UP_TO_DATE)
         self.assertEqual(len(self.app.pt.getNodeSet()), 2)
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):
@@ -79,8 +79,8 @@ class StorageAppTests(NeoUnitTestBase):
             self.assertFalse(self.app.pt.hasOffset(x))
 
         # add some node
-        self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
-        self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
+        self.app.pt._setCell(0, master, CellStates.UP_TO_DATE)
+        self.app.pt._setCell(0, storage, CellStates.UP_TO_DATE)
         self.assertEqual(len(self.app.pt.getNodeSet()), 2)
         self.assertFalse(self.app.pt.filled())
         for x in xrange(num_partitions):

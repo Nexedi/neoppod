@@ -147,7 +147,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 if node is None:
                     node = nm.createStorage(uuid=uuid)
                     new_nodes.append(node.asTuple())
-                self.setCell(offset, node, state)
+                self._setCell(offset, node, state)
         return new_nodes
 
     def setUpToDate(self, node, offset):
@@ -163,13 +163,15 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             raise neo.lib.pt.PartitionTableException('Non-assigned partition')
 
         # update the partition table
-        cell_list = [self.setCell(offset, node, CellStates.UP_TO_DATE)]
+        self._setCell(offset, node, CellStates.UP_TO_DATE)
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
 
         # If the partition contains a feeding cell, drop it now.
         for feeding_cell in self.getCellList(offset):
             if feeding_cell.isFeeding():
-                cell_list.append(self.removeCell(offset,
-                    feeding_cell.getNode()))
+                node = feeding_cell.getNode()
+                self.removeCell(offset, node)
+                cell_list.append((offset, node.getUUID(), CellStates.DISCARDED))
                 break
 
         return cell_list

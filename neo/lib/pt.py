@@ -15,12 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
-from functools import wraps
-
 from . import logging, protocol
+from .locking import Lock
 from .protocol import uuid_str, CellStates
 from .util import u64
-from .locking import RLock
 
 class PartitionTableException(Exception):
     """
@@ -163,7 +161,7 @@ class PartitionTable(object):
             if cell.getUUID() == uuid:
                 return cell
 
-    def setCell(self, offset, node, state):
+    def _setCell(self, offset, node, state):
         if state == CellStates.DISCARDED:
             return self.removeCell(offset, node)
         if node.isBroken() or node.isDown():
@@ -182,7 +180,6 @@ class PartitionTable(object):
             row.append(Cell(node, state))
         if state != CellStates.FEEDING:
             self.count_dict[node] += 1
-        return offset, node.getUUID(), state
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]
@@ -193,7 +190,6 @@ class PartitionTable(object):
                 if not cell.isFeeding():
                     self.count_dict[node] -= 1
                 break
-        return (offset, node.getUUID(), CellStates.DISCARDED)
 
     def load(self, ptid, row_list, nm):
         """
@@ -209,24 +205,21 @@ class PartitionTable(object):
                 node = nm.getByUUID(uuid)
                 # the node must be known by the node manager
                 assert node is not None
-                self.setCell(offset, node, state)
+                self._setCell(offset, node, state)
         logging.debug('partition table loaded (ptid=%s)', ptid)
         self.log()
 
     def update(self, ptid, cell_list, nm):
         """
-        Update the partition with the cell list supplied. Ignore those changes
-        if the partition table ID is not greater than the current one. If a node
+        Update the partition with the cell list supplied. If a node
         is not known, it is created in the node manager and set as unavailable
         """
-        if ptid <= self._id:
-            logging.warning('ignoring older partition changes')
-            return
+        assert self._id < ptid, (self._id, ptid)
         self._id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid ' + uuid_str(uuid)
-            self.setCell(offset, node, state)
+            self._setCell(offset, node, state)
         logging.debug('partition table updated (ptid=%s)', ptid)
         self.log()
 
@@ -310,38 +303,22 @@ class PartitionTable(object):
         getRow = self.getRow
         return [(x, getRow(x)) for x in xrange(self.np)]
 
-def thread_safe(method):
-    def wrapper(self, *args, **kwargs):
-        self.lock()
-        try:
-            return method(self, *args, **kwargs)
-        finally:
-            self.unlock()
-    return wraps(method)(wrapper)
-
-
 class MTPartitionTable(PartitionTable):
     """ Thread-safe aware version of the partition table, override only methods
         used in the client """
 
-    def __init__(self, *args, **kwargs):
-        self._lock = RLock()
-        PartitionTable.__init__(self, *args, **kwargs)
+    def __init__(self, *args, **kw):
+        self._lock = Lock()
+        PartitionTable.__init__(self, *args, **kw)
 
-    def lock(self):
-        self._lock.acquire()
+    def update(self, *args, **kw):
+        with self._lock:
+            return PartitionTable.update(self, *args, **kw)
 
-    def unlock(self):
-        self._lock.release()
+    def clear(self, *args, **kw):
+        with self._lock:
+            return PartitionTable.clear(self, *args, **kw)
 
-    @thread_safe
-    def setCell(self, *args, **kwargs):
-        return PartitionTable.setCell(self, *args, **kwargs)
-
-    @thread_safe
-    def clear(self, *args, **kwargs):
-        return PartitionTable.clear(self, *args, **kwargs)
-
-    @thread_safe
-    def operational(self, *args, **kwargs):
-        return PartitionTable.operational(self, *args, **kwargs)
+    def operational(self, *args, **kw):
+        with self._lock:
+            return PartitionTable.operational(self, *args, **kw)

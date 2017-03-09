@@ -70,15 +70,15 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         num_partitions = 5
         num_replicas = 3
         pt = PartitionTable(num_partitions, num_replicas)
-        pt.setCell(0, sn1, CellStates.OUT_OF_DATE)
+        pt._setCell(0, sn1, CellStates.OUT_OF_DATE)
         sn1.setState(NodeStates.RUNNING)
-        pt.setCell(1, sn2, CellStates.UP_TO_DATE)
+        pt._setCell(1, sn2, CellStates.UP_TO_DATE)
         sn2.setState(NodeStates.TEMPORARILY_DOWN)
-        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
+        pt._setCell(2, sn3, CellStates.UP_TO_DATE)
         sn3.setState(NodeStates.DOWN)
-        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
+        pt._setCell(3, sn4, CellStates.UP_TO_DATE)
         sn4.setState(NodeStates.BROKEN)
-        pt.setCell(4, sn5, CellStates.UP_TO_DATE)
+        pt._setCell(4, sn5, CellStates.UP_TO_DATE)
         sn5.setState(NodeStates.RUNNING)
         # outdate nodes
         cells_outdated = pt.outdate()
@@ -118,12 +118,12 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         sn = [self.createStorage(None, i + 1, NodeStates.RUNNING)
               for i in xrange(3)]
         pt = PartitionTable(3, 0)
-        pt.setCell(0, sn[0], CellStates.OUT_OF_DATE)
-        pt.setCell(1, sn[1], CellStates.FEEDING)
-        pt.setCell(1, sn[2], CellStates.OUT_OF_DATE)
-        pt.setCell(2, sn[0], CellStates.OUT_OF_DATE)
-        pt.setCell(2, sn[1], CellStates.FEEDING)
-        pt.setCell(2, sn[2], CellStates.UP_TO_DATE)
+        pt._setCell(0, sn[0], CellStates.OUT_OF_DATE)
+        pt._setCell(1, sn[1], CellStates.FEEDING)
+        pt._setCell(1, sn[2], CellStates.OUT_OF_DATE)
+        pt._setCell(2, sn[0], CellStates.OUT_OF_DATE)
+        pt._setCell(2, sn[1], CellStates.FEEDING)
+        pt._setCell(2, sn[2], CellStates.UP_TO_DATE)
 
         self.assertEqual(sorted(pt.dropNodeList(sn[:1], True)), [
             (0, 1, CellStates.DISCARDED),
@@ -137,7 +137,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
             (2, 3, CellStates.DISCARDED)])
 
         self.assertRaises(PartitionTableException, pt.dropNodeList, sn[1:2])
-        pt.setCell(1, sn[2], CellStates.UP_TO_DATE)
+        pt._setCell(1, sn[2], CellStates.UP_TO_DATE)
         self.assertEqual(sorted(pt.dropNodeList(sn[1:2])), [
             (1, 2, CellStates.DISCARDED),
             (2, 2, CellStates.DISCARDED)])
@@ -233,24 +233,24 @@ class MasterPartitionTableTests(NeoUnitTestBase):
               for i in xrange(5)]
         pt = PartitionTable(5, 2)
         # part 0
-        pt.setCell(0, sn[0], CellStates.DISCARDED)
-        pt.setCell(0, sn[1], CellStates.UP_TO_DATE)
+        pt._setCell(0, sn[0], CellStates.DISCARDED)
+        pt._setCell(0, sn[1], CellStates.UP_TO_DATE)
         # part 1
-        pt.setCell(1, sn[0], CellStates.FEEDING)
-        pt.setCell(1, sn[1], CellStates.FEEDING)
-        pt.setCell(1, sn[2], CellStates.OUT_OF_DATE)
+        pt._setCell(1, sn[0], CellStates.FEEDING)
+        pt._setCell(1, sn[1], CellStates.FEEDING)
+        pt._setCell(1, sn[2], CellStates.OUT_OF_DATE)
         # part 2
-        pt.setCell(2, sn[0], CellStates.FEEDING)
-        pt.setCell(2, sn[1], CellStates.UP_TO_DATE)
-        pt.setCell(2, sn[2], CellStates.UP_TO_DATE)
+        pt._setCell(2, sn[0], CellStates.FEEDING)
+        pt._setCell(2, sn[1], CellStates.UP_TO_DATE)
+        pt._setCell(2, sn[2], CellStates.UP_TO_DATE)
         # part 3
-        pt.setCell(3, sn[0], CellStates.UP_TO_DATE)
-        pt.setCell(3, sn[1], CellStates.UP_TO_DATE)
-        pt.setCell(3, sn[2], CellStates.UP_TO_DATE)
-        pt.setCell(3, sn[3], CellStates.UP_TO_DATE)
+        pt._setCell(3, sn[0], CellStates.UP_TO_DATE)
+        pt._setCell(3, sn[1], CellStates.UP_TO_DATE)
+        pt._setCell(3, sn[2], CellStates.UP_TO_DATE)
+        pt._setCell(3, sn[3], CellStates.UP_TO_DATE)
         # part 4
-        pt.setCell(4, sn[0], CellStates.UP_TO_DATE)
-        pt.setCell(4, sn[4], CellStates.UP_TO_DATE)
+        pt._setCell(4, sn[0], CellStates.UP_TO_DATE)
+        pt._setCell(4, sn[4], CellStates.UP_TO_DATE)
 
         count_dict = defaultdict(int)
         change_list = self.tweak(pt)

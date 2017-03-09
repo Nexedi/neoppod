@@ -133,19 +133,17 @@ class Application(BaseApplication):
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
+        self.pt.clear()
         ptid = self.dm.getPTID()
-        cell_list = self.dm.getPartitionTable()
-        new_cell_list = []
-        for offset, uuid, state in cell_list:
-            # convert from int to Enum
-            state = CellStates[state]
+        if ptid is None:
+            return
+        cell_list = []
+        for offset, uuid, state in self.dm.getPartitionTable():
             # register unknown nodes
             if self.nm.getByUUID(uuid) is None:
                 self.nm.createStorage(uuid=uuid)
-            new_cell_list.append((offset, uuid, state))
-        # load the partition table in manager
-        self.pt.clear()
-        self.pt.update(ptid, new_cell_list, self.nm)
+            cell_list.append((offset, uuid, CellStates[state]))
+        self.pt.update(ptid, cell_list, self.nm)
 
     def run(self):
         try:
