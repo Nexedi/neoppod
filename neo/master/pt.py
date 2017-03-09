@@ -16,6 +16,7 @@
 
 from collections import defaultdict
 import neo.lib.pt
+from neo.lib import logging
 from neo.lib.protocol import CellStates, ZERO_TID
 
 
@@ -278,6 +279,9 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         to serve. This allows a cluster restart.
         """
         change_list = []
+        fully_readable = all(cell.isReadable()
+                             for row in self.partition_list
+                             for cell in row)
         for offset, row in enumerate(self.partition_list):
             lost = lost_node
             cell_list = []
@@ -292,6 +296,8 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     cell.setState(CellStates.OUT_OF_DATE)
                     change_list.append((offset, cell.getUUID(),
                         CellStates.OUT_OF_DATE))
+        if fully_readable and change_list:
+            logging.warning(self._first_outdated_message)
         return change_list
 
     def iterNodeCell(self, node):

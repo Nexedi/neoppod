@@ -260,10 +260,9 @@ class Application(BaseApplication):
 
     def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
-        logging.debug('broadcastPartitionChanges')
         if cell_list:
-            self.pt.log()
             ptid = self.pt.setNextID()
+            self.pt.logUpdated()
             packet = Packets.NotifyPartitionChanges(ptid, cell_list)
             for node in self.nm.getIdentifiedList():
                 if node.isRunning() and not node.isMaster():

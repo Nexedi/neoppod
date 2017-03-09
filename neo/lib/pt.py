@@ -79,6 +79,10 @@ class Cell(object):
 class PartitionTable(object):
     """This class manages a partition table."""
 
+    # Flushing logs whenever a cell becomes out-of-date would flood them.
+    _first_outdated_message = \
+        'a cell became non-readable whereas all cells were readable'
+
     def __init__(self, num_partitions, num_replicas):
         self._id = None
         self.np = num_partitions
@@ -216,15 +220,26 @@ class PartitionTable(object):
         """
         assert self._id < ptid, (self._id, ptid)
         self._id = ptid
+        readable_list = []
+        for row in self.partition_list:
+            if not all(cell.isReadable() for cell in row):
+                del readable_list[:]
+                break
+            readable_list += row
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid ' + uuid_str(uuid)
             self._setCell(offset, node, state)
-        logging.debug('partition table updated (ptid=%s)', ptid)
-        self.log()
+        self.logUpdated()
+        if not all(cell.isReadable() for cell in readable_list):
+            logging.warning(self._first_outdated_message)
 
     def filled(self):
         return self.num_filled_rows == self.np
+
+    def logUpdated(self):
+        logging.debug('partition table updated (ptid=%s)', self._id)
+        self.log()
 
     def log(self):
         logging.debug(self.format())
