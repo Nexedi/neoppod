@@ -47,16 +47,24 @@ import (
 )
 
 // dumpb pickles an object to []byte
+// object must be picklable (i.e. no func, chan, unsafe.Pointer, ... inside)
+// objects created by pickle.Decoder are always picklable
 func dumpb(obj interface{}) []byte {
 	buf := bytes.Buffer{}
 	p := pickle.NewEncoder(&buf)
 	err := p.Encode(obj)
+	// as bytes.Buffer.Write will never return an error (it panics on oom)
+	// the only case when we can get error here is due to non-picklable object
+	if err != nil {
+		panic(fmt.Errorf("dumpb: Non-picklable object %#v: %v", obj, err)
+	}
+	return buf.Bytes()
 }
 
-// normalizeExtPy normalizes extension to the form zodbdump/py would print it.
+// normalizeExtPy normalizes ZODB extension to the form zodbdump/py would print it.
 // specifically the dictionary pickle inside is analyzed and then ... XXX
 func normalizeExtPy(ext []byte) []byte {
-	// depickle ext
+	// unpickle ext
 	r := bufio.NewBuffer(ext)
 	p := pickle.NewDecoder(r)
 	xv, _ := p.Decode()
@@ -70,6 +78,7 @@ func normalizeExtPy(ext []byte) []byte {
 	keyv := make([]*struct{key interface{}, kpickle []byte}, len(v))
 	for i, key := range v {
 		keyv[i].key = key
+		// NOTE key was created by pickle.Decoder - it must be picklable
 		keyv[i].kpickle = dumpb(key)
 	}
 
