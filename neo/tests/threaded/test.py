@@ -41,7 +41,6 @@ from . import ClientApplication, ConnectionFilter, LockLock, NEOThreadedTest, \
     RandomConflictDict, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
-from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
 from neo.storage.handlers.client import ClientOperationHandler
@@ -467,11 +466,11 @@ class Test(NEOThreadedTest):
             conn = s0.getConnection()
             self.assertFalse(conn.isClosed())
             getCellSortKey = cluster.client.cp.getCellSortKey
-            self.assertEqual(getCellSortKey(s0), CELL_CONNECTED)
+            self.assertEqual(getCellSortKey(s0, int), 0)
             cluster.neoctl.dropNode(s0.getUUID())
             self.assertEqual([s1], cluster.client.nm.getStorageList())
             self.assertTrue(conn.isClosed())
-            self.assertEqual(getCellSortKey(s0), CELL_GOOD)
+            self.assertEqual(getCellSortKey(s0, int), 1)
             # XXX: the test originally checked that 'unregister' method
             #      was called (even if it's useless in this case),
             #      but we would need an API to do that easily.

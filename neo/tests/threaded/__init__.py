@@ -446,7 +446,7 @@ class ClientApplication(Node, neo.client.app.Application):
 
     def extraCellSortKey(self, key):
         return Patch(self.cp, getCellSortKey=lambda orig, cell:
-            (orig(cell), key(cell)))
+            (orig(cell, lambda: key(cell)), random.random()))
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 

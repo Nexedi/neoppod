@@ -16,7 +16,6 @@
 
 from cPickle import dumps, loads
 from zlib import compress, decompress
-from random import shuffle
 import heapq
 import time
 
@@ -278,10 +277,6 @@ class Application(ThreadedApplication):
         failed = 0
         while 1:
             cell_list = pt.getCellList(object_id, True)
-            # Shuffle to randomise node to access...
-            shuffle(cell_list)
-            # ...and sort with non-unique keys, to prioritise ranges of
-            # randomised entries.
             cell_list.sort(key=cp.getCellSortKey)
             for cell in cell_list:
                 node = cell.getNode()
@@ -731,10 +726,6 @@ class Application(ThreadedApplication):
                     # only between the client and the storage, the latter would
                     # still be readable until we commit.
                     if txn_context.involved_nodes.get(cell.getUUID(), 0) < 2]
-                # We do want to shuffle before getting one with the smallest
-                # key, so that all cells with the same (smallest) key has
-                # identical chance to be chosen.
-                shuffle(cell_list)
                 storage_conn = getConnForNode(
                     min(cell_list, key=getCellSortKey).getNode())
                 storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
