@@ -40,6 +40,7 @@ class Transaction(object):
     """
         Container for a pending transaction
     """
+    _delayed = {}
     tid = None
     voted = 0
 
@@ -63,6 +64,15 @@ class Transaction(object):
 
     def __lt__(self, other):
         return self.locking_tid < other.locking_tid
+
+    def logDelay(self, ttid, locked, oid_serial):
+        if self._delayed.get(oid_serial) != locked:
+            if self._delayed:
+                self._delayed[oid_serial] = locked
+            else:
+                self._delayed = {oid_serial: locked}
+            logging.info('Lock delayed for %s:%s by %s',
+                         dump(oid_serial[0]), dump(ttid), dump(locked))
 
     def store(self, oid, data_id, value_serial):
         """
@@ -322,8 +332,7 @@ class TransactionManager(EventQueue):
                 # before we processed UnlockInformation from the master.
                 # Or the locking transaction has already voted and there's no
                 # risk of deadlock if we delay.
-                logging.info('Lock delayed for %s:%s by %s',
-                             dump(oid), dump(ttid), dump(locked))
+                transaction.logDelay(ttid, locked, (oid, serial))
                 # A client may have several stores delayed for the same oid
                 # but this is not a problem. EventQueue processes them in order
                 # and only the last one will not result in conflicts (that are
