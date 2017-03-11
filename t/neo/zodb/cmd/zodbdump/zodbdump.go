@@ -30,6 +30,7 @@ txn ...
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"flag"
 	"fmt"
@@ -43,7 +44,7 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 	//"lab.nexedi.com/kirr/go123/xio"
 
-	pickle "githib.com/kisielk/og-rek"
+	pickle "github.com/kisielk/og-rek"
 )
 
 // dumpb pickles an object to []byte
@@ -56,16 +57,17 @@ func dumpb(obj interface{}) []byte {
 	// as bytes.Buffer.Write will never return an error (it panics on oom)
 	// the only case when we can get error here is due to non-picklable object
 	if err != nil {
-		panic(fmt.Errorf("dumpb: Non-picklable object %#v: %v", obj, err)
+		panic(fmt.Errorf("dumpb: Non-picklable object %#v: %v", obj, err))
 	}
 	return buf.Bytes()
 }
 
+/*
 // normalizeExtPy normalizes ZODB extension to the form zodbdump/py would print it.
 // specifically the dictionary pickle inside is analyzed and then ... XXX
 func normalizeExtPy(ext []byte) []byte {
 	// unpickle ext
-	r := bufio.NewBuffer(ext)
+	r := bytes.NewBuffer(ext)
 	p := pickle.NewDecoder(r)
 	xv, _ := p.Decode()
 	v, ok := xv.(map[interface{}]interface{})
@@ -75,7 +77,7 @@ func normalizeExtPy(ext []byte) []byte {
 		return ext
 	}
 
-	keyv := make([]*struct{key interface{}, kpickle []byte}, len(v))
+	keyv := make([]*struct{key interface{}; kpickle []byte}, len(v))
 	for i, key := range v {
 		keyv[i].key = key
 		// NOTE key was created by pickle.Decoder - it must be picklable
@@ -84,6 +86,7 @@ func normalizeExtPy(ext []byte) []byte {
 
 
 }
+*/
 
 // zodbDump dumps contents of a storage in between tidMin..tidMax range to a writer.
 // see top-level documentation for the dump format.
