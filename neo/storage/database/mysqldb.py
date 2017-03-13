@@ -80,14 +80,21 @@ class MySQLDatabaseManager(DatabaseManager):
             timeout_at = None
         else:
             timeout_at = time.time() + self._wait
+        last = None
         while True:
             try:
                 self.conn = MySQLdb.connect(**kwd)
                 break
-            except Exception:
-                if timeout_at is not None and time.time() >= timeout_at:
+            except Exception as e:
+                if None is not timeout_at <= time.time():
                     raise
-                logging.exception('Connection to MySQL failed, retrying.')
+                e = str(e)
+                if last == e:
+                    log = logging.debug
+                else:
+                    last = e
+                    log = logging.exception
+                log('Connection to MySQL failed, retrying.')
                 time.sleep(1)
         self._active = 0
         self._config = {}
