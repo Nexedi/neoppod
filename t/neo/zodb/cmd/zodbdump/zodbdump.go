@@ -16,7 +16,7 @@ Zodbdump - Tool to dump content of a ZODB database
 Format
 ------
 
-txn <tid> (<status>)
+txn <tid> (<status>)	XXX escape status ?
 user <user|quote>
 description <description|quote>
 extension <extension|quote>
