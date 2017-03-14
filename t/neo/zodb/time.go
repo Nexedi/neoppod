@@ -33,7 +33,7 @@ func (tid Tid) Time() TimeStamp {
 	month := a / (60 * 24 * 31) % 12 + 1
 	year  := a / (60 * 24 * 31 * 12) + 1900
 	sec   := b * 60 / (1 << 32)
-	nsec  := (b - (sec << 32) / 60) * 60 * 1E9 / (1 << 32)
+	nsec  := (b * 60 - (sec << 32)) * 1E9 / (1 << 32)
 
 	t := time.Date(
 		int(year),
