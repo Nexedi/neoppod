@@ -146,7 +146,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 				entry += "from " + datai.DataTid.String()
 
 			default:
-				entry += fmt.Sprintf("sha1:%x %d", sha1.Sum(datai.Data), len(datai.Data))
+				entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
 				writeData = true
 			}
 
