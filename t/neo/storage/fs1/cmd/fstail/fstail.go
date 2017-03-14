@@ -28,9 +28,42 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
+	"unicode/utf8"
 
 	"../../../../storage/fs1"
+
+	"lab.nexedi.com/kirr/go123/mem"
 )
+
+// pyQuote quotes string the way python would do it
+// specifically quote char is ' (not " as in go)
+// XXX s = 'a\'bc'; print repr(s) -> "a'bc" (not 'a\'bc'
+func pyQuote(s string) string {
+	out := pyQuoteBytes(mem.Bytes(s))
+	return mem.String(out)
+}
+
+func pyQuoteBytes(b []byte) []byte {
+	s := mem.String(b)
+	buf := make([]byte, 0, len(s))
+	buf = append(buf, '\'')
+
+	fmt.Printf("QUOTE %q\n", s)
+	for i, r := range s {
+		if r == utf8.RuneError {
+			buf = append(buf, []byte(fmt.Sprintf("\\x%0x", s[i]))...)
+		} else {
+			rq := strconv.QuoteRune(r)	// "'\x01'"
+			rq = rq[1:len(rq)-1]		//  "\x01"
+			buf = append(buf, rq...)
+		}
+		fmt.Printf("%d %q\t%q\n", i, r, buf)
+	}
+
+	buf = append(buf, '\'')
+	return buf
+}
 
 func fsDump(w io.Writer, path string, ntxn int) (err error) {
 	// path & fsdump on error context
@@ -108,9 +141,9 @@ func fsDump(w io.Writer, path string, ntxn int) (err error) {
 		}
 
 		// print information about read txn record
-		_, err = fmt.Fprintf(w, "%s: hash=%x\nuser=%q description=%q length=%d offset=%d (+%d)\n\n",
+		_, err = fmt.Fprintf(w, "%s: hash=%x\nuser=%s description=%s length=%d offset=%d (+%d)\n\n",
 				txnh.Tid.Time(), sha1.Sum(data),
-				txnh.User, txnh.Description,
+				pyQuoteBytes(txnh.User), pyQuoteBytes(txnh.Description),
 				// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
 				txnh.Len - 8,
 				txnh.Pos, txnh.HeaderLen())
