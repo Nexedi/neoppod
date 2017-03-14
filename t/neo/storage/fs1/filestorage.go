@@ -174,6 +174,16 @@ func (txnh *TxnHeader) HeaderLen() int64 {
 	return TxnHeaderFixSize + int64(len(txnh.workMem))
 }
 
+// DataPos returns start position of data inside transaction record
+func (txnh *TxnHeader) DataPos() int64 {
+	return txnh.Pos + txnh.HeaderLen()
+}
+
+// DataLen returns length of all data inside transaction record container
+func (txnh *TxnHeader) DataLen() int64 {
+	return txnh.Len - txnh.HeaderLen() - 8 /* trailer redundant length */
+}
+
 // CloneFrom copies txnh2 to txnh making sure underlying slices (.workMem .User
 // .Desc ...) are not shared.
 func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
@@ -899,7 +909,7 @@ func (fsi *iterator) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, erro
 	}
 
 	// set .dataIter to iterate over .txnIter.Txnh
-	fsi.dataIter.Datah.Pos = fsi.txnIter.Txnh.Pos + fsi.txnIter.Txnh.HeaderLen()
+	fsi.dataIter.Datah.Pos = fsi.txnIter.Txnh.DataPos()
 	fsi.dataIter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 
 	return &fsi.txnIter.Txnh.TxnInfo, &fsi.dataIter, nil
