@@ -29,10 +29,14 @@ def hex64(packed):
 
 # escape string into valid "..." string
 def escapeqq(s):
-    # this escape almost everything except " character
-    q = s.encode("string_escape")
-    q = q.replace('"', r'\"')
-    return '"' + q + '"'
+    outv = []
+    # we don't want ' to be escaped
+    for _ in s.split("'"):
+        # this escape almost everything except " character
+        q = _.encode("string_escape")
+        q = q.replace('"', r'\"')
+        outv.append(q)
+    return '"' + "'".join(outv) + '"'
 
 # make time.time() predictable
 _xtime = time.mktime(time.strptime("04 Jan 1979", "%d %b %Y"))
@@ -150,8 +154,8 @@ def main():
         # Get serial via history.
         obj_tid_lastchange = db.history(obj._p_oid)[0]['tid']
 
-        txn = precommit(u"root%i\nYour\nRoyal\nMagesty " % i,
-                        u"delete %i\nalpha beta gamma\n\nqqq ..." % i,
+        txn = precommit(u"root%i\nYour\nRoyal\nMagesty' " % i,
+                        u"delete %i\nalpha beta gamma'delta\"lambda\n\nqqq ..." % i,
                         ext("delete %s" % unpack64(obj._p_oid)))
         stor.tpc_begin(txn)
         stor.deleteObject(obj._p_oid, obj_tid_lastchange, txn)

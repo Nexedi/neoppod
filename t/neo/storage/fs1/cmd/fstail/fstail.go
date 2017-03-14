@@ -38,7 +38,7 @@ import (
 
 // pyQuote quotes string the way python would do it
 // specifically quote char is ' (not " as in go)
-// XXX s = 'a\'bc'; print repr(s) -> "a'bc" (not 'a\'bc'
+// XXX s = 'a\'bc'; print repr(s) -> "a'bc" (not 'a\'bc'	<- XXX fix this
 func pyQuote(s string) string {
 	out := pyQuoteBytes(mem.Bytes(s))
 	return mem.String(out)

@@ -1,92 +1,92 @@
-1979-01-03 21:01:31.300002: hash=ae95b81aacea7df69641c468891dd2321736a1e5
-user='root1\nYour\nRoyal\nMagesty ' description='delete 1\nalpha beta gamma\n\nqqq ...' length=192 offset=11934 (+142)
+1979-01-03 21:01:31.300002: hash=9176cad01fe2751a2317912476da043f2cd27085
+user="root1\nYour\nRoyal\nMagesty' " description='delete 1\nalpha beta gamma\'delta"lambda\n\nqqq ...' length=206 offset=11948 (+156)
 
-1979-01-03 21:01:30.200002: hash=5febc59008859e0bab6bdeb9fd876d002af0c922
-user='' description='predelete 6' length=362 offset=11564 (+34)
+1979-01-03 21:01:30.200002: hash=4c2bcec885530156e134f089e7255a0ad1f2eab0
+user='' description='predelete 6' length=362 offset=11578 (+34)
 
-1979-01-03 21:01:29.100002: hash=0360220321f1f6ee085b9b6f44512c7c0b1e1094
-user='root1.1\nYour\nMagesty ' description='undo 1.1\nmore detailed description\n\nzzz ...\t\t' length=208 offset=11348 (+158)
+1979-01-03 21:01:29.100002: hash=fd3148ac612b6ec793747165c73ce236a3b61702
+user='root1.1\nYour\nMagesty ' description='undo 1.1\nmore detailed description\n\nzzz ...\t\t' length=208 offset=11362 (+158)
 
-1979-01-03 21:01:28.000002: hash=d477644de8e45016e039bf4510a8e822460f5654
-user='root1.0\nYour\nMagesty ' description='undo 1.0\nmore detailed description\n\nzzz ...\t' length=207 offset=11133 (+157)
+1979-01-03 21:01:28.000002: hash=ef9928d3049ad902a5d98293d46358cea8f44319
+user='root1.0\nYour\nMagesty ' description='undo 1.0\nmore detailed description\n\nzzz ...\t' length=207 offset=11147 (+157)
 
-1979-01-03 21:01:25.800002: hash=8735a7c5ecf4568bb4ecdd1bdbf4144dad9d9a1b
-user='user1.24' description='step 1.24' length=165 offset=10960 (+93)
+1979-01-03 21:01:25.800002: hash=bc4c742d2821d463ffad5348f6c86d4ed44996cf
+user='user1.24' description='step 1.24' length=165 offset=10974 (+93)
 
-1979-01-03 21:01:24.700002: hash=fffc4d3ed8ebf888ed6b87ea149b12fde7072257
-user='user1.23' description='step 1.23' length=165 offset=10787 (+93)
+1979-01-03 21:01:24.700002: hash=ad2bfa76c1c7288f99831397715d120a84ac3e63
+user='user1.23' description='step 1.23' length=165 offset=10801 (+93)
 
-1979-01-03 21:01:23.600002: hash=283d46a7291eee3574a1fa43e09503ff2f98c014
-user='user1.22' description='step 1.22' length=165 offset=10614 (+93)
+1979-01-03 21:01:23.600002: hash=722921c9dd036f270f505d4e1645a63b62f6bac1
+user='user1.22' description='step 1.22' length=165 offset=10628 (+93)
 
-1979-01-03 21:01:22.500002: hash=b90bf29bf3376cfdd96a70c8c3447ad9cd7915fe
-user='user1.21' description='step 1.21' length=165 offset=10441 (+93)
+1979-01-03 21:01:22.500002: hash=f22d4cdd01d17a66d53e8727b1305c227983b194
+user='user1.21' description='step 1.21' length=165 offset=10455 (+93)
 
-1979-01-03 21:01:21.400002: hash=28677e54cd94cd2a34ae58b97dcbf9ba1c96e949
-user='user1.20' description='step 1.20' length=165 offset=10268 (+93)
+1979-01-03 21:01:21.400002: hash=e3c412c26b6522c046bdfe630eef32451b50ba69
+user='user1.20' description='step 1.20' length=165 offset=10282 (+93)
 
-1979-01-03 21:01:20.300002: hash=6a302f6e27f48d28b515cb4ebf164d58bf9f1cd6
-user='user1.19' description='step 1.19' length=165 offset=10095 (+93)
+1979-01-03 21:01:20.300002: hash=54cdd59a7131c0784bb3236471d857ed6f33f9b9
+user='user1.19' description='step 1.19' length=165 offset=10109 (+93)
 
-1979-01-03 21:01:19.200002: hash=18145b4716acc1a33c13c164595d381bc7b474ee
-user='user1.18' description='step 1.18' length=165 offset=9922 (+93)
+1979-01-03 21:01:19.200002: hash=20a4abf3c8a0984798374af5ed890e2910f46265
+user='user1.18' description='step 1.18' length=165 offset=9936 (+93)
 
-1979-01-03 21:01:18.100002: hash=1cfe8e357e75e15037154891ec847b5a0dddeabd
-user='user1.17' description='step 1.17' length=165 offset=9749 (+93)
+1979-01-03 21:01:18.100002: hash=a7c66e66a6e25cafe9b046b5a41993287ba3e296
+user='user1.17' description='step 1.17' length=165 offset=9763 (+93)
 
-1979-01-03 21:01:17.000002: hash=6d3b0999cb9f6c4a8367e5f492ca22445d8946f0
-user='user1.16' description='step 1.16' length=165 offset=9576 (+93)
+1979-01-03 21:01:17.000002: hash=a69f094230ca875a963524c93a35d23f0687308d
+user='user1.16' description='step 1.16' length=165 offset=9590 (+93)
 
-1979-01-03 21:01:15.900002: hash=30b720f0ab11edd5a74e55b4314ccc5782f04b79
-user='user1.15' description='step 1.15' length=165 offset=9403 (+93)
+1979-01-03 21:01:15.900002: hash=96316e0682da99e24c5d587b4bd4d2f3150eea8b
+user='user1.15' description='step 1.15' length=165 offset=9417 (+93)
 
-1979-01-03 21:01:14.800002: hash=5c4ccfee8f185b55d406d73a4d7661736bf2ed51
-user='user1.14' description='step 1.14' length=165 offset=9230 (+93)
+1979-01-03 21:01:14.800002: hash=da20e7ad9c0f55e7576dba5ffd9912c37d059232
+user='user1.14' description='step 1.14' length=165 offset=9244 (+93)
 
-1979-01-03 21:01:13.700002: hash=7f174a1329e8bd2e844e938d0f488c17dac6c181
-user='user1.13' description='step 1.13' length=165 offset=9057 (+93)
+1979-01-03 21:01:13.700002: hash=877241dc4a5f14d24a7779917310332f6c2e414e
+user='user1.13' description='step 1.13' length=165 offset=9071 (+93)
 
-1979-01-03 21:01:12.600002: hash=94f8601abc1b14aa1bc046278a64e1fa030173ba
-user='user1.12' description='step 1.12' length=165 offset=8884 (+93)
+1979-01-03 21:01:12.600002: hash=321ea792b7e67ac9339de238e817ca639d7f42ec
+user='user1.12' description='step 1.12' length=165 offset=8898 (+93)
 
-1979-01-03 21:01:11.500002: hash=ba816c6a0df59b7de877267e2bcb9358c7965e2d
-user='user1.11' description='step 1.11' length=165 offset=8711 (+93)
+1979-01-03 21:01:11.500002: hash=6b64527e3ba109266a8d68321147d54af8d6edc7
+user='user1.11' description='step 1.11' length=165 offset=8725 (+93)
 
-1979-01-03 21:01:10.400002: hash=07d37a188dc78f4a9ae6959fa15d0118a83ed307
-user='user1.10' description='step 1.10' length=165 offset=8538 (+93)
+1979-01-03 21:01:10.400002: hash=a5db043429fc63d48df1922ab60f3e6990d3561c
+user='user1.10' description='step 1.10' length=165 offset=8552 (+93)
 
-1979-01-03 21:01:09.300001: hash=f635079876c434af769286ff66e88770a26e85a9
-user='user1.9' description='step 1.9' length=162 offset=8368 (+91)
+1979-01-03 21:01:09.300001: hash=200139e7913a7ff53a34c6f5484b92128b246cde
+user='user1.9' description='step 1.9' length=162 offset=8382 (+91)
 
-1979-01-03 21:01:08.200001: hash=aa51431bcc1edecf5edde4d313935b9b7a4990f1
-user='user1.8' description='step 1.8' length=162 offset=8198 (+91)
+1979-01-03 21:01:08.200001: hash=39dfd11d1f24fb97387aeabf2a013f6ede6385dd
+user='user1.8' description='step 1.8' length=162 offset=8212 (+91)
 
-1979-01-03 21:01:07.100001: hash=8645d91242e4cf08ebf7872a57b7f7bcc8fdbc96
-user='user1.7' description='step 1.7' length=162 offset=8028 (+91)
+1979-01-03 21:01:07.100001: hash=9f7327cd475602bca99bf085aabf6051f2573313
+user='user1.7' description='step 1.7' length=162 offset=8042 (+91)
 
-1979-01-03 21:01:06.000001: hash=cdb959db250d5c2e85ea140783e9334eb01cfbba
-user='user1.6' description='step 1.6' length=162 offset=7858 (+91)
+1979-01-03 21:01:06.000001: hash=735edd1e61556098b0268dee9df1cae6a66aa938
+user='user1.6' description='step 1.6' length=162 offset=7872 (+91)
 
-1979-01-03 21:01:04.900001: hash=83cb769eba36d0a5dc5447e4b46ddd138fe6fdd8
-user='user1.5' description='step 1.5' length=162 offset=7688 (+91)
+1979-01-03 21:01:04.900001: hash=43863e7c4b4fb3f1bd400248d71fabbdac9456b6
+user='user1.5' description='step 1.5' length=162 offset=7702 (+91)
 
-1979-01-03 21:01:03.800001: hash=cf85f6460da24c29e48981c5f22672b362135b4e
-user='user1.4' description='step 1.4' length=162 offset=7518 (+91)
+1979-01-03 21:01:03.800001: hash=22ee061f2372fd74d03cf5dd54197bc3aa12a816
+user='user1.4' description='step 1.4' length=162 offset=7532 (+91)
 
-1979-01-03 21:01:02.700001: hash=f228f0b0142dc39ccfe7326422d625d68763e6ee
-user='user1.3' description='step 1.3' length=162 offset=7348 (+91)
+1979-01-03 21:01:02.700001: hash=be00cfff67f8f186cce0efb4be7af5525a8fdda7
+user='user1.3' description='step 1.3' length=162 offset=7362 (+91)
 
-1979-01-03 21:01:01.600001: hash=df413d5a85f1170bea04abe17bb02077c1b9ea7c
-user='user1.2' description='step 1.2' length=162 offset=7178 (+91)
+1979-01-03 21:01:01.600001: hash=152e5811cc260c0e9c28cf6bc0c5fb5c147b4daa
+user='user1.2' description='step 1.2' length=162 offset=7192 (+91)
 
-1979-01-03 21:01:00.500001: hash=a2f2f9980060b3f9d668ab68d33c6c27e202b019
-user='user1.1' description='step 1.1' length=162 offset=7008 (+91)
+1979-01-03 21:01:00.500001: hash=16e51f130683d896e8d182ebdd3bb80ae35d6050
+user='user1.1' description='step 1.1' length=162 offset=7022 (+91)
 
-1979-01-03 21:00:59.400001: hash=8618d58f2201169d9e0ea7e4627a6ba4dd4bd142
-user='user1.0' description='step 1.0' length=162 offset=6838 (+91)
+1979-01-03 21:00:59.400001: hash=17453ac2d8f8044d959f763516b56eda268e96ad
+user='user1.0' description='step 1.0' length=162 offset=6852 (+91)
 
 1979-01-03 21:00:45.100001: hash=51db603ba9898da20dbe162dd20e4a76aeacbfeb
-user='root0\nYour\nRoyal\nMagesty ' description='delete 0\nalpha beta gamma\n\nqqq ...' length=192 offset=6638 (+142)
+user="root0\nYour\nRoyal\nMagesty' " description='delete 0\nalpha beta gamma\'delta"lambda\n\nqqq ...' length=206 offset=6638 (+156)
 
 1979-01-03 21:00:44.000001: hash=469f380f59f9a72dae5ee6351fa2e38efb170d86
 user='' description='predelete 7' length=362 offset=6268 (+34)
