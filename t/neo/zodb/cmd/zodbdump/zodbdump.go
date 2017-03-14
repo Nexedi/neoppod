@@ -68,28 +68,35 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 
 	default:
 		entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
-		writeData = true	// XXX write data here
+		writeData = true
 	}
 
 	entry += "\n"
 	_, err := d.W.Write(mem.Bytes(entry))
 	if err != nil {
-		return err
+		goto out
 	}
 
 	if writeData && !d.HashOnly {
 		_, err = d.W.Write(datai.Data)
 		if err != nil {
-			return err
+			goto out
 		}
 
+		// TODO use writev(data, "\n") when it is available
 		_, err = d.W.Write([]byte("\n"))
 		if err != nil {
-			return err
+			goto out
 		}
 	}
 
-	// XXX ^^^ add oid: %v as prefix for err
+out:
+	// XXX do we need this context ?
+	// see for rationale in similar place in DumpTxn
+	if err != nil {
+		return fmt.Errorf("%v: %v", datai.Oid, err)
+	}
+
 	return nil
 }
 
@@ -105,7 +112,7 @@ func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IStorageRecordIterato
 	_, err := fmt.Fprintf(d.W, "%stxn %s (%c)\nuser %q\ndescription %q\nextension %q\n",
 			vskip, txni.Tid, txni.Status, txni.User, txni.Description, txni.Extension)
 	if err != nil {
-		return err
+		goto out
 	}
 
 	// data records
@@ -125,6 +132,10 @@ func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IStorageRecordIterato
 		}
 	}
 
+out:
+	// XXX do we need this context ?
+	// rationale: dataIter.NextData() if error in db - will include db context
+	// if error is in writer - it will include its own context
 	if err != nil {
 		return fmt.Errorf("%v: %v", txni.Tid, err)
 	}
