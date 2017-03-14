@@ -49,7 +49,6 @@ func pyQuoteBytes(b []byte) []byte {
 	buf := make([]byte, 0, len(s))
 	buf = append(buf, '\'')
 
-	fmt.Printf("QUOTE %q\n", s)
 	for i, r := range s {
 		if r == utf8.RuneError {
 			buf = append(buf, []byte(fmt.Sprintf("\\x%0x", s[i]))...)
@@ -58,7 +57,6 @@ func pyQuoteBytes(b []byte) []byte {
 			rq = rq[1:len(rq)-1]		//  "\x01"
 			buf = append(buf, rq...)
 		}
-		fmt.Printf("%d %q\t%q\n", i, r, buf)
 	}
 
 	buf = append(buf, '\'')
