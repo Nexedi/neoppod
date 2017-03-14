@@ -18,6 +18,8 @@ import (
 )
 
 // diff computes difference for two strings a and b
+// XXX -> xtesting ?
+// XXX dup in fstail_test.go
 func diff(a, b string) string {
 	dmp := diffmatchpatch.New()
 	diffv := dmp.DiffMain(a, b, /*checklines=*/false)
@@ -42,6 +44,7 @@ func loadZdumpPy(t *testing.T, path string) string {
 	r0c := regexp.MustCompile(`\\x0c`)
 	dump = r0b.ReplaceAllLiteral(dump, []byte(`\v`))
 	dump = r0c.ReplaceAllLiteral(dump, []byte(`\f`))
+
 	return string(dump)
 }
 

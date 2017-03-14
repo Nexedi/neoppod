@@ -46,6 +46,12 @@ func fsDump(w io.Writer, path string, ntxn int) (err error) {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err2 := f.Close()
+		if err == nil {
+			err = err2
+		}
+	}()
 
 	// get file size as topPos
 	fi, err := f.Stat()
