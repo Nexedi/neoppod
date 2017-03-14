@@ -363,7 +363,8 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	// here we know: Load already checked txnh.Pos - lenPrev to be valid position
 	err := txnh.Load(r, txnh.Pos - lenPrev, flags)
 	if err != nil {
-		return err
+		// EOF forward is unexpected here
+		return noEOF(err)
 	}
 
 	if txnh.Len != lenPrev {

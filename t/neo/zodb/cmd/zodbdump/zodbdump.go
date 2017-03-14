@@ -307,8 +307,6 @@ func main() {
 	storUrl := argv[0]
 
 
-	var err error
-
 	if len(argv) > 1 {
 		tidRange = argv[1]
 	}
