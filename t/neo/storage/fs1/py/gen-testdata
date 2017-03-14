@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 # TODO author/copyright
 # TODO move gen .fs & .index part to zodbtools and use it there for tests
+# NOTE as of 14 Mar 2017 FileStorage cannot commit transactions with non-ASCII
+#      metadata - so it is not tested
 """generate reference database and index for tests"""
 
 from ZODB.FileStorage import FileStorage
