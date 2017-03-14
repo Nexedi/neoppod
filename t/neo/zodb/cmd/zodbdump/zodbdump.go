@@ -13,6 +13,8 @@
 /*
 Zodbdump - Tool to dump content of a ZODB database
 
+TODO sync text with zodbdump/py
+
 Format
 ------
 
@@ -30,7 +32,6 @@ txn ...
 package main
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"flag"
 	"fmt"
@@ -42,54 +43,136 @@ import (
 	"../../../storage/fs1"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	//"lab.nexedi.com/kirr/go123/xio"
-
-	pickle "github.com/kisielk/og-rek"
 )
 
-// dumpb pickles an object to []byte
-// object must be picklable (i.e. no func, chan, unsafe.Pointer, ... inside)
-// objects created by pickle.Decoder are always picklable
-func dumpb(obj interface{}) []byte {
-	buf := bytes.Buffer{}
-	p := pickle.NewEncoder(&buf)
-	err := p.Encode(obj)
-	// as bytes.Buffer.Write will never return an error (it panics on oom)
-	// the only case when we can get error here is due to non-picklable object
+
+// dumper dumps zodb record to a writer
+type dumper struct {
+	W          io.Writer
+	HashOnly   bool		// whether to dump only hashes of data without content
+
+	afterFirst bool // true after first transaction has been dumped
+}
+
+// DumpData dumps one data record
+func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
+	entry := "obj " + datai.Oid.String() + " "
+	writeData := false
+
+	switch {
+	case datai.Data == nil:
+		entry += "delete"
+
+	case datai.Tid != datai.DataTid:
+		entry += "from " + datai.DataTid.String()
+
+	default:
+		entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
+		writeData = true	// XXX write data here
+	}
+
+	entry += "\n"
+	_, err := d.W.Write(mem.Bytes(entry))
 	if err != nil {
-		panic(fmt.Errorf("dumpb: Non-picklable object %#v: %v", obj, err))
+		return err
 	}
-	return buf.Bytes()
+
+	if writeData && !d.HashOnly {
+		_, err = d.W.Write(datai.Data)
+		if err != nil {
+			return err
+		}
+
+		_, err = d.W.Write([]byte("\n"))
+		if err != nil {
+			return err
+		}
+	}
+
+	// XXX ^^^ add oid: %v as prefix for err
+	return nil
 }
 
-/*
-// normalizeExtPy normalizes ZODB extension to the form zodbdump/py would print it.
-// specifically the dictionary pickle inside is analyzed and then ... XXX
-func normalizeExtPy(ext []byte) []byte {
-	// unpickle ext
-	r := bytes.NewBuffer(ext)
-	p := pickle.NewDecoder(r)
-	xv, _ := p.Decode()
-	v, ok := xv.(map[interface{}]interface{})
-
-	// on any error (e.g. ext is not pickle at all) or if it was not dict return original
-	if !ok {
-		return ext
+// DumpTxn dumps one transaction record
+func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IStorageRecordIterator) error {
+	// LF in-between txn records
+	vskip := "\n"
+	if !d.afterFirst {
+		vskip = ""
+		d.afterFirst = true
 	}
 
-	keyv := make([]*struct{key interface{}; kpickle []byte}, len(v))
-	for i, key := range v {
-		keyv[i].key = key
-		// NOTE key was created by pickle.Decoder - it must be picklable
-		keyv[i].kpickle = dumpb(key)
+	_, err := fmt.Fprintf(d.W, "%stxn %s (%c)\nuser %q\ndescription %q\nextension %q\n",
+			vskip, txni.Tid, txni.Status, txni.User, txni.Description, txni.Extension)
+	if err != nil {
+		return err
 	}
 
+	// data records
+	for {
+		datai, err := dataIter.NextData()
+		if err != nil {
+			if err == io.EOF {
+				err = nil	// XXX -> okEOF ?
+			}
 
+			break
+		}
+
+		err = d.DumpData(datai)
+		if err != nil {
+			break
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("%v: %v", txni.Tid, err)
+	}
+
+	return nil
 }
-*/
+
+// Dump dumps transaction records in between tidMin..tidMax
+func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
+	var txni     *zodb.TxnInfo
+	var dataIter zodb.IStorageRecordIterator
+	var err      error
+
+	iter := stor.Iterate(tidMin, tidMax)
+
+	// transactions
+	for {
+		txni, dataIter, err = iter.NextTxn()
+		if err != nil {
+			if err == io.EOF {
+				err = nil	// XXX -> okEOF ?
+			}
+
+			break
+		}
+
+		err = d.DumpTxn(txni, dataIter)
+		if err != nil {
+			break
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("%s: dumping %v..%v: %v", stor, tidMin, tidMax, err)
+	}
+
+	return nil
+}
 
 // zodbDump dumps contents of a storage in between tidMin..tidMax range to a writer.
 // see top-level documentation for the dump format.
+func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
+	d := dumper{W: w, HashOnly: hashOnly}
+	return d.Dump(stor, tidMin, tidMax)
+}
+
+
+/*
 func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
 	var retErr error
 	iter := stor.Iterate(tidMin, tidMax)
@@ -106,7 +189,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 			}
 
 			retErr = err
-			goto out
+			break
 		}
 
 		// LF in-between txn records
@@ -119,6 +202,7 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 		_, err = fmt.Fprintf(w, "%stxn %s (%c)\nuser %q\ndescription %q\nextension %q\n",
 				vskip, txni.Tid, txni.Status, txni.User, txni.Description, txni.Extension)
 		if err != nil {
+			retErr = err
 			break
 		}
 
@@ -153,18 +237,21 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 			entry += "\n"
 			_, err = w.Write(mem.Bytes(entry))
 			if err != nil {
-				break
+				retErr = err
+				goto out
 			}
 
 			if !hashOnly && writeData {
 				_, err = w.Write(datai.Data)
 				if err != nil {
-					break
+					retErr = err
+					goto out
 				}
 
 				_, err = w.Write([]byte("\n"))
 				if err != nil {
-					break
+					retErr = err
+					goto out
 				}
 			}
 		}
@@ -172,11 +259,12 @@ func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly
 
 out:
 	if retErr != nil {
-		return fmt.Errorf("%s: dump %v..%v: %v", stor, tidMin, tidMax, retErr)
+		return fmt.Errorf("%s: dumping %v..%v: %v", stor, tidMin, tidMax, retErr)
 	}
 
 	return nil
 }
+*/
 
 func usage() {
 	fmt.Fprintf(os.Stderr,
