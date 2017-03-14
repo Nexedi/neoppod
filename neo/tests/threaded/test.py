@@ -1862,16 +1862,33 @@ class Test(NEOThreadedTest):
         })
 
     def testCascadedDeadlockAvoidanceOnCheckCurrent(self):
+        """Transaction checking an oid more than once
+
+        1. t1 < t2
+        2. t1 deadlocks, t2 gets all locks
+        3. t2 < t1 < t3
+        4. t2 finishes: conflict on A, t1 locks C, t3 locks B
+        5. t1 rebases B -> second deadlock
+        6. t1 resolves A
+        7. t3 resolves A -> deadlock, and t1 locks B
+        8. t1 rebases B whereas it was already locked
+        """
         def changes(*r):
             for r in r:
                 r['a'].value += 1
                 self.readCurrent(r['b'])
                 self.readCurrent(r['c'])
-        def tic_t1(*args, **kw):
+        t = []
+        def vote_t2(*args, **kw):
             yield 0
-            self.tic()
+            t.append(threading.currentThread())
+        def tic_t1(*args, **kw):
+            # Make sure t2 finishes before rebasing B,
+            # so that B is locked by a newer transaction (t3).
+            t[0].join()
+            yield 0
         end = self._testComplexDeadlockAvoidanceWithOneStorage(changes,
-            (0, 1, 1, 0, 1, 1, 0, 0, 2, 2, 2, 2, 1, tic_t1, 0),
+            (0, 1, 1, 0, 1, 1, 0, 0, 2, 2, 2, 2, 1, vote_t2, tic_t1),
             ('tpc_begin', 1) * 2, [3, 0, 0, 0], None)
         self.assertLessEqual(2, end[0].count('RebaseTransaction'))
 
