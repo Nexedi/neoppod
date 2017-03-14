@@ -36,7 +36,7 @@ func fsDump(w io.Writer, path string, ntxn int) (err error) {
 	// path & fsdump on error context
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("%s: fsdump: %v", err)
+			err = fmt.Errorf("%s: fsdump: %v", path, err)
 		}
 	}()
 
@@ -116,8 +116,12 @@ func fsDump(w io.Writer, path string, ntxn int) (err error) {
 	return err
 }
 
-func usage() {
-	fmt.Fprintf(os.Stderr,
+
+func main() {
+	ntxn := 10
+
+	usage := func() {
+		fmt.Fprintf(os.Stderr,
 `fstail [options] <storage>
 Dump transactions from a FileStorage in reverse order
 
@@ -127,11 +131,10 @@ Dump transactions from a FileStorage in reverse order
 
 	-h --help       this help text.
 	-n <N>	        output the last <N> transactions (default %d).
-`)
-}
+`, ntxn)
+	}
 
-func main() {
-	ntxn := 10
+	flag.Usage = usage
 	flag.IntVar(&ntxn, "n", ntxn, "output the last <N> transactions")
 	flag.Parse()
 
@@ -142,7 +145,7 @@ func main() {
 	}
 	storPath := argv[0]
 
-	err := fsDump(os.Stdout, storPath, n)
+	err := fsDump(os.Stdout, storPath, ntxn)
 	if err != nil {
 		log.Fatal(err)
 	}
