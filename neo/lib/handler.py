@@ -70,9 +70,9 @@ class EventHandler(object):
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
             method(conn, *args, **kw)
-        except DelayEvent:
+        except DelayEvent, e:
             assert not kw, kw
-            self.getEventQueue().queueEvent(method, conn, args)
+            self.getEventQueue().queueEvent(method, conn, args, *e.args)
         except UnexpectedPacketError, e:
             if not conn.isClosed():
                 self.__unexpectedPacket(conn, packet, *e.args)
@@ -311,36 +311,55 @@ class _DelayedConnectionEvent(EventHandler):
 class EventQueue(object):
 
     def __init__(self):
-        self._event_queue = deque()
+        self._event_queue = []
         self._executing_event = -1
 
-    def queueEvent(self, func, conn=None, args=()):
-        self._event_queue.append(func if conn is None else
-            _DelayedConnectionEvent(func, conn, args))
+    def queueEvent(self, func, conn=None, args=(), key=None):
+        assert self._executing_event < 0, self._executing_event
+        self._event_queue.append((key, func if conn is None else
+            _DelayedConnectionEvent(func, conn, args)))
+        if key is not None:
+            self._event_queue.sort()
+
+    def sortAndExecuteQueuedEvents(self):
+        if self._executing_event < 0:
+            self._event_queue.sort()
+            self.executeQueuedEvents()
+        else:
+            # We can't sort events when they're being processed.
+            self._executing_event = 1
 
     def executeQueuedEvents(self):
         # Not reentrant. When processing a queued event, calling this method
         # only tells the caller to retry all events from the beginning, because
         # events for the same connection must be processed in chronological
         # order.
-        self._executing_event += 1
-        if self._executing_event:
-            return
         queue = self._event_queue
-        n = len(queue)
-        while n:
-            try:
-                queue[0]()
-            except DelayEvent:
-                queue.rotate(-1)
-            else:
-                del queue[0]
-            n -= 1
+        if queue: # return quickly if the queue is empty
+            self._executing_event += 1
             if self._executing_event:
+                return
+            done = []
+            while 1:
+                try:
+                    for i, event in enumerate(queue):
+                        try:
+                            event[1]()
+                            done.append(i)
+                        except DelayEvent:
+                            pass
+                        if self._executing_event:
+                            break
+                    else:
+                        break
+                finally:
+                    while done:
+                        del queue[done.pop()]
                 self._executing_event = 0
-                queue.rotate(-n)
-                n = len(queue)
-        self._executing_event = -1
+                # What sortQueuedEvents could not do immediately is done here:
+                if event[0] is not None:
+                    queue.sort()
+            self._executing_event = -1
 
     def logQueuedEvents(self):
         if self._event_queue:

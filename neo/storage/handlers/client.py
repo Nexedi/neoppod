@@ -40,7 +40,7 @@ class ClientOperationHandler(BaseHandler):
 
     def getEventQueue(self):
         # for read rpc
-        return self.app.tm
+        return self.app.tm.read_queue
 
     def askObject(self, conn, oid, serial, tid):
         app = self.app
@@ -106,10 +106,11 @@ class ClientOperationHandler(BaseHandler):
         try:
             self._askStoreObject(conn, oid, serial, compression,
                 checksum, data, data_serial, ttid, None)
-        except DelayEvent:
+        except DelayEvent, e:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askStoreObject, conn, (oid, serial,
-                compression, checksum, data, data_serial, ttid, time.time()))
+                compression, checksum, data, data_serial, ttid, time.time()),
+            *e.args)
 
     def askRebaseTransaction(self, conn, *args):
         conn.answer(Packets.AnswerRebaseTransaction(
@@ -118,10 +119,10 @@ class ClientOperationHandler(BaseHandler):
     def askRebaseObject(self, conn, ttid, oid):
         try:
             self._askRebaseObject(conn, ttid, oid, None)
-        except DelayEvent:
+        except DelayEvent, e:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askRebaseObject,
-                conn, (ttid, oid, time.time()))
+                conn, (ttid, oid, time.time()), *e.args)
 
     def _askRebaseObject(self, conn, ttid, oid, request_time):
         conflict = self.app.tm.rebaseObject(ttid, oid)
@@ -188,10 +189,10 @@ class ClientOperationHandler(BaseHandler):
         self.app.tm.register(conn, ttid)
         try:
             self._askCheckCurrentSerial(conn, ttid, oid, serial, None)
-        except DelayEvent:
+        except DelayEvent, e:
             # locked by a previous transaction, retry later
             self.app.tm.queueEvent(self._askCheckCurrentSerial,
-                conn, (ttid, oid, serial, time.time()))
+                conn, (ttid, oid, serial, time.time()), *e.args)
 
     def _askCheckCurrentSerial(self, conn, ttid, oid, serial, request_time):
         try:

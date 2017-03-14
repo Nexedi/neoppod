@@ -84,14 +84,11 @@ class Transaction(object):
 class TransactionManager(EventQueue):
     """
         Manage pending transaction and locks
-
-    XXX: EventQueue is not very suited for deadlocks. It would be more
-         efficient to sort delayed packets by locking tid in order to minimize
-         cascaded deadlocks.
     """
 
     def __init__(self, app):
         EventQueue.__init__(self)
+        self.read_queue = EventQueue()
         self._app = app
         self._transaction_dict = {}
         self._store_lock_dict = {}
@@ -208,8 +205,9 @@ class TransactionManager(EventQueue):
                 self._notifyReplicated()
         # Some locks were released, some pending locks may now succeed.
         # We may even have delayed stores for this transaction, like the one
-        # that triggered the deadlock.
-        self.executeQueuedEvents()
+        # that triggered the deadlock. They must also be sorted again because
+        # our locking tid has changed.
+        self.sortAndExecuteQueuedEvents()
 
     def rebase(self, conn, ttid, locking_tid):
         self.register(conn, ttid)
@@ -337,7 +335,7 @@ class TransactionManager(EventQueue):
                 # but this is not a problem. EventQueue processes them in order
                 # and only the last one will not result in conflicts (that are
                 # already resolved).
-                raise DelayEvent
+                raise DelayEvent(transaction)
             if oid in transaction.lockless:
                 # This is a consequence of not having taken a lock during
                 # replication. After a ConflictError, we may be asked to "lock"
@@ -358,7 +356,7 @@ class TransactionManager(EventQueue):
                 self._app.master_conn.send(Packets.NotifyDeadlock(
                     ttid, transaction.locking_tid))
                 self._rebase(transaction, ttid)
-                raise DelayEvent
+                raise DelayEvent(transaction)
             # If previous store was an undo, next store must be based on
             # undo target.
             try:
@@ -387,7 +385,7 @@ class TransactionManager(EventQueue):
                 return
         elif transaction.locking_tid == MAX_TID:
             # Deadlock avoidance. Still no new locking_tid from the client.
-            raise DelayEvent
+            raise DelayEvent(transaction)
         else:
             previous_serial = self._app.dm.getLastObjectTID(oid)
         # Locking before reporting a conflict would speed up the case of
@@ -521,6 +519,7 @@ class TransactionManager(EventQueue):
         if self._replicated:
             self._notifyReplicated()
         # some locks were released, some pending locks may now succeed
+        self.read_queue.executeQueuedEvents()
         self.executeQueuedEvents()
 
     def abortFor(self, uuid):
@@ -551,6 +550,7 @@ class TransactionManager(EventQueue):
         for oid, ttid in self._store_lock_dict.iteritems():
             logging.info('    %s by %s', dump(oid), dump(ttid))
         self.logQueuedEvents()
+        self.read_queue.logQueuedEvents()
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial, data_id):
         lock_tid = self.getLockingTID(oid)

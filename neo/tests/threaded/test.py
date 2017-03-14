@@ -2060,6 +2060,40 @@ class Test(NEOThreadedTest):
         self.assertEqual(end, {0: ['AnswerRebaseTransaction',
                                    'StoreTransaction', 'VoteTransaction']})
 
+    @with_cluster()
+    def testDelayedStoreOrdering(self, cluster):
+        """
+        By processing delayed stores (EventQueue) in the order of their locking
+        tid, we minimize the number deadlocks. Here, we trigger a first
+        deadlock, so that the delayed check for t1 is reordered after that of
+        t3.
+        """
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        for x in 'abcd':
+            r[x] = PCounter()
+            t1.commit()
+        r['a'].value += 1
+        self.readCurrent(r['d'])
+        t2, c2 = cluster.getTransaction()
+        r = c2.root()
+        r['b'].value += 1
+        self.readCurrent(r['d'])
+        t3, c3 = cluster.getTransaction()
+        r = c3.root()
+        r['c'].value += 1
+        self.readCurrent(r['d'])
+        threads = map(self.newPausedThread, (t2.commit, t3.commit))
+        with self.thread_switcher(threads, (1, 2, 0, 1, 2, 1, 0, 2, 0, 1, 2),
+            ('tpc_begin', 'tpc_begin', 'tpc_begin', 1, 2, 3, 4, 4, 4,
+             'RebaseTransaction', 'StoreTransaction')) as end:
+            t1.commit()
+            for t in threads:
+                t.join()
+        self.assertEqual(end, {
+            0: ['AnswerRebaseTransaction', 'StoreTransaction'],
+            2: ['StoreTransaction']})
+
     @with_cluster(replicas=1)
     def testConflictAfterDeadlockWithSlowReplica1(self, cluster,
                                                   slow_rebase=False):

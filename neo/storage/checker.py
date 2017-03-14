@@ -109,7 +109,7 @@ class Checker(object):
         self.source = source
         def start():
             if app.tm.isLockedTid(max_tid):
-                app.tm.queueEvent(start)
+                app.tm.read_queue.queueEvent(start)
                 return
             args = partition, CHECK_COUNT, min_tid, max_tid
             p = Packets.AskCheckTIDRange(*args)
