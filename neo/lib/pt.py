@@ -195,6 +195,10 @@ class PartitionTable(object):
                     self.count_dict[node] -= 1
                 break
 
+    def dropNode(self, node):
+        count = self.count_dict.pop(node, None)
+        assert not count, (node, count)
+
     def load(self, ptid, row_list, nm):
         """
         Load the partition table with the specified PTID, discard all previous

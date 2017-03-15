@@ -451,6 +451,8 @@ class NodeManager(EventQueue):
                         # reconnect to the master because they cleared their
                         # partition table upon disconnection.
                         node.getConnection().close()
+                    if app.uuid != uuid:
+                        app.pt.dropNode(node)
                     self.remove(node)
                     continue
                 logging.debug('updating node %r to %s %s %s %s %s',
@@ -465,6 +467,7 @@ class NodeManager(EventQueue):
             # For the first notification, we receive a full list of nodes from
             # the master. Remove all unknown nodes from a previous connection.
             for node in node_set - self._node_set:
+                app.pt.dropNode(node)
                 self.remove(node)
         self.log()
         self.executeQueuedEvents()

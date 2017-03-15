@@ -163,8 +163,10 @@ class NodeManagerTests(NeoUnitTestBase):
             (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
                 NodeStates.UNKNOWN, None),
         )
+        app = Mock()
+        app.pt = Mock()
         # update manager content
-        manager.update(Mock(), time(), node_list)
+        manager.update(app, time(), node_list)
         # - the client gets down
         self.checkClients([])
         # - master change it's address
