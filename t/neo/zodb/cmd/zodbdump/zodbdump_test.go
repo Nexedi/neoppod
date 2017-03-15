@@ -34,16 +34,23 @@ func loadZdumpPy(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 
-	// python qoutes "\v" as "\x0b", go as "\v"; same for "\f" vs "\x0c"
+	// python qoutes "\v" as "\x0b", go as "\v"; same for "\f", "\a", "\b".
 	// XXX this is a bit hacky. We could compare quoted strings as decoded,
 	// but this would need zdump format parser which could contain other
 	// bugs.  Here we want to compare output ideally bit-to-bit but those
 	// \v vs \x0b glitches prevents that to be done directly. So here we
 	// are with this ugly hack:
-	r0b := regexp.MustCompile(`\\x0b`)
-	r0c := regexp.MustCompile(`\\x0c`)
-	dump = r0b.ReplaceAllLiteral(dump, []byte(`\v`))
-	dump = r0c.ReplaceAllLiteral(dump, []byte(`\f`))
+	var pyNoBackLetter = []struct {backNoLetterRe, backLetter string} {
+		{`\\x07`, `\a`},
+		{`\\x08`, `\b`},
+		{`\\x0b`, `\v`},
+		{`\\x0c`, `\f`},
+	}
+
+	for _, __ := range pyNoBackLetter {
+		re := regexp.MustCompile(__.backNoLetterRe)
+		dump = re.ReplaceAllLiteral(dump, []byte(__.backLetter))
+	}
 
 	return string(dump)
 }

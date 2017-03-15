@@ -33,6 +33,8 @@ def escapeqq(s):
     # we don't want ' to be escaped
     for _ in s.split("'"):
         # this escape almost everything except " character
+        # NOTE string_escape does not do smartquotes and always uses ' for quoting
+        # (repr(str) is the same except it does smartquoting picking ' or " automatically)
         q = _.encode("string_escape")
         q = q.replace('"', r'\"')
         outv.append(q)
@@ -154,7 +156,8 @@ def main():
         # Get serial via history.
         obj_tid_lastchange = db.history(obj._p_oid)[0]['tid']
 
-        txn = precommit(u"root%i\nYour\nRoyal\nMagesty' " % i,
+        txn = precommit(u"root%i\nYour\nRoyal\nMagesty' " % i +
+                            ''.join(chr(_) for _ in range(32)),     # <- NOTE all control characters
                         u"delete %i\nalpha beta gamma'delta\"lambda\n\nqqq ..." % i,
                         ext("delete %s" % unpack64(obj._p_oid)))
         stor.tpc_begin(txn)
