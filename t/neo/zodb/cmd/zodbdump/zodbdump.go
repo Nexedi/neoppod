@@ -72,6 +72,8 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 	}
 
 	entry += "\n"
+
+	// TODO use writev(data, "\n") via net.Buffers (it is already available)
 	_, err := d.W.Write(mem.Bytes(entry))
 	if err != nil {
 		goto out
@@ -83,7 +85,6 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 			goto out
 		}
 
-		// TODO use writev(data, "\n") when it is available
 		_, err = d.W.Write([]byte("\n"))
 		if err != nil {
 			goto out
