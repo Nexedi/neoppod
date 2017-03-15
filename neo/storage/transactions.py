@@ -108,8 +108,8 @@ class TransactionManager(EventQueue):
         assert isdisjoint(self._replicated), (offset_list, self._replicated)
         assert isdisjoint(map(self.getPartition, self._store_lock_dict)), (
             offset_list, self._store_lock_dict)
-        self._app.master_conn.ask(Packets.AskUnfinishedTransactions(),
-                                  offset_list=offset_list)
+        p = Packets.AskUnfinishedTransactions(offset_list)
+        self._app.master_conn.ask(p, offset_list=offset_list)
 
     def replicated(self, partition, tid):
         # also called for readable cells in BACKINGUP state

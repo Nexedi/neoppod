@@ -837,6 +837,12 @@ class UnfinishedTransactions(Packet):
     Ask unfinished transactions  S -> PM.
     Answer unfinished transactions  PM -> S.
     """
+    _fmt = PStruct('ask_unfinished_transactions',
+        PList('row_list',
+            PNumber('offset'),
+        ),
+    )
+
     _answer = PStruct('answer_unfinished_transactions',
         PTID('max_tid'),
         PList('tid_list',
