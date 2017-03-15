@@ -460,7 +460,8 @@ class Application(BaseApplication):
                 elif state == ClusterStates.BACKINGUP:
                     handler = self.client_ro_service_handler
                 else:
-                    conn.abort()
+                    if state != ClusterStates.STOPPING:
+                        conn.abort()
                     continue
             elif node.isStorage() and storage_handler:
                 handler = storage_handler
@@ -489,15 +490,18 @@ class Application(BaseApplication):
     def shutdown(self):
         """Close all connections and exit"""
         self.changeClusterState(ClusterStates.STOPPING)
-        self.listening_conn.close()
-        for conn in self.em.getConnectionList():
-            node = self.nm.getByUUID(conn.getUUID())
-            if node is None or not node.isIdentified():
-                conn.close()
-        # No need to change handlers in order to reject RequestIdentification
-        # & AskBeginTransaction packets because they won't be any:
-        # the only remaining connected peers are identified non-clients
-        # and we don't accept new connections anymore.
+        # Marking a fictional storage node as starting operation blocks any
+        # request to start a new transaction. Do this way has 2 advantages:
+        # - It's simpler than changing the handler of all clients,
+        #   which is anyway not supported by EventQueue.
+        # - Returning an error code would cause activity on client side for
+        #   nothing.
+        # What's important is to not abort during the second phase of commits
+        # and for this, clients must even be able to reconnect, in case of
+        # failure during tpc_finish.
+        # We're rarely involved in vote, so we have to trust clients that they
+        # abort any transaction that is still in the first phase.
+        self.storage_starting_set.add(None)
         try:
             # wait for all transaction to be finished
             while self.tm.hasPending():
@@ -506,13 +510,13 @@ class Application(BaseApplication):
             logging.critical('No longer operational')
 
         logging.info("asking remaining nodes to shutdown")
+        self.listening_conn.close()
         handler = EventHandler(self)
-        now = monotonic_time()
         for node in self.nm.getConnectedList():
             conn = node.getConnection()
             if node.isStorage():
                 conn.setHandler(handler)
-                conn.send(Packets.NotifyNodeInformation(now, ((
+                conn.send(Packets.NotifyNodeInformation(monotonic_time(), ((
                     node.getType(), node.getAddress(), node.getUUID(),
                     NodeStates.TEMPORARILY_DOWN, None),)))
                 conn.abort()

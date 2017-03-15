@@ -29,7 +29,8 @@ from transaction.interfaces import TransientError
 from ZODB import DB, POSException
 from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, ConflictError
-from neo.lib.connection import ServerConnection, MTClientConnection
+from neo.lib.connection import ConnectionClosed, \
+    ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.handler import DelayEvent
 from neo.lib import logging
@@ -824,27 +825,46 @@ class Test(NEOThreadedTest):
         self._testShutdown(cluster)
 
     def _testShutdown(self, cluster):
-        if 1:
-            # fill DB a little
-            t, c = cluster.getTransaction()
-            c.root()[''] = ''
-            t.commit()
+        def before_finish(_):
             # tell admin to shutdown the cluster
             cluster.neoctl.setClusterState(ClusterStates.STOPPING)
-            # all nodes except clients should exit
-            cluster.join(cluster.master_list
-                       + cluster.storage_list
-                       + cluster.admin_list)
+            self.tic()
+            l = threading.Lock(); l.acquire()
+            with ConnectionFilter() as f:
+                # Make we sure that we send t2/BeginTransaction
+                # before t1/AskFinishTransaction
+                @f.delayAskBeginTransaction
+                def delay(_):
+                    l.release()
+                    return False
+                t2.start()
+                l.acquire()
+        t1, c1 = cluster.getTransaction()
+        ob = c1.root()['1'] = PCounter()
+        t1.commit()
+        ob.value += 1
+        TransactionalResource(t1, 0, tpc_finish=before_finish)
+        t2, c2 = cluster.getTransaction()
+        c2.root()['2'] = None
+        t2 = self.newPausedThread(t2.commit)
+        with Patch(cluster.client, _connectToPrimaryNode=lambda *_:
+                self.fail("unexpected reconnection to master")):
+            t1.commit()
+        self.assertRaises(ConnectionClosed, t2.join)
+        # all nodes except clients should exit
+        cluster.join(cluster.master_list
+                   + cluster.storage_list
+                   + cluster.admin_list)
         cluster.stop() # stop and reopen DB to check partition tables
-        dm = cluster.storage_list[0].dm
-        self.assertEqual(1, dm.getPTID())
-        pt = list(dm.getPartitionTable())
-        self.assertEqual(20, len(pt))
-        for _, _, state in pt:
-            self.assertEqual(state, CellStates.UP_TO_DATE)
-        for s in cluster.storage_list[1:]:
-            self.assertEqual(s.dm.getPTID(), 1)
-            self.assertEqual(list(s.dm.getPartitionTable()), pt)
+        cluster.start()
+        pt = cluster.admin.pt
+        self.assertEqual(1, pt.getID())
+        for row in pt.partition_list:
+            for cell in row:
+                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
+        t, c = cluster.getTransaction()
+        self.assertEqual(c.root()['1'].value, 1)
+        self.assertNotIn('2', c.root())
 
     @with_cluster()
     def testInternalInvalidation(self, cluster):

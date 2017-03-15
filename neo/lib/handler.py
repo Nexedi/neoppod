@@ -276,6 +276,7 @@ class AnswerBaseHandler(EventHandler):
 
 
 class _DelayedConnectionEvent(EventHandler):
+    # WARNING: This assumes that the connection handler does not change.
 
     handler_method_name = '_func'
     __new__ = object.__new__

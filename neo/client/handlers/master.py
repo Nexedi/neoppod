@@ -158,6 +158,10 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def stopOperation(self, conn):
         logging.critical("master node ask to stop operation")
 
+    def notifyClusterInformation(self, conn, state):
+        # TODO: on shutdown, abort any transaction that is not voted
+        logging.info("cluster switching to %s state", state)
+
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
         if app.ignore_invalidations:
