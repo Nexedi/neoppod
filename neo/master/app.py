@@ -256,7 +256,10 @@ class Application(BaseApplication):
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType())
-            if node_list and node.isRunning() and node is not exclude:
+            # We don't skip pending storage nodes because we don't send them
+            # the full list of nodes when they're added, and it's also quite
+            # useful to notify them about new masters.
+            if node_list and node is not exclude:
                 node.send(Packets.NotifyNodeInformation(now, node_list))
 
     def broadcastPartitionChanges(self, cell_list):
@@ -266,7 +269,9 @@ class Application(BaseApplication):
             self.pt.logUpdated()
             packet = Packets.NotifyPartitionChanges(ptid, cell_list)
             for node in self.nm.getIdentifiedList():
-                if node.isRunning() and not node.isMaster():
+                # As for broadcastNodesInformation, we don't send the full PT
+                # when pending storage nodes are added, so keep them notified.
+                if not node.isMaster():
                     node.send(packet)
 
     def provideService(self):

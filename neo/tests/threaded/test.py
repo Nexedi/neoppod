@@ -1244,6 +1244,7 @@ class Test(NEOThreadedTest):
             sys.exit()
         def askPartitionTable(orig, self, conn):
             p.revert()
+            del conn._queue[:] # XXX
             conn.close()
         if 1:
             with Patch(cluster.master.pt, make=make), \

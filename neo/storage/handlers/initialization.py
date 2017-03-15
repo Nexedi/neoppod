@@ -23,7 +23,7 @@ class InitializationHandler(BaseMasterHandler):
     def sendPartitionTable(self, conn, ptid, row_list):
         app = self.app
         pt = app.pt
-        pt.load(ptid, row_list, self.app.nm)
+        pt.load(ptid, row_list, app.nm)
         if not pt.filled():
             raise ProtocolError('Partial partition table received')
         # Install the partition table into the database for persistence.

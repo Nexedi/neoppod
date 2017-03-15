@@ -18,7 +18,8 @@ import weakref
 from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.exception import PrimaryFailure, StoppedOperation
-from neo.lib.protocol import uuid_str, NodeStates, NodeTypes, Packets
+from neo.lib.protocol import (uuid_str,
+    NodeStates, NodeTypes, Packets, ProtocolError)
 
 class BaseHandler(EventHandler):
 
@@ -65,6 +66,15 @@ class BaseMasterHandler(BaseHandler):
                 logging.info('Notified of non-running client, abort (%s)',
                         uuid_str(uuid))
                 self.app.tm.abortFor(uuid)
+
+    def notifyPartitionChanges(self, conn, ptid, cell_list):
+        """This is very similar to Send Partition Table, except that
+       the information is only about changes from the previous."""
+        app = self.app
+        if ptid != 1 + app.pt.getID():
+            raise ProtocolError('wrong partition table id')
+        app.pt.update(ptid, cell_list, app.nm)
+        app.dm.changePartitionTable(ptid, cell_list)
 
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))
