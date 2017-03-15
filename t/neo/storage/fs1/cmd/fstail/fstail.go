@@ -37,7 +37,7 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 )
 
-// pyQuote quotes string the way python repr(str) would do it
+// pyQuote quotes string the way python repr(str) would do
 func pyQuote(s string) string {
 	out := pyQuoteBytes(mem.Bytes(s))
 	return mem.String(out)
@@ -82,7 +82,7 @@ func pyQuoteBytes(b []byte) []byte {
 				buf = append(buf, []byte(fmt.Sprintf("\\x%02x", s[i]))...)
 
 			default:
-				// we aleady handled ', " and (< ' ') above, so now it
+				// we already handled ', " and (< ' ') above, so now it
 				// should be safe to reuse strconv.QuoteRune
 				rq := strconv.QuoteRune(r)	// "'\x01'"
 				rq = rq[1:len(rq)-1]		//  "\x01"
@@ -95,15 +95,16 @@ func pyQuoteBytes(b []byte) []byte {
 	return buf
 }
 
-func fsDump(w io.Writer, path string, ntxn int) (err error) {
-	// path & fsdump on error context
+func fsTail(w io.Writer, path string, ntxn int) (err error) {
+	// path & fstail on error context
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("%s: fsdump: %v", path, err)
+			err = fmt.Errorf("%s: fstail: %v", path, err)
 		}
 	}()
 
-	// we are not using fs1.Open here, since the file could be e.g. corrupt
+	// we are not using fs1.Open here, since the file or index could be
+	// e.g. corrupt - we want to iterate directly by FileStorage records
 	// (same logic as in fstail/py)
 	f, err := os.Open(path)
 	if err != nil {
@@ -144,7 +145,7 @@ func fsDump(w io.Writer, path string, ntxn int) (err error) {
 		return fmt.Errorf("@%v: previous record could not be read", topPos)
 	}
 
-	// now loop loading previous txn until EOF / ntxn limit
+	// now loop loading transactions backwards until EOF / ntxn limit
 	for i := ntxn; i > 0; i-- {
 		err = txnh.LoadPrev(f, fs1.LoadAll)
 		if err != nil {
@@ -180,6 +181,7 @@ func fsDump(w io.Writer, path string, ntxn int) (err error) {
 
 				// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
 				txnh.Len - 8,
+
 				txnh.Pos, txnh.HeaderLen())
 		if err != nil {
 			break
@@ -213,11 +215,11 @@ Dump transactions from a FileStorage in reverse order
 	argv := flag.Args()
 	if len(argv) < 1 {
 		flag.Usage()
-		os.Exit(2)	// XXX recheck it is same as from flag.Parse on -zzz
+		os.Exit(2)
 	}
 	storPath := argv[0]
 
-	err := fsDump(os.Stdout, storPath, ntxn)
+	err := fsTail(os.Stdout, storPath, ntxn)
 	if err != nil {
 		log.Fatal(err)
 	}

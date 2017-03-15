@@ -209,7 +209,7 @@ func main() {
 	argv := flag.Args()
 	if len(argv) < 1 {
 		usage()
-		os.Exit(2)	// XXX recheck it is same as from flag.Parse on -zzz
+		os.Exit(2)
 	}
 	storUrl := argv[0]
 
