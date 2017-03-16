@@ -120,6 +120,10 @@ class MySQLDatabaseManager(DatabaseManager):
         if LOG_QUERIES:
             logging.debug('querying %s...',
                 getPrintableQuery(query.split('\n', 1)[0][:70]))
+        # Try 3 times at most. When it fails too often for the same
+        # query then the disconnection is likely caused by this query.
+        # We don't want to enter into an infinite loop.
+        retry = 2
         while 1:
             conn = self.conn
             try:
@@ -133,11 +137,13 @@ class MySQLDatabaseManager(DatabaseManager):
                 break
             except OperationalError as m:
                 code, m = m.args
-                if self._active or SERVER_GONE_ERROR != code != SERVER_LOST:
+                if self._active or SERVER_GONE_ERROR != code != SERVER_LOST \
+                   or not retry:
                     raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
                         % (code, m, getPrintableQuery(query[:1000])))
                 logging.info('the MySQL server is gone; reconnecting')
                 self._connect()
+                retry -= 1
         r = query.split(None, 1)[0]
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1

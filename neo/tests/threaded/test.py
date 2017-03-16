@@ -64,6 +64,8 @@ class Test(NEOThreadedTest):
     def testBasicStore(self, cluster):
         if 1:
             storage = cluster.getZODBStorage()
+            storage.sync()
+            storage.app.max_reconnection_to_master = 0
             data_info = {}
             compressible = 'x' * 20
             compressed = compress(compressible)
