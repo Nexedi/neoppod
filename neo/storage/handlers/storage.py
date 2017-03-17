@@ -46,7 +46,7 @@ class StorageOperationHandler(EventHandler):
 
     def connectionLost(self, conn, new_state):
         app = self.app
-        if app.ready and conn.isClient():
+        if app.operational and conn.isClient():
             # XXX: Connection and Node should merged.
             uuid = conn.getUUID()
             if uuid:
@@ -62,7 +62,7 @@ class StorageOperationHandler(EventHandler):
     # Client
 
     def connectionFailed(self, conn):
-        if self.app.ready:
+        if self.app.operational:
             self.app.replicator.abort()
 
     def _acceptIdentification(self, node, *args):

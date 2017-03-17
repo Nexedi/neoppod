@@ -69,9 +69,6 @@ class Application(BaseApplication):
         # operation related data
         self.operational = False
 
-        # ready is True when operational and got all informations
-        self.ready = False
-
         self.dm.setup(reset=config.getReset())
         self.loadConfiguration()
 
@@ -167,10 +164,9 @@ class Application(BaseApplication):
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permanently,
         # until the user explicitly requests a shutdown.
-        self.ready = False
+        self.operational = False
         while True:
             self.cluster_state = None
-            self.operational = False
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
@@ -190,7 +186,7 @@ class Application(BaseApplication):
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
             finally:
-                self.ready = False
+                self.operational = False
             # When not ready, we reject any incoming connection so for
             # consistency, we also close any connection except that to the
             # master. This includes connections to other storage nodes and any
@@ -239,7 +235,6 @@ class Application(BaseApplication):
         self.master_conn.setHandler(initialization.InitializationHandler(self))
         while not self.operational:
             _poll()
-        self.ready = True
         self.master_conn.notify(Packets.NotifyReady())
 
     def doOperation(self):

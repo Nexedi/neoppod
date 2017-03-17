@@ -495,6 +495,34 @@ class Test(NEOThreadedTest):
         self.tic()
         self.assertPartitionTable(cluster, 'UUO', s1)
 
+    @with_cluster()
+    def testStartOperation(self, cluster):
+        t, c = cluster.getTransaction()
+        c.root()._p_changed = 1
+        cluster.storage.stop()
+        cluster.join(cluster.storage_list)
+        cluster.storage.resetNode()
+        delayed = []
+        def delayConnection(conn, packet):
+            return conn in delayed
+        def startOperation(orig, self, conn, backup):
+            assert not delayed, delayed
+            delayed.append(conn)
+            orig(self, conn, backup)
+        def askBeginTransaction(orig, *args):
+            f.discard(delayConnection)
+            orig(*args)
+        with ConnectionFilter() as f, \
+             Patch(InitializationHandler, startOperation=startOperation), \
+             Patch(cluster.master.client_service_handler,
+                   askBeginTransaction=askBeginTransaction) as p:
+            f.add(delayConnection)
+            cluster.storage.start()
+            self.tic()
+            t.commit()
+            self.assertNotIn(delayConnection, f)
+            self.assertTrue(delayed)
+
     @with_cluster(replicas=1, partitions=10)
     def testRestartWithMissingStorage(self, cluster):
         # translated from neo.tests.functional.testStorage.StorageTest

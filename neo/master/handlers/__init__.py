@@ -136,7 +136,3 @@ class BaseServiceHandler(MasterHandler):
         app.broadcastPartitionChanges(app.pt.outdate(node))
         if not app.pt.operational():
             raise StoppedOperation
-
-    def notifyReady(self, conn):
-        self.app.setStorageReady(conn.getUUID())
-

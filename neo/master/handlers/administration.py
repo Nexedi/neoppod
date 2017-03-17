@@ -141,10 +141,9 @@ class AdministrationHandler(MasterHandler):
             for node in app.nm.getStorageList()
             if node.isPending() and node.getUUID() in uuid_list))
         if node_list:
-            p = Packets.StartOperation(bool(app.backup_tid))
             for node in node_list:
                 node.setRunning()
-                node.notify(p)
+                app.startStorage(node)
             app.broadcastNodesInformation(node_list)
             conn.answer(Errors.Ack('Nodes added: %s' %
                 ', '.join(uuid_str(x.getUUID()) for x in node_list)))

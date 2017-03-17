@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo.lib.handler import DelayEvent
 from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
 from ..app import monotonic_time
 from . import MasterHandler
@@ -44,6 +45,11 @@ class ClientServiceHandler(MasterHandler):
             A client request a TID, nothing is kept about it until the finish.
         """
         app = self.app
+        # Delay new transaction as long as we are waiting for NotifyReady
+        # answers, otherwise we can know if the client is expected to commit
+        # the transaction in full to all these storage nodes.
+        if app.storage_starting_set:
+            raise DelayEvent
         node = app.nm.getByUUID(conn.getUUID())
         tid = app.tm.begin(node, app.storage_readiness, tid)
         conn.answer(Packets.AnswerBeginTransaction(tid))
@@ -52,7 +58,7 @@ class ClientServiceHandler(MasterHandler):
         conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
 
     def getEventQueue(self):
-        # for failedVote
+        # for askBeginTransaction & failedVote
         return self.app.tm
 
     def failedVote(self, conn, *args):

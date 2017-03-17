@@ -68,6 +68,7 @@ class Application(BaseApplication):
         self.autostart = config.getAutostart()
 
         self.storage_ready_dict = {}
+        self.storage_starting_set = set()
         for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
 
@@ -367,6 +368,9 @@ class Application(BaseApplication):
                     truncate = Packets.Truncate(*e.args) if e.args else None
                     # Automatic restart except if we truncate or retry to.
                     self._startup_allowed = not (self.truncate_tid or truncate)
+                self.storage_readiness = 0
+                self.storage_ready_dict.clear()
+                self.storage_starting_set.clear()
                 node_list = []
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
@@ -574,12 +578,23 @@ class Application(BaseApplication):
         self.last_transaction = tid
 
     def setStorageNotReady(self, uuid):
+        self.storage_starting_set.discard(uuid)
         self.storage_ready_dict.pop(uuid, None)
+        self.tm.executeQueuedEvents()
+
+    def startStorage(self, node):
+        node.notify(Packets.StartOperation(self.backup_tid))
+        uuid = node.getUUID()
+        assert uuid not in self.storage_starting_set
+        if uuid not in self.storage_ready_dict:
+            self.storage_starting_set.add(uuid)
 
     def setStorageReady(self, uuid):
-        if uuid not in self.storage_ready_dict:
-            self.storage_readiness = self.storage_ready_dict[uuid] = \
-                self.storage_readiness + 1
+        self.storage_starting_set.remove(uuid)
+        assert uuid not in self.storage_ready_dict, self.storage_ready_dict
+        self.storage_readiness = self.storage_ready_dict[uuid] = \
+            self.storage_readiness + 1
+        self.tm.executeQueuedEvents()
 
     def isStorageReady(self, uuid):
         return uuid in self.storage_ready_dict

@@ -36,7 +36,7 @@ class IdentificationHandler(EventHandler):
         self.checkClusterName(name)
         app = self.app
         # reject any incoming connections if not ready
-        if not app.ready:
+        if not app.operational:
             raise NotReadyError
         if uuid is None:
             if node_type != NodeTypes.STORAGE:

@@ -28,8 +28,12 @@ class StorageServiceHandler(BaseServiceHandler):
         app = self.app
         if new:
             super(StorageServiceHandler, self).connectionCompleted(conn, new)
-        if app.nm.getByUUID(conn.getUUID()).isRunning(): # node may be PENDING
-            conn.notify(Packets.StartOperation(app.backup_tid))
+        node = app.nm.getByUUID(conn.getUUID())
+        if node.isRunning(): # node may be PENDING
+            app.startStorage(node)
+
+    def notifyReady(self, conn):
+        self.app.setStorageReady(conn.getUUID())
 
     def connectionLost(self, conn, new_state):
         app = self.app
