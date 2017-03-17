@@ -410,6 +410,8 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 
 class ClientApplication(Node, neo.client.app.Application):
 
+    max_reconnection_to_master = 10
+
     def __init__(self, master_nodes, name, **kw):
         super(ClientApplication, self).__init__(master_nodes, name, **kw)
         self.poll_thread.node_name = name

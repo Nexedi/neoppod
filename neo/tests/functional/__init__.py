@@ -474,6 +474,7 @@ class NEOCluster(object):
             master_nodes=master_nodes,
             name=self.cluster_name,
             **kw)
+        result.app.max_reconnection_to_master = 10
         self.zodb_storage_list.append(result)
         return result
 

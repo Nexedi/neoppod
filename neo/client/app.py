@@ -32,8 +32,8 @@ from neo.lib.protocol import NodeTypes, Packets, \
 from neo.lib.util import makeChecksum, dump
 from neo.lib.locking import Empty, Lock
 from neo.lib.connection import MTClientConnection, ConnectionClosed
-from .exception import NEOStorageError, NEOStorageCreationUndoneError
-from .exception import NEOStorageNotFoundError
+from .exception import (NEOStorageError, NEOStorageCreationUndoneError,
+    NEOStorageNotFoundError, NEOPrimaryMasterLost)
 from .handlers import storage, master
 from neo.lib.threaded_app import ThreadedApplication
 from .cache import ClientCache
@@ -54,6 +54,11 @@ if SignalHandler:
 
 class Application(ThreadedApplication):
     """The client node application."""
+
+    # For tests only. Do not touch. We want tpc_finish to always recover when
+    # the transaction is really committed, no matter for how long the master
+    # is unreachable.
+    max_reconnection_to_master = float('inf')
 
     def __init__(self, master_nodes, name, compress=True, **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
@@ -179,12 +184,13 @@ class Application(ThreadedApplication):
         logging.debug('connecting to primary master...')
         self.start()
         index = -1
+        fail_count = 0
         ask = self._ask
         handler = self.primary_bootstrap_handler
         while 1:
             self.ignore_invalidations = True
             # Get network connection to primary master
-            while 1:
+            while fail_count < self.max_reconnection_to_master:
                 self.nm.reset()
                 if self.primary_master_node is not None:
                     # If I know a primary master node, pinpoint it.
@@ -205,11 +211,15 @@ class Application(ThreadedApplication):
                 try:
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:
+                    fail_count += 1
                     continue
                 # If we reached the primary master node, mark as connected
                 if self.primary_master_node is not None and \
                    self.primary_master_node is self.trying_master_node:
                     break
+            else:
+                raise NEOPrimaryMasterLost(
+                    "Too many connection failures to the primary master")
             logging.info('Connected to %s', self.primary_master_node)
             try:
                 # Request identification and required informations to be
@@ -223,6 +233,7 @@ class Application(ThreadedApplication):
             except ConnectionClosed:
                 logging.error('Connection to %s lost', self.trying_master_node)
                 self.primary_master_node = None
+            fail_count += 1
         logging.info("Connected and ready")
         return conn
 
