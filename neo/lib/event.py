@@ -131,10 +131,15 @@ class EpollEventManager(object):
         else:
             self.reader_set.discard(fd)
             self.writer_set.discard(fd)
+            if close:
+                self._closeAppend(connector.shutdown())
+                if self._closeAcquire(0):
+                    self._closeRelease()
+            return
         if close:
-            self._closeAppend(connector.shutdown())
-            if self._closeAcquire(0):
-                self._closeRelease()
+            # The connection is not registered, so do not wait for epoll
+            # to wake up (which may not even happen, and lead to EMFILE).
+            connector.shutdown()()
 
     def isIdle(self):
         return not (self._pending_processing or self.writer_set)
