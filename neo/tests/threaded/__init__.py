@@ -531,11 +531,12 @@ class ConnectionFilter(object):
                         break
                 else:
                     if conn.isClosed():
-                        return
-                    # Use the thread that created the packet to reinject it,
-                    # to avoid a race condition on Connector.queued.
-                    conn.em.wakeup(lambda conn=conn, packet=packet:
-                        conn.isClosed() or cls._addPacket(conn, packet))
+                        queue.clear()
+                    else:
+                        # Use the thread that created the packet to reinject it,
+                        # to avoid a race condition on Connector.queued.
+                        conn.em.wakeup(lambda conn=conn, packet=packet:
+                            conn.isClosed() or cls._addPacket(conn, packet))
                     continue
                 break
             else:
