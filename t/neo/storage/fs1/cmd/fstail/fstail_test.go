@@ -32,7 +32,7 @@ func diff(a, b string) string {
 func TestFsDump(t *testing.T) {
 	buf := bytes.Buffer{}
 
-	err := fsDump(&buf, "../../testdata/1.fs", 1000000)
+	err := fsTail(&buf, "../../testdata/1.fs", 1000000)
 	if err != nil {
 		t.Fatal(err)
 	}
