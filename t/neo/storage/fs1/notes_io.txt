@@ -34,7 +34,44 @@ pread + user-buffer
 It is possible to mitigate high α and buffer data from bigger reads in
 user-space and for smaller client reads copy data from that buffer.
 
-Performance depends on buffer hit/miss ration and will be evaluated for simple
+math to get optimal parameters:
+( note here S is what α is above - syscall time, and C is what β is above - 1
+  byte copy time )
+
+- we are reading N bytes sequentially
+- consider 2 variants:
+
+  a) 1 syscall + 1 big copy + use the copy for smaller reads
+
+     cost: S + C⋅N + C⋅N
+
+  b) direct acces in x-byte chunks
+
+             N
+     cost: S⋅─ + C⋅N
+             x
+
+Q: when direct access is chaper?
+
+            N⋅S
+   -> x ≥ ───────       , or
+          C⋅N + S
+
+
+           α⋅N                S
+      x ≥ ─────         , α = ─
+          α + N               C
+
+Q: when reading direct in x-byte chunks: what is N so direct becomes cheaper?
+
+           α⋅x
+   -> N ≥ ─────
+          α - x
+
+
+----
+
+Performance depends on buffer hit/miss ratio and will be evaluated for simple
 1-page buffer.
 
 
