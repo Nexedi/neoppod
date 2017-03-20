@@ -25,7 +25,7 @@ else:
 
 class ZODBTestCase(TestCase):
 
-    def setUp(self, cluster_kw={}):
+    def setUp(self):
         super(ZODBTestCase, self).setUp()
         storages = int(os.getenv('NEO_TEST_ZODB_STORAGES', 1))
         kw = {
@@ -34,7 +34,6 @@ class ZODBTestCase(TestCase):
             'partitions': int(os.getenv('NEO_TEST_ZODB_PARTITIONS', 1)),
             'db_list': ['%s%u' % (DB_PREFIX, i) for i in xrange(storages)],
         }
-        kw.update(cluster_kw)
         if functional:
             kw['temp_dir'] = self.getTempDirectory()
         self.neo = NEOCluster(**kw)
