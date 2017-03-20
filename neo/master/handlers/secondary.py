@@ -26,10 +26,11 @@ class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        assert node is not None
-        node.setDown()
-        self.app.broadcastNodesInformation([node])
+        app = self.app
+        if app.listening_conn: # if running
+            node = app.nm.getByUUID(conn.getUUID())
+            node.setDown()
+            app.broadcastNodesInformation([node])
 
     def announcePrimary(self, conn):
         raise ElectionFailure, 'another primary arises'
@@ -45,12 +46,12 @@ class PrimaryHandler(EventHandler):
     """ Handler used by secondaries to handle primary master"""
 
     def connectionLost(self, conn, new_state):
-        self.app.primary_master_node.setDown()
-        raise PrimaryFailure, 'primary master is dead'
+        self.connectionFailed(conn)
 
     def connectionFailed(self, conn):
         self.app.primary_master_node.setDown()
-        raise PrimaryFailure, 'primary master is dead'
+        if self.app.listening_conn: # if running
+            raise PrimaryFailure('primary master is dead')
 
     def connectionCompleted(self, conn):
         app = self.app
