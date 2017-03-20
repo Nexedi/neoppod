@@ -103,6 +103,8 @@ out:
 
 // DumpTxn dumps one transaction record
 func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IStorageRecordIterator) error {
+	var datai *zodb.StorageRecordInformation
+
 	// LF in-between txn records
 	vskip := "\n"
 	if !d.afterFirst {
@@ -118,7 +120,7 @@ func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IStorageRecordIterato
 
 	// data records
 	for {
-		datai, err := dataIter.NextData()
+		datai, err = dataIter.NextData()
 		if err != nil {
 			if err == io.EOF {
 				err = nil	// XXX -> okEOF ?

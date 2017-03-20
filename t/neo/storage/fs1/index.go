@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"os"
 	"strconv"
@@ -68,7 +69,7 @@ const (
 
 // IndexSaveError is the error type returned by index save routines
 type IndexSaveError struct {
-	Err error // error that occured during the operation
+	Err error // error that occurred during the operation
 }
 
 func (e *IndexSaveError) Error() string {
@@ -190,6 +191,20 @@ func (e *IndexLoadError) Error() string {
 	return s
 }
 
+// xint64 tries to convert unpickled value to int64
+func xint64(xv interface{}) (v int64, ok bool) {
+	switch v := xv.(type) {
+	case int64:
+		return v, true
+	case *big.Int:
+		if v.IsInt64() {
+			return v.Int64(), true
+		}
+	}
+
+	return 0, false
+}
+
 // LoadIndex loads index from a reader
 func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 	var picklePos int64
@@ -207,9 +222,9 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 		if err != nil {
 			goto out
 		}
-		topPos, ok = xtopPos.(int64)
+		topPos, ok = xint64(xtopPos)
 		if !ok {
-			err = fmt.Errorf("topPos is %T  (expected int64)", xtopPos)
+			err = fmt.Errorf("topPos is %T:%v  (expected int64)", xtopPos, xtopPos)
 			goto out
 		}
 
@@ -366,7 +381,7 @@ func (r *BufReader) InputOffset() int64 {
 }
 
 // IOName returns a "filename" associated with io.Reader, io.Writer, net.Conn, ...
-// if name cannot be deterined - "" is returned.
+// if name cannot be determined - "" is returned.
 func IOName(f interface {}) string {
 	switch f := f.(type) {
 	case *os.File:
