@@ -241,7 +241,7 @@ class MTEventHandler(EventHandler):
                 self.dispatch(conn, packet, kw)
                 kw = {}
             if not (self.dispatcher.dispatch(conn, packet.getId(), packet, kw)
-                    or type(packet) is Packets.Pong):
+                    or type(packet) is Packets.Pong or conn.isClosed()):
                 raise ProtocolError('Unexpected response packet from %r: %r'
                                     % (conn, packet))
         else:
