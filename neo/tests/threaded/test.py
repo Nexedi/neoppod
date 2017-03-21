@@ -732,6 +732,7 @@ class Test(NEOThreadedTest):
             c.root()._p_changed = 1
             with Patch(storage.tm, lock=lambda *_: sys.exit()):
                 self.commitWithStorageFailure(cluster.client, t)
+            cluster.join((storage,))
             self.assertRaises(DatabaseFailure, storage.resetNode)
 
     @with_cluster(replicas=1)

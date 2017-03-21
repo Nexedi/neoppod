@@ -117,10 +117,6 @@ class Serialized(object):
     The epoll object of each node is hooked so that thread switching happens
     before polling for network activity. An extra epoll object is used to
     detect which node has a readable epoll object.
-
-    XXX: It seems wrong to rely only on epoll as way to know if there are
-         pending network messages. I had rare random failures due to tic()
-         returning prematurely.
     """
     check_timeout = False
 
@@ -169,7 +165,13 @@ class Serialized(object):
             p.set_trace(sys._getframe(3))
 
     @classmethod
-    def tic(cls, step=-1, check_timeout=(), quiet=False):
+    def tic(cls, step=-1, check_timeout=(), quiet=False,
+            # BUG: We overuse epoll as a way to know if there are pending
+            #      network messages. Sometimes, and this is more visible with
+            #      a single-core CPU, other threads are still busy and haven't
+            #      sent anything yet on the network. This causes tic() to
+            #      return prematurely. Passing a non-zero value is a hack.
+            timeout=0):
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
         with cls._tic_lock, cls.pdb():
@@ -189,7 +191,7 @@ class Serialized(object):
                 app.em.wakeup()
                 del app
             while step:
-                event_list = cls._epoll.poll(0)
+                event_list = cls._epoll.poll(timeout)
                 if not event_list:
                     break
                 step -= 1
@@ -259,7 +261,7 @@ class TestSerialized(Serialized):
                 r = self._epoll.poll(0)
                 if r:
                     return r
-                Serialized.tic(step=1)
+                Serialized.tic(step=1, timeout=.001)
             raise Exception("tic is looping forever")
         return self._epoll.poll(timeout)
 
@@ -593,7 +595,7 @@ class NEOCluster(object):
                 for i in TIC_LOOP:
                     if lock(False):
                         return True
-                    Serialized.tic(step=1, quiet=True)
+                    Serialized.tic(step=1, quiet=True, timeout=.001)
                 raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
@@ -841,13 +843,15 @@ class NEOCluster(object):
         self.neoctl.enableStorageList([x.uuid for x in storage_list])
         Serialized.tic()
         for node in storage_list:
-            assert self.getNodeState(node) == NodeStates.RUNNING
+            state = self.getNodeState(node)
+            assert state == NodeStates.RUNNING, state
 
     def join(self, thread_list, timeout=5):
         timeout += time.time()
         while thread_list:
-            assert time.time() < timeout, thread_list
-            Serialized.tic()
+            # Map with repr before that threads become unprintable.
+            assert time.time() < timeout, map(repr, thread_list)
+            Serialized.tic(timeout=.001)
             thread_list = [t for t in thread_list if t.is_alive()]
 
     def getNodeState(self, node):
