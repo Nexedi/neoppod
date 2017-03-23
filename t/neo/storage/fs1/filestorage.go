@@ -812,7 +812,7 @@ const (
 
 // txnIter is iterator over transaction records
 type txnIter struct {
-	fs *FileStorage
+	fsSeq *SeqBufReader
 
 	Txnh	TxnHeader	// current transaction information
 	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on .dir
@@ -822,7 +822,7 @@ type txnIter struct {
 
 // dataIter is iterator over data records inside one transaction
 type dataIter struct {
-	fs *FileStorage
+	fsSeq *SeqBufReader
 
 	Txnh	*TxnHeader	// header of transaction we are iterating inside
 	Datah	DataHeader
@@ -852,9 +852,9 @@ func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 	default:
 		var err error
 		if ti.Flags & iterDir != 0 {
-			err = ti.Txnh.LoadNext(ti.fs.file, flags)
+			err = ti.Txnh.LoadNext(ti.fsSeq, flags)
 		} else {
-			err = ti.Txnh.LoadPrev(ti.fs.file, flags)
+			err = ti.Txnh.LoadPrev(ti.fsSeq, flags)
 		}
 		// XXX EOF ^^^ is not expected (range pre-cut to valid tids) ?
 
@@ -877,7 +877,7 @@ func (ti *txnIter) NextTxn(flags TxnLoadFlags) error {
 }
 
 func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
-	err := di.Datah.LoadNext(di.fs.file, di.Txnh)
+	err := di.Datah.LoadNext(di.fsSeq, di.Txnh)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
@@ -887,7 +887,7 @@ func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
 
 	dh := di.Datah
 	di.sri.Data = di.dataBuf
-	err = dh.LoadData(di.fs.file, &di.sri.Data)
+	err = dh.LoadData(di.fsSeq, &di.sri.Data)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
@@ -927,8 +927,11 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 	// XXX naming
 	Iter := iterator{}
-	Iter.txnIter.fs = fs
-	Iter.dataIter.fs = fs
+
+	// when iterating use IO optimized for sequential access
+	fsSeq := NewSeqBufReader(fs.file)
+	Iter.txnIter.fsSeq = fsSeq
+	Iter.dataIter.fsSeq = fsSeq
 	Iter.dataIter.Txnh = &Iter.txnIter.Txnh
 
 	if tidMin > tidMax {
