@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -17,9 +16,12 @@ func pyQuote(s string) string {
 	return mem.String(out)
 }
 
+
+const hex = "0123456789abcdef"
+
 func pyQuoteBytes(b []byte) []byte {
 	s := mem.String(b)
-	buf := make([]byte, 0, len(s))
+	buf := make([]byte, 0, len(s) + 2/*quotes*/)
 
 	// smartquotes: choose ' or " as quoting character
 	// https://github.com/python/cpython/blob/v2.7.13-116-g1aa1803b3d/Objects/stringobject.c#L947
@@ -34,7 +36,7 @@ func pyQuoteBytes(b []byte) []byte {
 	for i, r := range s {
 		switch r {
 		case utf8.RuneError:
-			buf = append(buf, []byte(fmt.Sprintf("\\x%02x", s[i]))...)
+			buf = append(buf, '\\', 'x', hex[s[i]>>4], hex[s[i]&0xf])
 		case '\\', rune(quote):
 			buf = append(buf, '\\', byte(r))
 		case rune(noquote):
@@ -53,7 +55,7 @@ func pyQuoteBytes(b []byte) []byte {
 			switch {
 			case r < ' ':
 				// we already converted to \<letter> what python represents as such above
-				buf = append(buf, []byte(fmt.Sprintf("\\x%02x", s[i]))...)
+				buf = append(buf, '\\', 'x', hex[s[i]>>4], hex[s[i]&0xf])
 
 			default:
 				// we already handled ', " and (< ' ') above, so now it
