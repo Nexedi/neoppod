@@ -20,7 +20,7 @@ func pyQuote(s string) string {
 const hex = "0123456789abcdef"
 
 func pyQuoteBytes(b []byte) []byte {
-	buf := make([]byte, 0, len(b) + 2/*quotes*/)	// XXX revisit and do *1.5 ?  or *2
+	buf := make([]byte, 0, (len(b) + 2) /* to reduce allocations when quoting */ * 2)
 
 	// smartquotes: choose ' or " as quoting character
 	// https://github.com/python/cpython/blob/v2.7.13-116-g1aa1803b3d/Objects/stringobject.c#L947
