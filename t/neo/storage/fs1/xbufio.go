@@ -38,27 +38,26 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 func (sb *SeqBufReader) readFromBuf(p []byte, pos int64) (int, []byte, int64) {
 	n := 0
 
-	switch {
 	// use buffered data: start + forward
-	case pos >= sb.pos && pos < sb.pos + int64(len(sb.buf)):
+	if sb.pos <= pos && pos < sb.pos + int64(len(sb.buf)) {
 		n = copy(p, sb.buf[pos - sb.pos:]) // NOTE len(p) can be < len(sb[copyPos:])
 		p = p[n:]
 		pos += int64(n)
 
 	// use buffered data: tail + backward
-	case pos + int64(len(p)) > sb.pos && pos + int64(len(p)) <= sb.pos + int64(len(sb.buf)):
-		// here we know pos is < sb.pos
+	} else if posAfter := pos + int64(len(p));
+		len(p) != 0 &&
+		sb.pos < posAfter && posAfter <= sb.pos + int64(len(sb.buf)) {
+		// here we know pos < sb.pos
 		//
 		// proof: consider if pos >= sb.pos.
-		// Then from `pos + len(p) > sb.pos` above it follows that:
-		//   len(p) = 0  only if  pos > sb.pos
 		// Then from `pos <= sb.pos + len(sb.buf) - len(p)` above it follow that:
-		//   pos < sb.pos + len(sb.buf)  (NOTE strictly < because if len(p) = 0
-		// FIXME ^^^
+		//   `pos < sb.pos + len(sb.buf)`  (NOTE strictly < because if len(p) > 0)
+		// and we come to condition which is used in `start + forward` if
 
 		n = copy(p[sb.pos - pos:], sb.buf) // NOTE n == len(p[sb.pos - pos:])
 		p = p[:sb.pos - pos]
-		// pos to read stays the same
+		// pos for actual read stays the same
 	}
 
 	return n, p, pos
@@ -84,13 +83,12 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	// when there were big read requests which don't go through buffer, sb.pos remains not updated
 	// and this, on direction change, can result on 1 buffered read in the wrong direction
 	var xpos int64
-	if pos > sb.pos {
+	if pos >= sb.pos {
 		// forward
 		xpos = pos
 	} else {
 		// backward
-		//xpos = max64(pos - cap(sb.buf), 0)
-		xpos = pos - int64(cap(sb.buf))
+		xpos = pos + int64(len(p)) - int64(cap(sb.buf))
 		if xpos < 0 {
 			xpos = 0
 		}
