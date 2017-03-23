@@ -13,11 +13,11 @@ import (
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
 // XXX -> xbufio.SeqReader
 type SeqBufReader struct {
-	r io.ReaderAt
-
 	// buffer for data at pos. cap(buf) - whole buffer capacity
-	pos	int64
 	buf	[]byte
+	pos	int64
+
+	r io.ReaderAt
 }
 
 // TODO text about syscall / memcpy etc
@@ -95,8 +95,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 		}
 	}
 
-	buf := sb.buf[:cap(sb.buf)]
-	nn, err := sb.r.ReadAt(buf, xpos)
+	nn, err := sb.r.ReadAt(sb.buf[:cap(sb.buf)], xpos)
 
 	// nothing read - just return the error
 	if nn == 0 {
@@ -105,7 +104,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 
 	// even if there was an error, but data partly read, we remember it in the buffer
 	sb.pos = xpos
-	sb.buf = buf[:nn]
+	sb.buf = sb.buf[:nn]
 
 	// here we know:
 	// - some data was read
