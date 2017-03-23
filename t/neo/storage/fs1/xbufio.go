@@ -8,6 +8,8 @@ import (
 	"io"
 )
 
+// FIXME things are not so good with fstail (backward iteration in lock-step)
+
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
 // XXX -> xbufio.SeqReader
 type SeqBufReader struct {
