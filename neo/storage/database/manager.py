@@ -57,7 +57,7 @@ class DatabaseManager(object):
     _deferred = 0
     _duplicating = _repairing = None
 
-    def __init__(self, database, engine=None, wait=0):
+    def __init__(self, database, engine=None, wait=None):
         """
             Initialize the object.
         """
@@ -66,7 +66,9 @@ class DatabaseManager(object):
                 raise ValueError("Unsupported engine: %r not in %r"
                                  % (engine, self.ENGINES))
             self._engine = engine
-        self._wait = wait
+        # XXX: Maybe the default should be to retry indefinitely.
+        #      But for unit tests, we really want to never retry.
+        self._wait = wait or 0
         self._parse(database)
         self._connect()
 
