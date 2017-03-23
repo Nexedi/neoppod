@@ -208,6 +208,10 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 				t.Fatal("unexpected datai pointer")
 			}
 
+			// compare data headers modulo .workMem
+			// (workMem is not initialized in _1fs_dbEntryv)
+			fsi.dataIter.Datah.workMem = dh.workMem
+
 			if !reflect.DeepEqual(fsi.dataIter.Datah, dh) {
 				dataErrorf("unexpected data entry:\nhave: %q\nwant: %q", fsi.dataIter.Datah, dh)
 			}

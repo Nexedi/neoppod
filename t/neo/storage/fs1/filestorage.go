@@ -75,6 +75,9 @@ type DataHeader struct {
 	//DataRecPos      uint64  // if Data == nil -> byte position of data record containing data
 
 	// XXX include word0 ?
+
+	// underlying memory for header loading (to avoid allocations)
+	workMem [DataHeaderSize]byte
 }
 
 const (
@@ -444,7 +447,7 @@ func (dh *DataHeader) Len() int64 {
 // load reads and decodes data record header
 // pos: points to data header start
 // no prerequisite requirements are made to previous dh state
-func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[DataHeaderSize]byte) error {
+func (dh *DataHeader) Load(r io.ReaderAt /* *os.File */, pos int64) error {
 	dh.Pos = pos
 	// XXX .Len = 0		= read error ?
 
@@ -452,20 +455,20 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 		bug(dh, "Load() on invalid position")
 	}
 
-	_, err := r.ReadAt(tmpBuf[:], pos)
+	_, err := r.ReadAt(dh.workMem[:], pos)
 	if err != nil {
 		return dh.err("read", noEOF(err))
 	}
 
 	// XXX also check oid.Valid() ?
-	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(tmpBuf[0:]))	// XXX -> zodb.Oid.Decode() ?
-	dh.Tid = zodb.Tid(binary.BigEndian.Uint64(tmpBuf[8:]))	// XXX -> zodb.Tid.Decode() ?
+	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(dh.workMem[0:]))	// XXX -> zodb.Oid.Decode() ?
+	dh.Tid = zodb.Tid(binary.BigEndian.Uint64(dh.workMem[8:]))	// XXX -> zodb.Tid.Decode() ?
 	if !dh.Tid.Valid() {
 		return decodeErr(dh, "invalid tid: %v", dh.Tid)
 	}
 
-	dh.PrevRevPos = int64(binary.BigEndian.Uint64(tmpBuf[16:]))
-	dh.TxnPos = int64(binary.BigEndian.Uint64(tmpBuf[24:]))
+	dh.PrevRevPos = int64(binary.BigEndian.Uint64(dh.workMem[16:]))
+	dh.TxnPos = int64(binary.BigEndian.Uint64(dh.workMem[24:]))
 	if dh.TxnPos < txnValidFrom {
 		return decodeErr(dh, "invalid txn position: %v", dh.TxnPos)
 	}
@@ -482,24 +485,18 @@ func (dh *DataHeader) load(r io.ReaderAt /* *os.File */, pos int64, tmpBuf *[Dat
 		}
 	}
 
-	verlen := binary.BigEndian.Uint16(tmpBuf[32:])
+	verlen := binary.BigEndian.Uint16(dh.workMem[32:])
 	if verlen != 0 {
 		return decodeErr(dh, "non-zero version: #%v", verlen)
 	}
 
-	dh.DataLen = int64(binary.BigEndian.Uint64(tmpBuf[34:]))
+	dh.DataLen = int64(binary.BigEndian.Uint64(dh.workMem[34:]))
 	if dh.DataLen < 0 {
 		// XXX also check DataLen < max ?
 		return decodeErr(dh, "invalid data len: %v", dh.DataLen)
 	}
 
 	return nil
-}
-
-// XXX do we need Load when load() is there?
-func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
-	var tmpBuf [DataHeaderSize]byte
-	return dh.load(r, pos, &tmpBuf)
 }
 
 // LoadPrevRev reads and decodes previous revision data record header
@@ -827,6 +824,11 @@ type dataIter struct {
 	Txnh	*TxnHeader	// header of transaction we are iterating inside
 	Datah	DataHeader
 
+	// data header for data loading
+	// XXX need to use separate dh because x.LoadData() changes x state while going through backpointers.
+	// XXX here to avoid allocations
+	dhLoading DataHeader
+
 	sri	zodb.StorageRecordInformation // ptr to this will be returned by NextData
 	dataBuf	[]byte
 }
@@ -885,9 +887,11 @@ func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
 	di.sri.Oid = di.Datah.Oid
 	di.sri.Tid = di.Datah.Tid
 
-	dh := di.Datah
+	// NOTE dh.LoadData() changes dh state while going through backpointers -
+	// - need to use separate dh because of this
+	di.dhLoading = di.Datah
 	di.sri.Data = di.dataBuf
-	err = dh.LoadData(di.fsSeq, &di.sri.Data)
+	err = di.dhLoading.LoadData(di.fsSeq, &di.sri.Data)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
@@ -897,7 +901,7 @@ func (di *dataIter) NextData() (*zodb.StorageRecordInformation, error) {
 		di.dataBuf = di.sri.Data
 	}
 
-	di.sri.DataTid = dh.Tid
+	di.sri.DataTid = di.dhLoading.Tid
 	return &di.sri, nil
 }
 
