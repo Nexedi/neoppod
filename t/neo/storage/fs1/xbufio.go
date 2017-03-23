@@ -70,7 +70,30 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	}
 
 	// try to satisfy read request via (partly) reading from buffer
-	n, p, pos = sb.readFromBuf(p, pos)
+	//n, p, pos = sb.readFromBuf(p, pos)
+// ---- 8< ---- (inlined readFromBuf)
+	// use buffered data: start + forward
+	if sb.pos <= pos && pos < sb.pos + int64(len(sb.buf)) {
+		n = copy(p, sb.buf[pos - sb.pos:]) // NOTE len(p) can be < len(sb[copyPos:])
+		p = p[n:]
+		pos += int64(n)
+
+	// use buffered data: tail + backward
+	} else if posAfter := pos + int64(len(p));
+		len(p) != 0 &&
+		sb.pos < posAfter && posAfter <= sb.pos + int64(len(sb.buf)) {
+		// here we know pos < sb.pos
+		//
+		// proof: consider if pos >= sb.pos.
+		// Then from `pos <= sb.pos + len(sb.buf) - len(p)` above it follow that:
+		//   `pos < sb.pos + len(sb.buf)`  (NOTE strictly < because if len(p) > 0)
+		// and we come to condition which is used in `start + forward` if
+
+		n = copy(p[sb.pos - pos:], sb.buf) // NOTE n == len(p[sb.pos - pos:])
+		p = p[:sb.pos - pos]
+		// pos for actual read stays the same
+	}
+// ---- 8< ----
 
 	// if all was read from buffer - we are done
 	if len(p) == 0 {
@@ -111,7 +134,30 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	// - len(p) < cap(sb.buf)
 	// - there is overlap in between pos/p vs sb.pos/sb.buf
 	// try to read again what is left to read from the buffer
-	nn, p, pos = sb.readFromBuf(p, pos)
+//	nn, p, pos = sb.readFromBuf(p, pos)
+// ---- 8< ---- (inlined readFromBuf)
+	// use buffered data: start + forward
+	if sb.pos <= pos && pos < sb.pos + int64(len(sb.buf)) {
+		nn = copy(p, sb.buf[pos - sb.pos:]) // NOTE len(p) can be < len(sb[copyPos:])
+		p = p[nn:]
+		pos += int64(nn)
+
+	// use buffered data: tail + backward
+	} else if posAfter := pos + int64(len(p));
+		len(p) != 0 &&
+		sb.pos < posAfter && posAfter <= sb.pos + int64(len(sb.buf)) {
+		// here we know pos < sb.pos
+		//
+		// proof: consider if pos >= sb.pos.
+		// Then from `pos <= sb.pos + len(sb.buf) - len(p)` above it follow that:
+		//   `pos < sb.pos + len(sb.buf)`  (NOTE strictly < because if len(p) > 0)
+		// and we come to condition which is used in `start + forward` if
+
+		nn = copy(p[sb.pos - pos:], sb.buf) // NOTE nn == len(p[sb.pos - pos:])
+		p = p[:sb.pos - pos]
+		// pos for actual read stays the same
+	}
+// ---- 8< ----
 	n += nn
 
 	// if there was an error - we can skip it if original read request was
