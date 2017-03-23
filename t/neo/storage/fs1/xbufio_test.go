@@ -9,8 +9,6 @@ import (
 	"errors"
 	"io"
 	"testing"
-
-	//"fmt"
 )
 
 
@@ -38,7 +36,6 @@ func (r *XReader) ReadAt(p []byte, pos int64) (n int, err error) {
 		err = io.EOF
 	}
 
-	//fmt.Printf("xread @%v #%v -> %v %#v\n", pos0, len(p), p[:n], err)
 	return n, err
 }
 
@@ -60,29 +57,22 @@ func TestSeqBufReader(t *testing.T) {
 		{101, 5, 92,  8},	// EIO again
 		{105, 5, 105, 10},	// past EIO range - buffer refilled
 		{110,70, 105, 10},	// very big access forward, buf untouched
-		{180,11, 105, 10},	// big access ~ forward
-		// TODO access near EOF - buffer fill hits EOF, but not returns it to client
-		// TODO access overlapping EOF - EOF returned
+		{180,70, 105, 10},	// big access ~ forward
 		{170,11, 105, 10},	// big access backward
 		{160,11, 105, 10},	// big access backward, once more
 		{155, 5, 155, 10},	// access backward - buffer refilled
 					// XXX refilled forward first time after big backward readings
 		{150, 5, 145, 10},	// next access backward - buffer refilled backward
+		{143, 7, 135, 10},	// backward once again - buffer refilled backward
 
-		// big backward
-		// small backward - refilled backward
-
-		// XXX big access going backward - detect dir change
-
-		// TODO overlap
-
+		{250, 4, 250,  6},	// access near EOF - buffer fill hits EOF, but not returns it to client
+		{254, 5, 250,  6},	// access overlapping EOF - EOF returned
 	}
 
 	for _, tt := range testv {
 		pOk := make([]byte, tt.Len)
 		pB  := make([]byte, tt.Len)
 
-		//fmt.Println("\n", tt)
 		nOk, errOk := r.ReadAt(pOk, tt.pos)
 		nB,  errB  := rb.ReadAt(pB, tt.pos)
 
