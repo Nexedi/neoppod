@@ -3,8 +3,8 @@
 package main
 
 import (
+	"bytes"
 	"strconv"
-	"strings"
 	"unicode/utf8"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -20,23 +20,24 @@ func pyQuote(s string) string {
 const hex = "0123456789abcdef"
 
 func pyQuoteBytes(b []byte) []byte {
-	s := mem.String(b)
-	buf := make([]byte, 0, len(s) + 2/*quotes*/)
+	buf := make([]byte, 0, len(b) + 2/*quotes*/)	// XXX revisit and do *1.5 ?  or *2
 
 	// smartquotes: choose ' or " as quoting character
 	// https://github.com/python/cpython/blob/v2.7.13-116-g1aa1803b3d/Objects/stringobject.c#L947
 	quote := byte('\'')
 	noquote := byte('"')
-	if strings.ContainsRune(s, '\'') && !strings.ContainsRune(s, '"') {
+	if bytes.ContainsRune(b, '\'') && !bytes.ContainsRune(b, '"') {
 		quote, noquote = noquote, quote
 	}
 
 	buf = append(buf, quote)
 
-	for i, r := range s {
+	for len(b) > 0 {
+		r, size := utf8.DecodeRune(b)
+
 		switch r {
 		case utf8.RuneError:
-			buf = append(buf, '\\', 'x', hex[s[i]>>4], hex[s[i]&0xf])
+			buf = append(buf, '\\', 'x', hex[b[0]>>4], hex[b[0]&0xf])
 		case '\\', rune(quote):
 			buf = append(buf, '\\', byte(r))
 		case rune(noquote):
@@ -55,7 +56,11 @@ func pyQuoteBytes(b []byte) []byte {
 			switch {
 			case r < ' ':
 				// we already converted to \<letter> what python represents as such above
-				buf = append(buf, '\\', 'x', hex[s[i]>>4], hex[s[i]&0xf])
+				buf = append(buf, '\\', 'x', hex[b[0]>>4], hex[b[0]&0xf])
+
+			case strconv.IsPrint(r):
+				// shortcut to avoid calling QuoteRune
+				buf = append(buf, b[:size]...)
 
 			default:
 				// we already handled ', " and (< ' ') above, so now it
@@ -65,6 +70,8 @@ func pyQuoteBytes(b []byte) []byte {
 				buf = append(buf, rq...)
 			}
 		}
+
+		b = b[size:]
 	}
 
 	buf = append(buf, quote)
