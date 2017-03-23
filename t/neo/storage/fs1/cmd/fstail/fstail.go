@@ -128,12 +128,12 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 	txnh := fs1.TxnHeader{}
 	data := []byte{}
 
-
-	// TODO use SeqBufReader instead of f and check speedup
+	// use sequential IO buffer
+	fSeq := fs1.NewSeqBufReader(f)
 
 	// start iterating at tail.
 	// this should get EOF but read txnh.LenPrev ok.
-	err = txnh.Load(f, topPos, fs1.LoadAll)
+	err = txnh.Load(fSeq, topPos, fs1.LoadAll)
 	if err != io.EOF {
 		if err == nil {
 			// XXX or allow this?
@@ -150,7 +150,7 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 
 	// now loop loading transactions backwards until EOF / ntxn limit
 	for i := ntxn; i > 0; i-- {
-		err = txnh.LoadPrev(f, fs1.LoadAll)
+		err = txnh.LoadPrev(fSeq, fs1.LoadAll)
 		if err != nil {
 			if err == io.EOF {
 				err = nil	// XXX -> okEOF(err)
@@ -166,7 +166,7 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 			data = data[:dataLen]
 		}
 
-		_, err = f.ReadAt(data, txnh.DataPos())
+		_, err = fSeq.ReadAt(data, txnh.DataPos())
 		if err != nil {
 			// XXX -> txnh.Err(...) ?
 			// XXX err = noEOF(err)
