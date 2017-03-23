@@ -42,16 +42,20 @@ func TestSeqBufReader(t *testing.T) {
 	r := &XReader{}
 	rb := NewSeqBufReaderSize(r, 10) // with 10 it is easier to do/check math for a human
 
-	// read @pos/len -> rb.pos, len(rb.buf), rb.dir
-	testv := []struct {pos int64; Len int; bufPos int64; bufLen, bufDir int} {
-		{40,  5, 38, 10, 0},	// 1st access - symmetrically covered
-		{45,  5, 48, 10, +1},	// part taken from buf, part read next, forward detected
-		{50,  5, 48, 10, +1},	// everything taken from buf
-		{55,  5, 58, 10, +1},	// part taken from buf, part read next
-		{60, 10, 58, 10, +1},	// access bigger than buf
-		{70, 10, 58, 10, +1},	// access bigger than buf, once again
+	// read @pos/len -> rb.pos, len(rb.buf)		//, rb.dir
+	testv := []struct {pos int64; Len int; bufPos int64; bufLen int} {	//, bufDir int} {
+		{40,  5, 40, 10},	// 1st access, forward by default
+		{45,  7, 50, 10},	// part taken from buf, part read next, forward detected
+		{52,  5, 50, 10},	// everything taken from buf
+		{57,  5, 60, 10},	// part taken from buf, part read next
+		{60, 11, 60, 10},	// access > cap(buf)
+		{71, 11, 60, 10},	// access > cap(buf), once again
 
 		// XXX big access going backward - detect dir change
+
+		// TODO accees around and in error range
+
+		// TODO overlap
 
 	}
 
@@ -68,8 +72,8 @@ func TestSeqBufReader(t *testing.T) {
 		}
 
 		// verify buffer state
-		if !(rb.pos == tt.bufPos && len(rb.buf) == tt.bufLen && rb.dir == tt.bufDir) {
-			t.Fatalf("%v: -> unexpected buffer state @%v #%v %+d", tt, rb.pos, len(rb.buf), rb.dir)
+		if !(rb.pos == tt.bufPos && len(rb.buf) == tt.bufLen){ // && rb.dir == tt.bufDir) {
+			t.Fatalf("%v: -> unexpected buffer state @%v #%v", tt, rb.pos, len(rb.buf))	//, rb.dir)
 		}
 	}
 }

@@ -17,9 +17,9 @@ type SeqBufReader struct {
 	pos	int64
 	buf	[]byte
 
-	// detected io direction (0 - don't know yet, >0 - forward, <0 - backward)
-	// XXX strictly 0, +1, -1	?
-	dir	int
+	// // detected io direction (0 - don't know yet, >0 - forward, <0 - backward)
+	// // XXX strictly 0, +1, -1	?
+	// dir	int
 }
 
 const defaultSeqBufSize = 8192	// XXX retune - must be <= size(L1d) / 2
@@ -29,7 +29,7 @@ func NewSeqBufReader(r io.ReaderAt) *SeqBufReader {
 }
 
 func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
-	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size), dir: 0}
+	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size)} //, dir: 0}
 	return sb
 }
 
@@ -39,70 +39,48 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 func (sb *SeqBufReader) readFromBuf(p []byte, pos int64) (int, []byte, int64) {
 	n := 0
 
+	switch {
 	// use buffered data: start + forward
-	if pos >= sb.pos && pos < sb.pos + int64(len(sb.buf)) {
+	case pos >= sb.pos && pos < sb.pos + int64(len(sb.buf)):
 		copyPos := pos - sb.pos
 		n = copy(p, sb.buf[copyPos:]) // NOTE len(p) can be < len(sb[copyPos:])
 		p = p[n:]
 		pos += int64(n)
-		sb.dir = +1	// XXX recheck
-	}
+		//sb.dir = +1	// XXX recheck
 
-	// XXX use buffered data: tail + backward
-	if pos + int64(len(p)) <= sb.pos + int64(len(sb.buf)) && pos + int64(len(p)) > sb.pos {
+	// use buffered data: tail + backward
+	case pos + int64(len(p)) <= sb.pos + int64(len(sb.buf)) && pos + int64(len(p)) > sb.pos:
 		// TODO
-		sb.dir = -1	// XXX recheck
+		//sb.dir = -1	// XXX recheck
 	}
 
 	return n, p, pos
 
 }
 
-// XXX place
-func sign(x int64) int {
-	switch {
-	case x > 0:
-		return +1
-	case x < 0:
-		return -1
-	default:
-		return 0
-	}
-}
-
 func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	// if request size > buffer - read data directly
 	if len(p) > cap(sb.buf) {
-		sb.dir = sign(pos - sb.pos) // XXX recheck
 		return sb.r.ReadAt(p, pos)
 	}
 
 	n, p, pos = sb.readFromBuf(p, pos)
 
-	// all was read from buffer
+	// if all was read from buffer - we are done
 	if len(p) == 0 {
 		return n, nil
 	}
 
 	// otherwise we need to refill the buffer. determine range to read by current IO direction.
-	// XXX recheck .dir handling
+	//
+	// XXX strictly speaking it is better to compare pos vs pos(last-IO).
+	// when there were big read requests which don't go through buffer, sb.pos remains not updated
+	// and this, on direction change, can result on 1 buffered read in the wrong direction
 	var xpos int64
-	switch {
-	case sb.dir == 0:
-		// we don't know direction yet - usually it is first request.
-		// cover pos/p symmetrically. This way we will give hopefully
-		// give enough overlap for next read request to determine
-		// direction.
-		xpos = pos - int64(cap(sb.buf) - len(p)) / 2
-		if xpos < 0 {
-			xpos = 0
-		}
-
-	case sb.dir > 0:
+	if pos > sb.pos {
 		// forward
 		xpos = pos
-
-	default:
+	} else {
 		// backward
 		//xpos = max64(pos - cap(sb.buf), 0)
 		xpos = pos - int64(cap(sb.buf))
@@ -115,9 +93,11 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	nn, err := sb.r.ReadAt(buf, xpos)
 
 	// even if there was an error, e.g. after reading part, we remember data read in buffer
-	// XXX only `if nn > 0` ?
-	sb.pos = xpos
-	sb.buf = buf[:nn]
+	// XXX nn == 0 -> return err ?
+	if nn > 0 {
+		sb.pos = xpos
+		sb.buf = buf[:nn]
+	}
 
 	// here we know:
 	// - some data was read	XXX recheck
@@ -137,3 +117,17 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	// all done
 	return n, err
 }
+
+
+// XXX place ?
+func sign(x int64) int {
+	switch {
+	case x > 0:
+		return +1
+	case x < 0:
+		return -1
+	default:
+		return 0
+	}
+}
+
