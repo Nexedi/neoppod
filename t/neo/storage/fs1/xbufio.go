@@ -16,12 +16,9 @@ type SeqBufReader struct {
 	// buffer for data at pos. cap(buf) - whole buffer capacity
 	pos	int64
 	buf	[]byte
-
-	// // detected io direction (0 - don't know yet, >0 - forward, <0 - backward)
-	// // XXX strictly 0, +1, -1	?
-	// dir	int
 }
 
+// TODO text about syscall / memcpy etc
 const defaultSeqBufSize = 8192	// XXX retune - must be <= size(L1d) / 2
 
 func NewSeqBufReader(r io.ReaderAt) *SeqBufReader {
@@ -29,7 +26,7 @@ func NewSeqBufReader(r io.ReaderAt) *SeqBufReader {
 }
 
 func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
-	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size)} //, dir: 0}
+	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size)}
 	return sb
 }
 
@@ -70,6 +67,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 		return sb.r.ReadAt(p, pos)
 	}
 
+	// try to satisfy read request via (partly) reading from buffer
 	n, p, pos = sb.readFromBuf(p, pos)
 
 	// if all was read from buffer - we are done
@@ -79,9 +77,10 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 
 	// otherwise we need to refill the buffer. determine range to read by current IO direction.
 	//
-	// XXX strictly speaking it is better to compare pos vs pos(last-IO).
+	// XXX strictly speaking it is better to compare pos vs pos(last_IO).
 	// when there were big read requests which don't go through buffer, sb.pos remains not updated
-	// and this, on direction change, can result on 1 buffered read in the wrong direction
+	// and this, on direction change, can result on 1 buffered read in the wrong direction.
+	// but hopefully it is pretty minor and can be ignored.
 	var xpos int64
 	if pos >= sb.pos {
 		// forward
@@ -97,42 +96,31 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (n int, err error) {
 	buf := sb.buf[:cap(sb.buf)]
 	nn, err := sb.r.ReadAt(buf, xpos)
 
-	// even if there was an error, e.g. after reading part, we remember data read in buffer
-	// XXX nn == 0 -> return err ?
-	if nn > 0 {
-		sb.pos = xpos
-		sb.buf = buf[:nn]
+	// nothing read - just return the error
+	if nn == 0 {
+		return n, err
 	}
 
+	// even if there was an error, but data partly read, we remember it in the buffer
+	sb.pos = xpos
+	sb.buf = buf[:nn]
+
 	// here we know:
-	// - some data was read	XXX recheck
+	// - some data was read
 	// - len(p) < cap(sb.buf)
-	// - there is overlap in between pos/p vs sb.pos/sb.buf	XXX recheck
+	// - there is overlap in between pos/p vs sb.pos/sb.buf
 	// try to read again what is left to read from the buffer
 	nn, p, pos = sb.readFromBuf(p, pos)
 	n += nn
 
-	// now if there was an error - we can skip it if original read request
-	// was completely satisfied
+	// if there was an error - we can skip it if original read request was
+	// completely satisfied
 	if len(p) == 0 {
-		// XXX preserve EOF at ends? - not needed per ReaderAt interface
+		// NOTE not preserving EOF at ends - not needed per ReaderAt
+		// interface.
 		err = nil
 	}
 
 	// all done
 	return n, err
 }
-
-
-// XXX place ?
-func sign(x int64) int {
-	switch {
-	case x > 0:
-		return +1
-	case x < 0:
-		return -1
-	default:
-		return 0
-	}
-}
-

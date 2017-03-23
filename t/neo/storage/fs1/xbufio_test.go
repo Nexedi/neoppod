@@ -67,6 +67,8 @@ func TestSeqBufReader(t *testing.T) {
 
 		{250, 4, 250,  6},	// access near EOF - buffer fill hits EOF, but not returns it to client
 		{254, 5, 250,  6},	// access overlapping EOF - EOF returned
+		{256, 1, 250,  6},	// access past EOF -> EOF
+		{257, 1, 250,  6},	// ----//----
 	}
 
 	for _, tt := range testv {
