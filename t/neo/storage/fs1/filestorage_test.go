@@ -80,7 +80,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 	}
 }
 
-func xfsopen(t *testing.T, path string) *FileStorage {
+func xfsopen(t testing.TB, path string) *FileStorage {
 	fs, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -264,4 +264,43 @@ func TestIterate(t *testing.T) {
 
 	// also check 0..tidMax
 	testIterate(t, fs, 0, zodb.TidMax, _1fs_dbEntryv[:])
+}
+
+func BenchmarkIterate(b *testing.B) {
+	fs := xfsopen(b, "testdata/1.fs")	// TODO open ro
+	defer exc.XRun(fs.Close)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		iter := fs.Iterate(zodb.Tid(0), zodb.TidMax)
+
+		for {
+			txni, dataIter, err := iter.NextTxn()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				b.Fatal(err)
+			}
+
+			// use txni
+			_ = txni.Tid
+
+			for {
+				datai, err := dataIter.NextData()
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					b.Fatal(err)
+				}
+
+				// use datai
+				_ = datai.Data
+			}
+
+		}
+	}
+
+	b.StopTimer()
 }

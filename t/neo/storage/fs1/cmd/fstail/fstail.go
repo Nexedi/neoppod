@@ -128,6 +128,9 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 	txnh := fs1.TxnHeader{}
 	data := []byte{}
 
+
+	// TODO use SeqBufReader instead of f and check speedup
+
 	// start iterating at tail.
 	// this should get EOF but read txnh.LenPrev ok.
 	err = txnh.Load(f, topPos, fs1.LoadAll)

@@ -29,7 +29,7 @@ func diff(a, b string) string {
 	return dmp.DiffPrettyText(diffv)
 }
 
-func TestFsDump(t *testing.T) {
+func TestFsTail(t *testing.T) {
 	buf := bytes.Buffer{}
 
 	err := fsTail(&buf, "../../testdata/1.fs", 1000000)
@@ -41,5 +41,14 @@ func TestFsDump(t *testing.T) {
 
 	if dumpOk != buf.String() {
 		t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
+	}
+}
+
+func BenchmarkFsTail(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		err := fsTail(ioutil.Discard, "../../testdata/1.fs", 1000000)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
