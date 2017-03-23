@@ -20,7 +20,6 @@ type XReader struct {
 var EIO = errors.New("input/output error")
 
 func (r *XReader) ReadAt(p []byte, pos int64) (n int, err error) {
-	//pos0 := pos
 	for n < len(p) && pos < 0x100 {
 		if 100 <= pos && pos <= 104 {
 			err = EIO
