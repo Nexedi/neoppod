@@ -35,23 +35,30 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 
 // readFromBuf reads as much as possible for ReadAt(p, pos) request from buffered data
 // it returns nread and (p', pos') that was left for real reading to complete
-// XXX dir?
 func (sb *SeqBufReader) readFromBuf(p []byte, pos int64) (int, []byte, int64) {
 	n := 0
 
 	switch {
 	// use buffered data: start + forward
 	case pos >= sb.pos && pos < sb.pos + int64(len(sb.buf)):
-		copyPos := pos - sb.pos
-		n = copy(p, sb.buf[copyPos:]) // NOTE len(p) can be < len(sb[copyPos:])
+		n = copy(p, sb.buf[pos - sb.pos:]) // NOTE len(p) can be < len(sb[copyPos:])
 		p = p[n:]
 		pos += int64(n)
-		//sb.dir = +1	// XXX recheck
 
 	// use buffered data: tail + backward
-	case pos + int64(len(p)) <= sb.pos + int64(len(sb.buf)) && pos + int64(len(p)) > sb.pos:
-		// TODO
-		//sb.dir = -1	// XXX recheck
+	case pos + int64(len(p)) > sb.pos && pos + int64(len(p)) <= sb.pos + int64(len(sb.buf)):
+		// here we know pos is < sb.pos
+		//
+		// proof: consider if pos >= sb.pos.
+		// Then from `pos + len(p) > sb.pos` above it follows that:
+		//   len(p) = 0  only if  pos > sb.pos
+		// Then from `pos <= sb.pos + len(sb.buf) - len(p)` above it follow that:
+		//   pos < sb.pos + len(sb.buf)  (NOTE strictly < because if len(p) = 0
+		// FIXME ^^^
+
+		n = copy(p[sb.pos - pos:], sb.buf) // NOTE n == len(p[sb.pos - pos:])
+		p = p[:sb.pos - pos]
+		// pos to read stays the same
 	}
 
 	return n, p, pos

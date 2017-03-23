@@ -42,18 +42,33 @@ func TestSeqBufReader(t *testing.T) {
 	r := &XReader{}
 	rb := NewSeqBufReaderSize(r, 10) // with 10 it is easier to do/check math for a human
 
-	// read @pos/len -> rb.pos, len(rb.buf)		//, rb.dir
-	testv := []struct {pos int64; Len int; bufPos int64; bufLen int} {	//, bufDir int} {
+	// read @pos/len -> rb.pos, len(rb.buf)
+	testv := []struct {pos int64; Len int; bufPos int64; bufLen int} {
 		{40,  5, 40, 10},	// 1st access, forward by default
-		{45,  7, 50, 10},	// part taken from buf, part read next, forward detected
+		{45,  7, 50, 10},	// part taken from buf, part read next, forward
 		{52,  5, 50, 10},	// everything taken from buf
 		{57,  5, 60, 10},	// part taken from buf, part read next
-		{60, 11, 60, 10},	// access > cap(buf)
+		{60, 11, 60, 10},	// access > cap(buf), buf skipped
 		{71, 11, 60, 10},	// access > cap(buf), once again
+		{82, 10, 82, 10},	// access = cap(buf), should refill buf
+		{92,  5, 92,  8},	// next access - should refill buffer, but only up to EIO range
+		{97,  4, 92,  8},	// this triggers user-visible EIO, buffer not refilled
+		{101, 5, 92,  8},	// EIO again
+		{105, 5, 105, 10},	// past EIO range - buffer refilled
+		{110,70, 105, 10},	// very big access forward, buf untouched
+		{180,11, 105, 10},	// big access ~ forward
+		// TODO access near EOF - buffer fill hits EOF, but not returns it to client
+		// TODO access overlapping EOF - EOF returned
+		{170,11, 105, 10},	// big access backward
+		{160,11, 105, 10},	// big access backward, once more
+		{155, 5, 155, 10},	// access backward - buffer refilled
+					// XXX refilled forward first time after big backward readings
+		{150, 5, 150, 10},	// next access backward - buffer refilled backward
+
+		// big backward
+		// small backward - refilled backward
 
 		// XXX big access going backward - detect dir change
-
-		// TODO accees around and in error range
 
 		// TODO overlap
 
@@ -66,14 +81,17 @@ func TestSeqBufReader(t *testing.T) {
 		nOk, errOk := r.ReadAt(pOk, tt.pos)
 		nB,  errB  := rb.ReadAt(pB, tt.pos)
 
+		pOk = pOk[:nOk]
+		pB  = pB[:nB]
+
 		// check that reading result is the same
-		if !(nB == nOk && errB == errOk && bytes.Equal(pB, pOk)) {
-			t.Fatalf("%v: -> %v, %#v, %v  ; want %v, %#v, %v", tt, nB, errB, pB, nOk, errOk, pOk)
+		if !(bytes.Equal(pB, pOk) && errB == errOk) {
+			t.Fatalf("%v: -> %v, %#v  ; want %v, %#v", tt, pB, errB, pOk, errOk)
 		}
 
 		// verify buffer state
-		if !(rb.pos == tt.bufPos && len(rb.buf) == tt.bufLen){ // && rb.dir == tt.bufDir) {
-			t.Fatalf("%v: -> unexpected buffer state @%v #%v", tt, rb.pos, len(rb.buf))	//, rb.dir)
+		if !(rb.pos == tt.bufPos && len(rb.buf) == tt.bufLen){
+			t.Fatalf("%v: -> unexpected buffer state @%v #%v", tt, rb.pos, len(rb.buf))
 		}
 	}
 }
