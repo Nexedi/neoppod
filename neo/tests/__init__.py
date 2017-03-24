@@ -409,9 +409,13 @@ class Patch(object):
 
     Usage:
 
-      with Patch(someObject, attrToPatch=newValue) as patch:
+      with Patch(someObject, [new,] attrToPatch=newValue) as patch:
         [... code that runs with patches ...]
       [... code that runs without patch ...]
+
+      The 'new' positional parameter defaults to False and it must be equal to
+         not hasattr(someObject, 'attrToPatch')
+      It is an assertion to detect when a Patch is obsolete.
 
       ' as patch' is optional: 'patch.revert()' can be used to revert patches
       in the middle of the 'with' clause.
@@ -424,7 +428,7 @@ class Patch(object):
       In this case, patches are automatically reverted when 'patch' is deleted.
 
     For patched callables, the new one receives the original value as first
-    argument.
+    argument if 'new' is True.
 
     Alternative usage:
 
@@ -448,16 +452,22 @@ class Patch(object):
             return self
         return patch
 
-    def __init__(self, patched, **patch):
+    def __init__(self, patched, *args, **patch):
+        new, = args or (0,)
         (name, patch), = patch.iteritems()
         self._patched = patched
         self._name = name
-        if callable(patch):
-            wrapped = getattr(patched, name, None)
-            func = patch
-            patch = lambda *args, **kw: func(wrapped, *args, **kw)
-            if callable(wrapped):
-                patch = wraps(wrapped)(patch)
+        try:
+            wrapped = getattr(patched, name)
+        except AttributeError:
+            assert new, (patched, name)
+        else:
+            assert not new, (patched, name)
+            if callable(patch):
+                  func = patch
+                  patch = lambda *args, **kw: func(wrapped, *args, **kw)
+                  if callable(wrapped):
+                      patch = wraps(wrapped)(patch)
         self._patch = patch
         try:
             orig = patched.__dict__[name]
