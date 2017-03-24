@@ -10,16 +10,28 @@ import (
 	"encoding/binary"
 
 	"lab.nexedi.com/kirr/go123/xstrings"
+
+	"../xcommon/xfmt"
 )
 
 func (tid Tid) String() string {
 	// XXX also print "tid:" prefix ?
-	return fmt.Sprintf("%016x", uint64(tid))
+	//return fmt.Sprintf("%016x", uint64(tid))
+	return string(tid.XFmtString(nil))
 }
 
 func (oid Oid) String() string {
 	// XXX also print "oid:" prefix ?
-	return fmt.Sprintf("%016x", uint64(oid))
+	//return fmt.Sprintf("%016x", uint64(oid))
+	return string(oid.XFmtString(nil))
+}
+
+func (tid Tid) XFmtString(b []byte) []byte {
+	return xfmt.AppendHex64(b, uint64(tid))
+}
+
+func (oid Oid) XFmtString(b []byte) []byte {
+	return xfmt.AppendHex64(b, uint64(oid))
 }
 
 // XXX move me out of here

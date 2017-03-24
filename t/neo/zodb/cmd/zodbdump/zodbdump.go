@@ -38,11 +38,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 
 	"../../../zodb"
 	"../../../storage/fs1"
-
-	"lab.nexedi.com/kirr/go123/mem"
+	"../../../xcommon/xfmt"
 )
 
 
@@ -52,29 +52,50 @@ type dumper struct {
 	HashOnly   bool		// whether to dump only hashes of data without content
 
 	afterFirst bool // true after first transaction has been dumped
+
+	workMem []byte // reusable data buffer for formatting
 }
+
+var _LF = []byte{'\n'}
+
 
 // DumpData dumps one data record
 func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
-	entry := "obj " + datai.Oid.String() + " "
+	buf := d.workMem[:0]
+
+	//entry := "obj " + datai.Oid.String() + " "
+	buf = append(buf, "obj "...)
+	buf = xfmt.Append(buf, &datai.Oid)
+	buf = append(buf, ' ')
+
 	writeData := false
 
 	switch {
 	case datai.Data == nil:
-		entry += "delete"
+		//entry += "delete"
+		buf = append(buf, "delete"...)
 
 	case datai.Tid != datai.DataTid:
-		entry += "from " + datai.DataTid.String()
+		//entry += "from " + datai.DataTid.String()
+		buf = append(buf, "from "...)
+		buf = xfmt.Append(buf, &datai.DataTid)
 
 	default:
-		entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
+		//entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
+		buf = strconv.AppendInt(buf, int64(len(datai.Data)), 10)
+		buf = append(buf, " sha1:"...)
+		dataSha1 := sha1.Sum(datai.Data)
+		buf = xfmt.AppendHex(buf, dataSha1[:])
+
 		writeData = true
 	}
 
-	entry += "\n"
+	//entry += "\n"
+	buf = append(buf, '\n')
 
 	// TODO use writev(data, "\n") via net.Buffers (it is already available)
-	_, err := d.W.Write(mem.Bytes(entry))
+	//_, err := d.W.Write(mem.Bytes(entry))
+	_, err := d.W.Write(buf)
 	if err != nil {
 		goto out
 	}
@@ -85,13 +106,15 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 			goto out
 		}
 
-		_, err = d.W.Write([]byte("\n"))
+		_, err = d.W.Write(_LF)
 		if err != nil {
 			goto out
 		}
 	}
 
 out:
+	d.workMem = buf
+
 	// XXX do we need this context ?
 	// see for rationale in similar place in DumpTxn
 	if err != nil {
