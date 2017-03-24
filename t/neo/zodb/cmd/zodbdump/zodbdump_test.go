@@ -55,9 +55,7 @@ func loadZdumpPy(t *testing.T, path string) string {
 	return string(dump)
 }
 
-
-func TestZodbDump(t *testing.T) {
-	buf := bytes.Buffer{}
+func withTestdata1Fs(t testing.TB, f func(fs *fs1.FileStorage)) {
 	fs, err := fs1.Open("../../../storage/fs1/testdata/1.fs")	// XXX read-only, path?
 	if err != nil {
 		t.Fatal(err)
@@ -65,14 +63,39 @@ func TestZodbDump(t *testing.T) {
 
 	defer exc.XRun(fs.Close)
 
-	err = zodbDump(&buf, fs, 0, zodb.TidMax, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f(fs)
+}
 
-	dumpOk := loadZdumpPy(t, "testdata/1.zdump.pyok")
+func TestZodbDump(t *testing.T) {
+	withTestdata1Fs(t, func(fs *fs1.FileStorage) {
+		buf := bytes.Buffer{}
 
-	if dumpOk != buf.String() {
-		t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
-	}
+		err := zodbDump(&buf, fs, 0, zodb.TidMax, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dumpOk := loadZdumpPy(t, "testdata/1.zdump.pyok")
+
+		if dumpOk != buf.String() {
+			t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
+		}
+	})
+}
+
+
+func BenchmarkZodbDump(b *testing.B) {
+	// FIXME small testdata/1.fs is not representative for benchmarking
+	withTestdata1Fs(b, func(fs *fs1.FileStorage) {
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			err := zodbDump(ioutil.Discard, fs, 0, zodb.TidMax, false)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+
+		b.StopTimer()
+	})
 }

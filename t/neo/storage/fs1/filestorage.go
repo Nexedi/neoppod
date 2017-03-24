@@ -19,11 +19,11 @@ package fs1
 import (
 	"encoding/binary"
 	"fmt"
-	"math/bits"
 	"io"
 	"os"
 
 	"../../zodb"
+	"../../xcommon/xmath"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file
@@ -315,7 +315,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 
 	// NOTE we encode whole strings length into len(.workMem)
 	if cap(txnh.workMem) < lstr {
-		txnh.workMem = make([]byte, lstr, ceilPow2(uint64(lstr)))
+		txnh.workMem = make([]byte, lstr, xmath.CeilPow2(uint64(lstr)))
 	} else {
 		txnh.workMem = txnh.workMem[:lstr]
 	}
@@ -635,12 +635,6 @@ func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 	return nil
 }
 
-// XXX move me out of here
-// ceilPow2 returns minimal y >= x, such as y = 2^i
-func ceilPow2(x uint64) uint64 {
-	return 1 << uint(bits.Len64(x))
-}
-
 // LoadData loads data for the data record taking backpointers into account
 // Data is loaded into *buf, which, if needed, is reallocated to hold all loading data size	XXX
 // NOTE on success dh state is changed to data header of original data transaction
@@ -660,9 +654,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error
 
 	// now read actual data
 	if int64(cap(*buf)) < dh.DataLen {
-		// ceilPow2 reduces much allocations but is still not enogh to
-		// remove them all from BenchmarkIterate
-		*buf = make([]byte, dh.DataLen, ceilPow2(uint64(dh.DataLen)))
+		*buf = make([]byte, dh.DataLen, xmath.CeilPow2(uint64(dh.DataLen)))
 	} else {
 		*buf = (*buf)[:dh.DataLen]
 	}

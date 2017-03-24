@@ -45,6 +45,7 @@ func TestFsTail(t *testing.T) {
 }
 
 func BenchmarkFsTail(b *testing.B) {
+	// FIXME small testdata/1.fs is not representative for benchmarking
 	for i := 0; i < b.N; i++ {
 		err := fsTail(ioutil.Discard, "../../testdata/1.fs", 1000000)
 		if err != nil {
