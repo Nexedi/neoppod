@@ -4,6 +4,8 @@ package main
 
 import (
 	"testing"
+
+	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // byterange returns []byte with element [start,stop)
@@ -39,21 +41,27 @@ var pyQuoteTestv = []struct {in, quoted string} {
 
 	// invalid utf-8
 	{"\xd0a", `'\xd0a'`},
+
+	// non-printable utf-8
+	{"\u007f\u0080\u0081\u0082\u0083\u0084\u0085\u0086\u0087", `'\x7f\xc2\x80\xc2\x81\xc2\x82\xc2\x83\xc2\x84\xc2\x85\xc2\x86\xc2\x87'`},
 }
 
 func TestPyQuote(t *testing.T) {
 	for _, tt := range pyQuoteTestv {
 		quoted := pyQuote(tt.in)
 		if quoted != tt.quoted {
-			t.Errorf("pyQuote(%q) -> %s  ; want %s", tt.in, quoted, tt.quoted)
+			t.Errorf("pyQuote(%q) ->\nhave: %s\nwant: %s", tt.in, quoted, tt.quoted)
 		}
 	}
 }
 
 func BenchmarkPyQuote(b *testing.B) {
+	buf := []byte{}
+
 	for i := 0; i < b.N; i++ {
 		for _, tt := range pyQuoteTestv {
-			pyQuote(tt.in)
+			buf = buf[:0]
+			buf = pyAppendQuoteBytes(buf, mem.Bytes(tt.in))
 		}
 	}
 }
