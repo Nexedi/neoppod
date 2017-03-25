@@ -38,7 +38,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 
 	"../../../zodb"
 	"../../../storage/fs1"
@@ -53,7 +52,7 @@ type dumper struct {
 
 	afterFirst bool // true after first transaction has been dumped
 
-	workMem []byte // reusable data buffer for formatting
+	xbuf xfmt.Buffer // reusable data buffer for formatting
 }
 
 var _LF = []byte{'\n'}
@@ -61,41 +60,36 @@ var _LF = []byte{'\n'}
 
 // DumpData dumps one data record
 func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
-	buf := d.workMem[:0]
+	xbuf := &d.xbuf
+	xbuf.Reset()
 
 	//entry := "obj " + datai.Oid.String() + " "
-	buf = append(buf, "obj "...)
-	buf = xfmt.Append(buf, &datai.Oid)
-	buf = append(buf, ' ')
+	xbuf .S("obj ") .V(&datai.Oid) .Cb(' ')
 
 	writeData := false
 
 	switch {
 	case datai.Data == nil:
 		//entry += "delete"
-		buf = append(buf, "delete"...)
+		xbuf.S("delete")
 
 	case datai.Tid != datai.DataTid:
 		//entry += "from " + datai.DataTid.String()
-		buf = append(buf, "from "...)
-		buf = xfmt.Append(buf, &datai.DataTid)
+		xbuf .S("from ") .V(&datai.DataTid)
 
 	default:
 		//entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
-		buf = strconv.AppendInt(buf, int64(len(datai.Data)), 10)
-		buf = append(buf, " sha1:"...)
 		dataSha1 := sha1.Sum(datai.Data)
-		buf = xfmt.AppendHex(buf, dataSha1[:])
+		xbuf .D(len(datai.Data)) .S(" sha1:") .Xb(dataSha1[:])
 
 		writeData = true
 	}
 
 	//entry += "\n"
-	buf = append(buf, '\n')
+	xbuf .Cb('\n')
 
 	// TODO use writev(data, "\n") via net.Buffers (it is already available)
-	//_, err := d.W.Write(mem.Bytes(entry))
-	_, err := d.W.Write(buf)
+	_, err := d.W.Write(xbuf.Bytes())
 	if err != nil {
 		goto out
 	}
@@ -106,6 +100,7 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 			goto out
 		}
 
+		// XXX maybe better to merge with next record ?
 		_, err = d.W.Write(_LF)
 		if err != nil {
 			goto out
@@ -113,8 +108,6 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 	}
 
 out:
-	d.workMem = buf
-
 	// XXX do we need this context ?
 	// see for rationale in similar place in DumpTxn
 	if err != nil {

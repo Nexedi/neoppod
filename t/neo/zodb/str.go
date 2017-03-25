@@ -27,11 +27,11 @@ func (oid Oid) String() string {
 }
 
 func (tid Tid) XFmtString(b []byte) []byte {
-	return xfmt.AppendHex64(b, uint64(tid))
+	return xfmt.AppendHex016(b, uint64(tid))
 }
 
 func (oid Oid) XFmtString(b []byte) []byte {
-	return xfmt.AppendHex64(b, uint64(oid))
+	return xfmt.AppendHex016(b, uint64(oid))
 }
 
 // XXX move me out of here
