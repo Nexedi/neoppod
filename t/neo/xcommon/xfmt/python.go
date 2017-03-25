@@ -1,6 +1,4 @@
-// XXX move me out of here
-
-package main
+package xmft
 
 import (
 	"bytes"
@@ -82,4 +80,17 @@ func pyAppendQuoteBytes(buf, b []byte) []byte {
 
 	buf = append(buf, quote)
 	return buf
+}
+
+
+// Qpy appends string quoted as Python would do
+func (b *Buffer) Qpy(s string) *Buffer {
+	*b = ...	// TODO
+	return b
+}
+
+// Qpyb appends []byte quoted as Python would do
+func (b *Buffer) Qpyb(x []byte) *Buffer {
+	*b = ...	// TODO
+	return b
 }

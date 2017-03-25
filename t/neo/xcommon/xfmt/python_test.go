@@ -1,6 +1,4 @@
-// XXX move me to common place
-
-package main
+package xfmt
 
 import (
 	"testing"

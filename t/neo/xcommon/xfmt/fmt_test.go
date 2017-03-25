@@ -80,3 +80,11 @@ func TestXFmt(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkFmt(t *testing.T) {
+	// TODO
+}
+
+func BenchmarkXFmt(t *testing.T) {
+	// TODO
+}

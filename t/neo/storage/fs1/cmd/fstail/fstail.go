@@ -30,6 +30,8 @@ import (
 	"os"
 
 	"../../../../storage/fs1"
+
+	"../../../../xcommon/xfmt"
 )
 
 
@@ -86,6 +88,9 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 		return fmt.Errorf("@%v: previous record could not be read", topPos)
 	}
 
+	// buffer for formatting
+	xbuf := xfmt.Buffer{}
+
 	// now loop loading transactions backwards until EOF / ntxn limit
 	for i := ntxn; i > 0; i-- {
 		err = txnh.LoadPrev(fSeq, fs1.LoadAll)
@@ -114,17 +119,30 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 		}
 
 		// print information about read txn record
-		_, err = fmt.Fprintf(w, "%s: hash=%x\nuser=%s description=%s length=%d offset=%d (+%d)\n\n",
-				txnh.Tid.Time(), sha1.Sum(data),
+		xbuf.Reset()
+		xbuf .S(txnh.Tid.Time()) .S("hash=") .X(sha1.Sum(data))
 
-				// fstail.py uses repr to print user/description:
-				// https://github.com/zopefoundation/ZODB/blob/5.2.0-4-g359f40ec7/src/ZODB/scripts/fstail.py#L39
-				pyQuoteBytes(txnh.User), pyQuoteBytes(txnh.Description),
+		// fstail.py uses repr to print user/description:
+		// https://github.com/zopefoundation/ZODB/blob/5.2.0-4-g359f40ec7/src/ZODB/scripts/fstail.py#L39
+		xbuf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
 
-				// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
-				txnh.Len - 8,
+		// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
+		xbuf .S(" length=") .D(txnh.Len - 8)
+		xbuf .S(" offset=") .D(txnh.Pos) .S(" (+") .D(txnh.HeaderLen()) .S(")\n\n")
 
-				txnh.Pos, txnh.HeaderLen())
+//		// print information about read txn record
+//		_, err = fmt.Fprintf(w, "%s: hash=%x\nuser=%s description=%s length=%d offset=%d (+%d)\n\n",
+//				txnh.Tid.Time(), sha1.Sum(data),
+//
+//				// fstail.py uses repr to print user/description:
+//				// https://github.com/zopefoundation/ZODB/blob/5.2.0-4-g359f40ec7/src/ZODB/scripts/fstail.py#L39
+//				pyQuoteBytes(txnh.User), pyQuoteBytes(txnh.Description),
+//
+//				// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
+//				txnh.Len - 8,
+//
+//				txnh.Pos, txnh.HeaderLen())
+		_, err = w.Write(xbuf.Bytes())
 		if err != nil {
 			break
 		}
