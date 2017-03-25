@@ -11,9 +11,24 @@ import (
 // verify formatting result is the same in between std fmt and xfmt
 func TestXFmt(t *testing.T) {
 	testv := []struct {format, xformatMeth string; value interface{}} {
-		{"%x",		"X",		[]byte("hello")},
-		{"%x",		"Xs",		"world"},
+		{"%c",		"Cb",		byte('A')},
+		{"%c",		"C",		rune(-1)},
+		{"%c",		"C",		'B'},		// 1-byte encoded
+		{"%c",		"C",		'и'},		// 2-bytes encoded
+		{"%c",		"C",		'\u20ac'},	// 3-bytes encoded
+		{"%c",		"C",		'\U00010001'},	// 4-bytes encoded
+
+		// TODO %q qb qr qs qcb qc
+
+		{"%s",		"S",		"hello"},
+		{"%s",		"Sb",		[]byte("world")},
+		{"%x",		"Xb",		[]byte("hexstring")},
+		{"%x",		"Xs",		"stringhex"},
+		{"%d",		"D",		12765},
+		{"%x",		"X",		12789},
 		{"%016x",	"X016",		uint64(124)},
+
+		// TODO .V
 	}
 
 	buf := &Buffer{}

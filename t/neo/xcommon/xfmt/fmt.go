@@ -6,6 +6,8 @@ package xfmt
 
 import (
 	"encoding/hex"
+	"strconv"
+	"unicode/utf8"
 
 	"../xslice"
 
@@ -32,6 +34,11 @@ func (b *Buffer) Reset() {
 	*b = (*b)[:0]
 }
 
+// Bytes returns buffer storage as []byte
+func (b Buffer) Bytes() []byte {
+	return []byte(b)
+}
+
 // Append appends to b formatted x
 //
 // NOTE sadly since x is interface it makes real value substituted to it
@@ -50,6 +57,51 @@ func (b *Buffer) V(x Stringer) *Buffer {
 	return b
 }
 
+// S appends string formatted by %s
+func (b *Buffer) S(s string) *Buffer {
+	*b = append(*b, s...)
+	return b
+}
+
+// Sb appends []byte formatted by %s
+func (b *Buffer) Sb(x []byte) *Buffer {
+	*b = append(*b, x...)
+	return b
+}
+
+// Cb appends byte formated by %c
+func (b *Buffer) Cb(c byte) *Buffer {
+	*b = append(*b, c)
+	return b
+}
+
+
+// AppendRune appends to be UTF-8 encoding of r
+func AppendRune(b []byte, r rune) []byte {
+	l := len(b)
+	b = xslice.Grow(b, utf8.UTFMax)
+	n := utf8.EncodeRune(b[l:], r)
+	return b[:l+n]
+}
+
+// C appends rune formatted by %c
+func (b *Buffer) C(r rune) *Buffer {
+	*b = AppendRune(*b, r)
+	return b
+}
+
+// D appends int formatted by %d
+func (b *Buffer) D(i int) *Buffer {
+	*b = strconv.AppendInt(*b, int64(i), 10)
+	return b
+}
+
+// X appends int formatted by %x
+func (b *Buffer) X(i int) *Buffer {
+	*b = strconv.AppendInt(*b, int64(i), 16)
+	return b
+}
+
 // AppendHex appends to b hex representation of x
 func AppendHex(b []byte, x []byte) []byte {
 	lx := hex.EncodedLen(len(x))
@@ -59,15 +111,15 @@ func AppendHex(b []byte, x []byte) []byte {
 	return b
 }
 
-// X, similarly to %x, adds hex representation of x
-func (b *Buffer) X(x []byte) *Buffer {
+// Xb appends []byte formatted by %x
+func (b *Buffer) Xb(x []byte) *Buffer {
 	*b = AppendHex(*b, x)
 	return b
 }
 
-// XXX do we need it here ?
+// Xs appends string formatted by %x
 func (b *Buffer) Xs(x string) *Buffer {
-	return b.X(mem.Bytes(x))
+	return b.Xb(mem.Bytes(x))
 }
 
 // TODO XX = %X
