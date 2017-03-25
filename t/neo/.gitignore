@@ -1,0 +1,7 @@
+out.mem
+out.cpu
+mem.out
+cpu.out
+
+# files after go test -c
+*.test
