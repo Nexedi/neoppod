@@ -1,7 +1,29 @@
-// TODO copyright/license
+// Copyright (C) 2017  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 2, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
 
-// Package xfmt provide addons to std fmt and strconv packages with focus on
+// Package xfmt provides addons to std fmt and strconv packages with focus on
 // formatting text without allocations.
+//
+// For example if in fmt speak you have
+//
+//	s := fmt.Sprintf("hello %q %d %x", "world", 1, []byte("data"))
+//
+// xfmt analog would be
+//
+//	xbuf := xfmt.Buffer{}
+//	xbuf .S("hello ") .Qs("world") .C(' ') .D(1) .C(' ') .Xb([]byte("data"))
+//	s := xbuf.Bytes()
+//
+// xfmt.Buffer can be reused several times via Buffer.Reset() .
 package xfmt
 
 import (
@@ -76,7 +98,7 @@ func (b *Buffer) Cb(c byte) *Buffer {
 }
 
 
-// AppendRune appends to be UTF-8 encoding of r
+// AppendRune appends to b UTF-8 encoding of r
 func AppendRune(b []byte, r rune) []byte {
 	l := len(b)
 	b = xslice.Grow(b, utf8.UTFMax)
@@ -142,3 +164,5 @@ func (b *Buffer) X016(x uint64) *Buffer {
 	*b = AppendHex016(*b, x)
 	return b
 }
+
+// TODO Qs Qb ?

@@ -2,8 +2,6 @@ package xfmt
 
 import (
 	"testing"
-
-	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // byterange returns []byte with element [start,stop)
@@ -45,8 +43,11 @@ var pyQuoteTestv = []struct {in, quoted string} {
 }
 
 func TestPyQuote(t *testing.T) {
+	buf := []byte{}
 	for _, tt := range pyQuoteTestv {
-		quoted := pyQuote(tt.in)
+		buf = buf[:0]
+		buf = AppendQuotePy(buf, tt.in)
+		quoted := string(buf)
 		if quoted != tt.quoted {
 			t.Errorf("pyQuote(%q) ->\nhave: %s\nwant: %s", tt.in, quoted, tt.quoted)
 		}
@@ -59,7 +60,7 @@ func BenchmarkPyQuote(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, tt := range pyQuoteTestv {
 			buf = buf[:0]
-			buf = pyAppendQuoteBytes(buf, mem.Bytes(tt.in))
+			buf = AppendQuotePy(buf, tt.in)
 		}
 	}
 }

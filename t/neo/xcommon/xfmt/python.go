@@ -1,4 +1,4 @@
-package xmft
+package xfmt
 
 import (
 	"bytes"
@@ -9,20 +9,25 @@ import (
 )
 
 
-const hex = "0123456789abcdef"
+// TODO remove - not needed ?
+// // pyQuote quotes string the way python repr(str) would do
+// func pyQuote(s string) string {
+// 	out := pyQuoteBytes(mem.Bytes(s))
+// 	return mem.String(out)
+// }
+//
+// func pyQuoteBytes(b []byte) []byte {
+// 	buf := make([]byte, 0, (len(b) + 2) /* to reduce allocations when quoting */ * 2)
+// 	return pyAppendQuoteBytes(buf, b)
+// }
 
-// pyQuote quotes string the way python repr(str) would do
-func pyQuote(s string) string {
-	out := pyQuoteBytes(mem.Bytes(s))
-	return mem.String(out)
+// AppendQuotePy appends to buf Python quoting of s
+func AppendQuotePy(buf []byte, s string) []byte {
+	return AppendQuotePyBytes(buf, mem.Bytes(s))
 }
 
-func pyQuoteBytes(b []byte) []byte {
-	buf := make([]byte, 0, (len(b) + 2) /* to reduce allocations when quoting */ * 2)
-	return pyAppendQuoteBytes(buf, b)
-}
-
-func pyAppendQuoteBytes(buf, b []byte) []byte {
+// AppendQuotePyBytes appends to buf Python quoting of b
+func AppendQuotePyBytes(buf, b []byte) []byte {
 	// smartquotes: choose ' or " as quoting character
 	// https://github.com/python/cpython/blob/v2.7.13-116-g1aa1803b3d/Objects/stringobject.c#L947
 	quote := byte('\'')
@@ -38,7 +43,7 @@ func pyAppendQuoteBytes(buf, b []byte) []byte {
 
 		switch r {
 		case utf8.RuneError:
-			buf = append(buf, '\\', 'x', hex[b[0]>>4], hex[b[0]&0xf])
+			buf = append(buf, '\\', 'x', hexdigits[b[0]>>4], hexdigits[b[0]&0xf])
 		case '\\', rune(quote):
 			buf = append(buf, '\\', byte(r))
 		case rune(noquote):
@@ -57,7 +62,7 @@ func pyAppendQuoteBytes(buf, b []byte) []byte {
 			switch {
 			case r < ' ':
 				// we already converted to \<letter> what python represents as such above
-				buf = append(buf, '\\', 'x', hex[b[0]>>4], hex[b[0]&0xf])
+				buf = append(buf, '\\', 'x', hexdigits[b[0]>>4], hexdigits[b[0]&0xf])
 
 			case r < utf8.RuneSelf /* RuneSelf itself is not printable */ - 1:
 				// we already escaped all < RuneSelf runes
@@ -70,7 +75,7 @@ func pyAppendQuoteBytes(buf, b []byte) []byte {
 			default:
 				// everything else goes in numeric byte escapes
 				for i := 0; i < size; i++ {
-					buf = append(buf, '\\', 'x', hex[b[i]>>4], hex[b[i]&0xf])
+					buf = append(buf, '\\', 'x', hexdigits[b[i]>>4], hexdigits[b[i]&0xf])
 				}
 			}
 		}
@@ -85,12 +90,12 @@ func pyAppendQuoteBytes(buf, b []byte) []byte {
 
 // Qpy appends string quoted as Python would do
 func (b *Buffer) Qpy(s string) *Buffer {
-	*b = ...	// TODO
+	*b = AppendQuotePy(*b, s)
 	return b
 }
 
-// Qpyb appends []byte quoted as Python would do
-func (b *Buffer) Qpyb(x []byte) *Buffer {
-	*b = ...	// TODO
+// Qbpy appends []byte quoted as Python would do
+func (b *Buffer) Qbpy(x []byte) *Buffer {
+	*b = AppendQuotePyBytes(*b, x)
 	return b
 }

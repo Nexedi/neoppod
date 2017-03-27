@@ -8,29 +8,30 @@ import (
 	"testing"
 )
 
+var testv = []struct {format, xformatMeth string; value interface{}} {
+	{"%c",		"Cb",		byte('A')},
+	{"%c",		"C",		rune(-1)},
+	{"%c",		"C",		'B'},		// 1-byte encoded
+	{"%c",		"C",		'и'},		// 2-bytes encoded
+	{"%c",		"C",		'\u20ac'},	// 3-bytes encoded
+	{"%c",		"C",		'\U00010001'},	// 4-bytes encoded
+
+	// TODO %q qb qr qs qcb qc
+
+	{"%s",		"S",		"hello"},
+	{"%s",		"Sb",		[]byte("world")},
+	{"%x",		"Xb",		[]byte("hexstring")},
+	{"%x",		"Xs",		"stringhex"},
+	{"%d",		"D",		12765},
+	{"%x",		"X",		12789},
+	{"%016x",	"X016",		uint64(124)},
+
+	// TODO .V
+}
+
+
 // verify formatting result is the same in between std fmt and xfmt
 func TestXFmt(t *testing.T) {
-	testv := []struct {format, xformatMeth string; value interface{}} {
-		{"%c",		"Cb",		byte('A')},
-		{"%c",		"C",		rune(-1)},
-		{"%c",		"C",		'B'},		// 1-byte encoded
-		{"%c",		"C",		'и'},		// 2-bytes encoded
-		{"%c",		"C",		'\u20ac'},	// 3-bytes encoded
-		{"%c",		"C",		'\U00010001'},	// 4-bytes encoded
-
-		// TODO %q qb qr qs qcb qc
-
-		{"%s",		"S",		"hello"},
-		{"%s",		"Sb",		[]byte("world")},
-		{"%x",		"Xb",		[]byte("hexstring")},
-		{"%x",		"Xs",		"stringhex"},
-		{"%d",		"D",		12765},
-		{"%x",		"X",		12789},
-		{"%016x",	"X016",		uint64(124)},
-
-		// TODO .V
-	}
-
 	buf := &Buffer{}
 	xbuf := reflect.ValueOf(buf)
 
@@ -81,10 +82,46 @@ func TestXFmt(t *testing.T) {
 	}
 }
 
-func BenchmarkFmt(t *testing.T) {
-	// TODO
-}
+func BenchmarkXFmt(b *testing.B) {
+	buf := &Buffer{}
 
-func BenchmarkXFmt(t *testing.T) {
-	// TODO
+	for _, tt := range testv {
+		b.Run(fmt.Sprintf("%s(%#v)", tt.format, tt.value), func (b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				fmt.Sprintf(tt.format, tt.value)
+			}
+		})
+
+		// construct methProxy for natively calling (not via reflect) method associated with tt.xformatMeth
+		// (calling via reflect allocates a lot and is slow)
+		// NOTE because of proxies the call is a bit slower than e.g. directly calling buf.S("...")
+		var methProxy func(buf *Buffer, v interface{})
+
+		xmeth, ok := reflect.TypeOf(buf).MethodByName(tt.xformatMeth)
+		if !ok {
+			b.Errorf(".%v: no such method", tt.xformatMeth)
+			continue
+		}
+
+		// XXX a bit ugly -> use code generation instead?
+		meth := xmeth.Func.Interface()
+		switch tt.value.(type) {
+		case byte:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, byte) *Buffer)(buf, v.(byte)) }
+		case rune:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, rune) *Buffer)(buf, v.(rune)) }
+		case string:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, string) *Buffer)(buf, v.(string)) }
+		case []byte:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, []byte) *Buffer)(buf, v.([]byte)) }
+		case int:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, int) *Buffer)(buf, v.(int)) }
+		case uint64:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, uint64) *Buffer)(buf, v.(uint64)) }
+
+		default:
+			b.Fatalf("TODO add support for %T", tt.value)
+		}
+
+		b.Run(fmt.Sprintf(".%s(%#v)", tt.xformatMeth, tt.value), func (b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				buf.Reset()
+				methProxy(buf, tt.value)
+			}
+		})
+	}
 }
