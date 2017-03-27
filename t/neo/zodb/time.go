@@ -15,8 +15,12 @@ type TimeStamp struct {
 }
 
 func (t TimeStamp) String() string {
+	return string(t.XFmtString(nil))
+}
+
+func (t TimeStamp) XFmtString(b []byte) []byte {
 	// NOTE UTC() in case we get TimeStamp with modified from-outside location
-	return t.UTC().Format("2006-01-02 15:04:05.000000")
+	return t.UTC().AppendFormat(b, "2006-01-02 15:04:05.000000")
 }
 
 

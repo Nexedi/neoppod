@@ -23,12 +23,24 @@ var testv = []struct {format, xformatMeth string; value interface{}} {
 	{"%x",		"Xb",		[]byte("hexstring")},
 	{"%x",		"Xs",		"stringhex"},
 	{"%d",		"D",		12765},
+	{"%d",		"D64",		int64(12764)},
 	{"%x",		"X",		12789},
 	{"%016x",	"X016",		uint64(124)},
 
-	// TODO .V
+	{"%v",		"V",		&stringerTest{}},
 }
 
+
+type stringerTest struct {
+}
+
+func (s *stringerTest) String() string {
+	return string(s.XFmtString(nil))
+}
+
+func (s *stringerTest) XFmtString(b []byte) []byte {
+	return append(b, `stringer test`...)
+}
 
 // verify formatting result is the same in between std fmt and xfmt
 func TestXFmt(t *testing.T) {
@@ -111,7 +123,10 @@ func BenchmarkXFmt(b *testing.B) {
 		case string:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, string) *Buffer)(buf, v.(string)) }
 		case []byte:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, []byte) *Buffer)(buf, v.([]byte)) }
 		case int:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, int) *Buffer)(buf, v.(int)) }
+		case int64:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, int64) *Buffer)(buf, v.(int64)) }
 		case uint64:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, uint64) *Buffer)(buf, v.(uint64)) }
+
+		case *stringerTest:	methProxy = func(buf *Buffer, v interface{}) { meth.(func (*Buffer, Stringer) *Buffer)(buf, v.(Stringer)) }
 
 		default:
 			b.Fatalf("TODO add support for %T", tt.value)

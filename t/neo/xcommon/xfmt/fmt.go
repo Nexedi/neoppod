@@ -73,7 +73,7 @@ func Append(b []byte, x Stringer) []byte {
 }
 
 // V, similarly to %v, adds x formatted by default rules
-// XXX -> v(interface {}) ?
+// XXX -> V(interface {}) ?
 func (b *Buffer) V(x Stringer) *Buffer {
 	*b = Append(*b, x)
 	return b
@@ -115,6 +115,12 @@ func (b *Buffer) C(r rune) *Buffer {
 // D appends int formatted by %d
 func (b *Buffer) D(i int) *Buffer {
 	*b = strconv.AppendInt(*b, int64(i), 10)
+	return b
+}
+
+// D64 appends int64 formatted by %d
+func (b *Buffer) D64(i int64) *Buffer {
+	*b = strconv.AppendInt(*b, i, 10)
 	return b
 }
 

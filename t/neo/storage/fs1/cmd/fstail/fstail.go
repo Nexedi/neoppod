@@ -120,28 +120,18 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 
 		// print information about read txn record
 		xbuf.Reset()
-		xbuf .S(txnh.Tid.Time()) .S("hash=") .X(sha1.Sum(data))
+
+		dataSha1 := sha1.Sum(data)
+		xbuf .V(txnh.Tid.Time()) .S(": hash=") .Xb(dataSha1[:])
 
 		// fstail.py uses repr to print user/description:
-		// https://github.com/zopefoundation/ZODB/blob/5.2.0-4-g359f40ec7/src/ZODB/scripts/fstail.py#L39
-		xbuf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
+		// https://github.com/zopefoundation/ZODB/blob/5.2.0-5-g6047e2fae/src/ZODB/scripts/fstail.py#L39
+		xbuf .S("\nuser=") .Qbpy(txnh.User) .S(" description=") .Qbpy(txnh.Description)
 
 		// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
-		xbuf .S(" length=") .D(txnh.Len - 8)
-		xbuf .S(" offset=") .D(txnh.Pos) .S(" (+") .D(txnh.HeaderLen()) .S(")\n\n")
+		xbuf .S(" length=") .D64(txnh.Len - 8)
+		xbuf .S(" offset=") .D64(txnh.Pos) .S(" (+") .D64(txnh.HeaderLen()) .S(")\n\n")
 
-//		// print information about read txn record
-//		_, err = fmt.Fprintf(w, "%s: hash=%x\nuser=%s description=%s length=%d offset=%d (+%d)\n\n",
-//				txnh.Tid.Time(), sha1.Sum(data),
-//
-//				// fstail.py uses repr to print user/description:
-//				// https://github.com/zopefoundation/ZODB/blob/5.2.0-4-g359f40ec7/src/ZODB/scripts/fstail.py#L39
-//				pyQuoteBytes(txnh.User), pyQuoteBytes(txnh.Description),
-//
-//				// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
-//				txnh.Len - 8,
-//
-//				txnh.Pos, txnh.HeaderLen())
 		_, err = w.Write(xbuf.Bytes())
 		if err != nil {
 			break
