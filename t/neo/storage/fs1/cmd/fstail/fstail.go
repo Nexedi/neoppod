@@ -32,6 +32,7 @@ import (
 	"../../../../storage/fs1"
 
 	"../../../../xcommon/xfmt"
+	"../../../../xcommon/xslice"
 )
 
 
@@ -103,13 +104,7 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 
 		// read raw data inside transaction record
 		dataLen := txnh.DataLen()
-		if int64(cap(data)) < dataLen {
-			// TODO -> CeilPow2
-			data = make([]byte, dataLen)
-		} else {
-			data = data[:dataLen]
-		}
-
+		data = xslice.Realloc64(data, dataLen)
 		_, err = fSeq.ReadAt(data, txnh.DataPos())
 		if err != nil {
 			// XXX -> txnh.Err(...) ?

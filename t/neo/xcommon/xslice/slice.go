@@ -38,7 +38,12 @@ func Resize(b []byte, n int) []byte {
 // The memory for all elements becomes uninitialized.
 // XXX semantic clash with C realloc(3) ? or it does not matter?
 func Realloc(b []byte, n int) []byte {
-	if cap(b) >= n {
+	return Realloc64(b, int64(n))
+}
+
+// Realloc64 is the same as Realloc but for size typed as int64
+func Realloc64(b []byte, n int64) []byte {
+	if int64(cap(b)) >= n {
 		return b[:n]
 	}
 
