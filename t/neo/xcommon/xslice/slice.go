@@ -7,7 +7,7 @@ import (
 
 // Grow increase length of slice by n elements.
 // If there is not enough capacity the slice is reallocated.
-// The memory for grown elements are not initialized.
+// The memory for grown elements is not initialized.
 func Grow(b []byte, n int) []byte {
 	ln := len(b) + n
 	if ln <= cap(b) {
@@ -32,6 +32,18 @@ func Resize(b []byte, n int) []byte {
 	return bb
 }
 
+
+// Realloc resizes the slice to be of length n not preserving content.
+// If slice length is increased and there is not enough capacity the slice is reallocated.
+// The memory for all elements becomes uninitialized.
+// XXX semantic clash with C realloc(3) ? or it does not matter?
+func Realloc(b []byte, n int) []byte {
+	if cap(b) >= n {
+		return b[:n]
+	}
+
+	return make([]byte, n, xmath.CeilPow2(uint64(n)))
+}
 
 // TODO Resize without copy ?
 
