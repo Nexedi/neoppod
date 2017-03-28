@@ -47,28 +47,31 @@ func AppendQuotePyBytes(buf, b []byte) []byte {
 		switch {
 		// fast path - ASCII only - trying to avoid UTF-8 decoding
 		case c < utf8.RuneSelf:
-			switch c {
-				case '\\', quote:
+			switch {
+				case c == '\\' || c == quote:
 					buf = append(buf, '\\', c)
+
+				case ' ' <= c && c <= '\x7e':
+					// printable ASCII
+					buf = append(buf, c)
+
+
+				// below: non-printable ASCII
 
 				// NOTE python converts to \<letter> only \t \n \r  (not e.g. \v)
 				// https://github.com/python/cpython/blob/v2.7.13-116-g1aa1803b3d/Objects/stringobject.c#L963
-				case '\t':
+				case c == '\t':
 					buf = append(buf, `\t`...)
-				case '\n':
+				case c == '\n':
 					buf = append(buf, `\n`...)
-				case '\r':
+				case c == '\r':
 					buf = append(buf, `\r`...)
 
 				default:
-					if c < ' ' || c == '\x7f' /* the only non-printable ASCII character > space */  {
-						// we already converted to \<letter> what python represents as such above
-						// everything else goes in numeric byte escapes
-						buf = append(buf, '\\', 'x', hexdigits[c>>4], hexdigits[c&0xf])
-					} else {
-						// printable ASCII
-						buf = append(buf, c)
-					}
+					// NOTE c < ' ' or c == '\x7f' (the only non-printable ASCII character > space) here
+					// we already converted to \<letter> what python represents as such above
+					// everything else goes in numeric byte escapes
+					buf = append(buf, '\\', 'x', hexdigits[c>>4], hexdigits[c&0xf])
 			}
 
 			b = b[1:]
@@ -77,21 +80,19 @@ func AppendQuotePyBytes(buf, b []byte) []byte {
 		default:
 			r, size := utf8.DecodeRune(b)
 
-			switch r {
-			case utf8.RuneError:
+			switch {
+			case r == utf8.RuneError:
+				// decode error - just emit raw byte as escaped
 				buf = append(buf, '\\', 'x', hexdigits[c>>4], hexdigits[c&0xf])
 
-			default:
-				switch {
-				case strconv.IsPrint(r):
-					// printable utf-8 characters go as is
-					buf = append(buf, b[:size]...)
+			case strconv.IsPrint(r):
+				// printable utf-8 characters go as is
+				buf = append(buf, b[:size]...)
 
-				default:
-					// everything else goes in numeric byte escapes
-					for i := 0; i < size; i++ {
-						buf = append(buf, '\\', 'x', hexdigits[b[i]>>4], hexdigits[b[i]&0xf])
-					}
+			default:
+				// everything else goes in numeric byte escapes
+				for i := 0; i < size; i++ {
+					buf = append(buf, '\\', 'x', hexdigits[b[i]>>4], hexdigits[b[i]&0xf])
 				}
 			}
 
