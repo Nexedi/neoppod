@@ -55,6 +55,7 @@ func (xid Xid) String() string {
 
 
 // parseHex64 decode 16-character-wide hex-encoded string into uint64
+// XXX -> xfmt ?
 func parseHex64(subj, s string) (uint64, error) {
 	// XXX like scanf("%016x") but scanf implicitly skips spaces without giving control to caller and is slower
 	var b[8]byte

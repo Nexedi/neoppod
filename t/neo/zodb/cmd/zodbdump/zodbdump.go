@@ -63,29 +63,24 @@ func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 	xbuf := &d.xbuf
 	xbuf.Reset()
 
-	//entry := "obj " + datai.Oid.String() + " "
 	xbuf .S("obj ") .V(&datai.Oid) .Cb(' ')
 
 	writeData := false
 
 	switch {
 	case datai.Data == nil:
-		//entry += "delete"
 		xbuf.S("delete")
 
 	case datai.Tid != datai.DataTid:
-		//entry += "from " + datai.DataTid.String()
 		xbuf .S("from ") .V(&datai.DataTid)
 
 	default:
-		//entry += fmt.Sprintf("%d sha1:%x", len(datai.Data), sha1.Sum(datai.Data))
 		dataSha1 := sha1.Sum(datai.Data)
 		xbuf .D(len(datai.Data)) .S(" sha1:") .Xb(dataSha1[:])
 
 		writeData = true
 	}
 
-	//entry += "\n"
 	xbuf .Cb('\n')
 
 	// TODO use writev(data, "\n") via net.Buffers (it is already available)
