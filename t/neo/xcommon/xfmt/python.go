@@ -42,8 +42,8 @@ func AppendQuotePyBytes(buf, b []byte) []byte {
 
 	buf = append(buf, quote)
 
-	for len(b) > 0 {
-		c := b[0]
+	for i := 0; i < len(b); {
+		c := b[i]
 		switch {
 		// fast path - ASCII only - trying to avoid UTF-8 decoding
 		case c < utf8.RuneSelf:
@@ -74,11 +74,12 @@ func AppendQuotePyBytes(buf, b []byte) []byte {
 					buf = append(buf, '\\', 'x', hexdigits[c>>4], hexdigits[c&0xf])
 			}
 
-			b = b[1:]
+			i++
 
 		// slow path - full UTF-8 decoding
 		default:
-			r, size := utf8.DecodeRune(b)
+			r, size := utf8.DecodeRune(b[i:])
+			isize := i + size
 
 			switch {
 			case r == utf8.RuneError:
@@ -87,16 +88,16 @@ func AppendQuotePyBytes(buf, b []byte) []byte {
 
 			case strconv.IsPrint(r):
 				// printable utf-8 characters go as is
-				buf = append(buf, b[:size]...)
+				buf = append(buf, b[i:isize]...)
 
 			default:
 				// everything else goes in numeric byte escapes
-				for i := 0; i < size; i++ {
-					buf = append(buf, '\\', 'x', hexdigits[b[i]>>4], hexdigits[b[i]&0xf])
+				for j := i; j < isize; j++ {
+					buf = append(buf, '\\', 'x', hexdigits[b[j]>>4], hexdigits[b[j]&0xf])
 				}
 			}
 
-			b = b[size:]
+			i = isize
 		}
 	}
 
