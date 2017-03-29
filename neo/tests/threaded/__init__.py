@@ -527,6 +527,11 @@ class ConnectionFilter(object):
         return False
 
     @classmethod
+    def retry(cls):
+        with cls.lock:
+            cls._retry()
+
+    @classmethod
     def _retry(cls):
         for conn, queue in cls.filter_queue.items():
             while queue:
