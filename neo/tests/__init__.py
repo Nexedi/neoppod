@@ -397,6 +397,12 @@ class TransactionalResource(object):
         self.__dict__.update(kw)
         txn.get().join(self)
 
+    def __call__(self, func):
+        name = func.__name__
+        assert callable(IDataManager.get(name)), name
+        setattr(self, name, func)
+        return func
+
     def __getattr__(self, attr):
         if callable(IDataManager.get(attr)):
             return lambda *_: None

@@ -72,6 +72,7 @@ class StorageDBTests(NeoUnitTestBase):
         db.changePartitionTable(1,
             [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)],
             reset=True)
+        db.commit()
 
     def checkConfigEntry(self, get_call, set_call, value):
         # generic test for all configuration entries accessors
@@ -100,10 +101,6 @@ class StorageDBTests(NeoUnitTestBase):
     def test_Name(self):
         db = self.getDB()
         self.checkConfigEntry(db.getName, db.setName, 'TEST_NAME')
-
-    def test_15_PTID(self):
-        db = self.getDB()
-        self.checkConfigEntry(db.getPTID, db.setPTID, 1)
 
     def test_getPartitionTable(self):
         db = self.getDB()

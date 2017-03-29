@@ -100,10 +100,40 @@ class TransactionManager(EventQueue):
         np = app.pt.getPartitions()
         self.getPartition = lambda oid: u64(oid) % np
 
+    def discarded(self, offset_list):
+        self._replicating.difference_update(offset_list)
+        for offset in offset_list:
+            self._replicated.pop(offset, None)
+        getPartition = self.getPartition
+        for oid_dict in self._load_lock_dict, self._store_lock_dict:
+            for oid in oid_dict.keys():
+                if getPartition(oid) in offset_list:
+                    del oid_dict[oid]
+        data_id_list = []
+        for transaction in self._transaction_dict.itervalues():
+            serial_dict = transaction.serial_dict
+            oid_list = [oid for oid in serial_dict
+                if getPartition(oid) in offset_list]
+            for oid in oid_list:
+                del serial_dict[oid]
+                try:
+                    data_id_list.append(transaction.store_dict.pop(oid)[1])
+                except KeyError:
+                    pass
+            transaction.lockless.difference_update(oid_list)
+        self._app.dm.dropPartitionsTemporary(offset_list)
+        self._app.dm.releaseData(data_id_list, True)
+        # notifyPartitionChanges will commit
+        self.executeQueuedEvents()
+        self.read_queue.executeQueuedEvents()
+
+    def readable(self, offset_list):
+        for offset in offset_list:
+            tid = self._replicated.pop(offset, None)
+            assert tid is None, (offset, tid)
+
     def replicating(self, offset_list):
         self._replicating.update(offset_list)
-        # TODO: The following assertions will fail if a replicated partition is
-        #       dropped and this partition is added again.
         isdisjoint = set(offset_list).isdisjoint
         assert isdisjoint(self._replicated), (offset_list, self._replicated)
         assert isdisjoint(map(self.getPartition, self._store_lock_dict)), (
@@ -121,7 +151,7 @@ class TransactionManager(EventQueue):
         getPartition = self.getPartition
         store_lock_dict = self._store_lock_dict
         replicated = self._replicated
-        notify = set(replicated)
+        notify = {x[0] for x in replicated.iteritems() if x[1]}
         # We sort transactions so that in case of muliple stores/checks for the
         # same oid, the lock is taken by the highest locking ttid, which will
         # delay new transactions.
@@ -133,7 +163,7 @@ class TransactionManager(EventQueue):
                 txn.lockless, txn.serial_dict)
             for oid in txn.lockless:
                 partition = getPartition(oid)
-                if partition in replicated:
+                if replicated.get(partition):
                     if store_lock_dict.get(oid, ttid) != ttid:
                         # We have a "multi-lock" store, i.e. an
                         # initially-lockless store to a partition that became
@@ -146,7 +176,8 @@ class TransactionManager(EventQueue):
             # readable cells to check locks: we're really up-to-date.
             for partition in notify:
                 self._app.master_conn.send(Packets.NotifyReplicationDone(
-                    partition, replicated.pop(partition)))
+                    partition, replicated[partition]))
+                replicated[partition] = None
             for oid, ttid in store_lock_dict.iteritems():
                 if getPartition(oid) in notify:
                     # Use 'discard' instead of 'remove', for oids that were
@@ -393,6 +424,13 @@ class TransactionManager(EventQueue):
             except NonReadableCell:
                 partition = self.getPartition(oid)
                 if partition not in self._replicated:
+                    # Either the partition is discarded or we haven't yet
+                    # received the notification from the master that the
+                    # partition is assigned to us. In the latter case, we're
+                    # not expected to have the partition in full.
+                    # We'll return a successful answer to the client, which
+                    # is fine because there's at least one other cell that is
+                    # readable for this oid.
                     raise
                 with self._app.dm.replicated(partition):
                     previous_serial = self._app.dm.getLastObjectTID(oid)
@@ -448,6 +486,7 @@ class TransactionManager(EventQueue):
             # There was a previous rebase for this oid, it was still delayed
             # during the second RebaseTransaction, and then a conflict was
             # reported when another transaction was committed.
+            # This can also happen when a partition is dropped.
             logging.info("no oid %s to rebase for transaction %s",
                 dump(oid), dump(ttid))
             return
@@ -494,6 +533,7 @@ class TransactionManager(EventQueue):
             dm.abortTransaction(ttid)
             dm.releaseData([x[1] for x in transaction.store_dict.itervalues()],
                            True)
+            dm.commit()
         # unlock any object
         for oid in transaction.serial_dict:
             if locked:
@@ -513,8 +553,8 @@ class TransactionManager(EventQueue):
                     x = (oid, ttid, write_locking_tid,
                          self._replicated, transaction.lockless)
                 lockless = oid in transaction.lockless
-                assert oid in other.serial_dict and lockless == (
-                    self.getPartition(oid) in self._replicated), x
+                assert oid in other.serial_dict and lockless == bool(
+                    self._replicated.get(self.getPartition(oid))), x
                 if not lockless:
                     assert not locked, x
                     continue # unresolved deadlock

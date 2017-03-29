@@ -75,6 +75,9 @@ class BaseMasterHandler(BaseHandler):
             raise ProtocolError('wrong partition table id')
         app.pt.update(ptid, cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
+        if app.operational:
+            app.replicator.notifyPartitionChanges(cell_list)
+        app.dm.commit()
 
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))

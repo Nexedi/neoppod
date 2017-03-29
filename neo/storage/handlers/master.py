@@ -31,11 +31,6 @@ class MasterOperationHandler(BaseMasterHandler):
             dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
             dm.commit()
 
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
-        super(MasterOperationHandler, self).notifyPartitionChanges(
-            conn, ptid, cell_list)
-        self.app.replicator.notifyPartitionChanges(cell_list)
-
     def askLockInformation(self, conn, ttid, tid):
         self.app.tm.lock(ttid, tid)
         conn.answer(Packets.AnswerInformationLocked(ttid))

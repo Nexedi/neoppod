@@ -257,15 +257,6 @@ class DatabaseManager(object):
         if ptid is not None:
             return int(ptid)
 
-    def setPTID(self, ptid):
-        """
-            Store a Partition Table ID into a database.
-        """
-        if ptid is not None:
-            assert isinstance(ptid, (int, long)), ptid
-            ptid = str(ptid)
-        self.setConfiguration('ptid', ptid)
-
     def getBackupTID(self):
         return util.bin(self.getConfiguration('backup_tid'))
 
@@ -442,15 +433,27 @@ class DatabaseManager(object):
                 else:
                     readable_set.add(offset)
         self._changePartitionTable(cell_list, reset)
-        self.setPTID(ptid)
+        assert isinstance(ptid, (int, long)), ptid
+        self._setConfiguration('ptid', str(ptid))
 
     @abstract
     def dropPartitions(self, offset_list):
         """Delete all data for specified partitions"""
 
-    @abstract
+    def _getUnfinishedDataIdList(self):
+        """Drop any unfinished data from a database."""
+
+    @requires(_getUnfinishedDataIdList)
     def dropUnfinishedData(self):
         """Drop any unfinished data from a database."""
+        data_id_list = self._getUnfinishedDataIdList()
+        self.dropPartitionsTemporary()
+        self.releaseData(data_id_list, True)
+        self.commit()
+
+    @abstract
+    def dropPartitionsTemporary(self, offset_list=None):
+        """Drop partitions from temporary tables"""
 
     @abstract
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
@@ -531,8 +534,7 @@ class DatabaseManager(object):
             else:
                 del refcount[data_id]
         if prune:
-            self._pruneData(data_id_list)
-            self.commit()
+            return self._pruneData(data_id_list)
 
     @fallback
     def _getDataTID(self, oid, tid=None, before_tid=None):

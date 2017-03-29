@@ -426,12 +426,15 @@ class MySQLDatabaseManager(DatabaseManager):
                     if e.args[0] != DROP_LAST_PARTITION:
                         raise
 
-    def dropUnfinishedData(self):
+    def _getUnfinishedDataIdList(self):
+        return [x for x, in self.query("SELECT data_id FROM tobj") if x]
+
+    def dropPartitionsTemporary(self, offset_list=None):
+        where = "" if offset_list is None else \
+            " WHERE `partition` IN (%s)" % ','.join(map(str, offset_list))
         q = self.query
-        data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
-        q("DELETE FROM tobj")
-        q("DELETE FROM ttrans")
-        self.releaseData(data_id_list, True)
+        q("DELETE FROM tobj" + where)
+        q("DELETE FROM ttrans" + where)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         e = self.escape

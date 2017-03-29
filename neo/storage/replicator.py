@@ -233,6 +233,8 @@ class Replicator(object):
         """This is a callback from MasterOperationHandler."""
         abort = False
         added_list = []
+        discarded_list = []
+        readable_list = []
         app = self.app
         last_tid, last_trans_dict, last_obj_dict, _ = app.dm.getLastIDs()
         for offset, uuid, state in cell_list:
@@ -245,6 +247,7 @@ class Replicator(object):
                     self.replicate_dict.pop(offset, None)
                     self.source_dict.pop(offset, None)
                     abort = abort or self.current_partition == offset
+                    discarded_list.append(offset)
                 elif state == CellStates.OUT_OF_DATE:
                     assert offset not in self.partition_dict
                     self.partition_dict[offset] = p = Partition()
@@ -255,8 +258,17 @@ class Replicator(object):
                     p.next_obj = last_obj_dict.get(offset, ZERO_TID)
                     p.max_ttid = INVALID_TID
                     added_list.append(offset)
+                else:
+                    assert state in (CellStates.UP_TO_DATE,
+                                     CellStates.FEEDING), state
+                    readable_list.append(offset)
+        tm = app.tm
         if added_list:
-            self.app.tm.replicating(added_list)
+            tm.replicating(added_list)
+        if discarded_list:
+            tm.discarded(discarded_list)
+        if readable_list:
+            tm.readable(readable_list)
         if abort:
             self.abort()
 
