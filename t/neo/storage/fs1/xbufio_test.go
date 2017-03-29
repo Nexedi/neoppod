@@ -40,7 +40,7 @@ func (r *XReader) ReadAt(p []byte, pos int64) (n int, err error) {
 
 
 // read @pos/len -> rb.pos, len(rb.buf)
-var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
+var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {	// XXX add ioPos ?
 	{40,  5, 40, 10},	// 1st access, forward by default
 	{45,  7, 50, 10},	// part taken from buf, part read next, forward
 	{52,  5, 50, 10},	// everything taken from buf
@@ -56,10 +56,17 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{180,70, 105, 10},	// big access ~ forward
 	{170,11, 105, 10},	// big access backward
 	{160,11, 105, 10},	// big access backward, once more
-	{155, 5, 155, 10},	// access backward - buffer refilled
+
+	{155, 5, 150, 10},	// access backward - buffer refilled taking last IO into account
 				// XXX refilled forward first time after big backward readings
 	{150, 5, 145, 10},	// next access backward - buffer refilled backward
 	{143, 7, 135, 10},	// backward once again - buffer refilled backward
+
+	// TODO backward after not big-backward (after regular forward)
+	// TODO backward after big-backward overlapping
+	// TODO backward over EIO - check returned n
+	// TODO backward after forward when posLastAccess is in forward tail
+	// TODO zero-sized out-of-buffer read do not change buffer
 
 	{250, 4, 250,  6},	// access near EOF - buffer fill hits EOF, but not returns it to client
 	{254, 5, 250,  6},	// access overlapping EOF - EOF returned
