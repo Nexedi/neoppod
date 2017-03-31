@@ -247,6 +247,25 @@ class Test(NEOThreadedTest):
             data_info[key] -= 1
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
+    @with_cluster()
+    def testStorageDataLock2(self, cluster):
+        storage = cluster.getZODBStorage()
+        def t(data):
+            oid = storage.new_oid()
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn)
+            storage.store(oid, None, data, '', txn)
+            return txn
+        t1 = t('foo')
+        storage.tpc_finish(t('bar'))
+        s = cluster.storage
+        s.stop()
+        cluster.join((s,))
+        s.resetNode()
+        storage.app.max_reconnection_to_master = 0
+        self.assertRaises(NEOPrimaryMasterLost, storage.tpc_vote, t1)
+        expectedFailure(self.assertFalse)(s.dm.getOrphanList())
+
     @with_cluster(storage_count=1)
     def testDelayedUnlockInformation(self, cluster):
         except_list = []
