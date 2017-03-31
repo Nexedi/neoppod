@@ -19,9 +19,7 @@ from ..mock import Mock
 
 from .. import NeoUnitTestBase
 from neo.client.app import ConnectionPool
-from neo.client.exception import NEOStorageError
 from neo.client import pool
-from neo.lib.util import p64
 
 class ConnectionPoolTests(NeoUnitTestBase):
 
@@ -52,14 +50,6 @@ class ConnectionPoolTests(NeoUnitTestBase):
             node_uuid_2, 10))
         self.assertEqual(getCellSortKey(node_uuid_2, 10), getCellSortKey(
             node_uuid_3, 10))
-
-    def test_iterateForObject_noStorageAvailable(self):
-        # no node available
-        oid = p64(1)
-        app = Mock()
-        app.pt = Mock({'getCellList': []})
-        pool = ConnectionPool(app)
-        self.assertRaises(NEOStorageError, pool.iterateForObject(oid).next)
 
 if __name__ == '__main__':
     unittest.main()

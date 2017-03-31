@@ -212,6 +212,9 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.assertEqual(self._pt_states(pt), self._pt_states(new_pt))
 
     def update(self, pt, change_list=None):
+        offset_list = range(pt.np)
+        for node in pt.count_dict:
+            pt.updatable(node.getUUID(), offset_list)
         if change_list is None:
             for offset, row in enumerate(pt.partition_list):
                 for cell in list(row):

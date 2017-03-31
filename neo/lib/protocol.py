@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 11
+PROTOCOL_VERSION = 12
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -74,6 +74,7 @@ def ErrorCodes():
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
+    NON_READABLE_CELL
     READ_ONLY_ACCESS
     INCOMPLETE_TRANSACTION
 
@@ -215,6 +216,19 @@ class BrokenNodeDisallowedError(ProtocolError):
 
 class BackendNotImplemented(Exception):
     """ Method not implemented by backend storage """
+
+class NonReadableCell(Exception):
+    """Read-access to a cell that is actually non-readable
+
+    This happens in case of race condition at processing partition table
+    updates: client's PT is older or newer than storage's. The latter case is
+    possible because the master must validate any end of replication, which
+    means that the storage node can't anticipate the PT update (concurrently,
+    there may be a first tweaks that moves the replicated cell to another node,
+    and a second one that moves it back).
+
+    On such event, the client must retry, preferably another cell.
+    """
 
 class Packet(object):
     """
@@ -823,6 +837,12 @@ class UnfinishedTransactions(Packet):
     Ask unfinished transactions  S -> PM.
     Answer unfinished transactions  PM -> S.
     """
+    _fmt = PStruct('ask_unfinished_transactions',
+        PList('row_list',
+            PNumber('offset'),
+        ),
+    )
+
     _answer = PStruct('answer_unfinished_transactions',
         PTID('max_tid'),
         PList('tid_list',

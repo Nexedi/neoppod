@@ -410,12 +410,9 @@ class ReplicationTests(NEOThreadedTest):
 
     @with_cluster(start_cluster=0, partitions=2, storage_count=2)
     def testClientReadingDuringTweak(self, cluster):
-        # XXX: Currently, the test passes because data of dropped cells are not
-        #      deleted while the cluster is operational: this is only done
-        #      during the RECOVERING phase. But we'll want to be able to free
-        #      disk space without service interruption, and for this the client
-        #      may have to retry reading data from the new cells. If s0 deleted
-        #      all data for partition 1, the test would fail with a POSKeyError.
+        def sync(orig):
+            m2c.remove(delay)
+            orig()
         s0, s1 = cluster.storage_list
         if 1:
             cluster.start([s0])
@@ -431,9 +428,11 @@ class ReplicationTests(NEOThreadedTest):
             cluster.neoctl.enableStorageList([s1.uuid])
             cluster.neoctl.tweakPartitionTable()
             with cluster.master.filterConnection(cluster.client) as m2c:
-                m2c.delayNotifyPartitionChanges()
+                delay = m2c.delayNotifyPartitionChanges()
                 self.tic()
-                self.assertEqual('foo', storage.load(oid)[0])
+                with Patch(cluster.client, sync=sync):
+                    self.assertEqual('foo', storage.load(oid)[0])
+                self.assertNotIn(delay, m2c)
 
     @with_cluster(start_cluster=False, storage_count=3, partitions=3)
     def testAbortingReplication(self, cluster):

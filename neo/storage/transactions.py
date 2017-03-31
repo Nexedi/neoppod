@@ -18,7 +18,8 @@ from time import time
 from neo.lib import logging
 from neo.lib.handler import DelayEvent, EventQueue
 from neo.lib.util import dump
-from neo.lib.protocol import Packets, ProtocolError, uuid_str, MAX_TID
+from neo.lib.protocol import Packets, ProtocolError, NonReadableCell, \
+    uuid_str, MAX_TID
 
 class ConflictError(Exception):
     """
@@ -107,8 +108,8 @@ class TransactionManager(EventQueue):
         assert isdisjoint(self._replicated), (offset_list, self._replicated)
         assert isdisjoint(map(self.getPartition, self._store_lock_dict)), (
             offset_list, self._store_lock_dict)
-        self._app.master_conn.ask(Packets.AskUnfinishedTransactions(),
-                                  offset_list=offset_list)
+        p = Packets.AskUnfinishedTransactions(offset_list)
+        self._app.master_conn.ask(p, offset_list=offset_list)
 
     def replicated(self, partition, tid):
         # also called for readable cells in BACKINGUP state
@@ -387,7 +388,14 @@ class TransactionManager(EventQueue):
             # Deadlock avoidance. Still no new locking_tid from the client.
             raise DelayEvent(transaction)
         else:
-            previous_serial = self._app.dm.getLastObjectTID(oid)
+            try:
+                previous_serial = self._app.dm.getLastObjectTID(oid)
+            except NonReadableCell:
+                partition = self.getPartition(oid)
+                if partition not in self._replicated:
+                    raise
+                with self._app.dm.replicated(partition):
+                    previous_serial = self._app.dm.getLastObjectTID(oid)
         # Locking before reporting a conflict would speed up the case of
         # cascading conflict resolution by avoiding incremental resolution,
         # assuming that the time to resolve a conflict is often constant:

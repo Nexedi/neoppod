@@ -1382,7 +1382,7 @@ class Test(NEOThreadedTest):
             s2c.append(self)
             ll()
         def connectToStorage(client):
-            next(client.cp.iterateForObject(0))
+            client._askStorageForRead(0, None, lambda *_: None)
         if 1:
             Ca = cluster.client
             Ca.pt      # only connect to the master

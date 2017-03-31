@@ -25,7 +25,7 @@ from neo.lib.handler import MTEventHandler
 from . import AnswerBaseHandler
 from ..transactions import Transaction
 from ..exception import NEOStorageError, NEOStorageNotFoundError
-from ..exception import NEOStorageDoesNotExistError
+from ..exception import NEOStorageReadRetry, NEOStorageDoesNotExistError
 
 class StorageEventHandler(MTEventHandler):
 
@@ -187,11 +187,16 @@ class StorageAnswersHandler(AnswerBaseHandler):
         # This can happen when requiring txn informations
         raise NEOStorageNotFoundError(message)
 
+    def nonReadableCell(self, conn, message):
+        logging.info('non readable cell')
+        raise NEOStorageReadRetry(True)
+
     def answerTIDs(self, conn, tid_list, tid_set):
         tid_set.update(tid_list)
 
-    def answerObjectUndoSerial(self, conn, object_tid_dict,
-                               undo_object_tid_dict):
+    def answerObjectUndoSerial(self, conn, object_tid_dict, partition,
+                               partition_oid_dict, undo_object_tid_dict):
+        del partition_oid_dict[partition]
         undo_object_tid_dict.update(object_tid_dict)
 
     def answerFinalTID(self, conn, tid):

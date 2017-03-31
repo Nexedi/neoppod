@@ -16,57 +16,26 @@
 
 import unittest
 from ..mock import Mock
-from ZODB.POSException import StorageTransactionError, ConflictError
+from ZODB.POSException import StorageTransactionError
 from .. import NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
 from neo.client.cache import test as testCache
-from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
-from neo.lib.protocol import NodeTypes, Packets, Errors, UUID_NAMESPACES
-from neo.lib.util import makeChecksum
-
-def _getMasterConnection(self):
-    if self.master_conn is None:
-        self.last_tid = None
-        self.uuid = 1 + (UUID_NAMESPACES[NodeTypes.CLIENT] << 24)
-        self.num_partitions = 10
-        self.num_replicas = 1
-        self.pt = Mock({'getCellList': ()})
-        self.master_conn = Mock()
-    return self.master_conn
-
-def _ask(self, conn, packet, handler=None, **kw):
-    self.setHandlerData(None)
-    conn.ask(packet, **kw)
-    if handler is None:
-        raise NotImplementedError
-    else:
-        handler.dispatch(conn, conn.fakeReceived())
-    return self.getHandlerData()
+from neo.client.exception import NEOStorageError
+from neo.lib.protocol import NodeTypes, UUID_NAMESPACES
 
 class ClientApplicationTests(NeoUnitTestBase):
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
-        # apply monkey patches
-        self._getMasterConnection = Application._getMasterConnection
-        self._ask = Application._ask
-        Application._getMasterConnection = _getMasterConnection
-        Application._ask = _ask
         self._to_stop_list = []
 
     def _tearDown(self, success):
         # stop threads
         for app in self._to_stop_list:
             app.close()
-        # restore environment
-        Application._ask = self._ask
-        Application._getMasterConnection = self._getMasterConnection
         NeoUnitTestBase._tearDown(self, success)
 
     # some helpers
-
-    def checkAskObject(self, conn):
-        return self.checkAskPacket(conn, Packets.AskObject)
 
     def _begin(self, app, txn, tid):
         txn_context = app._txn_container.new(txn)
@@ -100,61 +69,6 @@ class ClientApplicationTests(NeoUnitTestBase):
     # common checks
 
     testCache = testCache
-
-    def test_load(self):
-        app = self.getApp()
-        cache = app._cache
-        oid = self.makeOID()
-        tid1 = self.makeTID(1)
-        tid2 = self.makeTID(2)
-        tid3 = self.makeTID(3)
-        tid4 = self.makeTID(4)
-        # connection to SN close
-        self.assertFalse(oid in cache._oid_dict)
-        conn = Mock({'getAddress': ('', 0)})
-        app.cp = Mock({'iterateForObject': (conn,)})
-        def fakeReceived(packet):
-            packet.setId(0)
-            conn.fakeReceived = iter((packet,)).next
-        def fakeObject(oid, serial, next_serial, data):
-            fakeReceived(Packets.AnswerObject(oid, serial, next_serial, 0,
-                                              makeChecksum(data), data, None))
-            return data, serial, next_serial
-
-        fakeReceived(Errors.OidNotFound(''))
-        #Application._waitMessage = self._waitMessage
-        # XXX: test disabled because of an infinite loop
-        # self.assertRaises(NEOStorageError, app.load, oid, None, tid2)
-        # self.checkAskObject(conn)
-        #Application._waitMessage = _waitMessage
-        # object not found in NEO -> NEOStorageNotFoundError
-        self.assertFalse(oid in cache._oid_dict)
-
-        fakeReceived(Errors.OidNotFound(''))
-        self.assertRaises(NEOStorageNotFoundError, app.load, oid)
-        self.checkAskObject(conn)
-
-        r1 = fakeObject(oid, tid1, tid3, 'FOO')
-        self.assertEqual(r1, app.load(oid, None, tid2))
-        self.checkAskObject(conn)
-        for t in tid2, tid3:
-            self.assertEqual(cache._load(oid, t).tid, tid1)
-        self.assertEqual(r1, app.load(oid, tid1))
-        self.assertEqual(r1, app.load(oid, None, tid3))
-        self.assertRaises(StandardError, app.load, oid, tid2)
-        self.assertRaises(StopIteration, app.load, oid)
-        self.checkAskObject(conn)
-
-        r2 = fakeObject(oid, tid3, None, 'BAR')
-        self.assertEqual(r2, app.load(oid, None, tid4))
-        self.checkAskObject(conn)
-        self.assertEqual(r2, app.load(oid))
-        self.assertEqual(r2, app.load(oid, tid3))
-
-        cache.invalidate(oid, tid4)
-        self.assertRaises(StopIteration, app.load, oid)
-        self.checkAskObject(conn)
-        self.assertEqual(len(cache._oid_dict[oid]), 2)
 
     def test_store1(self):
         app = self.getApp()

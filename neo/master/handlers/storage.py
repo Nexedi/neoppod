@@ -15,9 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.protocol import CellStates, ClusterStates, Packets, ProtocolError
+from neo.lib.protocol import (CellStates, ClusterStates, Packets, ProtocolError,
+    uuid_str)
 from neo.lib.exception import StoppedOperation
 from neo.lib.pt import PartitionTableException
+from neo.lib.util import dump
 from . import BaseServiceHandler
 
 
@@ -51,7 +53,7 @@ class StorageServiceHandler(BaseServiceHandler):
         if app.packing is not None:
             self.answerPack(conn, False)
 
-    def askUnfinishedTransactions(self, conn):
+    def askUnfinishedTransactions(self, conn, offset_list):
         app = self.app
         if app.backup_tid:
             last_tid = app.pt.getBackupTid(min)
@@ -64,6 +66,7 @@ class StorageServiceHandler(BaseServiceHandler):
             pending_list = app.tm.registerForNotification(conn.getUUID())
         p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)
+        app.pt.updatable(conn.getUUID(), offset_list)
 
     def notifyDeadlock(self, conn, *args):
         self.app.tm.deadlock(conn.getUUID(), *args)
@@ -84,7 +87,8 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def notifyReplicationDone(self, conn, offset, tid):
         app = self.app
-        node = app.nm.getByUUID(conn.getUUID())
+        uuid = conn.getUUID()
+        node = app.nm.getByUUID(uuid)
         if app.backup_tid:
             cell_list = app.backup_app.notifyReplicationDone(node, offset, tid)
             if not cell_list:
@@ -92,11 +96,15 @@ class StorageServiceHandler(BaseServiceHandler):
         else:
             try:
                 cell_list = self.app.pt.setUpToDate(node, offset)
-                if not cell_list:
-                    raise ProtocolError('Non-outdated partition')
             except PartitionTableException, e:
                 raise ProtocolError(str(e))
-        logging.debug("%s is up for offset %s", node, offset)
+            if not cell_list:
+                logging.info("ignored late notification that"
+                    " %s has replicated partition %s up to %s",
+                    uuid_str(uuid), offset, dump(tid))
+                return
+        logging.debug("%s is up for partition %s (tid=%s)",
+                      uuid_str(uuid), offset, dump(tid))
         self.app.broadcastPartitionChanges(cell_list)
 
     def answerPack(self, conn, status):

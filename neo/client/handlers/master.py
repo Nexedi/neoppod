@@ -149,8 +149,8 @@ class PrimaryNotificationsHandler(MTEventHandler):
             for txn_context in app.txn_contexts():
                 txn_context.error = msg
         try:
-            del app.pt
-        except AttributeError:
+            app.__dict__.pop('pt').clear()
+        except KeyError:
             pass
         app.primary_master_node = None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
