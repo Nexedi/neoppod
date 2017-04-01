@@ -219,15 +219,6 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
             self.election.requestIdentification,
             conn, NodeTypes.CLIENT, *args)
 
-    def test_requestIdentification3(self):
-        """ A broken master node request identification """
-        node, conn = self.identifyToMasterNode()
-        node.setBroken()
-        args = node.getUUID(), node.getAddress(), self.app.name, None
-        self.assertRaises(protocol.BrokenNodeDisallowedError,
-            self.election.requestIdentification,
-            conn, NodeTypes.MASTER, *args)
-
     def test_requestIdentification4(self):
         """ No conflict """
         node, conn = self.identifyToMasterNode()

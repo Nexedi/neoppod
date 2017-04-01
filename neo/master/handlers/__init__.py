@@ -19,7 +19,7 @@ from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
-    BrokenNodeDisallowedError, ProtocolError,
+    ProtocolError,
 )
 
 class MasterHandler(EventHandler):
@@ -37,8 +37,6 @@ class MasterHandler(EventHandler):
             if node_type is NodeTypes.MASTER and not (
                None != address == node.getAddress()):
                 raise ProtocolError
-            if node.isBroken():
-                raise BrokenNodeDisallowedError
         peer_uuid = self._setupNode(conn, node_type, uuid, address, node)
         if app.primary:
             primary_address = app.server
@@ -49,8 +47,6 @@ class MasterHandler(EventHandler):
 
         known_master_list = []
         for n in app.nm.getMasterList():
-            if n.isBroken():
-                continue
             known_master_list.append((n.getAddress(), n.getUUID()))
         conn.answer(Packets.AcceptIdentification(
             NodeTypes.MASTER,
@@ -113,17 +109,13 @@ class BaseServiceHandler(MasterHandler):
             return # for example, when a storage is removed by an admin
         assert node.isStorage(), node
         logging.info('storage node lost')
-        if new_state != NodeStates.BROKEN:
-            new_state = DISCONNECTED_STATE_DICT.get(node.getType(),
-                    NodeStates.DOWN)
-        assert new_state in (NodeStates.TEMPORARILY_DOWN, NodeStates.DOWN,
-            NodeStates.BROKEN), new_state
+        new_state = DISCONNECTED_STATE_DICT.get(node.getType(), NodeStates.DOWN)
         assert node.getState() not in (NodeStates.TEMPORARILY_DOWN,
-            NodeStates.DOWN, NodeStates.BROKEN), (uuid_str(self.app.uuid),
+            NodeStates.DOWN), (uuid_str(self.app.uuid),
             node.whoSetState(), new_state)
         was_pending = node.isPending()
         node.setState(new_state)
-        if new_state != NodeStates.BROKEN and was_pending:
+        if was_pending:
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')

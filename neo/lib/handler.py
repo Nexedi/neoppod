@@ -20,9 +20,8 @@ from operator import itemgetter
 from . import logging
 from .connection import ConnectionClosed
 from .protocol import (
-    NodeStates, Packets, Errors, BackendNotImplemented,
-    BrokenNodeDisallowedError, NonReadableCell, NotReadyError,
-    PacketMalformedError, ProtocolError, UnexpectedPacketError)
+    NodeStates, Packets, Errors, BackendNotImplemented, NonReadableCell,
+    NotReadyError, PacketMalformedError, ProtocolError, UnexpectedPacketError)
 from .util import cached_property
 
 
@@ -59,7 +58,6 @@ class EventHandler(object):
         logging.error(message)
         conn.answer(Errors.ProtocolError(message))
         conn.abort()
-        # self.peerBroken(conn)
 
     def dispatch(self, conn, packet, kw={}):
         """This is a helper method to handle various packet types."""
@@ -80,11 +78,6 @@ class EventHandler(object):
         except PacketMalformedError, e:
             logging.error('malformed packet from %r: %s', conn, e)
             conn.close()
-            # self.peerBroken(conn)
-        except BrokenNodeDisallowedError:
-            if not conn.isClosed():
-                conn.answer(Errors.BrokenNode('go away'))
-                conn.abort()
         except NotReadyError, message:
             if not conn.isClosed():
                 if not message.args:
@@ -145,11 +138,6 @@ class EventHandler(object):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %r', conn)
         self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
-
-    #def peerBroken(self, conn):
-    #    """Called when a peer is broken."""
-    #    logging.error('%r is broken', conn)
-    #    # NodeStates.BROKEN
 
     def connectionLost(self, conn, new_state):
         """ this is a method to override in sub-handlers when there is no need
@@ -216,9 +204,6 @@ class EventHandler(object):
     def timeoutError(self, conn, message):
         logging.error('timeout error: %s', message)
 
-    def brokenNodeDisallowedError(self, conn, message):
-        raise RuntimeError, 'broken node disallowed error: %s' % (message,)
-
     def ack(self, conn, message):
         logging.debug("no error message: %s", message)
 
@@ -268,7 +253,6 @@ class AnswerBaseHandler(EventHandler):
     timeoutExpired = unexpectedInAnswerHandler
     connectionClosed = unexpectedInAnswerHandler
     packetReceived = unexpectedInAnswerHandler
-    peerBroken = unexpectedInAnswerHandler
     protocolError = unexpectedInAnswerHandler
 
     def acceptIdentification(*args):

@@ -141,7 +141,6 @@ class HandlerSwitcher(object):
                     connection.send(Packets.Notify(
                         'Unexpected answer: %r' % packet))
                     connection.abort()
-                # handler.peerBroken(connection)
         finally:
             # apply a pending handler if no more answers are pending
             while len(pending) > 1 and not pending[0][0]:

@@ -17,7 +17,7 @@
 from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import NodeTypes, NotReadyError, Packets
-from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
+from neo.lib.protocol import ProtocolError
 from .storage import StorageOperationHandler
 from .client import ClientOperationHandler, ClientReadOnlyOperationHandler
 
@@ -47,8 +47,6 @@ class IdentificationHandler(EventHandler):
             if uuid == app.uuid:
                 raise ProtocolError("uuid conflict or loopback connection")
             node = app.nm.getByUUID(uuid, id_timestamp)
-            if node.isBroken():
-                raise BrokenNodeDisallowedError
             # choose the handler according to the node type
             if node_type == NodeTypes.CLIENT:
                 if app.dm.getBackupTID():

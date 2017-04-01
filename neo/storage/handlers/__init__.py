@@ -57,7 +57,7 @@ class BaseMasterHandler(BaseHandler):
                 # This is me, do what the master tell me
                 logging.info("I was told I'm %s", state)
                 if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
-                        NodeStates.BROKEN, NodeStates.UNKNOWN):
+                        NodeStates.UNKNOWN):
                     erase = state == NodeStates.DOWN
                     self.app.shutdown(erase=erase)
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:

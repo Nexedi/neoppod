@@ -70,7 +70,6 @@ def ErrorCodes():
     TID_NOT_FOUND
     OID_DOES_NOT_EXIST
     PROTOCOL_ERROR
-    BROKEN_NODE
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
@@ -123,7 +122,6 @@ def NodeStates():
     RUNNING
     TEMPORARILY_DOWN
     DOWN
-    BROKEN
     PENDING
     UNKNOWN
 
@@ -151,7 +149,6 @@ node_state_prefix_dict = {
     NodeStates.RUNNING: 'R',
     NodeStates.TEMPORARILY_DOWN: 'T',
     NodeStates.DOWN: 'D',
-    NodeStates.BROKEN: 'B',
     NodeStates.PENDING: 'P',
     NodeStates.UNKNOWN: 'U',
 }
@@ -201,15 +198,12 @@ class ProtocolError(Exception):
     """ Base class for protocol errors, close the connection """
 
 class PacketMalformedError(ProtocolError):
-    """ Close the connection and set the node as broken"""
+    """Close the connection"""
 
 class UnexpectedPacketError(ProtocolError):
-    """ Close the connection and set the node as broken"""
+    """Close the connection"""
 
 class NotReadyError(ProtocolError):
-    """ Just close the connection """
-
-class BrokenNodeDisallowedError(ProtocolError):
     """ Just close the connection """
 
 class BackendNotImplemented(Exception):
