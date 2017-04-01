@@ -60,8 +60,6 @@ class BaseMasterHandler(BaseHandler):
                         NodeStates.BROKEN, NodeStates.UNKNOWN):
                     erase = state == NodeStates.DOWN
                     self.app.shutdown(erase=erase)
-                elif state == NodeStates.HIDDEN:
-                    raise StoppedOperation
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
                 logging.info('Notified of non-running client, abort (%s)',
                         uuid_str(uuid))

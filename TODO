@@ -38,7 +38,7 @@
     - Clarify handler methods to call when a connection is accepted from a
       listening conenction and when remote node is identified
       (cf. neo/lib/bootstrap.py).
-    - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
+    - Review PENDING/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
     - Review handler split (CODE)
       The current handler split is the result of small incremental changes. A

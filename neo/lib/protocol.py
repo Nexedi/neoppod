@@ -124,7 +124,6 @@ def NodeStates():
     TEMPORARILY_DOWN
     DOWN
     BROKEN
-    HIDDEN
     PENDING
     UNKNOWN
 
@@ -153,7 +152,6 @@ node_state_prefix_dict = {
     NodeStates.TEMPORARILY_DOWN: 'T',
     NodeStates.DOWN: 'D',
     NodeStates.BROKEN: 'B',
-    NodeStates.HIDDEN: 'H',
     NodeStates.PENDING: 'P',
     NodeStates.UNKNOWN: 'U',
 }
