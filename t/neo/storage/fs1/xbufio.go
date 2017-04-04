@@ -10,6 +10,26 @@ import (
 	//"log"
 )
 
+// XXX for backward/forward changing workloads (e.g. fstail) there can be cases like:
+//	         --------
+//	        v        |
+//	+-----------+----^-----+
+//	|       H   |    T     |
+//	+-----------+----------+
+//          page2      page1
+//
+// so jumping back from T(ail) to H(ead) will drop buffer for page1 and load it
+// with page2, but next forward read till T will need to again access page1 so
+// page2 will be dropped, page1 reloaded, then page2 is needed again (for prev
+// tail) and is reloaded again.
+//
+// This can be avoided with keeping 2 buffers (to always be able to compensate
+// direction change) but I'm not sure it will not degrade allways forward case
+// becuase pressure to cache is increased 2x.
+//
+// -> if/when we really need it implement 2 buffers approach.
+
+
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
 // FIXME access from multiple goroutines? (it is required per io.ReaderAt
 // interface, but for sequential workloads we do not need it)
