@@ -40,7 +40,7 @@ func (r *XReader) ReadAt(p []byte, pos int64) (n int, err error) {
 
 
 // read @pos/len -> rb.pos, len(rb.buf)
-var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {	// XXX add ioPos ?
+var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{40,  5, 40, 10},	// 1st access, forward by default
 	{45,  7, 50, 10},	// part taken from buf, part read next, forward
 	{52,  5, 50, 10},	// everything taken from buf
@@ -52,8 +52,10 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {	// 
 	{97,  4, 100, 0},	// this triggers user-visible EIO, buffer scratched
 	{101, 5, 101, 0},	// EIO again
 	{105, 5, 105, 10},	// past EIO range - buffer refilled
-	{110,70, 105, 10},	// very big access forward, buf untouched
-	{180,70, 105, 10},	// big access ~ forward
+	{88,  8, 88, 10},	// go back again a bit before EIO range
+	{96,  6, 98,  2},	// this uses both buffered data + result of next read which hits EIO
+	{110,70, 98,  2},	// very big access forward, buf untouched
+	{180,70, 98,  2},	// big access ~ forward
 
 	{172, 5, 170, 10},	// backward: buffer refilled up to posLastIO
 	{168, 4, 160, 10},	// backward: buffer refilled backward
@@ -68,7 +70,10 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {	// 
 	{136,20, 131, 10},	// big forward starting from inside filled buf
 	{128, 4, 126, 10},	// backward: buf refilled up to posLastIO
 
-	{40, 0, 126, 10},	// zero-sized out-of-buffer read do not change buffer
+	{5, 4, 5, 10},		// forward near file start
+	{2, 3, 0, 10},		// backward: buf does not go beyong 0
+
+	{40, 0, 0, 10},		// zero-sized out-of-buffer read do not change buffer
 
 	// backward vs EIO
 	{110, 1, 110, 10},	// reset state: forward @110

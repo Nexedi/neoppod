@@ -134,7 +134,6 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	sb.pos = xpos
 	sb.buf = sb.buf[:nn]
 
-
 	// here we know:
 	// - some data was read
 	// - in case of successful read pos/p lies completely inside sb.pos/sb.buf
