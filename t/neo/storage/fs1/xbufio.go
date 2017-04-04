@@ -7,7 +7,7 @@ package fs1
 import (
 	"io"
 
-	"log"
+	//"log"
 )
 
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
@@ -38,10 +38,10 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 }
 
 
-// XXX temp
-func init() {
-	log.SetFlags(0)
-}
+// // XXX temp
+// func init() {
+// 	log.SetFlags(0)
+// }
 
 func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	// if request size > buffer - read data directly
@@ -49,7 +49,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		// no copying from sb.buf here at all as if e.g. we could copy from sb.buf, the
 		// kernel can copy the same data from pagecache as well, and it will take the same time
 		// because for data in sb.buf corresponding page in pagecache has high p. to be hot.
-		log.Printf("READ [%v, %v)\t#%v", pos, pos + len64(p), len(p))
+		//log.Printf("READ [%v, %v)\t#%v", pos, pos + len64(p), len(p))
 		sb.posLastIO = pos
 		return sb.r.ReadAt(p, pos)
 	}
@@ -125,7 +125,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		xpos = max64(xpos, 0)
 	}
 
-	log.Printf("read [%v, %v)\t#%v", xpos, xpos + cap64(sb.buf), cap(sb.buf))
+	//log.Printf("read [%v, %v)\t#%v", xpos, xpos + cap64(sb.buf), cap(sb.buf))
 	sb.posLastIO = xpos
 	nn, err := sb.r.ReadAt(sb.buf[:cap(sb.buf)], xpos)
 
@@ -148,7 +148,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		// - original requst was narrower than buffer
 		// try to satisfy it once again directly
 		if pos != xpos {
-			log.Printf("read [%v, %v)\t#%v", pos, pos + len64(p), len(p))
+			//log.Printf("read [%v, %v)\t#%v", pos, pos + len64(p), len(p))
 			sb.posLastIO = pos
 			nn, err = sb.r.ReadAt(p, pos)
 			if nn < len(p) {
@@ -170,52 +170,6 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	// NOTE if there was an error - we can skip it if original read request was completely satisfied
 	// NOTE not preserving EOF at ends - not required per ReaderAt interface
 	return nhead + nn + ntail, nil
-
-
-
-/*
-	// here we know:
-	// - some data was read
-	// - len(p) <= cap(sb.buf)
-	// - there is overlap in between pos/p vs sb.pos/sb.buf
-	// try to read again what is left to read from the buffer
-//	nn, p, pos = sb.readFromBuf(p, pos)
-// ---- 8< ---- (inlined readFromBuf)
-	// use buffered data: start + forward
-	if sb.pos <= pos && pos < sb.pos + int64(len(sb.buf)) {
-		nn = copy(p, sb.buf[pos - sb.pos:]) // NOTE len(p) can be < len(sb[copyPos:])
-		p = p[nn:]
-		pos += int64(nn)
-
-	// use buffered data: tail + backward
-	} else if posAfter := pos + int64(len(p));
-		len(p) != 0 &&
-		sb.pos < posAfter && posAfter <= sb.pos + int64(len(sb.buf)) {
-		// here we know pos < sb.pos
-		//
-		// proof: consider if pos >= sb.pos.
-		// Then from `pos <= sb.pos + len(sb.buf) - len(p)` above it follow that:
-		//   `pos < sb.pos + len(sb.buf)`  (NOTE strictly < because if len(p) > 0)
-		// and we come to condition which is used in `start + forward` if
-
-		nn = copy(p[sb.pos - pos:], sb.buf) // NOTE nn == len(p[sb.pos - pos:])
-		p = p[:sb.pos - pos]
-		// pos for actual read stays the same
-	}
-// ---- 8< ----
-	n += nn
-
-	// if there was an error - we can skip it if original read request was
-	// completely satisfied
-	if len(p) == 0 {
-		// NOTE not preserving EOF at ends - not needed per ReaderAt
-		// interface.
-		err = nil
-	}
-
-	// all done
-	return n, err
-*/
 }
 
 
