@@ -33,7 +33,6 @@ func NewSeqBufReader(r io.ReaderAt) *SeqBufReader {
 }
 
 func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
-	// XXX posLastIO - to which to init ?
 	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size), posLastIO: 0}
 	return sb
 }
@@ -59,9 +58,9 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	var ntail int // #data read from buffer for p tail
 
 	// try to satisfy read request via (partly) reading from buffer
-	switch {
+
 	// use buffered data: start + forward
-	case sb.pos <= pos && pos < sb.pos + len64(sb.buf):
+	if sb.pos <= pos && pos < sb.pos + len64(sb.buf) {
 		nhead = copy(p, sb.buf[pos - sb.pos:]) // NOTE len(p) can be < len(sb[copyPos:])
 
 		// if all was read from buffer - we are done
@@ -72,19 +71,19 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		p = p[nhead:]
 		pos += int64(nhead)
 
-	// emptry request (possibly not hitting buffer - do not let it go to real IO path)
+	// empty request (possibly not hitting buffer - do not let it go to real IO path)
 	// `len(p) != 0` is also needed for backward reading from buffer, so this condition goes before
-	case len(p) == 0:
+	} else if len(p) == 0 {
 		return 0, nil
 
 	// use buffered data: tail + backward
-	case posAfter := pos + len64(p);
-		sb.pos < posAfter && posAfter <= sb.pos + len64(sb.buf):
+	} else if posAfter := pos + len64(p);
+		sb.pos < posAfter && posAfter <= sb.pos + len64(sb.buf) {
 		// here we know pos < sb.pos
 		//
 		// proof: consider if pos >= sb.pos.
 		// Then from `pos <= sb.pos + len(sb.buf) - len(p)` above it follow that:
-		//   `pos < sb.pos + len(sb.buf)`  (NOTE strictly < because if len(p) > 0)
+		//   `pos < sb.pos + len(sb.buf)`  (NOTE strictly < because len(p) > 0)
 		// and we come to condition which is used in `start + forward` if
 		ntail = copy(p[sb.pos - pos:], sb.buf) // NOTE ntail == len(p[sb.pos - pos:])
 
@@ -108,8 +107,8 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	} else {
 		// backward
 
-		// by default we want to read forward, even when iterating backward
-		// (there are frequent jumps backward for reading a record there forward)
+		// by default we want to read forward, even when iterating backward:
+		// there are frequent jumps backward for reading a record there forward
 		xpos = pos
 
 		// but if this will overlap with last access range, probably
@@ -123,21 +122,15 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		}
 
 		// don't let reading go beyond start of the file
-		if xpos < 0 {
-			xpos = 0
-		}
+		xpos = max64(xpos, 0)
 	}
 
 	log.Printf("read [%v, %v)\t#%v", xpos, xpos + cap64(sb.buf), cap(sb.buf))
 	sb.posLastIO = xpos
 	nn, err := sb.r.ReadAt(sb.buf[:cap(sb.buf)], xpos)
 
-	// nothing read - just return the error
-	if nn == 0 {
-		return nhead, err
-	}
-
-	// even if there was an error, but data partly read, we remember it in the buffer
+	// even if there was an error, or data partly read, we cannot retain
+	// the old buf content as io.ReaderAt can use whole buf as scratch space
 	sb.pos = xpos
 	sb.buf = sb.buf[:nn]
 
@@ -147,10 +140,25 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	// - in case of successful read pos/p lies completely inside sb.pos/sb.buf
 
 	// copy loaded data from buffer to p
-	pBufOffset := pos - xpos // offset corresponding to p in sb.buf	XXX naming
+	pBufOffset := pos - xpos // offset corresponding to p in sb.buf
 	if pBufOffset >= len64(sb.buf) {
-		// this can be only when for backward reading there was EIO
-		// before data covering pos/p. Just return the error
+		// this can be only due to some IO error
+
+		// if we know:
+		// - it was backward reading, and
+		// - original requst was narrower than buffer
+		// try to satisfy it once again directly
+		if pos != xpos {
+			log.Printf("read [%v, %v)\t#%v", pos, pos + len64(p), len(p))
+			sb.posLastIO = pos
+			nn, err = sb.r.ReadAt(p, pos)
+			if nn < len(p) {
+				return nn, err
+			}
+			return nn + ntail, nil	// request fully satisfied - we can ignore error
+		}
+
+		// Just return the error
 		return nhead, err
 	}
 	nn = copy(p, sb.buf[pBufOffset:])
