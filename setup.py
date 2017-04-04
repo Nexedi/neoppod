@@ -84,6 +84,9 @@ setup(
             'neosimple=neo.scripts.simple:main',
             'stat_zodb=neo.tests.stat_zodb:main',
         ],
+        'zodburi.resolvers': [
+            'neo = neo.client.zodburi:resolve_uri [client]',
+        ],
     },
     extras_require = extras_require,
     package_data = {
