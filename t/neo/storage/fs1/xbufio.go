@@ -28,6 +28,8 @@ import (
 // becuase pressure to cache is increased 2x.
 //
 // -> if/when we really need it implement 2 buffers approach.
+//
+// XXX this also can be solved via loading not from posLastIO but from posLastAccess.
 
 
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
