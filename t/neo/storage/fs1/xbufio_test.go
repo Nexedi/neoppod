@@ -9,8 +9,6 @@ import (
 	"errors"
 	"io"
 	"testing"
-
-	"fmt"
 )
 
 
@@ -206,7 +204,6 @@ func TestSeqBufReader(t *testing.T) {
 	rb := NewSeqBufReaderSize(r, 10) // with 10 it is easier to do/check math for a human
 
 	for _, tt := range xSeqBufTestv {
-		fmt.Println(tt)
 		pOk := make([]byte, tt.Len)
 		pB  := make([]byte, tt.Len)
 
