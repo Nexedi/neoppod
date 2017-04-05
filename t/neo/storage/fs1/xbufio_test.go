@@ -44,6 +44,7 @@ func (r *XReader) ReadAt(p []byte, pos int64) (n int, err error) {
 // read @pos/len -> rb.pos, len(rb.buf)
 var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	// TODO add trend / not trend everywhere
+	// TODO review
 	{40,  5, 40, 10},	// 1st access, forward by default
 	{45,  7, 50, 10},	// part taken from buf, part read next, forward (trend)
 	{52,  5, 50, 10},	// everything taken from buf
@@ -108,6 +109,11 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{222, 8, 215, 10},
 	{219, 3, 215, 10},
 
+	// backward (non trend) vs not overlapping previous forward
+	{230,10, 230, 10},	// forward  @230 (1)
+	{220,10, 220, 10},	// backward @220 (2)
+	{250, 4, 250,  6},	// forward  @250 (3)
+	{245, 5, 240, 10},	// backward @245 (4)
 
 	{5, 4, 5, 10},		// forward near file start
 	{2, 3, 0, 10},		// backward: buf does not go beyong 0
@@ -181,6 +187,7 @@ func TestSeqBufReader(t *testing.T) {
 	}
 }
 
+// this is benchmark for how thin wrapper is, not for logic inside it
 func BenchmarkSeqBufReader(b *testing.B) {
 	r := &XReader{}
 	rb := NewSeqBufReaderSize(r, 10) // same as in TestSeqBufReader
