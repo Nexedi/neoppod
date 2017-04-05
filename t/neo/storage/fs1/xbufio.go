@@ -144,7 +144,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 			xpos = max64(xLastBackward, xpos + len64(p)) - cap64(sb.buf)
 
 		// alternatively even if backward trend does not continue anymore
-		// but if this will overlap with last access (XXX load) range, probably
+		// but if this will overlap with last access range, probably
 		// it is better (we are optimizing for sequential access) to
 		// shift loading region down not to overlap. example:
 		//
@@ -177,17 +177,15 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	if pBufOffset >= len64(sb.buf) {
 		// this can be only due to some IO error
 
-		// if we know:
-		// - it was backward reading, and
-		// - original requst was narrower than buffer
-		// try to satisfy it once again directly
-		if pos != xpos {	// FIXME pos != xpos no longer means backward
+		// if original requst was narrower than buffer try to satisfy
+		// it once again directly
+		if pos != xpos {
 			//log.Printf("read [%v, %v)\t#%v", pos, pos + len64(p), len(p))
 			nn, err = sb.r.ReadAt(p, pos)
 			if nn < len(p) {
-				return nn, err
+				return nhead + nn, err
 			}
-			return nn + ntail, nil	// request fully satisfied - we can ignore error
+			return nhead + nn + ntail, nil	// request fully satisfied - we can ignore error
 		}
 
 		// Just return the error

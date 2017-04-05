@@ -153,10 +153,51 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{108,10, 108, 10},	// reset @108
 	{ 98, 1,  89, 10},	// backward not overlapping EIO: buf filled according to backward trend
 
+	// forward (trend) vs EIO
+	{  0, 1,   0, 10},
+	{ 88,10,  88, 10},	// reset forward @98
+	{ 98, 1,  98,  2},	// forward not overlapping EIO: buf filled < EIO range
+	{  0, 1,   0, 10},
+	{ 88,10,  88, 10},	// reset forward @98
+	{ 99, 4,  98,  2},	// forward overlapping head EIO: buf filled < EIO range, EIO -> user
+	{  0, 1,   0, 10},
+	{ 88,10,  88, 10},	// reset forward @98
+	{ 99, 6,  98,  2},	// forward overlapping whole EIO range: buf filled <= EIO range, EIO -> user
+	{  0, 1,   0, 10},
+	{ 88,10,  88, 10},	// reset forward @98
+	{100, 4,  98,  2},	// forward = EIO range: buf filled < EIO range, EIO -> user
+	{  0, 1,   0, 10},
+	{ 90,10,  90, 10},	// reset forward @100
+	{101, 2, 100,  0},	// forward inside EIO range: buf scratched, EIO -> user
+	{  0, 1,   0, 10},
+	{ 90,10,  90, 10},	// reset forward @100
+	{103, 5, 100,  0},	// forward overlapping tail EIO: buf scratched, EIO -> user
+	{  0, 1,   0, 10},
+	{ 90,10,  90, 10},	// reset forward @100
+	{105, 2, 100,  0},	// forward client after EIO: buf scratched but read request satisfied
+
+	{  0, 1,   0, 10},
+	{ 90, 5,  90, 10},	// reset forward @95
+	{ 99, 3,  96,  4},	// forward jump client overlapping head EIO: buf filled < EIO range, EIO -> user
+
+	{  0, 1,   0, 10},
+	{ 89, 5,  89, 10},	// reset forward @94
+	{ 98, 2,  95,  5},	// forward jump client reading < EIO: buf filled < EIO range, user request satisfied
+
+
+	// EOF handling
 	{250, 4, 250,  6},	// access near EOF - buffer fill hits EOF, but not returns it to client
 	{254, 5, 256,  0},	// access overlapping EOF - EOF returned, buf scratched
 	{256, 1, 256,  0},	// access past EOF -> EOF
 	{257, 1, 257,  0},	// ----//----
+
+	// forward with jumps - buffer is still refilled adjacent to previous reading
+	// ( because jumps are not sequential access and we are optimizing for sequential cases.
+	//   also: if jump > cap(buf) reading will not be adjacent)
+	{ 0, 1,  0, 10},	// reset
+	{ 0, 5,  0, 10},
+	{ 9, 3,  6, 10},
+	{20, 3, 20, 10},
 }
 
 
