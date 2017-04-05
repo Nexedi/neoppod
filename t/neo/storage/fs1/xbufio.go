@@ -160,8 +160,9 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 
 		// if backward trend continues and bufferring would overlap with
 		// previous backward access - shift reading up right to it.
-		if xpos < posLastBackward && posLastBackward < xpos + cap64(sb.buf) {
-			xpos = max64(posLastBackward, xpos + len64(p)) - cap64(sb.buf)
+		xLast := posLastBackward - int64(ntail)	// XXX comment
+		if xpos < xLast && xLast < xpos + cap64(sb.buf) {
+			xpos = max64(xLast, xpos + len64(p)) - cap64(sb.buf)
 
 		// XXX recheck do we really need this ?	( was added for {122, 6, 121, 10} )
 		// XXX alternatively even if backward trend does not continue anymore

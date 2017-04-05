@@ -73,8 +73,41 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{136,20, 131, 10},	// big forward starting from inside filled buf
 	{128, 4, 126, 10},	// backward (not trend): buf refilled up to posLastIO
 
-	// TODO interleaved forward + back-back-back
-	// TODO interleaved backward + fwd-fwd-fwd
+	// interleaved backward + fwd-fwd-fwd
+	{200,10, 200, 10},	// reset @200
+	{194, 1, 190, 10},	// 1st backward access: buf refilled
+	{186, 1, 184, 10},	// trendy backward access - buf refilled up-to prev back read
+
+	{187, 1, 184, 10},	// fwd-fwd-fwd (all already buffered)
+	{188, 2, 184, 10},
+	{190, 3, 184, 10},
+
+	{182, 4, 174, 10},	// trendy backward access - part taken from buffer and buf refilled adjacet to previous backward IO
+
+	{168, 1, 168, 10},	// trendy backward access farther than cap(buf) - buf refilled right at @pos
+
+	{169, 7, 168, 10},	// fwd-fwd-fwd (partly buffered / partly loaded)
+	{176, 3, 178, 10},
+	{179, 6, 178, 10},
+
+	// interleaved forward + back-back-back
+	{200,10, 200, 10},	// reset @200
+	{206, 1, 200, 10},	// 1st forward access
+	{214, 1, 207, 10},	// trendy forward access - buf refilled adjacent to previous forward read
+
+	{213, 1, 207, 10},	// back-back-back (all already buffered)
+	{211, 2, 207, 10},
+	{207, 5, 207, 10},
+
+	{215, 4, 217, 10},	// trendy forward access - part taken from buffer and buf refilled adjacent to previous forward IO
+
+	{235, 1, 235, 10},	// trendy forward access farther than cap(buf) - buf refilled right at @pos
+
+	{234, 1, 225, 10},	// back-back-back (partly loaded / then partly buffered)
+	{230, 3, 225, 10},
+	{222, 8, 215, 10},
+	{219, 3, 215, 10},
+
 
 	{5, 4, 5, 10},		// forward near file start
 	{2, 3, 0, 10},		// backward: buf does not go beyong 0
