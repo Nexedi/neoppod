@@ -885,7 +885,7 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 
 	// output keys in sorted order on the wire
 	// (easier for debugging & deterministic for testing)
-	e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))
+	e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))	// FIXME do not throw old slice away -> do xslice.Realloc()
 	e.emit("for key := range %s {", path)
 	e.emit("  keyv = append(keyv, key)")
 	e.emit("}")

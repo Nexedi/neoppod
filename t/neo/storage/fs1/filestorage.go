@@ -23,7 +23,7 @@ import (
 	"os"
 
 	"../../zodb"
-	"../../xcommon/xmath"
+	"../../xcommon/xslice"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file
@@ -193,11 +193,7 @@ func (txnh *TxnHeader) DataLen() int64 {
 func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
 	workMem := txnh.workMem
 	lwork2 := len(txnh2.workMem)
-	if cap(workMem) < lwork2 {
-		workMem = make([]byte, lwork2)
-	} else {
-		workMem = workMem[:lwork2]
-	}
+	workMem = xslice.Realloc(workMem, lwork2)
 	*txnh = *txnh2
 	// now unshare slices
 	txnh.workMem = workMem
@@ -314,11 +310,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 	}
 
 	// NOTE we encode whole strings length into len(.workMem)
-	if cap(txnh.workMem) < lstr {
-		txnh.workMem = make([]byte, lstr, xmath.CeilPow2(uint64(lstr)))
-	} else {
-		txnh.workMem = txnh.workMem[:lstr]
-	}
+	txnh.workMem = xslice.Realloc(txnh.workMem, lstr)
 
 	// NOTE we encode each x string length into cap(x)
 	//      and set len(x) = 0 to indicate x is not loaded yet
@@ -653,11 +645,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error
 	}
 
 	// now read actual data
-	if int64(cap(*buf)) < dh.DataLen {
-		*buf = make([]byte, dh.DataLen, xmath.CeilPow2(uint64(dh.DataLen)))
-	} else {
-		*buf = (*buf)[:dh.DataLen]
-	}
+	*buf = xslice.Realloc64(*buf, dh.DataLen)
 	_, err := r.ReadAt(*buf, dh.Pos + DataHeaderSize)
 	if err != nil {
 		return dh.err("read data", noEOF(err))	// XXX recheck
