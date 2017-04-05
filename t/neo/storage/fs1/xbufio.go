@@ -26,6 +26,9 @@ type SeqBufReader struct {
 	posLastBackward	int64 // position of last backward access request
 
 	r io.ReaderAt
+
+	// debug: for ioReadAt tracing
+	//posLastIO	int64
 }
 
 // TODO text about syscall / memcpy etc
@@ -46,7 +49,22 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 // 	log.SetFlags(0)
 // }
 
+// debug helper for sb.r.ReadAt
+func (sb *SeqBufReader) ioReadAt(p []byte, pos int64) (int, error) {
+	/*
+	verb := "read"
+	if len(p) > cap(sb.buf) {
+		verb = "READ"
+	}
+	log.Printf("%s\t[%v, %v)\t#%v\tIO%+d", verb, pos, pos + len64(p), len(p), pos - sb.posLastIO)
+	sb.posLastIO = pos
+	*/
+	return sb.r.ReadAt(p, pos)
+}
+
 func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
+	//log.Printf("access\t[%v, %v)\t#%v\t@%+d", pos, pos + len64(p), len(p), pos - sb.posLastAccess)
+
 	// read-in last access positions and update them in *sb with current ones for next read
 	posLastAccess := sb.posLastAccess
 	posLastFwdAfter := sb.posLastFwdAfter
@@ -63,8 +81,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		// no copying from sb.buf here at all as if e.g. we could copy from sb.buf, the
 		// kernel can copy the same data from pagecache as well, and it will take the same time
 		// because for data in sb.buf corresponding page in pagecache has high p. to be hot.
-		//log.Printf("READ [%v, %v)\t#%v", pos, pos + len64(p), len(p))
-		return sb.r.ReadAt(p, pos)
+		return sb.ioReadAt(p, pos)
 	}
 
 	var nhead int // #data read from buffer for p head
@@ -160,8 +177,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		xpos = max64(xpos, 0)
 	}
 
-	//log.Printf("read [%v, %v)\t#%v", xpos, xpos + cap64(sb.buf), cap(sb.buf))
-	nn, err := sb.r.ReadAt(sb.buf[:cap(sb.buf)], xpos)
+	nn, err := sb.ioReadAt(sb.buf[:cap(sb.buf)], xpos)
 
 	// even if there was an error, or data partly read, we cannot retain
 	// the old buf content as io.ReaderAt can use whole buf as scratch space
@@ -180,8 +196,7 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		// if original requst was narrower than buffer try to satisfy
 		// it once again directly
 		if pos != xpos {
-			//log.Printf("read [%v, %v)\t#%v", pos, pos + len64(p), len(p))
-			nn, err = sb.r.ReadAt(p, pos)
+			nn, err = sb.ioReadAt(p, pos)
 			if nn < len(p) {
 				return nhead + nn, err
 			}
