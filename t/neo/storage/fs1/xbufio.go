@@ -33,6 +33,7 @@ import (
 
 
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
+// Both forward, backward and interleaved forward/backward access patterns are supported	XXX
 // FIXME access from multiple goroutines? (it is required per io.ReaderAt
 // interface, but for sequential workloads we do not need it)
 // XXX -> xbufio.SeqReader
@@ -41,8 +42,13 @@ type SeqBufReader struct {
 	buf	[]byte
 	pos	int64
 
-	// position of last IO  (can be != .pos because large reads are not buffered)
-	posLastIO int64
+	// // position of last IO  (can be != .pos because large reads are not buffered)
+	// posLastIO int64
+
+	// TODO text
+	posLastAccess	int64
+	posLastFwdAfter	int64
+	posLastBackward	int64
 
 	r io.ReaderAt
 }
@@ -55,7 +61,7 @@ func NewSeqBufReader(r io.ReaderAt) *SeqBufReader {
 }
 
 func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
-	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size), posLastIO: 0}
+	sb := &SeqBufReader{r: r, pos: 0, buf: make([]byte, 0, size)}	//, posLastIO: 0}
 	return sb
 }
 
@@ -66,13 +72,25 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 // }
 
 func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
+	// read-in last access positions and update them in *sb with current ones for next read
+	posLastAccess := sb.posLastAccess
+	posLastFwdAfter := sb.posLastFwdAfter
+	posLastBackward := sb.posLastBackward
+	sb.posLastAccess = pos
+	if pos >= posLastAccess {
+		sb.posLastFwdAfter = pos + len64(p)
+	} else {
+		sb.posLastBackward = pos
+	}
+
 	// if request size > buffer - read data directly
 	if len(p) > cap(sb.buf) {
 		// no copying from sb.buf here at all as if e.g. we could copy from sb.buf, the
 		// kernel can copy the same data from pagecache as well, and it will take the same time
 		// because for data in sb.buf corresponding page in pagecache has high p. to be hot.
 		//log.Printf("READ [%v, %v)\t#%v", pos, pos + len64(p), len(p))
-		sb.posLastIO = pos
+		//sb.posLastIO = pos
+		// TODO update lastAccess & lastFwd/lastBack
 		return sb.r.ReadAt(p, pos)
 	}
 
@@ -122,13 +140,42 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 	// NOTE len(p) <= cap(sb.buf)
 	var xpos int64 // position for new IO request
 
-	if pos >= sb.posLastIO {
+	//if pos >= sb.posLastIO {
+	if pos >= posLastAccess {
 		// forward
 		xpos = pos
 
+		// if forward trend continues and buffering can be made adjacent to
+		// previous forward access - shift reading down right to after it.
+		xLastAfter := posLastFwdAfter + int64(nhead)	// XXX comment
+		if xLastAfter <= xpos && xpos + len64(p) <= xLastAfter + cap64(sb.buf) {
+			xpos = xLastAfter
+		}
+
+		// XXX symmetry for "alternatively" in backward case
+
 	} else {
 		// backward
+		xpos = pos
 
+		// if backward trend continues and bufferring would overlap with
+		// previous backward access - shift reading up right to it.
+		if xpos < posLastBackward && posLastBackward < xpos + cap64(sb.buf) {
+			xpos = max64(posLastBackward, xpos + len64(p)) - cap64(sb.buf)
+
+		// XXX recheck do we really need this ?	( was added for {122, 6, 121, 10} )
+		// XXX alternatively even if backward trend does not continue anymore
+		// but if this will overlap with last access (XXX load) range, probably
+		// it is better (we are optimizing for sequential access) to
+		// shift loading region down not to overlap.
+		} else if xpos + cap64(sb.buf) > posLastAccess {
+			xpos = max64(posLastAccess, xpos + len64(p)) - cap64(sb.buf)
+		}
+
+		// don't let reading go beyond start of the file
+		xpos = max64(xpos, 0)
+
+		/*
 		// by default we want to read forward, even when iterating backward:
 		// there are frequent jumps backward for reading a record there forward
 		xpos = pos
@@ -141,14 +188,15 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		// can overlap, if e.g. last access was big non-buffered read.
 		if xpos + cap64(sb.buf) > sb.posLastIO {
 			xpos = max64(sb.posLastIO, xpos + len64(p)) - cap64(sb.buf)
-		}
 
-		// don't let reading go beyond start of the file
-		xpos = max64(xpos, 0)
+			// don't let reading go beyond start of the file
+			xpos = max64(xpos, 0)
+		}
+		*/
 	}
 
 	//log.Printf("read [%v, %v)\t#%v", xpos, xpos + cap64(sb.buf), cap(sb.buf))
-	sb.posLastIO = xpos
+//	sb.posLastIO = xpos
 	nn, err := sb.r.ReadAt(sb.buf[:cap(sb.buf)], xpos)
 
 	// even if there was an error, or data partly read, we cannot retain
@@ -169,9 +217,9 @@ func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
 		// - it was backward reading, and
 		// - original requst was narrower than buffer
 		// try to satisfy it once again directly
-		if pos != xpos {
+		if pos != xpos {	// FIXME pos != xpos no longer means backward
 			//log.Printf("read [%v, %v)\t#%v", pos, pos + len64(p), len(p))
-			sb.posLastIO = pos
+//			sb.posLastIO = pos
 			nn, err = sb.r.ReadAt(p, pos)
 			if nn < len(p) {
 				return nn, err
