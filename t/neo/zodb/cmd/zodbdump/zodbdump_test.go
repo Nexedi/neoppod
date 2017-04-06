@@ -2,7 +2,7 @@
 
 package main
 
-//go:generate sh -c "python2 -m zodbtools.zodbdump testdata/1.conf >testdata/1.zdump.pyok"
+//go:generate sh -c "python2 -m zodbtools.zodb dump ../../../storage/fs1/testdata/1.fs >testdata/1.zdump.pyok"
 
 import (
 	"bytes"
