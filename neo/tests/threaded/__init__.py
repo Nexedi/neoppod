@@ -35,7 +35,7 @@ from neo.lib.connection import BaseConnection, \
 from neo.lib.connector import SocketConnector, ConnectorException
 from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
+from neo.lib.protocol import ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
 from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER
@@ -745,27 +745,39 @@ class NEOCluster(object):
     def __exit__(self, t, v, tb):
         self.stop(None)
 
-    def start(self, storage_list=None, fast_startup=False):
+    def start(self, storage_list=None, master_list=None, recovering=False):
         self.started = True
         self._patch()
         self.neoctl = NeoCTL(self.admin.getVirtualAddress(), ssl=self.SSL)
-        for node_type in 'master', 'admin':
-            for node in getattr(self, node_type + '_list'):
-                node.start()
+        for node in self.master_list if master_list is None else master_list:
+            node.start()
+        for node in self.admin_list:
+            node.start()
         Serialized.tic()
-        if fast_startup:
-            self.startCluster()
         if storage_list is None:
             storage_list = self.storage_list
         for node in storage_list:
             node.start()
         Serialized.tic()
-        if not fast_startup:
+        if recovering:
+            expected_state = ClusterStates.RECOVERING
+        else:
             self.startCluster()
             Serialized.tic()
+            expected_state = ClusterStates.RUNNING, ClusterStates.BACKINGUP
+        self.checkStarted(expected_state, storage_list)
+
+    def checkStarted(self, expected_state, storage_list=None):
+        if isinstance(expected_state, Enum.Item):
+            expected_state = expected_state,
         state = self.neoctl.getClusterState()
-        assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
-        self.enableStorageList(storage_list)
+        assert state in expected_state, state
+        expected_state = (NodeStates.PENDING
+            if state == ClusterStates.RECOVERING
+            else NodeStates.RUNNING)
+        for node in self.storage_list if storage_list is None else storage_list:
+            state = self.getNodeState(node)
+            assert state == expected_state, (node, state)
 
     def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:

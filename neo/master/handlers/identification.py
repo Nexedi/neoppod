@@ -15,27 +15,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.exception import PrimaryElected
+from neo.lib.handler import EventHandler
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, \
-    NotReadyError, ProtocolError, uuid_str
+    NotReadyError, Packets, ProtocolError, uuid_str
 from ..app import monotonic_time
-from . import MasterHandler
 
-class IdentificationHandler(MasterHandler):
+class IdentificationHandler(EventHandler):
 
-    def requestIdentification(self, conn, *args, **kw):
-        super(IdentificationHandler, self).requestIdentification(conn, *args,
-            **kw)
-        handler = conn.getHandler()
-        assert not isinstance(handler, IdentificationHandler), handler
-        handler._notifyNodeInformation(conn)
-        handler.connectionCompleted(conn, True)
-
-    def _setupNode(self, conn, node_type, uuid, address, node):
+    def requestIdentification(self, conn, node_type, uuid,
+                              address, name, id_timestamp):
         app = self.app
+        self.checkClusterName(name)
+        if address == app.server:
+            raise ProtocolError('address conflict')
+        node = app.nm.getByUUID(uuid)
         by_addr = address and app.nm.getByAddress(address)
         while 1:
             if by_addr:
-                if not by_addr.isConnected():
+                if not by_addr.isIdentified():
                     if node is by_addr:
                         break
                     if not node or uuid < 0:
@@ -44,7 +42,7 @@ class IdentificationHandler(MasterHandler):
                         node = by_addr
                         break
             elif node:
-                if node.isConnected():
+                if node.isIdentified():
                     if uuid < 0:
                         # The peer wants a temporary id that's already assigned.
                         # Let's give it another one.
@@ -78,7 +76,14 @@ class IdentificationHandler(MasterHandler):
                 uuid is not None and node is not None)
             human_readable_node_type = ' storage (%s) ' % (state, )
         elif node_type == NodeTypes.MASTER:
-            handler = app.secondary_master_handler
+            if app.election:
+                if id_timestamp and \
+                  (id_timestamp, address) < (app.election, app.server):
+                    raise PrimaryElected(by_addr or
+                        app.nm.createMaster(address=address))
+                handler = app.election_handler
+            else:
+                handler = app.secondary_handler
             human_readable_node_type = ' master '
         elif node_type == NodeTypes.ADMIN:
             handler = app.administration_handler
@@ -95,22 +100,43 @@ class IdentificationHandler(MasterHandler):
             node.setUUID(uuid)
         node.id_timestamp = monotonic_time()
         node.setState(state)
-        node.setConnection(conn)
         conn.setHandler(handler)
+        node.setConnection(conn, not node.isIdentified())
         app.broadcastNodesInformation([node], node)
-        return uuid
 
-class SecondaryIdentificationHandler(MasterHandler):
+        conn.answer(Packets.AcceptIdentification(
+            NodeTypes.MASTER,
+            app.uuid,
+            app.pt.getPartitions(),
+            app.pt.getReplicas(),
+            uuid))
+        handler._notifyNodeInformation(conn)
+        handler.connectionCompleted(conn, True)
 
-    def announcePrimary(self, conn):
-        # If we received AnnouncePrimary on a client connection, we might have
-        # set this handler on server connection, and might receive
-        # AnnouncePrimary there too. As we cannot reach this without already
-        # handling a first AnnouncePrimary, we can safely ignore this one.
-        pass
 
-    def _setupNode(self, conn, node_type, uuid, address, node):
-        # Nothing to do, storage will disconnect when it receives our answer.
-        # Primary will do the checks.
-        return uuid
+class SecondaryIdentificationHandler(EventHandler):
 
+    def requestIdentification(self, conn, node_type, uuid,
+                              address, name, id_timestamp):
+        app = self.app
+        self.checkClusterName(name)
+        if address == app.server:
+            raise ProtocolError('address conflict')
+        primary = app.primary_master.getAddress()
+        if primary == address:
+            primary = None
+        elif not app.primary_master.isIdentified():
+            if node_type == NodeTypes.MASTER:
+                node = app.nm.createMaster(address=address)
+                if id_timestamp:
+                    conn.close()
+                    raise PrimaryElected(node)
+            primary = None
+        # For some cases, we rely on the fact that the remote will not retry
+        # immediately (see SocketConnector.CONNECT_LIMIT).
+        known_master_list = [node.getAddress()
+            for node in app.nm.getMasterList()]
+        conn.send(Packets.NotPrimaryMaster(
+            primary and known_master_list.index(primary),
+            known_master_list))
+        conn.abort()

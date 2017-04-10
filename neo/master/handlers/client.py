@@ -22,16 +22,15 @@ from . import MasterHandler
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
 
-    def connectionLost(self, conn, new_state):
+    def _connectionLost(self, conn):
         # cancel its transactions and forgot the node
         app = self.app
-        if app.listening_conn: # if running
-            node = app.nm.getByUUID(conn.getUUID())
-            assert node is not None
-            app.tm.clientLost(node)
-            node.setState(NodeStates.DOWN)
-            app.broadcastNodesInformation([node])
-            app.nm.remove(node)
+        node = app.nm.getByUUID(conn.getUUID())
+        assert node is not None, conn
+        app.tm.clientLost(node)
+        node.setState(NodeStates.DOWN)
+        app.broadcastNodesInformation([node])
+        app.nm.remove(node)
 
     def askBeginTransaction(self, conn, tid):
         """

@@ -34,8 +34,8 @@ from neo.lib.connection import ConnectionClosed, \
 from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.handler import DelayEvent
 from neo.lib import logging
-from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
-    Packet, uuid_str, ZERO_OID, ZERO_TID
+from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
+    Packets, Packet, uuid_str, ZERO_OID, ZERO_TID)
 from .. import expectedFailure, Patch, TransactionalResource
 from . import ClientApplication, ConnectionFilter, LockLock, NEOThreadedTest, \
     RandomConflictDict, ThreadId, with_cluster
@@ -837,12 +837,6 @@ class Test(NEOThreadedTest):
 
     @with_cluster(master_count=3, partitions=10, replicas=1, storage_count=3)
     def testShutdown(self, cluster):
-        # BUG: Due to bugs in election, master nodes sometimes crash, or they
-        #      declare themselves primary too quickly, but issues seem to be
-        #      only reproducible with SSL enabled.
-        self._testShutdown(cluster)
-
-    def _testShutdown(self, cluster):
         def before_finish(_):
             # tell admin to shutdown the cluster
             cluster.neoctl.setClusterState(ClusterStates.STOPPING)
@@ -1225,12 +1219,10 @@ class Test(NEOThreadedTest):
 
     @with_cluster(start_cluster=0, storage_count=3, autostart=3)
     def testAutostart(self, cluster):
-        def startCluster(orig):
-            getClusterState = cluster.neoctl.getClusterState
-            self.assertEqual(ClusterStates.RECOVERING, getClusterState())
-            cluster.storage_list[2].start()
-        with Patch(cluster, startCluster=startCluster):
-            cluster.start(cluster.storage_list[:2])
+        cluster.start(cluster.storage_list[:2], recovering=True)
+        cluster.storage_list[2].start()
+        self.tic()
+        cluster.checkStarted(ClusterStates.RUNNING)
 
     @with_cluster(storage_count=2, partitions=2)
     def testAbortVotedTransaction(self, cluster):
@@ -2218,6 +2210,60 @@ class Test(NEOThreadedTest):
 
     def testConflictAfterDeadlockWithSlowReplica2(self):
         self.testConflictAfterDeadlockWithSlowReplica1(True)
+
+    @with_cluster(start_cluster=0, master_count=3)
+    def testElection(self, cluster):
+        m0, m1, m2 = cluster.master_list
+        cluster.start(master_list=(m0,), recovering=True)
+        getClusterState = cluster.neoctl.getClusterState
+        m0.em.removeReader(m0.listening_conn)
+        m1.start()
+        self.tic()
+        m2.start()
+        self.tic()
+        self.assertTrue(m0.primary)
+        self.assertTrue(m1.primary)
+        self.assertFalse(m2.primary)
+        m0.em.addReader(m0.listening_conn)
+        with ConnectionFilter() as f:
+            f.delayAcceptIdentification()
+            self.tic()
+        self.tic()
+        self.assertTrue(m0.primary)
+        self.assertFalse(m1.primary)
+        self.assertFalse(m2.primary)
+        self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
+        cluster.startCluster()
+        def stop(node):
+            node.stop()
+            cluster.join((node,))
+            node.resetNode()
+        stop(m1)
+        self.tic()
+        self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+        self.assertTrue(m0.primary)
+        self.assertFalse(m2.primary)
+        stop(m0)
+        self.tic()
+        self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+        self.assertTrue(m2.primary)
+        # Check for proper update of node ids on first NotifyNodeInformation.
+        stop(m2)
+        m0.start()
+        def update(orig, app, timestamp, node_list):
+            orig(app, timestamp, sorted(node_list, reverse=1))
+        with Patch(cluster.storage.nm, update=update):
+            with ConnectionFilter() as f:
+                f.add(lambda conn, packet:
+                    isinstance(packet, Packets.RequestIdentification)
+                    and packet.decode()[0] == NodeTypes.STORAGE)
+                self.tic()
+                m2.start()
+                self.tic()
+            self.tic()
+        self.assertEqual(getClusterState(), ClusterStates.RUNNING)
+        self.assertTrue(m0.primary)
+        self.assertFalse(m2.primary)
 
 
 if __name__ == "__main__":

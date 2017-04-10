@@ -578,12 +578,14 @@ class PChecksum(PItem):
     def _decode(self, reader):
         return reader(20)
 
-class PUUID(PStructItemOrNone):
+class PSignedNull(PStructItemOrNone):
+    _fmt = '!l'
+    _None = Struct(_fmt).pack(0)
+
+class PUUID(PSignedNull):
     """
         An UUID (node identifier, 4-bytes signed integer)
     """
-    _fmt = '!l'
-    _None = Struct(_fmt).pack(0)
 
 class PTID(PItem):
     """
@@ -715,13 +717,6 @@ class RequestIdentification(Packet):
         PNumber('num_partitions'),
         PNumber('num_replicas'),
         PUUID('your_uuid'),
-        PAddress('primary'),
-        PList('known_master_list',
-            PStruct('master',
-                PAddress('address'),
-                PUUID('uuid'),
-            ),
-        ),
     )
 
     def __init__(self, *args, **kw):
@@ -742,15 +737,16 @@ class PrimaryMaster(Packet):
         PUUID('primary_uuid'),
     )
 
-class AnnouncePrimary(Packet):
+class NotPrimaryMaster(Packet):
     """
-    Announce a primary master node election. PM -> SM.
+    Send list of known master nodes. SM -> Any.
     """
-
-class ReelectPrimary(Packet):
-    """
-    Force a re-election of a primary master node. M -> M.
-    """
+    _fmt = PStruct('not_primary_master',
+        PSignedNull('primary'),
+        PList('known_master_list',
+            PAddress('address'),
+        ),
+    )
 
 class Recovery(Packet):
     """
@@ -1687,10 +1683,8 @@ class Packets(dict):
                     Notify)
     AskPrimary, AnswerPrimary = register(
                     PrimaryMaster)
-    AnnouncePrimary = register(
-                    AnnouncePrimary)
-    ReelectPrimary = register(
-                    ReelectPrimary)
+    NotPrimaryMaster = register(
+                    NotPrimaryMaster)
     NotifyNodeInformation = register(
                     NotifyNodeInformation)
     AskRecovery, AnswerRecovery = register(

@@ -259,10 +259,12 @@ class BaseConnection(object):
         )
 
     def setHandler(self, handler):
-        if self._handlers.setHandler(handler):
-            logging.debug('Set handler %r on %r', handler, self)
+        changed = self._handlers.setHandler(handler)
+        if changed:
+            logging.debug('Handler changed on %r', self)
         else:
             logging.debug('Delay handler %r on %r', handler, self)
+        return changed
 
     def getUUID(self):
         return None

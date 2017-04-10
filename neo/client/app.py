@@ -194,17 +194,17 @@ class Application(ThreadedApplication):
                 self.nm.reset()
                 if self.primary_master_node is not None:
                     # If I know a primary master node, pinpoint it.
-                    self.trying_master_node = self.primary_master_node
+                    node = self.primary_master_node
                     self.primary_master_node = None
                 else:
                     # Otherwise, check one by one.
                     master_list = self.nm.getMasterList()
                     index = (index + 1) % len(master_list)
-                    self.trying_master_node = master_list[index]
+                    node = master_list[index]
                 # Connect to master
                 conn = MTClientConnection(self,
                         self.notifications_handler,
-                        node=self.trying_master_node,
+                        node=node,
                         dispatcher=self.dispatcher)
                 p = Packets.RequestIdentification(
                     NodeTypes.CLIENT, self.uuid, None, self.name, None)
@@ -212,10 +212,8 @@ class Application(ThreadedApplication):
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:
                     fail_count += 1
-                    continue
-                # If we reached the primary master node, mark as connected
-                if self.primary_master_node is not None and \
-                   self.primary_master_node is self.trying_master_node:
+                else:
+                    self.primary_master_node = node
                     break
             else:
                 raise NEOPrimaryMasterLost(

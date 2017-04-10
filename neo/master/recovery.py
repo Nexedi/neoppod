@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.connection import ClientConnection
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
 from .app import monotonic_time
 from .handlers import MasterHandler
@@ -47,6 +48,7 @@ class RecoveryManager(MasterHandler):
         TID, and the last Partition Table ID from storage nodes, then get
         back the latest partition table or make a new table from scratch,
         if this is the first time.
+        A new primary master may also arise during this phase.
         """
         logging.info('begin the recovery of the status')
         app = self.app
@@ -54,9 +56,30 @@ class RecoveryManager(MasterHandler):
         app.changeClusterState(ClusterStates.RECOVERING)
         pt.clear()
 
+        self.try_secondary = True
+
         # collect the last partition table available
         poll = app.em.poll
         while 1:
+            if self.try_secondary:
+                # Keep trying to connect to all other known masters,
+                # to make sure there is a challege between each pair
+                # of masters in the cluster. If we win, all connections
+                # opened here will be closed.
+                self.try_secondary = False
+                node_list = []
+                for node in app.nm.getMasterList():
+                    if not (node is app._node or node.isConnected(True)):
+                        # During recovery, master nodes are not put back in
+                        # TEMPORARILY_DOWN state by handlers. This is done
+                        # entirely in this method (here and after this poll
+                        # loop), to minimize the notification packets.
+                        if not node.isTemporarilyDown():
+                            node.setTemporarilyDown()
+                            node_list.append(node)
+                        ClientConnection(app, app.election_handler, node)
+                if node_list:
+                    app.broadcastNodesInformation(node_list)
             poll(1)
             if pt.filled():
                 # A partition table exists, we are starting an existing
@@ -100,6 +123,17 @@ class RecoveryManager(MasterHandler):
         for node in node_list:
             assert node.isPending(), node
             node.setRunning()
+
+        for node in app.nm.getMasterList():
+            if not (node is app._node or node.isIdentified()):
+                if node.isConnected(True):
+                    node.getConnection().close()
+                    assert node.isTemporarilyDown(), node
+                elif not node.isTemporarilyDown():
+                    assert self.try_secondary, node
+                    node.setTemporarilyDown()
+                    node_list.append(node)
+
         app.broadcastNodesInformation(node_list)
 
         if pt.getID() is None:

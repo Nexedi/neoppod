@@ -309,10 +309,6 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if the ProtocolError exception was raised """
         self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
 
-    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception was raised """
-        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
-
     def checkAborted(self, conn):
         """ Ensure the connection was aborted """
         self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
@@ -329,16 +325,6 @@ class NeoUnitTestBase(NeoTestBase):
         self._checkNoPacketSend(conn, 'send')
         self._checkNoPacketSend(conn, 'answer')
         self._checkNoPacketSend(conn, 'ask')
-
-    def checkUUIDSet(self, conn, uuid=None, check_intermediate=True):
-        """ ensure UUID was set on the connection """
-        calls = conn.mockGetNamedCalls('setUUID')
-        found_uuid = calls.pop().getParam(0)
-        if check_intermediate:
-            for call in calls:
-                self.assertEqual(found_uuid, call.getParam(0))
-        if uuid is not None:
-            self.assertEqual(found_uuid, uuid)
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurate checks are required

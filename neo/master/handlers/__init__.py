@@ -29,34 +29,9 @@ class MasterHandler(EventHandler):
         if new is None:
             super(MasterHandler, self).connectionCompleted(conn)
 
-    def requestIdentification(self, conn, node_type, uuid, address, name, _):
-        self.checkClusterName(name)
-        app = self.app
-        node = app.nm.getByUUID(uuid)
-        if node:
-            if node_type is NodeTypes.MASTER and not (
-               None != address == node.getAddress()):
-                raise ProtocolError
-        peer_uuid = self._setupNode(conn, node_type, uuid, address, node)
-        if app.primary:
-            primary_address = app.server
-        elif app.primary_master_node is not None:
-            primary_address = app.primary_master_node.getAddress()
-        else:
-            primary_address = None
-
-        known_master_list = []
-        for n in app.nm.getMasterList():
-            known_master_list.append((n.getAddress(), n.getUUID()))
-        conn.answer(Packets.AcceptIdentification(
-            NodeTypes.MASTER,
-            app.uuid,
-            app.pt.getPartitions(),
-            app.pt.getReplicas(),
-            peer_uuid,
-            primary_address,
-            known_master_list),
-        )
+    def connectionLost(self, conn, new_state=None):
+        if self.app.listening_conn: # if running
+            self._connectionLost(conn)
 
     def askClusterState(self, conn):
         state = self.app.getClusterState()

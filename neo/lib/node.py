@@ -423,7 +423,7 @@ class NodeManager(EventQueue):
             # lookup in current table
             node_by_uuid = self.getByUUID(uuid)
             node_by_addr = self.getByAddress(addr)
-            node = node_by_uuid or node_by_addr
+            node = node_by_addr or node_by_uuid
 
             log_args = node_type, uuid_str(uuid), addr, state, id_timestamp
             if node is None:
@@ -434,10 +434,11 @@ class NodeManager(EventQueue):
             else:
                 assert isinstance(node, klass), 'node %r is not ' \
                     'of expected type: %r' % (node, klass)
-                assert None in (node_by_uuid, node_by_addr) or \
-                    node_by_uuid is node_by_addr, \
+                if None is not node_by_uuid is not node_by_addr is not None:
+                    assert added_list is not None, \
                     'Discrepancy between node_by_uuid (%r) and ' \
                     'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
+                    node_by_uuid.setUUID(None)
                 if state == NodeStates.DOWN:
                     logging.debug('dropping node %r (%r), found with %s '
                         '%s %s %s %s', node, node.isConnected(), *log_args)
