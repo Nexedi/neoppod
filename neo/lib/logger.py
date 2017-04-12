@@ -206,6 +206,13 @@ class NEOLogger(Logger):
             self._setup(filename, reset)
     __del__ = setup
 
+    def fork(self):
+        with self:
+            pid = os.fork()
+            if pid:
+                return pid
+            self._setup()
+
     def isEnabledFor(self, level):
         return True
 

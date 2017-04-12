@@ -158,7 +158,7 @@ class NEOProcess(object):
             if args:
                 os.close(w)
                 os.kill(os.getpid(), signal.SIGSTOP)
-        self.pid = os.fork()
+        self.pid = logging.fork()
         if self.pid:
             # Wait that the signal to kill the child is set up.
             os.close(w)
@@ -168,8 +168,6 @@ class NEOProcess(object):
         else:
             # Child
             try:
-                # release SQLite debug log
-                logging.setup()
                 signal.signal(signal.SIGTERM, lambda *args: sys.exit())
                 if coverage:
                     coverage.stop()
