@@ -196,8 +196,10 @@ class PartitionTable(object):
                 break
 
     def dropNode(self, node):
-        count = self.count_dict.pop(node, None)
-        assert not count, (node, count)
+        count = self.count_dict.get(node)
+        if count == 0:
+            del self.count_dict[node]
+        return not count
 
     def load(self, ptid, row_list, nm):
         """

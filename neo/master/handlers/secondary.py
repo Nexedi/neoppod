@@ -38,10 +38,6 @@ class SecondaryMasterHandler(MasterHandler):
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
-    def _notifyNodeInformation(self, conn):
-        node_list = [n.asTuple() for n in self.app.nm.getMasterList()]
-        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
-
 class PrimaryHandler(EventHandler):
     """ Handler used by secondaries to handle primary master"""
 

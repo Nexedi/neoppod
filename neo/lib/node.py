@@ -414,7 +414,7 @@ class NodeManager(EventQueue):
     def update(self, app, timestamp, node_list):
         assert self._timestamp < timestamp, (self._timestamp, timestamp)
         self._timestamp = timestamp
-        node_set = self._node_set.copy() if app.id_timestamp is None else None
+        added_list = [] if app.id_timestamp is None else None
         for node_type, addr, uuid, state, id_timestamp in node_list:
             # This should be done here (although klass might not be used in this
             # iteration), as it raises if type is not valid.
@@ -427,9 +427,7 @@ class NodeManager(EventQueue):
 
             log_args = node_type, uuid_str(uuid), addr, state, id_timestamp
             if node is None:
-                if state == NodeStates.DOWN:
-                    logging.debug('NOT creating node %s %s %s %s %s', *log_args)
-                    continue
+                assert state != NodeStates.DOWN, (self._node_set,) + log_args
                 node = self._createNode(klass, address=addr, uuid=uuid,
                         state=state)
                 logging.debug('creating node %r', node)
@@ -451,8 +449,9 @@ class NodeManager(EventQueue):
                         # reconnect to the master because they cleared their
                         # partition table upon disconnection.
                         node.getConnection().close()
-                    if app.uuid != uuid:
-                        app.pt.dropNode(node)
+                    if app.uuid != uuid: # XXX
+                        dropped = app.pt.dropNode(node)
+                        assert dropped, node
                     self.remove(node)
                     continue
                 logging.debug('updating node %r to %s %s %s %s %s',
@@ -463,12 +462,15 @@ class NodeManager(EventQueue):
             node.id_timestamp = id_timestamp
             if app.uuid == uuid:
                 app.id_timestamp = id_timestamp
-        if node_set:
+            if added_list is not None:
+                added_list.append(node)
+        if added_list is not None:
+            assert app.id_timestamp is not None
             # For the first notification, we receive a full list of nodes from
             # the master. Remove all unknown nodes from a previous connection.
-            for node in node_set - self._node_set:
-                app.pt.dropNode(node)
-                self.remove(node)
+            for node in self._node_set.difference(added_list):
+                if app.pt.dropNode(node):
+                    self.remove(node)
         self.log()
         self.executeQueuedEvents()
 

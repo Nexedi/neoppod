@@ -57,6 +57,9 @@ class Application(BaseApplication):
     backup_tid = None
     backup_app = None
     truncate_tid = None
+    uuid = property(
+        lambda self: self._node.getUUID(),
+        lambda self, uuid: self._node.setUUID(uuid))
 
     def __init__(self, config):
         super(Application, self).__init__(
@@ -71,6 +74,8 @@ class Application(BaseApplication):
         self.storage_starting_set = set()
         for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
+        self._node = self.nm.createMaster(address=self.server,
+                                          uuid=config.getUUID())
 
         logging.debug('IP address is %s, port is %d', *self.server)
 
@@ -90,8 +95,6 @@ class Application(BaseApplication):
         self.primary = None
         self.primary_master_node = None
         self.cluster_state = None
-
-        self.uuid = config.getUUID()
 
         # election related data
         self.unconnected_master_node_set = set()
@@ -185,6 +188,8 @@ class Application(BaseApplication):
 
             # handle new connected masters
             for node in self.nm.getMasterList():
+                if node is self._node:
+                    continue
                 node.setUnknown()
                 self.unconnected_master_node_set.add(node.getAddress())
 
@@ -232,11 +237,7 @@ class Application(BaseApplication):
                 self.primary = self.primary is None
                 break
 
-    def broadcastNodesInformation(self, node_list, exclude=None):
-        """
-          Broadcast changes for a set a nodes
-          Send only one packet per connection to reduce bandwidth
-        """
+    def getNodeInformationDict(self, node_list):
         node_dict = defaultdict(list)
         # group modified nodes by destination node type
         for node in node_list:
@@ -251,7 +252,14 @@ class Application(BaseApplication):
             if node.isStorage():
                 continue
             node_dict[NodeTypes.MASTER].append(node_info)
+        return node_dict
 
+    def broadcastNodesInformation(self, node_list, exclude=None):
+        """
+          Broadcast changes for a set a nodes
+          Send only one packet per connection to reduce bandwidth
+        """
+        node_dict = self.getNodeInformationDict(node_list)
         now = monotonic_time()
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
@@ -340,12 +348,7 @@ class Application(BaseApplication):
         if self.uuid is None:
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
             logging.info('My UUID: ' + uuid_str(self.uuid))
-        else:
-            in_conflict = self.nm.getByUUID(self.uuid)
-            if in_conflict is not None:
-                logging.warning('UUID conflict at election exit with %r',
-                    in_conflict)
-                in_conflict.setUUID(None)
+        self._node.setRunning()
 
         # Do not restart automatically if ElectionFailure is raised, in order
         # to avoid a split of the database. For example, with 2 machines with

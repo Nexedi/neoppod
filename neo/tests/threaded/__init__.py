@@ -336,7 +336,7 @@ class ServerNode(Node):
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
         kw.update(getCluster=name, getBind=address,
-            getMasters=master_nodes and parseMasterList(master_nodes, address))
+            getMasters=master_nodes and parseMasterList(master_nodes))
         super(ServerNode, self).__init__(Mock(kw))
 
     def getVirtualAddress(self):

@@ -27,6 +27,7 @@ class IdentificationHandler(MasterHandler):
             **kw)
         handler = conn.getHandler()
         assert not isinstance(handler, IdentificationHandler), handler
+        handler._notifyNodeInformation(conn)
         handler.connectionCompleted(conn, True)
 
     def _setupNode(self, conn, node_type, uuid, address, node):

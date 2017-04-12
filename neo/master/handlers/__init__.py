@@ -28,8 +28,6 @@ class MasterHandler(EventHandler):
     def connectionCompleted(self, conn, new=None):
         if new is None:
             super(MasterHandler, self).connectionCompleted(conn)
-        elif new:
-            self._notifyNodeInformation(conn)
 
     def requestIdentification(self, conn, node_type, uuid, address, name, _):
         self.checkClusterName(name)
@@ -49,7 +47,7 @@ class MasterHandler(EventHandler):
         else:
             primary_address = None
 
-        known_master_list = [(app.server, app.uuid)]
+        known_master_list = []
         for n in app.nm.getMasterList():
             if n.isBroken():
                 continue
@@ -84,11 +82,12 @@ class MasterHandler(EventHandler):
             self.app.getLastTransaction()))
 
     def _notifyNodeInformation(self, conn):
-        nm = self.app.nm
-        node_list = []
-        node_list.extend(n.asTuple() for n in nm.getMasterList())
-        node_list.extend(n.asTuple() for n in nm.getClientList())
-        node_list.extend(n.asTuple() for n in nm.getStorageList())
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
+        node_list = app.nm.getList()
+        node_list.remove(node)
+        node_list = ([node.asTuple()] # for id_timestamp
+            + app.getNodeInformationDict(node_list)[node.getType()])
         conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askPartitionTable(self, conn):
@@ -104,7 +103,6 @@ class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
     def connectionCompleted(self, conn, new):
-        self._notifyNodeInformation(conn)
         pt = self.app.pt
         conn.send(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
 

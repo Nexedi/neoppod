@@ -164,7 +164,7 @@ class NodeManagerTests(NeoUnitTestBase):
                 NodeStates.UNKNOWN, None),
         )
         app = Mock()
-        app.pt = Mock()
+        app.pt = Mock({'dropNode': True})
         # update manager content
         manager.update(app, time(), node_list)
         # - the client gets down
