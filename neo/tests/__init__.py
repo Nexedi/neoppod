@@ -449,11 +449,11 @@ class Patch(object):
 
     applied = False
 
-    def __new__(cls, patched, **patch):
+    def __new__(cls, patched, *args, **patch):
         if patch:
             return object.__new__(cls)
         def patch(func):
-            self = cls(patched, **{func.__name__: func})
+            self = cls(patched, *args, **{func.__name__: func})
             self.apply()
             return self
         return patch
