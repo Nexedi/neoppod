@@ -16,6 +16,7 @@
 
 import sys
 from collections import deque
+from operator import itemgetter
 from . import logging
 from .connection import ConnectionClosed
 from .protocol import (
@@ -317,16 +318,19 @@ class EventQueue(object):
         self._event_queue = []
         self._executing_event = -1
 
+    sortQueuedEvents = (lambda key=itemgetter(0): lambda self:
+        self._event_queue.sort(key=key))()
+
     def queueEvent(self, func, conn=None, args=(), key=None):
         assert self._executing_event < 0, self._executing_event
         self._event_queue.append((key, func if conn is None else
             _DelayedConnectionEvent(func, conn, args)))
         if key is not None:
-            self._event_queue.sort()
+            self.sortQueuedEvents()
 
     def sortAndExecuteQueuedEvents(self):
         if self._executing_event < 0:
-            self._event_queue.sort()
+            self.sortQueuedEvents()
             self.executeQueuedEvents()
         else:
             # We can't sort events when they're being processed.
@@ -359,9 +363,10 @@ class EventQueue(object):
                     while done:
                         del queue[done.pop()]
                 self._executing_event = 0
-                # What sortQueuedEvents could not do immediately is done here:
+                # What sortAndExecuteQueuedEvents could not do immediately
+                # is done here:
                 if event[0] is not None:
-                    queue.sort()
+                    self.sortQueuedEvents()
             self._executing_event = -1
 
     def logQueuedEvents(self):
