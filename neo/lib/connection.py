@@ -352,7 +352,7 @@ class Connection(BaseConnection):
             r.append(('len(queue)', len(self._queue)))
         if self._on_close is not None:
             r.append(('on_close', getattr(self._on_close, '__name__', '?')))
-        flags.extend(x for x in ('aborted', 'connecting', 'client', 'server')
+        flags.extend(x for x in ('connecting', 'client', 'server')
                        if getattr(self, x))
         return r, flags
 
