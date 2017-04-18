@@ -214,6 +214,8 @@ class ReadBuffer(object):
         self.size = 0
         self.content.clear()
 
+dummy_read_buffer = ReadBuffer()
+dummy_read_buffer.append = lambda _: None
 
 class cached_property(object):
     """

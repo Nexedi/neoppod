@@ -22,7 +22,7 @@ from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
 from .protocol import uuid_str, Errors, \
         PacketMalformedError, Packets, ParserState
-from .util import ReadBuffer
+from .util import dummy_read_buffer, ReadBuffer
 
 CRITICAL_TIMEOUT = 30
 
@@ -445,6 +445,7 @@ class Connection(BaseConnection):
             return
         logging.debug('aborting a connector for %r', self)
         self.aborted = True
+        self.read_buf = dummy_read_buffer
         if self._on_close is not None:
             self._on_close()
             self._on_close = None
@@ -482,8 +483,6 @@ class Connection(BaseConnection):
         except PacketMalformedError, e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
-        if self.aborted:
-            self.em.removeReader(self)
         return not not self._queue
 
     def hasPendingMessages(self):

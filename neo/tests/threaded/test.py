@@ -1326,6 +1326,36 @@ class Test(NEOThreadedTest):
             for s in cluster.storage_list:
                 self.assertEqual(s.dm.getLastIDs()[0], truncate_tid)
 
+    def testConnectionAbort(self):
+        with self.getLoopbackConnection() as client:
+            poll = client.em.poll
+            while client.connecting:
+                poll(1)
+            server, = (c for c in client.em.connection_dict.itervalues()
+                         if c.isServer())
+            client.send(Packets.NotifyReady())
+            def writable(orig):
+                p.revert()
+                r = orig()
+                client.send(Packets.Ping())
+                return r
+            def process(orig):
+                self.assertFalse(server.aborted)
+                r = orig()
+                self.assertTrue(server.aborted)
+                server.em.removeWriter(server)
+                return r
+            with Patch(client, writable=writable) as p, \
+                 Patch(server, process=process):
+                poll(0)
+                poll(0)
+                server.em.addWriter(server)
+                self.assertIsNot(server.connector, None)
+                poll(0)
+                self.assertIs(server.connector, None)
+                poll(0)
+                self.assertIs(client.connector, None)
+
     def testConnectionTimeout(self):
         with self.getLoopbackConnection() as conn:
             conn.KEEP_ALIVE
