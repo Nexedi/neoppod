@@ -65,6 +65,7 @@ func fsIndexNew() *fsIndex {
 const (
 	oidPrefixMask  zodb.Oid = (1<<64-1) ^ (1<<16 - 1)	// 0xffffffffffff0000
 	posInvalidMask uint64   = (1<<64-1) ^ (1<<48 - 1)	// 0xffff000000000000
+	posValidMask   uint64   = 1<<48 - 1			// 0x0000ffffffffffff
 )
 
 // IndexSaveError is the error type returned by index save routines
@@ -230,7 +231,6 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 
 		fsi = fsIndexNew()
 		var oidb [8]byte
-		var posb [8]byte
 
 	loop:
 		for {
@@ -295,13 +295,12 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 
 			n := len(kvBuf) / 8
 			oidBuf := kvBuf[:n*2]
-			posBuf := kvBuf[n*2:]
+			posBuf := kvBuf[n*2-2:] // NOTE starting 2 bytes behind
 
 			for i:=0; i<n; i++ {
 				oid := zodb.Oid(binary.BigEndian.Uint16(oidBuf[i*2:]))
 				oid |= oidPrefix
-				copy(posb[2:], posBuf[i*6:])
-				pos := int64(binary.BigEndian.Uint64(posb[:]))
+				pos := int64(binary.BigEndian.Uint64(posBuf[i*6:]) & posValidMask)
 
 				fsi.Set(oid, pos)
 			}
