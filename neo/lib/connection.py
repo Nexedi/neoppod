@@ -114,7 +114,8 @@ class HandlerSwitcher(object):
     def _handle(self, connection, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
         logging.packet(connection, packet, False)
-        if connection.isClosed() and packet.ignoreOnClosedConnection():
+        if connection.isClosed() and (connection.isAborted() or
+                                      packet.ignoreOnClosedConnection()):
             logging.debug('Ignoring packet %r on closed connection %r',
                 packet, connection)
             return
