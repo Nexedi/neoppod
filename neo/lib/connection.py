@@ -576,10 +576,12 @@ class Connection(BaseConnection):
 
     def answer(self, packet):
         """ Answer to a packet by re-using its ID for the packet answer """
-        if self.isClosed():
-            raise ConnectionClosed
-        packet.setId(self.peer_id)
         assert packet.isResponse(), packet
+        if self.isClosed():
+            if packet.ignoreOnClosedConnection() and not packet.isError():
+                raise ConnectionClosed
+            return
+        packet.setId(self.peer_id)
         self._addPacket(packet)
 
     def idle(self):
