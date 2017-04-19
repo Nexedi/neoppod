@@ -244,6 +244,35 @@ func TestIndexSaveToPy(t *testing.T) {
 	}
 }
 
+
+func BenchmarkIndexLoad(b *testing.B) {
+	// FIXME small testdata/1.fs is not representative for benchmarks
+	for i := 0; i < b.N; i++ {
+		_, _, err := LoadIndexFile("testdata/1.fs.index")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkIndexGet(b *testing.B) {
+	// FIXME small testdata/1.fs is not representative for benchmarks
+	_, fsi, err := LoadIndexFile("testdata/1.fs.index")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	oid := zodb.Oid(1)
+	//oid := zodb.Oid(0x000000000000ea65)
+	//v, _ := fsi.Get(oid)
+	//fmt.Println(oid, v)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fsi.Get(oid)
+	}
+}
+
 var haveZODBPy = false
 var workRoot string
 
