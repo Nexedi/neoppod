@@ -1,4 +1,14 @@
-// TODO copyright / license
+// Copyright (C) 2017  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 2, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
 
 // XXX move -> xbufio
 
@@ -13,8 +23,11 @@ import (
 // SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
 // Both forward, backward and interleaved forward/backward access patterns are supported
 //
-// XXX access from multiple goroutines? (it is required per io.ReaderAt
-// interface, but for sequential workloads we do not need it)
+// NOTE SeqBufReader is not safe to use from multiple goroutines concurrently.
+//	Strictly speaking this goes against io.ReaderAt interface but sequential
+// 	workloads usually means sequential processing. It would be a pity to
+// 	add mutex for nothing.
+//
 // XXX -> xbufio.SeqReader
 type SeqBufReader struct {
 	// buffer for data at pos. cap(buf) - whole buffer capacity
