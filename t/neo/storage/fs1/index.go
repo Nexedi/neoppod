@@ -17,13 +17,11 @@
 package fs1
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
-	"net"
 	"os"
 	"strconv"
 
@@ -33,6 +31,9 @@ import (
 	pickle "github.com/kisielk/og-rek"
 
 	"lab.nexedi.com/kirr/go123/mem"
+
+	"../../xcommon/xbufio"
+	"../../xcommon/xio"
 )
 
 // fsIndex is Oid -> Data record position mapping used to associate Oid with
@@ -216,7 +217,7 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 		var ok bool
 		var xtopPos, xv interface{}
 
-		xr := NewBufReader(r)
+		xr := xbufio.NewReader(r)
 		// by passing bufio.Reader directly we make sure it won't create one internally
 		p := pickle.NewDecoder(xr.Reader)
 
@@ -314,7 +315,7 @@ out:
 		return topPos, fsi, err
 	}
 
-	return 0, nil, &IndexLoadError{IOName(r), picklePos, err}
+	return 0, nil, &IndexLoadError{xio.Name(r), picklePos, err}
 }
 
 // LoadIndexFile loads index from a file
@@ -334,79 +335,4 @@ func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
 
 	// NOTE no explicit bufferring needed - ogórek and LoadIndex use bufio.Reader internally
 	return LoadIndex(f)
-}
-
-
-// TODO move vvv to common place	-> xio
-
-// CountReader is an io.Reader that count total bytes read
-type CountReader struct {
-	io.Reader
-	nread int64
-}
-
-func (r *CountReader) Read(p []byte) (int, error) {
-	n, err := r.Reader.Read(p)
-	r.nread += int64(n)
-	return n, err
-}
-
-// InputOffset returns current position in input stream
-func (r *CountReader) InputOffset() int64 {
-	return r.nread
-}
-
-// BufReader is a bufio.Reader + bell & whistles
-type BufReader struct {
-	*bufio.Reader
-	cr *CountReader
-}
-
-func NewBufReader(r io.Reader) *BufReader {
-	// idempotent(BufReader)
-	if r, ok := r.(*BufReader); ok {
-		return r
-	}
-
-	// idempotent(CountReader)
-	cr, ok := r.(*CountReader)
-	if !ok {
-		cr = &CountReader{r, 0}
-	}
-
-	return &BufReader{bufio.NewReader(cr), cr}
-}
-
-// InputOffset returns current position in input stream
-func (r *BufReader) InputOffset() int64 {
-	return r.cr.InputOffset() - int64(r.Reader.Buffered())
-}
-
-// IOName returns a "filename" associated with io.Reader, io.Writer, net.Conn, ...
-// if name cannot be determined - "" is returned.
-func IOName(f interface {}) string {
-	switch f := f.(type) {
-	case *os.File:
-		// XXX better via interface { Name() string } ?
-		//     but Name() is too broad compared to FileName()
-		return f.Name()
-
-	case net.Conn:
-		// XXX not including LocalAddr is ok?
-		return f.RemoteAddr().String()
-
-	case *io.LimitedReader:
-		return IOName(f.R)
-
-
-	case *io.PipeReader:
-		return "pipe"
-	case *io.PipeWriter:
-		return "pipe"
-
-	// XXX SectionReader MultiReader TeeReader
-	// XXX bufio.Reader bufio.Writer bufio.Scanner
-	default:
-		return ""
-	}
 }
