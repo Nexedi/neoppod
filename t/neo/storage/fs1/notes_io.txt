@@ -80,7 +80,9 @@ mmap
 
 The kernel handles both disk I/O and caching (in pagecache).
 
-Cost ~ α (XXX recheck) is spent on first-time access.
+XXX the cost of minor pagefault is ~ 5.5·α   http://marc.info/?l=linux-kernel&m=149002565506733&w=2
+
+Cost ~ α (FIXME see ^^^) is spent on first-time access.
 Future accesses to page, given it is still in page-cache, does not incur α cost.
 
 However I/O errors are reported as SIGBUS on memory access. Thus if for read
