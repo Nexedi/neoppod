@@ -1,4 +1,4 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
+// Copyright (C) 2017  Nexedi SA and Contributors.	XXX -> GPLv3
 //                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -10,9 +10,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// XXX move -> xbufio
-
-package fs1
+package xbufio
 
 import (
 	"bytes"
@@ -209,9 +207,9 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 }
 
 
-func TestSeqBufReader(t *testing.T) {
+func TestSeqReaderAt(t *testing.T) {
 	r := &XReader{}
-	rb := NewSeqBufReaderSize(r, 10) // with 10 it is easier to do/check math for a human
+	rb := NewSeqReaderAtSize(r, 10) // with 10 it is easier to do/check math for a human
 
 	for _, tt := range xSeqBufTestv {
 		pOk := make([]byte, tt.Len)
@@ -236,9 +234,9 @@ func TestSeqBufReader(t *testing.T) {
 }
 
 // this is benchmark for how thin wrapper is, not for logic inside it
-func BenchmarkSeqBufReader(b *testing.B) {
+func BenchmarkSeqReaderAt(b *testing.B) {
 	r := &XReader{}
-	rb := NewSeqBufReaderSize(r, 10) // same as in TestSeqBufReader
+	rb := NewSeqReaderAtSize(r, 10) // same as in TestSeqReaderAt
 	buf := make([]byte, 128 /* > all .Len in xSeqBufTestv */)
 
 	for i := 0; i < b.N; i++ {

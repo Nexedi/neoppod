@@ -31,6 +31,7 @@ import (
 
 	"../../../../storage/fs1"
 
+	"../../../../xcommon/xbufio"
 	"../../../../xcommon/xfmt"
 	"../../../../xcommon/xslice"
 )
@@ -70,7 +71,7 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 	data := []byte{}
 
 	// use sequential IO buffer
-	fSeq := fs1.NewSeqBufReader(f)
+	fSeq := xbufio.NewSeqReaderAt(f)
 
 	// start iterating at tail.
 	// this should get EOF but read txnh.LenPrev ok.

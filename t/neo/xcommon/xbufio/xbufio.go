@@ -1,4 +1,4 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
+// Copyright (C) 2017  Nexedi SA and Contributors.	XXX -> GPLv3
 //                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -10,9 +10,8 @@
 //
 // See COPYING file for full licensing terms.
 
-// XXX move -> xbufio
-
-package fs1
+// Package xbufio provides addons to std bufio package.
+package xbufio
 
 import (
 	"io"
@@ -20,16 +19,14 @@ import (
 	//"log"
 )
 
-// SeqBufReader implements buffering for a io.ReaderAt optimized for sequential access
+// SeqReaderAt implements buffering for a io.ReaderAt optimized for sequential access
 // Both forward, backward and interleaved forward/backward access patterns are supported
 //
-// NOTE SeqBufReader is not safe to use from multiple goroutines concurrently.
+// NOTE SeqReaderAt is not safe to use from multiple goroutines concurrently.
 //	Strictly speaking this goes against io.ReaderAt interface but sequential
-// 	workloads usually means sequential processing. It would be a pity to
+// 	workloads usually mean sequential processing. It would be a pity to
 // 	add mutex for nothing.
-//
-// XXX -> xbufio.SeqReader
-type SeqBufReader struct {
+type SeqReaderAt struct {
 	// buffer for data at pos. cap(buf) - whole buffer capacity
 	buf	[]byte
 	pos	int64
@@ -47,12 +44,12 @@ type SeqBufReader struct {
 // TODO text about syscall / memcpy etc
 const defaultSeqBufSize = 8192	// XXX retune - must be <= size(L1d) / 2
 
-func NewSeqBufReader(r io.ReaderAt) *SeqBufReader {
-	return NewSeqBufReaderSize(r, defaultSeqBufSize)
+func NewSeqReaderAt(r io.ReaderAt) *SeqReaderAt {
+	return NewSeqReaderAtSize(r, defaultSeqBufSize)
 }
 
-func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
-	sb := &SeqBufReader{r: r, buf: make([]byte, 0, size)} // all positions are zero initially
+func NewSeqReaderAtSize(r io.ReaderAt, size int) *SeqReaderAt {
+	sb := &SeqReaderAt{r: r, buf: make([]byte, 0, size)} // all positions are zero initially
 	return sb
 }
 
@@ -63,7 +60,7 @@ func NewSeqBufReaderSize(r io.ReaderAt, size int) *SeqBufReader {
 // }
 
 // debug helper for sb.r.ReadAt
-func (sb *SeqBufReader) ioReadAt(p []byte, pos int64) (int, error) {
+func (sb *SeqReaderAt) ioReadAt(p []byte, pos int64) (int, error) {
 	/*
 	verb := "read"
 	if len(p) > cap(sb.buf) {
@@ -75,7 +72,7 @@ func (sb *SeqBufReader) ioReadAt(p []byte, pos int64) (int, error) {
 	return sb.r.ReadAt(p, pos)
 }
 
-func (sb *SeqBufReader) ReadAt(p []byte, pos int64) (int, error) {
+func (sb *SeqReaderAt) ReadAt(p []byte, pos int64) (int, error) {
 	//log.Printf("access\t[%v, %v)\t#%v\t@%+d", pos, pos + len64(p), len(p), pos - sb.posLastAccess)
 
 	// read-in last access positions and update them in *sb with current ones for next read

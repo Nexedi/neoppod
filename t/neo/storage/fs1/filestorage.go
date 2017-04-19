@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"../../zodb"
+	"../../xcommon/xbufio"
 	"../../xcommon/xslice"
 )
 
@@ -797,7 +798,7 @@ const (
 
 // txnIter is iterator over transaction records
 type txnIter struct {
-	fsSeq *SeqBufReader
+	fsSeq *xbufio.SeqReaderAt
 
 	Txnh	TxnHeader	// current transaction information
 	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on .dir
@@ -807,7 +808,7 @@ type txnIter struct {
 
 // dataIter is iterator over data records inside one transaction
 type dataIter struct {
-	fsSeq *SeqBufReader
+	fsSeq *xbufio.SeqReaderAt
 
 	Txnh	*TxnHeader	// header of transaction we are iterating inside
 	Datah	DataHeader
@@ -921,7 +922,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	Iter := iterator{}
 
 	// when iterating use IO optimized for sequential access
-	fsSeq := NewSeqBufReader(fs.file)
+	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 	Iter.txnIter.fsSeq = fsSeq
 	Iter.dataIter.fsSeq = fsSeq
 	Iter.dataIter.Txnh = &Iter.txnIter.Txnh
