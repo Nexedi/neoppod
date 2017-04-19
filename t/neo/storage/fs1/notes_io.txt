@@ -104,6 +104,10 @@ Note: madvice should be used to guide kernel cache read-ahead/backwards or
 where we are planning to access data next. madvice is syscall so this can add α
 back.
 
+Link on the subject - how to copy/catch SIGBUS & do not block calling thread:
+
+https://groups.google.com/d/msg/golang-nuts/11rdExWP6ac/226CPanVBAAJ
+
 ...
 
 Direct I/O
