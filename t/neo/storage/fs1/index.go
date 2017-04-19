@@ -161,6 +161,8 @@ func (fsi *fsIndex) SaveFile(topPos int64, path string) (err error) {
 		return &IndexSaveError{err}
 	}
 
+	// TODO use buffering for f (ogórek does not buffer itself on encoding)
+
 	defer func() {
 		err2 := f.Close()
 		if err2 != nil && err == nil {
@@ -330,11 +332,12 @@ func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
 		}
 	}()
 
+	// NOTE no explicit bufferring needed - ogórek and LoadIndex use bufio.Reader internally
 	return LoadIndex(f)
 }
 
 
-// TODO move vvv to common place
+// TODO move vvv to common place	-> xio
 
 // CountReader is an io.Reader that count total bytes read
 type CountReader struct {
