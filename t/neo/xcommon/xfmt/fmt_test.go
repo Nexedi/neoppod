@@ -1,4 +1,19 @@
-// TODO copyright/license
+// Copyright (C) 2017  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 3, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Open Source Initiative approved licenses and Convey
+// the resulting work. Corresponding source of such a combination shall include
+// the source code for all other software used.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
 
 package xfmt
 
@@ -16,10 +31,16 @@ var testv = []struct {format, xformatMeth string; value interface{}} {
 	{"%c",		"C",		'\u20ac'},	// 3-bytes encoded
 	{"%c",		"C",		'\U00010001'},	// 4-bytes encoded
 
-	// TODO %q qb qr qs qcb qc
-
 	{"%s",		"S",		"hello"},
 	{"%s",		"Sb",		[]byte("world")},
+	{"%q",		"Q",		"alpha"},
+	{"%q",		"Qb",		[]byte("beta")},
+	{"%q",		"Qcb",		byte('D')},
+	{"%q",		"Qc",		'B'},		// 1-byte encoded
+	{"%q",		"Qc",		'и'},		// 2-bytes encoded
+	{"%q",		"Qc",		'\u20ac'},	// 3-bytes encoded
+	{"%q",		"Qc",		'\U00010001'},	// 4-bytes encoded
+
 	{"%x",		"Xb",		[]byte("hexstring")},
 	{"%x",		"Xs",		"stringhex"},
 	{"%d",		"D",		12765},

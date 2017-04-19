@@ -1,3 +1,22 @@
+// Copyright (C) 2017  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 3, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Open Source Initiative approved licenses and Convey
+// the resulting work. Corresponding source of such a combination shall include
+// the source code for all other software used.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
+
+// quoting by Python rules
+
 package xfmt
 
 import (
@@ -7,19 +26,6 @@ import (
 
 	"lab.nexedi.com/kirr/go123/mem"
 )
-
-
-// TODO remove - not needed ?
-// // pyQuote quotes string the way python repr(str) would do
-// func pyQuote(s string) string {
-// 	out := pyQuoteBytes(mem.Bytes(s))
-// 	return mem.String(out)
-// }
-//
-// func pyQuoteBytes(b []byte) []byte {
-// 	buf := make([]byte, 0, (len(b) + 2) /* to reduce allocations when quoting */ * 2)
-// 	return pyAppendQuoteBytes(buf, b)
-// }
 
 // bytesContainsByte is like bytes.ContainsRune but a bit faster
 func bytesContainsByte(s []byte, c byte) bool {
@@ -112,8 +118,8 @@ func (b *Buffer) Qpy(s string) *Buffer {
 	return b
 }
 
-// Qbpy appends []byte quoted as Python would do
-func (b *Buffer) Qbpy(x []byte) *Buffer {
+// Qpyb appends []byte quoted as Python would do
+func (b *Buffer) Qpyb(x []byte) *Buffer {
 	*b = AppendQuotePyBytes(*b, x)
 	return b
 }

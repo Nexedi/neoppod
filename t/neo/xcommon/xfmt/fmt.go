@@ -2,8 +2,13 @@
 //                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
-// it under the terms of the GNU General Public License version 2, or (at your
+// it under the terms of the GNU General Public License version 3, or (at your
 // option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Open Source Initiative approved licenses and Convey
+// the resulting work. Corresponding source of such a combination shall include
+// the source code for all other software used.
 //
 // This program is distributed WITHOUT ANY WARRANTY; without even the implied
 // warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -20,7 +25,7 @@
 // xfmt analog would be
 //
 //	xbuf := xfmt.Buffer{}
-//	xbuf .S("hello ") .Qs("world") .C(' ') .D(1) .C(' ') .Xb([]byte("data"))
+//	xbuf .S("hello ") .Q("world") .C(' ') .D(1) .C(' ') .Xb([]byte("data"))
 //	s := xbuf.Bytes()
 //
 // xfmt.Buffer can be reused several times via Buffer.Reset() .
@@ -91,7 +96,7 @@ func (b *Buffer) Sb(x []byte) *Buffer {
 	return b
 }
 
-// Cb appends byte formated by %c
+// Cb appends byte formatted by %c
 func (b *Buffer) Cb(c byte) *Buffer {
 	*b = append(*b, c)
 	return b
@@ -171,4 +176,25 @@ func (b *Buffer) X016(x uint64) *Buffer {
 	return b
 }
 
-// TODO Qs Qb ?
+// Q appends string formatted by %q
+func (b *Buffer) Q(s string) *Buffer {
+	*b = strconv.AppendQuote(*b, s)
+	return b
+}
+
+// Qb appends []byte formatted by %q
+func (b *Buffer) Qb(s []byte) *Buffer {
+	*b = strconv.AppendQuote(*b, mem.String(s))
+	return b
+}
+
+// Qcb appends byte formatted by %q
+func (b *Buffer) Qcb(c byte) *Buffer {
+	return b.Qc(rune(c))
+}
+
+// Qc appends rune formatted by %q
+func (b *Buffer) Qc(c rune) *Buffer {
+	*b = strconv.AppendQuoteRune(*b, c)
+	return b
+}

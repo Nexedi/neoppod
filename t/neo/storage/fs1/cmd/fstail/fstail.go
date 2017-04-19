@@ -122,7 +122,7 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 
 		// fstail.py uses repr to print user/description:
 		// https://github.com/zopefoundation/ZODB/blob/5.2.0-5-g6047e2fae/src/ZODB/scripts/fstail.py#L39
-		xbuf .S("\nuser=") .Qbpy(txnh.User) .S(" description=") .Qbpy(txnh.Description)
+		xbuf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
 
 		// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
 		xbuf .S(" length=") .D64(txnh.Len - 8)

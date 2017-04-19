@@ -42,6 +42,7 @@ func NewReader(r io.Reader) *Reader {
 }
 
 // InputOffset returns current position in input stream
+// XXX naming + define interface for getting current position
 func (r *Reader) InputOffset() int64 {
 	return r.cr.Nread - int64(r.Reader.Buffered())
 }
