@@ -24,7 +24,8 @@ import (
 
 	"../../zodb"
 	"../../xcommon/xbufio"
-	"../../xcommon/xbytes"
+
+	"lab.nexedi.com/kirr/go123/xbytes"
 )
 
 // FileStorage is a ZODB storage which stores data in simple append-only file

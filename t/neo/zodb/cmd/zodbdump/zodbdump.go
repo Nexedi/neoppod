@@ -39,9 +39,10 @@ import (
 	"log"
 	"os"
 
+	"lab.nexedi.com/kirr/go123/xfmt"
+
 	"../../../zodb"
 	"../../../storage/fs1"
-	"../../../xcommon/xfmt"
 )
 
 

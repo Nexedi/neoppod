@@ -9,9 +9,8 @@ import (
 	"encoding/hex"
 	"encoding/binary"
 
+	"lab.nexedi.com/kirr/go123/xfmt"
 	"lab.nexedi.com/kirr/go123/xstrings"
-
-	"../xcommon/xfmt"
 )
 
 func (tid Tid) String() string {

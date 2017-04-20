@@ -32,8 +32,9 @@ import (
 	"../../../../storage/fs1"
 
 	"../../../../xcommon/xbufio"
-	"../../../../xcommon/xbytes"
-	"../../../../xcommon/xfmt"
+
+	"lab.nexedi.com/kirr/go123/xbytes"
+	"lab.nexedi.com/kirr/go123/xfmt"
 )
 
 
