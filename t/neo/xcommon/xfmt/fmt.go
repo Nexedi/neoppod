@@ -36,7 +36,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"../xslice"
+	"../xbytes"
 
 	"lab.nexedi.com/kirr/go123/mem"
 )
@@ -127,7 +127,7 @@ func (b *Buffer) Cb(c byte) *Buffer {
 // AppendRune appends to b UTF-8 encoding of r
 func AppendRune(b []byte, r rune) []byte {
 	l := len(b)
-	b = xslice.Grow(b, utf8.UTFMax)
+	b = xbytes.Grow(b, utf8.UTFMax)
 	n := utf8.EncodeRune(b[l:], r)
 	return b[:l+n]
 }
@@ -160,7 +160,7 @@ func (b *Buffer) X(i int) *Buffer {
 func AppendHex(b []byte, x []byte) []byte {
 	lx := hex.EncodedLen(len(x))
 	lb := len(b)
-	b = xslice.Grow(b, lx)
+	b = xbytes.Grow(b, lx)
 	hex.Encode(b[lb:], x)
 	return b
 }
@@ -182,7 +182,7 @@ func (b *Buffer) Xs(x string) *Buffer {
 func AppendHex016(b []byte, x uint64) []byte {
         // like sprintf("%016x") but faster and less allocations
 	l := len(b)
-        b = xslice.Grow(b, 16)
+        b = xbytes.Grow(b, 16)
 	bb := b[l:]
         for i := 15; i >= 0; i-- {
                 bb[i] = hexdigits[x & 0xf]

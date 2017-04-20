@@ -15,9 +15,9 @@
 //
 // See COPYING file for full licensing terms.
 
-// Package xbytes provides addons to std package bytes
-// Package xbytes provides additional utilities for working with (XXX byte) slices
-package xslice
+// (re)allocation routines for []byte
+
+package xbytes
 
 import (
 	"../xmath"

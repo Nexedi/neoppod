@@ -15,7 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-package xslice
+package xbytes
 
 import (
 	"bytes"

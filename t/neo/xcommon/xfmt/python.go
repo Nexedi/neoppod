@@ -20,17 +20,12 @@
 package xfmt
 
 import (
-	"bytes"
 	"strconv"
 	"unicode/utf8"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"../xbytes"
 )
-
-// bytesContainsByte is like bytes.ContainsRune but a bit faster
-func bytesContainsByte(s []byte, c byte) bool {
-	return bytes.IndexByte(s, c) >= 0
-}
 
 // AppendQuotePy appends to buf Python quoting of s
 func AppendQuotePy(buf []byte, s string) []byte {
@@ -42,7 +37,7 @@ func AppendQuotePyBytes(buf, b []byte) []byte {
 	// smartquotes: choose ' or " as quoting character
 	// https://github.com/python/cpython/blob/v2.7.13-116-g1aa1803b3d/Objects/stringobject.c#L947
 	quote := byte('\'')
-	if bytesContainsByte(b, '\'') && !bytesContainsByte(b, '"') {
+	if xbytes.ContainsByte(b, '\'') && !xbytes.ContainsByte(b, '"') {
 		quote = '"'
 	}
 
