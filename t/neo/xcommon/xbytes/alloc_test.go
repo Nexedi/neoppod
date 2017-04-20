@@ -40,10 +40,12 @@ func TestSlice(t *testing.T) {
 
 		// here "Hello" is assigned
 		{Grow,     6, 11, 16, false, []byte("Hello\x00\x00\x00\x00\x00\x00")},
-		{Resize,   8,  8, 16, true,  []byte("Hello\x00\x00\x00")},
-		{Resize,  17, 17, 32, false, []byte("Hello\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")},
-		{Realloc, 16, 16, 32, true,  []byte("Hello\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")},
-		{Realloc, 33, 33, 64, false, make([]byte, 33)},
+		{MakeRoom, 4, 11, 16, true,  []byte("Hello\x00\x00\x00\x00\x00\x00")},
+		{MakeRoom, 6, 11, 32, false, []byte("Hello\x00\x00\x00\x00\x00\x00")},
+		{Resize,   8,  8, 32, true,  []byte("Hello\x00\x00\x00")},
+		{Resize,  33, 33, 64, false, append([]byte("Hello"), bytes.Repeat([]byte{0}, 33-5)...)},
+		{Realloc, 16, 16, 64, true,  []byte("Hello\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")},
+		{Realloc, 65, 65, 128, false, make([]byte, 65)},
 	}
 
 	for i, tt := range testv {
@@ -51,7 +53,7 @@ func TestSlice(t *testing.T) {
 		s = tt.op(s, tt.n)
 
 		if !(len(s) == tt.Len && cap(s) == tt.Cap && bytes.Equal(s, tt.content)) {
-			t.Fatalf("step %d: %v: unexpected slice state: %v", i, tt, s)
+			t.Fatalf("step %d: %v: unexpected slice state: %v (cap: %v)", i, tt, s, cap(s))
 		}
 
 		if !(aliases(s, sprev) == tt.aliased) {
@@ -59,7 +61,7 @@ func TestSlice(t *testing.T) {
 		}
 
 
-		// assign data after fisrt iteration
+		// assign data after first iteration
 		if i == 0 {
 			copy(s, "Hello")
 		}

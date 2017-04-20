@@ -23,8 +23,8 @@ import (
 	"../xmath"
 )
 
-// Grow increase length of slice by n elements.
-// If there is not enough capacity the slice is reallocated.
+// Grow increases length of byte slice by n elements.
+// If there is not enough capacity the slice is reallocated and copied.
 // The memory for grown elements is not initialized.
 func Grow(b []byte, n int) []byte {
 	ln := len(b) + n
@@ -37,8 +37,22 @@ func Grow(b []byte, n int) []byte {
 	return bb
 }
 
-// Resize resized the slice to be of length n.
-// If slice length is increased and there is not enough capacity the slice is reallocated.
+// MakeRoom makes sure cap(b) - len(b) >= n
+// If there is not enough capacity the slice is reallocated and copied.
+// Length of the slice remains unchanged.
+func MakeRoom(b []byte, n int) []byte {
+	ln := len(b) + n
+	if ln <= cap(b) {
+		return b
+	}
+
+	bb := make([]byte, len(b), xmath.CeilPow2(uint64(ln)))
+	copy(bb, b)
+	return bb
+}
+
+// Resize resized byte slice to be of length n.
+// If slice length is increased and there is not enough capacity the slice is reallocated and copied.
 // The memory for grown elements, if any, is not initialized.
 func Resize(b []byte, n int) []byte {
 	if cap(b) >= n {
@@ -51,10 +65,12 @@ func Resize(b []byte, n int) []byte {
 }
 
 
-// Realloc resizes the slice to be of length n not preserving content.
-// If slice length is increased and there is not enough capacity the slice is reallocated.
+// Realloc resizes byte slice to be of length n not preserving content.
+// If slice length is increased and there is not enough capacity the slice is reallocated but not copied.
 // The memory for all elements becomes uninitialized.
-// XXX semantic clash with C realloc(3) ? or it does not matter?
+//
+// NOTE semantic is different from C realloc(3) where content is preserved
+// NOTE use Resize when you need to preserve slice content
 func Realloc(b []byte, n int) []byte {
 	return Realloc64(b, int64(n))
 }
@@ -67,28 +83,3 @@ func Realloc64(b []byte, n int64) []byte {
 
 	return make([]byte, n, xmath.CeilPow2(uint64(n)))
 }
-
-// TODO MakeRoom
-// TODO Prealloc (make sure cap is enough but length stays unchanged)	(was GrowSlice)
-
-// TODO Resize without copy ?
-
-// // GrowSlice makes sure cap(b) >= n.
-// // If not it reallocates/copies the slice appropriately.
-// // len of returned slice remains original len(b).
-// func GrowSlice(b []byte, n int) []byte {
-// 	if cap(b) >= n {
-// 		return b
-// 	}
-// 
-// 	bb := make([]byte, len(b), CeilPow2(uint64(n)))
-// 	copy(bb, b)
-// 	return bb
-// }
-// 
-// // makeRoom makes sure len([len(b):cap(b)]) >= n.
-// // If it is not it reallocates the slice appropriately.
-// // len of returned slice remains original len(b).
-// func MakeRoom(b []byte, n int) []byte {
-// 	return GrowSlice(b, len(b) + n)
-// }
