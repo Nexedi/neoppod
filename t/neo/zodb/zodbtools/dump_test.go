@@ -1,4 +1,19 @@
-// TODO copyright/license
+// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 3, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Open Source Initiative approved licenses and Convey
+// the resulting work. Corresponding source of such a combination shall include
+// the source code for all other software used.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
 
 package main
 
@@ -10,8 +25,8 @@ import (
 	"regexp"
 	"testing"
 
-	"../../../storage/fs1"
-	"../../../zodb"
+	"../../storage/fs1"
+	"../../zodb"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"lab.nexedi.com/kirr/go123/exc"
@@ -56,7 +71,8 @@ func loadZdumpPy(t *testing.T, path string) string {
 }
 
 func withTestdata1Fs(t testing.TB, f func(fs *fs1.FileStorage)) {
-	fs, err := fs1.Open("../../../storage/fs1/testdata/1.fs")	// XXX read-only, path?
+	// XXX -> zodb.OpenURL
+	fs, err := fs1.Open("../../storage/fs1/testdata/1.fs")	// XXX read-only, path?
 	if err != nil {
 		t.Fatal(err)
 	}

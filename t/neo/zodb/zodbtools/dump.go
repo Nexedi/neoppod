@@ -2,8 +2,13 @@
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
-// it under the terms of the GNU General Public License version 2, or (at your
+// it under the terms of the GNU General Public License version 3, or (at your
 // option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Open Source Initiative approved licenses and Convey
+// the resulting work. Corresponding source of such a combination shall include
+// the source code for all other software used.
 //
 // This program is distributed WITHOUT ANY WARRANTY; without even the implied
 // warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -29,7 +34,7 @@ txn ...
 
 */
 
-package main
+package zodbtools
 
 import (
 	"crypto/sha1"
@@ -41,8 +46,8 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xfmt"
 
-	"../../../zodb"
-	"../../../storage/fs1"
+	"../../zodb"
+	"../../storage/fs1"
 )
 
 
@@ -190,35 +195,36 @@ func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 	return nil
 }
 
-// zodbDump dumps contents of a storage in between tidMin..tidMax range to a writer.
+// Dump dumps contents of a storage in between tidMin..tidMax range to a writer.
 // see top-level documentation for the dump format.
-func zodbDump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
+func Dump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
 	d := dumper{W: w, HashOnly: hashOnly}
 	return d.Dump(stor, tidMin, tidMax)
 }
 
 
-func usage() {
-	fmt.Fprintf(os.Stderr,
-`zodbdump [options] <storage> [tidmin..tidmax]
+func dumpUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`zodb dump [options] <storage> [tidmin..tidmax]
 Dump content of a ZODB database.
 
-<storage> is a path to FileStorage	XXX will become URL
+<storage> is an URL (see 'zodb help zurl') of a ZODB-storage.
 
-  options:
+Options:
 
 	-h --help       this help text.
 	-hashonly	dump only hashes of objects without content.
 `)
 }
 
-func main() {
+func DumpMain(argv []string) {
 	hashOnly := false
 	tidRange := ".." // (0, +inf)
 
-	flag.Usage = usage
-	flag.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
-	flag.Parse()
+	flags := flag.FlagSet{Usage: func() { dumpUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
+	flags.Parse(argv)
 
 	argv := flag.Args()
 	if len(argv) < 1 {
@@ -242,7 +248,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = zodbDump(os.Stdout, stor, tidMin, tidMax, hashOnly)
+	err = Dump(os.Stdout, stor, tidMin, tidMax, hashOnly)
 	if err != nil {
 		log.Fatal(err)
 	}

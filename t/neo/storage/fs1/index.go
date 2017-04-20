@@ -37,7 +37,7 @@ import (
 )
 
 // fsIndex is Oid -> Data record position mapping used to associate Oid with
-// Data record in latest transaction which changed it.	XXX text
+// Data record in latest transaction which changed it.
 type fsIndex struct {
 	*fsb.Tree
 }

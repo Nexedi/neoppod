@@ -10,6 +10,9 @@ import (
 	"os"
 )
 
+// XXX interface for a Reader/Writer which can report position
+// -> Nread(), Nwrote() ?
+
 // CountReader is an io.Reader that count total bytes read
 type CountReader struct {
 	io.Reader
@@ -25,7 +28,7 @@ func (r *CountReader) Read(p []byte) (int, error) {
 // TODO func to get position (requiring io.Seeker to just Seek(0, SeekCurrent) is too much)
 // XXX  previously used InputOffset(), but generally e.g. for io.Writer "input" is not appropriate
 
-// like io.LimitedReader but for writes
+// LimitedWriter is like io.LimitedReader but for writes
 type LimitedWriter struct {
         io.Writer
         N int64
