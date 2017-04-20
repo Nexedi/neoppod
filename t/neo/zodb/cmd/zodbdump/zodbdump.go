@@ -52,7 +52,7 @@ type dumper struct {
 
 	afterFirst bool // true after first transaction has been dumped
 
-	xbuf xfmt.Buffer // reusable data buffer for formatting
+	buf xfmt.Buffer // reusable data buffer for formatting
 }
 
 var _LF = []byte{'\n'}
@@ -60,31 +60,31 @@ var _LF = []byte{'\n'}
 
 // DumpData dumps one data record
 func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
-	xbuf := &d.xbuf
-	xbuf.Reset()
+	buf := &d.buf
+	buf.Reset()
 
-	xbuf .S("obj ") .V(&datai.Oid) .Cb(' ')
+	buf .S("obj ") .V(&datai.Oid) .Cb(' ')
 
 	writeData := false
 
 	switch {
 	case datai.Data == nil:
-		xbuf.S("delete")
+		buf .S("delete")
 
 	case datai.Tid != datai.DataTid:
-		xbuf .S("from ") .V(&datai.DataTid)
+		buf .S("from ") .V(&datai.DataTid)
 
 	default:
 		dataSha1 := sha1.Sum(datai.Data)
-		xbuf .D(len(datai.Data)) .S(" sha1:") .Xb(dataSha1[:])
+		buf .D(len(datai.Data)) .S(" sha1:") .Xb(dataSha1[:])
 
 		writeData = true
 	}
 
-	xbuf .Cb('\n')
+	buf .Cb('\n')
 
 	// TODO use writev(data, "\n") via net.Buffers (it is already available)
-	_, err := d.W.Write(xbuf.Bytes())
+	_, err := d.W.Write(buf.Bytes())
 	if err != nil {
 		goto out
 	}

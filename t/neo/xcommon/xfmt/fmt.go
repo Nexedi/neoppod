@@ -24,9 +24,9 @@
 //
 // xfmt analog would be
 //
-//	xbuf := xfmt.Buffer{}
-//	xbuf .S("hello ") .Q("world") .C(' ') .D(1) .C(' ') .Xb([]byte("data"))
-//	s := xbuf.Bytes()
+//	buf := xfmt.Buffer{}
+//	buf .S("hello ") .Q("world") .C(' ') .D(1) .C(' ') .Xb([]byte("data"))
+//	s := buf.Bytes()
 //
 // xfmt.Buffer can be reused several times via Buffer.Reset() .
 package xfmt

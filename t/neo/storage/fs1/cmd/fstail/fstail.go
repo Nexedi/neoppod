@@ -91,7 +91,7 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 	}
 
 	// buffer for formatting
-	xbuf := xfmt.Buffer{}
+	buf := xfmt.Buffer{}
 
 	// now loop loading transactions backwards until EOF / ntxn limit
 	for i := ntxn; i > 0; i-- {
@@ -115,20 +115,20 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 		}
 
 		// print information about read txn record
-		xbuf.Reset()
+		buf.Reset()
 
 		dataSha1 := sha1.Sum(data)
-		xbuf .V(txnh.Tid.Time()) .S(": hash=") .Xb(dataSha1[:])
+		buf .V(txnh.Tid.Time()) .S(": hash=") .Xb(dataSha1[:])
 
 		// fstail.py uses repr to print user/description:
 		// https://github.com/zopefoundation/ZODB/blob/5.2.0-5-g6047e2fae/src/ZODB/scripts/fstail.py#L39
-		xbuf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
+		buf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
 
 		// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
-		xbuf .S(" length=") .D64(txnh.Len - 8)
-		xbuf .S(" offset=") .D64(txnh.Pos) .S(" (+") .D64(txnh.HeaderLen()) .S(")\n\n")
+		buf .S(" length=") .D64(txnh.Len - 8)
+		buf .S(" offset=") .D64(txnh.Pos) .S(" (+") .D64(txnh.HeaderLen()) .S(")\n\n")
 
-		_, err = w.Write(xbuf.Bytes())
+		_, err = w.Write(buf.Bytes())
 		if err != nil {
 			break
 		}
