@@ -14,9 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import errno, json, os
 from time import time
-from os.path import exists, getsize
-import json
 
 from . import attributeTracker, logging
 from .handler import DelayEvent, EventQueue
@@ -204,33 +203,50 @@ class MasterDB(object):
     """
     def __init__(self, path):
         self._path = path
-        try_load = exists(path) and getsize(path)
-        if try_load:
-            db = open(path, 'r')
-            init_set = map(tuple, json.load(db))
-        else:
-            db = open(path, 'w+')
-            init_set = []
-        self._set = set(init_set)
-        db.close()
-
-    def _save(self):
         try:
-            db = open(self._path, 'w')
-        except IOError:
-            logging.warning('failed opening master database at %r '
-                'for writing, update skipped', self._path)
-        else:
-            json.dump(list(self._set), db)
-            db.close()
+            with open(path) as db:
+                self._set = set(map(tuple, json.load(db)))
+        except IOError, e:
+            if e.errno != errno.ENOENT:
+                raise
+            self._set = set()
+            self._save(True)
 
-    def add(self, addr):
-        self._set.add(addr)
+    def _save(self, raise_on_error=False):
+        tmp = self._path + '#neo#'
+        try:
+            with open(tmp, 'w') as db:
+                json.dump(list(self._set), db)
+            os.rename(tmp, self._path)
+        except EnvironmentError:
+            if raise_on_error:
+                raise
+            logging.exception('failed saving list of master nodes to %r',
+                              self._path)
+        finally:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+    def remove(self, addr):
+        if addr in self._set:
+            self._set.remove(addr)
+            self._save()
+
+    def addremove(self, old, new):
+        assert old != new
+        if None is not new not in self._set:
+            self._set.add(new)
+        elif old not in self._set:
+            return
+        self._set.discard(old)
         self._save()
 
-    def discard(self, addr):
-        self._set.discard(addr)
-        self._save()
+    def __repr__(self):
+        return '<%s@%s: %s>' % (self.__class__.__name__, self._path,
+            ', '.join(sorted(('[%s]:%s' if ':' in x[0] else '%s:%s') % x
+                             for x in self._set)))
 
     def __iter__(self):
         return iter(self._set)
@@ -276,8 +292,6 @@ class NodeManager(EventQueue):
         self._updateUUID(node, None)
         self.__updateSet(self._type_dict, None, node.getType(), node)
         self.__updateSet(self._state_dict, None, node.getState(), node)
-        if node.isMaster() and self._master_db is not None:
-            self._master_db.add(node.getAddress())
 
     def remove(self, node):
         self._node_set.remove(node)
@@ -288,9 +302,8 @@ class NodeManager(EventQueue):
         self._uuid_dict.pop(node.getUUID(), None)
         self._state_dict[node.getState()].remove(node)
         self._type_dict[node.getType()].remove(node)
-        uuid = node.getUUID()
         if node.isMaster() and self._master_db is not None:
-            self._master_db.discard(node.getAddress())
+            self._master_db.remove(node.getAddress())
 
     def __update(self, index_dict, old_key, new_key, node):
         """ Update an index from old to new key """
@@ -305,7 +318,10 @@ class NodeManager(EventQueue):
             index_dict[new_key] = node
 
     def _updateAddress(self, node, old_address):
-        self.__update(self._address_dict, old_address, node.getAddress(), node)
+        address = node.getAddress()
+        self.__update(self._address_dict, old_address, address, node)
+        if node.isMaster() and self._master_db is not None:
+            self._master_db.addremove(old_address, address)
 
     def _updateUUID(self, node, old_uuid):
         self.__update(self._uuid_dict, old_uuid, node.getUUID(), node)
