@@ -48,7 +48,7 @@ var pyQuoteTestv = []struct {in, quoted string} {
 	// utf-8
 	// XXX python escapes non-ascii, but since FileStorage connot
 	// commit such strings we take the freedom and output them as
-	// readable
+	// readable.
 	//{`привет мир`, `'\xd0\xbf\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82 \xd0\xbc\xd0\xb8\xd1\x80'`},
 	{`привет мир`, `'привет мир'`},
 

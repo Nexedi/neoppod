@@ -78,7 +78,6 @@ func Append(b []byte, x Stringer) []byte {
 }
 
 // V, similarly to %v, adds x formatted by default rules
-// XXX -> V(interface {}) ?
 func (b *Buffer) V(x Stringer) *Buffer {
 	*b = Append(*b, x)
 	return b
@@ -96,12 +95,34 @@ func (b *Buffer) Sb(x []byte) *Buffer {
 	return b
 }
 
+// Q appends string formatted by %q
+func (b *Buffer) Q(s string) *Buffer {
+	*b = strconv.AppendQuote(*b, s)
+	return b
+}
+
+// Qb appends []byte formatted by %q
+func (b *Buffer) Qb(s []byte) *Buffer {
+	*b = strconv.AppendQuote(*b, mem.String(s))
+	return b
+}
+
+// Qcb appends byte formatted by %q
+func (b *Buffer) Qcb(c byte) *Buffer {
+	return b.Qc(rune(c))
+}
+
+// Qc appends rune formatted by %q
+func (b *Buffer) Qc(c rune) *Buffer {
+	*b = strconv.AppendQuoteRune(*b, c)
+	return b
+}
+
 // Cb appends byte formatted by %c
 func (b *Buffer) Cb(c byte) *Buffer {
 	*b = append(*b, c)
 	return b
 }
-
 
 // AppendRune appends to b UTF-8 encoding of r
 func AppendRune(b []byte, r rune) []byte {
@@ -173,28 +194,5 @@ func AppendHex016(b []byte, x uint64) []byte {
 // X016, similarly to %016x, adds hex representation of uint64 x
 func (b *Buffer) X016(x uint64) *Buffer {
 	*b = AppendHex016(*b, x)
-	return b
-}
-
-// Q appends string formatted by %q
-func (b *Buffer) Q(s string) *Buffer {
-	*b = strconv.AppendQuote(*b, s)
-	return b
-}
-
-// Qb appends []byte formatted by %q
-func (b *Buffer) Qb(s []byte) *Buffer {
-	*b = strconv.AppendQuote(*b, mem.String(s))
-	return b
-}
-
-// Qcb appends byte formatted by %q
-func (b *Buffer) Qcb(c byte) *Buffer {
-	return b.Qc(rune(c))
-}
-
-// Qc appends rune formatted by %q
-func (b *Buffer) Qc(c rune) *Buffer {
-	*b = strconv.AppendQuoteRune(*b, c)
 	return b
 }

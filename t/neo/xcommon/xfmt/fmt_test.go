@@ -82,7 +82,6 @@ func TestXFmt(t *testing.T) {
 		}
 
 		xargv := []reflect.Value{reflect.ValueOf(tt.value)}
-
 		xretv := []reflect.Value{}
 		callOk := false
 		func () {
