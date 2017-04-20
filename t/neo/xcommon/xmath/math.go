@@ -15,6 +15,8 @@
 //
 // See COPYING file for full licensing terms.
 
+// XXX check on go18
+
 // Package xmath provides addons to std math package
 package xmath
 
