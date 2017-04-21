@@ -40,7 +40,7 @@ var infov = []struct {name string; getParam paramFunc} {
 }
 
 // {} parameter_name -> get_parameter(stor)
-var infoDict map[string]paramFunc
+var infoDict = map[string]paramFunc{}
 
 func init() {
 	for _, info := range infov {
@@ -103,7 +103,7 @@ Options:
 func infoMain(argv []string) {
 	flags := flag.FlagSet{Usage: func() { infoUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
-	flags.Parse(argv)
+	flags.Parse(argv[1:])
 
 	argv = flags.Args()
 	if len(argv) < 1 {

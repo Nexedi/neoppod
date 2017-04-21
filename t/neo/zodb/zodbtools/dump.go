@@ -222,12 +222,12 @@ Options:
 
 func dumpMain(argv []string) {
 	hashOnly := false
-	tidRange := ".." // (0, +inf)
+	tidRange := ".." // [0, +inf]
 
 	flags := flag.FlagSet{Usage: func() { dumpUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
 	flags.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
-	flags.Parse(argv)
+	flags.Parse(argv[1:])
 
 	argv = flags.Args()
 	if len(argv) < 1 {

@@ -19,16 +19,13 @@
 package main
 
 import (
+	"flag"
+	"fmt"
+	"os"
+
 	"../../zodbtools"
 )
 
-
-var commandv = []Command{
-	// TODO analyze ?
-	// TODO cmp
-	{"dump", zodbtools.DumpMain},
-	{"info", zodbtools.InfoMain},
-}
 
 func usage() {
 	w := os.Stderr
@@ -40,10 +37,11 @@ Usage:
 	zodb command [arguments]
 
 The commands are:
+
 `)
 	// TODO print commands
 	for _, cmd := range zodbtools.AllCommands() {
-		fmt.Fprintf(w, "\t%s\t%s\n", cmd.Name, cmd.Summary)
+		fmt.Fprintf(w, "\t%-11s %s\n", cmd.Name, cmd.Summary)
 	}
 
 	fmt.Fprintf(w,
@@ -74,12 +72,16 @@ func help(argv []string) {
 	topic := argv[1]
 
 	// topic can either be a command name or a help topic
-	command -> usage(os.Stdout)
+	command := zodbtools.LookupCommand(topic)
+	if command != nil {
+		command.Usage(os.Stdout)
+		os.Exit(0)
+	}
 
 	// TODO topic
 
 
-	fmt.Fprintf(os.Stderr, "Unknown help topic `%s`.  Run 'zodb help'.", topic)
+	fmt.Fprintf(os.Stderr, "Unknown help topic `%s`.  Run 'zodb help'.\n", topic)
 	os.Exit(2)
 }
 
@@ -93,7 +95,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	command = argv[0]
+	command := argv[0]
 
 	// help on a topic
 	if command == "help" {
@@ -102,8 +104,8 @@ func main() {
 	}
 
 	// run subcommand
-	cmd, ok := commandDir[command]
-	if !ok {
+	cmd := zodbtools.LookupCommand(command)
+	if cmd == nil {
 		fmt.Fprintf(os.Stderr, "zodb: unknown subcommand \"%s\"", command)
 		fmt.Fprintf(os.Stderr, "Run 'zodb help' for usage.")
 		os.Exit(2)
