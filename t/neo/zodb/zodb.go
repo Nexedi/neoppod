@@ -158,3 +158,11 @@ type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
 	// end of iteration is indicated with io.EOF
 	NextData() (*StorageRecordInformation, error)
 }
+
+
+
+// TODO readonly
+func Open(storageURL string) (IStorage, error) {
+	// TODO
+	return nil, nil
+}

@@ -19,40 +19,73 @@
 
 package zodbtools
 
-# {} parameter_name -> get_parameter(stor)
-infoDict = OrderedDict([
-    ("name", lambda stor: stor.getName()),
-    ("size", lambda stor: stor.getSize()),
-    ("last_tid", lambda stor: ashex(stor.lastTransaction())),
-])
+import (
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
-def zodbinfo(stor, parameterv):
-    wantnames = False
-    if not parameterv:
-        parameterv = infoDict.keys()
-        wantnames = True
+	"../../zodb"
+)
 
-    for parameter in parameterv:
-        get_parameter = infoDict.get(parameter)
-        if get_parameter is None:
-            print("invalid parameter: %s" % parameter, file=sys.stderr)
-            sys.exit(1)
+// paramFunc is a function to retrieve 1 storage parameter
+type paramFunc func(stor zodb.IStorage) (string, error)
 
-        out = ""
-        if wantnames:
-            out += parameter + "="
-        out += "%s" % (get_parameter(stor),)
-        print(out)
+var infov = []struct {name string; getParam paramFunc} {
+	// XXX e.g. stor.LastTid() should return err itself
+	{"name", func(stor zodb.IStorage) (string, error) { return stor.StorageName(), nil }},
+//	{"size", func(stor zodb.IStorage) (string, error) { return stor.StorageSize(), nil }},
+	{"last_tid", func(stor zodb.IStorage) (string, error) {return stor.LastTid().String(), nil }},
+}
 
+// {} parameter_name -> get_parameter(stor)
+var infoDict map[string]paramFunc
 
-# ----------------------------------------
-import getopt
+func init() {
+	for _, info := range infov {
+		infoDict[info.name] = info.getParam
+	}
+}
 
-summary = "print general information about a ZODB database"
+// Info prints general information about a ZODB storage
+func Info(w io.Writer, stor zodb.IStorage, parameterv []string) error {
+	wantnames := false
+	if len(parameterv) == 0 {
+		for _, info := range infov {
+			parameterv = append(parameterv, info.name)
+		}
+		wantnames = true
+	}
 
-def usage(out):
-    print("""\
-Usage: zodb info [OPTIONS] <storage> [parameter ...]
+	for _, parameter := range parameterv {
+		getParam, ok := infoDict[parameter]
+		if !ok {
+			return fmt.Errorf("invalid parameter: %s", parameter)
+		}
+
+		out := ""
+		if wantnames {
+		    out += parameter + "="
+		}
+		value, err := getParam(stor)
+		if err != nil {
+			return fmt.Errorf("getting %s: %v", parameter, err)
+		}
+		out += value
+		fmt.Fprintf(w, "%s\n", out)
+	}
+
+	return nil
+}
+
+// ----------------------------------------
+
+const infoSummary = "print general information about a ZODB database"
+
+func infoUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: zodb info [OPTIONS] <storage> [parameter ...]
 Print general information about a ZODB database.
 
 <storage> is an URL (see 'zodb help zurl') of a ZODB-storage.
@@ -64,27 +97,28 @@ named parameter on its own line.
 Options:
 
     -h  --help      show this help
-""", file=out)
+`)
+}
 
-def main(argv):
-    try:
-        optv, argv = getopt.getopt(argv[1:], "h", ["help"])
-    except getopt.GetoptError as e:
-        print(e, file=sys.stderr)
-        usage(sys.stderr)
-        sys.exit(2)
+func infoMain(argv []string) {
+	flags := flag.FlagSet{Usage: func() { infoUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.Parse(argv)
 
-    for opt, _ in optv:
-        if opt in ("-h", "--help"):
-            usage(sys.stdout)
-            sys.exit(0)
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+	storUrl := argv[0]
 
-    try:
-        storurl = argv[0]
-    except IndexError:
-        usage(sys.stderr)
-        sys.exit(2)
+	stor, err := zodb.Open(storUrl)	// TODO read-only
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    stor = storageFromURL(storurl, read_only=True)
-
-    zodbinfo(stor, argv[1:])
+	err = Info(os.Stdout, stor, argv[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+}

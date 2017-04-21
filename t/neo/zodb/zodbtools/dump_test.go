@@ -15,7 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-package main
+package zodbtools
 
 //go:generate sh -c "python2 -m zodbtools.zodb dump ../../../storage/fs1/testdata/1.fs >testdata/1.zdump.pyok"
 

@@ -47,7 +47,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xfmt"
 
 	"../../zodb"
-	"../../storage/fs1"
+//	"../../storage/fs1"
 )
 
 
@@ -202,10 +202,13 @@ func Dump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly boo
 	return d.Dump(stor, tidMin, tidMax)
 }
 
+// ----------------------------------------
+
+const dumpSummary = "dump content of a ZODB database"
 
 func dumpUsage(w io.Writer) {
 	fmt.Fprintf(w,
-`zodb dump [options] <storage> [tidmin..tidmax]
+`Usage: zodb dump [OPTIONS] <storage> [tidmin..tidmax]
 Dump content of a ZODB database.
 
 <storage> is an URL (see 'zodb help zurl') of a ZODB-storage.
@@ -217,7 +220,7 @@ Options:
 `)
 }
 
-func DumpMain(argv []string) {
+func dumpMain(argv []string) {
 	hashOnly := false
 	tidRange := ".." // (0, +inf)
 
@@ -226,9 +229,9 @@ func DumpMain(argv []string) {
 	flags.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
 	flags.Parse(argv)
 
-	argv := flag.Args()
+	argv = flags.Args()
 	if len(argv) < 1 {
-		usage()
+		flags.Usage()
 		os.Exit(2)
 	}
 	storUrl := argv[0]
@@ -243,7 +246,7 @@ func DumpMain(argv []string) {
 		log.Fatal(err)	// XXX recheck
 	}
 
-	stor, err := fs1.Open(storUrl)	// TODO read-only
+	stor, err := zodb.Open(storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}

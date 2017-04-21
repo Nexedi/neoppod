@@ -19,6 +19,7 @@
 package main
 
 import (
+	"../../zodbtools"
 )
 
 
@@ -41,6 +42,10 @@ Usage:
 The commands are:
 `)
 	// TODO print commands
+	for _, cmd := range zodbtools.AllCommands() {
+		fmt.Fprintf(w, "\t%s\t%s\n", cmd.Name, cmd.Summary)
+	}
+
 	fmt.Fprintf(w,
 `
 
