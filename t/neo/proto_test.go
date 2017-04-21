@@ -167,13 +167,12 @@ func TestPktMarshal(t *testing.T) {
 			Data:	[]byte("hello world"),
 			DataSerial: 0x0a0b0c0d0e0f0103,
 			Tid:	0x0a0b0c0d0e0f0104,
-			Unlock:	true,
 			},
 
 		 hex("01020304050607080a0b0c0d0e0f010200") +
 		 hex("0102030405060708090a0b0c0d0e0f1011121314") +
 		 hex("0000000b") + "hello world" +
-		 hex("0a0b0c0d0e0f01030a0b0c0d0e0f010401")},
+		 hex("0a0b0c0d0e0f01030a0b0c0d0e0f0104")},
 
 		// PTid, [] (of [] of {UUID, CellState})
 		{&AnswerPartitionTable{
