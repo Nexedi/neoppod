@@ -39,7 +39,6 @@ Usage:
 The commands are:
 
 `)
-	// TODO print commands
 	for _, cmd := range zodbtools.AllCommands() {
 		fmt.Fprintf(w, "\t%-11s %s\n", cmd.Name, cmd.Summary)
 	}
@@ -50,14 +49,17 @@ The commands are:
 Use "zodb help [command]" for more information about a command.
 
 Additional help topics:
+
 `)
 
-	// TODO print help topics
+	for _, topic := range zodbtools.AllHelpTopics() {
+		fmt.Fprintf(w, "\t%-11s %s\n", topic.Name, topic.Summary)
+	}
 
 	fmt.Fprintf(w,
 `
-
 Use "zodb help [topic]" for more information about that topic.
+
 `)
 }
 
@@ -78,8 +80,11 @@ func help(argv []string) {
 		os.Exit(0)
 	}
 
-	// TODO topic
-
+	helpTopic := zodbtools.LookupHelpTopic(topic)
+	if helpTopic != nil {
+		fmt.Println(helpTopic.Text)
+		os.Exit(0)
+	}
 
 	fmt.Fprintf(os.Stderr, "Unknown help topic `%s`.  Run 'zodb help'.\n", topic)
 	os.Exit(2)

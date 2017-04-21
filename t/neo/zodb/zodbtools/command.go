@@ -16,6 +16,7 @@
 // See COPYING file for full licensing terms.
 
 package zodbtools
+// registry for all commands
 
 import (
 	"io"
