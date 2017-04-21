@@ -838,6 +838,7 @@ class Test(NEOThreadedTest):
     @with_cluster(master_count=3, partitions=10, replicas=1, storage_count=3)
     def testShutdown(self, cluster):
         # NOTE vvv
+        # BUG: Due to bugs in election, master nodes sometimes crash, or they
         #      declare themselves primary too quickly, but issues seem to be
         #      only reproducible with SSL enabled.
         self._testShutdown(cluster)
