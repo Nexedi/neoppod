@@ -15,39 +15,36 @@
 //
 // See COPYING file for full licensing terms.
 
-package zodbtools
-// registry for all commands
+package zodb
+// logic to open storages by URL
 
-import "io"
+import (
+	"net/url"
+	"strings"
+)
 
-// Command describes one zodb subcommand
-type Command struct {
-	Name	string
-	Summary	string
-	Usage	func (w io.Writer)
-	Main	func (argv []string)
-}
 
-// registry of all commands
-var cmdv = []Command{
-	// NOTE the order commands are listed here is the order how they will appear in help
-	// TODO analyze ?
-	// TODO cmp
-	{"dump", dumpSummary, dumpUsage, dumpMain},
-	{"info", infoSummary, infoUsage, infoMain},
-}
-
-// LookupCommand returns Command with corresponding name or nil
-func LookupCommand(command string) *Command {
-	for i := range cmdv {
-		if cmdv[i].Name == command {
-			return &cmdv[i]
-		}
+// OpenStorage opens ZODB storage by URL
+// Only URL schemes registered to zodb package are handled.
+// Users should user import in storage packages they use or zodb/wks package to
+// get support work well-known storages.
+// Storage authors should register their storages with RegisterStorage
+//
+// TODO readonly
+func OpenStorageURL(storageURL string) (IStorage, error) {
+	// no scheme -> file://
+	if !strings.Contains(storageURL, "://") {
+		storageURL = "file://" + storageURL
 	}
-	return nil
+
+	return nil, nil
 }
 
-// AllCommands returns list of all zodbtools commands
-func AllCommands() []Command {
-	return cmdv
+
+// StorageOpener is a function to open a storage
+type StorageOpener func (u *url.URL) (IStorage, error)
+
+// RegisterStorage registers handler to be used for URLs with scheme
+func RegisterStorage(scheme string, handler StorageOpener) {
+	// TODO
 }

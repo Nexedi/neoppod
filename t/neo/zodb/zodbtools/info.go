@@ -35,6 +35,7 @@ type paramFunc func(stor zodb.IStorage) (string, error)
 var infov = []struct {name string; getParam paramFunc} {
 	// XXX e.g. stor.LastTid() should return err itself
 	{"name", func(stor zodb.IStorage) (string, error) { return stor.StorageName(), nil }},
+// TODO reenable size
 //	{"size", func(stor zodb.IStorage) (string, error) { return stor.StorageSize(), nil }},
 	{"last_tid", func(stor zodb.IStorage) (string, error) {return stor.LastTid().String(), nil }},
 }
@@ -112,7 +113,7 @@ func infoMain(argv []string) {
 	}
 	storUrl := argv[0]
 
-	stor, err := zodb.Open(storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorageURL(storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -47,7 +47,6 @@ import (
 	"lab.nexedi.com/kirr/go123/xfmt"
 
 	"../../zodb"
-//	"../../storage/fs1"
 )
 
 
@@ -246,7 +245,7 @@ func dumpMain(argv []string) {
 		log.Fatal(err)	// XXX recheck
 	}
 
-	stor, err := zodb.Open(storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorageURL(storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}

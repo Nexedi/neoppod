@@ -15,39 +15,22 @@
 //
 // See COPYING file for full licensing terms.
 
-package zodbtools
-// registry for all commands
+package fs1
+// URL support
 
-import "io"
+import (
+	"net/url"
 
-// Command describes one zodb subcommand
-type Command struct {
-	Name	string
-	Summary	string
-	Usage	func (w io.Writer)
-	Main	func (argv []string)
+	"../../zodb"
+)
+
+// TODO read-only support
+func openByURL(u *url.URL) (zodb.IStorage, error) {
+	// TODO handle query
+	// XXX u.Path is not always raw path - recheck and fix
+	return Open(u.Path)
 }
 
-// registry of all commands
-var cmdv = []Command{
-	// NOTE the order commands are listed here is the order how they will appear in help
-	// TODO analyze ?
-	// TODO cmp
-	{"dump", dumpSummary, dumpUsage, dumpMain},
-	{"info", infoSummary, infoUsage, infoMain},
-}
-
-// LookupCommand returns Command with corresponding name or nil
-func LookupCommand(command string) *Command {
-	for i := range cmdv {
-		if cmdv[i].Name == command {
-			return &cmdv[i]
-		}
-	}
-	return nil
-}
-
-// AllCommands returns list of all zodbtools commands
-func AllCommands() []Command {
-	return cmdv
+func init() {
+	zodb.RegisterStorage("file://", openByURL)
 }

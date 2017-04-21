@@ -15,39 +15,14 @@
 //
 // See COPYING file for full licensing terms.
 
-package zodbtools
-// registry for all commands
+// Package wks links-in well-known ZODB storages
+// The only purpose of this package is so that users import it
+//
+//	import _ ".../zodb/wks"		XXX fixme import path
+//
+// and this way automatically link in support for file:// neo:// ... storages.
+package wks
 
-import "io"
-
-// Command describes one zodb subcommand
-type Command struct {
-	Name	string
-	Summary	string
-	Usage	func (w io.Writer)
-	Main	func (argv []string)
-}
-
-// registry of all commands
-var cmdv = []Command{
-	// NOTE the order commands are listed here is the order how they will appear in help
-	// TODO analyze ?
-	// TODO cmp
-	{"dump", dumpSummary, dumpUsage, dumpMain},
-	{"info", infoSummary, infoUsage, infoMain},
-}
-
-// LookupCommand returns Command with corresponding name or nil
-func LookupCommand(command string) *Command {
-	for i := range cmdv {
-		if cmdv[i].Name == command {
-			return &cmdv[i]
-		}
-	}
-	return nil
-}
-
-// AllCommands returns list of all zodbtools commands
-func AllCommands() []Command {
-	return cmdv
-}
+import (
+	_ "../../storage/fs1"
+)

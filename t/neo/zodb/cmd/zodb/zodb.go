@@ -24,8 +24,9 @@ import (
 	"os"
 
 	"../../zodbtools"
-)
 
+	_ "../../../zodb/wks"
+)
 
 func usage() {
 	w := os.Stderr

@@ -86,7 +86,7 @@ func TestZodbDump(t *testing.T) {
 	withTestdata1Fs(t, func(fs *fs1.FileStorage) {
 		buf := bytes.Buffer{}
 
-		err := zodbDump(&buf, fs, 0, zodb.TidMax, false)
+		err := Dump(&buf, fs, 0, zodb.TidMax, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,7 +106,7 @@ func BenchmarkZodbDump(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			err := zodbDump(ioutil.Discard, fs, 0, zodb.TidMax, false)
+			err := Dump(ioutil.Discard, fs, 0, zodb.TidMax, false)
 			if err != nil {
 				b.Fatal(err)
 			}
