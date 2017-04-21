@@ -20,7 +20,8 @@
 //
 //	import _ ".../zodb/wks"		XXX fixme import path
 //
-// and this way automatically link in support for file:// neo:// ... storages.
+// and this way automatically link in support for file:// neo:// ... and other
+// common storages.
 package wks
 
 import (
