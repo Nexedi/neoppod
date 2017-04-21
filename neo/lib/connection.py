@@ -112,7 +112,8 @@ class HandlerSwitcher(object):
             self._is_handling = False
 
     def _handle(self, connection, packet):
-        assert len(self._pending) == 1 or self._pending[0][0]
+        pending = self._pending
+        assert len(pending) == 1 or pending[0][0], pending
         logging.packet(connection, packet, False)
         if connection.isClosed() and (connection.isAborted() or
                                       packet.ignoreOnClosedConnection()):
@@ -121,32 +122,34 @@ class HandlerSwitcher(object):
             return
         if not packet.isResponse(): # notification
             # XXX: If there are several handlers, which one to use ?
-            self._pending[0][1].packetReceived(connection, packet)
+            pending[0][1].packetReceived(connection, packet)
             return
         msg_id = packet.getId()
-        request_dict, handler = self._pending[0]
+        request_dict, handler = pending[0]
         # checkout the expected answer class
         try:
             klass, _, _, kw = request_dict.pop(msg_id)
         except KeyError:
             klass = None
             kw = {}
-        if klass and isinstance(packet, klass) or packet.isError():
-            handler.packetReceived(connection, packet, kw)
-        else:
-            logging.error('Unexpected answer %r in %r', packet, connection)
-            if not connection.isClosed():
-                notification = Packets.Notify('Unexpected answer: %r' % packet)
-                connection.send(notification)
-                connection.abort()
-            # handler.peerBroken(connection)
-        # apply a pending handler if no more answers are pending
-        while len(self._pending) > 1 and not self._pending[0][0]:
-            del self._pending[0]
-            logging.debug('Apply handler %r on %r', self._pending[0][1],
+        try:
+            if klass and isinstance(packet, klass) or packet.isError():
+                handler.packetReceived(connection, packet, kw)
+            else:
+                logging.error('Unexpected answer %r in %r', packet, connection)
+                if not connection.isClosed():
+                    connection.send(Packets.Notify(
+                        'Unexpected answer: %r' % packet))
+                    connection.abort()
+                # handler.peerBroken(connection)
+        finally:
+            # apply a pending handler if no more answers are pending
+            while len(pending) > 1 and not pending[0][0]:
+                del pending[0]
+                logging.debug('Apply handler %r on %r', pending[0][1],
                     connection)
-        if msg_id == self._next_timeout_msg_id:
-            self._updateNextTimeout()
+            if msg_id == self._next_timeout_msg_id:
+                self._updateNextTimeout()
 
     def _updateNextTimeout(self):
         # Find next timeout and its msg_id
@@ -497,8 +500,10 @@ class Connection(BaseConnection):
           Process a pending packet.
         """
         # check out packet and process it with current handler
-        self._handlers.handle(self, self._queue.pop(0))
-        self.updateTimeout()
+        try:
+            self._handlers.handle(self, self._queue.pop(0))
+        finally:
+            self.updateTimeout()
 
     def pending(self):
         connector = self.connector
