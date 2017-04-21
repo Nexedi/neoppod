@@ -14,14 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import threading
+import struct, threading
 from collections import defaultdict
 from contextlib import contextmanager
 from functools import wraps
 from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import abstract, requires
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import CellStates, NonReadableCell, ZERO_TID
 
 X = 0
 
@@ -59,7 +59,7 @@ class DatabaseManager(object):
     _deferred = 0
     _duplicating = _repairing = None
 
-    def __init__(self, database, engine=None, wait=0):
+    def __init__(self, database, engine=None, wait=None):
         """
             Initialize the object.
         """
@@ -68,18 +68,16 @@ class DatabaseManager(object):
                 raise ValueError("Unsupported engine: %r not in %r"
                                  % (engine, self.ENGINES))
             self._engine = engine
-        self._wait = wait
+        # XXX: Maybe the default should be to retry indefinitely.
+        #      But for unit tests, we really want to never retry.
+        self._wait = wait or 0
         self._parse(database)
         self._connect()
 
     def __getattr__(self, attr):
-        if attr == "_getPartition":
-            np = self.getNumPartitions()
-            value = lambda x: x % np
-        elif self._duplicating is None:
+        if self._duplicating is None:
             return self.__getattribute__(attr)
-        else:
-            value = getattr(self._duplicating, attr)
+        value = getattr(self._duplicating, attr)
         setattr(self, attr, value)
         return value
 
@@ -105,19 +103,10 @@ class DatabaseManager(object):
     def _connect(self):
         """Connect to the database"""
 
-    def setup(self, reset=0):
-        """Set up a database, discarding existing data first if reset is True
-        """
-        if reset:
-            self.erase()
-        self._uncommitted_data = defaultdict(int)
-        self._setup()
-
     @abstract
     def erase(self):
         """"""
 
-    @abstract
     def _setup(self):
         """To be overridden by the backend to set up a database
 
@@ -127,6 +116,16 @@ class DatabaseManager(object):
         where the refcount is increased later, when the object is read-locked.
         Keys are data ids and values are number of references.
         """
+
+    @requires(_setup)
+    def setup(self, reset=0):
+        """Set up a database, discarding existing data first if reset is True
+        """
+        if reset:
+            self.erase()
+        self._readable_set = set()
+        self._uncommitted_data = defaultdict(int)
+        self._setup()
 
     @abstract
     def nonempty(self, table):
@@ -222,7 +221,7 @@ class DatabaseManager(object):
         """
         self.setConfiguration('partitions', num_partitions)
         try:
-            del self._getPartition
+            del self._getPartition, self._getReadablePartition
         except AttributeError:
             pass
 
@@ -260,15 +259,6 @@ class DatabaseManager(object):
         if ptid is not None:
             return int(ptid)
 
-    def setPTID(self, ptid):
-        """
-            Store a Partition Table ID into a database.
-        """
-        if ptid is not None:
-            assert isinstance(ptid, (int, long)), ptid
-            ptid = str(ptid)
-        self.setConfiguration('ptid', ptid)
-
     def getBackupTID(self):
         return util.bin(self.getConfiguration('backup_tid'))
 
@@ -299,7 +289,7 @@ class DatabaseManager(object):
             return -1
 
     @abstract
-    def getPartitionTable(self):
+    def getPartitionTable(self, *nid):
         """Return a whole partition table as a sequence of rows. Each row
         is again a tuple of an offset (row ID), the NID of a storage
         node, and a cell state."""
@@ -409,21 +399,67 @@ class DatabaseManager(object):
                 compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
-    @abstract
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    @contextmanager
+    def replicated(self, offset):
+        readable_set = self._readable_set
+        assert offset not in readable_set
+        readable_set.add(offset)
+        try:
+            yield
+        finally:
+            readable_set.remove(offset)
+
+    def _changePartitionTable(self, cell_list, reset=False):
         """Change a part of a partition table. The list of cells is
         a tuple of tuples, each of which consists of an offset (row ID),
-        the NID of a storage node, and a cell state. The Partition
-        Table ID must be stored as well. If reset is True, existing data
-        is first thrown away."""
+        the NID of a storage node, and a cell state. If reset is True,
+        existing data is first thrown away.
+        """
+
+    @requires(_changePartitionTable)
+    def changePartitionTable(self, ptid, cell_list, reset=False):
+        readable_set = self._readable_set
+        if reset:
+            readable_set.clear()
+            np = self.getNumPartitions()
+            def _getPartition(x, np=np):
+                return x % np
+            def _getReadablePartition(x, np=np, r=readable_set):
+                x %= np
+                if x in r:
+                    return x
+                raise NonReadableCell
+            self._getPartition = _getPartition
+            self._getReadablePartition = _getReadablePartition
+        me = self.getUUID()
+        for offset, nid, state in cell_list:
+            if nid == me:
+                if CellStates.UP_TO_DATE != state != CellStates.FEEDING:
+                    readable_set.discard(offset)
+                else:
+                    readable_set.add(offset)
+        self._changePartitionTable(cell_list, reset)
+        assert isinstance(ptid, (int, long)), ptid
+        self._setConfiguration('ptid', str(ptid))
 
     @abstract
     def dropPartitions(self, offset_list):
         """Delete all data for specified partitions"""
 
-    @abstract
+    def _getUnfinishedDataIdList(self):
+        """Drop any unfinished data from a database."""
+
+    @requires(_getUnfinishedDataIdList)
     def dropUnfinishedData(self):
         """Drop any unfinished data from a database."""
+        data_id_list = self._getUnfinishedDataIdList()
+        self.dropPartitionsTemporary()
+        self.releaseData(data_id_list, True)
+        self.commit()
+
+    @abstract
+    def dropPartitionsTemporary(self, offset_list=None):
+        """Drop partitions from temporary tables"""
 
     @abstract
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
@@ -469,6 +505,11 @@ class DatabaseManager(object):
         no hash collision.
         """
 
+    @abstract
+    def loadData(self, data_id):
+        """Inverse of storeData
+        """
+
     def holdData(self, checksum_or_id, *args):
         """Store raw data of temporary object
 
@@ -499,8 +540,7 @@ class DatabaseManager(object):
             else:
                 del refcount[data_id]
         if prune:
-            self._pruneData(data_id_list)
-            self.commit()
+            return self._pruneData(data_id_list)
 
     @fallback
     def _getDataTID(self, oid, tid=None, before_tid=None):
@@ -570,11 +610,14 @@ class DatabaseManager(object):
                 return current_tid, current_tid
             return current_tid, tid
         if transaction_object:
-            current_tid = current_data_tid = u64(transaction_object[2])
+            try:
+                current_tid = current_data_tid = u64(transaction_object[2])
+            except struct.error:
+                current_tid = current_data_tid = tid
         else:
             current_tid, current_data_tid = getDataTID(before_tid=ltid)
-        if current_tid is None:
-            return (None, None, False)
+            if current_tid is None:
+                return None, None, False
         found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
         assert found_undone_tid is not None, (oid, undone_tid)
         is_current = undone_data_tid in (current_data_tid, tid)
@@ -677,11 +720,19 @@ class DatabaseManager(object):
         min_tid and min_oid and below max_tid, for given partition,
         sorted in ascending order."""
 
-    @abstract
-    def getTIDList(self, offset, length, partition_list):
+    def _getTIDList(self, offset, length, partition_list):
         """Return a list of TIDs in ascending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
+
+    @requires(_getTIDList)
+    def getTIDList(self, offset, length, partition_list):
+        if partition_list:
+            if self._readable_set.issuperset(partition_list):
+                return map(util.p64, self._getTIDList(
+                    offset, length, partition_list))
+            raise NonReadableCell
+        return ()
 
     @abstract
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):

@@ -20,7 +20,7 @@ import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 9
+PROTOCOL_VERSION = 12
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -71,11 +71,12 @@ def ErrorCodes():
     OID_DOES_NOT_EXIST
     PROTOCOL_ERROR
     BROKEN_NODE
-    ALREADY_PENDING
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
+    NON_READABLE_CELL
     READ_ONLY_ACCESS
+    INCOMPLETE_TRANSACTION
 
 @Enum
 def ClusterStates():
@@ -145,12 +146,6 @@ def CellStates():
     # A check revealed that data differs from other replicas. Cell is neither
     # readable nor writable.
     CORRUPTED
-
-@Enum
-def LockState():
-    NOT_LOCKED
-    GRANTED
-    GRANTED_TO_OTHER
 
 # used for logging
 node_state_prefix_dict = {
@@ -222,6 +217,19 @@ class BrokenNodeDisallowedError(ProtocolError):
 
 class BackendNotImplemented(Exception):
     """ Method not implemented by backend storage """
+
+class NonReadableCell(Exception):
+    """Read-access to a cell that is actually non-readable
+
+    This happens in case of race condition at processing partition table
+    updates: client's PT is older or newer than storage's. The latter case is
+    possible because the master must validate any end of replication, which
+    means that the storage node can't anticipate the PT update (concurrently,
+    there may be a first tweaks that moves the replicated cell to another node,
+    and a second one that moves it back).
+
+    On such event, the client must retry, preferably another cell.
+    """
 
 class Packet(object):
     """
@@ -404,6 +412,19 @@ class PStructItemOrNone(PStructItem):
     def _decode(self, reader):
         value = reader(self.size)
         return None if value == self._None else self.unpack(value)[0]
+
+class POption(PStruct):
+
+    def _encode(self, writer, value):
+        if value is None:
+            writer('\0')
+        else:
+            writer('\1')
+            PStruct._encode(self, writer, value)
+
+    def _decode(self, reader):
+        if '\0\1'.index(reader(1)):
+            return PStruct._decode(self, reader)
 
 class PList(PStructItem):
     """
@@ -817,6 +838,12 @@ class UnfinishedTransactions(Packet):
     Ask unfinished transactions  S -> PM.
     Answer unfinished transactions  PM -> S.
     """
+    _fmt = PStruct('ask_unfinished_transactions',
+        PList('row_list',
+            PNumber('offset'),
+        ),
+    )
+
     _answer = PStruct('answer_unfinished_transactions',
         PTID('max_tid'),
         PList('tid_list',
@@ -869,6 +896,18 @@ class BeginTransaction(Packet):
     _answer = PStruct('answer_begin_transaction',
         PTID('tid'),
     )
+
+class FailedVote(Packet):
+    """
+    Report storage nodes for which vote failed. C -> M
+    True is returned if it's still possible to finish the transaction.
+    """
+    _fmt = PStruct('failed_vote',
+        PTID('tid'),
+        PFUUIDList,
+    )
+
+    _answer = Error
 
 class FinishTransaction(Packet):
     """
@@ -944,14 +983,60 @@ class GenerateOIDs(Packet):
         PFOidList,
     )
 
+class Deadlock(Packet):
+    """
+    Ask master to generate a new TTID that will be used by the client
+    to rebase a transaction. S -> PM -> C
+    """
+    _fmt = PStruct('notify_deadlock',
+        PTID('ttid'),
+        PTID('locking_tid'),
+    )
+
+class RebaseTransaction(Packet):
+    """
+    Rebase transaction. C -> S.
+    """
+    _fmt = PStruct('ask_rebase_transaction',
+        PTID('ttid'),
+        PTID('locking_tid'),
+    )
+
+    _answer = PStruct('answer_rebase_transaction',
+        PFOidList,
+    )
+
+class RebaseObject(Packet):
+    """
+    Rebase object. C -> S.
+
+    XXX: It is a request packet to simplify the implementation. For more
+         efficiency, this should be turned into a notification, and the
+         RebaseTransaction should answered once all objects are rebased
+         (so that the client can still wait on something).
+    """
+    _fmt = PStruct('ask_rebase_object',
+        PTID('ttid'),
+        PTID('oid'),
+    )
+
+    _answer = PStruct('answer_rebase_object',
+        POption('conflict',
+            PTID('serial'),
+            PTID('conflict_serial'),
+            POption('data',
+                PBoolean('compression'),
+                PChecksum('checksum'),
+                PString('data'),
+            ),
+        )
+    )
+
 class StoreObject(Packet):
     """
     Ask to store an object. Send an OID, an original serial, a current
     transaction ID, and data. C -> S.
-    Answer if an object has been stored. If an object is in conflict,
-    a serial of the conflicting transaction is returned. In this case,
-    if this serial is newer than the current transaction ID, a client
-    node must not try to resolve the conflict. S -> C.
+    As for IStorage, 'serial' is ZERO_TID for new objects.
     """
     _fmt = PStruct('ask_store_object',
         POID('oid'),
@@ -961,21 +1046,19 @@ class StoreObject(Packet):
         PString('data'),
         PTID('data_serial'),
         PTID('tid'),
-        PBoolean('unlock'),
     )
 
     _answer = PStruct('answer_store_object',
-        PBoolean('conflicting'),
-        POID('oid'),
-        PTID('serial'),
+        PTID('conflict'),
     )
 
 class AbortTransaction(Packet):
     """
-    Abort a transaction. C -> S, PM.
+    Abort a transaction. C -> S and C -> PM -> S.
     """
     _fmt = PStruct('abort_transaction',
         PTID('tid'),
+        PFUUIDList, # unused for * -> S
     )
 
 class StoreTransaction(Packet):
@@ -1159,6 +1242,7 @@ class NotifyNodeInformation(Packet):
     Notify information about one or more nodes. PM -> Any.
     """
     _fmt = PStruct('notify_node_informations',
+        PFloat('id_timestamp'),
         PFNodeList,
     )
 
@@ -1244,22 +1328,6 @@ class ObjectUndoSerial(Packet):
         ),
     )
 
-class HasLock(Packet):
-    """
-    Ask a storage is oid is locked by another transaction.
-    C -> S
-    Answer whether a transaction holds the write lock for requested object.
-    """
-    _fmt = PStruct('has_load_lock',
-        PTID('tid'),
-        POID('oid'),
-    )
-
-    _answer = PStruct('answer_has_lock',
-        POID('oid'),
-        PEnum('lock_state', LockState),
-    )
-
 class CheckCurrentSerial(Packet):
     """
     Verifies if given serial is current for object oid in the database, and
@@ -1271,15 +1339,11 @@ class CheckCurrentSerial(Packet):
     """
     _fmt = PStruct('ask_check_current_serial',
         PTID('tid'),
-        PTID('serial'),
         POID('oid'),
+        PTID('serial'),
     )
 
-    _answer = PStruct('answer_store_object',
-        PBoolean('conflicting'),
-        POID('oid'),
-        PTID('serial'),
-    )
+    _answer = StoreObject._answer
 
 class Pack(Packet):
     """
@@ -1662,6 +1726,8 @@ class Packets(dict):
                     ValidateTransaction)
     AskBeginTransaction, AnswerBeginTransaction = register(
                     BeginTransaction)
+    FailedVote = register(
+                    FailedVote)
     AskFinishTransaction, AnswerTransactionFinished = register(
                     FinishTransaction, ignore_when_closed=False)
     AskLockInformation, AnswerInformationLocked = register(
@@ -1672,6 +1738,12 @@ class Packets(dict):
                     UnlockInformation)
     AskNewOIDs, AnswerNewOIDs = register(
                     GenerateOIDs)
+    NotifyDeadlock = register(
+                    Deadlock)
+    AskRebaseTransaction, AnswerRebaseTransaction = register(
+                    RebaseTransaction)
+    AskRebaseObject, AnswerRebaseObject = register(
+                    RebaseObject)
     AskStoreObject, AnswerStoreObject = register(
                     StoreObject)
     AbortTransaction = register(
@@ -1710,8 +1782,6 @@ class Packets(dict):
                     ClusterState)
     AskObjectUndoSerial, AnswerObjectUndoSerial = register(
                     ObjectUndoSerial)
-    AskHasLock, AnswerHasLock = register(
-                    HasLock)
     AskTIDsFrom, AnswerTIDsFrom = register(
                     TIDListFrom)
     AskPack, AnswerPack = register(
@@ -1781,3 +1851,8 @@ def formatNodeList(node_list, prefix='', _sort_key=itemgetter(2)):
                     for i in xrange(len(node_list[0]) - 1))
         return map((prefix + t + '%s').__mod__, node_list)
     return ()
+
+NotifyNodeInformation._neolog = staticmethod(lambda timestamp, node_list:
+    ((timestamp,), formatNodeList(node_list, ' ! ')))
+
+Error._neolog = staticmethod(lambda *args: ((), ("%s (%s)" % args,)))

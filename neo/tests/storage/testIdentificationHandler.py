@@ -28,7 +28,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
         self.app.name = 'NEO'
-        self.app.ready = True
+        self.app.operational = True
         self.app.pt = PartitionTable(4, 1)
         self.identification = IdentificationHandler(self.app)
 

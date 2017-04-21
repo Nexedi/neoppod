@@ -106,7 +106,7 @@ class ConfigurationManager(object):
         return self.__get('engine', True)
 
     def getWait(self):
-        # BUG
+        # XXX: see also DatabaseManager.__init__
         return self.__get('wait')
 
     def getDynamicMasterList(self):

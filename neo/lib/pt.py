@@ -15,12 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
-from functools import wraps
-
 from . import logging, protocol
+from .locking import Lock
 from .protocol import uuid_str, CellStates
 from .util import u64
-from .locking import RLock
 
 class PartitionTableException(Exception):
     """
@@ -80,6 +78,10 @@ class Cell(object):
 
 class PartitionTable(object):
     """This class manages a partition table."""
+
+    # Flushing logs whenever a cell becomes out-of-date would flood them.
+    _first_outdated_message = \
+        'a cell became non-readable whereas all cells were readable'
 
     def __init__(self, num_partitions, num_replicas):
         self._id = None
@@ -163,7 +165,7 @@ class PartitionTable(object):
             if cell.getUUID() == uuid:
                 return cell
 
-    def setCell(self, offset, node, state):
+    def _setCell(self, offset, node, state):
         if state == CellStates.DISCARDED:
             return self.removeCell(offset, node)
         if node.isBroken() or node.isDown():
@@ -182,7 +184,6 @@ class PartitionTable(object):
             row.append(Cell(node, state))
         if state != CellStates.FEEDING:
             self.count_dict[node] += 1
-        return offset, node.getUUID(), state
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]
@@ -193,7 +194,10 @@ class PartitionTable(object):
                 if not cell.isFeeding():
                     self.count_dict[node] -= 1
                 break
-        return (offset, node.getUUID(), CellStates.DISCARDED)
+
+    def dropNode(self, node):
+        count = self.count_dict.pop(node, None)
+        assert not count, (node, count)
 
     def load(self, ptid, row_list, nm):
         """
@@ -209,29 +213,37 @@ class PartitionTable(object):
                 node = nm.getByUUID(uuid)
                 # the node must be known by the node manager
                 assert node is not None
-                self.setCell(offset, node, state)
+                self._setCell(offset, node, state)
         logging.debug('partition table loaded (ptid=%s)', ptid)
         self.log()
 
     def update(self, ptid, cell_list, nm):
         """
-        Update the partition with the cell list supplied. Ignore those changes
-        if the partition table ID is not greater than the current one. If a node
+        Update the partition with the cell list supplied. If a node
         is not known, it is created in the node manager and set as unavailable
         """
-        if ptid <= self._id:
-            logging.warning('ignoring older partition changes')
-            return
+        assert self._id < ptid, (self._id, ptid)
         self._id = ptid
+        readable_list = []
+        for row in self.partition_list:
+            if not all(cell.isReadable() for cell in row):
+                del readable_list[:]
+                break
+            readable_list += row
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid ' + uuid_str(uuid)
-            self.setCell(offset, node, state)
-        logging.debug('partition table updated (ptid=%s)', ptid)
-        self.log()
+            self._setCell(offset, node, state)
+        self.logUpdated()
+        if not all(cell.isReadable() for cell in readable_list):
+            logging.warning(self._first_outdated_message)
 
     def filled(self):
         return self.num_filled_rows == self.np
+
+    def logUpdated(self):
+        logging.debug('partition table updated (ptid=%s)', self._id)
+        self.log()
 
     def log(self):
         logging.debug(self.format())
@@ -258,15 +270,16 @@ class PartitionTable(object):
         partition on the line (here, line length is 11 to keep the docstring
         width under 80 column).
         """
+        node_list = sorted(self.count_dict)
         result = ['pt: node %u: %s, %s' % (i, uuid_str(node.getUUID()),
                      protocol.node_state_prefix_dict[node.getState()])
-                  for i, node in enumerate(sorted(self.count_dict))]
+                  for i, node in enumerate(node_list)]
         append = result.append
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
         prefix = 0
         prefix_len = int(math.ceil(math.log10(self.np)))
-        for offset, row in enumerate(self.formatRows()):
+        for offset, row in enumerate(self._formatRows(node_list)):
             if len(line) == max_line_len:
                 append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
                 line = []
@@ -276,8 +289,7 @@ class PartitionTable(object):
             append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
         return result
 
-    def formatRows(self):
-        node_list = sorted(self.count_dict)
+    def _formatRows(self, node_list):
         cell_state_dict = protocol.cell_state_prefix_dict
         for row in self.partition_list:
             if row is None:
@@ -287,13 +299,15 @@ class PartitionTable(object):
                              for x in row}
                 yield ''.join(cell_dict.get(x, '.') for x in node_list)
 
-    def operational(self):
+    def operational(self, exclude_list=()):
         if not self.filled():
             return False
         for row in self.partition_list:
             for cell in row:
-                if cell.isReadable() and cell.getNode().isRunning():
-                    break
+                if cell.isReadable():
+                    node = cell.getNode()
+                    if node.isRunning() and node.getUUID() not in exclude_list:
+                        break
             else:
                 return False
         return True
@@ -308,38 +322,22 @@ class PartitionTable(object):
         getRow = self.getRow
         return [(x, getRow(x)) for x in xrange(self.np)]
 
-def thread_safe(method):
-    def wrapper(self, *args, **kwargs):
-        self.lock()
-        try:
-            return method(self, *args, **kwargs)
-        finally:
-            self.unlock()
-    return wraps(method)(wrapper)
-
-
 class MTPartitionTable(PartitionTable):
     """ Thread-safe aware version of the partition table, override only methods
         used in the client """
 
-    def __init__(self, *args, **kwargs):
-        self._lock = RLock()
-        PartitionTable.__init__(self, *args, **kwargs)
+    def __init__(self, *args, **kw):
+        self._lock = Lock()
+        PartitionTable.__init__(self, *args, **kw)
 
-    def lock(self):
-        self._lock.acquire()
+    def update(self, *args, **kw):
+        with self._lock:
+            return PartitionTable.update(self, *args, **kw)
 
-    def unlock(self):
-        self._lock.release()
+    def clear(self, *args, **kw):
+        with self._lock:
+            return PartitionTable.clear(self, *args, **kw)
 
-    @thread_safe
-    def setCell(self, *args, **kwargs):
-        return PartitionTable.setCell(self, *args, **kwargs)
-
-    @thread_safe
-    def clear(self, *args, **kwargs):
-        return PartitionTable.clear(self, *args, **kwargs)
-
-    @thread_safe
-    def operational(self, *args, **kwargs):
-        return PartitionTable.operational(self, *args, **kwargs)
+    def operational(self, *args, **kw):
+        with self._lock:
+            return PartitionTable.operational(self, *args, **kw)

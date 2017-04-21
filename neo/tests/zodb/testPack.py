@@ -26,9 +26,6 @@ from . import ZODBTestCase
 class PackableTests(ZODBTestCase, StorageTestBase,
         PackableStorageWithOptionalGC, PackableUndoStorage):
 
-    def setUp(self):
-        super(PackableTests, self).setUp(cluster_kw={'adapter': 'MySQL'})
-
     checkPackAllRevisions = expectedFailure()(
         PackableStorageWithOptionalGC.checkPackAllRevisions)
     checkPackUndoLog = expectedFailure()(PackableUndoStorage.checkPackUndoLog)

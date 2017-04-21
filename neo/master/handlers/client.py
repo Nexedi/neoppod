@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from neo.lib.handler import DelayEvent
 from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
+from ..app import monotonic_time
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
@@ -36,54 +38,55 @@ class ClientServiceHandler(MasterHandler):
         node_list = [nm.getByUUID(conn.getUUID()).asTuple()] # for id_timestamp
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.notify(Packets.NotifyNodeInformation(node_list))
+        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askBeginTransaction(self, conn, tid):
         """
             A client request a TID, nothing is kept about it until the finish.
         """
         app = self.app
+        # Delay new transaction as long as we are waiting for NotifyReady
+        # answers, otherwise we can know if the client is expected to commit
+        # the transaction in full to all these storage nodes.
+        if app.storage_starting_set:
+            raise DelayEvent
         node = app.nm.getByUUID(conn.getUUID())
-        conn.answer(Packets.AnswerBeginTransaction(app.tm.begin(node, tid)))
+        tid = app.tm.begin(node, app.storage_readiness, tid)
+        conn.answer(Packets.AnswerBeginTransaction(tid))
 
     def askNewOIDs(self, conn, num_oids):
         conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
 
+    def getEventQueue(self):
+        # for askBeginTransaction & failedVote
+        return self.app.tm
+
+    def failedVote(self, conn, *args):
+        app = self.app
+        conn.answer((Errors.Ack if app.tm.vote(app, *args) else
+                     Errors.IncompleteTransaction)())
+
     def askFinishTransaction(self, conn, ttid, oid_list, checked_list):
         app = self.app
-        pt = app.pt
-
-        # Collect partitions related to this transaction.
-        getPartition = pt.getPartition
-        partition_set = set(map(getPartition, oid_list))
-        partition_set.update(map(getPartition, checked_list))
-        partition_set.add(getPartition(ttid))
-
-        # Collect the UUIDs of nodes related to this transaction.
-        uuid_list = filter(app.isStorageReady, {cell.getUUID()
-            for part in partition_set
-            for cell in pt.getCellList(part)
-            if cell.getNodeState() != NodeStates.HIDDEN})
-        if not uuid_list:
-            raise ProtocolError('No storage node ready for transaction')
-
-        identified_node_list = app.nm.getIdentifiedList(pool_set=set(uuid_list))
-
-        # Request locking data.
-        # build a new set as we may not send the message to all nodes as some
-        # might be not reachable at that time
-        p = Packets.AskLockInformation(
+        tid, node_list = app.tm.prepare(
+            app,
             ttid,
-            app.tm.prepare(
-                ttid,
-                pt.getPartitions(),
-                oid_list,
-                {x.getUUID() for x in identified_node_list},
-                conn.getPeerId(),
-            ),
+            oid_list,
+            checked_list,
+            conn.getPeerId(),
         )
-        for node in identified_node_list:
-            node.ask(p, timeout=60)
+        if tid:
+            p = Packets.AskLockInformation(ttid, tid)
+            for node in node_list:
+                node.ask(p, timeout=60)
+        else:
+            conn.answer(Errors.IncompleteTransaction())
+            # It's simpler to abort automatically rather than asking the client
+            # to send a notification on tpc_abort, since it would have keep the
+            # transaction longer in list of transactions.
+            # This should happen so rarely that we don't try to minimize the
+            # number of abort notifications by looking the modified partitions.
+            self.abortTransaction(conn, ttid, app.getStorageReadySet())
 
     def askFinalTID(self, conn, ttid):
         tm = self.app.tm
@@ -112,9 +115,24 @@ class ClientServiceHandler(MasterHandler):
         else:
             conn.answer(Packets.AnswerPack(False))
 
-    def abortTransaction(self, conn, tid):
-        # BUG: The replicator may wait this transaction to be finished.
-        self.app.tm.abort(tid, conn.getUUID())
+    def abortTransaction(self, conn, tid, uuid_list):
+        # Consider a failure when the connection between the storage and the
+        # client breaks while the answer to the first write is sent back.
+        # In other words, the client can not know the exact set of nodes that
+        # know this transaction, and it sends us all nodes it considered for
+        # writing.
+        # We must also add those that are waiting for this transaction to be
+        # finished (returned by tm.abort), because they may have join the
+        # cluster after that the client started to abort.
+        app = self.app
+        involved = app.tm.abort(tid, conn.getUUID())
+        involved.update(uuid_list)
+        involved.intersection_update(app.getStorageReadySet())
+        if involved:
+            p = Packets.AbortTransaction(tid, ())
+            getByUUID = app.nm.getByUUID
+            for involved in involved:
+                getByUUID(involved).send(p)
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid

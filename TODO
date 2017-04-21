@@ -15,16 +15,13 @@
 
     General
     - Review XXX/TODO code tags (CODE)
-    - Coverage for functional tests (i.e. collect results from subprocesses)
     - When all cells are OUT_OF_DATE in backup mode, the one with most data
       could become UP_TO_DATE with appropriate backup_tid, so that the cluster
       stays operational. (FEATURE)
     - Finish renaming UUID into NID everywhere (CODE)
-    - Implements delayed connection acceptation.
+    - Delayed connection acceptation even when a storage node is not ready ?
       Currently, any node that connects too early to another that is busy for
-      some reasons is immediately rejected with the 'not ready' error code. This
-      should be replaced by a queue in the listening node that keep a pool a
-      nodes that will be accepted late, when the conditions will be satisfied.
+      some reasons is immediately rejected with the 'not ready' error code.
       This is mainly the case for :
         - Client rejected before the cluster is operational
         - Empty storages rejected during recovery process
@@ -41,36 +38,20 @@
     - Clarify handler methods to call when a connection is accepted from a
       listening conenction and when remote node is identified
       (cf. neo/lib/bootstrap.py).
-    - Choose how to handle a storage integrity verification when it comes back.
-      Do the replication process, the verification stage, with or without
-      unfinished transactions, cells have to set as outdated, if yes, should the
-      partition table changes be broadcasted ? (BANDWITH, SPEED)
-    - Make SIGINT on primary master change cluster in STOPPING state.
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
     - Review handler split (CODE)
       The current handler split is the result of small incremental changes. A
       global review is required to make them square.
-    - Review node notifications. Eg. A storage don't have to be notified of new
-      clients but only when one is lost.
     - Review transactional isolation of various methods
       Some methods might not implement proper transaction isolation when they
       should. An example is object history (undoLog), which can see data
       committed by future transactions.
     - Add a 'devid' storage configuration so that master do not distribute
       replicated partitions on storages with same 'devid'.
-    - Fix race conditions between client-to-storage operations and moved
-      partitions. Currently, reads succeed because feeding nodes don't delete
-      anything while the cluster is operational, for performance reasons:
-      deletion of dropped partitions must be reimplemented in a scalable way.
-      (HIGH AVAILABILITY)
 
     Storage
     - Use libmysqld instead of a stand-alone MySQL server.
-    - Notify master when storage becomes available for clients (LATENCY)
-      Currently, storage presence is broadcasted to client nodes too early, as
-      the storage node would refuse them until it has only up-to-date data (not
-      only up-to-date cells, but also a partition table and node states).
     - In backup mode, 2 simultaneous replication should be possible so that:    NOTE
       - outdated cells does not block backup for too long time
       - constantly modified partitions does not prevent outdated cells to
@@ -78,9 +59,7 @@
       Current behaviour is undefined and the above 2 scenarios may happen.
     - Create a specialized PartitionTable that know the database and replicator
       to remove duplicates and remove logic from handlers (CODE)
-    - Consider insert multiple objects at time in the database, with taking care
-      of maximum SQL request size allowed. (SPEED)
-    - Make listening address and port optionnal, and if they are not provided
+    - Make listening address and port optional, and if they are not provided
       listen on all interfaces on any available port.
     - Make replication speed configurable (HIGH AVAILABILITY)
       In its current implementation, replication runs at lowest priority, to
@@ -125,15 +104,11 @@
       instead of parsing the whole partition table. (SPEED)
 
     Client
+    - Race conditions on the partition table ?
+      (update by the poll thread vs. access by other threads)
     - Merge Application into Storage (SPEED)
     - Optimize cache.py by rewriting it either in C or Cython (LOAD LATENCY)
     - Use generic bootstrap module (CODE)
-    - If too many storage nodes are dead, the client should check the partition
-      table hasn't changed by pinging the master and retry if necessary.
-    - Implement IStorageRestoreable (ZODB API) in order to preserve data
-      serials (i.e. undo information).
-    - Fix and reenable deadlock avoidance (SPEED). This is required for             NOTE
-      neo.threaded.test.Test.testDeadlockAvoidance
 
     Admin
     - Make admin node able to monitor multiple clusters simultaneously
@@ -141,6 +116,7 @@
     - Add ctl command to list last transactions, like fstail for FileStorage.
 
     Tests
+    - Split neo/tests/threaded/test.py
     - Use another mock library: Python 3.3+ has unittest.mock, which is
       available for earlier versions at https://pypi.python.org/pypi/mock
 

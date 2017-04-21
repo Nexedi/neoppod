@@ -190,7 +190,7 @@ class BackupApplication(object):
                         "ask %s to replicate partition %u up to %s from %s",
                         uuid_str(cell.getUUID()), offset,  dump(tid),
                         uuid_str(primary_node.getUUID()))
-                    cell.getNode().getConnection().notify(p)
+                    cell.getNode().send(p)
             trigger_set.add(primary_node)
         for node in trigger_set:
             self.triggerBackup(node)
@@ -255,7 +255,7 @@ class BackupApplication(object):
                         cell.replicating = tid
         for node, untouched_dict in untouched_dict.iteritems():
             if app.isStorageReady(node.getUUID()):
-                node.notify(Packets.Replicate(tid, '', untouched_dict))     # NOTE Mb -> Sb  (notify tid brings no new data)
+                node.send(Packets.Replicate(tid, '', untouched_dict))      # NOTE Mb -> Sb  (notify tid brings no new data)
         for node in trigger_set:
             self.triggerBackup(node)
         count = sum(map(len, self.tid_list))
@@ -291,8 +291,7 @@ class BackupApplication(object):
             source_dict[offset] = addr
             logging.debug("ask %s to replicate partition %u up to %s from %r",
                 uuid_str(node.getUUID()), offset,  dump(tid), addr)
-        node.getConnection().notify(Packets.Replicate(              # NOTE Mb -> Sb  (notify to trigger replicate up to tid)
-            tid, self.name, source_dict))
+        node.send(Packets.Replicate(tid, self.name, source_dict))         # NOTE Mb -> Sb  (notify to trigger replicate up to tid)
 
     # NOTE feedback from Sb -> Mb a partition (requested by invalidatePartitions->triggerBackup) has been replicated
     def notifyReplicationDone(self, node, offset, tid):
@@ -310,7 +309,7 @@ class BackupApplication(object):
                     last_tid = app.getLastTransaction()
                     if tid < last_tid:
                         tid = last_tid
-                        node.notify(Packets.Replicate(tid, '', {offset: None}))
+                        node.send(Packets.Replicate(tid, '', {offset: None}))
         logging.debug("partition %u: updating backup_tid of %r to %s",
                       offset, cell, dump(tid))
         cell.backup_tid = tid
@@ -334,7 +333,7 @@ class BackupApplication(object):
                         "ask %s to replicate partition %u up to %s from %s",
                         uuid_str(node.getUUID()), offset,  dump(max_tid),
                         uuid_str(primary_node.getUUID()))
-                    node.notify(Packets.Replicate(max_tid, '',
+                    node.send(Packets.Replicate(max_tid, '',
                         {offset: primary_node.getAddress()}))
         else:
             if app.getClusterState() == ClusterStates.BACKINGUP:
@@ -350,5 +349,5 @@ class BackupApplication(object):
                             "ask %s to replicate partition %u up to %s from %s",
                             uuid_str(cell.getUUID()), offset,
                             dump(tid), uuid_str(node.getUUID()))
-                        cell.getNode().notify(p)
+                        cell.getNode().send(p)
         return result

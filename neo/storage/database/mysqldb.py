@@ -20,6 +20,9 @@ from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
+# BBB: the following 2 constants were added to mysqlclient 1.3.8
+DROP_LAST_PARTITION = 1508
+SAME_NAME_PARTITION = 1517
 from array import array
 from hashlib import sha1
 import os
@@ -46,7 +49,7 @@ class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
     VERSION = 1
-    ENGINES = "InnoDB", "TokuDB"
+    ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
     # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
@@ -77,14 +80,21 @@ class MySQLDatabaseManager(DatabaseManager):
             timeout_at = None
         else:
             timeout_at = time.time() + self._wait
+        last = None
         while True:
             try:
                 self.conn = MySQLdb.connect(**kwd)
                 break
-            except Exception:
-                if timeout_at is not None and time.time() >= timeout_at:
+            except Exception as e:
+                if None is not timeout_at <= time.time():
                     raise
-                logging.exception('Connection to MySQL failed, retrying.')
+                e = str(e)
+                if last == e:
+                    log = logging.debug
+                else:
+                    last = e
+                    log = logging.exception
+                log('Connection to MySQL failed, retrying.')
                 time.sleep(1)
         self._active = 0
         self._config = {}
@@ -110,6 +120,10 @@ class MySQLDatabaseManager(DatabaseManager):
         if LOG_QUERIES:
             logging.debug('querying %s...',
                 getPrintableQuery(query.split('\n', 1)[0][:70]))
+        # Try 3 times at most. When it fails too often for the same
+        # query then the disconnection is likely caused by this query.
+        # We don't want to enter into an infinite loop.
+        retry = 2
         while 1:
             conn = self.conn
             try:
@@ -121,12 +135,15 @@ class MySQLDatabaseManager(DatabaseManager):
                               for d in row])
                         for row in r.fetch_row(r.num_rows())])
                 break
-            except OperationalError, m:
-                if self._active or m[0] not in (SERVER_GONE_ERROR, SERVER_LOST):
+            except OperationalError as m:
+                code, m = m.args
+                if self._active or SERVER_GONE_ERROR != code != SERVER_LOST \
+                   or not retry:
                     raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
-                        % (m[0], m[1], getPrintableQuery(query[:1000])))
+                        % (code, m, getPrintableQuery(query[:1000])))
                 logging.info('the MySQL server is gone; reconnecting')
                 self._connect()
+                retry -= 1
         r = query.split(None, 1)[0]
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1
@@ -145,8 +162,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def nonempty(self, table):
         try:
             return bool(self.query("SELECT 1 FROM %s LIMIT 1" % table))
-        except ProgrammingError, (code, _):
-            if code != NO_SUCH_TABLE:
+        except ProgrammingError as e:
+            if e.args[0] != NO_SUCH_TABLE:
                 raise
 
     def _setup(self):
@@ -276,13 +293,15 @@ class MySQLDatabaseManager(DatabaseManager):
         sql = "REPLACE INTO config VALUES ('%s', '%s')" % (k, e(value))
         try:
             q(sql)
-        except DataError, (code, _):
-            if code != DATA_TOO_LONG or len(value) < 256 or key != "zodb":
+        except DataError as e:
+            if e.args[0] != DATA_TOO_LONG or len(value) < 256 or key != "zodb":
                 raise
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
 
-    def getPartitionTable(self):
+    def getPartitionTable(self, *nid):
+        if nid:
+            return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
         return self.query("SELECT * FROM pt")
 
     def getLastTID(self, max_tid):
@@ -312,7 +331,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # MariaDB is smart enough to realize that 'ttid' is constant.
         r = self.query("SELECT tid FROM trans"
             " WHERE `partition`=%s AND tid>=ttid AND ttid=%s LIMIT 1"
-            % (self._getPartition(ttid), ttid))
+            % (self._getReadablePartition(ttid), ttid))
         if r:
             return util.p64(r[0][0])
 
@@ -321,7 +340,7 @@ class MySQLDatabaseManager(DatabaseManager):
         r = self.query("SELECT tid FROM obj"
                        " WHERE `partition`=%d AND oid=%d"
                        " ORDER BY tid DESC LIMIT 1"
-                       % (self._getPartition(oid), oid))
+                       % (self._getReadablePartition(oid), oid))
         return util.p64(r[0][0]) if r else None
 
     def _getNextTID(self, *args): # partition, oid, tid
@@ -337,7 +356,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
-        partition = self._getPartition(oid)
+        partition = self._getReadablePartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE `partition` = %d AND oid = %d') % (partition, oid)
@@ -360,7 +379,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return (serial, self._getNextTID(partition, oid, serial),
                 compression, checksum, data, value_serial)
 
-    def changePartitionTable(self, ptid, cell_list, reset=False):
+    def _changePartitionTable(self, cell_list, reset=False):
         offset_list = []
         q = self.query
         if reset:
@@ -376,7 +395,6 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("INSERT INTO pt VALUES (%d, %d, %d)"
                   " ON DUPLICATE KEY UPDATE state = %d"
                   % (offset, nid, state, state))
-        self.setPTID(ptid)
         if self._use_partition:
             for offset in offset_list:
                 add = """ALTER TABLE %%s ADD PARTITION (
@@ -384,8 +402,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 for table in 'trans', 'obj':
                     try:
                         self.conn.query(add % table)
-                    except OperationalError, (code, _):
-                        if code != 1517: # duplicate partition name
+                    except OperationalError as e:
+                        if e.args[0] != SAME_NAME_PARTITION:
                             raise
 
     def dropPartitions(self, offset_list):
@@ -408,16 +426,19 @@ class MySQLDatabaseManager(DatabaseManager):
             for table in 'trans', 'obj':
                 try:
                     self.conn.query(drop % table)
-                except OperationalError, (code, _):
-                    if code != 1508: # already dropped
+                except OperationalError as e:
+                    if e.args[0] != DROP_LAST_PARTITION:
                         raise
 
-    def dropUnfinishedData(self):
+    def _getUnfinishedDataIdList(self):
+        return [x for x, in self.query("SELECT data_id FROM tobj") if x]
+
+    def dropPartitionsTemporary(self, offset_list=None):
+        where = "" if offset_list is None else \
+            " WHERE `partition` IN (%s)" % ','.join(map(str, offset_list))
         q = self.query
-        data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
-        q("DELETE FROM tobj")
-        q("DELETE FROM ttrans")
-        self.releaseData(data_id_list, True)
+        q("DELETE FROM tobj" + where)
+        q("DELETE FROM ttrans" + where)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         e = self.escape
@@ -535,8 +556,8 @@ class MySQLDatabaseManager(DatabaseManager):
         try:
             self.query("INSERT INTO data VALUES (NULL, '%s', %d, '%s')" %
                        (checksum, compression,  e(data)))
-        except IntegrityError, (code, _):
-            if code == DUP_ENTRY:
+        except IntegrityError as e:
+            if e.args[0] == DUP_ENTRY:
                 (r, d), = self.query("SELECT id, value FROM data"
                                      " WHERE hash='%s' AND compression=%s"
                                      % (checksum, compression))
@@ -545,12 +566,21 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         return self.conn.insert_id()
 
+    def loadData(self, data_id):
+        compression, hash, value = self.query(
+            "SELECT compression, hash, value FROM data where id=%s"
+            % data_id)[0]
+        if compression and compression & 0x80:
+            compression &= 0x7f
+            data = ''.join(self._bigData(data))
+        return compression, hash, value
+
     del _structLL
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         sql = ('SELECT tid, value_tid FROM obj'
                ' WHERE `partition` = %d AND oid = %d'
-              ) % (self._getPartition(oid), oid)
+              ) % (self._getReadablePartition(oid), oid)
         if tid is not None:
             sql += ' AND tid = %d' % tid
         elif before_tid is not None:
@@ -589,7 +619,6 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def deleteTransaction(self, tid):
         tid = util.u64(tid)
-        getPartition = self._getPartition
         self.query("DELETE FROM trans WHERE `partition`=%s AND tid=%s" %
             (self._getPartition(tid), tid))
 
@@ -623,7 +652,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         r = q("SELECT oids, user, description, ext, packed, ttid"
               " FROM trans WHERE `partition` = %d AND tid = %d"
-              % (self._getPartition(tid), tid))
+              % (self._getReadablePartition(tid), tid))
         if not r and all:
             r = q("SELECT oids, user, description, ext, packed, ttid"
                   " FROM ttrans WHERE tid = %d" % tid)
@@ -643,7 +672,8 @@ class MySQLDatabaseManager(DatabaseManager):
             " FROM obj LEFT JOIN data ON (obj.data_id = data.id)"
             " WHERE `partition` = %d AND oid = %d AND tid >= %d"
             " ORDER BY tid DESC LIMIT %d, %d" %
-            (self._getPartition(oid), oid, self._getPackTID(), offset, length))
+            (self._getReadablePartition(oid), oid,
+             self._getPackTID(), offset, length))
         if r:
             return [(p64(tid), length or 0) for tid, length in r]
 
@@ -659,12 +689,11 @@ class MySQLDatabaseManager(DatabaseManager):
             partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))
         return [(p64(serial), p64(oid)) for serial, oid in r]
 
-    def getTIDList(self, offset, length, partition_list):
-        q = self.query
-        r = q("""SELECT tid FROM trans WHERE `partition` in (%s)
-                    ORDER BY tid DESC LIMIT %d,%d""" \
-                % (','.join(map(str, partition_list)), offset, length))
-        return [util.p64(t[0]) for t in r]
+    def _getTIDList(self, offset, length, partition_list):
+        return (t[0] for t in self.query(
+            "SELECT tid FROM trans WHERE `partition` in (%s)"
+            " ORDER BY tid DESC LIMIT %d,%d"
+            % (','.join(map(str, partition_list)), offset, length)))
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         u64 = util.u64
@@ -694,7 +723,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # reference is just updated to point to the new data location.
         value_serial = None
         kw = {
-          'partition': self._getPartition(oid),
+          'partition': self._getReadablePartition(oid),
           'oid': oid,
           'orig_tid': orig_serial,
           'max_tid': max_serial,
@@ -718,7 +747,7 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
-        getPartition = self._getPartition
+        getPartition = self._getReadablePartition
         q = self.query
         self._setPackTID(tid)
         for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"

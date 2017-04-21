@@ -16,12 +16,11 @@
 
 import unittest
 from ..mock import Mock
-from collections import deque
 from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.lib.pt import PartitionTable
-from neo.lib.protocol import CellStates
+from neo.lib.protocol import CellStates, ProtocolError
 
 class StorageMasterHandlerTests(NeoUnitTestBase):
 
@@ -31,10 +30,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
-        self.app.transaction_dict = {}
-        self.app.store_lock_dict = {}
-        self.app.load_lock_dict = {}
-        self.app.event_queue = deque()
         # handler
         self.operation = MasterOperationHandler(self.app)
         # set pmn
@@ -60,7 +55,8 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         app.replicator = Mock({})
         self.app.pt = Mock({'getID': 1})
         count = len(self.app.nm.getList())
-        self.operation.notifyPartitionChanges(conn, 0, ())
+        self.assertRaises(ProtocolError, self.operation.notifyPartitionChanges,
+                          conn, 0, ())
         self.assertEqual(self.app.pt.getID(), 1)
         self.assertEqual(len(self.app.nm.getList()), count)
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
@@ -83,18 +79,18 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         app.nm.createStorage(uuid=uuid1)
         app.nm.createStorage(uuid=uuid2)
         app.nm.createStorage(uuid=uuid3)
-        ptid1, ptid2 = (1, 2)
-        self.assertNotEqual(ptid1, ptid2)
         app.pt = PartitionTable(3, 1)
+        app.pt._id = 1
+        ptid = 2
         app.dm = Mock({ })
         app.replicator = Mock({})
-        self.operation.notifyPartitionChanges(conn, ptid2, cells)
+        self.operation.notifyPartitionChanges(conn, ptid, cells)
         # ptid set
-        self.assertEqual(app.pt.getID(), ptid2)
+        self.assertEqual(app.pt.getID(), ptid)
         # dm call
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(ptid2, cells)
+        calls[0].checkArgs(ptid, cells)
 
 if __name__ == "__main__":
     unittest.main()

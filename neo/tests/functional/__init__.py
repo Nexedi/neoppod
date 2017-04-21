@@ -158,7 +158,7 @@ class NEOProcess(object):
             if args:
                 os.close(w)
                 os.kill(os.getpid(), signal.SIGSTOP)
-        self.pid = os.fork()
+        self.pid = logging.fork()
         if self.pid:
             # Wait that the signal to kill the child is set up.
             os.close(w)
@@ -168,8 +168,6 @@ class NEOProcess(object):
         else:
             # Child
             try:
-                # release SQLite debug log
-                logging.setup()
                 signal.signal(signal.SIGTERM, lambda *args: sys.exit())
                 if coverage:
                     coverage.stop()
@@ -482,6 +480,7 @@ class NEOCluster(object):
             master_nodes=master_nodes,
             name=self.cluster_name,
             **kw)
+        result.app.max_reconnection_to_master = 10
         self.zodb_storage_list.append(result)
         return result
 

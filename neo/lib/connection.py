@@ -22,7 +22,7 @@ from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
 from .protocol import uuid_str, Errors, \
         PacketMalformedError, Packets, ParserState
-from .util import ReadBuffer
+from .util import dummy_read_buffer, ReadBuffer
 
 CRITICAL_TIMEOUT = 30
 
@@ -115,16 +115,17 @@ class HandlerSwitcher(object):
     def _handle(self, connection, packet):  # NOTE incoming packet -> handle -> dispatch ...
         assert len(self._pending) == 1 or self._pending[0][0]
         logging.packet(connection, packet, False)
-        if connection.isClosed() and packet.ignoreOnClosedConnection():
+        if connection.isClosed() and (connection.isAborted() or
+                                      packet.ignoreOnClosedConnection()):
             logging.debug('Ignoring packet %r on closed connection %r',
                 packet, connection)
             return
-        msg_id = packet.getId()
-        (request_dict, handler) = self._pending[0]
-        # notifications are not expected
-        if not packet.isResponse():
-            handler.packetReceived(connection, packet)
+        if not packet.isResponse(): # notification
+            # XXX: If there are several handlers, which one to use ?
+            self._pending[0][1].packetReceived(connection, packet)
             return
+        msg_id = packet.getId()
+        request_dict, handler = self._pending[0]
         # checkout the expected answer class
         try:
             klass, _, _, kw = request_dict.pop(msg_id)
@@ -137,7 +138,7 @@ class HandlerSwitcher(object):
             logging.error('Unexpected answer %r in %r', packet, connection)
             if not connection.isClosed():
                 notification = Packets.Notify('Unexpected answer: %r' % packet)
-                connection.notify(notification)
+                connection.send(notification)
                 connection.abort()
             # handler.peerBroken(connection)
         # apply a pending handler if no more answers are pending
@@ -354,7 +355,7 @@ class Connection(BaseConnection):
             r.append(('len(queue)', len(self._queue)))
         if self._on_close is not None:
             r.append(('on_close', getattr(self._on_close, '__name__', '?')))
-        flags.extend(x for x in ('aborted', 'connecting', 'client', 'server')
+        flags.extend(x for x in ('connecting', 'client', 'server')
                        if getattr(self, x))
         return r, flags
 
@@ -383,7 +384,7 @@ class Connection(BaseConnection):
         if self.server:
             del self.idle
             self.client = False
-            self.notify(Packets.CloseClient())
+            self.send(Packets.CloseClient())
         else:
             self.close()
 
@@ -449,6 +450,7 @@ class Connection(BaseConnection):
             return
         logging.debug('aborting a connector for %r', self)
         self.aborted = True
+        self.read_buf = dummy_read_buffer
         if self._on_close is not None:
             self._on_close()
             self._on_close = None
@@ -486,8 +488,6 @@ class Connection(BaseConnection):
         except PacketMalformedError, e:
             logging.error('malformed packet from %r: %s', self, e)
             self._closure()
-        if self.aborted:
-            self.em.removeReader(self)
         return not not self._queue
 
     def hasPendingMessages(self):
@@ -552,14 +552,12 @@ class Connection(BaseConnection):
             self.em.addWriter(self)
         logging.packet(self, packet, True)
 
-    def notify(self, packet):
+    def send(self, packet, msg_id=None):
         """ Then a packet with a new ID """
         if self.isClosed():
             raise ConnectionClosed
-        msg_id = self._getNextId()
-        packet.setId(msg_id)
+        packet.setId(self._getNextId() if msg_id is None else msg_id)
         self._addPacket(packet)
-        return msg_id
 
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None, **kw):
         """
@@ -580,14 +578,14 @@ class Connection(BaseConnection):
                 self.em.wakeup()
         return msg_id
 
-    def answer(self, packet, msg_id=None):
+    def answer(self, packet):
         """ Answer to a packet by re-using its ID for the packet answer """
-        if self.isClosed():
-            raise ConnectionClosed
-        if msg_id is None:
-            msg_id = self.getPeerId()
-        packet.setId(msg_id)
         assert packet.isResponse(), packet
+        if self.isClosed():
+            if packet.ignoreOnClosedConnection() and not packet.isError():
+                raise ConnectionClosed
+            return
+        packet.setId(self.peer_id)
         self._addPacket(packet)
 
     def idle(self):
@@ -678,7 +676,7 @@ class MTConnectionType(type):
         if __debug__:
             for name in 'answer',:
                 setattr(cls, name, cls.lockCheckWrapper(name))
-        for name in 'close', 'notify':
+        for name in 'close', 'send':
             setattr(cls, name, cls.__class__.lockWrapper(cls, name))
         for name in ('_delayedConnect', 'onTimeout',
                      'process', 'readable', 'writable'):
@@ -725,29 +723,17 @@ class MTClientConnection(ClientConnection):
         with lock:
             super(MTClientConnection, self).__init__(*args, **kwargs)
 
+    # Alias without lock (cheaper than super())
+    _ask = ClientConnection.ask.__func__
+
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
             queue=None, **kw):
         with self.lock:
-            if self.isClosed():
-                raise ConnectionClosed
-            # XXX: Here, we duplicate Connection.ask because we need to call
-            # self.dispatcher.register after setId is called and before
-            # _addPacket is called.
-            msg_id = self._getNextId()
-            packet.setId(msg_id)
             if queue is None:
-                if type(packet) is not Packets.Ping:
-                    raise TypeError, 'Only Ping packet can be asked ' \
-                        'without a queue, got a %r.' % (packet, )
-            else:
-                self.dispatcher.register(self, msg_id, queue)
-            self._addPacket(packet)
-            handlers = self._handlers
-            t = None if handlers.isPending() else time()
-            handlers.emit(packet, timeout, on_timeout, kw)
-            if not self._queue:
-                next_timeout = self._next_timeout
-                self.updateTimeout(t)
-                if self._next_timeout < next_timeout:
-                    self.em.wakeup()
-            return msg_id
+                if type(packet) is Packets.Ping:
+                    return self._ask(packet, timeout, on_timeout, **kw)
+                raise TypeError('Only Ping packet can be asked'
+                    ' without a queue, got a %r.' % packet)
+            msg_id = self._ask(packet, timeout, on_timeout, **kw)
+            self.dispatcher.register(self, msg_id, queue)
+        return msg_id

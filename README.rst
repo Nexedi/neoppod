@@ -206,8 +206,9 @@ lists:
   users discussion
 - `neo-dev <http://mail.tiolive.com/mailman/listinfo/neo-dev>`_:
   developers discussion
-- `neo-report <http://mail.tiolive.com/mailman/listinfo/neo-report>`_:
-  automated test results (read-only list)
+
+Automated test results are published at
+https://www.erp5.com/quality/integration/P-ERP5.Com.Unit%20Tests/Base_viewListMode?proxy_form_id=WebSection_viewERP5UnitTestForm&proxy_field_id=listbox&proxy_field_selection_name=WebSection_viewERP5UnitTestForm_listbox_selection&reset=1&listbox_title=NEO-%25
 
 Commercial Support
 ==================

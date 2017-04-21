@@ -28,7 +28,6 @@ from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager
-from .exception import AlreadyPendingError
 from .handlers import identification, initialization
 from .handlers import master, hidden
 from .replicator import Replicator
@@ -39,13 +38,14 @@ from neo.lib.debug import register as registerLiveDebugger
 class Application(BaseApplication):
     """The storage node application."""
 
+    checker = replicator = tm = None
+
     def __init__(self, config):
         super(Application, self).__init__(
             config.getSSL(), config.getDynamicMasterList())
         # set the cluster name
         self.name = config.getCluster()
 
-        self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(),
             (config.getDatabase(), config.getEngine(), config.getWait()),
         )
@@ -62,19 +62,12 @@ class Application(BaseApplication):
         # partitions.
         self.pt = None
 
-        self.checker = Checker(self)
-        self.replicator = Replicator(self)
         self.listening_conn = None
         self.master_conn = None
         self.master_node = None
 
         # operation related data
-        self.event_queue = None
-        self.event_queue_dict = None
         self.operational = False
-
-        # ready is True when operational and got all informations
-        self.ready = False
 
         self.dm.setup(reset=config.getReset())
         self.loadConfiguration()
@@ -95,9 +88,9 @@ class Application(BaseApplication):
 
     def log(self):
         self.em.log()
-        self.logQueuedEvents()
         self.nm.log()
-        self.tm.log()
+        if self.tm:
+            self.tm.log()
         if self.pt is not None:
             self.pt.log()
 
@@ -137,19 +130,17 @@ class Application(BaseApplication):
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
+        self.pt.clear()
         ptid = self.dm.getPTID()
-        cell_list = self.dm.getPartitionTable()
-        new_cell_list = []
-        for offset, uuid, state in cell_list:
-            # convert from int to Enum
-            state = CellStates[state]
+        if ptid is None:
+            return
+        cell_list = []
+        for offset, uuid, state in self.dm.getPartitionTable():
             # register unknown nodes
             if self.nm.getByUUID(uuid) is None:
                 self.nm.createStorage(uuid=uuid)
-            new_cell_list.append((offset, uuid, state))
-        # load the partition table in manager
-        self.pt.clear()
-        self.pt.update(ptid, new_cell_list, self.nm)
+            cell_list.append((offset, uuid, CellStates[state]))
+        self.pt.update(ptid, cell_list, self.nm)
 
     def run(self):
         try:
@@ -173,10 +164,9 @@ class Application(BaseApplication):
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permanently,
         # until the user explicitly requests a shutdown.
+        self.operational = False
         while True:
             self.cluster_state = None
-            self.ready = False
-            self.operational = False
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
@@ -184,13 +174,9 @@ class Application(BaseApplication):
             node = self.nm.getByUUID(self.uuid)
             if node is not None and node.isHidden():
                 self.wait()
-            # drop any client node
-            for conn in self.em.getConnectionList():
-                if conn not in (self.listening_conn, self.master_conn):
-                    conn.close()
-            # create/clear event queue
-            self.event_queue = deque()
-            self.event_queue_dict = {}
+            self.checker = Checker(self)
+            self.replicator = Replicator(self)
+            self.tm = TransactionManager(self)
             try:
                 self.initialize()
                 self.doOperation()
@@ -200,7 +186,15 @@ class Application(BaseApplication):
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
             finally:
-                self.checker = Checker(self)
+                self.operational = False
+            # When not ready, we reject any incoming connection so for
+            # consistency, we also close any connection except that to the
+            # master. This includes connections to other storage nodes and any
+            # replication is aborted, whether we are feeding or out-of-date.
+            for conn in self.em.getConnectionList():
+                if conn not in (self.listening_conn, self.master_conn):
+                    conn.close()
+            del self.checker, self.replicator, self.tm
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
@@ -211,11 +205,6 @@ class Application(BaseApplication):
         Note that I do not accept any connection from non-master nodes
         at this stage."""
         pt = self.pt
-
-        # First of all, make sure that I have no connection.
-        for conn in self.em.getConnectionList():
-            if not conn.isListening():
-                conn.close()
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, NodeTypes.STORAGE, self.server)
@@ -246,9 +235,7 @@ class Application(BaseApplication):
         self.master_conn.setHandler(initialization.InitializationHandler(self))
         while not self.operational:
             _poll()
-        self.ready = True
-        self.replicator.populate()
-        self.master_conn.notify(Packets.NotifyReady())
+        self.master_conn.send(Packets.NotifyReady())
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
@@ -258,12 +245,11 @@ class Application(BaseApplication):
         _poll = self.em._poll
         isIdle = self.em.isIdle
 
-        handler = master.MasterOperationHandler(self)
-        self.master_conn.setHandler(handler)
+        self.master_conn.setHandler(master.MasterOperationHandler(self))
+        self.replicator.populate()
 
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
-        self.tm.reset()
 
         self.task_queue = task_queue = deque()
         try:
@@ -282,13 +268,6 @@ class Application(BaseApplication):
                 poll()
         finally:
             del self.task_queue
-            # XXX: Although no handled exception should happen between
-            #      replicator.populate() and the beginning of this 'try'
-            #      clause, the replicator should be reset in a safer place.
-            self.replicator = Replicator(self)
-            # Abort any replication, whether we are feeding or out-of-date.
-            for node in self.nm.getStorageList(only_identified=True):
-                node.getConnection().close()
 
     def changeClusterState(self, state):
         self.cluster_state = state
@@ -308,46 +287,6 @@ class Application(BaseApplication):
             _poll()
             if not node.isHidden():
                 break
-
-    def queueEvent(self, some_callable, conn=None, args=(), key=None,
-            raise_on_duplicate=True):
-        event_queue_dict = self.event_queue_dict
-        n = event_queue_dict.get(key)
-        if n and raise_on_duplicate:
-            raise AlreadyPendingError()
-        msg_id = None if conn is None else conn.getPeerId()
-        self.event_queue.append((key, some_callable, msg_id, conn, args))
-        if key is not None:
-            event_queue_dict[key] = n + 1 if n else 1
-
-    def executeQueuedEvents(self):
-        p = self.event_queue.popleft
-        event_queue_dict = self.event_queue_dict
-        for _ in xrange(len(self.event_queue)):
-            key, some_callable, msg_id, conn, args = p()
-            if key is not None:
-                n = event_queue_dict[key] - 1
-                if n:
-                    event_queue_dict[key] = n
-                else:
-                    del event_queue_dict[key]
-            if conn is None:
-                some_callable(*args)
-            elif not conn.isClosed():
-                orig_msg_id = conn.getPeerId()
-                try:
-                    conn.setPeerId(msg_id)
-                    some_callable(conn, *args)
-                finally:
-                    conn.setPeerId(orig_msg_id)
-
-    def logQueuedEvents(self):
-        if self.event_queue is None:
-            return
-        logging.info("Pending events:")
-        for key, event, _msg_id, _conn, args in self.event_queue:
-            logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
-                _msg_id, _conn, args)
 
     def newTask(self, iterator):
         try:

@@ -14,13 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# WARNING: Log rotating should not be implemented here.
-#          SQLite does not access database only by file descriptor,
-#          and an OperationalError exception would be raised if a log is emitted
-#          between a rename and a reopen.
-#          Fortunately, SQLite allow multiple process to access the same DB,
-#          so an external tool should be able to dump and empty tables.
-
 from collections import deque
 from functools import wraps
 from logging import getLogger, Formatter, Logger, StreamHandler, \
@@ -215,6 +208,13 @@ class NEOLogger(Logger):
             self._setup(filename, reset)
     __del__ = setup
 
+    def fork(self):
+        with self:
+            pid = os.fork()
+            if pid:
+                return pid
+            self._setup()
+
     def isEnabledFor(self, level):
         return True
 
@@ -246,7 +246,7 @@ class NEOLogger(Logger):
                 self._emit(record)
                 self.commit()
             else:
-                self._record_size += RECORD_SIZE + len(record.msg)
+                self._record_size += RECORD_SIZE + len(record.msg or '')
                 q = self._record_queue
                 q.append(record)
                 if record.levelno < WARNING:

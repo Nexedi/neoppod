@@ -4,43 +4,6 @@ or promised features of NEO (marked with N).
 
 All the listed bugs will be fixed with high priority.
 
-(Z) Conflict resolution not fully implemented
----------------------------------------------
-
-Even with a single storage node, so-called 'deadlock avoidance' may
-happen to in order to resolve conflicts. In such cases, conflicts will not be
-resolved even if your _p_resolveConflict() method would succeed, leading to a
-normal ConflictError.
-
-Although this should happen rarely enough not to affect performance, this can
-be an issue if your application can't afford restarting the transaction,
-e.g. because it interacted with external environment.
-
-(N) Storage failure or update may lead to POSException or break undoLog()
--------------------------------------------------------------------------
-
-Storage nodes are only queried once at most and if all (for the requested
-partition) failed, the client raises instead of asking the master whether it
-had an up-to-date partition table (and retry if useful).
-
-In the case of undoLog(), incomplete results may be returned.
-
-(N) Storage does not discard answers from aborted replications
---------------------------------------------------------------
-
-In some cases, this can lead to data corruption (wrong AnswerFetch*) or crashes
-(e.g. KeyError because self.current_partition is None at the beginning of
-Replicator.fetchObjects).
-
-The assumption that aborting the replication of a partition implies the closure
-of the connection turned out to be wrong, e.g. when a partition is aborted by a
-third party, like CORRUPTED/DISCARDED event from the master.
-
-Workaround: do not replicate or tweak while checking replicas.
-
-Currently, this can be reproduced by running testBackupNodeLost
-(neo.tests.threaded.testReplication.ReplicationTests) many times.
-
 (N) A backup cell may be wrongly marked as corrupted while checking replicas
 ----------------------------------------------------------------------------
 

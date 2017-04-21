@@ -109,7 +109,7 @@ class Checker(object):
         self.source = source
         def start():
             if app.tm.isLockedTid(max_tid):
-                app.queueEvent(start)
+                app.tm.read_queue.queueEvent(start)
                 return
             args = partition, CHECK_COUNT, min_tid, max_tid
             p = Packets.AskCheckTIDRange(*args)
@@ -181,7 +181,7 @@ class Checker(object):
                         uuid_list.append(conn.getUUID())
                         self.app.closeClient(conn)
             p = Packets.NotifyPartitionCorrupted(self.partition, uuid_list)
-            self.app.master_conn.notify(p)
+            self.app.master_conn.send(p)
             if len(self.conn_dict) <= 1:
                 logging.warning("check of partition %u aborted", self.partition)
                 self.queue.clear()

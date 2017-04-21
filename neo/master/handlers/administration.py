@@ -17,7 +17,7 @@
 import random
 
 from . import MasterHandler
-from ..app import StateChangedException
+from ..app import monotonic_time, StateChangedException
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.pt import PartitionTableException
@@ -103,7 +103,8 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
             if node.isConnected():
                 # notify itself so it can shutdown
-                node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
+                node.send(Packets.NotifyNodeInformation(
+                    monotonic_time(), [node.asTuple()]))
                 # close to avoid handle the closure as a connection lost
                 node.getConnection().abort()
             if keep:
@@ -121,7 +122,8 @@ class AdministrationHandler(MasterHandler):
             # ignores non-running nodes
             assert not node.isRunning()
             if node.isConnected():
-                node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
+                node.send(Packets.NotifyNodeInformation(
+                    monotonic_time(), [node.asTuple()]))
             app.broadcastNodesInformation([node])
 
     def addPendingNodes(self, conn, uuid_list):
@@ -139,10 +141,9 @@ class AdministrationHandler(MasterHandler):
             for node in app.nm.getStorageList()
             if node.isPending() and node.getUUID() in uuid_list))
         if node_list:
-            p = Packets.StartOperation(bool(app.backup_tid))    # NOTE ...
             for node in node_list:
                 node.setRunning()
-                node.notify(p)
+                app.startStorage(node)
             app.broadcastNodesInformation(node_list)
             conn.answer(Errors.Ack('Nodes added: %s' %
                 ', '.join(uuid_str(x.getUUID()) for x in node_list)))
@@ -160,7 +161,7 @@ class AdministrationHandler(MasterHandler):
             node_list.append(node)
         repair = Packets.NotifyRepair(*args)
         for node in node_list:
-            node.notify(repair)
+            node.send(repair)
         conn.answer(Errors.Ack(''))
 
     def tweakPartitionTable(self, conn, uuid_list):
@@ -224,6 +225,6 @@ class AdministrationHandler(MasterHandler):
                             ).getAddress()
                     else:
                         source = '', None
-                node.getConnection().notify(Packets.CheckPartition(
+                node.send(Packets.CheckPartition(
                     offset, source, min_tid, max_tid))
         conn.answer(Errors.Ack(''))

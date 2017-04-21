@@ -31,25 +31,6 @@ class MasterOperationHandler(BaseMasterHandler):
             dm._setBackupTID(dm.getLastIDs()[0] or ZERO_TID)
             dm.commit()
 
-    def notifyTransactionFinished(self, conn, *args, **kw):
-        self.app.replicator.transactionFinished(*args, **kw)
-
-    def notifyPartitionChanges(self, conn, ptid, cell_list):
-        """This is very similar to Send Partition Table, except that
-       the information is only about changes from the previous."""
-        app = self.app
-        if ptid <= app.pt.getID():
-            # Ignore this packet.
-            logging.debug('ignoring older partition changes')
-            return
-
-        # update partition table in memory and the database
-        app.pt.update(ptid, cell_list, app.nm)
-        app.dm.changePartitionTable(ptid, cell_list)
-
-        # Check changes for replications
-        app.replicator.notifyPartitionChanges(cell_list)
-
     def askLockInformation(self, conn, ttid, tid):
         self.app.tm.lock(ttid, tid)
         conn.answer(Packets.AnswerInformationLocked(ttid))
@@ -63,6 +44,9 @@ class MasterOperationHandler(BaseMasterHandler):
         app.dm.pack(tid, app.tm.updateObjectDataForPack)
         logging.info('Pack finished.')
         conn.answer(Packets.AnswerPack(True))
+
+    def answerUnfinishedTransactions(self, conn, *args, **kw):
+        self.app.replicator.setUnfinishedTIDList(*args, **kw)
 
     def replicate(self, conn, tid, upstream_name, source_dict):
         self.app.replicator.backup(tid, {p: a and (a, upstream_name)

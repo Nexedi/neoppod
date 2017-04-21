@@ -17,13 +17,13 @@
 import weakref
 from functools import wraps
 from neo.lib.connection import ConnectionClosed
-from neo.lib.handler import EventHandler
+from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
     ZERO_HASH
 
 def checkConnectionIsReplicatorConnection(func):
     def wrapper(self, conn, *args, **kw):
-        if self.app.replicator.getCurrentConnection() is conn:
+        if self.app.replicator.isReplicatingConnection(conn):
             return func(self, conn, *args, **kw)
     return wraps(func)(wrapper)
 
@@ -46,7 +46,7 @@ class StorageOperationHandler(EventHandler):
 
     def connectionLost(self, conn, new_state):
         app = self.app
-        if app.listening_conn and conn.isClient():
+        if app.operational and conn.isClient():
             # XXX: Connection and Node should merged.
             uuid = conn.getUUID()
             if uuid:
@@ -62,7 +62,7 @@ class StorageOperationHandler(EventHandler):
     # Client
 
     def connectionFailed(self, conn):
-        if self.app.listening_conn:
+        if self.app.operational:
             self.app.replicator.abort()
 
     def _acceptIdentification(self, node, *args):
@@ -143,18 +143,20 @@ class StorageOperationHandler(EventHandler):
     # Server (all methods must set connection as server so that it isn't closed
     #         if client tasks are finished)
 
+    def getEventQueue(self):
+        return self.app.tm
+
     @checkFeedingConnection(check=True)
     def askCheckTIDRange(self, conn, *args):
         app = self.app
         if app.tm.isLockedTid(args[3]): # max_tid
-            app.queueEvent(self.askCheckTIDRange, conn, args)
-            return
+            raise DelayEvent
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         def check():
             r = app.dm.checkTIDRange(*args)
             try:
-                conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)    # NOTE msg_id: out-of-order answer
+                conn.send(Packets.AnswerCheckTIDRange(*r), msg_id)    # NOTE msg_id: out-of-order answer
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
@@ -170,7 +172,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkSerialRange(*args)
             try:
-                conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id) # NOTE msg_id: out-of-order answer
+                conn.send(Packets.AnswerCheckSerialRange(*r), msg_id) # NOTE msg_id: out-of-order answer
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             yield
@@ -188,9 +190,7 @@ class StorageOperationHandler(EventHandler):
             #   NotifyTransactionFinished(M->S) + AskFetchTransactions(S->S)
             # is faster than
             #   NotifyUnlockInformation(M->S)
-            app.queueEvent(self.askFetchTransactions, conn,
-                (partition, length, min_tid, max_tid, tid_list))
-            return
+            raise DelayEvent
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         peer_tid_set = set(tid_list)
@@ -207,14 +207,15 @@ class StorageOperationHandler(EventHandler):
                     else:
                         t = dm.getTransaction(tid)
                         if t is None:
-                            conn.answer(Errors.ReplicationError(
-                                "partition %u dropped" % partition))
+                            conn.send(Errors.ReplicationError(
+                                "partition %u dropped"
+                                % partition), msg_id)
                             return
                         oid_list, user, desc, ext, packed, ttid = t
-                        conn.notify(Packets.AddTransaction(
-                            tid, user, desc, ext, packed, ttid, oid_list))
+                        conn.send(Packets.AddTransaction(tid, user,
+                            desc, ext, packed, ttid, oid_list), msg_id)
                         yield
-                conn.answer(Packets.AnswerFetchTransactions(
+                conn.send(Packets.AnswerFetchTransactions(
                     pack_tid, next_tid, peer_tid_set), msg_id)          # NOTE msg_id: out-of-order answer
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
@@ -251,12 +252,14 @@ class StorageOperationHandler(EventHandler):
                             continue
                     object = dm.getObject(oid, serial)
                     if not object:
-                        conn.answer(Errors.ReplicationError(
-                            "partition %u dropped or truncated" % partition))
+                        conn.send(Errors.ReplicationError(
+                            "partition %u dropped or truncated"
+                            % partition), msg_id)
                         return
-                    conn.notify(Packets.AddObject(oid, serial, *object[2:]))
+                    conn.send(Packets.AddObject(oid, serial, *object[2:]),
+                              msg_id)
                     yield
-                conn.answer(Packets.AnswerFetchObjects(
+                conn.send(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)     # NOTE msg_id: out-of-order answer
                 yield
             except (weakref.ReferenceError, ConnectionClosed):

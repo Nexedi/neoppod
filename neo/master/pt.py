@@ -16,17 +16,25 @@
 
 from collections import defaultdict
 import neo.lib.pt
+from neo.lib import logging
 from neo.lib.protocol import CellStates, ZERO_TID
 
 
 class Cell(neo.lib.pt.Cell):
 
     replicating = ZERO_TID
+    updatable = False
 
     def setState(self, state):
         readable = self.isReadable()
         super(Cell, self).setState(state)
-        if readable and not self.isReadable():
+        if self.isReadable():
+            return
+        try:
+            del self.updatable
+        except AttributeError:
+            pass
+        if readable:
             try:
                 del self.backup_tid, self.replicating
             except AttributeError:
@@ -147,7 +155,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 if node is None:
                     node = nm.createStorage(uuid=uuid)
                     new_nodes.append(node.asTuple())
-                self.setCell(offset, node, state)
+                self._setCell(offset, node, state)
         return new_nodes
 
     def setUpToDate(self, node, offset):
@@ -156,20 +164,22 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         # check the partition is assigned and known as outdated
         for cell in self.getCellList(offset):
             if cell.getUUID() == uuid:
-                if cell.isOutOfDate():
+                if cell.isOutOfDate() and cell.updatable:
                     break
                 return
         else:
             raise neo.lib.pt.PartitionTableException('Non-assigned partition')
 
         # update the partition table
-        cell_list = [self.setCell(offset, node, CellStates.UP_TO_DATE)]
+        self._setCell(offset, node, CellStates.UP_TO_DATE)
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
 
         # If the partition contains a feeding cell, drop it now.
         for feeding_cell in self.getCellList(offset):
             if feeding_cell.isFeeding():
-                cell_list.append(self.removeCell(offset,
-                    feeding_cell.getNode()))
+                node = feeding_cell.getNode()
+                self.removeCell(offset, node)
+                cell_list.append((offset, node.getUUID(), CellStates.DISCARDED))
                 break
 
         return cell_list
@@ -276,6 +286,9 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         to serve. This allows a cluster restart.
         """
         change_list = []
+        fully_readable = all(cell.isReadable()
+                             for row in self.partition_list
+                             for cell in row)
         for offset, row in enumerate(self.partition_list):
             lost = lost_node
             cell_list = []
@@ -290,7 +303,15 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     cell.setState(CellStates.OUT_OF_DATE)
                     change_list.append((offset, cell.getUUID(),
                         CellStates.OUT_OF_DATE))
+        if fully_readable and change_list:
+            logging.warning(self._first_outdated_message)
         return change_list
+
+    def updatable(self, uuid, offset_list):
+        for offset in offset_list:
+            for cell in self.partition_list[offset]:
+                if cell.getUUID() == uuid and not cell.isReadable():
+                    cell.updatable = True
 
     def iterNodeCell(self, node):
         for offset, row in enumerate(self.partition_list):

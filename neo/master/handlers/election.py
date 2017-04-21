@@ -56,7 +56,7 @@ class BaseElectionHandler(EventHandler):
 
 class ClientElectionHandler(BaseElectionHandler):
 
-    def notifyNodeInformation(self, conn, node_list):
+    def notifyNodeInformation(self, conn, timestamp, node_list):
         # XXX: For the moment, do nothing because
         # we'll close this connection and reconnect.
         pass

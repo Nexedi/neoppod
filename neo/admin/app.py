@@ -139,6 +139,6 @@ class Application(BaseApplication):
                     pass
                 row_list.append((offset, row))
         except IndexError:
-            conn.notify(Errors.ProtocolError('invalid partition table offset'))
+            conn.send(Errors.ProtocolError('invalid partition table offset'))
         else:
             conn.answer(Packets.AnswerPartitionList(self.pt.getID(), row_list))

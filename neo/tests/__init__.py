@@ -37,6 +37,7 @@ from time import time
 from struct import pack, unpack
 from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 try:
+    from transaction.interfaces import IDataManager
     from ZODB.utils import newTid
 except ImportError:
     pass
@@ -74,7 +75,6 @@ SSL = os.path.dirname(__file__) + os.sep
 SSL = SSL + "ca.crt", SSL + "node.crt", SSL + "node.key"
 
 logging.default_root_handler.handle = lambda record: None
-logging.backlog(None, 1<<20)
 
 debug.register()
 # prevent "signal only works in main thread" errors in subprocesses
@@ -326,7 +326,7 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkNoPacketSent(self, conn):
         """ check if no packet were sent """
-        self._checkNoPacketSend(conn, 'notify')
+        self._checkNoPacketSend(conn, 'send')
         self._checkNoPacketSend(conn, 'answer')
         self._checkNoPacketSend(conn, 'ask')
 
@@ -372,11 +372,41 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkNotifyPacket(self, conn, packet_type, packet_number=0):
         """ Check if a notify-packet with the right type is sent """
-        calls = conn.mockGetNamedCalls('notify')
+        calls = conn.mockGetNamedCalls('send')
         packet = calls.pop(packet_number).getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(type(packet), packet_type)
         return packet
+
+
+class TransactionalResource(object):
+
+    class _sortKey(object):
+
+        def __init__(self, last):
+            self._last = last
+
+        def __cmp__(self, other):
+            assert type(self) is not type(other), other
+            return 1 if self._last else -1
+
+    def __init__(self, txn, last, **kw):
+        self.sortKey = lambda: self._sortKey(last)
+        for k in kw:
+            assert callable(IDataManager.get(k)), k
+        self.__dict__.update(kw)
+        txn.get().join(self)
+
+    def __call__(self, func):
+        name = func.__name__
+        assert callable(IDataManager.get(name)), name
+        setattr(self, name, func)
+        return func
+
+    def __getattr__(self, attr):
+        if callable(IDataManager.get(attr)):
+            return lambda *_: None
+        return self.__getattribute__(attr)
 
 
 class Patch(object):
@@ -385,9 +415,13 @@ class Patch(object):
 
     Usage:
 
-      with Patch(someObject, attrToPatch=newValue) as patch:
+      with Patch(someObject, [new,] attrToPatch=newValue) as patch:
         [... code that runs with patches ...]
       [... code that runs without patch ...]
+
+      The 'new' positional parameter defaults to False and it must be equal to
+         not hasattr(someObject, 'attrToPatch')
+      It is an assertion to detect when a Patch is obsolete.
 
       ' as patch' is optional: 'patch.revert()' can be used to revert patches
       in the middle of the 'with' clause.
@@ -400,7 +434,7 @@ class Patch(object):
       In this case, patches are automatically reverted when 'patch' is deleted.
 
     For patched callables, the new one receives the original value as first
-    argument.
+    argument if 'new' is True.
 
     Alternative usage:
 
@@ -415,25 +449,31 @@ class Patch(object):
 
     applied = False
 
-    def __new__(cls, patched, **patch):
+    def __new__(cls, patched, *args, **patch):
         if patch:
             return object.__new__(cls)
         def patch(func):
-            self = cls(patched, **{func.__name__: func})
+            self = cls(patched, *args, **{func.__name__: func})
             self.apply()
             return self
         return patch
 
-    def __init__(self, patched, **patch):
+    def __init__(self, patched, *args, **patch):
+        new, = args or (0,)
         (name, patch), = patch.iteritems()
         self._patched = patched
         self._name = name
-        if callable(patch):
-            wrapped = getattr(patched, name, None)
-            func = patch
-            patch = lambda *args, **kw: func(wrapped, *args, **kw)
-            if callable(wrapped):
-                patch = wraps(wrapped)(patch)
+        try:
+            wrapped = getattr(patched, name)
+        except AttributeError:
+            assert new, (patched, name)
+        else:
+            assert not new, (patched, name)
+            if callable(patch):
+                  func = patch
+                  patch = lambda *args, **kw: func(wrapped, *args, **kw)
+                  if callable(wrapped):
+                      patch = wraps(wrapped)(patch)
         self._patch = patch
         try:
             orig = patched.__dict__[name]

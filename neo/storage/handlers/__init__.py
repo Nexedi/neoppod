@@ -18,9 +18,20 @@ import weakref
 from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.exception import PrimaryFailure, StoppedOperation
-from neo.lib.protocol import uuid_str, NodeStates, NodeTypes, Packets
+from neo.lib.protocol import (uuid_str,
+    NodeStates, NodeTypes, Packets, ProtocolError)
 
-class BaseMasterHandler(EventHandler):
+class BaseHandler(EventHandler):
+
+    def notifyTransactionFinished(self, conn, ttid, max_tid):
+        app = self.app
+        app.tm.abort(ttid)
+        app.replicator.transactionFinished(ttid, max_tid)
+
+    def abortTransaction(self, conn, ttid, _):
+        self.notifyTransactionFinished(conn, ttid, None)
+
+class BaseMasterHandler(BaseHandler):
 
     def connectionLost(self, conn, new_state):
         if self.app.listening_conn: # if running
@@ -36,10 +47,11 @@ class BaseMasterHandler(EventHandler):
     def notifyClusterInformation(self, conn, state):
         self.app.changeClusterState(state)
 
-    def notifyNodeInformation(self, conn, node_list):
+    def notifyNodeInformation(self, conn, timestamp, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
-        super(BaseMasterHandler, self).notifyNodeInformation(conn, node_list)
+        super(BaseMasterHandler, self).notifyNodeInformation(
+            conn, timestamp, node_list)
         for node_type, _, uuid, state, _ in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
@@ -55,8 +67,17 @@ class BaseMasterHandler(EventHandler):
                         uuid_str(uuid))
                 self.app.tm.abortFor(uuid)
 
-    def answerUnfinishedTransactions(self, conn, *args, **kw):
-        self.app.replicator.setUnfinishedTIDList(*args, **kw)
+    def notifyPartitionChanges(self, conn, ptid, cell_list):
+        """This is very similar to Send Partition Table, except that
+       the information is only about changes from the previous."""
+        app = self.app
+        if ptid != 1 + app.pt.getID():
+            raise ProtocolError('wrong partition table id')
+        app.pt.update(ptid, cell_list, app.nm)
+        app.dm.changePartitionTable(ptid, cell_list)
+        if app.operational:
+            app.replicator.notifyPartitionChanges(cell_list)
+        app.dm.commit()
 
     def askFinalTID(self, conn, ttid):
         conn.answer(Packets.AnswerFinalTID(self.app.dm.getFinalTID(ttid)))

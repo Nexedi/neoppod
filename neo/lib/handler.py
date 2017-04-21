@@ -15,12 +15,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+from collections import deque
+from operator import itemgetter
 from . import logging
+from .connection import ConnectionClosed
 from .protocol import (
     NodeStates, Packets, Errors, BackendNotImplemented,
-    BrokenNodeDisallowedError, NotReadyError, PacketMalformedError,
-    ProtocolError, UnexpectedPacketError)
+    BrokenNodeDisallowedError, NonReadableCell, NotReadyError,
+    PacketMalformedError, ProtocolError, UnexpectedPacketError)
 from .util import cached_property
+
+
+class DelayEvent(Exception):
+    pass
 
 
 class EventHandler(object):
@@ -64,6 +71,9 @@ class EventHandler(object):
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
             method(conn, *args, **kw)
+        except DelayEvent, e:
+            assert not kw, kw
+            self.getEventQueue().queueEvent(method, conn, args, *e.args)
         except UnexpectedPacketError, e:
             if not conn.isClosed():
                 self.__unexpectedPacket(conn, packet, *e.args)
@@ -92,6 +102,8 @@ class EventHandler(object):
             conn.answer(Errors.BackendNotImplemented(
                 "%s.%s does not implement %s"
                 % (m.im_class.__module__, m.im_class.__name__, m.__name__)))
+        except NonReadableCell, e:
+            conn.answer(Errors.NonReadableCell())
         except AssertionError:
             e = sys.exc_info()
             try:
@@ -165,9 +177,9 @@ class EventHandler(object):
             return
         conn.close()
 
-    def notifyNodeInformation(self, conn, node_list):
+    def notifyNodeInformation(self, conn, *args):
         app = self.app
-        app.nm.update(app, node_list)
+        app.nm.update(app, *args)
 
     def ping(self, conn):
         conn.answer(Packets.Pong())
@@ -207,9 +219,6 @@ class EventHandler(object):
     def brokenNodeDisallowedError(self, conn, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
-    def alreadyPendingError(self, conn, message):
-        logging.error('already pending error: %s', message)
-
     def ack(self, conn, message):
         logging.debug("no error message: %s", message)
 
@@ -235,7 +244,7 @@ class MTEventHandler(EventHandler):
                 self.dispatch(conn, packet, kw)
                 kw = {}
             if not (self.dispatcher.dispatch(conn, packet.getId(), packet, kw)
-                    or type(packet) is Packets.Pong):
+                    or type(packet) is Packets.Pong or conn.isClosed()):
                 raise ProtocolError('Unexpected response packet from %r: %r'
                                     % (conn, packet))
         else:
@@ -264,3 +273,104 @@ class AnswerBaseHandler(EventHandler):
 
     def acceptIdentification(*args):
         pass
+
+    def connectionClosed(self, conn):
+        raise ConnectionClosed
+
+
+class _DelayedConnectionEvent(EventHandler):
+    # WARNING: This assumes that the connection handler does not change.
+
+    handler_method_name = '_func'
+    __new__ = object.__new__
+
+    def __init__(self, func, conn, args):
+        self._args = args
+        self._conn = conn
+        self._func = func
+        self._msg_id = conn.getPeerId()
+
+    def __call__(self):
+        conn = self._conn
+        if not conn.isClosed():
+            msg_id = conn.getPeerId()
+            try:
+                self.dispatch(conn, self)
+            finally:
+                conn.setPeerId(msg_id)
+
+    def __repr__(self):
+        return '<%s: 0x%x %s>' % (self._func.__name__, self._msg_id, self._conn)
+
+    def decode(self):
+        return self._args
+
+    def getEventQueue(self):
+        raise
+
+    def getId(self):
+        return self._msg_id
+
+
+class EventQueue(object):
+
+    def __init__(self):
+        self._event_queue = []
+        self._executing_event = -1
+
+    sortQueuedEvents = (lambda key=itemgetter(0): lambda self:
+        self._event_queue.sort(key=key))()
+
+    def queueEvent(self, func, conn=None, args=(), key=None):
+        assert self._executing_event < 0, self._executing_event
+        self._event_queue.append((key, func if conn is None else
+            _DelayedConnectionEvent(func, conn, args)))
+        if key is not None:
+            self.sortQueuedEvents()
+
+    def sortAndExecuteQueuedEvents(self):
+        if self._executing_event < 0:
+            self.sortQueuedEvents()
+            self.executeQueuedEvents()
+        else:
+            # We can't sort events when they're being processed.
+            self._executing_event = 1
+
+    def executeQueuedEvents(self):
+        # Not reentrant. When processing a queued event, calling this method
+        # only tells the caller to retry all events from the beginning, because
+        # events for the same connection must be processed in chronological
+        # order.
+        queue = self._event_queue
+        if queue: # return quickly if the queue is empty
+            self._executing_event += 1
+            if self._executing_event:
+                return
+            done = []
+            while 1:
+                try:
+                    for i, event in enumerate(queue):
+                        try:
+                            event[1]()
+                            done.append(i)
+                        except DelayEvent:
+                            pass
+                        if self._executing_event:
+                            break
+                    else:
+                        break
+                finally:
+                    while done:
+                        del queue[done.pop()]
+                self._executing_event = 0
+                # What sortAndExecuteQueuedEvents could not do immediately
+                # is done here:
+                if event[0] is not None:
+                    self.sortQueuedEvents()
+            self._executing_event = -1
+
+    def logQueuedEvents(self):
+        if self._event_queue:
+            logging.info(" Pending events:")
+            for event in self._event_queue:
+                logging.info('  %r', event)

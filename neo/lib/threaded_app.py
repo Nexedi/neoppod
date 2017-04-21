@@ -17,9 +17,8 @@
 import thread, threading, weakref
 from . import logging
 from .app import BaseApplication
-from .connection import ConnectionClosed
 from .debug import register as registerLiveDebugger
-from .dispatcher import Dispatcher, ForgottenPacket
+from .dispatcher import Dispatcher
 from .locking import SimpleQueue
 
 class app_set(weakref.WeakSet):
@@ -141,17 +140,8 @@ class ThreadedApplication(BaseApplication):
         _handlePacket = self._handlePacket
         while True:
             qconn, qpacket, kw = get(True)
-            is_forgotten = isinstance(qpacket, ForgottenPacket)
-            if conn is qconn:
-                # check fake packet
-                if qpacket is None:
-                    raise ConnectionClosed
-                if msg_id == qpacket.getId():   # NOTE selector on msg_id
-                    if is_forgotten:
-                        raise ValueError, 'ForgottenPacket for an ' \
-                            'explicitly expected packet.'
-                    _handlePacket(qconn, qpacket, kw, handler)
-                    break
-            if not is_forgotten and qpacket is not None:
-                _handlePacket(qconn, qpacket, kw)
+            if conn is qconn and msg_id == qpacket.getId():    # NOTE selector on msg_id
+                _handlePacket(qconn, qpacket, kw, handler)
+                break
+            _handlePacket(qconn, qpacket, kw)
         return self.getHandlerData()

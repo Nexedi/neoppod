@@ -29,6 +29,16 @@ from neo.lib.exception import ElectionFailure, PrimaryFailure, StoppedOperation
 
 class StateChangedException(Exception): pass
 
+_previous_time = 0
+def monotonic_time():
+    global _previous_time
+    now = time()
+    if _previous_time < now:
+        _previous_time = now
+    else:
+        _previous_time = now = _previous_time + 1e-3
+    return now
+
 from .backup_app import BackupApplication
 from .handlers import election, identification, secondary
 from .handlers import administration, client, storage
@@ -41,6 +51,7 @@ from .verification import VerificationManager
 class Application(BaseApplication):
     """The master node application."""
     packing = None
+    storage_readiness = 0
     # Latest completely committed TID
     last_transaction = ZERO_TID
     backup_tid = None
@@ -56,7 +67,8 @@ class Application(BaseApplication):
         self.server = config.getBind()
         self.autostart = config.getAutostart()
 
-        self.storage_readiness = set()
+        self.storage_ready_dict = {}
+        self.storage_starting_set = set()
         for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
 
@@ -196,7 +208,7 @@ class Application(BaseApplication):
 
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in self.em.getClientList():
-                    conn.notify(Packets.ReelectPrimary())
+                    conn.send(Packets.ReelectPrimary())
                     conn.abort()
 
                 # Wait until the connections are closed.
@@ -240,22 +252,27 @@ class Application(BaseApplication):
                 continue
             node_dict[NodeTypes.MASTER].append(node_info)
 
+        now = monotonic_time()
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType())
-            if node_list and node.isRunning() and node is not exclude:
-                node.notify(Packets.NotifyNodeInformation(node_list))
+            # We don't skip pending storage nodes because we don't send them
+            # the full list of nodes when they're added, and it's also quite
+            # useful to notify them about new masters.
+            if node_list and node is not exclude:
+                node.send(Packets.NotifyNodeInformation(now, node_list))
 
     def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
-        logging.debug('broadcastPartitionChanges')
         if cell_list:
-            self.pt.log()
             ptid = self.pt.setNextID()
+            self.pt.logUpdated()
             packet = Packets.NotifyPartitionChanges(ptid, cell_list)
             for node in self.nm.getIdentifiedList():
-                if node.isRunning() and not node.isMaster():
-                    node.notify(packet)
+                # As for broadcastNodesInformation, we don't send the full PT
+                # when pending storage nodes are added, so keep them notified.
+                if not node.isMaster():
+                    node.send(packet)
 
     def provideService(self):
         """
@@ -280,7 +297,7 @@ class Application(BaseApplication):
             for node in self.nm.getStorageList(only_identified=True):
                 tid_dict[node.getUUID()] = tid
                 if node.isRunning():
-                    node.notify(packet)
+                    node.send(packet)
             self.pt.setBackupTidDict(tid_dict)
 
     def playPrimaryRole(self):
@@ -292,7 +309,7 @@ class Application(BaseApplication):
             if conn.isListening():
                 conn.setHandler(identification.IdentificationHandler(self))
             else:
-                conn.notify(packet)
+                conn.send(packet)
                 # Primary master should rather establish connections to all
                 # secondaries, rather than the other way around. This requires
                 # a bit more work when a new master joins a cluster but makes
@@ -356,16 +373,19 @@ class Application(BaseApplication):
                     truncate = Packets.Truncate(*e.args) if e.args else None
                     # Automatic restart except if we truncate or retry to.
                     self._startup_allowed = not (self.truncate_tid or truncate)
+                self.storage_readiness = 0
+                self.storage_ready_dict.clear()
+                self.storage_starting_set.clear()
                 node_list = []
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
                         conn = node.getConnection()
-                        conn.notify(Packets.StopOperation())
+                        conn.send(Packets.StopOperation())
                         if node.isClient():
                             conn.abort()
                             continue
                         if truncate:
-                            conn.notify(truncate)
+                            conn.send(truncate)
                         if node.isRunning():
                             node.setPending()
                             node_list.append(node)
@@ -398,6 +418,7 @@ class Application(BaseApplication):
                 conn.close()
 
         # Reconnect to primary master node.
+        self.nm.reset()
         primary_handler = secondary.PrimaryHandler(self)
         ClientConnection(self, primary_handler, self.primary_master_node)
 
@@ -437,14 +458,15 @@ class Application(BaseApplication):
         notification_packet = Packets.NotifyClusterInformation(state)
         for node in self.nm.getIdentifiedList():
             conn = node.getConnection()
-            conn.notify(notification_packet)
+            conn.send(notification_packet)
             if node.isClient():
                 if state == ClusterStates.RUNNING:
                     handler = self.client_service_handler
                 elif state == ClusterStates.BACKINGUP:
                     handler = self.client_ro_service_handler
                 else:
-                    conn.abort()
+                    if state != ClusterStates.STOPPING:
+                        conn.abort()
                     continue
             elif node.isStorage() and storage_handler:
                 handler = storage_handler
@@ -473,15 +495,18 @@ class Application(BaseApplication):
     def shutdown(self):
         """Close all connections and exit"""
         self.changeClusterState(ClusterStates.STOPPING)
-        self.listening_conn.close()
-        for conn in self.em.getConnectionList():
-            node = self.nm.getByUUID(conn.getUUID())
-            if node is None or not node.isIdentified():
-                conn.close()
-        # No need to change handlers in order to reject RequestIdentification
-        # & AskBeginTransaction packets because they won't be any:
-        # the only remaining connected peers are identified non-clients
-        # and we don't accept new connections anymore.
+        # Marking a fictional storage node as starting operation blocks any
+        # request to start a new transaction. Do this way has 2 advantages:
+        # - It's simpler than changing the handler of all clients,
+        #   which is anyway not supported by EventQueue.
+        # - Returning an error code would cause activity on client side for
+        #   nothing.
+        # What's important is to not abort during the second phase of commits
+        # and for this, clients must even be able to reconnect, in case of
+        # failure during tpc_finish.
+        # We're rarely involved in vote, so we have to trust clients that they
+        # abort any transaction that is still in the first phase.
+        self.storage_starting_set.add(None)
         try:
             # wait for all transaction to be finished
             while self.tm.hasPending():
@@ -490,14 +515,15 @@ class Application(BaseApplication):
             logging.critical('No longer operational')
 
         logging.info("asking remaining nodes to shutdown")
+        self.listening_conn.close()
         handler = EventHandler(self)
         for node in self.nm.getConnectedList():
             conn = node.getConnection()
             if node.isStorage():
                 conn.setHandler(handler)
-                conn.notify(Packets.NotifyNodeInformation(((
-                  node.getType(), node.getAddress(), node.getUUID(),
-                  NodeStates.TEMPORARILY_DOWN, None),)))
+                conn.send(Packets.NotifyNodeInformation(monotonic_time(), ((
+                    node.getType(), node.getAddress(), node.getUUID(),
+                    NodeStates.TEMPORARILY_DOWN, None),)))
                 conn.abort()
             elif conn.pending():
                 conn.abort()
@@ -527,19 +553,18 @@ class Application(BaseApplication):
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
         for client_node in self.nm.getClientList(only_identified=True):
-            c = client_node.getConnection()
             if client_node is transaction_node:
-                c.answer(Packets.AnswerTransactionFinished(ttid, tid),
-                         msg_id=txn.getMessageId())                     # NOTE msgid: out-of-order answer
+                client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
+                                 msg_id=txn.getMessageId())                       # NOTE msgid: out-of-order answer
             else:
                 # NOTE notifies clients sequentially & irregardless of whether client was subscribed
-                c.notify(invalidate_objects)
+                client_node.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.
         notify_unlock = Packets.NotifyUnlockInformation(ttid)
         getByUUID = self.nm.getByUUID
         for storage_uuid in txn.getUUIDList():
-            getByUUID(storage_uuid).getConnection().notify(notify_unlock)
+            getByUUID(storage_uuid).send(notify_unlock)
 
         # Notify storage that have replications blocked by this transaction,
         # and clients that try to recover from a failure during tpc_finish.
@@ -550,7 +575,7 @@ class Application(BaseApplication):
                 # There should be only 1 client interested.
                 node.answer(Packets.AnswerFinalTID(tid))
             else:
-                node.notify(notify_finished)
+                node.send(notify_finished)
 
         assert self.last_transaction < tid, (self.last_transaction, tid)
         self.setLastTransaction(tid)
@@ -562,11 +587,27 @@ class Application(BaseApplication):
         self.last_transaction = tid
 
     def setStorageNotReady(self, uuid):
-        self.storage_readiness.discard(uuid)
+        self.storage_starting_set.discard(uuid)
+        self.storage_ready_dict.pop(uuid, None)
+        self.tm.executeQueuedEvents()
+
+    def startStorage(self, node):
+        node.send(Packets.StartOperation(self.backup_tid))
+        uuid = node.getUUID()
+        assert uuid not in self.storage_starting_set
+        if uuid not in self.storage_ready_dict:
+            self.storage_starting_set.add(uuid)
 
     def setStorageReady(self, uuid):
-        self.storage_readiness.add(uuid)
+        self.storage_starting_set.remove(uuid)
+        assert uuid not in self.storage_ready_dict, self.storage_ready_dict
+        self.storage_readiness = self.storage_ready_dict[uuid] = \
+            self.storage_readiness + 1
+        self.tm.executeQueuedEvents()
 
     def isStorageReady(self, uuid):
-        return uuid in self.storage_readiness
+        return uuid in self.storage_ready_dict
 
+    def getStorageReadySet(self, readiness=float('inf')):
+        return {k for k, v in self.storage_ready_dict.iteritems()
+                  if v <= readiness}

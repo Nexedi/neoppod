@@ -19,8 +19,9 @@ from os.path import exists, getsize
 import json
 
 from . import attributeTracker, logging
+from .handler import DelayEvent, EventQueue
 from .protocol import formatNodeList, uuid_str, \
-    NodeTypes, NodeStates, ProtocolError
+    NodeTypes, NodeStates, NotReadyError, ProtocolError
 
 
 class Node(object):
@@ -39,17 +40,20 @@ class Node(object):
         self._last_state_change = time()
         manager.add(self)
 
-    def notify(self, packet):
+    @property
+    def send(self):
         assert self.isConnected(), 'Not connected'
-        self._connection.notify(packet)
+        return self._connection.send
 
-    def ask(self, packet, *args, **kw):
+    @property
+    def ask(self):
         assert self.isConnected(), 'Not connected'
-        self._connection.ask(packet, *args, **kw)
+        return self._connection.ask
 
-    def answer(self, packet, msg_id=None):
+    @property
+    def answer(self):
         assert self.isConnected(), 'Not connected'
-        self._connection.answer(packet, msg_id)
+        return self._connection.answer
 
     def getLastStateChange(self):
         return self._last_state_change
@@ -232,7 +236,7 @@ class MasterDB(object):
     def __iter__(self):
         return iter(self._set)
 
-class NodeManager(object):
+class NodeManager(EventQueue):
     """This class manages node status."""
     _master_db = None
 
@@ -255,8 +259,13 @@ class NodeManager(object):
             self._master_db = db = MasterDB(master_db)
             for addr in db:
                 self.createMaster(address=addr)
+        self.reset()
 
     close = __init__
+
+    def reset(self):
+        EventQueue.__init__(self)
+        self._timestamp = 0
 
     def add(self, node):
         if node in self._node_set:
@@ -350,10 +359,23 @@ class NodeManager(object):
         return self._address_dict.get(address, None)
 
     def getByUUID(self, uuid, *id_timestamp):
-        """ Return the node that match with a given UUID """
+        """Return the node that matches with a given UUID
+
+        If an id timestamp is passed, DelayEvent is raised if identification
+        must be delayed. This is because we rely only on the notifications from
+        the master to recognize nodes (otherwise, we could get id conflicts)
+        and such notifications may be late in some cases, even when the master
+        expects us to not reject the connection.
+        """
         node = self._uuid_dict.get(uuid)
-        if not id_timestamp or node and (node.id_timestamp,) == id_timestamp:
-            return node
+        if id_timestamp:
+            id_timestamp, = id_timestamp
+            if not node or node.id_timestamp != id_timestamp:
+                if self._timestamp < id_timestamp:
+                    raise DelayEvent
+                # The peer got disconnected from the master.
+                raise NotReadyError('unknown by master')
+        return node
 
     def _createNode(self, klass, address=None, uuid=None, **kw):
         by_address = self.getByAddress(address)
@@ -389,7 +411,9 @@ class NodeManager(object):
     def createFromNodeType(self, node_type, **kw):
         return self._createNode(NODE_TYPE_MAPPING[node_type], **kw)
 
-    def update(self, app, node_list):
+    def update(self, app, timestamp, node_list):
+        assert self._timestamp < timestamp, (self._timestamp, timestamp)
+        self._timestamp = timestamp
         node_set = self._node_set.copy() if app.id_timestamp is None else None
         for node_type, addr, uuid, state, id_timestamp in node_list:
             # This should be done here (although klass might not be used in this
@@ -427,6 +451,8 @@ class NodeManager(object):
                         # reconnect to the master because they cleared their
                         # partition table upon disconnection.
                         node.getConnection().close()
+                    if app.uuid != uuid:
+                        app.pt.dropNode(node)
                     self.remove(node)
                     continue
                 logging.debug('updating node %r to %s %s %s %s %s',
@@ -441,14 +467,17 @@ class NodeManager(object):
             # For the first notification, we receive a full list of nodes from
             # the master. Remove all unknown nodes from a previous connection.
             for node in node_set - self._node_set:
+                app.pt.dropNode(node)
                 self.remove(node)
         self.log()
+        self.executeQueuedEvents()
 
     def log(self):
         logging.info('Node manager : %u nodes', len(self._node_set))
         if self._node_set:
             logging.info('\n'.join(formatNodeList(
                 map(Node.asTuple, self._node_set), ' * ')))
+        self.logQueuedEvents()
 
 # node_type -> node_klass
 @apply

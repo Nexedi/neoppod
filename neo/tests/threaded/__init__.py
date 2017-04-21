@@ -131,10 +131,6 @@ class Serialized(object):
     The epoll object of each node is hooked so that thread switching happens
     before polling for network activity. An extra epoll object is used to
     detect which node has a readable epoll object.
-
-    XXX: It seems wrong to rely only on epoll as way to know if there are
-         pending network messages. I had rare random failures due to tic()
-         returning prematurely.
     """
     check_timeout = False
 
@@ -183,7 +179,13 @@ class Serialized(object):
             p.set_trace(sys._getframe(3))
 
     @classmethod
-    def tic(cls, step=-1, check_timeout=(), quiet=False):
+    def tic(cls, step=-1, check_timeout=(), quiet=False,
+            # BUG: We overuse epoll as a way to know if there are pending
+            #      network messages. Sometimes, and this is more visible with
+            #      a single-core CPU, other threads are still busy and haven't
+            #      sent anything yet on the network. This causes tic() to
+            #      return prematurely. Passing a non-zero value is a hack.
+            timeout=0):
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
         with cls._tic_lock, cls.pdb():
@@ -203,7 +205,7 @@ class Serialized(object):
                 app.em.wakeup()
                 del app
             while step: # used as step=-1 (default), =1 (twice), =2 (once)
-                event_list = cls._epoll.poll(0)
+                event_list = cls._epoll.poll(timeout)
                 if not event_list:
                     break
                 step -= 1
@@ -277,12 +279,16 @@ class TestSerialized(Serialized):   # NOTE used only in .NeoCTL
                 r = self._epoll.poll(0)
                 if r:
                     return r
-                Serialized.tic(step=1)
+                Serialized.tic(step=1, timeout=.001)
             raise Exception("tic is looping forever")
         return self._epoll.poll(timeout)
 
 
 class Node(object):
+
+    @staticmethod
+    def convertInitArgs(**kw):
+        return {'get' + k.capitalize(): v for k, v in kw.iteritems()}
 
     def getConnectionList(self, *peers):
         addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
@@ -355,11 +361,15 @@ class ServerNode(Node):
     def getVirtualAddress(self):
         return self._init_args['address']
 
-    def resetNode(self):
+    def resetNode(self, **kw):
         assert not self.is_alive()
-        kw = self._init_args
+        kw = self.convertInitArgs(**kw)
+        init_args = self._init_args
+        init_args['getReset'] = False
+        assert set(kw).issubset(init_args), (kw, init_args)
+        init_args.update(kw)
         self.close()
-        self.__init__(**kw)
+        self.__init__(**init_args)
 
     def start(self):
         Serialized(self)
@@ -399,10 +409,6 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 
     dm = type('', (), {'close': lambda self: None})()
 
-    def resetNode(self, clear_database=False):
-        self._init_args['getReset'] = clear_database
-        super(StorageApplication, self).resetNode()
-
     def _afterRun(self):
         super(StorageApplication, self)._afterRun()
         try:
@@ -430,9 +436,14 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 
 class ClientApplication(Node, neo.client.app.Application):
 
+    max_reconnection_to_master = 10
+
     def __init__(self, master_nodes, name, **kw):
         super(ClientApplication, self).__init__(master_nodes, name, **kw)
         self.poll_thread.node_name = name
+        # Smaller cache to speed up tests that checks behaviour when it's too
+        # small. See also NEOCluster.cache_size
+        self._cache._max_size //= 1024
 
     def _run(self):
         try:
@@ -452,6 +463,10 @@ class ClientApplication(Node, neo.client.app.Application):
                 assert isinstance(peer, StorageApplication)
                 conn = self.cp.getConnForNode(self.nm.getByUUID(peer.uuid))
             yield conn
+
+    def extraCellSortKey(self, key):
+        return Patch(self.cp, getCellSortKey=lambda orig, cell:
+            (orig(cell, lambda: key(cell)), random.random()))
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
@@ -535,6 +550,11 @@ class ConnectionFilter(object):
         return False
 
     @classmethod
+    def retry(cls):
+        with cls.lock:
+            cls._retry()
+
+    @classmethod
     def _retry(cls):
         for conn, queue in cls.filter_queue.items():
             while queue:
@@ -545,11 +565,12 @@ class ConnectionFilter(object):
                         break
                 else:
                     if conn.isClosed():
-                        return
-                    # Use the thread that created the packet to reinject it,
-                    # to avoid a race condition on Connector.queued.
-                    conn.em.wakeup(lambda conn=conn, packet=packet:
-                        conn.isClosed() or cls._addPacket(conn, packet))
+                        queue.clear()
+                    else:
+                        # Use the thread that created the packet to reinject it,
+                        # to avoid a race condition on Connector.queued.
+                        conn.em.wakeup(lambda conn=conn, packet=packet:
+                            conn.isClosed() or cls._addPacket(conn, packet))
                     continue
                 break
             else:
@@ -564,7 +585,8 @@ class ConnectionFilter(object):
     def remove(self, *filters):
         with self.lock:
             for filter in filters:
-                del self.filter_dict[filter]
+                for p in self.filter_dict.pop(filter):
+                    p.revert()
             self._retry()
 
     def discard(self, *filters):
@@ -605,7 +627,7 @@ class NEOCluster(object):
                 for i in TIC_LOOP:
                     if lock(False):
                         return True
-                    Serialized.tic(step=1, quiet=True)
+                    Serialized.tic(step=1, quiet=True, timeout=.001)
                 raise Exception("tic is looping forever")
             return lock(False)
         self._lock = _lock
@@ -661,10 +683,10 @@ class NEOCluster(object):
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
-        weak_self = weakref.proxy(self)
-        kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
-                  getPartitions=partitions, getReset=clear_databases,
-                  getSSL=self.SSL)
+        kw = Node.convertInitArgs(replicas=replicas, adapter=adapter,
+            partitions=partitions, reset=clear_databases)
+        kw['cluster'] = weak_self = weakref.proxy(self)
+        kw['getSSL'] = self.SSL
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
             kw.update(getUpstreamCluster=upstream.name,
@@ -748,6 +770,10 @@ class NEOCluster(object):
     def primary_master(self):
         master, = [master for master in self.master_list if master.primary]
         return master
+
+    @property
+    def cache_size(self):
+        return self.client._cache._max_size
     ###
 
     def __enter__(self):
@@ -778,7 +804,7 @@ class NEOCluster(object):
         assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
-    def stop(self, clear_database=False, __print_exc=traceback.print_exc):
+    def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:
             del self.started
             logging.debug("stopping %s", self)
@@ -806,11 +832,11 @@ class NEOCluster(object):
                 raise
         else:
             for node_type in 'master', 'storage', 'admin':
-                kw = {}
+                reset_kw = kw.copy()
                 if node_type == 'storage':
-                    kw['clear_database'] = clear_database
+                    reset_kw['reset'] = clear_database
                 for node in getattr(self, node_type + '_list'):
-                    node.resetNode(**kw)
+                    node.resetNode(**reset_kw)
 
     def _newClient(self):
         return ClientApplication(name=self.name, master_nodes=self.master_nodes,
@@ -863,13 +889,15 @@ class NEOCluster(object):
         self.neoctl.enableStorageList([x.uuid for x in storage_list])
         Serialized.tic()
         for node in storage_list:
-            assert self.getNodeState(node) == NodeStates.RUNNING
+            state = self.getNodeState(node)
+            assert state == NodeStates.RUNNING, state
 
     def join(self, thread_list, timeout=5):
         timeout += time.time()
         while thread_list:
-            assert time.time() < timeout, thread_list
-            Serialized.tic()
+            # Map with repr before that threads become unprintable.
+            assert time.time() < timeout, map(repr, thread_list)
+            Serialized.tic(timeout=.001)
             thread_list = [t for t in thread_list if t.is_alive()]
 
     def getNodeState(self, node):
@@ -917,10 +945,6 @@ class NEOCluster(object):
         txn = transaction.TransactionManager()
         return txn, (self.db if db is None else db).open(txn)
 
-    def extraCellSortKey(self, key):    # XXX unused?
-        return Patch(self.client.cp, getCellSortKey=lambda orig, cell:
-            (orig(cell), key(cell)))
-
     def moduloTID(self, partition):
         """Force generation of TIDs that will be stored in given partition"""
         partition = p64(partition)
@@ -964,7 +988,7 @@ class NEOThreadedTest(NeoTestBase):
     def _tearDown(self, success):
         super(NEOThreadedTest, self)._tearDown(success)
         ServerNode.resetPorts()
-        if success:
+        if success and logging._max_size is not None:
             with logging as db:
                 db.execute("UPDATE packet SET body=NULL")
                 db.execute("VACUUM")
@@ -993,13 +1017,12 @@ class NEOThreadedTest(NeoTestBase):
             return obj
         return unpickler
 
-    class newThread(threading.Thread):
+    class newPausedThread(threading.Thread):
 
         def __init__(self, func, *args, **kw):
             threading.Thread.__init__(self)
             self.__target = func, args, kw
             self.daemon = True
-            self.start()
 
         def run(self):
             try:
@@ -1007,6 +1030,8 @@ class NEOThreadedTest(NeoTestBase):
                 self.__exc_info = None
             except:
                 self.__exc_info = sys.exc_info()
+                if self.__exc_info[0] is NEOThreadedTest.failureException:
+                    traceback.print_exception(*self.__exc_info)
 
         def join(self, timeout=None):
             threading.Thread.join(self, timeout)
@@ -1015,12 +1040,64 @@ class NEOThreadedTest(NeoTestBase):
                 del self.__exc_info
                 raise etype, value, tb
 
+    class newThread(newPausedThread):
+
+        def __init__(self, *args, **kw):
+            NEOThreadedTest.newPausedThread.__init__(self, *args, **kw)
+            self.start()
+
     def commitWithStorageFailure(self, client, txn):
         with Patch(client, _getFinalTID=lambda *_: None):
             self.assertRaises(ConnectionClosed, txn.commit)
 
-    def assertPartitionTable(self, cluster, stats):
-        self.assertEqual(stats, '|'.join(cluster.admin.pt.formatRows()))
+    def assertPartitionTable(self, cluster, stats, pt_node=None):
+        pt  = (pt_node or cluster.admin).pt
+        index = [x.uuid for x in cluster.storage_list].index
+        self.assertEqual(stats, '|'.join(pt._formatRows(sorted(
+            pt.count_dict, key=lambda x: index(x.getUUID())))))
+
+    @staticmethod
+    def noConnection(jar, storage):
+        return Patch(jar.db().storage.app.cp, getConnForNode=lambda orig, node:
+            None if node.getUUID() == storage.uuid else orig(node))
+
+    @staticmethod
+    def readCurrent(ob):
+        ob._p_activate()
+        ob._p_jar.readCurrent(ob)
+
+
+class ThreadId(list):
+
+    def __call__(self):
+        try:
+            return self.index(thread.get_ident())
+        except ValueError:
+            i = len(self)
+            self.append(thread.get_ident())
+            return i
+
+
+@apply
+class RandomConflictDict(dict):
+    # One must not depend on how Python iterates over dict keys, because this
+    # is implementation-defined behaviour. This patch makes sure of that when
+    # resolving conflicts.
+
+    def __new__(cls):
+        from neo.client.transactions import Transaction
+        def __init__(orig, self, *args):
+            orig(self, *args)
+            assert self.conflict_dict == {}
+            self.conflict_dict = dict.__new__(cls)
+        return Patch(Transaction, __init__=__init__)
+
+    def popitem(self):
+        try:
+            k = random.choice(list(self))
+        except IndexError:
+            raise KeyError
+        return k, self.pop(k)
 
 
 def predictable_random(seed=None):

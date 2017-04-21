@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+from ..app import monotonic_time
 from . import MasterHandler
 from neo.lib.handler import EventHandler
 from neo.lib.exception import ElectionFailure, PrimaryFailure
@@ -25,10 +26,11 @@ class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        assert node is not None
-        node.setDown()
-        self.app.broadcastNodesInformation([node])
+        app = self.app
+        if app.listening_conn: # if running
+            node = app.nm.getByUUID(conn.getUUID())
+            node.setDown()
+            app.broadcastNodesInformation([node])
 
     def announcePrimary(self, conn):
         raise ElectionFailure, 'another primary arises'
@@ -38,18 +40,18 @@ class SecondaryMasterHandler(MasterHandler):
 
     def _notifyNodeInformation(self, conn):
         node_list = [n.asTuple() for n in self.app.nm.getMasterList()]
-        conn.notify(Packets.NotifyNodeInformation(node_list))
+        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
 class PrimaryHandler(EventHandler):
     """ Handler used by secondaries to handle primary master"""
 
     def connectionLost(self, conn, new_state):
-        self.app.primary_master_node.setDown()
-        raise PrimaryFailure, 'primary master is dead'
+        self.connectionFailed(conn)
 
     def connectionFailed(self, conn):
         self.app.primary_master_node.setDown()
-        raise PrimaryFailure, 'primary master is dead'
+        if self.app.listening_conn: # if running
+            raise PrimaryFailure('primary master is dead')
 
     def connectionCompleted(self, conn):
         app = self.app
@@ -72,8 +74,9 @@ class PrimaryHandler(EventHandler):
     def notifyClusterInformation(self, conn, state):
         self.app.cluster_state = state
 
-    def notifyNodeInformation(self, conn, node_list):
-        super(PrimaryHandler, self).notifyNodeInformation(conn, node_list)
+    def notifyNodeInformation(self, conn, timestamp, node_list):
+        super(PrimaryHandler, self).notifyNodeInformation(
+            conn, timestamp, node_list)
         for node_type, _, uuid, state, _ in node_list:
             assert node_type == NodeTypes.MASTER, node_type
             if uuid == self.app.uuid and state == NodeStates.UNKNOWN:

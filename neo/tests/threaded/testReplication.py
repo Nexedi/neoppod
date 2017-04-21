@@ -15,10 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from logging import getLogger, INFO, DEBUG
+import random, sys, threading, time
 
-import random
-import sys
-import time
 import transaction
 from ZODB.POSException import ReadOnlyError, POSKeyError
 import unittest
@@ -34,10 +32,11 @@ from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
-from neo.lib.util import p64
-from .. import expectedFailure, Patch
+from neo.lib.util import p64, u64
+from .. import expectedFailure, Patch, TransactionalResource
 from . import ConnectionFilter, NEOCluster, NEOThreadedTest, \
     predictable_random, with_cluster
+from .test import PCounter, PCounterWithResolution # XXX
 
 # dump log to stderr
 """
@@ -90,6 +89,16 @@ class ReplicationTests(NEOThreadedTest):
                 self.checkPartitionReplicated(source, storage, partition, **kw)
                 checked += 1
         return checked
+
+    def checkReplicas(self, cluster):
+        pt = cluster.primary_master.pt
+        storage_dict = {x.uuid: x for x in cluster.storage_list}
+        for offset in xrange(pt.getPartitions()):
+            checksum_list = [
+                self.checksumPartition(storage_dict[x.getUUID()], offset)
+                for x in pt.getCellList(offset)]
+            self.assertEqual(1, len(set(checksum_list)),
+                             (offset, checksum_list))
 
     def testBackupNormalCase(self):
         np = 7
@@ -458,12 +467,9 @@ class ReplicationTests(NEOThreadedTest):
 
     @with_cluster(start_cluster=0, partitions=2, storage_count=2)
     def testClientReadingDuringTweak(self, cluster):
-        # XXX: Currently, the test passes because data of dropped cells are not
-        #      deleted while the cluster is operational: this is only done
-        #      during the RECOVERING phase. But we'll want to be able to free
-        #      disk space without service interruption, and for this the client
-        #      may have to retry reading data from the new cells. If s0 deleted
-        #      all data for partition 1, the test would fail with a POSKeyError.
+        def sync(orig):
+            m2c.remove(delay)
+            orig()
         s0, s1 = cluster.storage_list
         if 1:
             cluster.start([s0])
@@ -479,9 +485,145 @@ class ReplicationTests(NEOThreadedTest):
             cluster.neoctl.enableStorageList([s1.uuid])
             cluster.neoctl.tweakPartitionTable()
             with cluster.master.filterConnection(cluster.client) as m2c:
-                m2c.delayNotifyPartitionChanges()
+                delay = m2c.delayNotifyPartitionChanges()
                 self.tic()
-                self.assertEqual('foo', storage.load(oid)[0])
+                with Patch(cluster.client, sync=sync):
+                    self.assertEqual('foo', storage.load(oid)[0])
+                self.assertNotIn(delay, m2c)
+
+    @with_cluster(start_cluster=False, storage_count=3, partitions=3)
+    def testAbortingReplication(self, cluster):
+        s1, s2, s3 = cluster.storage_list
+        cluster.start((s1, s2))
+        t, c = cluster.getTransaction()
+        r = c.root()
+        for x in 'ab':
+            r[x] = PCounter()
+        t.commit()
+        cluster.stop(replicas=1)
+        cluster.start((s1, s2))
+        with ConnectionFilter() as f:
+            f.delayAddObject()
+            cluster.neoctl.tweakPartitionTable()
+            s3.start()
+            self.tic()
+            cluster.neoctl.enableStorageList((s3.uuid,))
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+        self.tic()
+        for s in cluster.storage_list:
+            self.assertTrue(s.is_alive())
+        self.checkReplicas(cluster)
+
+    @with_cluster(start_cluster=0, replicas=1, storage_count=4, partitions=2)
+    def testTweakVsReplication(self, cluster, done=False):
+        S = cluster.storage_list
+        cluster.start(S[:1])
+        t, c = cluster.getTransaction()
+        ob = c.root()[''] = PCounterWithResolution()
+        t.commit()
+        self.assertEqual(1, u64(ob._p_oid))
+        for s in S[1:]:
+            s.start()
+        self.tic()
+        def tweak():
+            self.tic()
+            self.assertFalse(delay_list)
+            self.assertPartitionTable(cluster, 'UU|UO')
+            f.delayAskFetchObjects()
+            cluster.enableStorageList(S[2:])
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            self.assertPartitionTable(cluster, 'UU..|F.OO')
+        with ConnectionFilter() as f, cluster.moduloTID(1), \
+             Patch(S[1].replicator,
+                   _nextPartitionSortKey=lambda orig, offset: offset):
+            delay_list = [1, 0]
+            delay = (f.delayNotifyReplicationDone if done else
+                     f.delayAnswerFetchObjects)(lambda _: delay_list.pop())
+            cluster.enableStorageList((S[1],))
+            cluster.neoctl.tweakPartitionTable()
+            ob._p_changed = 1
+            if done:
+                tweak()
+                t.commit()
+            else:
+                t2, c2 = cluster.getTransaction()
+                c2.root()['']._p_changed = 1
+                l = threading.Lock(); l.acquire()
+                TransactionalResource(t2, 0, tpc_vote=lambda _: l.release())
+                t2 = self.newPausedThread(t2.commit)
+                self.tic()
+                @TransactionalResource(t, 0)
+                def tpc_vote(_):
+                    t2.start()
+                    l.acquire()
+                    f.remove(delay)
+                    tweak()
+                t.commit()
+                t2.join()
+            cluster.neoctl.dropNode(S[2].uuid)
+            cluster.neoctl.dropNode(S[3].uuid)
+            cluster.neoctl.tweakPartitionTable()
+            if done:
+                f.remove(delay)
+            self.tic()
+            self.assertPartitionTable(cluster, 'UU|UO')
+        self.tic()
+        self.assertPartitionTable(cluster, 'UU|UU')
+        self.checkReplicas(cluster)
+
+    def testTweakVsReplicationDone(self):
+        self.testTweakVsReplication(True)
+
+    @with_cluster(start_cluster=0, storage_count=2, partitions=2)
+    def testCommitVsDiscardedCell(self, cluster):
+        s0, s1 = cluster.storage_list
+        cluster.start((s0,))
+        t, c = cluster.getTransaction()
+        ob = c.root()[''] = PCounterWithResolution()
+        t.commit()
+        self.assertEqual(1, u64(ob._p_oid))
+        s1.start()
+        self.tic()
+        nonlocal_ = []
+        with ConnectionFilter() as f:
+            delay = f.delayNotifyReplicationDone()
+            cluster.enableStorageList((s1,))
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            self.assertPartitionTable(cluster, 'U.|FO')
+            t2, c2 = cluster.getTransaction()
+            c2.root()[''].value += 3
+            l = threading.Lock(); l.acquire()
+            @TransactionalResource(t2, 0)
+            def tpc_vote(_):
+                self.tic()
+                l.release()
+            t2 = self.newPausedThread(t2.commit)
+            @TransactionalResource(t, 0, tpc_finish=lambda _:
+                f.remove(nonlocal_.pop(0)))
+            def tpc_vote(_):
+                t2.start()
+                l.acquire()
+                nonlocal_.append(f.delayNotifyPartitionChanges())
+                f.remove(delay)
+                self.tic()
+                self.assertPartitionTable(cluster, 'U.|.U', cluster.master)
+                nonlocal_.append(cluster.master.pt.getID())
+            ob.value += 2
+            t.commit()
+            t2.join()
+        self.tic()
+        self.assertPartitionTable(cluster, 'U.|.U')
+        self.assertEqual(cluster.master.pt.getID(), nonlocal_.pop())
+        t.begin()
+        self.assertEqual(ob.value, 5)
+        # get the second to last tid (for which ob=2)
+        tid2 = s1.dm.getObject(ob._p_oid, None, ob._p_serial)[0]
+        # s0 must not have committed anything for partition 1
+        with s0.dm.replicated(1):
+            self.assertFalse(s0.dm.getObject(ob._p_oid, tid2))
 
     @with_cluster(start_cluster=0, replicas=1)
     def testResumingReplication(self, cluster):
@@ -511,39 +653,53 @@ class ReplicationTests(NEOThreadedTest):
             cluster.join((s0,))
             t0, t1, t2 = c.db().storage.iterator()
 
-    @with_cluster(start_cluster=0, replicas=1)
-    def testReplicationBlockedByUnfinished(self, cluster):
-        if 1:
-            s0, s1 = cluster.storage_list
-            cluster.start(storage_list=(s0,))
-            storage = cluster.getZODBStorage()
-            oid = storage.new_oid()
+    @with_cluster(start_cluster=0, replicas=1, partitions=2)
+    def testReplicationBlockedByUnfinished1(self, cluster,
+                                            delay_replication=False):
+        s0, s1 = cluster.storage_list
+        cluster.start(storage_list=(s0,))
+        storage = cluster.getZODBStorage()
+        oid = storage.new_oid()
+        with ConnectionFilter() as f, cluster.moduloTID(1 - u64(oid) % 2):
+            if delay_replication:
+                delay_replication = f.delayAnswerFetchObjects()
             tid = None
-            expected = 'UO'
-            for n in 1, 0:
-                # On first iteration, the transaction will block replication
+            expected = 'U|U'
+            for n in xrange(3):
+                # On second iteration, the transaction will block replication
                 # until tpc_finish.
-                # We do a second iteration as a quick check that the cluster
+                # We do a last iteration as a quick check that the cluster
                 # remains functional after such a scenario.
                 txn = transaction.Transaction()
                 storage.tpc_begin(txn)
-                tid = storage.store(oid, tid, 'foo', '', txn)
-                if n:
+                tid = storage.store(oid, tid, str(n), '', txn)
+                if n == 1:
                     # Start the outdated storage.
                     s1.start()
                     self.tic()
                     cluster.enableStorageList((s1,))
                     cluster.neoctl.tweakPartitionTable()
+                    expected = 'UO|UO'
                 self.tic()
                 self.assertPartitionTable(cluster, expected)
                 storage.tpc_vote(txn)
                 self.assertPartitionTable(cluster, expected)
                 tid = storage.tpc_finish(txn)
-                self.tic() # replication resumes and ends
-                expected = 'UU'
+                if n == 1:
+                    if delay_replication:
+                        self.tic()
+                        self.assertPartitionTable(cluster, expected)
+                        f.remove(delay_replication)
+                        delay_replication = None
+                    self.tic() # replication resumes and ends
+                    expected = 'UU|UU'
                 self.assertPartitionTable(cluster, expected)
             self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
+        self.checkPartitionReplicated(s0, s1, 0)
+
+    def testReplicationBlockedByUnfinished2(self):
+        self.testReplicationBlockedByUnfinished1(True)
 
     @with_cluster(partitions=5, replicas=2, storage_count=3)
     def testCheckReplicas(self, cluster):

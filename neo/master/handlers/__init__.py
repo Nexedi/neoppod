@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from ..app import monotonic_time
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
@@ -98,7 +99,7 @@ class MasterHandler(EventHandler):
         node_list.extend(n.asTuple() for n in nm.getMasterList())
         node_list.extend(n.asTuple() for n in nm.getClientList())
         node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.notify(Packets.NotifyNodeInformation(node_list))
+        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt
@@ -115,7 +116,7 @@ class BaseServiceHandler(MasterHandler):
     def connectionCompleted(self, conn, new):
         self._notifyNodeInformation(conn)
         pt = self.app.pt
-        conn.notify(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
+        conn.send(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
 
     def connectionLost(self, conn, new_state):
         app = self.app
@@ -145,7 +146,3 @@ class BaseServiceHandler(MasterHandler):
         app.broadcastPartitionChanges(app.pt.outdate(node))
         if not app.pt.operational():
             raise StoppedOperation
-
-    def notifyReady(self, conn):
-        self.app.setStorageReady(conn.getUUID())
-
