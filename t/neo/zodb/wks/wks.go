@@ -16,7 +16,7 @@
 // See COPYING file for full licensing terms.
 
 // Package wks links-in well-known ZODB storages
-// The only purpose of this package is so that users import it
+// The only purpose of this package is so that users could import it
 //
 //	import _ ".../zodb/wks"		XXX fixme import path
 //

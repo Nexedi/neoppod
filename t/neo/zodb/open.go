@@ -19,10 +19,25 @@ package zodb
 // logic to open storages by URL
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 )
 
+// StorageOpener is a function to open a storage
+type StorageOpener func (u *url.URL) (IStorage, error)
+
+// {} scheme -> StorageOpener
+var storageRegistry = map[string]StorageOpener{}
+
+// RegisterStorage registers opener to be used for URLs with scheme
+func RegisterStorage(scheme string, opener StorageOpener) {
+	if _, already := storageRegistry[scheme]; already {
+		panic(fmt.Errorf("ZODB URL scheme %q was already registered", scheme))
+	}
+
+	storageRegistry[scheme] = opener
+}
 
 // OpenStorage opens ZODB storage by URL
 // Only URL schemes registered to zodb package are handled.
@@ -37,14 +52,15 @@ func OpenStorageURL(storageURL string) (IStorage, error) {
 		storageURL = "file://" + storageURL
 	}
 
-	return nil, nil
-}
+	u, err := url.Parse(storageURL)
+	if err != nil {
+		return nil, err
+	}
 
+	opener, ok := storageRegistry[u.Scheme]
+	if !ok {
+		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
+	}
 
-// StorageOpener is a function to open a storage
-type StorageOpener func (u *url.URL) (IStorage, error)
-
-// RegisterStorage registers handler to be used for URLs with scheme
-func RegisterStorage(scheme string, handler StorageOpener) {
-	// TODO
+	return opener(u)
 }

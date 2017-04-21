@@ -28,9 +28,9 @@ import (
 func openByURL(u *url.URL) (zodb.IStorage, error) {
 	// TODO handle query
 	// XXX u.Path is not always raw path - recheck and fix
-	return Open(u.Path)
+	return Open(u.Host + u.Path)
 }
 
 func init() {
-	zodb.RegisterStorage("file://", openByURL)
+	zodb.RegisterStorage("file", openByURL)
 }
