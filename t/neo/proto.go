@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	PROTOCOL_VERSION = 9
+	PROTOCOL_VERSION = 12
 
 	MIN_PACKET_SIZE = 10	// XXX unsafe.Sizeof(PktHead{}) give _typed_ constant (uintptr)
 	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size ? XXX -> pkt.go ?
@@ -32,11 +32,12 @@ const (
 	OID_DOES_NOT_EXIST
 	PROTOCOL_ERROR
 	BROKEN_NODE
-	ALREADY_PENDING
 	REPLICATION_ERROR
 	CHECKING_ERROR
 	BACKEND_NOT_IMPLEMENTED
+	NON_READABLE_CELL
 	READ_ONLY_ACCESS
+	INCOMPLETE_TRANSACTION
 )
 
 type ClusterState int32
@@ -78,13 +79,6 @@ const (
 	FEEDING                     //short: F
 	DISCARDED                   //short: D
 	CORRUPTED                   //short: C
-)
-
-type LockState int32
-const (
-	NOT_LOCKED LockState = iota
-	GRANTED
-	GRANTED_TO_OTHER
 )
 
 // An UUID (node identifier, 4-bytes signed integer)
@@ -342,6 +336,9 @@ type StopOperation struct {
 // Ask unfinished transactions  S -> PM.
 // Answer unfinished transactions  PM -> S.
 type UnfinishedTransactions struct {
+	RowList []struct{
+		Offset uint32	// PNumber
+	}
 }
 
 type AnswerUnfinishedTransactions struct {
@@ -384,6 +381,16 @@ type BeginTransaction struct {
 
 type AnswerBeginTransaction struct {
 	Tid     zodb.Tid
+}
+
+
+// Report storage nodes for which vote failed. C -> M
+// True is returned if it's still possible to finish the transaction.
+type FailedVote struct {
+	Tid	 zodb.Tid
+	UUIDList []UUID
+
+	// XXX _answer = Error
 }
 
 // Finish a transaction. C -> PM.
@@ -442,12 +449,43 @@ type AnswerGenerateOIDs struct {
 }
 
 
+// Ask master to generate a new TTID that will be used by the client
+// to rebase a transaction. S -> PM -> C
+type Deadlock struct {
+	TTid		zodb.Tid
+	LockingTid	zodb.Tid
+}
+
+// Rebase transaction. C -> S.
+type RebaseTransaction struct {
+	TTid		zodb.Tid
+	LockingTid	zodb.Tid
+}
+
+type AnswerRebaseTransaction struct {
+	OidList	[]zodb.Oid
+}
+
+// Rebase object. C -> S.
+type RebaseObject struct {
+	TTid	zodb.Tid
+	Oid	zodb.Oid
+}
+
+type AnswerRebaseObject struct {
+	// FIXME POption('conflict')
+        Serial		zodb.Tid
+        ConflictSerial	zodb.Tid
+	// FIXME POption('data')
+		Compression	bool
+		Checksum	Checksum
+		Data		[]byte	// XXX was string
+}
+
+
 // Ask to store an object. Send an OID, an original serial, a current
 // transaction ID, and data. C -> S.
-// Answer if an object has been stored. If an object is in conflict,
-// a serial of the conflicting transaction is returned. In this case,
-// if this serial is newer than the current transaction ID, a client
-// node must not try to resolve the conflict. S -> C.
+// As for IStorage, 'serial' is ZERO_TID for new objects.
 type StoreObject struct {
 	Oid             zodb.Oid
 	Serial          zodb.Tid
@@ -456,18 +494,16 @@ type StoreObject struct {
 	Data            []byte          // TODO separately (for writev)
 	DataSerial      zodb.Tid
 	Tid             zodb.Tid
-	Unlock          bool
 }
 
 type AnswerStoreObject struct {
-	Conflicting     bool
-	Oid             zodb.Oid
-	Serial          zodb.Tid
+	Conflict	zodb.Tid
 }
 
-// Abort a transaction. C -> S, PM.
+// Abort a transaction. C -> S and C -> PM -> S.
 type AbortTransaction struct {
-	Tid     zodb.Tid
+	Tid		zodb.Tid
+	UUIDList	[]UUID		// unused for * -> S
 }
 
 // Ask to store a transaction. C -> S.
@@ -618,7 +654,8 @@ type TweakPartitionTable struct {
 
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
-	NodeList []NodeInfo
+	IdTimestamp	float64
+	NodeList	[]NodeInfo
 }
 
 // Ask node information
@@ -694,19 +731,6 @@ type AnswerObjectUndoSerial struct {
 	}
 }
 
-// Ask a storage if oid is locked by another transaction.
-// C -> S
-// Answer whether a transaction holds the write lock for requested object.
-type HasLock struct {
-	Tid     zodb.Tid
-	Oid     zodb.Oid
-}
-
-type AnswerHasLock struct {
-	Oid       zodb.Oid
-	LockState LockState
-}
-
 
 // Verifies if given serial is current for object oid in the database, and
 // take a write lock on it (so that this state is not altered until
@@ -716,16 +740,15 @@ type AnswerHasLock struct {
 // is nothing to invalidate in any client's cache.
 type CheckCurrentSerial struct {
 	Tid     zodb.Tid
-	Serial  zodb.Tid
 	Oid     zodb.Oid
+	Serial  zodb.Tid
 }
 
-// XXX answer_store_object ?
-type AnswerCheckCurrentSerial struct {
-	Conflicting     bool
-	Oid             zodb.Oid
-	Serial          zodb.Tid
-}
+// XXX answer_store_object ?	(was _answer = StoreObject._answer in py)
+type AnswerCheckCurrentSerial AnswerStoreObject
+//type AnswerCheckCurrentSerial struct {
+//	Conflict	bool
+//}
 
 // Request a pack at given TID.
 // C -> M
