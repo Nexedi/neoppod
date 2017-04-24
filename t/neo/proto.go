@@ -218,6 +218,7 @@ type Notify struct {
 // usually. Any -> Any.
 type Error struct {
 	Code    uint32  // PNumber
+	//Code    ErrorCode  // PNumber
 	Message string
 }
 
@@ -537,8 +538,8 @@ type GetObject struct {
 // XXX answer_object ?
 type AnswerGetObject struct {
 	Oid             zodb.Oid
-	SerialStart     zodb.Tid
-	SerialEnd       zodb.Tid
+	Serial		zodb.Tid	// XXX strictly is SerialStart/SerialEnd in proto.py
+	NextSerial      zodb.Tid	// XXX but there it is out of sync
 	Compression     bool
 	Checksum        Checksum
 	Data            []byte          // TODO separately (for writev)

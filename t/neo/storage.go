@@ -11,18 +11,22 @@
 // See COPYING file for full licensing terms.
 
 // TODO text
+// XXX move to separate "storage" package ?
 
 package neo
 
 import (
 	"context"
 	"fmt"
+
+	"./zodb"
 )
 
 // NEO Storage application
 
 // XXX naming
-type StorageApplication struct {
+type Storage struct {
+	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
 
 
@@ -33,7 +37,7 @@ type Buffer struct {
 }
 */
 
-func (stor *StorageApplication) ServeLink(ctx context.Context, link *NodeLink) {
+func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("stor: serving new node %s <-> %s\n", link.peerLink.LocalAddr(), link.peerLink.RemoteAddr())
 
 /*
@@ -91,4 +95,82 @@ func (stor *StorageApplication) ServeLink(ctx context.Context, link *NodeLink) {
 	*/
 
 	//recvPkt()
+}
+
+
+type StorageClientHandler struct {
+	stor *Storage
+}
+
+// XXX stub
+// XXX move me out of here
+func RecvAndDecode(conn *Conn) (interface{}, error) {
+	pkt, err := conn.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO decode pkt
+	return pkt, nil
+}
+
+func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
+	// TODO encode pkt
+	l := pkt.NEOEncodedLen()
+	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
+	pkt.NEOEncode(buf.Payload())
+
+	return conn.Send(&buf)	// XXX why pointer?
+}
+
+// XXX naming for RecvAndDecode and EncodeAndSend
+func (ch *StorageClientHandler) ServeConn(ctx context.Context, conn *Conn) {
+	// TODO ctx.Done -> close conn
+	defer conn.Close()	// XXX err
+
+	pkt, err := RecvAndDecode(conn)
+	if err != nil {
+		return	// XXX log / err / send error before closing
+	}
+
+	switch pkt := pkt.(type) {
+	case *GetObject:
+		xid := zodb.Xid{Oid: pkt.Oid}
+		if pkt.Serial != INVALID_TID {
+			xid.Tid = pkt.Serial
+			xid.TidBefore = false
+		} else {
+			xid.Tid = pkt.Tid
+			xid.TidBefore = true
+		}
+
+		data, tid, err := ch.stor.zstor.Load(xid)
+		if err != nil {
+			// TODO translate err to NEO protocol error codes
+			errPkt := Error{Code: 0, Message: err.Error()}
+			EncodeAndSend(conn, &errPkt)	// XXX err
+		} else {
+			answer := AnswerGetObject{
+					Oid:	 xid.Oid,
+					Serial: tid,
+
+					Compression: false,
+					Data: data,
+					// XXX .CheckSum
+
+					// XXX .NextSerial
+					// XXX .DataSerial
+				}
+			EncodeAndSend(conn, &answer)	// XXX err
+		}
+
+	case *LastTransaction:
+		// ----//---- for zstor.LastTid()
+
+	case *ObjectHistory:
+
+	//case *StoreObject:
+	}
+
+	//pkt.Put(...)
 }

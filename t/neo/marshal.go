@@ -1919,8 +1919,8 @@ func (p *AnswerGetObject) NEOEncodedLen() int {
 
 func (p *AnswerGetObject) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
-	binary.BigEndian.PutUint64(data[8:], uint64(p.SerialStart))
-	binary.BigEndian.PutUint64(data[16:], uint64(p.SerialEnd))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
+	binary.BigEndian.PutUint64(data[16:], uint64(p.NextSerial))
 	(data[24:])[0] = bool2byte(p.Compression)
 	copy(data[25:], p.Checksum[:])
 	{
@@ -1939,8 +1939,8 @@ func (p *AnswerGetObject) NEODecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.SerialStart = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.SerialEnd = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.NextSerial = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
 	p.Compression = byte2bool((data[24:])[0])
 	copy(p.Checksum[:], data[25:45])
 	{
