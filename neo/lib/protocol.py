@@ -1673,7 +1673,7 @@ class Packets(dict):
     Error = register(
                     Error)
     RequestIdentification, AcceptIdentification = register(
-                    RequestIdentification)
+                    RequestIdentification, ignore_when_closed=True)
     # Code of RequestIdentification packet must never change so that 2
     # incompatible nodes can reject themselves gracefully (i.e. comparing
     # protocol versions) instead of raising PacketMalformedError.

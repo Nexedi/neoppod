@@ -152,11 +152,6 @@ class EventHandler(object):
             acceptIdentification = self._acceptIdentification
         except AttributeError:
             raise UnexpectedPacketError('no handler found')
-        if conn.isClosed():
-            # acceptIdentification received on a closed (probably aborted,
-            # actually) connection. Reject any further packet as unexpected.
-            conn.setHandler(EventHandler(self.app))
-            return
         node = self.app.nm.getByAddress(conn.getAddress())
         assert node.getConnection() is conn, (node.getConnection(), conn)
         if node.getType() == node_type:
