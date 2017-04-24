@@ -14,24 +14,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import socket
 import sys
 import traceback
 from cStringIO import StringIO
 from struct import Struct
 
-PROTOCOL_VERSION = 12
+# The protocol version must be increased whenever upgrading a node may require
+# to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
+# the high order byte 0 is different from TLS Handshake (0x16).
+PROTOCOL_VERSION = 1
+ENCODED_VERSION = Struct('!L').pack(PROTOCOL_VERSION)
 
-# Size restrictions.
-MIN_PACKET_SIZE = 10
+# Avoid memory errors on corrupted data.
 MAX_PACKET_SIZE = 0x4000000
+
 PACKET_HEADER_FORMAT = Struct('!LHL')
-# Check that header size is the expected value.
-# If it is not, it means that struct module result is incompatible with
-# "reference" platform (python 2.4 on x86-64).
-assert PACKET_HEADER_FORMAT.size == 10, \
-    'Unsupported platform, packet header length = %i' % \
-    (PACKET_HEADER_FORMAT.size, )
 RESPONSE_MASK = 0x8000
 
 class Enum(tuple):
@@ -70,7 +67,6 @@ def ErrorCodes():
     TID_NOT_FOUND
     OID_DOES_NOT_EXIST
     PROTOCOL_ERROR
-    BROKEN_NODE
     REPLICATION_ERROR
     CHECKING_ERROR
     BACKEND_NOT_IMPLEMENTED
@@ -120,13 +116,10 @@ def NodeTypes():
 
 @Enum
 def NodeStates():
-    RUNNING
-    TEMPORARILY_DOWN
-    DOWN
-    BROKEN
-    HIDDEN
-    PENDING
     UNKNOWN
+    DOWN
+    RUNNING
+    PENDING
 
 @Enum
 def CellStates():
@@ -150,12 +143,9 @@ def CellStates():
 # used for logging
 node_state_prefix_dict = {
     NodeStates.RUNNING: 'R',
-    NodeStates.TEMPORARILY_DOWN: 'T',
     NodeStates.DOWN: 'D',
-    NodeStates.BROKEN: 'B',
-    NodeStates.HIDDEN: 'H',
-    NodeStates.PENDING: 'P',
     NodeStates.UNKNOWN: 'U',
+    NodeStates.PENDING: 'P',
 }
 
 # used for logging
@@ -168,16 +158,12 @@ cell_state_prefix_dict = {
 }
 
 # Other constants.
-INVALID_UUID = 0
-INVALID_TID = '\xff' * 8
+INVALID_TID = \
 INVALID_OID = '\xff' * 8
 INVALID_PARTITION = 0xffffffff
-INVALID_ADDRESS_TYPE = socket.AF_UNSPEC
 ZERO_HASH = '\0' * 20
-ZERO_TID = '\0' * 8
+ZERO_TID = \
 ZERO_OID = '\0' * 8
-OID_LEN = len(INVALID_OID)
-TID_LEN = len(INVALID_TID)
 MAX_TID = '\x7f' + '\xff' * 7 # SQLite does not accept numbers above 2^63-1
 
 # High-order byte:
@@ -203,15 +189,12 @@ class ProtocolError(Exception):
     """ Base class for protocol errors, close the connection """
 
 class PacketMalformedError(ProtocolError):
-    """ Close the connection and set the node as broken"""
+    """Close the connection"""
 
 class UnexpectedPacketError(ProtocolError):
-    """ Close the connection and set the node as broken"""
+    """Close the connection"""
 
 class NotReadyError(ProtocolError):
-    """ Just close the connection """
-
-class BrokenNodeDisallowedError(ProtocolError):
     """ Just close the connection """
 
 class BackendNotImplemented(Exception):
@@ -279,8 +262,8 @@ class Packet(object):
     def encode(self):
         """ Encode a packet as a string to send it over the network """
         content = self._body
-        length = PACKET_HEADER_FORMAT.size + len(content)
-        return (PACKET_HEADER_FORMAT.pack(self._id, self._code, length), content)
+        return (PACKET_HEADER_FORMAT.pack(self._id, self._code, len(content)),
+                content)
 
     def __len__(self):
         return PACKET_HEADER_FORMAT.size + len(self._body)
@@ -562,19 +545,6 @@ class PPTID(PStructItemOrNone):
     _fmt = '!Q'
     _None = Struct(_fmt).pack(0)
 
-class PProtocol(PNumber):
-    """
-        The protocol version definition
-    """
-    def _encode(self, writer, version):
-        writer(self.pack(version))
-
-    def _decode(self, reader):
-        version = self.unpack(reader(self.size))
-        if version != (PROTOCOL_VERSION,):
-            raise ProtocolError('protocol version mismatch')
-        return version
-
 class PChecksum(PItem):
     """
         A hash (SHA1)
@@ -586,12 +556,14 @@ class PChecksum(PItem):
     def _decode(self, reader):
         return reader(20)
 
-class PUUID(PStructItemOrNone):
+class PSignedNull(PStructItemOrNone):
+    _fmt = '!l'
+    _None = Struct(_fmt).pack(0)
+
+class PUUID(PSignedNull):
     """
         An UUID (node identifier, 4-bytes signed integer)
     """
-    _fmt = '!l'
-    _None = Struct(_fmt).pack(0)
 
 class PTID(PItem):
     """
@@ -671,14 +643,6 @@ PFOidList = PList('oid_list',
 
 # packets definition
 
-class Notify(Packet):
-    """
-        General purpose notification (remote logging)
-    """
-    _fmt = PStruct('notify',
-        PString('message'),
-    )
-
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -709,7 +673,6 @@ class RequestIdentification(Packet):
     poll_thread = True
 
     _fmt = PStruct('request_identification',
-        PProtocol('protocol_version'),
         PFNodeType,
         PUUID('uuid'),
         PAddress('address'),
@@ -723,24 +686,7 @@ class RequestIdentification(Packet):
         PNumber('num_partitions'),
         PNumber('num_replicas'),
         PUUID('your_uuid'),
-        PAddress('primary'),
-        PList('known_master_list',
-            PStruct('master',
-                PAddress('address'),
-                PUUID('uuid'),
-            ),
-        ),
     )
-
-    def __init__(self, *args, **kw):
-        if args or kw:
-            # always announce current protocol version
-            args = list(args)
-            args.insert(0, PROTOCOL_VERSION)
-        super(RequestIdentification, self).__init__(*args, **kw)
-
-    def decode(self):
-        return super(RequestIdentification, self).decode()[1:]
 
 class PrimaryMaster(Packet):
     """
@@ -750,15 +696,16 @@ class PrimaryMaster(Packet):
         PUUID('primary_uuid'),
     )
 
-class AnnouncePrimary(Packet):
+class NotPrimaryMaster(Packet):
     """
-    Announce a primary master node election. PM -> SM.
+    Send list of known master nodes. SM -> Any.
     """
-
-class ReelectPrimary(Packet):
-    """
-    Force a re-election of a primary master node. M -> M.
-    """
+    _fmt = PStruct('not_primary_master',
+        PSignedNull('primary'),
+        PList('known_master_list',
+            PAddress('address'),
+        ),
+    )
 
 class Recovery(Packet):
     """
@@ -1620,22 +1567,6 @@ def register(request, ignore_when_closed=None):
     StaticRegistry[code] = answer
     return (request, answer)
 
-class ParserState(object):
-    """
-    Parser internal state.
-    To be considered opaque datatype outside of PacketRegistry.parse .
-    """
-    payload = None
-
-    def set(self, payload):
-        self.payload = payload
-
-    def get(self):
-        return self.payload
-
-    def clear(self):
-        self.payload = None
-
 class Packets(dict):
     """
     Packet registry that checks packet code uniqueness and provides an index
@@ -1647,58 +1578,19 @@ class Packets(dict):
         # this builds a "singleton"
         return type('PacketRegistry', base, d)(StaticRegistry)
 
-    def parse(self, buf, state_container):
-        state = state_container.get()
-        if state is None:
-            header = buf.read(PACKET_HEADER_FORMAT.size)
-            if header is None:
-                return None
-            msg_id, msg_type, msg_len = PACKET_HEADER_FORMAT.unpack(header)
-            try:
-                packet_klass = self[msg_type]
-            except KeyError:
-                raise PacketMalformedError('Unknown packet type')
-            if msg_len > MAX_PACKET_SIZE:
-                raise PacketMalformedError('message too big (%d)' % msg_len)
-            if msg_len < MIN_PACKET_SIZE:
-                raise PacketMalformedError('message too small (%d)' % msg_len)
-            msg_len -= PACKET_HEADER_FORMAT.size
-        else:
-            msg_id, packet_klass, msg_len = state
-        data = buf.read(msg_len)
-        if data is None:
-            # Not enough.
-            if state is None:
-                state_container.set((msg_id, packet_klass, msg_len))
-            return None
-        if state:
-            state_container.clear()
-        packet = packet_klass()
-        packet.setContent(msg_id, data)
-        return packet
-
     # notifications
     Error = register(
                     Error)
     RequestIdentification, AcceptIdentification = register(
-                    RequestIdentification)
-    # Code of RequestIdentification packet must never change so that 2
-    # incompatible nodes can reject themselves gracefully (i.e. comparing
-    # protocol versions) instead of raising PacketMalformedError.
-    assert RequestIdentification._code == 1
-
+                    RequestIdentification, ignore_when_closed=True)
     Ping, Pong = register(
                     Ping)
     CloseClient  = register(
                     CloseClient)
-    Notify = register(
-                    Notify)
     AskPrimary, AnswerPrimary = register(
                     PrimaryMaster)
-    AnnouncePrimary = register(
-                    AnnouncePrimary)
-    ReelectPrimary = register(
-                    ReelectPrimary)
+    NotPrimaryMaster = register(
+                    NotPrimaryMaster)
     NotifyNodeInformation = register(
                     NotifyNodeInformation)
     AskRecovery, AnswerRecovery = register(

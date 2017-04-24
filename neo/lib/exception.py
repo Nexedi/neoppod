@@ -17,7 +17,7 @@
 class NeoException(Exception):
     pass
 
-class ElectionFailure(NeoException):
+class PrimaryElected(NeoException):
     pass
 
 class PrimaryFailure(NeoException):

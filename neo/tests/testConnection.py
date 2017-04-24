@@ -21,7 +21,7 @@ from neo.lib import connection, logging
 from neo.lib.connection import BaseConnection, ClientConnection, \
     MTClientConnection, CRITICAL_TIMEOUT
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets
+from neo.lib.protocol import ENCODED_VERSION, Packets
 from . import NeoUnitTestBase, Patch
 
 
@@ -73,6 +73,7 @@ class ConnectionTests(NeoUnitTestBase):
         #       don't accept any other packet without specifying a queue.
         self.handler = EventHandler(self.app)
         conn = self._makeClientConnection()
+        conn.read_buf.append(ENCODED_VERSION)
 
         use_case_list = (
             # (a) For a single packet sent at T,

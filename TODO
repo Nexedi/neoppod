@@ -1,8 +1,4 @@
   Documentation
-    - Clarify node state signification, and consider renaming them in the code.
-      Ideas:
-        TEMPORARILY_DOWN becomes UNAVAILABLE
-        BROKEN is removed ?
     - Clarify the use of each error codes:
       - NOT_READY removed (connection kept opened until ready)
       - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)
@@ -25,8 +21,6 @@
       This is mainly the case for :
         - Client rejected before the cluster is operational
         - Empty storages rejected during recovery process
-      Masters implies in the election process should still reject any connection
-      as the primary master is still unknown.
     - Implement transaction garbage collection API (FEATURE)
       NEO packing implementation does not update transaction metadata when
       deleting object revisions. This inconsistency must be made possible to
@@ -38,7 +32,7 @@
     - Clarify handler methods to call when a connection is accepted from a
       listening conenction and when remote node is identified
       (cf. neo/lib/bootstrap.py).
-    - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
+    - Review PENDING/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
     - Review handler split (CODE)
       The current handler split is the result of small incremental changes. A

@@ -19,6 +19,7 @@ import ssl
 import errno
 from time import time
 from . import logging
+from .protocol import ENCODED_VERSION
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
@@ -58,7 +59,7 @@ class SocketConnector(object):
         s.setblocking(0)
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self.queued = []
+        self.queued = [ENCODED_VERSION]
         return self
 
     def queue(self, data):

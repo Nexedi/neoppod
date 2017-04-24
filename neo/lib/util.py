@@ -148,14 +148,9 @@ def parseNodeAddress(address, port_opt=None):
     # or return either raw host & port or getaddrinfo return value.
     return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0][4][:2]
 
-def parseMasterList(masters, except_node=None):
+def parseMasterList(masters):
     assert masters, 'At least one master must be defined'
-    master_node_list = []
-    for node in masters.split():
-        address = parseNodeAddress(node)
-        if address != except_node:
-            master_node_list.append(address)
-    return master_node_list
+    return map(parseNodeAddress, masters.split())
 
 
 class ReadBuffer(object):

@@ -19,7 +19,7 @@ from .mock import Mock
 from . import NeoUnitTestBase
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import PacketMalformedError, UnexpectedPacketError, \
-        BrokenNodeDisallowedError, NotReadyError, ProtocolError
+    NotReadyError, ProtocolError
 
 class HandlerTests(NeoUnitTestBase):
 
@@ -60,14 +60,6 @@ class HandlerTests(NeoUnitTestBase):
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkClosed(conn)
-        # raise BrokenNodeDisallowedError
-        conn.mockCalledMethods = {}
-        def fake(c):
-            raise BrokenNodeDisallowedError
-        self.setFakeMethod(fake)
-        self.handler.dispatch(conn, packet)
-        self.checkErrorPacket(conn)
-        self.checkAborted(conn)
         # raise NotReadyError
         conn.mockCalledMethods = {}
         def fake(c):

@@ -19,9 +19,9 @@ from collections import deque
 from operator import itemgetter
 from . import logging
 from .connection import ConnectionClosed
-from .protocol import (
-    NodeStates, Packets, Errors, BackendNotImplemented,
-    BrokenNodeDisallowedError, NonReadableCell, NotReadyError,
+from .exception import PrimaryElected
+from .protocol import (NodeStates, NodeTypes, Packets, uuid_str,
+    Errors, BackendNotImplemented, NonReadableCell, NotReadyError,
     PacketMalformedError, ProtocolError, UnexpectedPacketError)
 from .util import cached_property
 
@@ -59,7 +59,6 @@ class EventHandler(object):
         logging.error(message)
         conn.answer(Errors.ProtocolError(message))
         conn.abort()
-        # self.peerBroken(conn)
 
     def dispatch(self, conn, packet, kw={}):
         """This is a helper method to handle various packet types."""
@@ -80,11 +79,6 @@ class EventHandler(object):
         except PacketMalformedError, e:
             logging.error('malformed packet from %r: %s', conn, e)
             conn.close()
-            # self.peerBroken(conn)
-        except BrokenNodeDisallowedError:
-            if not conn.isClosed():
-                conn.answer(Errors.BrokenNode('go away'))
-                conn.abort()
         except NotReadyError, message:
             if not conn.isClosed():
                 if not message.args:
@@ -144,12 +138,7 @@ class EventHandler(object):
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %r', conn)
-        self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
-
-    #def peerBroken(self, conn):
-    #    """Called when a peer is broken."""
-    #    logging.error('%r is broken', conn)
-    #    # NodeStates.BROKEN
+        self.connectionLost(conn, NodeStates.DOWN)
 
     def connectionLost(self, conn, new_state):
         """ this is a method to override in sub-handlers when there is no need
@@ -159,21 +148,41 @@ class EventHandler(object):
 
     # Packet handlers.
 
-    def acceptIdentification(self, conn, node_type, *args):
-        try:
-            acceptIdentification = self._acceptIdentification
-        except AttributeError:
-            raise UnexpectedPacketError('no handler found')
-        if conn.isClosed():
-            # acceptIdentification received on a closed (probably aborted,
-            # actually) connection. Reject any further packet as unexpected.
-            conn.setHandler(EventHandler(self.app))
-            return
-        node = self.app.nm.getByAddress(conn.getAddress())
+    def notPrimaryMaster(self, conn, primary, known_master_list):
+        nm = self.app.nm
+        for address in known_master_list:
+            nm.createMaster(address=address)
+        if primary is not None:
+            primary = known_master_list[primary]
+            assert primary != self.app.server
+            raise PrimaryElected(nm.getByAddress(primary))
+
+    def _acceptIdentification(*args):
+        pass
+
+    def acceptIdentification(self, conn, node_type, uuid,
+                             num_partitions, num_replicas, your_uuid):
+        app = self.app
+        node = app.nm.getByAddress(conn.getAddress())
         assert node.getConnection() is conn, (node.getConnection(), conn)
         if node.getType() == node_type:
+            if node_type == NodeTypes.MASTER:
+                other = app.nm.getByUUID(uuid)
+                if other is not None:
+                    other.setUUID(None)
+                node.setUUID(uuid)
+                node.setRunning()
+                if your_uuid is None:
+                    raise ProtocolError('No UUID supplied')
+                logging.info('connected to a primary master node')
+                if app.uuid != your_uuid:
+                    app.uuid = your_uuid
+                    logging.info('Got a new UUID: %s', uuid_str(your_uuid))
+                app.id_timestamp = None
+            elif node.getUUID() != uuid or app.uuid != your_uuid != None:
+                raise ProtocolError('invalid uuids')
             node.setIdentified()
-            acceptIdentification(node, *args)
+            self._acceptIdentification(node, num_partitions, num_replicas)
             return
         conn.close()
 
@@ -188,9 +197,6 @@ class EventHandler(object):
         # Ignore PONG packets. The only purpose of ping/pong packets is
         # to test/maintain underlying connection.
         pass
-
-    def notify(self, conn, message):
-        logging.warning('notification from %r: %s', conn, message)
 
     def closeClient(self, conn):
         conn.server = False
@@ -215,9 +221,6 @@ class EventHandler(object):
 
     def timeoutError(self, conn, message):
         logging.error('timeout error: %s', message)
-
-    def brokenNodeDisallowedError(self, conn, message):
-        raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
     def ack(self, conn, message):
         logging.debug("no error message: %s", message)
@@ -268,7 +271,6 @@ class AnswerBaseHandler(EventHandler):
     timeoutExpired = unexpectedInAnswerHandler
     connectionClosed = unexpectedInAnswerHandler
     packetReceived = unexpectedInAnswerHandler
-    peerBroken = unexpectedInAnswerHandler
     protocolError = unexpectedInAnswerHandler
 
     def acceptIdentification(*args):

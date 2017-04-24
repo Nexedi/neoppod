@@ -17,7 +17,7 @@
 import unittest
 from neo.lib.protocol import Packets
 from .. import SSL
-from . import NEOCluster, with_cluster, test, testReplication
+from . import NEOCluster, test, testReplication
 
 
 class SSLMixin:
@@ -35,14 +35,6 @@ class SSLTests(SSLMixin, test.Test):
     # exclude expected failures
     testDeadlockAvoidance = None
     testUndoConflict = testUndoConflictDuringStore = None
-
-    if 1:
-        testShutdownWithSeveralMasterNodes = unittest.skip("fails randomly")(
-            test.Test.testShutdown.__func__)
-
-        @with_cluster(partitions=10, replicas=1, storage_count=3)
-        def testShutdown(self, cluster):
-            self._testShutdown(cluster)
 
     def testAbortConnection(self, after_handshake=1):
         with self.getLoopbackConnection() as conn:

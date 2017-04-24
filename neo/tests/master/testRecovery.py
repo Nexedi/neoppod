@@ -94,7 +94,7 @@ class MasterRecoveryTests(NeoUnitTestBase):
         conn = self.getFakeConnection(uuid, self.storage_port)
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
-        cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
+        cell_list = [(offset, ((uuid, NodeStates.UNKNOWN,),),)]
         node.setPending()
         self.checkProtocolErrorRaised(recovery.answerPartitionTable, conn,
             2, cell_list)

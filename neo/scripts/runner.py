@@ -42,7 +42,6 @@ from neo.tests.benchmark import BenchmarkRunner
 # each of them have to import its TestCase classes
 UNIT_TEST_MODULES = [
     # generic parts
-    'neo.tests.testBootstrap',
     'neo.tests.testConnection',
     'neo.tests.testHandler',
     'neo.tests.testNodes',
@@ -50,7 +49,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.testPT',
     # master application
     'neo.tests.master.testClientHandler',
-    'neo.tests.master.testElectionHandler',
     'neo.tests.master.testMasterApp',
     'neo.tests.master.testMasterPT',
     'neo.tests.master.testRecovery',
@@ -61,7 +59,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.storage.testMasterHandler',
     'neo.tests.storage.testStorageApp',
     'neo.tests.storage.testStorage' + os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
-    'neo.tests.storage.testIdentificationHandler',
     'neo.tests.storage.testTransactions',
     # client application
     'neo.tests.client.testClientApp',

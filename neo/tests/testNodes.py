@@ -35,7 +35,7 @@ class NodesTests(NeoUnitTestBase):
         address = ('127.0.0.1', 10000)
         uuid = self.getNewUUID(None)
         node = Node(self.nm, address=address, uuid=uuid)
-        self.assertEqual(node.getState(), NodeStates.UNKNOWN)
+        self.assertEqual(node.getState(), NodeStates.DOWN)
         self.assertEqual(node.getAddress(), address)
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
@@ -43,7 +43,7 @@ class NodesTests(NeoUnitTestBase):
     def testState(self):
         """ Check if the last changed time is updated when state is changed """
         node = Node(self.nm)
-        self.assertEqual(node.getState(), NodeStates.UNKNOWN)
+        self.assertEqual(node.getState(), NodeStates.DOWN)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
         previous_time = node.getLastStateChange()
         node.setState(NodeStates.RUNNING)
@@ -156,15 +156,15 @@ class NodeManagerTests(NeoUnitTestBase):
         old_uuid = self.storage.getUUID()
         new_uuid = self.getStorageUUID()
         node_list = (
-            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN, None),
+            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.UNKNOWN, None),
             (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING, None),
             (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid,
                 NodeStates.RUNNING, None),
             (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
-                NodeStates.UNKNOWN, None),
+                NodeStates.DOWN, None),
         )
         app = Mock()
-        app.pt = Mock()
+        app.pt = Mock({'dropNode': True})
         # update manager content
         manager.update(app, time(), node_list)
         # - the client gets down
@@ -180,9 +180,9 @@ class NodeManagerTests(NeoUnitTestBase):
         new_storage = storage_list[0]
         self.assertNotEqual(new_storage.getUUID(), old_uuid)
         self.assertEqual(new_storage.getState(), NodeStates.RUNNING)
-        # admin is still here but in UNKNOWN state
+        # admin is still here but in DOWN state
         self.checkNodes([self.master, self.admin, new_storage])
-        self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
+        self.assertEqual(self.admin.getState(), NodeStates.DOWN)
 
 class MasterDBTests(NeoUnitTestBase):
 

@@ -56,12 +56,9 @@ class BaseMasterHandler(BaseHandler):
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
                 logging.info("I was told I'm %s", state)
-                if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
-                        NodeStates.BROKEN, NodeStates.UNKNOWN):
-                    erase = state == NodeStates.DOWN
+                if state in (NodeStates.UNKNOWN, NodeStates.DOWN):
+                    erase = state == NodeStates.UNKNOWN
                     self.app.shutdown(erase=erase)
-                elif state == NodeStates.HIDDEN:
-                    raise StoppedOperation
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
                 logging.info('Notified of non-running client, abort (%s)',
                         uuid_str(uuid))

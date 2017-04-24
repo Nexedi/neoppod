@@ -20,8 +20,7 @@ from time import time
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
-from .protocol import uuid_str, Errors, \
-        PacketMalformedError, Packets, ParserState
+from .protocol import uuid_str, Errors, PacketMalformedError, Packets
 from .util import dummy_read_buffer, ReadBuffer
 
 CRITICAL_TIMEOUT = 30
@@ -138,10 +137,9 @@ class HandlerSwitcher(object):
             else:
                 logging.error('Unexpected answer %r in %r', packet, connection)
                 if not connection.isClosed():
-                    connection.send(Packets.Notify(
+                    connection.answer(Errors.ProtocolError(
                         'Unexpected answer: %r' % packet))
                     connection.abort()
-                # handler.peerBroken(connection)
         finally:
             # apply a pending handler if no more answers are pending
             while len(pending) > 1 and not pending[0][0]:
@@ -260,10 +258,12 @@ class BaseConnection(object):
         )
 
     def setHandler(self, handler):
-        if self._handlers.setHandler(handler):
-            logging.debug('Set handler %r on %r', handler, self)
+        changed = self._handlers.setHandler(handler)
+        if changed:
+            logging.debug('Handler changed on %r', self)
         else:
             logging.debug('Delay handler %r on %r', handler, self)
+        return changed
 
     def getUUID(self):
         return None
@@ -317,9 +317,9 @@ class ListeningConnection(BaseConnection):
         if self._ssl:
             conn.connecting = True
             connector.ssl(self._ssl, conn._connected)
-            self.em.addWriter(conn)
         else:
             conn._connected()
+        self.em.addWriter(conn) # for SSL or ENCODED_VERSION
 
     def getAddress(self):
         return self.connector.getAddress()
@@ -338,6 +338,7 @@ class Connection(BaseConnection):
     server = False
     peer_id = None
     _next_timeout = None
+    _parser_state = None
     _timeout = 0
 
     def __init__(self, event_manager, *args, **kw):
@@ -348,7 +349,6 @@ class Connection(BaseConnection):
         self.uuid = None
         self._queue = []
         self._on_close = None
-        self._parser_state = ParserState()
 
     def _getReprInfo(self):
         r, flags = super(Connection, self)._getReprInfo()
@@ -465,20 +465,59 @@ class Connection(BaseConnection):
         except ConnectorException:
             self._closure()
 
+    def _parse(self):
+        read = self.read_buf.read
+        version = read(4)
+        if version is None:
+            return
+        from .protocol import (ENCODED_VERSION, MAX_PACKET_SIZE,
+                               PACKET_HEADER_FORMAT, Packets)
+        if version != ENCODED_VERSION:
+            logging.warning('Protocol version mismatch with %r', self)
+            raise ConnectorException
+        header_size = PACKET_HEADER_FORMAT.size
+        unpack = PACKET_HEADER_FORMAT.unpack
+        def parse():
+            state = self._parser_state
+            if state is None:
+                header = read(header_size)
+                if header is None:
+                    return
+                msg_id, msg_type, msg_len = unpack(header)
+                try:
+                    packet_klass = Packets[msg_type]
+                except KeyError:
+                    raise PacketMalformedError('Unknown packet type')
+                if msg_len > MAX_PACKET_SIZE:
+                    raise PacketMalformedError('message too big (%d)' % msg_len)
+            else:
+                msg_id, packet_klass, msg_len = state
+            data = read(msg_len)
+            if data is None:
+                # Not enough.
+                if state is None:
+                    self._parser_state = msg_id, packet_klass, msg_len
+            else:
+                self._parser_state = None
+                packet = packet_klass()
+                packet.setContent(msg_id, data)
+                return packet
+        self._parse = parse
+        return parse()
+
     def readable(self):
         """Called when self is readable."""
         # last known remote activity
         self._next_timeout = time() + self._timeout
-        read_buf = self.read_buf
         try:
             try:
-                if self.connector.receive(read_buf):
+                if self.connector.receive(self.read_buf):
                     self.em.addWriter(self)
             finally:
                 # A connector may read some data
                 # before raising ConnectorException
                 while 1:
-                    packet = Packets.parse(read_buf, self._parser_state)
+                    packet = self._parse()
                     if packet is None:
                         break
                     self._queue.append(packet)
@@ -625,9 +664,7 @@ class ClientConnection(Connection):
             self.em.register(self)
             if connected:
                 self._maybeConnected()
-                # A client connection usually has a pending packet to send
-                # from the beginning. It would be too smart to detect when
-                # it's not required to poll for writing.
+                # There's always the protocol version to send.
             self.em.addWriter(self)
 
     def _delayedConnect(self):

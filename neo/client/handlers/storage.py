@@ -42,13 +42,8 @@ class StorageEventHandler(MTEventHandler):
         self.app.cp.removeConnection(node)
         super(StorageEventHandler, self).connectionFailed(conn)
 
-    def _acceptIdentification(self, node,
-           uuid, num_partitions, num_replicas, your_uuid, primary,
-           master_list):
-        assert self.app.master_conn is None or \
-          primary == self.app.master_conn.getAddress(), (
-            primary, self.app.master_conn)
-        assert uuid == node.getUUID(), (uuid, node.getUUID())
+    def _acceptIdentification(*args):
+        pass
 
 class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """

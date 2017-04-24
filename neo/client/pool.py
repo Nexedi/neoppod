@@ -99,7 +99,6 @@ class ConnectionPool(object):
                             return conn
 
     def removeConnection(self, node):
-        """Explicitly remove connection when a node is broken."""
         self.connection_dict.pop(node.getUUID(), None)
 
     def closeAll(self):
