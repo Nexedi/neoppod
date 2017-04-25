@@ -198,9 +198,6 @@ class EventHandler(object):
         # to test/maintain underlying connection.
         pass
 
-    def notify(self, conn, message):
-        logging.warning('notification from %r: %s', conn, message)
-
     def closeClient(self, conn):
         conn.server = False
         if not conn.client:

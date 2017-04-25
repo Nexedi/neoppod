@@ -663,14 +663,6 @@ PFOidList = PList('oid_list',
 
 # packets definition
 
-class Notify(Packet):
-    """
-        General purpose notification (remote logging)
-    """
-    _fmt = PStruct('notify',
-        PString('message'),
-    )
-
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -1677,8 +1669,6 @@ class Packets(dict):
                     Ping)
     CloseClient  = register(
                     CloseClient)
-    Notify = register(
-                    Notify)
     AskPrimary, AnswerPrimary = register(
                     PrimaryMaster)
     NotPrimaryMaster = register(

@@ -138,7 +138,7 @@ class HandlerSwitcher(object):
             else:
                 logging.error('Unexpected answer %r in %r', packet, connection)
                 if not connection.isClosed():
-                    connection.send(Packets.Notify(
+                    connection.answer(Errors.ProtocolError(
                         'Unexpected answer: %r' % packet))
                     connection.abort()
         finally:
