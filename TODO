@@ -30,7 +30,7 @@
       The same code to ask/receive node list and partition table exists in too
       many places.
     - Clarify handler methods to call when a connection is accepted from a
-      listening conenction and when remote node is identified
+      listening connection and when remote node is identified
       (cf. neo/lib/bootstrap.py).
     - Review PENDING/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
@@ -65,7 +65,7 @@
       which is an issue on big databases. (SPEED)
     - Pack segmentation & throttling (HIGH AVAILABILITY)
       In its current implementation, pack runs in one call on all storage nodes
-      at the same time, which lcoks down the whole cluster. This task should
+      at the same time, which locks down the whole cluster. This task should
       be split in chunks and processed in "background" on storage nodes.
       Packing throttling should probably be at the lowest possible priority
       (below interactive use and below replication).
@@ -116,9 +116,9 @@
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
-      actualy be a partition property).
+      actually be a partition property).
     - Consider ways to centralise the configuration file, or make the
-      configuration updatable automaticaly on all nodes.
+      configuration updatable automatically on all nodes.
     - Consider storing some metadata on master nodes (partition table [version],
       ...). This data should be treated non-authoritatively, as a way to lower
       the probability to use an outdated partition table.
