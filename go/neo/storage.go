@@ -208,15 +208,21 @@ const storageSummary = "run NEO storage node"
 
 func storageUsage(w io.Writer) {
 	fmt.Fprintf(w,
-`neostorage runs one NEO storage server.
-
-Usage: neostorage [options] zstor	XXX
+`Usage: neo storage [options] zstor	XXX
+Run NEO storage node.
 `)
+
+	// FIXME use w (see flags.SetOutput)
 }
 
 func storageMain(argv []string) {
-	flags := flag.FlagSet{Usage: func() { storageUsage(os.Stderr) }}
-	flags.Init("", flag.ExitOnError)
+	var bind string
+
+	//flags := flag.FlagSet{Usage: func() { storageUsage(os.Stderr) }}
+	//flags.Init("", flag.ExitOnError)
+	flags := flag.NewFlagSet("", flag.ExitOnError)
+	flags.Usage = func() { storageUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
+	flags.StringVar(&bind, "bind", bind, "address to serve on")
 	flags.Parse(argv[1:])
 
 	argv = flags.Args()
@@ -242,7 +248,7 @@ func storageMain(argv []string) {
 	*/
 	ctx := context.Background()
 
-	err = ListenAndServe(ctx, "tcp", "localhost:1234", storsrv)	// XXX hardcoded
+	err = ListenAndServe(ctx, "tcp", bind, storsrv)	// XXX hardcoded
 	if err != nil {
 		log.Fatal(err)
 	}
