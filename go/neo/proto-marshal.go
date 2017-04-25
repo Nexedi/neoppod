@@ -285,7 +285,7 @@ func (p *Error) NEOEncodedLen() int {
 }
 
 func (p *Error) NEOEncode(data []byte) {
-	binary.BigEndian.PutUint32(data[0:], p.Code)
+	binary.BigEndian.PutUint32(data[0:], uint32(p.Code))
 	{
 		l := uint32(len(p.Message))
 		binary.BigEndian.PutUint32(data[4:], l)
@@ -300,7 +300,7 @@ func (p *Error) NEODecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
-	p.Code = binary.BigEndian.Uint32(data[0:])
+	p.Code = ErrorCode(binary.BigEndian.Uint32(data[0:]))
 	{
 		l := binary.BigEndian.Uint32(data[4:])
 		data = data[8:]

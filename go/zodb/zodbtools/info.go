@@ -37,7 +37,7 @@ var infov = []struct {name string; getParam paramFunc} {
 	{"name", func(stor zodb.IStorage) (string, error) { return stor.StorageName(), nil }},
 // TODO reenable size
 //	{"size", func(stor zodb.IStorage) (string, error) { return stor.StorageSize(), nil }},
-	{"last_tid", func(stor zodb.IStorage) (string, error) {return stor.LastTid().String(), nil }},
+	{"last_tid", func(stor zodb.IStorage) (string, error) {tid, err := stor.LastTid(); return tid.String(), err }},
 }
 
 // {} parameter_name -> get_parameter(stor)

@@ -170,7 +170,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 			data, tid, err := stor.zstor.Load(xid)
 			if err != nil {
 				// TODO translate err to NEO protocol error codes
-				reply = &Error{Code: 0, Message: err.Error()}
+				reply = &Error{Code: 0, Message: err.Error()}	// XXX Code
 			} else {
 				reply = &AnswerGetObject{
 						Oid:	 xid.Oid,
@@ -188,11 +188,22 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 			EncodeAndSend(conn, reply)	// XXX err
 
 		case *LastTransaction:
-			lastTid := stor.zstor.LastTid()
-			EncodeAndSend(conn, &AnswerLastTransaction{lastTid})	// XXX err
+			var reply NEOEncoder
+
+			lastTid, err := stor.zstor.LastTid()
+			if err != nil {
+				reply = &Error{Code:0, Message: err.Error()}
+			} else {
+				reply = &AnswerLastTransaction{lastTid}
+			}
+
+			EncodeAndSend(conn, reply)	// XXX err
 
 		//case *ObjectHistory:
 		//case *StoreObject:
+
+		default:
+			panic("unexpected packet")	// XXX
 		}
 
 		//req.Put(...)
@@ -204,7 +215,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 const storageSummary = "run NEO storage node"
 
 // TODO options:
-// cluster, masterv, bind ...
+// cluster, masterv ...
 
 func storageUsage(w io.Writer) {
 	fmt.Fprintf(w,

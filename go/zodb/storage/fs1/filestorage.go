@@ -717,10 +717,10 @@ func Open(path string) (*FileStorage, error) {
 }
 
 
-func (fs *FileStorage) LastTid() zodb.Tid {
+func (fs *FileStorage) LastTid() (zodb.Tid, error) {
 	// XXX check we have transactions at all
 	// XXX what to return then?
-	return fs.txnhMax.Tid
+	return fs.txnhMax.Tid, nil	// XXX error always nil ?
 }
 
 // ErrXidLoad is returned when there is an error while loading xid

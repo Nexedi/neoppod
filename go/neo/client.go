@@ -20,6 +20,7 @@ package neo
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"../zodb"
@@ -27,24 +28,44 @@ import (
 
 type Client struct {
 	storLink *NodeLink	// link to storage node
+	storConn *Conn		// XXX main connection to storage
 }
 
 var _ zodb.IStorage = (*Client)(nil)
-
-//func Open(...) (*Client, error) {
-//}
-
 
 func (c *Client) StorageName() string {
 	return "neo"	// TODO more specific
 }
 
 func (c *Client) Close() error {
-	panic("TODO")
+	// NOTE this will abort all currently in-flght IO and close all connections over storLink
+	err := c.storLink.Close()
+	// XXX also wait for some goroutines to finish ?
+	return err
 }
 
-func (c *Client) LastTid() zodb.Tid {
-	panic("TODO")
+func (c *Client) LastTid() (zodb.Tid, error) {
+	// XXX open new conn for this particular req/reply ?
+	err := EncodeAndSend(c.storConn, &LastTransaction{})
+	if err != nil {
+		return 0, err	// XXX err context
+	}
+
+	reply, err := RecvAndDecode(c.storConn)
+	if err != nil {
+		return 0, err	// XXX err context
+	}
+
+	switch reply := reply.(type) {
+	case *Error:
+		return 0, reply	// XXX err context
+	default:
+		// XXX more error context ?
+		return 0, fmt.Errorf("protocol error: unexpected reply: %T", reply)
+
+	case *AnswerLastTransaction:
+		return reply.Tid, nil
+	}
 }
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
@@ -66,8 +87,15 @@ func openClientByURL(u *url.URL) (zodb.IStorage, error) {
 		return nil, err
 	}
 
-	return &Client{storLink}, nil
+	conn := storLink.NewConn()
+
+	// TODO identify ourselves via conn
+
+	return &Client{storLink, conn}, nil
 }
+
+//func Open(...) (*Client, error) {
+//}
 
 func init() {
 	zodb.RegisterStorage("neo", openClientByURL)

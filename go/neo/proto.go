@@ -23,7 +23,8 @@ const (
 	RESPONSE_MASK   = 0x8000
 )
 
-type ErrorCode int
+//type ErrorCode int
+type ErrorCode uint32
 const (
 	ACK ErrorCode = iota
 	NOT_READY
@@ -217,8 +218,8 @@ type Notify struct {
 // any other message, even if such a message does not expect a reply
 // usually. Any -> Any.
 type Error struct {
-	Code    uint32  // PNumber
-	//Code    ErrorCode  // PNumber
+	//Code    uint32  // PNumber
+	Code    ErrorCode  // PNumber
 	Message string
 }
 
