@@ -15,6 +15,7 @@
 package neo
 
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -41,4 +42,28 @@ func (pkt *PktBuf) Header() *PktHead {
 // Get packet payload
 func (pkt *PktBuf) Payload() []byte {
 	return pkt.Data[PktHeadLen:]
+}
+
+
+// packet dumping
+func (pkt *PktBuf) String() string {
+	if len(pkt.Data) < PktHeadLen {
+		return fmt.Sprintf("(! < PktHeadLen) % x", pkt.Data)
+	}
+
+	h := pkt.Header()
+	s := fmt.Sprintf(".%d", ntoh32(h.ConnId))
+
+	msgCode := ntoh16(h.MsgCode)
+	msgType := pktTypeRegistry[msgCode]
+	if msgType == nil {
+		s += fmt.Sprintf(" ? (%d)", msgCode)
+	} else {
+		s += fmt.Sprintf(" %s", msgType)
+	}
+
+	s += fmt.Sprintf(" #%d | ", ntoh32(h.Len))
+
+	s += fmt.Sprintf("% x\n", pkt.Payload())	// XXX better decode
+	return s
 }

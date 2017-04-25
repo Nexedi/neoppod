@@ -204,7 +204,7 @@ import (
 
 	// now generate packet types registry
 	buf.emit("\n// registry of packet types")
-	buf.emit("var pktTypeRegistry = map[int]reflect.Type {") // XXX key -> PktCode ?
+	buf.emit("var pktTypeRegistry = map[uint16]reflect.Type {") // XXX key -> PktCode ?
 
 	// ordered by pktCode
 	pktCodeV := []int{}

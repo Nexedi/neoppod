@@ -3345,7 +3345,7 @@ func (p *NotifyReady) NEODecode(data []byte) (int, error) {
 }
 
 // registry of packet types
-var pktTypeRegistry = map[int]reflect.Type{
+var pktTypeRegistry = map[uint16]reflect.Type{
 	0:  reflect.TypeOf(Address{}),
 	1:  reflect.TypeOf(NodeInfo{}),
 	2:  reflect.TypeOf(CellInfo{}),

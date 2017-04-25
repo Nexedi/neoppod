@@ -20,6 +20,8 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"fmt"
 )
 
 // NodeLink is a node-node link in NEO
@@ -150,6 +152,10 @@ func (nl *NodeLink) Close() error {
 
 // send raw packet to peer
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
+	if true {
+		// XXX -> log
+		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
+	}
 	_, err := nl.peerLink.Write(pkt.Data)	// FIXME write Data in full
 	if err != nil {
 		// XXX do we need to retry if err is temporary?
