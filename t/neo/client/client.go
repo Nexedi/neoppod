@@ -15,22 +15,5 @@
 //
 // See COPYING file for full licensing terms.
 
-package fs1
-// open URL support
-
-import (
-	"net/url"
-
-	"../../zodb"
-)
-
-// TODO read-only support
-func openByURL(u *url.URL) (zodb.IStorage, error) {
-	// TODO handle query
-	// XXX u.Path is not always raw path - recheck and fix
-	return Open(u.Host + u.Path)
-}
-
-func init() {
-	zodb.RegisterStorage("file", openByURL)
-}
+// Package client provides zodb.IStorage access to NEO database
+package client

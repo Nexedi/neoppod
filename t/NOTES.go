@@ -26,3 +26,8 @@
   -> so use int64 (not uint64) for file pos / size
 
 - "Go Execution Tracer"
+
+go.leveldb      - study
+go.groupcache   - study
+
+groupcache -> consistenthash (-> fork-splitted)
