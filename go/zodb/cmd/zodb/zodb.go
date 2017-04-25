@@ -112,8 +112,8 @@ func main() {
 	// run subcommand
 	cmd := zodbtools.Commands.Lookup(command)
 	if cmd == nil {
-		fmt.Fprintf(os.Stderr, "zodb: unknown subcommand \"%s\"", command)
-		fmt.Fprintf(os.Stderr, "Run 'zodb help' for usage.")
+		fmt.Fprintf(os.Stderr, "zodb: unknown subcommand \"%s\"\n", command)
+		fmt.Fprintf(os.Stderr, "Run 'zodb help' for usage.\n")
 		os.Exit(2)
 	}
 

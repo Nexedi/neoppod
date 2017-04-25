@@ -110,8 +110,8 @@ func main() {
 	// run subcommand
 	cmd := neo.Commands.Lookup(command)
 	if cmd == nil {
-		fmt.Fprintf(os.Stderr, "neo: unknown subcommand \"%s\"", command)
-		fmt.Fprintf(os.Stderr, "Run 'neo help' for usage.")
+		fmt.Fprintf(os.Stderr, "neo: unknown subcommand \"%s\"\n", command)
+		fmt.Fprintf(os.Stderr, "Run 'neo help' for usage.\n")
 		os.Exit(2)
 	}
 
