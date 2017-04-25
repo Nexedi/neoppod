@@ -19,12 +19,14 @@ package neo
 // access to NEO database via ZODB interfaces
 
 import (
+	"context"
+	"net/url"
 
 	"../zodb"
 )
 
 type Client struct {
-	storLink NodeLink	// link to storage node
+	storLink *NodeLink	// link to storage node
 }
 
 var _ zodb.IStorage = (*Client)(nil)
@@ -51,4 +53,22 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	panic("TODO")
+}
+
+
+// TODO read-only support
+func openClientByURL(u *url.URL) (zodb.IStorage, error) {
+	// XXX for now url is treated as storage node URL
+	// XXX check/use other url fields
+	ctx := context.Background()	// XXX ok?
+	storLink, err := Dial(ctx, "tcp", u.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{storLink}, nil
+}
+
+func init() {
+	zodb.RegisterStorage("neo", openClientByURL)
 }

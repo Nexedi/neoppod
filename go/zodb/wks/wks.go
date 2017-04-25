@@ -26,4 +26,5 @@ package wks
 
 import (
 	_ "../../zodb/storage/fs1"
+	_ "../../neo"	// XXX split into neo/client ?
 )

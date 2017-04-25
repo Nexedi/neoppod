@@ -27,7 +27,7 @@ import (
 	"os"
 
 	"../zodb"
-	_ "../zodb/wks"
+	"../zodb/storage/fs1"
 )
 
 // NEO Storage application
@@ -226,7 +226,7 @@ func storageMain(argv []string) {
 	}
 
 	// XXX hack
-	zstor, err := zodb.OpenStorageURL(argv[0])
+	zstor, err := fs1.Open(argv[0])
 	if err != nil {
 		log.Fatal(err)
 	}
