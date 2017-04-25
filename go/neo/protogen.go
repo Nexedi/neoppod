@@ -19,7 +19,7 @@ This program generates marshalling code for packet types defined in proto.go .
 For every type 3 methods are generated in accordance with NEOEncoder and
 NEODecoder interfaces:
 
-	NEOEncodedLen() int
+	NEOEncodedInfo() (msgCode uint16, payloadLen int)
 	NEOEncode(buf []byte)
 	NEODecode(data []byte) (nread int, err error)
 
@@ -192,7 +192,7 @@ import (
 			case *ast.StructType:
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
-				buf.WriteString(generateCodecCode(typespec, &sizer{}))
+				buf.WriteString(generateCodecCode(typespec, &sizer{msgCode: pktCode}))
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
@@ -455,13 +455,18 @@ func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 type sizer struct {
 	commonCodeGen
 	size SymSize // currently accumulated packet size
+
+	// which code to also return as packet msgCode
+	// (sizer does not compute this - it is emitted as-is given by caller)
+	msgCode int
 }
 
 // encoder generates code to encode a packet
 //
 // when type is recursively walked, for every case code to update `data[n:]` is generated.
 // no overflow checks are generated as by NEOEncoder interface provided data
-// buffer should have at least NEOEncodedLen() length (the size computed by sizer).
+// buffer should have at least payloadLen length returned by NEOEncodedInfo()
+// (the size computed by sizer).
 //
 // the code emitted looks like:
 //
@@ -517,7 +522,7 @@ var _ CodeGenerator = (*decoder)(nil)
 func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOEncodedLen() int {", s.recvName, s.typeName)
+	code.emit("func (%s *%s) NEOEncodedInfo() (uint16, int) {", s.recvName, s.typeName)
 	if s.varUsed["size"] {
 		code.emit("var %s int", s.var_("size"))
 	}
@@ -529,7 +534,7 @@ func (s *sizer) generatedCode() string {
 	if s.varUsed["size"] {
 		size += " + " + s.var_("size")
 	}
-	code.emit("return %v", size)
+	code.emit("return %v, %v", s.msgCode, size)
 	code.emit("}\n")
 
 	return code.String()

@@ -126,8 +126,13 @@ func RecvAndDecode(conn *Conn) (interface{}, error) {	// XXX interface{} -> NEOD
 
 func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
 	// TODO encode pkt
-	l := pkt.NEOEncodedLen()
-	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
+	msgCode, l := pkt.NEOEncodedInfo()
+	l += PktHeadLen
+	buf := PktBuf{make([]byte, l)}	// XXX -> freelist
+	h := buf.Header()
+	h.MsgCode = hton16(msgCode)
+	h.Len = hton32(uint32(l))	// XXX casting: think again
+
 	pkt.NEOEncode(buf.Payload())
 
 	return conn.Send(&buf)	// XXX why pointer?

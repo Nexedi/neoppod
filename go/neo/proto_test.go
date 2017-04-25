@@ -82,7 +82,11 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	}()
 
 	// pkt.encode() == expected
-	n := pkt.NEOEncodedLen()
+	msgCode, n := pkt.NEOEncodedInfo()
+	msgType := pktTypeRegistry[msgCode]
+	if msgType != typ {
+		t.Errorf("%v: msgCode = %v  which corresponds to %v", typ, msgCode, msgType)
+	}
 	if n != len(encoded) {
 		t.Errorf("%v: encodedLen = %v  ; want %v", typ, n, len(encoded))
 	}
@@ -266,7 +270,7 @@ func TestPktMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range pktTypeRegistry {
 		// zero-value for a type
 		pkt := reflect.New(typ).Interface().(NEOCodec)
-		l := pkt.NEOEncodedLen()
+		_, l := pkt.NEOEncodedInfo()
 		zerol := make([]byte, l)
 		// decoding will turn nil slice & map into empty allocated ones.
 		// we need it so that reflect.DeepEqual works for pkt encode/decode comparison

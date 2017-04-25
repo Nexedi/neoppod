@@ -91,11 +91,13 @@ var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
 // NEOEncoder is interface for marshaling objects to wire format
 type NEOEncoder interface {
-	// compute how much space is needed to encode
-	NEOEncodedLen() int
+	// NEOEncodedInfo returns message code needed to be used for the packet
+	// on the wire and  how much space is needed to encode payload
+	// XXX naming?
+	NEOEncodedInfo() (msgCode uint16, payloadLen int)
 
 	// perform the encoding.
-	// len(buf) must be >= NEOEncodedLen()
+	// len(buf) must be >= payloadLen returned by NEOEncodedInfo
 	NEOEncode(buf []byte)
 }
 
