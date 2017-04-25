@@ -126,10 +126,11 @@ type StorageRecordInformation struct {
 
 
 type IStorage interface {
-	Close() error
-
 	// StorageName returns storage name
 	StorageName() string
+
+	// Close closes storage
+	Close() error
 
 	// History(oid, size=1)
 

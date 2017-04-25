@@ -249,6 +249,7 @@ func dumpMain(argv []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// TODO defer stor.Close()
 
 	err = Dump(os.Stdout, stor, tidMin, tidMax, hashOnly)
 	if err != nil {
