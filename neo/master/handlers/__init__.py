@@ -18,9 +18,7 @@ from ..app import monotonic_time
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
-    ProtocolError,
-)
+from neo.lib.protocol import Packets
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -66,10 +64,6 @@ class MasterHandler(EventHandler):
         conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
 
 
-DISCONNECTED_STATE_DICT = {
-    NodeTypes.STORAGE: NodeStates.TEMPORARILY_DOWN,
-}
-
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
@@ -84,17 +78,17 @@ class BaseServiceHandler(MasterHandler):
             return # for example, when a storage is removed by an admin
         assert node.isStorage(), node
         logging.info('storage node lost')
-        new_state = DISCONNECTED_STATE_DICT.get(node.getType(), NodeStates.DOWN)
-        assert node.getState() not in (NodeStates.TEMPORARILY_DOWN,
-            NodeStates.DOWN), (uuid_str(self.app.uuid),
-            node.whoSetState(), new_state)
-        was_pending = node.isPending()
-        node.setState(new_state)
-        if was_pending:
+        if node.isPending():
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
-            app.nm.remove(node)
+            node.setDown()
+        elif node.isTemporarilyDown():
+            # Already put in TEMPORARILY_DOWN state
+            # by AdministrationHandler.setNodeState
+            return
+        else:
+            node.setTemporarilyDown()
         app.broadcastNodesInformation([node])
         if app.truncate_tid:
             raise StoppedOperation

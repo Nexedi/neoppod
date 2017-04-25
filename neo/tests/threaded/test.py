@@ -552,7 +552,8 @@ class Test(NEOThreadedTest):
         # restart it with one storage only
         if 1:
             cluster.start(storage_list=(s1,))
-            self.assertEqual(NodeStates.UNKNOWN, cluster.getNodeState(s2))
+            self.assertEqual(NodeStates.TEMPORARILY_DOWN,
+                             cluster.getNodeState(s2))
 
     @with_cluster(storage_count=2, partitions=2, replicas=1)
     def testRestartStoragesWithReplicas(self, cluster):

@@ -609,10 +609,6 @@ class NEOCluster(object):
         self.expectStorageState(process.getUUID(), NodeStates.PENDING,
                                 *args, **kw)
 
-    def expectUnknown(self, process, *args, **kw):
-        self.expectStorageState(process.getUUID(), NodeStates.UNKNOWN,
-                                *args, **kw)
-
     def expectUnavailable(self, process, *args, **kw):
         self.expectStorageState(process.getUUID(),
                 NodeStates.TEMPORARILY_DOWN, *args, **kw)
@@ -679,7 +675,6 @@ class NEOCluster(object):
         self.expectCondition(callback, *args, **kw)
 
     def expectStorageNotKnown(self, process, *args, **kw):
-        # /!\ Not Known != Unknown
         process_uuid = process.getUUID()
         def expected_storage_not_known(last_try):
             for storage in self.getStorageList():

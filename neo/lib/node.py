@@ -32,7 +32,7 @@ class Node(object):
     id_timestamp = None
 
     def __init__(self, manager, address=None, uuid=None,
-            state=NodeStates.UNKNOWN):
+            state=NodeStates.TEMPORARILY_DOWN):
         self._state = state
         self._address = address
         self._uuid = uuid

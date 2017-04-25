@@ -59,7 +59,7 @@ class MasterTests(NEOFunctionalTest):
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
-        self.neo.expectMasterState(uuid, (None, NodeStates.UNKNOWN))
+        self.neo.expectMasterState(uuid, (None, NodeStates.TEMPORARILY_DOWN))
         # BUG: The following check expects neoctl to reconnect before
         #      the election finishes.
         self.assertEqual(self.neo.getPrimary(), None)

@@ -409,7 +409,7 @@ class StorageTests(NEOFunctionalTest):
         # restart the cluster with the first storage killed
         self.neo.run(except_storages=[started[1]])
         self.neo.expectPending(started[0])
-        self.neo.expectUnknown(started[1])
+        self.neo.expectUnavailable(started[1])
         self.neo.expectClusterRecovering()
         # Cluster doesn't know there are outdated cells
         self.neo.expectOudatedCells(number=0)

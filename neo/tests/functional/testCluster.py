@@ -48,7 +48,7 @@ class ClusterTests(NEOFunctionalTest):
         neo.stop()
         neo.run(except_storages=(s2, ))
         neo.expectPending(s1)
-        neo.expectUnknown(s2)
+        neo.expectUnavailable(s2)
         neo.expectClusterRecovering()
         # Starting missing storage allows cluster to exit Recovery without
         # neoctl action.
@@ -61,11 +61,11 @@ class ClusterTests(NEOFunctionalTest):
         neo.stop()
         neo.run(except_storages=(s2, ))
         neo.expectPending(s1)
-        neo.expectUnknown(s2)
+        neo.expectUnavailable(s2)
         neo.expectClusterRecovering()
         neo.startCluster()
         neo.expectRunning(s1)
-        neo.expectUnknown(s2)
+        neo.expectUnavailable(s2)
         neo.expectClusterRunning()
 
     def testClusterBreaks(self):

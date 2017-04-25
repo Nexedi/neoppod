@@ -34,8 +34,8 @@ CLUSTER_STATE_WORKFLOW = {
                                     ClusterStates.STARTING_BACKUP),
 }
 NODE_STATE_WORKFLOW = {
-    NodeTypes.MASTER: (NodeStates.UNKNOWN,),
-    NodeTypes.STORAGE: (NodeStates.UNKNOWN, NodeStates.DOWN),
+    NodeTypes.MASTER: (NodeStates.TEMPORARILY_DOWN,),
+    NodeTypes.STORAGE: (NodeStates.TEMPORARILY_DOWN, NodeStates.DOWN),
 }
 
 class AdministrationHandler(MasterHandler):
@@ -95,7 +95,7 @@ class AdministrationHandler(MasterHandler):
         message = ('state changed' if state_changed else
                    'node already in %s state' % state)
         if node.isStorage():
-            keep = state == NodeStates.UNKNOWN
+            keep = state == NodeStates.TEMPORARILY_DOWN
             try:
                 cell_list = app.pt.dropNodeList([node], keep)
             except PartitionTableException, e:

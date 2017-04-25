@@ -91,5 +91,5 @@ class PrimaryHandler(ElectionHandler):
             conn, timestamp, node_list)
         for node_type, _, uuid, state, _ in node_list:
             assert node_type == NodeTypes.MASTER, node_type
-            if uuid == self.app.uuid and state == NodeStates.UNKNOWN:
+            if uuid == self.app.uuid and state == NodeStates.TEMPORARILY_DOWN:
                 sys.exit()

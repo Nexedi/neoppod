@@ -123,7 +123,6 @@ def NodeStates():
     TEMPORARILY_DOWN
     DOWN
     PENDING
-    UNKNOWN
 
 @Enum
 def CellStates():
@@ -150,7 +149,6 @@ node_state_prefix_dict = {
     NodeStates.TEMPORARILY_DOWN: 'T',
     NodeStates.DOWN: 'D',
     NodeStates.PENDING: 'P',
-    NodeStates.UNKNOWN: 'U',
 }
 
 # used for logging
