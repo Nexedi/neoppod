@@ -5,23 +5,47 @@
 package main
 
 import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+
 	//_ "../../storage"	// XXX rel ok?
 	neo "../.."
-	"fmt"
-	"context"
-	_ "time"
+
+	zodb "../../zodb"
+	_ "../../zodb/wks"
 )
 
 
 // TODO options:
 // cluster, masterv, bind ...
 
-func main() {
-	// var t neo.Tid = neo.MAX_TID
-	// fmt.Printf("%T %x\n", t, t)
-	// println("TODO")
+func usage() {
+	fmt.Fprintf(os.Stderr,
+`neostorage runs one NEO storage server.
 
-	storsrv := &neo.StorageApplication{}
+Usage: neostorage [options] zstor	XXX
+`)
+}
+
+func main() {
+	flag.Usage = usage
+	flag.Parse()
+	argv := flag.Args()
+
+	if len(argv) == 0 {
+		usage()
+		os.Exit(2)
+	}
+
+	zstor, err := zodb.OpenStorageURL(argv[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	storsrv := neo.NewStorage(zstor)
 
 	/*
 	ctx, cancel := context.WithCancel(context.Background())
@@ -32,6 +56,8 @@ func main() {
 	*/
 	ctx := context.Background()
 
-	err := neo.ListenAndServe(ctx, "tcp", "localhost:1234", storsrv)
-	fmt.Println(err)
+	err = neo.ListenAndServe(ctx, "tcp", "localhost:1234", storsrv)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

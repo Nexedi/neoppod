@@ -122,7 +122,7 @@ type IStorage interface {
 	// LastTid returns the id of the last committed transaction.
 	// if not transactions have been committed yet, LastTid returns Tid zero value
 	// XXX ^^^ ok ?
-	LastTid() Tid	// XXX -> Tid, ok ?
+	LastTid() Tid	// XXX -> Tid, ok ?  ,err ?
 
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	// TODO data []byte -> something allocated from slab ?

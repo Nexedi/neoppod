@@ -275,6 +275,7 @@ func (nl *NodeLink) serveRecv() {
 		if handleNewConn != nil {
 			// TODO avoid spawning goroutine for each new Ask request -
 			//	- by keeping pool of read inactive goroutine / conn pool ?
+			// XXX rework interface for this to be Accept-like ?
 			go func() {
 				nl.handleWg.Add(1)
 				defer nl.handleWg.Done()
@@ -397,7 +398,7 @@ func (c *Conn) close() {
 	})
 }
 
-// Close connection
+// Close closes connection
 // Any blocked Send() or Recv() will be unblocked and return error
 //
 // NOTE for Send() - once transmission was started - it will complete in the

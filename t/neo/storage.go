@@ -29,6 +29,10 @@ type Storage struct {
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
 
+func NewStorage(zstor zodb.IStorage) *Storage {
+	return &Storage{zstor}
+}
+
 
 /*
 // XXX change to bytes.Buffer if we need to access it as I/O
@@ -98,13 +102,11 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 }
 
 
-type StorageClientHandler struct {
-	stor *Storage
-}
+// XXX naming for RecvAndDecode and EncodeAndSend
 
 // XXX stub
 // XXX move me out of here
-func RecvAndDecode(conn *Conn) (interface{}, error) {
+func RecvAndDecode(conn *Conn) (interface{}, error) {	// XXX interface{} -> NEODecoder ?
 	pkt, err := conn.Recv()
 	if err != nil {
 		return nil, err
@@ -123,54 +125,68 @@ func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
 	return conn.Send(&buf)	// XXX why pointer?
 }
 
-// XXX naming for RecvAndDecode and EncodeAndSend
-func (ch *StorageClientHandler) ServeConn(ctx context.Context, conn *Conn) {
-	// TODO ctx.Done -> close conn
-	defer conn.Close()	// XXX err
-
-	pkt, err := RecvAndDecode(conn)
-	if err != nil {
-		return	// XXX log / err / send error before closing
-	}
-
-	switch pkt := pkt.(type) {
-	case *GetObject:
-		xid := zodb.Xid{Oid: pkt.Oid}
-		if pkt.Serial != INVALID_TID {
-			xid.Tid = pkt.Serial
-			xid.TidBefore = false
-		} else {
-			xid.Tid = pkt.Tid
-			xid.TidBefore = true
+// ServeClient serves incoming connection on which peer identified itself as client
+func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
+	// close connection when either cancelling or returning (e.g. due to an error)
+	// ( when cancelling - conn.Close will signal to current IO to
+	//   terminate with an error )
+	retch := make(chan struct{})
+	defer func() { close(retch) }()
+	go func() {
+		select {
+		case <-ctx.Done():
+			// XXX tell client we are shutting down?
+		case <-retch:
 		}
+		conn.Close()	// XXX err
+	}()
 
-		data, tid, err := ch.stor.zstor.Load(xid)
+	for {
+		req, err := RecvAndDecode(conn)
 		if err != nil {
-			// TODO translate err to NEO protocol error codes
-			errPkt := Error{Code: 0, Message: err.Error()}
-			EncodeAndSend(conn, &errPkt)	// XXX err
-		} else {
-			answer := AnswerGetObject{
-					Oid:	 xid.Oid,
-					Serial: tid,
-
-					Compression: false,
-					Data: data,
-					// XXX .CheckSum
-
-					// XXX .NextSerial
-					// XXX .DataSerial
-				}
-			EncodeAndSend(conn, &answer)	// XXX err
+			return	// XXX log / err / send error before closing
 		}
 
-	case *LastTransaction:
-		// ----//---- for zstor.LastTid()
+		switch req := req.(type) {
+		case *GetObject:
+			xid := zodb.Xid{Oid: req.Oid}
+			if req.Serial != INVALID_TID {
+				xid.Tid = req.Serial
+				xid.TidBefore = false
+			} else {
+				xid.Tid = req.Tid
+				xid.TidBefore = true
+			}
 
-	case *ObjectHistory:
+			var reply NEOEncoder
+			data, tid, err := stor.zstor.Load(xid)
+			if err != nil {
+				// TODO translate err to NEO protocol error codes
+				reply = &Error{Code: 0, Message: err.Error()}
+			} else {
+				reply = &AnswerGetObject{
+						Oid:	 xid.Oid,
+						Serial: tid,
 
-	//case *StoreObject:
+						Compression: false,
+						Data: data,
+						// XXX .CheckSum
+
+						// XXX .NextSerial
+						// XXX .DataSerial
+					}
+			}
+
+			EncodeAndSend(conn, reply)	// XXX err
+
+		case *LastTransaction:
+			lastTid := stor.zstor.LastTid()
+			EncodeAndSend(conn, &AnswerLastTransaction{lastTid})	// XXX err
+
+		//case *ObjectHistory:
+		//case *StoreObject:
+		}
+
+		//req.Put(...)
 	}
-
-	//pkt.Put(...)
 }
