@@ -43,7 +43,8 @@ class AdministrationHandler(MasterHandler):
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
-        self.app.nm.remove(node)
+        if node is not None:
+            self.app.nm.remove(node)
 
     def setClusterState(self, conn, state):
         app = self.app

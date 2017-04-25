@@ -280,9 +280,6 @@ class NodeManager(EventQueue):
             self._master_db.add(node.getAddress())
 
     def remove(self, node):
-        if node not in self._node_set:
-            logging.warning('removing unknown node %r, ignoring', node)
-            return
         self._node_set.remove(node)
         # a node may have not be indexed by uuid or address, eg.:
         # - a client or admin node that don't have listening address

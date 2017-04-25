@@ -30,7 +30,6 @@ class ClientServiceHandler(MasterHandler):
         app.tm.clientLost(node)
         node.setUnknown()
         app.broadcastNodesInformation([node])
-        app.nm.remove(node)
 
     def askBeginTransaction(self, conn, tid):
         """
