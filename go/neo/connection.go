@@ -210,6 +210,11 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		}
 	}
 
+	if true {
+		// XXX -> log
+		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
+	}
+
 	return pkt, nil
 }
 

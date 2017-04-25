@@ -64,6 +64,6 @@ func (pkt *PktBuf) String() string {
 
 	s += fmt.Sprintf(" #%d | ", ntoh32(h.Len))
 
-	s += fmt.Sprintf("% x\n", pkt.Payload())	// XXX better decode
+	s += fmt.Sprintf("% x", pkt.Payload())	// XXX better decode
 	return s
 }
