@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import socket
 import sys
 import traceback
 from cStringIO import StringIO
@@ -26,12 +25,6 @@ PROTOCOL_VERSION = 12
 MIN_PACKET_SIZE = 10
 MAX_PACKET_SIZE = 0x4000000
 PACKET_HEADER_FORMAT = Struct('!LHL')
-# Check that header size is the expected value.
-# If it is not, it means that struct module result is incompatible with
-# "reference" platform (python 2.4 on x86-64).
-assert PACKET_HEADER_FORMAT.size == 10, \
-    'Unsupported platform, packet header length = %i' % \
-    (PACKET_HEADER_FORMAT.size, )
 RESPONSE_MASK = 0x8000
 
 class Enum(tuple):
@@ -161,16 +154,12 @@ cell_state_prefix_dict = {
 }
 
 # Other constants.
-INVALID_UUID = 0
-INVALID_TID = '\xff' * 8
+INVALID_TID = \
 INVALID_OID = '\xff' * 8
 INVALID_PARTITION = 0xffffffff
-INVALID_ADDRESS_TYPE = socket.AF_UNSPEC
 ZERO_HASH = '\0' * 20
-ZERO_TID = '\0' * 8
+ZERO_TID = \
 ZERO_OID = '\0' * 8
-OID_LEN = len(INVALID_OID)
-TID_LEN = len(INVALID_TID)
 MAX_TID = '\x7f' + '\xff' * 7 # SQLite does not accept numbers above 2^63-1
 
 # High-order byte:
