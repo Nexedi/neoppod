@@ -22,6 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"../../../neo"
 )
 
 func usage() {
@@ -36,31 +38,56 @@ Usage:
 The commands are:
 
 `)
-	for _, cmd := range zodbtools.AllCommands() {
+	for _, cmd := range neo.Commands {
 		fmt.Fprintf(w, "\t%-11s %s\n", cmd.Name, cmd.Summary)
 	}
 
 	fmt.Fprintf(w,
 `
 
-Use "zodb help [command]" for more information about a command.
+Use "neo help [command]" for more information about a command.
 
 Additional help topics:
 
 `)
 
-	for _, topic := range zodbtools.AllHelpTopics() {
+	for _, topic := range neo.HelpTopics {
 		fmt.Fprintf(w, "\t%-11s %s\n", topic.Name, topic.Summary)
 	}
 
 	fmt.Fprintf(w,
 `
-Use "zodb help [topic]" for more information about that topic.
+Use "neo help [topic]" for more information about that topic.
 
 `)
 }
 
-// TODO help()
+// help shows general help or help for a command/topic
+func help(argv []string) {
+	if len(argv) < 2 {	// help topic ...
+		usage()
+		os.Exit(2)
+	}
+
+	topic := argv[1]
+
+	// topic can either be a command name or a help topic
+	command := neo.Commands.Lookup(topic)
+	if command != nil {
+		command.Usage(os.Stdout)
+		os.Exit(0)
+	}
+
+	helpTopic := neo.HelpTopics.Lookup(topic)
+	if helpTopic != nil {
+		fmt.Println(helpTopic.Text)
+		os.Exit(0)
+	}
+
+	fmt.Fprintf(os.Stderr, "Unknown help topic `%s`.  Run 'neo help'.\n", topic)
+	os.Exit(2)
+}
+
 
 func main() {
 	flag.Usage = usage
@@ -81,10 +108,10 @@ func main() {
 	}
 
 	// run subcommand
-	cmd := zodbtools.LookupCommand(command)
+	cmd := neo.Commands.Lookup(command)
 	if cmd == nil {
-		fmt.Fprintf(os.Stderr, "zodb: unknown subcommand \"%s\"", command)
-		fmt.Fprintf(os.Stderr, "Run 'zodb help' for usage.")
+		fmt.Fprintf(os.Stderr, "neo: unknown subcommand \"%s\"", command)
+		fmt.Fprintf(os.Stderr, "Run 'neo help' for usage.")
 		os.Exit(2)
 	}
 

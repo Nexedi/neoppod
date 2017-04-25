@@ -18,10 +18,24 @@
 package zodbtools
 // registry for all help topics
 
+// HelpTopic describes one help topic
 type HelpTopic struct {
 	Name    string
 	Summary string
 	Text    string
+}
+
+// HelpRegistry is ordered collection of HelpTopics
+type HelpRegistry []HelpTopic
+
+// Lookup returns HelpTopic with corresponding name or nil
+func (helpv HelpRegistry) Lookup(topic string) *HelpTopic {
+	for i := range helpv {
+		if helpv[i].Name == topic {
+			return &helpv[i]
+		}
+	}
+	return nil
 }
 
 const helpZURL =
@@ -52,21 +66,6 @@ Please see zodburi documentation for full details:
 http://docs.pylonsproject.org/projects/zodburi/
 `
 
-var helpv = []HelpTopic{
+var HelpTopics = HelpRegistry{
 	{"zurl", "specifying database URL", helpZURL},
-}
-
-// LookupHelpTopic returns HelpTopic with corresponding name or nil
-func LookupHelpTopic(topic string) *HelpTopic {
-	for i := range helpv {
-		if helpv[i].Name == topic {
-			return &helpv[i]
-		}
-	}
-	return nil
-}
-
-// AllHelpTopics returns list of all zodbtools help topics
-func AllHelpTopics() []HelpTopic {
-	return helpv
 }

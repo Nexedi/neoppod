@@ -40,7 +40,7 @@ Usage:
 The commands are:
 
 `)
-	for _, cmd := range zodbtools.AllCommands() {
+	for _, cmd := range zodbtools.Commands {
 		fmt.Fprintf(w, "\t%-11s %s\n", cmd.Name, cmd.Summary)
 	}
 
@@ -53,7 +53,7 @@ Additional help topics:
 
 `)
 
-	for _, topic := range zodbtools.AllHelpTopics() {
+	for _, topic := range zodbtools.HelpTopics {
 		fmt.Fprintf(w, "\t%-11s %s\n", topic.Name, topic.Summary)
 	}
 
@@ -75,13 +75,13 @@ func help(argv []string) {
 	topic := argv[1]
 
 	// topic can either be a command name or a help topic
-	command := zodbtools.LookupCommand(topic)
+	command := zodbtools.Commands.Lookup(topic)
 	if command != nil {
 		command.Usage(os.Stdout)
 		os.Exit(0)
 	}
 
-	helpTopic := zodbtools.LookupHelpTopic(topic)
+	helpTopic := zodbtools.HelpTopics.Lookup(topic)
 	if helpTopic != nil {
 		fmt.Println(helpTopic.Text)
 		os.Exit(0)
@@ -110,7 +110,7 @@ func main() {
 	}
 
 	// run subcommand
-	cmd := zodbtools.LookupCommand(command)
+	cmd := zodbtools.Commands.Lookup(command)
 	if cmd == nil {
 		fmt.Fprintf(os.Stderr, "zodb: unknown subcommand \"%s\"", command)
 		fmt.Fprintf(os.Stderr, "Run 'zodb help' for usage.")

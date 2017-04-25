@@ -15,37 +15,15 @@
 //
 // See COPYING file for full licensing terms.
 
-package zodbtools
-// registry for all commands
+package neo
+// registry of all commands & help topics
 
-import "io"
+import "../zodb/zodbtools"
 
-// Command describes one zodb subcommand
-type Command struct {
-	Name	string
-	Summary	string
-	Usage	func (w io.Writer)
-	Main	func (argv []string)
+var Commands = zodbtools.CommandRegistry{
+	{"storage", storageSummary, storageUsage, storageMain},
 }
 
-// CommandRegistry is ordered collection of Commands
-type CommandRegistry []Command
-
-// Lookup returns Command with corresponding name or nil
-func (cmdv CommandRegistry) Lookup(command string) *Command {
-	for i := range cmdv {
-		if cmdv[i].Name == command {
-			return &cmdv[i]
-		}
-	}
-	return nil
-}
-
-// registry of all zodbtools commands
-var Commands = CommandRegistry{
-	// NOTE the order commands are listed here is the order how they will appear in help
-	// TODO analyze ?
-	// TODO cmp
-	{"dump", dumpSummary, dumpUsage, dumpMain},
-	{"info", infoSummary, infoUsage, infoMain},
+var HelpTopics = zodbtools.HelpRegistry{
+	// XXX for now empty
 }
