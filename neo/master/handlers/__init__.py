@@ -82,13 +82,12 @@ class BaseServiceHandler(MasterHandler):
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
-            node.setDown()
-        elif node.isTemporarilyDown():
-            # Already put in TEMPORARILY_DOWN state
-            # by AdministrationHandler.setNodeState
+            node.setUnknown()
+        elif node.isDown():
+            # Already put in DOWN state by AdministrationHandler.setNodeState
             return
         else:
-            node.setTemporarilyDown()
+            node.setDown()
         app.broadcastNodesInformation([node])
         if app.truncate_tid:
             raise StoppedOperation

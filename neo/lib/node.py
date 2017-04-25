@@ -31,8 +31,7 @@ class Node(object):
     _identified = False
     id_timestamp = None
 
-    def __init__(self, manager, address=None, uuid=None,
-            state=NodeStates.TEMPORARILY_DOWN):
+    def __init__(self, manager, address=None, uuid=None, state=NodeStates.DOWN):
         self._state = state
         self._address = address
         self._uuid = uuid
@@ -64,7 +63,7 @@ class Node(object):
     def setState(self, new_state):
         if self._state == new_state:
             return
-        if new_state == NodeStates.DOWN:
+        if new_state == NodeStates.UNKNOWN:
             self._manager.remove(self)
             self._state = new_state
         else:
@@ -271,7 +270,7 @@ class NodeManager(EventQueue):
         if node in self._node_set:
             logging.warning('adding a known node %r, ignoring', node)
             return
-        assert not node.isDown(), node
+        assert not node.isUnknown(), node
         self._node_set.add(node)
         self._updateAddress(node, None)
         self._updateUUID(node, None)
@@ -321,7 +320,7 @@ class NodeManager(EventQueue):
         set_dict.setdefault(new_key, set()).add(node)
 
     def _updateState(self, node, old_state):
-        assert not node.isDown(), node
+        assert not node.isUnknown(), node
         self.__updateSet(self._state_dict, old_state, node.getState(), node)
 
     def getList(self, node_filter=None):
@@ -427,7 +426,7 @@ class NodeManager(EventQueue):
 
             log_args = node_type, uuid_str(uuid), addr, state, id_timestamp
             if node is None:
-                assert state != NodeStates.DOWN, (self._node_set,) + log_args
+                assert state != NodeStates.UNKNOWN, (self._node_set,) + log_args
                 node = self._createNode(klass, address=addr, uuid=uuid,
                         state=state)
                 logging.debug('creating node %r', node)
@@ -439,7 +438,7 @@ class NodeManager(EventQueue):
                     'Discrepancy between node_by_uuid (%r) and ' \
                     'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
                     node_by_uuid.setUUID(None)
-                if state == NodeStates.DOWN:
+                if state == NodeStates.UNKNOWN:
                     logging.debug('dropping node %r (%r), found with %s '
                         '%s %s %s %s', node, node.isConnected(), *log_args)
                     if node.isConnected():

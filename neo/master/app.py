@@ -238,7 +238,7 @@ class Application(BaseApplication):
         # If I know any storage node, make sure that they are not in the
         # running state, because they are not connected at this stage.
         for node in self.nm.getStorageList():
-            assert node.isTemporarilyDown(), node
+            assert node.isDown(), node
 
         if self.uuid is None:
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
@@ -340,7 +340,7 @@ class Application(BaseApplication):
             try:
                 if master_conn is None:
                     for node in self.nm.getMasterList():
-                        node.setTemporarilyDown()
+                        node.setDown()
                     node = self.primary_master
                     failed.add(node.getAddress())
                     if not node.isConnected(True):
@@ -487,7 +487,7 @@ class Application(BaseApplication):
                 if node.isStorage():
                     conn.send(Packets.NotifyNodeInformation(monotonic_time(), ((
                         node.getType(), node.getAddress(), node.getUUID(),
-                        NodeStates.TEMPORARILY_DOWN, None),)))
+                        NodeStates.DOWN, None),)))
                 if conn.pending():
                     conn.abort()
                     continue

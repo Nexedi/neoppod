@@ -142,7 +142,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def notifyNodeInformation(self, conn, timestamp, node_list):
         super(PrimaryNotificationsHandler, self).notifyNodeInformation(
             conn, timestamp, node_list)
-        # XXX: 'update' automatically closes DOWN nodes. Do we really want
+        # XXX: 'update' automatically closes UNKNOWN nodes. Do we really want
         #      to do the same thing for nodes in other non-running states ?
         getByUUID = self.app.nm.getByUUID
         for node in node_list:

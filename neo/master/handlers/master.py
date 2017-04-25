@@ -26,7 +26,7 @@ class SecondaryHandler(MasterHandler):
     def _connectionLost(self, conn):
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
-        node.setTemporarilyDown()
+        node.setDown()
         app.broadcastNodesInformation([node])
 
 
@@ -91,5 +91,5 @@ class PrimaryHandler(ElectionHandler):
             conn, timestamp, node_list)
         for node_type, _, uuid, state, _ in node_list:
             assert node_type == NodeTypes.MASTER, node_type
-            if uuid == self.app.uuid and state == NodeStates.TEMPORARILY_DOWN:
+            if uuid == self.app.uuid and state == NodeStates.DOWN:
                 sys.exit()

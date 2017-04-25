@@ -138,7 +138,7 @@ class EventHandler(object):
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %r', conn)
-        self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
+        self.connectionLost(conn, NodeStates.DOWN)
 
     def connectionLost(self, conn, new_state):
         """ this is a method to override in sub-handlers when there is no need

@@ -70,9 +70,9 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         pt._setCell(0, sn1, CellStates.OUT_OF_DATE)
         sn1.setState(NodeStates.RUNNING)
         pt._setCell(1, sn2, CellStates.UP_TO_DATE)
-        sn2.setState(NodeStates.TEMPORARILY_DOWN)
+        sn2.setState(NodeStates.DOWN)
         pt._setCell(2, sn3, CellStates.UP_TO_DATE)
-        sn3.setState(NodeStates.DOWN)
+        sn3.setState(NodeStates.UNKNOWN)
         pt._setCell(3, sn4, CellStates.UP_TO_DATE)
         sn4.setState(NodeStates.RUNNING)
         # outdate nodes
@@ -146,7 +146,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         uuid2 = self.getStorageUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = self.createStorage(server2, uuid2)
-        sn2.setState(NodeStates.TEMPORARILY_DOWN)
+        sn2.setState(NodeStates.DOWN)
         # add node without uuid
         server3 = ("127.0.0.3", 19001)
         sn3 = self.createStorage(server3, None, NodeStates.RUNNING)

@@ -1,7 +1,4 @@
   Documentation
-    - Clarify node state signification, and consider renaming them in the code.
-      Ideas:
-        TEMPORARILY_DOWN becomes UNAVAILABLE
     - Clarify the use of each error codes:
       - NOT_READY removed (connection kept opened until ready)
       - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)

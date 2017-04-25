@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib.handler import DelayEvent
-from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
+from neo.lib.protocol import Packets, ProtocolError, MAX_TID, Errors
 from ..app import monotonic_time
 from . import MasterHandler
 
@@ -28,7 +28,7 @@ class ClientServiceHandler(MasterHandler):
         node = app.nm.getByUUID(conn.getUUID())
         assert node is not None, conn
         app.tm.clientLost(node)
-        node.setState(NodeStates.DOWN)
+        node.setUnknown()
         app.broadcastNodesInformation([node])
         app.nm.remove(node)
 

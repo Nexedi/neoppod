@@ -71,11 +71,11 @@ class RecoveryManager(MasterHandler):
                 for node in app.nm.getMasterList():
                     if not (node is app._node or node.isConnected(True)):
                         # During recovery, master nodes are not put back in
-                        # TEMPORARILY_DOWN state by handlers. This is done
+                        # DOWN state by handlers. This is done
                         # entirely in this method (here and after this poll
                         # loop), to minimize the notification packets.
-                        if not node.isTemporarilyDown():
-                            node.setTemporarilyDown()
+                        if not node.isDown():
+                            node.setDown()
                             node_list.append(node)
                         ClientConnection(app, app.election_handler, node)
                 if node_list:
@@ -128,10 +128,10 @@ class RecoveryManager(MasterHandler):
             if not (node is app._node or node.isIdentified()):
                 if node.isConnected(True):
                     node.getConnection().close()
-                    assert node.isTemporarilyDown(), node
-                elif not node.isTemporarilyDown():
+                    assert node.isDown(), node
+                elif not node.isDown():
                     assert self.try_secondary, node
-                    node.setTemporarilyDown()
+                    node.setDown()
                     node_list.append(node)
 
         app.broadcastNodesInformation(node_list)

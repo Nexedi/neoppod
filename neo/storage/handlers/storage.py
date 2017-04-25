@@ -18,8 +18,7 @@ import weakref
 from functools import wraps
 from neo.lib.connection import ConnectionClosed
 from neo.lib.handler import DelayEvent, EventHandler
-from neo.lib.protocol import Errors, NodeStates, Packets, ProtocolError, \
-    ZERO_HASH
+from neo.lib.protocol import Errors, Packets, ProtocolError, ZERO_HASH
 
 def checkConnectionIsReplicatorConnection(func):
     def wrapper(self, conn, *args, **kw):
@@ -53,7 +52,7 @@ class StorageOperationHandler(EventHandler):
                 node = app.nm.getByUUID(uuid)
             else:
                 node = app.nm.getByAddress(conn.getAddress())
-                node.setState(NodeStates.DOWN)
+                node.setUnknown()
             replicator = app.replicator
             if replicator.current_node is node:
                 replicator.abort()

@@ -119,9 +119,9 @@ def NodeTypes():
 
 @Enum
 def NodeStates():
-    RUNNING
-    TEMPORARILY_DOWN
+    UNKNOWN
     DOWN
+    RUNNING
     PENDING
 
 @Enum
@@ -146,8 +146,8 @@ def CellStates():
 # used for logging
 node_state_prefix_dict = {
     NodeStates.RUNNING: 'R',
-    NodeStates.TEMPORARILY_DOWN: 'T',
     NodeStates.DOWN: 'D',
+    NodeStates.UNKNOWN: 'U',
     NodeStates.PENDING: 'P',
 }
 
