@@ -15,41 +15,40 @@
 //
 // See COPYING file for full licensing terms.
 
-// Package client provides access to NEO database via ZODB interfaces
-package client
+package neo
+// access to NEO database via ZODB interfaces
 
 import (
 
-	"../../neo"
-	"../../zodb"
+	"../zodb"
 )
 
-type NEOClient struct {
-	storLink neo.NodeLink	// link to storage node
+type Client struct {
+	storLink NodeLink	// link to storage node
 }
 
-var _ zodb.IStorage = (*NEOClient)(nil)
+var _ zodb.IStorage = (*Client)(nil)
 
-//func Open(...) (*NEOClient, error) {
+//func Open(...) (*Client, error) {
 //}
 
 
-func (c *NEOClient) StorageName() string {
+func (c *Client) StorageName() string {
 	return "neo"	// TODO more specific
 }
 
-func (c *NEOClient) Close() error {
+func (c *Client) Close() error {
 	panic("TODO")
 }
 
-func (c *NEOClient) LastTid() zodb.Tid {
+func (c *Client) LastTid() zodb.Tid {
 	panic("TODO")
 }
 
-func (c *NEOClient) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	panic("TODO")
 }
 
-func (c *NEOClient) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	panic("TODO")
 }

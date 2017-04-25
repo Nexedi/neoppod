@@ -15,15 +15,19 @@
 //
 // See COPYING file for full licensing terms.
 
-// TODO text
-
-package storage
+package neo
+// NEO storage node
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io"
+	"log"
+	"os"
 
-	"../../zodb"
+	"../zodb"
+	_ "../zodb/wks"
 )
 
 // NEO Storage application
@@ -192,5 +196,54 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 		}
 
 		//req.Put(...)
+	}
+}
+
+// ----------------------------------------
+
+const storageSummary = "run NEO storage node"
+
+// TODO options:
+// cluster, masterv, bind ...
+
+func storageUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`neostorage runs one NEO storage server.
+
+Usage: neostorage [options] zstor	XXX
+`)
+}
+
+func storageMain(argv []string) {
+	flags := flag.FlagSet{Usage: func() { storageUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+
+	// XXX hack
+	zstor, err := zodb.OpenStorageURL(argv[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	storsrv := NewStorage(zstor)
+
+	/*
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(5 * time.Second)
+		cancel()
+	}()
+	*/
+	ctx := context.Background()
+
+	err = ListenAndServe(ctx, "tcp", "localhost:1234", storsrv)	// XXX hardcoded
+	if err != nil {
+		log.Fatal(err)
 	}
 }
