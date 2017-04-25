@@ -1,5 +1,7 @@
 package fsb
 
+//go:generate ./gen-fsbtree
+
 import "../../../../zodb"
 
 // comparison function for fsbTree

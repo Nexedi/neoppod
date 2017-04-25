@@ -20,7 +20,7 @@ type Server interface {
 //
 // the listener is closed when Serve returns.
 func Serve(ctx context.Context, l *Listener, srv Server) error {
-	fmt.Printf("stor: serving on %s ...\n", l.Addr())
+	fmt.Printf("stor: serving on %s ...\n", l.Addr())	// XXX 'stor' -> generic
 
 	// close listener when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - listener close will signal to all accepts to

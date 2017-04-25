@@ -1,6 +1,6 @@
 // NEO. Protocol description
 
-//go:generate sh -c "go run protogen.go >marshal.go"
+//go:generate sh -c "go run protogen.go >proto-marshal.go"
 
 package neo
 
