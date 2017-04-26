@@ -80,7 +80,8 @@ func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
 // ----------------------------------------
 
 // Identify identifies peer on the link
-// it expects peer to send RequestIdentification packet and TODO
+// it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification parameters are ok.
+// returns information about identified node or error.
 func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()

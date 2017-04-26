@@ -177,6 +177,25 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 	xclose(nl2)
 
+	// Close vs Accept
+	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
+	wg = WorkGroup()
+	wg.Gox(func() {
+		tdelay()
+		xclose(nl2)
+	})
+	c, err := nl2.Accept()
+	if !(c == nil && err == ErrLinkClosed) {
+		t.Fatalf("NodeLink.Accept() after close: conn = %v, err = %v", c, err)
+	}
+	// nl1 is not accepting connections - because it has LinkClient role
+	// check Accept behaviour.
+	c, err = nl1.Accept()
+	if !(c == nil && err == ErrLinkNoListen) {
+		t.Fatalf("NodeLink.Accept() on non-listening node link: conn = %v, err = %v", c, err)
+	}
+	xclose(nl1)
+
 	// raw exchange
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 
@@ -212,7 +231,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs Recv
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
-	c := nl1.NewConn()
+	c = nl1.NewConn()
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -267,8 +286,12 @@ func TestNodeLink(t *testing.T) {
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
-	nl2.HandleNewConn(func(c *Conn) {
-		// TODO raised err -> errch
+	wg = WorkGroup()
+	//nl2.HandleNewConn(func(c *Conn) {
+	wg.Gox(func() {
+		c, err := nl2.Accept()	// XXX -> xaccept ?
+		exc.Raiseif(err)
+
 		pkt := xrecv(c)
 		xverifyPkt(pkt, c.connId, 33, []byte("ping"))
 
@@ -289,7 +312,8 @@ func TestNodeLink(t *testing.T) {
 	xsend(c, mkpkt(35, []byte("ping2")))
 	pkt = xrecv(c)
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
-	nl2.Wait()
+	//nl2.Wait()
+	xwait(wg)
 
 	xclose(c)
 	xclose(nl1)
@@ -297,6 +321,7 @@ func TestNodeLink(t *testing.T) {
 
 	// test 2 channels with replies comming in reversed time order
 	nl1, nl2 = nodeLinkPipe()
+	wg = WorkGroup()
 	replyOrder := map[uint16]struct { // "order" in which to process requests
 		start chan struct{}       // processing starts when start chan is ready
 		next  uint16              // after processing this switch to next
@@ -306,21 +331,28 @@ func TestNodeLink(t *testing.T) {
 	}
 	close(replyOrder[2].start)
 
-	nl2.HandleNewConn(func(c *Conn) {
-		// TODO raised err -> errch
-		pkt := xrecv(c)
-		n := ntoh16(pkt.Header().MsgCode)
-		x := replyOrder[n]
+	//nl2.HandleNewConn(func(c *Conn) {
+	wg.Gox(func() {
+		for _ = range replyOrder {
+			c, err := nl2.Accept()
+			exc.Raiseif(err)
 
-		// wait before it is our turn & echo pkt back
-		<-x.start
-		xsend(c, pkt)
+			wg.Gox(func() {
+				pkt := xrecv(c)
+				n := ntoh16(pkt.Header().MsgCode)
+				x := replyOrder[n]
 
-		xclose(c)
+				// wait before it is our turn & echo pkt back
+				<-x.start
+				xsend(c, pkt)
 
-		// tell next it can start
-		if x.next != 0 {
-			close(replyOrder[x.next].start)
+				xclose(c)
+
+				// tell next it can start
+				if x.next != 0 {
+					close(replyOrder[x.next].start)
+				}
+			})
 		}
 	})
 
@@ -336,7 +368,8 @@ func TestNodeLink(t *testing.T) {
 	}
 	xechoWait(c2, 2)
 	xechoWait(c1, 1)
-	nl2.Wait()
+	//nl2.Wait()
+	xwait(wg)
 
 	xclose(c1)
 	xclose(c2)

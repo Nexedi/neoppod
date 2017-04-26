@@ -33,11 +33,11 @@ import (
 //
 // New connection can be created with .NewConn() . Once connection is
 // created and data is sent over it, on peer's side another corresponding
-// new connection will be created - accepting first packet "request" - and all
+// new connection will be created - accepting first packet "request" - and all	XXX -> Accept
 // further communication send/receive exchange will be happening in between
 // those 2 connections.
 //
-// For a node to be able to accept new incoming connection it has to register
+// For a node to be able to accept new incoming connection it has to register	XXX -> Accept
 // corresponding handler with .HandleNewConn() . Without such handler
 // registered the node will be able to only initiate new connections, not
 // accept new ones from its peer.
@@ -53,8 +53,11 @@ type NodeLink struct {
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
 	serveWg       sync.WaitGroup	// for serve{Send,Recv}
-	handleWg      sync.WaitGroup	// for spawned handlers
-	handleNewConn func(conn *Conn)	// handler for new connections
+//	handleWg      sync.WaitGroup	// for spawned handlers
+//	handleNewConn func(conn *Conn)	// handler for new connections
+
+	acceptq chan *Conn		// queue of incoming connections for Accept
+					// = nil if NodeLink is not accepting connections
 
 	txreq	chan txReq		// tx requests from Conns go via here
 	closed  chan struct{}
@@ -78,7 +81,7 @@ type Conn struct {
 	closed    chan struct{}
 }
 
-// A role our end of NodeLink is intended to play
+// LinkRole is a role an end of NodeLink is intended to play
 type LinkRole int
 const (
 	LinkServer LinkRole = iota	// link created as server
@@ -89,10 +92,10 @@ const (
 	linkFlagsMask  LinkRole = (1<<32 - 1) << 16
 )
 
-// Make a new NodeLink from already established net.Conn
+// NewNodeLink makes a new NodeLink from already established net.Conn
 //
 // Role specifies how to treat our role on the link - either as client or
-// server one. The difference in between client and server roles is only in
+// server one. The difference in between client and server roles is only in	XXX + acceptq
 // how connection ids are allocated for connections initiated at our side:
 // there is no conflict in identifiers if one side always allocates them as
 // even (server) and its peer as odd (client).
@@ -101,11 +104,14 @@ const (
 // net.Listen/net.Accept and client role for connections created via net.Dial.
 func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	var nextConnId uint32
+	var acceptq chan *Conn
 	switch role&^linkFlagsMask {
 	case LinkServer:
-		nextConnId = 0	// all initiated by us connId will be even
+		nextConnId = 0			// all initiated by us connId will be even
+		acceptq = make(chan *Conn)	// accept queue; TODO use backlog
 	case LinkClient:
 		nextConnId = 1	// ----//---- odd
+		acceptq = nil	// not accepting incoming connections
 	default:
 		panic("invalid conn role")
 	}
@@ -114,6 +120,7 @@ func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		peerLink:   conn,
 		connTab:    map[uint32]*Conn{},
 		nextConnId: nextConnId,
+		acceptq:    acceptq,
 		txreq:      make(chan txReq),
 		closed:     make(chan struct{}),
 	}
@@ -125,9 +132,11 @@ func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	return nl
 }
 
-// Close node-node link.
+// Close closes node-node link.
 // IO on connections established over it is automatically interrupted with an error.
 func (nl *NodeLink) Close() error {
+	// XXX what with .acceptq ?
+
 	// mark all active Conns as closed
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
@@ -150,7 +159,7 @@ func (nl *NodeLink) Close() error {
 	return err
 }
 
-// send raw packet to peer
+// sendPkt sends raw packet to peer
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	if true {
 		// XXX -> log
@@ -165,7 +174,7 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	return err
 }
 
-// receive raw packet from peer
+// recvPkt receives raw packet from peer
 func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// TODO organize rx buffers management (freelist etc)
 	// TODO cleanup lots of ntoh32(...)
@@ -174,7 +183,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
-	// TODO reenable, but NOTE next packet can be also prefetched here
+	// TODO reenable, but NOTE next packet can be also prefetched here -> use buffering ?
 	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
 	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
 	if err != nil {
@@ -193,6 +202,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		panic("TODO message too big")
 	}
 
+	//pkt.Data = xbytes.Resize32(pkt.Data, ntoh32(pkth.Len))
 	if ntoh32(pkth.Len) > uint32(cap(pkt.Data)) {
 		// grow rxbuf
 		rxbuf2 := make([]byte, ntoh32(pkth.Len))
@@ -231,7 +241,7 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 	return c
 }
 
-// Create a connection on top of node-node link
+// NewConn creates a connection on top of node-node link
 func (nl *NodeLink) NewConn() *Conn {
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
@@ -241,6 +251,27 @@ func (nl *NodeLink) NewConn() *Conn {
 	c := nl.newConn(nl.nextConnId)
 	nl.nextConnId += 2
 	return c
+}
+
+// ErrClosedLink is the error indicated for opertions on closed NodeLink
+var ErrLinkClosed   = errors.New("node link closed")
+var ErrLinkNoListen = errors.New("node link is not listening for incoming connections")
+
+// Accept waits for and accepts incoming connection on top of node-node link
+func (nl *NodeLink) Accept() (*Conn, error) {
+	// this node link is not accepting connections
+	if nl.acceptq == nil {
+		return nil, ErrLinkNoListen
+	}
+
+	select {
+	case <-nl.closed:
+		return nil, ErrLinkClosed // XXX + op = Accept ?
+
+	// XXX check acceptq != nil ?
+	case c := <-nl.acceptq:
+		return c, nil
+	}
 }
 
 
@@ -263,14 +294,17 @@ func (nl *NodeLink) serveRecv() {
 
 		// pkt.ConnId -> Conn
 		connId := ntoh32(pkt.Header().ConnId)
-		var handleNewConn func(conn *Conn)
+//		var handleNewConn func(conn *Conn)
 
 		nl.connMu.Lock()
 		conn := nl.connTab[connId]
 		if conn == nil {
-			handleNewConn = nl.handleNewConn
-			if handleNewConn != nil {
+			//handleNewConn = nl.handleNewConn	// XXX -> Accept
+			//if handleNewConn != nil {
+			if nl.acceptq != nil {
 				conn = nl.newConn(connId)
+				// XXX what if Accept exited because of just recently close(nl.closed)?
+				nl.acceptq <- conn
 			}
 		}
 		nl.connMu.Unlock()
@@ -281,29 +315,31 @@ func (nl *NodeLink) serveRecv() {
 			continue
 		}
 
-		// we are accepting new incoming connection - spawn
-		// connection-serving goroutine
-		if handleNewConn != nil {
-			// TODO avoid spawning goroutine for each new Ask request -
-			//	- by keeping pool of read inactive goroutine / conn pool ?
-			// XXX rework interface for this to be Accept-like ?
-			go func() {
-				nl.handleWg.Add(1)
-				defer nl.handleWg.Done()
-				handleNewConn(conn)
-			}()
-		}
+//		// XXX -> accept
+//		// we are accepting new incoming connection - spawn
+//		// connection-serving goroutine
+//		if handleNewConn != nil {
+//			// TODO avoid spawning goroutine for each new Ask request -
+//			//	- by keeping pool of read inactive goroutine / conn pool ?
+//			// XXX rework interface for this to be Accept-like ?
+//			go func() {
+//				nl.handleWg.Add(1)
+//				defer nl.handleWg.Done()
+//				handleNewConn(conn)
+//			}()
+//		}
 
 		// route packet to serving goroutine handler
+		// XXX what if Conn.Recv exited because of just recently close(nl.closed) ?
 		conn.rxq <- pkt
 	}
 }
 
-// wait for all handlers spawned for accepted connections to complete
-// XXX naming -> WaitHandlers ?
-func (nl *NodeLink) Wait() {
-	nl.handleWg.Wait()
-}
+// // wait for all handlers spawned for accepted connections to complete
+// // XXX naming -> WaitHandlers ?
+// func (nl *NodeLink) Wait() {
+// 	nl.handleWg.Wait()
+// }
 
 
 // request to transmit a packet. Result error goes back to errch
@@ -333,13 +369,13 @@ runloop:
 	}
 }
 
-// XXX move to NodeLink ctor ?
-// Set handler for new incoming connections
-func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
-	nl.connMu.Lock()
-	defer nl.connMu.Unlock()
-	nl.handleNewConn = h	// NOTE can change handler at runtime XXX do we need this?
-}
+// // XXX move to NodeLink ctor ?
+// // Set handler for new incoming connections
+// func (nl *NodeLink) HandleNewConn(h func(*Conn)) {
+// 	nl.connMu.Lock()
+// 	defer nl.connMu.Unlock()
+// 	nl.handleNewConn = h	// NOTE can change handler at runtime XXX do we need this?
+// }
 
 
 // ErrClosedConn is the error indicated for read/write operations on closed Conn
@@ -426,7 +462,7 @@ func (c *Conn) Close() error {
 
 // for convinience: Dial/Listen
 
-// Connect to address on named network and wrap the connection as NodeLink
+// Dial connects to address on named network and wrap the connection as NodeLink
 // TODO +tls.Config
 func Dial(ctx context.Context, network, address string) (*NodeLink, error) {
 	d := net.Dialer{}
