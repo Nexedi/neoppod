@@ -58,6 +58,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 			// XXX tell peers we are shutting down?
 		case <-retch:
 		}
+		fmt.Printf("stor: closing link to %s\n", link.peerLink.RemoteAddr())
 		link.Close()	// XXX err
 	}()
 
@@ -92,9 +93,15 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 
 }
 
+// connAddr returns string describing conn	XXX text, naming
+func connAddr(conn *Conn) string {
+	return fmt.Sprintf("%s .%d", conn.nodeLink.peerLink.RemoteAddr(), conn.connId)
+}
 
 // ServeClient serves incoming connection on which peer identified itself as client
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
+	fmt.Printf("stor: serving new client conn %s\n", connAddr(conn)
+
 	// close connection when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - conn.Close will signal to current IO to
 	//   terminate with an error )
@@ -107,6 +114,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 			// XXX tell client we are shutting down?
 		case <-retch:
 		}
+		fmt.Printf("stor: closing client conn %s\n", connAddr(conn))
 		conn.Close()	// XXX err
 	}()
 

@@ -21,6 +21,7 @@ package neo
 import (
 	"context"
 	"fmt"
+	"reflect"
 )
 
 // Server is an interface that represents networked server
@@ -137,15 +138,30 @@ func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo
 // XXX place = ok ? not ok -> move out of here
 // XXX naming for RecvAndDecode and EncodeAndSend
 
-// RecvAndDecode receivs packet from conn and decodes it
-func RecvAndDecode(conn *Conn) (interface{}, error) {	// XXX interface{} -> NEOEncoder ?
+// RecvAndDecode receives packet from conn and decodes it
+func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interface{}
 	pkt, err := conn.Recv()
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO decode pkt
-	return pkt, nil
+	// decode packet
+	// XXX maybe better generate switch on msgCode instead of reflect
+	pkth := pkt.Header()
+	msgCode := ntoh16(pkth.MsgCode)
+	msgType := pktTypeRegistry[msgCode]
+	if msgType == nil {
+		return nil, fmt.Errorf("invalid msgCode (%d)", msgCode)	// XXX err context
+	}
+
+	// TODO use free-list for decoded packets + when possible decode in-place
+	pktObj := reflect.New(msgType).Interface().(NEOCodec)
+	_, err = pktObj.NEODecode(pkt.Payload())
+	if err != nil {
+		return nil, err	// XXX err ctx ?
+	}
+
+	return pktObj, nil
 }
 
 // EncodeAndSend encodes pkt and send it to conn

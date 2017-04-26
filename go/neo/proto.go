@@ -106,6 +106,13 @@ type NEODecoder interface {
 	NEODecode(data []byte) (nread int, err error)
 }
 
+// NEOCodec is interface combining NEOEncoder & NEODecoder
+// in particular it covers all NEO packets
+type NEOCodec interface {
+	NEOEncoder
+	NEODecoder
+}
+
 type Address struct {
 	Host string
 	Port uint16

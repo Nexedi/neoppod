@@ -64,12 +64,6 @@ func TestPktHeader(t *testing.T) {
 	}
 }
 
-// XXX move me out of here?
-type NEOCodec interface {
-	NEOEncoder
-	NEODecoder
-}
-
 // test marshalling for one packet type
 func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
