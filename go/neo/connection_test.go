@@ -2,17 +2,21 @@
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
-// it under the terms of the GNU General Public License version 2, or (at your
+// it under the terms of the GNU General Public License version 3, or (at your
 // option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Open Source Initiative approved licenses and Convey
+// the resulting work. Corresponding source of such a combination shall include
+// the source code for all other software used.
 //
 // This program is distributed WITHOUT ANY WARRANTY; without even the implied
 // warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
 // See COPYING file for full licensing terms.
 
-// NEO. Connection management. Tests
-
 package neo
+// Connection management. Tests
 
 import (
 	"bytes"
@@ -54,6 +58,12 @@ func WorkGroupCtx(ctx context.Context) (*workGroup, context.Context) {
 func xclose(c io.Closer) {
 	err := c.Close()
 	exc.Raiseif(err)
+}
+
+func xaccept(nl *NodeLink) *Conn {
+	c, err := nl.Accept()
+	exc.Raiseif(err)
+	return c
 }
 
 func xsend(c *Conn, pkt *PktBuf) {
@@ -287,10 +297,8 @@ func TestNodeLink(t *testing.T) {
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
 	wg = WorkGroup()
-	//nl2.HandleNewConn(func(c *Conn) {
 	wg.Gox(func() {
-		c, err := nl2.Accept()	// XXX -> xaccept ?
-		exc.Raiseif(err)
+		c := xaccept(nl2)
 
 		pkt := xrecv(c)
 		xverifyPkt(pkt, c.connId, 33, []byte("ping"))
@@ -312,14 +320,13 @@ func TestNodeLink(t *testing.T) {
 	xsend(c, mkpkt(35, []byte("ping2")))
 	pkt = xrecv(c)
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
-	//nl2.Wait()
 	xwait(wg)
 
 	xclose(c)
 	xclose(nl1)
 	xclose(nl2)
 
-	// test 2 channels with replies comming in reversed time order
+	// test 2 channels with replies coming in reversed time order
 	nl1, nl2 = nodeLinkPipe()
 	wg = WorkGroup()
 	replyOrder := map[uint16]struct { // "order" in which to process requests
@@ -331,11 +338,9 @@ func TestNodeLink(t *testing.T) {
 	}
 	close(replyOrder[2].start)
 
-	//nl2.HandleNewConn(func(c *Conn) {
 	wg.Gox(func() {
 		for _ = range replyOrder {
-			c, err := nl2.Accept()
-			exc.Raiseif(err)
+			c := xaccept(nl2)
 
 			wg.Gox(func() {
 				pkt := xrecv(c)
@@ -368,7 +373,6 @@ func TestNodeLink(t *testing.T) {
 	}
 	xechoWait(c2, 2)
 	xechoWait(c1, 1)
-	//nl2.Wait()
 	xwait(wg)
 
 	xclose(c1)
