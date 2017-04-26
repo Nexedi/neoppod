@@ -82,8 +82,6 @@ func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
 // Identify identifies peer on the link
 // it expects peer to send RequestIdentification packet and TODO
 func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
-	nodeInfo := RequestIdentification{}
-
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()
 	if err != nil {
@@ -111,6 +109,8 @@ func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo
 			// TODO also tell peer with Error
 			return nodeInfo, fmt.Errorf("protocol version mismatch: peer = %d  ; our side = %d", pkt.ProtocolVersion, PROTOCOL_VERSION)
 		}
+
+		// TODO (.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
 
 		err = EncodeAndSend(conn, &AcceptIdentification{
 			NodeType:	pkt.NodeType,

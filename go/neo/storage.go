@@ -63,29 +63,32 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 
 	nodeInfo, err := Identify(link)
 	if err != nil {
-		fmt.Printf("stor: peer identification failed: %v\n", err)
+		fmt.Printf("peer identification failed: %v\n", err)
 		return
 	}
 
-/*
-	pktri, err := expect(RequestIdentification)
-	if err != nil {
-		send(err)
+	var serveConn func(context.Context, *Conn)
+	switch nodeInfo.NodeType {
+	case CLIENT:
+		serveConn = stor.ServeClient
+
+	default:
+		fmt.Printf("unexpected peer type: %v\n", nodeInfo.NodeType)
 		return
 	}
 
-	if pktri.ProtocolVersion != PROTOCOL_VERSION {
-		sendErr("...")
-		return
+	// identification passed, now serve other requests
+	for {
+		conn, err := link.Accept()
+		if err != nil {
+			fmt.Printf("accept: %v\n", err)	// XXX err ctx
+			continue
+		}
+
+		// XXX adjust ctx ?
+		// XXX wrap conn close to happen here, not in ServeClient ?
+		go serveConn(ctx, conn)
 	}
-
-	(.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
-
-	send(AcceptIdentification{...})
-	// TODO mark link as identified
-
-
-*/
 
 }
 
