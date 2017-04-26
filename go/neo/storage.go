@@ -100,7 +100,7 @@ func connAddr(conn *Conn) string {
 
 // ServeClient serves incoming connection on which peer identified itself as client
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
-	fmt.Printf("stor: serving new client conn %s\n", connAddr(conn)
+	fmt.Printf("stor: serving new client conn %s\n", connAddr(conn))
 
 	// close connection when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - conn.Close will signal to current IO to

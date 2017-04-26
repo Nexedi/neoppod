@@ -57,8 +57,16 @@ type NodeLink struct {
 	acceptq chan *Conn		// queue of incoming connections for Accept
 					// = nil if NodeLink is not accepting connections
 
-	txreq	chan txReq		// tx requests from Conns go via here
-	closed  chan struct{}
+	txq	chan txReq		// tx requests from Conns go via here
+
+//	errMu   sync.Mutex	-> use connMu
+//	sendErr error			// error got from sendPkt, if any
+	recvErr	error			// error got from recvPkt, if any
+
+	// once because: NodeLink has to be explicitly closed by user; it can also
+	// be "closed" by IO errors on peerLink
+	closeOnce sync.Once
+	closed    chan struct{}		// XXX text
 }
 
 // Conn is a connection established over NodeLink
@@ -93,7 +101,7 @@ const (
 // NewNodeLink makes a new NodeLink from already established net.Conn
 //
 // Role specifies how to treat our role on the link - either as client or
-// server one. The difference in between client and server roles are in:
+// server. The difference in between client and server roles are in:
 //
 // 1. how connection ids are allocated for connections initiated at our side:
 //    there is no conflict in identifiers if one side always allocates them as
@@ -122,7 +130,7 @@ func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		connTab:    map[uint32]*Conn{},
 		nextConnId: nextConnId,
 		acceptq:    acceptq,
-		txreq:      make(chan txReq),
+		txq:        make(chan txReq),
 		closed:     make(chan struct{}),
 	}
 	if role&linkNoRecvSend == 0 {
@@ -133,20 +141,29 @@ func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	return nl
 }
 
+// worker for Close & friends. Must be called with connMu held.
+// marks all active Conns and NodeLink itself as closed
+func (nl *NodeLink) close() {
+	nl.closeOnce.Do(func() {
+		for _, conn := range nl.connTab {
+			conn.close()	// XXX explicitly pass error here ?
+		}
+		nl.connTab = nil	// clear + mark closed
+
+		close(nl.closed)
+	})
+}
+
 // Close closes node-node link.
 // IO on connections established over it is automatically interrupted with an error.
 func (nl *NodeLink) Close() error {
-	// mark all active Conns as closed
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
-	for _, conn := range nl.connTab {
-		conn.close()
-	}
-	nl.connTab = nil	// clear + mark closed
+
+	nl.close()
 
 	// close actual link to peer
 	// this will wakeup serve{Send,Recv}
-	close(nl.closed)
 	err := nl.peerLink.Close()
 
 	// wait for serve{Send,Recv} to complete
@@ -161,7 +178,11 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 		// XXX -> log
 		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}
+	// XXX if nl is closed peerLink will return "io on closed xxx" but
+	// maybe better to check explicitly and return ErrClosedLink
+
 	_, err := nl.peerLink.Write(pkt.Data)	// FIXME write Data in full
+	//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
 	if err != nil {
 		// XXX do we need to retry if err is temporary?
 		// TODO data could be written partially and thus the message stream is now broken
@@ -172,6 +193,9 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 
 // recvPkt receives raw packet from peer
 func (nl *NodeLink) recvPkt() (*PktBuf, error) {
+	// XXX if nl is closed peerLink will return "io on closed xxx" but
+	// maybe better to check explicitly and return ErrClosedLink
+
 	// TODO organize rx buffers management (freelist etc)
 	// TODO cleanup lots of ntoh32(...)
 	// XXX do we need to retry if err is temporary?
@@ -277,28 +301,42 @@ func (nl *NodeLink) serveRecv() {
 	for {
 		// receive 1 packet
 		pkt, err := nl.recvPkt()
+		fmt.Printf("recvPkt -> %v, %v\n", pkt, err)
 		if err != nil {
-			// this might be just error on close - simply stop in such case
+			// on IO error framing over peerLink becomes broken
+			// so we are marking node link and all connections as closed
+			println("\tzzz")
+			nl.connMu.Lock()
+			println("\tzzz 2")
+			defer nl.connMu.Unlock()
+
+			println("\tqqq")
 			select {
 			case <-nl.closed:
-				// XXX check err actually what is on interrupt?
-				return
+				// error due to closing NodeLink
+				nl.recvErr = ErrLinkClosed
+			default:
+				nl.recvErr = err
 			}
-			panic(err)	// XXX err -> if !temporary -> nl.closeWithError(err)
+
+			println("\trrr")
+			// wake-up all conns & mark node link as closed
+			nl.close()
+			println("\tsss")
+			return
 		}
 
 		// pkt.ConnId -> Conn
 		connId := ntoh32(pkt.Header().ConnId)
 
+		accept := false
 		nl.connMu.Lock()
 		conn := nl.connTab[connId]
 		if conn == nil {
 			if nl.acceptq != nil {
 				// we are accepting new incoming connection
 				conn = nl.newConn(connId)
-				// XXX what if Accept exited because of just recently close(nl.closed)?
-				//     -> check nl.closed here too ?
-				nl.acceptq <- conn
+				accept = true
 			}
 		}
 		nl.connMu.Unlock()
@@ -309,6 +347,12 @@ func (nl *NodeLink) serveRecv() {
 			continue
 		}
 
+		if accept {
+			// XXX what if Accept exited because of just recently close(nl.closed)?
+			//     -> check nl.closed here too ?
+			nl.acceptq <- conn
+		}
+
 		// route packet to serving goroutine handler
 		// XXX what if Conn.Recv exited because of just recently close(nl.closed) ?
 		//     -> check nl.closed here too ?
@@ -317,9 +361,9 @@ func (nl *NodeLink) serveRecv() {
 }
 
 
-// request to transmit a packet. Result error goes back to errch
+// txReq is request to transmit a packet. Result error goes back to errch
 type txReq struct {
-	pkt *PktBuf
+	pkt   *PktBuf
 	errch chan error
 }
 
@@ -327,26 +371,53 @@ type txReq struct {
 // serially executes them over associated node link.
 func (nl *NodeLink) serveSend() {
 	defer nl.serveWg.Done()
-runloop:
+	var err error
+
 	for {
 		select {
 		case <-nl.closed:
-			break runloop
+			return
 
-		case txreq := <-nl.txreq:
-			err := nl.sendPkt(txreq.pkt)
+		case txreq := <-nl.txq:
+			err = nl.sendPkt(txreq.pkt)
+
 			if err != nil {
-				// XXX also close whole nodeLink since tx framing now can be broken?
-				//     -> not here - this logic should be in sendPkt
+				// on IO error framing over peerLink becomes broken
+				// so we are marking node link and all connections as closed
+				select {
+				case <-nl.closed:
+					// error due to closing NodeLink
+					err = ErrLinkClosed
+				default:
+				}
 			}
+
 			txreq.errch <- err
+
+			if err != nil {
+				nl.connMu.Lock()
+				defer nl.connMu.Unlock()
+
+//				nl.sendErr = err
+
+				// wake-up all conns & mark node link as closed
+				nl.close()
+			}
 		}
 	}
+
 }
 
 
 // ErrClosedConn is the error indicated for read/write operations on closed Conn
 var ErrClosedConn = errors.New("read/write on closed connection")
+
+func errClosedConn(err error) error {
+	if err != nil {
+		return err
+	}
+	return ErrClosedConn
+}
 
 // Send packet via connection
 func (c *Conn) Send(pkt *PktBuf) error {
@@ -357,8 +428,9 @@ func (c *Conn) Send(pkt *PktBuf) error {
 	select {
 	case <-c.closed:
 		return ErrClosedConn
+//		return errClosedConn(c.nodeLink.sendErr)	// XXX locking ?
 
-	case c.nodeLink.txreq <- txReq{pkt, c.txerr}:
+	case c.nodeLink.txq <- txReq{pkt, c.txerr}:
 		select {
 		// tx request was sent to serveSend and is being transmitted on the wire.
 		// the transmission may block for indefinitely long though and
@@ -371,23 +443,13 @@ func (c *Conn) Send(pkt *PktBuf) error {
 		// NOTE after we return straight here serveSend won't be later
 		// blocked on c.txerr<- because that backchannel is a non-blocking one.
 		case <-c.closed:
+			// XXX also poll c.txerr
 			return ErrClosedConn
+//			return errClosedConn(c.nodeLink.sendErr)	// XXX locking ?
 
 		case err = <-c.txerr:
-		}
-	}
-
-	// if we got transmission error chances are it was due to underlying NodeLink
-	// being closed. If our Conn was also requested to be closed adjust err
-	// to ErrClosedConn along the way.
-	//
-	// ( reaching here is theoretically possible if both c.closed and
-	//   c.txerr are ready above )
-	if err != nil {
-		select {
-		case <-c.closed:
-			err = ErrClosedConn
-		default:
+			//fmt.Printf("%v <- c.txerr\n", err)
+			return err
 		}
 	}
 
@@ -398,10 +460,12 @@ func (c *Conn) Send(pkt *PktBuf) error {
 func (c *Conn) Recv() (*PktBuf, error) {
 	select {
 	case <-c.closed:
-		return nil, ErrClosedConn
+		// XXX get err from c.nodeLink.recvErr
+		// XXX if nil -> ErrClosedConn ?
+		return nil, ErrClosedConn	// XXX -> EOF ?
 
 	case pkt := <-c.rxq:
-		return pkt, nil
+		return pkt, nil	// XXX error = ?
 	}
 }
 
@@ -488,15 +552,3 @@ func Listen(network, laddr string) (*Listener, error) {
 //
 // A reply to particular Ask packet, once received, will be delivered to
 // corresponding goroutine which originally issued Ask	XXX this can be put into interface
-
-
-
-// // Send notify packet to peer
-// func (c *NodeLink) Notify(pkt XXX) error {
-// 	// TODO
-// }
-//
-// // Send packet and wait for replied answer packet
-// func (c *NodeLink) Ask(pkt XXX) (answer Pkt, err error) {
-// 	// TODO
-// }
