@@ -26,13 +26,13 @@ import (
 	"log"
 	"os"
 
+	//"time"
+
 	"../zodb"
 	"../zodb/storage/fs1"
 )
 
-// NEO Storage application
-
-// XXX naming
+// Storage is NEO storage server application
 type Storage struct {
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
@@ -42,15 +42,30 @@ func NewStorage(zstor zodb.IStorage) *Storage {
 }
 
 
-/*
-// XXX change to bytes.Buffer if we need to access it as I/O
-type Buffer struct {
-	buf	[]byte
-}
-*/
-
+// ServeLink serves incoming node-node link connection
 func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("stor: serving new node %s <-> %s\n", link.peerLink.LocalAddr(), link.peerLink.RemoteAddr())
+
+	// close link when either cancelling or returning (e.g. due to an error)
+	// ( when cancelling - link.Close will signal to all current IO to
+	//   terminate with an error )
+	// XXX dup -> utility
+	retch := make(chan struct{})
+	defer func() { close(retch) }()
+	go func() {
+		select {
+		case <-ctx.Done():
+			// XXX tell peers we are shutting down?
+		case <-retch:
+		}
+		link.Close()	// XXX err
+	}()
+
+	nodeInfo, err := Identify(link)
+	if err != nil {
+		fmt.Printf("stor: peer identification failed: %v\n", err)
+		return
+	}
 
 /*
 	pktri, err := expect(RequestIdentification)
@@ -70,79 +85,17 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	// TODO mark link as identified
 
 
-	pkt, err := recv()
-	if err != nil {
-		err
-		return
-	}
-
-	switch pkt.MsgCode {
-	case GetObject:
-		req := GetObject{}
-		err = req.NEODecode(pkt.Payload())
-		if err != nil {
-			sendErr("malformed GetObject packet:", err)
-		}
-
-		-> DM.getObject(req.Oid, req.Serial, req.Tid)
-
-	case StoreObject:
-	case StoreTransaction:
-	}
 */
 
-
-
-	//fmt.Fprintf(conn, "Hello up there, you address is %s\n", conn.RemoteAddr())	// XXX err
-	//conn.Close()	// XXX err
-
-	/*
-	// TODO: use bytes.Buffer{}
-	//	 .Bytes() -> buf -> can grow up again up to buf[:cap(buf)]
-	//	 NewBuffer(buf) -> can use same buffer for later reading via bytes.Buffer
-	// TODO read PktHeader (fixed length)  (-> length, PktType (by .code))
-	//rxbuf := bytes.Buffer{}
-	rxbuf := bytes.NewBuffer(make([]byte, 4096))
-	n, err := conn.Read(rxbuf.Bytes())
-	*/
-
-	//recvPkt()
 }
 
-
-// XXX naming for RecvAndDecode and EncodeAndSend
-
-// XXX stub
-// XXX move me out of here
-func RecvAndDecode(conn *Conn) (interface{}, error) {	// XXX interface{} -> NEODecoder ?
-	pkt, err := conn.Recv()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO decode pkt
-	return pkt, nil
-}
-
-func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
-	// TODO encode pkt
-	msgCode, l := pkt.NEOEncodedInfo()
-	l += PktHeadLen
-	buf := PktBuf{make([]byte, l)}	// XXX -> freelist
-	h := buf.Header()
-	h.MsgCode = hton16(msgCode)
-	h.Len = hton32(uint32(l))	// XXX casting: think again
-
-	pkt.NEOEncode(buf.Payload())
-
-	return conn.Send(&buf)	// XXX why pointer?
-}
 
 // ServeClient serves incoming connection on which peer identified itself as client
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 	// close connection when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - conn.Close will signal to current IO to
 	//   terminate with an error )
+	// XXX dup -> utility
 	retch := make(chan struct{})
 	defer func() { close(retch) }()
 	go func() {
@@ -247,24 +200,25 @@ func storageMain(argv []string) {
 		os.Exit(2)
 	}
 
-	// XXX hack
+	// XXX hack to use existing zodb storage for data
 	zstor, err := fs1.Open(argv[0])
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	storsrv := NewStorage(zstor)
+	storSrv := NewStorage(zstor)
 
+	ctx := context.Background()
 	/*
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 		cancel()
 	}()
 	*/
-	ctx := context.Background()
 
-	err = ListenAndServe(ctx, "tcp", bind, storsrv)	// XXX hardcoded
+	// TODO + TLS
+	err = ListenAndServe(ctx, "tcp", bind, storSrv)	// XXX "tcp" hardcoded
 	if err != nil {
 		log.Fatal(err)
 	}
