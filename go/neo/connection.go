@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"fmt"
+	"lab.nexedi.com/kirr/go123/xruntime/debug"
 )
 
 // NodeLink is a node-node link in NEO
@@ -49,7 +50,8 @@ import (
 type NodeLink struct {
 	peerLink net.Conn		// raw conn to peer
 
-	connMu     sync.Mutex	// TODO -> RW ?
+	//connMu     sync.Mutex	// TODO -> RW ?
+	connMu     debug.Mutex	// TODO -> RW ?
 	connTab    map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
@@ -305,19 +307,20 @@ func (nl *NodeLink) serveRecv() {
 		if err != nil {
 			// on IO error framing over peerLink becomes broken
 			// so we are marking node link and all connections as closed
+
+			select {
+			case <-nl.closed:
+				// error due to closing NodeLink
+				err = ErrLinkClosed
+			default:
+			}
+
 			println("\tzzz")
 			nl.connMu.Lock()
 			println("\tzzz 2")
 			defer nl.connMu.Unlock()
 
-			println("\tqqq")
-			select {
-			case <-nl.closed:
-				// error due to closing NodeLink
-				nl.recvErr = ErrLinkClosed
-			default:
-				nl.recvErr = err
-			}
+			nl.recvErr = err
 
 			println("\trrr")
 			// wake-up all conns & mark node link as closed
@@ -403,9 +406,10 @@ func (nl *NodeLink) serveSend() {
 				// wake-up all conns & mark node link as closed
 				nl.close()
 			}
+
+			return
 		}
 	}
-
 }
 
 
