@@ -2167,8 +2167,13 @@ class Test(NEOThreadedTest):
         self.assertEqual([6, 9, 6], [r[x].value for x in 'abc'])
         self.assertEqual([2, 2], map(end.pop(1).count,
             ['RebaseTransaction', 'AnswerRebaseTransaction']))
-        self.assertEqual(end, {0: ['AnswerRebaseTransaction',
-                                   'StoreTransaction', 'VoteTransaction']})
+        # Rarely, there's an extra deadlock for t1:
+        # 0: ['AnswerRebaseTransaction', 'RebaseTransaction',
+        #     'RebaseTransaction', 'AnswerRebaseTransaction',
+        #     'AnswerRebaseTransaction', 2, 3, 1,
+        #     'StoreTransaction', 'VoteTransaction']
+        self.assertEqual(end.pop(0)[0], 'AnswerRebaseTransaction')
+        self.assertFalse(end)
 
     @with_cluster()
     def testDelayedStoreOrdering(self, cluster):
