@@ -26,7 +26,7 @@ import (
 	"sync"
 
 	"fmt"
-	"lab.nexedi.com/kirr/go123/xruntime/debug"
+	//"lab.nexedi.com/kirr/go123/xruntime/debug"
 )
 
 // NodeLink is a node-node link in NEO
@@ -50,8 +50,8 @@ import (
 type NodeLink struct {
 	peerLink net.Conn		// raw conn to peer
 
-	//connMu     sync.Mutex	// TODO -> RW ?
-	connMu     debug.Mutex	// TODO -> RW ?
+	connMu     sync.Mutex	// TODO -> RW ?
+	//connMu     debug.Mutex	// TODO -> RW ?
 	connTab    map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
@@ -61,7 +61,7 @@ type NodeLink struct {
 
 	txq	chan txReq		// tx requests from Conns go via here
 
-//	errMu   sync.Mutex	-> use connMu
+	errMu   sync.Mutex
 //	sendErr error			// error got from sendPkt, if any
 	recvErr	error			// error got from recvPkt, if any
 
@@ -143,14 +143,18 @@ func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	return nl
 }
 
-// worker for Close & friends. Must be called with connMu held.
-// marks all active Conns and NodeLink itself as closed
+// close is worker for Close & friends.
+// It marks all active Conns and NodeLink itself as closed.
 func (nl *NodeLink) close() {
 	nl.closeOnce.Do(func() {
+		nl.connMu.Lock()
 		for _, conn := range nl.connTab {
-			conn.close()	// XXX explicitly pass error here ?
+			// NOTE anything waking up on Conn.closed must not lock
+			// connMu - else it will deadlock.
+			conn.close()
 		}
 		nl.connTab = nil	// clear + mark closed
+		nl.connMu.Unlock()
 
 		close(nl.closed)
 	})
@@ -159,9 +163,6 @@ func (nl *NodeLink) close() {
 // Close closes node-node link.
 // IO on connections established over it is automatically interrupted with an error.
 func (nl *NodeLink) Close() error {
-	nl.connMu.Lock()
-	defer nl.connMu.Unlock()
-
 	nl.close()
 
 	// close actual link to peer
@@ -175,33 +176,27 @@ func (nl *NodeLink) Close() error {
 }
 
 // sendPkt sends raw packet to peer
+// tx error, if any, is returned as is and is analyzed in serveSend
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	if true {
 		// XXX -> log
 		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
+		//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
 	}
-	// XXX if nl is closed peerLink will return "io on closed xxx" but
-	// maybe better to check explicitly and return ErrClosedLink
 
-	_, err := nl.peerLink.Write(pkt.Data)	// FIXME write Data in full
-	//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
-	if err != nil {
-		// XXX do we need to retry if err is temporary?
-		// TODO data could be written partially and thus the message stream is now broken
-		// -> close connection / whole NodeLink ?
-	}
+	// NOTE Write writes data in full, or it is error
+	_, err := nl.peerLink.Write(pkt.Data)
 	return err
 }
 
-// recvPkt receives raw packet from peer
-func (nl *NodeLink) recvPkt() (*PktBuf, error) {
-	// XXX if nl is closed peerLink will return "io on closed xxx" but
-	// maybe better to check explicitly and return ErrClosedLink
+var ErrPktTooSmall = errors.New("packet too small")
+var ErrPktTooBig   = errors.New("packet too big")
 
+// recvPkt receives raw packet from peer
+// rx error, if any, is returned as is and is analyzed in serveRecv
+func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// TODO organize rx buffers management (freelist etc)
 	// TODO cleanup lots of ntoh32(...)
-	// XXX do we need to retry if err is temporary?
-	// TODO on error framing is broken -> close connection / whole NodeLink ?
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
@@ -209,22 +204,20 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
 	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
 	if err != nil {
-		return nil, err	// XXX err adjust ? -> (?) framing error
+		return nil, err
 	}
 
 	pkth := pkt.Header()
 
 	// XXX -> better PktHeader.Decode() ?
 	if ntoh32(pkth.Len) < PktHeadLen {
-		// TODO framing error -> nl.CloseWithError(err)
-		panic("TODO pkt.Len < PktHeadLen")	// length is a whole packet len with header
+		return nil, ErrPktTooSmall	// length is a whole packet len with header
 	}
 	if ntoh32(pkth.Len) > MAX_PACKET_SIZE {
-		// TODO framing error -> nl.CloseWithError(err)
-		panic("TODO message too big")
+		return nil, ErrPktTooBig
 	}
 
-	//pkt.Data = xbytes.Resize32(pkt.Data, ntoh32(pkth.Len))
+	//pkt.Data = xbytes.Resize32(pkt.Data[:n], ntoh32(pkth.Len))
 	if ntoh32(pkth.Len) > uint32(cap(pkt.Data)) {
 		// grow rxbuf
 		rxbuf2 := make([]byte, ntoh32(pkth.Len))
@@ -238,7 +231,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	if n < len(pkt.Data) {
 		_, err = io.ReadFull(nl.peerLink, pkt.Data[n:])
 		if err != nil {
-			return nil, err	// XXX err adjust ? -> (?) framing error
+			return nil, err
 		}
 	}
 
@@ -268,6 +261,7 @@ func (nl *NodeLink) NewConn() *Conn {
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
 	if nl.connTab == nil {
+		// XXX -> error (because NodeLink can become "closed" due to IO errors ?
 		panic("NewConn() on closed node-link")
 	}
 	c := nl.newConn(nl.nextConnId)
@@ -290,14 +284,14 @@ func (nl *NodeLink) Accept() (*Conn, error) {
 	case <-nl.closed:
 		return nil, ErrLinkClosed // XXX + op = Accept ?
 
-	case c := <-nl.acceptq:
+	case c := <-nl.acceptq:	// XXX -> only c, ok := <-nl.acceptq ?
 		return c, nil
 	}
 }
 
 
 // serveRecv handles incoming packets routing them to either appropriate
-// already-established connection or to new handling goroutine.
+// already-established connection or to new handling goroutine.	XXX Accept
 func (nl *NodeLink) serveRecv() {
 	defer nl.serveWg.Done()
 	for {
@@ -310,56 +304,49 @@ func (nl *NodeLink) serveRecv() {
 
 			select {
 			case <-nl.closed:
-				// error due to closing NodeLink
+				// error was due to closing NodeLink
 				err = ErrLinkClosed
 			default:
 			}
 
-			println("\tzzz")
-			nl.connMu.Lock()
-			println("\tzzz 2")
-			defer nl.connMu.Unlock()
-
+			// TODO protect with errMu
 			nl.recvErr = err
 
-			println("\trrr")
 			// wake-up all conns & mark node link as closed
 			nl.close()
-			println("\tsss")
 			return
 		}
 
 		// pkt.ConnId -> Conn
 		connId := ntoh32(pkt.Header().ConnId)
 
-		accept := false
 		nl.connMu.Lock()
 		conn := nl.connTab[connId]
 		if conn == nil {
 			if nl.acceptq != nil {
 				// we are accepting new incoming connection
 				conn = nl.newConn(connId)
-				accept = true
+				// XXX what if Accept exited because of just recently close(nl.closed)?
+				//     -> check nl.closed here too ?
+				nl.acceptq <- conn
 			}
 		}
-		nl.connMu.Unlock()
 
 		// we have not accepted incoming connection - ignore packet
 		if conn == nil {
-			// XXX also log?
+			// XXX also log / increment counter?
+			nl.connMu.Unlock()
 			continue
-		}
-
-		if accept {
-			// XXX what if Accept exited because of just recently close(nl.closed)?
-			//     -> check nl.closed here too ?
-			nl.acceptq <- conn
 		}
 
 		// route packet to serving goroutine handler
 		// XXX what if Conn.Recv exited because of just recently close(nl.closed) ?
 		//     -> check nl.closed here too ?
 		conn.rxq <- pkt
+
+		// keep connMu locked until here: so that ^^^ `conn.rxq <- pkt` can be
+		// sure conn stays not closed e.g. by Conn.Close
+		nl.connMu.Unlock()
 	}
 }
 
@@ -395,19 +382,17 @@ func (nl *NodeLink) serveSend() {
 				}
 			}
 
-			txreq.errch <- err
+			txreq.errch <- err	// XXX recheck wakeup logic for err case
 
 			if err != nil {
-				nl.connMu.Lock()
-				defer nl.connMu.Unlock()
-
+				// XXX use errMu to lock vvv if needed
 //				nl.sendErr = err
 
 				// wake-up all conns & mark node link as closed
 				nl.close()
-			}
 
-			return
+				return
+			}
 		}
 	}
 }
@@ -468,7 +453,7 @@ func (c *Conn) Recv() (*PktBuf, error) {
 		// XXX if nil -> ErrClosedConn ?
 		return nil, ErrClosedConn	// XXX -> EOF ?
 
-	case pkt := <-c.rxq:
+	case pkt := <-c.rxq:	// XXX try to leave only pkt, ok := <-c.rxq
 		return pkt, nil	// XXX error = ?
 	}
 }

@@ -158,7 +158,7 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
-/*
+///*
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg := WorkGroup()
@@ -323,13 +323,13 @@ func TestNodeLink(t *testing.T) {
 	xclose(c11)
 	xclose(c12)
 	xclose(nl2)
-*/
+//*/
 
 	// NodeLink.Close vs Conn.Send/Recv on another side	TODO
-	nl1, nl2 := _nodeLinkPipe(0, linkNoRecvSend)
-	c11 := nl1.NewConn()
-	c12 := nl1.NewConn()
-	wg := WorkGroup()
+	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
+	c11 = nl1.NewConn()
+	c12 = nl1.NewConn()
+	wg = WorkGroup()
 	wg.Gox(func() {
 		println(">>> RECV START")
 		pkt, err := c11.Recv()
@@ -362,7 +362,7 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl1)
 	println("333")
 
-/*
+///*
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
 	wg = WorkGroup()
@@ -448,5 +448,5 @@ func TestNodeLink(t *testing.T) {
 	xclose(c2)
 	xclose(nl1)
 	xclose(nl2)
-*/
+//*/
 }
