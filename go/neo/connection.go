@@ -180,7 +180,7 @@ func (nl *NodeLink) Close() error {
 // sendPkt sends raw packet to peer
 // tx error, if any, is returned as is and is analyzed in serveSend
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
-	if true {
+	if false {
 		// XXX -> log
 		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 		//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
@@ -237,7 +237,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		}
 	}
 
-	if true {
+	if false {
 		// XXX -> log
 		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}
@@ -376,6 +376,7 @@ func (nl *NodeLink) serveSend() {
 
 		case txreq := <-nl.txq:
 			err = nl.sendPkt(txreq.pkt)
+			fmt.Printf("sendPkt -> %v\n", err)
 
 			if err != nil {
 				// on IO error framing over peerLink becomes broken
@@ -390,6 +391,15 @@ func (nl *NodeLink) serveSend() {
 			}
 
 			txreq.errch <- err	// XXX recheck wakeup logic for err case
+
+			// XXX we need to first wait till _both_ serveRecv & serveSend complete
+			// and only then close all Conns. Reason: e.g. when remote shutdowns
+			// both sendPkt and recvPkt get error. If recvPkt was
+			// first serveRecv will be first to mark connections as
+			// closed and even though sendPkt will return proper IO
+			// error it won't be delivered as Conn.Send waiting for
+			// it already waked up on c.closed without seeing
+			// txreq.errch being ready.
 
 			if err != nil {
 				// XXX use errMu to lock vvv if needed
@@ -440,9 +450,17 @@ func (c *Conn) Send(pkt *PktBuf) error {
 		// NOTE after we return straight here serveSend won't be later
 		// blocked on c.txerr<- because that backchannel is a non-blocking one.
 		case <-c.closed:
-			// XXX also poll c.txerr
-			return ErrClosedConn
-//			return errClosedConn(c.nodeLink.sendErr)	// XXX locking ?
+
+			// also poll c.txerr here because: when there is TX error,
+			// serveSend sends to c.txerr _and_ closes c.closed .
+			// We still want to return actual transmission error to caller.
+			select {
+			case err = <-c.txerr:
+				return err
+			default:
+				return ErrClosedConn
+//				return errClosedConn(c.nodeLink.sendErr)	// XXX locking ?
+			}
 
 		case err = <-c.txerr:
 			//fmt.Printf("%v <- c.txerr\n", err)
@@ -450,7 +468,7 @@ func (c *Conn) Send(pkt *PktBuf) error {
 		}
 	}
 
-	return err
+//	return err
 }
 
 // Receive packet from connection
