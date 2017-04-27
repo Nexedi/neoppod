@@ -103,11 +103,40 @@ class StopOnSuccess(Exception):
 class NeoTestRunner(unittest.TextTestResult):
     """ Custom result class to build report with statistics per module """
 
-    def __init__(self, title, verbosity, stop_on_success):
+    _readable_tid = ()
+
+    def __init__(self, title, verbosity, stop_on_success, readable_tid):
         super(NeoTestRunner, self).__init__(
             _WritelnDecorator(sys.stderr), False, verbosity)
         self._title = title
         self.stop_on_success = stop_on_success
+        if readable_tid:
+            from neo.lib import util
+            from neo.lib.util import dump, p64, u64
+            from neo.master.transactions import TransactionManager
+            def _nextTID(orig, tm, ttid=None, divisor=None):
+                n = self._next_tid
+                self._next_tid = n + 1
+                n = str(n).rjust(3, '-')
+                if ttid:
+                    t = u64('T%s%s-' % (n, ttid[1:4]))
+                    m = (u64(ttid) - t) % divisor
+                    assert m < 211, (p64(t), divisor)
+                    t = p64(t + m)
+                else:
+                    t = 'T%s----' % n
+                assert tm._last_tid < t, (tm._last_tid, t)
+                tm._last_tid = t
+                return t
+            self._readable_tid = (
+                Patch(self, 1, _next_tid=0),
+                Patch(TransactionManager, _nextTID=_nextTID),
+                Patch(util, 1, orig_dump=type(dump)(
+                    dump.__code__, dump.__globals__)),
+                Patch(dump, __code__=(lambda s:
+                    s if type(s) is str and s.startswith('T') else
+                    orig_dump(s)).__code__),
+                )
         self.modulesStats = {}
         self.failedImports = {}
         self.run_dict = defaultdict(int)
@@ -160,12 +189,16 @@ class NeoTestRunner(unittest.TextTestResult):
 
     def startTest(self, test):
         super(NeoTestRunner, self).startTest(test)
+        for patch in self._readable_tid:
+            patch.apply()
         self.run_dict[test.__class__.__module__] += 1
         self.start_time = time.time()
 
     def stopTest(self, test):
         self.time_dict[test.__class__.__module__] += \
           time.time() - self.start_time
+        for patch in self._readable_tid:
+            patch.revert()
         super(NeoTestRunner, self).stopTest(test)
         if self.stop_on_success is not None:
             count = self.getUnexpectedCount()
@@ -261,6 +294,9 @@ class TestRunner(BenchmarkRunner):
         parser.add_option('-S', '--stop-on-success', action='store_true',
             help='Opposite of --stop-on-error: stop as soon as a test'
                  ' passes. Details about errors are not printed at exit.')
+        parser.add_option('-r', '--readable-tid', action='store_true',
+            help='Change master behaviour to generate readable TIDs for easier'
+                 ' debugging (rather than from current time).')
         parser.add_option('-u', '--unit', action='store_true',
             help='Unit & threaded tests')
         parser.add_option('-z', '--zodb', action='store_true',
@@ -311,6 +347,7 @@ Environment Variables:
             cov_unit = options.cov_unit,
             only = args,
             stop_on_success = options.stop_on_success,
+            readable_tid = options.readable_tid,
         )
 
     def start(self):
@@ -320,7 +357,7 @@ Environment Variables:
         only = config.only
         # run requested tests
         runner = NeoTestRunner(config.title or 'Neo', config.verbosity,
-                               config.stop_on_success)
+                               config.stop_on_success, config.readable_tid)
         if config.cov_unit:
             from coverage import Coverage
             cov_dir = runner.temp_directory + '/coverage'
