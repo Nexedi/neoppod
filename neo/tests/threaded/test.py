@@ -36,7 +36,7 @@ from neo.lib.handler import DelayEvent
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID)
-from .. import expectedFailure, Patch, TransactionalResource
+from .. import expectedFailure, unpickle_state, Patch, TransactionalResource
 from . import ClientApplication, ConnectionFilter, LockLock, NEOThreadedTest, \
     RandomConflictDict, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
@@ -1481,11 +1481,11 @@ class Test(NEOThreadedTest):
         reports a conflict after that this conflict was fully resolved with
         another node.
         """
-        def answerStoreObject(orig, conn, conflict, oid, serial):
+        def answerStoreObject(orig, conn, conflict, oid):
             if not conflict:
                 p.revert()
                 ll()
-            orig(conn, conflict, oid, serial)
+            orig(conn, conflict, oid)
         if 1:
             s0, s1 = cluster.storage_list
             t1, c1 = cluster.getTransaction()
@@ -1975,6 +1975,35 @@ class Test(NEOThreadedTest):
 
     @with_cluster(replicas=1, partitions=4)
     def testNotifyReplicated(self, cluster):
+        """
+        Check replication while several concurrent transactions leads to
+        conflict resolutions and deadlock avoidances, and in particular the
+        handling of write-locks when the storage node is about to notify the
+        master that partitions are replicated.
+        Transactions are committed in the following order:
+        - t2
+        - t4, conflict on 'd'
+        - t1, deadlock on 'a'
+        - t3, deadlock on 'b', and 2 conflicts on 'a'
+        Special care is also taken for the change done by t3 on 'a', to check
+        that the client resolves conflicts with correct oldSerial:
+        1. The initial store (a=8) is first delayed by t2.
+        2. It is then kept aside by the deadlock.
+        3. On s1, deadlock avoidance happens after t1 stores a=7 and the store
+           is delayed again. However, it's the contrary on s0, and a conflict
+           is reported to the client.
+        4. Second store (a=12) based on t2.
+        5. t1 finishes and s1 reports the conflict for first store (with t1).
+           At that point, the base serial of this store is meaningless:
+           the client only has data for last store (based on t2), and it's its
+           base serial that must be used. t3 write 15 (and not 19 !).
+        6. Conflicts for the second store are with t2 and they're ignored
+           because they're already resolved.
+        Note that this test method lacks code to enforce some events to happen
+        in the expected order. Sometimes, the above scenario is not reproduced
+        entirely, but it's so rare that there's no point in making the code
+        further complicated.
+        """
         s0, s1 = cluster.storage_list
         s1.stop()
         cluster.join((s1,))
@@ -2020,14 +2049,33 @@ class Test(NEOThreadedTest):
             yield 1
             self.tic()
             self.assertPartitionTable(cluster, 'UO|UU|UU|UU')
-        def t4_vote(*args, **kw):
+        def t4_d(*args, **kw):
             self.tic()
             self.assertPartitionTable(cluster, 'UU|UU|UU|UU')
-            yield 0
+            yield 2
+        # Delay the conflict for the second store of 'a' by t3.
+        delay_conflict = {s0.uuid: [1], s1.uuid: [1,0]}
+        def delayConflict(conn, packet):
+            app = conn.getHandler().app
+            if (isinstance(packet, Packets.AnswerStoreObject)
+                and packet.decode()[0]):
+                conn, = cluster.client.getConnectionList(app)
+                kw = conn._handlers._pending[0][0][packet._id][3]
+                return 1 == u64(kw['oid']) and delay_conflict[app.uuid].pop()
+        def writeA(orig, txn_context, oid, serial, data):
+            if u64(oid) == 1:
+                value = unpickle_state(data)['value']
+                if value > 12:
+                    f.remove(delayConflict)
+                elif value == 12:
+                    f.add(delayConflict)
+            return orig(txn_context, oid, serial, data)
+        ###
         with ConnectionFilter() as f, \
+             Patch(cluster.client, _store=writeA), \
              self.thread_switcher(threads,
                 (1, 2, 3, 0, 1, 0, 2, t3_c, 1, 3, 2, t3_resolve, 0, 0, 0,
-                 t1_rebase, 2, t3_b, 3, t4_vote),
+                 t1_rebase, 2, t3_b, 3, t4_d, 0, 2, 2),
                 ('tpc_begin', 'tpc_begin', 'tpc_begin', 'tpc_begin', 2, 1, 1,
                  3, 3, 4, 4, 3, 1, 'RebaseTransaction', 'RebaseTransaction',
                  'AnswerRebaseTransaction', 'AnswerRebaseTransaction', 2

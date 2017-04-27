@@ -154,7 +154,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def notifyDeadlock(self, conn, ttid, locking_tid):
         for txn_context in self.app.txn_contexts():
             if txn_context.ttid == ttid:
-                txn_context.conflict_dict[None] = locking_tid, None
+                txn_context.conflict_dict[None] = locking_tid
                 txn_context.wakeup(conn)
                 break
 

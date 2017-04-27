@@ -442,8 +442,8 @@ class Application(ThreadedApplication):
         # Store object in tmp cache
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid)
-        txn_context.data_dict[oid] = data, txn_context.write(
-            self, packet, oid, oid=oid, serial=serial)
+        txn_context.data_dict[oid] = data, serial, txn_context.write(
+            self, packet, oid, oid=oid)
 
         while txn_context.data_size >= self._cache._max_size:
             self._waitAnyTransactionMessage(txn_context)
@@ -460,13 +460,13 @@ class Application(ThreadedApplication):
             # This is also done atomically, to avoid race conditions
             # with PrimaryNotificationsHandler.notifyDeadlock
             try:
-                oid, (serial, conflict_serial) = pop_conflict()
+                oid, serial = pop_conflict()
             except KeyError:
                 return
             try:
-                data = data_dict.pop(oid)[0]
+                data, old_serial, _ = data_dict.pop(oid)
             except KeyError:
-                assert oid is conflict_serial is None, (oid, conflict_serial)
+                assert oid is None, (oid, serial)
                 # Storage refused us from taking object lock, to avoid a
                 # possible deadlock. TID is actually used for some kind of
                 # "locking priority": when a higher value has the lock,
@@ -485,33 +485,32 @@ class Application(ThreadedApplication):
                         self._askStorageForWrite(txn_context, uuid, packet)
             else:
                 if data is CHECKED_SERIAL:
-                    raise ReadConflictError(oid=oid, serials=(conflict_serial,
-                        serial))
+                    raise ReadConflictError(oid=oid,
+                        serials=(serial, old_serial))
                 # TODO: data can be None if a conflict happens during undo
                 if data:
                     txn_context.data_size -= len(data)
-                if self.last_tid < conflict_serial:
+                if self.last_tid < serial:
                     self.sync() # possible late invalidation (very rare)
                 try:
-                    data = tryToResolveConflict(oid, conflict_serial,
-                        serial, data)
+                    data = tryToResolveConflict(oid, serial, old_serial, data)
                 except ConflictError:
                     logging.info(
                         'Conflict resolution failed for %s@%s with %s',
-                        dump(oid), dump(serial), dump(conflict_serial))
+                        dump(oid), dump(old_serial), dump(serial))
                     # With recent ZODB, get_pickle_metadata (from ZODB.utils)
                     # does not support empty values, so do not pass 'data'
                     # in this case.
-                    raise ConflictError(oid=oid, serials=(conflict_serial,
-                        serial), data=data or None)
+                    raise ConflictError(oid=oid, serials=(serial, old_serial),
+                                        data=data or None)
                 else:
                     logging.info(
                         'Conflict resolution succeeded for %s@%s with %s',
-                        dump(oid), dump(serial), dump(conflict_serial))
+                        dump(oid), dump(old_serial), dump(serial))
                     # Mark this conflict as resolved
-                    resolved_dict[oid] = conflict_serial
+                    resolved_dict[oid] = serial
                     # Try to store again
-                    self._store(txn_context, oid, conflict_serial, data)
+                    self._store(txn_context, oid, serial, data)
 
     def _askStorageForWrite(self, txn_context, uuid, packet):
           node = self.nm.getByUUID(uuid)
@@ -927,7 +926,7 @@ class Application(ThreadedApplication):
         assert oid not in txn_context.cache_dict, oid
         assert oid not in txn_context.data_dict, oid
         packet = Packets.AskCheckCurrentSerial(ttid, oid, serial)
-        txn_context.data_dict[oid] = CHECKED_SERIAL, txn_context.write(
-            self, packet, oid, 0, oid=oid, serial=serial)
+        txn_context.data_dict[oid] = CHECKED_SERIAL, serial, txn_context.write(
+            self, packet, oid, 0, oid=oid)
         self._waitAnyTransactionMessage(txn_context, False)
 

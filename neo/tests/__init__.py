@@ -28,6 +28,8 @@ import weakref
 import MySQLdb
 import transaction
 
+from cStringIO import StringIO
+from cPickle import Unpickler
 from functools import wraps
 from inspect import isclass
 from .mock import Mock
@@ -40,6 +42,7 @@ from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 try:
     from transaction.interfaces import IDataManager
     from ZODB.utils import newTid
+    from ZODB.ConflictResolution import PersistentReferenceFactory
 except ImportError:
     pass
 
@@ -491,6 +494,12 @@ class Patch(object):
     def __exit__(self, t, v, tb):
         self.__del__()
 
+
+def unpickle_state(data):
+    unpickler = Unpickler(StringIO(data))
+    unpickler.persistent_load = PersistentReferenceFactory().persistent_load
+    unpickler.load() # skip the class tuple
+    return unpickler.load()
 
 __builtin__.pdb = lambda depth=0: \
     debug.getPdb().set_trace(sys._getframe(depth+1))

@@ -320,6 +320,10 @@ class EventQueue(object):
         self._event_queue = []
         self._executing_event = -1
 
+    # Stable sort when 2 keys are equal.
+    # XXX: Is it really useful to keep events with same key ordered
+    #      chronologically ? The caller could use more specific keys. For
+    #      write-locks (by the storage node), the locking tid seems enough.
     sortQueuedEvents = (lambda key=itemgetter(0): lambda self:
         self._event_queue.sort(key=key))()
 
