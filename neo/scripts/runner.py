@@ -96,13 +96,18 @@ ZODB_TEST_MODULES = [
 ]
 
 
+class StopOnSuccess(Exception):
+    pass
+
+
 class NeoTestRunner(unittest.TextTestResult):
     """ Custom result class to build report with statistics per module """
 
-    def __init__(self, title, verbosity):
+    def __init__(self, title, verbosity, stop_on_success):
         super(NeoTestRunner, self).__init__(
             _WritelnDecorator(sys.stderr), False, verbosity)
         self._title = title
+        self.stop_on_success = stop_on_success
         self.modulesStats = {}
         self.failedImports = {}
         self.run_dict = defaultdict(int)
@@ -162,10 +167,18 @@ class NeoTestRunner(unittest.TextTestResult):
         self.time_dict[test.__class__.__module__] += \
           time.time() - self.start_time
         super(NeoTestRunner, self).stopTest(test)
+        if self.stop_on_success is not None:
+            count = self.getUnexpectedCount()
+            if (count < self.testsRun - len(self.skipped)
+                    if self.stop_on_success else count):
+                raise StopOnSuccess
+
+    def getUnexpectedCount(self):
+        return (len(self.errors) + len(self.failures)
+              + len(self.unexpectedSuccesses))
 
     def _buildSummary(self, add_status):
-        unexpected_count = len(self.errors) + len(self.failures) \
-                         + len(self.unexpectedSuccesses)
+        unexpected_count = self.getUnexpectedCount()
         expected_count = len(self.expectedFailures)
         success = self.testsRun - unexpected_count - expected_count
         add_status('Directory', self.temp_directory)
@@ -214,6 +227,8 @@ class NeoTestRunner(unittest.TextTestResult):
 
     def buildReport(self, add_status):
         subject, summary = self._buildSummary(add_status)
+        if self.stop_on_success:
+            return subject, summary
         body = StringIO()
         body.write(summary)
         for test in self.unexpectedSuccesses:
@@ -238,6 +253,14 @@ class TestRunner(BenchmarkRunner):
             help='Repeat tests several times')
         parser.add_option('-f', '--functional', action='store_true',
             help='Functional tests')
+        parser.add_option('-s', '--stop-on-error', action='store_false',
+            dest='stop_on_success',
+            help='Continue as long as tests pass successfully.'
+                 ' It is usually combined with --loop, to check that tests'
+                 ' do not fail randomly.')
+        parser.add_option('-S', '--stop-on-success', action='store_true',
+            help='Opposite of --stop-on-error: stop as soon as a test'
+                 ' passes. Details about errors are not printed at exit.')
         parser.add_option('-u', '--unit', action='store_true',
             help='Unit & threaded tests')
         parser.add_option('-z', '--zodb', action='store_true',
@@ -287,6 +310,7 @@ Environment Variables:
             coverage = options.coverage,
             cov_unit = options.cov_unit,
             only = args,
+            stop_on_success = options.stop_on_success,
         )
 
     def start(self):
@@ -295,7 +319,8 @@ Environment Variables:
             **({'max_size': None} if config.log else {}))
         only = config.only
         # run requested tests
-        runner = NeoTestRunner(config.title or 'Neo', config.verbosity)
+        runner = NeoTestRunner(config.title or 'Neo', config.verbosity,
+                               config.stop_on_success)
         if config.cov_unit:
             from coverage import Coverage
             cov_dir = runner.temp_directory + '/coverage'
@@ -322,6 +347,8 @@ Environment Variables:
         except KeyboardInterrupt:
             config['mail_to'] = None
             traceback.print_exc()
+        except StopOnSuccess:
+            pass
         if config.coverage:
             coverage.stop()
             if coverage.neotestrunner:
@@ -330,7 +357,7 @@ Environment Variables:
         if runner.dots:
             print
         # build report
-        if only and not config.mail_to:
+        if (only or config.stop_on_success) and not config.mail_to:
             runner._buildSummary = lambda *args: (
                 runner.__class__._buildSummary(runner, *args)[0], '')
             self.build_report = str
