@@ -29,6 +29,7 @@ import MySQLdb
 import transaction
 
 from functools import wraps
+from inspect import isclass
 from .mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
@@ -463,9 +464,12 @@ class Patch(object):
         self._patch = patch
         try:
             orig = patched.__dict__[name]
-            self._revert = lambda: setattr(patched, name, orig)
         except KeyError:
-            self._revert = lambda: delattr(patched, name)
+            if new or isclass(patched):
+                self._revert = lambda: delattr(patched, name)
+                return
+            orig = getattr(patched, name)
+        self._revert = lambda: setattr(patched, name, orig)
 
     def apply(self):
         assert not self.applied
