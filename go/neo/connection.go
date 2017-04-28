@@ -62,16 +62,14 @@ type NodeLink struct {
 					// (rx packets are routed to Conn.rxq)
 
 	down     chan struct{}	// ready when NodeLink is marked as no longer operational
-	downOnce sync.Once	// shutdown may be due both Close and IO error
+	downOnce sync.Once	// shutdown may be due to both Close and IO error
 	downWg   sync.WaitGroup	// for activities at shutdown
-	errClose error		// error got from peerLink.Close on shutdown
+	errClose error		// error got from peerLink.Close
 
 	errMu    sync.Mutex
 	errRecv	 error		// error got from recvPkt on shutdown
 
-	closeCalled uint32	// whether Close was called
-
-
+	closed   uint32		// whether Close was called
 }
 
 // Conn is a connection established over NodeLink
@@ -84,19 +82,17 @@ type Conn struct {
 	nodeLink  *NodeLink
 	connId    uint32
 	rxq	  chan *PktBuf	// received packets for this Conn go here
-	txerr     chan error	// transmit errors for this Conn go back here
+	txerr     chan error	// transmit results for this Conn go back here
 
 	down      chan struct{} // ready when Conn is marked as no longer operational
 	downOnce  sync.Once	// shutdown may be called by both Close and nodelink.shutdown
 
-	closeCalled   uint32        // whether Close was called; ^^^ can be from IO error on node link
-	rxerrOnce     sync.Once     // XXX whether actual RX error was already reported to caller
-
+	rxerrOnce sync.Once     // IO error is reported only once - then it is link down or closed
+	closed    uint32        // whether Close was called
 }
 
-// ErrLinkClosed is the error indicated for operations on closed NodeLink
-var ErrLinkClosed   = errors.New("node link is closed")	// XXX -> read/write  but also Accept ?
-var ErrLinkDown     = errors.New("node link is down")	// XXX due to IO errors?
+var ErrLinkClosed   = errors.New("node link is closed")	// operations on closed NodeLink
+var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
 var ErrLinkNoListen = errors.New("node link is not listening for incoming connections")
 var ErrClosedConn   = errors.New("read/write on closed connection")
 
@@ -173,7 +169,7 @@ func (nl *NodeLink) NewConn() (*Conn, error) {
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
 	if nl.connTab == nil {
-		if atomic.LoadUint32(&nl.closeCalled) != 0 {
+		if atomic.LoadUint32(&nl.closed) != 0 {
 			return nil, ErrLinkClosed
 		}
 		return nil, ErrLinkDown
@@ -218,7 +214,7 @@ func (nl *NodeLink) shutdown() {
 // Close closes node-node link.
 // IO on connections established over it is automatically interrupted with an error.
 func (nl *NodeLink) Close() error {
-	atomic.StoreUint32(&nl.closeCalled, 1)
+	atomic.StoreUint32(&nl.closed, 1)
 	nl.shutdown()
 	nl.downWg.Wait()
 	return nl.errClose
@@ -242,7 +238,7 @@ func (c *Conn) Close() error {
 	delete(c.nodeLink.connTab, c.connId)
 	c.nodeLink.connMu.Unlock()
 
-	atomic.StoreUint32(&c.closeCalled, 1)
+	atomic.StoreUint32(&c.closed, 1)
 	c.shutdown()
 	return nil
 }
@@ -256,7 +252,7 @@ func (nl *NodeLink) Accept() (*Conn, error) {
 
 	select {
 	case <-nl.down:
-		if atomic.LoadUint32(&nl.closeCalled) != 0 {
+		if atomic.LoadUint32(&nl.closed) != 0 {
 			return nil, ErrLinkClosed // XXX + op = Accept ?
 		}
 		return nil, ErrLinkDown	// XXX test
@@ -269,10 +265,10 @@ func (nl *NodeLink) Accept() (*Conn, error) {
 // errRecvShutdown returns appropriate error when c.down is found ready in Recv
 func (c *Conn) errRecvShutdown() error {
 	switch {
-	case atomic.LoadUint32(&c.closeCalled) != 0:
+	case atomic.LoadUint32(&c.closed) != 0:
 		return ErrClosedConn
 
-	case atomic.LoadUint32(&c.nodeLink.closeCalled) != 0:
+	case atomic.LoadUint32(&c.nodeLink.closed) != 0:
 		return ErrLinkClosed
 
 	default:
@@ -367,14 +363,14 @@ type txReq struct {
 // errSendShutdown returns approproate error when c.down is found ready in Send
 func (c *Conn) errSendShutdown() error {
 	switch {
-	case atomic.LoadUint32(&c.closeCalled) != 0:
+	case atomic.LoadUint32(&c.closed) != 0:
 		return ErrClosedConn
 
 	// the only other error possible besides Conn being .Close()'ed is that
 	// NodeLink was closed/shutdowned itself - on actual IO problems corresponding
 	// error is delivered to particular Send that caused it.
 
-	case atomic.LoadUint32(&c.nodeLink.closeCalled) != 0:
+	case atomic.LoadUint32(&c.nodeLink.closed) != 0:
 		return ErrLinkClosed
 
 	default:
