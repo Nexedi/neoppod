@@ -214,7 +214,8 @@ func (nl *NodeLink) shutdown() {
 }
 
 // Close closes node-node link.
-// IO on connections established over it is automatically interrupted with an error.
+// All blocking operations - Accept and IO on associated connections
+// established over node link - are automatically interrupted with an error.
 func (nl *NodeLink) Close() error {
 	atomic.StoreUint32(&nl.closed, 1)
 	nl.shutdown()
@@ -236,6 +237,7 @@ func (c *Conn) shutdown() {
 // background on the wire not to break node-node link framing.
 func (c *Conn) Close() error {
 	// adjust nodeLink.connTab
+	// (if nodelink was already shutted down and connTab=nil - delete will be noop)
 	c.nodeLink.connMu.Lock()
 	delete(c.nodeLink.connTab, c.connId)
 	c.nodeLink.connMu.Unlock()
@@ -326,6 +328,7 @@ func (nl *NodeLink) serveRecv() {
 		connId := ntoh32(pkt.Header().ConnId)
 
 		nl.connMu.Lock()
+		// XXX connTab == nil here
 		conn := nl.connTab[connId]
 		if conn == nil {
 			if nl.acceptq != nil {
@@ -345,12 +348,10 @@ func (nl *NodeLink) serveRecv() {
 		}
 
 		// route packet to serving goroutine handler
-		// XXX what if Conn.Recv exited because of just recently close(nl.down) ?
-		//     -> check nl.down here too ?
 		conn.rxq <- pkt
 
 		// keep connMu locked until here: so that ^^^ `conn.rxq <- pkt` can be
-		// sure conn stays not down e.g. closed by Conn.Close
+		// sure conn stays not down e.g. closed by Conn.Close or NodeLink.shutdown
 		nl.connMu.Unlock()
 	}
 }
