@@ -19,6 +19,14 @@ package zodb
 
 import "testing"
 
+// estr returns string corresponding to error or "" for nil
+func estr(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 func TestParseHex64(t *testing.T) {
 	var testv = []struct {in string; out uint64; estr string} {
 		{"", 0, `tid "" invalid`},
@@ -29,13 +37,52 @@ func TestParseHex64(t *testing.T) {
 
 	for _, tt := range testv {
 		x, err := parseHex64("tid", tt.in)
-		estr := ""
-		if err != nil {
-			estr = err.Error()
+		if !(x == tt.out && estr(err) == tt.estr) {
+			t.Errorf("parsehex64: %v: test error:\nhave: %v %q\nwant: %v %q", tt.in, x, err, tt.out, tt.estr)
 		}
+	}
+}
 
-		if !(x == tt.out && estr == tt.estr) {
-			t.Errorf("parsehex64: %v: test error:\nhave: %v %q\nwant: %v %q", tt.in, x, estr, tt.out, tt.estr)
+func TestParseXTid(t *testing.T) {
+	var testv = []struct {in string; xtid XTid; estr string} {
+		{"", XTid{}, `xtid "" invalid`},
+		{"a", XTid{}, `xtid "a" invalid`},
+		{"0123456789abcdef", XTid{}, `xtid "0123456789abcdef" invalid`},	// XXX or let it be < by default ?
+		{"z0123456789abcdef", XTid{}, `xtid "z0123456789abcdef" invalid`},
+		{"=0123456789abcdef", XTid{0x0123456789abcdef, false}, ""},
+		{"<0123456789abcdef", XTid{0x0123456789abcdef, true}, ""},
+	}
+
+	for _, tt := range testv {
+		xtid, err := ParseXTid(tt.in)
+		if !(xtid == tt.xtid && estr(err) == tt.estr) {
+			t.Errorf("parsextid: %v: test error:\nhave: %v %q\nwant: %v %q",
+					tt.in, xtid, err, tt.xtid, tt.estr)
+		}
+	}
+}
+
+func TestParseXid(t *testing.T) {
+	var testv = []struct {in string; xid Xid; estr string} {
+		{"", Xid{}, `xid "" invalid`},
+		{"a", Xid{}, `xid "a" invalid`},
+		{"0123456789abcdef", Xid{}, `xid "0123456789abcdef" invalid`},	// XXX or let it be < by default ?
+		{"z0123456789abcdef", Xid{}, `xid "z0123456789abcdef" invalid`},
+		{"=0123456789abcdef", Xid{}, `xid "=0123456789abcdef" invalid`},
+		{"<0123456789abcdef", Xid{}, `xid "<0123456789abcdef" invalid`},
+
+		{"=0123456789abcdef|fedcba9876543210", Xid{}, `xid "=0123456789abcdef|fedcba9876543210" invalid`},
+		{"<0123456789abcdef|fedcba9876543210", Xid{}, `xid "<0123456789abcdef|fedcba9876543210" invalid`},
+
+		{"=0123456789abcdef:fedcba9876543210", Xid{XTid{0x0123456789abcdef, false}, 0xfedcba9876543210}, ""},
+		{"<0123456789abcdef:fedcba9876543210", Xid{XTid{0x0123456789abcdef, true}, 0xfedcba9876543210}, ""},
+	}
+
+	for _, tt := range testv {
+		xid, err := ParseXid(tt.in)
+		if !(xid == tt.xid && estr(err) == tt.estr) {
+			t.Errorf("parsexid: %v: test error:\nhave: %v %q\nwant: %v %q",
+					tt.in, xid, err, tt.xid, tt.estr)
 		}
 	}
 }

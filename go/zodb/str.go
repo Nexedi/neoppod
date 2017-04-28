@@ -66,6 +66,16 @@ func (xid Xid) String() string {
 	return xid.XTid.String() + ":" + xid.Oid.String()	// XXX use "·" instead of ":" ?
 }
 
+/* TODO reenable
+func (xtid XTid) XFmtString(b []byte) []byte {
+	b .C("=<"[bint(xtid.TidBefore)]) .V(xtid.Tid)
+}
+
+func (xid Xid) XFmtString(b xfmt.Buffer) xfmt.Buffer {
+	b .V(xid.XTid) .C(':') .V(xid.Oid)
+}
+*/
+
 
 // parseHex64 decode 16-character-wide hex-encoded string into uint64
 // XXX -> xfmt ?
@@ -91,6 +101,55 @@ func ParseTid(s string) (Tid, error) {
 func ParseOid(s string) (Oid, error) {
 	x, err := parseHex64("oid", s)
 	return Oid(x), err
+}
+
+func ParseXTid(s string) (XTid, error) {
+	if len(s) < 1 {
+		goto Error
+	}
+
+	{
+		var tidBefore bool
+		switch s[0] {
+		case '<':
+			tidBefore = true
+		case '=':
+			tidBefore = false
+		default:
+			goto Error
+		}
+
+		tid, err := ParseTid(s[1:])
+		if err != nil {
+			goto Error
+		}
+
+		return XTid{tid, tidBefore}, nil
+	}
+
+
+Error:
+	return XTid{}, fmt.Errorf("xtid %q invalid", s)
+}
+
+func ParseXid(s string) (Xid, error) {
+	xtids, oids, err := xstrings.Split2(s, ":")
+	if err != nil {
+		goto Error
+	}
+
+	{
+		xtid, err1 := ParseXTid(xtids)
+		oid, err2 := ParseOid(oids)
+		if err1 != nil || err2 != nil {
+			goto Error
+		}
+
+		return Xid{xtid, oid}, nil
+	}
+
+Error:
+	return Xid{}, fmt.Errorf("xid %q invalid", s)
 }
 
 // ParseTidRange parses string of form "<tidmin>..<tidmax>" into tidMin, tidMax pair
