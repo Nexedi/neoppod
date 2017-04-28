@@ -29,13 +29,13 @@ type Tid uint64  // transaction identifier
 type Oid uint64  // object identifier
 
 // XTid is "extended" transaction identifier. It defines a transaction for
-// oid lookup - either exactly by serial, or <beforeTid	XXX
+// oid lookup - either exactly by serial, or by < beforeTid.
 type XTid struct {
 	Tid
 	TidBefore bool	// XXX merge into Tid itself (high bit) ?
 }
 
-// Xid is "extended" oid = oid + serial/beforeTid, completely specifying object revision	XXX text
+// Xid is "extended" oid = oid + serial/beforeTid, completely specifying object address.
 type Xid struct {
 	XTid
 	Oid
@@ -140,7 +140,7 @@ type IStorage interface {
 
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	// TODO data []byte -> something allocated from slab ?
-	Load(xid Xid) (data []byte, tid Tid, err error)
+	Load(xid Xid) (data []byte, tid Tid, err error)	// XXX -> StorageRecordInformation ?
 
 	// -> Prefetch(xid Xid) ...
 	// PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)

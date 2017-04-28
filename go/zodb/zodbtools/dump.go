@@ -64,6 +64,7 @@ var _LF = []byte{'\n'}
 
 
 // DumpData dumps one data record
+// XXX naming -> DumpObj ?
 func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
 	buf := &d.buf
 	buf.Reset()
@@ -234,7 +235,6 @@ func dumpMain(argv []string) {
 		os.Exit(2)
 	}
 	storUrl := argv[0]
-
 
 	if len(argv) > 1 {
 		tidRange = argv[1]

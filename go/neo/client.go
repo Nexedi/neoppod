@@ -88,7 +88,7 @@ func openClientByURL(u *url.URL) (zodb.IStorage, error) {
 		return nil, err
 	}
 
-	// identify ourselves via conn
+	// first identify ourselves via conn
 	storType, err := IdentifyMe(storLink, CLIENT)
 	if err != nil {
 		return nil, err	// XXX err ctx
@@ -98,6 +98,7 @@ func openClientByURL(u *url.URL) (zodb.IStorage, error) {
 		return nil, fmt.Errorf("%v: peer is not storage (identifies as %v)", storLink, storType)
 	}
 
+	// identification passed
 	conn, err := storLink.NewConn()
 	if err != nil {
 		return nil, err	// XXX err ctx ?
