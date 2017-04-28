@@ -60,6 +60,12 @@ func xclose(c io.Closer) {
 	exc.Raiseif(err)
 }
 
+func xnewconn(nl *NodeLink) *Conn {
+	c, err := nl.NewConn()
+	exc.Raiseif(err)
+	return c
+}
+
 func xaccept(nl *NodeLink) *Conn {
 	c, err := nl.Accept()
 	exc.Raiseif(err)
@@ -270,7 +276,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs Recv
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
-	c = nl1.NewConn()
+	c = xnewconn(nl1)
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -286,7 +292,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs Send
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
-	c = nl1.NewConn()
+	c = xnewconn(nl1)
 	wg = WorkGroup()
 	wg.Gox(func() {
 		tdelay()
@@ -300,8 +306,8 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 
 	// NodeLink.Close vs Conn.Send/Recv
-	c11 := nl1.NewConn()
-	c12 := nl1.NewConn()
+	c11 := xnewconn(nl1)
+	c12 := xnewconn(nl1)
 	wg = WorkGroup()
 	wg.Gox(func() {
 		pkt, err := c11.Recv()
@@ -325,9 +331,9 @@ func TestNodeLink(t *testing.T) {
 
 	// NodeLink.Close vs Conn.Send/Recv on another side
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
-	c11 = nl1.NewConn()
-	c12 = nl1.NewConn()
-	c13 := nl1.NewConn()
+	c11 = xnewconn(nl1)
+	c12 = xnewconn(nl1)
+	c13 := xnewconn(nl1)
 	wg = WorkGroup()
 	var errRecv error
 	wg.Gox(func() {
@@ -354,6 +360,12 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 
 	// XXX denoise vvv
+
+	// NewConn after NodeLink stop
+	c, err = nl1.NewConn()
+	if err != ErrLinkStopped {
+		t.Fatalf("NewConn after NodeLink stop: %v", err)
+	}
 
 	// Recv/Send on another Conn
 	pkt, err = c13.Recv()
@@ -397,9 +409,15 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Conn.Send after NodeLink stop: %v", err)
 	}
 
+	// NewConn after NodeLink close
+	c, err = nl1.NewConn()
+	if err != ErrLinkClosed {
+		t.Fatalf("NewConn after NodeLink close: %v", err)
+	}
+
 	xclose(c11)
 	xclose(c12)
-	// check Recv/Send error after Close & NodeLink shutdown
+	// Recv/Send error after Close & NodeLink shutdown
 	pkt, err = c11.Recv()
 	if !(pkt == nil && err == ErrClosedConn) {
 		t.Fatalf("Conn.Recv after close and NodeLink close: pkt = %v  err = %v", pkt, err)
@@ -429,7 +447,7 @@ func TestNodeLink(t *testing.T) {
 
 		xclose(c)
 	})
-	c = nl1.NewConn()
+	c = xnewconn(nl1)
 	xsend(c, mkpkt(33, []byte("ping")))
 	pkt = xrecv(c)
 	xverifyPkt(pkt, c.connId, 34, []byte("pong"))
@@ -477,8 +495,8 @@ func TestNodeLink(t *testing.T) {
 		}
 	})
 
-	c1 := nl1.NewConn()
-	c2 := nl1.NewConn()
+	c1 := xnewconn(nl1)
+	c2 := xnewconn(nl1)
 	xsend(c1, mkpkt(1, []byte("")))
 	xsend(c2, mkpkt(2, []byte("")))
 

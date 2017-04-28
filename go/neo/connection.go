@@ -173,16 +173,18 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 }
 
 // NewConn creates new connection on top of node-node link
-func (nl *NodeLink) NewConn() *Conn {
+func (nl *NodeLink) NewConn() (*Conn, error) {
 	nl.connMu.Lock()
 	defer nl.connMu.Unlock()
 	if nl.connTab == nil {
-		// XXX -> error (because NodeLink can become "closed" due to IO errors ?
-		panic("NewConn() on closed node-link")
+		if atomic.LoadUint32(&nl.closeCalled) != 0 {
+			return nil, ErrLinkClosed
+		}
+		return nil, ErrLinkStopped
 	}
 	c := nl.newConn(nl.nextConnId)
 	nl.nextConnId += 2
-	return c
+	return c, nil
 }
 
 // close is worker for Close & friends.

@@ -87,7 +87,10 @@ func openClientByURL(u *url.URL) (zodb.IStorage, error) {
 		return nil, err
 	}
 
-	conn := storLink.NewConn()
+	conn, err := storLink.NewConn()
+	if err != nil {
+		return nil, err	// XXX err ctx ?
+	}
 
 	// TODO identify ourselves via conn
 
