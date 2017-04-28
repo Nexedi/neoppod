@@ -336,9 +336,23 @@ func (nl *NodeLink) serveRecv() {
 			if nl.acceptq != nil {
 				// we are accepting new incoming connection
 				conn = nl.newConn(connId)
-				// XXX what if Accept exited because of just recently close(nl.down)?
-				//     -> check nl.down here too ?
-				nl.acceptq <- conn
+
+				select {
+				case <-nl.down:
+					// Accept and loop calling it can exit if shutdown was requested
+					// if so we are also exiting
+					nl.connMu.Unlock()
+
+					// make sure not to leave rx error as nil
+					nl.errMu.Lock()
+					nl.errRecv = ErrLinkDown
+					nl.errMu.Unlock()
+
+					return
+
+				case nl.acceptq <- conn:
+					// ok
+				}
 			}
 		}
 
