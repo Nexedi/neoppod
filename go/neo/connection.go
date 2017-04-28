@@ -464,10 +464,12 @@ func (nl *NodeLink) serveSend() {
 
 // ---- raw IO ----
 
+const dumpio = true
+
 // sendPkt sends raw packet to peer
 // tx error, if any, is returned as is and is analyzed in serveSend
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
-	if true {
+	if dumpio {
 		// XXX -> log
 		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 		//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
@@ -524,7 +526,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		}
 	}
 
-	if true {
+	if dumpio {
 		// XXX -> log
 		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}
@@ -571,6 +573,17 @@ func Listen(network, laddr string) (*Listener, error) {
 }
 
 
+
+// ---- for convenience: String ----
+func (nl *NodeLink) String() string {
+	s := fmt.Sprintf("%s - %s", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr())
+	return s	// XXX add "(closed)" if nl is closed ?
+}
+
+func (c *Conn) String() string {
+	s := fmt.Sprintf("%s .%d", c.nodeLink, c.connId)
+	return s	// XXX add "(closed)" if c is closed ?
+}
 
 
 // ----------------------------------------

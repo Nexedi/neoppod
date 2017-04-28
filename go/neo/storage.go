@@ -44,7 +44,7 @@ func NewStorage(zstor zodb.IStorage) *Storage {
 
 // ServeLink serves incoming node-node link connection
 func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
-	fmt.Printf("stor: serving new node %s <-> %s\n", link.peerLink.LocalAddr(), link.peerLink.RemoteAddr())
+	fmt.Printf("stor: %s: serving new node\n", link)
 
 	// close link when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - link.Close will signal to all current IO to
@@ -58,12 +58,13 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 			// XXX tell peers we are shutting down?
 		case <-retch:
 		}
-		fmt.Printf("stor: closing link to %s\n", link.peerLink.RemoteAddr())
+		fmt.Printf("stor: %v: closing link\n", link)
 		link.Close()	// XXX err
 	}()
 
 	nodeInfo, err := IdentifyPeer(link, STORAGE)
 	if err != nil {
+		// XXX include link here or in IdentifyPeer ?
 		fmt.Printf("peer identification failed: %v\n", err)
 		return
 	}
@@ -74,7 +75,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		serveConn = stor.ServeClient
 
 	default:
-		fmt.Printf("unexpected peer type: %v\n", nodeInfo.NodeType)
+		fmt.Printf("stor: %v: unexpected peer type: %v\n", link, nodeInfo.NodeType)
 		return
 	}
 
@@ -82,7 +83,8 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	for {
 		conn, err := link.Accept()
 		if err != nil {
-			fmt.Printf("accept: %v\n", err)	// XXX err ctx
+			// XXX both link and accept op should be generated in link.Accept
+			fmt.Printf("stor: %v: accept: %v\n", link, err)	// XXX err ctx
 			break
 		}
 
@@ -94,14 +96,9 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	// TODO wait all spawned serveConn
 }
 
-// connAddr returns string describing conn	XXX text, naming
-func connAddr(conn *Conn) string {
-	return fmt.Sprintf("%s .%d", conn.nodeLink.peerLink.RemoteAddr(), conn.connId)
-}
-
 // ServeClient serves incoming connection on which peer identified itself as client
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
-	fmt.Printf("stor: serving new client conn %s\n", connAddr(conn))
+	fmt.Printf("stor: %s: serving new client conn\n", conn)
 
 	// close connection when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - conn.Close will signal to current IO to
@@ -115,7 +112,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 			// XXX tell client we are shutting down?
 		case <-retch:
 		}
-		fmt.Printf("stor: closing client conn %s\n", connAddr(conn))
+		fmt.Printf("stor: %v: closing client conn\n", conn)
 		conn.Close()	// XXX err
 	}()
 
