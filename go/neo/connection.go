@@ -49,17 +49,17 @@ import (
 //
 // It is safe to use NodeLink from multiple goroutines simultaneously.
 type NodeLink struct {
-	peerLink net.Conn		// raw conn to peer
+	peerLink net.Conn	// raw conn to peer
 
 	connMu     sync.Mutex
 	connTab    map[uint32]*Conn	// connId -> Conn associated with connId
 	nextConnId uint32		// next connId to use for Conn initiated by us
 
-	serveWg sync.WaitGroup		// for serve{Send,Recv}
-	acceptq chan *Conn		// queue of incoming connections for Accept
-					// = nil if NodeLink is not accepting connections
-	txq	chan txReq		// tx requests from Conns go via here
-					// (rx packets are routed to Conn.rxq)
+	serveWg sync.WaitGroup	// for serve{Send,Recv}
+	acceptq chan *Conn	// queue of incoming connections for Accept
+				// = nil if NodeLink is not accepting connections
+	txq	chan txReq	// tx requests from Conns go via here
+				// (rx packets are routed to Conn.rxq)
 
 	down     chan struct{}	// ready when NodeLink is marked as no longer operational
 	downOnce sync.Once	// shutdown may be due to both Close and IO error
@@ -87,9 +87,10 @@ type Conn struct {
 	down      chan struct{} // ready when Conn is marked as no longer operational
 	downOnce  sync.Once	// shutdown may be called by both Close and nodelink.shutdown
 
-	rxerrOnce sync.Once     // IO error is reported only once - then it is link down or closed
+	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
 	closed    uint32        // whether Close was called
 }
+
 
 var ErrLinkClosed   = errors.New("node link is closed")	// operations on closed NodeLink
 var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
@@ -180,7 +181,7 @@ func (nl *NodeLink) NewConn() (*Conn, error) {
 }
 
 // shutdown closes peerLink and marks NodeLink as no longer operational
-// it also shutdowns and all active Conns.
+// it also shutdowns and all opened connections over this node link.
 func (nl *NodeLink) shutdown() {
 	nl.downOnce.Do(func() {
 		close(nl.down)
@@ -231,7 +232,7 @@ func (c *Conn) shutdown() {
 // Any blocked Send() or Recv() will be unblocked and return error
 //
 // NOTE for Send() - once transmission was started - it will complete in the
-// background on the wire not to break framing.
+// background on the wire not to break node-node link framing.
 func (c *Conn) Close() error {
 	// adjust nodeLink.connTab
 	c.nodeLink.connMu.Lock()
@@ -257,7 +258,7 @@ func (nl *NodeLink) Accept() (*Conn, error) {
 		}
 		return nil, ErrLinkDown	// XXX test
 
-	case c := <-nl.acceptq:	// XXX -> only c, ok := <-nl.acceptq ?
+	case c := <-nl.acceptq:
 		return c, nil
 	}
 }
