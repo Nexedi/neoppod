@@ -328,7 +328,9 @@ func (nl *NodeLink) serveRecv() {
 		connId := ntoh32(pkt.Header().ConnId)
 
 		nl.connMu.Lock()
-		// XXX connTab == nil here
+
+		// connTab is never nil here - becuase shutdown before
+		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
 		if conn == nil {
 			if nl.acceptq != nil {
