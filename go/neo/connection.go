@@ -307,7 +307,7 @@ func (nl *NodeLink) serveRecv() {
 	for {
 		// receive 1 packet
 		pkt, err := nl.recvPkt()
-		fmt.Printf("recvPkt -> %v, %v\n", pkt, err)
+		//fmt.Printf("recvPkt -> %v, %v\n", pkt, err)
 		if err != nil {
 			// on IO error framing over peerLink becomes broken
 			// so we mark node link and all connections as closed and stop service
@@ -444,7 +444,7 @@ func (nl *NodeLink) serveSend() {
 
 		case txreq := <-nl.txq:
 			err := nl.sendPkt(txreq.pkt)
-			fmt.Printf("sendPkt -> %v\n", err)
+			//fmt.Printf("sendPkt -> %v\n", err)
 
 			// on IO error framing over peerLink becomes broken
 			// so mark node link and all connections as closed and stop service

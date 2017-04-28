@@ -158,7 +158,6 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
-/*
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg := WorkGroup()
@@ -306,14 +305,14 @@ func TestNodeLink(t *testing.T) {
 	wg = WorkGroup()
 	wg.Gox(func() {
 		pkt, err := c11.Recv()
-		if !(pkt == nil && err == ErrClosedConn) {
+		if !(pkt == nil && err == ErrLinkClosed) {
 			exc.Raisef("Conn.Recv() after NodeLink close: pkt = %v  err = %v", pkt, err)
 		}
 	})
 	wg.Gox(func() {
 		pkt := &PktBuf{[]byte("data")}
 		err := c12.Send(pkt)
-		if err != ErrClosedConn {
+		if err != ErrLinkClosed {
 			exc.Raisef("Conn.Send() after NodeLink close: err = %v", err)
 		}
 	})
@@ -323,14 +322,13 @@ func TestNodeLink(t *testing.T) {
 	xclose(c11)
 	xclose(c12)
 	xclose(nl2)
-*/
 
 	// NodeLink.Close vs Conn.Send/Recv on another side
-	nl1, nl2 := _nodeLinkPipe(0, linkNoRecvSend)
-	c11 := nl1.NewConn()
-	c12 := nl1.NewConn()
+	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
+	c11 = nl1.NewConn()
+	c12 = nl1.NewConn()
 	c13 := nl1.NewConn()
-	wg := WorkGroup()
+	wg = WorkGroup()
 	var errRecv error
 	wg.Gox(func() {
 		pkt, err := c11.Recv()
@@ -355,8 +353,10 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)
 	xwait(wg)
 
+	// XXX denoise vvv
+
 	// Recv/Send on another Conn
-	pkt, err := c13.Recv()
+	pkt, err = c13.Recv()
 	if !(pkt == nil && err == errRecv) {
 		t.Fatalf("Conn.Recv 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
@@ -409,7 +409,7 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Conn.Send after close and NodeLink close: %v", err)
 	}
 
-/*
+
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
 	wg = WorkGroup()
@@ -495,5 +495,4 @@ func TestNodeLink(t *testing.T) {
 	xclose(c2)
 	xclose(nl1)
 	xclose(nl2)
-*/
 }
