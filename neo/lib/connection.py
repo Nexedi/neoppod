@@ -317,9 +317,11 @@ class ListeningConnection(BaseConnection):
         if self._ssl:
             conn.connecting = True
             connector.ssl(self._ssl, conn._connected)
+            # Nothing to send as long as we haven't received a ClientHello
+            # message.
         else:
             conn._connected()
-        self.em.addWriter(conn) # for SSL or ENCODED_VERSION
+            self.em.addWriter(conn) # for ENCODED_VERSION
 
     def getAddress(self):
         return self.connector.getAddress()

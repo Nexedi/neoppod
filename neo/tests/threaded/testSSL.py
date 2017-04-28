@@ -15,8 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from neo.lib.connection import ClientConnection, ListeningConnection
 from neo.lib.protocol import Packets
-from .. import SSL
+from .. import Patch, SSL
 from . import NEOCluster, test, testReplication
 
 
@@ -56,6 +57,18 @@ class SSLTests(SSLMixin, test.Test):
 
     def testAbortConnectionBeforeHandshake(self):
         self.testAbortConnection(0)
+
+    def testSSLVsNoSSL(self):
+        def __init__(orig, self, app, *args, **kw):
+            with Patch(app, ssl=None):
+                orig(self, app, *args, **kw)
+        for cls in (ListeningConnection, # SSL connecting to non-SSL
+                    ClientConnection,    # non-SSL connecting to SSL
+                    ):
+            with Patch(cls, __init__=__init__), \
+                 self.getLoopbackConnection() as conn:
+                while not conn.isClosed():
+                    conn.em.poll(1)
 
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL
