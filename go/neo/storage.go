@@ -62,7 +62,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		link.Close()	// XXX err
 	}()
 
-	nodeInfo, err := Identify(link)
+	nodeInfo, err := IdentifyPeer(link, STORAGE)
 	if err != nil {
 		fmt.Printf("peer identification failed: %v\n", err)
 		return
@@ -83,7 +83,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		conn, err := link.Accept()
 		if err != nil {
 			fmt.Printf("accept: %v\n", err)	// XXX err ctx
-			continue
+			break
 		}
 
 		// XXX adjust ctx ?
@@ -91,6 +91,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		go serveConn(ctx, conn)
 	}
 
+	// TODO wait all spawned serveConn
 }
 
 // connAddr returns string describing conn	XXX text, naming

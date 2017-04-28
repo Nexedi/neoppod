@@ -467,7 +467,7 @@ func (nl *NodeLink) serveSend() {
 // sendPkt sends raw packet to peer
 // tx error, if any, is returned as is and is analyzed in serveSend
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
-	if false {
+	if true {
 		// XXX -> log
 		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 		//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
@@ -524,7 +524,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		}
 	}
 
-	if false {
+	if true {
 		// XXX -> log
 		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}

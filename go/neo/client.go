@@ -53,7 +53,8 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 
 	reply, err := RecvAndDecode(c.storConn)
 	if err != nil {
-		return 0, err	// XXX err context
+		// XXX err context (e.g. peer resetting connection -> currently only EOF)
+		return 0, err
 	}
 
 	switch reply := reply.(type) {
@@ -87,12 +88,20 @@ func openClientByURL(u *url.URL) (zodb.IStorage, error) {
 		return nil, err
 	}
 
+	// identify ourselves via conn
+	storType, err := IdentifyMe(storLink, CLIENT)
+	if err != nil {
+		return nil, err	// XXX err ctx
+	}
+	if storType != STORAGE {
+		storLink.Close()	// XXX err
+		return nil, fmt.Errorf("%v: peer is not storage (identifies as %v)", storLink, storType)
+	}
+
 	conn, err := storLink.NewConn()
 	if err != nil {
 		return nil, err	// XXX err ctx ?
 	}
-
-	// TODO identify ourselves via conn
 
 	return &Client{storLink, conn}, nil
 }

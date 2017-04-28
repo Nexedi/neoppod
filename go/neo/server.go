@@ -80,10 +80,10 @@ func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
 
 // ----------------------------------------
 
-// Identify identifies peer on the link
-// it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification parameters are ok.
+// IdentifyPeer identifies peer on the link
+// it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
-func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
+func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()
 	if err != nil {
@@ -92,7 +92,7 @@ func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo
 	defer func() {
 		err2 := conn.Close()
 		if err == nil {
-			err = err2
+			err = err2	// XXX err ctx
 			// XXX also clear nodeInfo ?
 		}
 	}()
@@ -106,6 +106,8 @@ func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo
 	default:
 		return nodeInfo, fmt.Errorf("expected RequestIdentification  ; got %T", pkt)
 
+	// XXX also handle Error
+
 	case *RequestIdentification:
 		if pkt.ProtocolVersion != PROTOCOL_VERSION {
 			// TODO also tell peer with Error
@@ -115,7 +117,7 @@ func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo
 		// TODO (.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
 
 		err = EncodeAndSend(conn, &AcceptIdentification{
-			NodeType:	pkt.NodeType,
+			NodeType:	myNodeType,
 			MyUUID:		0,		// XXX
 			NumPartitions:	0,		// XXX
 			NumReplicas:	0,		// XXX
@@ -132,6 +134,50 @@ func Identify(link *NodeLink) (nodeInfo RequestIdentification /*TODO -> NodeInfo
 	}
 
 	return nodeInfo, nil
+}
+
+// IdentifyMe identifies local node to remote peer
+func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, err error) {
+	conn, err := link.NewConn()
+	if err != nil {
+		return peerType, err
+	}
+	defer func() {
+		err2 := conn.Close()
+		if err == nil && err2 != nil {
+			err = err2	// XXX err ctx
+			// XXX also reset peerType
+		}
+	}()
+
+	err = EncodeAndSend(conn, &RequestIdentification{
+		ProtocolVersion: PROTOCOL_VERSION,
+		NodeType:	 nodeType,
+		UUID:		 0,			// XXX
+		Address:	 Address{},		// XXX
+		Name:		 "",			// XXX cluster name ?
+		IdTimestamp:	 0,			// XXX
+	})
+
+	if err != nil {
+		return peerType, err
+	}
+
+	pkt, err := RecvAndDecode(conn)
+	if err != nil {
+		return peerType, err
+	}
+
+	switch pkt := pkt.(type) {
+	default:
+		return peerType, fmt.Errorf("expected AcceptIdentification  ; got %T", pkt)
+
+	// XXX also handle Error
+
+	case *AcceptIdentification:
+		return pkt.NodeType, nil
+	}
+
 }
 
 // ----------------------------------------
