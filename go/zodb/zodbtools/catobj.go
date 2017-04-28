@@ -67,7 +67,7 @@ Options:
 }
 
 func catobjMain(argv []string) {
-	flags := flag.FlagSet{Usage: func() { dumpUsage(os.Stderr) }}
+	flags := flag.FlagSet{Usage: func() { catobjUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
 //	flags.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
 	flags.Parse(argv[1:])
