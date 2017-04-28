@@ -363,7 +363,7 @@ func TestNodeLink(t *testing.T) {
 
 	// NewConn after NodeLink stop
 	c, err = nl1.NewConn()
-	if err != ErrLinkStopped {
+	if err != ErrLinkDown {
 		t.Fatalf("NewConn after NodeLink stop: %v", err)
 	}
 
@@ -373,17 +373,17 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Conn.Recv 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
 	err = c13.Send(&PktBuf{[]byte("data")})
-	if err != ErrLinkStopped {
+	if err != ErrLinkDown {
 		t.Fatalf("Conn.Send 2 after peer NodeLink shutdown: %v", err)
 	}
 
 	// Recv/Send error on second call
 	pkt, err = c11.Recv()
-	if !(pkt == nil && err == ErrLinkStopped) {
+	if !(pkt == nil && err == ErrLinkDown) {
 		t.Fatalf("Conn.Recv after NodeLink stop: pkt = %v  err = %v", pkt, err)
 	}
 	err = c12.Send(&PktBuf{[]byte("data")})
-	if err != ErrLinkStopped {
+	if err != ErrLinkDown {
 		t.Fatalf("Conn.Send after NodeLink stop: %v", err)
 	}
 
