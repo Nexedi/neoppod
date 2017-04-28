@@ -27,7 +27,6 @@ import (
 	"sync/atomic"
 
 	"fmt"
-	//"lab.nexedi.com/kirr/go123/xruntime/debug"
 )
 
 // NodeLink is a node-node link in NEO
@@ -237,7 +236,7 @@ func (c *Conn) shutdown() {
 // background on the wire not to break node-node link framing.
 func (c *Conn) Close() error {
 	// adjust nodeLink.connTab
-	// (if nodelink was already shutted down and connTab=nil - delete will be noop)
+	// (if nodelink was already shut down and connTab=nil - delete will be noop)
 	c.nodeLink.connMu.Lock()
 	delete(c.nodeLink.connTab, c.connId)
 	c.nodeLink.connMu.Unlock()
@@ -329,7 +328,7 @@ func (nl *NodeLink) serveRecv() {
 
 		nl.connMu.Lock()
 
-		// connTab is never nil here - becuase shutdown before
+		// connTab is never nil here - because shutdown before
 		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
 		if conn == nil {
@@ -379,7 +378,7 @@ type txReq struct {
 	errch chan error
 }
 
-// errSendShutdown returns approproate error when c.down is found ready in Send
+// errSendShutdown returns appropriate error when c.down is found ready in Send
 func (c *Conn) errSendShutdown() error {
 	switch {
 	case atomic.LoadUint32(&c.closed) != 0:
