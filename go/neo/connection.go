@@ -92,6 +92,7 @@ type Conn struct {
 }
 
 
+// XXX include actual op (read/write/accept/connect) when there is an error ?
 var ErrLinkClosed   = errors.New("node link is closed")	// operations on closed NodeLink
 var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
 var ErrLinkNoListen = errors.New("node link is not listening for incoming connections")
@@ -254,9 +255,9 @@ func (nl *NodeLink) Accept() (*Conn, error) {
 	select {
 	case <-nl.down:
 		if atomic.LoadUint32(&nl.closed) != 0 {
-			return nil, ErrLinkClosed // XXX + op = Accept ?
+			return nil, ErrLinkClosed
 		}
-		return nil, ErrLinkDown	// XXX test
+		return nil, ErrLinkDown
 
 	case c := <-nl.acceptq:
 		return c, nil

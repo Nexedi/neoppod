@@ -355,16 +355,28 @@ func TestNodeLink(t *testing.T) {
 		}
 
 	})
+	wg.Gox(func() {
+		conn, err := nl2.Accept()
+		if !(conn == nil && err == ErrLinkDown) {
+			exc.Raisef("Accept after peer NodeLink shutdown: conn = %v  err = %v", conn, err)
+		}
+	})
 	tdelay()
 	xclose(nl1)
 	xwait(wg)
 
 	// XXX denoise vvv
 
-	// NewConn after NodeLink stop
+	// NewConn after NodeLink shutdown
 	c, err = nl2.NewConn()
 	if err != ErrLinkDown {
-		t.Fatalf("NewConn after NodeLink stop: %v", err)
+		t.Fatalf("NewConn after NodeLink shutdown: %v", err)
+	}
+
+	// Accept after NodeLink shutdown
+	c, err = nl2.Accept()
+	if err != ErrLinkDown {
+		t.Fatalf("Accept after NodeLink shutdown: conn = %v  err = %v", c, err)
 	}
 
 	// Recv/Send on another Conn
@@ -380,11 +392,11 @@ func TestNodeLink(t *testing.T) {
 	// Recv/Send error on second call
 	pkt, err = c21.Recv()
 	if !(pkt == nil && err == ErrLinkDown) {
-		t.Fatalf("Conn.Recv after NodeLink stop: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.Recv after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
 	err = c22.Send(&PktBuf{[]byte("data")})
 	if err != ErrLinkDown {
-		t.Fatalf("Conn.Send after NodeLink stop: %v", err)
+		t.Fatalf("Conn.Send after NodeLink shutdown: %v", err)
 	}
 
 	xclose(c23)
@@ -399,21 +411,25 @@ func TestNodeLink(t *testing.T) {
 	}
 
 	xclose(nl2)
-	// Recv/Send error after NodeLink close
+	// Recv/Send NewConn/Accept error after NodeLink close
 	pkt, err = c21.Recv()
 	if !(pkt == nil && err == ErrLinkClosed) {
-		t.Fatalf("Conn.Recv after NodeLink stop: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.Recv after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
 	err = c22.Send(&PktBuf{[]byte("data")})
 	if err != ErrLinkClosed {
-		t.Fatalf("Conn.Send after NodeLink stop: %v", err)
+		t.Fatalf("Conn.Send after NodeLink shutdown: %v", err)
 	}
 
-	// NewConn after NodeLink close
 	c, err = nl2.NewConn()
 	if err != ErrLinkClosed {
 		t.Fatalf("NewConn after NodeLink close: %v", err)
 	}
+	c, err = nl2.Accept()
+	if err != ErrLinkClosed {
+		t.Fatalf("Accept after NodeLink close: %v", err)
+	}
+
 
 	xclose(c21)
 	xclose(c22)
