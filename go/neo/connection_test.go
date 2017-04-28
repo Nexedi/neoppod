@@ -325,40 +325,89 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl2)
 */
 
-	// NodeLink.Close vs Conn.Send/Recv on another side	TODO
+	// NodeLink.Close vs Conn.Send/Recv on another side
 	nl1, nl2 := _nodeLinkPipe(0, linkNoRecvSend)
 	c11 := nl1.NewConn()
 	c12 := nl1.NewConn()
+	c13 := nl1.NewConn()
 	wg := WorkGroup()
+	var errRecv error
 	wg.Gox(func() {
-		println(">>> RECV START")
 		pkt, err := c11.Recv()
-		println(">>> recv wakeup")
-		if !(pkt == nil && err == ErrClosedConn) {	// XXX -> EOF ?
+		want1 := io.EOF		  // if recvPkt wakes up due to peer close
+		want2 := io.ErrClosedPipe // if recvPkt wakes up due to sendPkt wakes up first and closes nl1
+		if !(pkt == nil && (err == want1 || err == want2)) {
 			exc.Raisef("Conn.Recv after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 		}
-		println("recv ok")
+
+		errRecv = err
 	})
 	wg.Gox(func() {
 		pkt := &PktBuf{[]byte("data")}
-		println(">>> SEND START")
 		err := c12.Send(pkt)
-		println(">>> send wakeup")
-		if want := io.ErrClosedPipe; err != want {// XXX we are here but what the error should be?
-			exc.Raisef("Conn.Send() after peer NodeLink shutdown: unexpected err\nhave: %v\nwant: %v", err, want)
+		want := io.ErrClosedPipe // always this in both due to peer close or recvPkt waking up and closing nl1
+		if err != want {
+			exc.Raisef("Conn.Send after peer NodeLink shutdown: %v", err)
 		}
-		println(">>> SEND OK")
 
 	})
 	tdelay()
-	println("NL2.Close")
 	xclose(nl2)
 	xwait(wg)
-	// TODO check Recv/Send error on second call
+
+	// Recv/Send on another Conn
+	pkt, err := c13.Recv()
+	if !(pkt == nil && err == errRecv) {
+		t.Fatalf("Conn.Recv 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
+	}
+	err = c13.Send(&PktBuf{[]byte("data")})
+	if err != ErrLinkStopped {
+		t.Fatalf("Conn.Send 2 after peer NodeLink shutdown: %v", err)
+	}
+
+	// Recv/Send error on second call
+	pkt, err = c11.Recv()
+	if !(pkt == nil && err == ErrLinkStopped) {
+		t.Fatalf("Conn.Recv after NodeLink stop: pkt = %v  err = %v", pkt, err)
+	}
+	err = c12.Send(&PktBuf{[]byte("data")})
+	if err != ErrLinkStopped {
+		t.Fatalf("Conn.Send after NodeLink stop: %v", err)
+	}
+
+	xclose(c13)
+	// Recv/Send on closed Conn but not closed NodeLink
+	pkt, err = c13.Recv()
+	if !(pkt == nil && err == ErrClosedConn) {
+		t.Fatalf("Conn.Recv after close but only stopped NodeLink: pkt = %v  err = %v", pkt, err)
+	}
+	err = c13.Send(&PktBuf{[]byte("data")})
+	if err != ErrClosedConn {
+		t.Fatalf("Conn.Send after close but only stopped NodeLink: %v", err)
+	}
+
+	xclose(nl1)
+	// Recv/Send error after NodeLink close
+	pkt, err = c11.Recv()
+	if !(pkt == nil && err == ErrLinkClosed) {
+		t.Fatalf("Conn.Recv after NodeLink stop: pkt = %v  err = %v", pkt, err)
+	}
+	err = c12.Send(&PktBuf{[]byte("data")})
+	if err != ErrLinkClosed {
+		t.Fatalf("Conn.Send after NodeLink stop: %v", err)
+	}
+
 	xclose(c11)
 	xclose(c12)
-	// TODO check Recv/Send error after Close
-	xclose(nl1)
+	// check Recv/Send error after Close & NodeLink shutdown
+	pkt, err = c11.Recv()
+	if !(pkt == nil && err == ErrClosedConn) {
+		t.Fatalf("Conn.Recv after close and NodeLink close: pkt = %v  err = %v", pkt, err)
+	}
+	err = c12.Send(&PktBuf{[]byte("data")})
+	if err != ErrClosedConn {
+		t.Fatalf("Conn.Send after close and NodeLink close: %v", err)
+	}
 
 /*
 	// Conn accept + exchange
