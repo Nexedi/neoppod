@@ -114,6 +114,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+	// see notes in ../NOTES:"On iteration"
 	panic("TODO")
 }
 
