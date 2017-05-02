@@ -739,7 +739,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
-		return nil, zodb.Tid(0), &zodb.ErrOidMissing{Oid: xid.Oid}
+		return nil, 0, &zodb.ErrOidMissing{Oid: xid.Oid}
 	}
 
 	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
@@ -760,13 +760,13 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 				err = &ErrXidLoad{xid, err}
 			}
 
-			return nil, zodb.Tid(0), err
+			return nil, 0, err
 		}
 	}
 
 	// found dh.Tid < tidBefore; check it really satisfies xid.XTid
 	if !xid.XTid.TidBefore && dh.Tid != xid.XTid.Tid {
-		return nil, zodb.Tid(0), &zodb.ErrXidMissing{Xid: xid}
+		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
 	}
 
 	// even if we will scan back via backpointers, the tid returned should
@@ -776,12 +776,12 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	// TODO data -> slab
 	err = dh.LoadData(fs.file, &data)
 	if err != nil {
-		return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
+		return nil, 0, &ErrXidLoad{xid, err}
 	}
 	if data == nil {
 		// data was deleted
 		// XXX or allow this and return via data=nil ?
-		return nil, zodb.Tid(0), &zodb.ErrXidMissing{Xid: xid}
+		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
 	}
 
 	return data, tid, nil

@@ -140,7 +140,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 				reply = &Error{Code: 0, Message: err.Error()}	// XXX Code
 			} else {
 				reply = &AnswerGetObject{
-						Oid:	 xid.Oid,
+						Oid:	xid.Oid,
 						Serial: tid,
 
 						Compression: false,

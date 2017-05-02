@@ -143,6 +143,7 @@ type IStorage interface {
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	// TODO data []byte -> something allocated from slab ?
 	// XXX currently deleted data is returned as data=nil	-- is it ok?
+	// TODO specify error when data not found
 	Load(xid Xid) (data []byte, tid Tid, err error)	// XXX -> StorageRecordInformation ?
 
 	// -> Prefetch(xid Xid) ...
