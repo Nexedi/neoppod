@@ -62,6 +62,8 @@ func (tid Tid) Valid() bool {
 // ----------------------------------------
 
 // ErrOidMissing is an error which tells that there is no such oid in the database at all
+// XXX do we need distinction in between ErrOidMissing & ErrXidMissing ?
+// (think how client should handle error from Load ?)
 type ErrOidMissing struct {
 	Oid	Oid
 }
@@ -140,6 +142,7 @@ type IStorage interface {
 
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	// TODO data []byte -> something allocated from slab ?
+	// XXX currently deleted data is returned as data=nil	-- is it ok?
 	Load(xid Xid) (data []byte, tid Tid, err error)	// XXX -> StorageRecordInformation ?
 
 	// -> Prefetch(xid Xid) ...

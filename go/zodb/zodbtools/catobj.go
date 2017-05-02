@@ -28,8 +28,21 @@ import (
 	"../../zodb"
 )
 
-// Catobj dumps content of one ZODB object	XXX text
+
+// Catobj dumps content of one ZODB object
+// The object is printed in raw form without any headers (see Dumpobj)
 func Catobj(w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
+	data, _, err := stor.Load(xid)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(data)	// NOTE delted data are returned as err by Load
+	return err		// XXX err ctx ?
+}
+
+// Dumpobj dumps content of one ZODB object with zodbdump-like header
+func Dumpobj(w io.Writer, stor zodb.IStorage, xid zodb.Xid, hashOnly bool) error {
 	var objInfo zodb.StorageRecordInformation
 
 	data, tid, err := stor.Load(xid)
@@ -37,13 +50,13 @@ func Catobj(w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
 		return err
 	}
 
-	// XXX hack - rework IStorage.Load to fill-in objInfo directly
+	// XXX hack - TODO rework IStorage.Load to fill-in objInfo directly
 	objInfo.Oid = xid.Oid
 	objInfo.Tid = tid
 	objInfo.Data = data
-	objInfo.DataTid = tid	// XXX wrong
+	objInfo.DataTid = tid	// XXX generally wrong
 
-	d := dumper{W: w}	// XXX HashOnly + raw dump
+	d := dumper{W: w, HashOnly: hashOnly}
 	err = d.DumpData(&objInfo)
 	return err
 }
@@ -62,14 +75,20 @@ xid is object address (see 'zodb help xid').
 Options:
 
 	-h --help       this help text.
-//	-hashonly	dump only hashes of objects without content.	XXX
+	-hashonly	dump only hashes of objects without content.
+	-raw		dump object data without any headers. Only one object allowed.
 `)
 }
 
 func catobjMain(argv []string) {
+	hashOnly := false
+	raw := false
+
 	flags := flag.FlagSet{Usage: func() { catobjUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
-//	flags.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
+	flags.BoolVar(&hashOnly, "hashonly", hashOnly, "dump only hashes of objects")
+	flags.BoolVar(&raw, "raw", hashOnly, "dump object data without any headers. Only one object allowed.")
+	// TODO also -batch to serve objects a-la `git cat-file --batch` ?
 	flags.Parse(argv[1:])
 
 	argv = flags.Args()
@@ -78,6 +97,10 @@ func catobjMain(argv []string) {
 		os.Exit(2)
 	}
 	storUrl := argv[0]
+
+	if hashOnly && raw {
+		log.Fatal("-hashonly & -raw are incompatible")
+	}
 
 	xidv := []zodb.Xid{}
 	for _, arg := range argv[1:] {
@@ -89,14 +112,26 @@ func catobjMain(argv []string) {
 		xidv = append(xidv, xid)
 	}
 
+	if raw && len(xidv) > 1 {
+		log.Fatal("only 1 object allowed with -raw")
+	}
+
 	stor, err := zodb.OpenStorageURL(storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}
 	// TODO defer stor.Close()
 
+	catobj := func(xid zodb.Xid) error {
+		if raw {
+			return Catobj(os.Stdout, stor, xid)
+		} else {
+			return Dumpobj(os.Stdout, stor, xid, hashOnly)
+		}
+	}
+
 	for _, xid := range xidv {
-		err = Catobj(os.Stdout, stor, xid)
+		err = catobj(xid)
 		if err != nil {
 			log.Fatal(err)
 		}

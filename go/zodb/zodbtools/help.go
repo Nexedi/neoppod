@@ -66,11 +66,16 @@ Please see zodburi documentation for full details:
 http://docs.pylonsproject.org/projects/zodburi/
 `
 
-var HelpTopics = HelpRegistry{
-	{"zurl", "specifying database URL", helpZURL},
-}
+const helpXid =
+`TODO describe
 
-
-// TODO xid
+	=tid:oid
+	<tid:oid
+`
 
 // TODO dump format
+
+var HelpTopics = HelpRegistry{
+	{"zurl", "specifying database URL", helpZURL},
+	{"xid",  "specifying object address", helpXid},
+}

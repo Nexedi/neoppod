@@ -637,6 +637,7 @@ func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 // LoadData loads data for the data record taking backpointers into account
 // Data is loaded into *buf, which, if needed, is reallocated to hold all loading data size	XXX
 // NOTE on success dh state is changed to data header of original data transaction
+// NOTE "deleted" records are indicated via returning *buf=nil
 // TODO buf -> slab
 func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error {
 	// scan via backpointers
@@ -737,10 +738,10 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
-		// XXX drop oid from ErrOidMissing ?
-		return nil, zodb.Tid(0), &ErrXidLoad{xid, zodb.ErrOidMissing{Oid: xid.Oid}}
+		return nil, zodb.Tid(0), &zodb.ErrOidMissing{Oid: xid.Oid}
 	}
 
+	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
 	dh := DataHeader{Oid: xid.Oid, Tid: zodb.TidMax, PrevRevPos: dataPos}
 	tidBefore := xid.XTid.Tid
 	if !xid.XTid.TidBefore {
@@ -754,15 +755,17 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 			if err == io.EOF {
 				// no such oid revision
 				err = &zodb.ErrXidMissing{Xid: xid}
+			} else {
+				err = &ErrXidLoad{xid, err}
 			}
-			return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
+
+			return nil, zodb.Tid(0), err
 		}
 	}
 
 	// found dh.Tid < tidBefore; check it really satisfies xid.XTid
 	if !xid.XTid.TidBefore && dh.Tid != xid.XTid.Tid {
-		// XXX unify with ^^^
-		return nil, zodb.Tid(0), &ErrXidLoad{xid, &zodb.ErrXidMissing{Xid: xid}}
+		return nil, zodb.Tid(0), &zodb.ErrXidMissing{Xid: xid}
 	}
 
 	// even if we will scan back via backpointers, the tid returned should
@@ -773,6 +776,11 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	err = dh.LoadData(fs.file, &data)
 	if err != nil {
 		return nil, zodb.Tid(0), &ErrXidLoad{xid, err}
+	}
+	if data == nil {
+		// data was deleted
+		// XXX or allow this and return via data=nil ?
+		return nil, zodb.Tid(0), &zodb.ErrXidMissing{Xid: xid}
 	}
 
 	return data, tid, nil

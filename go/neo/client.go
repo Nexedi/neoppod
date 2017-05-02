@@ -70,7 +70,7 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 }
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
-	panic("TODO")
+	panic("TODO")	// XXX
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
