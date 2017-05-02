@@ -20,6 +20,7 @@
 package zodbtools
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -113,7 +114,7 @@ func infoMain(argv []string) {
 	}
 	storUrl := argv[0]
 
-	stor, err := zodb.OpenStorageURL(storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}

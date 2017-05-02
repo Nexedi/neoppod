@@ -18,6 +18,7 @@
 package fs1
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -85,7 +86,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 }
 
 func xfsopen(t testing.TB, path string) *FileStorage {
-	fs, err := Open(path)
+	fs, err := Open(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
 	}

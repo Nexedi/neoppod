@@ -19,6 +19,7 @@ package zodbtools
 // Catobj - dump content of a database object
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -116,7 +117,7 @@ func catobjMain(argv []string) {
 		log.Fatal("only 1 object allowed with -raw")
 	}
 
-	stor, err := zodb.OpenStorageURL(storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}

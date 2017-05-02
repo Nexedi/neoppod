@@ -19,16 +19,17 @@ package fs1
 // open URL support
 
 import (
+	"context"
 	"net/url"
 
 	"../../../zodb"
 )
 
 // TODO read-only support
-func openByURL(u *url.URL) (zodb.IStorage, error) {
+func openByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// TODO handle query
 	// XXX u.Path is not always raw path - recheck and fix
-	return Open(u.Host + u.Path)
+	return Open(ctx, u.Host + u.Path)
 }
 
 func init() {

@@ -210,7 +210,7 @@ func storageMain(argv []string) {
 	}
 
 	// XXX hack to use existing zodb storage for data
-	zstor, err := fs1.Open(argv[0])
+	zstor, err := fs1.Open(context.Background(), argv[0])	// XXX context.Background -> ?
 	if err != nil {
 		log.Fatal(err)
 	}

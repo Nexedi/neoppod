@@ -21,6 +21,7 @@ package zodbtools
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"regexp"
 	"testing"
@@ -72,7 +73,7 @@ func loadZdumpPy(t *testing.T, path string) string {
 
 func withTestdata1Fs(t testing.TB, f func(fs *fs1.FileStorage)) {
 	// XXX -> zodb.OpenURL
-	fs, err := fs1.Open("../../zodb/storage/fs1/testdata/1.fs")	// XXX read-only, path?
+	fs, err := fs1.Open(context.Background(), "../../zodb/storage/fs1/testdata/1.fs")	// XXX read-only, path?
 	if err != nil {
 		t.Fatal(err)
 	}

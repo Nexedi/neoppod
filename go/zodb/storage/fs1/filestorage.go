@@ -22,6 +22,7 @@
 package fs1
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -663,7 +664,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error
 }
 
 // Open opens FileStorage XXX text
-func Open(path string) (*FileStorage, error) {
+func Open(ctx context.Context, path string) (*FileStorage, error) {
 	fs := &FileStorage{}
 
 	f, err := os.Open(path)	// XXX opens in O_RDONLY
@@ -682,7 +683,7 @@ func Open(path string) (*FileStorage, error) {
 		return nil, fmt.Errorf("%s: invalid magic %q", path, xxx)	// XXX err?
 	}
 
-	// TODO recreate index if missing / not sane
+	// TODO recreate index if missing / not sane (cancel this job on ctx.Done)
 	// TODO verify index sane / topPos matches
 	topPos, index, err := LoadIndexFile(path + ".index")
 	if err != nil {

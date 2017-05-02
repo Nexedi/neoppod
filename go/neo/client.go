@@ -79,10 +79,9 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 
 // TODO read-only support
-func openClientByURL(u *url.URL) (zodb.IStorage, error) {
+func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// XXX for now url is treated as storage node URL
 	// XXX check/use other url fields
-	ctx := context.Background()	// XXX ok?
 	storLink, err := Dial(ctx, "tcp", u.Host)
 	if err != nil {
 		return nil, err

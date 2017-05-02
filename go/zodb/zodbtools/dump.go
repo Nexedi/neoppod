@@ -37,6 +37,7 @@ txn ...
 package zodbtools
 
 import (
+	"context"
 	"crypto/sha1"
 	"flag"
 	"fmt"
@@ -245,7 +246,7 @@ func dumpMain(argv []string) {
 		log.Fatal(err)	// XXX recheck
 	}
 
-	stor, err := zodb.OpenStorageURL(storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
 	if err != nil {
 		log.Fatal(err)
 	}
