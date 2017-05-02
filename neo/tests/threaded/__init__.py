@@ -321,10 +321,10 @@ class ServerNode(Node):
         if not address:
             address = self.newAddress()
         if cluster is None:
-            master_nodes = kw.get('master_nodes', ())
+            master_nodes = ()
             name = kw.get('name', 'test')
         else:
-            master_nodes = kw.get('master_nodes', cluster.master_nodes)
+            master_nodes = cluster.master_nodes
             name = kw.get('name', cluster.name)
         port = address[1]
         if address is not BIND:

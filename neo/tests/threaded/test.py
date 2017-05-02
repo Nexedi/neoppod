@@ -2319,6 +2319,21 @@ class Test(NEOThreadedTest):
         self.assertTrue(m0.primary)
         self.assertFalse(m2.primary)
 
+    @with_cluster(start_cluster=0, master_count=2)
+    def testIdentifyUnknownMaster(self, cluster):
+        m0, m1 = cluster.master_list
+        cluster.master_nodes = ()
+        m0.resetNode()
+        cluster.start(master_list=(m0,))
+        m1.start()
+        self.tic()
+        self.assertEqual(cluster.neoctl.getClusterState(),
+                         ClusterStates.RUNNING)
+        self.assertTrue(m0.primary)
+        self.assertTrue(m0.is_alive())
+        self.assertFalse(m1.primary)
+        self.assertTrue(m1.is_alive())
+
 
 if __name__ == "__main__":
     unittest.main()

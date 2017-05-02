@@ -49,7 +49,10 @@ class IdentificationHandler(EventHandler):
                         node = uuid = None
                         break
                 else:
-                    node.setAddress(address)
+                    if node is app._node:
+                        node = None
+                    else:
+                        node.setAddress(address)
                     break
                 # Id conflict for a storage node.
             else:
