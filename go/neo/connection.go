@@ -234,6 +234,9 @@ func (c *Conn) shutdown() {
 //
 // NOTE for Send() - once transmission was started - it will complete in the
 // background on the wire not to break node-node link framing.
+//
+// TODO Close on one end must make Recv/Send on another end fail
+// (UC: sending []txn-info)
 func (c *Conn) Close() error {
 	// adjust nodeLink.connTab
 	// (if nodelink was already shut down and connTab=nil - delete will be noop)
@@ -363,6 +366,9 @@ func (nl *NodeLink) serveRecv() {
 		}
 
 		// route packet to serving goroutine handler
+		//
+		// TODO backpressure when Recv is not keeping up with Send on peer side?
+		//      (not to let whole nodelink starve because of one connection)
 		conn.rxq <- pkt
 
 		// keep connMu locked until here: so that ^^^ `conn.rxq <- pkt` can be

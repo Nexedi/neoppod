@@ -1,121 +1,34 @@
-Wire proto
-----------
+On iteration
+------------
 
-# all in network byte-order
+All ZODB/NEO iterations can be unified into one scheme:
 
-PktHeader
-	.id	u32	// autoincrement on ask (?)
-	.code	u16	// defined by seqno if register(...) call in Packets
-	.length	u32	// whole pkt length
+- iterator():	tid↑	flags = objects intermixed
+- history(oid): tid↓	flags = filter by oid (on server)
+- undoLog:	tid↓	flags = no objects content needed;
+				which tid is undoable is computed on _client_
+- replication:	tid↑	flags = objects intermixed
 
-# response_code = 0x8000 | code
+each iteration yields all information about txn:
 
+  - tid
+  - meta (user/description/ext)	(+ status ?)
+  - []oid changed by this txn
 
-List
-	.len	u32
-	[len]items
+via 1 packet per 1 txn.
 
-Dict
-	.len	u32
-	[len] key, value
+Objects content is sent via 1 obj packet via 1 object:
 
-Enum
-	.value	s32	// None -> -1
-
-String
-	.len	u32
-	[len] strdata
-
-Address
-	.host	String
-	.port	u16	// present only if .host != ''
-
-Bool
-	.value	u8
-
-Number
-	.value	u32
-
-Index
-	.value	u64
-
-PTID
-	.value	u64	// 0 <-> None
-
-Protocol
-	Number		// encode <- version, decode -> check version
-
-Checksum
-	.checksum [20]u8
-
-UUID
-	.uuid	s32	// 0 <-> None
-
-TID
-	.tid	[8]byte	// None <-> \xff*8
-
-POID = PTID
-
-Float
-	.value	float64	// '\xff' * 8 if None
+  - tid:oid
+  - data	(+ sha1 ?)
 
 
-~~~~~~~~
+~~~
 
-NodeList []
-	type		NodeType
-	address		Address
-	uuid		UUID
-	state		NodeState
-	id_timestamp	Float
-
-CellList []
-	uuid	UUID
-	state	CellState
-
-RowList  []
-	offset	Number	// u32
-	cell_list CellList
-
-HistoryList []
-	serial	TID
-	size	Number	// u32
-
-UUIDList []
-	uuid	UUID
-
-TidList []
-	tid	TID
-
-OidList	[]
-	oid	OID
-
-~~~~~~~~
-
-Notify
-	.message	String
-
-Error
-	.code		Number
-	.message	String
-
-Ping
-	ø
-	_answer = PFEmpty
-
-CloseClient
-	ø
-
-RequestIdentification
-	.protocol_version	PProtocol
-	.node_type		NodeType
-	.uuid			UUID
-	.address		Address
-	.name			String
-	.id_timestamp		Float
-
-TODO
-
+- iterator()	- not used at all in Zope/ERP5
+- history(oid)	- used in "ZODB history" tab & like
+- undoLog	- (zope/src/App/Undo.py)
+- replication	- internal to NEO
 
 
 Storage related messages
@@ -766,3 +679,122 @@ NodeManager
 	{} uuid		-> Node
 	{} type		-> set<Node>
 	{} state	-> set<Node>
+
+
+Wire proto
+----------
+
+# all in network byte-order
+
+PktHeader
+	.id	u32	// autoincrement on ask (?)
+	.code	u16	// defined by seqno if register(...) call in Packets
+	.length	u32	// whole pkt length
+
+# response_code = 0x8000 | code
+
+
+List
+	.len	u32
+	[len]items
+
+Dict
+	.len	u32
+	[len] key, value
+
+Enum
+	.value	s32	// None -> -1
+
+String
+	.len	u32
+	[len] strdata
+
+Address
+	.host	String
+	.port	u16	// present only if .host != ''
+
+Bool
+	.value	u8
+
+Number
+	.value	u32
+
+Index
+	.value	u64
+
+PTID
+	.value	u64	// 0 <-> None
+
+Protocol
+	Number		// encode <- version, decode -> check version
+
+Checksum
+	.checksum [20]u8
+
+UUID
+	.uuid	s32	// 0 <-> None
+
+TID
+	.tid	[8]byte	// None <-> \xff*8
+
+POID = PTID
+
+Float
+	.value	float64	// '\xff' * 8 if None
+
+
+~~~~~~~~
+
+NodeList []
+	type		NodeType
+	address		Address
+	uuid		UUID
+	state		NodeState
+	id_timestamp	Float
+
+CellList []
+	uuid	UUID
+	state	CellState
+
+RowList  []
+	offset	Number	// u32
+	cell_list CellList
+
+HistoryList []
+	serial	TID
+	size	Number	// u32
+
+UUIDList []
+	uuid	UUID
+
+TidList []
+	tid	TID
+
+OidList	[]
+	oid	OID
+
+~~~~~~~~
+
+Notify
+	.message	String
+
+Error
+	.code		Number
+	.message	String
+
+Ping
+	ø
+	_answer = PFEmpty
+
+CloseClient
+	ø
+
+RequestIdentification
+	.protocol_version	PProtocol
+	.node_type		NodeType
+	.uuid			UUID
+	.address		Address
+	.name			String
+	.id_timestamp		Float
+
+TODO
