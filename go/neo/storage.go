@@ -56,6 +56,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		select {
 		case <-ctx.Done():
 			// XXX tell peers we are shutting down?
+			// XXX ret err = cancelled ?
 		case <-retch:
 		}
 		fmt.Printf("stor: %v: closing link\n", link)
@@ -110,6 +111,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 		select {
 		case <-ctx.Done():
 			// XXX tell client we are shutting down?
+			// XXX ret err = cancelled ?
 		case <-retch:
 		}
 		fmt.Printf("stor: %v: closing client conn\n", conn)

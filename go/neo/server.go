@@ -47,6 +47,7 @@ func Serve(ctx context.Context, l *Listener, srv Server) error {
 	go func() {
 		select {
 		case <-ctx.Done():
+			// XXX err = cancelled
 		case <-retch:
 		}
 		l.Close() // XXX err

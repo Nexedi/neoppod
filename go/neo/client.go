@@ -16,7 +16,7 @@
 // See COPYING file for full licensing terms.
 
 package neo
-// access to NEO database via ZODB interfaces
+// client node
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 	"../zodb"
 )
 
+// Client talks to NEO cluster and exposes access it via ZODB interfaces
 type Client struct {
 	storLink *NodeLink	// link to storage node
 	storConn *Conn		// XXX main connection to storage
@@ -34,7 +35,7 @@ type Client struct {
 var _ zodb.IStorage = (*Client)(nil)
 
 func (c *Client) StorageName() string {
-	return "neo"	// TODO more specific
+	return "neo"	// TODO more specific (+ cluster name, ...)
 }
 
 func (c *Client) Close() error {
@@ -119,22 +120,14 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 }
 
 
-// TODO read-only support
-func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
-	// XXX for now url is treated as storage node URL
-	// XXX check/use other url fields
-	storLink, err := Dial(ctx, "tcp", u.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	// first identify ourselves via conn
+// NewClient creates and identifies new client connected to storage over storLink
+func NewClient(storLink *NodeLink) (*Client, error) {
+	// first identify ourselves to peer
 	storType, err := IdentifyMe(storLink, CLIENT)
 	if err != nil {
 		return nil, err	// XXX err ctx
 	}
 	if storType != STORAGE {
-		storLink.Close()	// XXX err
 		return nil, fmt.Errorf("%v: peer is not storage (identifies as %v)", storLink, storType)
 	}
 
@@ -144,13 +137,47 @@ func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// asking storage in parallel. At the same time creating new conn for
 	// every request is ok? -> not so good to create new goroutine per 1 object read
 	// XXX -> server could reuse goroutines -> so not so bad ?
-	conn, err := storLink.NewConn()
+	storConn, err := storLink.NewConn()
 	if err != nil {
-		storLink.Close()	// XXX err
 		return nil, err	// XXX err ctx ?
 	}
 
-	return &Client{storLink, conn}, nil
+	return &Client{storLink, storConn}, nil
+}
+
+// TODO read-only support
+func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
+	// XXX for now url is treated as storage node URL
+	// XXX check/use other url fields
+	storLink, err := Dial(ctx, "tcp", u.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	// close storLink on error or ctx cancel
+	defer func() {
+		if err != nil {
+			storLink.Close()
+		}
+	}()
+
+
+	// XXX try to prettify this
+	type Result struct {*Client; error}
+	done := make(chan Result, 1)
+	go func() {
+		client, err := NewClient(storLink)
+		done <- Result{client, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+
+	case r := <-done:
+		return r.Client, r.error
+	}
+
 }
 
 //func Open(...) (*Client, error) {
