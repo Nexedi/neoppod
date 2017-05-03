@@ -29,11 +29,13 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
-	custerName string
+	custerName   string
+	clusterState ClusterState
 }
 
 func NewMaster(clusterName string) *Master {
 	return &Master{clusterName}
+	// XXX .clusterState = RECOVERING ?
 }
 
 
@@ -55,6 +57,14 @@ func (m *Master) ServeClient(ctx context.Context, conn *Conn) {
 // XXX +error return?
 func (m *Master) ServeStorage(ctx context.Context, conn *Conn) {
 	// TODO
+}
+
+func (m *Master) ServeAdmin(ctx context.Context, conn *Conn) {
+	// TODO
+}
+
+func (m *Master) ServeMaster(ctx context.Context, conn *Conn) {
+	// TODO  (for elections)
 }
 
 // ----------------------------------------

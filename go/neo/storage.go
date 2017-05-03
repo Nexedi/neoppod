@@ -131,6 +131,19 @@ func errDecode(e *Error) error {
 	return e
 }
 
+func (stor *Storage) ServeMaster(ctx context.Context, conn *Conn) {
+
+	// state changes:
+	//
+	// - Recovery
+	// - StartOperation
+	// - StopOperation
+	// ? NotifyClusterInformation
+
+	// - NotifyNodeInformation (e.g. M tells us we are RUNNING)
+	// ? NotifyPartitionTable
+}
+
 // ServeClient serves incoming connection on which peer identified itself as client
 // XXX +error return?
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
