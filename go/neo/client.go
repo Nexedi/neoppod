@@ -61,7 +61,7 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 
 	switch reply := reply.(type) {
 	case *Error:
-		return 0, reply	// XXX err context
+		return 0, errDecode(reply)	// XXX err context
 	default:
 		// XXX more error context ?
 		return 0, fmt.Errorf("protocol error: unexpected reply: %T", reply)
@@ -95,7 +95,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 
 	switch reply := reply.(type) {
 	case *Error:
-		return nil, 0, reply	// XXX err context
+		return nil, 0, errDecode(reply)	// XXX err context
 	default:
 		// XXX more error context ?
 		return nil, 0, fmt.Errorf("protocol error: unexpected reply: %T", reply)

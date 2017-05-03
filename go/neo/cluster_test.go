@@ -19,7 +19,10 @@ package neo
 // test interaction between nodes
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"reflect"
 	"testing"
 
 	"../zodb"
@@ -65,15 +68,13 @@ func TestClientStorage(t *testing.T) {
 	ziter := zstor.Iterate(zodb.Tid(0), zodb.TidMax)
 
 	for {
-		txni, dataIter, err := ziter.NextTxn()
+		_, dataIter, err := ziter.NextTxn()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			t.Fatalf("ziter.NextTxn: %v", err)
 		}
-
-		txni.Tid
 
 		for {
 			datai, err := dataIter.NextData()
@@ -84,15 +85,30 @@ func TestClientStorage(t *testing.T) {
 				t.Fatalf("ziter.NextData: %v", err)
 			}
 
-			datai.Oid
-			datai.Tid
-			.Data
-			.DataTid
+			for _, tidBefore := range []bool{false, true} {
+				xid := zodb.Xid{Oid: datai.Oid} // {=,<}tid:oid
+				xid.Tid = datai.Tid
+				xid.TidBefore = tidBefore
+				if tidBefore {
+					xid.Tid++
+				}
 
-			// XXX .Data = nil means deleted
+				data, tid, err := C.Load(xid)
+				if datai.Data != nil {
+					if !(bytes.Equal(data, datai.Data) && tid == datai.Tid && err == nil) {
+						t.Fatalf("load: %v:\nhave: %v %v %q\nwant: %v nil %q",
+							xid, tid, err, data, datai.Tid, datai.Data)
+					}
+				} else {
+					// deleted
+					errWant := &zodb.ErrXidMissing{xid}
+					if !(data == nil && tid == 0 && reflect.DeepEqual(err, errWant)) {
+						t.Fatalf("load: %v:\nhave: %v, %#v, %#v\nwant: %v, %#v, %#v",
+							xid, tid, err, data, zodb.Tid(0), errWant, []byte(nil))
+					}
+				}
+			}
 
-			zodb.Xid{zodb.XTid{datai.Tid, false}, datai.Oid} // =tid:oid
-			// TODO check Load
 		}
 
 	}

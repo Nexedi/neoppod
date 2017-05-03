@@ -98,6 +98,37 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	// TODO wait all spawned serveConn
 }
 
+
+// XXX move err{Encode,Decode} out of here
+
+// errEncode translates an error into Error packet
+func errEncode(err error) *Error {
+	switch err := err.(type) {
+	case *Error:
+		return err
+	case *zodb.ErrXidMissing:
+		// XXX abusing message for xid
+		return &Error{Code: OID_NOT_FOUND, Message: err.Xid.String()}
+
+	default:
+		return &Error{Code: BROKEN_NODE, Message: err.Error()}
+	}
+
+}
+
+// errDecode decodes error from Error packet
+func errDecode(e *Error) error {
+	switch e.Code {
+	case OID_NOT_FOUND:
+		xid, err := zodb.ParseXid(e.Message)	// XXX abusing message for xid
+		if err == nil {
+			return &zodb.ErrXidMissing{xid}
+		}
+	}
+
+	return e
+}
+
 // ServeClient serves incoming connection on which peer identified itself as client
 // XXX +error return?
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
@@ -141,7 +172,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 			data, tid, err := stor.zstor.Load(xid)
 			if err != nil {
 				// TODO translate err to NEO protocol error codes
-				reply = &Error{Code: 0, Message: err.Error()}	// XXX Code
+				reply = errEncode(err)
 			} else {
 				reply = &AnswerGetObject{
 						Oid:	xid.Oid,
@@ -163,7 +194,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 
 			lastTid, err := stor.zstor.LastTid()
 			if err != nil {
-				reply = &Error{Code:0, Message: err.Error()}
+				reply = errEncode(err)
 			} else {
 				reply = &AnswerLastTransaction{lastTid}
 			}
