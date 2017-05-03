@@ -194,8 +194,6 @@ class EventHandler(object):
         conn.answer(Packets.Pong())
 
     def pong(self, conn):
-        # Ignore PONG packets. The only purpose of ping/pong packets is
-        # to test/maintain underlying connection.
         pass
 
     def closeClient(self, conn):

@@ -57,6 +57,18 @@ class SocketConnector(object):
         self.socket_fd = s.fileno()
         # always use non-blocking sockets
         s.setblocking(0)
+        # TCP keepalive, enabled on both sides to detect:
+        # - remote host crash
+        # - network failure
+        # They're more efficient than applicative pings and we don't want
+        # to consider the connection dead if the remote node is busy.
+        # The following 3 lines are specific to Linux. It seems that OSX
+        # has similar options (TCP_KEEPALIVE/TCP_KEEPINTVL/TCP_KEEPCNT),
+        # and Windows has SIO_KEEPALIVE_VALS (fixed count of 10).
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.queued = [ENCODED_VERSION]

@@ -1349,19 +1349,6 @@ class Test(NEOThreadedTest):
                 poll(0)
                 self.assertIs(client.connector, None)
 
-    def testConnectionTimeout(self):
-        with self.getLoopbackConnection() as conn:
-            conn.KEEP_ALIVE
-            def onTimeout(orig):
-                conn.idle()
-                orig()
-            with Patch(conn, KEEP_ALIVE=0):
-                while conn.connecting:
-                    conn.em.poll(1)
-                with Patch(conn, onTimeout=onTimeout):
-                    conn.em.poll(1)
-            self.assertFalse(conn.isClosed())
-
     @with_cluster()
     def testClientDisconnectedFromMaster(self, cluster):
         def disconnect(conn, packet):

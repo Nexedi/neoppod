@@ -235,9 +235,7 @@ class ReplicationTests(NEOThreadedTest):
         assertion failure.
         """
         conn, = backup.master.getConnectionList(backup.upstream.master)
-        # trigger ping
-        self.assertFalse(conn.isPending())
-        conn.onTimeout()
+        conn.ask(Packets.Ping())
         self.assertTrue(conn.isPending())
         # force ping to have expired
         # connection will be closed before upstream master has time
@@ -276,7 +274,7 @@ class ReplicationTests(NEOThreadedTest):
             self.tic(check_timeout=(backup.storage,))
             # 2nd failed, 3rd deferred
             self.assertEqual(count[0], 4)
-            self.assertTrue(t <= time.time())
+            self.assertLessEqual(t, time.time())
 
     @backup_test()
     def testBackupDelayedUnlockTransaction(self, backup):

@@ -183,7 +183,6 @@ class BaseConnection(object):
     """
 
     from .connector import SocketConnector as ConnectorClass
-    KEEP_ALIVE = 60
 
     def __init__(self, event_manager, handler, connector, addr=None):
         assert connector is not None, "Need a low-level connector"
@@ -284,9 +283,6 @@ class BaseConnection(object):
         """
         return attributeTracker.whoSet(self, 'connector')
 
-    def idle(self):
-        pass
-
 
 attributeTracker.track(BaseConnection)
 
@@ -332,6 +328,7 @@ class Connection(BaseConnection):
     peer_id = None
     _next_timeout = None
     _parser_state = None
+    _idle_timeout = 0
     _timeout = 0
 
     def __init__(self, event_manager, *args, **kw):
@@ -364,17 +361,20 @@ class Connection(BaseConnection):
 
     def asClient(self):
         try:
-            del self.idle
-            assert self.client
+            del self._idle_timeout
         except AttributeError:
             self.client = True
+        else:
+            assert self.client
+            self.updateTimeout()
 
     def asServer(self):
         self.server = True
 
     def _closeClient(self):
         if self.server:
-            del self.idle
+            del self._idle_timeout
+            self.updateTimeout()
             self.client = False
             self.send(Packets.CloseClient())
         else:
@@ -382,7 +382,8 @@ class Connection(BaseConnection):
 
     def closeClient(self):
         if self.connector is not None and self.client:
-            self.idle = self._closeClient
+            self._idle_timeout = 60
+            self._checkSmallerTimeout()
 
     def isAborted(self):
         return self.aborted
@@ -409,11 +410,14 @@ class Connection(BaseConnection):
         if not self._queue:
             if not t:
                 t = self._next_timeout - self._timeout
-            self._timeout = self._handlers.getNextTimeout() or self.KEEP_ALIVE
+            self._timeout = self._handlers.getNextTimeout() or \
+                self._idle_timeout
             self._next_timeout = t + self._timeout
 
+    _checkSmallerTimeout = updateTimeout
+
     def getTimeout(self):
-        if not self._queue:
+        if not self._queue and self._timeout:
             return self._next_timeout
 
     def onTimeout(self):
@@ -427,8 +431,8 @@ class Connection(BaseConnection):
             if self._next_timeout <= time():
                 handlers.timeout(self)
                 self.close()
-        else:
-            self.idle()
+        elif self._idle_timeout:
+            self._closeClient()
 
     def abort(self):
         """Abort dealing with this connection."""
@@ -600,11 +604,7 @@ class Connection(BaseConnection):
         handlers = self._handlers
         t = None if handlers.isPending() else time()
         handlers.emit(packet, timeout, kw)
-        if not self._queue:
-            next_timeout = self._next_timeout
-            self.updateTimeout(t)
-            if self._next_timeout < next_timeout:
-                self.em.wakeup()
+        self._checkSmallerTimeout(t)
         return msg_id
 
     def answer(self, packet):
@@ -616,9 +616,6 @@ class Connection(BaseConnection):
             return
         packet.setId(self.peer_id)
         self._addPacket(packet)
-
-    def idle(self):
-        self.ask(Packets.Ping())
 
     def _connected(self):
         self.connecting = False
@@ -679,13 +676,6 @@ class ClientConnection(Connection):
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
-
-    # Both server and client must check the connection, in case:
-    # - the remote crashed brutally (i.e. without closing TCP connections)
-    # - or packets sent by the remote are dropped (network failure)
-    # Use different timeout so that in normal condition, server never has to
-    # ping the client. Otherwise, it would do it about half of the time.
-    KEEP_ALIVE = Connection.KEEP_ALIVE + 5
 
     server = True
 
@@ -761,3 +751,10 @@ class MTClientConnection(ClientConnection):
             msg_id = self._ask(packet, timeout, **kw)
             self.dispatcher.register(self, msg_id, queue)
         return msg_id
+
+    def _checkSmallerTimeout(self, t=None):
+        if not self._queue:
+            next_timeout = self._timeout and self._next_timeout
+            self.updateTimeout(t)
+            if not next_timeout or self._next_timeout < next_timeout:
+                self.em.wakeup()
