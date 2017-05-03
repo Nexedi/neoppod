@@ -23,19 +23,32 @@ import (
 	"testing"
 )
 
+// basic interaction between Client -- Storage
 func TestClientStorage(t *testing.T) {
-	nlC, nlS := nodeLinkPipe()
+	Cnl, Snl := nodeLinkPipe()
+	wg := WorkGroup()
 
-	ctxS := context.Background()
+	Sctx, Scancel := context.WithCancel(context.Background())
 
 	S := NewStorage(nil)	// TODO zodb.storage.mem
-	//Serve(ctx, l, S)
-	S.ServeLink(ctxS, nlS)	// XXX go
+	wg.Gox(func() {
+		S.ServeLink(Sctx, Snl)
+		// XXX + test error return
+	})
 
-	C, err := NewClient(nlC)
-	//assert err != nil
+	C, err := NewClient(Cnl)
+	if err != nil {
+		t.Fatalf("creating/identifying client: %v", err)
+	}
 
-	_ = C
-	_ = err
+	lastTid, err := C.LastTid()
+	if !(lastTid == 111 && err == nil) {	// XXX 111
+		t.Fatalf("C.LastTid -> %v, %v  ; want %v, nil", lastTid, err, 111, err)
+	}
 
+	// shutdown storage
+	// XXX wait for S to shutdown + verify shutdown error
+	Scancel()
+
+	xwait(wg)
 }

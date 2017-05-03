@@ -43,6 +43,7 @@ func NewStorage(zstor zodb.IStorage) *Storage {
 
 
 // ServeLink serves incoming node-node link connection
+// XXX +error return?
 func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("stor: %s: serving new node\n", link)
 
@@ -98,6 +99,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 }
 
 // ServeClient serves incoming connection on which peer identified itself as client
+// XXX +error return?
 func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 	fmt.Printf("stor: %s: serving new client conn\n", conn)
 
