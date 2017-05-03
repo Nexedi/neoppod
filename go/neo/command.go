@@ -21,6 +21,7 @@ package neo
 import "../zodb/zodbtools"
 
 var Commands = zodbtools.CommandRegistry{
+	{"master",  masterSummary,  masterUsage,  masterMain},
 	{"storage", storageSummary, storageUsage, storageMain},
 }
 

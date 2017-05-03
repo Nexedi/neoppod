@@ -113,6 +113,9 @@ func TestClientStorage(t *testing.T) {
 
 	}
 
+
+	// TODO Iterate (not yet implemented for NEO)
+
 	// shutdown storage
 	// XXX wait for S to shutdown + verify shutdown error
 	Scancel()

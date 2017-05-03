@@ -16,7 +16,7 @@
 // See COPYING file for full licensing terms.
 
 package neo
-// NEO storage node
+// storage node
 
 import (
 	"context"
@@ -31,6 +31,8 @@ import (
 	"../zodb"
 	"../zodb/storage/fs1"
 )
+
+// XXX fmt -> log
 
 // Storage is NEO storage server application
 type Storage struct {
@@ -214,7 +216,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 
 // ----------------------------------------
 
-const storageSummary = "run NEO storage node"
+const storageSummary = "run storage node"
 
 // TODO options:
 // cluster, masterv ...
@@ -231,8 +233,6 @@ Run NEO storage node.
 func storageMain(argv []string) {
 	var bind string
 
-	//flags := flag.FlagSet{Usage: func() { storageUsage(os.Stderr) }}
-	//flags.Init("", flag.ExitOnError)
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() { storageUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
 	flags.StringVar(&bind, "bind", bind, "address to serve on")
