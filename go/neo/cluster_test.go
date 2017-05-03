@@ -21,6 +21,9 @@ package neo
 import (
 	"context"
 	"testing"
+
+	"../zodb"
+	"../zodb/storage/fs1"
 )
 
 // basic interaction between Client -- Storage
@@ -30,7 +33,13 @@ func TestClientStorage(t *testing.T) {
 
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	S := NewStorage(nil)	// TODO zodb.storage.mem
+	// TODO +readonly ?
+	zstor, err := fs1.Open(context.Background(), "../zodb/storage/fs1/testdata/1.fs")
+	if err != nil {
+		t.Fatalf("zstor: %v", err)	// XXX err ctx ?
+	}
+
+	S := NewStorage(zstor)
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
 		// XXX + test error return
@@ -41,9 +50,51 @@ func TestClientStorage(t *testing.T) {
 		t.Fatalf("creating/identifying client: %v", err)
 	}
 
+	// verify LastTid
+	lastTidOk, err := zstor.LastTid()
+	if err != nil {
+		t.Fatalf("zstor: lastTid: %v", err)
+	}
+
 	lastTid, err := C.LastTid()
-	if !(lastTid == 111 && err == nil) {	// XXX 111
-		t.Fatalf("C.LastTid -> %v, %v  ; want %v, nil", lastTid, err, 111, err)
+	if !(lastTid == lastTidOk && err == nil) {
+		t.Fatalf("C.LastTid -> %v, %v  ; want %v, nil", lastTid, err, lastTidOk)
+	}
+
+	// verify Load for all {<,=}serial:oid
+	ziter := zstor.Iterate(zodb.Tid(0), zodb.TidMax)
+
+	for {
+		txni, dataIter, err := ziter.NextTxn()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ziter.NextTxn: %v", err)
+		}
+
+		txni.Tid
+
+		for {
+			datai, err := dataIter.NextData()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("ziter.NextData: %v", err)
+			}
+
+			datai.Oid
+			datai.Tid
+			.Data
+			.DataTid
+
+			// XXX .Data = nil means deleted
+
+			zodb.Xid{zodb.XTid{datai.Tid, false}, datai.Oid} // =tid:oid
+			// TODO check Load
+		}
+
 	}
 
 	// shutdown storage

@@ -14,18 +14,23 @@
 // warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
 // See COPYING file for full licensing terms.
-
-// Package wks links-in well-known ZODB storages
-// The only purpose of this package is so that users could import it
 //
-//	import _ ".../zodb/wks"		XXX fixme import path
-//
-// and this way automatically link in support for file:// neo:// ... and other
-// common storages.
-package wks
+// XXX partly based on code from ZODB ?
 
+// Package mem implements in-memory ZODB storage
+package mem
+
+// XXX not yet really needed
+/*
 import (
-	_ "../../zodb/storage/mem"
-	_ "../../zodb/storage/fs1"
-	_ "../../neo"	// XXX split into neo/client ?
+
+	"../../../zodb"
 )
+
+
+// Storage is a ZODB storage which stores data in RAM.
+type Storage struct {
+}
+
+var _ zodb.IStorage = (*Storage)(nil)
+*/
