@@ -223,6 +223,7 @@ func float64_NEODecode(b []byte) float64 {
 }
 
 // NodeInfo is information about a node
+// XXX -> nodetab.go ?
 type NodeInfo struct {
 	NodeType
 	Address
@@ -231,7 +232,7 @@ type NodeInfo struct {
 	IdTimestamp float64
 }
 
-//type CellList []struct {
+// XXX -> parttab.go ?
 type CellInfo struct {
 	NodeID
 	CellState

@@ -23,6 +23,7 @@ type Node struct {
 	Info NodeInfo
 
 	Link *NodeLink	// link to this node; =nil if not connected
+	// XXX identified or not ?
 }
 
 
