@@ -42,7 +42,6 @@ from neo.tests.benchmark import BenchmarkRunner
 # each of them have to import its TestCase classes
 UNIT_TEST_MODULES = [
     # generic parts
-    'neo.tests.testConnection',
     'neo.tests.testHandler',
     'neo.tests.testNodes',
     'neo.tests.testUtil',

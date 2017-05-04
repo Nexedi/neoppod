@@ -27,7 +27,6 @@ from neo.storage.checker import CHECK_COUNT
 from neo.storage.replicator import Replicator
 from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
-from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64, u64
@@ -224,33 +223,6 @@ class ReplicationTests(NEOThreadedTest):
                         backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
                     self.tic()
                     self.assertEqual(np*3, self.checkBackup(backup))
-
-    @backup_test()
-    def testBackupUpstreamMasterDead(self, backup):
-        """Check proper behaviour when upstream master is unreachable
-
-        More generally, this checks that when a handler raises when a connection
-        is closed voluntarily, the connection is in a consistent state and can
-        be, for example, closed again after the exception is caught, without
-        assertion failure.
-        """
-        conn, = backup.master.getConnectionList(backup.upstream.master)
-        conn.ask(Packets.Ping())
-        self.assertTrue(conn.isPending())
-        # force ping to have expired
-        # connection will be closed before upstream master has time
-        # to answer
-        def _poll(orig, self, blocking):
-            if backup.master.em is self:
-                p.revert()
-                conn._next_timeout = 0
-                conn.onTimeout()
-            else:
-                orig(self, blocking)
-        with Patch(EventManager, _poll=_poll) as p:
-            self.tic()
-        new_conn, = backup.master.getConnectionList(backup.upstream.master)
-        self.assertIsNot(new_conn, conn)
 
     @backup_test()
     def testBackupUpstreamStorageDead(self, backup):
