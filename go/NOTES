@@ -381,7 +381,7 @@ Partition Table (general & current-py)
 	#Np (how-many partitions)    #R (replication factor)
 Cell
 	.node   (-> .nodeid, .addr)
-	.state
+	.cell_state
 
 	.backup_tid         # last tid this cell has all data for
 	.replicating        # currently replicating up to this (.replicating) tid

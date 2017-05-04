@@ -222,7 +222,7 @@ func float64_NEODecode(b []byte) float64 {
 	return math.Float64frombits(fu)
 }
 
-// NOTE original NodeList = []NodeInfo
+// NodeInfo is information about a node
 type NodeInfo struct {
 	NodeType
 	Address
@@ -243,22 +243,6 @@ type RowInfo struct {
 	CellList []CellInfo
 }
 
-
-type XXXTest struct {
-	qqq	uint32
-	aaa	uint32
-	Zzz	map[int32]string
-}
-
-
-
-// // XXX link request <-> answer ?
-// // XXX naming -> PktHeader ?
-// type PktHead struct {
-// 	ConnId  be32	// NOTE is .msgid in py
-// 	MsgCode be16
-// 	Len	be32	// whole packet length (including header)
-// }
 
 
 // General purpose notification (remote logging)

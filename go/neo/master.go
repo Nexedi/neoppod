@@ -34,10 +34,17 @@ type Master struct {
 }
 
 func NewMaster(clusterName string) *Master {
-	return &Master{clusterName}
-	// XXX .clusterState = RECOVERING ?
+	m := &Master{clusterName}
+	m.SetClusterState(RECOVERING) // XXX no elections - we are the only master
+	return m
 }
 
+
+
+func (m *Master) SetClusterState(state ClusterState) {
+	m.clusterState = state
+	// XXX actions ?
+}
 
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
