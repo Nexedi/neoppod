@@ -43,13 +43,34 @@ const (
 
 type ClusterState int32
 const (
-	// NOTE cluster states descriptions is in protocol.py
-	RECOVERING ClusterState = iota
+	// Once the primary master is elected, the cluster has a state, which is
+	// initially RECOVERING, during which the master:
+	// - first recovers its own data by reading it from storage nodes;
+	// - waits for the partition table be operational;
+	// - automatically switch to VERIFYING if the cluster can be safely started.
+	// Whenever the partition table becomes non-operational again, the cluster
+	// goes back to this state.
+	RECOVERING      ClusterState = iota
+	// Transient state, used to:
+	// - replay the transaction log, in case of unclean shutdown;
+	// - and actually truncate the DB if the user asked to do so.
+	// Then, the cluster either goes to RUNNING or STARTING_BACKUP state.
 	VERIFYING
+	// Normal operation. The DB is read-writable by clients.
 	CLUSTER_RUNNING			// XXX conflict with NodeState.RUNNING
+	// Transient state to shutdown the whole cluster.
 	STOPPING
+	// Transient state, during which the master (re)connect to the upstream
+	// master.
 	STARTING_BACKUP
+	// Backup operation. The master is notified of new transactions thanks to
+	// invalidations and orders storage nodes to fetch them from upstream.
+	// Because cells are synchronized independently, the DB is often
+	// inconsistent.
 	BACKINGUP
+	// Transient state, when the user decides to go back to RUNNING state.
+	// The master stays in this state until the DB is consistent again.
+	// In case of failure, the cluster will go back to backup mode.
 	STOPPING_BACKUP
 )
 
@@ -74,18 +95,40 @@ const (
 
 type CellState int32
 const (
-	// NOTE cell states description is in protocol.py
+	// Normal state: cell is writable/readable, and it isn't planned to drop it.
 	UP_TO_DATE CellState = iota //short: U     // XXX tag prefix name ?
+	// Write-only cell. Last transactions are missing because storage is/was down
+	// for a while, or because it is new for the partition. It usually becomes
+	// UP_TO_DATE when replication is done.
 	OUT_OF_DATE                 //short: O
+	// Same as UP_TO_DATE, except that it will be discarded as soon as another
+	// node finishes to replicate it. It means a partition is moved from 1 node
+	// to another.
 	FEEDING                     //short: F
+	// Not really a state: only used in network packets to tell storages to drop
+	// partitions.
 	DISCARDED                   //short: D
+	// A check revealed that data differs from other replicas. Cell is neither
+	// readable nor writable.
 	CORRUPTED                   //short: C
 )
 
-// An UUID (node identifier, 4-bytes signed integer)
-type UUID int32
+// NodeID is a node identifier, 4-bytes signed integer
+//
+// High-order byte:
+// 7 6 5 4 3 2 1 0
+// | | | | +-+-+-+-- reserved (0)
+// | +-+-+---------- node type
+// +---------------- temporary if negative
+// UUID namespaces are required to prevent conflicts when the master generate
+// new uuid before it knows uuid of existing storage nodes. So only the high
+// order bit is really important and the 31 other bits could be random.
+// Extra namespace information and non-randomness of 3 LOB help to read logs.
+//
+// XXX was UUID in py
+type NodeID int32
 
-// TODO UUID_NAMESPACES
+// TODO NodeType -> base NodeID
 
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
@@ -183,14 +226,14 @@ func float64_NEODecode(b []byte) float64 {
 type NodeInfo struct {
 	NodeType
 	Address
-	UUID
+	NodeID
 	NodeState
 	IdTimestamp float64
 }
 
 //type CellList []struct {
 type CellInfo struct {
-	UUID
+	NodeID
 	CellState
 }
 
@@ -246,7 +289,7 @@ type CloseClient struct {
 type RequestIdentification struct {
 	ProtocolVersion uint32		// TODO py.PProtocol upon decoding checks for != PROTOCOL_VERSION
 	NodeType        NodeType        // XXX name
-	UUID            UUID
+	NodeID		NodeID
 	Address		Address		// where requesting node is also accepting connections
 	Name            string
 	IdTimestamp	float64
@@ -255,14 +298,14 @@ type RequestIdentification struct {
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
 type AcceptIdentification struct {
 	NodeType        NodeType        // XXX name
-	MyUUID          UUID
+	MyNodeID        NodeID
 	NumPartitions   uint32          // PNumber
 	NumReplicas     uint32          // PNumber
-	YourUUID        UUID
+	YourNodeID      NodeID
 	Primary         Address
 	KnownMasterList []struct {
 		Address
-		UUID    UUID
+		NodeID  NodeID
 	}
 }
 
@@ -271,7 +314,7 @@ type PrimaryMaster struct {
 }
 
 type AnswerPrimary struct {
-	PrimaryUUID UUID
+	PrimaryNodeID NodeID
 }
 
 // Announce a primary master node election. PM -> SM.
@@ -326,7 +369,7 @@ type PartitionChanges struct {
 	CellList []struct {
 		// XXX does below correlate with Cell inside top-level CellList ?
 		Offset    uint32  // PNumber
-		UUID      UUID
+		NodeID    NodeID
 		CellState CellState
 	}
 }
@@ -399,7 +442,7 @@ type AnswerBeginTransaction struct {
 // True is returned if it's still possible to finish the transaction.
 type FailedVote struct {
 	Tid	 zodb.Tid
-	UUIDList []UUID
+	NodeList []NodeID
 
 	// XXX _answer = Error
 }
@@ -514,7 +557,7 @@ type AnswerStoreObject struct {
 // Abort a transaction. C -> S and C -> PM -> S.
 type AbortTransaction struct {
 	Tid		zodb.Tid
-	UUIDList	[]UUID		// unused for * -> S
+	NodeList	[]NodeID		// unused for * -> S
 }
 
 // Ask to store a transaction. C -> S.
@@ -623,7 +666,7 @@ type AnswerObjectHistory struct {
 type PartitionList struct {
 	MinOffset   uint32      // PNumber
 	MaxOffset   uint32      // PNumber
-	UUID        UUID
+	NodeID      NodeID
 }
 
 type AnswerPartitionList struct {
@@ -643,7 +686,7 @@ type AnswerNodeList struct {
 
 // Set the node state
 type SetNodeState struct {
-	UUID
+	NodeID
 	NodeState
 
 	// XXX _answer = Error ?
@@ -651,14 +694,14 @@ type SetNodeState struct {
 
 // Ask the primary to include some pending node in the partition table
 type AddPendingNodes struct {
-	UUIDList []UUID
+	NodeList []NodeID
 
 	// XXX _answer = Error
 }
 
 // Ask the primary to optimize the partition table. A -> PM.
 type TweakPartitionTable struct {
-	UUIDList []UUID
+	NodeList []NodeID
 
 	// XXX _answer = Error
 }
@@ -691,7 +734,7 @@ type repairFlags struct {
 
 // Ask storage nodes to repair their databases. ctl -> A -> M
 type Repair struct {
-	UUIDList []UUID
+	NodeList []NodeID
 	repairFlags
 }
 
@@ -779,7 +822,7 @@ type AnswerPack struct {
 // ctl -> A
 // A -> M
 type CheckReplicas struct {
-	PartitionDict map[uint32]UUID        // partition -> source	(PNumber)
+	PartitionDict map[uint32]NodeID        // partition -> source	(PNumber)
 	MinTID  zodb.Tid
 	MaxTID  zodb.Tid
 
@@ -846,7 +889,7 @@ type AnswerCheckSerialRange struct {
 // S -> M
 type PartitionCorrupted struct {
 	Partition       uint32  // PNumber
-	CellList        []UUID
+	CellList        []NodeID
 }
 
 
