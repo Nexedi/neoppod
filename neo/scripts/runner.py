@@ -402,6 +402,8 @@ Environment Variables:
         return runner.buildReport(self.add_status)
 
 def main(args=None):
+    from neo.storage.database.manager import DatabaseManager
+    DatabaseManager.UNSAFE = True
     runner = TestRunner()
     runner.run()
     return sys.exit(not runner.was_successful())
