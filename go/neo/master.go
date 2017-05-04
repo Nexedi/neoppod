@@ -40,6 +40,7 @@ func NewMaster(clusterName string) *Master {
 }
 
 
+// XXX NotifyNodeInformation to all nodes whenever nodetab changes
 
 func (m *Master) SetClusterState(state ClusterState) {
 	m.clusterState = state
