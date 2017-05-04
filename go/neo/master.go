@@ -57,6 +57,20 @@ func (m *Master) ServeClient(ctx context.Context, conn *Conn) {
 // XXX +error return?
 func (m *Master) ServeStorage(ctx context.Context, conn *Conn) {
 	// TODO
+
+	// >Recovery
+	// <AnswerRecovery
+
+	// ? >UnfinishedTransactions
+	// ? <AnswerUnfinishedTransactions	(none currently)
+
+
+	// <NotifyReady
+	// >StartOperation
+
+
+
+	// >StopOperation (on shutdown)
 }
 
 func (m *Master) ServeAdmin(ctx context.Context, conn *Conn) {

@@ -676,7 +676,7 @@ type AnswerPartitionList struct {
 
 // Ask information about nodes
 // Answer information about nodes
-type X_NodeList struct {
+type NodeList struct {
 	NodeType
 }
 

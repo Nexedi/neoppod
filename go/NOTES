@@ -380,7 +380,7 @@ Partition Table (general & current-py)
 
 	#Np (how-many partitions)    #R (replication factor)
 Cell
-	.node   (-> .uuid, .addr)
+	.node   (-> .nodeid, .addr)
 	.state
 
 	.backup_tid         # last tid this cell has all data for
@@ -667,7 +667,7 @@ VerificationManager < BaseServiceHandler
 Node
 	.state
 	.address
-	.uuid
+	.nodeid
 	.manager	# -> NodeManager
 
 	.connection
@@ -676,7 +676,7 @@ Node
 NodeManager
 	[]Node
 	{} address	-> Node
-	{} uuid		-> Node
+	{} nodeid	-> Node
 	{} type		-> set<Node>
 	{} state	-> set<Node>
 
@@ -731,8 +731,8 @@ Protocol
 Checksum
 	.checksum [20]u8
 
-UUID
-	.uuid	s32	// 0 <-> None
+NodeID  // UUID
+	.nodeid	s32	// 0 <-> None
 
 TID
 	.tid	[8]byte	// None <-> \xff*8
@@ -748,12 +748,12 @@ Float
 NodeList []
 	type		NodeType
 	address		Address
-	uuid		UUID
+	nodeid		NodeID
 	state		NodeState
 	id_timestamp	Float
 
 CellList []
-	uuid	UUID
+	nodeid	NodeID
 	state	CellState
 
 RowList  []
@@ -765,7 +765,7 @@ HistoryList []
 	size	Number	// u32
 
 UUIDList []
-	uuid	UUID
+	nodeid	NodeID
 
 TidList []
 	tid	TID
@@ -792,7 +792,7 @@ CloseClient
 RequestIdentification
 	.protocol_version	PProtocol
 	.node_type		NodeType
-	.uuid			UUID
+	.nodeid			NodeID
 	.address		Address
 	.name			String
 	.id_timestamp		Float
