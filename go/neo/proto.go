@@ -4,6 +4,11 @@
 
 package neo
 
+// NOTE for some packets it is possible to decode raw packet -> go version from
+// PktBuf in place. E.g. for GetObject.
+//
+// TODO work this out
+
 // XXX move imports out of here
 import (
 	"../zodb"
@@ -661,6 +666,8 @@ type AnswerPartitionList struct {
 
 // Ask information about nodes
 // Answer information about nodes
+//
+// XXX neoctl -> A	(A just extracts data from its nodetab)
 type NodeList struct {
 	NodeType
 }

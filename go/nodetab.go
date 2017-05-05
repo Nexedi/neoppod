@@ -18,6 +18,10 @@
 package neo
 // node management & node table
 
+import (
+	"sync"
+)
+
 // Node represents a node from local-node point of view
 type Node struct {
 	Info NodeInfo
@@ -29,4 +33,18 @@ type Node struct {
 
 // NodeTable represents all known nodes in a cluster from local-node point of view
 type NodeTable struct {
+	// users have to care locking explicitly
+	sync.Mutex	// XXX -> RWMutex ?
 }
+
+// UpdateNode updates information about a node
+func (nt *NodeTable) UpdateNode(nodeInfo NodeInfo) {
+	// TODO
+}
+
+// XXX ? ^^^ UpdateNode is enough ?
+func (nt *NodeTable) Add(node *Node) {
+	// TODO
+}
+
+// TODO subscribe for changes on Add ?  (notification via channel)

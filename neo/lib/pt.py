@@ -210,7 +210,7 @@ class PartitionTable(object):
             if offset >= self.getPartitions():
                 raise IndexError
             for uuid, state in row:
-                node = nm.getByUUID(uuid)
+                node = nm.getByUUID(uuid)                       # NOTE pt <-> nm interrelation
                 # the node must be known by the node manager
                 assert node is not None
                 self._setCell(offset, node, state)
@@ -231,7 +231,7 @@ class PartitionTable(object):
                 break
             readable_list += row
         for offset, uuid, state in cell_list:
-            node = nm.getByUUID(uuid)
+            node = nm.getByUUID(uuid)                           # NOTE pt <-> nm interrelation
             assert node is not None, 'No node found for uuid ' + uuid_str(uuid)
             self._setCell(offset, node, state)
         self.logUpdated()
