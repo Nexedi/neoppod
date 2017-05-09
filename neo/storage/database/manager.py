@@ -19,6 +19,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
 from functools import wraps
+from time import time
 from neo.lib import logging, util
 from neo.lib.interfaces import abstract, requires
 from neo.lib.protocol import CellStates, NonReadableCell, MAX_TID, ZERO_TID
@@ -53,6 +54,8 @@ class DatabaseManager(object):
     LOCKED = "error: database is locked"
 
     _deferred = 0
+    _drop_stats = 0, 0
+    _dropping = None
     _repairing = None
 
     def __init__(self, database, engine=None, wait=None):
@@ -212,7 +215,8 @@ class DatabaseManager(object):
             self.setConfiguration("version", version)
 
     def doOperation(self, app):
-        pass
+        if self._dropping:
+            self._dropPartitions(app)
 
     def _close(self):
         """Backend-specific code to close the database"""
@@ -559,7 +563,8 @@ class DatabaseManager(object):
                                  if -x[1] in READABLE)
 
     @requires(_changePartitionTable, _getLastIDs, _getLastTID)
-    def changePartitionTable(self, ptid, num_replicas, cell_list, reset=False):
+    def changePartitionTable(self, app, ptid, num_replicas, cell_list,
+                             reset=False):
         my_nid = self.getUUID()
         pt = dict(self.iterAssignedCells())
         # In backup mode, the last transactions of a readable cell may be
@@ -567,23 +572,41 @@ class DatabaseManager(object):
         backup_tid = self.getBackupTID()
         if backup_tid:
             backup_tid = util.u64(backup_tid)
-        def outofdate_tid(offset):
-            tid = pt.get(offset, 0)
-            if tid >= 0:
-                return tid
-            return -tid in READABLE and (backup_tid or
-                max(self._getLastIDs(offset)[0],
-                    self._getLastTID(offset))) or 0
-        cell_list = [(offset, nid, (
-                None if state == CellStates.DISCARDED else
-                -state if nid != my_nid or state != CellStates.OUT_OF_DATE else
-                outofdate_tid(offset)))
-            for offset, nid, state in cell_list]
-        self._changePartitionTable(cell_list, reset)
+        max_offset = -1
+        dropping = self._dropping or set()
+        assigned = []
+        cells = []
+        for offset, nid, state in cell_list:
+            if max_offset < offset:
+                max_offset = offset
+            if state == CellStates.DISCARDED:
+                if nid == my_nid:
+                    dropping.add(offset)
+                tid = None
+            else:
+                if nid == my_nid:
+                    assigned.append(offset)
+                if nid != my_nid or state != CellStates.OUT_OF_DATE:
+                    tid = -state
+                else:
+                    tid = pt.get(offset, 0)
+                    if tid < 0:
+                        tid = -tid in READABLE and (backup_tid or
+                            max(self._getLastIDs(offset)[0],
+                                self._getLastTID(offset))) or 0
+            cells.append((offset, nid, tid))
+        if reset:
+            dropping.update(xrange(max_offset + 1))
+            dropping.difference_update(assigned)
+        self._changePartitionTable(cells, reset)
         self._updateReadable(reset)
         assert isinstance(ptid, (int, long)), ptid
         self._setConfiguration('ptid', str(ptid))
         self._setConfiguration('replicas', str(num_replicas))
+        if dropping and not self._dropping:
+            self._dropping = dropping
+            if app.operational:
+                self._dropPartitions(app)
 
     @requires(_changePartitionTable)
     def updateCellTID(self, partition, tid):
@@ -628,9 +651,70 @@ class DatabaseManager(object):
                 else:
                     yield offset, None
 
+    def _dropPartitions(self, app):
+        if app.disable_drop_partitions:
+            logging.info("don't drop data for partitions %r", self._dropping)
+            return
+        def dropPartitions():
+            dropping = self._dropping
+            before = drop_count, drop_time = self._drop_stats
+            commit = dropped = 0
+            while dropping:
+                offset = next(iter(dropping))
+                log = dropped
+                while True:
+                    yield 1
+                    if offset not in dropping:
+                        break
+                    start = time()
+                    if 0 < commit < start:
+                        self.commit()
+                        logging.debug('drop: committed')
+                        commit = 0
+                        continue
+                    data_id_list = self._dropPartition(offset,
+                        # The efficiency drops when the number of lines to
+                        # delete is too small so do not delete too few.
+                        max(100, int(.1 * drop_count / drop_time))
+                        if drop_time else 1000)
+                    if data_id_list:
+                        if not commit:
+                            commit = time() + 1
+                        if log == dropped:
+                            dropped += 1
+                            logging.info("dropping partition %s...", offset)
+                        if type(data_id_list) is list:
+                            try:
+                                data_id_list.remove(None)
+                                pass # XXX: not covered
+                            except ValueError:
+                                pass
+                            logging.debug('drop: pruneData(%s)',
+                                          len(data_id_list))
+                            drop_count += self._pruneData(data_id_list)
+                            drop_time += time() - start
+                            self._drop_stats = drop_count, drop_time
+                            continue
+                    dropping.remove(offset)
+                    break
+            if dropped:
+                if commit:
+                    self.commit()
+                logging.info("%s partition(s) dropped"
+                    " (stats: count: %s/%s, time: %.4s/%.4s)",
+                    dropped, drop_count - before[0], drop_count,
+                    round(drop_time - before[1], 3), round(drop_time, 3))
+        app.newTask(dropPartitions())
+
     @abstract
-    def dropPartitions(self, offset_list):
-        """Delete all data for specified partitions"""
+    def _dropPartition(self, offset, count):
+        """Delete rows for given partition
+
+        Delete at most 'count' rows of from obj:
+        - if there's no line to delete, purge trans and return
+          a boolean indicating if any row was deleted (from trans)
+        - else return data ids of deleted rows
+        """
 
     def _getUnfinishedDataIdList(self):
         """Drop any unfinished data from a database."""
