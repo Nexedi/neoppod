@@ -53,7 +53,7 @@ class StorageDBTests(NeoUnitTestBase):
         uuid = self.getStorageUUID()
         db.setUUID(uuid)
         self.assertEqual(uuid, db.getUUID())
-        db.changePartitionTable(1, 0,
+        db.changePartitionTable(None, 1, 0,
             [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)],
             reset=True)
         self.assertEqual(num_partitions, 1 + db._getMaxPartition())

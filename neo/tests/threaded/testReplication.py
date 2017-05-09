@@ -477,13 +477,10 @@ class ReplicationTests(NEOThreadedTest):
             return isinstance(packet, delayed) and \
                    packet._args[0] == offset and \
                    conn in s1.getConnectionList(s0)
-        def changePartitionTable(orig, ptid, num_replicas, cell_list):
+        def changePartitionTable(orig, app, ptid, num_replicas, cell_list):
             if (offset, s0.uuid, CellStates.DISCARDED) in cell_list:
                 connection_filter.remove(delayAskFetch)
-                # XXX: this is currently not done by
-                #      default for performance reason
-                orig.im_self.dropPartitions((offset,))
-            return orig(ptid, num_replicas, cell_list)
+            return orig(app, ptid, num_replicas, cell_list)
         np = cluster.num_partitions
         s0, s1, s2 = cluster.storage_list
         for delayed in Packets.AskFetchTransactions, Packets.AskFetchObjects:
@@ -708,17 +705,7 @@ class ReplicationTests(NEOThreadedTest):
         cluster.neoctl.tweakPartitionTable()
         self.tic()
         self.assertEqual(1, s1.sqlCount('obj'))
-        # Deletion should start as soon as the cell is discarded, as a
-        # background task, instead of doing it during initialization.
-        count = s0.sqlCount('obj')
-        s0.stop()
-        cluster.join((s0,))
-        s0.resetNode()
-        s0.start()
-        self.tic()
         self.assertEqual(2, s0.sqlCount('obj'))
-        with self.expectedFailure(): \
-        self.assertEqual(2, count)
 
     @with_cluster(replicas=1)
     def testResumingReplication(self, cluster):
