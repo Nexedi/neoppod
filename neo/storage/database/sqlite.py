@@ -368,17 +368,14 @@ class SQLiteDatabaseManager(DatabaseManager):
                 q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
                   (offset, nid, int(state)))
 
-    def dropPartitions(self, offset_list):
-        where = " WHERE partition=?"
+    def _dropPartition(self, *args):
         q = self.query
-        for partition in offset_list:
-            args = partition,
-            data_id_list = [x for x, in q(
-                "SELECT DISTINCT data_id FROM obj%s AND data_id IS NOT NULL"
-                % where, args)]
-            q("DELETE FROM obj" + where, args)
-            q("DELETE FROM trans" + where, args)
-            self._pruneData(data_id_list)
+        where = " FROM obj WHERE partition=? ORDER BY tid, oid LIMIT ?"
+        x = q("SELECT DISTINCT data_id" + where, args).fetchall()
+        if x:
+            q("DELETE" + where, args)
+            return [x for x, in x]
+        return q("DELETE FROM trans WHERE partition=?", args[:1]).rowcount
 
     def _getUnfinishedDataIdList(self):
         return [x for x, in self.query(

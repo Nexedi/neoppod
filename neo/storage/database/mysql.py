@@ -532,19 +532,20 @@ class MySQLDatabaseManager(DatabaseManager):
                   " ON DUPLICATE KEY UPDATE tid = %d"
                   % (offset, nid, tid, tid))
 
-    def dropPartitions(self, offset_list):
+    def _dropPartition(self, offset, count):
         q = self.query
-        # XXX: these queries are inefficient (execution time increase with
-        # row count, although we use indexes) when there are rows to
-        # delete. It should be done as an idle task, by chunks.
-        for partition in offset_list:
-            where = " WHERE `partition`=%d" % partition
-            data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj FORCE INDEX(tid)"
-                  "%s AND data_id IS NOT NULL" % where)]
+        where = " WHERE `partition`=%s ORDER BY tid, oid LIMIT %s" % (
+            offset, count)
+        logging.debug("drop: select(%s)", count)
+        x = q("SELECT DISTINCT data_id FROM obj FORCE INDEX(tid)" + where)
+        if x:
+            logging.debug("drop: obj")
             q("DELETE FROM obj" + where)
-            q("DELETE FROM trans" + where)
-            self._pruneData(data_id_list)
+            return [x for x, in x]
+        logging.debug("drop: trans")
+        q("DELETE FROM trans WHERE `partition`=%s" % offset)
+        (x,), = q('SELECT ROW_COUNT()')
+        return x
 
     def _getUnfinishedDataIdList(self):
         return [x for x, in self.query(
