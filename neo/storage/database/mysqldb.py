@@ -22,9 +22,6 @@ from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 from MySQLdb.constants.ER import DATA_TOO_LONG, DUP_ENTRY, NO_SUCH_TABLE
-# BBB: the following 2 constants were added to mysqlclient 1.3.8
-DROP_LAST_PARTITION = 1508
-SAME_NAME_PARTITION = 1517
 from array import array
 from hashlib import sha1
 import os
@@ -93,8 +90,6 @@ class MySQLDatabaseManager(DatabaseManager):
     VERSION = 3
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
-
-    _use_partition = False
 
     _max_allowed_packet = 32769 * 1024
 
@@ -299,10 +294,6 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BIGINT NOT NULL,
                  PRIMARY KEY (`partition`, nid)
              ) ENGINE=""" + engine
-
-        if self._use_partition:
-            p += """ PARTITION BY LIST (`partition`) (
-                PARTITION dummy VALUES IN (NULL))"""
 
         if engine == "RocksDB":
             cf = lambda name, rev=False: " COMMENT '%scf_neo_%s'" % (
@@ -523,16 +514,6 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("INSERT INTO pt VALUES (%d, %d, %d)"
                   " ON DUPLICATE KEY UPDATE tid = %d"
                   % (offset, nid, tid, tid))
-        if self._use_partition:
-            for offset in offset_list:
-                add = """ALTER TABLE %%s ADD PARTITION (
-                    PARTITION p%u VALUES IN (%u))""" % (offset, offset)
-                for table in 'trans', 'obj':
-                    try:
-                        self.query(add % table)
-                    except MysqlError as e:
-                        if e.code != SAME_NAME_PARTITION:
-                            raise
 
     def dropPartitions(self, offset_list):
         q = self.query
@@ -544,19 +525,9 @@ class MySQLDatabaseManager(DatabaseManager):
             data_id_list = [x for x, in
                 q("SELECT DISTINCT data_id FROM obj FORCE INDEX(tid)"
                   "%s AND data_id IS NOT NULL" % where)]
-            if not self._use_partition:
-                q("DELETE FROM obj" + where)
-                q("DELETE FROM trans" + where)
+            q("DELETE FROM obj" + where)
+            q("DELETE FROM trans" + where)
             self._pruneData(data_id_list)
-        if self._use_partition:
-            drop = "ALTER TABLE %s DROP PARTITION" + \
-                ','.join(' p%u' % i for i in offset_list)
-            for table in 'trans', 'obj':
-                try:
-                    self.query(drop % table)
-                except MysqlError as e:
-                    if e.code != DROP_LAST_PARTITION:
-                        raise
 
     def _getUnfinishedDataIdList(self):
         return [x for x, in self.query(
