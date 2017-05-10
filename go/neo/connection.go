@@ -26,6 +26,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"encoding/binary"
 	"fmt"
 )
 
@@ -119,6 +120,7 @@ const (
 //    even (server) and its peer as odd (client).
 //
 // 2. NodeLink.Accept() works only on server side.
+//    XXX vs client processing e.g. invalidation notifications from master ?
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
@@ -547,17 +549,94 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 }
 
 
+// ---- Handshake ----
+
+// Handshake performs NEO protocol handshake just after 2 nodes are connected
+func Handshake(conn net.Conn) error {
+	return handshake(conn, PROTOCOL_VERSION)
+}
+
+func handshake(conn net.Conn, version uint32) error {
+	errch := make(chan error, 2)
+
+	go func() {
+		var b [4]byte
+		binary.BigEndian.PutUint32(b[:], version) // XXX -> hton32 ?
+		_, err := conn.Write(b[:])
+		// XXX EOF -> ErrUnexpectedEOF ?
+		errch <- err
+	}()
+
+	go func() {
+		var b [4]byte
+		_, err := io.ReadFull(conn, b[:])
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF // can be returned with n = 0
+		}
+		if err == nil {
+			peerVersion := binary.BigEndian.Uint32(b[:]) // XXX -> ntoh32 ?
+			if peerVersion != version {
+				err = fmt.Errorf("protocol version mismatch: peer = %08x  ; our side = %08x", peerVersion, version)
+			}
+		}
+		errch <- err
+	}()
+
+	for i := 0; i < 2; i++ {
+		err := <-errch
+		if err != nil {
+			return &HandshakeError{conn.LocalAddr(), conn.RemoteAddr(), err}
+		}
+	}
+
+	return nil
+}
+
+type HandshakeError struct {
+	// XXX just keep .Conn? (but .Conn can be closed)
+	LocalAddr	net.Addr
+	RemoteAddr	net.Addr
+	Err		error
+}
+
+func (e *HandshakeError) Error() string {
+	return fmt.Sprintf("%s - %s: handshake: %s", e.LocalAddr, e.RemoteAddr, e.Err.Error())
+}
 
 // ---- for convenience: Dial/Listen ----
 
 // Dial connects to address on named network and wrap the connection as NodeLink
 // TODO +tls.Config
-func Dial(ctx context.Context, network, address string) (*NodeLink, error) {
+func Dial(ctx context.Context, network, address string) (nl *NodeLink, err error) {
 	d := net.Dialer{}
 	peerConn, err := d.DialContext(ctx, network, address)
 	if err != nil {
 		return nil, err
 	}
+
+	// do the handshake. don't forget to close peerConn if we return with an error
+	defer func() {
+		if err != nil {
+			peerConn.Close()
+		}
+	}()
+
+	errch := make(chan error)
+	go func() {
+		errch <- Handshake(peerConn)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+
+	case err = <-errch:
+		if err != nil {
+			return nil, &HandshakeError{peerConn.LocalAddr(), peerConn.RemoteAddr(), err}
+		}
+	}
+
+	// handshake ok -> NodeLink ready
 	return NewNodeLink(peerConn, LinkClient), nil
 }
 
@@ -571,6 +650,13 @@ func (l *Listener) Accept() (*NodeLink, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = Handshake(peerConn)
+	if err != nil {
+		peerConn.Close()
+		return nil, err
+	}
+
 	return NewNodeLink(peerConn, LinkServer), nil
 }
 

@@ -235,9 +235,9 @@ func TestPktMarshal(t *testing.T) {
 		},
 
 		// uint32, Address, string, float64
-		{&RequestIdentification{8, CLIENT, 17, Address{"localhost", 7777}, "myname", 0.12345678},
+		{&RequestIdentification{CLIENT, 17, Address{"localhost", 7777}, "myname", 0.12345678},
 
-		 u32(8) + u32(2) + u32(17) + u32(9) +
+		 u32(2) + u32(17) + u32(9) +
 		 "localhost" + u16(7777) +
 		 u32(6) + "myname" +
 		 hex("3fbf9add1091c895"),

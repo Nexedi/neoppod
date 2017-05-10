@@ -110,11 +110,6 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 	// XXX also handle Error
 
 	case *RequestIdentification:
-		if pkt.ProtocolVersion != PROTOCOL_VERSION {
-			// TODO also tell peer with Error
-			return nodeInfo, fmt.Errorf("protocol version mismatch: peer = %d  ; our side = %d", pkt.ProtocolVersion, PROTOCOL_VERSION)
-		}
-
 		// TODO (.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
 
 		err = EncodeAndSend(conn, &AcceptIdentification{
@@ -123,8 +118,6 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 			NumPartitions:	0,		// XXX
 			NumReplicas:	0,		// XXX
 			YourNodeID:	pkt.NodeID,
-			Primary:	Address{},	// XXX
-			//KnownMasterList:		// XXX
 		})
 
 		if err != nil {
@@ -152,7 +145,6 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 	}()
 
 	err = EncodeAndSend(conn, &RequestIdentification{
-		ProtocolVersion: PROTOCOL_VERSION,
 		NodeType:	 nodeType,
 		NodeID:		 0,			// XXX
 		Address:	 Address{},		// XXX
