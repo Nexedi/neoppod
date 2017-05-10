@@ -21,7 +21,6 @@ from .. import NeoUnitTestBase, buildUrlFromString
 from neo.client.app import Application
 from neo.client.cache import test as testCache
 from neo.client.exception import NEOStorageError
-from neo.lib.protocol import NodeTypes, UUID_NAMESPACES
 
 class ClientApplicationTests(NeoUnitTestBase):
 
@@ -96,63 +95,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(StorageTransactionError, app.undo, tid, txn)
         # no packet sent
         self.checkNoPacketSent(app.master_conn)
-
-    def test_connectToPrimaryNode(self):
-        # here we have three master nodes :
-        # the connection to the first will fail
-        # the second will have changed
-        # the third will not be ready
-        # after the third, the partition table will be operational
-        # (as if it was connected to the primary master node)
-        # will raise IndexError at the third iteration
-        app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
-        # TODO: test more connection failure cases
-        # askLastTransaction
-        def _ask8(_):
-            pass
-        # Sixth packet : askPartitionTable succeeded
-        def _ask7(_):
-            app.pt = Mock({'operational': True})
-        # fifth packet : request node identification succeeded
-        def _ask6(conn):
-            app.master_conn = conn
-            app.uuid = 1 + (UUID_NAMESPACES[NodeTypes.CLIENT] << 24)
-            app.trying_master_node = app.primary_master_node = Mock({
-                'getAddress': ('127.0.0.1', 10011),
-                '__str__': 'Fake master node',
-            })
-        # third iteration : node not ready
-        def _ask4(_):
-            app.trying_master_node = None
-        # second iteration : master node changed
-        def _ask3(_):
-            app.primary_master_node = Mock({
-                'getAddress': ('127.0.0.1', 10010),
-                '__str__': 'Fake master node',
-            })
-        # first iteration : connection failed
-        def _ask2(_):
-            app.trying_master_node = None
-        # do nothing for the first call
-        # Case of an unknown primary_uuid (XXX: handler should probably raise,
-        # it's not normal for a node to inform of a primary uuid without
-        # telling us what its address is.)
-        def _ask1(_):
-            pass
-        ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask6, _ask7, _ask8]
-        def _ask_base(conn, _, handler=None):
-            ask_func_list.pop(0)(conn)
-            app.nm.getByAddress(conn.getAddress())._connection = None
-        app._ask = _ask_base
-        # fake environment
-        app.em.close()
-        app.em = Mock({'getConnectionList': []})
-        app.pt = Mock({ 'operational': False})
-        app.start = lambda: None
-        app.master_conn = app._connectToPrimaryNode()
-        self.assertFalse(ask_func_list)
-        self.assertTrue(app.master_conn is not None)
-        self.assertTrue(app.pt.operational())
 
 if __name__ == '__main__':
     unittest.main()

@@ -55,6 +55,7 @@ class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
     ENGINES = ()
+    UNSAFE = False
 
     _deferred = 0
     _duplicating = _repairing = None

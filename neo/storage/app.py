@@ -28,8 +28,7 @@ from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
 from .database import buildDatabaseManager
-from .handlers import identification, initialization
-from .handlers import master, hidden
+from .handlers import identification, initialization, master
 from .replicator import Replicator
 from .transactions import TransactionManager
 
@@ -170,10 +169,6 @@ class Application(BaseApplication):
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
-            # check my state
-            node = self.nm.getByUUID(self.uuid)
-            if node is not None and node.isHidden():
-                self.wait()
             self.checker = Checker(self)
             self.replicator = Replicator(self)
             self.tm = TransactionManager(self)
@@ -273,20 +268,6 @@ class Application(BaseApplication):
         self.cluster_state = state
         if state == ClusterStates.STOPPING_BACKUP:
             self.replicator.stop()
-
-    def wait(self):
-        # change handler
-        logging.info("waiting in hidden state")
-        _poll = self._poll
-        handler = hidden.HiddenHandler(self)
-        for conn in self.em.getConnectionList():
-            conn.setHandler(handler)
-
-        node = self.nm.getByUUID(self.uuid)
-        while True:
-            _poll()
-            if not node.isHidden():
-                break
 
     def newTask(self, iterator):
         try:

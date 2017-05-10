@@ -168,7 +168,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.neoctl.killNode(started[0].getUUID())
         # Cluster still operational. All cells of first storage should be
         # outdated.
-        self.neo.expectUnavailable(started[0])
+        self.neo.expectDown(started[0])
         self.neo.expectOudatedCells(2)
         self.neo.expectClusterRunning()
 
@@ -177,7 +177,7 @@ class StorageTests(NEOFunctionalTest):
         started[1].stop()
         # Cluster not operational anymore. Only cells of second storage that
         # were shared with the third one should become outdated.
-        self.neo.expectUnavailable(started[1])
+        self.neo.expectDown(started[1])
         self.neo.expectClusterRecovering()
         self.neo.expectOudatedCells(3)
 
@@ -198,7 +198,7 @@ class StorageTests(NEOFunctionalTest):
 
         # stop it, the cluster must switch to verification
         started[0].stop()
-        self.neo.expectUnavailable(started[0])
+        self.neo.expectDown(started[0])
         self.neo.expectClusterRecovering()
         # client must have been disconnected
         self.assertEqual(len(self.neo.getClientlist()), 0)
@@ -224,7 +224,7 @@ class StorageTests(NEOFunctionalTest):
 
         # stop one storage, cluster must remains running
         started[0].stop()
-        self.neo.expectUnavailable(started[0])
+        self.neo.expectDown(started[0])
         self.neo.expectRunning(started[1])
         self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=10)
@@ -232,17 +232,17 @@ class StorageTests(NEOFunctionalTest):
 
         # stop a second storage, cluster is still running
         started[1].stop()
-        self.neo.expectUnavailable(started[0])
-        self.neo.expectUnavailable(started[1])
+        self.neo.expectDown(started[0])
+        self.neo.expectDown(started[1])
         self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=20)
         self.neo.expectClusterRunning()
 
         # stop the last, cluster died
         started[2].stop()
-        self.neo.expectUnavailable(started[0])
-        self.neo.expectUnavailable(started[1])
-        self.neo.expectUnavailable(started[2])
+        self.neo.expectDown(started[0])
+        self.neo.expectDown(started[1])
+        self.neo.expectDown(started[2])
         self.neo.expectOudatedCells(number=20)
         self.neo.expectClusterRecovering()
 
@@ -312,7 +312,7 @@ class StorageTests(NEOFunctionalTest):
 
         # kill one storage, it should be set as unavailable
         started[0].stop()
-        self.neo.expectUnavailable(started[0])
+        self.neo.expectDown(started[0])
         self.neo.expectRunning(started[1])
         # and the partition table must not change
         self.neo.expectAssignedCells(started[0], 10)
@@ -320,7 +320,7 @@ class StorageTests(NEOFunctionalTest):
 
         # ask neoctl to drop it
         self.neo.neoctl.dropNode(started[0].getUUID())
-        self.neo.expectStorageNotKnown(started[0])
+        self.neo.expectStorageUnknown(started[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(started[1], 10)
         self.assertRaises(RuntimeError, self.neo.neoctl.dropNode,
@@ -335,7 +335,7 @@ class StorageTests(NEOFunctionalTest):
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=1, partitions=10)
         self.neo.expectRunning(started[0])
-        self.neo.expectStorageNotKnown(stopped[0])
+        self.neo.expectStorageUnknown(stopped[0])
         self.neo.expectOudatedCells(number=0)
 
         # populate the cluster with some data
@@ -362,7 +362,7 @@ class StorageTests(NEOFunctionalTest):
 
         # kill the first storage
         started[0].stop()
-        self.neo.expectUnavailable(started[0])
+        self.neo.expectDown(started[0])
         self.neo.expectOudatedCells(number=10)
         self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectAssignedCells(stopped[0], 10)
@@ -371,7 +371,7 @@ class StorageTests(NEOFunctionalTest):
 
         # drop it from partition table
         self.neo.neoctl.dropNode(started[0].getUUID())
-        self.neo.expectStorageNotKnown(started[0])
+        self.neo.expectStorageUnknown(started[0])
         self.neo.expectRunning(stopped[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(stopped[0], 10)
@@ -395,12 +395,12 @@ class StorageTests(NEOFunctionalTest):
 
         # drop the first then the second storage
         started[0].stop()
-        self.neo.expectUnavailable(started[0])
+        self.neo.expectDown(started[0])
         self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=10)
         started[1].stop()
-        self.neo.expectUnavailable(started[0])
-        self.neo.expectUnavailable(started[1])
+        self.neo.expectDown(started[0])
+        self.neo.expectDown(started[1])
         self.neo.expectOudatedCells(number=10)
         self.neo.expectClusterRecovering()
         # XXX: need to sync with storages first
@@ -409,7 +409,7 @@ class StorageTests(NEOFunctionalTest):
         # restart the cluster with the first storage killed
         self.neo.run(except_storages=[started[1]])
         self.neo.expectPending(started[0])
-        self.neo.expectUnknown(started[1])
+        self.neo.expectDown(started[1])
         self.neo.expectClusterRecovering()
         # Cluster doesn't know there are outdated cells
         self.neo.expectOudatedCells(number=0)

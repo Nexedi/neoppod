@@ -18,9 +18,7 @@ from ..app import monotonic_time
 from neo.lib import logging
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
-    BrokenNodeDisallowedError, ProtocolError,
-)
+from neo.lib.protocol import Packets
 
 X = 0
 
@@ -30,41 +28,10 @@ class MasterHandler(EventHandler):
     def connectionCompleted(self, conn, new=None):
         if new is None:
             super(MasterHandler, self).connectionCompleted(conn)
-        elif new:
-            self._notifyNodeInformation(conn)
 
-    def requestIdentification(self, conn, node_type, uuid, address, name, _):
-        self.checkClusterName(name)
-        app = self.app
-        node = app.nm.getByUUID(uuid)
-        if node:
-            if node_type is NodeTypes.MASTER and not (
-               None != address == node.getAddress()):
-                raise ProtocolError
-            if node.isBroken():
-                raise BrokenNodeDisallowedError
-        peer_uuid = self._setupNode(conn, node_type, uuid, address, node)
-        if app.primary:
-            primary_address = app.server
-        elif app.primary_master_node is not None:
-            primary_address = app.primary_master_node.getAddress()
-        else:
-            primary_address = None
-
-        known_master_list = [(app.server, app.uuid)]
-        for n in app.nm.getMasterList():
-            if n.isBroken():
-                continue
-            known_master_list.append((n.getAddress(), n.getUUID()))
-        conn.answer(Packets.AcceptIdentification(
-            NodeTypes.MASTER,
-            app.uuid,
-            app.pt.getPartitions(),
-            app.pt.getReplicas(),
-            peer_uuid,
-            primary_address,
-            known_master_list),
-        )
+    def connectionLost(self, conn, new_state=None):
+        if self.app.listening_conn: # if running
+            self._connectionLost(conn)
 
     def askClusterState(self, conn):
         state = self.app.getClusterState()
@@ -94,11 +61,12 @@ class MasterHandler(EventHandler):
             self.app.getLastTransaction()))
 
     def _notifyNodeInformation(self, conn):
-        nm = self.app.nm
-        node_list = []
-        node_list.extend(n.asTuple() for n in nm.getMasterList())
-        node_list.extend(n.asTuple() for n in nm.getClientList())
-        node_list.extend(n.asTuple() for n in nm.getStorageList())
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
+        node_list = app.nm.getList()
+        node_list.remove(node)
+        node_list = ([node.asTuple()] # for id_timestamp
+            + app.getNodeInformationDict(node_list)[node.getType()])
         conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
 
     def askPartitionTable(self, conn):
@@ -106,15 +74,10 @@ class MasterHandler(EventHandler):
         conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
 
 
-DISCONNECTED_STATE_DICT = {
-    NodeTypes.STORAGE: NodeStates.TEMPORARILY_DOWN,
-}
-
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
     def connectionCompleted(self, conn, new):
-        self._notifyNodeInformation(conn)
         pt = self.app.pt
         conn.send(Packets.SendPartitionTable(pt.getID(), pt.getRowList()))
 
@@ -125,21 +88,16 @@ class BaseServiceHandler(MasterHandler):
             return # for example, when a storage is removed by an admin
         assert node.isStorage(), node
         logging.info('storage node lost')
-        if new_state != NodeStates.BROKEN:
-            new_state = DISCONNECTED_STATE_DICT.get(node.getType(),
-                    NodeStates.DOWN)
-        assert new_state in (NodeStates.TEMPORARILY_DOWN, NodeStates.DOWN,
-            NodeStates.BROKEN), new_state
-        assert node.getState() not in (NodeStates.TEMPORARILY_DOWN,
-            NodeStates.DOWN, NodeStates.BROKEN), (uuid_str(self.app.uuid),
-            node.whoSetState(), new_state)
-        was_pending = node.isPending()
-        node.setState(new_state)
-        if new_state != NodeStates.BROKEN and was_pending:
+        if node.isPending():
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
-            app.nm.remove(node)
+            node.setUnknown()
+        elif node.isDown():
+            # Already put in DOWN state by AdministrationHandler.setNodeState
+            return
+        else:
+            node.setDown()
         app.broadcastNodesInformation([node])
         if app.truncate_tid:
             raise StoppedOperation

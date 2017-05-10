@@ -19,6 +19,7 @@ import ssl
 import errno
 from time import time
 from . import logging
+from .protocol import ENCODED_VERSION
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
@@ -58,7 +59,7 @@ class SocketConnector(object):
         s.setblocking(0)
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self.queued = []
+        self.queued = [ENCODED_VERSION]
         return self
 
     def queue(self, data):
@@ -66,9 +67,12 @@ class SocketConnector(object):
         self.queued += data
         return was_empty
 
-    def _error(self, op, exc):
-        logging.debug("%s failed for %s: %s (%s)",
-            op, self, errno.errorcode[exc.errno], exc.strerror)
+    def _error(self, op, exc=None):
+        if exc is None:
+            logging.debug('%r closed in %s', self, op)
+        else:
+            logging.debug("%s failed for %s: %s (%s)",
+                op, self, errno.errorcode[exc.errno], exc.strerror)
         raise ConnectorException
 
     # Threaded tests monkey-patch the following 2 operations.
@@ -151,8 +155,7 @@ class SocketConnector(object):
         if data:
             read_buf.append(data)
             return
-        logging.debug('%r closed in recv', self)
-        raise ConnectorException
+        self._error('recv')
 
     def send(self):
         # XXX: unefficient for big packets
@@ -240,10 +243,12 @@ def overlay_connector_class(cls):
 @overlay_connector_class
 class _SSL:
 
-    def _error(self, op, exc):
+    def _error(self, op, exc=None):
         if isinstance(exc, ssl.SSLError):
-            logging.debug("%s failed for %s: %s", op, self, exc)
-            raise ConnectorException
+            if not isinstance(exc, ssl.SSLEOFError):
+                logging.debug("%s failed for %s: %s", op, self, exc)
+                raise ConnectorException
+            exc = None
         SocketConnector._error(self, op, exc)
 
     def receive(self, read_buf):
@@ -258,7 +263,27 @@ class _SSL:
 @overlay_connector_class
 class _SSLHandshake(_SSL):
 
-    def receive(self, read_buf=None):
+    # WKRD: Unfortunately, SSL_do_handshake(3SSL) does not try to reject
+    #       non-SSL connections as soon as possible, by checking the first
+    #       byte. It even does nothing before receiving a full TLSPlaintext
+    #       frame (5 bytes).
+    #       The NEO protocol is such that a client connection is always the
+    #       first to send a packet, as soon as the connection is established,
+    #       and without waiting that the protocol versions are checked.
+    #       So in practice, non-SSL connection to SSL would never hang, but
+    #       there's another issue: such case results in WRONG_VERSION_NUMBER
+    #       instead of something like UNEXPECTED_RECORD, because the SSL
+    #       version is checked first.
+    #       For better logging, we try to detect non-SSL connections with
+    #       MSG_PEEK. This only works reliably on server side.
+    #       For SSL client connections, 2 things may prevent the workaround to
+    #       log that the remote node has not enabled SSL:
+    #       - non-SSL data received (or connection closed) before the first
+    #         call to 'recv' in 'do_handshake'
+    #       - the server connection detects a wrong protocol version before it
+    #         sent its one
+
+    def _handshake(self, read_buf=None):
         # ???Writer  |  send  | receive
         # -----------+--------+--------
         # want read  | remove |   -
@@ -270,9 +295,10 @@ class _SSLHandshake(_SSL):
         except ssl.SSLWantWriteError:
             return read_buf is not None
         except socket.error, e:
-            self._error('SSL handshake', e)
+            self._error('send' if read_buf is None else 'recv', e)
         if not self.queued[0]:
             del self.queued[0]
+        del self.receive, self.send
         self.__class__ = self.SSLConnectorClass
         cipher, proto, bits = self.socket.cipher()
         logging.debug("SSL handshake done for %s: %s %s", self, cipher, bits)
@@ -284,7 +310,21 @@ class _SSLHandshake(_SSL):
         self.receive(read_buf)
         return self.queued
 
-    send = receive
+    def send(self, read_buf=None):
+        handshake = self.receive = self.send = self._handshake
+        return handshake(read_buf)
+
+    def receive(self, read_buf):
+        try:
+            content_type = self.socket._sock.recv(1, socket.MSG_PEEK)
+        except socket.error, e:
+            self._error('recv', e)
+        if content_type == '\26': # handshake
+            return self.send(read_buf)
+        if content_type:
+            logging.debug('Rejecting non-SSL %r', self)
+            raise ConnectorException
+        self._error('recv')
 
 
 class ConnectorException(Exception):

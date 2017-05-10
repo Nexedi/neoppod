@@ -15,30 +15,21 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib.handler import DelayEvent
-from neo.lib.protocol import NodeStates, Packets, ProtocolError, MAX_TID, Errors
+from neo.lib.protocol import Packets, ProtocolError, MAX_TID, Errors
 from ..app import monotonic_time
 from . import MasterHandler
 
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
 
-    def connectionLost(self, conn, new_state):
+    def _connectionLost(self, conn):
         # cancel its transactions and forgot the node
         app = self.app
-        if app.listening_conn: # if running
-            node = app.nm.getByUUID(conn.getUUID())
-            assert node is not None
-            app.tm.clientLost(node)
-            node.setState(NodeStates.DOWN)
-            app.broadcastNodesInformation([node])
-            app.nm.remove(node)
-
-    def _notifyNodeInformation(self, conn):
-        nm = self.app.nm
-        node_list = [nm.getByUUID(conn.getUUID()).asTuple()] # for id_timestamp
-        node_list.extend(n.asTuple() for n in nm.getMasterList())
-        node_list.extend(n.asTuple() for n in nm.getStorageList())
-        conn.send(Packets.NotifyNodeInformation(monotonic_time(), node_list))
+        node = app.nm.getByUUID(conn.getUUID())
+        assert node is not None, conn
+        app.tm.clientLost(node)
+        node.setUnknown()
+        app.broadcastNodesInformation([node])
 
     def askBeginTransaction(self, conn, tid):
         """

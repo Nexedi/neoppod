@@ -157,10 +157,10 @@ class NeoCTL(BaseApplication):
         return self.setClusterState(ClusterStates.VERIFYING)
 
     def killNode(self, node):
-        return self._setNodeState(node, NodeStates.UNKNOWN)
+        return self._setNodeState(node, NodeStates.DOWN)
 
     def dropNode(self, node):
-        return self._setNodeState(node, NodeStates.DOWN)
+        return self._setNodeState(node, NodeStates.UNKNOWN)
 
     def getPrimary(self):
         """

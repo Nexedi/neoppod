@@ -168,7 +168,7 @@ class PartitionTable(object):
     def _setCell(self, offset, node, state):
         if state == CellStates.DISCARDED:
             return self.removeCell(offset, node)
-        if node.isBroken() or node.isDown():
+        if node.isUnknown():
             raise PartitionTableException('Invalid node state')
 
         self.count_dict.setdefault(node, 0)
@@ -196,8 +196,10 @@ class PartitionTable(object):
                 break
 
     def dropNode(self, node):
-        count = self.count_dict.pop(node, None)
-        assert not count, (node, count)
+        count = self.count_dict.get(node)
+        if count == 0:
+            del self.count_dict[node]
+        return not count
 
     def load(self, ptid, row_list, nm):
         """

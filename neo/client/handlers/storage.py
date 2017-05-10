@@ -42,13 +42,8 @@ class StorageEventHandler(MTEventHandler):
         self.app.cp.removeConnection(node)
         super(StorageEventHandler, self).connectionFailed(conn)
 
-    def _acceptIdentification(self, node,
-           uuid, num_partitions, num_replicas, your_uuid, primary,
-           master_list):
-        assert self.app.master_conn is None or \
-          primary == self.app.master_conn.getAddress(), (
-            primary, self.app.master_conn)
-        assert uuid == node.getUUID(), (uuid, node.getUUID())
+    def _acceptIdentification(*args):
+        pass
 
 class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """
@@ -63,7 +58,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, oid, *args):
         self.app.setHandlerData(args)
 
-    def answerStoreObject(self, conn, conflict, oid, serial):
+    def answerStoreObject(self, conn, conflict, oid):
         txn_context = self.app.getHandlerData()
         if conflict:
             # Conflicts can not be resolved now because 'conn' is locked.
@@ -80,7 +75,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # If this conflict is not already resolved, mark it for
             # resolution.
             if  txn_context.resolved_dict.get(oid, '') < conflict:
-                txn_context.conflict_dict[oid] = serial, conflict
+                txn_context.conflict_dict[oid] = conflict
         else:
             txn_context.written(self.app, conn.getUUID(), oid)
 
@@ -112,10 +107,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
             except KeyError:
                 if resolved:
                     # We should still be waiting for an answer from this node.
-                    assert conn.uuid in txn_context.data_dict[oid][1]
+                    assert conn.uuid in txn_context.data_dict[oid][2]
                     return
                 assert oid in txn_context.data_dict
-                if serial <= txn_context.conflict_dict.get(oid, ('',))[0]:
+                if serial <= txn_context.conflict_dict.get(oid, ''):
                     # Another node already reported this conflict or a newer,
                     # by answering to this rebase or to the previous store.
                     return
@@ -141,8 +136,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     if cached:
                         assert cached == data
                         txn_context.cache_size -= size
-                txn_context.data_dict[oid] = data, None
-            txn_context.conflict_dict[oid] = serial, conflict
+                txn_context.data_dict[oid] = data, serial, None
+            txn_context.conflict_dict[oid] = conflict
 
     def answerStoreTransaction(self, conn):
         pass

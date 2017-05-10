@@ -35,7 +35,7 @@ class NodesTests(NeoUnitTestBase):
         address = ('127.0.0.1', 10000)
         uuid = self.getNewUUID(None)
         node = Node(self.nm, address=address, uuid=uuid)
-        self.assertEqual(node.getState(), NodeStates.UNKNOWN)
+        self.assertEqual(node.getState(), NodeStates.DOWN)
         self.assertEqual(node.getAddress(), address)
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
@@ -43,7 +43,7 @@ class NodesTests(NeoUnitTestBase):
     def testState(self):
         """ Check if the last changed time is updated when state is changed """
         node = Node(self.nm)
-        self.assertEqual(node.getState(), NodeStates.UNKNOWN)
+        self.assertEqual(node.getState(), NodeStates.DOWN)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
         previous_time = node.getLastStateChange()
         node.setState(NodeStates.RUNNING)
@@ -156,15 +156,15 @@ class NodeManagerTests(NeoUnitTestBase):
         old_uuid = self.storage.getUUID()
         new_uuid = self.getStorageUUID()
         node_list = (
-            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN, None),
+            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.UNKNOWN, None),
             (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING, None),
             (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid,
                 NodeStates.RUNNING, None),
             (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
-                NodeStates.UNKNOWN, None),
+                NodeStates.DOWN, None),
         )
         app = Mock()
-        app.pt = Mock()
+        app.pt = Mock({'dropNode': True})
         # update manager content
         manager.update(app, time(), node_list)
         # - the client gets down
@@ -180,9 +180,9 @@ class NodeManagerTests(NeoUnitTestBase):
         new_storage = storage_list[0]
         self.assertNotEqual(new_storage.getUUID(), old_uuid)
         self.assertEqual(new_storage.getState(), NodeStates.RUNNING)
-        # admin is still here but in UNKNOWN state
+        # admin is still here but in DOWN state
         self.checkNodes([self.master, self.admin, new_storage])
-        self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
+        self.assertEqual(self.admin.getState(), NodeStates.DOWN)
 
 class MasterDBTests(NeoUnitTestBase):
 
@@ -195,7 +195,7 @@ class MasterDBTests(NeoUnitTestBase):
         temp_dir = getTempDirectory()
         directory = join(temp_dir, 'read_only')
         db_file = join(directory, 'not_created')
-        mkdir(directory, 0400)
+        mkdir(directory, 0500)
         try:
             self.assertRaises(IOError, MasterDB, db_file)
         finally:
@@ -212,17 +212,17 @@ class MasterDBTests(NeoUnitTestBase):
         try:
             db = MasterDB(db_file)
             self.assertTrue(exists(db_file), db_file)
-            chmod(db_file, 0400)
+            chmod(directory, 0500)
             address = ('example.com', 1024)
             # Must not raise
-            db.add(address)
+            db.addremove(None, address)
             # Value is stored
-            self.assertTrue(address in db, [x for x in db])
+            self.assertIn(address, db)
             # But not visible to a new db instance (write access restored so
             # it can be created)
-            chmod(db_file, 0600)
+            chmod(directory, 0700)
             db2 = MasterDB(db_file)
-            self.assertFalse(address in db2, [x for x in db2])
+            self.assertNotIn(address, db2)
         finally:
             shutil.rmtree(directory)
 
@@ -235,18 +235,21 @@ class MasterDBTests(NeoUnitTestBase):
             db = MasterDB(db_file)
             self.assertTrue(exists(db_file), db_file)
             address = ('example.com', 1024)
-            db.add(address)
+            db.addremove(None, address)
             address2 = ('example.org', 1024)
-            db.add(address2)
+            db.addremove(None, address2)
             # Values are visible to a new db instance
             db2 = MasterDB(db_file)
-            self.assertTrue(address in db2, [x for x in db2])
-            self.assertTrue(address2 in db2, [x for x in db2])
-            db.discard(address)
+            self.assertIn(address, db2)
+            self.assertIn(address2, db2)
+            db.addremove(address, None)
             # Create yet another instance (file is not supposed to be shared)
-            db3 = MasterDB(db_file)
-            self.assertFalse(address in db3, [x for x in db3])
-            self.assertTrue(address2 in db3, [x for x in db3])
+            db2 = MasterDB(db_file)
+            self.assertNotIn(address, db2)
+            self.assertIn(address2, db2)
+            db.remove(address2)
+            # and again, to test remove()
+            self.assertNotIn(address2, MasterDB(db_file))
         finally:
             shutil.rmtree(directory)
 

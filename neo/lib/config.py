@@ -90,9 +90,7 @@ class ConfigurationManager(object):
 
     def getMasters(self):
         """ Get the master node list except itself """
-        masters = self.__get('masters')
-        # load master node list except itself
-        return util.parseMasterList(masters, except_node=self.getBind())
+        return util.parseMasterList(self.__get('masters'))
 
     def getBind(self):
         """ Get the address to bind to """

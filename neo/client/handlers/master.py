@@ -15,20 +15,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
+from neo.lib.exception import PrimaryElected
 from neo.lib.handler import MTEventHandler
 from neo.lib.pt import MTPartitionTable as PartitionTable
-from neo.lib.protocol import NodeStates, ProtocolError
-from neo.lib.util import dump
+from neo.lib.protocol import NodeStates
 from . import AnswerBaseHandler
 from ..exception import NEOStorageError
 
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
-
-    def notReady(self, conn, message):
-        self.app.trying_master_node = None
-        conn.close()
 
     def answerPartitionTable(self, conn, ptid, row_list):
         assert row_list
@@ -40,57 +36,14 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
 class PrimaryNotificationsHandler(MTEventHandler):
     """ Handler that process the notifications from the primary master """
 
-    def _acceptIdentification(self, node, uuid, num_partitions,
-            num_replicas, your_uuid, primary, known_master_list):
-        app = self.app
+    def notPrimaryMaster(self, *args):
+        try:
+            super(PrimaryNotificationsHandler, self).notPrimaryMaster(*args)
+        except PrimaryElected, e:
+            app.primary_master_node, = e.args
 
-        # Register new master nodes.
-        found = False
-        conn_address = node.getAddress()
-        for node_address, node_uuid in known_master_list:
-            if node_address == conn_address:
-                assert uuid == node_uuid, (dump(uuid), dump(node_uuid))
-                found = True
-            n = app.nm.getByAddress(node_address)
-            if n is None:
-                n = app.nm.createMaster(address=node_address)
-            if node_uuid is not None and n.getUUID() != node_uuid:
-                n.setUUID(node_uuid)
-        assert found, (node, dump(uuid), known_master_list)
-
-        conn = node.getConnection()
-        if primary is not None:
-            primary_node = app.nm.getByAddress(primary)
-            if primary_node is None:
-                # I don't know such a node. Probably this information
-                # is old. So ignore it.
-                logging.warning('Unknown primary master: %s. Ignoring.',
-                                primary)
-                return
-            else:
-                if app.trying_master_node is not primary_node:
-                    app.trying_master_node = None
-                    conn.close()
-                app.primary_master_node = primary_node
-        else:
-            if app.primary_master_node is not None:
-                # The primary master node is not a primary master node
-                # any longer.
-                app.primary_master_node = None
-
-            app.trying_master_node = None
-            conn.close()
-            return
-
-        # the master must give an UUID
-        if your_uuid is None:
-            raise ProtocolError('No UUID supplied')
-        app.uuid = your_uuid
-        logging.info('Got an UUID: %s', dump(app.uuid))
-        app.id_timestamp = None
-
-        # Always create partition table
-        app.pt = PartitionTable(num_partitions, num_replicas)
+    def _acceptIdentification(self, node, num_partitions, num_replicas):
+        self.app.pt = PartitionTable(num_partitions, num_replicas)
 
     def answerLastTransaction(self, conn, ltid):
         app = self.app
@@ -189,7 +142,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def notifyNodeInformation(self, conn, timestamp, node_list):
         super(PrimaryNotificationsHandler, self).notifyNodeInformation(
             conn, timestamp, node_list)
-        # XXX: 'update' automatically closes DOWN nodes. Do we really want
+        # XXX: 'update' automatically closes UNKNOWN nodes. Do we really want
         #      to do the same thing for nodes in other non-running states ?
         getByUUID = self.app.nm.getByUUID
         for node in node_list:
@@ -201,7 +154,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
     def notifyDeadlock(self, conn, ttid, locking_tid):
         for txn_context in self.app.txn_contexts():
             if txn_context.ttid == ttid:
-                txn_context.conflict_dict[None] = locking_tid, None
+                txn_context.conflict_dict[None] = locking_tid
                 txn_context.wakeup(conn)
                 break
 

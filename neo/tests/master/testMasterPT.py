@@ -63,29 +63,24 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         uuid4 = self.getStorageUUID()
         server4 = ("127.0.0.4", 19004)
         sn4 = self.createStorage(server4, uuid4)
-        uuid5 = self.getStorageUUID()
-        server5 = ("127.0.0.5", 19005)
-        sn5 = self.createStorage(server5, uuid5)
         # create partition table
-        num_partitions = 5
+        num_partitions = 4
         num_replicas = 3
         pt = PartitionTable(num_partitions, num_replicas)
         pt._setCell(0, sn1, CellStates.OUT_OF_DATE)
         sn1.setState(NodeStates.RUNNING)
         pt._setCell(1, sn2, CellStates.UP_TO_DATE)
-        sn2.setState(NodeStates.TEMPORARILY_DOWN)
+        sn2.setState(NodeStates.DOWN)
         pt._setCell(2, sn3, CellStates.UP_TO_DATE)
-        sn3.setState(NodeStates.DOWN)
+        sn3.setState(NodeStates.UNKNOWN)
         pt._setCell(3, sn4, CellStates.UP_TO_DATE)
-        sn4.setState(NodeStates.BROKEN)
-        pt._setCell(4, sn5, CellStates.UP_TO_DATE)
-        sn5.setState(NodeStates.RUNNING)
+        sn4.setState(NodeStates.RUNNING)
         # outdate nodes
         cells_outdated = pt.outdate()
-        self.assertEqual(len(cells_outdated), 3)
+        self.assertEqual(len(cells_outdated), 2)
         for offset, uuid, state in cells_outdated:
-            self.assertTrue(offset in (1, 2, 3))
-            self.assertTrue(uuid in (uuid2, uuid3, uuid4))
+            self.assertIn(offset, (1, 2))
+            self.assertIn(uuid, (uuid2, uuid3))
             self.assertEqual(state, CellStates.OUT_OF_DATE)
         # check each cell
         # part 1, already outdated
@@ -103,13 +98,8 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         self.assertEqual(len(cells), 1)
         cell = cells[0]
         self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        # part 4, already outdated
+        # part 4, remains running
         cells = pt.getCellList(3)
-        self.assertEqual(len(cells), 1)
-        cell = cells[0]
-        self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        # part 5, remains running
-        cells = pt.getCellList(4)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
         self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
@@ -156,7 +146,7 @@ class MasterPartitionTableTests(NeoUnitTestBase):
         uuid2 = self.getStorageUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = self.createStorage(server2, uuid2)
-        sn2.setState(NodeStates.TEMPORARILY_DOWN)
+        sn2.setState(NodeStates.DOWN)
         # add node without uuid
         server3 = ("127.0.0.3", 19001)
         sn3 = self.createStorage(server3, None, NodeStates.RUNNING)

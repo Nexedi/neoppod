@@ -34,7 +34,7 @@ class PartitionTableTests(NeoUnitTestBase):
         # check getter
         self.assertEqual(cell.getNode(), sn)
         self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.assertEqual(cell.getNodeState(), NodeStates.UNKNOWN)
+        self.assertEqual(cell.getNodeState(), NodeStates.DOWN)
         self.assertEqual(cell.getUUID(), uuid)
         self.assertEqual(cell.getAddress(), server)
         # check state setter
@@ -104,18 +104,12 @@ class PartitionTableTests(NeoUnitTestBase):
             else:
                 self.assertEqual(len(pt.partition_list[x]), 0)
 
-        # now add broken and down state, must not be taken into account
+        # now add down state, must not be taken into account
         pt._setCell(0, sn1, CellStates.DISCARDED)
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
-        sn1.setState(NodeStates.BROKEN)
-        self.assertRaises(PartitionTableException, pt._setCell,
-            0, sn1, CellStates.UP_TO_DATE)
-        for x in xrange(num_partitions):
-            self.assertEqual(len(pt.partition_list[x]), 0)
-        self.assertEqual(pt.count_dict[sn1], 0)
-        sn1.setState(NodeStates.DOWN)
+        sn1.setState(NodeStates.UNKNOWN)
         self.assertRaises(PartitionTableException, pt._setCell,
             0, sn1, CellStates.UP_TO_DATE)
         for x in xrange(num_partitions):
@@ -331,7 +325,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.operational())
         # adding a node in all partition
         sn1 = createStorage()
-        sn1.setState(NodeStates.TEMPORARILY_DOWN)
+        sn1.setState(NodeStates.DOWN)
         for x in xrange(num_partitions):
             pt._setCell(x, sn1, CellStates.FEEDING)
         self.assertTrue(pt.filled())

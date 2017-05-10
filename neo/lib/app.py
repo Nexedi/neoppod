@@ -21,6 +21,7 @@ from .node import NodeManager
 
 class BaseApplication(object):
 
+    server = None
     ssl = None
 
     def __init__(self, ssl=None, dynamic_master_list=None):

@@ -28,7 +28,10 @@ import weakref
 import MySQLdb
 import transaction
 
+from cStringIO import StringIO
+from cPickle import Unpickler
 from functools import wraps
+from inspect import isclass
 from .mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
@@ -39,6 +42,7 @@ from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 try:
     from transaction.interfaces import IDataManager
     from ZODB.utils import newTid
+    from ZODB.ConflictResolution import PersistentReferenceFactory
 except ImportError:
     pass
 
@@ -309,10 +313,6 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if the ProtocolError exception was raised """
         self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
 
-    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception was raised """
-        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
-
     def checkAborted(self, conn):
         """ Ensure the connection was aborted """
         self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
@@ -329,16 +329,6 @@ class NeoUnitTestBase(NeoTestBase):
         self._checkNoPacketSend(conn, 'send')
         self._checkNoPacketSend(conn, 'answer')
         self._checkNoPacketSend(conn, 'ask')
-
-    def checkUUIDSet(self, conn, uuid=None, check_intermediate=True):
-        """ ensure UUID was set on the connection """
-        calls = conn.mockGetNamedCalls('setUUID')
-        found_uuid = calls.pop().getParam(0)
-        if check_intermediate:
-            for call in calls:
-                self.assertEqual(found_uuid, call.getParam(0))
-        if uuid is not None:
-            self.assertEqual(found_uuid, uuid)
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurate checks are required
@@ -477,9 +467,12 @@ class Patch(object):
         self._patch = patch
         try:
             orig = patched.__dict__[name]
-            self._revert = lambda: setattr(patched, name, orig)
         except KeyError:
-            self._revert = lambda: delattr(patched, name)
+            if new or isclass(patched):
+                self._revert = lambda: delattr(patched, name)
+                return
+            orig = getattr(patched, name)
+        self._revert = lambda: setattr(patched, name, orig)
 
     def apply(self):
         assert not self.applied
@@ -501,6 +494,12 @@ class Patch(object):
     def __exit__(self, t, v, tb):
         self.__del__()
 
+
+def unpickle_state(data):
+    unpickler = Unpickler(StringIO(data))
+    unpickler.persistent_load = PersistentReferenceFactory().persistent_load
+    unpickler.load() # skip the class tuple
+    return unpickler.load()
 
 __builtin__.pdb = lambda depth=0: \
     debug.getPdb().set_trace(sys._getframe(depth+1))

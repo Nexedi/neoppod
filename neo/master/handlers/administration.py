@@ -34,8 +34,8 @@ CLUSTER_STATE_WORKFLOW = {
                                     ClusterStates.STARTING_BACKUP),
 }
 NODE_STATE_WORKFLOW = {
-    NodeTypes.MASTER: (NodeStates.UNKNOWN,),
-    NodeTypes.STORAGE: (NodeStates.UNKNOWN, NodeStates.DOWN),
+    NodeTypes.MASTER: (NodeStates.DOWN,),
+    NodeTypes.STORAGE: (NodeStates.DOWN, NodeStates.UNKNOWN),
 }
 
 class AdministrationHandler(MasterHandler):
@@ -43,7 +43,8 @@ class AdministrationHandler(MasterHandler):
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
-        self.app.nm.remove(node)
+        if node is not None:
+            self.app.nm.remove(node)
 
     def setClusterState(self, conn, state):
         app = self.app
@@ -95,7 +96,7 @@ class AdministrationHandler(MasterHandler):
         message = ('state changed' if state_changed else
                    'node already in %s state' % state)
         if node.isStorage():
-            keep = state == NodeStates.UNKNOWN
+            keep = state == NodeStates.DOWN
             try:
                 cell_list = app.pt.dropNodeList([node], keep)
             except PartitionTableException, e:

@@ -20,8 +20,7 @@ from time import time
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
-from .protocol import uuid_str, Errors, \
-        PacketMalformedError, Packets, ParserState
+from .protocol import uuid_str, Errors, PacketMalformedError, Packets
 from .util import dummy_read_buffer, ReadBuffer
 
 CRITICAL_TIMEOUT = 30
@@ -113,7 +112,8 @@ class HandlerSwitcher(object):
             self._is_handling = False
 
     def _handle(self, connection, packet):  # NOTE incoming packet -> handle -> dispatch ...
-        assert len(self._pending) == 1 or self._pending[0][0]
+        pending = self._pending
+        assert len(pending) == 1 or pending[0][0], pending
         logging.packet(connection, packet, False)
         if connection.isClosed() and (connection.isAborted() or
                                       packet.ignoreOnClosedConnection()):
@@ -122,32 +122,33 @@ class HandlerSwitcher(object):
             return
         if not packet.isResponse(): # notification
             # XXX: If there are several handlers, which one to use ?
-            self._pending[0][1].packetReceived(connection, packet)
+            pending[0][1].packetReceived(connection, packet)
             return
         msg_id = packet.getId()
-        request_dict, handler = self._pending[0]
+        request_dict, handler = pending[0]
         # checkout the expected answer class
         try:
             klass, _, _, kw = request_dict.pop(msg_id)
         except KeyError:
             klass = None
             kw = {}
-        if klass and isinstance(packet, klass) or packet.isError():
-            handler.packetReceived(connection, packet, kw)
-        else:
-            logging.error('Unexpected answer %r in %r', packet, connection)
-            if not connection.isClosed():
-                notification = Packets.Notify('Unexpected answer: %r' % packet)
-                connection.send(notification)
-                connection.abort()
-            # handler.peerBroken(connection)
-        # apply a pending handler if no more answers are pending
-        while len(self._pending) > 1 and not self._pending[0][0]:
-            del self._pending[0]
-            logging.debug('Apply handler %r on %r', self._pending[0][1],
+        try:
+            if klass and isinstance(packet, klass) or packet.isError():
+                handler.packetReceived(connection, packet, kw)
+            else:
+                logging.error('Unexpected answer %r in %r', packet, connection)
+                if not connection.isClosed():
+                    connection.answer(Errors.ProtocolError(
+                        'Unexpected answer: %r' % packet))
+                    connection.abort()
+        finally:
+            # apply a pending handler if no more answers are pending
+            while len(pending) > 1 and not pending[0][0]:
+                del pending[0]
+                logging.debug('Apply handler %r on %r', pending[0][1],
                     connection)
-        if msg_id == self._next_timeout_msg_id:
-            self._updateNextTimeout()
+            if msg_id == self._next_timeout_msg_id:
+                self._updateNextTimeout()
 
     def _updateNextTimeout(self):
         # Find next timeout and its msg_id
@@ -258,10 +259,12 @@ class BaseConnection(object):
         )
 
     def setHandler(self, handler):
-        if self._handlers.setHandler(handler):
-            logging.debug('Set handler %r on %r', handler, self)
+        changed = self._handlers.setHandler(handler)
+        if changed:
+            logging.debug('Handler changed on %r', self)
         else:
             logging.debug('Delay handler %r on %r', handler, self)
+        return changed
 
     def getUUID(self):
         return None
@@ -315,9 +318,11 @@ class ListeningConnection(BaseConnection):
         if self._ssl:
             conn.connecting = True
             connector.ssl(self._ssl, conn._connected)
-            self.em.addWriter(conn)
+            # Nothing to send as long as we haven't received a ClientHello
+            # message.
         else:
             conn._connected()
+            self.em.addWriter(conn) # for ENCODED_VERSION
 
     def getAddress(self):
         return self.connector.getAddress()
@@ -336,6 +341,7 @@ class Connection(BaseConnection):
     server = False
     peer_id = None
     _next_timeout = None
+    _parser_state = None
     _timeout = 0
 
     def __init__(self, event_manager, *args, **kw):
@@ -347,7 +353,6 @@ class Connection(BaseConnection):
         self.uuid = None
         self._queue = []
         self._on_close = None
-        self._parser_state = ParserState()
 
     def _getReprInfo(self):
         r, flags = super(Connection, self)._getReprInfo()
@@ -466,20 +471,59 @@ class Connection(BaseConnection):
         except ConnectorException:
             self._closure()
 
+    def _parse(self):
+        read = self.read_buf.read
+        version = read(4)
+        if version is None:
+            return
+        from .protocol import (ENCODED_VERSION, MAX_PACKET_SIZE,
+                               PACKET_HEADER_FORMAT, Packets)
+        if version != ENCODED_VERSION:
+            logging.warning('Protocol version mismatch with %r', self)
+            raise ConnectorException
+        header_size = PACKET_HEADER_FORMAT.size
+        unpack = PACKET_HEADER_FORMAT.unpack
+        def parse():
+            state = self._parser_state
+            if state is None:
+                header = read(header_size)
+                if header is None:
+                    return
+                msg_id, msg_type, msg_len = unpack(header)
+                try:
+                    packet_klass = Packets[msg_type]
+                except KeyError:
+                    raise PacketMalformedError('Unknown packet type')
+                if msg_len > MAX_PACKET_SIZE:
+                    raise PacketMalformedError('message too big (%d)' % msg_len)
+            else:
+                msg_id, packet_klass, msg_len = state
+            data = read(msg_len)
+            if data is None:
+                # Not enough.
+                if state is None:
+                    self._parser_state = msg_id, packet_klass, msg_len
+            else:
+                self._parser_state = None
+                packet = packet_klass()
+                packet.setContent(msg_id, data)
+                return packet
+        self._parse = parse
+        return parse()
+
     def readable(self):
         """Called when self is readable."""
         # last known remote activity
         self._next_timeout = time() + self._timeout
-        read_buf = self.read_buf
         try:
             try:
-                if self.connector.receive(read_buf):
+                if self.connector.receive(self.read_buf):
                     self.em.addWriter(self)
             finally:
                 # A connector may read some data
                 # before raising ConnectorException
                 while 1:
-                    packet = Packets.parse(read_buf, self._parser_state)
+                    packet = self._parse()
                     if packet is None:
                         break
                     self._queue.append(packet)
@@ -501,8 +545,10 @@ class Connection(BaseConnection):
           Process a pending packet.
         """
         # check out packet and process it with current handler
-        self._handlers.handle(self, self._queue.pop(0))
-        self.updateTimeout()
+        try:
+            self._handlers.handle(self, self._queue.pop(0))
+        finally:
+            self.updateTimeout()
 
     def pending(self):
         connector = self.connector
@@ -625,9 +671,7 @@ class ClientConnection(Connection):
             self.em.register(self)
             if connected:
                 self._maybeConnected()
-                # A client connection usually has a pending packet to send
-                # from the beginning. It would be too smart to detect when
-                # it's not required to poll for writing.
+                # There's always the protocol version to send.
             self.em.addWriter(self)
 
     def _delayedConnect(self):

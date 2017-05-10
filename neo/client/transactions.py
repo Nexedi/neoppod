@@ -40,18 +40,18 @@ class Transaction(object):
         self.queue = SimpleQueue()
         self.txn = txn
         # data being stored
-        self.data_dict = {}                      # {oid: (value, [node_id])}
+        self.data_dict = {}                 # {oid: (value, serial, [node_id])}
         # data stored: this will go to the cache on tpc_finish
-        self.cache_dict = {}                     # {oid: value}
+        self.cache_dict = {}                # {oid: value}
         # conflicts to resolve
-        self.conflict_dict = {}                  # {oid: (base_serial, serial)}
+        self.conflict_dict = {}             # {oid: serial}
         # resolved conflicts
-        self.resolved_dict = {}                  # {oid: serial}
+        self.resolved_dict = {}             # {oid: serial}
         # Keys are node ids instead of Node objects because a node may
         # disappear from the cluster. In any case, we always have to check
         # if the id is still known by the NodeManager.
         # status: 0 -> check only, 1 -> store, 2 -> failed
-        self.involved_nodes = {}                 # {node_id: status}
+        self.involved_nodes = {}            # {node_id: status}
 
     def wakeup(self, conn):
         self.queue.put((conn, _WakeupPacket, {}))
@@ -98,7 +98,7 @@ class Transaction(object):
         # the data in self.data_dict until all nodes have answered so we remain
         # able to resolve conflicts.
         try:
-            data, uuid_list = self.data_dict[oid]
+            data, serial, uuid_list = self.data_dict[oid]
             uuid_list.remove(uuid)
         except KeyError:
             # 1. store to S1 and S2

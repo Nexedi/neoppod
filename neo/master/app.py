@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, weakref
+import sys
 from collections import defaultdict
 from time import time
 
@@ -25,7 +25,7 @@ from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
-from neo.lib.exception import ElectionFailure, PrimaryFailure, StoppedOperation
+from neo.lib.exception import PrimaryElected, PrimaryFailure, StoppedOperation
 
 class StateChangedException(Exception): pass
 
@@ -40,8 +40,7 @@ def monotonic_time():
     return now
 
 from .backup_app import BackupApplication
-from .handlers import election, identification, secondary
-from .handlers import administration, client, storage
+from .handlers import identification, administration, client, master, storage
 from .pt import PartitionTable
 from .recovery import RecoveryManager
 from .transactions import TransactionManager
@@ -58,6 +57,21 @@ class Application(BaseApplication):
     backup_app = None
     truncate_tid = None
 
+    def uuid(self, uuid):
+        node = self.nm.getByUUID(uuid)
+        if node is not self._node:
+            if node:
+                node.setUUID(None)
+                if node.isConnected(True):
+                    node.getConnection().close()
+            self._node.setUUID(uuid)
+    uuid = property(lambda self: self._node.getUUID(), uuid)
+
+    @property
+    def election(self):
+        if self.primary and self.cluster_state == ClusterStates.RECOVERING:
+            return self.primary
+
     def __init__(self, config):
         super(Application, self).__init__(
             config.getSSL(), config.getDynamicMasterList())
@@ -71,6 +85,8 @@ class Application(BaseApplication):
         self.storage_starting_set = set()
         for master_address in config.getMasters():
             self.nm.createMaster(address=master_address)
+        self._node = self.nm.createMaster(address=self.server,
+                                          uuid=config.getUUID())
 
         logging.debug('IP address is %s, port is %d', *self.server)
 
@@ -87,17 +103,7 @@ class Application(BaseApplication):
         logging.info('Name      : %s', self.name)
 
         self.listening_conn = None
-        self.primary = None
-        self.primary_master_node = None
         self.cluster_state = None
-
-        self.uuid = config.getUUID()
-
-        # election related data
-        self.unconnected_master_node_set = set()
-        self.negotiating_master_node_set = set()
-        self.master_address_dict = weakref.WeakKeyDictionary()
-
         self._current_manager = None
 
         # backup
@@ -111,7 +117,8 @@ class Application(BaseApplication):
 
         self.administration_handler = administration.AdministrationHandler(
             self)
-        self.secondary_master_handler = secondary.SecondaryMasterHandler(self)
+        self.election_handler = master.ElectionHandler(self)
+        self.secondary_handler = master.SecondaryHandler(self)
         self.client_service_handler = client.ClientServiceHandler(self)
         self.client_ro_service_handler = client.ClientReadOnlyServiceHandler(self)
         self.storage_service_handler = storage.StorageServiceHandler(self)
@@ -143,100 +150,12 @@ class Application(BaseApplication):
             raise
 
     def _run(self):
-        """Make sure that the status is sane and start a loop."""
-        # Make a listening port.
         self.listening_conn = ListeningConnection(self, None, self.server)
-
-        # Start a normal operation.
-        while self.cluster_state != ClusterStates.STOPPING:
-            # (Re)elect a new primary master.
-            self.primary = not self.nm.getMasterList()
-            if not self.primary:
-                self.electPrimary()
-            try:
-                if self.primary:
-                    self.playPrimaryRole()
-                else:
-                    self.playSecondaryRole()
-                raise RuntimeError, 'should not reach here'
-            except (ElectionFailure, PrimaryFailure):
-                # Forget all connections.
-                for conn in self.em.getClientList():
-                    conn.close()
-
-
-    def electPrimary(self):
-        """Elect a primary master node.
-
-        The difficulty is that a master node must accept connections from
-        others while attempting to connect to other master nodes at the
-        same time. Note that storage nodes and client nodes may connect
-        to self as well as master nodes."""
-        logging.info('begin the election of a primary master')
-
-        client_handler = election.ClientElectionHandler(self)
-        self.unconnected_master_node_set.clear()
-        self.negotiating_master_node_set.clear()
-        self.master_address_dict.clear()
-        self.listening_conn.setHandler(election.ServerElectionHandler(self))
-        getByAddress = self.nm.getByAddress
-
         while True:
+            self.playPrimaryRole()
+            self.playSecondaryRole()
 
-            # handle new connected masters
-            for node in self.nm.getMasterList():
-                node.setUnknown()
-                self.unconnected_master_node_set.add(node.getAddress())
-
-            # start the election process
-            self.primary = None
-            self.primary_master_node = None
-            try:
-                while (self.unconnected_master_node_set or
-                        self.negotiating_master_node_set):
-                    for addr in self.unconnected_master_node_set:
-                        self.negotiating_master_node_set.add(addr)
-                        ClientConnection(self, client_handler,
-                            # XXX: Ugly, but the whole election code will be
-                            # replaced soon
-                            getByAddress(addr))
-                    self.unconnected_master_node_set.clear()
-                    self.em.poll(1)
-            except ElectionFailure, m:
-                # something goes wrong, clean then restart
-                logging.error('election failed: %s', m)
-
-                # Ask all connected nodes to reelect a single primary master.
-                for conn in self.em.getClientList():
-                    conn.send(Packets.ReelectPrimary())
-                    conn.abort()
-
-                # Wait until the connections are closed.
-                self.primary = None
-                self.primary_master_node = None
-                # XXX: Since poll does not wake up anymore every second,
-                #      the following time condition should be reviewed.
-                #      See also playSecondaryRole.
-                t = time() + 10
-                while self.em.getClientList() and time() < t:
-                    try:
-                        self.em.poll(1)
-                    except ElectionFailure:
-                        pass
-
-                # Close all connections.
-                for conn in self.em.getClientList() + self.em.getServerList():
-                    conn.close()
-            else:
-                # election succeed, stop the process
-                self.primary = self.primary is None
-                break
-
-    def broadcastNodesInformation(self, node_list, exclude=None):
-        """
-          Broadcast changes for a set a nodes
-          Send only one packet per connection to reduce bandwidth
-        """
+    def getNodeInformationDict(self, node_list):
         node_dict = defaultdict(list)
         # group modified nodes by destination node type
         for node in node_list:
@@ -251,7 +170,14 @@ class Application(BaseApplication):
             if node.isStorage():
                 continue
             node_dict[NodeTypes.MASTER].append(node_info)
+        return node_dict
 
+    def broadcastNodesInformation(self, node_list, exclude=None):
+        """
+          Broadcast changes for a set a nodes
+          Send only one packet per connection to reduce bandwidth
+        """
+        node_dict = self.getNodeInformationDict(node_list)
         now = monotonic_time()
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
@@ -302,52 +228,26 @@ class Application(BaseApplication):
 
     def playPrimaryRole(self):
         logging.info('play the primary role with %r', self.listening_conn)
-        self.master_address_dict.clear()
-        em = self.em
-        packet = Packets.AnnouncePrimary()
-        for conn in em.getConnectionList():
+        self.primary_master = None
+        for conn in self.em.getConnectionList():
             if conn.isListening():
                 conn.setHandler(identification.IdentificationHandler(self))
             else:
-                conn.send(packet)
-                # Primary master should rather establish connections to all
-                # secondaries, rather than the other way around. This requires
-                # a bit more work when a new master joins a cluster but makes
-                # it easier to resolve UUID conflicts with minimal cluster
-                # impact, and ensure primary master uniqueness (primary masters
-                # become noisy, in that they actively try to maintain
-                # connections to all other master nodes, so duplicate
-                # primaries will eventually get in touch with each other and
-                # resolve the situation with a duel).
-                # TODO: only abort client connections, don't close server
-                # connections as we want to have them in the end. Secondary
-                # masters will reconnect nevertheless, but it's dirty.
-                # Currently, it's not trivial to preserve connected nodes,
-                # because of poor node status tracking during election.
-                # XXX: The above comment is partially wrong in that the primary
-                # master is now responsible of allocating node ids, and all
-                # other nodes must only create/update/remove nodes when
-                # processing node notification. We probably want to keep the
-                # current behaviour: having only server connections.
-                conn.abort()
+                conn.close()
 
         # If I know any storage node, make sure that they are not in the
         # running state, because they are not connected at this stage.
         for node in self.nm.getStorageList():
-            if node.isRunning():
-                node.setTemporarilyDown()
+            assert node.isDown(), node
 
         if self.uuid is None:
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
             logging.info('My UUID: ' + uuid_str(self.uuid))
-        else:
-            in_conflict = self.nm.getByUUID(self.uuid)
-            if in_conflict is not None:
-                logging.warning('UUID conflict at election exit with %r',
-                    in_conflict)
-                in_conflict.setUUID(None)
+        self._node.setRunning()
+        self._node.id_timestamp = None
+        self.primary = monotonic_time()
 
-        # Do not restart automatically if ElectionFailure is raised, in order
+        # Do not restart automatically if an election happens, in order
         # to avoid a split of the database. For example, with 2 machines with
         # a master and a storage on each one and replicas=1, the secondary
         # master becomes primary in case of network failure between the 2
@@ -393,41 +293,91 @@ class Application(BaseApplication):
         except StateChangedException, e:
             assert e.args[0] == ClusterStates.STOPPING
             self.shutdown()
+        except PrimaryElected, e:
+            self.primary_master, = e.args
 
     def playSecondaryRole(self):
         """
-        I play a secondary role, thus only wait for a primary master to fail.
+        A master play the secondary role when it is unlikely to win the
+        election (it lost against against another master during identification
+        or it was notified that another is the primary master).
+        Its only task is to try again to become the primary master when the
+        later fail. When connected to the cluster, the only communication is
+        with the primary master, to stay informed about removed/added master
+        nodes, and exit if requested.
         """
         logging.info('play the secondary role with %r', self.listening_conn)
-
-        # Wait for an announcement. If this is too long, probably
-        # the primary master is down.
-        # XXX: Same remark as in electPrimary.
-        t = time() + 10
-        while self.primary_master_node is None:
-            self.em.poll(1)
-            if t < time():
-                # election timeout
-                raise ElectionFailure("Election timeout")
-        self.master_address_dict.clear()
-
-        # Restart completely. Non-optimized
-        # but lower level code needs to be stabilized first.
+        self.primary = None
+        handler = master.PrimaryHandler(self)
+        # The connection to the probably-primary master can be in any state
+        # depending on how we were informed. The only case in which it can not
+        # be reused in when we have pending requests.
+        if self.primary_master.isConnected(True):
+            master_conn = self.primary_master.getConnection()
+            # When we find the primary during identification, we don't attach
+            # the connection (a server one) to any node, and it will be closed
+            # in the below 'for' loop.
+            assert master_conn.isClient(), master_conn
+            try:
+                # We want the handler to be effective immediately.
+                # If it's not possible, let's just reconnect.
+                if not master_conn.setHandler(handler):
+                    master_conn.close()
+                    assert False
+            except PrimaryFailure:
+                master_conn = None
+        else:
+            master_conn = None
         for conn in self.em.getConnectionList():
-            if not conn.isListening():
+            if conn.isListening():
+                conn.setHandler(
+                    identification.SecondaryIdentificationHandler(self))
+            elif conn is not master_conn:
                 conn.close()
 
-        # Reconnect to primary master node.
-        self.nm.reset()
-        primary_handler = secondary.PrimaryHandler(self)
-        ClientConnection(self, primary_handler, self.primary_master_node)
-
-        # and another for the future incoming connections
-        self.listening_conn.setHandler(
-            identification.SecondaryIdentificationHandler(self))
-
+        failed = {self.server}
+        poll = self.em.poll
         while True:
-            self.em.poll(1)
+            try:
+                if master_conn is None:
+                    for node in self.nm.getMasterList():
+                        node.setDown()
+                    node = self.primary_master
+                    failed.add(node.getAddress())
+                    if not node.isConnected(True):
+                        # On immediate connection failure,
+                        # PrimaryFailure is raised.
+                        ClientConnection(self, handler, node)
+                else:
+                    master_conn = None
+                while True:
+                    poll(1)
+            except PrimaryFailure:
+                if self.primary_master.isRunning():
+                    # XXX: What's the best to do here ? Another option is to
+                    #      choose the RUNNING master node with the lowest
+                    #      election key (i.e. (id_timestamp, address) as
+                    #      defined in IdentificationHandler), and return if we
+                    #      have the lowest one.
+                    failed = {self.server}
+                else:
+                    # Since the last primary failure (or since we play the
+                    # secondary role), do not try any node more than once.
+                    for self.primary_master in self.nm.getMasterList():
+                        if self.primary_master.getAddress() not in failed:
+                            break
+                    else:
+                        # All known master nodes are either down or secondary.
+                        # Let's play the primary role again.
+                        break
+            except PrimaryElected, e:
+                node = self.primary_master
+                self.primary_master, = e.args
+                assert node is not self.primary_master, node
+                try:
+                    node.getConnection().close()
+                except PrimaryFailure:
+                    pass
 
     def runManager(self, manager_klass):
         self._current_manager = manager_klass(self)
@@ -456,9 +406,14 @@ class Application(BaseApplication):
 
         # change handlers
         notification_packet = Packets.NotifyClusterInformation(state)
-        for node in self.nm.getIdentifiedList():
+        for node in self.nm.getList():
+            if not node.isConnected(True):
+                continue
             conn = node.getConnection()
-            conn.send(notification_packet)
+            if node.isIdentified():
+                conn.send(notification_packet)
+            elif conn.isServer():
+                continue
             if node.isClient():
                 if state == ClusterStates.RUNNING:
                     handler = self.client_service_handler
@@ -468,6 +423,11 @@ class Application(BaseApplication):
                     if state != ClusterStates.STOPPING:
                         conn.abort()
                     continue
+            elif node.isMaster():
+                if state == ClusterStates.RECOVERING:
+                    handler = self.election_handler
+                else:
+                    handler = self.secondary_handler
             elif node.isStorage() and storage_handler:
                 handler = storage_handler
             else:
@@ -485,7 +445,9 @@ class Application(BaseApplication):
                 return uuid
         hob = UUID_NAMESPACES[node_type]
         for uuid in xrange((hob << 24) + 1, hob + 0x10 << 24):
-            if uuid != self.uuid and getByUUID(uuid) is None:
+            node = getByUUID(uuid)
+            if node is None or None is not address == node.getAddress():
+                assert uuid != self.uuid
                 return uuid
         raise RuntimeError
 
@@ -517,18 +479,20 @@ class Application(BaseApplication):
         logging.info("asking remaining nodes to shutdown")
         self.listening_conn.close()
         handler = EventHandler(self)
-        for node in self.nm.getConnectedList():
+        for node in self.nm.getList():
+            if not node.isConnected(True):
+                continue
             conn = node.getConnection()
-            if node.isStorage():
-                conn.setHandler(handler)
-                conn.send(Packets.NotifyNodeInformation(monotonic_time(), ((
-                    node.getType(), node.getAddress(), node.getUUID(),
-                    NodeStates.TEMPORARILY_DOWN, None),)))
-                conn.abort()
-            elif conn.pending():
-                conn.abort()
-            else:
-                conn.close()
+            conn.setHandler(handler)
+            if not conn.connecting:
+                if node.isStorage():
+                    conn.send(Packets.NotifyNodeInformation(monotonic_time(), ((
+                        node.getType(), node.getAddress(), node.getUUID(),
+                        NodeStates.DOWN, None),)))
+                if conn.pending():
+                    conn.abort()
+                    continue
+            conn.close()
 
         while self.em.connection_dict:
             self.em.poll(1)

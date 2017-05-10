@@ -78,6 +78,10 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
+        if self.UNSAFE:
+            q = self.query
+            q("PRAGMA synchronous = OFF")
+            q("PRAGMA journal_mode = MEMORY")
         self._config = {}
 
     def _commit(self):
@@ -108,6 +112,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                 raise
 
     def _setup(self):
+        # SQLite does support transactional Data Definition Language statements
+        # but unfortunately, the built-in Python binding automatically commits
+        # between such statements. This anti-feature causes this method to be
+        # relatively slow; unit tests enables the UNSAFE boolean flag.
         self._config.clear()
         q = self.query
 
