@@ -2,6 +2,11 @@
 
 package neo
 
+import (
+	"fmt"
+	"strings"
+)
+
 // XXX or better translate to some other errors ?
 // XXX here - not in proto.go - because else stringer will be confused
 func (e *Error) Error() string {
@@ -32,7 +37,7 @@ func (nid NodeID) String() string {
 
 	// 's1', 'm2', for temporary nids
 	if temp {
-		s = strings.Lower(s)
+		s = strings.ToLower(s)
 	}
 
 	return s

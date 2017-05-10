@@ -49,10 +49,11 @@ package neo
 // 	| |     tid
 // 	+-+
 type PartitionTable struct {
-	ptTab []...
+	//ptTab []...
 }
 
 
 // Operational returns whether all object space is covered by at least some ready-to-serve nodes
-func (pt *PartitionalTable) Operational() bool {
+func (pt *PartitionTable) Operational() bool {
+	panic("TODO")
 }

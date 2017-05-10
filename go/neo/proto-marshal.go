@@ -67,7 +67,7 @@ func (p *NodeInfo) NEOEncode(data []byte) {
 		data = data[l:]
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Address.Port)
-	binary.BigEndian.PutUint32(data[2:], uint32(int32(p.UUID)))
+	binary.BigEndian.PutUint32(data[2:], uint32(int32(p.NodeID)))
 	binary.BigEndian.PutUint32(data[6:], uint32(int32(p.NodeState)))
 	float64_NEOEncode(data[10:], p.IdTimestamp)
 }
@@ -89,7 +89,7 @@ func (p *NodeInfo) NEODecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	p.Address.Port = binary.BigEndian.Uint16(data[0:])
-	p.UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+	p.NodeID = NodeID(int32(binary.BigEndian.Uint32(data[2:])))
 	p.NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
 	p.IdTimestamp = float64_NEODecode(data[10:])
 	return 8 + int(nread), nil
@@ -105,7 +105,7 @@ func (p *CellInfo) NEOEncodedInfo() (uint16, int) {
 }
 
 func (p *CellInfo) NEOEncode(data []byte) {
-	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.UUID)))
+	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeID)))
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.CellState)))
 }
 
@@ -113,7 +113,7 @@ func (p *CellInfo) NEODecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
-	p.UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+	p.NodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 	p.CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 	return 8, nil
 
@@ -135,7 +135,7 @@ func (p *RowInfo) NEOEncode(data []byte) {
 		data = data[8:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
+			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).NodeID)))
 			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).CellState)))
 			data = data[8:]
 		}
@@ -158,7 +158,7 @@ func (p *RowInfo) NEODecode(data []byte) (int, error) {
 		p.CellList = make([]CellInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 			data = data[8:]
 		}
@@ -169,82 +169,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 4. XXXTest
-
-func (p *XXXTest) NEOEncodedInfo() (uint16, int) {
-	var size int
-	for key := range p.Zzz {
-		size += len(p.Zzz[key])
-	}
-	return 4, 12 + len(p.Zzz)*8 + size
-}
-
-func (p *XXXTest) NEOEncode(data []byte) {
-	binary.BigEndian.PutUint32(data[0:], p.qqq)
-	binary.BigEndian.PutUint32(data[4:], p.aaa)
-	{
-		l := uint32(len(p.Zzz))
-		binary.BigEndian.PutUint32(data[8:], l)
-		data = data[12:]
-		keyv := make([]int32, 0, l)
-		for key := range p.Zzz {
-			keyv = append(keyv, key)
-		}
-		sort.Slice(keyv, func(i, j int) bool { return keyv[i] < keyv[j] })
-		for _, key := range keyv {
-			binary.BigEndian.PutUint32(data[0:], uint32(key))
-			{
-				l := uint32(len(p.Zzz[key]))
-				binary.BigEndian.PutUint32(data[4:], l)
-				data = data[8:]
-				copy(data, p.Zzz[key])
-				data = data[l:]
-			}
-			data = data[0:]
-		}
-	}
-}
-
-func (p *XXXTest) NEODecode(data []byte) (int, error) {
-	var nread uint32
-	if uint32(len(data)) < 12 {
-		goto overflow
-	}
-	p.qqq = binary.BigEndian.Uint32(data[0:])
-	p.aaa = binary.BigEndian.Uint32(data[4:])
-	{
-		l := binary.BigEndian.Uint32(data[8:])
-		data = data[12:]
-		p.Zzz = make(map[int32]string, l)
-		m := p.Zzz
-		for i := 0; uint32(i) < l; i++ {
-			if uint32(len(data)) < 8 {
-				goto overflow
-			}
-			key := int32(binary.BigEndian.Uint32(data[0:]))
-			{
-				l := binary.BigEndian.Uint32(data[4:])
-				data = data[8:]
-				if uint32(len(data)) < l {
-					goto overflow
-				}
-				nread += l
-				m[key] = string(data[:l])
-				data = data[l:]
-			}
-		}
-		nread += l * 8
-	}
-	return 12 + int(nread), nil
-
-overflow:
-	return 0, ErrDecodeOverflow
-}
-
-// 5. Notify
+// 4. Notify
 
 func (p *Notify) NEOEncodedInfo() (uint16, int) {
-	return 5, 4 + len(p.Message)
+	return 4, 4 + len(p.Message)
 }
 
 func (p *Notify) NEOEncode(data []byte) {
@@ -278,10 +206,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 6. Error
+// 5. Error
 
 func (p *Error) NEOEncodedInfo() (uint16, int) {
-	return 6, 8 + len(p.Message)
+	return 5, 8 + len(p.Message)
 }
 
 func (p *Error) NEOEncode(data []byte) {
@@ -317,10 +245,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 7. Ping
+// 6. Ping
 
 func (p *Ping) NEOEncodedInfo() (uint16, int) {
-	return 7, 0
+	return 6, 0
 }
 
 func (p *Ping) NEOEncode(data []byte) {
@@ -330,10 +258,10 @@ func (p *Ping) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 8. CloseClient
+// 7. CloseClient
 
 func (p *CloseClient) NEOEncodedInfo() (uint16, int) {
-	return 8, 0
+	return 7, 0
 }
 
 func (p *CloseClient) NEOEncode(data []byte) {
@@ -343,16 +271,16 @@ func (p *CloseClient) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 9. RequestIdentification
+// 8. RequestIdentification
 
 func (p *RequestIdentification) NEOEncodedInfo() (uint16, int) {
-	return 9, 30 + len(p.Address.Host) + len(p.Name)
+	return 8, 30 + len(p.Address.Host) + len(p.Name)
 }
 
 func (p *RequestIdentification) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.ProtocolVersion)
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.NodeType)))
-	binary.BigEndian.PutUint32(data[8:], uint32(int32(p.UUID)))
+	binary.BigEndian.PutUint32(data[8:], uint32(int32(p.NodeID)))
 	{
 		l := uint32(len(p.Address.Host))
 		binary.BigEndian.PutUint32(data[12:], l)
@@ -378,7 +306,7 @@ func (p *RequestIdentification) NEODecode(data []byte) (int, error) {
 	}
 	p.ProtocolVersion = binary.BigEndian.Uint32(data[0:])
 	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[4:])))
-	p.UUID = UUID(int32(binary.BigEndian.Uint32(data[8:])))
+	p.NodeID = NodeID(int32(binary.BigEndian.Uint32(data[8:])))
 	{
 		l := binary.BigEndian.Uint32(data[12:])
 		data = data[16:]
@@ -407,7 +335,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 10. AcceptIdentification
+// 9. AcceptIdentification
 
 func (p *AcceptIdentification) NEOEncodedInfo() (uint16, int) {
 	var size int
@@ -415,15 +343,15 @@ func (p *AcceptIdentification) NEOEncodedInfo() (uint16, int) {
 		a := &p.KnownMasterList[i]
 		size += len((*a).Address.Host)
 	}
-	return 10, 30 + len(p.Primary.Host) + len(p.KnownMasterList)*10 + size
+	return 9, 30 + len(p.Primary.Host) + len(p.KnownMasterList)*10 + size
 }
 
 func (p *AcceptIdentification) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
-	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.MyUUID)))
+	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.MyNodeID)))
 	binary.BigEndian.PutUint32(data[8:], p.NumPartitions)
 	binary.BigEndian.PutUint32(data[12:], p.NumReplicas)
-	binary.BigEndian.PutUint32(data[16:], uint32(int32(p.YourUUID)))
+	binary.BigEndian.PutUint32(data[16:], uint32(int32(p.YourNodeID)))
 	{
 		l := uint32(len(p.Primary.Host))
 		binary.BigEndian.PutUint32(data[20:], l)
@@ -446,7 +374,7 @@ func (p *AcceptIdentification) NEOEncode(data []byte) {
 				data = data[l:]
 			}
 			binary.BigEndian.PutUint16(data[0:], (*a).Address.Port)
-			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).UUID)))
+			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).NodeID)))
 			data = data[6:]
 		}
 	}
@@ -458,10 +386,10 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
-	p.MyUUID = UUID(int32(binary.BigEndian.Uint32(data[4:])))
+	p.MyNodeID = NodeID(int32(binary.BigEndian.Uint32(data[4:])))
 	p.NumPartitions = binary.BigEndian.Uint32(data[8:])
 	p.NumReplicas = binary.BigEndian.Uint32(data[12:])
-	p.YourUUID = UUID(int32(binary.BigEndian.Uint32(data[16:])))
+	p.YourNodeID = NodeID(int32(binary.BigEndian.Uint32(data[16:])))
 	{
 		l := binary.BigEndian.Uint32(data[20:])
 		data = data[24:]
@@ -478,7 +406,7 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 		data = data[6:]
 		p.KnownMasterList = make([]struct {
 			Address
-			UUID UUID
+			NodeID NodeID
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.KnownMasterList[i]
@@ -496,7 +424,7 @@ func (p *AcceptIdentification) NEODecode(data []byte) (int, error) {
 				data = data[l:]
 			}
 			(*a).Address.Port = binary.BigEndian.Uint16(data[0:])
-			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+			(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[2:])))
 			data = data[6:]
 		}
 		nread += l * 4
@@ -507,10 +435,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 11. PrimaryMaster
+// 10. PrimaryMaster
 
 func (p *PrimaryMaster) NEOEncodedInfo() (uint16, int) {
-	return 11, 0
+	return 10, 0
 }
 
 func (p *PrimaryMaster) NEOEncode(data []byte) {
@@ -520,31 +448,31 @@ func (p *PrimaryMaster) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 12. AnswerPrimary
+// 11. AnswerPrimary
 
 func (p *AnswerPrimary) NEOEncodedInfo() (uint16, int) {
-	return 12, 4
+	return 11, 4
 }
 
 func (p *AnswerPrimary) NEOEncode(data []byte) {
-	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.PrimaryUUID)))
+	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.PrimaryNodeID)))
 }
 
 func (p *AnswerPrimary) NEODecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
-	p.PrimaryUUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+	p.PrimaryNodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 	return 4, nil
 
 overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 13. AnnouncePrimary
+// 12. AnnouncePrimary
 
 func (p *AnnouncePrimary) NEOEncodedInfo() (uint16, int) {
-	return 13, 0
+	return 12, 0
 }
 
 func (p *AnnouncePrimary) NEOEncode(data []byte) {
@@ -554,10 +482,10 @@ func (p *AnnouncePrimary) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 14. ReelectPrimary
+// 13. ReelectPrimary
 
 func (p *ReelectPrimary) NEOEncodedInfo() (uint16, int) {
-	return 14, 0
+	return 13, 0
 }
 
 func (p *ReelectPrimary) NEOEncode(data []byte) {
@@ -567,10 +495,10 @@ func (p *ReelectPrimary) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 15. Recovery
+// 14. Recovery
 
 func (p *Recovery) NEOEncodedInfo() (uint16, int) {
-	return 15, 0
+	return 14, 0
 }
 
 func (p *Recovery) NEOEncode(data []byte) {
@@ -580,10 +508,10 @@ func (p *Recovery) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 16. AnswerRecovery
+// 15. AnswerRecovery
 
 func (p *AnswerRecovery) NEOEncodedInfo() (uint16, int) {
-	return 16, 24
+	return 15, 24
 }
 
 func (p *AnswerRecovery) NEOEncode(data []byte) {
@@ -605,10 +533,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 17. LastIDs
+// 16. LastIDs
 
 func (p *LastIDs) NEOEncodedInfo() (uint16, int) {
-	return 17, 0
+	return 16, 0
 }
 
 func (p *LastIDs) NEOEncode(data []byte) {
@@ -618,10 +546,10 @@ func (p *LastIDs) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 18. AnswerLastIDs
+// 17. AnswerLastIDs
 
 func (p *AnswerLastIDs) NEOEncodedInfo() (uint16, int) {
-	return 18, 16
+	return 17, 16
 }
 
 func (p *AnswerLastIDs) NEOEncode(data []byte) {
@@ -641,20 +569,20 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 19. PartitionTable
+// 18. X_PartitionTable
 
-func (p *PartitionTable) NEOEncodedInfo() (uint16, int) {
-	return 19, 0
+func (p *X_PartitionTable) NEOEncodedInfo() (uint16, int) {
+	return 18, 0
 }
 
-func (p *PartitionTable) NEOEncode(data []byte) {
+func (p *X_PartitionTable) NEOEncode(data []byte) {
 }
 
-func (p *PartitionTable) NEODecode(data []byte) (int, error) {
+func (p *X_PartitionTable) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 20. AnswerPartitionTable
+// 19. AnswerPartitionTable
 
 func (p *AnswerPartitionTable) NEOEncodedInfo() (uint16, int) {
 	var size int
@@ -662,7 +590,7 @@ func (p *AnswerPartitionTable) NEOEncodedInfo() (uint16, int) {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 8
 	}
-	return 20, 12 + len(p.RowList)*8 + size
+	return 19, 12 + len(p.RowList)*8 + size
 }
 
 func (p *AnswerPartitionTable) NEOEncode(data []byte) {
@@ -680,7 +608,7 @@ func (p *AnswerPartitionTable) NEOEncode(data []byte) {
 				data = data[8:]
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
+					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).NodeID)))
 					binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).CellState)))
 					data = data[8:]
 				}
@@ -716,7 +644,7 @@ func (p *AnswerPartitionTable) NEODecode(data []byte) (int, error) {
 				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+					(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 					(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 					data = data[8:]
 				}
@@ -730,7 +658,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 21. NotifyPartitionTable
+// 20. NotifyPartitionTable
 
 func (p *NotifyPartitionTable) NEOEncodedInfo() (uint16, int) {
 	var size int
@@ -738,7 +666,7 @@ func (p *NotifyPartitionTable) NEOEncodedInfo() (uint16, int) {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 8
 	}
-	return 21, 12 + len(p.RowList)*8 + size
+	return 20, 12 + len(p.RowList)*8 + size
 }
 
 func (p *NotifyPartitionTable) NEOEncode(data []byte) {
@@ -756,7 +684,7 @@ func (p *NotifyPartitionTable) NEOEncode(data []byte) {
 				data = data[8:]
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
+					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).NodeID)))
 					binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).CellState)))
 					data = data[8:]
 				}
@@ -792,7 +720,7 @@ func (p *NotifyPartitionTable) NEODecode(data []byte) (int, error) {
 				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+					(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 					(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 					data = data[8:]
 				}
@@ -806,10 +734,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 22. PartitionChanges
+// 21. PartitionChanges
 
 func (p *PartitionChanges) NEOEncodedInfo() (uint16, int) {
-	return 22, 12 + len(p.CellList)*12
+	return 21, 12 + len(p.CellList)*12
 }
 
 func (p *PartitionChanges) NEOEncode(data []byte) {
@@ -821,7 +749,7 @@ func (p *PartitionChanges) NEOEncode(data []byte) {
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
 			binary.BigEndian.PutUint32(data[0:], (*a).Offset)
-			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).UUID)))
+			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).NodeID)))
 			binary.BigEndian.PutUint32(data[8:], uint32(int32((*a).CellState)))
 			data = data[12:]
 		}
@@ -843,13 +771,13 @@ func (p *PartitionChanges) NEODecode(data []byte) (int, error) {
 		nread += l * 12
 		p.CellList = make([]struct {
 			Offset    uint32
-			UUID      UUID
+			NodeID    NodeID
 			CellState CellState
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
 			(*a).Offset = binary.BigEndian.Uint32(data[0:])
-			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[4:])))
+			(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[4:])))
 			(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[8:])))
 			data = data[12:]
 		}
@@ -860,10 +788,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 23. StartOperation
+// 22. StartOperation
 
 func (p *StartOperation) NEOEncodedInfo() (uint16, int) {
-	return 23, 1
+	return 22, 1
 }
 
 func (p *StartOperation) NEOEncode(data []byte) {
@@ -881,10 +809,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 24. StopOperation
+// 23. StopOperation
 
 func (p *StopOperation) NEOEncodedInfo() (uint16, int) {
-	return 24, 0
+	return 23, 0
 }
 
 func (p *StopOperation) NEOEncode(data []byte) {
@@ -894,10 +822,10 @@ func (p *StopOperation) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 25. UnfinishedTransactions
+// 24. UnfinishedTransactions
 
 func (p *UnfinishedTransactions) NEOEncodedInfo() (uint16, int) {
-	return 25, 4 + len(p.RowList)*4
+	return 24, 4 + len(p.RowList)*4
 }
 
 func (p *UnfinishedTransactions) NEOEncode(data []byte) {
@@ -938,10 +866,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 26. AnswerUnfinishedTransactions
+// 25. AnswerUnfinishedTransactions
 
 func (p *AnswerUnfinishedTransactions) NEOEncodedInfo() (uint16, int) {
-	return 26, 12 + len(p.TidList)*8
+	return 25, 12 + len(p.TidList)*8
 }
 
 func (p *AnswerUnfinishedTransactions) NEOEncode(data []byte) {
@@ -984,10 +912,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 27. LockedTransactions
+// 26. LockedTransactions
 
 func (p *LockedTransactions) NEOEncodedInfo() (uint16, int) {
-	return 27, 0
+	return 26, 0
 }
 
 func (p *LockedTransactions) NEOEncode(data []byte) {
@@ -997,10 +925,10 @@ func (p *LockedTransactions) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 28. AnswerLockedTransactions
+// 27. AnswerLockedTransactions
 
 func (p *AnswerLockedTransactions) NEOEncodedInfo() (uint16, int) {
-	return 28, 4 + len(p.TidDict)*16
+	return 27, 4 + len(p.TidDict)*16
 }
 
 func (p *AnswerLockedTransactions) NEOEncode(data []byte) {
@@ -1047,10 +975,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 29. FinalTID
+// 28. FinalTID
 
 func (p *FinalTID) NEOEncodedInfo() (uint16, int) {
-	return 29, 8
+	return 28, 8
 }
 
 func (p *FinalTID) NEOEncode(data []byte) {
@@ -1068,10 +996,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 30. AnswerFinalTID
+// 29. AnswerFinalTID
 
 func (p *AnswerFinalTID) NEOEncodedInfo() (uint16, int) {
-	return 30, 8
+	return 29, 8
 }
 
 func (p *AnswerFinalTID) NEOEncode(data []byte) {
@@ -1089,10 +1017,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 31. ValidateTransaction
+// 30. ValidateTransaction
 
 func (p *ValidateTransaction) NEOEncodedInfo() (uint16, int) {
-	return 31, 16
+	return 30, 16
 }
 
 func (p *ValidateTransaction) NEOEncode(data []byte) {
@@ -1112,10 +1040,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 32. BeginTransaction
+// 31. BeginTransaction
 
 func (p *BeginTransaction) NEOEncodedInfo() (uint16, int) {
-	return 32, 8
+	return 31, 8
 }
 
 func (p *BeginTransaction) NEOEncode(data []byte) {
@@ -1133,10 +1061,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 33. AnswerBeginTransaction
+// 32. AnswerBeginTransaction
 
 func (p *AnswerBeginTransaction) NEOEncodedInfo() (uint16, int) {
-	return 33, 8
+	return 32, 8
 }
 
 func (p *AnswerBeginTransaction) NEOEncode(data []byte) {
@@ -1154,20 +1082,20 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 34. FailedVote
+// 33. FailedVote
 
 func (p *FailedVote) NEOEncodedInfo() (uint16, int) {
-	return 34, 12 + len(p.UUIDList)*4
+	return 33, 12 + len(p.NodeList)*4
 }
 
 func (p *FailedVote) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
-		l := uint32(len(p.UUIDList))
+		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[8:], l)
 		data = data[12:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
+			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
 			data = data[4:]
 		}
@@ -1187,10 +1115,10 @@ func (p *FailedVote) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 4
-		p.UUIDList = make([]UUID, l)
+		p.NodeList = make([]NodeID, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			a := &p.NodeList[i]
+			(*a) = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -1200,10 +1128,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 35. FinishTransaction
+// 34. FinishTransaction
 
 func (p *FinishTransaction) NEOEncodedInfo() (uint16, int) {
-	return 35, 16 + len(p.OIDList)*8 + len(p.CheckedList)*8
+	return 34, 16 + len(p.OIDList)*8 + len(p.CheckedList)*8
 }
 
 func (p *FinishTransaction) NEOEncode(data []byte) {
@@ -1270,10 +1198,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 36. AnswerFinishTransaction
+// 35. AnswerFinishTransaction
 
 func (p *AnswerFinishTransaction) NEOEncodedInfo() (uint16, int) {
-	return 36, 16
+	return 35, 16
 }
 
 func (p *AnswerFinishTransaction) NEOEncode(data []byte) {
@@ -1293,10 +1221,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 37. NotifyTransactionFinished
+// 36. NotifyTransactionFinished
 
 func (p *NotifyTransactionFinished) NEOEncodedInfo() (uint16, int) {
-	return 37, 16
+	return 36, 16
 }
 
 func (p *NotifyTransactionFinished) NEOEncode(data []byte) {
@@ -1316,10 +1244,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 38. LockInformation
+// 37. LockInformation
 
 func (p *LockInformation) NEOEncodedInfo() (uint16, int) {
-	return 38, 16
+	return 37, 16
 }
 
 func (p *LockInformation) NEOEncode(data []byte) {
@@ -1339,10 +1267,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 39. AnswerLockInformation
+// 38. AnswerLockInformation
 
 func (p *AnswerLockInformation) NEOEncodedInfo() (uint16, int) {
-	return 39, 8
+	return 38, 8
 }
 
 func (p *AnswerLockInformation) NEOEncode(data []byte) {
@@ -1360,10 +1288,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 40. InvalidateObjects
+// 39. InvalidateObjects
 
 func (p *InvalidateObjects) NEOEncodedInfo() (uint16, int) {
-	return 40, 12 + len(p.OidList)*8
+	return 39, 12 + len(p.OidList)*8
 }
 
 func (p *InvalidateObjects) NEOEncode(data []byte) {
@@ -1406,10 +1334,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 41. UnlockInformation
+// 40. UnlockInformation
 
 func (p *UnlockInformation) NEOEncodedInfo() (uint16, int) {
-	return 41, 8
+	return 40, 8
 }
 
 func (p *UnlockInformation) NEOEncode(data []byte) {
@@ -1427,10 +1355,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 42. GenerateOIDs
+// 41. GenerateOIDs
 
 func (p *GenerateOIDs) NEOEncodedInfo() (uint16, int) {
-	return 42, 4
+	return 41, 4
 }
 
 func (p *GenerateOIDs) NEOEncode(data []byte) {
@@ -1448,10 +1376,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 43. AnswerGenerateOIDs
+// 42. AnswerGenerateOIDs
 
 func (p *AnswerGenerateOIDs) NEOEncodedInfo() (uint16, int) {
-	return 43, 4 + len(p.OidList)*8
+	return 42, 4 + len(p.OidList)*8
 }
 
 func (p *AnswerGenerateOIDs) NEOEncode(data []byte) {
@@ -1492,10 +1420,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 44. Deadlock
+// 43. Deadlock
 
 func (p *Deadlock) NEOEncodedInfo() (uint16, int) {
-	return 44, 16
+	return 43, 16
 }
 
 func (p *Deadlock) NEOEncode(data []byte) {
@@ -1515,10 +1443,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 45. RebaseTransaction
+// 44. RebaseTransaction
 
 func (p *RebaseTransaction) NEOEncodedInfo() (uint16, int) {
-	return 45, 16
+	return 44, 16
 }
 
 func (p *RebaseTransaction) NEOEncode(data []byte) {
@@ -1538,10 +1466,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 46. AnswerRebaseTransaction
+// 45. AnswerRebaseTransaction
 
 func (p *AnswerRebaseTransaction) NEOEncodedInfo() (uint16, int) {
-	return 46, 4 + len(p.OidList)*8
+	return 45, 4 + len(p.OidList)*8
 }
 
 func (p *AnswerRebaseTransaction) NEOEncode(data []byte) {
@@ -1582,10 +1510,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 47. RebaseObject
+// 46. RebaseObject
 
 func (p *RebaseObject) NEOEncodedInfo() (uint16, int) {
-	return 47, 16
+	return 46, 16
 }
 
 func (p *RebaseObject) NEOEncode(data []byte) {
@@ -1605,10 +1533,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 48. AnswerRebaseObject
+// 47. AnswerRebaseObject
 
 func (p *AnswerRebaseObject) NEOEncodedInfo() (uint16, int) {
-	return 48, 41 + len(p.Data)
+	return 47, 41 + len(p.Data)
 }
 
 func (p *AnswerRebaseObject) NEOEncode(data []byte) {
@@ -1651,10 +1579,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 49. StoreObject
+// 48. StoreObject
 
 func (p *StoreObject) NEOEncodedInfo() (uint16, int) {
-	return 49, 57 + len(p.Data)
+	return 48, 57 + len(p.Data)
 }
 
 func (p *StoreObject) NEOEncode(data []byte) {
@@ -1701,10 +1629,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 50. AnswerStoreObject
+// 49. AnswerStoreObject
 
 func (p *AnswerStoreObject) NEOEncodedInfo() (uint16, int) {
-	return 50, 8
+	return 49, 8
 }
 
 func (p *AnswerStoreObject) NEOEncode(data []byte) {
@@ -1722,20 +1650,20 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 51. AbortTransaction
+// 50. AbortTransaction
 
 func (p *AbortTransaction) NEOEncodedInfo() (uint16, int) {
-	return 51, 12 + len(p.UUIDList)*4
+	return 50, 12 + len(p.NodeList)*4
 }
 
 func (p *AbortTransaction) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
-		l := uint32(len(p.UUIDList))
+		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[8:], l)
 		data = data[12:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
+			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
 			data = data[4:]
 		}
@@ -1755,10 +1683,10 @@ func (p *AbortTransaction) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 4
-		p.UUIDList = make([]UUID, l)
+		p.NodeList = make([]NodeID, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			a := &p.NodeList[i]
+			(*a) = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -1768,10 +1696,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 52. StoreTransaction
+// 51. StoreTransaction
 
 func (p *StoreTransaction) NEOEncodedInfo() (uint16, int) {
-	return 52, 24 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
+	return 51, 24 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
 }
 
 func (p *StoreTransaction) NEOEncode(data []byte) {
@@ -1865,10 +1793,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 53. VoteTransaction
+// 52. VoteTransaction
 
 func (p *VoteTransaction) NEOEncodedInfo() (uint16, int) {
-	return 53, 8
+	return 52, 8
 }
 
 func (p *VoteTransaction) NEOEncode(data []byte) {
@@ -1886,10 +1814,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 54. GetObject
+// 53. GetObject
 
 func (p *GetObject) NEOEncodedInfo() (uint16, int) {
-	return 54, 24
+	return 53, 24
 }
 
 func (p *GetObject) NEOEncode(data []byte) {
@@ -1911,10 +1839,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 55. AnswerGetObject
+// 54. AnswerGetObject
 
 func (p *AnswerGetObject) NEOEncodedInfo() (uint16, int) {
-	return 55, 57 + len(p.Data)
+	return 54, 57 + len(p.Data)
 }
 
 func (p *AnswerGetObject) NEOEncode(data []byte) {
@@ -1961,10 +1889,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 56. TIDList
+// 55. TIDList
 
 func (p *TIDList) NEOEncodedInfo() (uint16, int) {
-	return 56, 20
+	return 55, 20
 }
 
 func (p *TIDList) NEOEncode(data []byte) {
@@ -1986,10 +1914,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 57. AnswerTIDList
+// 56. AnswerTIDList
 
 func (p *AnswerTIDList) NEOEncodedInfo() (uint16, int) {
-	return 57, 4 + len(p.TIDList)*8
+	return 56, 4 + len(p.TIDList)*8
 }
 
 func (p *AnswerTIDList) NEOEncode(data []byte) {
@@ -2030,10 +1958,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 58. TIDListFrom
+// 57. TIDListFrom
 
 func (p *TIDListFrom) NEOEncodedInfo() (uint16, int) {
-	return 58, 24
+	return 57, 24
 }
 
 func (p *TIDListFrom) NEOEncode(data []byte) {
@@ -2057,10 +1985,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 59. AnswerTIDListFrom
+// 58. AnswerTIDListFrom
 
 func (p *AnswerTIDListFrom) NEOEncodedInfo() (uint16, int) {
-	return 59, 4 + len(p.TidList)*8
+	return 58, 4 + len(p.TidList)*8
 }
 
 func (p *AnswerTIDListFrom) NEOEncode(data []byte) {
@@ -2101,10 +2029,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 60. TransactionInformation
+// 59. TransactionInformation
 
 func (p *TransactionInformation) NEOEncodedInfo() (uint16, int) {
-	return 60, 8
+	return 59, 8
 }
 
 func (p *TransactionInformation) NEOEncode(data []byte) {
@@ -2122,10 +2050,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 61. AnswerTransactionInformation
+// 60. AnswerTransactionInformation
 
 func (p *AnswerTransactionInformation) NEOEncodedInfo() (uint16, int) {
-	return 61, 25 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
+	return 60, 25 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
 }
 
 func (p *AnswerTransactionInformation) NEOEncode(data []byte) {
@@ -2221,10 +2149,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 62. ObjectHistory
+// 61. ObjectHistory
 
 func (p *ObjectHistory) NEOEncodedInfo() (uint16, int) {
-	return 62, 24
+	return 61, 24
 }
 
 func (p *ObjectHistory) NEOEncode(data []byte) {
@@ -2246,10 +2174,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 63. AnswerObjectHistory
+// 62. AnswerObjectHistory
 
 func (p *AnswerObjectHistory) NEOEncodedInfo() (uint16, int) {
-	return 63, 12 + len(p.HistoryList)*12
+	return 62, 12 + len(p.HistoryList)*12
 }
 
 func (p *AnswerObjectHistory) NEOEncode(data []byte) {
@@ -2297,16 +2225,16 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 64. PartitionList
+// 63. PartitionList
 
 func (p *PartitionList) NEOEncodedInfo() (uint16, int) {
-	return 64, 12
+	return 63, 12
 }
 
 func (p *PartitionList) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.MinOffset)
 	binary.BigEndian.PutUint32(data[4:], p.MaxOffset)
-	binary.BigEndian.PutUint32(data[8:], uint32(int32(p.UUID)))
+	binary.BigEndian.PutUint32(data[8:], uint32(int32(p.NodeID)))
 }
 
 func (p *PartitionList) NEODecode(data []byte) (int, error) {
@@ -2315,14 +2243,14 @@ func (p *PartitionList) NEODecode(data []byte) (int, error) {
 	}
 	p.MinOffset = binary.BigEndian.Uint32(data[0:])
 	p.MaxOffset = binary.BigEndian.Uint32(data[4:])
-	p.UUID = UUID(int32(binary.BigEndian.Uint32(data[8:])))
+	p.NodeID = NodeID(int32(binary.BigEndian.Uint32(data[8:])))
 	return 12, nil
 
 overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 65. AnswerPartitionList
+// 64. AnswerPartitionList
 
 func (p *AnswerPartitionList) NEOEncodedInfo() (uint16, int) {
 	var size int
@@ -2330,7 +2258,7 @@ func (p *AnswerPartitionList) NEOEncodedInfo() (uint16, int) {
 		a := &p.RowList[i]
 		size += len((*a).CellList) * 8
 	}
-	return 65, 12 + len(p.RowList)*8 + size
+	return 64, 12 + len(p.RowList)*8 + size
 }
 
 func (p *AnswerPartitionList) NEOEncode(data []byte) {
@@ -2348,7 +2276,7 @@ func (p *AnswerPartitionList) NEOEncode(data []byte) {
 				data = data[8:]
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
+					binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).NodeID)))
 					binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).CellState)))
 					data = data[8:]
 				}
@@ -2384,7 +2312,7 @@ func (p *AnswerPartitionList) NEODecode(data []byte) (int, error) {
 				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+					(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 					(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[4:])))
 					data = data[8:]
 				}
@@ -2398,17 +2326,17 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 66. X_NodeList
+// 65. NodeList
 
-func (p *X_NodeList) NEOEncodedInfo() (uint16, int) {
-	return 66, 4
+func (p *NodeList) NEOEncodedInfo() (uint16, int) {
+	return 65, 4
 }
 
-func (p *X_NodeList) NEOEncode(data []byte) {
+func (p *NodeList) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
 }
 
-func (p *X_NodeList) NEODecode(data []byte) (int, error) {
+func (p *NodeList) NEODecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -2419,7 +2347,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 67. AnswerNodeList
+// 66. AnswerNodeList
 
 func (p *AnswerNodeList) NEOEncodedInfo() (uint16, int) {
 	var size int
@@ -2427,7 +2355,7 @@ func (p *AnswerNodeList) NEOEncodedInfo() (uint16, int) {
 		a := &p.NodeList[i]
 		size += len((*a).Address.Host)
 	}
-	return 67, 4 + len(p.NodeList)*26 + size
+	return 66, 4 + len(p.NodeList)*26 + size
 }
 
 func (p *AnswerNodeList) NEOEncode(data []byte) {
@@ -2446,7 +2374,7 @@ func (p *AnswerNodeList) NEOEncode(data []byte) {
 				data = data[l:]
 			}
 			binary.BigEndian.PutUint16(data[0:], (*a).Address.Port)
-			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).UUID)))
+			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).NodeID)))
 			binary.BigEndian.PutUint32(data[6:], uint32(int32((*a).NodeState)))
 			float64_NEOEncode(data[10:], (*a).IdTimestamp)
 			data = data[18:]
@@ -2480,7 +2408,7 @@ func (p *AnswerNodeList) NEODecode(data []byte) (int, error) {
 				data = data[l:]
 			}
 			(*a).Address.Port = binary.BigEndian.Uint16(data[0:])
-			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+			(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[2:])))
 			(*a).NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
 			(*a).IdTimestamp = float64_NEODecode(data[10:])
 			data = data[18:]
@@ -2493,14 +2421,14 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 68. SetNodeState
+// 67. SetNodeState
 
 func (p *SetNodeState) NEOEncodedInfo() (uint16, int) {
-	return 68, 8
+	return 67, 8
 }
 
 func (p *SetNodeState) NEOEncode(data []byte) {
-	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.UUID)))
+	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeID)))
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.NodeState)))
 }
 
@@ -2508,7 +2436,7 @@ func (p *SetNodeState) NEODecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
-	p.UUID = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+	p.NodeID = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 	p.NodeState = NodeState(int32(binary.BigEndian.Uint32(data[4:])))
 	return 8, nil
 
@@ -2516,19 +2444,19 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 69. AddPendingNodes
+// 68. AddPendingNodes
 
 func (p *AddPendingNodes) NEOEncodedInfo() (uint16, int) {
-	return 69, 4 + len(p.UUIDList)*4
+	return 68, 4 + len(p.NodeList)*4
 }
 
 func (p *AddPendingNodes) NEOEncode(data []byte) {
 	{
-		l := uint32(len(p.UUIDList))
+		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
+			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
 			data = data[4:]
 		}
@@ -2547,10 +2475,10 @@ func (p *AddPendingNodes) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 4
-		p.UUIDList = make([]UUID, l)
+		p.NodeList = make([]NodeID, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			a := &p.NodeList[i]
+			(*a) = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -2560,19 +2488,19 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 70. TweakPartitionTable
+// 69. TweakPartitionTable
 
 func (p *TweakPartitionTable) NEOEncodedInfo() (uint16, int) {
-	return 70, 4 + len(p.UUIDList)*4
+	return 69, 4 + len(p.NodeList)*4
 }
 
 func (p *TweakPartitionTable) NEOEncode(data []byte) {
 	{
-		l := uint32(len(p.UUIDList))
+		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
+			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
 			data = data[4:]
 		}
@@ -2591,10 +2519,10 @@ func (p *TweakPartitionTable) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 4
-		p.UUIDList = make([]UUID, l)
+		p.NodeList = make([]NodeID, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			a := &p.NodeList[i]
+			(*a) = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -2604,7 +2532,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 71. NotifyNodeInformation
+// 70. NotifyNodeInformation
 
 func (p *NotifyNodeInformation) NEOEncodedInfo() (uint16, int) {
 	var size int
@@ -2612,7 +2540,7 @@ func (p *NotifyNodeInformation) NEOEncodedInfo() (uint16, int) {
 		a := &p.NodeList[i]
 		size += len((*a).Address.Host)
 	}
-	return 71, 12 + len(p.NodeList)*26 + size
+	return 70, 12 + len(p.NodeList)*26 + size
 }
 
 func (p *NotifyNodeInformation) NEOEncode(data []byte) {
@@ -2632,7 +2560,7 @@ func (p *NotifyNodeInformation) NEOEncode(data []byte) {
 				data = data[l:]
 			}
 			binary.BigEndian.PutUint16(data[0:], (*a).Address.Port)
-			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).UUID)))
+			binary.BigEndian.PutUint32(data[2:], uint32(int32((*a).NodeID)))
 			binary.BigEndian.PutUint32(data[6:], uint32(int32((*a).NodeState)))
 			float64_NEOEncode(data[10:], (*a).IdTimestamp)
 			data = data[18:]
@@ -2667,7 +2595,7 @@ func (p *NotifyNodeInformation) NEODecode(data []byte) (int, error) {
 				data = data[l:]
 			}
 			(*a).Address.Port = binary.BigEndian.Uint16(data[0:])
-			(*a).UUID = UUID(int32(binary.BigEndian.Uint32(data[2:])))
+			(*a).NodeID = NodeID(int32(binary.BigEndian.Uint32(data[2:])))
 			(*a).NodeState = NodeState(int32(binary.BigEndian.Uint32(data[6:])))
 			(*a).IdTimestamp = float64_NEODecode(data[10:])
 			data = data[18:]
@@ -2680,10 +2608,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 72. NodeInformation
+// 71. NodeInformation
 
 func (p *NodeInformation) NEOEncodedInfo() (uint16, int) {
-	return 72, 0
+	return 71, 0
 }
 
 func (p *NodeInformation) NEOEncode(data []byte) {
@@ -2693,10 +2621,10 @@ func (p *NodeInformation) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 73. SetClusterState
+// 72. SetClusterState
 
 func (p *SetClusterState) NEOEncodedInfo() (uint16, int) {
-	return 73, 4
+	return 72, 4
 }
 
 func (p *SetClusterState) NEOEncode(data []byte) {
@@ -2714,10 +2642,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 74. repairFlags
+// 73. repairFlags
 
 func (p *repairFlags) NEOEncodedInfo() (uint16, int) {
-	return 74, 1
+	return 73, 1
 }
 
 func (p *repairFlags) NEOEncode(data []byte) {
@@ -2735,19 +2663,19 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 75. Repair
+// 74. Repair
 
 func (p *Repair) NEOEncodedInfo() (uint16, int) {
-	return 75, 5 + len(p.UUIDList)*4
+	return 74, 5 + len(p.NodeList)*4
 }
 
 func (p *Repair) NEOEncode(data []byte) {
 	{
-		l := uint32(len(p.UUIDList))
+		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
 		data = data[4:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
+			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a))))
 			data = data[4:]
 		}
@@ -2767,10 +2695,10 @@ func (p *Repair) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += 1 + l*4
-		p.UUIDList = make([]UUID, l)
+		p.NodeList = make([]NodeID, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.UUIDList[i]
-			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			a := &p.NodeList[i]
+			(*a) = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -2781,10 +2709,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 76. RepairOne
+// 75. RepairOne
 
 func (p *RepairOne) NEOEncodedInfo() (uint16, int) {
-	return 76, 1
+	return 75, 1
 }
 
 func (p *RepairOne) NEOEncode(data []byte) {
@@ -2802,10 +2730,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 77. ClusterInformation
+// 76. ClusterInformation
 
 func (p *ClusterInformation) NEOEncodedInfo() (uint16, int) {
-	return 77, 4
+	return 76, 4
 }
 
 func (p *ClusterInformation) NEOEncode(data []byte) {
@@ -2823,10 +2751,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 78. X_ClusterState
+// 77. X_ClusterState
 
 func (p *X_ClusterState) NEOEncodedInfo() (uint16, int) {
-	return 78, 4
+	return 77, 4
 }
 
 func (p *X_ClusterState) NEOEncode(data []byte) {
@@ -2844,10 +2772,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 79. ObjectUndoSerial
+// 78. ObjectUndoSerial
 
 func (p *ObjectUndoSerial) NEOEncodedInfo() (uint16, int) {
-	return 79, 28 + len(p.OidList)*8
+	return 78, 28 + len(p.OidList)*8
 }
 
 func (p *ObjectUndoSerial) NEOEncode(data []byte) {
@@ -2894,10 +2822,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 80. AnswerObjectUndoSerial
+// 79. AnswerObjectUndoSerial
 
 func (p *AnswerObjectUndoSerial) NEOEncodedInfo() (uint16, int) {
-	return 80, 4 + len(p.ObjectTIDDict)*25
+	return 79, 4 + len(p.ObjectTIDDict)*25
 }
 
 func (p *AnswerObjectUndoSerial) NEOEncode(data []byte) {
@@ -2958,10 +2886,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 81. CheckCurrentSerial
+// 80. CheckCurrentSerial
 
 func (p *CheckCurrentSerial) NEOEncodedInfo() (uint16, int) {
-	return 81, 24
+	return 80, 24
 }
 
 func (p *CheckCurrentSerial) NEOEncode(data []byte) {
@@ -2983,10 +2911,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 82. Pack
+// 81. Pack
 
 func (p *Pack) NEOEncodedInfo() (uint16, int) {
-	return 82, 8
+	return 81, 8
 }
 
 func (p *Pack) NEOEncode(data []byte) {
@@ -3004,10 +2932,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 83. AnswerPack
+// 82. AnswerPack
 
 func (p *AnswerPack) NEOEncodedInfo() (uint16, int) {
-	return 83, 1
+	return 82, 1
 }
 
 func (p *AnswerPack) NEOEncode(data []byte) {
@@ -3025,10 +2953,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 84. CheckReplicas
+// 83. CheckReplicas
 
 func (p *CheckReplicas) NEOEncodedInfo() (uint16, int) {
-	return 84, 20 + len(p.PartitionDict)*8
+	return 83, 20 + len(p.PartitionDict)*8
 }
 
 func (p *CheckReplicas) NEOEncode(data []byte) {
@@ -3063,11 +2991,11 @@ func (p *CheckReplicas) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += 16 + l*8
-		p.PartitionDict = make(map[uint32]UUID, l)
+		p.PartitionDict = make(map[uint32]NodeID, l)
 		m := p.PartitionDict
 		for i := 0; uint32(i) < l; i++ {
 			key := binary.BigEndian.Uint32(data[0:])
-			m[key] = UUID(int32(binary.BigEndian.Uint32(data[4:])))
+			m[key] = NodeID(int32(binary.BigEndian.Uint32(data[4:])))
 			data = data[8:]
 		}
 	}
@@ -3079,10 +3007,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 85. CheckPartition
+// 84. CheckPartition
 
 func (p *CheckPartition) NEOEncodedInfo() (uint16, int) {
-	return 85, 30 + len(p.Source.UpstreamName) + len(p.Source.Address.Host)
+	return 84, 30 + len(p.Source.UpstreamName) + len(p.Source.Address.Host)
 }
 
 func (p *CheckPartition) NEOEncode(data []byte) {
@@ -3141,10 +3069,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 86. CheckTIDRange
+// 85. CheckTIDRange
 
 func (p *CheckTIDRange) NEOEncodedInfo() (uint16, int) {
-	return 86, 24
+	return 85, 24
 }
 
 func (p *CheckTIDRange) NEOEncode(data []byte) {
@@ -3168,10 +3096,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 87. AnswerCheckTIDRange
+// 86. AnswerCheckTIDRange
 
 func (p *AnswerCheckTIDRange) NEOEncodedInfo() (uint16, int) {
-	return 87, 32
+	return 86, 32
 }
 
 func (p *AnswerCheckTIDRange) NEOEncode(data []byte) {
@@ -3193,10 +3121,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 88. CheckSerialRange
+// 87. CheckSerialRange
 
 func (p *CheckSerialRange) NEOEncodedInfo() (uint16, int) {
-	return 88, 32
+	return 87, 32
 }
 
 func (p *CheckSerialRange) NEOEncode(data []byte) {
@@ -3222,10 +3150,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 89. AnswerCheckSerialRange
+// 88. AnswerCheckSerialRange
 
 func (p *AnswerCheckSerialRange) NEOEncodedInfo() (uint16, int) {
-	return 89, 60
+	return 88, 60
 }
 
 func (p *AnswerCheckSerialRange) NEOEncode(data []byte) {
@@ -3251,10 +3179,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 90. PartitionCorrupted
+// 89. PartitionCorrupted
 
 func (p *PartitionCorrupted) NEOEncodedInfo() (uint16, int) {
-	return 90, 8 + len(p.CellList)*4
+	return 89, 8 + len(p.CellList)*4
 }
 
 func (p *PartitionCorrupted) NEOEncode(data []byte) {
@@ -3284,10 +3212,10 @@ func (p *PartitionCorrupted) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 4
-		p.CellList = make([]UUID, l)
+		p.CellList = make([]NodeID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			(*a) = UUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeID(int32(binary.BigEndian.Uint32(data[0:])))
 			data = data[4:]
 		}
 	}
@@ -3297,10 +3225,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 91. LastTransaction
+// 90. LastTransaction
 
 func (p *LastTransaction) NEOEncodedInfo() (uint16, int) {
-	return 91, 0
+	return 90, 0
 }
 
 func (p *LastTransaction) NEOEncode(data []byte) {
@@ -3310,10 +3238,10 @@ func (p *LastTransaction) NEODecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 92. AnswerLastTransaction
+// 91. AnswerLastTransaction
 
 func (p *AnswerLastTransaction) NEOEncodedInfo() (uint16, int) {
-	return 92, 8
+	return 91, 8
 }
 
 func (p *AnswerLastTransaction) NEOEncode(data []byte) {
@@ -3331,10 +3259,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 93. NotifyReady
+// 92. NotifyReady
 
 func (p *NotifyReady) NEOEncodedInfo() (uint16, int) {
-	return 93, 0
+	return 92, 0
 }
 
 func (p *NotifyReady) NEOEncode(data []byte) {
@@ -3350,94 +3278,93 @@ var pktTypeRegistry = map[uint16]reflect.Type{
 	1:  reflect.TypeOf(NodeInfo{}),
 	2:  reflect.TypeOf(CellInfo{}),
 	3:  reflect.TypeOf(RowInfo{}),
-	4:  reflect.TypeOf(XXXTest{}),
-	5:  reflect.TypeOf(Notify{}),
-	6:  reflect.TypeOf(Error{}),
-	7:  reflect.TypeOf(Ping{}),
-	8:  reflect.TypeOf(CloseClient{}),
-	9:  reflect.TypeOf(RequestIdentification{}),
-	10: reflect.TypeOf(AcceptIdentification{}),
-	11: reflect.TypeOf(PrimaryMaster{}),
-	12: reflect.TypeOf(AnswerPrimary{}),
-	13: reflect.TypeOf(AnnouncePrimary{}),
-	14: reflect.TypeOf(ReelectPrimary{}),
-	15: reflect.TypeOf(Recovery{}),
-	16: reflect.TypeOf(AnswerRecovery{}),
-	17: reflect.TypeOf(LastIDs{}),
-	18: reflect.TypeOf(AnswerLastIDs{}),
-	19: reflect.TypeOf(PartitionTable{}),
-	20: reflect.TypeOf(AnswerPartitionTable{}),
-	21: reflect.TypeOf(NotifyPartitionTable{}),
-	22: reflect.TypeOf(PartitionChanges{}),
-	23: reflect.TypeOf(StartOperation{}),
-	24: reflect.TypeOf(StopOperation{}),
-	25: reflect.TypeOf(UnfinishedTransactions{}),
-	26: reflect.TypeOf(AnswerUnfinishedTransactions{}),
-	27: reflect.TypeOf(LockedTransactions{}),
-	28: reflect.TypeOf(AnswerLockedTransactions{}),
-	29: reflect.TypeOf(FinalTID{}),
-	30: reflect.TypeOf(AnswerFinalTID{}),
-	31: reflect.TypeOf(ValidateTransaction{}),
-	32: reflect.TypeOf(BeginTransaction{}),
-	33: reflect.TypeOf(AnswerBeginTransaction{}),
-	34: reflect.TypeOf(FailedVote{}),
-	35: reflect.TypeOf(FinishTransaction{}),
-	36: reflect.TypeOf(AnswerFinishTransaction{}),
-	37: reflect.TypeOf(NotifyTransactionFinished{}),
-	38: reflect.TypeOf(LockInformation{}),
-	39: reflect.TypeOf(AnswerLockInformation{}),
-	40: reflect.TypeOf(InvalidateObjects{}),
-	41: reflect.TypeOf(UnlockInformation{}),
-	42: reflect.TypeOf(GenerateOIDs{}),
-	43: reflect.TypeOf(AnswerGenerateOIDs{}),
-	44: reflect.TypeOf(Deadlock{}),
-	45: reflect.TypeOf(RebaseTransaction{}),
-	46: reflect.TypeOf(AnswerRebaseTransaction{}),
-	47: reflect.TypeOf(RebaseObject{}),
-	48: reflect.TypeOf(AnswerRebaseObject{}),
-	49: reflect.TypeOf(StoreObject{}),
-	50: reflect.TypeOf(AnswerStoreObject{}),
-	51: reflect.TypeOf(AbortTransaction{}),
-	52: reflect.TypeOf(StoreTransaction{}),
-	53: reflect.TypeOf(VoteTransaction{}),
-	54: reflect.TypeOf(GetObject{}),
-	55: reflect.TypeOf(AnswerGetObject{}),
-	56: reflect.TypeOf(TIDList{}),
-	57: reflect.TypeOf(AnswerTIDList{}),
-	58: reflect.TypeOf(TIDListFrom{}),
-	59: reflect.TypeOf(AnswerTIDListFrom{}),
-	60: reflect.TypeOf(TransactionInformation{}),
-	61: reflect.TypeOf(AnswerTransactionInformation{}),
-	62: reflect.TypeOf(ObjectHistory{}),
-	63: reflect.TypeOf(AnswerObjectHistory{}),
-	64: reflect.TypeOf(PartitionList{}),
-	65: reflect.TypeOf(AnswerPartitionList{}),
-	66: reflect.TypeOf(X_NodeList{}),
-	67: reflect.TypeOf(AnswerNodeList{}),
-	68: reflect.TypeOf(SetNodeState{}),
-	69: reflect.TypeOf(AddPendingNodes{}),
-	70: reflect.TypeOf(TweakPartitionTable{}),
-	71: reflect.TypeOf(NotifyNodeInformation{}),
-	72: reflect.TypeOf(NodeInformation{}),
-	73: reflect.TypeOf(SetClusterState{}),
-	74: reflect.TypeOf(repairFlags{}),
-	75: reflect.TypeOf(Repair{}),
-	76: reflect.TypeOf(RepairOne{}),
-	77: reflect.TypeOf(ClusterInformation{}),
-	78: reflect.TypeOf(X_ClusterState{}),
-	79: reflect.TypeOf(ObjectUndoSerial{}),
-	80: reflect.TypeOf(AnswerObjectUndoSerial{}),
-	81: reflect.TypeOf(CheckCurrentSerial{}),
-	82: reflect.TypeOf(Pack{}),
-	83: reflect.TypeOf(AnswerPack{}),
-	84: reflect.TypeOf(CheckReplicas{}),
-	85: reflect.TypeOf(CheckPartition{}),
-	86: reflect.TypeOf(CheckTIDRange{}),
-	87: reflect.TypeOf(AnswerCheckTIDRange{}),
-	88: reflect.TypeOf(CheckSerialRange{}),
-	89: reflect.TypeOf(AnswerCheckSerialRange{}),
-	90: reflect.TypeOf(PartitionCorrupted{}),
-	91: reflect.TypeOf(LastTransaction{}),
-	92: reflect.TypeOf(AnswerLastTransaction{}),
-	93: reflect.TypeOf(NotifyReady{}),
+	4:  reflect.TypeOf(Notify{}),
+	5:  reflect.TypeOf(Error{}),
+	6:  reflect.TypeOf(Ping{}),
+	7:  reflect.TypeOf(CloseClient{}),
+	8:  reflect.TypeOf(RequestIdentification{}),
+	9:  reflect.TypeOf(AcceptIdentification{}),
+	10: reflect.TypeOf(PrimaryMaster{}),
+	11: reflect.TypeOf(AnswerPrimary{}),
+	12: reflect.TypeOf(AnnouncePrimary{}),
+	13: reflect.TypeOf(ReelectPrimary{}),
+	14: reflect.TypeOf(Recovery{}),
+	15: reflect.TypeOf(AnswerRecovery{}),
+	16: reflect.TypeOf(LastIDs{}),
+	17: reflect.TypeOf(AnswerLastIDs{}),
+	18: reflect.TypeOf(X_PartitionTable{}),
+	19: reflect.TypeOf(AnswerPartitionTable{}),
+	20: reflect.TypeOf(NotifyPartitionTable{}),
+	21: reflect.TypeOf(PartitionChanges{}),
+	22: reflect.TypeOf(StartOperation{}),
+	23: reflect.TypeOf(StopOperation{}),
+	24: reflect.TypeOf(UnfinishedTransactions{}),
+	25: reflect.TypeOf(AnswerUnfinishedTransactions{}),
+	26: reflect.TypeOf(LockedTransactions{}),
+	27: reflect.TypeOf(AnswerLockedTransactions{}),
+	28: reflect.TypeOf(FinalTID{}),
+	29: reflect.TypeOf(AnswerFinalTID{}),
+	30: reflect.TypeOf(ValidateTransaction{}),
+	31: reflect.TypeOf(BeginTransaction{}),
+	32: reflect.TypeOf(AnswerBeginTransaction{}),
+	33: reflect.TypeOf(FailedVote{}),
+	34: reflect.TypeOf(FinishTransaction{}),
+	35: reflect.TypeOf(AnswerFinishTransaction{}),
+	36: reflect.TypeOf(NotifyTransactionFinished{}),
+	37: reflect.TypeOf(LockInformation{}),
+	38: reflect.TypeOf(AnswerLockInformation{}),
+	39: reflect.TypeOf(InvalidateObjects{}),
+	40: reflect.TypeOf(UnlockInformation{}),
+	41: reflect.TypeOf(GenerateOIDs{}),
+	42: reflect.TypeOf(AnswerGenerateOIDs{}),
+	43: reflect.TypeOf(Deadlock{}),
+	44: reflect.TypeOf(RebaseTransaction{}),
+	45: reflect.TypeOf(AnswerRebaseTransaction{}),
+	46: reflect.TypeOf(RebaseObject{}),
+	47: reflect.TypeOf(AnswerRebaseObject{}),
+	48: reflect.TypeOf(StoreObject{}),
+	49: reflect.TypeOf(AnswerStoreObject{}),
+	50: reflect.TypeOf(AbortTransaction{}),
+	51: reflect.TypeOf(StoreTransaction{}),
+	52: reflect.TypeOf(VoteTransaction{}),
+	53: reflect.TypeOf(GetObject{}),
+	54: reflect.TypeOf(AnswerGetObject{}),
+	55: reflect.TypeOf(TIDList{}),
+	56: reflect.TypeOf(AnswerTIDList{}),
+	57: reflect.TypeOf(TIDListFrom{}),
+	58: reflect.TypeOf(AnswerTIDListFrom{}),
+	59: reflect.TypeOf(TransactionInformation{}),
+	60: reflect.TypeOf(AnswerTransactionInformation{}),
+	61: reflect.TypeOf(ObjectHistory{}),
+	62: reflect.TypeOf(AnswerObjectHistory{}),
+	63: reflect.TypeOf(PartitionList{}),
+	64: reflect.TypeOf(AnswerPartitionList{}),
+	65: reflect.TypeOf(NodeList{}),
+	66: reflect.TypeOf(AnswerNodeList{}),
+	67: reflect.TypeOf(SetNodeState{}),
+	68: reflect.TypeOf(AddPendingNodes{}),
+	69: reflect.TypeOf(TweakPartitionTable{}),
+	70: reflect.TypeOf(NotifyNodeInformation{}),
+	71: reflect.TypeOf(NodeInformation{}),
+	72: reflect.TypeOf(SetClusterState{}),
+	73: reflect.TypeOf(repairFlags{}),
+	74: reflect.TypeOf(Repair{}),
+	75: reflect.TypeOf(RepairOne{}),
+	76: reflect.TypeOf(ClusterInformation{}),
+	77: reflect.TypeOf(X_ClusterState{}),
+	78: reflect.TypeOf(ObjectUndoSerial{}),
+	79: reflect.TypeOf(AnswerObjectUndoSerial{}),
+	80: reflect.TypeOf(CheckCurrentSerial{}),
+	81: reflect.TypeOf(Pack{}),
+	82: reflect.TypeOf(AnswerPack{}),
+	83: reflect.TypeOf(CheckReplicas{}),
+	84: reflect.TypeOf(CheckPartition{}),
+	85: reflect.TypeOf(CheckTIDRange{}),
+	86: reflect.TypeOf(AnswerCheckTIDRange{}),
+	87: reflect.TypeOf(CheckSerialRange{}),
+	88: reflect.TypeOf(AnswerCheckSerialRange{}),
+	89: reflect.TypeOf(PartitionCorrupted{}),
+	90: reflect.TypeOf(LastTransaction{}),
+	91: reflect.TypeOf(AnswerLastTransaction{}),
+	92: reflect.TypeOf(NotifyReady{}),
 }

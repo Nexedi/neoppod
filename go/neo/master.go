@@ -29,12 +29,12 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
-	custerName   string
+	clusterName  string
 	clusterState ClusterState
 }
 
 func NewMaster(clusterName string) *Master {
-	m := &Master{clusterName}
+	m := &Master{clusterName: clusterName}
 	m.SetClusterState(RECOVERING) // XXX no elections - we are the only master
 	return m
 }

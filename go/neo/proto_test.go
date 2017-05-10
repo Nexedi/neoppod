@@ -211,7 +211,7 @@ func TestPktMarshal(t *testing.T) {
 
 		// map[uint32]UUID + trailing ...
 		{&CheckReplicas{
-			PartitionDict: map[uint32]UUID{
+			PartitionDict: map[uint32]NodeID{
 				1: 7,
 				2: 9,
 				7: 3,
@@ -230,7 +230,7 @@ func TestPktMarshal(t *testing.T) {
 		},
 
 		// uint32, []uint32
-		{&PartitionCorrupted{7, []UUID{1,3,9,4}},
+		{&PartitionCorrupted{7, []NodeID{1,3,9,4}},
 		 u32(7) + u32(4) + u32(1) + u32(3) + u32(9) + u32(4),
 		},
 

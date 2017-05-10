@@ -337,7 +337,8 @@ type AnswerLastIDs struct {
 
 // Ask the full partition table. PM -> S.
 // Answer rows in a partition table. S -> PM.
-type PartitionTable struct {
+// XXX overlap with PartitionTable struct
+type X_PartitionTable struct {
 }
 
 type AnswerPartitionTable struct {
