@@ -244,6 +244,7 @@ class Application(BaseApplication):
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
             logging.info('My UUID: ' + uuid_str(self.uuid))
         self._node.setRunning()
+        self._node.id_timestamp = None
         self.primary = monotonic_time()
 
         # Do not restart automatically if an election happens, in order
