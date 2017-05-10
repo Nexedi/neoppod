@@ -105,7 +105,7 @@ func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	h := pkt.Header()
 	h.ConnId = hton32(connid)
 	h.MsgCode = hton16(msgcode)
-	h.Len = hton32(PktHeadLen + uint32(len(payload)))
+	h.MsgLen = hton32(uint32(len(payload)))
 	copy(pkt.Payload(), payload)
 	return pkt
 }
@@ -126,8 +126,8 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 	if ntoh16(h.MsgCode) != msgcode {
 		errv.Appendf("header: unexpected msgcode %v  (want %v)", ntoh16(h.MsgCode), msgcode)
 	}
-	if ntoh32(h.Len) != uint32(PktHeadLen + len(payload)) {
-		errv.Appendf("header: unexpected length %v  (want %v)", ntoh32(h.Len), PktHeadLen + len(payload))
+	if ntoh32(h.MsgLen) != uint32(len(payload)) {
+		errv.Appendf("header: unexpected msglen %v  (want %v)", ntoh32(h.MsgLen), len(payload))
 	}
 	if !bytes.Equal(pkt.Payload(), payload) {
 		errv.Appendf("payload differ")

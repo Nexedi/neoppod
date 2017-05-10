@@ -29,8 +29,8 @@ type PktBuf struct {
 // XXX naming -> PktHeader ?
 type PktHead struct {
 	ConnId  be32	// NOTE is .msgid in py
-	MsgCode be16
-	Len	be32	// whole packet length (including header)
+	MsgCode be16	// payload message code
+	MsgLen  be32	// payload message length (excluding packet header)
 }
 
 // Get pointer to packet header
@@ -62,7 +62,7 @@ func (pkt *PktBuf) String() string {
 		s += fmt.Sprintf(" %s", msgType)
 	}
 
-	s += fmt.Sprintf(" #%d | ", ntoh32(h.Len))
+	s += fmt.Sprintf(" #%d | ", ntoh32(h.MsgLen))
 
 	s += fmt.Sprintf("% x", pkt.Payload())	// XXX better decode
 	return s

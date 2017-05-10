@@ -502,7 +502,6 @@ var ErrPktTooBig   = errors.New("packet too big")
 // rx error, if any, is returned as is and is analyzed in serveRecv
 func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// TODO organize rx buffers management (freelist etc)
-	// TODO cleanup lots of ntoh32(...)
 
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
@@ -516,22 +515,20 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	pkth := pkt.Header()
 
 	// XXX -> better PktHeader.Decode() ?
-	if ntoh32(pkth.Len) < PktHeadLen {
-		return nil, ErrPktTooSmall	// length is a whole packet len with header
-	}
-	if ntoh32(pkth.Len) > MAX_PACKET_SIZE {
+	pktLen := PktHeadLen + ntoh32(pkth.MsgLen) // .MsgLen is payload-only length without header
+	if pktLen > MAX_PACKET_SIZE {
 		return nil, ErrPktTooBig
 	}
 
-	// XXX -> pkt.Data = xbytes.Resize32(pkt.Data[:n], ntoh32(pkth.Len))
-	if ntoh32(pkth.Len) > uint32(cap(pkt.Data)) {
+	// XXX -> pkt.Data = xbytes.Resize32(pkt.Data[:n], pktLen)
+	if pktLen > uint32(cap(pkt.Data)) {
 		// grow rxbuf
-		rxbuf2 := make([]byte, ntoh32(pkth.Len))
+		rxbuf2 := make([]byte, pktLen)
 		copy(rxbuf2, pkt.Data[:n])
 		pkt.Data = rxbuf2
 	}
 	// cut .Data len to length of packet
-	pkt.Data = pkt.Data[:ntoh32(pkth.Len)]
+	pkt.Data = pkt.Data[:pktLen]
 
 	// read rest of pkt data, if we need to
 	if n < len(pkt.Data) {

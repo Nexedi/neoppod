@@ -214,13 +214,12 @@ func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interf
 // EncodeAndSend encodes pkt and send it to conn
 func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
 	msgCode, l := pkt.NEOEncodedInfo()
-	l += PktHeadLen
-	buf := PktBuf{make([]byte, l)}	// XXX -> freelist
+	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
 
 	h := buf.Header()
 	// h.ConnId will be set by conn.Send
 	h.MsgCode = hton16(msgCode)
-	h.Len = hton32(uint32(l))	// XXX casting: think again
+	h.MsgLen = hton32(uint32(l))	// XXX casting: think again
 
 	pkt.NEOEncode(buf.Payload())
 

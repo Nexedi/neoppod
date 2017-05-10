@@ -113,7 +113,7 @@ func errEncode(err error) *Error {
 		return &Error{Code: OID_NOT_FOUND, Message: err.Xid.String()}
 
 	default:
-		return &Error{Code: BROKEN_NODE, Message: err.Error()}
+		return &Error{Code: NOT_READY /* XXX how to report 503? was BROKEN_NODE */, Message: err.Error()}
 	}
 
 }

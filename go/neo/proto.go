@@ -19,10 +19,15 @@ import (
 )
 
 const (
-	PROTOCOL_VERSION = 12
+	// The protocol version must be increased whenever upgrading a node may require
+	// to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
+	// the high order byte 0 is different from TLS Handshake (0x16).
+	PROTOCOL_VERSION = 1
+	// XXX ENCODED_VERSION ?
 
-	MIN_PACKET_SIZE = 10	// XXX unsafe.Sizeof(PktHead{}) give _typed_ constant (uintptr)
-	PktHeadLen	= MIN_PACKET_SIZE	// TODO link this to PktHead.Encode/Decode size ? XXX -> pkt.go ?
+	PktHeadLen = 10	// XXX unsafe.Sizeof(PktHead{}) give _typed_ constant (uintptr)
+			// TODO link this to PktHead.Encode/Decode size ? XXX -> pkt.go ?
+
 	MAX_PACKET_SIZE = 0x4000000
 
 	RESPONSE_MASK   = 0x8000
@@ -37,7 +42,6 @@ const (
 	TID_NOT_FOUND
 	OID_DOES_NOT_EXIST
 	PROTOCOL_ERROR
-	BROKEN_NODE
 	REPLICATION_ERROR
 	CHECKING_ERROR
 	BACKEND_NOT_IMPLEMENTED
@@ -89,13 +93,10 @@ const (
 
 type NodeState int32
 const (
-	RUNNING NodeState = iota //short: R     // XXX tag prefix name ?
-	TEMPORARILY_DOWN	 //short: T
+	UNKNOWN NodeState = iota //short: U     // XXX tag prefix name ?
 	DOWN                     //short: D
-	BROKEN                   //short: B
-	HIDDEN                   //short: H
+	RUNNING                  //short: R
 	PENDING                  //short: P
-	UNKNOWN                  //short: U
 )
 
 type CellState int32
@@ -251,11 +252,6 @@ type RowInfo struct {
 
 
 
-// General purpose notification (remote logging)
-type Notify struct {
-	Message string
-}
-
 // Error is a special type of message, because this can be sent against
 // any other message, even if such a message does not expect a reply
 // usually. Any -> Any.
@@ -277,7 +273,6 @@ type CloseClient struct {
 // Request a node identification. This must be the first packet for any
 // connection. Any -> Any.
 type RequestIdentification struct {
-	ProtocolVersion uint32		// TODO py.PProtocol upon decoding checks for != PROTOCOL_VERSION
 	NodeType        NodeType        // XXX name
 	NodeID		NodeID
 	Address		Address		// where requesting node is also accepting connections
@@ -292,11 +287,6 @@ type AcceptIdentification struct {
 	NumPartitions   uint32          // PNumber
 	NumReplicas     uint32          // PNumber
 	YourNodeID      NodeID
-	Primary         Address
-	KnownMasterList []struct {
-		Address
-		NodeID  NodeID
-	}
 }
 
 // Ask current primary master's uuid. CTL -> A.
@@ -307,12 +297,12 @@ type AnswerPrimary struct {
 	PrimaryNodeID NodeID
 }
 
-// Announce a primary master node election. PM -> SM.
-type AnnouncePrimary struct {
-}
-
-// Force a re-election of a primary master node. M -> M.
-type ReelectPrimary struct {
+// Send list of known master nodes. SM -> Any.
+type NotPrimaryMaster struct {
+	Primary         NodeID		// XXX PSignedNull in py
+	KnownMasterList []struct {
+		Address
+	}
 }
 
 // Ask all data needed by master to recover. PM -> S, S -> PM.
