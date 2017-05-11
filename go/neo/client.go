@@ -125,9 +125,10 @@ func NewClient(storLink *NodeLink) (*Client, error) {
 	// first identify ourselves to peer
 	storType, err := IdentifyMe(storLink, CLIENT)
 	if err != nil {
-		return nil, err	// XXX err ctx
+		return nil, err
 	}
 	if storType != STORAGE {
+		// XXX + "newclient" to err ctx ?
 		return nil, fmt.Errorf("%v: peer is not storage (identifies as %v)", storLink, storType)
 	}
 
@@ -139,7 +140,7 @@ func NewClient(storLink *NodeLink) (*Client, error) {
 	// XXX -> server could reuse goroutines -> so not so bad ?
 	storConn, err := storLink.NewConn()
 	if err != nil {
-		return nil, err	// XXX err ctx ?
+		return nil, err	// XXX err ctx
 	}
 
 	return &Client{storLink, storConn}, nil

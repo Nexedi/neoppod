@@ -93,27 +93,33 @@ func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
 func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%s: identify: %s", link, err)
+		}
+	}()
+
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()
 	if err != nil {
-		return nodeInfo, err	// XXX err ctx
+		return nodeInfo, err
 	}
 	defer func() {
 		err2 := conn.Close()
 		if err == nil {
-			err = err2	// XXX err ctx
+			err = err2
 			// XXX also clear nodeInfo ?
 		}
 	}()
 
 	pkt, err := RecvAndDecode(conn)
 	if err != nil {
-		return nodeInfo, err	// XXX err ctx
+		return nodeInfo, err
 	}
 
 	switch pkt := pkt.(type) {
 	default:
-		return nodeInfo, fmt.Errorf("expected RequestIdentification  ; got %T", pkt)
+		return nodeInfo, fmt.Errorf("unexpected request: %T", pkt)
 
 	// XXX also handle Error
 
@@ -140,6 +146,12 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 
 // IdentifyMe identifies local node to remote peer
 func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%s: request identification: %s", link, err)
+		}
+	}()
+
 	conn, err := link.NewConn()
 	if err != nil {
 		return peerType, err
@@ -147,7 +159,7 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 	defer func() {
 		err2 := conn.Close()
 		if err == nil && err2 != nil {
-			err = err2	// XXX err ctx
+			err = err2
 			// XXX also reset peerType
 		}
 	}()
@@ -161,6 +173,7 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 	})
 
 	if err != nil {
+		fmt.Printf("eee -> %v\n", err)
 		return peerType, err
 	}
 
@@ -171,7 +184,7 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 
 	switch pkt := pkt.(type) {
 	default:
-		return peerType, fmt.Errorf("expected AcceptIdentification  ; got %T", pkt)
+		return peerType, fmt.Errorf("unexpected answer: %T", pkt)
 
 	// XXX also handle Error
 

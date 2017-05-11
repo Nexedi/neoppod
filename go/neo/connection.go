@@ -612,7 +612,7 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	txWg.Add(1)
 	go func() {
 		var b [4]byte
-		binary.BigEndian.PutUint32(b[:], version /*+ 33*/) // XXX -> hton32 ?
+		binary.BigEndian.PutUint32(b[:], version) // XXX -> hton32 ?
 		_, err := conn.Write(b[:])
 		// XXX EOF -> ErrUnexpectedEOF ?
 		errch <- err

@@ -87,8 +87,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 	for {
 		conn, err := link.Accept()
 		if err != nil {
-			// XXX both link and accept op should be generated in link.Accept
-			fmt.Printf("stor: %v: accept: %v\n", link, err)	// XXX err ctx
+			fmt.Printf("stor: %v\n", err)	// XXX err ctx
 			break
 		}
 
