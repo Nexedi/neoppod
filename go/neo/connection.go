@@ -92,12 +92,24 @@ type Conn struct {
 }
 
 
-// XXX include actual op (read/write/accept/connect) when there is an error ?
 var ErrLinkClosed   = errors.New("node link is closed")	// operations on closed NodeLink
 var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
 var ErrLinkNoListen = errors.New("node link is not listening for incoming connections")
-var ErrClosedConn   = errors.New("read/write on closed connection")
+var ErrClosedConn   = errors.New("connection is closed")
 
+// LinkError is usually returned by NodeLink operations
+type LinkError struct {
+	Link *NodeLink
+	Op   string
+	Err  error
+}
+
+// ConnError is usually returned by Conn operations
+type ConnError struct {
+	Conn *Conn
+	Op   string
+	Err  error
+}
 
 // LinkRole is a role an end of NodeLink is intended to play
 type LinkRole int
@@ -176,9 +188,9 @@ func (nl *NodeLink) NewConn() (*Conn, error) {
 	defer nl.connMu.Unlock()
 	if nl.connTab == nil {
 		if atomic.LoadUint32(&nl.closed) != 0 {
-			return nil, ErrLinkClosed
+			return nil, nl.err("newconn", ErrLinkClosed)
 		}
-		return nil, ErrLinkDown
+		return nil, nl.err("newconn", ErrLinkDown)
 	}
 	c := nl.newConn(nl.nextConnId)
 	nl.nextConnId += 2
@@ -225,7 +237,7 @@ func (nl *NodeLink) Close() error {
 	atomic.StoreUint32(&nl.closed, 1)
 	nl.shutdown()
 	nl.downWg.Wait()
-	return nl.errClose
+	return nl.err("close", nl.errClose)
 }
 
 // shutdown marks connection as no longer operational
@@ -256,7 +268,13 @@ func (c *Conn) Close() error {
 }
 
 // Accept waits for and accepts incoming connection on top of node-node link
-func (nl *NodeLink) Accept() (*Conn, error) {
+func (nl *NodeLink) Accept() (c *Conn, err error) {
+	defer func() {
+		if err != nil {
+			err = nl.err("accept", err)
+		}
+	}()
+
 	// this node link is not accepting connections
 	if nl.acceptq == nil {
 		return nil, ErrLinkNoListen
@@ -304,7 +322,7 @@ func (c *Conn) errRecvShutdown() error {
 func (c *Conn) Recv() (*PktBuf, error) {
 	select {
 	case <-c.down:
-		return nil, c.errRecvShutdown()
+		return nil, c.err("recv", c.errRecvShutdown())
 
 	case pkt := <-c.rxq:
 		return pkt, nil
@@ -318,6 +336,7 @@ func (nl *NodeLink) serveRecv() {
 	defer nl.serveWg.Done()
 	for {
 		// receive 1 packet
+		// XXX if nl.peerLink was just closed by tx->shutdown we'll get ErrNetClosing
 		pkt, err := nl.recvPkt()
 		//fmt.Printf("recvPkt -> %v, %v\n", pkt, err)
 		if err != nil {
@@ -419,6 +438,11 @@ func (c *Conn) errSendShutdown() error {
 
 // Send sends packet via connection
 func (c *Conn) Send(pkt *PktBuf) error {
+	err := c.send(pkt)
+	return c.err("send", err)
+}
+
+func (c *Conn) send(pkt *PktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = hton32(c.connId)
 	var err error
@@ -467,6 +491,7 @@ func (nl *NodeLink) serveSend() {
 			return
 
 		case txreq := <-nl.txq:
+			// XXX if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
 			err := nl.sendPkt(txreq.pkt)
 			//fmt.Printf("sendPkt -> %v\n", err)
 
@@ -501,7 +526,6 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	return err
 }
 
-var ErrPktTooSmall = errors.New("packet too small")
 var ErrPktTooBig   = errors.New("packet too big")
 
 // recvPkt receives raw packet from peer
@@ -568,7 +592,18 @@ func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink,
 	return newNodeLink(conn, role), nil
 }
 
-// handshake is worker for Handshake
+// HandshakeError is returned when there is an error while performing handshake
+type HandshakeError struct {
+	// XXX just keep .Conn? (but .Conn can be closed)
+	LocalAddr	net.Addr
+	RemoteAddr	net.Addr
+	Err		error
+}
+
+func (e *HandshakeError) Error() string {
+	return fmt.Sprintf("%s - %s: handshake: %s", e.LocalAddr, e.RemoteAddr, e.Err.Error())
+}
+
 func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	errch := make(chan error, 2)
 
@@ -637,21 +672,10 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	return nil
 }
 
-type HandshakeError struct {
-	// XXX just keep .Conn? (but .Conn can be closed)
-	LocalAddr	net.Addr
-	RemoteAddr	net.Addr
-	Err		error
-}
-
-func (e *HandshakeError) Error() string {
-	return fmt.Sprintf("%s - %s: handshake: %s", e.LocalAddr, e.RemoteAddr, e.Err.Error())
-}
-
 
 // ---- for convenience: Dial ----
 
-// Dial connects to address on named network and wrap the connection as NodeLink
+// Dial connects to address on named network, handshakes and wraps the connection as NodeLink
 // TODO +tls.Config
 func Dial(ctx context.Context, network, address string) (nl *NodeLink, err error) {
 	d := net.Dialer{}
@@ -697,15 +721,38 @@ func Listen(network, laddr string) (*Listener, error) {
 
 
 
-// ---- for convenience: String ----
+// ---- for convenience: String / Error ----
 func (nl *NodeLink) String() string {
 	s := fmt.Sprintf("%s - %s", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr())
 	return s	// XXX add "(closed)" if nl is closed ?
+			// XXX other flags e.g. (down) ?
 }
 
 func (c *Conn) String() string {
 	s := fmt.Sprintf("%s .%d", c.nodeLink, c.connId)
 	return s	// XXX add "(closed)" if c is closed ?
+}
+
+func (e *LinkError) Error() string {
+	return fmt.Sprintf("%s: %s: %s", e.Link, e.Op, e.Err)
+}
+
+func (e *ConnError) Error() string {
+	return fmt.Sprintf("%s: %s: %s", e.Conn, e.Op, e.Err)
+}
+
+func (nl *NodeLink) err(op string, e error) error {
+	if e == nil {
+		return nil
+	}
+	return &LinkError{Link: nl, Op: op, Err: e}
+}
+
+func (c *Conn) err(op string, e error) error {
+	if e == nil {
+		return nil
+	}
+	return &ConnError{Conn: c, Op: op, Err: e}
 }
 
 

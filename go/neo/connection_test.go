@@ -104,6 +104,24 @@ func xhandshake(ctx context.Context, c net.Conn, version uint32) {
 	exc.Raiseif(err)
 }
 
+// xlinkError verifies that err is *LinkError and returns err.Err
+func xlinkError(err error) error {
+	le, ok := err.(*LinkError)
+	if !ok {
+		exc.Raisef("%#v is not *LinkError", err)
+	}
+	return le.Err
+}
+
+// xconnError verifies that err is *ConnError and returns err.Err
+func xconnError(err error) error {
+	ce, ok := err.(*ConnError)
+	if !ok {
+		exc.Raisef("%#v is not *ConnError", err)
+	}
+	return ce.Err
+}
+
 // Prepare PktBuf with content
 func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	pkt := &PktBuf{make([]byte, PktHeadLen + len(payload))}
@@ -206,13 +224,13 @@ func TestNodeLink(t *testing.T) {
 		xclose(nl2)
 	})
 	c, err := nl2.Accept()
-	if !(c == nil && err == ErrLinkClosed) {
+	if !(c == nil && xlinkError(err) == ErrLinkClosed) {
 		t.Fatalf("NodeLink.Accept() after close: conn = %v, err = %v", c, err)
 	}
 	// nl1 is not accepting connections - because it has LinkClient role
 	// check Accept behaviour.
 	c, err = nl1.Accept()
-	if !(c == nil && err == ErrLinkNoListen) {
+	if !(c == nil && xlinkError(err) == ErrLinkNoListen) {
 		t.Fatalf("NodeLink.Accept() on non-listening node link: conn = %v, err = %v", c, err)
 	}
 	xclose(nl1)
@@ -288,7 +306,7 @@ func TestNodeLink(t *testing.T) {
 		xclose(c)
 	})
 	pkt, err = c.Recv()
-	if !(pkt == nil && err == ErrClosedConn) {
+	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
 		t.Fatalf("Conn.Recv() after close: pkt = %v  err = %v", pkt, err)
 	}
 	xwait(wg)
@@ -305,7 +323,7 @@ func TestNodeLink(t *testing.T) {
 	})
 	pkt = &PktBuf{[]byte("data")}
 	err = c.Send(pkt)
-	if err != ErrClosedConn {
+	if xconnError(err) != ErrClosedConn {
 		t.Fatalf("Conn.Send() after close: err = %v", err)
 	}
 	xwait(wg)
@@ -316,14 +334,14 @@ func TestNodeLink(t *testing.T) {
 	wg = WorkGroup()
 	wg.Gox(func() {
 		pkt, err := c11.Recv()
-		if !(pkt == nil && err == ErrLinkClosed) {
+		if !(pkt == nil && xconnError(err) == ErrLinkClosed) {
 			exc.Raisef("Conn.Recv() after NodeLink close: pkt = %v  err = %v", pkt, err)
 		}
 	})
 	wg.Gox(func() {
 		pkt := &PktBuf{[]byte("data")}
 		err := c12.Send(pkt)
-		if err != ErrLinkClosed {
+		if xconnError(err) != ErrLinkClosed {
 			exc.Raisef("Conn.Send() after NodeLink close: err = %v", err)
 		}
 	})
@@ -345,24 +363,25 @@ func TestNodeLink(t *testing.T) {
 		pkt, err := c21.Recv()
 		want1 := io.EOF		  // if recvPkt wakes up due to peer close
 		want2 := io.ErrClosedPipe // if recvPkt wakes up due to sendPkt wakes up first and closes nl1
-		if !(pkt == nil && (err == want1 || err == want2)) {
+		cerr := xconnError(err)
+		if !(pkt == nil && (cerr == want1 || cerr == want2)) {
 			exc.Raisef("Conn.Recv after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 		}
 
-		errRecv = err
+		errRecv = cerr
 	})
 	wg.Gox(func() {
 		pkt := &PktBuf{[]byte("data")}
 		err := c22.Send(pkt)
 		want := io.ErrClosedPipe // always this in both due to peer close or recvPkt waking up and closing nl2
-		if err != want {
+		if xconnError(err) != want {
 			exc.Raisef("Conn.Send after peer NodeLink shutdown: %v", err)
 		}
 
 	})
 	wg.Gox(func() {
 		conn, err := nl2.Accept()
-		if !(conn == nil && err == ErrLinkDown) {
+		if !(conn == nil && xlinkError(err) == ErrLinkDown) {
 			exc.Raisef("Accept after peer NodeLink shutdown: conn = %v  err = %v", conn, err)
 		}
 	})
@@ -374,64 +393,64 @@ func TestNodeLink(t *testing.T) {
 
 	// NewConn after NodeLink shutdown
 	c, err = nl2.NewConn()
-	if err != ErrLinkDown {
+	if xlinkError(err) != ErrLinkDown {
 		t.Fatalf("NewConn after NodeLink shutdown: %v", err)
 	}
 
 	// Accept after NodeLink shutdown
 	c, err = nl2.Accept()
-	if err != ErrLinkDown {
+	if xlinkError(err) != ErrLinkDown {
 		t.Fatalf("Accept after NodeLink shutdown: conn = %v  err = %v", c, err)
 	}
 
 	// Recv/Send on another Conn
 	pkt, err = c23.Recv()
-	if !(pkt == nil && err == errRecv) {
+	if !(pkt == nil && xconnError(err) == errRecv) {
 		t.Fatalf("Conn.Recv 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
 	err = c23.Send(&PktBuf{[]byte("data")})
-	if err != ErrLinkDown {
+	if xconnError(err) != ErrLinkDown {
 		t.Fatalf("Conn.Send 2 after peer NodeLink shutdown: %v", err)
 	}
 
 	// Recv/Send error on second call
 	pkt, err = c21.Recv()
-	if !(pkt == nil && err == ErrLinkDown) {
+	if !(pkt == nil && xconnError(err) == ErrLinkDown) {
 		t.Fatalf("Conn.Recv after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
 	err = c22.Send(&PktBuf{[]byte("data")})
-	if err != ErrLinkDown {
+	if xconnError(err) != ErrLinkDown {
 		t.Fatalf("Conn.Send after NodeLink shutdown: %v", err)
 	}
 
 	xclose(c23)
 	// Recv/Send on closed Conn but not closed NodeLink
 	pkt, err = c23.Recv()
-	if !(pkt == nil && err == ErrClosedConn) {
+	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
 		t.Fatalf("Conn.Recv after close but only stopped NodeLink: pkt = %v  err = %v", pkt, err)
 	}
 	err = c23.Send(&PktBuf{[]byte("data")})
-	if err != ErrClosedConn {
+	if xconnError(err) != ErrClosedConn {
 		t.Fatalf("Conn.Send after close but only stopped NodeLink: %v", err)
 	}
 
 	xclose(nl2)
 	// Recv/Send NewConn/Accept error after NodeLink close
 	pkt, err = c21.Recv()
-	if !(pkt == nil && err == ErrLinkClosed) {
+	if !(pkt == nil && xconnError(err) == ErrLinkClosed) {
 		t.Fatalf("Conn.Recv after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
 	err = c22.Send(&PktBuf{[]byte("data")})
-	if err != ErrLinkClosed {
+	if xconnError(err) != ErrLinkClosed {
 		t.Fatalf("Conn.Send after NodeLink shutdown: %v", err)
 	}
 
 	c, err = nl2.NewConn()
-	if err != ErrLinkClosed {
+	if xlinkError(err) != ErrLinkClosed {
 		t.Fatalf("NewConn after NodeLink close: %v", err)
 	}
 	c, err = nl2.Accept()
-	if err != ErrLinkClosed {
+	if xlinkError(err) != ErrLinkClosed {
 		t.Fatalf("Accept after NodeLink close: %v", err)
 	}
 
@@ -440,11 +459,11 @@ func TestNodeLink(t *testing.T) {
 	xclose(c22)
 	// Recv/Send error after Close & NodeLink shutdown
 	pkt, err = c21.Recv()
-	if !(pkt == nil && err == ErrClosedConn) {
+	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
 		t.Fatalf("Conn.Recv after close and NodeLink close: pkt = %v  err = %v", pkt, err)
 	}
 	err = c22.Send(&PktBuf{[]byte("data")})
-	if err != ErrClosedConn {
+	if xconnError(err) != ErrClosedConn {
 		t.Fatalf("Conn.Send after close and NodeLink close: %v", err)
 	}
 
