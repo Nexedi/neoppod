@@ -44,7 +44,6 @@ class ConnectionPool(object):
         app = self.app
         if app.master_conn is None:
             raise NEOPrimaryMasterLost
-        logging.debug('trying to connect to %s - %s', node, node.getState())
         conn = MTClientConnection(app, app.storage_event_handler, node,
                                   dispatcher=app.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
