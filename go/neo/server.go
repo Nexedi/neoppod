@@ -89,15 +89,31 @@ func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
 
 // ----------------------------------------
 
+// errcontextf adds formatted prefix context to *errp
+// must be called under defer
+func errcontextf(errp *error, format string, argv ...interface{}) {
+	if *errp == nil {
+		return
+	}
+
+	format += ": %s"
+	argv = append(argv, *errp)
+	*errp = fmt.Errorf(format, argv...)
+}
+
 // IdentifyPeer identifies peer on the link
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
 func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
+	defer errcontextf(&err, "%s: identify", link)
+
+	/*
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%s: identify: %s", link, err)
 		}
 	}()
+	*/
 
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()
@@ -146,11 +162,15 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 
 // IdentifyMe identifies local node to remote peer
 func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, err error) {
+	defer errcontextf(&err, "%s: request identification", link)
+
+	/*
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%s: request identification: %s", link, err)
 		}
 	}()
+	*/
 
 	conn, err := link.NewConn()
 	if err != nil {
@@ -173,7 +193,6 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 	})
 
 	if err != nil {
-		fmt.Printf("eee -> %v\n", err)
 		return peerType, err
 	}
 
