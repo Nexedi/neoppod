@@ -99,8 +99,8 @@ func xwait(w interface { Wait() error }) {
 	exc.Raiseif(err)
 }
 
-func xhandshake(c net.Conn, version uint32) {
-	err := handshake(c, version)
+func xhandshake(ctx context.Context, c net.Conn, version uint32) {
+	err := handshake(ctx, c, version)
 	exc.Raiseif(err)
 }
 
@@ -157,8 +157,8 @@ func tdelay() {
 // create NodeLinks connected via net.Pipe
 func _nodeLinkPipe(flags1, flags2 LinkRole) (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
-	nl1 = NewNodeLink(node1, LinkClient | flags1)
-	nl2 = NewNodeLink(node2, LinkServer | flags2)
+	nl1 = newNodeLink(node1, LinkClient | flags1)
+	nl2 = newNodeLink(node2, LinkServer | flags2)
 	return nl1, nl2
 }
 
@@ -538,14 +538,15 @@ func TestNodeLink(t *testing.T) {
 
 
 func TestHandshake(t *testing.T) {
+	bg := context.Background()
 	// handshake ok
 	p1, p2 := net.Pipe()
 	wg := WorkGroup()
 	wg.Gox(func() {
-		xhandshake(p1, 1)
+		xhandshake(bg, p1, 1)
 	})
 	wg.Gox(func() {
-		xhandshake(p2, 1)
+		xhandshake(bg, p2, 1)
 	})
 	xwait(wg)
 	xclose(p1)
@@ -556,10 +557,10 @@ func TestHandshake(t *testing.T) {
 	var err1, err2 error
 	wg = WorkGroup()
 	wg.Gox(func() {
-		err1 = handshake(p1, 1)
+		err1 = handshake(bg, p1, 1)
 	})
 	wg.Gox(func() {
-		err2 = handshake(p2, 2)
+		err2 = handshake(bg, p2, 2)
 	})
 	xwait(wg)
 	xclose(p1)
@@ -580,7 +581,7 @@ func TestHandshake(t *testing.T) {
 	err1, err2 = nil, nil
 	wg = WorkGroup()
 	wg.Gox(func() {
-		err1 = handshake(p1, 1)
+		err1 = handshake(bg, p1, 1)
 	})
 	wg.Gox(func() {
 		xclose(p2)
@@ -593,4 +594,23 @@ func TestHandshake(t *testing.T) {
 	if !ok || !(err11.Err == io.ErrClosedPipe /* on Write */ || err11.Err == io.ErrUnexpectedEOF /* on Read */) {
 		t.Errorf("handshake peer close: unexpected error: %#v", err1)
 	}
+
+	// ctx cancel
+	p1, p2 = net.Pipe()
+	ctx, cancel := context.WithCancel(bg)
+	wg.Gox(func() {
+		err1 = handshake(ctx, p1, 1)
+	})
+	tdelay()
+	cancel()
+	xwait(wg)
+	xclose(p1)
+	xclose(p2)
+
+	err11, ok = err1.(*HandshakeError)
+
+	if !ok || !(err11.Err == context.Canceled) {
+		t.Errorf("handshake cancel: unexpected error: %#v", err1)
+	}
+
 }

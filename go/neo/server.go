@@ -21,6 +21,7 @@ package neo
 import (
 	"context"
 	"fmt"
+	"net"
 	"reflect"
 )
 
@@ -36,7 +37,7 @@ type Server interface {
 // - for every accepted connection spawn srv.ServeLink() in separate goroutine.
 //
 // the listener is closed when Serve returns.
-func Serve(ctx context.Context, l *Listener, srv Server) error {
+func Serve(ctx context.Context, l net.Listener, srv Server) error {
 	fmt.Printf("xxx: serving on %s ...\n", l.Addr())	// XXX 'xxx' -> ?
 
 	// close listener when either cancelling or returning (e.g. due to an error)
@@ -53,23 +54,30 @@ func Serve(ctx context.Context, l *Listener, srv Server) error {
 		l.Close() // XXX err
 	}()
 
-	// main Accept -> ServeLink loop
+	// main Accept -> Handshake -> ServeLink loop
 	for {
-		link, err := l.Accept()
+		peerConn, err := l.Accept()
 		if err != nil {
 			// TODO err == closed <-> ctx was cancelled
 			// TODO err -> net.Error && .Temporary() -> some throttling
 			return err
 		}
 
-		go srv.ServeLink(ctx, link)
+		go func() {
+			link, err := Handshake(ctx, peerConn, LinkServer)
+			if err != nil {
+				fmt.Printf("xxx: %s\n", err)
+				return
+			}
+			srv.ServeLink(ctx, link)
+		}()
 	}
 }
 
 // ListenAndServe listens on network address and then calls Serve to handle incoming connections
 // XXX split -> separate Listen() & Serve()
 func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
-	l, err := Listen(net_, laddr)
+	l, err := net.Listen(net_, laddr)
 	if err != nil {
 		return err
 	}

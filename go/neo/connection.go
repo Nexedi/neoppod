@@ -43,7 +43,7 @@ import (
 // send/receive exchange will be happening in between those 2 connections.
 //
 // For a node to be able to accept new incoming connection it has to have
-// "server" role - see NewNodeLink() for details.
+// "server" role - see newNodeLink() for details.
 //
 // A NodeLink has to be explicitly closed, once it is no longer needed.
 //
@@ -110,7 +110,7 @@ const (
 	linkFlagsMask  LinkRole = (1<<32 - 1) << 16
 )
 
-// NewNodeLink makes a new NodeLink from already established net.Conn
+// newNodeLink makes a new NodeLink from already established net.Conn
 //
 // Role specifies how to treat our role on the link - either as client or
 // server. The difference in between client and server roles are in:
@@ -124,7 +124,10 @@ const (
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
-func NewNodeLink(conn net.Conn, role LinkRole) *NodeLink {
+//
+// Though it is possible to wrap just-established raw connection into NodeLink,
+// users should always use Handshake which performs protocol handshaking first.
+func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	var nextConnId uint32
 	var acceptq chan *Conn
 	switch role&^linkFlagsMask {
@@ -217,6 +220,7 @@ func (nl *NodeLink) shutdown() {
 // Close closes node-node link.
 // All blocking operations - Accept and IO on associated connections
 // established over node link - are automatically interrupted with an error.
+// Underlying raw connection is closed.
 func (nl *NodeLink) Close() error {
 	atomic.StoreUint32(&nl.closed, 1)
 	nl.shutdown()
@@ -365,7 +369,7 @@ func (nl *NodeLink) serveRecv() {
 		// keep connMu locked until here: so that ^^^ `conn.rxq <- pkt` can be
 		// sure conn stays not down e.g. closed by Conn.Close or NodeLink.shutdown
 		//
-		// XXX try to release connMu eariler - before `rxq <- pkt`
+		// XXX try to release connMu earlier - before `rxq <- pkt`
 		nl.connMu.Unlock()
 
 		if accept {
@@ -551,22 +555,37 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 // ---- Handshake ----
 
-// Handshake performs NEO protocol handshake just after 2 nodes are connected
-func Handshake(conn net.Conn) error {
-	return handshake(conn, PROTOCOL_VERSION)
+// Handshake performs NEO protocol handshake just after raw connection between 2 nodes was established
+// On success raw connection is returned wrapped into NodeLink
+// On error raw connection is closed
+func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink, err error) {
+	err = handshake(ctx, conn, PROTOCOL_VERSION)
+	if err != nil {
+		return nil, err
+	}
+
+	// handshake ok -> NodeLink
+	return newNodeLink(conn, role), nil
 }
 
-func handshake(conn net.Conn, version uint32) error {
+// handshake is worker for Handshake
+func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	errch := make(chan error, 2)
 
+	// tx handshake word
+	txWg := sync.WaitGroup{}
+	txWg.Add(1)
 	go func() {
 		var b [4]byte
-		binary.BigEndian.PutUint32(b[:], version) // XXX -> hton32 ?
+		binary.BigEndian.PutUint32(b[:], version /*+ 33*/) // XXX -> hton32 ?
 		_, err := conn.Write(b[:])
 		// XXX EOF -> ErrUnexpectedEOF ?
 		errch <- err
+		txWg.Done()
 	}()
 
+
+	// rx handshake word
 	go func() {
 		var b [4]byte
 		_, err := io.ReadFull(conn, b[:])
@@ -582,13 +601,39 @@ func handshake(conn net.Conn, version uint32) error {
 		errch <- err
 	}()
 
-	for i := 0; i < 2; i++ {
-		err := <-errch
+	connClosed := false
+	defer func() {
+		// make sure our version is always sent on the wire, if possible,
+		// so that peer does not see just closed connection when on rx we see version mismatch
+		//
+		// NOTE if cancelled tx goroutine will wake up without delay
+		txWg.Wait()
+
+		// don't forget to close conn if returning with error + add handshake err context
 		if err != nil {
-			return &HandshakeError{conn.LocalAddr(), conn.RemoteAddr(), err}
+			err = &HandshakeError{conn.LocalAddr(), conn.RemoteAddr(), err}
+			if !connClosed {
+				conn.Close()
+			}
+		}
+	}()
+
+
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ctx.Done():
+			conn.Close()     // interrupt IO
+			connClosed = true
+			return ctx.Err()
+
+		case err = <-errch:
+			if err != nil {
+				return err
+			}
 		}
 	}
 
+	// handshaked ok
 	return nil
 }
 
@@ -603,7 +648,8 @@ func (e *HandshakeError) Error() string {
 	return fmt.Sprintf("%s - %s: handshake: %s", e.LocalAddr, e.RemoteAddr, e.Err.Error())
 }
 
-// ---- for convenience: Dial/Listen ----
+
+// ---- for convenience: Dial ----
 
 // Dial connects to address on named network and wrap the connection as NodeLink
 // TODO +tls.Config
@@ -614,33 +660,11 @@ func Dial(ctx context.Context, network, address string) (nl *NodeLink, err error
 		return nil, err
 	}
 
-	// do the handshake. don't forget to close peerConn if we return with an error
-	defer func() {
-		if err != nil {
-			peerConn.Close()
-		}
-	}()
-
-	errch := make(chan error)
-	go func() {
-		errch <- Handshake(peerConn)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-
-	case err = <-errch:
-		if err != nil {
-			return nil, &HandshakeError{peerConn.LocalAddr(), peerConn.RemoteAddr(), err}
-		}
-	}
-
-	// handshake ok -> NodeLink ready
-	return NewNodeLink(peerConn, LinkClient), nil
+	return Handshake(ctx, peerConn, LinkClient)
 }
 
-// like net.Listener but Accept returns net.Conn wrapped in NodeLink
+/* TODO not needed -> goes away
+// Listener is like net.Listener but Accept returns net.Conn wrapped in NodeLink and handshaked	XXX
 type Listener struct {
 	net.Listener
 }
@@ -651,7 +675,7 @@ func (l *Listener) Accept() (*NodeLink, error) {
 		return nil, err
 	}
 
-	err = Handshake(peerConn)
+	err = Handshake(peerConn)	// FIXME blocking - not good - blocks further Accepts
 	if err != nil {
 		peerConn.Close()
 		return nil, err
@@ -669,6 +693,7 @@ func Listen(network, laddr string) (*Listener, error) {
 	}
 	return &Listener{l}, nil
 }
+*/
 
 
 
