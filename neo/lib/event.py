@@ -109,7 +109,7 @@ class EpollEventManager(object):
             self.wakeup()
         else:
             self.epoll.register(fd)
-            self.addReader(conn)        # FIXME implicitly adding addReader
+            self.addReader(conn)        # FIXME implicitly setting "ready to read"
 
     def unregister(self, conn, close=False):
         new_pending_processing = [x for x in self._pending_processing

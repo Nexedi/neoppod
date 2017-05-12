@@ -267,7 +267,7 @@ class Application(BaseApplication):
                         raise RuntimeError("No upstream cluster to backup"
                                            " defined in configuration")
                     truncate = Packets.Truncate(
-                        self.backup_app.provideService())   # NOTE enter to backup main loop
+                        self.backup_app.provideService())
                 except StoppedOperation, e:
                     logging.critical('No longer operational')
                     truncate = Packets.Truncate(*e.args) if e.args else None
@@ -522,7 +522,7 @@ class Application(BaseApplication):
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
                                  msg_id=txn.getMessageId())                       # NOTE msgid: out-of-order answer
             else:
-                # NOTE notifies clients irregardless of whether client was subscribed
+                # NOTE notifies all clients irregardless of whether who was subscribed
                 client_node.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.
