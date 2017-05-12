@@ -16,6 +16,7 @@
 // See COPYING file for full licensing terms.
 
 package xbufio
+// bufferring for io.ReaderAt optimized for sequential access
 
 import (
 	"io"

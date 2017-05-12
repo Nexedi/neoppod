@@ -1,3 +1,5 @@
+// Package fsb specializes cznic/b.Tree for FileStorage index needs.
+// See gen-fsbtree for details.
 package fsb
 
 //go:generate ./gen-fsbtree

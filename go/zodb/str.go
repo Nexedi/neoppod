@@ -16,7 +16,7 @@
 // See COPYING file for full licensing terms.
 
 package zodb
-// formatting and parsing  for basic zodb types
+// formatting and parsing for basic zodb types
 
 import (
 	"fmt"
