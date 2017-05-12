@@ -516,12 +516,13 @@ class Application(BaseApplication):
         tid = txn.getTID()
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
+        # NOTE send invalidation to clients
         for client_node in self.nm.getClientList(only_identified=True):
             if client_node is transaction_node:
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
                                  msg_id=txn.getMessageId())                       # NOTE msgid: out-of-order answer
             else:
-                # NOTE notifies clients sequentially & irregardless of whether client was subscribed
+                # NOTE notifies clients irregardless of whether client was subscribed
                 client_node.send(invalidate_objects)
 
         # Unlock Information to relevant storage nodes.

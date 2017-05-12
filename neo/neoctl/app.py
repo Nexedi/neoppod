@@ -40,6 +40,7 @@ action_dict = {
     'truncate': 'truncate',
 }
 
+# ex 'S2' -> u32
 uuid_int = (lambda ns: lambda uuid:
     (ns[uuid[0]] << 24) + int(uuid[1:])
     )({str(k)[0]: v for k, v in UUID_NAMESPACES.iteritems()})

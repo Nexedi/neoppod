@@ -136,7 +136,7 @@ class Storage(BaseStorage.BaseStorage,
     def supportsUndo(self):
         return True
 
-    def supportsTransactionalUndo(self):
+    def supportsTransactionalUndo(self):    # TODO remove (ZODB.f595f7e7)
         return True
 
     def loadEx(self, oid, version):

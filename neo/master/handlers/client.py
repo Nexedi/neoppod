@@ -69,7 +69,10 @@ class ClientServiceHandler(MasterHandler):
         if tid:
             p = Packets.AskLockInformation(ttid, tid)
             for node in node_list:
-                node.ask(p, timeout=60)
+                node.ask(p, timeout=60) # NOTE
+
+            # NOTE continues in onTransactionCommitted
+
         else:
             conn.answer(Errors.IncompleteTransaction())
             # It's simpler to abort automatically rather than asking the client
