@@ -78,6 +78,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
+        self.lock(self.db)
         if self.UNSAFE:
             q = self.query
             q("PRAGMA synchronous = OFF")

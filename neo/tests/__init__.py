@@ -217,7 +217,8 @@ class NeoUnitTestBase(NeoTestBase):
             temp_dir = getTempDirectory()
             for i in xrange(number):
                 try:
-                    os.remove(os.path.join(temp_dir, 'test_neo%s.sqlite' % i))
+                    os.remove(os.path.join(temp_dir,
+                        '%s%s.sqlite' % (prefix, i)))
                 except OSError, e:
                     if e.errno != errno.ENOENT:
                         raise

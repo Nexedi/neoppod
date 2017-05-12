@@ -29,11 +29,13 @@ class StorageMySQLdbTests(StorageDBTests):
 
     engine = None
 
-    def getDB(self, reset=0):
+    def _test_lockDatabase_open(self):
         self.prepareDatabase(number=1, prefix=DB_PREFIX)
-        # db manager
         database = '%s@%s0%s' % (DB_USER, DB_PREFIX, DB_SOCKET)
-        db = MySQLDatabaseManager(database, self.engine)
+        return MySQLDatabaseManager(database, self.engine)
+
+    def getDB(self, reset=0):
+        db = self._test_lockDatabase_open()
         self.assertEqual(db.db, DB_PREFIX + '0')
         self.assertEqual(db.user, DB_USER)
         try:
@@ -129,11 +131,13 @@ class StorageMySQLdbTests(StorageDBTests):
 class StorageMySQLdbRocksDBTests(StorageMySQLdbTests):
 
     engine = "RocksDB"
+    test_lockDatabase = None
 
 
 class StorageMySQLdbTokuDBTests(StorageMySQLdbTests):
 
     engine = "TokuDB"
+    test_lockDatabase = None
 
 del StorageDBTests
 

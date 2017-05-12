@@ -29,6 +29,7 @@ import os
 import re
 import string
 import struct
+import sys
 import time
 
 from . import LOG_QUERIES
@@ -102,9 +103,17 @@ class MySQLDatabaseManager(DatabaseManager):
         conn.autocommit(False)
         conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
         conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
-        conn.query("SHOW VARIABLES WHERE variable_name='max_allowed_packet'")
-        r = conn.store_result()
-        (name, value), = r.fetch_row(r.num_rows())
+        def query(sql):
+            conn.query(sql)
+            r = conn.store_result()
+            return r.fetch_row(r.num_rows())
+        if self.LOCK:
+            (locked,), = query("SELECT GET_LOCK('%s.%s', 0)"
+                % (self.db, self.LOCK))
+            if not locked:
+                sys.exit(self.LOCKED)
+        (name, value), = query(
+            "SHOW VARIABLES WHERE variable_name='max_allowed_packet'")
         if int(value) < self._max_allowed_packet:
             raise DatabaseFailure("Global variable %r is too small."
                 " Minimal value must be %uk."

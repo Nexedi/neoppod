@@ -131,6 +131,15 @@ class StorageDBTests(NeoUnitTestBase):
     def checkSet(self, list1, list2):
         self.assertEqual(set(list1), set(list2))
 
+    def _test_lockDatabase_open(self):
+        raise NotImplementedError
+
+    def test_lockDatabase(self):
+        db = self._test_lockDatabase_open()
+        self.assertRaises(SystemExit, self._test_lockDatabase_open)
+        db.close()
+        self._test_lockDatabase_open().close()
+
     def test_getUnfinishedTIDDict(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
         oid1, oid2 = self.getOIDs(2)

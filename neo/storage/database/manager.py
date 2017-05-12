@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import struct, threading
+import os, errno, socket, struct, sys, threading
 from collections import defaultdict
 from contextlib import contextmanager
 from functools import wraps
@@ -55,6 +55,10 @@ class DatabaseManager(object):
     ENGINES = ()
     UNSAFE = False
 
+    __lock = None
+    LOCK = "neostorage"
+    LOCKED = "error: database is locked"
+
     _deferred = 0
     _duplicating = _repairing = None
 
@@ -84,6 +88,7 @@ class DatabaseManager(object):
     def _duplicate(self):
         cls = self.__class__
         db = cls.__new__(cls)
+        db.LOCK = None
         db._duplicating = self
         try:
             db._connect()
@@ -101,6 +106,26 @@ class DatabaseManager(object):
     @abstract
     def _connect(self):
         """Connect to the database"""
+
+    def lock(self, db_path):
+        if self.LOCK:
+            assert self.__lock is None, self.__lock
+            # For platforms that don't support anonymous sockets,
+            # we can either use zc.lockfile or an empty SQLite db
+            # (with BEGIN EXCLUSIVE).
+            try:
+                stat = os.stat(db_path)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+                return # in-memory or temporary database
+            s = self.__lock = socket.socket(socket.AF_UNIX)
+            try:
+                s.bind('\0%s:%s:%s' % (self.LOCK, stat.st_dev, stat.st_ino))
+            except socket.error as e:
+                if e.errno != errno.EADDRINUSE:
+                    raise
+                sys.exit(self.LOCKED)
 
     @abstract
     def erase(self):
@@ -152,6 +177,9 @@ class DatabaseManager(object):
     def close(self):
         self._deferredCommit()
         self._close()
+        if self.__lock:
+            self.__lock.close()
+            del self.__lock
 
     def _commit(self):
         """Backend-specific code to commit the pending changes"""

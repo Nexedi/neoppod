@@ -37,10 +37,11 @@ from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump
-from .. import ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL, \
-    buildUrlFromString, cluster, getTempDirectory, NeoTestBase, setupMySQLdb
+from .. import (ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL,
+    buildUrlFromString, cluster, getTempDirectory, NeoTestBase, Patch,
+    setupMySQLdb)
 from neo.client.Storage import Storage
-from neo.storage.database import buildDatabaseManager
+from neo.storage.database import manager, buildDatabaseManager
 
 try:
     coverage = sys.modules['neo.scripts.runner'].coverage
@@ -483,7 +484,8 @@ class NEOCluster(object):
 
     def getSQLConnection(self, db):
         assert db is not None and db in self.db_list
-        return buildDatabaseManager(self.adapter, (self.db_template(db),))
+        with Patch(manager.DatabaseManager, LOCK=None):
+            return buildDatabaseManager(self.adapter, (self.db_template(db),))
 
     def getMasterProcessList(self):
         return self.process_dict.get(NodeTypes.MASTER)
