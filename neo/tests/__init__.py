@@ -190,6 +190,11 @@ class NeoTestBase(unittest.TestCase):
           "Mock objects can't be compared with '==' or '!='"
         return super(NeoTestBase, self).assertEqual(first, second, msg=msg)
 
+    def assertPartitionTable(self, pt, expected, key=None):
+        self.assertEqual(
+            expected if isinstance(expected, str) else '|'.join(expected),
+            '|'.join(pt._formatRows(sorted(pt.count_dict, key=key))))
+
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
 

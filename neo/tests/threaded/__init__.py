@@ -1025,11 +1025,11 @@ class NEOThreadedTest(NeoTestBase):
         with Patch(client, _getFinalTID=lambda *_: None):
             self.assertRaises(ConnectionClosed, txn.commit)
 
-    def assertPartitionTable(self, cluster, stats, pt_node=None):
-        pt  = (pt_node or cluster.admin).pt
+    def assertPartitionTable(self, cluster, expected, pt_node=None):
         index = [x.uuid for x in cluster.storage_list].index
-        self.assertEqual(stats, '|'.join(pt._formatRows(sorted(
-            pt.count_dict, key=lambda x: index(x.getUUID())))))
+        super(NEOThreadedTest, self).assertPartitionTable(
+            (pt_node or cluster.admin).pt, expected,
+            lambda x: index(x.getUUID()))
 
     @staticmethod
     def noConnection(jar, storage):

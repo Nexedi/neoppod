@@ -317,13 +317,13 @@ class ReplicationTests(NEOThreadedTest):
             s2.start()
             self.tic()
             cluster.enableStorageList([s2])
-            # 2 UP_TO_DATE cells should become FEEDING,
-            # and be dropped only when the replication is done,
+            # 2 UP_TO_DATE cells become FEEDING:
+            # they are dropped only when the replication is done,
             # so that 1 storage can still die without data loss.
             with Patch(s0.dm, changePartitionTable=changePartitionTable):
                 cluster.neoctl.tweakPartitionTable()
                 self.tic()
-            expectedFailure(self.assertEqual)(cluster.neoctl.getClusterState(),
+            self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
 
     @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
