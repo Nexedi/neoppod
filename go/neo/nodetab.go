@@ -31,8 +31,10 @@ type Node struct {
 }
 
 
-// NodeTable represents all known nodes in a cluster from primary master point of view
-// XXX do we need "from local-node point of view" ?
+// NodeTable represents all nodes in a cluster
+//
+// Usually Master maintains such table and provides it to other nodes to know
+// each other but in general use-cases can be different.
 //
 // - Primary Master view of cluster
 // - M tracks changes to nodeTab as nodes appear (connected to M) and go (disconnected from M)

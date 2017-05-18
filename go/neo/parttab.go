@@ -24,8 +24,14 @@ package neo
 //
 // 	#Np (how-many partitions)    #R (replication factor)
 // Cell
-// 	.node   (-> .nodeid, .addr)
-// 	.cell_state
+// 	.nodeUUID	// .node   (-> .node{UUID,Type,State,Addr})
+// 	.cellState
+//
+//	XXX ? + .haveUpToTid  associated node has data up to such tid
+//			= uptodate if haveUpToTid == lastTid
+//
+//	XXX ? + .plannedToDelete (when after tweak another node will get data
+//			  from here and here it will be removed)
 //
 // 	.backup_tid         # last tid this cell has all data for
 // 	.replicating        # currently replicating up to this (.replicating) tid
@@ -39,9 +45,9 @@ package neo
 // 	 Pt
 // 	+-+
 // 	| |
-// 	+-+  +----------+ +------------+ +-----+
-// 	| |  |node,state| |node2,state2| |cell3| ...
-// 	+-+  +----------+ +------------+ +-----+
+// 	+-+  +---------------+ +-----------------+ +-----+
+// 	| |  |node,cell_state| |node2,cell_state2| |cell3| ...
+// 	+-+  +---------------+ +-----------------+ +-----+
 //   Np	| |
 // 	+-+
 // 	| |
