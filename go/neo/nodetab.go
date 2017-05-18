@@ -31,7 +31,41 @@ type Node struct {
 }
 
 
-// NodeTable represents all known nodes in a cluster from local-node point of view
+// NodeTable represents all known nodes in a cluster from primary master point of view
+// XXX do we need "from local-node point of view" ?
+//
+// - Primary Master view of cluster
+// - M tracks changes to nodeTab as nodes appear (connected to M) and go (disconnected from M)
+// - M regularly broadcasts nodeTab content updates(?) to all nodes
+//   This way all nodes stay informed about their peers in cluster
+//
+// UC:
+//	- C needs to connect/talk to a storage by uuid
+//	- C needs to initially connect to PM (?)
+//	- S pulls from other S
+//
+//
+// XXX [] of
+//	.nodeUUID
+//	.nodeType
+//	.nodeState
+//	.listenAt	ip:port | ø	// ø - if client or down(?)
+//
+//	- - - - - - -
+//
+//	.comesFrom	?(ip:port)		connected to PM from here
+//						XXX ^^^ needed ? nodeLink has this info
+//
+//	.nodeLink | nil				M's node link to this node
+//	.notifyConn | nil			conn left after identification phase
+//						M uses this to send notifications to the node
+//
+//
+// .acceptingUpdates (?)	- whether it is ok to update nodeTab (e.g. if
+//	master is shutting down it first sends all nodes something but has to make
+// 	sure not to accept new connections	-> XXX not needed - just stop listening
+// 	first.
+//
 type NodeTable struct {
 	// users have to care locking explicitly
 	sync.Mutex	// XXX -> RWMutex ?

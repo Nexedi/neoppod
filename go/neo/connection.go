@@ -133,6 +133,8 @@ const (
 //
 // 2. NodeLink.Accept() works only on server side.
 //    XXX vs client processing e.g. invalidation notifications from master ?
+//    XXX -> we could require that such listen for notification Conn is that
+//	     one left after RequestIdentification/AcceptIdentification.
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.

@@ -146,7 +146,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
         #      to do the same thing for nodes in other non-running states ?
         getByUUID = self.app.nm.getByUUID
         for node in node_list:
-            if node[3] != NodeStates.RUNNING:
+            if node[3] != NodeStates.RUNNING:   # NOTE C closes connections to other nodes if M says they are not running
                 node = getByUUID(node[2])
                 if node and node.isConnected():
                     node.getConnection().close()

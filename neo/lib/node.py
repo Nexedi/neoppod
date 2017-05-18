@@ -522,6 +522,7 @@ def NODE_TYPE_MAPPING():
         name = camel_case(node_type)
         is_name = 'is' + name
         setmethod(Node, is_name, bool)
+        # e.g. MasterNode(Node): .is_master: true; .getType: lambda ... -> Master
         node_type_dict[node_type] = cls = type(name + 'Node', bases, {
             'getType': getType(node_type),
             is_name: true,
