@@ -20,42 +20,109 @@ package neo
 
 // PartitionTable represents object space partitioning in a cluster
 //
-// XXX description:
+// It is
 //
-// 	#Np (how-many partitions)    #R (replication factor)
-// Cell
-// 	.nodeUUID	// .node   (-> .node{UUID,Type,State,Addr})
-// 	.cellState
+//	Oid -> []Storage
 //
+// mapping associating object id with list of storage nodes on where data for
+// this oid should be written-to/loaded-from. This mapping is organized as follows:
+//
+// Oid space is divided (partitioned) into Np parts via
+//
+//	ptid(oid) = oid % Np
+//
+// rule. The `oid % Np` is known as partition identifier of oid.
+//
+// There is also externally set "redundancy factor" R which describes the minimum
+// amount of separate nodes a particular object data should be stored into at the same time.
+//
+// Given Np, R and []Storage PartitionTable tries to organize
+//
+//	Ptid -> []Storage
+//
+// mapping so that
+//
+// - redundancy level set by R is met
+// - storages associated with adjacent Ptids are different
+//
+// when such organization is reached the partition table is called operational
+// and non-operational otherwise.	XXX and if storages are ready
+//
+// The PartitionTable can auto-adjust to storage nodes coming and going.
+// Let's consider cluster change from Ns1 to Ns2 storage nodes: if we pick
+//
+//	Np = LCM(Ns1, Ns2)
+//
+// XXX ^^^ and vvv R is not taken into account.
+//
+// then it is possible to rebalance data with minimal amount of data movement
+//
+//	~ min(Ns1, Ns2)·size(partition)
+//
+// Examples:
+//
+// [S1, S2] + S3:		LCM(2,3) = 6
+//
+//	S1     S1     S1
+//	S2  ~  S2     S2
+//	       S1  →  S3
+//	       S2     S2
+//	       S1     S1
+//	       S2  →  S3
+//
+//
+// [S1, S2, S3] + S4:		LCM(3,4) = 12
+//
+//	S1     S1     S1
+//	S2     S2     S2
+//	S3     S3     S3
+//	S2     S2  →  S4
+//	S1     S1     S1
+//	S3  ~  S3     S3
+//	       S1  →  S4
+//	       S2     S2
+//	       S3     S3
+//	       S2     S2
+//	       S1     S1
+//	       S3  →  S4
+//
+//
+// [S1, S2, S3] - S3:		LCM(3,2) = 6
+//
+//	S1     S1     S1
+//	S2     S2     S2
+//	S3  ~  S3  →  S1
+//	       S1     S1
+//	       S2     S2
+//	       S3  →  S2
+//
+// Np thus is always multiple of Ns and with furter reorderings (if needed)
+// could be reduced directly to Ns.
+//
+// Usually Master maintains partition table, plans partition updates and tells
+// storages to executed them, and broadcasts partition table updates to all
+// nodes in the cluster.
+type PartitionTable struct {
+	ptTab []PartitionCell // [#Np]
+
+	ptId // ↑ for versioning
+}
+
+// PartitionCell describes one storage in a ptid entry in partition table
+type PartitionCell struct {
+	NodeID
+	CellState
+
 //	XXX ? + .haveUpToTid  associated node has data up to such tid
 //			= uptodate if haveUpToTid == lastTid
 //
 //	XXX ? + .plannedToDelete (when after tweak another node will get data
 //			  from here and here it will be removed)
 //
+//	XXX something describing in-progress updates vvv ?
 // 	.backup_tid         # last tid this cell has all data for
 // 	.replicating        # currently replicating up to this (.replicating) tid
 //
-// PT
-// 	.id↑
-// 	.partition_list [#Np] of []Cell
-// 	.count_dict     {} node -> #node_used_in_pt
-//
-//
-// 	 Pt
-// 	+-+
-// 	| |
-// 	+-+  +---------------+ +-----------------+ +-----+
-// 	| |  |node,cell_state| |node2,cell_state2| |cell3| ...
-// 	+-+  +---------------+ +-----------------+ +-----+
-//   Np	| |
-// 	+-+
-// 	| |
-// 	+-+     oid -> PTentry (as PT[oid % Np]
-// 	| |     tid
-// 	+-+
-type PartitionTable struct {
-	//ptTab []...
 }
 
 
