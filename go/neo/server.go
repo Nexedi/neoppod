@@ -43,6 +43,7 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 	// close listener when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - listener close will signal to all accepts to
 	//   terminate with an error )
+	// XXX dup -> utility
 	retch := make(chan struct{})
 	defer func() { close(retch) }()
 	go func() {
@@ -106,14 +107,6 @@ func errcontextf(errp *error, format string, argv ...interface{}) {
 // returns information about identified node or error.
 func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
 	defer errcontextf(&err, "%s: identify", link)
-
-	/*
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%s: identify: %s", link, err)
-		}
-	}()
-	*/
 
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()

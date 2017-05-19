@@ -103,9 +103,11 @@ package neo
 // storages to executed them, and broadcasts partition table updates to all
 // nodes in the cluster.
 type PartitionTable struct {
+	// XXX do we need sync.Mutex here for updates ?
+
 	ptTab []PartitionCell // [#Np]
 
-	ptId // ↑ for versioning
+	ptId int // ↑ for versioning	XXX -> ver ?
 }
 
 // PartitionCell describes one storage in a ptid entry in partition table

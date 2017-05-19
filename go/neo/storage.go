@@ -59,7 +59,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		select {
 		case <-ctx.Done():
 			// XXX tell peers we are shutting down?
-			// XXX ret err = cancelled ?
+			// XXX ret err = ctx.Err()
 		case <-retch:
 		}
 		fmt.Printf("stor: %v: closing link\n", link)
@@ -68,8 +68,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 
 	nodeInfo, err := IdentifyPeer(link, STORAGE)
 	if err != nil {
-		// XXX include link here or in IdentifyPeer ?
-		fmt.Printf("peer identification failed: %v\n", err)
+		fmt.Printf("stor: %v\n", err)
 		return
 	}
 

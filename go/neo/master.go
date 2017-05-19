@@ -31,6 +31,11 @@ import (
 type Master struct {
 	clusterName  string
 	clusterState ClusterState
+
+	// master manages node and partition tables and broadcast their updates
+	// to all nodes in cluster
+	nodeTab NodeTable
+	partTab PartitionTable
 }
 
 func NewMaster(clusterName string) *Master {
@@ -52,7 +57,42 @@ func (m *Master) SetClusterState(state ClusterState) {
 func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("master: %s: serving new node\n", link)
 
-	// TODO
+	// close link when either cancelling or returning (e.g. due to an error)
+	// ( when cancelling - link.Close will signal to all current IO to
+	//   terminate with an error )
+	// XXX dup -> utility
+	retch := make(chan struct{})
+	defer func() { close(retch) }()
+	go func() {
+		select {
+		case <-ctx.Done():
+			// XXX tell peers we are shutting down?
+			// XXX ret err = ctx.Err()
+		case <-retch:
+		}
+		fmt.Printf("master: %v: closing link\n", link)
+		link.Close()	// XXX err
+	}()
+
+	// identify
+	nodeInfo, err := IdentifyPeer(link, MASTER)
+	if err != nil {
+		fmt.Printf("master: %v\n", err)
+		return
+	}
+
+	// add info to nodeTab
+	m.nodeTab.Lock()
+	m.nodeTab.Add(&Node{nodeInfo, link})
+	m.nodeTab.Unlock()
+
+	// TODO subscribe to nodeTab and broadcast updates
+
+	// identification passed, now serve other requests
+
+	// client: notify + serve requests
+	// storage: notify + ?
+
 }
 
 // ServeClient serves incoming connection on which peer identified itself as client

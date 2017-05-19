@@ -22,15 +22,6 @@ import (
 	"sync"
 )
 
-// Node represents a node from local-node point of view
-type Node struct {
-	Info NodeInfo
-
-	Link *NodeLink	// link to this node; =nil if not connected
-	// XXX identified or not ?
-}
-
-
 // NodeTable represents all nodes in a cluster
 //
 // Usually Master maintains such table and provides it to other nodes to know
@@ -70,8 +61,22 @@ type Node struct {
 //
 type NodeTable struct {
 	// users have to care locking explicitly
-	sync.Mutex	// XXX -> RWMutex ?
+	sync.RWMutex
+
+	nodev []Node
+
+
+	ver int // ↑ for versioning	XXX do we need this?
 }
+
+// Node represents a node entry in NodeTable
+type Node struct {
+	Info NodeInfo	// XXX extract ?
+
+	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
+	// XXX identified or not ?
+}
+
 
 // UpdateNode updates information about a node
 func (nt *NodeTable) UpdateNode(nodeInfo NodeInfo) {
@@ -80,7 +85,25 @@ func (nt *NodeTable) UpdateNode(nodeInfo NodeInfo) {
 
 // XXX ? ^^^ UpdateNode is enough ?
 func (nt *NodeTable) Add(node *Node) {
-	// TODO
+	// XXX check node is already there
+	// XXX pass/store node by pointer ?
+	nt.nodev = append(nt.nodev, *node)
 }
 
 // TODO subscribe for changes on Add ?  (notification via channel)
+
+
+
+func (nt *NodeTable) String() string {
+	//nt.RLock()		// FIXME -> it must be client
+	//defer nt.RUnlock()
+
+	buf := bytes.Buffer{}
+
+	for node := range nl.nodev {
+		// XXX recheck output
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", node.NodeID, node.NodeType, node.NodeState, node.Address)
+	}
+
+	return buf.String()
+}
