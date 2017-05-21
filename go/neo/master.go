@@ -102,25 +102,48 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 
 	// client: notify + serve requests
 
-	// storage: notify + ?
+
+	// storage:
+	//
+	// RECOVERY (master.recovery.RecoveryManager + master.handlers.identification.py)
+	// --------
+	// """
+        // Recover the status about the cluster. Obtain the last OID, the last
+        // TID, and the last Partition Table ID from storage nodes, then get
+        // back the latest partition table or make a new table from scratch,
+        // if this is the first time.
+        // A new primary master may also arise during this phase.
+	// """
+	//
+	// m.clusterState = Recovering
+	// m.partTab.clear()
+	//
+	// - wait for S nodes to connect and process recovery phases on them
+	// - if pt.filled() - we are starting an existing cluster
+	// - else if autostart and N(S, connected) >= min_autosart -> starting new cluster
+	// - (handle truncation if .trancate_tid is set)
 	//
 	// >Recovery
-	// <AnswerRecovery
+	// <AnswerRecovery		(ptid, backup_tid, truncate_tid)
 	//
 	// >PartitionTable
-	// <AnswerPartitionTable
+	// <AnswerPartitionTable	(ptid, []{pid, []cell}
+	//
+	// NOTE ^^^ need to collect PT from all storages and choose one with highest ptid
+	// NOTE same for backup_tid & truncate_tid
+	//
 	//
 	// # neoctl start
 	// # (via changing nodeTab and relying on broadcast distribution ?)
 	// >NotifyNodeInformation	(S1.state=RUNNING)
-	// # S: "I was told I'm RUNNING"
+	// # S: "I was told I'm RUNNING"	XXX ^^^ -> StartOperation
 	//
 	// # (via changing m.clusterState and relying on broadcast ?)
 	// >NotifyClusterInformation	(cluster_state=VERIFYING)
 	//
 	// # (via changing partTab and relying on broadcast ?)
 	// >NotifyPartitionTable	(ptid=1, `node 0: S1, R`)
-	// # S saves PT info locally
+	// # S saves PT info locally	XXX -> after StartOperation ?
 	//
 	// # M asks about unfinished transactions
 	// >AskLockedTransactions
@@ -130,7 +153,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	// <AnswerLastIDs		(last_oid, last_tid)
 	//
 	// # (via changing m.clusterState and relying on broadcast ?)
-	// >NotifyClusterInformation	(cluster_state=RUNNING)
+	// >NotifyClusterInformation	(cluster_state=RUNNING) XXX -> StartOperation
 	//
 	// >StartOperation
 	// <NotifyReady
