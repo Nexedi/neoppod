@@ -107,7 +107,7 @@ package neo
 type PartitionTable struct {
 	// XXX do we need sync.Mutex here for updates ?
 
-	ptTab []PartitionCell // [#Np]
+	ptTab [][]PartitionCell // [#Np]
 
 	ptId int // ↑ for versioning	XXX -> ver ?
 }
@@ -131,6 +131,31 @@ type PartitionCell struct {
 
 
 // Operational returns whether all object space is covered by at least some ready-to-serve nodes
+// NOTE XXX operational here means only pt itself is operational
+//          for cluster to be really operational it has to be checked whether
+//          nodes referenced by pt are up and running
+//
+// XXX or keep not only NodeID in PartitionCell - add *Node ?
 func (pt *PartitionTable) Operational() bool {
-	panic("TODO")
+	for ptEntry := range pt.ptTab {
+		if len(ptEntry) == 0 {
+			return false
+		}
+
+		ok := false
+	cellLoop:
+		for cell := range ptEntry {
+			switch cell.CellState {
+			case UP_TO_DATE, FEEDING:	// XXX cell.isReadble in py
+				ok = true
+				break cellLoop
+			}
+		}
+		if !ok {
+			return false
+		}
+
+	}
+
+	return true
 }

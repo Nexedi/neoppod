@@ -145,6 +145,10 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	// >NotifyPartitionTable	(ptid=1, `node 0: S1, R`)
 	// # S saves PT info locally	XXX -> after StartOperation ?
 	//
+	//
+	// VERIFICATION (master.verification.py)
+	// ------------
+	//
 	// # M asks about unfinished transactions
 	// >AskLockedTransactions
 	// <AnswerLockedTransactions	{} ttid -> tid	# in example we have empty
