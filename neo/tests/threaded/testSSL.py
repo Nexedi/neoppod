@@ -34,8 +34,8 @@ class SSLMixin:
 
 class SSLTests(SSLMixin, test.Test):
     # exclude expected failures
-    testDeadlockAvoidance = None
-    testUndoConflict = testUndoConflictDuringStore = None
+    testStorageDataLock2 = None
+    testUndoConflictDuringStore = None
 
     def testAbortConnection(self, after_handshake=1):
         with self.getLoopbackConnection() as conn:
