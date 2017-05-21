@@ -29,7 +29,7 @@ package neo
 //
 // Oid space is divided (partitioned) into Np parts via
 //
-//	ptid(oid) = oid % Np
+//	ptid(oid) = oid % Np		XXX ptid -> pid ?
 //
 // rule. The `oid % Np` is known as partition identifier of oid.
 //
@@ -102,6 +102,8 @@ package neo
 // Usually Master maintains partition table, plans partition updates and tells
 // storages to executed them, and broadcasts partition table updates to all
 // nodes in the cluster.
+//
+// PartitionTable zero value is valid empty partition table.
 type PartitionTable struct {
 	// XXX do we need sync.Mutex here for updates ?
 

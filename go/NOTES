@@ -146,7 +146,7 @@ HasLock  C -> S
 
 AnswerHasLock  S -> C
 	oid		OID
-	lock_state	LockState	// not_locket, granted, granted_to_other:w
+	lock_state	LockState	// not_locket, granted, granted_to_other
 
 CheckCurrentSerial  C -> S	AnswerCheckCurrentSerial  S -> C
 	tid	TID			conflicting	bool

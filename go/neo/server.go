@@ -135,6 +135,8 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 	case *RequestIdentification:
 		// TODO (.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
 
+		// TODO hook here in logic to check identification request, assign nodeID etc
+
 		err = EncodeAndSend(conn, &AcceptIdentification{
 			NodeType:	myNodeType,
 			MyNodeID:	0,		// XXX

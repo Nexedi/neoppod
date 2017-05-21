@@ -27,6 +27,8 @@ import (
 // Usually Master maintains such table and provides it to other nodes to know
 // each other but in general use-cases can be different.
 //
+// XXX vvv is about Master=main use-case:
+//
 // - Primary Master view of cluster
 // - M tracks changes to nodeTab as nodes appear (connected to M) and go (disconnected from M)
 // - M regularly broadcasts nodeTab content updates(?) to all nodes
@@ -59,6 +61,7 @@ import (
 // 	sure not to accept new connections	-> XXX not needed - just stop listening
 // 	first.
 //
+// NodeTable zero value is valid empty node table.
 type NodeTable struct {
 	// users have to care locking explicitly
 	sync.RWMutex
@@ -88,6 +91,8 @@ func (nt *NodeTable) Add(node *Node) {
 	// XXX check node is already there
 	// XXX pass/store node by pointer ?
 	nt.nodev = append(nt.nodev, *node)
+
+	// TODO notify all nodelink subscribers about new info
 }
 
 // TODO subscribe for changes on Add ?  (notification via channel)

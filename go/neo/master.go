@@ -41,6 +41,7 @@ type Master struct {
 func NewMaster(clusterName string) *Master {
 	m := &Master{clusterName: clusterName}
 	m.SetClusterState(RECOVERING) // XXX no elections - we are the only master
+
 	return m
 }
 
@@ -75,6 +76,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	}()
 
 	// identify
+	// XXX add logic to verify/assign nodeID and do other requested identification checks
 	nodeInfo, err := IdentifyPeer(link, MASTER)
 	if err != nil {
 		fmt.Printf("master: %v\n", err)
@@ -86,12 +88,59 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	m.nodeTab.Add(&Node{nodeInfo, link})
 	m.nodeTab.Unlock()
 
-	// TODO subscribe to nodeTab and broadcast updates
+	// TODO subscribe to nodeTab and broadcast updates:
+	//
+	// NotifyPartitionTable	PM -> S, C
+	// PartitionChanges	PM -> S, C	// subset of NotifyPartitionTable (?)
+	// NotifyNodeIntormation PM -> *
+
+	// TODO notify about cluster state changes
+	// ClusterInformation	(PM -> * ?)
+
 
 	// identification passed, now serve other requests
 
 	// client: notify + serve requests
+
 	// storage: notify + ?
+	//
+	// >Recovery
+	// <AnswerRecovery
+	//
+	// >PartitionTable
+	// <AnswerPartitionTable
+	//
+	// # neoctl start
+	// # (via changing nodeTab and relying on broadcast distribution ?)
+	// >NotifyNodeInformation	(S1.state=RUNNING)
+	// # S: "I was told I'm RUNNING"
+	//
+	// # (via changing m.clusterState and relying on broadcast ?)
+	// >NotifyClusterInformation	(cluster_state=VERIFYING)
+	//
+	// # (via changing partTab and relying on broadcast ?)
+	// >NotifyPartitionTable	(ptid=1, `node 0: S1, R`)
+	// # S saves PT info locally
+	//
+	// # M asks about unfinished transactions
+	// >AskLockedTransactions
+	// <AnswerLockedTransactions	{} ttid -> tid	# in example we have empty
+	//
+	// >LastIDs
+	// <AnswerLastIDs		(last_oid, last_tid)
+	//
+	// # (via changing m.clusterState and relying on broadcast ?)
+	// >NotifyClusterInformation	(cluster_state=RUNNING)
+	//
+	// >StartOperation
+	// <NotifyReady
+	// XXX only here we can update nodeTab with S1.state=RUNNING
+	//
+	// ...
+	//
+	// StopOperation	PM -> S
+
+
 
 }
 
