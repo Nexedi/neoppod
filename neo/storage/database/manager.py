@@ -323,10 +323,22 @@ class DatabaseManager(object):
 
         Required only to import a DB using Importer backend.
         max_tid must be in unpacked format.
+
+        Data from unassigned partitions must be ignored.
+        This is important because there may remain data from cells that are
+        being discarded (which is done in background because this is an
+        expensive operation).
+
+        XXX: Given the TODO comment in getLastIDs, getting ids
+             from readable partitions should be enough.
         """
 
     def _getLastIDs(self):
-        """"""
+        """Return (trans, obj, max(oid)) where
+        both 'trans' and 'obj' are {partition: max(tid)}
+
+        Same as in getLastTID: data from unassigned partitions must be ignored.
+        """
 
     @requires(_getLastIDs)
     def getLastIDs(self):

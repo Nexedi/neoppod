@@ -313,21 +313,37 @@ class MySQLDatabaseManager(DatabaseManager):
             return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
         return self.query("SELECT * FROM pt")
 
+    def _getAssignedPartitionList(self):
+        nid = self.getUUID()
+        if nid is None:
+            return ()
+        return [p for p, in self.query("SELECT rid FROM pt WHERE nid=%s" % nid)]
+
+    def _sqlmax(self, sql, arg_list):
+        q = self.query
+        x = [x for x in arg_list for x, in q(sql % x) if x is not None]
+        if x: return max(x)
+
     def getLastTID(self, max_tid):
-        return self.query("SELECT MAX(t) FROM (SELECT MAX(tid) as t FROM trans"
-            " WHERE tid<=%s GROUP BY `partition`) as t" % max_tid)[0][0]
+        return self._sqlmax(
+            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)"
+            " WHERE tid<=%s and `partition`=%%s" % max_tid,
+            self._getAssignedPartitionList())
 
     def _getLastIDs(self):
+        offset_list = self._getAssignedPartitionList()
         p64 = util.p64
         q = self.query
-        trans = {partition: p64(tid)
-            for partition, tid in q("SELECT `partition`, MAX(tid)"
-                                    " FROM trans GROUP BY `partition`")}
-        obj = {partition: p64(tid)
-            for partition, tid in q("SELECT `partition`, MAX(tid)"
-                                    " FROM obj GROUP BY `partition`")}
-        oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
-                                      " GROUP BY `partition`) as t")[0][0]
+        sql = ("SELECT MAX(tid) FROM %s FORCE INDEX (PRIMARY)"
+               " WHERE `partition`=%s")
+        trans, obj = ({partition: p64(tid)
+            for partition in offset_list
+            for tid, in q(sql % (t, partition))
+            if tid is not None}
+            for t in ('trans', 'obj'))
+        oid = self._sqlmax(
+            "SELECT MAX(oid) FROM obj FORCE INDEX (`partition`)"
+            " WHERE `partition`=%s", offset_list)
         return trans, obj, None if oid is None else p64(oid)
 
     def _getUnfinishedTIDDict(self):
