@@ -33,7 +33,6 @@ const (
 	RESPONSE_MASK   = 0x8000
 )
 
-//type ErrorCode int
 type ErrorCode uint32
 const (
 	ACK ErrorCode = iota
@@ -210,7 +209,7 @@ func bool2byte(b bool) byte {
 }
 
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
-// NOTE '\xff' * 8 represents FP NaN but many other NaN bits representation exist
+// NOTE '\xff' * 8 represents FP NaN but many other NaN bits representations exist
 func float64_NEOEncode(b []byte, f float64) {
 	var fu uint64
 	if !math.IsNaN(f) {
@@ -256,7 +255,6 @@ type RowInfo struct {
 // any other message, even if such a message does not expect a reply
 // usually. Any -> Any.
 type Error struct {
-	//Code    uint32  // PNumber
 	Code    ErrorCode  // PNumber
 	Message string
 }
@@ -276,7 +274,7 @@ type RequestIdentification struct {
 	NodeType        NodeType        // XXX name
 	NodeID		NodeID
 	Address		Address		// where requesting node is also accepting connections
-	Name            string
+	Name            string		// XXX -> ClusterName
 	IdTimestamp	float64
 }
 
