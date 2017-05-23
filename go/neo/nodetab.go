@@ -174,7 +174,7 @@ func (nt *NodeTable) Add(node *Node) {
 // TODO subscribe for changes on Add ?  (notification via channel)
 
 
-// Lookup finds node by nodeID
+// Lookup finds node by uuid
 func (nt *NodeTable) Lookup(uuid NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {

@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"sync"
 )
@@ -124,6 +125,12 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 		return
 	}
 
+	// TODO get connNotify as conn left after identification
+	connNotify, err := link.NewConn()
+	if err != nil {
+		panic("TODO")	// XXX
+	}
+
 	// notify main logic node connects/disconnects
 	_ = nodeInfo
 	/*
@@ -160,6 +167,8 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	m.stateMu.Unlock()
 
 	go func() {
+		var pkt NEOEncoder
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -168,11 +177,18 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 				return
 
 			case nodeUpdateV := <-nodeCh:
-				// TODO
-				_ = nodeUpdateV
+				pkt = &NotifyNodeInformation{
+					IdTimestamp: math.NaN(),	// XXX
+					NodeList:    nodeUpdateV,
+				}
 
 			//case clusterState = <-clusterCh:
 			//	changed = true
+			}
+
+			err = EncodeAndSend(connNotify, pkt)
+			if err != nil {
+				// XXX err
 			}
 		}
 	}()
