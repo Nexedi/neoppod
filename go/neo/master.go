@@ -139,12 +139,11 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	// subscribe to nodeTab/partTab/clusterState and notify peer with updates
 	m.stateMu.Lock()
 
-	//clusterCh := make(chan ClusterState)
 
 	nodeCh, nodeUnsubscribe := m.nodeTab.SubscribeBuffered()
-	_ = nodeCh; _ = nodeUnsubscribe
 	//partCh, partUnsubscribe := m.partTab.SubscribeBuffered()
 	// TODO cluster subscribe
+	//clusterCh := make(chan ClusterState)
 
 	//m.clusterNotifyv = append(m.clusterNotifyv, clusterCh)
 
@@ -159,25 +158,22 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	// ClusterInformation	(PM -> * ?)
 	m.stateMu.Unlock()
 
-	/*
 	go func() {
-		var updates []...
+		for {
+			select {
+			case <-ctx.Done():
+				// TODO unsubscribe
+				// XXX we are not draining on cancel - how to free internal buffer ?
+				return
 
+			case nodeUpdateV := <-nodeCh:
+				// TODO
 
+			case clusterState = <-clusterCh:
+				changed = true
+			}
+		}
 	}()
-
-
-	go func() {
-		var clusterState ClusterState
-		changed := false
-
-		select {
-		case clusterState = <-clusterCh:
-			changed = true
-
-
-	}()
-	*/
 
 
 	// identification passed, now serve other requests

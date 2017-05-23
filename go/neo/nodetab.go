@@ -88,7 +88,9 @@ type Node struct {
 
 
 // Subscribe subscribes to NodeTable updates
-// it returns a channel via which updates will be delivered
+// it returns a channel via which updates will be delivered and unsubscribe function
+//
+// XXX locking: client for subscribe/unsubscribe	XXX ok?
 func (nt *NodeTable) Subscribe() (ch chan *Node, unsubscribe func()) {
 	ch = make(chan *Node)		// XXX how to specify ch buf size if needed ?
 	nt.subscribev = append(nt.subscribev, ch)
@@ -108,13 +110,13 @@ func (nt *NodeTable) Subscribe() (ch chan *Node, unsubscribe func()) {
 }
 
 // SubscribeBufferred subscribes to NodeTable updates without blocking updater
-// it returns a channel via which updates are delivered
-// the updates are sent to destination in non-blocking way - if destination channel is not ready
-// they will be bufferred.
+// it returns a channel via which updates are delivered and unsubscribe function
+// the updates will be sent to destination in non-blocking way - if destination
+// channel is not ready they will be bufferred.
 // it is the caller reponsibility to make sure such buffering does not grow up
 // to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown
 //
-// must be called with stateMu held
+// XXX locking: client for subscribe/unsubscribe	XXX ok?
 func (nt *NodeTable) SubscribeBuffered() (ch chan []*Node, unsubscribe func()) {
 	in, unsubscribe := nt.Subscribe()
 	ch = make(chan []*Node)
@@ -142,7 +144,7 @@ func (nt *NodeTable) SubscribeBuffered() (ch chan []*Node, unsubscribe func()) {
 					break
 				}
 
-				// FIXME better merge as same node could be updated several times
+				// FIXME merge updates as same node could be updated several times
 				updatev = append(updatev, update)
 
 			case out <- updatev:
