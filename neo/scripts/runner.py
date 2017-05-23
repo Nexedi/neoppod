@@ -173,7 +173,7 @@ class NeoTestRunner(unittest.TextTestResult):
                              exclude != fnmatchcase(test_module, only)):
                 continue
             try:
-                test_module = __import__(test_module, globals(), locals(), ['*'])
+                test_module = __import__(test_module, fromlist=('*',), level=0)
             except ImportError, err:
                 self.failedImports[test_module] = err
                 print "Import of %s failed : %s" % (test_module, err)

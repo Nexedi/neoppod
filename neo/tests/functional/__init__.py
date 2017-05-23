@@ -125,7 +125,7 @@ class NEOProcess(object):
 
     def __init__(self, command, uuid, arg_dict):
         try:
-            __import__('neo.scripts.' + command)
+            __import__('neo.scripts.' + command, level=0)
         except ImportError:
             raise NotFound, '%s not found' % (command)
         self.command = command

@@ -29,8 +29,7 @@ def getAdapterKlass(name):
         module, name = DATABASE_MANAGER_DICT[name or 'MySQL'].split('.')
     except KeyError:
         raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
-    module = getattr(__import__(__name__, fromlist=[module], level=1), module)
-    return getattr(module, name)
+    return getattr(__import__(module, globals(), level=1), name)
 
 def buildDatabaseManager(name, args=(), kw={}):
     return getAdapterKlass(name)(*args, **kw)

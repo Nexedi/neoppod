@@ -101,7 +101,7 @@ if IF == 'pdb':
         def __init__(self, bp_list):
             self._lock = threading.Lock()
             for o, name in bp_list:
-                o = __import__(o, fromlist=1)
+                o = __import__(o, fromlist=('*',), level=0)
                 x = name.split('.')
                 name = x.pop()
                 for x in x:
