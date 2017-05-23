@@ -118,7 +118,7 @@ const (
 	CORRUPTED                   //short: C
 )
 
-// NodeID is a node identifier, 4-bytes signed integer
+// NodeUUID is a node identifier, 4-bytes signed integer
 //
 // High-order byte:
 // 7 6 5 4 3 2 1 0
@@ -131,9 +131,9 @@ const (
 // Extra namespace information and non-randomness of 3 LOB help to read logs.
 //
 // TODO -> back to 16-bytes randomly generated UUID
-type NodeID int32
+type NodeUUID int32
 
-// TODO NodeType -> base NodeID
+// TODO NodeType -> base NodeUUID
 
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
@@ -232,18 +232,17 @@ func float64_NEODecode(b []byte) float64 {
 type NodeInfo struct {
 	NodeType
 	Address		// serving address
-	NodeID
+	NodeUUID
 	NodeState
 	IdTimestamp float64
 }
 
 // XXX -> parttab.go ?
 type CellInfo struct {
-	NodeID
+	NodeUUID
 	CellState
 }
 
-//type RowList []struct {
 type RowInfo struct {
 	Offset   uint32  // PNumber
 	CellList []CellInfo
@@ -272,7 +271,7 @@ type CloseClient struct {
 // connection. Any -> Any.
 type RequestIdentification struct {
 	NodeType        NodeType        // XXX name
-	NodeID		NodeID
+	NodeUUID	NodeUUID
 	Address		Address		// where requesting node is also accepting connections
 	Name            string		// XXX -> ClusterName
 	IdTimestamp	float64
@@ -281,10 +280,10 @@ type RequestIdentification struct {
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
 type AcceptIdentification struct {
 	NodeType        NodeType        // XXX name
-	MyNodeID        NodeID
+	MyNodeUUID      NodeUUID
 	NumPartitions   uint32          // PNumber
 	NumReplicas     uint32          // PNumber
-	YourNodeID      NodeID
+	YourNodeUUID    NodeUUID
 }
 
 // Ask current primary master's uuid. CTL -> A.
@@ -292,12 +291,12 @@ type PrimaryMaster struct {
 }
 
 type AnswerPrimary struct {
-	PrimaryNodeID NodeID
+	PrimaryNodeUUID NodeUUID
 }
 
 // Send list of known master nodes. SM -> Any.
 type NotPrimaryMaster struct {
-	Primary         NodeID		// XXX PSignedNull in py
+	Primary         NodeUUID	// XXX PSignedNull in py
 	KnownMasterList []struct {
 		Address
 	}
@@ -348,7 +347,7 @@ type PartitionChanges struct {
 	CellList []struct {
 		// XXX does below correlate with Cell inside top-level CellList ?
 		Offset    uint32  // PNumber
-		NodeID    NodeID
+		NodeUUID  NodeUUID
 		CellState CellState
 	}
 }
@@ -421,7 +420,7 @@ type AnswerBeginTransaction struct {
 // True is returned if it's still possible to finish the transaction.
 type FailedVote struct {
 	Tid	 zodb.Tid
-	NodeList []NodeID
+	NodeList []NodeUUID
 
 	// XXX _answer = Error
 }
@@ -536,7 +535,7 @@ type AnswerStoreObject struct {
 // Abort a transaction. C -> S and C -> PM -> S.
 type AbortTransaction struct {
 	Tid		zodb.Tid
-	NodeList	[]NodeID		// unused for * -> S
+	NodeList	[]NodeUUID		// unused for * -> S
 }
 
 // Ask to store a transaction. C -> S.
@@ -645,7 +644,7 @@ type AnswerObjectHistory struct {
 type PartitionList struct {
 	MinOffset   uint32      // PNumber
 	MaxOffset   uint32      // PNumber
-	NodeID      NodeID
+	NodeUUID    NodeUUID
 }
 
 type AnswerPartitionList struct {
@@ -667,7 +666,7 @@ type AnswerNodeList struct {
 
 // Set the node state
 type SetNodeState struct {
-	NodeID
+	NodeUUID
 	NodeState
 
 	// XXX _answer = Error ?
@@ -675,14 +674,14 @@ type SetNodeState struct {
 
 // Ask the primary to include some pending node in the partition table
 type AddPendingNodes struct {
-	NodeList []NodeID
+	NodeList []NodeUUID
 
 	// XXX _answer = Error
 }
 
 // Ask the primary to optimize the partition table. A -> PM.
 type TweakPartitionTable struct {
-	NodeList []NodeID
+	NodeList []NodeUUID
 
 	// XXX _answer = Error
 }
@@ -715,7 +714,7 @@ type repairFlags struct {
 
 // Ask storage nodes to repair their databases. ctl -> A -> M
 type Repair struct {
-	NodeList []NodeID
+	NodeList []NodeUUID
 	repairFlags
 }
 
@@ -803,7 +802,7 @@ type AnswerPack struct {
 // ctl -> A
 // A -> M
 type CheckReplicas struct {
-	PartitionDict map[uint32]NodeID        // partition -> source	(PNumber)
+	PartitionDict map[uint32]NodeUUID        // partition -> source	(PNumber)
 	MinTID  zodb.Tid
 	MaxTID  zodb.Tid
 
@@ -870,7 +869,7 @@ type AnswerCheckSerialRange struct {
 // S -> M
 type PartitionCorrupted struct {
 	Partition       uint32  // PNumber
-	CellList        []NodeID
+	CellList        []NodeUUID
 }
 
 

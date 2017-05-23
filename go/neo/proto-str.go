@@ -20,14 +20,14 @@ func (e *Error) Error() string {
 
 const nodeTypeChar = "MSCA4567"
 
-func (nid NodeID) String() string {
+func (nodeUUID NodeUUID) String() string {
 	// return ex 'S1', 'M2', ...
-	if nid == 0 {
+	if nodeUUID == 0 {
 		return "?0"
 	}
 
-	typ := nid >> 24
-	num := nid & (1<<24 - 1)
+	typ := nodeUUID >> 24
+	num := nodeUUID & (1<<24 - 1)
 
 	temp := typ&(1 << 7) != 0
 	typ &= 1<<7 - 1

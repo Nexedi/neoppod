@@ -114,7 +114,7 @@ type PartitionTable struct {
 
 // PartitionCell describes one storage in a ptid entry in partition table
 type PartitionCell struct {
-	NodeID
+	NodeUUID
 	CellState
 
 //	XXX ? + .haveUpToTid  associated node has data up to such tid
@@ -135,7 +135,7 @@ type PartitionCell struct {
 //          for cluster to be really operational it has to be checked whether
 //          nodes referenced by pt are up and running
 //
-// XXX or keep not only NodeID in PartitionCell - add *Node ?
+// XXX or keep not only NodeUUID in PartitionCell - add *Node ?
 func (pt *PartitionTable) Operational() bool {
 	for _, ptEntry := range pt.ptTab {
 		if len(ptEntry) == 0 {

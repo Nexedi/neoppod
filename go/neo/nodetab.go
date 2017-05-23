@@ -72,8 +72,8 @@ type NodeTable struct {
 	// users have to care locking explicitly
 	sync.RWMutex
 
-	nodev      []*Node
-	subscribev []chan *Node
+	nodev   []*Node
+	notifyv []chan NodeInfo // subscribers
 
 	ver int // ↑ for versioning	XXX do we need this?
 }
@@ -91,14 +91,14 @@ type Node struct {
 // it returns a channel via which updates will be delivered and unsubscribe function
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?
-func (nt *NodeTable) Subscribe() (ch chan *Node, unsubscribe func()) {
-	ch = make(chan *Node)		// XXX how to specify ch buf size if needed ?
-	nt.subscribev = append(nt.subscribev, ch)
+func (nt *NodeTable) Subscribe() (ch chan NodeInfo, unsubscribe func()) {
+	ch = make(chan NodeInfo)		// XXX how to specify ch buf size if needed ?
+	nt.notifyv = append(nt.notifyv, ch)
 
 	unsubscribe = func() {
-		for i, c := range nt.subscribev {
+		for i, c := range nt.notifyv {
 			if c == ch {
-				nt.subscribev = append(nt.subscribev[:i], nt.subscribev[i+1:]...)
+				nt.notifyv = append(nt.notifyv[:i], nt.notifyv[i+1:]...)
 				close(ch)
 				return
 			}
@@ -117,12 +117,12 @@ func (nt *NodeTable) Subscribe() (ch chan *Node, unsubscribe func()) {
 // to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?
-func (nt *NodeTable) SubscribeBuffered() (ch chan []*Node, unsubscribe func()) {
+func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()) {
 	in, unsubscribe := nt.Subscribe()
-	ch = make(chan []*Node)
+	ch = make(chan []NodeInfo)
 
 	go func() {
-		var updatev []*Node
+		var updatev []NodeInfo
 		shutdown := false
 
 		for {
@@ -175,10 +175,10 @@ func (nt *NodeTable) Add(node *Node) {
 
 
 // Lookup finds node by nodeID
-func (nt *NodeTable) Lookup(nodeID NodeID) *Node {
+func (nt *NodeTable) Lookup(uuid NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {
-		if node.Info.NodeID == nodeID {
+		if node.Info.NodeUUID == uuid {
 			return node
 		}
 	}
@@ -197,7 +197,7 @@ func (nt *NodeTable) String() string {
 	for _, node := range nt.nodev {
 		// XXX recheck output
 		i := node.Info
-		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", i.NodeID, i.NodeType, i.NodeState, i.Address)
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", i.NodeUUID, i.NodeType, i.NodeState, i.Address)
 	}
 
 	return buf.String()

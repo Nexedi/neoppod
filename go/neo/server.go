@@ -139,10 +139,10 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 
 		err = EncodeAndSend(conn, &AcceptIdentification{
 			NodeType:	myNodeType,
-			MyNodeID:	0,		// XXX
+			MyNodeUUID:	0,		// XXX
 			NumPartitions:	0,		// XXX
 			NumReplicas:	0,		// XXX
-			YourNodeID:	pkt.NodeID,
+			YourNodeUUID:	pkt.NodeUUID,
 		})
 
 		if err != nil {
@@ -181,7 +181,7 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 
 	err = EncodeAndSend(conn, &RequestIdentification{
 		NodeType:	 nodeType,
-		NodeID:		 0,			// XXX
+		NodeUUID:	 0,			// XXX
 		Address:	 Address{},		// XXX
 		Name:		 "",			// XXX cluster name ?
 		IdTimestamp:	 0,			// XXX

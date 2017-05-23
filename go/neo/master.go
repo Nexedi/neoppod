@@ -141,6 +141,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 
 
 	nodeCh, nodeUnsubscribe := m.nodeTab.SubscribeBuffered()
+	_ = nodeUnsubscribe
 	//partCh, partUnsubscribe := m.partTab.SubscribeBuffered()
 	// TODO cluster subscribe
 	//clusterCh := make(chan ClusterState)
@@ -168,9 +169,10 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 
 			case nodeUpdateV := <-nodeCh:
 				// TODO
+				_ = nodeUpdateV
 
-			case clusterState = <-clusterCh:
-				changed = true
+			//case clusterState = <-clusterCh:
+			//	changed = true
 			}
 		}
 	}()
