@@ -137,14 +137,14 @@ type PartitionCell struct {
 //
 // XXX or keep not only NodeID in PartitionCell - add *Node ?
 func (pt *PartitionTable) Operational() bool {
-	for ptEntry := range pt.ptTab {
+	for _, ptEntry := range pt.ptTab {
 		if len(ptEntry) == 0 {
 			return false
 		}
 
 		ok := false
 	cellLoop:
-		for cell := range ptEntry {
+		for _, cell := range ptEntry {
 			switch cell.CellState {
 			case UP_TO_DATE, FEEDING:	// XXX cell.isReadble in py
 				ok = true

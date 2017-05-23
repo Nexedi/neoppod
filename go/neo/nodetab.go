@@ -19,6 +19,8 @@ package neo
 // node management & node table
 
 import (
+	"bytes"
+	"fmt"
 	"sync"
 )
 
@@ -61,13 +63,17 @@ import (
 // 	sure not to accept new connections	-> XXX not needed - just stop listening
 // 	first.
 //
+// XXX once a node was added to NodeTable its entry never deleted: if e.g. a
+// connection to node is lost associated entry is marked as having DOWN (XXX or UNKNOWN ?) node
+// state.
+//
 // NodeTable zero value is valid empty node table.
 type NodeTable struct {
 	// users have to care locking explicitly
 	sync.RWMutex
 
-	nodev []Node
-
+	nodev      []*Node
+	subscribev []chan *Node
 
 	ver int // ↑ for versioning	XXX do we need this?
 }
@@ -81,6 +87,74 @@ type Node struct {
 }
 
 
+// Subscribe subscribes to NodeTable updates
+// it returns a channel via which updates will be delivered
+func (nt *NodeTable) Subscribe() (ch chan *Node, unsubscribe func()) {
+	ch = make(chan *Node)		// XXX how to specify ch buf size if needed ?
+	nt.subscribev = append(nt.subscribev, ch)
+
+	unsubscribe = func() {
+		for i, c := range nt.subscribev {
+			if c == ch {
+				nt.subscribev = append(nt.subscribev[:i], nt.subscribev[i+1:]...)
+				close(ch)
+				return
+			}
+		}
+		panic("XXX unsubscribe not subscribed channel")
+	}
+
+	return ch, unsubscribe
+}
+
+// SubscribeBufferred subscribes to NodeTable updates without blocking updater
+// it returns a channel via which updates are delivered
+// the updates are sent to destination in non-blocking way - if destination channel is not ready
+// they will be bufferred.
+// it is the caller reponsibility to make sure such buffering does not grow up
+// to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown
+//
+// must be called with stateMu held
+func (nt *NodeTable) SubscribeBuffered() (ch chan []*Node, unsubscribe func()) {
+	in, unsubscribe := nt.Subscribe()
+	ch = make(chan []*Node)
+
+	go func() {
+		var updatev []*Node
+		shutdown := false
+
+		for {
+			out := ch
+			if len(updatev) == 0 {
+				if shutdown {
+					// nothing to send and source channel closed
+					// -> close destination and stop
+					close(ch)
+					break
+				}
+				out = nil
+			}
+
+			select {
+			case update, ok := <-in:
+				if !ok {
+					shutdown = true
+					break
+				}
+
+				// FIXME better merge as same node could be updated several times
+				updatev = append(updatev, update)
+
+			case out <- updatev:
+				updatev = nil
+			}
+		}
+	}()
+
+	return ch, unsubscribe
+}
+
+
 // UpdateNode updates information about a node
 func (nt *NodeTable) UpdateNode(nodeInfo NodeInfo) {
 	// TODO
@@ -90,13 +164,26 @@ func (nt *NodeTable) UpdateNode(nodeInfo NodeInfo) {
 func (nt *NodeTable) Add(node *Node) {
 	// XXX check node is already there
 	// XXX pass/store node by pointer ?
-	nt.nodev = append(nt.nodev, *node)
+	nt.nodev = append(nt.nodev, node)
 
 	// TODO notify all nodelink subscribers about new info
 }
 
 // TODO subscribe for changes on Add ?  (notification via channel)
 
+
+// Lookup finds node by nodeID
+func (nt *NodeTable) Lookup(nodeID NodeID) *Node {
+	// FIXME linear scan
+	for _, node := range nt.nodev {
+		if node.Info.NodeID == nodeID {
+			return node
+		}
+	}
+	return nil
+}
+
+// XXX LookupByAddress ?
 
 
 func (nt *NodeTable) String() string {
@@ -105,9 +192,10 @@ func (nt *NodeTable) String() string {
 
 	buf := bytes.Buffer{}
 
-	for node := range nl.nodev {
+	for _, node := range nt.nodev {
 		// XXX recheck output
-		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", node.NodeID, node.NodeType, node.NodeState, node.Address)
+		i := node.Info
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", i.NodeID, i.NodeType, i.NodeState, i.Address)
 	}
 
 	return buf.String()

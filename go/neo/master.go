@@ -25,17 +25,24 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
 	clusterName  string
-	clusterState ClusterState
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
-	nodeTab NodeTable
-	partTab PartitionTable
+	stateMu      sync.RWMutex
+	nodeTab      NodeTable
+	partTab      PartitionTable
+	clusterState ClusterState
+
+	//nodeEventQ     chan ...	// for node connected / disconnected events
+
+
+	//txnCommittedQ chan ... // TODO for when txn is committed
 }
 
 func NewMaster(clusterName string) *Master {
@@ -53,10 +60,44 @@ func (m *Master) SetClusterState(state ClusterState) {
 	// XXX actions ?
 }
 
+
+// run implements main master cluster management logic: node tracking, cluster
+// state updates, scheduling data movement between storage nodes etc
+/*
+func (m *Master) run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			panic("TODO")
+
+		case nodeEvent := <-m.nodeEventQ:
+			// TODO update nodeTab
+
+			// add info to nodeTab
+			m.nodeTab.Lock()
+			m.nodeTab.Add(&Node{nodeInfo, link})
+			m.nodeTab.Unlock()
+
+			// TODO notify nodeTab changes
+
+			// TODO consider adjusting partTab
+
+			// TODO consider how this maybe adjust cluster state
+
+
+		//case txnCommitted := <-m.txnCommittedQ:
+
+		}
+	}
+}
+*/
+
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
 func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	fmt.Printf("master: %s: serving new node\n", link)
+
+	//var node *Node
 
 	// close link when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - link.Close will signal to all current IO to
@@ -83,28 +124,161 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 		return
 	}
 
-	// add info to nodeTab
-	m.nodeTab.Lock()
-	m.nodeTab.Add(&Node{nodeInfo, link})
-	m.nodeTab.Unlock()
+	// notify main logic node connects/disconnects
+	_ = nodeInfo
+	/*
+	node = &Node{nodeInfo, link}
+	m.nodeq <- node
+	defer func() {
+		node.state = DOWN
+		m.nodeq <- node
+	}()
+	*/
 
-	// TODO subscribe to nodeTab and broadcast updates:
-	//
+
+	// subscribe to nodeTab/partTab/clusterState and notify peer with updates
+	m.stateMu.Lock()
+
+	//clusterCh := make(chan ClusterState)
+
+	nodeCh, nodeUnsubscribe := m.nodeTab.SubscribeBuffered()
+	_ = nodeCh; _ = nodeUnsubscribe
+	//partCh, partUnsubscribe := m.partTab.SubscribeBuffered()
+	// TODO cluster subscribe
+
+	//m.clusterNotifyv = append(m.clusterNotifyv, clusterCh)
+
 	// NotifyPartitionTable	PM -> S, C
 	// PartitionChanges	PM -> S, C	// subset of NotifyPartitionTable (?)
 	// NotifyNodeIntormation PM -> *
 
+	// TODO read initial nodeTab/partTab while still under lock
+	// TODO send later this initial content to peer
+
 	// TODO notify about cluster state changes
 	// ClusterInformation	(PM -> * ?)
+	m.stateMu.Unlock()
+
+	/*
+	go func() {
+		var updates []...
+
+
+	}()
+
+
+	go func() {
+		var clusterState ClusterState
+		changed := false
+
+		select {
+		case clusterState = <-clusterCh:
+			changed = true
+
+
+	}()
+	*/
 
 
 	// identification passed, now serve other requests
 
 	// client: notify + serve requests
-
+	m.ServeClient(ctx, link)
 
 	// storage:
-	//
+	m.DriveStorage(ctx, link)
+}
+
+// ServeClient serves incoming connection on which peer identified itself as client
+// XXX +error return?
+//func (m *Master) ServeClient(ctx context.Context, conn *Conn) {
+func (m *Master) ServeClient(ctx context.Context, link *NodeLink) {
+	// TODO
+}
+
+
+// ---- internal requests for storage driver ----
+
+// storageRecovery asks storage driver to extract cluster recovery information from storage
+type storageRecovery struct {
+	resp chan PartitionTable	// XXX +err ?
+}
+
+// storageVerify asks storage driver to perform verification (i.e. "data recovery") operation
+type storageVerify struct {
+	// XXX what is result ?
+}
+
+// storageStartOperation asks storage driver to start storage node operating
+type storageStartOperation struct {
+	resp chan error // XXX
+}
+
+// storageStopOperation asks storage driver to stop storage node oerating
+type storageStopOperation struct {
+	resp chan error
+}
+
+// DriveStorage serves incoming connection on which peer identified itself as storage
+//
+// There are 2 connections:
+// - notifications: unidirectional M -> S notifications (nodes, parttab, cluster state)
+// - control: bidirectional M <-> S
+//
+// In control communication master always drives the exchange - talking first
+// with e.g. a command or request and expects corresponding answer
+//
+// XXX +error return?
+func (m *Master) DriveStorage(ctx context.Context, link *NodeLink) {
+	// ? >UnfinishedTransactions
+	// ? <AnswerUnfinishedTransactions	(none currently)
+
+	// TODO go for notify chan
+
+	for {
+		select {
+		case <-ctx.Done():
+			return	// XXX recheck
+
+		// // request from master to do something
+		// case mreq := <-xxx:
+		// 	switch mreq := mreq.(type) {
+		// 	case storageRecovery:
+
+		// 	case storageVerify:
+		// 		// TODO
+
+		// 	case storageStartOperation:
+		// 		// XXX timeout ?
+
+		// 		// XXX -> chat2 ?
+		// 		err = EncodeAndSend(conn, &StartOperation{Backup: false /* XXX hardcoded */})
+		// 		if err != nil {
+		// 			// XXX err
+		// 		}
+
+		// 		pkt, err := RecvAndDecode(conn)
+		// 		if err != nil {
+		// 			// XXX err
+		// 		}
+
+		// 		switch pkt := pkt.(type) {
+		// 		default:
+		// 			err = fmt.Errorf("unexpected answer: %T", pkt)
+
+		// 		case *NotifyReady:
+		// 		}
+
+		// 		// XXX better in m.nodeq ?
+		// 		mreq.resp <- err	// XXX err ctx
+
+
+		// 	case storageStopOperation:
+		// 		// TODO
+		// 	}
+		}
+	}
+
 	// RECOVERY (master.recovery.RecoveryManager + master.handlers.identification.py)
 	// --------
 	// """
@@ -166,35 +340,6 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	// ...
 	//
 	// StopOperation	PM -> S
-
-
-
-}
-
-// ServeClient serves incoming connection on which peer identified itself as client
-// XXX +error return?
-func (m *Master) ServeClient(ctx context.Context, conn *Conn) {
-	// TODO
-}
-
-// ServeStorage serves incoming connection on which peer identified itself as storage
-// XXX +error return?
-func (m *Master) ServeStorage(ctx context.Context, conn *Conn) {
-	// TODO
-
-	// >Recovery
-	// <AnswerRecovery
-
-	// ? >UnfinishedTransactions
-	// ? <AnswerUnfinishedTransactions	(none currently)
-
-
-	// <NotifyReady
-	// >StartOperation
-
-
-
-	// >StopOperation (on shutdown)
 }
 
 func (m *Master) ServeAdmin(ctx context.Context, conn *Conn) {
