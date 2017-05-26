@@ -1,3 +1,5 @@
+- TODO stats for events (packets received, errors, etc)
+
 - custom memory manager is required to avoid performance hit on e.g. []byte alloc/dealloc
 
   -> go-slab
@@ -14,6 +16,9 @@
 
 
 - "Go Execution Tracer"
+
+- x/net/trace to trace requests and connection logging (and packets ?)
+- gRPC eventually instead of hand-made protocol ?
 
 go.leveldb      - study
 go.groupcache   - study
