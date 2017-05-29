@@ -273,7 +273,7 @@ type RequestIdentification struct {
 	NodeType        NodeType        // XXX name
 	NodeUUID	NodeUUID
 	Address		Address		// where requesting node is also accepting connections
-	Name            string		// XXX -> ClusterName
+	ClusterName	string
 	IdTimestamp	float64
 }
 

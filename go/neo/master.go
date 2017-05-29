@@ -27,11 +27,13 @@ import (
 	"math"
 	"os"
 	"sync"
+	"time"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
 	clusterName  string
+	nodeUUID     NodeUUID // my node uuid; XXX init somewhere
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
@@ -40,10 +42,16 @@ type Master struct {
 	partTab      PartitionTable
 	clusterState ClusterState
 
-	//nodeEventQ     chan ...	// for node connected / disconnected events
+	nodeCome  chan nodeCome	 // node connected
+	//nodeLeave chan nodeLeave // node disconnected
+}
 
 
-	//txnCommittedQ chan ... // TODO for when txn is committed
+// a new node connect
+type nodeCome struct {
+	link   *NodeLink
+	idReq  RequestIdentification // we received this identification request
+	idResp chan NEOEncoder	     // what we reply (AcceptIdentification | Error)
 }
 
 func NewMaster(clusterName string) *Master {
@@ -61,37 +69,115 @@ func (m *Master) SetClusterState(state ClusterState) {
 	// XXX actions ?
 }
 
+// monotime returns time passed since program start
+// it uses monothonic time and is robust to OS clock adjustments
+// XXX place?
+func monotime() float64 {
+	// time.Sub uses monotonic clock readings for the difference
+	return time.Now().Sub(tstart).Seconds()
+}
+
+var tstart time.Time = time.Now()
 
 // run implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
-/*
 func (m *Master) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			panic("TODO")
 
-		case nodeEvent := <-m.nodeEventQ:
-			// TODO update nodeTab
+		// new node connects & requests identification
+		case n := <-m.nodeCome:
+			// XXX also verify ? :
+			// - NodeType valid
+			// - IdTimestamp ?
 
-			// add info to nodeTab
-			m.nodeTab.Lock()
-			m.nodeTab.Add(&Node{nodeInfo, link})
-			m.nodeTab.Unlock()
+			if n.idReq.ClusterName != m.clusterName {
+				n.idResp <- &Error{PROTOCOL_ERROR, "cluster name mismatch"} // XXX
+				break
+			}
 
-			// TODO notify nodeTab changes
+			nodeType := n.idReq.NodeType
 
-			// TODO consider adjusting partTab
+			uuid := n.idReq.NodeUUID
+			if uuid == 0 {
+				uuid = m.allocUUID(nodeType)
+			}
+			// XXX uuid < 0 (temporary) -> reallocate if conflict ?
 
-			// TODO consider how this maybe adjust cluster state
+			node := m.nodeTab.Get(uuid)
+			if node != nil {
+				// reject - uuid is already occupied by someone else
+				// XXX check also for down state - it could be the same node reconnecting
+				n.idResp <- &Error{PROTOCOL_ERROR, "uuid %v already used by another node"} // XXX
+				break
+			}
+
+			// XXX accept only certain kind of nodes depending on .clusterState, e.g.
+			switch nodeType {
+			case CLIENT:
+				n.idResp <- &Error{NOT_READY, "cluster not operational"}
+
+			// XXX ...
+			}
 
 
-		//case txnCommitted := <-m.txnCommittedQ:
+			n.idResp <- &AcceptIdentification{
+					NodeType:	MASTER,
+					MyNodeUUID:	m.nodeUUID,
+					NumPartitions:	1,	// FIXME hardcoded
+					NumReplicas:	1,	// FIXME hardcoded
+					YourNodeUUID:	uuid,
+				}
 
+			// update nodeTab
+			var nodeState NodeState
+			switch nodeType {
+			case STORAGE:
+				// FIXME py sets to RUNNING/PENDING depending on cluster state
+				nodeState = PENDING
+
+			default:
+				nodeState = RUNNING
+			}
+
+			nodeInfo := NodeInfo{
+				NodeType:	nodeType,
+				Address:	n.idReq.Address,
+				NodeUUID:	uuid,
+				NodeState:	nodeState,
+				IdTimestamp:	monotime(),
+			}
+
+			m.nodeTab.Update(nodeInfo) // NOTE this notifies al nodeTab subscribers
+
+			// XXX consider adjusting partTab
+			// XXX consider .clusterState change
+			// XXX add new node to current whole-cluster job
+
+		//case link := <-m.nodeLeave:
 		}
 	}
 }
-*/
+
+// allocUUID allocates new node uuid for a node of kind nodeType
+// XXX it is bad idea for master to assign uuid to coming node
+// -> better nodes generate really uniquie UUID themselves and always show with them
+func (m *Master) allocUUID(nodeType NodeType) NodeUUID {
+	// see NodeUUID & NodeUUID.String for details
+	// XXX better to keep this code near to ^^^ (e.g. attached to NodeType)
+	// XXX but since whole uuid assign idea is not good - let's keep it dirty here
+	typ := int(nodeType & 7) << (24 + 4) // note temp=0
+	for num := 1; num < 1<<24; num++ {
+		uuid := NodeUUID(typ | num)
+		if m.nodeTab.Get(uuid) == nil {
+			return uuid
+		}
+	}
+
+	panic("all uuid allocated ???")	// XXX more robust ?
+}
 
 // ServeLink serves incoming node-node link connection
 // XXX +error return?

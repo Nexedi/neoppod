@@ -237,7 +237,7 @@ func (p *CloseClient) NEODecode(data []byte) (int, error) {
 // 7. RequestIdentification
 
 func (p *RequestIdentification) NEOEncodedInfo() (uint16, int) {
-	return 7, 26 + len(p.Address.Host) + len(p.Name)
+	return 7, 26 + len(p.Address.Host) + len(p.ClusterName)
 }
 
 func (p *RequestIdentification) NEOEncode(data []byte) {
@@ -252,10 +252,10 @@ func (p *RequestIdentification) NEOEncode(data []byte) {
 	}
 	binary.BigEndian.PutUint16(data[0:], p.Address.Port)
 	{
-		l := uint32(len(p.Name))
+		l := uint32(len(p.ClusterName))
 		binary.BigEndian.PutUint32(data[2:], l)
 		data = data[6:]
-		copy(data, p.Name)
+		copy(data, p.ClusterName)
 		data = data[l:]
 	}
 	float64_NEOEncode(data[0:], p.IdTimestamp)
@@ -286,7 +286,7 @@ func (p *RequestIdentification) NEODecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += 8 + l
-		p.Name = string(data[:l])
+		p.ClusterName = string(data[:l])
 		data = data[l:]
 	}
 	p.IdTimestamp = float64_NEODecode(data[0:])

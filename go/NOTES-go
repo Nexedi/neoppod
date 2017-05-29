@@ -1,3 +1,10 @@
+? Load vs "deleted" -> err or data=nil ?  -> stor.Conn flag
+? IStorage.Load -> per storage connection
+
+? random access -> mmap
+
+----------------------------------------
+
 - TODO stats for events (packets received, errors, etc)
 
 - custom memory manager is required to avoid performance hit on e.g. []byte alloc/dealloc
@@ -18,6 +25,8 @@
 - "Go Execution Tracer"
 
 - x/net/trace to trace requests and connection logging (and packets ?)
+- packet log; general log -> glog ?
+
 - gRPC eventually instead of hand-made protocol ?
 
 go.leveldb      - study

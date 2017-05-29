@@ -136,6 +136,8 @@ type PartitionCell struct {
 //          nodes referenced by pt are up and running
 //
 // XXX or keep not only NodeUUID in PartitionCell - add *Node ?
+//
+// XXX -> add `nt *NodeTable` as argument and check real node states there ?
 func (pt *PartitionTable) Operational() bool {
 	for _, ptEntry := range pt.ptTab {
 		if len(ptEntry) == 0 {

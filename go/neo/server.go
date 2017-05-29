@@ -183,7 +183,7 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 		NodeType:	 nodeType,
 		NodeUUID:	 0,			// XXX
 		Address:	 Address{},		// XXX
-		Name:		 "",			// XXX cluster name ?
+		ClusterName:	 "",			// XXX
 		IdTimestamp:	 0,			// XXX
 	})
 

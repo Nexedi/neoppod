@@ -21,7 +21,7 @@ package neo
 import (
 	"bytes"
 	"fmt"
-	"sync"
+	//"sync"
 )
 
 // NodeTable represents all nodes in a cluster
@@ -70,7 +70,7 @@ import (
 // NodeTable zero value is valid empty node table.
 type NodeTable struct {
 	// users have to care locking explicitly
-	sync.RWMutex
+	//sync.RWMutex	XXX needed ?
 
 	nodev   []*Node
 	notifyv []chan NodeInfo // subscribers
@@ -84,6 +84,7 @@ type Node struct {
 
 	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
 	// XXX identified or not ?
+	// XXX -> not needed - we only add something to nodetab after identification
 }
 
 
@@ -157,12 +158,26 @@ func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()
 }
 
 
-// UpdateNode updates information about a node
-func (nt *NodeTable) UpdateNode(nodeInfo NodeInfo) {
-	// TODO
+// Update updates information about a node
+// XXX how to pass link into node?
+func (nt *NodeTable) Update(nodeInfo NodeInfo) {
+	node := nt.Get(nodeInfo.NodeUUID)
+	if node == nil {
+		node = &Node{}
+		nt.nodev = append(nt.nodev, node)
+	}
+
+	node.Info = nodeInfo
+
+	// notify subscribers
+	// XXX rlock for .notifyv ?
+	for _, notify := range nt.notifyv {
+		notify <- nodeInfo
+	}
 }
 
-// XXX ? ^^^ UpdateNode is enough ?
+/*
+// XXX ? ^^^ Update is enough ?
 func (nt *NodeTable) Add(node *Node) {
 	// XXX check node is already there
 	// XXX pass/store node by pointer ?
@@ -170,12 +185,13 @@ func (nt *NodeTable) Add(node *Node) {
 
 	// TODO notify all nodelink subscribers about new info
 }
+*/
 
 // TODO subscribe for changes on Add ?  (notification via channel)
 
 
-// Lookup finds node by uuid
-func (nt *NodeTable) Lookup(uuid NodeUUID) *Node {
+// Get finds node by uuid
+func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {
 		if node.Info.NodeUUID == uuid {
@@ -185,7 +201,7 @@ func (nt *NodeTable) Lookup(uuid NodeUUID) *Node {
 	return nil
 }
 
-// XXX LookupByAddress ?
+// XXX GetByAddress ?
 
 
 func (nt *NodeTable) String() string {
