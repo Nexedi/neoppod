@@ -159,17 +159,9 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, err error) {
 	defer errcontextf(&err, "%s: request identification", link)
 
-	/*
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%s: request identification: %s", link, err)
-		}
-	}()
-	*/
-
 	conn, err := link.NewConn()
 	if err != nil {
-		return peerType, err
+		return 0, err
 	}
 	defer func() {
 		err2 := conn.Close()
@@ -179,33 +171,20 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 		}
 	}()
 
-	err = EncodeAndSend(conn, &RequestIdentification{
+	resp := AcceptIdentification{}
+	err = Ask(conn, &RequestIdentification{
 		NodeType:	 nodeType,
 		NodeUUID:	 0,			// XXX
 		Address:	 Address{},		// XXX
 		ClusterName:	 "",			// XXX
 		IdTimestamp:	 0,			// XXX
-	})
+	}, &resp)
 
 	if err != nil {
-		return peerType, err
+		return 0, err
 	}
 
-	pkt, err := RecvAndDecode(conn)
-	if err != nil {
-		return peerType, err
-	}
-
-	switch pkt := pkt.(type) {
-	default:
-		return peerType, fmt.Errorf("unexpected answer: %T", pkt)
-
-	// XXX also handle Error
-
-	case *AcceptIdentification:
-		return pkt.NodeType, nil
-	}
-
+	return resp.NodeType, nil
 }
 
 // ----------------------------------------
@@ -238,7 +217,7 @@ func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interf
 	return pktObj, nil
 }
 
-// EncodeAndSend encodes pkt and send it to conn
+// EncodeAndSend encodes pkt and sends it to conn
 func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
 	msgCode, l := pkt.NEOEncodedInfo()
 	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
@@ -251,4 +230,48 @@ func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
 	pkt.NEOEncode(buf.Payload())
 
 	return conn.Send(&buf)	// XXX why pointer?
+}
+
+// Ask does simple request/response protocol exchange
+// It expects the answer to be exactly of resp type and errors otherwise
+func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
+	err := EncodeAndSend(conn, req)
+	if err != nil {
+		return err
+	}
+
+	pkt, err := conn.Recv()
+	if err != nil {
+		return err
+	}
+
+	// XXX dup wrt RecvAndDecode
+	pkth := pkt.Header()
+	msgCode := ntoh16(pkth.MsgCode)
+	msgType := pktTypeRegistry[msgCode]
+	if msgType == nil {
+		return fmt.Errorf("invalid msgCode (%d)", msgCode) // XXX err ctx
+	}
+
+	if msgType != reflect.TypeOf(resp) {
+		// Error response
+		if msgType == reflect.TypeOf(Error{}) {
+			errResp := Error{}
+			_, err = errResp.NEODecode(pkt.Payload())
+			if err != nil {
+				return err // XXX err ctx
+			}
+
+			return errDecode(&errResp) // XXX err ctx
+		}
+
+		return fmt.Errorf("unexpected reply: %T", msgType) // XXX err ctx
+	}
+
+	_, err = resp.NEODecode(pkt.Payload())
+	if err != nil {
+		return err // XXX err ctx
+	}
+
+	return nil
 }

@@ -235,6 +235,7 @@ func (nl *NodeLink) shutdown() {
 // All blocking operations - Accept and IO on associated connections
 // established over node link - are automatically interrupted with an error.
 // Underlying raw connection is closed.
+// It is safe to call Close several times
 func (nl *NodeLink) Close() error {
 	atomic.StoreUint32(&nl.closed, 1)
 	nl.shutdown()
@@ -254,6 +255,8 @@ func (c *Conn) shutdown() {
 //
 // NOTE for Send() - once transmission was started - it will complete in the
 // background on the wire not to break node-node link framing.
+//
+// It is safe to call Close several times.
 //
 // TODO Close on one end must make Recv/Send on another end fail
 // (UC: sending []txn-info)

@@ -48,27 +48,12 @@ func (c *Client) Close() error {
 func (c *Client) LastTid() (zodb.Tid, error) {
 	// FIXME do not use global conn (see comment in openClientByURL)
 	// XXX open new conn for this particular req/reply ?
-	err := EncodeAndSend(c.storConn, &LastTransaction{})
+	reply := AnswerLastTransaction{}
+	err := Ask(c.storConn, &LastTransaction{}, &reply)
 	if err != nil {
-		return 0, err	// XXX err context
+		return 0, err	// XXX err ctx
 	}
-
-	reply, err := RecvAndDecode(c.storConn)
-	if err != nil {
-		// XXX err context (e.g. peer resetting connection -> currently only EOF)
-		return 0, err
-	}
-
-	switch reply := reply.(type) {
-	case *Error:
-		return 0, errDecode(reply)	// XXX err context
-	default:
-		// XXX more error context ?
-		return 0, fmt.Errorf("protocol error: unexpected reply: %T", reply)
-
-	case *AnswerLastTransaction:
-		return reply.Tid, nil
-	}
+	return reply.Tid, nil
 }
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
@@ -82,36 +67,18 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		req.Tid = INVALID_TID
 	}
 
-	err = EncodeAndSend(c.storConn, &req)
+	resp := AnswerGetObject{}
+	err = Ask(c.storConn, &req, &resp)
 	if err != nil {
 		return nil, 0, err	// XXX err context
 	}
 
-	reply, err := RecvAndDecode(c.storConn)
-	if err != nil {
-		// XXX err context (e.g. peer resetting connection -> currently only EOF)
-		return nil, 0, err
-	}
+	// TODO reply.Checksum - check sha1
+	// TODO reply.Compression - decompress
 
-	switch reply := reply.(type) {
-	case *Error:
-		return nil, 0, errDecode(reply)	// XXX err context
-	default:
-		// XXX more error context ?
-		return nil, 0, fmt.Errorf("protocol error: unexpected reply: %T", reply)
-
-	case *AnswerGetObject:
-		data = reply.Data
-		tid  = reply.Serial
-
-		// TODO reply.Checksum - check sha1
-		// TODO reply.Compression - decompress
-
-		// reply.NextSerial
-		// reply.DataSerial
-
-		return data, tid, nil
-	}
+	// reply.NextSerial
+	// reply.DataSerial
+	return resp.Data, resp.Serial, nil
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {

@@ -82,83 +82,144 @@ var tstart time.Time = time.Now()
 // run implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) run(ctx context.Context) {
+
+	// current function to ask/control a storage depending on current cluster state and master idea
+	// + associated context covering all storage nodes
+	storCtl := m.storRecovery
+	storCtlCtx, storCtlCancel := context.WithCancel(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
 			panic("TODO")
 
-		// new node connects & requests identification
+		// node connects & requests identification
 		case n := <-m.nodeCome:
-			// XXX also verify ? :
-			// - NodeType valid
-			// - IdTimestamp ?
+			nodeInfo, ok := m.accept(n)
 
-			if n.idReq.ClusterName != m.clusterName {
-				n.idResp <- &Error{PROTOCOL_ERROR, "cluster name mismatch"} // XXX
+			if !(ok && nodeInfo.NodeType == STORAGE) {
 				break
 			}
 
-			nodeType := n.idReq.NodeType
-
-			uuid := n.idReq.NodeUUID
-			if uuid == 0 {
-				uuid = m.allocUUID(nodeType)
-			}
-			// XXX uuid < 0 (temporary) -> reallocate if conflict ?
-
-			node := m.nodeTab.Get(uuid)
-			if node != nil {
-				// reject - uuid is already occupied by someone else
-				// XXX check also for down state - it could be the same node reconnecting
-				n.idResp <- &Error{PROTOCOL_ERROR, "uuid %v already used by another node"} // XXX
-				break
+			// new storage node joined cluster
+			switch m.clusterState {
+			case RECOVERING:
 			}
 
-			// XXX accept only certain kind of nodes depending on .clusterState, e.g.
-			switch nodeType {
-			case CLIENT:
-				n.idResp <- &Error{NOT_READY, "cluster not operational"}
-
-			// XXX ...
-			}
-
-
-			n.idResp <- &AcceptIdentification{
-					NodeType:	MASTER,
-					MyNodeUUID:	m.nodeUUID,
-					NumPartitions:	1,	// FIXME hardcoded
-					NumReplicas:	1,	// FIXME hardcoded
-					YourNodeUUID:	uuid,
-				}
-
-			// update nodeTab
-			var nodeState NodeState
-			switch nodeType {
-			case STORAGE:
-				// FIXME py sets to RUNNING/PENDING depending on cluster state
-				nodeState = PENDING
-
-			default:
-				nodeState = RUNNING
-			}
-
-			nodeInfo := NodeInfo{
-				NodeType:	nodeType,
-				Address:	n.idReq.Address,
-				NodeUUID:	uuid,
-				NodeState:	nodeState,
-				IdTimestamp:	monotime(),
-			}
-
-			m.nodeTab.Update(nodeInfo) // NOTE this notifies al nodeTab subscribers
-
-			// XXX consider adjusting partTab
 			// XXX consider .clusterState change
-			// XXX add new node to current whole-cluster job
 
+			// launch current storage control work on the new node
+			go storCtl(storCtlCtx, n.link)
+
+			// TODO consider adjusting partTab
+
+		// node disconnects
 		//case link := <-m.nodeLeave:
 		}
 	}
+
+	_ = storCtlCancel	// XXX
+}
+
+// storRecovery drives a storage node during cluster recoving state
+// TODO text
+func (m *Master) storRecovery(ctx context.Context, link *NodeLink) {
+	var err error
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		fmt.Printf("master: %v", err)
+
+		// this must interrupt everything connected to stor node and
+		// thus eventually to result in nodeLeave event to main driver
+		link.Close()
+	}()
+	defer errcontextf(&err, "%s: stor recovery", link)
+
+	conn, err := link.NewConn()	// FIXME bad
+	if err != nil {
+		return
+	}
+
+	recovery := AnswerRecovery{}
+	err = Ask(conn, &Recovery{}, &recovery)
+	if err != nil {
+		return
+	}
+
+	ptid := recovery.PTid
+	_ = ptid	// XXX temp
+}
+
+// accept processes identification request of just connected node and either accepts or declines it
+// if node identification is accepted nodeTab is updated and corresponding nodeInfo is returned
+func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
+	// XXX also verify ? :
+	// - NodeType valid
+	// - IdTimestamp ?
+
+	if n.idReq.ClusterName != m.clusterName {
+		n.idResp <- &Error{PROTOCOL_ERROR, "cluster name mismatch"} // XXX
+		return
+	}
+
+	nodeType := n.idReq.NodeType
+
+	uuid := n.idReq.NodeUUID
+	if uuid == 0 {
+		uuid = m.allocUUID(nodeType)
+	}
+	// XXX uuid < 0 (temporary) -> reallocate if conflict ?
+
+	node := m.nodeTab.Get(uuid)
+	if node != nil {
+		// reject - uuid is already occupied by someone else
+		// XXX check also for down state - it could be the same node reconnecting
+		n.idResp <- &Error{PROTOCOL_ERROR, "uuid %v already used by another node"} // XXX
+		return
+	}
+
+	// XXX accept only certain kind of nodes depending on .clusterState, e.g.
+	switch nodeType {
+	case CLIENT:
+		n.idResp <- &Error{NOT_READY, "cluster not operational"}
+
+	// XXX ...
+	}
+
+
+	n.idResp <- &AcceptIdentification{
+			NodeType:	MASTER,
+			MyNodeUUID:	m.nodeUUID,
+			NumPartitions:	1,	// FIXME hardcoded
+			NumReplicas:	1,	// FIXME hardcoded
+			YourNodeUUID:	uuid,
+		}
+
+	// update nodeTab
+	var nodeState NodeState
+	switch nodeType {
+	case STORAGE:
+		// FIXME py sets to RUNNING/PENDING depending on cluster state
+		nodeState = PENDING
+
+	default:
+		nodeState = RUNNING
+	}
+
+	nodeInfo = NodeInfo{
+		NodeType:	nodeType,
+		Address:	n.idReq.Address,
+		NodeUUID:	uuid,
+		NodeState:	nodeState,
+		IdTimestamp:	monotime(),
+	}
+
+	m.nodeTab.Update(nodeInfo) // NOTE this notifies al nodeTab subscribers
+
+	return nodeInfo, true
 }
 
 // allocUUID allocates new node uuid for a node of kind nodeType
