@@ -42,16 +42,29 @@ type Master struct {
 	partTab      PartitionTable
 	clusterState ClusterState
 
-	nodeCome  chan nodeCome	 // node connected
-	//nodeLeave chan nodeLeave // node disconnected
+	// channels from various workers to main driver
+	nodeCome     chan nodeCome	// node connected
+	nodeLeave    chan nodeLeave	// node disconnected
+	storRecovery chan storRecovery	// storage node passed recovery
 }
 
 
-// a new node connect
+// node connects
 type nodeCome struct {
 	link   *NodeLink
 	idReq  RequestIdentification // we received this identification request
 	idResp chan NEOEncoder	     // what we reply (AcceptIdentification | Error)
+}
+
+// node disconnects
+type nodeLeave struct {
+	// TODO
+}
+
+// storage node passed recovery phase
+type storRecovery struct {
+	parttab PartitionTable
+	// XXX + lastOid, lastTid, backup_tid, truncate_tid ?
 }
 
 func NewMaster(clusterName string) *Master {
@@ -85,7 +98,7 @@ func (m *Master) run(ctx context.Context) {
 
 	// current function to ask/control a storage depending on current cluster state and master idea
 	// + associated context covering all storage nodes
-	storCtl := m.storRecovery
+	storCtl := m.storCtlRecovery
 	storCtlCtx, storCtlCancel := context.WithCancel(ctx)
 
 	for {
@@ -115,42 +128,16 @@ func (m *Master) run(ctx context.Context) {
 
 		// node disconnects
 		//case link := <-m.nodeLeave:
+
+		// a storage node came through recovery - let's see whether
+		// ptid ↑ and if so we should take partition table from there
+		case r := <-m.storRecovery:
+			_ = r
+
 		}
 	}
 
 	_ = storCtlCancel	// XXX
-}
-
-// storRecovery drives a storage node during cluster recoving state
-// TODO text
-func (m *Master) storRecovery(ctx context.Context, link *NodeLink) {
-	var err error
-	defer func() {
-		if err == nil {
-			return
-		}
-
-		fmt.Printf("master: %v", err)
-
-		// this must interrupt everything connected to stor node and
-		// thus eventually to result in nodeLeave event to main driver
-		link.Close()
-	}()
-	defer errcontextf(&err, "%s: stor recovery", link)
-
-	conn, err := link.NewConn()	// FIXME bad
-	if err != nil {
-		return
-	}
-
-	recovery := AnswerRecovery{}
-	err = Ask(conn, &Recovery{}, &recovery)
-	if err != nil {
-		return
-	}
-
-	ptid := recovery.PTid
-	_ = ptid	// XXX temp
 }
 
 // accept processes identification request of just connected node and either accepts or declines it
@@ -220,6 +207,61 @@ func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
 	m.nodeTab.Update(nodeInfo) // NOTE this notifies al nodeTab subscribers
 
 	return nodeInfo, true
+}
+
+// storCtlRecovery drives a storage node during cluster recoving state
+// TODO text
+func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
+	var err error
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		fmt.Printf("master: %v", err)
+
+		// this must interrupt everything connected to stor node and
+		// thus eventually result in nodeLeave event to main driver
+		link.Close()
+	}()
+	defer errcontextf(&err, "%s: stor recovery", link)
+
+	conn, err := link.NewConn()	// FIXME bad
+	if err != nil {
+		return
+	}
+
+	recovery := AnswerRecovery{}
+	err = Ask(conn, &Recovery{}, &recovery)
+	if err != nil {
+		return
+	}
+
+	resp := AnswerPartitionTable{}
+	err = Ask(conn, &X_PartitionTable{}, &resp)
+	if err != nil {
+		return
+	}
+
+	// reconstruct partition table from response
+	pt := PartitionTable{}
+	pt.ptId = resp.PTid
+	for _, row := range resp.RowList {
+		i := row.Offset
+		for i >= uint32(len(pt.ptTab)) {
+			pt.ptTab = append(pt.ptTab, []PartitionCell{})
+		}
+
+		//pt.ptTab[i] = append(pt.ptTab[i], row.CellList...)
+		for _, cell := range row.CellList {
+			pt.ptTab[i] = append(pt.ptTab[i], PartitionCell{
+					NodeUUID:  cell.NodeUUID,
+					CellState: cell.CellState,
+				})
+		}
+	}
+
+	m.storRecovery <- storRecovery{parttab: pt}
 }
 
 // allocUUID allocates new node uuid for a node of kind nodeType
