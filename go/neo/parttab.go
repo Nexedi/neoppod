@@ -109,7 +109,7 @@ type PartitionTable struct {
 
 	ptTab [][]PartitionCell // [#Np]
 
-	ptId PTid // ↑ for versioning	XXX -> ver ?
+	ptid PTid // ↑ for versioning	XXX -> ver ?
 }
 
 // PartitionCell describes one storage in a ptid entry in partition table

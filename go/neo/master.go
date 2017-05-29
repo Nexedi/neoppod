@@ -63,7 +63,7 @@ type nodeLeave struct {
 
 // storage node passed recovery phase
 type storRecovery struct {
-	parttab PartitionTable
+	partTab PartitionTable
 	// XXX + lastOid, lastTid, backup_tid, truncate_tid ?
 }
 
@@ -127,13 +127,17 @@ func (m *Master) run(ctx context.Context) {
 			// TODO consider adjusting partTab
 
 		// node disconnects
-		//case link := <-m.nodeLeave:
+		case _ = <-m.nodeLeave:
+			// TODO
 
 		// a storage node came through recovery - let's see whether
 		// ptid ↑ and if so we should take partition table from there
 		case r := <-m.storRecovery:
-			_ = r
-
+			if r.partTab.ptid > m.partTab.ptid {
+				m.partTab = r.partTab
+				// XXX also transfer subscribers ?
+				// XXX or during recovery no one must be subscribed to partTab ?
+			}
 		}
 	}
 
@@ -245,7 +249,7 @@ func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
 
 	// reconstruct partition table from response
 	pt := PartitionTable{}
-	pt.ptId = resp.PTid
+	pt.ptid = resp.PTid
 	for _, row := range resp.RowList {
 		i := row.Offset
 		for i >= uint32(len(pt.ptTab)) {
@@ -261,7 +265,7 @@ func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
 		}
 	}
 
-	m.storRecovery <- storRecovery{parttab: pt}
+	m.storRecovery <- storRecovery{partTab: pt}
 }
 
 // allocUUID allocates new node uuid for a node of kind nodeType
