@@ -55,7 +55,7 @@ const (
 	// initially ClusterRecovery, during which the master:
 	// - first recovers its own data by reading it from storage nodes;
 	// - waits for the partition table be operational;
-	// - automatically switch to ClusterVerifying if the cluster can be safely started.
+	// - automatically switch to ClusterVerifying if the cluster can be safely started. XXX not automatic
 	// Whenever the partition table becomes non-operational again, the cluster
 	// goes back to this state.
 	ClusterRecovering	ClusterState = iota

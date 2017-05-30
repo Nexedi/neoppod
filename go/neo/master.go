@@ -180,6 +180,14 @@ func (m *Master) run(ctx context.Context) {
 }
 
 
+// Cluster Recovery
+// ----------------
+//
+// - accept connections from storage nodes
+// - retrieve and recovery previously saved partition table from storages
+// - monitor whether partition table becomes operational wrt currently up nodeset
+// - if yes - finish recovering upon receiving "start" command
+
 // recovery is a process that drives cluster via recovery phase
 //
 // XXX draft: Cluster Recovery if []Stor is fixed
@@ -293,6 +301,14 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 }
 
 
+// Cluster Verification
+// --------------------
+//
+// - starts with operational parttab
+// - tell all storages to perform data verificaion (TODO) and retreive last ids
+// - once we are done without loosing too much storages in the process (so that
+//   parttab is still operational) we are ready to enter servicing state.
+
 // verify is a process that drives cluster via verification phase
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab
@@ -347,6 +363,7 @@ loop:
 	}
 
 	if err != nil {
+		// XXX -> err = fmt.Errorf("... %v", err)
 		fmt.Printf("master: verify: %v\n", err)
 
 		// consume left verify responses (which should come without delay since it was cancelled)
@@ -405,9 +422,19 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 }
 
 
+// Cluster Running
+// ---------------
+//
+// - starts with operational parttab and (enough ?) present storage nodes passed verification
+// - monitor storages come & go and if parttab becomes non-operational leave to recovery
+// - provide service to clients while we are here
+//
+// TODO also plan data movement on new storage nodes appearing
 
+// service is the process that drives cluster during running state
+//
 // XXX draft: Cluster Running if []Stor is fixed
-func (m *Master) runxxx(ctx context.Context, storv []*NodeLink) {
+func (m *Master) service(ctx context.Context, storv []*NodeLink) {
 	// TODO
 }
 
