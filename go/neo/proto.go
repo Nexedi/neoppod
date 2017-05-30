@@ -52,22 +52,22 @@ const (
 type ClusterState int32
 const (
 	// Once the primary master is elected, the cluster has a state, which is
-	// initially RECOVERING, during which the master:
+	// initially ClusterRecovery, during which the master:
 	// - first recovers its own data by reading it from storage nodes;
 	// - waits for the partition table be operational;
-	// - automatically switch to VERIFYING if the cluster can be safely started.
+	// - automatically switch to ClusterVerifying if the cluster can be safely started.
 	// Whenever the partition table becomes non-operational again, the cluster
 	// goes back to this state.
-	RECOVERING      ClusterState = iota
+	ClusterRecovering	ClusterState = iota
 	// Transient state, used to:
 	// - replay the transaction log, in case of unclean shutdown;
 	// - and actually truncate the DB if the user asked to do so.
-	// Then, the cluster either goes to RUNNING or STARTING_BACKUP state.
-	VERIFYING
+	// Then, the cluster either goes to ClusterRunning or STARTING_BACKUP state.
+	ClusterVerifying	// XXX = ClusterStarting
 	// Normal operation. The DB is read-writable by clients.
-	CLUSTER_RUNNING			// XXX conflict with NodeState.RUNNING
+	ClusterRunning
 	// Transient state to shutdown the whole cluster.
-	STOPPING
+	ClusterStopping
 	// Transient state, during which the master (re)connect to the upstream
 	// master.
 	STARTING_BACKUP

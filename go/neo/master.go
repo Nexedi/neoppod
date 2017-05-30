@@ -118,21 +118,24 @@ func (m *Master) run(ctx context.Context) {
 
 		// command to start cluster
 		case c := <-m.ctlStart:
-			if c.state == m.clusterState {
-				// already there
-				m.resp <- nil
+			if m.clusterState != ClusterRecovery {
+				// start possible only from recovery
+				// XXX err ctx
+				c.resp <- fmt.Errorf("start: inappropriate current state: %v", m.clusterState)
 				break
 			}
 
-			switch c.state {
-			case RECOVERING:
-			case VERIFYING:		// = RUNNING
-			case CLUSTER_RUNNING:
-			case STOPPING:
-
-			default:
-				// TODO
+			// check preconditions for start
+			if !m.partTab.OperationalWith(m.nodeTab) {
+				// XXX err ctx
+				// TODO + how much % PT is covered
+				c.resp <- fmt.Errorf("start: non-operational partition table")
+				break
 			}
+
+			// XXX cancel/stop/wait for current recovery task
+			// XXX start starting task
+
 
 
 		// command to stop cluster
@@ -302,6 +305,36 @@ func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
 
 	m.storRecovery <- storRecovery{partTab: pt}
 }
+
+// storCtlVerify drives a storage node during cluster verifying (= starting) state
+// XXX does this need to be a member on Master ?
+func (m *Master) storCtlVerify(ctx context.Context, link *NodeLink) {
+	// XXX err context + link.Close on err
+
+	locked := AnswerLockedTransactions{}
+	err := Ask(&LockedTransactions, &locked)
+	if err != nil {
+		return	// XXX err
+	}
+
+	if len(locked.TidDict) {
+		// TODO vvv
+		panic(fmt.Sprintf("non-ø locked txns in verify: %v", locked.TidDict))
+	}
+
+	last := AnswerLastIDs{}
+	err = Ask(&LastIDs, &last)
+	if err != nil {
+		return	// XXX err
+	}
+
+	// XXX send this to driver (what to do with them ?) -> use for
+	// - oid allocations
+	// - next tid allocations etc
+	last.LastOID
+	last.LastTID
+}
+
 
 // allocUUID allocates new node uuid for a node of kind nodeType
 // XXX it is bad idea for master to assign uuid to coming node
