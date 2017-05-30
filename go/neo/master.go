@@ -41,6 +41,10 @@ type Master struct {
 	partTab      PartitionTable
 	clusterState ClusterState
 
+	// channels controlling main driver
+	ctlStart chan ctlStart	// request to start cluster
+	ctlStop  chan ctlStop	// request to stop  cluster
+
 	// channels from various workers to main driver
 	nodeCome     chan nodeCome	// node connected
 	nodeLeave    chan nodeLeave	// node disconnected
@@ -48,6 +52,15 @@ type Master struct {
 	storRecovery chan storRecovery	// storage node passed recovery		XXX better explicitly pass to worker as arg?
 }
 
+type ctlStart struct {
+	// XXX +ctx ?
+	resp chan error
+}
+
+type ctlStop struct {
+	// XXX +ctx ?
+	resp chan error
+}
 
 // node connects
 type nodeCome struct {
@@ -72,7 +85,8 @@ type storRecovery struct {
 
 func NewMaster(clusterName string) *Master {
 	m := &Master{clusterName: clusterName}
-	m.SetClusterState(RECOVERING) // XXX no elections - we are the only master
+	m.clusterState = RECOVERING	// XXX no elections - we are the only master
+	go m.run(context.TODO())	// XXX ctx
 
 	return m
 }
@@ -80,9 +94,11 @@ func NewMaster(clusterName string) *Master {
 
 // XXX NotifyNodeInformation to all nodes whenever nodetab changes
 
-func (m *Master) SetClusterState(state ClusterState) {
-	m.clusterState = state
-	// XXX actions ?
+// XXX -> Start(), Stop()
+func (m *Master) SetClusterState(state ClusterState) error {
+	ch := make(chan error)
+	m.ctlState <- ctlState{state, ch}
+	return <-ch
 }
 
 // run implements main master cluster management logic: node tracking, cluster
@@ -99,6 +115,29 @@ func (m *Master) run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			panic("TODO")
+
+		// command to start cluster
+		case c := <-m.ctlStart:
+			if c.state == m.clusterState {
+				// already there
+				m.resp <- nil
+				break
+			}
+
+			switch c.state {
+			case RECOVERING:
+			case VERIFYING:		// = RUNNING
+			case CLUSTER_RUNNING:
+			case STOPPING:
+
+			default:
+				// TODO
+			}
+
+
+		// command to stop cluster
+		case c := <-m.ctlStop:
+			// TODO
 
 		// node connects & requests identification
 		case n := <-m.nodeCome:
@@ -334,8 +373,8 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	idResp := <-idRespCh
 
 	// if master accepted this node - don't forget to notify when it leaves
-	_, noaccept := idResp.(error)
-	if !noaccept {
+	_, rejected := idResp.(error)
+	if !rejected {
 		defer func() {
 			m.nodeLeave <- nodeLeave{link}
 		}()
@@ -348,7 +387,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	}
 
 	// nothing to do more here if identification was not accepted
-	if noaccept {
+	if rejected {
 		logf("identify: %v", idResp)
 		return
 	}
@@ -358,6 +397,8 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	// ----------------------------------------
 	// XXX recheck vvv
 
+	// XXX temp hack
+	connNotify := conn
 
 	// subscribe to nodeTab/partTab/clusterState and notify peer with updates
 	m.stateMu.Lock()
