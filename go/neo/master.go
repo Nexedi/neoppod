@@ -49,8 +49,9 @@ type Master struct {
 	clusterState ClusterState
 
 	// channels controlling main driver
-	ctlStart chan ctlStart	// request to start cluster
-	ctlStop  chan ctlStop	// request to stop  cluster
+	ctlStart    chan ctlStart	// request to start cluster
+	ctlStop     chan ctlStop	// request to stop  cluster
+	ctlShutdown chan chan error	// request to shutdown cluster XXX with ctx too ?
 
 	// channels from various workers to main driver
 	nodeCome     chan nodeCome	// node connected
@@ -82,6 +83,8 @@ type nodeLeave struct {
 
 func NewMaster(clusterName string) *Master {
 	m := &Master{clusterName: clusterName}
+	m.nodeUUID = m.allocUUID(MASTER)
+	// TODO update nodeTab with self
 	m.clusterState = ClusterRecovering	// XXX no elections - we are the only master
 	go m.run(context.TODO())	// XXX ctx
 
@@ -100,7 +103,7 @@ func (m *Master) SetClusterState(state ClusterState) error {
 }
 */
 
-// run implements main master cluster management logic: node tracking, cluster
+// run implements main master cluster management logic: node tracking, cluster	XXX -> only top-level
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) run(ctx context.Context) {
 
@@ -113,6 +116,7 @@ func (m *Master) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			// XXX -> shutdown
 			panic("TODO")
 
 		// command to start cluster
@@ -140,6 +144,9 @@ func (m *Master) run(ctx context.Context) {
 		// command to stop cluster
 		case <-m.ctlStop:
 			// TODO
+
+		// command to shutdown
+		case <-m.ctlShutdown:
 
 /*
 		// node connects & requests identification
@@ -184,36 +191,49 @@ func (m *Master) run(ctx context.Context) {
 // ----------------
 //
 // - accept connections from storage nodes
-// - retrieve and recovery previously saved partition table from storages
+// - retrieve and recovery latest previously saved partition table from storages
 // - monitor whether partition table becomes operational wrt currently up nodeset
 // - if yes - finish recovering upon receiving "start" command
 
 // recovery is a process that drives cluster via recovery phase
 //
-// XXX draft: Cluster Recovery if []Stor is fixed
-// NOTE during recovery phase `recovery()` owns m.partTab
-// XXX what about .nodeTab ?
-func (m *Master) recovery(ctx context.Context, storv []*NodeLink) {
+// NOTE during recovery phase `recovery()` owns .partTab and .nodeTab	XXX or is the only mutator ?
+func (m *Master) recovery(ctx context.Context) {
 	recovery := make(chan storRecovery)
-	//wg := sync.WaitGroup{}
 	inprogress := 0
 
-	for _, stor := range storv {
-		//wg.Add(1)
-		inprogress++
-		go storCtlRecovery(ctx, stor, recovery)
+	for _, stor := range m.nodeTab.StorageList() {
+		if stor.Info.NodeState > DOWN {	// XXX state cmp ok ?
+			inprogress++
+			go storCtlRecovery(ctx, stor.Link, recovery)
+		}
 	}
 
 loop:
 	// XXX really inprogrss > 0 ? (we should be here indefinitely until commanded to start)
-	for inprogress > 0 {
+	//for inprogress > 0 {
+	for {
 		select {
 		case <-ctx.Done():
 			// XXX
 			break loop
 
+		case n := <-m.nodeCome:
+			node, ok := m.accept(n, /* XXX do not accept clients */)
+			if !ok {
+				break
+			}
+
+			inprogress++
+			go storCtlRecovery(ctx, node.Link, recovery)
+
+		case n := <-m.nodeLeave:
+			m.nodeTab.UpdateLinkDown(n.link)
+
 		case r := <-recovery:
 			inprogress--
+			// XXX check r.err
+
 			if r.partTab.ptid > m.partTab.ptid {
 				m.partTab = r.partTab
 				// XXX also transfer subscribers ?
@@ -227,20 +247,18 @@ loop:
 	}
 
 	// XXX consume left recovery responces
-
-	//wg.Wait()
 }
 
 // storRecovery is result of a storage node passing recovery phase
 type storRecovery struct {
 	partTab PartitionTable
-	// XXX + lastOid, lastTid, backup_tid, truncate_tid ?
+	// XXX + backup_tid, truncate_tid ?
 
 	err error
 }
 
 // storCtlRecovery drives a storage node during cluster recovering state
-// TODO text
+// it retrieves various ids and parition table from as stored on the storage
 func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery) {
 	var err error
 	defer func() {
@@ -249,7 +267,7 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 		}
 
 		// XXX on err still provide feedback to storRecovery chan ?
-		res<- storRecovery{err: err}
+		res <- storRecovery{err: err}
 
 		/*
 		fmt.Printf("master: %v", err)
@@ -444,15 +462,15 @@ func (m *Master) stop(ctx context.Context, storv []*NodeLink) {
 }
 
 // accept processes identification request of just connected node and either accepts or declines it
-// if node identification is accepted nodeTab is updated and corresponding nodeInfo is returned
-func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
+// if node identification is accepted nodeTab is updated and corresponding node entry is returned
+func (m *Master) accept(n nodeCome) (node *Node, ok bool) {
 	// XXX also verify ? :
 	// - NodeType valid
 	// - IdTimestamp ?
 
 	if n.idReq.ClusterName != m.clusterName {
 		n.idResp <- &Error{PROTOCOL_ERROR, "cluster name mismatch"} // XXX
-		return
+		return nil, false
 	}
 
 	nodeType := n.idReq.NodeType
@@ -463,12 +481,12 @@ func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
 	}
 	// XXX uuid < 0 (temporary) -> reallocate if conflict ?
 
-	node := m.nodeTab.Get(uuid)
+	node = m.nodeTab.Get(uuid)
 	if node != nil {
 		// reject - uuid is already occupied by someone else
 		// XXX check also for down state - it could be the same node reconnecting
 		n.idResp <- &Error{PROTOCOL_ERROR, "uuid %v already used by another node"} // XXX
-		return
+		return nil, false
 	}
 
 	// XXX accept only certain kind of nodes depending on .clusterState, e.g.
@@ -499,7 +517,7 @@ func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
 		nodeState = RUNNING
 	}
 
-	nodeInfo = NodeInfo{
+	nodeInfo := NodeInfo{
 		NodeType:	nodeType,
 		Address:	n.idReq.Address,
 		NodeUUID:	uuid,
@@ -507,9 +525,8 @@ func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
 		IdTimestamp:	monotime(),
 	}
 
-	m.nodeTab.Update(nodeInfo) // NOTE this notifies al nodeTab subscribers
-
-	return nodeInfo, true
+	node = m.nodeTab.Update(nodeInfo, n.link) // NOTE this notifies al nodeTab subscribers
+	return node, true
 }
 
 // allocUUID allocates new node uuid for a node of kind nodeType

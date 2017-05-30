@@ -72,21 +72,118 @@ type NodeTable struct {
 	// users have to care locking explicitly
 	//sync.RWMutex	XXX needed ?
 
-	nodev   []*Node
+	//storv	[]*Node // storages
+	nodev   []*Node // all other nodes
 	notifyv []chan NodeInfo // subscribers
 
-	ver int // ↑ for versioning	XXX do we need this?
+	//ver int // ↑ for versioning	XXX do we need this?
 }
 
 // Node represents a node entry in NodeTable
 type Node struct {
-	Info NodeInfo	// XXX extract ?
+	Info NodeInfo	// XXX extract ?	XXX -> embedd
 
 	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
 	// XXX identified or not ?
 	// XXX -> not needed - we only add something to nodetab after identification
 }
 
+
+// Get finds node by uuid
+func (nt *NodeTable) Get(uuid NodeUUID) *Node {
+	// FIXME linear scan
+	for _, node := range nt.nodev {
+		if node.Info.NodeUUID == uuid {
+			return node
+		}
+	}
+	return nil
+}
+
+// XXX GetByAddress ?
+
+// Update updates information about a node
+// it returns corresponding node entry for convenience
+func (nt *NodeTable) Update(nodeInfo NodeInfo, link *NodeLink) *Node {
+	node := nt.Get(nodeInfo.NodeUUID)
+	if node == nil {
+		node = &Node{}
+		nt.nodev = append(nt.nodev, node)
+	}
+
+	node.Info = nodeInfo
+	node.Link = link
+
+	nt.notify(node.Info)
+	return node
+}
+
+
+// GetByLink finds node by node-link
+// XXX is this a good idea ?
+func (nt *NodeTable) GetByLink(link *NodeLink) *Node {
+	// FIXME linear scan
+	for _, node := range nt.nodev {
+		if node.Link == link {
+			return node
+		}
+	}
+	return nil
+}
+
+// UpdateLinkDown updates information about corresponding to link node and marks it as down
+// it returns corresponding node entry for convenience
+// XXX is this a good idea ?
+func (nt *NodeTable) UpdateLinkDown(link *NodeLink) *Node {
+	node := nt.GetByLink(link)
+	if node == nil {
+		// XXX vvv not good
+		panic("nodetab: UpdateLinkDown: no corresponding entry")
+	}
+
+	node.Info.NodeState = DOWN
+
+	nt.notify(node.Info)
+	return node
+}
+
+
+// StorageList returns list of all storages in node table
+func (nt *NodeTable) StorageList() []*Node {
+	// FIXME linear scan
+	sl := []*Node{}
+	for _, node := range nt.nodev {
+		if node.Info.NodeType == STORAGE {
+			sl = append(sl, node)
+		}
+	}
+	return sl
+}
+
+func (nt *NodeTable) String() string {
+	//nt.RLock()		// FIXME -> it must be client
+	//defer nt.RUnlock()
+
+	buf := bytes.Buffer{}
+
+	// XXX also for .storv
+	for _, node := range nt.nodev {
+		// XXX recheck output
+		i := node.Info
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", i.NodeUUID, i.NodeType, i.NodeState, i.Address)
+	}
+
+	return buf.String()
+}
+
+
+// notify notifies NodeTable subscribers that nodeInfo was updated
+func (nt *NodeTable) notify(nodeInfo NodeInfo) {
+	// XXX rlock for .notifyv ?
+	for _, notify := range nt.notifyv {
+		notify <- nodeInfo
+	}
+}
 
 // Subscribe subscribes to NodeTable updates
 // it returns a channel via which updates will be delivered and unsubscribe function
@@ -155,66 +252,4 @@ func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()
 	}()
 
 	return ch, unsubscribe
-}
-
-
-// Update updates information about a node
-// XXX how to pass link into node?
-func (nt *NodeTable) Update(nodeInfo NodeInfo) {
-	node := nt.Get(nodeInfo.NodeUUID)
-	if node == nil {
-		node = &Node{}
-		nt.nodev = append(nt.nodev, node)
-	}
-
-	node.Info = nodeInfo
-
-	// notify subscribers
-	// XXX rlock for .notifyv ?
-	for _, notify := range nt.notifyv {
-		notify <- nodeInfo
-	}
-}
-
-/*
-// XXX ? ^^^ Update is enough ?
-func (nt *NodeTable) Add(node *Node) {
-	// XXX check node is already there
-	// XXX pass/store node by pointer ?
-	nt.nodev = append(nt.nodev, node)
-
-	// TODO notify all nodelink subscribers about new info
-}
-*/
-
-// TODO subscribe for changes on Add ?  (notification via channel)
-
-
-// Get finds node by uuid
-func (nt *NodeTable) Get(uuid NodeUUID) *Node {
-	// FIXME linear scan
-	for _, node := range nt.nodev {
-		if node.Info.NodeUUID == uuid {
-			return node
-		}
-	}
-	return nil
-}
-
-// XXX GetByAddress ?
-
-
-func (nt *NodeTable) String() string {
-	//nt.RLock()		// FIXME -> it must be client
-	//defer nt.RUnlock()
-
-	buf := bytes.Buffer{}
-
-	for _, node := range nt.nodev {
-		// XXX recheck output
-		i := node.Info
-		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", i.NodeUUID, i.NodeType, i.NodeState, i.Address)
-	}
-
-	return buf.String()
 }
