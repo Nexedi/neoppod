@@ -27,17 +27,16 @@ import (
 	"math"
 	"os"
 	"sync"
-	"time"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
 	clusterName  string
-	nodeUUID     NodeUUID // my node uuid; XXX init somewhere
+	nodeUUID     NodeUUID
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
-	stateMu      sync.RWMutex
+	stateMu      sync.RWMutex	// XXX recheck: needed ?
 	nodeTab      NodeTable
 	partTab      PartitionTable
 	clusterState ClusterState
@@ -45,7 +44,8 @@ type Master struct {
 	// channels from various workers to main driver
 	nodeCome     chan nodeCome	// node connected
 	nodeLeave    chan nodeLeave	// node disconnected
-	storRecovery chan storRecovery	// storage node passed recovery
+
+	storRecovery chan storRecovery	// storage node passed recovery		XXX better explicitly pass to worker as arg?
 }
 
 
@@ -81,16 +81,6 @@ func (m *Master) SetClusterState(state ClusterState) {
 	m.clusterState = state
 	// XXX actions ?
 }
-
-// monotime returns time passed since program start
-// it uses monothonic time and is robust to OS clock adjustments
-// XXX place?
-func monotime() float64 {
-	// time.Sub uses monotonic clock readings for the difference
-	return time.Now().Sub(tstart).Seconds()
-}
-
-var tstart time.Time = time.Now()
 
 // run implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
