@@ -124,33 +124,12 @@ func (m *Master) Shutdown() error {
 }
 
 func (m *Master) setClusterState(state ClusterState) {
+	if state == m.clusterState {
+		return
+	}
+
 	m.clusterState = state
 	// TODO notify subscribers
-}
-
-
-func (m *Master) xxx(ctx ...) {
-	var err error
-
-	for ctx.Err() == nil {
-		err = recovery(ctx)
-		if err != nil {
-			return // XXX
-		}
-
-		// successful recovery -> verify
-		err = verify(ctx)
-		if err != nil {
-			continue // -> recovery
-		}
-
-		// successful verify -> service
-		err = service(ctx)
-		if err != nil {
-			// XXX what about shutdown ?
-			continue // -> recovery
-		}
-	}
 }
 
 
@@ -158,6 +137,30 @@ func (m *Master) xxx(ctx ...) {
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) run(ctx context.Context) {
 
+	// NOTE run's goroutine is the only mutator of nodeTab, partTab and other cluster state
+
+	for ctx.Err() == nil {
+		err := m.recovery(ctx)
+		if err != nil {
+			return // recovery cancelled	XXX recheck
+		}
+
+		// successful recovery -> verify
+		err = m.verify(ctx)
+		if err != nil {
+			continue // -> recovery
+		}
+
+		// successful verify -> service
+		err = m.service(ctx)
+		if err != nil {
+			continue // -> recovery
+		}
+
+		// XXX shutdown
+	}
+
+/*
 	go m.recovery(ctx)
 
 	for {
@@ -203,7 +206,7 @@ func (m *Master) run(ctx context.Context) {
 			// TODO
 		}
 	}
-
+*/
 }
 
 
@@ -221,7 +224,9 @@ func (m *Master) run(ctx context.Context) {
 // when recovery finishes error indicates:
 // - nil:  recovery was ok and a command came for cluster to start
 // - !nil: recovery was cancelled
-func (m *Master) recovery(ctx context.Context) error {
+func (m *Master) recovery(ctx context.Context) (err error) {
+	m.setClusterState(ClusterRecovering)
+
 	recovery := make(chan storRecovery)
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
@@ -274,9 +279,8 @@ loop:
 			// XXX update something indicating cluster currently can be operational or not ?
 
 
-		// request from master: "I want to start - ok?" - if ok we reply ok and exit
+		// request to start the cluster - if ok we exit replying ok
 		// if not ok - we just reply not ok
-		//case s := <-m.wantToStart:
 		case c := <-m.ctlStart:
 			if m.partTab.OperationalWith(&m.nodeTab) {
 				// reply "ok to start" after whole recovery finishes
@@ -293,7 +297,7 @@ loop:
 				break loop
 			}
 
-			s <- fmt.Errorf("start: cluster is non-operational")
+			c.resp <- fmt.Errorf("start: cluster is non-operational")
 
 		case c := <-m.ctlStop:
 			c.resp <- nil // we are already recovering
@@ -309,7 +313,7 @@ loop:
 		<-recovery
 	}
 
-	// XXX err
+	return err
 }
 
 // storRecovery is result of a storage node passing recovery phase
@@ -390,11 +394,11 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 // - once we are done without loosing too much storages in the process (so that
 //   parttab is still operational) we are ready to enter servicing state.
 
-// verify is a process that drives cluster via verification phase
+// verify drives cluster via verification phase
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab
-func (m *Master) verify(ctx context.Context) error { //, storv []*NodeLink) error {
-	// XXX ask every storage for verify and wait for _all_ them to complete?
+func (m *Master) verify(ctx context.Context) error {
+	m.setClusterState(ClusterVerifying)
 
 	var err error
 	verify := make(chan storVerify)
@@ -402,6 +406,7 @@ func (m *Master) verify(ctx context.Context) error { //, storv []*NodeLink) erro
 	defer vcancel()
 	inprogress := 0
 
+	// XXX ask every storage for verify and wait for _all_ them to complete?
 	// XXX do we need to reset m.lastOid / m.lastTid to 0 in the beginning?
 
 	// start verification on all storages we are currently in touch with
@@ -415,9 +420,11 @@ loop:
 		select {
 		case n := <-m.nodeCome:
 			// TODO
+			_ = n
 
 		case n := <-m.nodeLeave:
 			// TODO
+			_ = n
 
 		case v := <-verify:
 			inprogress--
@@ -526,18 +533,21 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 //
 // TODO also plan data movement on new storage nodes appearing
 
-// service is the process that drives cluster during running state
+// service drives cluster during running state
 //
-func (m *Master) service(ctx context.Context) {
+func (m *Master) service(ctx context.Context) (err error) {
+	m.setClusterState(ClusterRunning)
 
 loop:
 	for {
 		select {
 		case n := <-m.nodeCome:
 			// TODO
+			_ = n
 
 		case n := <-m.nodeLeave:
 			// TODO
+			_ = n
 
 
 		// XXX what else ?	(-> txn control at least)
