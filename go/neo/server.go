@@ -121,38 +121,29 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 		}
 	}()
 
-	pkt, err := RecvAndDecode(conn)
+	req := RequestIdentification{}
+	err = Expect(conn, &req)
 	if err != nil {
 		return nodeInfo, err
 	}
 
-	switch pkt := pkt.(type) {
-	default:
-		return nodeInfo, fmt.Errorf("unexpected request: %T", pkt)
+	// TODO (.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
 
-	// XXX also handle Error
+	// TODO hook here in logic to check identification request, assign nodeID etc
 
-	case *RequestIdentification:
-		// TODO (.NodeType, .UUID, .Address, .Name, .IdTimestamp) -> check + register to NM
+	err = EncodeAndSend(conn, &AcceptIdentification{
+		NodeType:	myNodeType,
+		MyNodeUUID:	0,		// XXX
+		NumPartitions:	1,		// XXX
+		NumReplicas:	1,		// XXX
+		YourNodeUUID:	req.NodeUUID,
+	})
 
-		// TODO hook here in logic to check identification request, assign nodeID etc
-
-		err = EncodeAndSend(conn, &AcceptIdentification{
-			NodeType:	myNodeType,
-			MyNodeUUID:	0,		// XXX
-			NumPartitions:	0,		// XXX
-			NumReplicas:	0,		// XXX
-			YourNodeUUID:	pkt.NodeUUID,
-		})
-
-		if err != nil {
-			return nodeInfo, err
-		}
-
-		nodeInfo = *pkt
+	if err != nil {
+		return nodeInfo, err
 	}
 
-	return nodeInfo, nil
+	return req, nil
 }
 
 // IdentifyMe identifies local node to remote peer
@@ -240,6 +231,13 @@ func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
 		return err
 	}
 
+	err = Expect(conn, resp)
+	return err
+}
+
+// Expect receives 1 packet and expects it to be exactly of msg type
+// XXX naming  (-> Recv1 ?)
+func Expect(conn *Conn, msg NEODecoder) error {
 	pkt, err := conn.Recv()
 	if err != nil {
 		return err
@@ -253,7 +251,7 @@ func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
 		return fmt.Errorf("invalid msgCode (%d)", msgCode) // XXX err ctx
 	}
 
-	if msgType != reflect.TypeOf(resp) {
+	if msgType != reflect.TypeOf(msg) {
 		// Error response
 		if msgType == reflect.TypeOf(Error{}) {
 			errResp := Error{}
@@ -265,10 +263,10 @@ func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
 			return errDecode(&errResp) // XXX err ctx
 		}
 
-		return fmt.Errorf("unexpected reply: %T", msgType) // XXX err ctx
+		return fmt.Errorf("unexpected packet: %T", msgType) // XXX err ctx
 	}
 
-	_, err = resp.NEODecode(pkt.Payload())
+	_, err = msg.NEODecode(pkt.Payload())
 	if err != nil {
 		return err // XXX err ctx
 	}

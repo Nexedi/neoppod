@@ -58,13 +58,16 @@ type nodeCome struct {
 
 // node disconnects
 type nodeLeave struct {
-	// TODO
+	link *NodeLink
+	// XXX TODO
 }
 
 // storage node passed recovery phase
 type storRecovery struct {
 	partTab PartitionTable
 	// XXX + lastOid, lastTid, backup_tid, truncate_tid ?
+
+	// XXX + err ?
 }
 
 func NewMaster(clusterName string) *Master {
@@ -203,7 +206,7 @@ func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
 	return nodeInfo, true
 }
 
-// storCtlRecovery drives a storage node during cluster recoving state
+// storCtlRecovery drives a storage node during cluster recovering state
 // TODO text
 func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
 	var err error
@@ -211,6 +214,8 @@ func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
 		if err == nil {
 			return
 		}
+
+		// XXX on err still provide feedback to storRecovery chan ?
 
 		fmt.Printf("master: %v", err)
 
@@ -280,9 +285,11 @@ func (m *Master) allocUUID(nodeType NodeType) NodeUUID {
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
 func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
-	fmt.Printf("master: %s: serving new node\n", link)
+	logf := func(format string, argv ...interface{}) {
+		fmt.Printf("master: %s: " + format + "\n", append([]interface{}{link}, argv...))
+	}
 
-	//var node *Node
+	logf("serving new node")
 
 	// close link when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - link.Close will signal to all current IO to
@@ -297,34 +304,59 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 			// XXX ret err = ctx.Err()
 		case <-retch:
 		}
-		fmt.Printf("master: %v: closing link\n", link)
+		logf("closing link")
 		link.Close()	// XXX err
 	}()
 
-	// identify
-	// XXX -> change to use nodeCome
-	nodeInfo, err := IdentifyPeer(link, MASTER)
+	// identify peer
+	// the first conn must come with RequestIdentification packet
+	conn, err := link.Accept()
 	if err != nil {
-		fmt.Printf("master: %v\n", err)
+		logf("identify: %v", err)
 		return
 	}
 
-	// TODO get connNotify as conn left after identification
-	connNotify, err := link.NewConn()
+	idReq := RequestIdentification{}
+	err = Expect(conn, &idReq)
 	if err != nil {
-		panic("TODO")	// XXX
+		logf("identify: %v", err)
+		// XXX ok to let peer know error as is? e.g. even IO error on Recv?
+		err = EncodeAndSend(conn, &Error{PROTOCOL_ERROR, err.Error()})
+		if err != nil {
+			logf("failed to send error: %v", err)
+		}
+		return
 	}
 
-	// notify main logic node connects/disconnects
-	_ = nodeInfo
-	/*
-	node = &Node{nodeInfo, link}
-	m.nodeq <- node
-	defer func() {
-		node.state = DOWN
-		m.nodeq <- node
-	}()
-	*/
+	// convey identification request to master
+	idRespCh := make(chan NEOEncoder)
+	m.nodeCome <- nodeCome{link, idReq, idRespCh}
+	idResp := <-idRespCh
+
+	// if master accepted this node - don't forget to notify when it leaves
+	_, noaccept := idResp.(error)
+	if !noaccept {
+		defer func() {
+			m.nodeLeave <- nodeLeave{link}
+		}()
+	}
+
+	// let the peer know identification result
+	err = EncodeAndSend(conn, idResp)
+	if err != nil {
+		return
+	}
+
+	// nothing to do more here if identification was not accepted
+	if noaccept {
+		logf("identify: %v", idResp)
+		return
+	}
+
+	logf("identify: accepted")
+
+	// ----------------------------------------
+	// XXX recheck vvv
 
 
 	// subscribe to nodeTab/partTab/clusterState and notify peer with updates
