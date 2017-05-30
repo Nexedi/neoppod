@@ -448,8 +448,8 @@ func (p *AnswerRecovery) NEOEncodedInfo() (uint16, int) {
 
 func (p *AnswerRecovery) NEOEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
-	binary.BigEndian.PutUint64(data[8:], uint64(p.BackupTID))
-	binary.BigEndian.PutUint64(data[16:], uint64(p.TruncateTID))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.BackupTid))
+	binary.BigEndian.PutUint64(data[16:], uint64(p.TruncateTid))
 }
 
 func (p *AnswerRecovery) NEODecode(data []byte) (int, error) {
@@ -457,8 +457,8 @@ func (p *AnswerRecovery) NEODecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.PTid = PTid(binary.BigEndian.Uint64(data[0:]))
-	p.BackupTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.TruncateTID = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.BackupTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.TruncateTid = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
 	return 24, nil
 
 overflow:
@@ -485,16 +485,16 @@ func (p *AnswerLastIDs) NEOEncodedInfo() (uint16, int) {
 }
 
 func (p *AnswerLastIDs) NEOEncode(data []byte) {
-	binary.BigEndian.PutUint64(data[0:], uint64(p.LastOID))
-	binary.BigEndian.PutUint64(data[8:], uint64(p.LastTID))
+	binary.BigEndian.PutUint64(data[0:], uint64(p.LastOid))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.LastTid))
 }
 
 func (p *AnswerLastIDs) NEODecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
-	p.LastOID = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.LastTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.LastOid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+	p.LastTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
 	return 16, nil
 
 overflow:

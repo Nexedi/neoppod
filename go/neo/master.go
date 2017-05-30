@@ -27,12 +27,19 @@ import (
 	"math"
 	"os"
 	"sync"
+
+	"../zodb"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
 	clusterName  string
 	nodeUUID     NodeUUID
+
+	// last allocated oid & tid
+	// XXX how to start allocating oid from 0, not 1 ?
+	lastOid zodb.Oid
+	lastTid zodb.Tid
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
@@ -48,8 +55,6 @@ type Master struct {
 	// channels from various workers to main driver
 	nodeCome     chan nodeCome	// node connected
 	nodeLeave    chan nodeLeave	// node disconnected
-
-	storRecovery chan storRecovery	// storage node passed recovery		XXX better explicitly pass to worker as arg?
 }
 
 type ctlStart struct {
@@ -75,17 +80,9 @@ type nodeLeave struct {
 	// XXX TODO
 }
 
-// storage node passed recovery phase
-type storRecovery struct {
-	partTab PartitionTable
-	// XXX + lastOid, lastTid, backup_tid, truncate_tid ?
-
-	// XXX + err ?
-}
-
 func NewMaster(clusterName string) *Master {
 	m := &Master{clusterName: clusterName}
-	m.clusterState = RECOVERING	// XXX no elections - we are the only master
+	m.clusterState = ClusterRecovering	// XXX no elections - we are the only master
 	go m.run(context.TODO())	// XXX ctx
 
 	return m
@@ -95,21 +92,23 @@ func NewMaster(clusterName string) *Master {
 // XXX NotifyNodeInformation to all nodes whenever nodetab changes
 
 // XXX -> Start(), Stop()
+/*
 func (m *Master) SetClusterState(state ClusterState) error {
 	ch := make(chan error)
 	m.ctlState <- ctlState{state, ch}
 	return <-ch
 }
+*/
 
 // run implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) run(ctx context.Context) {
 
-	// current function to ask/control a storage depending on current cluster state
-	// + associated context covering all storage nodes
-	// XXX + waitgroup ?
-	storCtl := m.storCtlRecovery
-	storCtlCtx, storCtlCancel := context.WithCancel(ctx)
+	// // current function to ask/control a storage depending on current cluster state
+	// // + associated context covering all storage nodes
+	// // XXX + waitgroup ?
+	// storCtl := m.storCtlRecovery
+	// storCtlCtx, storCtlCancel := context.WithCancel(ctx)
 
 	for {
 		select {
@@ -118,7 +117,7 @@ func (m *Master) run(ctx context.Context) {
 
 		// command to start cluster
 		case c := <-m.ctlStart:
-			if m.clusterState != ClusterRecovery {
+			if m.clusterState != ClusterRecovering {
 				// start possible only from recovery
 				// XXX err ctx
 				c.resp <- fmt.Errorf("start: inappropriate current state: %v", m.clusterState)
@@ -126,7 +125,7 @@ func (m *Master) run(ctx context.Context) {
 			}
 
 			// check preconditions for start
-			if !m.partTab.OperationalWith(m.nodeTab) {
+			if !m.partTab.OperationalWith(&m.nodeTab) {
 				// XXX err ctx
 				// TODO + how much % PT is covered
 				c.resp <- fmt.Errorf("start: non-operational partition table")
@@ -139,9 +138,10 @@ func (m *Master) run(ctx context.Context) {
 
 
 		// command to stop cluster
-		case c := <-m.ctlStop:
+		case <-m.ctlStop:
 			// TODO
 
+/*
 		// node connects & requests identification
 		case n := <-m.nodeCome:
 			nodeInfo, ok := m.accept(n)
@@ -173,46 +173,247 @@ func (m *Master) run(ctx context.Context) {
 			}
 
 			// XXX consider clusterState change
+*/
 		}
 	}
 
-	_ = storCtlCancel	// XXX
 }
 
 
+// recovery is a process that drives cluster via recovery phase
+//
 // XXX draft: Cluster Recovery if []Stor is fixed
 // NOTE during recovery phase `recovery()` owns m.partTab
 // XXX what about .nodeTab ?
 func (m *Master) recovery(ctx context.Context, storv []*NodeLink) {
 	recovery := make(chan storRecovery)
-	wg := sync.WaitGroup{}
+	//wg := sync.WaitGroup{}
+	inprogress := 0
 
 	for _, stor := range storv {
-		wg.Add(1)
-		go storCtlRecovery(ctx, wg, stor, recovery)
+		//wg.Add(1)
+		inprogress++
+		go storCtlRecovery(ctx, stor, recovery)
 	}
 
-
 loop:
-	for {
+	// XXX really inprogrss > 0 ? (we should be here indefinitely until commanded to start)
+	for inprogress > 0 {
 		select {
 		case <-ctx.Done():
 			// XXX
 			break loop
 
 		case r := <-recovery:
+			inprogress--
 			if r.partTab.ptid > m.partTab.ptid {
 				m.partTab = r.partTab
 				// XXX also transfer subscribers ?
 				// XXX -> during recovery no one must be subscribed to partTab
 			}
 			// TODO
+
+		// XXX another channel from master: request "ok to start?" - if ok we reply ok and exit
+		// if not ok - we just reply not ok
 		}
 	}
 
 	// XXX consume left recovery responces
 
-	wg.Wait()
+	//wg.Wait()
+}
+
+// storRecovery is result of a storage node passing recovery phase
+type storRecovery struct {
+	partTab PartitionTable
+	// XXX + lastOid, lastTid, backup_tid, truncate_tid ?
+
+	err error
+}
+
+// storCtlRecovery drives a storage node during cluster recovering state
+// TODO text
+func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery) {
+	var err error
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		// XXX on err still provide feedback to storRecovery chan ?
+		res<- storRecovery{err: err}
+
+		/*
+		fmt.Printf("master: %v", err)
+
+		// this must interrupt everything connected to stor node and
+		// thus eventually result in nodeLeave event to main driver
+		link.Close()
+		*/
+	}()
+	defer errcontextf(&err, "%s: stor recovery", link)
+
+	conn, err := link.NewConn()	// FIXME bad
+	if err != nil {
+		return
+	}
+	// XXX cancel on ctx
+
+	recovery := AnswerRecovery{}
+	err = Ask(conn, &Recovery{}, &recovery)
+	if err != nil {
+		return
+	}
+
+	resp := AnswerPartitionTable{}
+	err = Ask(conn, &X_PartitionTable{}, &resp)
+	if err != nil {
+		return
+	}
+
+	// reconstruct partition table from response
+	pt := PartitionTable{}
+	pt.ptid = resp.PTid
+	for _, row := range resp.RowList {
+		i := row.Offset
+		for i >= uint32(len(pt.ptTab)) {
+			pt.ptTab = append(pt.ptTab, []PartitionCell{})
+		}
+
+		//pt.ptTab[i] = append(pt.ptTab[i], row.CellList...)
+		for _, cell := range row.CellList {
+			pt.ptTab[i] = append(pt.ptTab[i], PartitionCell{
+					NodeUUID:  cell.NodeUUID,
+					CellState: cell.CellState,
+				})
+		}
+	}
+
+	res <- storRecovery{partTab: pt}
+}
+
+
+// verify is a process that drives cluster via verification phase
+//
+// prerequisite for start: .partTab is operational wrt .nodeTab
+//
+// XXX draft: Cluster Verify if []Stor is fixed
+func (m *Master) verify(ctx context.Context, storv []*NodeLink) error {
+	// XXX ask every storage for verify and wait for _all_ them to complete?
+
+	var err error
+	verify := make(chan storVerify)
+	vctx, vcancel := context.WithCancel(ctx)
+	defer vcancel()
+	inprogress := 0
+
+	// XXX do we need to reset m.lastOid / m.lastTid to 0 in the beginning?
+
+	for _, stor := range storv {
+		inprogress++
+		go storCtlVerify(vctx, stor, verify)
+	}
+
+loop:
+	for inprogress > 0 {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break loop
+
+		case v := <-verify:
+			inprogress--
+
+			if v.err != nil {
+				fmt.Printf("master: %v\n", v.err) // XXX err ctx
+				// XXX mark S as non-working in nodeTab
+
+				// check partTab is still operational
+				// if not -> cancel to go back to recovery
+				if m.partTab.OperationalWith(&m.nodeTab) {
+					vcancel()
+					err = fmt.Errorf("cluster became non-operational in the process")
+					break loop
+				}
+			} else {
+				if v.lastOid > m.lastOid {
+					m.lastOid = v.lastOid
+				}
+				if v.lastTid > m.lastTid {
+					m.lastTid = v.lastTid
+				}
+			}
+		}
+	}
+
+	if err != nil {
+		fmt.Printf("master: verify: %v\n", err)
+
+		// consume left verify responses (which should come without delay since it was cancelled)
+		for ; inprogress > 0; inprogress-- {
+			<-verify
+		}
+	}
+
+	// XXX -> return via channel ?
+	return err
+}
+
+// storVerify is result of a storage node passing verification phase
+type storVerify struct {
+	lastOid zodb.Oid
+	lastTid zodb.Tid
+	err	error
+}
+
+// storCtlVerify drives a storage node during cluster verifying (= starting) state
+func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
+	// XXX err context + link.Close on err
+	// XXX cancel on ctx
+
+	var err error
+	defer func() {
+		if err != nil {
+			res <- storVerify{err: err}
+		}
+	}()
+	defer errcontextf(&err, "%s: verify", link)
+
+	// FIXME stub
+	conn, _ := link.NewConn()
+
+	locked := AnswerLockedTransactions{}
+	err = Ask(conn, &LockedTransactions{}, &locked)
+	if err != nil {
+		return
+	}
+
+	if len(locked.TidDict) > 0 {
+		// TODO vvv
+		err = fmt.Errorf("TODO: non-ø locked txns: %v", locked.TidDict)
+		return
+	}
+
+	last := AnswerLastIDs{}
+	err = Ask(conn, &LastIDs{}, &last)
+	if err != nil {
+		return
+	}
+
+	// send results to driver
+	res <- storVerify{lastOid: last.LastOid, lastTid: last.LastTid}
+}
+
+
+
+// XXX draft: Cluster Running if []Stor is fixed
+func (m *Master) runxxx(ctx context.Context, storv []*NodeLink) {
+	// TODO
+}
+
+// XXX draft: Cluster Stopping if []Stor is fixed
+func (m *Master) stop(ctx context.Context, storv []*NodeLink) {
+	// TODO
 }
 
 // accept processes identification request of just connected node and either accepts or declines it
@@ -283,94 +484,6 @@ func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
 
 	return nodeInfo, true
 }
-
-// storCtlRecovery drives a storage node during cluster recovering state
-// TODO text
-func (m *Master) storCtlRecovery(ctx context.Context, link *NodeLink) {
-	var err error
-	defer func() {
-		if err == nil {
-			return
-		}
-
-		// XXX on err still provide feedback to storRecovery chan ?
-
-		fmt.Printf("master: %v", err)
-
-		// this must interrupt everything connected to stor node and
-		// thus eventually result in nodeLeave event to main driver
-		link.Close()
-	}()
-	defer errcontextf(&err, "%s: stor recovery", link)
-
-	conn, err := link.NewConn()	// FIXME bad
-	if err != nil {
-		return
-	}
-	// XXX cancel on ctx
-
-	recovery := AnswerRecovery{}
-	err = Ask(conn, &Recovery{}, &recovery)
-	if err != nil {
-		return
-	}
-
-	resp := AnswerPartitionTable{}
-	err = Ask(conn, &X_PartitionTable{}, &resp)
-	if err != nil {
-		return
-	}
-
-	// reconstruct partition table from response
-	pt := PartitionTable{}
-	pt.ptid = resp.PTid
-	for _, row := range resp.RowList {
-		i := row.Offset
-		for i >= uint32(len(pt.ptTab)) {
-			pt.ptTab = append(pt.ptTab, []PartitionCell{})
-		}
-
-		//pt.ptTab[i] = append(pt.ptTab[i], row.CellList...)
-		for _, cell := range row.CellList {
-			pt.ptTab[i] = append(pt.ptTab[i], PartitionCell{
-					NodeUUID:  cell.NodeUUID,
-					CellState: cell.CellState,
-				})
-		}
-	}
-
-	m.storRecovery <- storRecovery{partTab: pt}
-}
-
-// storCtlVerify drives a storage node during cluster verifying (= starting) state
-// XXX does this need to be a member on Master ?
-func (m *Master) storCtlVerify(ctx context.Context, link *NodeLink) {
-	// XXX err context + link.Close on err
-
-	locked := AnswerLockedTransactions{}
-	err := Ask(&LockedTransactions, &locked)
-	if err != nil {
-		return	// XXX err
-	}
-
-	if len(locked.TidDict) {
-		// TODO vvv
-		panic(fmt.Sprintf("non-ø locked txns in verify: %v", locked.TidDict))
-	}
-
-	last := AnswerLastIDs{}
-	err = Ask(&LastIDs, &last)
-	if err != nil {
-		return	// XXX err
-	}
-
-	// XXX send this to driver (what to do with them ?) -> use for
-	// - oid allocations
-	// - next tid allocations etc
-	last.LastOID
-	last.LastTID
-}
-
 
 // allocUUID allocates new node uuid for a node of kind nodeType
 // XXX it is bad idea for master to assign uuid to coming node

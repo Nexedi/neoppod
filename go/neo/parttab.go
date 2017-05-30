@@ -130,15 +130,16 @@ type PartitionCell struct {
 }
 
 
-// Operational returns whether all object space is covered by at least some ready-to-serve nodes
-// NOTE XXX operational here means only pt itself is operational
-//          for cluster to be really operational it has to be checked whether
-//          nodes referenced by pt are up and running
+// OperationalWith returns whether all object space is covered by at least some ready-to-serve nodes
+//
+// for all partitions it checks both:
+// - whether there are up-to-date entries in the partition table, and
+// - whether there are corresponding storage nodes that are up
+//
+// information about nodes being up or down is obtained from supplied NodeTable
 //
 // XXX or keep not only NodeUUID in PartitionCell - add *Node ?
-//
-// XXX -> add `nt *NodeTable` as argument and check real node states there ?
-func (pt *PartitionTable) Operational() bool {
+func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 	for _, ptEntry := range pt.ptTab {
 		if len(ptEntry) == 0 {
 			return false
@@ -149,6 +150,12 @@ func (pt *PartitionTable) Operational() bool {
 		for _, cell := range ptEntry {
 			switch cell.CellState {
 			case UP_TO_DATE, FEEDING:	// XXX cell.isReadble in py
+				// cell says it is readable. let's check whether corresponding node is up
+				node := nt.Get(cell.NodeUUID)
+				if node == nil || node.Info.NodeState != RUNNING {	// XXX PENDING is also ok ?
+					continue
+				}
+
 				ok = true
 				break cellLoop
 			}

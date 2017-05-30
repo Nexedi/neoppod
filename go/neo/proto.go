@@ -308,8 +308,8 @@ type Recovery struct {
 
 type AnswerRecovery struct {
 	PTid
-	BackupTID   zodb.Tid
-	TruncateTID zodb.Tid
+	BackupTid   zodb.Tid
+	TruncateTid zodb.Tid
 }
 
 // Ask the last OID/TID so that a master can initialize its TransactionManager.
@@ -318,8 +318,8 @@ type LastIDs struct {
 }
 
 type AnswerLastIDs struct {
-	LastOID zodb.Oid
-	LastTID zodb.Tid
+	LastOid zodb.Oid
+	LastTid zodb.Tid
 }
 
 // Ask the full partition table. PM -> S.
