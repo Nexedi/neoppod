@@ -179,6 +179,42 @@ func (m *Master) run(ctx context.Context) {
 	_ = storCtlCancel	// XXX
 }
 
+
+// XXX draft: Cluster Recovery if []Stor is fixed
+// NOTE during recovery phase `recovery()` owns m.partTab
+// XXX what about .nodeTab ?
+func (m *Master) recovery(ctx context.Context, storv []*NodeLink) {
+	recovery := make(chan storRecovery)
+	wg := sync.WaitGroup{}
+
+	for _, stor := range storv {
+		wg.Add(1)
+		go storCtlRecovery(ctx, wg, stor, recovery)
+	}
+
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			// XXX
+			break loop
+
+		case r := <-recovery:
+			if r.partTab.ptid > m.partTab.ptid {
+				m.partTab = r.partTab
+				// XXX also transfer subscribers ?
+				// XXX -> during recovery no one must be subscribed to partTab
+			}
+			// TODO
+		}
+	}
+
+	// XXX consume left recovery responces
+
+	wg.Wait()
+}
+
 // accept processes identification request of just connected node and either accepts or declines it
 // if node identification is accepted nodeTab is updated and corresponding nodeInfo is returned
 func (m *Master) accept(n nodeCome) (nodeInfo NodeInfo, ok bool) {
