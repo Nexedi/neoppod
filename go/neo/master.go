@@ -49,9 +49,9 @@ type Master struct {
 	clusterState ClusterState
 
 	// channels controlling main driver
-	ctlStart    chan ctlStart	// request to start cluster
-	ctlStop     chan ctlStop	// request to stop  cluster
-	ctlShutdown chan chan error	// request to shutdown cluster XXX with ctx too ?
+	ctlStart    chan chan error	// request to start cluster
+	ctlStop     chan chan error	// request to stop  cluster
+	ctlShutdown chan chan error	// request to shutdown cluster XXX with ctx ?
 
 	wantToStart chan chan error	// main -> recovery
 
@@ -60,15 +60,6 @@ type Master struct {
 	nodeLeave    chan nodeLeave	// node disconnected
 }
 
-type ctlStart struct {
-	// XXX +ctx ?
-	resp chan error
-}
-
-type ctlStop struct {
-	// XXX +ctx ?
-	resp chan error
-}
 
 // node connects
 type nodeCome struct {
@@ -96,8 +87,6 @@ func NewMaster(clusterName string) *Master {
 
 // XXX NotifyNodeInformation to all nodes whenever nodetab changes
 
-// XXX -> Start(), Stop()
-
 // Start requests cluster to eventually transition into running state
 // it returns an error if such transition is not currently possible (e.g. partition table is not operational)
 // it returns nil if the transition began.
@@ -105,17 +94,17 @@ func NewMaster(clusterName string) *Master {
 //      take time and could be also automatically aborted due to cluster environment change (e.g.
 //      a storage node goes down)
 func (m *Master) Start() error {
-	ch := make(chan error)
-	m.ctlStart <- ctlStart{ch}
-	return <-ch
+	ech := make(chan error)
+	m.ctlStart <- ech
+	return <-ech
 }
 
 // Stop requests cluster to eventually transition into recovery state
 // XXX should be always possible ?
 func (m *Master) Stop() error {
-	ch := make(chan error)
-	m.ctlStop <- ctlStop{ch}
-	return <-ch
+	ech := make(chan error)
+	m.ctlStop <- ech
+	return <-ech
 }
 
 // Shutdown requests all known nodes in the cluster to stop
@@ -281,7 +270,7 @@ loop:
 
 		// request to start the cluster - if ok we exit replying ok
 		// if not ok - we just reply not ok
-		case c := <-m.ctlStart:
+		case ech := <-m.ctlStart:
 			if m.partTab.OperationalWith(&m.nodeTab) {
 				// reply "ok to start" after whole recovery finishes
 
@@ -292,15 +281,15 @@ loop:
 
 				rcancel()
 				defer func() {
-					c.resp <- nil
+					ech <- nil
 				}()
 				break loop
 			}
 
-			c.resp <- fmt.Errorf("start: cluster is non-operational")
+			ech <- fmt.Errorf("start: cluster is non-operational")
 
-		case c := <-m.ctlStop:
-			c.resp <- nil // we are already recovering
+		case ech := <-m.ctlStop:
+			ech <- nil // we are already recovering
 
 		case <-ctx.Done():
 			err = ctx.Err()
@@ -450,11 +439,11 @@ loop:
 			}
 
 
-		case c := <-m.ctlStart:
-			c.resp <- nil // we are already starting
+		case ech := <-m.ctlStart:
+			ech <- nil // we are already starting
 
-		case c := <-m.ctlStop:
-			c.resp <- nil // ok
+		case ech := <-m.ctlStop:
+			ech <- nil // ok
 			err = fmt.Errorf("stop requested")
 			break loop
 
@@ -552,11 +541,11 @@ loop:
 
 		// XXX what else ?	(-> txn control at least)
 
-		case c := <-m.ctlStart:
-			c.resp <- nil // we are already started
+		case ech := <-m.ctlStart:
+			ech <- nil // we are already started
 
-		case c := <-m.ctlStop:
-			c.resp <- nil // ok
+		case ech := <-m.ctlStop:
+			ech <- nil // ok
 			err = fmt.Errorf("stop requested")
 			break loop
 
