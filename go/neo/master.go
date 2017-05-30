@@ -154,7 +154,7 @@ func (m *Master) xxx(ctx ...) {
 }
 
 
-// run implements main master cluster management logic: node tracking, cluster
+// run is a process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) run(ctx context.Context) {
 
@@ -216,10 +216,12 @@ func (m *Master) run(ctx context.Context) {
 // - monitor whether partition table becomes operational wrt currently up nodeset
 // - if yes - finish recovering upon receiving "start" command
 
-// recovery is a process that drives cluster via recovery phase
+// recovery drives cluster during recovery phase
 //
-// NOTE during recovery phase `recovery()` owns .partTab and .nodeTab	XXX or is the only mutator ?
-func (m *Master) recovery(ctx context.Context) {
+// when recovery finishes error indicates:
+// - nil:  recovery was ok and a command came for cluster to start
+// - !nil: recovery was cancelled
+func (m *Master) recovery(ctx context.Context) error {
 	recovery := make(chan storRecovery)
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
@@ -286,7 +288,7 @@ loop:
 
 				rcancel()
 				defer func() {
-					s <- nil
+					c.resp <- nil
 				}()
 				break loop
 			}
@@ -297,7 +299,7 @@ loop:
 			c.resp <- nil // we are already recovering
 
 		case <-ctx.Done():
-			// XXX
+			err = ctx.Err()
 			break loop
 		}
 	}
@@ -306,6 +308,8 @@ loop:
 	for ; inprogress > 0; inprogress-- {
 		<-recovery
 	}
+
+	// XXX err
 }
 
 // storRecovery is result of a storage node passing recovery phase
