@@ -14,6 +14,7 @@
 // warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
 // See COPYING file for full licensing terms.
+// See https://www.nexedi.com/licensing for rationale and options.
 
 package neo
 // master node
@@ -90,7 +91,7 @@ func NewMaster(clusterName string) *Master {
 // Start requests cluster to eventually transition into running state
 // it returns an error if such transition is not currently possible (e.g. partition table is not operational)
 // it returns nil if the transition began.
-// NOTE upon successfull return cluster is not yet in running state - the transition will
+// NOTE upon successful return cluster is not yet in running state - the transition will
 //      take time and could be also automatically aborted due to cluster environment change (e.g.
 //      a storage node goes down)
 func (m *Master) Start() error {
@@ -274,7 +275,7 @@ loop:
 			if m.partTab.OperationalWith(&m.nodeTab) {
 				// reply "ok to start" after whole recovery finishes
 
-				// XXX ok? we want to retreive all recovery information first?
+				// XXX ok? we want to retrieve all recovery information first?
 				// XXX or initially S is in PENDING state and
 				// transitions to RUNNING only after successful
 				// recovery?
@@ -297,7 +298,7 @@ loop:
 		}
 	}
 
-	// consume left recovery responces (which should come without delay since it was cancelled)
+	// consume left recovery responses (which should come without delay since it was cancelled)
 	for ; inprogress > 0; inprogress-- {
 		<-recovery
 	}
@@ -314,7 +315,7 @@ type storRecovery struct {
 }
 
 // storCtlRecovery drives a storage node during cluster recovering state
-// it retrieves various ids and parition table from as stored on the storage
+// it retrieves various ids and partition table from as stored on the storage
 func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery) {
 	var err error
 	defer func() {
@@ -379,7 +380,7 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 // --------------------
 //
 // - starts with operational parttab
-// - tell all storages to perform data verificaion (TODO) and retreive last ids
+// - tell all storages to perform data verification (TODO) and retrieve last ids
 // - once we are done without loosing too much storages in the process (so that
 //   parttab is still operational) we are ready to enter servicing state.
 
@@ -632,7 +633,7 @@ func (m *Master) accept(n nodeCome) (node *Node, ok bool) {
 
 // allocUUID allocates new node uuid for a node of kind nodeType
 // XXX it is bad idea for master to assign uuid to coming node
-// -> better nodes generate really uniquie UUID themselves and always show with them
+// -> better nodes generate really unique UUID themselves and always show with them
 func (m *Master) allocUUID(nodeType NodeType) NodeUUID {
 	// see NodeUUID & NodeUUID.String for details
 	// XXX better to keep this code near to ^^^ (e.g. attached to NodeType)
@@ -812,7 +813,7 @@ type storageStartOperation struct {
 	resp chan error // XXX
 }
 
-// storageStopOperation asks storage driver to stop storage node oerating
+// storageStopOperation asks storage driver to stop storage node operating
 type storageStopOperation struct {
 	resp chan error
 }
