@@ -54,8 +54,6 @@ type Master struct {
 	ctlStop     chan chan error	// request to stop  cluster
 	ctlShutdown chan chan error	// request to shutdown cluster XXX with ctx ?
 
-	wantToStart chan chan error	// main -> recovery
-
 	// channels from various workers to main driver
 	nodeCome     chan nodeCome	// node connected
 	nodeLeave    chan nodeLeave	// node disconnected
@@ -71,8 +69,7 @@ type nodeCome struct {
 
 // node disconnects
 type nodeLeave struct {
-	link *NodeLink
-	// XXX TODO
+	link *NodeLink	// XXX better use uuid allocated on nodeCome ?
 }
 
 func NewMaster(clusterName string) *Master {
@@ -80,16 +77,14 @@ func NewMaster(clusterName string) *Master {
 	m.nodeUUID = m.allocUUID(MASTER)
 	// TODO update nodeTab with self
 	m.clusterState = ClusterRecovering	// XXX no elections - we are the only master
-	go m.run(context.TODO())	// XXX ctx
+	go m.run(context.TODO())		// XXX ctx
 
 	return m
 }
 
 
-// XXX NotifyNodeInformation to all nodes whenever nodetab changes
-
 // Start requests cluster to eventually transition into running state
-// it returns an error if such transition is not currently possible (e.g. partition table is not operational)
+// it returns an error if such transition is not currently possible to begin (e.g. partition table is not operational)
 // it returns nil if the transition began.
 // NOTE upon successful return cluster is not yet in running state - the transition will
 //      take time and could be also automatically aborted due to cluster environment change (e.g.
@@ -109,12 +104,15 @@ func (m *Master) Stop() error {
 }
 
 // Shutdown requests all known nodes in the cluster to stop
+// XXX + master's run to finish ?
 func (m *Master) Shutdown() error {
 	panic("TODO")
 }
 
+
+// setClusterState sets .clusterState and notifies subscribers
 func (m *Master) setClusterState(state ClusterState) {
-	if state == m.clusterState {
+	if state == m.clusterState {	// <- XXX do we really need this ?
 		return
 	}
 
@@ -147,56 +145,8 @@ func (m *Master) run(ctx context.Context) {
 			continue // -> recovery
 		}
 
-		// XXX shutdown
+		// XXX shutdown ?
 	}
-
-/*
-	go m.recovery(ctx)
-
-	for {
-		select {
-		case <-ctx.Done():
-			// XXX -> shutdown
-			panic("TODO")
-
-		// command to start cluster
-		case c := <-m.ctlStart:
-			if m.clusterState != ClusterRecovering {
-				// start possible only from recovery
-				// XXX err ctx
-				c.resp <- fmt.Errorf("start: inappropriate current state: %v", m.clusterState)
-				break
-			}
-
-			ch := make(chan error)
-			select {
-			case <-ctx.Done():
-				// XXX how to avoid checking this ctx.Done everywhere?
-				c.resp <- ctx.Err()
-				panic("TODO")
-
-			case m.wantToStart <- ch:
-			}
-			err := <-ch
-			c.resp <- err
-			if err != nil {
-				break
-			}
-
-			// recovery said it is ok to start and finished - launch verification
-			m.setClusterState(ClusterVerifying)
-			go m.verify(ctx)
-
-		// command to stop cluster
-		case <-m.ctlStop:
-			// TODO
-
-		// command to shutdown
-		case <-m.ctlShutdown:
-			// TODO
-		}
-	}
-*/
 }
 
 
@@ -207,24 +157,24 @@ func (m *Master) run(ctx context.Context) {
 // - accept connections from storage nodes
 // - retrieve and recovery latest previously saved partition table from storages
 // - monitor whether partition table becomes operational wrt currently up nodeset
-// - if yes - finish recovering upon receiving "start" command
+// - if yes - finish recovering upon receiving "start" command		XXX or autostart
 
 // recovery drives cluster during recovery phase
 //
 // when recovery finishes error indicates:
-// - nil:  recovery was ok and a command came for cluster to start
+// - nil:  recovery was ok and a command came for cluster to start	XXX or autostart
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
 	m.setClusterState(ClusterRecovering)
-
-	recovery := make(chan storRecovery)
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
+
+	recovery := make(chan storRecovery)
 	inprogress := 0
 
 	// start recovery on all storages we are currently in touch with
 	for _, stor := range m.nodeTab.StorageList() {
-		if stor.Info.NodeState > DOWN {	// XXX state cmp ok ?
+		if stor.NodeState > DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			go storCtlRecovery(rctx, stor.Link, recovery)
 		}
@@ -387,13 +337,12 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 // verify drives cluster via verification phase
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab
-func (m *Master) verify(ctx context.Context) error {
+func (m *Master) verify(ctx context.Context) (err error) {
 	m.setClusterState(ClusterVerifying)
-
-	var err error
-	verify := make(chan storVerify)
 	vctx, vcancel := context.WithCancel(ctx)
 	defer vcancel()
+
+	verify := make(chan storVerify)
 	inprogress := 0
 
 	// XXX ask every storage for verify and wait for _all_ them to complete?
@@ -401,6 +350,7 @@ func (m *Master) verify(ctx context.Context) error {
 
 	// start verification on all storages we are currently in touch with
 	for _, stor := range m.nodeTab.StorageList() {
+		// XXX check state > DOWN
 		inprogress++
 		go storCtlVerify(vctx, stor.Link, verify)
 	}

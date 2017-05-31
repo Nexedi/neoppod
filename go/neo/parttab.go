@@ -152,7 +152,7 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 			case UP_TO_DATE, FEEDING:	// XXX cell.isReadble in py
 				// cell says it is readable. let's check whether corresponding node is up
 				node := nt.Get(cell.NodeUUID)
-				if node == nil || node.Info.NodeState != RUNNING {	// XXX PENDING is also ok ?
+				if node == nil || node.NodeState != RUNNING {	// XXX PENDING is also ok ?
 					continue
 				}
 

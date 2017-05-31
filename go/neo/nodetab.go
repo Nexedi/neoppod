@@ -81,7 +81,8 @@ type NodeTable struct {
 
 // Node represents a node entry in NodeTable
 type Node struct {
-	Info NodeInfo	// XXX extract ?	XXX -> embedd
+	//Info NodeInfo	// XXX extract ?	XXX -> embedd
+	NodeInfo
 
 	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
 	// XXX identified or not ?
@@ -93,7 +94,7 @@ type Node struct {
 func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {
-		if node.Info.NodeUUID == uuid {
+		if node.NodeUUID == uuid {
 			return node
 		}
 	}
@@ -111,10 +112,10 @@ func (nt *NodeTable) Update(nodeInfo NodeInfo, link *NodeLink) *Node {
 		nt.nodev = append(nt.nodev, node)
 	}
 
-	node.Info = nodeInfo
+	node.NodeInfo = nodeInfo
 	node.Link = link
 
-	nt.notify(node.Info)
+	nt.notify(node.NodeInfo)
 	return node
 }
 
@@ -141,9 +142,9 @@ func (nt *NodeTable) UpdateLinkDown(link *NodeLink) *Node {
 		panic("nodetab: UpdateLinkDown: no corresponding entry")
 	}
 
-	node.Info.NodeState = DOWN
+	node.NodeState = DOWN
 
-	nt.notify(node.Info)
+	nt.notify(node.NodeInfo)
 	return node
 }
 
@@ -153,7 +154,7 @@ func (nt *NodeTable) StorageList() []*Node {
 	// FIXME linear scan
 	sl := []*Node{}
 	for _, node := range nt.nodev {
-		if node.Info.NodeType == STORAGE {
+		if node.NodeType == STORAGE {
 			sl = append(sl, node)
 		}
 	}
@@ -167,10 +168,9 @@ func (nt *NodeTable) String() string {
 	buf := bytes.Buffer{}
 
 	// XXX also for .storv
-	for _, node := range nt.nodev {
+	for _, n := range nt.nodev {
 		// XXX recheck output
-		i := node.Info
-		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", i.NodeUUID, i.NodeType, i.NodeState, i.Address)
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", n.NodeUUID, n.NodeType, n.NodeState, n.Address)
 	}
 
 	return buf.String()
