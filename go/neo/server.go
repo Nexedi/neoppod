@@ -263,7 +263,7 @@ func Expect(conn *Conn, msg NEODecoder) error {
 			return errDecode(&errResp) // XXX err ctx
 		}
 
-		return fmt.Errorf("unexpected packet: %T", msgType) // XXX err ctx
+		return fmt.Errorf("unexpected packet: %T", msgType) // XXX err ctx -> + conn ?
 	}
 
 	_, err = msg.NEODecode(pkt.Payload())

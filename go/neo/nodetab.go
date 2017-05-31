@@ -81,8 +81,7 @@ type NodeTable struct {
 
 // Node represents a node entry in NodeTable
 type Node struct {
-	//Info NodeInfo	// XXX extract ?	XXX -> embedd
-	NodeInfo
+	NodeInfo	// XXX good idea to embed ?
 
 	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
 	// XXX identified or not ?

@@ -162,9 +162,11 @@ func (m *Master) run(ctx context.Context) {
 // recovery drives cluster during recovery phase
 //
 // when recovery finishes error indicates:
-// - nil:  recovery was ok and a command came for cluster to start	XXX or autostart
+// - nil:  recovery was ok and a command came for cluster to start
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
+	defer errcontextf(&err, "master: recovery")
+
 	m.setClusterState(ClusterRecovering)
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
@@ -184,7 +186,7 @@ loop:
 	for {
 		select {
 		case n := <-m.nodeCome:
-			node, ok := m.accept(n, /* XXX do not accept clients */)
+			node, ok := m.accept(n, /* XXX only accept storages -> PENDING */)
 			if !ok {
 				break
 			}
@@ -227,8 +229,7 @@ loop:
 
 				// XXX ok? we want to retrieve all recovery information first?
 				// XXX or initially S is in PENDING state and
-				// transitions to RUNNING only after successful
-				// recovery?
+				// transitions to RUNNING only after successful recovery?
 
 				rcancel()
 				defer func() {
@@ -326,18 +327,24 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 }
 
 
+var errStopRequested   = errors.New("stop requested")
+var errClusterDegraded = errors.New("cluster became non-operatonal")
+
+
 // Cluster Verification
 // --------------------
 //
-// - starts with operational parttab
+// - starts with operational partition table
 // - tell all storages to perform data verification (TODO) and retrieve last ids
 // - once we are done without loosing too much storages in the process (so that
-//   parttab is still operational) we are ready to enter servicing state.
+//   partition table is still operational) we are ready to enter servicing state.
 
 // verify drives cluster via verification phase
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab
 func (m *Master) verify(ctx context.Context) (err error) {
+	defer errcontextf(&err, "master: verify")
+
 	m.setClusterState(ClusterVerifying)
 	vctx, vcancel := context.WithCancel(ctx)
 	defer vcancel()
@@ -345,39 +352,57 @@ func (m *Master) verify(ctx context.Context) (err error) {
 	verify := make(chan storVerify)
 	inprogress := 0
 
-	// XXX ask every storage for verify and wait for _all_ them to complete?
-	// XXX do we need to reset m.lastOid / m.lastTid to 0 in the beginning?
+	// NOTE we don't reset m.lastOid / m.lastTid to 0 in the beginning of verification
+	//      with the idea that XXX
 
+	// XXX ask every storage to verify and wait for _all_ them to complete?
 	// start verification on all storages we are currently in touch with
 	for _, stor := range m.nodeTab.StorageList() {
-		// XXX check state > DOWN
-		inprogress++
-		go storCtlVerify(vctx, stor.Link, verify)
+		if stor.NodeState > DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+			inprogress++
+			go storCtlVerify(vctx, stor.Link, verify)
+		}
 	}
 
 loop:
 	for inprogress > 0 {
 		select {
 		case n := <-m.nodeCome:
-			// TODO
-			_ = n
+			node, ok := m.accept(n, /* XXX only accept storages -> known ? RUNNING : PENDING */)
+			if !ok {
+				break
+			}
+
+			// new storage arrived - start verification on it too
+			// XXX ok? or it must first go through recovery check?
+			inprogress++
+			go storCtlVerify(vctx, node.Link, verify)
 
 		case n := <-m.nodeLeave:
-			// TODO
-			_ = n
+			m.nodeTab.UpdateLinkDown(n.link)
 
+			// if cluster became non-operational - we cancel verification
+			if !m.partTab.OperationalWith(&m.nodeTab) {
+				// XXX ok to instantly cancel? or better
+				// graceful shutdown in-flight verifications?
+				vcancel()
+				err = errClusterDegraded
+				break loop
+			}
+
+		// a storage node came through verification - TODO
 		case v := <-verify:
 			inprogress--
 
 			if v.err != nil {
-				fmt.Printf("master: %v\n", v.err) // XXX err ctx
+				fmt.Printf("master: verify: %v\n", v.err)
 				// XXX mark S as non-working in nodeTab
 
 				// check partTab is still operational
 				// if not -> cancel to go back to recovery
 				if m.partTab.OperationalWith(&m.nodeTab) {
 					vcancel()
-					err = fmt.Errorf("cluster became non-operational in the process")
+					err = errClusterDegraded
 					break loop
 				}
 			} else {
@@ -395,7 +420,7 @@ loop:
 
 		case ech := <-m.ctlStop:
 			ech <- nil // ok
-			err = fmt.Errorf("stop requested")
+			err = errStopRequested
 			break loop
 
 		case <-ctx.Done():
@@ -404,17 +429,11 @@ loop:
 		}
 	}
 
-	if err != nil {
-		// XXX -> err = fmt.Errorf("... %v", err)
-		fmt.Printf("master: verify: %v\n", err)
-
-		// consume left verify responses (which should come without delay since it was cancelled)
-		for ; inprogress > 0; inprogress-- {
-			<-verify
-		}
+	// consume left verify responses (which should come without delay since it was cancelled)
+	for ; inprogress > 0; inprogress-- {
+		<-verify
 	}
 
-	// XXX -> return via channel ?
 	return err
 }
 
@@ -475,6 +494,7 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 
 // service drives cluster during running state
 //
+// prerequisite for start: .partTab is operational wrt .nodeTab and verification passed (XXX)
 func (m *Master) service(ctx context.Context) (err error) {
 	m.setClusterState(ClusterRunning)
 
@@ -864,7 +884,7 @@ func (m *Master) DriveStorage(ctx context.Context, link *NodeLink) {
 	// # (via changing m.clusterState and relying on broadcast ?)
 	// >NotifyClusterInformation	(cluster_state=VERIFYING)
 	//
-	// # (via changing partTab and relying on broadcast ?)
+	// # (via changing partTab and relying on broadcast ?) -> no sends whole PT initially
 	// >NotifyPartitionTable	(ptid=1, `node 0: S1, R`)
 	// # S saves PT info locally	XXX -> after StartOperation ?
 	//

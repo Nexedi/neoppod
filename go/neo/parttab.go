@@ -151,6 +151,11 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 			switch cell.CellState {
 			case UP_TO_DATE, FEEDING:	// XXX cell.isReadble in py
 				// cell says it is readable. let's check whether corresponding node is up
+				// FIXME checking whether it is up is not really enough -
+				// - what is needed to check is that data on that node is up
+				// to last_tid.
+				//
+				// We leave it as is for now.
 				node := nt.Get(cell.NodeUUID)
 				if node == nil || node.NodeState != RUNNING {	// XXX PENDING is also ok ?
 					continue
