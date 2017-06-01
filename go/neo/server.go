@@ -235,40 +235,59 @@ func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
 	return err
 }
 
+
+// ProtoError is returned when there waa a protocol error, like receiving
+// unexpected packet or packet with wrong header
+type ProtoError struct {
+	Conn *Conn
+	Err  error
+}
+
+func (e *ProtoError) Error() string {
+	return fmt.Sprintf("%v: %v", e.Conn, e.Err)
+}
+
 // Expect receives 1 packet and expects it to be exactly of msg type
 // XXX naming  (-> Recv1 ?)
-func Expect(conn *Conn, msg NEODecoder) error {
+func Expect(conn *Conn, msg NEODecoder) (err error) {
 	pkt, err := conn.Recv()
 	if err != nil {
 		return err
 	}
+
+	// received ok. Now it is all decoding
 
 	// XXX dup wrt RecvAndDecode
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
 	msgType := pktTypeRegistry[msgCode]
 	if msgType == nil {
-		return fmt.Errorf("invalid msgCode (%d)", msgCode) // XXX err ctx
+		return &ProtoError{conn, fmt.Errorf("invalid msgCode (%d)", msgCode)}
 	}
 
-	if msgType != reflect.TypeOf(msg) {
-		// Error response
+	// FIXME -> better compare on just msgCode
+	if msgType != reflect.TypeOf(msg).Elem() {
+		// unexpected Error response
 		if msgType == reflect.TypeOf(Error{}) {
 			errResp := Error{}
 			_, err = errResp.NEODecode(pkt.Payload())
 			if err != nil {
-				return err // XXX err ctx
+				return &ProtoError{conn, err}
 			}
 
-			return errDecode(&errResp) // XXX err ctx
+			// FIXME clarify error decoding logic:
+			// - in some cases Error is one of "expected" answers (e.g. Ask(GetObject))
+			// - in other cases Error is completely not expected
+			//   (e.g. getting 1st packet on connection)
+			return errDecode(&errResp) // XXX err ctx vs ^^^ errcontextf ?
 		}
 
-		return fmt.Errorf("unexpected packet: %T", msgType) // XXX err ctx -> + conn ?
+		return &ProtoError{conn, fmt.Errorf("unexpected packet: %v", msgType)}
 	}
 
 	_, err = msg.NEODecode(pkt.Payload())
 	if err != nil {
-		return err // XXX err ctx
+		return &ProtoError{conn, err}
 	}
 
 	return nil
