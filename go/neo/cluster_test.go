@@ -29,6 +29,12 @@ import (
 	"../zodb/storage/fs1"
 )
 
+
+// M drives cluster with 1 S through recovery -> verification -> service -> shutdown
+func TestMasterStorage(t *testing.T) {
+	// TODO
+}
+
 // basic interaction between Client -- Storage
 func TestClientStorage(t *testing.T) {
 	Cnl, Snl := nodeLinkPipe()
