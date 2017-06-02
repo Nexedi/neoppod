@@ -19,8 +19,8 @@
 //
 // TODO describe addressing scheme
 //
-// it is useful for testing networked applications interaction in 1 process
-// without going to OS networking stack. XXX
+// it might be handy for testing interaction in networked applications in 1
+// process without going to OS networking stack.
 package pipenet
 
 import (
@@ -52,7 +52,7 @@ type Addr struct {
 // Network implements synchronous in-memory network of pipes
 // It can be worked with the same way a regular TCP network is handled with Dial/Listen/Accept/...
 //
-// Network must be created with New
+// Network must be created with New	XXX is it really ok to have global state ?
 type Network struct {
 	// name of this network under "pipe" namespace -> e.g. ""
 	// full network name will be reported as "pipe"+Name		XXX -> just full name ?
@@ -226,8 +226,8 @@ func (l *listener) Accept() (net.Conn, error) {
 
 		n.mu.Unlock()
 
-		resp <- pc
-		return ps, nil
+		resp <- e.pipev[0]
+		return e.pipev[1], nil
 	}
 }
 
@@ -346,14 +346,14 @@ func New(name string) *Network {
 // lookupNet lookups Network by name
 // name is full network name, e.g. "pipe"
 func lookupNet(name string) (*Network, error) {
-	if !strings.HasPrefix(NetPrefix, name) {
+	if !strings.HasPrefix(name, NetPrefix) {
 		return nil, errBadNetwork
 	}
 
 	netMu.Lock()
 	defer netMu.Unlock()
 
-	n := networks[strings.TrimPrefix(NetPrefix, name)]
+	n := networks[strings.TrimPrefix(name, NetPrefix)]
 	if n == nil {
 		return nil, errNetNotFound
 	}
