@@ -34,12 +34,14 @@ import (
 
 const NetPrefix = "pipe" // pipenet package works only with "pipe*" networks
 
-var errBadNetwork = errors.New("pipenet: invalid network")
-var errBadAddress = errors.New("pipenet: invalid address")
-var errNetNotFound = errors.New("no such network")
-var errNetClosed   = errors.New("network connection closed")
-var errAddrAlreadyUsed = errors.New("address already in use")
-var errConnRefused = errors.New("connection refused")
+var (
+	errBadNetwork		= errors.New("pipenet: invalid network")
+	errBadAddress		= errors.New("pipenet: invalid address")
+	errNetNotFound		= errors.New("no such network")
+	errNetClosed		= errors.New("network connection closed")
+	errAddrAlreadyUsed	= errors.New("address already in use")
+	errConnRefused		= errors.New("connection refused")
+)
 
 
 // Network represents network of in-memory pipes
@@ -47,7 +49,7 @@ var errConnRefused = errors.New("connection refused")
 //
 // Network must be created with New
 type Network struct {
-	// name (suffix) of this network, e.g. ""
+	// name of this network under "pipe" namespace -> e.g. ""
 	// full network name will be reported as "pipe"+Name
 	Name string
 
@@ -62,7 +64,7 @@ type pipe struct {
 	listener *listener	// listener is waiting here if != nil
 }
 
-// Addr represents address of a pipe endpoint
+// Addr represents address of a pipenet endpoint
 type Addr struct {
 	network string	// full network name, e.g. "pipe"
 	addr    string	// XXX -> port ? + including c/s ?
@@ -117,11 +119,12 @@ func (n *Network) Listen(laddr string) (net.Listener, error) {
 	l := &listener{
 		network: n,
 		port:	 port,
-		dialq:	 make(chan chan connected),
-		acceptq: make(chan chan connected),
+		dialq:	 make(chan chan net.Conn),
+//		acceptq: make(chan chan connected),
 		down:	 make(chan struct{}),
 	}
 	n.pipev[port] = &pipe{listener: l}
+//	go l.listen()
 
 	return l, nil
 }
@@ -131,8 +134,8 @@ type listener struct {
 	network *Network	// XXX needed ?
 	port    int		// port we are listening on	XXX needed ?
 
-	dialq    chan chan connected	// Dial requests to our port go here
-	acceptq  chan chan connected	// Accept requests go here
+	dialq    chan chan net.Conn	// Dial requests to our port go here
+//	acceptq  chan chan connected	// Accept requests go here
 	down     chan struct{}		// Close -> down=ready
 	downOnce sync.Once		// so Close several times is ok
 }
@@ -150,21 +153,47 @@ func (l *listener) Close() error {
 	return nil
 }
 
+/*
+// listen implements listener service process - connecting Accept and Dial calls with each other
+func (l *listener) listen() {
+	for {
+		select {
+		case <-l.down:
+			return
+
+		case resp := <-l.dialq:
+			// TODO
+
+		case resp := <-l.acceptq:
+			// TODO
+		}
+	}
+}
+
 // connected is response from listener to Dial and Accept
 type connected struct {
 	conn net.Conn
 	err  error
 }
+*/
 
 func (l *listener) Accept() (net.Conn, error) {
-	ch := make(chan connected)
+//	ch := make(chan connected)
 	select {
 	case <-l.down:
 		return nil, &net.OpError{Op: "accept", Net: l.network.netname(), Addr: l.Addr(), Err: errNetClosed}
 
+	/*
 	case l.acceptq <- ch:
 		resp := <-ch
 		return resp.conn, resp.err
+	*/
+
+	case resp := <-l.dialq:
+		// someone dialed us - let's connect
+		pc, ps := net.Pipe()
+		resp <- pc
+		return ps, nil
 	}
 }
 
@@ -192,14 +221,13 @@ func (n *Network) Dial(addr string) (net.Conn, error) {
 	l := p.listener
 
 	// NOTE listener is not locking n.mu -> it is ok to send/receive under mu
-	ch := make(chan connected)
+	resp := make(chan net.Conn)
 	select {
 	case <-l.down:
 		return nil, derr(errConnRefused)
 
-	case l.dialq <- ch:
-		resp := <-ch
-		return resp.conn, resp.err
+	case l.dialq <- resp:
+		return <-resp, nil
 	}
 }
 
