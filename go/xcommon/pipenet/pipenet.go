@@ -101,6 +101,11 @@ func (e *entry) empty() bool {
 	return e.pipev[0] == nil && e.pipev[1] == nil && e.listener == nil
 }
 
+// addr returns address corresponding to entry
+func (e *entry) addr() *Addr {
+	return &Addr{network: e.network.netname(), addr: fmt.Sprintf("%d", e.port)}
+}
+
 func (a *Addr) Network() string { return a.network }
 func (a *Addr) String() string { return a.addr }	// XXX Network() + ":" + a.addr ?
 func (n *Network) netname() string { return NetPrefix + n.Name }
@@ -231,15 +236,12 @@ func (n *Network) Dial(addr string) (net.Conn, error) {
 
 // Addr returns address where listener is accepting incoming connections
 func (l *listener) Addr() net.Addr {
-	e := l.entry
-	n := e.network
-	return &Addr{network: n.netname(), addr: fmt.Sprintf("%d", e.port)} // NOTE no c/s XXX -> +l ?
+	// NOTE no +"l" suffix e.g. because Dial(l.Addr()) must work
+	return l.entry.addr()
 }
 
-// XXX conn.Close - unregister from network.connv
-// XXX conn.LocalAddr -> ...
-// XXX conn.RemoteAddr -> ...
-
+// Close closes pipe endpoint and unregisters conn from Network
+// All currently in-flight blocking IO is interuppted with an error
 func (c *conn) Close() (err error) {
 	c.closeOnce.Do(func() {
 		err = c.Conn.Close()
@@ -258,6 +260,23 @@ func (c *conn) Close() (err error) {
 	})
 
 	return err
+}
+
+// LocalAddr returns address of local end of connection
+// it is entry address + "c" (client) or "s" (server) suffix depending on
+// whether pipe endpoint was created via Dial or Accept.
+func (c *conn) LocalAddr() net.Addr {
+	addr := c.entry.addr()
+	addr.addr += string("cs"[c.endpoint])
+	return addr
+}
+
+// RemoteAddr returns address of remote end of connection
+// it is entry address + "c" or "s" suffix -- see LocalAddr for details
+func (c *conn) RemoteAddr() net.Addr {
+	addr := c.entry.addr()
+	addr.addr += string("sc"[c.endpoint])
+	return addr
 }
 
 
