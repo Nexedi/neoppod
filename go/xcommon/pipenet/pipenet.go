@@ -46,7 +46,7 @@ var (
 // Addr represents address of a pipenet endpoint
 type Addr struct {
 	network string	// full network name, e.g. "pipe"
-	addr    string	// XXX -> port ? + including c/s ?
+	addr    string	// port + c/s depending on connection endpoint
 }
 
 // Network implements synchronous in-memory network of pipes
@@ -95,6 +95,27 @@ type listener struct {
 }
 
 
+// allocFreeEntry finds first free port and allocate network entry for it
+// must be called under .mu held
+func (n *Network) allocFreeEntry() *entry {
+	// find first free port if it was not specified
+	port := 0
+	for ; port < len(n.entryv); port++ {
+		if n.entryv[port] == nil {
+			break
+		}
+	}
+	// if all busy it exits with port == len(n.entryv)
+
+	// grow if needed
+	for port >= len(n.entryv) {
+		n.entryv = append(n.entryv, nil)
+	}
+
+	e := &entry{network: n, port: port}
+	n.entryv[port] = e
+	return e
+}
 
 // empty checks whether both 2 pipe endpoints and listener are nil
 func (e *entry) empty() bool {
@@ -110,55 +131,6 @@ func (a *Addr) Network() string { return a.network }
 func (a *Addr) String() string { return a.addr }	// XXX Network() + ":" + a.addr ?
 func (n *Network) netname() string { return NetPrefix + n.Name }
 
-
-
-func (n *Network) Listen(laddr string) (net.Listener, error) {
-	lerr := func(err error) error {
-		return &net.OpError{Op: "listen", Net: n.netname(), Addr: &Addr{n.netname(), laddr}, Err: err}
-	}
-
-	// laddr must be empty or int >= 0
-	port := -1
-	if laddr != "" {
-		port, err := strconv.Atoi(laddr)
-		if err != nil || port < 0 {
-			return nil, lerr(errBadAddress)
-		}
-	}
-
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	// find first free port if it was not specified
-	if port < 0 {
-		for port = 0; port < len(n.entryv); port++ {
-			if n.entryv[port] == nil {
-				break
-			}
-		}
-		// if all busy it exits with port == len(n.entryv)
-	}
-
-	// grow if needed
-	for port >= len(n.entryv) {
-		n.entryv = append(n.entryv, nil)
-	}
-
-	if n.entryv[port] != nil {
-		return nil, lerr(errAddrAlreadyUsed)
-	}
-
-	e := &entry{network: n, port: port}
-	l := &listener{
-		entry:   e,
-		dialq:	 make(chan chan net.Conn),
-		down:	 make(chan struct{}),
-	}
-	e.listener = l
-	n.entryv[port] = e
-
-	return l, nil
-}
 
 // Close closes the listener
 // it interrupts all currently in-flight calls to Accept
@@ -180,18 +152,79 @@ func (l *listener) Close() error {
 	return nil
 }
 
+// Listen starts new listener
+// Ct either allocates new port if laddr is "" or binds to laddr.
+// Once listener is started Dials could connect to listener address.
+// Connection requests created by Dials could be accepted via Accept.
+func (n *Network) Listen(laddr string) (net.Listener, error) {
+	lerr := func(err error) error {
+		return &net.OpError{Op: "listen", Net: n.netname(), Addr: &Addr{n.netname(), laddr}, Err: err}
+	}
+
+	// laddr must be empty or int >= 0
+	port := -1
+	if laddr != "" {
+		port, err := strconv.Atoi(laddr)
+		if err != nil || port < 0 {
+			return nil, lerr(errBadAddress)
+		}
+	}
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	var e *entry
+
+	// find first free port if it was not specified
+	if port < 0 {
+		e = n.allocFreeEntry()
+
+	// else we check whether address is already used and if not allocate entry in-place
+	} else {
+		// grow if needed
+		for port >= len(n.entryv) {
+			n.entryv = append(n.entryv, nil)
+		}
+
+		if n.entryv[port] != nil {
+			return nil, lerr(errAddrAlreadyUsed)
+		}
+
+		e = &entry{network: n, port: port}
+		n.entryv[port] = e
+	}
+
+	// create listener under entry
+	l := &listener{
+		entry:   e,
+		dialq:	 make(chan chan net.Conn),
+		down:	 make(chan struct{}),
+	}
+	e.listener = l
+
+	return l, nil
+}
+
 // Accept tries to connect to Dial called with addr corresponding to our listener
 func (l *listener) Accept() (net.Conn, error) {
+	n := l.entry.network
+
 	select {
 	case <-l.down:
-		return nil, &net.OpError{Op: "accept", Net: l.entry.network.netname(), Addr: l.Addr(), Err: errNetClosed}
+		return nil, &net.OpError{Op: "accept", Net: n.netname(), Addr: l.Addr(), Err: errNetClosed}
 
 	case resp := <-l.dialq:
 		// someone dialed us - let's connect
 		pc, ps := net.Pipe()
 
-		// XXX allocate port and register to l.network.pipev
+		// allocate entry and register conns to Network under it
+		n.mu.Lock()
 
+		e := n.allocFreeEntry()
+		e.pipev[0] = &conn{entry: e, endpoint: 0, Conn: pc}
+		e.pipev[1] = &conn{entry: e, endpoint: 1, Conn: ps}
+
+		n.mu.Unlock()
 
 		resp <- pc
 		return ps, nil
