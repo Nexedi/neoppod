@@ -15,7 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// Package pipenet provides in-memory network of net.Pipes
+// Package pipenet provides synchronous in-memory network of net.Pipes
 //
 // TODO describe addressing scheme
 //
@@ -36,33 +36,12 @@ const NetPrefix = "pipe" // pipenet package works only with "pipe*" networks
 
 var (
 	errBadNetwork		= errors.New("pipenet: invalid network")
-	errBadAddress		= errors.New("pipenet: invalid address")
+	errBadAddress		= errors.New("invalid address")
 	errNetNotFound		= errors.New("no such network")
 	errNetClosed		= errors.New("network connection closed")
 	errAddrAlreadyUsed	= errors.New("address already in use")
 	errConnRefused		= errors.New("connection refused")
 )
-
-
-// Network represents network of in-memory pipes
-// It can be worked with the same way a regular TCP network is handled with Dial/Listen/Accept/...
-//
-// Network must be created with New
-type Network struct {
-	// name of this network under "pipe" namespace -> e.g. ""
-	// full network name will be reported as "pipe"+Name
-	Name string
-
-	mu      sync.Mutex
-	pipev   []*pipe		// port -> listener + net.Pipe (?)
-//	listenv []chan dialReq	// listener[port] is waiting here if != nil
-}
-
-// pipe represents one pipenet connection	XXX naming
-// it can be either already connected (2 endpoints) or only listening (1 endpoint)	XXX
-type pipe struct {
-	listener *listener	// listener is waiting here if != nil
-}
 
 // Addr represents address of a pipenet endpoint
 type Addr struct {
@@ -70,12 +49,62 @@ type Addr struct {
 	addr    string	// XXX -> port ? + including c/s ?
 }
 
+// Network implements synchronous in-memory network of pipes
+// It can be worked with the same way a regular TCP network is handled with Dial/Listen/Accept/...
+//
+// Network must be created with New
+type Network struct {
+	// name of this network under "pipe" namespace -> e.g. ""
+	// full network name will be reported as "pipe"+Name		XXX -> just full name ?
+	Name string
+
+	mu      sync.Mutex
+	entryv  []*entry   // port -> listener | (conn, conn)
+}
+
+// entry represents one Network entry
+// it can be either already connected (2 endpoints) or only listening (1 endpoint)
+// anything from the above becomes nil when closed
+type entry struct {
+	network  *Network
+	port     int
+
+	pipev    [2]*conn  // connection endpoints are there if != nil
+	listener *listener // listener is waiting here if != nil
+}
+
+// conn represents one endpoint of connection created under Network
+type conn struct {
+	entry    *entry
+	endpoint int // 0 | 1 -> entry.pipev
+
+	net.Conn
+
+	closeOnce sync.Once
+}
+
+// listener implements net.Listener for piped network
+type listener struct {
+	// network/port we are listening on
+	entry *entry
+
+	dialq    chan chan net.Conn	// Dial requests to our port go here
+	down     chan struct{}		// Close -> down=ready
+
+	closeOnce sync.Once
+}
+
+
+
+// empty checks whether both 2 pipe endpoints and listener are nil
+func (e *entry) empty() bool {
+	return e.pipev[0] == nil && e.pipev[1] == nil && e.listener == nil
+}
+
 func (a *Addr) Network() string { return a.network }
 func (a *Addr) String() string { return a.addr }	// XXX Network() + ":" + a.addr ?
 func (n *Network) netname() string { return NetPrefix + n.Name }
 
-
-// XXX do we need Conn wrapping net.Pipe ? (e.g. to override String())
 
 
 func (n *Network) Listen(laddr string) (net.Listener, error) {
@@ -97,50 +126,51 @@ func (n *Network) Listen(laddr string) (net.Listener, error) {
 
 	// find first free port if it was not specified
 	if port < 0 {
-		for port = 0; port < len(n.pipev); port++ {
-			if n.pipev[port] == nil {
+		for port = 0; port < len(n.entryv); port++ {
+			if n.entryv[port] == nil {
 				break
 			}
 		}
-		// if all busy it exits with port == len(n.pipev)
+		// if all busy it exits with port == len(n.entryv)
 	}
 
 	// grow if needed
-	for port >= len(n.pipev) {
-		n.pipev = append(n.pipev, nil)
+	for port >= len(n.entryv) {
+		n.entryv = append(n.entryv, nil)
 	}
 
-	if n.pipev[port] != nil {
+	if n.entryv[port] != nil {
 		return nil, lerr(errAddrAlreadyUsed)
 	}
 
+	e := &entry{network: n, port: port}
 	l := &listener{
-		network: n,
-		port:	 port,
+		entry:   e,
 		dialq:	 make(chan chan net.Conn),
 		down:	 make(chan struct{}),
 	}
-	n.pipev[port] = &pipe{listener: l}
+	e.listener = l
+	n.entryv[port] = e
 
 	return l, nil
-}
-
-// listener implements net.Listener for piped network
-type listener struct {
-	// network/port we are listening on
-	network *Network
-	port    int
-
-	dialq    chan chan net.Conn	// Dial requests to our port go here
-	down     chan struct{}		// Close -> down=ready
-	downOnce sync.Once		// so Close several times is ok
 }
 
 // Close closes the listener
 // it interrupts all currently in-flight calls to Accept
 func (l *listener) Close() error {
-	l.downOnce.Do(func() {
+	l.closeOnce.Do(func() {
 		close(l.down)
+
+		e := l.entry
+		n := e.network
+
+		n.mu.Lock()
+		defer n.mu.Unlock()
+
+		e.listener = nil
+		if e.empty() {
+			n.entryv[e.port] = nil
+		}
 	})
 	return nil
 }
@@ -149,7 +179,7 @@ func (l *listener) Close() error {
 func (l *listener) Accept() (net.Conn, error) {
 	select {
 	case <-l.down:
-		return nil, &net.OpError{Op: "accept", Net: l.network.netname(), Addr: l.Addr(), Err: errNetClosed}
+		return nil, &net.OpError{Op: "accept", Net: l.entry.network.netname(), Addr: l.Addr(), Err: errNetClosed}
 
 	case resp := <-l.dialq:
 		// someone dialed us - let's connect
@@ -177,15 +207,15 @@ func (n *Network) Dial(addr string) (net.Conn, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()	// XXX ok to defer here?
 
-	if port >= len(n.pipev) {
+	if port >= len(n.entryv) {
 		return nil, derr(errConnRefused)	// XXX merge with vvv
 	}
 
-	p := n.pipev[port]
-	if p == nil || p.listener == nil {
+	e := n.entryv[port]
+	if e == nil || e.listener == nil {
 		return nil, derr(errConnRefused)	// XXX merge with ^^^
 	}
-	l := p.listener
+	l := e.listener
 
 	// NOTE listener is not locking n.mu -> it is ok to send/receive under mu - FIXME not correct
 	// FIXME -> Accept needs to register new connection under n.mu
@@ -201,22 +231,37 @@ func (n *Network) Dial(addr string) (net.Conn, error) {
 
 // Addr returns address where listener is accepting incoming connections
 func (l *listener) Addr() net.Addr {
-	return &Addr{network: l.network.netname(), addr: fmt.Sprintf("%d", l.port)} // NOTE no c/s XXX -> +l ?
-}
-
-
-
-// conn represents one endpoint of connection created under Network
-type conn struct {
-	network *Network
-	// XXX port + c/s ?
-
-	net.Conn
+	e := l.entry
+	n := e.network
+	return &Addr{network: n.netname(), addr: fmt.Sprintf("%d", e.port)} // NOTE no c/s XXX -> +l ?
 }
 
 // XXX conn.Close - unregister from network.connv
 // XXX conn.LocalAddr -> ...
 // XXX conn.RemoteAddr -> ...
+
+func (c *conn) Close() (err error) {
+	c.closeOnce.Do(func() {
+		err = c.Conn.Close()
+
+		e := c.entry
+		n := e.network
+
+		n.mu.Lock()
+		defer n.mu.Unlock()
+
+		e.pipev[c.endpoint] = nil
+
+		if e.empty() {
+			n.entryv[e.port] = nil
+		}
+	})
+
+	return err
+}
+
+
+
 
 // ----------------------------------------
 
