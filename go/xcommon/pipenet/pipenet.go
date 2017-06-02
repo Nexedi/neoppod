@@ -95,8 +95,8 @@ type listener struct {
 }
 
 
-// allocFreeEntry finds first free port and allocate network entry for it
-// must be called under .mu held
+// allocFreeEntry finds first free port and allocates network entry for it
+// must be called with .mu held
 func (n *Network) allocFreeEntry() *entry {
 	// find first free port if it was not specified
 	port := 0
@@ -153,8 +153,8 @@ func (l *listener) Close() error {
 }
 
 // Listen starts new listener
-// Ct either allocates new port if laddr is "" or binds to laddr.
-// Once listener is started Dials could connect to listener address.
+// It either allocates free port if laddr is "" or binds to laddr.
+// Once listener is started Dials could connect to listening address.
 // Connection requests created by Dials could be accepted via Accept.
 func (n *Network) Listen(laddr string) (net.Listener, error) {
 	lerr := func(err error) error {
@@ -243,20 +243,22 @@ func (n *Network) Dial(addr string) (net.Conn, error) {
 	}
 
 	n.mu.Lock()
-	defer n.mu.Unlock()	// XXX ok to defer here?
 
 	if port >= len(n.entryv) {
-		return nil, derr(errConnRefused)	// XXX merge with vvv
+		n.mu.Unlock()
+		return nil, derr(errConnRefused)
 	}
 
 	e := n.entryv[port]
 	if e == nil || e.listener == nil {
-		return nil, derr(errConnRefused)	// XXX merge with ^^^
+		n.mu.Unlock()
+		return nil, derr(errConnRefused)
 	}
 	l := e.listener
 
-	// NOTE listener is not locking n.mu -> it is ok to send/receive under mu - FIXME not correct
-	// FIXME -> Accept needs to register new connection under n.mu
+	// NOTE Accept is locking n.mu -> we must release n.mu before sending dial request
+	n.mu.Unlock()
+
 	resp := make(chan net.Conn)
 	select {
 	case <-l.down:
