@@ -15,7 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// Package pipenet provides all-in-memory network of net.Pipes
+// Package pipenet provides in-memory network of net.Pipes
 //
 // TODO describe addressing scheme
 //
@@ -28,48 +28,54 @@ import (
 	"net"
 )
 
-//const Network = "pipe" // pipenet packages handles only this network
+const NetPrefix = "pipe" // pipenet package works only with "pipe*" networks
 
-var errBadNetwork = errors.New("invalid network")
+var errNetNotFound = errors.New("no such network")
+//var errBadNetwork = errors.New("invalid network")
 var errBadAddress = errors.New("invalid address")
 var errAddrAlreadyUsed = errors.New("address already in use")
 var errConnRefused = errors.New("connection refused")
 
 
-// Network represents network of in memory pipes
+// Network represents network of in-memory pipes
 // It can be worked with the same way a regular TCP network is handled with Dial/Listen/Accept/...
+//
+// Network must be created with New
 type Network struct {
-	Name string // name of this network, e.g. "pipe"
+	// name (suffix) of this network, e.g. ""
+	// full network name will be reported as "pipe"+Name
+	Name string
 
 	mu      sync.Mutex
-	pipev   []...		// port -> listener + net.Pipe (?)
+	pipev   []pipe		// port -> listener + net.Pipe (?)
 //	listenv []chan dialReq // listener[port] is waiting here if != nil
 }
 
+// pipe represents one pipenet connection
+// it can be either already connected (2 endpoints) or only listening (1 endpoint)	XXX
+type pipe struct {
+	// TODO
+}
 
 // Addr represents address of a pipe endpoint
-type Addr {
+type Addr struct {
 	network *Network
 	addr    string	// XXX -> port ? + including c/s ?
 }
 
-var _ net.Addr = (*Addr)nil
+var _ net.Addr = (*Addr)(nil)
 
-func (a *Addr) Network() string { return Network }
-func (a *Addr) String() string { return a.addr }
+func (a *Addr) Network() string { return a.network.netname() }
+func (a *Addr) String() string { return a.addr }	// XXX Network() + ":" + a.addr ?
+func (n *Network) netname() string { return NetPrefix + n.Name }
 
 
 // XXX do we need Conn wrapping net.Pipe ? (e.g. to override String())
 
 
-
-func (n *Network) Listen(network, laddr string) (net.Listener, error) {
+func (n *Network) Listen(laddr string) (net.Listener, error) {
 	lerr := func(err error) error {
-		return &net.OpError{Op: "listen", Net: network, Addr: laddr, Err: err}
-	}
-
-	if network != n.Name {
-		return lerr(errBadNetwork)
+		return &net.OpError{Op: "listen", Net: n.netname(), Addr: laddr, Err: err}
 	}
 
 	// laddr must be empty or int >= 0
@@ -155,10 +161,6 @@ func (n *Network) Dial(network, addr string) (net.Conn, error) {
 		return &net.OpError{Op: "dial", Net: network, Addr: addr, Err: err}
 	}
 
-	if network != n.Name {
-		return derr(errBadNetwork)
-	}
-
 	port, err := strconv.Atoi(addr)
 	if err != nil || port < 0 {
 		return derr(errBadAddress)
@@ -192,12 +194,56 @@ func (n *Network) Dial(network, addr string) (net.Conn, error) {
 
 // ----------------------------------------
 
-var DefaultNet = Network{Name: "pipe"}
 
-func Dial(netw, addr string) (net.Conn, error) {
-	return DefaultNet.Dial(netw, addr)
+var (
+	netMu      sync.Mutex
+	networks = map[string]*Network{} // netsuffix -> Network
+
+	DefaultNet = New("")
+)
+
+// New creates, initializes and returns new pipenet Network
+// network name must be unique - if not New will panic
+func New(name string) *Network {
+	netMu.Lock()
+	defer netMu.Unlock()
+
+	_, already := networks[name]
+	if already {
+		panic(fmt.Errorf("pipenet %v already registered", name)
+	}
+
+	n := &Network{Name: name}
+	networks[name] = n
+	return n
 }
 
-func Listen(netw, laddr string) (net.Listen, error) {
-	return DefaultNet.Listen(netw, laddr)
+// lookupNet lookups Network by name
+// returns nil, if not found
+func lookupNet(name string) *Network {
+	netMu.Lock()
+	defer netMu.Unlock()
+
+	return networks[name]
+}
+
+// Dial dials addr on a pipenet
+// network should be valid registered pipe network name
+func Dial(network, addr string) (net.Conn, error) {
+	n := lookupNet(network)
+	if n == nil {
+		return nil, &net.OpError{Op: "dial", Net: NetPrefix + network, Addr: addr, Err: err}
+	}
+
+	return n.Dial(addr)
+}
+
+// XXX text
+func Listen(network, laddr string) (net.Listen, error) {
+	n := lookupNet(network)
+	if n == nil {
+		return nil, &net.OpError{Op: "listen", Net: NetPrefix + network, Addr: addr, Err: err}
+	}
+
+	return n.Listen(netw, laddr)
 }
