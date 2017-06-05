@@ -28,24 +28,39 @@ import (
 	"../zodb"
 	"../zodb/storage/fs1"
 
-	"../xcommon/pipenet"
+	"lab.nexedi.com/kirr/go123/exc"
 )
 
 
+
+
+
+
 // xfs1stor creates new NEO storage node backed by fs1
-func xfs1stor(path string) *Storage {
+// XXX is this wrapper a good idea?
+func xfs1stor(path string) (*Storage, *fs1.FileStorage) {
 	// TODO +readonly ?
 	zstor, err := fs1.Open(context.Background(), path)
 	exc.Raiseif(err)
 
-	return NewStorage(zstor)
+	return NewStorage(zstor), zstor
 }
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	net = pipenet.New("")	// test network		XXX New registers to global table
-	S := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	net := NetPipe("")	// test network		XXX New registers to global table
+	S, _ := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 	M := NewMaster("abc1")
+
+	Sctx, Scancel := context.WithCancel(context.Background())
+	Mctx, Mcancel := context.WithCancel(context.Background())
+
+	// XXX temp
+	Sbind := ""; Mbind := ""; var err error
+	_ = Scancel; _ = Mcancel; _ = err
+
+	err = ListenAndServe(Sctx, net, Sbind, S)	// XXX go
+	err = ListenAndServe(Mctx, net, Mbind, M)	// XXX go
 }
 
 // basic interaction between Client -- Storage
@@ -55,7 +70,7 @@ func TestClientStorage(t *testing.T) {
 
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	S := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	S, zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
 		// XXX + test error return
