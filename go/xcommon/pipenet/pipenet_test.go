@@ -18,6 +18,7 @@
 package pipenet
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -45,7 +46,7 @@ func xaccept(l net.Listener) net.Conn {
 }
 
 func xdial(network, addr string) net.Conn {
-	c, err := Dial(network, addr)
+	c, err := Dial(context.Background(), network, addr)
 	exc.Raiseif(err)
 	return c
 }
@@ -79,10 +80,10 @@ func assertEq(t *testing.T, a, b interface{}) {
 func TestPipeNet(t *testing.T) {
 	New("α")
 
-	_, err := Dial("α", "0")
+	_, err := Dial(context.Background(), "α", "0")
 	assertEq(t, err, &net.OpError{Op: "dial", Net: "α", Addr: &Addr{"α", "0"}, Err: errBadNetwork})
 
-	_, err = Dial("pipeα", "0")
+	_, err = Dial(context.Background(), "pipeα", "0")
 	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipeα", Addr: &Addr{"pipeα", "0"}, Err: errConnRefused})
 
 	l1 := xlisten("pipeα", "")

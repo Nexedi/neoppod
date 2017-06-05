@@ -24,6 +24,7 @@
 package pipenet
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -232,7 +233,7 @@ func (l *listener) Accept() (net.Conn, error) {
 }
 
 // Dial tries to connect to Accept called on listener corresponding to addr
-func (n *Network) Dial(addr string) (net.Conn, error) {
+func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	derr := func(err error) error {
 		return &net.OpError{Op: "dial", Net: n.netname(), Addr: &Addr{n.netname(), addr}, Err: err}
 	}
@@ -261,6 +262,9 @@ func (n *Network) Dial(addr string) (net.Conn, error) {
 
 	resp := make(chan net.Conn)
 	select {
+	case <-ctx.Done():
+		return nil, derr(ctx.Err())
+
 	case <-l.down:
 		return nil, derr(errConnRefused)
 
@@ -362,13 +366,13 @@ func lookupNet(name string) (*Network, error) {
 
 // Dial dials addr on a pipenet
 // network should be full network name, e.g. "pipe"
-func Dial(network, addr string) (net.Conn, error) {
+func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
 	n, err := lookupNet(network)
 	if err != nil {
 		return nil, &net.OpError{Op: "dial", Net: network, Addr: &Addr{network, addr}, Err: err}
 	}
 
-	return n.Dial(addr)
+	return n.Dial(ctx, addr)
 }
 
 // Listen starts listening on a pipenet address

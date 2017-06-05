@@ -27,12 +27,25 @@ import (
 
 	"../zodb"
 	"../zodb/storage/fs1"
+
+	"../xcommon/pipenet"
 )
 
 
+// xfs1stor creates new NEO storage node backed by fs1
+func xfs1stor(path string) *Storage {
+	// TODO +readonly ?
+	zstor, err := fs1.Open(context.Background(), path)
+	exc.Raiseif(err)
+
+	return NewStorage(zstor)
+}
+
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	// TODO
+	net = pipenet.New("")	// test network		XXX New registers to global table
+	S := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	M := NewMaster("abc1")
 }
 
 // basic interaction between Client -- Storage
@@ -42,13 +55,7 @@ func TestClientStorage(t *testing.T) {
 
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	// TODO +readonly ?
-	zstor, err := fs1.Open(context.Background(), "../zodb/storage/fs1/testdata/1.fs")
-	if err != nil {
-		t.Fatalf("zstor: %v", err)	// XXX err ctx ?
-	}
-
-	S := NewStorage(zstor)
+	S := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
 		// XXX + test error return
