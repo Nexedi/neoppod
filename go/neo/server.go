@@ -76,9 +76,8 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 }
 
 // ListenAndServe listens on network address and then calls Serve to handle incoming connections
-// XXX split -> separate Listen() & Serve()
-func ListenAndServe(ctx context.Context, net_, laddr string, srv Server) error {
-	l, err := net.Listen(net_, laddr)
+func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) error {
+	l, err := net.Listen(laddr)
 	if err != nil {
 		return err
 	}

@@ -117,7 +117,8 @@ func NewClient(storLink *NodeLink) (*Client, error) {
 func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// XXX for now url is treated as storage node URL
 	// XXX check/use other url fields
-	storLink, err := Dial(ctx, "tcp", u.Host)
+	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	storLink, err := Dial(ctx, net, u.Host)
 	if err != nil {
 		return nil, err
 	}

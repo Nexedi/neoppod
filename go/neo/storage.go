@@ -272,8 +272,8 @@ func storageMain(argv []string) {
 	}()
 	*/
 
-	// TODO + TLS
-	err = ListenAndServe(ctx, "tcp", bind, storSrv)	// XXX "tcp" hardcoded
+	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	err = ListenAndServe(ctx, net, bind, storSrv)
 	if err != nil {
 		log.Fatal(err)
 	}

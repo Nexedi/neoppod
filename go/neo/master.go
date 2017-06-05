@@ -998,8 +998,8 @@ func masterMain(argv []string) {
 	}()
 	*/
 
-	// TODO + TLS
-	err := ListenAndServe(ctx, "tcp", bind, masterSrv)	// XXX "tcp" hardcoded
+	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	err := ListenAndServe(ctx, net, bind, masterSrv)
 	if err != nil {
 		log.Fatal(err)
 	}

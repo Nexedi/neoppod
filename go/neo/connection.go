@@ -680,11 +680,9 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 
 // ---- for convenience: Dial ----
 
-// Dial connects to address on named network, handshakes and wraps the connection as NodeLink
-// TODO +tls.Config
-func Dial(ctx context.Context, network, address string) (nl *NodeLink, err error) {
-	d := net.Dialer{}
-	peerConn, err := d.DialContext(ctx, network, address)
+// Dial connects to address on given network, handshakes and wraps the connection as NodeLink
+func Dial(ctx context.Context, net Network, addr string) (nl *NodeLink, err error) {
+	peerConn, err := net.Dial(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
