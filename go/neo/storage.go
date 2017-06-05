@@ -36,6 +36,8 @@ import (
 
 // Storage is NEO storage server application
 type Storage struct {
+	me NodeInfo	// XXX -> only Address + NodeUUID ?
+
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
 

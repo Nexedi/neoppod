@@ -82,7 +82,6 @@ func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) 
 		return err
 	}
 	// TODO set keepalive on l
-	// TODO if TLS config -> tls.NewListener()
 	return Serve(ctx, l, srv)
 }
 

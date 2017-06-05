@@ -48,19 +48,19 @@ func xfs1stor(path string) (*Storage, *fs1.FileStorage) {
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	net := NetPipe("")	// test network		XXX New registers to global table
-	S, _ := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	net := NetPipe("")	// test network		FIXME New registers to global table
 	M := NewMaster("abc1")
+	S, _ := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 
-	Sctx, Scancel := context.WithCancel(context.Background())
 	Mctx, Mcancel := context.WithCancel(context.Background())
+	Sctx, Scancel := context.WithCancel(context.Background())
 
 	// XXX temp
 	Sbind := ""; Mbind := ""; var err error
 	_ = Scancel; _ = Mcancel; _ = err
 
-	err = ListenAndServe(Sctx, net, Sbind, S)	// XXX go
 	err = ListenAndServe(Mctx, net, Mbind, M)	// XXX go
+	err = ListenAndServe(Sctx, net, Sbind, S)	// XXX go
 }
 
 // basic interaction between Client -- Storage

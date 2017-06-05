@@ -234,7 +234,7 @@ type NodeInfo struct {
 	Address		// serving address
 	NodeUUID
 	NodeState
-	IdTimestamp float64
+	IdTimestamp float64	// FIXME clarify semantic where it is used
 }
 
 // XXX -> parttab.go ?

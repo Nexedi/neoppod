@@ -690,38 +690,9 @@ func Dial(ctx context.Context, net Network, addr string) (nl *NodeLink, err erro
 	return Handshake(ctx, peerConn, LinkClient)
 }
 
-/* TODO not needed -> goes away
-// Listener is like net.Listener but Accept returns net.Conn wrapped in NodeLink and handshaked	XXX
-type Listener struct {
-	net.Listener
-}
-
-func (l *Listener) Accept() (*NodeLink, error) {
-	peerConn, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-
-	err = Handshake(peerConn)	// FIXME blocking - not good - blocks further Accepts
-	if err != nil {
-		peerConn.Close()
-		return nil, err
-	}
-
-	return NewNodeLink(peerConn, LinkServer), nil
-}
-
-// TODO +tls.Config
-// TODO +ctx		-> no as .Close() will interrupt all .Accept()
-func Listen(network, laddr string) (*Listener, error) {
-	l, err := net.Listen(network, laddr)
-	if err != nil {
-		return nil, err
-	}
-	return &Listener{l}, nil
-}
-*/
-
+// NOTE there is no Listen with Handshake hooked into Accept because: Handshake
+// is blocking operation and thus needs to be run in separate goroutine not to
+// block further Accepts.
 
 
 // ---- for convenience: String / Error ----
