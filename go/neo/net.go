@@ -28,6 +28,10 @@ import (
 
 
 // Network represents interface to work with some kind of streaming network
+//
+// NOTE in NEO a node usually needs to both 1) listen and serve incoming
+// connections, and 2) dial peers. For this reason the interface is not split
+// into Dialer and Listener.
 type Network interface {
 	// Dial connects to addr on underlying network
 	// see net.Dial for semantic details
@@ -88,4 +92,26 @@ func (n *netTLS) Listen(laddr string) (net.Listener, error) {
 		return nil, err
 	}
 	return tls.NewListener(l, n.config), nil
+}
+
+
+// String formats Address to canonical host:port form
+func (addr Address) String() string {
+	// XXX in py if .Host == "" -> whole Address is assumed to be empty
+	net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
+}
+
+// ParseAddress parses networked address of form host:port into NEO Address
+func ParseAddress(hostport string) (Address, error) {
+	host, portstr, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return Address{}, err
+	}
+	// XXX also lookup portstr in /etc/services (net.LookupPort) ?
+	port, err := strconv.ParseUint(portstr, 10, 16)
+	if err != nil {
+		return Address{}, &net.AddrError{Err: "invalid port", Addr: hostport}
+	}
+
+	return Address{Host: host, Port: uint16(port)}, nil
 }

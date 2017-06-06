@@ -36,15 +36,59 @@ import (
 
 // Storage is NEO storage server application
 type Storage struct {
-	me NodeInfo	// XXX -> only Address + NodeUUID ?
+	my	NodeInfo	// XXX -> only Address + NodeUUID ?
+
+	net		Network		// network we are working on
+	masterAddr	Address		// address of master
 
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
 
-func NewStorage(zstor zodb.IStorage) *Storage {
-	return &Storage{zstor}
+// NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
+// The storage uses zstor as underlying backend for storing data.
+// To actually start running the node - call Run.	XXX text
+func NewStorage(net Network, masterAddr string, serveAddr string, zstor zodb.IStorage) *Storage {
+	stor := &Storage{net: net, zstor: zstor}
+
+	return stor
 }
 
+
+// Run starts storage node and runs it until either ctx is cancelled or master
+// commands it to shutdown.
+func (stor *Storage) Run(ctx context.Context) error {
+	// start listening
+	l, err := net.Listen(serveAddr)
+	if err != nil {
+		return err // XXX err ctx
+	}
+
+	defer l.Close()	// XXX err ?
+
+	// now we know our listening address (in case it was autobind before)
+	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
+	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
+	//	-> host is never empty
+	addr, err := ParseAddress(l.Addr().String())
+	if err != nil {
+		// XXX -> panic here ?
+		return err	// XXX err ctx
+	}
+
+	my.Address = addr
+
+	go stor.talkMaster(ctx)	// TODO
+
+	err = Serve(ctx, l, stor)	// XXX -> go
+	return err // XXX err ctx
+
+	// XXX oversee both master and server and wait ?
+}
+
+// talkMaster connects to master announces self and receives notifications and commands
+func (stor *Storage) talkMaster(ctx context.Context) {
+	// TODO
+}
 
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
@@ -275,7 +319,7 @@ func storageMain(argv []string) {
 	*/
 
 	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	err = ListenAndServe(ctx, net, bind, storSrv)
+	//err = ListenAndServe(ctx, net, bind, storSrv)
 	if err != nil {
 		log.Fatal(err)
 	}
