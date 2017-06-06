@@ -36,7 +36,8 @@ import (
 
 // Storage is NEO storage server application
 type Storage struct {
-	my	NodeInfo	// XXX -> only Address + NodeUUID ?
+	myInfo		NodeInfo	// XXX -> only Address + NodeUUID ?
+	clusterName	string
 
 	net		Network		// network we are working on
 	masterAddr	string		// address of master	XXX -> Address ?
@@ -47,8 +48,8 @@ type Storage struct {
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
 // The storage uses zstor as underlying backend for storing data.
 // To actually start running the node - call Run.	XXX text
-func NewStorage(net Network, masterAddr string, serveAddr string, zstor zodb.IStorage) *Storage {
-	stor := &Storage{net: net, masterAddr: masterAddr, zstor: zstor}
+func NewStorage(cluster string, net Network, masterAddr string, serveAddr string, zstor zodb.IStorage) *Storage {
+	stor := &Storage{clusterName: cluster, net: net, masterAddr: masterAddr, zstor: zstor}
 
 	return stor
 }
@@ -63,6 +64,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 		return err // XXX err ctx
 	}
 
+	// FIXME -> no -> Serve closes l
 	defer l.Close()	// XXX err ?
 
 	// now we know our listening address (in case it was autobind before)
@@ -109,8 +111,13 @@ func (stor *Storage) talkMaster1(ctx context.Context) {
 
 	Mlink, err := Dial(ctx, stor.net, stor.masterAddr)
 	if err != nil {
-		// XXX
+		// err: XXX log or return ?
 	}
+
+	// TODO Mlink.Close() on return / cancel
+
+	?, err := IdentifyMe(Mlink, stor.myInfo, stor.clusterName)
+	// TODO
 }
 
 // ServeLink serves incoming node-node link connection

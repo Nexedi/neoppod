@@ -145,7 +145,7 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 }
 
 // IdentifyMe identifies local node to remote peer
-func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, err error) {
+func IdentifyMe(link *NodeLink, myInfo NodeInfo, clusterName string) (peerType NodeType, err error) {
 	defer errcontextf(&err, "%s: request identification", link)
 
 	conn, err := link.NewConn()
@@ -162,11 +162,11 @@ func IdentifyMe(link *NodeLink, nodeType NodeType /*XXX*/) (peerType NodeType, e
 
 	resp := AcceptIdentification{}
 	err = Ask(conn, &RequestIdentification{
-		NodeType:	 nodeType,
-		NodeUUID:	 0,			// XXX
-		Address:	 Address{},		// XXX
-		ClusterName:	 "",			// XXX
-		IdTimestamp:	 0,			// XXX
+		NodeType:	 myInfo.NodeType,
+		NodeUUID:	 myInfo.NodeUUID,
+		Address:	 myInfo.Address,
+		ClusterName:	 clusterName,
+		IdTimestamp:	 myInfo.IdTimestamp,	// XXX ok?
 	}, &resp)
 
 	if err != nil {
