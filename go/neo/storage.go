@@ -39,7 +39,7 @@ type Storage struct {
 	my	NodeInfo	// XXX -> only Address + NodeUUID ?
 
 	net		Network		// network we are working on
-	masterAddr	Address		// address of master
+	masterAddr	string		// address of master	XXX -> Address ?
 
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
@@ -48,7 +48,7 @@ type Storage struct {
 // The storage uses zstor as underlying backend for storing data.
 // To actually start running the node - call Run.	XXX text
 func NewStorage(net Network, masterAddr string, serveAddr string, zstor zodb.IStorage) *Storage {
-	stor := &Storage{net: net, zstor: zstor}
+	stor := &Storage{net: net, masterAddr: masterAddr, zstor: zstor}
 
 	return stor
 }
@@ -77,17 +77,40 @@ func (stor *Storage) Run(ctx context.Context) error {
 
 	my.Address = addr
 
-	go stor.talkMaster(ctx)	// TODO
+	go stor.talkMaster(ctx)
 
-	err = Serve(ctx, l, stor)	// XXX -> go
+	err = Serve(ctx, l, stor)	// XXX -> go ?
 	return err // XXX err ctx
 
 	// XXX oversee both master and server and wait ?
 }
 
-// talkMaster connects to master announces self and receives notifications and commands
+// talkMaster connects to master, announces self and receives notifications and commands
+// it tries to persist master link reconnecting as needed
 func (stor *Storage) talkMaster(ctx context.Context) {
-	// TODO
+	for {
+		stor.talkMaster1(ctx)	// XXX err -> log ?
+
+
+		// throttle reconnecting / exit on cancel
+		select {
+		case <-ctx.Done():
+			return
+
+		// XXX 1s hardcoded -> move out of here
+		case <-time.After(1*time.Second):
+			// ok
+		}
+	}
+}
+
+func (stor *Storage) talkMaster1(ctx context.Context) {
+	fmt.Printf("stor: connecting to master %v\n", stor.masterAddr) // XXX info
+
+	Mlink, err := Dial(ctx, stor.net, stor.masterAddr)
+	if err != nil {
+		// XXX
+	}
 }
 
 // ServeLink serves incoming node-node link connection
