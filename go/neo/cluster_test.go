@@ -38,19 +38,19 @@ import (
 
 // xfs1stor creates new NEO storage node backed by fs1
 // XXX is this wrapper a good idea?
-func xfs1stor(path string) (*Storage, *fs1.FileStorage) {
+func xfs1stor(net Network, path string) (*Storage, *fs1.FileStorage) {
 	// TODO +readonly ?
 	zstor, err := fs1.Open(context.Background(), path)
 	exc.Raiseif(err)
 
-	return NewStorage(zstor), zstor
+	return NewStorage("test cluster", "TODO master", "", net, zstor), zstor
 }
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
 	net := NetPipe("")	// test network		FIXME New registers to global table
 	M := NewMaster("abc1")
-	S, _ := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	S, _ := xfs1stor(net, "../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	Sctx, Scancel := context.WithCancel(context.Background())
@@ -70,7 +70,8 @@ func TestClientStorage(t *testing.T) {
 
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	S, zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	net := NetPipe("")	// XXX here? (or a bit above?)
+	S, zstor := xfs1stor(net, "../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
 		// XXX + test error return
