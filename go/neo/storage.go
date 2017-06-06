@@ -25,8 +25,8 @@ import (
 	"io"
 	"log"
 	"os"
-
-	//"time"
+	"strings"
+	"time"
 
 	"../zodb"
 	"../zodb/storage/fs1"
@@ -36,11 +36,14 @@ import (
 
 // Storage is NEO storage server application
 type Storage struct {
+	// XXX move -> nodeCommon?
+	// ---- 8< ----
 	myInfo		NodeInfo	// XXX -> only Address + NodeUUID ?
 	clusterName	string
 
-	net		Network		// network we are working on
+	net		Network		// network we are sending/receiving on
 	masterAddr	string		// address of master	XXX -> Address ?
+	// ---- 8< ----
 
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
 }
@@ -48,8 +51,20 @@ type Storage struct {
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
 // The storage uses zstor as underlying backend for storing data.
 // To actually start running the node - call Run.	XXX text
-func NewStorage(cluster string, net Network, masterAddr string, serveAddr string, zstor zodb.IStorage) *Storage {
-	stor := &Storage{clusterName: cluster, net: net, masterAddr: masterAddr, zstor: zstor}
+func NewStorage(cluster string, masterAddr string, serveAddr string, net Network, zstor zodb.IStorage) *Storage {
+	// convert serveAddr into neo format
+	addr, err := ParseAddress(serveAddr)
+	if err != nil {
+		panic(err)	// XXX
+	}
+
+	stor := &Storage{
+			myInfo:		NodeInfo{NodeType: STORAGE, Address: addr},
+			clusterName:	cluster,
+			net:		net,
+			masterAddr:	masterAddr,
+			zstor:		zstor,
+	}
 
 	return stor
 }
@@ -59,7 +74,7 @@ func NewStorage(cluster string, net Network, masterAddr string, serveAddr string
 // commands it to shutdown.
 func (stor *Storage) Run(ctx context.Context) error {
 	// start listening
-	l, err := net.Listen(serveAddr)
+	l, err := stor.net.Listen(stor.myInfo.Address.String())		// XXX ugly
 	if err != nil {
 		return err // XXX err ctx
 	}
@@ -77,7 +92,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 		return err	// XXX err ctx
 	}
 
-	my.Address = addr
+	stor.myInfo.Address = addr
 
 	go stor.talkMaster(ctx)
 
@@ -88,11 +103,15 @@ func (stor *Storage) Run(ctx context.Context) error {
 }
 
 // talkMaster connects to master, announces self and receives notifications and commands
+// XXX and notifies master about ? (e.g. StartOperation -> NotifyReady)
 // it tries to persist master link reconnecting as needed
 func (stor *Storage) talkMaster(ctx context.Context) {
 	for {
-		stor.talkMaster1(ctx)	// XXX err -> log ?
+		fmt.Printf("stor: master(%v): connecting\n", stor.masterAddr) // XXX info
+		err := stor.talkMaster1(ctx)
+		fmt.Printf("stor: master(%v): %v\n", stor.masterAddr, err)
 
+		// XXX handle shutdown command from master
 
 		// throttle reconnecting / exit on cancel
 		select {
@@ -106,18 +125,53 @@ func (stor *Storage) talkMaster(ctx context.Context) {
 	}
 }
 
-func (stor *Storage) talkMaster1(ctx context.Context) {
-	fmt.Printf("stor: connecting to master %v\n", stor.masterAddr) // XXX info
-
+// talkMaster1 does 1 cycle of connect/talk/disconnect to master
+// it returns error describing why such cycle had to finish
+// XXX distinguish between temporary problems and non-temporary ones?
+func (stor *Storage) talkMaster1(ctx context.Context) error {
 	Mlink, err := Dial(ctx, stor.net, stor.masterAddr)
 	if err != nil {
-		// err: XXX log or return ?
+		return err
 	}
 
 	// TODO Mlink.Close() on return / cancel
 
-	?, err := IdentifyMe(Mlink, stor.myInfo, stor.clusterName)
-	// TODO
+	// request identification this way registering our node to master
+	accept, err := IdentifyWith(MASTER, Mlink, stor.myInfo, stor.clusterName)
+	if err != nil {
+		return err
+	}
+
+	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?
+
+	if !(accept.NumPartitions == 1 && accept.NumReplicas == 1) {
+		return fmt.Errorf("TODO for 1-storage POC: Npt: %v  Nreplica: %v", accept.NumPartitions, accept.NumReplicas)
+	}
+
+	if accept.YourNodeUUID != stor.myInfo.NodeUUID {
+		fmt.Printf("stor: %v: master told us to have UUID=%v\n", Mlink, accept.YourNodeUUID)
+		stor.myInfo.NodeUUID = accept.YourNodeUUID
+		// XXX notify anyone?
+	}
+
+	// now handle notifications and commands from master
+	// FIXME wrong - either keep conn as one used from identification or accept from listening
+	conn, err := Mlink.NewConn()
+	if err != nil { panic(err) }	// XXX
+
+	for {
+		notify, err := RecvAndDecode(conn)
+		if err != nil {
+			// XXX TODO
+		}
+
+		_ = notify	// XXX temp
+	}
+
+
+
+
+
 }
 
 // ServeLink serves incoming node-node link connection
@@ -318,12 +372,30 @@ Run NEO storage node.
 }
 
 func storageMain(argv []string) {
-	var bind string
-
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() { storageUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
-	flags.StringVar(&bind, "bind", bind, "address to serve on")
+	cluster := flags.String("cluster", "", "the cluster name")
+	masters := flags.String("masters", "", "list of masters")
+	bind := flags.String("bind", "", "address to serve on")
 	flags.Parse(argv[1:])
+
+	if *cluster == "" {
+		// XXX vvv -> die  or  log.Fatalf ?
+		fmt.Fprintf(os.Stderr, "cluster name must be provided")
+		os.Exit(2)
+	}
+
+	masterv := strings.Split(*masters, ",")
+	if len(masterv) == 0 {
+		fmt.Fprintf(os.Stderr, "master list must be provided")
+		os.Exit(2)
+	}
+	if len(masterv) > 1 {
+		fmt.Fprintf(os.Stderr, "BUG neo/go POC currently supports only 1 master")
+		os.Exit(2)
+	}
+
+	master := masterv[0]
 
 	argv = flags.Args()
 	if len(argv) < 1 {
@@ -337,7 +409,9 @@ func storageMain(argv []string) {
 		log.Fatal(err)
 	}
 
-	storSrv := NewStorage(zstor)
+	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+
+	storSrv := NewStorage(*cluster, master, *bind, net, zstor)
 
 	ctx := context.Background()
 	/*
@@ -348,8 +422,7 @@ func storageMain(argv []string) {
 	}()
 	*/
 
-	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	//err = ListenAndServe(ctx, net, bind, storSrv)
+	err = storSrv.Run(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

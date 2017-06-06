@@ -144,36 +144,40 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 	return req, nil
 }
 
-// IdentifyMe identifies local node to remote peer
-func IdentifyMe(link *NodeLink, myInfo NodeInfo, clusterName string) (peerType NodeType, err error) {
+// IdentifyWith identifies local node with remote peer
+// it also verifies peer's node type to what caller expects
+func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clusterName string) (accept *AcceptIdentification, err error) {
 	defer errcontextf(&err, "%s: request identification", link)
 
 	conn, err := link.NewConn()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer func() {
 		err2 := conn.Close()
 		if err == nil && err2 != nil {
 			err = err2
-			// XXX also reset peerType
 		}
 	}()
 
-	resp := AcceptIdentification{}
+	accept = &AcceptIdentification{}
 	err = Ask(conn, &RequestIdentification{
 		NodeType:	 myInfo.NodeType,
 		NodeUUID:	 myInfo.NodeUUID,
 		Address:	 myInfo.Address,
 		ClusterName:	 clusterName,
 		IdTimestamp:	 myInfo.IdTimestamp,	// XXX ok?
-	}, &resp)
+	}, accept)
 
 	if err != nil {
-		return 0, err
+		return nil, err // XXX err ctx ?
 	}
 
-	return resp.NodeType, nil
+	if accept.NodeType != expectPeerType {
+		return nil, fmt.Errorf("accepted, but peer is not %v (identifies as %v)", expectPeerType, accept.NodeType)
+	}
+
+	return accept, nil
 }
 
 // ----------------------------------------
@@ -193,14 +197,17 @@ func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interf
 	msgCode := ntoh16(pkth.MsgCode)
 	msgType := pktTypeRegistry[msgCode]
 	if msgType == nil {
-		return nil, fmt.Errorf("invalid msgCode (%d)", msgCode)	// XXX err context
+		err = fmt.Errorf("invalid msgCode (%d)", msgCode)
+		// XXX -> ProtoError ?
+		return nil, &ConnError{Conn: conn, Op: "decode", Err: err}
 	}
 
 	// TODO use free-list for decoded packets + when possible decode in-place
 	pktObj := reflect.New(msgType).Interface().(NEOCodec)
 	_, err = pktObj.NEODecode(pkt.Payload())
 	if err != nil {
-		return nil, err	// XXX err ctx ?
+		// XXX -> ProtoError ?
+		return nil, &ConnError{Conn: conn, Op: "decode", Err: err}
 	}
 
 	return pktObj, nil
@@ -236,6 +243,7 @@ func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
 
 // ProtoError is returned when there waa a protocol error, like receiving
 // unexpected packet or packet with wrong header
+// XXX -> ConnError{Op: "decode"} ?
 type ProtoError struct {
 	Conn *Conn
 	Err  error

@@ -20,7 +20,6 @@ package neo
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 
 	"../zodb"
@@ -28,6 +27,16 @@ import (
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces
 type Client struct {
+	// XXX move -> nodeCommon?
+	// ---- 8< ----
+	myInfo		NodeInfo	// XXX -> only NodeUUID
+	clusterName	string
+
+	net		Network		// network we are sending/receiving on
+	masterAddr	string		// address of master	XXX -> Address ?
+	// ---- 8< ----
+
+
 	storLink *NodeLink	// link to storage node
 	storConn *Conn		// XXX main connection to storage
 }
@@ -89,15 +98,21 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 // NewClient creates and identifies new client connected to storage over storLink
 func NewClient(storLink *NodeLink) (*Client, error) {
+	// TODO .myInfo.NodeType = CLIENT
+	// .clusterName = clusterName
+	// .net = ...
+	cli := &Client{}
+	//return &Client{storLink, storConn}, nil
+
+	// XXX move -> Run?
 	// first identify ourselves to peer
-	storType, err := IdentifyMe(storLink, CLIENT)
+	accept, err := IdentifyWith(STORAGE, storLink, cli.myInfo, cli.clusterName)
 	if err != nil {
 		return nil, err
 	}
-	if storType != STORAGE {
-		// XXX + "newclient" to err ctx ?
-		return nil, fmt.Errorf("%v: peer is not storage (identifies as %v)", storLink, storType)
-	}
+
+	// TODO verify accept more
+	_ = accept
 
 	// identification passed
 
@@ -110,7 +125,8 @@ func NewClient(storLink *NodeLink) (*Client, error) {
 		return nil, err	// XXX err ctx
 	}
 
-	return &Client{storLink, storConn}, nil
+	_ = storConn	// XXX temp
+	return cli, nil
 }
 
 // TODO read-only support

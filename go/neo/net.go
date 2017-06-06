@@ -20,7 +20,9 @@ package neo
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strconv"
 
 	"crypto/tls"
 	"../xcommon/pipenet"
@@ -98,7 +100,7 @@ func (n *netTLS) Listen(laddr string) (net.Listener, error) {
 // String formats Address to canonical host:port form
 func (addr Address) String() string {
 	// XXX in py if .Host == "" -> whole Address is assumed to be empty
-	net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
+	return net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
 }
 
 // ParseAddress parses networked address of form host:port into NEO Address

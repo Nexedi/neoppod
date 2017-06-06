@@ -1,4 +1,4 @@
-//go:generate stringer -output proto-str2.go -type ErrorCode proto.go
+//go:generate stringer -output proto-str2.go -type ErrorCode,NodeType proto.go
 
 package neo
 
