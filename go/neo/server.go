@@ -185,7 +185,6 @@ func RecvAndDecode(conn *Conn) (NEOPkt, error) {
 	}
 
 	// decode packet
-	// XXX maybe better generate switch on msgCode instead of reflect
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
 	msgType := pktTypeRegistry[msgCode]
@@ -259,15 +258,10 @@ func Expect(conn *Conn, msg NEOPkt) (err error) {
 	// XXX dup wrt RecvAndDecode
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
-	msgType := pktTypeRegistry[msgCode]
-	if msgType == nil {
-		return &ProtoError{conn, fmt.Errorf("invalid msgCode (%d)", msgCode)}
-	}
 
-	// FIXME -> better compare on just msgCode
-	if msgType != reflect.TypeOf(msg).Elem() {
+	if msgCode != msg.NEOPktMsgCode() {
 		// unexpected Error response
-		if msgType == reflect.TypeOf(Error{}) {
+		if msgCode == (&Error{}).NEOPktMsgCode() {
 			errResp := Error{}
 			_, err = errResp.NEOPktDecode(pkt.Payload())
 			if err != nil {
@@ -279,6 +273,11 @@ func Expect(conn *Conn, msg NEOPkt) (err error) {
 			// - in other cases Error is completely not expected
 			//   (e.g. getting 1st packet on connection)
 			return errDecode(&errResp) // XXX err ctx vs ^^^ errcontextf ?
+		}
+
+		msgType := pktTypeRegistry[msgCode]
+		if msgType == nil {
+			return &ProtoError{conn, fmt.Errorf("invalid msgCode (%d)", msgCode)}
 		}
 
 		return &ProtoError{conn, fmt.Errorf("unexpected packet: %v", msgType)}
