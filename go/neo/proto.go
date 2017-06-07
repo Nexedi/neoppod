@@ -135,9 +135,12 @@ type NodeUUID int32
 
 // TODO NodeType -> base NodeUUID
 
+
+// ErrDecodeOverflow is the error returned by NEOPktDecode when decoding hit buffer overflow
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
 // NEOPkt is the interface implemented by packets to marshal/unmarshal them into/from wire format
+// XXX -> will be neo.Pkt after splitting into packages
 type NEOPkt interface {
 	// NEOPktMsgCode returns message code needed to be used for particular packet type
 	// on the wire
@@ -150,7 +153,7 @@ type NEOPkt interface {
 	// len(buf) must be >= NEOPktEncodedLen()
 	NEOPktEncode(buf []byte)
 
-	// NEOPktDecode decodes data into.
+	// NEOPktDecode decodes data into current packet state.
 	NEOPktDecode(data []byte) (nread int, err error)
 }
 
