@@ -24,6 +24,8 @@ import (
 	"net"
 	"reflect"
 
+	"../../neo"
+
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
@@ -31,7 +33,7 @@ import (
 type Server interface {
 	// ServeLink serves already established nodelink (connection) in a blocking way.
 	// ServeLink is usually run in separate goroutine
-	ServeLink(ctx context.Context, link *NodeLink)
+	ServeLink(ctx context.Context, link *neo.NodeLink)
 }
 
 // Serve runs service on a listener
@@ -79,7 +81,7 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 
 // ListenAndServe listens on network address and then calls Serve to handle incoming connections
 // XXX unused -> goes away ?
-func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) error {
+func ListenAndServe(ctx context.Context, net neo.Network, laddr string, srv Server) error {
 	l, err := net.Listen(laddr)
 	if err != nil {
 		return err
@@ -95,7 +97,7 @@ func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) 
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
 // XXX recheck identification logic here
-func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
+func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.RequestIdentification, err error) {
 	defer xerr.Contextf(&err, "%s: identify", link)
 
 	// the first conn must come with RequestIdentification packet
@@ -139,7 +141,7 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 // IdentifyWith identifies local node with remote peer
 // it also verifies peer's node type to what caller expects
 // XXX place != ok (this is client, not server ?)
-func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clusterName string) (accept *AcceptIdentification, err error) {
+func IdentifyWith(expectPeerType neo.NodeType, link *neo.NodeLink, myInfo neo.NodeInfo, clusterName string) (accept *neo.AcceptIdentification, err error) {
 	defer xerr.Contextf(&err, "%s: request identification", link)
 
 	conn, err := link.NewConn()
@@ -153,7 +155,7 @@ func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clus
 		}
 	}()
 
-	accept = &AcceptIdentification{}
+	accept = &neo.AcceptIdentification{}
 	err = Ask(conn, &RequestIdentification{
 		NodeType:	 myInfo.NodeType,
 		NodeUUID:	 myInfo.NodeUUID,
@@ -178,7 +180,7 @@ func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clus
 // XXX naming for RecvAndDecode and EncodeAndSend
 
 // RecvAndDecode receives packet from conn and decodes it
-func RecvAndDecode(conn *Conn) (NEOPkt, error) {
+func RecvAndDecode(conn *neo.Conn) (neo.Pkt, error) {
 	pkt, err := conn.Recv()
 	if err != nil {
 		return nil, err
@@ -195,7 +197,7 @@ func RecvAndDecode(conn *Conn) (NEOPkt, error) {
 	}
 
 	// TODO use free-list for decoded packets + when possible decode in-place
-	pktObj := reflect.New(msgType).Interface().(NEOPkt)
+	pktObj := reflect.New(msgType).Interface().(neo.Pkt)
 	_, err = pktObj.NEOPktDecode(pkt.Payload())
 	if err != nil {
 		// XXX -> ProtoError ?
@@ -206,7 +208,7 @@ func RecvAndDecode(conn *Conn) (NEOPkt, error) {
 }
 
 // EncodeAndSend encodes pkt and sends it to conn
-func EncodeAndSend(conn *Conn, pkt NEOPkt) error {
+func EncodeAndSend(conn *neo.Conn, pkt neo.Pkt) error {
 	l := pkt.NEOPktEncodedLen()
 	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
 
@@ -222,7 +224,7 @@ func EncodeAndSend(conn *Conn, pkt NEOPkt) error {
 
 // Ask does simple request/response protocol exchange
 // It expects the answer to be exactly of resp type and errors otherwise
-func Ask(conn *Conn, req NEOPkt, resp NEOPkt) error {
+func Ask(conn *neo.Conn, req neo.Pkt, resp neo.Pkt) error {
 	err := EncodeAndSend(conn, req)
 	if err != nil {
 		return err
@@ -237,7 +239,7 @@ func Ask(conn *Conn, req NEOPkt, resp NEOPkt) error {
 // unexpected packet or packet with wrong header
 // XXX -> ConnError{Op: "decode"} ?
 type ProtoError struct {
-	Conn *Conn
+	Conn *neo.Conn
 	Err  error
 }
 
@@ -247,7 +249,7 @@ func (e *ProtoError) Error() string {
 
 // Expect receives 1 packet and expects it to be exactly of msg type
 // XXX naming  (-> Recv1 ?)
-func Expect(conn *Conn, msg NEOPkt) (err error) {
+func Expect(conn *neo.Conn, msg neo.Pkt) (err error) {
 	pkt, err := conn.Recv()
 	if err != nil {
 		return err

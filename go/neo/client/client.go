@@ -22,23 +22,24 @@ import (
 	"context"
 	"net/url"
 
-	"../zodb"
+	"../../neo"
+	"../../zodb"
 )
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces
 type Client struct {
 	// XXX move -> nodeCommon?
 	// ---- 8< ----
-	myInfo		NodeInfo	// XXX -> only NodeUUID
+	myInfo		neo.NodeInfo	// XXX -> only NodeUUID
 	clusterName	string
 
-	net		Network		// network we are sending/receiving on
+	net		neo.Network	// network we are sending/receiving on
 	masterAddr	string		// address of master	XXX -> Address ?
 	// ---- 8< ----
 
 
-	storLink *NodeLink	// link to storage node
-	storConn *Conn		// XXX main connection to storage
+	storLink *neo.NodeLink	// link to storage node
+	storConn *neo.Conn	// XXX main connection to storage
 }
 
 var _ zodb.IStorage = (*Client)(nil)
@@ -57,8 +58,8 @@ func (c *Client) Close() error {
 func (c *Client) LastTid() (zodb.Tid, error) {
 	// FIXME do not use global conn (see comment in openClientByURL)
 	// XXX open new conn for this particular req/reply ?
-	reply := AnswerLastTransaction{}
-	err := Ask(c.storConn, &LastTransaction{}, &reply)
+	reply := neo.AnswerLastTransaction{}
+	err := neo.Ask(c.storConn, &neo.LastTransaction{}, &reply)
 	if err != nil {
 		return 0, err	// XXX err ctx
 	}
@@ -67,17 +68,17 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// FIXME do not use global conn (see comment in openClientByURL)
-	req := GetObject{Oid: xid.Oid}
+	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
-		req.Serial = INVALID_TID
+		req.Serial = neo.INVALID_TID
 		req.Tid = xid.Tid
 	} else {
 		req.Serial = xid.Tid
-		req.Tid = INVALID_TID
+		req.Tid = neo.INVALID_TID
 	}
 
-	resp := AnswerGetObject{}
-	err = Ask(c.storConn, &req, &resp)
+	resp := neo.AnswerGetObject{}
+	err = neo.Ask(c.storConn, &req, &resp)
 	if err != nil {
 		return nil, 0, err	// XXX err context
 	}
@@ -97,7 +98,7 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 
 // NewClient creates and identifies new client connected to storage over storLink
-func NewClient(storLink *NodeLink) (*Client, error) {
+func NewClient(storLink *neo.NodeLink) (*Client, error) {
 	// TODO .myInfo.NodeType = CLIENT
 	// .clusterName = clusterName
 	// .net = ...
@@ -106,7 +107,7 @@ func NewClient(storLink *NodeLink) (*Client, error) {
 
 	// XXX move -> Run?
 	// first identify ourselves to peer
-	accept, err := IdentifyWith(STORAGE, storLink, cli.myInfo, cli.clusterName)
+	accept, err := neo.IdentifyWith(neo.STORAGE, storLink, cli.myInfo, cli.clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +134,8 @@ func NewClient(storLink *NodeLink) (*Client, error) {
 func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// XXX for now url is treated as storage node URL
 	// XXX check/use other url fields
-	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	storLink, err := Dial(ctx, net, u.Host)
+	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	storLink, err := neo.Dial(ctx, net, u.Host)
 	if err != nil {
 		return nil, err
 	}

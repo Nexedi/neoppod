@@ -28,8 +28,9 @@ import (
 	"strings"
 	"time"
 
-	"../zodb"
-	"../zodb/storage/fs1"
+	"../../neo"
+	"../../zodb"
+	"../../zodb/storage/fs1"
 )
 
 // XXX fmt -> log
@@ -38,10 +39,10 @@ import (
 type Storage struct {
 	// XXX move -> nodeCommon?
 	// ---- 8< ----
-	myInfo		NodeInfo	// XXX -> only Address + NodeUUID ?
+	myInfo		neo.NodeInfo	// XXX -> only Address + NodeUUID ?
 	clusterName	string
 
-	net		Network		// network we are sending/receiving on
+	net		neo.Network		// network we are sending/receiving on
 	masterAddr	string		// address of master	XXX -> Address ?
 	// ---- 8< ----
 
@@ -51,7 +52,7 @@ type Storage struct {
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
 // The storage uses zstor as underlying backend for storing data.
 // To actually start running the node - call Run.	XXX text
-func NewStorage(cluster string, masterAddr string, serveAddr string, net Network, zstor zodb.IStorage) *Storage {
+func NewStorage(cluster string, masterAddr string, serveAddr string, net neo.Network, zstor zodb.IStorage) *Storage {
 	// convert serveAddr into neo format
 	addr, err := ParseAddress(serveAddr)
 	if err != nil {
@@ -176,7 +177,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
-func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
+func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	fmt.Printf("stor: %s: serving new node\n", link)
 
 	// close link when either cancelling or returning (e.g. due to an error)
@@ -203,7 +204,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		return
 	}
 
-	var serveConn func(context.Context, *Conn)
+	var serveConn func(context.Context, *neo.Conn)
 	switch nodeInfo.NodeType {
 	case CLIENT:
 		serveConn = stor.ServeClient
@@ -233,22 +234,22 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 // XXX move err{Encode,Decode} out of here
 
 // errEncode translates an error into Error packet
-func errEncode(err error) *Error {
+func errEncode(err error) *neo.Error {
 	switch err := err.(type) {
 	case *Error:
 		return err
 	case *zodb.ErrXidMissing:
 		// XXX abusing message for xid
-		return &Error{Code: OID_NOT_FOUND, Message: err.Xid.String()}
+		return &neo.Error{Code: OID_NOT_FOUND, Message: err.Xid.String()}
 
 	default:
-		return &Error{Code: NOT_READY /* XXX how to report 503? was BROKEN_NODE */, Message: err.Error()}
+		return &neo.Error{Code: NOT_READY /* XXX how to report 503? was BROKEN_NODE */, Message: err.Error()}
 	}
 
 }
 
 // errDecode decodes error from Error packet
-func errDecode(e *Error) error {
+func errDecode(e *neo.Error) error {
 	switch e.Code {
 	case OID_NOT_FOUND:
 		xid, err := zodb.ParseXid(e.Message)	// XXX abusing message for xid
@@ -260,7 +261,7 @@ func errDecode(e *Error) error {
 	return e
 }
 
-func (stor *Storage) ServeMaster(ctx context.Context, conn *Conn) {
+func (stor *Storage) ServeMaster(ctx context.Context, conn *neo.Conn) {
 
 	// state changes:
 	//
@@ -275,7 +276,7 @@ func (stor *Storage) ServeMaster(ctx context.Context, conn *Conn) {
 
 // ServeClient serves incoming connection on which peer identified itself as client
 // XXX +error return?
-func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
+func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 	fmt.Printf("stor: %s: serving new client conn\n", conn)
 
 	// close connection when either cancelling or returning (e.g. due to an error)
@@ -312,7 +313,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 				xid.TidBefore = true
 			}
 
-			var reply NEOPkt
+			var reply neo.Pkt
 			data, tid, err := stor.zstor.Load(xid)
 			if err != nil {
 				// TODO translate err to NEO protocol error codes
@@ -334,7 +335,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *Conn) {
 			EncodeAndSend(conn, reply)	// XXX err
 
 		case *LastTransaction:
-			var reply NEOPkt
+			var reply neo.Pkt
 
 			lastTid, err := stor.zstor.LastTid()
 			if err != nil {

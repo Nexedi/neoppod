@@ -15,10 +15,10 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo
+package main
 // registry of all commands & help topics
 
-import "../zodb/zodbtools"
+import "../../../zodb/zodbtools"
 
 var Commands = zodbtools.CommandRegistry{
 	{"master",  masterSummary,  masterUsage,  masterMain},

@@ -1,8 +1,8 @@
-// NEO. Protocol description
-
 //go:generate sh -c "go run protogen.go >proto-marshal.go"
 
 package neo
+// protocol definition
+
 
 // NOTE for some packets it is possible to decode raw packet -> go version from
 // PktBuf in place. E.g. for GetObject.
@@ -139,9 +139,9 @@ type NodeUUID int32
 // ErrDecodeOverflow is the error returned by NEOPktDecode when decoding hit buffer overflow
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
-// NEOPkt is the interface implemented by packets to marshal/unmarshal them into/from wire format
+// Pkt is the interface implemented by NEO packets to marshal/unmarshal them into/from wire format
 // XXX -> will be neo.Pkt after splitting into packages
-type NEOPkt interface {
+type Pkt interface {
 	// NEOPktMsgCode returns message code needed to be used for particular packet type
 	// on the wire
 	NEOPktMsgCode() uint16

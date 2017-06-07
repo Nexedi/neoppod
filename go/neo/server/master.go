@@ -30,7 +30,8 @@ import (
 	"os"
 	"sync"
 
-	"../zodb"
+	"../../neo"
+	"../../zodb"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
@@ -38,7 +39,7 @@ import (
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
 	clusterName  string
-	nodeUUID     NodeUUID
+	nodeUUID     neo.NodeUUID
 
 	// last allocated oid & tid
 	// XXX how to start allocating oid from 0, not 1 ?
@@ -48,9 +49,9 @@ type Master struct {
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
 	stateMu      sync.RWMutex	// XXX recheck: needed ?
-	nodeTab      NodeTable
-	partTab      PartitionTable
-	clusterState ClusterState
+	nodeTab      neo.NodeTable
+	partTab      neo.PartitionTable
+	clusterState neo.ClusterState
 
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster
@@ -65,22 +66,22 @@ type Master struct {
 
 // node connects
 type nodeCome struct {
-	link   *NodeLink
-	idReq  RequestIdentification // we received this identification request
-	idResp chan NEOPkt           // what we reply (AcceptIdentification | Error)
+	link   *neo.NodeLink
+	idReq  neo.RequestIdentification // we received this identification request
+	idResp chan neo.Pkt              // what we reply (AcceptIdentification | Error)
 }
 
 // node disconnects
 type nodeLeave struct {
-	link *NodeLink	// XXX better use uuid allocated on nodeCome ?
+	link *neo.NodeLink	// XXX better use uuid allocated on nodeCome ?
 }
 
 // NewMaster TODO ...
 func NewMaster(clusterName string) *Master {
 	m := &Master{clusterName: clusterName}
-	m.nodeUUID = m.allocUUID(MASTER)
+	m.nodeUUID = m.allocUUID(neo.MASTER)
 	// TODO update nodeTab with self
-	m.clusterState = ClusterRecovering	// XXX no elections - we are the only master
+	m.clusterState = neo.ClusterRecovering	// XXX no elections - we are the only master
 	go m.run(context.TODO())		// XXX ctx
 
 	return m
@@ -115,7 +116,7 @@ func (m *Master) Shutdown() error {
 
 
 // setClusterState sets .clusterState and notifies subscribers
-func (m *Master) setClusterState(state ClusterState) {
+func (m *Master) setClusterState(state neo.ClusterState) {
 	if state == m.clusterState {	// <- XXX do we really need this ?
 		return
 	}
@@ -179,7 +180,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 	fmt.Println("master: recovery")
 	defer xerr.Context(&err, "master: recovery")
 
-	m.setClusterState(ClusterRecovering)
+	m.setClusterState(neo.ClusterRecovering)
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
 
@@ -188,7 +189,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 
 	// start recovery on all storages we are currently in touch with
 	for _, stor := range m.nodeTab.StorageList() {
-		if stor.NodeState > DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+		if stor.NodeState > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			go storCtlRecovery(rctx, stor.Link, recovery)
 		}
@@ -274,7 +275,7 @@ loop:
 
 // storRecovery is result of a storage node passing recovery phase
 type storRecovery struct {
-	partTab PartitionTable
+	partTab neo.PartitionTable
 	// XXX + backup_tid, truncate_tid ?
 
 	err error
@@ -282,7 +283,7 @@ type storRecovery struct {
 
 // storCtlRecovery drives a storage node during cluster recovering state
 // it retrieves various ids and partition table from as stored on the storage
-func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery) {
+func storCtlRecovery(ctx context.Context, link *neo.NodeLink, res chan storRecovery) {
 	var err error
 	// XXX where this close link on error should be ?
 	defer func() {
@@ -309,30 +310,30 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 	}
 	// XXX cancel on ctx
 
-	recovery := AnswerRecovery{}
-	err = Ask(conn, &Recovery{}, &recovery)
+	recovery := neo.AnswerRecovery{}
+	err = neo.Ask(conn, &neo.Recovery{}, &recovery)
 	if err != nil {
 		return
 	}
 
-	resp := AnswerPartitionTable{}
-	err = Ask(conn, &X_PartitionTable{}, &resp)
+	resp := neo.AnswerPartitionTable{}
+	err = neo.Ask(conn, &neo.X_PartitionTable{}, &resp)
 	if err != nil {
 		return
 	}
 
 	// reconstruct partition table from response
-	pt := PartitionTable{}
+	pt := neo.PartitionTable{}
 	pt.ptid = resp.PTid
 	for _, row := range resp.RowList {
 		i := row.Offset
 		for i >= uint32(len(pt.ptTab)) {
-			pt.ptTab = append(pt.ptTab, []PartitionCell{})
+			pt.ptTab = append(pt.ptTab, []neo.PartitionCell{})
 		}
 
 		//pt.ptTab[i] = append(pt.ptTab[i], row.CellList...)
 		for _, cell := range row.CellList {
-			pt.ptTab[i] = append(pt.ptTab[i], PartitionCell{
+			pt.ptTab[i] = append(pt.ptTab[i], neo.PartitionCell{
 					NodeUUID:  cell.NodeUUID,
 					CellState: cell.CellState,
 				})
@@ -366,7 +367,7 @@ func (m *Master) verify(ctx context.Context) (err error) {
 	fmt.Println("master: verify")
 	defer xerr.Context(&err, "master: verify")
 
-	m.setClusterState(ClusterVerifying)
+	m.setClusterState(neo.ClusterVerifying)
 	vctx, vcancel := context.WithCancel(ctx)
 	defer vcancel()
 
@@ -381,7 +382,7 @@ func (m *Master) verify(ctx context.Context) (err error) {
 
 	// start verification on all storages we are currently in touch with
 	for _, stor := range m.nodeTab.StorageList() {
-		if stor.NodeState > DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+		if stor.NodeState > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			go storCtlVerify(vctx, stor.Link, verify)
 		}
@@ -468,12 +469,12 @@ loop:
 type storVerify struct {
 	lastOid zodb.Oid
 	lastTid zodb.Tid
-	link    *NodeLink
+	link    *neo.NodeLink
 	err	error
 }
 
 // storCtlVerify drives a storage node during cluster verifying (= starting) state
-func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
+func storCtlVerify(ctx context.Context, link *neo.NodeLink, res chan storVerify) {
 	// XXX link.Close on err
 	// XXX cancel on ctx
 
@@ -488,8 +489,8 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 	// FIXME stub
 	conn, _ := link.NewConn()
 
-	locked := AnswerLockedTransactions{}
-	err = Ask(conn, &LockedTransactions{}, &locked)
+	locked := neo.AnswerLockedTransactions{}
+	err = neo.Ask(conn, &neo.LockedTransactions{}, &locked)
 	if err != nil {
 		return
 	}
@@ -500,8 +501,8 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 		return
 	}
 
-	last := AnswerLastIDs{}
-	err = Ask(conn, &LastIDs{}, &last)
+	last := neo.AnswerLastIDs{}
+	err = neo.Ask(conn, &neo.LastIDs{}, &last)
 	if err != nil {
 		return
 	}
@@ -573,7 +574,7 @@ loop:
 
 // accept processes identification request of just connected node and either accepts or declines it
 // if node identification is accepted nodeTab is updated and corresponding node entry is returned
-func (m *Master) accept(n nodeCome) (node *Node, ok bool) {
+func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 	// XXX also verify ? :
 	// - NodeType valid
 	// - IdTimestamp ?
@@ -609,7 +610,7 @@ func (m *Master) accept(n nodeCome) (node *Node, ok bool) {
 
 
 	n.idResp <- &AcceptIdentification{
-			NodeType:	MASTER,
+			NodeType:	neo.MASTER,
 			MyNodeUUID:	m.nodeUUID,
 			NumPartitions:	1,	// FIXME hardcoded
 			NumReplicas:	1,	// FIXME hardcoded
@@ -642,7 +643,7 @@ func (m *Master) accept(n nodeCome) (node *Node, ok bool) {
 // allocUUID allocates new node uuid for a node of kind nodeType
 // XXX it is bad idea for master to assign uuid to coming node
 // -> better nodes generate really unique UUID themselves and always show with them
-func (m *Master) allocUUID(nodeType NodeType) NodeUUID {
+func (m *Master) allocUUID(nodeType neo.NodeType) neo.NodeUUID {
 	// see NodeUUID & NodeUUID.String for details
 	// XXX better to keep this code near to ^^^ (e.g. attached to NodeType)
 	// XXX but since whole uuid assign idea is not good - let's keep it dirty here
@@ -659,7 +660,7 @@ func (m *Master) allocUUID(nodeType NodeType) NodeUUID {
 
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
-func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
+func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	logf := func(format string, argv ...interface{}) {
 		fmt.Printf("master: %s: " + format + "\n", append([]interface{}{link}, argv...))
 	}
@@ -704,7 +705,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	}
 
 	// convey identification request to master
-	idRespCh := make(chan NEOPkt)
+	idRespCh := make(chan neo.Pkt)
 	m.nodeCome <- nodeCome{link, idReq, idRespCh}
 	idResp := <-idRespCh
 
@@ -760,7 +761,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	m.stateMu.Unlock()
 
 	go func() {
-		var pkt NEOPkt
+		var pkt neo.Pkt
 
 		for {
 			select {
@@ -798,8 +799,8 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 
 // ServeClient serves incoming connection on which peer identified itself as client
 // XXX +error return?
-//func (m *Master) ServeClient(ctx context.Context, conn *Conn) {
-func (m *Master) ServeClient(ctx context.Context, link *NodeLink) {
+//func (m *Master) ServeClient(ctx context.Context, conn *neo.Conn) {
+func (m *Master) ServeClient(ctx context.Context, link *neo.NodeLink) {
 	// TODO
 }
 
@@ -839,7 +840,7 @@ type storageStopOperation struct {
 // with e.g. a command or request and expects corresponding answer
 //
 // XXX +error return?
-func (m *Master) DriveStorage(ctx context.Context, link *NodeLink) {
+func (m *Master) DriveStorage(ctx context.Context, link *neo.NodeLink) {
 	// ? >UnfinishedTransactions
 	// ? <AnswerUnfinishedTransactions	(none currently)
 
@@ -952,11 +953,11 @@ func (m *Master) DriveStorage(ctx context.Context, link *NodeLink) {
 	// StopOperation	PM -> S
 }
 
-func (m *Master) ServeAdmin(ctx context.Context, conn *Conn) {
+func (m *Master) ServeAdmin(ctx context.Context, conn *neo.Conn) {
 	// TODO
 }
 
-func (m *Master) ServeMaster(ctx context.Context, conn *Conn) {
+func (m *Master) ServeMaster(ctx context.Context, conn *neo.Conn) {
 	// TODO  (for elections)
 }
 

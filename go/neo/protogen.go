@@ -21,7 +21,7 @@
 NEO. Protocol module. Code generator
 
 This program generates marshalling code for packet types defined in proto.go .
-For every type 4 methods are generated in accordance with NEOPkt interface:
+For every type 4 methods are generated in accordance with neo.Pkt interface:
 
 	NEOPktMsgCode() uint16
 	NEOPktEncodedLen() int
@@ -469,7 +469,7 @@ type sizer struct {
 // encoder generates code to encode a packet
 //
 // when type is recursively walked, for every case code to update `data[n:]` is generated.
-// no overflow checks are generated as by NEOPkt interface provided data
+// no overflow checks are generated as by neo.Pkt interface provided data
 // buffer should have at least payloadLen length returned by NEOPktEncodedInfo()
 // (the size computed by sizer).
 //

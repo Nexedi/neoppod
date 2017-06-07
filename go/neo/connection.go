@@ -251,7 +251,7 @@ func (c *Conn) shutdown() {
 }
 
 // Close closes connection
-// Any blocked Send() or Recv() will be unblocked and return error
+// Any blocked Send*() or Recv*() will be unblocked and return error
 //
 // NOTE for Send() - once transmission was started - it will complete in the
 // background on the wire not to break node-node link framing.
