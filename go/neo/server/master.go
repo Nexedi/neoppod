@@ -227,7 +227,7 @@ loop:
 			// we are interested in latest partTab
 			// NOTE during recovery no one must be subscribed to
 			// partTab so it is ok to simply change whole m.partTab
-			if r.partTab.ptid > m.partTab.ptid {
+			if r.partTab.PTid > m.partTab.PTid {
 				m.partTab = r.partTab
 			}
 
@@ -324,16 +324,16 @@ func storCtlRecovery(ctx context.Context, link *neo.NodeLink, res chan storRecov
 
 	// reconstruct partition table from response
 	pt := neo.PartitionTable{}
-	pt.ptid = resp.PTid
+	pt.PTid = resp.PTid
 	for _, row := range resp.RowList {
 		i := row.Offset
-		for i >= uint32(len(pt.ptTab)) {
-			pt.ptTab = append(pt.ptTab, []neo.PartitionCell{})
+		for i >= uint32(len(pt.PtTab)) {
+			pt.PtTab = append(pt.PtTab, []neo.PartitionCell{})
 		}
 
-		//pt.ptTab[i] = append(pt.ptTab[i], row.CellList...)
+		//pt.PtTab[i] = append(pt.PtTab[i], row.CellList...)
 		for _, cell := range row.CellList {
-			pt.ptTab[i] = append(pt.ptTab[i], neo.PartitionCell{
+			pt.PtTab[i] = append(pt.PtTab[i], neo.PartitionCell{
 					NodeUUID:  cell.NodeUUID,
 					CellState: cell.CellState,
 				})

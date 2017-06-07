@@ -6,6 +6,8 @@ import (
 	"reflect"
 
 	"../zodb"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // RecvAndDecode receives packet from conn and decodes it
@@ -124,8 +126,7 @@ func Expect(conn *Conn, msg Pkt) (err error) {
 
 
 // ------------------------------------------
-
-// XXX vvv place = ok ?
+// XXX place=?
 
 // errEncode translates an error into Error packet
 // XXX more text describing relation with zodb errors
@@ -155,4 +156,43 @@ func ErrDecode(e *Error) error {
 	}
 
 	return e
+}
+
+// ------------------------------------------
+// XXX place=?
+
+// IdentifyWith identifies local node with remote peer
+// it also verifies peer's node type to what caller expects
+func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clusterName string) (accept *AcceptIdentification, err error) {
+	defer xerr.Contextf(&err, "%s: request identification", link)
+
+	conn, err := link.NewConn()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err2 := conn.Close()
+		if err == nil && err2 != nil {
+			err = err2
+		}
+	}()
+
+	accept = &AcceptIdentification{}
+	err = Ask(conn, &RequestIdentification{
+		NodeType:	 myInfo.NodeType,
+		NodeUUID:	 myInfo.NodeUUID,
+		Address:	 myInfo.Address,
+		ClusterName:	 clusterName,
+		IdTimestamp:	 myInfo.IdTimestamp,	// XXX ok?
+	}, accept)
+
+	if err != nil {
+		return nil, err // XXX err ctx ?
+	}
+
+	if accept.NodeType != expectPeerType {
+		return nil, fmt.Errorf("accepted, but peer is not %v (identifies as %v)", expectPeerType, accept.NodeType)
+	}
+
+	return accept, nil
 }

@@ -29,7 +29,7 @@ package neo
 //
 // Oid space is divided (partitioned) into Np parts via
 //
-//	ptid(oid) = oid % Np		XXX ptid -> pid ?
+//	pid(oid) = oid % Np
 //
 // rule. The `oid % Np` is known as partition identifier of oid.
 //
@@ -38,7 +38,7 @@ package neo
 //
 // Given Np, R and []Storage PartitionTable tries to organize
 //
-//	Ptid -> []Storage
+//	Pid -> []Storage
 //
 // mapping so that
 //
@@ -107,9 +107,9 @@ package neo
 type PartitionTable struct {
 	// XXX do we need sync.Mutex here for updates ?
 
-	ptTab [][]PartitionCell // [#Np]
+	PtTab [][]PartitionCell // [#Np]	XXX naming
 
-	ptid PTid // ↑ for versioning	XXX -> ver ?
+	PTid PTid // ↑ for versioning	XXX -> ver ?
 }
 
 // PartitionCell describes one storage in a ptid entry in partition table
@@ -140,7 +140,7 @@ type PartitionCell struct {
 //
 // XXX or keep not only NodeUUID in PartitionCell - add *Node ?
 func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
-	for _, ptEntry := range pt.ptTab {
+	for _, ptEntry := range pt.PtTab {
 		if len(ptEntry) == 0 {
 			return false
 		}

@@ -208,7 +208,7 @@ type Checksum [20]byte
 
 // Partition Table identifier
 // Zero value means "invalid id" (<-> None in py.PPTID)
-type PTid uint64	// XXX move to common place ?
+type PTid uint64
 
 
 // XXX move -> marshalutil.go ?

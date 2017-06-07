@@ -138,7 +138,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	// TODO Mlink.Close() on return / cancel
 
 	// request identification this way registering our node to master
-	accept, err := IdentifyWith(neo.MASTER, Mlink, stor.myInfo, stor.clusterName)
+	accept, err := neo.IdentifyWith(neo.MASTER, Mlink, stor.myInfo, stor.clusterName)
 	if err != nil {
 		return err
 	}
