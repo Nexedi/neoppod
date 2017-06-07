@@ -69,9 +69,9 @@ func TestPktHeader(t *testing.T) {
 }
 
 // test marshalling for one packet type
-func testPktMarshal(t *testing.T, pkt NEOPkt, encoded string) {
+func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
-	pkt2 := reflect.New(typ).Interface().(NEOPkt)
+	pkt2 := reflect.New(typ).Interface().(Pkt)
 	defer func() {
 		if e := recover(); e != nil {
 			t.Errorf("%v: panic ↓↓↓:", typ)
@@ -152,7 +152,7 @@ func testPktMarshal(t *testing.T, pkt NEOPkt, encoded string) {
 // test encoding/decoding of packets
 func TestPktMarshal(t *testing.T) {
 	var testv = []struct {
-		pkt     NEOPkt
+		pkt     Pkt
 		encoded string	// []byte
 	} {
 		// empty
@@ -268,7 +268,7 @@ func TestPktMarshal(t *testing.T) {
 func TestPktMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range pktTypeRegistry {
 		// zero-value for a type
-		pkt := reflect.New(typ).Interface().(NEOPkt)
+		pkt := reflect.New(typ).Interface().(Pkt)
 		l := pkt.NEOPktEncodedLen()
 		zerol := make([]byte, l)
 		// decoding will turn nil slice & map into empty allocated ones.

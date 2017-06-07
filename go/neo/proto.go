@@ -140,7 +140,6 @@ type NodeUUID int32
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
 // Pkt is the interface implemented by NEO packets to marshal/unmarshal them into/from wire format
-// XXX -> will be neo.Pkt after splitting into packages
 type Pkt interface {
 	// NEOPktMsgCode returns message code needed to be used for particular packet type
 	// on the wire
@@ -157,25 +156,6 @@ type Pkt interface {
 	NEOPktDecode(data []byte) (nread int, err error)
 }
 
-/*
-// XXX do we need to keep it splitted as encoder/decoder ?
-// NEOPktDecoder is the interface implemented by packets to unmarshal them from wire format
-type NEOPktDecoder interface {
-	// NEOPktMsgCode returns message code that must have been used on the wire for this packet
-	NEOPktMsgCode() uint16
-
-}
-
-// NEOPkt is interface combining NEOPktEncoder & NEOPktDecoder
-// in particular it covers all NEO packets
-type NEOPkt interface {
-	NEOPktEncoder
-	NEOPktDecoder
-
-	// XXX is in both encoder and decoder
-	NEOPktMsgCode() uint16
-}
-*/
 
 type Address struct {
 	Host string

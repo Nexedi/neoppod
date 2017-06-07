@@ -15,7 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo
+package neo_test
 // test interaction between nodes
 
 import (
@@ -25,6 +25,10 @@ import (
 	"reflect"
 	"testing"
 
+	. "../neo"
+	"../neo/client"
+	"../neo/server"
+
 	"../zodb"
 	"../zodb/storage/fs1"
 
@@ -32,24 +36,20 @@ import (
 )
 
 
-
-
-
-
 // xfs1stor creates new NEO storage node backed by fs1
 // XXX is this wrapper a good idea?
-func xfs1stor(net Network, path string) (*Storage, *fs1.FileStorage) {
+func xfs1stor(net Network, path string) (*server.Storage, *fs1.FileStorage) {
 	// TODO +readonly ?
 	zstor, err := fs1.Open(context.Background(), path)
 	exc.Raiseif(err)
 
-	return NewStorage("test cluster", "TODO master", "", net, zstor), zstor
+	return server.NewStorage("test cluster", "TODO master", "", net, zstor), zstor
 }
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
 	net := NetPipe("")	// test network		FIXME New registers to global table
-	M := NewMaster("abc1")
+	M := server.NewMaster("abc1")
 	S, _ := xfs1stor(net, "../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 
 	Mctx, Mcancel := context.WithCancel(context.Background())
@@ -59,8 +59,8 @@ func TestMasterStorage(t *testing.T) {
 	Sbind := ""; Mbind := ""; var err error
 	_ = Scancel; _ = Mcancel; _ = err
 
-	err = ListenAndServe(Mctx, net, Mbind, M)	// XXX go
-	err = ListenAndServe(Sctx, net, Sbind, S)	// XXX go
+	err = server.ListenAndServe(Mctx, net, Mbind, M)	// XXX go
+	err = server.ListenAndServe(Sctx, net, Sbind, S)	// XXX go
 }
 
 // basic interaction between Client -- Storage
@@ -77,7 +77,7 @@ func TestClientStorage(t *testing.T) {
 		// XXX + test error return
 	})
 
-	C, err := NewClient(Cnl)
+	C, err := client.NewClient(Cnl)
 	if err != nil {
 		t.Fatalf("creating/identifying client: %v", err)
 	}
