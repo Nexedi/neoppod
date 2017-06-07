@@ -69,9 +69,9 @@ func TestPktHeader(t *testing.T) {
 }
 
 // test marshalling for one packet type
-func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
+func testPktMarshal(t *testing.T, pkt NEOPkt, encoded string) {
 	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
-	pkt2 := reflect.New(typ).Interface().(NEOCodec)
+	pkt2 := reflect.New(typ).Interface().(NEOPkt)
 	defer func() {
 		if e := recover(); e != nil {
 			t.Errorf("%v: panic ↓↓↓:", typ)
@@ -80,7 +80,8 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	}()
 
 	// pkt.encode() == expected
-	msgCode, n := pkt.NEOEncodedInfo()
+	msgCode := pkt.NEOPktMsgCode()
+	n := pkt.NEOPktEncodedLen()
 	msgType := pktTypeRegistry[msgCode]
 	if msgType != typ {
 		t.Errorf("%v: msgCode = %v  which corresponds to %v", typ, msgCode, msgType)
@@ -90,7 +91,7 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 	}
 
 	buf := make([]byte, n)
-	pkt.NEOEncode(buf)
+	pkt.NEOPktEncode(buf)
 	if string(buf) != encoded {
 		t.Errorf("%v: encode result unexpected:", typ)
 		t.Errorf("\thave: %s", hexpkg.EncodeToString(buf))
@@ -120,13 +121,13 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 				}
 			}()
 
-			pkt.NEOEncode(buf[:l])
+			pkt.NEOPktEncode(buf[:l])
 		}()
 	}
 
 	// pkt.decode() == expected
 	data := []byte(encoded + "noise")
-	n, err := pkt2.NEODecode(data)
+	n, err := pkt2.NEOPktDecode(data)
 	if err != nil {
 		t.Errorf("%v: decode error %v", typ, err)
 	}
@@ -140,7 +141,7 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 
 	// decode must detect buffer overflow
 	for l := len(encoded)-1; l >= 0; l-- {
-		n, err = pkt2.NEODecode(data[:l])
+		n, err = pkt2.NEOPktDecode(data[:l])
 		if !(n==0 && err==ErrDecodeOverflow) {
 			t.Errorf("%v: decode overflow not detected on [:%v]", typ, l)
 		}
@@ -151,7 +152,7 @@ func testPktMarshal(t *testing.T, pkt NEOCodec, encoded string) {
 // test encoding/decoding of packets
 func TestPktMarshal(t *testing.T) {
 	var testv = []struct {
-		pkt     NEOCodec
+		pkt     NEOPkt
 		encoded string	// []byte
 	} {
 		// empty
@@ -267,12 +268,12 @@ func TestPktMarshal(t *testing.T) {
 func TestPktMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range pktTypeRegistry {
 		// zero-value for a type
-		pkt := reflect.New(typ).Interface().(NEOCodec)
-		_, l := pkt.NEOEncodedInfo()
+		pkt := reflect.New(typ).Interface().(NEOPkt)
+		l := pkt.NEOPktEncodedLen()
 		zerol := make([]byte, l)
 		// decoding will turn nil slice & map into empty allocated ones.
 		// we need it so that reflect.DeepEqual works for pkt encode/decode comparison
-		n, err := pkt.NEODecode(zerol)
+		n, err := pkt.NEOPktDecode(zerol)
 		if !(n == l && err == nil) {
 			t.Errorf("%v: zero-decode unexpected: %v, %v  ; want %v, nil", typ, n, err, l)
 		}

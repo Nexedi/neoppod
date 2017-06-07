@@ -94,6 +94,7 @@ func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) 
 // IdentifyPeer identifies peer on the link
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
+// XXX recheck identification logic here
 func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
 	defer xerr.Contextf(&err, "%s: identify", link)
 
@@ -137,6 +138,7 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 
 // IdentifyWith identifies local node with remote peer
 // it also verifies peer's node type to what caller expects
+// XXX place != ok (this is client, not server ?)
 func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clusterName string) (accept *AcceptIdentification, err error) {
 	defer xerr.Contextf(&err, "%s: request identification", link)
 
@@ -176,7 +178,7 @@ func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clus
 // XXX naming for RecvAndDecode and EncodeAndSend
 
 // RecvAndDecode receives packet from conn and decodes it
-func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interface{}
+func RecvAndDecode(conn *Conn) (NEOPkt, error) {
 	pkt, err := conn.Recv()
 	if err != nil {
 		return nil, err
@@ -194,8 +196,8 @@ func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interf
 	}
 
 	// TODO use free-list for decoded packets + when possible decode in-place
-	pktObj := reflect.New(msgType).Interface().(NEOCodec)
-	_, err = pktObj.NEODecode(pkt.Payload())
+	pktObj := reflect.New(msgType).Interface().(NEOPkt)
+	_, err = pktObj.NEOPktDecode(pkt.Payload())
 	if err != nil {
 		// XXX -> ProtoError ?
 		return nil, &ConnError{Conn: conn, Op: "decode", Err: err}
@@ -205,23 +207,23 @@ func RecvAndDecode(conn *Conn) (NEOEncoder, error) {	// XXX NEOEncoder -> interf
 }
 
 // EncodeAndSend encodes pkt and sends it to conn
-func EncodeAndSend(conn *Conn, pkt NEOEncoder) error {
-	msgCode, l := pkt.NEOEncodedInfo()
+func EncodeAndSend(conn *Conn, pkt NEOPkt) error {
+	l := pkt.NEOPktEncodedLen()
 	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
 
 	h := buf.Header()
 	// h.ConnId will be set by conn.Send
-	h.MsgCode = hton16(msgCode)
+	h.MsgCode = hton16(pkt.NEOPktMsgCode())
 	h.MsgLen = hton32(uint32(l))	// XXX casting: think again
 
-	pkt.NEOEncode(buf.Payload())
+	pkt.NEOPktEncode(buf.Payload())
 
 	return conn.Send(&buf)	// XXX why pointer?
 }
 
 // Ask does simple request/response protocol exchange
 // It expects the answer to be exactly of resp type and errors otherwise
-func Ask(conn *Conn, req NEOEncoder, resp NEODecoder) error {
+func Ask(conn *Conn, req NEOPkt, resp NEOPkt) error {
 	err := EncodeAndSend(conn, req)
 	if err != nil {
 		return err
@@ -246,7 +248,7 @@ func (e *ProtoError) Error() string {
 
 // Expect receives 1 packet and expects it to be exactly of msg type
 // XXX naming  (-> Recv1 ?)
-func Expect(conn *Conn, msg NEODecoder) (err error) {
+func Expect(conn *Conn, msg NEOPkt) (err error) {
 	pkt, err := conn.Recv()
 	if err != nil {
 		return err
@@ -267,7 +269,7 @@ func Expect(conn *Conn, msg NEODecoder) (err error) {
 		// unexpected Error response
 		if msgType == reflect.TypeOf(Error{}) {
 			errResp := Error{}
-			_, err = errResp.NEODecode(pkt.Payload())
+			_, err = errResp.NEOPktDecode(pkt.Payload())
 			if err != nil {
 				return &ProtoError{conn, err}
 			}
@@ -282,7 +284,7 @@ func Expect(conn *Conn, msg NEODecoder) (err error) {
 		return &ProtoError{conn, fmt.Errorf("unexpected packet: %v", msgType)}
 	}
 
-	_, err = msg.NEODecode(pkt.Payload())
+	_, err = msg.NEOPktDecode(pkt.Payload())
 	if err != nil {
 		return &ProtoError{conn, err}
 	}

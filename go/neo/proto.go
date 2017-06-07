@@ -137,29 +137,42 @@ type NodeUUID int32
 
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
-// NEOEncoder is interface for marshaling packets to wire format
-type NEOEncoder interface {
-	// NEOEncodedInfo returns message code needed to be used for the packet
-	// on the wire and how much space is needed to encode payload
-	// XXX naming?
-	NEOEncodedInfo() (msgCode uint16, payloadLen int)
+// NEOPkt is the interface implemented by packets to marshal/unmarshal them into/from wire format
+type NEOPkt interface {
+	// NEOPktMsgCode returns message code needed to be used for particular packet type
+	// on the wire
+	NEOPktMsgCode() uint16
 
-	// NEOEncode performs the encoding.
-	// len(buf) must be >= payloadLen returned by NEOEncodedInfo
-	NEOEncode(buf []byte)
+	// NEOPktEncodedLen returns how much space is needed to encode current state
+	NEOPktEncodedLen() int
+
+	// NEOPktEncode encodes current state into buf.
+	// len(buf) must be >= NEOPktEncodedLen()
+	NEOPktEncode(buf []byte)
+
+	// NEOPktDecode decodes data into.
+	NEOPktDecode(data []byte) (nread int, err error)
 }
 
-// NEODecoder is interface for unmarshalling packets from wire format
-type NEODecoder interface {
-	NEODecode(data []byte) (nread int, err error)
+/*
+// XXX do we need to keep it splitted as encoder/decoder ?
+// NEOPktDecoder is the interface implemented by packets to unmarshal them from wire format
+type NEOPktDecoder interface {
+	// NEOPktMsgCode returns message code that must have been used on the wire for this packet
+	NEOPktMsgCode() uint16
+
 }
 
-// NEOCodec is interface combining NEOEncoder & NEODecoder
+// NEOPkt is interface combining NEOPktEncoder & NEOPktDecoder
 // in particular it covers all NEO packets
-type NEOCodec interface {
-	NEOEncoder
-	NEODecoder
+type NEOPkt interface {
+	NEOPktEncoder
+	NEOPktDecoder
+
+	// XXX is in both encoder and decoder
+	NEOPktMsgCode() uint16
 }
+*/
 
 type Address struct {
 	Host string
@@ -167,7 +180,7 @@ type Address struct {
 }
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
-// func (a *Address) NEOEncode(b []byte) int {
+// func (a *Address) NEOPktEncode(b []byte) int {
 // 	n := string_NEOEncode(a.Host, b[0:])
 // 	if a.Host != "" {
 // 		BigEndian.PutUint16(b[n:], a.Port)

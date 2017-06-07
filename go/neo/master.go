@@ -67,7 +67,7 @@ type Master struct {
 type nodeCome struct {
 	link   *NodeLink
 	idReq  RequestIdentification // we received this identification request
-	idResp chan NEOEncoder	     // what we reply (AcceptIdentification | Error)
+	idResp chan NEOPkt           // what we reply (AcceptIdentification | Error)
 }
 
 // node disconnects
@@ -704,7 +704,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	}
 
 	// convey identification request to master
-	idRespCh := make(chan NEOEncoder)
+	idRespCh := make(chan NEOPkt)
 	m.nodeCome <- nodeCome{link, idReq, idRespCh}
 	idResp := <-idRespCh
 
@@ -760,7 +760,7 @@ func (m *Master) ServeLink(ctx context.Context, link *NodeLink) {
 	m.stateMu.Unlock()
 
 	go func() {
-		var pkt NEOEncoder
+		var pkt NEOPkt
 
 		for {
 			select {

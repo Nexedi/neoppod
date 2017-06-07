@@ -25,11 +25,12 @@ import (
 
 // TODO organize rx buffers management (freelist etc)
 
-// Buffer with packet data
+// PktBuf is a buffer with full raw packet (header + data)
 type PktBuf struct {
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
 
+// PktHead represents header of a raw packet
 // XXX naming -> PktHeader ?
 type PktHead struct {
 	ConnId  be32	// NOTE is .msgid in py
@@ -37,19 +38,20 @@ type PktHead struct {
 	MsgLen  be32	// payload message length (excluding packet header)
 }
 
-// Get pointer to packet header
+// Header returns pointer to packet header
 func (pkt *PktBuf) Header() *PktHead {
 	// XXX check len(Data) < PktHead ? -> no, Data has to be allocated with cap >= PktHeadLen
 	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
 }
 
-// Get packet payload
+// Payload returns []byte representing packet payload
 func (pkt *PktBuf) Payload() []byte {
 	return pkt.Data[PktHeadLen:]
 }
 
 
-// packet dumping
+// Strings dumps a packet
+// XXX -> use .Dump() for full dump?
 func (pkt *PktBuf) String() string {
 	if len(pkt.Data) < PktHeadLen {
 		return fmt.Sprintf("(! < PktHeadLen) % x", pkt.Data)

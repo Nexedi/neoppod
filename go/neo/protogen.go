@@ -21,12 +21,12 @@
 NEO. Protocol module. Code generator
 
 This program generates marshalling code for packet types defined in proto.go .
-For every type 3 methods are generated in accordance with NEOEncoder and
-NEODecoder interfaces:
+For every type 4 methods are generated in accordance with NEOPkt interface:
 
-	NEOEncodedInfo() (msgCode uint16, payloadLen int)
-	NEOEncode(buf []byte)
-	NEODecode(data []byte) (nread int, err error)
+	NEOPktMsgCode() uint16
+	NEOPktEncodedLen() int
+	NEOPktEncode(buf []byte)
+	NEOPktDecode(data []byte) (nread int, err error)
 
 List of packet types is obtained via searching through proto.go AST - looking
 for appropriate struct declarations there.
@@ -197,7 +197,11 @@ import (
 			case *ast.StructType:
 				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
 
-				buf.WriteString(generateCodecCode(typespec, &sizer{msgCode: pktCode}))
+				buf.emit("func (_ *%s) NEOPktMsgCode() uint16 {", typename)
+				buf.emit("return %d", pktCode)
+				buf.emit("}\n")
+
+				buf.WriteString(generateCodecCode(typespec, &sizer{}))
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
@@ -460,17 +464,13 @@ func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 type sizer struct {
 	commonCodeGen
 	size SymSize // currently accumulated packet size
-
-	// which code to also return as packet msgCode
-	// (sizer does not compute this - it is emitted as-is given by caller)
-	msgCode int
 }
 
 // encoder generates code to encode a packet
 //
 // when type is recursively walked, for every case code to update `data[n:]` is generated.
-// no overflow checks are generated as by NEOEncoder interface provided data
-// buffer should have at least payloadLen length returned by NEOEncodedInfo()
+// no overflow checks are generated as by NEOPkt interface provided data
+// buffer should have at least payloadLen length returned by NEOPktEncodedInfo()
 // (the size computed by sizer).
 //
 // the code emitted looks like:
@@ -479,7 +479,7 @@ type sizer struct {
 //	encode<typ2>(data[n2:], path2)
 //	...
 //
-// TODO encode have to care in NEOEncode to emit preambule such that bound
+// TODO encode have to care in NEOPktEncode to emit preambule such that bound
 // checking is performed only once (currenty compiler emits many of them)
 type encoder struct {
 	commonCodeGen
@@ -527,7 +527,7 @@ var _ CodeGenerator = (*decoder)(nil)
 func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOEncodedInfo() (uint16, int) {", s.recvName, s.typeName)
+	code.emit("func (%s *%s) NEOPktEncodedLen() int {", s.recvName, s.typeName)
 	if s.varUsed["size"] {
 		code.emit("var %s int", s.var_("size"))
 	}
@@ -539,7 +539,7 @@ func (s *sizer) generatedCode() string {
 	if s.varUsed["size"] {
 		size += " + " + s.var_("size")
 	}
-	code.emit("return %v, %v", s.msgCode, size)
+	code.emit("return %v", size)
 	code.emit("}\n")
 
 	return code.String()
@@ -548,7 +548,7 @@ func (s *sizer) generatedCode() string {
 func (e *encoder) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOEncode(data []byte) {", e.recvName, e.typeName)
+	code.emit("func (%s *%s) NEOPktEncode(data []byte) {", e.recvName, e.typeName)
 
 	code.Write(e.buf.Bytes())
 
@@ -655,7 +655,7 @@ func (d *decoder) generatedCode() string {
 
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEODecode(data []byte) (int, error) {", d.recvName, d.typeName)
+	code.emit("func (%s *%s) NEOPktDecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	if d.varUsed["nread"] {
 		code.emit("var %v uint32", d.var_("nread"))
 	}

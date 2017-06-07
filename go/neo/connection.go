@@ -200,7 +200,7 @@ func (nl *NodeLink) NewConn() (*Conn, error) {
 }
 
 // shutdown closes peerLink and marks NodeLink as no longer operational
-// it also shutdowns and all opened connections over this node link.
+// it also shutdowns all opened connections over this node link.
 func (nl *NodeLink) shutdown() {
 	nl.downOnce.Do(func() {
 		close(nl.down)
