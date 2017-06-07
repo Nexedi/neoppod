@@ -728,27 +728,3 @@ func (c *Conn) err(op string, e error) error {
 	}
 	return &ConnError{Conn: c, Op: op, Err: e}
 }
-
-
-// ----------------------------------------
-
-
-
-// XXX ^^^ original description about notify/ask/answer
-// All packets are classified to be of one of the following kind:
-// - notify:	a packet is sent without expecting any reply
-// - ask:	a packet is sent and reply is expected
-// - answer:	a packet replying to previous ask
-//
-// At any time there can be several Asks packets issued by both nodes.
-// For an Ask packet a single Answer reply is expected		XXX vs protocol where there is one request and list of replies ?
-//
-// XXX -> multiple subconnection explicitly closed with ability to chat
-// multiple packets without spawning goroutines? And only single answer
-// expected implemented that after only ask-send / answer-receive the
-// (sub-)connection is explicitly closed ?
-//
-// XXX it is maybe better to try to avoid multiplexing by hand and let the OS do it?
-//
-// A reply to particular Ask packet, once received, will be delivered to
-// corresponding goroutine which originally issued Ask	XXX this can be put into interface

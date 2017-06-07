@@ -96,6 +96,7 @@ func (n *netTLS) Listen(laddr string) (net.Listener, error) {
 	return tls.NewListener(l, n.config), nil
 }
 
+// ----------------------------------------
 
 // String formats Address to canonical host:port form
 func (addr Address) String() string {

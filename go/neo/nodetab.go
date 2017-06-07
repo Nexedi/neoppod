@@ -206,11 +206,11 @@ func (nt *NodeTable) Subscribe() (ch chan NodeInfo, unsubscribe func()) {
 	return ch, unsubscribe
 }
 
-// SubscribeBufferred subscribes to NodeTable updates without blocking updater
+// SubscribeBuffered subscribes to NodeTable updates without blocking updater
 // it returns a channel via which updates are delivered and unsubscribe function
 // the updates will be sent to destination in non-blocking way - if destination
-// channel is not ready they will be bufferred.
-// it is the caller reponsibility to make sure such buffering does not grow up
+// channel is not ready they will be buffered.
+// it is the caller responsibility to make sure such buffering does not grow up
 // to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?

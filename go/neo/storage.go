@@ -196,6 +196,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *NodeLink) {
 		link.Close()	// XXX err
 	}()
 
+	// XXX recheck identification logic here
 	nodeInfo, err := IdentifyPeer(link, STORAGE)
 	if err != nil {
 		fmt.Printf("stor: %v\n", err)

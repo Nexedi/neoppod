@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // Server is an interface that represents networked server
@@ -76,6 +78,7 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 }
 
 // ListenAndServe listens on network address and then calls Serve to handle incoming connections
+// XXX unused -> goes away ?
 func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) error {
 	l, err := net.Listen(laddr)
 	if err != nil {
@@ -88,23 +91,11 @@ func ListenAndServe(ctx context.Context, net Network, laddr string, srv Server) 
 
 // ----------------------------------------
 
-// errcontextf adds formatted prefix context to *errp
-// must be called under defer
-func errcontextf(errp *error, format string, argv ...interface{}) {
-	if *errp == nil {
-		return
-	}
-
-	format += ": %s"
-	argv = append(argv, *errp)
-	*errp = fmt.Errorf(format, argv...)
-}
-
 // IdentifyPeer identifies peer on the link
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
 func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentification /*TODO -> NodeInfo*/, err error) {
-	defer errcontextf(&err, "%s: identify", link)
+	defer xerr.Contextf(&err, "%s: identify", link)
 
 	// the first conn must come with RequestIdentification packet
 	conn, err := link.Accept()
@@ -147,7 +138,7 @@ func IdentifyPeer(link *NodeLink, myNodeType NodeType) (nodeInfo RequestIdentifi
 // IdentifyWith identifies local node with remote peer
 // it also verifies peer's node type to what caller expects
 func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clusterName string) (accept *AcceptIdentification, err error) {
-	defer errcontextf(&err, "%s: request identification", link)
+	defer xerr.Contextf(&err, "%s: request identification", link)
 
 	conn, err := link.NewConn()
 	if err != nil {

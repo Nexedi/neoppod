@@ -18,7 +18,7 @@ func (e *Error) Error() string {
 }
 
 
-const nodeTypeChar = "MSCA4567"
+const nodeTypeChar = "MSCA4567"	// keep in sync with NodeType constants
 
 func (nodeUUID NodeUUID) String() string {
 	// return ex 'S1', 'M2', ...

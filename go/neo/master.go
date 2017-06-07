@@ -31,6 +31,8 @@ import (
 	"sync"
 
 	"../zodb"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works
@@ -175,7 +177,7 @@ func (m *Master) run(ctx context.Context) {
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
 	fmt.Println("master: recovery")
-	defer errcontextf(&err, "master: recovery")
+	defer xerr.Context(&err, "master: recovery")
 
 	m.setClusterState(ClusterRecovering)
 	rctx, rcancel := context.WithCancel(ctx)
@@ -299,7 +301,7 @@ func storCtlRecovery(ctx context.Context, link *NodeLink, res chan storRecovery)
 		link.Close()
 		*/
 	}()
-	defer errcontextf(&err, "%s: stor recovery", link)
+	defer xerr.Contextf(&err, "%s: stor recovery", link)
 
 	conn, err := link.NewConn()	// FIXME bad
 	if err != nil {
@@ -362,7 +364,7 @@ var errClusterDegraded = errors.New("cluster became non-operatonal")
 // prerequisite for start: .partTab is operational wrt .nodeTab
 func (m *Master) verify(ctx context.Context) (err error) {
 	fmt.Println("master: verify")
-	defer errcontextf(&err, "master: verify")
+	defer xerr.Context(&err, "master: verify")
 
 	m.setClusterState(ClusterVerifying)
 	vctx, vcancel := context.WithCancel(ctx)
@@ -481,7 +483,7 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 			res <- storVerify{link: link, err: err}
 		}
 	}()
-	defer errcontextf(&err, "%s: verify", link)
+	defer xerr.Contextf(&err, "%s: verify", link)
 
 	// FIXME stub
 	conn, _ := link.NewConn()
@@ -525,7 +527,7 @@ func storCtlVerify(ctx context.Context, link *NodeLink, res chan storVerify) {
 // prerequisite for start: .partTab is operational wrt .nodeTab and verification passed
 func (m *Master) service(ctx context.Context) (err error) {
 	fmt.Println("master: service")
-	defer errcontextf(&err, "master: service")
+	defer xerr.Context(&err, "master: service")
 
 	m.setClusterState(ClusterRunning)
 
@@ -804,6 +806,8 @@ func (m *Master) ServeClient(ctx context.Context, link *NodeLink) {
 
 // ---- internal requests for storage driver ----
 
+// XXX goes away
+/*
 // storageRecovery asks storage driver to extract cluster recovery information from storage
 type storageRecovery struct {
 	resp chan PartitionTable	// XXX +err ?
@@ -823,6 +827,7 @@ type storageStartOperation struct {
 type storageStopOperation struct {
 	resp chan error
 }
+*/
 
 // DriveStorage serves incoming connection on which peer identified itself as storage
 //

@@ -96,7 +96,7 @@ package neo
 //	       S2     S2
 //	       S3  →  S2
 //
-// Np thus is always multiple of Ns and with furter reorderings (if needed)
+// Np thus is always multiple of Ns and with further reorderings (if needed)
 // could be reduced directly to Ns.
 //
 // Usually Master maintains partition table, plans partition updates and tells
@@ -149,7 +149,7 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 	cellLoop:
 		for _, cell := range ptEntry {
 			switch cell.CellState {
-			case UP_TO_DATE, FEEDING:	// XXX cell.isReadble in py
+			case UP_TO_DATE, FEEDING:	// XXX cell.isReadable in py
 				// cell says it is readable. let's check whether corresponding node is up
 				// FIXME checking whether it is up is not really enough -
 				// - what is needed to check is that data on that node is up
