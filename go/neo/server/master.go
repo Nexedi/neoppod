@@ -22,12 +22,8 @@ package server
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
-	"io"
-	"log"
 	"math"
-	"os"
 	"sync"
 
 	"../../neo"
@@ -959,54 +955,4 @@ func (m *Master) ServeAdmin(ctx context.Context, conn *neo.Conn) {
 
 func (m *Master) ServeMaster(ctx context.Context, conn *neo.Conn) {
 	// TODO  (for elections)
-}
-
-// ----------------------------------------
-
-const masterSummary = "run master node"
-
-// TODO options:
-// cluster, masterv ...
-
-func masterUsage(w io.Writer) {
-	fmt.Fprintf(w,
-`Usage: neo master [options]
-Run NEO master node.
-`)
-
-	// FIXME use w (see flags.SetOutput)
-}
-
-func masterMain(argv []string) {
-	var bind string
-	var cluster string
-
-	flags := flag.NewFlagSet("", flag.ExitOnError)
-	flags.Usage = func() { masterUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
-	flags.StringVar(&bind, "bind", bind, "address to serve on")
-	flags.StringVar(&cluster, "cluster", cluster, "cluster name")
-	flags.Parse(argv[1:])
-
-	argv = flags.Args()
-	if len(argv) < 1 {
-		flags.Usage()
-		os.Exit(2)
-	}
-
-	masterSrv := NewMaster(cluster)
-
-	ctx := context.Background()
-	/*
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(3 * time.Second)
-		cancel()
-	}()
-	*/
-
-	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	err := ListenAndServe(ctx, net, bind, masterSrv)
-	if err != nil {
-		log.Fatal(err)
-	}
 }

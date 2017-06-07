@@ -20,17 +20,11 @@ package server
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"strings"
 	"time"
 
 	"../../neo"
 	"../../zodb"
-	"../../zodb/storage/fs1"
 )
 
 // XXX fmt -> log
@@ -324,78 +318,5 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 		}
 
 		//req.Put(...)
-	}
-}
-
-// ----------------------------------------
-
-const storageSummary = "run storage node"
-
-// TODO options:
-// cluster, masterv ...
-
-func storageUsage(w io.Writer) {
-	fmt.Fprintf(w,
-`Usage: neo storage [options] zstor	XXX
-Run NEO storage node.
-`)
-
-	// FIXME use w (see flags.SetOutput)
-}
-
-func storageMain(argv []string) {
-	flags := flag.NewFlagSet("", flag.ExitOnError)
-	flags.Usage = func() { storageUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
-	cluster := flags.String("cluster", "", "the cluster name")
-	masters := flags.String("masters", "", "list of masters")
-	bind := flags.String("bind", "", "address to serve on")
-	flags.Parse(argv[1:])
-
-	if *cluster == "" {
-		// XXX vvv -> die  or  log.Fatalf ?
-		fmt.Fprintf(os.Stderr, "cluster name must be provided")
-		os.Exit(2)
-	}
-
-	masterv := strings.Split(*masters, ",")
-	if len(masterv) == 0 {
-		fmt.Fprintf(os.Stderr, "master list must be provided")
-		os.Exit(2)
-	}
-	if len(masterv) > 1 {
-		fmt.Fprintf(os.Stderr, "BUG neo/go POC currently supports only 1 master")
-		os.Exit(2)
-	}
-
-	master := masterv[0]
-
-	argv = flags.Args()
-	if len(argv) < 1 {
-		flags.Usage()
-		os.Exit(2)
-	}
-
-	// XXX hack to use existing zodb storage for data
-	zstor, err := fs1.Open(context.Background(), argv[0])	// XXX context.Background -> ?
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-
-	storSrv := NewStorage(*cluster, master, *bind, net, zstor)
-
-	ctx := context.Background()
-	/*
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(3 * time.Second)
-		cancel()
-	}()
-	*/
-
-	err = storSrv.Run(ctx)
-	if err != nil {
-		log.Fatal(err)
 	}
 }

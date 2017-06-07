@@ -15,16 +15,5 @@
 //
 // See COPYING file for full licensing terms.
 
-package main
-// registry of all commands & help topics
-
-import "../../../zodb/zodbtools"
-
-var Commands = zodbtools.CommandRegistry{
-	{"master",  masterSummary,  masterUsage,  masterMain},
-	{"storage", storageSummary, storageUsage, storageMain},
-}
-
-var HelpTopics = zodbtools.HelpRegistry{
-	// XXX for now empty
-}
+// Package neotools provides tools for running and managing NEO databases
+package neotools
