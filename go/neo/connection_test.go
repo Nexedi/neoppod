@@ -184,6 +184,9 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 	return _nodeLinkPipe(0, 0)
 }
 
+// XXX temp for cluster_test.fo
+var NodeLinkPipe = nodeLinkPipe
+
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 

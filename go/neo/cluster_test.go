@@ -35,6 +35,11 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 )
 
+// XXX dup from connection_test
+func xwait(w interface { Wait() error }) {
+	err := w.Wait()
+	exc.Raiseif(err)
+}
 
 // xfs1stor creates new NEO storage node backed by fs1
 // XXX is this wrapper a good idea?
@@ -65,7 +70,7 @@ func TestMasterStorage(t *testing.T) {
 
 // basic interaction between Client -- Storage
 func TestClientStorage(t *testing.T) {
-	Cnl, Snl := nodeLinkPipe()
+	Cnl, Snl := NodeLinkPipe()
 	wg := WorkGroup()
 
 	Sctx, Scancel := context.WithCancel(context.Background())
