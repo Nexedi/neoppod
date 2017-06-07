@@ -15,7 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo
+package server
 // storage node
 
 import (
@@ -54,13 +54,13 @@ type Storage struct {
 // To actually start running the node - call Run.	XXX text
 func NewStorage(cluster string, masterAddr string, serveAddr string, net neo.Network, zstor zodb.IStorage) *Storage {
 	// convert serveAddr into neo format
-	addr, err := ParseAddress(serveAddr)
+	addr, err := neo.ParseAddress(serveAddr)
 	if err != nil {
 		panic(err)	// XXX
 	}
 
 	stor := &Storage{
-			myInfo:		NodeInfo{NodeType: STORAGE, Address: addr},
+			myInfo:		neo.NodeInfo{NodeType: neo.STORAGE, Address: addr},
 			clusterName:	cluster,
 			net:		net,
 			masterAddr:	masterAddr,
@@ -87,7 +87,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
 	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
 	//	-> host is never empty
-	addr, err := ParseAddress(l.Addr().String())
+	addr, err := neo.ParseAddress(l.Addr().String())
 	if err != nil {
 		// XXX -> panic here ?
 		return err	// XXX err ctx
@@ -130,7 +130,7 @@ func (stor *Storage) talkMaster(ctx context.Context) {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) error {
-	Mlink, err := Dial(ctx, stor.net, stor.masterAddr)
+	Mlink, err := neo.Dial(ctx, stor.net, stor.masterAddr)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	// TODO Mlink.Close() on return / cancel
 
 	// request identification this way registering our node to master
-	accept, err := IdentifyWith(MASTER, Mlink, stor.myInfo, stor.clusterName)
+	accept, err := IdentifyWith(neo.MASTER, Mlink, stor.myInfo, stor.clusterName)
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	if err != nil { panic(err) }	// XXX
 
 	for {
-		notify, err := RecvAndDecode(conn)
+		notify, err := neo.RecvAndDecode(conn)
 		if err != nil {
 			// XXX TODO
 		}
@@ -198,7 +198,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}()
 
 	// XXX recheck identification logic here
-	nodeInfo, err := IdentifyPeer(link, STORAGE)
+	nodeInfo, err := IdentifyPeer(link, neo.STORAGE)
 	if err != nil {
 		fmt.Printf("stor: %v\n", err)
 		return
@@ -206,7 +206,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 
 	var serveConn func(context.Context, *neo.Conn)
 	switch nodeInfo.NodeType {
-	case CLIENT:
+	case neo.CLIENT:
 		serveConn = stor.ServeClient
 
 	default:
@@ -230,36 +230,6 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	// TODO wait all spawned serveConn
 }
 
-
-// XXX move err{Encode,Decode} out of here
-
-// errEncode translates an error into Error packet
-func errEncode(err error) *neo.Error {
-	switch err := err.(type) {
-	case *Error:
-		return err
-	case *zodb.ErrXidMissing:
-		// XXX abusing message for xid
-		return &neo.Error{Code: OID_NOT_FOUND, Message: err.Xid.String()}
-
-	default:
-		return &neo.Error{Code: NOT_READY /* XXX how to report 503? was BROKEN_NODE */, Message: err.Error()}
-	}
-
-}
-
-// errDecode decodes error from Error packet
-func errDecode(e *neo.Error) error {
-	switch e.Code {
-	case OID_NOT_FOUND:
-		xid, err := zodb.ParseXid(e.Message)	// XXX abusing message for xid
-		if err == nil {
-			return &zodb.ErrXidMissing{xid}
-		}
-	}
-
-	return e
-}
 
 func (stor *Storage) ServeMaster(ctx context.Context, conn *neo.Conn) {
 
@@ -297,15 +267,15 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 	}()
 
 	for {
-		req, err := RecvAndDecode(conn)
+		req, err := neo.RecvAndDecode(conn)
 		if err != nil {
 			return	// XXX log / err / send error before closing
 		}
 
 		switch req := req.(type) {
-		case *GetObject:
+		case *neo.GetObject:
 			xid := zodb.Xid{Oid: req.Oid}
-			if req.Serial != INVALID_TID {
+			if req.Serial != neo.INVALID_TID {
 				xid.Tid = req.Serial
 				xid.TidBefore = false
 			} else {
@@ -317,9 +287,9 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 			data, tid, err := stor.zstor.Load(xid)
 			if err != nil {
 				// TODO translate err to NEO protocol error codes
-				reply = errEncode(err)
+				reply = neo.ErrEncode(err)
 			} else {
-				reply = &AnswerGetObject{
+				reply = &neo.AnswerGetObject{
 						Oid:	xid.Oid,
 						Serial: tid,
 
@@ -332,19 +302,19 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 					}
 			}
 
-			EncodeAndSend(conn, reply)	// XXX err
+			neo.EncodeAndSend(conn, reply)	// XXX err
 
-		case *LastTransaction:
+		case *neo.LastTransaction:
 			var reply neo.Pkt
 
 			lastTid, err := stor.zstor.LastTid()
 			if err != nil {
-				reply = errEncode(err)
+				reply = neo.ErrEncode(err)
 			} else {
-				reply = &AnswerLastTransaction{lastTid}
+				reply = &neo.AnswerLastTransaction{lastTid}
 			}
 
-			EncodeAndSend(conn, reply)	// XXX err
+			neo.EncodeAndSend(conn, reply)	// XXX err
 
 		//case *ObjectHistory:
 		//case *StoreObject:
@@ -411,7 +381,7 @@ func storageMain(argv []string) {
 		log.Fatal(err)
 	}
 
-	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
 	storSrv := NewStorage(*cluster, master, *bind, net, zstor)
 

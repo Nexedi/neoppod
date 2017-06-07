@@ -16,7 +16,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neo
+package server
 // master node
 
 import (
@@ -530,7 +530,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 	fmt.Println("master: service")
 	defer xerr.Context(&err, "master: service")
 
-	m.setClusterState(ClusterRunning)
+	m.setClusterState(neo.ClusterRunning)
 
 loop:
 	for {
@@ -580,7 +580,7 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 	// - IdTimestamp ?
 
 	if n.idReq.ClusterName != m.clusterName {
-		n.idResp <- &Error{PROTOCOL_ERROR, "cluster name mismatch"} // XXX
+		n.idResp <- &neo.Error{neo.PROTOCOL_ERROR, "cluster name mismatch"} // XXX
 		return nil, false
 	}
 
@@ -596,20 +596,20 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 	if node != nil {
 		// reject - uuid is already occupied by someone else
 		// XXX check also for down state - it could be the same node reconnecting
-		n.idResp <- &Error{PROTOCOL_ERROR, "uuid %v already used by another node"} // XXX
+		n.idResp <- &neo.Error{neo.PROTOCOL_ERROR, "uuid %v already used by another node"} // XXX
 		return nil, false
 	}
 
 	// XXX accept only certain kind of nodes depending on .clusterState, e.g.
 	switch nodeType {
-	case CLIENT:
-		n.idResp <- &Error{NOT_READY, "cluster not operational"}
+	case neo.CLIENT:
+		n.idResp <- &neo.Error{neo.NOT_READY, "cluster not operational"}
 
 	// XXX ...
 	}
 
 
-	n.idResp <- &AcceptIdentification{
+	n.idResp <- &neo.AcceptIdentification{
 			NodeType:	neo.MASTER,
 			MyNodeUUID:	m.nodeUUID,
 			NumPartitions:	1,	// FIXME hardcoded
@@ -618,17 +618,17 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 		}
 
 	// update nodeTab
-	var nodeState NodeState
+	var nodeState neo.NodeState
 	switch nodeType {
-	case STORAGE:
+	case neo.STORAGE:
 		// FIXME py sets to RUNNING/PENDING depending on cluster state
-		nodeState = PENDING
+		nodeState = neo.PENDING
 
 	default:
-		nodeState = RUNNING
+		nodeState = neo.RUNNING
 	}
 
-	nodeInfo := NodeInfo{
+	nodeInfo := neo.NodeInfo{
 		NodeType:	nodeType,
 		Address:	n.idReq.Address,
 		NodeUUID:	uuid,
@@ -649,7 +649,7 @@ func (m *Master) allocUUID(nodeType neo.NodeType) neo.NodeUUID {
 	// XXX but since whole uuid assign idea is not good - let's keep it dirty here
 	typ := int(nodeType & 7) << (24 + 4) // note temp=0
 	for num := 1; num < 1<<24; num++ {
-		uuid := NodeUUID(typ | num)
+		uuid := neo.NodeUUID(typ | num)
 		if m.nodeTab.Get(uuid) == nil {
 			return uuid
 		}
@@ -692,12 +692,12 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 		return
 	}
 
-	idReq := RequestIdentification{}
-	err = Expect(conn, &idReq)
+	idReq := neo.RequestIdentification{}
+	err = neo.Expect(conn, &idReq)
 	if err != nil {
 		logf("identify: %v", err)
 		// XXX ok to let peer know error as is? e.g. even IO error on Recv?
-		err = EncodeAndSend(conn, &Error{PROTOCOL_ERROR, err.Error()})
+		err = neo.EncodeAndSend(conn, &neo.Error{neo.PROTOCOL_ERROR, err.Error()})
 		if err != nil {
 			logf("failed to send error: %v", err)
 		}
@@ -718,7 +718,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}
 
 	// let the peer know identification result
-	err = EncodeAndSend(conn, idResp)
+	err = neo.EncodeAndSend(conn, idResp)
 	if err != nil {
 		return
 	}
@@ -771,7 +771,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 				return
 
 			case nodeUpdateV := <-nodeCh:
-				pkt = &NotifyNodeInformation{
+				pkt = &neo.NotifyNodeInformation{
 					IdTimestamp: math.NaN(),	// XXX
 					NodeList:    nodeUpdateV,
 				}
@@ -780,7 +780,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 			//	changed = true
 			}
 
-			err = EncodeAndSend(connNotify, pkt)
+			err = neo.EncodeAndSend(connNotify, pkt)
 			if err != nil {
 				// XXX err
 			}
@@ -863,7 +863,7 @@ func (m *Master) DriveStorage(ctx context.Context, link *neo.NodeLink) {
 		// 		// XXX timeout ?
 
 		// 		// XXX -> chat2 ?
-		// 		err = EncodeAndSend(conn, &StartOperation{Backup: false /* XXX hardcoded */})
+		// 		err = neo.EncodeAndSend(conn, &StartOperation{Backup: false /* XXX hardcoded */})
 		// 		if err != nil {
 		// 			// XXX err
 		// 		}
@@ -1004,7 +1004,7 @@ func masterMain(argv []string) {
 	}()
 	*/
 
-	net := NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 	err := ListenAndServe(ctx, net, bind, masterSrv)
 	if err != nil {
 		log.Fatal(err)

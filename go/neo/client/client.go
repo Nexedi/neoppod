@@ -15,8 +15,8 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo
-// client node
+// Package client provides ZODB interface for accessing NEO cluster
+package client
 
 import (
 	"context"

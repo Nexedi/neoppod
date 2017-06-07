@@ -15,8 +15,9 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo
+package server
 // time related utilities
+// XXX -> neo ?
 
 import (
 	"time"

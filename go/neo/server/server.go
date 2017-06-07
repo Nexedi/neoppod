@@ -15,14 +15,13 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo
+package server
 // common parts for organizing network servers
 
 import (
 	"context"
 	"fmt"
 	"net"
-	"reflect"
 
 	"../../neo"
 
@@ -69,7 +68,7 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 		}
 
 		go func() {
-			link, err := Handshake(ctx, peerConn, LinkServer)
+			link, err := neo.Handshake(ctx, peerConn, neo.LinkServer)
 			if err != nil {
 				fmt.Printf("xxx: %s\n", err)
 				return
@@ -113,8 +112,8 @@ func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.Req
 		}
 	}()
 
-	req := RequestIdentification{}
-	err = Expect(conn, &req)
+	req := neo.RequestIdentification{}
+	err = neo.Expect(conn, &req)
 	if err != nil {
 		return nodeInfo, err
 	}
@@ -123,7 +122,7 @@ func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.Req
 
 	// TODO hook here in logic to check identification request, assign nodeID etc
 
-	err = EncodeAndSend(conn, &AcceptIdentification{
+	err = neo.EncodeAndSend(conn, &neo.AcceptIdentification{
 		NodeType:	myNodeType,
 		MyNodeUUID:	0,		// XXX
 		NumPartitions:	1,		// XXX
@@ -156,7 +155,7 @@ func IdentifyWith(expectPeerType neo.NodeType, link *neo.NodeLink, myInfo neo.No
 	}()
 
 	accept = &neo.AcceptIdentification{}
-	err = Ask(conn, &RequestIdentification{
+	err = neo.Ask(conn, &neo.RequestIdentification{
 		NodeType:	 myInfo.NodeType,
 		NodeUUID:	 myInfo.NodeUUID,
 		Address:	 myInfo.Address,
@@ -173,122 +172,4 @@ func IdentifyWith(expectPeerType neo.NodeType, link *neo.NodeLink, myInfo neo.No
 	}
 
 	return accept, nil
-}
-
-// ----------------------------------------
-// XXX place = ok ? not ok -> move out of here
-// XXX naming for RecvAndDecode and EncodeAndSend
-
-// RecvAndDecode receives packet from conn and decodes it
-func RecvAndDecode(conn *neo.Conn) (neo.Pkt, error) {
-	pkt, err := conn.Recv()
-	if err != nil {
-		return nil, err
-	}
-
-	// decode packet
-	pkth := pkt.Header()
-	msgCode := ntoh16(pkth.MsgCode)
-	msgType := pktTypeRegistry[msgCode]
-	if msgType == nil {
-		err = fmt.Errorf("invalid msgCode (%d)", msgCode)
-		// XXX -> ProtoError ?
-		return nil, &ConnError{Conn: conn, Op: "decode", Err: err}
-	}
-
-	// TODO use free-list for decoded packets + when possible decode in-place
-	pktObj := reflect.New(msgType).Interface().(neo.Pkt)
-	_, err = pktObj.NEOPktDecode(pkt.Payload())
-	if err != nil {
-		// XXX -> ProtoError ?
-		return nil, &ConnError{Conn: conn, Op: "decode", Err: err}
-	}
-
-	return pktObj, nil
-}
-
-// EncodeAndSend encodes pkt and sends it to conn
-func EncodeAndSend(conn *neo.Conn, pkt neo.Pkt) error {
-	l := pkt.NEOPktEncodedLen()
-	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
-
-	h := buf.Header()
-	// h.ConnId will be set by conn.Send
-	h.MsgCode = hton16(pkt.NEOPktMsgCode())
-	h.MsgLen = hton32(uint32(l))	// XXX casting: think again
-
-	pkt.NEOPktEncode(buf.Payload())
-
-	return conn.Send(&buf)	// XXX why pointer?
-}
-
-// Ask does simple request/response protocol exchange
-// It expects the answer to be exactly of resp type and errors otherwise
-func Ask(conn *neo.Conn, req neo.Pkt, resp neo.Pkt) error {
-	err := EncodeAndSend(conn, req)
-	if err != nil {
-		return err
-	}
-
-	err = Expect(conn, resp)
-	return err
-}
-
-
-// ProtoError is returned when there waa a protocol error, like receiving
-// unexpected packet or packet with wrong header
-// XXX -> ConnError{Op: "decode"} ?
-type ProtoError struct {
-	Conn *neo.Conn
-	Err  error
-}
-
-func (e *ProtoError) Error() string {
-	return fmt.Sprintf("%v: %v", e.Conn, e.Err)
-}
-
-// Expect receives 1 packet and expects it to be exactly of msg type
-// XXX naming  (-> Recv1 ?)
-func Expect(conn *neo.Conn, msg neo.Pkt) (err error) {
-	pkt, err := conn.Recv()
-	if err != nil {
-		return err
-	}
-
-	// received ok. Now it is all decoding
-
-	// XXX dup wrt RecvAndDecode
-	pkth := pkt.Header()
-	msgCode := ntoh16(pkth.MsgCode)
-
-	if msgCode != msg.NEOPktMsgCode() {
-		// unexpected Error response
-		if msgCode == (&Error{}).NEOPktMsgCode() {
-			errResp := Error{}
-			_, err = errResp.NEOPktDecode(pkt.Payload())
-			if err != nil {
-				return &ProtoError{conn, err}
-			}
-
-			// FIXME clarify error decoding logic:
-			// - in some cases Error is one of "expected" answers (e.g. Ask(GetObject))
-			// - in other cases Error is completely not expected
-			//   (e.g. getting 1st packet on connection)
-			return errDecode(&errResp) // XXX err ctx vs ^^^ errcontextf ?
-		}
-
-		msgType := pktTypeRegistry[msgCode]
-		if msgType == nil {
-			return &ProtoError{conn, fmt.Errorf("invalid msgCode (%d)", msgCode)}
-		}
-
-		return &ProtoError{conn, fmt.Errorf("unexpected packet: %v", msgType)}
-	}
-
-	_, err = msg.NEOPktDecode(pkt.Payload())
-	if err != nil {
-		return &ProtoError{conn, err}
-	}
-
-	return nil
 }
