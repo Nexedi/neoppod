@@ -107,28 +107,34 @@ func (addr Address) String() string {
 	switch addr.Port {
 	case 0:
 		return addr.Host
+
 	default:
 		return net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
 	}
 }
 
 // ParseAddress parses networked address (XXX of form host:port) into NEO Address
-func ParseAddress(addr string) (Address, error) {
-	// e.g. on unix, pipenet, etc there is no host/port split - the address
-	// is single string which we put into .Host and set .Port=0
+//func ParseAddress(addr string) (Address, error) {
+func ConvAddress(addr net.Addr) (Address, error) {
+	addrstr := addr.String()
 
-	// TODO detect :port presence ?
-	// XXX pass net.Addr() here instead of string?
+	// e.g. on unix, pipenet, etc networks there is no host/port split - the address
+	// is single string which we put into .Host and set .Port=0 to indicate such cases
+	switch addr.Network() {
+	default:
+		return Address{Host: addrstr, Port: 0}, nil
 
-	host, portstr, err := net.SplitHostPort(hostport)
-	if err != nil {
-		return Address{}, err
+	case "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6":
+		host, portstr, err := net.SplitHostPort(addrstr)
+		if err != nil {
+			return Address{}, err
+		}
+		// XXX also lookup portstr in /etc/services (net.LookupPort) ?
+		port, err := strconv.ParseUint(portstr, 10, 16)
+		if err != nil {
+			return Address{}, &net.AddrError{Err: "invalid port", Addr: addrstr}
+		}
+
+		return Address{Host: host, Port: uint16(port)}, nil
 	}
-	// XXX also lookup portstr in /etc/services (net.LookupPort) ?
-	port, err := strconv.ParseUint(portstr, 10, 16)
-	if err != nil {
-		return Address{}, &net.AddrError{Err: "invalid port", Addr: hostport}
-	}
-
-	return Address{Host: host, Port: uint16(port)}, nil
 }
