@@ -36,9 +36,9 @@ import (
 const NetPrefix = "pipe" // pipenet package works only with "pipe*" networks
 
 var (
-	errBadNetwork		= errors.New("pipenet: invalid network")
+//	errBadNetwork		= errors.New("pipenet: invalid network")
 	errBadAddress		= errors.New("invalid address")
-	errNetNotFound		= errors.New("no such network")
+//	errNetNotFound		= errors.New("no such network")
 	errNetClosed		= errors.New("network connection closed")
 	errAddrAlreadyUsed	= errors.New("address already in use")
 	errConnRefused		= errors.New("connection refused")
@@ -52,8 +52,6 @@ type Addr struct {
 
 // Network implements synchronous in-memory network of pipes
 // It can be worked with the same way a regular TCP network is handled with Dial/Listen/Accept/...
-//
-// Network must be created with New	XXX is it really ok to have global state ?
 type Network struct {
 	// name of this network under "pipe" namespace -> e.g. ""
 	// full network name will be reported as "pipe"+Name		XXX -> just full name ?
@@ -167,7 +165,7 @@ func (n *Network) Listen(laddr string) (net.Listener, error) {
 	if laddr != "" {
 		port, err := strconv.Atoi(laddr)
 		if err != nil || port < 0 {
-			return nil, lerr(errBadAddress)
+			return nil, lerr(errBadAddress)	// XXX -> net.AddrError ?
 		}
 	}
 
@@ -232,7 +230,8 @@ func (l *listener) Accept() (net.Conn, error) {
 	}
 }
 
-// Dial tries to connect to Accept called on listener corresponding to addr
+// Dial dials address on the network
+// It tries to connect to Accept called on listener corresponding to addr.
 func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	derr := func(err error) error {
 		return &net.OpError{Op: "dial", Net: n.netname(), Addr: &Addr{n.netname(), addr}, Err: err}
@@ -240,7 +239,7 @@ func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
 
 	port, err := strconv.Atoi(addr)
 	if err != nil || port < 0 {
-		return nil, derr(errBadAddress)
+		return nil, derr(errBadAddress)	// XXX -> net.AddrError ?
 	}
 
 	n.mu.Lock()
@@ -323,6 +322,7 @@ func (c *conn) RemoteAddr() net.Addr {
 
 // ----------------------------------------
 
+/*
 var (
 	netMu      sync.Mutex
 	networks = map[string]*Network{} // netSuffix -> Network
@@ -385,3 +385,4 @@ func Listen(network, laddr string) (net.Listener, error) {
 
 	return n.Listen(laddr)
 }
+*/

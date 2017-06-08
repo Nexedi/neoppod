@@ -98,14 +98,28 @@ func (n *netTLS) Listen(laddr string) (net.Listener, error) {
 
 // ----------------------------------------
 
-// String formats Address to canonical host:port form
+// String formats Address to networked address string
 func (addr Address) String() string {
 	// XXX in py if .Host == "" -> whole Address is assumed to be empty
-	return net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
+
+	// e.g. on unix, pipenet, etc there is no host/port split - the address
+	// is single string which we put into .Host and set .Port=0
+	switch addr.Port {
+	case 0:
+		return addr.Host
+	default:
+		return net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
+	}
 }
 
-// ParseAddress parses networked address of form host:port into NEO Address
-func ParseAddress(hostport string) (Address, error) {
+// ParseAddress parses networked address (XXX of form host:port) into NEO Address
+func ParseAddress(addr string) (Address, error) {
+	// e.g. on unix, pipenet, etc there is no host/port split - the address
+	// is single string which we put into .Host and set .Port=0
+
+	// TODO detect :port presence ?
+	// XXX pass net.Addr() here instead of string?
+
 	host, portstr, err := net.SplitHostPort(hostport)
 	if err != nil {
 		return Address{}, err
