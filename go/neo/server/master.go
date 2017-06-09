@@ -307,13 +307,13 @@ func storCtlRecovery(ctx context.Context, link *neo.NodeLink, res chan storRecov
 	// XXX cancel on ctx
 
 	recovery := neo.AnswerRecovery{}
-	err = neo.Ask(conn, &neo.Recovery{}, &recovery)
+	err = conn.Ask(&neo.Recovery{}, &recovery)
 	if err != nil {
 		return
 	}
 
 	resp := neo.AnswerPartitionTable{}
-	err = neo.Ask(conn, &neo.X_PartitionTable{}, &resp)
+	err = conn.Ask(&neo.X_PartitionTable{}, &resp)
 	if err != nil {
 		return
 	}
@@ -486,7 +486,7 @@ func storCtlVerify(ctx context.Context, link *neo.NodeLink, res chan storVerify)
 	conn, _ := link.NewConn()
 
 	locked := neo.AnswerLockedTransactions{}
-	err = neo.Ask(conn, &neo.LockedTransactions{}, &locked)
+	err = conn.Ask(&neo.LockedTransactions{}, &locked)
 	if err != nil {
 		return
 	}
@@ -498,7 +498,7 @@ func storCtlVerify(ctx context.Context, link *neo.NodeLink, res chan storVerify)
 	}
 
 	last := neo.AnswerLastIDs{}
-	err = neo.Ask(conn, &neo.LastIDs{}, &last)
+	err = conn.Ask(&neo.LastIDs{}, &last)
 	if err != nil {
 		return
 	}
@@ -689,11 +689,11 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}
 
 	idReq := neo.RequestIdentification{}
-	err = neo.Expect(conn, &idReq)
+	_, err = conn.Expect(&idReq)
 	if err != nil {
 		logf("identify: %v", err)
 		// XXX ok to let peer know error as is? e.g. even IO error on Recv?
-		err = neo.EncodeAndSend(conn, &neo.Error{neo.PROTOCOL_ERROR, err.Error()})
+		err = conn.Send(&neo.Error{neo.PROTOCOL_ERROR, err.Error()})
 		if err != nil {
 			logf("failed to send error: %v", err)
 		}
@@ -714,7 +714,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}
 
 	// let the peer know identification result
-	err = neo.EncodeAndSend(conn, idResp)
+	err = conn.Send(idResp)
 	if err != nil {
 		return
 	}
@@ -776,7 +776,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 			//	changed = true
 			}
 
-			err = neo.EncodeAndSend(connNotify, msg)
+			err = connNotify.Send(msg)
 			if err != nil {
 				// XXX err
 			}

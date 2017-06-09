@@ -28,6 +28,8 @@ import (
 
 	"encoding/binary"
 	"fmt"
+
+	"reflect"
 )
 
 // NodeLink is a node-node link in NEO
@@ -541,7 +543,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
 	// TODO reenable, but NOTE next packet can be also prefetched here -> use buffering ?
-	//n, err := io.ReadAtLeast(nl.peerLink, ptb.Data, PktHeadLen)
+	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
 	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
 	if err != nil {
 		return nil, err
@@ -727,4 +729,114 @@ func (c *Conn) err(op string, e error) error {
 		return nil
 	}
 	return &ConnError{Conn: c, Op: op, Err: e}
+}
+
+
+// ---- exchange of messages ----
+
+// Recv receives message
+// it receives packet and decodes message from it
+func (c *Conn) Recv() (Msg, error) {
+	// TODO use freelist for PktBuf
+	pkt, err := c.recvPkt()
+	if err != nil {
+		return nil, err
+	}
+
+	// decode packet
+	pkth := pkt.Header()
+	msgCode := ntoh16(pkth.MsgCode)
+	msgType := msgTypeRegistry[msgCode]
+	if msgType == nil {
+		err = fmt.Errorf("invalid msgCode (%d)", msgCode)
+		// XXX "decode" -> "recv: decode"?
+		return nil, &ConnError{Conn: c, Op: "decode", Err: err}
+	}
+
+	// TODO use free-list for decoded messages + when possible decode in-place
+	msg := reflect.New(msgType).Interface().(Msg)
+	_, err = msg.NEOMsgDecode(pkt.Payload())
+	if err != nil {
+		return nil, &ConnError{Conn: c, Op: "decode", Err: err}
+	}
+
+	return msg, nil
+}
+
+// Send sends message
+// it encodes message into packet and sends it
+func (c *Conn) Send(msg Msg) error {
+	l := msg.NEOMsgEncodedLen()
+	buf := PktBuf{make([]byte, PktHeadLen + l)}	// TODO -> freelist
+
+	h := buf.Header()
+	// h.ConnId will be set by conn.Send
+	h.MsgCode = hton16(msg.NEOMsgCode())
+	h.MsgLen = hton32(uint32(l))	// XXX casting: think again
+
+	msg.NEOMsgEncode(buf.Payload())
+
+	// XXX why pointer?
+	// XXX more context in err? (msg type)
+	return c.sendPkt(&buf)
+}
+
+
+// Expect receives message and checks it is one of expected types
+//
+// if verification is successful the message is decoded inplace and returned
+// which indicates index of received message.
+//
+// on error (-1, err) is returned
+func (c *Conn) Expect(msgv ...Msg) (which int, err error) {
+	// XXX a bit dup wrt Recv
+	// TODO use freelist for PktBuf
+	pkt, err := c.recvPkt()
+	if err != nil {
+		return -1, err
+	}
+
+	pkth := pkt.Header()
+	msgCode := ntoh16(pkth.MsgCode)
+
+	for i, msg := range msgv {
+		if msg.NEOMsgCode() == msgCode {
+			_, err = msg.NEOMsgDecode(pkt.Payload())
+			if err != nil {
+				return -1, &ConnError{Conn: c, Op: "decode", Err: err}
+			}
+			return i, nil
+		}
+	}
+
+	// unexpected message
+	msgType := msgTypeRegistry[msgCode]
+	if msgType == nil {
+		return -1, &ConnError{c, "decode", fmt.Errorf("invalid msgCode (%d)", msgCode)}
+	}
+
+	// XXX also add which messages were expected ?
+	return -1, &ConnError{c, "recv", fmt.Errorf("unexpected message: %v", msgType)}
+}
+
+// Ask sends request and receives response
+// It expects response to be exactly of resp type and errors otherwise
+// XXX clarify error semantic (when Error is decoded)
+// XXX do the same as Expect wrt respv ?
+func (c *Conn) Ask(req Msg, resp Msg) error {
+	err := c.Send(req)
+	if err != nil {
+		return err
+	}
+
+	nerr := &Error{}
+	which, err := c.Expect(resp, nerr)
+	switch which {
+	case 0:
+		return nil
+	case 1:
+		return ErrDecode(nerr)
+	}
+
+	return err
 }

@@ -59,7 +59,7 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 	// FIXME do not use global conn (see comment in openClientByURL)
 	// XXX open new conn for this particular req/reply ?
 	reply := neo.AnswerLastTransaction{}
-	err := neo.Ask(c.storConn, &neo.LastTransaction{}, &reply)
+	err := c.storConn.Ask(&neo.LastTransaction{}, &reply)
 	if err != nil {
 		return 0, err	// XXX err ctx
 	}
@@ -78,7 +78,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 
 	resp := neo.AnswerGetObject{}
-	err = neo.Ask(c.storConn, &req, &resp)
+	err = c.storConn.Ask(&req, &resp)
 	if err != nil {
 		return nil, 0, err	// XXX err context
 	}

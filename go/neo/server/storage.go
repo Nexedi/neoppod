@@ -155,7 +155,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	if err != nil { panic(err) }	// XXX
 
 	for {
-		notify, err := neo.RecvAndDecode(conn)
+		notify, err := conn.Recv()
 		if err != nil {
 			// XXX TODO
 		}
@@ -261,7 +261,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 	}()
 
 	for {
-		req, err := neo.RecvAndDecode(conn)
+		req, err := conn.Recv()
 		if err != nil {
 			return	// XXX log / err / send error before closing
 		}
@@ -296,7 +296,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 					}
 			}
 
-			neo.EncodeAndSend(conn, reply)	// XXX err
+			conn.Send(reply)	// XXX err
 
 		case *neo.LastTransaction:
 			var reply neo.Msg
@@ -308,7 +308,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 				reply = &neo.AnswerLastTransaction{lastTid}
 			}
 
-			neo.EncodeAndSend(conn, reply)	// XXX err
+			conn.Send(reply)	// XXX err
 
 		//case *ObjectHistory:
 		//case *StoreObject:

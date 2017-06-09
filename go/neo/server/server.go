@@ -113,7 +113,7 @@ func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.Req
 	}()
 
 	req := neo.RequestIdentification{}
-	err = neo.Expect(conn, &req)
+	_, err = conn.Expect(&req)
 	if err != nil {
 		return nodeInfo, err
 	}
@@ -122,7 +122,7 @@ func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.Req
 
 	// TODO hook here in logic to check identification request, assign nodeID etc
 
-	err = neo.EncodeAndSend(conn, &neo.AcceptIdentification{
+	err = conn.Send(&neo.AcceptIdentification{
 		NodeType:	myNodeType,
 		MyNodeUUID:	0,		// XXX
 		NumPartitions:	1,		// XXX
