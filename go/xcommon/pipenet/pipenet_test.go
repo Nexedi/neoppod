@@ -33,8 +33,12 @@ import (
 // we assume net.Pipe works ok; here we only test Listen/Accept/Dial routing
 // XXX tests are ugly, non-robust and small coverage
 
-func xlisten(network, laddr string) net.Listener {
-	l, err := Listen(network, laddr)
+type mklistener interface {
+	Listen(string) (net.Listener, error)
+}
+
+func xlisten(n mklistener, laddr string) net.Listener {
+	l, err := n.Listen(laddr)
 	exc.Raiseif(err)
 	return l
 }
@@ -45,8 +49,12 @@ func xaccept(l net.Listener) net.Conn {
 	return c
 }
 
-func xdial(network, addr string) net.Conn {
-	c, err := Dial(context.Background(), network, addr)
+type dialer interface {
+	Dial(context.Context, string) (net.Conn, error)
+}
+
+func xdial(n dialer, addr string) net.Conn {
+	c, err := n.Dial(context.Background(), addr)
 	exc.Raiseif(err)
 	return c
 }
@@ -78,15 +86,12 @@ func assertEq(t *testing.T, a, b interface{}) {
 
 
 func TestPipeNet(t *testing.T) {
-	New("α")
+	pnet := New("α")
 
-	_, err := Dial(context.Background(), "α", "0")
-	assertEq(t, err, &net.OpError{Op: "dial", Net: "α", Addr: &Addr{"α", "0"}, Err: errBadNetwork})
-
-	_, err = Dial(context.Background(), "pipeα", "0")
+	_, err := pnet.Dial(context.Background(), "0")
 	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipeα", Addr: &Addr{"pipeα", "0"}, Err: errConnRefused})
 
-	l1 := xlisten("pipeα", "")
+	l1 := xlisten(pnet, "")
 	assertEq(t, l1.Addr(), &Addr{"pipeα", "0"})
 
 	// XXX -> use workGroup (in connection_test.go)
@@ -109,14 +114,14 @@ func TestPipeNet(t *testing.T) {
 		})
 	})
 
-	c1c := xdial("pipeα", "0")
+	c1c := xdial(pnet, "0")
 	assertEq(t, c1c.LocalAddr(), &Addr{"pipeα", "1c"})
 	assertEq(t, c1c.RemoteAddr(), &Addr{"pipeα", "1s"})
 
 	xwrite(c1c, "ping")
 	assertEq(t, xread(c1c), "pong")
 
-	c2c := xdial("pipeα", "0")
+	c2c := xdial(pnet, "0")
 	assertEq(t, c2c.LocalAddr(), &Addr{"pipeα", "2c"})
 	assertEq(t, c2c.RemoteAddr(), &Addr{"pipeα", "2s"})
 
@@ -125,6 +130,6 @@ func TestPipeNet(t *testing.T) {
 
 	xwait(wg)
 
-	l2 := xlisten("pipeα", "")
+	l2 := xlisten(pnet, "")
 	assertEq(t, l2.Addr(), &Addr{"pipeα", "3"})
 }

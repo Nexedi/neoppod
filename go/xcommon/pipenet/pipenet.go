@@ -17,9 +17,26 @@
 
 // Package pipenet provides synchronous in-memory network of net.Pipes
 //
-// TODO describe addressing scheme
+// It can be worked with the same way a regular TCP network is used with
+// Dial/Listen/Accept/...
 //
-// it might be handy for testing interaction in networked applications in 1
+// Addresses on pipenet are numbers, indicating serial number of a pipe
+// used, plus "c"/"s" suffix depending on whether pipe endpoint was created via
+// Dial or Accept.
+//
+// Address of a listener is just number, which will be in turn used for
+// corresponding Dial/Accept as prefix.
+//
+// Example:
+//
+//	net := pipenet.New("")
+//	l, err := net.Listen("10")       // starts listening on address "10"
+//	go func() {
+//		csrv, err := l.Accept()  // csrv will have LocalAddr "10s"
+//	}()
+//	ccli, err := net.Dial("10")      // ccli will have LocalAddr "10c"
+//
+// Pipenet might be handy for testing interaction of networked applications in 1
 // process without going to OS networking stack.
 package pipenet
 
@@ -29,16 +46,13 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 )
 
-const NetPrefix = "pipe" // pipenet package works only with "pipe*" networks
+const NetPrefix = "pipe" // pipenet package creates only "pipe*" networks
 
 var (
-//	errBadNetwork		= errors.New("pipenet: invalid network")
 	errBadAddress		= errors.New("invalid address")
-//	errNetNotFound		= errors.New("no such network")
 	errNetClosed		= errors.New("network connection closed")
 	errAddrAlreadyUsed	= errors.New("address already in use")
 	errConnRefused		= errors.New("connection refused")
@@ -51,11 +65,10 @@ type Addr struct {
 }
 
 // Network implements synchronous in-memory network of pipes
-// It can be worked with the same way a regular TCP network is handled with Dial/Listen/Accept/...
 type Network struct {
 	// name of this network under "pipe" namespace -> e.g. ""
-	// full network name will be reported as "pipe"+Name		XXX -> just full name ?
-	Name string
+	// full network name will be reported as "pipe"+name
+	name string
 
 	mu      sync.Mutex
 	entryv  []*entry   // port -> listener | (conn, conn)
@@ -93,71 +106,23 @@ type listener struct {
 	closeOnce sync.Once
 }
 
+// ----------------------------------------
 
-// allocFreeEntry finds first free port and allocates network entry for it
-// must be called with .mu held
-func (n *Network) allocFreeEntry() *entry {
-	// find first free port if it was not specified
-	port := 0
-	for ; port < len(n.entryv); port++ {
-		if n.entryv[port] == nil {
-			break
-		}
-	}
-	// if all busy it exits with port == len(n.entryv)
-
-	// grow if needed
-	for port >= len(n.entryv) {
-		n.entryv = append(n.entryv, nil)
-	}
-
-	e := &entry{network: n, port: port}
-	n.entryv[port] = e
-	return e
-}
-
-// empty checks whether both 2 pipe endpoints and listener are nil
-func (e *entry) empty() bool {
-	return e.pipev[0] == nil && e.pipev[1] == nil && e.listener == nil
-}
-
-// addr returns address corresponding to entry
-func (e *entry) addr() *Addr {
-	return &Addr{network: e.network.netname(), addr: fmt.Sprintf("%d", e.port)}
-}
-
-func (a *Addr) Network() string { return a.network }
-func (a *Addr) String() string { return a.addr }	// XXX Network() + ":" + a.addr ?
-func (n *Network) netname() string { return NetPrefix + n.Name }
-
-
-// Close closes the listener
-// it interrupts all currently in-flight calls to Accept
-func (l *listener) Close() error {
-	l.closeOnce.Do(func() {
-		close(l.down)
-
-		e := l.entry
-		n := e.network
-
-		n.mu.Lock()
-		defer n.mu.Unlock()
-
-		e.listener = nil
-		if e.empty() {
-			n.entryv[e.port] = nil
-		}
-	})
-	return nil
+// New creates new pipenet Network
+// name is name of this network under "pipe" namespace, e.g. "α" will give full network name "pipeα".
+//
+// New does not check whether network name provided is unique.
+func New(name string) *Network {
+	return &Network{name: name}
 }
 
 // Listen starts new listener
-// It either allocates free port if laddr is "" or binds to laddr.
-// Once listener is started Dials could connect to listening address.
+// It either allocates free port if laddr is "", or binds to laddr.
+// Once listener is started, Dials could connect to listening address.
 // Connection requests created by Dials could be accepted via Accept.
 func (n *Network) Listen(laddr string) (net.Listener, error) {
 	lerr := func(err error) error {
-		return &net.OpError{Op: "listen", Net: n.netname(), Addr: &Addr{n.netname(), laddr}, Err: err}
+		return &net.OpError{Op: "listen", Net: n.Name(), Addr: &Addr{n.Name(), laddr}, Err: err}
 	}
 
 	// laddr must be empty or int >= 0
@@ -204,13 +169,33 @@ func (n *Network) Listen(laddr string) (net.Listener, error) {
 	return l, nil
 }
 
+// Close closes the listener
+// it interrupts all currently in-flight calls to Accept
+func (l *listener) Close() error {
+	l.closeOnce.Do(func() {
+		close(l.down)
+
+		e := l.entry
+		n := e.network
+
+		n.mu.Lock()
+		defer n.mu.Unlock()
+
+		e.listener = nil
+		if e.empty() {
+			n.entryv[e.port] = nil
+		}
+	})
+	return nil
+}
+
 // Accept tries to connect to Dial called with addr corresponding to our listener
 func (l *listener) Accept() (net.Conn, error) {
 	n := l.entry.network
 
 	select {
 	case <-l.down:
-		return nil, &net.OpError{Op: "accept", Net: n.netname(), Addr: l.Addr(), Err: errNetClosed}
+		return nil, &net.OpError{Op: "accept", Net: n.Name(), Addr: l.Addr(), Err: errNetClosed}
 
 	case resp := <-l.dialq:
 		// someone dialed us - let's connect
@@ -234,7 +219,7 @@ func (l *listener) Accept() (net.Conn, error) {
 // It tries to connect to Accept called on listener corresponding to addr.
 func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	derr := func(err error) error {
-		return &net.OpError{Op: "dial", Net: n.netname(), Addr: &Addr{n.netname(), addr}, Err: err}
+		return &net.OpError{Op: "dial", Net: n.Name(), Addr: &Addr{n.Name(), addr}, Err: err}
 	}
 
 	port, err := strconv.Atoi(addr)
@@ -272,14 +257,8 @@ func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	}
 }
 
-// Addr returns address where listener is accepting incoming connections
-func (l *listener) Addr() net.Addr {
-	// NOTE no +"l" suffix e.g. because Dial(l.Addr()) must work
-	return l.entry.addr()
-}
-
 // Close closes pipe endpoint and unregisters conn from Network
-// All currently in-flight blocking IO is interuppted with an error
+// All currently in-flight blocked IO is interrupted with an error
 func (c *conn) Close() (err error) {
 	c.closeOnce.Do(func() {
 		err = c.Conn.Close()
@@ -318,71 +297,48 @@ func (c *conn) RemoteAddr() net.Addr {
 }
 
 
-
-
 // ----------------------------------------
 
-/*
-var (
-	netMu      sync.Mutex
-	networks = map[string]*Network{} // netSuffix -> Network
+// allocFreeEntry finds first free port and allocates network entry for it
+// must be called with .mu held
+func (n *Network) allocFreeEntry() *entry {
+	// find first free port if it was not specified
+	port := 0
+	for ; port < len(n.entryv); port++ {
+		if n.entryv[port] == nil {
+			break
+		}
+	}
+	// if all busy it exits with port == len(n.entryv)
 
-	DefaultNet = New("")
-)
-
-// New creates, initializes and returns new pipenet Network
-// network name is name of this network under "pipe" namesapce, e.g. ""
-// network name must be unique - if not New will panic
-func New(name string) *Network {
-	netMu.Lock()
-	defer netMu.Unlock()
-
-	_, already := networks[name]
-	if already {
-		panic(fmt.Errorf("pipenet %q already registered", name))
+	// grow if needed
+	for port >= len(n.entryv) {
+		n.entryv = append(n.entryv, nil)
 	}
 
-	n := &Network{Name: name}
-	networks[name] = n
-	return n
+	e := &entry{network: n, port: port}
+	n.entryv[port] = e
+	return e
 }
 
-// lookupNet lookups Network by name
-// name is full network name, e.g. "pipe"
-func lookupNet(name string) (*Network, error) {
-	if !strings.HasPrefix(name, NetPrefix) {
-		return nil, errBadNetwork
-	}
-
-	netMu.Lock()
-	defer netMu.Unlock()
-
-	n := networks[strings.TrimPrefix(name, NetPrefix)]
-	if n == nil {
-		return nil, errNetNotFound
-	}
-	return n, nil
+// empty checks whether entry's both 2 pipe endpoints and listener are all nil
+func (e *entry) empty() bool {
+	return e.pipev[0] == nil && e.pipev[1] == nil && e.listener == nil
 }
 
-// Dial dials addr on a pipenet
-// network should be full network name, e.g. "pipe"
-func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
-	n, err := lookupNet(network)
-	if err != nil {
-		return nil, &net.OpError{Op: "dial", Net: network, Addr: &Addr{network, addr}, Err: err}
-	}
-
-	return n.Dial(ctx, addr)
+// addr returns address corresponding to entry
+func (e *entry) addr() *Addr {
+	return &Addr{network: e.network.Name(), addr: fmt.Sprintf("%d", e.port)}
 }
 
-// Listen starts listening on a pipenet address
-// network should be full network name, e.g. "pipe"
-func Listen(network, laddr string) (net.Listener, error) {
-	n, err := lookupNet(network)
-	if err != nil {
-		return nil, &net.OpError{Op: "listen", Net: network, Addr: &Addr{network, laddr}, Err: err}
-	}
+func (a *Addr) Network() string { return a.network }
+func (a *Addr) String() string { return a.addr }
 
-	return n.Listen(laddr)
+// Addr returns address where listener is accepting incoming connections
+func (l *listener) Addr() net.Addr {
+	// NOTE no +"l" suffix e.g. because Dial(l.Addr()) must work
+	return l.entry.addr()
 }
-*/
+
+// Name returns full network name of this network
+func (n *Network) Name() string { return NetPrefix + n.name }

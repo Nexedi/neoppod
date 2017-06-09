@@ -63,7 +63,7 @@ func (n netPlain) Listen(laddr string) (net.Listener, error) {
 }
 
 // NetPipe creates Network corresponding to in-memory pipenet
-// name is anything valid according to pipenet.New rules
+// name is passed directly to pipenet.New
 func NetPipe(name string) Network {
 	return pipenet.New(name)
 }
@@ -98,32 +98,18 @@ func (n *netTLS) Listen(laddr string) (net.Listener, error) {
 
 // ----------------------------------------
 
-// String formats Address to networked address string
-func (addr Address) String() string {
-	// XXX in py if .Host == "" -> whole Address is assumed to be empty
-
-	// e.g. on unix, pipenet, etc there is no host/port split - the address
-	// is single string which we put into .Host and set .Port=0
-	switch addr.Port {
-	case 0:
-		return addr.Host
-
-	default:
-		return net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
-	}
-}
-
-// ParseAddress parses networked address (XXX of form host:port) into NEO Address
-//func ParseAddress(addr string) (Address, error) {
-func ConvAddress(addr net.Addr) (Address, error) {
+// Addr converts net.Addr into NEO Address
+// TODO make neo.Address just string without host:port split
+func Addr(addr net.Addr) (Address, error) {
 	addrstr := addr.String()
 
-	// e.g. on unix, pipenet, etc networks there is no host/port split - the address
-	// is single string which we put into .Host and set .Port=0 to indicate such cases
+	// e.g. on unix, pipenet, etc networks there is no host/port split - the address there
+	// is single string -> we put it into .Host and set .Port=0 to indicate such cases
 	switch addr.Network() {
 	default:
 		return Address{Host: addrstr, Port: 0}, nil
 
+	// networks that have host:port split
 	case "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6":
 		host, portstr, err := net.SplitHostPort(addrstr)
 		if err != nil {
@@ -136,5 +122,19 @@ func ConvAddress(addr net.Addr) (Address, error) {
 		}
 
 		return Address{Host: host, Port: uint16(port)}, nil
+	}
+}
+
+// String formats Address to networked address string
+func (addr Address) String() string {
+	// XXX in py if .Host == "" -> whole Address is assumed to be empty
+
+	// see Addr ^^^ about .Port=0 meaning no host:port split was applied
+	switch addr.Port {
+	case 0:
+		return addr.Host
+
+	default:
+		return net.JoinHostPort(addr.Host, fmt.Sprintf("%d", addr.Port))
 	}
 }

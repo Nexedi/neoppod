@@ -81,7 +81,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
 	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
 	//	-> host is never empty
-	addr, err := neo.ParseAddress(l.Addr().String())
+	addr, err := neo.Addr(l.Addr())
 	if err != nil {
 		// XXX -> panic here ?
 		return err	// XXX err ctx
