@@ -15,22 +15,21 @@
 //
 // See COPYING file for full licensing terms.
 
-package neo_test
+package server
 // test interaction between nodes
 
 import (
-	"bytes"
+	//"bytes"
 	"context"
-	"io"
-	"reflect"
+	//"io"
+	//"reflect"
 	"testing"
 
-	. "../neo"
-	"../neo/client"
-	"../neo/server"
+	"../../neo"
+	//"../../neo/client"
 
-	"../zodb"
-	"../zodb/storage/fs1"
+	//"../../zodb"
+	"../../zodb/storage/fs1"
 
 	"lab.nexedi.com/kirr/go123/exc"
 )
@@ -49,14 +48,14 @@ func xfs1stor(path string) *fs1.FileStorage {
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	net := NetPipe("")	// test network
+	net := neo.NetPipe("")	// test network
 	Maddr := "0"
 	Saddr := "1"
 
-	M := server.NewMaster("abc1", Maddr, net)
+	M := NewMaster("abc1", Maddr, net)
 
 	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
-	S := server.NewStorage("abc1", Maddr, Saddr, net, zstor)
+	S := NewStorage("abc1", Maddr, Saddr, net, zstor)
 
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	Sctx, Scancel := context.WithCancel(context.Background())
@@ -64,7 +63,7 @@ func TestMasterStorage(t *testing.T) {
 
 	//Mev := M.subscribe(...)
 
-	wg := WorkGroup()
+	wg := neo.WorkGroup()
 	wg.Gox(func() {
 		err := M.Run(Mctx)
 		_ = err // XXX
@@ -88,14 +87,15 @@ func TestClientStorage(t *testing.T) {
 	// XXX temp disabled
 	return
 
+/*
 	Cnl, Snl := NodeLinkPipe()
-	wg := WorkGroup()
+	wg := neo.WorkGroup()
 
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	net := NetPipe("")	// XXX here? (or a bit above?)
+	net := neo.NetPipe("")	// XXX here? (or a bit above?)
 	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
-	S := server.NewStorage("cluster", "Maddr", "Saddr", net, zstor)
+	S := NewStorage("cluster", "Maddr", "Saddr", net, zstor)
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
 		// XXX + test error return
@@ -174,4 +174,5 @@ func TestClientStorage(t *testing.T) {
 	Scancel()
 
 	xwait(wg)
+*/
 }

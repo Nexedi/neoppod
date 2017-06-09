@@ -176,13 +176,20 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 // XXX temp for cluster_test.go
 var NodeLinkPipe = nodeLinkPipe
 
+func gox(wg *errgroup.Group, f func()) {
+	wg.Go(exc.Runx(f))
+}
+
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
-	wg := WorkGroup()
-	wg.Gox(func() {
+	//wg := WorkGroup()
+	//wg.Gox(func() {
+	wg := &errgroup.Group{}
+	wg := &xsync.ErrGroup{}
+	gox(wg, func() {
 		tdelay()
 		xclose(nl1)
 	})
