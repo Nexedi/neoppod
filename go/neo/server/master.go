@@ -635,7 +635,7 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 		IdTimestamp:	monotime(),
 	}
 
-	node = m.nodeTab.Update(nodeInfo, n.link) // NOTE this notifies al nodeTab subscribers
+	node = m.nodeTab.Update(nodeInfo, n.link) // NOTE this notifies all nodeTab subscribers
 	return node, true
 }
 
@@ -729,6 +729,11 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}
 
 	logf("identify: accepted")
+
+	// XXX on successful identification master should also give us:
+	// - full snapshots of nodeTab, partTab and clusterState
+	// - buffered notification channel subscribed to changes of ^^^
+	// - unsubscribe func	XXX needed? -> nodeLeave is enough
 
 	// ----------------------------------------
 	// XXX recheck vvv

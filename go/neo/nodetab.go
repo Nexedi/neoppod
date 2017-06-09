@@ -86,6 +86,8 @@ type Node struct {
 	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
 	// XXX identified or not ?
 	// XXX -> not needed - we only add something to nodetab after identification
+	// XXX ^^^ is about master. How about e.g. Client that received nodetab
+	// entry and wants to talk to that node?
 }
 
 

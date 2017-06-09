@@ -60,17 +60,27 @@ func TestMasterStorage(t *testing.T) {
 
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	Sctx, Scancel := context.WithCancel(context.Background())
+	_ = Scancel;
 
-	_ = Scancel; _ = Mcancel;
+	//Mev := M.subscribe(...)
 
-	err := M.Run(Mctx)	// XXX go
-	err = S.Run(Sctx)	// XXX go
+	wg := WorkGroup()
+	wg.Gox(func() {
+		err := M.Run(Mctx)
+		_ = err // XXX
+	})
 
+	//ev <- Mev
+	//assert ev == ClusterInformation{State: RECOVERY}
 
-	// XXX temp
-	if err != nil {
-		panic(err)
+	if false {
+		err := S.Run(Sctx)	// XXX go
+		_ = err
 	}
+
+
+	xwait(wg)
+	Mcancel()	// XXX temp
 }
 
 // basic interaction between Client -- Storage

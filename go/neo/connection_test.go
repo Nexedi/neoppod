@@ -173,7 +173,7 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 	return _nodeLinkPipe(0, 0)
 }
 
-// XXX temp for cluster_test.fo
+// XXX temp for cluster_test.go
 var NodeLinkPipe = nodeLinkPipe
 
 func TestNodeLink(t *testing.T) {
