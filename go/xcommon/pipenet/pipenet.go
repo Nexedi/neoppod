@@ -122,7 +122,7 @@ func New(name string) *Network {
 // Connection requests created by Dials could be accepted via Accept.
 func (n *Network) Listen(laddr string) (net.Listener, error) {
 	lerr := func(err error) error {
-		return &net.OpError{Op: "listen", Net: n.Name(), Addr: &Addr{n.Name(), laddr}, Err: err}
+		return &net.OpError{Op: "listen", Net: n.Network(), Addr: &Addr{n.Network(), laddr}, Err: err}
 	}
 
 	// laddr must be empty or int >= 0
@@ -195,7 +195,7 @@ func (l *listener) Accept() (net.Conn, error) {
 
 	select {
 	case <-l.down:
-		return nil, &net.OpError{Op: "accept", Net: n.Name(), Addr: l.Addr(), Err: errNetClosed}
+		return nil, &net.OpError{Op: "accept", Net: n.Network(), Addr: l.Addr(), Err: errNetClosed}
 
 	case resp := <-l.dialq:
 		// someone dialed us - let's connect
@@ -219,7 +219,7 @@ func (l *listener) Accept() (net.Conn, error) {
 // It tries to connect to Accept called on listener corresponding to addr.
 func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	derr := func(err error) error {
-		return &net.OpError{Op: "dial", Net: n.Name(), Addr: &Addr{n.Name(), addr}, Err: err}
+		return &net.OpError{Op: "dial", Net: n.Network(), Addr: &Addr{n.Network(), addr}, Err: err}
 	}
 
 	port, err := strconv.Atoi(addr)
@@ -328,7 +328,7 @@ func (e *entry) empty() bool {
 
 // addr returns address corresponding to entry
 func (e *entry) addr() *Addr {
-	return &Addr{network: e.network.Name(), addr: fmt.Sprintf("%d", e.port)}
+	return &Addr{network: e.network.Network(), addr: fmt.Sprintf("%d", e.port)}
 }
 
 func (a *Addr) Network() string { return a.network }
@@ -340,5 +340,5 @@ func (l *listener) Addr() net.Addr {
 	return l.entry.addr()
 }
 
-// Name returns full network name of this network
-func (n *Network) Name() string { return NetPrefix + n.name }
+// Network returns full network name of this network
+func (n *Network) Network() string { return NetPrefix + n.name }

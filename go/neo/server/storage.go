@@ -36,8 +36,8 @@ type Storage struct {
 	myInfo		neo.NodeInfo	// XXX -> only Address + NodeUUID ?
 	clusterName	string
 
-	net		neo.Network		// network we are sending/receiving on
-	masterAddr	string		// address of master	XXX -> Address ?
+	net		neo.Network	// network we are sending/receiving on
+	masterAddr	string		// address of master
 	// ---- 8< ----
 
 	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
@@ -48,7 +48,7 @@ type Storage struct {
 // To actually start running the node - call Run.	XXX text
 func NewStorage(cluster string, masterAddr string, serveAddr string, net neo.Network, zstor zodb.IStorage) *Storage {
 	// convert serveAddr into neo format
-	addr, err := neo.ParseAddress(serveAddr)
+	addr, err := neo.AddrString(net.Network(), serveAddr)
 	if err != nil {
 		panic(err)	// XXX
 	}

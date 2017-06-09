@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"crypto/tls"
 	"../xcommon/pipenet"
@@ -35,6 +36,9 @@ import (
 // connections, and 2) dial peers. For this reason the interface is not split
 // into Dialer and Listener.
 type Network interface {
+	// Network returns name of the network
+	Network() string
+
 	// Dial connects to addr on underlying network
 	// see net.Dial for semantic details
 	Dial(ctx context.Context, addr string) (net.Conn, error)
@@ -52,6 +56,10 @@ func NetPlain(network string) Network {
 }
 
 type netPlain string
+
+func (n netPlain) Network() string {
+	return string(n)
+}
 
 func (n netPlain) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	d := net.Dialer{}
@@ -80,6 +88,10 @@ type netTLS struct {
 	config *tls.Config
 }
 
+func (n *netTLS) Network() string {
+	return n.inner.Network() + "+tls" // XXX is this a good idea?
+}
+
 func (n *netTLS) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	c, err := n.inner.Dial(ctx, addr)
 	if err != nil {
@@ -98,31 +110,33 @@ func (n *netTLS) Listen(laddr string) (net.Listener, error) {
 
 // ----------------------------------------
 
-// Addr converts net.Addr into NEO Address
+// Addr converts network address string into NEO Address
 // TODO make neo.Address just string without host:port split
-func Addr(addr net.Addr) (Address, error) {
-	addrstr := addr.String()
-
+func AddrString(network, addr string) (Address, error) {
 	// e.g. on unix, pipenet, etc networks there is no host/port split - the address there
 	// is single string -> we put it into .Host and set .Port=0 to indicate such cases
-	switch addr.Network() {
-	default:
-		return Address{Host: addrstr, Port: 0}, nil
-
-	// networks that have host:port split
-	case "tcp", "tcp4", "tcp6", "udp", "udp4", "udp6":
-		host, portstr, err := net.SplitHostPort(addrstr)
+	if strings.HasPrefix(network, "tcp") || strings.HasPrefix(network, "udp") {
+		// networks that have host:port split
+		host, portstr, err := net.SplitHostPort(addr)
 		if err != nil {
 			return Address{}, err
 		}
 		// XXX also lookup portstr in /etc/services (net.LookupPort) ?
 		port, err := strconv.ParseUint(portstr, 10, 16)
 		if err != nil {
-			return Address{}, &net.AddrError{Err: "invalid port", Addr: addrstr}
+			return Address{}, &net.AddrError{Err: "invalid port", Addr: addr}
 		}
 
 		return Address{Host: host, Port: uint16(port)}, nil
+
 	}
+
+	return Address{Host: addr, Port: 0}, nil
+}
+
+// Addr converts net.Addre into NEO Address
+func Addr(addr net.Addr) (Address, error) {
+	return AddrString(addr.Network(), addr.String())
 }
 
 // String formats Address to networked address string
