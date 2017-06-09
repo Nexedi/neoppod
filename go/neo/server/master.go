@@ -73,12 +73,14 @@ type nodeLeave struct {
 }
 
 // NewMaster TODO ...
-func NewMaster(clusterName string) *Master {
+func NewMaster(clusterName, serveAddr string, net neo.Network) *Master {
+	// XXX serveAddr + net
+
 	m := &Master{clusterName: clusterName}
 	m.nodeUUID = m.allocUUID(neo.MASTER)
 	// TODO update nodeTab with self
 	m.clusterState = neo.ClusterRecovering	// XXX no elections - we are the only master
-	go m.run(context.TODO())		// XXX ctx
+//	go m.run(context.TODO())		// XXX ctx
 
 	return m
 }
@@ -122,17 +124,18 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 }
 
 
-// run is the process which implements main master cluster management logic: node tracking, cluster
+// Run is the process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
-func (m *Master) run(ctx context.Context) {
+func (m *Master) Run(ctx context.Context) (err error) {
+	//defer xerr.Context(&err, "master: run")
 
-	// NOTE run's goroutine is the only mutator of nodeTab, partTab and other cluster state
+	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
 
 	for ctx.Err() == nil {
 		err := m.recovery(ctx)
 		if err != nil {
 			fmt.Println(err)
-			return // recovery cancelled
+			return err // recovery cancelled
 		}
 
 		// successful recovery -> verify
@@ -154,7 +157,7 @@ func (m *Master) run(ctx context.Context) {
 		// XXX shutdown ?
 	}
 
-	fmt.Printf("master: run: %v\n", ctx.Err())
+	return fmt.Errorf("master: run: %v\n", ctx.Err())
 }
 
 

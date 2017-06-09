@@ -78,6 +78,7 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 	}
 }
 
+/*
 // ListenAndServe listens on network address and then calls Serve to handle incoming connections
 // XXX unused -> goes away ?
 func ListenAndServe(ctx context.Context, net neo.Network, laddr string, srv Server) error {
@@ -88,6 +89,7 @@ func ListenAndServe(ctx context.Context, net neo.Network, laddr string, srv Serv
 	// TODO set keepalive on l
 	return Serve(ctx, l, srv)
 }
+*/
 
 
 // ----------------------------------------

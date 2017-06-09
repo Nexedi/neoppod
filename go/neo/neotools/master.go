@@ -45,14 +45,18 @@ Run NEO master node.
 }
 
 func masterMain(argv []string) {
-	var bind string
-	var cluster string
-
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() { masterUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
-	flags.StringVar(&bind, "bind", bind, "address to serve on")
-	flags.StringVar(&cluster, "cluster", cluster, "cluster name")
+	cluster := flags.String("cluster", "", "cluster name")
+	// XXX masters here too?
+	bind := flags.String("bind", "", "address to serve on")
 	flags.Parse(argv[1:])
+
+	if *cluster == "" {
+		// XXX vvv -> die  or  log.Fatalf ?
+		log.Fatal(os.Stderr, "cluster name must be provided")
+		os.Exit(2)
+	}
 
 	argv = flags.Args()
 	if len(argv) < 1 {
@@ -60,7 +64,9 @@ func masterMain(argv []string) {
 		os.Exit(2)
 	}
 
-	masterSrv := server.NewMaster(cluster)
+	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+
+	masterSrv := server.NewMaster(*cluster, *bind, net)
 
 	ctx := context.Background()
 	/*
@@ -71,8 +77,7 @@ func masterMain(argv []string) {
 	}()
 	*/
 
-	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	err := server.ListenAndServe(ctx, net, bind, masterSrv)
+	err := masterSrv.Run(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -34,9 +34,6 @@ import (
 
 const storageSummary = "run storage node"
 
-// TODO options:
-// cluster, masterv ...
-
 func storageUsage(w io.Writer) {
 	fmt.Fprintf(w,
 `Usage: neo storage [options] zstor	XXX
@@ -56,7 +53,7 @@ func storageMain(argv []string) {
 
 	if *cluster == "" {
 		// XXX vvv -> die  or  log.Fatalf ?
-		fmt.Fprintf(os.Stderr, "cluster name must be provided")
+		log.Fatal(os.Stderr, "cluster name must be provided")
 		os.Exit(2)
 	}
 
