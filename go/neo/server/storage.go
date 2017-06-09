@@ -277,7 +277,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 				xid.TidBefore = true
 			}
 
-			var reply neo.Pkt
+			var reply neo.Msg
 			data, tid, err := stor.zstor.Load(xid)
 			if err != nil {
 				// TODO translate err to NEO protocol error codes
@@ -299,7 +299,7 @@ func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 			neo.EncodeAndSend(conn, reply)	// XXX err
 
 		case *neo.LastTransaction:
-			var reply neo.Pkt
+			var reply neo.Msg
 
 			lastTid, err := stor.zstor.LastTid()
 			if err != nil {

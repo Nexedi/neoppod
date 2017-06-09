@@ -297,7 +297,7 @@ func (nl *NodeLink) Accept() (c *Conn, err error) {
 	}
 }
 
-// errRecvShutdown returns appropriate error when c.down is found ready in Recv
+// errRecvShutdown returns appropriate error when c.down is found ready in recvPkt
 func (c *Conn) errRecvShutdown() error {
 	switch {
 	case atomic.LoadUint32(&c.closed) != 0:
@@ -323,8 +323,8 @@ func (c *Conn) errRecvShutdown() error {
 	}
 }
 
-// Recv receives packet from connection
-func (c *Conn) Recv() (*PktBuf, error) {
+// recvPkt receives raw packet from connection
+func (c *Conn) recvPkt() (*PktBuf, error) {
 	select {
 	case <-c.down:
 		return nil, c.err("recv", c.errRecvShutdown())
@@ -441,13 +441,13 @@ func (c *Conn) errSendShutdown() error {
 	}
 }
 
-// Send sends packet via connection
-func (c *Conn) Send(pkt *PktBuf) error {
-	err := c.send(pkt)
+// sendPkt sends raw packet via connection
+func (c *Conn) sendPkt(pkt *PktBuf) error {
+	err := c.sendPkt2(pkt)
 	return c.err("send", err)
 }
 
-func (c *Conn) send(pkt *PktBuf) error {
+func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = hton32(c.connId)
 	var err error
@@ -541,7 +541,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
 	// TODO reenable, but NOTE next packet can be also prefetched here -> use buffering ?
-	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
+	//n, err := io.ReadAtLeast(nl.peerLink, ptb.Data, PktHeadLen)
 	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
 	if err != nil {
 		return nil, err

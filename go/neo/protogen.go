@@ -20,15 +20,15 @@
 /*
 NEO. Protocol module. Code generator
 
-This program generates marshalling code for packet types defined in proto.go .
-For every type 4 methods are generated in accordance with neo.Pkt interface:
+This program generates marshalling code for message types defined in proto.go .
+For every type 4 methods are generated in accordance with neo.Msg interface:
 
-	NEOPktMsgCode() uint16
-	NEOPktEncodedLen() int
-	NEOPktEncode(buf []byte)
-	NEOPktDecode(data []byte) (nread int, err error)
+	NEOMsgCode() uint16
+	NEOMsgEncodedLen() int
+	NEOMsgEncode(buf []byte)
+	NEOMsgDecode(data []byte) (nread int, err error)
 
-List of packet types is obtained via searching through proto.go AST - looking
+List of message types is obtained via searching through proto.go AST - looking
 for appropriate struct declarations there.
 
 Code generation for a type is organized via recursively walking through type's
@@ -169,11 +169,11 @@ import (
 	"../zodb"
 )`)
 
-	pktTypeRegistry := map[int]string{} // pktCode -> typename
+	msgTypeRegistry := map[int]string{} // msgCode -> typename
 
-	// go over packet types declaration and generate marshal code for them
-	buf.emit("// packets marshalling\n")
-	pktCode := 0
+	// go over message types declaration and generate marshal code for them
+	buf.emit("// messages marshalling\n")
+	msgCode := 0
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
 		gendecl, ok := decl.(*ast.GenDecl)
@@ -195,35 +195,35 @@ import (
 				continue
 
 			case *ast.StructType:
-				fmt.Fprintf(&buf, "// %d. %s\n\n", pktCode, typename)
+				fmt.Fprintf(&buf, "// %d. %s\n\n", msgCode, typename)
 
-				buf.emit("func (_ *%s) NEOPktMsgCode() uint16 {", typename)
-				buf.emit("return %d", pktCode)
+				buf.emit("func (_ *%s) NEOMsgCode() uint16 {", typename)
+				buf.emit("return %d", msgCode)
 				buf.emit("}\n")
 
 				buf.WriteString(generateCodecCode(typespec, &sizer{}))
 				buf.WriteString(generateCodecCode(typespec, &encoder{}))
 				buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
-				pktTypeRegistry[pktCode] = typename
-				pktCode++
+				msgTypeRegistry[msgCode] = typename
+				msgCode++
 			}
 		}
 	}
 
-	// now generate packet types registry
-	buf.emit("\n// registry of packet types")
-	buf.emit("var pktTypeRegistry = map[uint16]reflect.Type {") // XXX key -> PktCode ?
+	// now generate message types registry
+	buf.emit("\n// registry of message types")
+	buf.emit("var msgTypeRegistry = map[uint16]reflect.Type {") // XXX key -> MsgCode ?
 
-	// ordered by pktCode
-	pktCodeV := []int{}
-	for pktCode := range pktTypeRegistry {
-		pktCodeV = append(pktCodeV, pktCode)
+	// ordered by msgCode
+	msgCodeV := []int{}
+	for msgCode := range msgTypeRegistry {
+		msgCodeV = append(msgCodeV, msgCode)
 	}
-	sort.Ints(pktCodeV)
+	sort.Ints(msgCodeV)
 
-	for _, pktCode := range pktCodeV {
-		buf.emit("%v: reflect.TypeOf(%v{}),", pktCode, pktTypeRegistry[pktCode])
+	for _, msgCode := range msgCodeV {
+		buf.emit("%v: reflect.TypeOf(%v{}),", msgCode, msgTypeRegistry[msgCode])
 	}
 
 	buf.emit("}")
@@ -456,21 +456,21 @@ func (o *OverflowCheck) AddExpr(format string, a ...interface{}) {
 }
 
 
-// sizer generates code to compute encoded size of a packet
+// sizer generates code to compute encoded size of a message
 //
 // when type is recursively walked, for every case symbolic size is added appropriately.
 // in case when it was needed to generate loops, runtime accumulator variable is additionally used.
 // result is: symbolic size + (optionally) runtime accumulator.
 type sizer struct {
 	commonCodeGen
-	size SymSize // currently accumulated packet size
+	size SymSize // currently accumulated size
 }
 
-// encoder generates code to encode a packet
+// encoder generates code to encode a message
 //
 // when type is recursively walked, for every case code to update `data[n:]` is generated.
-// no overflow checks are generated as by neo.Pkt interface provided data
-// buffer should have at least payloadLen length returned by NEOPktEncodedInfo()
+// no overflow checks are generated as by neo.Msg interface provided data
+// buffer should have at least payloadLen length returned by NEOMsgEncodedInfo()
 // (the size computed by sizer).
 //
 // the code emitted looks like:
@@ -479,14 +479,14 @@ type sizer struct {
 //	encode<typ2>(data[n2:], path2)
 //	...
 //
-// TODO encode have to care in NEOPktEncode to emit preambule such that bound
+// TODO encode have to care in NEOMsgEncode to emit preambule such that bound
 // checking is performed only once (currenty compiler emits many of them)
 type encoder struct {
 	commonCodeGen
 	n int // current write position in data
 }
 
-// decoder generates code to decode a packet
+// decoder generates code to decode a message
 //
 // when type is recursively walked, for every case code to decode next item from
 // `data[n:]` is generated.
@@ -527,7 +527,7 @@ var _ CodeGenerator = (*decoder)(nil)
 func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOPktEncodedLen() int {", s.recvName, s.typeName)
+	code.emit("func (%s *%s) NEOMsgEncodedLen() int {", s.recvName, s.typeName)
 	if s.varUsed["size"] {
 		code.emit("var %s int", s.var_("size"))
 	}
@@ -548,7 +548,7 @@ func (s *sizer) generatedCode() string {
 func (e *encoder) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOPktEncode(data []byte) {", e.recvName, e.typeName)
+	code.emit("func (%s *%s) NEOMsgEncode(data []byte) {", e.recvName, e.typeName)
 
 	code.Write(e.buf.Bytes())
 
@@ -655,7 +655,7 @@ func (d *decoder) generatedCode() string {
 
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOPktDecode(data []byte) (int, error) {", d.recvName, d.typeName)
+	code.emit("func (%s *%s) NEOMsgDecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	if d.varUsed["nread"] {
 		code.emit("var %v uint32", d.var_("nread"))
 	}

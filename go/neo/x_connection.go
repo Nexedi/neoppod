@@ -10,9 +10,9 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-// RecvAndDecode receives packet from conn and decodes it
-func RecvAndDecode(conn *Conn) (Pkt, error) {
-	pkt, err := conn.Recv()
+// Recv receives packet and decodes message from it
+func RecvAndDecode(conn *Conn) (Msg, error) {
+	pkt, err := conn.recvPkt()
 	if err != nil {
 		return nil, err
 	}
@@ -20,7 +20,7 @@ func RecvAndDecode(conn *Conn) (Pkt, error) {
 	// decode packet
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
-	msgType := pktTypeRegistry[msgCode]
+	msgType := msgTypeRegistry[msgCode]
 	if msgType == nil {
 		err = fmt.Errorf("invalid msgCode (%d)", msgCode)
 		// XXX -> ProtoError ?
@@ -28,47 +28,47 @@ func RecvAndDecode(conn *Conn) (Pkt, error) {
 	}
 
 	// TODO use free-list for decoded packets + when possible decode in-place
-	pktObj := reflect.New(msgType).Interface().(Pkt)
-	_, err = pktObj.NEOPktDecode(pkt.Payload())
+	msg := reflect.New(msgType).Interface().(Msg)
+	_, err = msg.NEOMsgDecode(pkt.Payload())
 	if err != nil {
 		// XXX -> ProtoError ?
 		return nil, &ConnError{Conn: conn, Op: "decode", Err: err}
 	}
 
-	return pktObj, nil
+	return msg, nil
 }
 
-// EncodeAndSend encodes pkt and sends it to conn
-func EncodeAndSend(conn *Conn, pkt Pkt) error {
-	l := pkt.NEOPktEncodedLen()
+// EncodeAndSend encodes message into packet and sends it
+func EncodeAndSend(conn *Conn, msg Msg) error {
+	l := msg.NEOMsgEncodedLen()
 	buf := PktBuf{make([]byte, PktHeadLen + l)}	// XXX -> freelist
 
 	h := buf.Header()
 	// h.ConnId will be set by conn.Send
-	h.MsgCode = hton16(pkt.NEOPktMsgCode())
+	h.MsgCode = hton16(msg.NEOMsgCode())
 	h.MsgLen = hton32(uint32(l))	// XXX casting: think again
 
-	pkt.NEOPktEncode(buf.Payload())
+	msg.NEOMsgEncode(buf.Payload())
 
-	return conn.Send(&buf)	// XXX why pointer?
+	return conn.sendPkt(&buf)	// XXX why pointer?
 }
 
 // Ask does simple request/response protocol exchange
 // It expects the answer to be exactly of resp type and errors otherwise
-func Ask(conn *Conn, req Pkt, resp Pkt) error {
+func Ask(conn *Conn, req Msg, resp Msg) error {
 	err := EncodeAndSend(conn, req)
 	if err != nil {
 		return err
 	}
 
-	err = Expect(conn, resp)
+	err = Expect(conn, resp)	// XXX +Error
 	return err
 }
 
 
-// ProtoError is returned when there waa a protocol error, like receiving
+// ProtoError is returned when there was a protocol error, like receiving
 // unexpected packet or packet with wrong header
-// XXX -> ConnError{Op: "decode"} ?
+// FIXME -> ConnError{Op: "decode"}
 type ProtoError struct {
 	Conn *Conn
 	Err  error
@@ -80,8 +80,8 @@ func (e *ProtoError) Error() string {
 
 // Expect receives 1 packet and expects it to be exactly of msg type
 // XXX naming  (-> Recv1 ?)
-func Expect(conn *Conn, msg Pkt) (err error) {
-	pkt, err := conn.Recv()
+func Expect(conn *Conn, msg Msg) (err error) {
+	pkt, err := conn.recvPkt()
 	if err != nil {
 		return err
 	}
@@ -92,11 +92,11 @@ func Expect(conn *Conn, msg Pkt) (err error) {
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
 
-	if msgCode != msg.NEOPktMsgCode() {
+	if msgCode != msg.NEOMsgCode() {
 		// unexpected Error response
-		if msgCode == (&Error{}).NEOPktMsgCode() {
+		if msgCode == (&Error{}).NEOMsgCode() {
 			errResp := Error{}
-			_, err = errResp.NEOPktDecode(pkt.Payload())
+			_, err = errResp.NEOMsgDecode(pkt.Payload())
 			if err != nil {
 				return &ProtoError{conn, err}
 			}
@@ -108,7 +108,7 @@ func Expect(conn *Conn, msg Pkt) (err error) {
 			return ErrDecode(&errResp) // XXX err ctx vs ^^^ errcontextf ?
 		}
 
-		msgType := pktTypeRegistry[msgCode]
+		msgType := msgTypeRegistry[msgCode]
 		if msgType == nil {
 			return &ProtoError{conn, fmt.Errorf("invalid msgCode (%d)", msgCode)}
 		}
@@ -116,7 +116,7 @@ func Expect(conn *Conn, msg Pkt) (err error) {
 		return &ProtoError{conn, fmt.Errorf("unexpected packet: %v", msgType)}
 	}
 
-	_, err = msg.NEOPktDecode(pkt.Payload())
+	_, err = msg.NEOMsgDecode(pkt.Payload())
 	if err != nil {
 		return &ProtoError{conn, err}
 	}

@@ -68,10 +68,10 @@ func TestPktHeader(t *testing.T) {
 	}
 }
 
-// test marshalling for one packet type
-func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
-	typ := reflect.TypeOf(pkt).Elem()	// type of *pkt
-	pkt2 := reflect.New(typ).Interface().(Pkt)
+// test marshalling for one message type
+func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
+	typ := reflect.TypeOf(msg).Elem()	// type of *msg
+	msg2 := reflect.New(typ).Interface().(Msg)
 	defer func() {
 		if e := recover(); e != nil {
 			t.Errorf("%v: panic ↓↓↓:", typ)
@@ -79,10 +79,10 @@ func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
 		}
 	}()
 
-	// pkt.encode() == expected
-	msgCode := pkt.NEOPktMsgCode()
-	n := pkt.NEOPktEncodedLen()
-	msgType := pktTypeRegistry[msgCode]
+	// msg.encode() == expected
+	msgCode := msg.NEOMsgCode()
+	n := msg.NEOMsgEncodedLen()
+	msgType := msgTypeRegistry[msgCode]
 	if msgType != typ {
 		t.Errorf("%v: msgCode = %v  which corresponds to %v", typ, msgCode, msgType)
 	}
@@ -91,7 +91,7 @@ func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
 	}
 
 	buf := make([]byte, n)
-	pkt.NEOPktEncode(buf)
+	msg.NEOMsgEncode(buf)
 	if string(buf) != encoded {
 		t.Errorf("%v: encode result unexpected:", typ)
 		t.Errorf("\thave: %s", hexpkg.EncodeToString(buf))
@@ -121,13 +121,13 @@ func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
 				}
 			}()
 
-			pkt.NEOPktEncode(buf[:l])
+			msg.NEOMsgEncode(buf[:l])
 		}()
 	}
 
-	// pkt.decode() == expected
+	// msg.decode() == expected
 	data := []byte(encoded + "noise")
-	n, err := pkt2.NEOPktDecode(data)
+	n, err := msg2.NEOMsgDecode(data)
 	if err != nil {
 		t.Errorf("%v: decode error %v", typ, err)
 	}
@@ -135,13 +135,13 @@ func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
 		t.Errorf("%v: nread = %v  ; want %v", typ, n, len(encoded))
 	}
 
-	if !reflect.DeepEqual(pkt2, pkt) {
-		t.Errorf("%v: decode result unexpected: %v  ; want %v", typ, pkt2, pkt)
+	if !reflect.DeepEqual(msg2, msg) {
+		t.Errorf("%v: decode result unexpected: %v  ; want %v", typ, msg2, msg)
 	}
 
 	// decode must detect buffer overflow
 	for l := len(encoded)-1; l >= 0; l-- {
-		n, err = pkt2.NEOPktDecode(data[:l])
+		n, err = msg2.NEOMsgDecode(data[:l])
 		if !(n==0 && err==ErrDecodeOverflow) {
 			t.Errorf("%v: decode overflow not detected on [:%v]", typ, l)
 		}
@@ -149,10 +149,10 @@ func testPktMarshal(t *testing.T, pkt Pkt, encoded string) {
 	}
 }
 
-// test encoding/decoding of packets
-func TestPktMarshal(t *testing.T) {
+// test encoding/decoding of messages
+func TestMsgMarshal(t *testing.T) {
 	var testv = []struct {
-		pkt     Pkt
+		msg     Msg
 		encoded string	// []byte
 	} {
 		// empty
@@ -259,25 +259,25 @@ func TestPktMarshal(t *testing.T) {
 	}
 
 	for _, tt := range testv {
-		testPktMarshal(t, tt.pkt, tt.encoded)
+		testMsgMarshal(t, tt.msg, tt.encoded)
 	}
 }
 
-// For all packet types: same as testPktMarshal but zero-values only
+// For all message types: same as testMsgMarshal but zero-values only
 // this way we additionally lightly check encode / decode overflow behaviour for all types.
-func TestPktMarshalAllOverflowLightly(t *testing.T) {
-	for _, typ := range pktTypeRegistry {
+func TestMsgMarshalAllOverflowLightly(t *testing.T) {
+	for _, typ := range msgTypeRegistry {
 		// zero-value for a type
-		pkt := reflect.New(typ).Interface().(Pkt)
-		l := pkt.NEOPktEncodedLen()
+		msg := reflect.New(typ).Interface().(Msg)
+		l := msg.NEOMsgEncodedLen()
 		zerol := make([]byte, l)
 		// decoding will turn nil slice & map into empty allocated ones.
-		// we need it so that reflect.DeepEqual works for pkt encode/decode comparison
-		n, err := pkt.NEOPktDecode(zerol)
+		// we need it so that reflect.DeepEqual works for msg encode/decode comparison
+		n, err := msg.NEOMsgDecode(zerol)
 		if !(n == l && err == nil) {
 			t.Errorf("%v: zero-decode unexpected: %v, %v  ; want %v, nil", typ, n, err, l)
 		}
 
-		testPktMarshal(t, pkt, string(zerol))
+		testMsgMarshal(t, msg, string(zerol))
 	}
 }

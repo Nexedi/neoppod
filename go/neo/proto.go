@@ -110,7 +110,7 @@ const (
 	// node finishes to replicate it. It means a partition is moved from 1 node
 	// to another.
 	FEEDING                     //short: F
-	// Not really a state: only used in network packets to tell storages to drop
+	// Not really a state: only used in network messages to tell storages to drop
 	// partitions.
 	DISCARDED                   //short: D
 	// A check revealed that data differs from other replicas. Cell is neither
@@ -136,24 +136,24 @@ type NodeUUID int32
 // TODO NodeType -> base NodeUUID
 
 
-// ErrDecodeOverflow is the error returned by NEOPktDecode when decoding hit buffer overflow
+// ErrDecodeOverflow is the error returned by NEOMsgDecode when decoding hit buffer overflow
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
-// Pkt is the interface implemented by NEO packets to marshal/unmarshal them into/from wire format
-type Pkt interface {
-	// NEOPktMsgCode returns message code needed to be used for particular packet type
+// Msg is the interface implemented by NEO messages to marshal/unmarshal them into/from wire format
+type Msg interface {
+	// NEOMsgCode returns message code needed to be used for particular message type
 	// on the wire
-	NEOPktMsgCode() uint16
+	NEOMsgCode() uint16
 
-	// NEOPktEncodedLen returns how much space is needed to encode current state
-	NEOPktEncodedLen() int
+	// NEOMsgEncodedLen returns how much space is needed to encode current message payload
+	NEOMsgEncodedLen() int
 
-	// NEOPktEncode encodes current state into buf.
-	// len(buf) must be >= NEOPktEncodedLen()
-	NEOPktEncode(buf []byte)
+	// NEOMsgEncode encodes current message state into buf.
+	// len(buf) must be >= NEOMsgEncodedLen()
+	NEOMsgEncode(buf []byte)
 
-	// NEOPktDecode decodes data into current packet state.
-	NEOPktDecode(data []byte) (nread int, err error)
+	// NEOMsgDecode decodes data into message in-place.
+	NEOMsgDecode(data []byte) (nread int, err error)
 }
 
 
@@ -163,7 +163,7 @@ type Address struct {
 }
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
-// func (a *Address) NEOPktEncode(b []byte) int {
+// func (a *Address) NEOMsgEncode(b []byte) int {
 // 	n := string_NEOEncode(a.Host, b[0:])
 // 	if a.Host != "" {
 // 		BigEndian.PutUint16(b[n:], a.Port)
@@ -263,7 +263,7 @@ type Ping struct {
 type CloseClient struct {
 }
 
-// Request a node identification. This must be the first packet for any
+// Request a node identification. This must be the first message for any
 // connection. Any -> Any.
 type RequestIdentification struct {
 	NodeType        NodeType        // XXX name

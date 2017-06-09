@@ -10,19 +10,19 @@ import (
 	"../zodb"
 )
 
-// packets marshalling
+// messages marshalling
 
 // 0. Address
 
-func (_ *Address) NEOPktMsgCode() uint16 {
+func (_ *Address) NEOMsgCode() uint16 {
 	return 0
 }
 
-func (p *Address) NEOPktEncodedLen() int {
+func (p *Address) NEOMsgEncodedLen() int {
 	return 6 + len(p.Host)
 }
 
-func (p *Address) NEOPktEncode(data []byte) {
+func (p *Address) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.Host))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -33,7 +33,7 @@ func (p *Address) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint16(data[0:], p.Port)
 }
 
-func (p *Address) NEOPktDecode(data []byte) (int, error) {
+func (p *Address) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -57,15 +57,15 @@ overflow:
 
 // 1. NodeInfo
 
-func (_ *NodeInfo) NEOPktMsgCode() uint16 {
+func (_ *NodeInfo) NEOMsgCode() uint16 {
 	return 1
 }
 
-func (p *NodeInfo) NEOPktEncodedLen() int {
+func (p *NodeInfo) NEOMsgEncodedLen() int {
 	return 26 + len(p.Address.Host)
 }
 
-func (p *NodeInfo) NEOPktEncode(data []byte) {
+func (p *NodeInfo) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
 	{
 		l := uint32(len(p.Address.Host))
@@ -80,7 +80,7 @@ func (p *NodeInfo) NEOPktEncode(data []byte) {
 	float64_NEOEncode(data[10:], p.IdTimestamp)
 }
 
-func (p *NodeInfo) NEOPktDecode(data []byte) (int, error) {
+func (p *NodeInfo) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 8 {
 		goto overflow
@@ -108,20 +108,20 @@ overflow:
 
 // 2. CellInfo
 
-func (_ *CellInfo) NEOPktMsgCode() uint16 {
+func (_ *CellInfo) NEOMsgCode() uint16 {
 	return 2
 }
 
-func (p *CellInfo) NEOPktEncodedLen() int {
+func (p *CellInfo) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *CellInfo) NEOPktEncode(data []byte) {
+func (p *CellInfo) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeUUID)))
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.CellState)))
 }
 
-func (p *CellInfo) NEOPktDecode(data []byte) (int, error) {
+func (p *CellInfo) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -135,15 +135,15 @@ overflow:
 
 // 3. RowInfo
 
-func (_ *RowInfo) NEOPktMsgCode() uint16 {
+func (_ *RowInfo) NEOMsgCode() uint16 {
 	return 3
 }
 
-func (p *RowInfo) NEOPktEncodedLen() int {
+func (p *RowInfo) NEOMsgEncodedLen() int {
 	return 8 + len(p.CellList)*8
 }
 
-func (p *RowInfo) NEOPktEncode(data []byte) {
+func (p *RowInfo) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Offset)
 	{
 		l := uint32(len(p.CellList))
@@ -158,7 +158,7 @@ func (p *RowInfo) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *RowInfo) NEOPktDecode(data []byte) (int, error) {
+func (p *RowInfo) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 8 {
 		goto overflow
@@ -187,15 +187,15 @@ overflow:
 
 // 4. Error
 
-func (_ *Error) NEOPktMsgCode() uint16 {
+func (_ *Error) NEOMsgCode() uint16 {
 	return 4
 }
 
-func (p *Error) NEOPktEncodedLen() int {
+func (p *Error) NEOMsgEncodedLen() int {
 	return 8 + len(p.Message)
 }
 
-func (p *Error) NEOPktEncode(data []byte) {
+func (p *Error) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(p.Code))
 	{
 		l := uint32(len(p.Message))
@@ -206,7 +206,7 @@ func (p *Error) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *Error) NEOPktDecode(data []byte) (int, error) {
+func (p *Error) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 8 {
 		goto overflow
@@ -230,49 +230,49 @@ overflow:
 
 // 5. Ping
 
-func (_ *Ping) NEOPktMsgCode() uint16 {
+func (_ *Ping) NEOMsgCode() uint16 {
 	return 5
 }
 
-func (p *Ping) NEOPktEncodedLen() int {
+func (p *Ping) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *Ping) NEOPktEncode(data []byte) {
+func (p *Ping) NEOMsgEncode(data []byte) {
 }
 
-func (p *Ping) NEOPktDecode(data []byte) (int, error) {
+func (p *Ping) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 6. CloseClient
 
-func (_ *CloseClient) NEOPktMsgCode() uint16 {
+func (_ *CloseClient) NEOMsgCode() uint16 {
 	return 6
 }
 
-func (p *CloseClient) NEOPktEncodedLen() int {
+func (p *CloseClient) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *CloseClient) NEOPktEncode(data []byte) {
+func (p *CloseClient) NEOMsgEncode(data []byte) {
 }
 
-func (p *CloseClient) NEOPktDecode(data []byte) (int, error) {
+func (p *CloseClient) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 7. RequestIdentification
 
-func (_ *RequestIdentification) NEOPktMsgCode() uint16 {
+func (_ *RequestIdentification) NEOMsgCode() uint16 {
 	return 7
 }
 
-func (p *RequestIdentification) NEOPktEncodedLen() int {
+func (p *RequestIdentification) NEOMsgEncodedLen() int {
 	return 26 + len(p.Address.Host) + len(p.ClusterName)
 }
 
-func (p *RequestIdentification) NEOPktEncode(data []byte) {
+func (p *RequestIdentification) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.NodeUUID)))
 	{
@@ -293,7 +293,7 @@ func (p *RequestIdentification) NEOPktEncode(data []byte) {
 	float64_NEOEncode(data[0:], p.IdTimestamp)
 }
 
-func (p *RequestIdentification) NEOPktDecode(data []byte) (int, error) {
+func (p *RequestIdentification) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -330,15 +330,15 @@ overflow:
 
 // 8. AcceptIdentification
 
-func (_ *AcceptIdentification) NEOPktMsgCode() uint16 {
+func (_ *AcceptIdentification) NEOMsgCode() uint16 {
 	return 8
 }
 
-func (p *AcceptIdentification) NEOPktEncodedLen() int {
+func (p *AcceptIdentification) NEOMsgEncodedLen() int {
 	return 20
 }
 
-func (p *AcceptIdentification) NEOPktEncode(data []byte) {
+func (p *AcceptIdentification) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.MyNodeUUID)))
 	binary.BigEndian.PutUint32(data[8:], p.NumPartitions)
@@ -346,7 +346,7 @@ func (p *AcceptIdentification) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[16:], uint32(int32(p.YourNodeUUID)))
 }
 
-func (p *AcceptIdentification) NEOPktDecode(data []byte) (int, error) {
+func (p *AcceptIdentification) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 20 {
 		goto overflow
 	}
@@ -363,36 +363,36 @@ overflow:
 
 // 9. PrimaryMaster
 
-func (_ *PrimaryMaster) NEOPktMsgCode() uint16 {
+func (_ *PrimaryMaster) NEOMsgCode() uint16 {
 	return 9
 }
 
-func (p *PrimaryMaster) NEOPktEncodedLen() int {
+func (p *PrimaryMaster) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *PrimaryMaster) NEOPktEncode(data []byte) {
+func (p *PrimaryMaster) NEOMsgEncode(data []byte) {
 }
 
-func (p *PrimaryMaster) NEOPktDecode(data []byte) (int, error) {
+func (p *PrimaryMaster) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 10. AnswerPrimary
 
-func (_ *AnswerPrimary) NEOPktMsgCode() uint16 {
+func (_ *AnswerPrimary) NEOMsgCode() uint16 {
 	return 10
 }
 
-func (p *AnswerPrimary) NEOPktEncodedLen() int {
+func (p *AnswerPrimary) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *AnswerPrimary) NEOPktEncode(data []byte) {
+func (p *AnswerPrimary) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.PrimaryNodeUUID)))
 }
 
-func (p *AnswerPrimary) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerPrimary) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -405,11 +405,11 @@ overflow:
 
 // 11. NotPrimaryMaster
 
-func (_ *NotPrimaryMaster) NEOPktMsgCode() uint16 {
+func (_ *NotPrimaryMaster) NEOMsgCode() uint16 {
 	return 11
 }
 
-func (p *NotPrimaryMaster) NEOPktEncodedLen() int {
+func (p *NotPrimaryMaster) NEOMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.KnownMasterList); i++ {
 		a := &p.KnownMasterList[i]
@@ -418,7 +418,7 @@ func (p *NotPrimaryMaster) NEOPktEncodedLen() int {
 	return 8 + len(p.KnownMasterList)*6 + size
 }
 
-func (p *NotPrimaryMaster) NEOPktEncode(data []byte) {
+func (p *NotPrimaryMaster) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.Primary)))
 	{
 		l := uint32(len(p.KnownMasterList))
@@ -439,7 +439,7 @@ func (p *NotPrimaryMaster) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *NotPrimaryMaster) NEOPktDecode(data []byte) (int, error) {
+func (p *NotPrimaryMaster) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 8 {
 		goto overflow
@@ -477,38 +477,38 @@ overflow:
 
 // 12. Recovery
 
-func (_ *Recovery) NEOPktMsgCode() uint16 {
+func (_ *Recovery) NEOMsgCode() uint16 {
 	return 12
 }
 
-func (p *Recovery) NEOPktEncodedLen() int {
+func (p *Recovery) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *Recovery) NEOPktEncode(data []byte) {
+func (p *Recovery) NEOMsgEncode(data []byte) {
 }
 
-func (p *Recovery) NEOPktDecode(data []byte) (int, error) {
+func (p *Recovery) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 13. AnswerRecovery
 
-func (_ *AnswerRecovery) NEOPktMsgCode() uint16 {
+func (_ *AnswerRecovery) NEOMsgCode() uint16 {
 	return 13
 }
 
-func (p *AnswerRecovery) NEOPktEncodedLen() int {
+func (p *AnswerRecovery) NEOMsgEncodedLen() int {
 	return 24
 }
 
-func (p *AnswerRecovery) NEOPktEncode(data []byte) {
+func (p *AnswerRecovery) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.BackupTid))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.TruncateTid))
 }
 
-func (p *AnswerRecovery) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerRecovery) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
@@ -523,37 +523,37 @@ overflow:
 
 // 14. LastIDs
 
-func (_ *LastIDs) NEOPktMsgCode() uint16 {
+func (_ *LastIDs) NEOMsgCode() uint16 {
 	return 14
 }
 
-func (p *LastIDs) NEOPktEncodedLen() int {
+func (p *LastIDs) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *LastIDs) NEOPktEncode(data []byte) {
+func (p *LastIDs) NEOMsgEncode(data []byte) {
 }
 
-func (p *LastIDs) NEOPktDecode(data []byte) (int, error) {
+func (p *LastIDs) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 15. AnswerLastIDs
 
-func (_ *AnswerLastIDs) NEOPktMsgCode() uint16 {
+func (_ *AnswerLastIDs) NEOMsgCode() uint16 {
 	return 15
 }
 
-func (p *AnswerLastIDs) NEOPktEncodedLen() int {
+func (p *AnswerLastIDs) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *AnswerLastIDs) NEOPktEncode(data []byte) {
+func (p *AnswerLastIDs) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.LastOid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.LastTid))
 }
 
-func (p *AnswerLastIDs) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerLastIDs) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -567,28 +567,28 @@ overflow:
 
 // 16. X_PartitionTable
 
-func (_ *X_PartitionTable) NEOPktMsgCode() uint16 {
+func (_ *X_PartitionTable) NEOMsgCode() uint16 {
 	return 16
 }
 
-func (p *X_PartitionTable) NEOPktEncodedLen() int {
+func (p *X_PartitionTable) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *X_PartitionTable) NEOPktEncode(data []byte) {
+func (p *X_PartitionTable) NEOMsgEncode(data []byte) {
 }
 
-func (p *X_PartitionTable) NEOPktDecode(data []byte) (int, error) {
+func (p *X_PartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 17. AnswerPartitionTable
 
-func (_ *AnswerPartitionTable) NEOPktMsgCode() uint16 {
+func (_ *AnswerPartitionTable) NEOMsgCode() uint16 {
 	return 17
 }
 
-func (p *AnswerPartitionTable) NEOPktEncodedLen() int {
+func (p *AnswerPartitionTable) NEOMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -597,7 +597,7 @@ func (p *AnswerPartitionTable) NEOPktEncodedLen() int {
 	return 12 + len(p.RowList)*8 + size
 }
 
-func (p *AnswerPartitionTable) NEOPktEncode(data []byte) {
+func (p *AnswerPartitionTable) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	{
 		l := uint32(len(p.RowList))
@@ -622,7 +622,7 @@ func (p *AnswerPartitionTable) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerPartitionTable) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -664,11 +664,11 @@ overflow:
 
 // 18. NotifyPartitionTable
 
-func (_ *NotifyPartitionTable) NEOPktMsgCode() uint16 {
+func (_ *NotifyPartitionTable) NEOMsgCode() uint16 {
 	return 18
 }
 
-func (p *NotifyPartitionTable) NEOPktEncodedLen() int {
+func (p *NotifyPartitionTable) NEOMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -677,7 +677,7 @@ func (p *NotifyPartitionTable) NEOPktEncodedLen() int {
 	return 12 + len(p.RowList)*8 + size
 }
 
-func (p *NotifyPartitionTable) NEOPktEncode(data []byte) {
+func (p *NotifyPartitionTable) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	{
 		l := uint32(len(p.RowList))
@@ -702,7 +702,7 @@ func (p *NotifyPartitionTable) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *NotifyPartitionTable) NEOPktDecode(data []byte) (int, error) {
+func (p *NotifyPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -744,15 +744,15 @@ overflow:
 
 // 19. PartitionChanges
 
-func (_ *PartitionChanges) NEOPktMsgCode() uint16 {
+func (_ *PartitionChanges) NEOMsgCode() uint16 {
 	return 19
 }
 
-func (p *PartitionChanges) NEOPktEncodedLen() int {
+func (p *PartitionChanges) NEOMsgEncodedLen() int {
 	return 12 + len(p.CellList)*12
 }
 
-func (p *PartitionChanges) NEOPktEncode(data []byte) {
+func (p *PartitionChanges) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	{
 		l := uint32(len(p.CellList))
@@ -768,7 +768,7 @@ func (p *PartitionChanges) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *PartitionChanges) NEOPktDecode(data []byte) (int, error) {
+func (p *PartitionChanges) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -802,19 +802,19 @@ overflow:
 
 // 20. StartOperation
 
-func (_ *StartOperation) NEOPktMsgCode() uint16 {
+func (_ *StartOperation) NEOMsgCode() uint16 {
 	return 20
 }
 
-func (p *StartOperation) NEOPktEncodedLen() int {
+func (p *StartOperation) NEOMsgEncodedLen() int {
 	return 1
 }
 
-func (p *StartOperation) NEOPktEncode(data []byte) {
+func (p *StartOperation) NEOMsgEncode(data []byte) {
 	(data[0:])[0] = bool2byte(p.Backup)
 }
 
-func (p *StartOperation) NEOPktDecode(data []byte) (int, error) {
+func (p *StartOperation) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 1 {
 		goto overflow
 	}
@@ -827,32 +827,32 @@ overflow:
 
 // 21. StopOperation
 
-func (_ *StopOperation) NEOPktMsgCode() uint16 {
+func (_ *StopOperation) NEOMsgCode() uint16 {
 	return 21
 }
 
-func (p *StopOperation) NEOPktEncodedLen() int {
+func (p *StopOperation) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *StopOperation) NEOPktEncode(data []byte) {
+func (p *StopOperation) NEOMsgEncode(data []byte) {
 }
 
-func (p *StopOperation) NEOPktDecode(data []byte) (int, error) {
+func (p *StopOperation) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 22. UnfinishedTransactions
 
-func (_ *UnfinishedTransactions) NEOPktMsgCode() uint16 {
+func (_ *UnfinishedTransactions) NEOMsgCode() uint16 {
 	return 22
 }
 
-func (p *UnfinishedTransactions) NEOPktEncodedLen() int {
+func (p *UnfinishedTransactions) NEOMsgEncodedLen() int {
 	return 4 + len(p.RowList)*4
 }
 
-func (p *UnfinishedTransactions) NEOPktEncode(data []byte) {
+func (p *UnfinishedTransactions) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.RowList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -865,7 +865,7 @@ func (p *UnfinishedTransactions) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *UnfinishedTransactions) NEOPktDecode(data []byte) (int, error) {
+func (p *UnfinishedTransactions) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -892,15 +892,15 @@ overflow:
 
 // 23. AnswerUnfinishedTransactions
 
-func (_ *AnswerUnfinishedTransactions) NEOPktMsgCode() uint16 {
+func (_ *AnswerUnfinishedTransactions) NEOMsgCode() uint16 {
 	return 23
 }
 
-func (p *AnswerUnfinishedTransactions) NEOPktEncodedLen() int {
+func (p *AnswerUnfinishedTransactions) NEOMsgEncodedLen() int {
 	return 12 + len(p.TidList)*8
 }
 
-func (p *AnswerUnfinishedTransactions) NEOPktEncode(data []byte) {
+func (p *AnswerUnfinishedTransactions) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.MaxTID))
 	{
 		l := uint32(len(p.TidList))
@@ -914,7 +914,7 @@ func (p *AnswerUnfinishedTransactions) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerUnfinishedTransactions) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerUnfinishedTransactions) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -942,32 +942,32 @@ overflow:
 
 // 24. LockedTransactions
 
-func (_ *LockedTransactions) NEOPktMsgCode() uint16 {
+func (_ *LockedTransactions) NEOMsgCode() uint16 {
 	return 24
 }
 
-func (p *LockedTransactions) NEOPktEncodedLen() int {
+func (p *LockedTransactions) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *LockedTransactions) NEOPktEncode(data []byte) {
+func (p *LockedTransactions) NEOMsgEncode(data []byte) {
 }
 
-func (p *LockedTransactions) NEOPktDecode(data []byte) (int, error) {
+func (p *LockedTransactions) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 25. AnswerLockedTransactions
 
-func (_ *AnswerLockedTransactions) NEOPktMsgCode() uint16 {
+func (_ *AnswerLockedTransactions) NEOMsgCode() uint16 {
 	return 25
 }
 
-func (p *AnswerLockedTransactions) NEOPktEncodedLen() int {
+func (p *AnswerLockedTransactions) NEOMsgEncodedLen() int {
 	return 4 + len(p.TidDict)*16
 }
 
-func (p *AnswerLockedTransactions) NEOPktEncode(data []byte) {
+func (p *AnswerLockedTransactions) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.TidDict))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -985,7 +985,7 @@ func (p *AnswerLockedTransactions) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerLockedTransactions) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerLockedTransactions) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -1013,19 +1013,19 @@ overflow:
 
 // 26. FinalTID
 
-func (_ *FinalTID) NEOPktMsgCode() uint16 {
+func (_ *FinalTID) NEOMsgCode() uint16 {
 	return 26
 }
 
-func (p *FinalTID) NEOPktEncodedLen() int {
+func (p *FinalTID) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *FinalTID) NEOPktEncode(data []byte) {
+func (p *FinalTID) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
 }
 
-func (p *FinalTID) NEOPktDecode(data []byte) (int, error) {
+func (p *FinalTID) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1038,19 +1038,19 @@ overflow:
 
 // 27. AnswerFinalTID
 
-func (_ *AnswerFinalTID) NEOPktMsgCode() uint16 {
+func (_ *AnswerFinalTID) NEOMsgCode() uint16 {
 	return 27
 }
 
-func (p *AnswerFinalTID) NEOPktEncodedLen() int {
+func (p *AnswerFinalTID) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *AnswerFinalTID) NEOPktEncode(data []byte) {
+func (p *AnswerFinalTID) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *AnswerFinalTID) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerFinalTID) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1063,20 +1063,20 @@ overflow:
 
 // 28. ValidateTransaction
 
-func (_ *ValidateTransaction) NEOPktMsgCode() uint16 {
+func (_ *ValidateTransaction) NEOMsgCode() uint16 {
 	return 28
 }
 
-func (p *ValidateTransaction) NEOPktEncodedLen() int {
+func (p *ValidateTransaction) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *ValidateTransaction) NEOPktEncode(data []byte) {
+func (p *ValidateTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
 }
 
-func (p *ValidateTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *ValidateTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1090,19 +1090,19 @@ overflow:
 
 // 29. BeginTransaction
 
-func (_ *BeginTransaction) NEOPktMsgCode() uint16 {
+func (_ *BeginTransaction) NEOMsgCode() uint16 {
 	return 29
 }
 
-func (p *BeginTransaction) NEOPktEncodedLen() int {
+func (p *BeginTransaction) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *BeginTransaction) NEOPktEncode(data []byte) {
+func (p *BeginTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *BeginTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *BeginTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1115,19 +1115,19 @@ overflow:
 
 // 30. AnswerBeginTransaction
 
-func (_ *AnswerBeginTransaction) NEOPktMsgCode() uint16 {
+func (_ *AnswerBeginTransaction) NEOMsgCode() uint16 {
 	return 30
 }
 
-func (p *AnswerBeginTransaction) NEOPktEncodedLen() int {
+func (p *AnswerBeginTransaction) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *AnswerBeginTransaction) NEOPktEncode(data []byte) {
+func (p *AnswerBeginTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *AnswerBeginTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerBeginTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1140,15 +1140,15 @@ overflow:
 
 // 31. FailedVote
 
-func (_ *FailedVote) NEOPktMsgCode() uint16 {
+func (_ *FailedVote) NEOMsgCode() uint16 {
 	return 31
 }
 
-func (p *FailedVote) NEOPktEncodedLen() int {
+func (p *FailedVote) NEOMsgEncodedLen() int {
 	return 12 + len(p.NodeList)*4
 }
 
-func (p *FailedVote) NEOPktEncode(data []byte) {
+func (p *FailedVote) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
 		l := uint32(len(p.NodeList))
@@ -1162,7 +1162,7 @@ func (p *FailedVote) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *FailedVote) NEOPktDecode(data []byte) (int, error) {
+func (p *FailedVote) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -1190,15 +1190,15 @@ overflow:
 
 // 32. FinishTransaction
 
-func (_ *FinishTransaction) NEOPktMsgCode() uint16 {
+func (_ *FinishTransaction) NEOMsgCode() uint16 {
 	return 32
 }
 
-func (p *FinishTransaction) NEOPktEncodedLen() int {
+func (p *FinishTransaction) NEOMsgEncodedLen() int {
 	return 16 + len(p.OIDList)*8 + len(p.CheckedList)*8
 }
 
-func (p *FinishTransaction) NEOPktEncode(data []byte) {
+func (p *FinishTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
 		l := uint32(len(p.OIDList))
@@ -1222,7 +1222,7 @@ func (p *FinishTransaction) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *FinishTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *FinishTransaction) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -1264,20 +1264,20 @@ overflow:
 
 // 33. AnswerFinishTransaction
 
-func (_ *AnswerFinishTransaction) NEOPktMsgCode() uint16 {
+func (_ *AnswerFinishTransaction) NEOMsgCode() uint16 {
 	return 33
 }
 
-func (p *AnswerFinishTransaction) NEOPktEncodedLen() int {
+func (p *AnswerFinishTransaction) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *AnswerFinishTransaction) NEOPktEncode(data []byte) {
+func (p *AnswerFinishTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
 }
 
-func (p *AnswerFinishTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerFinishTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1291,20 +1291,20 @@ overflow:
 
 // 34. NotifyTransactionFinished
 
-func (_ *NotifyTransactionFinished) NEOPktMsgCode() uint16 {
+func (_ *NotifyTransactionFinished) NEOMsgCode() uint16 {
 	return 34
 }
 
-func (p *NotifyTransactionFinished) NEOPktEncodedLen() int {
+func (p *NotifyTransactionFinished) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *NotifyTransactionFinished) NEOPktEncode(data []byte) {
+func (p *NotifyTransactionFinished) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
 }
 
-func (p *NotifyTransactionFinished) NEOPktDecode(data []byte) (int, error) {
+func (p *NotifyTransactionFinished) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1318,20 +1318,20 @@ overflow:
 
 // 35. LockInformation
 
-func (_ *LockInformation) NEOPktMsgCode() uint16 {
+func (_ *LockInformation) NEOMsgCode() uint16 {
 	return 35
 }
 
-func (p *LockInformation) NEOPktEncodedLen() int {
+func (p *LockInformation) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *LockInformation) NEOPktEncode(data []byte) {
+func (p *LockInformation) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Ttid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
 }
 
-func (p *LockInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *LockInformation) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1345,19 +1345,19 @@ overflow:
 
 // 36. AnswerLockInformation
 
-func (_ *AnswerLockInformation) NEOPktMsgCode() uint16 {
+func (_ *AnswerLockInformation) NEOMsgCode() uint16 {
 	return 36
 }
 
-func (p *AnswerLockInformation) NEOPktEncodedLen() int {
+func (p *AnswerLockInformation) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *AnswerLockInformation) NEOPktEncode(data []byte) {
+func (p *AnswerLockInformation) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Ttid))
 }
 
-func (p *AnswerLockInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerLockInformation) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1370,15 +1370,15 @@ overflow:
 
 // 37. InvalidateObjects
 
-func (_ *InvalidateObjects) NEOPktMsgCode() uint16 {
+func (_ *InvalidateObjects) NEOMsgCode() uint16 {
 	return 37
 }
 
-func (p *InvalidateObjects) NEOPktEncodedLen() int {
+func (p *InvalidateObjects) NEOMsgEncodedLen() int {
 	return 12 + len(p.OidList)*8
 }
 
-func (p *InvalidateObjects) NEOPktEncode(data []byte) {
+func (p *InvalidateObjects) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
 		l := uint32(len(p.OidList))
@@ -1392,7 +1392,7 @@ func (p *InvalidateObjects) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *InvalidateObjects) NEOPktDecode(data []byte) (int, error) {
+func (p *InvalidateObjects) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -1420,19 +1420,19 @@ overflow:
 
 // 38. UnlockInformation
 
-func (_ *UnlockInformation) NEOPktMsgCode() uint16 {
+func (_ *UnlockInformation) NEOMsgCode() uint16 {
 	return 38
 }
 
-func (p *UnlockInformation) NEOPktEncodedLen() int {
+func (p *UnlockInformation) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *UnlockInformation) NEOPktEncode(data []byte) {
+func (p *UnlockInformation) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
 }
 
-func (p *UnlockInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *UnlockInformation) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1445,19 +1445,19 @@ overflow:
 
 // 39. GenerateOIDs
 
-func (_ *GenerateOIDs) NEOPktMsgCode() uint16 {
+func (_ *GenerateOIDs) NEOMsgCode() uint16 {
 	return 39
 }
 
-func (p *GenerateOIDs) NEOPktEncodedLen() int {
+func (p *GenerateOIDs) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *GenerateOIDs) NEOPktEncode(data []byte) {
+func (p *GenerateOIDs) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.NumOIDs)
 }
 
-func (p *GenerateOIDs) NEOPktDecode(data []byte) (int, error) {
+func (p *GenerateOIDs) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -1470,15 +1470,15 @@ overflow:
 
 // 40. AnswerGenerateOIDs
 
-func (_ *AnswerGenerateOIDs) NEOPktMsgCode() uint16 {
+func (_ *AnswerGenerateOIDs) NEOMsgCode() uint16 {
 	return 40
 }
 
-func (p *AnswerGenerateOIDs) NEOPktEncodedLen() int {
+func (p *AnswerGenerateOIDs) NEOMsgEncodedLen() int {
 	return 4 + len(p.OidList)*8
 }
 
-func (p *AnswerGenerateOIDs) NEOPktEncode(data []byte) {
+func (p *AnswerGenerateOIDs) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.OidList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -1491,7 +1491,7 @@ func (p *AnswerGenerateOIDs) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerGenerateOIDs) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerGenerateOIDs) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -1518,20 +1518,20 @@ overflow:
 
 // 41. Deadlock
 
-func (_ *Deadlock) NEOPktMsgCode() uint16 {
+func (_ *Deadlock) NEOMsgCode() uint16 {
 	return 41
 }
 
-func (p *Deadlock) NEOPktEncodedLen() int {
+func (p *Deadlock) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *Deadlock) NEOPktEncode(data []byte) {
+func (p *Deadlock) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.LockingTid))
 }
 
-func (p *Deadlock) NEOPktDecode(data []byte) (int, error) {
+func (p *Deadlock) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1545,20 +1545,20 @@ overflow:
 
 // 42. RebaseTransaction
 
-func (_ *RebaseTransaction) NEOPktMsgCode() uint16 {
+func (_ *RebaseTransaction) NEOMsgCode() uint16 {
 	return 42
 }
 
-func (p *RebaseTransaction) NEOPktEncodedLen() int {
+func (p *RebaseTransaction) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *RebaseTransaction) NEOPktEncode(data []byte) {
+func (p *RebaseTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.LockingTid))
 }
 
-func (p *RebaseTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *RebaseTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1572,15 +1572,15 @@ overflow:
 
 // 43. AnswerRebaseTransaction
 
-func (_ *AnswerRebaseTransaction) NEOPktMsgCode() uint16 {
+func (_ *AnswerRebaseTransaction) NEOMsgCode() uint16 {
 	return 43
 }
 
-func (p *AnswerRebaseTransaction) NEOPktEncodedLen() int {
+func (p *AnswerRebaseTransaction) NEOMsgEncodedLen() int {
 	return 4 + len(p.OidList)*8
 }
 
-func (p *AnswerRebaseTransaction) NEOPktEncode(data []byte) {
+func (p *AnswerRebaseTransaction) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.OidList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -1593,7 +1593,7 @@ func (p *AnswerRebaseTransaction) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerRebaseTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerRebaseTransaction) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -1620,20 +1620,20 @@ overflow:
 
 // 44. RebaseObject
 
-func (_ *RebaseObject) NEOPktMsgCode() uint16 {
+func (_ *RebaseObject) NEOMsgCode() uint16 {
 	return 44
 }
 
-func (p *RebaseObject) NEOPktEncodedLen() int {
+func (p *RebaseObject) NEOMsgEncodedLen() int {
 	return 16
 }
 
-func (p *RebaseObject) NEOPktEncode(data []byte) {
+func (p *RebaseObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Oid))
 }
 
-func (p *RebaseObject) NEOPktDecode(data []byte) (int, error) {
+func (p *RebaseObject) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -1647,15 +1647,15 @@ overflow:
 
 // 45. AnswerRebaseObject
 
-func (_ *AnswerRebaseObject) NEOPktMsgCode() uint16 {
+func (_ *AnswerRebaseObject) NEOMsgCode() uint16 {
 	return 45
 }
 
-func (p *AnswerRebaseObject) NEOPktEncodedLen() int {
+func (p *AnswerRebaseObject) NEOMsgEncodedLen() int {
 	return 41 + len(p.Data)
 }
 
-func (p *AnswerRebaseObject) NEOPktEncode(data []byte) {
+func (p *AnswerRebaseObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Serial))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.ConflictSerial))
 	(data[16:])[0] = bool2byte(p.Compression)
@@ -1669,7 +1669,7 @@ func (p *AnswerRebaseObject) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerRebaseObject) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerRebaseObject) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 41 {
 		goto overflow
@@ -1697,15 +1697,15 @@ overflow:
 
 // 46. StoreObject
 
-func (_ *StoreObject) NEOPktMsgCode() uint16 {
+func (_ *StoreObject) NEOMsgCode() uint16 {
 	return 46
 }
 
-func (p *StoreObject) NEOPktEncodedLen() int {
+func (p *StoreObject) NEOMsgEncodedLen() int {
 	return 57 + len(p.Data)
 }
 
-func (p *StoreObject) NEOPktEncode(data []byte) {
+func (p *StoreObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
 	(data[16:])[0] = bool2byte(p.Compression)
@@ -1721,7 +1721,7 @@ func (p *StoreObject) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
 }
 
-func (p *StoreObject) NEOPktDecode(data []byte) (int, error) {
+func (p *StoreObject) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 41 {
 		goto overflow
@@ -1751,19 +1751,19 @@ overflow:
 
 // 47. AnswerStoreObject
 
-func (_ *AnswerStoreObject) NEOPktMsgCode() uint16 {
+func (_ *AnswerStoreObject) NEOMsgCode() uint16 {
 	return 47
 }
 
-func (p *AnswerStoreObject) NEOPktEncodedLen() int {
+func (p *AnswerStoreObject) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *AnswerStoreObject) NEOPktEncode(data []byte) {
+func (p *AnswerStoreObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Conflict))
 }
 
-func (p *AnswerStoreObject) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerStoreObject) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1776,15 +1776,15 @@ overflow:
 
 // 48. AbortTransaction
 
-func (_ *AbortTransaction) NEOPktMsgCode() uint16 {
+func (_ *AbortTransaction) NEOMsgCode() uint16 {
 	return 48
 }
 
-func (p *AbortTransaction) NEOPktEncodedLen() int {
+func (p *AbortTransaction) NEOMsgEncodedLen() int {
 	return 12 + len(p.NodeList)*4
 }
 
-func (p *AbortTransaction) NEOPktEncode(data []byte) {
+func (p *AbortTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
 		l := uint32(len(p.NodeList))
@@ -1798,7 +1798,7 @@ func (p *AbortTransaction) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AbortTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *AbortTransaction) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -1826,15 +1826,15 @@ overflow:
 
 // 49. StoreTransaction
 
-func (_ *StoreTransaction) NEOPktMsgCode() uint16 {
+func (_ *StoreTransaction) NEOMsgCode() uint16 {
 	return 49
 }
 
-func (p *StoreTransaction) NEOPktEncodedLen() int {
+func (p *StoreTransaction) NEOMsgEncodedLen() int {
 	return 24 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
 }
 
-func (p *StoreTransaction) NEOPktEncode(data []byte) {
+func (p *StoreTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
 		l := uint32(len(p.User))
@@ -1869,7 +1869,7 @@ func (p *StoreTransaction) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *StoreTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *StoreTransaction) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -1927,19 +1927,19 @@ overflow:
 
 // 50. VoteTransaction
 
-func (_ *VoteTransaction) NEOPktMsgCode() uint16 {
+func (_ *VoteTransaction) NEOMsgCode() uint16 {
 	return 50
 }
 
-func (p *VoteTransaction) NEOPktEncodedLen() int {
+func (p *VoteTransaction) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *VoteTransaction) NEOPktEncode(data []byte) {
+func (p *VoteTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *VoteTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *VoteTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1952,21 +1952,21 @@ overflow:
 
 // 51. GetObject
 
-func (_ *GetObject) NEOPktMsgCode() uint16 {
+func (_ *GetObject) NEOMsgCode() uint16 {
 	return 51
 }
 
-func (p *GetObject) NEOPktEncodedLen() int {
+func (p *GetObject) NEOMsgEncodedLen() int {
 	return 24
 }
 
-func (p *GetObject) NEOPktEncode(data []byte) {
+func (p *GetObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.Tid))
 }
 
-func (p *GetObject) NEOPktDecode(data []byte) (int, error) {
+func (p *GetObject) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
@@ -1981,15 +1981,15 @@ overflow:
 
 // 52. AnswerGetObject
 
-func (_ *AnswerGetObject) NEOPktMsgCode() uint16 {
+func (_ *AnswerGetObject) NEOMsgCode() uint16 {
 	return 52
 }
 
-func (p *AnswerGetObject) NEOPktEncodedLen() int {
+func (p *AnswerGetObject) NEOMsgEncodedLen() int {
 	return 57 + len(p.Data)
 }
 
-func (p *AnswerGetObject) NEOPktEncode(data []byte) {
+func (p *AnswerGetObject) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.NextSerial))
@@ -2005,7 +2005,7 @@ func (p *AnswerGetObject) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))
 }
 
-func (p *AnswerGetObject) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerGetObject) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 49 {
 		goto overflow
@@ -2035,21 +2035,21 @@ overflow:
 
 // 53. TIDList
 
-func (_ *TIDList) NEOPktMsgCode() uint16 {
+func (_ *TIDList) NEOMsgCode() uint16 {
 	return 53
 }
 
-func (p *TIDList) NEOPktEncodedLen() int {
+func (p *TIDList) NEOMsgEncodedLen() int {
 	return 20
 }
 
-func (p *TIDList) NEOPktEncode(data []byte) {
+func (p *TIDList) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], p.First)
 	binary.BigEndian.PutUint64(data[8:], p.Last)
 	binary.BigEndian.PutUint32(data[16:], p.Partition)
 }
 
-func (p *TIDList) NEOPktDecode(data []byte) (int, error) {
+func (p *TIDList) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 20 {
 		goto overflow
 	}
@@ -2064,15 +2064,15 @@ overflow:
 
 // 54. AnswerTIDList
 
-func (_ *AnswerTIDList) NEOPktMsgCode() uint16 {
+func (_ *AnswerTIDList) NEOMsgCode() uint16 {
 	return 54
 }
 
-func (p *AnswerTIDList) NEOPktEncodedLen() int {
+func (p *AnswerTIDList) NEOMsgEncodedLen() int {
 	return 4 + len(p.TIDList)*8
 }
 
-func (p *AnswerTIDList) NEOPktEncode(data []byte) {
+func (p *AnswerTIDList) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.TIDList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2085,7 +2085,7 @@ func (p *AnswerTIDList) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerTIDList) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerTIDList) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -2112,22 +2112,22 @@ overflow:
 
 // 55. TIDListFrom
 
-func (_ *TIDListFrom) NEOPktMsgCode() uint16 {
+func (_ *TIDListFrom) NEOMsgCode() uint16 {
 	return 55
 }
 
-func (p *TIDListFrom) NEOPktEncodedLen() int {
+func (p *TIDListFrom) NEOMsgEncodedLen() int {
 	return 24
 }
 
-func (p *TIDListFrom) NEOPktEncode(data []byte) {
+func (p *TIDListFrom) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.MinTID))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
 	binary.BigEndian.PutUint32(data[16:], p.Length)
 	binary.BigEndian.PutUint32(data[20:], p.Partition)
 }
 
-func (p *TIDListFrom) NEOPktDecode(data []byte) (int, error) {
+func (p *TIDListFrom) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
@@ -2143,15 +2143,15 @@ overflow:
 
 // 56. AnswerTIDListFrom
 
-func (_ *AnswerTIDListFrom) NEOPktMsgCode() uint16 {
+func (_ *AnswerTIDListFrom) NEOMsgCode() uint16 {
 	return 56
 }
 
-func (p *AnswerTIDListFrom) NEOPktEncodedLen() int {
+func (p *AnswerTIDListFrom) NEOMsgEncodedLen() int {
 	return 4 + len(p.TidList)*8
 }
 
-func (p *AnswerTIDListFrom) NEOPktEncode(data []byte) {
+func (p *AnswerTIDListFrom) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.TidList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2164,7 +2164,7 @@ func (p *AnswerTIDListFrom) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerTIDListFrom) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerTIDListFrom) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -2191,19 +2191,19 @@ overflow:
 
 // 57. TransactionInformation
 
-func (_ *TransactionInformation) NEOPktMsgCode() uint16 {
+func (_ *TransactionInformation) NEOMsgCode() uint16 {
 	return 57
 }
 
-func (p *TransactionInformation) NEOPktEncodedLen() int {
+func (p *TransactionInformation) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *TransactionInformation) NEOPktEncode(data []byte) {
+func (p *TransactionInformation) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *TransactionInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *TransactionInformation) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -2216,15 +2216,15 @@ overflow:
 
 // 58. AnswerTransactionInformation
 
-func (_ *AnswerTransactionInformation) NEOPktMsgCode() uint16 {
+func (_ *AnswerTransactionInformation) NEOMsgCode() uint16 {
 	return 58
 }
 
-func (p *AnswerTransactionInformation) NEOPktEncodedLen() int {
+func (p *AnswerTransactionInformation) NEOMsgEncodedLen() int {
 	return 25 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
 }
 
-func (p *AnswerTransactionInformation) NEOPktEncode(data []byte) {
+func (p *AnswerTransactionInformation) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	{
 		l := uint32(len(p.User))
@@ -2260,7 +2260,7 @@ func (p *AnswerTransactionInformation) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerTransactionInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerTransactionInformation) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -2319,21 +2319,21 @@ overflow:
 
 // 59. ObjectHistory
 
-func (_ *ObjectHistory) NEOPktMsgCode() uint16 {
+func (_ *ObjectHistory) NEOMsgCode() uint16 {
 	return 59
 }
 
-func (p *ObjectHistory) NEOPktEncodedLen() int {
+func (p *ObjectHistory) NEOMsgEncodedLen() int {
 	return 24
 }
 
-func (p *ObjectHistory) NEOPktEncode(data []byte) {
+func (p *ObjectHistory) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[8:], p.First)
 	binary.BigEndian.PutUint64(data[16:], p.Last)
 }
 
-func (p *ObjectHistory) NEOPktDecode(data []byte) (int, error) {
+func (p *ObjectHistory) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
@@ -2348,15 +2348,15 @@ overflow:
 
 // 60. AnswerObjectHistory
 
-func (_ *AnswerObjectHistory) NEOPktMsgCode() uint16 {
+func (_ *AnswerObjectHistory) NEOMsgCode() uint16 {
 	return 60
 }
 
-func (p *AnswerObjectHistory) NEOPktEncodedLen() int {
+func (p *AnswerObjectHistory) NEOMsgEncodedLen() int {
 	return 12 + len(p.HistoryList)*12
 }
 
-func (p *AnswerObjectHistory) NEOPktEncode(data []byte) {
+func (p *AnswerObjectHistory) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	{
 		l := uint32(len(p.HistoryList))
@@ -2371,7 +2371,7 @@ func (p *AnswerObjectHistory) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerObjectHistory) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerObjectHistory) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -2403,21 +2403,21 @@ overflow:
 
 // 61. PartitionList
 
-func (_ *PartitionList) NEOPktMsgCode() uint16 {
+func (_ *PartitionList) NEOMsgCode() uint16 {
 	return 61
 }
 
-func (p *PartitionList) NEOPktEncodedLen() int {
+func (p *PartitionList) NEOMsgEncodedLen() int {
 	return 12
 }
 
-func (p *PartitionList) NEOPktEncode(data []byte) {
+func (p *PartitionList) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.MinOffset)
 	binary.BigEndian.PutUint32(data[4:], p.MaxOffset)
 	binary.BigEndian.PutUint32(data[8:], uint32(int32(p.NodeUUID)))
 }
 
-func (p *PartitionList) NEOPktDecode(data []byte) (int, error) {
+func (p *PartitionList) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 12 {
 		goto overflow
 	}
@@ -2432,11 +2432,11 @@ overflow:
 
 // 62. AnswerPartitionList
 
-func (_ *AnswerPartitionList) NEOPktMsgCode() uint16 {
+func (_ *AnswerPartitionList) NEOMsgCode() uint16 {
 	return 62
 }
 
-func (p *AnswerPartitionList) NEOPktEncodedLen() int {
+func (p *AnswerPartitionList) NEOMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -2445,7 +2445,7 @@ func (p *AnswerPartitionList) NEOPktEncodedLen() int {
 	return 12 + len(p.RowList)*8 + size
 }
 
-func (p *AnswerPartitionList) NEOPktEncode(data []byte) {
+func (p *AnswerPartitionList) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	{
 		l := uint32(len(p.RowList))
@@ -2470,7 +2470,7 @@ func (p *AnswerPartitionList) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerPartitionList) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerPartitionList) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -2512,19 +2512,19 @@ overflow:
 
 // 63. NodeList
 
-func (_ *NodeList) NEOPktMsgCode() uint16 {
+func (_ *NodeList) NEOMsgCode() uint16 {
 	return 63
 }
 
-func (p *NodeList) NEOPktEncodedLen() int {
+func (p *NodeList) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *NodeList) NEOPktEncode(data []byte) {
+func (p *NodeList) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
 }
 
-func (p *NodeList) NEOPktDecode(data []byte) (int, error) {
+func (p *NodeList) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -2537,11 +2537,11 @@ overflow:
 
 // 64. AnswerNodeList
 
-func (_ *AnswerNodeList) NEOPktMsgCode() uint16 {
+func (_ *AnswerNodeList) NEOMsgCode() uint16 {
 	return 64
 }
 
-func (p *AnswerNodeList) NEOPktEncodedLen() int {
+func (p *AnswerNodeList) NEOMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
@@ -2550,7 +2550,7 @@ func (p *AnswerNodeList) NEOPktEncodedLen() int {
 	return 4 + len(p.NodeList)*26 + size
 }
 
-func (p *AnswerNodeList) NEOPktEncode(data []byte) {
+func (p *AnswerNodeList) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2574,7 +2574,7 @@ func (p *AnswerNodeList) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerNodeList) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerNodeList) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -2615,20 +2615,20 @@ overflow:
 
 // 65. SetNodeState
 
-func (_ *SetNodeState) NEOPktMsgCode() uint16 {
+func (_ *SetNodeState) NEOMsgCode() uint16 {
 	return 65
 }
 
-func (p *SetNodeState) NEOPktEncodedLen() int {
+func (p *SetNodeState) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *SetNodeState) NEOPktEncode(data []byte) {
+func (p *SetNodeState) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeUUID)))
 	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.NodeState)))
 }
 
-func (p *SetNodeState) NEOPktDecode(data []byte) (int, error) {
+func (p *SetNodeState) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -2642,15 +2642,15 @@ overflow:
 
 // 66. AddPendingNodes
 
-func (_ *AddPendingNodes) NEOPktMsgCode() uint16 {
+func (_ *AddPendingNodes) NEOMsgCode() uint16 {
 	return 66
 }
 
-func (p *AddPendingNodes) NEOPktEncodedLen() int {
+func (p *AddPendingNodes) NEOMsgEncodedLen() int {
 	return 4 + len(p.NodeList)*4
 }
 
-func (p *AddPendingNodes) NEOPktEncode(data []byte) {
+func (p *AddPendingNodes) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2663,7 +2663,7 @@ func (p *AddPendingNodes) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AddPendingNodes) NEOPktDecode(data []byte) (int, error) {
+func (p *AddPendingNodes) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -2690,15 +2690,15 @@ overflow:
 
 // 67. TweakPartitionTable
 
-func (_ *TweakPartitionTable) NEOPktMsgCode() uint16 {
+func (_ *TweakPartitionTable) NEOMsgCode() uint16 {
 	return 67
 }
 
-func (p *TweakPartitionTable) NEOPktEncodedLen() int {
+func (p *TweakPartitionTable) NEOMsgEncodedLen() int {
 	return 4 + len(p.NodeList)*4
 }
 
-func (p *TweakPartitionTable) NEOPktEncode(data []byte) {
+func (p *TweakPartitionTable) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2711,7 +2711,7 @@ func (p *TweakPartitionTable) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *TweakPartitionTable) NEOPktDecode(data []byte) (int, error) {
+func (p *TweakPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -2738,11 +2738,11 @@ overflow:
 
 // 68. NotifyNodeInformation
 
-func (_ *NotifyNodeInformation) NEOPktMsgCode() uint16 {
+func (_ *NotifyNodeInformation) NEOMsgCode() uint16 {
 	return 68
 }
 
-func (p *NotifyNodeInformation) NEOPktEncodedLen() int {
+func (p *NotifyNodeInformation) NEOMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
@@ -2751,7 +2751,7 @@ func (p *NotifyNodeInformation) NEOPktEncodedLen() int {
 	return 12 + len(p.NodeList)*26 + size
 }
 
-func (p *NotifyNodeInformation) NEOPktEncode(data []byte) {
+func (p *NotifyNodeInformation) NEOMsgEncode(data []byte) {
 	float64_NEOEncode(data[0:], p.IdTimestamp)
 	{
 		l := uint32(len(p.NodeList))
@@ -2776,7 +2776,7 @@ func (p *NotifyNodeInformation) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *NotifyNodeInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *NotifyNodeInformation) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -2818,36 +2818,36 @@ overflow:
 
 // 69. NodeInformation
 
-func (_ *NodeInformation) NEOPktMsgCode() uint16 {
+func (_ *NodeInformation) NEOMsgCode() uint16 {
 	return 69
 }
 
-func (p *NodeInformation) NEOPktEncodedLen() int {
+func (p *NodeInformation) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *NodeInformation) NEOPktEncode(data []byte) {
+func (p *NodeInformation) NEOMsgEncode(data []byte) {
 }
 
-func (p *NodeInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *NodeInformation) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 70. SetClusterState
 
-func (_ *SetClusterState) NEOPktMsgCode() uint16 {
+func (_ *SetClusterState) NEOMsgCode() uint16 {
 	return 70
 }
 
-func (p *SetClusterState) NEOPktEncodedLen() int {
+func (p *SetClusterState) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *SetClusterState) NEOPktEncode(data []byte) {
+func (p *SetClusterState) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.State)))
 }
 
-func (p *SetClusterState) NEOPktDecode(data []byte) (int, error) {
+func (p *SetClusterState) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -2860,19 +2860,19 @@ overflow:
 
 // 71. repairFlags
 
-func (_ *repairFlags) NEOPktMsgCode() uint16 {
+func (_ *repairFlags) NEOMsgCode() uint16 {
 	return 71
 }
 
-func (p *repairFlags) NEOPktEncodedLen() int {
+func (p *repairFlags) NEOMsgEncodedLen() int {
 	return 1
 }
 
-func (p *repairFlags) NEOPktEncode(data []byte) {
+func (p *repairFlags) NEOMsgEncode(data []byte) {
 	(data[0:])[0] = bool2byte(p.DryRun)
 }
 
-func (p *repairFlags) NEOPktDecode(data []byte) (int, error) {
+func (p *repairFlags) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 1 {
 		goto overflow
 	}
@@ -2885,15 +2885,15 @@ overflow:
 
 // 72. Repair
 
-func (_ *Repair) NEOPktMsgCode() uint16 {
+func (_ *Repair) NEOMsgCode() uint16 {
 	return 72
 }
 
-func (p *Repair) NEOPktEncodedLen() int {
+func (p *Repair) NEOMsgEncodedLen() int {
 	return 5 + len(p.NodeList)*4
 }
 
-func (p *Repair) NEOPktEncode(data []byte) {
+func (p *Repair) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.NodeList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2907,7 +2907,7 @@ func (p *Repair) NEOPktEncode(data []byte) {
 	(data[0:])[0] = bool2byte(p.repairFlags.DryRun)
 }
 
-func (p *Repair) NEOPktDecode(data []byte) (int, error) {
+func (p *Repair) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -2935,19 +2935,19 @@ overflow:
 
 // 73. RepairOne
 
-func (_ *RepairOne) NEOPktMsgCode() uint16 {
+func (_ *RepairOne) NEOMsgCode() uint16 {
 	return 73
 }
 
-func (p *RepairOne) NEOPktEncodedLen() int {
+func (p *RepairOne) NEOMsgEncodedLen() int {
 	return 1
 }
 
-func (p *RepairOne) NEOPktEncode(data []byte) {
+func (p *RepairOne) NEOMsgEncode(data []byte) {
 	(data[0:])[0] = bool2byte(p.repairFlags.DryRun)
 }
 
-func (p *RepairOne) NEOPktDecode(data []byte) (int, error) {
+func (p *RepairOne) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 1 {
 		goto overflow
 	}
@@ -2960,19 +2960,19 @@ overflow:
 
 // 74. ClusterInformation
 
-func (_ *ClusterInformation) NEOPktMsgCode() uint16 {
+func (_ *ClusterInformation) NEOMsgCode() uint16 {
 	return 74
 }
 
-func (p *ClusterInformation) NEOPktEncodedLen() int {
+func (p *ClusterInformation) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *ClusterInformation) NEOPktEncode(data []byte) {
+func (p *ClusterInformation) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.State)))
 }
 
-func (p *ClusterInformation) NEOPktDecode(data []byte) (int, error) {
+func (p *ClusterInformation) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -2985,19 +2985,19 @@ overflow:
 
 // 75. X_ClusterState
 
-func (_ *X_ClusterState) NEOPktMsgCode() uint16 {
+func (_ *X_ClusterState) NEOMsgCode() uint16 {
 	return 75
 }
 
-func (p *X_ClusterState) NEOPktEncodedLen() int {
+func (p *X_ClusterState) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *X_ClusterState) NEOPktEncode(data []byte) {
+func (p *X_ClusterState) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.State)))
 }
 
-func (p *X_ClusterState) NEOPktDecode(data []byte) (int, error) {
+func (p *X_ClusterState) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -3010,15 +3010,15 @@ overflow:
 
 // 76. ObjectUndoSerial
 
-func (_ *ObjectUndoSerial) NEOPktMsgCode() uint16 {
+func (_ *ObjectUndoSerial) NEOMsgCode() uint16 {
 	return 76
 }
 
-func (p *ObjectUndoSerial) NEOPktEncodedLen() int {
+func (p *ObjectUndoSerial) NEOMsgEncodedLen() int {
 	return 28 + len(p.OidList)*8
 }
 
-func (p *ObjectUndoSerial) NEOPktEncode(data []byte) {
+func (p *ObjectUndoSerial) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.LTID))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.UndoneTID))
@@ -3034,7 +3034,7 @@ func (p *ObjectUndoSerial) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *ObjectUndoSerial) NEOPktDecode(data []byte) (int, error) {
+func (p *ObjectUndoSerial) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 28 {
 		goto overflow
@@ -3064,15 +3064,15 @@ overflow:
 
 // 77. AnswerObjectUndoSerial
 
-func (_ *AnswerObjectUndoSerial) NEOPktMsgCode() uint16 {
+func (_ *AnswerObjectUndoSerial) NEOMsgCode() uint16 {
 	return 77
 }
 
-func (p *AnswerObjectUndoSerial) NEOPktEncodedLen() int {
+func (p *AnswerObjectUndoSerial) NEOMsgEncodedLen() int {
 	return 4 + len(p.ObjectTIDDict)*25
 }
 
-func (p *AnswerObjectUndoSerial) NEOPktEncode(data []byte) {
+func (p *AnswerObjectUndoSerial) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.ObjectTIDDict))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -3092,7 +3092,7 @@ func (p *AnswerObjectUndoSerial) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *AnswerObjectUndoSerial) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerObjectUndoSerial) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -3132,21 +3132,21 @@ overflow:
 
 // 78. CheckCurrentSerial
 
-func (_ *CheckCurrentSerial) NEOPktMsgCode() uint16 {
+func (_ *CheckCurrentSerial) NEOMsgCode() uint16 {
 	return 78
 }
 
-func (p *CheckCurrentSerial) NEOPktEncodedLen() int {
+func (p *CheckCurrentSerial) NEOMsgEncodedLen() int {
 	return 24
 }
 
-func (p *CheckCurrentSerial) NEOPktEncode(data []byte) {
+func (p *CheckCurrentSerial) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.Serial))
 }
 
-func (p *CheckCurrentSerial) NEOPktDecode(data []byte) (int, error) {
+func (p *CheckCurrentSerial) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
@@ -3161,19 +3161,19 @@ overflow:
 
 // 79. Pack
 
-func (_ *Pack) NEOPktMsgCode() uint16 {
+func (_ *Pack) NEOMsgCode() uint16 {
 	return 79
 }
 
-func (p *Pack) NEOPktEncodedLen() int {
+func (p *Pack) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *Pack) NEOPktEncode(data []byte) {
+func (p *Pack) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *Pack) NEOPktDecode(data []byte) (int, error) {
+func (p *Pack) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -3186,19 +3186,19 @@ overflow:
 
 // 80. AnswerPack
 
-func (_ *AnswerPack) NEOPktMsgCode() uint16 {
+func (_ *AnswerPack) NEOMsgCode() uint16 {
 	return 80
 }
 
-func (p *AnswerPack) NEOPktEncodedLen() int {
+func (p *AnswerPack) NEOMsgEncodedLen() int {
 	return 1
 }
 
-func (p *AnswerPack) NEOPktEncode(data []byte) {
+func (p *AnswerPack) NEOMsgEncode(data []byte) {
 	(data[0:])[0] = bool2byte(p.Status)
 }
 
-func (p *AnswerPack) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerPack) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 1 {
 		goto overflow
 	}
@@ -3211,15 +3211,15 @@ overflow:
 
 // 81. CheckReplicas
 
-func (_ *CheckReplicas) NEOPktMsgCode() uint16 {
+func (_ *CheckReplicas) NEOMsgCode() uint16 {
 	return 81
 }
 
-func (p *CheckReplicas) NEOPktEncodedLen() int {
+func (p *CheckReplicas) NEOMsgEncodedLen() int {
 	return 20 + len(p.PartitionDict)*8
 }
 
-func (p *CheckReplicas) NEOPktEncode(data []byte) {
+func (p *CheckReplicas) NEOMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.PartitionDict))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -3239,7 +3239,7 @@ func (p *CheckReplicas) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
 }
 
-func (p *CheckReplicas) NEOPktDecode(data []byte) (int, error) {
+func (p *CheckReplicas) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -3269,15 +3269,15 @@ overflow:
 
 // 82. CheckPartition
 
-func (_ *CheckPartition) NEOPktMsgCode() uint16 {
+func (_ *CheckPartition) NEOMsgCode() uint16 {
 	return 82
 }
 
-func (p *CheckPartition) NEOPktEncodedLen() int {
+func (p *CheckPartition) NEOMsgEncodedLen() int {
 	return 30 + len(p.Source.UpstreamName) + len(p.Source.Address.Host)
 }
 
-func (p *CheckPartition) NEOPktEncode(data []byte) {
+func (p *CheckPartition) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Partition)
 	{
 		l := uint32(len(p.Source.UpstreamName))
@@ -3298,7 +3298,7 @@ func (p *CheckPartition) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[10:], uint64(p.MaxTID))
 }
 
-func (p *CheckPartition) NEOPktDecode(data []byte) (int, error) {
+func (p *CheckPartition) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 8 {
 		goto overflow
@@ -3335,22 +3335,22 @@ overflow:
 
 // 83. CheckTIDRange
 
-func (_ *CheckTIDRange) NEOPktMsgCode() uint16 {
+func (_ *CheckTIDRange) NEOMsgCode() uint16 {
 	return 83
 }
 
-func (p *CheckTIDRange) NEOPktEncodedLen() int {
+func (p *CheckTIDRange) NEOMsgEncodedLen() int {
 	return 24
 }
 
-func (p *CheckTIDRange) NEOPktEncode(data []byte) {
+func (p *CheckTIDRange) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Partition)
 	binary.BigEndian.PutUint32(data[4:], p.Length)
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MinTID))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.MaxTID))
 }
 
-func (p *CheckTIDRange) NEOPktDecode(data []byte) (int, error) {
+func (p *CheckTIDRange) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
@@ -3366,21 +3366,21 @@ overflow:
 
 // 84. AnswerCheckTIDRange
 
-func (_ *AnswerCheckTIDRange) NEOPktMsgCode() uint16 {
+func (_ *AnswerCheckTIDRange) NEOMsgCode() uint16 {
 	return 84
 }
 
-func (p *AnswerCheckTIDRange) NEOPktEncodedLen() int {
+func (p *AnswerCheckTIDRange) NEOMsgEncodedLen() int {
 	return 32
 }
 
-func (p *AnswerCheckTIDRange) NEOPktEncode(data []byte) {
+func (p *AnswerCheckTIDRange) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Count)
 	copy(data[4:], p.Checksum[:])
 	binary.BigEndian.PutUint64(data[24:], uint64(p.MaxTID))
 }
 
-func (p *AnswerCheckTIDRange) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerCheckTIDRange) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 32 {
 		goto overflow
 	}
@@ -3395,15 +3395,15 @@ overflow:
 
 // 85. CheckSerialRange
 
-func (_ *CheckSerialRange) NEOPktMsgCode() uint16 {
+func (_ *CheckSerialRange) NEOMsgCode() uint16 {
 	return 85
 }
 
-func (p *CheckSerialRange) NEOPktEncodedLen() int {
+func (p *CheckSerialRange) NEOMsgEncodedLen() int {
 	return 32
 }
 
-func (p *CheckSerialRange) NEOPktEncode(data []byte) {
+func (p *CheckSerialRange) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Partition)
 	binary.BigEndian.PutUint32(data[4:], p.Length)
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MinTID))
@@ -3411,7 +3411,7 @@ func (p *CheckSerialRange) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[24:], uint64(p.MinOID))
 }
 
-func (p *CheckSerialRange) NEOPktDecode(data []byte) (int, error) {
+func (p *CheckSerialRange) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 32 {
 		goto overflow
 	}
@@ -3428,15 +3428,15 @@ overflow:
 
 // 86. AnswerCheckSerialRange
 
-func (_ *AnswerCheckSerialRange) NEOPktMsgCode() uint16 {
+func (_ *AnswerCheckSerialRange) NEOMsgCode() uint16 {
 	return 86
 }
 
-func (p *AnswerCheckSerialRange) NEOPktEncodedLen() int {
+func (p *AnswerCheckSerialRange) NEOMsgEncodedLen() int {
 	return 60
 }
 
-func (p *AnswerCheckSerialRange) NEOPktEncode(data []byte) {
+func (p *AnswerCheckSerialRange) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Count)
 	copy(data[4:], p.TidChecksum[:])
 	binary.BigEndian.PutUint64(data[24:], uint64(p.MaxTID))
@@ -3444,7 +3444,7 @@ func (p *AnswerCheckSerialRange) NEOPktEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[52:], uint64(p.MaxOID))
 }
 
-func (p *AnswerCheckSerialRange) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerCheckSerialRange) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 60 {
 		goto overflow
 	}
@@ -3461,15 +3461,15 @@ overflow:
 
 // 87. PartitionCorrupted
 
-func (_ *PartitionCorrupted) NEOPktMsgCode() uint16 {
+func (_ *PartitionCorrupted) NEOMsgCode() uint16 {
 	return 87
 }
 
-func (p *PartitionCorrupted) NEOPktEncodedLen() int {
+func (p *PartitionCorrupted) NEOMsgEncodedLen() int {
 	return 8 + len(p.CellList)*4
 }
 
-func (p *PartitionCorrupted) NEOPktEncode(data []byte) {
+func (p *PartitionCorrupted) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], p.Partition)
 	{
 		l := uint32(len(p.CellList))
@@ -3483,7 +3483,7 @@ func (p *PartitionCorrupted) NEOPktEncode(data []byte) {
 	}
 }
 
-func (p *PartitionCorrupted) NEOPktDecode(data []byte) (int, error) {
+func (p *PartitionCorrupted) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 8 {
 		goto overflow
@@ -3511,36 +3511,36 @@ overflow:
 
 // 88. LastTransaction
 
-func (_ *LastTransaction) NEOPktMsgCode() uint16 {
+func (_ *LastTransaction) NEOMsgCode() uint16 {
 	return 88
 }
 
-func (p *LastTransaction) NEOPktEncodedLen() int {
+func (p *LastTransaction) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *LastTransaction) NEOPktEncode(data []byte) {
+func (p *LastTransaction) NEOMsgEncode(data []byte) {
 }
 
-func (p *LastTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *LastTransaction) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
 // 89. AnswerLastTransaction
 
-func (_ *AnswerLastTransaction) NEOPktMsgCode() uint16 {
+func (_ *AnswerLastTransaction) NEOMsgCode() uint16 {
 	return 89
 }
 
-func (p *AnswerLastTransaction) NEOPktEncodedLen() int {
+func (p *AnswerLastTransaction) NEOMsgEncodedLen() int {
 	return 8
 }
 
-func (p *AnswerLastTransaction) NEOPktEncode(data []byte) {
+func (p *AnswerLastTransaction) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
 }
 
-func (p *AnswerLastTransaction) NEOPktDecode(data []byte) (int, error) {
+func (p *AnswerLastTransaction) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -3553,23 +3553,23 @@ overflow:
 
 // 90. NotifyReady
 
-func (_ *NotifyReady) NEOPktMsgCode() uint16 {
+func (_ *NotifyReady) NEOMsgCode() uint16 {
 	return 90
 }
 
-func (p *NotifyReady) NEOPktEncodedLen() int {
+func (p *NotifyReady) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *NotifyReady) NEOPktEncode(data []byte) {
+func (p *NotifyReady) NEOMsgEncode(data []byte) {
 }
 
-func (p *NotifyReady) NEOPktDecode(data []byte) (int, error) {
+func (p *NotifyReady) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// registry of packet types
-var pktTypeRegistry = map[uint16]reflect.Type{
+// registry of message types
+var msgTypeRegistry = map[uint16]reflect.Type{
 	0:  reflect.TypeOf(Address{}),
 	1:  reflect.TypeOf(NodeInfo{}),
 	2:  reflect.TypeOf(CellInfo{}),

@@ -64,7 +64,7 @@ type Master struct {
 type nodeCome struct {
 	link   *neo.NodeLink
 	idReq  neo.RequestIdentification // we received this identification request
-	idResp chan neo.Pkt              // what we reply (AcceptIdentification | Error)
+	idResp chan neo.Msg              // what we reply (AcceptIdentification | Error)
 }
 
 // node disconnects
@@ -701,7 +701,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}
 
 	// convey identification request to master
-	idRespCh := make(chan neo.Pkt)
+	idRespCh := make(chan neo.Msg)
 	m.nodeCome <- nodeCome{link, idReq, idRespCh}
 	idResp := <-idRespCh
 
@@ -757,7 +757,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	m.stateMu.Unlock()
 
 	go func() {
-		var pkt neo.Pkt
+		var msg neo.Msg
 
 		for {
 			select {
@@ -767,7 +767,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 				return
 
 			case nodeUpdateV := <-nodeCh:
-				pkt = &neo.NotifyNodeInformation{
+				msg = &neo.NotifyNodeInformation{
 					IdTimestamp: math.NaN(),	// XXX
 					NodeList:    nodeUpdateV,
 				}
@@ -776,7 +776,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 			//	changed = true
 			}
 
-			err = neo.EncodeAndSend(connNotify, pkt)
+			err = neo.EncodeAndSend(connNotify, msg)
 			if err != nil {
 				// XXX err
 			}

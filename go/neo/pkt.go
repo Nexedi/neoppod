@@ -26,6 +26,8 @@ import (
 // TODO organize rx buffers management (freelist etc)
 
 // PktBuf is a buffer with full raw packet (header + data)
+//
+// variables of type PktBuf are usually named "pkb" (packet buffer), similar to "skb" in Linux
 type PktBuf struct {
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
@@ -61,7 +63,7 @@ func (pkt *PktBuf) String() string {
 	s := fmt.Sprintf(".%d", ntoh32(h.ConnId))
 
 	msgCode := ntoh16(h.MsgCode)
-	msgType := pktTypeRegistry[msgCode]
+	msgType := msgTypeRegistry[msgCode]
 	if msgType == nil {
 		s += fmt.Sprintf(" ? (%d)", msgCode)
 	} else {

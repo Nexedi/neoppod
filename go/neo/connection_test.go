@@ -72,24 +72,13 @@ func xaccept(nl *NodeLink) *Conn {
 	return c
 }
 
-func xsend(c *Conn, pkt *PktBuf) {
-	err := c.Send(pkt)
+func xsendPkt(c interface { sendPkt(*PktBuf) error }, pkt *PktBuf) {
+	err := c.sendPkt(pkt)
 	exc.Raiseif(err)
 }
 
-func xrecv(c *Conn) *PktBuf {
-	pkt, err := c.Recv()
-	exc.Raiseif(err)
-	return pkt
-}
-
-func xsendPkt(nl *NodeLink, pkt *PktBuf) {
-	err := nl.sendPkt(pkt)
-	exc.Raiseif(err)
-}
-
-func xrecvPkt(nl *NodeLink) *PktBuf {
-	pkt, err := nl.recvPkt()
+func xrecvPkt(c interface { recvPkt() (*PktBuf, error) }) *PktBuf {
+	pkt, err := c.recvPkt()
 	exc.Raiseif(err)
 	return pkt
 }
@@ -134,7 +123,7 @@ func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 }
 
 func mkpkt(msgcode uint16, payload []byte) *PktBuf {
-	// in Conn exchange connid is automatically set by Conn.Send
+	// in Conn exchange connid is automatically set by Conn.sendPkt
 	return _mkpkt(0, msgcode, payload)
 }
 
@@ -300,7 +289,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Test connections on top of nodelink
 
-	// Close vs Recv
+	// Close vs recvPkt
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c = xnewconn(nl1)
 	wg = WorkGroup()
@@ -308,15 +297,15 @@ func TestNodeLink(t *testing.T) {
 		tdelay()
 		xclose(c)
 	})
-	pkt, err = c.Recv()
+	pkt, err = c.recvPkt()
 	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
-		t.Fatalf("Conn.Recv() after close: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.recvPkt() after close: pkt = %v  err = %v", pkt, err)
 	}
 	xwait(wg)
 	xclose(nl1)
 	xclose(nl2)
 
-	// Close vs Send
+	// Close vs sendPkt
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c = xnewconn(nl1)
 	wg = WorkGroup()
@@ -325,27 +314,27 @@ func TestNodeLink(t *testing.T) {
 		xclose(c)
 	})
 	pkt = &PktBuf{[]byte("data")}
-	err = c.Send(pkt)
+	err = c.sendPkt(pkt)
 	if xconnError(err) != ErrClosedConn {
-		t.Fatalf("Conn.Send() after close: err = %v", err)
+		t.Fatalf("Conn.sendPkt() after close: err = %v", err)
 	}
 	xwait(wg)
 
-	// NodeLink.Close vs Conn.Send/Recv
+	// NodeLink.Close vs Conn.sendPkt/recvPkt
 	c11 := xnewconn(nl1)
 	c12 := xnewconn(nl1)
 	wg = WorkGroup()
 	wg.Gox(func() {
-		pkt, err := c11.Recv()
+		pkt, err := c11.recvPkt()
 		if !(pkt == nil && xconnError(err) == ErrLinkClosed) {
-			exc.Raisef("Conn.Recv() after NodeLink close: pkt = %v  err = %v", pkt, err)
+			exc.Raisef("Conn.recvPkt() after NodeLink close: pkt = %v  err = %v", pkt, err)
 		}
 	})
 	wg.Gox(func() {
 		pkt := &PktBuf{[]byte("data")}
-		err := c12.Send(pkt)
+		err := c12.sendPkt(pkt)
 		if xconnError(err) != ErrLinkClosed {
-			exc.Raisef("Conn.Send() after NodeLink close: err = %v", err)
+			exc.Raisef("Conn.sendPkt() after NodeLink close: err = %v", err)
 		}
 	})
 	tdelay()
@@ -355,7 +344,7 @@ func TestNodeLink(t *testing.T) {
 	xclose(c12)
 	xclose(nl2)
 
-	// NodeLink.Close vs Conn.Send/Recv and Accept on another side
+	// NodeLink.Close vs Conn.sendPkt/recvPkt and Accept on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, 0)
 	c21 := xnewconn(nl2)
 	c22 := xnewconn(nl2)
@@ -363,22 +352,22 @@ func TestNodeLink(t *testing.T) {
 	wg = WorkGroup()
 	var errRecv error
 	wg.Gox(func() {
-		pkt, err := c21.Recv()
+		pkt, err := c21.recvPkt()
 		want1 := io.EOF		  // if recvPkt wakes up due to peer close
 		want2 := io.ErrClosedPipe // if recvPkt wakes up due to sendPkt wakes up first and closes nl1
 		cerr := xconnError(err)
 		if !(pkt == nil && (cerr == want1 || cerr == want2)) {
-			exc.Raisef("Conn.Recv after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
+			exc.Raisef("Conn.recvPkt after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 		}
 
 		errRecv = cerr
 	})
 	wg.Gox(func() {
 		pkt := &PktBuf{[]byte("data")}
-		err := c22.Send(pkt)
+		err := c22.sendPkt(pkt)
 		want := io.ErrClosedPipe // always this in both due to peer close or recvPkt waking up and closing nl2
 		if xconnError(err) != want {
-			exc.Raisef("Conn.Send after peer NodeLink shutdown: %v", err)
+			exc.Raisef("Conn.sendPkt after peer NodeLink shutdown: %v", err)
 		}
 
 	})
@@ -406,46 +395,46 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Accept after NodeLink shutdown: conn = %v  err = %v", c, err)
 	}
 
-	// Recv/Send on another Conn
-	pkt, err = c23.Recv()
+	// recvPkt/sendPkt on another Conn
+	pkt, err = c23.recvPkt()
 	if !(pkt == nil && xconnError(err) == errRecv) {
-		t.Fatalf("Conn.Recv 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.recvPkt 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
-	err = c23.Send(&PktBuf{[]byte("data")})
+	err = c23.sendPkt(&PktBuf{[]byte("data")})
 	if xconnError(err) != ErrLinkDown {
-		t.Fatalf("Conn.Send 2 after peer NodeLink shutdown: %v", err)
+		t.Fatalf("Conn.sendPkt 2 after peer NodeLink shutdown: %v", err)
 	}
 
-	// Recv/Send error on second call
-	pkt, err = c21.Recv()
+	// recvPkt/sendPkt error on second call
+	pkt, err = c21.recvPkt()
 	if !(pkt == nil && xconnError(err) == ErrLinkDown) {
-		t.Fatalf("Conn.Recv after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.recvPkt after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
-	err = c22.Send(&PktBuf{[]byte("data")})
+	err = c22.sendPkt(&PktBuf{[]byte("data")})
 	if xconnError(err) != ErrLinkDown {
-		t.Fatalf("Conn.Send after NodeLink shutdown: %v", err)
+		t.Fatalf("Conn.sendPkt after NodeLink shutdown: %v", err)
 	}
 
 	xclose(c23)
-	// Recv/Send on closed Conn but not closed NodeLink
-	pkt, err = c23.Recv()
+	// recvPkt/sendPkt on closed Conn but not closed NodeLink
+	pkt, err = c23.recvPkt()
 	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
-		t.Fatalf("Conn.Recv after close but only stopped NodeLink: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.recvPkt after close but only stopped NodeLink: pkt = %v  err = %v", pkt, err)
 	}
-	err = c23.Send(&PktBuf{[]byte("data")})
+	err = c23.sendPkt(&PktBuf{[]byte("data")})
 	if xconnError(err) != ErrClosedConn {
-		t.Fatalf("Conn.Send after close but only stopped NodeLink: %v", err)
+		t.Fatalf("Conn.sendPkt after close but only stopped NodeLink: %v", err)
 	}
 
 	xclose(nl2)
-	// Recv/Send NewConn/Accept error after NodeLink close
-	pkt, err = c21.Recv()
+	// recvPkt/sendPkt NewConn/Accept error after NodeLink close
+	pkt, err = c21.recvPkt()
 	if !(pkt == nil && xconnError(err) == ErrLinkClosed) {
-		t.Fatalf("Conn.Recv after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.recvPkt after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
-	err = c22.Send(&PktBuf{[]byte("data")})
+	err = c22.sendPkt(&PktBuf{[]byte("data")})
 	if xconnError(err) != ErrLinkClosed {
-		t.Fatalf("Conn.Send after NodeLink shutdown: %v", err)
+		t.Fatalf("Conn.sendPkt after NodeLink shutdown: %v", err)
 	}
 
 	c, err = nl2.NewConn()
@@ -460,14 +449,14 @@ func TestNodeLink(t *testing.T) {
 
 	xclose(c21)
 	xclose(c22)
-	// Recv/Send error after Close & NodeLink shutdown
-	pkt, err = c21.Recv()
+	// recvPkt/sendPkt error after Close & NodeLink shutdown
+	pkt, err = c21.recvPkt()
 	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
-		t.Fatalf("Conn.Recv after close and NodeLink close: pkt = %v  err = %v", pkt, err)
+		t.Fatalf("Conn.recvPkt after close and NodeLink close: pkt = %v  err = %v", pkt, err)
 	}
-	err = c22.Send(&PktBuf{[]byte("data")})
+	err = c22.sendPkt(&PktBuf{[]byte("data")})
 	if xconnError(err) != ErrClosedConn {
-		t.Fatalf("Conn.Send after close and NodeLink close: %v", err)
+		t.Fatalf("Conn.sendPkt after close and NodeLink close: %v", err)
 	}
 
 
@@ -477,25 +466,25 @@ func TestNodeLink(t *testing.T) {
 	wg.Gox(func() {
 		c := xaccept(nl2)
 
-		pkt := xrecv(c)
+		pkt := xrecvPkt(c)
 		xverifyPkt(pkt, c.connId, 33, []byte("ping"))
 
 		// change pkt a bit and send it back
-		xsend(c, mkpkt(34, []byte("pong")))
+		xsendPkt(c, mkpkt(34, []byte("pong")))
 
 		// one more time
-		pkt = xrecv(c)
+		pkt = xrecvPkt(c)
 		xverifyPkt(pkt, c.connId, 35, []byte("ping2"))
-		xsend(c, mkpkt(36, []byte("pong2")))
+		xsendPkt(c, mkpkt(36, []byte("pong2")))
 
 		xclose(c)
 	})
 	c = xnewconn(nl1)
-	xsend(c, mkpkt(33, []byte("ping")))
-	pkt = xrecv(c)
+	xsendPkt(c, mkpkt(33, []byte("ping")))
+	pkt = xrecvPkt(c)
 	xverifyPkt(pkt, c.connId, 34, []byte("pong"))
-	xsend(c, mkpkt(35, []byte("ping2")))
-	pkt = xrecv(c)
+	xsendPkt(c, mkpkt(35, []byte("ping2")))
+	pkt = xrecvPkt(c)
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
 	xwait(wg)
 
@@ -520,13 +509,13 @@ func TestNodeLink(t *testing.T) {
 			c := xaccept(nl2)
 
 			wg.Gox(func() {
-				pkt := xrecv(c)
+				pkt := xrecvPkt(c)
 				n := ntoh16(pkt.Header().MsgCode)
 				x := replyOrder[n]
 
 				// wait before it is our turn & echo pkt back
 				<-x.start
-				xsend(c, pkt)
+				xsendPkt(c, pkt)
 
 				xclose(c)
 
@@ -540,12 +529,12 @@ func TestNodeLink(t *testing.T) {
 
 	c1 := xnewconn(nl1)
 	c2 := xnewconn(nl1)
-	xsend(c1, mkpkt(1, []byte("")))
-	xsend(c2, mkpkt(2, []byte("")))
+	xsendPkt(c1, mkpkt(1, []byte("")))
+	xsendPkt(c2, mkpkt(2, []byte("")))
 
 	// replies must be coming in reverse order
 	xechoWait := func(c *Conn, msgCode uint16) {
-		pkt := xrecv(c)
+		pkt := xrecvPkt(c)
 		xverifyPkt(pkt, c.connId, msgCode, []byte(""))
 	}
 	xechoWait(c2, 2)
