@@ -41,34 +41,36 @@ func xwait(w interface { Wait() error }) {
 	exc.Raiseif(err)
 }
 
-// xfs1stor creates new NEO storage node backed by fs1
-// XXX is this wrapper a good idea?
-func xfs1stor(net Network, path string) (*server.Storage, *fs1.FileStorage) {
-	// TODO +readonly ?
+func xfs1stor(path string) *fs1.FileStorage {
 	zstor, err := fs1.Open(context.Background(), path)
 	exc.Raiseif(err)
-
-	return server.NewStorage("test cluster", "TODO master", "", net, zstor), zstor
+	return zstor
 }
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	// XXX temp disabled
-	return
+	net := NetPipe("")	// test network
+	Maddr := "0"
+	Saddr := "1"
 
-	net := NetPipe("")	// test network		FIXME New registers to global table
-	M := server.NewMaster("abc1")
-	S, _ := xfs1stor(net, "../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	M := server.NewMaster("abc1", Maddr, net)
+
+	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
+	S := server.NewStorage("abc1", Maddr, Saddr, net, zstor)
 
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	// XXX temp
-	Sbind := ""; Mbind := ""; var err error
-	_ = Scancel; _ = Mcancel; _ = err
+	_ = Scancel; _ = Mcancel;
 
-	err = server.ListenAndServe(Mctx, net, Mbind, M)	// XXX go
-	err = server.ListenAndServe(Sctx, net, Sbind, S)	// XXX go
+	err := M.Run(Mctx)	// XXX go
+	err = S.Run(Sctx)	// XXX go
+
+
+	// XXX temp
+	if err != nil {
+		panic(err)
+	}
 }
 
 // basic interaction between Client -- Storage
@@ -82,7 +84,8 @@ func TestClientStorage(t *testing.T) {
 	Sctx, Scancel := context.WithCancel(context.Background())
 
 	net := NetPipe("")	// XXX here? (or a bit above?)
-	S, zstor := xfs1stor(net, "../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	S := server.NewStorage("cluster", "Maddr", "Saddr", net, zstor)
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
 		// XXX + test error return
