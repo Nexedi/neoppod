@@ -683,6 +683,7 @@ type TweakPartitionTable struct {
 
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
+	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
 	IdTimestamp	float64
 	NodeList	[]NodeInfo
 }
@@ -718,8 +719,9 @@ type RepairOne struct {
 	repairFlags
 }
 
-// Notify information about the cluster
-type ClusterInformation struct {
+// Notify information about the cluster state
+// XXX = NotifyClusterInformation in py
+type NotifyClusterState struct {
 	State   ClusterState
 }
 

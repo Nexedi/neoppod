@@ -2957,21 +2957,21 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 74. ClusterInformation
+// 74. NotifyClusterState
 
-func (_ *ClusterInformation) NEOMsgCode() uint16 {
+func (_ *NotifyClusterState) NEOMsgCode() uint16 {
 	return 74
 }
 
-func (p *ClusterInformation) NEOMsgEncodedLen() int {
+func (p *NotifyClusterState) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *ClusterInformation) NEOMsgEncode(data []byte) {
+func (p *NotifyClusterState) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.State)))
 }
 
-func (p *ClusterInformation) NEOMsgDecode(data []byte) (int, error) {
+func (p *NotifyClusterState) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -3660,7 +3660,7 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	71: reflect.TypeOf(repairFlags{}),
 	72: reflect.TypeOf(Repair{}),
 	73: reflect.TypeOf(RepairOne{}),
-	74: reflect.TypeOf(ClusterInformation{}),
+	74: reflect.TypeOf(NotifyClusterState{}),
 	75: reflect.TypeOf(AskClusterState{}),
 	76: reflect.TypeOf(AnswerClusterState{}),
 	77: reflect.TypeOf(ObjectUndoSerial{}),
