@@ -30,6 +30,11 @@ parser.add_option('-d', '--database', help = 'database connections string')
 parser.add_option('-e', '--engine', help = 'database engine')
 parser.add_option('-w', '--wait', help='seconds to wait for backend to be '
     'available, before erroring-out (-1 = infinite)', type='float', default=0)
+parser.add_option('--disable-drop-partitions', action='store_true',
+                  help = 'do not delete data of discarded cells, which is'
+                         ' useful for big databases because the current'
+                         ' implementation is inefficient (this option should'
+                         ' disappear in the future)')
 parser.add_option('--reset', action='store_true',
                   help='remove an existing database if any, and exit')
 

@@ -97,6 +97,9 @@ class ConfigurationManager(object):
         bind = self.__get('bind')
         return parseNodeAddress(bind, 0)
 
+    def getDisableDropPartitions(self):
+        return self.__get('disable_drop_partitions', True)
+
     def getDatabase(self):
         return self.__get('database')
 
