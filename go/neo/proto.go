@@ -3,6 +3,8 @@
 package neo
 // protocol definition
 
+// TODO regroup messages definitions to stay more close to 1 communication topic
+// TODO document protocol itself better (who sends who what with which semantic)
 
 // NOTE for some packets it is possible to decode raw packet -> go version from
 // PktBuf in place. E.g. for GetObject.
@@ -240,7 +242,7 @@ type CellInfo struct {
 }
 
 type RowInfo struct {
-	Offset   uint32  // PNumber
+	Offset   uint32		// PNumber	XXX -> Pid
 	CellList []CellInfo
 }
 
@@ -320,8 +322,7 @@ type AnswerLastIDs struct {
 
 // Ask the full partition table. PM -> S.
 // Answer rows in a partition table. S -> PM.
-// XXX overlap with PartitionTable struct
-type X_PartitionTable struct {
+type AskPartitionTable struct {
 }
 
 type AnswerPartitionTable struct {
@@ -330,7 +331,7 @@ type AnswerPartitionTable struct {
 }
 
 
-// Send rows in a partition table to update other nodes. PM -> S, C.
+// Send whole partition table to update other nodes. PM -> S, C.
 type NotifyPartitionTable struct {
 	PTid
 	RowList []RowInfo
@@ -338,13 +339,11 @@ type NotifyPartitionTable struct {
 
 // Notify a subset of a partition table. This is used to notify changes.
 // PM -> S, C.
-type PartitionChanges struct {
+type NotifyPartitionChanges struct {
 	PTid
 	CellList []struct {
-		// XXX does below correlate with Cell inside top-level CellList ?
-		Offset    uint32  // PNumber
-		NodeUUID  NodeUUID
-		CellState CellState
+		Offset    uint32	// PNumber	XXX -> Pid
+		CellInfo  CellInfo
 	}
 }
 
@@ -365,7 +364,7 @@ type StopOperation struct {
 // Answer unfinished transactions  PM -> S.
 type UnfinishedTransactions struct {
 	RowList []struct{
-		Offset uint32	// PNumber
+		Offset uint32	// PNumber	XXX -> Pid
 	}
 }
 
@@ -726,7 +725,10 @@ type ClusterInformation struct {
 
 // Ask state of the cluster
 // Answer state of the cluster
-type X_ClusterState struct {	// XXX conflicts with ClusterState enum
+type AskClusterState struct {
+}
+
+type AnswerClusterState struct {
 	State   ClusterState
 }
 

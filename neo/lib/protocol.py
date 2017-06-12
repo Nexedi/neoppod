@@ -684,7 +684,7 @@ class RequestIdentification(Packet):
         PFNodeType,
         PUUID('my_uuid'),
         PNumber('num_partitions'),      # XXX why here, not in pt updates ?
-        PNumber('num_replicas'),        # XXX ---- // ----
+        PNumber('num_replicas'),        # XXX -> because current neo/py cannot change Npt at runtime
         PUUID('your_uuid'),
     )
 

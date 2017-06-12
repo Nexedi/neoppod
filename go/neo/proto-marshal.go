@@ -565,20 +565,20 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 16. X_PartitionTable
+// 16. AskPartitionTable
 
-func (_ *X_PartitionTable) NEOMsgCode() uint16 {
+func (_ *AskPartitionTable) NEOMsgCode() uint16 {
 	return 16
 }
 
-func (p *X_PartitionTable) NEOMsgEncodedLen() int {
+func (p *AskPartitionTable) NEOMsgEncodedLen() int {
 	return 0
 }
 
-func (p *X_PartitionTable) NEOMsgEncode(data []byte) {
+func (p *AskPartitionTable) NEOMsgEncode(data []byte) {
 }
 
-func (p *X_PartitionTable) NEOMsgDecode(data []byte) (int, error) {
+func (p *AskPartitionTable) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
@@ -742,17 +742,17 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 19. PartitionChanges
+// 19. NotifyPartitionChanges
 
-func (_ *PartitionChanges) NEOMsgCode() uint16 {
+func (_ *NotifyPartitionChanges) NEOMsgCode() uint16 {
 	return 19
 }
 
-func (p *PartitionChanges) NEOMsgEncodedLen() int {
+func (p *NotifyPartitionChanges) NEOMsgEncodedLen() int {
 	return 12 + len(p.CellList)*12
 }
 
-func (p *PartitionChanges) NEOMsgEncode(data []byte) {
+func (p *NotifyPartitionChanges) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	{
 		l := uint32(len(p.CellList))
@@ -761,14 +761,14 @@ func (p *PartitionChanges) NEOMsgEncode(data []byte) {
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
 			binary.BigEndian.PutUint32(data[0:], (*a).Offset)
-			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).NodeUUID)))
-			binary.BigEndian.PutUint32(data[8:], uint32(int32((*a).CellState)))
+			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).CellInfo.NodeUUID)))
+			binary.BigEndian.PutUint32(data[8:], uint32(int32((*a).CellInfo.CellState)))
 			data = data[12:]
 		}
 	}
 }
 
-func (p *PartitionChanges) NEOMsgDecode(data []byte) (int, error) {
+func (p *NotifyPartitionChanges) NEOMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -782,15 +782,14 @@ func (p *PartitionChanges) NEOMsgDecode(data []byte) (int, error) {
 		}
 		nread += l * 12
 		p.CellList = make([]struct {
-			Offset    uint32
-			NodeUUID  NodeUUID
-			CellState CellState
+			Offset   uint32
+			CellInfo CellInfo
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
 			(*a).Offset = binary.BigEndian.Uint32(data[0:])
-			(*a).NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
-			(*a).CellState = CellState(int32(binary.BigEndian.Uint32(data[8:])))
+			(*a).CellInfo.NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
+			(*a).CellInfo.CellState = CellState(int32(binary.BigEndian.Uint32(data[8:])))
 			data = data[12:]
 		}
 	}
@@ -2983,21 +2982,38 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 75. X_ClusterState
+// 75. AskClusterState
 
-func (_ *X_ClusterState) NEOMsgCode() uint16 {
+func (_ *AskClusterState) NEOMsgCode() uint16 {
 	return 75
 }
 
-func (p *X_ClusterState) NEOMsgEncodedLen() int {
+func (p *AskClusterState) NEOMsgEncodedLen() int {
+	return 0
+}
+
+func (p *AskClusterState) NEOMsgEncode(data []byte) {
+}
+
+func (p *AskClusterState) NEOMsgDecode(data []byte) (int, error) {
+	return 0, nil
+}
+
+// 76. AnswerClusterState
+
+func (_ *AnswerClusterState) NEOMsgCode() uint16 {
+	return 76
+}
+
+func (p *AnswerClusterState) NEOMsgEncodedLen() int {
 	return 4
 }
 
-func (p *X_ClusterState) NEOMsgEncode(data []byte) {
+func (p *AnswerClusterState) NEOMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.State)))
 }
 
-func (p *X_ClusterState) NEOMsgDecode(data []byte) (int, error) {
+func (p *AnswerClusterState) NEOMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 4 {
 		goto overflow
 	}
@@ -3008,10 +3024,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 76. ObjectUndoSerial
+// 77. ObjectUndoSerial
 
 func (_ *ObjectUndoSerial) NEOMsgCode() uint16 {
-	return 76
+	return 77
 }
 
 func (p *ObjectUndoSerial) NEOMsgEncodedLen() int {
@@ -3062,10 +3078,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 77. AnswerObjectUndoSerial
+// 78. AnswerObjectUndoSerial
 
 func (_ *AnswerObjectUndoSerial) NEOMsgCode() uint16 {
-	return 77
+	return 78
 }
 
 func (p *AnswerObjectUndoSerial) NEOMsgEncodedLen() int {
@@ -3130,10 +3146,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 78. CheckCurrentSerial
+// 79. CheckCurrentSerial
 
 func (_ *CheckCurrentSerial) NEOMsgCode() uint16 {
-	return 78
+	return 79
 }
 
 func (p *CheckCurrentSerial) NEOMsgEncodedLen() int {
@@ -3159,10 +3175,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 79. Pack
+// 80. Pack
 
 func (_ *Pack) NEOMsgCode() uint16 {
-	return 79
+	return 80
 }
 
 func (p *Pack) NEOMsgEncodedLen() int {
@@ -3184,10 +3200,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 80. AnswerPack
+// 81. AnswerPack
 
 func (_ *AnswerPack) NEOMsgCode() uint16 {
-	return 80
+	return 81
 }
 
 func (p *AnswerPack) NEOMsgEncodedLen() int {
@@ -3209,10 +3225,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 81. CheckReplicas
+// 82. CheckReplicas
 
 func (_ *CheckReplicas) NEOMsgCode() uint16 {
-	return 81
+	return 82
 }
 
 func (p *CheckReplicas) NEOMsgEncodedLen() int {
@@ -3267,10 +3283,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 82. CheckPartition
+// 83. CheckPartition
 
 func (_ *CheckPartition) NEOMsgCode() uint16 {
-	return 82
+	return 83
 }
 
 func (p *CheckPartition) NEOMsgEncodedLen() int {
@@ -3333,10 +3349,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 83. CheckTIDRange
+// 84. CheckTIDRange
 
 func (_ *CheckTIDRange) NEOMsgCode() uint16 {
-	return 83
+	return 84
 }
 
 func (p *CheckTIDRange) NEOMsgEncodedLen() int {
@@ -3364,10 +3380,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 84. AnswerCheckTIDRange
+// 85. AnswerCheckTIDRange
 
 func (_ *AnswerCheckTIDRange) NEOMsgCode() uint16 {
-	return 84
+	return 85
 }
 
 func (p *AnswerCheckTIDRange) NEOMsgEncodedLen() int {
@@ -3393,10 +3409,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 85. CheckSerialRange
+// 86. CheckSerialRange
 
 func (_ *CheckSerialRange) NEOMsgCode() uint16 {
-	return 85
+	return 86
 }
 
 func (p *CheckSerialRange) NEOMsgEncodedLen() int {
@@ -3426,10 +3442,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 86. AnswerCheckSerialRange
+// 87. AnswerCheckSerialRange
 
 func (_ *AnswerCheckSerialRange) NEOMsgCode() uint16 {
-	return 86
+	return 87
 }
 
 func (p *AnswerCheckSerialRange) NEOMsgEncodedLen() int {
@@ -3459,10 +3475,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 87. PartitionCorrupted
+// 88. PartitionCorrupted
 
 func (_ *PartitionCorrupted) NEOMsgCode() uint16 {
-	return 87
+	return 88
 }
 
 func (p *PartitionCorrupted) NEOMsgEncodedLen() int {
@@ -3509,10 +3525,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 88. LastTransaction
+// 89. LastTransaction
 
 func (_ *LastTransaction) NEOMsgCode() uint16 {
-	return 88
+	return 89
 }
 
 func (p *LastTransaction) NEOMsgEncodedLen() int {
@@ -3526,10 +3542,10 @@ func (p *LastTransaction) NEOMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 89. AnswerLastTransaction
+// 90. AnswerLastTransaction
 
 func (_ *AnswerLastTransaction) NEOMsgCode() uint16 {
-	return 89
+	return 90
 }
 
 func (p *AnswerLastTransaction) NEOMsgEncodedLen() int {
@@ -3551,10 +3567,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 90. NotifyReady
+// 91. NotifyReady
 
 func (_ *NotifyReady) NEOMsgCode() uint16 {
-	return 90
+	return 91
 }
 
 func (p *NotifyReady) NEOMsgEncodedLen() int {
@@ -3586,10 +3602,10 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	13: reflect.TypeOf(AnswerRecovery{}),
 	14: reflect.TypeOf(LastIDs{}),
 	15: reflect.TypeOf(AnswerLastIDs{}),
-	16: reflect.TypeOf(X_PartitionTable{}),
+	16: reflect.TypeOf(AskPartitionTable{}),
 	17: reflect.TypeOf(AnswerPartitionTable{}),
 	18: reflect.TypeOf(NotifyPartitionTable{}),
-	19: reflect.TypeOf(PartitionChanges{}),
+	19: reflect.TypeOf(NotifyPartitionChanges{}),
 	20: reflect.TypeOf(StartOperation{}),
 	21: reflect.TypeOf(StopOperation{}),
 	22: reflect.TypeOf(UnfinishedTransactions{}),
@@ -3645,20 +3661,21 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	72: reflect.TypeOf(Repair{}),
 	73: reflect.TypeOf(RepairOne{}),
 	74: reflect.TypeOf(ClusterInformation{}),
-	75: reflect.TypeOf(X_ClusterState{}),
-	76: reflect.TypeOf(ObjectUndoSerial{}),
-	77: reflect.TypeOf(AnswerObjectUndoSerial{}),
-	78: reflect.TypeOf(CheckCurrentSerial{}),
-	79: reflect.TypeOf(Pack{}),
-	80: reflect.TypeOf(AnswerPack{}),
-	81: reflect.TypeOf(CheckReplicas{}),
-	82: reflect.TypeOf(CheckPartition{}),
-	83: reflect.TypeOf(CheckTIDRange{}),
-	84: reflect.TypeOf(AnswerCheckTIDRange{}),
-	85: reflect.TypeOf(CheckSerialRange{}),
-	86: reflect.TypeOf(AnswerCheckSerialRange{}),
-	87: reflect.TypeOf(PartitionCorrupted{}),
-	88: reflect.TypeOf(LastTransaction{}),
-	89: reflect.TypeOf(AnswerLastTransaction{}),
-	90: reflect.TypeOf(NotifyReady{}),
+	75: reflect.TypeOf(AskClusterState{}),
+	76: reflect.TypeOf(AnswerClusterState{}),
+	77: reflect.TypeOf(ObjectUndoSerial{}),
+	78: reflect.TypeOf(AnswerObjectUndoSerial{}),
+	79: reflect.TypeOf(CheckCurrentSerial{}),
+	80: reflect.TypeOf(Pack{}),
+	81: reflect.TypeOf(AnswerPack{}),
+	82: reflect.TypeOf(CheckReplicas{}),
+	83: reflect.TypeOf(CheckPartition{}),
+	84: reflect.TypeOf(CheckTIDRange{}),
+	85: reflect.TypeOf(AnswerCheckTIDRange{}),
+	86: reflect.TypeOf(CheckSerialRange{}),
+	87: reflect.TypeOf(AnswerCheckSerialRange{}),
+	88: reflect.TypeOf(PartitionCorrupted{}),
+	89: reflect.TypeOf(LastTransaction{}),
+	90: reflect.TypeOf(AnswerLastTransaction{}),
+	91: reflect.TypeOf(NotifyReady{}),
 }
