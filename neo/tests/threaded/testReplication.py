@@ -536,6 +536,31 @@ class ReplicationTests(NEOThreadedTest):
         with s0.dm.replicated(1):
             self.assertFalse(s0.dm.getObject(ob._p_oid, tid2))
 
+    @with_cluster(start_cluster=0, storage_count=2, partitions=2)
+    def testDropPartitions(self, cluster, disable=False):
+        s0, s1 = cluster.storage_list
+        cluster.start(storage_list=(s0,))
+        t, c = cluster.getTransaction()
+        c.root()[''] = PCounter()
+        t.commit()
+        s1.start()
+        self.tic()
+        self.assertEqual(3, s0.sqlCount('obj'))
+        cluster.enableStorageList((s1,))
+        cluster.neoctl.tweakPartitionTable()
+        self.tic()
+        self.assertEqual(1, s1.sqlCount('obj'))
+        # Deletion should start as soon as the cell is discarded, as a
+        # background task, instead of doing it during initialization.
+        count = s0.sqlCount('obj')
+        s0.stop()
+        cluster.join((s0,))
+        s0.resetNode()
+        s0.start()
+        self.tic()
+        self.assertEqual(2, s0.sqlCount('obj'))
+        expectedFailure(self.assertEqual)(2, count)
+
     @with_cluster(start_cluster=0, replicas=1)
     def testResumingReplication(self, cluster):
         if 1:
