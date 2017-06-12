@@ -31,6 +31,8 @@ import (
 	//"../../zodb"
 	"../../zodb/storage/fs1"
 
+	"../../xcommon/xsync"
+
 	"lab.nexedi.com/kirr/go123/exc"
 )
 
@@ -54,7 +56,7 @@ func TestMasterStorage(t *testing.T) {
 
 	M := NewMaster("abc1", Maddr, net)
 
-	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
+	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
 	S := NewStorage("abc1", Maddr, Saddr, net, zstor)
 
 	Mctx, Mcancel := context.WithCancel(context.Background())
@@ -63,7 +65,7 @@ func TestMasterStorage(t *testing.T) {
 
 	//Mev := M.subscribe(...)
 
-	wg := neo.WorkGroup()
+	wg := &xsync.WorkGroup{}
 	wg.Gox(func() {
 		err := M.Run(Mctx)
 		_ = err // XXX
@@ -94,7 +96,7 @@ func TestClientStorage(t *testing.T) {
 	Sctx, Scancel := context.WithCancel(context.Background())
 
 	net := neo.NetPipe("")	// XXX here? (or a bit above?)
-	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
+	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 	S := NewStorage("cluster", "Maddr", "Saddr", net, zstor)
 	wg.Gox(func() {
 		S.ServeLink(Sctx, Snl)
