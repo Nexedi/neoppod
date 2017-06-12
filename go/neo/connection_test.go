@@ -26,34 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/errgroup"
+	"../xcommon/xsync"
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
 )
-
-// XXX move me out of here ?
-type workGroup struct {
-	*errgroup.Group
-}
-
-// like errgroup.Go but translates exceptions to errors
-func (wg *workGroup) Gox(xf func ()) {
-	wg.Go(func() error {
-		return exc.Runx(xf)
-	})
-}
-
-func WorkGroup() *workGroup {
-	return &workGroup{&errgroup.Group{}}
-}
-
-func WorkGroupCtx(ctx context.Context) (*workGroup, context.Context) {
-	g, ctx := errgroup.WithContext(ctx)
-	return &workGroup{g}, ctx
-}
-
-////////////////////////////////////////
 
 func xclose(c io.Closer) {
 	err := c.Close()
@@ -176,20 +153,13 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 // XXX temp for cluster_test.go
 var NodeLinkPipe = nodeLinkPipe
 
-func gox(wg *errgroup.Group, f func()) {
-	wg.Go(exc.Runx(f))
-}
-
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
-	//wg := WorkGroup()
-	//wg.Gox(func() {
-	wg := &errgroup.Group{}
-	wg := &xsync.ErrGroup{}
-	gox(wg, func() {
+	wg := &xsync.WorkGroup{}
+	wg.Gox(func() {
 		tdelay()
 		xclose(nl1)
 	})
@@ -202,7 +172,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs sendPkt
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		tdelay()
 		xclose(nl1)
@@ -217,7 +187,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs Accept
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		tdelay()
 		xclose(nl2)
@@ -236,7 +206,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs recvPkt on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		tdelay()
 		xclose(nl2)
@@ -250,7 +220,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Close vs sendPkt on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		tdelay()
 		xclose(nl2)
@@ -266,7 +236,7 @@ func TestNodeLink(t *testing.T) {
 	// raw exchange
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 
-	wg, ctx := WorkGroupCtx(context.Background())
+	wg, ctx := xsync.WorkGroupCtx(context.Background())
 	wg.Gox(func() {
 		// send ping; wait for pong
 		pkt := _mkpkt(1, 2, []byte("ping"))
@@ -283,7 +253,7 @@ func TestNodeLink(t *testing.T) {
 	})
 
 	// close nodelinks either when checks are done, or upon first error
-	wgclose := WorkGroup()
+	wgclose := &xsync.WorkGroup{}
 	wgclose.Gox(func() {
 		<-ctx.Done()
 		xclose(nl1)
@@ -299,7 +269,7 @@ func TestNodeLink(t *testing.T) {
 	// Close vs recvPkt
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c = xnewconn(nl1)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		tdelay()
 		xclose(c)
@@ -315,7 +285,7 @@ func TestNodeLink(t *testing.T) {
 	// Close vs sendPkt
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c = xnewconn(nl1)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		tdelay()
 		xclose(c)
@@ -330,7 +300,7 @@ func TestNodeLink(t *testing.T) {
 	// NodeLink.Close vs Conn.sendPkt/recvPkt
 	c11 := xnewconn(nl1)
 	c12 := xnewconn(nl1)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		pkt, err := c11.recvPkt()
 		if !(pkt == nil && xconnError(err) == ErrLinkClosed) {
@@ -356,7 +326,7 @@ func TestNodeLink(t *testing.T) {
 	c21 := xnewconn(nl2)
 	c22 := xnewconn(nl2)
 	c23 := xnewconn(nl2)
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	var errRecv error
 	wg.Gox(func() {
 		pkt, err := c21.recvPkt()
@@ -469,7 +439,7 @@ func TestNodeLink(t *testing.T) {
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		c := xaccept(nl2)
 
@@ -501,7 +471,7 @@ func TestNodeLink(t *testing.T) {
 
 	// test 2 channels with replies coming in reversed time order
 	nl1, nl2 = nodeLinkPipe()
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	replyOrder := map[uint16]struct { // "order" in which to process requests
 		start chan struct{}       // processing starts when start chan is ready
 		next  uint16              // after processing this switch to next
@@ -559,7 +529,7 @@ func TestHandshake(t *testing.T) {
 	bg := context.Background()
 	// handshake ok
 	p1, p2 := net.Pipe()
-	wg := WorkGroup()
+	wg := &xsync.WorkGroup{}
 	wg.Gox(func() {
 		xhandshake(bg, p1, 1)
 	})
@@ -573,7 +543,7 @@ func TestHandshake(t *testing.T) {
 	// version mismatch
 	p1, p2 = net.Pipe()
 	var err1, err2 error
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		err1 = handshake(bg, p1, 1)
 	})
@@ -597,7 +567,7 @@ func TestHandshake(t *testing.T) {
 	// tx & rx problem
 	p1, p2 = net.Pipe()
 	err1, err2 = nil, nil
-	wg = WorkGroup()
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		err1 = handshake(bg, p1, 1)
 	})
