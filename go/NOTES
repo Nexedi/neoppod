@@ -1,3 +1,14 @@
+Master shares view of cluster
+-----------------------------
+
+NotifyPartitionTable            ; whole partTab         = SendPartitionTable
+
+NotifyPartitionChanges          ; δ(partTab)
+NotifyNodeInformation           ; δ(nodeTab)
+NotifyClusterState              ; δ(clusterState)
+
+
+
 On iteration
 ------------
 
