@@ -54,34 +54,81 @@ func TestMasterStorage(t *testing.T) {
 	Maddr := "0"
 	Saddr := "1"
 
-	M := NewMaster("abc1", Maddr, net)
-
-	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
-	S := NewStorage("abc1", Maddr, Saddr, net, zstor)
-
-	Mctx, Mcancel := context.WithCancel(context.Background())
-	Sctx, Scancel := context.WithCancel(context.Background())
-	_ = Scancel;
-
-	//Mev := M.subscribe(...)
-
 	wg := &xsync.WorkGroup{}
+
+	// start master
+	M := NewMaster("abc1", Maddr, net)
+	Mctx, Mcancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := M.Run(Mctx)
 		_ = err // XXX
 	})
 
-	//ev <- Mev
-	//assert ev == ClusterInformation{State: RECOVERY}
+	// expect:
+	// M.clusterState	<- RECOVERY
+	// M.nodeTab		<- Node(M)
 
-	if false {
-		err := S.Run(Sctx)	// XXX go
-		_ = err
-	}
+	// start storage
+	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
+	S := NewStorage("abc1", Maddr, Saddr, net, zstor)
+	Sctx, Scancel := context.WithCancel(context.Background())
+	wg.Gox(func() {
+		err := S.Run(Sctx)
+		_ = err	// XXX
+	})
 
+	// expect:
+	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
+	// M -> S	.? AcceptIdentification{...}
+	// M.nodeTab	<- Node(S)	XXX order can be racy?
+	// S.nodeTab	<- Node(M)	XXX order can be racy?
+	//
+	// ; storCtlRecovery
+	// M -> S	.? Recovery
+	// S <- M	.? AnswerRecovery
+	//
+	// M -> S	.? AskPartitionTable
+	// S <- M	.? AnswerPartitionTable
+	// M.partTab	<- ...	XXX
+	// XXX updated something cluster currently can be operational
+
+	err := M.Start()
+	exc.Raiseif(err)
+
+	// expect:
+	// M.clusterState	<- VERIFICATION			+ TODO it should be sent to S
+	// M -> S	.? LockedTransactions{}
+	// M <- S	.? AnswerLockedTransactions{...}
+	// M -> S	.? LastIDs{}
+	// M <- S	.? AnswerLastIDs{...}
+
+	//							+ TODO S leave at verify
+	//							+ TODO S join at verify
+	//							+ TODO M.Stop() while verify
+
+	// expect:
+	// M.clusterState	<- RUNNING			+ TODO it should be sent to S
+
+	//							+ TODO S leave while service
+	//							+ TODO S join while service
+	//							+ TODO M.Stop while service
+
+	// + TODO Client connects here ?
+
+	// TODO S.Stop() or Scancel()
+	// expect:
+	// M.nodeTab -= S
+	// M.clusterState	<- RECOVERY
+	// ...
+
+	// TODO Scancel -> S down - test how M behaves
+
+	// TODO test M.recovery starting back from verification/service
+	// (M needs to resend to all storages recovery messages just from start)
 
 	xwait(wg)
 	Mcancel()	// XXX temp
+	Scancel()	// XXX temp
 }
 
 // basic interaction between Client -- Storage

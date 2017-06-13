@@ -428,7 +428,7 @@ loop:
 
 				// check partTab is still operational
 				// if not -> cancel to go back to recovery
-				if m.partTab.OperationalWith(&m.nodeTab) {
+				if !m.partTab.OperationalWith(&m.nodeTab) {
 					vcancel()
 					err = errClusterDegraded
 					break loop
