@@ -21,6 +21,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"../../neo"
@@ -69,14 +70,12 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Network, zstor z
 // Run starts storage node and runs it until either ctx is cancelled or master
 // commands it to shutdown.
 func (stor *Storage) Run(ctx context.Context) error {
+	// XXX dup wrt Master.Run
 	// start listening
 	l, err := stor.net.Listen(stor.myInfo.Address.String())		// XXX ugly
 	if err != nil {
 		return err // XXX err ctx
 	}
-
-	// FIXME -> no -> Serve closes l
-	defer l.Close()	// XXX err ?
 
 	// now we know our listening address (in case it was autobind before)
 	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
@@ -90,29 +89,43 @@ func (stor *Storage) Run(ctx context.Context) error {
 
 	stor.myInfo.Address = addr
 
-	go stor.talkMaster(ctx)
+	wg := sync.WaitGroup{}
 
-	err = Serve(ctx, l, stor)	// XXX -> go ?
+	serveCtx, serveCancel := context.WithCancel(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err = Serve(serveCtx, l, stor)
+		_ = err	// XXX what to do with err ?
+	}()
+
+	err = stor.talkMaster(ctx)
+	serveCancel()
+	wg.Wait()
+
 	return err // XXX err ctx
-
-	// XXX oversee both master and server and wait ?
 }
 
 // talkMaster connects to master, announces self and receives notifications and commands
 // XXX and notifies master about ? (e.g. StartOperation -> NotifyReady)
 // it tries to persist master link reconnecting as needed
-func (stor *Storage) talkMaster(ctx context.Context) {
+//
+// it always return an error - either due to cancel or commannd from master to shutdown
+func (stor *Storage) talkMaster(ctx context.Context) error {
+	// XXX errctx
+
 	for {
 		fmt.Printf("stor: master(%v): connecting\n", stor.masterAddr) // XXX info
 		err := stor.talkMaster1(ctx)
 		fmt.Printf("stor: master(%v): %v\n", stor.masterAddr, err)
+		// TODO if err = shutdown -> return
 
 		// XXX handle shutdown command from master
 
 		// throttle reconnecting / exit on cancel
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 
 		// XXX 1s hardcoded -> move out of here
 		case <-time.After(1*time.Second):

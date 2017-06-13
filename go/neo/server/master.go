@@ -35,8 +35,14 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
+	// XXX move -> nodeCommon?
+	// ---- 8< ----
+	myInfo		neo.NodeInfo
 	clusterName  string
-	nodeUUID     neo.NodeUUID
+
+	net		xnet.Network	// network we are sending/receiving on
+	masterAddr	string		// address of master
+	// ---- 8< ----
 
 	// last allocated oid & tid
 	// XXX how to start allocating oid from 0, not 1 ?
@@ -76,17 +82,56 @@ type nodeLeave struct {
 	link *neo.NodeLink	// XXX better use uuid allocated on nodeCome ?
 }
 
-// NewMaster TODO ...
+// NewMaster creates new master node that is listening on serveAddr
+// XXX ... call Run
 func NewMaster(clusterName, serveAddr string, net xnet.Network) *Master {
 	// XXX serveAddr + net
 
 	m := &Master{clusterName: clusterName}
-	m.nodeUUID = m.allocUUID(neo.MASTER)
+	m.myInfo.NodeUUID = m.allocUUID(neo.MASTER)
 	// TODO update nodeTab with self
 	m.clusterState = neo.ClusterRecovering	// XXX no elections - we are the only master
 //	go m.run(context.TODO())		// XXX ctx
 
 	return m
+}
+
+// Run starts master node and runs it until ctx is cancelled or fatal error
+func (m *Master) Run(ctx context.Context) error {
+	// XXX dup wrt Storage.Run
+	// start listening
+	l, err := m.net.Listen(m.myInfo.Address.String())	// XXX ugly
+	if err != nil {
+		return err	// XXX err ctx
+	}
+
+	// now we know our listening address (in case it was autobind before)
+	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
+	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
+	//	-> host is never empty
+	addr, err := neo.Addr(l.Addr())
+	if err != nil {
+		// XXX -> panic here ?
+		return err	// XXX err ctx
+	}
+
+	m.myInfo.Address = addr
+
+	wg := sync.WaitGroup{}
+
+	serveCtx, serveCancel := context.WithCancel(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err = Serve(serveCtx, l, m)
+		_ = err	// XXX what to do with err ?
+	}()
+
+	err = m.runMain(ctx)
+	serveCancel()
+	wg.Wait()
+
+	return err	// XXX errctx
 }
 
 
@@ -125,9 +170,9 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 }
 
 
-// Run is the process which implements main master cluster management logic: node tracking, cluster
+// runMain is the process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
-func (m *Master) Run(ctx context.Context) (err error) {
+func (m *Master) runMain(ctx context.Context) (err error) {
 	//defer xerr.Context(&err, "master: run")
 
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
@@ -158,7 +203,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 		// XXX shutdown ?
 	}
 
-	return fmt.Errorf("master: run: %v\n", ctx.Err())
+	return fmt.Errorf("master: run: %v\n", ctx.Err())	// XXX run -> runmain ?
 }
 
 
@@ -611,7 +656,7 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 
 	n.idResp <- &neo.AcceptIdentification{
 			NodeType:	neo.MASTER,
-			MyNodeUUID:	m.nodeUUID,
+			MyNodeUUID:	m.myInfo.NodeUUID,
 			NumPartitions:	1,	// FIXME hardcoded
 			NumReplicas:	1,	// FIXME hardcoded
 			YourNodeUUID:	uuid,
