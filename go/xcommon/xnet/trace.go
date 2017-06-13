@@ -15,52 +15,60 @@
 //
 // See COPYING file for full licensing terms.
 
-// +build test
-
-package neo
+package xnet
 // network tracing
+// XXX move to xnet/trace ?
+
+import (
+	"context"
+	"net"
+)
 
 // NetTrace wraps underlying network with IO tracing layer
 //
-// the tracing is done via calling trace func right before corresponding packet
+// Tracing is done via calling trace func right before corresponding packet
 // is sent for Tx to underlying network. No synchronization for notification is
 // performed - if one is required tracing func must implement such
 // synchronization itself.
 //
 // only Tx events are traced:
 // - because Write, contrary to Read, never writes partial data on non-error
-// - because in case of NetPipe tracing writes only is enough to get whole network exchange picture
-func NetTrace(inner Network, trace func (t *traceTx)) Network {
-	&netTrace{inner, trace}
+// - because in case of pipenet tracing writes only is enough to get whole network exchange picture
+func NetTrace(inner Network, trace func (t *TraceTx)) Network {
+	return &netTrace{inner, trace}
 }
 
-// traceTx is event corresponding to network transmission
-type traceTx struct {
-	src, dst net.Addr
-	pkt      []byte
+// TraceTx is event corresponding to network transmission
+type TraceTx struct {
+	Src, Dst net.Addr
+	Pkt      []byte
 }
 
 // netTrace wraps underlying Network such that whenever a connection is created
 // it is wrapped with traceConn
 type netTrace struct {
 	inner Network
-	trace func(t *traceTx)
+	trace func(t *TraceTx)
+}
+
+func (nt *netTrace) Network() string {
+	return nt.inner.Network() // XXX + "+trace" ?
 }
 
 func (nt *netTrace) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	c, err := nt.inner.Dial(ctx, addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return &traceConn{nt, c}
+	return &traceConn{nt, c}, nil
 }
 
 func (nt *netTrace) Listen(laddr string) (net.Listener, error) {
 	l, err := nt.inner.Listen(laddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return &netTraceListener{nt, l}
+	return &netTraceListener{nt, l}, nil
 }
 
 // netTraceListener wraps net.Listener to wrap accepted connections with traceConn
@@ -74,7 +82,7 @@ func (ntl *netTraceListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &traceConn{ntl.nt, c}
+	return &traceConn{ntl.nt, c}, nil
 }
 
 // traceConn wraps net.Conn and notifies tracer on Writes
@@ -84,7 +92,7 @@ type traceConn struct {
 }
 
 func (tc *traceConn) Write(b []byte) (int, error) {
-	t := &traceTx{src: tc.LocalAddr(), dst: tc.RemoteAddr(), pkt: b}
+	t := &TraceTx{Src: tc.LocalAddr(), Dst: tc.RemoteAddr(), Pkt: b}
 	tc.nt.trace(t)
 	return tc.Conn.Write(b)
 }

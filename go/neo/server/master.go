@@ -28,6 +28,7 @@ import (
 
 	"../../neo"
 	"../../zodb"
+	"../../xcommon/xnet"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
@@ -44,10 +45,13 @@ type Master struct {
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
+///*
 	stateMu      sync.RWMutex	// XXX recheck: needed ?
 	nodeTab      neo.NodeTable
 	partTab      neo.PartitionTable
 	clusterState neo.ClusterState
+//*/
+	clusterInfo neo.ClusterInfo
 
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster
@@ -73,7 +77,7 @@ type nodeLeave struct {
 }
 
 // NewMaster TODO ...
-func NewMaster(clusterName, serveAddr string, net neo.Network) *Master {
+func NewMaster(clusterName, serveAddr string, net xnet.Network) *Master {
 	// XXX serveAddr + net
 
 	m := &Master{clusterName: clusterName}
@@ -115,11 +119,8 @@ func (m *Master) Shutdown() error {
 
 // setClusterState sets .clusterState and notifies subscribers
 func (m *Master) setClusterState(state neo.ClusterState) {
-	if state == m.clusterState {	// <- XXX do we really need this ?
-		return
-	}
-
 	m.clusterState = state
+
 	// TODO notify subscribers
 }
 
@@ -316,7 +317,7 @@ func storCtlRecovery(ctx context.Context, link *neo.NodeLink, res chan storRecov
 	}
 
 	resp := neo.AnswerPartitionTable{}
-	err = conn.Ask(&neo.X_PartitionTable{}, &resp)
+	err = conn.Ask(&neo.AskPartitionTable{}, &resp)
 	if err != nil {
 		return
 	}

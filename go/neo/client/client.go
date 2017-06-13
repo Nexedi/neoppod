@@ -24,6 +24,7 @@ import (
 
 	"../../neo"
 	"../../zodb"
+	"../../xcommon/xnet"
 )
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces
@@ -33,7 +34,7 @@ type Client struct {
 	myInfo		neo.NodeInfo	// XXX -> only NodeUUID
 	clusterName	string
 
-	net		neo.Network	// network we are sending/receiving on
+	net		xnet.Network	// network we are sending/receiving on
 	masterAddr	string		// address of master	XXX -> Address ?
 	// ---- 8< ----
 
@@ -134,7 +135,7 @@ func NewClient(storLink *neo.NodeLink) (*Client, error) {
 func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// XXX for now url is treated as storage node URL
 	// XXX check/use other url fields
-	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 	storLink, err := neo.Dial(ctx, net, u.Host)
 	if err != nil {
 		return nil, err

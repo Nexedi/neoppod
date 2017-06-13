@@ -26,8 +26,8 @@ import (
 	"io"
 	"os"
 
-	"../../neo"
 	"../../neo/server"
+	"../../xcommon/xnet"
 )
 
 const masterSummary = "run master node"
@@ -64,7 +64,7 @@ func masterMain(argv []string) {
 		os.Exit(2)
 	}
 
-	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
 	masterSrv := server.NewMaster(*cluster, *bind, net)
 

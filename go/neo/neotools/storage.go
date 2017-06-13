@@ -27,9 +27,9 @@ import (
 	"os"
 	"strings"
 
-	"../../neo"
 	"../../neo/server"
 	"../../zodb/storage/fs1"
+	"../../xcommon/xnet"
 )
 
 const storageSummary = "run storage node"
@@ -81,7 +81,7 @@ func storageMain(argv []string) {
 		log.Fatal(err)
 	}
 
-	net := neo.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
 	storSrv := server.NewStorage(*cluster, master, *bind, net, zstor)
 

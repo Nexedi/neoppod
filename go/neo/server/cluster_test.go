@@ -25,12 +25,12 @@ import (
 	//"reflect"
 	"testing"
 
-	"../../neo"
 	//"../../neo/client"
 
 	//"../../zodb"
 	"../../zodb/storage/fs1"
 
+	"../../xcommon/xnet/pipenet"
 	"../../xcommon/xsync"
 
 	"lab.nexedi.com/kirr/go123/exc"
@@ -50,7 +50,7 @@ func xfs1stor(path string) *fs1.FileStorage {
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	net := neo.NetPipe("")	// test network
+	net := pipenet.New("")	// test network
 	Maddr := "0"
 	Saddr := "1"
 
@@ -91,11 +91,11 @@ func TestClientStorage(t *testing.T) {
 
 /*
 	Cnl, Snl := NodeLinkPipe()
-	wg := neo.WorkGroup()
+	wg := &xsync.WorkGroup{}
 
 	Sctx, Scancel := context.WithCancel(context.Background())
 
-	net := neo.NetPipe("")	// XXX here? (or a bit above?)
+	net := pipenet.New("")	// XXX here? (or a bit above?)
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")	// XXX +readonly
 	S := NewStorage("cluster", "Maddr", "Saddr", net, zstor)
 	wg.Gox(func() {

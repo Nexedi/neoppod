@@ -20,16 +20,16 @@ package neo
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"sync"
 	"sync/atomic"
 
-	"encoding/binary"
-	"fmt"
-
-	"reflect"
+	"../xcommon/xnet"
 )
 
 // NodeLink is a node-node link in NEO
@@ -683,7 +683,7 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 // ---- for convenience: Dial ----
 
 // Dial connects to address on given network, handshakes and wraps the connection as NodeLink
-func Dial(ctx context.Context, net Network, addr string) (nl *NodeLink, err error) {
+func Dial(ctx context.Context, net xnet.Network, addr string) (nl *NodeLink, err error) {
 	peerConn, err := net.Dial(ctx, addr)
 	if err != nil {
 		return nil, err
