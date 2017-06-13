@@ -34,8 +34,25 @@ import (
 // only Tx events are traced:
 // - because Write, contrary to Read, never writes partial data on non-error
 // - because in case of pipenet tracing writes only is enough to get whole network exchange picture
-func NetTrace(inner Network, trace func (t *TraceTx)) Network {
-	return &netTrace{inner, trace}
+func NetTrace(inner Network, tracer Tracer) Network {
+	return &netTrace{inner, tracer}
+}
+
+// Tracer is the interface that needs to be implemented by network trace receivers
+type Tracer interface {
+	TraceNetDial(*TraceDial)
+	TraceNetListen(*TraceListen)
+	TraceNetTx(*TraceTx)
+}
+
+// TraceDial is event corresponding to network dialing
+type TraceDial struct {
+	Dst string
+}
+
+// TraceListen is event corresponding to network listening
+type TraceListen struct {
+	Laddr string
 }
 
 // TraceTx is event corresponding to network transmission
@@ -47,8 +64,8 @@ type TraceTx struct {
 // netTrace wraps underlying Network such that whenever a connection is created
 // it is wrapped with traceConn
 type netTrace struct {
-	inner Network
-	trace func(t *TraceTx)
+	inner  Network
+	tracer Tracer
 }
 
 func (nt *netTrace) Network() string {
@@ -56,19 +73,23 @@ func (nt *netTrace) Network() string {
 }
 
 func (nt *netTrace) Dial(ctx context.Context, addr string) (net.Conn, error) {
+	nt.tracer.TraceNetDial(&TraceDial{Dst: addr})
 	c, err := nt.inner.Dial(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
 	return &traceConn{nt, c}, nil
+	// XXX +TraceNetDialPost ?
 }
 
 func (nt *netTrace) Listen(laddr string) (net.Listener, error) {
+	nt.tracer.TraceNetListen(&TraceListen{Laddr: laddr})
 	l, err := nt.inner.Listen(laddr)
 	if err != nil {
 		return nil, err
 	}
 	return &netTraceListener{nt, l}, nil
+	// XXX +TraceNetListenPost ?
 }
 
 // netTraceListener wraps net.Listener to wrap accepted connections with traceConn
@@ -92,7 +113,7 @@ type traceConn struct {
 }
 
 func (tc *traceConn) Write(b []byte) (int, error) {
-	t := &TraceTx{Src: tc.LocalAddr(), Dst: tc.RemoteAddr(), Pkt: b}
-	tc.nt.trace(t)
+	tc.nt.tracer.TraceNetTx(&TraceTx{Src: tc.LocalAddr(), Dst: tc.RemoteAddr(), Pkt: b})
 	return tc.Conn.Write(b)
+	// XXX +TraceNetTxPost ?
 }
