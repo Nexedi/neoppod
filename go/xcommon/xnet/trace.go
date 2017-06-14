@@ -34,6 +34,8 @@ import (
 // only Tx events are traced:
 // - because Write, contrary to Read, never writes partial data on non-error
 // - because in case of pipenet tracing writes only is enough to get whole network exchange picture
+//
+// XXX Dial/Listen are also traced
 func NetTrace(inner Networker, tracer Tracer) Networker {
 	return &netTrace{inner, tracer}
 }

@@ -30,11 +30,13 @@ type Networker interface {
 	// Network returns name of the network		XXX recheck
 	Network() string
 
+	// XXX +Addr() net.Addr	 -> address of this access-point on underlying network ?
+
 	// Dial connects to addr on underlying network
 	// see net.Dial for semantic details
 	Dial(ctx context.Context, addr string) (net.Conn, error)
 
-	// Listen starts listening on local address laddr on underlying network
+	// Listen starts listening on local address laddr on underlying network access-point
 	// see net.Listen for semantic details
 	//
 	// XXX also introduce xnet.Listener in which Accept() accepts also ctx?

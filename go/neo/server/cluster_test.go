@@ -117,7 +117,12 @@ func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
 func TestMasterStorage(t *testing.T) {
 	tracer := &MyTracer{xtesting.NewSyncTracer()}
 	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
-	net := xnet.NetTrace(pipenet.New(""), tracer)	// test network
+
+	//net := xnet.NetTrace(pipenet.New(""), tracer)	// test network
+	net := pipenet.New("testnet")	// test network
+
+	Mhost := xnet.NetTrace(net.Host("m"), tracer)
+	Shost := xnet.NetTrace(net.Host("s"), tracer)
 
 	Maddr := "0"
 	Saddr := "1"
@@ -125,7 +130,7 @@ func TestMasterStorage(t *testing.T) {
 	wg := &xsync.WorkGroup{}
 
 	// start master
-	M := NewMaster("abc1", Maddr, net)
+	M := NewMaster("abc1", Maddr, Mhost)
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := M.Run(Mctx)
@@ -158,6 +163,9 @@ func TestMasterStorage(t *testing.T) {
 	//tc.Expect(nettx("2c", "2s", "\x00\x00\x00\x01"))
 
 	// handshake
+	tc.Expect(nettx("s:1", "m:1", "\x00\x00\x00\x01"))
+	tc.Expect(nettx("m:1", "s:1", "\x00\x00\x00\x01"))
+
 	//tc.ExpectNetTx("2c", "2s", "\x00\x00\x00\x01")	// handshake
 	//tc.ExpectNetTx("2s", "2c", "\x00\x00\x00\x01")
 	tc.ExpectPar(
