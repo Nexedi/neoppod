@@ -160,6 +160,7 @@ func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 		return nil, 0, &net.AddrError{Err: "invalid", Addr: addr}
 	}
 
+	// local host if host name omitted
 	if hoststr == "" {
 		hoststr = h.name
 	}
@@ -186,7 +187,7 @@ func (h *Host) Listen(laddr string) (net.Listener, error) {
 	if laddr == "" {
 		sk = h.allocFreeSocket()
 
-	// else we resolve/check address, whether it is already used and if not allocate socket in-place
+	// else we resolve/verify address, check whether it is already used, and if not allocate socket in-place
 	} else {
 		var netladdr net.Addr
 		lerr := func(err error) error {
