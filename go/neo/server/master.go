@@ -38,10 +38,10 @@ type Master struct {
 	// XXX move -> nodeCommon?
 	// ---- 8< ----
 	myInfo		neo.NodeInfo
-	clusterName  string
+	clusterName	string
 
 	net		xnet.Network	// network we are sending/receiving on
-	masterAddr	string		// address of master
+	masterAddr	string		// address of current primary master
 	// ---- 8< ----
 
 	// last allocated oid & tid
@@ -82,16 +82,25 @@ type nodeLeave struct {
 	link *neo.NodeLink	// XXX better use uuid allocated on nodeCome ?
 }
 
-// NewMaster creates new master node that is listening on serveAddr
-// XXX ... call Run
+// NewMaster creates new master node that will listen on serveAddr
+// Use Run to actually start running the node.
 func NewMaster(clusterName, serveAddr string, net xnet.Network) *Master {
-	// XXX serveAddr + net
+	// convert serveAddr into neo format
+	addr, err := neo.AddrString(net.Network(), serveAddr)
+	if err != nil {
+		panic(err)	// XXX
+	}
 
-	m := &Master{clusterName: clusterName}
+	m := &Master{
+		myInfo:		neo.NodeInfo{NodeType: neo.MASTER, Address: addr},
+		clusterName:	clusterName,
+		net:		net,
+		masterAddr:	serveAddr,	// XXX ok?
+	}
+
 	m.myInfo.NodeUUID = m.allocUUID(neo.MASTER)
 	// TODO update nodeTab with self
 	m.clusterState = neo.ClusterRecovering	// XXX no elections - we are the only master
-//	go m.run(context.TODO())		// XXX ctx
 
 	return m
 }
@@ -116,6 +125,7 @@ func (m *Master) Run(ctx context.Context) error {
 	}
 
 	m.myInfo.Address = addr
+	m.masterAddr = l.Addr().String()
 
 	wg := sync.WaitGroup{}
 

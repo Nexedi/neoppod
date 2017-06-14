@@ -47,7 +47,7 @@ type Storage struct {
 
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
 // The storage uses zstor as underlying backend for storing data.
-// To actually start running the node - call Run.	XXX text
+// Use Run to actually start running the node.
 func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Network, zstor zodb.IStorage) *Storage {
 	// convert serveAddr into neo format
 	addr, err := neo.AddrString(net.Network(), serveAddr)
