@@ -121,9 +121,16 @@ func TestMasterStorage(t *testing.T) {
 	//net := xnet.NetTrace(pipenet.New(""), tracer)	// test network
 	net := pipenet.New("testnet")	// test network
 
-	// syntatic shortcut for net tx events
+	// shortcut for addresses
+	xaddr := func(addr string) *pipenet.Addr {
+		a, err := net.ParseAddr(addr)
+		exc.Raiseif(err)
+		return a
+	}
+
+	// shortcut for net tx events
 	nettx := func(src, dst, pkt string) *xnet.TraceTx {
-		return &xnet.TraceTx{Src: net.Addr(src), Dst: net.Addr(dst), Pkt: []byte(pkt)}
+		return &xnet.TraceTx{Src: xaddr(src), Dst: xaddr(dst), Pkt: []byte(pkt)}
 	}
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
@@ -144,7 +151,9 @@ func TestMasterStorage(t *testing.T) {
 
 	// expect:
 	//tc.ExpectNetListen("0")
+	println("111")
 	tc.Expect(&xnet.TraceListen{Laddr: "0"})
+	println("222")
 
 	// M.clusterState	<- RECOVERY
 	// M.nodeTab		<- Node(M)
@@ -164,10 +173,14 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(&xnet.TraceDial{Dst: "0"})
 	//tc.ExpectNetDial("0")
 
+	println("333")
+
 	tc.ExpectPar(
 		nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
 		nettx("m:1", "s:1", "\x00\x00\x00\x01"),
 	)
+
+	println("444")
 
 
 	// XXX temp
