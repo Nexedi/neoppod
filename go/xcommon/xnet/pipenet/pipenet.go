@@ -43,7 +43,7 @@ package pipenet
 import (
 	"context"
 	"errors"
-	"fmt"
+	//"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -60,8 +60,10 @@ var (
 
 // Addr represents address of a pipenet endpoint
 type Addr struct {
-	network string	// full network name, e.g. "pipe"
-	addr    string	// port + c/s depending on connection endpoint
+	Net      string	// full network name, e.g. "pipe"
+	Port     int	// -1, if anonymous
+	Endpoint int	// 0 (client) | 1 (server) | -1 (listening)
+	//Addr    string	// port + c/s depending on connection endpoint
 }
 
 // Network implements synchronous in-memory network of pipes
@@ -121,8 +123,9 @@ func New(name string) *Network {
 // Once listener is started, Dials could connect to listening address.
 // Connection requests created by Dials could be accepted via Accept.
 func (n *Network) Listen(laddr string) (net.Listener, error) {
+	var netladdr net.Addr
 	lerr := func(err error) error {
-		return &net.OpError{Op: "listen", Net: n.Network(), Addr: &Addr{n.Network(), laddr}, Err: err}
+		return &net.OpError{Op: "listen", Net: n.Network(), Addr: netladdr, Err: err}
 	}
 
 	// laddr must be empty or int >= 0
@@ -130,9 +133,11 @@ func (n *Network) Listen(laddr string) (net.Listener, error) {
 	if laddr != "" {
 		port, err := strconv.Atoi(laddr)
 		if err != nil || port < 0 {
-			return nil, lerr(errBadAddress)	// XXX -> net.AddrError ?
+			return nil, lerr(&net.AddrError{Err: "invalid", Addr: laddr})
 		}
 	}
+
+	netladdr = &Addr{n.Network(), port, -1}
 
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -218,14 +223,17 @@ func (l *listener) Accept() (net.Conn, error) {
 // Dial dials address on the network
 // It tries to connect to Accept called on listener corresponding to addr.
 func (n *Network) Dial(ctx context.Context, addr string) (net.Conn, error) {
+	var netaddr net.Addr
 	derr := func(err error) error {
-		return &net.OpError{Op: "dial", Net: n.Network(), Addr: &Addr{n.Network(), addr}, Err: err}
+		return &net.OpError{Op: "dial", Net: n.Network(), Addr: netaddr, Err: err}
 	}
 
 	port, err := strconv.Atoi(addr)
 	if err != nil || port < 0 {
-		return nil, derr(errBadAddress)	// XXX -> net.AddrError ?
+		return nil, derr(&net.AddrError{Err: "invalid", Addr: addr})
 	}
+
+	netaddr = &Addr{n.Network(), port, -1}
 
 	n.mu.Lock()
 
@@ -284,7 +292,7 @@ func (c *conn) Close() (err error) {
 // whether pipe endpoint was created via Dial or Accept.
 func (c *conn) LocalAddr() net.Addr {
 	addr := c.entry.addr()
-	addr.addr += string("cs"[c.endpoint])
+	addr.Endpoint = c.endpoint
 	return addr
 }
 
@@ -292,7 +300,7 @@ func (c *conn) LocalAddr() net.Addr {
 // it is entry address + "c" or "s" suffix -- see LocalAddr for details
 func (c *conn) RemoteAddr() net.Addr {
 	addr := c.entry.addr()
-	addr.addr += string("sc"[c.endpoint])
+	addr.Endpoint = (c.endpoint + 1) % 2
 	return addr
 }
 
@@ -328,11 +336,17 @@ func (e *entry) empty() bool {
 
 // addr returns address corresponding to entry
 func (e *entry) addr() *Addr {
-	return &Addr{network: e.network.Network(), addr: fmt.Sprintf("%d", e.port)}
+	return &Addr{Net: e.network.Network(), Port: e.port, Endpoint: -1}
 }
 
-func (a *Addr) Network() string { return a.network }
-func (a *Addr) String() string { return a.addr }
+func (a *Addr) Network() string { return a.Net }
+func (a *Addr) String() string {
+	addr := strconv.Itoa(a.Port)
+	if a.Endpoint >= 0 {
+		addr += string("cs"[a.Endpoint])
+	}
+	return addr
+}
 
 // Addr returns address where listener is accepting incoming connections
 func (l *listener) Addr() net.Addr {

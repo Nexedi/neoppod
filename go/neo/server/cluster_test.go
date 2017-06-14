@@ -19,10 +19,10 @@ package server
 // test interaction between nodes
 
 import (
-	"bytes"
+	//"bytes"
 	"context"
 	//"io"
-	"reflect"
+	//"reflect"
 	"testing"
 
 	//"../../neo/client"
@@ -33,6 +33,7 @@ import (
 	"../../xcommon/xnet"
 	"../../xcommon/xnet/pipenet"
 	"../../xcommon/xsync"
+	"../../xcommon/xtesting"
 
 	"lab.nexedi.com/kirr/go123/exc"
 
@@ -54,59 +55,18 @@ func xfs1stor(path string) *fs1.FileStorage {
 }
 
 
-// traceMsg represents one tracing communication
-// the goroutine which produced it will wait for send on ack before continue
-type traceMsg struct {
-	event interface {}	// xnet.Trace* | ...
-	ack   chan struct{}
+// XXX tracer which can collect tracing events from net + TODO master/storage/etc...
+// XXX naming
+type MyTracer struct {
+	*xtesting.SyncTracer
 }
 
-// TraceChecker synchronously collects and checks tracing events
-// it collects events from several sources and sends them all into one channel
-// for each event the goroutine which produced it will wait for ack before continue
-type TraceChecker struct {
-	t     *testing.T
-	msgch chan *traceMsg	// XXX naming -> tracech ?
-}
-
-func NewTraceChecker(t *testing.T) *TraceChecker {
-	return &TraceChecker{t: t, msgch: make(chan *traceMsg)}
-}
-
-// get1 gets 1 event in place and checks it has expected type
-func (tc *TraceChecker) xget1(eventp interface{}) *traceMsg {
-	tc.t.Helper()
-
-	//println("xget1: entry")
-	msg := <-tc.msgch
-	//println("xget1: msg", msg)
-	reventp := reflect.ValueOf(eventp)
-	if reventp.Type().Elem() != reflect.TypeOf(msg.event) {
-		tc.t.Fatalf("expected %s;  got %#v", reventp.Elem().Type(), msg.event)
-	}
-
-	// *eventp = msg.event
-	reventp.Elem().Set(reflect.ValueOf(msg.event))
-
-	return msg
-}
-
-// trace1 sends message with one tracing event to consumer
-func (tc *TraceChecker) trace1(event interface{}) {
-	ack := make(chan struct{})
-	//fmt.Printf("I: %#v ...", event)
-	tc.msgch <- &traceMsg{event, ack}
-	<-ack
-	//fmt.Printf(" ok\n")
-}
-
-func (tc *TraceChecker) TraceNetDial(ev *xnet.TraceDial)	{ tc.trace1(ev) }
-func (tc *TraceChecker) TraceNetListen(ev *xnet.TraceListen)	{ tc.trace1(ev) }
-func (tc *TraceChecker) TraceNetTx(ev *xnet.TraceTx)		{ tc.trace1(ev) }
+func (t *MyTracer) TraceNetDial(ev *xnet.TraceDial)	{ t.Trace1(ev) }
+func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)	{ t.Trace1(ev) }
+func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)		{ t.Trace1(ev) }
 
 
-// Expect instruct checker to expect next event to be ...
-// XXX
+/*
 func (tc *TraceChecker) ExpectNetDial(dst string) {
 	tc.t.Helper()
 
@@ -150,12 +110,14 @@ func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
 
 	close(msg.ack)
 }
+*/
 
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	tc := NewTraceChecker(t)
-	net := xnet.NetTrace(pipenet.New(""), tc)	// test network
+	tracer := &MyTracer{xtesting.NewSyncTracer()}
+	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
+	net := xnet.NetTrace(pipenet.New(""), tracer)	// test network
 
 	Maddr := "0"
 	Saddr := "1"
@@ -171,7 +133,9 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	tc.ExpectNetListen("0")
+	//tc.ExpectNetListen("0")
+	tc.Expect(&xnet.TraceListen{Laddr: "0"})
+
 	// M.clusterState	<- RECOVERY
 	// M.nodeTab		<- Node(M)
 
@@ -185,10 +149,21 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	tc.ExpectNetListen("1")
-	tc.ExpectNetDial("0")
-	tc.ExpectNetTx("2c", "2s", "\x00\x00\x00\x01")	// handshake
-	tc.ExpectNetTx("2s", "2c", "\x00\x00\x00\x01")
+	//tc.ExpectNetListen("1")
+	tc.Expect(&xnet.TraceListen{Laddr: "1"})
+	tc.Expect(&xnet.TraceDial{Dst: "0"})
+	//tc.ExpectNetDial("0")
+
+	//tc.Expect(xnet.NetTx{Src: "2c", Dst: "2s", Pkt: []byte("\x00\x00\x00\x01")})
+	//tc.Expect(nettx("2c", "2s", "\x00\x00\x00\x01"))
+
+	// handshake
+	//tc.ExpectNetTx("2c", "2s", "\x00\x00\x00\x01")	// handshake
+	//tc.ExpectNetTx("2s", "2c", "\x00\x00\x00\x01")
+	tc.ExpectPar(
+		&xnet.TraceTx{Src: "2c", Dst: "2s", Pkt: []byte("\x00\x00\x00\x01")},
+		&xnet.TraceTx{Src: "2s", Dst: "2c", Pkt: []byte("\x00\x00\x00\x01")},)
+
 
 	// XXX temp
 	return
