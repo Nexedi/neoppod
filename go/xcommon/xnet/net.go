@@ -25,13 +25,9 @@ import (
 	"crypto/tls"
 )
 
-// Network is the interface to work with various kinds of streaming networks
-//
-// NOTE in NEO a node usually needs to both 1) listen and serve incoming
-// connections, and 2) dial peers. For this reason the interface is not split
-// into Dialer and Listener.
-type Network interface {
-	// Network returns name of the network
+// Networker is interface representing access-point to a streaming network
+type Networker interface {
+	// Network returns name of the network		XXX recheck
 	Network() string
 
 	// Dial connects to addr on underlying network
@@ -46,9 +42,9 @@ type Network interface {
 }
 
 
-// NetPlain creates Network corresponding to regular network
+// NetPlain creates Networker corresponding to regular network accessors from std package net
 // network is "tcp", "tcp4", "tcp6", "unix", etc...
-func NetPlain(network string) Network {
+func NetPlain(network string) Networker {
 	return netPlain(network)
 }
 
@@ -67,16 +63,16 @@ func (n netPlain) Listen(laddr string) (net.Listener, error) {
 	return net.Listen(string(n), laddr)
 }
 
-// NetTLS wraps underlying network with TLS layer according to config
+// NetTLS wraps underlying networker with TLS layer according to config
 // The config must be valid:
 // - for tls.Client -- for Dial to work,
 // - for tls.Server -- for Listen to work.
-func NetTLS(inner Network, config *tls.Config) Network {
+func NetTLS(inner Networker, config *tls.Config) Networker {
 	return &netTLS{inner, config}
 }
 
 type netTLS struct {
-	inner  Network
+	inner  Networker
 	config *tls.Config
 }
 

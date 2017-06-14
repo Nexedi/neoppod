@@ -24,7 +24,7 @@ import (
 	"net"
 )
 
-// NetTrace wraps underlying network with IO tracing layer
+// NetTrace wraps underlying networker with IO tracing layer
 //
 // Tracing is done via calling trace func right before corresponding packet
 // is sent for Tx to underlying network. No synchronization for notification is
@@ -34,7 +34,7 @@ import (
 // only Tx events are traced:
 // - because Write, contrary to Read, never writes partial data on non-error
 // - because in case of pipenet tracing writes only is enough to get whole network exchange picture
-func NetTrace(inner Network, tracer Tracer) Network {
+func NetTrace(inner Networker, tracer Tracer) Networker {
 	return &netTrace{inner, tracer}
 }
 
@@ -62,10 +62,10 @@ type TraceTx struct {
 	Pkt      []byte
 }
 
-// netTrace wraps underlying Network such that whenever a connection is created
+// netTrace wraps underlying Networker such that whenever a connection is created
 // it is wrapped with traceConn
 type netTrace struct {
-	inner  Network
+	inner  Networker
 	tracer Tracer
 }
 

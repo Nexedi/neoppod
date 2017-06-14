@@ -40,7 +40,7 @@ type Master struct {
 	myInfo		neo.NodeInfo
 	clusterName	string
 
-	net		xnet.Network	// network we are sending/receiving on
+	net		xnet.Networker	// network AP we are sending/receiving on
 	masterAddr	string		// address of current primary master
 	// ---- 8< ----
 
@@ -84,7 +84,7 @@ type nodeLeave struct {
 
 // NewMaster creates new master node that will listen on serveAddr
 // Use Run to actually start running the node.
-func NewMaster(clusterName, serveAddr string, net xnet.Network) *Master {
+func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	// convert serveAddr into neo format
 	addr, err := neo.AddrString(net.Network(), serveAddr)
 	if err != nil {

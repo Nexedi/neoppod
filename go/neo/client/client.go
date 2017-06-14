@@ -34,7 +34,7 @@ type Client struct {
 	myInfo		neo.NodeInfo	// XXX -> only NodeUUID
 	clusterName	string
 
-	net		xnet.Network	// network we are sending/receiving on
+	net		xnet.Networker	// network AP we are sending/receiving on
 	masterAddr	string		// address of master	XXX -> Address ?
 	// ---- 8< ----
 

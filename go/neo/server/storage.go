@@ -38,7 +38,7 @@ type Storage struct {
 	myInfo		neo.NodeInfo	// XXX -> only Address + NodeUUID ?
 	clusterName	string
 
-	net		xnet.Network	// network we are sending/receiving on
+	net		xnet.Networker	// network AP we are sending/receiving on
 	masterAddr	string		// address of master
 	// ---- 8< ----
 
@@ -48,7 +48,7 @@ type Storage struct {
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
 // The storage uses zstor as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Network, zstor zodb.IStorage) *Storage {
+func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {
 	// convert serveAddr into neo format
 	addr, err := neo.AddrString(net.Network(), serveAddr)
 	if err != nil {
