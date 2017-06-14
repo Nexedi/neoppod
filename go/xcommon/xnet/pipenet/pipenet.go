@@ -101,6 +101,7 @@ type socket struct {
 // conn represents one endpoint of connection created under Network
 type conn struct {
 	socket *socket
+	peersk *socket // the other side of this connection
 
 	net.Conn
 
@@ -268,8 +269,8 @@ func (l *listener) Accept() (net.Conn, error) {
 
 		skc := req.from.allocFreeSocket()
 		sks := h.allocFreeSocket()
-		skc.conn = &conn{socket: skc, Conn: pc}
-		sks.conn = &conn{socket: sks, Conn: ps}
+		skc.conn = &conn{socket: skc, peersk: sks, Conn: pc}
+		sks.conn = &conn{socket: sks, peersk: skc, Conn: ps}
 
 		n.mu.Unlock()
 
@@ -338,8 +339,7 @@ func (c *conn) Close() (err error) {
 		n.mu.Lock()
 		defer n.mu.Unlock()
 
-		h.socketv[sk.port] = nil
-
+		sk.conn = nil
 		if sk.empty() {
 			h.socketv[sk.port] = nil
 		}
@@ -355,7 +355,7 @@ func (c *conn) LocalAddr() net.Addr {
 
 // RemoteAddr returns address of remote end of connection
 func (c *conn) RemoteAddr() net.Addr {
-	return c.socket.addr()	// FIXME -> must be addr of remote socket
+	return c.peersk.addr()
 }
 
 
