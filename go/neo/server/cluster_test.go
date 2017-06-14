@@ -161,8 +161,11 @@ func TestMasterStorage(t *testing.T) {
 	//tc.ExpectNetTx("2c", "2s", "\x00\x00\x00\x01")	// handshake
 	//tc.ExpectNetTx("2s", "2c", "\x00\x00\x00\x01")
 	tc.ExpectPar(
-		&xnet.TraceTx{Src: "2c", Dst: "2s", Pkt: []byte("\x00\x00\x00\x01")},
-		&xnet.TraceTx{Src: "2s", Dst: "2c", Pkt: []byte("\x00\x00\x00\x01")},)
+		//&xnet.TraceTx{Src: "2c", Dst: "2s", Pkt: []byte("\x00\x00\x00\x01")},
+		//&xnet.TraceTx{Src: "2s", Dst: "2c", Pkt: []byte("\x00\x00\x00\x01")},)
+		&xnet.TraceTx{Src: &pipenet.Addr{Net: "pipe", Port: 2, Endpoint: 0}, Dst: &pipenet.Addr{Net: "pipe", Port: 2, Endpoint: 1}, Pkt: []byte("\x00\x00\x00\x01")},
+	)
+		//&xnet.TraceTx{Src: "2s", Dst: "2c", Pkt: []byte("\x00\x00\x00\x01")},)
 
 
 	// XXX temp

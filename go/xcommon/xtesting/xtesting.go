@@ -146,8 +146,8 @@ loop:
 		// matching event not found - bad
 		strv := []string{}
 		for _, e := range eventExpectV {
-			strv = append(strv, fmt.Sprintf("%v", e))
+			strv = append(strv, fmt.Sprintf("%T %v", e, e))
 		}
-		tc.t.Fatalf("expect: have: %v\nwant: [%v]", msg.Event, strings.Join(strv, " | "))
+		tc.t.Fatalf("expect:\nhave: %T %v\nwant: [%v]", msg.Event, msg.Event, strings.Join(strv, " | "))
 	}
 }

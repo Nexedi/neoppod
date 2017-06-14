@@ -52,7 +52,6 @@ import (
 const NetPrefix = "pipe" // pipenet package creates only "pipe*" networks
 
 var (
-	errBadAddress		= errors.New("invalid address")
 	errNetClosed		= errors.New("network connection closed")
 	errAddrAlreadyUsed	= errors.New("address already in use")
 	errConnRefused		= errors.New("connection refused")
