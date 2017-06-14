@@ -59,7 +59,7 @@ type TraceConnect struct {
 // TraceListen is event corresponding to network listening
 type TraceListen struct {
 	// XXX also put networker?
-	Laddr string
+	Laddr net.Addr
 }
 
 // TraceTx is event corresponding to network transmission
@@ -96,7 +96,7 @@ func (nt *netTrace) Listen(laddr string) (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	nt.tracer.TraceNetListen(&TraceListen{Laddr: laddr})
+	nt.tracer.TraceNetListen(&TraceListen{Laddr: l.Addr()})
 	return &netTraceListener{nt, l}, nil
 }
 

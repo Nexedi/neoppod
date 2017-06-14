@@ -128,13 +128,19 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for net tx event
+	// XXX -> NetTx ?
 	nettx := func(src, dst, pkt string) *xnet.TraceTx {
 		return &xnet.TraceTx{Src: xaddr(src), Dst: xaddr(dst), Pkt: []byte(pkt)}
 	}
 
 	// shortcut for net connect event
+	// XXX -> NetConnect ?
 	netconnect := func(src, dst, dialed string) *xnet.TraceConnect {
 		return &xnet.TraceConnect{Src: xaddr(src), Dst: xaddr(dst), Dialed: dialed}
+	}
+
+	netlisten := func(laddr string) *xnet.TraceListen {
+		return &xnet.TraceListen{Laddr: xaddr(laddr)}
 	}
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
@@ -152,8 +158,7 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	//tc.ExpectNetListen("0")
-	tc.Expect(&xnet.TraceListen{Laddr: ":0"})
+	tc.Expect(netlisten("m:0"))
 
 	// M.clusterState	<- RECOVERY
 	// M.nodeTab		<- Node(M)
@@ -168,8 +173,7 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	//tc.ExpectNetListen("1")
-	tc.Expect(&xnet.TraceListen{Laddr: ":0"})
+	tc.Expect(netlisten("s:0"))
 	tc.Expect(netconnect("s:1", "m:1",  "m:0"))
 
 
