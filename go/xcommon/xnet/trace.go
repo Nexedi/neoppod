@@ -47,6 +47,7 @@ type Tracer interface {
 
 // TraceDial is event corresponding to network dialing
 type TraceDial struct {
+	// XXX also put Src here somehow ?
 	Dst string
 }
 

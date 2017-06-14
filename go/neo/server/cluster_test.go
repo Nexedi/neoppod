@@ -39,6 +39,8 @@ import (
 	"fmt"
 )
 
+var _ = fmt.Print
+
 // XXX dup from connection_test
 func xwait(w interface { Wait() error }) {
 	err := w.Wait()
@@ -62,10 +64,9 @@ type traceMsg struct {
 // TraceChecker synchronously collects and checks tracing events
 // it collects events from several sources and sends them all into one channel
 // for each event the goroutine which produced it will wait for ack before continue
-// XXX more text	XXX naming -> verifier?
 type TraceChecker struct {
 	t     *testing.T
-	msgch chan *traceMsg	// XXX or chan traceMsg (no ptr) ?
+	msgch chan *traceMsg	// XXX naming -> tracech ?
 }
 
 func NewTraceChecker(t *testing.T) *TraceChecker {
@@ -74,26 +75,29 @@ func NewTraceChecker(t *testing.T) *TraceChecker {
 
 // get1 gets 1 event in place and checks it has expected type
 func (tc *TraceChecker) xget1(eventp interface{}) *traceMsg {
-	println("xget1: entry")
+	tc.t.Helper()
+
+	//println("xget1: entry")
 	msg := <-tc.msgch
-	println("xget1: msg", msg)
-	revp := reflect.ValueOf(eventp)
-	if revp.Type().Elem() != reflect.TypeOf(msg.event) {
-		tc.t.Fatalf("expected %s;  got %#v", revp.Elem().Type(), msg.event)
+	//println("xget1: msg", msg)
+	reventp := reflect.ValueOf(eventp)
+	if reventp.Type().Elem() != reflect.TypeOf(msg.event) {
+		tc.t.Fatalf("expected %s;  got %#v", reventp.Elem().Type(), msg.event)
 	}
-	// TODO *event = msg.event
+
+	// *eventp = msg.event
+	reventp.Elem().Set(reflect.ValueOf(msg.event))
+
 	return msg
 }
 
 // trace1 sends message with one tracing event to consumer
 func (tc *TraceChecker) trace1(event interface{}) {
 	ack := make(chan struct{})
-	fmt.Printf("I: %v ...", event)
-	println("zzz")
-	//panic(0)
+	//fmt.Printf("I: %#v ...", event)
 	tc.msgch <- &traceMsg{event, ack}
 	<-ack
-	fmt.Printf(" ok\n")
+	//fmt.Printf(" ok\n")
 }
 
 func (tc *TraceChecker) TraceNetDial(ev *xnet.TraceDial)	{ tc.trace1(ev) }
@@ -104,6 +108,8 @@ func (tc *TraceChecker) TraceNetTx(ev *xnet.TraceTx)		{ tc.trace1(ev) }
 // Expect instruct checker to expect next event to be ...
 // XXX
 func (tc *TraceChecker) ExpectNetDial(dst string) {
+	tc.t.Helper()
+
 	var ev *xnet.TraceDial
 	msg := tc.xget1(&ev)
 
@@ -115,6 +121,8 @@ func (tc *TraceChecker) ExpectNetDial(dst string) {
 }
 
 func (tc *TraceChecker) ExpectNetListen(laddr string) {
+	tc.t.Helper()
+
 	var ev *xnet.TraceListen
 	msg := tc.xget1(&ev)
 
@@ -122,11 +130,12 @@ func (tc *TraceChecker) ExpectNetListen(laddr string) {
 		tc.t.Fatalf("net listen: have %v;  want %v", ev.Laddr, laddr)
 	}
 
-	println("listen: ok")
 	close(msg.ack)
 }
 
 func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
+	tc.t.Helper()
+
 	var ev *xnet.TraceTx
 	msg := tc.xget1(&ev)
 
@@ -161,11 +170,8 @@ func TestMasterStorage(t *testing.T) {
 		_ = err // XXX
 	})
 
-	println("222")
 	// expect:
-	//tc.ExpectNetListen("0")
-	tc.ExpectNetDial("0")
-	println("333")
+	tc.ExpectNetListen("0")
 	// M.clusterState	<- RECOVERY
 	// M.nodeTab		<- Node(M)
 
@@ -179,10 +185,15 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
+	tc.ExpectNetListen("1")
+	tc.ExpectNetDial("0")
 	tc.ExpectNetTx("2c", "2s", "\x00\x00\x00\x01")	// handshake
 	tc.ExpectNetTx("2s", "2c", "\x00\x00\x00\x01")
 
+	// XXX temp
+	return
+
+	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
 	// M -> S	.? AcceptIdentification{...}
 	// M.nodeTab	<- Node(S)	XXX order can be racy?
 	// S.nodeTab	<- Node(M)	XXX order can be racy?
