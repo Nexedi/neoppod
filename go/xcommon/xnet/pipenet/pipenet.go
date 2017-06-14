@@ -40,10 +40,11 @@ package pipenet
 import (
 	"context"
 	"errors"
-	//"fmt"
 	"net"
 	"strconv"
 	"sync"
+
+	"../../../xcommon/xnet"
 )
 
 const NetPrefix = "pipe" // pipenet package creates only "pipe*" networks
@@ -84,6 +85,8 @@ type Host struct {
 	// NOTE protected by Network.mu
 	socketv []*socket // port -> listener | conn
 }
+
+var _ xnet.Networker = (*Host)(nil)
 
 // socket represents one endpoint entry on Network
 // it can be either already connected or listening

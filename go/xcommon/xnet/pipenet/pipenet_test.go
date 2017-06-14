@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"reflect"
 	"testing"
 
@@ -86,63 +87,64 @@ func assertEq(t *testing.T, a, b interface{}) {
 
 
 func TestPipeNet(t *testing.T) {
-	pnet := New("α")
-
-	addrtestv := []struct {port, endpoint int; want string} {
-		{0, -1,	"0"},
-		{1, 0,	"1c"},
-		{2, 1,	"2s"},
-	}
-	for _, tt := range addrtestv {
-		addr := &Addr{Net: "pipeβ", Port: tt.port, Endpoint: tt.endpoint}
-		have := addr.String()
-		if have != tt.want {
-			t.Errorf("%#v -> %q  ; want %q", addr, have, tt.want)
+	pnet := New("t")
+	addr := func(hostport string) *Addr {	// XXX -> Network.ParseAddr ?
+		host, portstr, err := net.SplitHostPort(hostport)
+		if err != nil {
+			t.Fatal(err)
 		}
+		port, err := strconv.Atoi(portstr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &Addr{Net: pnet.Network(), Host: host, Port: port}
 	}
 
-	_, err := pnet.Dial(context.Background(), "0")
-	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipeα", Addr: &Addr{"pipeα", 0, -1}, Err: errConnRefused})
+	hα := pnet.Host("α")
+	hβ := pnet.Host("β")
 
-	l1 := xlisten(pnet, "")
-	assertEq(t, l1.Addr(), &Addr{"pipeα", 0, -1})
+	_, err := hα.Dial(context.Background(), ":0")
+	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipet", Addr: addr("α:0"), Err: errConnRefused})
+
+	l1 := xlisten(hα, "")
+	assertEq(t, l1.Addr(), addr("α:0"))
 
 	// XXX -> use workGroup (in connection_test.go)
 	wg := &errgroup.Group{}
 	wg.Go(func() error {
 		return exc.Runx(func() {
 			c1s := xaccept(l1)
-			assertEq(t, c1s.LocalAddr(), &Addr{"pipeα", 1, 1})
-			assertEq(t, c1s.RemoteAddr(), &Addr{"pipeα", 1, 0})
+			assertEq(t, c1s.LocalAddr(), addr("α:1"))
+			assertEq(t, c1s.RemoteAddr(), addr("β:0"))
 
 			assertEq(t, xread(c1s), "ping")
 			xwrite(c1s, "pong")
 
 			c2s := xaccept(l1)
-			assertEq(t, c2s.LocalAddr(), &Addr{"pipeα", 2, 1})
-			assertEq(t, c2s.RemoteAddr(), &Addr{"pipeα", 2, 0})
+			assertEq(t, c2s.LocalAddr(), addr("α:2"))
+			assertEq(t, c2s.RemoteAddr(), addr("β:1"))
 
 			assertEq(t, xread(c2s), "hello")
 			xwrite(c2s, "world")
 		})
 	})
 
-	c1c := xdial(pnet, "0")
-	assertEq(t, c1c.LocalAddr(), &Addr{"pipeα", 1, 0})
-	assertEq(t, c1c.RemoteAddr(), &Addr{"pipeα", 1, 1})
+	c1c := xdial(hβ, "α:0")
+	assertEq(t, c1c.LocalAddr(), addr("β:0"))
+	assertEq(t, c1c.RemoteAddr(), addr("α:1"))
 
 	xwrite(c1c, "ping")
 	assertEq(t, xread(c1c), "pong")
 
-	c2c := xdial(pnet, "0")
-	assertEq(t, c2c.LocalAddr(), &Addr{"pipeα", 2, 0})
-	assertEq(t, c2c.RemoteAddr(), &Addr{"pipeα", 2, 1})
+	c2c := xdial(hβ, "α:0")
+	assertEq(t, c2c.LocalAddr(), addr("β:1"))
+	assertEq(t, c2c.RemoteAddr(), addr("α:2"))
 
 	xwrite(c2c, "hello")
 	assertEq(t, xread(c2c), "world")
 
 	xwait(wg)
 
-	l2 := xlisten(pnet, "")
-	assertEq(t, l2.Addr(), &Addr{"pipeα", 3, -1})
+	l2 := xlisten(hα, "")
+	assertEq(t, l2.Addr(), addr("α:3"))
 }
