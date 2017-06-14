@@ -61,9 +61,9 @@ type MyTracer struct {
 	*xtesting.SyncTracer
 }
 
-func (t *MyTracer) TraceNetDial(ev *xnet.TraceDial)	{ t.Trace1(ev) }
-func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)	{ t.Trace1(ev) }
-func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)		{ t.Trace1(ev) }
+func (t *MyTracer) TraceNetConnect(ev *xnet.TraceConnect)	{ t.Trace1(ev) }
+func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)		{ t.Trace1(ev) }
+func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{ t.Trace1(ev) }
 
 
 /*
@@ -127,9 +127,14 @@ func TestMasterStorage(t *testing.T) {
 		return a
 	}
 
-	// shortcut for net tx events
+	// shortcut for net tx event
 	nettx := func(src, dst, pkt string) *xnet.TraceTx {
 		return &xnet.TraceTx{Src: xaddr(src), Dst: xaddr(dst), Pkt: []byte(pkt)}
+	}
+
+	// shortcut for net connect event
+	netconnect := func(src, dst, dialed string) *xnet.TraceConnect {
+		return &xnet.TraceConnect{Src: xaddr(src), Dst: xaddr(dst), Dialed: dialed}
 	}
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
@@ -165,8 +170,7 @@ func TestMasterStorage(t *testing.T) {
 	// expect:
 	//tc.ExpectNetListen("1")
 	tc.Expect(&xnet.TraceListen{Laddr: ":0"})
-	tc.Expect(&xnet.TraceDial{Dst: "m:0"})
-	//tc.ExpectNetDial("0")
+	tc.Expect(netconnect("s:1", "m:1",  "m:0"))
 
 
 	tc.ExpectPar(

@@ -26,32 +26,34 @@ import (
 
 // NetTrace wraps underlying networker with IO tracing layer
 //
-// Tracing is done via calling trace func right before corresponding packet
-// is sent for Tx to underlying network. No synchronization for notification is
-// performed - if one is required tracing func must implement such
-// synchronization itself.
+// Tracing is done via calling trace func right after corresponding networking
+// event happenned.  No synchronization for notification is performed - if one
+// is required tracing func must implement such synchronization itself.
 //
-// only Tx events are traced:
-// - because Write, contrary to Read, never writes partial data on non-error
-// - because in case of pipenet tracing writes only is enough to get whole network exchange picture
+// only initiation events are traced:
 //
-// XXX Dial/Listen are also traced
+// 1. Tx only (no Rx):
+//    - because Write, contrary to Read, never writes partial data on non-error
+//    - because in case of pipenet tracing writes only is enough to get whole network exchange picture
+//
+// 2. Dial only (no Accept)
+// XXX text
 func NetTrace(inner Networker, tracer Tracer) Networker {
 	return &netTrace{inner, tracer}
 }
 
 // Tracer is the interface that needs to be implemented by network trace receivers
 type Tracer interface {
-	TraceNetDial(*TraceDial)
+	TraceNetConnect(*TraceConnect)
 	TraceNetListen(*TraceListen)
 	TraceNetTx(*TraceTx)
 }
 
-// TraceDial is event corresponding to network dialing
-type TraceDial struct {
+// TraceConnect is event corresponding to network connection
+type TraceConnect struct {
 	// XXX also put networker?
-	// XXX also put Src here somehow ?
-	Dst string
+	Src, Dst net.Addr
+	Dialed   string
 }
 
 // TraceListen is event corresponding to network listening
@@ -79,23 +81,23 @@ func (nt *netTrace) Network() string {
 }
 
 func (nt *netTrace) Dial(ctx context.Context, addr string) (net.Conn, error) {
-	nt.tracer.TraceNetDial(&TraceDial{Dst: addr})
+	// XXX +TraceNetDialPost ?
 	c, err := nt.inner.Dial(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
+	nt.tracer.TraceNetConnect(&TraceConnect{Src: c.LocalAddr(), Dst: c.RemoteAddr(), Dialed: addr})
 	return &traceConn{nt, c}, nil
-	// XXX +TraceNetDialPost ?
 }
 
 func (nt *netTrace) Listen(laddr string) (net.Listener, error) {
-	nt.tracer.TraceNetListen(&TraceListen{Laddr: laddr})
+	// XXX +TraceNetListenPre ?
 	l, err := nt.inner.Listen(laddr)
 	if err != nil {
 		return nil, err
 	}
+	nt.tracer.TraceNetListen(&TraceListen{Laddr: laddr})
 	return &netTraceListener{nt, l}, nil
-	// XXX +TraceNetListenPost ?
 }
 
 // netTraceListener wraps net.Listener to wrap accepted connections with traceConn
@@ -119,7 +121,10 @@ type traceConn struct {
 }
 
 func (tc *traceConn) Write(b []byte) (int, error) {
-	tc.nt.tracer.TraceNetTx(&TraceTx{Src: tc.LocalAddr(), Dst: tc.RemoteAddr(), Pkt: b})
-	return tc.Conn.Write(b)
-	// XXX +TraceNetTxPost ?
+	// XXX +TraceNetTxPre ?
+	n, err := tc.Conn.Write(b)
+	if err == nil {
+		tc.nt.tracer.TraceNetTx(&TraceTx{Src: tc.LocalAddr(), Dst: tc.RemoteAddr(), Pkt: b})
+	}
+	return n, err
 }
