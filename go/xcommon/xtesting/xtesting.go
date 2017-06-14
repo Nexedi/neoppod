@@ -139,7 +139,7 @@ loop:
 
 			// found matching event - good
 			eventExpectV = append(eventExpectV[:i], eventExpectV[i+1:]...)
-			close(msg.Ack)
+			close(msg.Ack)	// XXX -> send ack for all only when all collected?
 			continue loop
 		}
 

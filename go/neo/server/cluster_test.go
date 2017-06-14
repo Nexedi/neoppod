@@ -121,6 +121,11 @@ func TestMasterStorage(t *testing.T) {
 	//net := xnet.NetTrace(pipenet.New(""), tracer)	// test network
 	net := pipenet.New("testnet")	// test network
 
+	// syntatic shortcut for net tx events
+	nettx := func(src, dst, pkt string) *xnet.TraceTx {
+		return &xnet.TraceTx{Src: net.Addr(src), Dst: net.Addr(dst), Pkt: []byte(pkt)}
+	}
+
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 
@@ -146,7 +151,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// start storage
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
-	S := NewStorage("abc1", Maddr, Saddr, net, zstor)
+	S := NewStorage("abc1", Maddr, Saddr, Shost, zstor)
 	Sctx, Scancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := S.Run(Sctx)
@@ -159,21 +164,10 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(&xnet.TraceDial{Dst: "0"})
 	//tc.ExpectNetDial("0")
 
-	//tc.Expect(xnet.NetTx{Src: "2c", Dst: "2s", Pkt: []byte("\x00\x00\x00\x01")})
-	//tc.Expect(nettx("2c", "2s", "\x00\x00\x00\x01"))
-
-	// handshake
-	tc.Expect(nettx("s:1", "m:1", "\x00\x00\x00\x01"))
-	tc.Expect(nettx("m:1", "s:1", "\x00\x00\x00\x01"))
-
-	//tc.ExpectNetTx("2c", "2s", "\x00\x00\x00\x01")	// handshake
-	//tc.ExpectNetTx("2s", "2c", "\x00\x00\x00\x01")
 	tc.ExpectPar(
-		//&xnet.TraceTx{Src: "2c", Dst: "2s", Pkt: []byte("\x00\x00\x00\x01")},
-		//&xnet.TraceTx{Src: "2s", Dst: "2c", Pkt: []byte("\x00\x00\x00\x01")},)
-		&xnet.TraceTx{Src: &pipenet.Addr{Net: "pipe", Port: 2, Endpoint: 0}, Dst: &pipenet.Addr{Net: "pipe", Port: 2, Endpoint: 1}, Pkt: []byte("\x00\x00\x00\x01")},
+		nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
+		nettx("m:1", "s:1", "\x00\x00\x00\x01"),
 	)
-		//&xnet.TraceTx{Src: "2s", Dst: "2c", Pkt: []byte("\x00\x00\x00\x01")},)
 
 
 	// XXX temp

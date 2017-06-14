@@ -151,21 +151,17 @@ func (n *Network) Host(name string) *Host {
 // resolveAddr resolves addr on the network from the host point of view
 // must be called with Network.mu held
 func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
-	hoststr, portstr, err := net.SplitHostPort(addr)
+	a, err := h.network.ParseAddr(addr)
 	if err != nil {
 		return nil, 0, err
 	}
-	port, err = strconv.Atoi(portstr)
-	if err != nil || port < 0 {
-		return nil, 0, &net.AddrError{Err: "invalid", Addr: addr}
-	}
 
 	// local host if host name omitted
-	if hoststr == "" {
-		hoststr = h.name
+	if a.Host == "" {
+		a.Host = h.name
 	}
 
-	host = h.network.hostMap[hoststr]
+	host = h.network.hostMap[a.Host]
 	if host == nil {
 		return nil, 0, &net.AddrError{Err: "no such host", Addr: addr}
 	}
@@ -395,6 +391,19 @@ func (sk *socket) addr() *Addr {
 
 func (a *Addr) Network() string { return a.Net }
 func (a *Addr) String() string { return net.JoinHostPort(a.Host, strconv.Itoa(a.Port)) }
+
+// ParseAddr parses addr into pipenet address
+func (n *Network) ParseAddr(addr string) (*Addr, error) {
+	host, portstr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portstr)
+	if err != nil || port < 0 {
+		return nil, &net.AddrError{Err: "invalid port", Addr: addr}
+	}
+	return &Addr{Net: n.Network(), Host: host, Port: port}, nil
+}
 
 // Addr returns address where listener is accepting incoming connections
 func (l *listener) Addr() net.Addr {

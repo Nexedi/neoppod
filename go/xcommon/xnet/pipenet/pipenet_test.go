@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"reflect"
 	"testing"
 
@@ -89,54 +88,48 @@ func assertEq(t *testing.T, a, b interface{}) {
 
 func TestPipeNet(t *testing.T) {
 	pnet := New("t")
-	addr := func(hostport string) *Addr {	// XXX -> Network.ParseAddr ?
-		host, portstr, err := net.SplitHostPort(hostport)
-		if err != nil {
-			t.Fatal(err)
-		}
-		port, err := strconv.Atoi(portstr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return &Addr{Net: pnet.Network(), Host: host, Port: port}
+	xaddr := func(addr string) *Addr {
+		a, err := pnet.ParseAddr(addr)
+		exc.Raiseif(err)
+		return a
 	}
 
 	hα := pnet.Host("α")
 	hβ := pnet.Host("β")
 
 	_, err := hα.Dial(context.Background(), ":0")
-	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipet", Addr: addr("α:0"), Err: errConnRefused})
+	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipet", Addr: xaddr("α:0"), Err: errConnRefused})
 
 	l1 := xlisten(hα, "")
-	assertEq(t, l1.Addr(), addr("α:0"))
+	assertEq(t, l1.Addr(), xaddr("α:0"))
 
 	wg := &xsync.WorkGroup{}
 	wg.Gox(func() {
 		c1s := xaccept(l1)
-		assertEq(t, c1s.LocalAddr(), addr("α:1"))
-		assertEq(t, c1s.RemoteAddr(), addr("β:0"))
+		assertEq(t, c1s.LocalAddr(), xaddr("α:1"))
+		assertEq(t, c1s.RemoteAddr(), xaddr("β:0"))
 
 		assertEq(t, xread(c1s), "ping")
 		xwrite(c1s, "pong")
 
 		c2s := xaccept(l1)
-		assertEq(t, c2s.LocalAddr(), addr("α:2"))
-		assertEq(t, c2s.RemoteAddr(), addr("β:1"))
+		assertEq(t, c2s.LocalAddr(), xaddr("α:2"))
+		assertEq(t, c2s.RemoteAddr(), xaddr("β:1"))
 
 		assertEq(t, xread(c2s), "hello")
 		xwrite(c2s, "world")
 	})
 
 	c1c := xdial(hβ, "α:0")
-	assertEq(t, c1c.LocalAddr(), addr("β:0"))
-	assertEq(t, c1c.RemoteAddr(), addr("α:1"))
+	assertEq(t, c1c.LocalAddr(), xaddr("β:0"))
+	assertEq(t, c1c.RemoteAddr(), xaddr("α:1"))
 
 	xwrite(c1c, "ping")
 	assertEq(t, xread(c1c), "pong")
 
 	c2c := xdial(hβ, "α:0")
-	assertEq(t, c2c.LocalAddr(), addr("β:1"))
-	assertEq(t, c2c.RemoteAddr(), addr("α:2"))
+	assertEq(t, c2c.LocalAddr(), xaddr("β:1"))
+	assertEq(t, c2c.RemoteAddr(), xaddr("α:2"))
 
 	xwrite(c2c, "hello")
 	assertEq(t, xread(c2c), "world")
@@ -144,5 +137,5 @@ func TestPipeNet(t *testing.T) {
 	xwait(wg)
 
 	l2 := xlisten(hα, "")
-	assertEq(t, l2.Addr(), addr("α:3"))
+	assertEq(t, l2.Addr(), xaddr("α:3"))
 }
