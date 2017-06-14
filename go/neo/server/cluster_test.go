@@ -118,7 +118,6 @@ func TestMasterStorage(t *testing.T) {
 	tracer := &MyTracer{xtesting.NewSyncTracer()}
 	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
 
-	//net := xnet.NetTrace(pipenet.New(""), tracer)	// test network
 	net := pipenet.New("testnet")	// test network
 
 	// shortcut for addresses
@@ -136,31 +135,27 @@ func TestMasterStorage(t *testing.T) {
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 
-	Maddr := "0"
-	Saddr := "1"
-
 	wg := &xsync.WorkGroup{}
 
 	// start master
-	M := NewMaster("abc1", Maddr, Mhost)
+	M := NewMaster("abc1", ":0", Mhost)
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := M.Run(Mctx)
+		fmt.Println("err: ", err)
 		_ = err // XXX
 	})
 
 	// expect:
 	//tc.ExpectNetListen("0")
-	println("111")
-	tc.Expect(&xnet.TraceListen{Laddr: "0"})
-	println("222")
+	tc.Expect(&xnet.TraceListen{Laddr: ":0"})
 
 	// M.clusterState	<- RECOVERY
 	// M.nodeTab		<- Node(M)
 
 	// start storage
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
-	S := NewStorage("abc1", Maddr, Saddr, Shost, zstor)
+	S := NewStorage("abc1", "m:0", ":0", Shost, zstor)
 	Sctx, Scancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := S.Run(Sctx)
@@ -169,18 +164,16 @@ func TestMasterStorage(t *testing.T) {
 
 	// expect:
 	//tc.ExpectNetListen("1")
-	tc.Expect(&xnet.TraceListen{Laddr: "1"})
-	tc.Expect(&xnet.TraceDial{Dst: "0"})
+	tc.Expect(&xnet.TraceListen{Laddr: ":0"})
+	tc.Expect(&xnet.TraceDial{Dst: "m:0"})
 	//tc.ExpectNetDial("0")
 
-	println("333")
 
 	tc.ExpectPar(
 		nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
 		nettx("m:1", "s:1", "\x00\x00\x00\x01"),
 	)
 
-	println("444")
 
 
 	// XXX temp

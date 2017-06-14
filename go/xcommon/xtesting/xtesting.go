@@ -60,6 +60,9 @@ func (st *SyncTracer) Trace1(event interface{}) {
 // The consumer, after dealing with the message, must send back an ack.
 func (st *SyncTracer) Get1() *SyncTraceMsg {
 	return <-st.tracech
+	//msg := <-st.tracech
+	//fmt.Printf("trace: get1: %T %v\n", msg.Event, msg.Event)
+	//return msg
 }
 
 

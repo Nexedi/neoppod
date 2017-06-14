@@ -49,17 +49,20 @@ type Tracer interface {
 
 // TraceDial is event corresponding to network dialing
 type TraceDial struct {
+	// XXX also put networker?
 	// XXX also put Src here somehow ?
 	Dst string
 }
 
 // TraceListen is event corresponding to network listening
 type TraceListen struct {
+	// XXX also put networker?
 	Laddr string
 }
 
 // TraceTx is event corresponding to network transmission
 type TraceTx struct {
+	// XXX also put network somehow?
 	Src, Dst net.Addr
 	Pkt      []byte
 }
