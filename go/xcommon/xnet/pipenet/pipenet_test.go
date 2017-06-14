@@ -78,6 +78,7 @@ func xwait(w interface { Wait() error }) {
 }
 
 func assertEq(t *testing.T, a, b interface{}) {
+	t.Helper()
 	if !reflect.DeepEqual(a, b) {
 		fmt.Printf("not equal:\nhave: %v\nwant: %v\n", a, b)
 		t.Errorf("not equal:\nhave: %v\nwant: %v", a, b)

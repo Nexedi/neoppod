@@ -131,7 +131,7 @@ type dialReq struct {
 //
 // New does not check whether network name provided is unique.
 func New(name string) *Network {
-	return &Network{name: name}
+	return &Network{name: name, hostMap: make(map[string]*Host)}
 }
 
 // Host returns network access point by name
