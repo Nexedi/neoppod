@@ -176,7 +176,6 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(netlisten("s:0"))
 	tc.Expect(netconnect("s:1", "m:1",  "m:0"))
 
-
 	tc.ExpectPar(
 		nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
 		nettx("m:1", "s:1", "\x00\x00\x00\x01"),
@@ -188,8 +187,8 @@ func TestMasterStorage(t *testing.T) {
 	return
 
 	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
-	// M -> S	.? AcceptIdentification{...}
 	// M.nodeTab	<- Node(S)	XXX order can be racy?
+	// M -> S	.? AcceptIdentification{...}
 	// S.nodeTab	<- Node(M)	XXX order can be racy?
 	//
 	// ; storCtlRecovery
