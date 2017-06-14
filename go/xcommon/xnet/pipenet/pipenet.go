@@ -22,7 +22,6 @@
 //
 // Example:
 //
-//	XXX adjust
 //	net := pipenet.New("")
 //	h1 := net.Host("abc")
 //	h2 := net.Host("def")
@@ -60,11 +59,10 @@ var (
 type Addr struct {
 	Net      string	// full network name, e.g. "pipe"
 	Host     string // name of host access point on the network
-	Port     int	// port on host		XXX -1, if anonymous ?
+	Port     int	// port on host
 }
 
 // Network implements synchronous in-memory network of pipes
-// XXX text about hosts & ports and routing logic
 type Network struct {
 	// name of this network under "pipe" namespace -> e.g. ""
 	// full network name will be reported as "pipe"+name
@@ -91,7 +89,7 @@ var _ xnet.Networker = (*Host)(nil)
 // socket represents one endpoint entry on Network
 // it can be either already connected or listening
 type socket struct {
-	host	*Host	// host/port this socket is binded to
+	host	*Host	// host/port this socket is bound to
 	port	int
 
 	conn     *conn     // connection endpoint is here if != nil
@@ -136,7 +134,7 @@ func New(name string) *Network {
 }
 
 // Host returns network access point by name
-// if there was no such host it creates new one
+// if there was no such host before it creates new one
 func (n *Network) Host(name string) *Host {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -150,7 +148,7 @@ func (n *Network) Host(name string) *Host {
 	return host
 }
 
-// resolveAddr resolved addr on the network from the host point of view
+// resolveAddr resolves addr on the network from the host point of view
 // must be called with Network.mu held
 func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 	hoststr, portstr, err := net.SplitHostPort(addr)
@@ -188,7 +186,7 @@ func (h *Host) Listen(laddr string) (net.Listener, error) {
 	if laddr == "" {
 		sk = h.allocFreeSocket()
 
-	// else we resolve/checr address, whether it is already used and if not allocate socket in-place
+	// else we resolve/check address, whether it is already used and if not allocate socket in-place
 	} else {
 		var netladdr net.Addr
 		lerr := func(err error) error {
@@ -383,12 +381,12 @@ func (h *Host) allocFreeSocket() *socket {
 	return sk
 }
 
-// empty checks whether sockets's both pipe endpoint and listener are all nil
+// empty checks whether socket's both conn and listener are all nil
 func (sk *socket) empty() bool {
 	return sk.conn == nil && sk.listener == nil
 }
 
-// addr returns address corresponding to entry
+// addr returns address corresponding to socket
 func (sk *socket) addr() *Addr {
 	h := sk.host
 	return &Addr{Net: h.Network(), Host: h.name, Port: sk.port}
@@ -405,5 +403,5 @@ func (l *listener) Addr() net.Addr {
 // Network returns full network name of this network
 func (n *Network) Network() string { return NetPrefix + n.name }
 
-// Network returns full network name of underllying network
+// Network returns full network name of underlying network
 func (h *Host) Network() string { return h.network.Network() }
