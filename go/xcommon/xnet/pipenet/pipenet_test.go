@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"testing"
 
-	"golang.org/x/sync/errgroup"
+	"../../../xcommon/xsync"
 
 	"lab.nexedi.com/kirr/go123/exc"
 )
@@ -110,24 +110,21 @@ func TestPipeNet(t *testing.T) {
 	l1 := xlisten(hα, "")
 	assertEq(t, l1.Addr(), addr("α:0"))
 
-	// XXX -> use workGroup (in connection_test.go)
-	wg := &errgroup.Group{}
-	wg.Go(func() error {
-		return exc.Runx(func() {
-			c1s := xaccept(l1)
-			assertEq(t, c1s.LocalAddr(), addr("α:1"))
-			assertEq(t, c1s.RemoteAddr(), addr("β:0"))
+	wg := &xsync.WorkGroup{}
+	wg.Gox(func() {
+		c1s := xaccept(l1)
+		assertEq(t, c1s.LocalAddr(), addr("α:1"))
+		assertEq(t, c1s.RemoteAddr(), addr("β:0"))
 
-			assertEq(t, xread(c1s), "ping")
-			xwrite(c1s, "pong")
+		assertEq(t, xread(c1s), "ping")
+		xwrite(c1s, "pong")
 
-			c2s := xaccept(l1)
-			assertEq(t, c2s.LocalAddr(), addr("α:2"))
-			assertEq(t, c2s.RemoteAddr(), addr("β:1"))
+		c2s := xaccept(l1)
+		assertEq(t, c2s.LocalAddr(), addr("α:2"))
+		assertEq(t, c2s.RemoteAddr(), addr("β:1"))
 
-			assertEq(t, xread(c2s), "hello")
-			xwrite(c2s, "world")
-		})
+		assertEq(t, xread(c2s), "hello")
+		xwrite(c2s, "world")
 	})
 
 	c1c := xdial(hβ, "α:0")
