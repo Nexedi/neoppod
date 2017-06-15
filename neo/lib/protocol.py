@@ -100,7 +100,6 @@ def ClusterStates():
     # invalidations and orders storage nodes to fetch them from upstream.
     # Because cells are synchronized independently, the DB is often
     # inconsistent.
-    # TODO: allow clients to connect for read-only operations
     BACKINGUP
     # Transient state, when the user decides to go back to RUNNING state.
     # The master stays in this state until the DB is consistent again.
