@@ -53,9 +53,6 @@ class MySQLDatabaseManager(DatabaseManager):
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
-    # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
-    # 'select count(*) from obj' sometimes returns incorrect values
-    # (tested with testOudatedCellsOnDownStorage).
     _use_partition = False
 
     _max_allowed_packet = 32769 * 1024
