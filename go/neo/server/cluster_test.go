@@ -25,6 +25,7 @@ import (
 	//"reflect"
 	"testing"
 
+	"../../neo"
 	//"../../neo/client"
 
 	//"../../zodb"
@@ -63,7 +64,14 @@ type MyTracer struct {
 
 func (t *MyTracer) TraceNetConnect(ev *xnet.TraceConnect)	{ t.Trace1(ev) }
 func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)		{ t.Trace1(ev) }
-func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{ t.Trace1(ev) }
+func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{}	// { t.Trace1(ev) }
+
+type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
+func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoRecv{c, msg}) }
+
+type traceNeoSend struct {conn *neo.Conn; msg neo.Msg}
+func (t *MyTracer) traceNeoConnSend(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoSend{c, msg}) }
+
 
 
 /*
@@ -115,10 +123,16 @@ func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
+	println("server: &_neo_traceConnSend:", &_neo_traceConnSend)
+
 	tracer := &MyTracer{xtesting.NewSyncTracer()}
 	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
 
 	net := pipenet.New("testnet")	// test network
+
+	// XXX change back after test
+	_neo_traceConnRecv = tracer.traceNeoConnRecv
+	_neo_traceConnSend = tracer.traceNeoConnSend
 
 	// shortcut for addresses
 	xaddr := func(addr string) *pipenet.Addr {
@@ -176,17 +190,23 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(netlisten("s:0"))
 	tc.Expect(netconnect("s:1", "m:1",  "m:0"))
 
-	tc.ExpectPar(
-		nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
-		nettx("m:1", "s:1", "\x00\x00\x00\x01"),
-	)
+	//tc.ExpectPar(
+	//	nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
+	//	nettx("m:1", "s:1", "\x00\x00\x00\x01"),
+	//)
+	_ = nettx
 
 
 
 	// XXX temp
-	return
+	//return
 
 	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
+	println("111")
+	tc.Expect(netlisten("s:0"))	// XXX no -> temp only to get complate
+	println("222")
+	return
+
 	// M.nodeTab	<- Node(S)	XXX order can be racy?
 	// M -> S	.? AcceptIdentification{...}
 	// S.nodeTab	<- Node(M)	XXX order can be racy?

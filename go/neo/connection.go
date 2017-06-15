@@ -760,12 +760,15 @@ func (c *Conn) Recv() (Msg, error) {
 		return nil, &ConnError{Conn: c, Op: "decode", Err: err}
 	}
 
+	traceConnRecv(c, msg)
 	return msg, nil
 }
 
 // Send sends message
 // it encodes message into packet and sends it
 func (c *Conn) Send(msg Msg) error {
+	traceConnSend(c, msg)
+
 	l := msg.NEOMsgEncodedLen()
 	buf := PktBuf{make([]byte, PktHeadLen + l)}	// TODO -> freelist
 
