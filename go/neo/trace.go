@@ -69,14 +69,15 @@ func traceConnSend(c *Conn, msg Msg) {
 		_traceConnSend_runprobev(c, msg)
 	}
 }
+
 func _traceConnSend_runprobev(c *Conn, msg Msg) {
 	for p := _traceConnSend; p != nil; p = (*_t_traceConnSend)(unsafe.Pointer(p.Next())) {
 		p.probefunc(c, msg)
 	}
 }
 
-func traceConnSend_Attach(probe func(*Conn, Msg)) *tracing.Probe {
+func traceConnSend_Attach(tg *tracing.Group, probe func(*Conn, Msg)) *tracing.Probe {
 	p := _t_traceConnSend{probefunc: probe}
-	tracing.AttachProbe((**tracing.Probe)(unsafe.Pointer(&_traceConnSend)), &p.Probe)
+	tracing.AttachProbe(tg, (**tracing.Probe)(unsafe.Pointer(&_traceConnSend)), &p.Probe)
 	return &p.Probe
 }

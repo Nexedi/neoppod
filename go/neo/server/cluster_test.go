@@ -31,6 +31,7 @@ import (
 	//"../../zodb"
 	"../../zodb/storage/fs1"
 
+	"../../xcommon/tracing"
 	"../../xcommon/xnet"
 	"../../xcommon/xnet/pipenet"
 	"../../xcommon/xsync"
@@ -128,17 +129,23 @@ func TestMasterStorage(t *testing.T) {
 
 	net := pipenet.New("testnet")	// test network
 
+	tg := &tracing.Group{}
+	defer tg.Done()
+
 	tracing.Lock()
-	neo_traceConnRecv_Attach(tracer.traceNeoConnRecv)
-	neo_traceConnSend_Attach(tracer.traceNeoConnSend)
+	neo_traceConnRecv_Attach(tg, tracer.traceNeoConnRecv)
+	neo_traceConnSend_Attach(tg, tracer.traceNeoConnSend)
 	tracing.Unlock()
 
+
+	/*
 	defer func() {
 		tracing.Lock()
 		defer tracing.Unlock()
 
 		tctx.Done()
 	}()
+	*/
 
 	// shortcut for addresses
 	xaddr := func(addr string) *pipenet.Addr {

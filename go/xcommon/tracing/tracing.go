@@ -65,29 +65,44 @@ func verifyLocked() {
 	}
 }
 
+// verifyUnlocked makes sure tracing is not locked and panics otherwise
+func verifyUnlocked() {
+	if atomic.LoadInt32(&traceLocked) != 0 {
+		panic("tracing must be unlocked")
+	}
+}
 
-// Probe describes one probe attached to a tracepoint	XXX
+
+// Probe describes one probe attached to a tracepoint
 type Probe struct {
 	prev, next *Probe
-//	probefunc  interface{} // func(some arguments)
+
+	// implicitly:
+	// probefunc  func(some arguments)
 }
 
 // Next return next probe attached to the same tracepoint
+// It is safe to iterate Next under any conditions.
 func (p *Probe) Next() *Probe {
 	return p.next
 }
 
-// AttachProbe attaches Probe to the end of a probe list
-// Must be called under Lock
-func AttachProbe(listp **Probe, probe *Probe) {
+// AttachProbe attaches newly created Probe to the end of a probe list
+// If group is non-nil the probe is also added to the group.
+// Must be called under Lock.
+// Probe must be newly created.
+func AttachProbe(g *Group, listp **Probe, probe *Probe) {
 	verifyLocked()
+
+	if !(probe.prev == nil || probe.next == nil) {
+		panic("attach probe: probe is not newly created")
+	}
 
 	var last *Probe
 	for p := *listp; p != nil; p = p.next {
 		last = p
 	}
 
-//	p := &Probe{prev: last, next: nil, probefunc: probefunc}
 	if last != nil {
 		last.next = probe
 		probe.prev = last
@@ -95,7 +110,9 @@ func AttachProbe(listp **Probe, probe *Probe) {
 		*listp = probe
 	}
 
-//	return p
+	if g != nil {
+		g.Add(probe)
+	}
 }
 
 // Detach detaches probe from a tracepoint
@@ -126,4 +143,29 @@ func (p *Probe) Detach() {
 	// mark us detached so that if Detach is erroneously called the second
 	// time it does not do harm
 	p.prev = p
+}
+
+// Group is a group of probes attached to tracepoints
+type Group struct {
+	probev []*Probe
+}
+
+// Add adds a probe to the group
+// Must be called under Lock
+func (g *Group) Add(p *Probe) {
+	verifyLocked()
+	g.probev = append(g.probev)
+}
+
+// Done detaches all probes registered in the group
+// Must be called under normal conditions, not under Lock
+func (g *Group) Done() {
+	verifyUnlocked()
+	Lock()
+	defer Unlock()
+
+	for _, p := range g.probev {
+		p.Detach()
+	}
+	g.probev = nil
 }
