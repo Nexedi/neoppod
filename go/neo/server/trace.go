@@ -26,8 +26,8 @@ import (
 // TODO autogenerate vvv from "//trace:import path/to/neo"
 //      + check consistency (e.g. by hash in neo.trace and here must be the same)
 
-//go:linkname neo_traceConnRecv aaaneo._traceConnRecv
-var _neo_traceConnRecv func(*neo.Conn, neo.Msg)
+//go:linkname neo_traceConnRecv_Attach _/home/kirr/src/wendelin/neo/neoppod-t/go/neo.traceConnRecv_Attach
+func neo_traceConnRecv_Attach(func(*neo.Conn, neo.Msg))
 
-//go:linkname neo_traceConnSend neo._traceConnSend
-var _neo_traceConnSend func(*neo.Conn, neo.Msg)
+//go:linkname neo_traceConnSend_Attach _/home/kirr/src/wendelin/neo/neoppod-t/go/neo.traceConnSend_Attach
+func neo_traceConnSend_Attach(func(*neo.Conn, neo.Msg))

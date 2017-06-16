@@ -123,16 +123,22 @@ func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	println("server: &_neo_traceConnSend:", &_neo_traceConnSend)
-
 	tracer := &MyTracer{xtesting.NewSyncTracer()}
 	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
 
 	net := pipenet.New("testnet")	// test network
 
-	// XXX change back after test
-	_neo_traceConnRecv = tracer.traceNeoConnRecv
-	_neo_traceConnSend = tracer.traceNeoConnSend
+	tracing.Lock()
+	neo_traceConnRecv_Attach(tracer.traceNeoConnRecv)
+	neo_traceConnSend_Attach(tracer.traceNeoConnSend)
+	tracing.Unlock()
+
+	defer func() {
+		tracing.Lock()
+		defer tracing.Unlock()
+
+		tctx.Done()
+	}()
 
 	// shortcut for addresses
 	xaddr := func(addr string) *pipenet.Addr {

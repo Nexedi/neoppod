@@ -18,7 +18,15 @@
 package neo
 // tracepoints
 
+import (
+	"unsafe"
+
+	"../xcommon/tracing"
+)
+
 // XXX put under 'build +tracedef'
+
+//trace:event
 // func traceConnRecv(c *Conn, msg Msg)
 // func traceConnSend(c *Conn, msg Msg)	// XXX -> traceConnSendPre ?
 
@@ -30,20 +38,45 @@ package neo
 
 // XXX do we need *_Enabled() ?
 
-var _traceConnRecv func(*Conn, Msg)
+var _traceConnRecv []func(*Conn, Msg)
 func traceConnRecv(c *Conn, msg Msg) {
-	println("A traceConnRecv", &_traceConnRecv)
-	if _traceConnRecv != nil {
-	println("  _traceConnRecv")
-		_traceConnRecv(c, msg)
+	if _traceConnRecv == nil {
+		return
+	}
+
+	for _, probe := range _traceConnRecv {
+		probe(c, msg)
 	}
 }
 
-var _traceConnSend func(*Conn, Msg)
+// Must be called under tracing.Lock
+func traceConnRecv_Attach(probe func(*Conn, Msg)) {
+	_traceConnRecv = append(_traceConnRecv, probe)
+}
+
+
+// traceevent: traceConnSend(c *Conn, msg Msg)
+
+type _t_traceConnSend struct {
+	tracing.Probe
+	probefunc     func(*Conn, Msg)
+}
+
+var _traceConnSend *_t_traceConnSend
+
 func traceConnSend(c *Conn, msg Msg) {
-	println("A traceConnSend", &_traceConnSend)
 	if _traceConnSend != nil {
-	println("  _traceConnSend")
-		_traceConnSend(c, msg)
+		_traceConnSend_runprobev(c, msg)
 	}
+}
+func _traceConnSend_runprobev(c *Conn, msg Msg) {
+	for p := _traceConnSend; p != nil; p = (*_t_traceConnSend)(unsafe.Pointer(p.Next())) {
+		p.probefunc(c, msg)
+	}
+}
+
+func traceConnSend_Attach(probe func(*Conn, Msg)) *tracing.Probe {
+	p := _t_traceConnSend{probefunc: probe}
+	tracing.AttachProbe((**tracing.Probe)(unsafe.Pointer(&_traceConnSend)), &p.Probe)
+	return &p.Probe
 }
