@@ -16,23 +16,18 @@
 // See COPYING file for full licensing terms.
 
 // Package tracing provides runtime support for Go tracing facilities
+// XXX ^^^ += "and usage" ?
 // TODO describe how to define tracepoints
+// TODO doc:
+// - tracepoints
+// - probes
+// - probes can be attached/detached to/from tracepoints
 package tracing
 
 import (
 	"sync"
 	"sync/atomic"
-	_ "unsafe"
 )
-
-// XXX move StopTheWorld to xruntime ?
-
-//go:linkname runtime_stopTheWorld runtime.stopTheWorld
-func runtime_stopTheWorld(string)
-
-//go:linkname runtime_startTheWorld runtime.startTheWorld
-func runtime_startTheWorld()
-
 
 // big tracing lock
 var traceMu     sync.Mutex
@@ -81,7 +76,7 @@ type Probe struct {
 	// probefunc  func(some arguments)
 }
 
-// Next return next probe attached to the same tracepoint
+// Next returns next probe attached to the same tracepoint
 // It is safe to iterate Next under any conditions.
 func (p *Probe) Next() *Probe {
 	return p.next
@@ -91,7 +86,7 @@ func (p *Probe) Next() *Probe {
 // If group is non-nil the probe is also added to the group.
 // Must be called under Lock.
 // Probe must be newly created.
-func AttachProbe(g *Group, listp **Probe, probe *Probe) {
+func AttachProbe(pg *ProbeGroup, listp **Probe, probe *Probe) {
 	verifyLocked()
 
 	if !(probe.prev == nil || probe.next == nil) {
@@ -110,8 +105,8 @@ func AttachProbe(g *Group, listp **Probe, probe *Probe) {
 		*listp = probe
 	}
 
-	if g != nil {
-		g.Add(probe)
+	if pg != nil {
+		pg.Add(probe)
 	}
 }
 
@@ -145,27 +140,27 @@ func (p *Probe) Detach() {
 	p.prev = p
 }
 
-// Group is a group of probes attached to tracepoints
-type Group struct {
+// ProbeGroup is a group of probes attached to tracepoints
+type ProbeGroup struct {
 	probev []*Probe
 }
 
 // Add adds a probe to the group
 // Must be called under Lock
-func (g *Group) Add(p *Probe) {
+func (pg *ProbeGroup) Add(p *Probe) {
 	verifyLocked()
-	g.probev = append(g.probev)
+	pg.probev = append(pg.probev, p)
 }
 
 // Done detaches all probes registered in the group
 // Must be called under normal conditions, not under Lock
-func (g *Group) Done() {
+func (pg *ProbeGroup) Done() {
 	verifyUnlocked()
 	Lock()
 	defer Unlock()
 
-	for _, p := range g.probev {
+	for _, p := range pg.probev {
 		p.Detach()
 	}
-	g.probev = nil
+	pg.probev = nil
 }

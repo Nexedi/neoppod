@@ -129,12 +129,12 @@ func TestMasterStorage(t *testing.T) {
 
 	net := pipenet.New("testnet")	// test network
 
-	tg := &tracing.Group{}
-	defer tg.Done()
+	pg := &tracing.ProbeGroup{}
+	defer pg.Done()
 
 	tracing.Lock()
-	neo_traceConnRecv_Attach(tg, tracer.traceNeoConnRecv)
-	neo_traceConnSend_Attach(tg, tracer.traceNeoConnSend)
+	neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
+	neo_traceConnSend_Attach(pg, tracer.traceNeoConnSend)
 	tracing.Unlock()
 
 
