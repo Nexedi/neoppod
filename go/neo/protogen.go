@@ -89,11 +89,8 @@ func pos(x interface { Pos() token.Pos }) token.Position {
 }
 
 // get type name in context of neo package
-var (
-	zodbPkg *types.Package
-	neoPkg  *types.Package
-)
-
+var zodbPkg *types.Package
+var neoPkg  *types.Package
 func typeName(typ types.Type) string {
 	qf := func(pkg *types.Package) string {
 		switch pkg {
