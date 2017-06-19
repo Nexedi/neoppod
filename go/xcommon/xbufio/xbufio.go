@@ -22,7 +22,7 @@ import (
 	"bufio"
 	"io"
 
-	"../xio"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
 // Reader is a bufio.Reader + bell & whistles

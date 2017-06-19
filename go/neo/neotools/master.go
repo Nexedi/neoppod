@@ -26,8 +26,8 @@ import (
 	"io"
 	"os"
 
-	"../../neo/server"
-	"../../xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/neo/server"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 const masterSummary = "run master node"

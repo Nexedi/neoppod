@@ -30,15 +30,15 @@ import (
 	"os"
 	"strconv"
 
-	"../../../zodb"
-	"./fsb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fsb"
 
 	pickle "github.com/kisielk/og-rek"
 
 	"lab.nexedi.com/kirr/go123/mem"
 
-	"../../../xcommon/xbufio"
-	"../../../xcommon/xio"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
 // fsIndex is Oid -> Data record position mapping used to associate Oid with

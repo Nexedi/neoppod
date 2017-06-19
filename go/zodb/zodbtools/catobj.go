@@ -26,7 +26,7 @@ import (
 	"log"
 	"os"
 
-	"../../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 

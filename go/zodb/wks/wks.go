@@ -25,7 +25,7 @@
 package wks
 
 import (
-	_ "../../zodb/storage/mem"
-	_ "../../zodb/storage/fs1"
-	_ "../../neo/client"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/mem"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	_ "lab.nexedi.com/kirr/neo/go/neo/client"
 )

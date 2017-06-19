@@ -23,7 +23,7 @@
 package neo
 
 import (
-	"../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 const (

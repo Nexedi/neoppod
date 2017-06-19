@@ -19,7 +19,7 @@ echo "// KEY=$KEY  VALUE=$VALUE" >>$out
 echo "// ---- 8< ----" >>$out
 echo >>$out
 make -s -C $Bdir generic |sed	\
-	-e '/package b/a \\nimport "../../../../zodb"'	\
+	-e '/package b/a \\nimport "lab.nexedi.com/kirr/neo/go/zodb"'	\
 	-e 's/package b/package fsb/g'	\
 	-e "s/KEY/$KEY/g"	\
 	-e "s/VALUE/$VALUE/g"	\

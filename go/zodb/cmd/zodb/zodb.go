@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"os"
 
-	"../../../zodb/zodbtools"
+	"lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
-	_ "../../../zodb/wks"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 )
 
 func usage() {

@@ -34,9 +34,9 @@ import (
 	"log"
 	"os"
 
-	"../../../../../zodb/storage/fs1"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
-	"../../../../../xcommon/xbufio"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xfmt"

@@ -29,7 +29,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"../xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 // NodeLink is a node-node link in NEO

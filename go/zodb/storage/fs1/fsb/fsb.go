@@ -4,7 +4,7 @@ package fsb
 
 //go:generate ./gen-fsbtree
 
-import "../../../../zodb"
+import "lab.nexedi.com/kirr/neo/go/zodb"
 
 // comparison function for fsbTree
 // kept short & inlineable

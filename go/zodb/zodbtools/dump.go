@@ -47,7 +47,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xfmt"
 
-	"../../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 

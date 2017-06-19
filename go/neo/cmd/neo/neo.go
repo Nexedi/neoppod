@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 
-	"../../../neo/neotools"
+	"lab.nexedi.com/kirr/neo/go/neo/neotools"
 )
 
 func usage() {

@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"net"
 
-	"../../neo"
+	"lab.nexedi.com/kirr/neo/go/neo"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )

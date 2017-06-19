@@ -8,7 +8,7 @@
 
 package fsb
 
-import "../../../../zodb"
+import "lab.nexedi.com/kirr/neo/go/zodb"
 
 import (
 	"fmt"

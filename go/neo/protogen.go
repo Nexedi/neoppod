@@ -166,7 +166,7 @@ import (
 	"reflect"
 	"sort"
 
-	"../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )`)
 
 	msgTypeRegistry := map[int]string{} // msgCode -> typename

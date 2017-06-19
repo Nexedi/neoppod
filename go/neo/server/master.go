@@ -26,9 +26,9 @@ import (
 	"math"
 	"sync"
 
-	"../../neo"
-	"../../zodb"
-	"../../xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )

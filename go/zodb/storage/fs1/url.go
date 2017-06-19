@@ -22,7 +22,7 @@ import (
 	"context"
 	"net/url"
 
-	"../../../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 // TODO read-only support

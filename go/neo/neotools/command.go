@@ -18,7 +18,7 @@
 package neotools
 // registry of all commands & help topics
 
-import "../../zodb/zodbtools"
+import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
 var Commands = zodbtools.CommandRegistry{
 	{"master",  masterSummary,  masterUsage,  masterMain},

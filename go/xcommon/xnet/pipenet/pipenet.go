@@ -43,7 +43,7 @@ import (
 	"strconv"
 	"sync"
 
-	"../../../xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 const NetPrefix = "pipe" // pipenet package creates only "pipe*" networks

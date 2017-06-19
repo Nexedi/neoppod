@@ -21,7 +21,7 @@ package neo
 import (
 	"unsafe"
 
-	"../xcommon/tracing"
+	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
 )
 
 // XXX put under 'build +tracedef'

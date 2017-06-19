@@ -28,8 +28,8 @@ import (
 	"io"
 	"os"
 
-	"../../../zodb"
-	"../../../xcommon/xbufio"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
 )

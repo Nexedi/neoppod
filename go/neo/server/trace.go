@@ -19,8 +19,8 @@ package server
 // tracepoints
 
 import (
-	"../../neo"
-	"../../xcommon/tracing"
+	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
 
 	_ "unsafe"
 )

@@ -22,9 +22,9 @@ import (
 	"context"
 	"net/url"
 
-	"../../neo"
-	"../../zodb"
-	"../../xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces

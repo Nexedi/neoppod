@@ -27,9 +27,9 @@ import (
 	"os"
 	"strings"
 
-	"../../neo/server"
-	"../../zodb/storage/fs1"
-	"../../xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/neo/server"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 const storageSummary = "run storage node"
