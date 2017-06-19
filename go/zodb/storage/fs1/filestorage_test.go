@@ -24,7 +24,7 @@ import (
 	"reflect"
 	"testing"
 
-	"../../../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/exc"
 )

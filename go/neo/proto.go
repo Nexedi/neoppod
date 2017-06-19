@@ -13,7 +13,7 @@ package neo
 
 // XXX move imports out of here
 import (
-	"../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"encoding/binary"
 	"errors"

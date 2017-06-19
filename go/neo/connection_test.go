@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"../xcommon/xsync"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xsync"
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"

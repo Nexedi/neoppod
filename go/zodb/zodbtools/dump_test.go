@@ -26,8 +26,8 @@ import (
 	"regexp"
 	"testing"
 
-	"../../zodb/storage/fs1"
-	"../../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"lab.nexedi.com/kirr/go123/exc"

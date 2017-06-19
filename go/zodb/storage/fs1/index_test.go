@@ -29,8 +29,8 @@ import (
 	"strings"
 	"testing"
 
-	"../../../zodb"
-	"./fsb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fsb"
 )
 
 type indexEntry struct {

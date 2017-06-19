@@ -25,17 +25,17 @@ import (
 	//"reflect"
 	"testing"
 
-	"../../neo"
-	//"../../neo/client"
+	"lab.nexedi.com/kirr/neo/go/neo"
+	//"lab.nexedi.com/kirr/neo/go/neo/client"
 
-	//"../../zodb"
-	"../../zodb/storage/fs1"
+	//"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
-	"../../xcommon/tracing"
-	"../../xcommon/xnet"
-	"../../xcommon/xnet/pipenet"
-	"../../xcommon/xsync"
-	"../../xcommon/xtesting"
+	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xsync"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 
 	"lab.nexedi.com/kirr/go123/exc"
 

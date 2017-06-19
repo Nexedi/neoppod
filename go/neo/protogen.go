@@ -77,7 +77,7 @@ import (
 // parsed & typechecked input
 var fset = token.NewFileSet()
 var fileMap = map[string]*ast.File{}      // fileName -> AST
-var pkgMap  = map[string]*types.Package{} // pkgName  -> Package
+var pkgMap  = map[string]*types.Package{} // pkgPath  -> Package
 var typeInfo = &types.Info{
 	Types: make(map[ast.Expr]types.TypeAndValue),
 	Defs:  make(map[*ast.Ident]types.Object),
@@ -88,10 +88,30 @@ func pos(x interface { Pos() token.Pos }) token.Position {
 	return fset.Position(x.Pos())
 }
 
-// get type name relative to neo package
-var neoQualifier types.Qualifier
+// get type name in context of neo package
+var (
+	zodbPkg *types.Package
+	neoPkg  *types.Package
+)
+
 func typeName(typ types.Type) string {
-	return types.TypeString(typ, neoQualifier)
+	qf := func(pkg *types.Package) string {
+		switch pkg {
+		case neoPkg:
+			// same package - unqualified
+			return ""
+
+		case zodbPkg:
+			// zodb is imported - only name
+			return pkg.Name()
+
+		default:
+			// fully qualified otherwise
+			return pkg.Path()
+		}
+	}
+
+	return types.TypeString(typ, qf)
 }
 
 // bytes.Buffer + bell & whistles
@@ -110,8 +130,9 @@ type localImporter struct {
 }
 
 func (li *localImporter) Import(path string) (*types.Package, error) {
-	xpath := strings.TrimPrefix(path, "../") // ../zodb -> zodb
-	pkg := pkgMap[xpath]
+//	xpath := strings.TrimPrefix(path, "../") // ../zodb -> zodb
+//	pkg := pkgMap[xpath]
+	pkg := pkgMap[path]
 	if pkg != nil {
 		return pkg, nil
 	}
@@ -119,7 +140,7 @@ func (li *localImporter) Import(path string) (*types.Package, error) {
 	return li.Importer.Import(path)
 }
 
-func loadPkg(pkgName string, sources ...string) *types.Package {
+func loadPkg(pkgPath string, sources ...string) *types.Package {
 	var filev []*ast.File
 
 	// parse
@@ -137,11 +158,11 @@ func loadPkg(pkgName string, sources ...string) *types.Package {
 
 	// typecheck
 	conf := types.Config{Importer: &localImporter{importer.Default()}}
-	pkg, err := conf.Check(pkgName, fset, filev, typeInfo)
+	pkg, err := conf.Check(pkgPath, fset, filev, typeInfo)
 	if err != nil {
 		log.Fatalf("typecheck: %v", err)
 	}
-	pkgMap[pkgName] = pkg
+	pkgMap[pkgPath] = pkg
 	return pkg
 }
 
@@ -151,9 +172,8 @@ func main() {
 	log.SetFlags(0)
 
 	// go through proto.go and AST'ify & typecheck it
-	loadPkg("zodb", "../zodb/zodb.go")
-	loadPkg("neo", "proto.go", "neo.go")
-	neoQualifier = types.RelativeTo(pkgMap["neo"])
+	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go")
+	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go", "neo.go")
 
 	// prologue
 	f := fileMap["proto.go"]

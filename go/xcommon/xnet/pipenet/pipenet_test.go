@@ -25,7 +25,7 @@ import (
 	"reflect"
 	"testing"
 
-	"../../../xcommon/xsync"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xsync"
 
 	"lab.nexedi.com/kirr/go123/exc"
 )

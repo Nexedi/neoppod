@@ -28,7 +28,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"../zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 // decode string as hex; panic on error
