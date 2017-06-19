@@ -76,8 +76,8 @@ func _traceConnSend_runprobev(c *Conn, msg Msg) {
 	}
 }
 
-func traceConnSend_Attach(tg *tracing.Group, probe func(*Conn, Msg)) *tracing.Probe {
+func traceConnSend_Attach(pg *tracing.ProbeGroup, probe func(*Conn, Msg)) *tracing.Probe {
 	p := _t_traceConnSend{probefunc: probe}
-	tracing.AttachProbe(tg, (**tracing.Probe)(unsafe.Pointer(&_traceConnSend)), &p.Probe)
+	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceConnSend)), &p.Probe)
 	return &p.Probe
 }

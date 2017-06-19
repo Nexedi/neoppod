@@ -29,7 +29,7 @@ import (
 //      + check consistency (e.g. by hash in neo.trace and here must be the same)
 
 //go:linkname neo_traceConnRecv_Attach _/home/kirr/src/wendelin/neo/neoppod-t/go/neo.traceConnRecv_Attach
-func neo_traceConnRecv_Attach(*tracing.Group, func(*neo.Conn, neo.Msg)) *tracing.Probe
+func neo_traceConnRecv_Attach(*tracing.ProbeGroup, func(*neo.Conn, neo.Msg)) *tracing.Probe
 
 //go:linkname neo_traceConnSend_Attach _/home/kirr/src/wendelin/neo/neoppod-t/go/neo.traceConnSend_Attach
-func neo_traceConnSend_Attach(*tracing.Group, func(*neo.Conn, neo.Msg)) *tracing.Probe
+func neo_traceConnSend_Attach(*tracing.ProbeGroup, func(*neo.Conn, neo.Msg)) *tracing.Probe
