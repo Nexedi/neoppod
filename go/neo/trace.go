@@ -24,15 +24,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
 )
 
-// XXX put under 'build +tracedef'
-
-//trace:event
-// func traceConnRecv(c *Conn, msg Msg)
-// func traceConnSend(c *Conn, msg Msg)	// XXX -> traceConnSendPre ?
-
-
-// TODO autogenerate vvv from ^^^
-
 // XXX after https://github.com/golang/go/issues/19348 won't cost a function
 //     call when tracepoint is disabled
 
