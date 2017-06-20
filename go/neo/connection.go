@@ -734,7 +734,7 @@ func (c *Conn) err(op string, e error) error {
 
 // ---- exchange of messages ----
 
-//trace:event traceConnRecv(c *Conn, msg Msg)
+//trace:event traceConnRecv(c *Conn /*aaa*/, msg Msg)
 //trace:event traceConnSend(c *Conn, msg Msg)	// XXX -> traceConnSendPre ?
 
 // Recv receives message

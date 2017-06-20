@@ -28,6 +28,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"log"
@@ -41,27 +42,53 @@ import (
 
 // traceEvent represents 1 trace:event definition
 type traceEvent struct {
-	Pkg  loader.PackageInfo	// XXX or loader.PackageInfo.Pkg (*types.Package) ?
-	Pos  token.Position
-	Text string
-	Name string
-	Argv string
+	//Pkg  loader.PackageInfo	// XXX or loader.PackageInfo.Pkg (*types.Package) ?
+	//Pos  token.Position
+	//Text string
+	//Name string
+	//Argv string
+	*ast.FuncDecl
+}
+
+// TypedArgv returns argument list with types
+func (te *traceEvent) TypedArgv() string {
+	//format.Node(&buf, fset, te.FuncDecl.Params)
+
+	for _, field := range te.FuncDecl.Params.List {
+		namev := []string{}
+		for _, name := range field.Names {
+			namev = append(namev, name)
+		}
+	}
+}
+
+// Argv returns comma-separated argument-list
+func (te *traceEvent) Argv() string {
+	argv := []string{}
+
+	for _, field := range te.FuncDecl.Params.List {
+		for _, name := range field.Names {
+			argv = append(argv, name)
+		}
+	}
+
+	return strings.Join(argv, ", ")
 }
 
 // byEventName provides []traceEvent ordering by event name
-type byEventName []traceEvent
-func (v byEventName) Less(i, j int) bool { return v[i].Text < v[j].Text }
+type byEventName []*traceEvent
+//func (v byEventName) Less(i, j int) bool { return v[i].Text < v[j].Text }
+func (v byEventName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Name }
 func (v byEventName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byEventName) Len() int           { return len(v) }
 
 // traceEventCode is code template for one trace event
 const traceEventCode = `
-// traceevent: {{.Text}}	XXX .Text -> .Name.Signature
-				XXX .Signature -> .Argvdef
+// traceevent: {{.Name}}({{.Type.Params}})	XXX or better raw .Text (e.g. comments)
 
 type _t_{{.Name}} struct {
 	tracing.Probe
-	probefunc     func{{.Argv}}
+	probefunc     func{{.Type.Params}}
 }
 
 var _{{.Name}} *_t_{{.Name}}
@@ -69,20 +96,20 @@ var _{{.Name}} *_t_{{.Name}}
 {{/* after https://github.com/golang/go/issues/19348 is done this separate
    * checking function will be inlined and tracepoint won't cost a function
    * call when it is disabled */}}
-func {{.Name}}{{.Argv}} {
+func {{.Name}}{{.Type.Params}} {
 	if _{{.Name}} != nil {
-		_{{.Name}}_run(...)	// XXX argv without types here
+		_{{.Name}}_run({{.Type.Params}})	// XXX argv without types here
 	}
 }
 
 func _{{.Name}}{{.Argv}}_run({{.Argv}}) {
 	for p := _{{.Name}}; p != nil; p = (*_t_{{.Name}})(unsafe.Pointer(p.Next())) {
-		p.probefunc(...)	// XXX argv without types here
+		p.probefunc({{.Type.Params}})	// XXX argv without types here
 	}
 }
 
 // XXX ... is only types from argv
-func {{.Name}}_Attach(pg *tracing.ProbeGroup, probe func(...)) *tracing.Probe {
+func {{.Name}}_Attach(pg *tracing.ProbeGroup, probe func({{.Type.Params}})) *tracing.Probe {
 	p := _t_{{.Name}}{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_{{.Name}}), &p.Probe)
 	return &p.Probe
@@ -90,6 +117,37 @@ func {{.Name}}_Attach(pg *tracing.ProbeGroup, probe func(...)) *tracing.Probe {
 `
 
 var traceEventCodeTmpl = template.Must(template.New("traceevent").Parse(traceEventCode))
+
+// parseTraceEvent parses trace event definition into XXX
+// text is text argument after "//trace:event "
+func parseTraceEvent(text string) (*traceEvent, error) {
+	if !strings.HasPrefix(text, "trace") {
+		return nil, fmt.Errorf("trace event must start with \"trace\"") // XXXpos
+	}
+
+	// trace trace event definition as func declaration
+	text = "package xxx\nfunc " + text	// XXX
+	fset := token.NewFileSet()	// XXX
+	filename := "tracefunc.go"	// XXX
+	f, err := parser.ParseFile(fset, filename, text, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(f.Decls) != 1 {
+		return nil, fmt.Errorf("trace event must be func-like")
+	}
+
+	declf, ok := f.Decls[0].(*ast.FuncDecl)
+	if !ok {
+		return nil, fmt.Errorf("trace event must be func-like, not %v", f.Decls[0])
+	}
+	if declf.Type.Results != nil {
+		return nil, fmt.Errorf("trace event must not return results")
+	}
+
+	return &traceEvent{declf}, nil
+}
 
 // tracegen generates code according to tracing directives in a package @ pkgpath
 func tracegen(pkgpath string) error {
@@ -111,7 +169,7 @@ func tracegen(pkgpath string) error {
 	pkg := lprog.InitialPackages()[0]
 	//fmt.Println(pkg)
 
-	eventv  := []traceEvent{}                       // events this package defines
+	eventv  := []*traceEvent{}                       // events this package defines
 	importv := map[/*pkgpath*/string][]traceEvent{} // events this package imports
 
 	// go through files of the package and process //trace: directives
@@ -138,10 +196,11 @@ func tracegen(pkgpath string) error {
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					if !strings.HasPrefix(arg, "trace") {
-						log.Fatalf("%v: trace event must start with \"trace\"", pos)
+					event, err := parseTraceEvent(arg)
+					if err != nil {
+						log.Fatalf("%v: %v", pos, err)
 					}
-					event := traceEvent{Pos: pos, Text: arg, Name: "name", Argv: "argv"}	// XXX
+
 					eventv = append(eventv, event)
 
 				case "//trace:import":
