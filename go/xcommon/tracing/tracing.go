@@ -15,8 +15,7 @@
 //
 // See COPYING file for full licensing terms.
 
-// Package tracing provides runtime support for Go tracing facilities
-// XXX ^^^ += "and usage" ?
+// Package tracing provides runtime and usage support for Go tracing facilities
 // TODO describe how to define tracepoints
 // TODO doc:
 // - tracepoints
