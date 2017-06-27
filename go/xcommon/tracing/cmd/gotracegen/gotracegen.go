@@ -240,7 +240,7 @@ func {{.Name}}({{.TypedArgv}}) {
 }
 
 {{/* function to notify attached probes */ -}}
-func _{{.Name}}_run({{.Argv}}) {
+func _{{.Name}}_run({{.TypedArgv}}) {
 	for p := _{{.Name}}; p != nil; p = (*_t_{{.Name}})(unsafe.Pointer(p.Next())) {
 		p.probefunc({{.Argv}})
 	}
@@ -249,7 +249,7 @@ func _{{.Name}}_run({{.Argv}}) {
 {{/* function to attach a probe to tracepoint */ -}}
 func {{.Name}}_Attach(pg *tracing.ProbeGroup, probe func({{.TypedArgv}})) *tracing.Probe {
 	p := _t_{{.Name}}{probefunc: probe}
-	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_{{.Name}}), &p.Probe)
+	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_{{.Name}})), &p.Probe)
 	return &p.Probe
 }
 `))
@@ -315,6 +315,7 @@ func tracegen(pkgpath string) error {
 	conf.Import(pkgpath)
 
 	// load package + all its imports
+	// XXX ignore trace.go & trace.s on load here?
 	lprog, err := conf.Load()
 	if err != nil {
 		log.Fatal(err)
@@ -339,9 +340,11 @@ func tracegen(pkgpath string) error {
 
 	// prologue
 	buf.WriteString(magic)
-	buf.emit("\npackage %v", pkg.Pkgi.Pkg.Name)
+	buf.emit("\npackage %v", pkg.Pkgi.Pkg.Name())
+	buf.emit("// code generated for tracepoints")
 	buf.emit("\nimport (")
-	buf.emit("\t\tlab.nexedi.com/kirr/neo/go/xcommon/tracing")
+	buf.emit("\t\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
+	buf.emit("\t\t%q", "unsafe")
 	// TODO import all packages for used types
 	buf.emit(")")
 
@@ -360,15 +363,15 @@ func tracegen(pkgpath string) error {
 	for _, timport := range pkg.Importv {
 		buf.emit("// traceimport: %v", timport.PkgPath)
 
-		pkgi = lprog.Package(timport.PkgPath)
-		if pkgi == nil {
+		impPkgi := lprog.Package(timport.PkgPath)
+		if impPkgi == nil {
 			// TODO do not require vvv
 			log.Fatalf("%v: package %s must be also regularly imported", timport.Pos, timport.PkgPath)
 		}
 
-		pkg = packageTrace(lprog, pkgi)
+		impPkg := packageTrace(lprog, impPkgi)
 
-		for _, event := range pkg.Eventv {
+		for _, event := range impPkg.Eventv {
 			err = traceEventImportTmpl.Execute(buf, event)
 			if err != nil {
 				panic(err)	// XXX
@@ -385,15 +388,24 @@ func tracegen(pkgpath string) error {
 		log.Fatal(err)
 	}
 
-	// XXX vvv needed only if there are trace imports
 	// write empty trace.s so go:linkname works
 	buf.Reset()
 	buf.WriteString(magic)
 	buf.emit("// empty .s so `go build` does not use -complete for go:linkname to work")
 
-	err = writeFile(filepath.Join(pkgdir, "trace.s"), buf.Bytes())
+	trace_s := filepath.Join(pkgdir, "trace.s")
+	err = writeFile(trace_s, buf.Bytes())
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// trace.s is needed only if there are trace imports
+	// (but still we do want to verify ^^^ we can write to it)
+	if len(pkg.Importv) == 0 {
+		err = os.Remove(trace_s)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	return nil	// XXX
