@@ -4,8 +4,8 @@ package pipenet
 // code generated for tracepoints
 
 import (
-		"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
-		"unsafe"
+	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
+	"unsafe"
 )
 
 // traceevent: traceAccept(conn net.Conn)	XXX better raw .Text (e.g. comments)
@@ -142,4 +142,3 @@ func traceNewHost_Attach(pg *tracing.ProbeGroup, probe func(host *Host)) *tracin
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceNewHost)), &p.Probe)
 	return &p.Probe
 }
-

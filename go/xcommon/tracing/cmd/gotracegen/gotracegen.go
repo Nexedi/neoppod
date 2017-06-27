@@ -343,8 +343,8 @@ func tracegen(pkgpath string) error {
 	buf.emit("\npackage %v", pkg.Pkgi.Pkg.Name())
 	buf.emit("// code generated for tracepoints")
 	buf.emit("\nimport (")
-	buf.emit("\t\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
-	buf.emit("\t\t%q", "unsafe")
+	buf.emit("\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
+	buf.emit("\t%q", "unsafe")
 	// TODO import all packages for used types
 	buf.emit(")")
 
@@ -359,9 +359,8 @@ func tracegen(pkgpath string) error {
 	// TODO export hash
 
 	// code for trace:import imports
-	buf.emit("")
 	for _, timport := range pkg.Importv {
-		buf.emit("// traceimport: %v", timport.PkgPath)
+		buf.emit("\n// traceimport: %v", timport.PkgPath)
 
 		impPkgi := lprog.Package(timport.PkgPath)
 		if impPkgi == nil {
