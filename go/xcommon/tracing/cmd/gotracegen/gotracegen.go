@@ -385,6 +385,7 @@ func tracegen(pkgpath string) error {
 		log.Fatal(err)
 	}
 
+	// XXX vvv needed only if there are trace imports
 	// write empty trace.s so go:linkname works
 	buf.Reset()
 	buf.WriteString(magic)
