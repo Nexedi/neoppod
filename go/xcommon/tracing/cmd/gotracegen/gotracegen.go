@@ -379,13 +379,13 @@ func tracegen(pkgpath string) error {
 	// TODO check export hash
 
 
-	// before flushing check we can write to trace.{go,s}
+	// write output to trace.go
 	err = writeFile(filepath.Join(pkgdir, "trace.go"), buf.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// write trace.s so go:linkname works
+	// write empty trace.s so go:linkname works
 	buf.Reset()
 	buf.WriteString(magic)
 	buf.emit("// empty .s so `go build` does not use -complete for go:linkname to work")
