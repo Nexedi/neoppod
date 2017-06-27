@@ -59,8 +59,15 @@ type traceEvent struct {
 	//Name string
 	//Argv string
 
-	PkgPath		string	// XXX -> pkg ?
+	// TODO += Pos
+	Pkgi		*loader.PackageInfo
 	*ast.FuncDecl
+}
+
+// traceImport represents 1 trace:import directive
+type traceImport struct {
+	Pos	token.Position
+	PkgPath string
 }
 
 // TypedArgv returns argument list with types
@@ -96,11 +103,17 @@ func (te *traceEvent) Argv() string {
 	return strings.Join(argv, ", ")
 }
 
-// byEventName provides []traceEvent ordering by event name
+// byEventName provides []*traceEvent ordering by event name
 type byEventName []*traceEvent
 func (v byEventName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Name }
 func (v byEventName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byEventName) Len() int           { return len(v) }
+
+// byPkgPath provides []*traceImport ordering by package path
+type byPkgPath []*traceImport
+func (v byPkgPath) Less(i, j int) bool { return v[i].PkgPath < v[j].PkgPath }
+func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
+func (v byPkgPath) Len() int           { return len(v) }
 
 // traceEventCodeTmpl is code template generated for one trace event
 var traceEventCodeTmpl = template.Must(template.New("traceevent").Parse(`
@@ -142,12 +155,10 @@ func {{.Name}}_Attach(pg *tracing.ProbeGroup, probe func({{.TypedArgv}})) *traci
 `))
 
 // traceEventImportTmpl is code template generated for importing one trace event
-var traceEventImportTmpl = template.Must(template.New("traceimport").Parse(`
-// traceimport: {{.Pkgi.Pkg.Path}} {{.Name}}
-
 // FIXME func args typs must be qualified
+var traceEventImportTmpl = template.Must(template.New("traceimport").Parse(`
 //go:linkname {{.Pkgi.Pkg.Name}}_{{.Name}}_Attach {{.Pkgi.Pkg.Path}}.{{.Name}}_Attach
-func {{.Pkgi.Pkg.Name}}_{{.Name}}_Attach(*tracing.ProbeGroup, func(.TypedArgv)) *tracing.Probe
+func {{.Pkgi.Pkg.Name}}_{{.Name}}_Attach(*tracing.ProbeGroup, func({{.TypedArgv}})) *tracing.Probe
 `))
 
 // parseTraceEvent parses trace event definition into traceEvent
@@ -179,20 +190,20 @@ func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error)
 		return nil, fmt.Errorf("trace event must not return results")
 	}
 
-	return &traceEvent{pkgi.Pkg.Path(), declf}, nil
+	return &traceEvent{pkgi, declf}, nil
 }
 
 // Package represents tracing-related information about a package
 type Package struct {
 	PkgPath string
-	Eventv  []*traceEvent // trace events this package defines
-	Importv []string      // packages (pkgpath) this package trace imports
+	Eventv  []*traceEvent  // trace events this package defines
+	Importv []*traceImport // packages (pkgpath) this package trace imports
 }
 
 // packageTrace returns tracing information about a package
 func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 	eventv  := []*traceEvent{}
-	importv := []string{}
+	importv := []*traceImport{}
 
 	// go through files of the package and process //trace: directives
 	for _, file := range pkgi.Files {			 // ast.File
@@ -226,8 +237,13 @@ func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 					eventv = append(eventv, event)
 
 				case "//trace:import":
-					// XXX reject duplicate imports
-					importv = append(importv, arg)
+					// reject duplicate imports
+					for _, imported := range importv {
+						if arg == imported.PkgPath {
+							log.Fatalf("%v: duplicate trace import of %v (previous at %v)", pos, arg, imported.Pos)
+						}
+					}
+					importv = append(importv, &traceImport{Pos: pos, PkgPath: arg})
 
 				default:
 					log.Fatalf("%v: unknown tracing directive %q", pos, directive)
@@ -237,7 +253,7 @@ func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 	}
 
 	sort.Sort(byEventName(eventv))
-	sort.Strings(importv)
+	sort.Sort(byPkgPath(importv))
 
 	return &Package{PkgPath: pkgi.Pkg.Path(), Eventv: eventv, Importv: importv}
 }
@@ -268,7 +284,7 @@ func tracegen(pkgpath string) error {
 	for _, event := range pkg.Eventv {
 		err = traceEventCodeTmpl.Execute(os.Stdout, event)
 		if err != nil {
-			panic(err)
+			panic(err)	// XXX
 		}
 	}
 
@@ -276,8 +292,23 @@ func tracegen(pkgpath string) error {
 
 	// generate code for trace:import imports
 	fmt.Println()
-	for _, pkgpath := range pkg.Importv {
-		fmt.Printf("// traceimport TODO %v\n", pkgpath)
+	for _, timport := range pkg.Importv {
+		fmt.Printf("// traceimport: %v\n", timport.PkgPath)
+
+		pkgi = lprog.Package(timport.PkgPath)
+		if pkgi == nil {
+			// TODO do not require vvv
+			log.Fatalf("%v: package %s must be also regularly imported", timport.Pos, timport.PkgPath)
+		}
+
+		pkg = packageTrace(lprog, pkgi)
+
+		for _, event := range pkg.Eventv {
+			err = traceEventImportTmpl.Execute(os.Stdout, event)
+			if err != nil {
+				panic(err)	// XXX
+			}
+		}
 	}
 
 	// TODO check export hash

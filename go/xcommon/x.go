@@ -53,4 +53,19 @@ func traceConnSend_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) 
 	return &p.Probe
 }
 
-// traceimport TODO lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet
+// traceimport: lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet
+
+//go:linkname pipenet_traceAccept_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceAccept_Attach
+func pipenet_traceAccept_Attach(*tracing.ProbeGroup, func(conn net.Conn)) *tracing.Probe
+
+//go:linkname pipenet_traceDial_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceDial_Attach
+func pipenet_traceDial_Attach(*tracing.ProbeGroup, func(addr string)) *tracing.Probe
+
+//go:linkname pipenet_traceListen_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceListen_Attach
+func pipenet_traceListen_Attach(*tracing.ProbeGroup, func(laddr string)) *tracing.Probe
+
+//go:linkname pipenet_traceNew_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceNew_Attach
+func pipenet_traceNew_Attach(*tracing.ProbeGroup, func(name string)) *tracing.Probe
+
+//go:linkname pipenet_traceNewHost_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceNewHost_Attach
+func pipenet_traceNewHost_Attach(*tracing.ProbeGroup, func(host *Host)) *tracing.Probe

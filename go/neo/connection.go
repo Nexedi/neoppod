@@ -30,6 +30,7 @@ import (
 	"sync/atomic"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+	_ "lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"	// XXX temp
 )
 
 // NodeLink is a node-node link in NEO
