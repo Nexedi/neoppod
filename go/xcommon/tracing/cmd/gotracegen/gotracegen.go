@@ -182,31 +182,20 @@ func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error)
 	return &traceEvent{pkgi.Pkg.Path(), declf}, nil
 }
 
-// tracegen generates code according to tracing directives in a package @ pkgpath
-func tracegen(pkgpath string) error {
-	// XXX  typechecking is much slower than parsing + we don't need to
-	//	load anything except the package in question
-	// TODO	-> use just AST parsing for loading
-	conf := loader.Config{
-		ParserMode: parser.ParseComments,
-		TypeCheckFuncBodies: func(path string) bool { return false },
-	}
-	conf.Import(pkgpath)
+// Package represents tracing-related information about a package
+type Package struct {
+	PkgPath string
+	Eventv  []*traceEvent // trace events this package defines
+	Importv []string      // packages (pkgpath) this package trace imports
+}
 
-	// load package + all its imports
-	lprog, err := conf.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pkg := lprog.InitialPackages()[0]
-	//fmt.Println(pkg)
-
-	eventv  := []*traceEvent{} // events this package defines
-	importv := []string{}      // packages (pkgpath) this package trace imports
+// packageTrace returns tracing information about a package
+func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
+	eventv  := []*traceEvent{}
+	importv := []string{}
 
 	// go through files of the package and process //trace: directives
-	for _, file := range pkg.Files {			 // ast.File
+	for _, file := range pkgi.Files {			 // ast.File
 		for _, commgroup := range file.Comments {	 // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
 				pos := lprog.Fset.Position(comment.Slash)
@@ -229,7 +218,7 @@ func tracegen(pkgpath string) error {
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					event, err := parseTraceEvent(pkg, arg)
+					event, err := parseTraceEvent(pkgi, arg)
 					if err != nil {
 						log.Fatalf("%v: %v", pos, err)
 					}
@@ -247,9 +236,36 @@ func tracegen(pkgpath string) error {
 		}
 	}
 
-	// generate code for trace:event definitions
 	sort.Sort(byEventName(eventv))
-	for _, event := range eventv {
+	sort.Strings(importv)
+
+	return &Package{PkgPath: pkgi.Pkg.Path(), Eventv: eventv, Importv: importv}
+}
+
+// tracegen generates code according to tracing directives in a package @ pkgpath
+func tracegen(pkgpath string) error {
+	// XXX  typechecking is much slower than parsing + we don't need to
+	//	load anything except the package in question
+	// TODO	-> use just AST parsing for loading
+	conf := loader.Config{
+		ParserMode: parser.ParseComments,
+		TypeCheckFuncBodies: func(path string) bool { return false },
+	}
+	conf.Import(pkgpath)
+
+	// load package + all its imports
+	lprog, err := conf.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pkgi := lprog.InitialPackages()[0]
+	//fmt.Println(pkgi)
+
+	pkg := packageTrace(lprog, pkgi)
+
+	// generate code for trace:event definitions
+	for _, event := range pkg.Eventv {
 		err = traceEventCodeTmpl.Execute(os.Stdout, event)
 		if err != nil {
 			panic(err)
@@ -260,11 +276,13 @@ func tracegen(pkgpath string) error {
 
 	// generate code for trace:import imports
 	fmt.Println()
-	for _, pkgpath := range importv {
+	for _, pkgpath := range pkg.Importv {
 		fmt.Printf("// traceimport TODO %v\n", pkgpath)
 	}
 
 	// TODO check export hash
+
+	// TODO trace.s with "// empty .s so `go build` does not use -complete for go:linkname to work"
 
 	return nil	// XXX
 }

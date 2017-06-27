@@ -121,6 +121,7 @@ func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
 }
 */
 
+//trace:import lab.nexedi.com/kirr/neo/go/neo
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
