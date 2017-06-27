@@ -737,6 +737,9 @@ func (c *Conn) err(op string, e error) error {
 //trace:event traceConnRecv(c *Conn /*aaa*/, msg Msg)
 //trace:event traceConnSend(c *Conn, msg Msg)	// XXX -> traceConnSendPre ?
 
+//XXX temp
+//trace:import lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet
+
 // Recv receives message
 // it receives packet and decodes message from it
 func (c *Conn) Recv() (Msg, error) {

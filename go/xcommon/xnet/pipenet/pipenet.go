@@ -125,11 +125,15 @@ type dialReq struct {
 
 // ----------------------------------------
 
+// FIXME temp for testing
+//trace:event traceNew(name string)
+
 // New creates new pipenet Network
 // name is name of this network under "pipe" namespace, e.g. "α" will give full network name "pipeα".
 //
 // New does not check whether network name provided is unique.
 func New(name string) *Network {
+	traceNew(name)
 	return &Network{name: name, hostMap: make(map[string]*Host)}
 }
 

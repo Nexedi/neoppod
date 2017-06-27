@@ -59,6 +59,7 @@ type traceEvent struct {
 	//Name string
 	//Argv string
 
+	PkgPath		string	// XXX -> pkg ?
 	*ast.FuncDecl
 }
 
@@ -101,50 +102,57 @@ func (v byEventName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Nam
 func (v byEventName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byEventName) Len() int           { return len(v) }
 
-// traceEventCode is code template generated for one trace event
-const traceEventCode = `
+// traceEventCodeTmpl is code template generated for one trace event
+var traceEventCodeTmpl = template.Must(template.New("traceevent").Parse(`
 // traceevent: {{.Name}}({{.TypedArgv}})	XXX better raw .Text (e.g. comments)
 
-{{/* probe type for this trace event */}}
+{{/* probe type for this trace event */ -}}
 type _t_{{.Name}} struct {
 	tracing.Probe
 	probefunc     func({{.TypedArgv}})
 }
 
-{{/* list of probes attached (nil if nothing) */}}
+{{/* list of probes attached (nil if nothing) */ -}}
 var _{{.Name}} *_t_{{.Name}}
 
 {{/* function which event producer calls to notify about the event
    *
    * after https://github.com/golang/go/issues/19348 is done this separate
    * checking function will be inlined and tracepoint won't cost a function
-   * call when it is disabled */}}
+   * call when it is disabled */ -}}
 func {{.Name}}({{.TypedArgv}}) {
 	if _{{.Name}} != nil {
 		_{{.Name}}_run({{.Argv}})
 	}
 }
 
-{{/* function to notify attached probes */}}
-func _{{.Name}}{{.Argv}}_run({{.Argv}}) {
+{{/* function to notify attached probes */ -}}
+func _{{.Name}}_run({{.Argv}}) {
 	for p := _{{.Name}}; p != nil; p = (*_t_{{.Name}})(unsafe.Pointer(p.Next())) {
 		p.probefunc({{.Argv}})
 	}
 }
 
-{{/* function to attach a probe to tracepoint */}}
+{{/* function to attach a probe to tracepoint */ -}}
 func {{.Name}}_Attach(pg *tracing.ProbeGroup, probe func({{.TypedArgv}})) *tracing.Probe {
 	p := _t_{{.Name}}{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_{{.Name}}), &p.Probe)
 	return &p.Probe
 }
-`
+`))
 
-var traceEventCodeTmpl = template.Must(template.New("traceevent").Parse(traceEventCode))
+// traceEventImportTmpl is code template generated for importing one trace event
+var traceEventImportTmpl = template.Must(template.New("traceimport").Parse(`
+// traceimport: {{.Pkgi.Pkg.Path}} {{.Name}}
+
+// FIXME func args typs must be qualified
+//go:linkname {{.Pkgi.Pkg.Name}}_{{.Name}}_Attach {{.Pkgi.Pkg.Path}}.{{.Name}}_Attach
+func {{.Pkgi.Pkg.Name}}_{{.Name}}_Attach(*tracing.ProbeGroup, func(.TypedArgv)) *tracing.Probe
+`))
 
 // parseTraceEvent parses trace event definition into traceEvent
 // text is text argument after "//trace:event "
-func parseTraceEvent(text string) (*traceEvent, error) {
+func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error) {
 	if !strings.HasPrefix(text, "trace") {
 		return nil, fmt.Errorf("trace event must start with \"trace\"") // XXX pos
 	}
@@ -171,7 +179,7 @@ func parseTraceEvent(text string) (*traceEvent, error) {
 		return nil, fmt.Errorf("trace event must not return results")
 	}
 
-	return &traceEvent{declf}, nil
+	return &traceEvent{pkgi.Pkg.Path(), declf}, nil
 }
 
 // tracegen generates code according to tracing directives in a package @ pkgpath
@@ -194,8 +202,8 @@ func tracegen(pkgpath string) error {
 	pkg := lprog.InitialPackages()[0]
 	//fmt.Println(pkg)
 
-	eventv  := []*traceEvent{}                      // events this package defines
-	importv := map[/*pkgpath*/string][]traceEvent{} // events this package imports
+	eventv  := []*traceEvent{} // events this package defines
+	importv := []string{}      // packages (pkgpath) this package trace imports
 
 	// go through files of the package and process //trace: directives
 	for _, file := range pkg.Files {			 // ast.File
@@ -221,7 +229,7 @@ func tracegen(pkgpath string) error {
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					event, err := parseTraceEvent(arg)
+					event, err := parseTraceEvent(pkg, arg)
 					if err != nil {
 						log.Fatalf("%v: %v", pos, err)
 					}
@@ -229,8 +237,8 @@ func tracegen(pkgpath string) error {
 					eventv = append(eventv, event)
 
 				case "//trace:import":
-					panic("TODO")
-					// TODO arg is pkgpath - get trace events from tha
+					// XXX reject duplicate imports
+					importv = append(importv, arg)
 
 				default:
 					log.Fatalf("%v: unknown tracing directive %q", pos, directive)
@@ -248,8 +256,15 @@ func tracegen(pkgpath string) error {
 		}
 	}
 
+	// TODO export hash
+
 	// generate code for trace:import imports
-	_ = importv
+	fmt.Println()
+	for _, pkgpath := range importv {
+		fmt.Printf("// traceimport TODO %v\n", pkgpath)
+	}
+
+	// TODO check export hash
 
 	return nil	// XXX
 }
