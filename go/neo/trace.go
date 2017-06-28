@@ -80,4 +80,4 @@ func pipenet_traceListen_Attach(*tracing.ProbeGroup, func(laddr string)) *tracin
 func pipenet_traceNew_Attach(*tracing.ProbeGroup, func(name string)) *tracing.Probe
 
 //go:linkname pipenet_traceNewHost_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceNewHost_Attach
-func pipenet_traceNewHost_Attach(*tracing.ProbeGroup, func(host *Host)) *tracing.Probe
+func pipenet_traceNewHost_Attach(*tracing.ProbeGroup, func(host *pipenet.Host)) *tracing.Probe
