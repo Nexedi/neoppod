@@ -91,6 +91,21 @@ func (v byPkgPath) Less(i, j int) bool { return v[i].PkgPath < v[j].PkgPath }
 func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byPkgPath) Len() int           { return len(v) }
 
+// progImporter is types.Importer that imports packages from loaded loader.Program
+type progImporter {
+	prog *loader.Program
+}
+
+func (pi *progImporter) Import(path string) (*types.Package, error) {
+	pkgi := pi.prog.Package(path)
+	if pkgi == nil {
+		return nil, fmt.Errorf("package %q not found", path)
+	}
+
+	return pkgi.Pkg, nil
+}
+
+
 // parseTraceEvent parses trace event definition into traceEvent
 // text is text argument after "//trace:event "
 func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error) {
@@ -98,17 +113,17 @@ func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error)
 		return nil, fmt.Errorf("trace event must start with \"trace\"") // XXX pos
 	}
 
-	// trace event definition as func declaration
-	buf := &Buffer{}  // XXX package name must be from trace definition context
+	// prepare artificial package with trace event definition as func declaration
+	buf := &Buffer{}  // XXX package name must be from trace definition context ?
 	buf.emit("package xxx")
 
 	// add
-	// 1. all imports from original source file	TODO
-	// 2. add dot-import of original package	TODO
-	// so inside it all looks like as if it was in original source context
+	//   1. all imports from original source file
+	//   2. dot-import of original package
+	// so that inside it all looks like as if it was in original source context
 	buf.emit("\nimport (")
 
-	for _, imp := range file.Imports {
+	for _, imp := range srcfile.Imports {
 		impline := ""
 		if imp.Name != nil {
 			impline += imp.Name.Name + " "
@@ -120,7 +135,9 @@ func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error)
 	buf.emit("\t. %q", pkgi.Pkg.Path)
 	buf.emit(")")
 
-	text = "\nfunc " + text
+	// func itself
+	buf.emit("\nfunc " + text)
+
 	// XXX add all imports from file of trace event definition context
 	fset := token.NewFileSet()	// XXX
 	filename := "tracefunc.go"	// XXX -> original_file.go:<lineno> ?
@@ -141,6 +158,10 @@ func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error)
 	if declf.Type.Results != nil {
 		return nil, fmt.Errorf("trace event must not return results")
 	}
+
+	// typecheck prepared package to get trace func argument types
+
+	Importer: &progImporter{lprog}
 
 	// XXX +pos
 	return &traceEvent{pkgi, declf}, nil
