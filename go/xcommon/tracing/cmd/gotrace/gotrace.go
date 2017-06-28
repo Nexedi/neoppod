@@ -127,6 +127,8 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 	//   1. all imports from original source file
 	//   2. dot-import of original package
 	// so that inside it all looks like as if it was in original source context
+	//
+	// FIXME this does not work when a tracepoint uses unexported type
 	buf.emit("\nimport (")
 
 	for _, imp := range srcfile.Imports {
@@ -195,7 +197,7 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 }
 
 // packageTrace returns tracing information about a package
-func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
+func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) *Package {
 	eventv  := []*traceEvent{}
 	importv := []*traceImport{}
 
@@ -203,7 +205,7 @@ func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 	for _, file := range pkgi.Files {			 // ast.File
 		for _, commgroup := range file.Comments {	 // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
-				pos := lprog.Fset.Position(comment.Slash)
+				pos := prog.Fset.Position(comment.Slash)
 				//fmt.Printf("%v %q\n", pos, comment.Text)
 
 				// only directives starting from beginning of line
@@ -223,7 +225,7 @@ func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					event, err := parseTraceEvent(lprog, pkgi, file, pos, arg)
+					event, err := parseTraceEvent(prog, pkgi, file, pos, arg)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -255,13 +257,17 @@ func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 
 // ----------------------------------------
 
-// TypedArgv returns argument list with types
+// TypedArgv returns argument list with types qualified relative to original package
 func (te *traceEvent) TypedArgv() string {
+	return TypedArgvRelativeTo(te.Pkgi.Pkg)
+}
+
+func (te *traceEvent) TypedArgvRelativeTo(pkg *types.Package) string {
 	//format.Node(&buf, fset, te.FuncDecl.Type.Params)
 	argv := []string{}
 
-	// qualifier
-	qf := func(pkg *types.Package) string {
+	// default qualifier - relative to original package
+	qf = func(pkg *types.Package) string {
 		// original package - unqualified
 		if pkg == te.Pkgi.Pkg {
 			return ""
@@ -388,6 +394,7 @@ func checkCanWrite(path string) error {
 }
 
 // writeFile writes data to a file at path after checking it is safe to write there
+// TODO check if content is the same and do not write then ? (XXX name -> updateFile ?)
 func writeFile(path string, data []byte) error {
 	err := checkCanWrite(path)
 	if err != nil {
