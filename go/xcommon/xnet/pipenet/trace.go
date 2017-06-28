@@ -6,6 +6,8 @@ package pipenet
 import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
 	"unsafe"
+
+	"net"
 )
 
 // traceevent: traceAccept(conn net.Conn)	XXX better raw .Text (e.g. comments)

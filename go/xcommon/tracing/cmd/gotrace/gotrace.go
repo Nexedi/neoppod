@@ -278,9 +278,7 @@ func (te *traceEvent) TypedArgv() string {
 		}
 
 		arg := strings.Join(namev, ", ")
-		//arg += " " + types.ExprString(field.Type)
 		typ := te.typinfo.Types[field.Type].Type
-		fmt.Printf("AAA %v\n", typ)
 		arg += " " + types.TypeString(typ, qf)
 
 		argv = append(argv, arg)
@@ -300,6 +298,28 @@ func (te *traceEvent) Argv() string {
 	}
 
 	return strings.Join(argv, ", ")
+}
+
+// NeedPkgv returns packages that are needed for argument types
+func (te *traceEvent) NeedPkgv() []string {
+	pkgset := map[string/*pkgpath*/]int{}
+	qf := func(pkg *types.Package) string {
+		// if we are called - pkg is used
+		pkgset[pkg.Path()] = 1
+		return "" // don't care
+	}
+
+	for _, field := range te.FuncDecl.Type.Params.List {
+		typ := te.typinfo.Types[field.Type].Type
+		_ = types.TypeString(typ, qf)
+	}
+
+	pkgv := []string{}
+	for pkgpath := range pkgset {
+		pkgv = append(pkgv, pkgpath)
+	}
+	sort.Strings(pkgv)
+	return pkgv
 }
 
 // traceEventCodeTmpl is code template generated for one trace event
@@ -416,6 +436,7 @@ func tracegen(pkgpath string) error {
 	}
 
 	pkgdir := filepath.Dir(lprog.Fset.File(pkgi.Files[0].Pos()).Name())
+	pkgpath = pkgi.Pkg.Path()	// e.g. "." -> "path/to/package"
 	//println("pkgpath", pkgpath)
 	//println("pkgdir", pkgdir)
 	//return nil
@@ -432,7 +453,30 @@ func tracegen(pkgpath string) error {
 	buf.emit("\nimport (")
 	buf.emit("\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
 	buf.emit("\t%q", "unsafe")
-	// TODO import all packages for used types
+
+	// import all packages needed for used types
+	needPkg := map[string/*pkgpath*/]int{}	// set<string>
+	for _, event := range pkg.Eventv {
+		for _, needpkg := range event.NeedPkgv() {
+			if needpkg != pkgpath {
+				needPkg[needpkg] = 1
+			}
+		}
+	}
+
+	needPkgv := []string{}
+	for needpkg := range needPkg {
+		needPkgv = append(needPkgv, needpkg)
+	}
+	sort.Strings(needPkgv)
+
+	if len(needPkgv) > 0 {
+		buf.emit("")
+		for _, pkgpath := range needPkgv {
+			buf.emit("\t%q", pkgpath)
+		}
+	}
+
 	buf.emit(")")
 
 	// code for trace:event definitions
@@ -466,7 +510,6 @@ func tracegen(pkgpath string) error {
 	}
 
 	// TODO check export hash
-
 
 	// write output to trace.go
 	err = writeFile(filepath.Join(pkgdir, "trace.go"), buf.Bytes())
