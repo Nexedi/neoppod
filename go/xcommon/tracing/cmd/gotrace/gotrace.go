@@ -148,9 +148,9 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 	// now parse/typecheck
 	tfset := token.NewFileSet()
 	filename := fmt.Sprintf("%v:%v+trace:event %v", pos.Filename, pos.Line, text)
-	println("--------")
-	println(buf.String())
-	println("--------")
+	//println("--------")
+	//println(buf.String())
+	//println("--------")
 	tf, err := parser.ParseFile(tfset, filename, buf.String(), 0)
 	if err != nil {
 		return nil, err // should already have pos' as prefix
@@ -302,10 +302,10 @@ func (te *traceEvent) Argv() string {
 
 // NeedPkgv returns packages that are needed for argument types
 func (te *traceEvent) NeedPkgv() []string {
-	pkgset := map[string/*pkgpath*/]int{}
+	pkgset := StrSet{/*pkgpath*/}
 	qf := func(pkg *types.Package) string {
 		// if we are called - pkg is used
-		pkgset[pkg.Path()] = 1
+		pkgset.Add(pkg.Path())
 		return "" // don't care
 	}
 
@@ -314,12 +314,7 @@ func (te *traceEvent) NeedPkgv() []string {
 		_ = types.TypeString(typ, qf)
 	}
 
-	pkgv := []string{}
-	for pkgpath := range pkgset {
-		pkgv = append(pkgv, pkgpath)
-	}
-	sort.Strings(pkgv)
-	return pkgv
+	return pkgset.Itemv()
 }
 
 // traceEventCodeTmpl is code template generated for one trace event
@@ -410,6 +405,30 @@ func (b *Buffer) emit(format string, argv ...interface{}) {
 	fmt.Fprintf(b, format + "\n", argv...)
 }
 
+
+// StrSet is set<string>
+type StrSet map[string]struct{}
+
+func (s StrSet) Add(itemv ...string) {
+	for _, item := range itemv {
+		s[item] = struct{}{}
+	}
+}
+
+func (s StrSet) Delete(item string) {
+	delete(s, item)
+}
+
+// Itemb returns ordered slice of set items
+func (s StrSet) Itemv() []string {
+	itemv := make([]string, 0, len(s))
+	for item := range s {
+		itemv = append(itemv, item)
+	}
+	sort.Strings(itemv)
+	return itemv
+}
+
 // tracegen generates code according to tracing directives in a package @ pkgpath
 func tracegen(pkgpath string) error {
 	// XXX  typechecking is much slower than parsing + we don't need to
@@ -444,44 +463,22 @@ func tracegen(pkgpath string) error {
 	// tracing info for this specified package
 	pkg := packageTrace(lprog, pkgi)
 
-	buf := &Buffer{}
-
 	// prologue
-	buf.WriteString(magic)
-	buf.emit("\npackage %v", pkg.Pkgi.Pkg.Name())
-	buf.emit("// code generated for tracepoints")
-	buf.emit("\nimport (")
-	buf.emit("\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
-	buf.emit("\t%q", "unsafe")
-
-	// import all packages needed for used types
-	needPkg := map[string/*pkgpath*/]int{}	// set<string>
-	for _, event := range pkg.Eventv {
-		for _, needpkg := range event.NeedPkgv() {
-			if needpkg != pkgpath {
-				needPkg[needpkg] = 1
-			}
-		}
-	}
-
-	needPkgv := []string{}
-	for needpkg := range needPkg {
-		needPkgv = append(needPkgv, needpkg)
-	}
-	sort.Strings(needPkgv)
-
-	if len(needPkgv) > 0 {
-		buf.emit("")
-		for _, pkgpath := range needPkgv {
-			buf.emit("\t%q", pkgpath)
-		}
-	}
-
-	buf.emit(")")
+	prologue := &Buffer{}
+	prologue.WriteString(magic)
+	prologue.emit("\npackage %v", pkg.Pkgi.Pkg.Name())
+	prologue.emit("// code generated for tracepoints")
+	prologue.emit("\nimport (")
+	prologue.emit("\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
+	prologue.emit("\t%q", "unsafe")
+	// import of all packages needed for used types will go here in the end
+	needPkg := StrSet{}
 
 	// code for trace:event definitions
+	text := &Buffer{}
 	for _, event := range pkg.Eventv {
-		err = traceEventCodeTmpl.Execute(buf, event)
+		needPkg.Add(event.NeedPkgv()...)
+		err = traceEventCodeTmpl.Execute(text, event)
 		if err != nil {
 			panic(err)	// XXX
 		}
@@ -491,7 +488,7 @@ func tracegen(pkgpath string) error {
 
 	// code for trace:import imports
 	for _, timport := range pkg.Importv {
-		buf.emit("\n// traceimport: %v", timport.PkgPath)
+		text.emit("\n// traceimport: %v", timport.PkgPath)
 
 		impPkgi := lprog.Package(timport.PkgPath)
 		if impPkgi == nil {
@@ -502,7 +499,8 @@ func tracegen(pkgpath string) error {
 		impPkg := packageTrace(lprog, impPkgi)
 
 		for _, event := range impPkg.Eventv {
-			err = traceEventImportTmpl.Execute(buf, event)
+			needPkg.Add(event.NeedPkgv()...)
+			err = traceEventImportTmpl.Execute(text, event)
 			if err != nil {
 				panic(err)	// XXX
 			}
@@ -511,19 +509,32 @@ func tracegen(pkgpath string) error {
 
 	// TODO check export hash
 
+	// finish prologue with needed imports
+	needPkg.Delete(pkgpath)	// our pkg - no need to import
+	needPkgv := needPkg.Itemv()
+	if len(needPkgv) > 0 {
+		prologue.emit("")
+	}
+
+	for _, needpkg := range needPkgv {
+		prologue.emit("\t%q", needpkg)
+	}
+	prologue.emit(")")
+
 	// write output to trace.go
-	err = writeFile(filepath.Join(pkgdir, "trace.go"), buf.Bytes())
+	fulltext := append(prologue.Bytes(), text.Bytes()...)
+	err = writeFile(filepath.Join(pkgdir, "trace.go"), fulltext)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// write empty trace.s so go:linkname works
-	buf.Reset()
-	buf.WriteString(magic)
-	buf.emit("// empty .s so `go build` does not use -complete for go:linkname to work")
+	text.Reset()
+	text.WriteString(magic)
+	text.emit("// empty .s so `go build` does not use -complete for go:linkname to work")
 
 	trace_s := filepath.Join(pkgdir, "trace.s")
-	err = writeFile(trace_s, buf.Bytes())
+	err = writeFile(trace_s, text.Bytes())
 	if err != nil {
 		log.Fatal(err)
 	}
