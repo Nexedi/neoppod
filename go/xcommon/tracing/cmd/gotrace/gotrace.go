@@ -60,9 +60,11 @@ type traceEvent struct {
 	//
 	//	func traceConnRecv(c *Conn, msg Msg)
 	//
-	// the func declaration is not added anywhere in the sources - just its AST is
-	// constructed.	XXX + types
+	// the func declaration is not added anywhere in the sources - just its
+	// AST + package is virtually constructed.
 	*ast.FuncDecl
+	typinfo *types.Info
+	typpkg  *types.Package	// XXX needed ?
 }
 
 // traceImport represents 1 trace:import directive
@@ -154,11 +156,14 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 		return nil, err // should already have pos' as prefix
 	}
 
-	if len(tf.Decls) != 1 {
+	// must be:
+	// GenDecl{IMPORT}
+	// FuncDecl
+	if len(tf.Decls) != 2 {
 		return nil, posErr("trace event must be func-like")
 	}
 
-	declf, ok := tf.Decls[0].(*ast.FuncDecl)
+	declf, ok := tf.Decls[1].(*ast.FuncDecl)
 	if !ok {
 		return nil, posErr("trace event must be func-like, not %v", tf.Decls[0])
 	}
@@ -185,8 +190,8 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 
 	_ = tpkg
 
-	// XXX +pos
-	return &traceEvent{pkgi, declf}, nil	// XXX + tinfo, tpkg, ...
+	// XXX +pos? -> pos is already there in tfunc
+	return &traceEvent{Pkgi: pkgi, FuncDecl: declf, typinfo: tinfo, typpkg: tpkg}, nil
 }
 
 // packageTrace returns tracing information about a package
@@ -255,6 +260,17 @@ func (te *traceEvent) TypedArgv() string {
 	//format.Node(&buf, fset, te.FuncDecl.Type.Params)
 	argv := []string{}
 
+	// qualifier
+	qf := func(pkg *types.Package) string {
+		// original package - unqualified
+		if pkg == te.Pkgi.Pkg {
+			return ""
+		}
+
+		// default qualification
+		return pkg.Name()
+	}
+
 	for _, field := range te.FuncDecl.Type.Params.List {
 		namev := []string{}
 		for _, name := range field.Names {
@@ -263,9 +279,9 @@ func (te *traceEvent) TypedArgv() string {
 
 		arg := strings.Join(namev, ", ")
 		//arg += " " + types.ExprString(field.Type)
-		typ := te.Pkgi.Types[field.Type].Type
-		fmt.Println("AAA %v\n", typ)
-		arg += " " + types.TypeString(typ, nil)	// XXX qf=nil
+		typ := te.typinfo.Types[field.Type].Type
+		fmt.Printf("AAA %v\n", typ)
+		arg += " " + types.TypeString(typ, qf)
 
 		argv = append(argv, arg)
 	}
