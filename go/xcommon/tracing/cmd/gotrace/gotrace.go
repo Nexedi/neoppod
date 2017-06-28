@@ -92,7 +92,7 @@ func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byPkgPath) Len() int           { return len(v) }
 
 // progImporter is types.Importer that imports packages from loaded loader.Program
-type progImporter {
+type progImporter struct {
 	prog *loader.Program
 }
 
@@ -108,9 +108,13 @@ func (pi *progImporter) Import(path string) (*types.Package, error) {
 
 // parseTraceEvent parses trace event definition into traceEvent
 // text is text argument after "//trace:event "
-func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error) {
+func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
+	posErr := func(format string, argv ...interface{}) error {
+		return fmt.Errorf("%v: "+format, append([]interface{}{pos}, argv...)...)
+	}
+
 	if !strings.HasPrefix(text, "trace") {
-		return nil, fmt.Errorf("trace event must start with \"trace\"") // XXX pos
+		return nil, posErr("trace event must start with \"trace\"")
 	}
 
 	// prepare artificial package with trace event definition as func declaration
@@ -128,43 +132,61 @@ func parseTraceEvent(pkgi *loader.PackageInfo, text string) (*traceEvent, error)
 		if imp.Name != nil {
 			impline += imp.Name.Name + " "
 		}
-		impline += `"` + imp.Path.Value + `"`
-		buf.emit("%s", impline)
+		impline += imp.Path.Value
+		buf.emit("\t%s", impline)
 	}
 
-	buf.emit("\t. %q", pkgi.Pkg.Path)
+	buf.emit("")
+	buf.emit("\t. %q", pkgi.Pkg.Path())
 	buf.emit(")")
 
 	// func itself
 	buf.emit("\nfunc " + text)
 
-	// XXX add all imports from file of trace event definition context
-	fset := token.NewFileSet()	// XXX
-	filename := "tracefunc.go"	// XXX -> original_file.go:<lineno> ?
-	f, err := parser.ParseFile(fset, filename, text, 0)
+	// now parse/typecheck
+	tfset := token.NewFileSet()
+	filename := fmt.Sprintf("%v:%v+trace:event %v", pos.Filename, pos.Line, text)
+	println("--------")
+	println(buf.String())
+	println("--------")
+	tf, err := parser.ParseFile(tfset, filename, buf.String(), 0)
 	if err != nil {
-		return nil, err
+		return nil, err // should already have pos' as prefix
 	}
 
-	if len(f.Decls) != 1 {
-		return nil, fmt.Errorf("trace event must be func-like")
+	if len(tf.Decls) != 1 {
+		return nil, posErr("trace event must be func-like")
 	}
 
-	declf, ok := f.Decls[0].(*ast.FuncDecl)
+	declf, ok := tf.Decls[0].(*ast.FuncDecl)
 	if !ok {
-		return nil, fmt.Errorf("trace event must be func-like, not %v", f.Decls[0])
+		return nil, posErr("trace event must be func-like, not %v", tf.Decls[0])
 	}
 	// XXX ok to allow methods (declf.Recv != nil) ?
 	if declf.Type.Results != nil {
-		return nil, fmt.Errorf("trace event must not return results")
+		return nil, posErr("trace event must not return results")
 	}
 
 	// typecheck prepared package to get trace func argument types
+	conf := types.Config{
+			Importer: &progImporter{prog},
 
-	Importer: &progImporter{lprog}
+			// we took imports from original source file verbatim,
+			// but most of them probably won't be used.
+			DisableUnusedImportCheck: true,
+		}
+
+	tinfo := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
+
+	tpkg, err := conf.Check("xxx", tfset, []*ast.File{tf}, tinfo)
+	if err != nil {
+		return nil, err	// should already have pos' as prefix
+	}
+
+	_ = tpkg
 
 	// XXX +pos
-	return &traceEvent{pkgi, declf}, nil
+	return &traceEvent{pkgi, declf}, nil	// XXX + tinfo, tpkg, ...
 }
 
 // packageTrace returns tracing information about a package
@@ -196,9 +218,9 @@ func packageTrace(lprog *loader.Program, pkgi *loader.PackageInfo) *Package {
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					event, err := parseTraceEvent(pkgi, arg)
+					event, err := parseTraceEvent(lprog, pkgi, file, pos, arg)
 					if err != nil {
-						log.Fatalf("%v: %v", pos, err)
+						log.Fatal(err)
 					}
 
 					eventv = append(eventv, event)

@@ -22,7 +22,8 @@
 // XXX text
 package neo
 
-//go:generate sh -c "go run ../xcommon/tracing/cmd/gotracegen/gotracegen.go ."
+// XXX gotrace ... -> gotrace gen ...
+//go:generate sh -c "go run ../xcommon/tracing/cmd/gotrace/gotrace.go ."
 
 import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
