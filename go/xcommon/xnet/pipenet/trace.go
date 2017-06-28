@@ -8,136 +8,136 @@ import (
 	"unsafe"
 )
 
-// traceevent: traceAccept(conn net.Conn)	XXX better raw .Text (e.g. comments)
+// traceevent: traceAccept(conn <nil>)	XXX better raw .Text (e.g. comments)
 
 type _t_traceAccept struct {
 	tracing.Probe
-	probefunc     func(conn net.Conn)
+	probefunc     func(conn <nil>)
 }
 
 var _traceAccept *_t_traceAccept
 
-func traceAccept(conn net.Conn) {
+func traceAccept(conn <nil>) {
 	if _traceAccept != nil {
 		_traceAccept_run(conn)
 	}
 }
 
-func _traceAccept_run(conn net.Conn) {
+func _traceAccept_run(conn <nil>) {
 	for p := _traceAccept; p != nil; p = (*_t_traceAccept)(unsafe.Pointer(p.Next())) {
 		p.probefunc(conn)
 	}
 }
 
-func traceAccept_Attach(pg *tracing.ProbeGroup, probe func(conn net.Conn)) *tracing.Probe {
+func traceAccept_Attach(pg *tracing.ProbeGroup, probe func(conn <nil>)) *tracing.Probe {
 	p := _t_traceAccept{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceAccept)), &p.Probe)
 	return &p.Probe
 }
 
-// traceevent: traceDial(addr string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceDial(addr <nil>)	XXX better raw .Text (e.g. comments)
 
 type _t_traceDial struct {
 	tracing.Probe
-	probefunc     func(addr string)
+	probefunc     func(addr <nil>)
 }
 
 var _traceDial *_t_traceDial
 
-func traceDial(addr string) {
+func traceDial(addr <nil>) {
 	if _traceDial != nil {
 		_traceDial_run(addr)
 	}
 }
 
-func _traceDial_run(addr string) {
+func _traceDial_run(addr <nil>) {
 	for p := _traceDial; p != nil; p = (*_t_traceDial)(unsafe.Pointer(p.Next())) {
 		p.probefunc(addr)
 	}
 }
 
-func traceDial_Attach(pg *tracing.ProbeGroup, probe func(addr string)) *tracing.Probe {
+func traceDial_Attach(pg *tracing.ProbeGroup, probe func(addr <nil>)) *tracing.Probe {
 	p := _t_traceDial{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceDial)), &p.Probe)
 	return &p.Probe
 }
 
-// traceevent: traceListen(laddr string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceListen(laddr <nil>)	XXX better raw .Text (e.g. comments)
 
 type _t_traceListen struct {
 	tracing.Probe
-	probefunc     func(laddr string)
+	probefunc     func(laddr <nil>)
 }
 
 var _traceListen *_t_traceListen
 
-func traceListen(laddr string) {
+func traceListen(laddr <nil>) {
 	if _traceListen != nil {
 		_traceListen_run(laddr)
 	}
 }
 
-func _traceListen_run(laddr string) {
+func _traceListen_run(laddr <nil>) {
 	for p := _traceListen; p != nil; p = (*_t_traceListen)(unsafe.Pointer(p.Next())) {
 		p.probefunc(laddr)
 	}
 }
 
-func traceListen_Attach(pg *tracing.ProbeGroup, probe func(laddr string)) *tracing.Probe {
+func traceListen_Attach(pg *tracing.ProbeGroup, probe func(laddr <nil>)) *tracing.Probe {
 	p := _t_traceListen{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceListen)), &p.Probe)
 	return &p.Probe
 }
 
-// traceevent: traceNew(name string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceNew(name <nil>)	XXX better raw .Text (e.g. comments)
 
 type _t_traceNew struct {
 	tracing.Probe
-	probefunc     func(name string)
+	probefunc     func(name <nil>)
 }
 
 var _traceNew *_t_traceNew
 
-func traceNew(name string) {
+func traceNew(name <nil>) {
 	if _traceNew != nil {
 		_traceNew_run(name)
 	}
 }
 
-func _traceNew_run(name string) {
+func _traceNew_run(name <nil>) {
 	for p := _traceNew; p != nil; p = (*_t_traceNew)(unsafe.Pointer(p.Next())) {
 		p.probefunc(name)
 	}
 }
 
-func traceNew_Attach(pg *tracing.ProbeGroup, probe func(name string)) *tracing.Probe {
+func traceNew_Attach(pg *tracing.ProbeGroup, probe func(name <nil>)) *tracing.Probe {
 	p := _t_traceNew{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceNew)), &p.Probe)
 	return &p.Probe
 }
 
-// traceevent: traceNewHost(host *Host)	XXX better raw .Text (e.g. comments)
+// traceevent: traceNewHost(host <nil>)	XXX better raw .Text (e.g. comments)
 
 type _t_traceNewHost struct {
 	tracing.Probe
-	probefunc     func(host *Host)
+	probefunc     func(host <nil>)
 }
 
 var _traceNewHost *_t_traceNewHost
 
-func traceNewHost(host *Host) {
+func traceNewHost(host <nil>) {
 	if _traceNewHost != nil {
 		_traceNewHost_run(host)
 	}
 }
 
-func _traceNewHost_run(host *Host) {
+func _traceNewHost_run(host <nil>) {
 	for p := _traceNewHost; p != nil; p = (*_t_traceNewHost)(unsafe.Pointer(p.Next())) {
 		p.probefunc(host)
 	}
 }
 
-func traceNewHost_Attach(pg *tracing.ProbeGroup, probe func(host *Host)) *tracing.Probe {
+func traceNewHost_Attach(pg *tracing.ProbeGroup, probe func(host <nil>)) *tracing.Probe {
 	p := _t_traceNewHost{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceNewHost)), &p.Probe)
 	return &p.Probe

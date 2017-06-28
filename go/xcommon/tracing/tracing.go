@@ -21,6 +21,9 @@
 // - tracepoints
 // - probes
 // - probes can be attached/detached to/from tracepoints
+//
+// TODO document //trace:event & //trace:import
+// TODO document `gotrace gen` + `gotrace list`
 package tracing
 
 import (
@@ -151,7 +154,7 @@ func (pg *ProbeGroup) Add(p *Probe) {
 	pg.probev = append(pg.probev, p)
 }
 
-// Done detaches all probes registered in the group
+// Done detaches all probes registered to the group
 // Must be called under normal conditions, not under Lock
 func (pg *ProbeGroup) Done() {
 	verifyUnlocked()
