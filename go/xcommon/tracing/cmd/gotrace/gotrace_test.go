@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"fmt"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -100,16 +100,17 @@ func xprepareTree(src, dst string, mode TreePrepareMode) {
 
 // diffR compares two directories recursively
 func diffR(patha, pathb string) (diff string, err error) {
-	out := &bytes.Buffer{}
 	cmd := exec.Command("diff", "-urN", patha, pathb)
-	cmd.Stdout = out
-
-	err = cmd.Run()
-	if e, ok := err.(*exec.ExitError); ok && e.Sys().(syscall.WaitStatus).ExitStatus() == 1 {
-		err = nil // diff signals with 1 just a difference - problem exit code is 2
+	out, err := cmd.Output()
+	if e, ok := err.(*exec.ExitError); ok {
+		if e.Sys().(syscall.WaitStatus).ExitStatus() == 1 {
+			err = nil // diff signals with 1 just a difference - problem exit code is 2
+		} else {
+			err = fmt.Errorf("diff %s %s:\n%s", patha, pathb, e.Stderr)
+		}
 	}
 
-	return out.String(), err
+	return string(out), err
 }
 
 func TestGoTraceGen(t *testing.T) {
@@ -143,7 +144,7 @@ func TestGoTraceGen(t *testing.T) {
 			t.Errorf("%v: %v", tpkg, err)
 		}
 
-		diff, err := diffR(good+"/"+tpkg, work+"/"+tpkg)
+		diff, err := diffR(good+"/src/"+tpkg, work+"/src/"+tpkg)
 		if err != nil {
 			t.Fatalf("%v: %v", tpkg, err)
 		}

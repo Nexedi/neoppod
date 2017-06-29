@@ -406,14 +406,18 @@ func writeFile(path string, data []byte) error {
 	return ioutil.WriteFile(path, data, 0666)
 }
 
-// removeFile removes file at path after checking it is safe to write to that file
+// removeFile make sure there is no file at path after checking it is safe to write to that file
 func removeFile(path string) error {
 	err := checkCanWrite(path)
 	if err != nil {
 		return err
 	}
 
-	return os.Remove(path)
+	err = os.Remove(path)
+	if e, ok := err.(*os.PathError); ok && os.IsNotExist(e.Err) {
+		err = nil
+	}
+	return err
 }
 
 type Buffer struct {
