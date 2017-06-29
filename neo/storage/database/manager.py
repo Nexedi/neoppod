@@ -325,9 +325,10 @@ class DatabaseManager(object):
         max_tid must be in unpacked format.
 
         Data from unassigned partitions must be ignored.
-        This is important because there may remain data from cells that are
-        being discarded (which is done in background because this is an
-        expensive operation).
+        This is important because there may remain data from cells that have
+        been discarded, either due to --disable-drop-partitions option,
+        or in the future when dropping partitions is done in background
+        (because this is an expensive operation).
 
         XXX: Given the TODO comment in getLastIDs, getting ids
              from readable partitions should be enough.
