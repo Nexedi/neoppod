@@ -34,19 +34,23 @@ const (
 // prepareTestTree copies files from src to dst recursively processing *.ok and *.rm depending on mode
 // dst should not initially exist
 func prepareTestTree(src, dst string, mode TreePrepareMode) error {
+	println("AAA", dst)
 	err := os.MkdirAll(dst, 0777)
 	if err != nil {
 		return err
 	}
 
 	return filepath.Walk(src, func(srcpath string, info os.FileInfo, err error) error {
-		dstpath := dst + "/" + strings.TrimPrefix(srcpath, src)
+		println("*", srcpath)
+		if srcpath == src /* skip root */ || err != nil {
+			return err
+		}
+
+		dstpath := dst + strings.TrimPrefix(srcpath, src)
+		//println("·", dstpath)
 		if info.IsDir() {
 			err := os.Mkdir(dstpath, 0777)
-			if err != nil {
-				return err
-			}
-			return prepareTestTree(srcpath, dstpath, mode)
+			return err
 		}
 
 		var isOk, isRm bool
@@ -85,11 +89,7 @@ func prepareTestTree(src, dst string, mode TreePrepareMode) error {
 		}
 
 		err = ioutil.WriteFile(dstpath, data, info.Mode())
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
 }
 
@@ -117,7 +117,7 @@ func TestGoTraceGen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmp)
+	//defer os.RemoveAll(tmp)
 
 	good := tmp + "/good"
 	work := tmp + "/work"
