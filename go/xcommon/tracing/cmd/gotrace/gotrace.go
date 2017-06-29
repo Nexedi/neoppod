@@ -416,25 +416,6 @@ func removeFile(path string) error {
 	return os.Remove(path)
 }
 
-/*
-// writer is interface for gotrace output operations
-// made for testing
-type writer interface {
-	writeFile(path string, data []byte) error
-	removeFile(path string) error
-}
-
-type fsWriter struct{}
-
-func (fsWriter) writeFile(path string, data []byte) error {
-	return writeFile(path, data)
-}
-
-func (fsWriter) removeFile(path string) error {
-	return removeFile(path)
-}
-*/
-
 type Buffer struct {
 	bytes.Buffer
 }
@@ -468,7 +449,7 @@ func (s StrSet) Itemv() []string {
 }
 
 // tracegen generates code according to tracing directives in a package @ pkgpath
-func tracegen(pkgpath string, buildCtx *build.Context, w writer) error {
+func tracegen(pkgpath string, buildCtx *build.Context) error {
 	// XXX  typechecking is much slower than parsing + we don't need to
 	//	load anything except the package in question
 	// TODO	-> use just AST parsing for loading?
@@ -566,7 +547,7 @@ func tracegen(pkgpath string, buildCtx *build.Context, w writer) error {
 
 	// write output to ztrace.go
 	fulltext := append(prologue.Bytes(), text.Bytes()...)
-	err = w.writeFile(filepath.Join(pkgdir, "ztrace.go"), fulltext)
+	err = writeFile(filepath.Join(pkgdir, "ztrace.go"), fulltext)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -574,13 +555,13 @@ func tracegen(pkgpath string, buildCtx *build.Context, w writer) error {
 	// write empty ztrace.s so go:linkname works, if there are trace imports
 	ztrace_s := filepath.Join(pkgdir, "ztrace.s")
 	if len(pkg.Importv) == 0 {
-		err = w.removeFile(ztrace_s)
+		err = removeFile(ztrace_s)
 	} else {
 		text.Reset()
 		text.WriteString(magic)
 		text.emit("// empty .s so `go build` does not use -complete for go:linkname to work")
 
-		err = w.writeFile(ztrace_s, text.Bytes())
+		err = writeFile(ztrace_s, text.Bytes())
 	}
 
 	if err != nil {
@@ -610,7 +591,7 @@ TODO ...
 	}
 	pkgpath := argv[0]
 
-	err := tracegen(pkgpath, build.Default)
+	err := tracegen(pkgpath, &build.Default)
 	if err != nil {
 		log.Fatal(err)
 	}

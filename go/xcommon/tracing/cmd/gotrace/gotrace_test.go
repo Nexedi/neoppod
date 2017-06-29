@@ -2,26 +2,15 @@ package main
 
 import (
 	"go/build"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
+
+	"lab.nexedi.com/kirr/go123/exc"
 )
-
-/*
-// memWriter saves in memory filesystem modifications gotrace wanted to made
-type memWriter struct {
-	wrote	map[string]string	// path -> data
-	removed StrSet
-}
-
-func (mw *memWriter) writeFile(path string, data []byte) error {
-	mw.wrote[path] = string(data)
-	return nil
-}
-
-func (mw *memWriter) removeFile(path) error {
-	mw.removed.Add(path)
-	return nil
-}
-*/
 
 func xglob(t *testing.T, pattern string) []string {
 	t.Helper()
@@ -41,20 +30,20 @@ const (
 
 // prepareTestTree copies files from src to dst recursively processing *.ok and *.rm depending on mode
 // dst should not initially exist
-func prepareTestTree(src, dst string, mode prepareMode) error {
+func prepareTestTree(src, dst string, mode TreePrepareMode) error {
 	err := os.MkdirAll(dst, 0777)
 	if err != nil {
 		return err
 	}
 
-	filepath.Walk(src, func(srcpath string, info os.FileInfo, err error) error {
+	return filepath.Walk(src, func(srcpath string, info os.FileInfo, err error) error {
 		dstpath := dst + "/" + strings.TrimPrefix(srcpath, src)
 		if info.IsDir() {
 			err := os.Mkdir(dstpath, 0777)
 			if err != nil {
 				return err
 			}
-			return cpR(srcpath, dstpath)
+			return prepareTestTree(srcpath, dstpath, mode)
 		}
 
 		var isOk, isRm bool
@@ -62,7 +51,7 @@ func prepareTestTree(src, dst string, mode prepareMode) error {
 			isOk = true
 			dstpath = strings.TrimSuffix(dstpath, ".ok")
 		}
-		if strings.hasSuffix(srcpath, ".rm") {
+		if strings.HasSuffix(srcpath, ".rm") {
 			isRm = true
 			dstpath = strings.TrimSuffix(dstpath, ".rm")
 		}
@@ -73,13 +62,13 @@ func prepareTestTree(src, dst string, mode prepareMode) error {
 		}
 
 		switch mode {
-		case prepareGolden:
+		case TreePrepareGolden:
 			// no removed files in golden tree
 			if isRm {
 				return nil
 			}
 
-		case prepareWork:
+		case TreePrepareWork:
 			// no ok files initially in work tree
 			if isOk {
 				return nil
@@ -99,8 +88,8 @@ func prepareTestTree(src, dst string, mode prepareMode) error {
 	})
 }
 
-xprepareTree(t *testing.T, src, dst string, mode prepareMode) {
-	err := prepareTestTree(src, dst)
+func xprepareTree(src, dst string, mode TreePrepareMode) {
+	err := prepareTestTree(src, dst, mode)
 	exc.Raiseif(err)
 }
 
@@ -118,12 +107,12 @@ func TestGoTraceGen(t *testing.T) {
 	xprepareTree("testdata", work, TreePrepareWork)
 
 	// test build context with GOPATH set to work tree
-	var tBuildCtx = build.Context{
+	var tBuildCtx = &build.Context{
 				GOARCH: "amd64",
 				GOOS:	"linux",
 				GOROOT:	runtime.GOROOT(),
 				GOPATH:	work,
-				Compiler: runtime.Compiler(),
+				Compiler: runtime.Compiler,
 	}
 
 	// XXX autodetect (go list ?)
