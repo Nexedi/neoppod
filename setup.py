@@ -64,7 +64,7 @@ setup(
     description = __doc__.strip(),
     author = 'Nexedi SA',
     author_email = 'neo-dev@erp5.org',
-    url = 'http://www.neoppod.org/',
+    url = 'https://neo.nexedi.com/',
     license = 'GPL 2+',
     platforms = ["any"],
     classifiers=classifiers.splitlines(),

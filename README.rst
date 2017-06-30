@@ -38,8 +38,8 @@ Any ZODB like FileStorage can be converted to NEO instantaneously,
 which means the database is operational before all data are imported.
 There's also a tool to convert back to FileStorage.
 
-See also http://www.neoppod.org/links for more detailed information about
-features related to scalability.
+For more detailed information about features related to scalability,
+see the `Architecture and Characteristics` section of https://neo.nexedi.com/.
 
 Requirements
 ============
@@ -199,7 +199,7 @@ Developers
 ==========
 
 Developers interested in NEO may refer to
-`NEO Web site <http://www.neoppod.org/>`_ and subscribe to following mailing
+`NEO Web site <https://neo.nexedi.com/>`_ and subscribe to following mailing
 lists:
 
 - `neo-users <http://mail.tiolive.com/mailman/listinfo/neo-users>`_:
@@ -213,4 +213,4 @@ https://www.erp5.com/quality/integration/P-ERP5.Com.Unit%20Tests/Base_viewListMo
 Commercial Support
 ==================
 
-Nexedi provides commercial support for NEO: http://www.nexedi.com/
+Nexedi provides commercial support for NEO: https://www.nexedi.com/
