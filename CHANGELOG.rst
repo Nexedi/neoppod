@@ -1,6 +1,79 @@
 Change History
 ==============
 
+1.8 (2017-07-04)
+----------------
+
+This release mainly stabilizes NEO when it is used with several storage nodes,
+fixing many race conditions involving events like transactional operations
+(read/write, conflict resolution...), replication, partition table tweaking,
+and all kinds of failures (node crashes, network cuts...). This includes a
+rework of conflict resolution, to implement the long-awaited deadlock avoidance
+(it was a limitation caused by object-level locking).
+
+Similarly, having spare master nodes is not an experimental feature anymore:
+the `election` (of the primary master) has been reimplemented, and it now
+happens during the RECOVERING phase. This comes with a change about node
+states: BROKEN/HIDDEN/UNKNOWN are removed, DOWN is renamed into UNKNOWN,
+and TEMPORARILY_DOWN into DOWN.
+
+And still for more resiliency, the new algorithm to tweak the partition table
+is better at minimizing the amount of replication, and it does not discard
+readable cells too quickly anymore: a partition can now have multiple FEEDING
+cells, to avoid going below the wanted level of replication.
+
+Other changes:
+
+- General:
+
+  - Packet timeouts have been removed.
+    TCP keepalives are used instead of applicative pings.
+  - Connection handshake between nodes is reviewed to make sure that they
+    speak the same protocol before doing anything else, and report clearer
+    error messages otherwise. A dangerous bug was that there was no protocol
+    version check between neoctl and the admin node.
+  - Proper handling of incoming packets for closed/aborted connections.
+  - An exception while processing an answer could leave the handler switcher
+    in the bad state.
+  - In STOPPING cluster state, really wait for all transaction to be finished.
+  - Several issues when undoing transactions with conflict resolutions
+    have been fixed.
+  - Delayed connection acceptation when the storage node is ready.
+
+- Client:
+
+  - Added support for `zodburi`_.
+  - Fix load error during conflict resolution in case of late invalidation.
+  - Do not wait tpc_vote to start resolving conflicts.
+  - Fix harmless 'unexpected ... AnswerRequestIdentification' exceptions.
+
+- Storage:
+
+  - New --disable-drop-partitions option, which is useful for big databases
+    because the current code to delete data of discarded cells is inefficient
+    (this option should disappear in the future).
+  - Prevent 2 nodes from working with the same database.
+  - Discard answers from aborted replications.
+    In some cases, this led to data corruption or crashes.
+
+- MySQL backend:
+
+  - Added support for RocksDB.
+  - Do not flood logs when retrying to connect non-stop.
+  - Do not retry a failing query forever.
+  - By default, do not retry to connect to the server automatically.
+
+- Tools:
+
+  - neolog: new --decompress option.
+  - neolog: new option to hide the node column.
+  - neoctl: make the identification of the primary master easier with
+    'print node'.
+
+- A lot of improvements for developers and debugging.
+
+.. _zodburi: https://docs.pylonsproject.org/projects/zodburi
+
 1.7.1 (2017-01-18)
 ------------------
 
