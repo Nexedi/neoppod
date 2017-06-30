@@ -34,20 +34,17 @@ const (
 // prepareTestTree copies files from src to dst recursively processing *.ok and *.rm depending on mode
 // dst should not initially exist
 func prepareTestTree(src, dst string, mode TreePrepareMode) error {
-	println("AAA", dst)
 	err := os.MkdirAll(dst, 0777)
 	if err != nil {
 		return err
 	}
 
 	return filepath.Walk(src, func(srcpath string, info os.FileInfo, err error) error {
-		println("*", srcpath)
 		if srcpath == src /* skip root */ || err != nil {
 			return err
 		}
 
 		dstpath := dst + strings.TrimPrefix(srcpath, src)
-		//println("·", dstpath)
 		if info.IsDir() {
 			err := os.Mkdir(dstpath, 0777)
 			return err
@@ -139,7 +136,7 @@ func TestGoTraceGen(t *testing.T) {
 	testv := []string{"a/pkg1", "b/pkg2"}
 
 	for _, tpkg := range testv {
-		err = tracegen(tpkg, tBuildCtx)
+		err = tracegen(tpkg, tBuildCtx, "" /* = local imorts disabled */)
 		if err != nil {
 			t.Errorf("%v: %v", tpkg, err)
 		}
