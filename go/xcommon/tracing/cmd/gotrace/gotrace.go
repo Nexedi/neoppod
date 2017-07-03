@@ -193,24 +193,32 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	tconf := &types.Config{
 			Importer: &progImporter{prog},
 
+			// XXX to ignore traceXXX() calls from original package code
+			IgnoreFuncBodies: true,
+
 			// we took imports from original source file verbatim,
 			// but most of them probably won't be used.
 			DisableUnusedImportCheck: true,
 		}
 
-	tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
+//	tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
 	tpkg  := types.NewPackage(pkgi.Pkg.Path(), pkgi.Pkg.Name())
 	tinfo := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
 
 	p := &Package{
 		Pkgi:		pkgi,
-		traceFset:	tfset,
-		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
+//		traceFset:	tfset,
+//		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
+
+		// XXX vvv do we need separate field for traceFset if it is = prog.Fset?
+		traceFset:	prog.Fset,
+		traceChecker:	types.NewChecker(tconf, prog.Fset, tpkg, tinfo),
 		tracePkg:	tpkg,
 		traceTypeInfo:	tinfo,
 	}
 
 	// preload original package files into tracing package
+	fmt.Println("FFF", p.Pkgi.Files)
 	err := p.traceChecker.Files(p.Pkgi.Files)
 	if err != nil {
 		// must not happen
