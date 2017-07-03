@@ -50,6 +50,9 @@ func prepareTestTree(src, dst string, mode TreePrepareMode) error {
 			return err
 		}
 
+		// NOTE since files are walked in lexical order <f>.ok or
+		// <f>.rm is always guaranteed to go after <f>.
+
 		var isOk, isRm bool
 		if strings.HasSuffix(srcpath, ".ok") {
 			isOk = true

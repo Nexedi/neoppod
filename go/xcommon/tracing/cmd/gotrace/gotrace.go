@@ -148,9 +148,9 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 
 	// now parse/typecheck
 	filename := fmt.Sprintf("%v:%v+trace:event %v", pos.Filename, pos.Line, text)
-	println("---- 8< ----", filename)
-	println(buf.String())
-	println("---- 8< ----")
+	//println("---- 8< ----", filename)
+	//println(buf.String())
+	//println("---- 8< ----")
 	tf, err := parser.ParseFile(p.traceFset, filename, buf.String(), 0)
 	fmt.Println("parse:", err)
 	if err != nil {
@@ -218,7 +218,6 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	}
 
 	// preload original package files into tracing package
-	fmt.Println("FFF", p.Pkgi.Files)
 	err := p.traceChecker.Files(p.Pkgi.Files)
 	if err != nil {
 		// must not happen

@@ -45,4 +45,5 @@ func DoSomething(topic string) {
 
 // XXX do we need vvv ?
 // package-local non-exported tracepoint
-//trace:event tracedoSomethingLocal(topic string)
+//type t struct {}
+////trace:event tracedoSomethingLocal(arg *t)
