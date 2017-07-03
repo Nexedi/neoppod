@@ -25,8 +25,6 @@ gotrace list package	TODO
 
 XXX tracepoints this package defines
 XXX tracepoints this package imports
-
-TODO remove Fatal everywhere except main
 */
 package main
 
@@ -51,7 +49,7 @@ import (
 	"golang.org/x/tools/go/loader"
 )
 
-// traceEvent represents 1 trace:event declaration
+// traceEvent represents 1 trace:event definition
 type traceEvent struct {
 	// TODO += Pos token.Position
 //	Pkgi		*loader.PackageInfo
@@ -69,8 +67,9 @@ type traceEvent struct {
 	// the func declaration is not added anywhere in the sources - just its
 	// AST + package is virtually constructed.
 	*ast.FuncDecl
-	typinfo *types.Info
-	typpkg  *types.Package	// XXX needed ?
+	typinfo *types.Info	// types information for ^^^ FuncDecl
+	typpkg  *types.Package	// XXX needed ? same or not same as .Pkg ?
+				// XXX -> = augmented package (original package + funcs for all trace event declarations) ?
 }
 
 // traceImport represents 1 trace:import directive
@@ -81,23 +80,20 @@ type traceImport struct {
 
 // Package represents tracing-related information about a package
 type Package struct {
-	Pkgi	*loader.PackageInfo
+	//Pkgi	*loader.PackageInfo
+	Pkg	*types.Package // original non-augmented package
+
 	Eventv  []*traceEvent  // trace events this package defines
-	Importv []*traceImport // packages this package trace imports
+	Importv []*traceImport // trace imports of other packages
+
+	// TODO
+	// - []*ast.File for added trace:event funcs
+	// - fset for ^^^
+	// - *types.Checker - to typecheck ^^^ files
+	// - *types.Package - augmented package with ^^^
+	// - *types.Info    - typeinfo for ^^^
 }
 
-
-// byEventName provides []*traceEvent ordering by event name
-type byEventName []*traceEvent
-func (v byEventName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Name }
-func (v byEventName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-func (v byEventName) Len() int           { return len(v) }
-
-// byPkgPath provides []*traceImport ordering by package path
-type byPkgPath []*traceImport
-func (v byPkgPath) Less(i, j int) bool { return v[i].PkgPath < v[j].PkgPath }
-func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-func (v byPkgPath) Len() int           { return len(v) }
 
 // progImporter is types.Importer that imports packages from loaded loader.Program
 type progImporter struct {
@@ -116,7 +112,8 @@ func (pi *progImporter) Import(path string) (*types.Package, error) {
 
 // parseTraceEvent parses trace event definition into traceEvent
 // text is text argument after "//trace:event "
-func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
+//func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
+func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
 	posErr := func(format string, argv ...interface{}) error {
 		return fmt.Errorf("%v: "+format, append([]interface{}{pos}, argv...)...)
 	}
@@ -127,14 +124,10 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 
 	// prepare artificial package with trace event definition as func declaration
 	buf := &Buffer{}  // XXX package name must be from trace definition context ?
-	buf.emit("package xxx")
+	buf.emit("package %s", p.Pkg.Name())
 
-	// add
-	//   1. all imports from original source file
-	//   2. dot-import of original package
+	// add all imports from original source file
 	// so that inside it all looks like as if it was in original source context
-	//
-	// FIXME this does not work when a tracepoint uses unexported type
 	buf.emit("\nimport (")
 
 	for _, imp := range srcfile.Imports {
@@ -146,15 +139,13 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 		buf.emit("\t%s", impline)
 	}
 
-	buf.emit("")
-	buf.emit("\t. %q", pkgi.Pkg.Path())
 	buf.emit(")")
 
 	// func itself
 	buf.emit("\nfunc " + text)
 
 	// now parse/typecheck
-	tfset := token.NewFileSet()
+//	tfset := token.NewFileSet()
 	filename := fmt.Sprintf("%v:%v+trace:event %v", pos.Filename, pos.Line, text)
 	//println("--------")
 	//println(buf.String())
@@ -180,6 +171,13 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 		return nil, posErr("trace event must not return results")
 	}
 
+	// typecheck prepared file to get trace func argument types
+	err = p.typCheck.Files([]*ast.File{tf})
+	if err != nil {
+		return err // should already have pos' as prefix
+	}
+
+/*
 	// typecheck prepared package to get trace func argument types
 	conf := types.Config{
 			Importer: &progImporter{prog},
@@ -197,6 +195,7 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 	}
 
 	_ = tpkg
+*/
 
 	// XXX +pos? -> pos is already there in tfunc
 	return &traceEvent{Pkg: pkgi.Pkg, FuncDecl: declf, typinfo: tinfo, typpkg: tpkg}, nil
@@ -204,6 +203,7 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 
 // packageTrace returns tracing information about a package
 func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, error) {
+	// XXX create empty Package instead of vvv
 	eventv  := []*traceEvent{}
 	importv := []*traceImport{}
 
@@ -268,6 +268,19 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 }
 
 // ----------------------------------------
+
+// byEventName provides []*traceEvent ordering by event name
+type byEventName []*traceEvent
+func (v byEventName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Name }
+func (v byEventName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
+func (v byEventName) Len() int           { return len(v) }
+
+// byPkgPath provides []*traceImport ordering by package path
+type byPkgPath []*traceImport
+func (v byPkgPath) Less(i, j int) bool { return v[i].PkgPath < v[j].PkgPath }
+func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
+func (v byPkgPath) Len() int           { return len(v) }
+
 
 // Argv returns comma-separated argument-list
 func (te *traceEvent) Argv() string {
@@ -529,14 +542,14 @@ func tracegen(pkgpath string, buildCtx *build.Context, cwd string) error {
 	// XXX ignore trace.go & trace.s on load here? -> TODO remove the first
 	lprog, err := conf.Load()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	pkgi := lprog.InitialPackages()[0]
 
 	// determine package directory
 	if len(pkgi.Files) == 0 {
-		log.Fatalf("package %s is empty", pkgi.Pkg.Path)
+		return fmt.Errorf("package %s is empty", pkgi.Pkg.Path)
 	}
 
 	pkgdir := filepath.Dir(lprog.Fset.File(pkgi.Files[0].Pos()).Name())
@@ -578,7 +591,7 @@ func tracegen(pkgpath string, buildCtx *build.Context, cwd string) error {
 		impPkgi := lprog.Package(timport.PkgPath)
 		if impPkgi == nil {
 			// TODO do not require vvv
-			log.Fatalf("%v: package %s must be also regularly imported", timport.Pos, timport.PkgPath)
+			return fmt.Errorf("%v: package %s must be also regularly imported", timport.Pos, timport.PkgPath)
 		}
 
 		impPkg := packageTrace(lprog, impPkgi)
@@ -614,7 +627,7 @@ func tracegen(pkgpath string, buildCtx *build.Context, cwd string) error {
 	fulltext := append(prologue.Bytes(), text.Bytes()...)
 	err = writeFile(filepath.Join(pkgdir, "ztrace.go"), fulltext)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// write empty ztrace.s so go:linkname works, if there are trace imports
@@ -630,7 +643,7 @@ func tracegen(pkgpath string, buildCtx *build.Context, cwd string) error {
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	return nil	// XXX

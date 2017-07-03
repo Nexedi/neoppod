@@ -43,4 +43,6 @@ func DoSomething(topic string) {
 }
 
 
-// TODO package-local non-exported tracepoint
+// XXX do we need vvv ?
+// package-local non-exported tracepoint
+//trace:event tracedoSomethingLocal(topic string)
