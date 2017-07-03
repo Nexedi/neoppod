@@ -66,12 +66,6 @@ type traceEvent struct {
 	// the func declaration is not added anywhere in the sources - just its
 	// AST + package is virtually constructed.
 	*ast.FuncDecl
-
-
-	// XXX -> .Pkg.{traceTypeInfo,tracePkg}
-//	typinfo *types.Info	// types information for ^^^ FuncDecl
-//	typpkg  *types.Package	// XXX needed ? same or not same as .Pkg ?
-				// XXX -> = augmented package (original package + funcs for all trace event declarations) ?
 }
 
 // traceImport represents 1 trace:import directive
@@ -96,7 +90,7 @@ type Package struct {
 	traceFset  *token.FileSet // fset for ^^^
 
 	traceChecker  *types.Checker // to typecheck ^^^
-	tracePkg      *types.Package // original package augmented ^^^
+	tracePkg      *types.Package // original package augmented with ^^^
 	traceTypeInfo *types.Info    // typeinfo for ^^^
 
 	// XXX tests + xtests
@@ -154,10 +148,11 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 
 	// now parse/typecheck
 	filename := fmt.Sprintf("%v:%v+trace:event %v", pos.Filename, pos.Line, text)
-	//println("--------")
-	//println(buf.String())
-	//println("--------")
+	println("---- 8< ----", filename)
+	println(buf.String())
+	println("---- 8< ----")
 	tf, err := parser.ParseFile(p.traceFset, filename, buf.String(), 0)
+	fmt.Println("parse:", err)
 	if err != nil {
 		return nil, err // should already have pos' as prefix
 	}
@@ -183,6 +178,7 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	// typecheck prepared file to get trace func argument types
 	// (type information lands into p.traceTypeInfo)
 	err = p.traceChecker.Files([]*ast.File{tf})
+	fmt.Println("typecheck:", err)
 	if err != nil {
 		return nil, err // should already have pos' as prefix
 	}
@@ -212,6 +208,13 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
 		tracePkg:	tpkg,
 		traceTypeInfo:	tinfo,
+	}
+
+	// preload original package files into tracing package
+	err := p.traceChecker.Files(p.Pkgi.Files)
+	if err != nil {
+		// must not happen
+		panic(fmt.Errorf("error rechecking original package: %v", err))
 	}
 
 	// go through files of the original package and process //trace: directives
@@ -492,13 +495,7 @@ func (s StrSet) Itemv() []string {
 // - generated code imports packages which might be not there
 //   yet in gopath (lab.nexedi.com/kirr/go123/tracing)
 func findPackageNoZTrace(ctxt *build.Context, importPath, fromDir string, mode build.ImportMode) (*build.Package, error) {
-	fmt.Println("AAA", importPath)
 	bp, err := ctxt.Import(importPath, fromDir, mode)
-	//fmt.Println()
-	//fmt.Println("BBB")
-	//fmt.Println(bp)
-	//fmt.Println(err)
-	//fmt.Println()
 
 	filter := func(filev *[]string) {
 		var okv []string
@@ -522,12 +519,6 @@ func findPackageNoZTrace(ctxt *build.Context, importPath, fromDir string, mode b
 		// XXX also adjust .Import{s,Pos}, .TestImport{s,Pos}, .XTestImport{s,Pos} ?
 	}
 
-	//fmt.Println()
-	//fmt.Println("CCC")
-	//fmt.Println(bp)
-	//fmt.Println(err)
-	//fmt.Println()
-	//panic(0)
 	return bp, err
 }
 
