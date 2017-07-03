@@ -43,6 +43,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -51,9 +52,7 @@ import (
 
 // traceEvent represents 1 trace:event definition
 type traceEvent struct {
-	// TODO += Pos token.Position
-//	Pkgi		*loader.PackageInfo
-	Pkg	*types.Package	// package where trace event is declared
+	Pkg	*Package // package this trace event is part of
 
 	// declaration of function to signal the event
 	// the declaration is constructed on the fly via converting e.g.
@@ -67,35 +66,45 @@ type traceEvent struct {
 	// the func declaration is not added anywhere in the sources - just its
 	// AST + package is virtually constructed.
 	*ast.FuncDecl
-	typinfo *types.Info	// types information for ^^^ FuncDecl
-	typpkg  *types.Package	// XXX needed ? same or not same as .Pkg ?
+
+
+	// XXX -> .Pkg.{traceTypeInfo,tracePkg}
+//	typinfo *types.Info	// types information for ^^^ FuncDecl
+//	typpkg  *types.Package	// XXX needed ? same or not same as .Pkg ?
 				// XXX -> = augmented package (original package + funcs for all trace event declarations) ?
 }
 
 // traceImport represents 1 trace:import directive
 type traceImport struct {
+	// XXX back link to *Package?
+
 	Pos	token.Position
 	PkgPath string
 }
 
 // Package represents tracing-related information about a package
 type Package struct {
-	//Pkgi	*loader.PackageInfo
-	Pkg	*types.Package // original non-augmented package
+	Pkgi *loader.PackageInfo // original non-augmented package
 
 	Eventv  []*traceEvent  // trace events this package defines
 	Importv []*traceImport // trace imports of other packages
 
-	// TODO
-	// - []*ast.File for added trace:event funcs
-	// - fset for ^^^
-	// - *types.Checker - to typecheck ^^^ files
-	// - *types.Package - augmented package with ^^^
-	// - *types.Info    - typeinfo for ^^^
+	// original package is augmented with tracing code
+	// information about tracing code is below:
+
+	traceFilev []*ast.File    // files for added trace:event funcs
+	traceFset  *token.FileSet // fset for ^^^
+
+	traceChecker  *types.Checker // to typecheck ^^^
+	tracePkg      *types.Package // original package augmented ^^^
+	traceTypeInfo *types.Info    // typeinfo for ^^^
+
+	// XXX tests + xtests
 }
 
 
 // progImporter is types.Importer that imports packages from loaded loader.Program
+// TODO also import package not yet imported by prog
 type progImporter struct {
 	prog *loader.Program
 }
@@ -112,7 +121,6 @@ func (pi *progImporter) Import(path string) (*types.Package, error) {
 
 // parseTraceEvent parses trace event definition into traceEvent
 // text is text argument after "//trace:event "
-//func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
 func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
 	posErr := func(format string, argv ...interface{}) error {
 		return fmt.Errorf("%v: "+format, append([]interface{}{pos}, argv...)...)
@@ -123,8 +131,8 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	}
 
 	// prepare artificial package with trace event definition as func declaration
-	buf := &Buffer{}  // XXX package name must be from trace definition context ?
-	buf.emit("package %s", p.Pkg.Name())
+	buf := &Buffer{}
+	buf.emit("package %s", p.Pkgi.Pkg.Name())
 
 	// add all imports from original source file
 	// so that inside it all looks like as if it was in original source context
@@ -145,15 +153,16 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	buf.emit("\nfunc " + text)
 
 	// now parse/typecheck
-//	tfset := token.NewFileSet()
 	filename := fmt.Sprintf("%v:%v+trace:event %v", pos.Filename, pos.Line, text)
 	//println("--------")
 	//println(buf.String())
 	//println("--------")
-	tf, err := parser.ParseFile(tfset, filename, buf.String(), 0)
+	tf, err := parser.ParseFile(p.traceFset, filename, buf.String(), 0)
 	if err != nil {
 		return nil, err // should already have pos' as prefix
 	}
+
+	p.traceFilev = append(p.traceFilev, tf)
 
 	// must be:
 	// GenDecl{IMPORT}
@@ -172,14 +181,20 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	}
 
 	// typecheck prepared file to get trace func argument types
-	err = p.typCheck.Files([]*ast.File{tf})
+	// (type information lands into p.traceTypeInfo)
+	err = p.traceChecker.Files([]*ast.File{tf})
 	if err != nil {
-		return err // should already have pos' as prefix
+		return nil, err // should already have pos' as prefix
 	}
 
-/*
-	// typecheck prepared package to get trace func argument types
-	conf := types.Config{
+	return &traceEvent{Pkg: p, FuncDecl: declf}, nil
+}
+
+// packageTrace returns tracing information about a package
+func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, error) {
+	// prepare Package with typechecker ready to typecheck trace files
+	// (to get trace func argument types)
+	tconf := &types.Config{
 			Importer: &progImporter{prog},
 
 			// we took imports from original source file verbatim,
@@ -187,27 +202,19 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 			DisableUnusedImportCheck: true,
 		}
 
+	tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
+	tpkg  := types.NewPackage(pkgi.Pkg.Path(), pkgi.Pkg.Name())
 	tinfo := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
 
-	tpkg, err := conf.Check("xxx", tfset, []*ast.File{tf}, tinfo)
-	if err != nil {
-		return nil, err	// should already have pos' as prefix
+	p := &Package{
+		Pkgi:		pkgi,
+		traceFset:	tfset,
+		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
+		tracePkg:	tpkg,
+		traceTypeInfo:	tinfo,
 	}
 
-	_ = tpkg
-*/
-
-	// XXX +pos? -> pos is already there in tfunc
-	return &traceEvent{Pkg: pkgi.Pkg, FuncDecl: declf, typinfo: tinfo, typpkg: tpkg}, nil
-}
-
-// packageTrace returns tracing information about a package
-func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, error) {
-	// XXX create empty Package instead of vvv
-	eventv  := []*traceEvent{}
-	importv := []*traceImport{}
-
-	// go through files of the package and process //trace: directives
+	// go through files of the original package and process //trace: directives
 	for _, file := range pkgi.Files {			 // ast.File
 		for _, commgroup := range file.Comments {	 // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
@@ -231,27 +238,28 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					event, err := parseTraceEvent(prog, pkgi, file, pos, arg)
+					event, err := p.parseTraceEvent(file, pos, arg)
 					if err != nil {
-						nil, err
+						return nil, err
 					}
 
-					eventv = append(eventv, event)
+					// XXX needed here? - better append in parseTraceEvent
+					p.Eventv = append(p.Eventv, event)
 
 				case "//trace:import":
 					// Unqote arg as in regular import
 					importPath, err := strconv.Unquote(arg)
-					if err != nil || arg[0] == `'` {
-						nil, fmt.Errorf("%v: invalid trace-import path %v", pos, arg)
+					if err != nil || arg[0] == '\'' {
+						return nil, fmt.Errorf("%v: invalid trace-import path %v", pos, arg)
 					}
 
 					// reject duplicate imports
-					for _, imported := range importv {
+					for _, imported := range p.Importv {
 						if importPath == imported.PkgPath {
 							return nil, fmt.Errorf("%v: duplicate trace import of %v (previous at %v)", pos, importPath, imported.Pos)
 						}
 					}
-					importv = append(importv, &traceImport{Pos: pos, PkgPath: importPath})
+					p.Importv = append(p.Importv, &traceImport{Pos: pos, PkgPath: importPath})
 
 				default:
 					return nil, fmt.Errorf("%v: unknown tracing directive %q", pos, directive)
@@ -261,10 +269,10 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	}
 
 	// events and imports go in canonical order
-	sort.Sort(byEventName(eventv))
-	sort.Sort(byPkgPath(importv))
+	sort.Sort(byEventName(p.Eventv))
+	sort.Sort(byPkgPath(p.Importv))
 
-	return &Package{Pkgi: pkgi, Eventv: eventv, Importv: importv}
+	return p, nil
 }
 
 // ----------------------------------------
@@ -298,7 +306,7 @@ func (te *traceEvent) Argv() string {
 // ArgvTyped returns argument list with types
 // types are qualified relative to original package
 func (te *traceEvent) ArgvTyped() string {
-	return te.ArgvTypedRelativeTo(te.Pkg)
+	return te.ArgvTypedRelativeTo(te.Pkg.tracePkg)
 }
 
 // ArgvTypedRelativeTo returns argument list with types qualified relative to specified package
@@ -323,7 +331,7 @@ func (te *traceEvent) ArgvTypedRelativeTo(pkg *types.Package) string {
 		}
 
 		arg := strings.Join(namev, ", ")
-		typ := te.typinfo.Types[field.Type].Type
+		typ := te.Pkg.traceTypeInfo.Types[field.Type].Type
 		arg += " " + types.TypeString(typ, qf)
 
 		argv = append(argv, arg)
@@ -343,7 +351,7 @@ func (te *traceEvent) NeedPkgv() []string {
 	}
 
 	for _, field := range te.FuncDecl.Type.Params.List {
-		typ := te.typinfo.Types[field.Type].Type
+		typ := te.Pkg.traceTypeInfo.Types[field.Type].Type
 		_ = types.TypeString(typ, qf)
 	}
 
@@ -559,7 +567,10 @@ func tracegen(pkgpath string, buildCtx *build.Context, cwd string) error {
 	//return nil
 
 	// tracing info for this specified package
-	tpkg := packageTrace(lprog, pkgi)
+	tpkg, err := packageTrace(lprog, pkgi)
+	if err != nil {
+		return err // XXX err ctx
+	}
 
 	// prologue
 	prologue := &Buffer{}
@@ -594,7 +605,10 @@ func tracegen(pkgpath string, buildCtx *build.Context, cwd string) error {
 			return fmt.Errorf("%v: package %s must be also regularly imported", timport.Pos, timport.PkgPath)
 		}
 
-		impPkg := packageTrace(lprog, impPkgi)
+		impPkg, err := packageTrace(lprog, impPkgi)
+		if err != nil {
+			return err // XXX err ctx
+		}
 
 		for _, event := range impPkg.Eventv {
 			needPkg.Add(event.NeedPkgv()...)
