@@ -3,7 +3,7 @@ package pkg1
 import (
 	"net/url"
 
-	// extra import which is used in package but should not be used in tracing
+	// extra import which is used in package but should not be used in tracing code
 	"fmt"
 )
 
@@ -41,3 +41,6 @@ func ParseURL(ustr string) (*url.URL, error) {
 func DoSomething(topic string) {
 	traceDoSomething(topic)
 }
+
+
+// TODO package-local non-exported tracepoint

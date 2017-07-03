@@ -201,7 +201,7 @@ func parseTraceEvent(prog *loader.Program, pkgi *loader.PackageInfo, srcfile *as
 }
 
 // packageTrace returns tracing information about a package
-func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) *Package {
+func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, error) {
 	eventv  := []*traceEvent{}
 	importv := []*traceImport{}
 
@@ -223,7 +223,7 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) *Package {
 
 				textv := strings.SplitN(comment.Text, " ", 2)
 				if len(textv) != 2 {
-					log.Fatalf("%v: invalid directive format")
+					return nil, fmt.Errorf("%v: invalid directive format", pos)
 				}
 
 				directive, arg := textv[0], textv[1]
@@ -231,22 +231,28 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) *Package {
 				case "//trace:event":
 					event, err := parseTraceEvent(prog, pkgi, file, pos, arg)
 					if err != nil {
-						log.Fatal(err)
+						nil, err
 					}
 
 					eventv = append(eventv, event)
 
 				case "//trace:import":
+					// Unqote arg as in regular import
+					importPath, err := strconv.Unquote(arg)
+					if err != nil || arg[0] == `'` {
+						nil, fmt.Errorf("%v: invalid trace-import path %v", pos, arg)
+					}
+
 					// reject duplicate imports
 					for _, imported := range importv {
-						if arg == imported.PkgPath {
-							log.Fatalf("%v: duplicate trace import of %v (previous at %v)", pos, arg, imported.Pos)
+						if importPath == imported.PkgPath {
+							return nil, fmt.Errorf("%v: duplicate trace import of %v (previous at %v)", pos, importPath, imported.Pos)
 						}
 					}
-					importv = append(importv, &traceImport{Pos: pos, PkgPath: arg})
+					importv = append(importv, &traceImport{Pos: pos, PkgPath: importPath})
 
 				default:
-					log.Fatalf("%v: unknown tracing directive %q", pos, directive)
+					return nil, fmt.Errorf("%v: unknown tracing directive %q", pos, directive)
 				}
 			}
 		}
