@@ -136,8 +136,7 @@ func TestGoTraceGen(t *testing.T) {
 	}
 
 	// XXX autodetect (go list ?)
-	//testv := []string{"a/pkg1", "b/pkg2", "c/pkg3", "d/pkg4"}
-	testv := []string{"a/pkg1"}
+	testv := []string{"a/pkg1", "b/pkg2", "c/pkg3", "d/pkg4"}
 
 	for _, tpkg := range testv {
 		err = tracegen(tpkg, tBuildCtx, "" /* = local imorts disabled */)
