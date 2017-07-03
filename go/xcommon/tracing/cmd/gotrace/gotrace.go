@@ -491,11 +491,17 @@ func (s StrSet) Itemv() []string {
 //   tool - it should not prevent from regenerating.
 // - generated code imports packages which might be not there
 //   yet in gopath (lab.nexedi.com/kirr/go123/tracing)
-func findPackageNoZTrace(ctxt *build.Context, fromDir, importPath string, mode build.ImportMode) (*build.Package, error) {
+func findPackageNoZTrace(ctxt *build.Context, importPath, fromDir string, mode build.ImportMode) (*build.Package, error) {
+	fmt.Println("AAA", importPath)
 	bp, err := ctxt.Import(importPath, fromDir, mode)
+	//fmt.Println()
+	//fmt.Println("BBB")
+	//fmt.Println(bp)
+	//fmt.Println(err)
+	//fmt.Println()
 
 	filter := func(filev *[]string) {
-		okv := []string{}
+		var okv []string
 		for _, f := range *filev {
 			if strings.HasPrefix(f, "ztrace") {
 				bp.IgnoredGoFiles = append(bp.IgnoredGoFiles, f)
@@ -516,6 +522,12 @@ func findPackageNoZTrace(ctxt *build.Context, fromDir, importPath string, mode b
 		// XXX also adjust .Import{s,Pos}, .TestImport{s,Pos}, .XTestImport{s,Pos} ?
 	}
 
+	//fmt.Println()
+	//fmt.Println("CCC")
+	//fmt.Println(bp)
+	//fmt.Println(err)
+	//fmt.Println()
+	//panic(0)
 	return bp, err
 }
 
