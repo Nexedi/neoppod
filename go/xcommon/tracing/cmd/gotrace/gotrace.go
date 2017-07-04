@@ -226,12 +226,16 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	}
 
 	// go through files of the original package and process //trace: directives
+	//
+	// FIXME we currently don't process cgo files as go/loader passes to us
+	// already preprocessed results with comments stripped, not original source.
+	// Maybe in some time it will be possible to have AST of original source:
+	// https://github.com/golang/go/issues/16623
 	for _, file := range pkgi.Files {			 // ast.File
-		fmt.Println("\tfile:", prog.Fset.Position(file.Pos()))
 		for _, commgroup := range file.Comments {	 // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
 				pos := prog.Fset.Position(comment.Slash)
-				fmt.Printf("%v %q\n", pos, comment.Text)
+				//fmt.Printf("%v %q\n", pos, comment.Text)
 
 				// only directives starting from beginning of line
 				if pos.Column != 1 {

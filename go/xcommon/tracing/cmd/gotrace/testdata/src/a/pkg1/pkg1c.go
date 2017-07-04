@@ -9,6 +9,7 @@ void hello() {
 */
 import "C"
 
+// FIXME vvv does not currently work
 // trace event defined in a cgo file
 //trace:event traceHello()
 
