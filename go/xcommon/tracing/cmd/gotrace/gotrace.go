@@ -107,8 +107,6 @@ type Package struct {
 	traceChecker  *types.Checker // to typecheck ^^^
 	tracePkg      *types.Package // original package augmented with ^^^
 	traceTypeInfo *types.Info    // typeinfo for ^^^
-
-	// XXX tests + xtests
 }
 
 
@@ -700,15 +698,15 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	err1 := tracegen1(P, tpkg, pkgdir, "")
 	err2 := tracegen1(P, testTpkg, pkgdir, "_test")
 
-	var err3 error
+	xtestTpkg := &Package{} // dummy package with empty .Eventv & .Importv
 	if xtestPkgi != nil {
-		xtestTpkg, err := packageTrace(lprog, xtestPkgi)
+		xtestTpkg, err = packageTrace(lprog, xtestPkgi)
 		if err != nil {
 			return err // XXX err ctx
 		}
-
-		err3 = tracegen1(P, xtestTpkg, pkgdir, "_x_test")
 	}
+
+	err3 := tracegen1(P, xtestTpkg, pkgdir, "_x_test")
 
 	return xerr.Merge(err1, err2, err3)
 //	return xerr.First(err1, err2, err3)
