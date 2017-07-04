@@ -1,8 +1,7 @@
 package pkg2
 
-// XXX vvv kill
-//import "a/pkg1" // TODO should not be needed eventually
-
+// trace-import another package
+// NOTE "a/pkg1" is not regularly imported
 //trace:import "a/pkg1"
 
 // additional tracepoint which pkg2 defines

@@ -11,7 +11,7 @@ import (
 	"net/url"
 )
 
-// traceevent: traceDoSomething(i, j int, q string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceDoSomething(i, j int, q string)
 
 type _t_traceDoSomething struct {
 	tracing.Probe
@@ -38,7 +38,7 @@ func traceDoSomething_Attach(pg *tracing.ProbeGroup, probe func(i, j int, q stri
 	return &p.Probe
 }
 
-// traceimport: a/pkg1
+// traceimport: "a/pkg1"
 
 //go:linkname pkg1_traceDoSomething_Attach a/pkg1.traceDoSomething_Attach
 func pkg1_traceDoSomething_Attach(*tracing.ProbeGroup, func(topic string)) *tracing.Probe

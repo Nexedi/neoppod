@@ -10,7 +10,7 @@ import (
 	"net/url"
 )
 
-// traceevent: traceDoSomething(topic string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceDoSomething(topic string)
 
 type _t_traceDoSomething struct {
 	tracing.Probe
@@ -37,7 +37,7 @@ func traceDoSomething_Attach(pg *tracing.ProbeGroup, probe func(topic string)) *
 	return &p.Probe
 }
 
-// traceevent: traceNewT(t *T)	XXX better raw .Text (e.g. comments)
+// traceevent: traceNewT(t *T)
 
 type _t_traceNewT struct {
 	tracing.Probe
@@ -64,7 +64,7 @@ func traceNewT_Attach(pg *tracing.ProbeGroup, probe func(t *T)) *tracing.Probe {
 	return &p.Probe
 }
 
-// traceevent: traceNewTPre()	XXX better raw .Text (e.g. comments)
+// traceevent: traceNewTPre()
 
 type _t_traceNewTPre struct {
 	tracing.Probe
@@ -91,7 +91,7 @@ func traceNewTPre_Attach(pg *tracing.ProbeGroup, probe func()) *tracing.Probe {
 	return &p.Probe
 }
 
-// traceevent: traceURLParsed(u *url.URL)	XXX better raw .Text (e.g. comments)
+// traceevent: traceURLParsed(u *url.URL)
 
 type _t_traceURLParsed struct {
 	tracing.Probe
