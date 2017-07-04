@@ -32,6 +32,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -74,21 +75,17 @@ type traceEvent struct {
 
 // traceImport represents 1 trace:import directive
 type traceImport struct {
-	// XXX back link to *Package?
-
 	Pos	token.Position
-	PkgName string
+	PkgName string // "" if import name was not explicitly specified
 	PkgPath string
 }
 
-// ImportSpec returns string representation of import spec
-func (ti *traceImport) ImportSpec() string {
-	t := ti.PkgName
-	if t != "" {
-		t += " "
-	}
-	t += fmt.Sprintf("%q", ti.PkgPath)
-	return t
+// traceImported represents 1 imported trace:event
+type traceImported struct {
+	*traceEvent			// original event
+	ImportSpec   *traceImport	// imported via this spec
+	ImporterPkg  *types.Package	// from this package
+	ImportedAs   map[string]string	// where some packages are imported as named (pkgpath -> pkgname)
 }
 
 // Package represents tracing-related information about a package
@@ -107,21 +104,6 @@ type Package struct {
 	traceChecker  *types.Checker // to typecheck ^^^
 	tracePkg      *types.Package // original package augmented with ^^^
 	traceTypeInfo *types.Info    // typeinfo for ^^^
-}
-
-
-// progImporter is types.Importer that imports packages from loaded loader.Program
-type progImporter struct {
-	prog *loader.Program
-}
-
-func (pi *progImporter) Import(path string) (*types.Package, error) {
-	pkgi := pi.prog.Package(path)
-	if pkgi == nil {
-		return nil, fmt.Errorf("package %q not found", path)
-	}
-
-	return pkgi.Pkg, nil
 }
 
 
@@ -236,36 +218,18 @@ func (p *Package) parseTraceImport(pos token.Position, text string) (*traceImpor
 	return &traceImport{Pos: pos, PkgName: pkgname, PkgPath: pkgpath}, nil
 }
 
-// SplitTests splits package into main and test parts, each covering trace-related things accordingly
-func (p *Package) SplitTests() (testPkg *Package) {
-	__ := *p
-	testPkg = &__
+// progImporter is types.Importer that imports packages from loaded loader.Program
+type progImporter struct {
+	prog *loader.Program
+}
 
-	// for tracing what is relevant is: we need to split only .Eventv & .Importv
-	eventv := p.Eventv
-	importv := p.Importv
-	p.Eventv = nil
-	p.Importv = nil
-	testPkg.Eventv = nil
-	testPkg.Importv = nil
-
-	for _, e := range eventv {
-		if strings.HasSuffix(e.Pos.Filename, "_test.go") {
-			testPkg.Eventv = append(testPkg.Eventv, e)
-		} else {
-			p.Eventv = append(p.Eventv, e)
-		}
+func (pi *progImporter) Import(path string) (*types.Package, error) {
+	pkgi := pi.prog.Package(path)
+	if pkgi == nil {
+		return nil, fmt.Errorf("package %q not found", path)
 	}
 
-	for _, i := range importv {
-		if strings.HasSuffix(i.Pos.Filename, "_test.go") {
-			testPkg.Importv = append(testPkg.Importv, i)
-		} else {
-			p.Importv = append(p.Importv, i)
-		}
-	}
-
-	return testPkg
+	return pkgi.Pkg, nil
 }
 
 // packageTrace returns tracing information about a package
@@ -380,6 +344,40 @@ func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byPkgPath) Len() int           { return len(v) }
 
 
+// SplitTests splits package into main and test parts, each covering trace-related things accordingly
+func (p *Package) SplitTests() (testPkg *Package) {
+	__ := *p
+	testPkg = &__
+
+	// relevant for tracing are only: .Eventv & .Importv
+	eventv := p.Eventv
+	importv := p.Importv
+	p.Eventv = nil
+	p.Importv = nil
+	testPkg.Eventv = nil
+	testPkg.Importv = nil
+
+	for _, e := range eventv {
+		if strings.HasSuffix(e.Pos.Filename, "_test.go") {
+			testPkg.Eventv = append(testPkg.Eventv, e)
+		} else {
+			p.Eventv = append(p.Eventv, e)
+		}
+	}
+
+	for _, i := range importv {
+		if strings.HasSuffix(i.Pos.Filename, "_test.go") {
+			testPkg.Importv = append(testPkg.Importv, i)
+		} else {
+			p.Importv = append(p.Importv, i)
+		}
+	}
+
+	return testPkg
+}
+
+
+
 // ----------------------------------------
 
 // Argv returns comma-separated argument-list
@@ -456,6 +454,17 @@ func (te *traceEvent) NeedPkgv() []string {
 
 	return pkgset.Itemv()
 }
+
+// ImportSpec returns string representation of import spec
+func (ti *traceImport) ImportSpec() string {
+	t := ti.PkgName
+	if t != "" {
+		t += " "
+	}
+	t += fmt.Sprintf("%q", ti.PkgPath)
+	return t
+}
+
 
 // traceEventCodeTmpl is code template generated for one trace event
 var traceEventCodeTmpl = template.Must(template.New("traceevent").Parse(`
@@ -562,7 +571,7 @@ type Program struct {
 	// original program.
 	//
 	// Since go/loader does not support incrementally augmenting loaded
-	// program with more packages we work-around it with having several
+	// program with more packages, we work-around it with having several
 	// progs.
 	progv []*loader.Program
 
@@ -570,6 +579,7 @@ type Program struct {
 	loaderConf *loader.Config
 }
 
+// NewProgram constructs new empty Program ready to load packages according to specified build context
 func NewProgram(ctxt *build.Context, cwd string) *Program {
 	// adjust build context to filter-out ztrace* files when disovering packages
 	//
@@ -605,7 +615,8 @@ func NewProgram(ctxt *build.Context, cwd string) *Program {
 	return p
 }
 
-// Import imports a package and returns associated package info and program under which it was loaded
+// Import imports a package and returns associated package info and program
+// under which it was loaded
 func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.PackageInfo, err error) {
 	// let's see - maybe it is already there
 	for _, prog := range p.progv {
@@ -634,9 +645,9 @@ func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.Pac
 }
 
 // ImportWithTests imports a package augmented with code from _test.go files +
-// imports external test package (if any)
+// imports external test package (if present)
 func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *loader.PackageInfo, xtestPkgi *loader.PackageInfo, err error) {
-	// XXX always reimporting not to interfere with regular imports
+	// NOTE always reimporting not to interfere with regular imports
 	p.loaderConf.ImportPkgs = nil
 	p.loaderConf.ImportWithTests(pkgpath)
 
@@ -662,15 +673,9 @@ func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *l
 // ctxt is build context for discovering packages
 // cwd is "current" directory for resolving local imports (e.g. packages like "./some/package")
 func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
-	// TODO test-only with .TestGoFiles  .XTestGoFiles
-
 	P := NewProgram(ctxt, cwd)
 
 	lprog, pkgi, xtestPkgi, err := P.ImportWithTests(pkgpath)
-	//fmt.Println(pkgpath)
-	//fmt.Printf("%#p\n", pkgi)
-	//fmt.Printf("%#p\n", xtestPkgi)
-	//panic(0)
 	if err != nil {
 		return err
 	}
@@ -681,10 +686,6 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	}
 
 	pkgdir := filepath.Dir(lprog.Fset.File(pkgi.Files[0].Pos()).Name())
-	pkgpath = pkgi.Pkg.Path()
-	//println("pkgpath", pkgpath)
-	//println("pkgdir", pkgdir)
-	//return nil
 
 	// tracing info for this specified package
 	tpkg, err := packageTrace(lprog, pkgi)
@@ -698,6 +699,7 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	err1 := tracegen1(P, tpkg, pkgdir, "")
 	err2 := tracegen1(P, testTpkg, pkgdir, "_test")
 
+	// also handle xtest package
 	xtestTpkg := &Package{} // dummy package with empty .Eventv & .Importv
 	if xtestPkgi != nil {
 		xtestTpkg, err = packageTrace(lprog, xtestPkgi)
@@ -709,10 +711,11 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	err3 := tracegen1(P, xtestTpkg, pkgdir, "_x_test")
 
 	return xerr.Merge(err1, err2, err3)
-//	return xerr.First(err1, err2, err3)
 }
 
 
+// tracegen1 generates code according to tracing directives for a (sub)package @pkgpath
+// subpackage is either original package, testing code, or external test package
 func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 	var err error
 
@@ -734,11 +737,11 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 		prologue.emit("\t%q", "unsafe")
 
 
-		// import of all packages needed for used types
+		// pkgpaths of all packages needed for used types
 		needPkg := StrSet{}
 
 		// some packages are imported with explicit name
-		importedAs := map[string/*pkgpath*/]string/*pkgname*/{}
+		importedAs := map[string]string{} // pkgpath -> pkgname
 
 		// code for trace:event definitions
 		text := &Buffer{}
@@ -746,7 +749,7 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 			needPkg.Add(event.NeedPkgv()...)
 			err = traceEventCodeTmpl.Execute(text, event)
 			if err != nil {
-				panic(err)	// XXX
+				panic(err)
 			}
 		}
 
@@ -775,15 +778,15 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 
 			for _, event := range impPkg.Eventv {
 				needPkg.Add(event.NeedPkgv()...)
-				importedEvent := struct{
-					*traceEvent
-					ImportSpec   *traceImport
-					ImporterPkg  *types.Package
-					ImportedAs   map[string]string
-				} {event, timport, tpkg.Pkgi.Pkg, importedAs}
+				importedEvent := traceImported{
+					traceEvent: event,
+					ImportSpec:	timport,
+					ImporterPkg:	tpkg.Pkgi.Pkg,
+					ImportedAs:	importedAs,
+				}
 				err = traceEventImportTmpl.Execute(text, importedEvent)
 				if err != nil {
-					panic(err)	// XXX
+					panic(err)
 				}
 			}
 		}
@@ -832,6 +835,33 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 
 	return nil
 }
+
+// traceExportHash computes signature of tracing-related exports of a package
+func traceExportHash(tpkg *Package, kind string) string {
+	// implementation: it is sha1 of associated header + importing code as
+	// if it was executed from universe scope
+	pkgpath := tpkg.Pkgi.Pkg.Path()
+	pkgname := tpkg.Pkgi.Pkg.Name()
+
+	exported := &Buffer{}
+	exported.emit("%q %q", pkgpath, kind)
+
+	for _, event := range tpkg.Eventv {
+		importedEvent := traceImported{
+			traceEvent: event,
+			ImportSpec: &traceImport{PkgName: pkgname, PkgPath: pkgpath},
+			ImporterPkg: nil,	// from nowhere
+			ImportedAs:  nil,	// no naming for imports
+		}
+		err := traceEventImportTmpl.Execute(exported, importedEvent)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return fmt.Sprintf("%x", sha1.Sum(exported.Bytes()))
+}
+
 
 func main() {
 	log.SetFlags(0)
