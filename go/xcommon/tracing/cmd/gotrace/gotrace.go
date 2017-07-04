@@ -753,7 +753,11 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 			}
 		}
 
-		// TODO export hash
+		// emit export hash symbol
+		text.emit("\n---- 8< ----")
+		fmt.Fprintf(text, "%s", traceExport(tpkg, kind))
+		text.emit("---- 8< ----\n")
+		//text.emit("var xxx_export_%s bool", traceExportHash(tpkg, kind))
 
 		// code for trace:import imports
 		for _, timport := range tpkg.Importv {
@@ -836,10 +840,9 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 	return nil
 }
 
-// traceExportHash computes signature of tracing-related exports of a package
-func traceExportHash(tpkg *Package, kind string) string {
-	// implementation: it is sha1 of associated header + importing code as
-	// if it was executed from universe scope
+// traceExport returns signatures of all tracing-related exports of a package
+// in canonical order as would be seen from universe scope
+func traceExport(tpkg *Package, kind string) []byte {
 	pkgpath := tpkg.Pkgi.Pkg.Path()
 	pkgname := tpkg.Pkgi.Pkg.Name()
 
@@ -859,7 +862,14 @@ func traceExportHash(tpkg *Package, kind string) string {
 		}
 	}
 
-	return fmt.Sprintf("%x", sha1.Sum(exported.Bytes()))
+	return exported.Bytes()
+}
+
+// traceExportHash computes signature of tracing-related exports of a package
+// implementation note: it is sha1 of associated header + importing code as
+// if it was executed from universe scope.
+func traceExportHash(tpkg *Package, kind string) string {
+	return fmt.Sprintf("%x", sha1.Sum(traceExport(tpkg, kind)))
 }
 
 
