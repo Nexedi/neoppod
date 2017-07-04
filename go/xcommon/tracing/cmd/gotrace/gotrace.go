@@ -49,10 +49,13 @@ import (
 	"text/template"
 
 	"golang.org/x/tools/go/loader"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // traceEvent represents 1 trace:event definition
 type traceEvent struct {
+	Pos	token.Position
 	Pkgt	*Package // package this trace event is part of
 
 	// declaration of function to signal the event
@@ -163,7 +166,7 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	//println(buf.String())
 	//println("---- 8< ----")
 	tf, err := parser.ParseFile(p.traceFset, filename, buf.String(), 0)
-	fmt.Println("parse:", err)
+	//fmt.Println("parse:", err)
 	if err != nil {
 		return nil, err // should already have pos' as prefix
 	}
@@ -189,12 +192,12 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	// typecheck prepared file to get trace func argument types
 	// (type information lands into p.traceTypeInfo)
 	err = p.traceChecker.Files([]*ast.File{tf})
-	fmt.Println("typecheck:", err)
+	//fmt.Println("typecheck:", err)
 	if err != nil {
 		return nil, err // should already have pos' as prefix
 	}
 
-	return &traceEvent{Pkgt: p, FuncDecl: declf}, nil
+	return &traceEvent{Pos: pos, Pkgt: p, FuncDecl: declf}, nil
 }
 
 // parseTraceImport parses trace import directive into traceImport
@@ -233,6 +236,38 @@ func (p *Package) parseTraceImport(pos token.Position, text string) (*traceImpor
 	}
 
 	return &traceImport{Pos: pos, PkgName: pkgname, PkgPath: pkgpath}, nil
+}
+
+// SplitTests splits package into main and test parts, each covering trace-related things accordingly
+func (p *Package) SplitTests() (testPkg *Package) {
+	__ := *p
+	testPkg = &__
+
+	// for tracing what is relevant is: we need to split only .Eventv & .Importv
+	eventv := p.Eventv
+	importv := p.Importv
+	p.Eventv = nil
+	p.Importv = nil
+	testPkg.Eventv = nil
+	testPkg.Importv = nil
+
+	for _, e := range eventv {
+		if strings.HasSuffix(e.Pos.Filename, "_test.go") {
+			testPkg.Eventv = append(testPkg.Eventv, e)
+		} else {
+			p.Eventv = append(p.Eventv, e)
+		}
+	}
+
+	for _, i := range importv {
+		if strings.HasSuffix(i.Pos.Filename, "_test.go") {
+			testPkg.Importv = append(testPkg.Importv, i)
+		} else {
+			p.Importv = append(p.Importv, i)
+		}
+	}
+
+	return testPkg
 }
 
 // packageTrace returns tracing information about a package
@@ -302,7 +337,7 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
-					fmt.Println("*", textv)
+					//fmt.Println("*", textv)
 					event, err := p.parseTraceEvent(file, pos, arg)
 					if err != nil {
 						return nil, err
@@ -596,6 +631,26 @@ func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.Pac
 	return prog, pkgi, nil
 }
 
+// ImportWithTests imports a package augmented with code from _test.go files +
+// imports external test package (if any)
+func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *loader.PackageInfo, xtestPkgi *loader.PackageInfo, err error) {
+	// XXX always reimporting not to interfere with regular imports
+	p.loaderConf.ImportPkgs = nil
+	p.loaderConf.ImportWithTests(pkgpath)
+
+	prog, err = p.loaderConf.Load()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	pkgi = prog.InitialPackages()[0]
+	if len(prog.Created) > 0 {
+		xtestPkgi = prog.Created[0]
+	}
+
+	return prog, pkgi, xtestPkgi, nil
+}
+
 // tracegen generates code according to tracing directives in a package @ pkgpath
 //
 // ctxt is build context for discovering packages
@@ -605,7 +660,7 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 
 	P := NewProgram(ctxt, cwd)
 
-	lprog, pkgi, err := P.Import(pkgpath)
+	lprog, pkgi, xtestPkgi, err := P.ImportWithTests(pkgpath)
 	if err != nil {
 		return err
 	}
@@ -627,8 +682,32 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 		return err // XXX err ctx
 	}
 
+	// split everything related to tracing into plain and test (not xtest) packages
+	testTpkg := tpkg.SplitTests()
+
+	err1 := tracegen1(P, tpkg, pkgdir, "")
+	err2 := tracegen1(P, testTpkg, pkgdir, "_test")
+
+	var err3 error
+	if xtestPkgi != nil {
+		xtestTpkg, err := packageTrace(lprog, xtestPkgi)
+		if err != nil {
+			return err // XXX err ctx
+		}
+
+		err3 = tracegen1(P, xtestTpkg, pkgdir, "_x_test")
+	}
+
+	return xerr.Merge(err1, err2, err3)
+//	return xerr.First(err1, err2, err3)
+}
+
+
+func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
+	var err error
+
 	// write ztrace.go with code generated for trace events and imports
-	ztrace_go := filepath.Join(pkgdir, "ztrace.go")
+	ztrace_go := filepath.Join(pkgdir, "ztrace" + kind + ".go")
 	if len(tpkg.Eventv) == 0 && len(tpkg.Importv) == 0 {
 		err = removeFile(ztrace_go)
 		if err != nil {
@@ -691,7 +770,7 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 					ImportSpec   *traceImport
 					ImporterPkg  *types.Package
 					ImportedAs   map[string]string
-				} {event, timport, pkgi.Pkg, importedAs}
+				} {event, timport, tpkg.Pkgi.Pkg, importedAs}
 				err = traceEventImportTmpl.Execute(text, importedEvent)
 				if err != nil {
 					panic(err)	// XXX
@@ -702,7 +781,7 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 		// TODO check export hash
 
 		// finish prologue with needed imports
-		needPkg.Delete(pkgpath)	// our pkg - no need to import
+		needPkg.Delete(tpkg.Pkgi.Pkg.Path())	// our pkg - no need to import
 		needPkgv := needPkg.Itemv()
 		if len(needPkgv) > 0 {
 			prologue.emit("")
@@ -726,7 +805,7 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	}
 
 	// write empty ztrace.s so go:linkname works, if there are trace imports
-	ztrace_s := filepath.Join(pkgdir, "ztrace.s")
+	ztrace_s := filepath.Join(pkgdir, "ztrace" + kind + ".s")
 	if len(tpkg.Importv) == 0 {
 		err = removeFile(ztrace_s)
 	} else {
@@ -741,7 +820,7 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 		return err
 	}
 
-	return nil	// XXX
+	return nil
 }
 
 func main() {
