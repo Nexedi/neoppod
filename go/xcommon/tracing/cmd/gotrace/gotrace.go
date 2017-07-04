@@ -626,6 +626,10 @@ func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.Pac
 		return nil, nil, err
 	}
 
+	if !(len(prog.Created) == 0 && len(prog.Imported) == 1) {
+		panic("import")
+	}
+
 	p.progv = append(p.progv, prog)
 	pkgi = prog.InitialPackages()[0]
 	return prog, pkgi, nil
@@ -643,10 +647,14 @@ func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *l
 		return nil, nil, nil, err
 	}
 
-	pkgi = prog.InitialPackages()[0]
+	if len(prog.Imported) != 1 {
+		panic("import with tests")
+	}
+
 	if len(prog.Created) > 0 {
 		xtestPkgi = prog.Created[0]
 	}
+	for _, pkgi = range prog.Imported {}
 
 	return prog, pkgi, xtestPkgi, nil
 }
@@ -661,6 +669,10 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	P := NewProgram(ctxt, cwd)
 
 	lprog, pkgi, xtestPkgi, err := P.ImportWithTests(pkgpath)
+	//fmt.Println(pkgpath)
+	//fmt.Printf("%#p\n", pkgi)
+	//fmt.Printf("%#p\n", xtestPkgi)
+	//panic(0)
 	if err != nil {
 		return err
 	}
