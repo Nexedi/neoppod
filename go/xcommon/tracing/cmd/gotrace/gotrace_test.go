@@ -128,15 +128,17 @@ func TestGoTraceGen(t *testing.T) {
 
 	// test build context with GOPATH set to work tree
 	var tBuildCtx = &build.Context{
-				GOARCH: "amd64",
-				GOOS:	"linux",
-				GOROOT:	runtime.GOROOT(),
-				GOPATH:	work,
-				Compiler: runtime.Compiler,
+				GOARCH:		"amd64",
+				GOOS:		"linux",
+				GOROOT:		runtime.GOROOT(),
+				GOPATH:		work,
+				CgoEnabled:	true,
+				Compiler:	runtime.Compiler,
 	}
 
 	// XXX autodetect (go list ?)
-	testv := []string{"a/pkg1", "b/pkg2", "c/pkg3", "d/pkg4"}
+	//testv := []string{"a/pkg1", "b/pkg2", "c/pkg3", "d/pkg4"}
+	testv := []string{"a/pkg1"}
 
 	for _, tpkg := range testv {
 		err = tracegen(tpkg, tBuildCtx, "" /* = local imorts disabled */)

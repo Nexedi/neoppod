@@ -188,6 +188,7 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 
 // packageTrace returns tracing information about a package
 func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, error) {
+	fmt.Println("package trace:", pkgi.Pkg.Path())
 	// prepare Package with typechecker ready to typecheck trace files
 	// (to get trace func argument types)
 	tconf := &types.Config{
@@ -226,10 +227,11 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 
 	// go through files of the original package and process //trace: directives
 	for _, file := range pkgi.Files {			 // ast.File
+		fmt.Println("\tfile:", prog.Fset.Position(file.Pos()))
 		for _, commgroup := range file.Comments {	 // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
 				pos := prog.Fset.Position(comment.Slash)
-				//fmt.Printf("%v %q\n", pos, comment.Text)
+				fmt.Printf("%v %q\n", pos, comment.Text)
 
 				// only directives starting from beginning of line
 				if pos.Column != 1 {
@@ -248,6 +250,7 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 				directive, arg := textv[0], textv[1]
 				switch directive {
 				case "//trace:event":
+					fmt.Println("*", textv)
 					event, err := p.parseTraceEvent(file, pos, arg)
 					if err != nil {
 						return nil, err
