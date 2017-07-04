@@ -736,15 +736,24 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 		prologue.emit("\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
 		prologue.emit("\t%q", "unsafe")
 
-
 		// pkgpaths of all packages needed for used types
 		needPkg := StrSet{}
 
 		// some packages are imported with explicit name
 		importedAs := map[string]string{} // pkgpath -> pkgname
 
-		// code for trace:event definitions
 		text := &Buffer{}
+
+		// export hash symbol so that if importing package is out of
+		// sync - it will have it different and linking will fail.
+		if len(tpkg.Eventv) > 0 {
+			//text.emit("\n---- 8< ---- (export signature)")
+			//fmt.Fprintf(text, "%s", traceExport(tpkg, kind))
+			//text.emit("---- 8< ----")
+			text.emit("\nvar _t_exporthash_%s bool", traceExportHash(tpkg, kind))
+		}
+
+		// code for trace:event definitions
 		for _, event := range tpkg.Eventv {
 			needPkg.Add(event.NeedPkgv()...)
 			err = traceEventCodeTmpl.Execute(text, event)
@@ -752,12 +761,6 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 				panic(err)
 			}
 		}
-
-		// emit export hash symbol
-		text.emit("\n---- 8< ----")
-		fmt.Fprintf(text, "%s", traceExport(tpkg, kind))
-		text.emit("---- 8< ----\n")
-		//text.emit("var xxx_export_%s bool", traceExportHash(tpkg, kind))
 
 		// code for trace:import imports
 		for _, timport := range tpkg.Importv {
@@ -780,6 +783,13 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 				return err // XXX err ctx
 			}
 
+			if len(impPkg.Eventv) == 0 {
+				return fmt.Errorf("%v: package %v does not export anything trace-related", timport.Pos, timport.PkgPath)
+			}
+
+			// verify export hash
+			text.emit("\nzzz_t_exporthash_%s", traceExportHash(impPkg, ""/*regular pkg*/))
+
 			for _, event := range impPkg.Eventv {
 				needPkg.Add(event.NeedPkgv()...)
 				importedEvent := traceImported{
@@ -794,8 +804,6 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 				}
 			}
 		}
-
-		// TODO check export hash
 
 		// finish prologue with needed imports
 		needPkg.Delete(tpkg.Pkgi.Pkg.Path())	// our pkg - no need to import
