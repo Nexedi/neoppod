@@ -96,24 +96,28 @@ Probes is general mechanism which allows various kinds of trace events usage.
 Three ways particularly are well-established and handy:
 
 	- profiling
-	- non-blocking tracing
+	- non-blocking tracing (asynchronously (?) recording event stream)
 	- synchronous tracing
 
 Profiling
 
-A Profile is a collection of stack traces showing the call sequences that led
+A profile is (TODO aggregate summary of) a collection of stack traces showing the call sequences that led
 to instances of a particular event. One could create runtime/pprof.Profile and
-use Profile.Add in a probe attached to particular event. The profile can be
-later analyzed and visualised with go pprof tool.
+use Profile.Add in a probe attached to particular trace event. The profile can
+be later analyzed and visualised with go pprof tool.
 
-Please see runtime/pprof package documentation for details.
+Please refer to runtime/pprof package documentation for details.
+
+XXX Profile.Add needs unique value for each invocation - how do we do?
 
 XXX BUG not working?
 BUG(kirr): should tracing provide more tight integration with runtime/pprof.Profile?
 
+
 Non-blocking tracing XXX name
 
 TODO
+
 
 Synchronous tracing
 
