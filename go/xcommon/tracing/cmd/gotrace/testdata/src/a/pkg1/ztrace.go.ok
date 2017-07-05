@@ -117,3 +117,6 @@ func traceURLParsed_Attach(pg *tracing.ProbeGroup, probe func(u *url.URL)) *trac
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceURLParsed)), &p.Probe)
 	return &p.Probe
 }
+
+// trace export signature
+func _trace_exporthash_965fa599dc3a61119faba1eacf8493973c5d87ad() {}

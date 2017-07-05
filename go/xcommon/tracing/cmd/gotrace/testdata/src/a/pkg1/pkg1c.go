@@ -16,6 +16,6 @@ import "C"
 //trace:event traceHello()
 
 func Hello() {
-	traceHello()
+	//traceHello()
 	C.hello()
 }

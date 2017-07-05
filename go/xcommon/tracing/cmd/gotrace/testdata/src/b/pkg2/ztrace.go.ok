@@ -38,7 +38,15 @@ func traceDoSomething_Attach(pg *tracing.ProbeGroup, probe func(i, j int, q stri
 	return &p.Probe
 }
 
+// trace export signature
+func _trace_exporthash_80ddfc2f6c72bdf357dedbb2f0bbec85e93106fc() {}
+
 // traceimport: "a/pkg1"
+
+//go:linkname pkg1_trace_exporthash a/pkg1._trace_exporthash_965fa599dc3a61119faba1eacf8493973c5d87ad
+func pkg1_trace_exporthash()
+func init() { pkg1_trace_exporthash() } // rerun "gotrace gen" if you see link failure here
+
 
 //go:linkname pkg1_traceDoSomething_Attach a/pkg1.traceDoSomething_Attach
 func pkg1_traceDoSomething_Attach(*tracing.ProbeGroup, func(topic string)) *tracing.Probe

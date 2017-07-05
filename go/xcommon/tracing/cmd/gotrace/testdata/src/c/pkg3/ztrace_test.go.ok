@@ -13,6 +13,11 @@ import (
 
 // traceimport: aaa1 "a/pkg1"
 
+//go:linkname aaa1_trace_exporthash a/pkg1._trace_exporthash_965fa599dc3a61119faba1eacf8493973c5d87ad
+func aaa1_trace_exporthash()
+func init() { aaa1_trace_exporthash() } // rerun "gotrace gen" if you see link failure here
+
+
 //go:linkname aaa1_traceDoSomething_Attach a/pkg1.traceDoSomething_Attach
 func aaa1_traceDoSomething_Attach(*tracing.ProbeGroup, func(topic string)) *tracing.Probe
 
