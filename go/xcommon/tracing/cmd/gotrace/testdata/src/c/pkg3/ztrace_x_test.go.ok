@@ -10,9 +10,10 @@ import (
 
 // traceimport: "b/pkg2"
 
+// rerun "gotrace gen" if you see link failure ↓↓↓
 //go:linkname pkg2_trace_exporthash b/pkg2._trace_exporthash_80ddfc2f6c72bdf357dedbb2f0bbec85e93106fc
 func pkg2_trace_exporthash()
-func init() { pkg2_trace_exporthash() } // rerun "gotrace gen" if you see link failure here
+func init() { pkg2_trace_exporthash() }
 
 
 //go:linkname pkg2_traceDoSomething_Attach b/pkg2.traceDoSomething_Attach
