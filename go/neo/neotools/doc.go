@@ -17,5 +17,5 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package neotools provides tools for running and managing NEO databases
+// Package neotools provides tools for running and managing NEO databases.
 package neotools

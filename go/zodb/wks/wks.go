@@ -17,7 +17,8 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package wks links-in well-known ZODB storages
+// Package wks links-in well-known ZODB storages.
+//
 // The only purpose of this package is so that users could import it
 //
 //	import _ ".../zodb/wks"		XXX fixme import path

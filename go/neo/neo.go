@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package neo and its children provide distributed object storage for ZODB
+// Package neo and its children provide distributed object storage for ZODB.
 //
 // Package neo itself provides protocol definition and common infrastructure.
 // See packages neo.client and neo.server for client and server sides respectively.

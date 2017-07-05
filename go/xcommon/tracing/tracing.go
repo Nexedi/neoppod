@@ -18,16 +18,115 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 /*
-Package tracing provides runtime and usage support for Go tracing facilities
+Package tracing provides runtime and usage support for Go tracing facilities.
 
-TODO describe how to define tracepoints
-TODO doc:
-- tracepoints
-- probes
-- probes can be attached/detached to/from tracepoints
 
-TODO document //trace:event & //trace:import
+Trace events
+
+A Go package can define several events of interest to trace via special
+comments. With such definition a tracing event becomes associated with trace
+function that is used to signal when the event happens. For example:
+
+	package hello
+
+	//trace:event traceHelloPre(who string)
+	//trace:event traceHello(who string)
+
+	func SayHello(who string) {
+		traceHelloPre(who)
+		fmt.Println("Hello, %s", who)
+		traceHello(who)
+	}
+
+By default trace function does nothing and has very small overhead(*).
+
+
+Probes
+
+However it is possible to attach probing functions to events. A probe, once
+attached, is called whenever event is signalled in the context which triggered
+the event and pauses original code execution until the probe is finished. It is
+possible to attach several probing functions to the same event and dynamically
+detach/(re-)attach them. Attaching/detaching probes must be done under
+tracing.Lock. For example:
+
+	type saidHelloT struct {
+		who  string
+		when time.Time
+	}
+	saidHello := make(chan saidHelloT)
+
+	tracing.Lock()
+	p := traceHello_Attach(nil, func(who string) {
+		saidHello <- saidHelloT{who, time.Now()}
+	})
+	tracing.Unlock()
+
+	go func() {
+		for hello := range saidHello {
+			fmt.Printf("Said hello to %v @ %v\n", hello.who, hello.when)
+		}
+	}()
+
+	SayHello("JP")
+	SayHello("Kirr")
+	SayHello("Varya")
+
+	tracing.Lock()
+	p.Detach()
+	tracing.Unlock()
+
+	close(saidHello)
+
+For convenience it is possible to keep group of attached probes and detach them
+all at once using ProbeGroup:
+
+	pg := &tracing.ProbeGroup{}
+
+	tracing.Lock()
+	traceHelloPre_Attach(pg, func(who string) { ... })
+	traceHello_Attach(pg, func(who string) { ... })
+	tracing.Unlock()
+
+	// some activity
+
+	// when probes needs to be detached (no explicit tracing.Lock needed):
+	pg.Done()
+
+Probes is general mechanism which allows various kind of usage of trace events.
+
+
+Cross package tracing
+
+Trace events are not part of exported package API with rationale that package's
+regular API and internal trace events usually have different stability
+commitments. However with tracing-specific importing mechanism it is possible
+to get access to trace events another package provides:
+
+	package another
+
+	//trace:import "hello"
+
+This will make _Attach functions for all tracing events from package hello be
+available as regular functions prefixed with imported package name:
+
+	tracing.Lock()
+	hello_traceHello_Attach(nil, func(who string) {
+		fmt.Printf("SayHello in package hello: %s", who)
+	tracing.Unlock()
+
+	...
+
+
+Gotrace
+
 TODO document `gotrace gen` + `gotrace list`
+
+--------
+
+(*) conditionally checking whether a pointer != nil. After
+https://golang.org/issues/19348 is implemented the call/return overhead will be
+also gone.
 */
 package tracing
 

@@ -1,6 +1,6 @@
 // TODO copyright / license
 
-// Package xio provides addons to standard package io
+// Package xio provides addons to standard package io.
 package xio
 
 import (

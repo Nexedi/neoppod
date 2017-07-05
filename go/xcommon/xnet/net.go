@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package xnet provides addons to std package net
+// Package xnet provides addons to std package net.
 package xnet
 
 import (

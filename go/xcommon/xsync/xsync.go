@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package xsync provides addons to packages "sync" and "golang.org/x/sync"
+// Package xsync provides addons to packages "sync" and "golang.org/x/sync".
 package xsync
 
 import (

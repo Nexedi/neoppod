@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package pipenet provides TCP-like synchronous in-memory network of net.Pipes
+// Package pipenet provides TCP-like synchronous in-memory network of net.Pipes.
 //
 // Addresses on pipenet are host:port pairs. A host is xnet.Networker and so
 // can be worked with similarly to regular TCP network with Dial/Listen/Accept/...

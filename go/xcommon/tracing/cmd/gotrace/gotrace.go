@@ -18,16 +18,18 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 /*
-gotrace TODO
+Gotrace is a program to support and interact with go tracing subsystem.
 
-	gen	generates code according to tracing annotations and imports
+Gotrace is a common entry to tracing and provides several subcommands:
+
+	gen	generate code according to tracing annotations and imports
 	list	lists tracepoints defined in a package
-
-gotrace gen package
-gotrace list package	TODO
 
 XXX tracepoints this package defines
 XXX tracepoints this package imports
+
+See package lab.nexedi.com/kirr/go123/tracing documentation on how to define
+and use trace events in programs. XXX
 
 FIXME build tags not taken into account
 */
@@ -514,6 +516,7 @@ func {{.ImportSpec.PkgName}}_{{.Name}}_Attach(*tracing.ProbeGroup, func({{.ArgvT
 
 // traceEventImportCheckTmpl is code template generated to check consistency with one imported package
 var traceEventImportCheckTmpl = template.Must(template.New("traceimportcheck").Parse(`
+{{/* linking will fail if trace import code becomes out of sync wrt imported package */ -}}
 // rerun "gotrace gen" if you see link failure ↓↓↓
 //go:linkname {{.ImportSpec.PkgName}}_trace_exporthash {{.ImportSpec.PkgPath}}._trace_exporthash_{{.ExportHash}}
 func {{.ImportSpec.PkgName}}_trace_exporthash()
@@ -896,6 +899,10 @@ func traceExport(tpkg *Package, kind string) []byte {
 func traceExportHash(tpkg *Package, kind string) string {
 	return fmt.Sprintf("%x", sha1.Sum(traceExport(tpkg, kind)))
 }
+
+
+// TODO
+// func tracelist(...)
 
 func main() {
 	log.SetFlags(0)

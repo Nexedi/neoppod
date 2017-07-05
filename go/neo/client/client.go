@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package client provides ZODB interface for accessing NEO cluster
+// Package client provides ZODB interface for accessing NEO cluster.
 package client
 
 import (

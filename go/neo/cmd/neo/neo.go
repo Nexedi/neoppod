@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Neo is a driver program for running & invoking NEO commands and services
+// Neo is a driver program for running & invoking NEO commands and services.
 package main
 
 import (

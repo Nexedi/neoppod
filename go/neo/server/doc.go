@@ -17,5 +17,5 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package server provides servers side of NEO
+// Package server provides servers side of NEO.
 package server

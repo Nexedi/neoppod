@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package xtesting provides addons to std package testing
+// Package xtesting provides addons to std package testing.
 package xtesting
 
 import (
