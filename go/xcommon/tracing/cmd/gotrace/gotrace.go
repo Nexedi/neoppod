@@ -18,7 +18,10 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 /*
-gotrace gen generates code according to tracing annotations and imports
+gotrace TODO
+
+	gen	generates code according to tracing annotations and imports
+	list	lists tracepoints defined in a package
 
 gotrace gen package
 gotrace list package	TODO
@@ -56,8 +59,8 @@ import (
 
 // traceEvent represents 1 trace:event definition
 type traceEvent struct {
-	Pos	token.Position
-	Pkgt	*Package // package this trace event is part of
+	Pos  token.Position
+	Pkgt *Package // package this trace event is part of
 
 	// declaration of function to signal the event
 	// the declaration is constructed on the fly via converting e.g.
@@ -75,17 +78,17 @@ type traceEvent struct {
 
 // traceImport represents 1 trace:import directive
 type traceImport struct {
-	Pos	token.Position
+	Pos     token.Position
 	PkgName string // "" if import name was not explicitly specified
 	PkgPath string
 }
 
 // traceImported represents 1 imported trace:event
 type traceImported struct {
-	*traceEvent			// original event
-	ImportSpec   *traceImport	// imported via this spec
-	ImporterPkg  *types.Package	// from this package
-	ImportedAs   map[string]string	// where some packages are imported as named (pkgpath -> pkgname)
+	*traceEvent                   // original event
+	ImportSpec  *traceImport      // imported via this spec
+	ImporterPkg *types.Package    // from this package
+	ImportedAs  map[string]string // where some packages are imported as named (pkgpath -> pkgname)
 }
 
 // Package represents tracing-related information about a package
@@ -105,7 +108,6 @@ type Package struct {
 	tracePkg      *types.Package // original package augmented with ^^^
 	traceTypeInfo *types.Info    // typeinfo for ^^^
 }
-
 
 // parseTraceEvent parses trace event definition into traceEvent
 // text is text argument after "//trace:event "
@@ -237,30 +239,30 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	// prepare Package with typechecker ready to typecheck trace files
 	// (to get trace func argument types)
 	tconf := &types.Config{
-			Importer: &progImporter{prog},
+		Importer: &progImporter{prog},
 
-			// to ignore traceXXX() calls from original package code
-			IgnoreFuncBodies: true,
+		// to ignore traceXXX() calls from original package code
+		IgnoreFuncBodies: true,
 
-			// we take imports from original source file verbatim,
-			// but most of them probably won't be used.
-			DisableUnusedImportCheck: true,
-		}
+		// we take imports from original source file verbatim,
+		// but most of them probably won't be used.
+		DisableUnusedImportCheck: true,
+	}
 
-//	tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
-	tpkg  := types.NewPackage(pkgi.Pkg.Path(), pkgi.Pkg.Name())
+	//	tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
+	tpkg := types.NewPackage(pkgi.Pkg.Path(), pkgi.Pkg.Name())
 	tinfo := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
 
 	p := &Package{
-		Pkgi:		pkgi,
-//		traceFset:	tfset,
-//		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
+		Pkgi: pkgi,
+		//		traceFset:	tfset,
+		//		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
 
 		// XXX vvv do we need separate field for traceFset if it is = prog.Fset?
-		traceFset:	prog.Fset,
-		traceChecker:	types.NewChecker(tconf, prog.Fset, tpkg, tinfo),
-		tracePkg:	tpkg,
-		traceTypeInfo:	tinfo,
+		traceFset:     prog.Fset,
+		traceChecker:  types.NewChecker(tconf, prog.Fset, tpkg, tinfo),
+		tracePkg:      tpkg,
+		traceTypeInfo: tinfo,
 	}
 
 	// preload original package files into tracing package
@@ -276,8 +278,8 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	// already preprocessed results with comments stripped, not original source.
 	// Maybe in some time it will be possible to have AST of original source:
 	// https://github.com/golang/go/issues/16623
-	for _, file := range pkgi.Files {			 // ast.File
-		for _, commgroup := range file.Comments {	 // ast.CommentGroup
+	for _, file := range pkgi.Files {                        // ast.File
+		for _, commgroup := range file.Comments {        // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
 				pos := prog.Fset.Position(comment.Slash)
 				//fmt.Printf("%v %q\n", pos, comment.Text)
@@ -333,16 +335,17 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 
 // byEventName provides []*traceEvent ordering by event name
 type byEventName []*traceEvent
+
 func (v byEventName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Name }
 func (v byEventName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byEventName) Len() int           { return len(v) }
 
 // byPkgPath provides []*traceImport ordering by package path
 type byPkgPath []*traceImport
+
 func (v byPkgPath) Less(i, j int) bool { return v[i].PkgPath < v[j].PkgPath }
 func (v byPkgPath) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (v byPkgPath) Len() int           { return len(v) }
-
 
 // SplitTests splits package into main and test parts, each covering trace-related things accordingly
 func (p *Package) SplitTests() (testPkg *Package) {
@@ -376,8 +379,6 @@ func (p *Package) SplitTests() (testPkg *Package) {
 	return testPkg
 }
 
-
-
 // ----------------------------------------
 
 // Argv returns comma-separated argument-list
@@ -401,7 +402,7 @@ func (te *traceEvent) ArgvTyped() string {
 
 // ArgvTypedRelativeTo returns argument list with types qualified relative to specified package
 // importedAs specifies under which name a package was imported, if name was explicitly set
-func (te *traceEvent) ArgvTypedRelativeTo(pkg *types.Package, importedAs map[string/*pkgpath*/]string/*pkgname*/) string {
+func (te *traceEvent) ArgvTypedRelativeTo(pkg *types.Package, importedAs map[string]string /*pkgpath -> pkgname*/) string {
 	argv := []string{}
 
 	// default qualifier - relative to original package
@@ -437,10 +438,9 @@ func (te *traceEvent) ArgvTypedRelativeTo(pkg *types.Package, importedAs map[str
 	return strings.Join(argv, ", ")
 }
 
-
 // NeedPkgv returns packages that are needed for argument types
 func (te *traceEvent) NeedPkgv() []string {
-	pkgset := StrSet{/*pkgpath*/}
+	pkgset := StrSet{ /*pkgpath*/ }
 	qf := func(pkg *types.Package) string {
 		// if we are called - pkg is used
 		pkgset.Add(pkg.Path())
@@ -464,7 +464,6 @@ func (ti *traceImport) ImportSpec() string {
 	t += fmt.Sprintf("%q", ti.PkgPath)
 	return t
 }
-
 
 // traceEventCodeTmpl is code template generated for one trace event
 var traceEventCodeTmpl = template.Must(template.New("traceevent").Parse(`
@@ -614,10 +613,10 @@ func NewProgram(ctxt *build.Context, cwd string) *Program {
 
 	p := &Program{}
 	p.loaderConf = &loader.Config{
-		ParserMode: parser.ParseComments,
+		ParserMode:          parser.ParseComments,
 		TypeCheckFuncBodies: func(path string) bool { return false },
-		Build: &ctxtNoZTrace,
-		Cwd: cwd,
+		Build:               &ctxtNoZTrace,
+		Cwd:                 cwd,
 	}
 
 	return p
@@ -671,7 +670,8 @@ func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *l
 	if len(prog.Created) > 0 {
 		xtestPkgi = prog.Created[0]
 	}
-	for _, pkgi = range prog.Imported {}
+	for _, pkgi = range prog.Imported {
+	}
 
 	return prog, pkgi, xtestPkgi, nil
 }
@@ -721,14 +721,13 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	return xerr.Merge(err1, err2, err3)
 }
 
-
 // tracegen1 generates code according to tracing directives for a (sub)package @pkgpath
 // subpackage is either original package, testing code, or external test package
 func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 	var err error
 
 	// write ztrace.go with code generated for trace events and imports
-	ztrace_go := filepath.Join(pkgdir, "ztrace" + kind + ".go")
+	ztrace_go := filepath.Join(pkgdir, "ztrace"+kind+".go")
 	if len(tpkg.Eventv) == 0 && len(tpkg.Importv) == 0 {
 		err = removeFile(ztrace_go)
 		if err != nil {
@@ -797,11 +796,12 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 			}
 
 			// verify export hash so link fails if it gets out of sync with imported package
-			err = traceEventImportCheckTmpl.Execute(text, struct{
-							ImportSpec *traceImport
-							ExportHash string}{
-						timport,
-						traceExportHash(impPkg, ""/*regular package*/)})
+			err = traceEventImportCheckTmpl.Execute(text, struct {
+				ImportSpec *traceImport
+				ExportHash string
+			}{
+				timport,
+				traceExportHash(impPkg, "" /*regular package*/)})
 
 			text.emit("")
 
@@ -809,10 +809,10 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 			for _, event := range impPkg.Eventv {
 				needPkg.Add(event.NeedPkgv()...)
 				importedEvent := traceImported{
-					traceEvent:	event,
-					ImportSpec:	timport,
-					ImporterPkg:	tpkg.Pkgi.Pkg,
-					ImportedAs:	importedAs,
+					traceEvent:  event,
+					ImportSpec:  timport,
+					ImporterPkg: tpkg.Pkgi.Pkg,
+					ImportedAs:  importedAs,
 				}
 				err = traceEventImportTmpl.Execute(text, importedEvent)
 				if err != nil {
@@ -822,7 +822,7 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 		}
 
 		// finish prologue with needed imports
-		needPkg.Delete(tpkg.Pkgi.Pkg.Path())	// our pkg - no need to import
+		needPkg.Delete(tpkg.Pkgi.Pkg.Path()) // our pkg - no need to import
 		needPkgv := needPkg.Itemv()
 		if len(needPkgv) > 0 {
 			prologue.emit("")
@@ -846,7 +846,7 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 	}
 
 	// write empty ztrace.s so go:linkname works, if there are trace imports
-	ztrace_s := filepath.Join(pkgdir, "ztrace" + kind + ".s")
+	ztrace_s := filepath.Join(pkgdir, "ztrace"+kind+".s")
 	if len(tpkg.Importv) == 0 {
 		err = removeFile(ztrace_s)
 	} else {
@@ -875,10 +875,10 @@ func traceExport(tpkg *Package, kind string) []byte {
 
 	for _, event := range tpkg.Eventv {
 		importedEvent := traceImported{
-			traceEvent: event,
-			ImportSpec: &traceImport{PkgName: pkgname, PkgPath: pkgpath},
-			ImporterPkg: nil,	// from nowhere
-			ImportedAs:  nil,	// no naming for imports
+			traceEvent:  event,
+			ImportSpec:  &traceImport{PkgName: pkgname, PkgPath: pkgpath},
+			ImporterPkg: nil, // from nowhere
+			ImportedAs:  nil, // no naming for imports
 		}
 		err := traceEventImportTmpl.Execute(exported, importedEvent)
 		if err != nil {
@@ -895,7 +895,6 @@ func traceExport(tpkg *Package, kind string) []byte {
 func traceExportHash(tpkg *Package, kind string) string {
 	return fmt.Sprintf("%x", sha1.Sum(traceExport(tpkg, kind)))
 }
-
 
 func main() {
 	log.SetFlags(0)

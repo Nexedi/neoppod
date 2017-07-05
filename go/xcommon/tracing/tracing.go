@@ -17,15 +17,18 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package tracing provides runtime and usage support for Go tracing facilities
-// TODO describe how to define tracepoints
-// TODO doc:
-// - tracepoints
-// - probes
-// - probes can be attached/detached to/from tracepoints
-//
-// TODO document //trace:event & //trace:import
-// TODO document `gotrace gen` + `gotrace list`
+/*
+Package tracing provides runtime and usage support for Go tracing facilities
+
+TODO describe how to define tracepoints
+TODO doc:
+- tracepoints
+- probes
+- probes can be attached/detached to/from tracepoints
+
+TODO document //trace:event & //trace:import
+TODO document `gotrace gen` + `gotrace list`
+*/
 package tracing
 
 import (
