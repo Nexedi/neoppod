@@ -57,7 +57,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-// traceEvent represents 1 trace:event definition
+// traceEvent represents 1 trace:event declaration
 type traceEvent struct {
 	Pos  token.Position
 	Pkgt *Package // package this trace event is part of
@@ -71,8 +71,11 @@ type traceEvent struct {
 	//
 	//	func traceConnRecv(c *Conn, msg Msg)
 	//
-	// the func declaration is not added anywhere in the sources - just its
-	// AST + package is virtually constructed.
+	// when trace:event is parsed the func declaration is not added
+	// anywhere in the sources - just its AST + package is virtually
+	// constructed.
+	//
+	// See parseTraceEvent for details.
 	*ast.FuncDecl
 }
 
@@ -85,10 +88,11 @@ type traceImport struct {
 
 // traceImported represents 1 imported trace:event
 type traceImported struct {
-	*traceEvent                   // original event
+	*traceEvent                   // imported event
 	ImportSpec  *traceImport      // imported via this spec
 	ImporterPkg *types.Package    // from this package
-	ImportedAs  map[string]string // where some packages are imported as named (pkgpath -> pkgname)
+	ImportedAs  map[string]string // in context where some packages are
+				      // imported as named (pkgpath -> pkgname)
 }
 
 // Package represents tracing-related information about a package
