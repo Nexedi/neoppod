@@ -20,7 +20,6 @@
 /*
 Package tracing provides runtime and usage support for Go tracing facilities.
 
-
 Trace events
 
 A Go package can define several events of interest to trace via special
@@ -93,7 +92,32 @@ all at once using ProbeGroup:
 	// when probes needs to be detached (no explicit tracing.Lock needed):
 	pg.Done()
 
-Probes is general mechanism which allows various kind of usage of trace events.
+Probes is general mechanism which allows various kinds of trace events usage.
+Three ways particularly are well-established and handy:
+
+	- profiling
+	- non-blocking tracing
+	- synchronous tracing
+
+Profiling
+
+A Profile is a collection of stack traces showing the call sequences that led
+to instances of a particular event. One could create runtime/pprof.Profile and
+use Profile.Add in a probe attached to particular event. The profile can be
+later analyzed and visualised with go pprof tool.
+
+Please see runtime/pprof package documentation for details.
+
+XXX BUG not working?
+BUG(kirr): should tracing provide more tight integration with runtime/pprof.Profile?
+
+Non-blocking tracing XXX name
+
+TODO
+
+Synchronous tracing
+
+TODO
 
 
 Cross package tracing
@@ -120,7 +144,21 @@ available as regular functions prefixed with imported package name:
 
 Gotrace
 
-TODO document `gotrace gen` + `gotrace list`
+The way //trace:event and //trace:import works is via additional code being
+generated for them. Whenever a package uses any //trace: directive,
+it has to organize to run `gotrace gen` on its sources for them to work,
+usually with the help of //go:generate. For example:
+
+	package hello
+
+	//go:generate gotrace gen .
+
+	//trace:event ...
+
+Besides `gotrace gen` gotrace has other subcommands also related to tracing,
+for example `gotrace list` lists trace events a package provides.
+
+Please see TODO link for gotrace documentation.
 
 --------
 
