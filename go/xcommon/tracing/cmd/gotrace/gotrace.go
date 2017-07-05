@@ -91,8 +91,7 @@ type traceImported struct {
 	*traceEvent                   // imported event
 	ImportSpec  *traceImport      // imported via this spec
 	ImporterPkg *types.Package    // from this package
-	ImportedAs  map[string]string // in context where some packages are
-				      // imported as named (pkgpath -> pkgname)
+	ImportedAs  map[string]string // in context where some packages are imported as named (pkgpath -> pkgname)
 }
 
 // Package represents tracing-related information about a package
@@ -152,9 +151,8 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	//println(buf.String())
 	//println("---- 8< ----")
 	tf, err := parser.ParseFile(p.traceFset, filename, buf.String(), 0)
-	//fmt.Println("parse:", err)
 	if err != nil {
-		return nil, err // should already have pos' as prefix
+		return nil, err // already has pos' as prefix
 	}
 
 	p.traceFilev = append(p.traceFilev, tf)
@@ -178,9 +176,8 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	// typecheck prepared file to get trace func argument types
 	// (type information lands into p.traceTypeInfo)
 	err = p.traceChecker.Files([]*ast.File{tf})
-	//fmt.Println("typecheck:", err)
 	if err != nil {
-		return nil, err // should already have pos' as prefix
+		return nil, err // already has pos' as prefix
 	}
 
 	return &traceEvent{Pos: pos, Pkgt: p, FuncDecl: declf}, nil
