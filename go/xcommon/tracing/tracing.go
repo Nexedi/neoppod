@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 /*
-Package tracing provides runtime and usage support for Go tracing facilities.
+Package tracing provides usage and runtime support for Go tracing facilities.
 
 Trace events
 
@@ -46,8 +46,8 @@ However it is possible to attach probing functions to events. A probe, once
 attached, is called whenever event is signalled in the context which triggered
 the event and pauses original code execution until the probe is finished. It is
 possible to attach several probing functions to the same event and dynamically
-detach/(re-)attach them. Attaching/detaching probes must be done under
-tracing.Lock. For example:
+detach/(re-)attach them at runtime. Attaching/detaching probes must be done
+under tracing.Lock. For example:
 
 	type saidHelloT struct {
 		who  string
@@ -93,11 +93,16 @@ all at once using ProbeGroup:
 	pg.Done()
 
 Probes is general mechanism which allows various kinds of trace events usage.
-Three ways particularly are well-established and handy:
+Three ways particularly are well-understood and handy:
 
+	- recording events stream
 	- profiling
-	- non-blocking tracing (asynchronously (?) recording event stream)
 	- synchronous tracing
+
+Recording events stream
+
+TODO
+
 
 Profiling
 
@@ -112,11 +117,6 @@ XXX Profile.Add needs unique value for each invocation - how do we do?
 
 XXX BUG not working?
 BUG(kirr): should tracing provide more tight integration with runtime/pprof.Profile?
-
-
-Non-blocking tracing XXX name
-
-TODO
 
 
 Synchronous tracing
