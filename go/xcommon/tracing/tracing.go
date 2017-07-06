@@ -99,24 +99,35 @@ Three ways particularly are well-understood and handy:
 	- profiling
 	- synchronous tracing
 
+
 Recording events stream
 
-TODO
+To get better understanding of what happens when it is possible to record
+events into a stream and later either visualize or postprocess them.
+This is similar to how Go execution tracer works:
+
+https://golang.org/s/go15trace
+https://golang.org/pkg/runtime/trace
+https://golang.org/cmd/trace
+
+though there it records only predefined set of events related to Go runtime.
+
+TODO tracing should provide infrastructure to write events out in format
+understood by chromium trace-viewer: https://github.com/catapult-project/catapult/tree/master/tracing
 
 
 Profiling
 
-A profile is (TODO aggregate summary of) a collection of stack traces showing the call sequences that led
+A profile is aggregate summary of collection of stack traces showing the call sequences that led
 to instances of a particular event. One could create runtime/pprof.Profile and
 use Profile.Add in a probe attached to particular trace event. The profile can
-be later analyzed and visualised with go pprof tool.
+be later analyzed and visualised with Profile.WriteTo and `go tool pprof`.
 
 Please refer to runtime/pprof package documentation for details.
 
-XXX Profile.Add needs unique value for each invocation - how do we do?
+XXX Profile.Add needs unique value for each invocation - how do we do? Provide NaN every time?
 
-XXX BUG not working?
-BUG(kirr): should tracing provide more tight integration with runtime/pprof.Profile?
+XXX should tracing provide more tight integration with runtime/pprof.Profile?
 
 
 Synchronous tracing
