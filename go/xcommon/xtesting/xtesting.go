@@ -27,6 +27,8 @@ import (
 	"testing"
 )
 
+// XXX move -> tracing
+
 // TODO tests for this
 
 // XXX Tracer interface {Trace1} ?
@@ -70,7 +72,7 @@ func (st *SyncTracer) Get1() *SyncTraceMsg {
 
 
 
-
+// XXX naming -> SyncTraceChecker
 // TraceChecker synchronously collects and checks tracing events from a SyncTracer
 type TraceChecker struct {
 	t  *testing.T

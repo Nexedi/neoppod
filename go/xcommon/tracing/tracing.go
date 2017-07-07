@@ -132,7 +132,20 @@ XXX should tracing provide more tight integration with runtime/pprof.Profile?
 
 Synchronous tracing
 
-TODO
+For testing purposes it is sometimes practical to leverage the property that
+probes pause original code execution until the probe run is finished. That
+means while the probe is running original goroutine
+
+- is paused at well-defined point (where trace function is called), thus
+- it cannot mutate any state it is programmed to mutate.
+
+Using this properties it is possible to attach testing probes and verify that
+a set of goroutines in tested code in question
+
+- produce events in correct order, and
+- at every event associated internal state is correct.
+
+TODO example
 
 
 Cross package tracing

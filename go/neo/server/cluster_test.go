@@ -141,15 +141,6 @@ func TestMasterStorage(t *testing.T) {
 	tracing.Unlock()
 
 
-	/*
-	defer func() {
-		tracing.Lock()
-		defer tracing.Unlock()
-
-		tctx.Done()
-	}()
-	*/
-
 	// shortcut for addresses
 	xaddr := func(addr string) *pipenet.Addr {
 		a, err := net.ParseAddr(addr)
