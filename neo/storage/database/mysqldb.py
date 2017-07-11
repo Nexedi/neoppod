@@ -359,7 +359,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getLastObjectTID(self, oid):
         oid = util.u64(oid)
-        r = self.query("SELECT tid FROM obj"
+        r = self.query("SELECT tid FROM obj FORCE INDEX(`partition`)"
                        " WHERE `partition`=%d AND oid=%d"
                        " ORDER BY tid DESC LIMIT 1"
                        % (self._getReadablePartition(oid), oid))
@@ -376,7 +376,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         partition = self._getReadablePartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
-               ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
+               ' FROM obj FORCE INDEX(`partition`)'
+               ' LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE `partition` = %d AND oid = %d') % (partition, oid)
         if before_tid is not None:
             sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
@@ -432,7 +433,8 @@ class MySQLDatabaseManager(DatabaseManager):
         for partition in offset_list:
             where = " WHERE `partition`=%d" % partition
             data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj USE INDEX(PRIMARY)" + where)
+                q("SELECT DISTINCT data_id FROM obj FORCE INDEX(PRIMARY)"
+                  + where)
                 if x]
             if not self._use_partition:
                 q("DELETE FROM obj" + where)
@@ -596,7 +598,7 @@ class MySQLDatabaseManager(DatabaseManager):
     del _structLL
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT tid, value_tid FROM obj'
+        sql = ('SELECT tid, value_tid FROM obj FORCE INDEX(`partition`)'
                ' WHERE `partition` = %d AND oid = %d'
               ) % (self._getReadablePartition(oid), oid)
         if tid is not None:
@@ -687,7 +689,8 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         r = self.query("SELECT tid, IF(compression < 128, LENGTH(value),"
             "  CAST(CONV(HEX(SUBSTR(value, 5, 4)), 16, 10) AS INT))"
-            " FROM obj LEFT JOIN data ON (obj.data_id = data.id)"
+            " FROM obj FORCE INDEX(`partition`)"
+            " LEFT JOIN data ON (obj.data_id = data.id)"
             " WHERE `partition` = %d AND oid = %d AND tid >= %d"
             " ORDER BY tid DESC LIMIT %d, %d" %
             (self._getReadablePartition(oid), oid,
@@ -700,7 +703,7 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         p64 = util.p64
         min_tid = u64(min_tid)
-        r = self.query('SELECT tid, oid FROM obj'
+        r = self.query('SELECT tid, oid FROM obj FORCE INDEX(PRIMARY)'
                        ' WHERE `partition` = %d AND tid <= %d'
                        ' AND (tid = %d AND %d <= oid OR %d < tid)'
                        ' ORDER BY tid ASC, oid ASC LIMIT %d' % (
@@ -765,7 +768,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         self._setPackTID(tid)
         for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"
-                                        " FROM obj WHERE tid <= %d GROUP BY oid"
+                                        " FROM obj FORCE INDEX(`partition`)"
+                                        " WHERE tid <= %d GROUP BY oid"
                                         % tid):
             partition = getPartition(oid)
             if q("SELECT 1 FROM obj WHERE `partition` = %d"
@@ -815,7 +819,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # last grouped value, instead of the greatest one.
         r = self.query(
             """SELECT tid, oid
-               FROM obj
+               FROM obj FORCE INDEX(PRIMARY)
                WHERE `partition` = %(partition)s
                  AND tid <= %(max_tid)d
                  AND (tid > %(min_tid)d OR
