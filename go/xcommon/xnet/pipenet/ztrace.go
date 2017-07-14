@@ -10,7 +10,7 @@ import (
 	"net"
 )
 
-// traceevent: traceAccept(conn net.Conn)	XXX better raw .Text (e.g. comments)
+// traceevent: traceAccept(conn net.Conn)
 
 type _t_traceAccept struct {
 	tracing.Probe
@@ -37,7 +37,7 @@ func traceAccept_Attach(pg *tracing.ProbeGroup, probe func(conn net.Conn)) *trac
 	return &p.Probe
 }
 
-// traceevent: traceDial(addr string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceDial(addr string)
 
 type _t_traceDial struct {
 	tracing.Probe
@@ -64,7 +64,7 @@ func traceDial_Attach(pg *tracing.ProbeGroup, probe func(addr string)) *tracing.
 	return &p.Probe
 }
 
-// traceevent: traceListen(laddr string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceListen(laddr string)
 
 type _t_traceListen struct {
 	tracing.Probe
@@ -91,7 +91,7 @@ func traceListen_Attach(pg *tracing.ProbeGroup, probe func(laddr string)) *traci
 	return &p.Probe
 }
 
-// traceevent: traceNew(name string)	XXX better raw .Text (e.g. comments)
+// traceevent: traceNew(name string)
 
 type _t_traceNew struct {
 	tracing.Probe
@@ -118,7 +118,7 @@ func traceNew_Attach(pg *tracing.ProbeGroup, probe func(name string)) *tracing.P
 	return &p.Probe
 }
 
-// traceevent: traceNewHost(host *Host)	XXX better raw .Text (e.g. comments)
+// traceevent: traceNewHost(host *Host)
 
 type _t_traceNewHost struct {
 	tracing.Probe
@@ -144,3 +144,6 @@ func traceNewHost_Attach(pg *tracing.ProbeGroup, probe func(host *Host)) *tracin
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceNewHost)), &p.Probe)
 	return &p.Probe
 }
+
+// trace export signature
+func _trace_exporthash_e77a134646e20f099af466ab3192282237d2e547() {}

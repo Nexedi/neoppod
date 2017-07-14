@@ -11,7 +11,7 @@ import (
 	"net"
 )
 
-// traceevent: traceConnRecv(c *Conn, msg Msg)	XXX better raw .Text (e.g. comments)
+// traceevent: traceConnRecv(c *Conn, msg Msg)
 
 type _t_traceConnRecv struct {
 	tracing.Probe
@@ -38,7 +38,7 @@ func traceConnRecv_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) 
 	return &p.Probe
 }
 
-// traceevent: traceConnSend(c *Conn, msg Msg)	XXX better raw .Text (e.g. comments)
+// traceevent: traceConnSend(c *Conn, msg Msg)
 
 type _t_traceConnSend struct {
 	tracing.Probe
@@ -65,7 +65,16 @@ func traceConnSend_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) 
 	return &p.Probe
 }
 
-// traceimport: lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet
+// trace export signature
+func _trace_exporthash_bc56cd7a9caf82c14d9586243f763e65afb91ea0() {}
+
+// traceimport: "lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"
+
+// rerun "gotrace gen" if you see link failure ↓↓↓
+//go:linkname pipenet_trace_exporthash lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet._trace_exporthash_e77a134646e20f099af466ab3192282237d2e547
+func pipenet_trace_exporthash()
+func init() { pipenet_trace_exporthash() }
+
 
 //go:linkname pipenet_traceAccept_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceAccept_Attach
 func pipenet_traceAccept_Attach(*tracing.ProbeGroup, func(conn net.Conn)) *tracing.Probe

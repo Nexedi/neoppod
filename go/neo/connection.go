@@ -32,7 +32,6 @@ import (
 	"sync/atomic"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
-	_ "lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"	// XXX temp
 )
 
 // NodeLink is a node-node link in NEO
@@ -741,7 +740,7 @@ func (c *Conn) err(op string, e error) error {
 //trace:event traceConnSend(c *Conn, msg Msg)	// XXX -> traceConnSendPre ?
 
 //XXX temp
-//trace:import lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet
+//trace:import "lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"
 
 // Recv receives message
 // it receives packet and decodes message from it
