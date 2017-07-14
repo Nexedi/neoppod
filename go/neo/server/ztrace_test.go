@@ -5,7 +5,7 @@ package server
 
 import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
-	"unsafe"
+	_ "unsafe"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 )

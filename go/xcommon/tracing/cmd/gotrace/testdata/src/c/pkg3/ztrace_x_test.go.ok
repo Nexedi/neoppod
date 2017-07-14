@@ -5,7 +5,7 @@ package pkg3_test
 
 import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
-	"unsafe"
+	_ "unsafe"
 )
 
 // traceimport: "b/pkg2"

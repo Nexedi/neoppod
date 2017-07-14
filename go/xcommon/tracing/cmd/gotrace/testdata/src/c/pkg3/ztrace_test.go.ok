@@ -5,7 +5,7 @@ package pkg3
 
 import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
-	"unsafe"
+	_ "unsafe"
 
 	aaa1 "a/pkg1"
 	"net/url"

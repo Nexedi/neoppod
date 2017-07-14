@@ -745,7 +745,6 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 		prologue.emit("// code generated for tracepoints")
 		prologue.emit("\nimport (")
 		prologue.emit("\t%q", "lab.nexedi.com/kirr/neo/go/xcommon/tracing")
-		prologue.emit("\t%q", "unsafe")
 
 		// pkgpaths of all packages needed for used types
 		needPkg := StrSet{}
@@ -757,6 +756,7 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 
 		// code for trace:event definitions
 		for _, event := range tpkg.Eventv {
+			needPkg.Add("unsafe") // used in tr
 			needPkg.Add(event.NeedPkgv()...)
 			err = traceEventCodeTmpl.Execute(text, event)
 			if err != nil {
@@ -826,6 +826,14 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 		}
 
 		// finish prologue with needed imports
+		if !needPkg.Has("unsafe") {
+			// we need it anyway because go:linkname is not allowed without unsafe
+			prologue.emit("\t_ %q", "unsafe")
+		} else {
+			prologue.emit("\t%q", "unsafe")
+			needPkg.Delete("unsafe")
+		}
+
 		needPkg.Delete(tpkg.Pkgi.Pkg.Path()) // our pkg - no need to import
 		needPkgv := needPkg.Itemv()
 		if len(needPkgv) > 0 {

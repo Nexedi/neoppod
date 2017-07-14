@@ -49,6 +49,11 @@ func (s StrSet) Delete(item string) {
 	delete(s, item)
 }
 
+func (s StrSet) Has(item string) bool {
+	_, has := s[item]
+	return has
+}
+
 // Itemv returns ordered slice of set items
 func (s StrSet) Itemv() []string {
 	itemv := make([]string, 0, len(s))
