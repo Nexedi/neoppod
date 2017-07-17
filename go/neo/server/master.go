@@ -593,6 +593,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 	fmt.Println("master: service")
 	defer xerr.Context(&err, "master: service")
 
+	// XXX we also need to tell storages StartOperation first
 	m.setClusterState(neo.ClusterRunning)
 
 loop:
@@ -794,6 +795,8 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 
 	logf("identify: accepted")
 
+	// FIXME vvv must be notified only after recovering is done
+	//       (while recovering is in progress we must _not_ send partition table updates to S)
 	// XXX on successful identification master should also give us:
 	// - full snapshots of nodeTab, partTab and clusterState
 	// - buffered notification channel subscribed to changes of ^^^
