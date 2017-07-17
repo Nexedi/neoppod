@@ -217,7 +217,13 @@ func TestMasterStorage(t *testing.T) {
 	//)
 	_ = nettx
 
-	tc.Expect(conntx("s:1", "m:1", 1, &neo.RequestIdentification{}))	// XXX
+	tc.Expect(conntx("s:1", "m:1", 1, &neo.RequestIdentification{
+		NodeType:	neo.STORAGE,
+		NodeUUID:	0,
+		Address:	neo.Address{"s", 0},	//XXX "s:0",
+		ClusterName:	"abc1",
+		IdTimestamp:	0,
+	}))
 	// XXX ... M adjust nodetab...
 	tc.Expect(conntx("m:1", "s:1", 1, &neo.AcceptIdentification{}))		// XXX
 
