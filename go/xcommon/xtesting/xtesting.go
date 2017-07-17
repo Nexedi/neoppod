@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/kylelemons/godebug/pretty"
 )
 
 // XXX move -> tracing
@@ -114,7 +116,9 @@ func (tc *TraceChecker) expect1(eventExpect interface{}) {
 	revent := reventp.Elem()
 
 	if !reflect.DeepEqual(revent.Interface(), reventExpect.Interface()) {
-		tc.t.Fatalf("expect: %s:\nhave: %v\nwant: %v", reventExpect.Type(), revent, reventExpect)
+		tc.t.Fatalf("expect: %s:\nwant: %v\nhave: %v\ndiff: %s",
+			reventExpect.Type(), reventExpect, revent,
+			pretty.Compare(reventExpect.Interface(), revent.Interface()))
 	}
 
 	close(msg.Ack)

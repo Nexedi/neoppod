@@ -27,6 +27,7 @@ import (
 	//"bytes"
 	"context"
 	//"io"
+	"net"
 	//"reflect"
 	"testing"
 
@@ -78,7 +79,9 @@ type traceNeoSend struct {
 	ConnID   uint32
 	Msg	 neo.Msg
 }
-func (t *MyTracer) traceNeoConnSend(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoSend{c, msg}) }
+func (t *MyTracer) traceNeoConnSendPre(c *neo.Conn, msg neo.Msg)	{
+	t.Trace1(&traceNeoSend{c.Link().LocalAddr(), c.Link().RemoteAddr(), c.ConnID(), msg})
+}
 
 
 
@@ -169,6 +172,11 @@ func TestMasterStorage(t *testing.T) {
 		return &xnet.TraceListen{Laddr: xaddr(laddr)}
 	}
 
+	// XXX
+	conntx := func(src, dst string, connid uint32, msg neo.Msg) *traceNeoSend {
+		return &traceNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
+	}
+
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 
@@ -209,11 +217,9 @@ func TestMasterStorage(t *testing.T) {
 	//)
 	_ = nettx
 
-	tc.Expect(
-		conntx("s:1", "m:1", 1, RequestIdentification{...})
-		// ... M adjust nodetab...
-		conntx("m:1", "s:1", 1, AcceptIdentification{...})
-	)
+	tc.Expect(conntx("s:1", "m:1", 1, &neo.RequestIdentification{}))	// XXX
+	// XXX ... M adjust nodetab...
+	tc.Expect(conntx("m:1", "s:1", 1, &neo.AcceptIdentification{}))		// XXX
 
 
 

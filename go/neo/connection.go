@@ -203,7 +203,7 @@ func (nl *NodeLink) NewConn() (*Conn, error) {
 	return c, nil
 }
 
-// shutdown closes peerLink and marks NodeLink as no longer operational
+// shutdown closes raw link to peer and marks NodeLink as no longer operational.
 // it also shutdowns all opened connections over this node link.
 func (nl *NodeLink) shutdown() {
 	nl.downOnce.Do(func() {
@@ -699,9 +699,32 @@ func Dial(ctx context.Context, net xnet.Networker, addr string) (nl *NodeLink, e
 // block further Accepts.
 
 
+// ---- for convenience: Conn -> NodeLink & local/remote link addresses  ----
+
+// LocalAddr returns local address of the underlying link to peer.
+func (nl *NodeLink) LocalAddr() net.Addr {
+	return nl.peerLink.LocalAddr()
+}
+
+// RemoteAddr returns remote address of the underlying link to peer.
+func (nl *NodeLink) RemoteAddr() net.Addr {
+	return nl.peerLink.RemoteAddr()
+}
+
+// Link returns underlying NodeLink of this connection.
+func (c *Conn) Link() *NodeLink {
+	return c.nodeLink
+}
+
+// ConnID returns connection identifier used for the connection.
+func (c *Conn) ConnID() uint32 {
+	return c.connId
+}
+
+
 // ---- for convenience: String / Error ----
 func (nl *NodeLink) String() string {
-	s := fmt.Sprintf("%s - %s", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr())
+	s := fmt.Sprintf("%s - %s", nl.LocalAddr(), nl.RemoteAddr())
 	return s	// XXX add "(closed)" if nl is closed ?
 			// XXX other flags e.g. (down) ?
 }
