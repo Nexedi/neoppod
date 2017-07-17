@@ -16,7 +16,7 @@ Topic :: Software Development :: Libraries :: Python Modules
 
 mock = 'neo/tests/mock.py'
 if not os.path.exists(mock):
-    import cStringIO, hashlib,subprocess,  urllib, zipfile
+    import cStringIO, hashlib, subprocess, urllib, zipfile
     x = 'pythonmock-0.1.0.zip'
     try:
         x = subprocess.check_output(('git', 'cat-file', 'blob', x))
@@ -24,8 +24,9 @@ if not os.path.exists(mock):
         x = urllib.urlopen(
             'http://downloads.sf.net/sourceforge/python-mock/' + x).read()
     mock_py = zipfile.ZipFile(cStringIO.StringIO(x)).read('mock.py')
-    if hashlib.md5(mock_py).hexdigest() != '79f42f390678e5195d9ce4ae43bd18ec':
-        raise EnvironmentError("MD5 checksum mismatch downloading 'mock.py'")
+    if (hashlib.sha256(mock_py).hexdigest() !=
+        'c6ed26e4312ed82160016637a9b6f8baa71cf31a67c555d44045a1ef1d60d1bc'):
+        raise EnvironmentError("SHA checksum mismatch downloading 'mock.py'")
     open(mock, 'w').write(mock_py)
 
 zodb_require = ['ZODB3>=3.10dev']
@@ -59,11 +60,11 @@ else:
 
 setup(
     name = 'neoppod',
-    version = '1.7.1',
+    version = '1.8',
     description = __doc__.strip(),
     author = 'Nexedi SA',
     author_email = 'neo-dev@erp5.org',
-    url = 'http://www.neoppod.org/',
+    url = 'https://neo.nexedi.com/',
     license = 'GPL 2+',
     platforms = ["any"],
     classifiers=classifiers.splitlines(),

@@ -78,6 +78,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _connect(self):
         logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
+        self.lock(self.db)
         if self.UNSAFE:
             q = self.query
             q("PRAGMA synchronous = OFF")
@@ -243,20 +244,25 @@ class SQLiteDatabaseManager(DatabaseManager):
     #   each partition (and finish in Python with max() for getLastTID).
 
     def getLastTID(self, max_tid):
-        return self.query("SELECT MAX(tid) FROM trans WHERE tid<=?",
-                          (max_tid,)).next()[0]
+        return self.query(
+            "SELECT MAX(tid) FROM pt, trans"
+            " WHERE nid=? AND rid=partition AND tid<=?",
+            (self.getUUID(), max_tid,)).next()[0]
 
     def _getLastIDs(self):
         p64 = util.p64
         q = self.query
+        args = self.getUUID(),
         trans = {partition: p64(tid)
-            for partition, tid in q("SELECT partition, MAX(tid)"
-                                    " FROM trans GROUP BY partition")}
+            for partition, tid in q(
+                "SELECT partition, MAX(tid) FROM pt, trans"
+                " WHERE nid=? AND rid=partition GROUP BY partition", args)}
         obj = {partition: p64(tid)
-            for partition, tid in q("SELECT partition, MAX(tid)"
-                                    " FROM obj GROUP BY partition")}
-        oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
-                                      " GROUP BY partition) as t").next()[0]
+            for partition, tid in q(
+                "SELECT partition, MAX(tid) FROM pt, obj"
+                " WHERE nid=? AND rid=partition GROUP BY partition", args)}
+        oid = q("SELECT MAX(oid) oid FROM pt, obj"
+                " WHERE nid=? AND rid=partition", args).next()[0]
         return trans, obj, None if oid is None else p64(oid)
 
     def _getUnfinishedTIDDict(self):

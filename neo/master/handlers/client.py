@@ -69,7 +69,7 @@ class ClientServiceHandler(MasterHandler):
         if tid:
             p = Packets.AskLockInformation(ttid, tid)
             for node in node_list:
-                node.ask(p, timeout=60) # NOTE
+                node.ask(p)
 
             # NOTE continues in onTransactionCommitted
 

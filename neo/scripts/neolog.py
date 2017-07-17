@@ -20,6 +20,7 @@
 import bz2, gzip, errno, optparse, os, signal, sqlite3, sys, time
 from bisect import insort
 from logging import getLevelName
+from zlib import decompress
 
 comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile)
 
@@ -28,11 +29,12 @@ class Log(object):
     _log_id = _packet_id = -1
     _protocol_date = None
 
-    def __init__(self, db_path, decode_all=False, date_format=None,
-                                filter_from=None, node_list=None):
+    def __init__(self, db_path, decode=0, date_format=None,
+                       filter_from=None, node_column=True, node_list=None):
         self._date_format = '%F %T' if date_format is None else date_format
-        self._decode_all = decode_all
+        self._decode = decode
         self._filter_from = filter_from
+        self._node_column = node_column
         self._node_list = node_list
         name = os.path.basename(db_path)
         try:
@@ -93,6 +95,30 @@ class Log(object):
         exec bz2.decompress(text) in g
         for x in 'uuid_str', 'Packets', 'PacketMalformedError':
             setattr(self, x, g[x])
+        x = {}
+        if self._decode > 1:
+            PStruct = g['PStruct']
+            PBoolean = g['PBoolean']
+            def hasData(item):
+                items = item._items
+                for i, item in enumerate(items):
+                    if isinstance(item, PStruct):
+                        j = hasData(item)
+                        if j:
+                            return (i,) + j
+                    elif (isinstance(item, PBoolean)
+                          and item._name == 'compression'
+                          and i + 2 < len(items)
+                          and items[i+2]._name == 'data'):
+                        return i,
+            for p in self.Packets.itervalues():
+                if p._fmt is not None:
+                    path = hasData(p._fmt)
+                    if path:
+                        assert not hasattr(p, '_neolog'), p
+                        x[p._code] = path
+        self._getDataPath = x.get
+
         try:
             self._next_protocol, = q("SELECT date FROM protocol WHERE date>?",
                                      (date,)).next()
@@ -109,7 +135,8 @@ class Log(object):
             d = int(date)
             prefix = '%s.%04u ' % (time.strftime(prefix, time.localtime(d)),
                                    int((date - d) * 10000))
-        prefix += '%-9s %-10s ' % (levelname, name)
+        prefix += ('%-9s %-10s ' % (levelname, name) if self._node_column else
+                   '%-9s ' % levelname)
         for msg in msg_list:
             print prefix + msg
 
@@ -126,7 +153,7 @@ class Log(object):
         msg = ['#0x%04x %-30s %s' % (msg_id, msg, peer)]
         if body is not None:
             log = getattr(p, '_neolog', None)
-            if log or self._decode_all:
+            if log or self._decode:
                 p = p()
                 p._id = msg_id
                 p._body = body
@@ -138,9 +165,27 @@ class Log(object):
                     if log:
                         args, extra = log(*args)
                         msg += extra
-                    if args and self._decode_all:
+                    else:
+                        path = self._getDataPath(code)
+                        if path:
+                            args = self._decompress(args, path)
+                    if args and self._decode:
                         msg[0] += ' \t| ' + repr(args)
         return date, name, 'PACKET', msg
+
+    def _decompress(self, args, path):
+        if args:
+            args = list(args)
+            i = path[0]
+            path = path[1:]
+            if path:
+                args[i] = self._decompress(args[i], path)
+            else:
+                data = args[i+2]
+                if args[i]:
+                    data = decompress(data)
+                args[i:i+3] = (len(data), data),
+            return tuple(args)
 
 
 def emit_many(log_list):
@@ -179,7 +224,9 @@ def emit_many(log_list):
 def main():
     parser = optparse.OptionParser()
     parser.add_option('-a', '--all', action="store_true",
-        help='decode all packets')
+        help='decode body of packets')
+    parser.add_option('-A', '--decompress', action="store_true",
+        help='decompress data when decode body of packets (implies --all)')
     parser.add_option('-d', '--date', metavar='FORMAT',
         help='custom date format, according to strftime(3)')
     parser.add_option('-f', '--follow', action="store_true",
@@ -189,7 +236,8 @@ def main():
               ' seconds (see -s)', metavar='PID')
     parser.add_option('-n', '--node', action="append",
         help='only show log entries from the given node'
-             ' (only useful for logs produced by threaded tests)')
+             ' (only useful for logs produced by threaded tests),'
+             " special value '-' hides the column")
     parser.add_option('-s', '--sleep-interval', type="float", default=1,
         help='with -f, sleep for approximately N seconds (default 1.0)'
               ' between iterations', metavar='N')
@@ -204,8 +252,15 @@ def main():
     filter_from = options.filter_from
     if filter_from and filter_from < 0:
         filter_from += time.time()
-    log_list = [Log(db_path, options.all, options.date, filter_from,
-                    options.node)
+    node_list = options.node or []
+    try:
+        node_list.remove('-')
+        node_column = False
+    except ValueError:
+        node_column = True
+    log_list = [Log(db_path,
+                    2 if options.decompress else 1 if options.all else 0,
+                    options.date, filter_from, node_column, node_list)
                 for db_path in args]
     if options.follow:
         try:

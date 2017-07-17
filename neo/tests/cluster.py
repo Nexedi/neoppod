@@ -104,7 +104,7 @@ class ClusterPdb(object):
     def broken_peer(self):
         return self._getLastPdb(os.getpid()) is None
 
-    def __call__(self, max_count=None, depth=0, text=None):
+    def __call__(self, depth=0, max_count=None, gui=False):
         depth += 1
         if max_count:
             frame = sys._getframe(depth)
@@ -113,13 +113,8 @@ class ClusterPdb(object):
             self._count_dict[key] = count = 1 + self._count_dict.get(key, 0)
             if max_count < count:
                 return
-        if not text:
-            try:
+        if gui:
                 import rpdb2
-            except ImportError:
-                if text is not None:
-                    raise
-            else:
                 if rpdb2.g_debugger is None:
                     rpdb2_CStateManager = rpdb2.CStateManager
                     def CStateManager(*args, **kw):

@@ -23,16 +23,11 @@ from .locking import RLock
 from .protocol import uuid_str, Errors, PacketMalformedError, Packets
 from .util import dummy_read_buffer, ReadBuffer
 
-CRITICAL_TIMEOUT = 30
-
 class ConnectionClosed(Exception):
     pass
 
 class HandlerSwitcher(object):
     _is_handling = False
-    _next_timeout = None
-    _next_timeout_msg_id = None
-    _next_on_timeout = None
     _pending = ({}, None),      # ( {msgid -> (answer_klass, timeout, on_timeout, kw)},
                                 #   handler )
 
@@ -55,7 +50,7 @@ class HandlerSwitcher(object):
                 while request_dict:
                     msg_id, request = request_dict.popitem()
                     p.setId(msg_id)
-                    handler.packetReceived(conn, p, request[3])
+                    handler.packetReceived(conn, p, request[1])
                 if len(self._pending) == 1:
                     break
                 del self._pending[0]
@@ -67,7 +62,7 @@ class HandlerSwitcher(object):
         """ Return the last (may be unapplied) handler registered """
         return self._pending[-1][1]
 
-    def emit(self, request, timeout, on_timeout, kw={}):
+    def emit(self, request, kw={}):
         # register the request in the current handler
         _pending = self._pending
         if self._is_handling:
@@ -82,26 +77,7 @@ class HandlerSwitcher(object):
         answer_class = request.getAnswerClass()
         assert answer_class is not None, "Not a request"
         assert msg_id not in request_dict, "Packet id already expected"
-        next_timeout = self._next_timeout
-        if next_timeout is None or timeout < next_timeout:
-            self._next_timeout = timeout
-            self._next_timeout_msg_id = msg_id
-            self._next_on_timeout = on_timeout
-        request_dict[msg_id] = answer_class, timeout, on_timeout, kw
-
-    def getNextTimeout(self):
-        return self._next_timeout
-
-    def timeout(self, connection):
-        msg_id = self._next_timeout_msg_id
-        if self._next_on_timeout is not None:
-            self._next_on_timeout(connection, msg_id)
-            if self._next_timeout_msg_id != msg_id:
-                # on_timeout sent a packet with a smaller timeout
-                # so keep the connection open
-                return
-        # Notify that a timeout occurred
-        return msg_id
+        request_dict[msg_id] = answer_class, kw
 
     def handle(self, connection, packet):
         assert not self._is_handling
@@ -128,7 +104,7 @@ class HandlerSwitcher(object):
         request_dict, handler = pending[0]
         # checkout the expected answer class
         try:
-            klass, _, _, kw = request_dict.pop(msg_id)
+            klass, kw = request_dict.pop(msg_id)
         except KeyError:
             klass = None
             kw = {}
@@ -147,18 +123,6 @@ class HandlerSwitcher(object):
                 del pending[0]
                 logging.debug('Apply handler %r on %r', pending[0][1],
                     connection)
-            if msg_id == self._next_timeout_msg_id:
-                self._updateNextTimeout()
-
-    def _updateNextTimeout(self):
-        # Find next timeout and its msg_id
-        next_timeout = None
-        for pending in self._pending:
-            for msg_id, (_, timeout, on_timeout, _) in pending[0].iteritems():
-                if not next_timeout or timeout < next_timeout[0]:
-                    next_timeout = timeout, msg_id, on_timeout
-        self._next_timeout, self._next_timeout_msg_id, self._next_on_timeout = \
-            next_timeout or (None, None, None)
 
     def setHandler(self, handler):
         can_apply = len(self._pending) == 1 and not self._pending[0][0]
@@ -176,24 +140,33 @@ class BaseConnection(object):
 
     About timeouts:
 
-        Timeout are mainly per-connection instead of per-packet.
-        The idea is that most of time, packets are received and processed
-        sequentially, so if it takes a long for a peer to process a packet,
-        following packets would just be enqueued.
-        What really matters is that the peer makes progress in its work.
-        As long as we receive an answer, we consider it's still alive and
-        it may just have started to process the following request. So we reset
-        timeouts.
-        There is anyway nothing more we could do, because processing of a packet
-        may be delayed in a very unpredictable way depending of previously
-        received packets on peer side.
-        Even ourself may be slow to receive a packet. We must not timeout for
-        an answer that is already in our incoming buffer (read_buf or _queue).
-        Timeouts in HandlerSwitcher are only there to prioritize some packets.
+        In the past, ask() took a timeout parameter as a way to close the
+        connection if the remote node was too long to reply, with the idea
+        that something went wrong. There was no known bug but this feature was
+        actually a bad idea.
+
+        It is impossible to test whether the remote node is in good state or
+        not. The experience shows that timeouts were always triggered because
+        the remote nodes were simply too slow. Waiting remains the best option
+        and anything else would only make things worse.
+
+        The only case where it could make sense to react on a slow request is
+        when there is redundancy, more exactly for read requests to storage
+        nodes when there are replicas. A client node could resend its request
+        to another node, _without_ breaking the first connection (then wait for
+        the first reply and ignore the other).
+
+        The previous timeout implementation (before May 2017) was not well
+        suited to support the above use case so most of the code has been
+        removed, but it may contain some interesting parts.
+
+        Currently, since applicative pings have been replaced by TCP
+        keepalives, timeouts are only used for 2 things:
+        - to avoid reconnecting too fast
+        - to close idle client connections
     """
 
     from .connector import SocketConnector as ConnectorClass
-    KEEP_ALIVE = 60
 
     def __init__(self, event_manager, handler, connector, addr=None):
         assert connector is not None, "Need a low-level connector"
@@ -294,9 +267,6 @@ class BaseConnection(object):
         """
         return attributeTracker.whoSet(self, 'connector')
 
-    def idle(self):
-        pass
-
 
 attributeTracker.track(BaseConnection)
 
@@ -340,9 +310,8 @@ class Connection(BaseConnection):
     client = False
     server = False
     peer_id = None
-    _next_timeout = None
     _parser_state = None
-    _timeout = 0
+    _timeout = None
 
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
@@ -376,10 +345,11 @@ class Connection(BaseConnection):
     def asClient(self):
         # TODO adjust .cur_id % 2 to be as client
         try:
-            del self.idle
-            assert self.client
+            del self._timeout
         except AttributeError:
             self.client = True
+        else:
+            assert self.client
 
     def asServer(self):
         # TODO adjust .cur_id % 2 to be as server
@@ -387,15 +357,21 @@ class Connection(BaseConnection):
 
     def _closeClient(self):
         if self.server:
-            del self.idle
+            del self._timeout
             self.client = False
             self.send(Packets.CloseClient())
         else:
             self.close()
 
     def closeClient(self):
+        # Currently, the only usage that is really useful is between a backup
+        # storage node and an upstream one, to avoid:
+        # - maintaining many connections for nothing when there's no write
+        #   activity for a long time (and waste resources with keepalives)
+        # - reconnecting too often (i.e. be reactive) when there's moderate
+        #   activity (think of a timer with a period of 1 minute)
         if self.connector is not None and self.client:
-            self.idle = self._closeClient
+            self._timeout = time() + 100
 
     def isAborted(self):
         return self.aborted
@@ -418,34 +394,13 @@ class Connection(BaseConnection):
         self.cur_id = (next_id + 2) & 0xffffffff
         return next_id
 
-    def updateTimeout(self, t=None):
-        if not self._queue:
-            if not t:
-                t = self._next_timeout - self._timeout
-            self._timeout = self._handlers.getNextTimeout() or self.KEEP_ALIVE
-            self._next_timeout = t + self._timeout
-
     def getTimeout(self):
         if not self._queue:
-            return self._next_timeout
+            return self._timeout
 
     def onTimeout(self):
-        handlers = self._handlers
-        if handlers.isPending():
-            # It is possible that another thread used ask() while getting a
-            # timeout from epoll, so we must check again the value of
-            # _next_timeout (we know that _queue is still empty).
-            # Although this test is only useful for MTClientConnection,
-            # it's not worth complicating the code more.
-            if self._next_timeout <= time():
-                msg_id = handlers.timeout(self)
-                if msg_id is None:
-                    self._next_timeout = time() + self._timeout
-                else:
-                    logging.info('timeout for #0x%08x with %r', msg_id, self)
-                    self.close()
-        else:
-            self.idle()
+        assert self._timeout
+        self._closeClient()
 
     def abort(self):
         """Abort dealing with this connection."""
@@ -514,7 +469,6 @@ class Connection(BaseConnection):
     def readable(self):
         """Called when self is readable."""
         # last known remote activity
-        self._next_timeout = time() + self._timeout
         try:
             try:
                 if self.connector.receive(self.read_buf):
@@ -545,10 +499,7 @@ class Connection(BaseConnection):
           Process a pending packet.
         """
         # check out packet and process it with current handler
-        try:
-            self._handlers.handle(self, self._queue.pop(0))
-        finally:
-            self.updateTimeout()
+        self._handlers.handle(self, self._queue.pop(0))
 
     def pending(self):
         connector = self.connector
@@ -605,7 +556,7 @@ class Connection(BaseConnection):
         packet.setId(self._getNextId() if msg_id is None else msg_id)
         self._addPacket(packet)
 
-    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None, **kw):
+    def ask(self, packet, **kw):
         """
         Send a packet with a new ID and register the expectation of an answer
         """
@@ -614,14 +565,7 @@ class Connection(BaseConnection):
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self._addPacket(packet)
-        handlers = self._handlers
-        t = None if handlers.isPending() else time()
-        handlers.emit(packet, timeout, on_timeout, kw)
-        if not self._queue:
-            next_timeout = self._next_timeout
-            self.updateTimeout(t)
-            if self._next_timeout < next_timeout:
-                self.em.wakeup()
+        self._handlers.emit(packet, kw)
         return msg_id
 
     def answer(self, packet):
@@ -633,9 +577,6 @@ class Connection(BaseConnection):
             return
         packet.setId(self.peer_id)
         self._addPacket(packet)
-
-    def idle(self):
-        self.ask(Packets.Ping())
 
     def _connected(self):
         self.connecting = False
@@ -688,7 +629,6 @@ class ClientConnection(Connection):
 
     def _maybeConnected(self):
         self.writable = self.lockWrapper(super(ClientConnection, self).writable)
-        self.updateTimeout(time())
         if self._ssl:
             self.connector.ssl(self._ssl, self._connected)
         else:
@@ -698,20 +638,12 @@ class ClientConnection(Connection):
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
 
-    # Both server and client must check the connection, in case:
-    # - the remote crashed brutally (i.e. without closing TCP connections)
-    # - or packets sent by the remote are dropped (network failure)
-    # Use different timeout so that in normal condition, server never has to
-    # ping the client. Otherwise, it would do it about half of the time.
-    KEEP_ALIVE = Connection.KEEP_ALIVE + 5
-
     server = True
     cur_id = 0      # cur_id % 2 is 0 for server initated "streams"
 
     def __init__(self, *args, **kw):
         Connection.__init__(self, *args, **kw)
         self.em.register(self)
-        self.updateTimeout(time())
 
 
 class MTConnectionType(type):
@@ -770,14 +702,36 @@ class MTClientConnection(ClientConnection):
     # Alias without lock (cheaper than super())
     _ask = ClientConnection.ask.__func__
 
-    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
-            queue=None, **kw):
+    def ask(self, packet, queue=None, **kw):
         with self.lock:
             if queue is None:
                 if type(packet) is Packets.Ping:
-                    return self._ask(packet, timeout, on_timeout, **kw)
+                    return self._ask(packet, **kw)
                 raise TypeError('Only Ping packet can be asked'
                     ' without a queue, got a %r.' % packet)
-            msg_id = self._ask(packet, timeout, on_timeout, **kw)
+            msg_id = self._ask(packet, **kw)
             self.dispatcher.register(self, msg_id, queue)
         return msg_id
+
+    # Currently, on connected connections, we only use timeouts for
+    # closeClient, which is never used for MTClientConnection.
+    # So we disable the logic completely as a precaution, and for performance.
+    # What is specific to MTClientConnection is that the poll thread must be
+    # woken up whenever the timeout is changed to a smaller value.
+
+    def closeClient(self):
+        # For example here, in addition to what the super method does,
+        # we may have to call `self.em.wakeup()`
+        raise NotImplementedError
+
+    def getTimeout(self):
+        pass
+
+    def onTimeout(self):
+        # It is possible that another thread manipulated the connection while
+        # getting a timeout from epoll. Only the poll thread fills _queue
+        # so we know that it is empty, but we may have to check timeout values
+        # again (i.e. compare time() with the result of getTimeout()).
+        raise NotImplementedError
+
+    ###

@@ -356,6 +356,7 @@ class Replicator(object):
             self.fetchTransactions()
 
     def fetchTransactions(self, min_tid=None):
+        assert self.current_node.getConnection().isClient(), self.current_node
         offset = self.current_partition
         p = self.partition_dict[offset]
         if min_tid:

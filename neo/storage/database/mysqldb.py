@@ -29,6 +29,7 @@ import os
 import re
 import string
 import struct
+import sys
 import time
 
 from . import LOG_QUERIES
@@ -52,9 +53,6 @@ class MySQLDatabaseManager(DatabaseManager):
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
-    # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
-    # 'select count(*) from obj' sometimes returns incorrect values
-    # (tested with testOudatedCellsOnDownStorage).
     _use_partition = False
 
     _max_allowed_packet = 32769 * 1024
@@ -102,9 +100,17 @@ class MySQLDatabaseManager(DatabaseManager):
         conn.autocommit(False)
         conn.query("SET SESSION group_concat_max_len = %u" % (2**32-1))
         conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
-        conn.query("SHOW VARIABLES WHERE variable_name='max_allowed_packet'")
-        r = conn.store_result()
-        (name, value), = r.fetch_row(r.num_rows())
+        def query(sql):
+            conn.query(sql)
+            r = conn.store_result()
+            return r.fetch_row(r.num_rows())
+        if self.LOCK:
+            (locked,), = query("SELECT GET_LOCK('%s.%s', 0)"
+                % (self.db, self.LOCK))
+            if not locked:
+                sys.exit(self.LOCKED)
+        (name, value), = query(
+            "SHOW VARIABLES WHERE variable_name='max_allowed_packet'")
         if int(value) < self._max_allowed_packet:
             raise DatabaseFailure("Global variable %r is too small."
                 " Minimal value must be %uk."
@@ -304,21 +310,37 @@ class MySQLDatabaseManager(DatabaseManager):
             return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
         return self.query("SELECT * FROM pt")
 
+    def _getAssignedPartitionList(self):
+        nid = self.getUUID()
+        if nid is None:
+            return ()
+        return [p for p, in self.query("SELECT rid FROM pt WHERE nid=%s" % nid)]
+
+    def _sqlmax(self, sql, arg_list):
+        q = self.query
+        x = [x for x in arg_list for x, in q(sql % x) if x is not None]
+        if x: return max(x)
+
     def getLastTID(self, max_tid):
-        return self.query("SELECT MAX(t) FROM (SELECT MAX(tid) as t FROM trans"
-            " WHERE tid<=%s GROUP BY `partition`) as t" % max_tid)[0][0]
+        return self._sqlmax(
+            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)"
+            " WHERE tid<=%s and `partition`=%%s" % max_tid,
+            self._getAssignedPartitionList())
 
     def _getLastIDs(self):
+        offset_list = self._getAssignedPartitionList()
         p64 = util.p64
         q = self.query
-        trans = {partition: p64(tid)
-            for partition, tid in q("SELECT `partition`, MAX(tid)"
-                                    " FROM trans GROUP BY `partition`")}
-        obj = {partition: p64(tid)
-            for partition, tid in q("SELECT `partition`, MAX(tid)"
-                                    " FROM obj GROUP BY `partition`")}
-        oid = q("SELECT MAX(oid) FROM (SELECT MAX(oid) AS oid FROM obj"
-                                      " GROUP BY `partition`) as t")[0][0]
+        sql = ("SELECT MAX(tid) FROM %s FORCE INDEX (PRIMARY)"
+               " WHERE `partition`=%s")
+        trans, obj = ({partition: p64(tid)
+            for partition in offset_list
+            for tid, in q(sql % (t, partition))
+            if tid is not None}
+            for t in ('trans', 'obj'))
+        oid = self._sqlmax(
+            "SELECT MAX(oid) FROM obj FORCE INDEX (`partition`)"
+            " WHERE `partition`=%s", offset_list)
         return trans, obj, None if oid is None else p64(oid)
 
     def _getUnfinishedTIDDict(self):
@@ -337,7 +359,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getLastObjectTID(self, oid):
         oid = util.u64(oid)
-        r = self.query("SELECT tid FROM obj"
+        r = self.query("SELECT tid FROM obj FORCE INDEX(`partition`)"
                        " WHERE `partition`=%d AND oid=%d"
                        " ORDER BY tid DESC LIMIT 1"
                        % (self._getReadablePartition(oid), oid))
@@ -358,7 +380,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         partition = self._getReadablePartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
-               ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
+               ' FROM obj FORCE INDEX(`partition`)'
+               ' LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE `partition` = %d AND oid = %d') % (partition, oid)
         if before_tid is not None:
             sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
@@ -414,7 +437,8 @@ class MySQLDatabaseManager(DatabaseManager):
         for partition in offset_list:
             where = " WHERE `partition`=%d" % partition
             data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj USE INDEX(PRIMARY)" + where)
+                q("SELECT DISTINCT data_id FROM obj FORCE INDEX(PRIMARY)"
+                  + where)
                 if x]
             if not self._use_partition:
                 q("DELETE FROM obj" + where)
@@ -578,7 +602,7 @@ class MySQLDatabaseManager(DatabaseManager):
     del _structLL
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT tid, value_tid FROM obj'
+        sql = ('SELECT tid, value_tid FROM obj FORCE INDEX(`partition`)'
                ' WHERE `partition` = %d AND oid = %d'
               ) % (self._getReadablePartition(oid), oid)
         if tid is not None:
@@ -669,7 +693,8 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         r = self.query("SELECT tid, IF(compression < 128, LENGTH(value),"
             "  CAST(CONV(HEX(SUBSTR(value, 5, 4)), 16, 10) AS INT))"
-            " FROM obj LEFT JOIN data ON (obj.data_id = data.id)"
+            " FROM obj FORCE INDEX(`partition`)"
+            " LEFT JOIN data ON (obj.data_id = data.id)"
             " WHERE `partition` = %d AND oid = %d AND tid >= %d"
             " ORDER BY tid DESC LIMIT %d, %d" %
             (self._getReadablePartition(oid), oid,
@@ -682,7 +707,7 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         p64 = util.p64
         min_tid = u64(min_tid)
-        r = self.query('SELECT tid, oid FROM obj'
+        r = self.query('SELECT tid, oid FROM obj FORCE INDEX(PRIMARY)'
                        ' WHERE `partition` = %d AND tid <= %d'
                        ' AND (tid = %d AND %d <= oid OR %d < tid)'
                        ' ORDER BY tid ASC, oid ASC LIMIT %d' % (
@@ -751,7 +776,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         self._setPackTID(tid)
         for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"
-                                        " FROM obj WHERE tid <= %d GROUP BY oid"
+                                        " FROM obj FORCE INDEX(`partition`)"
+                                        " WHERE tid <= %d GROUP BY oid"
                                         % tid):
             partition = getPartition(oid)
             if q("SELECT 1 FROM obj WHERE `partition` = %d"
@@ -801,7 +827,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # last grouped value, instead of the greatest one.
         r = self.query(
             """SELECT tid, oid
-               FROM obj
+               FROM obj FORCE INDEX(PRIMARY)
                WHERE `partition` = %(partition)s
                  AND tid <= %(max_tid)d
                  AND (tid > %(min_tid)d OR

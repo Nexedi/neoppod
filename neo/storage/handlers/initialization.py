@@ -38,6 +38,9 @@ class InitializationHandler(BaseMasterHandler):
         # delete objects database
         dm = app.dm
         if unassigned_set:
+          if app.disable_drop_partitions:
+            logging.info("don't drop data for partitions %r", unassigned_set)
+          else:
             logging.debug('drop data for partitions %r', unassigned_set)
             dm.dropPartitions(unassigned_set)
 

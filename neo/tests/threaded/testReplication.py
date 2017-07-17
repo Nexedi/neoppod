@@ -29,7 +29,6 @@ from neo.storage.checker import CHECK_COUNT
 from neo.storage.replicator import Replicator
 from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
-from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID, uuid_str
 from neo.lib.util import p64, u64
@@ -284,35 +283,6 @@ class ReplicationTests(NEOThreadedTest):
                     self.assertEqual(np*3, self.checkBackup(backup))
 
     @backup_test()
-    def testBackupUpstreamMasterDead(self, backup):
-        """Check proper behaviour when upstream master is unreachable
-
-        More generally, this checks that when a handler raises when a connection
-        is closed voluntarily, the connection is in a consistent state and can
-        be, for example, closed again after the exception is caught, without
-        assertion failure.
-        """
-        conn, = backup.master.getConnectionList(backup.upstream.master)
-        # trigger ping
-        self.assertFalse(conn.isPending())
-        conn.onTimeout()
-        self.assertTrue(conn.isPending())
-        # force ping to have expired
-        # connection will be closed before upstream master has time
-        # to answer
-        def _poll(orig, self, blocking):
-            if backup.master.em is self:
-                p.revert()
-                conn._next_timeout = 0
-                conn.onTimeout()
-            else:
-                orig(self, blocking)
-        with Patch(EventManager, _poll=_poll) as p:
-            self.tic()
-        new_conn, = backup.master.getConnectionList(backup.upstream.master)
-        self.assertIsNot(new_conn, conn)
-
-    @backup_test()
     def testBackupUpstreamStorageDead(self, backup):
         upstream = backup.upstream
         with ConnectionFilter() as f:
@@ -334,7 +304,7 @@ class ReplicationTests(NEOThreadedTest):
             self.tic(check_timeout=(backup.storage,))
             # 2nd failed, 3rd deferred
             self.assertEqual(count[0], 4)
-            self.assertTrue(t <= time.time())
+            self.assertLessEqual(t, time.time())
 
     @backup_test()
     def testBackupDelayedUnlockTransaction(self, backup):
@@ -406,13 +376,13 @@ class ReplicationTests(NEOThreadedTest):
             s2.start()
             self.tic()
             cluster.enableStorageList([s2])
-            # 2 UP_TO_DATE cells should become FEEDING,
-            # and be dropped only when the replication is done,
+            # 2 UP_TO_DATE cells become FEEDING:
+            # they are dropped only when the replication is done,
             # so that 1 storage can still die without data loss.
             with Patch(s0.dm, changePartitionTable=changePartitionTable):
                 cluster.neoctl.tweakPartitionTable()
                 self.tic()
-            expectedFailure(self.assertEqual)(cluster.neoctl.getClusterState(),
+            self.assertEqual(cluster.neoctl.getClusterState(),
                              ClusterStates.RUNNING)
 
     @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
@@ -624,6 +594,31 @@ class ReplicationTests(NEOThreadedTest):
         # s0 must not have committed anything for partition 1
         with s0.dm.replicated(1):
             self.assertFalse(s0.dm.getObject(ob._p_oid, tid2))
+
+    @with_cluster(start_cluster=0, storage_count=2, partitions=2)
+    def testDropPartitions(self, cluster, disable=False):
+        s0, s1 = cluster.storage_list
+        cluster.start(storage_list=(s0,))
+        t, c = cluster.getTransaction()
+        c.root()[''] = PCounter()
+        t.commit()
+        s1.start()
+        self.tic()
+        self.assertEqual(3, s0.sqlCount('obj'))
+        cluster.enableStorageList((s1,))
+        cluster.neoctl.tweakPartitionTable()
+        self.tic()
+        self.assertEqual(1, s1.sqlCount('obj'))
+        # Deletion should start as soon as the cell is discarded, as a
+        # background task, instead of doing it during initialization.
+        count = s0.sqlCount('obj')
+        s0.stop()
+        cluster.join((s0,))
+        s0.resetNode()
+        s0.start()
+        self.tic()
+        self.assertEqual(2, s0.sqlCount('obj'))
+        expectedFailure(self.assertEqual)(2, count)
 
     @with_cluster(start_cluster=0, replicas=1)
     def testResumingReplication(self, cluster):

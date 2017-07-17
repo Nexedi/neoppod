@@ -48,6 +48,7 @@ class Application(BaseApplication):
         self.dm = buildDatabaseManager(config.getAdapter(),
             (config.getDatabase(), config.getEngine(), config.getWait()),
         )
+        self.disable_drop_partitions = config.getDisableDropPartitions()
 
         # load master nodes
         for master_address in config.getMasters():

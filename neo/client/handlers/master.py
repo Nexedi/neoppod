@@ -40,7 +40,7 @@ class PrimaryNotificationsHandler(MTEventHandler):
         try:
             super(PrimaryNotificationsHandler, self).notPrimaryMaster(*args)
         except PrimaryElected, e:
-            app.primary_master_node, = e.args
+            self.app.primary_master_node, = e.args
 
     def _acceptIdentification(self, node, num_partitions, num_replicas):
         self.app.pt = PartitionTable(num_partitions, num_replicas)

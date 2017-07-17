@@ -14,16 +14,28 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
+import os, unittest
+from .. import getTempDirectory, DB_PREFIX
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database.sqlite import SQLiteDatabaseManager
 
 class StorageSQLiteTests(StorageDBTests):
 
+    def _test_lockDatabase_open(self):
+        db = os.path.join(getTempDirectory(), DB_PREFIX + '0.sqlite')
+        return SQLiteDatabaseManager(db)
+
     def getDB(self, reset=0):
         db = SQLiteDatabaseManager(':memory:')
         db.setup(reset)
         return db
+
+    def test_lockDatabase(self):
+        super(StorageSQLiteTests, self).test_lockDatabase()
+        # No lock on temporary databases.
+        db = self.getDB()
+        self.getDB().close()
+        db.close()
 
 del StorageDBTests
 

@@ -46,7 +46,6 @@ class StorageOperationHandler(EventHandler):
     def connectionLost(self, conn, new_state):
         app = self.app
         if app.operational and conn.isClient():
-            # XXX: Connection and Node should merged.
             uuid = conn.getUUID()
             if uuid:
                 node = app.nm.getByUUID(uuid)

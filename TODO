@@ -84,6 +84,8 @@
         keys (trans.tid & obj.{tid,oid}).
 
     Master
+    - Implement back-channel for invalidations in read-only mode,
+      so that clients of backup clusters are notified of new data.
     - Master node data redundancy (HIGH AVAILABILITY)
       Secondary master nodes should replicate primary master data (ie, primary
       master should inform them of such changes).

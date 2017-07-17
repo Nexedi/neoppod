@@ -174,8 +174,9 @@ class AdministrationHandler(MasterHandler):
                          ClusterStates.BACKINGUP):
             raise ProtocolError('Can not tweak partition table in %s state'
                                 % state)
-        app.broadcastPartitionChanges(app.pt.tweak(
-            map(app.nm.getByUUID, uuid_list)))
+        app.broadcastPartitionChanges(app.pt.tweak([node
+            for node in app.nm.getStorageList()
+            if node.getUUID() in uuid_list or not node.isRunning()]))
         conn.answer(Errors.Ack(''))
 
     def truncate(self, conn, tid):

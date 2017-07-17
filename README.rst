@@ -16,7 +16,7 @@ A NEO cluster is composed of the following types of nodes:
 
   Stores data, preserving history. All available storage nodes are in use
   simultaneously. This offers redundancy and data distribution.
-  Available backends: MySQL (InnoDB or TokuDB), SQLite
+  Available backends: MySQL (InnoDB, RocksDB or TokuDB), SQLite
 
 - "admin" nodes (mandatory for startup, optional after)
 
@@ -38,8 +38,8 @@ Any ZODB like FileStorage can be converted to NEO instantaneously,
 which means the database is operational before all data are imported.
 There's also a tool to convert back to FileStorage.
 
-See also http://www.neoppod.org/links for more detailed information about
-features related to scalability.
+For more detailed information about features related to scalability,
+see the `Architecture and Characteristics` section of https://neo.nexedi.com/.
 
 Requirements
 ============
@@ -52,7 +52,7 @@ Requirements
 
   - MySQLdb: https://github.com/PyMySQL/mysqlclient-python
 
-- For client nodes: ZODB 3.10.x
+- For client nodes: ZODB 3.10.x or later
 
 Installation
 ============
@@ -199,7 +199,7 @@ Developers
 ==========
 
 Developers interested in NEO may refer to
-`NEO Web site <http://www.neoppod.org/>`_ and subscribe to following mailing
+`NEO Web site <https://neo.nexedi.com/>`_ and subscribe to following mailing
 lists:
 
 - `neo-users <http://mail.tiolive.com/mailman/listinfo/neo-users>`_:
@@ -213,4 +213,4 @@ https://www.erp5.com/quality/integration/P-ERP5.Com.Unit%20Tests/Base_viewListMo
 Commercial Support
 ==================
 
-Nexedi provides commercial support for NEO: http://www.nexedi.com/
+Nexedi provides commercial support for NEO: https://www.nexedi.com/

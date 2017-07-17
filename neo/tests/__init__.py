@@ -190,6 +190,11 @@ class NeoTestBase(unittest.TestCase):
           "Mock objects can't be compared with '==' or '!='"
         return super(NeoTestBase, self).assertEqual(first, second, msg=msg)
 
+    def assertPartitionTable(self, pt, expected, key=None):
+        self.assertEqual(
+            expected if isinstance(expected, str) else '|'.join(expected),
+            '|'.join(pt._formatRows(sorted(pt.count_dict, key=key))))
+
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
 
@@ -217,7 +222,8 @@ class NeoUnitTestBase(NeoTestBase):
             temp_dir = getTempDirectory()
             for i in xrange(number):
                 try:
-                    os.remove(os.path.join(temp_dir, 'test_neo%s.sqlite' % i))
+                    os.remove(os.path.join(temp_dir,
+                        '%s%s.sqlite' % (prefix, i)))
                 except OSError, e:
                     if e.errno != errno.ENOENT:
                         raise

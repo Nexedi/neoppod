@@ -35,7 +35,7 @@ from neo.lib.exception import DatabaseFailure, StoppedOperation
 from neo.lib.handler import DelayEvent
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
-    Packets, Packet, uuid_str, ZERO_OID, ZERO_TID)
+    Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
 from .. import expectedFailure, unpickle_state, Patch, TransactionalResource
 from . import ClientApplication, ConnectionFilter, LockLock, NEOThreadedTest, \
     RandomConflictDict, ThreadId, with_cluster
@@ -1350,19 +1350,6 @@ class Test(NEOThreadedTest):
                 poll(0)
                 self.assertIs(client.connector, None)
 
-    def testConnectionTimeout(self):
-        with self.getLoopbackConnection() as conn:
-            conn.KEEP_ALIVE
-            def onTimeout(orig):
-                conn.idle()
-                orig()
-            with Patch(conn, KEEP_ALIVE=0):
-                while conn.connecting:
-                    conn.em.poll(1)
-                with Patch(conn, onTimeout=onTimeout):
-                    conn.em.poll(1)
-            self.assertFalse(conn.isClosed())
-
     @with_cluster()
     def testClientDisconnectedFromMaster(self, cluster):
         def disconnect(conn, packet):
@@ -2061,7 +2048,7 @@ class Test(NEOThreadedTest):
             if (isinstance(packet, Packets.AnswerStoreObject)
                 and packet.decode()[0]):
                 conn, = cluster.client.getConnectionList(app)
-                kw = conn._handlers._pending[0][0][packet._id][3]
+                kw = conn._handlers._pending[0][0][packet._id][1]
                 return 1 == u64(kw['oid']) and delay_conflict[app.uuid].pop()
         def writeA(orig, txn_context, oid, serial, data):
             if u64(oid) == 1:
@@ -2334,6 +2321,34 @@ class Test(NEOThreadedTest):
         self.assertTrue(m0.is_alive())
         self.assertFalse(m1.primary)
         self.assertTrue(m1.is_alive())
+
+    @with_cluster(partitions=2, storage_count=2)
+    def testStorageBackendLastIDs(self, cluster):
+        """
+        Check that getLastIDs/getLastTID ignore data from unassigned partitions.
+
+        XXX: this kind of test should not be reexecuted with SSL
+        """
+        cluster.sortStorageList()
+        t, c = cluster.getTransaction()
+        c.root()[''] = PCounter()
+        t.commit()
+        big_id_list = ('\x7c' * 8, '\x7e' * 8), ('\x7b' * 8, '\x7d' * 8)
+        for i in 0, 1:
+            dm = cluster.storage_list[i].dm
+            expected = dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()
+            oid, tid = big_id_list[i]
+            for j, expected in (
+                    (1 - i, (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs())),
+                    (i, (u64(tid), (tid, {}, {}, oid)))):
+                oid, tid = big_id_list[j]
+                # Somehow we abuse 'storeTransaction' because we ask it to
+                # write data for unassigned partitions. This is not checked
+                # so for the moment, the test works.
+                dm.storeTransaction(tid, ((oid, None, None),),
+                                    ((oid,), '', '', '', 0, tid), False)
+                self.assertEqual(expected,
+                    (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()))
 
 
 if __name__ == "__main__":
