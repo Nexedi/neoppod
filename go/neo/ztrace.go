@@ -6,9 +6,6 @@ package neo
 import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
 	"unsafe"
-
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"
-	"net"
 )
 
 // traceevent: traceConnRecv(c *Conn, msg Msg)
@@ -38,55 +35,32 @@ func traceConnRecv_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) 
 	return &p.Probe
 }
 
-// traceevent: traceConnSend(c *Conn, msg Msg)
+// traceevent: traceConnSendPre(c *Conn, msg Msg)
 
-type _t_traceConnSend struct {
+type _t_traceConnSendPre struct {
 	tracing.Probe
 	probefunc     func(c *Conn, msg Msg)
 }
 
-var _traceConnSend *_t_traceConnSend
+var _traceConnSendPre *_t_traceConnSendPre
 
-func traceConnSend(c *Conn, msg Msg) {
-	if _traceConnSend != nil {
-		_traceConnSend_run(c, msg)
+func traceConnSendPre(c *Conn, msg Msg) {
+	if _traceConnSendPre != nil {
+		_traceConnSendPre_run(c, msg)
 	}
 }
 
-func _traceConnSend_run(c *Conn, msg Msg) {
-	for p := _traceConnSend; p != nil; p = (*_t_traceConnSend)(unsafe.Pointer(p.Next())) {
+func _traceConnSendPre_run(c *Conn, msg Msg) {
+	for p := _traceConnSendPre; p != nil; p = (*_t_traceConnSendPre)(unsafe.Pointer(p.Next())) {
 		p.probefunc(c, msg)
 	}
 }
 
-func traceConnSend_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) *tracing.Probe {
-	p := _t_traceConnSend{probefunc: probe}
-	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceConnSend)), &p.Probe)
+func traceConnSendPre_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) *tracing.Probe {
+	p := _t_traceConnSendPre{probefunc: probe}
+	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceConnSendPre)), &p.Probe)
 	return &p.Probe
 }
 
 // trace export signature
-func _trace_exporthash_bc56cd7a9caf82c14d9586243f763e65afb91ea0() {}
-
-// traceimport: "lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"
-
-// rerun "gotrace gen" if you see link failure ↓↓↓
-//go:linkname pipenet_trace_exporthash lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet._trace_exporthash_e77a134646e20f099af466ab3192282237d2e547
-func pipenet_trace_exporthash()
-func init() { pipenet_trace_exporthash() }
-
-
-//go:linkname pipenet_traceAccept_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceAccept_Attach
-func pipenet_traceAccept_Attach(*tracing.ProbeGroup, func(conn net.Conn)) *tracing.Probe
-
-//go:linkname pipenet_traceDial_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceDial_Attach
-func pipenet_traceDial_Attach(*tracing.ProbeGroup, func(addr string)) *tracing.Probe
-
-//go:linkname pipenet_traceListen_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceListen_Attach
-func pipenet_traceListen_Attach(*tracing.ProbeGroup, func(laddr string)) *tracing.Probe
-
-//go:linkname pipenet_traceNew_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceNew_Attach
-func pipenet_traceNew_Attach(*tracing.ProbeGroup, func(name string)) *tracing.Probe
-
-//go:linkname pipenet_traceNewHost_Attach lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet.traceNewHost_Attach
-func pipenet_traceNewHost_Attach(*tracing.ProbeGroup, func(host *pipenet.Host)) *tracing.Probe
+func _trace_exporthash_d2fa0ebb37c3e2bf54309859a1eeb0e831edd435() {}

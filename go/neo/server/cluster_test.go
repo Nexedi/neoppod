@@ -47,8 +47,6 @@ import (
 	"fmt"
 )
 
-var _ = fmt.Print
-
 // XXX dup from connection_test
 func xwait(w interface { Wait() error }) {
 	err := w.Wait()
@@ -75,7 +73,11 @@ func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{}	// { t.Trace1(ev) }
 type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
 func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoRecv{c, msg}) }
 
-type traceNeoSend struct {conn *neo.Conn; msg neo.Msg}
+type traceNeoSend struct {
+	Src, Dst net.Addr
+	ConnID   uint32
+	Msg	 neo.Msg
+}
 func (t *MyTracer) traceNeoConnSend(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoSend{c, msg}) }
 
 
@@ -140,7 +142,7 @@ func TestMasterStorage(t *testing.T) {
 
 	tracing.Lock()
 	neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
-	neo_traceConnSend_Attach(pg, tracer.traceNeoConnSend)
+	neo_traceConnSendPre_Attach(pg, tracer.traceNeoConnSendPre)
 	tracing.Unlock()
 
 
@@ -177,7 +179,7 @@ func TestMasterStorage(t *testing.T) {
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := M.Run(Mctx)
-		fmt.Println("err: ", err)
+		fmt.Println("M err: ", err)
 		_ = err // XXX
 	})
 
@@ -193,6 +195,7 @@ func TestMasterStorage(t *testing.T) {
 	Sctx, Scancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := S.Run(Sctx)
+		fmt.Println("S err: ", err)
 		_ = err	// XXX
 	})
 
@@ -206,15 +209,20 @@ func TestMasterStorage(t *testing.T) {
 	//)
 	_ = nettx
 
+	tc.Expect(
+		conntx("s:1", "m:1", 1, RequestIdentification{...})
+		// ... M adjust nodetab...
+		conntx("m:1", "s:1", 1, AcceptIdentification{...})
+	)
+
+
+
+
+	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
+
 
 
 	// XXX temp
-	//return
-
-	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
-	println("111")
-	tc.Expect(netlisten("s:0"))	// XXX no -> temp only to get complate
-	println("222")
 	return
 
 	// M.nodeTab	<- Node(S)	XXX order can be racy?

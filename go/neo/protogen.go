@@ -216,7 +216,7 @@ import (
 			case *ast.StructType:
 				fmt.Fprintf(&buf, "// %d. %s\n\n", msgCode, typename)
 
-				buf.emit("func (_ *%s) NEOMsgCode() uint16 {", typename)
+				buf.emit("func (*%s) NEOMsgCode() uint16 {", typename)
 				buf.emit("return %d", msgCode)
 				buf.emit("}\n")
 
