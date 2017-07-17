@@ -71,19 +71,19 @@ type Master struct {
 }
 
 
-// node connects
+// event: node connects
 type nodeCome struct {
 	link   *neo.NodeLink
 	idReq  neo.RequestIdentification // we received this identification request
 	idResp chan neo.Msg              // what we reply (AcceptIdentification | Error)
 }
 
-// node disconnects
+// event: node disconnects
 type nodeLeave struct {
-	link *neo.NodeLink	// XXX better use uuid allocated on nodeCome ?
+	link *neo.NodeLink	// XXX better use uuid allocated on nodeCome
 }
 
-// NewMaster creates new master node that will listen on serveAddr
+// NewMaster creates new master node that will listen on serveAddr.
 // Use Run to actually start running the node.
 func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	// convert serveAddr into neo format
@@ -97,6 +97,13 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 		clusterName:	clusterName,
 		net:		net,
 		masterAddr:	serveAddr,	// XXX ok?
+
+		ctlStart:	make(chan chan error),
+		ctlStop:	make(chan chan error),
+		ctlShutdown:	make(chan chan error),
+
+		nodeCome:	make(chan nodeCome),
+		nodeLeave:	make(chan nodeLeave),
 	}
 
 	m.myInfo.NodeUUID = m.allocUUID(neo.MASTER)
@@ -718,7 +725,7 @@ func (m *Master) allocUUID(nodeType neo.NodeType) neo.NodeUUID {
 // XXX +error return?
 func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	logf := func(format string, argv ...interface{}) {
-		fmt.Printf("master: %s: " + format + "\n", append([]interface{}{link}, argv...))
+		fmt.Printf("master: %s: " + format + "\n", append([]interface{}{link}, argv...)...)
 	}
 
 	logf("serving new node")

@@ -39,7 +39,7 @@ type Server interface {
 
 // Serve runs service on a listener
 // - accept incoming connection on the listener
-// - for every accepted connection spawn srv.ServeLink() in separate goroutine.
+// - for every accepted connection spawn handshake + srv.ServeLink() in separate goroutine.
 //
 // the listener is closed when Serve returns.
 func Serve(ctx context.Context, l net.Listener, srv Server) error {
