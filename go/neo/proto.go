@@ -1,4 +1,4 @@
-//go:generate sh -c "go run protogen.go >proto-marshal.go"
+//go:generate sh -c "go run protogen.go >zproto-marshal.go"
 
 package neo
 // protocol definition

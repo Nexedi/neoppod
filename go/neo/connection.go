@@ -53,11 +53,11 @@ import (
 //
 // It is safe to use NodeLink from multiple goroutines simultaneously.
 type NodeLink struct {
-	peerLink net.Conn	// raw conn to peer
+	peerLink net.Conn // raw conn to peer
 
 	connMu     sync.Mutex
-	connTab    map[uint32]*Conn	// connId -> Conn associated with connId
-	nextConnId uint32		// next connId to use for Conn initiated by us
+	connTab    map[uint32]*Conn // connId -> Conn associated with connId
+	nextConnId uint32           // next connId to use for Conn initiated by us
 
 	serveWg sync.WaitGroup	// for serve{Send,Recv}
 	acceptq chan *Conn	// queue of incoming connections for Accept
@@ -65,10 +65,10 @@ type NodeLink struct {
 	txq	chan txReq	// tx requests from Conns go via here
 				// (rx packets are routed to Conn.rxq)
 
-	down     chan struct{}	// ready when NodeLink is marked as no longer operational
-	downOnce sync.Once	// shutdown may be due to both Close and IO error
-	downWg   sync.WaitGroup	// for activities at shutdown
-	errClose error		// error got from peerLink.Close
+	down     chan struct{}  // ready when NodeLink is marked as no longer operational
+	downOnce sync.Once      // shutdown may be due to both Close and IO error
+	downWg   sync.WaitGroup // for activities at shutdown
+	errClose error          // error got from peerLink.Close
 
 	errMu    sync.Mutex
 	errRecv	 error		// error got from recvPkt on shutdown
@@ -118,11 +118,11 @@ type ConnError struct {
 // LinkRole is a role an end of NodeLink is intended to play
 type LinkRole int
 const (
-	LinkServer LinkRole = iota	// link created as server
-	LinkClient			// link created as client
+	LinkServer LinkRole = iota // link created as server
+	LinkClient                 // link created as client
 
 	// for testing:
-	linkNoRecvSend LinkRole = 1<<16	// do not spawn serveRecv & serveSend
+	linkNoRecvSend LinkRole = 1 << 16 // do not spawn serveRecv & serveSend
 	linkFlagsMask  LinkRole = (1<<32 - 1) << 16
 )
 
@@ -148,13 +148,13 @@ const (
 func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	var nextConnId uint32
 	var acceptq chan *Conn
-	switch role&^linkFlagsMask {
+	switch role &^ linkFlagsMask {
 	case LinkServer:
-		nextConnId = 0			// all initiated by us connId will be even
-		acceptq = make(chan *Conn)	// accept queue; TODO use backlog
+		nextConnId = 0             // all initiated by us connId will be even
+		acceptq = make(chan *Conn) // accept queue; TODO use backlog
 	case LinkClient:
-		nextConnId = 1	// ----//---- odd
-		acceptq = nil	// not accepting incoming connections
+		nextConnId = 1 // ----//---- odd
+		acceptq = nil  // not accepting incoming connections
 	default:
 		panic("invalid conn role")
 	}
@@ -180,9 +180,9 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 func (nl *NodeLink) newConn(connId uint32) *Conn {
 	c := &Conn{nodeLink: nl,
 		connId: connId,
-		rxq: make(chan *PktBuf, 1), // NOTE non-blocking - see serveRecv
-		txerr: make(chan error, 1), // NOTE non-blocking - see Conn.Send
-		down: make(chan struct{}),
+		rxq:    make(chan *PktBuf, 1), // NOTE non-blocking - see serveRecv
+		txerr:  make(chan error, 1),   // NOTE non-blocking - see Conn.Send
+		down:   make(chan struct{}),
 	}
 	nl.connTab[connId] = c
 	return c
@@ -229,7 +229,7 @@ func (nl *NodeLink) shutdown() {
 				// connMu - else it will deadlock.
 				conn.shutdown()
 			}
-			nl.connTab = nil	// clear + mark down
+			nl.connTab = nil // clear + mark down
 			nl.connMu.Unlock()
 		}()
 	})
@@ -535,7 +535,7 @@ func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	return err
 }
 
-var ErrPktTooBig   = errors.New("packet too big")
+var ErrPktTooBig = errors.New("packet too big")
 
 // recvPkt receives raw packet from peer
 // rx error, if any, is returned as is and is analyzed in serveRecv
@@ -604,9 +604,9 @@ func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink,
 // HandshakeError is returned when there is an error while performing handshake
 type HandshakeError struct {
 	// XXX just keep .Conn? (but .Conn can be closed)
-	LocalAddr	net.Addr
-	RemoteAddr	net.Addr
-	Err		error
+	LocalAddr  net.Addr
+	RemoteAddr net.Addr
+	Err        error
 }
 
 func (e *HandshakeError) Error() string {
@@ -666,7 +666,7 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	for i := 0; i < 2; i++ {
 		select {
 		case <-ctx.Done():
-			conn.Close()     // interrupt IO
+			conn.Close() // interrupt IO
 			connClosed = true
 			return ctx.Err()
 
@@ -776,12 +776,12 @@ func (c *Conn) Send(msg Msg) error {
 	traceConnSendPre(c, msg)
 
 	l := msg.NEOMsgEncodedLen()
-	buf := PktBuf{make([]byte, PktHeadLen + l)}	// TODO -> freelist
+	buf := PktBuf{make([]byte, PktHeadLen+l)} // TODO -> freelist
 
 	h := buf.Header()
 	// h.ConnId will be set by conn.Send
 	h.MsgCode = hton16(msg.NEOMsgCode())
-	h.MsgLen = hton32(uint32(l))	// XXX casting: think again
+	h.MsgLen = hton32(uint32(l)) // XXX casting: think again
 
 	msg.NEOMsgEncode(buf.Payload())
 

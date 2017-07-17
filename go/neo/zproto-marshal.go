@@ -2,6 +2,8 @@
 
 package neo
 
+// protocol messages to/from wire marshalling.
+
 import (
 	"encoding/binary"
 	"reflect"
