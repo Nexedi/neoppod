@@ -191,9 +191,16 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	}
 
 
+	// TODO
+	// <- StartOperation
+	opCtx, opCancel := context.WithCancel(ctx)
+	stor.opMu.Lock()
+	stor.opCtx = opCtx
+	stor.opMu.Unlock()
+	defer opCancel()
 
 
-
+	return nil	// XXX err
 }
 
 // ServeLink serves incoming node-node link connection
