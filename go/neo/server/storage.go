@@ -29,6 +29,8 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // XXX fmt -> log
@@ -102,8 +104,8 @@ func (stor *Storage) Run(ctx context.Context) error {
 
 	stor.myInfo.Address = addr
 
+	// start serving incoming connections
 	wg := sync.WaitGroup{}
-
 	serveCtx, serveCancel := context.WithCancel(ctx)
 	wg.Add(1)
 	go func() {
@@ -112,18 +114,20 @@ func (stor *Storage) Run(ctx context.Context) error {
 		_ = err	// XXX what to do with err ?
 	}()
 
+	// connect to master and get commands and updates from it
 	err = stor.talkMaster(ctx)
+
+	// we are done - shutdown
 	serveCancel()
 	wg.Wait()
 
 	return err // XXX err ctx
 }
 
-// talkMaster connects to master, announces self and receives notifications and commands
-// XXX and notifies master about ? (e.g. StartOperation -> NotifyReady)
+// talkMaster connects to master, announces self and receives commands and notifications
 // it tries to persist master link reconnecting as needed
 //
-// it always return an error - either due to cancel or commannd from master to shutdown
+// it always returns an error - either due to cancel or commannd from master to shutdown
 func (stor *Storage) talkMaster(ctx context.Context) error {
 	// XXX errctx
 
@@ -173,83 +177,118 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	if accept.YourNodeUUID != stor.myInfo.NodeUUID {
 		fmt.Printf("stor: %v: master told us to have UUID=%v\n", Mlink, accept.YourNodeUUID)
 		stor.myInfo.NodeUUID = accept.YourNodeUUID
-		// XXX notify anyone?
 	}
 
 	// now handle notifications and commands from master
 	for {
+		// XXX every new connection from master means previous connection was closed
+		// XXX how to do so and stay compatible to py?
+		//
+		// XXX or simply use only the first connection and if M decides
+		// to cancel - close whole nodelink and S reconnects?
 		Mconn, err := Mlink.Accept()
 		if err != nil {
-			return // XXX ?
+			return err // XXX ?
 		}
 
 		err = stor.m1initialize(ctx, Mconn)
 		if err != nil {
-			panic(err)	// XXX
+			fmt.Println("stor: %v: master: %v", err)
+			// XXX recheck closing Mconn
+			continue // retry initializing
 		}
 
 		err = stor.m1serve(ctx, Mconn)
-		if err != nil {
-			panic(err)	// XXX
-		}
+		fmt.Println("stor: %v: master: %v", err)
+		// XXX check if it was command to shotdown and if so break
+		continue // retry from initializing
 	}
-
-
 
 	return nil	// XXX err
 }
 
 // m1initialize drives storage by master messages during initialization phase
 //
-// when it finishes error indicates:
+// Initialization includes master retrieving info for cluster recovery and data
+// verification before starting operation. Initialization finishes either
+// successfully with receiving master commanding to start operation, or
+// unsuccessfully with connection closing indicating initialization was
+// cancelled or some other error.
+//
+// return error indicates:
 // - nil:  initialization was ok and a command came from master to start operation
 // - !nil: initialization was cancelled or failed somehow
-func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) error {
+func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err error) {
+	defer xerr.Context(&err, "init")
+
 	for {
-		msg, err := Mconn.Recv()	// XXX abort on ctx (XXX or upper?)
+		// XXX abort on ctx (XXX or upper?)
+		msg, err := Mconn.Recv()
 		if err != nil {
-			panic(err)	// XXX
+			return err
 		}
 
 		switch msg.(type) {
-		case *neo.AskRecovery:
-			// TODO send M (ptid, backup_tid, truncate_tid)
+		default:
+			return fmt.Errorf("unexpected message: %T", msg)
+
+		case *neo.StartOperation:
+			// ok, transition to serve
+			return nil
+
+		case *neo.Recovery:
+			err = Mconn.Send(&neo.AnswerRecovery{
+				PTid:		0, // XXX stub
+				BackupTid:	neo.INVALID_TID,
+				TruncateTid:	neo.INVALID_TID})
 
 		case *neo.AskPartitionTable:
 			// TODO read and send M locally-saved PT (ptid, []PtRow)
 
-		case *neo.AskLockedTransaction:
-			// TODO
+		case *neo.LockedTransactions:
+			// XXX r/o stub
+			err = Mconn.Send(&neo.AnswerLockedTransactions{})
 
-		case *neo.AskLastIDs:
-			// TODO send M (last_oid, last_tid)
+		// TODO AskUnfinishedTransactions
 
+		case *neo.LastIDs:
+			lastTid, zerr1 := stor.zstor.LastTid()
+			lastOid, zerr2 := stor.zstor.LastOid()
+			if zerr := xerr.First(zerr1, zerr2); zerr != nil {
+				return zerr
+			}
+
+			err = Mconn.Send(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
 
 		case *neo.NotifyPartitionTable:
 			// TODO save locally what M told us
 
 
-		case *neo.NotifyClusterInformation:
+		case *neo.NotifyClusterState:
 			// TODO .clusterState = ...	XXX what to do with it?
 
 		case *neo.NotifyNodeInformation:
-			// XXX check for myUUID and condier it a command (like neo/py) does?
+			// XXX check for myUUID and consider it a command (like neo/py) does?
 			// TODO update .nodeTab
 
-		case *neo.StartOperation:
-			return nil	// ok
+		}
 
-		default:
-			// XXX
+		if err != nil {
+			return err
 		}
 	}
 }
 
 // m1serve drives storage by master messages during service hase
 //
-// XXX err return - document
-func (stor *Storage) m1serve(ctx contextContext, Mconn *neo.Conn) error {
-	// refresh stor.opCtx and cancel it when we finish
+// it always returns with an error describing why serve has to be stopped -
+// either due to master commanding us to stop, or context cancel or some other
+// error.
+func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
+	defer xerr.Context(&err, "serve")
+
+	// refresh stor.opCtx and cancel it when we finish so that client
+	// handlers know they need to stop operating
 	opCtx, opCancel := context.WithCancel(ctx)
 	stor.opMu.Lock()
 	stor.opCtx = opCtx
@@ -257,14 +296,27 @@ func (stor *Storage) m1serve(ctx contextContext, Mconn *neo.Conn) error {
 	defer opCancel()
 
 	// reply M we are ready
-	err := Mconn.Send(neo.NotifyReady{})
+	err = Mconn.Send(&neo.NotifyReady{})
 	if err != nil {
-		return err	// XXX err ctx
+		return err
 	}
 
-	// TODO handle M notifications and commands
 	for {
-		// TODO
+		// XXX abort on ctx (XXX or upper?)
+		msg, err := Mconn.Recv()
+		if err != nil {
+			return err
+		}
+
+		switch msg.(type) {
+		default:
+			return fmt.Errorf("unexpected message: %T", msg)
+
+		case *neo.StopOperation:
+			return fmt.Errorf("stop requested")
+
+		// TODO commit related messages
+		}
 	}
 }
 

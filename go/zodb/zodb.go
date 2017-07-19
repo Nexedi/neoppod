@@ -139,8 +139,13 @@ type IStorage interface {
 	// History(oid, size=1)
 
 	// LastTid returns the id of the last committed transaction.
-	// if not transactions have been committed yet, LastTid returns Tid zero value
+	// if no transactions have been committed yet, LastTid returns Tid zero value
 	LastTid() (Tid, error)
+
+	// LastOid returns highest object id of objects committed to storage.
+	// if there is no data committed yet, LastOid returns Oid zero value
+	// XXX ZODB/py does not define this in IStorage
+	LastOid() (Oid, error)
 
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	// TODO data []byte -> something allocated from slab ?

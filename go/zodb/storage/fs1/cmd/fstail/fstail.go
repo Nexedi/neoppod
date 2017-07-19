@@ -25,7 +25,6 @@ Format is the same as in fstail/py originally written by Jeremy Hylton:
 	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/scripts/fstail.py
 	https://github.com/zopefoundation/ZODB/commit/551122cc
 */
-
 package main
 
 import (

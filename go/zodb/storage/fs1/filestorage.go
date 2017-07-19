@@ -20,7 +20,8 @@
 // XXX partly based on code from ZODB ?
 // TODO link to format in zodb/py
 
-// Package fs1 implements so-called FileStorage v1 ZODB storage.  XXX text
+// Package fs1 implements so-called FileStorage v1 ZODB storage.
+// XXX text
 package fs1
 
 import (
@@ -225,7 +226,8 @@ const (
 	LoadNoStrings			= 0x01 // do not load user/desc/ext strings
 )
 
-// Load reads and decodes transaction record header
+// Load reads and decodes transaction record header.
+//
 // pos: points to transaction start
 // no prerequisite requirements are made to previous txnh state
 // TODO describe what happens at EOF and when .LenPrev is still valid
@@ -360,7 +362,8 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt /* *os.File */) error {
 	return nil
 }
 
-// LoadPrev reads and decodes previous transaction record header
+// LoadPrev reads and decodes previous transaction record header.
+//
 // prerequisite: txnh .Pos, .LenPrev and .Len are initialized:	XXX (.Len for .Tid)
 //   - by successful call to Load() initially			XXX but EOF also works
 //   - by subsequent successful calls to LoadPrev / LoadNext	XXX recheck
@@ -435,7 +438,7 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 
 // --- Data record ---
 
-// Len returns whole data record length
+// Len returns whole data record length.
 func (dh *DataHeader) Len() int64 {
 	dataLen := dh.DataLen
 	if dataLen == 0 {
@@ -447,7 +450,7 @@ func (dh *DataHeader) Len() int64 {
 }
 
 
-// load reads and decodes data record header
+// Load reads and decodes data record header.
 // pos: points to data header start
 // no prerequisite requirements are made to previous dh state
 func (dh *DataHeader) Load(r io.ReaderAt /* *os.File */, pos int64) error {
@@ -502,7 +505,7 @@ func (dh *DataHeader) Load(r io.ReaderAt /* *os.File */, pos int64) error {
 	return nil
 }
 
-// LoadPrevRev reads and decodes previous revision data record header
+// LoadPrevRev reads and decodes previous revision data record header.
 // prerequisite: dh .Oid .Tid .PrevRevPos are initialized:
 //   - TODO describe how
 // when there is no previous revision: io.EOF is returned
@@ -543,7 +546,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt /* *os.File */) error {
 	return nil
 }
 
-// LoadBack reads and decodes data header for revision linked via back-pointer
+// LoadBack reads and decodes data header for revision linked via back-pointer.
 // prerequisite: dh XXX     .DataLen == 0
 // if link is to zero (means deleted record) io.EOF is returned
 func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
@@ -593,7 +596,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 	return err
 }
 
-// LoadNext reads and decodes data header for next data record in the same transaction
+// LoadNext reads and decodes data header for next data record in the same transaction.
 // prerequisite: dh .Pos .DataLen are initialized
 // when there is no more data records: io.EOF is returned
 func (dh *DataHeader) LoadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) error {
@@ -637,7 +640,7 @@ func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 	return nil
 }
 
-// LoadData loads data for the data record taking backpointers into account
+// LoadData loads data for the data record taking backpointers into account.
 // Data is loaded into *buf, which, if needed, is reallocated to hold all loading data size	XXX
 // NOTE on success dh state is changed to data header of original data transaction
 // NOTE "deleted" records are indicated via returning *buf=nil
@@ -723,8 +726,18 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 
 func (fs *FileStorage) LastTid() (zodb.Tid, error) {
 	// XXX check we have transactions at all
-	// XXX what to return then?
+	// XXX what to return if not?
+	// XXX must be under lock
 	return fs.txnhMax.Tid, nil	// XXX error always nil ?
+}
+
+func (fs *FileStorage) LastOid() (zodb.Oid, error) {
+	// XXX check we have objects at all?
+	// XXX what to return if not?
+	// XXX must be under lock
+	// XXX what if an oid was deleted?
+	lastOid, _ := fs.index.Last() // returns zero-value, if empty
+	return lastOid, nil	// XXX error always nil?
 }
 
 // ErrXidLoad is returned when there is an error while loading xid

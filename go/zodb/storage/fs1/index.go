@@ -325,7 +325,7 @@ out:
 	return 0, nil, &IndexLoadError{xio.Name(r), picklePos, err}
 }
 
-// LoadIndexFile loads index from a file
+// LoadIndexFile loads index from a file @ path
 func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
 	f, err := os.Open(path)
 	if err != nil {
