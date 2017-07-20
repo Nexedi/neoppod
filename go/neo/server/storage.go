@@ -155,16 +155,16 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 // talkMaster1 does 1 cycle of connect/talk/disconnect to master
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
-func (stor *Storage) talkMaster1(ctx context.Context) error {
+func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	Mlink, err := neo.Dial(ctx, stor.net, stor.masterAddr)
 	if err != nil {
 		return err
 	}
 
+	// close Mlink on return / cancel
 	defer func() {
 		errClose := Mlink.Close()
 		err = xerr.First(err, errClose)
-		// TODO Mlink.Close() on return / cancel
 	}()
 
 	// request identification this way registering our node to master
@@ -400,6 +400,7 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 }
 
 // serveClient serves incoming connection on which peer identified itself as client
+// the connection is closed when serveClient returns
 // XXX +error return?
 func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	fmt.Printf("stor: %s: serving new client conn\n", conn)
@@ -427,12 +428,14 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	select {
 	case <-ctx.Done():
 		// XXX tell client we are shutting down?
+		// XXX should we also wait for main work to finish?
 		err = ctx.Err()
 
 	case err = <-done:
 	}
 
 	fmt.Printf("stor: %v: %v\n", conn, err)
+	// XXX vvv -> defer ?
 	fmt.Printf("stor: %v: closing client conn\n", conn)
 	conn.Close()	// XXX err
 }
