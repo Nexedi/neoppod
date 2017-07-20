@@ -29,6 +29,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
@@ -48,7 +49,7 @@ type Storage struct {
 
 	// context for providing operational service
 	// it is renewed every time master tells us StartOpertion, so users
-	// must read it initially only once under opMu
+	// must read it initially only once under opMu via opCtxRead
 	opMu  sync.Mutex
 	opCtx context.Context
 
@@ -160,7 +161,11 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 		return err
 	}
 
-	// TODO Mlink.Close() on return / cancel
+	defer func() {
+		errClose := Mlink.Close()
+		err = xerr.First(err, errClose)
+		// TODO Mlink.Close() on return / cancel
+	}()
 
 	// request identification this way registering our node to master
 	accept, err := neo.IdentifyWith(neo.MASTER, Mlink, stor.myInfo, stor.clusterName)
@@ -180,13 +185,20 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 	}
 
 	// now handle notifications and commands from master
+	var Mconn *neo.Conn
 	for {
+		// accept next connection from master. only 1 connection is served at any given time
 		// XXX every new connection from master means previous connection was closed
 		// XXX how to do so and stay compatible to py?
 		//
 		// XXX or simply use only the first connection and if M decides
 		// to cancel - close whole nodelink and S reconnects?
-		Mconn, err := Mlink.Accept()
+		if Mconn != nil {
+			Mconn.Close()	// XXX err
+			Mconn = nil
+		}
+
+		Mconn, err = Mlink.Accept()
 		if err != nil {
 			return err // XXX ?
 		}
@@ -200,7 +212,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) error {
 
 		err = stor.m1serve(ctx, Mconn)
 		fmt.Println("stor: %v: master: %v", err)
-		// XXX check if it was command to shotdown and if so break
+		// XXX check if it was command to shutdown and if so break
 		continue // retry from initializing
 	}
 
@@ -320,6 +332,13 @@ func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
 	}
 }
 
+// XXX naming -> withOpCtx? withUntilOperational?
+func (stor *Storage) opCtxRead() context.Context {
+	stor.opMu.Lock()
+	defer stor.opMu.Unlock()
+	return stor.opCtx
+}
+
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
 func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
@@ -382,36 +401,18 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 func (stor *Storage) ServeClient(ctx context.Context, conn *neo.Conn) {
 	fmt.Printf("stor: %s: serving new client conn\n", conn)
 
-	// rederive ctx from ctx and .operationCtx (which is cancelled when M tells us StopOperation)
-	// XXX -> xcontext ?
-	ctx, opCancel := context.WithCancel(ctx)
-	go func() {
-		// cancel ctx when global operation context is cancelled
-		stor.opMu.Lock()
-		opCtx := stor.opCtx
-		stor.opMu.Unlock()
-		select {
-		case <-opCtx.Done():
-			opCancel()
-
-		case <-ctx.Done():
-			// noop - to avoid goroutine leak
-		}
-	}()
+	// rederive ctx to be also cancelled if M tells us StopOperation
+	ctx, cancel := xcontext.Merge(ctx, stor.opCtxRead())
+	//ctx, cancel := stor.withWhileOperational(ctx)
+	defer cancel()
 
 	// close connection when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - conn.Close will signal to current IO to
 	//   terminate with an error )
-	// XXX dup -> utility
-	retch := make(chan struct{})
-	defer func() { close(retch) }()
 	go func() {
-		select {
-		case <-ctx.Done():
-			// XXX tell client we are shutting down?
-			// XXX ret err = cancelled ?
-		case <-retch:
-		}
+		<-ctx.Done()
+		// XXX tell client if we are shutting down?
+		// XXX ret err = cancelled ?
 		fmt.Printf("stor: %v: closing client conn\n", conn)
 		conn.Close()	// XXX err
 	}()
