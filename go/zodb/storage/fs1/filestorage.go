@@ -699,8 +699,8 @@ func open(path string) (*FileStorage, error) {
 */
 
 	// determine topPos from file size
-	// if it is invalid (e.g. a transaction half-way commit) we'll catch it
-	// while loading/recreating index
+	// if it is invalid (e.g. a transaction committed only half-way) we'll catch it
+	// while loading/recreating index	XXX recheck this logic
 	fi, err := f.Stat()
 	if err != nil {
 		return nil, err	// XXX err ctx
@@ -715,6 +715,7 @@ func open(path string) (*FileStorage, error) {
 	}
 	err = fs.txnhMax.Load(f, topPos, LoadAll)
 	// expect EOF but .LenPrev must be good
+	// FIXME ^^^ it will be no EOF if a txn was committed only partially
 	if err != io.EOF {
 		if err == nil {
 			err = fmt.Errorf("no EOF after topPos")	// XXX err context
@@ -742,13 +743,13 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 	}
 
 	// TODO recreate index if missing / not sane (cancel this job on ctx.Done)
-	topPos, index, err := LoadIndexFile(path + ".index")
+	index, err := LoadIndexFile(path + ".index")
 	if err != nil {
 		panic(err)	// XXX err
 	}
 
 	// TODO verify index sane / topPos matches
-	if topPos != fs.txnhMax.Pos + fs.txnhMax.Len {
+	if index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
 		panic("inconsistent index topPos")	// XXX
 	}
 
@@ -1043,4 +1044,51 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	iter.TidStop = tidMax
 
 	return &Iter
+}
+
+// ComputeIndex builds new in-memory index for FileStorage
+func (fs *FileStorage) ComputeIndex(ctx context.Context, path string) (topPos int64, index *Index, err error) {
+	topPos = txnValidFrom
+	index = IndexNew()
+
+	// similar to Iterate but we know we start from the beginning and do
+	// not load actual data - only data headers.
+	fsSeq := xbufio.NewSeqReaderAt(fs.file)
+
+	// pre-setup txnh so that txnh.LoadNext starts loading from the beginning of file
+	txnh := &TxnHeader{Pos: 0, Len: topPos, TxnInfo: zodb.TxnInfo{Tid: 0}}
+	dh   := &DataHeader{}
+
+loop:
+	for {
+		err = txnh.LoadNext(fsSeq, LoadNoStrings)
+		if err != nil {
+			err = okEOF(err)
+			break
+		}
+
+		topPos = txnh.Pos + txnh.Len
+
+		// first data iteration will go to first data record
+		dh.Pos = txnh.DataPos()
+		dh.DataLen = -DataHeaderSize
+
+		for {
+			err = dh.LoadNext(fsSeq, txnh)
+			if err != nil {
+				err = okEOF(err)
+				if err != nil {
+					break loop
+				}
+				break
+			}
+
+			index.Set(dh.Oid, dh.Pos)
+		}
+	}
+
+	if err != nil {
+		return 0, nil, err
+	}
+	return topPos, index, nil
 }

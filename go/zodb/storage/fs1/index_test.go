@@ -59,46 +59,10 @@ var indexTest1 = [...]indexEntry {
 	{0xa000000000000000, 0x0000ffffffffffff},
 }
 
-func setIndex(fsi *fsIndex, kv []indexEntry) {
+func setIndex(fsi *Index, kv []indexEntry) {
 	for _, entry := range kv {
 		fsi.Set(entry.oid, entry.pos)
 	}
-}
-
-// test whether two trees are equal
-func treeEqual(a, b *fsb.Tree) bool {
-	if a.Len() != b.Len() {
-		return false
-	}
-
-	ea, _ := a.SeekFirst()
-	eb, _ := b.SeekFirst()
-
-	if ea == nil {
-		// this means len(a) == 0 -> len(b) == 0 -> eb = nil
-		return true
-	}
-
-	defer ea.Close()
-	defer eb.Close()
-
-	for {
-		ka, va, stopa := ea.Next()
-		kb, vb, stopb := eb.Next()
-
-		if stopa != nil || stopb != nil {
-			if stopa != stopb {
-				panic("same-length trees iteration did not end at the same time")
-			}
-			break
-		}
-
-		if !(ka == kb && va == vb) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // XXX unneded after Tree.Dump() was made to work ok
@@ -123,7 +87,7 @@ func treeString(t *fsb.Tree) string {
 func TestIndexLookup(t *testing.T) {
 	// the lookup is tested in cznic.b itself
 	// here we only lightly exercise it
-	fsi := fsIndexNew()
+	fsi := IndexNew()
 
 	if fsi.Len() != 0 {
 		t.Errorf("index created non empty")
@@ -178,9 +142,13 @@ func TestIndexLookup(t *testing.T) {
 	}
 }
 
-func checkIndexEqual(t *testing.T, subject string, topPos1, topPos2 int64, fsi1, fsi2 *fsIndex) {
-	if topPos1 != topPos2 {
-		t.Errorf("%s: topPos mismatch: %v  ; want %v", subject, topPos1, topPos2)
+func checkIndexEqual(t *testing.T, subject string, fsi1, fsi2 *Index) {
+	if fsi1.Equal(fsi2) {
+		return
+	}
+
+	if fsi1.TopPos != fsi2.TopPos {
+		t.Errorf("%s: topPos mismatch: %v  ; want %v", subject, fsi1.TopPos, fsi2.TopPos)
 	}
 
 	if !treeEqual(fsi1.Tree, fsi2.Tree) {
@@ -193,21 +161,21 @@ func checkIndexEqual(t *testing.T, subject string, topPos1, topPos2 int64, fsi1,
 func TestIndexSaveLoad(t *testing.T) {
 	workdir := xworkdir(t)
 
-	topPos := int64(786)
-	fsi := fsIndexNew()
+	fsi := IndexNew()
+	fsi.TopPos = int64(786)
 	setIndex(fsi, indexTest1[:])
 
-	err := fsi.SaveFile(topPos, workdir + "/1.fs.index")
+	err := fsi.SaveFile(workdir + "/1.fs.index")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	topPos2, fsi2, err := LoadIndexFile(workdir + "/1.fs.index")
+	fsi2, err := LoadIndexFile(workdir + "/1.fs.index")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	checkIndexEqual(t, "index load", topPos2, topPos, fsi2, fsi)
+	checkIndexEqual(t, "index load", fsi2, fsi)
 
 	// TODO check with
 	// {0xb000000000000000, 0x7fffffffffffffff}, // will cause 'entry position too large'
@@ -216,15 +184,16 @@ func TestIndexSaveLoad(t *testing.T) {
 
 // test that we can correctly load index data as saved by zodb/py
 func TestIndexLoadFromPy(t *testing.T) {
-	topPosPy, fsiPy, err := LoadIndexFile("testdata/1.fs.index")
+	fsiPy, err := LoadIndexFile("testdata/1.fs.index")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fsiExpect := fsIndexNew()
+	fsiExpect := IndexNew()
+	fsiExpect.TopPos = _1fs_indexTopPos
 	setIndex(fsiExpect, _1fs_indexEntryv[:])
 
-	checkIndexEqual(t, "index load", topPosPy, _1fs_indexTopPos, fsiPy, fsiExpect)
+	checkIndexEqual(t, "index load", fsiPy, fsiExpect)
 }
 
 // test zodb/py can read index data as saved by us
@@ -232,10 +201,11 @@ func TestIndexSaveToPy(t *testing.T) {
 	needZODBPy(t)
 	workdir := xworkdir(t)
 
-	fsi := fsIndexNew()
+	fsi := IndexNew()
+	fsi.TopPos = _1fs_indexTopPos
 	setIndex(fsi, _1fs_indexEntryv[:])
 
-	err := fsi.SaveFile(_1fs_indexTopPos, workdir + "/1.fs.index")
+	err := fsi.SaveFile(workdir + "/1.fs.index")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +224,7 @@ func TestIndexSaveToPy(t *testing.T) {
 func BenchmarkIndexLoad(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarks
 	for i := 0; i < b.N; i++ {
-		_, _, err := LoadIndexFile("testdata/1.fs.index")
+		_, err := LoadIndexFile("testdata/1.fs.index")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -263,7 +233,7 @@ func BenchmarkIndexLoad(b *testing.B) {
 
 func BenchmarkIndexGet(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarks
-	_, fsi, err := LoadIndexFile("testdata/1.fs.index")
+	fsi, err := LoadIndexFile("testdata/1.fs.index")
 	if err != nil {
 		b.Fatal(err)
 	}

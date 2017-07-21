@@ -46,11 +46,16 @@ import (
 // Index is Oid -> Data record position mapping used to associate Oid with
 // Data record in latest transaction which changed it.
 type Index struct {
+	// this index covers data file up to < .TopPos
+	// usually for whole-file index TopPos is position pointing just past
+	// the last committed transaction.
+	TopPos int64
+
 	*fsb.Tree
 }
 
 func IndexNew() *Index {
-	return &Index{fsb.TreeNew()}
+	return &Index{Tree: fsb.TreeNew()}
 }
 
 
@@ -59,7 +64,7 @@ func IndexNew() *Index {
 // on-disk index format
 // (changed in 2010 in https://github.com/zopefoundation/ZODB/commit/1bb14faf)
 //
-// topPos     position pointing just past the last committed transaction
+// TopPos
 // (oid[:6], fsBucket)
 // (oid[:6], fsBucket)
 // ...
@@ -86,13 +91,13 @@ func (e *IndexSaveError) Error() string {
 }
 
 // Save saves index to a writer
-func (fsi *Index) Save(topPos int64, w io.Writer) error {
+func (fsi *Index) Save(w io.Writer) error {
 	var err error
 
 	{
 		p := pickle.NewEncoder(w)
 
-		err = p.Encode(topPos)
+		err = p.Encode(fsi.TopPos)
 		if err != nil {
 			goto out
 		}
@@ -163,7 +168,7 @@ out:
 }
 
 // SaveFile saves index to a file
-func (fsi *Index) SaveFile(topPos int64, path string) (err error) {
+func (fsi *Index) SaveFile(path string) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return &IndexSaveError{err}
@@ -178,7 +183,7 @@ func (fsi *Index) SaveFile(topPos int64, path string) (err error) {
 		}
 	}()
 
-	err = fsi.Save(topPos, f)
+	err = fsi.Save(f)
 	return
 
 }
@@ -217,7 +222,7 @@ func xint64(xv interface{}) (v int64, ok bool) {
 }
 
 // LoadIndex loads index from a reader
-func LoadIndex(r io.Reader) (topPos int64, fsi *Index, err error) {
+func LoadIndex(r io.Reader) (fsi *Index, err error) {
 	var picklePos int64
 
 	{
@@ -233,13 +238,14 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *Index, err error) {
 		if err != nil {
 			goto out
 		}
-		topPos, ok = xint64(xtopPos)
+		topPos, ok := xint64(xtopPos)
 		if !ok {
 			err = fmt.Errorf("topPos is %T:%v  (expected int64)", xtopPos, xtopPos)
 			goto out
 		}
 
 		fsi = IndexNew()
+		fsi.TopPos = topPos
 		var oidb [8]byte
 
 	loop:
@@ -319,24 +325,24 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *Index, err error) {
 
 out:
 	if err == nil {
-		return topPos, fsi, err
+		return fsi, err
 	}
 
-	return 0, nil, &IndexLoadError{xio.Name(r), picklePos, err}
+	return nil, &IndexLoadError{xio.Name(r), picklePos, err}
 }
 
 // LoadIndexFile loads index from a file @ path
-func LoadIndexFile(path string) (topPos int64, fsi *Index, err error) {
+func LoadIndexFile(path string) (fsi *Index, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return 0, nil, &IndexLoadError{path, -1, err}
+		return nil, &IndexLoadError{path, -1, err}
 	}
 
 	defer func() {
 		err2 := f.Close()
 		if err2 != nil && err == nil {
 			err = &IndexLoadError{path, -1, err}
-			topPos, fsi = 0, nil
+			fsi = nil
 		}
 	}()
 
@@ -346,13 +352,47 @@ func LoadIndexFile(path string) (topPos int64, fsi *Index, err error) {
 
 // ----------------------------------------
 
-// ComputeIndex builds new in-memory index for a file @ path
-func Reindex(ctx context.Context, path string) (*Index, error) {
-	fs, err := open(path)	// XXX open read-only
-	if err != nil {
-		return nil, err
+// Equal returns whether two indices are the same
+func (a *Index) Equal(b *Index) bool {
+	if a.TopPos != b.TopPos {
+		return false
 	}
-	defer fs.Close()	// XXX err?
 
-	// TODO iterate - compute
+	return treeEqual(a.Tree, b.Tree)
+}
+
+// treeEqual returns whether two trees are the same
+func treeEqual(a, b *fsb.Tree) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+
+	ea, _ := a.SeekFirst()
+	eb, _ := b.SeekFirst()
+
+	if ea == nil {
+		// this means len(a) == 0 -> len(b) == 0 -> eb = nil
+		return true
+	}
+
+	defer ea.Close()
+	defer eb.Close()
+
+	for {
+		ka, va, stopa := ea.Next()
+		kb, vb, stopb := eb.Next()
+
+		if stopa != nil || stopb != nil {
+			if stopa != stopb {
+				panic("same-length trees iteration did not end at the same time")
+			}
+			break
+		}
+
+		if !(ka == kb && va == vb) {
+			return false
+		}
+	}
+
+	return true
 }

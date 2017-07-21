@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodbtools
-// infrastructure to organize main tools driver
+// infrastructure to organize main driver program
 
 import (
 	"flag"
