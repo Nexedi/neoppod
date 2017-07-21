@@ -69,6 +69,11 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 	return reply.Tid, nil
 }
 
+func (c *Client) LastOid() (zodb.Oid, error) {
+	// XXX there is no LastOid in NEO/py
+	panic("TODO")
+}
+
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// FIXME do not use global conn (see comment in openClientByURL)
 	req := neo.GetObject{Oid: xid.Oid}
