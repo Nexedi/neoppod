@@ -1046,17 +1046,19 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	return &Iter
 }
 
-// ComputeIndex builds new in-memory index for FileStorage
-func (fs *FileStorage) ComputeIndex(ctx context.Context, path string) (topPos int64, index *Index, err error) {
-	topPos = txnValidFrom
+// ComputeIndex from scratch builds new in-memory index for FileStorage
+// XXX naming
+func (fs *FileStorage) ComputeIndex(ctx context.Context) (index *Index, err error) {
+	// XXX handle ctx cancel
 	index = IndexNew()
+	index.TopPos = txnValidFrom
 
 	// similar to Iterate but we know we start from the beginning and do
-	// not load actual data - only data headers.
+	// not want to load actual data - only data headers.
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 
 	// pre-setup txnh so that txnh.LoadNext starts loading from the beginning of file
-	txnh := &TxnHeader{Pos: 0, Len: topPos, TxnInfo: zodb.TxnInfo{Tid: 0}}
+	txnh := &TxnHeader{Pos: 0, Len: index.TopPos, TxnInfo: zodb.TxnInfo{Tid: 0}}
 	dh   := &DataHeader{}
 
 loop:
@@ -1067,7 +1069,7 @@ loop:
 			break
 		}
 
-		topPos = txnh.Pos + txnh.Len
+		index.TopPos = txnh.Pos + txnh.Len
 
 		// first data iteration will go to first data record
 		dh.Pos = txnh.DataPos()
@@ -1088,7 +1090,7 @@ loop:
 	}
 
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
-	return topPos, index, nil
+	return index, nil
 }
