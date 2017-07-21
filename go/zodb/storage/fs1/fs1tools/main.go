@@ -34,7 +34,7 @@ var HelpTopics = zodbtools.HelpRegistry{
 // main fs1 driver
 var Prog = zodbtools.MainProg{
         Name:       "fs1",
-        Summary:    "Fs1 is a tool to manage and maintain ZODB FileStorage v1 databases",
+        Summary:    "Fs1 is a tool for managing and maintaining ZODB FileStorage v1 databases",
         Commands:   Commands,
         HelpTopics: HelpTopics,
 }
