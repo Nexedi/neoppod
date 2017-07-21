@@ -1049,6 +1049,8 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 // ComputeIndex from scratch builds new in-memory index for FileStorage
 // XXX naming
 func (fs *FileStorage) ComputeIndex(ctx context.Context) (index *Index, err error) {
+	// TODO err ctx <file>: <reindex>:
+
 	// XXX handle ctx cancel
 	index = IndexNew()
 	index.TopPos = txnValidFrom
@@ -1058,12 +1060,20 @@ func (fs *FileStorage) ComputeIndex(ctx context.Context) (index *Index, err erro
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 
 	// pre-setup txnh so that txnh.LoadNext starts loading from the beginning of file
-	txnh := &TxnHeader{Pos: 0, Len: index.TopPos, TxnInfo: zodb.TxnInfo{Tid: 0}}
+	//txnh := &TxnHeader{Pos: 0, Len: index.TopPos, TxnInfo: zodb.TxnInfo{Tid: 0}}
+	txnh := &TxnHeader{Pos: index.TopPos, Len: -2}	// XXX -2
 	dh   := &DataHeader{}
 
 loop:
 	for {
-		err = txnh.LoadNext(fsSeq, LoadNoStrings)
+		// XXX merge logic infot LoadNext/LoadPrev
+		switch txnh.Len {
+		case -2:
+			err = txnh.Load(fsSeq, txnh.Pos, LoadNoStrings)
+		default:
+			err = txnh.LoadNext(fsSeq, LoadNoStrings)
+		}
+
 		if err != nil {
 			err = okEOF(err)
 			break
