@@ -22,12 +22,12 @@ package fs1tools
 
 import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
-var Commands = zodbtools.CommandRegistry{
+var commands = zodbtools.CommandRegistry{
 	{"tail",    tailSummary,    tailUsage,    tailMain},
-//	{"reindex", reindexSummary, reindexUsage, reindexMain},
+	{"reindex", reindexSummary, reindexUsage, reindexMain},
 }
 
-var HelpTopics = zodbtools.HelpRegistry{
+var helpTopics = zodbtools.HelpRegistry{
 	// XXX for now empty
 }
 
@@ -35,6 +35,6 @@ var HelpTopics = zodbtools.HelpRegistry{
 var Prog = zodbtools.MainProg{
         Name:       "fs1",
         Summary:    "Fs1 is a tool for managing and maintaining ZODB FileStorage v1 databases",
-        Commands:   Commands,
-        HelpTopics: HelpTopics,
+        Commands:   commands,
+        HelpTopics: helpTopics,
 }

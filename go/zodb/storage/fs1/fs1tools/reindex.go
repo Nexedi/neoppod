@@ -17,24 +17,55 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package neotools provides tools for running and managing NEO databases.
-package neotools
+package fs1tools
 
-import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
+import (
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"log"
+)
 
-var commands = zodbtools.CommandRegistry{
-	{"master",  masterSummary,  masterUsage,  masterMain},
-	{"storage", storageSummary, storageUsage, storageMain},
+// XXX text
+func Reindex(path string) error {
+	// TODO
+	return nil
 }
 
-var helpTopics = zodbtools.HelpRegistry{
-	// XXX for now empty
+// ----------------------------------------
+
+const reindexSummary = "dump last few transactions of a database"
+
+func reindexUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: fs1 reindex [options] <storage>
+Dump transactions from a FileStorage in reverse order	XXX
+
+<storage> is a path to FileStorage
+
+  options:
+
+	-h --help       this help text.
+	-verify         verify that existing index is correct; don't overwrite it
+`, ntxnDefault)
 }
 
-// main neo driver
-var Prog = zodbtools.MainProg{
-        Name:       "neo",
-        Summary:    "Neo is a tool for running NEO services and commands",
-        Commands:   commands,
-        HelpTopics: helpTopics,
+func reindexMain(argv []string) {
+	flags := flag.FlagSet{Usage: func() { reindexUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	// XXX -verify
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+	storPath := argv[0]
+
+	err := Reindex(storPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

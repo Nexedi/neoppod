@@ -21,7 +21,7 @@
 package zodbtools
 
 // registry of all zodbtools commands
-var Commands = CommandRegistry{
+var commands = CommandRegistry{
 	// NOTE the order commands are listed here is the order how they will appear in help
 	// TODO analyze ?
 	// TODO cmp
@@ -34,6 +34,6 @@ var Commands = CommandRegistry{
 var Prog = MainProg{
 	Name:       "zodb",
 	Summary:    "Zodb is a tool for managing ZODB databases",
-	Commands:   Commands,
-	HelpTopics: HelpTopics,
+	Commands:   commands,
+	HelpTopics: helpTopics,
 }

@@ -57,7 +57,7 @@ const helpXid =
 
 // TODO dump format
 
-var HelpTopics = HelpRegistry{
+var helpTopics = HelpRegistry{
 	{"zurl", "specifying database URL", helpZURL},
 	{"xid",  "specifying object address", helpXid},
 }
