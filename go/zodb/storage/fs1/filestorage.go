@@ -668,8 +668,8 @@ func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error
 	return nil
 }
 
-// Open opens FileStorage XXX text
-func Open(ctx context.Context, path string) (*FileStorage, error) {
+// open opens FileStorage without loading index
+func open(path string) (*FileStorage, error) {
 	fs := &FileStorage{}
 
 	f, err := os.Open(path)	// XXX opens in O_RDONLY
@@ -688,6 +688,7 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 		return nil, fmt.Errorf("%s: invalid magic %q", path, xxx)	// XXX err?
 	}
 
+/*
 	// TODO recreate index if missing / not sane (cancel this job on ctx.Done)
 	// TODO verify index sane / topPos matches
 	topPos, index, err := LoadIndexFile(path + ".index")
@@ -695,6 +696,16 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 		panic(err)	// XXX err
 	}
 	fs.index = index
+*/
+
+	// determine topPos from file size
+	// if it is invalid (e.g. a transaction half-way commit) we'll catch it
+	// while loading/recreating index
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err	// XXX err ctx
+	}
+	topPos := fi.Size()
 
 	// read tidMin/tidMax
 	// FIXME support empty file case
@@ -719,6 +730,29 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 		panic(err)	// XXX
 	}
 
+
+	return fs, nil
+}
+
+// Open opens FileStorage XXX text
+func Open(ctx context.Context, path string) (*FileStorage, error) {
+	fs, err := open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO recreate index if missing / not sane (cancel this job on ctx.Done)
+	topPos, index, err := LoadIndexFile(path + ".index")
+	if err != nil {
+		panic(err)	// XXX err
+	}
+
+	// TODO verify index sane / topPos matches
+	if topPos != fs.txnhMax.Pos + fs.txnhMax.Len {
+		panic("inconsistent index topPos")	// XXX
+	}
+
+	fs.index = index
 
 	return fs, nil
 }
