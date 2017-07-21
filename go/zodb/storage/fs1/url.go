@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package fs1
-// open URL support
+// open by URL support
 
 import (
 	"context"

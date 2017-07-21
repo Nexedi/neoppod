@@ -17,15 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-/*
-fstail - Tool to dump the last few transactions from a FileStorage.
-
-Format is the same as in fstail/py originally written by Jeremy Hylton:
-
-	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/scripts/fstail.py
-	https://github.com/zopefoundation/ZODB/commit/551122cc
-*/
-package main
+package fs1tools
 
 import (
 	"crypto/sha1"
@@ -43,8 +35,15 @@ import (
 	"lab.nexedi.com/kirr/go123/xfmt"
 )
 
+/*
+Tail dumps the last few transactions from a FileStorage.
 
-func fsTail(w io.Writer, path string, ntxn int) (err error) {
+Format is the same as in fstail/py originally written by Jeremy Hylton:
+
+	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/scripts/fstail.py
+	https://github.com/zopefoundation/ZODB/commit/551122cc
+*/
+func Tail(w io.Writer, path string, ntxn int) (err error) {
 	// path & fstail on error context
 	defer func() {
 		if err != nil {
@@ -144,13 +143,14 @@ func fsTail(w io.Writer, path string, ntxn int) (err error) {
 	return err
 }
 
+// ----------------------------------------
 
-func main() {
-	ntxn := 10
+const tailSummary = "dump last few transactions of a database"
+const ntxnDefault = 10
 
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr,
-`fstail [options] <storage>
+func tailUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: fs1 tail [options] <storage>
 Dump transactions from a FileStorage in reverse order
 
 <storage> is a path to FileStorage
@@ -159,20 +159,25 @@ Dump transactions from a FileStorage in reverse order
 
 	-h --help       this help text.
 	-n <N>	        output the last <N> transactions (default %d).
-`, ntxn)
-	}
+`, ntxnDefault)
+}
 
-	flag.IntVar(&ntxn, "n", ntxn, "output the last <N> transactions")
-	flag.Parse()
+func tailMain(argv []string) {
+	ntxn := ntxnDefault
 
-	argv := flag.Args()
+	flags := flag.FlagSet{Usage: func() { tailUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.IntVar(&ntxn, "n", ntxn, "output the last <N> transactions")
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
 	if len(argv) < 1 {
-		flag.Usage()
+		flags.Usage()
 		os.Exit(2)
 	}
 	storPath := argv[0]
 
-	err := fsTail(os.Stdout, storPath, ntxn)
+	err := Tail(os.Stdout, storPath, ntxn)
 	if err != nil {
 		log.Fatal(err)
 	}

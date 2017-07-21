@@ -20,26 +20,6 @@
 package zodbtools
 // registry for all help topics
 
-// HelpTopic describes one help topic
-type HelpTopic struct {
-	Name    string
-	Summary string
-	Text    string
-}
-
-// HelpRegistry is ordered collection of HelpTopics
-type HelpRegistry []HelpTopic
-
-// Lookup returns HelpTopic with corresponding name or nil
-func (helpv HelpRegistry) Lookup(topic string) *HelpTopic {
-	for i := range helpv {
-		if helpv[i].Name == topic {
-			return &helpv[i]
-		}
-	}
-	return nil
-}
-
 const helpZURL =
 `Almost every zodb command works with a database.
 A database can be specified by way of providing URL for its storage.

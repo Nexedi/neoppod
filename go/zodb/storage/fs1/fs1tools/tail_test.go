@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package main
+package fs1tools
 
 //go:generate sh -c "python2 -m ZODB.scripts.fstail -n 1000000 ../../testdata/1.fs >testdata/1.fsdump.ok"
 
@@ -46,10 +46,10 @@ func diff(a, b string) string {
 	return dmp.DiffPrettyText(diffv)
 }
 
-func TestFsTail(t *testing.T) {
+func TestTail(t *testing.T) {
 	buf := bytes.Buffer{}
 
-	err := fsTail(&buf, "../../testdata/1.fs", 1000000)
+	err := Tail(&buf, "../testdata/1.fs", 1000000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,10 +61,10 @@ func TestFsTail(t *testing.T) {
 	}
 }
 
-func BenchmarkFsTail(b *testing.B) {
+func BenchmarkTail(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarking
 	for i := 0; i < b.N; i++ {
-		err := fsTail(ioutil.Discard, "../../testdata/1.fs", 1000000)
+		err := Tail(ioutil.Discard, "../testdata/1.fs", 1000000)
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -17,5 +17,13 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package zodbtools provides tools for managing ZODB databases
-package zodbtools
+// fs1 is a driver program for running & invoking fs1 subcommands.
+package main
+
+import (
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fs1tools"
+)
+
+func main() {
+	fs1tools.Prog.Main()
+}

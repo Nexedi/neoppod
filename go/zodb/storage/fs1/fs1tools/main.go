@@ -17,16 +17,24 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neotools
-// registry of all commands & help topics
+// Package fs1tools provides tools for managing and maintaining ZODB FileStorage v1 databases.
+package fs1tools
 
 import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
 var Commands = zodbtools.CommandRegistry{
-	{"master",  masterSummary,  masterUsage,  masterMain},
-	{"storage", storageSummary, storageUsage, storageMain},
+	{"tail",    tailSummary,    tailUsage,    tailMain},
+//	{"reindex", reindexSummary, reindexUsage, reindexMain},
 }
 
 var HelpTopics = zodbtools.HelpRegistry{
 	// XXX for now empty
+}
+
+// main fs1 driver
+var Prog = zodbtools.MainProg{
+        Name:       "fs1",
+        Summary:    "Fs1 is a tool to manage and maintain ZODB FileStorage v1 databases",
+        Commands:   Commands,
+        HelpTopics: HelpTopics,
 }
