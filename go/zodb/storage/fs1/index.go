@@ -43,14 +43,14 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
-// fsIndex is Oid -> Data record position mapping used to associate Oid with
+// Index is Oid -> Data record position mapping used to associate Oid with
 // Data record in latest transaction which changed it.
-type fsIndex struct {
+type Index struct {
 	*fsb.Tree
 }
 
-func fsIndexNew() *fsIndex {
-	return &fsIndex{fsb.TreeNew()}
+func IndexNew() *Index {
+	return &Index{fsb.TreeNew()}
 }
 
 
@@ -86,7 +86,7 @@ func (e *IndexSaveError) Error() string {
 }
 
 // Save saves index to a writer
-func (fsi *fsIndex) Save(topPos int64, w io.Writer) error {
+func (fsi *Index) Save(topPos int64, w io.Writer) error {
 	var err error
 
 	{
@@ -163,7 +163,7 @@ out:
 }
 
 // SaveFile saves index to a file
-func (fsi *fsIndex) SaveFile(topPos int64, path string) (err error) {
+func (fsi *Index) SaveFile(topPos int64, path string) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return &IndexSaveError{err}
@@ -217,7 +217,7 @@ func xint64(xv interface{}) (v int64, ok bool) {
 }
 
 // LoadIndex loads index from a reader
-func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
+func LoadIndex(r io.Reader) (topPos int64, fsi *Index, err error) {
 	var picklePos int64
 
 	{
@@ -239,7 +239,7 @@ func LoadIndex(r io.Reader) (topPos int64, fsi *fsIndex, err error) {
 			goto out
 		}
 
-		fsi = fsIndexNew()
+		fsi = IndexNew()
 		var oidb [8]byte
 
 	loop:
@@ -326,7 +326,7 @@ out:
 }
 
 // LoadIndexFile loads index from a file @ path
-func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
+func LoadIndexFile(path string) (topPos int64, fsi *Index, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return 0, nil, &IndexLoadError{path, -1, err}
@@ -342,4 +342,17 @@ func LoadIndexFile(path string) (topPos int64, fsi *fsIndex, err error) {
 
 	// NOTE no explicit bufferring needed - ogórek and LoadIndex use bufio.Reader internally
 	return LoadIndex(f)
+}
+
+// ----------------------------------------
+
+// ComputeIndex builds new in-memory index for a file @ path
+func Reindex(ctx context.Context, path string) (*Index, error) {
+	fs, err := open(path)	// XXX open read-only
+	if err != nil {
+		return nil, err
+	}
+	defer fs.Close()	// XXX err?
+
+	// TODO iterate - compute
 }

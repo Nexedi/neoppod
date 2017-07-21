@@ -41,7 +41,7 @@ import (
 // organized as transactional log.
 type FileStorage struct {
 	file	*os.File
-	index	*fsIndex	// oid -> data record position in transaction which last changed oid
+	index	*Index	// oid -> data record position in transaction which last changed oid
 
 	// transaction headers for min/max transactions committed
 	// XXX keep loaded with LoadNoStrings ?
