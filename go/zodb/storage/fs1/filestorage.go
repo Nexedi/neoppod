@@ -1046,9 +1046,9 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	return &Iter
 }
 
-// ComputeIndex from scratch builds new in-memory index for FileStorage
+// computeIndex builds new in-memory index for FileStorage
 // XXX naming
-func (fs *FileStorage) ComputeIndex(ctx context.Context) (index *Index, err error) {
+func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
 	// TODO err ctx <file>: <reindex>:
 
 	// XXX handle ctx cancel
@@ -1066,7 +1066,7 @@ func (fs *FileStorage) ComputeIndex(ctx context.Context) (index *Index, err erro
 
 loop:
 	for {
-		// XXX merge logic infot LoadNext/LoadPrev
+		// XXX merge logic into LoadNext/LoadPrev
 		switch txnh.Len {
 		case -2:
 			err = txnh.Load(fsSeq, txnh.Pos, LoadNoStrings)
@@ -1103,4 +1103,76 @@ loop:
 		return nil, err
 	}
 	return index, nil
+}
+
+// loadIndex loads on-disk index to RAM
+func (fs *FileStorage) loadIndex() error {
+	// XXX lock?
+
+	index, err := LoadIndexFile(fs.file.Name() + ".index")
+	if err != nil {
+		return err	// XXX err ctx
+	}
+
+	// XXX here?
+	// TODO verify index sane / topPos matches
+	if index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
+		panic("inconsistent index topPos")	// XXX
+	}
+
+	fs.index = index
+}
+
+// saveIndex flushes in-RAM index to disk
+func (fs *FileStorage) saveIndex() error {
+	// XXX lock?
+
+	err = fs.index.SaveFile(fs.file.Name() + ".index")
+	return err
+}
+
+// IndexCorruptError is the error returned when index verification fails
+// XXX but io errors during verification return not this
+type IndexCorruptError struct {
+	index   *Index
+	indexOk *Index
+}
+
+func (e *IndexCorruptError) Error() string {
+	// TODO show delta ?
+	return "index corrupt"
+}
+
+// VerifyIndex verifies that index is correct
+func (fs *FileStorage) VerifyIndex(ctx context.Context) error {
+	// XXX lock appends?
+
+	// XXX if .index is not yet loaded - load it
+
+	indexOk, err := fs.computeIndex(ctx)
+	if err != nil {
+		return err	// XXX err ctx
+	}
+
+	if !indexOk.Equal(fs.index) {
+		err = &ErrIndexCorrupt{index: fs.index, indexOk: indexOk}
+	}
+
+	return err
+}
+
+
+// Reindex rebuilds the index
+func (fs *FileStorage) Reindex(ctx context.Context) error {
+	// XXX lock appends?
+
+	index, err := fs.computeIndex(ctx)
+	if err != nil {
+		return err
+	}
+
+	fs.index = index
+
+	err = fs.saveIndex()
+	return err	// XXX ok?
 }

@@ -27,10 +27,32 @@ import (
 	"log"
 )
 
-// XXX text
+// Reindex rebuilds index for FileStorage file @ path
 func Reindex(path string) error {
-	// TODO
-	return nil
+	// XXX open read-only
+	fs, err := fs1.Open(contex.Background(), path, fs1.OpenWithoutIndex)
+	if err != nil {
+		return nil	// XXX err ctx
+	}
+	defer fs.Close()	// XXX err
+
+	err = fs.Reindex()
+	return err	// XXX ok?
+}
+
+// VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
+func VerifyIndexFor(path string) error {
+	// XXX open read-only
+	fs, err := fs1.Open(contex.Background(), path, 0)
+	if err != nil {
+		return nil	// XXX err ctx
+	}
+	defer fs.Close()	// XXX err
+
+	err = fs.VerifyIndex()
+	return err
+	//fs.Index()
+	//fs.ComputeIndex
 }
 
 // ----------------------------------------
