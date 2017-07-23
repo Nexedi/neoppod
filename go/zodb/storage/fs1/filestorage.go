@@ -1144,6 +1144,7 @@ func (e *IndexCorruptError) Error() string {
 }
 
 // VerifyIndex verifies that index is correct
+// XXX -> not exported @ fs1
 func (fs *FileStorage) VerifyIndex(ctx context.Context) error {
 	// XXX lock appends?
 
@@ -1163,6 +1164,7 @@ func (fs *FileStorage) VerifyIndex(ctx context.Context) error {
 
 
 // Reindex rebuilds the index
+// XXX -> not exported @ fs1
 func (fs *FileStorage) Reindex(ctx context.Context) error {
 	// XXX lock appends?
 
