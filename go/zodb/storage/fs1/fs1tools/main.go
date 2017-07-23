@@ -24,7 +24,15 @@ import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
 var commands = zodbtools.CommandRegistry{
 	{"tail",    tailSummary,    tailUsage,    tailMain},
+	// dump, dump+verbose 	(fsdump.py)
+	// + fsstats?		(fsstats.py)
+
 	{"reindex", reindexSummary, reindexUsage, reindexMain},
+	// XXX reindex -> reindex, verify-index
+	// recover		(fsrecover.py)
+	// verify		(fstest.py)
+
+	// XXX repozo ?
 }
 
 var helpTopics = zodbtools.HelpRegistry{

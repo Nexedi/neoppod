@@ -17,11 +17,11 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+// Package fs1 implements so-called FileStorage v1 ZODB storage.
+// FileStorage is a single file organized as a log of transactions with data changes.
+//
 // XXX partly based on code from ZODB ?
 // TODO link to format in zodb/py
-
-// Package fs1 implements so-called FileStorage v1 ZODB storage.
-// XXX text
 package fs1
 
 import (

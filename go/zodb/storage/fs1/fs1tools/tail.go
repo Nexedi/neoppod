@@ -79,6 +79,7 @@ func Tail(w io.Writer, path string, ntxn int) (err error) {
 	// use sequential IO buffer
 	fSeq := xbufio.NewSeqReaderAt(f)
 
+	// XXX -> LoadPrev starting @ NextPrevStartMagic ?
 	// start iterating at tail.
 	// this should get EOF but read txnh.LenPrev ok.
 	err = txnh.Load(fSeq, topPos, fs1.LoadAll)
