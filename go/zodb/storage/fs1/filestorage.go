@@ -19,8 +19,8 @@
 
 // Package fs1 provides so-called FileStorage v1 ZODB storage.
 //
-// FileStorage is a single file organized as a append-only log of transactions
-// with data changes. Every transaction record consists of:
+// FileStorage is a single file organized as a simple append-only log of
+// transactions with data changes. Every transaction record consists of:
 //
 // - transaction record header represented by TxnHeader,
 // - several data records corresponding to modified objects,
@@ -279,7 +279,7 @@ const (
 // LenPrev == 0			prev record length could not be read
 // LenPrev == -1		EOF backward
 // LenPrev >= TxnHeaderFixSize	LenPrev was read/checked normally
-func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLoadFlags) error {
+func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error {
 	if cap(txnh.workMem) < txnXHeaderFixSize {
 		txnh.workMem = make([]byte, txnXHeaderFixSize, 256 /* to later avoid allocation for typical strings */)
 	}
@@ -383,7 +383,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt /* *os.File */, pos int64, flags TxnLo
 }
 
 // loadStrings makes sure strings that are part of transaction header are loaded
-func (txnh *TxnHeader) loadStrings(r io.ReaderAt /* *os.File */) error {
+func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
 	// XXX make it no-op if strings are already loaded?
 
 	// we rely on Load leaving len(workMem) = sum of all strings length ...
@@ -437,7 +437,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	return nil
 }
 
-// LoadNext reads and decodes next transaction record header
+// LoadNext reads and decodes next transaction record header.
 // prerequisite: txnh .Pos and .Len should be already initialized by:	XXX also .Tid
 //   - previous successful call to Load() initially		XXX ^^^
 //   - TODO
@@ -492,7 +492,7 @@ func (dh *DataHeader) Len() int64 {
 // Load reads and decodes data record header.
 // pos: points to data header start
 // no prerequisite requirements are made to previous dh state
-func (dh *DataHeader) Load(r io.ReaderAt /* *os.File */, pos int64) error {
+func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 	dh.Pos = pos
 	// XXX .Len = 0		= read error ?
 
@@ -548,7 +548,7 @@ func (dh *DataHeader) Load(r io.ReaderAt /* *os.File */, pos int64) error {
 // prerequisite: dh .Oid .Tid .PrevRevPos are initialized:
 //   - TODO describe how
 // when there is no previous revision: io.EOF is returned
-func (dh *DataHeader) LoadPrevRev(r io.ReaderAt /* *os.File */) error {
+func (dh *DataHeader) LoadPrevRev(r io.ReaderAt) error {
 	if dh.PrevRevPos == 0 {
 		return io.EOF	// no more previous revisions
 	}
@@ -563,7 +563,7 @@ func (dh *DataHeader) LoadPrevRev(r io.ReaderAt /* *os.File */) error {
 	return err
 }
 
-func (dh *DataHeader) loadPrevRev(r io.ReaderAt /* *os.File */) error {
+func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 	oid := dh.Oid
 	tid := dh.Tid
 
@@ -588,7 +588,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt /* *os.File */) error {
 // LoadBack reads and decodes data header for revision linked via back-pointer.
 // prerequisite: dh XXX     .DataLen == 0
 // if link is to zero (means deleted record) io.EOF is returned
-func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
+func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 	if dh.DataLen != 0 {
 		bug(dh, "LoadBack() on non-backpointer data header")
 	}
@@ -638,7 +638,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt /* *os.File */) error {
 // LoadNext reads and decodes data header for next data record in the same transaction.
 // prerequisite: dh .Pos .DataLen are initialized
 // when there is no more data records: io.EOF is returned
-func (dh *DataHeader) LoadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) error {
+func (dh *DataHeader) LoadNext(r io.ReaderAt, txnh *TxnHeader) error {
 	err := dh.loadNext(r, txnh)
 	if err != nil && err != io.EOF {
 		err = txnh.err("iterating", err)
@@ -646,7 +646,7 @@ func (dh *DataHeader) LoadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 	return err
 }
 
-func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) error {
+func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 	// position of txn tail - right after last data record byte
 	txnTailPos := txnh.Pos + txnh.Len - 8
 
@@ -680,11 +680,11 @@ func (dh *DataHeader) loadNext(r io.ReaderAt /* *os.File */, txnh *TxnHeader) er
 }
 
 // LoadData loads data for the data record taking backpointers into account.
-// Data is loaded into *buf, which, if needed, is reallocated to hold all loading data size	XXX
+// Data is loaded into *buf, which, if needed, is reallocated to hold whole loading data size.
 // NOTE on success dh state is changed to data header of original data transaction
 // NOTE "deleted" records are indicated via returning *buf=nil
 // TODO buf -> slab
-func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error {
+func (dh *DataHeader) LoadData(r io.ReaderAt, buf *[]byte)  error {
 	// scan via backpointers
 	for dh.DataLen == 0 {
 		err := dh.LoadBack(r)
@@ -705,6 +705,12 @@ func (dh *DataHeader) LoadData(r io.ReaderAt /* *os.File */, buf *[]byte)  error
 	}
 
 	return nil
+}
+
+// --- FileStorage ---
+
+func (fs *FileStorage) StorageName() string {
+	return "FileStorage v1"
 }
 
 // open opens FileStorage without loading index
@@ -797,6 +803,16 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 	return fs, nil
 }
 
+func (fs *FileStorage) Close() error {
+	// TODO dump index
+	err := fs.file.Close()
+	if err != nil {
+		return err
+	}
+	fs.file = nil
+	return nil
+}
+
 
 func (fs *FileStorage) LastTid() (zodb.Tid, error) {
 	// XXX check we have transactions at all
@@ -876,22 +892,8 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	return data, tid, nil
 }
 
-func (fs *FileStorage) Close() error {
-	// TODO dump index
-	err := fs.file.Close()
-	if err != nil {
-		return err
-	}
-	fs.file = nil
-	return nil
-}
 
-func (fs *FileStorage) StorageName() string {
-	return "FileStorage v1"
-}
-
-
-// iteration
+// zodb.IStorage iteration
 
 type iterFlags int
 const (
@@ -1090,7 +1092,6 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
 	// TODO err ctx <file>: <reindex>:
 
-	// XXX handle ctx cancel
 	index = IndexNew()
 	index.TopPos = txnValidFrom
 
@@ -1099,12 +1100,18 @@ func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err erro
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 
 	// pre-setup txnh so that txnh.LoadNext starts loading from the beginning of file
-	//txnh := &TxnHeader{Pos: 0, Len: index.TopPos, TxnInfo: zodb.TxnInfo{Tid: 0}}
 	txnh := &TxnHeader{Pos: index.TopPos, Len: -2}	// XXX -2
 	dh   := &DataHeader{}
 
 loop:
 	for {
+		// check ctx cancel once per transaction
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		// XXX merge logic into LoadNext/LoadPrev
 		switch txnh.Len {
 		case -2:
@@ -1117,6 +1124,8 @@ loop:
 			err = okEOF(err)
 			break
 		}
+
+		// XXX check txnh.Status != TxnInprogress
 
 		index.TopPos = txnh.Pos + txnh.Len
 
@@ -1160,13 +1169,14 @@ func (fs *FileStorage) loadIndex() error {
 	}
 
 	fs.index = index
+	return nil
 }
 
 // saveIndex flushes in-RAM index to disk
 func (fs *FileStorage) saveIndex() error {
 	// XXX lock?
 
-	err = fs.index.SaveFile(fs.file.Name() + ".index")
+	err := fs.index.SaveFile(fs.file.Name() + ".index")
 	return err
 }
 
@@ -1195,7 +1205,7 @@ func (fs *FileStorage) VerifyIndex(ctx context.Context) error {
 	}
 
 	if !indexOk.Equal(fs.index) {
-		err = &ErrIndexCorrupt{index: fs.index, indexOk: indexOk}
+		err = &IndexCorruptError{index: fs.index, indexOk: indexOk}
 	}
 
 	return err

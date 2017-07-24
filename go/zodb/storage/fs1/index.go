@@ -17,9 +17,6 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// XXX partly based on code from ZODB ?
-// TODO link to format in zodb/py
-
 package fs1
 // FileStorage v1. Index
 
@@ -74,7 +71,6 @@ func IndexNew() *Index {
 //
 // fsBucket:
 // oid[6:8]oid[6:8]oid[6:8]...pos[2:8]pos[2:8]pos[2:8]...
-
 
 const (
 	oidPrefixMask  zodb.Oid = (1<<64-1) ^ (1<<16 - 1)	// 0xffffffffffff0000
@@ -362,7 +358,7 @@ func (a *Index) Equal(b *Index) bool {
 	return treeEqual(a.Tree, b.Tree)
 }
 
-// treeEqual returns whether two trees are the same
+// treeEqual returns whether two fsb.Tree are the same
 func treeEqual(a, b *fsb.Tree) bool {
 	if a.Len() != b.Len() {
 		return false

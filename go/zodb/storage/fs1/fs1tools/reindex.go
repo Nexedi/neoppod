@@ -20,36 +20,39 @@
 package fs1tools
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"log"
+
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 )
 
 // Reindex rebuilds index for FileStorage file @ path
 func Reindex(path string) error {
 	// XXX open read-only
-	fs, err := fs1.Open(contex.Background(), path, fs1.OpenWithoutIndex)
+	fs, err := fs1.Open(context.Background(), path)	// XXX , fs1.OpenWithoutIndex)
 	if err != nil {
 		return nil	// XXX err ctx
 	}
 	defer fs.Close()	// XXX err
 
-	err = fs.Reindex()
+	err = fs.Reindex(nil)
 	return err	// XXX ok?
 }
 
 // VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
 func VerifyIndexFor(path string) error {
 	// XXX open read-only
-	fs, err := fs1.Open(contex.Background(), path, 0)
+	fs, err := fs1.Open(context.Background(), path)	// XXX , 0)
 	if err != nil {
 		return nil	// XXX err ctx
 	}
 	defer fs.Close()	// XXX err
 
-	err = fs.VerifyIndex()
+	err = fs.VerifyIndex(nil)
 	return err
 	//fs.Index()
 	//fs.ComputeIndex

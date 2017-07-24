@@ -19,7 +19,7 @@
 
 package fs1tools
 
-//go:generate sh -c "python2 -m ZODB.scripts.fstail -n 1000000 ../../testdata/1.fs >testdata/1.fsdump.ok"
+//go:generate sh -c "python2 -m ZODB.scripts.fstail -n 1000000 ../testdata/1.fs >testdata/1.fstail.ok"
 
 import (
 	"bytes"
@@ -54,7 +54,7 @@ func TestTail(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dumpOk := loadFile(t, "testdata/1.fsdump.ok")
+	dumpOk := loadFile(t, "testdata/1.fstail.ok")
 
 	if dumpOk != buf.String() {
 		t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
