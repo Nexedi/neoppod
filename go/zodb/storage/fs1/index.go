@@ -54,6 +54,7 @@ type Index struct {
 	*fsb.Tree
 }
 
+// IndexNew creates new empty index
 func IndexNew() *Index {
 	return &Index{Tree: fsb.TreeNew()}
 }

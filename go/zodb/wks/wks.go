@@ -21,7 +21,7 @@
 //
 // The only purpose of this package is so that users could import it
 //
-//	import _ ".../zodb/wks"		XXX fixme import path
+//	import _ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 //
 // and this way automatically link in support for file:// neo:// ... and other
 // common storages.

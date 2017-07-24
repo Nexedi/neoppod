@@ -17,11 +17,50 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package fs1 implements so-called FileStorage v1 ZODB storage.
-// FileStorage is a single file organized as a log of transactions with data changes.
+// Package fs1 provides so-called FileStorage v1 ZODB storage.
 //
-// XXX partly based on code from ZODB ?
-// TODO link to format in zodb/py
+// FileStorage is a single file organized as a append-only log of transactions
+// with data changes. Every transaction record consists of:
+//
+// - transaction record header represented by TxnHeader,
+// - several data records corresponding to modified objects,
+// - redundant transaction length at the end of transaction record.
+//
+// Every data record consists of:
+//
+// - data record header represented by DataHeader,
+// - actual data following the header.
+//
+// The "actual data" in addition to raw content, can be a back-pointer
+// indicating that the actual content should be retrieved from a past revision.
+//
+// In addition to append-only transaction/data log, an index is automatically
+// maintained mapping oid -> latest data record which modified this oid. The
+// index is used to implement zodb.IStorage.Load without linear scan.
+//
+// The data format is bit-to-bit identical to FileStorage format implemented in ZODB/py.
+// Please see the following links for original FileStorage format definition:
+//
+//	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/FileStorage/format.py
+//	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/fstools.py
+//
+// The index format is interoperable with ZODB/py (index uses pickles which
+// allows various valid encodings of a given object). Please see the following
+// links for original FileStorage index definition:
+//
+//	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/fsIndex.py
+//	https://github.com/zopefoundation/ZODB/commit/1bb14faf
+//
+// Unless one is doing something FileStorage-specific, it is advices not to use
+// fs1 package directly, and instead link-in lab.nexedi.com/kirr/neo/go/zodb/wks,
+// open storage by zodb.OpenStorageURL and use it by way of zodb.IStorage interface.
+//
+// The fs1 package exposes all FileStorage data format details and most of
+// internal workings so that it is possible to implement FileStorage-specific
+// tools.
+//
+// Please see package lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fs1tools and
+// associated fs1 command for basic tools related to FileStorage maintenance.
 package fs1
 
 import (
