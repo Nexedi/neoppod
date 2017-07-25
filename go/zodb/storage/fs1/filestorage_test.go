@@ -141,7 +141,7 @@ func TestLoad(t *testing.T) {
 // iterate tidMin..tidMax and expect db entries in expectv
 func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
 	iter := fs.Iterate(tidMin, tidMax)
-	fsi := iter.(*iterator)
+	fsi := iter.(*zIter)
 
 	for k := 0; ; k++ {
 		txnErrorf := func(format string, a ...interface{}) {
@@ -170,13 +170,13 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 		// assert txni points to where we expect - this will allow us
 		// not only to check .TxnInfo but also .Pos, .LenPrev, .Len etc in
 		// whole expected TxnHeader
-		if txni != &fsi.txnIter.Txnh.TxnInfo {
+		if txni != &fsi.iter.Txnh.TxnInfo {
 			t.Fatal("unexpected txni pointer")
 		}
 
 		// compare transaction headers modulo .workMem
 		// (workMem is not initialized in _1fs_dbEntryv)
-		txnh1 := fsi.txnIter.Txnh
+		txnh1 := fsi.iter.Txnh
 		txnh2 := dbe.Header
 		txnh1.workMem = nil
 		txnh2.workMem = nil
@@ -211,16 +211,16 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 
 			// assert datai pointes to where we expect - this will allow us
 			// not only to check oid/tid/data but also to check whole data header.
-			if datai != &fsi.dataIter.sri {
+			if datai != &fsi.sri {
 				t.Fatal("unexpected datai pointer")
 			}
 
 			// compare data headers modulo .workMem
 			// (workMem is not initialized in _1fs_dbEntryv)
-			fsi.dataIter.Datah.workMem = dh.workMem
+			fsi.iter.Datah.workMem = dh.workMem
 
-			if !reflect.DeepEqual(fsi.dataIter.Datah, dh) {
-				dataErrorf("unexpected data entry:\nhave: %q\nwant: %q", fsi.dataIter.Datah, dh)
+			if !reflect.DeepEqual(fsi.iter.Datah, dh) {
+				dataErrorf("unexpected data entry:\nhave: %q\nwant: %q", fsi.iter.Datah, dh)
 			}
 
 			// check what was actually returned - since it is not in ^^^ data structure
@@ -281,7 +281,7 @@ func TestComputeIndex(t *testing.T) {
 	fs := xfsopen(t, "testdata/1.fs")	// TODO open ro
 	defer exc.XRun(fs.Close)
 
-	index, err := fs.ComputeIndex(context.TODO())
+	index, err := fs.computeIndex(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
