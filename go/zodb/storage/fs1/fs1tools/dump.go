@@ -119,9 +119,9 @@ func dump(w io.Writer, path string, d dumper) (err error) {
 // dumper is internal interface to implement various dumping modes
 type dumper interface {
 	dumpFileHeader(*xfmt.Buffer, *fs1.FileHeader) error
-	dumpTxn(*xfmt.Buffer, *fs1.TxnHeader) error
-	dumpData(*xfmt.Buffer, *fs1.DataHeader) error
-	dumpTxnPost(*xfmt.Buffer, *fs1.TxnHeader) error
+	dumpTxn(*xfmt.Buffer, *fs1.Iter) error
+	dumpData(*xfmt.Buffer, *fs1.Iter) error
+	dumpTxnPost(*xfmt.Buffer, *fs1.Iter) error
 }
 
 // "normal" dumper
@@ -134,10 +134,11 @@ func (d *dumper1) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
 	return nil
 }
 
-func (d *dumper1) dumpTxn(buf *xfmt.Buffer, txnh *fs1.TxnHeader) error {
+func (d *dumper1) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
+	txnh := &it.Txnh
 	buf .S("Trans #") .D_f("05", d.ntxn) .S(" tid=") .V(txnh.Tid)
 	buf .S(" time=") .V(txnh.Tid.Time()) .S(" offset=") .D64(txnh.Pos)
-	buf .S("\n    status=") .Qpy(txnh.Status)
+	buf .S("\n    status=") .Qpycb(byte(txnh.Status))
 	buf .S(" user=") .Qpyb(txnh.User)
 	buf .S(" description=") .Qpyb(txnh.Description) .S("\n")
 
@@ -146,13 +147,14 @@ func (d *dumper1) dumpTxn(buf *xfmt.Buffer, txnh *fs1.TxnHeader) error {
 	return nil
 }
 
-func (d *dumper1) dumpData(buf *xfmt.Buffer, dh *fs1.DataHeader) error {
+func (d *dumper1) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
+	dh := &it.Datah
 	buf .S("  data #") .D_f("05", d.ndata) .S(" oid=") .V(dh.Oid)
 
 	if dh.DataLen == 0 {
 		buf .S(" class=undo or abort of object creation")
 
-		backPos, err := dh.LoadBackRef()
+		backPos, err := dh.LoadBackRef(it.R)
 		if err != nil {
 			// XXX
 		}
@@ -164,9 +166,9 @@ func (d *dumper1) dumpData(buf *xfmt.Buffer, dh *fs1.DataHeader) error {
 		// XXX Datah.LoadData()
 		//modname, classname = zodb.GetPickleMetadata(...)	// XXX
 		//fullclass = "%s.%s" % (modname, classname)
-		fullclass = "AAA.BBB"	// FIXME stub
+		fullclass := "AAA.BBB"	// FIXME stub
 
-		buf .S(" size=") .D(dh.DataLen)
+		buf .S(" size=") .D64(dh.DataLen)
 		buf .S(" class=") .S(fullclass)
 	}
 
@@ -176,7 +178,7 @@ func (d *dumper1) dumpData(buf *xfmt.Buffer, dh *fs1.DataHeader) error {
 	return nil
 }
 
-func (d *dumper1) dumpTxnPost(buf *xfmt.Buffer, txnh *fs1.TxnHeader) error {
+func (d *dumper1) dumpTxnPost(buf *xfmt.Buffer, it *fs1.Iter) error {
 	return nil
 }
 
@@ -186,18 +188,24 @@ type dumperVerbose struct {
 }
 
 func (d *dumperVerbose) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
-	buf .S("*" * 60) .S("\n")
-	buf .S("file identifier: ") .Qpyb(fh.Magic) .S("\n")
+	for i := 0; i < 60; i++ {
+		buf .S("*")
+	}
+	buf .S("\n")
+	buf .S("file identifier: ") .Qpyb(fh.Magic[:]) .S("\n")
 	return nil
 }
 
-func (d *dumperVerbose) dumpTxn(buf *xfmt.Buffer, txnh *fs1.TxnHeader) error {
-	buf .S("=" * 60)
+func (d *dumperVerbose) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
+	txnh := &it.Txnh
+	for i := 0; i < 60; i++ {
+		buf .S("=")
+	}
 	buf .S("\noffset: ") .D64(txnh.Pos)
 	buf .S("\nend pos: ") .D64(txnh.Pos + txnh.Len)
 	buf .S("\ntransaction id: ") .V(txnh.Tid)
 	buf .S("\ntrec len: ") .D64(txnh.Len)
-	buf .S("\nstatus: ") .Qpy(txnh.Status)
+	buf .S("\nstatus: ") .Qpycb(byte(txnh.Status))
 	buf .S("\nuser: ") .Qpyb(txnh.User)
 	buf .S("\ndescription: ") .Qpyb(txnh.Description)
 	buf .S("\nlen(extra): ") .D(len(txnh.Extension))
@@ -205,8 +213,11 @@ func (d *dumperVerbose) dumpTxn(buf *xfmt.Buffer, txnh *fs1.TxnHeader) error {
 	return nil
 }
 
-func (d *dumperVerbose) dumpData(buf *xfmt.Buffer, dh *fs1.DataHeader) error {
-	buf .S("-" * 60)
+func (d *dumperVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
+	dh := &it.Datah
+	for i := 0; i < 60; i++ {
+		buf .S("-")
+	}
 	buf .S("\noffset: ") .D64(dh.Pos)
 	buf .S("\noid: ") .V(dh.Oid)
 	buf .S("\nrevid: "). V(dh.Tid)
@@ -215,22 +226,22 @@ func (d *dumperVerbose) dumpData(buf *xfmt.Buffer, dh *fs1.DataHeader) error {
 	buf .S("\nlen(data): ") .D64(dh.DataLen)
 
 	if dh.DataLen == 0 {
-		backPos, err := dh.LoadBackRef()
+		backPos, err := dh.LoadBackRef(it.R)
 		if err != nil {
 			// XXX
 		}
 
-		buf .S("\nbackpointer: ", D64(backPos))
+		buf .S("\nbackpointer: ") .D64(backPos)
 	}
 
 	buf .S("\n")
 	return nil
 }
 
-func (d *dumperVerbose) dumpTxnPost(buf *xfmt.Buffer, txnh *fs1.TxnHeader) error {
+func (d *dumperVerbose) dumpTxnPost(buf *xfmt.Buffer, it *fs1.Iter) error {
 	// NOTE printing the same .Len twice
 	// we do not print/check redundant len here because our
 	// FileStorage code checks/reports this itself
-	buf .S("redundant trec len: " .D64(txnh.Len)) .S("\n")
+	buf .S("redundant trec len: ") .D64(it.Txnh.Len) .S("\n")
 	return nil
 }
