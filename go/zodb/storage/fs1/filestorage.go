@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package fs1 provides so-called FileStorage v1 ZODB storage.
+// Package fs1 provides so-called FileStorage version 1 ZODB storage.
 //
 // FileStorage is a single file organized as a simple append-only log of
 // transactions with data changes. Every transaction record consists of:
@@ -45,8 +45,8 @@
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/fstools.py
 //
 // The index format is interoperable with ZODB/py (index uses pickles which
-// allows various valid encodings of a given object). Please see the following
-// links for original FileStorage index definition:
+// allow various valid encodings of a given object). Please see the following
+// links for original FileStorage/py index definition:
 //
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/fsIndex.py
 //	https://github.com/zopefoundation/ZODB/commit/1bb14faf
@@ -59,7 +59,7 @@
 // internal workings so that it is possible to implement FileStorage-specific
 // tools.
 //
-// Please see package lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fs1tools and
+// See also package lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fs1tools and
 // associated fs1 command for basic tools related to FileStorage maintenance.
 package fs1
 
@@ -72,30 +72,12 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
 )
 
-// FileStorage is a ZODB storage which stores data in simple append-only file
-// organized as transactional log.
-type FileStorage struct {
-	file	*os.File
-	index	*Index	// oid -> data record position in transaction which last changed oid
-
-	// transaction headers for min/max transactions committed
-	// XXX keep loaded with LoadNoStrings ?
-	txnhMin	TxnHeader
-	txnhMax TxnHeader
-
-	// XXX topPos = txnhMax.Pos + txnhMax.Len
-	//topPos	int64	// position pointing just past last committed transaction
-	//			// (= size(.file) when no commit is in progress)
-}
-
-// IStorage	XXX move ?
-var _ zodb.IStorage = (*FileStorage)(nil)
-
-// FileHeader represents FileStorage file header
+// FileHeader represents file header
 type FileHeader struct {
 	Magic [4]byte
 }
@@ -213,23 +195,6 @@ func bug(e xerr, format string, a ...interface{}) {
 }
 
 
-// XXX -> xio ?
-// noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
-func noEOF(err error) error {
-	if err == io.EOF {
-		err = io.ErrUnexpectedEOF
-	}
-	return err
-}
-
-// okEOF returns err, but changes io.EOF -> nil
-func okEOF(err error) error {
-	if err == io.EOF {
-		err = nil
-	}
-	return err
-}
-
 // --- File header ---
 
 // Load reads and decodes file header.
@@ -237,12 +202,12 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 	_, err := r.ReadAt(fh.Magic[:], 0)
 	err = okEOF(err)
 	if err != nil {
-		return fh.err("read", err)
-		//return  err	// XXX err more context
+		//return fh.err("read", err)
+		return  err	// XXX err more context
 	}
 	if string(fh.Magic[:]) != Magic {
-		//return fmt.Errorf("%s: invalid magic %q", path, fh.Magic)	// XXX -> decode err
-		return decodeErr(fh, "invalid magic %q", fh.Magic)
+		return fmt.Errorf("%s: invalid magic %q", xio.Name(r), fh.Magic)	// XXX -> decode err
+		//return decodeErr(fh, "invalid magic %q", fh.Magic)
 	}
 
 	return nil
@@ -630,6 +595,8 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 	return nil
 }
 
+// TODO LoadBackRef
+
 // LoadBack reads and decodes data header for revision linked via back-pointer.
 // prerequisite: dh XXX     .DataLen == 0
 // if link is to zero (means deleted record) io.EOF is returned
@@ -782,7 +749,6 @@ func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 		panic("Iter.Dir invalid")
 	}
 
-	//fmt.Println("loaded:", it.Txnh.Tid)
 	if err != nil {
 		// reset .Datah to be invalid (just in case)
 		it.Datah.Pos = 0
@@ -810,6 +776,25 @@ func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
 
 
 // --- FileStorage ---
+
+// FileStorage is a ZODB storage which stores data in simple append-only file
+// organized as transactional log.
+type FileStorage struct {
+	file	*os.File
+	index	*Index	// oid -> data record position in transaction which last changed oid
+
+	// transaction headers for min/max transactions committed
+	// XXX keep loaded with LoadNoStrings ?
+	txnhMin	TxnHeader
+	txnhMax TxnHeader
+
+	// XXX topPos = txnhMax.Pos + txnhMax.Len
+	//topPos	int64	// position pointing just past last committed transaction
+	//			// (= size(.file) when no commit is in progress)
+}
+
+// IStorage
+var _ zodb.IStorage = (*FileStorage)(nil)
 
 func (fs *FileStorage) StorageName() string {
 	return "FileStorage v1"
@@ -991,7 +976,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 	return data, tid, nil
 }
 
-// --- zodb.IStorage iteration ---
+// --- ZODB-level iteration ---
 
 // zIter is combined transaction/data-records iterator as specified by zodb.IStorage
 type zIter struct {
@@ -1181,7 +1166,7 @@ func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err erro
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 
 	// pre-setup txnh so that txnh.LoadNext starts loading from the beginning of file
-	txnh := &TxnHeader{Pos: index.TopPos, Len: -2}	// XXX -2
+	txnh := &TxnHeader{Pos: index.TopPos, Len: lenIterStart}
 	dh   := &DataHeader{}
 
 loop:
@@ -1193,14 +1178,7 @@ loop:
 		default:
 		}
 
-		// XXX merge logic into LoadNext/LoadPrev
-		switch txnh.Len {
-		case -2:
-			err = txnh.Load(fsSeq, txnh.Pos, LoadNoStrings)
-		default:
-			err = txnh.LoadNext(fsSeq, LoadNoStrings)
-		}
-
+		err = txnh.LoadNext(fsSeq, LoadNoStrings)
 		if err != nil {
 			err = okEOF(err)
 			break
