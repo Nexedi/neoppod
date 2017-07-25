@@ -20,6 +20,7 @@
 package fs1tools
 
 import (
+	"fmt"
 	"io"
 
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
@@ -136,7 +137,9 @@ func (d *dumper1) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
 
 func (d *dumper1) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	txnh := &it.Txnh
-	buf .S("Trans #") .D_f("05", d.ntxn) .S(" tid=") .V(txnh.Tid)
+	buf .S("Trans #")
+	buf .S(fmt.Sprintf("%05d", d.ntxn))	// XXX -> .D_f("05", d.ntxn)
+	buf .S(" tid=") .V(txnh.Tid)
 	buf .S(" time=") .V(txnh.Tid.Time()) .S(" offset=") .D64(txnh.Pos)
 	buf .S("\n    status=") .Qpycb(byte(txnh.Status))
 	buf .S(" user=") .Qpyb(txnh.User)
@@ -149,7 +152,9 @@ func (d *dumper1) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 
 func (d *dumper1) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 	dh := &it.Datah
-	buf .S("  data #") .D_f("05", d.ndata) .S(" oid=") .V(dh.Oid)
+	buf .S("  data #")
+	buf .S(fmt.Sprintf("%05d", d.ndata))	// XXX -> .D_f("05", d.ndata)
+	buf .S(" oid=") .V(dh.Oid)
 
 	if dh.DataLen == 0 {
 		buf .S(" class=undo or abort of object creation")
