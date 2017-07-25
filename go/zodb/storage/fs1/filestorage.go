@@ -595,30 +595,41 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 	return nil
 }
 
-// TODO LoadBackRef
+// LoadBackRef reads data for the data record and decodes it as backpointer reference.
+// prerequisite: dh loaded and .LenData == 0 (data record with back-pointer)
+// XXX return backPos=-1 if err?
+func (dh *DataHeader) LoadBackRef(r io.ReaderAt) (backPos int64, err error) {
+	if dh.DataLen != 0 {
+		bug(dh, "LoadBack() on non-backpointer data header")
+	}
+
+	_, err = r.ReadAt(dh.workMem[:8], dh.Pos + DataHeaderSize)
+	if err != nil {
+		return 0, dh.err("read data", noEOF(err))
+	}
+
+	backPos = int64(binary.BigEndian.Uint64(dh.workMem[0:]))
+	if !(backPos == 0 || backPos >= dataValidFrom) {
+		return 0, decodeErr(dh, "invalid backpointer: %v", backPos)
+	}
+	if backPos + DataHeaderSize > dh.TxnPos - 8 {
+		return 0, decodeErr(dh, "backpointer (%v) overlaps with txn (%v)", backPos, dh.TxnPos)
+	}
+
+	return backPos, nil
+}
 
 // LoadBack reads and decodes data header for revision linked via back-pointer.
 // prerequisite: dh XXX     .DataLen == 0
 // if link is to zero (means deleted record) io.EOF is returned
 func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
-	if dh.DataLen != 0 {
-		bug(dh, "LoadBack() on non-backpointer data header")
-	}
-
-	_, err := r.ReadAt(dh.workMem[:8], dh.Pos + DataHeaderSize)
+	backPos, err := dh.LoadBackRef(r)
 	if err != nil {
-		return dh.err("read data", noEOF(err))
+		return err
 	}
 
-	backPos := int64(binary.BigEndian.Uint64(dh.workMem[0:]))
 	if backPos == 0 {
 		return io.EOF	// oid was deleted
-	}
-	if backPos < dataValidFrom {
-		return decodeErr(dh, "invalid backpointer: %v", backPos)
-	}
-	if backPos + DataHeaderSize > dh.TxnPos - 8 {
-		return decodeErr(dh, "backpointer (%v) overlaps with txn (%v)", backPos, dh.TxnPos)
 	}
 
 	posCur := dh.Pos
