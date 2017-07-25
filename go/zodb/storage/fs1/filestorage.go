@@ -95,6 +95,11 @@ type FileStorage struct {
 // IStorage	XXX move ?
 var _ zodb.IStorage = (*FileStorage)(nil)
 
+// FileHeader represents FileStorage file header
+type FileHeader struct {
+	Magic [4]byte
+}
+
 // TxnHeader represents header of a transaction record
 type TxnHeader struct {
 	Pos	int64	// position of transaction start
@@ -219,6 +224,17 @@ func okEOF(err error) error {
 	return err
 }
 
+// --- File header ---
+
+func (fh *FileHeader) Load(r io.ReaderAt) error {
+	_, err = f.ReadAt(fh.Magic[:], 0)
+	if err != nil {
+		return  err	// XXX err more context
+	}
+	if string(fh.Magic[:]) != Magic {
+		return fmt.Errorf("%s: invalid magic %q", path, fh.Magic)	// XXX -> decode err
+	}
+}
 
 // --- Transaction record ---
 

@@ -32,6 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
+	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xfmt"
 )
 
@@ -45,11 +46,7 @@ Format is the same as in fstail/py originally written by Jeremy Hylton:
 */
 func Tail(w io.Writer, path string, ntxn int) (err error) {
 	// path & fstail on error context
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("%s: fstail: %v", path, err)
-		}
-	}()
+	defer xerr.Contextf(&err, "%s: fstail", path)
 
 	// we are not using fs1.Open here, since the file or index could be
 	// e.g. corrupt - we want to iterate directly by FileStorage records
@@ -60,9 +57,7 @@ func Tail(w io.Writer, path string, ntxn int) (err error) {
 	}
 	defer func() {
 		err2 := f.Close()
-		if err == nil {
-			err = err2
-		}
+		err = xerr.First(err, err2)
 	}()
 
 	// get file size as topPos
