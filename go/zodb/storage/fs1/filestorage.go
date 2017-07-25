@@ -1064,7 +1064,7 @@ func (zi *zIter) NextData() (*zodb.StorageRecordInformation, error) {
 	// - need to use separate dh because of this
 	zi.dhLoading = zi.iter.Datah
 	zi.sri.Data = zi.dataBuf
-	err = zi.dhLoading.LoadData(zi.iter.fsSeq, &zi.sri.Data)
+	err = zi.dhLoading.LoadData(zi.iter.R, &zi.sri.Data)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
@@ -1110,7 +1110,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	// when iterating use IO optimized for sequential access
 	// XXX -> IterateRaw ?
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	ziter.iter.fsSeq = fsSeq
+	ziter.iter.R = fsSeq
 
 	if tidMin > tidMax {
 		ziter.zFlags |= zIterEOF	// empty
