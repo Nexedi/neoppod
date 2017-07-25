@@ -786,6 +786,44 @@ func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
 }
 
 
+// IterateFile opens file @ path and creates Iter to iterate over it.
+// The iteration will use buffering over os.File optimized for sequential access.
+// You are responsible to eventually close the file after the iteration is done.
+func IterateFile(path string, dir IterDir) (iter *Iter, file *os.File, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// close file in case we return with an error
+	defer func() {
+		if err != nil {
+			f.Close()
+		}
+	}()
+
+	// use IO optimized for sequential access when iterating
+	fSeq := xbufio.NewSeqReaderAt(f)
+
+	switch dir {
+	case IterForward:
+		return Iterate(fSeq, txnValidFrom, IterForward), f, nil
+
+	case IterBackward:
+		// get file size as topPos
+		fi, err := f.Stat()
+		if err != nil {
+			return nil, nil, err
+		}
+		topPos := fi.Size()
+
+		return Iterate(fSeq, topPos, IterBackward), f, nil
+
+	default:
+		panic("dir invalid")
+	}
+}
+
 // --- FileStorage ---
 
 // FileStorage is a ZODB storage which stores data in simple append-only file

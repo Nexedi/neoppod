@@ -46,22 +46,23 @@ func Dump(w io.Writer, path string, options DumpOptions) (err error) {
 		d = &dumper1{}
 	}
 
-	return dump(w, path, d)
+	return dump(w, path, fs1.IterForward, d)	// XXX hardcoded
 }
 
 type DumpOptions struct {
 	Verbose bool // dump in verbose mode
 }
 
-func dump(w io.Writer, path string, d dumper) (err error) {
+func dump(w io.Writer, path string, dir fs1.IterDir, d dumper) (err error) {
 	defer xerr.Contextf(&err, "%s: fsdump", path)	// XXX ok?
 
-	fs, err := fs1.Open(path, read-only, no-index)
+	it, f, err := fs1.IterateFile(path, dir)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
-		err2 := fs.Close()
+		err2 := f.Close()
 		err = xerr.First(err, err2)
 	}()
 
@@ -79,10 +80,16 @@ func dump(w io.Writer, path string, d dumper) (err error) {
 		err = xerr.First(err, err2)
 	}()
 
-	// TODO d.dumpFileHeader
 
+	// file header
+	var fh fs1.FileHeader
+	err = fh.Load(it.R)
+	if err != nil {
+		return err
+	}
+	d.dumpFileHeader(buf, &fh)
 
-	it := fs.IterateRaw(fs1.IterForward)
+	// iter over txn/data
 	for {
 		err = it.NextTxn(fs1.LoadAll)
 		if err != nil {
@@ -92,23 +99,13 @@ func dump(w io.Writer, path string, d dumper) (err error) {
 			return err
 		}
 
-		d.dumpTxn(buf, it.Txnh)	// XXX err
-
-		for {
-			err = it.NextData()
-			if err != nil {
-				if err == io.EOF {
-					err = nil	// XXX -> okEOF(err)
-					break
-				}
-				return err
+		err = d.dumpTxn(buf, it)
+		if err != nil {
+			if err == io.EOF {
+				err = nil	// XXX -> okEOF(err)
 			}
-
-			d.dumpData(buf, it.Datah)	// XXX err
-
+			return err
 		}
-
-		d.dumpTxnPost(buf, it.Txnh)	// XXX err
 
 		err = flushBuf()
 		if err != nil {
@@ -121,14 +118,13 @@ func dump(w io.Writer, path string, d dumper) (err error) {
 type dumper interface {
 	dumpFileHeader(*xfmt.Buffer, *fs1.FileHeader) error
 	dumpTxn(*xfmt.Buffer, *fs1.Iter) error
-	dumpData(*xfmt.Buffer, *fs1.Iter) error
-	dumpTxnPost(*xfmt.Buffer, *fs1.Iter) error
+//	dumpData(*xfmt.Buffer, *fs1.Iter) error
+//	dumpTxnPost(*xfmt.Buffer, *fs1.Iter) error
 }
 
-// "normal" dumper
+// "normal" dumper XXX link to zodb/py
 type dumper1 struct {
 	ntxn  int // current transaction record #
-	ndata int // current data record # inside current transaction
 }
 
 func (d *dumper1) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
@@ -144,51 +140,52 @@ func (d *dumper1) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	buf .S("\n    status=") .Qpycb(byte(txnh.Status))
 	buf .S(" user=") .Qpyb(txnh.User)
 	buf .S(" description=") .Qpyb(txnh.Description) .S("\n")
-
 	d.ntxn++
-	d.ndata = 0
-	return nil
-}
 
-func (d *dumper1) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
-	dh := &it.Datah
-	buf .S("  data #")
-	buf .S(fmt.Sprintf("%05d", d.ndata))	// XXX -> .D_f("05", d.ndata)
-	buf .S(" oid=") .V(dh.Oid)
-
-	if dh.DataLen == 0 {
-		buf .S(" class=undo or abort of object creation")
-
-		backPos, err := dh.LoadBackRef(it.R)
+	for j := 0; ; j++ {
+		err := it.NextData()
 		if err != nil {
-			// XXX
+			if err == io.EOF {
+				break
+			}
+			return err
 		}
 
-		if backPos != 0 {
-			buf .S(" bp=") .X016(uint64(backPos))
-		}
-	} else {
-		// XXX Datah.LoadData()
-		//modname, classname = zodb.GetPickleMetadata(...)	// XXX
-		//fullclass = "%s.%s" % (modname, classname)
-		fullclass := "AAA.BBB"	// FIXME stub
+		dh := &it.Datah
+		buf .S("  data #")
+		buf .S(fmt.Sprintf("%05d", j))	// XXX -> .D_f("05", j)
+		buf .S(" oid=") .V(dh.Oid)
 
-		buf .S(" size=") .D64(dh.DataLen)
-		buf .S(" class=") .S(fullclass)
+		if dh.DataLen == 0 {
+			buf .S(" class=undo or abort of object creation")
+
+			backPos, err := dh.LoadBackRef(it.R)
+			if err != nil {
+				// XXX
+			}
+
+			if backPos != 0 {
+				buf .S(" bp=") .X016(uint64(backPos))
+			}
+		} else {
+			// XXX Datah.LoadData()
+			//modname, classname = zodb.GetPickleMetadata(...)	// XXX
+			//fullclass = "%s.%s" % (modname, classname)
+			fullclass := "AAA.BBB"	// FIXME stub
+
+			buf .S(" size=") .D64(dh.DataLen)
+			buf .S(" class=") .S(fullclass)
+		}
+
+		buf .S("\n")
 	}
 
-	buf .S("\n")
-
-	d.ndata++
-	return nil
-}
-
-func (d *dumper1) dumpTxnPost(buf *xfmt.Buffer, it *fs1.Iter) error {
 	return nil
 }
 
 // ----------------------------------------
 
+// verbose dumper with output identical to fsdump.Dumper in zodb/py
 type dumperVerbose struct {
 }
 
@@ -215,6 +212,16 @@ func (d *dumperVerbose) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	buf .S("\ndescription: ") .Qpyb(txnh.Description)
 	buf .S("\nlen(extra): ") .D(len(txnh.Extension))
 	buf .S("\n")
+
+	err := d.dumpData(buf, it)
+	if err != nil {
+		return err
+	}
+
+	// NOTE printing the same .Len twice
+	// we do not print/check redundant len here because our
+	// FileStorage code checks/reports this itself
+	buf .S("redundant trec len: ") .D64(it.Txnh.Len) .S("\n")
 	return nil
 }
 
@@ -240,13 +247,5 @@ func (d *dumperVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 	}
 
 	buf .S("\n")
-	return nil
-}
-
-func (d *dumperVerbose) dumpTxnPost(buf *xfmt.Buffer, it *fs1.Iter) error {
-	// NOTE printing the same .Len twice
-	// we do not print/check redundant len here because our
-	// FileStorage code checks/reports this itself
-	buf .S("redundant trec len: ") .D64(it.Txnh.Len) .S("\n")
 	return nil
 }
