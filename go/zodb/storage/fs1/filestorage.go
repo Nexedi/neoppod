@@ -226,14 +226,20 @@ func okEOF(err error) error {
 
 // --- File header ---
 
+// Load reads and decodes file header.
 func (fh *FileHeader) Load(r io.ReaderAt) error {
-	_, err = f.ReadAt(fh.Magic[:], 0)
+	_, err := r.ReadAt(fh.Magic[:], 0)
+	err = okEOF(err)
 	if err != nil {
-		return  err	// XXX err more context
+		return fh.err("read", err)
+		//return  err	// XXX err more context
 	}
 	if string(fh.Magic[:]) != Magic {
-		return fmt.Errorf("%s: invalid magic %q", path, fh.Magic)	// XXX -> decode err
+		//return fmt.Errorf("%s: invalid magic %q", path, fh.Magic)	// XXX -> decode err
+		return decodeErr(fh, "invalid magic %q", fh.Magic)
 	}
+
+	return nil
 }
 
 // --- Transaction record ---
@@ -910,24 +916,6 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 
 // --- raw iteration ---
 
-/*
-// TxnIter is iterator over transaction records
-type TxnIter struct {
-	fsSeq *xbufio.SeqReaderAt
-
-	Txnh	TxnHeader	// current transaction record information
-	Flags	iterFlags	// XXX iterate forward (> 0) / backward (< 0) / EOF reached (== 0)
-}
-
-// DataIter is iterator over data records inside one transaction
-type DataIter struct {
-	fsSeq *xbufio.SeqReaderAt
-
-	Txnh	*TxnHeader	// header of transaction we are iterating inside
-	Datah	DataHeader	// current data record information
-}
-*/
-
 // Iter is combined 2-level iterator over transaction and data records
 type Iter struct {
 	fsSeq *xbufio.SeqReaderAt
@@ -938,46 +926,44 @@ type Iter struct {
 }
 
 
-// NextTxn iterates to next/previous transaction record according to iteration direction
+// NextTxn iterates to next/previous transaction record according to iteration direction.
+// The data header is reset to iterate inside transaction record that became current.
 func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 	var err error
-	if ti.Flags & iterDir != 0 {
-		err = it.Txnh.LoadNext(ti.fsSeq, flags)
+	if it.Flags & iterDir != 0 {
+		err = it.Txnh.LoadNext(it.fsSeq, flags)
 	} else {
-		err = it.Txnh.LoadPrev(ti.fsSeq, flags)
+		err = it.Txnh.LoadPrev(it.fsSeq, flags)
 	}
 
-	//fmt.Println("loaded:", ti.Txnh.Tid)
-	return err
+	//fmt.Println("loaded:", it.Txnh.Tid)
+	if err != nil {
+		// reset .Datah to be invalid (just in case)
+		it.Datah.Pos = 0
+		it.Datah.DataLen = 0
+	} else {
+		// set .Datah to iterate over .Txnh
+		it.Datah.Pos = it.Txnh.DataPos()
+		it.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
+	}
 
-	// set .Datah to iterate over .Txnh
-	it.Datah.Pos = fsi.txnIter.Txnh.DataPos()
-	it.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
+	return err
 }
 
 // NextData iterates to next data record header inside current transaction
-func (di *DataIter) NextData() error {
-	return di.Datah.LoadNext(di.fsSeq, di.Txnh)
+func (it *Iter) NextData() error {
+	return it.Datah.LoadNext(it.fsSeq, &it.Txnh)
 }
 
-// NextTxn iterates to next transaction record and resets data iterator to iterate inside it
-func (iter *Iter) NextTxn() error {
-	err := iter.TxnIter.NextTxn()
-	if err != nil {
-		return err
-	}
-
-}
 
 // IterateRaw ... XXX
 func (fs *FileStorage) IterateRaw(dir/*XXX fwd/back*/) *Iter {
 	// when iterating use IO optimized for sequential access
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 	// XXX setup .TxnIter.dir and start
-	iter.TxnIter.fsSeq = fsSeq
-	iter.DataIter.fsSeq = fsSeq
-	iter.DataIter.Txnh = &iter.txnIter.Txnh
-	return iter
+	it := &Iter{fsSeq: fsSeq}	// XXX ...
+	//it.DataIter.Txnh = &iter.txnIter.Txnh
+	return it
 }
 
 
@@ -1012,30 +998,30 @@ type zIter struct {
 // NextTxn iterates to next/previous transaction record according to iteration direction
 func (zi *zIter) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
 	switch {
-	case ti.Flags & iterEOF != 0:
+	case zi.Flags & iterEOF != 0:
 		//println("already eof")
-		return io.EOF
+		return nil, nil, io.EOF
 
 	// XXX needed?
-	case ti.Flags & iterPreloaded != 0:
+	case zi.Flags & iterPreloaded != 0:
 		// first element is already there - preloaded by who initialized TxnIter
-		ti.Flags &= ^iterPreloaded
-		//fmt.Println("preloaded:", ti.Txnh.Tid)
+		zi.Flags &= ^iterPreloaded
+		//fmt.Println("preloaded:", zi.Txnh.Tid)
 
 	default:
 		err := zi.iter.NextTxn(LoadAll)
 		// XXX EOF ^^^ is not expected (range pre-cut to valid tids) ?
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
 
 	// XXX how to make sure last good txnh is preserved?
-	if (ti.Flags&iterDir != 0 && ti.Txnh.Tid > ti.TidStop) ||
-	   (ti.Flags&iterDir == 0 && ti.Txnh.Tid < ti.TidStop) {
+	if (zi.Flags&iterDir != 0 && zi.iter.Txnh.Tid > zi.TidStop) ||
+	   (zi.Flags&iterDir == 0 && zi.iter.Txnh.Tid < zi.TidStop) {
 		//println("-> EOF")
-		ti.Flags |= iterEOF
-		return io.EOF
+		zi.Flags |= iterEOF
+		return nil, nil, io.EOF
 	}
 
 	return &zi.iter.Txnh.TxnInfo, zi, nil
@@ -1055,7 +1041,7 @@ func (zi *zIter) NextData() (*zodb.StorageRecordInformation, error) {
 	// - need to use separate dh because of this
 	zi.dhLoading = zi.iter.Datah
 	zi.sri.Data = zi.dataBuf
-	err = zi.dhLoading.LoadData(zi.iter.DataIter.fsSeq, &zi.sri.Data)
+	err = zi.dhLoading.LoadData(zi.iter.fsSeq, &zi.sri.Data)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}

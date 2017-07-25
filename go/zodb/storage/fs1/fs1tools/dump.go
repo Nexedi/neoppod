@@ -35,17 +35,19 @@ Format is the same as in fsdump/py originally written by Jeremy Hylton:
 	https://github.com/zopefoundation/ZODB/commit/ddcb46a2
 	https://github.com/zopefoundation/ZODB/commit/4d86e4e0
 */
-func Dump(w io.Writer, path string) (err error) {
-	// TODO
+func Dump(w io.Writer, path string, options DumpOptions) (err error) {
+	var d dumper
+	if options.Verbose {
+		d = &dumperVerbose{}
+	} else {
+		d = &dumper1{}
+	}
+
+	return dump(w, path, d)
 }
 
-
-// dumper is internal interface to implement various dumping modes
-type dumper interface {
-	dumpFileHeader(buf *xfmt.Buffer, *fs1.FileHeader) error
-	dumpTxn(buf *xfmt.Buffer, *fs1.TxnHeader) error
-	dumpData(buf *xfmt.Buffer, *fs1.DataHeader) error
-	dumpTxnPost(buf *xfmt.Buffer, *fs1.TxnHeader) error
+type DumpOptions struct {
+	Verbose bool // dump in verbose mode
 }
 
 func dump(w io.Writer, path string, d dumper) (err error) {
@@ -68,7 +70,7 @@ func dump(w io.Writer, path string, d dumper) (err error) {
 		return err
 	}
 
-	// make sure to flush buffer if we return prematurely with an error
+	// make sure to flush buffer if we return prematurely e.g. with an error
 	defer func() {
 		err2 := flushBuf()
 		err = xerr.First(err, err2)
@@ -78,17 +80,15 @@ func dump(w io.Writer, path string, d dumper) (err error) {
 
 
 	it := fs.IterateRaw(fwd)
-loop:
 	for i := 0; ; i++ {
 		err = it.NextTxn(fs1.LoadAll)
 		if err != nil {
 			if err == io.EOF {
 				err = nil	// XXX -> okEOF(err)
 			}
-			break
+			return err
 		}
 
-		// txn header
 		d.dumpTxn(buf, it.Txnh)	// XXX err
 
 		for j := 0; ; j++ {
@@ -98,10 +98,9 @@ loop:
 					err = nil	// XXX -> okEOF(err)
 					break
 				}
-				break loop	// XXX -> better just return ?
+				return err
 			}
 
-			// data record
 			d.dumpData(buf, it.Datah)	// XXX err
 
 		}
@@ -113,6 +112,14 @@ loop:
 			return err
 		}
 	}
+}
+
+// dumper is internal interface to implement various dumping modes
+type dumper interface {
+	dumpFileHeader(buf *xfmt.Buffer, *fs1.FileHeader) error
+	dumpTxn(buf *xfmt.Buffer, *fs1.TxnHeader) error
+	dumpData(buf *xfmt.Buffer, *fs1.DataHeader) error
+	dumpTxnPost(buf *xfmt.Buffer, *fs1.TxnHeader) error
 }
 
 // "normal" dumper
