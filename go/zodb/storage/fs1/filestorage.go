@@ -894,6 +894,7 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 
 // --- raw iteration ---
 
+/*
 // TxnIter is iterator over transaction records
 type TxnIter struct {
 	fsSeq *xbufio.SeqReaderAt
@@ -909,28 +910,36 @@ type DataIter struct {
 	Txnh	*TxnHeader	// header of transaction we are iterating inside
 	Datah	DataHeader	// current data record information
 }
+*/
 
 // Iter is combined 2-level iterator over transaction and data records
 type Iter struct {
-	TxnIter
-	DataIter
+	fsSeq *xbufio.SeqReaderAt
+	Flags	iterFlags	// XXX iterate forward (> 0) / backward (< 0) / EOF reached (== 0)
+
+	Txnh	TxnHeader	// current transaction record information
+	Datah	DataHeader	// current data record information
 }
 
 
 // NextTxn iterates to next/previous transaction record according to iteration direction
-func (ti *TxnIter) NextTxn(flags TxnLoadFlags) error {
+func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 	var err error
 	if ti.Flags & iterDir != 0 {
-		err = ti.Txnh.LoadNext(ti.fsSeq, flags)
+		err = it.Txnh.LoadNext(ti.fsSeq, flags)
 	} else {
-		err = ti.Txnh.LoadPrev(ti.fsSeq, flags)
+		err = it.Txnh.LoadPrev(ti.fsSeq, flags)
 	}
 
 	//fmt.Println("loaded:", ti.Txnh.Tid)
 	return err
+
+	// set .Datah to iterate over .Txnh
+	it.Datah.Pos = fsi.txnIter.Txnh.DataPos()
+	it.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 }
 
-// NextData iterates to next data record header
+// NextData iterates to next data record header inside current transaction
 func (di *DataIter) NextData() error {
 	return di.Datah.LoadNext(di.fsSeq, di.Txnh)
 }
@@ -942,9 +951,6 @@ func (iter *Iter) NextTxn() error {
 		return err
 	}
 
-	// set .DataIter to iterate over .TxnIter.Txnh
-	iter.DataIter.Datah.Pos = fsi.txnIter.Txnh.DataPos()
-	iter.DataIter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 }
 
 // IterateRaw ... XXX
