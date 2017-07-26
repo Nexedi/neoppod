@@ -418,6 +418,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 			}
 			return err
 		}
+		// we do not care if it was error above as long as txnh.LenPrev could be read.
 		return txnh.LoadPrev(r, flags)
 	}
 
@@ -786,7 +787,7 @@ func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
 }
 
 
-// IterateFile opens file @ path and creates Iter to iterate over it.
+// IterateFile opens file @ path read-only and creates Iter to iterate over it.
 // The iteration will use buffering over os.File optimized for sequential access.
 // You are responsible to eventually close the file after the iteration is done.
 func IterateFile(path string, dir IterDir) (iter *Iter, file *os.File, err error) {
@@ -810,7 +811,7 @@ func IterateFile(path string, dir IterDir) (iter *Iter, file *os.File, err error
 		return Iterate(fSeq, txnValidFrom, IterForward), f, nil
 
 	case IterBackward:
-		// get file size as topPos
+		// get file size as topPos and start iterating backward from it
 		fi, err := f.Stat()
 		if err != nil {
 			return nil, nil, err
