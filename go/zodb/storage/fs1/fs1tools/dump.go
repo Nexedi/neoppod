@@ -190,7 +190,7 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		} else {
 			fullclass := zodb.PyData(data).ClassString()
 
-			buf .S(" size=") .D64(dh.DataLen)
+			buf .S(" size=") .D64(d.dhLoading.DataLen)
 			buf .S(" class=") .S(fullclass)
 		}
 

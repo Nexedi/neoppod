@@ -32,6 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
+	//diffpkg "github.com/kylelemons/godebug/diff"
 )
 
 // XXX -> xtesting ?
