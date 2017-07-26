@@ -150,6 +150,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 
 	for k := 0; ; k++ {
 		txnErrorf := func(format string, a ...interface{}) {
+			t.Helper()
 			subj := fmt.Sprintf("iterating %v..%v: step %v#%v", tidMin, tidMax, k, len(expectv))
 			msg  := fmt.Sprintf(format, a...)
 			t.Errorf("%v: %v", subj, msg)
@@ -191,6 +192,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 
 		for kdata := 0; ; kdata++ {
 			dataErrorf := func(format string, a...interface{}) {
+				t.Helper()
 				dsubj := fmt.Sprintf("dstep %v#%v", kdata, len(dbe.Entryv))
 				msg   := fmt.Sprintf(format, a...)
 				txnErrorf("%v: %v", dsubj, msg)

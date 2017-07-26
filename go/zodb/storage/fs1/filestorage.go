@@ -242,13 +242,12 @@ func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
 	txnh.workMem = workMem
 	copy(workMem, txnh2.workMem)
 
-	// FIXME handle case when strings were already loaded -> set len properly
 	luser := cap(txnh2.User)
 	xdesc := luser + cap(txnh2.Description)
 	xext  := xdesc + cap(txnh2.Extension)
-	txnh.User	 = workMem[0:0:luser]
-	txnh.Description = workMem[luser:luser:xdesc]
-	txnh.Extension   = workMem[xdesc:xdesc:xext]
+	txnh.User	 = workMem[0:0:luser]		[:len(txnh2.User)]
+	txnh.Description = workMem[luser:luser:xdesc]	[:len(txnh2.Description)]
+	txnh.Extension   = workMem[xdesc:xdesc:xext]	[:len(txnh2.Extension)]
 }
 
 // flags for TxnHeader.Load
@@ -761,6 +760,8 @@ func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 		panic("Iter.Dir invalid")
 	}
 
+	fmt.Printf("Iter.NextTxn  dir=%v -> %v\n", it.Dir, err)
+
 	if err != nil {
 		// reset .Datah to be invalid (just in case)
 		it.Datah.Pos = 0
@@ -887,7 +888,7 @@ func open(path string) (*FileStorage, error) {
 	topPos := fi.Size()
 
 	// read tidMin/tidMax
-	// FIXME support empty file case
+	// FIXME support empty file case -> then both txnhMin and txnhMax stays invalid
 	err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)	// XXX txnValidFrom here -> ?
 	if err != nil {
 		return nil, err	// XXX +context
@@ -1129,9 +1130,90 @@ func (e *iterStartError) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, 
 	return nil, nil, e.err
 }
 
+
+// findTxnRecord finds smallest transaction record with txn.tid >= tid	XXX or <= ?
+// if there is no such transaction returned TxnHeader will be invalid (.Pos = 0) and error = nil
+// error != nil only on IO error
+// XXX ^^^ text
+func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, error) {
+	fmt.Printf("findTxn %v\n", tid)
+
+	// XXX read snapshot under lock
+	// NOTE cloning to unalias strings memory
+	var tmin, tmax TxnHeader
+	tmin.CloneFrom(&fs.txnhMin)
+	tmax.CloneFrom(&fs.txnhMax)
+
+	if tmax.Pos == 0 {	// XXX -> tmax.Valid() )?
+		// empty database - no such record
+		return TxnHeader{}, nil
+	}
+
+	// now we know the database is not empty and thus tmin & tmax are valid
+
+	if tmax.Tid < tid {
+		return TxnHeader{}, nil	// no such record
+	}
+	if tmin.Tid >= tid {
+		return tmin, nil	// tmin satisfies
+	}
+
+	// now we know tid ∈ (tmin, tmax]
+	// iterate and scan either from tmin or tmax, depending which way it is
+	// likely closer, to searched tid.
+	// when iterating use IO optimized for sequential access
+	iter := &Iter{R: r}
+
+	if (tid - tmin.Tid) < (tmax.Tid - tid) {
+		fmt.Printf("forward %.1f%%\n", 100 * float64(tid - tmin.Tid) / float64(tmax.Tid - tmin.Tid))
+		iter.Dir = IterForward
+		iter.Txnh = tmin // ok not to clone - memory is already ours
+	} else {
+		fmt.Printf("backward %.1f%%\n", 100 * float64(tid - tmin.Tid) / float64(tmax.Tid - tmin.Tid))
+		iter.Dir = IterBackward
+		iter.Txnh = tmax // ok not to clone - ... ^^^
+	}
+
+	var txnhPrev TxnHeader
+
+	for {
+		txnhPrev = iter.Txnh // ok not to clone - we'll reload strings in the end
+
+		err := iter.NextTxn(LoadNoStrings)
+		if err != nil {
+			return TxnHeader{}, noEOF(err)
+		}
+
+		if (iter.Dir == IterForward  && iter.Txnh.Tid >= tid) ||
+		   (iter.Dir == IterBackward && iter.Txnh.Tid < tid) {
+			break // found  (prev for backward)
+		}
+	}
+
+	// found
+	var txnhFound TxnHeader
+	if iter.Dir == IterForward {
+		txnhFound = iter.Txnh
+	} else {
+		txnhFound = txnhPrev
+	}
+
+	// load strings to make sure not to return txnh with strings data from
+	// another transaction
+	err := txnhFound.loadStrings(iter.R)
+	if err != nil {
+		return TxnHeader{}, noEOF(err)
+	}
+
+	return txnhFound, nil
+}
+
 // Iterate creates zodb-level iterator for tidMin..tidMax range
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
+
+	// XXX still needed ?
+/*
 	// FIXME case when only 0 or 1 txn present
 	if tidMin < fs.txnhMin.Tid {
 		tidMin = fs.txnhMin.Tid
@@ -1139,21 +1221,24 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	if tidMax > fs.txnhMax.Tid {
 		tidMax = fs.txnhMax.Tid
 	}
+*/
 
 	// when iterating use IO optimized for sequential access
 	// XXX -> IterateRaw ?
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	ziter := &zIter{iter: Iter{R: fsSeq}}
+	ziter := &zIter{iter: Iter{R: fsSeq, Dir: IterForward}, TidStop: tidMax}
 	iter := &ziter.iter
 
-
+	// XXX still needed?
+/*
 	if tidMin > tidMax {
 		ziter.zFlags |= zIterEOF	// empty
 		return ziter
 	}
+*/
 
+/*
 	// scan either from file start or end, depending which way it is likely closer, to tidMin
-
 	if (tidMin - fs.txnhMin.Tid) < (fs.txnhMax.Tid - tidMin) {
 		fmt.Printf("forward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
 		iter.Dir = IterForward
@@ -1168,22 +1253,34 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		ziter.TidStop = tidMin
 	}
 
+	println("AAA")
+
 	// XXX recheck how we enter loop
 	var err error
 	for {
-		err = iter.NextTxn(LoadNoStrings)
+		err = iter.NextTxn(LoadNoStrings)	// XXX -> ziter
 		if err != nil {
 			err = okEOF(err)
 			break
 		}
 	}
 
+	println("BBB")
+*/
+	// find first txn : txn.tid >= tidMin
+	txnh, err := fs.findTxnRecord(fsSeq, tidMin)
 	if err != nil {
 		return &iterStartError{err}	// XXX err ctx
 	}
+	if txnh.Pos == 0 {	// XXX -> txnh.Valid() ?
+		ziter.zFlags |= zIterEOF	// empty
+		return ziter
+	}
 
-	//fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, iter.Txnh.Tid, iter.Txnh.Pos)
+	fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, txnh.Tid, txnh.Pos)
+	fmt.Printf("\t%#v\n", txnh)
 
+/*
 	// where to start around tidMin found - let's reinitialize iter to
 	// iterate appropriately forward up to tidMax
 	ziter.zFlags &= ^zIterEOF
@@ -1195,7 +1292,15 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		}
 		ziter.zFlags |= zIterPreloaded
 	}
+*/
+
+	iter.Txnh = txnh
+	iter.Datah.Pos = txnh.DataPos()
+	iter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
+
 	iter.Dir = IterForward
+
+	ziter.zFlags |= zIterPreloaded
 	ziter.TidStop = tidMax
 
 	return ziter
