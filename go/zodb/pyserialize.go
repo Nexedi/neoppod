@@ -29,7 +29,7 @@ import (
 
 // PyData represent data stored into ZODB by Python applications.
 //
-// The format is based on python pickles. Basically every sirialized object has
+// The format is based on python pickles. Basically every serialized object has
 // two parts: class description and object state. See
 //
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/serialize.py
@@ -37,8 +37,8 @@ import (
 // for format description.
 type PyData []byte
 
-// ClassString returns fully-qualified python class name used for object type
-// The format is "module.class"
+// ClassString returns fully-qualified python class name used for object type.
+// The format is "module.class".
 // If pickle decoding fails "?.?" is returned.
 // TODO tests
 func (d PyData) ClassString() string {
