@@ -20,20 +20,16 @@
 package fs1tools
 
 import (
-	"crypto/sha1"
-	"flag"
-	"fmt"
-	"io"
-	"log"
-	"os"
+//	"crypto/sha1"
+//	"flag"
+//	"fmt"
+//	"io"
+//	"log"
+//	"os"
 
-	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
-
-	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
-
-	"lab.nexedi.com/kirr/go123/xbytes"
-	"lab.nexedi.com/kirr/go123/xerr"
-	"lab.nexedi.com/kirr/go123/xfmt"
+//	"lab.nexedi.com/kirr/go123/xbytes"
+//	"lab.nexedi.com/kirr/go123/xerr"
+//	"lab.nexedi.com/kirr/go123/xfmt"
 )
 
 /*
@@ -44,6 +40,7 @@ Format is the same as in fstail/py originally written by Jeremy Hylton:
 	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/scripts/fstail.py
 	https://github.com/zopefoundation/ZODB/commit/551122cc
 */
+/*
 func Tail(w io.Writer, path string, ntxn int) (err error) {
 	// path & fstail on error context
 	defer xerr.Contextf(&err, "%s: fstail", path)
@@ -138,9 +135,11 @@ func Tail(w io.Writer, path string, ntxn int) (err error) {
 
 	return err
 }
+*/
 
 // ----------------------------------------
 
+/*
 const tailSummary = "dump last few transactions of a database"
 const ntxnDefault = 10
 
@@ -178,3 +177,4 @@ func tailMain(argv []string) {
 		log.Fatal(err)
 	}
 }
+*/

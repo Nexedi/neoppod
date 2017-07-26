@@ -206,7 +206,7 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 		return  err	// XXX err more context
 	}
 	if string(fh.Magic[:]) != Magic {
-		return fmt.Errorf("%s: invalid magic %q", xio.Name(r), fh.Magic)	// XXX -> decode err
+		return fmt.Errorf("%s: invalid magic %q", xio.Name(r), fh.Magic) // XXX -> decode err
 		//return decodeErr(fh, "invalid magic %q", fh.Magic)
 	}
 

@@ -23,8 +23,11 @@ package fs1tools
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"testing"
+
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -46,25 +49,29 @@ func diff(a, b string) string {
 	return dmp.DiffPrettyText(diffv)
 }
 
-func TestTail(t *testing.T) {
+func testDump(t *testing.T, name string, dir fs1.IterDir, d Dumper) {
 	buf := bytes.Buffer{}
 
-	err := Tail(&buf, "../testdata/1.fs", 1000000)
+	err := Dump(&buf, "../testdata/1.fs", dir, d)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%s: %v", name, err)
 	}
 
-	dumpOk := loadFile(t, "testdata/1.fstail.ok")
+	dumpOk := loadFile(t, fmt.Sprintf("testdata/1.%s.ok", name))
 
 	if dumpOk != buf.String() {
-		t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
+		t.Errorf("%s: dump different:\n%v", name, diff(dumpOk, buf.String()))
 	}
 }
+
+func TestFsDump(t *testing.T)	{ testDump(t, "fsdump",  fs1.IterForward,  &DumperFsDump{}) }
+func TestFsDumpv(t *testing.T)	{ testDump(t, "fsdumpv", fs1.IterForward,  &DumperFsDumpVerbose{}) }
+func TestFsTail(t *testing.T)	{ testDump(t, "fstail",  fs1.IterBackward, &DumperFsTail{Ntxn: 1000000}) }
 
 func BenchmarkTail(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarking
 	for i := 0; i < b.N; i++ {
-		err := Tail(ioutil.Discard, "../testdata/1.fs", 1000000)
+		err := Dump(ioutil.Discard, "../testdata/1.fs", fs1.IterBackward, &DumperFsTail{Ntxn: 1000000})
 		if err != nil {
 			b.Fatal(err)
 		}

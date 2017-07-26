@@ -18,43 +18,43 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package fs1tools
+// various dumping routines / subcommands
 
 import (
+	"crypto/sha1"
+	"flag"
 	"fmt"
 	"io"
+	"log"
+	"os"
 
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
+	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xfmt"
 )
 
-/*
-Dump dumps transactions from a FileStorage.
+// Dumper is interface to implement various dumping modes
+type Dumper interface {
+	// DumpFileHeader dumps fh to buf
+	DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error
 
-Format is the same as in fsdump/py originally written by Jeremy Hylton:
-
-	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/FileStorage/fsdump.py
-	https://github.com/zopefoundation/ZODB/commit/ddcb46a2
-	https://github.com/zopefoundation/ZODB/commit/4d86e4e0
-*/
-func Dump(w io.Writer, path string, options DumpOptions) (err error) {
-	var d dumper
-	if options.Verbose {
-		d = &dumperVerbose{}
-	} else {
-		d = &dumper1{}
-	}
-
-	return dump(w, path, fs1.IterForward, d)	// XXX hardcoded
+	// DumpTxn dumps current transaction from it to buf.
+	//
+	// It is dumper responsibility to iterate over data records inside
+	// transaction if it needs to dump information about data records.
+	//
+	// If dumper return io.EOF the whole dumping process finishes.
+	// XXX -> better dedicated err?
+	DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error
 }
 
-type DumpOptions struct {
-	Verbose bool // dump in verbose mode
-}
-
-func dump(w io.Writer, path string, dir fs1.IterDir, d dumper) (err error) {
-	defer xerr.Contextf(&err, "%s: fsdump", path)	// XXX ok?
+// Dump dumps content of a FileStorage file @ path.
+// To do so it reads file header and then iterates over all transactions in the file.
+// The logic to actually output information and if needed read/process data is implemented by Dumper d.
+func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
+	defer xerr.Contextf(&err, "%s: dump", path)	// XXX ok?	XXX name ?
 
 	it, f, err := fs1.IterateFile(path, dir)
 	if err != nil {
@@ -87,7 +87,10 @@ func dump(w io.Writer, path string, dir fs1.IterDir, d dumper) (err error) {
 	if err != nil {
 		return err
 	}
-	d.dumpFileHeader(buf, &fh)
+	err = d.DumpFileHeader(buf, &fh)
+	if err != nil {
+		return err
+	}
 
 	// iter over txn/data
 	for {
@@ -99,7 +102,7 @@ func dump(w io.Writer, path string, dir fs1.IterDir, d dumper) (err error) {
 			return err
 		}
 
-		err = d.dumpTxn(buf, it)
+		err = d.DumpTxn(buf, it)
 		if err != nil {
 			if err == io.EOF {
 				err = nil	// XXX -> okEOF(err)
@@ -114,24 +117,22 @@ func dump(w io.Writer, path string, dir fs1.IterDir, d dumper) (err error) {
 	}
 }
 
-// dumper is internal interface to implement various dumping modes
-type dumper interface {
-	dumpFileHeader(*xfmt.Buffer, *fs1.FileHeader) error
-	dumpTxn(*xfmt.Buffer, *fs1.Iter) error
-//	dumpData(*xfmt.Buffer, *fs1.Iter) error
-//	dumpTxnPost(*xfmt.Buffer, *fs1.Iter) error
-}
+// ----------------------------------------
 
-// "normal" dumper XXX link to zodb/py
-type dumper1 struct {
+// DumperFsDump implements dumping with the same format as in fsdump/py
+// originally written by Jeremy Hylton:
+//
+//	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/FileStorage/fsdump.py
+//	https://github.com/zopefoundation/ZODB/commit/ddcb46a2
+type DumperFsDump struct {
 	ntxn  int // current transaction record #
 }
 
-func (d *dumper1) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
+func (d *DumperFsDump) DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
 	return nil
 }
 
-func (d *dumper1) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
+func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	txnh := &it.Txnh
 	buf .S("Trans #")
 	buf .S(fmt.Sprintf("%05d", d.ntxn))	// XXX -> .D_f("05", d.ntxn)
@@ -183,13 +184,16 @@ func (d *dumper1) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	return nil
 }
 
-// ----------------------------------------
 
-// verbose dumper with output identical to fsdump.Dumper in zodb/py
-type dumperVerbose struct {
+// DumperFsDumpVerbose implements a very verbose dumper with output identical
+// to fsdump.Dumper in zodb/py originally written by Jeremy Hylton:
+//
+//	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/FileStorage/fsdump.py
+//	https://github.com/zopefoundation/ZODB/commit/4d86e4e0
+type DumperFsDumpVerbose struct {
 }
 
-func (d *dumperVerbose) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
+func (d *DumperFsDumpVerbose) DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
 	for i := 0; i < 60; i++ {
 		buf .S("*")
 	}
@@ -198,7 +202,7 @@ func (d *dumperVerbose) dumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) err
 	return nil
 }
 
-func (d *dumperVerbose) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
+func (d *DumperFsDumpVerbose) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	txnh := &it.Txnh
 	for i := 0; i < 60; i++ {
 		buf .S("=")
@@ -225,7 +229,7 @@ func (d *dumperVerbose) dumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	return nil
 }
 
-func (d *dumperVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
+func (d *DumperFsDumpVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 	dh := &it.Datah
 	for i := 0; i < 60; i++ {
 		buf .S("-")
@@ -248,4 +252,91 @@ func (d *dumperVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 
 	buf .S("\n")
 	return nil
+}
+
+// ----------------------------------------
+
+// DumperFsTail implements dumping with the same format as in fstail/py
+// originally written by Jeremy Hylton:
+//
+//	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/scripts/fstail.py
+//	https://github.com/zopefoundation/ZODB/commit/551122cc
+type DumperFsTail struct {
+	Ntxn int	// max # of transactions to dump
+	data []byte	// buffer for reading txn data
+}
+
+func (d *DumperFsTail) DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
+	return nil
+}
+
+func (d *DumperFsTail) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
+	if d.Ntxn == 0 {
+		return io.EOF
+	}
+	d.Ntxn--
+
+	txnh := &it.Txnh
+
+	// read raw data inside transaction record
+	dataLen := txnh.DataLen()
+	d.data = xbytes.Realloc64(d.data, dataLen)
+	_, err := it.R.ReadAt(d.data, txnh.DataPos())
+	if err != nil {
+		// XXX -> txnh.Err(...) ?
+		// XXX err = noEOF(err)
+		return &fs1.ErrTxnRecord{txnh.Pos, "read data payload", err}
+	}
+
+	// print information about read txn record
+	dataSha1 := sha1.Sum(d.data)
+	buf .V(txnh.Tid.Time()) .S(": hash=") .Xb(dataSha1[:])
+
+	// fstail.py uses repr to print user/description:
+	// https://github.com/zopefoundation/ZODB/blob/5.2.0-5-g6047e2fae/src/ZODB/scripts/fstail.py#L39
+	buf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
+
+	// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
+	buf .S(" length=") .D64(txnh.Len - 8)
+	buf .S(" offset=") .D64(txnh.Pos) .S(" (+") .D64(txnh.HeaderLen()) .S(")\n\n")
+
+	return nil
+}
+
+const tailSummary = "dump last few transactions of a database"
+const ntxnDefault = 10
+
+func tailUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: fs1 tail [options] <storage>
+Dump transactions from a FileStorage in reverse order
+
+<storage> is a path to FileStorage
+
+  options:
+
+	-h --help       this help text.
+	-n <N>	        output the last <N> transactions (default %d).
+`, ntxnDefault)
+}
+
+func tailMain(argv []string) {
+	ntxn := ntxnDefault
+
+	flags := flag.FlagSet{Usage: func() { tailUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.IntVar(&ntxn, "n", ntxn, "output the last <N> transactions")
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+	storPath := argv[0]
+
+	err := Dump(os.Stdout, storPath, fs1.IterBackward, &DumperFsTail{Ntxn: ntxn})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
