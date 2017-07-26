@@ -377,7 +377,7 @@ func (d *DumperFsTail) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	// https://github.com/zopefoundation/ZODB/blob/5.2.0-5-g6047e2fae/src/ZODB/scripts/fstail.py#L39
 	buf .S("\nuser=") .Qpyb(txnh.User) .S(" description=") .Qpyb(txnh.Description)
 
-	// NOTE in zodb/py .length is len - 8, in zodb/go - whole txn record length
+	// XXX in zodb/py .length is len - 8, in zodb/go - whole txn record length	-> FIXME better .Len be what is on disk
 	buf .S(" length=") .D64(txnh.Len - 8)
 	buf .S(" offset=") .D64(txnh.Pos) .S(" (+") .D64(txnh.HeaderLen()) .S(")\n\n")
 
