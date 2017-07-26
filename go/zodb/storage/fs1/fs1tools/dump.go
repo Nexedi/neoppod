@@ -28,6 +28,7 @@ import (
 	"log"
 	"os"
 
+	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
@@ -183,9 +184,7 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		if data == nil {
 			buf .S(" class=undo or abort of object creation")
 		} else {
-			//modname, classname = zodb.GetPickleMetadata(...)	// XXX
-			//fullclass = "%s.%s" % (modname, classname)
-			fullclass := "AAA.BBB"	// FIXME stub
+			fullclass := zodb.PyData(data).ClassString()
 
 			buf .S(" size=") .D64(dh.DataLen)
 			buf .S(" class=") .S(fullclass)
