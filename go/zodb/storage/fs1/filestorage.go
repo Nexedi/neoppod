@@ -760,7 +760,7 @@ func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 		panic("Iter.Dir invalid")
 	}
 
-	fmt.Printf("Iter.NextTxn  dir=%v -> %v\n", it.Dir, err)
+	//fmt.Printf("Iter.NextTxn  dir=%v -> %v\n", it.Dir, err)
 
 	if err != nil {
 		// reset .Datah to be invalid (just in case)
@@ -1136,7 +1136,7 @@ func (e *iterStartError) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, 
 // error != nil only on IO error
 // XXX ^^^ text
 func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, error) {
-	fmt.Printf("findTxn %v\n", tid)
+	//fmt.Printf("findTxn %v\n", tid)
 
 	// XXX read snapshot under lock
 	// NOTE cloning to unalias strings memory
@@ -1165,11 +1165,11 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	iter := &Iter{R: r}
 
 	if (tid - tmin.Tid) < (tmax.Tid - tid) {
-		fmt.Printf("forward %.1f%%\n", 100 * float64(tid - tmin.Tid) / float64(tmax.Tid - tmin.Tid))
+		//fmt.Printf("forward %.1f%%\n", 100 * float64(tid - tmin.Tid) / float64(tmax.Tid - tmin.Tid))
 		iter.Dir = IterForward
 		iter.Txnh = tmin // ok not to clone - memory is already ours
 	} else {
-		fmt.Printf("backward %.1f%%\n", 100 * float64(tid - tmin.Tid) / float64(tmax.Tid - tmin.Tid))
+		//fmt.Printf("backward %.1f%%\n", 100 * float64(tid - tmin.Tid) / float64(tmax.Tid - tmin.Tid))
 		iter.Dir = IterBackward
 		iter.Txnh = tmax // ok not to clone - ... ^^^
 	}
@@ -1210,63 +1210,14 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 
 // Iterate creates zodb-level iterator for tidMin..tidMax range
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
-
-	// XXX still needed ?
-/*
-	// FIXME case when only 0 or 1 txn present
-	if tidMin < fs.txnhMin.Tid {
-		tidMin = fs.txnhMin.Tid
-	}
-	if tidMax > fs.txnhMax.Tid {
-		tidMax = fs.txnhMax.Tid
-	}
-*/
+	//fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
 
 	// when iterating use IO optimized for sequential access
 	// XXX -> IterateRaw ?
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	ziter := &zIter{iter: Iter{R: fsSeq, Dir: IterForward}, TidStop: tidMax}
+	ziter := &zIter{iter: Iter{R: fsSeq}}
 	iter := &ziter.iter
 
-	// XXX still needed?
-/*
-	if tidMin > tidMax {
-		ziter.zFlags |= zIterEOF	// empty
-		return ziter
-	}
-*/
-
-/*
-	// scan either from file start or end, depending which way it is likely closer, to tidMin
-	if (tidMin - fs.txnhMin.Tid) < (fs.txnhMax.Tid - tidMin) {
-		fmt.Printf("forward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
-		iter.Dir = IterForward
-		iter.Txnh.CloneFrom(&fs.txnhMin)
-		ziter.zFlags = zIterPreloaded
-		ziter.TidStop = tidMin - 1	// XXX overflow
-	} else {
-		fmt.Printf("backward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
-		iter.Dir = IterBackward
-		iter.Txnh.CloneFrom(&fs.txnhMax)
-		ziter.zFlags = zIterPreloaded
-		ziter.TidStop = tidMin
-	}
-
-	println("AAA")
-
-	// XXX recheck how we enter loop
-	var err error
-	for {
-		err = iter.NextTxn(LoadNoStrings)	// XXX -> ziter
-		if err != nil {
-			err = okEOF(err)
-			break
-		}
-	}
-
-	println("BBB")
-*/
 	// find first txn : txn.tid >= tidMin
 	txnh, err := fs.findTxnRecord(fsSeq, tidMin)
 	if err != nil {
@@ -1277,28 +1228,14 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		return ziter
 	}
 
-	fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, txnh.Tid, txnh.Pos)
-	fmt.Printf("\t%#v\n", txnh)
+	//fmt.Printf("tidRange: %v..%v -> found %v @%v\n", tidMin, tidMax, txnh.Tid, txnh.Pos)
 
-/*
-	// where to start around tidMin found - let's reinitialize iter to
-	// iterate appropriately forward up to tidMax
-	ziter.zFlags &= ^zIterEOF
-	if iter.Dir == IterForward {
-		// when ^^^ we were searching forward first txn was already found
-		err = iter.Txnh.loadStrings(fsSeq)	// XXX ok?	XXX -> move NextTxn() ?
-		if err != nil {
-			return &iterStartError{err}
-		}
-		ziter.zFlags |= zIterPreloaded
-	}
-*/
-
+	// setup iter from what findTxnRecord found
 	iter.Txnh = txnh
-	iter.Datah.Pos = txnh.DataPos()
+	iter.Datah.Pos = txnh.DataPos()      // XXX dup wrt Iter.NextTxn
 	iter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 
-	iter.Dir = IterForward
+	iter.Dir = IterForward	// XXX allow both ways iteration at ZODB level
 
 	ziter.zFlags |= zIterPreloaded
 	ziter.TidStop = tidMax
