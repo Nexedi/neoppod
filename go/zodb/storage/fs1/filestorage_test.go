@@ -144,7 +144,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 	fsi, ok := iter.(*zIter)
 	if !ok {
 		_, _, err := iter.NextTxn()
-		t.Fatalf("iterating %v..%v: iter type is %T  ; want zIter\nNextTxn gives: _, _, %v", tidMin, tidMax, iter, err) // XXX Errorf
+		t.Errorf("iterating %v..%v: iter type is %T  ; want zIter\nNextTxn gives: _, _, %v", tidMin, tidMax, iter, err)
 		return
 	}
 
