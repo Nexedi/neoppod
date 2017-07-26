@@ -23,8 +23,8 @@ package fs1tools
 import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
 var commands = zodbtools.CommandRegistry{
+	{"dump",    dumpSummary,    dumpUsage,    dumpMain},
 	{"tail",    tailSummary,    tailUsage,    tailMain},
-	// dump, dump+verbose 	(fsdump.py)
 	// + fsstats?		(fsstats.py)
 
 	{"reindex", reindexSummary, reindexUsage, reindexMain},

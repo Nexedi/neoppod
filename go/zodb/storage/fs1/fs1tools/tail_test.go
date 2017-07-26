@@ -49,24 +49,24 @@ func diff(a, b string) string {
 	return dmp.DiffPrettyText(diffv)
 }
 
-func testDump(t *testing.T, name string, dir fs1.IterDir, d Dumper) {
+func testDump(t *testing.T, dir fs1.IterDir, d Dumper) {
 	buf := bytes.Buffer{}
 
 	err := Dump(&buf, "../testdata/1.fs", dir, d)
 	if err != nil {
-		t.Fatalf("%s: %v", name, err)
+		t.Fatalf("%s: %v", d.DumperName(), err)
 	}
 
-	dumpOk := loadFile(t, fmt.Sprintf("testdata/1.%s.ok", name))
+	dumpOk := loadFile(t, fmt.Sprintf("testdata/1.%s.ok", d.DumperName()))
 
 	if dumpOk != buf.String() {
-		t.Errorf("%s: dump different:\n%v", name, diff(dumpOk, buf.String()))
+		t.Errorf("%s: dump different:\n%v", d.DumperName(), diff(dumpOk, buf.String()))
 	}
 }
 
-func TestFsDump(t *testing.T)	{ testDump(t, "fsdump",  fs1.IterForward,  &DumperFsDump{}) }
-func TestFsDumpv(t *testing.T)	{ testDump(t, "fsdumpv", fs1.IterForward,  &DumperFsDumpVerbose{}) }
-func TestFsTail(t *testing.T)	{ testDump(t, "fstail",  fs1.IterBackward, &DumperFsTail{Ntxn: 1000000}) }
+func TestFsDump(t *testing.T)	{ testDump(t, fs1.IterForward,  &DumperFsDump{}) }
+func TestFsDumpv(t *testing.T)	{ testDump(t, fs1.IterForward,  &DumperFsDumpVerbose{}) }
+func TestFsTail(t *testing.T)	{ testDump(t, fs1.IterBackward, &DumperFsTail{Ntxn: 1000000}) }
 
 func BenchmarkTail(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarking

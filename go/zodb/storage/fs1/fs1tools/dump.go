@@ -37,6 +37,9 @@ import (
 
 // Dumper is interface to implement various dumping modes
 type Dumper interface {
+	// DumperName defines concise name to use in error-reporting when using this dumper.
+	DumperName() string
+
 	// DumpFileHeader dumps fh to buf
 	DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error
 
@@ -54,7 +57,7 @@ type Dumper interface {
 // To do so it reads file header and then iterates over all transactions in the file.
 // The logic to actually output information and if needed read/process data is implemented by Dumper d.
 func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
-	defer xerr.Contextf(&err, "%s: dump", path)	// XXX ok?	XXX name ?
+	defer xerr.Contextf(&err, "%s: %s", path, d.DumperName())	// XXX ok?
 
 	it, f, err := fs1.IterateFile(path, dir)
 	if err != nil {
@@ -128,6 +131,10 @@ type DumperFsDump struct {
 	ntxn  int // current transaction record #
 }
 
+func (d *DumperFsDump) DumperName() string {
+	return "fsdump"
+}
+
 func (d *DumperFsDump) DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
 	return nil
 }
@@ -184,13 +191,16 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	return nil
 }
 
-
 // DumperFsDumpVerbose implements a very verbose dumper with output identical
 // to fsdump.Dumper in zodb/py originally written by Jeremy Hylton:
 //
 //	https://github.com/zopefoundation/ZODB/blob/master/src/ZODB/FileStorage/fsdump.py
 //	https://github.com/zopefoundation/ZODB/commit/4d86e4e0
 type DumperFsDumpVerbose struct {
+}
+
+func (d *DumperFsDumpVerbose) DumperName() string {
+	return "fsdumpv"
 }
 
 func (d *DumperFsDumpVerbose) DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
@@ -254,6 +264,49 @@ func (d *DumperFsDumpVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 	return nil
 }
 
+const dumpSummary = "dump database transactions"
+
+func dumpUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: fs1 dump [options] <storage>
+Dump transactions from a FileStorage
+
+<storage> is a path to FileStorage
+
+  options:
+
+	-h --help       this help text.
+	-v		verbose mode.
+`)
+}
+
+func dumpMain(argv []string) {
+	var verbose bool
+	flags := flag.FlagSet{Usage: func() { tailUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.BoolVar(&verbose, "v", verbose, "verbose mode")
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+	storPath := argv[0]
+
+	var d Dumper
+	if verbose {
+		d = &DumperFsDumpVerbose{}
+	} else {
+		d = &DumperFsDump{}
+	}
+
+	err := Dump(os.Stdout, storPath, fs1.IterForward, d)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 // ----------------------------------------
 
 // DumperFsTail implements dumping with the same format as in fstail/py
@@ -264,6 +317,10 @@ func (d *DumperFsDumpVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 type DumperFsTail struct {
 	Ntxn int	// max # of transactions to dump
 	data []byte	// buffer for reading txn data
+}
+
+func (d *DumperFsTail) DumperName() string {
+	return "fstail"
 }
 
 func (d *DumperFsTail) DumpFileHeader(buf *xfmt.Buffer, fh *fs1.FileHeader) error {
