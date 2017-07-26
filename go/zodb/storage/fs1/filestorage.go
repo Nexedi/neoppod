@@ -1028,11 +1028,11 @@ func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error)
 
 // --- ZODB-level iteration ---
 
-// zIter is combined transaction/data-records iterator as specified by zodb.IStorage
+// zIter is combined transaction/data-records iterator as specified by zodb.IStorage.Iterate
 type zIter struct {
 	iter Iter
 
-	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on .dir
+	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on iter.dir
 
 	zFlags	zIterFlags
 
@@ -1043,7 +1043,7 @@ type zIter struct {
 	//   here to avoid allocations )
 	dhLoading DataHeader
 
-	sri	zodb.StorageRecordInformation // ptr to this will be returned by NextData
+	sri	zodb.StorageRecordInformation // ptr to this will be returned by .NextData
 	dataBuf	[]byte
 }
 
@@ -1131,7 +1131,7 @@ func (e *iterStartError) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, 
 
 // Iterate creates zodb-level iterator for tidMin..tidMax range
 func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
-	//fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
+	fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
 	// FIXME case when only 0 or 1 txn present
 	if tidMin < fs.txnhMin.Tid {
 		tidMin = fs.txnhMin.Tid
@@ -1140,12 +1140,12 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 		tidMax = fs.txnhMax.Tid
 	}
 
-	ziter := &zIter{iter: Iter{}}
-
 	// when iterating use IO optimized for sequential access
 	// XXX -> IterateRaw ?
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	ziter.iter.R = fsSeq
+	ziter := &zIter{iter: Iter{R: fsSeq}}
+	iter := &ziter.iter
+
 
 	if tidMin > tidMax {
 		ziter.zFlags |= zIterEOF	// empty
@@ -1153,17 +1153,15 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	}
 
 	// scan either from file start or end, depending which way it is likely closer, to tidMin
-	// XXX put iter into ptr to Iter ^^^
-	iter := &ziter.iter
 
 	if (tidMin - fs.txnhMin.Tid) < (fs.txnhMax.Tid - tidMin) {
-		//fmt.Printf("forward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
+		fmt.Printf("forward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
 		iter.Dir = IterForward
 		iter.Txnh.CloneFrom(&fs.txnhMin)
 		ziter.zFlags = zIterPreloaded
 		ziter.TidStop = tidMin - 1	// XXX overflow
 	} else {
-		//fmt.Printf("backward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
+		fmt.Printf("backward %.1f%%\n", 100 * float64(tidMin - fs.txnhMin.Tid) / float64(fs.txnhMax.Tid - fs.txnhMin.Tid))
 		iter.Dir = IterBackward
 		iter.Txnh.CloneFrom(&fs.txnhMax)
 		ziter.zFlags = zIterPreloaded
@@ -1202,6 +1200,8 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 	return ziter
 }
+
+// --- rebuilding index ---
 
 // computeIndex builds new in-memory index for FileStorage
 // XXX naming

@@ -141,7 +141,12 @@ func TestLoad(t *testing.T) {
 // iterate tidMin..tidMax and expect db entries in expectv
 func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
 	iter := fs.Iterate(tidMin, tidMax)
-	fsi := iter.(*zIter)
+	fsi, ok := iter.(*zIter)
+	if !ok {
+		_, _, err := iter.NextTxn()
+		t.Fatalf("iterating %v..%v: iter type is %T  ; want zIter\nNextTxn gives: _, _, %v", tidMin, tidMax, iter, err) // XXX Errorf
+		return
+	}
 
 	for k := 0; ; k++ {
 		txnErrorf := func(format string, a ...interface{}) {
