@@ -88,6 +88,7 @@ type TxnHeader struct {
 	LenPrev	int64	// whole previous transaction record length
 			// (-1 if there is no previous txn record) XXX see rules in Load
 	Len	int64	// whole transaction record length	   XXX see rules in Load
+	// ^^^ FIXME make Len be raw len as stored on disk (currently it is len-on-disk + 8)
 
 	// transaction metadata itself
 	zodb.TxnInfo

@@ -218,24 +218,34 @@ func (d *DumperFsDumpVerbose) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		buf .S("=")
 	}
 	buf .S("\noffset: ") .D64(txnh.Pos)
-	buf .S("\nend pos: ") .D64(txnh.Pos + txnh.Len)
+	buf .S("\nend pos: ") .D64(txnh.Pos + txnh.Len /* py does not account for redundant len size */- 8)
 	buf .S("\ntransaction id: ") .V(txnh.Tid)
-	buf .S("\ntrec len: ") .D64(txnh.Len)
+	buf .S("\ntrec len: ") .D64(txnh.Len /* py len ^^^ */- 8)
 	buf .S("\nstatus: ") .Qpycb(byte(txnh.Status))
 	buf .S("\nuser: ") .Qpyb(txnh.User)
 	buf .S("\ndescription: ") .Qpyb(txnh.Description)
 	buf .S("\nlen(extra): ") .D(len(txnh.Extension))
 	buf .S("\n")
 
-	err := d.dumpData(buf, it)
-	if err != nil {
-		return err
+	for {
+		err := it.NextData()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		err = d.dumpData(buf, it)
+		if err != nil {
+			return err
+		}
 	}
 
 	// NOTE printing the same .Len twice
 	// we do not print/check redundant len here because our
 	// FileStorage code checks/reports this itself
-	buf .S("redundant trec len: ") .D64(it.Txnh.Len) .S("\n")
+	buf .S("redundant trec len: ") .D64(it.Txnh.Len /* py len ^^^ */- 8) .S("\n")
 	return nil
 }
 
@@ -254,7 +264,7 @@ func (d *DumperFsDumpVerbose) dumpData(buf *xfmt.Buffer, it *fs1.Iter) error {
 	if dh.DataLen == 0 {
 		backPos, err := dh.LoadBackRef(it.R)
 		if err != nil {
-			// XXX
+			return err	// XXX err ctx
 		}
 
 		buf .S("\nbackpointer: ") .D64(backPos)
