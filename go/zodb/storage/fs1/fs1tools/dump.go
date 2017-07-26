@@ -149,7 +149,11 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	buf .S("Trans #")
 	buf .S(fmt.Sprintf("%05d", d.ntxn))	// XXX -> .D_f("05", d.ntxn)
 	buf .S(" tid=") .V(txnh.Tid)
-	buf .S(" time=") .V(txnh.Tid.Time()) .S(" offset=") .D64(txnh.Pos)
+	buf .S(" time=") .V(txnh.Tid.Time())
+
+	// XXX here fsdump/py prints position of first data record, NOT transaction start!
+	buf .S(" offset=") .D64(/*txnh.Pos*/ txnh.DataPos())
+
 	buf .S("\n    status=") .Qpycb(byte(txnh.Status))
 	buf .S(" user=") .Qpyb(txnh.User)
 	buf .S(" description=") .Qpyb(txnh.Description) .S("\n")
