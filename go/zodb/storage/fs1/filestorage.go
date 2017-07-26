@@ -784,7 +784,15 @@ func (it *Iter) NextData() error {
 
 // Iterate creates Iter to iterate over r starting from posStart in direction dir
 func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
-	it := &Iter{R: r, Dir: dir, Txnh: TxnHeader{Pos: posStart, Len: lenIterStart}}
+	it := &Iter{R: r, Dir: dir, Txnh: TxnHeader{Pos: posStart}}
+	switch dir {
+	case IterForward:
+		it.Txnh.Len = lenIterStart
+	case IterBackward:
+		it.Txnh.LenPrev = lenIterStart
+	default:
+		panic("invalid dir")
+	}
 	return it
 }
 
