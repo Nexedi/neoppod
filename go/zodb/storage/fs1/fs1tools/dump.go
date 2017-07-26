@@ -188,7 +188,7 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		if data == nil {
 			buf .S(" class=undo or abort of object creation")
 		} else {
-			fullclass := zodb.PyData(data).ClassString()
+			fullclass := zodb.PyData(data).ClassName()
 
 			buf .S(" size=") .D64(d.dhLoading.DataLen)
 			buf .S(" class=") .S(fullclass)

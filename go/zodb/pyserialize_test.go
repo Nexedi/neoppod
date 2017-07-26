@@ -25,5 +25,17 @@ import (
 	"testing"
 )
 
-func TestPyClassString(t *testing.T) {
+type _PyDataClassName_TestEntry struct {
+	pydata    string
+	className string
+}
+
+func TestPyClassName(t *testing.T) {
+	for _, tt := range _PyData_ClassName_Testv {
+		className := PyData(tt.pydata).ClassName()
+		if className != tt.className {
+			t.Errorf("class name for %q:\nhave: %q\nwant: %q",
+				tt.pydata, className, tt.className)
+		}
+	}
 }

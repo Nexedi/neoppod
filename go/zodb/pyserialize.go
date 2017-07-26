@@ -37,11 +37,10 @@ import (
 // for format description.
 type PyData []byte
 
-// ClassString returns fully-qualified python class name used for object type.
+// ClassName returns fully-qualified python class name used for object type.
 // The format is "module.class".
 // If pickle decoding fails "?.?" is returned.
-// TODO tests
-func (d PyData) ClassString() string {
+func (d PyData) ClassName() string {
 	// see ObjectReader.getClassName & get_pickle_metadata in zodb/py
 	p := pickle.NewDecoder(bytes.NewReader([]byte(d)))
 	xklass, err := p.Decode()
