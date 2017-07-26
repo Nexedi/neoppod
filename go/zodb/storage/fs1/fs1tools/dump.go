@@ -129,6 +129,10 @@ func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
 //	https://github.com/zopefoundation/ZODB/commit/ddcb46a2
 type DumperFsDump struct {
 	ntxn  int // current transaction record #
+
+	// for loading data
+	dhLoading fs1.DataHeader
+	data      []byte
 }
 
 func (d *DumperFsDump) DumperName() string {
@@ -164,25 +168,32 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		buf .S(fmt.Sprintf("%05d", j))	// XXX -> .D_f("05", j)
 		buf .S(" oid=") .V(dh.Oid)
 
-		if dh.DataLen == 0 {
+		// load actual data
+		d.dhLoading = *dh
+		data := d.data
+		err = d.dhLoading.LoadData(it.R, &data)
+		if err != nil {
+			return err
+		}
+		// if memory was reallocated - use it next time
+		if cap(data) > cap(d.data) {
+			d.data = data
+		}
+
+		if data == nil {
 			buf .S(" class=undo or abort of object creation")
-
-			backPos, err := dh.LoadBackRef(it.R)
-			if err != nil {
-				// XXX
-			}
-
-			if backPos != 0 {
-				buf .S(" bp=") .X016(uint64(backPos))
-			}
 		} else {
-			// XXX Datah.LoadData()
 			//modname, classname = zodb.GetPickleMetadata(...)	// XXX
 			//fullclass = "%s.%s" % (modname, classname)
 			fullclass := "AAA.BBB"	// FIXME stub
 
 			buf .S(" size=") .D64(dh.DataLen)
 			buf .S(" class=") .S(fullclass)
+		}
+
+		if dh.DataLen == 0 && data != nil {
+			// it was backpointer - print tid of transaction it points to
+			buf .S(" bp=") .V(d.dhLoading.Tid)
 		}
 
 		buf .S("\n")

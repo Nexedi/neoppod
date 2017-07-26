@@ -599,6 +599,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 // LoadBackRef reads data for the data record and decodes it as backpointer reference.
 // prerequisite: dh loaded and .LenData == 0 (data record with back-pointer)
 // XXX return backPos=-1 if err?
+// XXX unused?
 func (dh *DataHeader) LoadBackRef(r io.ReaderAt) (backPos int64, err error) {
 	if dh.DataLen != 0 {
 		bug(dh, "LoadBack() on non-backpointer data header")

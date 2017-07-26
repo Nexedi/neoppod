@@ -60,7 +60,7 @@ func VerifyIndexFor(path string) error {
 
 // ----------------------------------------
 
-const reindexSummary = "dump last few transactions of a database"
+const reindexSummary = "XXX"	// XXX
 
 func reindexUsage(w io.Writer) {
 	fmt.Fprintf(w,
