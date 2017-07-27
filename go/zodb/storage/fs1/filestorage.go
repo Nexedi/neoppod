@@ -1350,51 +1350,6 @@ func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err erro
 	}
 
 	return index, nil
-
-
-
-
-/*
-	it := Iterate(fsSeq, index.TopPos, IterForward)
-
-loop:
-	for {
-		// check ctx cancel once per transaction
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		err = it.NextTxn(LoadNoStrings)
-		if err != nil {
-			err = okEOF(err)
-			break
-		}
-
-		// XXX check txnh.Status != TxnInprogress
-
-		index.TopPos = it.Txnh.Pos + it.Txnh.Len
-
-		for {
-			err = it.NextData()
-			if err != nil {
-				err = okEOF(err)
-				if err != nil {
-					break loop
-				}
-				break
-			}
-
-			index.Set(it.Datah.Oid, it.Datah.Pos)
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return index, nil
-*/
 }
 
 // checkIndexSane quickly checks index sanity.
