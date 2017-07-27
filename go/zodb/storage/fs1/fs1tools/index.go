@@ -96,3 +96,4 @@ func reindexMain(argv []string) {
 }
 
 // TODO verify-index
+// TODO verify-index -quick (only small sanity check)
