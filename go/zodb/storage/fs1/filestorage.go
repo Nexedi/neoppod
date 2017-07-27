@@ -1258,16 +1258,18 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 // computeIndex builds new in-memory index for FileStorage
 // XXX naming
+// XXX in case of error return partially built index? (index has .TopPos until which it covers the data)
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
 	defer xerr.Contextf(&err, "%s: reindex", fs.file.Name())
 
 	index = IndexNew()
 	index.TopPos = txnValidFrom
 
-	// similar to Iterate but we know we start from the beginning and do
-	// not want to load actual data - only data headers.
-	fsSeq := xbufio.NewSeqReaderAt(fs.file)
+	// XXX another way to compute index: iterate backwards - then
+	// 1. index entry for oid is ready right after we see oid the first time
+	// 2. we can be sure we build the whole index if we saw all oids
 
+	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 	it := Iterate(fsSeq, index.TopPos, IterForward)
 
 loop:
@@ -1312,6 +1314,7 @@ loop:
 // loadIndex loads on-disk index to RAM
 func (fs *FileStorage) loadIndex() error {
 	// XXX lock?
+	defer xerr.Contextf(&err, "%s: index load", fs.file.Name())
 
 	index, err := LoadIndexFile(fs.file.Name() + ".index")
 	if err != nil {
@@ -1329,10 +1332,20 @@ func (fs *FileStorage) loadIndex() error {
 }
 
 // saveIndex flushes in-RAM index to disk
-func (fs *FileStorage) saveIndex() error {
+func (fs *FileStorage) saveIndex() (err error) {
 	// XXX lock?
+	defer xerr.Contextf(&err, "%s: index save", fs.file.Name())
 
-	err := fs.index.SaveFile(fs.file.Name() + ".index")
+	idxname := fs.file.Name() + ".index"
+	idxtmp := idxname + ".index_tmp"
+	err := fs.index.SaveFile(idxtmp)
+	if err != nil {
+		return err
+	}
+
+	// XXX fsync here?
+
+	err = os.Rename(idxtmp, idxname)
 	return err
 }
 

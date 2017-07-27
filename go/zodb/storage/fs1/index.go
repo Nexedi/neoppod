@@ -180,9 +180,7 @@ func (fsi *Index) SaveFile(path string) (err error) {
 		}
 	}()
 
-	err = fsi.Save(f)
-	return
-
+	return fsi.Save(f)
 }
 
 // IndexLoadError is the error type returned by index load routines
