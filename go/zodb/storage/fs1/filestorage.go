@@ -75,6 +75,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // FileHeader represents file header
@@ -173,25 +174,25 @@ func (dh *DataHeader) err(subj string, err error) error {
 }
 
 
-// xerr is an interface for something which can create errors
+// ierr is an interface for something which can create errors
 // it is used by TxnHeader and DataHeader to create appropriate errors with their context
-type xerr interface {
+type ierr interface {
 	err(subj string, err error) error
 }
 
 // errf is syntactic shortcut for err and fmt.Errorf
-func errf(e xerr, subj, format string, a ...interface{}) error {
+func errf(e ierr, subj, format string, a ...interface{}) error {
 	return e.err(subj, fmt.Errorf(format, a...))
 }
 
 // decodeErr is syntactic shortcut for errf("decode", ...)
 // TODO in many places "decode" -> "selfcheck"
-func decodeErr(e xerr, format string, a ...interface{}) error {
+func decodeErr(e ierr, format string, a ...interface{}) error {
 	return errf(e, "decode", format, a...)
 }
 
 // bug panics with errf("bug", ...)
-func bug(e xerr, format string, a ...interface{}) {
+func bug(e ierr, format string, a ...interface{}) {
 	panic(errf(e, "bug", format, a...))
 }
 
@@ -1258,7 +1259,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 // computeIndex builds new in-memory index for FileStorage
 // XXX naming
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
-	// TODO err ctx <file>: <reindex>:
+	defer xerr.Contextf(&err, "%s: reindex", fs.file.Name())
 
 	index = IndexNew()
 	index.TopPos = txnValidFrom
