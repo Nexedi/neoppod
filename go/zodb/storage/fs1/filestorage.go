@@ -792,7 +792,7 @@ func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
 	case IterBackward:
 		it.Txnh.LenPrev = lenIterStart
 	default:
-		panic("invalid dir")
+		panic("dir invalid")
 	}
 	return it
 }
@@ -1267,9 +1267,7 @@ func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err erro
 	// not want to load actual data - only data headers.
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 
-	// pre-setup txnh so that txnh.LoadNext starts loading from the beginning of file
-	txnh := &TxnHeader{Pos: index.TopPos, Len: lenIterStart}
-	dh   := &DataHeader{}
+	it := Iterate(fsSeq, index.TopPos, IterForward)
 
 loop:
 	for {
@@ -1280,7 +1278,7 @@ loop:
 		default:
 		}
 
-		err = txnh.LoadNext(fsSeq, LoadNoStrings)
+		err = it.NextTxn(LoadNoStrings)
 		if err != nil {
 			err = okEOF(err)
 			break
@@ -1288,14 +1286,10 @@ loop:
 
 		// XXX check txnh.Status != TxnInprogress
 
-		index.TopPos = txnh.Pos + txnh.Len
-
-		// first data iteration will go to first data record
-		dh.Pos = txnh.DataPos()
-		dh.DataLen = -DataHeaderSize
+		index.TopPos = it.Txnh.Pos + it.Txnh.Len
 
 		for {
-			err = dh.LoadNext(fsSeq, txnh)
+			err = it.NextData()
 			if err != nil {
 				err = okEOF(err)
 				if err != nil {
@@ -1304,7 +1298,7 @@ loop:
 				break
 			}
 
-			index.Set(dh.Oid, dh.Pos)
+			index.Set(it.Datah.Oid, it.Datah.Pos)
 		}
 	}
 

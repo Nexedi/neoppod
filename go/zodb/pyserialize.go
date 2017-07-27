@@ -27,7 +27,7 @@ import (
 	pickle "github.com/kisielk/og-rek"
 )
 
-// PyData represent data stored into ZODB by Python applications.
+// PyData represents data stored into ZODB by Python applications.
 //
 // The format is based on python pickles. Basically every serialized object has
 // two parts: class description and object state. See

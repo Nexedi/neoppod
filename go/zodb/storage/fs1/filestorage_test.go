@@ -288,7 +288,7 @@ func TestComputeIndex(t *testing.T) {
 	fs := xfsopen(t, "testdata/1.fs")	// TODO open ro
 	defer exc.XRun(fs.Close)
 
-	index, err := fs.computeIndex(context.TODO())
+	index, err := fs.computeIndex(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

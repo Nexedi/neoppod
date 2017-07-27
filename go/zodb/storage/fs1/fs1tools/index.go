@@ -94,3 +94,5 @@ func reindexMain(argv []string) {
 		log.Fatal(err)
 	}
 }
+
+// TODO verify-index

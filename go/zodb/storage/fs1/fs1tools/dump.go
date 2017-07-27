@@ -50,13 +50,12 @@ type Dumper interface {
 	// transaction if it needs to dump information about data records.
 	//
 	// If dumper return io.EOF the whole dumping process finishes.
-	// XXX -> better dedicated err?
 	DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error
 }
 
 // Dump dumps content of a FileStorage file @ path.
 // To do so it reads file header and then iterates over all transactions in the file.
-// The logic to actually output information and if needed read/process data is implemented by Dumper d.
+// The logic to actually output information and, if needed read/process data, is implemented by Dumper d.
 func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
 	defer xerr.Contextf(&err, "%s: %s", path, d.DumperName())	// XXX ok?
 
@@ -78,7 +77,7 @@ func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
 		return err
 	}
 
-	// make sure to flush buffer if we return prematurely e.g. with an error
+	// make sure to flush buffer on return
 	defer func() {
 		err2 := flushBuf()
 		err = xerr.First(err, err2)
