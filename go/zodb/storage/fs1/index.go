@@ -404,34 +404,28 @@ func treeEqual(a, b *fsb.Tree) bool {
 // FileStorage and see there is more data; we update index from data range
 // not-yet covered by the index.
 //
-// topPos=-1 means range to update from is index.TopPos..EOF
+// topPos=-1 means data range to update from is index.TopPos..EOF
 //
-// XXX on error existing index is in invalid state?
-// XXX naming (more specific -> UpdateXXX as just Update() is confusing)
+// The index stays valid even in case of error - then index is updated but only
+// partially. The index always stays consistent as updates to it are applied as
+// a whole for every data transaction. On return index.TopPos indicates till
+// which position in data the index could be updated.
+//
+// On success returned error is nil and index.TopPos is set to either:
+// - topPos (if it is != -1), or
+// - r's position at which read got EOF (if topPos=-1)
 func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (err error) {
-	defer xerr.Contextf(&err, "%s: reindex", xio.Name(r))
+	defer xerr.Contextf(&err, "%s: reindex %v..%v", xio.Name(r), index.TopPos, topPos)
 
-	// XXX err ctx
-	defer func() {
-		// XXX it is possible to rollback index to consistent state to
-		// last wholly-processed txn (during every txn keep updating {}
-		// and if txn was not completed - rollback from that {})
-		if err != nil {
-			index.Clear()
-			index.TopPos = txnValidFrom
-		}
-	}()
-
-	// XXX if topPos >= 0 && topPos < index.TopPos {
-	//	error
-	// }
+	if topPos >= 0 && index.TopPos > topPos {
+	     return fmt.Errorf("backward update requested")
+	}
 
 	// XXX another way to compute index: iterate backwards - then
 	// 1. index entry for oid is ready right after we see oid the first time
 	// 2. we can be sure we build the whole index if we saw all oids
 
 	it := Iterate(r, index.TopPos, IterForward)
-
 	for {
 		// check ctx cancel once per transaction
 		select {
@@ -440,26 +434,36 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 		default:
 		}
 
+		// iter to next txn
 		err = it.NextTxn(LoadNoStrings)
 		if err != nil {
-			// XXX if EOF earlier topPos -> error
-			return okEOF(err)
+			err = okEOF(err)
+			if err == nil {
+				// if EOF earlier topPos -> error
+				if topPos >= 0 && index.TopPos < topPos {
+					err = fmt.Errorf("unexpected EOF @%v", index.TopPos)
+				}
+			}
+			return err
 		}
 
 		// XXX check txnh.Status != TxnInprogress
 
-		// check for overlapping txn & whether we are done.
+		// check for topPos overlapping txn & whether we are done.
 		// topPos=-1 will never match here
 		if it.Txnh.Pos < topPos && (it.Txnh.Pos + it.Txnh.Len) > topPos {
-			return fmt.Errorf("transaction %v @%v overlaps requested topPos %v",
-				it.Txnh.Tid, it.Txnh.Pos, topPos)
+			return fmt.Errorf("transaction %v @%v overlaps topPos boundary",
+				it.Txnh.Tid, it.Txnh.Pos)
 		}
 		if it.Txnh.Pos == topPos {
 			return nil
 		}
 
-		index.TopPos = it.Txnh.Pos + it.Txnh.Len
-
+		// collect data for index update in temporary place.
+		// do not update the index immediately so that in case of error
+		// in the middle of txn's data, index stays consistent and
+		// correct for topPos pointing to previous transaction.
+		update := map[zodb.Oid]int64{}	// XXX malloc every time -> better reuse
 		for {
 			err = it.NextData()
 			if err != nil {
@@ -470,7 +474,13 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 				break
 			}
 
-			index.Set(it.Datah.Oid, it.Datah.Pos)
+			update[it.Datah.Oid] = it.Datah.Pos
+		}
+
+		// update index "atomically" with data from just read transaction
+		index.TopPos = it.Txnh.Pos + it.Txnh.Len
+		for oid, pos := range update {
+			index.Set(oid, pos)
 		}
 	}
 
@@ -478,7 +488,6 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 }
 
 // BuildIndex builds new in-memory index for data in r
-// XXX in case of error return partially built index? (index has .TopPos until which it covers the data)
 func BuildIndex(ctx context.Context, r io.ReaderAt) (index *Index, err error) {
 	index = IndexNew()
 	index.TopPos = txnValidFrom

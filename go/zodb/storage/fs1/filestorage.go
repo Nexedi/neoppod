@@ -75,9 +75,10 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-
 // FileStorage is a ZODB storage which stores data in simple append-only file
 // organized as transactional log.
+//
+// It is on-disk compatible with FileStorage from ZODB/py.
 type FileStorage struct {
 	file	*os.File
 	index	*Index	// oid -> data record position in transaction which last changed oid
