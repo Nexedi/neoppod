@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package fs1
-// FileStorage v1. Index
+// index for quickly finding oid -> latest data record
 
 import (
 	"bytes"
