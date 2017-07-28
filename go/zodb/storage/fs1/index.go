@@ -26,8 +26,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -169,22 +171,35 @@ out:
 }
 
 // SaveFile saves index to a file @ path
-func (fsi *Index) SaveFile(path string) (err error) {
-	f, err := os.Create(path)
+//
+// Index data is first saved to a temporary file and when complete the
+// temporary is renamed to be at requested path. This way file @ path will be
+// updated only with complete index data.
+func (fsi *Index) SaveFile(path string) error {
+	dir, name := filepath.Dir(path), filepath.Base(path)
+	f, err := ioutil.TempFile(dir, name + ".tmp")
 	if err != nil {
-		return &IndexSaveError{err}
+		return &IndexSaveError{err}	// XXX needed?
 	}
 
 	// TODO use buffering for f (ogórek does not buffer itself on encoding)
-
-	defer func() {
-		err2 := f.Close()
-		if err2 != nil && err == nil {
-			err = &IndexSaveError{err2}
+	err1 := fsi.Save(f)
+	err2 := f.Close()
+	if err1 != nil || err2 != nil {
+		os.Remove(f.Name())
+		err = err1
+		if err == nil {
+			err = &IndexSaveError{err2}	// XXX needed?
 		}
-	}()
+		return err
+	}
 
-	return fsi.Save(f)
+	err = os.Rename(f.Name(), path)
+	if err != nil {
+		return &IndexSaveError{err}	// XXX needed?
+	}
+
+	return nil
 }
 
 // IndexLoadError is the error type returned by index load routines
@@ -507,7 +522,7 @@ func BuildIndex(ctx context.Context, r io.ReaderAt) (*Index, error) {
 func BuildIndexForFile(ctx context.Context, path string) (index *Index, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return IndexNew(), err
+		return IndexNew(), err // XXX add err ctx?
 	}
 
 	defer func() {

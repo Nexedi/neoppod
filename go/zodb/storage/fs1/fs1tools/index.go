@@ -32,54 +32,38 @@ import (
 
 // Reindex rebuilds index for FileStorage file @ path
 func Reindex(path string) error {
-	// XXX open read-only
-	fs, err := fs1.Open(context.Background(), path)	// XXX , fs1.OpenWithoutIndex)
+	// XXX lock path.lock ?
+	index, err := fs1.BuildIndexForFile(context.Background(), path)
 	if err != nil {
-		return nil	// XXX err ctx
+		return err
 	}
-	defer fs.Close()	// XXX err
 
-	err = fs.Reindex(nil)
-	return err	// XXX ok?
+	err = index.SaveFile(path + ".index")
+	if err != nil {
+		return err // XXX err ctx
+	}
+
+	return nil
 }
 
-// VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
-func VerifyIndexFor(path string) error {
-	// XXX open read-only
-	fs, err := fs1.Open(context.Background(), path)	// XXX , 0)
-	if err != nil {
-		return nil	// XXX err ctx
-	}
-	defer fs.Close()	// XXX err
-
-	err = fs.VerifyIndex(nil)
-	return err
-	//fs.Index()
-	//fs.ComputeIndex
-}
-
-// ----------------------------------------
-
-const reindexSummary = "XXX"	// XXX
+const reindexSummary = "rebuild database index"
 
 func reindexUsage(w io.Writer) {
 	fmt.Fprintf(w,
 `Usage: fs1 reindex [options] <storage>
-Dump transactions from a FileStorage in reverse order	XXX
+Rebuild FileStorage index
 
 <storage> is a path to FileStorage
 
   options:
 
 	-h --help       this help text.
-	-verify         verify that existing index is correct; don't overwrite it
-`, ntxnDefault)
+`)
 }
 
 func reindexMain(argv []string) {
 	flags := flag.FlagSet{Usage: func() { reindexUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
-	// XXX -verify
 	flags.Parse(argv[1:])
 
 	argv = flags.Args()
@@ -95,5 +79,35 @@ func reindexMain(argv []string) {
 	}
 }
 
+// ----------------------------------------
+
 // TODO verify-index
 // TODO verify-index -quick (only small sanity check)
+
+// VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
+func VerifyIndexFor(path string) error {
+	panic("TODO")
+/*
+	// XXX open read-only
+	fs, err := fs1.Open(context.Background(), path)	// XXX , 0)
+	if err != nil {
+		return nil	// XXX err ctx
+	}
+	defer fs.Close()	// XXX err
+
+	err = fs.VerifyIndex(nil)
+	return err
+	//fs.Index()
+	//fs.ComputeIndex
+*/
+}
+
+const verifyIdxSummary = "verify database index"
+
+func verifyIdxUsage(w io.Writer) {
+	panic("TODO")	// XXX
+}
+
+func verifyIdxMaxin(argv []string) {
+	panic("TODO")	// XXX
+}

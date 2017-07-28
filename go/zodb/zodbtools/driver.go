@@ -121,6 +121,8 @@ Usage:
 The commands are:
 
 `, prog.Summary, prog.Name)
+
+	// XXX 11 -> max width of cmd.Name
 	for _, cmd := range prog.Commands {
 		fmt.Fprintf(w, "\t%-11s %s\n", cmd.Name, cmd.Summary)
 	}
@@ -138,6 +140,7 @@ Additional help topics:
 
 `)
 
+		// XXX 11 -> max width of topic.Name
 		for _, topic := range prog.HelpTopics {
 			fmt.Fprintf(w, "\t%-11s %s\n", topic.Name, topic.Summary)
 		}

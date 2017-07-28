@@ -524,17 +524,13 @@ func (fs *FileStorage) saveIndex() (err error) {
 	// XXX lock?
 	defer xerr.Contextf(&err, "%s: index save", fs.file.Name())
 
-	idxname := fs.file.Name() + ".index"
-	idxtmp := idxname + ".index_tmp"
-	err = fs.index.SaveFile(idxtmp)
+	err = fs.index.SaveFile(fs.file.Name() + ".index")
 	if err != nil {
 		return err
 	}
 
 	// XXX fsync here?
-
-	err = os.Rename(idxtmp, idxname)
-	return err
+	return nil
 }
 
 // IndexCorruptError is the error returned when index verification fails
