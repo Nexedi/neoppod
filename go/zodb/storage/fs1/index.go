@@ -22,6 +22,7 @@ package fs1
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -35,6 +36,7 @@ import (
 	pickle "github.com/kisielk/og-rek"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/go123/xerr"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
@@ -481,7 +483,7 @@ func BuildIndex(ctx context.Context, r io.ReaderAt) (index *Index, err error) {
 	index = IndexNew()
 	index.TopPos = txnValidFrom
 
-	err = UpdateIndex(ctx, index, r, -1)
+	err = index.Update(ctx, r, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -491,24 +493,30 @@ func BuildIndex(ctx context.Context, r io.ReaderAt) (index *Index, err error) {
 
 // VerifyNTxn checks index correctness against several transactions of FileStorage data in r.
 //
-// It scans ntxn transactions starting from index.TopPos backwards and verifies
+// For ntxn transactions starting from index.TopPos backwards it verifies
 // whether oid there have correct entries in the index.
+//
 // XXX return: ? (how calling code should distinguish IO error on main file from consistency check error)
 // XXX naming?
 func (index *Index) VerifyNTxn(ctx context.Context, r io.ReaderAt, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
 	defer xerr.Contextf(&err, "index quick check")	// XXX +main file
 	it := Iterate(r, index.TopPos, IterBackward)
 
-	oidSeen := map[zodb.Oid]struct{}{} // Set<zodb.Oid>
+	oidChecked = map[zodb.Oid]struct{}{} // Set<zodb.Oid>
 
 	// XXX ntxn=-1 - check all
 	for i := 0; i < ntxn; i++ {
-		// XXX handle ctx cancel
+		// check ctx cancel once per transaction
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 
 		err := it.NextTxn(LoadNoStrings)
 		if err != nil {
 			err = okEOF(err)
-			return err		// XXX err ctx
+			return nil, err		// XXX err ctx
 		}
 
 		for {
@@ -517,28 +525,28 @@ func (index *Index) VerifyNTxn(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 				if err == io.EOF {
 					break
 				}
-				return err	// XXX err ctx
+				return nil, err	// XXX err ctx
 			}
 
 			// if oid was already checked - do not check index anymore
 			// (index has info only about latest entries)
-			if _, seen := oidSeen[it.Datah.Oid]; seen {
+			if _, ok := oidChecked[it.Datah.Oid]; ok {
 				continue
 			}
-			oidSeen[id.Datah.Oid] = struct{}{}
+			oidChecked[it.Datah.Oid] = struct{}{}
 
 			dataPos, ok := index.Get(it.Datah.Oid)
 			if !ok {
-				return fmt.Errorf("oid %v @%v: no index entry", it.Datah.Oid, it.Datah.Pos)
+				return nil, fmt.Errorf("oid %v @%v: no index entry", it.Datah.Oid, it.Datah.Pos)
 			}
 
 			if dataPos != it.Datah.Pos {
-				return fmt.Errorf("oid %v @%v: index has wrong pos (%v)", it.Datah.Oid, it.Datah.Pos, dataPos)
+				return nil, fmt.Errorf("oid %v @%v: index has wrong pos (%v)", it.Datah.Oid, it.Datah.Pos, dataPos)
 			}
 		}
 	}
 
-	return nil
+	return oidChecked, nil
 }
 
 
@@ -558,7 +566,7 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
 		return nil
 	}
 
-	e, _ = index.SeekFirst() // !nil as nil means index.Len=0 and len(oidChecked) <= index.Len
+	e, _ := index.SeekFirst() // !nil as nil means index.Len=0 and len(oidChecked) <= index.Len
 	defer e.Close()
 
 	for {
@@ -568,7 +576,7 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
 		}
 
 		if _, ok := oidChecked[oid]; !ok {
-			return fmt.Errorf("oid %v: present in index but not in data", oid)
+			return fmt.Errorf("oid %v @%v: present in index but not in data", oid, pos)
 		}
 	}
 
