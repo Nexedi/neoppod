@@ -73,7 +73,7 @@ func reindexMain(argv []string) {
 	}
 	storPath := argv[0]
 
-	err := Reindex(storPath)
+	err := Reindex(context.Background(), storPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,58 +81,53 @@ func reindexMain(argv []string) {
 
 // ----------------------------------------
 
-// TODO verify-index -quick (only small sanity check)
-
 // VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
 func VerifyIndexFor(ctx context.Context, path string) (err error) {
 	// XXX lock path.lock ?
-	inverify := false
-	defer func() {
-		if inverify {
-			return // index.Verify provides all context in error
-		}
-		xerr.Contextf(&err, "%s: verify index", path)
-	}
-
-	f, err := os.Open(path)
+	index, err := fs1.LoadIndexFile(path + ".index")
 	if err != nil {
-		return err
+		return err	// XXX err ctx
 	}
 
-	defer func() {
-		err2 := f.Close()	// XXX vs inverify
-		err = xerr.First(err, err2)
-	}()
-
-	index, err := LoadIndexFile(path + ".index")
-	if err != nil {
-		return err
-	}
-
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	topPos := fi.Size()	// XXX there might be last TxnInprogress transaction
-	if index.TopPos != topPos {
-		return fmt.Errorf("topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
-	}
-
-	// XXX - better somehow not here?
-	fSeq := xbufio.NewSeqReaderAt(f)
-
-	inverify = true
-	err = index.Verify(ctx, fSeq)
+	err = index.VerifyForFile(context.Background(), path)
 	return err
 }
 
 const verifyIdxSummary = "verify database index"
 
 func verifyIdxUsage(w io.Writer) {
-	panic("TODO")	// XXX
+	fmt.Fprintf(w,
+`Usage: fs1 verify-index [options] <storage>
+Verify FileStorage index
+
+<storage> is a path to FileStorage
+
+  options:
+
+	XXX leave quickcheck without <n> (10 by default)
+	XXX + -quick-limit
+	-quickcheck <n>	only quickly check consistency by verifying against 10
+			last transactions.
+	-h --help       this help text.
+`)
 }
 
 func verifyIdxMain(argv []string) {
-	panic("TODO")	// XXX
+	ntxn := -1
+	flags := flag.FlagSet{Usage: func() { verifyIdxUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.IntVar(&ntxn, "quickcheck", ntxn, "check consistency only wrt last <n> transactions")
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		os.Exit(2)
+	}
+	storPath := argv[0]
+
+	err := VerifyIndexFor(context.Background(), storPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
