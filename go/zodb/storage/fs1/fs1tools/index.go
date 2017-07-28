@@ -81,7 +81,6 @@ func reindexMain(argv []string) {
 
 // ----------------------------------------
 
-// TODO verify-index
 // TODO verify-index -quick (only small sanity check)
 
 // VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
@@ -108,6 +107,6 @@ func verifyIdxUsage(w io.Writer) {
 	panic("TODO")	// XXX
 }
 
-func verifyIdxMaxin(argv []string) {
+func verifyIdxMain(argv []string) {
 	panic("TODO")	// XXX
 }

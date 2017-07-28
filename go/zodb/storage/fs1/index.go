@@ -411,7 +411,7 @@ func treeEqual(a, b *fsb.Tree) bool {
 	return true
 }
 
-// --- build/verify index from FileStorage data ---
+// --- build index from FileStorage data ---
 
 // Update updates in-memory index from r's FileStorage data in byte-range index.TopPos..topPos
 //
@@ -536,21 +536,46 @@ func BuildIndexForFile(ctx context.Context, path string) (index *Index, err erro
 	return BuildIndex(ctx, fSeq)
 }
 
-// VerifyNTxn checks index correctness against several transactions of FileStorage data in r.
+// --- verify index against data in FileStorage ---
+
+// IndexCorrupyError is the error type returned by index verification routines
+// when index was found to not match original FileStorage data.
+type IndexCorruptError struct {
+	DataFileName string
+	Detail       string
+}
+
+func (e *IndexCorruptError) Error() string {
+	return fmt.Sprintf("%s: verify index: %s", e.DataFileName, e.Detail)
+}
+
+func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorruptError {
+	return &IndexCorruptError{DataFileName: xio.Name(r), Detail: fmt.Sprintf(format, argv...)}
+}
+
+// VerifyTail checks index correctness against several newest transactions of FileStorage data in r.
 //
-// For ntxn transactions starting from index.TopPos backwards it verifies
+// For ntxn transactions starting from index.TopPos backwards, it verifies
 // whether oid there have correct entries in the index.
 //
-// XXX return: ? (how calling code should distinguish IO error on main file from consistency check error)
-// XXX naming?
-func (index *Index) VerifyNTxn(ctx context.Context, r io.ReaderAt, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
-	defer xerr.Contextf(&err, "index quick check")	// XXX +main file
-	it := Iterate(r, index.TopPos, IterBackward)
+// ntxn=-1 means data range to verify is till start of the file.
+//
+// Returned error is either:
+// - of type *IndexCorruptError, when data in index was found not to match original data, or
+// - any other error type representing e.g. IO error when reading original data or something else.
+func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
+	defer func() {
+		if _, ok := err.(*IndexCorruptError); ok {
+			return // leave it as is
+		}
+
+		xerr.Contextf(&err, "%s: verify index @%v~{%v}", xio.Name(r), index.TopPos, ntxn)
+	}()
 
 	oidChecked = map[zodb.Oid]struct{}{} // Set<zodb.Oid>
 
-	// XXX ntxn=-1 - check all
-	for i := 0; i < ntxn; i++ {
+	it := Iterate(r, index.TopPos, IterBackward)
+	for i := 0; ntxn == -1 || i < ntxn; i++ {
 		// check ctx cancel once per transaction
 		select {
 		case <-ctx.Done():
@@ -582,11 +607,13 @@ func (index *Index) VerifyNTxn(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 
 			dataPos, ok := index.Get(it.Datah.Oid)
 			if !ok {
-				return nil, fmt.Errorf("oid %v @%v: no index entry", it.Datah.Oid, it.Datah.Pos)
+				return nil, indexCorrupt(r, "oid %v @%v: no index entry",
+					it.Datah.Oid, it.Datah.Pos)
 			}
 
 			if dataPos != it.Datah.Pos {
-				return nil, fmt.Errorf("oid %v @%v: index has wrong pos (%v)", it.Datah.Oid, it.Datah.Pos, dataPos)
+				return nil, indexCorrupt(r, "oid %v @%v: index has wrong pos (%v)",
+					it.Datah.Oid, it.Datah.Pos, dataPos)
 			}
 		}
 	}
@@ -599,8 +626,10 @@ func (index *Index) VerifyNTxn(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 //
 // it verifies whether index is exactly the same as if it was build anew for
 // data in range ..index.TopPos .
+//
+// See VerifyTail for description about errors returned.
 func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
-	oidChecked, err := index.VerifyNTxn(ctx, r, -1)
+	oidChecked, err := index.VerifyTail(ctx, r, -1)
 	if err != nil {
 		return err
 	}
@@ -621,7 +650,7 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
 		}
 
 		if _, ok := oidChecked[oid]; !ok {
-			return fmt.Errorf("oid %v @%v: present in index but not in data", oid, pos)
+			return indexCorrupt(r, "oid %v @%v: present in index but not in data", oid, pos)
 		}
 	}
 

@@ -28,7 +28,7 @@ var commands = zodbtools.CommandRegistry{
 	// + fsstats?		(fsstats.py)
 
 	{"reindex", reindexSummary, reindexUsage, reindexMain},
-	{"verify-index", verifyIdxSummary, verifyIdxUsage, verifyIdxMaxin},
+	{"verify-index", verifyIdxSummary, verifyIdxUsage, verifyIdxMain},
 	// recover		(fsrecover.py)
 	// verify		(fstest.py)
 
