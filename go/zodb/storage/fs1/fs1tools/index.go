@@ -31,9 +31,9 @@ import (
 )
 
 // Reindex rebuilds index for FileStorage file @ path
-func Reindex(path string) error {
+func Reindex(ctx context.Context, path string) error {
 	// XXX lock path.lock ?
-	index, err := fs1.BuildIndexForFile(context.Background(), path)
+	index, err := fs1.BuildIndexForFile(ctx, path)
 	if err != nil {
 		return err
 	}
@@ -84,21 +84,47 @@ func reindexMain(argv []string) {
 // TODO verify-index -quick (only small sanity check)
 
 // VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
-func VerifyIndexFor(path string) error {
-	panic("TODO")
-/*
-	// XXX open read-only
-	fs, err := fs1.Open(context.Background(), path)	// XXX , 0)
-	if err != nil {
-		return nil	// XXX err ctx
+func VerifyIndexFor(ctx context.Context, path string) (err error) {
+	// XXX lock path.lock ?
+	inverify := false
+	defer func() {
+		if inverify {
+			return // index.Verify provides all context in error
+		}
+		xerr.Contextf(&err, "%s: verify index", path)
 	}
-	defer fs.Close()	// XXX err
 
-	err = fs.VerifyIndex(nil)
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err2 := f.Close()	// XXX vs inverify
+		err = xerr.First(err, err2)
+	}()
+
+	index, err := LoadIndexFile(path + ".index")
+	if err != nil {
+		return err
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	topPos := fi.Size()	// XXX there might be last TxnInprogress transaction
+	if index.TopPos != topPos {
+		return fmt.Errorf("topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
+	}
+
+	// XXX - better somehow not here?
+	fSeq := xbufio.NewSeqReaderAt(f)
+
+	inverify = true
+	err = index.Verify(ctx, fSeq)
 	return err
-	//fs.Index()
-	//fs.ComputeIndex
-*/
 }
 
 const verifyIdxSummary = "verify database index"

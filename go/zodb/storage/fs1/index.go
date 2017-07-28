@@ -555,7 +555,7 @@ func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorru
 
 // VerifyTail checks index correctness against several newest transactions of FileStorage data in r.
 //
-// For ntxn transactions starting from index.TopPos backwards, it verifies
+// For (XXX max) ntxn transactions starting from index.TopPos backwards, it verifies
 // whether oid there have correct entries in the index.
 //
 // ntxn=-1 means data range to verify is till start of the file.
@@ -585,7 +585,9 @@ func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 
 		err := it.NextTxn(LoadNoStrings)
 		if err != nil {
-			err = okEOF(err)
+			if err == io.EOF {
+				break
+			}
 			return nil, err		// XXX err ctx
 		}
 
@@ -618,9 +620,10 @@ func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 		}
 	}
 
+	// TODO err = EOF -> merge from Verify
+
 	return oidChecked, nil
 }
-
 
 // Verify checks index correctness against FileStorage data in r.
 //
@@ -633,6 +636,8 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
 	if err != nil {
 		return err
 	}
+
+	// XXX merge this into VerifyTail
 
 	// all oids from data were checked to be in index
 	// now verify that there is no extra oids in index
@@ -655,4 +660,49 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
 	}
 
 	return nil
+}
+
+// XXX text
+func (index *Index) VerifyTailForFile(ctx context.Context, path string, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
+	err = index.verifyForFile(path, func(r io.ReaderAt) error {
+		oidChecked, err = index.VerifyTail(ctx, r, ntxn)
+		return err
+	})
+	return
+}
+
+// VerifyForFile verifies index correctness against FileStorage file @ path
+// XXX text
+func (index *Index) VerifyForFile(ctx context.Context, path string) error {
+	return index.verifyForFile(path, func(r io.ReaderAt) error {
+		return index.Verify(ctx, r)
+	})
+}
+
+// common driver for Verify*ForFile
+func (index *Index) verifyForFile(path string, check func(r io.ReaderAt) error) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err2 := f.Close()
+		err = xerr.First(err, err2)
+	}()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	topPos := fi.Size()	// XXX there might be last TxnInprogress transaction
+	if index.TopPos != topPos {
+		return indexCorrupt(f, "topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
+	}
+
+	// use IO optimized for sequential access when verifying index
+	fSeq := xbufio.NewSeqReaderAt(f)
+
+	return check(fSeq)
 }

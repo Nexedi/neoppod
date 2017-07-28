@@ -48,6 +48,11 @@ func (l *LimitedWriter) Write(p []byte) (n int, err error) {
 
 func LimitWriter(w io.Writer, n int64) io.Writer { return &LimitedWriter{w, n} }
 
+// XXX not sure it is a good ide
+// XXX another option is IOName() - but that requires leaf packages to import xio
+type Wrapper interface {
+	IOUnwrap() interface{}
+}
 
 // Name returns a "filename" associated with io.Reader, io.Writer, net.Conn, ...
 func Name(f interface {}) string {
@@ -69,6 +74,8 @@ func Name(f interface {}) string {
 
 	// XXX SectionReader MultiReader TeeReader
 	// XXX bufio.Reader bufio.Writer bufio.Scanner
+
+	case Wrapper:		return Name(f.IOUnwrap())
 
 	// if name cannot be determined - let's provide full info
 	default:

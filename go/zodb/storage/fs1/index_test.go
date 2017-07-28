@@ -220,14 +220,26 @@ func TestIndexSaveToPy(t *testing.T) {
 	}
 }
 
-func TestIndexBuild(t *testing.T) {
+func TestIndexBuildVerify(t *testing.T) {
 	index, err := BuildIndexForFile(context.Background(), "testdata/1.fs")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("index build: %v", err)
 	}
 
 	if !index.Equal(_1fs_index) {
 		t.Fatal("computed index differ from expected")
+	}
+
+	err = index.VerifyForFile(context.Background(), "testdata/1.fs")
+	if err != nil {
+		t.Fatalf("index verify: %v", err)
+	}
+
+	pos0, _ := index.Get(0)
+	index.Set(0, pos0 + 1)
+	err = index.VerifyForFile(context.Background(), "testdata/1.fs")
+	if err == nil {
+		t.Fatalf("index verify: expected error after tweak")
 	}
 }
 

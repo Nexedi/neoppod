@@ -60,6 +60,10 @@ func NewSeqReaderAtSize(r io.ReaderAt, size int) *SeqReaderAt {
 	return sb
 }
 
+// XXX not yet sure it is good idea
+func (sb *SeqReaderAt) IOUnwrap() interface{} {
+	return sb.r
+}
 
 // // XXX temp
 // func init() {
