@@ -55,7 +55,7 @@ type Index struct {
 
 // IndexNew creates new empty index
 func IndexNew() *Index {
-	return &Index{Tree: fsb.TreeNew()}
+	return &Index{TopPos: txnValidFrom, Tree: fsb.TreeNew()}
 }
 
 // NOTE Get/Set/... are taken as-is from fsb.Tree
@@ -413,7 +413,7 @@ func treeEqual(a, b *fsb.Tree) bool {
 //
 // On success returned error is nil and index.TopPos is set to either:
 // - topPos (if it is != -1), or
-// - r's position at which read got EOF (if topPos=-1)
+// - r's position at which read got EOF (if topPos=-1).
 func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (err error) {
 	defer xerr.Contextf(&err, "%s: reindex %v..%v", xio.Name(r), index.TopPos, topPos)
 
@@ -488,16 +488,37 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 }
 
 // BuildIndex builds new in-memory index for data in r
-func BuildIndex(ctx context.Context, r io.ReaderAt) (index *Index, err error) {
-	index = IndexNew()
-	index.TopPos = txnValidFrom
+//
+// non-nil valid and consistent index is always returned - even in case of error
+// the index will describe data till top-position of highest transaction that
+// could be read without error.
+//
+// In such cases the index building could be retried to be finished with
+// index.Update().
+func BuildIndex(ctx context.Context, r io.ReaderAt) (*Index, error) {
+	index := IndexNew()
+	err := index.Update(ctx, r, -1)
+	return index, err
+}
 
-	err = index.Update(ctx, r, -1)
+// BuildIndexForFile builds new in-memory index for data in file @ path
+//
+// See BuildIndex for semantic description.
+func BuildIndexForFile(ctx context.Context, path string) (index *Index, err error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return IndexNew(), err
 	}
 
-	return index, nil
+	defer func() {
+		err2 := f.Close()
+		err = xerr.First(err, err2)
+	}()
+
+	// use IO optimized for sequential access when building index
+	fSeq := xbufio.NewSeqReaderAt(f)
+
+	return BuildIndex(ctx, fSeq)
 }
 
 // VerifyNTxn checks index correctness against several transactions of FileStorage data in r.

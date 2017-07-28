@@ -22,6 +22,7 @@ package fs1
 //go:generate ./py/gen-testdata
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -182,6 +183,13 @@ func TestIndexSaveLoad(t *testing.T) {
 }
 
 
+var _1fs_index = func () *Index {
+	idx := IndexNew()
+	idx.TopPos = _1fs_indexTopPos
+	setIndex(idx, _1fs_indexEntryv[:])
+	return idx
+}()
+
 // test that we can correctly load index data as saved by zodb/py
 func TestIndexLoadFromPy(t *testing.T) {
 	fsiPy, err := LoadIndexFile("testdata/1.fs.index")
@@ -189,11 +197,7 @@ func TestIndexLoadFromPy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fsiExpect := IndexNew()
-	fsiExpect.TopPos = _1fs_indexTopPos
-	setIndex(fsiExpect, _1fs_indexEntryv[:])
-
-	checkIndexEqual(t, "index load", fsiPy, fsiExpect)
+	checkIndexEqual(t, "index load", fsiPy, _1fs_index)
 }
 
 // test zodb/py can read index data as saved by us
@@ -201,11 +205,7 @@ func TestIndexSaveToPy(t *testing.T) {
 	needZODBPy(t)
 	workdir := xworkdir(t)
 
-	fsi := IndexNew()
-	fsi.TopPos = _1fs_indexTopPos
-	setIndex(fsi, _1fs_indexEntryv[:])
-
-	err := fsi.SaveFile(workdir + "/1.fs.index")
+	err := _1fs_index.SaveFile(workdir + "/1.fs.index")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,6 +217,17 @@ func TestIndexSaveToPy(t *testing.T) {
 	err = cmd.Run()
 	if err != nil {
 		t.Fatalf("zodb/py read/compare index: %v", err)
+	}
+}
+
+func TestIndexBuild(t *testing.T) {
+	index, err := BuildIndexForFile(context.Background(), "testdata/1.fs")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !index.Equal(_1fs_index) {
+		t.Fatal("computed index differ from expected")
 	}
 }
 

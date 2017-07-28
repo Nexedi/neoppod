@@ -284,25 +284,6 @@ func TestIterate(t *testing.T) {
 	testIterate(t, fs, 0, zodb.TidMax, _1fs_dbEntryv[:])
 }
 
-func TestComputeIndex(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs")	// TODO open ro
-	defer exc.XRun(fs.Close)
-
-	index, err := fs.computeIndex(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	indexOk, err := LoadIndexFile("testdata/1.fs.index")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !index.Equal(indexOk) {
-		t.Fatal("computed index differ from expected")
-	}
-}
-
 func BenchmarkIterate(b *testing.B) {
 	fs := xfsopen(b, "testdata/1.fs")	// TODO open ro
 	defer exc.XRun(fs.Close)
