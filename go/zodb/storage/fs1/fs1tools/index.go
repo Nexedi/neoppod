@@ -181,7 +181,7 @@ func verifyIdxMain(argv []string) {
 	storPath := argv[0]
 
 	// progress display
-	progress := func(p *fs1.IndexVerifyProgress) {
+	display := func(p *fs1.IndexVerifyProgress) {
 		if p.TxnTotal == -1 {
 			bytesChecked := p.Index.TopPos - p.Iter.Txnh.Pos
 			bytesAll := p.Index.TopPos
@@ -196,14 +196,34 @@ func verifyIdxMain(argv []string) {
 		}
 	}
 
+	// display updates once per tick
+	tick := time.NewTicker(time.Second / 4)
+	defer tick.Stop()
+
+	var lastp *fs1.IndexVerifyProgress
+	progress := func(p *fs1.IndexVerifyProgress) {
+		lastp = p
+		select {
+		case <- tick.C:
+		default:
+			return
+		}
+
+		display(p)
+	}
+
 	if quiet {
 		progress = nil
 	}
 
 	err := VerifyIndexFor(context.Background(), storPath, ntxn, progress)
+
 	if !quiet {
+		// (re-)display last update in case no progress was displayed so far
+		display(lastp)
 		fmt.Println()
 	}
+
 	if err != nil {
 		zt.Fatal(err)
 	}
