@@ -553,6 +553,15 @@ func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorru
 	return &IndexCorruptError{DataFileName: xio.Name(r), Detail: fmt.Sprintf(format, argv...)}
 }
 
+// IndexVerifyProgress is data sent by Index.Verify to progress
+type IndexVerifyProgress struct {
+	TxnTotal   int			 // total # of transactions to verify; if = -1 -- whole data
+	TxnChecked int
+	Index      *Index		 // index verification runs for
+	Iter       *Iter		 // iterator thtough data
+	OidChecked map[zodb.Oid]struct{} // oid checked so far
+}
+
 // Verify checks index correctness against FileStorage data in r.
 //
 // For ntxn transactions starting from index.TopPos backwards, it verifies
@@ -568,7 +577,7 @@ func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorru
 // Returned error is either:
 // - of type *IndexCorruptError, when data in index was found not to match original data, or
 // - any other error type representing e.g. IO error when reading original data or something else.
-func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
+func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int, progress func(*IndexVerifyProgress)) (oidChecked map[zodb.Oid]struct{}, err error) {
 	defer func() {
 		if _, ok := err.(*IndexCorruptError); ok {
 			return // leave it as is
@@ -581,6 +590,14 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int) (oidChe
 	wholeData := false
 
 	it := Iterate(r, index.TopPos, IterBackward)
+
+	pd := &IndexVerifyProgress{
+		TxnTotal:   ntxn,
+		Index:      index,
+		Iter:       it,
+		OidChecked: oidChecked,
+	}
+
 	for i := 0; ntxn == -1 || i < ntxn; i++ {
 		// check ctx cancel once per transaction
 		select {
@@ -625,6 +642,11 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int) (oidChe
 					it.Datah.Oid, it.Datah.Pos, dataPos)
 			}
 		}
+
+		if progress != nil {
+			pd.TxnChecked = i
+			progress(pd)
+		}
 	}
 
 	// all oids from data were checked to be in index
@@ -652,7 +674,7 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int) (oidChe
 // VerifyForFile checks index correctness against FileStorage data in file @ path
 //
 // See Verify for semantic description.
-func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
+func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int, progress func (*IndexVerifyProgress)) (oidChecked map[zodb.Oid]struct{}, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -676,5 +698,5 @@ func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int) (o
 	// use IO optimized for sequential access when verifying index
 	fSeq := xbufio.NewSeqReaderAt(f)
 
-	return index.Verify(ctx, fSeq, ntxn)
+	return index.Verify(ctx, fSeq, ntxn, progress)
 }

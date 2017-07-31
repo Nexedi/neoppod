@@ -82,14 +82,14 @@ func reindexMain(argv []string) {
 // ----------------------------------------
 
 // VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
-func VerifyIndexFor(ctx context.Context, path string, ntxn int) (err error) {
+func VerifyIndexFor(ctx context.Context, path string, ntxn int, progress func(*fs1.IndexVerifyProgress)) (err error) {
 	// XXX lock path.lock ?
 	index, err := fs1.LoadIndexFile(path + ".index")
 	if err != nil {
 		return err	// XXX err ctx
 	}
 
-	_, err = index.VerifyForFile(context.Background(), path, ntxn)
+	_, err = index.VerifyForFile(context.Background(), path, ntxn, progress)
 	return err
 }
 
@@ -106,15 +106,18 @@ Verify FileStorage index
 
 	-checkonly <n>	only check consistency by verifying against <n>
 			last transactions.
+	-quiet		do not show intermediate progress.
 	-h --help       this help text.
 `)
 }
 
 func verifyIdxMain(argv []string) {
 	ntxn := -1
+	quiet := false
 	flags := flag.FlagSet{Usage: func() { verifyIdxUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
 	flags.IntVar(&ntxn, "checkonly", ntxn, "check consistency only wrt last <n> transactions")
+	flags.BoolVar(&quiet, "quiet", quiet, "do not show intermediate progress")
 	flags.Parse(argv[1:])
 
 	argv = flags.Args()
@@ -124,8 +127,33 @@ func verifyIdxMain(argv []string) {
 	}
 	storPath := argv[0]
 
-	err := VerifyIndexFor(context.Background(), storPath, ntxn)
+	// progress display
+	progress := func(p *fs1.IndexVerifyProgress) {
+		if p.TxnTotal == -1 {
+			bytesChecked := p.Index.TopPos - p.Iter.Txnh.Pos
+			bytesAll := p.Index.TopPos
+			fmt.Printf("Checked data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d\n",
+				100 * float64(bytesChecked) / float64(bytesAll), // XXX /0 ?
+				bytesChecked, bytesAll,
+				p.TxnChecked, len(p.OidChecked))
+		} else {
+			fmt.Printf("Checked data transactions: %.1f%% (%d/%d);  #oid: %d\n",
+				100 * float64(p.TxnChecked) / float64(p.TxnTotal), // XXX /0 ?
+				p.TxnChecked, p.TxnTotal, len(p.OidChecked))
+		}
+	}
+
+
+	if quiet {
+		progress = nil
+	}
+
+	err := VerifyIndexFor(context.Background(), storPath, ntxn, progress)
 	if err != nil {
 		zt.Fatal(err)
+	}
+
+	if !quiet {
+		fmt.Println("OK")
 	}
 }
