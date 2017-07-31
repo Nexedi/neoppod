@@ -423,7 +423,7 @@ func treeEqual(a, b *fsb.Tree) bool {
 //
 // The index stays valid even in case of error - then index is updated but only
 // partially. The index always stays consistent as updates to it are applied as
-// a whole for every data transaction. On return index.TopPos indicates till
+// a whole once per data transaction. On return index.TopPos indicates till
 // which position in data the index could be updated.
 //
 // On success returned error is nil and index.TopPos is set to either:
@@ -538,7 +538,7 @@ func BuildIndexForFile(ctx context.Context, path string) (index *Index, err erro
 
 // --- verify index against data in FileStorage ---
 
-// IndexCorrupyError is the error type returned by index verification routines
+// IndexCorruptError is the error type returned by index verification routines
 // when index was found to not match original FileStorage data.
 type IndexCorruptError struct {
 	DataFileName string
@@ -553,17 +553,22 @@ func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorru
 	return &IndexCorruptError{DataFileName: xio.Name(r), Detail: fmt.Sprintf(format, argv...)}
 }
 
-// VerifyTail checks index correctness against several newest transactions of FileStorage data in r.
+// Verify checks index correctness against FileStorage data in r.
 //
-// For (XXX max) ntxn transactions starting from index.TopPos backwards, it verifies
+// For ntxn transactions starting from index.TopPos backwards, it verifies
 // whether oid there have correct entries in the index.
 //
 // ntxn=-1 means data range to verify is till start of the file.
 //
+// If whole data file was covered (either ntxn is big enough or was set = -1)
+// additional checks are performed to make sure there is no extra entries in
+// the index. For whole-data file cases Verify thus checks whether index is
+// exactly the same as if it was build anew for data in range ..index.TopPos .
+//
 // Returned error is either:
 // - of type *IndexCorruptError, when data in index was found not to match original data, or
 // - any other error type representing e.g. IO error when reading original data or something else.
-func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
+func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
 	defer func() {
 		if _, ok := err.(*IndexCorruptError); ok {
 			return // leave it as is
@@ -573,22 +578,24 @@ func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 	}()
 
 	oidChecked = map[zodb.Oid]struct{}{} // Set<zodb.Oid>
+	wholeData := false
 
 	it := Iterate(r, index.TopPos, IterBackward)
 	for i := 0; ntxn == -1 || i < ntxn; i++ {
 		// check ctx cancel once per transaction
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return oidChecked, ctx.Err()
 		default:
 		}
 
 		err := it.NextTxn(LoadNoStrings)
 		if err != nil {
 			if err == io.EOF {
+				wholeData = true
 				break
 			}
-			return nil, err		// XXX err ctx
+			return oidChecked, err		// XXX err ctx
 		}
 
 		for {
@@ -597,7 +604,7 @@ func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 				if err == io.EOF {
 					break
 				}
-				return nil, err	// XXX err ctx
+				return oidChecked, err	// XXX err ctx
 			}
 
 			// if oid was already checked - do not check index anymore
@@ -609,81 +616,46 @@ func (index *Index) VerifyTail(ctx context.Context, r io.ReaderAt, ntxn int) (oi
 
 			dataPos, ok := index.Get(it.Datah.Oid)
 			if !ok {
-				return nil, indexCorrupt(r, "oid %v @%v: no index entry",
+				return oidChecked, indexCorrupt(r, "oid %v @%v: no index entry",
 					it.Datah.Oid, it.Datah.Pos)
 			}
 
 			if dataPos != it.Datah.Pos {
-				return nil, indexCorrupt(r, "oid %v @%v: index has wrong pos (%v)",
+				return oidChecked, indexCorrupt(r, "oid %v @%v: index has wrong pos (%v)",
 					it.Datah.Oid, it.Datah.Pos, dataPos)
 			}
 		}
 	}
 
-	// TODO err = EOF -> merge from Verify
+	// all oids from data were checked to be in index
+	// now verify that there is no extra oids in index
+	if wholeData && len(oidChecked) != index.Len() {
+		// !nil as nil means index.Len=0 and len(oidChecked) < index.Len here
+		e, _ := index.SeekFirst()
+		defer e.Close()
+
+		for {
+			oid, pos, errStop := e.Next()
+			if errStop != nil {
+				break
+			}
+
+			if _, ok := oidChecked[oid]; !ok {
+				return oidChecked, indexCorrupt(r, "oid %v @%v: present in index but not in data", oid, pos)
+			}
+		}
+	}
 
 	return oidChecked, nil
 }
 
-// Verify checks index correctness against FileStorage data in r.
+// VerifyForFile checks index correctness against FileStorage data in file @ path
 //
-// it verifies whether index is exactly the same as if it was build anew for
-// data in range ..index.TopPos .
-//
-// See VerifyTail for description about errors returned.
-func (index *Index) Verify(ctx context.Context, r io.ReaderAt) error {
-	oidChecked, err := index.VerifyTail(ctx, r, -1)
-	if err != nil {
-		return err
-	}
-
-	// XXX merge this into VerifyTail
-
-	// all oids from data were checked to be in index
-	// now verify that there is no extra oids in index
-	if len(oidChecked) == index.Len() {
-		return nil
-	}
-
-	e, _ := index.SeekFirst() // !nil as nil means index.Len=0 and len(oidChecked) <= index.Len
-	defer e.Close()
-
-	for {
-		oid, pos, errStop := e.Next()
-		if errStop != nil {
-			break
-		}
-
-		if _, ok := oidChecked[oid]; !ok {
-			return indexCorrupt(r, "oid %v @%v: present in index but not in data", oid, pos)
-		}
-	}
-
-	return nil
-}
-
-// XXX text
-func (index *Index) VerifyTailForFile(ctx context.Context, path string, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
-	err = index.verifyForFile(path, func(r io.ReaderAt) error {
-		oidChecked, err = index.VerifyTail(ctx, r, ntxn)
-		return err
-	})
-	return
-}
-
-// VerifyForFile verifies index correctness against FileStorage file @ path
-// XXX text
-func (index *Index) VerifyForFile(ctx context.Context, path string) error {
-	return index.verifyForFile(path, func(r io.ReaderAt) error {
-		return index.Verify(ctx, r)
-	})
-}
-
-// common driver for Verify*ForFile
-func (index *Index) verifyForFile(path string, check func(r io.ReaderAt) error) error {
+// See Verify for semantic description.
+func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int) (oidChecked map[zodb.Oid]struct{}, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -693,16 +665,16 @@ func (index *Index) verifyForFile(path string, check func(r io.ReaderAt) error) 
 
 	fi, err := f.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	topPos := fi.Size()	// XXX there might be last TxnInprogress transaction
 	if index.TopPos != topPos {
-		return indexCorrupt(f, "topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
+		return nil, indexCorrupt(f, "topPos mismatch: data=%v  index=%v", topPos, index.TopPos)
 	}
 
 	// use IO optimized for sequential access when verifying index
 	fSeq := xbufio.NewSeqReaderAt(f)
 
-	return check(fSeq)
+	return index.Verify(ctx, fSeq, ntxn)
 }

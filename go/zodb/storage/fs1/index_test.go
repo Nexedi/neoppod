@@ -230,14 +230,14 @@ func TestIndexBuildVerify(t *testing.T) {
 		t.Fatal("computed index differ from expected")
 	}
 
-	err = index.VerifyForFile(context.Background(), "testdata/1.fs")
+	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1)
 	if err != nil {
 		t.Fatalf("index verify: %v", err)
 	}
 
 	pos0, _ := index.Get(0)
 	index.Set(0, pos0 + 1)
-	err = index.VerifyForFile(context.Background(), "testdata/1.fs")
+	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1)
 	if err == nil {
 		t.Fatalf("index verify: expected error after tweak")
 	}

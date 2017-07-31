@@ -82,14 +82,14 @@ func reindexMain(argv []string) {
 // ----------------------------------------
 
 // VerifyIndexFor verifies that on-disk index for FileStorage file @ path is correct
-func VerifyIndexFor(ctx context.Context, path string) (err error) {
+func VerifyIndexFor(ctx context.Context, path string, ntxn int) (err error) {
 	// XXX lock path.lock ?
 	index, err := fs1.LoadIndexFile(path + ".index")
 	if err != nil {
 		return err	// XXX err ctx
 	}
 
-	err = index.VerifyForFile(context.Background(), path)
+	_, err = index.VerifyForFile(context.Background(), path, ntxn)
 	return err
 }
 
@@ -104,9 +104,7 @@ Verify FileStorage index
 
   options:
 
-	XXX leave quickcheck without <n> (10 by default)
-	XXX + -quick-limit
-	-quickcheck <n>	only quickly check consistency by verifying against 10
+	-checkonly <n>	only check consistency by verifying against <n>
 			last transactions.
 	-h --help       this help text.
 `)
@@ -116,7 +114,7 @@ func verifyIdxMain(argv []string) {
 	ntxn := -1
 	flags := flag.FlagSet{Usage: func() { verifyIdxUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
-	flags.IntVar(&ntxn, "quickcheck", ntxn, "check consistency only wrt last <n> transactions")
+	flags.IntVar(&ntxn, "checkonly", ntxn, "check consistency only wrt last <n> transactions")
 	flags.Parse(argv[1:])
 
 	argv = flags.Args()
@@ -126,7 +124,7 @@ func verifyIdxMain(argv []string) {
 	}
 	storPath := argv[0]
 
-	err := VerifyIndexFor(context.Background(), storPath)
+	err := VerifyIndexFor(context.Background(), storPath, ntxn)
 	if err != nil {
 		zt.Fatal(err)
 	}
