@@ -496,7 +496,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	return BuildIndex(ctx, fsSeq)
+	return BuildIndex(ctx, fsSeq, nil/*XXX no progress*/)
 }
 
 // loadIndex loads on-disk index to RAM

@@ -413,6 +413,14 @@ func treeEqual(a, b *fsb.Tree) bool {
 
 // --- build index from FileStorage data ---
 
+// IndexUpdateProgress is data sent by Index.Update to notify about progress
+type IndexUpdateProgress struct {
+	TopPos     int64	// data range to update to; if = -1 -- till EOF
+	TxnIndexed int		// # transactions read/indexed so far
+	Index      *Index	// index built so far
+	Iter       *Iter	// iterator through data	XXX needed?
+}
+
 // Update updates in-memory index from r's FileStorage data in byte-range index.TopPos..topPos
 //
 // The use case is: we have index computed till some position; we open
@@ -429,7 +437,7 @@ func treeEqual(a, b *fsb.Tree) bool {
 // On success returned error is nil and index.TopPos is set to either:
 // - topPos (if it is != -1), or
 // - r's position at which read got EOF (if topPos=-1).
-func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (err error) {
+func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, progress func (*IndexUpdateProgress)) (err error) {
 	defer xerr.Contextf(&err, "%s: reindex %v..%v", xio.Name(r), index.TopPos, topPos)
 
 	if topPos >= 0 && index.TopPos > topPos {
@@ -441,6 +449,13 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 	// 2. we can be sure we build the whole index if we saw all oids
 
 	it := Iterate(r, index.TopPos, IterForward)
+
+	pd := &IndexUpdateProgress{
+		TopPos: topPos,
+		Index:  index,
+		Iter:   it,
+	}
+
 	for {
 		// check ctx cancel once per transaction
 		select {
@@ -497,6 +512,12 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 		for oid, pos := range update {
 			index.Set(oid, pos)
 		}
+
+		// notify progress
+		if progress != nil {
+			pd.TxnIndexed++
+			progress(pd)
+		}
 	}
 
 	return nil
@@ -510,16 +531,16 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64) (er
 //
 // In such cases the index building could be retried to be finished with
 // index.Update().
-func BuildIndex(ctx context.Context, r io.ReaderAt) (*Index, error) {
+func BuildIndex(ctx context.Context, r io.ReaderAt, progress func(*IndexUpdateProgress)) (*Index, error) {
 	index := IndexNew()
-	err := index.Update(ctx, r, -1)
+	err := index.Update(ctx, r, -1, progress)
 	return index, err
 }
 
 // BuildIndexForFile builds new in-memory index for data in file @ path
 //
 // See BuildIndex for semantic description.
-func BuildIndexForFile(ctx context.Context, path string) (index *Index, err error) {
+func BuildIndexForFile(ctx context.Context, path string, progress func(*IndexUpdateProgress)) (index *Index, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return IndexNew(), err // XXX add err ctx?
@@ -533,7 +554,7 @@ func BuildIndexForFile(ctx context.Context, path string) (index *Index, err erro
 	// use IO optimized for sequential access when building index
 	fSeq := xbufio.NewSeqReaderAt(f)
 
-	return BuildIndex(ctx, fSeq)
+	return BuildIndex(ctx, fSeq, progress)
 }
 
 // --- verify index against data in FileStorage ---
@@ -553,12 +574,12 @@ func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorru
 	return &IndexCorruptError{DataFileName: xio.Name(r), Detail: fmt.Sprintf(format, argv...)}
 }
 
-// IndexVerifyProgress is data sent by Index.Verify to progress
+// IndexVerifyProgress is data sent by Index.Verify to notify about progress
 type IndexVerifyProgress struct {
 	TxnTotal   int			 // total # of transactions to verify; if = -1 -- whole data
 	TxnChecked int
 	Index      *Index		 // index verification runs for
-	Iter       *Iter		 // iterator thtough data
+	Iter       *Iter		 // iterator through data
 	OidChecked map[zodb.Oid]struct{} // oid checked so far
 }
 
@@ -643,8 +664,9 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int, progres
 			}
 		}
 
+		// notify progress
 		if progress != nil {
-			pd.TxnChecked = i
+			pd.TxnChecked++
 			progress(pd)
 		}
 	}

@@ -31,14 +31,14 @@ import (
 )
 
 // Reindex rebuilds index for FileStorage file @ path
-func Reindex(ctx context.Context, path string) error {
+func Reindex(ctx context.Context, path string, progress func(*fs1.IndexUpdateProgress)) error {
 	// XXX lock path.lock ?
-	index, err := fs1.BuildIndexForFile(ctx, path)
+	index, err := fs1.BuildIndexForFile(ctx, path, progress)
 	if err != nil {
 		return err
 	}
 
-	err = index.SaveFile(path + ".index")
+	err = index.SaveFile(path + ".index")	// XXX show progress during SaveFile?
 	if err != nil {
 		return err // XXX err ctx
 	}
@@ -57,13 +57,16 @@ Rebuild FileStorage index
 
   options:
 
+	-quiet		do not show intermediate progress.
 	-h --help       this help text.
 `)
 }
 
 func reindexMain(argv []string) {
+	quiet := false
 	flags := flag.FlagSet{Usage: func() { reindexUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
+	flags.BoolVar(&quiet, "quiet", quiet, "do not show intermediate progress")
 	flags.Parse(argv[1:])
 
 	argv = flags.Args()
@@ -73,9 +76,35 @@ func reindexMain(argv []string) {
 	}
 	storPath := argv[0]
 
-	err := Reindex(context.Background(), storPath)
+	fi, err := os.Stat(storPath)
 	if err != nil {
 		zt.Fatal(err)
+	}
+
+	// progress display
+	progress := func(p *fs1.IndexUpdateProgress) {
+		topPos := p.TopPos
+		if topPos == -1 {
+			topPos = fi.Size()
+		}
+
+		fmt.Printf("Indexed data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d\n",
+			100 * float64(p.Index.TopPos) / float64(topPos),
+			p.Index.TopPos, topPos,
+			p.TxnIndexed, p.Index.Len())
+	}
+
+	if quiet {
+		progress = nil
+	}
+
+	err = Reindex(context.Background(), storPath, progress)
+	if err != nil {
+		zt.Fatal(err)
+	}
+
+	if !quiet {
+		fmt.Println("done")
 	}
 }
 
@@ -133,16 +162,15 @@ func verifyIdxMain(argv []string) {
 			bytesChecked := p.Index.TopPos - p.Iter.Txnh.Pos
 			bytesAll := p.Index.TopPos
 			fmt.Printf("Checked data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d\n",
-				100 * float64(bytesChecked) / float64(bytesAll), // XXX /0 ?
+				100 * float64(bytesChecked) / float64(bytesAll),
 				bytesChecked, bytesAll,
 				p.TxnChecked, len(p.OidChecked))
 		} else {
 			fmt.Printf("Checked data transactions: %.1f%% (%d/%d);  #oid: %d\n",
-				100 * float64(p.TxnChecked) / float64(p.TxnTotal), // XXX /0 ?
+				100 * float64(p.TxnChecked) / float64(p.TxnTotal),
 				p.TxnChecked, p.TxnTotal, len(p.OidChecked))
 		}
 	}
-
 
 	if quiet {
 		progress = nil
