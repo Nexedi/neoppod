@@ -148,7 +148,7 @@ func (prog *MainProg) usage() {
 
 Usage:
 
-	%s [common-options] command [arguments]
+	%s [options] command [arguments]
 
 The commands are:
 
@@ -161,7 +161,7 @@ The commands are:
 			nameWidth = len(cmd.Name)
 		}
 	}
-	for _, topic := range prog.HelpTopics {
+	for _, topic := range prog.helpTopics() {
 		if len(topic.Name) > nameWidth {
 			nameWidth = len(topic.Name)
 		}
@@ -177,15 +177,14 @@ The commands are:
 Use "%s help [command]" for more information about a command.
 `, prog.Name)
 
-	// XXX +common-options
-	if len(prog.HelpTopics) > 0 {
+	if len(prog.helpTopics()) > 0 {
 		fmt.Fprintf(w,
 `
 Additional help topics:
 
 `)
 
-		for _, topic := range prog.HelpTopics {
+		for _, topic := range prog.helpTopics() {
 			fmt.Fprintf(w, "\t%-*s %s\n", nameWidth, topic.Name, topic.Summary)
 		}
 
@@ -214,7 +213,7 @@ func (prog *MainProg) help(argv []string) {
 		os.Exit(0)
 	}
 
-	helpTopic := prog.HelpTopics.Lookup(topic)
+	helpTopic := prog.helpTopics().Lookup(topic)
 	if helpTopic != nil {
 		fmt.Println(helpTopic.Text)
 		os.Exit(0)
@@ -223,3 +222,20 @@ func (prog *MainProg) help(argv []string) {
 	fmt.Fprintf(os.Stderr, "Unknown help topic `%s`.  Run '%s help'.\n", topic, prog.Name)
 	os.Exit(2)
 }
+
+// helpTopics returns provided help topics augmented with help on common topics
+// provided by zodbtools driver
+func (prog *MainProg) helpTopics() HelpRegistry {
+	return append(helpCommon, prog.HelpTopics...)
+}
+
+var helpCommon = HelpRegistry{
+	{"options", "options common to all commands", helpOptions},
+}
+
+const helpOptions =
+`Options common to all commands:
+
+	-cpuprofile <file>	write cpu profile to <file>
+	-memprofile <file>	write memory profile to <file>
+`
