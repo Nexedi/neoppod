@@ -26,7 +26,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -112,17 +111,17 @@ func infoMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		os.Exit(2)
+		Exit(2)
 	}
 	storUrl := argv[0]
 
 	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
 	if err != nil {
-		log.Fatal(err)
+		Fatal(err)
 	}
 
 	err = Info(os.Stdout, stor, argv[1:])
 	if err != nil {
-		log.Fatal(err)
+		Fatal(err)
 	}
 }

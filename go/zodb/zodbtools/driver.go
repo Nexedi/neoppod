@@ -81,8 +81,41 @@ type MainProg struct {
 	HelpTopics HelpRegistry		// provided help topics
 }
 
+// Exit is like os.Exit but makes sure deferred functions are run.
+// Exit should be called from main goroutine.
+func Exit(code int) {
+	panic(&programExit{code})
+}
+
+// Fatal is like log.Fatal but makes sure deferred functions are run.
+// Fatal should be called from main goroutine.
+func Fatal(v ...interface{}) {
+	log.Print(v...)
+	Exit(1)
+}
+
+// programExit is thrown when Exit or Fatal are called
+type programExit struct {
+	code int
+}
+
 // Main is the main entry point for the program. Call it from main.
 func (prog *MainProg) Main() {
+	// handle exit throw-requests
+	defer func() {
+		r := recover()
+		if e, _ := r.(*programExit); e != nil {
+			os.Exit(e.code)
+		}
+		if r != nil {
+			panic(r)
+		}
+	}()
+
+	prog.main()
+}
+
+func (prog *MainProg) main() {
 	flag.Usage = prog.usage
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to `file`")
 	memprofile := flag.String("memprofile", "", "write memory profile to `file`")
@@ -91,7 +124,7 @@ func (prog *MainProg) Main() {
 
 	if len(argv) == 0 {
 		prog.usage()
-		os.Exit(2)
+		Exit(2)
 	}
 
 	command := argv[0]
@@ -100,10 +133,10 @@ func (prog *MainProg) Main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			log.Fatal("could not create CPU profile: ", err)
+			Fatal("could not create CPU profile: ", err)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal("could not start CPU profile: ", err)
+			Fatal("could not start CPU profile: ", err)
 		}
 		defer pprof.StopCPUProfile()
 	}
@@ -112,11 +145,11 @@ func (prog *MainProg) Main() {
 		if *memprofile != "" {
 			f, err := os.Create(*memprofile)
 			if err != nil {
-				log.Fatal("could not create memory profile: ", err)
+				Fatal("could not create memory profile: ", err)
 			}
 			runtime.GC() // get up-to-date statistics
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				log.Fatal("could not write memory profile: ", err)
+				Fatal("could not write memory profile: ", err)
 			}
 			f.Close()
 		}
@@ -134,7 +167,7 @@ func (prog *MainProg) Main() {
 	if cmd == nil {
 		fmt.Fprintf(os.Stderr, "%s: unknown subcommand \"%s\"\n", prog.Name, command)
 		fmt.Fprintf(os.Stderr, "Run '%s help' for usage.\n", prog.Name)
-		os.Exit(2)
+		Exit(2)
 	}
 
 	cmd.Main(argv)
@@ -201,7 +234,7 @@ Use "%s help [topic]" for more information about that topic.
 func (prog *MainProg) help(argv []string) {
 	if len(argv) < 2 {	// help topic ...
 		prog.usage()
-		os.Exit(2)
+		Exit(2)
 	}
 
 	topic := argv[1]
@@ -210,17 +243,17 @@ func (prog *MainProg) help(argv []string) {
 	command := prog.Commands.Lookup(topic)
 	if command != nil {
 		command.Usage(os.Stdout)
-		os.Exit(0)
+		Exit(0)
 	}
 
 	helpTopic := prog.helpTopics().Lookup(topic)
 	if helpTopic != nil {
 		fmt.Println(helpTopic.Text)
-		os.Exit(0)
+		Exit(0)
 	}
 
 	fmt.Fprintf(os.Stderr, "Unknown help topic `%s`.  Run '%s help'.\n", topic, prog.Name)
-	os.Exit(2)
+	Exit(2)
 }
 
 // helpTopics returns provided help topics augmented with help on common topics

@@ -25,7 +25,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -97,31 +96,31 @@ func catobjMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 2 {
 		flags.Usage()
-		os.Exit(2)
+		Exit(2)
 	}
 	storUrl := argv[0]
 
 	if hashOnly && raw {
-		log.Fatal("-hashonly & -raw are incompatible")
+		Fatal("-hashonly & -raw are incompatible")
 	}
 
 	xidv := []zodb.Xid{}
 	for _, arg := range argv[1:] {
 		xid, err := zodb.ParseXid(arg)
 		if err != nil {
-			log.Fatal(err)	// XXX recheck
+			Fatal(err)	// XXX recheck
 		}
 
 		xidv = append(xidv, xid)
 	}
 
 	if raw && len(xidv) > 1 {
-		log.Fatal("only 1 object allowed with -raw")
+		Fatal("only 1 object allowed with -raw")
 	}
 
 	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
 	if err != nil {
-		log.Fatal(err)
+		Fatal(err)
 	}
 	// TODO defer stor.Close()
 
@@ -136,7 +135,7 @@ func catobjMain(argv []string) {
 	for _, xid := range xidv {
 		err = catobj(xid)
 		if err != nil {
-			log.Fatal(err)
+			Fatal(err)
 		}
 	}
 }

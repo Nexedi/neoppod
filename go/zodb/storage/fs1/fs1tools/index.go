@@ -25,9 +25,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"log"
 
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 )
 
 // Reindex rebuilds index for FileStorage file @ path
@@ -69,13 +69,13 @@ func reindexMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		os.Exit(2)
+		zt.Exit(2)
 	}
 	storPath := argv[0]
 
 	err := Reindex(context.Background(), storPath)
 	if err != nil {
-		log.Fatal(err)
+		zt.Fatal(err)
 	}
 }
 
@@ -122,12 +122,12 @@ func verifyIdxMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		os.Exit(2)
+		zt.Exit(2)
 	}
 	storPath := argv[0]
 
 	err := VerifyIndexFor(context.Background(), storPath)
 	if err != nil {
-		log.Fatal(err)
+		zt.Fatal(err)
 	}
 }

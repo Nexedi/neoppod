@@ -25,11 +25,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -313,7 +313,7 @@ func dumpMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		os.Exit(2)
+		zt.Exit(2)
 	}
 	storPath := argv[0]
 
@@ -326,7 +326,7 @@ func dumpMain(argv []string) {
 
 	err := Dump(os.Stdout, storPath, fs1.IterForward, d)
 	if err != nil {
-		log.Fatal(err)
+		zt.Fatal(err)
 	}
 }
 
@@ -411,12 +411,12 @@ func tailMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		os.Exit(2)
+		zt.Exit(2)
 	}
 	storPath := argv[0]
 
 	err := Dump(os.Stdout, storPath, fs1.IterBackward, &DumperFsTail{Ntxn: ntxn})
 	if err != nil {
-		log.Fatal(err)
+		zt.Fatal(err)
 	}
 }
