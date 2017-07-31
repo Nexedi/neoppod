@@ -24,7 +24,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"runtime"
+	"runtime/pprof"
 )
 
 // Command describes one zodb subcommand
@@ -81,6 +84,8 @@ type MainProg struct {
 // Main is the main entry point for the program. Call it from main.
 func (prog *MainProg) Main() {
 	flag.Usage = prog.usage
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to `file`")
+	memprofile := flag.String("memprofile", "", "write memory profile to `file`")
 	flag.Parse()
 	argv := flag.Args()
 
@@ -90,6 +95,33 @@ func (prog *MainProg) Main() {
 	}
 
 	command := argv[0]
+
+	// handle common options
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	defer func() {
+		if *memprofile != "" {
+			f, err := os.Create(*memprofile)
+			if err != nil {
+				log.Fatal("could not create memory profile: ", err)
+			}
+			runtime.GC() // get up-to-date statistics
+			if err := pprof.WriteHeapProfile(f); err != nil {
+				log.Fatal("could not write memory profile: ", err)
+			}
+			f.Close()
+		}
+	}()
+
 
 	// help on a topic
 	if command == "help" {
@@ -116,15 +148,27 @@ func (prog *MainProg) usage() {
 
 Usage:
 
-	%s command [arguments]
+	%s [common-options] command [arguments]
 
 The commands are:
 
 `, prog.Summary, prog.Name)
 
-	// XXX 11 -> max width of cmd.Name
+	// to lalign commands & help summaries
+	nameWidth := 0
 	for _, cmd := range prog.Commands {
-		fmt.Fprintf(w, "\t%-11s %s\n", cmd.Name, cmd.Summary)
+		if len(cmd.Name) > nameWidth {
+			nameWidth = len(cmd.Name)
+		}
+	}
+	for _, topic := range prog.HelpTopics {
+		if len(topic.Name) > nameWidth {
+			nameWidth = len(topic.Name)
+		}
+	}
+
+	for _, cmd := range prog.Commands {
+		fmt.Fprintf(w, "\t%-*s %s\n", nameWidth, cmd.Name, cmd.Summary)
 	}
 
 	fmt.Fprintf(w,
@@ -133,6 +177,7 @@ The commands are:
 Use "%s help [command]" for more information about a command.
 `, prog.Name)
 
+	// XXX +common-options
 	if len(prog.HelpTopics) > 0 {
 		fmt.Fprintf(w,
 `
@@ -140,9 +185,8 @@ Additional help topics:
 
 `)
 
-		// XXX 11 -> max width of topic.Name
 		for _, topic := range prog.HelpTopics {
-			fmt.Fprintf(w, "\t%-11s %s\n", topic.Name, topic.Summary)
+			fmt.Fprintf(w, "\t%-*s %s\n", nameWidth, topic.Name, topic.Summary)
 		}
 
 		fmt.Fprintf(w,
