@@ -221,7 +221,7 @@ func TestIndexSaveToPy(t *testing.T) {
 }
 
 func TestIndexBuildVerify(t *testing.T) {
-	index, err := BuildIndexForFile(context.Background(), "testdata/1.fs")
+	index, err := BuildIndexForFile(context.Background(), "testdata/1.fs", nil)
 	if err != nil {
 		t.Fatalf("index build: %v", err)
 	}
@@ -230,14 +230,14 @@ func TestIndexBuildVerify(t *testing.T) {
 		t.Fatal("computed index differ from expected")
 	}
 
-	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1)
+	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1, nil)
 	if err != nil {
 		t.Fatalf("index verify: %v", err)
 	}
 
 	pos0, _ := index.Get(0)
 	index.Set(0, pos0 + 1)
-	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1)
+	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1, nil)
 	if err == nil {
 		t.Fatalf("index verify: expected error after tweak")
 	}
@@ -248,6 +248,24 @@ func BenchmarkIndexLoad(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarks
 	for i := 0; i < b.N; i++ {
 		_, err := LoadIndexFile("testdata/1.fs.index")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkIndexSave(b *testing.B) {
+	// FIXME small testdata/1.fs is not representative for benchmarks
+	index, err := LoadIndexFile("testdata/1.fs.index")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	workdir := xworkdir(b)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = index.SaveFile(workdir + "/1.fs.index")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -304,7 +322,7 @@ func needZODBPy(t *testing.T) {
 }
 
 // create temp dir inside workRoot
-func xworkdir(t *testing.T) string {
+func xworkdir(t testing.TB) string {
 	work, err := ioutil.TempDir(workRoot, "")
 	if err != nil {
 		t.Fatal(err)

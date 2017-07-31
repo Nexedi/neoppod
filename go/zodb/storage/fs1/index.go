@@ -21,6 +21,7 @@ package fs1
 // index for quickly finding oid -> latest data record
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -182,14 +183,17 @@ func (fsi *Index) SaveFile(path string) error {
 		return &IndexSaveError{err}	// XXX needed?
 	}
 
-	// TODO use buffering for f (ogórek does not buffer itself on encoding)
-	err1 := fsi.Save(f)
-	err2 := f.Close()
-	if err1 != nil || err2 != nil {
+	// use buffering for f (ogórek does not buffer itself on encoding)
+	fb := bufio.NewWriter(f)
+
+	err1 := fsi.Save(fb)
+	err2 := fb.Flush()
+	err3 := f.Close()
+	if err1 != nil || err2 != nil || err3 != nil {
 		os.Remove(f.Name())
 		err = err1
 		if err == nil {
-			err = &IndexSaveError{err2}	// XXX needed?
+			err = &IndexSaveError{xerr.First(err2, err3)}	// XXX needed?
 		}
 		return err
 	}
