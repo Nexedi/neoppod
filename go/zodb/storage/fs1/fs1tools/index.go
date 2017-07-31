@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
@@ -82,16 +83,32 @@ func reindexMain(argv []string) {
 	}
 
 	// progress display
-	progress := func(p *fs1.IndexUpdateProgress) {
+	display := func(p *fs1.IndexUpdateProgress) {
 		topPos := p.TopPos
 		if topPos == -1 {
 			topPos = fi.Size()
 		}
 
-		fmt.Printf("Indexed data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d\n",
+		fmt.Printf("\rIndexed data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d",
 			100 * float64(p.Index.TopPos) / float64(topPos),
 			p.Index.TopPos, topPos,
 			p.TxnIndexed, p.Index.Len())
+	}
+
+	// display updates once per tick
+	tick := time.NewTicker(time.Second / 4)
+	defer tick.Stop()
+
+	var lastp *fs1.IndexUpdateProgress
+	progress := func(p *fs1.IndexUpdateProgress) {
+		lastp = p
+		select {
+		case <- tick.C:
+		default:
+			return
+		}
+
+		display(p)
 	}
 
 	if quiet {
@@ -99,6 +116,13 @@ func reindexMain(argv []string) {
 	}
 
 	err = Reindex(context.Background(), storPath, progress)
+
+	if !quiet {
+		// (re-)display last update in case no progress was displayed so far
+		display(lastp)
+		fmt.Println()
+	}
+
 	if err != nil {
 		zt.Fatal(err)
 	}
@@ -161,12 +185,12 @@ func verifyIdxMain(argv []string) {
 		if p.TxnTotal == -1 {
 			bytesChecked := p.Index.TopPos - p.Iter.Txnh.Pos
 			bytesAll := p.Index.TopPos
-			fmt.Printf("Checked data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d\n",
+			fmt.Printf("\rChecked data bytes: %.1f%% (%d/%d);  #txn: %d, #oid: %d",
 				100 * float64(bytesChecked) / float64(bytesAll),
 				bytesChecked, bytesAll,
 				p.TxnChecked, len(p.OidChecked))
 		} else {
-			fmt.Printf("Checked data transactions: %.1f%% (%d/%d);  #oid: %d\n",
+			fmt.Printf("\rChecked data transactions: %.1f%% (%d/%d);  #oid: %d",
 				100 * float64(p.TxnChecked) / float64(p.TxnTotal),
 				p.TxnChecked, p.TxnTotal, len(p.OidChecked))
 		}
@@ -177,6 +201,9 @@ func verifyIdxMain(argv []string) {
 	}
 
 	err := VerifyIndexFor(context.Background(), storPath, ntxn, progress)
+	if !quiet {
+		fmt.Println()
+	}
 	if err != nil {
 		zt.Fatal(err)
 	}
