@@ -100,6 +100,10 @@ type programExit struct {
 }
 
 // Main is the main entry point for the program. Call it from main.
+//
+// Do not call os.Exit or log.Fatal from your program. Instead use Exit and
+// Fatal from zodbtools package so that deferred functions setup by Main could
+// be run.
 func (prog *MainProg) Main() {
 	// handle exit throw-requests
 	defer func() {
