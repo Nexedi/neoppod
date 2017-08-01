@@ -36,14 +36,7 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
-	// XXX move -> nodeCommon?
-	// ---- 8< ----
-	myInfo		neo.NodeInfo
-	clusterName	string
-
-	net		xnet.Networker	// network AP we are sending/receiving on
-	masterAddr	string		// address of current primary master
-	// ---- 8< ----
+	node neo.NodeCommon
 
 	// last allocated oid & tid
 	// XXX how to start allocating oid from 0, not 1 ?
@@ -115,24 +108,12 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 
 // Run starts master node and runs it until ctx is cancelled or fatal error
 func (m *Master) Run(ctx context.Context) error {
-	// XXX dup wrt Storage.Run
 	// start listening
-	l, err := m.net.Listen(m.myInfo.Address.String())	// XXX ugly
+	l, err := m.Listen()
 	if err != nil {
 		return err	// XXX err ctx
 	}
 
-	// now we know our listening address (in case it was autobind before)
-	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
-	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
-	//	-> host is never empty
-	addr, err := neo.Addr(l.Addr())
-	if err != nil {
-		// XXX -> panic here ?
-		return err	// XXX err ctx
-	}
-
-	m.myInfo.Address = addr
 	m.masterAddr = l.Addr().String()
 
 	wg := sync.WaitGroup{}

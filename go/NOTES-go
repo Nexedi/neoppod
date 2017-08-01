@@ -25,6 +25,8 @@
 - x/net/trace to trace requests and connection logging (and packets ?)
 - packet log; general log -> glog ?
 
+  -> http://opentracing.io/
+
 - gRPC eventually instead of hand-made protocol ?
 
 go.leveldb      - study

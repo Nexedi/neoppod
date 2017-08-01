@@ -38,14 +38,7 @@ import (
 
 // Storage is NEO storage server application
 type Storage struct {
-	// XXX move -> nodeCommon?
-	// ---- 8< ----
-	myInfo		neo.NodeInfo	// XXX -> only Address + NodeUUID ?
-	clusterName	string
-
-	net		xnet.Networker	// network AP we are sending/receiving on
-	masterAddr	string		// address of master
-	// ---- 8< ----
+	neo.NodeCommon
 
 	// context for providing operational service
 	// it is renewed every time master tells us StartOpertion, so users
@@ -53,10 +46,16 @@ type Storage struct {
 	opMu  sync.Mutex
 	opCtx context.Context
 
-	zstor zodb.IStorage // underlying ZODB storage	XXX temp ?
+	// TODO storage layout:
+	//	meta/
+	//	data/
+	//	    1 inbox/	(commit queues)
+	//	    2 ? (data.fs)
+	//	    3. packed/
+	zstor zodb.IStorage // underlying ZODB storage	XXX -> directly work with fs1 & friends
 }
 
-// NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr
+// NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr.
 // The storage uses zstor as underlying backend for storing data.
 // Use Run to actually start running the node.
 func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {
@@ -76,8 +75,8 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 
 	// operational context is initially done (no service should be provided)
 	noOpCtx, cancel := context.WithCancel(context.Background())
-	stor.opCtx = noOpCtx
 	cancel()
+	stor.opCtx = noOpCtx
 
 	return stor
 }
@@ -86,24 +85,11 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 // Run starts storage node and runs it until either ctx is cancelled or master
 // commands it to shutdown.
 func (stor *Storage) Run(ctx context.Context) error {
-	// XXX dup wrt Master.Run
 	// start listening
-	l, err := stor.net.Listen(stor.myInfo.Address.String())		// XXX ugly
+	l, err := stor.Listen()
 	if err != nil {
 		return err // XXX err ctx
 	}
-
-	// now we know our listening address (in case it was autobind before)
-	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
-	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
-	//	-> host is never empty
-	addr, err := neo.Addr(l.Addr())
-	if err != nil {
-		// XXX -> panic here ?
-		return err	// XXX err ctx
-	}
-
-	stor.myInfo.Address = addr
 
 	// start serving incoming connections
 	wg := sync.WaitGroup{}
@@ -117,6 +103,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 
 	// connect to master and get commands and updates from it
 	err = stor.talkMaster(ctx)
+	// XXX log err?
 
 	// we are done - shutdown
 	serveCancel()
@@ -125,10 +112,12 @@ func (stor *Storage) Run(ctx context.Context) error {
 	return err // XXX err ctx
 }
 
-// talkMaster connects to master, announces self and receives commands and notifications
+// --- channel with master directing us ---
+
+// talkMaster connects to master, announces self and receives commands and notifications.
 // it tries to persist master link reconnecting as needed
 //
-// it always returns an error - either due to cancel or commannd from master to shutdown
+// it always returns an error - either due to cancel or command from master to shutdown
 func (stor *Storage) talkMaster(ctx context.Context) error {
 	// XXX errctx
 
@@ -138,9 +127,8 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 		fmt.Printf("stor: master(%v): %v\n", stor.masterAddr, err)
 
 		// TODO if err = shutdown -> return
-		// XXX handle shutdown command from master
 
-		// throttle reconnecting / exit on cancel
+		// exit on cancel / throttle reconnecting 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -187,6 +175,17 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// now handle notifications and commands from master
 	var Mconn *neo.Conn
 	for {
+		// check if it was context cancel or command from master to shutdown
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if err.IsShutdown(...) {	// TODO
+			return err
+		}
+
 		// accept next connection from master. only 1 connection is served at any given time
 		// XXX every new connection from master means previous connection was closed
 		// XXX how to do so and stay compatible to py?
@@ -203,16 +202,18 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 			return err // XXX ?
 		}
 
+		// XXX close Mconn on ctx cancel so m1initialize or m1serve wake up
+
+		// let master initialize us. If successful this ends with StartOperation command.
 		err = stor.m1initialize(ctx, Mconn)
 		if err != nil {
 			fmt.Println("stor: %v: master: %v", err)
-			// XXX recheck closing Mconn
 			continue // retry initializing
 		}
 
+		// we got StartOperation command. Let master drive us during servicing phase.
 		err = stor.m1serve(ctx, Mconn)
 		fmt.Println("stor: %v: master: %v", err)
-		// XXX check if it was command to shutdown and if so break
 		continue // retry from initializing
 	}
 
@@ -234,7 +235,6 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 	defer xerr.Context(&err, "init")
 
 	for {
-		// XXX abort on ctx (XXX or upper?)
 		msg, err := Mconn.Recv()
 		if err != nil {
 			return err
@@ -267,7 +267,7 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 			lastTid, zerr1 := stor.zstor.LastTid()
 			lastOid, zerr2 := stor.zstor.LastOid()
 			if zerr := xerr.First(zerr1, zerr2); zerr != nil {
-				return zerr
+				return zerr	// XXX send the error to M
 			}
 
 			err = Mconn.Send(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
@@ -291,7 +291,7 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 	}
 }
 
-// m1serve drives storage by master messages during service hase
+// m1serve drives storage by master messages during service phase
 //
 // it always returns with an error describing why serve has to be stopped -
 // either due to master commanding us to stop, or context cancel or some other
@@ -300,7 +300,7 @@ func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
 	defer xerr.Context(&err, "serve")
 
 	// refresh stor.opCtx and cancel it when we finish so that client
-	// handlers know they need to stop operating
+	// handlers know they need to stop operating as master told us to do so.
 	opCtx, opCancel := context.WithCancel(ctx)
 	stor.opMu.Lock()
 	stor.opCtx = opCtx
@@ -331,6 +331,8 @@ func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
 		}
 	}
 }
+
+// --- serve incoming connections from other nodes ---
 
 // ServeLink serves incoming node-node link connection
 // XXX +error return?

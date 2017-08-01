@@ -39,3 +39,51 @@ const (
 	// OID_LEN = 8
 	// TID_LEN = 8
 )
+
+
+// NodeCommon is common data in all NEO nodes: Master, Storage & Client	XXX text
+// XXX naming -> Node ?
+type NodeCommon struct {
+	MyInfo		neo.NodeInfo	// XXX -> only NodeUUID
+	ClusterName	string
+
+	Net		xnet.Networker	// network AP we are sending/receiving on
+	MasterAddr	string		// address of master	XXX -> Address ?
+
+	// XXX + NodeTab (information about nodes in the cluster) ?
+	// XXX + PartTab (information about data distribution in the cluster) ?
+}
+
+// Listen starts listening at node's listening address.
+// If the address is empty one new free is automatically selected.
+// The node information about where it listens at is appropriately updated.
+func (n *NodeCommon) Listen() (net.Listener, error) {
+	// start listening
+	l, err := n.Net.Listen(n.MyInfo.Address.String())	// XXX ugly
+	if err != nil {
+		return nil, err	// XXX err ctx
+	}
+
+	// now we know our listening address (in case it was autobind before)
+	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
+	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
+	//	-> host is never empty
+	addr, err := neo.Addr(l.Addr())
+	if err != nil {
+		// XXX -> panic here ?
+		l.Close()
+		return nil, err	// XXX err ctx
+	}
+
+	n.MyInfo.Address = addr
+
+	return l, nil
+}
+
+// XXX func (n *Node) IdentifyWith(...) ?
+//	XXX better -> Connect() (=Dial, IdentifyWith, process common ID reply ...)
+
+// TODO functions to update:
+//	.PartTab	from NotifyPartitionTable msg
+//	.NodeTab	from NotifyNodeInformation msg
+//	.ClusterState	from NotifyClusterState msg

@@ -82,6 +82,7 @@ type NodeTable struct {
 }
 
 // Node represents a node entry in NodeTable
+// XXX naming -> NodeEntry?
 type Node struct {
 	NodeInfo	// XXX good idea to embed ?
 

@@ -31,15 +31,7 @@ import (
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces
 type Client struct {
-	// XXX move -> nodeCommon?
-	// ---- 8< ----
-	myInfo		neo.NodeInfo	// XXX -> only NodeUUID
-	clusterName	string
-
-	net		xnet.Networker	// network AP we are sending/receiving on
-	masterAddr	string		// address of master	XXX -> Address ?
-	// ---- 8< ----
-
+	neo.NodeCommon
 
 	storLink *neo.NodeLink	// link to storage node
 	storConn *neo.Conn	// XXX main connection to storage

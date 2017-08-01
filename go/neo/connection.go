@@ -254,7 +254,7 @@ func (c *Conn) shutdown() {
 	})
 }
 
-// Close closes connection
+// Close closes connection.
 // Any blocked Send*() or Recv*() will be unblocked and return error
 //
 // NOTE for Send() - once transmission was started - it will complete in the

@@ -1,13 +1,3 @@
-Storage layout
---------------
-
-meta/
-data/
-    1 inbox/	(commit queues)
-    2 ? (data.fs)
-    3. packed/
-
-
 Commit without deadlocks & master
 ---------------------------------
 
