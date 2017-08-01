@@ -34,9 +34,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-// XXX fmt -> log
-
-// Storage is NEO storage server application
+// Storage is NEO node that keeps data and provides read/write access to it
 type Storage struct {
 	neo.NodeCommon
 
@@ -60,6 +58,7 @@ type Storage struct {
 // Use Run to actually start running the node.
 func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {
 	// convert serveAddr into neo format
+	// XXX -> new.NewNode() ?
 	addr, err := neo.AddrString(net.Network(), serveAddr)
 	if err != nil {
 		panic(err)	// XXX
@@ -86,7 +85,7 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 // commands it to shutdown.
 func (stor *Storage) Run(ctx context.Context) error {
 	// start listening
-	l, err := stor.Listen()
+	l, err := stor.node.Listen()
 	if err != nil {
 		return err // XXX err ctx
 	}
@@ -112,7 +111,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 	return err // XXX err ctx
 }
 
-// --- channel with master directing us ---
+// --- connect to master and let it direct us ---
 
 // talkMaster connects to master, announces self and receives commands and notifications.
 // it tries to persist master link reconnecting as needed
@@ -292,6 +291,10 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 }
 
 // m1serve drives storage by master messages during service phase
+//
+// Service is regular phase serving requests from clients to load/save object,
+// handling transaction commit (with master) and syncing data with other
+// storage nodes (XXX correct?).
 //
 // it always returns with an error describing why serve has to be stopped -
 // either due to master commanding us to stop, or context cancel or some other

@@ -55,7 +55,7 @@ type Master struct {
 
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster
-	ctlStop     chan chan error	// request to stop  cluster
+	ctlStop     chan chan struct{}	// request to stop  cluster
 	ctlShutdown chan chan error	// request to shutdown cluster XXX with ctx ?
 
 	// channels from workers directly serving peers to main driver
@@ -92,7 +92,7 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 		masterAddr:	serveAddr,	// XXX ok?
 
 		ctlStart:	make(chan chan error),
-		ctlStop:	make(chan chan error),
+		ctlStop:	make(chan chan struct{}),
 		ctlShutdown:	make(chan chan error),
 
 		nodeCome:	make(chan nodeCome),
@@ -116,8 +116,8 @@ func (m *Master) Run(ctx context.Context) error {
 
 	m.masterAddr = l.Addr().String()
 
+	// serve incoming connections
 	wg := sync.WaitGroup{}
-
 	serveCtx, serveCancel := context.WithCancel(ctx)
 	wg.Add(1)
 	go func() {
@@ -126,7 +126,9 @@ func (m *Master) Run(ctx context.Context) error {
 		_ = err	// XXX what to do with err ?
 	}()
 
+	// main driving logic
 	err = m.runMain(ctx)
+
 	serveCancel()
 	wg.Wait()
 
@@ -147,9 +149,8 @@ func (m *Master) Start() error {
 }
 
 // Stop requests cluster to eventually transition into recovery state
-// XXX should be always possible ?
-func (m *Master) Stop() error {
-	ech := make(chan error)
+func (m *Master) Stop()  {
+	ech := make(chan struct{})
 	m.ctlStop <- ech
 	return <-ech
 }
@@ -177,20 +178,27 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
 
 	for ctx.Err() == nil {
+		// recover partition table from storages and wait till enough
+		// storages connects us so that we can see the partition table
+		// can be operational.
+		//
+		// Successful recovery means all ^^^ preconditions are met and
+		// a command came to us to start the cluster.
 		err := m.recovery(ctx)
 		if err != nil {
 			fmt.Println(err)
 			return err // recovery cancelled
 		}
 
-		// successful recovery -> verify
+		// make sure transactions on storages are properly finished, in
+		// case previously it was unclean shutdown.
 		err = m.verify(ctx)
 		if err != nil {
 			fmt.Println(err)
 			continue // -> recovery
 		}
 
-		// successful verify -> service
+		// provide service as long as partition table stays operational
 		err = m.service(ctx)
 		if err != nil {
 			fmt.Println(err)
@@ -301,7 +309,7 @@ loop:
 			ech <- fmt.Errorf("start: cluster is non-operational")
 
 		case ech := <-m.ctlStop:
-			ech <- nil // we are already recovering
+			close(ech) // ok; we are already recovering
 
 		case <-ctx.Done():
 			err = ctx.Err()
@@ -491,7 +499,7 @@ loop:
 			ech <- nil // we are already starting
 
 		case ech := <-m.ctlStop:
-			ech <- nil // ok
+			close(ech) // ok
 			err = errStopRequested
 			break loop
 
@@ -577,6 +585,8 @@ func (m *Master) service(ctx context.Context) (err error) {
 	// XXX we also need to tell storages StartOperation first
 	m.setClusterState(neo.ClusterRunning)
 
+	// XXX spawn per-storage driver about nodetab
+
 loop:
 	for {
 		select {
@@ -604,8 +614,9 @@ loop:
 			ech <- nil // we are already started
 
 		case ech := <-m.ctlStop:
-			ech <- nil // ok
+			close(ech) // ok
 			err = fmt.Errorf("stop requested")
+			// XXX tell storages to stop
 			break loop
 
 		case <-ctx.Done():
