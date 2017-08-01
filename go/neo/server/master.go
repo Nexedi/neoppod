@@ -59,8 +59,8 @@ type Master struct {
 	ctlShutdown chan chan error	// request to shutdown cluster XXX with ctx ?
 
 	// channels from workers directly serving peers to main driver
-	nodeCome     chan nodeCome	// node connected
-	nodeLeave    chan nodeLeave	// node disconnected
+	nodeCome     chan nodeCome	// node connected	XXX -> acceptq?
+	nodeLeave    chan nodeLeave	// node disconnected	XXX -> don't need
 }
 
 
@@ -250,6 +250,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 loop:
 	for {
 		select {
+		// XXX this is m.Accept() and semantic must be semantic of net.Accept() !
 		case n := <-m.nodeCome:
 			node, ok := m.accept(n, /* XXX only accept storages -> PENDING */)
 			if !ok {
