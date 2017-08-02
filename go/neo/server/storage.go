@@ -99,8 +99,11 @@ func (stor *Storage) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err = Serve(serveCtx, l, stor)
-		_ = err	// XXX what to do with err ?
+
+		// TODO l.Accept() -> nodeCome
+
+		// err = Serve(serveCtx, l, stor)
+		// _ = err	// XXX what to do with err ?
 	}()
 
 	// connect to master and get commands and updates from it

@@ -24,7 +24,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
+//	"math"
 	"sync"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
@@ -66,9 +66,9 @@ type Master struct {
 
 // event: node connects
 type nodeCome struct {
-	link   *neo.NodeLink
+	conn   *neo.Conn
 	idReq  neo.RequestIdentification // we received this identification request
-	idResp chan neo.Msg              // what we reply (AcceptIdentification | Error)
+	idResp chan neo.Msg              // what we reply (AcceptIdentification | Error) XXX kill
 }
 
 // event: node disconnects
@@ -108,36 +108,6 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	return m
 }
 
-// Run starts master node and runs it until ctx is cancelled or fatal error
-func (m *Master) Run(ctx context.Context) error {
-	// start listening
-	l, err := m.node.Listen()
-	if err != nil {
-		return err	// XXX err ctx
-	}
-
-	m.node.MasterAddr = l.Addr().String()
-
-	// serve incoming connections
-	wg := sync.WaitGroup{}
-	serveCtx, serveCancel := context.WithCancel(ctx)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err = Serve(serveCtx, l, m)
-		_ = err	// XXX what to do with err ?
-	}()
-
-	// main driving logic
-	err = m.runMain(ctx)
-
-	serveCancel()
-	wg.Wait()
-
-	return err	// XXX errctx
-}
-
-
 // Start requests cluster to eventually transition into running state
 // it returns an error if such transition is not currently possible to begin (e.g. partition table is not operational)
 // it returns nil if the transition began.
@@ -171,6 +141,52 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 	// TODO notify subscribers
 }
 
+
+// Run starts master node and runs it until ctx is cancelled or fatal error
+func (m *Master) Run(ctx context.Context) error {
+	// start listening
+	l, err := m.node.Listen()	// XXX -> Listen
+	if err != nil {
+		return err	// XXX err ctx
+	}
+
+	m.node.MasterAddr = l.Addr().String()
+
+	// accept incoming connections and pass them to main driver
+	wg := sync.WaitGroup{}
+	serveCtx, serveCancel := context.WithCancel(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		for serveCtx.Err() != nil {
+			conn, idReq, err := l.Accept()
+			if err != nil {
+				// TODO log / throttle
+				continue
+			}
+
+			select {
+			case m.nodeCome <- nodeCome{conn, idReq, nil/*XXX kill*/}:
+				// ok
+
+			case <-serveCtx.Done():
+				// shutdown
+				conn.Link().Close()	// XXX log err ?
+				return
+			}
+		}
+	}()
+
+	// main driving logic
+	err = m.runMain(ctx)
+
+	serveCancel()
+	l.Close()	// XXX log err ?
+	wg.Wait()
+
+	return err	// XXX errctx
+}
 
 // runMain is the process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
@@ -695,7 +711,7 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 		IdTimestamp:	monotime(),
 	}
 
-	node = m.nodeTab.Update(nodeInfo, n.link) // NOTE this notifies all nodeTab subscribers
+	node = m.nodeTab.Update(nodeInfo, n.conn.Link()) // NOTE this notifies all nodeTab subscribers
 	return node, true
 }
 
@@ -763,11 +779,10 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 		return
 	}
 
-	// convey identification request to master
-	idRespCh := make(chan neo.Msg)
-	m.nodeCome <- nodeCome{link, idReq, idRespCh}
-	idResp := <-idRespCh
+	// convey identification request to master and we are done here - the master takes on the torch
+	m.nodeCome <- nodeCome{conn, idReq, nil/*XXX kill*/}
 
+/*
 	// if master accepted this node - don't forget to notify when it leaves
 	_, rejected := idResp.(error)
 	if !rejected {
@@ -861,6 +876,7 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 
 	// storage:
 	m.DriveStorage(ctx, link)
+*/
 }
 
 // ServeClient serves incoming connection on which peer identified itself as client

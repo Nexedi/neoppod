@@ -684,6 +684,8 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 
 // ---- for convenience: Dial & Listen ----
 
+// XXX we also need 1) Dial + request identification & 2) Listen + verify/accept identification
+
 // Dial connects to address on given network, handshakes and wraps the connection as NodeLink
 func Dial(ctx context.Context, net xnet.Networker, addr string) (nl *NodeLink, err error) {
 	peerConn, err := net.Dial(ctx, addr)
@@ -744,7 +746,7 @@ func (l *Listener) run() {
 		default:
 		}
 
-		// XXX add backpressure on too much incoming connections without client .Accept
+		// XXX add backpressure on too much incoming connections without client .Accept ?
 		conn, err := l.l.Accept()
 		go l.accept(runCtx, conn, err)
 	}
@@ -754,16 +756,25 @@ func (l *Listener) accept(ctx context.Context, conn net.Conn, err error) {
 	link, err := l.accept1(ctx, conn, err)
 
 	select {
-	case <-l.closed:
 	case l.acceptq <- accepted{link, err}:
+		// ok
+
+	case <-l.closed:
+		// shutdown
+		if link != nil {
+			link.Close()
+		}
 	}
 }
 
 func (l *Listener) accept1(ctx context.Context, conn net.Conn, err error) (*NodeLink, error) {
+	// XXX err ctx?
+
 	if err != nil {
 		return nil, err
 	}
 
+	// NOTE Handshake closes conn in case of failure
 	link, err := Handshake(ctx, conn, LinkServer)
 	if err != nil {
 		return nil, err
