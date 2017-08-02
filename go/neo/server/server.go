@@ -25,125 +25,12 @@ package server
 import (
 //	"context"
 //	"fmt"
-	"net"
+//	"net"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
-
-
-// Listener wraps neo.Listener to return link on which identification was correctly requested XXX
-// Create via Listen. XXX
-type Listener struct {
-	l       *neo.Listener
-	acceptq chan accepted
-	closed  chan struct {}
-}
-
-type accepted struct {
-	conn  *neo.Conn
-	idReq *neo.RequestIdentification
-	err   error
-}
-
-func (l *Listener) Close() error {
-	err := l.l.Close()
-	close(l.closed)
-	return err
-}
-
-func (l *Listener) run() {
-	for {
-		// stop on close
-		select {
-		case <-l.closed:
-			return
-		default:
-		}
-
-		// XXX add backpressure on too much incoming connections without client .Accept ?
-		link, err := l.l.Accept()
-		go l.accept(link, err)
-	}
-}
-
-func (l *Listener) accept(link *neo.NodeLink, err error) {
-	res := make(chan accepted, 1)
-	go func() {
-		conn, idReq, err := l.accept1(link, err)
-		res <- accepted{conn, idReq, err}
-	}()
-
-	// wait for accept1 result & resend it to .acceptq
-	// close link in case of listening cancel or error
-	//
-	// the only case when link stays alive is when acceptance was
-	// successful and link ownership is passed to Accept.
-	ok := false
-	select {
-	case <-l.closed:
-
-	case a := <-res:
-		select {
-		case l.acceptq <- a:
-			ok = (a.err == nil)
-
-		case <-l.closed:
-		}
-	}
-
-	if !ok {
-		link.Close()
-	}
-}
-
-func (l *Listener) accept1(link *neo.NodeLink, err0 error) (_ *neo.Conn, _ *neo.RequestIdentification, err  error) {
-	if err0 != nil {
-		return nil, nil, err0
-	}
-
-	defer xerr.Context(&err, "identify")
-
-	// identify peer
-	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	idReq := &neo.RequestIdentification{}
-	_, err = conn.Expect(idReq)
-	if err != nil {
-		// XXX ok to let peer know error as is? e.g. even IO error on Recv?
-		err2 := conn.Send(&neo.Error{neo.PROTOCOL_ERROR, err.Error()})
-		err = xerr.Merge(err, err2)
-		return nil, nil, err
-	}
-
-	return conn, idReq, nil
-}
-
-// Accept accepts incoming client connection.
-//
-// On success the link was handshaked and on returned Conn peer sent us
-// RequestIdentification packet which we did not yet answer.
-func (l *Listener) Accept() (*neo.Conn, *neo.RequestIdentification, error) {
-	select{
-	case <-l.closed:
-		// we know raw listener is already closed - return proper error about it
-		_, err := l.l.Accept()
-		return nil, nil, err
-
-	case a := <-l.acceptq:
-		return a.conn, a.idReq, a.err
-	}
-}
-
-func (l *Listener) Addr() net.Addr {
-	return l.l.Addr()
-}
-
 
 /*
 // Server is an interface that represents networked server

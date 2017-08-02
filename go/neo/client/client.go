@@ -135,7 +135,7 @@ func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	// XXX for now url is treated as storage node URL
 	// XXX check/use other url fields
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	storLink, err := neo.Dial(ctx, net, u.Host)
+	storLink, err := neo.DialLink(ctx, net, u.Host)		// XXX -> Dial
 	if err != nil {
 		return nil, err
 	}

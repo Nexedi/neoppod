@@ -56,9 +56,7 @@ func IdentifyWith(expectPeerType NodeType, link *NodeLink, myInfo NodeInfo, clus
 	}
 	defer func() {
 		err2 := conn.Close()
-		if err == nil && err2 != nil {
-			err = err2
-		}
+		err = xerr.First(err, err2)
 	}()
 
 	accept = &AcceptIdentification{}

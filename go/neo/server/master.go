@@ -67,7 +67,7 @@ type Master struct {
 // event: node connects
 type nodeCome struct {
 	conn   *neo.Conn
-	idReq  neo.RequestIdentification // we received this identification request
+	idReq  *neo.RequestIdentification // we received this identification request
 	idResp chan neo.Msg              // what we reply (AcceptIdentification | Error) XXX kill
 }
 
@@ -145,7 +145,7 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 // Run starts master node and runs it until ctx is cancelled or fatal error
 func (m *Master) Run(ctx context.Context) error {
 	// start listening
-	l, err := m.node.Listen()	// XXX -> Listen
+	l, err := m.node.Listen()
 	if err != nil {
 		return err	// XXX err ctx
 	}
@@ -767,8 +767,8 @@ func (m *Master) ServeLink(ctx context.Context, link *neo.NodeLink) {
 		return
 	}
 
-	idReq := neo.RequestIdentification{}
-	_, err = conn.Expect(&idReq)
+	idReq := &neo.RequestIdentification{}
+	_, err = conn.Expect(idReq)
 	if err != nil {
 		logf("identify: %v", err)
 		// XXX ok to let peer know error as is? e.g. even IO error on Recv?

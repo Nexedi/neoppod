@@ -149,22 +149,26 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
-	Mlink, err := neo.Dial(ctx, stor.node.Net, stor.node.MasterAddr)
+	Mconn, accept, err := neo.Dial(ctx, stor.node.Net, stor.node.MasterAddr)
 	if err != nil {
 		return err
 	}
 
+	Mlink := Mconn.Link()
+
 	// close Mlink on return / cancel
 	defer func() {
-		errClose := Mlink.Close()
-		err = xerr.First(err, errClose)
+		err2 := Mlink.Close()
+		err = xerr.First(err, err2)
 	}()
 
+/*
 	// request identification this way registering our node to master
 	accept, err := neo.IdentifyWith(neo.MASTER, Mlink, stor.node.MyInfo, stor.node.ClusterName)
 	if err != nil {
 		return err
 	}
+*/
 
 	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?
 
@@ -178,7 +182,6 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	}
 
 	// now handle notifications and commands from master
-	var Mconn *neo.Conn
 	for {
 		// check if it was context cancel or command from master to shutdown
 		select {
@@ -197,10 +200,10 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		//
 		// XXX or simply use only the first connection and if M decides
 		// to cancel - close whole nodelink and S reconnects?
-		if Mconn != nil {
+//		if Mconn != nil {
 			Mconn.Close()	// XXX err
 			Mconn = nil
-		}
+//		}
 
 		Mconn, err = Mlink.Accept()
 		if err != nil {
