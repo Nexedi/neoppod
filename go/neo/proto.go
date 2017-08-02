@@ -138,24 +138,24 @@ type NodeUUID int32
 // TODO NodeType -> base NodeUUID
 
 
-// ErrDecodeOverflow is the error returned by NEOMsgDecode when decoding hit buffer overflow
+// ErrDecodeOverflow is the error returned by neoMsgDecode when decoding hit buffer overflow
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
 // Msg is the interface implemented by NEO messages to marshal/unmarshal them into/from wire format
 type Msg interface {
-	// NEOMsgCode returns message code needed to be used for particular message type
+	// neoMsgCode returns message code needed to be used for particular message type
 	// on the wire
-	NEOMsgCode() uint16
+	neoMsgCode() uint16
 
-	// NEOMsgEncodedLen returns how much space is needed to encode current message payload
-	NEOMsgEncodedLen() int
+	// neoMsgEncodedLen returns how much space is needed to encode current message payload
+	neoMsgEncodedLen() int
 
-	// NEOMsgEncode encodes current message state into buf.
-	// len(buf) must be >= NEOMsgEncodedLen()
-	NEOMsgEncode(buf []byte)
+	// neoMsgEncode encodes current message state into buf.
+	// len(buf) must be >= neoMsgEncodedLen()
+	neoMsgEncode(buf []byte)
 
-	// NEOMsgDecode decodes data into message in-place.
-	NEOMsgDecode(data []byte) (nread int, err error)
+	// neoMsgDecode decodes data into message in-place.
+	neoMsgDecode(data []byte) (nread int, err error)
 }
 
 
@@ -165,7 +165,7 @@ type Address struct {
 }
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
-// func (a *Address) NEOMsgEncode(b []byte) int {
+// func (a *Address) neoMsgEncode(b []byte) int {
 // 	n := string_NEOEncode(a.Host, b[0:])
 // 	if a.Host != "" {
 // 		BigEndian.PutUint16(b[n:], a.Port)

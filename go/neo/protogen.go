@@ -25,10 +25,10 @@ NEO. Protocol module. Code generator
 This program generates marshalling code for message types defined in proto.go .
 For every type 4 methods are generated in accordance with neo.Msg interface:
 
-	NEOMsgCode() uint16
-	NEOMsgEncodedLen() int
-	NEOMsgEncode(buf []byte)
-	NEOMsgDecode(data []byte) (nread int, err error)
+	neoMsgCode() uint16
+	neoMsgEncodedLen() int
+	neoMsgEncode(buf []byte)
+	neoMsgDecode(data []byte) (nread int, err error)
 
 List of message types is obtained via searching through proto.go AST - looking
 for appropriate struct declarations there.
@@ -218,7 +218,7 @@ import (
 			case *ast.StructType:
 				fmt.Fprintf(&buf, "// %d. %s\n\n", msgCode, typename)
 
-				buf.emit("func (*%s) NEOMsgCode() uint16 {", typename)
+				buf.emit("func (*%s) neoMsgCode() uint16 {", typename)
 				buf.emit("return %d", msgCode)
 				buf.emit("}\n")
 
@@ -491,7 +491,7 @@ type sizer struct {
 //
 // when type is recursively walked, for every case code to update `data[n:]` is generated.
 // no overflow checks are generated as by neo.Msg interface provided data
-// buffer should have at least payloadLen length returned by NEOMsgEncodedInfo()
+// buffer should have at least payloadLen length returned by neoMsgEncodedInfo()
 // (the size computed by sizer).
 //
 // the code emitted looks like:
@@ -500,7 +500,7 @@ type sizer struct {
 //	encode<typ2>(data[n2:], path2)
 //	...
 //
-// TODO encode have to care in NEOMsgEncode to emit preambule such that bound
+// TODO encode have to care in neoMsgEncode to emit preambule such that bound
 // checking is performed only once (currenty compiler emits many of them)
 type encoder struct {
 	commonCodeGen
@@ -548,7 +548,7 @@ var _ CodeGenerator = (*decoder)(nil)
 func (s *sizer) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOMsgEncodedLen() int {", s.recvName, s.typeName)
+	code.emit("func (%s *%s) neoMsgEncodedLen() int {", s.recvName, s.typeName)
 	if s.varUsed["size"] {
 		code.emit("var %s int", s.var_("size"))
 	}
@@ -569,7 +569,7 @@ func (s *sizer) generatedCode() string {
 func (e *encoder) generatedCode() string {
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOMsgEncode(data []byte) {", e.recvName, e.typeName)
+	code.emit("func (%s *%s) neoMsgEncode(data []byte) {", e.recvName, e.typeName)
 
 	code.Write(e.buf.Bytes())
 
@@ -676,7 +676,7 @@ func (d *decoder) generatedCode() string {
 
 	code := Buffer{}
 	// prologue
-	code.emit("func (%s *%s) NEOMsgDecode(data []byte) (int, error) {", d.recvName, d.typeName)
+	code.emit("func (%s *%s) neoMsgDecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	if d.varUsed["nread"] {
 		code.emit("var %v uint32", d.var_("nread"))
 	}

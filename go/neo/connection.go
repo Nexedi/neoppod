@@ -784,7 +784,7 @@ func (c *Conn) Recv() (Msg, error) {
 
 	// TODO use free-list for decoded messages + when possible decode in-place
 	msg := reflect.New(msgType).Interface().(Msg)
-	_, err = msg.NEOMsgDecode(pkt.Payload())
+	_, err = msg.neoMsgDecode(pkt.Payload())
 	if err != nil {
 		return nil, &ConnError{Conn: c, Op: "decode", Err: err}
 	}
@@ -798,15 +798,15 @@ func (c *Conn) Recv() (Msg, error) {
 func (c *Conn) Send(msg Msg) error {
 	traceConnSendPre(c, msg)
 
-	l := msg.NEOMsgEncodedLen()
+	l := msg.neoMsgEncodedLen()
 	buf := PktBuf{make([]byte, PktHeadLen+l)} // TODO -> freelist
 
 	h := buf.Header()
 	// h.ConnId will be set by conn.Send
-	h.MsgCode = hton16(msg.NEOMsgCode())
+	h.MsgCode = hton16(msg.neoMsgCode())
 	h.MsgLen = hton32(uint32(l)) // XXX casting: think again
 
-	msg.NEOMsgEncode(buf.Payload())
+	msg.neoMsgEncode(buf.Payload())
 
 	// XXX why pointer?
 	// XXX more context in err? (msg type)
@@ -832,8 +832,8 @@ func (c *Conn) Expect(msgv ...Msg) (which int, err error) {
 	msgCode := ntoh16(pkth.MsgCode)
 
 	for i, msg := range msgv {
-		if msg.NEOMsgCode() == msgCode {
-			_, err = msg.NEOMsgDecode(pkt.Payload())
+		if msg.neoMsgCode() == msgCode {
+			_, err = msg.neoMsgDecode(pkt.Payload())
 			if err != nil {
 				return -1, &ConnError{Conn: c, Op: "decode", Err: err}
 			}

@@ -82,8 +82,8 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 	}()
 
 	// msg.encode() == expected
-	msgCode := msg.NEOMsgCode()
-	n := msg.NEOMsgEncodedLen()
+	msgCode := msg.neoMsgCode()
+	n := msg.neoMsgEncodedLen()
 	msgType := msgTypeRegistry[msgCode]
 	if msgType != typ {
 		t.Errorf("%v: msgCode = %v  which corresponds to %v", typ, msgCode, msgType)
@@ -93,7 +93,7 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 	}
 
 	buf := make([]byte, n)
-	msg.NEOMsgEncode(buf)
+	msg.neoMsgEncode(buf)
 	if string(buf) != encoded {
 		t.Errorf("%v: encode result unexpected:", typ)
 		t.Errorf("\thave: %s", hexpkg.EncodeToString(buf))
@@ -123,13 +123,13 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 				}
 			}()
 
-			msg.NEOMsgEncode(buf[:l])
+			msg.neoMsgEncode(buf[:l])
 		}()
 	}
 
 	// msg.decode() == expected
 	data := []byte(encoded + "noise")
-	n, err := msg2.NEOMsgDecode(data)
+	n, err := msg2.neoMsgDecode(data)
 	if err != nil {
 		t.Errorf("%v: decode error %v", typ, err)
 	}
@@ -143,7 +143,7 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 
 	// decode must detect buffer overflow
 	for l := len(encoded)-1; l >= 0; l-- {
-		n, err = msg2.NEOMsgDecode(data[:l])
+		n, err = msg2.neoMsgDecode(data[:l])
 		if !(n==0 && err==ErrDecodeOverflow) {
 			t.Errorf("%v: decode overflow not detected on [:%v]", typ, l)
 		}
@@ -271,11 +271,11 @@ func TestMsgMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range msgTypeRegistry {
 		// zero-value for a type
 		msg := reflect.New(typ).Interface().(Msg)
-		l := msg.NEOMsgEncodedLen()
+		l := msg.neoMsgEncodedLen()
 		zerol := make([]byte, l)
 		// decoding will turn nil slice & map into empty allocated ones.
 		// we need it so that reflect.DeepEqual works for msg encode/decode comparison
-		n, err := msg.NEOMsgDecode(zerol)
+		n, err := msg.neoMsgDecode(zerol)
 		if !(n == l && err == nil) {
 			t.Errorf("%v: zero-decode unexpected: %v, %v  ; want %v, nil", typ, n, err, l)
 		}
