@@ -172,7 +172,7 @@ func main() {
 
 	// go through proto.go and AST'ify & typecheck it
 	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go")
-	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go", "neo.go")
+	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go")
 
 	// prologue
 	f := fileMap["proto.go"]
