@@ -25,7 +25,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 
@@ -41,10 +40,10 @@ type Server interface {
 
 // Serve runs service on a listener
 // - accept incoming connection on the listener
-// - for every accepted connection spawn handshake + srv.ServeLink() in separate goroutine.
+// - for every accepted connection spawn srv.ServeLink() in separate goroutine.
 //
 // the listener is closed when Serve returns.
-func Serve(ctx context.Context, l net.Listener, srv Server) error {
+func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 	fmt.Printf("xxx: serving on %s ...\n", l.Addr())	// XXX 'xxx' -> ?
 
 	// close listener when either cancelling or returning (e.g. due to an error)
@@ -62,46 +61,29 @@ func Serve(ctx context.Context, l net.Listener, srv Server) error {
 		l.Close() // XXX err
 	}()
 
-	// main Accept -> Handshake -> ServeLink loop
+	// main Accept -> ServeLink loop
 	for {
-		peerConn, err := l.Accept()
+		link, err := l.Accept()
 		if err != nil {
 			// TODO err == closed <-> ctx was cancelled
 			// TODO err -> net.Error && .Temporary() -> some throttling
 			return err
 		}
 
-		go func() {
-			link, err := neo.Handshake(ctx, peerConn, neo.LinkServer)
-			if err != nil {
-				fmt.Printf("xxx: %s\n", err)
-				return
-			}
-			srv.ServeLink(ctx, link)
-		}()
+		go srv.ServeLink(ctx, link)
 	}
 }
-
-/*
-// ListenAndServe listens on network address and then calls Serve to handle incoming connections
-// XXX unused -> goes away ?
-func ListenAndServe(ctx context.Context, net neo.Network, laddr string, srv Server) error {
-	l, err := net.Listen(laddr)
-	if err != nil {
-		return err
-	}
-	// TODO set keepalive on l
-	return Serve(ctx, l, srv)
-}
-*/
 
 
 // ----------------------------------------
 
+// XXX goes away?  (we need a func to make sure to recv RequestIdentification
+// XXX	and pass it to server main logic - whether to accept it or not should be
+// XXX 	programmed there)
+//
 // IdentifyPeer identifies peer on the link
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
-// XXX recheck identification logic here
 func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.RequestIdentification, err error) {
 	defer xerr.Contextf(&err, "%s: identify", link)
 

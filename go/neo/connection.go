@@ -682,7 +682,7 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 }
 
 
-// ---- for convenience: Dial ----
+// ---- for convenience: Dial & Listen ----
 
 // Dial connects to address on given network, handshakes and wraps the connection as NodeLink
 func Dial(ctx context.Context, net xnet.Networker, addr string) (nl *NodeLink, err error) {
@@ -694,10 +694,93 @@ func Dial(ctx context.Context, net xnet.Networker, addr string) (nl *NodeLink, e
 	return Handshake(ctx, peerConn, LinkClient)
 }
 
-// NOTE there is no Listen with Handshake hooked into Accept because: Handshake
-// is blocking operation and thus needs to be run in separate goroutine not to
-// block further Accepts.
+// Listen starts listening on laddr for incoming connections and wraps them as NodeLink.
+// The listener accepts only those connections that pass handshake.
+func Listen(net xnet.Networker, laddr string) (*Listener, error) {
+	rawl, err := net.Listen(laddr)
+	if err != nil {
+		return nil, err
+	}
 
+	l := &Listener{
+		Listener: rawl,
+		acceptq:  make(chan accepted),
+		closed:   make(chan struct{}),
+	}
+	go l.run()
+
+	return l, nil
+}
+
+type Listener struct {
+	net.Listener
+	acceptq chan accepted
+	closed  chan struct {}
+}
+
+type accepted struct {
+	link  *NodeLink
+	err   error
+}
+
+func (l *Listener) Close() error {
+	err := l.Listener.Close()
+	close(l.closed)
+	return err
+}
+
+func (l *Listener) run() {
+	// context that cancels when listener stops
+	runCtx, runCancel := context.WithCancel(context.Background())
+	defer runCancel()
+
+	for {
+		// stop on close
+		select {
+		case <-l.closed:
+			return
+		default:
+		}
+
+		// XXX add backpressure on too much incoming connections without client .Accept
+		conn, err := l.Listener.Accept()
+		go l.accept(runCtx, conn, err)
+	}
+}
+
+func (l *Listener) accept(ctx context.Context, conn net.Conn, err error) {
+	link, err := l.accept1(ctx, conn, err)
+
+	select {
+	case <-l.closed:
+	case l.acceptq <- accepted{link, err}:
+	}
+}
+
+func (l *Listener) accept1(ctx context.Context, conn net.Conn, err error) (*NodeLink, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	link, err := Handshake(ctx, conn, LinkServer)
+	if err != nil {
+		return nil, err
+	}
+
+	return link, nil
+}
+
+func (l *Listener) Accept() (*NodeLink, error) {
+	select{
+	case <-l.closed:
+		// we know raw listener is already closed - return proper error about it
+		_, err := l.Listener.Accept()
+		return nil, err
+
+	case a := <-l.acceptq:
+		return a.link, a.err
+	}
+}
 
 // ---- for convenience: Conn -> NodeLink & local/remote link addresses  ----
 

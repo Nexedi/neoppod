@@ -28,8 +28,6 @@ package neo
 //go:generate sh -c "go run ../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
 
 import (
-	"net"
-
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
@@ -60,9 +58,9 @@ type NodeCommon struct {
 // Listen starts listening at node's listening address.
 // If the address is empty one new free is automatically selected.
 // The node information about where it listens at is appropriately updated.
-func (n *NodeCommon) Listen() (net.Listener, error) {
+func (n *NodeCommon) Listen() (*Listener, error) {
 	// start listening
-	l, err := n.Net.Listen(n.MyInfo.Address.String())	// XXX ugly
+	l, err := Listen(n.Net, n.MyInfo.Address.String())	// XXX ugly
 	if err != nil {
 		return nil, err	// XXX err ctx
 	}
