@@ -28,6 +28,9 @@ package neo
 //go:generate sh -c "go run ../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
 
 import (
+	"net"
+
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
@@ -44,7 +47,7 @@ const (
 // NodeCommon is common data in all NEO nodes: Master, Storage & Client	XXX text
 // XXX naming -> Node ?
 type NodeCommon struct {
-	MyInfo		neo.NodeInfo	// XXX -> only NodeUUID
+	MyInfo		NodeInfo	// XXX -> only NodeUUID
 	ClusterName	string
 
 	Net		xnet.Networker	// network AP we are sending/receiving on
@@ -68,7 +71,7 @@ func (n *NodeCommon) Listen() (net.Listener, error) {
 	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
 	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
 	//	-> host is never empty
-	addr, err := neo.Addr(l.Addr())
+	addr, err := Addr(l.Addr())
 	if err != nil {
 		// XXX -> panic here ?
 		l.Close()

@@ -36,7 +36,7 @@ import (
 
 // Storage is NEO node that keeps data and provides read/write access to it
 type Storage struct {
-	neo.NodeCommon
+	node neo.NodeCommon
 
 	// context for providing operational service
 	// it is renewed every time master tells us StartOpertion, so users
@@ -65,10 +65,13 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 	}
 
 	stor := &Storage{
-			myInfo:		neo.NodeInfo{NodeType: neo.STORAGE, Address: addr},
-			clusterName:	cluster,
-			net:		net,
-			masterAddr:	masterAddr,
+			node:	neo.NodeCommon{
+				MyInfo:		neo.NodeInfo{NodeType: neo.STORAGE, Address: addr},
+				ClusterName:	cluster,
+				Net:		net,
+				MasterAddr:	masterAddr,
+			},
+
 			zstor:		zstor,
 	}
 
@@ -121,9 +124,9 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 	// XXX errctx
 
 	for {
-		fmt.Printf("stor: master(%v): connecting\n", stor.masterAddr) // XXX info
+		fmt.Printf("stor: master(%v): connecting\n", stor.node.MasterAddr) // XXX info
 		err := stor.talkMaster1(ctx)
-		fmt.Printf("stor: master(%v): %v\n", stor.masterAddr, err)
+		fmt.Printf("stor: master(%v): %v\n", stor.node.MasterAddr, err)
 
 		// TODO if err = shutdown -> return
 
@@ -143,7 +146,7 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
-	Mlink, err := neo.Dial(ctx, stor.net, stor.masterAddr)
+	Mlink, err := neo.Dial(ctx, stor.node.Net, stor.node.MasterAddr)
 	if err != nil {
 		return err
 	}
@@ -155,7 +158,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	}()
 
 	// request identification this way registering our node to master
-	accept, err := neo.IdentifyWith(neo.MASTER, Mlink, stor.myInfo, stor.clusterName)
+	accept, err := neo.IdentifyWith(neo.MASTER, Mlink, stor.node.MyInfo, stor.node.ClusterName)
 	if err != nil {
 		return err
 	}
@@ -166,9 +169,9 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		return fmt.Errorf("TODO for 1-storage POC: Npt: %v  Nreplica: %v", accept.NumPartitions, accept.NumReplicas)
 	}
 
-	if accept.YourNodeUUID != stor.myInfo.NodeUUID {
+	if accept.YourNodeUUID != stor.node.MyInfo.NodeUUID {
 		fmt.Printf("stor: %v: master told us to have UUID=%v\n", Mlink, accept.YourNodeUUID)
-		stor.myInfo.NodeUUID = accept.YourNodeUUID
+		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID
 	}
 
 	// now handle notifications and commands from master
@@ -181,7 +184,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		default:
 		}
 
-		if err.IsShutdown(...) {	// TODO
+		if err != nil /* TODO .IsShutdown(...) */ {	// TODO
 			return err
 		}
 

@@ -86,10 +86,12 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	}
 
 	m := &Master{
-		myInfo:		neo.NodeInfo{NodeType: neo.MASTER, Address: addr},
-		clusterName:	clusterName,
-		net:		net,
-		masterAddr:	serveAddr,	// XXX ok?
+		node: neo.NodeCommon{
+			MyInfo:		neo.NodeInfo{NodeType: neo.MASTER, Address: addr},
+			ClusterName:	clusterName,
+			Net:		net,
+			MasterAddr:	serveAddr,	// XXX ok?
+		},
 
 		ctlStart:	make(chan chan error),
 		ctlStop:	make(chan chan struct{}),
@@ -99,7 +101,7 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 		nodeLeave:	make(chan nodeLeave),
 	}
 
-	m.myInfo.NodeUUID = m.allocUUID(neo.MASTER)
+	m.node.MyInfo.NodeUUID = m.allocUUID(neo.MASTER)
 	// TODO update nodeTab with self
 	m.clusterState = neo.ClusterRecovering	// XXX no elections - we are the only master
 
@@ -109,12 +111,12 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 // Run starts master node and runs it until ctx is cancelled or fatal error
 func (m *Master) Run(ctx context.Context) error {
 	// start listening
-	l, err := m.Listen()
+	l, err := m.node.Listen()
 	if err != nil {
 		return err	// XXX err ctx
 	}
 
-	m.masterAddr = l.Addr().String()
+	m.node.MasterAddr = l.Addr().String()
 
 	// serve incoming connections
 	wg := sync.WaitGroup{}
@@ -152,7 +154,7 @@ func (m *Master) Start() error {
 func (m *Master) Stop()  {
 	ech := make(chan struct{})
 	m.ctlStop <- ech
-	return <-ech
+	<-ech
 }
 
 // Shutdown requests all known nodes in the cluster to stop
@@ -636,7 +638,7 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 	// - NodeType valid
 	// - IdTimestamp ?
 
-	if n.idReq.ClusterName != m.clusterName {
+	if n.idReq.ClusterName != m.node.ClusterName {
 		n.idResp <- &neo.Error{neo.PROTOCOL_ERROR, "cluster name mismatch"} // XXX
 		return nil, false
 	}
@@ -668,7 +670,7 @@ func (m *Master) accept(n nodeCome) (node *neo.Node, ok bool) {
 
 	n.idResp <- &neo.AcceptIdentification{
 			NodeType:	neo.MASTER,
-			MyNodeUUID:	m.myInfo.NodeUUID,
+			MyNodeUUID:	m.node.MyInfo.NodeUUID,
 			NumPartitions:	1,	// FIXME hardcoded
 			NumReplicas:	1,	// FIXME hardcoded
 			YourNodeUUID:	uuid,

@@ -31,7 +31,7 @@ import (
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces
 type Client struct {
-	neo.NodeCommon
+	node neo.NodeCommon
 
 	storLink *neo.NodeLink	// link to storage node
 	storConn *neo.Conn	// XXX main connection to storage
@@ -107,7 +107,7 @@ func NewClient(storLink *neo.NodeLink) (*Client, error) {
 
 	// XXX move -> Run?
 	// first identify ourselves to peer
-	accept, err := neo.IdentifyWith(neo.STORAGE, storLink, cli.myInfo, cli.clusterName)
+	accept, err := neo.IdentifyWith(neo.STORAGE, storLink, cli.node.MyInfo, cli.node.ClusterName)
 	if err != nil {
 		return nil, err
 	}
