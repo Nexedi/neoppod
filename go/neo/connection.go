@@ -703,7 +703,7 @@ func Listen(net xnet.Networker, laddr string) (*Listener, error) {
 	}
 
 	l := &Listener{
-		Listener: rawl,
+		l:        rawl,
 		acceptq:  make(chan accepted),
 		closed:   make(chan struct{}),
 	}
@@ -712,8 +712,10 @@ func Listen(net xnet.Networker, laddr string) (*Listener, error) {
 	return l, nil
 }
 
+// Listener wraps net.Listener to return handshaked NodeLink on Accept.
+// Create only via Listen.
 type Listener struct {
-	net.Listener
+	l       net.Listener
 	acceptq chan accepted
 	closed  chan struct {}
 }
@@ -724,7 +726,7 @@ type accepted struct {
 }
 
 func (l *Listener) Close() error {
-	err := l.Listener.Close()
+	err := l.l.Close()
 	close(l.closed)
 	return err
 }
@@ -743,7 +745,7 @@ func (l *Listener) run() {
 		}
 
 		// XXX add backpressure on too much incoming connections without client .Accept
-		conn, err := l.Listener.Accept()
+		conn, err := l.l.Accept()
 		go l.accept(runCtx, conn, err)
 	}
 }
@@ -774,12 +776,16 @@ func (l *Listener) Accept() (*NodeLink, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
-		_, err := l.Listener.Accept()
+		_, err := l.l.Accept()
 		return nil, err
 
 	case a := <-l.acceptq:
 		return a.link, a.err
 	}
+}
+
+func (l *Listener) Addr() net.Addr {
+	return l.l.Addr()
 }
 
 // ---- for convenience: Conn -> NodeLink & local/remote link addresses  ----
