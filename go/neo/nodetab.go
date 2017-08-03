@@ -26,7 +26,7 @@ import (
 	//"sync"
 )
 
-// NodeTable represents all nodes in a cluster
+// NodeTable represents known nodes in a cluster
 //
 // Usually Master maintains such table and provides it to other nodes to know
 // each other but in general use-cases can be different.

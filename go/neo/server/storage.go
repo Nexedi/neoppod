@@ -100,10 +100,26 @@ func (stor *Storage) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		// TODO l.Accept() -> nodeCome
+		// XXX dup from master
+		for serveCtx.Err() != nil {
+			conn, idReq, err := l.Accept()
+			if err != nil {
+				// TODO log / throttle
+				continue
+			}
 
-		// err = Serve(serveCtx, l, stor)
-		// _ = err	// XXX what to do with err ?
+			_ = idReq
+
+			select {
+			//case m.nodeCome <- nodeCome{conn, idReq, nil/*XXX kill*/}:
+			//	// ok
+
+			case <-serveCtx.Done():
+				// shutdown
+				conn.Link().Close()	// XXX log err ?
+				return
+			}
+		}
 	}()
 
 	// connect to master and get commands and updates from it
@@ -149,7 +165,7 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
-	Mconn, accept, err := neo.Dial(ctx, stor.node.Net, stor.node.MasterAddr)
+	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
 	if err != nil {
 		return err
 	}
@@ -162,20 +178,13 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		err = xerr.First(err, err2)
 	}()
 
-/*
-	// request identification this way registering our node to master
-	accept, err := neo.IdentifyWith(neo.MASTER, Mlink, stor.node.MyInfo, stor.node.ClusterName)
-	if err != nil {
-		return err
-	}
-*/
-
 	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?
 
 	if !(accept.NumPartitions == 1 && accept.NumReplicas == 1) {
 		return fmt.Errorf("TODO for 1-storage POC: Npt: %v  Nreplica: %v", accept.NumPartitions, accept.NumReplicas)
 	}
 
+	// XXX -> node.Dial ?
 	if accept.YourNodeUUID != stor.node.MyInfo.NodeUUID {
 		fmt.Printf("stor: %v: master told us to have UUID=%v\n", Mlink, accept.YourNodeUUID)
 		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID

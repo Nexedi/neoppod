@@ -159,6 +159,7 @@ func (m *Master) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
+		// XXX dup in storage
 		for serveCtx.Err() != nil {
 			conn, idReq, err := l.Accept()
 			if err != nil {

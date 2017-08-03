@@ -26,7 +26,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+//	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 // Client talks to NEO cluster and exposes access it via ZODB interfaces
@@ -98,13 +98,17 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 
 // NewClient creates and identifies new client connected to storage over storLink
-func NewClient(storLink *neo.NodeLink) (*Client, error) {
+func NewClient(masterAddr string) (*Client, error) {
 	// TODO .myInfo.NodeType = CLIENT
 	// .clusterName = clusterName
 	// .net = ...
 	cli := &Client{}
 	//return &Client{storLink, storConn}, nil
 
+	cli.node.Dial(context.TODO(), neo.MASTER, masterAddr)
+	panic("TODO")
+
+/*
 	// XXX move -> Run?
 	// first identify ourselves to peer
 	accept, err := neo.IdentifyWith(neo.STORAGE, storLink, cli.node.MyInfo, cli.node.ClusterName)
@@ -128,11 +132,15 @@ func NewClient(storLink *neo.NodeLink) (*Client, error) {
 
 	_ = storConn	// XXX temp
 	return cli, nil
+*/
 }
 
 // TODO read-only support
 func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
-	// XXX for now url is treated as storage node URL
+	// XXX u.Host -> masterAddr (not storage)
+	panic("TODO")
+
+/*
 	// XXX check/use other url fields
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 	storLink, err := neo.DialLink(ctx, net, u.Host)		// XXX -> Dial
@@ -163,7 +171,7 @@ func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	case r := <-done:
 		return r.Client, r.error
 	}
-
+*/
 }
 
 //func Open(...) (*Client, error) {

@@ -2,11 +2,7 @@ package neo
 // TODO move me properly -> connection.go
 
 import (
-	"fmt"
-
 	"lab.nexedi.com/kirr/neo/go/zodb"
-
-	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 
