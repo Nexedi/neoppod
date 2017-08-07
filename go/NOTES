@@ -292,10 +292,10 @@ Commit communications
   for S' in storagesFor(ttid):
 	C -> S'	  AskStoreTransaction(ttid)	# empty answer
 
-  for S'' in (storagesFor(oid) - storagesFor):
-	C -> S''  AskVoteTransaction(ttid)	# empty answer
+  for S" in (storagesFor(oid) - storagesFor):
+	C -> S"  AskVoteTransaction(ttid)	# empty answer
 
-  - wait for all responses from S' and S'' ^^^
+  - wait for all responses from S' and S" ^^^
 
 * tpc_finish
 
@@ -309,6 +309,10 @@ C -> M  AskFinishTransaction(ttid, cache_dict, checked_list)
 	M <- S	AnswerInformationLocked(ttid)
 
 C <- M	AnswerTransactionFinished(ttid, tid)
+
+     for S in M.allStorages:
+	M -> S  NotifyUnlockInformation(ttid)
+
 
 
 * tpc_abort

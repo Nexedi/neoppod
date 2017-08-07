@@ -424,7 +424,7 @@ type FailedVote struct {
 // Finish a transaction. C -> PM.
 // Answer when a transaction is finished. PM -> C.
 type FinishTransaction struct {
-	Tid	 zodb.Tid
+	Tid	    zodb.Tid	// XXX this is ttid
 	OIDList     []zodb.Oid
 	CheckedList []zodb.Oid
 }
