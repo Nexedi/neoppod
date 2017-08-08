@@ -150,9 +150,9 @@ func (m *Master) Run(ctx context.Context) error {
 	if err != nil {
 		return err	// XXX err ctx
 	}
+	m.logf("serving on %s ...", l.Addr())
 
 	m.node.MasterAddr = l.Addr().String()
-	m.logf("serving on %s ...", m.node.MasterAddr)
 
 	// accept incoming connections and pass them to main driver
 	wg := sync.WaitGroup{}
@@ -231,7 +231,7 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 		// XXX shutdown ?
 	}
 
-	return fmt.Errorf("master: run: %v\n", ctx.Err())	// XXX run -> runmain ?
+	return errors.WithMessage(ctx.Err(), "master: run")
 }
 
 
@@ -259,7 +259,8 @@ type storRecovery struct {
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
 	m.log("recovery")
-	defer xerr.Context(&err, "master: recovery")
+	//defer xerr.Context(&err, "master: recovery")
+	defer m.errctx(&err, "recovery")
 
 	m.setClusterState(neo.ClusterRecovering)
 	rctx, rcancel := context.WithCancel(ctx)
@@ -299,17 +300,17 @@ loop:
 
 				err := m.accept(n.conn, resp)
 				if err != nil {
-					// XXX better m.nodeLeave <- nodeLeave{node, err} ?
 					// XXX move this m.nodeLeave <- to accept() ?
 					recovery <- storRecovery{node: node, err: err}
+					return
 				}
 
 				// start recovery
 				storCtlRecovery(rctx, node, recovery)
 			}()
 
-		// XXX calrify who sends here
 /*
+		// XXX calrify who sends here
 		case n := <-m.nodeLeave:
 			// TODO close n.node.Link
 			// 
@@ -324,16 +325,17 @@ loop:
 			if r.err != nil {
 				m.logf("%v", r.err)
 
-				// XXX only if not cancelled
-				m.logf("master: %v: closing link", r.node.Link)
+				if !xcontext.Canceled(errors.Cause(r.err)) {
+					m.logf("%v: closing link", r.node.Link)
 
-				// close stor link / update .nodeTab
-				err := r.node.Link.Close()
-				if err != nil {
-					m.logf("master: %v\n", r.node.Link)
+					// close stor link / update .nodeTab
+					err := r.node.Link.Close()
+					if err != nil {
+						m.logf("master: %v\n", r.node.Link)
+					}
+
+					m.nodeTab.SetNodeState(r.node, DOWN)
 				}
-
-				m.nodeTab.SetNodeState(r.node, DOWN)
 
 			} else {
 				// we are interested in latest partTab
@@ -393,10 +395,7 @@ loop:
 			// we do not care errors here - they are either cancelled or IO errors
 			// we just log them and return - in case it is IO error
 			// on link it will be caught on next send/recv	XXX
-			switch errors.Cause(r.err) {
-			case context.Canceled, context.DeadlineExceeded:
-				// ok
-			default:
+			if !xcontext.Canceled(errors.Cause(r.err)) {
 				// XXX not so ok
 			}
 
@@ -1267,7 +1266,7 @@ func (m *Master) ServeMaster(ctx context.Context, conn *neo.Conn) {
 
 func (m *Master) logf(format string, argv ...interface{}) {
 	// TODO support custom log.Logger
-	log.Output(2, fmt.Sprintf("master @%v: " + format, append([]string{m.MasterAddr}, argv...)...))
+	log.Output(2, fmt.Sprintf("master(%v): " + format, append([]string{m.MasterAddr}, argv...)...))
 }
 
 func (m *Master) vlogf(format string, argv ...interface{}) {
@@ -1276,4 +1275,13 @@ func (m *Master) vlogf(format string, argv ...interface{}) {
 		return
 	}
 	m.log(format, argv)
+}
+
+
+func (m *Master) errctx(errp *error, context string) {
+	if *errp == nil {
+		return
+	}
+
+	xerr.Contextf(errp, "master(%v): %s", m.node.MasterAddr, context)
 }

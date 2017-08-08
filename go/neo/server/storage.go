@@ -92,6 +92,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 	if err != nil {
 		return err // XXX err ctx
 	}
+	stor.logf("serving on %s ...", l.Addr())
 
 	// start serving incoming connections
 	wg := sync.WaitGroup{}

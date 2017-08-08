@@ -120,3 +120,18 @@ func (mc *mergeCtx) Value(key interface{}) interface{} {
 	}
 	return mc.ctx2.Value(key)
 }
+
+// Cancelled reports whether an error is due to a canceled context.
+//
+// Since both cancellation - explicit and due to exceeding context deadline -
+// result in the same signal to work being done under context, Canceled treats
+// both context.Canceled and context.DeadlineExceeded as errors indicating
+// context cancellation.
+func Canceled(err error) bool {
+	switch err {
+	case context.Canceled, context.DeadlineExceeded:
+		return true
+	}
+
+	return false
+}
