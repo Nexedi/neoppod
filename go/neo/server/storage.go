@@ -143,9 +143,9 @@ func (stor *Storage) talkMaster(ctx context.Context) error {
 	// XXX errctx
 
 	for {
-		fmt.Printf("stor: master(%v): connecting\n", stor.node.MasterAddr) // XXX info
+		stor.vlogf("master(%v): connecting ...", stor.node.MasterAddr)
 		err := stor.talkMaster1(ctx)
-		fmt.Printf("stor: master(%v): %v\n", stor.node.MasterAddr, err)
+		stor.logf("master(%v): %v", stor.node.MasterAddr, err)
 
 		// TODO if err = shutdown -> return
 
@@ -186,7 +186,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 	// XXX -> node.Dial ?
 	if accept.YourNodeUUID != stor.node.MyInfo.NodeUUID {
-		fmt.Printf("stor: %v: master told us to have UUID=%v\n", Mlink, accept.YourNodeUUID)
+		stor.logf("%v: master told us to have UUID=%v", Mlink, accept.YourNodeUUID)
 		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID
 	}
 
@@ -224,13 +224,13 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		// let master initialize us. If successful this ends with StartOperation command.
 		err = stor.m1initialize(ctx, Mconn)
 		if err != nil {
-			fmt.Println("stor: %v: master: %v", err)
+			stor.logf("%v: master: %v", Mconn, err)
 			continue // retry initializing
 		}
 
 		// we got StartOperation command. Let master drive us during servicing phase.
 		err = stor.m1serve(ctx, Mconn)
-		fmt.Println("stor: %v: master: %v", err)
+		stor.logf("%v: master: %v", Mconn, err)
 		continue // retry from initializing
 	}
 
@@ -358,7 +358,7 @@ func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
 // ServeLink serves incoming node-node link connection
 // XXX +error return?
 func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
-	fmt.Printf("stor: %s: serving new node\n", link)
+	stor.logf("%s: serving new node", link)
 
 	// close link when either cancelling or returning (e.g. due to an error)
 	// ( when cancelling - link.Close will signal to all current IO to
@@ -373,7 +373,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 			// XXX ret err = ctx.Err()
 		case <-retch:
 		}
-		fmt.Printf("stor: %v: closing link\n", link)
+		stor.logf("%v: closing link", link)
 		link.Close()	// XXX err
 	}()
 
@@ -381,7 +381,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	// XXX only accept when operational (?)
 	nodeInfo, err := IdentifyPeer(link, neo.STORAGE)
 	if err != nil {
-		fmt.Printf("stor: %v\n", err)
+		stor.logf("%v", err)
 		return
 	}
 
@@ -392,7 +392,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 
 	default:
 		// XXX vvv should be reply to peer
-		fmt.Printf("stor: %v: unexpected peer type: %v\n", link, nodeInfo.NodeType)
+		stor.logf("%v: unexpected peer type: %v", link, nodeInfo.NodeType)
 		return
 	}
 
@@ -400,7 +400,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	for {
 		conn, err := link.Accept()
 		if err != nil {
-			fmt.Printf("stor: %v\n", err)	// XXX err ctx
+			stor.logf("%v", err)	// XXX err ctx
 			break
 		}
 
@@ -426,7 +426,7 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 // the connection is closed when serveClient returns
 // XXX +error return?
 func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
-	fmt.Printf("stor: %s: serving new client conn\n", conn)
+	stor.logf("%s: serving new client conn", conn)
 
 	// rederive ctx to be also cancelled if M tells us StopOperation
 	ctx, cancel := stor.withWhileOperational(ctx)
@@ -457,9 +457,9 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	case err = <-done:
 	}
 
-	fmt.Printf("stor: %v: %v\n", conn, err)
+	stor.logf("%v: %v", conn, err)
 	// XXX vvv -> defer ?
-	fmt.Printf("stor: %v: closing client conn\n", conn)
+	stor.logf("%v: closing client conn", conn)
 	conn.Close()	// XXX err
 }
 

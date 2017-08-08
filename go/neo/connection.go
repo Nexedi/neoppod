@@ -949,7 +949,7 @@ func (c *Conn) Expect(msgv ...Msg) (which int, err error) {
 	return -1, &ConnError{c, "recv", fmt.Errorf("unexpected message: %v", msgType)}
 }
 
-// Ask sends request and receives response
+// Ask sends request and receives response.
 // It expects response to be exactly of resp type and errors otherwise
 // XXX clarify error semantic (when Error is decoded)
 // XXX do the same as Expect wrt respv ?
