@@ -82,15 +82,14 @@ type NodeTable struct {
 }
 
 // Node represents a node entry in NodeTable
-// XXX naming -> NodeEntry?
 type Node struct {
-	NodeInfo	// XXX good idea to embed ?
+	NodeInfo
 
-	Link *NodeLink	// link to this node; =nil if not connected	XXX do we need it here ?
-	// XXX identified or not ?
-	// XXX -> not needed - we only add something to nodetab after identification
-	// XXX ^^^ is about master. How about e.g. Client that received nodetab
-	// entry and wants to talk to that node?
+	// link to this node; =nil if not connected
+	Link *NodeLink
+
+	// XXX something indicating in-flight connecti/identification
+	// (wish Link != nil means connected and identified)
 }
 
 
@@ -136,6 +135,12 @@ func (nt *NodeTable) GetByLink(link *NodeLink) *Node {
 	return nil
 }
 
+// XXX doc
+func (nt *NodeTable) SetNodeState(node *Node, state neo.NodeState) {
+	node.NodeState = state
+	nt.notify(node.NodeInfo)
+}
+
 // UpdateLinkDown updates information about corresponding to link node and marks it as down
 // it returns corresponding node entry for convenience
 // XXX is this a good idea ?
@@ -146,9 +151,7 @@ func (nt *NodeTable) UpdateLinkDown(link *NodeLink) *Node {
 		panic("nodetab: UpdateLinkDown: no corresponding entry")
 	}
 
-	node.NodeState = DOWN
-
-	nt.notify(node.NodeInfo)
+	nt.SetNodeState(node, DOWN)
 	return node
 }
 
