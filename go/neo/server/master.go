@@ -262,6 +262,12 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 	//defer xerr.Context(&err, "master: recovery")
 	defer m.errctx(&err, "recovery")
 
+	my.Context(&ctx, "recovery")
+	defer xerr.Context(&err, ctx)
+
+	xcontext.Running(&ctx, "recovery")
+	defer xerr.Context(&err, ctx)
+
 	m.setClusterState(neo.ClusterRecovering)
 	rctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
@@ -323,15 +329,15 @@ loop:
 		// ptid ↑ and if so we should take partition table from there
 		case r := <-recovery:
 			if r.err != nil {
-				m.logf("%v", r.err)
+				logf(ctx, "%v", r.err)
 
 				if !xcontext.Canceled(errors.Cause(r.err)) {
-					m.logf("%v: closing link", r.node.Link)
+					logf(ctx, "%v: closing link", r.node.Link)
 
 					// close stor link / update .nodeTab
 					err := r.node.Link.Close()
 					if err != nil {
-						m.logf("master: %v\n", r.node.Link)
+						logf(ctx, "master: %v", err)
 					}
 
 					m.nodeTab.SetNodeState(r.node, DOWN)
