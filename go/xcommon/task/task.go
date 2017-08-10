@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package task allows to define currently running task via context XXX
+// Package task provides primitives to track tasks via contexts.
 package task
 
 import (
@@ -28,23 +28,6 @@ import (
 type Task struct {
 	Parent *Task
 	Name   string
-}
-
-// String returns string representing whole operational stack.
-//
-// For example if task "c" is running under task "b" which in turn is running
-// under task "a" - the operational stack will be "a: b: c"
-func (t *Task) String() string {
-	if o == nil {
-		return ""
-	}
-
-	prefix := Parent.String()
-	if prefix != "" {
-		prefix += ": "
-	}
-
-	return prefix + t.Name
 }
 
 type taskKey struct{}
@@ -78,12 +61,21 @@ func ErrContext(errp *error, ctx Context) {
 	return xerr.Context(errp, task.Name)
 }
 
-// XXX place
-func Logf(ctx context.Context, format string, argv ...interface{}) {
-	s := CurrentOp(ctx).String()
-	if s != "" {
-		s += ": "
+// String returns string representing whole operational stack.
+//
+// For example if task "c" is running under task "b" which in turn is running
+// under task "a" - the operational stack will be "a: b: c"
+//
+// nil Task is represented as ""
+func (t *Task) String() string {
+	if o == nil {
+		return ""
 	}
-	s += fmt.Sprintf(format, argv...)
-	log.Log(s)
+
+	prefix := Parent.String()
+	if prefix != "" {
+		prefix += ": "
+	}
+
+	return prefix + t.Name
 }

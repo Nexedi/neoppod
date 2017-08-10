@@ -258,6 +258,8 @@ type storRecovery struct {
 // - nil:  recovery was ok and a command came for cluster to start
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
+	defer running(&ctx, "recovery")(&err)
+
 	ctx = task.Running(ctx, "recovery")
 	defer task.ErrContext(&err, ctx)
 	log.Infof(ctx, "")			// XXX automatically log in task.Running?
