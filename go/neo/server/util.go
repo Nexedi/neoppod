@@ -19,3 +19,39 @@
 
 package server
 // misc utilities
+
+import (
+	"context"
+	"fmt"
+
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+)
+
+// running is syntatic sugar to push new task to operational stack, log it and
+// adjust error return with task prefix.
+//
+// use like this:
+//
+//	defer running(&ctx, "my task")(&err)
+func running(ctxp *context.Context, name string) func(*error) {
+	return _running(ctxp, name)
+}
+
+// runningf is running cousing with formatting support
+func runningf(ctxp *context.Context, format string, argv ...interface{}) func(*error) {
+	return _running(ctxp, fmt.Sprintf(format, argv...))
+}
+
+func _running(ctxp *context.Context, name string) func(*error) {
+	ctx := task.Running(*ctxp, name)
+	*ctxp = ctx
+	log.Depth(2).Info(ctx)	// XXX level = ok?
+	return func(errp *error) {
+		// NOTE not *ctxp here - as context pointed by ctxp could be
+		// changed when this deferred function is run
+		task.ErrContext(errp, ctx)
+
+		// XXX also log task stop here?
+	}
+}

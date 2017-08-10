@@ -22,7 +22,7 @@ package server
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 //	"math"
 	"sync"
@@ -31,6 +31,8 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -150,7 +152,7 @@ func (m *Master) Run(ctx context.Context) error {
 	if err != nil {
 		return err	// XXX err ctx
 	}
-	m.logf("serving on %s ...", l.Addr())
+	log.Infof(ctx, "serving on %s ...", l.Addr())
 
 	m.node.MasterAddr = l.Addr().String()
 
@@ -194,7 +196,7 @@ func (m *Master) Run(ctx context.Context) error {
 // runMain is the process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) runMain(ctx context.Context) (err error) {
-	//defer xerr.Context(&err, "master: run")
+	defer running(&ctx, "run")(&err)	// XXX needed?
 
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
 
@@ -207,7 +209,7 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 		// a command came to us to start the cluster.
 		err := m.recovery(ctx)
 		if err != nil {
-			m.log(err)
+			log.Error(ctx, err)
 			return err // recovery cancelled
 		}
 
@@ -215,14 +217,14 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 		// case previously it was unclean shutdown.
 		err = m.verify(ctx)
 		if err != nil {
-			m.log(err)
+			log.Error(ctx, err)
 			continue // -> recovery
 		}
 
 		// provide service as long as partition table stays operational
 		err = m.service(ctx)
 		if err != nil {
-			m.log(err)
+			log.Error(ctx, err)
 			continue // -> recovery
 		}
 
@@ -231,7 +233,7 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 		// XXX shutdown ?
 	}
 
-	return errors.WithMessage(ctx.Err(), "master: run")
+	return ctx.Err()
 }
 
 
@@ -246,7 +248,7 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 
 // storRecovery is result of 1 storage node passing recovery phase
 type storRecovery struct {
-	node    *Node
+	node    *neo.Node
 	partTab neo.PartitionTable
 	// XXX + backup_tid, truncate_tid ?
 	err     error
@@ -260,12 +262,8 @@ type storRecovery struct {
 func (m *Master) recovery(ctx context.Context) (err error) {
 	defer running(&ctx, "recovery")(&err)
 
-	ctx = task.Running(ctx, "recovery")
-	defer task.ErrContext(&err, ctx)
-	log.Infof(ctx, "")			// XXX automatically log in task.Running?
-
 	m.setClusterState(neo.ClusterRecovering)
-	rctx, rcancel := context.WithCancel(ctx)
+	ctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
 
 	recovery := make(chan storRecovery)
@@ -278,7 +276,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				storCtlRecovery(rctx, stor, recovery)
+				storCtlRecovery(ctx, stor, recovery)
 			}()
 		}
 	}
@@ -296,7 +294,7 @@ loop:
 				defer wg.Done()
 
 				if node == nil {
-					m.reject(n.conn, resp)
+					m.reject(ctx, n.conn, resp)
 					return
 				}
 
@@ -308,7 +306,7 @@ loop:
 				}
 
 				// start recovery
-				storCtlRecovery(rctx, node, recovery)
+				storCtlRecovery(ctx, node, recovery)
 			}()
 
 /*
@@ -325,18 +323,18 @@ loop:
 		// ptid ↑ and if so we should take partition table from there
 		case r := <-recovery:
 			if r.err != nil {
-				logf(ctx, "%v", r.err)
+				log.Error(ctx, r.err)
 
 				if !xcontext.Canceled(errors.Cause(r.err)) {
-					logf(ctx, "%v: closing link", r.node.Link)
+					log.Infof(ctx, "%v: closing link", r.node.Link)
 
 					// close stor link / update .nodeTab
 					err := r.node.Link.Close()
 					if err != nil {
-						logf(ctx, "master: %v", err)
+						log.Error(ctx, err)
 					}
 
-					m.nodeTab.SetNodeState(r.node, DOWN)
+					m.nodeTab.SetNodeState(r.node, neo.DOWN)
 				}
 
 			} else {
@@ -393,7 +391,7 @@ loop:
 	for {
 		select {
 		// XXX <-m.nodeLeave ?
-		case <-recovery:
+		case r := <-recovery:
 			// we do not care errors here - they are either cancelled or IO errors
 			// we just log them and return - in case it is IO error
 			// on link it will be caught on next send/recv	XXX
@@ -421,9 +419,9 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 		// on error provide feedback to storRecovery chan
 		res <- storRecovery{node: stor, err: err}
 	}()
-	defer xerr.Contextf(&err, "%s: stor recovery", stor.link)
+	defer runningf(&ctx, "%s: stor recovery", stor.Link)(&err)
 
-	conn, err := stor.link.NewConn()
+	conn, err := stor.Link.NewConn()
 	if err != nil {
 		return
 	}
@@ -468,8 +466,8 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 }
 
 
-var errStopRequested   = errors.New("stop requested")
-var errClusterDegraded = errors.New("cluster became non-operatonal")
+var errStopRequested   = stderrors.New("stop requested")
+var errClusterDegraded = stderrors.New("cluster became non-operatonal")
 
 
 // Cluster Verification (data recovery)
@@ -492,8 +490,7 @@ var errClusterDegraded = errors.New("cluster became non-operatonal")
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab
 func (m *Master) verify(ctx context.Context) (err error) {
-	m.log("verify")
-	defer xerr.Context(&err, "master: verify")
+	defer running(&ctx, "verify")(&err)
 
 	m.setClusterState(neo.ClusterVerifying)
 	vctx, vcancel := context.WithCancel(ctx)
@@ -512,7 +509,7 @@ func (m *Master) verify(ctx context.Context) (err error) {
 	for _, stor := range m.nodeTab.StorageList() {
 		if stor.NodeState > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
-			go storCtlVerify(vctx, stor.Link, verify)
+			go storCtlVerify(vctx, stor, verify)
 		}
 	}
 
@@ -520,7 +517,9 @@ loop:
 	for inprogress > 0 {
 		select {
 		case n := <-m.nodeCome:
-			node, ok := m.identify(n, /* XXX only accept storages -> known ? RUNNING : PENDING */)
+			node, resp := m.identify(n, /* XXX only accept storages -> known ? RUNNING : PENDING */)
+			// XXX handle resp ^^^ like in recover
+			_, ok := resp.(*neo.AcceptIdentification)
 			if !ok {
 				break
 			}
@@ -528,10 +527,10 @@ loop:
 			// new storage arrived - start verification on it too
 			// XXX ok? or it must first go through recovery check?
 			inprogress++
-			go storCtlVerify(vctx, node.Link, verify)
+			go storCtlVerify(vctx, node, verify)
 
 		case n := <-m.nodeLeave:
-			m.nodeTab.UpdateLinkDown(n.link)
+			m.nodeTab.SetNodeState(n.node, neo.DOWN)
 
 			// if cluster became non-operational - we cancel verification
 			if !m.partTab.OperationalWith(&m.nodeTab) {
@@ -548,11 +547,10 @@ loop:
 			inprogress--
 
 			if v.err != nil {
-				m.logf("verify: %v", v.err)
+				log.Error(ctx, v.err)
 
 				// mark storage as non-working in nodeTab
-				// FIXME better -> v.node.setState(DOWN) ?
-				m.nodeTab.UpdateLinkDown(v.link)
+				m.nodeTab.SetNodeState(v.node, neo.DOWN)
 
 				// check partTab is still operational
 				// if not -> cancel to go back to recovery
@@ -597,7 +595,7 @@ loop:
 
 // storVerify is result of a storage node passing verification phase
 type storVerify struct {
-	node    *Node
+	node    *neo.Node
 	lastOid zodb.Oid
 	lastTid zodb.Tid
 //	link    *neo.NodeLink	// XXX -> Node
@@ -605,20 +603,20 @@ type storVerify struct {
 }
 
 // storCtlVerify drives a storage node during cluster verifying (= starting) state
-func storCtlVerify(ctx context.Context, link *neo.NodeLink, res chan storVerify) {
+func storCtlVerify(ctx context.Context, stor *neo.Node, res chan storVerify) {
 	// XXX link.Close on err
 	// XXX cancel on ctx
 
 	var err error
 	defer func() {
 		if err != nil {
-			res <- storVerify{link: link, err: err}
+			res <- storVerify{node: stor, err: err}
 		}
 	}()
-	defer xerr.Contextf(&err, "%s: verify", link)
+	defer runningf(&ctx, "%s: stor verify", stor.Link)(&err)
 
 	// FIXME stub
-	conn, _ := link.NewConn()
+	conn, _ := stor.Link.NewConn()
 
 	// XXX NotifyPT (so storages save locally recovered PT)
 
@@ -641,7 +639,7 @@ func storCtlVerify(ctx context.Context, link *neo.NodeLink, res chan storVerify)
 	}
 
 	// send results to driver
-	res <- storVerify{link: link, lastOid: last.LastOid, lastTid: last.LastTid}
+	res <- storVerify{node: stor, lastOid: last.LastOid, lastTid: last.LastTid}
 }
 
 
@@ -661,8 +659,7 @@ func storCtlVerify(ctx context.Context, link *neo.NodeLink, res chan storVerify)
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab and verification passed
 func (m *Master) service(ctx context.Context) (err error) {
-	m.log("service")
-	defer xerr.Context(&err, "master: service")
+	defer running(&ctx, "service")(&err)
 
 	// XXX we also need to tell storages StartOperation first
 	m.setClusterState(neo.ClusterRunning)
@@ -674,10 +671,11 @@ loop:
 		select {
 		// a node connected and requests identification
 		case n := <-m.nodeCome:
-			node, resp, ok := m.identify(n, /* XXX accept everyone */)
+			node, resp := m.identify(n, /* XXX accept everyone */)
 
-			state := m.ClusterState
-
+			//state := m.clusterState
+			_ = node
+			_ = resp
 /*
 			wg.Add(1)
 			go func() {
@@ -784,7 +782,7 @@ loop:
 */
 
 		case n := <-m.nodeLeave:
-			m.nodeTab.UpdateLinkDown(n.link)
+			m.nodeTab.SetNodeState(n.node, neo.DOWN)
 
 			// if cluster became non-operational - cancel service
 			if !m.partTab.OperationalWith(&m.nodeTab) {
@@ -795,12 +793,13 @@ loop:
 
 		// XXX what else ?	(-> txn control at least)
 
+/*
 		case ech := <-m.ctlStart:
-			switch m.ClusterState {
-			case ClusterVerifying, ClusterRunning:
+			switch m.clusterState {
+			case neo.ClusterVerifying, neo.ClusterRunning:
 				ech <- nil // we are already started
 
-			case ClusterRecovering:
+			case neo.ClusterRecovering:
 				if m.partTab.OperationalWith(&m.nodeTab) {
 					// reply "ok to start" after whole recovery finishes
 
@@ -820,6 +819,7 @@ loop:
 
 			// XXX case ClusterStopping:
 			}
+*/
 
 		case ech := <-m.ctlStop:
 			close(ech) // ok
@@ -907,13 +907,16 @@ func (m *Master) identify(n nodeCome) (node *neo.Node, resp neo.Msg) {
 }
 
 // reject sends rejective identification response and closes associated link
-func (m *Master) reject(conn *neo.Conn, resp neo.Msg) {
+func (m *Master) reject(ctx context.Context, conn *neo.Conn, resp neo.Msg) {
 	// XXX cancel on ctx?
 	// XXX log?
 	err1 := conn.Send(resp)
 	err2 := conn.Close()
 	err3 := conn.Link().Close()
-	log xerr.Merge(err1, err2, err3)
+	err := xerr.Merge(err1, err2, err3)
+	if err != nil {
+		log.Error(ctx, "reject:", err)
+	}
 }
 
 // accept sends acceptive identification response and closes conn
@@ -1254,36 +1257,4 @@ func (m *Master) ServeAdmin(ctx context.Context, conn *neo.Conn) {
 
 func (m *Master) ServeMaster(ctx context.Context, conn *neo.Conn) {
 	// TODO  (for elections)
-}
-
-
-
-// ---- utils ----
-
-// -> Logger
-
-//func (m *Master) log(v interface{}) {
-//	XXX
-//}
-
-func (m *Master) logf(format string, argv ...interface{}) {
-	// TODO support custom log.Logger
-	log.Output(2, fmt.Sprintf("master(%v): " + format, append([]string{m.MasterAddr}, argv...)...))
-}
-
-func (m *Master) vlogf(format string, argv ...interface{}) {
-	// XXX -> verbose settings
-	if false {
-		return
-	}
-	m.log(format, argv)
-}
-
-
-func (m *Master) errctx(errp *error, context string) {
-	if *errp == nil {
-		return
-	}
-
-	xerr.Contextf(errp, "master(%v): %s", m.node.MasterAddr, context)
 }

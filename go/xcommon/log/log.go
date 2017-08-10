@@ -23,30 +23,79 @@
 package log
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/golang/glog"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 )
 
+/*
 // taskPrefix returns prefix associated to current operational task stack to put to logs
-func taskPrefix(ctx) string {
+func taskPrefix(ctx context.Context) string {
 	s := task.Current(ctx).String()
 	if s != "" {
 		s += ": "
 	}
 	return s
 }
+*/
+
+// withTask prepends string describing current operational task stack to argv and returns it
+// handy to use this way:
+//
+//	func info(ctx, argv ...interface{}) {
+//		glog.Info(withTask(ctx, argv...)...)
+//	}
+//
+// see https://golang.org/issues/21388
+func withTask(ctx context.Context, argv ...interface{}) []interface{} {
+	task := task.Current(ctx).String()
+	if task == "" {
+		return argv
+	}
+
+	if len(argv) != 0 {
+		task += ":"
+	}
+
+	return append([]interface{}{task}, argv...)
+}
+
 
 
 type Depth int
 
-func (d Depth) Infof(ctx context.Context, format string, argv ...interface{}) {
-	// XXX avoid formatting if logging severity disables info
-	glog.InfoDepth(d+1, taskPrefix(ctx) + fmt.Sprintf(format, argv)
+func (d Depth) Info(ctx context.Context, argv ...interface{}) {
+	// XXX avoid task formatting if logging severity disabled
+	glog.InfoDepth(int(d+1), withTask(ctx, argv...)...)
 }
 
+func (d Depth) Infof(ctx context.Context, format string, argv ...interface{}) {
+	// XXX avoid formatting if logging severity disabled
+	glog.InfoDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv))...)
+}
+
+func (d Depth) Error(ctx context.Context, argv ...interface{}) {
+	glog.ErrorDepth(int(d+1), withTask(ctx, argv...)...)
+}
+
+func (d Depth) Errorf(ctx context.Context, format string, argv ...interface{}) {
+	glog.ErrorDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv))...)
+}
+
+
+
+func Info(ctx context.Context, argv ...interface{})	{ Depth(1).Info(ctx, argv...) }
+func Error(ctx context.Context, argv ...interface{})	{ Depth(1).Error(ctx, argv...) }
+
 func Infof(ctx context.Context, format string, argv ...interface{}) {
-	Depth(1).Infof(ctx, format, argv)
+	Depth(1).Infof(ctx, format, argv...)
+}
+
+func Errorf(ctx context.Context, format string, argv ...interface{}) {
+	Depth(1).Errorf(ctx, format, argv...)
 }
 
 

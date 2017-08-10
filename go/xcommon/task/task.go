@@ -22,6 +22,9 @@ package task
 
 import (
 	"context"
+	"fmt"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // Task represents currently running operation
@@ -34,13 +37,18 @@ type taskKey struct{}
 
 // Running creates new task and returns new context with that task set to current
 func Running(ctx context.Context, name string) context.Context {
-	context.WithValue(&Task{Parent: Current(ctx), Name: name})
+	return context.WithValue(ctx, taskKey{}, &Task{Parent: Current(ctx), Name: name})
+}
+
+// Runningf is Running cousing with formatting support
+func Runningf(ctx context.Context, format string, argv ...interface{}) context.Context {
+	return Running(ctx, fmt.Sprintf(format, argv...))
 }
 
 // Current returns current task represented by context.
 // if there is no current task - it returns nil.
-func Current(ctx Context) *Task {
-	task, _ := ctx.Value(taskKey).(*Task)
+func Current(ctx context.Context) *Task {
+	task, _ := ctx.Value(taskKey{}).(*Task)
 	return task
 }
 
@@ -49,16 +57,16 @@ func Current(ctx Context) *Task {
 //
 //      func myfunc(ctx, ...) (..., err error) {
 //		ctx = task.Running("doing something")
-//              defer task.ErrContext(&err, ctx)
-//              ...
+//		defer task.ErrContext(&err, ctx)
+//		...
 //
 // Please see lab.nexedi.com/kirr/go123/xerr.Context for semantic details
-func ErrContext(errp *error, ctx Context) {
+func ErrContext(errp *error, ctx context.Context) {
 	task := Current(ctx)
 	if task == nil {
 		return
 	}
-	return xerr.Context(errp, task.Name)
+	xerr.Context(errp, task.Name)
 }
 
 // String returns string representing whole operational stack.
@@ -68,11 +76,11 @@ func ErrContext(errp *error, ctx Context) {
 //
 // nil Task is represented as ""
 func (t *Task) String() string {
-	if o == nil {
+	if t == nil {
 		return ""
 	}
 
-	prefix := Parent.String()
+	prefix := t.Parent.String()
 	if prefix != "" {
 		prefix += ": "
 	}

@@ -79,7 +79,8 @@ func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 }
 */
 
-/*
+// FIXME kill vvv
+///*
 // ----------------------------------------
 
 // XXX goes away?  (we need a func to make sure to recv RequestIdentification
@@ -129,4 +130,4 @@ func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.Req
 
 	return req, nil
 }
-*/
+//*/

@@ -136,7 +136,7 @@ func (nt *NodeTable) GetByLink(link *NodeLink) *Node {
 }
 
 // XXX doc
-func (nt *NodeTable) SetNodeState(node *Node, state neo.NodeState) {
+func (nt *NodeTable) SetNodeState(node *Node, state NodeState) {
 	node.NodeState = state
 	nt.notify(node.NodeInfo)
 }
