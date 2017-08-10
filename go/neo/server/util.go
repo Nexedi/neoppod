@@ -28,6 +28,9 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 )
 
+
+// XXX -> task  (and current task -> taskctx) ?
+
 // running is syntactic sugar to push new task to operational stack, log it and
 // adjust error return with task prefix.
 //
@@ -46,12 +49,21 @@ func runningf(ctxp *context.Context, format string, argv ...interface{}) func(*e
 func _running(ctxp *context.Context, name string) func(*error) {
 	ctx := task.Running(*ctxp, name)
 	*ctxp = ctx
-	log.Depth(2).Info(ctx)	// XXX level = ok?
+	log.Depth(2).Info(ctx, "start")
+
 	return func(errp *error) {
+		if *errp != nil {
+			// XXX is it good idea to log to error here? (not in above layer)
+			// XXX what is error here could be not so error above
+			// XXX or we still want to log all errors - right?
+			log.Depth(1).Error(ctx, *errp)
+		} else {
+			log.Depth(1).Info(ctx, "ok")
+		}
+
+		// XXX do we need vvv if we log it anyway ^^^ ?
 		// NOTE not *ctxp here - as context pointed by ctxp could be
 		// changed when this deferred function is run
 		task.ErrContext(errp, ctx)
-
-		// XXX also log task stop here?
 	}
 }

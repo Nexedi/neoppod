@@ -146,13 +146,15 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 
 
 // Run starts master node and runs it until ctx is cancelled or fatal error
-func (m *Master) Run(ctx context.Context) error {
+func (m *Master) Run(ctx context.Context) (err error) {
 	// start listening
 	l, err := m.node.Listen()
 	if err != nil {
 		return err	// XXX err ctx
 	}
-	log.Infof(ctx, "serving on %s ...", l.Addr())
+
+	defer running(&ctx, "master(%v)", l.Addr())(&err)
+	log.Info(ctx, "serving ...")
 
 	m.node.MasterAddr = l.Addr().String()
 
@@ -190,13 +192,13 @@ func (m *Master) Run(ctx context.Context) error {
 	l.Close()	// XXX log err ?
 	wg.Wait()
 
-	return err	// XXX errctx
+	return err
 }
 
 // runMain is the process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) runMain(ctx context.Context) (err error) {
-	defer running(&ctx, "run")(&err)	// XXX needed?
+	defer running(&ctx, "main")(&err)
 
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
 
@@ -209,7 +211,7 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 		// a command came to us to start the cluster.
 		err := m.recovery(ctx)
 		if err != nil {
-			log.Error(ctx, err)
+			//log.Error(ctx, err)
 			return err // recovery cancelled
 		}
 
@@ -217,20 +219,18 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 		// case previously it was unclean shutdown.
 		err = m.verify(ctx)
 		if err != nil {
-			log.Error(ctx, err)
+			//log.Error(ctx, err)
 			continue // -> recovery
 		}
 
 		// provide service as long as partition table stays operational
 		err = m.service(ctx)
 		if err != nil {
-			log.Error(ctx, err)
+			//log.Error(ctx, err)
 			continue // -> recovery
 		}
 
-		// XXX could err be == nil here - after service finishes ?
-
-		// XXX shutdown ?
+		// XXX shutdown request ?
 	}
 
 	return ctx.Err()
@@ -242,16 +242,17 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 //
 // - starts from potentially no storage nodes known
 // - accept connections from storage nodes
-// - retrieve and recovery latest previously saved partition table from storages
+// - retrieve and recover latest previously saved partition table from storages
 // - monitor whether partition table becomes operational wrt currently up nodeset
 // - if yes - finish recovering upon receiving "start" command		XXX or autostart
 
 // storRecovery is result of 1 storage node passing recovery phase
 type storRecovery struct {
-	node    *neo.Node
+	stor    *neo.Node
 	partTab neo.PartitionTable
-	// XXX + backup_tid, truncate_tid ?
 	err     error
+
+	// XXX + backup_tid, truncate_tid ?
 }
 
 // recovery drives cluster during recovery phase

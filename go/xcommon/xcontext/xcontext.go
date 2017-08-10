@@ -35,6 +35,9 @@ import (
 //
 // Canceling this context releases resources associated with it, so code should
 // call cancel as soon as the operations running in this Context complete.
+//
+// XXX let Merge do only merge, not create another cancel; optimize it for
+//     cases when a source context is not cancellable
 func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 	mc := &mergeCtx{
 		ctx1:     ctx1,
