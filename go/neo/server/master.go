@@ -267,6 +267,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 	ctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
 
+	readyToStart := false
 	recovery := make(chan storRecovery)
 	wg := sync.WaitGroup{}
 
@@ -310,16 +311,6 @@ loop:
 				storCtlRecovery(ctx, node, recovery)
 			}()
 
-/*
-		// XXX calrify who sends here
-		case n := <-m.nodeLeave:
-			// TODO close n.node.Link
-			// 
-			// XXX dup wrt recovery err != nil -> func
-			m.nodeTab.SetNodeState(n.node, DOWN)
-			// XXX update something indicating cluster currently can be operational or not ?
-*/
-
 		// a storage node came through recovery - let's see whether
 		// ptid ↑ and if so we should take partition table from there
 		case r := <-recovery:
@@ -331,7 +322,6 @@ loop:
 
 					// close stor link / update .nodeTab
 					lclose(ctx, r.stor.Link)
-
 					m.nodeTab.SetNodeState(r.stor, neo.DOWN)
 				}
 
@@ -344,17 +334,17 @@ loop:
 				}
 			}
 
-			// XXX update something indicating cluster currently can be operational or not
+			// update indicator whether cluster currently can be operational or not
+			readyToStart = m.partTab.OperationalWith(&m.nodeTab)	// XXX + node state
 
 			// XXX handle case of new cluster - when no storage reports valid parttab
 			// XXX -> create new parttab
 
 
-
 		// request to start the cluster - if ok we exit replying ok
 		// if not ok - we just reply not ok
 		case ech := <-m.ctlStart:
-			if m.partTab.OperationalWith(&m.nodeTab) {
+			if readyToStart {
 				// reply "ok to start" after whole recovery finishes
 
 				// XXX ok? we want to retrieve all recovery information first?
@@ -363,6 +353,9 @@ loop:
 
 				rcancel()
 				defer func() {
+					// XXX can situation change while we are shutting down?
+					// XXX -> recheck logic with checking PT operational ^^^
+					// XXX    (depending on storages state)
 					ech <- nil
 				}()
 				break loop
@@ -388,13 +381,14 @@ loop:
 
 	for {
 		select {
-		// XXX <-m.nodeLeave ?
 		case r := <-recovery:
-			// we do not care errors here - they are either cancelled or IO errors
-			// we just log them and return - in case it is IO error
-			// on link it will be caught on next send/recv	XXX
+			// XXX dup wrt <-recovery handler above
+			log.Error(ctx, r.err)
+
 			if !xcontext.Canceled(errors.Cause(r.err)) {
 				// XXX not so ok
+
+				// log / close node link; update NT
 			}
 
 		case <-done:
