@@ -258,15 +258,9 @@ type storRecovery struct {
 // - nil:  recovery was ok and a command came for cluster to start
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
-	m.log("recovery")
-	//defer xerr.Context(&err, "master: recovery")
-	defer m.errctx(&err, "recovery")
-
-	my.Context(&ctx, "recovery")
-	defer xerr.Context(&err, ctx)
-
-	xcontext.Running(&ctx, "recovery")
-	defer xerr.Context(&err, ctx)
+	ctx = task.Running(ctx, "recovery")
+	defer task.ErrContext(&err, ctx)
+	log.Infof(ctx, "")			// XXX automatically log in task.Running?
 
 	m.setClusterState(neo.ClusterRecovering)
 	rctx, rcancel := context.WithCancel(ctx)
