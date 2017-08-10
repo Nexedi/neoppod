@@ -40,7 +40,7 @@ func Running(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, taskKey{}, &Task{Parent: Current(ctx), Name: name})
 }
 
-// Runningf is Running cousing with formatting support
+// Runningf is Running cousin with formatting support
 func Runningf(ctx context.Context, format string, argv ...interface{}) context.Context {
 	return Running(ctx, fmt.Sprintf(format, argv...))
 }
@@ -53,14 +53,14 @@ func Current(ctx context.Context) *Task {
 }
 
 // ErrContext adds current task name to error on error return.
-// to work as intended it should be called under defer like this:
+// To work as intended it should be called under defer like this:
 //
 //      func myfunc(ctx, ...) (..., err error) {
 //		ctx = task.Running("doing something")
 //		defer task.ErrContext(&err, ctx)
 //		...
 //
-// Please see lab.nexedi.com/kirr/go123/xerr.Context for semantic details
+// Please see lab.nexedi.com/kirr/go123/xerr.Context for semantic details.
 func ErrContext(errp *error, ctx context.Context) {
 	task := Current(ctx)
 	if task == nil {
@@ -72,9 +72,9 @@ func ErrContext(errp *error, ctx context.Context) {
 // String returns string representing whole operational stack.
 //
 // For example if task "c" is running under task "b" which in turn is running
-// under task "a" - the operational stack will be "a: b: c"
+// under task "a" - the operational stack will be "a: b: c".
 //
-// nil Task is represented as ""
+// nil Task is represented as "".
 func (t *Task) String() string {
 	if t == nil {
 		return ""

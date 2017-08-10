@@ -28,7 +28,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 )
 
-// running is syntatic sugar to push new task to operational stack, log it and
+// running is syntactic sugar to push new task to operational stack, log it and
 // adjust error return with task prefix.
 //
 // use like this:
@@ -38,7 +38,7 @@ func running(ctxp *context.Context, name string) func(*error) {
 	return _running(ctxp, name)
 }
 
-// runningf is running cousing with formatting support
+// runningf is running cousin with formatting support
 func runningf(ctxp *context.Context, format string, argv ...interface{}) func(*error) {
 	return _running(ctxp, fmt.Sprintf(format, argv...))
 }
