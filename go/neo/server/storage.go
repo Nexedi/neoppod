@@ -118,7 +118,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 
 			case <-serveCtx.Done():
 				// shutdown
-				conn.Link().Close()	// XXX log err ?
+				lclose(serveCtx, conn.Link())
 				return
 			}
 		}

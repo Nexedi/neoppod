@@ -23,6 +23,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -65,5 +66,15 @@ func _running(ctxp *context.Context, name string) func(*error) {
 		// NOTE not *ctxp here - as context pointed by ctxp could be
 		// changed when this deferred function is run
 		task.ErrContext(errp, ctx)
+	}
+}
+
+
+// lclose closes c and logs closing error if there was any.
+// the error is otherwise ignored
+func lclose(ctx context.Context, c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		log.Error(ctx, err)
 	}
 }
