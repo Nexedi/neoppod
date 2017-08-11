@@ -120,43 +120,56 @@ type LinkRole int
 const (
 	LinkServer LinkRole = iota // link created as server
 	LinkClient                 // link created as client
+)
+
+// LinkFlags allow to customize NodeLink behaviour
+type LinkFlags int
+const (
+	// LinkListen tells link to accept incoming connections.
+	//
+	// NOTE it is valid use-case even for link originating through DialLink
+	// to accept incoming connections over established channel.
+	//
+	// NOTE listen put to flags - not e.g. link.Listen() call - because
+	// otherwise e.g. for client originated links if after DialLink client
+	// calls link.Listen() there is a race window: before Listen is called
+	// in which peer could start connecting to our side.
+	LinkListen LinkFlags = 1 << iota
 
 	// for testing:
 	linkNoRecvSend LinkRole = 1 << 16 // do not spawn serveRecv & serveSend
-	linkFlagsMask  LinkRole = (1<<32 - 1) << 16
 )
 
 // newNodeLink makes a new NodeLink from already established net.Conn
 //
 // Role specifies how to treat our role on the link - either as client or
-// server. The difference in between client and server roles are in:
+// server. The difference in between client and server roles is in:
 //
-// 1. how connection ids are allocated for connections initiated at our side:
+//    how connection ids are allocated for connections initiated at our side:
 //    there is no conflict in identifiers if one side always allocates them as
 //    even (server) and its peer as odd (client).
 //
-// 2. NodeLink.Accept() works only on server side.
-//    XXX vs client processing e.g. invalidation notifications from master ?
-//    XXX -> we could require that such listen for notification Conn is that
-//	     one left after RequestIdentification/AcceptIdentification.
+// Flags allows to customize link behaviour.
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
 //
 // Though it is possible to wrap just-established raw connection into NodeLink,
 // users should always use Handshake which performs protocol handshaking first.
-func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
+func newNodeLink(conn net.Conn, role LinkRole, flags LinkFlags) *NodeLink {
 	var nextConnId uint32
-	var acceptq chan *Conn
-	switch role &^ linkFlagsMask {
+	var acceptq chan *Conn // not accepting incoming connections by default
+	switch role {
 	case LinkServer:
 		nextConnId = 0             // all initiated by us connId will be even
-		acceptq = make(chan *Conn) // accept queue; TODO use backlog
 	case LinkClient:
 		nextConnId = 1 // ----//---- odd
-		acceptq = nil  // not accepting incoming connections
 	default:
 		panic("invalid conn role")
+	}
+
+	if flags & LinkListen {
+		acceptq = make(chan *Conn) // accept queue; TODO use backlog
 	}
 
 	nl := &NodeLink{
@@ -167,7 +180,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		txq:        make(chan txReq),
 		down:       make(chan struct{}),
 	}
-	if role&linkNoRecvSend == 0 {
+	if flags&linkNoRecvSend == 0 {
 		nl.serveWg.Add(2)
 		go nl.serveRecv()
 		go nl.serveSend()
@@ -370,6 +383,8 @@ func (nl *NodeLink) serveRecv() {
 		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
 		if conn == nil {
+			// XXX check connId is proper for peer originated streams
+
 			if nl.acceptq != nil {
 				// we are accepting new incoming connection
 				conn = nl.newConn(connId)
@@ -588,9 +603,9 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 // ---- Handshake ----
 
-// Handshake performs NEO protocol handshake just after raw connection between 2 nodes was established
-// On success raw connection is returned wrapped into NodeLink
-// On error raw connection is closed
+// Handshake performs NEO protocol handshake just after raw connection between 2 nodes was established.
+// On success raw connection is returned wrapped into NodeLink.
+// On error raw connection is closed.
 func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink, err error) {
 	err = handshake(ctx, conn, PROTOCOL_VERSION)
 	if err != nil {
