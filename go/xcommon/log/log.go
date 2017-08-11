@@ -64,7 +64,7 @@ func (d Depth) Info(ctx context.Context, argv ...interface{}) {
 
 func (d Depth) Infof(ctx context.Context, format string, argv ...interface{}) {
 	// XXX avoid formatting if logging severity disabled
-	glog.InfoDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv))...)
+	glog.InfoDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv...))...)
 }
 
 func (d Depth) Error(ctx context.Context, argv ...interface{}) {
@@ -72,7 +72,7 @@ func (d Depth) Error(ctx context.Context, argv ...interface{}) {
 }
 
 func (d Depth) Errorf(ctx context.Context, format string, argv ...interface{}) {
-	glog.ErrorDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv))...)
+	glog.ErrorDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv...))...)
 }
 
 

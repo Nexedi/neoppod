@@ -95,7 +95,6 @@ func (stor *Storage) Run(ctx context.Context) error {
 	}
 
 	defer runningf(&ctx, "storage(%v)", l.Addr())(&err)
-	log.Infof(ctx, "serving on %s ...", l.Addr())
 
 	// start serving incoming connections
 	wg := sync.WaitGroup{}

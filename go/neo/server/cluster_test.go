@@ -296,7 +296,7 @@ func TestMasterStorage(t *testing.T) {
 }
 
 // basic interaction between Client -- Storage
-func TestClientStorage(t *testing.T) {
+func _TestClientStorage(t *testing.T) {
 	// XXX temp disabled
 	return
 
