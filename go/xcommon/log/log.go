@@ -20,6 +20,7 @@
 // Package log provides logging with severity levels and tasks integration
 //
 // XXX inspired by cockrach
+// XXX just use cockroach/util/log directly?
 package log
 
 import (
@@ -30,17 +31,6 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 )
-
-/*
-// taskPrefix returns prefix associated to current operational task stack to put to logs
-func taskPrefix(ctx context.Context) string {
-	s := task.Current(ctx).String()
-	if s != "" {
-		s += ": "
-	}
-	return s
-}
-*/
 
 // withTask prepends string describing current operational task stack to argv and returns it
 // handy to use this way:
@@ -57,7 +47,7 @@ func withTask(ctx context.Context, argv ...interface{}) []interface{} {
 	}
 
 	if len(argv) != 0 {
-		task += ":"
+		task += ": "
 	}
 
 	return append([]interface{}{task}, argv...)
@@ -99,4 +89,4 @@ func Errorf(ctx context.Context, format string, argv ...interface{}) {
 }
 
 
-// TODO Warningf, Errorf, ...
+// TODO Warningf, ...

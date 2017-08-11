@@ -22,8 +22,9 @@ func (e *Error) Error() string {
 
 const nodeTypeChar = "MSCA4567"	// keep in sync with NodeType constants
 
+// String returns string representation of a node uuid.
+// It returns ex 'S1', 'M2', ...
 func (nodeUUID NodeUUID) String() string {
-	// return ex 'S1', 'M2', ...
 	if nodeUUID == 0 {
 		return "?0"
 	}
@@ -43,6 +44,23 @@ func (nodeUUID NodeUUID) String() string {
 	}
 
 	return s
+}
+
+// XXX place ok?
+// XXX test
+func UUID(typ NodeType, num int32) NodeUUID {
+	temp := uint32(0)
+	if num < 0 {
+		temp = 1
+		num = -num
+	}
+
+	if num >> 24 != 0 {
+		panic("node number out of range")
+	}
+
+	uuid := temp << (7 + 3*8) | uint32(typ) << (4 + 3*8) | uint32(num)
+	return NodeUUID(uuid)
 }
 
 // ----------------------------------------

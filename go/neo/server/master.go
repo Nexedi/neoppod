@@ -166,7 +166,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 		defer wg.Done()
 
 		// XXX dup in storage
-		for serveCtx.Err() != nil {
+		for serveCtx.Err() == nil {
 			conn, idReq, err := l.Accept()
 			if err != nil {
 				// TODO log / throttle
@@ -925,12 +925,8 @@ func (m *Master) accept(ctx context.Context, conn *neo.Conn, resp neo.Msg) error
 // XXX it is bad idea for master to assign uuid to coming node
 // -> better nodes generate really unique UUID themselves and always show with them
 func (m *Master) allocUUID(nodeType neo.NodeType) neo.NodeUUID {
-	// see NodeUUID & NodeUUID.String for details
-	// XXX better to keep this code near to ^^^ (e.g. attached to NodeType)
-	// XXX but since whole uuid assign idea is not good - let's keep it dirty here
-	typ := int(nodeType & 7) << (24 + 4) // note temp=0
-	for num := 1; num < 1<<24; num++ {
-		uuid := neo.NodeUUID(typ | num)
+	for num := int32(1); num < 1<<24; num++ {
+		uuid := neo.UUID(nodeType, num)
 		if m.nodeTab.Get(uuid) == nil {
 			return uuid
 		}

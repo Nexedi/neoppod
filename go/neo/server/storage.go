@@ -93,6 +93,8 @@ func (stor *Storage) Run(ctx context.Context) error {
 	if err != nil {
 		return err // XXX err ctx
 	}
+
+	defer runningf(&ctx, "storage(%v)", l.Addr())(&err)
 	log.Infof(ctx, "serving on %s ...", l.Addr())
 
 	// start serving incoming connections
@@ -103,7 +105,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 		defer wg.Done()
 
 		// XXX dup from master
-		for serveCtx.Err() != nil {
+		for serveCtx.Err() == nil {
 			conn, idReq, err := l.Accept()
 			if err != nil {
 				// TODO log / throttle

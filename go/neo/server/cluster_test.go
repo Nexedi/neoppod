@@ -225,7 +225,13 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 	// XXX ... M adjust nodetab...
-	tc.Expect(conntx("m:1", "s:1", 1, &neo.AcceptIdentification{}))		// XXX
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
+		NodeType:	neo.MASTER,
+		MyNodeUUID:	neo.UUID(neo.MASTER, 1),
+		NumPartitions:	1,
+		NumReplicas:	1,
+		YourNodeUUID:	neo.UUID(neo.STORAGE, 1),
+	}))
 
 
 

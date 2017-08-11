@@ -80,7 +80,7 @@ func (pkt *PktBuf) String() string {
 		s += fmt.Sprintf(" (%s) %v; #%d [%d]: % x", msgType, err, msgLen, len(data), data)
 	}
 
-	s += fmt.Sprintf(" %s %+v", msgType.Name(), msg)
+	s += fmt.Sprintf(" %s %v", msgType.Name(), msg)	// XXX or %+v better?
 
 	if n < len(data) {
 		tail := data[n:]
