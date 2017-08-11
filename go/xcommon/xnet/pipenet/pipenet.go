@@ -83,7 +83,7 @@ type Host struct {
 	name    string
 
 	// NOTE protected by Network.mu
-	socketv []*socket // port -> listener | conn
+	socketv []*socket // port -> listener | conn  ; [0] is always nil
 }
 
 var _ xnet.Networker = (*Host)(nil)
@@ -176,14 +176,14 @@ func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 		return nil, 0, &net.AddrError{Err: "no such host", Addr: addr}
 	}
 
-	return host, port, nil
+	return host, a.Port, nil
 }
 
 // XXX temp
 //trace:event traceListen(laddr string)
 
 // Listen starts new listener
-// It either allocates free port if laddr is "", or binds to laddr.
+// It either allocates free port if laddr is "" or with 0 port, or binds to laddr.
 // Once listener is started, Dials could connect to listening address.
 // Connection requests created by Dials could be accepted via Accept.
 func (h *Host) Listen(laddr string) (net.Listener, error) {
@@ -193,28 +193,32 @@ func (h *Host) Listen(laddr string) (net.Listener, error) {
 
 	var sk *socket
 
-	// find first free port if autobind requested
 	if laddr == "" {
+		laddr = ":0"
+	}
+
+	var netladdr net.Addr
+	lerr := func(err error) error {
+		return &net.OpError{Op: "listen", Net: h.Network(), Addr: netladdr, Err: err}
+	}
+
+	host, port, err := h.resolveAddr(laddr)
+	if err != nil {
+		return nil, lerr(err)
+	}
+
+	netladdr = &Addr{Net: h.Network(), Host: host.name, Port: port}
+
+	if host != h {
+		return nil, lerr(errAddrNoListen)
+	}
+
+	// find first free port if autobind requested
+	if port == 0 {
 		sk = h.allocFreeSocket()
 
-	// else we resolve/verify address, check whether it is already used, and if not allocate socket in-place
+	// else allocate socket in-place
 	} else {
-		var netladdr net.Addr
-		lerr := func(err error) error {
-			return &net.OpError{Op: "listen", Net: h.Network(), Addr: netladdr, Err: err}
-		}
-
-		host, port, err := h.resolveAddr(laddr)
-		if err != nil {
-			return nil, lerr(err)
-		}
-
-		netladdr = &Addr{Net: h.Network(), Host: host.name, Port: port}
-
-		if host != h {
-			return nil, lerr(errAddrNoListen)
-		}
-
 		// grow if needed
 		for port >= len(h.socketv) {
 			h.socketv = append(h.socketv, nil)
@@ -378,17 +382,17 @@ func (c *conn) RemoteAddr() net.Addr {
 
 // ----------------------------------------
 
-// allocFreeSocket finds first free port and allocates socket entry for it
+// allocFreeSocket finds first free port and allocates socket entry for it.
 // must be called with Network.mu held
 func (h *Host) allocFreeSocket() *socket {
 	// find first free port
-	port := 0
+	port := 1 // never allocate port 0 - it is used for autobind on listen only
 	for ; port < len(h.socketv); port++ {
 		if h.socketv[port] == nil {
 			break
 		}
 	}
-	// if all busy it exits with port == len(h.socketv)
+	// if all busy it exits with port >= len(h.socketv)
 
 	// grow if needed
 	for port >= len(h.socketv) {

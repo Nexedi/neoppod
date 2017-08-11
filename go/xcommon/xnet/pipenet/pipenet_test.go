@@ -103,41 +103,45 @@ func TestPipeNet(t *testing.T) {
 	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipet", Addr: xaddr("α:0"), Err: errConnRefused})
 
 	l1 := xlisten(hα, "")
-	assertEq(t, l1.Addr(), xaddr("α:0"))
+	assertEq(t, l1.Addr(), xaddr("α:1"))
+
+	// zero port always stays unused even after autobind
+	_, err = hα.Dial(context.Background(), ":0")
+	assertEq(t, err, &net.OpError{Op: "dial", Net: "pipet", Addr: xaddr("α:0"), Err: errConnRefused})
 
 	wg := &xsync.WorkGroup{}
 	wg.Gox(func() {
 		c1s := xaccept(l1)
-		assertEq(t, c1s.LocalAddr(), xaddr("α:1"))
-		assertEq(t, c1s.RemoteAddr(), xaddr("β:0"))
+		assertEq(t, c1s.LocalAddr(), xaddr("α:2"))
+		assertEq(t, c1s.RemoteAddr(), xaddr("β:1"))
 
 		assertEq(t, xread(c1s), "ping")
 		xwrite(c1s, "pong")
 
 		c2s := xaccept(l1)
-		assertEq(t, c2s.LocalAddr(), xaddr("α:2"))
-		assertEq(t, c2s.RemoteAddr(), xaddr("β:1"))
+		assertEq(t, c2s.LocalAddr(), xaddr("α:3"))
+		assertEq(t, c2s.RemoteAddr(), xaddr("β:2"))
 
 		assertEq(t, xread(c2s), "hello")
 		xwrite(c2s, "world")
 	})
 
-	c1c := xdial(hβ, "α:0")
-	assertEq(t, c1c.LocalAddr(), xaddr("β:0"))
-	assertEq(t, c1c.RemoteAddr(), xaddr("α:1"))
+	c1c := xdial(hβ, "α:1")
+	assertEq(t, c1c.LocalAddr(), xaddr("β:1"))
+	assertEq(t, c1c.RemoteAddr(), xaddr("α:2"))
 
 	xwrite(c1c, "ping")
 	assertEq(t, xread(c1c), "pong")
 
-	c2c := xdial(hβ, "α:0")
-	assertEq(t, c2c.LocalAddr(), xaddr("β:1"))
-	assertEq(t, c2c.RemoteAddr(), xaddr("α:2"))
+	c2c := xdial(hβ, "α:1")
+	assertEq(t, c2c.LocalAddr(), xaddr("β:2"))
+	assertEq(t, c2c.RemoteAddr(), xaddr("α:3"))
 
 	xwrite(c2c, "hello")
 	assertEq(t, xread(c2c), "world")
 
 	xwait(wg)
 
-	l2 := xlisten(hα, "")
-	assertEq(t, l2.Addr(), xaddr("α:3"))
+	l2 := xlisten(hα, ":0") // autobind again
+	assertEq(t, l2.Addr(), xaddr("α:4"))
 }
