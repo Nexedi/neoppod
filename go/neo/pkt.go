@@ -22,6 +22,7 @@ package neo
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 )
 
@@ -54,8 +55,7 @@ func (pkt *PktBuf) Payload() []byte {
 }
 
 
-// Strings dumps a packet
-// XXX -> use .Dump() for full dump?
+// Strings dumps a packet in human-readable form
 func (pkt *PktBuf) String() string {
 	if len(pkt.Data) < PktHeadLen {
 		return fmt.Sprintf("(! < PktHeadLen) % x", pkt.Data)
@@ -65,15 +65,39 @@ func (pkt *PktBuf) String() string {
 	s := fmt.Sprintf(".%d", ntoh32(h.ConnId))
 
 	msgCode := ntoh16(h.MsgCode)
+	msgLen  := ntoh32(h.MsgLen)
+	data    := pkt.Payload()
 	msgType := msgTypeRegistry[msgCode]
 	if msgType == nil {
-		s += fmt.Sprintf(" ? (%d)", msgCode)
-	} else {
-		s += fmt.Sprintf(" %s", msgType)
+		s += fmt.Sprintf(" ? (%d) #%d [%d]: % x", msgCode, msgLen, len(data), data)
+		return s
 	}
 
-	s += fmt.Sprintf(" #%d | ", ntoh32(h.MsgLen))
+	// XXX dup wrt Conn.Recv
+	msg := reflect.New(msgType).Interface().(Msg)
+	n, err := msg.neoMsgDecode(data)
+	if err != nil {
+		s += fmt.Sprintf(" (%s) %v; #%d [%d]: % x", msgType, err, msgLen, len(data), data)
+	}
 
-	s += fmt.Sprintf("% x", pkt.Payload())	// XXX better decode
+	s += fmt.Sprintf(" %s %+v", msgType.Name(), msg)
+
+	if n < len(data) {
+		tail := data[n:]
+		s += fmt.Sprintf(" ;  [%d]tail: % x", len(tail), tail)
+	}
+
 	return s
+}
+
+// Dump dumps a packet in raw form
+func (pkt *PktBuf) Dump() string {
+	if len(pkt.Data) < PktHeadLen {
+		return fmt.Sprintf("(! < PktHeadLen) % x", pkt.Data)
+	}
+
+	h := pkt.Header()
+	data := pkt.Payload()
+	return fmt.Sprintf(".%d (%d) #%d [%d]: % x",
+		ntoh32(h.ConnId), ntoh16(h.MsgCode), ntoh32(h.MsgLen), len(data), data)
 }
