@@ -183,7 +183,7 @@ func TestMasterStorage(t *testing.T) {
 	wg := &xsync.WorkGroup{}
 
 	// start master
-	M := NewMaster("abc1", ":0", Mhost)
+	M := NewMaster("abc1", ":1", Mhost)
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := M.Run(Mctx)
@@ -192,14 +192,14 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	tc.Expect(netlisten("m:0"))
+	tc.Expect(netlisten("m:1"))
 
 	// M.clusterState	<- RECOVERY
 	// M.nodeTab		<- Node(M)
 
 	// start storage
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
-	S := NewStorage("abc1", "m:0", ":0", Shost, zstor)
+	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
 	Sctx, Scancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := S.Run(Sctx)
@@ -208,8 +208,8 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// expect:
-	tc.Expect(netlisten("s:0"))
-	tc.Expect(netconnect("s:1", "m:1",  "m:0"))
+	tc.Expect(netlisten("s:1"))
+	tc.Expect(netconnect("s:2", "m:2",  "m:1"))
 
 	//tc.ExpectPar(
 	//	nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
@@ -217,10 +217,10 @@ func TestMasterStorage(t *testing.T) {
 	//)
 	_ = nettx
 
-	tc.Expect(conntx("s:1", "m:1", 1, &neo.RequestIdentification{
+	tc.Expect(conntx("s:2", "m:2", 1, &neo.RequestIdentification{
 		NodeType:	neo.STORAGE,
 		NodeUUID:	0,
-		Address:	neo.Address{"s", 0},	//XXX "s:0",
+		Address:	neo.Address{"s", 1},	//XXX "s:1",
 		ClusterName:	"abc1",
 		IdTimestamp:	0,
 	}))
