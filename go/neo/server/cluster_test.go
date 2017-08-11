@@ -224,7 +224,7 @@ func TestMasterStorage(t *testing.T) {
 		ClusterName:	"abc1",
 		IdTimestamp:	0,
 	}))
-	// XXX ... M adjust nodetab...
+	// TODO check M adjust nodetab...
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
 		MyNodeUUID:	neo.UUID(neo.MASTER, 1),
@@ -233,12 +233,22 @@ func TestMasterStorage(t *testing.T) {
 		YourNodeUUID:	neo.UUID(neo.STORAGE, 1),
 	}))
 
+	// TODO test ID rejects
 
+	// M starts recovery on S
+	tc.Expect(conntx("m:2", "s:2", 0, &neo.Recovery{}))
+	tc.Expect(conntx("s:2", "m:2", 0, &neo.AnswerRecovery{
+		// empty new node
+		PTid:		0,
+		BackupTid:	0,
+		TruncateTid:	0,
+	}))
 
-
-	// M <- S	.? RequestIdentification{...}		+ TODO test ID rejects
-
-
+	tc.Expect(conntx("m:2", "s:2", 0, &neo.AskPartitionTable{}))
+	tc.Expect(conntx("s:2", "m:2", 0, &neo.AnswerPartitionTable{
+		PTid:		0,
+		RowList:	nil,	// XXX -> []
+	}))
 
 	// XXX temp
 	return
