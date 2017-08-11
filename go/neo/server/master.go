@@ -410,7 +410,7 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 		// on error provide feedback to storRecovery chan
 		res <- storRecovery{stor: stor, err: err}
 	}()
-	defer runningf(&ctx, "%s: stor recovery", stor.Link)(&err)
+	defer runningf(&ctx, "%s: stor recovery", stor.Link.RemoteAddr())(&err)
 
 	conn, err := stor.Link.NewConn()
 	if err != nil {

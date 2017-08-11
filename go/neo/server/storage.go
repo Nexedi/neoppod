@@ -146,7 +146,6 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 	defer runningf(&ctx, "talk master(%v)", stor.node.MasterAddr)(&err)
 
 	for {
-		log.Info(ctx, "connecting ...")
 		err := stor.talkMaster1(ctx)
 		log.Error(ctx, err)
 
@@ -168,11 +167,15 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
+	// XXX put logging into Dial?
+	log.Info(ctx, "connecting ...")
 	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
 	if err != nil {
+		log.Info(ctx, "rejected")	// XXX ok here? (err is logged above)
 		return err
 	}
 
+	log.Info(ctx, "accepted")
 	Mlink := Mconn.Link()
 
 	// close Mlink on return / cancel
@@ -189,7 +192,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 	// XXX -> node.Dial ?
 	if accept.YourNodeUUID != stor.node.MyInfo.NodeUUID {
-		log.Infof(ctx, "%v: master told us to have UUID=%v", Mlink, accept.YourNodeUUID)
+		log.Infof(ctx, "master told us to have UUID=%v", accept.YourNodeUUID)
 		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID
 	}
 
