@@ -114,7 +114,7 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 // Listen starts listening at node's listening address.
 // If the address is empty one new free is automatically selected.
 // The node information about where it listens at is appropriately updated.
-func (n *NodeCommon) Listen() (*Listener, error) {
+func (n *NodeCommon) Listen() (Listener, error) {
 	// start listening
 	ll, err := ListenLink(n.Net, n.MyInfo.Address.String())
 	if err != nil {
@@ -134,7 +134,7 @@ func (n *NodeCommon) Listen() (*Listener, error) {
 
 	n.MyInfo.Address = addr
 
-	l := &Listener{
+	l := &listener{
 		l:	 ll,
 		acceptq: make(chan accepted),
 		closed:  make(chan struct{}),
@@ -144,9 +144,22 @@ func (n *NodeCommon) Listen() (*Listener, error) {
 	return l, nil
 }
 
-// Listener wraps LinkListener to return link on which identification was correctly requested XXX
-// Create via Listen. XXX
-type Listener struct {
+// Listener is LinkListener adapted to return NodeLink with requested identification on Accept.
+type Listener interface {
+	LinkListener
+
+	// Accept accepts incoming client connection.
+	//
+	// On success the link was handshaked and peer sent us RequestIdentification
+	// packet which we did not yet answer.
+	//
+	// On success returned are:
+	// - primary link connection which carried identification
+	// - requested identification packet
+	Accept() (*Conn, *RequestIdentification, error)
+}
+
+type listener struct {
 	l       *LinkListener
 	acceptq chan accepted
 	closed  chan struct {}
@@ -158,13 +171,13 @@ type accepted struct {
 	err   error
 }
 
-func (l *Listener) Close() error {
+func (l *listener) Close() error {
 	err := l.l.Close()
 	close(l.closed)
 	return err
 }
 
-func (l *Listener) run() {
+func (l *listener) run() {
 	for {
 		// stop on close
 		select {
@@ -179,7 +192,7 @@ func (l *Listener) run() {
 	}
 }
 
-func (l *Listener) accept(link *NodeLink, err error) {
+func (l *listener) accept(link *NodeLink, err error) {
 	res := make(chan accepted, 1)
 	go func() {
 		conn, idReq, err := l.accept1(link, err)
@@ -209,7 +222,7 @@ func (l *Listener) accept(link *NodeLink, err error) {
 	}
 }
 
-func (l *Listener) accept1(link *NodeLink, err0 error) (_ *Conn, _ *RequestIdentification, err error) {
+func (l *listener) accept1(link *NodeLink, err0 error) (_ *Conn, _ *RequestIdentification, err error) {
 	if err0 != nil {
 		return nil, nil, err0
 	}
@@ -223,6 +236,10 @@ func (l *Listener) accept1(link *NodeLink, err0 error) (_ *Conn, _ *RequestIdent
 		return nil, nil, err
 	}
 
+	// NOTE NodeLink currently guarantees that after link.Accept() there is
+	// at least 1 packet in accepted conn. This way the following won't
+	// block/deadlock if packets with other ConnID comes.
+	// Still it is a bit fragile.
 	idReq := &RequestIdentification{}
 	_, err = conn.Expect(idReq)
 	if err != nil {
@@ -235,15 +252,7 @@ func (l *Listener) accept1(link *NodeLink, err0 error) (_ *Conn, _ *RequestIdent
 	return conn, idReq, nil
 }
 
-// Accept accepts incoming client connection.
-//
-// On success the link was handshaked and peer sent us RequestIdentification
-// packet which we did not yet answer.
-//
-// On success returned are:
-// - primary link connection which carried identification
-// - requested identification packet
-func (l *Listener) Accept() (*Conn, *RequestIdentification, error) {
+func (l *listener) Accept() (*Conn, *RequestIdentification, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
@@ -255,7 +264,7 @@ func (l *Listener) Accept() (*Conn, *RequestIdentification, error) {
 	}
 }
 
-func (l *Listener) Addr() net.Addr {
+func (l *listener) Addr() net.Addr {
 	return l.l.Addr()
 }
 

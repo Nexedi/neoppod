@@ -220,6 +220,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 			Mconn = nil
 //		}
 
+		// XXX must be in background - accept -> close prevConn
 		Mconn, err = Mlink.Accept()
 		if err != nil {
 			return err // XXX ?

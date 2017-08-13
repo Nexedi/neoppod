@@ -288,6 +288,7 @@ loop:
 		// new connection comes in
 		case n := <-m.nodeCome:
 			node, resp := m.identify(ctx, n, /* XXX only accept storages -> PENDING */)
+			// XXX set node.State = PENDING
 
 			// if new storage arrived - start recovery on it too
 			wg.Add(1)

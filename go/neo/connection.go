@@ -137,7 +137,7 @@ const (
 	LinkListen LinkFlags = 1 << iota
 
 	// for testing:
-	linkNoRecvSend LinkRole = 1 << 16 // do not spawn serveRecv & serveSend
+	linkNoRecvSend LinkFlags = 1 << 16 // do not spawn serveRecv & serveSend
 )
 
 // newNodeLink makes a new NodeLink from already established net.Conn
@@ -168,7 +168,7 @@ func newNodeLink(conn net.Conn, role LinkRole, flags LinkFlags) *NodeLink {
 		panic("invalid conn role")
 	}
 
-	if flags & LinkListen {
+	if flags&LinkListen != 0 {
 		acceptq = make(chan *Conn) // accept queue; TODO use backlog
 	}
 
@@ -606,14 +606,14 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 // Handshake performs NEO protocol handshake just after raw connection between 2 nodes was established.
 // On success raw connection is returned wrapped into NodeLink.
 // On error raw connection is closed.
-func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink, err error) {
+func Handshake(ctx context.Context, conn net.Conn, role LinkRole, flags LinkFlags) (nl *NodeLink, err error) {
 	err = handshake(ctx, conn, PROTOCOL_VERSION)
 	if err != nil {
 		return nil, err
 	}
 
 	// handshake ok -> NodeLink
-	return newNodeLink(conn, role), nil
+	return newNodeLink(conn, role, flags), nil
 }
 
 // HandshakeError is returned when there is an error while performing handshake
@@ -711,13 +711,13 @@ func DialLink(ctx context.Context, net xnet.Networker, addr string) (nl *NodeLin
 
 // ListenLink starts listening on laddr for incoming connections and wraps them as NodeLink.
 // The listener accepts only those connections that pass handshake.
-func ListenLink(net xnet.Networker, laddr string) (*LinkListener, error) {
+func ListenLink(net xnet.Networker, laddr string) (LinkListener, error) {
 	rawl, err := net.Listen(laddr)
 	if err != nil {
 		return nil, err
 	}
 
-	l := &LinkListener{
+	l := &linkListener{
 		l:        rawl,
 		acceptq:  make(chan linkAccepted),
 		closed:   make(chan struct{}),
@@ -727,9 +727,16 @@ func ListenLink(net xnet.Networker, laddr string) (*LinkListener, error) {
 	return l, nil
 }
 
-// LinkListener wraps net.Listener to return handshaked NodeLink on Accept.
-// Create only via Listen.
-type LinkListener struct {
+// LinkListener is net.Listener adapted to return handshaked NodeLink on Accept.
+type LinkListener interface {
+	net.Listener
+
+	// Accept returns new incoming connection wrapped into NodeLink.
+	// It accepts only those connections which pass handshake.
+	Accept() (*NodeLink, error)
+}
+
+type linkListener struct {
 	l       net.Listener
 	acceptq chan linkAccepted
 	closed  chan struct {}
@@ -740,13 +747,13 @@ type linkAccepted struct {
 	err   error
 }
 
-func (l *LinkListener) Close() error {
+func (l *linkListener) Close() error {
 	err := l.l.Close()
 	close(l.closed)
 	return err
 }
 
-func (l *LinkListener) run() {
+func (l *linkListener) run() {
 	// context that cancels when listener stops
 	runCtx, runCancel := context.WithCancel(context.Background())
 	defer runCancel()
@@ -765,7 +772,7 @@ func (l *LinkListener) run() {
 	}
 }
 
-func (l *LinkListener) accept(ctx context.Context, conn net.Conn, err error) {
+func (l *linkListener) accept(ctx context.Context, conn net.Conn, err error) {
 	link, err := l.accept1(ctx, conn, err)
 
 	select {
@@ -780,7 +787,7 @@ func (l *LinkListener) accept(ctx context.Context, conn net.Conn, err error) {
 	}
 }
 
-func (l *LinkListener) accept1(ctx context.Context, conn net.Conn, err error) (*NodeLink, error) {
+func (l *linkListener) accept1(ctx context.Context, conn net.Conn, err error) (*NodeLink, error) {
 	// XXX err ctx?
 
 	if err != nil {
@@ -796,7 +803,7 @@ func (l *LinkListener) accept1(ctx context.Context, conn net.Conn, err error) (*
 	return link, nil
 }
 
-func (l *LinkListener) Accept() (*NodeLink, error) {
+func (l *linkListener) Accept() (*NodeLink, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
@@ -808,7 +815,7 @@ func (l *LinkListener) Accept() (*NodeLink, error) {
 	}
 }
 
-func (l *LinkListener) Addr() net.Addr {
+func (l *linkListener) Addr() net.Addr {
 	return l.l.Addr()
 }
 
