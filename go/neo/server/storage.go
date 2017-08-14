@@ -163,7 +163,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 	}
 }
 
-// talkMaster1 does 1 cycle of connect/talk/disconnect to master
+// talkMaster1 does 1 cycle of connect/talk/disconnect to master.
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
@@ -196,49 +196,65 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID
 	}
 
+
+	// accept next connection from master. only 1 connection is served at any given time.
+	// every new connection from master means talk over previous connection is done/cancelled.
+	// XXX check compatibility with py
+	type accepted struct {
+		conn *Conn
+		err  error
+	}
+	acceptq := make(chan accepted, 1)
+	go func () {
+		for {
+			conn, err := Mlink.Accept()
+			acceptq <- accepted{conn, err}
+			if err != nil {
+				break
+			}
+		}
+	}()
+
 	// now handle notifications and commands from master
+	talkq := make(chan error, 1)
+loop:
 	for {
-		// check if it was context cancel or command from master to shutdown
+		// main worker which talks with master over Mconn
+		// puts error after talk finishes -> talkq
+		go func() {
+			err := func() error {
+				// let master initialize us. If successful this ends with StartOperation command.
+				err := stor.m1initialize(ctx, Mconn)
+				if err != nil {
+					log.Error(ctx, err)
+					return err
+				}
+
+				// we got StartOperation command. Let master drive us during servicing phase.
+				err = stor.m1serve(ctx, Mconn)
+				log.Error(ctx, err)
+				return err
+			}()
+			talkq <- err
+		}()
+
+		// talk finished / next connection / cancel
 		select {
+		case err = <-talkq:
+			// XXX check for shutdown command
+			continue loop // retry from initializing
+
+		case MnextConn, err := <-acceptq:
+			lclose(ctx, Mconn) // wakeup/cancel current talk
+			if err != nil {
+				return err
+			}
+			<-talkq
+			Mconn = MnextConn
+
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
 		}
-
-		if err != nil /* TODO .IsShutdown(...) */ {	// TODO
-			return err
-		}
-
-		// accept next connection from master. only 1 connection is served at any given time
-		// XXX every new connection from master means previous connection was closed
-		// XXX how to do so and stay compatible to py?
-		//
-		// XXX or simply use only the first connection and if M decides
-		// to cancel - close whole nodelink and S reconnects?
-//		if Mconn != nil {
-			Mconn.Close()	// XXX err
-			Mconn = nil
-//		}
-
-		// XXX must be in background - accept -> close prevConn
-		Mconn, err = Mlink.Accept()
-		if err != nil {
-			return err // XXX ?
-		}
-
-		// XXX close Mconn on ctx cancel so m1initialize or m1serve wake up
-
-		// let master initialize us. If successful this ends with StartOperation command.
-		err = stor.m1initialize(ctx, Mconn)
-		if err != nil {
-			log.Error(ctx, err)
-			continue // retry initializing
-		}
-
-		// we got StartOperation command. Let master drive us during servicing phase.
-		err = stor.m1serve(ctx, Mconn)
-		log.Error(ctx, err)
-		continue // retry from initializing
 	}
 
 	return nil	// XXX err

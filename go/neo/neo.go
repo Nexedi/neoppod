@@ -146,7 +146,9 @@ func (n *NodeCommon) Listen() (Listener, error) {
 
 // Listener is LinkListener adapted to return NodeLink with requested identification on Accept.
 type Listener interface {
-	LinkListener
+	// from LinkListener:
+	Close() error
+	Addr() net.Addr
 
 	// Accept accepts incoming client connection.
 	//
@@ -160,7 +162,7 @@ type Listener interface {
 }
 
 type listener struct {
-	l       *LinkListener
+	l       LinkListener
 	acceptq chan accepted
 	closed  chan struct {}
 }

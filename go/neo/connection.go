@@ -120,8 +120,13 @@ type LinkRole int
 const (
 	LinkServer LinkRole = iota // link created as server
 	LinkClient                 // link created as client
+
+	// for testing:
+	linkNoRecvSend LinkRole = 1 << 16 // do not spawn serveRecv & serveSend
+	linkFlagsMask  LinkRole = (1<<32 - 1) << 16
 )
 
+/*
 // LinkFlags allow to customize NodeLink behaviour
 type LinkFlags int
 const (
@@ -139,6 +144,7 @@ const (
 	// for testing:
 	linkNoRecvSend LinkFlags = 1 << 16 // do not spawn serveRecv & serveSend
 )
+*/
 
 // newNodeLink makes a new NodeLink from already established net.Conn
 //
@@ -149,38 +155,34 @@ const (
 //    there is no conflict in identifiers if one side always allocates them as
 //    even (server) and its peer as odd (client).
 //
-// Flags allows to customize link behaviour.
-//
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
 //
 // Though it is possible to wrap just-established raw connection into NodeLink,
 // users should always use Handshake which performs protocol handshaking first.
-func newNodeLink(conn net.Conn, role LinkRole, flags LinkFlags) *NodeLink {
+func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	var nextConnId uint32
-	var acceptq chan *Conn // not accepting incoming connections by default
-	switch role {
+	var acceptq chan *Conn
+	switch role &^ linkFlagsMask {
 	case LinkServer:
 		nextConnId = 0             // all initiated by us connId will be even
+		acceptq = make(chan *Conn) // accept queue; TODO use backlog?
 	case LinkClient:
 		nextConnId = 1 // ----//---- odd
+		acceptq = nil  // not accepting incoming connections
 	default:
 		panic("invalid conn role")
-	}
-
-	if flags&LinkListen != 0 {
-		acceptq = make(chan *Conn) // accept queue; TODO use backlog
 	}
 
 	nl := &NodeLink{
 		peerLink:   conn,
 		connTab:    map[uint32]*Conn{},
 		nextConnId: nextConnId,
-		acceptq:    acceptq,
+		acceptq:    acceptq,	// XXX reenable make(chan *Conn), // accepting initially
 		txq:        make(chan txReq),
 		down:       make(chan struct{}),
 	}
-	if flags&linkNoRecvSend == 0 {
+	if role&linkNoRecvSend == 0 {
 		nl.serveWg.Add(2)
 		go nl.serveRecv()
 		go nl.serveSend()
@@ -606,14 +608,14 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 // Handshake performs NEO protocol handshake just after raw connection between 2 nodes was established.
 // On success raw connection is returned wrapped into NodeLink.
 // On error raw connection is closed.
-func Handshake(ctx context.Context, conn net.Conn, role LinkRole, flags LinkFlags) (nl *NodeLink, err error) {
+func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink, err error) {
 	err = handshake(ctx, conn, PROTOCOL_VERSION)
 	if err != nil {
 		return nil, err
 	}
 
 	// handshake ok -> NodeLink
-	return newNodeLink(conn, role, flags), nil
+	return newNodeLink(conn, role), nil
 }
 
 // HandshakeError is returned when there is an error while performing handshake
@@ -729,7 +731,9 @@ func ListenLink(net xnet.Networker, laddr string) (LinkListener, error) {
 
 // LinkListener is net.Listener adapted to return handshaked NodeLink on Accept.
 type LinkListener interface {
-	net.Listener
+	// from net.Listener:
+	Close() error
+	Addr() net.Addr
 
 	// Accept returns new incoming connection wrapped into NodeLink.
 	// It accepts only those connections which pass handshake.
