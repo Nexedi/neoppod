@@ -179,9 +179,11 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	Mlink := Mconn.Link()
 
 	// close Mlink on return / cancel
+	retch := make(chan struct{})
 	defer func() {
 		err2 := Mlink.Close()
 		err = xerr.First(err, err2)
+		close(retch)
 	}()
 
 	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?
@@ -200,7 +202,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// accept next connection from master. only 1 connection is served at any given time.
 	// every new connection from master means talk over previous connection is cancelled.
 	// XXX recheck compatibility with py
-	acceptq := make(chan *neo.Conn, 1)
+	acceptq := make(chan *neo.Conn)
 	go func () {
 		for {
 			conn, err := Mlink.Accept()
@@ -208,7 +210,11 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 				log.Error(ctx, err)
 				return
 			}
-			acceptq <- conn
+
+			select {
+			case acceptq <- conn:
+			case <-retch:
+			}
 		}
 	}()
 
@@ -243,17 +249,17 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 			talkq <- talk()
 		}()
 
-		// talk finished / next connection / cancel
+		// next connection / talk finished / cancel
 		select {
+		case conn := <-acceptq:
+			lclose(ctx, Mconn) // wakeup/cancel current talk
+			<-talkq            // wait till it finish
+			Mconn = conn       // proceed next cycle on accepted conn
+
 		case err = <-talkq:
 			// XXX check for shutdown command
 			lclose(ctx, Mconn)
 			Mconn = nil // now wait for accept to get next Mconn
-
-		case conn := <-acceptq:
-			lclose(ctx, Mconn) // wakeup/cancel current talk
-			<-talkq
-			Mconn = conn
 
 		case <-ctx.Done():
 			return ctx.Err()
