@@ -199,7 +199,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 	// accept next connection from master. only 1 connection is served at any given time.
 	// every new connection from master means talk over previous connection is cancelled.
-	// XXX check compatibility with py
+	// XXX recheck compatibility with py
 	acceptq := make(chan *neo.Conn, 1)
 	go func () {
 		for {
@@ -212,11 +212,19 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		}
 	}()
 
-	// now handle notifications and commands from master
+	// handle notifications and commands from master
 	talkq := make(chan error, 1)
-loop:
 	for {
-		// one talk cycle for master to drive us over Mconn
+		// wait for next connection from master if talk over previous one finished.
+		if Mconn == nil {
+			select {
+			case Mconn = <-acceptq:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+
+		// one talk cycle for master to drive us
 		// puts error after talk finishes -> talkq
 		talk := func() error {
 			// let master initialize us. If successful this ends with StartOperation command.
@@ -239,7 +247,8 @@ loop:
 		select {
 		case err = <-talkq:
 			// XXX check for shutdown command
-			continue loop // retry from initializing
+			lclose(ctx, Mconn)
+			Mconn = nil // now wait for accept to get next Mconn
 
 		case conn := <-acceptq:
 			lclose(ctx, Mconn) // wakeup/cancel current talk
@@ -250,8 +259,6 @@ loop:
 			return ctx.Err()
 		}
 	}
-
-	return nil	// XXX err
 }
 
 // m1initialize drives storage by master messages during initialization phase
