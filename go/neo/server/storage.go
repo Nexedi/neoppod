@@ -201,7 +201,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// every new connection from master means talk over previous connection is done/cancelled.
 	// XXX check compatibility with py
 	type accepted struct {
-		conn *Conn
+		conn *neo.Conn
 		err  error
 	}
 	acceptq := make(chan accepted, 1)
@@ -244,13 +244,13 @@ loop:
 			// XXX check for shutdown command
 			continue loop // retry from initializing
 
-		case MnextConn, err := <-acceptq:
+		case a := <-acceptq:
 			lclose(ctx, Mconn) // wakeup/cancel current talk
-			if err != nil {
-				return err
+			if a.err != nil {
+				return a.err
 			}
 			<-talkq
-			Mconn = MnextConn
+			Mconn = a.conn
 
 		case <-ctx.Done():
 			return ctx.Err()
