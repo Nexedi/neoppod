@@ -823,6 +823,33 @@ func (l *linkListener) Addr() net.Addr {
 	return l.l.Addr()
 }
 
+/*
+XXX do if this is needed in a second place besides talkMaster1
+// ---- Listen for single Conn over NodeLink use-cases ----
+
+// XXX
+func ListenSingleConn(link *NodeLink) ConnListener {
+	l := &listen1conn{link}
+	// XXX go ...
+	return l
+}
+
+// ConnListener XXX ...
+type ConnListener interface {
+	// XXX +Close, Addr ?
+
+	// Accept returns new connection multiplexed over NodeLink
+	Accept() (*Conn, error)
+}
+
+type listen1conn struct {
+	link *NodeLink
+}
+
+func ...
+*/
+
+
 // ---- for convenience: Conn -> NodeLink & local/remote link addresses  ----
 
 // LocalAddr returns local address of the underlying link to peer.

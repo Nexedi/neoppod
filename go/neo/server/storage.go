@@ -202,18 +202,21 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// accept next connection from master. only 1 connection is served at any given time.
 	// every new connection from master means talk over previous connection is cancelled.
 	// XXX recheck compatibility with py
-	acceptq := make(chan *neo.Conn)
+	type accepted struct {conn *neo.Conn; err error}
+	acceptq := make(chan accepted)
 	go func () {
 		for {
 			conn, err := Mlink.Accept()
-			if err != nil {
-				log.Error(ctx, err)
+
+			select {
+			case acceptq <- accepted{conn, err}:
+			case <-retch:
 				return
 			}
 
-			select {
-			case acceptq <- conn:
-			case <-retch:
+			if err != nil {
+				log.Error(ctx, err)
+				return
 			}
 		}
 	}()
@@ -222,9 +225,15 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	talkq := make(chan error, 1)
 	for {
 		// wait for next connection from master if talk over previous one finished.
+		// XXX rafactor all this into SingleTalker ? (XXX ServeSingle ?)
 		if Mconn == nil {
 			select {
-			case Mconn = <-acceptq:
+			case a := <-acceptq:
+				if a.err != nil {
+					return a.err
+				}
+				Mconn = a.conn
+
 			case <-ctx.Done():
 				return ctx.Err()
 			}
@@ -251,10 +260,13 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 		// next connection / talk finished / cancel
 		select {
-		case conn := <-acceptq:
+		case a := <-acceptq:
 			lclose(ctx, Mconn) // wakeup/cancel current talk
 			<-talkq            // wait till it finish
-			Mconn = conn       // proceed next cycle on accepted conn
+			if a.err != nil {
+				return a.err
+			}
+			Mconn = a.conn     // proceed next cycle on accepted conn
 
 		case err = <-talkq:
 			// XXX check for shutdown command
