@@ -141,8 +141,10 @@ type NodeUUID int32
 // ErrDecodeOverflow is the error returned by neoMsgDecode when decoding hit buffer overflow
 var ErrDecodeOverflow = errors.New("decode: bufer overflow")
 
-// Msg is the interface implemented by NEO messages to marshal/unmarshal them into/from wire format
+// Msg is the interface implemented by all NEO messages.
 type Msg interface {
+	// marshal/unmarshal into/from wire format:
+
 	// neoMsgCode returns message code needed to be used for particular message type
 	// on the wire
 	neoMsgCode() uint16

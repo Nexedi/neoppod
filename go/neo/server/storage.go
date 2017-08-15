@@ -205,6 +205,9 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	type accepted struct {conn *neo.Conn; err error}
 	acceptq := make(chan accepted)
 	go func () {
+		// XXX (temp ?) disabled not to let S accept new connections
+		return
+
 		for {
 			conn, err := Mlink.Accept()
 
