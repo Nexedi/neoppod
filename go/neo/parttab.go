@@ -175,3 +175,42 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 
 	return true
 }
+
+
+// ---- encode / decode PT to / from messages
+// XXX naming
+
+func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struct ?
+	rowv := make([]RowInfo, len(pt.PtTab))
+	for i, row := range pt.PtTab {
+		cellv := make([]CellInfo, len(row))
+		for j, cell := range cellv {
+			cellv[j] = CellInfo{NodeUUID: cell.NodeUUID, CellState: cell.CellState}
+		}
+
+		rowv[i] = RowInfo{Offset: uint32(i), CellList: cellv}	// XXX cast?
+	}
+	return rowv
+}
+
+func PartTabFromDump(ptid PTid, rowv []RowInfo) *PartitionTable {
+	// reconstruct partition table from response
+	pt := &PartitionTable{}
+
+	for _, row := range rowv {
+		i := row.Offset
+		for i >= uint32(len(pt.PtTab)) {
+			pt.PtTab = append(pt.PtTab, []PartitionCell{})
+		}
+
+		//pt.PtTab[i] = append(pt.PtTab[i], row.CellList...)
+		for _, cell := range row.CellList {
+			pt.PtTab[i] = append(pt.PtTab[i], PartitionCell{
+					NodeUUID:  cell.NodeUUID,
+					CellState: cell.CellState,
+				})
+		}
+	}
+
+	return pt
+}

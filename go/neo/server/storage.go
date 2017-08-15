@@ -315,12 +315,15 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 
 		case *neo.Recovery:
 			err = Mconn.Send(&neo.AnswerRecovery{
-				PTid:		0, // XXX stub
+				PTid:		stor.node.PartTab.PTid,
 				BackupTid:	neo.INVALID_TID,
 				TruncateTid:	neo.INVALID_TID})
 
 		case *neo.AskPartitionTable:
-			// TODO read and send M locally-saved PT (ptid, []PtRow)
+			// TODO initially read PT from disk
+			err = Mconn.Send(&neo.AnswerPartitionTable{
+				PTid:	 stor.node.PartTab.PTid,
+				RowList: stor.node.PartTab.Dump()})
 
 		case *neo.LockedTransactions:
 			// XXX r/o stub
