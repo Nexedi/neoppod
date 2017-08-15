@@ -32,6 +32,8 @@ import (
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
+
+        "github.com/kylelemons/godebug/pretty"
 )
 
 func xclose(c io.Closer) {
@@ -121,10 +123,18 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 		errv.Appendf("header: unexpected msglen %v  (want %v)", ntoh32(h.MsgLen), len(payload))
 	}
 	if !bytes.Equal(pkt.Payload(), payload) {
-		errv.Appendf("payload differ")
+		errv.Appendf("payload differ:\n%s",
+			pretty.Compare(string(payload), string(pkt.Payload())))
 	}
 
 	exc.Raiseif( errv.Err() )
+}
+
+// Verify PktBuf to match expected message
+func xverifyMsg(pkt *PktBuf, connid uint32, msg Msg) {
+	data := make([]byte, msg.neoMsgEncodedLen())
+	msg.neoMsgEncode(data)
+	xverifyPkt(pkt, connid, msg.neoMsgCode(), data)
 }
 
 // delay a bit
@@ -266,7 +276,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wgclose)
 
 
-	// Test connections on top of nodelink
+	// ---- connections on top of nodelink ----
 
 	// Close vs recvPkt
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
@@ -439,6 +449,8 @@ func TestNodeLink(t *testing.T) {
 	}
 
 
+	println("\n---------------------\n")
+
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
 	wg = &xsync.WorkGroup{}
@@ -457,7 +469,24 @@ func TestNodeLink(t *testing.T) {
 		xsendPkt(c, mkpkt(36, []byte("pong2")))
 
 		xclose(c)
+
+		println("B.111")
+
+		// "connection refused" when trying to connect to not-listening peer
+		c = xnewconn(nl2) // XXX should get error here?
+		xsendPkt(c, mkpkt(38, []byte("pong3")))
+		pkt = xrecvPkt(c)
+		xverifyMsg(pkt, c.connId, errConnRefused)
+		println("B.222")
+		xsendPkt(c, mkpkt(40, []byte("pong4"))) // once again
+		pkt = xrecvPkt(c)
+		xverifyMsg(pkt, c.connId, errConnRefused)
+		println("B.333")
+
+		xclose(c)
+
 	})
+	println("A.111")
 	c = xnewconn(nl1)
 	xsendPkt(c, mkpkt(33, []byte("ping")))
 	pkt = xrecvPkt(c)
@@ -466,6 +495,22 @@ func TestNodeLink(t *testing.T) {
 	pkt = xrecvPkt(c)
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
 	xwait(wg)
+
+	println()
+	println()
+	println("A.222")
+	// "connection closed" after peer closed its end
+	xsendPkt(c, mkpkt(37, []byte("ping3")))
+	println("A.qqq")
+	pkt = xrecvPkt(c)
+	xverifyMsg(pkt, c.connId, errConnClosed)
+	println("A.zzz")
+	xsendPkt(c, mkpkt(39, []byte("ping4"))) // once again
+	pkt = xrecvPkt(c)
+	xverifyMsg(pkt, c.connId, errConnClosed)
+	// XXX also should get EOF on recv
+
+	println("A.333")
 
 	xclose(c)
 	xclose(nl1)

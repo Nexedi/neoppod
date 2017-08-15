@@ -26,10 +26,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"reflect"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
@@ -92,14 +94,17 @@ type Conn struct {
 	downOnce  sync.Once	// shutdown may be called by both Close and nodelink.shutdown
 
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
-	closed    uint32        // 1 if Close was called
-				// 2 if this is temp. Conn created to reply "connection refused"
+	closed    int32         // 1 if Close was called or "connection closed" entry
+				// incremented during every replyNoConn() in progress
+
+	errMsg	  *Error	// error message for replyNoConn
 }
 
 
 var ErrLinkClosed   = errors.New("node link is closed")	// operations on closed NodeLink
 var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
 var ErrLinkNoListen = errors.New("node link is not listening for incoming connections")
+var ErrLinkManyConn = errors.New("too many opened connections")
 var ErrClosedConn   = errors.New("connection is closed")
 
 // XXX unify LinkError & ConnError -> NetError?
@@ -218,8 +223,24 @@ func (nl *NodeLink) NewConn() (*Conn, error) {
 		}
 		return nil, nl.err("newconn", ErrLinkDown)
 	}
+
+	// nextConnId could wrap around uint32 limits - find first free slot to
+	// not blindly replace existing connection
+	for i := uint32(0) ;; i++ {
+		_, exists := nl.connTab[nl.nextConnId]
+		if !exists {
+			break
+		}
+		nl.nextConnId += 2
+
+		if i > math.MaxUint32 / 2 {
+			return nil, nl.err("newconn", ErrLinkManyConn)
+		}
+	}
+
 	c := nl.newConn(nl.nextConnId)
 	nl.nextConnId += 2
+
 	return c, nil
 }
 
@@ -274,6 +295,9 @@ func (c *Conn) shutdown() {
 	})
 }
 
+
+var connKeepClosed = 1*time.Minute
+
 // Close closes connection.
 // Any blocked Send*() or Recv*() will be unblocked and return error
 //
@@ -282,18 +306,37 @@ func (c *Conn) shutdown() {
 //
 // It is safe to call Close several times.
 func (c *Conn) Close() error {
-	// adjust nodeLink.connTab to have special entry noting this connection is closed.
-	// this way serveRecv knows to reply errConnClosed over network if peer
-	// sends us something over this conn.
-	c.nodeLink.connMu.Lock()
-	if c.nodeLink.connTab != nil {
-		cc := c.nodeLink.newConn(c.connId)
-		atomic.StoreUint32(&cc.closed, 1)
-		// note cc.down stays not closed so that send can work
-	}
-	c.nodeLink.connMu.Unlock()
+	nl := c.nodeLink
 
-	atomic.StoreUint32(&c.closed, 1)
+	// adjust nodeLink.connTab
+	nl.connMu.Lock()
+	if nl.connTab != nil {
+		// connection was initiated by us - simply delete - we always
+		// know if a packet comes to such connection it is closed.
+		if c.connId == nl.nextConnId % 2 {
+			delete(nl.connTab, c.connId)
+
+		// connection was initiated by peer which we accepted - put special
+		// "closed" connection into connTab entry for some time to reply
+		// "connection closed" if another packet comes to it.
+		} else {
+			cc := nl.newConn(c.connId)
+			// 1 so that cc is not freed by replyNoConn
+			atomic.StoreInt32(&cc.closed, 1)
+			// NOTE cc.down stays not closed so Send could work
+			time.AfterFunc(connKeepClosed, func() {
+				nl.connMu.Lock()
+				delete(nl.connTab, cc.connId)
+				nl.connMu.Unlock()
+
+				cc.shutdown()
+			})
+		}
+
+	}
+	nl.connMu.Unlock()
+
+	atomic.StoreInt32(&c.closed, 1)
 	c.shutdown()
 	return nil
 }
@@ -328,7 +371,7 @@ func (nl *NodeLink) Accept() (c *Conn, err error) {
 // errRecvShutdown returns appropriate error when c.down is found ready in recvPkt
 func (c *Conn) errRecvShutdown() error {
 	switch {
-	case atomic.LoadUint32(&c.closed) != 0:
+	case atomic.LoadInt32(&c.closed) != 0:
 		return ErrClosedConn
 
 	case atomic.LoadUint32(&c.nodeLink.closed) != 0:
@@ -393,36 +436,39 @@ func (nl *NodeLink) serveRecv() {
 		// connTab is never nil here - because shutdown before
 		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
-		if conn == nil {
-			// XXX check connId is proper for peer originated streams
 
-			if nl.acceptq != nil {
-				// we are accepting new incoming connection
-				conn = nl.newConn(connId)
-				accept = true
+		fmt.Printf("RX .%d -> %v\n", connId, conn)
+		if conn == nil {
+			// "new" connection will be needed in all cases - e.g.
+			// temporarily to reply "connection refused"
+			conn = nl.newConn(connId)
+
+			fmt.Printf("connId: %d (%d)\n", connId, connId % 2)
+			fmt.Printf("nextConnId: %d (%d)\n", nl.nextConnId, nl.nextConnId % 2)
+
+			// message with connid that should be initiated by us
+			if connId % 2 == nl.nextConnId % 2 {
+				conn.errMsg = errConnClosed
+
+			// message with connid for a stream initiated by peer
+			} else {
+				if nl.acceptq == nil {
+					conn.errMsg = errConnRefused
+				} else {
+					// we are accepting new incoming connection
+					accept = true
+				}
+
+				fmt.Println("ZZZ", conn.errMsg, accept)
 			}
 		}
 
-		// connection not accepted - reply "connection refused"
-		if conn == nil {
-			conn = nl.newConn(connId)
-			atomic.StoreUint32(&conn.closed, 2)
-			// NOTE conn.down stays not closed so that Send can work
+		// we are not accepting packet in any way
+		if conn.errMsg != nil {
+			fmt.Printf(".%d EMSG: %v\n", connId, conn.errMsg)
+			atomic.AddInt32(&conn.closed, 1)
 			nl.connMu.Unlock()
-			go conn.replyNoConn(errConnRefused)
-			continue
-		}
-
-		switch atomic.LoadUint32(&conn.closed) {
-		case 1:
-			// connection closed - reply "connection closed"
-			nl.connMu.Unlock()
-			go conn.replyNoConn(errConnClosed)
-			continue
-
-		case 2:
-			// "connection refused" reply is already in progress
-			nl.connMu.Unlock()
+			go conn.replyNoConn()
 			continue
 		}
 
@@ -468,15 +514,18 @@ var errConnClosed  = &Error{PROTOCOL_ERROR, "connection closed"}
 var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
-func (c *Conn) replyNoConn(e Msg) {
-	c.Send(e) // ignore errors
+// and removes connection from nodeLink connTab if ekeep==false.
+//func (c *Conn) replyNoConn(e Msg, ekeep bool) {
+func (c *Conn) replyNoConn() {
+	c.Send(c.errMsg) // ignore errors
 
-	// remove connTab entry if it was temporary conn created only to send errConnRefused
-	if e == errConnRefused {
-		c.nodeLink.connMu.Lock()
+	// remove connTab entry - if all users of this temporary conn created
+	// only to send the error are now gone.
+	c.nodeLink.connMu.Lock()
+	if atomic.AddInt32(&c.closed, -1) == 0 {
 		delete(c.nodeLink.connTab, c.connId)
-		c.nodeLink.connMu.Unlock()
 	}
+	c.nodeLink.connMu.Unlock()
 }
 
 // ---- transmit ----
@@ -490,7 +539,7 @@ type txReq struct {
 // errSendShutdown returns appropriate error when c.down is found ready in Send
 func (c *Conn) errSendShutdown() error {
 	switch {
-	case atomic.LoadUint32(&c.closed) != 0:
+	case atomic.LoadInt32(&c.closed) != 0:
 		return ErrClosedConn
 
 	// the only other error possible besides Conn being .Close()'ed is that
@@ -586,7 +635,7 @@ const dumpio = true
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	if dumpio {
 		// XXX -> log
-		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
+		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt.Dump())
 		//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
 	}
 
@@ -639,7 +688,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 	if dumpio {
 		// XXX -> log
-		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
+		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt.Dump())
 	}
 
 	return pkt, nil
