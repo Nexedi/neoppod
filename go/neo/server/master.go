@@ -413,14 +413,15 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 	}()
 	defer runningf(&ctx, "%s: stor recovery", stor.Link.RemoteAddr())(&err)
 
-	conn, err := stor.Link.NewConn()
-	if err != nil {
-		return
-	}
-	defer func() {
-		err2 := conn.Close()
-		err = xerr.First(err, err2)
-	}()
+	conn := stor.Conn
+	// conn, err := stor.Link.NewConn()
+	// if err != nil {
+	// 	return
+	// }
+	// defer func() {
+	// 	err2 := conn.Close()
+	// 	err = xerr.First(err, err2)
+	// }()
 
 	// XXX cancel on ctx
 
@@ -905,7 +906,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		IdTimestamp:	monotime(),
 	}
 
-	node = m.nodeTab.Update(nodeInfo, n.conn.Link()) // NOTE this notifies all nodeTab subscribers
+	node = m.nodeTab.Update(nodeInfo, n.conn) // NOTE this notifies all nodeTab subscribers
 	return node, accept
 }
 
@@ -928,8 +929,9 @@ func (m *Master) reject(ctx context.Context, conn *neo.Conn, resp neo.Msg) {
 func (m *Master) accept(ctx context.Context, conn *neo.Conn, resp neo.Msg) error {
 	// XXX cancel on ctx
 	err1 := conn.Send(resp)
-	err2 := conn.Close()
-	return xerr.First(err1, err2)
+	return err1	// XXX while trying to work on single conn
+	//err2 := conn.Close()
+	//return xerr.First(err1, err2)
 }
 
 // allocUUID allocates new node uuid for a node of kind nodeType

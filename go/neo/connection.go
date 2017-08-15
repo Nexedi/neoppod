@@ -637,7 +637,7 @@ const dumpio = true
 func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
 	if dumpio {
 		// XXX -> log
-		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt.Dump())
+		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 		//defer fmt.Printf("\t-> sendPkt err: %v\n", err)
 	}
 
@@ -690,7 +690,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 	if dumpio {
 		// XXX -> log
-		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt.Dump())
+		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}
 
 	return pkt, nil

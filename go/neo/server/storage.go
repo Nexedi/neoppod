@@ -171,11 +171,11 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	log.Info(ctx, "connecting ...")
 	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
 	if err != nil {
-		log.Info(ctx, "rejected")	// XXX ok here? (err is logged above)
+		log.Info(ctx, "identification rejected")	// XXX ok here? (err is logged above)
 		return err
 	}
 
-	log.Info(ctx, "accepted")
+	log.Info(ctx, "identification accepted")
 	Mlink := Mconn.Link()
 
 	// close Mlink on return / cancel
@@ -194,7 +194,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 	// XXX -> node.Dial ?
 	if accept.YourNodeUUID != stor.node.MyInfo.NodeUUID {
-		log.Infof(ctx, "master told us to have UUID=%v", accept.YourNodeUUID)
+		log.Infof(ctx, "master told us to have uuid=%v", accept.YourNodeUUID)
 		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID
 	}
 
@@ -206,6 +206,9 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	acceptq := make(chan accepted)
 	go func () {
 		// XXX (temp ?) disabled not to let S accept new connections
+		// reason: not (yet ?) clear how to allow listen on dialed link without
+		// missing immediate sends or deadlocks if peer does not follow
+		// expected protocol exchange (2 receive paths: Recv & Accept)
 		return
 
 		for {

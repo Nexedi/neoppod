@@ -144,7 +144,7 @@ func TestMasterStorage(t *testing.T) {
 	defer pg.Done()
 
 	tracing.Lock()
-	neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
+	//neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
 	neo_traceConnSendPre_Attach(pg, tracer.traceNeoConnSendPre)
 	tracing.Unlock()
 
@@ -236,16 +236,16 @@ func TestMasterStorage(t *testing.T) {
 	// TODO test ID rejects
 
 	// M starts recovery on S
-	tc.Expect(conntx("m:2", "s:2", 0, &neo.Recovery{}))
-	tc.Expect(conntx("s:2", "m:2", 0, &neo.AnswerRecovery{
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.Recovery{}))
+	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerRecovery{
 		// empty new node
 		PTid:		0,
-		BackupTid:	0,
-		TruncateTid:	0,
+		BackupTid:	neo.INVALID_TID,
+		TruncateTid:	neo.INVALID_TID,
 	}))
 
-	tc.Expect(conntx("m:2", "s:2", 0, &neo.AskPartitionTable{}))
-	tc.Expect(conntx("s:2", "m:2", 0, &neo.AnswerPartitionTable{
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.AskPartitionTable{}))
+	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerPartitionTable{
 		PTid:		0,
 		RowList:	nil,	// XXX -> []
 	}))

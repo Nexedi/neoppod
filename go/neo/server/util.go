@@ -57,7 +57,7 @@ func _running(ctxp *context.Context, name string) func(*error) {
 			// XXX is it good idea to log to error here? (not in above layer)
 			// XXX what is error here could be not so error above
 			// XXX or we still want to log all errors - right?
-			log.Depth(1).Error(ctx, *errp)
+			log.Depth(1).Error(ctx, "## ", *errp)	// XXX "::" temp
 		} else {
 			log.Depth(1).Info(ctx, "ok")
 		}

@@ -88,7 +88,10 @@ type Node struct {
 	// link to this node; =nil if not connected
 	Link *NodeLink
 
-	// XXX something indicating in-flight connecti/identification
+	// XXX not yet sure it is good idea
+	Conn *Conn	// main connection
+
+	// XXX something indicating in-flight connecting/identification
 	// (wish Link != nil means connected and identified)
 }
 
@@ -108,7 +111,7 @@ func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 
 // Update updates information about a node
 // it returns corresponding node entry for convenience
-func (nt *NodeTable) Update(nodeInfo NodeInfo, link *NodeLink) *Node {
+func (nt *NodeTable) Update(nodeInfo NodeInfo, conn *Conn /*XXX better link *NodeLink*/) *Node {
 	node := nt.Get(nodeInfo.NodeUUID)
 	if node == nil {
 		node = &Node{}
@@ -116,7 +119,8 @@ func (nt *NodeTable) Update(nodeInfo NodeInfo, link *NodeLink) *Node {
 	}
 
 	node.NodeInfo = nodeInfo
-	node.Link = link
+	node.Conn = conn
+	node.Link = conn.Link()
 
 	nt.notify(node.NodeInfo)
 	return node
