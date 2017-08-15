@@ -449,7 +449,10 @@ func TestNodeLink(t *testing.T) {
 	}
 
 
-	println("\n---------------------\n")
+	//println("\n---------------------\n")
+
+	saveKeepClosed := connKeepClosed
+	connKeepClosed = 10*time.Millisecond
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
@@ -470,23 +473,23 @@ func TestNodeLink(t *testing.T) {
 
 		xclose(c)
 
-		println("B.111")
+		//println("B.111")
 
 		// "connection refused" when trying to connect to not-listening peer
 		c = xnewconn(nl2) // XXX should get error here?
 		xsendPkt(c, mkpkt(38, []byte("pong3")))
 		pkt = xrecvPkt(c)
 		xverifyMsg(pkt, c.connId, errConnRefused)
-		println("B.222")
+		//println("B.222")
 		xsendPkt(c, mkpkt(40, []byte("pong4"))) // once again
 		pkt = xrecvPkt(c)
 		xverifyMsg(pkt, c.connId, errConnRefused)
-		println("B.333")
+		//println("B.333")
 
 		xclose(c)
 
 	})
-	println("A.111")
+	//println("A.111")
 	c = xnewconn(nl1)
 	xsendPkt(c, mkpkt(33, []byte("ping")))
 	pkt = xrecvPkt(c)
@@ -496,25 +499,41 @@ func TestNodeLink(t *testing.T) {
 	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
 	xwait(wg)
 
-	println()
-	println()
-	println("A.222")
+	//println()
+	//println()
+	//println("A.222")
 	// "connection closed" after peer closed its end
 	xsendPkt(c, mkpkt(37, []byte("ping3")))
-	println("A.qqq")
+	//println("A.qqq")
 	pkt = xrecvPkt(c)
 	xverifyMsg(pkt, c.connId, errConnClosed)
-	println("A.zzz")
+	//println("A.zzz")
 	xsendPkt(c, mkpkt(39, []byte("ping4"))) // once again
 	pkt = xrecvPkt(c)
 	xverifyMsg(pkt, c.connId, errConnClosed)
 	// XXX also should get EOF on recv
 
-	println("A.333")
+	//println("A.333")
+
+	// make sure entry for closed nl2.1 stays in nl2.connTab
+	nl2.connMu.Lock()
+	if cnl2 := nl2.connTab[1]; cnl2 == nil {
+		t.Fatal("nl2.connTab[1] == nil  ; want \"closed\" entry")
+	}
+	nl2.connMu.Unlock()
+
+	// make sure "closed" entry goes away after its time
+	time.Sleep(3*connKeepClosed)
+	nl2.connMu.Lock()
+	if cnl2 := nl2.connTab[1]; cnl2 != nil {
+		t.Fatalf("nl2.connTab[1] == %v after close time window  ; want nil", cnl2)
+	}
+	nl2.connMu.Unlock()
 
 	xclose(c)
 	xclose(nl1)
 	xclose(nl2)
+	connKeepClosed = saveKeepClosed
 
 	// test 2 channels with replies coming in reversed time order
 	nl1, nl2 = nodeLinkPipe()

@@ -321,9 +321,10 @@ func (c *Conn) Close() error {
 		// "connection closed" if another packet comes to it.
 		} else {
 			cc := nl.newConn(c.connId)
-			// 1 so that cc is not freed by replyNoConn
-			atomic.StoreInt32(&cc.closed, 1)
+			// cc.closed=1 so that cc is not freed by replyNoConn
 			// NOTE cc.down stays not closed so Send could work
+			atomic.StoreInt32(&cc.closed, 1)
+			cc.errMsg = errConnClosed
 			time.AfterFunc(connKeepClosed, func() {
 				nl.connMu.Lock()
 				delete(nl.connTab, cc.connId)
@@ -437,14 +438,14 @@ func (nl *NodeLink) serveRecv() {
 		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
 
-		fmt.Printf("RX .%d -> %v\n", connId, conn)
+		//fmt.Printf("RX .%d -> %v\n", connId, conn)
 		if conn == nil {
 			// "new" connection will be needed in all cases - e.g.
 			// temporarily to reply "connection refused"
 			conn = nl.newConn(connId)
 
-			fmt.Printf("connId: %d (%d)\n", connId, connId % 2)
-			fmt.Printf("nextConnId: %d (%d)\n", nl.nextConnId, nl.nextConnId % 2)
+			//fmt.Printf("connId: %d (%d)\n", connId, connId % 2)
+			//fmt.Printf("nextConnId: %d (%d)\n", nl.nextConnId, nl.nextConnId % 2)
 
 			// message with connid that should be initiated by us
 			if connId % 2 == nl.nextConnId % 2 {
@@ -459,13 +460,13 @@ func (nl *NodeLink) serveRecv() {
 					accept = true
 				}
 
-				fmt.Println("ZZZ", conn.errMsg, accept)
+				//fmt.Println("ZZZ", conn.errMsg, accept)
 			}
 		}
 
 		// we are not accepting packet in any way
 		if conn.errMsg != nil {
-			fmt.Printf(".%d EMSG: %v\n", connId, conn.errMsg)
+			//fmt.Printf(".%d EMSG: %v\n", connId, conn.errMsg)
 			atomic.AddInt32(&conn.closed, 1)
 			nl.connMu.Unlock()
 			go conn.replyNoConn()
@@ -518,6 +519,7 @@ var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 //func (c *Conn) replyNoConn(e Msg, ekeep bool) {
 func (c *Conn) replyNoConn() {
 	c.Send(c.errMsg) // ignore errors
+	//fmt.Println("errsend:", err)
 
 	// remove connTab entry - if all users of this temporary conn created
 	// only to send the error are now gone.
