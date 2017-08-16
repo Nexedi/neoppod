@@ -65,6 +65,10 @@ type Master struct {
 	// channels from workers directly serving peers to main driver
 	nodeCome     chan nodeCome	// node connected	XXX -> acceptq?
 	nodeLeave    chan nodeLeave	// node disconnected	XXX -> don't need
+
+
+	// so tests could override
+	monotime func() float64
 }
 
 
@@ -105,6 +109,8 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 
 		nodeCome:	make(chan nodeCome),
 		nodeLeave:	make(chan nodeLeave),
+
+		monotime:	monotime,
 	}
 
 	m.clusterState = -1 // invalid
@@ -905,7 +911,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		Address:	n.idReq.Address,
 		NodeUUID:	uuid,
 		NodeState:	nodeState,
-		IdTimestamp:	monotime(),
+		IdTimestamp:	m.monotime(),
 	}
 
 	node = m.nodeTab.Update(nodeInfo, n.conn) // NOTE this notifies all nodeTab subscribers

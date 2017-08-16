@@ -27,6 +27,7 @@ import (
 	//"bytes"
 	"context"
 	//"io"
+	"math"
 	"net"
 	//"reflect"
 	"testing"
@@ -107,6 +108,25 @@ func (t *MyTracer) traceNode(nt *neo.NodeTable, n *neo.Node) {
 }
 
 
+// vclock is a virtual clock
+// XXX place -> util?
+type vclock struct {
+	t float64
+}
+
+func (c *vclock) monotime() float64 {
+	c.t += 1E-2
+	return c.t
+}
+
+func (c *vclock) tick() {	// XXX do we need tick?
+	t := math.Ceil(c.t)
+	if !(t > c.t) {
+		t += 1
+	}
+	c.t = t
+}
+
 //trace:import "lab.nexedi.com/kirr/neo/go/neo"
 
 // M drives cluster with 1 S through recovery -> verification -> service -> shutdown
@@ -181,7 +201,9 @@ func TestMasterStorage(t *testing.T) {
 	wg := &xsync.WorkGroup{}
 
 	// start master
+	Mclock := &vclock{}
 	M := NewMaster("abc1", ":1", Mhost)
+	M.monotime = Mclock.monotime
 	Mctx, Mcancel := context.WithCancel(context.Background())
 	wg.Gox(func() {
 		err := M.Run(Mctx)
@@ -224,7 +246,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 
-	tc.Expect(node(M.nodeTab, "s:1", neo.STORAGE, 1, neo.PENDING, 0.0)) // XXX t
+	tc.Expect(node(M.nodeTab, "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
