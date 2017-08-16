@@ -202,8 +202,8 @@ func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struc
 	rowv := make([]RowInfo, len(pt.tab))
 	for i, row := range pt.tab {
 		cellv := make([]CellInfo, len(row))
-		for j, cell := range cellv {
-			cellv[j] = CellInfo{NodeUUID: cell.NodeUUID, CellState: cell.CellState}
+		for j, cell := range row {
+			cellv[j] = cell.CellInfo
 		}
 
 		rowv[i] = RowInfo{Offset: uint32(i), CellList: cellv}	// XXX cast?
