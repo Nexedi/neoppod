@@ -147,9 +147,6 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 
 // Run starts master node and runs it until ctx is cancelled or fatal error
 func (m *Master) Run(ctx context.Context) (err error) {
-	m.node.MyInfo.NodeUUID = m.allocUUID(neo.MASTER)
-	// TODO update nodeTab with self
-
 	// start listening
 	l, err := m.node.Listen()
 	if err != nil {
@@ -159,6 +156,24 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	defer runningf(&ctx, "master(%v)", l.Addr())(&err)
 
 	m.node.MasterAddr = l.Addr().String()
+	naddr, err := neo.Addr(l.Addr())
+	if err != nil {
+		// must be ok since l.Addr() is valid since it is listening
+		// XXX panic -> errors.Wrap?
+		panic(err)
+	}
+
+	m.node.MyInfo = neo.NodeInfo{
+		NodeType:	neo.MASTER,
+		Address:	naddr,
+		NodeUUID:	m.allocUUID(neo.MASTER),
+		NodeState:	neo.RUNNING,
+		IdTimestamp:	0,	// XXX ok?
+	}
+
+	// update nodeTab with self
+	m.nodeTab.Update(m.node.MyInfo, nil /*XXX ok? we are not connecting to self*/)
+
 
 	// accept incoming connections and pass them to main driver
 	wg := sync.WaitGroup{}

@@ -30,6 +30,7 @@ import (
 	"net"
 	//"reflect"
 	"testing"
+	"unsafe"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	//"lab.nexedi.com/kirr/neo/go/neo/client"
@@ -74,6 +75,7 @@ func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{}	// { t.Trace1(ev) }
 //type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
 //func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoRecv{c, msg}) }
 
+// tx via neo.Conn
 type traceNeoSend struct {
 	Src, Dst net.Addr
 	ConnID   uint32
@@ -83,62 +85,27 @@ func (t *MyTracer) traceNeoConnSendPre(c *neo.Conn, msg neo.Msg) {
 	t.Trace1(&traceNeoSend{c.Link().LocalAddr(), c.Link().RemoteAddr(), c.ConnID(), msg})
 }
 
-type traceNeoClusterState struct {
+// cluster state changed
+type traceClusterState struct {
 	Ptr   *neo.ClusterState // pointer to variable which holds the state
 	State neo.ClusterState
 }
-func (t *MyTracer) traceNeoClusterState(cs *neo.ClusterState) {
-	t.Trace1(&traceNeoClusterState{cs, *cs})
+func (t *MyTracer) traceClusterState(cs *neo.ClusterState) {
+	t.Trace1(&traceClusterState{cs, *cs})
 }
-func clusterState(cs *neo.ClusterState, v neo.ClusterState) *traceNeoClusterState {
-	return &traceNeoClusterState{cs, v}
-}
-
-/*
-func (tc *TraceChecker) ExpectNetDial(dst string) {
-	tc.t.Helper()
-
-	var ev *xnet.TraceDial
-	msg := tc.xget1(&ev)
-
-	if ev.Dst != dst {
-		tc.t.Fatalf("net dial: have %v;  want: %v", ev.Dst, dst)
-	}
-
-	close(msg.ack)
+func clusterState(cs *neo.ClusterState, v neo.ClusterState) *traceClusterState {
+	return &traceClusterState{cs, v}
 }
 
-func (tc *TraceChecker) ExpectNetListen(laddr string) {
-	tc.t.Helper()
-
-	var ev *xnet.TraceListen
-	msg := tc.xget1(&ev)
-
-	if ev.Laddr != laddr {
-		tc.t.Fatalf("net listen: have %v;  want %v", ev.Laddr, laddr)
-	}
-
-	close(msg.ack)
+// nodetab entry changed
+type traceNode struct {
+	NodeTab  unsafe.Pointer	// *neo.NodeTable XXX not to noise test diff output
+	NodeInfo neo.NodeInfo
+}
+func (t *MyTracer) traceNode(nt *neo.NodeTable, n *neo.Node) {
+	t.Trace1(&traceNode{unsafe.Pointer(nt), n.NodeInfo})
 }
 
-func (tc *TraceChecker) ExpectNetTx(src, dst string, pkt string) {
-	tc.t.Helper()
-
-	var ev *xnet.TraceTx
-	msg := tc.xget1(&ev)
-
-	pktb := []byte(pkt)
-	if !(ev.Src.String() == src &&
-	     ev.Dst.String() == dst &&
-	     bytes.Equal(ev.Pkt, pktb)) {
-		     // TODO also print all (?) previous events
-		     tc.t.Fatalf("expect:\nhave: %s -> %s  %v\nwant: %s -> %s  %v",
-			ev.Src, ev.Dst, ev.Pkt, src, dst, pktb)
-	}
-
-	close(msg.ack)
-}
-*/
 
 //trace:import "lab.nexedi.com/kirr/neo/go/neo"
 
@@ -155,13 +122,19 @@ func TestMasterStorage(t *testing.T) {
 	tracing.Lock()
 	//neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
 	neo_traceConnSendPre_Attach(pg, tracer.traceNeoConnSendPre)
-	neo_traceClusterStateChanged_Attach(pg, tracer.traceNeoClusterState)
+	neo_traceClusterStateChanged_Attach(pg, tracer.traceClusterState)
+	neo_traceNodeChanged_Attach(pg, tracer.traceNode)
 	tracing.Unlock()
 
 
 	// shortcut for addresses
 	xaddr := func(addr string) *pipenet.Addr {
 		a, err := net.ParseAddr(addr)
+		exc.Raiseif(err)
+		return a
+	}
+	xnaddr := func(addr string) neo.Address {
+		a, err := neo.Addr(xaddr(addr))
 		exc.Raiseif(err)
 		return a
 	}
@@ -187,6 +160,20 @@ func TestMasterStorage(t *testing.T) {
 		return &traceNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
 	}
 
+	// shortcut for nodetab change
+	node := func(nt *neo.NodeTable, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
+		return &traceNode{
+			NodeTab: unsafe.Pointer(nt),
+			NodeInfo: neo.NodeInfo{
+				NodeType:    typ,
+				Address:     xnaddr(laddr),
+				NodeUUID:    neo.UUID(typ, num),
+				NodeState:   state,
+				IdTimestamp: idtstamp,
+			},
+		}
+	}
+
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
@@ -206,7 +193,7 @@ func TestMasterStorage(t *testing.T) {
 	// expect:
 	tc.Expect(netlisten("m:1"))
 
-	// XXX M.nodeTab	<- Node(M)
+	tc.Expect(node(M.nodeTab, "m:1", neo.MASTER, 1, neo.RUNNING, 0.0))
 	tc.Expect(clusterState(&M.clusterState, neo.ClusterRecovering))
 
 	// start storage
@@ -232,12 +219,12 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(conntx("s:2", "m:2", 1, &neo.RequestIdentification{
 		NodeType:	neo.STORAGE,
 		NodeUUID:	0,
-		Address:	neo.Address{"s", 1},	//XXX "s:1",
+		Address:	xnaddr("s:1"),
 		ClusterName:	"abc1",
 		IdTimestamp:	0,
 	}))
 
-	// XXX M.nodeTab  <- Node(S1)
+	tc.Expect(node(M.nodeTab, "s:1", neo.STORAGE, 1, neo.PENDING, 0.0)) // XXX t
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,

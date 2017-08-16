@@ -13,7 +13,7 @@ import (
 // traceimport: "lab.nexedi.com/kirr/neo/go/neo"
 
 // rerun "gotrace gen" if you see link failure ↓↓↓
-//go:linkname neo_trace_exporthash lab.nexedi.com/kirr/neo/go/neo._trace_exporthash_46f45c4a2306b317d62d3cded6f5ec228f0cf669
+//go:linkname neo_trace_exporthash lab.nexedi.com/kirr/neo/go/neo._trace_exporthash_ab325b43be064a06d1c80db96d5bf50678b5b037
 func neo_trace_exporthash()
 func init() { neo_trace_exporthash() }
 
@@ -26,3 +26,6 @@ func neo_traceConnRecv_Attach(*tracing.ProbeGroup, func(c *neo.Conn, msg neo.Msg
 
 //go:linkname neo_traceConnSendPre_Attach lab.nexedi.com/kirr/neo/go/neo.traceConnSendPre_Attach
 func neo_traceConnSendPre_Attach(*tracing.ProbeGroup, func(c *neo.Conn, msg neo.Msg)) *tracing.Probe
+
+//go:linkname neo_traceNodeChanged_Attach lab.nexedi.com/kirr/neo/go/neo.traceNodeChanged_Attach
+func neo_traceNodeChanged_Attach(*tracing.ProbeGroup, func(nt *neo.NodeTable, n *neo.Node)) *tracing.Probe

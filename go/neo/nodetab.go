@@ -81,9 +81,12 @@ type NodeTable struct {
 	//ver int // ↑ for versioning	XXX do we need this?
 }
 
+//trace:event traceNodeChanged(nt *NodeTable, n *Node)
+
 // Node represents a node entry in NodeTable
 type Node struct {
 	NodeInfo
+	// XXX have Node point to -> NodeTable?
 
 	// link to this node; =nil if not connected
 	Link *NodeLink
@@ -120,7 +123,11 @@ func (nt *NodeTable) Update(nodeInfo NodeInfo, conn *Conn /*XXX better link *Nod
 
 	node.NodeInfo = nodeInfo
 	node.Conn = conn
-	node.Link = conn.Link()
+	if conn != nil {
+		node.Link = conn.Link()
+	}
+
+	traceNodeChanged(nt, node)
 
 	nt.notify(node.NodeInfo)
 	return node
@@ -142,6 +149,7 @@ func (nt *NodeTable) GetByLink(link *NodeLink) *Node {
 // XXX doc
 func (nt *NodeTable) SetNodeState(node *Node, state NodeState) {
 	node.NodeState = state
+	traceNodeChanged(nt, node)
 	nt.notify(node.NodeInfo)
 }
 

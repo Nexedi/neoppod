@@ -89,5 +89,32 @@ func traceConnSendPre_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg
 	return &p.Probe
 }
 
+// traceevent: traceNodeChanged(nt *NodeTable, n *Node)
+
+type _t_traceNodeChanged struct {
+	tracing.Probe
+	probefunc     func(nt *NodeTable, n *Node)
+}
+
+var _traceNodeChanged *_t_traceNodeChanged
+
+func traceNodeChanged(nt *NodeTable, n *Node) {
+	if _traceNodeChanged != nil {
+		_traceNodeChanged_run(nt, n)
+	}
+}
+
+func _traceNodeChanged_run(nt *NodeTable, n *Node) {
+	for p := _traceNodeChanged; p != nil; p = (*_t_traceNodeChanged)(unsafe.Pointer(p.Next())) {
+		p.probefunc(nt, n)
+	}
+}
+
+func traceNodeChanged_Attach(pg *tracing.ProbeGroup, probe func(nt *NodeTable, n *Node)) *tracing.Probe {
+	p := _t_traceNodeChanged{probefunc: probe}
+	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceNodeChanged)), &p.Probe)
+	return &p.Probe
+}
+
 // trace export signature
-func _trace_exporthash_46f45c4a2306b317d62d3cded6f5ec228f0cf669() {}
+func _trace_exporthash_ab325b43be064a06d1c80db96d5bf50678b5b037() {}
