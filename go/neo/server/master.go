@@ -375,13 +375,13 @@ loop:
 			if m.partTab.PTid == 0 {
 				// new cluster - allow startup if we have some storages passed
 				// recovery and there is no in-progress recovery running
-				nok := 0
+				nup := 0
 				for _, stor := range m.nodeTab.StorageList() {
 					if stor.NodeState > neo.DOWN {
-						nok++
+						nup++
 					}
 				}
-				ready = (nok > 0 && inprogress == 0)
+				ready = (nup > 0 && inprogress == 0)
 
 			} else {
 				ready = m.partTab.OperationalWith(m.nodeTab)	// XXX + node state
@@ -398,6 +398,7 @@ loop:
 		// if not ok - we just reply not ok
 		case ech := <-m.ctlStart:
 			if readyToStart {
+				log.Infof(ctx, "start command - we are ready")
 				// reply "ok to start" after whole recovery finishes
 
 				// XXX ok? we want to retrieve all recovery information first?
@@ -414,6 +415,7 @@ loop:
 				break loop
 			}
 
+			log.Infof(ctx, "start command - err - we are not ready")
 			ech <- fmt.Errorf("start: cluster is non-operational")
 
 		case ech := <-m.ctlStop:
@@ -445,11 +447,9 @@ loop:
 			}
 
 		case <-done:
-			break
+			return err
 		}
 	}
-
-	return err
 }
 
 // storCtlRecovery drives a storage node during cluster recovering state

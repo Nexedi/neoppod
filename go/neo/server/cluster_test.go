@@ -284,6 +284,9 @@ func TestMasterStorage(t *testing.T) {
 	// M ready to start: new cluster, no in-progress S recovery
 	tc.Expect(masterStartReady(M, true))
 
+	err := M.Start()
+	exc.Raiseif(err)
+
 
 	// XXX M.partTab = ø
 	// XXX M can start -> writes parttab to S and goes to verification
@@ -294,9 +297,6 @@ func TestMasterStorage(t *testing.T) {
 
 	// XXX temp
 	return
-
-	err := M.Start()
-	exc.Raiseif(err)
 
 	// expect:
 	// M.clusterState	<- VERIFICATION			+ TODO it should be sent to S
