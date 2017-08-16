@@ -330,9 +330,8 @@ func TestMasterStorage(t *testing.T) {
 	// TODO M.Stop() while verify
 
 	// verification ok; M start service
-	// TODO
+	tc.Expect(clusterState(&M.clusterState, neo.ClusterRunning))
 
-	// expect:
 	// M.clusterState	<- RUNNING			+ TODO it should be sent to S
 
 	// TODO S leave while service
