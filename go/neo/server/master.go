@@ -66,7 +66,6 @@ type Master struct {
 	nodeCome     chan nodeCome	// node connected	XXX -> acceptq?
 	nodeLeave    chan nodeLeave	// node disconnected	XXX -> don't need
 
-
 	// so tests could override
 	monotime func() float64
 }
@@ -268,6 +267,8 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 // - retrieve and recover latest previously saved partition table from storages
 // - monitor whether partition table becomes operational wrt currently up nodeset
 // - if yes - finish recovering upon receiving "start" command		XXX or autostart
+// - start is also allowed if storages connected and say there is no partition
+//   table saved to them (empty new cluster case).
 
 // storRecovery is result of 1 storage node passing recovery phase
 type storRecovery struct {
@@ -290,14 +291,18 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 	ctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
 
+//trace:event traceMasterStartReady(m *Master, ready bool)
 	readyToStart := false
+
 	recovery := make(chan storRecovery)
+	inprogress := 0 // in-progress stor recoveries
 	wg := sync.WaitGroup{}
 
 	// start recovery on all storages we are currently in touch with
 	// XXX close links to clients
 	for _, stor := range m.nodeTab.StorageList() {
 		if stor.NodeState > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+			inprogress++
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -314,15 +319,20 @@ loop:
 			node, resp := m.identify(ctx, n, /* XXX only accept storages -> PENDING */)
 			// XXX set node.State = PENDING
 
+			if node == nil {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					m.reject(ctx, n.conn, resp)
+				}()
+				return
+			}
+
 			// if new storage arrived - start recovery on it too
+			inprogress++
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-
-				if node == nil {
-					m.reject(ctx, n.conn, resp)
-					return
-				}
 
 				err := m.accept(ctx, n.conn, resp)
 				if err != nil {
@@ -338,6 +348,8 @@ loop:
 		// a storage node came through recovery - let's see whether
 		// ptid ↑ and if so we should take partition table from there
 		case r := <-recovery:
+			inprogress--
+
 			if r.err != nil {
 				log.Error(ctx, r.err)
 
@@ -359,10 +371,27 @@ loop:
 			}
 
 			// update indicator whether cluster currently can be operational or not
-			readyToStart = m.partTab.OperationalWith(m.nodeTab)	// XXX + node state
+			var ready bool
+			if m.partTab.PTid == 0 {
+				// new cluster - allow startup if we have some storages passed
+				// recovery and there is no in-progress recovery running
+				nok := 0
+				for _, stor := range m.nodeTab.StorageList() {
+					if stor.NodeState > neo.DOWN {
+						nok++
+					}
+				}
+				ready = (nok > 0 && inprogress == 0)
 
-			// XXX handle case of new cluster - when no storage reports valid parttab
-			// XXX -> create new parttab
+			} else {
+				ready = m.partTab.OperationalWith(m.nodeTab)	// XXX + node state
+			}
+
+			if readyToStart != ready {
+				readyToStart = ready
+				traceMasterStartReady(m, ready)
+			}
+			// XXX -> create new parttab for new-cluster case
 
 
 		// request to start the cluster - if ok we exit replying ok

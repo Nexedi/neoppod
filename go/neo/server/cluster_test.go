@@ -100,11 +100,23 @@ func clusterState(cs *neo.ClusterState, v neo.ClusterState) *traceClusterState {
 
 // nodetab entry changed
 type traceNode struct {
-	NodeTab  unsafe.Pointer	// *neo.NodeTable XXX not to noise test diff output
+	NodeTab  unsafe.Pointer	// *neo.NodeTable XXX not to noise test diff
 	NodeInfo neo.NodeInfo
 }
 func (t *MyTracer) traceNode(nt *neo.NodeTable, n *neo.Node) {
 	t.Trace1(&traceNode{unsafe.Pointer(nt), n.NodeInfo})
+}
+
+// master ready to start changed
+type traceMStartReady struct {
+	Master  unsafe.Pointer // *Master XXX not to noise test diff
+	Ready   bool
+}
+func (t *MyTracer) traceMasterStartReady(m *Master, ready bool) {
+	t.Trace1(masterStartReady(m, ready))
+}
+func masterStartReady(m *Master, ready bool) *traceMStartReady {
+	return &traceMStartReady{unsafe.Pointer(m), ready}
 }
 
 
@@ -144,6 +156,7 @@ func TestMasterStorage(t *testing.T) {
 	neo_traceConnSendPre_Attach(pg, tracer.traceNeoConnSendPre)
 	neo_traceClusterStateChanged_Attach(pg, tracer.traceClusterState)
 	neo_traceNodeChanged_Attach(pg, tracer.traceNode)
+	traceMasterStartReady_Attach(pg, tracer.traceMasterStartReady)
 	tracing.Unlock()
 
 
@@ -159,11 +172,11 @@ func TestMasterStorage(t *testing.T) {
 		return a
 	}
 
-	// shortcut for net tx event
-	// XXX -> NetTx ?
-	nettx := func(src, dst, pkt string) *xnet.TraceTx {
-		return &xnet.TraceTx{Src: xaddr(src), Dst: xaddr(dst), Pkt: []byte(pkt)}
-	}
+	// // shortcut for net tx event
+	// // XXX -> NetTx ?
+	// nettx := func(src, dst, pkt string) *xnet.TraceTx {
+	// 	return &xnet.TraceTx{Src: xaddr(src), Dst: xaddr(dst), Pkt: []byte(pkt)}
+	// }
 
 	// shortcut for net connect event
 	// XXX -> NetConnect ?
@@ -211,12 +224,12 @@ func TestMasterStorage(t *testing.T) {
 		_ = err // XXX
 	})
 
-
-	// expect:
+	// M starts listening
 	tc.Expect(netlisten("m:1"))
-
 	tc.Expect(node(M.nodeTab, "m:1", neo.MASTER, 1, neo.RUNNING, 0.0))
 	tc.Expect(clusterState(&M.clusterState, neo.ClusterRecovering))
+
+	// TODO create C; C tries connect to master - rejected ("not yet operational")
 
 	// start storage
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
@@ -228,16 +241,11 @@ func TestMasterStorage(t *testing.T) {
 		_ = err	// XXX
 	})
 
-	// expect:
+	// S starts listening
 	tc.Expect(netlisten("s:1"))
+
+	// S connects M
 	tc.Expect(netconnect("s:2", "m:2",  "m:1"))
-
-	//tc.ExpectPar(
-	//	nettx("s:1", "m:1", "\x00\x00\x00\x01"),	// handshake
-	//	nettx("m:1", "s:1", "\x00\x00\x00\x01"),
-	//)
-	_ = nettx
-
 	tc.Expect(conntx("s:2", "m:2", 1, &neo.RequestIdentification{
 		NodeType:	neo.STORAGE,
 		NodeUUID:	0,
@@ -256,7 +264,7 @@ func TestMasterStorage(t *testing.T) {
 		YourNodeUUID:	neo.UUID(neo.STORAGE, 1),
 	}))
 
-	// TODO test ID rejects
+	// TODO test ID rejects (uuid already registered, ...)
 
 	// M starts recovery on S
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.Recovery{}))
@@ -272,6 +280,14 @@ func TestMasterStorage(t *testing.T) {
 		PTid:		0,
 		RowList:	[]neo.RowInfo{},
 	}))
+
+	// M ready to start: new cluster, no in-progress S recovery
+	tc.Expect(masterStartReady(M, true))
+
+
+	// XXX M.partTab = ø
+	// XXX M can start -> writes parttab to S and goes to verification
+
 
 	// XXX M.partTab <- ...
 	// XXX updated something cluster currently can be operational
