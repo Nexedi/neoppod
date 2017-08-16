@@ -20,6 +20,8 @@
 package neo
 // partition table
 
+import "fmt"
+
 // PartitionTable represents object space partitioning in a cluster
 //
 // It is
@@ -116,8 +118,7 @@ type PartitionTable struct {
 
 // PartitionCell describes one storage in a pid entry in partition table
 type PartitionCell struct {
-	NodeUUID
-	CellState
+	CellInfo
 
 //	XXX ? + .haveUpToTid  associated node has data up to such tid
 //			= uptodate if haveUpToTid == lastTid
@@ -140,7 +141,8 @@ func MakePartTab(np int, nodev []*Node) *PartitionTable {
 	for i, j := 0, 0; i < np; i, j = i+1, j+1 % len(nodev) {
 		node := nodev[j]
 		// XXX assert node.State > DOWN
-		tab[i] = []PartitionCell{{node.UUID, UP_TO_DATE /*XXX ok?*/}}
+		fmt.Printf("tab[%d] <- %v\n", i, node.UUID)
+		tab[i] = []PartitionCell{{CellInfo: CellInfo{node.UUID, UP_TO_DATE /*XXX ok?*/}}}
 	}
 
 	return &PartitionTable{tab: tab}
@@ -195,6 +197,7 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 // ---- encode / decode PT to / from messages
 // XXX naming
 
+// XXX -> RowList() ?
 func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struct ?
 	rowv := make([]RowInfo, len(pt.tab))
 	for i, row := range pt.tab {
@@ -220,10 +223,7 @@ func PartTabFromDump(ptid PTid, rowv []RowInfo) *PartitionTable {
 
 		//pt.tab[i] = append(pt.tab[i], row.CellList...)
 		for _, cell := range row.CellList {
-			pt.tab[i] = append(pt.tab[i], PartitionCell{
-					NodeUUID:  cell.NodeUUID,
-					CellState: cell.CellState,
-				})
+			pt.tab[i] = append(pt.tab[i], PartitionCell{cell})
 		}
 	}
 

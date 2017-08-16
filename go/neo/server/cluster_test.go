@@ -221,7 +221,7 @@ func TestMasterStorage(t *testing.T) {
 	gwg.Gox(func() {
 		err := M.Run(Mctx)
 		fmt.Println("M err: ", err)
-		_ = err // XXX
+		exc.Raiseif(err)
 	})
 
 	// M starts listening
@@ -238,7 +238,7 @@ func TestMasterStorage(t *testing.T) {
 	gwg.Gox(func() {
 		err := S.Run(Sctx)
 		fmt.Println("S err: ", err)
-		_ = err	// XXX
+		exc.Raiseif(err)
 	})
 
 	// S starts listening
@@ -295,16 +295,19 @@ func TestMasterStorage(t *testing.T) {
 	xwait(wg)
 
 	// XXX M.partTab <- S1
-	// XXX M can start -> writes parttab to S and goes to verification
 
+	// verification
+	tc.Expect(clusterState(&M.clusterState, neo.ClusterVerifying))
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.NotifyPartitionTable{
+		PTid:		1,
+		RowList:	[]neo.RowInfo{
+			{0, []neo.CellInfo{{S.node.MyInfo.UUID, neo.UP_TO_DATE}}},
+		},
+	}))
 
-	// XXX M.partTab <- ...
-
-	// XXX temp
-	return
 
 	// expect:
-	// M.clusterState	<- VERIFICATION			+ TODO it should be sent to S
+	// ? M -> S ClusterInformation(VERIFICATION)
 	// M -> S	.? LockedTransactions{}
 	// M <- S	.? AnswerLockedTransactions{...}
 	// M -> S	.? LastIDs{}
@@ -334,9 +337,10 @@ func TestMasterStorage(t *testing.T) {
 	// TODO test M.recovery starting back from verification/service
 	// (M needs to resend to all storages recovery messages just from start)
 
+	return
+	Mcancel()	// FIXME ctx cancel not fully handled
+	Scancel()	// ---- // ----
 	xwait(gwg)
-	Mcancel()	// XXX temp
-	Scancel()	// XXX temp
 }
 
 // basic interaction between Client -- Storage

@@ -458,6 +458,7 @@ loop2:
 	// recovery successful - we are starting
 
 	// S PENDING -> RUNNING
+	// XXX recheck logic is ok for starting existing cluster
 	for _, stor := range m.nodeTab.StorageList() {
 		if stor.State == neo.PENDING {
 			m.nodeTab.SetNodeState(stor, neo.RUNNING)
@@ -465,7 +466,8 @@ loop2:
 	}
 
 	// if we are starting for new cluster - create partition table
-	if err != nil && m.partTab.PTid == 0 {
+	if m.partTab.PTid == 0 {
+		log.Infof(ctx, "creating new partition table")
 		// XXX -> m.nodeTab.StorageList(State > DOWN)
 		storv := []*neo.Node{}
 		for _, stor := range m.nodeTab.StorageList() {
@@ -567,7 +569,7 @@ func (m *Master) verify(ctx context.Context) (err error) {
 	for _, stor := range m.nodeTab.StorageList() {
 		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
-			go storCtlVerify(vctx, stor, verify)
+			go storCtlVerify(vctx, stor, m.partTab, verify)
 		}
 	}
 
@@ -585,7 +587,7 @@ loop:
 			// new storage arrived - start verification on it too
 			// XXX ok? or it must first go through recovery check?
 			inprogress++
-			go storCtlVerify(vctx, node, verify)
+			go storCtlVerify(vctx, node, m.partTab, verify)
 
 		case n := <-m.nodeLeave:
 			m.nodeTab.SetNodeState(n.node, neo.DOWN)
@@ -661,7 +663,7 @@ type storVerify struct {
 }
 
 // storCtlVerify drives a storage node during cluster verifying (= starting) state
-func storCtlVerify(ctx context.Context, stor *neo.Node, res chan storVerify) {
+func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, res chan storVerify) {
 	// XXX link.Close on err
 	// XXX cancel on ctx
 
@@ -673,10 +675,16 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, res chan storVerify) {
 	}()
 	defer runningf(&ctx, "%s: stor verify", stor.Link)(&err)
 
-	// FIXME stub
-	conn, _ := stor.Link.NewConn()
+	conn := stor.Conn
 
-	// XXX NotifyPT (so storages save locally recovered PT)
+	// send just recovered parttab so storage saves it
+	err = conn.Send(&neo.NotifyPartitionTable{
+		PTid:    pt.PTid,
+		RowList: pt.Dump(),
+	})
+	if err != nil {
+		return
+	}
 
 	locked := neo.AnswerLockedTransactions{}
 	err = conn.Ask(&neo.LockedTransactions{}, &locked)

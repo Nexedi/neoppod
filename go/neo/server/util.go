@@ -59,7 +59,7 @@ func _running(ctxp *context.Context, name string) func(*error) {
 			// XXX or we still want to log all errors - right?
 			log.Depth(1).Error(ctx, "## ", *errp)	// XXX "::" temp
 		} else {
-			log.Depth(1).Info(ctx, "ok")
+			log.Depth(1).Info(ctx, "done")
 		}
 
 		// XXX do we need vvv if we log it anyway ^^^ ?
