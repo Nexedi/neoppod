@@ -51,6 +51,8 @@ const (
 	INCOMPLETE_TRANSACTION
 )
 
+//trace:event traceClusterStateChanged(cs *ClusterState)
+
 type ClusterState int32
 const (
 	// Once the primary master is elected, the cluster has a state, which is

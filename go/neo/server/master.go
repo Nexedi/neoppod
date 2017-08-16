@@ -107,10 +107,7 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 		nodeLeave:	make(chan nodeLeave),
 	}
 
-	m.node.MyInfo.NodeUUID = m.allocUUID(neo.MASTER)
-	// TODO update nodeTab with self
-	m.clusterState = neo.ClusterRecovering	// XXX no elections - we are the only master
-
+	m.clusterState = -1 // invalid
 	return m
 }
 
@@ -142,7 +139,7 @@ func (m *Master) Shutdown() error {
 
 // setClusterState sets .clusterState and notifies subscribers
 func (m *Master) setClusterState(state neo.ClusterState) {
-	m.clusterState = state
+	m.clusterState.Set(state)
 
 	// TODO notify subscribers
 }
@@ -150,6 +147,9 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 
 // Run starts master node and runs it until ctx is cancelled or fatal error
 func (m *Master) Run(ctx context.Context) (err error) {
+	m.node.MyInfo.NodeUUID = m.allocUUID(neo.MASTER)
+	// TODO update nodeTab with self
+
 	// start listening
 	l, err := m.node.Listen()
 	if err != nil {

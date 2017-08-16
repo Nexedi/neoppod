@@ -688,7 +688,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		}
 	}
 
-	if dumpio {
+	if /* XXX temp show only tx */ false && dumpio {
 		// XXX -> log
 		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}

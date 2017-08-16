@@ -8,6 +8,33 @@ import (
 	"unsafe"
 )
 
+// traceevent: traceClusterStateChanged(cs *ClusterState)
+
+type _t_traceClusterStateChanged struct {
+	tracing.Probe
+	probefunc     func(cs *ClusterState)
+}
+
+var _traceClusterStateChanged *_t_traceClusterStateChanged
+
+func traceClusterStateChanged(cs *ClusterState) {
+	if _traceClusterStateChanged != nil {
+		_traceClusterStateChanged_run(cs)
+	}
+}
+
+func _traceClusterStateChanged_run(cs *ClusterState) {
+	for p := _traceClusterStateChanged; p != nil; p = (*_t_traceClusterStateChanged)(unsafe.Pointer(p.Next())) {
+		p.probefunc(cs)
+	}
+}
+
+func traceClusterStateChanged_Attach(pg *tracing.ProbeGroup, probe func(cs *ClusterState)) *tracing.Probe {
+	p := _t_traceClusterStateChanged{probefunc: probe}
+	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceClusterStateChanged)), &p.Probe)
+	return &p.Probe
+}
+
 // traceevent: traceConnRecv(c *Conn, msg Msg)
 
 type _t_traceConnRecv struct {
@@ -63,4 +90,4 @@ func traceConnSendPre_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg
 }
 
 // trace export signature
-func _trace_exporthash_d2fa0ebb37c3e2bf54309859a1eeb0e831edd435() {}
+func _trace_exporthash_46f45c4a2306b317d62d3cded6f5ec228f0cf669() {}

@@ -13,10 +13,13 @@ import (
 // traceimport: "lab.nexedi.com/kirr/neo/go/neo"
 
 // rerun "gotrace gen" if you see link failure ↓↓↓
-//go:linkname neo_trace_exporthash lab.nexedi.com/kirr/neo/go/neo._trace_exporthash_d2fa0ebb37c3e2bf54309859a1eeb0e831edd435
+//go:linkname neo_trace_exporthash lab.nexedi.com/kirr/neo/go/neo._trace_exporthash_46f45c4a2306b317d62d3cded6f5ec228f0cf669
 func neo_trace_exporthash()
 func init() { neo_trace_exporthash() }
 
+
+//go:linkname neo_traceClusterStateChanged_Attach lab.nexedi.com/kirr/neo/go/neo.traceClusterStateChanged_Attach
+func neo_traceClusterStateChanged_Attach(*tracing.ProbeGroup, func(cs *neo.ClusterState)) *tracing.Probe
 
 //go:linkname neo_traceConnRecv_Attach lab.nexedi.com/kirr/neo/go/neo.traceConnRecv_Attach
 func neo_traceConnRecv_Attach(*tracing.ProbeGroup, func(c *neo.Conn, msg neo.Msg)) *tracing.Probe

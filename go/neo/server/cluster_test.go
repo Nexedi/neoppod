@@ -71,19 +71,28 @@ func (t *MyTracer) TraceNetConnect(ev *xnet.TraceConnect)	{ t.Trace1(ev) }
 func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)		{ t.Trace1(ev) }
 func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{}	// { t.Trace1(ev) }
 
-type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
-func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoRecv{c, msg}) }
+//type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
+//func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoRecv{c, msg}) }
 
 type traceNeoSend struct {
 	Src, Dst net.Addr
 	ConnID   uint32
 	Msg	 neo.Msg
 }
-func (t *MyTracer) traceNeoConnSendPre(c *neo.Conn, msg neo.Msg)	{
+func (t *MyTracer) traceNeoConnSendPre(c *neo.Conn, msg neo.Msg) {
 	t.Trace1(&traceNeoSend{c.Link().LocalAddr(), c.Link().RemoteAddr(), c.ConnID(), msg})
 }
 
-
+type traceNeoClusterState struct {
+	Ptr   *neo.ClusterState // pointer to variable which holds the state
+	State neo.ClusterState
+}
+func (t *MyTracer) traceNeoClusterState(cs *neo.ClusterState) {
+	t.Trace1(&traceNeoClusterState{cs, *cs})
+}
+func clusterState(cs *neo.ClusterState, v neo.ClusterState) *traceNeoClusterState {
+	return &traceNeoClusterState{cs, v}
+}
 
 /*
 func (tc *TraceChecker) ExpectNetDial(dst string) {
@@ -146,6 +155,7 @@ func TestMasterStorage(t *testing.T) {
 	tracing.Lock()
 	//neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
 	neo_traceConnSendPre_Attach(pg, tracer.traceNeoConnSendPre)
+	neo_traceClusterStateChanged_Attach(pg, tracer.traceNeoClusterState)
 	tracing.Unlock()
 
 
@@ -172,10 +182,11 @@ func TestMasterStorage(t *testing.T) {
 		return &xnet.TraceListen{Laddr: xaddr(laddr)}
 	}
 
-	// XXX
+	// shortcut for net tx event over nodelink connection
 	conntx := func(src, dst string, connid uint32, msg neo.Msg) *traceNeoSend {
 		return &traceNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
 	}
+
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
@@ -191,11 +202,12 @@ func TestMasterStorage(t *testing.T) {
 		_ = err // XXX
 	})
 
+
 	// expect:
 	tc.Expect(netlisten("m:1"))
 
-	// M.clusterState	<- RECOVERY
-	// M.nodeTab		<- Node(M)
+	// XXX M.nodeTab	<- Node(M)
+	tc.Expect(clusterState(&M.clusterState, neo.ClusterRecovering))
 
 	// start storage
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
@@ -224,7 +236,9 @@ func TestMasterStorage(t *testing.T) {
 		ClusterName:	"abc1",
 		IdTimestamp:	0,
 	}))
-	// TODO check M adjust nodetab...
+
+	// XXX M.nodeTab  <- Node(S1)
+
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
 		MyNodeUUID:	neo.UUID(neo.MASTER, 1),
@@ -250,21 +264,11 @@ func TestMasterStorage(t *testing.T) {
 		RowList:	[]neo.RowInfo{},
 	}))
 
+	// XXX M.partTab <- ...
+	// XXX updated something cluster currently can be operational
+
 	// XXX temp
 	return
-
-	// M.nodeTab	<- Node(S)	XXX order can be racy?
-	// M -> S	.? AcceptIdentification{...}
-	// S.nodeTab	<- Node(M)	XXX order can be racy?
-	//
-	// ; storCtlRecovery
-	// M -> S	.? Recovery
-	// S <- M	.? AnswerRecovery
-	//
-	// M -> S	.? AskPartitionTable
-	// S <- M	.? AnswerPartitionTable
-	// M.partTab	<- ...	XXX
-	// XXX updated something cluster currently can be operational
 
 	err := M.Start()
 	exc.Raiseif(err)

@@ -353,6 +353,7 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 
 		}
 
+		// XXX move Mconn.Send here and ^^^ only prepare reply?
 		if err != nil {
 			return err
 		}

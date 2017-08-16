@@ -1,6 +1,7 @@
 //go:generate stringer -output zproto-str.go -type ErrorCode,NodeType proto.go
 
 package neo
+// supporting code for types defined in proto.go
 
 import (
 	"fmt"
@@ -19,6 +20,13 @@ func (e *Error) Error() string {
 	return s
 }
 
+
+// Set sets cluster state value to v.
+// Use Set instead of direct assignment for ClusterState tracing to work.
+func (cs *ClusterState) Set(v ClusterState) {
+	*cs = v
+	traceClusterStateChanged(cs)
+}
 
 const nodeTypeChar = "MSCA4567"	// keep in sync with NodeType constants
 
@@ -46,7 +54,7 @@ func (nodeUUID NodeUUID) String() string {
 	return s
 }
 
-// XXX place ok?
+// UUID creates node uuid from node type and number.
 // XXX test
 func UUID(typ NodeType, num int32) NodeUUID {
 	temp := uint32(0)
