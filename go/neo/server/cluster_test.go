@@ -46,6 +46,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 
 	"lab.nexedi.com/kirr/go123/exc"
+	"lab.nexedi.com/kirr/go123/xerr"
 
 	"fmt"
 	"time"
@@ -308,19 +309,24 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.LockedTransactions{}))
-
 	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerLockedTransactions{
 		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
+	}))
+
+	lastOid, err1 := zstor.LastOid()
+	lastTid, err2 := zstor.LastTid()
+	exc.Raiseif(xerr.Merge(err1, err2))
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.LastIDs{}))
+	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerLastIDs{
+		LastOid: lastOid,
+		LastTid: lastTid,
 	}))
 
 
 	// expect:
 	// ? M -> S ClusterInformation(VERIFICATION)
-	// M -> S	.? LockedTransactions{}
-	// M <- S	.? AnswerLockedTransactions{...}
-	// M -> S	.? LastIDs{}
-	// M <- S	.? AnswerLastIDs{...}
 
+	//							+ TODO there is actually txn to finish
 	//							+ TODO S leave at verify
 	//							+ TODO S join at verify
 	//							+ TODO M.Stop() while verify
