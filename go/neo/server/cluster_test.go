@@ -198,10 +198,10 @@ func TestMasterStorage(t *testing.T) {
 		return &traceNode{
 			NodeTab: unsafe.Pointer(nt),
 			NodeInfo: neo.NodeInfo{
-				NodeType:    typ,
-				Address:     xnaddr(laddr),
-				NodeUUID:    neo.UUID(typ, num),
-				NodeState:   state,
+				Type:    typ,
+				Addr:    xnaddr(laddr),
+				UUID:    neo.UUID(typ, num),
+				State:   state,
 				IdTimestamp: idtstamp,
 			},
 		}
@@ -284,16 +284,15 @@ func TestMasterStorage(t *testing.T) {
 	// M ready to start: new cluster, no in-progress S recovery
 	tc.Expect(masterStartReady(M, true))
 
+	// M <- start cmd
 	err := M.Start()
 	exc.Raiseif(err)
 
-
-	// XXX M.partTab = ø
+	// XXX M.partTab <- S1
 	// XXX M can start -> writes parttab to S and goes to verification
 
 
 	// XXX M.partTab <- ...
-	// XXX updated something cluster currently can be operational
 
 	// XXX temp
 	return

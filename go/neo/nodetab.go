@@ -45,9 +45,9 @@ import (
 //
 //
 // XXX [] of
-//	.nodeUUID
-//	.nodeType
-//	.nodeState
+//	.UUID
+//	.Type
+//	.State
 //	.listenAt	ip:port | ø	// ø - if client or down(?)
 //
 //	- - - - - - -
@@ -103,7 +103,7 @@ type Node struct {
 func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {
-		if node.NodeUUID == uuid {
+		if node.UUID == uuid {
 			return node
 		}
 	}
@@ -115,7 +115,7 @@ func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 // Update updates information about a node
 // it returns corresponding node entry for convenience
 func (nt *NodeTable) Update(nodeInfo NodeInfo, conn *Conn /*XXX better link *NodeLink*/) *Node {
-	node := nt.Get(nodeInfo.NodeUUID)
+	node := nt.Get(nodeInfo.UUID)
 	if node == nil {
 		node = &Node{}
 		nt.nodev = append(nt.nodev, node)
@@ -148,7 +148,7 @@ func (nt *NodeTable) GetByLink(link *NodeLink) *Node {
 
 // XXX doc
 func (nt *NodeTable) SetNodeState(node *Node, state NodeState) {
-	node.NodeState = state
+	node.State = state
 	traceNodeChanged(nt, node)
 	nt.notify(node.NodeInfo)
 }
@@ -173,7 +173,7 @@ func (nt *NodeTable) StorageList() []*Node {
 	// FIXME linear scan
 	sl := []*Node{}
 	for _, node := range nt.nodev {
-		if node.NodeType == STORAGE {
+		if node.Type == STORAGE {
 			sl = append(sl, node)
 		}
 	}
@@ -189,7 +189,7 @@ func (nt *NodeTable) String() string {
 	// XXX also for .storv
 	for _, n := range nt.nodev {
 		// XXX recheck output
-		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", n.NodeUUID, n.NodeType, n.NodeState, n.Address)
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", n.UUID, n.Type, n.State, n.Addr)
 	}
 
 	return buf.String()

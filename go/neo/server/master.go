@@ -93,7 +93,7 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 
 	m := &Master{
 		node: neo.NodeCommon{
-			MyInfo:		neo.NodeInfo{NodeType: neo.MASTER, Address: addr},
+			MyInfo:		neo.NodeInfo{Type: neo.MASTER, Addr: addr},
 			ClusterName:	clusterName,
 			Net:		net,
 			MasterAddr:	serveAddr,	// XXX ok?
@@ -169,10 +169,10 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	}
 
 	m.node.MyInfo = neo.NodeInfo{
-		NodeType:	neo.MASTER,
-		Address:	naddr,
-		NodeUUID:	m.allocUUID(neo.MASTER),
-		NodeState:	neo.RUNNING,
+		Type:	neo.MASTER,
+		Addr:	naddr,
+		UUID:	m.allocUUID(neo.MASTER),
+		State:	neo.RUNNING,
 		IdTimestamp:	0,	// XXX ok?
 	}
 
@@ -301,7 +301,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 	// start recovery on all storages we are currently in touch with
 	// XXX close links to clients
 	for _, stor := range m.nodeTab.StorageList() {
-		if stor.NodeState > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			wg.Add(1)
 			go func() {
@@ -377,7 +377,7 @@ loop:
 				// recovery and there is no in-progress recovery running
 				nup := 0
 				for _, stor := range m.nodeTab.StorageList() {
-					if stor.NodeState > neo.DOWN {
+					if stor.State > neo.DOWN {
 						nup++
 					}
 				}
@@ -434,6 +434,7 @@ loop:
 		close(done)
 	}()
 
+loop2:
 	for {
 		select {
 		case r := <-recovery:
@@ -442,14 +443,27 @@ loop:
 
 			if !xcontext.Canceled(errors.Cause(r.err)) {
 				// XXX not so ok
-
-				// log / close node link; update NT
+				// FIXME log / close node link; update NT
 			}
 
 		case <-done:
-			return err
+			break loop2
 		}
 	}
+
+	// if we are starting for new cluster - create partition table
+	if err != nil && m.partTab.PTid == 0 {
+		// XXX -> m.nodeTab.StorageList(State > DOWN)
+		storv := []*neo.Node{}
+		for _, stor := range m.nodeTab.StorageList() {
+			if stor.State > neo.DOWN {
+				storv = append(storv, stor)
+			}
+		}
+		m.partTab = neo.MakePartTab(1 /* XXX hardcoded */, storv)
+	}
+
+	return err
 }
 
 // storCtlRecovery drives a storage node during cluster recovering state
@@ -537,7 +551,7 @@ func (m *Master) verify(ctx context.Context) (err error) {
 
 	// start verification on all storages we are currently in touch with
 	for _, stor := range m.nodeTab.StorageList() {
-		if stor.NodeState > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			go storCtlVerify(vctx, stor, verify)
 		}
@@ -721,7 +735,7 @@ loop:
 					// XXX
 				}
 
-				switch node.NodeType {
+				switch node.Type {
 				case STORAGE:
 					switch state {
 					case ClusterRecovery:
@@ -918,7 +932,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 
 	accept := &neo.AcceptIdentification{
 			NodeType:	neo.MASTER,
-			MyNodeUUID:	m.node.MyInfo.NodeUUID,
+			MyNodeUUID:	m.node.MyInfo.UUID,
 			NumPartitions:	1,	// FIXME hardcoded
 			NumReplicas:	1,	// FIXME hardcoded
 			YourNodeUUID:	uuid,
@@ -936,10 +950,10 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 	}
 
 	nodeInfo := neo.NodeInfo{
-		NodeType:	nodeType,
-		Address:	n.idReq.Address,
-		NodeUUID:	uuid,
-		NodeState:	nodeState,
+		Type:	nodeType,
+		Addr:	n.idReq.Address,
+		UUID:	uuid,
+		State:	nodeState,
 		IdTimestamp:	m.monotime(),
 	}
 

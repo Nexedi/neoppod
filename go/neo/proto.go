@@ -232,11 +232,11 @@ func float64_NEODecode(b []byte) float64 {
 // NodeInfo is information about a node
 // XXX -> nodetab.go ?
 type NodeInfo struct {
-	NodeType
-	Address		// serving address
-	NodeUUID
-	NodeState
-	IdTimestamp float64	// FIXME clarify semantic where it is used
+	Type		NodeType
+	Addr		Address		// serving address
+	UUID		NodeUUID
+	State		NodeState
+	IdTimestamp	float64	// FIXME clarify semantic where it is used
 }
 
 // XXX -> parttab.go ?

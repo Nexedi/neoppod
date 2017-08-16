@@ -40,12 +40,12 @@ package neo
 //
 // Given Np, R and []Storage PartitionTable tries to organize
 //
-//	Pid -> []Storage
+//	pid -> []Storage
 //
 // mapping so that
 //
 // - redundancy level set by R is met
-// - storages associated with adjacent Ptids are different
+// - storages associated with adjacent pids are different
 //
 // when such organization is reached the partition table is called operational
 // and non-operational otherwise.	XXX and if storages are ready
@@ -109,12 +109,12 @@ package neo
 type PartitionTable struct {
 	// XXX do we need sync.Mutex here for updates ?
 
-	PtTab [][]PartitionCell // [#Np]	XXX naming
+	tab [][]PartitionCell // [#Np] pid -> []Cell
 
-	PTid PTid // ↑ for versioning	XXX -> ver ?
+	PTid PTid // ↑ for versioning	XXX -> ver ?	XXX move out of here?
 }
 
-// PartitionCell describes one storage in a ptid entry in partition table
+// PartitionCell describes one storage in a pid entry in partition table
 type PartitionCell struct {
 	NodeUUID
 	CellState
@@ -131,8 +131,23 @@ type PartitionCell struct {
 //
 }
 
+// MakePartTab creates new partition with uniformly distributed nodes
+// The partition table created will be of len=np
+// FIXME R=1 hardcoded
+func MakePartTab(np int, nodev []*Node) *PartitionTable {
+	// XXX stub, not tested
+	tab := make([][]PartitionCell, np)
+	for i, j := 0, 0; i < np; i, j = i+1, j+1 % len(nodev) {
+		node := nodev[j]
+		// XXX assert node.State > DOWN
+		tab[i] = []PartitionCell{{node.UUID, UP_TO_DATE /*XXX ok?*/}}
+	}
 
-// OperationalWith returns whether all object space is covered by at least some ready-to-serve nodes
+	return &PartitionTable{tab: tab}
+}
+
+
+// OperationalWith checks whether all object space is covered by at least some ready-to-serve nodes
 //
 // for all partitions it checks both:
 // - whether there are up-to-date entries in the partition table, and
@@ -142,7 +157,7 @@ type PartitionCell struct {
 //
 // XXX or keep not only NodeUUID in PartitionCell - add *Node ?
 func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
-	for _, ptEntry := range pt.PtTab {
+	for _, ptEntry := range pt.tab {
 		if len(ptEntry) == 0 {
 			return false
 		}
@@ -159,7 +174,7 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 				//
 				// We leave it as is for now.
 				node := nt.Get(cell.NodeUUID)
-				if node == nil || node.NodeState != RUNNING {	// XXX PENDING is also ok ?
+				if node == nil || node.State != RUNNING {	// XXX PENDING is also ok ?
 					continue
 				}
 
@@ -181,8 +196,8 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 // XXX naming
 
 func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struct ?
-	rowv := make([]RowInfo, len(pt.PtTab))
-	for i, row := range pt.PtTab {
+	rowv := make([]RowInfo, len(pt.tab))
+	for i, row := range pt.tab {
 		cellv := make([]CellInfo, len(row))
 		for j, cell := range cellv {
 			cellv[j] = CellInfo{NodeUUID: cell.NodeUUID, CellState: cell.CellState}
@@ -199,13 +214,13 @@ func PartTabFromDump(ptid PTid, rowv []RowInfo) *PartitionTable {
 
 	for _, row := range rowv {
 		i := row.Offset
-		for i >= uint32(len(pt.PtTab)) {
-			pt.PtTab = append(pt.PtTab, []PartitionCell{})
+		for i >= uint32(len(pt.tab)) {
+			pt.tab = append(pt.tab, []PartitionCell{})
 		}
 
-		//pt.PtTab[i] = append(pt.PtTab[i], row.CellList...)
+		//pt.tab[i] = append(pt.tab[i], row.CellList...)
 		for _, cell := range row.CellList {
-			pt.PtTab[i] = append(pt.PtTab[i], PartitionCell{
+			pt.tab[i] = append(pt.tab[i], PartitionCell{
 					NodeUUID:  cell.NodeUUID,
 					CellState: cell.CellState,
 				})

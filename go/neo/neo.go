@@ -87,9 +87,9 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 	}
 
 	req := &RequestIdentification{
-		NodeType:	 n.MyInfo.NodeType,
-		NodeUUID:	 n.MyInfo.NodeUUID,
-		Address:	 n.MyInfo.Address,
+		NodeType:	 n.MyInfo.Type,
+		NodeUUID:	 n.MyInfo.UUID,
+		Address:	 n.MyInfo.Addr,
 		ClusterName:	 n.ClusterName,
 		IdTimestamp:	 n.MyInfo.IdTimestamp,	// XXX ok?
 	}
@@ -116,7 +116,7 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 // The node information about where it listens at is appropriately updated.
 func (n *NodeCommon) Listen() (Listener, error) {
 	// start listening
-	ll, err := ListenLink(n.Net, n.MyInfo.Address.String())
+	ll, err := ListenLink(n.Net, n.MyInfo.Addr.String())
 	if err != nil {
 		return nil, err	// XXX err ctx
 	}
@@ -132,7 +132,7 @@ func (n *NodeCommon) Listen() (Listener, error) {
 		return nil, err	// XXX err ctx
 	}
 
-	n.MyInfo.Address = addr
+	n.MyInfo.Addr = addr
 
 	l := &listener{
 		l:	 ll,

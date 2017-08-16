@@ -67,7 +67,7 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 
 	stor := &Storage{
 			node:	neo.NodeCommon{
-				MyInfo:		neo.NodeInfo{NodeType: neo.STORAGE, Address: addr},
+				MyInfo:		neo.NodeInfo{Type: neo.STORAGE, Addr: addr},
 				ClusterName:	cluster,
 				Net:		net,
 				MasterAddr:	masterAddr,
@@ -193,9 +193,9 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	}
 
 	// XXX -> node.Dial ?
-	if accept.YourNodeUUID != stor.node.MyInfo.NodeUUID {
+	if accept.YourNodeUUID != stor.node.MyInfo.UUID {
 		log.Infof(ctx, "master told us to have uuid=%v", accept.YourNodeUUID)
-		stor.node.MyInfo.NodeUUID = accept.YourNodeUUID
+		stor.node.MyInfo.UUID = accept.YourNodeUUID
 	}
 
 
