@@ -322,21 +322,22 @@ func TestMasterStorage(t *testing.T) {
 		LastTid: lastTid,
 	}))
 
+	// XXX M -> S ClusterInformation(VERIFICATION) ?
 
-	// expect:
-	// ? M -> S ClusterInformation(VERIFICATION)
+	// TODO there is actually txn to finish
+	// TODO S leave at verify
+	// TODO S join at verify
+	// TODO M.Stop() while verify
 
-	//							+ TODO there is actually txn to finish
-	//							+ TODO S leave at verify
-	//							+ TODO S join at verify
-	//							+ TODO M.Stop() while verify
+	// verification ok; M start service
+	// TODO
 
 	// expect:
 	// M.clusterState	<- RUNNING			+ TODO it should be sent to S
 
-	//							+ TODO S leave while service
-	//							+ TODO S join while service
-	//							+ TODO M.Stop while service
+	// TODO S leave while service
+	// TODO S join while service
+	// TODO M.Stop while service
 
 	// + TODO Client connects here ?
 
