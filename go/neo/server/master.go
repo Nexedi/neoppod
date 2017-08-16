@@ -458,7 +458,7 @@ loop2:
 	// recovery successful - we are starting
 
 	// S PENDING -> RUNNING
-	// XXX recheck logic is ok for starting existing cluster
+	// XXX recheck logic is ok for when starting existing cluster
 	for _, stor := range m.nodeTab.StorageList() {
 		if stor.State == neo.PENDING {
 			m.nodeTab.SetNodeState(stor, neo.RUNNING)

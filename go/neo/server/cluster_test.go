@@ -48,6 +48,7 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 
 	"fmt"
+	"time"
 )
 
 // XXX dup from connection_test
@@ -296,13 +297,20 @@ func TestMasterStorage(t *testing.T) {
 
 	// XXX M.partTab <- S1
 
-	// verification
+	// M starts verification
 	tc.Expect(clusterState(&M.clusterState, neo.ClusterVerifying))
+
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.NotifyPartitionTable{
 		PTid:		1,
 		RowList:	[]neo.RowInfo{
 			{0, []neo.CellInfo{{S.node.MyInfo.UUID, neo.UP_TO_DATE}}},
 		},
+	}))
+
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.LockedTransactions{}))
+
+	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerLockedTransactions{
+		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
 	}))
 
 
@@ -337,7 +345,9 @@ func TestMasterStorage(t *testing.T) {
 	// TODO test M.recovery starting back from verification/service
 	// (M needs to resend to all storages recovery messages just from start)
 
+	time.Sleep(100*time.Millisecond) // XXX temp so net tx'ers could actually tx
 	return
+
 	Mcancel()	// FIXME ctx cancel not fully handled
 	Scancel()	// ---- // ----
 	xwait(gwg)
