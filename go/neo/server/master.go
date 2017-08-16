@@ -451,6 +451,19 @@ loop2:
 		}
 	}
 
+	if err != nil {
+		return err
+	}
+
+	// recovery successful - we are starting
+
+	// S PENDING -> RUNNING
+	for _, stor := range m.nodeTab.StorageList() {
+		if stor.State == neo.PENDING {
+			m.nodeTab.SetNodeState(stor, neo.RUNNING)
+		}
+	}
+
 	// if we are starting for new cluster - create partition table
 	if err != nil && m.partTab.PTid == 0 {
 		// XXX -> m.nodeTab.StorageList(State > DOWN)
@@ -461,9 +474,10 @@ loop2:
 			}
 		}
 		m.partTab = neo.MakePartTab(1 /* XXX hardcoded */, storv)
+		m.partTab.PTid = 1
 	}
 
-	return err
+	return nil
 }
 
 // storCtlRecovery drives a storage node during cluster recovering state

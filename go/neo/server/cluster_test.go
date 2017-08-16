@@ -211,14 +211,14 @@ func TestMasterStorage(t *testing.T) {
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 
-	wg := &xsync.WorkGroup{}
+	gwg := &xsync.WorkGroup{}
 
 	// start master
 	Mclock := &vclock{}
 	M := NewMaster("abc1", ":1", Mhost)
 	M.monotime = Mclock.monotime
 	Mctx, Mcancel := context.WithCancel(context.Background())
-	wg.Gox(func() {
+	gwg.Gox(func() {
 		err := M.Run(Mctx)
 		fmt.Println("M err: ", err)
 		_ = err // XXX
@@ -235,7 +235,7 @@ func TestMasterStorage(t *testing.T) {
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
 	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
 	Sctx, Scancel := context.WithCancel(context.Background())
-	wg.Gox(func() {
+	gwg.Gox(func() {
 		err := S.Run(Sctx)
 		fmt.Println("S err: ", err)
 		_ = err	// XXX
@@ -285,8 +285,14 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(masterStartReady(M, true))
 
 	// M <- start cmd
-	err := M.Start()
-	exc.Raiseif(err)
+	wg := &xsync.WorkGroup{}
+	wg.Gox(func() {
+		err := M.Start()
+		exc.Raiseif(err)
+	})
+
+	tc.Expect(node(M.nodeTab, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	xwait(wg)
 
 	// XXX M.partTab <- S1
 	// XXX M can start -> writes parttab to S and goes to verification
@@ -328,7 +334,7 @@ func TestMasterStorage(t *testing.T) {
 	// TODO test M.recovery starting back from verification/service
 	// (M needs to resend to all storages recovery messages just from start)
 
-	xwait(wg)
+	xwait(gwg)
 	Mcancel()	// XXX temp
 	Scancel()	// XXX temp
 }
