@@ -331,8 +331,11 @@ func TestMasterStorage(t *testing.T) {
 
 	// verification ok; M start service
 	tc.Expect(clusterState(&M.clusterState, neo.ClusterRunning))
+	// TODO ^^^ should be sent to S
 
-	// M.clusterState	<- RUNNING			+ TODO it should be sent to S
+	tc.Expect(conntx("m:2", "s:2", 1, &neo.StartOperation{Backup: false}))
+	tc.Expect(conntx("s:2", "m:2", 1, &neo.NotifyReady{})
+
 
 	// TODO S leave while service
 	// TODO S join while service

@@ -759,6 +759,12 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 //
 // TODO also plan data movement on new storage nodes appearing
 
+// nodeServiced is the error returned after service-phase node handling is finished
+type nodeServiced {
+	node *neoNode
+	err  error
+}
+
 // service drives cluster during running state
 //
 // TODO document error meanings on return
@@ -771,6 +777,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	service := make(
 	wg := &sync.WaitGroup{}
 
 	// spawn per-storage service driver
@@ -817,6 +824,7 @@ loop:
 				}
 			}()
 
+		// XXX who sends here?
 		case n := <-m.nodeLeave:
 			m.nodeTab.SetNodeState(n.node, neo.DOWN)
 
@@ -849,7 +857,7 @@ loop:
 
 // storCtlService drives a storage node during cluster service state
 // XXX text
-func storCtlService(ctx context.Context, stor *neo.Node, srv chan serviceXXX) {
+func storCtlService(ctx context.Context, stor *neo.Node, srv chan serviceErr) {
 	/*
 	var err error
 	defer func() {
@@ -861,10 +869,28 @@ func storCtlService(ctx context.Context, stor *neo.Node, srv chan serviceXXX) {
 	*/
 	conn := stor.Conn
 
+	// XXX send nodeTab ?
+	// XXX send clusterInformation ?
+
 	ready := neo.NotifyReady{}
 	err = conn.Ask(&neo.StartOperation{Backup: false}, &ready)
 	if err != nil {
-		// XXX ...
+		return err
+	}
+
+	// now wait in a loop
+	// XXX this should be also controlling transactions
+	for {
+		select {
+		// XXX stub
+		case <-time.After(1*time.Second):
+			println(".")
+
+		case <-ctx.Done():
+			// XXX also send StopOperation?
+			break loop
+		}
+	}
 }
 
 // identify processes identification request of just connected node and either accepts or declines it.
