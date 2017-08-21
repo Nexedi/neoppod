@@ -825,6 +825,9 @@ loop:
 				}
 			}()
 
+		case d := <-serviced:
+			// TODO if S goes away -> check partTab still operational -> if not - recovery
+
 		// XXX who sends here?
 		case n := <-m.nodeLeave:
 			m.nodeTab.SetNodeState(n.node, neo.DOWN)
@@ -857,7 +860,6 @@ loop:
 }
 
 // storCtlService drives a storage node during cluster service state
-// XXX text
 func storCtlService(ctx context.Context, stor *neo.Node, done chan serviceDone) {
 	err := storCtlService1(ctx, stor)
 	done <- serviceDone{node: stor, err: err}
@@ -892,6 +894,8 @@ func storCtlService1(ctx context.Context, stor *neo.Node) (err error) {
 		}
 	}
 }
+
+// ----------------------------------------
 
 // identify processes identification request of just connected node and either accepts or declines it.
 // If node identification is accepted .nodeTab is updated and corresponding node entry is returned.
@@ -991,7 +995,7 @@ func reject(ctx context.Context, conn *neo.Conn, resp neo.Msg) {
 func goreject(ctx context.Context, wg *sync.WaitGroup, conn *neo.Conn, resp neo.Msg) {
 	wg.Add(1)
 	defer wg.Done()
-	reject(ctx, conn, resp)
+	go reject(ctx, conn, resp)
 }
 
 // accept sends acceptive identification response and closes conn

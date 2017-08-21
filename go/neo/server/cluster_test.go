@@ -304,7 +304,7 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.NotifyPartitionTable{
 		PTid:		1,
 		RowList:	[]neo.RowInfo{
-			{0, []neo.CellInfo{{S.node.MyInfo.UUID, neo.UP_TO_DATE}}},
+			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
 		},
 	}))
 

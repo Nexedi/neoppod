@@ -18,15 +18,16 @@ def main():
             #'master_nodes':     '[2001:67c:1254:e:20::3977]:2051',      # M on webr-wneo-*1*
             #'name':             'woelfel-munich-clone',
 
-            'master_nodes':     '[2001:67c:1254:e:21::ffa]:2051',       # M on webr-wneo-2
+            #'master_nodes':     '[2001:67c:1254:e:21::ffa]:2051',       # M on webr-wneo-2
+            'master_nodes':     '[::1]:2051',       # M on webr-wneo-2
             'name':             'woelfel-munich-clone-backup-comp-2591',
             'read_only':        True,
 
             'logfile':  'x.log',
 
-            'ca':       etc1 + '/ca.crt',
-            'cert':     etc1 + '/neo.crt',
-            'key':      etc1 + '/neo.key',
+            #'ca':       etc1 + '/ca.crt',
+            #'cert':     etc1 + '/neo.crt',
+            #'key':      etc1 + '/neo.key',
     }
 
     print 'aaa'

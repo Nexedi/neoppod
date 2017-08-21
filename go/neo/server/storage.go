@@ -171,6 +171,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	log.Info(ctx, "connecting ...")
 	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
 	if err != nil {
+		// FIXME it is not only identification - e.g. ECONNREFUSED
 		log.Info(ctx, "identification rejected")	// XXX ok here? (err is logged above)
 		return err
 	}

@@ -37,7 +37,7 @@ type XTid struct {
 	TidBefore bool	// XXX merge into Tid itself (high bit) ?
 }
 
-// Xid is "extended" oid = oid + serial/beforeTid, completely specifying object address.
+// Xid is "extended" oid = oid + serial/beforeTid, completely specifying object address query.
 type Xid struct {
 	XTid
 	Oid

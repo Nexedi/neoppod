@@ -20,7 +20,11 @@
 package neo
 // partition table
 
-import "fmt"
+import (
+	"fmt"
+
+	"lab.nexedi.com/kirr/neo/go/zodb"
+)
 
 // PartitionTable represents object space partitioning in a cluster
 //
@@ -111,13 +115,13 @@ import "fmt"
 type PartitionTable struct {
 	// XXX do we need sync.Mutex here for updates ?
 
-	tab [][]PartitionCell // [#Np] pid -> []Cell
+	tab [][]Cell // [#Np] pid -> []Cell
 
 	PTid PTid // ↑ for versioning	XXX -> ver ?	XXX move out of here?
 }
 
-// PartitionCell describes one storage in a pid entry in partition table
-type PartitionCell struct {
+// Cell describes one storage in a pid entry in partition table
+type Cell struct {
 	CellInfo
 
 //	XXX ? + .haveUpToTid  associated node has data up to such tid
@@ -132,17 +136,26 @@ type PartitionCell struct {
 //
 }
 
+// Get returns cells oid is associated with
+func (pt *PartitionTable) Get(oid zodb.Oid) []Cell {
+	if len(pt.tab) == 0 {
+		return nil
+	}
+	pid := uint64(oid) % uint64(len(pt.tab))
+	return pt.tab[pid]
+}
+
 // MakePartTab creates new partition with uniformly distributed nodes
 // The partition table created will be of len=np
 // FIXME R=1 hardcoded
 func MakePartTab(np int, nodev []*Node) *PartitionTable {
 	// XXX stub, not tested
-	tab := make([][]PartitionCell, np)
+	tab := make([][]Cell, np)
 	for i, j := 0, 0; i < np; i, j = i+1, j+1 % len(nodev) {
 		node := nodev[j]
 		// XXX assert node.State > DOWN
 		fmt.Printf("tab[%d] <- %v\n", i, node.UUID)
-		tab[i] = []PartitionCell{{CellInfo: CellInfo{node.UUID, UP_TO_DATE /*XXX ok?*/}}}
+		tab[i] = []Cell{{CellInfo: CellInfo{node.UUID, UP_TO_DATE /*XXX ok?*/}}}
 	}
 
 	return &PartitionTable{tab: tab}
@@ -157,7 +170,7 @@ func MakePartTab(np int, nodev []*Node) *PartitionTable {
 //
 // information about nodes being up or down is obtained from supplied NodeTable
 //
-// XXX or keep not only NodeUUID in PartitionCell - add *Node ?
+// XXX or keep not only NodeUUID in Cell - add *Node ?
 func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 	for _, ptEntry := range pt.tab {
 		if len(ptEntry) == 0 {
@@ -218,12 +231,12 @@ func PartTabFromDump(ptid PTid, rowv []RowInfo) *PartitionTable {
 	for _, row := range rowv {
 		i := row.Offset
 		for i >= uint32(len(pt.tab)) {
-			pt.tab = append(pt.tab, []PartitionCell{})
+			pt.tab = append(pt.tab, []Cell{})
 		}
 
 		//pt.tab[i] = append(pt.tab[i], row.CellList...)
 		for _, cell := range row.CellList {
-			pt.tab[i] = append(pt.tab[i], PartitionCell{cell})
+			pt.tab[i] = append(pt.tab[i], Cell{cell})
 		}
 	}
 

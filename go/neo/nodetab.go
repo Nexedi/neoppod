@@ -88,6 +88,8 @@ type Node struct {
 	NodeInfo
 	// XXX have Node point to -> NodeTable?
 
+	// XXX decouple vvv from Node ?
+
 	// link to this node; =nil if not connected
 	Link *NodeLink
 

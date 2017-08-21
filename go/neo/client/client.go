@@ -26,39 +26,73 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-//	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
-// Client talks to NEO cluster and exposes access it via ZODB interfaces
+// Client talks to NEO cluster and exposes access to it via ZODB interfaces
 type Client struct {
 	node neo.NodeCommon
 
-	storLink *neo.NodeLink	// link to storage node
-	storConn *neo.Conn	// XXX main connection to storage
+//	storLink *neo.NodeLink	// link to storage node
+//	storConn *neo.Conn	// XXX main connection to storage
 }
 
 var _ zodb.IStorage = (*Client)(nil)
 
 func (c *Client) StorageName() string {
-	return "neo"	// TODO more specific (+ cluster name, ...)
+	return "neo"
 }
 
+// XXX loading cache (+ singleflight)
+
+// NewClient creates new client node.
+// it will connect to master @masterAddr and identify with sepcified cluster name
+func NewClient(clusterName, masterAddr string, net xnet.Networker) (*Client, error) {
+	cli := &Client{
+		node: neo.NodeCommon{
+			MyInfo:		neo.NodeInfo{Type: neo.CLIENT, Addr: neo.Address{}},
+			ClusterName:	clusterName,
+			Net:		net,
+			MasterAddr:	masterAddr,
+
+			//NodeTab:	&neo.NodeTable{},
+			//PartTab:	&neo.PartitionTable{},
+		},
+	}
+
+	// XXX -> background
+	cli.node.Dial(context.TODO(), neo.MASTER, masterAddr)
+	panic("TODO")
+}
+
+
 func (c *Client) Close() error {
-	// NOTE this will abort all currently in-flght IO and close all connections over storLink
-	err := c.storLink.Close()
-	// XXX also wait for some goroutines to finish ?
-	return err
+	panic("TODO")
+//	// NOTE this will abort all currently in-flght IO and close all connections over storLink
+//	err := c.storLink.Close()
+//	// XXX also wait for some goroutines to finish ?
+//	return err
 }
 
 func (c *Client) LastTid() (zodb.Tid, error) {
+	panic("TODO")
+/*
+	c.Mlink // XXX check we are connected
+	conn, err := c.Mlink.NewConn()
+	if err != nil {
+		// XXX
+	}
+	// XXX defer conn.Close
+
 	// FIXME do not use global conn (see comment in openClientByURL)
 	// XXX open new conn for this particular req/reply ?
 	reply := neo.AnswerLastTransaction{}
-	err := c.storConn.Ask(&neo.LastTransaction{}, &reply)
+	err := conn.Ask(&neo.LastTransaction{}, &reply)
 	if err != nil {
 		return 0, err	// XXX err ctx
 	}
 	return reply.Tid, nil
+*/
 }
 
 func (c *Client) LastOid() (zodb.Oid, error) {
@@ -67,6 +101,8 @@ func (c *Client) LastOid() (zodb.Oid, error) {
 }
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+	panic("TODO")
+/*
 	// FIXME do not use global conn (see comment in openClientByURL)
 	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
@@ -89,6 +125,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// reply.NextSerial
 	// reply.DataSerial
 	return resp.Data, resp.Serial, nil
+*/
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
@@ -96,44 +133,6 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 	panic("TODO")
 }
 
-
-// NewClient creates and identifies new client connected to storage over storLink
-func NewClient(masterAddr string) (*Client, error) {
-	// TODO .myInfo.NodeType = CLIENT
-	// .clusterName = clusterName
-	// .net = ...
-	cli := &Client{}
-	//return &Client{storLink, storConn}, nil
-
-	cli.node.Dial(context.TODO(), neo.MASTER, masterAddr)
-	panic("TODO")
-
-/*
-	// XXX move -> Run?
-	// first identify ourselves to peer
-	accept, err := neo.IdentifyWith(neo.STORAGE, storLink, cli.node.MyInfo, cli.node.ClusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO verify accept more
-	_ = accept
-
-	// identification passed
-
-	// XXX only one conn is not appropriate for multiple goroutines/threads
-	// asking storage in parallel. At the same time creating new conn for
-	// every request is ok? -> not so good to create new goroutine per 1 object read
-	// XXX -> server could reuse goroutines -> so not so bad ?
-	storConn, err := storLink.NewConn()
-	if err != nil {
-		return nil, err	// XXX err ctx
-	}
-
-	_ = storConn	// XXX temp
-	return cli, nil
-*/
-}
 
 // TODO read-only support
 func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
@@ -173,9 +172,6 @@ func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
 	}
 */
 }
-
-//func Open(...) (*Client, error) {
-//}
 
 func init() {
 	zodb.RegisterStorage("neo", openClientByURL)
