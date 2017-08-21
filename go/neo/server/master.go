@@ -26,6 +26,7 @@ import (
 	"fmt"
 //	"math"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -759,9 +760,9 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 //
 // TODO also plan data movement on new storage nodes appearing
 
-// nodeServiced is the error returned after service-phase node handling is finished
-type nodeServiced {
-	node *neoNode
+// serviceDone is the error returned after service-phase node handling is finished
+type serviceDone struct {
+	node *neo.Node
 	err  error
 }
 
@@ -777,7 +778,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	service := make(
+	serviced := make(chan serviceDone)
 	wg := &sync.WaitGroup{}
 
 	// spawn per-storage service driver
@@ -786,7 +787,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				storCtlService(ctx, stor, service)
+				storCtlService(ctx, stor, serviced)
 			}()
 		}
 	}
@@ -807,18 +808,18 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err = accept(n.conn, resp)
+				err = m.accept(ctx, n.conn, resp)
 				if err != nil {
-					service <- nodeService{node: node, err: err}
+					serviced <- serviceDone{node: node, err: err}
 					return
 				}
 
 				switch node.Type {
 				case neo.STORAGE:
-					storCtlService(ctx, node, service)
+					storCtlService(ctx, node, serviced)
 
 				//case neo.CLIENT:
-				//	serveClient(ctx, node, service)
+				//	serveClient(ctx, node, serviced)
 
 				// XXX ADMIN
 				}
@@ -857,16 +858,14 @@ loop:
 
 // storCtlService drives a storage node during cluster service state
 // XXX text
-func storCtlService(ctx context.Context, stor *neo.Node, srv chan serviceErr) {
-	/*
-	var err error
-	defer func() {
-		if err == nil {
-			return
-		}
+func storCtlService(ctx context.Context, stor *neo.Node, done chan serviceDone) {
+	err := storCtlService1(ctx, stor)
+	done <- serviceDone{node: stor, err: err}
+}
 
-		// on error provide feedback to main driver
-	*/
+func storCtlService1(ctx context.Context, stor *neo.Node) (err error) {
+	defer runningf(&ctx, "%s: stor service", stor.Link.RemoteAddr())(&err)
+
 	conn := stor.Conn
 
 	// XXX send nodeTab ?
@@ -888,7 +887,8 @@ func storCtlService(ctx context.Context, stor *neo.Node, srv chan serviceErr) {
 
 		case <-ctx.Done():
 			// XXX also send StopOperation?
-			break loop
+			// XXX close link?
+			return ctx.Err()	// XXX ok?
 		}
 	}
 }
