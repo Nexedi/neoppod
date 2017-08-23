@@ -260,14 +260,15 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	// if rce & rceNext cover the same range -> drop rce
 	if i + 1 < len(oce.revv) {
 		rceNext := oce.revv[i+1]
-		if rceNext.loaded() && rceNext.serial < rce.before {	// XXX rceNext.serial=0 ?
+		if rceNext.loaded() && rceNext.err == nil && rceNext.serial < rce.before {
 			// drop rce
 			oce.deli(i)
 			δsize -= len(rce.data)
 
 			// verify rce.serial == rceNext.serial
-			if rce.serial != rceNext.serial {
-				rce.errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v", rce.before, rce.serial, rceNext.before, rceNext.serial)
+			if rce.err == nil && rce.serial != rceNext.serial {
+				rce.errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v",
+					rce.before, rce.serial, rceNext.before, rceNext.serial)
 			}
 
 			rce = rceNext
@@ -277,17 +278,16 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	// if rcePrev & rce cover the same range -> drop rcePrev
 	if i > 0 {
 		rcePrev = oce.revv[i-1]
-		if rce.serial < rcePrev.before {
-			// XXX drop rcePrev here?
-
-			// verify rce.serial == rcePrev.serial (if that is ready)
-			if rcePrev.loaded() && rcePrev.serial != rce.serial {	// XXX rcePrev.serial=0 ?
-				rce.errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v", rcePrev.before, rcePrev.serial, rce.before, rce.serial)
-			}
-
+		if rcePrev.loaded() && rce.err == nil && rce.serial < rcePrev.before {
 			// drop rcePrev
 			oce.deli(i-1)
 			δsize -= len(rcePrev.data)
+
+			// verify rce.serial == rcePrev.serial
+			if rcePrev.err == nil && rcePrev.serial != rce.serial {
+				rce.errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v",
+					rcePrev.before, rcePrev.serial, rce.before, rce.serial)
+			}
 		}
 	}
 
