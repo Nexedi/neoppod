@@ -28,26 +28,27 @@ import (
 )
 
 // Cache adds RAM caching layer over a storage
-// XXX -> zodb ?
-// XXX -> RAMCache ?
 type Cache struct {
 	mu sync.RWMutex
 
 	// cache is fully synchronized with storage for transactions with tid < before.
+	// XXX clarify ^^^ (it means if revCacheEntry.before=∞ it is Cache.before)
 	before	zodb.Tid
 
-	oidDir map[zodb.Oid]*oidEntry
+	entryMap map[zodb.Oid]*oidCacheEntry	// oid -> cache entries for this oid
 
-	size int64 // in bytes
-	lru revListHead
+	// garbage collection:
+	gcMu sync.Mutex
+	lru  listHead	// revCacheEntries in LRU order
+	size int64	// cached data size in bytes
 }
 
 // oidCacheEntry maintains cached revisions for 1 oid
 type oidCacheEntry struct {
-	sync.Mutex	// XXX -> rw ?
+	sync.Mutex
 
 	// cached revisions in ascending order
-	// .serial < .before <= next.serial < next.before
+	// [i].serial < [i].before <= [i+1].serial < [i+1].before
 	//
 	// XXX or?
 	// cached revisions in descending order
@@ -57,17 +58,17 @@ type oidCacheEntry struct {
 
 // revCacheEntry is information about 1 cached oid revision
 type revCacheEntry struct {
-	inLRU  revListHead
-	parent *oidCacheEntry
+	inLRU  listHead		// in Cache.lru
+	parent *oidCacheEntry	// oidCacheEntry holding us
 
-//	sync.Mutex	XXX not needed
+	//sync.Mutex	XXX not needed?
 
 	// oid revision
 	// 0 if don't know yet - loadBefore(.before) is in progress and actual
-	// serial not yet obtained from database
+	// serial not yet obtained from database.
 	serial    zodb.Tid
 
-	// we know that loadBefore(oid, before) will give this serial:oid.
+	// we know that loadBefore(oid, .before) will give this .serial:oid.
 	//
 	// this is only what we currently know - not neccessarily covering
 	// whole correct range - e.g. if oid revisions in db are 1 and 5 if we
@@ -75,7 +76,7 @@ type revCacheEntry struct {
 	// remember .before as 3. But for loadBefore(4) we have to redo
 	// database query again.
 	//
-	// if an .before=∞ that actually mean before is cache.before
+	// if .before=∞ here, that actually means before is cache.before
 	// ( this way we do not need to bump before to next tid in many
 	//   unchanged cache entries when a transaction invalidation comes )
 	//
@@ -83,43 +84,21 @@ type revCacheEntry struct {
 	// case when loadBefore with tid > cache.before was called.
 	before zodb.Tid
 
-	// object data or loading error
+	// loading result: object data or error
 	data []byte
 	err  error
 
 	ready chan struct{} // closed when loading finished
 }
 
-type revListHead struct {
-	// XXX needs to be created with .next = .prev = self
-	next, prev *revCacheEntry
-}
-
-func (h *revListHead) rceFromInLRU() (rce *revCacheEntry) {
-	return (*revCacheEntry)(unsafe.Pointer(h) - unsafe.OffsetOf(rce.inLRU))
-}
-
-// XXX -> to ctor?
-func (h *revListHead) init() {
-	h.next = h
-	h.prev = h
-}
-
-// Delete deletes h from list
-func (h *revListHead) Delete() {
-	h.next.prev = h.prev
-	h.prev.next = h.next
-}
-
-// MoveBefore moves a to be before b
-// XXX ok to move if a was not previously on the list?
-func (a *revListHead) MoveBefore(b *revListHead) {
-	a.Delete()
-
-	a.next = b
-	b.prev = a
-	a.prev = b.prev
-	a.prev.next = a
+// loaded reports whether rce was already loaded
+func (rce *revCacheEntry) loaded() bool {
+	select {
+	case <-rce.ready:
+		return true
+	default:
+		return false
+	}
 }
 
 // XXX doc
@@ -128,47 +107,40 @@ func (oce *oidCacheEntry) newRevEntry(before zodb.Tid) *revCacheEntry {
 		parent: oce,
 		serial: 0,
 		before: before,
-		ready: make(chan struct{})}
+		ready:  make(chan struct{})}
 	}
 	rce.inLRU.init()
 	return rce
 }
 
+// find finds rce under oce and returns its index in oce.revv.
+// not found -> -1.
+func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
+	for i, r := oce.revv {
+		if r == rce {
+			return i
+		}
+	}
+	return -1
+}
+
 // XXX doc; must be called with oce lock held
 func (oce *oidCacheEntry) del(rce *revCacheEntry) {
-	for i, r := range rce.revv {
-		if r == rce {
-			rce.revv = append(rce.revv[:i], rce.revv[i+1:])
-			return
-		}
+	i := oce.find(rce)
+	if i == -1 {
+		panic("rce not found")
 	}
 
-	panic("rce not found")
+	rce.revv = append(rce.revv[:i], rce.revv[i+1:])
 }
-
-// cleaner is the process that cleans cache by evicting less-needed entries.
-func (c *cache) cleaner() {
-	for {
-		// cleaner is the only mutator/user of Cache.lru and revCacheEntry.inLRU
-		select {
-		case rce := <-c.used:
-			rce.inLRU.MoveBefore(&c.lru)
-
-		default:
-			for rce := c.lru.next; rce != &c.lru; rce = rce.next {
-			}
-		}
-	}
-}
-
 
 // lock order: Cache > cacheEntry > (?) revCacheEntry
 
-// XXX maintain nhit / lru
+// XXX maintain nhit / nmiss?
 
 func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
-	// oid -> cacheEntry  ; creating new empty if not yet there
-	// exit with cacheEntry locked and cache.before read consistently
+	// oid -> oce (oidCacheEntry)  ; creating new empty if not yet there
+	// exit with oce locked and cache.before read consistently
 	c.mu.RLock()
 
 	oce := c.entryMap[xid.Oid]
@@ -186,15 +158,15 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 			oce = &cacheEntry{}
 			c.entryMap[xid.Oid] = oce
 		}
-		cacheBefore = c.before // reload c.before for correctness
+		cacheBefore = c.before // reload c.before becuase we relocked the cache
 		oce.Lock()
 		c.mu.Unlock()
 	}
 
+	// oce, before -> rce (revCacheEntry)
 	var rce *revCacheEntry
-	var rceNew bool		// whether new revCacheEntry was created
+	var rceNew bool		// whether rce created anew
 
-	// before -> revCacheEntry
 	if xid.TidBefore {
 		l := len(oce.revv)
 		i := sort.Search(l, func(i int) bool {
@@ -206,29 +178,35 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 		})
 
 		switch {
-		// not found - tid > max(revv.before) - create new max entry
+		// not found - tid > max(revv.before) - insert new max entry
 		case i == l:
 			rce = oce.newRevEntry(xid.Tid)
 			if rce.before == cacheBefore {
-				// XXX better do this when the entry becomes loaded ?
-				rce.before = zodb.TidMax	// XXX vs concurrent invalidations?
+				// FIXME better do this when the entry becomes loaded ?
+				// XXX vs concurrent invalidations?
+				rce.before = zodb.TidMax
 			}
 			rceNew = true
-			oce.revv = append(oce.revv, rce)
+			oce.revv = append(oce.revv, rce)	// XXX -> newRevEntry ?
 
 		// found:
 		// tid <= revv[i].before
 		// tid >  revv[i-1].before
 
-		// exact match - we already have it
-		case xid.Tid == revv[i].before:
+		// exact match - we already have entry for this before
+		case xid.Tid == oce.revv[i].before:
 			rce = oce.revv[i]
 
-		// if outside [serial, before) - insert new entry
-		case !(revv[i].serial != 0 && revv[i].serial <= xid.Tid):
+		// non-exact match - same entry if inside (serial, before]
+		// XXX do we need `oce.revv[i].serial != 0` check vvv ?
+		case oce.revv[i].loaded() && oce.revv[i].serial != 0 && oce.revv[i].serial < xid.Tid:
+			rce = oce.revv[i]
+
+		// otherwise - insert new entry
+		default:
 			rce = oce.newRevEntry(xid.Tid)
 			rceNew = true
-			oce.revv = append(oce.revv[:i], rce, oce.revv[i:])
+			oce.revv = append(oce.revv[:i], rce, oce.revv[i:]) // XXX -> newRevEntry ?
 		}
 
 	// XXX serial -> revCacheEntry
@@ -241,27 +219,85 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	// entry was already in cache - use it
 	if !rceNew {
 		<-rce.ready
-		// XXX update lru
+		c.gcMu.Lock()
+		rce.inLRU.MoveBefore(&c.lru)
+		c.gcMu.Unlock()
 		return rce.data, rce.serial, rce.err
 	}
 
 	// entry was not in cache - this goroutine becomes responsible for loading it
 	data, serial, err := c.stor.Load(xid)
+	// verify db gives serial < before
+	if serial >= rce.before {
+		// XXX err != nil - also check vvv?
+		// XXX loadSerial?
+		xxx.Errorf("E: cache: database inconsistency: oid: %v: load(<%v) -> %v", xid.Oid, rce.before, serial)
+	}
 	rce.serial = serial
 	rce.data = data
 	rce.err = err
 	close(ready)
 
+	δsize := len(data)
+
+	// merge rce with adjacent entries in parent
+	// ( e.g. loadBefore(3) and loadBefore(4) results in the same data loaded if
+	//   there are only revisions with serials 1 and 5 )
 	oce.Lock()
-	// XXX merge with adjacent entries in revv
+	i := oce.find(rce)
+	if i == -1 {
+		// rce was already dropped / evicted
+		oce.Unlock()
+		return rce.data, rce.serial, rce.err
+	}
+
+	// if rce & rceNext cover the same range -> drop rce
+	if i + 1 < len(oce.revv) {
+		rceNext := oce.revv[i+1]
+		if rceNext.loaded() && rceNext.serial < rce.before {	// XXX rceNext.serial=0 ?
+			// verify rce.serial == rceNext.serial
+			if rce.serial != rceNext.serial {
+				// XXX -> where to put? rce.err?
+				xxx.Errorf("E: cache: database inconsistency: oid: %v: load(<%v) -> %v; load(<%v) -> %v", xid.Oid, rce.before, rce.serial, rceNext.before, rceNext.serial)
+			}
+
+			// drop rce
+			//oce.revv = append(oce.revv[:i], oce.revv[i+1:])
+			oce.del(i)
+
+			δsize -= len(rce.data)
+			rce = rceNext
+		}
+	}
+
+	// if rcePrev & rce cover the same range -> drop rcePrev
+	if i > 0 {
+		rcePrev = oce.revv[i-1]
+		if rce.serial < rcePrev.before {
+			// verify rce.serial == rcePrev.serial (if that is ready)
+			if rcePrev.loaded() && rcePrev.serial != rce.serial {	// XXX rcePrev.serial=0 ?
+				// XXX dup wrt ^^^ -> func
+				xxx.Errorf("E: cache: database inconsistency: oid: %v: load(<%v) -> %v; load(<%v) -> %v", xid.Oid, rcePrev.before, rcePrev, serial, rce.before, rce.serial)
+			}
+
+			// drop rcePrev
+			//oce.revv = 
+			oce.del(i-1)
+
+			δsize -= len(rcePrev.data)
+		}
+	}
+
 	oce.Unlock()
 
-	c.Lock()
-	c.size += len(data)
+	// update lru & cache size
+	c.gcMu.Lock()
+	rce.inLRU.MoveBefore(&c.lru)
+	c.size += δsize
 	if c.size > c.sizeTarget {
 		-> run gc
 	}
-	c.Unlock()
+	c.gcMu.Unlock()
 
 	return rce.data, rce.serial, rce.err
 }
@@ -280,4 +316,26 @@ func (c *cache) gc(...) {
 		oce.Unlock()
 
 	}
+}
+
+// cleaner is the process that cleans cache by evicting less-needed entries.
+func (c *cache) cleaner() {
+	for {
+		// cleaner is the only mutator/user of Cache.lru and revCacheEntry.inLRU
+		select {
+		case rce := <-c.used:
+			rce.inLRU.MoveBefore(&c.lru)
+
+		default:
+			for rce := c.lru.next; rce != &c.lru; rce = rce.next {
+			}
+		}
+	}
+}
+
+
+
+// revCacheEntry: .inLRU -> .
+func (h *listHead) rceFromInLRU() (rce *revCacheEntry) {
+	return (*revCacheEntry)(unsafe.Pointer(h) - unsafe.OffsetOf(rce.inLRU))
 }

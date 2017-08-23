@@ -18,20 +18,38 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package client
+// base for intrusive list
 
-import (
-	"testing"
-)
+// listHead is a list head entry for an element in an intrusive doubly-linked list.
+//
+// XXX doc how to get to container of this list head via unsafe.OffsetOf
+//
+// always call Init() to initialize a head before using it.
+type listHead struct {
+	// XXX needs to be created with .next = .prev = self
+	next, prev *listHead
+}
 
-func TestCache(t *testing.T) {
-	// XXX <100 <90 <80
-	//	q<110	-> a) 110 <= cache.before   b) otherwise
-	//	q<85	-> a) inside 90.serial..90  b) outside
-	//
-	// XXX cases when .serial=0 (not yet determined - 1st loadBefore is in progress)
-	// XXX for every serial check before = (s-1, s, s+1)
+// Init initializes a head making it point to itself via .next and .prev
+func (h *listHead) Init() {
+	h.next = h
+	h.prev = h
+}
 
-	// merge: rce + rceNext
-	//	  rcePrev + rce
-	//	  rcePrev + (rce + rceNext)
+// Delete deletes h from its list
+func (h *listHead) Delete() {
+	h.next.prev = h.prev
+	h.prev.next = h.next
+	h.init()
+}
+
+// MoveBefore moves a to be before b
+// XXX ok to move if a was not previously on the list?
+func (a *listHead) MoveBefore(b *listHead) {
+	a.Delete()
+
+	a.next = b
+	b.prev = a
+	a.prev = b.prev
+	a.prev.next = a
 }
