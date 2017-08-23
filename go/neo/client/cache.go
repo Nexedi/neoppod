@@ -124,6 +124,10 @@ func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 	return -1
 }
 
+func (oce *oidCacheEntry) deli(i int) {
+	oce.revv = append(oce.revv[:i], oce.revv[i+1:])
+}
+
 // XXX doc; must be called with oce lock held
 func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 	i := oce.find(rce)
@@ -231,7 +235,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	if serial >= rce.before {
 		// XXX err != nil - also check vvv?
 		// XXX loadSerial?
-		xxx.Errorf("E: cache: database inconsistency: oid: %v: load(<%v) -> %v", xid.Oid, rce.before, serial)
+		errDB(xid.Oid, "load(<%v) -> %v", rce.before, serial)
 	}
 	rce.serial = serial
 	rce.data = data
@@ -258,13 +262,11 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 			// verify rce.serial == rceNext.serial
 			if rce.serial != rceNext.serial {
 				// XXX -> where to put? rce.err?
-				xxx.Errorf("E: cache: database inconsistency: oid: %v: load(<%v) -> %v; load(<%v) -> %v", xid.Oid, rce.before, rce.serial, rceNext.before, rceNext.serial)
+				errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v", rce.before, rce.serial, rceNext.before, rceNext.serial)
 			}
 
 			// drop rce
-			//oce.revv = append(oce.revv[:i], oce.revv[i+1:])
-			oce.del(i)
-
+			oce.deli(i)
 			δsize -= len(rce.data)
 			rce = rceNext
 		}
@@ -276,14 +278,12 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 		if rce.serial < rcePrev.before {
 			// verify rce.serial == rcePrev.serial (if that is ready)
 			if rcePrev.loaded() && rcePrev.serial != rce.serial {	// XXX rcePrev.serial=0 ?
-				// XXX dup wrt ^^^ -> func
-				xxx.Errorf("E: cache: database inconsistency: oid: %v: load(<%v) -> %v; load(<%v) -> %v", xid.Oid, rcePrev.before, rcePrev, serial, rce.before, rce.serial)
+				// XXX -> where to put? rce.err?
+				errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v", rcePrev.before, rcePrev.serial, rce.before, rce.serial)
 			}
 
 			// drop rcePrev
-			//oce.revv = 
-			oce.del(i-1)
-
+			oce.deli(i-1)
 			δsize -= len(rcePrev.data)
 		}
 	}
@@ -338,4 +338,10 @@ func (c *cache) cleaner() {
 // revCacheEntry: .inLRU -> .
 func (h *listHead) rceFromInLRU() (rce *revCacheEntry) {
 	return (*revCacheEntry)(unsafe.Pointer(h) - unsafe.OffsetOf(rce.inLRU))
+}
+
+// errDB returns error about database being inconsistent
+func errDB(oid zodb.Oid, format string, argv ...interface{}) error {
+	// XXX -> separate type?
+	return fmt.Errorf("cache: database inconsistency: oid: %v: " + format, oid, ...argv)
 }
