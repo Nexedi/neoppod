@@ -88,16 +88,6 @@ type revCacheEntry struct {
 	ready chan struct{} // closed when loading finished
 }
 
-// loaded reports whether rce was already loaded
-func (rce *revCacheEntry) loaded() bool {
-	select {
-	case <-rce.ready:
-		return true
-	default:
-		return false
-	}
-}
-
 // XXX doc
 func (oce *oidCacheEntry) newRevEntry(before zodb.Tid) *revCacheEntry {
 	rce := &revCacheEntry{
@@ -135,12 +125,13 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 	rce.revv = append(rce.revv[:i], rce.revv[i+1:])
 }
 
-// lock order: Cache > cacheEntry > (?) revCacheEntry
+// lock order: Cache.mu   > oidCacheEntry > (?) revCacheEntry
+//             Cache.gcMu > ?
 
 // XXX maintain nhit / nmiss?
 
 func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
-	// oid -> oce (oidCacheEntry)  ; creating new empty if not yet there
+	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
 	c.mu.RLock()
 
@@ -152,6 +143,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 		oce.Lock()
 		c.mu.RUnlock()
 	} else {
+		// relock cache in write mode to create oce
 		c.mu.RUnlock()
 		c.mu.Lock()
 		oce = c.entryMap[xid.Oid]
@@ -166,7 +158,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 
 	// oce, before -> rce (revCacheEntry)
 	var rce *revCacheEntry
-	var rceNew bool		// whether rce created anew
+	var rceNew bool		// whether we created rce anew
 
 	if xid.TidBefore {
 		l := len(oce.revv)
@@ -252,7 +244,8 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	oce.Lock()
 	i := oce.find(rce)
 	if i == -1 {
-		// rce was already dropped / evicted
+		// rce was already dropped by merge / evicted
+		// (XXX recheck about evicted)
 		oce.Unlock()
 		return rce.data, rce.serial, rce.err
 	}
@@ -337,6 +330,15 @@ func (c *cache) cleaner() {
 }
 
 
+// loaded reports whether rce was already loaded
+func (rce *revCacheEntry) loaded() bool {
+	select {
+	case <-rce.ready:
+		return true
+	default:
+		return false
+	}
+}
 
 // revCacheEntry: .inLRU -> .
 func (h *listHead) rceFromInLRU() (rce *revCacheEntry) {
