@@ -115,6 +115,7 @@ func TestCache(t *testing.T) {
 	// XXX hack; place=ok?
 	pretty.CompareConfig.PrintStringers = true
 
+	// load <3 -> new rce entry
 	// XXX vvv -> checkLoad()
 	data, serial, err := c.Load(xidlt(1,3))
 	ok1(data == nil)
@@ -127,8 +128,9 @@ func TestCache(t *testing.T) {
 	rce1_b3 := oce1.revv[0]
 	ok1(rce1_b3.before == 3)
 	ok1(rce1_b3.serial == 0)
-	eq(rce1_b3.err, &zodb.ErrXidMissing{xidlt(1,3)})	// XXX must be 1, ?0
+	eq(rce1_b3.err, &zodb.ErrXidMissing{xidlt(1,3)})
 
+	// load <4 -> <3 merged with <4
 	data, serial, err = c.Load(xidlt(1,4))
 	ok1(data == nil)
 	ok1(serial == 0)
@@ -139,15 +141,20 @@ func TestCache(t *testing.T) {
 	ok1(rce1_b4 != rce1_b3) // rce1_b3 was merged into rce1_b4
 	ok1(rce1_b4.before == 4)
 	ok1(rce1_b4.serial == 0)
-	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})	// XXX must be 1, ?0
+	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})
 
-	// XXX load <2 -> check it is merged with <4	XXX vs deleteObject?
+	// load <2 -> <2 merged with <4
 	data, serial, err = c.Load(xidlt(1,2))
 	ok1(data == nil)
 	ok1(serial == 0)
 	fmt.Println(err)
 	eq(err, &zodb.ErrXidMissing{xidlt(1,2)})
 
+	ok1(len(oce1.revv) == 1)
+	ok1(oce1.revv[0] == rce1_b4)
+	ok1(rce1_b4.before == 4)
+	ok1(rce1_b4.serial == 0)
+	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})
 }
 
 type Checker struct {
