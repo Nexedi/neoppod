@@ -47,8 +47,8 @@ type tOidData struct {
 }
 
 func (stor *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
-	fmt.Printf("> load(%v)\n", xid)
-	defer func() { fmt.Printf("< %v, %v, %v\n", data, serial, err) }()
+	//fmt.Printf("> load(%v)\n", xid)
+	//defer func() { fmt.Printf("< %v, %v, %v\n", data, serial, err) }()
 	tid := xid.Tid
 	if !xid.TidBefore {
 		tid++		// XXX overflow
@@ -63,10 +63,10 @@ func (stor *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err erro
 	n := len(datav)
 	i := n - 1 - sort.Search(n, func(i int) bool {
 		v := datav[n - 1 - i].serial < tid
-		fmt.Printf("@%d -> %v  (@%d; %v)\n", i, v, n - 1 -i, tid)
+		//fmt.Printf("@%d -> %v  (@%d; %v)\n", i, v, n - 1 -i, tid)
 		return v
 	})
-	fmt.Printf("i: %d  n: %d\n", i, n)
+	//fmt.Printf("i: %d  n: %d\n", i, n)
 	if i == -1 {
 		// tid < all .serial - no such transaction
 		return nil, 0, &zodb.ErrXidMissing{xid}
@@ -91,7 +91,7 @@ var tstor = &tStorage{
 		1: {
 			{4, []byte("hello"), nil},
 			{7, nil, ioerr},
-			{12, []byte("world"), nil},
+			{9, []byte("world"), nil},
 		},
 	},
 }
@@ -124,6 +124,7 @@ func TestCache(t *testing.T) {
 	//eq  := func(a, b interface{}) { t.Helper(); tc.assertEq(a, b) }
 
 	hello := []byte("hello")
+	world := []byte("world")
 
 	c := NewCache(tstor)
 
@@ -214,12 +215,34 @@ func TestCache(t *testing.T) {
 	checkRCE(rce1_b7, 7, 4, hello, nil)
 	checkOCE(1, rce1_b4, rce1_b7)
 
-	// load <8 -> ioerr | new rce
+	// load <8 -> ioerr + new rce
 	checkLoad(xidlt(1,8), nil, 0, ioerr)
 	ok1(len(oce1.revv) == 3)
 	rce1_b8 := oce1.revv[2]
 	checkRCE(rce1_b8, 8, 0, nil, ioerr)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8)
+
+	// load <9 -> ioerr + new rce (IO errors are not merged)
+	checkLoad(xidlt(1,9), nil, 0, ioerr)
+	ok1(len(oce1.revv) == 4)
+	rce1_b9 := oce1.revv[3]
+	checkRCE(rce1_b9, 9, 0, nil, ioerr)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9)
+
+	// load <10 -> new data rce, not merged with ioerr @<9
+	checkLoad(xidlt(1,10), world, 9, nil)
+	ok1(len(oce1.revv) == 5)
+	rce1_b10 := oce1.revv[4]
+	checkRCE(rce1_b10, 10, 9, world, nil)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10)
+
+	// load <12 -> <10 merged -> <12
+	checkLoad(xidlt(1,12), world, 9, nil)
+	ok1(len(oce1.revv) == 5)
+	rce1_b12 := oce1.revv[4]
+	ok1(rce1_b12 != rce1_b10)
+	checkRCE(rce1_b12, 12, 9, world, nil)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12)
 }
 
 type Checker struct {

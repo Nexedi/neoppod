@@ -342,7 +342,7 @@ func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
 	//	Pok  Nok    Ns < Pb         Ps  = Ns
 	//	Pe   Nok    Ns < Pb         Pe != "nodata"	(e.g. it was IO loading error for P)
 	//	Pok  Ne       ---
-	//	Ne   Pe     (Pe="nodata") = (Ne="nodata")	-> XXX vs deleteObject?
+	//	Ne   Pe     (Pe="nodata") && (Ne="nodata")	-> XXX vs deleteObject?
 	//							-> let deleted object actually read
 	//							-> as special non-error value
 	//
@@ -370,12 +370,12 @@ func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
 		return true
 	}
 
-	if prev.err != nil && isErrNoData(prev.err) == isErrNoData(next.err) {
+	if isErrNoData(prev.err) && isErrNoData(next.err) {
 		// drop prev
 		prev.parent.del(prev)
 
 		// not checking consistency - error is already there and
-		// (Pe="nodata") = (Ne="nodata") already indicates prev & next are consistent.
+		// (Pe="nodata") && (Ne="nodata") already indicates prev & next are consistent.
 
 		return true
 	}
