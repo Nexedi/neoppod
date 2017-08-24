@@ -252,10 +252,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		c.gcMu.Lock()
 		rce.inLRU.MoveBefore(&c.lru)
 		c.gcMu.Unlock()
-
-		// XXX for ErrXidMissing xtid needs to be adjusted to what was queried by user
-
-		return rce.data, rce.serial, rce.err
+		return rce.data, rce.serial, rce.userErr(xid)
 	}
 
 	// entry was not in cache - this goroutine becomes responsible for loading it
@@ -287,7 +284,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		// rce was already dropped by merge / evicted
 		// (XXX recheck about evicted)
 		oce.Unlock()
-		return rce.data, rce.serial, rce.err
+		return rce.data, rce.serial, rce.userErr(xid)
 	}
 
 	// if rce & rceNext cover the same range -> drop rce
@@ -320,7 +317,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 	c.gcMu.Unlock()
 
-	return rce.data, rce.serial, rce.err
+	return rce.data, rce.serial, rce.userErr(xid)
 }
 
 // tryMerge tries to merge rce prev into next
@@ -345,7 +342,9 @@ func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
 	//	Pok  Nok    Ns < Pb         Ps  = Ns
 	//	Pe   Nok    Ns < Pb         Pe != "nodata"	(e.g. it was IO loading error for P)
 	//	Pok  Ne       ---
-	//	Ne   Pe     (Pe="nodata") = (Ne="nodata")
+	//	Ne   Pe     (Pe="nodata") = (Ne="nodata")	-> XXX vs deleteObject?
+	//							-> let deleted object actually read
+	//							-> as special non-error value
 	//
 	// b - before
 	// s - serial
@@ -426,6 +425,21 @@ func (rce *revCacheEntry) loaded() bool {
 	default:
 		return false
 	}
+}
+
+// userErr returns error that, if any, needs to be returned to user from Cache.Load
+//
+// ( ErrXidMissing containts xid for which it is missing. In cache we keep such
+//   xid with max .before but users need to get ErrXidMissing with their own query )
+func (rce *revCacheEntry) userErr(xid zodb.Xid) error {
+	switch e := rce.err.(type) {
+	case *zodb.ErrXidMissing:
+		if e.Xid != xid {
+			return &zodb.ErrXidMissing{xid}
+		}
+	}
+
+	return rce.err
 }
 
 // revCacheEntry: .inLRU -> .

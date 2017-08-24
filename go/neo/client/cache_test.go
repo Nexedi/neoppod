@@ -80,10 +80,18 @@ func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) 
 var tstor = &tStorage{
 	dataMap: map[zodb.Oid][]tOidData{
 		1: {
-			{3, []byte("hello")},
+			{4, []byte("hello")},
 			{7, []byte("world")},
 		},
 	},
+}
+
+func xidlt(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
+	return zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: tid, TidBefore: true}}
+}
+
+func xideq(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
+	return zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: tid, TidBefore: false}}
 }
 
 func TestCache(t *testing.T) {
@@ -107,28 +115,39 @@ func TestCache(t *testing.T) {
 	// XXX hack; place=ok?
 	pretty.CompareConfig.PrintStringers = true
 
-	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: 2, TidBefore: true}}
-	data, serial, err := c.Load(xid1)	// -> nil, 0, &zodb.ErrXidMissing{1,<2}
+	// XXX vvv -> checkLoad()
+	data, serial, err := c.Load(xidlt(1,3))
 	ok1(data == nil)
 	ok1(serial == 0)
-	eq(err, &zodb.ErrXidMissing{xid1})
+	eq(err, &zodb.ErrXidMissing{xidlt(1,3)})
 
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.revv) == 1)
-	rce1_b2 := oce1.revv[0]
-	ok1(rce1_b2.before == 2)
-	ok1(rce1_b2.serial == 0)
-	eq(rce1_b2.err, &zodb.ErrXidMissing{xid1})	// XXX must be 1, ?0
+	// XXX vvv -> checkRCE ?
+	rce1_b3 := oce1.revv[0]
+	ok1(rce1_b3.before == 3)
+	ok1(rce1_b3.serial == 0)
+	eq(rce1_b3.err, &zodb.ErrXidMissing{xidlt(1,3)})	// XXX must be 1, ?0
 
-	xid1_3 := xid1
-	xid1_3.Tid = 3
-	data, serial, err = c.Load(xid1_3) // -> nil, 0, zodb.ErrXidMissing{1,<3}
+	data, serial, err = c.Load(xidlt(1,4))
 	ok1(data == nil)
 	ok1(serial == 0)
-	eq(err, &zodb.ErrXidMissing{xid1_3})
-	eq(len(oce1.revv), 1)
-	rce1_b3 := oce1.revv[0]
-	ok1(rce1_b3 != rce1_b2) // rce1_b2 was merged into rce1_b3
+	eq(err, &zodb.ErrXidMissing{xidlt(1,4)})
+
+	ok1(len(oce1.revv) == 1)
+	rce1_b4 := oce1.revv[0]
+	ok1(rce1_b4 != rce1_b3) // rce1_b3 was merged into rce1_b4
+	ok1(rce1_b4.before == 4)
+	ok1(rce1_b4.serial == 0)
+	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})	// XXX must be 1, ?0
+
+	// XXX load <2 -> check it is merged with <4	XXX vs deleteObject?
+	data, serial, err = c.Load(xidlt(1,2))
+	ok1(data == nil)
+	ok1(serial == 0)
+	fmt.Println(err)
+	eq(err, &zodb.ErrXidMissing{xidlt(1,2)})
+
 }
 
 type Checker struct {
