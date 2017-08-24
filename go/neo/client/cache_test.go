@@ -20,6 +20,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"sort"
@@ -95,6 +96,9 @@ func xideq(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
 }
 
 func TestCache(t *testing.T) {
+	// XXX hack; place=ok?
+	pretty.CompareConfig.PrintStringers = true
+
 	// XXX <100 <90 <80
 	//	q<110	-> a) 110 <= cache.before   b) otherwise
 	//	q<85	-> a) inside 90.serial..90  b) outside
@@ -112,15 +116,27 @@ func TestCache(t *testing.T) {
 
 	c := NewCache(tstor)
 
-	// XXX hack; place=ok?
-	pretty.CompareConfig.PrintStringers = true
+	checkLoad := func(xid zodb.Xid, data []byte, serial zodb.Tid, err error) {
+		t.Helper()
+		bad := &bytes.Buffer{}
+		d, s, e := c.Load(xid)
+		if !reflect.DeepEqual(data, d) {
+			fmt.Fprintf(bad, "data:\n%s", pretty.Compare(data, d))
+		}
+		if serial != s {
+			fmt.Fprintf(bad, "serial:\n%s", pretty.Compare(serial, s))
+		}
+		if !reflect.DeepEqual(err, e) {
+			fmt.Fprintf(bad, "err:\n%s", pretty.Compare(err, e))
+		}
+
+		if bad.Len() != 0 {
+			t.Fatalf("load(%v):\n%s", xid, bad.Bytes())
+		}
+	}
 
 	// load <3 -> new rce entry
-	// XXX vvv -> checkLoad()
-	data, serial, err := c.Load(xidlt(1,3))
-	ok1(data == nil)
-	ok1(serial == 0)
-	eq(err, &zodb.ErrXidMissing{xidlt(1,3)})
+	checkLoad(xidlt(1,3), nil, 0, &zodb.ErrXidMissing{xidlt(1,3)})
 
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.revv) == 1)
@@ -131,10 +147,7 @@ func TestCache(t *testing.T) {
 	eq(rce1_b3.err, &zodb.ErrXidMissing{xidlt(1,3)})
 
 	// load <4 -> <3 merged with <4
-	data, serial, err = c.Load(xidlt(1,4))
-	ok1(data == nil)
-	ok1(serial == 0)
-	eq(err, &zodb.ErrXidMissing{xidlt(1,4)})
+	checkLoad(xidlt(1,4), nil, 0, &zodb.ErrXidMissing{xidlt(1,4)})
 
 	ok1(len(oce1.revv) == 1)
 	rce1_b4 := oce1.revv[0]
@@ -144,11 +157,7 @@ func TestCache(t *testing.T) {
 	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})
 
 	// load <2 -> <2 merged with <4
-	data, serial, err = c.Load(xidlt(1,2))
-	ok1(data == nil)
-	ok1(serial == 0)
-	fmt.Println(err)
-	eq(err, &zodb.ErrXidMissing{xidlt(1,2)})
+	checkLoad(xidlt(1,2), nil, 0, &zodb.ErrXidMissing{xidlt(1,2)})
 
 	ok1(len(oce1.revv) == 1)
 	ok1(oce1.revv[0] == rce1_b4)
