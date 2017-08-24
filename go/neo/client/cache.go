@@ -101,7 +101,7 @@ type revCacheEntry struct {
 }
 
 func NewCache(loader storLoader) *Cache {
-	return &Cache{loader: loader}
+	return &Cache{loader: loader, entryMap: make(map[zodb.Oid]*oidCacheEntry)}
 }
 
 // newReveEntry creates new revCacheEntry with .before and inserts it into .revv @i

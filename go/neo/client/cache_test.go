@@ -20,6 +20,7 @@
 package client
 
 import (
+	"reflect"
 	"sort"
 	"testing"
 
@@ -116,15 +117,26 @@ func TestCache(t *testing.T) {
 	//	  rcePrev + rce
 	//	  rcePrev + (rce + rceNext)
 
+	ok1 := func(v bool) { t.Helper(); if !v { t.Fatal("!ok") } }
+	eq  := reflect.DeepEqual
+
 	c := NewCache(tstor)
 
-	c.Load(1, <2) -> nil, 0, &zodb.ErrXidMissing
-	oce1 := c.entryMap[1]
-	len(oce1.revv) == 1
-	rce1_2 := oce1.revv[0]
-	rce1_2.before == 2
-	rce1_2.serial == 0
-	rce1_2.err    == zodb.ErrXidMissing
+	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: 2, TidBefore: true}}
+	data, serial, err := c.Load(xid1)	// -> nil, 0, &zodb.ErrXidMissing{1,<2}
+	ok1(data == nil)
+	ok1(serial == 0)
+	ok1(eq(err, &zodb.ErrXidMissing{xid1}))
 
-	c.Load(1, <3) -> nil, 0, zodb.ErrXidMissing
+	oce1 := c.entryMap[1]
+	ok1(len(oce1.revv) == 1)
+	rce1_b2 := oce1.revv[0]
+	ok1(rce1_b2.before == 2)
+	ok1(rce1_b2.serial == 0)
+	ok1(eq(rce1_b2.err, zodb.ErrXidMissing{xid1}))	// XXX must be 1, ?0
+
+	xid1.Tid = 3
+	c.Load(xid1) // -> nil, 0, zodb.ErrXidMissing{1,<3}
+	ok1(len(oce1.revv) == 1)
+	ok1(oce1.revv[0] == rce1_b2)
 }
