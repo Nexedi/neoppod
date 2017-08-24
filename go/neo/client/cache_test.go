@@ -127,7 +127,8 @@ func TestCache(t *testing.T) {
 	ok1(serial == 0)
 	eq(err, &zodb.ErrXidMissing{xid1_3})
 	eq(len(oce1.revv), 1)
-	eq(oce1.revv[0], rce1_b2)
+	rce1_b3 := oce1.revv[0]
+	ok1(rce1_b3 != rce1_b2) // rce1_b2 was merged into rce1_b3
 }
 
 type Checker struct {
