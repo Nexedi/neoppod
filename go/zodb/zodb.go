@@ -155,8 +155,7 @@ type IStorage interface {
 	// TODO specify error when data not found
 	Load(xid Xid) (data []byte, serial Tid, err error)	// XXX -> StorageRecordInformation ?
 
-	// -> Prefetch(xid Xid) ...
-	// PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
+	// Prefetch(xid Xid)	(no error)
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
 	// XXX Restore ?

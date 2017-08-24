@@ -171,6 +171,36 @@ func isErrNoData(err error) bool {
 }
 
 func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+	rce, rceNew := c.lookupRCE(xid)
+
+	// rce is already in cache - use it
+	if !rceNew {
+		<-rce.ready
+		c.gcMu.Lock()
+		rce.inLRU.MoveBefore(&c.lru)
+		c.gcMu.Unlock()
+
+	// rce is not in cache - this goroutine becomes responsible for loading it
+	} else {
+		c.loadRCE(rce, xid)
+	}
+
+	return rce.data, rce.serial, rce.userErr(xid)
+}
+
+func (c *Cache) Prefetch(xid zodb.Xid) {
+	rce, rceNew := c.lookupRCE(xid)
+
+	// spawn prefetch in the background if rce was not yet loaded
+	if rceNew {
+		go c.loadRCE(rce, xid)
+	}
+
+}
+
+// lookupRCE returns revCacheEntry corresponding to xid.
+// rceNew indicates whether RCE is new and loading on it has not been initiated.
+func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
 	c.mu.RLock()
@@ -196,9 +226,6 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 
 	// oce, before -> rce (revCacheEntry)
-	var rce *revCacheEntry
-	var rceNew bool		// whether we created rce anew
-
 	if xid.TidBefore {
 		l := len(oce.rcev)
 		i := sort.Search(l, func(i int) bool {
@@ -245,17 +272,12 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 
 	oce.Unlock()
+	return rce, rceNew
+}
 
-	// entry was already in cache - use it
-	if !rceNew {
-		<-rce.ready
-		c.gcMu.Lock()
-		rce.inLRU.MoveBefore(&c.lru)
-		c.gcMu.Unlock()
-		return rce.data, rce.serial, rce.userErr(xid)
-	}
-
-	// entry was not in cache - this goroutine becomes responsible for loading it
+// loadRCE performs data loading from database to RCE
+func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
+	oce := rce.parent
 	data, serial, err := c.loader.Load(xid)
 
 	// normailize data/serial if it was error
@@ -284,7 +306,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		// rce was already dropped by merge / evicted
 		// (XXX recheck about evicted)
 		oce.Unlock()
-		return rce.data, rce.serial, rce.userErr(xid)
+		return
 	}
 
 	// if rce & rceNext cover the same range -> drop rce
@@ -316,8 +338,6 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		// XXX -> run gc
 	}
 	c.gcMu.Unlock()
-
-	return rce.data, rce.serial, rce.userErr(xid)
 }
 
 // tryMerge tries to merge rce prev into next

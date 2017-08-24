@@ -241,6 +241,20 @@ func TestCache(t *testing.T) {
 	ok1(rce1_b12 != rce1_b10)
 	checkRCE(rce1_b12, 12, 9, world, nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12)
+
+	// simulate case where <14 and <16 were loaded in parallel, both are ready
+	// but <14 takes oce lock first before <16 ans so <12 is not yet merged
+	// with <16 -> <12 and <14 should be merged into <16.
+
+	// (manually add rce1_b16 so it is not merged with <12)
+	rce1_b16 := oce1.newRevEntry(len(oce1.rcev), 16)
+	rce1_b16.serial = 9
+	rce1_b16.data = world
+	close(rce1_b16.ready)	// XXX
+	ok1(rce1_b16.loaded())
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b16)
+
+	// XXX launch load(<14) before <16.ready
 }
 
 type Checker struct {
