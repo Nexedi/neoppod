@@ -40,41 +40,6 @@ type tOidData struct {
 	data   []byte
 }
 
-var tstor = &tStorage{
-	dataMap: map[zodb.Oid][]tOidData{
-		1: {
-			{3, []byte("hello")},
-			{7, []byte("world")},
-		},
-	},
-}
-
-/*
-type tTxnRecord struct {
-	tid	zodb.Tid
-
-	// data records for oid changed in transaction
-	// .oid↑
-	datav []tDataRecord
-}
-
-type tDataRecord struct {
-	oid	zodb.Oid
-	data	[]byte
-}
-
-	if xid.TidBefore {
-		// find max txn with .tid < xid.Tid
-		n := len(s.txnv)
-		i := n - 1 - sort.Search(n, func(i int) bool {
-			return s.txnv[n - 1 - i].tid < xid.Tid
-		})
-		if i == -1 {
-			// XXX xid.Tid < all .tid - no such transaction
-		}
-	}
-*/
-
 func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	tid := xid.Tid
 	if xid.TidBefore {
@@ -104,6 +69,41 @@ func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) 
 	return datav[i].data, datav[i].serial, nil
 }
 
+/*
+type tTxnRecord struct {
+	tid	zodb.Tid
+
+	// data records for oid changed in transaction
+	// .oid↑
+	datav []tDataRecord
+}
+
+type tDataRecord struct {
+	oid	zodb.Oid
+	data	[]byte
+}
+
+	if xid.TidBefore {
+		// find max txn with .tid < xid.Tid
+		n := len(s.txnv)
+		i := n - 1 - sort.Search(n, func(i int) bool {
+			return s.txnv[n - 1 - i].tid < xid.Tid
+		})
+		if i == -1 {
+			// XXX xid.Tid < all .tid - no such transaction
+		}
+	}
+*/
+
+var tstor = &tStorage{
+	dataMap: map[zodb.Oid][]tOidData{
+		1: {
+			{3, []byte("hello")},
+			{7, []byte("world")},
+		},
+	},
+}
+
 func TestCache(t *testing.T) {
 	// XXX <100 <90 <80
 	//	q<110	-> a) 110 <= cache.before   b) otherwise
@@ -115,4 +115,16 @@ func TestCache(t *testing.T) {
 	// merge: rce + rceNext
 	//	  rcePrev + rce
 	//	  rcePrev + (rce + rceNext)
+
+	c := NewCache(tstor)
+
+	c.Load(1, <2) -> nil, 0, &zodb.ErrXidMissing
+	oce1 := c.entryMap[1]
+	len(oce1.revv) == 1
+	rce1_2 := oce1.revv[0]
+	rce1_2.before == 2
+	rce1_2.serial == 0
+	rce1_2.err    == zodb.ErrXidMissing
+
+	c.Load(1, <3) -> nil, 0, zodb.ErrXidMissing
 }

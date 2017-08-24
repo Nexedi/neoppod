@@ -157,6 +157,19 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 
 // XXX maintain nhit / nmiss?
 
+// isErrNoData returns whether an error is due to "there is no such data in
+// database", not e.g. some IO loading error
+func isErrNoData(err error) bool {
+	switch err.(type) {
+	default:
+		return false
+
+	case *zodb.ErrOidMissing:
+	case *zodb.ErrXidMissing:
+	}
+	return true
+}
+
 func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
@@ -239,6 +252,9 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		c.gcMu.Lock()
 		rce.inLRU.MoveBefore(&c.lru)
 		c.gcMu.Unlock()
+
+		// XXX for ErrXidMissing xtid needs to be adjusted to what was queried by user
+
 		return rce.data, rce.serial, rce.err
 	}
 
@@ -277,17 +293,10 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// if rce & rceNext cover the same range -> drop rce
 	if i + 1 < len(oce.revv) {
 		rceNext := oce.revv[i+1]
-		if rceNext.loaded() && rceNext.err == nil && rceNext.serial < rce.before {
-			// drop rce
-			oce.deli(i)
-			δsize -= len(rce.data)
-
-			// verify rce.serial == rceNext.serial
-			if rce.err == nil && rce.serial != rceNext.serial {
-				rce.errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v",
-					rce.before, rce.serial, rceNext.before, rceNext.serial)
-			}
-
+		if rceNext.loaded() && tryMerge(rce, rceNext, rce, xid.Oid) {
+			// not δsize -= len(rce.data)
+			// tryMerge can change rce.data if consistency is broken
+			δsize = 0
 			rce = rceNext
 		}
 	}
@@ -295,16 +304,8 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// if rcePrev & rce cover the same range -> drop rcePrev
 	if i > 0 {
 		rcePrev := oce.revv[i-1]
-		if rcePrev.loaded() && rce.err == nil && rce.serial < rcePrev.before {
-			// drop rcePrev
-			oce.deli(i-1)
+		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, xid.Oid) {
 			δsize -= len(rcePrev.data)
-
-			// verify rce.serial == rcePrev.serial
-			if rcePrev.err == nil && rcePrev.serial != rce.serial {
-				rce.errDB(xid.Oid, "load(<%v) -> %v; load(<%v) -> %v",
-					rcePrev.before, rcePrev.serial, rce.before, rce.serial)
-			}
 		}
 	}
 
@@ -320,6 +321,67 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	c.gcMu.Unlock()
 
 	return rce.data, rce.serial, rce.err
+}
+
+// tryMerge tries to merge rce prev into next
+//
+// both prev and next must be already loaded.
+// prev and next must come adjacent to each other in parent.revv with
+// prev.before < next.before .
+//
+// cur must be one of either prev or next and indicates which rce is current
+// and so may be adjusted with consistency check error.
+//
+// return: true if merging done and thus prev was dropped from parent
+//
+// must be called with .parent locked
+//
+// XXX move oid from args to revCacheEntry?
+func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
+
+	//		  can merge if    consistent if
+	//	                          (if merging)
+	//
+	//	Pok  Nok    Ns < Pb         Ps  = Ns
+	//	Pe   Nok    Ns < Pb         Pe != "nodata"	(e.g. it was IO loading error for P)
+	//	Pok  Ne       ---
+	//	Ne   Pe     (Pe="nodata") = (Ne="nodata")
+	//
+	// b - before
+	// s - serial
+	// e - error
+
+	if next.err == nil && next.serial < prev.before {
+		// drop prev
+		prev.parent.del(prev)
+
+		// check consistency
+		switch {
+		case prev.err == nil && prev.serial != next.serial:
+			cur.errDB(oid, "load(<%v) -> %v; load(<%v) -> %v",
+				prev.before, prev.serial, next.before, next.serial)
+
+		case prev.err != nil && !isErrNoData(prev.err):
+			if cur.err == nil {
+				cur.errDB(oid, "load(<%v) -> %v; load(<%v) -> %v",
+					prev.before, prev.err, next.before, next.serial)
+			}
+		}
+
+		return true
+	}
+
+	if prev.err != nil && isErrNoData(prev.err) == isErrNoData(next.err) {
+		// drop prev
+		prev.parent.del(prev)
+
+		// not checking consistency - error is already there and
+		// (Pe="nodata") = (Ne="nodata") already indicates prev & next are consistent.
+
+		return true
+	}
+
+	return false
 }
 
 /*

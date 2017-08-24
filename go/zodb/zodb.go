@@ -130,6 +130,8 @@ type StorageRecordInformation struct {
 
 
 type IStorage interface {
+	// XXX add invalidation channel
+
 	// StorageName returns storage name
 	StorageName() string
 
