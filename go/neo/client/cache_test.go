@@ -21,6 +21,7 @@ package client
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -42,9 +43,10 @@ type tStorage struct {
 type tOidData struct {
 	serial zodb.Tid
 	data   []byte
+	err    error    // e.g. io error
 }
 
-func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+func (stor *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	fmt.Printf("> load(%v)\n", xid)
 	defer func() { fmt.Printf("< %v, %v, %v\n", data, serial, err) }()
 	tid := xid.Tid
@@ -52,7 +54,7 @@ func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) 
 		tid++		// XXX overflow
 	}
 
-	datav := s.dataMap[xid.Oid]
+	datav := stor.dataMap[xid.Oid]
 	if datav == nil {
 		return nil, 0, &zodb.ErrOidMissing{xid.Oid}
 	}
@@ -75,14 +77,21 @@ func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) 
 		return nil, 0, &zodb.ErrXidMissing{xid}
 	}
 
-	return datav[i].data, datav[i].serial, nil
+	s, e := datav[i].serial, datav[i].err
+	if e != nil {
+		s = 0 // obey protocol of returning 0 with error
+	}
+	return datav[i].data, s, e
 }
+
+var ioerr = errors.New("input/output error")
 
 var tstor = &tStorage{
 	dataMap: map[zodb.Oid][]tOidData{
 		1: {
-			{4, []byte("hello")},
-			{8, []byte("world")},
+			{4, []byte("hello"), nil},
+			{7, nil, ioerr},
+			{12, []byte("world"), nil},
 		},
 	},
 }
@@ -204,6 +213,13 @@ func TestCache(t *testing.T) {
 	ok1(rce1_b7 != rce1_b6)
 	checkRCE(rce1_b7, 7, 4, hello, nil)
 	checkOCE(1, rce1_b4, rce1_b7)
+
+	// load <8 -> ioerr | new rce
+	checkLoad(xidlt(1,8), nil, 0, ioerr)
+	ok1(len(oce1.revv) == 3)
+	rce1_b8 := oce1.revv[2]
+	checkRCE(rce1_b8, 8, 0, nil, ioerr)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8)
 }
 
 type Checker struct {
