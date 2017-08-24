@@ -40,7 +40,7 @@ func (h *listHead) Init() {
 func (h *listHead) Delete() {
 	h.next.prev = h.prev
 	h.prev.next = h.next
-	h.init()
+	h.Init()
 }
 
 // MoveBefore moves a to be before b

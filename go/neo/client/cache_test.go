@@ -20,8 +20,89 @@
 package client
 
 import (
+	"sort"
 	"testing"
+
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
+
+// tStorage implements read-only storage for cache testing
+type tStorage struct {
+	//txnv []tTxnRecord	// transactions;  .tid↑
+
+	// oid -> [](.serial, .data)
+	dataMap map[zodb.Oid][]tOidData	// with .serial↑
+}
+
+// data for oid for 1 revision
+type tOidData struct {
+	serial zodb.Tid
+	data   []byte
+}
+
+var tstor = &tStorage{
+	dataMap: map[zodb.Oid][]tOidData{
+		1: {
+			{3, []byte("hello")},
+			{7, []byte("world")},
+		},
+	},
+}
+
+/*
+type tTxnRecord struct {
+	tid	zodb.Tid
+
+	// data records for oid changed in transaction
+	// .oid↑
+	datav []tDataRecord
+}
+
+type tDataRecord struct {
+	oid	zodb.Oid
+	data	[]byte
+}
+
+	if xid.TidBefore {
+		// find max txn with .tid < xid.Tid
+		n := len(s.txnv)
+		i := n - 1 - sort.Search(n, func(i int) bool {
+			return s.txnv[n - 1 - i].tid < xid.Tid
+		})
+		if i == -1 {
+			// XXX xid.Tid < all .tid - no such transaction
+		}
+	}
+*/
+
+func (s *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+	tid := xid.Tid
+	if xid.TidBefore {
+		tid++		// XXX overflow
+	}
+
+	datav := s.dataMap[xid.Oid]
+	if datav == nil {
+		return nil, 0, &zodb.ErrOidMissing{xid.Oid}
+	}
+
+	// find max entry with .serial < tid
+	n := len(datav)
+	i := n - 1 - sort.Search(n, func(i int) bool {
+		return datav[n - 1 - i].serial < tid
+	})
+	if i == -1 {
+		// tid < all .serial - no such transaction
+		return nil, 0, &zodb.ErrXidMissing{xid}
+	}
+
+	// check we have exact match if it was loadSerial
+	if xid.TidBefore && datav[i].serial != xid.Tid {
+		return nil, 0, &zodb.ErrXidMissing{xid}
+	}
+
+	return datav[i].data, datav[i].serial, nil
+}
 
 func TestCache(t *testing.T) {
 	// XXX <100 <90 <80

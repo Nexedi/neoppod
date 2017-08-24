@@ -21,14 +21,24 @@ package client
 // cache management
 
 import (
+	"fmt"
+	"sort"
 	"sync"
 	"unsafe"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
+// storLoader represents loading part of a storage
+// XXX -> zodb?
+type storLoader interface {
+	Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error)
+}
+
 // Cache adds RAM caching layer over a storage
 type Cache struct {
+	loader storLoader
+
 	mu sync.RWMutex
 
 	// cache is fully synchronized with storage for transactions with tid < before.
@@ -40,7 +50,9 @@ type Cache struct {
 	// garbage collection:
 	gcMu sync.Mutex
 	lru  listHead	// revCacheEntries in LRU order
-	size int64	// cached data size in bytes
+	size int	// cached data size in bytes
+
+	sizeMax int	// cache is allowed to occupy not more than this
 }
 
 // oidCacheEntry maintains cached revisions for 1 oid
@@ -88,22 +100,32 @@ type revCacheEntry struct {
 	ready chan struct{} // closed when loading finished
 }
 
-// XXX doc
-func (oce *oidCacheEntry) newRevEntry(before zodb.Tid) *revCacheEntry {
+func NewCache(loader storLoader) *Cache {
+	return &Cache{loader: loader}
+}
+
+// newReveEntry creates new revCacheEntry with .before and inserts it into .revv @i
+// (if i == len(oce.revv) - entry is appended)
+func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
 		serial: 0,
 		before: before,
-		ready:  make(chan struct{})}
+		ready:  make(chan struct{}),
 	}
-	rce.inLRU.init()
+	rce.inLRU.Init()
+
+	oce.revv = append(oce.revv, nil)
+	copy(oce.revv[i+1:], oce.revv[i:])
+	oce.revv[i] = rce
+
 	return rce
 }
 
 // find finds rce under oce and returns its index in oce.revv.
 // not found -> -1.
 func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
-	for i, r := oce.revv {
+	for i, r := range oce.revv {
 		if r == rce {
 			return i
 		}
@@ -112,7 +134,12 @@ func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 }
 
 func (oce *oidCacheEntry) deli(i int) {
-	oce.revv = append(oce.revv[:i], oce.revv[i+1:])
+	n := len(oce.revv) - 1
+	copy(oce.revv[i:], oce.revv[i+1:])
+	// release ptr to revCacheEntry so it won't confusingly stay live when
+	// its turn to be deleted come.
+	oce.revv[n] = nil
+	oce.revv = oce.revv[:n]
 }
 
 // XXX doc; must be called with oce lock held
@@ -122,7 +149,7 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 		panic("rce not found")
 	}
 
-	rce.revv = append(rce.revv[:i], rce.revv[i+1:])
+	oce.deli(i)
 }
 
 // lock order: Cache.mu   > oidCacheEntry > (?) revCacheEntry
@@ -130,14 +157,13 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 
 // XXX maintain nhit / nmiss?
 
-func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
+func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
 	c.mu.RLock()
 
 	oce := c.entryMap[xid.Oid]
 	cacheBefore := c.before
-	cacheMemUsed := c.memUsed
 
 	if oce != nil {
 		oce.Lock()
@@ -148,7 +174,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 		c.mu.Lock()
 		oce = c.entryMap[xid.Oid]
 		if oce == nil {
-			oce = &cacheEntry{}
+			oce = &oidCacheEntry{}
 			c.entryMap[xid.Oid] = oce
 		}
 		cacheBefore = c.before // reload c.before becuase we relocked the cache
@@ -167,20 +193,19 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 			if before == zodb.TidMax {
 				before = cacheBefore
 			}
-			xid.Tid <= before
+			return xid.Tid <= before
 		})
 
 		switch {
 		// not found - tid > max(revv.before) - insert new max entry
 		case i == l:
-			rce = oce.newRevEntry(xid.Tid)
+			rce = oce.newRevEntry(i, xid.Tid)
 			if rce.before == cacheBefore {
 				// FIXME better do this when the entry becomes loaded ?
 				// XXX vs concurrent invalidations?
 				rce.before = zodb.TidMax
 			}
 			rceNew = true
-			oce.revv = append(oce.revv, rce)	// XXX -> newRevEntry ?
 
 		// found:
 		// tid <= revv[i].before
@@ -197,9 +222,8 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 
 		// otherwise - insert new entry
 		default:
-			rce = oce.newRevEntry(xid.Tid)
+			rce = oce.newRevEntry(i, xid.Tid)
 			rceNew = true
-			oce.revv = append(oce.revv[:i], rce, oce.revv[i:]) // XXX -> newRevEntry ?
 		}
 
 	// XXX serial -> revCacheEntry
@@ -219,7 +243,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	}
 
 	// entry was not in cache - this goroutine becomes responsible for loading it
-	data, serial, err := c.stor.Load(xid)
+	data, serial, err := c.loader.Load(xid)
 
 	// normailize data/serial if it was error
 	if err != nil {
@@ -235,7 +259,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 		rce.errDB(xid.Oid, "load(<%v) -> %v", rce.before, serial)
 	}
 
-	close(ready)
+	close(rce.ready)
 	δsize := len(rce.data)
 
 	// merge rce with adjacent entries in parent
@@ -270,7 +294,7 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 
 	// if rcePrev & rce cover the same range -> drop rcePrev
 	if i > 0 {
-		rcePrev = oce.revv[i-1]
+		rcePrev := oce.revv[i-1]
 		if rcePrev.loaded() && rce.err == nil && rce.serial < rcePrev.before {
 			// drop rcePrev
 			oce.deli(i-1)
@@ -290,14 +314,15 @@ func (c *cache) Load(xid zodb.Xid) (data []byte, tid Tid, err error) {
 	c.gcMu.Lock()
 	rce.inLRU.MoveBefore(&c.lru)
 	c.size += δsize
-	if c.size > c.sizeTarget {
-		-> run gc
+	if c.size > c.sizeMax {
+		// XXX -> run gc
 	}
 	c.gcMu.Unlock()
 
 	return rce.data, rce.serial, rce.err
 }
 
+/*
 func (c *cache) gc(...) {
 	c.lruMu.Lock()
 	revh := c.lru.next
@@ -328,6 +353,7 @@ func (c *cache) cleaner() {
 		}
 	}
 }
+*/
 
 
 // loaded reports whether rce was already loaded
@@ -342,13 +368,15 @@ func (rce *revCacheEntry) loaded() bool {
 
 // revCacheEntry: .inLRU -> .
 func (h *listHead) rceFromInLRU() (rce *revCacheEntry) {
-	return (*revCacheEntry)(unsafe.Pointer(h) - unsafe.OffsetOf(rce.inLRU))
+	urce := unsafe.Pointer(uintptr(unsafe.Pointer(h)) - unsafe.Offsetof(rce.inLRU))
+	return (*revCacheEntry)(urce)
 }
 
 // errDB returns error about database being inconsistent
 func errDB(oid zodb.Oid, format string, argv ...interface{}) error {
 	// XXX -> separate type?
-	return fmt.Errorf("cache: database inconsistency: oid: %v: " + format, oid, ...argv)
+	return fmt.Errorf("cache: database inconsistency: oid: %v: " + format,
+		append([]interface{}{oid}, argv...)...)
 }
 
 // errDB marks rce with database inconsistency error

@@ -151,7 +151,7 @@ type IStorage interface {
 	// TODO data []byte -> something allocated from slab ?
 	// XXX currently deleted data is returned as data=nil	-- is it ok?
 	// TODO specify error when data not found
-	Load(xid Xid) (data []byte, tid Tid, err error)	// XXX -> StorageRecordInformation ?
+	Load(xid Xid) (data []byte, serial Tid, err error)	// XXX -> StorageRecordInformation ?
 
 	// -> Prefetch(xid Xid) ...
 	// PrefetchBefore(oidv []Oid, beforeTid Tid) error (?)
