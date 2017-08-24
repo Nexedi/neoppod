@@ -62,8 +62,8 @@ type oidCacheEntry struct {
 	// cached revisions in ascending order
 	// [i].serial < [i].before <= [i+1].serial < [i+1].before
 	//
-	// XXX ^^^ .serial = 0 while loading is in progress
-	// XXX ^^^ .serial = 0 if err != nil
+	// NOTE ^^^ .serial = 0 while loading is in progress
+	// NOTE ^^^ .serial = 0 if err != nil
 	//
 	// XXX or?
 	// cached revisions in descending order

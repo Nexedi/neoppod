@@ -321,9 +321,9 @@ func TestCache(t *testing.T) {
 	checkLookup(xidlt(1,2), rce1_b4)
 	checkLookup(xidlt(1,1), rce1_b4)
 
-
-	// XXX verify db inconsistency checks
 	// XXX verify LRU eviction
+	// XXX loadSerial
+	// XXX verify db inconsistency checks
 }
 
 type Checker struct {
