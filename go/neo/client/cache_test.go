@@ -243,18 +243,34 @@ func TestCache(t *testing.T) {
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12)
 
 	// simulate case where <14 and <16 were loaded in parallel, both are ready
-	// but <14 takes oce lock first before <16 ans so <12 is not yet merged
+	// but <14 takes oce lock first before <16 and so <12 is not yet merged
 	// with <16 -> <12 and <14 should be merged into <16.
 
 	// (manually add rce1_b16 so it is not merged with <12)
-	rce1_b16 := oce1.newRevEntry(len(oce1.rcev), 16)
+	rce1_b16, new16 := c.lookupRCE(xidlt(1,16))
+	ok1(new16)
 	rce1_b16.serial = 9
 	rce1_b16.data = world
-	close(rce1_b16.ready)	// XXX
-	ok1(rce1_b16.loaded())
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b16)
+	ok1(!rce1_b16.loaded())
 
-	// XXX launch load(<14) before <16.ready
+	// (lookup <14 while <16 is not yet loaded so <16 is not picked
+	//  automatically at lookup phase)
+	rce1_b14, new14 := c.lookupRCE(xidlt(1,14))
+	ok1(new14)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b14, rce1_b16)
+
+	// (now <16 becomes ready but not yet takes oce lock)
+	close(rce1_b16.ready)
+	ok1(rce1_b16.loaded())
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b14, rce1_b16)
+
+	// (<14 also becomes ready and takes oce lock first, merging <12 and <14 into <16)
+	c.loadRCE(rce1_b14, xidlt(1,14))
+	checkRCE(rce1_b14, 14, 9, world, nil)
+	checkRCE(rce1_b16, 16, 9, world, nil)
+	checkRCE(rce1_b12, 12, 9, world, nil)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b16)
 }
 
 type Checker struct {

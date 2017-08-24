@@ -182,6 +182,8 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 
 	// rce is not in cache - this goroutine becomes responsible for loading it
 	} else {
+		// XXX use connection poll
+		// XXX or it should be cared by loader?
 		c.loadRCE(rce, xid)
 	}
 
@@ -191,15 +193,20 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 func (c *Cache) Prefetch(xid zodb.Xid) {
 	rce, rceNew := c.lookupRCE(xid)
 
+	// XXX!rceNew -> adjust LRU?
+
 	// spawn prefetch in the background if rce was not yet loaded
 	if rceNew {
+		// XXX use connection poll
 		go c.loadRCE(rce, xid)
 	}
 
 }
 
 // lookupRCE returns revCacheEntry corresponding to xid.
-// rceNew indicates whether RCE is new and loading on it has not been initiated.
+//
+// rceNew indicates whether rce is new and loading on it has not been initiated.
+// rce should be loaded with loadRCE.
 func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
@@ -275,7 +282,9 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	return rce, rceNew
 }
 
-// loadRCE performs data loading from database to RCE
+// loadRCE performs data loading from database into rce.
+//
+// rce must be new just created by lookupRCE() with returned rceNew=true.
 func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
 	oce := rce.parent
 	data, serial, err := c.loader.Load(xid)
