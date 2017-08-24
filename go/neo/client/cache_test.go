@@ -24,6 +24,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/kylelemons/godebug/pretty"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
@@ -105,6 +106,24 @@ var tstor = &tStorage{
 	},
 }
 
+type Checker struct {
+	t *testing.T
+}
+
+func (c *Checker) ok1(v bool) {
+	c.t.Helper()
+	if !v {
+		c.t.Fatal("!ok")
+	}
+}
+
+func (c *Checker) assertEq(a, b interface{}) {
+	c.t.Helper()
+	if !reflect.DeepEqual(a, b) {
+		c.t.Fatal("!eq:\n", pretty.Compare(a, b))
+	}
+}
+
 func TestCache(t *testing.T) {
 	// XXX <100 <90 <80
 	//	q<110	-> a) 110 <= cache.before   b) otherwise
@@ -117,8 +136,9 @@ func TestCache(t *testing.T) {
 	//	  rcePrev + rce
 	//	  rcePrev + (rce + rceNext)
 
-	ok1 := func(v bool) { t.Helper(); if !v { t.Fatal("!ok") } }
-	eq  := reflect.DeepEqual
+	tc := Checker{t}
+	ok1 := func(v bool) { t.Helper(); tc.ok1(v) }
+	eq  := func(a, b interface{}) { t.Helper(); tc.assertEq(a, b) }
 
 	c := NewCache(tstor)
 
@@ -126,17 +146,21 @@ func TestCache(t *testing.T) {
 	data, serial, err := c.Load(xid1)	// -> nil, 0, &zodb.ErrXidMissing{1,<2}
 	ok1(data == nil)
 	ok1(serial == 0)
-	ok1(eq(err, &zodb.ErrXidMissing{xid1}))
+	eq(err, &zodb.ErrXidMissing{xid1})
 
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.revv) == 1)
 	rce1_b2 := oce1.revv[0]
 	ok1(rce1_b2.before == 2)
 	ok1(rce1_b2.serial == 0)
-	ok1(eq(rce1_b2.err, zodb.ErrXidMissing{xid1}))	// XXX must be 1, ?0
+	eq(rce1_b2.err, &zodb.ErrXidMissing{xid1})	// XXX must be 1, ?0
 
-	xid1.Tid = 3
-	c.Load(xid1) // -> nil, 0, zodb.ErrXidMissing{1,<3}
-	ok1(len(oce1.revv) == 1)
-	ok1(oce1.revv[0] == rce1_b2)
+	xid1_3 := xid1
+	xid1_3.Tid = 3
+	data, serial, err = c.Load(xid1_3) // -> nil, 0, zodb.ErrXidMissing{1,<3}
+	ok1(data == nil)
+	ok1(serial == 0)
+	eq(err, &zodb.ErrXidMissing{xid1_3})
+	eq(len(oce1.revv), 1)
+	eq(oce1.revv[0], rce1_b2)
 }
