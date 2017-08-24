@@ -112,7 +112,7 @@ func TestCache(t *testing.T) {
 
 	tc := Checker{t}
 	ok1 := func(v bool) { t.Helper(); tc.ok1(v) }
-	eq  := func(a, b interface{}) { t.Helper(); tc.assertEq(a, b) }
+	//eq  := func(a, b interface{}) { t.Helper(); tc.assertEq(a, b) }
 
 	c := NewCache(tstor)
 
@@ -135,16 +135,35 @@ func TestCache(t *testing.T) {
 		}
 	}
 
+	checkRCE := func(rce *revCacheEntry, before, serial zodb.Tid, data []byte, err error) {
+		t.Helper()
+		bad := &bytes.Buffer{}
+		if rce.before != before {
+			fmt.Fprintf(bad, "before:\n%s", pretty.Compare(before, rce.before))
+		}
+		if rce.serial != serial {
+			fmt.Fprintf(bad, "serial:\n%s", pretty.Compare(serial, rce.serial))
+		}
+		if !reflect.DeepEqual(rce.data, data) {
+			fmt.Fprintf(bad, "data:\n%s", pretty.Compare(data, rce.data))
+		}
+		if !reflect.DeepEqual(rce.err, err) {
+			fmt.Fprintf(bad, "err:\n%s", pretty.Compare(err, rce.err))
+		}
+
+		if bad.Len() != 0 {
+			t.Fatalf("rce:\n%s", bad.Bytes())	// XXX add oid?
+		}
+	}
+
 	// load <3 -> new rce entry
 	checkLoad(xidlt(1,3), nil, 0, &zodb.ErrXidMissing{xidlt(1,3)})
+	//checkOCE(1, rce1_b3)
 
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.revv) == 1)
-	// XXX vvv -> checkRCE ?
 	rce1_b3 := oce1.revv[0]
-	ok1(rce1_b3.before == 3)
-	ok1(rce1_b3.serial == 0)
-	eq(rce1_b3.err, &zodb.ErrXidMissing{xidlt(1,3)})
+	checkRCE(rce1_b3, 3, 0, nil, &zodb.ErrXidMissing{xidlt(1,3)})
 
 	// load <4 -> <3 merged with <4
 	checkLoad(xidlt(1,4), nil, 0, &zodb.ErrXidMissing{xidlt(1,4)})
@@ -152,18 +171,14 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.revv) == 1)
 	rce1_b4 := oce1.revv[0]
 	ok1(rce1_b4 != rce1_b3) // rce1_b3 was merged into rce1_b4
-	ok1(rce1_b4.before == 4)
-	ok1(rce1_b4.serial == 0)
-	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})
+	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
 
 	// load <2 -> <2 merged with <4
 	checkLoad(xidlt(1,2), nil, 0, &zodb.ErrXidMissing{xidlt(1,2)})
 
 	ok1(len(oce1.revv) == 1)
 	ok1(oce1.revv[0] == rce1_b4)
-	ok1(rce1_b4.before == 4)
-	ok1(rce1_b4.serial == 0)
-	eq(rce1_b4.err, &zodb.ErrXidMissing{xidlt(1,4)})
+	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
 }
 
 type Checker struct {
