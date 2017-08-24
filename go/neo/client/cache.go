@@ -68,7 +68,7 @@ type oidCacheEntry struct {
 	// XXX or?
 	// cached revisions in descending order
 	// .before > .serial >= next.before > next.serial ?
-	revv []*revCacheEntry	// XXX -> rcev ?
+	rcev []*revCacheEntry
 }
 
 // revCacheEntry is information about 1 cached oid revision
@@ -104,8 +104,8 @@ func NewCache(loader storLoader) *Cache {
 	return &Cache{loader: loader, entryMap: make(map[zodb.Oid]*oidCacheEntry)}
 }
 
-// newReveEntry creates new revCacheEntry with .before and inserts it into .revv @i
-// (if i == len(oce.revv) - entry is appended)
+// newReveEntry creates new revCacheEntry with .before and inserts it into .rcev @i
+// (if i == len(oce.rcev) - entry is appended)
 func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
@@ -115,17 +115,17 @@ func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
 	}
 	rce.inLRU.Init()
 
-	oce.revv = append(oce.revv, nil)
-	copy(oce.revv[i+1:], oce.revv[i:])
-	oce.revv[i] = rce
+	oce.rcev = append(oce.rcev, nil)
+	copy(oce.rcev[i+1:], oce.rcev[i:])
+	oce.rcev[i] = rce
 
 	return rce
 }
 
-// find finds rce under oce and returns its index in oce.revv.
+// find finds rce under oce and returns its index in oce.rcev.
 // not found -> -1.
 func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
-	for i, r := range oce.revv {
+	for i, r := range oce.rcev {
 		if r == rce {
 			return i
 		}
@@ -134,12 +134,12 @@ func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 }
 
 func (oce *oidCacheEntry) deli(i int) {
-	n := len(oce.revv) - 1
-	copy(oce.revv[i:], oce.revv[i+1:])
+	n := len(oce.rcev) - 1
+	copy(oce.rcev[i:], oce.rcev[i+1:])
 	// release ptr to revCacheEntry so it won't confusingly stay live when
 	// its turn to be deleted come.
-	oce.revv[n] = nil
-	oce.revv = oce.revv[:n]
+	oce.rcev[n] = nil
+	oce.rcev = oce.rcev[:n]
 }
 
 // XXX doc; must be called with oce lock held
@@ -200,9 +200,9 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	var rceNew bool		// whether we created rce anew
 
 	if xid.TidBefore {
-		l := len(oce.revv)
+		l := len(oce.rcev)
 		i := sort.Search(l, func(i int) bool {
-			before := oce.revv[i].before
+			before := oce.rcev[i].before
 			if before == zodb.TidMax {
 				before = cacheBefore
 			}
@@ -210,7 +210,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		})
 
 		switch {
-		// not found - tid > max(revv.before) - insert new max entry
+		// not found - tid > max(rcev.before) - insert new max entry
 		case i == l:
 			rce = oce.newRevEntry(i, xid.Tid)
 			if rce.before == cacheBefore {
@@ -221,17 +221,17 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 			rceNew = true
 
 		// found:
-		// tid <= revv[i].before
-		// tid >  revv[i-1].before
+		// tid <= rcev[i].before
+		// tid >  rcev[i-1].before
 
 		// exact match - we already have entry for this before
-		case xid.Tid == oce.revv[i].before:
-			rce = oce.revv[i]
+		case xid.Tid == oce.rcev[i].before:
+			rce = oce.rcev[i]
 
 		// non-exact match - same entry if inside (serial, before]
-		// XXX do we need `oce.revv[i].serial != 0` check vvv ?
-		case oce.revv[i].loaded() && oce.revv[i].serial != 0 && oce.revv[i].serial < xid.Tid:
-			rce = oce.revv[i]
+		// XXX do we need `oce.rcev[i].serial != 0` check vvv ?
+		case oce.rcev[i].loaded() && oce.rcev[i].serial != 0 && oce.rcev[i].serial < xid.Tid:
+			rce = oce.rcev[i]
 
 		// otherwise - insert new entry
 		default:
@@ -288,8 +288,8 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 
 	// if rce & rceNext cover the same range -> drop rce
-	if i + 1 < len(oce.revv) {
-		rceNext := oce.revv[i+1]
+	if i + 1 < len(oce.rcev) {
+		rceNext := oce.rcev[i+1]
 		if rceNext.loaded() && tryMerge(rce, rceNext, rce, xid.Oid) {
 			// not δsize -= len(rce.data)
 			// tryMerge can change rce.data if consistency is broken
@@ -300,7 +300,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 
 	// if rcePrev & rce cover the same range -> drop rcePrev
 	if i > 0 {
-		rcePrev := oce.revv[i-1]
+		rcePrev := oce.rcev[i-1]
 		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, xid.Oid) {
 			δsize -= len(rcePrev.data)
 		}
@@ -323,7 +323,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 // tryMerge tries to merge rce prev into next
 //
 // both prev and next must be already loaded.
-// prev and next must come adjacent to each other in parent.revv with
+// prev and next must come adjacent to each other in parent.rcev with
 // prev.before < next.before .
 //
 // cur must be one of either prev or next and indicates which rce is current

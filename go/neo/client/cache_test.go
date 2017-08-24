@@ -115,9 +115,7 @@ func TestCache(t *testing.T) {
 	// XXX cases when .serial=0 (not yet determined - 1st loadBefore is in progress)
 	// XXX for every serial check before = (s-1, s, s+1)
 
-	// merge: rce + rceNext
-	//	  rcePrev + rce
-	//	  rcePrev + (rce + rceNext)
+	// merge: rcePrev + (rce + rceNext) ?
 
 	tc := Checker{t}
 	ok1 := func(v bool) { t.Helper(); tc.ok1(v) }
@@ -171,75 +169,75 @@ func TestCache(t *testing.T) {
 	checkOCE := func(oid zodb.Oid, rcev ...*revCacheEntry) {
 		t.Helper()
 		oce := c.entryMap[oid]
-		if !reflect.DeepEqual(oce.revv, rcev) {
-			t.Fatalf("oce(%v):\n%s", oid, pretty.Compare(rcev, oce.revv))
+		if !reflect.DeepEqual(oce.rcev, rcev) {
+			t.Fatalf("oce(%v):\n%s", oid, pretty.Compare(rcev, oce.rcev))
 		}
 	}
 
 	// load <3 -> new rce entry
 	checkLoad(xidlt(1,3), nil, 0, &zodb.ErrXidMissing{xidlt(1,3)})
 	oce1 := c.entryMap[1]
-	ok1(len(oce1.revv) == 1)
-	rce1_b3 := oce1.revv[0]
+	ok1(len(oce1.rcev) == 1)
+	rce1_b3 := oce1.rcev[0]
 	checkRCE(rce1_b3, 3, 0, nil, &zodb.ErrXidMissing{xidlt(1,3)})
 
 	// load <4 -> <3 merged with <4
 	checkLoad(xidlt(1,4), nil, 0, &zodb.ErrXidMissing{xidlt(1,4)})
-	ok1(len(oce1.revv) == 1)
-	rce1_b4 := oce1.revv[0]
+	ok1(len(oce1.rcev) == 1)
+	rce1_b4 := oce1.rcev[0]
 	ok1(rce1_b4 != rce1_b3) // rce1_b3 was merged into rce1_b4
 	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
 
 	// load <2 -> <2 merged with <4
 	checkLoad(xidlt(1,2), nil, 0, &zodb.ErrXidMissing{xidlt(1,2)})
-	ok1(len(oce1.revv) == 1)
-	ok1(oce1.revv[0] == rce1_b4)
+	ok1(len(oce1.rcev) == 1)
+	ok1(oce1.rcev[0] == rce1_b4)
 	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
 
 	// load <6 -> new rce entry with data
 	checkLoad(xidlt(1,6), hello, 4, nil)
-	ok1(len(oce1.revv) == 2)
-	rce1_b6 := oce1.revv[1]
+	ok1(len(oce1.rcev) == 2)
+	rce1_b6 := oce1.rcev[1]
 	checkRCE(rce1_b6, 6, 4, hello, nil)
 	checkOCE(1, rce1_b4, rce1_b6)
 
-	// load <5 -> merged with <6
+	// load <5 -> <5 merged with <6
 	checkLoad(xidlt(1,5), hello, 4, nil)
 	checkOCE(1, rce1_b4, rce1_b6)
 
-	// load <7 -> <6 merged -> <7
+	// load <7 -> <6 merged with <7
 	checkLoad(xidlt(1,7), hello, 4, nil)
-	ok1(len(oce1.revv) == 2)
-	rce1_b7 := oce1.revv[1]
+	ok1(len(oce1.rcev) == 2)
+	rce1_b7 := oce1.rcev[1]
 	ok1(rce1_b7 != rce1_b6)
 	checkRCE(rce1_b7, 7, 4, hello, nil)
 	checkOCE(1, rce1_b4, rce1_b7)
 
 	// load <8 -> ioerr + new rce
 	checkLoad(xidlt(1,8), nil, 0, ioerr)
-	ok1(len(oce1.revv) == 3)
-	rce1_b8 := oce1.revv[2]
+	ok1(len(oce1.rcev) == 3)
+	rce1_b8 := oce1.rcev[2]
 	checkRCE(rce1_b8, 8, 0, nil, ioerr)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8)
 
 	// load <9 -> ioerr + new rce (IO errors are not merged)
 	checkLoad(xidlt(1,9), nil, 0, ioerr)
-	ok1(len(oce1.revv) == 4)
-	rce1_b9 := oce1.revv[3]
+	ok1(len(oce1.rcev) == 4)
+	rce1_b9 := oce1.rcev[3]
 	checkRCE(rce1_b9, 9, 0, nil, ioerr)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9)
 
 	// load <10 -> new data rce, not merged with ioerr @<9
 	checkLoad(xidlt(1,10), world, 9, nil)
-	ok1(len(oce1.revv) == 5)
-	rce1_b10 := oce1.revv[4]
+	ok1(len(oce1.rcev) == 5)
+	rce1_b10 := oce1.rcev[4]
 	checkRCE(rce1_b10, 10, 9, world, nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10)
 
-	// load <12 -> <10 merged -> <12
+	// load <12 -> <10 merged with <12
 	checkLoad(xidlt(1,12), world, 9, nil)
-	ok1(len(oce1.revv) == 5)
-	rce1_b12 := oce1.revv[4]
+	ok1(len(oce1.rcev) == 5)
+	rce1_b12 := oce1.rcev[4]
 	ok1(rce1_b12 != rce1_b10)
 	checkRCE(rce1_b12, 12, 9, world, nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12)
