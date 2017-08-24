@@ -68,7 +68,7 @@ type oidCacheEntry struct {
 	// XXX or?
 	// cached revisions in descending order
 	// .before > .serial >= next.before > next.serial ?
-	revv []*revCacheEntry
+	revv []*revCacheEntry	// XXX -> rcev ?
 }
 
 // revCacheEntry is information about 1 cached oid revision
