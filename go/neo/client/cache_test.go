@@ -51,7 +51,7 @@ func (stor *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err erro
 	//defer func() { fmt.Printf("< %v, %v, %v\n", data, serial, err) }()
 	tid := xid.Tid
 	if !xid.TidBefore {
-		tid++		// XXX overflow
+		tid++		// XXX overflow?
 	}
 
 	datav := stor.dataMap[xid.Oid]
@@ -91,7 +91,7 @@ var tstor = &tStorage{
 		1: {
 			{4, []byte("hello"), nil},
 			{7, nil, ioerr},
-			{9, []byte("world"), nil},
+			{10, []byte("world"), nil},
 		},
 	},
 }
@@ -174,6 +174,9 @@ func TestCache(t *testing.T) {
 		}
 	}
 
+	// ---- verify cache behaviour for must be loaded/merged entries ----
+	// (this excercises mostly loadRCE/tryMerge)
+
 	// load <3 -> new rce entry
 	checkLoad(xidlt(1,3), nil, 0, &zodb.ErrXidMissing{xidlt(1,3)})
 	oce1 := c.entryMap[1]
@@ -220,27 +223,27 @@ func TestCache(t *testing.T) {
 	checkRCE(rce1_b8, 8, 0, nil, ioerr)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8)
 
-	// load <9 -> ioerr + new rce (IO errors are not merged)
-	checkLoad(xidlt(1,9), nil, 0, ioerr)
+	// load <10 -> ioerr + new rce (IO errors are not merged)
+	checkLoad(xidlt(1,10), nil, 0, ioerr)
 	ok1(len(oce1.rcev) == 4)
-	rce1_b9 := oce1.rcev[3]
-	checkRCE(rce1_b9, 9, 0, nil, ioerr)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9)
+	rce1_b10 := oce1.rcev[3]
+	checkRCE(rce1_b10, 10, 0, nil, ioerr)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10)
 
-	// load <10 -> new data rce, not merged with ioerr @<9
-	checkLoad(xidlt(1,10), world, 9, nil)
+	// load <11 -> new data rce, not merged with ioerr @<10
+	checkLoad(xidlt(1,11), world, 10, nil)
 	ok1(len(oce1.rcev) == 5)
-	rce1_b10 := oce1.rcev[4]
-	checkRCE(rce1_b10, 10, 9, world, nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10)
+	rce1_b11 := oce1.rcev[4]
+	checkRCE(rce1_b11, 11, 10, world, nil)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b11)
 
-	// load <12 -> <10 merged with <12
-	checkLoad(xidlt(1,12), world, 9, nil)
+	// load <12 -> <11 merged with <12
+	checkLoad(xidlt(1,12), world, 10, nil)
 	ok1(len(oce1.rcev) == 5)
 	rce1_b12 := oce1.rcev[4]
-	ok1(rce1_b12 != rce1_b10)
-	checkRCE(rce1_b12, 12, 9, world, nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12)
+	ok1(rce1_b12 != rce1_b11)
+	checkRCE(rce1_b12, 12, 10, world, nil)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12)
 
 	// simulate case where <14 and <16 were loaded in parallel, both are ready
 	// but <14 takes oce lock first before <16 and so <12 is not yet merged
@@ -249,28 +252,78 @@ func TestCache(t *testing.T) {
 	// (manually add rce1_b16 so it is not merged with <12)
 	rce1_b16, new16 := c.lookupRCE(xidlt(1,16))
 	ok1(new16)
-	rce1_b16.serial = 9
+	rce1_b16.serial = 10
 	rce1_b16.data = world
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b16)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b16)
 	ok1(!rce1_b16.loaded())
 
 	// (lookup <14 while <16 is not yet loaded so <16 is not picked
 	//  automatically at lookup phase)
 	rce1_b14, new14 := c.lookupRCE(xidlt(1,14))
 	ok1(new14)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b14, rce1_b16)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b14, rce1_b16)
 
 	// (now <16 becomes ready but not yet takes oce lock)
 	close(rce1_b16.ready)
 	ok1(rce1_b16.loaded())
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b12, rce1_b14, rce1_b16)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b14, rce1_b16)
 
 	// (<14 also becomes ready and takes oce lock first, merging <12 and <14 into <16)
 	c.loadRCE(rce1_b14, xidlt(1,14))
-	checkRCE(rce1_b14, 14, 9, world, nil)
-	checkRCE(rce1_b16, 16, 9, world, nil)
-	checkRCE(rce1_b12, 12, 9, world, nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b16)
+	checkRCE(rce1_b14, 14, 10, world, nil)
+	checkRCE(rce1_b16, 16, 10, world, nil)
+	checkRCE(rce1_b12, 12, 10, world, nil)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16)
+
+
+	// ---- verify rce lookup for must be cached entries ----
+	// (this excersizes lookupRCE)
+
+	checkLookup := func(xid zodb.Xid, expect *revCacheEntry) {
+		t.Helper()
+		bad := &bytes.Buffer{}
+		rce, rceNew := c.lookupRCE(xid)
+		if rceNew {
+			fmt.Fprintf(bad, "rce must be already in cache\n")
+		}
+		if rce != expect {
+			fmt.Fprintf(bad, "unexpected rce found:\n%s\n", pretty.Compare(expect, rce))
+		}
+
+		if bad.Len() != 0{
+			t.Fatalf("lookupRCE(%v):\n%s", xid, bad.Bytes())
+		}
+	}
+
+	checkLookup(xidlt(1,16), rce1_b16)
+	checkLookup(xidlt(1,15), rce1_b16)
+	checkLookup(xidlt(1,12), rce1_b16)
+	checkLookup(xidlt(1,11), rce1_b16)
+	checkLookup(xidlt(1,10), rce1_b10)
+
+	// <9 must be separate from <8 and <10 because it is IO error there
+	rce1_b9, new9 := c.lookupRCE(xidlt(1,9))
+	ok1(new9)
+	c.loadRCE(rce1_b9, xidlt(1,9))
+	checkRCE(rce1_b9, 9, 0, nil, ioerr)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16)
+
+	checkLookup(xidlt(1,8), rce1_b8)
+
+	// have data exact and inexact hits
+	checkLookup(xidlt(1,7), rce1_b7)
+	checkLookup(xidlt(1,6), rce1_b7)
+	checkLookup(xidlt(1,5), rce1_b7)
+
+	// nodata exact and inexact hits
+	checkLookup(xidlt(1,4), rce1_b4)
+	checkLookup(xidlt(1,3), rce1_b4)
+	checkLookup(xidlt(1,2), rce1_b4)
+	checkLookup(xidlt(1,1), rce1_b4)
+
+
+	// XXX verify db inconsistency checks
+	// XXX verify LRU eviction
 }
 
 type Checker struct {

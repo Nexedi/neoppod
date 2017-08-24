@@ -262,9 +262,12 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 		case xid.Tid == oce.rcev[i].before:
 			rce = oce.rcev[i]
 
-		// non-exact match - same entry if inside (serial, before]
-		// XXX do we need `oce.rcev[i].serial != 0` check vvv ?
-		case oce.rcev[i].loaded() && oce.rcev[i].serial != 0 && oce.rcev[i].serial < xid.Tid:
+		// non-exact match:
+		// - same entry if q(before) ∈ (serial, before]
+		// - we can also reuse this entry if q(before) < before and err="nodata"
+		case oce.rcev[i].loaded() && (
+			(oce.rcev[i].err == nil && oce.rcev[i].serial < xid.Tid) ||
+			(isErrNoData(oce.rcev[i].err) && xid.Tid < oce.rcev[i].before)):
 			rce = oce.rcev[i]
 
 		// otherwise - insert new entry
