@@ -45,7 +45,7 @@ type Cache struct {
 	// XXX clarify ^^^ (it means if revCacheEntry.before=∞ it is Cache.before)
 	before	zodb.Tid
 
-	entryMap map[zodb.Oid]*oidCacheEntry	// oid -> cache entries for this oid
+	entryMap map[zodb.Oid]*oidCacheEntry	// oid -> oid's cache entries
 
 	// garbage collection:
 	gcMu sync.Mutex
@@ -63,7 +63,7 @@ type oidCacheEntry struct {
 	// [i].serial < [i].before <= [i+1].serial < [i+1].before
 	//
 	// NOTE ^^^ .serial = 0 while loading is in progress
-	// NOTE ^^^ .serial = 0 if err != nil
+	// NOTE ^^^ .serial = 0 if .err != nil
 	//
 	// XXX or?
 	// cached revisions in descending order
@@ -78,14 +78,14 @@ type revCacheEntry struct {
 
 	// we know that loadBefore(oid, .before) will give this .serial:oid.
 	//
-	// this is only what we currently know - not neccessarily covering
+	// this is only what we currently know - not necessarily covering
 	// whole correct range - e.g. if oid revisions in db are 1 and 5 if we
 	// query db with loadBefore(3) on return we'll get serial=1 and
 	// remember .before as 3. But for loadBefore(4) we have to redo
 	// database query again.
 	//
 	// if .before=∞ here, that actually means before is cache.before
-	// ( this way we do not need to bump before to next tid in many
+	// ( this way we do not need to bump .before to next tid in many
 	//   unchanged cache entries when a transaction invalidation comes )
 	//
 	// .before can be > cache.before and still finite - that represents a
@@ -100,11 +100,13 @@ type revCacheEntry struct {
 	ready chan struct{} // closed when loading finished
 }
 
+// NewCache creates new cache backed up by loader
+// XXX +sizeMax
 func NewCache(loader storLoader) *Cache {
 	return &Cache{loader: loader, entryMap: make(map[zodb.Oid]*oidCacheEntry)}
 }
 
-// newReveEntry creates new revCacheEntry with .before and inserts it into .rcev @i
+// newRevEntry creates new revCacheEntry with .before and inserts it into .rcev @i.
 // (if i == len(oce.rcev) - entry is appended)
 func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
 	rce := &revCacheEntry{
@@ -122,7 +124,7 @@ func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
 	return rce
 }
 
-// find finds rce under oce and returns its index in oce.rcev.
+// find finds rce in .rcev and returns its index
 // not found -> -1.
 func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 	for i, r := range oce.rcev {
@@ -133,6 +135,7 @@ func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 	return -1
 }
 
+// deli deletes .rcev[i]
 func (oce *oidCacheEntry) deli(i int) {
 	n := len(oce.rcev) - 1
 	copy(oce.rcev[i:], oce.rcev[i+1:])
@@ -142,7 +145,8 @@ func (oce *oidCacheEntry) deli(i int) {
 	oce.rcev = oce.rcev[:n]
 }
 
-// XXX doc; must be called with oce lock held
+// del delets rce from .rcev.
+// it panics if rce is not there.
 func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 	i := oce.find(rce)
 	if i == -1 {
@@ -170,6 +174,9 @@ func isErrNoData(err error) bool {
 	return true
 }
 
+// Load loads data from database via cache.
+//
+// If data is already in cache cached content is returned.
 func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid)
 
@@ -190,6 +197,11 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	return rce.data, rce.serial, rce.userErr(xid)
 }
 
+// Prefetch arranges for data to be eventually present in cache.
+//
+// If data is not yet in cache loading for it is started in the background.
+// Prefetch is not blocking operation and does not wait for loading, if any was
+// started, to complete.
 func (c *Cache) Prefetch(xid zodb.Xid) {
 	rce, rceNew := c.lookupRCE(xid)
 
@@ -205,8 +217,8 @@ func (c *Cache) Prefetch(xid zodb.Xid) {
 
 // lookupRCE returns revCacheEntry corresponding to xid.
 //
-// rceNew indicates whether rce is new and loading on it has not been initiated.
-// rce should be loaded with loadRCE.
+// rceNew indicates whether rce is new and so loading on it has not been
+// initiated yet. rce should be loaded with loadRCE.
 func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
@@ -227,7 +239,7 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 			oce = &oidCacheEntry{}
 			c.entryMap[xid.Oid] = oce
 		}
-		cacheBefore = c.before // reload c.before becuase we relocked the cache
+		cacheBefore = c.before // reload c.before because we relocked the cache
 		oce.Lock()
 		c.mu.Unlock()
 	}
@@ -292,7 +304,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
 	oce := rce.parent
 	data, serial, err := c.loader.Load(xid)
 
-	// normailize data/serial if it was error
+	// normalize data/serial if it was error
 	if err != nil {
 		data = nil
 		serial = 0
@@ -461,7 +473,7 @@ func (rce *revCacheEntry) loaded() bool {
 
 // userErr returns error that, if any, needs to be returned to user from Cache.Load
 //
-// ( ErrXidMissing containts xid for which it is missing. In cache we keep such
+// ( ErrXidMissing contains xid for which it is missing. In cache we keep such
 //   xid with max .before but users need to get ErrXidMissing with their own query )
 func (rce *revCacheEntry) userErr(xid zodb.Xid) error {
 	switch e := rce.err.(type) {

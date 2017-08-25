@@ -324,6 +324,7 @@ func TestCache(t *testing.T) {
 	// XXX verify LRU eviction
 	// XXX loadSerial
 	// XXX verify db inconsistency checks
+	// XXX verify loading with before > cache.before
 }
 
 type Checker struct {
