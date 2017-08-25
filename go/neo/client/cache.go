@@ -26,6 +26,7 @@ import (
 	"sync"
 	"unsafe"
 
+//	"github.com/kylelemons/godebug/pretty"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
@@ -103,7 +104,12 @@ type revCacheEntry struct {
 // NewCache creates new cache backed up by loader
 // XXX +sizeMax
 func NewCache(loader storLoader) *Cache {
-	return &Cache{loader: loader, entryMap: make(map[zodb.Oid]*oidCacheEntry)}
+	c := &Cache{
+		loader: loader,
+		entryMap: make(map[zodb.Oid]*oidCacheEntry),
+	}
+	c.lru.Init()
+	return c
 }
 
 // newRevEntry creates new revCacheEntry with .before and inserts it into .rcev @i.
@@ -182,6 +188,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 
 	// rce is already in cache - use it
 	if !rceNew {
+		//panic(0)
 		<-rce.ready
 		c.gcMu.Lock()
 		rce.inLRU.MoveBefore(&c.lru)
@@ -375,7 +382,14 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 
 	// update lru & cache size
 	c.gcMu.Lock()
+	//xv1 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
+	//fmt.Printf("aaa:\n%s\n", pretty.Sprint(xv1))
 	rce.inLRU.MoveBefore(&c.lru)
+	//xv2 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
+	//fmt.Printf("\n--------\n%s\n\n\n", pretty.Sprint(xv2))
+
+	//panic(1)
+
 	c.size += δsize
 	if c.size > c.sizeMax {
 		// XXX -> run gc

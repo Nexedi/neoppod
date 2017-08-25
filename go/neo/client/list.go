@@ -49,7 +49,7 @@ func (a *listHead) MoveBefore(b *listHead) {
 	a.Delete()
 
 	a.next = b
-	b.prev = a
 	a.prev = b.prev
+	b.prev = a
 	a.prev.next = a
 }

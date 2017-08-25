@@ -108,6 +108,8 @@ func xideq(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
 func TestCache(t *testing.T) {
 	// XXX hack; place=ok?
 	pretty.CompareConfig.PrintStringers = true
+	debug := pretty.DefaultConfig
+	debug.IncludeUnexported = true
 
 	// XXX <100 <90 <80
 	//	q<110	-> a) 110 <= cache.before   b) otherwise
@@ -172,12 +174,31 @@ func TestCache(t *testing.T) {
 		t.Helper()
 		oce := c.entryMap[oid]
 		if !reflect.DeepEqual(oce.rcev, rcev) {
-			t.Fatalf("oce(%v):\n%s", oid, pretty.Compare(rcev, oce.rcev))
+			t.Fatalf("oce(%v):\n%s\n", oid, pretty.Compare(rcev, oce.rcev))
+		}
+	}
+
+	checkMRU := func(mruvOk ...*revCacheEntry) {
+		t.Helper()
+		var mruv []*revCacheEntry
+		for hp, h := &c.lru, c.lru.prev; h != &c.lru; hp, h = h, h.prev {
+			xv := []interface{}{&c.lru, h.rceFromInLRU()}
+			debug.Print(xv)	// &c.lru, h.rceFromInLRU())
+			if h.next != hp {
+				t.Fatalf("LRU list .next/.prev broken for\nh:\n%s\n\nhp:\n%s\n",
+					debug.Sprint(h), debug.Sprint(hp))
+			}
+			mruv = append(mruv, h.rceFromInLRU())
+		}
+		if !reflect.DeepEqual(mruv, mruvOk) {
+			t.Fatalf("MRU:\n%s\n", pretty.Compare(mruv, mruvOk))
 		}
 	}
 
 	// ---- verify cache behaviour for must be loaded/merged entries ----
 	// (this excercises mostly loadRCE/tryMerge)
+
+	checkMRU()
 
 	// load <3 -> new rce entry
 	checkLoad(xidlt(1,3), nil, 0, &zodb.ErrXidMissing{xidlt(1,3)})
@@ -185,6 +206,7 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 1)
 	rce1_b3 := oce1.rcev[0]
 	checkRCE(rce1_b3, 3, 0, nil, &zodb.ErrXidMissing{xidlt(1,3)})
+	checkMRU(rce1_b3)
 
 	// load <4 -> <3 merged with <4
 	checkLoad(xidlt(1,4), nil, 0, &zodb.ErrXidMissing{xidlt(1,4)})
@@ -192,6 +214,7 @@ func TestCache(t *testing.T) {
 	rce1_b4 := oce1.rcev[0]
 	ok1(rce1_b4 != rce1_b3) // rce1_b3 was merged into rce1_b4
 	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
+	checkMRU(rce1_b4)
 
 	// load <2 -> <2 merged with <4
 	checkLoad(xidlt(1,2), nil, 0, &zodb.ErrXidMissing{xidlt(1,2)})
