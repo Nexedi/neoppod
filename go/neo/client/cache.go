@@ -126,7 +126,6 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 
 	// rce is already in cache - use it
 	if !rceNew {
-		//panic(0)
 		<-rce.ready
 		c.gcMu.Lock()
 		rce.inLRU.MoveBefore(&c.lru)
@@ -161,7 +160,8 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 func (c *Cache) Prefetch(xid zodb.Xid) {
 	rce, rceNew := c.lookupRCE(xid)
 
-	// XXX!rceNew -> adjust LRU?
+	// !rceNew -> no need to adjust LRU - it will be adjusted by further actual data Load
+	// XXX or it is better to adjust LRU here too?
 
 	// spawn loading in the background if rce was not yet loaded
 	if rceNew {
