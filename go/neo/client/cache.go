@@ -484,9 +484,9 @@ func (c *Cache) gcmain() {
 func (c *Cache) gc() {
 	traceCacheGCStart(c)
 	defer traceCacheGCFinish(c)
+	//fmt.Printf("\n> gc\n")
+	//defer fmt.Printf("< gc\n")
 
-	fmt.Printf("\n> gc\n")
-	defer fmt.Printf("< gc\n")
 	for {
 		c.gcMu.Lock()
 		if c.size <= c.sizeMax {
@@ -508,7 +508,7 @@ func (c *Cache) gc() {
 		if i != -1 {	// rce could be already deleted by e.g. merge
 			oce.deli(i)
 			c.size -= len(rce.data)
-			fmt.Printf("gc: free %d bytes\n", len(rce.data))
+			//fmt.Printf("gc: free %d bytes\n", len(rce.data))
 		}
 		oce.Unlock()
 

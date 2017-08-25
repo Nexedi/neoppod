@@ -122,24 +122,11 @@ func TestCache(t *testing.T) {
 	ok1 := func(v bool) { t.Helper(); __.ok1(v) }
 	//eq  := func(a, b interface{}) { t.Helper(); __.assertEq(a, b) }
 
-	// attach to Cache GC tracepoints
-	tracer := &tTracer{xtesting.NewSyncTracer()}
-	pg := &tracing.ProbeGroup{}
-	defer pg.Done()
-
-	tracing.Lock()
-	traceCacheGCStart_Attach(pg, tracer.traceCacheGCStart)
-	traceCacheGCFinish_Attach(pg, tracer.traceCacheGCFinish)
-	tracing.Unlock()
-
-	// trace-checker for the events
-	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
-
-
 	hello := []byte("hello")
 	world := []byte("world!!")
 	zz    := []byte("zz")
 	www   := []byte("www")
+	big   := []byte("0123456789")
 
 	tstor := &tStorage{
 		dataMap: map[zodb.Oid][]tOidData{
@@ -149,6 +136,7 @@ func TestCache(t *testing.T) {
 				{10, world, nil},
 				{16, zz, nil},
 				{20, www, nil},
+				{77, big, nil},
 			},
 		},
 	}
@@ -198,8 +186,12 @@ func TestCache(t *testing.T) {
 	checkOCE := func(oid zodb.Oid, rcev ...*revCacheEntry) {
 		t.Helper()
 		oce := c.entryMap[oid]
-		if !reflect.DeepEqual(oce.rcev, rcev) {
-			t.Fatalf("oce(%v):\n%s\n", oid, pretty.Compare(rcev, oce.rcev))
+		oceRcev := oce.rcev
+		if len(oceRcev) == 0 {
+			oceRcev = nil // nil != []{}
+		}
+		if !reflect.DeepEqual(oceRcev, rcev) {
+			t.Fatalf("oce(%v):\n%s\n", oid, pretty.Compare(rcev, oceRcev))
 		}
 	}
 
@@ -483,10 +475,79 @@ func TestCache(t *testing.T) {
 
 	// ---- verify LRU eviction ----
 
-	gcstart  := &evCacheGCStart{c}
-	//gcfinish := &evCacheGCFinish{c}
+	// (attach to Cache GC tracepoints)
+	tracer := &tTracer{xtesting.NewSyncTracer()}
+	pg := &tracing.ProbeGroup{}
+	defer pg.Done()
 
-	tc.Expect(gcstart)
+	tracing.Lock()
+	traceCacheGCStart_Attach(pg, tracer.traceCacheGCStart)
+	traceCacheGCFinish_Attach(pg, tracer.traceCacheGCFinish)
+	tracing.Unlock()
+
+	// trace-checker for the events
+	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
+
+
+	gcstart  := &evCacheGCStart{c}
+	gcfinish := &evCacheGCFinish{c}
+
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16, rce1_b20, rce1_b22)
+	checkMRU(17, rce1_b16, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b10, rce1_b8, rce1_b4)
+
+	go c.SetSizeMax(16) // < c.size by 1 -> should trigger gc
+	tc.Expect(gcstart, gcfinish)
+
+	// evicted:
+	// - <4  (lru.1, nodata, size=0)	XXX ok to evict nodata & friends?
+	// - <8  (lru.2, ioerr, size=0)
+	// - <10 (lru.3, ioerr, size=0)
+	// - <20 (lru.4, zz, size=2)
+	checkOCE(1,  rce1_b7, rce1_b9, rce1_b16, rce1_b22)
+	checkMRU(15, rce1_b16, rce1_b7, rce1_b9, rce1_b22)
+
+	// reload <20 -> <22 should be evicted
+	go c.Load(xidlt(1,20))
+	tc.Expect(gcstart, gcfinish)
+
+	// - evicted <22 (lru.1, www, size=3)
+	// - loaded  <20 (zz, size=2)
+	ok1(len(oce1.rcev) == 4)
+	rce1_b20_2 := oce1.rcev[3]
+	ok1(rce1_b20_2 != rce1_b20)
+	checkRCE(rce1_b20_2, 20, 16, zz, nil)
+	checkOCE(1,  rce1_b7, rce1_b9, rce1_b16, rce1_b20_2)
+	checkMRU(14, rce1_b20_2, rce1_b16, rce1_b7, rce1_b9)
+
+	// load big <78 -> several rce must be evicted
+	go c.Load(xidlt(1,78))
+	tc.Expect(gcstart, gcfinish)
+
+	// - evicted  <9 (lru.1, ioerr, size=0)
+	// - evicted  <7 (lru.2, hello, size=5)
+	// - evicted <16 (lru.3, world, size=7)
+	// - loaded  <78 (big, size=10)
+	ok1(len(oce1.rcev) == 2)
+	rce1_b78 := oce1.rcev[1]
+	checkRCE(rce1_b78, 78, 77, big, nil)
+	checkOCE(1,  rce1_b20_2, rce1_b78)
+	checkMRU(12, rce1_b78, rce1_b20_2)
+
+	// sizeMax=0 evicts everything from cache
+	go c.SetSizeMax(0)
+	tc.Expect(gcstart, gcfinish)
+	checkOCE(1)
+	checkMRU(0)
+
+	// and still loading works (because even if though rce's are evicted
+	// they stay live while someone user waits and uses it)
+
+	checkLoad(xidlt(1,5), hello, 4, nil)
+	tc.Expect(gcstart, gcfinish)
+	checkOCE(1)
+	checkMRU(0)
+
+
 
 	// XXX verify db inconsistency checks
 	// XXX verify loading with before > cache.before
