@@ -299,7 +299,14 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	}
 
 	// if rce & rceNext cover the same range -> drop rce
-	// (if we drop rce - no need to update c.lru as new rce is not on that list)
+	//
+	// if we drop rce - do not update c.lru as:
+	// 1. new rce is not on lru list,
+	// 2. rceNext (which becomes rce) might not be there on lru list.
+	//
+	// if rceNext is not yet there on lru list its loadRCE is in progress
+	// and will update lru and cache size for it itself.
+	rceDropped := false
 	if i + 1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
 		if rceNext.loaded() && tryMerge(rce, rceNext, rce, oid) {
@@ -307,6 +314,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 			// tryMerge can change rce.data if consistency is broken
 			δsize = 0
 			rce = rceNext
+			rceDropped = true
 		}
 	}
 
@@ -317,6 +325,8 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 		rcePrev := oce.rcev[i-1]
 		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, oid) {
 			rcePrevDropped = rcePrev
+			// XXX not always right - e.g. if rcePrev did not yet took oce lock
+			// XXX ^^^ test for this
 			δsize -= len(rcePrev.data)
 		}
 	}
@@ -330,7 +340,9 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	if rcePrevDropped != nil {
 		rcePrevDropped.inLRU.Delete()
 	}
-	rce.inLRU.MoveBefore(&c.lru)
+	if !rceDropped {
+		rce.inLRU.MoveBefore(&c.lru)
+	}
 	//xv2 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
 	//fmt.Printf("\n--------\n%s\n\n\n", pretty.Sprint(xv2))
 
