@@ -101,6 +101,12 @@ type revCacheEntry struct {
 	ready chan struct{} // closed when loading finished
 }
 
+// lock order: Cache.mu   > oidCacheEntry > (?) revCacheEntry
+//             Cache.gcMu > ?
+
+// XXX maintain nhit / nmiss?
+
+
 // NewCache creates new cache backed up by loader
 // XXX +sizeMax
 func NewCache(loader storLoader) *Cache {
@@ -110,74 +116,6 @@ func NewCache(loader storLoader) *Cache {
 	}
 	c.lru.Init()
 	return c
-}
-
-// newRevEntry creates new revCacheEntry with .before and inserts it into .rcev @i.
-// (if i == len(oce.rcev) - entry is appended)
-func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
-	rce := &revCacheEntry{
-		parent: oce,
-		serial: 0,
-		before: before,
-		ready:  make(chan struct{}),
-	}
-	rce.inLRU.Init()
-
-	oce.rcev = append(oce.rcev, nil)
-	copy(oce.rcev[i+1:], oce.rcev[i:])
-	oce.rcev[i] = rce
-
-	return rce
-}
-
-// find finds rce in .rcev and returns its index
-// not found -> -1.
-func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
-	for i, r := range oce.rcev {
-		if r == rce {
-			return i
-		}
-	}
-	return -1
-}
-
-// deli deletes .rcev[i]
-func (oce *oidCacheEntry) deli(i int) {
-	n := len(oce.rcev) - 1
-	copy(oce.rcev[i:], oce.rcev[i+1:])
-	// release ptr to revCacheEntry so it won't confusingly stay live when
-	// its turn to be deleted come.
-	oce.rcev[n] = nil
-	oce.rcev = oce.rcev[:n]
-}
-
-// del delets rce from .rcev.
-// it panics if rce is not there.
-func (oce *oidCacheEntry) del(rce *revCacheEntry) {
-	i := oce.find(rce)
-	if i == -1 {
-		panic("rce not found")
-	}
-
-	oce.deli(i)
-}
-
-// lock order: Cache.mu   > oidCacheEntry > (?) revCacheEntry
-//             Cache.gcMu > ?
-
-// XXX maintain nhit / nmiss?
-
-// isErrNoData returns whether an error is due to "there is no such data in
-// database", not e.g. some IO loading error
-func isErrNoData(err error) bool {
-	switch err.(type) {
-	default:
-		return false
-
-	case *zodb.ErrOidMissing:
-	case *zodb.ErrXidMissing:
-	}
-	return true
 }
 
 // Load loads data from database via cache.
@@ -232,6 +170,7 @@ func (c *Cache) Prefetch(xid zodb.Xid) {
 	}
 
 }
+
 
 // lookupRCE returns revCacheEntry corresponding to xid.
 //
@@ -460,6 +399,8 @@ func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
 	return false
 }
 
+// ----------------------------------------
+
 /*
 func (c *cache) gc(...) {
 	c.lruMu.Lock()
@@ -492,6 +433,69 @@ func (c *cache) cleaner() {
 	}
 }
 */
+
+// isErrNoData returns whether an error is due to "there is no such data in
+// database", not e.g. some IO loading error
+func isErrNoData(err error) bool {
+	switch err.(type) {
+	default:
+		return false
+
+	case *zodb.ErrOidMissing:
+	case *zodb.ErrXidMissing:
+	}
+	return true
+}
+
+// newRevEntry creates new revCacheEntry with .before and inserts it into .rcev @i.
+// (if i == len(oce.rcev) - entry is appended)
+func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
+	rce := &revCacheEntry{
+		parent: oce,
+		serial: 0,
+		before: before,
+		ready:  make(chan struct{}),
+	}
+	rce.inLRU.Init()
+
+	oce.rcev = append(oce.rcev, nil)
+	copy(oce.rcev[i+1:], oce.rcev[i:])
+	oce.rcev[i] = rce
+
+	return rce
+}
+
+// find finds rce in .rcev and returns its index
+// not found -> -1.
+func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
+	for i, r := range oce.rcev {
+		if r == rce {
+			return i
+		}
+	}
+	return -1
+}
+
+// deli deletes .rcev[i]
+func (oce *oidCacheEntry) deli(i int) {
+	n := len(oce.rcev) - 1
+	copy(oce.rcev[i:], oce.rcev[i+1:])
+	// release ptr to revCacheEntry so it won't confusingly stay live when
+	// its turn to be deleted come.
+	oce.rcev[n] = nil
+	oce.rcev = oce.rcev[:n]
+}
+
+// del delets rce from .rcev.
+// it panics if rce is not there.
+func (oce *oidCacheEntry) del(rce *revCacheEntry) {
+	i := oce.find(rce)
+	if i == -1 {
+		panic("rce not found")
+	}
+
+	oce.deli(i)
+}
 
 
 // loaded reports whether rce was already loaded
