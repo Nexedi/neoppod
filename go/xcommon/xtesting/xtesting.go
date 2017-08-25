@@ -43,7 +43,8 @@ type SyncTracer struct {
 	tracech chan *SyncTraceMsg
 }
 
-// SyncTraceMsg represents message with 1 synchronous tracing communication
+// SyncTraceMsg represents message with 1 synchronous tracing communication.
+//
 // the goroutine which produced the message will wait for send on Ack before continue.
 type SyncTraceMsg struct {
 	Event interface {}
@@ -63,7 +64,8 @@ func (st *SyncTracer) Trace1(event interface{}) {
 	<-ack
 }
 
-// Get1 receives message with 1 tracing event from a producer
+// Get1 receives message with 1 tracing event from a producer.
+//
 // The consumer, after dealing with the message, must send back an ack.
 func (st *SyncTracer) Get1() *SyncTraceMsg {
 	msg := <-st.tracech

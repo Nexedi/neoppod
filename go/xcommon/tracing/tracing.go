@@ -115,6 +115,7 @@ though there it records only predefined set of events related to Go runtime.
 TODO tracing should provide infrastructure to write events out in format
 understood by chromium trace-viewer: https://github.com/catapult-project/catapult/tree/master/tracing
 
+NOTE there is also talk/work to implement user events for runtime/trace: https://golang.org/issues/16619.
 
 Profiling
 

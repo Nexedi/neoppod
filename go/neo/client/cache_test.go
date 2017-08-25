@@ -29,6 +29,9 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+
+	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 )
 
 // tStorage implements read-only storage for cache testing
@@ -94,24 +97,44 @@ func xideq(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
 	return zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: tid, TidBefore: false}}
 }
 
+// tracer which collects tracing events from all needed-for-tests sources
+type tTracer struct {
+	*xtesting.SyncTracer
+}
+
+type evCacheGCStart struct {
+	c *Cache
+}
+func (t *tTracer) traceCacheGCStart(c *Cache)	{ t.Trace1(&evCacheGCStart{c}) }
+
+type evCacheGCFinish struct {
+	c *Cache
+}
+func (t *tTracer) traceCacheGCFinish(c *Cache)	{ t.Trace1(&evCacheGCFinish{c}) }
+
 func TestCache(t *testing.T) {
 	// XXX hack; place=ok?
 	pretty.CompareConfig.PrintStringers = true
 	debug := pretty.DefaultConfig
 	debug.IncludeUnexported = true
 
-	// XXX <100 <90 <80
-	//	q<110	-> a) 110 <= cache.before   b) otherwise
-	//	q<85	-> a) inside 90.serial..90  b) outside
-	//
-	// XXX cases when .serial=0 (not yet determined - 1st loadBefore is in progress)
-	// XXX for every serial check before = (s-1, s, s+1)
+	__ := Checker{t}
+	ok1 := func(v bool) { t.Helper(); __.ok1(v) }
+	//eq  := func(a, b interface{}) { t.Helper(); __.assertEq(a, b) }
 
-	// merge: rcePrev + (rce + rceNext) ?
+	// attach to Cache GC tracepoints
+	tracer := &tTracer{xtesting.NewSyncTracer()}
+	pg := &tracing.ProbeGroup{}
+	defer pg.Done()
 
-	tc := Checker{t}
-	ok1 := func(v bool) { t.Helper(); tc.ok1(v) }
-	//eq  := func(a, b interface{}) { t.Helper(); tc.assertEq(a, b) }
+	tracing.Lock()
+	traceCacheGCStart_Attach(pg, tracer.traceCacheGCStart)
+	traceCacheGCFinish_Attach(pg, tracer.traceCacheGCFinish)
+	tracing.Unlock()
+
+	// trace-checker for the events
+	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
+
 
 	hello := []byte("hello")
 	world := []byte("world!!")
@@ -458,7 +481,13 @@ func TestCache(t *testing.T) {
 	checkMRU(17, rce1_b16, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b10, rce1_b8, rce1_b4)
 
 
-	// XXX verify LRU eviction
+	// ---- verify LRU eviction ----
+
+	gcstart  := &evCacheGCStart{c}
+	//gcfinish := &evCacheGCFinish{c}
+
+	tc.Expect(gcstart)
+
 	// XXX verify db inconsistency checks
 	// XXX verify loading with before > cache.before
 }

@@ -20,6 +20,9 @@
 package client
 // cache management
 
+// XXX gotrace ... -> gotrace gen ...
+//go:generate sh -c "go run ../../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
+
 import (
 	"fmt"
 	"sort"
@@ -112,7 +115,7 @@ type revCacheEntry struct {
 
 // NewCache creates new cache backed up by loader.
 //
-// The cache will use not more than ~ sizeMax bytes of RAM for data.
+// The cache will use not more than ~ sizeMax bytes of RAM for cached data.
 func NewCache(loader storLoader, sizeMax int) *Cache {
 	c := &Cache{
 		loader:   loader,
@@ -123,6 +126,22 @@ func NewCache(loader storLoader, sizeMax int) *Cache {
 	c.lru.Init()
 	go c.gcmain() // TODO stop it on .Close()
 	return c
+}
+
+// SetSizeMax adjusts how much RAM cache can use for cached data.
+func (c *Cache) SetSizeMax(sizeMax int) {
+	gcrun := false
+
+	c.gcMu.Lock()
+	c.sizeMax = sizeMax
+	if c.size > c.sizeMax {
+		gcrun = true
+	}
+	c.gcMu.Unlock()
+
+	if gcrun {
+		c.gcsignal()
+	}
 }
 
 // Load loads data from database via cache.
@@ -345,7 +364,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	oce.Unlock()
 
 	// update lru & cache size
-	rungc := false
+	gcrun := false
 	c.gcMu.Lock()
 	//xv1 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
 	//fmt.Printf("aaa:\n%s\n", pretty.Sprint(xv1))
@@ -360,11 +379,11 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 
 	c.size += δsize
 	if c.size > c.sizeMax {
-		rungc = true
+		gcrun = true
 	}
 	c.gcMu.Unlock()
 
-	if rungc {
+	if gcrun {
 		c.gcsignal()
 	}
 }
@@ -458,8 +477,14 @@ func (c *Cache) gcmain() {
 	}
 }
 
+//trace:event traceCacheGCStart(c *Cache)
+//trace:event traceCacheGCFinish(c *Cache)
+
 // gc performs garbage-collection
 func (c *Cache) gc() {
+	traceCacheGCStart(c)
+	defer traceCacheGCFinish(c)
+
 	fmt.Printf("\n> gc\n")
 	defer fmt.Printf("< gc\n")
 	for {
