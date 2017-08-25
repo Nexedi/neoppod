@@ -269,7 +269,7 @@ func TestCache(t *testing.T) {
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b14, rce1_b16)
 
 	// (<14 also becomes ready and takes oce lock first, merging <12 and <14 into <16)
-	c.loadRCE(rce1_b14, xidlt(1,14))
+	c.loadRCE(rce1_b14, 1)
 	checkRCE(rce1_b14, 14, 10, world, nil)
 	checkRCE(rce1_b16, 16, 10, world, nil)
 	checkRCE(rce1_b12, 12, 10, world, nil)
@@ -304,7 +304,7 @@ func TestCache(t *testing.T) {
 	// <9 must be separate from <8 and <10 because it is IO error there
 	rce1_b9, new9 := c.lookupRCE(xidlt(1,9))
 	ok1(new9)
-	c.loadRCE(rce1_b9, xidlt(1,9))
+	c.loadRCE(rce1_b9, 1)
 	checkRCE(rce1_b9, 9, 0, nil, ioerr)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16)
 

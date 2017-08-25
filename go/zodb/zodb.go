@@ -150,9 +150,12 @@ type IStorage interface {
 	LastOid() (Oid, error)
 
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
-	// TODO data []byte -> something allocated from slab ?
+	//
+	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
+	//
 	// XXX currently deleted data is returned as data=nil	-- is it ok?
-	// TODO specify error when data not found
+	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
+	// TODO data []byte -> something allocated from slab ?
 	Load(xid Xid) (data []byte, serial Tid, err error)	// XXX -> StorageRecordInformation ?
 
 	// Prefetch(xid Xid)	(no error)

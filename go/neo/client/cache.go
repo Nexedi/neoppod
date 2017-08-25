@@ -177,7 +177,7 @@ func isErrNoData(err error) bool {
 // Load loads data from database via cache.
 //
 // If data is already in cache cached content is returned.
-func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid)
 
 	// rce is already in cache - use it
@@ -191,10 +191,21 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	} else {
 		// XXX use connection poll
 		// XXX or it should be cared by loader?
-		c.loadRCE(rce, xid)
+		c.loadRCE(rce, xid.Oid)
 	}
 
-	return rce.data, rce.serial, rce.userErr(xid)
+	if rce.err != nil {
+		return nil, 0, rce.userErr(xid)
+	}
+
+	// for loadSerial - check we have exact hit - else "nodata"
+	if !xid.TidBefore {
+		if rce.serial != xid.Tid {
+			return nil, 0, &zodb.ErrXidMissing{xid}
+		}
+	}
+
+	return rce.data, rce.serial, nil
 }
 
 // Prefetch arranges for data to be eventually present in cache.
@@ -207,19 +218,30 @@ func (c *Cache) Prefetch(xid zodb.Xid) {
 
 	// XXX!rceNew -> adjust LRU?
 
-	// spawn prefetch in the background if rce was not yet loaded
+	// spawn loading in the background if rce was not yet loaded
 	if rceNew {
 		// XXX use connection poll
-		go c.loadRCE(rce, xid)
+		go c.loadRCE(rce, xid.Oid)
 	}
 
 }
 
 // lookupRCE returns revCacheEntry corresponding to xid.
 //
+// If xid indicates loadSerial query (xid.TidBefore=false) the rce will be
+// lookuped and eventually loaded as if it was queried with <(serial+1).
+// It is caller responsibility to check loadSerial cases for exact hits after
+// rce will become ready.
+//
 // rceNew indicates whether rce is new and so loading on it has not been
 // initiated yet. rce should be loaded with loadRCE.
 func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
+	// loadSerial(serial) -> loadBefore(serial+1)
+	before := xid.Tid
+	if !xid.TidBefore {
+		before++ // XXX overflow
+	}
+
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.before read consistently
 	c.mu.RLock()
@@ -245,52 +267,46 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	}
 
 	// oce, before -> rce (revCacheEntry)
-	if xid.TidBefore {
-		l := len(oce.rcev)
-		i := sort.Search(l, func(i int) bool {
-			before := oce.rcev[i].before
-			if before == zodb.TidMax {
-				before = cacheBefore
-			}
-			return xid.Tid <= before
-		})
-
-		switch {
-		// not found - tid > max(rcev.before) - insert new max entry
-		case i == l:
-			rce = oce.newRevEntry(i, xid.Tid)
-			if rce.before == cacheBefore {
-				// FIXME better do this when the entry becomes loaded ?
-				// XXX vs concurrent invalidations?
-				rce.before = zodb.TidMax
-			}
-			rceNew = true
-
-		// found:
-		// tid <= rcev[i].before
-		// tid >  rcev[i-1].before
-
-		// exact match - we already have entry for this before
-		case xid.Tid == oce.rcev[i].before:
-			rce = oce.rcev[i]
-
-		// non-exact match:
-		// - same entry if q(before) ∈ (serial, before]
-		// - we can also reuse this entry if q(before) < before and err="nodata"
-		case oce.rcev[i].loaded() && (
-			(oce.rcev[i].err == nil && oce.rcev[i].serial < xid.Tid) ||
-			(isErrNoData(oce.rcev[i].err) && xid.Tid < oce.rcev[i].before)):
-			rce = oce.rcev[i]
-
-		// otherwise - insert new entry
-		default:
-			rce = oce.newRevEntry(i, xid.Tid)
-			rceNew = true
+	l := len(oce.rcev)
+	i := sort.Search(l, func(i int) bool {
+		before_i := oce.rcev[i].before
+		if before_i == zodb.TidMax {
+			before_i = cacheBefore
 		}
+		return before <= before_i
+	})
 
-	// XXX serial -> revCacheEntry
-	} else {
-		// TODO
+	switch {
+	// not found - before > max(rcev.before) - insert new max entry
+	case i == l:
+		rce = oce.newRevEntry(i, before)
+		if rce.before == cacheBefore {
+			// FIXME better do this when the entry becomes loaded ?
+			// XXX vs concurrent invalidations?
+			rce.before = zodb.TidMax
+		}
+		rceNew = true
+
+	// found:
+	// before <= rcev[i].before
+	// before >  rcev[i-1].before
+
+	// exact match - we already have entry for this before
+	case before == oce.rcev[i].before:
+		rce = oce.rcev[i]
+
+	// non-exact match:
+	// - same entry if q(before) ∈ (serial, before]
+	// - we can also reuse this entry if q(before) < before and err="nodata"
+	case oce.rcev[i].loaded() && (
+		(oce.rcev[i].err == nil && oce.rcev[i].serial < before) ||
+		(isErrNoData(oce.rcev[i].err) && before < oce.rcev[i].before)):
+		rce = oce.rcev[i]
+
+	// otherwise - insert new entry
+	default:
+		rce = oce.newRevEntry(i, before)
+		rceNew = true
 	}
 
 	oce.Unlock()
@@ -300,9 +316,13 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 // loadRCE performs data loading from database into rce.
 //
 // rce must be new just created by lookupRCE() with returned rceNew=true.
-func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
+// loading completion is signalled by closing rce.ready.
+func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	oce := rce.parent
-	data, serial, err := c.loader.Load(xid)
+	data, serial, err := c.loader.Load(zodb.Xid{
+		Oid:  oid,
+		XTid: zodb.XTid{Tid: rce.before, TidBefore: true},
+	})
 
 	// normalize data/serial if it was error
 	if err != nil {
@@ -314,8 +334,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
 	rce.err = err
 	// verify db gives serial < before
 	if rce.serial >= rce.before {
-		// XXX loadSerial?
-		rce.errDB(xid.Oid, "load(<%v) -> %v", rce.before, serial)
+		rce.errDB(oid, "load(<%v) -> %v", rce.before, serial)
 	}
 
 	close(rce.ready)
@@ -336,7 +355,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
 	// if rce & rceNext cover the same range -> drop rce
 	if i + 1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
-		if rceNext.loaded() && tryMerge(rce, rceNext, rce, xid.Oid) {
+		if rceNext.loaded() && tryMerge(rce, rceNext, rce, oid) {
 			// not δsize -= len(rce.data)
 			// tryMerge can change rce.data if consistency is broken
 			δsize = 0
@@ -347,7 +366,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, xid zodb.Xid) {
 	// if rcePrev & rce cover the same range -> drop rcePrev
 	if i > 0 {
 		rcePrev := oce.rcev[i-1]
-		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, xid.Oid) {
+		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, oid) {
 			δsize -= len(rcePrev.data)
 		}
 	}
