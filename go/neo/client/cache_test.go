@@ -130,7 +130,7 @@ func TestCache(t *testing.T) {
 		},
 	}
 
-	c := NewCache(tstor)
+	c := NewCache(tstor, 100 /* > Σ all data */)
 
 	checkLoad := func(xid zodb.Xid, data []byte, serial zodb.Tid, err error) {
 		t.Helper()

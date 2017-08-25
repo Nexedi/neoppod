@@ -49,6 +49,8 @@ type Cache struct {
 	entryMap map[zodb.Oid]*oidCacheEntry	// oid -> oid's cache entries
 
 	// garbage collection:
+	gcCh chan struct{} // signals gc to run
+
 	gcMu sync.Mutex
 	lru  listHead	// revCacheEntries in LRU order
 	size int	// cached data size in bytes
@@ -102,20 +104,24 @@ type revCacheEntry struct {
 	accounted bool		// whether rce size accounted in cache size; protected by .parent's lock
 }
 
-// lock order: Cache.mu   > oidCacheEntry > (?) revCacheEntry
-//             Cache.gcMu > ?
+// lock order: Cache.mu   > oidCacheEntry
+//             Cache.gcMu > oidCacheEntry
 
 // XXX maintain nhit / nmiss?
 
 
-// NewCache creates new cache backed up by loader
-// XXX +sizeMax
-func NewCache(loader storLoader) *Cache {
+// NewCache creates new cache backed up by loader.
+//
+// The cache will use not more than ~ sizeMax bytes of RAM for data.
+func NewCache(loader storLoader, sizeMax int) *Cache {
 	c := &Cache{
-		loader: loader,
+		loader:   loader,
 		entryMap: make(map[zodb.Oid]*oidCacheEntry),
+		gcCh:     make(chan struct{}, 1), // 1 is important - see gcsignal
+		sizeMax:  sizeMax,
 	}
 	c.lru.Init()
+	go c.gcmain() // TODO stop it on .Close()
 	return c
 }
 
@@ -339,6 +345,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	oce.Unlock()
 
 	// update lru & cache size
+	rungc := false
 	c.gcMu.Lock()
 	//xv1 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
 	//fmt.Printf("aaa:\n%s\n", pretty.Sprint(xv1))
@@ -353,9 +360,13 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 
 	c.size += δsize
 	if c.size > c.sizeMax {
-		// XXX -> run gc
+		rungc = true
 	}
 	c.gcMu.Unlock()
+
+	if rungc {
+		c.gcsignal()
+	}
 }
 
 // tryMerge tries to merge rce prev into next
@@ -421,40 +432,67 @@ func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
 	return false
 }
 
-// ----------------------------------------
+// ---- garbage collection ----
 
-/*
-func (c *cache) gc(...) {
-	c.lruMu.Lock()
-	revh := c.lru.next
-	c.lruMu.Unlock()
-
-	for ; revh != &lru; revh = revh.next {	// .next after .delete - ok ?
-		rce := revh.rceFromInLRU()
-		oce := rce.parent
-
-		oce.Lock()
-		oce.del(rce)
-		oce.Unlock()
-
+// gcsignal tells cache gc to run
+func (c *Cache) gcsignal() {
+	select {
+	case c.gcCh <- struct{}{}:
+		// ok
+	default:
+		// also ok - .gcCh is created with size 1 so if we could not
+		// put something to it - there is already 1 element in there
+		// and so gc will get signal to run
 	}
 }
 
-// cleaner is the process that cleans cache by evicting less-needed entries.
-func (c *cache) cleaner() {
+// gcmain is the process that cleans cache by evicting less-needed entries.
+func (c *Cache) gcmain() {
 	for {
-		// cleaner is the only mutator/user of Cache.lru and revCacheEntry.inLRU
 		select {
-		case rce := <-c.used:
-			rce.inLRU.MoveBefore(&c.lru)
-
-		default:
-			for rce := c.lru.next; rce != &c.lru; rce = rce.next {
-			}
+		case <-c.gcCh:
+			// someone asks us to run GC
+			// XXX also check for quitting here
+			c.gc()
 		}
 	}
 }
-*/
+
+// gc performs garbage-collection
+func (c *Cache) gc() {
+	fmt.Printf("\n> gc\n")
+	defer fmt.Printf("< gc\n")
+	for {
+		c.gcMu.Lock()
+		if c.size <= c.sizeMax {
+			c.gcMu.Unlock()
+			return
+		}
+
+		// kill 1 least-used rce
+		h := c.lru.next
+		if h == &c.lru {
+			panic("cache: gc: empty .lru but .size > .sizeMax")
+		}
+
+		rce := h.rceFromInLRU()
+		oce := rce.parent
+
+		oce.Lock()
+		i := oce.find(rce)
+		if i != -1 {	// rce could be already deleted by e.g. merge
+			oce.deli(i)
+			c.size -= len(rce.data)
+			fmt.Printf("gc: free %d bytes\n", len(rce.data))
+		}
+		oce.Unlock()
+
+		h.Delete()
+		c.gcMu.Unlock()
+	}
+}
+
+// ----------------------------------------
 
 // isErrNoData returns whether an error is due to "there is no such data in
 // database", not e.g. some IO loading error
