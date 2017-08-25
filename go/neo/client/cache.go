@@ -74,8 +74,8 @@ type oidCacheEntry struct {
 
 // revCacheEntry is information about 1 cached oid revision
 type revCacheEntry struct {
-	inLRU  listHead		// in Cache.lru
 	parent *oidCacheEntry	// oidCacheEntry holding us
+	inLRU  listHead		// in Cache.lru; protected by Cache.gcMu
 
 	// we know that loadBefore(oid, .before) will give this .serial:oid.
 	//
@@ -98,7 +98,8 @@ type revCacheEntry struct {
 	serial zodb.Tid
 	err    error
 
-	ready chan struct{} // closed when loading finished
+	ready     chan struct{} // closed when loading finished
+	accounted bool		// whether rce size accounted in cache size; protected by .parent's lock
 }
 
 // lock order: Cache.mu   > oidCacheEntry > (?) revCacheEntry
@@ -325,10 +326,14 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 		rcePrev := oce.rcev[i-1]
 		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, oid) {
 			rcePrevDropped = rcePrev
-			// XXX not always right - e.g. if rcePrev did not yet took oce lock
-			// XXX ^^^ test for this
-			δsize -= len(rcePrev.data)
+			if rcePrev.accounted {
+				δsize -= len(rcePrev.data)
+			}
 		}
+	}
+
+	if !rceDropped {
+		rce.accounted = true
 	}
 
 	oce.Unlock()
