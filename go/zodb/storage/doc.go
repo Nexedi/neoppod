@@ -17,39 +17,5 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package client
-// base for intrusive list
-
-// listHead is a list head entry for an element in an intrusive doubly-linked list.
-//
-// XXX doc how to get to container of this list head via unsafe.OffsetOf
-//
-// always call Init() to initialize a head before using it.
-type listHead struct {
-	// XXX needs to be created with .next = .prev = self
-	next, prev *listHead
-}
-
-// Init initializes a head making it point to itself via .next and .prev
-func (h *listHead) Init() {
-	h.next = h
-	h.prev = h
-}
-
-// Delete deletes h from its list
-func (h *listHead) Delete() {
-	h.next.prev = h.prev
-	h.prev.next = h.next
-	h.Init()
-}
-
-// MoveBefore moves a to be before b
-// XXX ok to move if a was not previously on the list?
-func (a *listHead) MoveBefore(b *listHead) {
-	a.Delete()
-
-	a.next = b
-	a.prev = b.prev
-	b.prev = a
-	a.prev.next = a
-}
+// Package storage provides common bits related to ZODB storages.	XXX text
+package storage

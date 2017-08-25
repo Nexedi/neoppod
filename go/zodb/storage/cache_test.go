@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package client
+package storage
 
 import (
 	"bytes"
@@ -199,10 +199,10 @@ func TestCache(t *testing.T) {
 		t.Helper()
 		size := 0
 		var mruv []*revCacheEntry
-		for hp, h := &c.lru, c.lru.prev; h != &c.lru; hp, h = h, h.prev {
+		for hp, h := &c.lru, c.lru.Prev(); h != &c.lru; hp, h = h, h.Prev() {
 			//xv := []interface{}{&c.lru, h.rceFromInLRU()}
 			//debug.Print(xv)	// &c.lru, h.rceFromInLRU())
-			if h.next != hp {
+			if h.Next() != hp {
 				t.Fatalf("LRU list .next/.prev broken for\nh:\n%s\n\nhp:\n%s\n",
 					debug.Sprint(h), debug.Sprint(hp))
 			}

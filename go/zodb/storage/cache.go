@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package client
+package storage
 // cache management
 
 // XXX gotrace ... -> gotrace gen ...
@@ -29,19 +29,16 @@ import (
 	"sync"
 	"unsafe"
 
-//	"github.com/kylelemons/godebug/pretty"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+
+	"lab.nexedi.com/kirr/neo/go/xcommon/xcontainer/list"
 )
 
-// storLoader represents loading part of a storage
-// XXX -> zodb?
-type storLoader interface {
-	Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error)
-}
+// TODO maintain nhit / nmiss + way to read cache stats
 
-// Cache adds RAM caching layer over a storage
+// Cache adds RAM caching layer over a storage.
 type Cache struct {
-	loader storLoader
+	loader StorLoader
 
 	mu sync.RWMutex
 
@@ -55,7 +52,7 @@ type Cache struct {
 	gcCh chan struct{} // signals gc to run
 
 	gcMu sync.Mutex
-	lru  listHead	// revCacheEntries in LRU order
+	lru  lruHead	// revCacheEntries in LRU order
 	size int	// cached data size in bytes
 
 	sizeMax int	// cache is allowed to occupy not more than this
@@ -80,7 +77,7 @@ type oidCacheEntry struct {
 // revCacheEntry is information about 1 cached oid revision
 type revCacheEntry struct {
 	parent *oidCacheEntry	// oidCacheEntry holding us
-	inLRU  listHead		// in Cache.lru; protected by Cache.gcMu
+	inLRU  lruHead		// in Cache.lru; protected by Cache.gcMu
 
 	// we know that loadBefore(oid, .before) will give this .serial:oid.
 	//
@@ -107,16 +104,20 @@ type revCacheEntry struct {
 	accounted bool		// whether rce size accounted in cache size; protected by .parent's lock
 }
 
+// StorLoader represents loading part of a storage.
+// XXX -> zodb?
+type StorLoader interface {
+	Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error)
+}
+
 // lock order: Cache.mu   > oidCacheEntry
 //             Cache.gcMu > oidCacheEntry
-
-// XXX maintain nhit / nmiss?
 
 
 // NewCache creates new cache backed up by loader.
 //
 // The cache will use not more than ~ sizeMax bytes of RAM for cached data.
-func NewCache(loader storLoader, sizeMax int) *Cache {
+func NewCache(loader StorLoader, sizeMax int) *Cache {
 	c := &Cache{
 		loader:   loader,
 		entryMap: make(map[zodb.Oid]*oidCacheEntry),
@@ -146,7 +147,7 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 
 // Load loads data from database via cache.
 //
-// If data is already in cache cached content is returned.
+// If data is already in cache - cached content is returned.
 func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid)
 
@@ -154,7 +155,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	if !rceNew {
 		<-rce.ready
 		c.gcMu.Lock()
-		rce.inLRU.MoveBefore(&c.lru)
+		rce.inLRU.MoveBefore(&c.lru.Head)
 		c.gcMu.Unlock()
 
 	// rce is not in cache - this goroutine becomes responsible for loading it
@@ -366,23 +367,19 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	// update lru & cache size
 	gcrun := false
 	c.gcMu.Lock()
-	//xv1 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
-	//fmt.Printf("aaa:\n%s\n", pretty.Sprint(xv1))
+
 	if rcePrevDropped != nil {
 		rcePrevDropped.inLRU.Delete()
 	}
 	if !rceDropped {
-		rce.inLRU.MoveBefore(&c.lru)
+		rce.inLRU.MoveBefore(&c.lru.Head)
 	}
-	//xv2 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
-	//fmt.Printf("\n--------\n%s\n\n\n", pretty.Sprint(xv2))
-
 	c.size += δsize
 	if c.size > c.sizeMax {
 		gcrun = true
 	}
-	c.gcMu.Unlock()
 
+	c.gcMu.Unlock()
 	if gcrun {
 		c.gcsignal()
 	}
@@ -495,7 +492,7 @@ func (c *Cache) gc() {
 		}
 
 		// kill 1 least-used rce
-		h := c.lru.next
+		h := c.lru.Next()
 		if h == &c.lru {
 			panic("cache: gc: empty .lru but .size > .sizeMax")
 		}
@@ -608,8 +605,17 @@ func (rce *revCacheEntry) userErr(xid zodb.Xid) error {
 	return rce.err
 }
 
+// list head that knows it is in revCacheEntry.inLRU
+type lruHead struct {
+	list.Head
+}
+
+// XXX vvv strictly speaking -unsafe.Offsetof(h.Head)
+func (h *lruHead) Next() *lruHead { return (*lruHead)(unsafe.Pointer(h.Head.Next())) }
+func (h *lruHead) Prev() *lruHead { return (*lruHead)(unsafe.Pointer(h.Head.Prev())) }
+
 // revCacheEntry: .inLRU -> .
-func (h *listHead) rceFromInLRU() (rce *revCacheEntry) {
+func (h *lruHead) rceFromInLRU() (rce *revCacheEntry) {
 	urce := unsafe.Pointer(uintptr(unsafe.Pointer(h)) - unsafe.Offsetof(rce.inLRU))
 	return (*revCacheEntry)(urce)
 }
