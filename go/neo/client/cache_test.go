@@ -38,8 +38,8 @@ import (
 type tStorage struct {
 	//txnv []tTxnRecord	// transactions;  .tid↑
 
-	// oid -> [](.serial, .data)
-	dataMap map[zodb.Oid][]tOidData	// with .serial↑
+	// oid -> [](.serial↑, .data)
+	dataMap map[zodb.Oid][]tOidData
 }
 
 // data for oid for 1 revision
