@@ -92,6 +92,7 @@ var tstor = &tStorage{
 			{4, []byte("hello"), nil},
 			{7, nil, ioerr},
 			{10, []byte("world"), nil},
+			{18, []byte("www"), nil},
 		},
 	},
 }
@@ -123,6 +124,7 @@ func TestCache(t *testing.T) {
 
 	hello := []byte("hello")
 	world := []byte("world")
+	www   := []byte("www")
 
 	c := NewCache(tstor)
 
@@ -275,6 +277,30 @@ func TestCache(t *testing.T) {
 	checkRCE(rce1_b12, 12, 10, world, nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16)
 
+	// load =17 -> <16 merged with <18
+	checkLoad(xideq(1,17), nil, 0, &zodb.ErrXidMissing{xideq(1,17)})
+	ok1(len(oce1.rcev) == 5)
+	rce1_b18 := oce1.rcev[4]
+	ok1(rce1_b18 != rce1_b16)
+	checkRCE(rce1_b18, 18, 10, world, nil)
+	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b18)
+
+	// load =18 -> new <19
+	checkLoad(xideq(1,18), www, 18, nil)
+	ok1(len(oce1.rcev) == 6)
+	rce1_b19 := oce1.rcev[5]
+	checkRCE(rce1_b19, 19, 18, www, nil)
+	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b18, rce1_b19)
+
+	// load =19 -> <19 merged with <20
+	checkLoad(xideq(1,19), nil, 0, &zodb.ErrXidMissing{xideq(1,19)})
+	ok1(len(oce1.rcev) == 6)
+	rce1_b20 := oce1.rcev[5]
+	ok1(rce1_b20 != rce1_b19)
+	checkRCE(rce1_b20, 20, 18, www, nil)
+	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b18, rce1_b20)
+
+
 
 	// ---- verify rce lookup for must be cached entries ----
 	// (this excersizes lookupRCE)
@@ -295,10 +321,22 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkLookup(xidlt(1,16), rce1_b16)
-	checkLookup(xidlt(1,15), rce1_b16)
-	checkLookup(xidlt(1,12), rce1_b16)
-	checkLookup(xidlt(1,11), rce1_b16)
+	checkLookup(xidlt(1,20), rce1_b20)
+	checkLookup(xideq(1,19), rce1_b20)
+	checkLookup(xidlt(1,19), rce1_b20)
+	checkLookup(xideq(1,18), rce1_b20)
+	checkLookup(xidlt(1,18), rce1_b18)
+	checkLookup(xideq(1,17), rce1_b18)
+	checkLookup(xidlt(1,17), rce1_b18)
+	checkLookup(xideq(1,16), rce1_b18)
+	checkLookup(xidlt(1,16), rce1_b18)
+	checkLookup(xideq(1,15), rce1_b18)
+	checkLookup(xidlt(1,15), rce1_b18)
+	checkLookup(xideq(1,12), rce1_b18)
+	checkLookup(xidlt(1,12), rce1_b18)
+	checkLookup(xideq(1,11), rce1_b18)
+	checkLookup(xidlt(1,11), rce1_b18)
+	checkLookup(xideq(1,10), rce1_b18)
 	checkLookup(xidlt(1,10), rce1_b10)
 
 	// <9 must be separate from <8 and <10 because it is IO error there
@@ -306,23 +344,30 @@ func TestCache(t *testing.T) {
 	ok1(new9)
 	c.loadRCE(rce1_b9, 1)
 	checkRCE(rce1_b9, 9, 0, nil, ioerr)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16)
+	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b18, rce1_b20)
 
+	checkLookup(xideq(1,8), rce1_b9)
 	checkLookup(xidlt(1,8), rce1_b8)
 
 	// have data exact and inexact hits
+	checkLookup(xideq(1,7), rce1_b8)
 	checkLookup(xidlt(1,7), rce1_b7)
+	checkLookup(xideq(1,6), rce1_b7)
 	checkLookup(xidlt(1,6), rce1_b7)
+	checkLookup(xideq(1,5), rce1_b7)
 	checkLookup(xidlt(1,5), rce1_b7)
+	checkLookup(xideq(1,4), rce1_b7)
 
 	// nodata exact and inexact hits
 	checkLookup(xidlt(1,4), rce1_b4)
+	checkLookup(xideq(1,3), rce1_b4)
 	checkLookup(xidlt(1,3), rce1_b4)
+	checkLookup(xideq(1,2), rce1_b4)
 	checkLookup(xidlt(1,2), rce1_b4)
+	checkLookup(xideq(1,1), rce1_b4)
 	checkLookup(xidlt(1,1), rce1_b4)
 
 	// XXX verify LRU eviction
-	// XXX loadSerial
 	// XXX verify db inconsistency checks
 	// XXX verify loading with before > cache.before
 }

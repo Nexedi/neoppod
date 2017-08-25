@@ -228,7 +228,7 @@ func (c *Cache) Prefetch(xid zodb.Xid) {
 
 // lookupRCE returns revCacheEntry corresponding to xid.
 //
-// If xid indicates loadSerial query (xid.TidBefore=false) the rce will be
+// If xid indicates loadSerial query (xid.TidBefore=false) then rce will be
 // lookuped and eventually loaded as if it was queried with <(serial+1).
 // It is caller responsibility to check loadSerial cases for exact hits after
 // rce will become ready.
