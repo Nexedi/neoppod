@@ -182,8 +182,8 @@ func TestCache(t *testing.T) {
 		t.Helper()
 		var mruv []*revCacheEntry
 		for hp, h := &c.lru, c.lru.prev; h != &c.lru; hp, h = h, h.prev {
-			xv := []interface{}{&c.lru, h.rceFromInLRU()}
-			debug.Print(xv)	// &c.lru, h.rceFromInLRU())
+			//xv := []interface{}{&c.lru, h.rceFromInLRU()}
+			//debug.Print(xv)	// &c.lru, h.rceFromInLRU())
 			if h.next != hp {
 				t.Fatalf("LRU list .next/.prev broken for\nh:\n%s\n\nhp:\n%s\n",
 					debug.Sprint(h), debug.Sprint(hp))

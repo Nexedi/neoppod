@@ -180,7 +180,7 @@ func (c *Cache) Prefetch(xid zodb.Xid) {
 // rce will become ready.
 //
 // rceNew indicates whether rce is new and so loading on it has not been
-// initiated yet. rce should be loaded with loadRCE.
+// initiated yet. If so rce should be loaded with loadRCE.
 func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	// loadSerial(serial) -> loadBefore(serial+1)
 	before := xid.Tid
@@ -299,6 +299,7 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	}
 
 	// if rce & rceNext cover the same range -> drop rce
+	// (if we drop rce - no need to update c.lru as new rce is not on that list)
 	if i + 1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
 		if rceNext.loaded() && tryMerge(rce, rceNext, rce, oid) {
@@ -310,9 +311,12 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	}
 
 	// if rcePrev & rce cover the same range -> drop rcePrev
+	// (if we drop rcePrev we'll later remove it from c.lru when under c.gcMu)
+	var rcePrevDropped *revCacheEntry
 	if i > 0 {
 		rcePrev := oce.rcev[i-1]
 		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, oid) {
+			rcePrevDropped = rcePrev
 			δsize -= len(rcePrev.data)
 		}
 	}
@@ -323,11 +327,12 @@ func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
 	c.gcMu.Lock()
 	//xv1 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
 	//fmt.Printf("aaa:\n%s\n", pretty.Sprint(xv1))
+	if rcePrevDropped != nil {
+		rcePrevDropped.inLRU.Delete()
+	}
 	rce.inLRU.MoveBefore(&c.lru)
 	//xv2 := map[string]interface{}{"lru": &c.lru, "rce": &rce.inLRU}
 	//fmt.Printf("\n--------\n%s\n\n\n", pretty.Sprint(xv2))
-
-	//panic(1)
 
 	c.size += δsize
 	if c.size > c.sizeMax {
@@ -456,7 +461,7 @@ func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
 		before: before,
 		ready:  make(chan struct{}),
 	}
-	rce.inLRU.Init()
+	rce.inLRU.Init() // initially not on Cache.lru list
 
 	oce.rcev = append(oce.rcev, nil)
 	copy(oce.rcev[i+1:], oce.rcev[i:])
