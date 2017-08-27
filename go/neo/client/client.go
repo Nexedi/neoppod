@@ -106,16 +106,20 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	cell := cellv[rand.Intn(len(cellv))]
 	stor := c.node.NodeTab.Get(cell.NodeUUID)
 	if stor == nil {
-		// XXX?
+		panic(0) // XXX
 	}
 	//Slink := c.Connect(stor) // single-flight Dial; puts result into stor.Link (XXX ok?)
-	Slink := stor.Connect() // single-flight Dial; puts result into stor.Link (XXX ok?)
+	//Slink := stor.Connect() // single-flight Dial; puts result into stor.Link (XXX ok?)
+	Slink := stor.Link // XXX stub
 
 	// TODO maintain conn pool so every new GetObject request does not
 	// spawn new goroutine on server
 	// Sconn = stor.GetConn()
 	// XXX defer if ok stor.PutConn(Sconn)
-	Sconn := Slink.NewConn()
+	Sconn, err := Slink.NewConn()
+	if err != nil {
+		panic(0) // XXX
+	}
 
 	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
