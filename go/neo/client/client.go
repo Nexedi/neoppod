@@ -22,6 +22,7 @@ package client
 
 import (
 	"context"
+	"math/rand"
 	"net/url"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
@@ -43,8 +44,6 @@ func (c *Client) StorageName() string {
 	return "neo"
 }
 
-// XXX loading cache (+ singleflight)
-
 // NewClient creates new client node.
 // it will connect to master @masterAddr and identify with sepcified cluster name
 func NewClient(clusterName, masterAddr string, net xnet.Networker) (*Client, error) {
@@ -60,7 +59,7 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) (*Client, err
 		},
 	}
 
-	// XXX -> background
+	// XXX -> talkMaster
 	cli.node.Dial(context.TODO(), neo.MASTER, masterAddr)
 	panic("TODO")
 }
@@ -101,9 +100,23 @@ func (c *Client) LastOid() (zodb.Oid, error) {
 }
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
-	panic("TODO")
-/*
-	// FIXME do not use global conn (see comment in openClientByURL)
+	// XXX check pt is operational first?
+	cellv := c.node.PartTab.Get(xid.Oid)
+	// XXX cellv = filter(cellv, UP_TO_DATE)
+	cell := cellv[rand.Intn(len(cellv))]
+	stor := c.node.NodeTab.Get(cell.NodeUUID)
+	if stor == nil {
+		// XXX?
+	}
+	//Slink := c.Connect(stor) // single-flight Dial; puts result into stor.Link (XXX ok?)
+	Slink := stor.Connect() // single-flight Dial; puts result into stor.Link (XXX ok?)
+
+	// TODO maintain conn pool so every new GetObject request does not
+	// spawn new goroutine on server
+	// Sconn = stor.GetConn()
+	// XXX defer if ok stor.PutConn(Sconn)
+	Sconn := Slink.NewConn()
+
 	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
 		req.Serial = neo.INVALID_TID
@@ -114,7 +127,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 
 	resp := neo.AnswerGetObject{}
-	err = c.storConn.Ask(&req, &resp)
+	err = Sconn.Ask(&req, &resp)
 	if err != nil {
 		return nil, 0, err	// XXX err context
 	}
@@ -125,7 +138,6 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// reply.NextSerial
 	// reply.DataSerial
 	return resp.Data, resp.Serial, nil
-*/
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {

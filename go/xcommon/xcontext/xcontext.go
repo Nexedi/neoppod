@@ -45,6 +45,37 @@ func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 		done:     make(chan struct{}),
 		cancelCh: make(chan struct{}),
 	}
+
+/*
+	// ctx1 will never be canceled?
+	switch ctx1.Done() {
+	case nil, context.Background().Done():
+		bg1 = true
+	}
+	// ----//---- same for ctx2?
+*/
+
+
+/*
+	XXX do we need vvv?
+
+	// if src ctx is already cancelled - make mc cancelled right after creation
+	select {
+	case <-ctx1.Done():
+		mc.done = ctx1.Done()
+		mc.doneErr = ctx1.Err()
+	case <-ctx2.Done():
+		mc.done = ctx2.Done()
+		mc.doneErr = ctx2.Err()
+
+	// src ctx not canceled - spawn ctx{1,2}.done merger.
+	default:
+		done := make(chan struct{})
+		mc.done = done
+		go mc.wait(done)
+	}
+*/
+
 	go mc.wait()
 	return mc, mc.cancel
 }
@@ -123,6 +154,7 @@ func (mc *mergeCtx) Value(key interface{}) interface{} {
 	}
 	return mc.ctx2.Value(key)
 }
+
 
 // Cancelled reports whether an error is due to a canceled context.
 //

@@ -136,7 +136,7 @@ type Cell struct {
 //
 }
 
-// Get returns cells oid is associated with
+// Get returns cells oid is associated with.
 func (pt *PartitionTable) Get(oid zodb.Oid) []Cell {
 	if len(pt.tab) == 0 {
 		return nil

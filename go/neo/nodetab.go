@@ -101,7 +101,7 @@ type Node struct {
 }
 
 
-// Get finds node by uuid
+// Get finds node by uuid.
 func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {
@@ -114,7 +114,8 @@ func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 
 // XXX GetByAddress ?
 
-// Update updates information about a node
+// Update updates information about a node.
+//
 // it returns corresponding node entry for convenience
 func (nt *NodeTable) Update(nodeInfo NodeInfo, conn *Conn /*XXX better link *NodeLink*/) *Node {
 	node := nt.Get(nodeInfo.UUID)
