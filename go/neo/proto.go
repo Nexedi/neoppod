@@ -271,7 +271,7 @@ type CloseClient struct {
 // connection. Any -> Any.
 type RequestIdentification struct {
 	NodeType        NodeType        // XXX name
-	NodeUUID	NodeUUID
+	UUID		NodeUUID
 	Address		Address		// where requesting node is also accepting connections
 	ClusterName	string
 	IdTimestamp	float64
@@ -280,10 +280,10 @@ type RequestIdentification struct {
 // XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
 type AcceptIdentification struct {
 	NodeType        NodeType        // XXX name
-	MyNodeUUID      NodeUUID
+	MyUUID		NodeUUID
 	NumPartitions   uint32          // PNumber
 	NumReplicas     uint32          // PNumber
-	YourNodeUUID    NodeUUID
+	YourUUID	NodeUUID
 }
 
 // Ask current primary master's uuid. CTL -> A.

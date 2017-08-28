@@ -108,6 +108,8 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	if stor == nil {
 		panic(0) // XXX
 	}
+	// XXX check stor.State == RUNNING
+
 	//Slink := c.Connect(stor) // single-flight Dial; puts result into stor.Link (XXX ok?)
 	//Slink := stor.Connect() // single-flight Dial; puts result into stor.Link (XXX ok?)
 	Slink := stor.Link // XXX stub
