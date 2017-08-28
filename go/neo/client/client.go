@@ -21,7 +21,11 @@
 package client
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
+	"crypto/sha1"
+	"io"
 	"math/rand"
 	"net/url"
 
@@ -99,6 +103,29 @@ func (c *Client) LastOid() (zodb.Oid, error) {
 	panic("TODO")
 }
 
+// decompress decompresses data according to zlib encoding.
+//
+// out buffer, if there is enough capacity, is used for decompression destionation.
+// if out has not not enough capacity a new buffer is allocated and used.
+//
+// return: destination buffer with full decompressed data.
+func decompress(in []byte, out []byte) ([]byte, error) {
+	bin := bytes.NewReader(in)
+	zr, err := zlib.NewReader(bin)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+
+	bout := bytes.NewBuffer(out)
+	_, err = io.Copy(bout, bin)
+	if err != nil {
+		return nil, err
+	}
+
+	return bout.Bytes(), nil
+}
+
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// XXX check pt is operational first? -> no if there is no data - we'll
 	// just won't find ready cell
@@ -115,6 +142,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	if err != nil {
 		panic(0) // XXX
 	}
+	defer lclose(Sconn)
 
 	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
@@ -131,12 +159,22 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 		return nil, 0, err	// XXX err context
 	}
 
-	// TODO reply.Checksum - check sha1
-	// TODO reply.Compression - decompress
+	checksum := sha1.Sum(data)
+	if checksum != reply.Checksum {
+		// XXX data corrupt
+	}
+
+	data := resp.Data
+	if reply.Compression {
+		data, err = decompress(resp.Data, make([]byte, 0, len(resp.Data)))
+		if err != nil {
+			// XXX data corrupt
+		}
+	}
 
 	// reply.NextSerial
 	// reply.DataSerial
-	return resp.Data, resp.Serial, nil
+	return data, resp.Serial, nil
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
