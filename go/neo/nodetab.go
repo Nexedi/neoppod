@@ -173,35 +173,8 @@ func (p *Peer) Connect(ctx context.Context) (*NodeLink, error) {
 				}
 			}
 
-			var me *NodeCommon // XXX temp stub
-			conn0, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
+			link, err := p.dial(ctx)
 			dialT = time.Now()
-			if err != nil {
-				return nil, err
-			}
-
-			link := conn0.Link()
-
-			// verify peer identifies as what we expect
-			// XXX move to Dial?
-			switch {
-			case accept.NodeType != p.Type:
-				err = fmt.Errorf("connected, but peer is not %v (identifies as %v)", p.Type, accept.NodeType)
-			case accept.MyUUID != p.UUID:
-				err = fmt.Errorf("connected, but peer's uuid is not %v (identifies as %v)", p.UUID, accept.MyUUID)
-
-			case accept.YourUUID != me.MyInfo.UUID:
-				err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, me.MyInfo.UUID)
-			case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
-				err = fmt.Errorf("connected but TODO peer works with ! 1x1 partition table.")
-			}
-
-			if err != nil {
-				//log.Iferr(ctx, link.Close())
-				lclose(ctx, link)
-				link = nil
-			}
-
 			return link, err
 		}()
 
@@ -221,6 +194,39 @@ func (p *Peer) Connect(ctx context.Context) (*NodeLink, error) {
 }
 
 
+// XXX dial does low-level work to dial peer
+// XXX p.* reading without lock - ok?
+func (p *Peer) dial(ctx context.Context) (*NodeLink, error) {
+	var me *NodeCommon // XXX temp stub
+	conn0, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
+	if err != nil {
+		return nil, err
+	}
+
+	link := conn0.Link()
+
+	// verify peer identifies as what we expect
+	// XXX move to Dial?
+	switch {
+	case accept.NodeType != p.Type:
+		err = fmt.Errorf("connected, but peer is not %v (identifies as %v)", p.Type, accept.NodeType)
+	case accept.MyUUID != p.UUID:
+		err = fmt.Errorf("connected, but peer's uuid is not %v (identifies as %v)", p.UUID, accept.MyUUID)
+
+	case accept.YourUUID != me.MyInfo.UUID:
+		err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, me.MyInfo.UUID)
+	case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
+		err = fmt.Errorf("connected but TODO peer works with ! 1x1 partition table.")
+	}
+
+	if err != nil {
+		//log.Errorif(ctx, link.Close())
+		lclose(ctx, link)
+		link = nil
+	}
+
+	return link, err
+}
 
 
 

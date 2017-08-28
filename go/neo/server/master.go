@@ -33,6 +33,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 
@@ -159,7 +160,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 		return err	// XXX err ctx
 	}
 
-	defer runningf(&ctx, "master(%v)", l.Addr())(&err)
+	defer task.Runningf(&ctx, "master(%v)", l.Addr())(&err)
 
 	m.node.MasterAddr = l.Addr().String()
 	naddr, err := neo.Addr(l.Addr())
@@ -221,7 +222,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 // runMain is the process which implements main master cluster management logic: node tracking, cluster
 // state updates, scheduling data movement between storage nodes etc
 func (m *Master) runMain(ctx context.Context) (err error) {
-	defer running(&ctx, "main")(&err)
+	defer task.Running(&ctx, "main")(&err)
 
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
 
@@ -286,7 +287,7 @@ type storRecovery struct {
 // - nil:  recovery was ok and a command came for cluster to start
 // - !nil: recovery was cancelled
 func (m *Master) recovery(ctx context.Context) (err error) {
-	defer running(&ctx, "recovery")(&err)
+	defer task.Running(&ctx, "recovery")(&err)
 
 	m.setClusterState(neo.ClusterRecovering)
 	ctx, rcancel := context.WithCancel(ctx)
@@ -497,7 +498,7 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 		// on error provide feedback to storRecovery chan
 		res <- storRecovery{stor: stor, err: err}
 	}()
-	defer runningf(&ctx, "%s: stor recovery", stor.Link.RemoteAddr())(&err)
+	defer task.Runningf(&ctx, "%s: stor recovery", stor.Link.RemoteAddr())(&err)
 
 	conn := stor.Conn
 	// conn, err := stor.Link.NewConn()
@@ -553,7 +554,7 @@ var errClusterDegraded = stderrors.New("cluster became non-operatonal")
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab
 func (m *Master) verify(ctx context.Context) (err error) {
-	defer running(&ctx, "verify")(&err)
+	defer task.Running(&ctx, "verify")(&err)
 
 	m.setClusterState(neo.ClusterVerifying)
 	ctx, vcancel := context.WithCancel(ctx)
@@ -714,7 +715,7 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 			res <- storVerify{stor: stor, err: err}
 		}
 	}()
-	defer runningf(&ctx, "%s: stor verify", stor.Link)(&err)
+	defer task.Runningf(&ctx, "%s: stor verify", stor.Link)(&err)
 
 	conn := stor.Conn
 
@@ -772,7 +773,7 @@ type serviceDone struct {
 //
 // prerequisite for start: .partTab is operational wrt .nodeTab and verification passed
 func (m *Master) service(ctx context.Context) (err error) {
-	defer running(&ctx, "service")(&err)
+	defer task.Running(&ctx, "service")(&err)
 
 	m.setClusterState(neo.ClusterRunning)
 	ctx, cancel := context.WithCancel(ctx)
@@ -827,6 +828,7 @@ loop:
 
 		case d := <-serviced:
 			// TODO if S goes away -> check partTab still operational -> if not - recovery
+			_ = d
 
 		// XXX who sends here?
 		case n := <-m.nodeLeave:
@@ -866,7 +868,7 @@ func storCtlService(ctx context.Context, stor *neo.Node, done chan serviceDone) 
 }
 
 func storCtlService1(ctx context.Context, stor *neo.Node) (err error) {
-	defer runningf(&ctx, "%s: stor service", stor.Link.RemoteAddr())(&err)
+	defer task.Runningf(&ctx, "%s: stor service", stor.Link.RemoteAddr())(&err)
 
 	conn := stor.Conn
 
@@ -906,7 +908,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 	// - NodeType valid
 	// - IdTimestamp ?
 
-	uuid := n.idReq.NodeUUID
+	uuid := n.idReq.UUID
 	nodeType := n.idReq.NodeType
 
 	err := func() *neo.Error {
@@ -939,7 +941,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		return nil
 	}()
 
-	subj := fmt.Sprintf("identify: %s (%s)", n.conn.Link().RemoteAddr(), n.idReq.NodeUUID)
+	subj := fmt.Sprintf("identify: %s (%s)", n.conn.Link().RemoteAddr(), n.idReq.UUID)
 	if err != nil {
 		log.Infof(ctx, "%s: rejecting: %s", subj, err)
 		return nil, err
@@ -949,10 +951,10 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 
 	accept := &neo.AcceptIdentification{
 			NodeType:	neo.MASTER,
-			MyNodeUUID:	m.node.MyInfo.UUID,
+			MyUUID:		m.node.MyInfo.UUID,
 			NumPartitions:	1,	// FIXME hardcoded
 			NumReplicas:	1,	// FIXME hardcoded
-			YourNodeUUID:	uuid,
+			YourUUID:	uuid,
 		}
 
 	// update nodeTab

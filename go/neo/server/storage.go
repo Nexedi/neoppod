@@ -29,6 +29,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 
@@ -94,7 +95,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 		return err // XXX err ctx
 	}
 
-	defer runningf(&ctx, "storage(%v)", l.Addr())(&err)
+	defer task.Runningf(&ctx, "storage(%v)", l.Addr())(&err)
 
 	// start serving incoming connections
 	wg := sync.WaitGroup{}
@@ -143,7 +144,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 //
 // it always returns an error - either due to cancel or command from master to shutdown
 func (stor *Storage) talkMaster(ctx context.Context) (err error) {
-	defer runningf(&ctx, "talk master(%v)", stor.node.MasterAddr)(&err)
+	defer task.Runningf(&ctx, "talk master(%v)", stor.node.MasterAddr)(&err)
 
 	for {
 		err := stor.talkMaster1(ctx)
@@ -194,9 +195,9 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	}
 
 	// XXX -> node.Dial ?
-	if accept.YourNodeUUID != stor.node.MyInfo.UUID {
-		log.Infof(ctx, "master told us to have uuid=%v", accept.YourNodeUUID)
-		stor.node.MyInfo.UUID = accept.YourNodeUUID
+	if accept.YourUUID != stor.node.MyInfo.UUID {
+		log.Infof(ctx, "master told us to have uuid=%v", accept.YourUUID)
+		stor.node.MyInfo.UUID = accept.YourUUID
 	}
 
 
@@ -298,7 +299,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 // - nil:  initialization was ok and a command came from master to start operation
 // - !nil: initialization was cancelled or failed somehow
 func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err error) {
-	defer runningf(&ctx, "init %v", Mconn)(&err)
+	defer task.Runningf(&ctx, "init %v", Mconn)(&err)
 
 	for {
 		msg, err := Mconn.Recv()
@@ -371,7 +372,7 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 // either due to master commanding us to stop, or context cancel or some other
 // error.
 func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
-	defer runningf(&ctx, "serve %v", Mconn)(&err)
+	defer task.Runningf(&ctx, "serve %v", Mconn)(&err)
 
 	// refresh stor.opCtx and cancel it when we finish so that client
 	// handlers know they need to stop operating as master told us to do so.

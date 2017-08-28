@@ -118,10 +118,10 @@ func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.Req
 
 	err = conn.Send(&neo.AcceptIdentification{
 		NodeType:	myNodeType,
-		MyNodeUUID:	0,		// XXX
+		MyUUID:		0,		// XXX
 		NumPartitions:	1,		// XXX
 		NumReplicas:	1,		// XXX
-		YourNodeUUID:	req.NodeUUID,
+		YourUUID:	req.UUID,
 	})
 
 	if err != nil {
