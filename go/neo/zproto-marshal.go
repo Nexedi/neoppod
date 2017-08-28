@@ -276,7 +276,7 @@ func (p *RequestIdentification) neoMsgEncodedLen() int {
 
 func (p *RequestIdentification) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
-	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.NodeUUID)))
+	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.UUID)))
 	{
 		l := uint32(len(p.Address.Host))
 		binary.BigEndian.PutUint32(data[8:], l)
@@ -301,7 +301,7 @@ func (p *RequestIdentification) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
-	p.NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
+	p.UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
 	{
 		l := binary.BigEndian.Uint32(data[8:])
 		data = data[12:]
@@ -342,10 +342,10 @@ func (p *AcceptIdentification) neoMsgEncodedLen() int {
 
 func (p *AcceptIdentification) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint32(data[0:], uint32(int32(p.NodeType)))
-	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.MyNodeUUID)))
+	binary.BigEndian.PutUint32(data[4:], uint32(int32(p.MyUUID)))
 	binary.BigEndian.PutUint32(data[8:], p.NumPartitions)
 	binary.BigEndian.PutUint32(data[12:], p.NumReplicas)
-	binary.BigEndian.PutUint32(data[16:], uint32(int32(p.YourNodeUUID)))
+	binary.BigEndian.PutUint32(data[16:], uint32(int32(p.YourUUID)))
 }
 
 func (p *AcceptIdentification) neoMsgDecode(data []byte) (int, error) {
@@ -353,10 +353,10 @@ func (p *AcceptIdentification) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
-	p.MyNodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
+	p.MyUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
 	p.NumPartitions = binary.BigEndian.Uint32(data[8:])
 	p.NumReplicas = binary.BigEndian.Uint32(data[12:])
-	p.YourNodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[16:])))
+	p.YourUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[16:])))
 	return 20, nil
 
 overflow:

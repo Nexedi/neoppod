@@ -17,73 +17,50 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package task provides primitives to track tasks via contexts.
+// Package task provides handy utilities to define & log tasks.
 package task
 
 import (
-	"context"
-	"fmt"
+        "context"
+        "fmt"
 
-	"lab.nexedi.com/kirr/go123/xerr"
+        taskctx "lab.nexedi.com/kirr/neo/go/xcommon/xcontext/task"
+        "lab.nexedi.com/kirr/neo/go/xcommon/log"
 )
 
-// Task represents currently running operation
-type Task struct {
-	Parent *Task
-	Name   string
-}
-
-type taskKey struct{}
-
-// Running creates new task and returns new context with that task set to current
-func Running(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, taskKey{}, &Task{Parent: Current(ctx), Name: name})
+// Running is syntactic sugar to push new task to operational stack, log it and
+// adjust error return with task prefix.
+//
+// use like this:
+//
+//      defer task.Running(&ctx, "my task")(&err)
+func Running(ctxp *context.Context, name string) func(*error) {
+        return running(ctxp, name)
 }
 
 // Runningf is Running cousin with formatting support
-func Runningf(ctx context.Context, format string, argv ...interface{}) context.Context {
-	return Running(ctx, fmt.Sprintf(format, argv...))
+func Runningf(ctxp *context.Context, format string, argv ...interface{}) func(*error) {
+        return running(ctxp, fmt.Sprintf(format, argv...))
 }
 
-// Current returns current task represented by context.
-// if there is no current task - it returns nil.
-func Current(ctx context.Context) *Task {
-	task, _ := ctx.Value(taskKey{}).(*Task)
-	return task
-}
+func running(ctxp *context.Context, name string) func(*error) {
+        ctx := taskctx.Running(*ctxp, name)
+        *ctxp = ctx
+        log.Depth(2).Info(ctx, "start")
 
-// ErrContext adds current task name to error on error return.
-// To work as intended it should be called under defer like this:
-//
-//      func myfunc(ctx, ...) (..., err error) {
-//		ctx = task.Running("doing something")
-//		defer task.ErrContext(&err, ctx)
-//		...
-//
-// Please see lab.nexedi.com/kirr/go123/xerr.Context for semantic details.
-func ErrContext(errp *error, ctx context.Context) {
-	task := Current(ctx)
-	if task == nil {
-		return
-	}
-	xerr.Context(errp, task.Name)
-}
+        return func(errp *error) {
+                if *errp != nil {
+                        // XXX is it good idea to log to error here? (not in above layer)
+                        // XXX what is error here could be not so error above
+                        // XXX or we still want to log all errors - right?
+                        log.Depth(1).Error(ctx, "## ", *errp)   // XXX "::" temp
+                } else {
+                        log.Depth(1).Info(ctx, "done")
+                }
 
-// String returns string representing whole operational stack.
-//
-// For example if task "c" is running under task "b" which in turn is running
-// under task "a" - the operational stack will be "a: b: c".
-//
-// nil Task is represented as "".
-func (t *Task) String() string {
-	if t == nil {
-		return ""
-	}
-
-	prefix := t.Parent.String()
-	if prefix != "" {
-		prefix += ": "
-	}
-
-	return prefix + t.Name
+                // XXX do we need vvv if we log it anyway ^^^ ?
+                // NOTE not *ctxp here - as context pointed by ctxp could be
+                // changed when this deferred function is run
+                taskctx.ErrContext(errp, ctx)
+        }
 }

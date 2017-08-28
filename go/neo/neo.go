@@ -87,11 +87,11 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 	}
 
 	req := &RequestIdentification{
-		NodeType:	 n.MyInfo.Type,
-		NodeUUID:	 n.MyInfo.UUID,
-		Address:	 n.MyInfo.Addr,
-		ClusterName:	 n.ClusterName,
-		IdTimestamp:	 n.MyInfo.IdTimestamp,	// XXX ok?
+		NodeType:	n.MyInfo.Type,
+		UUID:		n.MyInfo.UUID,
+		Address:	n.MyInfo.Addr,
+		ClusterName:	n.ClusterName,
+		IdTimestamp:	n.MyInfo.IdTimestamp,	// XXX ok?
 	}
 	accept := &AcceptIdentification{}
 	err = conn.Ask(req, accept)

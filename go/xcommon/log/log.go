@@ -29,7 +29,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/task"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext/task"
 )
 
 // withTask prepends string describing current operational task stack to argv and returns it

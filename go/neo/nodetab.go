@@ -22,8 +22,10 @@ package neo
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	//"sync"
+	"sync"
+	"time"
 )
 
 // NodeTable represents known nodes in a cluster
@@ -93,30 +95,39 @@ type Peer struct {
 	NodeInfo	// .uuid, .addr, ...
 
 	// link to this peer
-	linkMu		sync.Mutex
-	link		*NodeLink	// link to peer or nil if not connected
-//	linkErr		error		// dialing gave this error
-	dialT		time.Time	// dialing finished at this time
-//	linkReady	chan struct{}	// becomes ready after dial finishes; reinitialized at each redial
+	linkMu sync.Mutex
+	link   *NodeLink	// link to peer or nil if not connected
+	dialT  time.Time	// dialing finished at this time
 
-	dialing		*dialReady	// dialer notifies waiters via this; reinitialized at each redial; nil while not dialing
+	// dialer notifies waiters via this; reinitialized at each redial; nil while not dialing
+	//
+	// NOTE duplicates .link to have the following properties:
+	//
+	// 1. all waiters of current in-progress dial wakup immediately after
+	//    dial completes and get link/error from dial result.
+	//
+	// 2. any .Connect() that sees .link=nil starts new redial with throttle
+	//    to make sure peer is dialed not faster than δtRedial.
+	//
+	// (if we do not have dialing.link waiter will need to relock
+	//  peer.linkMu and for some waiters chances are another .Connect()
+	//  already started redialing and they will have to wait again)
+	dialing *dialed
 }
 
-type dialReady struct {
+// dialed is result of dialing a peer.
+type dialed struct {
 	link	*NodeLink
 	err	error
 	ready	chan struct{}
 }
 
-// Connect returns link to this peer.
+// Connect returns link to this peer.	XXX -> DialLink ?
 //
 // If the link was not yet established Connect dials the peer appropriately,
 // handshakes, requests identification and checks that identification reply is
 // as expected.
 func (p *Peer) Connect(ctx context.Context) (*NodeLink, error) {
-	// XXX p.State != RUNNING
-	// XXX p.Addr  != ""
-
 	p.linkMu.Lock()
 
 	// ok if already connected
@@ -134,43 +145,71 @@ func (p *Peer) Connect(ctx context.Context) (*NodeLink, error) {
 			return nil, ctx.Err()
 
 		case <-dialing.ready:
-			return dialed.link, dialed.err
+			return dialing.link, dialing.err
 		}
 	}
 
-
 	// otherwise this goroutine becomes responsible for (re)dialing the peer
-	dialing = &dialReady{ready: make(chan struct{})}
+
+	// XXX p.State != RUNNING
+	// XXX p.Addr  != ""
+
+	dialT := p.dialT
+	dialing := &dialed{ready: make(chan struct{})}
 	p.dialing = dialing
-
-	// start dialing - in singleflight
 	p.linkMu.Unlock()
+
 	go func() {
-		// throttle redialing if too fast
-		δt := time.Now().Sub(dialT)
-		if δt < δtRedial && !dialT.IsZero() {
-			select {
-			case <-ctx.Done():
-				// XXX -> return nil, ctx.Err()
+		link, err := func() (*NodeLink, error) {
+			// throttle redialing if too fast
+			δt := time.Now().Sub(dialT)
+			if δt < δtRedial && !dialT.IsZero() {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
 
-			case <-time.After(δtRedial - δt):
-				// ok
+				case <-time.After(δtRedial - δt):
+					// ok
+				}
 			}
-		}
 
-		conn0, accept, err := Dial(ctx, p.Type, p.Addr)
-		if err != nil {
-			// XXX -> return nil, err
-		}
+			var me *NodeCommon // XXX temp stub
+			conn0, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
+			dialT = time.Now()
+			if err != nil {
+				return nil, err
+			}
 
-		// XXX accept.NodeType	== p.Type
-		// XXX accept.MyUUID	== p.UUID
-		// XXX accept.YourUUID	== (what has been given us by master)
-		// XXX accept.Num{Partitions,Replicas} == (what is expected - (1,1) currently)
+			link := conn0.Link()
 
+			// verify peer identifies as what we expect
+			// XXX move to Dial?
+			switch {
+			case accept.NodeType != p.Type:
+				err = fmt.Errorf("connected, but peer is not %v (identifies as %v)", p.Type, accept.NodeType)
+			case accept.MyUUID != p.UUID:
+				err = fmt.Errorf("connected, but peer's uuid is not %v (identifies as %v)", p.UUID, accept.MyUUID)
+
+			case accept.YourUUID != me.MyInfo.UUID:
+				err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, me.MyInfo.UUID)
+			case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
+				err = fmt.Errorf("connected but TODO peer works with ! 1x1 partition table.")
+			}
+
+			if err != nil {
+				//log.Iferr(ctx, link.Close())
+				lclose(ctx, link)
+				link = nil
+			}
+
+			return link, err
+		}()
+
+		p.linkMu.Lock()
 		p.link = link
-		p.linkErr = err
-		p.dialT = time.Now()
+		p.dialT = dialT
+		p.dialing = nil
+		p.linkMu.Unlock()
 
 		dialing.link = link
 		dialing.err = err
