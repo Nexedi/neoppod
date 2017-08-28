@@ -100,7 +100,8 @@ func (c *Client) LastOid() (zodb.Oid, error) {
 }
 
 func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
-	// XXX check pt is operational first?
+	// XXX check pt is operational first? -> no if there is no data - we'll
+	// just won't find ready cell
 	cellv := c.node.PartTab.Get(xid.Oid)
 	// XXX cellv = filter(cellv, UP_TO_DATE)
 	cell := cellv[rand.Intn(len(cellv))]
@@ -110,15 +111,7 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 	// XXX check stor.State == RUNNING
 
-	//Slink := c.Connect(stor) // single-flight Dial; puts result into stor.Link (XXX ok?)
-	//Slink := stor.Connect() // single-flight Dial; puts result into stor.Link (XXX ok?)
-	Slink := stor.Link // XXX stub
-
-	// TODO maintain conn pool so every new GetObject request does not
-	// spawn new goroutine on server
-	// Sconn = stor.GetConn()
-	// XXX defer if ok stor.PutConn(Sconn)
-	Sconn, err := Slink.NewConn()
+	Sconn, err := stor.Conn()
 	if err != nil {
 		panic(0) // XXX
 	}

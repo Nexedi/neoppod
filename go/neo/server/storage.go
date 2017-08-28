@@ -476,6 +476,33 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 	return xcontext.Merge(ctx, opCtx)
 }
 
+func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
+	log.Infof(ctx, "%s: serving new client conn", conn)	// XXX -> running?
+
+	// rederive ctx to be also cancelled if M tells us StopOperation
+	ctx, cancel := stor.withWhileOperational(ctx)
+	defer cancel()
+
+	link := conn.Link()
+
+	for {
+		err := stor.serveClient1(ctx, conn)
+		if err != nil {
+			return err
+		}
+
+		lclose(conn)
+
+		// keep on going in the same goroutine to avoid goroutine creation overhead
+		// TODO Accept += timeout, go away if inactive
+		conn, err = link.Accept(ctx)
+		if err != nil {
+			// lclose(link) XXX ?
+			return err
+		}
+	}
+}
+
 // serveClient serves incoming connection on which peer identified itself as client
 // the connection is closed when serveClient returns
 // XXX +error return?

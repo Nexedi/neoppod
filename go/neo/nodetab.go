@@ -79,8 +79,6 @@ type NodeTable struct {
 	//storv	[]*Node // storages
 	nodev   []*Node // all other nodes	-> *Peer
 	notifyv []chan NodeInfo // subscribers
-
-	//ver int // ↑ for versioning	XXX do we need this?
 }
 
 
@@ -92,27 +90,29 @@ const δtRedial = 3 * time.Second
 
 // Peer represents a peer node in the cluster.
 type Peer struct {
-	NodeInfo	// .uuid, .addr, ...
+	NodeInfo // .type, .addr, .uuid, ...	XXX also protect by mu?
 
-	// link to this peer
 	linkMu sync.Mutex
-	link   *NodeLink	// link to peer or nil if not connected
-	dialT  time.Time	// dialing finished at this time
+	link   *NodeLink // link to this peer; nil if not connected
+	dialT  time.Time // last dial finished at this time
 
 	// dialer notifies waiters via this; reinitialized at each redial; nil while not dialing
 	//
 	// NOTE duplicates .link to have the following properties:
 	//
-	// 1. all waiters of current in-progress dial wakup immediately after
+	// 1. all waiters of current in-progress dial wakeup immediately after
 	//    dial completes and get link/error from dial result.
 	//
-	// 2. any .Connect() that sees .link=nil starts new redial with throttle
+	// 2. any .Link() that sees .link=nil starts new redial with throttle
 	//    to make sure peer is dialed not faster than δtRedial.
 	//
 	// (if we do not have dialing.link waiter will need to relock
-	//  peer.linkMu and for some waiters chances are another .Connect()
+	//  peer.linkMu and for some waiters chances are another .Link()
 	//  already started redialing and they will have to wait again)
 	dialing *dialed
+
+//	// live connection pool that user provided back here via .PutConn()
+//	connPool []*Conn
 }
 
 // dialed is result of dialing a peer.
@@ -122,12 +122,18 @@ type dialed struct {
 	ready	chan struct{}
 }
 
-// Connect returns link to this peer.	XXX -> DialLink ?
+// Link returns link to the peer.
 //
-// If the link was not yet established Connect dials the peer appropriately,
+// If the link was not yet established Link dials the peer appropriately,
 // handshakes, requests identification and checks that identification reply is
 // as expected.
-func (p *Peer) Connect(ctx context.Context) (*NodeLink, error) {
+//
+// Several Link calls may be done in parallel - in any case only 1 link-level
+// dial will be made and others will share established link.
+//
+// In case Link returns an error - future Link will attempt to reconnect with
+// "don't reconnect too fast" throttling.
+func (p *Peer) Link(ctx context.Context) (*NodeLink, error) {
 	p.linkMu.Lock()
 
 	// ok if already connected
@@ -193,6 +199,59 @@ func (p *Peer) Connect(ctx context.Context) (*NodeLink, error) {
 	return dialing.link, dialing.err
 }
 
+// Conn returns conn to the peer.
+//
+// If there is no link established - conn first dials peer (see Link).
+//
+// For established link Conn either creates new connection over the link,
+// XXX (currently inactive) or gets one from the pool of unused connections (see PutConn).
+func (p *Peer) Conn(ctx context.Context) (*Conn, error) {
+	var err error
+
+/*
+	p.linkMu.Lock()
+	if l := len(p.connPool); l > 0 {
+		conn := p.connPool[l-1]
+		p.connPool = p.connPool[:l-1]
+		p.linkMu.Unlock()
+		return conn, nil
+	}
+*/
+
+	// connection poll is empty - let's create new connection from .link
+	link := p.link
+	p.linkMu.Unlock()
+
+	// we might need to (re)dial
+	if link == nil {
+		link, err = p.Link(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return link.NewConn()
+}
+
+/*
+// PutConn saves c in the pool of unused connections.
+//
+// Since connections saved into pool can be reused by other code, after
+// PutConn call the caller must not use the connection directly.
+//
+// PutConn ignores connections not created for current peer link.
+func (p *Peer) PutConn(c *Conn) {
+	p.linkMu.Lock()
+
+	// NOTE we can't panic on p.link != c.Link() - reason is: p.link can change on redial
+	if p.link == c.Link() {
+		p.connPool = append(p.connPool, c)
+	}
+
+	p.linkMu.Unlock()
+}
+*/
+
 
 // XXX dial does low-level work to dial peer
 // XXX p.* reading without lock - ok?
@@ -210,11 +269,13 @@ func (p *Peer) dial(ctx context.Context) (*NodeLink, error) {
 	switch {
 	case accept.NodeType != p.Type:
 		err = fmt.Errorf("connected, but peer is not %v (identifies as %v)", p.Type, accept.NodeType)
+
 	case accept.MyUUID != p.UUID:
 		err = fmt.Errorf("connected, but peer's uuid is not %v (identifies as %v)", p.UUID, accept.MyUUID)
 
 	case accept.YourUUID != me.MyInfo.UUID:
 		err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, me.MyInfo.UUID)
+
 	case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
 		err = fmt.Errorf("connected but TODO peer works with ! 1x1 partition table.")
 	}
@@ -230,6 +291,21 @@ func (p *Peer) dial(ctx context.Context) (*NodeLink, error) {
 
 
 
+/* XXX closing .link on .state = DOWN
+func (p *Peer) SetState(state NodeState) {
+	// XXX lock?
+	p.State = state
+	traceNodeChanged(nt, node)
+	if state == DOWN {
+		if p.link != nil {
+			lclose(ctx, p.link)
+			p.link = nil
+			// XXX clear p.connPool
+		}
+	}
+	nt.notify(node.NodeInfo)
+}
+*/
 
 
 

@@ -111,14 +111,14 @@ var ErrClosedConn   = errors.New("connection is closed")
 // (think from point of view how user should be handling errors)
 // XXX or it is good to be able to distinguish between only conn error vs whole-link error?
 
-// LinkError is usually returned by NodeLink operations
+// LinkError is returned by NodeLink operations
 type LinkError struct {
 	Link *NodeLink
 	Op   string
 	Err  error
 }
 
-// ConnError is usually returned by Conn operations
+// ConnError is returned by Conn operations
 type ConnError struct {
 	Conn *Conn
 	Op   string
@@ -277,10 +277,11 @@ func (nl *NodeLink) shutdown() {
 }
 
 // Close closes node-node link.
+//
 // All blocking operations - Accept and IO on associated connections
 // established over node link - are automatically interrupted with an error.
 // Underlying raw connection is closed.
-// It is safe to call Close several times
+// It is safe to call Close several times.
 func (nl *NodeLink) Close() error {
 	atomic.StoreUint32(&nl.closed, 1)
 	nl.shutdown()
@@ -344,7 +345,7 @@ func (c *Conn) Close() error {
 
 // ---- receive ----
 
-// Accept waits for and accepts incoming connection on top of node-node link
+// Accept waits for and accepts incoming connection on top of node-node link.
 func (nl *NodeLink) Accept() (c *Conn, err error) {
 	defer func() {
 		if err != nil {
