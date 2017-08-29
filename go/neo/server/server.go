@@ -47,21 +47,7 @@ type Server interface {
 // the listener is closed when Serve returns.
 func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 	fmt.Printf("xxx: serving on %s ...\n", l.Addr())	// XXX 'xxx' -> ?
-
-	// close listener when either cancelling or returning (e.g. due to an error)
-	// ( when cancelling - listener close will signal to all accepts to
-	//   terminate with an error )
-	// XXX dup -> utility
-	retch := make(chan struct{})
-	defer func() { close(retch) }()
-	go func() {
-		select {
-		case <-ctx.Done():
-			// XXX err = cancelled
-		case <-retch:
-		}
-		l.Close() // XXX err
-	}()
+	defer xio.CloseWhenDone(ctx, l)()
 
 	// main Accept -> ServeLink loop
 	for {

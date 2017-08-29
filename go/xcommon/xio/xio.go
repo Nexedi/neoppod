@@ -4,10 +4,14 @@
 package xio
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"os"
+
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 )
 
 // XXX interface for a Reader/Writer which can report position
@@ -81,4 +85,23 @@ func Name(f interface {}) string {
 	default:
 		return fmt.Sprintf("%#v", f)
 	}
+}
+
+
+// CloseWhenDone arranges for c to be closed either when ctx is cancelled or
+// surrounding function returns.
+//
+// To work as intended it should be called under defer like this:
+//
+//	func myfunc(ctx, ...) {
+//		defer xio.CloseWhenDone(ctx, c)()
+//
+// The error - if c.Close() returns with any - is logged.
+func CloseWhenDone(ctx context.Context, c io.Closer) func() {
+	return xcontext.WhenDone(ctx, func() {
+		err := c.Close()
+		if err != nil {
+			log.Error(ctx, err)
+		}
+	})
 }

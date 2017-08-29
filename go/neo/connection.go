@@ -403,6 +403,7 @@ func (c *Conn) errRecvShutdown() error {
 // recvPkt receives raw packet from connection
 func (c *Conn) recvPkt() (*PktBuf, error) {
 	select {
+	// XXX maybe possible to detect "down" by seeing c.rxq is closed?
 	case <-c.down:
 		return nil, c.err("recv", c.errRecvShutdown())
 

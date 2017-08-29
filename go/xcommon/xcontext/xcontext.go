@@ -37,7 +37,7 @@ import (
 // call cancel as soon as the operations running in this Context complete.
 //
 // XXX let Merge do only merge, not create another cancel; optimize it for
-//     cases when a source context is not cancellable
+// cases when a source context is not cancellable
 func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 	mc := &mergeCtx{
 		ctx1:     ctx1,
@@ -169,4 +169,30 @@ func Canceled(err error) bool {
 	}
 
 	return false
+}
+
+
+// WhenDone arranges f to be called either when ctx is cancelled or surrounding
+// function returns.
+//
+// To work as intended it should be called under defer like this:
+//
+//	func myfunc(ctx, ...) {
+//		defer xcontext.WhenDone(ctx, func() { ... })()
+func WhenDone(ctx context.Context, f func()) func() {
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			// ok
+		case <-done:
+			// ok
+		}
+
+		f()
+	}()
+
+	return func() {
+		close(done)
+	}
 }

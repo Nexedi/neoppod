@@ -250,7 +250,7 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(netconnect("s:2", "m:2",  "m:1"))
 	tc.Expect(conntx("s:2", "m:2", 1, &neo.RequestIdentification{
 		NodeType:	neo.STORAGE,
-		NodeUUID:	0,
+		UUID:		0,
 		Address:	xnaddr("s:1"),
 		ClusterName:	"abc1",
 		IdTimestamp:	0,
@@ -260,10 +260,10 @@ func TestMasterStorage(t *testing.T) {
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
-		MyNodeUUID:	neo.UUID(neo.MASTER, 1),
+		MyUUID:		neo.UUID(neo.MASTER, 1),
 		NumPartitions:	1,
 		NumReplicas:	1,
-		YourNodeUUID:	neo.UUID(neo.STORAGE, 1),
+		YourUUID:	neo.UUID(neo.STORAGE, 1),
 	}))
 
 	// TODO test ID rejects (uuid already registered, ...)
@@ -313,8 +313,8 @@ func TestMasterStorage(t *testing.T) {
 		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
 	}))
 
-	lastOid, err1 := zstor.LastOid()
-	lastTid, err2 := zstor.LastTid()
+	lastOid, err1 := zstor.LastOid(context.TODO())
+	lastTid, err2 := zstor.LastTid(context.TODO())
 	exc.Raiseif(xerr.Merge(err1, err2))
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.LastIDs{}))
 	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerLastIDs{

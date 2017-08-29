@@ -32,6 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
@@ -410,26 +411,9 @@ func (stor *Storage) m1serve(ctx context.Context, Mconn *neo.Conn) (err error) {
 // --- serve incoming connections from other nodes ---
 
 // ServeLink serves incoming node-node link connection
-// XXX +error return?
-func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
-	log.Infof(ctx, "%s: serving new node", link)	// XXX -> running?
-
-	// close link when either cancelling or returning (e.g. due to an error)
-	// ( when cancelling - link.Close will signal to all current IO to
-	//   terminate with an error )
-	// XXX dup -> utility
-	retch := make(chan struct{})
-	defer func() { close(retch) }()
-	go func() {
-		select {
-		case <-ctx.Done():
-			// XXX tell peers we are shutting down?
-			// XXX ret err = ctx.Err()
-		case <-retch:
-		}
-		log.Info(ctx, "%v: closing link", link)
-		link.Close()	// XXX err
-	}()
+func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) (err error) {
+	defer task.Runningf(&ctx, "serve %s", link)(&err)
+	defer xio.CloseWhenDone(ctx, link)()
 
 	// XXX only accept clients
 	// XXX only accept when operational (?)
@@ -463,6 +447,8 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 	}
 
 	// TODO wait all spawned serveConn
+
+	return nil
 }
 
 // withWhileOperational derives new context from ctx which will be cancelled, when either
