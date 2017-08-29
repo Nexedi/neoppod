@@ -365,6 +365,10 @@ func (nl *NodeLink) Accept(ctx context.Context) (c *Conn, err error) {
 		}
 		return nil, ErrLinkDown
 
+// XXX for long-lived links - better to propagate ctx cancel to link.Close to
+// lower cases that are run at every select.
+//
+// XXX see xio.CloseWhenDone() for helper for this.
 	// XXX ctx cancel tests
 	case <-ctx.Done():
 		return nil, ctx.Err()

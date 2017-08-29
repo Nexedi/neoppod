@@ -21,12 +21,9 @@
 package client
 
 import (
-	"bytes"
-	"compress/zlib"
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/url"
 
@@ -102,29 +99,6 @@ func (c *Client) LastTid(ctx context.Context) (zodb.Tid, error) {
 func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 	// XXX there is no LastOid in NEO/py
 	panic("TODO")
-}
-
-// decompress decompresses data according to zlib encoding.
-//
-// out buffer, if there is enough capacity, is used for decompression destination.
-// if out has not not enough capacity a new buffer is allocated and used.
-//
-// return: destination buffer with full decompressed data or error.
-func decompress(in []byte, out []byte) ([]byte, error) {
-	bin := bytes.NewReader(in)
-	zr, err := zlib.NewReader(bin)
-	if err != nil {
-		return nil, err
-	}
-	defer zr.Close()
-
-	bout := bytes.NewBuffer(out)
-	_, err = io.Copy(bout, bin)
-	if err != nil {
-		return nil, err
-	}
-
-	return bout.Bytes(), nil
 }
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
