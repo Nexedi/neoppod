@@ -12,12 +12,15 @@ from logging import getLogger, DEBUG, INFO
 from neo.lib import logging
 
 def main():
-    getLogger().setLevel(DEBUG)
+    #getLogger().setLevel(DEBUG)
+    logging.backlog(max_size=None, max_packet=None) # log everything & without bufferring
+
     master = subprocess.check_output("neoctl -a 127.0.0.1:5551 print node |grep MASTER |awk '{print $5}'", shell=True)
     print "master:", `master`
     kw = {
             'master_nodes': master,
             'name':         'neo1',
+            'logfile':      'x.log',
     }
 
     stor = Storage(**kw)

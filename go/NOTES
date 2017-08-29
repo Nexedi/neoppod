@@ -321,6 +321,49 @@ C -> Sv(participating for oidv & tidv) + M
 	AbortTransaction(ttid)
 
 
+Client communication
+--------------------
+
+PACKET    x          #0x0001 RequestIdentification          > None (127.0.0.1:26361)
+PACKET    x          #0x0001 AnswerRequestIdentification    < None (127.0.0.1:26361)
+INFO      x          connected to a primary master node
+INFO      x          Got a new UUID: C1
+PACKET    x          #0x0000 NotifyNodeInformation          < M1 (127.0.0.1:26361)
+PACKET    x           ! C1 | CLIENT  |                 | RUNNING | 2017-08-29 14:55:03.666895
+PACKET    x           ! M1 | MASTER  | 127.0.0.1:26361 | RUNNING | None
+PACKET    x           ! S1 | STORAGE | 127.0.0.1:44529 | RUNNING | 2017-08-29 14:50:16.415306
+INFO      x          Initializing from master
+PACKET    x          #0x0003 PartitionTable                 > M1 (127.0.0.1:26361)
+PACKET    x          #0x0003 AnswerPartitionTable           < M1 (127.0.0.1:26361)
+DEBUG     x          partition table loaded (ptid=1)
+DEBUG     x          pt: node 0: S1, R
+DEBUG     x          pt: 0: U
+PACKET    x          #0x0005 LastTransaction                > M1 (127.0.0.1:26361)
+PACKET    x          #0x0005 AnswerLastTransaction          < M1 (127.0.0.1:26361)
+INFO      x          Connected and ready
+PACKET    x          #0x0007 Ping                           > M1 (127.0.0.1:26361)
+PACKET    x          #0x0007 AnswerPing                     < M1 (127.0.0.1:26361)
+
+PACKET    x          #0x0001 RequestIdentification          > S1 (127.0.0.1:44529)
+PACKET    x          #0x0001 AnswerRequestIdentification    < S1 (127.0.0.1:44529)
+PACKET    x          #0x0003 GetObject                      > S1 (127.0.0.1:44529)
+...
+
+
+Py: out-of-order answers
+------------------------
+
+- AnswerTransactionFinished	master.onTransactionCommitted
+- AnswerPack			master.StorageServiceHandler.answerPack
+- AnswerCheckTIDRange		storage.StorageOperationHandler .askCheckTIDRange
+- AnswerCheckSerialRange	----//----			.askCheckSerialRange
+- Error.Replication_Error	----//----			.askFetchTransactions
+- AddTransaction		----//----
+- AnswerFetchTransactions	----//----
+- AddObject			----//----			.askFetchObjects
+- AnswerFetchObjects		----//----
+
+
 Tables
 ------
 

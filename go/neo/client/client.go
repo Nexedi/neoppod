@@ -26,9 +26,12 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"time"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
@@ -48,7 +51,7 @@ func (c *Client) StorageName() string {
 
 // NewClient creates new client node.
 // it will connect to master @masterAddr and identify with sepcified cluster name
-func NewClient(clusterName, masterAddr string, net xnet.Networker) (*Client, error) {
+func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
 		node: neo.NodeCommon{
 			MyInfo:		neo.NodeInfo{Type: neo.CLIENT, Addr: neo.Address{}},
@@ -61,9 +64,10 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) (*Client, err
 		},
 	}
 
-	// XXX -> talkMaster
-	cli.node.Dial(context.TODO(), neo.MASTER, masterAddr)
-	panic("TODO")
+	// spawn background process which performs master talk
+	go cli.talkMaster(context.TODO())	// XXX ctx = "client(?)"
+
+	return cli
 }
 
 
@@ -74,6 +78,84 @@ func (c *Client) Close() error {
 //	// XXX also wait for some goroutines to finish ?
 //	return err
 }
+
+// --- connection with master ---
+
+// talkMaster connects to master, announces self and receives notifications.
+// it tries to persist master link reconnecting as needed.
+//
+// XXX C -> M for commit
+//
+// XXX always error  (dup Storage.talkMaster) ?
+func (c *Client) talkMaster(ctx context.Context) (err error) {
+	defer task.Runningf(&ctx, "talk master(%v)", c.node.MasterAddr)(&err)
+
+	// XXX dup wrt Storage.talkMaster
+	for {
+		err := c.talkMaster1(ctx)
+		log.Error(ctx, err)
+
+		// TODO if err = shutdown -> return
+
+		// exit on cancel / throttle reconnecting 
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		// XXX 1s hardcoded -> move out of here
+		case <-time.After(1*time.Second):
+			// ok
+		}
+	}
+}
+
+func (c *Client) talkMaster1(ctx context.Context) (err error) {
+	// XXX dup from Server.talkMaster1
+	// XXX put logging into Dial?
+	log.Info(ctx, "connecting ...")
+	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
+	if err != nil {
+		// FIXME it is not only identification - e.g. ECONNREFUSED
+		log.Info(ctx, "identification rejected")	// XXX ok here? (err is logged above)
+		return err
+	}
+
+	log.Info(ctx, "identification accepted")
+	Mlink := Mconn.Link()
+
+	defer xio.CloseWhenDone(ctx, Mlink)()
+
+	// XXX .nodeTab.Reset()
+
+	Ask(partiotionTable)
+	Ask(lastTransaction)
+
+	for {
+		msg, err := Mconn.Recv()
+		if err != nil {
+			return err
+		}
+
+		switch msg.(type) {
+		default:
+			return fmt.Errorf("unexpected message: %T", msg)
+
+		case *neo.NotifyPartitionTable:
+			// TODO M sends whole PT
+
+		//case *neo.NotifyPartitionChanges:
+		//	// TODO M sends δPT
+
+		case *neo.NotifyNodeInformation:
+			// TODO
+
+		case *neo.NotifyClusterState:
+			// TODO
+
+	}
+}
+
+// --- user API calls ---
 
 func (c *Client) LastTid(ctx context.Context) (zodb.Tid, error) {
 	panic("TODO")

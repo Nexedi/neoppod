@@ -141,12 +141,13 @@ func (stor *Storage) Run(ctx context.Context) error {
 // --- connect to master and let it direct us ---
 
 // talkMaster connects to master, announces self and receives commands and notifications.
-// it tries to persist master link reconnecting as needed
+// it tries to persist master link reconnecting as needed.
 //
 // it always returns an error - either due to cancel or command from master to shutdown
 func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 	defer task.Runningf(&ctx, "talk master(%v)", stor.node.MasterAddr)(&err)
 
+	// XXX dup wrt Client.talkMaster
 	for {
 		err := stor.talkMaster1(ctx)
 		log.Error(ctx, err)
@@ -169,6 +170,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
+	// XXX dup in Client.talkMaster1
 	// XXX put logging into Dial?
 	log.Info(ctx, "connecting ...")
 	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
@@ -182,6 +184,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	Mlink := Mconn.Link()
 
 	// close Mlink on return / cancel
+	// XXX -> defer xio.CloseWhenDone(ctx, Mlink)()
 	retch := make(chan struct{})
 	defer func() {
 		err2 := Mlink.Close()
@@ -344,15 +347,17 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 			err = Mconn.Send(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
 
 		case *neo.NotifyPartitionTable:
-			// TODO save locally what M told us
+			// TODO M sends us whole PT -> save locally
 
-
-		case *neo.NotifyClusterState:
-			// TODO .clusterState = ...	XXX what to do with it?
+		case *neo.NotifyPartitionChanges:
+			// TODO M sends us δPT -> save locally?
 
 		case *neo.NotifyNodeInformation:
 			// XXX check for myUUID and consider it a command (like neo/py) does?
 			// TODO update .nodeTab
+
+		case *neo.NotifyClusterState:
+			// TODO .clusterState = ...	XXX what to do with it?
 
 		}
 
