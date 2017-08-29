@@ -23,6 +23,7 @@
 package zodb
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -142,12 +143,12 @@ type IStorage interface {
 
 	// LastTid returns the id of the last committed transaction.
 	// if no transactions have been committed yet, LastTid returns Tid zero value
-	LastTid() (Tid, error)
+	LastTid(ctx context.Context) (Tid, error)
 
 	// LastOid returns highest object id of objects committed to storage.
 	// if there is no data committed yet, LastOid returns Oid zero value
 	// XXX ZODB/py does not define this in IStorage
-	LastOid() (Oid, error)
+	LastOid(ctx context.Context) (Oid, error)
 
 	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
 	//
@@ -156,9 +157,9 @@ type IStorage interface {
 	// XXX currently deleted data is returned as data=nil	-- is it ok?
 	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
 	// TODO data []byte -> something allocated from slab ?
-	Load(xid Xid) (data []byte, serial Tid, err error)	// XXX -> StorageRecordInformation ?
+	Load(ctx context.Context, xid Xid) (data []byte, serial Tid, err error)	// XXX -> StorageRecordInformation ?
 
-	// Prefetch(xid Xid)	(no error)
+	// Prefetch(ctx, xid Xid)	(no error)
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
 	// XXX Restore ?
@@ -171,7 +172,7 @@ type IStorage interface {
 
 	// XXX allow iteration both ways (forward & backward)
 	// XXX text
-	Iterate(tidMin, tidMax Tid) IStorageIterator	// XXX , error ?
+	Iterate(tidMin, tidMax Tid) IStorageIterator	// XXX ctx , error ?
 }
 
 type IStorageIterator interface {
@@ -180,12 +181,12 @@ type IStorageIterator interface {
 	// 2. iterator over transaction data records. 
 	// transaction metadata stays valid until next call to NextTxn().
 	// end of iteration is indicated with io.EOF
-	NextTxn() (*TxnInfo, IStorageRecordIterator, error)
+	NextTxn() (*TxnInfo, IStorageRecordIterator, error)	// XXX ctx
 }
 
 type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
 	// NextData yields information about next storage data record.
 	// returned data stays valid until next call to NextData().
 	// end of iteration is indicated with io.EOF
-	NextData() (*StorageRecordInformation, error)
+	NextData() (*StorageRecordInformation, error)	// XXX ctx
 }

@@ -82,9 +82,6 @@ type NodeTable struct {
 }
 
 
-// // special error indicating dial is currently in progress
-// var errDialInprogress = errors.New("dialing...")
-
 // even if dialing a peer failed, we'll attempt redial after this timeout
 const δtRedial = 3 * time.Second
 

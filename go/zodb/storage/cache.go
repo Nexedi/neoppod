@@ -24,6 +24,7 @@ package storage
 //go:generate sh -c "go run ../../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -107,7 +108,7 @@ type revCacheEntry struct {
 // StorLoader represents loading part of a storage.
 // XXX -> zodb?
 type StorLoader interface {
-	Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error)
+	Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error)
 }
 
 // lock order: Cache.mu   > oidCacheEntry
@@ -148,7 +149,7 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 // Load loads data from database via cache.
 //
 // If data is already in cache - cached content is returned.
-func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid)
 
 	// rce is already in cache - use it
@@ -162,7 +163,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	} else {
 		// XXX use connection poll
 		// XXX or it should be cared by loader?
-		c.loadRCE(rce, xid.Oid)
+		c.loadRCE(ctx, rce, xid.Oid)
 	}
 
 	if rce.err != nil {
@@ -184,7 +185,7 @@ func (c *Cache) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 // If data is not yet in cache loading for it is started in the background.
 // Prefetch is not blocking operation and does not wait for loading, if any was
 // started, to complete.
-func (c *Cache) Prefetch(xid zodb.Xid) {
+func (c *Cache) Prefetch(ctx context.Context, xid zodb.Xid) {
 	rce, rceNew := c.lookupRCE(xid)
 
 	// !rceNew -> no need to adjust LRU - it will be adjusted by further actual data Load
@@ -193,7 +194,7 @@ func (c *Cache) Prefetch(xid zodb.Xid) {
 	// spawn loading in the background if rce was not yet loaded
 	if rceNew {
 		// XXX use connection poll
-		go c.loadRCE(rce, xid.Oid)
+		go c.loadRCE(ctx, rce, xid.Oid)
 	}
 
 }
@@ -290,15 +291,16 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 //
 // rce must be new just created by lookupRCE() with returned rceNew=true.
 // loading completion is signalled by closing rce.ready.
-func (c *Cache) loadRCE(rce *revCacheEntry, oid zodb.Oid) {
+func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 	oce := rce.parent
-	data, serial, err := c.loader.Load(zodb.Xid{
+	data, serial, err := c.loader.Load(ctx, zodb.Xid{
 		Oid:  oid,
 		XTid: zodb.XTid{Tid: rce.before, TidBefore: true},
 	})
 
 	// normalize data/serial if it was error
 	if err != nil {
+		// XXX err == canceled? -> ?
 		data = nil
 		serial = 0
 	}

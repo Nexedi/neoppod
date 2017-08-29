@@ -21,6 +21,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -49,7 +50,7 @@ type tOidData struct {
 	err    error    // e.g. io error
 }
 
-func (stor *tStorage) Load(xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	//fmt.Printf("> load(%v)\n", xid)
 	//defer func() { fmt.Printf("< %v, %v, %v\n", data, serial, err) }()
 	tid := xid.Tid
@@ -142,11 +143,12 @@ func TestCache(t *testing.T) {
 	}
 
 	c := NewCache(tstor, 100 /* > Σ all data */)
+	ctx := context.Background()
 
 	checkLoad := func(xid zodb.Xid, data []byte, serial zodb.Tid, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
-		d, s, e := c.Load(xid)
+		d, s, e := c.Load(ctx, xid)
 		if !reflect.DeepEqual(data, d) {
 			fmt.Fprintf(bad, "data:\n%s\n", pretty.Compare(data, d))
 		}
@@ -335,7 +337,7 @@ func TestCache(t *testing.T) {
 	// (<14 also becomes ready and takes oce lock first, merging <12 and <14 into <16.
 	//  <16 did not yet took oce lock so c.size is temporarily reduced and
 	//  <16 is not yet on LRU list)
-	c.loadRCE(rce1_b14, 1)
+	c.loadRCE(ctx, rce1_b14, 1)
 	checkRCE(rce1_b14, 14, 10, world, nil)
 	checkRCE(rce1_b16, 16, 10, world, nil)
 	checkRCE(rce1_b12, 12, 10, world, nil)
@@ -344,7 +346,7 @@ func TestCache(t *testing.T) {
 
 	// (<16 takes oce lock and updates c.size and LRU list)
 	rce1_b16.ready = make(chan struct{}) // so loadRCE could run
-	c.loadRCE(rce1_b16, 1)
+	c.loadRCE(ctx, rce1_b16, 1)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16)
 	checkMRU(12, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
@@ -364,7 +366,7 @@ func TestCache(t *testing.T) {
 	checkMRU(12, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4) // no <17 and <18 yet
 
 	// (<18 loads and takes oce lock first - merge <17 with <18)
-	c.loadRCE(rce1_b18, 1)
+	c.loadRCE(ctx, rce1_b18, 1)
 	checkRCE(rce1_b18, 18, 16, zz, nil)
 	checkRCE(rce1_b17, 17, 16, zz, nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b18)
@@ -437,7 +439,7 @@ func TestCache(t *testing.T) {
 	// <9 must be separate from <8 and <10 because it is IO error there
 	rce1_b9, new9 := c.lookupRCE(xidlt(1,9))
 	ok1(new9)
-	c.loadRCE(rce1_b9, 1)
+	c.loadRCE(ctx, rce1_b9, 1)
 	checkRCE(rce1_b9, 9, 0, nil, ioerr)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16, rce1_b20, rce1_b22)
 	checkMRU(17, rce1_b9, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
@@ -507,7 +509,7 @@ func TestCache(t *testing.T) {
 	checkMRU(15, rce1_b16, rce1_b7, rce1_b9, rce1_b22)
 
 	// reload <20 -> <22 should be evicted
-	go c.Load(xidlt(1,20))
+	go c.Load(ctx, xidlt(1,20))
 	tc.Expect(gcstart, gcfinish)
 
 	// - evicted <22 (lru.1, www, size=3)
@@ -520,7 +522,7 @@ func TestCache(t *testing.T) {
 	checkMRU(14, rce1_b20_2, rce1_b16, rce1_b7, rce1_b9)
 
 	// load big <78 -> several rce must be evicted
-	go c.Load(xidlt(1,78))
+	go c.Load(ctx, xidlt(1,78))
 	tc.Expect(gcstart, gcfinish)
 
 	// - evicted  <9 (lru.1, ioerr, size=0)
@@ -548,7 +550,7 @@ func TestCache(t *testing.T) {
 	checkMRU(0)
 
 
-
+	// XXX verify caching vs ctx cancel
 	// XXX verify db inconsistency checks
 	// XXX verify loading with before > cache.before
 }

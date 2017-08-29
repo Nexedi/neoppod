@@ -1,4 +1,4 @@
-package neo
+package client
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 // lclose closes c and logs closing error if there was any.
 // the error is otherwise ignored
-// XXX dup in server, client
+// XXX dup in neo,server
 func lclose(ctx context.Context, c io.Closer) {
 	err := c.Close()
 	if err != nil {

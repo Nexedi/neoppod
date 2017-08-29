@@ -198,14 +198,14 @@ func (fs *FileStorage) Close() error {
 }
 
 
-func (fs *FileStorage) LastTid() (zodb.Tid, error) {
+func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
 	// XXX check we have transactions at all
 	// XXX what to return if not?
 	// XXX must be under lock
 	return fs.txnhMax.Tid, nil	// XXX error always nil ?
 }
 
-func (fs *FileStorage) LastOid() (zodb.Oid, error) {
+func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
 	// XXX check we have objects at all?
 	// XXX what to return if not?
 	// XXX must be under lock
@@ -224,7 +224,7 @@ func (e *ErrXidLoad) Error() string {
 	return fmt.Sprintf("loading %v: %v", e.Xid, e.Err)
 }
 
-func (fs *FileStorage) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {

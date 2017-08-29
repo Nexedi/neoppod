@@ -32,14 +32,19 @@ import (
 )
 
 // paramFunc is a function to retrieve 1 storage parameter
-type paramFunc func(stor zodb.IStorage) (string, error)
+type paramFunc func(ctx context.Context, stor zodb.IStorage) (string, error)
 
 var infov = []struct {name string; getParam paramFunc} {
 	// XXX e.g. stor.LastTid() should return err itself
-	{"name", func(stor zodb.IStorage) (string, error) { return stor.StorageName(), nil }},
+	{"name", func(ctx context.Context, stor zodb.IStorage) (string, error) {
+		return stor.StorageName(), nil
+	}},
 // TODO reenable size
 //	{"size", func(stor zodb.IStorage) (string, error) { return stor.StorageSize(), nil }},
-	{"last_tid", func(stor zodb.IStorage) (string, error) {tid, err := stor.LastTid(); return tid.String(), err }},
+	{"last_tid", func(ctx context.Context, stor zodb.IStorage) (string, error) {
+		tid, err := stor.LastTid(ctx)
+		return tid.String(), err
+	}},
 }
 
 // {} parameter_name -> get_parameter(stor)
@@ -52,7 +57,7 @@ func init() {
 }
 
 // Info prints general information about a ZODB storage
-func Info(w io.Writer, stor zodb.IStorage, parameterv []string) error {
+func Info(ctx context.Context, w io.Writer, stor zodb.IStorage, parameterv []string) error {
 	wantnames := false
 	if len(parameterv) == 0 {
 		for _, info := range infov {
@@ -71,7 +76,7 @@ func Info(w io.Writer, stor zodb.IStorage, parameterv []string) error {
 		if wantnames {
 		    out += parameter + "="
 		}
-		value, err := getParam(stor)
+		value, err := getParam(ctx, stor)
 		if err != nil {
 			return fmt.Errorf("getting %s: %v", parameter, err)
 		}
@@ -115,12 +120,14 @@ func infoMain(argv []string) {
 	}
 	storUrl := argv[0]
 
-	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
+	ctx := context.Background()
+
+	stor, err := zodb.OpenStorageURL(ctx, storUrl)	// TODO read-only
 	if err != nil {
 		Fatal(err)
 	}
 
-	err = Info(os.Stdout, stor, argv[1:])
+	err = Info(ctx, os.Stdout, stor, argv[1:])
 	if err != nil {
 		Fatal(err)
 	}

@@ -33,8 +33,8 @@ import (
 
 // Catobj dumps content of one ZODB object
 // The object is printed in raw form without any headers (see Dumpobj)
-func Catobj(w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
-	data, _, err := stor.Load(xid)
+func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
+	data, _, err := stor.Load(ctx, xid)
 	if err != nil {
 		return err
 	}
@@ -44,10 +44,10 @@ func Catobj(w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
 }
 
 // Dumpobj dumps content of one ZODB object with zodbdump-like header
-func Dumpobj(w io.Writer, stor zodb.IStorage, xid zodb.Xid, hashOnly bool) error {
+func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid, hashOnly bool) error {
 	var objInfo zodb.StorageRecordInformation
 
-	data, tid, err := stor.Load(xid)
+	data, tid, err := stor.Load(ctx, xid)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,9 @@ func catobjMain(argv []string) {
 		Fatal("only 1 object allowed with -raw")
 	}
 
-	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
+	ctx := context.Background()
+
+	stor, err := zodb.OpenStorageURL(ctx, storUrl)	// TODO read-only
 	if err != nil {
 		Fatal(err)
 	}
@@ -126,9 +128,9 @@ func catobjMain(argv []string) {
 
 	catobj := func(xid zodb.Xid) error {
 		if raw {
-			return Catobj(os.Stdout, stor, xid)
+			return Catobj(ctx, os.Stdout, stor, xid)
 		} else {
-			return Dumpobj(os.Stdout, stor, xid, hashOnly)
+			return Dumpobj(ctx, os.Stdout, stor, xid, hashOnly)
 		}
 	}
 

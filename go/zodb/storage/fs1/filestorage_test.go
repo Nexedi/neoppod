@@ -75,7 +75,7 @@ type oidLoadedOk struct {
 
 // checkLoad verifies that fs.Load(xid) returns expected result
 func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) {
-	data, tid, err := fs.Load(xid)
+	data, tid, err := fs.Load(context.Background(), xid)
 	if err != nil {
 		t.Errorf("load %v: %v", xid, err)
 	}

@@ -334,8 +334,8 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 		// TODO AskUnfinishedTransactions
 
 		case *neo.LastIDs:
-			lastTid, zerr1 := stor.zstor.LastTid()
-			lastOid, zerr2 := stor.zstor.LastOid()
+			lastTid, zerr1 := stor.zstor.LastTid(ctx)
+			lastOid, zerr2 := stor.zstor.LastOid(ctx)
 			if zerr := xerr.First(zerr1, zerr2); zerr != nil {
 				return zerr	// XXX send the error to M
 			}
@@ -488,10 +488,11 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	for {
 		err := stor.serveClient1(ctx, conn)
 		if err != nil {
-			return err
+			log.Infof(ctx, "%v: %v", conn, err)
+			return
 		}
 
-		lclose(conn)
+		lclose(ctx, conn)
 
 		// keep on going in the same goroutine to avoid goroutine creation overhead
 		// TODO Accept += timeout, go away if inactive
@@ -545,7 +546,7 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 }
 
 // serveClient1 serves 1 request from a client
-func (stor *Storage) serveClient1(conn *neo.Conn) error {
+func (stor *Storage) serveClient1(ctx context.Context, conn *neo.Conn) error {
 	req, err := conn.Recv()
 	if err != nil {
 		return err	// XXX log / err / send error before closing

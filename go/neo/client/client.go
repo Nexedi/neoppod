@@ -25,6 +25,7 @@ import (
 	"compress/zlib"
 	"context"
 	"crypto/sha1"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/url"
@@ -77,7 +78,7 @@ func (c *Client) Close() error {
 //	return err
 }
 
-func (c *Client) LastTid() (zodb.Tid, error) {
+func (c *Client) LastTid(ctx context.Context) (zodb.Tid, error) {
 	panic("TODO")
 /*
 	c.Mlink // XXX check we are connected
@@ -98,17 +99,17 @@ func (c *Client) LastTid() (zodb.Tid, error) {
 */
 }
 
-func (c *Client) LastOid() (zodb.Oid, error) {
+func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 	// XXX there is no LastOid in NEO/py
 	panic("TODO")
 }
 
 // decompress decompresses data according to zlib encoding.
 //
-// out buffer, if there is enough capacity, is used for decompression destionation.
+// out buffer, if there is enough capacity, is used for decompression destination.
 // if out has not not enough capacity a new buffer is allocated and used.
 //
-// return: destination buffer with full decompressed data.
+// return: destination buffer with full decompressed data or error.
 func decompress(in []byte, out []byte) ([]byte, error) {
 	bin := bytes.NewReader(in)
 	zr, err := zlib.NewReader(bin)
@@ -126,23 +127,33 @@ func decompress(in []byte, out []byte) ([]byte, error) {
 	return bout.Bytes(), nil
 }
 
-func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	// XXX check pt is operational first? -> no if there is no data - we'll
 	// just won't find ready cell
+	//
+	// XXX or better still check first M told us ok to go? (ClusterState=RUNNING)
+	//if c.node.ClusterState != ClusterRunning {
+	//	return nil, 0, &Error{NOT_READY, "cluster not operational"}
+	//}
+
 	cellv := c.node.PartTab.Get(xid.Oid)
 	// XXX cellv = filter(cellv, UP_TO_DATE)
+	if len(cellv) == 0 {
+		return nil, 0, fmt.Errorf("no storages alive for oid %v", xid.Oid)	// XXX err ctx
+	}
 	cell := cellv[rand.Intn(len(cellv))]
 	stor := c.node.NodeTab.Get(cell.NodeUUID)
 	if stor == nil {
-		panic(0) // XXX
+		return nil, 0, fmt.Errorf("storage %v not yet known", cell.NodeUUID)	// XXX err ctx
 	}
-	// XXX check stor.State == RUNNING
+	// XXX check stor.State == RUNNING -> in link
 
-	Sconn, err := stor.Conn()
+	Sconn := stor.Conn // XXX temp stub
+	//Sconn, err := stor.Conn()
 	if err != nil {
-		panic(0) // XXX
+		return nil, 0, err	// XXX err ctx
 	}
-	defer lclose(Sconn)
+	defer lclose(ctx, Sconn)
 
 	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
@@ -160,12 +171,12 @@ func (c *Client) Load(xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	}
 
 	checksum := sha1.Sum(data)
-	if checksum != reply.Checksum {
+	if checksum != resp.Checksum {
 		// XXX data corrupt
 	}
 
-	data := resp.Data
-	if reply.Compression {
+	data = resp.Data
+	if resp.Compression {
 		data, err = decompress(resp.Data, make([]byte, 0, len(resp.Data)))
 		if err != nil {
 			// XXX data corrupt
