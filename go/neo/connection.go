@@ -346,7 +346,7 @@ func (c *Conn) Close() error {
 // ---- receive ----
 
 // Accept waits for and accepts incoming connection on top of node-node link.
-func (nl *NodeLink) Accept() (c *Conn, err error) {
+func (nl *NodeLink) Accept(ctx context.Context) (c *Conn, err error) {
 	defer func() {
 		if err != nil {
 			err = nl.err("accept", err)
@@ -364,6 +364,10 @@ func (nl *NodeLink) Accept() (c *Conn, err error) {
 			return nil, ErrLinkClosed
 		}
 		return nil, ErrLinkDown
+
+	// XXX ctx cancel tests
+	case <-ctx.Done():
+		return nil, ctx.Err()
 
 	case c := <-nl.acceptq:
 		return c, nil
@@ -968,7 +972,7 @@ func (c *Conn) ConnID() uint32 {
 }
 
 
-// ---- for convenience: String / Error ----
+// ---- for convenience: String / Error / Cause ----
 func (nl *NodeLink) String() string {
 	s := fmt.Sprintf("%s - %s", nl.LocalAddr(), nl.RemoteAddr())
 	return s	// XXX add "(closed)" if nl is closed ?
@@ -987,6 +991,9 @@ func (e *LinkError) Error() string {
 func (e *ConnError) Error() string {
 	return fmt.Sprintf("%s: %s: %s", e.Conn, e.Op, e.Err)
 }
+
+func (e *LinkError) Cause() error { return e.Err }
+func (e *ConnError) Cause() error { return e.Err }
 
 func (nl *NodeLink) err(op string, e error) error {
 	if e == nil {

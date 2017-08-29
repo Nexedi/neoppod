@@ -191,7 +191,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 
 		// XXX dup in storage
 		for serveCtx.Err() == nil {
-			conn, idReq, err := l.Accept()
+			conn, idReq, err := l.Accept(serveCtx)
 			if err != nil {
 				// TODO log / throttle
 				continue

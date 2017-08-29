@@ -23,7 +23,7 @@ package server
 // common parts for organizing network servers
 
 import (
-//	"context"
+	"context"
 //	"fmt"
 //	"net"
 
@@ -90,11 +90,11 @@ func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 // IdentifyPeer identifies peer on the link
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
-func IdentifyPeer(link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.RequestIdentification, err error) {
+func IdentifyPeer(ctx context.Context, link *neo.NodeLink, myNodeType neo.NodeType) (nodeInfo neo.RequestIdentification, err error) {
 	defer xerr.Contextf(&err, "%s: identify", link)
 
 	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept()
+	conn, err := link.Accept(ctx)
 	if err != nil {
 		return nodeInfo, err
 	}

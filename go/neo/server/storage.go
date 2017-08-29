@@ -106,7 +106,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 
 		// XXX dup from master
 		for serveCtx.Err() == nil {
-			conn, idReq, err := l.Accept()
+			conn, idReq, err := l.Accept(serveCtx)
 			if err != nil {
 				// TODO log / throttle
 				continue
@@ -214,7 +214,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		return
 
 		for {
-			conn, err := Mlink.Accept()
+			conn, err := Mlink.Accept(ctx)
 
 			select {
 			case acceptq <- accepted{conn, err}:
@@ -433,7 +433,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 
 	// XXX only accept clients
 	// XXX only accept when operational (?)
-	nodeInfo, err := IdentifyPeer(link, neo.STORAGE)
+	nodeInfo, err := IdentifyPeer(ctx, link, neo.STORAGE)
 	if err != nil {
 		log.Error(ctx, err)
 		return
@@ -452,7 +452,7 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) {
 
 	// identification passed, now serve other requests
 	for {
-		conn, err := link.Accept()
+		conn, err := link.Accept(ctx)
 		if err != nil {
 			log.Error(ctx, err)
 			break
@@ -476,6 +476,12 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 	return xcontext.Merge(ctx, opCtx)
 }
 
+// serveClient serves incoming connection on which peer identified itself as client
+// the connection is closed when serveClient returns
+// XXX +error return?
+//
+// XXX version that reuses goroutine to serve next client requests
+// XXX for py compatibility (py has no way to tell us Conn is closed)
 func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	log.Infof(ctx, "%s: serving new client conn", conn)	// XXX -> running?
 
@@ -499,7 +505,8 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 		conn, err = link.Accept(ctx)
 		if err != nil {
 			// lclose(link) XXX ?
-			return err
+			log.Error(ctx, "%v: %v", conn, err)
+			return
 		}
 	}
 }
@@ -507,6 +514,10 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 // serveClient serves incoming connection on which peer identified itself as client
 // the connection is closed when serveClient returns
 // XXX +error return?
+//
+// XXX version that keeps 1 goroutine per 1 Conn
+// XXX unusable until Conn.Close signals peer
+/*
 func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	log.Infof(ctx, "%s: serving new client conn", conn)	// XXX -> running?
 
@@ -544,6 +555,7 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 	log.Infof(ctx, "%v: closing client conn", conn)
 	conn.Close()	// XXX err
 }
+*/
 
 // serveClient1 serves 1 request from a client
 func (stor *Storage) serveClient1(ctx context.Context, conn *neo.Conn) error {
@@ -564,7 +576,7 @@ func (stor *Storage) serveClient1(ctx context.Context, conn *neo.Conn) error {
 		}
 
 		var reply neo.Msg
-		data, tid, err := stor.zstor.Load(xid)
+		data, tid, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
 			// TODO translate err to NEO protocol error codes
 			reply = neo.ErrEncode(err)
@@ -587,7 +599,7 @@ func (stor *Storage) serveClient1(ctx context.Context, conn *neo.Conn) error {
 	case *neo.LastTransaction:
 		var reply neo.Msg
 
-		lastTid, err := stor.zstor.LastTid()
+		lastTid, err := stor.zstor.LastTid(ctx)
 		if err != nil {
 			reply = neo.ErrEncode(err)
 		} else {

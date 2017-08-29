@@ -158,7 +158,7 @@ type Listener interface {
 	// On success returned are:
 	// - primary link connection which carried identification
 	// - requested identification packet
-	Accept() (*Conn, *RequestIdentification, error)
+	Accept(ctx context.Context) (*Conn, *RequestIdentification, error)
 }
 
 type listener struct {
@@ -197,7 +197,7 @@ func (l *listener) run() {
 func (l *listener) accept(link *NodeLink, err error) {
 	res := make(chan accepted, 1)
 	go func() {
-		conn, idReq, err := l.accept1(link, err)
+		conn, idReq, err := l.accept1(context.Background(), link, err)	// XXX ctx cancel on l close?
 		res <- accepted{conn, idReq, err}
 	}()
 
@@ -224,16 +224,16 @@ func (l *listener) accept(link *NodeLink, err error) {
 	}
 }
 
-func (l *listener) accept1(link *NodeLink, err0 error) (_ *Conn, _ *RequestIdentification, err error) {
+func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *Conn, _ *RequestIdentification, err error) {
 	if err0 != nil {
 		return nil, nil, err0
 	}
 
-	defer xerr.Context(&err, "identify")
+	defer xerr.Context(&err, "identify")	// XXX -> task.ErrContext?
 
 	// identify peer
 	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept()
+	conn, err := link.Accept(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -254,12 +254,15 @@ func (l *listener) accept1(link *NodeLink, err0 error) (_ *Conn, _ *RequestIdent
 	return conn, idReq, nil
 }
 
-func (l *listener) Accept() (*Conn, *RequestIdentification, error) {
+func (l *listener) Accept(ctx context.Context) (*Conn, *RequestIdentification, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
 		_, err := l.l.Accept()
 		return nil, nil, err
+
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
 
 	case a := <-l.acceptq:
 		return a.conn, a.idReq, a.err
