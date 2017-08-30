@@ -66,7 +66,6 @@ func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 */
 
 // FIXME kill vvv
-///*
 // ----------------------------------------
 
 // XXX goes away?  (we need a func to make sure to recv RequestIdentification
@@ -80,7 +79,7 @@ func IdentifyPeer(ctx context.Context, link *neo.NodeLink, myNodeType neo.NodeTy
 	defer xerr.Contextf(&err, "%s: identify", link)
 
 	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept(ctx)
+	conn, err := link.Accept(/*ctx*/)
 	if err != nil {
 		return nodeInfo, err
 	}
@@ -116,4 +115,3 @@ func IdentifyPeer(ctx context.Context, link *neo.NodeLink, myNodeType neo.NodeTy
 
 	return req, nil
 }
-//*/

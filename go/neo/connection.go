@@ -324,6 +324,8 @@ func (c *Conn) CloseRecv() {
 	atomic.StoreInt32(&c.rxclosed, 1)
 	c.shutdownRX(errConnClosed)
 
+	// FIXME vvv should be active on Close path too and under shutdown() called from link shutdown
+
 	// dequeue all packets already queued in c.rxq
 	// (once serveRecv sees c.rxdown it won't try to put new packets into
 	//  c.rxq, but something finite could be already there)
@@ -1189,7 +1191,9 @@ func (c *Conn) Ask(req Msg, resp Msg) error {
 }
 
 // ---- exchange of 1-1 request-reply ----
-// (impedance matche for current neo/py imlementation)
+// (impedance matcher for current neo/py imlementation)
+
+// TODO Recv1/Reply/Send1/Ask1 tests
 
 // Request is a message received from the link + connection handle to make a reply.
 //
@@ -1226,17 +1230,17 @@ func (link *NodeLink) Recv1() (Request, error) {
 // Reply sends response to request.
 //
 // XXX doc
-func (req Request) Reply(resp Msg) error {
+func (req *Request) Reply(resp Msg) error {
 	err1 := req.conn.Send(resp)
 	err2 := req.conn.Close()
 	return xerr.First(err1, err2)
 }
 
-// Close should be called to free request resources for requests without a reply
+// Close should be called to free request resources for requests without a reply.
 //
 // XXX doc
 // It is safe to call Close several times.
-func (req Request) Close() error {
+func (req *Request) Close() error {
 	return req.conn.Close()
 }
 
@@ -1290,4 +1294,8 @@ func (link *NodeLink) Ask1(req Msg, resp Msg) (err error) {
 	}
 
 	return err
+}
+
+func (req *Request) Link() *NodeLink {
+	return req.conn.Link()
 }

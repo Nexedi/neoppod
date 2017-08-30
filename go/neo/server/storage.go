@@ -218,7 +218,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 		return
 
 		for {
-			conn, err := Mlink.Accept(ctx)
+			conn, err := Mlink.Accept(/*ctx*/)
 
 			select {
 			case acceptq <- accepted{conn, err}:
@@ -428,10 +428,10 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) (err err
 		return
 	}
 
-	var serveConn func(context.Context, *neo.Conn)
+	var serveReq func(context.Context, neo.Request)
 	switch nodeInfo.NodeType {
 	case neo.CLIENT:
-		serveConn = stor.serveClient
+		serveReq = stor.serveClient
 
 	default:
 		// XXX vvv should be reply to peer
@@ -441,14 +441,13 @@ func (stor *Storage) ServeLink(ctx context.Context, link *neo.NodeLink) (err err
 
 	// identification passed, now serve other requests
 	for {
-		conn, err := link.Accept(ctx)
+		req, err := link.Recv1()
 		if err != nil {
 			log.Error(ctx, err)
 			break
 		}
 
-		// XXX wrap conn close to happen here, not in serveClient ?
-		go serveConn(ctx, conn)
+		go serveReq(ctx, req)
 	}
 
 	// TODO wait all spawned serveConn
@@ -467,36 +466,38 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 	return xcontext.Merge(ctx, opCtx)
 }
 
-// serveClient serves incoming connection on which peer identified itself as client
-// the connection is closed when serveClient returns
+// serveClient serves incoming client request.
+//
 // XXX +error return?
 //
 // XXX version that reuses goroutine to serve next client requests
 // XXX for py compatibility (py has no way to tell us Conn is closed)
-func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
-	log.Infof(ctx, "%s: serving new client conn", conn)	// XXX -> running?
+func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
+	// XXX vvv move level-up
+	//log.Infof(ctx, "%s: serving new client conn", conn)	// XXX -> running?
 
 	// rederive ctx to be also cancelled if M tells us StopOperation
 	ctx, cancel := stor.withWhileOperational(ctx)
 	defer cancel()
 
-	link := conn.Link()
+	link := req.Link()
 
 	for {
-		err := stor.serveClient1(ctx, conn)
+		resp := stor.serveClient1(ctx, req.Msg)
+		err := req.Reply(resp)
 		if err != nil {
-			log.Infof(ctx, "%v: %v", conn, err)
+			log.Info(ctx, err)
 			return
 		}
 
-		lclose(ctx, conn)
+		//lclose(ctx, conn)
 
 		// keep on going in the same goroutine to avoid goroutine creation overhead
-		// TODO Accept += timeout, go away if inactive
-		conn, err = link.Accept(ctx)
+		// TODO += timeout -> go away if inactive
+		req, err = link.Recv1()
 		if err != nil {
 			// lclose(link) XXX ?
-			log.Error(ctx, "%v: %v", conn, err)
+			log.Error(ctx, err)
 			return
 		}
 	}
@@ -548,12 +549,12 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 }
 */
 
-// serveClient1 serves 1 request from a client
-func (stor *Storage) serveClient1(ctx context.Context, conn *neo.Conn) error {
-	req, err := conn.Recv()
-	if err != nil {
-		return err	// XXX log / err / send error before closing
-	}
+// serveClient1 prepares response for 1 request from client
+func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
+	// req, err := conn.Recv()
+	// if err != nil {
+	// 	return err	// XXX log / err / send error before closing
+	// }
 
 	switch req := req.(type) {
 	case *neo.GetObject:
@@ -566,44 +567,41 @@ func (stor *Storage) serveClient1(ctx context.Context, conn *neo.Conn) error {
 			xid.TidBefore = true
 		}
 
-		var reply neo.Msg
 		data, tid, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
 			// TODO translate err to NEO protocol error codes
-			reply = neo.ErrEncode(err)
-		} else {
-			reply = &neo.AnswerGetObject{
-					Oid:	xid.Oid,
-					Serial: tid,
-
-					Compression: false,
-					Data: data,
-					// XXX .CheckSum
-
-					// XXX .NextSerial
-					// XXX .DataSerial
-				}
+			return neo.ErrEncode(err)
 		}
 
-		conn.Send(reply)	// XXX err
+		return &neo.AnswerGetObject{
+			Oid:	xid.Oid,
+			Serial: tid,
+
+			Compression: false,
+			Data: data,
+			// XXX .CheckSum
+
+			// XXX .NextSerial
+			// XXX .DataSerial
+		}
+
+//		req.Reply(reply)	// XXX err
 
 	case *neo.LastTransaction:
-		var reply neo.Msg
-
 		lastTid, err := stor.zstor.LastTid(ctx)
 		if err != nil {
-			reply = neo.ErrEncode(err)
-		} else {
-			reply = &neo.AnswerLastTransaction{lastTid}
+			return neo.ErrEncode(err)
 		}
 
-		conn.Send(reply)	// XXX err
+		return &neo.AnswerLastTransaction{lastTid}
+
+//		conn.Send(reply)	// XXX err
 
 	//case *ObjectHistory:
 	//case *StoreObject:
 
 	default:
-		panic("unexpected packet")	// XXX
+		return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req)}
 	}
 
 	//req.Put(...)

@@ -32,6 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
@@ -113,12 +114,14 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	// XXX dup from Server.talkMaster1
 	// XXX put logging into Dial?
 	log.Info(ctx, "connecting ...")
-	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
+	Mconn, accept, err := c.node.Dial(ctx, neo.MASTER, c.node.MasterAddr)
 	if err != nil {
 		// FIXME it is not only identification - e.g. ECONNREFUSED
 		log.Info(ctx, "identification rejected")	// XXX ok here? (err is logged above)
 		return err
 	}
+
+	_ = accept // XXX
 
 	log.Info(ctx, "identification accepted")
 	Mlink := Mconn.Link()
@@ -127,21 +130,38 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 
 	// XXX .nodeTab.Reset()
 
-	Ask(partiotionTable)
-	Ask(lastTransaction)
+	rpt := neo.AnswerPartitionTable{}
+	err = Mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
+	if err != nil {
+		// XXX
+	}
+
+	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
+	// XXX pt -> c.node.PartTab ?
+	_ = pt
+
+	rlastTxn := neo.AnswerLastTransaction{}
+	err = Mlink.Ask1(&neo.LastTransaction{}, &rlastTxn)
+	if err != nil {
+		// XXX
+	}
+
+	// XXX rlastTxn.Tid -> c.lastTid
 
 	for {
-		msg, err := Mconn.Recv()
+		req, err := Mlink.Recv1()
 		if err != nil {
 			return err
 		}
+
+		msg := req.Msg
 
 		switch msg.(type) {
 		default:
 			return fmt.Errorf("unexpected message: %T", msg)
 
-		case *neo.NotifyPartitionTable:
-			// TODO M sends whole PT
+		//case *neo.NotifyPartitionTable:
+		//	// TODO M sends whole PT
 
 		//case *neo.NotifyPartitionChanges:
 		//	// TODO M sends δPT
@@ -151,7 +171,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 
 		case *neo.NotifyClusterState:
 			// TODO
-
+		}
 	}
 }
 
