@@ -73,6 +73,9 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 				ClusterName:	cluster,
 				Net:		net,
 				MasterAddr:	masterAddr,
+
+				PartTab:	&neo.PartitionTable{}, // empty - TODO read from disk
+				NodeTab:	&neo.NodeTable{},
 			},
 
 			zstor:		zstor,

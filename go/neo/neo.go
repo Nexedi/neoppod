@@ -57,8 +57,8 @@ type NodeCommon struct {
 	Net		xnet.Networker	// network AP we are sending/receiving on
 	MasterAddr	string		// address of master	XXX -> Address ?
 
-	NodeTab		NodeTable	// information about nodes in the cluster
-	PartTab		PartitionTable	// information about data distribution in the cluster
+	NodeTab		*NodeTable	// information about nodes in the cluster
+	PartTab		*PartitionTable	// information about data distribution in the cluster
 	ClusterState	ClusterState	// master idea about cluster state
 }
 

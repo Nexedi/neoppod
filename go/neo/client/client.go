@@ -255,32 +255,50 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 			return err
 		}
 
+		c.opMu.Lock()
+
 		switch msg := req.Msg.(type) {
 		default:
+			c.opMu.Unlock()
 			return fmt.Errorf("unexpected message: %T", msg)
 
 		// M sends whole PT
 		case *neo.NotifyPartitionTable:
-			// XXX lock
-			// XXX update operational
+			pt := neo.PartTabFromDump(msg.PTid, msg.RowList)
+			c.node.PartTab = pt
 
 		// M sends δPT
 		//case *neo.NotifyPartitionChanges:
 			// TODO
 
 		case *neo.NotifyNodeInformation:
-			// XXX lock
-			// XXX update operational
-
 			// XXX msg.IdTimestamp ?
 			for _, nodeInfo := range msg.NodeList {
 				c.node.NodeTab.Update(nodeInfo, /*XXX conn should not be here*/nil)
 			}
 
 		case *neo.NotifyClusterState:
-			// XXX lock
-			// XXX update operational
 			c.node.ClusterState.Set(msg.State)
+		}
+
+		// update .operational + notify those who was waiting for it
+		operational := c.node.ClusterState == neo.ClusterRunning &&
+			c.node.PartTab.OperationalWith(c.node.NodeTab)
+
+		var opready chan struct{}
+		if operational != c.operational {
+			c.operational = operational
+			if operational {
+				opready = c.opReady // don't close from under opMu
+			} else {
+				c.opReady = make(chan struct{})
+			}
+		}
+
+		c.opMu.Unlock()
+
+		if opready != nil {
+			close(opready)
 		}
 	}
 }
@@ -293,13 +311,13 @@ func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error 
 		return err
 	}
 
-	// XXX lock
 	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
-	// XXX pt -> c.node.PartTab ?
-	_ = pt
+	c.opMu.Lock()
+	c.node.PartTab = pt
+	c.opMu.Unlock()
 
 /*
-	XXX don't need in init?
+	XXX don't need this in init?
 
 	// ask M about last_tid
 	rlastTxn := neo.AnswerLastTransaction{}
@@ -323,6 +341,7 @@ func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error 
 func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
 	defer xerr.Context(&err, "client: lastTid")
 
+	// XXX or require full withOperational ?
 	mlink, err := c.masterLink(ctx)
 	if err != nil {
 		return 0, err
