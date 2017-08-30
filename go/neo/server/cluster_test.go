@@ -34,7 +34,7 @@ import (
 	"unsafe"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
-	//"lab.nexedi.com/kirr/neo/go/neo/client"
+	"lab.nexedi.com/kirr/neo/go/neo/client"
 
 	//"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
@@ -143,7 +143,7 @@ func (c *vclock) tick() {	// XXX do we need tick?
 
 //trace:import "lab.nexedi.com/kirr/neo/go/neo"
 
-// M drives cluster with 1 S through recovery -> verification -> service -> shutdown
+// M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
 	tracer := &MyTracer{xtesting.NewSyncTracer()}
 	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
@@ -169,6 +169,9 @@ func TestMasterStorage(t *testing.T) {
 		return a
 	}
 	xnaddr := func(addr string) neo.Address {
+		if addr == "" {
+			return neo.Address{}
+		}
 		a, err := neo.Addr(xaddr(addr))
 		exc.Raiseif(err)
 		return a
@@ -212,6 +215,7 @@ func TestMasterStorage(t *testing.T) {
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
+	Chost := xnet.NetTrace(net.Host("c"), tracer)
 
 	gwg := &xsync.WorkGroup{}
 
@@ -341,7 +345,33 @@ func TestMasterStorage(t *testing.T) {
 	// TODO S join while service
 	// TODO M.Stop while service
 
-	// + TODO Client connects here ?
+	// create client
+	C := client.NewClient("abc1", "m:1", Chost)
+
+	// C connects M
+	tc.Expect(netconnect("c:1", "m:3",  "m:1"))
+	tc.Expect(conntx("c:1", "m:3", 1, &neo.RequestIdentification{
+		NodeType:	neo.CLIENT,
+		UUID:		0,
+		Address:	xnaddr(""),
+		ClusterName:	"abc1",
+		IdTimestamp:	0,
+	}))
+
+	// XXX vvv reenable
+	//tc.Expect(node(M.nodeTab, "", neo.CLIENT, 1, neo.RUNNING, 0.01))
+
+	tc.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
+		NodeType:	neo.MASTER,
+		MyUUID:		neo.UUID(neo.MASTER, 1),
+		NumPartitions:	1,
+		NumReplicas:	1,
+		YourUUID:	neo.UUID(neo.CLIENT, 1),
+	}))
+
+	_ = C
+
+
 
 	// TODO S.Stop() or Scancel()
 	// expect:

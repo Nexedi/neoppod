@@ -233,7 +233,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	})
 
 	// init partition table from master
-	// XXX is this needed or we can expect master sending us pt via notify channel?
+	// XXX is this needed at all or we can expect master sending us pt via notify channel?
 	wg.Go(func() error {
 		return c.initFromMaster(ctx, Mlink)
 	})
