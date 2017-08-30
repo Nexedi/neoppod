@@ -163,7 +163,7 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 }
 
 // XXX temp for cluster_test.go
-var NodeLinkPipe = nodeLinkPipe
+// var NodeLinkPipe = nodeLinkPipe
 
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
@@ -457,6 +457,7 @@ func TestNodeLink(t *testing.T) {
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
 	wg = &xsync.WorkGroup{}
+	closed := make(chan int)
 	wg.Gox(func() {
 		c := xaccept(nl2)
 
@@ -472,48 +473,58 @@ func TestNodeLink(t *testing.T) {
 		xsendPkt(c, mkpkt(36, []byte("pong2")))
 
 		xclose(c)
+		closed <- 1
 
-		//println("B.111")
+		// once again as ^^^ but finish only with CloseRecv
+		c2 := xaccept(nl2)
+		pkt = xrecvPkt(c2)
+		xverifyPkt(pkt, c2.connId, 41, []byte("ping5"))
+		xsendPkt(c2, mkpkt(42, []byte("pong5")))
+
+		c2.CloseRecv()
+		closed <- 2
 
 		// "connection refused" when trying to connect to not-listening peer
 		c = xnewconn(nl2) // XXX should get error here?
 		xsendPkt(c, mkpkt(38, []byte("pong3")))
 		pkt = xrecvPkt(c)
 		xverifyMsg(pkt, c.connId, errConnRefused)
-		//println("B.222")
 		xsendPkt(c, mkpkt(40, []byte("pong4"))) // once again
 		pkt = xrecvPkt(c)
 		xverifyMsg(pkt, c.connId, errConnRefused)
-		//println("B.333")
 
 		xclose(c)
 
 	})
-	//println("A.111")
-	c = xnewconn(nl1)
-	xsendPkt(c, mkpkt(33, []byte("ping")))
-	pkt = xrecvPkt(c)
-	xverifyPkt(pkt, c.connId, 34, []byte("pong"))
-	xsendPkt(c, mkpkt(35, []byte("ping2")))
-	pkt = xrecvPkt(c)
-	xverifyPkt(pkt, c.connId, 36, []byte("pong2"))
-	xwait(wg)
+	c1 := xnewconn(nl1)
+	xsendPkt(c1, mkpkt(33, []byte("ping")))
+	pkt = xrecvPkt(c1)
+	xverifyPkt(pkt, c1.connId, 34, []byte("pong"))
+	xsendPkt(c1, mkpkt(35, []byte("ping2")))
+	pkt = xrecvPkt(c1)
+	xverifyPkt(pkt, c1.connId, 36, []byte("pong2"))
 
-	//println()
-	//println()
-	//println("A.222")
 	// "connection closed" after peer closed its end
-	xsendPkt(c, mkpkt(37, []byte("ping3")))
-	//println("A.qqq")
-	pkt = xrecvPkt(c)
-	xverifyMsg(pkt, c.connId, errConnClosed)
-	//println("A.zzz")
-	xsendPkt(c, mkpkt(39, []byte("ping4"))) // once again
-	pkt = xrecvPkt(c)
-	xverifyMsg(pkt, c.connId, errConnClosed)
+	<-closed
+	xsendPkt(c1, mkpkt(37, []byte("ping3")))
+	pkt = xrecvPkt(c1)
+	xverifyMsg(pkt, c1.connId, errConnClosed)
+	xsendPkt(c1, mkpkt(39, []byte("ping4"))) // once again
+	pkt = xrecvPkt(c1)
+	xverifyMsg(pkt, c1.connId, errConnClosed)
 	// XXX also should get EOF on recv
 
-	//println("A.333")
+	// one more time but now peer does only .CloseRecv()
+	c2 := xnewconn(nl1)
+	xsendPkt(c2, mkpkt(41, []byte("ping5")))
+	pkt = xrecvPkt(c2)
+	xverifyPkt(pkt, c2.connId, 42, []byte("pong5"))
+	<-closed
+	xsendPkt(c2, mkpkt(41, []byte("ping6")))
+	pkt = xrecvPkt(c2)
+	xverifyMsg(pkt, c2.connId, errConnClosed)
+
+	xwait(wg)
 
 	// make sure entry for closed nl2.1 stays in nl2.connTab
 	nl2.connMu.Lock()
@@ -530,7 +541,8 @@ func TestNodeLink(t *testing.T) {
 	}
 	nl2.connMu.Unlock()
 
-	xclose(c)
+	xclose(c1)
+	xclose(c2)
 	xclose(nl1)
 	xclose(nl2)
 	connKeepClosed = saveKeepClosed
@@ -570,8 +582,8 @@ func TestNodeLink(t *testing.T) {
 		}
 	})
 
-	c1 := xnewconn(nl1)
-	c2 := xnewconn(nl1)
+	c1 = xnewconn(nl1)
+	c2 = xnewconn(nl1)
 	xsendPkt(c1, mkpkt(1, []byte("")))
 	xsendPkt(c2, mkpkt(2, []byte("")))
 

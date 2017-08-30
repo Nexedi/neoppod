@@ -100,8 +100,6 @@ type Conn struct {
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
 	rxclosed  int32		// whether CloseRecv was called
 	txclosed  int32		// whether CloseSend was called
-//	closed    int32         // 1 if Close was called or "connection closed" entry
-//				// incremented during every replyNoConn() in progress
 
 	errMsg	  *Error	// error message for replyNoConn
 }
@@ -112,10 +110,6 @@ var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
 var ErrLinkNoListen = errors.New("node link is not listening for incoming connections")
 var ErrLinkManyConn = errors.New("too many opened connections")
 var ErrClosedConn   = errors.New("connection is closed")
-
-// XXX unify LinkError & ConnError -> NetError?
-// (think from point of view how user should be handling errors)
-// XXX or it is good to be able to distinguish between only conn error vs whole-link error?
 
 // LinkError is returned by NodeLink operations
 type LinkError struct {
@@ -182,7 +176,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	switch role &^ linkFlagsMask {
 	case LinkServer:
 		nextConnId = 0             // all initiated by us connId will be even
-		acceptq = make(chan *Conn) // accept queue; TODO use backlog?
+		acceptq = make(chan *Conn) // accept queue; TODO use backlog
 	case LinkClient:
 		nextConnId = 1 // ----//---- odd
 		acceptq = nil  // not accepting incoming connections
@@ -317,7 +311,7 @@ func (c *Conn) shutdownRX(errMsg *Error) {
 
 
 // time to keep record of a closed connection so that we can properly reply
-// "connection closed" if a packet comes in with this connection's connID.
+// "connection closed" if a packet comes in with same connID.
 var connKeepClosed = 1*time.Minute
 
 // CloseRecv closes reading end of connection.
@@ -504,7 +498,6 @@ func (nl *NodeLink) serveRecv() {
 		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
 
-		//fmt.Printf("RX .%d -> %v\n", connId, conn)
 		if conn == nil {
 			// "new" connection will be needed in all cases - e.g.
 			// even temporarily to reply "connection refused"
@@ -512,30 +505,25 @@ func (nl *NodeLink) serveRecv() {
 
 			// message with connid that should be initiated by us
 			if connId % 2 == nl.nextConnId % 2 {
-				//conn.errMsg = errConnClosed
 				conn.shutdownRX(errConnClosed)
 
 			// message with connid for a stream initiated by peer
 			} else {
 				if nl.acceptq == nil {
-					//conn.errMsg = errConnRefused
 					conn.shutdownRX(errConnRefused)
 				} else {
 					// we are accepting new incoming connection
 					accept = true
 				}
 			}
-		}
 
-/*
-		// we are not accepting packet in any way
-		if conn.errMsg != nil {
-			atomic.AddInt32(&conn.closed, 1)
-			nl.connMu.Unlock()
-			go conn.replyNoConn()
-			continue
+			// delete temporary conn from .connTab - this way the
+			// connection will be automatically garbage-collected
+			// after its final use.
+			if !accept {
+				delete(nl.connTab, conn.connId)
+			}
 		}
-*/
 
 		nl.connMu.Unlock()
 
@@ -601,19 +589,8 @@ var errConnClosed  = &Error{PROTOCOL_ERROR, "connection closed"}
 var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
-// and removes connection from nodeLink connTab if ekeep==false.	XXX ekeep gone
-//func (c *Conn) replyNoConn(e Msg, ekeep bool) {
 func (c *Conn) replyNoConn() {
 	c.Send(c.errMsg) // ignore errors
-	//fmt.Println("errsend:", err)
-
-	// remove connTab entry - if all users of this temporary conn created
-	// only to send the error are now gone.
-	c.nodeLink.connMu.Lock()
-	if atomic.AddInt32(&c.closed, -1) == 0 {
-		delete(c.nodeLink.connTab, c.connId)
-	}
-	c.nodeLink.connMu.Unlock()
 }
 
 // ---- transmit ----
