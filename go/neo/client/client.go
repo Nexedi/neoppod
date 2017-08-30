@@ -26,7 +26,12 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -40,8 +45,12 @@ import (
 type Client struct {
 	node neo.NodeCommon
 
-//	storLink *neo.NodeLink	// link to storage node
-//	storConn *neo.Conn	// XXX main connection to storage
+	talkMasterCancel func()
+
+	// link to master - established and maintained by talkMaster
+	mlinkMu    sync.Mutex
+	mlink      *neo.NodeLink
+	mlinkReady chan struct{} // reinitialized at each new talk cycle
 }
 
 var _ zodb.IStorage = (*Client)(nil)
@@ -63,24 +72,61 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 			//NodeTab:	&neo.NodeTable{},
 			//PartTab:	&neo.PartitionTable{},
 		},
+
+		mlinkReady: make(chan struct{}),
 	}
 
 	// spawn background process which performs master talk
-	go cli.talkMaster(context.TODO())	// XXX ctx = "client(?)"
+	ctx, cancel := context.WithCancel(context.Background())
+	cli.talkMasterCancel = cancel
+	go cli.talkMaster(ctx)
 
 	return cli
 }
 
 
 func (c *Client) Close() error {
-	panic("TODO")
-//	// NOTE this will abort all currently in-flght IO and close all connections over storLink
-//	err := c.storLink.Close()
-//	// XXX also wait for some goroutines to finish ?
-//	return err
+	c.talkMasterCancel()
+	// XXX wait talkMaster finishes
+	// XXX what else?
+	return nil
 }
 
 // --- connection with master ---
+
+/*
+// mconnected is result of connecting to master
+type mconnected struct {
+	mlink *neo.NodeLink
+	ready chan struct{}
+}
+*/
+
+// masterLink returns link to primary master.
+//
+// NOTE that even if masterLink returns != nil, the master link can become
+// non-operational at any later time. (such cases will be reported as
+// ErrLinkDown returned by all mlink operations)
+func (c *Client) masterLink(ctx context.Context) (*neo.NodeLink, error) {
+	for {
+		c.mlinkMu.Lock()
+		mlink := c.mlink
+		ready := c.mlinkReady
+		c.mlinkMu.Unlock()
+
+		if mlink != nil {
+			return mlink, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+
+		case <-ready:
+			// ok - try to relock mlinkMu and read mlink again.
+		}
+	}
+}
 
 // talkMaster connects to master, announces self and receives notifications.
 // it tries to persist master link reconnecting as needed.
@@ -89,7 +135,7 @@ func (c *Client) Close() error {
 //
 // XXX always error  (dup Storage.talkMaster) ?
 func (c *Client) talkMaster(ctx context.Context) (err error) {
-	defer task.Runningf(&ctx, "talk master(%v)", c.node.MasterAddr)(&err)
+	defer task.Runningf(&ctx, "client: talk master(%v)", c.node.MasterAddr)(&err)
 
 	// XXX dup wrt Storage.talkMaster
 	for {
@@ -126,20 +172,36 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	log.Info(ctx, "identification accepted")
 	Mlink := Mconn.Link()
 
+	// set c.mlink and notify waiters
+	c.mlinkMu.Lock()
+	c.mlink = Mlink
+	ready := c.mlinkReady
+	c.mlinkReady = make(chan struct{})
+	c.mlinkMu.Unlock()
+	close(ready)
+
 	wg, ctx := errgroup.WithContext(ctx)
 
 	// XXX + close Mconn
 	defer xio.CloseWhenDone(ctx, Mlink)()
+
+	// when we are done - reset .mlink
+	defer func() {
+		c.mlinkMu.Lock()
+		c.mlink = nil
+		c.mlinkMu.Unlock()
+	}()
 
 	// launch master notifications receiver
 	wg.Go(func() error {
 		return c.recvMaster(ctx, Mlink)
 	})
 
-	// launch process that "drives" master (initiates & tx requests)
+	// init partition table from master
+	// XXX is this needed or we can expect master sending us pt via notify channel?
 	wg.Go(func() error {
-		return c.ctlMaster(ctx, Mlink)
-	}()
+		return c.initFromMaster(ctx, Mlink)
+	})
 
 	return wg.Wait()
 
@@ -176,10 +238,10 @@ func (c *Client) recvMaster(ctx context.Context, Mlink *neo.NodeLink) error {
 	}
 }
 
-func (c *Client) ctlMaster(ctx context.Context, Mlink *neo.NodeLink) error {
+func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error {
 	// ask M for PT
 	rpt := neo.AnswerPartitionTable{}
-	err = Mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
+	err := Mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
 	if err != nil {
 		return err
 	}
@@ -188,6 +250,9 @@ func (c *Client) ctlMaster(ctx context.Context, Mlink *neo.NodeLink) error {
 	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
 	// XXX pt -> c.node.PartTab ?
 	_ = pt
+
+/*
+	XXX don't need in init?
 
 	// ask M about last_tid
 	rlastTxn := neo.AnswerLastTransaction{}
@@ -198,6 +263,7 @@ func (c *Client) ctlMaster(ctx context.Context, Mlink *neo.NodeLink) error {
 
 	// XXX lock
 	// XXX rlastTxn.Tid -> c.lastTid
+*/
 
 	// XXX what next?
 	return nil
@@ -207,25 +273,20 @@ func (c *Client) ctlMaster(ctx context.Context, Mlink *neo.NodeLink) error {
 
 // --- user API calls ---
 
-func (c *Client) LastTid(ctx context.Context) (zodb.Tid, error) {
-	panic("TODO")
-/*
-	c.Mlink // XXX check we are connected
-	conn, err := c.Mlink.NewConn()
-	if err != nil {
-		// XXX
-	}
-	// XXX defer conn.Close
+func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
+	defer xerr.Context(&err, "client: lastTid")
 
-	// FIXME do not use global conn (see comment in openClientByURL)
-	// XXX open new conn for this particular req/reply ?
+	mlink, err := c.masterLink(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	reply := neo.AnswerLastTransaction{}
-	err := conn.Ask(&neo.LastTransaction{}, &reply)
+	err = mlink.Ask1(&neo.LastTransaction{}, &reply) // XXX Ask += ctx
 	if err != nil {
 		return 0, err	// XXX err ctx
 	}
 	return reply.Tid, nil
-*/
 }
 
 func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
@@ -234,6 +295,8 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 }
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+	// XXX err context (but keep zodb errors intact ?)
+
 	// XXX check pt is operational first? -> no if there is no data - we'll
 	// just won't find ready cell
 	//
