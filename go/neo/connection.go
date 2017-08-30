@@ -92,8 +92,10 @@ type Conn struct {
 	rxq	  chan *PktBuf	// received packets for this Conn go here
 	txerr     chan error	// transmit results for this Conn go back here
 
-	down      chan struct{} // ready when Conn is marked as no longer operational
-	downOnce  sync.Once	// shutdown may be called by both Close and nodelink.shutdown
+	txdown     chan struct{} // ready when Conn TX is marked as no longer operational
+	rxdown     chan struct{} // ----//---- RX
+	txdownOnce sync.Once	 // tx shutdown may be called by both Close and nodelink.shutdown
+	rxdownOnce sync.Once	 // ----//----
 
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
 	closed    int32         // 1 if Close was called or "connection closed" entry
@@ -209,7 +211,8 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 		connId: connId,
 		rxq:    make(chan *PktBuf, 1), // NOTE non-blocking - see serveRecv
 		txerr:  make(chan error, 1),   // NOTE non-blocking - see Conn.Send
-		down:   make(chan struct{}),
+		txdown: make(chan struct{}),
+		rxdown: make(chan struct{}),
 	}
 	nl.connTab[connId] = c
 	return c
@@ -293,16 +296,64 @@ func (nl *NodeLink) Close() error {
 
 // shutdown marks connection as no longer operational
 func (c *Conn) shutdown() {
-	c.downOnce.Do(func() {
-		close(c.down)
+	c.shutdownTX()
+	c.shutdownRX(errConnClosed)
+}
+
+func (c *Conn) shutdownTX() {
+	c.txdownOnce.Do(func() {
+		close(c.txdown)
+	})
+}
+
+func (c *Conn) shutdownRX(errMsg *Error) {
+	c.rxdownOnce.Do(func() {
+		c.errMsg = errMsg
+		close(c.rxdown)
 	})
 }
 
 
 var connKeepClosed = 1*time.Minute
 
+// CloseRecv closes reading end of connection.
+//
+// A peer will receive "connection closed" if it tries to send to connection
+// with closed reading end.
+//
+// XXX no race wrt in-progress c.rxq <- ... ?
+//
+// Any blocked Recv*() will be unblocked and return error.
+//
+// It is safe to call CloseRecv several times.
+func (c *Conn) CloseRecv() {
+	// XXX c.closedRecv = 1?
+	c.shutdownRX(errConnClosed)	// XXX ok?
+
+	// deque all pakcets already queued in c.rxq
+	// (once serveRecv sees c.rxdown it won't try to put new packets into
+	//  c.rxq but something finite could be already there)
+	i := 0
+loop:
+	for {
+		select {
+		case <-c.rxq:
+			i++
+
+		default:
+			break loop
+		}
+	}
+
+	// if something was queued already there - reply "connection closed"
+	if i != 0 {
+		go c.replyNoConn()
+	}
+}
+
 // Close closes connection.
-// Any blocked Send*() or Recv*() will be unblocked and return error
+//
+// Any blocked Send*() or Recv*() will be unblocked and return error.
 //
 // NOTE for Send() - once transmission was started - it will complete in the
 // background on the wire not to break node-node link framing.
@@ -324,10 +375,11 @@ func (c *Conn) Close() error {
 		// "connection closed" if another packet comes to it.
 		} else {
 			cc := nl.newConn(c.connId)
-			// cc.closed=1 so that cc is not freed by replyNoConn
-			// NOTE cc.down stays not closed so Send could work
-			atomic.StoreInt32(&cc.closed, 1)
-			cc.errMsg = errConnClosed
+			cc.shutdownRX(errConnClosed)
+			// // cc.closed=1 so that cc is not freed by replyNoConn
+			// // NOTE cc.down stays not closed so Send could work
+			// atomic.StoreInt32(&cc.closed, 1)
+			// cc.errMsg = errConnClosed
 			time.AfterFunc(connKeepClosed, func() {
 				nl.connMu.Lock()
 				delete(nl.connTab, cc.connId)
@@ -382,11 +434,15 @@ func (nl *NodeLink) Accept(/*ctx context.Context*/) (c *Conn, err error) {
 	}
 }
 
-// errRecvShutdown returns appropriate error when c.down is found ready in recvPkt
+// errRecvShutdown returns appropriate error when c.rxdown is found ready in recvPkt
 func (c *Conn) errRecvShutdown() error {
 	switch {
+	// XXX adjust for CloseRead (shutdownRX)
 	case atomic.LoadInt32(&c.closed) != 0:
 		return ErrClosedConn
+
+	case c.errMsg != nil:
+		return ErrClosedConn	// shutdownRX
 
 	case atomic.LoadUint32(&c.nodeLink.closed) != 0:
 		return ErrLinkClosed
@@ -411,8 +467,7 @@ func (c *Conn) errRecvShutdown() error {
 // recvPkt receives raw packet from connection
 func (c *Conn) recvPkt() (*PktBuf, error) {
 	select {
-	// XXX maybe possible to detect "down" by seeing c.rxq is closed?
-	case <-c.down:
+	case <-c.rxdown:
 		return nil, c.err("recv", c.errRecvShutdown())
 
 	case pkt := <-c.rxq:
@@ -455,53 +510,73 @@ func (nl *NodeLink) serveRecv() {
 		//fmt.Printf("RX .%d -> %v\n", connId, conn)
 		if conn == nil {
 			// "new" connection will be needed in all cases - e.g.
-			// temporarily to reply "connection refused"
+			// even temporarily to reply "connection refused"
 			conn = nl.newConn(connId)
-
-			//fmt.Printf("connId: %d (%d)\n", connId, connId % 2)
-			//fmt.Printf("nextConnId: %d (%d)\n", nl.nextConnId, nl.nextConnId % 2)
 
 			// message with connid that should be initiated by us
 			if connId % 2 == nl.nextConnId % 2 {
-				conn.errMsg = errConnClosed
+				//conn.errMsg = errConnClosed
+				conn.shutdownRX(errConnClosed)
 
 			// message with connid for a stream initiated by peer
 			} else {
 				if nl.acceptq == nil {
-					conn.errMsg = errConnRefused
+					//conn.errMsg = errConnRefused
+					conn.shutdownRX(errConnRefused)
 				} else {
 					// we are accepting new incoming connection
 					accept = true
 				}
-
-				//fmt.Println("ZZZ", conn.errMsg, accept)
 			}
 		}
 
+/*
 		// we are not accepting packet in any way
 		if conn.errMsg != nil {
-			//fmt.Printf(".%d EMSG: %v\n", connId, conn.errMsg)
 			atomic.AddInt32(&conn.closed, 1)
 			nl.connMu.Unlock()
 			go conn.replyNoConn()
 			continue
 		}
+*/
+
+		nl.connMu.Unlock()
+
+		// don't even try to `conn.rxq <- ...` if .rxdown is ready
+		// ( else since select is picking random ready variant Recv/serveRecv
+		//   could receve something on rxdown Conn half sometimes )
+		rxdown := false
+		select {
+		case <-conn.rxdown:
+			rxdown = true
+		default:
+			// ok
+		}
 
 		// route packet to serving goroutine handler
 		//
 		// TODO backpressure when Recv is not keeping up with Send on peer side?
-		//      (not to let whole nodelink starve because of one connection)
+		//      (not to let whole link starve because of one connection)
 		//
 		// NOTE rxq must be buffered with at least 1 element so that
 		// queuing pkt succeeds for incoming connection that is not yet
 		// there in acceptq.
-		conn.rxq <- pkt
+		if !rxdown {
+			select {
+			case <-conn.rxdown:
+				rxdown = true
 
-		// keep connMu locked until here: so that ^^^ `conn.rxq <- pkt` can be
-		// sure conn stays not down e.g. closed by Conn.Close or NodeLink.shutdown
-		//
-		// XXX try to release connMu earlier - before `rxq <- pkt`
-		nl.connMu.Unlock()
+			case conn.rxq <- pkt:
+				// ok
+			}
+		}
+
+		// we are not accepting packet in any way
+		if rxdown {
+			go conn.replyNoConn()
+			continue
+		}
+
 
 		if accept {
 			select {
@@ -529,7 +604,7 @@ var errConnClosed  = &Error{PROTOCOL_ERROR, "connection closed"}
 var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
-// and removes connection from nodeLink connTab if ekeep==false.
+// and removes connection from nodeLink connTab if ekeep==false.	XXX ekeep gone
 //func (c *Conn) replyNoConn(e Msg, ekeep bool) {
 func (c *Conn) replyNoConn() {
 	c.Send(c.errMsg) // ignore errors
@@ -552,7 +627,7 @@ type txReq struct {
 	errch chan error
 }
 
-// errSendShutdown returns appropriate error when c.down is found ready in Send
+// errSendShutdown returns appropriate error when c.txdown is found ready in Send
 func (c *Conn) errSendShutdown() error {
 	switch {
 	case atomic.LoadInt32(&c.closed) != 0:
@@ -582,7 +657,7 @@ func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	var err error
 
 	select {
-	case <-c.down:
+	case <-c.txdown:
 		return c.errSendShutdown()
 
 	case c.nodeLink.txq <- txReq{pkt, c.txerr}:
@@ -592,15 +667,15 @@ func (c *Conn) sendPkt2(pkt *PktBuf) error {
 		// we cannot interrupt it as the only way to interrupt is
 		// .nodeLink.Close() which will close all other Conns.
 		//
-		// That's why we are also checking for c.down while waiting
+		// That's why we are also checking for c.txdown while waiting
 		// for reply from serveSend (and leave pkt to finish transmitting).
 		//
 		// NOTE after we return straight here serveSend won't be later
 		// blocked on c.txerr<- because that backchannel is a non-blocking one.
-		case <-c.down:
+		case <-c.txdown:
 
 			// also poll c.txerr here because: when there is TX error,
-			// serveSend sends to c.txerr _and_ closes c.down .
+			// serveSend sends to c.txerr _and_ closes c.txdown .
 			// We still want to return actual transmission error to caller.
 			select {
 			case err = <-c.txerr:
@@ -629,6 +704,9 @@ func (nl *NodeLink) serveSend() {
 			err := nl.sendPkt(txreq.pkt)
 			//fmt.Printf("sendPkt -> %v\n", err)
 
+			// FIXME if several goroutines call conn.Send
+			// simultaneously - c.txerr even if buffered(1) will be
+			// overflown and thus deadlock here.
 			txreq.errch <- err
 
 			// on IO error framing over peerLink becomes broken
@@ -1166,7 +1244,7 @@ func (link *NodeLink) Recv1() (Request, error) {
 	// noone will be reading from conn anymore - shutdown rx so that if
 	// peer sends any another packet with same .ConnID serveRecv does not
 	// deadlock trying to put it to conn.rxq.
-//	conn.CloseRead()	// XXX err?
+	conn.CloseRead()
 
 	return Request{Msg: msg, conn: conn}, nil
 }
