@@ -233,7 +233,7 @@ func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *
 
 	// identify peer
 	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept(ctx)
+	conn, err := link.Accept(/*ctx*/)
 	if err != nil {
 		return nil, nil, err
 	}
