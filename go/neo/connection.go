@@ -98,8 +98,10 @@ type Conn struct {
 	rxdownOnce sync.Once	 // ----//----
 
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
-	closed    int32         // 1 if Close was called or "connection closed" entry
-				// incremented during every replyNoConn() in progress
+	rxclosed  int32		// whether CloseRecv was called
+	txclosed  int32		// whether CloseSend was called
+//	closed    int32         // 1 if Close was called or "connection closed" entry
+//				// incremented during every replyNoConn() in progress
 
 	errMsg	  *Error	// error message for replyNoConn
 }
@@ -314,25 +316,23 @@ func (c *Conn) shutdownRX(errMsg *Error) {
 }
 
 
+// time to keep record of a closed connection so that we can properly reply
+// "connection closed" if a packet comes in with this connection's connID.
 var connKeepClosed = 1*time.Minute
 
 // CloseRecv closes reading end of connection.
 //
-// A peer will receive "connection closed" if it tries to send to connection
-// with closed reading end.
-//
-// XXX no race wrt in-progress c.rxq <- ... ?
-//
 // Any blocked Recv*() will be unblocked and return error.
+// The peer will receive "connection closed" if it tries to send anything after.
 //
 // It is safe to call CloseRecv several times.
 func (c *Conn) CloseRecv() {
-	// XXX c.closedRecv = 1?
-	c.shutdownRX(errConnClosed)	// XXX ok?
+	atomic.StoreInt32(&c.rxclosed, 1)
+	c.shutdownRX(errConnClosed)
 
-	// deque all pakcets already queued in c.rxq
+	// dequeue all packets already queued in c.rxq
 	// (once serveRecv sees c.rxdown it won't try to put new packets into
-	//  c.rxq but something finite could be already there)
+	//  c.rxq, but something finite could be already there)
 	i := 0
 loop:
 	for {
@@ -392,7 +392,8 @@ func (c *Conn) Close() error {
 	}
 	nl.connMu.Unlock()
 
-	atomic.StoreInt32(&c.closed, 1)
+	atomic.StoreInt32(&c.rxclosed, 1)
+	atomic.StoreInt32(&c.txclosed, 1)
 	c.shutdown()
 	return nil
 }
@@ -437,12 +438,8 @@ func (nl *NodeLink) Accept(/*ctx context.Context*/) (c *Conn, err error) {
 // errRecvShutdown returns appropriate error when c.rxdown is found ready in recvPkt
 func (c *Conn) errRecvShutdown() error {
 	switch {
-	// XXX adjust for CloseRead (shutdownRX)
-	case atomic.LoadInt32(&c.closed) != 0:
+	case atomic.LoadInt32(&c.rxclosed) != 0:
 		return ErrClosedConn
-
-	case c.errMsg != nil:
-		return ErrClosedConn	// shutdownRX
 
 	case atomic.LoadUint32(&c.nodeLink.closed) != 0:
 		return ErrLinkClosed
@@ -544,7 +541,7 @@ func (nl *NodeLink) serveRecv() {
 
 		// don't even try to `conn.rxq <- ...` if .rxdown is ready
 		// ( else since select is picking random ready variant Recv/serveRecv
-		//   could receve something on rxdown Conn half sometimes )
+		//   could receive something on rxdown Conn half sometimes )
 		rxdown := false
 		select {
 		case <-conn.rxdown:
@@ -630,7 +627,7 @@ type txReq struct {
 // errSendShutdown returns appropriate error when c.txdown is found ready in Send
 func (c *Conn) errSendShutdown() error {
 	switch {
-	case atomic.LoadInt32(&c.closed) != 0:
+	case atomic.LoadInt32(&c.txclosed) != 0:
 		return ErrClosedConn
 
 	// the only other error possible besides Conn being .Close()'ed is that
@@ -1244,7 +1241,7 @@ func (link *NodeLink) Recv1() (Request, error) {
 	// noone will be reading from conn anymore - shutdown rx so that if
 	// peer sends any another packet with same .ConnID serveRecv does not
 	// deadlock trying to put it to conn.rxq.
-	conn.CloseRead()
+	conn.CloseRecv()
 
 	return Request{Msg: msg, conn: conn}, nil
 }
@@ -1276,7 +1273,7 @@ func (link *NodeLink) Send1(msg Msg) error {
 		return err
 	}
 
-	// XXX conn.CloseRead() ?
+	// XXX conn.CloseRecv() ?
 
 	err1 := conn.Send(msg)
 	err2 := conn.Close()

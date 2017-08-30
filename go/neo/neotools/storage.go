@@ -45,6 +45,10 @@ Run NEO storage node.
 	// FIXME use w (see flags.SetOutput)
 }
 
+// TODO set GOMAXPROCS *= N (a lot of file IO) + link
+// https://groups.google.com/forum/#!msg/golang-nuts/jPb_h3TvlKE/rQwbg-etCAAJ
+// https://github.com/golang/go/issues/6817
+
 func storageMain(argv []string) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
 	flags.Usage = func() { storageUsage(os.Stderr); flags.PrintDefaults() }	// XXX prettify
