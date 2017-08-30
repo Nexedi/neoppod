@@ -172,8 +172,8 @@ func Canceled(err error) bool {
 }
 
 
-// WhenDone arranges f to be called either when ctx is cancelled or surrounding
-// function returns.
+// WhenDone arranges for f to be called either when ctx is cancelled or
+// surrounding function returns.
 //
 // To work as intended it should be called under defer like this:
 //

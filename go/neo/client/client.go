@@ -126,27 +126,28 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	log.Info(ctx, "identification accepted")
 	Mlink := Mconn.Link()
 
+	wg, ctx := errgroup.WithContext(ctx)
+
+	// XXX + close Mconn
 	defer xio.CloseWhenDone(ctx, Mlink)()
 
+	// launch master notifications receiver
+	wg.Go(func() error {
+		return c.recvMaster(ctx, Mlink)
+	})
+
+	// launch process that "drives" master (initiates & tx requests)
+	wg.Go(func() error {
+		return c.ctlMaster(ctx, Mlink)
+	}()
+
+	return wg.Wait()
+
+}
+
+// recvMaster receives and handles notifications from master
+func (c *Client) recvMaster(ctx context.Context, Mlink *neo.NodeLink) error {
 	// XXX .nodeTab.Reset()
-
-	rpt := neo.AnswerPartitionTable{}
-	err = Mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
-	if err != nil {
-		// XXX
-	}
-
-	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
-	// XXX pt -> c.node.PartTab ?
-	_ = pt
-
-	rlastTxn := neo.AnswerLastTransaction{}
-	err = Mlink.Ask1(&neo.LastTransaction{}, &rlastTxn)
-	if err != nil {
-		// XXX
-	}
-
-	// XXX rlastTxn.Tid -> c.lastTid
 
 	for {
 		req, err := Mlink.Recv1()
@@ -173,6 +174,35 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 			// TODO
 		}
 	}
+}
+
+func (c *Client) ctlMaster(ctx context.Context, Mlink *neo.NodeLink) error {
+	// ask M for PT
+	rpt := neo.AnswerPartitionTable{}
+	err = Mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
+	if err != nil {
+		return err
+	}
+
+	// XXX lock
+	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
+	// XXX pt -> c.node.PartTab ?
+	_ = pt
+
+	// ask M about last_tid
+	rlastTxn := neo.AnswerLastTransaction{}
+	err = Mlink.Ask1(&neo.LastTransaction{}, &rlastTxn)
+	if err != nil {
+		return err
+	}
+
+	// XXX lock
+	// XXX rlastTxn.Tid -> c.lastTid
+
+	// XXX what next?
+	return nil
+
+	// TODO transaction control? -> better in original goroutines doing the txn (just share Mlink)
 }
 
 // --- user API calls ---

@@ -74,7 +74,7 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 
 	defer xerr.Contextf(&err, "%s: request identification", link)
 	// close link on error return
-	// FIXME also close link on ctx cancel
+	// FIXME also close link on ctx cancel	-> xcontext.WhenDone()
 	defer func() {
 		if err != nil {
 			link.Close()
@@ -104,8 +104,9 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 		return nil, nil, fmt.Errorf("accepted, but peer is not %v (identifies as %v)", peerType, accept.NodeType)
 	}
 
-	//accept.MyNodeUUID, link // XXX register .NodeTab? (or better LinkTab as NodeTab is driven by M)
-	//accept.YourNodeUUID	// XXX M can tell us to change UUID -> take in effect
+	// XXX accept.MyUUID, link // XXX register .NodeTab? (or better LinkTab as NodeTab is driven by M)
+	// XXX accept.YourUUID	// XXX M can tell us to change UUID -> take in effect
+	// XXX accept.NumPartitions, ... wrt n.node.PartTab
 
 	return conn, accept, nil
 }
