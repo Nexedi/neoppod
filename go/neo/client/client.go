@@ -345,7 +345,7 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	// XXX err context (but keep zodb errors intact ?)
-	defer xerr.Context(&err, "client: load")
+	defer xerr.Contextf(&err, "client: load %v", xid)
 
 	err = c.withOperational(ctx)
 	if err != nil {
@@ -372,7 +372,8 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 	}
 
 	// XXX vvv temp stub -> TODO pick up 3 random storages and send load
-	// requests to them all getting the first who is the fastest to reply.
+	// requests to them all getting the first who is the fastest to reply;
+	// retry from the beginning if all are found to fail?
 	stor := storv[rand.Intn(len(storv))]
 
 	slink := stor.Link // XXX temp stub
@@ -398,14 +399,14 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 
 	checksum := sha1.Sum(data)
 	if checksum != resp.Checksum {
-		panic("TODO") // XXX data corrupt
+		return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 	}
 
 	data = resp.Data
 	if resp.Compression {
 		data, err = decompress(resp.Data, make([]byte, 0, len(resp.Data)))
 		if err != nil {
-			panic("TODO") // XXX data corrupt
+			return nil, 0, fmt.Errorf("data corrupt: %v", err)
 		}
 	}
 
