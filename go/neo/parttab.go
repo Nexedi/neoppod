@@ -145,6 +145,15 @@ func (pt *PartitionTable) Get(oid zodb.Oid) []Cell {
 	return pt.tab[pid]
 }
 
+// Readable reports whether it is ok to read data from a cell
+func (c *Cell) Readable() bool {
+	switch c.State {
+	case UP_TO_DATE, FEEDING:
+		return true
+	}
+	return false
+}
+
 // MakePartTab creates new partition with uniformly distributed nodes
 // The partition table created will be of len=np
 // FIXME R=1 hardcoded
@@ -180,15 +189,14 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 		ok := false
 	cellLoop:
 		for _, cell := range ptEntry {
-			switch cell.CellState {
-			case UP_TO_DATE, FEEDING:	// XXX cell.isReadable in py
+			if cell.Readable() {
 				// cell says it is readable. let's check whether corresponding node is up
 				// FIXME checking whether it is up is not really enough -
 				// - what is needed to check is that data on that node is up
 				// to last_tid.
 				//
 				// We leave it as is for now.
-				node := nt.Get(cell.NodeUUID)
+				node := nt.Get(cell.UUID)
 				if node == nil || node.State != RUNNING {	// XXX PENDING is also ok ?
 					continue
 				}

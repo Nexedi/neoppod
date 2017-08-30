@@ -29,8 +29,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-
 	"lab.nexedi.com/kirr/go123/xerr"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
@@ -139,9 +139,10 @@ func (c *Client) masterLink(ctx context.Context) (*neo.NodeLink, error) {
 
 // withOperational waits for cluster state to be operational.
 //
-// If successful it returns with operational state RLocked (c.opMu).
+// If successful it returns with operational state RLocked (c.opMu) and
+// unlocked otherwise.
 //
-// the only error possible is if provided ctx cancel.
+// The only error possible is if provided ctx cancel.
 func (c *Client) withOperational(ctx context.Context) error {
 	for {
 		c.opMu.RLock()
@@ -351,24 +352,28 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 		return nil, 0, err
 	}
 
-	// XXX wait pt is operational first
-	//
-	// XXX or better still check first M told us ok to go? (ClusterState=RUNNING)
-	//if c.node.ClusterState != ClusterRunning {
-	//	return nil, 0, &Error{NOT_READY, "cluster not operational"}
-	//}
+	// Here we have cluster state operational and rlocked. Retrieve
+	// storages we might need to access and release the lock.
+	storv := make([]*neo.Node, 0)
+	for _, cell := range c.node.PartTab.Get(xid.Oid) {
+		if cell.Readable() {
+			stor := c.node.NodeTab.Get(cell.UUID)
+			// this storage might not yet come up
+			if stor != nil && stor.State == neo.RUNNING {
+				storv = append(storv, stor)
+			}
+		}
+	}
+	c.opMu.RUnlock()
 
-	cellv := c.node.PartTab.Get(xid.Oid)
-	// XXX cellv = filter(cellv, UP_TO_DATE)
-	if len(cellv) == 0 {
-		return nil, 0, fmt.Errorf("no storages alive for oid %v", xid.Oid)	// XXX err ctx
+	if len(storv) == 0 {
+		// XXX recheck it adds traceback to log
+		return nil, 0, errors.Errorf("internal inconsistency: cluster is operational, but no storages alive for oid %v", xid.Oid)
 	}
-	cell := cellv[rand.Intn(len(cellv))]
-	stor := c.node.NodeTab.Get(cell.NodeUUID)
-	if stor == nil {
-		return nil, 0, fmt.Errorf("storage %v not yet known", cell.NodeUUID)	// XXX err ctx
-	}
-	// XXX check stor.State == RUNNING -> in link
+
+	// XXX vvv temp stub -> TODO pick up 3 random storages and send load
+	// requests to them all getting the first who is the fastest to reply.
+	stor := storv[rand.Intn(len(storv))]
 
 	slink := stor.Link // XXX temp stub
 	//slink, err := stor.Link()

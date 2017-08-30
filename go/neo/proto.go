@@ -239,8 +239,8 @@ type NodeInfo struct {
 }
 
 type CellInfo struct {
-	NodeUUID
-	CellState
+	UUID  NodeUUID
+	State CellState
 }
 
 type RowInfo struct {
