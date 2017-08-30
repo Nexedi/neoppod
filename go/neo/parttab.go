@@ -122,7 +122,7 @@ type PartitionTable struct {
 
 // Cell describes one storage in a pid entry in partition table
 type Cell struct {
-	CellInfo
+	CellInfo // .uuid + .state
 
 //	XXX ? + .haveUpToTid  associated node has data up to such tid
 //			= uptodate if haveUpToTid == lastTid

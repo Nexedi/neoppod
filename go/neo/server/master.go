@@ -57,7 +57,6 @@ type Master struct {
 	partTab      *neo.PartitionTable	// XXX ^ is also in node
 	clusterState neo.ClusterState
 //*/
-	clusterInfo neo.ClusterInfo
 
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster

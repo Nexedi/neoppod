@@ -51,7 +51,7 @@ const (
 // NodeCommon is common data in all NEO nodes: Master, Storage & Client	XXX text
 // XXX naming -> Node ?
 type NodeCommon struct {
-	MyInfo		NodeInfo	// XXX -> only NodeUUID
+	MyInfo		NodeInfo
 	ClusterName	string
 
 	Net		xnet.Networker	// network AP we are sending/receiving on
@@ -59,6 +59,7 @@ type NodeCommon struct {
 
 	NodeTab		NodeTable	// information about nodes in the cluster
 	PartTab		PartitionTable	// information about data distribution in the cluster
+	ClusterState	ClusterState	// master idea about cluster state
 }
 
 // Dial connects to another node in the cluster
