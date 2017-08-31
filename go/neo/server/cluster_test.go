@@ -199,28 +199,22 @@ func TestMasterStorage(t *testing.T) {
 		return &traceNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
 	}
 
-	// shortcut for nodetab change
-	node := func(x *neo.NodeCommon, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
-		return &traceNode{
-			NodeTab: unsafe.Pointer(x.NodeTab),
-			NodeInfo: neo.NodeInfo{
-				Type:    typ,
-				Addr:    xnaddr(laddr),
-				UUID:    neo.UUID(typ, num),
-				State:   state,
-				IdTimestamp: idtstamp,
-			},
+	// shortcut for NodeInfo
+	nodei := func(laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) neo.NodeInfo {
+		return neo.NodeInfo{
+			Type:  typ,
+			Addr:  xnaddr(laddr),
+			UUID:  neo.UUID(typ, num),
+			State: state,
+			IdTimestamp: idtstamp,
 		}
 	}
 
-	// shortcut for NodeInfo
-	nodei := func(typ neo.NodeType, addr string, uuid neo.NodeUUID, state neo.NodeState, idtstamp float64) neo.NodeInfo {
-		return neo.NodeInfo{
-			Type:  typ,
-			Addr:  xnaddr(addr),
-			UUID:  uuid,
-			State: state,
-			IdTimestamp: idtstamp,
+	// shortcut for nodetab change
+	node := func(x *neo.NodeCommon, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
+		return &traceNode{
+			NodeTab:  unsafe.Pointer(x.NodeTab),
+			NodeInfo: nodei(laddr, typ, num, state, idtstamp),
 		}
 	}
 
@@ -380,16 +374,6 @@ func TestMasterStorage(t *testing.T) {
 		YourUUID:	neo.UUID(neo.CLIENT, 1),
 	}))
 
-	// C <- M NotifyNodeInformation C1,M1,S1
-	tc.Expect(conntx("m:3", "c:1", 2, &neo.NotifyNodeInformation{
-		IdTimestamp:	0,	// XXX ?
-		NodeList:	[]neo.NodeInfo{
-			nodei(neo.MASTER,  "m:1", neo.UUID(neo.MASTER, 1),  neo.RUNNING, 0.00),
-			nodei(neo.STORAGE, "s:1", neo.UUID(neo.STORAGE, 1), neo.RUNNING, 0.01),
-			nodei(neo.STORAGE, "",    neo.UUID(neo.CLIENT, 1),  neo.RUNNING, 0.02),
-		},
-	}))
-
 	// C asks M about PT
 	tc.Expect(conntx("c:1", "m:3", 3, &neo.AskPartitionTable{}))
 	tc.Expect(conntx("m:3", "c:1", 3, &neo.AnswerPartitionTable{
@@ -398,6 +382,21 @@ func TestMasterStorage(t *testing.T) {
 			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
 		},
 	}))
+
+	// C <- M NotifyNodeInformation C1,M1,S1
+	tc.Expect(conntx("m:3", "c:1", 0, &neo.NotifyNodeInformation{
+		IdTimestamp:	0,	// XXX ?
+		NodeList:	[]neo.NodeInfo{
+			nodei("m:1", neo.MASTER,  1, neo.RUNNING, 0.00),
+			nodei("s:1", neo.STORAGE, 1, neo.RUNNING, 0.01),
+			nodei("",    neo.CLIENT,  1, neo.RUNNING, 0.02),
+		},
+	}))
+
+	Cnode := (*neo.NodeCommon)(unsafe.Pointer(C)) // XXX hack
+	tc.Expect(node(Cnode, "m:1", neo.MASTER,  1, neo.RUNNING, 0.00))
+	tc.Expect(node(Cnode, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	tc.Expect(node(Cnode, "",    neo.CLIENT,  1, neo.RUNNING, 0.02))
 
 
 	// C asks M about last tid	XXX better master sends it itself on new client connected

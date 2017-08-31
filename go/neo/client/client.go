@@ -82,8 +82,9 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 			Net:		net,
 			MasterAddr:	masterAddr,
 
-			//NodeTab:	&neo.NodeTable{},
-			//PartTab:	&neo.PartitionTable{},
+			NodeTab:	&neo.NodeTable{},
+			PartTab:	&neo.PartitionTable{},
+			ClusterState:	-1, // invalid
 		},
 
 		mlinkReady: make(chan struct{}),
@@ -270,8 +271,12 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 		case *neo.NotifyNodeInformation:
 			// XXX msg.IdTimestamp ?
 			for _, nodeInfo := range msg.NodeList {
+				log.Infof(ctx, "rx peer update: %v", nodeInfo)
 				c.node.NodeTab.Update(nodeInfo, /*XXX conn should not be here*/nil)
 			}
+
+			// FIXME logging under lock
+			log.Infof(ctx, "full nodetab:\n%s", c.node.NodeTab)
 
 		case *neo.NotifyClusterState:
 			c.node.ClusterState.Set(msg.State)

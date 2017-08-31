@@ -1,4 +1,4 @@
-//go:generate stringer -output zproto-str.go -type ErrorCode,NodeType proto.go
+//go:generate stringer -output zproto-str.go -type ErrorCode,NodeType,NodeState proto.go
 
 package neo
 // supporting code for types defined in proto.go
