@@ -44,6 +44,8 @@ type Xid struct {
 	Oid
 }
 
+// XXX add XidBefore() and XidSerial() as syntax convenience?
+
 const (
 	//Tid0	Tid = 0			// XXX -> simply Tid(0) ?
 	TidMax	Tid = 1<<63 - 1		// 0x7fffffffffffffff

@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pkg/errors"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
@@ -45,13 +47,14 @@ import (
 type Master struct {
 	node neo.NodeCommon
 
-	// last allocated oid & tid
-	// XXX how to start allocating oid from 0, not 1 ?
-	lastOid zodb.Oid
-	lastTid zodb.Tid
-
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
+
+	// last allocated oid & tid
+	// XXX how to start allocating oid from 0, not 1 ?
+	// TODO mu
+	lastOid zodb.Oid
+	lastTid zodb.Tid
 
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster
@@ -911,25 +914,34 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
 	defer task.Runningf(&ctx, "%s: client service", cli.Link.RemoteAddr())(&err)
 
+	wg, ctx := errgroup.WithContext(ctx)
+
 	clink := cli.Link
 	defer xio.CloseWhenDone(ctx, clink)()
 
-	// XXX spawn M -> S notifications about cluster state
+	// M -> C notifications about cluster state
+	wg.Go(func() error {
+		//return m.notifyPeer(ctx, clink)	 // XXX -> keepPeerUpdated?
+		return nil
+	})
 
-	for {
-		req, err := clink.Recv1()
-		if err != nil {
-			return err
+	// M <- C requests handler
+	wg.Go(func() error {
+		for {
+			req, err := clink.Recv1()
+			if err != nil {
+				return err
+			}
+
+			resp := m.serveClient1(ctx, req.Msg)
+			err = req.Reply(resp)
+			if err != nil {
+				return err
+			}
 		}
+	})
 
-		resp := m.serveClient1(ctx, req.Msg)
-		err = req.Reply(resp)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return wg.Wait()
 }
 
 // serveClient1 prepares response for 1 request from client
@@ -944,6 +956,9 @@ func (m *Master) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
 		m.node.StateMu.RUnlock()
 		return rpt
 
+	case *neo.LastTransaction:
+		// XXX lock
+		return &neo.AnswerLastTransaction{m.lastTid}
 
 	default:
 		return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req)}

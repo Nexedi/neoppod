@@ -437,8 +437,9 @@ func (nt *NodeTable) notify(nodeInfo NodeInfo) {
 	}
 }
 
-// Subscribe subscribes to NodeTable updates
-// it returns a channel via which updates will be delivered and unsubscribe function
+// Subscribe subscribes to NodeTable updates.
+//
+// It returns a channel via which updates will be delivered and function to unsubscribe.
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?
 func (nt *NodeTable) Subscribe() (ch chan NodeInfo, unsubscribe func()) {
@@ -459,12 +460,13 @@ func (nt *NodeTable) Subscribe() (ch chan NodeInfo, unsubscribe func()) {
 	return ch, unsubscribe
 }
 
-// SubscribeBuffered subscribes to NodeTable updates without blocking updater
-// it returns a channel via which updates are delivered and unsubscribe function
-// the updates will be sent to destination in non-blocking way - if destination
+// SubscribeBuffered subscribes to NodeTable updates without blocking updater.
+//
+// It returns a channel via which updates are delivered and unsubscribe function.
+// The updates will be sent to destination in non-blocking way - if destination
 // channel is not ready they will be buffered.
-// it is the caller responsibility to make sure such buffering does not grow up
-// to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown
+// It is the caller responsibility to make sure such buffering does not grow up
+// to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown.
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?
 func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()) {
