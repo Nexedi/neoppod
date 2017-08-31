@@ -24,7 +24,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-//	"math"
 	"sync"
 	"time"
 
@@ -237,7 +236,10 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 	defer task.Running(&ctx, "main")(&err)
 
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
-	// XXX however since clients request state reading we should use node.StateMu
+
+	// XXX however since clients request state reading we should use node.StateMu?
+	// XXX -> better rework protocol so that master pushes itself (not
+	//     being pulled) to clients everything they need.
 
 	for ctx.Err() == nil {
 		// recover partition table from storages and wait till enough
@@ -371,6 +373,7 @@ loop:
 
 					// close stor link / update .nodeTab
 					lclose(ctx, r.stor.Link)
+					// r.stor.SetState(neo.DOWN)
 					m.node.NodeTab.SetNodeState(r.stor, neo.DOWN)
 				}
 

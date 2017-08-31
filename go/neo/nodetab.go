@@ -45,10 +45,10 @@ import (
 // 	  This way all nodes stay informed about their peers in cluster.
 //
 // Usage examples:
+//
 //	- C needs to connect/talk to a storage by uuid
 //	  (the uuid itself is obtained from PartitionTable by oid).
 //	- S pulls from other S.
-//
 //
 // NOTE once a node was added to NodeTable its entry is never deleted: if e.g.
 // a connection to node is lost associated entry is marked as having DOWN (XXX
@@ -104,7 +104,7 @@ type dialed struct {
 	ready	chan struct{}
 }
 
-// Link returns link to the peer.
+// Link returns link to peer node.
 //
 // If the link was not yet established Link dials the peer appropriately,
 // handshakes, requests identification and checks that identification reply is
