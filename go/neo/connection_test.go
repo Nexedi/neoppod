@@ -168,8 +168,6 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
-	println("000")
-
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg := &xsync.WorkGroup{}
@@ -183,8 +181,6 @@ func TestNodeLink(t *testing.T) {
 	}
 	xwait(wg)
 	xclose(nl2)
-
-	println("222")
 
 	// Close vs sendPkt
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
@@ -208,12 +204,10 @@ func TestNodeLink(t *testing.T) {
 		tdelay()
 		xclose(nl2)
 	})
-	println("222 + 1")
 	c, err := nl2.Accept()
 	if !(c == nil && xlinkError(err) == ErrLinkClosed) {
 		t.Fatalf("NodeLink.Accept() after close: conn = %v, err = %v", c, err)
 	}
-	println("222 + 2")
 	wg.Gox(func() {
 		tdelay()
 		nl1.CloseAccept()
@@ -229,11 +223,7 @@ func TestNodeLink(t *testing.T) {
 	if !(c == nil && xlinkError(err) == ErrLinkNoListen) {
 		t.Fatalf("NodeLink.Accept() on non-listening node link: conn = %v, err = %v", c, err)
 	}
-	println("222 + 3")
-
 	xclose(nl1)
-
-	println("333")
 
 	// Close vs recvPkt on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
@@ -468,13 +458,12 @@ func TestNodeLink(t *testing.T) {
 	}
 
 
-	//println("\n---------------------\n")
-
 	saveKeepClosed := connKeepClosed
 	connKeepClosed = 10*time.Millisecond
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
+	nl1.CloseAccept()
 	wg = &xsync.WorkGroup{}
 	closed := make(chan int)
 	wg.Gox(func() {
@@ -494,27 +483,42 @@ func TestNodeLink(t *testing.T) {
 		xclose(c)
 		closed <- 1
 
+		//println("X ααα")
 		// once again as ^^^ but finish only with CloseRecv
 		c2 := xaccept(nl2)
+		//println("X ααα + 1")
 		pkt = xrecvPkt(c2)
+		//println("X ααα + 2")
 		xverifyPkt(pkt, c2.connId, 41, []byte("ping5"))
 		xsendPkt(c2, mkpkt(42, []byte("pong5")))
 
+		//println("X βββ")
 		c2.CloseRecv()
 		closed <- 2
+
+		//println("X γγγ")
 
 		// "connection refused" when trying to connect to not-listening peer
 		c = xnewconn(nl2) // XXX should get error here?
 		xsendPkt(c, mkpkt(38, []byte("pong3")))
+		//println("X γγγ + 1")
 		pkt = xrecvPkt(c)
+		//println("X γγγ + 2")
 		xverifyMsg(pkt, c.connId, errConnRefused)
 		xsendPkt(c, mkpkt(40, []byte("pong4"))) // once again
+		//println("X γγγ + 3")
 		pkt = xrecvPkt(c)
+		//println("X γγγ + 4")
 		xverifyMsg(pkt, c.connId, errConnRefused)
+
+		//println("X zzz")
 
 		xclose(c)
 
 	})
+
+	//println("000")
+
 	c1 := xnewconn(nl1)
 	xsendPkt(c1, mkpkt(33, []byte("ping")))
 	pkt = xrecvPkt(c1)
@@ -523,16 +527,22 @@ func TestNodeLink(t *testing.T) {
 	pkt = xrecvPkt(c1)
 	xverifyPkt(pkt, c1.connId, 36, []byte("pong2"))
 
+	//println("111")
 	// "connection closed" after peer closed its end
 	<-closed
+	//println("111 + closed")
 	xsendPkt(c1, mkpkt(37, []byte("ping3")))
+	//println("111 + 1")
 	pkt = xrecvPkt(c1)
+	//println("111 + 2")
 	xverifyMsg(pkt, c1.connId, errConnClosed)
 	xsendPkt(c1, mkpkt(39, []byte("ping4"))) // once again
 	pkt = xrecvPkt(c1)
+	//println("111 + 4")
 	xverifyMsg(pkt, c1.connId, errConnClosed)
 	// XXX also should get EOF on recv
 
+	//println("222")
 	// one more time but now peer does only .CloseRecv()
 	c2 := xnewconn(nl1)
 	xsendPkt(c2, mkpkt(41, []byte("ping5")))
@@ -543,7 +553,9 @@ func TestNodeLink(t *testing.T) {
 	pkt = xrecvPkt(c2)
 	xverifyMsg(pkt, c2.connId, errConnClosed)
 
+	//println("333 z")
 	xwait(wg)
+	//println("444")
 
 	// make sure entry for closed nl2.1 stays in nl2.connTab
 	nl2.connMu.Lock()
@@ -560,11 +572,15 @@ func TestNodeLink(t *testing.T) {
 	}
 	nl2.connMu.Unlock()
 
+	//println("555")
+
 	xclose(c1)
 	xclose(c2)
 	xclose(nl1)
 	xclose(nl2)
 	connKeepClosed = saveKeepClosed
+
+	//println("\nsss")
 
 	// test 2 channels with replies coming in reversed time order
 	nl1, nl2 = nodeLinkPipe()

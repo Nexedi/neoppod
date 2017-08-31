@@ -104,9 +104,10 @@ type Conn struct {
 
 	errMsg	  *Error	// error message for peer if rx is down
 
-	// after Close Conn is kept for some time in link.connTab so peer could
-	// receive "connection closed" and then GC'ed
-	gcOnce    sync.Once
+	// closing Conn is shutdown + some cleanup work to remove it from
+	// link.connTab including arming timers etc. Let this work be spawned only once.
+	// (for Conn.Close to be valid called several times)
+	closeOnce sync.Once
 }
 
 
@@ -412,42 +413,45 @@ func (c *Conn) Close() error {
 	}
 	nl.connMu.Unlock()
 */
+	c.closeOnce.Do(func() {
+		atomic.StoreInt32(&c.rxclosed, 1)
+		atomic.StoreInt32(&c.txclosed, 1)
+		c.shutdown()
 
-	atomic.StoreInt32(&c.rxclosed, 1)
-	atomic.StoreInt32(&c.txclosed, 1)
-	c.shutdown()
+		// adjust link.connTab
+		var tmpclosed *Conn
+		nl.connMu.Lock()
+		if nl.connTab != nil {
+			// connection was initiated by us - simply delete - we always
+			// know if a packet comes to such connection - it is closed.
+			//
+			// XXX checking vvv should be possible without connMu lock
+			if c.connId == nl.nextConnId % 2 {
+				delete(nl.connTab, c.connId)
 
-	// adjust link.connTab
-	keep := false
-	nl.connMu.Lock()
-	if nl.connTab != nil {
-		// connection was initiated by us - simply delete - we always
-		// know if a packet comes to such connection - it is closed.
-		//
-		// XXX checking vvv should be possible without connMu lock
-		if c.connId == nl.nextConnId % 2 {
-			delete(nl.connTab, c.connId)
-
-		// connection was initiated by peer which we accepted.
-		// it is already shutted down.
-		// keep connTab entry for it for some time to reply
-		// "connection closed" if another packet comes to it.
-		} else {
-			keep = true
+			// connection was initiated by peer which we accepted - put special
+			// "closed" connection into connTab entry for some time to reply
+			// "connection closed" if another packet comes to it.
+			//
+			// ( we cannot reuse same connection since after it is marked as
+			//   closed Send refuses to work )
+			} else {
+				// c implicitly goes away from connTab
+				tmpclosed = nl.newConn(c.connId)
+			}
 		}
+		nl.connMu.Unlock()
 
-	}
-	nl.connMu.Unlock()
+		if tmpclosed != nil {
+			tmpclosed.shutdownRX(errConnClosed)
 
-	if keep {
-		c.gcOnce.Do(func() {
 			time.AfterFunc(connKeepClosed, func() {
 				nl.connMu.Lock()
 				delete(nl.connTab, c.connId)
 				nl.connMu.Unlock()
 			})
-		})
-	}
+		}
+	})
 
 	return nil
 }
@@ -700,7 +704,9 @@ var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
 func (c *Conn) replyNoConn() {
+	//fmt.Printf("%v: -> replyNoConn %v\n", c, c.errMsg)
 	c.Send(c.errMsg) // ignore errors
+	//fmt.Printf("%v: replyNoConn(%v) -> %v\n", c, c.errMsg, err)
 }
 
 // ---- transmit ----
