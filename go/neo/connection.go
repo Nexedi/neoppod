@@ -584,6 +584,8 @@ func (nl *NodeLink) serveRecv() {
 				accept = true
 			}
 
+			// XXX cleanup vvv ^^^
+
 			/*
 			// delete temporary conn from .connTab - this way the
 			// connection will be automatically garbage-collected
@@ -600,7 +602,7 @@ func (nl *NodeLink) serveRecv() {
 			conn.shutdownRX(errConnClosed)
 		}
 
-		// don't even try to `conn.rxq <- ...` if .rxdown is ready
+		// don't even try `conn.rxq <- ...` if conn.rxdown is ready
 		// ( else since select is picking random ready variant Recv/serveRecv
 		//   could receive something on rxdown Conn sometimes )
 		rxdown := false
@@ -637,7 +639,7 @@ func (nl *NodeLink) serveRecv() {
 
 
 		if accept {
-			// don't even try to `link.acceptq <- ...` if .axdown is ready
+			// don't even try `link.acceptq <- ...` if link.axdown is ready
 			// ( else since select is picking random ready variant Accept/serveRecv
 			//   could receive something on axdown Link sometimes )
 			axdown := false

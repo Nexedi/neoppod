@@ -201,7 +201,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 	xclose(nl2)
 
-	// Close vs Accept
+	// {Close,CloseAccept} vs Accept
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
@@ -214,13 +214,23 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("NodeLink.Accept() after close: conn = %v, err = %v", c, err)
 	}
 	println("222 + 2")
-	// nl1 is not accepting connections - because it has LinkClient role
-	// check Accept behaviour.
+	wg.Gox(func() {
+		tdelay()
+		nl1.CloseAccept()
+	})
+	c, err = nl1.Accept()
+	if !(c == nil && xlinkError(err) == ErrLinkNoListen) {
+		t.Fatalf("NodeLink.Accept() after CloseAccept: conn = %v, err = %v", c, err)
+	}
+	xwait(wg)
+	// nl1 is now not accepting connections - because it was CloseAccept'ed
+	// check further Accept behaviour.
 	c, err = nl1.Accept()
 	if !(c == nil && xlinkError(err) == ErrLinkNoListen) {
 		t.Fatalf("NodeLink.Accept() on non-listening node link: conn = %v, err = %v", c, err)
 	}
 	println("222 + 3")
+
 	xclose(nl1)
 
 	println("333")
