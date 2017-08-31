@@ -52,7 +52,7 @@ type Storage struct {
 	//	data/
 	//	    1 inbox/	(commit queues)
 	//	    2 ? (data.fs)
-	//	    3 packed/
+	//	    3 packed/	(deltified objects)
 	zstor zodb.IStorage // underlying ZODB storage	XXX -> directly work with fs1 & friends
 }
 
