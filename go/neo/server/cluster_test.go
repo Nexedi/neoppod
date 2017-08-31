@@ -279,8 +279,8 @@ func TestMasterStorage(t *testing.T) {
 	// TODO test ID rejects (uuid already registered, ...)
 
 	// M starts recovery on S
-	tc.Expect(conntx("m:2", "s:2", 1, &neo.Recovery{}))
-	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerRecovery{
+	tc.Expect(conntx("m:2", "s:2", 0, &neo.Recovery{}))
+	tc.Expect(conntx("s:2", "m:2", 0, &neo.AnswerRecovery{
 		// empty new node
 		PTid:		0,
 		BackupTid:	neo.INVALID_TID,
