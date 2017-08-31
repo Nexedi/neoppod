@@ -608,6 +608,4 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 	}
 
 	//req.Put(...)
-
-	return nil
 }
