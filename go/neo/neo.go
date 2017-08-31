@@ -31,6 +31,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 
@@ -50,6 +51,7 @@ const (
 
 // NodeCommon is common data in all NEO nodes: Master, Storage & Client	XXX text
 // XXX naming -> Node ?
+// XXX -> internal?
 type NodeCommon struct {
 	MyInfo		NodeInfo
 	ClusterName	string
@@ -57,6 +59,7 @@ type NodeCommon struct {
 	Net		xnet.Networker	// network AP we are sending/receiving on
 	MasterAddr	string		// address of master	XXX -> Address ?
 
+	StateMu		sync.RWMutex	// <- XXX just embed?
 	NodeTab		*NodeTable	// information about nodes in the cluster
 	PartTab		*PartitionTable	// information about data distribution in the cluster
 	ClusterState	ClusterState	// master idea about cluster state

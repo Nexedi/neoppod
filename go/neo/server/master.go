@@ -53,14 +53,6 @@ type Master struct {
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
 
-	// XXX dup from .node - kill here
-/*
-	stateMu      sync.RWMutex	// XXX recheck: needed ?
-	nodeTab      *neo.NodeTable
-	partTab      *neo.PartitionTable
-	clusterState neo.ClusterState
-*/
-
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster
 	ctlStop     chan chan struct{}	// request to stop  cluster
@@ -242,6 +234,7 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 	defer task.Running(&ctx, "main")(&err)
 
 	// NOTE Run's goroutine is the only mutator of nodeTab, partTab and other cluster state
+	// XXX however since clients request state reading we should use node.StateMu
 
 	for ctx.Err() == nil {
 		// recover partition table from storages and wait till enough
@@ -943,11 +936,12 @@ func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
 func (m *Master) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
 	switch req := req.(type) {
 	case *neo.AskPartitionTable:
-		// XXX lock
+		m.node.StateMu.RLock()
 		rpt := &neo.AnswerPartitionTable{
 			PTid:	 m.node.PartTab.PTid,
 			RowList: m.node.PartTab.Dump(),
 		}
+		m.node.StateMu.RUnlock()
 		return rpt
 
 

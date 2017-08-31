@@ -53,7 +53,7 @@ type Client struct {
 	mlink      *neo.NodeLink
 	mlinkReady chan struct{} // reinitialized at each new talk cycle
 
-	// operational state - maintained by recvMaster.
+	// operational state in node is maintained by recvMaster.
 	// users retrieve it via withOperational.
 	//
 	// NOTE being operational means:
@@ -62,11 +62,7 @@ type Client struct {
 	// - .ClusterState = RUNNING	<- XXX needed?
 	//
 	// however master link is accessed separately (see ^^^ and masterLink)
-	opMu	sync.RWMutex
-	// node.NodeTab
-	// node.PartTab
-	// XXX + node.ClusterState
-	operational bool
+	operational bool // XXX <- somehow move to NodeCommon?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
 }
 
@@ -139,19 +135,19 @@ func (c *Client) masterLink(ctx context.Context) (*neo.NodeLink, error) {
 
 // withOperational waits for cluster state to be operational.
 //
-// If successful it returns with operational state RLocked (c.opMu) and
+// If successful it returns with operational state RLocked (c.node.StateMu) and
 // unlocked otherwise.
 //
 // The only error possible is if provided ctx cancel.
 func (c *Client) withOperational(ctx context.Context) error {
 	for {
-		c.opMu.RLock()
+		c.node.StateMu.RLock()
 		if c.operational {
 			return nil
 		}
 
 		ready := c.opReady
-		c.opMu.RUnlock()
+		c.node.StateMu.RUnlock()
 
 		select {
 		case <-ctx.Done():
@@ -255,11 +251,11 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 			return err
 		}
 
-		c.opMu.Lock()
+		c.node.StateMu.Lock()
 
 		switch msg := req.Msg.(type) {
 		default:
-			c.opMu.Unlock()
+			c.node.StateMu.Unlock()
 			return fmt.Errorf("unexpected message: %T", msg)
 
 		// M sends whole PT
@@ -289,13 +285,13 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 		if operational != c.operational {
 			c.operational = operational
 			if operational {
-				opready = c.opReady // don't close from under opMu
+				opready = c.opReady // don't close from under StateMu
 			} else {
 				c.opReady = make(chan struct{})
 			}
 		}
 
-		c.opMu.Unlock()
+		c.node.StateMu.Unlock()
 
 		if opready != nil {
 			close(opready)
@@ -312,9 +308,9 @@ func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error 
 	}
 
 	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
-	c.opMu.Lock()
+	c.node.StateMu.Lock()
 	c.node.PartTab = pt
-	c.opMu.Unlock()
+	c.node.StateMu.Unlock()
 
 /*
 	XXX don't need this in init?
@@ -383,7 +379,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 			}
 		}
 	}
-	c.opMu.RUnlock()
+	c.node.StateMu.RUnlock()
 
 	if len(storv) == 0 {
 		// XXX recheck it adds traceback to log
