@@ -1209,14 +1209,14 @@ type Request struct {
 func (link *NodeLink) Recv1() (Request, error) {
 	conn, err := link.Accept(/*context.TODO()*/)	// XXX remove context?
 	if err != nil {
-		return Request{}, nil	// XXX or return *Request? (want to avoid alloc)
+		return Request{}, err	// XXX or return *Request? (want to avoid alloc)
 	}
 
 	// NOTE serveRecv guaranty that when a conn is accepted, there is 1 message in conn.rxq
 	msg, err := conn.Recv()
 	if err != nil {
 		conn.Close() // XXX -> lclose(conn)
-		return Request{}, nil
+		return Request{}, err
 	}
 
 	// noone will be reading from conn anymore - shutdown rx so that if

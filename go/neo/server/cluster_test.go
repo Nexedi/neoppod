@@ -358,8 +358,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 
-	// XXX vvv reenable
-	//tc.Expect(node(M.nodeTab, "", neo.CLIENT, 1, neo.RUNNING, 0.01))
+	tc.Expect(node(M.nodeTab, "", neo.CLIENT, 1, neo.RUNNING, 0.02))
 
 	tc.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,

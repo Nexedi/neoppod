@@ -899,6 +899,7 @@ func storCtlService1(ctx context.Context, stor *neo.Node) (err error) {
 // ----------------------------------------
 
 // identify processes identification request of just connected node and either accepts or declines it.
+//
 // If node identification is accepted .nodeTab is updated and corresponding node entry is returned.
 // Response message is constructed but not send back not to block the caller - it is
 // the caller responsibility to send the response to node which requested identification.
@@ -929,12 +930,20 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 			return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("uuid %v already used by another node", uuid)}
 		}
 
-		// XXX accept only certain kind of nodes depending on .clusterState, e.g.
+		// accept only certain kind of nodes depending on .clusterState, e.g.
+		// XXX ok to have this logic inside identify? (better provide from outside ?)
 		switch nodeType {
 		case neo.CLIENT:
-			return &neo.Error{neo.NOT_READY, "cluster not operational"}
+			if m.clusterState != neo.ClusterRunning {
+				return &neo.Error{neo.NOT_READY, "cluster not operational"}
+			}
 
-		// XXX ...
+		case neo.STORAGE:
+			// ok
+
+		// TODO +master, admin
+		default:
+			return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("not accepting node type %v", nodeType)}
 		}
 
 		return nil
