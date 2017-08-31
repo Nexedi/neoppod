@@ -54,12 +54,12 @@ type Master struct {
 	// to all nodes in cluster
 
 	// XXX dup from .node - kill here
-///*
+/*
 	stateMu      sync.RWMutex	// XXX recheck: needed ?
 	nodeTab      *neo.NodeTable
 	partTab      *neo.PartitionTable
 	clusterState neo.ClusterState
-//*/
+*/
 
 	// channels controlling main driver
 	ctlStart    chan chan error	// request to start cluster
@@ -101,10 +101,12 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 			ClusterName:	clusterName,
 			Net:		net,
 			MasterAddr:	serveAddr,	// XXX ok?
-		},
 
-		nodeTab:	&neo.NodeTable{},
-		partTab:	&neo.PartitionTable{},
+			NodeTab:	&neo.NodeTable{},
+			PartTab:	&neo.PartitionTable{},
+			ClusterState:	-1, // invalid
+
+		},
 
 		ctlStart:	make(chan chan error),
 		ctlStop:	make(chan chan struct{}),
@@ -116,7 +118,6 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 		monotime:	monotime,
 	}
 
-	m.clusterState = -1 // invalid
 	return m
 }
 
@@ -148,7 +149,7 @@ func (m *Master) Shutdown() error {
 
 // setClusterState sets .clusterState and notifies subscribers
 func (m *Master) setClusterState(state neo.ClusterState) {
-	m.clusterState.Set(state)
+	m.node.ClusterState.Set(state)
 
 	// TODO notify subscribers
 }
@@ -181,7 +182,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	}
 
 	// update nodeTab with self
-	m.nodeTab.Update(m.node.MyInfo, nil /*XXX ok? we are not connecting to self*/)
+	m.node.NodeTab.Update(m.node.MyInfo, nil /*XXX ok? we are not connecting to self*/)
 
 
 	// accept incoming connections and pass them to main driver
@@ -318,7 +319,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 
 	// start recovery on all storages we are currently in touch with
 	// XXX close links to clients
-	for _, stor := range m.nodeTab.StorageList() {
+	for _, stor := range m.node.NodeTab.StorageList() {
 		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			wg.Add(1)
@@ -374,25 +375,25 @@ loop:
 
 					// close stor link / update .nodeTab
 					lclose(ctx, r.stor.Link)
-					m.nodeTab.SetNodeState(r.stor, neo.DOWN)
+					m.node.NodeTab.SetNodeState(r.stor, neo.DOWN)
 				}
 
 			} else {
 				// we are interested in latest partTab
 				// NOTE during recovery no one must be subscribed to
 				// partTab so it is ok to simply change whole m.partTab
-				if r.partTab.PTid > m.partTab.PTid {
-					m.partTab = r.partTab
+				if r.partTab.PTid > m.node.PartTab.PTid {
+					m.node.PartTab = r.partTab
 				}
 			}
 
 			// update indicator whether cluster currently can be operational or not
 			var ready bool
-			if m.partTab.PTid == 0 {
+			if m.node.PartTab.PTid == 0 {
 				// new cluster - allow startup if we have some storages passed
 				// recovery and there is no in-progress recovery running
 				nup := 0
-				for _, stor := range m.nodeTab.StorageList() {
+				for _, stor := range m.node.NodeTab.StorageList() {
 					if stor.State > neo.DOWN {
 						nup++
 					}
@@ -400,7 +401,7 @@ loop:
 				ready = (nup > 0 && inprogress == 0)
 
 			} else {
-				ready = m.partTab.OperationalWith(m.nodeTab)	// XXX + node state
+				ready = m.node.PartTab.OperationalWith(m.node.NodeTab)	// XXX + node state
 			}
 
 			if readyToStart != ready {
@@ -462,7 +463,7 @@ loop2:
 
 				// close stor link / update .nodeTab
 				lclose(ctx, r.stor.Link)
-				m.nodeTab.SetNodeState(r.stor, neo.DOWN)
+				m.node.NodeTab.SetNodeState(r.stor, neo.DOWN)
 			}
 
 		case <-done:
@@ -478,24 +479,24 @@ loop2:
 
 	// S PENDING -> RUNNING
 	// XXX recheck logic is ok for when starting existing cluster
-	for _, stor := range m.nodeTab.StorageList() {
+	for _, stor := range m.node.NodeTab.StorageList() {
 		if stor.State == neo.PENDING {
-			m.nodeTab.SetNodeState(stor, neo.RUNNING)
+			m.node.NodeTab.SetNodeState(stor, neo.RUNNING)
 		}
 	}
 
 	// if we are starting for new cluster - create partition table
-	if m.partTab.PTid == 0 {
+	if m.node.PartTab.PTid == 0 {
 		log.Infof(ctx, "creating new partition table")
 		// XXX -> m.nodeTab.StorageList(State > DOWN)
 		storv := []*neo.Node{}
-		for _, stor := range m.nodeTab.StorageList() {
+		for _, stor := range m.node.NodeTab.StorageList() {
 			if stor.State > neo.DOWN {
 				storv = append(storv, stor)
 			}
 		}
-		m.partTab = neo.MakePartTab(1 /* XXX hardcoded */, storv)
-		m.partTab.PTid = 1
+		m.node.PartTab = neo.MakePartTab(1 /* XXX hardcoded */, storv)
+		m.node.PartTab.PTid = 1
 	}
 
 	return nil
@@ -583,13 +584,13 @@ func (m *Master) verify(ctx context.Context) (err error) {
 	//      XXX (= py), rationale=?
 
 	// start verification on all storages we are currently in touch with
-	for _, stor := range m.nodeTab.StorageList() {
+	for _, stor := range m.node.NodeTab.StorageList() {
 		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				storCtlVerify(ctx, stor, m.partTab, verify)
+				storCtlVerify(ctx, stor, m.node.PartTab, verify)
 			}()
 		}
 	}
@@ -617,14 +618,14 @@ loop:
 					return
 				}
 
-				storCtlVerify(ctx, node, m.partTab, verify)
+				storCtlVerify(ctx, node, m.node.PartTab, verify)
 			}()
 
 		case n := <-m.nodeLeave:
-			m.nodeTab.SetNodeState(n.node, neo.DOWN)
+			m.node.NodeTab.SetNodeState(n.node, neo.DOWN)
 
 			// if cluster became non-operational - we cancel verification
-			if !m.partTab.OperationalWith(m.nodeTab) {
+			if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
 				// XXX ok to instantly cancel? or better
 				// graceful shutdown in-flight verifications?
 				vcancel()
@@ -648,12 +649,12 @@ loop:
 
 					// mark storage as non-working in nodeTab
 					lclose(ctx, v.stor.Link)
-					m.nodeTab.SetNodeState(v.stor, neo.DOWN)
+					m.node.NodeTab.SetNodeState(v.stor, neo.DOWN)
 				}
 
 				// check partTab is still operational
 				// if not -> cancel to go back to recovery
-				if !m.partTab.OperationalWith(m.nodeTab) {
+				if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
 					vcancel()
 					err = errClusterDegraded
 					break loop
@@ -700,7 +701,7 @@ loop2:
 
 				// close stor link / update .nodeTab
 				lclose(ctx, v.stor.Link)
-				m.nodeTab.SetNodeState(v.stor, neo.DOWN)
+				m.node.NodeTab.SetNodeState(v.stor, neo.DOWN)
 			}
 
 		case <-done:
@@ -798,7 +799,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 	wg := &sync.WaitGroup{}
 
 	// spawn per-storage service driver
-	for _, stor := range m.nodeTab.StorageList() {
+	for _, stor := range m.node.NodeTab.StorageList() {
 		if stor.State == neo.RUNNING {	// XXX note PENDING - not adding to service; ok?
 			wg.Add(1)
 			go func() {
@@ -850,10 +851,10 @@ loop:
 
 		// XXX who sends here?
 		case n := <-m.nodeLeave:
-			m.nodeTab.SetNodeState(n.node, neo.DOWN)
+			m.node.NodeTab.SetNodeState(n.node, neo.DOWN)
 
 			// if cluster became non-operational - cancel service
-			if !m.partTab.OperationalWith(m.nodeTab) {
+			if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
 				err = errClusterDegraded
 				break loop
 			}
@@ -942,8 +943,12 @@ func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
 func (m *Master) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
 	switch req := req.(type) {
 	case *neo.AskPartitionTable:
-		// XXX
-		panic("TODO")
+		// XXX lock
+		rpt := &neo.AnswerPartitionTable{
+			PTid:	 m.node.PartTab.PTid,
+			RowList: m.node.PartTab.Dump(),
+		}
+		return rpt
 
 
 	default:
@@ -978,7 +983,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 
 		// XXX check uuid matches NodeType
 
-		node = m.nodeTab.Get(uuid)
+		node = m.node.NodeTab.Get(uuid)
 		if node != nil {
 			// reject - uuid is already occupied by someone else
 			// XXX check also for down state - it could be the same node reconnecting
@@ -989,7 +994,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		// XXX ok to have this logic inside identify? (better provide from outside ?)
 		switch nodeType {
 		case neo.CLIENT:
-			if m.clusterState != neo.ClusterRunning {
+			if m.node.ClusterState != neo.ClusterRunning {
 				return &neo.Error{neo.NOT_READY, "cluster not operational"}
 			}
 
@@ -1039,7 +1044,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		IdTimestamp:	m.monotime(),
 	}
 
-	node = m.nodeTab.Update(nodeInfo, n.conn) // NOTE this notifies all nodeTab subscribers
+	node = m.node.NodeTab.Update(nodeInfo, n.conn) // NOTE this notifies all nodeTab subscribers
 	return node, accept
 }
 
@@ -1080,7 +1085,7 @@ func (m *Master) accept(ctx context.Context, conn *neo.Conn, resp neo.Msg) error
 func (m *Master) allocUUID(nodeType neo.NodeType) neo.NodeUUID {
 	for num := int32(1); num < 1<<24; num++ {
 		uuid := neo.UUID(nodeType, num)
-		if m.nodeTab.Get(uuid) == nil {
+		if m.node.NodeTab.Get(uuid) == nil {
 			return uuid
 		}
 	}

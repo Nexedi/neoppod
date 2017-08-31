@@ -314,6 +314,8 @@ func (stor *Storage) m1initialize(ctx context.Context, Mconn *neo.Conn) (err err
 			return err
 		}
 
+		// XXX vvv move Send out of reply preparing logic
+
 		switch msg.(type) {
 		default:
 			return fmt.Errorf("unexpected message: %T", msg)
@@ -554,11 +556,6 @@ func (stor *Storage) serveClient(ctx context.Context, conn *neo.Conn) {
 
 // serveClient1 prepares response for 1 request from client
 func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
-	// req, err := conn.Recv()
-	// if err != nil {
-	// 	return err	// XXX log / err / send error before closing
-	// }
-
 	switch req := req.(type) {
 	case *neo.GetObject:
 		xid := zodb.Xid{Oid: req.Oid}
@@ -588,8 +585,6 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			// XXX .DataSerial
 		}
 
-//		req.Reply(reply)	// XXX err
-
 	case *neo.LastTransaction:
 		lastTid, err := stor.zstor.LastTid(ctx)
 		if err != nil {
@@ -597,8 +592,6 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 		}
 
 		return &neo.AnswerLastTransaction{lastTid}
-
-//		conn.Send(reply)	// XXX err
 
 	//case *ObjectHistory:
 	//case *StoreObject:

@@ -199,9 +199,9 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for nodetab change
-	node := func(nt *neo.NodeTable, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
+	node := func(x *neo.NodeCommon, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
 		return &traceNode{
-			NodeTab: unsafe.Pointer(nt),
+			NodeTab: unsafe.Pointer(x.NodeTab),
 			NodeInfo: neo.NodeInfo{
 				Type:    typ,
 				Addr:    xnaddr(laddr),
@@ -232,8 +232,8 @@ func TestMasterStorage(t *testing.T) {
 
 	// M starts listening
 	tc.Expect(netlisten("m:1"))
-	tc.Expect(node(M.nodeTab, "m:1", neo.MASTER, 1, neo.RUNNING, 0.0))
-	tc.Expect(clusterState(&M.clusterState, neo.ClusterRecovering))
+	tc.Expect(node(&M.node, "m:1", neo.MASTER, 1, neo.RUNNING, 0.0))
+	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterRecovering))
 
 	// TODO create C; C tries connect to master - rejected ("not yet operational")
 
@@ -260,7 +260,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 
-	tc.Expect(node(M.nodeTab, "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
+	tc.Expect(node(&M.node, "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
@@ -297,13 +297,13 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 	})
 
-	tc.Expect(node(M.nodeTab, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	tc.Expect(node(&M.node, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
 	xwait(wg)
 
 	// XXX M.partTab <- S1
 
 	// M starts verification
-	tc.Expect(clusterState(&M.clusterState, neo.ClusterVerifying))
+	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterVerifying))
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.NotifyPartitionTable{
 		PTid:		1,
@@ -334,7 +334,7 @@ func TestMasterStorage(t *testing.T) {
 	// TODO M.Stop() while verify
 
 	// verification ok; M start service
-	tc.Expect(clusterState(&M.clusterState, neo.ClusterRunning))
+	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterRunning))
 	// TODO ^^^ should be sent to S
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.StartOperation{Backup: false}))
@@ -358,7 +358,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 
-	tc.Expect(node(M.nodeTab, "", neo.CLIENT, 1, neo.RUNNING, 0.02))
+	tc.Expect(node(&M.node, "", neo.CLIENT, 1, neo.RUNNING, 0.02))
 
 	tc.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
