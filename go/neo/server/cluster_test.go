@@ -368,6 +368,20 @@ func TestMasterStorage(t *testing.T) {
 		YourUUID:	neo.UUID(neo.CLIENT, 1),
 	}))
 
+	// XXX C <- M NotifyNodeInformation C1,M1,S1
+
+	// C asks M about PT
+	tc.Expect(conntx("c:1", "m:3", 3, &neo.AskPartitionTable{}))
+	tc.Expect(conntx("m:3", "c:1", 3, &neo.AnswerPartitionTable{
+		PTid:		1,
+		RowList:	[]neo.RowInfo{
+			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
+		},
+	}))
+
+
+
+
 	_ = C
 
 

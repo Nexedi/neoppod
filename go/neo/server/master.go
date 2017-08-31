@@ -51,10 +51,12 @@ type Master struct {
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
+
+	// XXX dup from .node - kill here
 ///*
 	stateMu      sync.RWMutex	// XXX recheck: needed ?
 	nodeTab      *neo.NodeTable
-	partTab      *neo.PartitionTable	// XXX ^ is also in node
+	partTab      *neo.PartitionTable
 	clusterState neo.ClusterState
 //*/
 
@@ -196,6 +198,20 @@ func (m *Master) Run(ctx context.Context) (err error) {
 				continue
 			}
 
+			// for storages the only incoming connection is for RequestIdentification
+			// and then master only drives it. So close accept as noone will be
+			// listening for it on your side anymore.
+			switch idReq.NodeType {
+			case neo.CLIENT:
+				// ok
+
+			case neo.STORAGE:
+				fallthrough
+			default:
+				l.CloseAccept()
+			}
+
+			// handover to main driver
 			select {
 			case m.nodeCome <- nodeCome{conn, idReq}:
 				// ok
@@ -318,7 +334,6 @@ loop:
 		// new connection comes in
 		case n := <-m.nodeCome:
 			node, resp := m.identify(ctx, n, /* XXX only accept storages -> PENDING */)
-			// XXX set node.State = PENDING
 
 			if node == nil {
 				goreject(ctx, wg, n.conn, resp)

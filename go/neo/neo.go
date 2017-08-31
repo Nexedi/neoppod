@@ -160,6 +160,8 @@ type Listener interface {
 	// On success returned are:
 	// - primary link connection which carried identification
 	// - requested identification packet
+	//
+	// XXX Conn, RequestIdentification -> Request
 	Accept(ctx context.Context) (*Conn, *RequestIdentification, error)
 }
 

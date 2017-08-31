@@ -168,6 +168,8 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
+	println("000")
+
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg := &xsync.WorkGroup{}
@@ -181,6 +183,8 @@ func TestNodeLink(t *testing.T) {
 	}
 	xwait(wg)
 	xclose(nl2)
+
+	println("222")
 
 	// Close vs sendPkt
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
@@ -204,17 +208,22 @@ func TestNodeLink(t *testing.T) {
 		tdelay()
 		xclose(nl2)
 	})
+	println("222 + 1")
 	c, err := nl2.Accept()
 	if !(c == nil && xlinkError(err) == ErrLinkClosed) {
 		t.Fatalf("NodeLink.Accept() after close: conn = %v, err = %v", c, err)
 	}
+	println("222 + 2")
 	// nl1 is not accepting connections - because it has LinkClient role
 	// check Accept behaviour.
 	c, err = nl1.Accept()
 	if !(c == nil && xlinkError(err) == ErrLinkNoListen) {
 		t.Fatalf("NodeLink.Accept() on non-listening node link: conn = %v, err = %v", c, err)
 	}
+	println("222 + 3")
 	xclose(nl1)
+
+	println("333")
 
 	// Close vs recvPkt on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
