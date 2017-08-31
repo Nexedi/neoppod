@@ -192,7 +192,8 @@ type Address struct {
 // A SHA1 hash
 type Checksum [20]byte
 
-// Partition Table identifier
+// Partition Table identifier.
+//
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64
 

@@ -28,48 +28,31 @@ import (
 	"time"
 )
 
-// NodeTable represents known nodes in a cluster
+// NodeTable represents known nodes in a cluster.
 //
-// Usually Master maintains such table and provides it to other nodes to know
-// each other but in general use-cases can be different.
+// It is
 //
-// XXX vvv is about Master=main use-case:
+//	UUID -> *Node
 //
-// - Primary Master view of cluster
-// - M tracks changes to nodeTab as nodes appear (connected to M) and go (disconnected from M)
-// - M regularly broadcasts nodeTab content updates(?) to all nodes
-//   This way all nodes stay informed about their peers in cluster
+// mapping associating node uuid with information about a node.
 //
-// UC:
+// Primary use-case is that master maintains such table and provides it to
+// its peers to know each other:
+//
+//	- Primary Master view of cluster.
+// 	- M tracks changes to nodeTab as nodes appear (connected to M) and go (disconnected from M).
+// 	- M regularly broadcasts nodeTab content updates(?) to all nodes.
+// 	  This way all nodes stay informed about their peers in cluster.
+//
+// Usage examples:
 //	- C needs to connect/talk to a storage by uuid
-//	- C needs to initially connect to PM (?)
-//	- S pulls from other S
+//	  (the uuid itself is obtained from PartitionTable by oid).
+//	- S pulls from other S.
 //
 //
-// XXX [] of
-//	.UUID
-//	.Type
-//	.State
-//	.listenAt	ip:port | ø	// ø - if client or down(?)
-//
-//	- - - - - - -
-//
-//	.comesFrom	?(ip:port)		connected to PM from here
-//						XXX ^^^ needed ? nodeLink has this info
-//
-//	.nodeLink | nil				M's node link to this node
-//	.notifyConn | nil			conn left after identification phase
-//						M uses this to send notifications to the node
-//
-//
-// .acceptingUpdates (?)	- whether it is ok to update nodeTab (e.g. if
-//	master is shutting down it first sends all nodes something but has to make
-// 	sure not to accept new connections	-> XXX not needed - just stop listening
-// 	first.
-//
-// XXX once a node was added to NodeTable its entry never deleted: if e.g. a
-// connection to node is lost associated entry is marked as having DOWN (XXX or UNKNOWN ?) node
-// state.
+// NOTE once a node was added to NodeTable its entry is never deleted: if e.g.
+// a connection to node is lost associated entry is marked as having DOWN (XXX
+// or UNKNOWN ?) node state.
 //
 // NodeTable zero value is valid empty node table.
 type NodeTable struct {
@@ -81,6 +64,8 @@ type NodeTable struct {
 	notifyv []chan NodeInfo // subscribers
 }
 
+
+// XXX vvv move -> peer.go?
 
 // even if dialing a peer failed, we'll attempt redial after this timeout
 const δtRedial = 3 * time.Second
@@ -288,7 +273,7 @@ func (p *Peer) dial(ctx context.Context) (*NodeLink, error) {
 
 
 
-/* XXX closing .link on .state = DOWN
+/* XXX closing .link on .state = DOWN?
 func (p *Peer) SetState(state NodeState) {
 	// XXX lock?
 	p.State = state
@@ -321,9 +306,6 @@ type Node struct {
 
 	// XXX not yet sure it is good idea
 	Conn *Conn	// main connection
-
-	// XXX something indicating in-flight connecting/identification
-	// (wish Link != nil means connected and identified)
 }
 
 

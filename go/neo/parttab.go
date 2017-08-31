@@ -30,7 +30,7 @@ import (
 //
 // It is
 //
-//	Oid -> []Storage
+//	Oid -> []Storage	# XXX actually oid -> []uuid
 //
 // mapping associating object id with list of storage nodes on where data for
 // this oid should be written-to/loaded-from. This mapping is organized as follows:
