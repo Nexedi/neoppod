@@ -384,6 +384,7 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	// C <- M NotifyNodeInformation C1,M1,S1
+	// FIXME this might come in parallel with ^^^ "C asks M about PT"
 	tc.Expect(conntx("m:3", "c:1", 0, &neo.NotifyNodeInformation{
 		IdTimestamp:	0,	// XXX ?
 		NodeList:	[]neo.NodeInfo{

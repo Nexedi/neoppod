@@ -271,7 +271,7 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 		case *neo.NotifyNodeInformation:
 			// XXX msg.IdTimestamp ?
 			for _, nodeInfo := range msg.NodeList {
-				log.Infof(ctx, "rx peer update: %v", nodeInfo)
+				log.Infof(ctx, "rx node update: %v", nodeInfo)
 				c.node.NodeTab.Update(nodeInfo, /*XXX conn should not be here*/nil)
 			}
 
@@ -279,6 +279,8 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 			log.Infof(ctx, "full nodetab:\n%s", c.node.NodeTab)
 
 		case *neo.NotifyClusterState:
+			// XXX loging under lock
+			log.Infof(ctx, "rx state update: %v", msg.State)
 			c.node.ClusterState.Set(msg.State)
 		}
 
