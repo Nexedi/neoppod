@@ -864,11 +864,28 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 	// XXX send nodeTab ?
 	// XXX send clusterInformation ?
 
-	ready := neo.NotifyReady{}
-	err = slink.Ask1(&neo.StartOperation{Backup: false}, &ready)
+	// XXX current neo/py does StartOperation / NotifyReady as separate
+	//     sends, not exchange on the same conn.
+	//ready := neo.NotifyReady{}
+	//err = slink.Ask1(&neo.StartOperation{Backup: false}, &ready)
+	err = slink.Send1(&neo.StartOperation{Backup: false})
 	if err != nil {
 		return err
 	}
+	req, err := slink.Recv1()
+	if err != nil {
+		return err
+	}
+	req.Close()
+	switch msg := req.Msg.(type) {
+	case *neo.NotifyReady:
+		// ok
+	case *neo.Error:
+		return msg
+	default:
+		return fmt.Errorf("unexpected message %T", msg)
+	}
+
 
 	// now wait in a loop
 	// XXX this should be also controlling transactions

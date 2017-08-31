@@ -287,8 +287,8 @@ func TestMasterStorage(t *testing.T) {
 		TruncateTid:	neo.INVALID_TID,
 	}))
 
-	tc.Expect(conntx("m:2", "s:2", 1, &neo.AskPartitionTable{}))
-	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerPartitionTable{
+	tc.Expect(conntx("m:2", "s:2", 2, &neo.AskPartitionTable{}))
+	tc.Expect(conntx("s:2", "m:2", 2, &neo.AnswerPartitionTable{
 		PTid:		0,
 		RowList:	[]neo.RowInfo{},
 	}))
@@ -311,23 +311,23 @@ func TestMasterStorage(t *testing.T) {
 	// M starts verification
 	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterVerifying))
 
-	tc.Expect(conntx("m:2", "s:2", 1, &neo.NotifyPartitionTable{
+	tc.Expect(conntx("m:2", "s:2", 4, &neo.NotifyPartitionTable{
 		PTid:		1,
 		RowList:	[]neo.RowInfo{
 			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
 		},
 	}))
 
-	tc.Expect(conntx("m:2", "s:2", 1, &neo.LockedTransactions{}))
-	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerLockedTransactions{
+	tc.Expect(conntx("m:2", "s:2", 6, &neo.LockedTransactions{}))
+	tc.Expect(conntx("s:2", "m:2", 6, &neo.AnswerLockedTransactions{
 		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
 	}))
 
 	lastOid, err1 := zstor.LastOid(bg)
 	lastTid, err2 := zstor.LastTid(bg)
 	exc.Raiseif(xerr.Merge(err1, err2))
-	tc.Expect(conntx("m:2", "s:2", 1, &neo.LastIDs{}))
-	tc.Expect(conntx("s:2", "m:2", 1, &neo.AnswerLastIDs{
+	tc.Expect(conntx("m:2", "s:2", 8, &neo.LastIDs{}))
+	tc.Expect(conntx("s:2", "m:2", 8, &neo.AnswerLastIDs{
 		LastOid: lastOid,
 		LastTid: lastTid,
 	}))
@@ -343,8 +343,8 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterRunning))
 	// TODO ^^^ should be sent to S
 
-	tc.Expect(conntx("m:2", "s:2", 1, &neo.StartOperation{Backup: false}))
-	tc.Expect(conntx("s:2", "m:2", 1, &neo.NotifyReady{}))
+	tc.Expect(conntx("m:2", "s:2", 10, &neo.StartOperation{Backup: false}))
+	tc.Expect(conntx("s:2", "m:2", 3, &neo.NotifyReady{}))
 
 
 	// TODO S leave while service
