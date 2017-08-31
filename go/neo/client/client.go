@@ -272,7 +272,7 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 			// XXX msg.IdTimestamp ?
 			for _, nodeInfo := range msg.NodeList {
 				log.Infof(ctx, "rx node update: %v", nodeInfo)
-				c.node.NodeTab.Update(nodeInfo, /*XXX conn should not be here*/nil)
+				c.node.NodeTab.Update(nodeInfo)
 			}
 
 			// FIXME logging under lock
@@ -399,7 +399,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 	// retry from the beginning if all are found to fail?
 	stor := storv[rand.Intn(len(storv))]
 
-	slink, err := stor.Link()
+	slink, err := stor.Dial(ctx)
 	if err != nil {
 		return nil, 0, err	// XXX err ctx
 	}

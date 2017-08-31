@@ -176,7 +176,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	}
 
 	// update nodeTab with self
-	m.node.NodeTab.Update(m.node.MyInfo, nil /*XXX ok? we are not connecting to self*/)
+	m.node.NodeTab.Update(m.node.MyInfo)
 
 
 	// accept incoming connections and pass them to main driver
@@ -368,13 +368,8 @@ loop:
 				log.Error(ctx, r.err)
 
 				if !xcontext.Canceled(errors.Cause(r.err)) {
-					// XXX dup wrt vvv (loop2)
-					log.Infof(ctx, "%v: closing link", r.stor.Link)
-
-					// close stor link / update .nodeTab
-					lclose(ctx, r.stor.Link)
-					// r.stor.SetState(neo.DOWN)
-					m.node.NodeTab.SetNodeState(r.stor, neo.DOWN)
+					r.stor.CloseLink(ctx)
+					r.stor.SetState(neo.DOWN)
 				}
 
 			} else {
@@ -457,12 +452,8 @@ loop2:
 			log.Error(ctx, r.err)
 
 			if !xcontext.Canceled(errors.Cause(r.err)) {
-				// XXX -> r.stor.CloseLink(ctx) ?
-				log.Infof(ctx, "%v: closing link", r.stor.Link)
-
-				// close stor link / update .nodeTab
-				lclose(ctx, r.stor.Link)
-				m.node.NodeTab.SetNodeState(r.stor, neo.DOWN)
+				r.stor.CloseLink(ctx)
+				r.stor.SetState(neo.DOWN)
 			}
 
 		case <-done:
@@ -480,7 +471,7 @@ loop2:
 	// XXX recheck logic is ok for when starting existing cluster
 	for _, stor := range m.node.NodeTab.StorageList() {
 		if stor.State == neo.PENDING {
-			m.node.NodeTab.SetNodeState(stor, neo.RUNNING)
+			stor.SetState(neo.RUNNING)
 		}
 	}
 
@@ -513,28 +504,19 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 		// on error provide feedback to storRecovery chan
 		res <- storRecovery{stor: stor, err: err}
 	}()
-	defer task.Runningf(&ctx, "%s: stor recovery", stor.Link.RemoteAddr())(&err)
-
-	conn := stor.Conn
-	// conn, err := stor.Link.NewConn()
-	// if err != nil {
-	// 	return
-	// }
-	// defer func() {
-	// 	err2 := conn.Close()
-	// 	err = xerr.First(err, err2)
-	// }()
+	slink := stor.Link()
+	defer task.Runningf(&ctx, "%s: stor recovery", slink.RemoteAddr())(&err)
 
 	// XXX cancel on ctx
 
 	recovery := neo.AnswerRecovery{}
-	err = conn.Ask(&neo.Recovery{}, &recovery)
+	err = slink.Ask1(&neo.Recovery{}, &recovery)
 	if err != nil {
 		return
 	}
 
 	resp := neo.AnswerPartitionTable{}
-	err = conn.Ask(&neo.AskPartitionTable{}, &resp)
+	err = slink.Ask1(&neo.AskPartitionTable{}, &resp)
 	if err != nil {
 		return
 	}
@@ -621,7 +603,7 @@ loop:
 			}()
 
 		case n := <-m.nodeLeave:
-			m.node.NodeTab.SetNodeState(n.node, neo.DOWN)
+			n.node.SetState(neo.DOWN)
 
 			// if cluster became non-operational - we cancel verification
 			if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
@@ -643,12 +625,8 @@ loop:
 				log.Error(ctx, v.err)
 
 				if !xcontext.Canceled(errors.Cause(v.err)) {
-					// XXX dup wrt recovery ^^^
-					log.Infof(ctx, "%s: closing link", v.stor.Link)
-
-					// mark storage as non-working in nodeTab
-					lclose(ctx, v.stor.Link)
-					m.node.NodeTab.SetNodeState(v.stor, neo.DOWN)
+					v.stor.CloseLink(ctx)
+					v.stor.SetState(neo.DOWN)
 				}
 
 				// check partTab is still operational
@@ -696,11 +674,8 @@ loop2:
 			log.Error(ctx, v.err)
 
 			if !xcontext.Canceled(errors.Cause(v.err)) {
-				log.Infof(ctx, "%v: closing link", v.stor.Link)
-
-				// close stor link / update .nodeTab
-				lclose(ctx, v.stor.Link)
-				m.node.NodeTab.SetNodeState(v.stor, neo.DOWN)
+				v.stor.CloseLink(ctx)
+				v.stor.SetState(neo.DOWN)
 			}
 
 		case <-done:
@@ -730,12 +705,11 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 			res <- storVerify{stor: stor, err: err}
 		}
 	}()
-	defer task.Runningf(&ctx, "%s: stor verify", stor.Link)(&err)
-
-	conn := stor.Conn
+	slink := stor.Link()
+	defer task.Runningf(&ctx, "%s: stor verify", slink)(&err)
 
 	// send just recovered parttab so storage saves it
-	err = conn.Send(&neo.NotifyPartitionTable{
+	err = slink.Send1(&neo.NotifyPartitionTable{
 		PTid:    pt.PTid,
 		RowList: pt.Dump(),
 	})
@@ -744,7 +718,7 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 	}
 
 	locked := neo.AnswerLockedTransactions{}
-	err = conn.Ask(&neo.LockedTransactions{}, &locked)
+	err = slink.Ask1(&neo.LockedTransactions{}, &locked)
 	if err != nil {
 		return
 	}
@@ -756,7 +730,7 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 	}
 
 	last := neo.AnswerLastIDs{}
-	err = conn.Ask(&neo.LastIDs{}, &last)
+	err = slink.Ask1(&neo.LastIDs{}, &last)
 	if err != nil {
 		return
 	}
@@ -850,7 +824,7 @@ loop:
 
 		// XXX who sends here?
 		case n := <-m.nodeLeave:
-			m.node.NodeTab.SetNodeState(n.node, neo.DOWN)
+			n.node.SetState(neo.DOWN)
 
 			// if cluster became non-operational - cancel service
 			if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
@@ -884,15 +858,14 @@ loop:
 
 // storCtlService drives a storage node during cluster service state
 func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
-	defer task.Runningf(&ctx, "%s: stor service", stor.Link.RemoteAddr())(&err)
-
-	conn := stor.Conn
+	slink := stor.Link()
+	defer task.Runningf(&ctx, "%s: stor service", slink.RemoteAddr())(&err)
 
 	// XXX send nodeTab ?
 	// XXX send clusterInformation ?
 
 	ready := neo.NotifyReady{}
-	err = conn.Ask(&neo.StartOperation{Backup: false}, &ready)
+	err = slink.Ask1(&neo.StartOperation{Backup: false}, &ready)
 	if err != nil {
 		return err
 	}
@@ -915,12 +888,11 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 
 // serveClient serves incoming client link
 func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
-	defer task.Runningf(&ctx, "%s: client service", cli.Link.RemoteAddr())(&err)
+	clink := cli.Link()
+	defer task.Runningf(&ctx, "%s: client service", clink.RemoteAddr())(&err)
 
 	wg, ctx := errgroup.WithContext(ctx)
-
-	clink := cli.Link
-	defer xio.CloseWhenDone(ctx, clink)()
+	defer xio.CloseWhenDone(ctx, clink)()	// XXX -> cli.CloseLink?
 
 	// M -> C notifications about cluster state
 	wg.Go(func() error {
@@ -1128,7 +1100,8 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		IdTimestamp:	m.monotime(),
 	}
 
-	node = m.node.NodeTab.Update(nodeInfo, n.conn) // NOTE this notifies all nodeTab subscribers
+	node = m.node.NodeTab.Update(nodeInfo) // NOTE this notifies all nodeTab subscribers
+	node.SetLink(n.conn.Link())
 	return node, accept
 }
 
