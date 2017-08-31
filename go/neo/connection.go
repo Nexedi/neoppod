@@ -244,7 +244,6 @@ loop:
 				// conn into .acceptq - shutting it down will send the error to peer.
 				conn.shutdownRX(errConnRefused)
 
-				// XXX vvv -> better conn.Close() ?
 				link.connMu.Lock()
 				delete(link.connTab, conn.connId)
 				link.connMu.Unlock()
@@ -542,31 +541,12 @@ func (nl *NodeLink) serveRecv() {
 			if connId % 2 == nl.nextConnId % 2 {
 				tmpclosed = true
 				delete(nl.connTab, conn.connId)
-				//errTempDown = errConnClosed
 
 			// message with connid for a stream initiated by peer
+			// it will be considered to be accepted (not if .axdown)
 			} else {
-				/*
-				if nl.acceptq == nil {	// XXX != nil anymore
-					errTempDown = errConnRefused
-				} else {
-					// we are accepting new incoming connection
-					accept = true
-				}
-				*/
 				accept = true
 			}
-
-			// XXX cleanup vvv ^^^
-
-			/*
-			// delete temporary conn from .connTab - this way the
-			// connection will be automatically garbage-collected
-			// after its final use.
-			if !accept {
-				delete(nl.connTab, conn.connId)
-			}
-			*/
 		}
 
 		nl.connMu.Unlock()
@@ -611,6 +591,7 @@ func (nl *NodeLink) serveRecv() {
 		}
 
 
+		// this packet established new connection - try to accept it
 		if accept {
 			// don't even try `link.acceptq <- ...` if link.axdown is ready
 			// ( else since select is picking random ready variant Accept/serveRecv
@@ -642,26 +623,6 @@ func (nl *NodeLink) serveRecv() {
 				delete(nl.connTab, conn.connId)
 				nl.connMu.Unlock()
 			}
-
-
-
-/*
-			select {
-			case <-nl.down:
-				// Accept and loop calling it can exit if shutdown was requested
-				// if so we are also exiting
-
-				// make sure not to leave rx error as nil
-				nl.errMu.Lock()
-				nl.errRecv = ErrLinkDown
-				nl.errMu.Unlock()
-
-				return
-
-			case nl.acceptq <- conn:
-				// ok
-			}
-*/
 		}
 	}
 }
