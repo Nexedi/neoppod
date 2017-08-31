@@ -416,7 +416,10 @@ func TestMasterStorage(t *testing.T) {
 		Tid: lastTid,
 	}))
 
-	// C starts loading first object
+	xwait(wg)
+
+	println("000")
+	// C starts loading first object -> connects to S
 	data, serial, err := C.Load(bg, zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}})
 	_, _, _ = data, serial, err
 

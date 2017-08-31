@@ -285,7 +285,8 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 		}
 
 		// update .operational + notify those who was waiting for it
-		operational := c.node.ClusterState == neo.ClusterRunning &&
+		// XXX py client does not wait for cluster state = running
+		operational := // c.node.ClusterState == neo.ClusterRunning &&
 			c.node.PartTab.OperationalWith(c.node.NodeTab)
 
 		var opready chan struct{}
@@ -398,8 +399,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 	// retry from the beginning if all are found to fail?
 	stor := storv[rand.Intn(len(storv))]
 
-	slink := stor.Link // XXX temp stub
-	//slink, err := stor.Link()
+	slink, err := stor.Link()
 	if err != nil {
 		return nil, 0, err	// XXX err ctx
 	}
