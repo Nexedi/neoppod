@@ -344,7 +344,7 @@ func TestMasterStorage(t *testing.T) {
 	// TODO ^^^ should be sent to S
 
 	tc.Expect(conntx("m:2", "s:2", 10, &neo.StartOperation{Backup: false}))
-	tc.Expect(conntx("s:2", "m:2", 3, &neo.NotifyReady{}))
+	tc.Expect(conntx("s:2", "m:2", 10, &neo.NotifyReady{}))
 
 
 	// TODO S leave while service

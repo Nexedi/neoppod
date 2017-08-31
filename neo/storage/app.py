@@ -231,7 +231,10 @@ class Application(BaseApplication):
         self.master_conn.setHandler(initialization.InitializationHandler(self))
         while not self.operational:
             _poll()
-        self.master_conn.send(Packets.NotifyReady())
+        #self.master_conn.send(Packets.NotifyReady())
+        #self.master_conn.answer(Packets.NotifyReady())  # NOTE to keep same conn as was used when M send StartOperation
+        # XXX ^^^ answer check pkt.isResponse()
+        self.master_conn.send(Packets.NotifyReady(), msg_id=self.master_conn.peer_id)
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
