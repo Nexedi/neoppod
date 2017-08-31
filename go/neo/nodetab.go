@@ -64,6 +64,16 @@ type NodeTable struct {
 	notifyv []chan NodeInfo // subscribers
 }
 
+// Len returns N(entries) in the table.
+func (nt *NodeTable) Len() int {
+	return len(nt.nodev)
+}
+
+// All returns all entries in the table as one slice.
+// XXX -> better iter?
+func (nt *NodeTable) All() []*Node {
+	return nt.nodev
+}
 
 // XXX vvv move -> peer.go?
 
