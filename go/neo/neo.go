@@ -49,10 +49,10 @@ const (
 )
 
 
-// NodeCommon is common data in all NEO nodes: Master, Storage & Client	XXX text
-// XXX naming -> Node ?
+// NodeApp is base for implementing NEO node applications.
+//
 // XXX -> internal?
-type NodeCommon struct {
+type NodeApp struct {
 	MyInfo		NodeInfo
 	ClusterName	string
 
@@ -70,7 +70,7 @@ type NodeCommon struct {
 // It handshakes, requests identification and checks peer type. If successful returned are:
 // - primary link connection which carried identification
 // - accept identification reply
-func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (_ *Conn, _ *AcceptIdentification, err error) {
+func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *Conn, _ *AcceptIdentification, err error) {
 	link, err := DialLink(ctx, n.Net, addr)
 	if err != nil {
 		return nil, nil, err
@@ -117,9 +117,10 @@ func (n *NodeCommon) Dial(ctx context.Context, peerType NodeType, addr string) (
 
 
 // Listen starts listening at node's listening address.
+//
 // If the address is empty one new free is automatically selected.
 // The node information about where it listens at is appropriately updated.
-func (n *NodeCommon) Listen() (Listener, error) {
+func (n *NodeApp) Listen() (Listener, error) {
 	// start listening
 	ll, err := ListenLink(n.Net, n.MyInfo.Addr.String())
 	if err != nil {

@@ -211,7 +211,7 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for nodetab change
-	node := func(x *neo.NodeCommon, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
+	node := func(x *neo.NodeApp, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtstamp float64) *traceNode {
 		return &traceNode{
 			NodeTab:  unsafe.Pointer(x.NodeTab),
 			NodeInfo: nodei(laddr, typ, num, state, idtstamp),
@@ -394,7 +394,7 @@ func TestMasterStorage(t *testing.T) {
 		},
 	}))
 
-	Cnode := (*neo.NodeCommon)(unsafe.Pointer(C)) // XXX hack
+	Cnode := (*neo.NodeApp)(unsafe.Pointer(C)) // XXX hack
 	tc.Expect(node(Cnode, "m:1", neo.MASTER,  1, neo.RUNNING, 0.00))
 	tc.Expect(node(Cnode, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
 	tc.Expect(node(Cnode, "",    neo.CLIENT,  1, neo.RUNNING, 0.02))

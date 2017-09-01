@@ -39,7 +39,7 @@ import (
 
 // Storage is NEO node that keeps data and provides read/write access to it
 type Storage struct {
-	node neo.NodeCommon
+	node neo.NodeApp
 
 	// context for providing operational service
 	// it is renewed every time master tells us StartOpertion, so users
@@ -68,7 +68,7 @@ func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor
 	}
 
 	stor := &Storage{
-			node:	neo.NodeCommon{
+			node:	neo.NodeApp{
 				MyInfo:		neo.NodeInfo{Type: neo.STORAGE, Addr: addr},
 				ClusterName:	cluster,
 				Net:		net,

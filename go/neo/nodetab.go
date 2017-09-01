@@ -69,6 +69,7 @@ type NodeTable struct {
 //trace:event traceNodeChanged(nt *NodeTable, n *Node)
 
 // Node represents a peer node in the cluster.
+//
 // XXX name as Peer?
 type Node struct {
 	nodeTab *NodeTable // this node is part of
@@ -336,7 +337,7 @@ type dialed struct {
 	ready	chan struct{}
 }
 
-// Dial returns link to peer node.
+// Dial establishes link to peer node.
 //
 // If the link was not yet established Dial dials the peer appropriately,
 // handshakes, requests identification and checks that identification reply is
@@ -470,7 +471,7 @@ func (p *Peer) PutConn(c *Conn) {
 // dial does low-level work to dial peer
 // XXX p.* reading without lock - ok?
 func (p *Node) dial(ctx context.Context) (*NodeLink, error) {
-	var me *NodeCommon // XXX temp stub
+	var me *NodeApp // XXX bad -> crashes
 	conn0, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
 	if err != nil {
 		return nil, err

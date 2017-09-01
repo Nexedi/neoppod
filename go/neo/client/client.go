@@ -43,7 +43,7 @@ import (
 
 // Client talks to NEO cluster and exposes access to it via ZODB interfaces.
 type Client struct {
-	node neo.NodeCommon
+	node neo.NodeApp
 
 	talkMasterCancel func()
 
@@ -62,7 +62,7 @@ type Client struct {
 	// - .ClusterState = RUNNING	<- XXX needed?
 	//
 	// however master link is accessed separately (see ^^^ and masterLink)
-	operational bool // XXX <- somehow move to NodeCommon?
+	operational bool // XXX <- somehow move to NodeApp?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
 }
 
@@ -77,7 +77,7 @@ func (c *Client) StorageName() string {
 // It will connect to master @masterAddr and identify with sepcified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
-		node: neo.NodeCommon{
+		node: neo.NodeApp{
 			MyInfo:		neo.NodeInfo{Type: neo.CLIENT, Addr: neo.Address{}},
 			ClusterName:	clusterName,
 			Net:		net,
@@ -368,15 +368,14 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 }
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
-	// XXX err context (but keep zodb errors intact ?)
-	defer xerr.Contextf(&err, "client: load %v", xid)
+	defer xerr.Contextf(&err, "client: load %v", xid)	// XXX keep zodb errors intact?
 
 	err = c.withOperational(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Here we have cluster state operational and rlocked. Retrieve
+	// here we have cluster state operational and rlocked. Retrieve
 	// storages we might need to access and release the lock.
 	storv := make([]*neo.Node, 0)
 	for _, cell := range c.node.PartTab.Get(xid.Oid) {

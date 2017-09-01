@@ -44,7 +44,7 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
-	node neo.NodeCommon
+	node neo.NodeApp
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
@@ -90,7 +90,7 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	}
 
 	m := &Master{
-		node: neo.NodeCommon{
+		node: neo.NodeApp{
 			MyInfo:		neo.NodeInfo{Type: neo.MASTER, Addr: addr},
 			ClusterName:	clusterName,
 			Net:		net,
