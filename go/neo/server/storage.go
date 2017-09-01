@@ -176,7 +176,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// XXX dup in Client.talkMaster1
 	// XXX put logging into Dial?
 	log.Info(ctx, "connecting ...")
-	Mconn, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
+	mlink, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
 	if err != nil {
 		// FIXME it is not only identification - e.g. ECONNREFUSED
 		log.Info(ctx, "identification rejected")	// XXX ok here? (err is logged above)
@@ -184,7 +184,6 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	}
 
 	log.Info(ctx, "identification accepted")
-	mlink := Mconn.Link()
 	defer xio.CloseWhenDone(ctx, mlink)()
 
 	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?

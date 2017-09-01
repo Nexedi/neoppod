@@ -193,7 +193,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	// XXX dup from Server.talkMaster1
 	// XXX put logging into Dial?
 	log.Info(ctx, "connecting ...")
-	Mconn, accept, err := c.node.Dial(ctx, neo.MASTER, c.node.MasterAddr)
+	mlink, accept, err := c.node.Dial(ctx, neo.MASTER, c.node.MasterAddr)
 	if err != nil {
 		// FIXME it is not only identification - e.g. ECONNREFUSED
 		log.Info(ctx, "identification rejected")	// XXX ok here? (err is logged above)
@@ -203,11 +203,10 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 	_ = accept // XXX
 
 	log.Info(ctx, "identification accepted")
-	Mlink := Mconn.Link()
 
 	// set c.mlink and notify waiters
 	c.mlinkMu.Lock()
-	c.mlink = Mlink
+	c.mlink = mlink
 	ready := c.mlinkReady
 	c.mlinkReady = make(chan struct{})
 	c.mlinkMu.Unlock()
@@ -215,8 +214,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 
 	wg, ctx := errgroup.WithContext(ctx)
 
-	// XXX + close Mconn
-	defer xio.CloseWhenDone(ctx, Mlink)()
+	defer xio.CloseWhenDone(ctx, mlink)()
 
 	// when we are done - reset .mlink
 	defer func() {
@@ -227,13 +225,13 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 
 	// launch master notifications receiver
 	wg.Go(func() error {
-		return c.recvMaster(ctx, Mlink)
+		return c.recvMaster(ctx, mlink)
 	})
 
 	// init partition table from master
 	// XXX is this needed at all or we can expect master sending us pt via notify channel?
 	wg.Go(func() error {
-		return c.initFromMaster(ctx, Mlink)
+		return c.initFromMaster(ctx, mlink)
 	})
 
 	return wg.Wait()
@@ -308,10 +306,10 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 	}
 }
 
-func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error {
+func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) error {
 	// ask M for PT
 	rpt := neo.AnswerPartitionTable{}
-	err := Mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
+	err := mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
 	if err != nil {
 		return err
 	}
@@ -326,7 +324,7 @@ func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error 
 
 	// ask M about last_tid
 	rlastTxn := neo.AnswerLastTransaction{}
-	err = Mlink.Ask1(&neo.LastTransaction{}, &rlastTxn)
+	err = mlink.Ask1(&neo.LastTransaction{}, &rlastTxn)
 	if err != nil {
 		return err
 	}
@@ -338,7 +336,7 @@ func (c *Client) initFromMaster(ctx context.Context, Mlink *neo.NodeLink) error 
 	// XXX what next?
 	return nil
 
-	// TODO transaction control? -> better in original goroutines doing the txn (just share Mlink)
+	// TODO transaction control? -> better in original goroutines doing the txn (just share mlink)
 }
 
 // --- user API calls ---

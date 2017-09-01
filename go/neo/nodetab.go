@@ -453,12 +453,10 @@ func (p *Peer) PutConn(c *Conn) {
 // XXX p.* reading without lock - ok?
 func (p *Node) dial(ctx context.Context) (*NodeLink, error) {
 	var me *NodeApp // XXX bad -> crashes
-	conn0, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
+	link, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
 	if err != nil {
 		return nil, err
 	}
-
-	link := conn0.Link()
 
 	// verify peer identifies as what we expect
 	// XXX move to Dial?

@@ -35,6 +35,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xerr"
 
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
@@ -70,27 +71,22 @@ type NodeApp struct {
 // Dial connects to another node in the cluster
 //
 // It handshakes, requests identification and checks peer type. If successful returned are:
-// - primary link connection which carried identification
+// - established link
 // - accept identification reply
-func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *Conn, _ *AcceptIdentification, err error) {
+func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *NodeLink, _ *AcceptIdentification, err error) {
 	link, err := DialLink(ctx, n.Net, addr)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	defer xerr.Contextf(&err, "%s: request identification", link)
-	// close link on error return
-	// FIXME also close link on ctx cancel	-> xcontext.WhenDone()
+	// close link on error or ctx cancel
+	cleanup := xio.CloseWhenDone(ctx, link)
 	defer func() {
 		if err != nil {
-			link.Close()
+			cleanup()
 		}
 	}()
-
-	conn, err := link.NewConn()
-	if err != nil {
-		return nil, nil, err
-	}
 
 	req := &RequestIdentification{
 		NodeType:	n.MyInfo.Type,
@@ -100,11 +96,14 @@ func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *
 		IdTimestamp:	n.MyInfo.IdTimestamp,	// XXX ok?
 	}
 	accept := &AcceptIdentification{}
-	err = conn.Ask(req, accept)
+	// FIXME error if peer sends us something with another connID
+	// (currently we ignore and serveRecv will deadlock)
+	err = link.Ask1(req, accept)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// XXX vvv move out of here (e.g. to DialPeer) if we are not checking everthing in full here?
 	if accept.NodeType != peerType {
 		// XXX send Error to peer?
 		return nil, nil, fmt.Errorf("accepted, but peer is not %v (identifies as %v)", peerType, accept.NodeType)
@@ -114,7 +113,7 @@ func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *
 	// XXX accept.YourUUID	// XXX M can tell us to change UUID -> take in effect
 	// XXX accept.NumPartitions, ... wrt n.node.PartTab
 
-	return conn, accept, nil
+	return link, accept, nil
 }
 
 
