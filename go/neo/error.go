@@ -27,7 +27,7 @@ import (
 
 // XXX place=?	-> methods of Error
 
-// errEncode translates an error into Error packet
+// ErrEncode translates an error into Error packet.
 // XXX more text describing relation with zodb errors
 func ErrEncode(err error) *Error {
 	switch err := err.(type) {
@@ -43,7 +43,7 @@ func ErrEncode(err error) *Error {
 
 }
 
-// errDecode decodes error from Error packet
+// ErrDecode decodes error from Error packet.
 // XXX more text describing relation with zodb errors
 func ErrDecode(e *Error) error {
 	switch e.Code {

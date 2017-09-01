@@ -26,6 +26,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	//"io"
 	"math"
 	"net"
@@ -421,7 +422,7 @@ func TestMasterStorage(t *testing.T) {
 
 	xwait(wg)
 
-	// C starts loading first object -> connects to S
+	// C starts loading first object ...
 	wg = &xsync.WorkGroup{}
 	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}}
 	data1, serial1, err := zstor.Load(bg, xid1)
@@ -436,6 +437,7 @@ func TestMasterStorage(t *testing.T) {
 		}
 	})
 
+	// ... -> connects to S
 	tc.Expect(netconnect("c:2", "s:3",  "s:1"))
 	tc.Expect(conntx("c:2", "s:3", 1, &neo.RequestIdentification{
 		NodeType:	neo.CLIENT,
@@ -444,7 +446,6 @@ func TestMasterStorage(t *testing.T) {
 		ClusterName:	"abc1",
 		IdTimestamp:	0,	// XXX ?
 	}))
-	println("222")
 
 	tc.Expect(conntx("s:3", "c:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.STORAGE,
@@ -454,8 +455,23 @@ func TestMasterStorage(t *testing.T) {
 		YourUUID:	neo.UUID(neo.CLIENT, 1),
 	}))
 
-	println("333")
+	// ... -> GetObject(xid1)
+	tc.Expect(conntx("c:2", "s:3", 3, &neo.GetObject{
+		Oid:	xid1.Oid,
+		Tid:	xid1.Tid,
+		Serial: neo.INVALID_TID,
+	}))
+	tc.Expect(conntx("s:3", "c:2", 3, &neo.AnswerGetObject{
+		Oid:		xid1.Oid,
+		Serial:		serial1,
+		NextSerial:	0,		// XXX
+		Compression:	false,
+		Data:		data1,
+		DataSerial:	0,		// XXX
+		Checksum:	sha1.Sum(data1),
+	}))
 
+	println("444")
 
 
 

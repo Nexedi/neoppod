@@ -22,6 +22,7 @@ package server
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"sync"
 	"time"
@@ -111,7 +112,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				stor.serveLink(ctx, req, idReq) // XXX ignore err?
+				stor.serveLink(ctx, req, idReq) // XXX ignore err? -> logged
 			}()
 
 
@@ -394,7 +395,7 @@ func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *neo
 	defer task.Runningf(&ctx, "serve %s", link)(&err)
 	defer xio.CloseWhenDone(ctx, link)()
 
-	// handle identification
+	// first process identification
 	idResp, ok := stor.identify(idReq)
 	if !ok {
 		reject(ctx, req, idResp)	// XXX log?
@@ -449,13 +450,10 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 			return
 		}
 
-		//lclose(ctx, conn)
-
 		// keep on going in the same goroutine to avoid goroutine creation overhead
 		// TODO += timeout -> go away if inactive
 		req, err = link.Recv1()
 		if err != nil {
-			// lclose(link) XXX ?
 			log.Error(ctx, err)
 			return
 		}
@@ -477,7 +475,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 
 		data, tid, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
-			// TODO translate err to NEO protocol error codes
+			// translate err to NEO protocol error codes
 			return neo.ErrEncode(err)
 		}
 
@@ -485,9 +483,9 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			Oid:	xid.Oid,
 			Serial: tid,
 
-			Compression: false,
-			Data: data,
-			// XXX .CheckSum
+			Compression:	false,
+			Data:		data,
+			Checksum:	sha1.Sum(data),	// XXX computing every time
 
 			// XXX .NextSerial
 			// XXX .DataSerial

@@ -382,6 +382,8 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 	if err != nil {
 		return nil, 0, err	// XXX err ctx
 	}
+	// FIXME ^^^ slink.CloseAccept after really dialed (not to deadlock if
+	// S decides to send us something)
 
 	req := neo.GetObject{Oid: xid.Oid}
 	if xid.TidBefore {
