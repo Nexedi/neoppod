@@ -238,7 +238,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// M starts listening
 	tc.Expect(netlisten("m:1"))
-	tc.Expect(node(&M.node, "m:1", neo.MASTER, 1, neo.RUNNING, 0.0))
+	tc.Expect(node(M.node, "m:1", neo.MASTER, 1, neo.RUNNING, 0.0))
 	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterRecovering))
 
 	// TODO create C; C tries connect to master - rejected ("not yet operational")
@@ -266,7 +266,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 
-	tc.Expect(node(&M.node, "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
+	tc.Expect(node(M.node, "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
 
 	tc.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
@@ -303,7 +303,7 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 	})
 
-	tc.Expect(node(&M.node, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	tc.Expect(node(M.node, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
 	xwait(wg)
 
 	// XXX M.partTab <- S1
@@ -364,7 +364,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTimestamp:	0,
 	}))
 
-	tc.Expect(node(&M.node, "", neo.CLIENT, 1, neo.RUNNING, 0.02))
+	tc.Expect(node(M.node, "", neo.CLIENT, 1, neo.RUNNING, 0.02))
 
 	tc.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
@@ -394,7 +394,7 @@ func TestMasterStorage(t *testing.T) {
 		},
 	}))
 
-	Cnode := (*neo.NodeApp)(unsafe.Pointer(C)) // XXX hack
+	Cnode := *(**neo.NodeApp)(unsafe.Pointer(C)) // XXX hack, fragile
 	tc.Expect(node(Cnode, "m:1", neo.MASTER,  1, neo.RUNNING, 0.00))
 	tc.Expect(node(Cnode, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
 	tc.Expect(node(Cnode, "",    neo.CLIENT,  1, neo.RUNNING, 0.02))

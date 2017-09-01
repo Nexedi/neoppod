@@ -94,6 +94,11 @@ func UUID(typ NodeType, num int32) NodeUUID {
 // Addr converts network address string into NEO Address
 // TODO make neo.Address just string without host:port split
 func AddrString(network, addr string) (Address, error) {
+	// empty is always empty
+	if addr == "" {
+		return Address{}, nil
+	}
+
 	// e.g. on unix, networks there is no host/port split - the address there
 	// is single string -> we put it into .Host and set .Port=0 to indicate such cases
 	switch {
