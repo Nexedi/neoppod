@@ -37,7 +37,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-// Storage is NEO node that keeps data and provides read/write access to it
+// Storage is NEO node that keeps data and provides read/write access to it via network.
 type Storage struct {
 	node *neo.NodeApp
 
@@ -59,6 +59,7 @@ type Storage struct {
 }
 
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr.
+//
 // The storage uses zstor as underlying backend for storing data.
 // Use Run to actually start running the node.
 func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {

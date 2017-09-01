@@ -68,6 +68,7 @@ type Master struct {
 
 
 // NewMaster creates new master node that will listen on serveAddr.
+//
 // Use Run to actually start running the node.
 func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	m := &Master{
@@ -86,19 +87,22 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	return m
 }
 
-// Start requests cluster to eventually transition into running state
-// it returns an error if such transition is not currently possible to begin (e.g. partition table is not operational)
-// it returns nil if the transition began.
+// Start requests cluster to eventually transition into running state.
+//
+// It returns an error if such transition is not currently possible to begin
+// (e.g. partition table is not operational).
+// It returns nil if the transition began.
+//
 // NOTE upon successful return cluster is not yet in running state - the transition will
-//      take time and could be also automatically aborted due to cluster environment change (e.g.
-//      a storage node goes down)
+// take time and could be also automatically aborted due to cluster environment change (e.g.
+// a storage node goes down).
 func (m *Master) Start() error {
 	ech := make(chan error)
 	m.ctlStart <- ech
 	return <-ech
 }
 
-// Stop requests cluster to eventually transition into recovery state
+// Stop requests cluster to eventually transition into recovery state.
 func (m *Master) Stop()  {
 	ech := make(chan struct{})
 	m.ctlStop <- ech

@@ -125,10 +125,12 @@ const (
 // NodeUUID is a node identifier, 4-bytes signed integer
 //
 // High-order byte:
-// 7 6 5 4 3 2 1 0
-// | | | | +-+-+-+-- reserved (0)
-// | +-+-+---------- node type
-// +---------------- temporary if negative
+//
+//	7 6 5 4 3 2 1 0
+// 	| | | | +-+-+-+-- reserved (0)
+// 	| +-+-+---------- node type
+// 	+---------------- temporary if negative
+//
 // UUID namespaces are required to prevent conflicts when the master generate
 // new uuid before it knows uuid of existing storage nodes. So only the high
 // order bit is really important and the 31 other bits could be random.
