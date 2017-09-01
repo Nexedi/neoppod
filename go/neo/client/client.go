@@ -180,12 +180,13 @@ func (c *Client) talkMaster(ctx context.Context) (err error) {
 }
 
 func (c *Client) talkMaster1(ctx context.Context) (err error) {
-	// XXX dup from Server.talkMaster1 ?
 	mlink, accept, err := c.node.Dial(ctx, neo.MASTER, c.node.MasterAddr)
 	if err != nil {
 		// FIXME it is not only identification - e.g. ECONNREFUSED
 		return err
 	}
+
+	// XXX vvv dup from Server.talkMaster1 ?
 
 	// XXX -> node.Dial ?
 	if accept.YourUUID != c.node.MyInfo.UUID {

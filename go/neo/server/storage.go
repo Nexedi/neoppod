@@ -157,6 +157,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 // it returns error describing why such cycle had to finish
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
+	// XXX dup in Client.talkMaster1 ?
 	mlink, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
 	if err != nil {
 		return err

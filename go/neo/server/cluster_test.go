@@ -24,7 +24,7 @@ package server
 //go:generate sh -c "go run ../../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
 
 import (
-	//"bytes"
+	"bytes"
 	"context"
 	//"io"
 	"math"
@@ -32,6 +32,8 @@ import (
 	//"reflect"
 	"testing"
 	"unsafe"
+
+	"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/client"
@@ -375,6 +377,7 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	// C asks M about PT
+	// FIXME this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
 	tc.Expect(conntx("c:1", "m:3", 3, &neo.AskPartitionTable{}))
 	tc.Expect(conntx("m:3", "c:1", 3, &neo.AnswerPartitionTable{
 		PTid:		1,
@@ -418,10 +421,41 @@ func TestMasterStorage(t *testing.T) {
 
 	xwait(wg)
 
-	println("000")
 	// C starts loading first object -> connects to S
-	data, serial, err := C.Load(bg, zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}})
-	_, _, _ = data, serial, err
+	wg = &xsync.WorkGroup{}
+	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}}
+	data1, serial1, err := zstor.Load(bg, xid1)
+	exc.Raiseif(err)
+	wg.Gox(func() {
+		data, serial, err := C.Load(bg, xid1)
+		exc.Raiseif(err)
+
+		if !(bytes.Equal(data, data1) && serial==serial1) {
+			exc.Raisef("C.Load(%v) ->\ndata:\n%s\nserial:\n%s\n", xid1,
+				pretty.Compare(data1, data), pretty.Compare(serial1, serial))
+		}
+	})
+
+	tc.Expect(netconnect("c:2", "s:3",  "s:1"))
+	tc.Expect(conntx("c:2", "s:3", 1, &neo.RequestIdentification{
+		NodeType:	neo.CLIENT,
+		UUID:		neo.UUID(neo.CLIENT, 1),
+		Address:	xnaddr(""),
+		ClusterName:	"abc1",
+		IdTimestamp:	0,	// XXX ?
+	}))
+	println("222")
+
+	tc.Expect(conntx("s:3", "c:2", 1, &neo.AcceptIdentification{
+		NodeType:	neo.STORAGE,
+		MyUUID:		neo.UUID(neo.STORAGE, 1),
+		NumPartitions:	1,
+		NumReplicas:	1,
+		YourUUID:	neo.UUID(neo.CLIENT, 1),
+	}))
+
+	println("333")
+
 
 
 
