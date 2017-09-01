@@ -98,6 +98,15 @@ func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *
 	accept := &AcceptIdentification{}
 	// FIXME error if peer sends us something with another connID
 	// (currently we ignore and serveRecv will deadlock)
+	//
+	// XXX solution could be:
+	// link.CloseAccept()
+	// link.Ask1(req, accept)
+	// link.Listen()
+	// XXX but there is a race window in between recv in ask and listen
+	// start, and if peer sends new connection in that window it will be rejected.
+	//
+	// TODO thinking.
 	err = link.Ask1(req, accept)
 	if err != nil {
 		return nil, nil, err
@@ -163,11 +172,13 @@ type Listener interface {
 	// packet which we did not yet answer.
 	//
 	// On success returned are:
-	// - primary link connection which carried identification
+	// - original peer request that carried identification
 	// - requested identification packet
 	//
-	// XXX Conn, RequestIdentification -> Request
-	Accept(ctx context.Context) (*Conn, *RequestIdentification, error)
+	// After successful accept it is the caller responsibility to reply the request.
+	//
+	// NOTE established link is Request.Link().
+	Accept(ctx context.Context) (*Request, *RequestIdentification, error)
 }
 
 type listener struct {
@@ -177,7 +188,7 @@ type listener struct {
 }
 
 type accepted struct {
-	conn  *Conn
+	req   *Request
 	idReq *RequestIdentification
 	err   error
 }
@@ -206,8 +217,8 @@ func (l *listener) run() {
 func (l *listener) accept(link *NodeLink, err error) {
 	res := make(chan accepted, 1)
 	go func() {
-		conn, idReq, err := l.accept1(context.Background(), link, err)	// XXX ctx cancel on l close?
-		res <- accepted{conn, idReq, err}
+		req, idReq, err := l.accept1(context.Background(), link, err)	// XXX ctx cancel on l close?
+		res <- accepted{req, idReq, err}
 	}()
 
 	// wait for accept1 result & resend it to .acceptq
@@ -233,7 +244,7 @@ func (l *listener) accept(link *NodeLink, err error) {
 	}
 }
 
-func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *Conn, _ *RequestIdentification, err error) {
+func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *Request, _ *RequestIdentification, err error) {
 	if err0 != nil {
 		return nil, nil, err0
 	}
@@ -242,28 +253,22 @@ func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *
 
 	// identify peer
 	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept(/*ctx*/)
+	req, err := link.Recv1(/*ctx*/)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// NOTE NodeLink currently guarantees that after link.Accept() there is
-	// at least 1 packet in accepted conn. This way the following won't
-	// block/deadlock if packets with other ConnID comes.
-	// Still it is a bit fragile.
-	idReq := &RequestIdentification{}
-	_, err = conn.Expect(idReq)
-	if err != nil {
-		// XXX ok to let peer know error as is? e.g. even IO error on Recv?
-		err2 := conn.Send(&Error{PROTOCOL_ERROR, err.Error()})
-		err = xerr.Merge(err, err2)
-		return nil, nil, err
+	switch msg := req.Msg.(type) {
+	case *RequestIdentification:
+		return &req, msg, nil
 	}
 
-	return conn, idReq, nil
+	emsg := &Error{PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req.Msg)}
+	req.Reply(emsg)	// XXX err
+	return nil, nil, emsg
 }
 
-func (l *listener) Accept(ctx context.Context) (*Conn, *RequestIdentification, error) {
+func (l *listener) Accept(ctx context.Context) (*Request, *RequestIdentification, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
@@ -274,7 +279,7 @@ func (l *listener) Accept(ctx context.Context) (*Conn, *RequestIdentification, e
 		return nil, nil, ctx.Err()
 
 	case a := <-l.acceptq:
-		return a.conn, a.idReq, a.err
+		return a.req, a.idReq, a.err
 	}
 }
 

@@ -71,7 +71,7 @@ type Master struct {
 
 // event: node connects
 type nodeCome struct {
-	conn   *neo.Conn
+	req    *neo.Request
 	idReq  *neo.RequestIdentification // we received this identification request
 }
 
@@ -188,7 +188,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 
 		// XXX dup in storage
 		for serveCtx.Err() == nil {
-			conn, idReq, err := l.Accept(serveCtx)
+			req, idReq, err := l.Accept(serveCtx)
 			if err != nil {
 				// TODO log / throttle
 				continue
@@ -204,17 +204,17 @@ func (m *Master) Run(ctx context.Context) (err error) {
 			case neo.STORAGE:
 				fallthrough
 			default:
-				conn.Link().CloseAccept()
+				req.Link().CloseAccept()
 			}
 
 			// handover to main driver
 			select {
-			case m.nodeCome <- nodeCome{conn, idReq}:
+			case m.nodeCome <- nodeCome{req, idReq}:
 				// ok
 
 			case <-serveCtx.Done():
 				// shutdown
-				lclose(serveCtx, conn.Link())
+				lclose(serveCtx, req.Link())
 				return
 			}
 		}
@@ -336,7 +336,7 @@ loop:
 			node, resp := m.identify(ctx, n, /* XXX only accept storages -> PENDING */)
 
 			if node == nil {
-				goreject(ctx, wg, n.conn, resp)
+				goreject(ctx, wg, n.req, resp)
 				break
 			}
 
@@ -346,7 +346,7 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err := m.accept(ctx, n.conn, resp)
+				err := m.accept(ctx, n.req, resp)
 				if err != nil {
 					recovery <- storRecovery{stor: node, err: err}
 					return
@@ -583,7 +583,7 @@ loop:
 			node, resp := m.identify(ctx, n, /* XXX only accept storages -> known ? RUNNING : PENDING */)
 
 			if node == nil {
-				goreject(ctx, wg, n.conn, resp)
+				goreject(ctx, wg, n.req, resp)
 				break
 			}
 
@@ -593,7 +593,7 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err := m.accept(ctx, n.conn, resp)
+				err := m.accept(ctx, n.req, resp)
 				if err != nil {
 					verify <- storVerify{stor: node, err: err}
 					return
@@ -791,7 +791,7 @@ loop:
 			node, resp := m.identify(ctx, n, /* XXX accept everyone */)
 
 			if node == nil {
-				goreject(ctx, wg, n.conn, resp)
+				goreject(ctx, wg, n.req, resp)
 				break
 			}
 
@@ -799,7 +799,7 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err = m.accept(ctx, n.conn, resp)
+				err = m.accept(ctx, n.req, resp)
 				if err != nil {
 					serviced <- serviceDone{node: node, err: err}
 					return
@@ -1082,7 +1082,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		return nil
 	}()
 
-	subj := fmt.Sprintf("identify: %s (%s)", n.conn.Link().RemoteAddr(), n.idReq.UUID)
+	subj := fmt.Sprintf("identify: %s (%s)", n.req.Link().RemoteAddr(), n.idReq.UUID)
 	if err != nil {
 		log.Infof(ctx, "%s: rejecting: %s", subj, err)
 		return nil, err
@@ -1118,36 +1118,35 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 	}
 
 	node = m.node.NodeTab.Update(nodeInfo) // NOTE this notifies all nodeTab subscribers
-	node.SetLink(n.conn.Link())
+	node.SetLink(n.req.Link())
 	return node, accept
 }
 
 // reject sends rejective identification response and closes associated link
-func reject(ctx context.Context, conn *neo.Conn, resp neo.Msg) {
+func reject(ctx context.Context, req *neo.Request, resp neo.Msg) {
 	// XXX cancel on ctx?
 	// XXX log?
-	err1 := conn.Send(resp)
-	err2 := conn.Close()
-	err3 := conn.Link().Close()
-	err := xerr.Merge(err1, err2, err3)
+	err1 := req.Reply(resp)
+	err2 := req.Link().Close()
+	err := xerr.Merge(err1, err2)
 	if err != nil {
 		log.Error(ctx, "reject:", err)
 	}
 }
 
 // goreject spawns reject in separate goroutine properly added/done on wg
-func goreject(ctx context.Context, wg *sync.WaitGroup, conn *neo.Conn, resp neo.Msg) {
+func goreject(ctx context.Context, wg *sync.WaitGroup, req *neo.Request, resp neo.Msg) {
 	wg.Add(1)
 	defer wg.Done()
-	go reject(ctx, conn, resp)
+	go reject(ctx, req, resp)
 }
 
-// accept sends acceptive identification response and closes conn
+// accept replies with acceptive identification response
 // XXX if problem -> .nodeLeave
 // XXX spawn ping goroutine from here?
-func (m *Master) accept(ctx context.Context, conn *neo.Conn, resp neo.Msg) error {
+func (m *Master) accept(ctx context.Context, req *neo.Request, resp neo.Msg) error {
 	// XXX cancel on ctx
-	err1 := conn.Send(resp)
+	err1 := req.Reply(resp)
 	return err1	// XXX while trying to work on single conn
 	//err2 := conn.Close()
 	//return xerr.First(err1, err2)
