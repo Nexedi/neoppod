@@ -139,7 +139,7 @@ type nodeLeave struct {
 // reject sends rejective identification response and closes associated link
 func reject(ctx context.Context, req *neo.Request, resp neo.Msg) {
 	// XXX cancel on ctx?
-	// XXX log?
+	// log.Info(ctx, "identification rejected") ?
 	err1 := req.Reply(resp)
 	err2 := req.Link().Close()
 	err := xerr.Merge(err1, err2)
