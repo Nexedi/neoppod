@@ -55,28 +55,27 @@ func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 	// ----//---- same for ctx2?
 */
 
-
-/*
-	XXX do we need vvv?
-
 	// if src ctx is already cancelled - make mc cancelled right after creation
+	//
+	// this saves goroutine spawn and makes
+	//
+	//	ctx = Merge(ctx1, ctx2); ctx.Err != nil
+	//
+	// check possible.
 	select {
 	case <-ctx1.Done():
-		mc.done = ctx1.Done()
+		close(mc.done)
 		mc.doneErr = ctx1.Err()
+
 	case <-ctx2.Done():
-		mc.done = ctx2.Done()
+		close(mc.done)
 		mc.doneErr = ctx2.Err()
 
-	// src ctx not canceled - spawn ctx{1,2}.done merger.
 	default:
-		done := make(chan struct{})
-		mc.done = done
-		go mc.wait(done)
+		// src ctx not canceled - spawn ctx{1,2}.done merger.
+		go mc.wait()
 	}
-*/
 
-	go mc.wait()
 	return mc, mc.cancel
 }
 

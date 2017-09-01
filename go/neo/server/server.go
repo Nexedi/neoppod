@@ -26,8 +26,10 @@ import (
 	"context"
 //	"fmt"
 //	"net"
+	"sync"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 
 	"lab.nexedi.com/kirr/go123/xerr"
 )
@@ -114,4 +116,51 @@ func IdentifyPeer(ctx context.Context, link *neo.NodeLink, myNodeType neo.NodeTy
 	}
 
 	return req, nil
+}
+
+
+// ----------------------------------------
+
+// event: node connects
+type nodeCome struct {
+	req    *neo.Request
+	idReq  *neo.RequestIdentification // we received this identification request
+}
+
+/*
+// event: node disconnects
+type nodeLeave struct {
+	node *neo.Node
+}
+*/
+
+
+
+// reject sends rejective identification response and closes associated link
+func reject(ctx context.Context, req *neo.Request, resp neo.Msg) {
+	// XXX cancel on ctx?
+	// XXX log?
+	err1 := req.Reply(resp)
+	err2 := req.Link().Close()
+	err := xerr.Merge(err1, err2)
+	if err != nil {
+		log.Error(ctx, "reject:", err)
+	}
+}
+
+// goreject spawns reject in separate goroutine properly added/done on wg
+func goreject(ctx context.Context, wg *sync.WaitGroup, req *neo.Request, resp neo.Msg) {
+	wg.Add(1)
+	defer wg.Done()
+	go reject(ctx, req, resp)
+}
+
+// accept replies with acceptive identification response
+// XXX spawn ping goroutine from here?
+func accept(ctx context.Context, req *neo.Request, resp neo.Msg) error {
+	// XXX cancel on ctx
+	err1 := req.Reply(resp)
+	return err1	// XXX while trying to work on single conn
+	//err2 := conn.Close()
+	//return xerr.First(err1, err2)
 }

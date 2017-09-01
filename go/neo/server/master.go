@@ -38,8 +38,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
-
-	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works
@@ -62,23 +60,12 @@ type Master struct {
 
 	// channels from workers directly serving peers to main driver
 	nodeCome     chan nodeCome	// node connected	XXX -> acceptq?
-	nodeLeave    chan nodeLeave	// node disconnected	XXX -> don't need
+//	nodeLeave    chan nodeLeave	// node disconnected	XXX -> don't need
 
 	// so tests could override
 	monotime func() float64
 }
 
-
-// event: node connects
-type nodeCome struct {
-	req    *neo.Request
-	idReq  *neo.RequestIdentification // we received this identification request
-}
-
-// event: node disconnects
-type nodeLeave struct {
-	node *neo.Node
-}
 
 // NewMaster creates new master node that will listen on serveAddr.
 // Use Run to actually start running the node.
@@ -91,7 +78,7 @@ func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 		ctlShutdown:	make(chan chan error),
 
 		nodeCome:	make(chan nodeCome),
-		nodeLeave:	make(chan nodeLeave),
+//		nodeLeave:	make(chan nodeLeave),
 
 		monotime:	monotime,
 	}
@@ -118,14 +105,14 @@ func (m *Master) Stop()  {
 	<-ech
 }
 
-// Shutdown requests all known nodes in the cluster to stop
+// Shutdown requests all known nodes in the cluster to stop.
 // XXX + master's run to finish ?
 func (m *Master) Shutdown() error {
 	panic("TODO")
 }
 
 
-// setClusterState sets .clusterState and notifies subscribers
+// setClusterState sets .clusterState and notifies subscribers.
 func (m *Master) setClusterState(state neo.ClusterState) {
 	m.node.ClusterState.Set(state)
 
@@ -133,7 +120,7 @@ func (m *Master) setClusterState(state neo.ClusterState) {
 }
 
 
-// Run starts master node and runs it until ctx is cancelled or fatal error
+// Run starts master node and runs it until ctx is cancelled or fatal error.
 func (m *Master) Run(ctx context.Context) (err error) {
 	// start listening
 	l, err := m.node.Listen()
@@ -167,14 +154,19 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	wg := sync.WaitGroup{}
 	serveCtx, serveCancel := context.WithCancel(ctx)
 	wg.Add(1)
-	go func() {
+	go func(ctx context.Context) (err error) {
 		defer wg.Done()
+		defer task.Running(&ctx, "accept")(&err)
 
 		// XXX dup in storage
-		for serveCtx.Err() == nil {
-			req, idReq, err := l.Accept(serveCtx)
+		for {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			req, idReq, err := l.Accept(ctx)
 			if err != nil {
-				// TODO log / throttle
+				log.Error(ctx, err)	// XXX throttle?
 				continue
 			}
 
@@ -196,13 +188,13 @@ func (m *Master) Run(ctx context.Context) (err error) {
 			case m.nodeCome <- nodeCome{req, idReq}:
 				// ok
 
-			case <-serveCtx.Done():
+			case <-ctx.Done():
 				// shutdown
-				lclose(serveCtx, req.Link())
-				return
+				lclose(ctx, req.Link())
+				continue
 			}
 		}
-	}()
+	}(serveCtx)
 
 	// main driving logic
 	err = m.runMain(ctx)
@@ -330,7 +322,7 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err := m.accept(ctx, n.req, resp)
+				err := accept(ctx, n.req, resp)
 				if err != nil {
 					recovery <- storRecovery{stor: node, err: err}
 					return
@@ -577,7 +569,7 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err := m.accept(ctx, n.req, resp)
+				err := accept(ctx, n.req, resp)
 				if err != nil {
 					verify <- storVerify{stor: node, err: err}
 					return
@@ -586,6 +578,7 @@ loop:
 				storCtlVerify(ctx, node, m.node.PartTab, verify)
 			}()
 
+		/*
 		case n := <-m.nodeLeave:
 			n.node.SetState(neo.DOWN)
 
@@ -597,6 +590,7 @@ loop:
 				err = errClusterDegraded
 				break loop
 			}
+		*/
 
 		// a storage node came through verification - adjust our last{Oid,Tid} if ok
 		// on error check - whether cluster became non-operational and stop verification if so
@@ -783,7 +777,7 @@ loop:
 			go func() {
 				defer wg.Done()
 
-				err = m.accept(ctx, n.req, resp)
+				err = accept(ctx, n.req, resp)
 				if err != nil {
 					serviced <- serviceDone{node: node, err: err}
 					return
@@ -806,6 +800,7 @@ loop:
 			// TODO if S goes away -> check partTab still operational -> if not - recovery
 			_ = d
 
+		/*
 		// XXX who sends here?
 		case n := <-m.nodeLeave:
 			n.node.SetState(neo.DOWN)
@@ -815,6 +810,7 @@ loop:
 				err = errClusterDegraded
 				break loop
 			}
+		*/
 
 
 		// XXX what else ?	(-> txn control at least)
@@ -1104,36 +1100,6 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 	node = m.node.NodeTab.Update(nodeInfo) // NOTE this notifies all nodeTab subscribers
 	node.SetLink(n.req.Link())
 	return node, accept
-}
-
-// reject sends rejective identification response and closes associated link
-func reject(ctx context.Context, req *neo.Request, resp neo.Msg) {
-	// XXX cancel on ctx?
-	// XXX log?
-	err1 := req.Reply(resp)
-	err2 := req.Link().Close()
-	err := xerr.Merge(err1, err2)
-	if err != nil {
-		log.Error(ctx, "reject:", err)
-	}
-}
-
-// goreject spawns reject in separate goroutine properly added/done on wg
-func goreject(ctx context.Context, wg *sync.WaitGroup, req *neo.Request, resp neo.Msg) {
-	wg.Add(1)
-	defer wg.Done()
-	go reject(ctx, req, resp)
-}
-
-// accept replies with acceptive identification response
-// XXX if problem -> .nodeLeave
-// XXX spawn ping goroutine from here?
-func (m *Master) accept(ctx context.Context, req *neo.Request, resp neo.Msg) error {
-	// XXX cancel on ctx
-	err1 := req.Reply(resp)
-	return err1	// XXX while trying to work on single conn
-	//err2 := conn.Close()
-	//return xerr.First(err1, err2)
 }
 
 // allocUUID allocates new node uuid for a node of kind nodeType
