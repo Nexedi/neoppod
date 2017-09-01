@@ -443,41 +443,19 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
 
 // TODO read-only support
 func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
-	// XXX u.Host -> masterAddr (not storage)
-	panic("TODO")
+	// neo://name@master1,master2,...,masterN?options
 
-/*
+	if u.User == nil {
+		return nil, fmt.Errorf("neo: open %q: cluster name not specified")
+	}
+
 	// XXX check/use other url fields
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-	storLink, err := neo.DialLink(ctx, net, u.Host)		// XXX -> Dial
-	if err != nil {
-		return nil, err
-	}
 
-	// close storLink on error or ctx cancel
-	defer func() {
-		if err != nil {
-			storLink.Close()
-		}
-	}()
-
-
-	// XXX try to prettify this
-	type Result struct {*Client; error}
-	done := make(chan Result, 1)
-	go func() {
-		client, err := NewClient(storLink)
-		done <- Result{client, err}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-
-	case r := <-done:
-		return r.Client, r.error
-	}
-*/
+	// XXX we are not passing ctx to NewClient - right?
+	//     as ctx for open can be done after open finishes - not covering
+	//     whole storage working lifetime.
+	return NewClient(u.User.Username(), u.Host, net), nil
 }
 
 func init() {
