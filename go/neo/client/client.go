@@ -258,19 +258,10 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 			// TODO
 
 		case *neo.NotifyNodeInformation:
-			// XXX msg.IdTimestamp ?
-			for _, nodeInfo := range msg.NodeList {
-				log.Infof(ctx, "rx node update: %v", nodeInfo)
-				c.node.NodeTab.Update(nodeInfo)
-			}
-
-			// FIXME logging under lock
-			log.Infof(ctx, "full nodetab:\n%s", c.node.NodeTab)
+			c.node.UpdateNodeTab(ctx, msg)
 
 		case *neo.NotifyClusterState:
-			// XXX loging under lock
-			log.Infof(ctx, "rx state update: %v", msg.State)
-			c.node.ClusterState.Set(msg.State)
+			c.node.UpdateClusterState(ctx, msg)
 		}
 
 		// update .operational + notify those who was waiting for it

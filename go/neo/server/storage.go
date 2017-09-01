@@ -143,12 +143,12 @@ func (stor *Storage) Run(ctx context.Context) error {
 	return err // XXX err ctx
 }
 
-// --- connect to master and let it direct us ---
+// --- connect to master and let it drive us ---
 
 // talkMaster connects to master, announces self and receives commands and notifications.
 // it tries to persist master link reconnecting as needed.
 //
-// it always returns an error - either due to cancel or command from master to shutdown
+// it always returns an error - either due to cancel or command from master to shutdown.
 func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 	defer task.Runningf(&ctx, "talk master(%v)", stor.node.MasterAddr)(&err)
 
@@ -173,7 +173,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 
 // talkMaster1 does 1 cycle of connect/talk/disconnect to master.
 //
-// it returns error describing why such cycle had to finish
+// it returns error describing why such cycle had to finish.
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// XXX dup in Client.talkMaster1 ?
@@ -276,11 +276,10 @@ func (stor *Storage) m1initialize(ctx context.Context, mlink *neo.NodeLink) (req
 
 		case *neo.NotifyNodeInformation:
 			// XXX check for myUUID and consider it a command (like neo/py) does?
-			// TODO update .nodeTab
+			stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
 
 		case *neo.NotifyClusterState:
-			// TODO .clusterState = ...	XXX what to do with it?
-
+			stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
 		}
 
 		// XXX move req.Reply here and ^^^ only prepare reply
@@ -335,6 +334,15 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err er
 
 		case *neo.StopOperation:
 			return fmt.Errorf("stop requested")
+
+		// XXX NotifyPartitionTable?
+		// XXX NotifyPartitionChanges?
+
+		case *neo.NotifyNodeInformation:
+			stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
+
+		case *neo.NotifyClusterState:
+			stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
 
 		// TODO commit related messages
 		}
