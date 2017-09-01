@@ -918,6 +918,7 @@ func DialLink(ctx context.Context, net xnet.Networker, addr string) (nl *NodeLin
 }
 
 // ListenLink starts listening on laddr for incoming connections and wraps them as NodeLink.
+//
 // The listener accepts only those connections that pass handshake.
 func ListenLink(net xnet.Networker, laddr string) (LinkListener, error) {
 	rawl, err := net.Listen(laddr)

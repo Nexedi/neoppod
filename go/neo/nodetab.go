@@ -58,6 +58,9 @@ import (
 //
 // NodeTable zero value is valid empty node table.
 type NodeTable struct {
+	// XXX for Node.Dial to work. see also comments vvv near "peer link"
+	nodeApp *NodeApp
+
 	// users have to care locking explicitly
 	//sync.RWMutex	XXX needed ?
 
@@ -264,6 +267,16 @@ func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()
 
 // ---- peer link ----
 
+// TODO review peer link dialing / setting / accepting.
+//
+//	Keep in mind that in NEO in general case it is not client/server but peer-to-perr
+//	e.g. when two S establish a link in between then to exchange/sync data.
+//
+//	Also the distinction beetween S and M should go away as every S should
+//	be taught to also become M (and thus separate M nodes go away
+//	completely) with constant reelection being happenningin the background
+//	like in raft.
+
 // SetLink sets link to peer node.
 // XXX
 //
@@ -307,6 +320,38 @@ func (p *Node) CloseLink(ctx context.Context) {
 
 }
 
+// dial does low-level work to dial peer
+// XXX p.* reading without lock - ok?
+// XXX app.MyInfo without lock - ok?
+func (p *Node) dial(ctx context.Context) (*NodeLink, error) {
+	app := p.nodeTab.nodeApp
+	link, accept, err := app.Dial(ctx, p.Type, p.Addr.String())
+	if err != nil {
+		return nil, err
+	}
+
+	// verify peer identifies as what we expect
+	switch {
+	// type is already checked by app.Dial
+
+	case accept.MyUUID != p.UUID:
+		err = fmt.Errorf("connected, but peer's uuid is not %v (identifies as %v)", p.UUID, accept.MyUUID)
+
+	case accept.YourUUID != app.MyInfo.UUID:
+		err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, app.MyInfo.UUID)
+
+	case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
+		err = fmt.Errorf("connected but TODO peer works with ! 1x1 partition table.")
+	}
+
+	if err != nil {
+		//log.Errorif(ctx, link.Close())
+		lclose(ctx, link)
+		link = nil
+	}
+
+	return link, err
+}
 
 // even if dialing a peer failed, we'll attempt redial after this timeout
 const δtRedial = 3 * time.Second
@@ -447,38 +492,3 @@ func (p *Peer) PutConn(c *Conn) {
 	p.linkMu.Unlock()
 }
 */
-
-
-// dial does low-level work to dial peer
-// XXX p.* reading without lock - ok?
-func (p *Node) dial(ctx context.Context) (*NodeLink, error) {
-	var me *NodeApp // XXX bad -> crashes
-	link, accept, err := me.Dial(ctx, p.Type, p.Addr.String())
-	if err != nil {
-		return nil, err
-	}
-
-	// verify peer identifies as what we expect
-	// XXX move to Dial?
-	switch {
-	case accept.NodeType != p.Type:
-		err = fmt.Errorf("connected, but peer is not %v (identifies as %v)", p.Type, accept.NodeType)
-
-	case accept.MyUUID != p.UUID:
-		err = fmt.Errorf("connected, but peer's uuid is not %v (identifies as %v)", p.UUID, accept.MyUUID)
-
-	case accept.YourUUID != me.MyInfo.UUID:
-		err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, me.MyInfo.UUID)
-
-	case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
-		err = fmt.Errorf("connected but TODO peer works with ! 1x1 partition table.")
-	}
-
-	if err != nil {
-		//log.Errorif(ctx, link.Close())
-		lclose(ctx, link)
-		link = nil
-	}
-
-	return link, err
-}

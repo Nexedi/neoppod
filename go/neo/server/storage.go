@@ -39,7 +39,7 @@ import (
 
 // Storage is NEO node that keeps data and provides read/write access to it
 type Storage struct {
-	node neo.NodeApp
+	node *neo.NodeApp
 
 	// context for providing operational service
 	// it is renewed every time master tells us StartOpertion, so users
@@ -59,26 +59,10 @@ type Storage struct {
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr.
 // The storage uses zstor as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(cluster, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {
-	// convert serveAddr into neo format
-	// XXX -> new.NewNode() ?
-	addr, err := neo.AddrString(net.Network(), serveAddr)
-	if err != nil {
-		panic(err)	// XXX
-	}
-
+func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {
 	stor := &Storage{
-			node:	neo.NodeApp{
-				MyInfo:		neo.NodeInfo{Type: neo.STORAGE, Addr: addr},
-				ClusterName:	cluster,
-				Net:		net,
-				MasterAddr:	masterAddr,
-
-				PartTab:	&neo.PartitionTable{}, // empty - TODO read from disk
-				NodeTab:	&neo.NodeTable{},
-			},
-
-			zstor:		zstor,
+		node:  neo.NewNodeApp(net, neo.STORAGE, clusterName, masterAddr, serveAddr),
+		zstor: zstor,
 	}
 
 	// operational context is initially done (no service should be provided)

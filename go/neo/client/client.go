@@ -43,7 +43,7 @@ import (
 
 // Client talks to NEO cluster and exposes access to it via ZODB interfaces.
 type Client struct {
-	node neo.NodeApp
+	node *neo.NodeApp
 
 	talkMasterCancel func()
 
@@ -77,17 +77,7 @@ func (c *Client) StorageName() string {
 // It will connect to master @masterAddr and identify with sepcified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
-		node: neo.NodeApp{
-			MyInfo:		neo.NodeInfo{Type: neo.CLIENT, Addr: neo.Address{}},
-			ClusterName:	clusterName,
-			Net:		net,
-			MasterAddr:	masterAddr,
-
-			NodeTab:	&neo.NodeTable{},
-			PartTab:	&neo.PartitionTable{},
-			ClusterState:	-1, // invalid
-		},
-
+		node:       neo.NewNodeApp(net, neo.CLIENT, clusterName, masterAddr, ""),
 		mlinkReady: make(chan struct{}),
 	}
 

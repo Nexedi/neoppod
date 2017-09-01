@@ -35,7 +35,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xerr"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
+	//"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
@@ -68,32 +68,62 @@ type NodeApp struct {
 	ClusterState	ClusterState	// master idea about cluster state
 }
 
-// Dial connects to another node in the cluster
+// NewNodeApp creates new node application
+func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serveAddr string) *NodeApp {
+	// convert serveAddr into neo format
+	addr, err := AddrString(net.Network(), serveAddr)
+	if err != nil {
+		panic(err)	// XXX
+	}
+
+	app := &NodeApp{
+		MyInfo:		NodeInfo{Type: typ, Addr: addr},
+		ClusterName:	clusterName,
+		Net:		net,
+		MasterAddr:	masterAddr,
+
+		NodeTab:	&NodeTable{},
+		PartTab:	&PartitionTable{},
+		ClusterState:	-1, // invalid
+	}
+
+	app.NodeTab.nodeApp = app
+	return app
+}
+
+// Dial connects to another node in the cluster.
 //
 // It handshakes, requests identification and checks peer type. If successful returned are:
 // - established link
 // - accept identification reply
-func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *NodeLink, _ *AcceptIdentification, err error) {
-	link, err := DialLink(ctx, n.Net, addr)
+//
+// Dial does not update .NodeTab or its node entries in any way.
+// For establishing links to peers present in .NodeTab use Node.Dial.
+func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *NodeLink, _ *AcceptIdentification, err error) {
+	link, err := DialLink(ctx, app.Net, addr)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	defer xerr.Contextf(&err, "%s: request identification", link)
-	// close link on error or ctx cancel
-	cleanup := xio.CloseWhenDone(ctx, link)
+	// close link on error or FIXME: ctx cancel
+	//cleanup := xio.CloseWhenDone(ctx, link)
 	defer func() {
 		if err != nil {
-			cleanup()
+			// FIXME wrong - err=nil -> goroutine still left hanging waiting
+			// for ctx and will close link if dial ctx closes
+			// cleanup()
+
+			lclose(ctx, link)
 		}
 	}()
 
 	req := &RequestIdentification{
-		NodeType:	n.MyInfo.Type,
-		UUID:		n.MyInfo.UUID,
-		Address:	n.MyInfo.Addr,
-		ClusterName:	n.ClusterName,
-		IdTimestamp:	n.MyInfo.IdTimestamp,	// XXX ok?
+		NodeType:	app.MyInfo.Type,
+		UUID:		app.MyInfo.UUID,
+		Address:	app.MyInfo.Addr,
+		ClusterName:	app.ClusterName,
+		IdTimestamp:	app.MyInfo.IdTimestamp,	// XXX ok?
 	}
 	accept := &AcceptIdentification{}
 	// FIXME error if peer sends us something with another connID
@@ -120,7 +150,7 @@ func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *
 
 	// XXX accept.MyUUID, link // XXX register .NodeTab? (or better LinkTab as NodeTab is driven by M)
 	// XXX accept.YourUUID	// XXX M can tell us to change UUID -> take in effect
-	// XXX accept.NumPartitions, ... wrt n.node.PartTab
+	// XXX accept.NumPartitions, ... wrt app.node.PartTab
 
 	return link, accept, nil
 }
@@ -130,9 +160,9 @@ func (n *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *
 //
 // If the address is empty one new free is automatically selected.
 // The node information about where it listens at is appropriately updated.
-func (n *NodeApp) Listen() (Listener, error) {
+func (app *NodeApp) Listen() (Listener, error) {
 	// start listening
-	ll, err := ListenLink(n.Net, n.MyInfo.Addr.String())
+	ll, err := ListenLink(app.Net, app.MyInfo.Addr.String())
 	if err != nil {
 		return nil, err	// XXX err ctx
 	}
@@ -148,7 +178,7 @@ func (n *NodeApp) Listen() (Listener, error) {
 		return nil, err	// XXX err ctx
 	}
 
-	n.MyInfo.Addr = addr
+	app.MyInfo.Addr = addr
 
 	l := &listener{
 		l:	 ll,

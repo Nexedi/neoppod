@@ -44,7 +44,7 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
-	node neo.NodeApp
+	node *neo.NodeApp
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
@@ -83,24 +83,8 @@ type nodeLeave struct {
 // NewMaster creates new master node that will listen on serveAddr.
 // Use Run to actually start running the node.
 func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
-	// convert serveAddr into neo format
-	addr, err := neo.AddrString(net.Network(), serveAddr)
-	if err != nil {
-		panic(err)	// XXX
-	}
-
 	m := &Master{
-		node: neo.NodeApp{
-			MyInfo:		neo.NodeInfo{Type: neo.MASTER, Addr: addr},
-			ClusterName:	clusterName,
-			Net:		net,
-			MasterAddr:	serveAddr,	// XXX ok?
-
-			NodeTab:	&neo.NodeTable{},
-			PartTab:	&neo.PartitionTable{},
-			ClusterState:	-1, // invalid
-
-		},
+		node: neo.NewNodeApp(net, neo.MASTER, clusterName, serveAddr, serveAddr),
 
 		ctlStart:	make(chan chan error),
 		ctlStop:	make(chan chan struct{}),
