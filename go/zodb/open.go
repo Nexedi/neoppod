@@ -42,12 +42,15 @@ func RegisterStorage(scheme string, opener StorageOpener) {
 	storageRegistry[scheme] = opener
 }
 
-// OpenStorage opens ZODB storage by URL
-// Only URL schemes registered to zodb package are handled.
-// Users should user import in storage packages they use or zodb/wks package to
-// get support work well-known storages.
-// Storage authors should register their storages with RegisterStorage
+// OpenStorage opens ZODB storage by URL.
 //
+// Only URL schemes registered to zodb package are handled.
+// Users should import in storage packages they use or zodb/wks package to
+// get support for well-known storages.
+//
+// Storage authors should register their storages with RegisterStorage.
+//
+// TODO automatically wrap a storage with Cache.
 // TODO readonly
 func OpenStorageURL(ctx context.Context, storageURL string) (IStorage, error) {
 	// no scheme -> file://

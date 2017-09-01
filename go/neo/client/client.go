@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package client provides ZODB interface for accessing NEO cluster.
+// Package client provides ZODB storage interface for accessing NEO cluster.
 package client
 
 import (
@@ -41,7 +41,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
-// Client talks to NEO cluster and exposes access to it via ZODB interfaces
+// Client talks to NEO cluster and exposes access to it via ZODB interfaces.
 type Client struct {
 	node neo.NodeCommon
 
@@ -73,7 +73,8 @@ func (c *Client) StorageName() string {
 }
 
 // NewClient creates new client node.
-// it will connect to master @masterAddr and identify with sepcified cluster name
+//
+// It will connect to master @masterAddr and identify with sepcified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
 		node: neo.NodeCommon{
