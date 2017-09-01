@@ -20,10 +20,10 @@ digraph {
 	Cgo_r_Sgo -> Cgo;
 	Cgo_r_Sgo -> Sgo;		
 
-	Cgo		[label=<C<sub>go</sub>>];
+	Cgo		[label=<C<sub>go</sub>> style=filled fillcolor=lightyellow];
 	Sgo		[label=<S<sub>go</sub>> style=filled fillcolor=lightyellow];
 	Mgo		[label=<M<sub>go</sub>> style=filled fillcolor=lightyellow];
-	SCgo_t		[label=<S<sub>go</sub>  / C<sub>go</sub>  tests>];
+	SCgo_t		[label=<S<sub>go</sub>  / C<sub>go</sub>  tests> style=filled fillcolor=lightyellow];
 	Cpy_r_Sgo	[label=<C<sub>py</sub>  read S<sub>go</sub>>];
 	Cgo_r_Sgo	[label=<C<sub>go</sub>  read S<sub>go</sub>>];
 	Cpy_patch	[label=<py patch: ConnID py=go>];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
@@ -34,5 +34,5 @@ digraph {
 	io_cancel		[label="? conn IO vs ctx cancel"];
 	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>>];
 
-	Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..."];
+	Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];
 }

@@ -11,13 +11,13 @@
 <polygon fill="white" stroke="none" points="-4,4 -4,-388.167 1016.98,-388.167 1016.98,4 -4,4"/>
 <!-- Cgo -->
 <g id="node1" class="node"><title>Cgo</title>
-<ellipse fill="none" stroke="black" cx="639.191" cy="-294.167" rx="27" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="639.191" cy="-294.167" rx="27" ry="18"/>
 <text text-anchor="start" x="627.691" y="-291.467" font-family="Times,serif" font-size="14.00">C</text>
 <text text-anchor="start" x="637.691" y="-291.467" font-family="Times,serif" baseline-shift="sub" font-size="14.00">go</text>
 </g>
 <!-- SCgo_t -->
 <g id="node2" class="node"><title>SCgo_t</title>
-<ellipse fill="none" stroke="black" cx="739.191" cy="-192.083" rx="69.5877" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="739.191" cy="-192.083" rx="69.5877" ry="18"/>
 <text text-anchor="start" x="693.691" y="-189.383" font-family="Times,serif" font-size="14.00">S</text>
 <text text-anchor="start" x="701.691" y="-189.383" font-family="Times,serif" baseline-shift="sub" font-size="14.00">go</text>
 <text text-anchor="start" x="714.691" y="-189.383" font-family="Times,serif" font-size="14.00"> &#160;/ C</text>
@@ -31,7 +31,7 @@
 </g>
 <!-- Cgo_tasks -->
 <g id="node8" class="node"><title>Cgo_tasks</title>
-<ellipse fill="none" stroke="black" cx="540.191" cy="-192.083" rx="111.946" ry="48.1667"/>
+<ellipse fill="lightyellow" stroke="black" cx="540.191" cy="-192.083" rx="111.946" ry="48.1667"/>
 <text text-anchor="middle" x="540.191" y="-210.883" font-family="Times,serif" font-size="14.00">&#45; talkMaster</text>
 <text text-anchor="middle" x="540.191" y="-195.883" font-family="Times,serif" font-size="14.00">&#45; update nodeTab/partTab</text>
 <text text-anchor="middle" x="540.191" y="-180.883" font-family="Times,serif" font-size="14.00">&#45; dial S on demand</text>
