@@ -35,6 +35,8 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xerr"
 
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	//"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -100,6 +102,8 @@ func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serve
 // Dial does not update .NodeTab or its node entries in any way.
 // For establishing links to peers present in .NodeTab use Node.Dial.
 func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *NodeLink, _ *AcceptIdentification, err error) {
+	defer task.Runningf(&ctx, "dial %v (%v)", addr, peerType)(&err)
+
 	link, err := DialLink(ctx, app.Net, addr)
 	if err != nil {
 		return nil, nil, err
@@ -152,6 +156,7 @@ func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_
 	// XXX accept.YourUUID	// XXX M can tell us to change UUID -> take in effect
 	// XXX accept.NumPartitions, ... wrt app.node.PartTab
 
+	log.Info(ctx, "identification accepted")
 	return link, accept, nil
 }
 
