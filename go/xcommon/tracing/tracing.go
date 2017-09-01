@@ -201,8 +201,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
-
-	"fmt"
 )
 
 // big tracing lock
@@ -337,7 +335,6 @@ func (pg *ProbeGroup) Done() {
 	defer Unlock()
 
 	for _, p := range pg.probev {
-		fmt.Printf("detaching %#v\n", p)
 		p.Detach()
 	}
 	pg.probev = nil

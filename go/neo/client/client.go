@@ -400,12 +400,13 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 		return nil, 0, err	// XXX err context
 	}
 
+	data = resp.Data
+
 	checksum := sha1.Sum(data)
 	if checksum != resp.Checksum {
 		return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 	}
 
-	data = resp.Data
 	if resp.Compression {
 		data, err = decompress(resp.Data, make([]byte, 0, len(resp.Data)))
 		if err != nil {

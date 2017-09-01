@@ -471,7 +471,7 @@ func TestMasterStorage(t *testing.T) {
 		Checksum:	sha1.Sum(data1),
 	}))
 
-	println("444")
+	xwait(wg)
 
 	// C loads every other {<,=}serial:oid - established link is reused
 	ziter := zstor.Iterate(0, zodb.TidMax)
