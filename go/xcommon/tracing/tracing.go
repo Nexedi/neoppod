@@ -200,13 +200,15 @@ package tracing
 import (
 	"sync"
 	"sync/atomic"
+
+	"fmt"
 )
 
 // big tracing lock
 var traceMu     sync.Mutex
 var traceLocked int32      // for cheap protective checks whether Lock is held
 
-// Lock serializes modification access to tracepoints
+// Lock serializes modification access to tracepoints.
 //
 // Under Lock it is safe to attach/detach probes to/from tracepoints:
 // - no other goroutine is attaching or detaching probes from tracepoints,
@@ -249,13 +251,15 @@ type Probe struct {
 	// probefunc  func(some arguments)
 }
 
-// Next returns next probe attached to the same tracepoint
+// Next returns next probe attached to the same tracepoint.
+//
 // It is safe to iterate Next under any conditions.
 func (p *Probe) Next() *Probe {
 	return p.next
 }
 
-// AttachProbe attaches newly created Probe to the end of a probe list
+// AttachProbe attaches newly created Probe to the end of a probe list.
+//
 // If group is non-nil the probe is also added to the group.
 // Must be called under Lock.
 // Probe must be newly created.
@@ -283,7 +287,8 @@ func AttachProbe(pg *ProbeGroup, listp **Probe, probe *Probe) {
 	}
 }
 
-// Detach detaches probe from a tracepoint
+// Detach detaches probe from a tracepoint.
+//
 // Must be called under Lock
 func (p *Probe) Detach() {
 	verifyLocked()
@@ -313,19 +318,21 @@ func (p *Probe) Detach() {
 	p.prev = p
 }
 
-// ProbeGroup is a group of probes attached to tracepoints
+// ProbeGroup is a group of probes attached to tracepoints.
 type ProbeGroup struct {
 	probev []*Probe
 }
 
-// Add adds a probe to the group
+// Add adds a probe to the group.
+//
 // Must be called under Lock
 func (pg *ProbeGroup) Add(p *Probe) {
 	verifyLocked()
 	pg.probev = append(pg.probev, p)
 }
 
-// Done detaches all probes registered to the group
+// Done detaches all probes registered to the group.
+//
 // Must be called under normal conditions, not under Lock
 func (pg *ProbeGroup) Done() {
 	verifyUnlocked()
@@ -333,6 +340,7 @@ func (pg *ProbeGroup) Done() {
 	defer Unlock()
 
 	for _, p := range pg.probev {
+		fmt.Printf("detaching %#v\n", p)
 		p.Detach()
 	}
 	pg.probev = nil

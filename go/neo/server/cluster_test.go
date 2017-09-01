@@ -27,10 +27,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	//"io"
+	"io"
 	"math"
 	"net"
-	//"reflect"
+	"reflect"
 	"testing"
 	"unsafe"
 
@@ -472,6 +472,62 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	println("444")
+
+	// C loads every other {<,=}serial:oid - established link is reused
+	ziter := zstor.Iterate(0, zodb.TidMax)
+
+	// XXX hack: disable tracing early so that C.Load() calls do not deadlock
+	// TODO refactor cluster creation into func
+	// TODO move client all loading tests into separate test where tracing will be off
+	pg.Done()
+
+	for {
+		_, dataIter, err := ziter.NextTxn()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ziter.NextTxn: %v", err)
+		}
+
+		for {
+			datai, err := dataIter.NextData()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("ziter.NextData: %v", err)
+			}
+
+			for _, tidBefore := range []bool{false, true} {
+				xid := zodb.Xid{Oid: datai.Oid} // {=,<}tid:oid
+				xid.Tid = datai.Tid
+				xid.TidBefore = tidBefore
+				if tidBefore {
+					xid.Tid++
+				}
+
+				println("555")
+				data, tid, err := C.Load(bg, xid)
+				println("777")
+				if datai.Data != nil {
+					if !(bytes.Equal(data, datai.Data) && tid == datai.Tid && err == nil) {
+						t.Fatalf("load: %v:\nhave: %v %v %q\nwant: %v nil %q",
+							xid, tid, err, data, datai.Tid, datai.Data)
+					}
+				} else {
+					// deleted
+					errWant := &zodb.ErrXidMissing{xid}
+					if !(data == nil && tid == 0 && reflect.DeepEqual(err, errWant)) {
+						t.Fatalf("load: %v:\nhave: %v, %#v, %#v\nwant: %v, %#v, %#v",
+							xid, tid, err, data, zodb.Tid(0), errWant, []byte(nil))
+					}
+				}
+			}
+
+		}
+
+	}
 
 
 
