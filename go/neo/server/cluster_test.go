@@ -507,9 +507,7 @@ func TestMasterStorage(t *testing.T) {
 					xid.Tid++
 				}
 
-				println("555")
 				data, tid, err := C.Load(bg, xid)
-				println("777")
 				if datai.Data != nil {
 					if !(bytes.Equal(data, datai.Data) && tid == datai.Tid && err == nil) {
 						t.Fatalf("load: %v:\nhave: %v %v %q\nwant: %v nil %q",

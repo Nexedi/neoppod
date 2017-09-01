@@ -347,7 +347,17 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 }
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
-	defer xerr.Contextf(&err, "client: load %v", xid)	// XXX keep zodb errors intact?
+	defer func() {
+		switch err.(type) {
+		// keep zodb errors intact
+		// XXX ok? or requre users always call Cause?
+		case *zodb.ErrOidMissing:
+		case *zodb.ErrXidMissing:
+
+		default:
+			xerr.Contextf(&err, "client: load %v", xid)
+		}
+	}()
 
 	err = c.withOperational(ctx)
 	if err != nil {
