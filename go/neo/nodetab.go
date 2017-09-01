@@ -160,25 +160,6 @@ func (nt *NodeTable) StorageList() []*Node {
 }
 
 
-/* XXX closing .link on .state = DOWN?
-func (p *Peer) SetState(state NodeState) {
-	// XXX lock?
-	p.State = state
-	traceNodeChanged(nt, node)
-	if state == DOWN {
-		if p.link != nil {
-			lclose(ctx, p.link)
-			p.link = nil
-			// XXX clear p.connPool
-		}
-	}
-	nt.notify(node.NodeInfo)
-}
-*/
-
-
-
-
 // XXX doc
 func (n *Node) SetState(state NodeState) {
 	n.State = state

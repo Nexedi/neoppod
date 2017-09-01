@@ -41,6 +41,8 @@ import (
 
 const (
 	//INVALID_UUID UUID = 0
+
+	// XXX -> zodb?
 	INVALID_TID  zodb.Tid = 1<<64 - 1            // 0xffffffffffffffff
 	INVALID_OID  zodb.Oid = 1<<64 - 1
 

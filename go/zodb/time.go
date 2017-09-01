@@ -24,7 +24,8 @@ import (
 	"time"
 )
 
-// TimeStamp is the same as time.Time only .String() is adjusted to be the same as in ZODB/py
+// TimeStamp is the same as time.Time only .String() is adjusted to be the same as in ZODB/py.
+//
 // XXX get rid eventually of this
 type TimeStamp struct {
 	time.Time
