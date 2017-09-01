@@ -200,6 +200,7 @@ package tracing
 import (
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"fmt"
 )
@@ -245,7 +246,9 @@ func verifyUnlocked() {
 
 // Probe describes one probe attached to a tracepoint
 type Probe struct {
-	prev, next *Probe
+	// NOTE .next must come first as probe list header is only 1 word and
+	// is treated as *Probe on probe attach/detach - accessing/modifying its .next
+	next, prev *Probe
 
 	// implicitly:
 	// probefunc  func(some arguments)
@@ -270,17 +273,12 @@ func AttachProbe(pg *ProbeGroup, listp **Probe, probe *Probe) {
 		panic("attach probe: probe is not newly created")
 	}
 
-	var last *Probe
-	for p := *listp; p != nil; p = p.next {
-		last = p
+	last := (*Probe)(unsafe.Pointer(listp))
+	for p := *listp; p != nil; last, p = p, p.next {
 	}
 
-	if last != nil {
-		last.next = probe
-		probe.prev = last
-	} else {
-		*listp = probe
-	}
+	last.next = probe
+	probe.prev = last
 
 	if pg != nil {
 		pg.Add(probe)
@@ -294,7 +292,7 @@ func (p *Probe) Detach() {
 	verifyLocked()
 
 	// protection: already detached
-	if p.prev == p {
+	if p.prev == nil {
 		return
 	}
 
@@ -302,9 +300,7 @@ func (p *Probe) Detach() {
 	// - no reader is currently reading it
 	// - either a reader already read prev.next, and will proceed with our probe entry, or
 	// - it will read updated prev.next and will proceed with p.next probe entry
-	if p.prev != nil {
-		p.prev.next = p.next
-	}
+	p.prev.next = p.next
 
 	// we can safely change next.prev pointer:
 	// - readers only go through list forward
@@ -315,7 +311,8 @@ func (p *Probe) Detach() {
 
 	// mark us detached so that if Detach is erroneously called the second
 	// time it does not do harm
-	p.prev = p
+	p.prev = nil
+	p.next = nil
 }
 
 // ProbeGroup is a group of probes attached to tracepoints.
