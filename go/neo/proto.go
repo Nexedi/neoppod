@@ -382,8 +382,7 @@ type AnswerPartitionTable struct {
 }
 
 // Send whole partition table to update other nodes. PM -> S, C.
-// XXX py: named also as SendPartitionTable
-type NotifyPartitionTable struct {
+type SendPartitionTable struct {
 	PTid
 	RowList []RowInfo
 }

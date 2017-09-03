@@ -588,13 +588,13 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 16. NotifyPartitionTable
+// 16. SendPartitionTable
 
-func (*NotifyPartitionTable) neoMsgCode() uint16 {
+func (*SendPartitionTable) neoMsgCode() uint16 {
 	return 16
 }
 
-func (p *NotifyPartitionTable) neoMsgEncodedLen() int {
+func (p *SendPartitionTable) neoMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.RowList); i++ {
 		a := &p.RowList[i]
@@ -603,7 +603,7 @@ func (p *NotifyPartitionTable) neoMsgEncodedLen() int {
 	return 12 + len(p.RowList)*8 + size
 }
 
-func (p *NotifyPartitionTable) neoMsgEncode(data []byte) {
+func (p *SendPartitionTable) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PTid))
 	{
 		l := uint32(len(p.RowList))
@@ -628,7 +628,7 @@ func (p *NotifyPartitionTable) neoMsgEncode(data []byte) {
 	}
 }
 
-func (p *NotifyPartitionTable) neoMsgDecode(data []byte) (int, error) {
+func (p *SendPartitionTable) neoMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 12 {
 		goto overflow
@@ -3455,7 +3455,7 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	13 | answerBit: reflect.TypeOf(AnswerLastIDs{}),
 	14:             reflect.TypeOf(AskPartitionTable{}),
 	15 | answerBit: reflect.TypeOf(AnswerPartitionTable{}),
-	16:             reflect.TypeOf(NotifyPartitionTable{}),
+	16:             reflect.TypeOf(SendPartitionTable{}),
 	17:             reflect.TypeOf(NotifyPartitionChanges{}),
 	18:             reflect.TypeOf(StartOperation{}),
 	19:             reflect.TypeOf(StopOperation{}),
