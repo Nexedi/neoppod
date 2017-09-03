@@ -53,6 +53,7 @@ nonotify('PartitionCorrupted')
 noask('LastTransaction')
 noask('CheckCurrentSerial')
 nonotify('ReplicationDone')
+noask('FetchTransactions')
 
 _ = renames
 _['AskPrimary']                 = 'PrimaryMaster'

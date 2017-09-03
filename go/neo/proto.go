@@ -954,3 +954,18 @@ type ReplicationDone struct {
 	Offset	uint32	 // PNumber
 	Tid	zodb.Tid
 }
+
+// S -> S
+type FetchTransactions struct {
+	Partition uint32	// PNumber
+	Length	  uint32	// PNumber
+	MinTid	  zodb.Tid
+	MaxTid    zodb.Tid
+	TidList   []zodb.Tid	// already known transactions
+}
+
+type AnswerFetchTransactions struct {
+	PackTid	zodb.Tid
+	NextTid zodb.Tid
+	TidList []zodb.Tid	// transactions to delete
+}
