@@ -934,4 +934,23 @@ type NotifyTransactionFinished struct {
 
 // replication
 
-// TODO
+// Notify a storage node to replicate partitions up to given 'tid'
+// and from given sources.
+// M -> S
+//
+// - upstream_name: replicate from an upstream cluster
+// - address: address of the source storage node, or None if there's no new
+//            data up to 'tid' for the given partition
+type Replicate struct {
+	Tid	     zodb.Tid
+	UpstreamName string
+	SourceDict   map[uint32/*PNumber*/]string	// partition -> address
+}
+
+// Notify the master node that a partition has been successfully replicated
+// from a storage to another.
+// S -> M
+type ReplicationDone struct {
+	Offset	uint32	 // PNumber
+	Tid	zodb.Tid
+}

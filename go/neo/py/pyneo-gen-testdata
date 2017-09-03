@@ -52,6 +52,7 @@ noask('CheckSerialRange')
 nonotify('PartitionCorrupted')
 noask('LastTransaction')
 noask('CheckCurrentSerial')
+nonotify('ReplicationDone')
 
 _ = renames
 _['AskPrimary']                 = 'PrimaryMaster'

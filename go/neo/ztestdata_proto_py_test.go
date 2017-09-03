@@ -60,7 +60,7 @@ var pyMsgRegistry = map[uint16]string{
 	87:	"CheckCurrentSerial",
 	89:	"NotifyTransactionFinished",
 	90:	"Replicate",
-	91:	"NotifyReplicationDone",
+	91:	"ReplicationDone",
 	92:	"AskFetchTransactions",
 	94:	"AskFetchObjects",
 	96:	"AddTransaction",
