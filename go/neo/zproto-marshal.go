@@ -3851,6 +3851,111 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
+// 96. AddTransaction
+
+func (*AddTransaction) neoMsgCode() uint16 {
+	return 96
+}
+
+func (p *AddTransaction) neoMsgEncodedLen() int {
+	return 33 + len(p.User) + len(p.Description) + len(p.Extension) + len(p.OidList)*8
+}
+
+func (p *AddTransaction) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
+	{
+		l := uint32(len(p.User))
+		binary.BigEndian.PutUint32(data[8:], l)
+		data = data[12:]
+		copy(data, p.User)
+		data = data[l:]
+	}
+	{
+		l := uint32(len(p.Description))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		copy(data, p.Description)
+		data = data[l:]
+	}
+	{
+		l := uint32(len(p.Extension))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		copy(data, p.Extension)
+		data = data[l:]
+	}
+	(data[0:])[0] = bool2byte(p.Packed)
+	binary.BigEndian.PutUint64(data[1:], uint64(p.TTid))
+	{
+		l := uint32(len(p.OidList))
+		binary.BigEndian.PutUint32(data[9:], l)
+		data = data[13:]
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.OidList[i]
+			binary.BigEndian.PutUint64(data[0:], uint64((*a)))
+			data = data[8:]
+		}
+	}
+}
+
+func (p *AddTransaction) neoMsgDecode(data []byte) (int, error) {
+	var nread uint32
+	if uint32(len(data)) < 12 {
+		goto overflow
+	}
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	{
+		l := binary.BigEndian.Uint32(data[8:])
+		data = data[12:]
+		if uint32(len(data)) < 4+l {
+			goto overflow
+		}
+		nread += 4 + l
+		p.User = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := binary.BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if uint32(len(data)) < 4+l {
+			goto overflow
+		}
+		nread += 4 + l
+		p.Description = string(data[:l])
+		data = data[l:]
+	}
+	{
+		l := binary.BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if uint32(len(data)) < 13+l {
+			goto overflow
+		}
+		nread += 13 + l
+		p.Extension = string(data[:l])
+		data = data[l:]
+	}
+	p.Packed = byte2bool((data[0:])[0])
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[1:]))
+	{
+		l := binary.BigEndian.Uint32(data[9:])
+		data = data[13:]
+		if uint32(len(data)) < l*8 {
+			goto overflow
+		}
+		nread += l * 8
+		p.OidList = make([]zodb.Oid, l)
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.OidList[i]
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			data = data[8:]
+		}
+	}
+	return 12 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
 // registry of message types
 var msgTypeRegistry = map[uint16]reflect.Type{
 	0 | answerBit:  reflect.TypeOf(Error{}),
@@ -3949,4 +4054,5 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	93 | answerBit: reflect.TypeOf(AnswerFetchTransactions{}),
 	94:             reflect.TypeOf(FetchObjects{}),
 	95 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
+	96:             reflect.TypeOf(AddTransaction{}),
 }

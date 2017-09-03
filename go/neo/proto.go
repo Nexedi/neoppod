@@ -992,3 +992,14 @@ type AnswerFetchObjects struct {
 	// objects to delete
 	ObjDeleteDict map[zodb.Tid][]zodb.Oid	// serial -> []oid
 }
+
+// S -> S
+type AddTransaction struct {
+	Tid         zodb.Tid
+	User	    string
+	Description string
+	Extension   string
+	Packed      bool
+	TTid        zodb.Tid
+	OidList     []zodb.Oid
+}
