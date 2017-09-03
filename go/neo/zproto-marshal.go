@@ -3956,6 +3956,58 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
+// 97. AddObject
+
+func (*AddObject) neoMsgCode() uint16 {
+	return 97
+}
+
+func (p *AddObject) neoMsgEncodedLen() int {
+	return 49 + len(p.Data)
+}
+
+func (p *AddObject) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
+	(data[16:])[0] = bool2byte(p.Compression)
+	copy(data[17:], p.Checksum[:])
+	{
+		l := uint32(len(p.Data))
+		binary.BigEndian.PutUint32(data[37:], l)
+		data = data[41:]
+		copy(data, p.Data)
+		data = data[l:]
+	}
+	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))
+}
+
+func (p *AddObject) neoMsgDecode(data []byte) (int, error) {
+	var nread uint32
+	if uint32(len(data)) < 41 {
+		goto overflow
+	}
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.Compression = byte2bool((data[16:])[0])
+	copy(p.Checksum[:], data[17:37])
+	{
+		l := binary.BigEndian.Uint32(data[37:])
+		data = data[41:]
+		if uint32(len(data)) < 8+l {
+			goto overflow
+		}
+		nread += 8 + l
+		p.Data = make([]byte, l)
+		copy(p.Data, data[:l])
+		data = data[l:]
+	}
+	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	return 41 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
 // registry of message types
 var msgTypeRegistry = map[uint16]reflect.Type{
 	0 | answerBit:  reflect.TypeOf(Error{}),
@@ -4055,4 +4107,5 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	94:             reflect.TypeOf(FetchObjects{}),
 	95 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
 	96:             reflect.TypeOf(AddTransaction{}),
+	97:             reflect.TypeOf(AddObject{}),
 }

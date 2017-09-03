@@ -1003,3 +1003,13 @@ type AddTransaction struct {
 	TTid        zodb.Tid
 	OidList     []zodb.Oid
 }
+
+// S -> S
+type AddObject struct {
+	Oid         zodb.Oid
+	Serial      zodb.Tid
+	Compression bool
+	Checksum    Checksum
+	Data	    []byte	// TODO from pool, separately (?)
+	DataSerial  zodb.Tid
+}
