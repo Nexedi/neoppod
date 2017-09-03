@@ -1,16 +1,36 @@
 #!/bin/bash -e
 # run 1 mixed py/go NEO cluster
 
-# Mpy <cluster> <bind>
-# spawn py master
+# port allocations
+Abind=127.0.0.1:5551
+Mbind=127.0.0.1:5552
+Sbind=127.0.0.1:5553
+
+# cluster name
+cluster=pygotest
+
+
+# M{py,go}
+# spawn master
 Mpy() {
 	# XXX --masters=?
-	neomaster --cluster=$1 --bind=$2 -r 1 -p 1 --autostart=1 --logfile=`pwd`/master.log
+	# XXX --autostart=1 ?
+	neomaster --cluster=$cluster --bind=$Mbind -r 1 -p 1 --logfile=`pwd`/Mpy.log
 }
 
+Mgo() {
+	neo master -cluster=$cluster -bind=$Mbind -log_dir=`pwd`
+}
 
-# Sgo <cluster> <bind> <masters> <data>
-# spwan go storage
+# TODO Spy
+
+# Sgo <data>
+# spawn storage
 Sgo() {
-	neo storage -cluster=$1 -bind=$2 -masters=$3 -logdir=`pwd` $4
+	neo storage -cluster=$cluster -bind=$Sbind -masters=$Mbind -log_dir=`pwd` $@
 }
+
+
+
+# spawn Mpy + Sgo
+Mpy &
