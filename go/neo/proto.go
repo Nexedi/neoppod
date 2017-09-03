@@ -206,25 +206,33 @@ type Address struct {
 }
 
 // NOTE if Host == "" -> Port not added to wire (see py.PAddress):
-// func (a *Address) neoMsgEncode(b []byte) int {
-// 	n := string_NEOEncode(a.Host, b[0:])
-// 	if a.Host != "" {
-// 		BigEndian.PutUint16(b[n:], a.Port)
-// 		n += 2
-// 	}
-// 	return n
-// }
-// 
-// func (a *Address) NEODecode(b []byte) int {
-// 	n := string_NEODecode(&a.Host, b)
-// 	if a.Host != "" {
-// 		a.Port = BigEndian.Uint16(b[n:])
-// 		n += 2
-// 	} else {
-// 		a.Port = 0
-// 	}
-// 	return n
-// }
+func (a *Address) neoEncodedLen() int {
+	l := string_neoEncodedLen(a.Host)
+	if a.Host != "" {
+		l += 2
+	}
+	return l
+}
+
+func (a *Address) neoEncode(b []byte) int {
+	n := string_neoEncode(a.Host, b[0:])
+	if a.Host != "" {
+		BigEndian.PutUint16(b[n:], a.Port)
+		n += 2
+	}
+	return n
+}
+
+func (a *Address) neoDecode(b []byte) int {
+	n := string_neoDecode(&a.Host, b)
+	if a.Host != "" {
+		a.Port = BigEndian.Uint16(b[n:])
+		n += 2
+	} else {
+		a.Port = 0
+	}
+	return n
+}
 
 // A SHA1 hash
 type Checksum [20]byte

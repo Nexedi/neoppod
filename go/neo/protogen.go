@@ -438,6 +438,10 @@ type CodeGenerator interface {
 	genArray1(path string, typ *types.Array)
 	genSlice1(path string, typ types.Type)
 
+	// generate code for a custom type which implements its own encoding/decodeing
+	// XXX review text
+	genCustom(path string, typ types.Type)	// XXX + obj?
+
 	// get generated code.
 	generatedCode() string
 }
@@ -1063,11 +1067,38 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	d.emit("}")
 }
 
+// emit code to size/encode/decode custom type
+// XXX typ not needed
+func (s *sizer) genCustom(path string, typ *types.Type) {
+	s.size.AddExpr("%s.neoEncodedLen()", path)
+}
+
+// XXX typ unused
+func (e *encoder) genCustom(path string, typ *types.Type) {
+	e.emit("{")
+	e.emit("n := %s.neoEncodedLen()", path)
+	e.emit("%s.neoEncode(data[%v:])", e.n)
+	e.emit("data = data[%v + n:]", e.n)
+	e.emit("}")
+	e.n = 0
+}
+
+func (e *decoder) genCustom(path string) {
+	d.emit("{")
+	d.emit("n := %s.neoDecode(data[%v ...")	// XXX error!
+	d.emit("}")
+}
+
 // top-level driver for emitting size/encode/decode code for a type
 //
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happened)
 func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
+	if types.Implements(typ, neoCustomXXX) {
+		codegen.genCustom(path, typ)
+		return
+	}
+
 	switch u := typ.Underlying().(type) {
 	case *types.Basic:
 		// go puts string into basic, but it is really slice1
