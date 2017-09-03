@@ -3572,7 +3572,7 @@ func (*FetchTransactions) neoMsgCode() uint16 {
 }
 
 func (p *FetchTransactions) neoMsgEncodedLen() int {
-	return 28 + len(p.TidList)*8
+	return 28 + len(p.TxnKnownList)*8
 }
 
 func (p *FetchTransactions) neoMsgEncode(data []byte) {
@@ -3581,11 +3581,11 @@ func (p *FetchTransactions) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[8:], uint64(p.MinTid))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.MaxTid))
 	{
-		l := uint32(len(p.TidList))
+		l := uint32(len(p.TxnKnownList))
 		binary.BigEndian.PutUint32(data[24:], l)
 		data = data[28:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.TidList[i]
+			a := &p.TxnKnownList[i]
 			binary.BigEndian.PutUint64(data[0:], uint64((*a)))
 			data = data[8:]
 		}
@@ -3608,9 +3608,9 @@ func (p *FetchTransactions) neoMsgDecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 8
-		p.TidList = make([]zodb.Tid, l)
+		p.TxnKnownList = make([]zodb.Tid, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.TidList[i]
+			a := &p.TxnKnownList[i]
 			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
@@ -3628,18 +3628,18 @@ func (*AnswerFetchTransactions) neoMsgCode() uint16 {
 }
 
 func (p *AnswerFetchTransactions) neoMsgEncodedLen() int {
-	return 20 + len(p.TidList)*8
+	return 20 + len(p.TxnDeleteList)*8
 }
 
 func (p *AnswerFetchTransactions) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.PackTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.NextTid))
 	{
-		l := uint32(len(p.TidList))
+		l := uint32(len(p.TxnDeleteList))
 		binary.BigEndian.PutUint32(data[16:], l)
 		data = data[20:]
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.TidList[i]
+			a := &p.TxnDeleteList[i]
 			binary.BigEndian.PutUint64(data[0:], uint64((*a)))
 			data = data[8:]
 		}
@@ -3660,14 +3660,192 @@ func (p *AnswerFetchTransactions) neoMsgDecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += l * 8
-		p.TidList = make([]zodb.Tid, l)
+		p.TxnDeleteList = make([]zodb.Tid, l)
 		for i := 0; uint32(i) < l; i++ {
-			a := &p.TidList[i]
+			a := &p.TxnDeleteList[i]
 			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
 			data = data[8:]
 		}
 	}
 	return 20 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 94. FetchObjects
+
+func (*FetchObjects) neoMsgCode() uint16 {
+	return 94
+}
+
+func (p *FetchObjects) neoMsgEncodedLen() int {
+	var size int
+	for key := range p.ObjKnownDict {
+		size += len(p.ObjKnownDict[key]) * 8
+	}
+	return 36 + len(p.ObjKnownDict)*12 + size
+}
+
+func (p *FetchObjects) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint32(data[0:], p.Partition)
+	binary.BigEndian.PutUint32(data[4:], p.Length)
+	binary.BigEndian.PutUint64(data[8:], uint64(p.MinTid))
+	binary.BigEndian.PutUint64(data[16:], uint64(p.MaxTid))
+	binary.BigEndian.PutUint64(data[24:], uint64(p.MinOid))
+	{
+		l := uint32(len(p.ObjKnownDict))
+		binary.BigEndian.PutUint32(data[32:], l)
+		data = data[36:]
+		keyv := make([]zodb.Tid, 0, l)
+		for key := range p.ObjKnownDict {
+			keyv = append(keyv, key)
+		}
+		sort.Slice(keyv, func(i, j int) bool { return keyv[i] < keyv[j] })
+		for _, key := range keyv {
+			binary.BigEndian.PutUint64(data[0:], uint64(key))
+			{
+				l := uint32(len(p.ObjKnownDict[key]))
+				binary.BigEndian.PutUint32(data[8:], l)
+				data = data[12:]
+				for i := 0; uint32(i) < l; i++ {
+					a := &p.ObjKnownDict[key][i]
+					binary.BigEndian.PutUint64(data[0:], uint64((*a)))
+					data = data[8:]
+				}
+			}
+			data = data[0:]
+		}
+	}
+}
+
+func (p *FetchObjects) neoMsgDecode(data []byte) (int, error) {
+	var nread uint32
+	if uint32(len(data)) < 36 {
+		goto overflow
+	}
+	p.Partition = binary.BigEndian.Uint32(data[0:])
+	p.Length = binary.BigEndian.Uint32(data[4:])
+	p.MinTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.MaxTid = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.MinOid = zodb.Oid(binary.BigEndian.Uint64(data[24:]))
+	{
+		l := binary.BigEndian.Uint32(data[32:])
+		data = data[36:]
+		p.ObjKnownDict = make(map[zodb.Tid][]zodb.Oid, l)
+		m := p.ObjKnownDict
+		for i := 0; uint32(i) < l; i++ {
+			if uint32(len(data)) < 12 {
+				goto overflow
+			}
+			key := zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			var v []zodb.Oid
+			{
+				l := binary.BigEndian.Uint32(data[8:])
+				data = data[12:]
+				if uint32(len(data)) < l*8 {
+					goto overflow
+				}
+				nread += l * 8
+				v = make([]zodb.Oid, l)
+				for i := 0; uint32(i) < l; i++ {
+					a := &v[i]
+					(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+					data = data[8:]
+				}
+			}
+			m[key] = v
+		}
+		nread += l * 12
+	}
+	return 36 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 95. AnswerFetchObjects
+
+func (*AnswerFetchObjects) neoMsgCode() uint16 {
+	return 95 | answerBit
+}
+
+func (p *AnswerFetchObjects) neoMsgEncodedLen() int {
+	var size int
+	for key := range p.ObjDeleteDict {
+		size += len(p.ObjDeleteDict[key]) * 8
+	}
+	return 28 + len(p.ObjDeleteDict)*12 + size
+}
+
+func (p *AnswerFetchObjects) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.PackTid))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.NextTid))
+	binary.BigEndian.PutUint64(data[16:], uint64(p.NextOid))
+	{
+		l := uint32(len(p.ObjDeleteDict))
+		binary.BigEndian.PutUint32(data[24:], l)
+		data = data[28:]
+		keyv := make([]zodb.Tid, 0, l)
+		for key := range p.ObjDeleteDict {
+			keyv = append(keyv, key)
+		}
+		sort.Slice(keyv, func(i, j int) bool { return keyv[i] < keyv[j] })
+		for _, key := range keyv {
+			binary.BigEndian.PutUint64(data[0:], uint64(key))
+			{
+				l := uint32(len(p.ObjDeleteDict[key]))
+				binary.BigEndian.PutUint32(data[8:], l)
+				data = data[12:]
+				for i := 0; uint32(i) < l; i++ {
+					a := &p.ObjDeleteDict[key][i]
+					binary.BigEndian.PutUint64(data[0:], uint64((*a)))
+					data = data[8:]
+				}
+			}
+			data = data[0:]
+		}
+	}
+}
+
+func (p *AnswerFetchObjects) neoMsgDecode(data []byte) (int, error) {
+	var nread uint32
+	if uint32(len(data)) < 28 {
+		goto overflow
+	}
+	p.PackTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.NextTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.NextOid = zodb.Oid(binary.BigEndian.Uint64(data[16:]))
+	{
+		l := binary.BigEndian.Uint32(data[24:])
+		data = data[28:]
+		p.ObjDeleteDict = make(map[zodb.Tid][]zodb.Oid, l)
+		m := p.ObjDeleteDict
+		for i := 0; uint32(i) < l; i++ {
+			if uint32(len(data)) < 12 {
+				goto overflow
+			}
+			key := zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			var v []zodb.Oid
+			{
+				l := binary.BigEndian.Uint32(data[8:])
+				data = data[12:]
+				if uint32(len(data)) < l*8 {
+					goto overflow
+				}
+				nread += l * 8
+				v = make([]zodb.Oid, l)
+				for i := 0; uint32(i) < l; i++ {
+					a := &v[i]
+					(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+					data = data[8:]
+				}
+			}
+			m[key] = v
+		}
+		nread += l * 12
+	}
+	return 28 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -3769,4 +3947,6 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	91:             reflect.TypeOf(ReplicationDone{}),
 	92:             reflect.TypeOf(FetchTransactions{}),
 	93 | answerBit: reflect.TypeOf(AnswerFetchTransactions{}),
+	94:             reflect.TypeOf(FetchObjects{}),
+	95 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
 }

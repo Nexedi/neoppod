@@ -54,6 +54,7 @@ noask('LastTransaction')
 noask('CheckCurrentSerial')
 nonotify('ReplicationDone')
 noask('FetchTransactions')
+noask('FetchObjects')
 
 _ = renames
 _['AskPrimary']                 = 'PrimaryMaster'

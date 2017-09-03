@@ -36,6 +36,8 @@ package neo
 // bit set if either message name starts with "Answer" or message definition is
 // prefixed with `//neo:proto answer` comment.
 
+// XXX bit-to-bit comparible with protocol.py
+
 // TODO regroup messages definitions to stay more close to 1 communication topic
 // TODO document protocol itself better (who sends who what with which semantic)
 
@@ -957,15 +959,36 @@ type ReplicationDone struct {
 
 // S -> S
 type FetchTransactions struct {
-	Partition uint32	// PNumber
-	Length	  uint32	// PNumber
-	MinTid	  zodb.Tid
-	MaxTid    zodb.Tid
-	TidList   []zodb.Tid	// already known transactions
+	Partition    uint32	// PNumber
+	Length	     uint32	// PNumber
+	MinTid	     zodb.Tid
+	MaxTid       zodb.Tid
+	TxnKnownList []zodb.Tid	// already known transactions
 }
 
 type AnswerFetchTransactions struct {
+	PackTid       zodb.Tid
+	NextTid       zodb.Tid
+	TxnDeleteList []zodb.Tid	// transactions to delete
+}
+
+// S -> S
+type FetchObjects struct {
+	Partition uint32	// PNumber
+	Length    uint32	// PNumber
+	MinTid    zodb.Tid
+	MaxTid    zodb.Tid
+	MinOid    zodb.Oid
+
+	// already known objects
+	ObjKnownDict map[zodb.Tid][]zodb.Oid	// serial -> []oid
+}
+
+type AnswerFetchObjects struct {
 	PackTid	zodb.Tid
-	NextTid zodb.Tid
-	TidList []zodb.Tid	// transactions to delete
+	NextTid	zodb.Tid
+	NextOid	zodb.Oid
+
+	// objects to delete
+	ObjDeleteDict map[zodb.Tid][]zodb.Oid	// serial -> []oid
 }
