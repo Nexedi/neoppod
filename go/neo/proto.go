@@ -32,8 +32,9 @@ package neo
 // The order of message definitions is significant - messages are assigned
 // message IDs in the same order they are defined.
 //
-// For compatibility with neo/py is a message should have its ID assigned with
-// "answer" bit set its definition is prefixed with `//neo:proto answer` comment.
+// For compatibility with neo/py a message has its ID assigned with "answer"
+// bit set if either message name starts with "Answer" or message definition is
+// prefixed with `//neo:proto answer` comment.
 
 // TODO regroup messages definitions to stay more close to 1 communication topic
 // TODO document protocol itself better (who sends who what with which semantic)
@@ -291,7 +292,8 @@ type RowInfo struct {
 // Error is a special type of message, because this can be sent against
 // any other message, even if such a message does not expect a reply
 // usually. Any -> Any.
-// FIXME -> |RESPONSE_MASK
+//
+//neo:proto answer
 type Error struct {
 	Code    ErrorCode  // PNumber
 	Message string
@@ -317,9 +319,10 @@ type AcceptIdentification struct {
 }
 
 // Check if a peer is still alive. Any -> Any.
-type Ping struct {
-	// TODO _answer = PFEmpty
-}
+type Ping struct {}
+
+//neo:proto answer
+type Pong struct {}
 
 // Tell peer it can close the connection if it has finished with us. Any -> Any
 type CloseClient struct {
@@ -339,6 +342,13 @@ type NotPrimaryMaster struct {
 	KnownMasterList []struct {
 		Address
 	}
+}
+
+// Notify information about one or more nodes. PM -> Any.
+type NotifyNodeInformation struct {
+	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
+	IdTimestamp	float64
+	NodeList	[]NodeInfo
 }
 
 // Ask all data needed by master to recover. PM -> S, S -> PM.
@@ -720,13 +730,6 @@ type TweakPartitionTable struct {
 	NodeList []NodeUUID
 
 	// XXX _answer = Error
-}
-
-// Notify information about one or more nodes. PM -> Any.
-type NotifyNodeInformation struct {
-	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
-	IdTimestamp	float64
-	NodeList	[]NodeInfo
 }
 
 // Ask node information

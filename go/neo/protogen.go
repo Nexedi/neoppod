@@ -293,7 +293,10 @@ import (
 			}
 
 			// generate code for this type to implement neo.Msg
-			msgCode := MsgCode{msgSerial, specAnnotation.answer}
+			msgCode := MsgCode{
+				msgSerial: msgSerial,
+				answer:    specAnnotation.answer || strings.HasPrefix(typename, "Answer"),
+			}
 
 			fmt.Fprintf(&buf, "// %d. %s", msgSerial, typename)
 			if specAnnotation.answer {
