@@ -20,6 +20,20 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """generate registry of neo/py packet codes for tests"""
 
+# things that are renamed a bit
+# pyname -> goname
+renames = {}
+
+def noask(name):
+    renames['Ask'+name] = name
+
+noask('Recovery')
+noask('LastIDs')
+noask('UnfinishedTransactions')
+noask('LockedTransactions')
+noask('FinalTID')
+
+
 def main():
     pyprotog = {}
     execfile('../../neo/lib/protocol.py', pyprotog)
@@ -51,7 +65,9 @@ def main():
         pypktv.sort(key=lambda pkt: pkt._code)
 
         for pypkt in pypktv:
-            emit('\t%d:\t"%s",' % (pypkt._code, pypkt._x_use_name))
+            name = pypkt._x_use_name
+            name = renames.get(name, name)
+            emit('\t%d:\t"%s",' % (pypkt._code, name))
 
         #pycodev = pypackets.keys()
         #pycodev.sort()
