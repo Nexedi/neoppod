@@ -41,8 +41,13 @@ noask('RebaseObject')
 noask('StoreObject')
 noask('StoreTransaction')
 noask('VoteTransaction')
+noask('TransactionInformation')
+noask('ObjectHistory')
+noask('PartitionList')
+noask('NodeList')
 
 _ = renames
+_['AskPrimary'] = 'PrimaryMaster'
 _['AskObject']  = 'GetObject'
 
 

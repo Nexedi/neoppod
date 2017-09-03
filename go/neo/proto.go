@@ -638,6 +638,7 @@ type AnswerTIDs struct {
 	TIDList []zodb.Tid
 }
 
+/*
 // Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
 // C -> S.
 // Answer the requested TIDs. S -> C
@@ -652,6 +653,7 @@ type TIDListFrom struct {
 type AnswerTIDListFrom struct {
 	TidList []zodb.Tid
 }
+*/
 
 // Ask information about a transaction. Any -> S.
 // Answer information (user, description) about a transaction. S -> Any.
