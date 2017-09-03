@@ -14,7 +14,7 @@ import (
 
 // messages marshalling
 
-// 0. Error (answer)
+// 0 | answerBit. Error
 
 func (*Error) neoMsgCode() uint16 {
 	return 0 | answerBit
@@ -123,10 +123,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 2. AcceptIdentification (answer)
+// 1 | answerBit. AcceptIdentification
 
 func (*AcceptIdentification) neoMsgCode() uint16 {
-	return 2 | answerBit
+	return 1 | answerBit
 }
 
 func (p *AcceptIdentification) neoMsgEncodedLen() int {
@@ -173,10 +173,10 @@ func (p *Ping) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 4. Pong (answer)
+// 3 | answerBit. Pong
 
 func (*Pong) neoMsgCode() uint16 {
-	return 4 | answerBit
+	return 3 | answerBit
 }
 
 func (p *Pong) neoMsgEncodedLen() int {
@@ -224,10 +224,10 @@ func (p *PrimaryMaster) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 7. AnswerPrimary (answer)
+// 6 | answerBit. AnswerPrimary
 
 func (*AnswerPrimary) neoMsgCode() uint16 {
-	return 7 | answerBit
+	return 6 | answerBit
 }
 
 func (p *AnswerPrimary) neoMsgEncodedLen() int {
@@ -418,10 +418,10 @@ func (p *Recovery) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 11. AnswerRecovery (answer)
+// 10 | answerBit. AnswerRecovery
 
 func (*AnswerRecovery) neoMsgCode() uint16 {
-	return 11 | answerBit
+	return 10 | answerBit
 }
 
 func (p *AnswerRecovery) neoMsgEncodedLen() int {
@@ -464,10 +464,10 @@ func (p *LastIDs) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 13. AnswerLastIDs (answer)
+// 12 | answerBit. AnswerLastIDs
 
 func (*AnswerLastIDs) neoMsgCode() uint16 {
-	return 13 | answerBit
+	return 12 | answerBit
 }
 
 func (p *AnswerLastIDs) neoMsgEncodedLen() int {
@@ -508,10 +508,10 @@ func (p *AskPartitionTable) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 15. AnswerPartitionTable (answer)
+// 14 | answerBit. AnswerPartitionTable
 
 func (*AnswerPartitionTable) neoMsgCode() uint16 {
-	return 15 | answerBit
+	return 14 | answerBit
 }
 
 func (p *AnswerPartitionTable) neoMsgEncodedLen() int {
@@ -815,10 +815,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 21. AnswerUnfinishedTransactions (answer)
+// 20 | answerBit. AnswerUnfinishedTransactions
 
 func (*AnswerUnfinishedTransactions) neoMsgCode() uint16 {
-	return 21 | answerBit
+	return 20 | answerBit
 }
 
 func (p *AnswerUnfinishedTransactions) neoMsgEncodedLen() int {
@@ -882,10 +882,10 @@ func (p *LockedTransactions) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 23. AnswerLockedTransactions (answer)
+// 22 | answerBit. AnswerLockedTransactions
 
 func (*AnswerLockedTransactions) neoMsgCode() uint16 {
-	return 23 | answerBit
+	return 22 | answerBit
 }
 
 func (p *AnswerLockedTransactions) neoMsgEncodedLen() int {
@@ -961,10 +961,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 25. AnswerFinalTID (answer)
+// 24 | answerBit. AnswerFinalTID
 
 func (*AnswerFinalTID) neoMsgCode() uint16 {
-	return 25 | answerBit
+	return 24 | answerBit
 }
 
 func (p *AnswerFinalTID) neoMsgEncodedLen() int {
@@ -1038,10 +1038,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 28. AnswerBeginTransaction (answer)
+// 27 | answerBit. AnswerBeginTransaction
 
 func (*AnswerBeginTransaction) neoMsgCode() uint16 {
-	return 28 | answerBit
+	return 27 | answerBit
 }
 
 func (p *AnswerBeginTransaction) neoMsgEncodedLen() int {
@@ -1187,10 +1187,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 31. AnswerTransactionFinished (answer)
+// 30 | answerBit. AnswerTransactionFinished
 
 func (*AnswerTransactionFinished) neoMsgCode() uint16 {
-	return 31 | answerBit
+	return 30 | answerBit
 }
 
 func (p *AnswerTransactionFinished) neoMsgEncodedLen() int {
@@ -1241,10 +1241,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 33. AnswerInformationLocked (answer)
+// 32 | answerBit. AnswerInformationLocked
 
 func (*AnswerInformationLocked) neoMsgCode() uint16 {
-	return 33 | answerBit
+	return 32 | answerBit
 }
 
 func (p *AnswerInformationLocked) neoMsgEncodedLen() int {
@@ -1366,10 +1366,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 37. AnswerNewOIDs (answer)
+// 36 | answerBit. AnswerNewOIDs
 
 func (*AnswerNewOIDs) neoMsgCode() uint16 {
-	return 37 | answerBit
+	return 36 | answerBit
 }
 
 func (p *AnswerNewOIDs) neoMsgEncodedLen() int {
@@ -1468,10 +1468,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 40. AnswerRebaseTransaction (answer)
+// 39 | answerBit. AnswerRebaseTransaction
 
 func (*AnswerRebaseTransaction) neoMsgCode() uint16 {
-	return 40 | answerBit
+	return 39 | answerBit
 }
 
 func (p *AnswerRebaseTransaction) neoMsgEncodedLen() int {
@@ -1543,10 +1543,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 42. AnswerRebaseObject (answer)
+// 41 | answerBit. AnswerRebaseObject
 
 func (*AnswerRebaseObject) neoMsgCode() uint16 {
-	return 42 | answerBit
+	return 41 | answerBit
 }
 
 func (p *AnswerRebaseObject) neoMsgEncodedLen() int {
@@ -1647,10 +1647,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 44. AnswerStoreObject (answer)
+// 43 | answerBit. AnswerStoreObject
 
 func (*AnswerStoreObject) neoMsgCode() uint16 {
-	return 44 | answerBit
+	return 43 | answerBit
 }
 
 func (p *AnswerStoreObject) neoMsgEncodedLen() int {
@@ -1823,10 +1823,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 47. AnswerStoreTransaction (answer)
+// 46 | answerBit. AnswerStoreTransaction
 
 func (*AnswerStoreTransaction) neoMsgCode() uint16 {
-	return 47 | answerBit
+	return 46 | answerBit
 }
 
 func (p *AnswerStoreTransaction) neoMsgEncodedLen() int {
@@ -1865,10 +1865,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 49. AnswerVoteTransaction (answer)
+// 48 | answerBit. AnswerVoteTransaction
 
 func (*AnswerVoteTransaction) neoMsgCode() uint16 {
-	return 49 | answerBit
+	return 48 | answerBit
 }
 
 func (p *AnswerVoteTransaction) neoMsgEncodedLen() int {
@@ -1911,10 +1911,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 51. AnswerObject (answer)
+// 50 | answerBit. AnswerObject
 
 func (*AnswerObject) neoMsgCode() uint16 {
-	return 51 | answerBit
+	return 50 | answerBit
 }
 
 func (p *AnswerObject) neoMsgEncodedLen() int {
@@ -1994,10 +1994,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 53. AnswerTIDs (answer)
+// 52 | answerBit. AnswerTIDs
 
 func (*AnswerTIDs) neoMsgCode() uint16 {
-	return 53 | answerBit
+	return 52 | answerBit
 }
 
 func (p *AnswerTIDs) neoMsgEncodedLen() int {
@@ -2067,10 +2067,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 55. AnswerTransactionInformation (answer)
+// 54 | answerBit. AnswerTransactionInformation
 
 func (*AnswerTransactionInformation) neoMsgCode() uint16 {
-	return 55 | answerBit
+	return 54 | answerBit
 }
 
 func (p *AnswerTransactionInformation) neoMsgEncodedLen() int {
@@ -2199,10 +2199,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 57. AnswerObjectHistory (answer)
+// 56 | answerBit. AnswerObjectHistory
 
 func (*AnswerObjectHistory) neoMsgCode() uint16 {
-	return 57 | answerBit
+	return 56 | answerBit
 }
 
 func (p *AnswerObjectHistory) neoMsgEncodedLen() int {
@@ -2283,10 +2283,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 59. AnswerPartitionList (answer)
+// 58 | answerBit. AnswerPartitionList
 
 func (*AnswerPartitionList) neoMsgCode() uint16 {
-	return 59 | answerBit
+	return 58 | answerBit
 }
 
 func (p *AnswerPartitionList) neoMsgEncodedLen() int {
@@ -2388,10 +2388,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 61. AnswerNodeList (answer)
+// 60 | answerBit. AnswerNodeList
 
 func (*AnswerNodeList) neoMsgCode() uint16 {
-	return 61 | answerBit
+	return 60 | answerBit
 }
 
 func (p *AnswerNodeList) neoMsgEncodedLen() int {
@@ -2731,10 +2731,10 @@ func (p *AskClusterState) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 70. AnswerClusterState (answer)
+// 69 | answerBit. AnswerClusterState
 
 func (*AnswerClusterState) neoMsgCode() uint16 {
-	return 70 | answerBit
+	return 69 | answerBit
 }
 
 func (p *AnswerClusterState) neoMsgEncodedLen() int {
@@ -2810,10 +2810,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 72. AnswerObjectUndoSerial (answer)
+// 71 | answerBit. AnswerObjectUndoSerial
 
 func (*AnswerObjectUndoSerial) neoMsgCode() uint16 {
-	return 72 | answerBit
+	return 71 | answerBit
 }
 
 func (p *AnswerObjectUndoSerial) neoMsgEncodedLen() int {
@@ -2909,10 +2909,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 74. AnswerTIDsFrom (answer)
+// 73 | answerBit. AnswerTIDsFrom
 
 func (*AnswerTIDsFrom) neoMsgCode() uint16 {
-	return 74 | answerBit
+	return 73 | answerBit
 }
 
 func (p *AnswerTIDsFrom) neoMsgEncodedLen() int {
@@ -2982,10 +2982,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 76. AnswerPack (answer)
+// 75 | answerBit. AnswerPack
 
 func (*AnswerPack) neoMsgCode() uint16 {
-	return 76 | answerBit
+	return 75 | answerBit
 }
 
 func (p *AnswerPack) neoMsgEncodedLen() int {
@@ -3162,10 +3162,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 80. AnswerCheckTIDRange (answer)
+// 79 | answerBit. AnswerCheckTIDRange
 
 func (*AnswerCheckTIDRange) neoMsgCode() uint16 {
-	return 80 | answerBit
+	return 79 | answerBit
 }
 
 func (p *AnswerCheckTIDRange) neoMsgEncodedLen() int {
@@ -3224,10 +3224,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 82. AnswerCheckSerialRange (answer)
+// 81 | answerBit. AnswerCheckSerialRange
 
 func (*AnswerCheckSerialRange) neoMsgCode() uint16 {
-	return 82 | answerBit
+	return 81 | answerBit
 }
 
 func (p *AnswerCheckSerialRange) neoMsgEncodedLen() int {
@@ -3341,10 +3341,10 @@ func (p *LastTransaction) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 86. AnswerLastTransaction (answer)
+// 85 | answerBit. AnswerLastTransaction
 
 func (*AnswerLastTransaction) neoMsgCode() uint16 {
-	return 86 | answerBit
+	return 85 | answerBit
 }
 
 func (p *AnswerLastTransaction) neoMsgEncodedLen() int {
@@ -3395,10 +3395,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 88. AnswerCheckCurrentSerial (answer)
+// 87 | answerBit. AnswerCheckCurrentSerial
 
 func (*AnswerCheckCurrentSerial) neoMsgCode() uint16 {
-	return 88 | answerBit
+	return 87 | answerBit
 }
 
 func (p *AnswerCheckCurrentSerial) neoMsgEncodedLen() int {
@@ -3621,10 +3621,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 93. AnswerFetchTransactions (answer)
+// 92 | answerBit. AnswerFetchTransactions
 
 func (*AnswerFetchTransactions) neoMsgCode() uint16 {
-	return 93 | answerBit
+	return 92 | answerBit
 }
 
 func (p *AnswerFetchTransactions) neoMsgEncodedLen() int {
@@ -3764,10 +3764,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 95. AnswerFetchObjects (answer)
+// 94 | answerBit. AnswerFetchObjects
 
 func (*AnswerFetchObjects) neoMsgCode() uint16 {
-	return 95 | answerBit
+	return 94 | answerBit
 }
 
 func (p *AnswerFetchObjects) neoMsgEncodedLen() int {
@@ -4037,66 +4037,66 @@ overflow:
 var msgTypeRegistry = map[uint16]reflect.Type{
 	0 | answerBit:  reflect.TypeOf(Error{}),
 	1:              reflect.TypeOf(RequestIdentification{}),
-	2 | answerBit:  reflect.TypeOf(AcceptIdentification{}),
+	1 | answerBit:  reflect.TypeOf(AcceptIdentification{}),
 	3:              reflect.TypeOf(Ping{}),
-	4 | answerBit:  reflect.TypeOf(Pong{}),
+	3 | answerBit:  reflect.TypeOf(Pong{}),
 	5:              reflect.TypeOf(CloseClient{}),
 	6:              reflect.TypeOf(PrimaryMaster{}),
-	7 | answerBit:  reflect.TypeOf(AnswerPrimary{}),
+	6 | answerBit:  reflect.TypeOf(AnswerPrimary{}),
 	8:              reflect.TypeOf(NotPrimaryMaster{}),
 	9:              reflect.TypeOf(NotifyNodeInformation{}),
 	10:             reflect.TypeOf(Recovery{}),
-	11 | answerBit: reflect.TypeOf(AnswerRecovery{}),
+	10 | answerBit: reflect.TypeOf(AnswerRecovery{}),
 	12:             reflect.TypeOf(LastIDs{}),
-	13 | answerBit: reflect.TypeOf(AnswerLastIDs{}),
+	12 | answerBit: reflect.TypeOf(AnswerLastIDs{}),
 	14:             reflect.TypeOf(AskPartitionTable{}),
-	15 | answerBit: reflect.TypeOf(AnswerPartitionTable{}),
+	14 | answerBit: reflect.TypeOf(AnswerPartitionTable{}),
 	16:             reflect.TypeOf(SendPartitionTable{}),
 	17:             reflect.TypeOf(NotifyPartitionChanges{}),
 	18:             reflect.TypeOf(StartOperation{}),
 	19:             reflect.TypeOf(StopOperation{}),
 	20:             reflect.TypeOf(UnfinishedTransactions{}),
-	21 | answerBit: reflect.TypeOf(AnswerUnfinishedTransactions{}),
+	20 | answerBit: reflect.TypeOf(AnswerUnfinishedTransactions{}),
 	22:             reflect.TypeOf(LockedTransactions{}),
-	23 | answerBit: reflect.TypeOf(AnswerLockedTransactions{}),
+	22 | answerBit: reflect.TypeOf(AnswerLockedTransactions{}),
 	24:             reflect.TypeOf(FinalTID{}),
-	25 | answerBit: reflect.TypeOf(AnswerFinalTID{}),
+	24 | answerBit: reflect.TypeOf(AnswerFinalTID{}),
 	26:             reflect.TypeOf(ValidateTransaction{}),
 	27:             reflect.TypeOf(BeginTransaction{}),
-	28 | answerBit: reflect.TypeOf(AnswerBeginTransaction{}),
+	27 | answerBit: reflect.TypeOf(AnswerBeginTransaction{}),
 	29:             reflect.TypeOf(FailedVote{}),
 	30:             reflect.TypeOf(FinishTransaction{}),
-	31 | answerBit: reflect.TypeOf(AnswerTransactionFinished{}),
+	30 | answerBit: reflect.TypeOf(AnswerTransactionFinished{}),
 	32:             reflect.TypeOf(LockInformation{}),
-	33 | answerBit: reflect.TypeOf(AnswerInformationLocked{}),
+	32 | answerBit: reflect.TypeOf(AnswerInformationLocked{}),
 	34:             reflect.TypeOf(InvalidateObjects{}),
 	35:             reflect.TypeOf(NotifyUnlockInformation{}),
 	36:             reflect.TypeOf(AskNewOIDs{}),
-	37 | answerBit: reflect.TypeOf(AnswerNewOIDs{}),
+	36 | answerBit: reflect.TypeOf(AnswerNewOIDs{}),
 	38:             reflect.TypeOf(NotifyDeadlock{}),
 	39:             reflect.TypeOf(RebaseTransaction{}),
-	40 | answerBit: reflect.TypeOf(AnswerRebaseTransaction{}),
+	39 | answerBit: reflect.TypeOf(AnswerRebaseTransaction{}),
 	41:             reflect.TypeOf(RebaseObject{}),
-	42 | answerBit: reflect.TypeOf(AnswerRebaseObject{}),
+	41 | answerBit: reflect.TypeOf(AnswerRebaseObject{}),
 	43:             reflect.TypeOf(StoreObject{}),
-	44 | answerBit: reflect.TypeOf(AnswerStoreObject{}),
+	43 | answerBit: reflect.TypeOf(AnswerStoreObject{}),
 	45:             reflect.TypeOf(AbortTransaction{}),
 	46:             reflect.TypeOf(StoreTransaction{}),
-	47 | answerBit: reflect.TypeOf(AnswerStoreTransaction{}),
+	46 | answerBit: reflect.TypeOf(AnswerStoreTransaction{}),
 	48:             reflect.TypeOf(VoteTransaction{}),
-	49 | answerBit: reflect.TypeOf(AnswerVoteTransaction{}),
+	48 | answerBit: reflect.TypeOf(AnswerVoteTransaction{}),
 	50:             reflect.TypeOf(GetObject{}),
-	51 | answerBit: reflect.TypeOf(AnswerObject{}),
+	50 | answerBit: reflect.TypeOf(AnswerObject{}),
 	52:             reflect.TypeOf(AskTIDs{}),
-	53 | answerBit: reflect.TypeOf(AnswerTIDs{}),
+	52 | answerBit: reflect.TypeOf(AnswerTIDs{}),
 	54:             reflect.TypeOf(TransactionInformation{}),
-	55 | answerBit: reflect.TypeOf(AnswerTransactionInformation{}),
+	54 | answerBit: reflect.TypeOf(AnswerTransactionInformation{}),
 	56:             reflect.TypeOf(ObjectHistory{}),
-	57 | answerBit: reflect.TypeOf(AnswerObjectHistory{}),
+	56 | answerBit: reflect.TypeOf(AnswerObjectHistory{}),
 	58:             reflect.TypeOf(PartitionList{}),
-	59 | answerBit: reflect.TypeOf(AnswerPartitionList{}),
+	58 | answerBit: reflect.TypeOf(AnswerPartitionList{}),
 	60:             reflect.TypeOf(NodeList{}),
-	61 | answerBit: reflect.TypeOf(AnswerNodeList{}),
+	60 | answerBit: reflect.TypeOf(AnswerNodeList{}),
 	62:             reflect.TypeOf(SetNodeState{}),
 	63:             reflect.TypeOf(AddPendingNodes{}),
 	64:             reflect.TypeOf(TweakPartitionTable{}),
@@ -4105,32 +4105,32 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	67:             reflect.TypeOf(RepairOne{}),
 	68:             reflect.TypeOf(NotifyClusterState{}),
 	69:             reflect.TypeOf(AskClusterState{}),
-	70 | answerBit: reflect.TypeOf(AnswerClusterState{}),
+	69 | answerBit: reflect.TypeOf(AnswerClusterState{}),
 	71:             reflect.TypeOf(ObjectUndoSerial{}),
-	72 | answerBit: reflect.TypeOf(AnswerObjectUndoSerial{}),
+	71 | answerBit: reflect.TypeOf(AnswerObjectUndoSerial{}),
 	73:             reflect.TypeOf(AskTIDsFrom{}),
-	74 | answerBit: reflect.TypeOf(AnswerTIDsFrom{}),
+	73 | answerBit: reflect.TypeOf(AnswerTIDsFrom{}),
 	75:             reflect.TypeOf(Pack{}),
-	76 | answerBit: reflect.TypeOf(AnswerPack{}),
+	75 | answerBit: reflect.TypeOf(AnswerPack{}),
 	77:             reflect.TypeOf(CheckReplicas{}),
 	78:             reflect.TypeOf(CheckPartition{}),
 	79:             reflect.TypeOf(CheckTIDRange{}),
-	80 | answerBit: reflect.TypeOf(AnswerCheckTIDRange{}),
+	79 | answerBit: reflect.TypeOf(AnswerCheckTIDRange{}),
 	81:             reflect.TypeOf(CheckSerialRange{}),
-	82 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
+	81 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
 	83:             reflect.TypeOf(PartitionCorrupted{}),
 	84:             reflect.TypeOf(NotifyReady{}),
 	85:             reflect.TypeOf(LastTransaction{}),
-	86 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
+	85 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
 	87:             reflect.TypeOf(CheckCurrentSerial{}),
-	88 | answerBit: reflect.TypeOf(AnswerCheckCurrentSerial{}),
+	87 | answerBit: reflect.TypeOf(AnswerCheckCurrentSerial{}),
 	89:             reflect.TypeOf(NotifyTransactionFinished{}),
 	90:             reflect.TypeOf(Replicate{}),
 	91:             reflect.TypeOf(ReplicationDone{}),
 	92:             reflect.TypeOf(FetchTransactions{}),
-	93 | answerBit: reflect.TypeOf(AnswerFetchTransactions{}),
+	92 | answerBit: reflect.TypeOf(AnswerFetchTransactions{}),
 	94:             reflect.TypeOf(FetchObjects{}),
-	95 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
+	94 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
 	96:             reflect.TypeOf(AddTransaction{}),
 	97:             reflect.TypeOf(AddObject{}),
 	98:             reflect.TypeOf(Truncate{}),

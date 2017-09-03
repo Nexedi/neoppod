@@ -219,10 +219,13 @@ func (c MsgCode) String() string {
 	return s
 }
 
-// sort MsgCode by serial
+// sort MsgCode by (serial, answer)
 type BySerial []MsgCode
 
-func (v BySerial) Less(i, j int) bool	{ return v[i].msgSerial < v[j].msgSerial }
+func (v BySerial) Less(i, j int) bool {
+	return (v[i].msgSerial < v[j].msgSerial) ||
+		(v[i].msgSerial == v[j].msgSerial && !v[i].answer && v[j].answer)
+}
 func (v BySerial) Swap(i, j int)	{ v[i], v[j] = v[j], v[i] }
 func (v BySerial) Len() int		{ return len(v) }
 
@@ -293,16 +296,18 @@ import (
 			}
 
 			// generate code for this type to implement neo.Msg
-			msgCode := MsgCode{
-				msgSerial: msgSerial,
-				answer:    specAnnotation.answer || strings.HasPrefix(typename, "Answer"),
+			var msgCode MsgCode
+			msgCode.answer = specAnnotation.answer || strings.HasPrefix(typename, "Answer")
+			switch {
+			case !msgCode.answer || typename == "Error":
+				msgCode.msgSerial = msgSerial
+
+			// answer to something
+			default:
+				msgCode.msgSerial = msgSerial - 1
 			}
 
-			fmt.Fprintf(&buf, "// %d. %s", msgSerial, typename)
-			if msgCode.answer {
-				fmt.Fprintf(&buf, " (answer)")
-			}
-			fmt.Fprintf(&buf, "\n\n")
+			fmt.Fprintf(&buf, "// %s. %s\n\n", msgCode, typename)
 
 			buf.emit("func (*%s) neoMsgCode() uint16 {", typename)
 			buf.emit("return %s", msgCode)
