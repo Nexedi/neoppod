@@ -800,7 +800,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 		}
 	}
 
-	if /* XXX temp show only tx */ false && dumpio {
+	if /* XXX temp show only tx */ true && dumpio {
 		// XXX -> log
 		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}
@@ -1147,7 +1147,7 @@ func (c *Conn) Recv() (Msg, error) {
 	msg := reflect.New(msgType).Interface().(Msg)
 	_, err = msg.neoMsgDecode(pkt.Payload())
 	if err != nil {
-		return nil, &ConnError{Conn: c, Op: "decode", Err: err}
+		return nil, &ConnError{Conn: c, Op: "decode", Err: err}	// XXX "decode:" is already in ErrDecodeOverflow
 	}
 
 	traceConnRecv(c, msg)

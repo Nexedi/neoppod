@@ -250,6 +250,15 @@ func TestMsgMarshal(t *testing.T) {
 		 hex("3fbf9add1091c895"),
 		},
 
+		// float64, empty Address, int32
+		{&NotifyNodeInformation{1504466245.926185, []NodeInfo{
+			{CLIENT, Address{}, UUID(CLIENT, 1), RUNNING, 1504466245.925599}}},
+
+		 hex("41d66b15517b469d") + u32(1) +
+			u32(2) + u32(0) /* <- ø Address */ + hex("e0000001") + u32(2) +
+			hex("41d66b15517b3d04"),
+		},
+
 		// TODO we need tests for:
 		// []varsize + trailing
 		// map[]varsize + trailing
@@ -257,7 +266,6 @@ func TestMsgMarshal(t *testing.T) {
 
 		// TODO special cases for:
 		// - float64 (+ nan !nan ...)
-		// - Address,
 	}
 
 	for _, tt := range testv {
