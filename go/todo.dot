@@ -10,8 +10,6 @@ digraph {
 	Sgo -> io_cancel;
 	Sgo -> load_serial_next;
 
-	Cgo -> Cgo_tasks;
-
 	Cpy_r_Sgo -> Sgo;
 	Cpy_r_Sgo -> Protog_fix;
 	Cpy_r_Sgo -> Cpy_patch;
@@ -20,13 +18,17 @@ digraph {
 	Cgo_r_Sgo -> Cgo;
 	Cgo_r_Sgo -> Sgo;		
 
+	Cgo_r_Spy -> Cgo;
+	Cgo_r_Spy -> Protog_fix;
+
 	Cgo		[label=<C<sub>go</sub>> style=filled fillcolor=lightyellow];
 	Sgo		[label=<S<sub>go</sub>> style=filled fillcolor=lightyellow];
 	Mgo		[label=<M<sub>go</sub>> style=filled fillcolor=lightyellow];
 	SCgo_t		[label=<S<sub>go</sub>  / C<sub>go</sub>  tests> style=filled fillcolor=lightyellow];
 	Cpy_r_Sgo	[label=<C<sub>py</sub>  read S<sub>go</sub>>];
 	Cgo_r_Sgo	[label=<C<sub>go</sub>  read S<sub>go</sub>>];
-	Cpy_patch	[label=<py patch: ConnID py=go>];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
+	Cgo_r_Spy	[label=<C<sub>go</sub>  read S<sub>py</sub>>];
+	Cpy_patch	[label=<py patch: ConnID py=go> style=filled fillcolor=lightyellow];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
 	Mmap_go		[label="io.ReaderAt via mmap"];
 	Protog_fix	[label="proto(go/py) compat fix"];
 	Mpy_vs_Sgo	[label=<M<sub>py</sub> vs S<sub>go</sub>: try/fix>];
@@ -34,5 +36,6 @@ digraph {
 	io_cancel		[label="? conn IO vs ctx cancel"];
 	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>>];
 
-	Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];
+	//Cgo -> Cgo_tasks;
+	//Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];
 }
