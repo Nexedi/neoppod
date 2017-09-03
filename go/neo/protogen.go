@@ -168,6 +168,7 @@ func loadPkg(pkgPath string, sources ...string) *types.Package {
 // `//neo:proto ...` annotations
 type Annotation struct {
 	typeonly bool
+	answer   bool
 }
 
 // parse checks doc for specific comment annotations and, if present, loads them.
@@ -188,15 +189,44 @@ func (a *Annotation) parse(doc *ast.CommentGroup) {
 		switch arg {
 		case "typeonly":
 			if a.typeonly {
-				log.Fatalf("%v: duplicate typeonly", cpos)
+				log.Fatalf("%v: duplicate `typeonly`", cpos)
 			}
 			a.typeonly = true
+
+		case "answer":
+			if a.answer {
+				log.Fatalf("%v: duplicate `answer`", cpos)
+			}
+			a.answer = true
 
 		default:
 			log.Fatalf("%v: unknown neo:proto directive %q", cpos, arg)
 		}
 	}
 }
+
+// MsgCode represents message code in symbolic form: `serial (| answerBit)?`
+type MsgCode struct {
+	msgSerial int
+	answer    bool
+}
+
+func (c MsgCode) String() string {
+	s := fmt.Sprintf("%d", c.msgSerial)
+	if c.answer {
+		s += " | answerBit"
+	}
+	return s
+}
+
+// sort MsgCode by serial
+type BySerial []MsgCode
+
+func (v BySerial) Less(i, j int) bool	{ return v[i].msgSerial < v[j].msgSerial }
+func (v BySerial) Swap(i, j int)	{ v[i], v[j] = v[j], v[i] }
+func (v BySerial) Len() int		{ return len(v) }
+
+// ----------------------------------------
 
 func main() {
 	var err error
@@ -223,11 +253,11 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )`)
 
-	msgTypeRegistry := map[int]string{} // msgCode -> typename
+	msgTypeRegistry := map[MsgCode]string{} // msgCode -> typename
 
 	// go over message types declaration and generate marshal code for them
 	buf.emit("// messages marshalling\n")
-	msgCode := 0
+	msgSerial := 0
 	for _, decl := range f.Decls {
 		// we look for types (which can be only under GenDecl)
 		gendecl, ok := decl.(*ast.GenDecl)
@@ -262,10 +292,17 @@ import (
 				continue
 			}
 
-			fmt.Fprintf(&buf, "// %d. %s\n\n", msgCode, typename)
+			// generate code for this type to implement neo.Msg
+			msgCode := MsgCode{msgSerial, specAnnotation.answer}
+
+			fmt.Fprintf(&buf, "// %d. %s", msgSerial, typename)
+			if specAnnotation.answer {
+				fmt.Fprintf(&buf, " (answer)")
+			}
+			fmt.Fprintf(&buf, "\n\n")
 
 			buf.emit("func (*%s) neoMsgCode() uint16 {", typename)
-			buf.emit("return %d", msgCode)
+			buf.emit("return %s", msgCode)
 			buf.emit("}\n")
 
 			buf.WriteString(generateCodecCode(typespec, &sizer{}))
@@ -273,20 +310,20 @@ import (
 			buf.WriteString(generateCodecCode(typespec, &decoder{}))
 
 			msgTypeRegistry[msgCode] = typename
-			msgCode++
+			msgSerial++
 		}
 	}
 
 	// now generate message types registry
 	buf.emit("\n// registry of message types")
-	buf.emit("var msgTypeRegistry = map[uint16]reflect.Type {") // XXX key -> MsgCode ?
+	buf.emit("var msgTypeRegistry = map[uint16]reflect.Type {")
 
 	// ordered by msgCode
-	msgCodeV := []int{}
+	msgCodeV := []MsgCode{}
 	for msgCode := range msgTypeRegistry {
 		msgCodeV = append(msgCodeV, msgCode)
 	}
-	sort.Ints(msgCodeV)
+	sort.Sort(BySerial(msgCodeV))
 
 	for _, msgCode := range msgCodeV {
 		buf.emit("%v: reflect.TypeOf(%v{}),", msgCode, msgTypeRegistry[msgCode])
@@ -545,8 +582,8 @@ type sizer struct {
 //	encode<typ2>(data[n2:], path2)
 //	...
 //
-// TODO encode have to care in neoMsgEncode to emit preambule such that bound
-// checking is performed only once (currenty compiler emits many of them)
+// TODO encode have to care in neoMsgEncode to emit preamble such that bound
+// checking is performed only once (currently compiler emits many of them)
 type encoder struct {
 	commonCodeGen
 	n int // current write position in data
@@ -635,7 +672,7 @@ func (d *decoder) resetPos() {
 
 // mark current place for insertion of overflow check code
 //
-// The check will be acutally inserted later.
+// The check will be actually inserted later.
 //
 // later: because first we go forward in decode path scanning ahead as far as
 // we can - until first seeing variable-size encoded something, and then -

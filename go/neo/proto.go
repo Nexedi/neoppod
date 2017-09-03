@@ -29,7 +29,11 @@ package neo
 // several messages and does not itself denote a separate message, its
 // definition is prefixed with `//neo:proto typeonly` comment.
 //
-// XXX neo:proto answerto x?	(btw just needs "answer" flag)
+// The order of message definitions is significant - messages are assigned
+// message IDs in the same order they are defined.
+//
+// For compatibility with neo/py is a message should have its ID assigned with
+// "answer" bit set its definition is prefixed with `//neo:proto answer` comment.
 
 // TODO regroup messages definitions to stay more close to 1 communication topic
 // TODO document protocol itself better (who sends who what with which semantic)
@@ -60,7 +64,7 @@ const (
 
 	MAX_PACKET_SIZE = 0x4000000
 
-	RESPONSE_MASK   = 0x8000
+	answerBit	= 0x8000
 )
 
 type ErrorCode uint32
@@ -192,7 +196,7 @@ type Msg interface {
 	neoMsgDecode(data []byte) (nread int, err error)
 }
 
-// FIXME not pkt
+//neo:proto typeonly
 type Address struct {
 	Host string
 	Port uint16
@@ -303,7 +307,7 @@ type RequestIdentification struct {
 	IdTimestamp	float64
 }
 
-// XXX -> ReplyIdentification? RequestIdentification.Answer somehow ?
+//neo:proto answer
 type AcceptIdentification struct {
 	NodeType        NodeType        // XXX name
 	MyUUID		NodeUUID
