@@ -13,13 +13,13 @@ cluster=pygotest
 # M{py,go}
 # spawn master
 Mpy() {
-	# XXX --masters=?
 	# XXX --autostart=1 ?
-	neomaster --cluster=$cluster --bind=$Mbind -r 1 -p 1 --logfile=`pwd`/Mpy.log
+	neomaster --cluster=$cluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=`pwd`/Mpy.log &
 }
 
 Mgo() {
-	neo master -cluster=$cluster -bind=$Mbind -log_dir=`pwd`
+	exec -a Mgo \
+		neo --log_dir=`pwd` master -cluster=$cluster -bind=$Mbind
 }
 
 # TODO Spy
@@ -27,10 +27,14 @@ Mgo() {
 # Sgo <data>
 # spawn storage
 Sgo() {
-	neo storage -cluster=$cluster -bind=$Sbind -masters=$Mbind -log_dir=`pwd` $@
+	exec -a Sgo \
+		neo -log_dir=`pwd` storage -cluster=$cluster -bind=$Sbind -masters=$Mbind $@ &
 }
 
 
 
 # spawn Mpy + Sgo
-Mpy &
+Mpy
+Sgo ../../zodb/storage/fs1/testdata/1.fs
+
+wait
