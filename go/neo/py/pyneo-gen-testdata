@@ -49,6 +49,9 @@ noask('ObjectUndoSerial')
 noask('Pack')
 noask('CheckTIDRange')
 noask('CheckSerialRange')
+nonotify('PartitionCorrupted')
+noask('LastTransaction')
+noask('CheckCurrentSerial')
 
 _ = renames
 _['AskPrimary']                 = 'PrimaryMaster'

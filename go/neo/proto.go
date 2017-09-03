@@ -483,15 +483,6 @@ type AnswerTransactionFinished struct {
 	Tid     zodb.Tid
 }
 
-/* XXX move vvv
-// Notify that a transaction blocking a replication is now finished
-// M -> S
-type NotifyTransactionFinished struct {
-	TTID    zodb.Tid
-	MaxTID  zodb.Tid
-}
-*/
-
 // Lock information on a transaction. PM -> S.
 // Notify information on a transaction locked. S -> PM.
 type LockInformation struct {
@@ -810,26 +801,6 @@ type AnswerTIDsFrom struct {
 }
 
 
-/*
-// Verifies if given serial is current for object oid in the database, and
-// take a write lock on it (so that this state is not altered until
-// transaction ends).
-// Answer to AskCheckCurrentSerial.
-// Same structure as AnswerStoreObject, to handle the same way, except there
-// is nothing to invalidate in any client's cache.
-type CheckCurrentSerial struct {
-	Tid     zodb.Tid
-	Oid     zodb.Oid
-	Serial  zodb.Tid
-}
-
-// XXX answer_store_object ?	(was _answer = StoreObject._answer in py)
-type AnswerCheckCurrentSerial AnswerStoreObject
-//type AnswerCheckCurrentSerial struct {
-//	Conflict	bool
-//}
-*/
-
 // Request a pack at given TID.
 // C -> M
 // M -> S
@@ -918,6 +889,11 @@ type PartitionCorrupted struct {
 	CellList        []NodeUUID
 }
 
+// Notify that node is ready to serve requests.
+// S -> M
+type NotifyReady struct {
+}
+
 
 // Ask last committed TID.
 // C -> M
@@ -930,11 +906,31 @@ type AnswerLastTransaction struct {
 	Tid     zodb.Tid
 }
 
-
-// Notify that node is ready to serve requests.
-// S -> M
-type NotifyReady struct {
+// Verifies if given serial is current for object oid in the database, and
+// take a write lock on it (so that this state is not altered until
+// transaction ends).
+// Answer to AskCheckCurrentSerial.
+// Same structure as AnswerStoreObject, to handle the same way, except there
+// is nothing to invalidate in any client's cache.
+type CheckCurrentSerial struct {
+	Tid     zodb.Tid
+	Oid     zodb.Oid
+	Serial  zodb.Tid
 }
+
+type AnswerCheckCurrentSerial struct {
+	// was _answer = StoreObject._answer in py
+	// XXX can we do without embedding e.g. `type AnswerCheckCurrentSerial AnswerStoreObject` ?
+	AnswerStoreObject
+}
+
+// Notify that a transaction blocking a replication is now finished
+// M -> S
+type NotifyTransactionFinished struct {
+	TTID    zodb.Tid
+	MaxTID  zodb.Tid
+}
+
 
 // replication
 

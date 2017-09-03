@@ -3307,10 +3307,27 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 84. LastTransaction
+// 84. NotifyReady
+
+func (*NotifyReady) neoMsgCode() uint16 {
+	return 84
+}
+
+func (p *NotifyReady) neoMsgEncodedLen() int {
+	return 0
+}
+
+func (p *NotifyReady) neoMsgEncode(data []byte) {
+}
+
+func (p *NotifyReady) neoMsgDecode(data []byte) (int, error) {
+	return 0, nil
+}
+
+// 85. LastTransaction
 
 func (*LastTransaction) neoMsgCode() uint16 {
-	return 84
+	return 85
 }
 
 func (p *LastTransaction) neoMsgEncodedLen() int {
@@ -3324,10 +3341,10 @@ func (p *LastTransaction) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 85. AnswerLastTransaction
+// 86. AnswerLastTransaction
 
 func (*AnswerLastTransaction) neoMsgCode() uint16 {
-	return 85 | answerBit
+	return 86 | answerBit
 }
 
 func (p *AnswerLastTransaction) neoMsgEncodedLen() int {
@@ -3349,21 +3366,85 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 86. NotifyReady
+// 87. CheckCurrentSerial
 
-func (*NotifyReady) neoMsgCode() uint16 {
-	return 86
+func (*CheckCurrentSerial) neoMsgCode() uint16 {
+	return 87
 }
 
-func (p *NotifyReady) neoMsgEncodedLen() int {
-	return 0
+func (p *CheckCurrentSerial) neoMsgEncodedLen() int {
+	return 24
 }
 
-func (p *NotifyReady) neoMsgEncode(data []byte) {
+func (p *CheckCurrentSerial) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.Oid))
+	binary.BigEndian.PutUint64(data[16:], uint64(p.Serial))
 }
 
-func (p *NotifyReady) neoMsgDecode(data []byte) (int, error) {
-	return 0, nil
+func (p *CheckCurrentSerial) neoMsgDecode(data []byte) (int, error) {
+	if uint32(len(data)) < 24 {
+		goto overflow
+	}
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[8:]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	return 24, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 88. AnswerCheckCurrentSerial
+
+func (*AnswerCheckCurrentSerial) neoMsgCode() uint16 {
+	return 88 | answerBit
+}
+
+func (p *AnswerCheckCurrentSerial) neoMsgEncodedLen() int {
+	return 8
+}
+
+func (p *AnswerCheckCurrentSerial) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.AnswerStoreObject.Conflict))
+}
+
+func (p *AnswerCheckCurrentSerial) neoMsgDecode(data []byte) (int, error) {
+	if uint32(len(data)) < 8 {
+		goto overflow
+	}
+	p.AnswerStoreObject.Conflict = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	return 8, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 89. NotifyTransactionFinished
+
+func (*NotifyTransactionFinished) neoMsgCode() uint16 {
+	return 89
+}
+
+func (p *NotifyTransactionFinished) neoMsgEncodedLen() int {
+	return 16
+}
+
+func (p *NotifyTransactionFinished) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
+}
+
+func (p *NotifyTransactionFinished) neoMsgDecode(data []byte) (int, error) {
+	if uint32(len(data)) < 16 {
+		goto overflow
+	}
+	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	return 16, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
 }
 
 // registry of message types
@@ -3452,7 +3533,10 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	81:             reflect.TypeOf(CheckSerialRange{}),
 	82 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
 	83:             reflect.TypeOf(PartitionCorrupted{}),
-	84:             reflect.TypeOf(LastTransaction{}),
-	85 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
-	86:             reflect.TypeOf(NotifyReady{}),
+	84:             reflect.TypeOf(NotifyReady{}),
+	85:             reflect.TypeOf(LastTransaction{}),
+	86 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
+	87:             reflect.TypeOf(CheckCurrentSerial{}),
+	88 | answerBit: reflect.TypeOf(AnswerCheckCurrentSerial{}),
+	89:             reflect.TypeOf(NotifyTransactionFinished{}),
 }
