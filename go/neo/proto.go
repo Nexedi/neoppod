@@ -638,23 +638,6 @@ type AnswerTIDs struct {
 	TIDList []zodb.Tid
 }
 
-/*
-// Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
-// C -> S.
-// Answer the requested TIDs. S -> C
-type TIDListFrom struct {
-	MinTID          zodb.Tid
-	MaxTID          zodb.Tid
-	Length          uint32  // PNumber
-	Partition       uint32  // PNumber
-}
-
-// XXX answer_tids ?
-type AnswerTIDListFrom struct {
-	TidList []zodb.Tid
-}
-*/
-
 // Ask information about a transaction. Any -> S.
 // Answer information (user, description) about a transaction. S -> Any.
 type TransactionInformation struct {
@@ -804,7 +787,6 @@ type ObjectUndoSerial struct {
 	OidList         []zodb.Oid
 }
 
-// XXX answer_undo_transaction ?
 type AnswerObjectUndoSerial struct {
 	ObjectTIDDict map[zodb.Oid]struct {
 		CurrentSerial   zodb.Tid
@@ -813,7 +795,22 @@ type AnswerObjectUndoSerial struct {
 	}
 }
 
+// Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
+// C -> S.
+// Answer the requested TIDs. S -> C
+type AskTIDsFrom struct {
+	MinTID          zodb.Tid
+	MaxTID          zodb.Tid
+	Length          uint32  // PNumber
+	Partition       uint32  // PNumber
+}
 
+type AnswerTIDsFrom struct {
+	TidList []zodb.Tid
+}
+
+
+/*
 // Verifies if given serial is current for object oid in the database, and
 // take a write lock on it (so that this state is not altered until
 // transaction ends).
@@ -831,6 +828,7 @@ type AnswerCheckCurrentSerial AnswerStoreObject
 //type AnswerCheckCurrentSerial struct {
 //	Conflict	bool
 //}
+*/
 
 // Request a pack at given TID.
 // C -> M

@@ -2878,39 +2878,89 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 73. CheckCurrentSerial
+// 73. AskTIDsFrom
 
-func (*CheckCurrentSerial) neoMsgCode() uint16 {
+func (*AskTIDsFrom) neoMsgCode() uint16 {
 	return 73
 }
 
-func (p *CheckCurrentSerial) neoMsgEncodedLen() int {
+func (p *AskTIDsFrom) neoMsgEncodedLen() int {
 	return 24
 }
 
-func (p *CheckCurrentSerial) neoMsgEncode(data []byte) {
-	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
-	binary.BigEndian.PutUint64(data[8:], uint64(p.Oid))
-	binary.BigEndian.PutUint64(data[16:], uint64(p.Serial))
+func (p *AskTIDsFrom) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.MinTID))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
+	binary.BigEndian.PutUint32(data[16:], p.Length)
+	binary.BigEndian.PutUint32(data[20:], p.Partition)
 }
 
-func (p *CheckCurrentSerial) neoMsgDecode(data []byte) (int, error) {
+func (p *AskTIDsFrom) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 24 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[8:]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.Length = binary.BigEndian.Uint32(data[16:])
+	p.Partition = binary.BigEndian.Uint32(data[20:])
 	return 24, nil
 
 overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 74. Pack
+// 74. AnswerTIDsFrom
+
+func (*AnswerTIDsFrom) neoMsgCode() uint16 {
+	return 74 | answerBit
+}
+
+func (p *AnswerTIDsFrom) neoMsgEncodedLen() int {
+	return 4 + len(p.TidList)*8
+}
+
+func (p *AnswerTIDsFrom) neoMsgEncode(data []byte) {
+	{
+		l := uint32(len(p.TidList))
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.TidList[i]
+			binary.BigEndian.PutUint64(data[0:], uint64((*a)))
+			data = data[8:]
+		}
+	}
+}
+
+func (p *AnswerTIDsFrom) neoMsgDecode(data []byte) (int, error) {
+	var nread uint32
+	if uint32(len(data)) < 4 {
+		goto overflow
+	}
+	{
+		l := binary.BigEndian.Uint32(data[0:])
+		data = data[4:]
+		if uint32(len(data)) < l*8 {
+			goto overflow
+		}
+		nread += l * 8
+		p.TidList = make([]zodb.Tid, l)
+		for i := 0; uint32(i) < l; i++ {
+			a := &p.TidList[i]
+			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			data = data[8:]
+		}
+	}
+	return 4 + int(nread), nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
+// 75. Pack
 
 func (*Pack) neoMsgCode() uint16 {
-	return 74
+	return 75
 }
 
 func (p *Pack) neoMsgEncodedLen() int {
@@ -2932,10 +2982,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 75. AnswerPack
+// 76. AnswerPack
 
 func (*AnswerPack) neoMsgCode() uint16 {
-	return 75 | answerBit
+	return 76 | answerBit
 }
 
 func (p *AnswerPack) neoMsgEncodedLen() int {
@@ -2957,10 +3007,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 76. CheckReplicas
+// 77. CheckReplicas
 
 func (*CheckReplicas) neoMsgCode() uint16 {
-	return 76
+	return 77
 }
 
 func (p *CheckReplicas) neoMsgEncodedLen() int {
@@ -3015,10 +3065,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 77. CheckPartition
+// 78. CheckPartition
 
 func (*CheckPartition) neoMsgCode() uint16 {
-	return 77
+	return 78
 }
 
 func (p *CheckPartition) neoMsgEncodedLen() int {
@@ -3081,10 +3131,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 78. CheckTIDRange
+// 79. CheckTIDRange
 
 func (*CheckTIDRange) neoMsgCode() uint16 {
-	return 78
+	return 79
 }
 
 func (p *CheckTIDRange) neoMsgEncodedLen() int {
@@ -3112,10 +3162,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 79. AnswerCheckTIDRange
+// 80. AnswerCheckTIDRange
 
 func (*AnswerCheckTIDRange) neoMsgCode() uint16 {
-	return 79 | answerBit
+	return 80 | answerBit
 }
 
 func (p *AnswerCheckTIDRange) neoMsgEncodedLen() int {
@@ -3141,10 +3191,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 80. CheckSerialRange
+// 81. CheckSerialRange
 
 func (*CheckSerialRange) neoMsgCode() uint16 {
-	return 80
+	return 81
 }
 
 func (p *CheckSerialRange) neoMsgEncodedLen() int {
@@ -3174,10 +3224,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 81. AnswerCheckSerialRange
+// 82. AnswerCheckSerialRange
 
 func (*AnswerCheckSerialRange) neoMsgCode() uint16 {
-	return 81 | answerBit
+	return 82 | answerBit
 }
 
 func (p *AnswerCheckSerialRange) neoMsgEncodedLen() int {
@@ -3207,10 +3257,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 82. PartitionCorrupted
+// 83. PartitionCorrupted
 
 func (*PartitionCorrupted) neoMsgCode() uint16 {
-	return 82
+	return 83
 }
 
 func (p *PartitionCorrupted) neoMsgEncodedLen() int {
@@ -3257,10 +3307,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 83. LastTransaction
+// 84. LastTransaction
 
 func (*LastTransaction) neoMsgCode() uint16 {
-	return 83
+	return 84
 }
 
 func (p *LastTransaction) neoMsgEncodedLen() int {
@@ -3274,10 +3324,10 @@ func (p *LastTransaction) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 84. AnswerLastTransaction
+// 85. AnswerLastTransaction
 
 func (*AnswerLastTransaction) neoMsgCode() uint16 {
-	return 84 | answerBit
+	return 85 | answerBit
 }
 
 func (p *AnswerLastTransaction) neoMsgEncodedLen() int {
@@ -3299,10 +3349,10 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 85. NotifyReady
+// 86. NotifyReady
 
 func (*NotifyReady) neoMsgCode() uint16 {
-	return 85
+	return 86
 }
 
 func (p *NotifyReady) neoMsgEncodedLen() int {
@@ -3391,17 +3441,18 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	70 | answerBit: reflect.TypeOf(AnswerClusterState{}),
 	71:             reflect.TypeOf(ObjectUndoSerial{}),
 	72 | answerBit: reflect.TypeOf(AnswerObjectUndoSerial{}),
-	73:             reflect.TypeOf(CheckCurrentSerial{}),
-	74:             reflect.TypeOf(Pack{}),
-	75 | answerBit: reflect.TypeOf(AnswerPack{}),
-	76:             reflect.TypeOf(CheckReplicas{}),
-	77:             reflect.TypeOf(CheckPartition{}),
-	78:             reflect.TypeOf(CheckTIDRange{}),
-	79 | answerBit: reflect.TypeOf(AnswerCheckTIDRange{}),
-	80:             reflect.TypeOf(CheckSerialRange{}),
-	81 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
-	82:             reflect.TypeOf(PartitionCorrupted{}),
-	83:             reflect.TypeOf(LastTransaction{}),
-	84 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
-	85:             reflect.TypeOf(NotifyReady{}),
+	73:             reflect.TypeOf(AskTIDsFrom{}),
+	74 | answerBit: reflect.TypeOf(AnswerTIDsFrom{}),
+	75:             reflect.TypeOf(Pack{}),
+	76 | answerBit: reflect.TypeOf(AnswerPack{}),
+	77:             reflect.TypeOf(CheckReplicas{}),
+	78:             reflect.TypeOf(CheckPartition{}),
+	79:             reflect.TypeOf(CheckTIDRange{}),
+	80 | answerBit: reflect.TypeOf(AnswerCheckTIDRange{}),
+	81:             reflect.TypeOf(CheckSerialRange{}),
+	82 | answerBit: reflect.TypeOf(AnswerCheckSerialRange{}),
+	83:             reflect.TypeOf(PartitionCorrupted{}),
+	84:             reflect.TypeOf(LastTransaction{}),
+	85 | answerBit: reflect.TypeOf(AnswerLastTransaction{}),
+	86:             reflect.TypeOf(NotifyReady{}),
 }

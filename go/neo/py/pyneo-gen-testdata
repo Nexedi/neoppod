@@ -45,6 +45,10 @@ noask('TransactionInformation')
 noask('ObjectHistory')
 noask('PartitionList')
 noask('NodeList')
+noask('ObjectUndoSerial')
+noask('Pack')
+noask('CheckTIDRange')
+noask('CheckSerialRange')
 
 _ = renames
 _['AskPrimary']                 = 'PrimaryMaster'
