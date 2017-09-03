@@ -249,7 +249,7 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 			return fmt.Errorf("unexpected message: %T", msg)
 
 		// M sends whole PT
-		case *neo.NotifyPartitionTable:
+		case *neo.SendPartitionTable:
 			pt := neo.PartTabFromDump(msg.PTid, msg.RowList)
 			c.node.PartTab = pt
 
@@ -404,7 +404,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 		req.Tid = neo.INVALID_TID
 	}
 
-	resp := neo.AnswerGetObject{}
+	resp := neo.AnswerObject{}
 	err = slink.Ask1(&req, &resp)
 	if err != nil {
 		return nil, 0, err	// XXX err context

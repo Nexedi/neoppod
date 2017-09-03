@@ -314,7 +314,7 @@ func TestMasterStorage(t *testing.T) {
 	// M starts verification
 	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterVerifying))
 
-	tc.Expect(conntx("m:2", "s:2", 4, &neo.NotifyPartitionTable{
+	tc.Expect(conntx("m:2", "s:2", 4, &neo.SendPartitionTable{
 		PTid:		1,
 		RowList:	[]neo.RowInfo{
 			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
@@ -461,7 +461,7 @@ func TestMasterStorage(t *testing.T) {
 		Tid:	xid1.Tid,
 		Serial: neo.INVALID_TID,
 	}))
-	tc.Expect(conntx("s:3", "c:2", 3, &neo.AnswerGetObject{
+	tc.Expect(conntx("s:3", "c:2", 3, &neo.AnswerObject{
 		Oid:		xid1.Oid,
 		Serial:		serial1,
 		NextSerial:	0,		// XXX

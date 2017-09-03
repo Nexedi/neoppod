@@ -265,7 +265,7 @@ func (stor *Storage) m1initialize(ctx context.Context, mlink *neo.NodeLink) (req
 
 			err = req.Reply(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
 
-		case *neo.NotifyPartitionTable:
+		case *neo.SendPartitionTable:
 			// TODO M sends us whole PT -> save locally
 
 		case *neo.NotifyPartitionChanges:
@@ -332,7 +332,7 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err er
 		case *neo.StopOperation:
 			return fmt.Errorf("stop requested")
 
-		// XXX NotifyPartitionTable?
+		// XXX SendPartitionTable?
 		// XXX NotifyPartitionChanges?
 
 		case *neo.NotifyNodeInformation:
@@ -479,7 +479,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			return neo.ErrEncode(err)
 		}
 
-		return &neo.AnswerGetObject{
+		return &neo.AnswerObject{
 			Oid:	xid.Oid,
 			Serial: tid,
 

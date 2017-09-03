@@ -691,7 +691,7 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 	defer task.Runningf(&ctx, "%s: stor verify", slink)(&err)
 
 	// send just recovered parttab so storage saves it
-	err = slink.Send1(&neo.NotifyPartitionTable{
+	err = slink.Send1(&neo.SendPartitionTable{
 		PTid:    pt.PTid,
 		RowList: pt.Dump(),
 	})
