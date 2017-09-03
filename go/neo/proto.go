@@ -1013,3 +1013,10 @@ type AddObject struct {
 	Data	    []byte	// TODO from pool, separately (?)
 	DataSerial  zodb.Tid
 }
+
+// Request DB to be truncated. Also used to leave backup mode.
+type Truncate struct {
+	Tid zodb.Tid
+
+	// XXX _answer = Error ?
+}

@@ -299,7 +299,7 @@ import (
 			}
 
 			fmt.Fprintf(&buf, "// %d. %s", msgSerial, typename)
-			if specAnnotation.answer {
+			if msgCode.answer {
 				fmt.Fprintf(&buf, " (answer)")
 			}
 			fmt.Fprintf(&buf, "\n\n")

@@ -224,7 +224,7 @@ func (p *PrimaryMaster) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 7. AnswerPrimary
+// 7. AnswerPrimary (answer)
 
 func (*AnswerPrimary) neoMsgCode() uint16 {
 	return 7 | answerBit
@@ -418,7 +418,7 @@ func (p *Recovery) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 11. AnswerRecovery
+// 11. AnswerRecovery (answer)
 
 func (*AnswerRecovery) neoMsgCode() uint16 {
 	return 11 | answerBit
@@ -464,7 +464,7 @@ func (p *LastIDs) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 13. AnswerLastIDs
+// 13. AnswerLastIDs (answer)
 
 func (*AnswerLastIDs) neoMsgCode() uint16 {
 	return 13 | answerBit
@@ -508,7 +508,7 @@ func (p *AskPartitionTable) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 15. AnswerPartitionTable
+// 15. AnswerPartitionTable (answer)
 
 func (*AnswerPartitionTable) neoMsgCode() uint16 {
 	return 15 | answerBit
@@ -815,7 +815,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 21. AnswerUnfinishedTransactions
+// 21. AnswerUnfinishedTransactions (answer)
 
 func (*AnswerUnfinishedTransactions) neoMsgCode() uint16 {
 	return 21 | answerBit
@@ -882,7 +882,7 @@ func (p *LockedTransactions) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 23. AnswerLockedTransactions
+// 23. AnswerLockedTransactions (answer)
 
 func (*AnswerLockedTransactions) neoMsgCode() uint16 {
 	return 23 | answerBit
@@ -961,7 +961,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 25. AnswerFinalTID
+// 25. AnswerFinalTID (answer)
 
 func (*AnswerFinalTID) neoMsgCode() uint16 {
 	return 25 | answerBit
@@ -1038,7 +1038,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 28. AnswerBeginTransaction
+// 28. AnswerBeginTransaction (answer)
 
 func (*AnswerBeginTransaction) neoMsgCode() uint16 {
 	return 28 | answerBit
@@ -1187,7 +1187,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 31. AnswerTransactionFinished
+// 31. AnswerTransactionFinished (answer)
 
 func (*AnswerTransactionFinished) neoMsgCode() uint16 {
 	return 31 | answerBit
@@ -1241,7 +1241,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 33. AnswerInformationLocked
+// 33. AnswerInformationLocked (answer)
 
 func (*AnswerInformationLocked) neoMsgCode() uint16 {
 	return 33 | answerBit
@@ -1366,7 +1366,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 37. AnswerNewOIDs
+// 37. AnswerNewOIDs (answer)
 
 func (*AnswerNewOIDs) neoMsgCode() uint16 {
 	return 37 | answerBit
@@ -1468,7 +1468,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 40. AnswerRebaseTransaction
+// 40. AnswerRebaseTransaction (answer)
 
 func (*AnswerRebaseTransaction) neoMsgCode() uint16 {
 	return 40 | answerBit
@@ -1543,7 +1543,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 42. AnswerRebaseObject
+// 42. AnswerRebaseObject (answer)
 
 func (*AnswerRebaseObject) neoMsgCode() uint16 {
 	return 42 | answerBit
@@ -1647,7 +1647,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 44. AnswerStoreObject
+// 44. AnswerStoreObject (answer)
 
 func (*AnswerStoreObject) neoMsgCode() uint16 {
 	return 44 | answerBit
@@ -1823,7 +1823,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 47. AnswerStoreTransaction
+// 47. AnswerStoreTransaction (answer)
 
 func (*AnswerStoreTransaction) neoMsgCode() uint16 {
 	return 47 | answerBit
@@ -1865,7 +1865,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 49. AnswerVoteTransaction
+// 49. AnswerVoteTransaction (answer)
 
 func (*AnswerVoteTransaction) neoMsgCode() uint16 {
 	return 49 | answerBit
@@ -1911,7 +1911,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 51. AnswerObject
+// 51. AnswerObject (answer)
 
 func (*AnswerObject) neoMsgCode() uint16 {
 	return 51 | answerBit
@@ -1994,7 +1994,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 53. AnswerTIDs
+// 53. AnswerTIDs (answer)
 
 func (*AnswerTIDs) neoMsgCode() uint16 {
 	return 53 | answerBit
@@ -2067,7 +2067,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 55. AnswerTransactionInformation
+// 55. AnswerTransactionInformation (answer)
 
 func (*AnswerTransactionInformation) neoMsgCode() uint16 {
 	return 55 | answerBit
@@ -2199,7 +2199,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 57. AnswerObjectHistory
+// 57. AnswerObjectHistory (answer)
 
 func (*AnswerObjectHistory) neoMsgCode() uint16 {
 	return 57 | answerBit
@@ -2283,7 +2283,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 59. AnswerPartitionList
+// 59. AnswerPartitionList (answer)
 
 func (*AnswerPartitionList) neoMsgCode() uint16 {
 	return 59 | answerBit
@@ -2388,7 +2388,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 61. AnswerNodeList
+// 61. AnswerNodeList (answer)
 
 func (*AnswerNodeList) neoMsgCode() uint16 {
 	return 61 | answerBit
@@ -2731,7 +2731,7 @@ func (p *AskClusterState) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 70. AnswerClusterState
+// 70. AnswerClusterState (answer)
 
 func (*AnswerClusterState) neoMsgCode() uint16 {
 	return 70 | answerBit
@@ -2810,7 +2810,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 72. AnswerObjectUndoSerial
+// 72. AnswerObjectUndoSerial (answer)
 
 func (*AnswerObjectUndoSerial) neoMsgCode() uint16 {
 	return 72 | answerBit
@@ -2909,7 +2909,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 74. AnswerTIDsFrom
+// 74. AnswerTIDsFrom (answer)
 
 func (*AnswerTIDsFrom) neoMsgCode() uint16 {
 	return 74 | answerBit
@@ -2982,7 +2982,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 76. AnswerPack
+// 76. AnswerPack (answer)
 
 func (*AnswerPack) neoMsgCode() uint16 {
 	return 76 | answerBit
@@ -3162,7 +3162,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 80. AnswerCheckTIDRange
+// 80. AnswerCheckTIDRange (answer)
 
 func (*AnswerCheckTIDRange) neoMsgCode() uint16 {
 	return 80 | answerBit
@@ -3224,7 +3224,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 82. AnswerCheckSerialRange
+// 82. AnswerCheckSerialRange (answer)
 
 func (*AnswerCheckSerialRange) neoMsgCode() uint16 {
 	return 82 | answerBit
@@ -3341,7 +3341,7 @@ func (p *LastTransaction) neoMsgDecode(data []byte) (int, error) {
 	return 0, nil
 }
 
-// 86. AnswerLastTransaction
+// 86. AnswerLastTransaction (answer)
 
 func (*AnswerLastTransaction) neoMsgCode() uint16 {
 	return 86 | answerBit
@@ -3395,7 +3395,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 88. AnswerCheckCurrentSerial
+// 88. AnswerCheckCurrentSerial (answer)
 
 func (*AnswerCheckCurrentSerial) neoMsgCode() uint16 {
 	return 88 | answerBit
@@ -3621,7 +3621,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 93. AnswerFetchTransactions
+// 93. AnswerFetchTransactions (answer)
 
 func (*AnswerFetchTransactions) neoMsgCode() uint16 {
 	return 93 | answerBit
@@ -3764,7 +3764,7 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 95. AnswerFetchObjects
+// 95. AnswerFetchObjects (answer)
 
 func (*AnswerFetchObjects) neoMsgCode() uint16 {
 	return 95 | answerBit
@@ -4008,6 +4008,31 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
+// 98. Truncate
+
+func (*Truncate) neoMsgCode() uint16 {
+	return 98
+}
+
+func (p *Truncate) neoMsgEncodedLen() int {
+	return 8
+}
+
+func (p *Truncate) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.Tid))
+}
+
+func (p *Truncate) neoMsgDecode(data []byte) (int, error) {
+	if uint32(len(data)) < 8 {
+		goto overflow
+	}
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	return 8, nil
+
+overflow:
+	return 0, ErrDecodeOverflow
+}
+
 // registry of message types
 var msgTypeRegistry = map[uint16]reflect.Type{
 	0 | answerBit:  reflect.TypeOf(Error{}),
@@ -4108,4 +4133,5 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	95 | answerBit: reflect.TypeOf(AnswerFetchObjects{}),
 	96:             reflect.TypeOf(AddTransaction{}),
 	97:             reflect.TypeOf(AddObject{}),
+	98:             reflect.TypeOf(Truncate{}),
 }
