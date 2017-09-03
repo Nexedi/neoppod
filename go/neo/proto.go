@@ -164,7 +164,7 @@ type Msg interface {
 	neoMsgDecode(data []byte) (nread int, err error)
 }
 
-
+// FIXME not pkt
 type Address struct {
 	Host string
 	Port uint16
@@ -233,6 +233,7 @@ func float64_NEODecode(b []byte) float64 {
 }
 
 // NodeInfo is information about a node
+// FIXME not pkt
 type NodeInfo struct {
 	Type		NodeType
 	Addr		Address		// serving address
@@ -241,11 +242,13 @@ type NodeInfo struct {
 	IdTimestamp	float64	// FIXME clarify semantic where it is used
 }
 
+// FIXME not pkt
 type CellInfo struct {
 	UUID  NodeUUID
 	State CellState
 }
 
+// FIXME not pkt
 type RowInfo struct {
 	Offset   uint32		// PNumber	XXX -> Pid
 	CellList []CellInfo
@@ -256,6 +259,7 @@ type RowInfo struct {
 // Error is a special type of message, because this can be sent against
 // any other message, even if such a message does not expect a reply
 // usually. Any -> Any.
+// FIXME -> |RESPONSE_MASK
 type Error struct {
 	Code    ErrorCode  // PNumber
 	Message string
@@ -272,6 +276,7 @@ type CloseClient struct {
 
 // Request a node identification. This must be the first message for any
 // connection. Any -> Any.
+// XXX must go before ping
 type RequestIdentification struct {
 	NodeType        NodeType        // XXX name
 	UUID		NodeUUID

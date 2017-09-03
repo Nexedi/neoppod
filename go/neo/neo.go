@@ -109,6 +109,7 @@ func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_
 		return nil, nil, err
 	}
 
+	log.Info(ctx, "dialed ok; requesting identification...")
 	defer xerr.Contextf(&err, "%s: request identification", link)
 	// close link on error or FIXME: ctx cancel
 	//cleanup := xio.CloseWhenDone(ctx, link)
