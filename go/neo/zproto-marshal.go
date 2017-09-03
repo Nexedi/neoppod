@@ -1187,26 +1187,26 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 31. AnswerFinishTransaction
+// 31. AnswerTransactionFinished
 
-func (*AnswerFinishTransaction) neoMsgCode() uint16 {
+func (*AnswerTransactionFinished) neoMsgCode() uint16 {
 	return 31 | answerBit
 }
 
-func (p *AnswerFinishTransaction) neoMsgEncodedLen() int {
+func (p *AnswerTransactionFinished) neoMsgEncodedLen() int {
 	return 16
 }
 
-func (p *AnswerFinishTransaction) neoMsgEncode(data []byte) {
-	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
+func (p *AnswerTransactionFinished) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.TTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
 }
 
-func (p *AnswerFinishTransaction) neoMsgDecode(data []byte) (int, error) {
+func (p *AnswerTransactionFinished) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
-	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
 	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
 	return 16, nil
 
@@ -1214,48 +1214,48 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 32. NotifyTransactionFinished
+// 32. LockInformation
 
-func (*NotifyTransactionFinished) neoMsgCode() uint16 {
+func (*LockInformation) neoMsgCode() uint16 {
 	return 32
 }
 
-func (p *NotifyTransactionFinished) neoMsgEncodedLen() int {
+func (p *LockInformation) neoMsgEncodedLen() int {
 	return 16
 }
 
-func (p *NotifyTransactionFinished) neoMsgEncode(data []byte) {
-	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
-	binary.BigEndian.PutUint64(data[8:], uint64(p.MaxTID))
+func (p *LockInformation) neoMsgEncode(data []byte) {
+	binary.BigEndian.PutUint64(data[0:], uint64(p.Ttid))
+	binary.BigEndian.PutUint64(data[8:], uint64(p.Tid))
 }
 
-func (p *NotifyTransactionFinished) neoMsgDecode(data []byte) (int, error) {
+func (p *LockInformation) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
-	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.Ttid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
 	return 16, nil
 
 overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 33. AnswerLockInformation
+// 33. AnswerInformationLocked
 
-func (*AnswerLockInformation) neoMsgCode() uint16 {
+func (*AnswerInformationLocked) neoMsgCode() uint16 {
 	return 33 | answerBit
 }
 
-func (p *AnswerLockInformation) neoMsgEncodedLen() int {
+func (p *AnswerInformationLocked) neoMsgEncodedLen() int {
 	return 8
 }
 
-func (p *AnswerLockInformation) neoMsgEncode(data []byte) {
+func (p *AnswerInformationLocked) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Ttid))
 }
 
-func (p *AnswerLockInformation) neoMsgDecode(data []byte) (int, error) {
+func (p *AnswerInformationLocked) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -3470,9 +3470,9 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	28 | answerBit: reflect.TypeOf(AnswerBeginTransaction{}),
 	29:             reflect.TypeOf(FailedVote{}),
 	30:             reflect.TypeOf(FinishTransaction{}),
-	31 | answerBit: reflect.TypeOf(AnswerFinishTransaction{}),
-	32:             reflect.TypeOf(NotifyTransactionFinished{}),
-	33 | answerBit: reflect.TypeOf(AnswerLockInformation{}),
+	31 | answerBit: reflect.TypeOf(AnswerTransactionFinished{}),
+	32:             reflect.TypeOf(LockInformation{}),
+	33 | answerBit: reflect.TypeOf(AnswerInformationLocked{}),
 	34:             reflect.TypeOf(InvalidateObjects{}),
 	35:             reflect.TypeOf(UnlockInformation{}),
 	36:             reflect.TypeOf(AskNewOIDs{}),

@@ -32,6 +32,9 @@ noask('LastIDs')
 noask('UnfinishedTransactions')
 noask('LockedTransactions')
 noask('FinalTID')
+noask('BeginTransaction')
+noask('FinishTransaction')
+noask('LockInformation')
 
 
 def main():

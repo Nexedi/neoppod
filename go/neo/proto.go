@@ -478,30 +478,28 @@ type FinishTransaction struct {
 	CheckedList []zodb.Oid
 }
 
-type AnswerFinishTransaction struct {
-	TTID    zodb.Tid
+type AnswerTransactionFinished struct {
+	TTid    zodb.Tid
 	Tid     zodb.Tid
 }
 
+/* XXX move vvv
 // Notify that a transaction blocking a replication is now finished
 // M -> S
 type NotifyTransactionFinished struct {
 	TTID    zodb.Tid
 	MaxTID  zodb.Tid
 }
+*/
 
-// XXX move vvv
-/*
 // Lock information on a transaction. PM -> S.
 // Notify information on a transaction locked. S -> PM.
 type LockInformation struct {
 	Ttid zodb.Tid
 	Tid  zodb.Tid
 }
-*/
 
-// XXX AnswerInformationLocked ?
-type AnswerLockInformation struct {
+type AnswerInformationLocked struct {
 	Ttid zodb.Tid
 }
 
