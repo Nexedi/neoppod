@@ -47,8 +47,10 @@ noask('PartitionList')
 noask('NodeList')
 
 _ = renames
-_['AskPrimary'] = 'PrimaryMaster'
-_['AskObject']  = 'GetObject'
+_['AskPrimary']                 = 'PrimaryMaster'
+_['AskObject']                  = 'GetObject'
+_['NotifyRepair']               = 'RepairOne'           # XXX ok?
+_['NotifyClusterInformation']   = 'NotifyClusterState'
 
 
 def main():

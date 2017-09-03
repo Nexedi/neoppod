@@ -735,10 +735,12 @@ type TweakPartitionTable struct {
 	// XXX _answer = Error
 }
 
+/*
 // Ask node information
 type NodeInformation struct {
 	// XXX _answer = PFEmpty
 }
+*/
 
 // Set the cluster state
 type SetClusterState struct {
@@ -747,7 +749,7 @@ type SetClusterState struct {
 	// XXX _answer = Error
 }
 
-// XXX only helper: should not be presented as packet
+//neo:proto typeonly
 type repairFlags struct {
 	DryRun   bool
 	// pruneOrphan bool
@@ -767,7 +769,6 @@ type RepairOne struct {
 }
 
 // Notify information about the cluster state
-// XXX = NotifyClusterInformation in py
 type NotifyClusterState struct {
 	State   ClusterState
 }
