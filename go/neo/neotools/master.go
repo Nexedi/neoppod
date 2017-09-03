@@ -35,15 +35,13 @@ import (
 const masterSummary = "run master node"
 
 // TODO options:
-// cluster, masterv ...
+// masterv ...
 
 func masterUsage(w io.Writer) {
 	fmt.Fprintf(w,
 `Usage: neo master [options]
 Run NEO master node.
 `)
-
-	// FIXME use w (see flags.SetOutput)
 }
 
 func masterMain(argv []string) {
@@ -55,7 +53,6 @@ func masterMain(argv []string) {
 	flags.Parse(argv[1:])
 
 	if *cluster == "" {
-		// XXX vvv -> die  or  log.Fatalf ?
 		zt.Fatal("cluster name must be provided")
 	}
 

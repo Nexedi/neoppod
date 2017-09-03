@@ -38,11 +38,13 @@ const storageSummary = "run storage node"
 
 func storageUsage(w io.Writer) {
 	fmt.Fprintf(w,
-`Usage: neo storage [options] zstor	XXX
+`Usage: neo storage [options] <data.fs>
 Run NEO storage node.
-`)
 
-	// FIXME use w (see flags.SetOutput)
+<data.fs> is a path to FileStorage v1 file.
+
+XXX currently storage is read-only.
+`)
 }
 
 // TODO set GOMAXPROCS *= N (a lot of file IO) + link
@@ -58,18 +60,15 @@ func storageMain(argv []string) {
 	flags.Parse(argv[1:])
 
 	if *cluster == "" {
-		// XXX vvv -> die  or  Fatalf ?
-		zt.Fatal(os.Stderr, "cluster name must be provided")
+		zt.Fatal("cluster name must be provided")
 	}
 
 	masterv := strings.Split(*masters, ",")
 	if len(masterv) == 0 {
-		fmt.Fprintf(os.Stderr, "master list must be provided")
-		zt.Exit(2)
+		zt.Fatal("master list must be provided")
 	}
 	if len(masterv) > 1 {
-		fmt.Fprintf(os.Stderr, "BUG neo/go POC currently supports only 1 master")
-		zt.Exit(2)
+		zt.Fatal("BUG neo/go POC currently supports only 1 master")
 	}
 
 	master := masterv[0]
@@ -81,7 +80,7 @@ func storageMain(argv []string) {
 	}
 
 	// XXX hack to use existing zodb storage for data
-	zstor, err := fs1.Open(context.Background(), argv[0])	// XXX context.Background -> ?
+	zstor, err := fs1.Open(context.Background(), argv[0])
 	if err != nil {
 		zt.Fatal(err)
 	}
