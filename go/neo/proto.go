@@ -491,12 +491,15 @@ type NotifyTransactionFinished struct {
 	MaxTID  zodb.Tid
 }
 
+// XXX move vvv
+/*
 // Lock information on a transaction. PM -> S.
 // Notify information on a transaction locked. S -> PM.
 type LockInformation struct {
 	Ttid zodb.Tid
 	Tid  zodb.Tid
 }
+*/
 
 // XXX AnswerInformationLocked ?
 type AnswerLockInformation struct {
@@ -517,12 +520,11 @@ type UnlockInformation struct {
 
 // Ask new object IDs. C -> PM.
 // Answer new object IDs. PM -> C.
-type GenerateOIDs struct {
+type AskNewOIDs struct {
 	NumOIDs uint32  // PNumber
 }
 
-// XXX answer_new_oids ?
-type AnswerGenerateOIDs struct {
+type AnswerNewOIDs struct {
 	OidList []zodb.Oid
 }
 
@@ -592,15 +594,17 @@ type StoreTransaction struct {
 	Description     string
 	Extension       string
 	OidList         []zodb.Oid
-	// TODO _answer = PFEmpty
 }
+
+type AnswerStoreTransaction struct {}
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type VoteTransaction struct {
 	Tid     zodb.Tid
-	// TODO _answer = PFEmpty
 }
+
+type AnswerVoteTransaction struct {}
 
 // Ask a stored object by its OID and a serial or a TID if given. If a serial
 // is specified, the specified revision of an object will be returned. If
