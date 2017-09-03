@@ -23,6 +23,7 @@
 def main():
     pyprotog = {}
     execfile('../../neo/lib/protocol.py', pyprotog)
+    pypacket  = pyprotog['Packet']
     pypackets = pyprotog['Packets']
 
     # dump to go what to expect
@@ -33,11 +34,31 @@ def main():
         emit("package neo")
 
         emit("\nvar pyMsgRegistry = map[uint16]string{")
-        pycodev = pypackets.keys()
-        pycodev.sort()
-        for pycode in pycodev:
-            pymsg = pypackets[pycode]
-            emit('\t%d:\t"%s",' % (pycode, pymsg.__name__))
+
+        # access packet structures by names they are defined under Packets
+        # class and thus in neo/py code which uses them.
+        #
+        # ( this is not the same as packet class name as e.g. currently
+        #   AcceptIdentification has class name AnswerRequestIdentification )
+        pypktv = []
+        for k in dir(pypackets):
+            v = getattr(pypackets, k)
+            if isinstance(v, type) and issubclass(v, pypacket):
+                v._x_use_name = k
+                pypktv.append(v)
+
+        # order by message code
+        pypktv.sort(key=lambda pkt: pkt._code)
+
+        for pypkt in pypktv:
+            emit('\t%d:\t"%s",' % (pypkt._code, pypkt._x_use_name))
+
+        #pycodev = pypackets.keys()
+        #pycodev.sort()
+        #for pycode in pycodev:
+        #    pymsg = pypackets[pycode]
+        #    emit('\t%d:\t"%s",' % (pycode, pymsg.__name__))
+
         emit("}")
 
 if __name__ == '__main__':
