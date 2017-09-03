@@ -23,7 +23,11 @@ package neo
 
 // This file defines everything that relates to messages on the wire.
 // In particular every type that is included in a message is defined here as well.
-// XXX neo:proto justtype
+//
+// By default a structure defined in this file becomes a separate network message.
+// If a structure is defined only to represent basic type that is included in
+// several messages and does not itself denote a separate message, its
+// definition is prefixed with `//neo:proto typeonly` comment.
 // XXX neo:proto answerto x?	(btw just needs "answer" flag)
 
 // TODO regroup messages definitions to stay more close to 1 communication topic
@@ -256,7 +260,7 @@ func float64_NEODecode(b []byte) float64 {
 }
 
 // NodeInfo is information about a node
-// FIXME not pkt
+//neo:proto typeonly
 type NodeInfo struct {
 	Type		NodeType
 	Addr		Address		// serving address
@@ -265,13 +269,13 @@ type NodeInfo struct {
 	IdTimestamp	float64	// FIXME clarify semantic where it is used
 }
 
-// FIXME not pkt
+//neo:proto typeonly
 type CellInfo struct {
 	UUID  NodeUUID
 	State CellState
 }
 
-// FIXME not pkt
+//neo:proto typeonly
 type RowInfo struct {
 	Offset   uint32		// PNumber	XXX -> Pid
 	CellList []CellInfo

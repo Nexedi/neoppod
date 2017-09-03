@@ -144,7 +144,7 @@ func loadPkg(pkgPath string, sources ...string) *types.Package {
 
 	// parse
 	for _, src := range sources {
-		f, err := parser.ParseFile(fset, src, nil, 0)
+		f, err := parser.ParseFile(fset, src, nil, parser.ParseComments)
 		if err != nil {
 			log.Fatalf("parse: %v", err)
 		}
@@ -163,6 +163,39 @@ func loadPkg(pkgPath string, sources ...string) *types.Package {
 	}
 	pkgMap[pkgPath] = pkg
 	return pkg
+}
+
+// `//neo:proto ...` annotations
+type Annotation struct {
+	typeonly bool
+}
+
+// parse checks doc for specific comment annotations and, if present, loads them.
+func (a *Annotation) parse(doc *ast.CommentGroup) {
+	if doc == nil {
+		return // for many types .Doc = nil if there is no comments
+	}
+
+	for _, comment := range doc.List {
+		cpos := pos(comment)
+		if !(cpos.Column == 1 && strings.HasPrefix(comment.Text, "//neo:proto ")) {
+			continue
+		}
+
+		__ := strings.SplitN(comment.Text, " ", 2)
+		arg := __[1]
+
+		switch arg {
+		case "typeonly":
+			if a.typeonly {
+				log.Fatalf("%v: duplicate typeonly", cpos)
+			}
+			a.typeonly = true
+
+		default:
+			log.Fatalf("%v: unknown neo:proto directive %q", cpos, arg)
+		}
+	}
 }
 
 func main() {
@@ -206,29 +239,41 @@ import (
 		//ast.Print(fset, gendecl)
 		//continue
 
+		// `//neo:proto ...` annotations for whole decl
+		// (e.g. <here> type ( t1 struct{...}; t2 struct{...} )
+		declAnnotation := Annotation{}
+		declAnnotation.parse(gendecl.Doc)
+
 		for _, spec := range gendecl.Specs {
 			typespec := spec.(*ast.TypeSpec) // must be because tok = TYPE
 			typename := typespec.Name.Name
 
-			switch typespec.Type.(type) {
-			default:
-				// we are only interested in struct types
+			// we are only interested in struct types
+			if _, ok := typespec.Type.(*ast.StructType); !ok {
 				continue
-
-			case *ast.StructType:
-				fmt.Fprintf(&buf, "// %d. %s\n\n", msgCode, typename)
-
-				buf.emit("func (*%s) neoMsgCode() uint16 {", typename)
-				buf.emit("return %d", msgCode)
-				buf.emit("}\n")
-
-				buf.WriteString(generateCodecCode(typespec, &sizer{}))
-				buf.WriteString(generateCodecCode(typespec, &encoder{}))
-				buf.WriteString(generateCodecCode(typespec, &decoder{}))
-
-				msgTypeRegistry[msgCode] = typename
-				msgCode++
 			}
+
+			// `//neo:proto ...` annotation for this particular type
+			specAnnotation := declAnnotation  // inheriting from decl
+			specAnnotation.parse(typespec.Doc)
+
+			// type only -> don't generate message interface for it
+			if specAnnotation.typeonly {
+				continue
+			}
+
+			fmt.Fprintf(&buf, "// %d. %s\n\n", msgCode, typename)
+
+			buf.emit("func (*%s) neoMsgCode() uint16 {", typename)
+			buf.emit("return %d", msgCode)
+			buf.emit("}\n")
+
+			buf.WriteString(generateCodecCode(typespec, &sizer{}))
+			buf.WriteString(generateCodecCode(typespec, &encoder{}))
+			buf.WriteString(generateCodecCode(typespec, &decoder{}))
+
+			msgTypeRegistry[msgCode] = typename
+			msgCode++
 		}
 	}
 
