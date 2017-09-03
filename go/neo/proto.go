@@ -28,6 +28,7 @@ package neo
 // If a structure is defined only to represent basic type that is included in
 // several messages and does not itself denote a separate message, its
 // definition is prefixed with `//neo:proto typeonly` comment.
+//
 // XXX neo:proto answerto x?	(btw just needs "answer" flag)
 
 // TODO regroup messages definitions to stay more close to 1 communication topic
@@ -292,18 +293,8 @@ type Error struct {
 	Message string
 }
 
-// Check if a peer is still alive. Any -> Any.
-type Ping struct {
-	// TODO _answer = PFEmpty
-}
-
-// Tell peer it can close the connection if it has finished with us. Any -> Any
-type CloseClient struct {
-}
-
 // Request a node identification. This must be the first message for any
 // connection. Any -> Any.
-// XXX must go before ping
 type RequestIdentification struct {
 	NodeType        NodeType        // XXX name
 	UUID		NodeUUID
@@ -319,6 +310,15 @@ type AcceptIdentification struct {
 	NumPartitions   uint32          // PNumber
 	NumReplicas     uint32          // PNumber
 	YourUUID	NodeUUID
+}
+
+// Check if a peer is still alive. Any -> Any.
+type Ping struct {
+	// TODO _answer = PFEmpty
+}
+
+// Tell peer it can close the connection if it has finished with us. Any -> Any
+type CloseClient struct {
 }
 
 // Ask current primary master's uuid. CTL -> A.
