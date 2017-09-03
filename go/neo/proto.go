@@ -1,7 +1,30 @@
+// Copyright (C) 2006-2017  Nexedi SA and Contributors.
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 3, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Free Software licenses or any of the Open Source
+// Initiative approved licenses and Convey the resulting work. Corresponding
+// source of such a combination shall include the source code for all other
+// software used.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
+// See https://www.nexedi.com/licensing for rationale and options.
+
 //go:generate sh -c "go run protogen.go >zproto-marshal.go"
 
 package neo
 // protocol definition
+
+// This file defines everything that relates to messages on the wire.
+// In particular every type that is included in a message is defined here as well.
+// XXX neo:proto justtype
+// XXX neo:proto answerto x?	(btw just needs "answer" flag)
 
 // TODO regroup messages definitions to stay more close to 1 communication topic
 // TODO document protocol itself better (who sends who what with which semantic)
