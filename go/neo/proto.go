@@ -511,7 +511,8 @@ type InvalidateObjects struct {
 }
 
 // Unlock information on a transaction. PM -> S.
-type UnlockInformation struct {
+// XXX -> InformationUnlocked?
+type NotifyUnlockInformation struct {
 	TTID    zodb.Tid
 }
 
@@ -528,7 +529,8 @@ type AnswerNewOIDs struct {
 
 // Ask master to generate a new TTID that will be used by the client
 // to rebase a transaction. S -> PM -> C
-type Deadlock struct {
+// XXX -> Deadlocked?
+type NotifyDeadlock struct {
 	TTid		zodb.Tid
 	LockingTid	zodb.Tid
 }

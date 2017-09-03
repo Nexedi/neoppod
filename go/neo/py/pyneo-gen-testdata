@@ -24,8 +24,8 @@
 # pyname -> goname
 renames = {}
 
-def noask(name):
-    renames['Ask'+name] = name
+def noask(name):    renames['Ask'+name] = name
+def nonotify(name): renames['Notify'+name] = name
 
 noask('Recovery')
 noask('LastIDs')
@@ -35,6 +35,12 @@ noask('FinalTID')
 noask('BeginTransaction')
 noask('FinishTransaction')
 noask('LockInformation')
+#nonotify('UnlockInformation')   # XXX ok?
+noask('RebaseTransaction')
+noask('RebaseObject')
+noask('StoreObject')
+noask('StoreTransaction')
+noask('VoteTransaction')
 
 
 def main():

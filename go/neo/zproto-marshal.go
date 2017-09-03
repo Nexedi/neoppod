@@ -1316,21 +1316,21 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 35. UnlockInformation
+// 35. NotifyUnlockInformation
 
-func (*UnlockInformation) neoMsgCode() uint16 {
+func (*NotifyUnlockInformation) neoMsgCode() uint16 {
 	return 35
 }
 
-func (p *UnlockInformation) neoMsgEncodedLen() int {
+func (p *NotifyUnlockInformation) neoMsgEncodedLen() int {
 	return 8
 }
 
-func (p *UnlockInformation) neoMsgEncode(data []byte) {
+func (p *NotifyUnlockInformation) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTID))
 }
 
-func (p *UnlockInformation) neoMsgDecode(data []byte) (int, error) {
+func (p *NotifyUnlockInformation) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 8 {
 		goto overflow
 	}
@@ -1414,22 +1414,22 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 38. Deadlock
+// 38. NotifyDeadlock
 
-func (*Deadlock) neoMsgCode() uint16 {
+func (*NotifyDeadlock) neoMsgCode() uint16 {
 	return 38
 }
 
-func (p *Deadlock) neoMsgEncodedLen() int {
+func (p *NotifyDeadlock) neoMsgEncodedLen() int {
 	return 16
 }
 
-func (p *Deadlock) neoMsgEncode(data []byte) {
+func (p *NotifyDeadlock) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.TTid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.LockingTid))
 }
 
-func (p *Deadlock) neoMsgDecode(data []byte) (int, error) {
+func (p *NotifyDeadlock) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 16 {
 		goto overflow
 	}
@@ -3474,10 +3474,10 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	32:             reflect.TypeOf(LockInformation{}),
 	33 | answerBit: reflect.TypeOf(AnswerInformationLocked{}),
 	34:             reflect.TypeOf(InvalidateObjects{}),
-	35:             reflect.TypeOf(UnlockInformation{}),
+	35:             reflect.TypeOf(NotifyUnlockInformation{}),
 	36:             reflect.TypeOf(AskNewOIDs{}),
 	37 | answerBit: reflect.TypeOf(AnswerNewOIDs{}),
-	38:             reflect.TypeOf(Deadlock{}),
+	38:             reflect.TypeOf(NotifyDeadlock{}),
 	39:             reflect.TypeOf(RebaseTransaction{}),
 	40 | answerBit: reflect.TypeOf(AnswerRebaseTransaction{}),
 	41:             reflect.TypeOf(RebaseObject{}),
