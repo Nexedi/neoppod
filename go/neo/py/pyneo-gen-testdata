@@ -42,6 +42,9 @@ noask('StoreObject')
 noask('StoreTransaction')
 noask('VoteTransaction')
 
+_ = renames
+_['AskObject']  = 'GetObject'
+
 
 def main():
     pyprotog = {}

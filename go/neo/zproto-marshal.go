@@ -1911,17 +1911,17 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 51. AnswerGetObject
+// 51. AnswerObject
 
-func (*AnswerGetObject) neoMsgCode() uint16 {
+func (*AnswerObject) neoMsgCode() uint16 {
 	return 51 | answerBit
 }
 
-func (p *AnswerGetObject) neoMsgEncodedLen() int {
+func (p *AnswerObject) neoMsgEncodedLen() int {
 	return 57 + len(p.Data)
 }
 
-func (p *AnswerGetObject) neoMsgEncode(data []byte) {
+func (p *AnswerObject) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.Oid))
 	binary.BigEndian.PutUint64(data[8:], uint64(p.Serial))
 	binary.BigEndian.PutUint64(data[16:], uint64(p.NextSerial))
@@ -1937,7 +1937,7 @@ func (p *AnswerGetObject) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))
 }
 
-func (p *AnswerGetObject) neoMsgDecode(data []byte) (int, error) {
+func (p *AnswerObject) neoMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 49 {
 		goto overflow
@@ -1965,23 +1965,23 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 52. TIDList
+// 52. AskTIDs
 
-func (*TIDList) neoMsgCode() uint16 {
+func (*AskTIDs) neoMsgCode() uint16 {
 	return 52
 }
 
-func (p *TIDList) neoMsgEncodedLen() int {
+func (p *AskTIDs) neoMsgEncodedLen() int {
 	return 20
 }
 
-func (p *TIDList) neoMsgEncode(data []byte) {
+func (p *AskTIDs) neoMsgEncode(data []byte) {
 	binary.BigEndian.PutUint64(data[0:], p.First)
 	binary.BigEndian.PutUint64(data[8:], p.Last)
 	binary.BigEndian.PutUint32(data[16:], p.Partition)
 }
 
-func (p *TIDList) neoMsgDecode(data []byte) (int, error) {
+func (p *AskTIDs) neoMsgDecode(data []byte) (int, error) {
 	if uint32(len(data)) < 20 {
 		goto overflow
 	}
@@ -1994,17 +1994,17 @@ overflow:
 	return 0, ErrDecodeOverflow
 }
 
-// 53. AnswerTIDList
+// 53. AnswerTIDs
 
-func (*AnswerTIDList) neoMsgCode() uint16 {
+func (*AnswerTIDs) neoMsgCode() uint16 {
 	return 53 | answerBit
 }
 
-func (p *AnswerTIDList) neoMsgEncodedLen() int {
+func (p *AnswerTIDs) neoMsgEncodedLen() int {
 	return 4 + len(p.TIDList)*8
 }
 
-func (p *AnswerTIDList) neoMsgEncode(data []byte) {
+func (p *AnswerTIDs) neoMsgEncode(data []byte) {
 	{
 		l := uint32(len(p.TIDList))
 		binary.BigEndian.PutUint32(data[0:], l)
@@ -2017,7 +2017,7 @@ func (p *AnswerTIDList) neoMsgEncode(data []byte) {
 	}
 }
 
-func (p *AnswerTIDList) neoMsgDecode(data []byte) (int, error) {
+func (p *AnswerTIDs) neoMsgDecode(data []byte) (int, error) {
 	var nread uint32
 	if uint32(len(data)) < 4 {
 		goto overflow
@@ -3490,9 +3490,9 @@ var msgTypeRegistry = map[uint16]reflect.Type{
 	48:             reflect.TypeOf(VoteTransaction{}),
 	49 | answerBit: reflect.TypeOf(AnswerVoteTransaction{}),
 	50:             reflect.TypeOf(GetObject{}),
-	51 | answerBit: reflect.TypeOf(AnswerGetObject{}),
-	52:             reflect.TypeOf(TIDList{}),
-	53 | answerBit: reflect.TypeOf(AnswerTIDList{}),
+	51 | answerBit: reflect.TypeOf(AnswerObject{}),
+	52:             reflect.TypeOf(AskTIDs{}),
+	53 | answerBit: reflect.TypeOf(AnswerTIDs{}),
 	54:             reflect.TypeOf(TIDListFrom{}),
 	55 | answerBit: reflect.TypeOf(AnswerTIDListFrom{}),
 	56:             reflect.TypeOf(TransactionInformation{}),

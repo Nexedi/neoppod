@@ -615,8 +615,7 @@ type GetObject struct {
 	Tid     zodb.Tid
 }
 
-// XXX answer_object ?
-type AnswerGetObject struct {
+type AnswerObject struct {
 	Oid             zodb.Oid
 	Serial		zodb.Tid	// XXX strictly is SerialStart/SerialEnd in proto.py
 	NextSerial      zodb.Tid	// XXX but there it is out of sync
@@ -629,14 +628,13 @@ type AnswerGetObject struct {
 // Ask for TIDs between a range of offsets. The order of TIDs is descending,
 // and the range is [first, last). C -> S.
 // Answer the requested TIDs. S -> C.
-type TIDList struct {
+type AskTIDs struct {
 	First           uint64  // PIndex       XXX this is TID actually ? -> no it is offset in list
 	Last            uint64  // PIndex       ----//----
 	Partition       uint32  // PNumber
 }
 
-// XXX answer_tids ?
-type AnswerTIDList struct {
+type AnswerTIDs struct {
 	TIDList []zodb.Tid
 }
 

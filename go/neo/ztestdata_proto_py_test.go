@@ -33,7 +33,7 @@ var pyMsgRegistry = map[uint16]string{
 	45:	"AbortTransaction",
 	46:	"StoreTransaction",
 	48:	"VoteTransaction",
-	50:	"AskObject",
+	50:	"GetObject",
 	52:	"AskTIDs",
 	54:	"AskTransactionInformation",
 	56:	"AskObjectHistory",
