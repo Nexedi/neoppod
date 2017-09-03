@@ -36,10 +36,18 @@ Sgo() {
 }
 
 
+# Apy
+# spawn admin
+Apy() {
+	exec -a Apy \
+		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind $@ &
+}
+
 
 # spawn Mpy + Sgo
 Mpy
 sleep 0.2 # XXX temp for debug: so master could start listening and first S connect try is not error
 Sgo ../../zodb/storage/fs1/testdata/1.fs
+Apy
 
 wait
