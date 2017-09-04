@@ -372,6 +372,7 @@ Tables
 	.value	str
 	(name, nid, partitions, ptid, replicas, version, zodb=pickle...)
 
+# partition table
 - pt
 	.rid	int	// = row id = part of oid space
 	.nid	int

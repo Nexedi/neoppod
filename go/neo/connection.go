@@ -742,7 +742,7 @@ func (nl *NodeLink) serveSend() {
 
 // ---- raw IO ----
 
-const dumpio = true
+const dumpio = false
 
 // sendPkt sends raw packet to peer
 // tx error, if any, is returned as is and is analyzed in serveSend
