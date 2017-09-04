@@ -154,9 +154,7 @@ EOF
 }
 
 xmysql() {
-	set -x
 	mysql --defaults-file=$mycnf "$@"
-	set +x
 }
 
 neopysql() {
@@ -203,14 +201,13 @@ gensqlite() {
 #Sgo $fs1/data.fs
 
 #gensqlite
-gensql
-
-exit
+#gensql
 
 
 #neopylite
-#time demo-zbigarray read neo://$cluster@$Mbind
-#xneoctl set cluster stopping
+neopysql
+time demo-zbigarray read neo://$cluster@$Mbind
+xneoctl set cluster stopping
 
 
 wait
