@@ -154,12 +154,15 @@ EOF
 }
 
 xmysql() {
-	mysql --defaults-file=$mycnf $@
+	set -x
+	mysql --defaults-file=$mycnf "$@"
+	set +x
 }
 
 neopysql() {
 	MDB
-	xmysql "CREATE DATABASE IF NOT EXISTS neo"
+	sleep 1	# XXX fragile
+	xmysql -e "CREATE DATABASE IF NOT EXISTS neo"
 
 	Mpy --autostart=1
 	Spy --adapter=MySQL --engine=InnoDB --database=root@neo$mysock
@@ -171,7 +174,8 @@ gensql() {
 	neopysql
 	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
 	xneoctl set cluster stopping
-	xmysql "SHUTDOWN"
+	sleep 1	# XXX fragile
+	xmysql -e "SHUTDOWN"
 	wait	# XXX fragile
 	sync
 }
@@ -200,6 +204,8 @@ gensqlite() {
 
 #gensqlite
 gensql
+
+exit
 
 
 #neopylite
