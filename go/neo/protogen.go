@@ -55,8 +55,11 @@ can do a good job the work is delegated to it.
 
 --------
 
-XXX also types registry tables are generated - document
+Also along the way types registry table is generated for
 
+	msgCode -> message type
+
+lookup needed in packet receive codepath.
 */
 
 package main
@@ -112,6 +115,9 @@ func typeName(typ types.Type) string {
 
 	return types.TypeString(typ, qf)
 }
+
+// type of neo.customCodec
+var neo_customCodec *types.Interface
 
 // bytes.Buffer + bell & whistles
 type Buffer struct {
@@ -238,7 +244,18 @@ func main() {
 
 	// go through proto.go and AST'ify & typecheck it
 	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go")
-	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go")
+	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go", "packed.go")
+
+	// extract neo.customCodec
+	cc := neoPkg.Scope().Lookup("customCodec")
+	if cc == nil {
+		log.Fatal("cannot find `customCodec`")
+	}
+	var ok bool
+	neo_customCodec, ok = cc.Type().Underlying().(*types.Interface)
+	if !ok {
+		log.Fatal("customCodec is not interface  (got %v)", cc.Type())
+	}
 
 	// prologue
 	f := fileMap["proto.go"]
@@ -1101,7 +1118,7 @@ func (d *decoder) genCustom(path string) {
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happened)
 func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
-	if types.Implements(typ, neoCustomXXX) {
+	if types.Implements(typ, neo_customCodec) {
 		codegen.genCustom(path)
 		return
 	}
