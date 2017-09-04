@@ -28,6 +28,7 @@ digraph {
 	Cpy_r_Sgo	[label=<C<sub>py</sub>  read S<sub>go</sub>>];
 	Cgo_r_Sgo	[label=<C<sub>go</sub>  read S<sub>go</sub>>];
 	Cgo_r_Spy	[label=<C<sub>go</sub>  read S<sub>py</sub>>];
+	Cleanup		[label="Cleanup history"];
 	Cpy_patch	[label=<py patch: ConnID py=go> style=filled fillcolor=lightyellow];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
 	Mmap_go		[label="io.ReaderAt via mmap"];
 	Protog_fix	[label="proto(go/py) compat fix"];
