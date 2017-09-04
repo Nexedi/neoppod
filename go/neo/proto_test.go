@@ -258,7 +258,7 @@ func TestMsgMarshal(t *testing.T) {
 			{CLIENT, Address{}, UUID(CLIENT, 1), RUNNING, 1504466245.925599}}},
 
 		 hex("41d66b15517b469d") + u32(1) +
-			u32(2) + u32(0) /* <- ø Address */ + hex("e0000001") + u32(2) +
+			u32(2) + u32(0) /* <- ø Address */ + hex("20000001") + u32(2) +
 			hex("41d66b15517b3d04"),
 		},
 

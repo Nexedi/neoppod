@@ -253,7 +253,7 @@ func (a *Address) neoDecode(b []byte) (uint32, bool) {
 		if len(b) < 2 {
 			return 0, false
 		}
-		a.Port = binary.BigEndian.Uint16(b[n:])
+		a.Port = binary.BigEndian.Uint16(b)
 		n += 2
 	} else {
 		a.Port = 0
