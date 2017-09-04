@@ -243,7 +243,7 @@ func (a *Address) neoEncode(b []byte) int {
 	return n
 }
 
-func (a *Address) neoDecode(b []byte) (int, bool) {
+func (a *Address) neoDecode(b []byte) (uint32, bool) {
 	n, ok := string_neoDecode(&a.Host, b)
 	if !ok {
 		return 0, false
@@ -1025,7 +1025,7 @@ type Truncate struct {
 type customCodec interface {
 	neoEncodedLen() int
 	neoEncode(buf []byte) (nwrote int)
-	neoDecode(data []byte) (nread int, ok bool)
+	neoDecode(data []byte) (nread uint32, ok bool)	// XXX uint32 or int here?
 }
 
 func byte2bool(b byte) bool {
@@ -1074,7 +1074,7 @@ func string_neoEncode(s string, data []byte) int {
 	return 4 + l
 }
 
-func string_neoDecode(sp *string, data []byte) (nread int, ok bool) {
+func string_neoDecode(sp *string, data []byte) (nread uint32, ok bool) {
 	if len(data) < 4 {
 		return 0, false
 	}
@@ -1085,5 +1085,5 @@ func string_neoDecode(sp *string, data []byte) (nread int, ok bool) {
 	}
 
 	*sp = string(data[:l])
-	return 4 + int(l), true
+	return 4 + l, true
 }

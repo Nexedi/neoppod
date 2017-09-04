@@ -1091,21 +1091,23 @@ func (s *sizer) genCustom(path string) {
 
 func (e *encoder) genCustom(path string) {
 	e.emit("{")
-	e.emit("n := %s.neoEncode(data[%v:])", e.n)
+	e.emit("n := %s.neoEncode(data[%v:])", path, e.n)
 	e.emit("data = data[%v + n:]", e.n)
 	e.emit("}")
 	e.n = 0
 }
 
 func (d *decoder) genCustom(path string) {
-	// make sure we check for overflow previous-code before proceeding to custom decoder.
-	d.overflowCheck()
 	d.resetPos()
 
+	// make sure we check for overflow previous-code before proceeding to custom decoder.
+	d.overflowCheck()
+
 	d.emit("{")
-	d.emit("n, ok := %s.neoDecode(data)")
+	d.emit("n, ok := %s.neoDecode(data)", path)
 	d.emit("if !ok { goto overflow }")
 	d.emit("data = data[n:]")
+	d.emit("%v += n", d.var_("nread"))
 	d.emit("}")
 
 	// insert overflow checkpoint after custom decoder so that overflow
@@ -1118,7 +1120,8 @@ func (d *decoder) genCustom(path string) {
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happened)
 func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
-	if types.Implements(typ, neo_customCodec) {
+	if types.Implements(typ, neo_customCodec) ||
+		types.Implements(types.NewPointer(typ), neo_customCodec) {
 		codegen.genCustom(path)
 		return
 	}
