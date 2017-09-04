@@ -76,12 +76,39 @@ const (
 
 // PktHeader represents header of a raw packet.
 //
+// A packet contains connection ID and message.
+//
 //neo:proto typeonly
 type PktHeader struct {
 	ConnId  be32	// NOTE is .msgid in py
 	MsgCode be16	// payload message code
 	MsgLen  be32	// payload message length (excluding packet header)
 }
+
+// Msg is the interface implemented by all NEO messages.
+type Msg interface {
+	// marshal/unmarshal into/from wire format:
+
+	// neoMsgCode returns message code needed to be used for particular message type
+	// on the wire.
+	neoMsgCode() uint16
+
+	// neoMsgEncodedLen returns how much space is needed to encode current message payload.
+	neoMsgEncodedLen() int
+
+	// neoMsgEncode encodes current message state into buf.
+	//
+	// len(buf) must be >= neoMsgEncodedLen().
+	neoMsgEncode(buf []byte)
+
+	// neoMsgDecode decodes data into message in-place.
+	neoMsgDecode(data []byte) (nread int, err error)
+}
+
+// ErrDecodeOverflow is the error returned by neoMsgDecode when decoding hits buffer overflow
+var ErrDecodeOverflow = errors.New("decode: bufer overflow")
+
+// ---- messages ----
 
 type ErrorCode uint32
 const (
@@ -190,28 +217,8 @@ type NodeUUID int32
 // TODO NodeType -> base NodeUUID
 
 
-// ErrDecodeOverflow is the error returned by neoMsgDecode when decoding hits buffer overflow
-var ErrDecodeOverflow = errors.New("decode: bufer overflow")
-
-// Msg is the interface implemented by all NEO messages.
-type Msg interface {
-	// marshal/unmarshal into/from wire format:
-
-	// neoMsgCode returns message code needed to be used for particular message type
-	// on the wire
-	neoMsgCode() uint16
-
-	// neoMsgEncodedLen returns how much space is needed to encode current message payload
-	neoMsgEncodedLen() int
-
-	// neoMsgEncode encodes current message state into buf.
-	// len(buf) must be >= neoMsgEncodedLen()
-	neoMsgEncode(buf []byte)
-
-	// neoMsgDecode decodes data into message in-place.
-	neoMsgDecode(data []byte) (nread int, err error)
-}
-
+// Address represents host:port network endpoint.
+//
 //neo:proto typeonly
 type Address struct {
 	Host string
@@ -247,46 +254,14 @@ func (a *Address) neoDecode(b []byte) int {
 	return n
 }
 
-// A SHA1 hash
+// Checksum is a SHA1 hash.
 type Checksum [20]byte
 
-// Partition Table identifier.
+// PTid is Partition Table identifier.
 //
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64
 
-
-// XXX move -> marshalutil.go ?
-func byte2bool(b byte) bool {
-	return b != 0
-}
-
-func bool2byte(b bool) byte {
-	if b {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-// NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
-// NOTE '\xff' * 8 represents FP NaN but many other NaN bits representations exist
-func float64_NEOEncode(b []byte, f float64) {
-	var fu uint64
-	if !math.IsNaN(f) {
-		fu = math.Float64bits(f)
-	} else {
-		// convert all NaNs to canonical \xff * 8
-		fu = 1<<64 - 1
-	}
-
-	binary.BigEndian.PutUint64(b, fu)
-}
-
-func float64_NEODecode(b []byte) float64 {
-	fu := binary.BigEndian.Uint64(b)
-	return math.Float64frombits(fu)
-}
 
 // NodeInfo is information about a node
 //neo:proto typeonly
@@ -1033,4 +1008,37 @@ type Truncate struct {
 	Tid zodb.Tid
 
 	// XXX _answer = Error
+}
+
+// ---- runtime support for protogen and custom encodings ----
+
+func byte2bool(b byte) bool {
+	return b != 0
+}
+
+func bool2byte(b bool) byte {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+// NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
+// NOTE '\xff' * 8 represents FP NaN but many other NaN bits representations exist
+func float64_NEOEncode(b []byte, f float64) {
+	var fu uint64
+	if !math.IsNaN(f) {
+		fu = math.Float64bits(f)
+	} else {
+		// convert all NaNs to canonical \xff * 8
+		fu = 1<<64 - 1
+	}
+
+	binary.BigEndian.PutUint64(b, fu)
+}
+
+func float64_NEODecode(b []byte) float64 {
+	fu := binary.BigEndian.Uint64(b)
+	return math.Float64frombits(fu)
 }
