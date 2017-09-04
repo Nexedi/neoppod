@@ -11,6 +11,8 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
+
+	"github.com/pkg/profile"
 )
 
 func main() {
@@ -27,6 +29,8 @@ func main() {
 		log.Fatal(err)
 	}
 	before := lastTid + 1	// XXX overflow ?
+
+	defer profile.Start().Stop()
 
 	tstart := time.Now()
 	m := sha1.New()
