@@ -69,7 +69,7 @@ type Client struct {
 var _ zodb.IStorage = (*Client)(nil)
 
 func (c *Client) StorageName() string {
-	return "neo"
+	return fmt.Sprintf("neo(%s)", c.node.ClusterName)
 }
 
 // NewClient creates new client node.
