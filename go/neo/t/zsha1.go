@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"log"
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -16,6 +17,7 @@ import (
 )
 
 func main() {
+	flag.Parse()
 	url := os.Args[1]	// XXX dirty
 
 	bg := context.Background()

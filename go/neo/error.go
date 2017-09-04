@@ -37,6 +37,10 @@ func ErrEncode(err error) *Error {
 		// XXX abusing message for xid
 		return &Error{Code: OID_NOT_FOUND, Message: err.Xid.String()}
 
+	case *zodb.ErrOidMissing:
+		// XXX abusing message for oid
+		return &Error{Code: OID_DOES_NOT_EXIST, Message: err.Oid.String()}
+
 	default:
 		return &Error{Code: NOT_READY /* XXX how to report 503? was BROKEN_NODE */, Message: err.Error()}
 	}
@@ -51,6 +55,12 @@ func ErrDecode(e *Error) error {
 		xid, err := zodb.ParseXid(e.Message)	// XXX abusing message for xid
 		if err == nil {
 			return &zodb.ErrXidMissing{xid}
+		}
+
+	case OID_DOES_NOT_EXIST:
+		oid, err := zodb.ParseOid(e.Message)	// XXX abusing message for oid
+		if err == nil {
+			return &zodb.ErrOidMissing{oid}
 		}
 	}
 

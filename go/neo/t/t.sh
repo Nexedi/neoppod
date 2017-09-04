@@ -157,6 +157,7 @@ xmysql() {
 	mysql --defaults-file=$mycnf "$@"
 }
 
+# spawn neo/py cluster working on mariadb
 neopysql() {
 	MDB
 	sleep 1	# XXX fragile
@@ -206,9 +207,11 @@ gensqlite() {
 
 #neopylite
 neopysql
-time demo-zbigarray read neo://$cluster@$Mbind
+#time demo-zbigarray read neo://$cluster@$Mbind
+./zsha1.py neo://$cluster@$Mbind
+go run zsha1.go neo://$cluster@$Mbind
 xneoctl set cluster stopping
-
+xmysql -e "SHUTDOWN"
 
 wait
 exit

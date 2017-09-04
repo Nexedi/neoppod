@@ -30,6 +30,7 @@ package neo
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"sync"
 
@@ -79,7 +80,7 @@ func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serve
 	}
 
 	app := &NodeApp{
-		MyInfo:		NodeInfo{Type: typ, Addr: addr},
+		MyInfo:		NodeInfo{Type: typ, Addr: addr, IdTimestamp: math.NaN()},
 		ClusterName:	clusterName,
 		Net:		net,
 		MasterAddr:	masterAddr,
@@ -335,6 +336,14 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 	for _, nodeInfo := range msg.NodeList {
 		log.Infof(ctx, "rx node update: %v", nodeInfo)
 		app.NodeTab.Update(nodeInfo)
+
+		// XXX we have to provide IdTimestamp when requesting identification to other peers
+		// (e.g. Spy checks this is what master broadcast them and if not replis "unknown by master")
+		if nodeInfo.UUID == app.MyInfo.UUID {
+			// XXX recheck locking
+			// XXX do .MyInfo = nodeInfo ?
+			app.MyInfo.IdTimestamp = nodeInfo.IdTimestamp
+		}
 	}
 
 	// FIXME logging under lock (if caller took e.g. .StateMu before applying updates)
