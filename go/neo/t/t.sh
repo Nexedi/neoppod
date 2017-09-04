@@ -108,6 +108,9 @@ datadir         = $neosql/data
 # https://lab.nexedi.com/nexedi/slapos/blob/master/software/neoppod/my.cnf.in#L18
 # ---- 8< ----
 
+# kirr: disabled
+#plugin-load = ha_tokudb;ha_rocksdb
+
 log_warnings = 1
 disable-log-bin
 
@@ -126,8 +129,9 @@ innodb_locks_unsafe_for_binlog = 1
 
 # Extra parameters.
 log_slow_verbosity = explain,query_plan
-rocksdb_block_cache_size = 10G
-rocksdb_max_background_compactions = 3
+# kirr: rocksb disabled
+# rocksdb_block_cache_size = 10G
+# rocksdb_max_background_compactions = 3
 long_query_time = 1
 innodb_file_per_table = 1
 
@@ -146,11 +150,7 @@ EOF
 		mysql_install_db --defaults-file=$mycnf
 	fi
 
-	echo AAA
-
-	mysqld --defaults-file=$mycnf	# XXX &
-
-	echo BBB
+	mysqld --defaults-file=$mycnf &
 }
 
 xmysql() {
@@ -166,6 +166,15 @@ neopysql() {
 	Apy
 }
 
+# generate data in mariadb
+gensql() {
+	neopysql
+	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	xmysql "SHUTDOWN"
+	wait	# XXX fragile
+	sync
+}
 
 
 # generate data in data.sqlite
@@ -190,13 +199,13 @@ gensqlite() {
 #Sgo $fs1/data.fs
 
 #gensqlite
+gensql
 
 
 #neopylite
 #time demo-zbigarray read neo://$cluster@$Mbind
 #xneoctl set cluster stopping
 
-MDB
 
 wait
 exit
