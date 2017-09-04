@@ -14,6 +14,10 @@ cluster=pygotest
 log=`pwd`/log
 mkdir -p $log
 
+xneoctl() {
+	neoctl -a $Abind $@
+}
+
 # M{py,go}
 # spawn master
 Mpy() {
@@ -34,7 +38,7 @@ Spy() {
 	# --database=...
 	# --engine=...
 	exec -a Spy \
-		neostorage --cluster=$cluster --bind=$Sbind --masters=$Mbind &
+		neostorage --cluster=$cluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log $@ &
 }
 
 # Sgo <data.fs>
@@ -78,6 +82,102 @@ genfs() {
 	sync
 }
 
+# spawn NEO/py cluster working on sqlite db
+neolite=$var/neo.sqlite
+neopylite() {
+	Mpy --autostart=1
+	Spy --adapter=SQLite --database=$neolite
+	Apy
+}
+
+# spawn NEO/py cluster working on InnoDB
+neosql=$var/neo.sql
+mkdir -p $neosql
+
+# setup/spawn mariadb
+mycnf=$neosql/mariadb.cnf
+mysock=$(realpath $neosql)/my.sock
+MDB() {
+	cat >$mycnf <<EOF
+[mysqld]
+skip_networking
+socket          = $mysock
+datadir         = $neosql/data
+
+# the following comes from
+# https://lab.nexedi.com/nexedi/slapos/blob/master/software/neoppod/my.cnf.in#L18
+# ---- 8< ----
+
+log_warnings = 1
+disable-log-bin
+
+## The following settings come from ERP5 configuration.
+
+max_allowed_packet = 128M
+query_cache_size = 32M
+innodb_locks_unsafe_for_binlog = 1
+
+# Some dangerous settings you may want to uncomment temporarily
+# if you only want performance or less disk access.
+#innodb_flush_log_at_trx_commit = 0
+#innodb_flush_method = nosync
+#innodb_doublewrite = 0
+#sync_frm = 0
+
+# Extra parameters.
+log_slow_verbosity = explain,query_plan
+rocksdb_block_cache_size = 10G
+rocksdb_max_background_compactions = 3
+long_query_time = 1
+innodb_file_per_table = 1
+
+# Force utf8 usage
+collation_server = utf8_unicode_ci
+character_set_server = utf8
+skip_character_set_client_handshake
+
+[client]
+socket = $mysock
+user = root
+EOF
+
+	# setup system tables on first run
+	if ! test -e $neosql/data ; then
+		mysql_install_db --defaults-file=$mycnf
+	fi
+
+	echo AAA
+
+	mysqld --defaults-file=$mycnf	# XXX &
+
+	echo BBB
+}
+
+xmysql() {
+	mysql --defaults-file=$mycnf $@
+}
+
+neopysql() {
+	MDB
+	xmysql "CREATE DATABASE IF NOT EXISTS neo"
+
+	Mpy --autostart=1
+	Spy --adapter=MySQL --engine=InnoDB --database=root@neo$mysock
+	Apy
+}
+
+
+
+# generate data in data.sqlite
+gensqlite() {
+	neopylite
+	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait	# XXX fragile - won't work if there are childs spawned outside
+	sync
+}
+
+
 #genfs
 #time demo-zbigarray read $fs1/data.fs
 
@@ -89,7 +189,14 @@ genfs() {
 ## sleep 0.2
 #Sgo $fs1/data.fs
 
-time demo-zbigarray read neo://$cluster@$Mbind
+#gensqlite
+
+
+#neopylite
+#time demo-zbigarray read neo://$cluster@$Mbind
+#xneoctl set cluster stopping
+
+MDB
 
 wait
 exit
