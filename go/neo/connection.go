@@ -768,8 +768,8 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := &PktBuf{make([]byte, 4096)}
 	// TODO reenable, but NOTE next packet can be also prefetched here -> use buffering ?
-	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, PktHeadLen)
-	n, err := io.ReadFull(nl.peerLink, pkt.Data[:PktHeadLen])
+	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, pktHeaderLen)
+	n, err := io.ReadFull(nl.peerLink, pkt.Data[:pktHeaderLen])
 	if err != nil {
 		return nil, err
 	}
@@ -777,8 +777,8 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	pkth := pkt.Header()
 
 	// XXX -> better PktHeader.Decode() ?
-	pktLen := PktHeadLen + ntoh32(pkth.MsgLen) // .MsgLen is payload-only length without header
-	if pktLen > MAX_PACKET_SIZE {
+	pktLen := pktHeaderLen + ntoh32(pkth.MsgLen) // .MsgLen is payload-only length without header
+	if pktLen > pktMaxSize {
 		return nil, ErrPktTooBig
 	}
 
@@ -815,7 +815,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 // On success raw connection is returned wrapped into NodeLink.
 // On error raw connection is closed.
 func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink, err error) {
-	err = handshake(ctx, conn, PROTOCOL_VERSION)
+	err = handshake(ctx, conn, ProtocolVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1160,7 @@ func (c *Conn) Send(msg Msg) error {
 	traceConnSendPre(c, msg)
 
 	l := msg.neoMsgEncodedLen()
-	buf := PktBuf{make([]byte, PktHeadLen+l)} // TODO -> freelist
+	buf := PktBuf{make([]byte, pktHeaderLen+l)} // TODO -> freelist
 
 	h := buf.Header()
 	// h.ConnId will be set by conn.Send

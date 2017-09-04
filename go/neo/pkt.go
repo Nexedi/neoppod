@@ -35,30 +35,22 @@ type PktBuf struct {
 	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
 }
 
-// PktHead represents header of a raw packet
-// XXX naming -> PktHeader ?
-type PktHead struct {
-	ConnId  be32	// NOTE is .msgid in py
-	MsgCode be16	// payload message code
-	MsgLen  be32	// payload message length (excluding packet header)
-}
-
 // Header returns pointer to packet header
-func (pkt *PktBuf) Header() *PktHead {
-	// XXX check len(Data) < PktHead ? -> no, Data has to be allocated with cap >= PktHeadLen
-	return (*PktHead)(unsafe.Pointer(&pkt.Data[0]))
+func (pkt *PktBuf) Header() *PktHeader {
+	// XXX check len(Data) < PktHeader ? -> no, Data has to be allocated with cap >= pktHeaderLen
+	return (*PktHeader)(unsafe.Pointer(&pkt.Data[0]))
 }
 
 // Payload returns []byte representing packet payload
 func (pkt *PktBuf) Payload() []byte {
-	return pkt.Data[PktHeadLen:]
+	return pkt.Data[pktHeaderLen:]
 }
 
 
 // Strings dumps a packet in human-readable form
 func (pkt *PktBuf) String() string {
-	if len(pkt.Data) < PktHeadLen {
-		return fmt.Sprintf("(! < PktHeadLen) % x", pkt.Data)
+	if len(pkt.Data) < pktHeaderLen {
+		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.Data)
 	}
 
 	h := pkt.Header()
@@ -92,8 +84,8 @@ func (pkt *PktBuf) String() string {
 
 // Dump dumps a packet in raw form
 func (pkt *PktBuf) Dump() string {
-	if len(pkt.Data) < PktHeadLen {
-		return fmt.Sprintf("(! < PktHeadLen) % x", pkt.Data)
+	if len(pkt.Data) < pktHeaderLen {
+		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.Data)
 	}
 
 	h := pkt.Header()

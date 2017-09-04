@@ -64,9 +64,12 @@ func u64(v uint64) string {
 }
 
 func TestPktHeader(t *testing.T) {
-	// make sure PktHeader is really packed
-	if unsafe.Sizeof(PktHead{}) != 10 {
-		t.Fatalf("sizeof(PktHead) = %v  ; want 10", unsafe.Sizeof(PktHead{}))
+	// make sure PktHeader is really packed and its size matches pktHeaderLen
+	if unsafe.Sizeof(PktHeader{}) != 10 {
+		t.Fatalf("sizeof(PktHeader) = %v  ; want 10", unsafe.Sizeof(PktHeader{}))
+	}
+	if unsafe.Sizeof(PktHeader{}) != pktHeaderLen {
+		t.Fatalf("sizeof(PktHeader) = %v  ; want %v", unsafe.Sizeof(PktHeader{}), pktHeaderLen)
 	}
 }
 

@@ -94,7 +94,7 @@ func xconnError(err error) error {
 
 // Prepare PktBuf with content
 func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
-	pkt := &PktBuf{make([]byte, PktHeadLen + len(payload))}
+	pkt := &PktBuf{make([]byte, pktHeaderLen + len(payload))}
 	h := pkt.Header()
 	h.ConnId = hton32(connid)
 	h.MsgCode = hton16(msgcode)
