@@ -107,7 +107,7 @@
 </g>
 <!-- Protog_fix -->
 <g id="node9" class="node"><title>Protog_fix</title>
-<ellipse fill="none" stroke="black" cx="434.292" cy="-234" rx="96.3833" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="434.292" cy="-234" rx="96.3833" ry="18"/>
 <text text-anchor="middle" x="434.292" y="-230.3" font-family="Times,serif" font-size="14.00">proto(go/py) compat fix</text>
 </g>
 <!-- Cpy_r_Sgo&#45;&gt;Protog_fix -->
@@ -127,7 +127,7 @@
 </g>
 <!-- Mpy_vs_Sgo -->
 <g id="node11" class="node"><title>Mpy_vs_Sgo</title>
-<ellipse fill="none" stroke="black" cx="884.292" cy="-234" rx="81.4863" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="884.292" cy="-234" rx="81.4863" ry="18"/>
 <text text-anchor="start" x="829.792" y="-231.3" font-family="Times,serif" font-size="14.00">M</text>
 <text text-anchor="start" x="842.792" y="-231.3" font-family="Times,serif" baseline-shift="sub" font-size="14.00">py</text>
 <text text-anchor="start" x="855.792" y="-231.3" font-family="Times,serif" font-size="14.00"> vs S</text>

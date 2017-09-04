@@ -31,8 +31,8 @@ digraph {
 	Cleanup		[label="Cleanup history"];
 	Cpy_patch	[label=<py patch: ConnID py=go> style=filled fillcolor=lightyellow];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
 	Mmap_go		[label="io.ReaderAt via mmap"];
-	Protog_fix	[label="proto(go/py) compat fix"];
-	Mpy_vs_Sgo	[label=<M<sub>py</sub> vs S<sub>go</sub>: try/fix>];
+	Protog_fix	[label="proto(go/py) compat fix" style=filled fillcolor=lightyellow];
+	Mpy_vs_Sgo	[label=<M<sub>py</sub> vs S<sub>go</sub>: try/fix> style=filled fillcolor=lightyellow];
 
 	io_cancel		[label="? conn IO vs ctx cancel"];
 	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>>];
