@@ -243,15 +243,22 @@ func (a *Address) neoEncode(b []byte) int {
 	return n
 }
 
-func (a *Address) neoDecode(b []byte) int {
-	n := string_neoDecode(&a.Host, b)
+func (a *Address) neoDecode(b []byte) (int, bool) {
+	n, ok := string_neoDecode(&a.Host, b)
+	if !ok {
+		return 0, false
+	}
 	if a.Host != "" {
+		b = b[n:]
+		if len(b) < 2 {
+			return 0, false
+		}
 		a.Port = binary.BigEndian.Uint16(b[n:])
 		n += 2
 	} else {
 		a.Port = 0
 	}
-	return n
+	return n, true
 }
 
 // Checksum is a SHA1 hash.
@@ -1010,7 +1017,16 @@ type Truncate struct {
 	// XXX _answer = Error
 }
 
-// ---- runtime support for protogen and custom encodings ----
+// ---- runtime support for protogen and custom codecs ----
+
+// customCodec is the interface that is implemented by types with custom encodings.
+//
+// its semantic is very similar to Msg.
+type customCodec interface {
+	neoEncodedLen() int
+	neoEncode(buf []byte) (nwrote int)
+	neoDecode(data []byte) (nread int, ok bool)
+}
 
 func byte2bool(b byte) bool {
 	return b != 0
@@ -1041,4 +1057,33 @@ func float64_NEOEncode(b []byte, f float64) {
 func float64_NEODecode(b []byte) float64 {
 	fu := binary.BigEndian.Uint64(b)
 	return math.Float64frombits(fu)
+}
+
+
+// XXX we need string_neo* only for Address
+// XXX dup of genSlice1 in protogen.go
+
+func string_neoEncodedLen(s string) int {
+	return 4 + len(s)
+}
+
+func string_neoEncode(s string, data []byte) int {
+	l := len(s)
+	binary.BigEndian.PutUint32(data, uint32(l))
+	copy(data[4:4+l], s) // NOTE [:l] to catch data overflow as copy copies minimal len
+	return 4 + l
+}
+
+func string_neoDecode(sp *string, data []byte) (nread int, ok bool) {
+	if len(data) < 4 {
+		return 0, false
+	}
+	l := binary.BigEndian.Uint32(data)
+	data = data[4:]
+	if uint32(len(data)) < l {
+		return 0, false
+	}
+
+	*sp = string(data[:l])
+	return 4 + int(l), true
 }

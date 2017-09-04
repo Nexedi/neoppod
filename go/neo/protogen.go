@@ -438,9 +438,9 @@ type CodeGenerator interface {
 	genArray1(path string, typ *types.Array)
 	genSlice1(path string, typ types.Type)
 
-	// generate code for a custom type which implements its own encoding/decodeing
-	// XXX review text
-	genCustom(path string, typ types.Type)	// XXX + obj?
+	// generate code for a custom type which implements its own
+	// encoding/decoding via implementing neo.customCodec interface.
+	genCustom(path string)
 
 	// get generated code.
 	generatedCode() string
@@ -1068,25 +1068,32 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 }
 
 // emit code to size/encode/decode custom type
-// XXX typ not needed
-func (s *sizer) genCustom(path string, typ *types.Type) {
+func (s *sizer) genCustom(path string) {
 	s.size.AddExpr("%s.neoEncodedLen()", path)
 }
 
-// XXX typ unused
-func (e *encoder) genCustom(path string, typ *types.Type) {
+func (e *encoder) genCustom(path string) {
 	e.emit("{")
-	e.emit("n := %s.neoEncodedLen()", path)
-	e.emit("%s.neoEncode(data[%v:])", e.n)
+	e.emit("n := %s.neoEncode(data[%v:])", e.n)
 	e.emit("data = data[%v + n:]", e.n)
 	e.emit("}")
 	e.n = 0
 }
 
-func (e *decoder) genCustom(path string) {
+func (d *decoder) genCustom(path string) {
+	// make sure we check for overflow previous-code before proceeding to custom decoder.
+	d.overflowCheck()
+	d.resetPos()
+
 	d.emit("{")
-	d.emit("n := %s.neoDecode(data[%v ...")	// XXX error!
+	d.emit("n, ok := %s.neoDecode(data)")
+	d.emit("if !ok { goto overflow }")
+	d.emit("data = data[n:]")
 	d.emit("}")
+
+	// insert overflow checkpoint after custom decoder so that overflow
+	// checks for following code are inserted after custom decoder call.
+	d.overflowCheck()
 }
 
 // top-level driver for emitting size/encode/decode code for a type
@@ -1095,7 +1102,7 @@ func (e *decoder) genCustom(path string) {
 // we can point to source location for where it happened)
 func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
 	if types.Implements(typ, neoCustomXXX) {
-		codegen.genCustom(path, typ)
+		codegen.genCustom(path)
 		return
 	}
 
