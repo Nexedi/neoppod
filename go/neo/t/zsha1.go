@@ -59,13 +59,16 @@ loop:
 		m.Write(data)
 
 		fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, m.Sum(nil))
+		fmt.Fprintf(os.Stderr, "\tdata: %x\n", data)
 
 		nread += len(data)
 		oid += 1
+
+		break
 	}
 
 	tend := time.Now()
 
-	fmt.Printf("%x   ; oid=0..%d  nread=%d  t=%s\n",
+	fmt.Printf("%x   ; oid=0..%d  nread=%d  t=%s  x=zsha1.go\n",
 		m.Sum(nil), oid-1, nread, tend.Sub(tstart))
 }

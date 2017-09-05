@@ -26,16 +26,22 @@ func lclose(ctx context.Context, c io.Closer) {
 // if out has not not enough capacity a new buffer is allocated and used.
 //
 // return: destination buffer with full decompressed data or error.
-func decompress(in []byte, out []byte) ([]byte, error) {
+func decompress(in []byte, out []byte) (data []byte, err error) {
 	bin := bytes.NewReader(in)
 	zr, err := zlib.NewReader(bin)
 	if err != nil {
 		return nil, err
 	}
-	defer zr.Close()
+	defer func() {
+		err2 := zr.Close()
+		if err2 != nil && err == nil {
+			err = err2
+			data = nil
+		}
+	}()
 
 	bout := bytes.NewBuffer(out)
-	_, err = io.Copy(bout, bin)
+	_, err = io.Copy(bout, zr)
 	if err != nil {
 		return nil, err
 	}
