@@ -150,7 +150,7 @@ EOF
 		mysql_install_db --defaults-file=$mycnf
 	fi
 
-	mysqld --defaults-file=$mycnf &
+	mysqld --defaults-file=$mycnf --log-error=$log/mdb.log &
 }
 
 xmysql() {
@@ -208,8 +208,8 @@ gensqlite() {
 #neopylite
 neopysql
 #time demo-zbigarray read neo://$cluster@$Mbind
-./zsha1.py neo://$cluster@$Mbind
-go run zsha1.go neo://$cluster@$Mbind
+#./zsha1.py neo://$cluster@$Mbind 2>py.log
+go run zsha1.go neo://$cluster@$Mbind 2>go.log
 xneoctl set cluster stopping
 xmysql -e "SHUTDOWN"
 

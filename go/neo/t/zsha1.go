@@ -1,6 +1,8 @@
 // zsha1 - compute sha1 of whole latest objects stream in a ZODB database
 package main
 
+// +build ignore
+
 import (
 	"context"
 	"crypto/sha1"
@@ -32,7 +34,9 @@ func main() {
 	}
 	before := lastTid + 1	// XXX overflow ?
 
-	defer profile.Start().Stop()
+	if false {
+		defer profile.Start().Stop()
+	}
 
 	tstart := time.Now()
 	m := sha1.New()
@@ -42,7 +46,7 @@ func main() {
 loop:
 	for {
 		xid := zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: before, TidBefore: true}}
-		data, _, err := stor.Load(bg, xid)
+		data, serial, err := stor.Load(bg, xid)
 		switch err.(type) {
 		case nil:
 			// ok
@@ -53,6 +57,8 @@ loop:
 		}
 
 		m.Write(data)
+
+		fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, m.Sum(nil))
 
 		nread += len(data)
 		oid += 1

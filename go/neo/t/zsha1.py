@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """zsha1 - compute sha1 of whole latest objects stream in a ZODB database"""
 
+from __future__ import print_function
+
 import zodbtools.util
 from ZODB.POSException import POSKeyError
 from ZODB.utils import p64, u64
@@ -27,8 +29,9 @@ def main():
         except POSKeyError:
             break
 
-        #print('%s @%s' % (oid, u64(serial)))
         m.update(data)
+
+        print('%s @%s\tsha1: %s' % (oid, u64(serial), m.hexdigest()), file=sys.stderr)
 
         nread += len(data)
         oid += 1
