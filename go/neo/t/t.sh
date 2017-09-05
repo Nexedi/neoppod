@@ -208,8 +208,10 @@ gensqlite() {
 #neopylite
 neopysql
 #time demo-zbigarray read neo://$cluster@$Mbind
-#./zsha1.py neo://$cluster@$Mbind
-go run zsha1.go -logtostderr neo://$cluster@$Mbind
+for i in `seq 2`; do
+	./zsha1.py neo://$cluster@$Mbind
+	go run zsha1.go neo://$cluster@$Mbind
+done
 xneoctl set cluster stopping
 xmysql -e "SHUTDOWN"
 
