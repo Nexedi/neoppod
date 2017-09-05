@@ -153,7 +153,9 @@ EOF
 
 	# setup system tables on first run
 	if ! test -e $neosql/data ; then
-		mysql_install_db --defaults-file=$mycnf
+		# XXX --cross-bootstrap only to avoid final large print notice
+		# XXX but cross-bootstrap filters out current host name from installed tables - is it ok?
+		mysql_install_db --defaults-file=$mycnf --cross-bootstrap
 	fi
 
 	mysqld --defaults-file=$mycnf &
