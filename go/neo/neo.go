@@ -30,7 +30,6 @@ package neo
 import (
 	"context"
 	"fmt"
-	"math"
 	"net"
 	"sync"
 
@@ -80,7 +79,7 @@ func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serve
 	}
 
 	app := &NodeApp{
-		MyInfo:		NodeInfo{Type: typ, Addr: addr, IdTimestamp: math.NaN()},
+		MyInfo:		NodeInfo{Type: typ, Addr: addr, IdTime: 0},
 		ClusterName:	clusterName,
 		Net:		net,
 		MasterAddr:	masterAddr,
@@ -129,7 +128,7 @@ func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_
 		UUID:		app.MyInfo.UUID,
 		Address:	app.MyInfo.Addr,
 		ClusterName:	app.ClusterName,
-		IdTimestamp:	app.MyInfo.IdTimestamp,	// XXX ok?
+		IdTime:		app.MyInfo.IdTime,	// XXX ok?
 	}
 	accept := &AcceptIdentification{}
 	// FIXME error if peer sends us something with another connID
@@ -332,17 +331,17 @@ func (l *listener) Addr() net.Addr {
 
 // UpdateNodeTab applies updates to .NodeTab from message and logs changes appropriately.
 func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformation) {
-	// XXX msg.IdTimestamp ?
+	// XXX msg.IdTime ?
 	for _, nodeInfo := range msg.NodeList {
 		log.Infof(ctx, "rx node update: %v", nodeInfo)
 		app.NodeTab.Update(nodeInfo)
 
-		// XXX we have to provide IdTimestamp when requesting identification to other peers
+		// XXX we have to provide IdTime when requesting identification to other peers
 		// (e.g. Spy checks this is what master broadcast them and if not replis "unknown by master")
 		if nodeInfo.UUID == app.MyInfo.UUID {
 			// XXX recheck locking
 			// XXX do .MyInfo = nodeInfo ?
-			app.MyInfo.IdTimestamp = nodeInfo.IdTimestamp
+			app.MyInfo.IdTime = nodeInfo.IdTime
 		}
 	}
 

@@ -9,7 +9,7 @@ import (
 	"log"
 	"flag"
 	"fmt"
-	"os"
+	//"os"
 	"time"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -20,7 +20,7 @@ import (
 
 func main() {
 	flag.Parse()
-	url := os.Args[1]	// XXX dirty
+	url := flag.Args()[0]	// XXX dirty
 
 	bg := context.Background()
 	stor, err := zodb.OpenStorageURL(bg, url)

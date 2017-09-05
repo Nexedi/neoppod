@@ -178,7 +178,11 @@ func (nt *NodeTable) String() string {
 	// XXX also for .storv
 	for _, n := range nt.nodev {
 		// XXX recheck output
-		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s\n", n.UUID, n.Type, n.State, n.Addr)
+		fmt.Fprintf(&buf, "%s (%s)\t%s\t%s", n.UUID, n.Type, n.State, n.Addr)
+		if n.IdTime.Valid() {
+			fmt.Fprintf(&buf, "\t@ %v", n.IdTime)
+		}
+		fmt.Fprintf(&buf, "\n")
 	}
 
 	return buf.String()

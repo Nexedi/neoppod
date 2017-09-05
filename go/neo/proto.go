@@ -269,15 +269,44 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64
 
+// IdTime represents time of identification
+type IdTime float64
+
+func (t IdTime) neoEncodedLen() int {
+	return 8
+}
+
+func (t IdTime) neoEncode(b []byte) int {
+	// use 0 as value for no data	(NaN != NaN -> hard to use NaN in tests)
+	// NOTE neo/py uses None for "no data"; we use 0 for "no data" to avoid pointer
+	tt := float64(t)
+	if tt == 0 {
+		tt = math.NaN()
+	}
+	float64_neoEncode(b, tt)
+	return 8
+}
+
+func (t *IdTime) neoDecode(data []byte) (uint32, bool) {
+	if len(data) < 8 {
+		return 0, false
+	}
+	tt := float64_neoDecode(data)
+	if math.IsNaN(tt) {
+		tt = 0
+	}
+	*t = IdTime(tt)
+	return 8, true
+}
 
 // NodeInfo is information about a node
 //neo:proto typeonly
 type NodeInfo struct {
-	Type		NodeType
-	Addr		Address		// serving address
-	UUID		NodeUUID
-	State		NodeState
-	IdTimestamp	float64	// FIXME clarify semantic where it is used
+	Type	NodeType
+	Addr	Address		// serving address
+	UUID	NodeUUID
+	State	NodeState
+	IdTime	IdTime		// FIXME clarify semantic where it is used
 }
 
 //neo:proto typeonly
@@ -311,7 +340,7 @@ type RequestIdentification struct {
 	UUID		NodeUUID
 	Address		Address		// where requesting node is also accepting connections
 	ClusterName	string
-	IdTimestamp	float64
+	IdTime		IdTime
 }
 
 //neo:proto answer
@@ -352,7 +381,7 @@ type NotPrimaryMaster struct {
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
 	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
-	IdTimestamp	float64
+	IdTime		IdTime
 	NodeList	[]NodeInfo
 }
 
@@ -1042,7 +1071,7 @@ func bool2byte(b bool) byte {
 
 // NOTE py.None encodes as '\xff' * 8	(-> we use NaN for None)
 // NOTE '\xff' * 8 represents FP NaN but many other NaN bits representations exist
-func float64_NEOEncode(b []byte, f float64) {
+func float64_neoEncode(b []byte, f float64) {
 	var fu uint64
 	if !math.IsNaN(f) {
 		fu = math.Float64bits(f)
@@ -1054,7 +1083,7 @@ func float64_NEOEncode(b []byte, f float64) {
 	binary.BigEndian.PutUint64(b, fu)
 }
 
-func float64_NEODecode(b []byte) float64 {
+func float64_neoDecode(b []byte) float64 {
 	fu := binary.BigEndian.Uint64(b)
 	return math.Float64frombits(fu)
 }

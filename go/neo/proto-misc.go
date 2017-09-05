@@ -27,6 +27,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // XXX or better translate to some other errors ?
@@ -47,47 +48,92 @@ func (cs *ClusterState) Set(v ClusterState) {
 	traceClusterStateChanged(cs)
 }
 
-const nodeTypeChar = "MSCA4567"	// keep in sync with NodeType constants
+//const nodeTypeChar = "MSCA????"	// keep in sync with NodeType constants
+const nodeTypeChar = "SMCA"	// XXX neo/py does this out of sync with NodeType constants
 
 // String returns string representation of a node uuid.
 // It returns ex 'S1', 'M2', ...
 func (nodeUUID NodeUUID) String() string {
 	if nodeUUID == 0 {
-		return "?0"
+		return "?(0)0"
 	}
 
-	typ := nodeUUID >> 24
 	num := nodeUUID & (1<<24 - 1)
 
-	temp := typ&(1 << 7) != 0
-	typ &= 1<<7 - 1
+	// XXX UUID_NAMESPACES description does not match neo/py code
+	//typ := nodeUUID >> 24
+	//temp := typ&(1 << 7) != 0
+	//typ &= 1<<7 - 1
+	//nodeType := typ >> 4
+	typ := uint8(-int8(nodeUUID >> 24)) >> 4
 
-	nodeType := NodeType(typ >> 4)
-	s := fmt.Sprintf("%c%d", nodeTypeChar[nodeType], num)
 
+	if typ < 4 {
+		return fmt.Sprintf("%c%d", nodeTypeChar[typ], num)
+	}
+
+	return fmt.Sprintf("?(%d)%d", typ, num)
+
+
+	/*
 	// 's1', 'm2', for temporary nids
 	if temp {
 		s = strings.ToLower(s)
 	}
 
 	return s
+	*/
 }
 
+
+// XXX goes out of sync wrt NodeType constants
+var nodeTypeNum = [...]int8 {
+    STORAGE: 0x00,
+    MASTER: -0x10,
+    CLIENT: -0x20,
+    ADMIN:  -0x30,
+}
 // UUID creates node uuid from node type and number.
-// XXX test
 func UUID(typ NodeType, num int32) NodeUUID {
+	// XXX neo/py does not what UUID_NAMESPACES describes
+	/*
 	temp := uint32(0)
 	if num < 0 {
 		temp = 1
 		num = -num
 	}
+	*/
 
-	if num >> 24 != 0 {
+	if int(typ) >= len(nodeTypeNum) {
+		panic("typ invalid")
+	}
+
+	typn := nodeTypeNum[typ]
+
+	if (num < 0) || num >> 24 != 0 {
 		panic("node number out of range")
 	}
 
-	uuid := temp << (7 + 3*8) | uint32(typ) << (4 + 3*8) | uint32(num)
+	//uuid := temp << (7 + 3*8) | uint32(typ) << (4 + 3*8) | uint32(num)
+	uuid := uint32(uint8(typn)) << (3*8) | uint32(num)
 	return NodeUUID(uuid)
+}
+
+// ----------------------------------------
+
+// Valid returns whether t was initialized
+func (t IdTime) Valid() bool {
+	return t != 0
+}
+
+func (t IdTime) String() string {
+	if !t.Valid() {
+		return "ø"
+	}
+
+	sec := int64(t)
+	nsec := int64((float64(t) - float64(sec)) * 1E9)
+	return time.Unix(sec, nsec).String()
 }
 
 // ----------------------------------------

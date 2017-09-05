@@ -390,7 +390,7 @@ var basicTypes = map[types.BasicKind]basicCodec{
 	types.Uint32:	{4, "binary.BigEndian.PutUint32(%v, %v)", "binary.BigEndian.Uint32(%v)"},
 	types.Uint64:	{8, "binary.BigEndian.PutUint64(%v, %v)", "binary.BigEndian.Uint64(%v)"},
 
-	types.Float64:	{8, "float64_NEOEncode(%v, %v)", "float64_NEODecode(%v)"},
+	types.Float64:	{8, "float64_neoEncode(%v, %v)", "float64_neoDecode(%v)"},
 }
 
 // does a type have fixed wire size and, if yes, what it is?
