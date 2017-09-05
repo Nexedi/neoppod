@@ -46,7 +46,7 @@ func main() {
 loop:
 	for {
 		xid := zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: before, TidBefore: true}}
-		data, serial, err := stor.Load(bg, xid)
+		data, _, err := stor.Load(bg, xid)
 		switch err.(type) {
 		case nil:
 			// ok
@@ -58,13 +58,11 @@ loop:
 
 		m.Write(data)
 
-		fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, m.Sum(nil))
-		fmt.Fprintf(os.Stderr, "\tdata: %x\n", data)
+		//fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, m.Sum(nil))
+		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", data)
 
 		nread += len(data)
 		oid += 1
-
-		break
 	}
 
 	tend := time.Now()

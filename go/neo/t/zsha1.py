@@ -31,13 +31,11 @@ def main():
 
         m.update(data)
 
-        print('%s @%s\tsha1: %s' % (oid, u64(serial), m.hexdigest()), file=sys.stderr)
-        print('\tdata: %s' % (data.encode('hex'),), file=sys.stderr)
+        #print('%s @%s\tsha1: %s' % (oid, u64(serial), m.hexdigest()), file=sys.stderr)
+        #print('\tdata: %s' % (data.encode('hex'),), file=sys.stderr)
 
         nread += len(data)
         oid += 1
-
-        break
 
     tend = time()
 
