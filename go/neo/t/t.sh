@@ -106,8 +106,9 @@ MDB() {
 	cat >$mycnf <<EOF
 [mysqld]
 skip_networking
-socket          = $mysock
-datadir         = $neosql/data
+socket		= $mysock
+datadir		= $neosql/data
+log_error	= $log/mdb.log
 
 # the following comes from
 # https://lab.nexedi.com/nexedi/slapos/blob/master/software/neoppod/my.cnf.in#L18
@@ -155,7 +156,7 @@ EOF
 		mysql_install_db --defaults-file=$mycnf
 	fi
 
-	mysqld --defaults-file=$mycnf --log-error=$log/mdb.log &
+	mysqld --defaults-file=$mycnf &
 }
 
 # ---- generate test data ----
