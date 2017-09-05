@@ -55,8 +55,9 @@ Spy() {
 
 # Sgo <data.fs>	- spawn NEO/go storage
 Sgo() {
+	# -alsologtostderr
 	exec -a Sgo \
-		neo -log_dir=$log -alsologtostderr storage -cluster=$cluster -bind=$Sbind -masters=$Mbind $@ &
+		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind $@ &
 }
 
 
@@ -214,7 +215,6 @@ GENsql
 wait
 sync
 
-exit
 
 N=`seq 2`	# XXX repeat benchmarks N time
 
@@ -223,6 +223,10 @@ bench1() {
 	url=$1
 	time demo-zbigarray read $url
 	./zsha1.py $url
+	if [[ $url == zeo://* ]]; then
+		echo "(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)"
+		return
+	fi
 	go run zsha1.go $url
 	# TODO zsha1.go -prefetch=1
 }
@@ -232,29 +236,37 @@ for i in $N; do
 	bench1 $fs1/data.fs
 done
 
-echo -e "\n*** ZEO"
-Zpy $fs1/data.fs
-for i in $N; do
-	bench1 zeo://$Zbind
-done
-killall runzeo
-wait
+# echo -e "\n*** ZEO"
+# Zpy $fs1/data.fs
+# for i in $N; do
+# 	bench1 zeo://$Zbind
+# done
+# killall runzeo
+# wait
 
-echo -e "\n*** NEO/py sqlite"
-NEOpylite
+# echo -e "\n*** NEO/py sqlite"
+# NEOpylite
+# for i in $N; do
+# 	bench1 neo://$cluster@$Mbind
+# done
+# xneoctl set cluster stopping
+# wait
+
+# echo -e "\n*** NEO/py sql"
+# NEOpysql
+# for i in $N; do
+# 	bench1 neo://$cluster@$Mbind
+# done
+# xneoctl set cluster stopping
+# xmysql -e "SHUTDOWN"
+# wait
+
+echo -e "\n*** NEO/go"
+NEOgo
 for i in $N; do
 	bench1 neo://$cluster@$Mbind
 done
 xneoctl set cluster stopping
-wait
-
-echo -e "\n*** NEO/py sql"
-NEOpysql
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
-xneoctl set cluster stopping
-xmysql -e "SHUTDOWN"
 wait
 
 exit
