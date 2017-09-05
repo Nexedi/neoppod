@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# run 1 mixed py/go NEO cluster
+# run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
 
 # port allocations
 Abind=127.0.0.1:5551
@@ -7,19 +7,32 @@ Mbind=127.0.0.1:5552
 Sbind=127.0.0.1:5553
 Zbind=127.0.0.1:5554
 
+# disk allocation
+log=`pwd`/log;		mkdir -p $log
+var=`pwd`/var;		mkdir -p $var
+fs1=$var/fs1;		mkdir -p $fs1		# FileStorage (and so ZEO and NEO/go) data
+neolite=$var/neo.sqlite				# NEO/py: sqlite
+neosql=$var/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
+mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
+mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
+
 # cluster name
 cluster=pygotest
 
-# logs
-log=`pwd`/log
-mkdir -p $log
-
+# control started NEO cluster
 xneoctl() {
-	neoctl -a $Abind $@
+	neoctl -a $Abind "$@"
 }
 
-# M{py,go}
-# spawn master
+# control started MariaDB
+xmysql() {
+	mysql --defaults-file=$mycnf "$@"
+}
+
+
+# ---- start NEO nodes ----
+
+# M{py,go} ...	- spawn master
 Mpy() {
 	# XXX --autostart=1 ?
 	exec -a Mpy \
@@ -31,8 +44,7 @@ Mgo() {
 		neo --log_dir=$log master -cluster=$cluster -bind=$Mbind
 }
 
-# Spy ...
-# spawn storage
+# Spy ...	- spawn NEO/py storage
 Spy() {
 	# --adapter=...
 	# --database=...
@@ -41,62 +53,55 @@ Spy() {
 		neostorage --cluster=$cluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log $@ &
 }
 
-# Sgo <data.fs>
-# spawn storage
+# Sgo <data.fs>	- spawn NEO/go storage
 Sgo() {
 	exec -a Sgo \
 		neo -log_dir=$log -alsologtostderr storage -cluster=$cluster -bind=$Sbind -masters=$Mbind $@ &
 }
 
 
-# Apy
-# spawn admin
+# Apy ...	- spawn NEO/py admin
 Apy() {
 	exec -a Apy \
 		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind $@ &
 }
 
-# Zpy <data.fs>
-# spawn zeo
+# Zpy <data.fs> ...	- spawn ZEO
 Zpy() {
 	exec -a Zpy \
 		runzeo --address $Zbind --filename $@ 2>>$log/Zpy.log &
 }
 
 
-# ---- generate test data ----
+# ---- start NEO clusters ----
 
-var=`pwd`/var
-mkdir -p $var
-
-# generate data with many small (4K) objects
-export WENDELIN_CORE_ZBLK_FMT=ZBlk1
-
-work=128	# array size generated (MB)
-
-# generate data in data.fs
-fs1=$var/fs1
-mkdir -p $fs1
-genfs() {
-	demo-zbigarray --worksize=$work gen $fs1/data.fs
-	sync
+# spawn NEO/go cluster (Sgo+Mpy+Apy) working on data.fs
+NEOgo() {
+	Mpy --autostart=1
+	Sgo $fs1/data.fs
+	Apy
 }
 
 # spawn NEO/py cluster working on sqlite db
-neolite=$var/neo.sqlite
-neopylite() {
+NEOpylite() {
 	Mpy --autostart=1
 	Spy --adapter=SQLite --database=$neolite
 	Apy
 }
 
-# spawn NEO/py cluster working on InnoDB
-neosql=$var/neo.sql
-mkdir -p $neosql
+# spawn neo/py cluster working on mariadb
+NEOpysql() {
+	MDB
+	sleep 1	# XXX fragile
+	xmysql -e "CREATE DATABASE IF NOT EXISTS neo"
+
+	Mpy --autostart=1
+	Spy --adapter=MySQL --engine=InnoDB --database=root@neo$mysock
+	Apy
+}
+
 
 # setup/spawn mariadb
-mycnf=$neosql/mariadb.cnf
-mysock=$(realpath $neosql)/my.sock
 MDB() {
 	cat >$mycnf <<EOF
 [mysqld]
@@ -153,41 +158,59 @@ EOF
 	mysqld --defaults-file=$mycnf --log-error=$log/mdb.log &
 }
 
-xmysql() {
-	mysql --defaults-file=$mycnf "$@"
+# ---- generate test data ----
+
+# generate data with many small (4K) objects
+export WENDELIN_CORE_ZBLK_FMT=ZBlk1
+
+# XXX 32 temp - raise
+work=32	# array size generated (MB)
+
+# generate data in data.fs
+GENfs() {
+	test -e $var/generated.fs && return
+	echo -e '\n*** generating fs1 data...'
+	demo-zbigarray --worksize=$work gen $fs1/data.fs
+	sync
+	touch $var/generated.fs
 }
 
-# spawn neo/py cluster working on mariadb
-neopysql() {
-	MDB
-	sleep 1	# XXX fragile
-	xmysql -e "CREATE DATABASE IF NOT EXISTS neo"
-
-	Mpy --autostart=1
-	Spy --adapter=MySQL --engine=InnoDB --database=root@neo$mysock
-	Apy
+# generate data in sqlite
+GENsqlite() {
+	test -e $var/generated.sqlite && return
+	echo -e '\n*** generating sqlite data...'
+	NEOpylite
+	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait	# XXX fragile - won't work if there are childs spawned outside
+	sync
+	touch $var/generated.sqlite
 }
 
 # generate data in mariadb
-gensql() {
-	neopysql
+GENsql() {
+	test -e $var/generated.sql && return
+	echo -e '\n*** generating sql data...'
+	NEOpysql
 	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	sleep 1	# XXX fragile
 	xmysql -e "SHUTDOWN"
 	wait	# XXX fragile
 	sync
+	touch $var/generated.sql
 }
 
 
-# generate data in data.sqlite
-gensqlite() {
-	neopylite
-	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
-	xneoctl set cluster stopping
-	wait	# XXX fragile - won't work if there are childs spawned outside
-	sync
-}
+# ---- main driver ----
+
+GENfs
+GENsqlite
+GENsql
+
+echo ZZZ
+wait
+exit
 
 
 #genfs
@@ -205,15 +228,15 @@ gensqlite() {
 #gensql
 
 
-#neopylite
-neopysql
+neopylite
+#neopysql
 #time demo-zbigarray read neo://$cluster@$Mbind
 for i in `seq 2`; do
 	./zsha1.py neo://$cluster@$Mbind
 	go run zsha1.go neo://$cluster@$Mbind
 done
 xneoctl set cluster stopping
-xmysql -e "SHUTDOWN"
+#xmysql -e "SHUTDOWN"
 
 wait
 exit
