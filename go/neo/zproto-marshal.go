@@ -64,7 +64,7 @@ func (*RequestIdentification) neoMsgCode() uint16 {
 }
 
 func (p *RequestIdentification) neoMsgEncodedLen() int {
-	return 20 + p.Address.neoEncodedLen() + len(p.ClusterName)
+	return 12 + p.Address.neoEncodedLen() + len(p.ClusterName) + p.IdTime.neoEncodedLen()
 }
 
 func (p *RequestIdentification) neoMsgEncode(data []byte) {
@@ -81,7 +81,10 @@ func (p *RequestIdentification) neoMsgEncode(data []byte) {
 		copy(data, p.ClusterName)
 		data = data[l:]
 	}
-	float64_NEOEncode(data[0:], p.IdTimestamp)
+	{
+		n := p.IdTime.neoEncode(data[0:])
+		data = data[0+n:]
+	}
 }
 
 func (p *RequestIdentification) neoMsgDecode(data []byte) (int, error) {
@@ -106,14 +109,21 @@ func (p *RequestIdentification) neoMsgDecode(data []byte) (int, error) {
 	{
 		l := binary.BigEndian.Uint32(data[0:])
 		data = data[4:]
-		if uint32(len(data)) < 8+l {
+		if uint32(len(data)) < l {
 			goto overflow
 		}
-		nread += 8 + l
+		nread += l
 		p.ClusterName = string(data[:l])
 		data = data[l:]
 	}
-	p.IdTimestamp = float64_NEODecode(data[0:])
+	{
+		n, ok := p.IdTime.neoDecode(data)
+		if !ok {
+			goto overflow
+		}
+		data = data[n:]
+		nread += n
+	}
 	return 12 + int(nread), nil
 
 overflow:
@@ -316,17 +326,20 @@ func (p *NotifyNodeInformation) neoMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-		size += (*a).Addr.neoEncodedLen()
+		size += (*a).Addr.neoEncodedLen() + (*a).IdTime.neoEncodedLen()
 	}
-	return 12 + len(p.NodeList)*20 + size
+	return 4 + p.IdTime.neoEncodedLen() + len(p.NodeList)*12 + size
 }
 
 func (p *NotifyNodeInformation) neoMsgEncode(data []byte) {
-	float64_NEOEncode(data[0:], p.IdTimestamp)
+	{
+		n := p.IdTime.neoEncode(data[0:])
+		data = data[0+n:]
+	}
 	{
 		l := uint32(len(p.NodeList))
-		binary.BigEndian.PutUint32(data[8:], l)
-		data = data[12:]
+		binary.BigEndian.PutUint32(data[0:], l)
+		data = data[4:]
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).Type)))
@@ -336,21 +349,31 @@ func (p *NotifyNodeInformation) neoMsgEncode(data []byte) {
 			}
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
 			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).State)))
-			float64_NEOEncode(data[8:], (*a).IdTimestamp)
-			data = data[16:]
+			{
+				n := (*a).IdTime.neoEncode(data[8:])
+				data = data[8+n:]
+			}
+			data = data[0:]
 		}
 	}
 }
 
 func (p *NotifyNodeInformation) neoMsgDecode(data []byte) (int, error) {
 	var nread uint32
-	if uint32(len(data)) < 12 {
+	{
+		n, ok := p.IdTime.neoDecode(data)
+		if !ok {
+			goto overflow
+		}
+		data = data[n:]
+		nread += n
+	}
+	if uint32(len(data)) < 4 {
 		goto overflow
 	}
-	p.IdTimestamp = float64_NEODecode(data[0:])
 	{
-		l := binary.BigEndian.Uint32(data[8:])
-		data = data[12:]
+		l := binary.BigEndian.Uint32(data[0:])
+		data = data[4:]
 		p.NodeList = make([]NodeInfo, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
@@ -367,17 +390,24 @@ func (p *NotifyNodeInformation) neoMsgDecode(data []byte) (int, error) {
 				data = data[n:]
 				nread += n
 			}
-			if uint32(len(data)) < 16 {
+			if uint32(len(data)) < 8 {
 				goto overflow
 			}
 			(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
 			(*a).State = NodeState(int32(binary.BigEndian.Uint32(data[4:])))
-			(*a).IdTimestamp = float64_NEODecode(data[8:])
-			data = data[16:]
+			data = data[8:]
+			{
+				n, ok := (*a).IdTime.neoDecode(data)
+				if !ok {
+					goto overflow
+				}
+				data = data[n:]
+				nread += n
+			}
 		}
-		nread += l * 20
+		nread += l * 12
 	}
-	return 12 + int(nread), nil
+	return 4 + int(nread), nil
 
 overflow:
 	return 0, ErrDecodeOverflow
@@ -2380,9 +2410,9 @@ func (p *AnswerNodeList) neoMsgEncodedLen() int {
 	var size int
 	for i := 0; i < len(p.NodeList); i++ {
 		a := &p.NodeList[i]
-		size += (*a).Addr.neoEncodedLen()
+		size += (*a).Addr.neoEncodedLen() + (*a).IdTime.neoEncodedLen()
 	}
-	return 4 + len(p.NodeList)*20 + size
+	return 4 + len(p.NodeList)*12 + size
 }
 
 func (p *AnswerNodeList) neoMsgEncode(data []byte) {
@@ -2399,8 +2429,11 @@ func (p *AnswerNodeList) neoMsgEncode(data []byte) {
 			}
 			binary.BigEndian.PutUint32(data[0:], uint32(int32((*a).UUID)))
 			binary.BigEndian.PutUint32(data[4:], uint32(int32((*a).State)))
-			float64_NEOEncode(data[8:], (*a).IdTimestamp)
-			data = data[16:]
+			{
+				n := (*a).IdTime.neoEncode(data[8:])
+				data = data[8+n:]
+			}
+			data = data[0:]
 		}
 	}
 }
@@ -2429,15 +2462,22 @@ func (p *AnswerNodeList) neoMsgDecode(data []byte) (int, error) {
 				data = data[n:]
 				nread += n
 			}
-			if uint32(len(data)) < 16 {
+			if uint32(len(data)) < 8 {
 				goto overflow
 			}
 			(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
 			(*a).State = NodeState(int32(binary.BigEndian.Uint32(data[4:])))
-			(*a).IdTimestamp = float64_NEODecode(data[8:])
-			data = data[16:]
+			data = data[8:]
+			{
+				n, ok := (*a).IdTime.neoDecode(data)
+				if !ok {
+					goto overflow
+				}
+				data = data[n:]
+				nread += n
+			}
 		}
-		nread += l * 20
+		nread += l * 12
 	}
 	return 4 + int(nread), nil
 

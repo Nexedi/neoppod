@@ -277,10 +277,10 @@ func (t IdTime) neoEncodedLen() int {
 }
 
 func (t IdTime) neoEncode(b []byte) int {
-	// use 0 as value for no data	(NaN != NaN -> hard to use NaN in tests)
+	// use -inf as value for no data (NaN != NaN -> hard to use NaN in tests)
 	// NOTE neo/py uses None for "no data"; we use 0 for "no data" to avoid pointer
 	tt := float64(t)
-	if tt == 0 {
+	if tt == math.Inf(-1) {
 		tt = math.NaN()
 	}
 	float64_neoEncode(b, tt)
@@ -293,7 +293,7 @@ func (t *IdTime) neoDecode(data []byte) (uint32, bool) {
 	}
 	tt := float64_neoDecode(data)
 	if math.IsNaN(tt) {
-		tt = 0
+		tt = math.Inf(-1)
 	}
 	*t = IdTime(tt)
 	return 8, true

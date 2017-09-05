@@ -24,6 +24,7 @@ package neo
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -121,13 +122,10 @@ func UUID(typ NodeType, num int32) NodeUUID {
 
 // ----------------------------------------
 
-// Valid returns whether t was initialized
-func (t IdTime) Valid() bool {
-	return t != 0
-}
+var IdTimeNone = IdTime(math.Inf(-1))
 
 func (t IdTime) String() string {
-	if !t.Valid() {
+	if float64(t) == math.Inf(-1) {
 		return "ø"
 	}
 

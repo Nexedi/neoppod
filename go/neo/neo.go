@@ -79,7 +79,7 @@ func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serve
 	}
 
 	app := &NodeApp{
-		MyInfo:		NodeInfo{Type: typ, Addr: addr, IdTime: 0},
+		MyInfo:		NodeInfo{Type: typ, Addr: addr, IdTime: IdTimeNone},
 		ClusterName:	clusterName,
 		Net:		net,
 		MasterAddr:	masterAddr,

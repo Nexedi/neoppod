@@ -263,7 +263,7 @@ func TestMsgMarshal(t *testing.T) {
 		},
 
 		// empty IdTime
-		{&NotifyNodeInformation{0, []NodeInfo{}}, hex("ffffffffffffffff") + hex("00000000")},
+		{&NotifyNodeInformation{IdTimeNone, []NodeInfo{}}, hex("ffffffffffffffff") + hex("00000000")},
 
 		// TODO we need tests for:
 		// []varsize + trailing
