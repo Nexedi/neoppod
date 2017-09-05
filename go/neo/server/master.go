@@ -147,7 +147,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 		Addr:	naddr,
 		UUID:	m.allocUUID(neo.MASTER),
 		State:	neo.RUNNING,
-		IdTimestamp:	0,	// XXX ok?
+		IdTime:	neo.IdTimeNone,	// XXX ok?
 	}
 
 	// update nodeTab with self
@@ -979,8 +979,8 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 
 	// XXX +ClusterState
 	err = link.Send1(&neo.NotifyNodeInformation{
-		IdTimestamp: 0,	// XXX what here?
-		NodeList:    nodeiv,
+		IdTime:   neo.IdTimeNone,	// XXX what here?
+		NodeList: nodeiv,
 	})
 	if err != nil {
 		return err
@@ -998,8 +998,8 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 
 		case nodeiv = <-nodech:
 			msg = &neo.NotifyNodeInformation{
-				IdTimestamp: 0, // XXX what here?
-				NodeList:    nodeiv,
+				IdTime:   neo.IdTimeNone, // XXX what here?
+				NodeList: nodeiv,
 			}
 		}
 
@@ -1023,7 +1023,7 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp neo.Msg) {
 	// XXX also verify ? :
 	// - NodeType valid
-	// - IdTimestamp ?
+	// - IdTime ?
 
 	uuid := n.idReq.UUID
 	nodeType := n.idReq.NodeType
@@ -1098,7 +1098,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		Addr:	n.idReq.Address,
 		UUID:	uuid,
 		State:	nodeState,
-		IdTimestamp:	m.monotime(),
+		IdTime:	neo.IdTime(m.monotime()),
 	}
 
 	node = m.node.NodeTab.Update(nodeInfo) // NOTE this notifies all nodeTab subscribers
