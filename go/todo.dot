@@ -9,6 +9,7 @@ digraph {
 	Sgo -> Mmap_go;
 	Sgo -> io_cancel;
 	Sgo -> load_serial_next;
+	Sgo -> sha1_index;
 
 	Cpy_r_Sgo -> Sgo;
 	Cpy_r_Sgo -> Protog_fix;
@@ -36,6 +37,8 @@ digraph {
 
 	io_cancel		[label="? conn IO vs ctx cancel"];
 	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>>];
+
+	sha1_index	[label="? sha1 index"];
 
 	//Cgo -> Cgo_tasks;
 	//Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];
