@@ -211,13 +211,55 @@ GENfs
 GENsqlite
 GENsql
 
-echo ZZZ
 wait
+sync
+
 exit
 
+N=`seq 2`	# XXX repeat benchmarks N time
 
-#genfs
-#time demo-zbigarray read $fs1/data.fs
+# time1 <url>	- run benchmarks on the URL once
+bench1() {
+	url=$1
+	time demo-zbigarray read $url
+	./zsha1.py $url
+	go run zsha1.go $url
+	# TODO zsha1.go -prefetch=1
+}
+
+echo -e "\n*** FileStorage"
+for i in $N; do
+	bench1 $fs1/data.fs
+done
+
+echo -e "\n*** ZEO"
+Zpy $fs1/data.fs
+for i in $N; do
+	bench1 zeo://$Zbind
+done
+killall runzeo
+wait
+
+echo -e "\n*** NEO/py sqlite"
+NEOpylite
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+wait
+
+echo -e "\n*** NEO/py sql"
+NEOpysql
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+xmysql -e "SHUTDOWN"
+wait
+
+exit
+
+# ----------------------------------------
 
 #Zpy $fs1/data.fs
 #sleep 1
@@ -227,12 +269,10 @@ exit
 ## sleep 0.2
 #Sgo $fs1/data.fs
 
-#gensqlite
-#gensql
 
 
-neopylite
-#neopysql
+NEOpylite
+#NEOpysql
 #time demo-zbigarray read neo://$cluster@$Mbind
 for i in `seq 2`; do
 	./zsha1.py neo://$cluster@$Mbind
