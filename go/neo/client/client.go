@@ -299,7 +299,7 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err e
 	}
 
 	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
-	log.Infof(ctx, "master initialized us with nex parttab:\n%s", pt)
+	log.Infof(ctx, "master initialized us with next parttab:\n%s", pt)
 	c.node.StateMu.Lock()
 	c.node.PartTab = pt
 	c.node.StateMu.Unlock()

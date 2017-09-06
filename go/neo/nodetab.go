@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 )
 
 // NodeTable represents known nodes in a cluster.
@@ -323,7 +324,9 @@ func (p *Node) CloseLink(ctx context.Context) {
 // dial does low-level work to dial peer
 // XXX p.* reading without lock - ok?
 // XXX app.MyInfo without lock - ok?
-func (p *Node) dial(ctx context.Context) (*NodeLink, error) {
+func (p *Node) dial(ctx context.Context) (_ *NodeLink, err error) {
+	defer task.Runningf(&ctx, "connect %s", p.UUID)(&err)	// XXX "connect" good word here?
+
 	app := p.nodeTab.nodeApp
 	link, accept, err := app.Dial(ctx, p.Type, p.Addr.String())
 	if err != nil {
