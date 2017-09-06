@@ -182,7 +182,9 @@ EOF
 export WENDELIN_CORE_ZBLK_FMT=ZBlk1
 
 # XXX 32 temp - raise
-work=32	# array size generated (MB)
+#work=32	# array size generated (MB)
+work=64
+#work=512	# array size generated (MB)
 
 # generate data in data.fs
 GENfs() {
@@ -223,8 +225,8 @@ GENsql() {
 # ---- main driver ----
 
 GENfs
-GENsqlite
-GENsql
+#GENsqlite
+#GENsql
 
 wait
 sync

@@ -69,26 +69,27 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 	}
 
 	// prefetchBlk prefetches block of 512 objects starting from xid
-	var tprevLoadBlkStart time.Time
+	//var tprevLoadBlkStart time.Time
 	prefetchBlk := func(ctx context.Context, xid zodb.Xid) {
 		if cache == nil {
 			return
 		}
 
-		t1 := time.Now()
-		for i := 0; i < 512; i++ {
+		//t1 := time.Now()
+		//for i := 0; i < 512; i++ {
+		for i := 0; i < 8; i++ {
 			prefetch(ctx, xid)
 			xid.Oid++
 		}
-		t2 := time.Now()
-		δt := t2.Sub(t1)
-		fmt.Printf("tprefetch: %s", δt)
-		if !tprevLoadBlkStart.IsZero() {
-			fmt.Printf("\ttprevload: %s", t1.Sub(tprevLoadBlkStart))
-		}
-		fmt.Printf("\n")
-
-		tprevLoadBlkStart = t2
+		//t2 := time.Now()
+		//δt := t2.Sub(t1)
+		//fmt.Printf("tprefetch: %s", δt)
+		//if !tprevLoadBlkStart.IsZero() {
+		//	fmt.Printf("\ttprevload: %s", t1.Sub(tprevLoadBlkStart))
+		//}
+		//fmt.Printf("\n")
+		//
+		//tprevLoadBlkStart = t2
 	}
 
 
@@ -99,8 +100,8 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 	}
 	before := lastTid + 1	// XXX overflow ?
 
-	if false {
-		defer profile.Start().Stop()
+	if true {
+		defer profile.Start(profile.TraceProfile).Stop()
 	}
 
 	tstart := time.Now()
@@ -111,7 +112,8 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 loop:
 	for {
 		xid := zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: before, TidBefore: true}}
-		if xid.Oid % 512 == 0 {
+		//if xid.Oid % 512 == 0 {
+		if xid.Oid % 8 == 0 {
 			prefetchBlk(ctx, xid)
 		}
 		data, _, err := load(ctx, xid)
