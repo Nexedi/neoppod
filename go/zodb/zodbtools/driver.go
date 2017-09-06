@@ -28,6 +28,8 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+
+	//"lab.nexedi.com/kirr/neo/go/xcommon/log"
 )
 
 // Command describes one zodb subcommand
@@ -109,6 +111,7 @@ func (prog *MainProg) Main() {
 	defer func() {
 		r := recover()
 		if e, _ := r.(*programExit); e != nil {
+			// TODO log.Flush()
 			os.Exit(e.code)
 		}
 		if r != nil {
@@ -275,4 +278,6 @@ const helpOptions =
 
 	-cpuprofile <file>	write cpu profile to <file>
 	-memprofile <file>	write memory profile to <file>
+
+	TODO also document glog options
 `

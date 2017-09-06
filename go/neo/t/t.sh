@@ -241,7 +241,7 @@ bench1() {
 		echo "(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
 	fi
-	go run zsha1.go $url
+	go run zsha1.go --log_dir=$log $url
 	# TODO zsha1.go -prefetch=1
 }
 

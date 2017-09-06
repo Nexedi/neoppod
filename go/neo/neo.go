@@ -347,6 +347,7 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 			// FIXME hack - better it be separate command and handled cleanly
 			if nodeInfo.State == DOWN {
 				log.Info(ctx, "master told us to shutdown")
+				log.Flush()
 				os.Exit(1)
 			}
 		}

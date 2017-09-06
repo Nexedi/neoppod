@@ -6,11 +6,14 @@ package main
 import (
 	"context"
 	"crypto/sha1"
-	"log"
 	"flag"
 	"fmt"
 	//"os"
 	"time"
+
+	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
@@ -19,18 +22,32 @@ import (
 )
 
 func main() {
+	defer log.Flush()
 	flag.Parse()
 	url := flag.Args()[0]	// XXX dirty
 
-	bg := context.Background()
-	stor, err := zodb.OpenStorageURL(bg, url)
+	ctx := context.Background()
+	err := zsha1(ctx, url)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(ctx, err)
 	}
+}
 
-	lastTid, err := stor.LastTid(bg)
+func zsha1(ctx context.Context, url string) (err error) {
+	defer task.Running(&ctx, "zsha1")(&err)
+
+	stor, err := zodb.OpenStorageURL(ctx, url)
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	defer func() {
+		err2 := stor.Close()
+		err = xerr.First(err, err2)
+	}()
+
+	lastTid, err := stor.LastTid(ctx)
+	if err != nil {
+		return err
 	}
 	before := lastTid + 1	// XXX overflow ?
 
@@ -46,14 +63,14 @@ func main() {
 loop:
 	for {
 		xid := zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: before, TidBefore: true}}
-		data, _, err := stor.Load(bg, xid)
+		data, _, err := stor.Load(ctx, xid)
 		switch err.(type) {
 		case nil:
 			// ok
 		case *zodb.ErrOidMissing:
 			break loop
 		default:
-			log.Fatal(err)
+			return err
 		}
 
 		m.Write(data)
@@ -70,4 +87,6 @@ loop:
 
 	fmt.Printf("%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=zsha1.go\n",
 		m.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid))	// XXX /oid cast ?
+
+	return nil
 }

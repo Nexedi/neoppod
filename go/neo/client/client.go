@@ -379,7 +379,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 	c.node.StateMu.RUnlock()
 
 	if len(storv) == 0 {
-		// XXX recheck it adds traceback to log
+		// XXX recheck it adds traceback to log -> XXX it does not -> add our Bugf which always forces +v on such error print
 		return nil, 0, errors.Errorf("internal inconsistency: cluster is operational, but no storages alive for oid %v", xid.Oid)
 	}
 
