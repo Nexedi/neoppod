@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -454,7 +456,15 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 		// TODO += timeout -> go away if inactive
 		req, err = link.Recv1()
 		if err != nil {
-			log.Error(ctx, err)
+			switch errors.Cause(err) {
+			// XXX closed by main or peer down - all logged by main called
+			// XXX review
+			case neo.ErrLinkDown, neo.ErrLinkClosed:
+				// ok
+
+			default:
+				log.Error(ctx, err)
+			}
 			return
 		}
 	}

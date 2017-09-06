@@ -66,7 +66,8 @@ loop:
 	}
 
 	tend := time.Now()
+	δt := tend.Sub(tstart)
 
-	fmt.Printf("%x   ; oid=0..%d  nread=%d  t=%s  x=zsha1.go\n",
-		m.Sum(nil), oid-1, nread, tend.Sub(tstart))
+	fmt.Printf("%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=zsha1.go\n",
+		m.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid))	// XXX /oid cast ?
 }

@@ -223,8 +223,8 @@ N=`seq 2`	# XXX repeat benchmarks N time
 # time1 <url>	- run benchmarks on the URL once
 bench1() {
 	url=$1
-	time demo-zbigarray read $url
-	./zsha1.py $url
+#	time demo-zbigarray read $url
+#	./zsha1.py $url
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """zsha1 - compute sha1 of whole latest objects stream in a ZODB database"""
 
 from __future__ import print_function
@@ -38,9 +39,10 @@ def main():
         oid += 1
 
     tend = time()
+    dt = tend - tstart
 
-    print('%s   ; oid=0..%d  nread=%d  t=%.3fs  x=zsha1.py' % \
-            (m.hexdigest(), oid-1, nread, tend - tstart))
+    print('%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=zsha1.py' % \
+            (m.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid))
 
 
 if __name__ == '__main__':

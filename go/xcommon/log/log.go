@@ -67,6 +67,13 @@ func (d Depth) Infof(ctx context.Context, format string, argv ...interface{}) {
 	glog.InfoDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv...))...)
 }
 
+func (d Depth) Warning(ctx context.Context, argv ...interface{}) {
+	glog.WarningDepth(int(d+1), withTask(ctx, argv...)...)
+}
+
+func (d Depth) Warningf(ctx context.Context, format string, argv ...interface{}) {
+	glog.WarningDepth(int(d+1), withTask(ctx, fmt.Sprintf(format, argv...))...)
+}
 func (d Depth) Error(ctx context.Context, argv ...interface{}) {
 	glog.ErrorDepth(int(d+1), withTask(ctx, argv...)...)
 }
@@ -78,15 +85,17 @@ func (d Depth) Errorf(ctx context.Context, format string, argv ...interface{}) {
 
 
 func Info(ctx context.Context, argv ...interface{})	{ Depth(1).Info(ctx, argv...) }
+func Warning(ctx context.Context, argv ...interface{})	{ Depth(1).Warning(ctx, argv...) }
 func Error(ctx context.Context, argv ...interface{})	{ Depth(1).Error(ctx, argv...) }
 
 func Infof(ctx context.Context, format string, argv ...interface{}) {
 	Depth(1).Infof(ctx, format, argv...)
 }
 
+func Warningf(ctx context.Context, format string, argv ...interface{}) {
+	Depth(1).Warningf(ctx, format, argv...)
+}
+
 func Errorf(ctx context.Context, format string, argv ...interface{}) {
 	Depth(1).Errorf(ctx, format, argv...)
 }
-
-
-// TODO Warningf, ...
