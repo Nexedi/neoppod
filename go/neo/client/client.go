@@ -62,6 +62,8 @@ type Client struct {
 	// - .ClusterState = RUNNING	<- XXX needed?
 	//
 	// however master link is accessed separately (see ^^^ and masterLink)
+	//
+	// protected by .node.StateMu
 	operational bool // XXX <- somehow move to NodeApp?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
 }
@@ -77,8 +79,10 @@ func (c *Client) StorageName() string {
 // It will connect to master @masterAddr and identify with sepcified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
-		node:       neo.NewNodeApp(net, neo.CLIENT, clusterName, masterAddr, ""),
-		mlinkReady: make(chan struct{}),
+		node:        neo.NewNodeApp(net, neo.CLIENT, clusterName, masterAddr, ""),
+		mlinkReady:  make(chan struct{}),
+		operational: false,
+		opReady:     make(chan struct{}),
 	}
 
 	// spawn background process which performs master talk
@@ -125,6 +129,42 @@ func (c *Client) masterLink(ctx context.Context) (*neo.NodeLink, error) {
 	}
 }
 
+// updateOperational updates .operational from current state.
+//
+// Must be called with .node.StateMu lock held.
+//
+// Returned sendReady func must be called by updateOperational caller after
+// .node.StateMu lock is released - it will close current .opReady this way
+// notifying .operational waiters.
+//
+// XXX move somehow -> NodeApp?
+func (c *Client) updateOperational() (sendReady func()) {
+	// XXX py client does not wait for cluster state = running
+	operational := // c.node.ClusterState == neo.ClusterRunning &&
+		c.node.PartTab.OperationalWith(c.node.NodeTab)
+
+	//fmt.Printf("\nupdateOperatinal: %v\n", operational)
+	//fmt.Println(c.node.PartTab)
+	//fmt.Println(c.node.NodeTab)
+
+	var opready chan struct{}
+	if operational != c.operational {
+		c.operational = operational
+		if operational {
+			opready = c.opReady // don't close from under StateMu
+		} else {
+			c.opReady = make(chan struct{}) // remake for next operational waiters
+		}
+	}
+
+	return func() {
+		if opready != nil {
+			//fmt.Println("updateOperational - notifying %v\n", opready)
+			close(opready)
+		}
+	}
+}
+
 // withOperational waits for cluster state to be operational.
 //
 // If successful it returns with operational state RLocked (c.node.StateMu) and
@@ -140,6 +180,8 @@ func (c *Client) withOperational(ctx context.Context) error {
 
 		ready := c.opReady
 		c.node.StateMu.RUnlock()
+
+		//fmt.Printf("withOperational - waiting on %v\n", ready)
 
 		select {
 		case <-ctx.Done():
@@ -266,25 +308,9 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) (err error
 		}
 
 		// update .operational + notify those who was waiting for it
-		// XXX py client does not wait for cluster state = running
-		operational := // c.node.ClusterState == neo.ClusterRunning &&
-			c.node.PartTab.OperationalWith(c.node.NodeTab)
-
-		var opready chan struct{}
-		if operational != c.operational {
-			c.operational = operational
-			if operational {
-				opready = c.opReady // don't close from under StateMu
-			} else {
-				c.opReady = make(chan struct{})
-			}
-		}
-
+		opready := c.updateOperational()
 		c.node.StateMu.Unlock()
-
-		if opready != nil {
-			close(opready)
-		}
+		opready()
 	}
 }
 
@@ -302,7 +328,9 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err e
 	log.Infof(ctx, "master initialized us with next parttab:\n%s", pt)
 	c.node.StateMu.Lock()
 	c.node.PartTab = pt
+	opready := c.updateOperational()
 	c.node.StateMu.Unlock()
+	opready()
 
 /*
 	XXX don't need this in init?

@@ -457,7 +457,6 @@ loop2:
 
 	// if we are starting for new cluster - create partition table
 	if m.node.PartTab.PTid == 0 {
-		log.Infof(ctx, "creating new partition table")
 		// XXX -> m.nodeTab.StorageList(State > DOWN)
 		storv := []*neo.Node{}
 		for _, stor := range m.node.NodeTab.StorageList() {
@@ -467,6 +466,7 @@ loop2:
 		}
 		m.node.PartTab = neo.MakePartTab(1 /* XXX hardcoded */, storv)
 		m.node.PartTab.PTid = 1
+		log.Infof(ctx, "creating new partition table: %s", m.node.PartTab)
 	}
 
 	return nil

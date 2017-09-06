@@ -59,7 +59,7 @@ func NewSyncTracer() *SyncTracer {
 // Trace1 sends message with 1 tracing event to a consumer and waits for ack
 func (st *SyncTracer) Trace1(event interface{}) {
 	ack := make(chan struct{})
-	fmt.Printf("trace: send: %T %v\n", event, event)
+	//fmt.Printf("trace: send: %T %v\n", event, event)
 	st.tracech <- &SyncTraceMsg{event, ack}
 	<-ack
 }

@@ -164,7 +164,7 @@ func MakePartTab(np int, nodev []*Node) *PartitionTable {
 	for i, j := 0, 0; i < np; i, j = i+1, j+1 % len(nodev) {
 		node := nodev[j]
 		// XXX assert node.State > DOWN
-		fmt.Printf("tab[%d] <- %v\n", i, node.UUID)
+		//fmt.Printf("tab[%d] <- %v\n", i, node.UUID)
 		tab[i] = []Cell{{CellInfo: CellInfo{node.UUID, UP_TO_DATE /*XXX ok?*/}}}
 	}
 
@@ -261,6 +261,7 @@ func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struc
 func PartTabFromDump(ptid PTid, rowv []RowInfo) *PartitionTable {
 	// reconstruct partition table from response
 	pt := &PartitionTable{}
+	pt.PTid = ptid
 
 	for _, row := range rowv {
 		i := row.Offset
