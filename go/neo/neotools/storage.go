@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"lab.nexedi.com/kirr/neo/go/neo/server"
@@ -46,10 +47,6 @@ Run NEO storage node.
 XXX currently storage is read-only.
 `)
 }
-
-// TODO set GOMAXPROCS *= N (a lot of file IO) + link
-// https://groups.google.com/forum/#!msg/golang-nuts/jPb_h3TvlKE/rQwbg-etCAAJ
-// https://github.com/golang/go/issues/6817
 
 func storageMain(argv []string) {
 	flags := flag.NewFlagSet("", flag.ExitOnError)
@@ -78,6 +75,15 @@ func storageMain(argv []string) {
 		flags.Usage()
 		zt.Exit(2)
 	}
+
+	// adjust GOMAXPROCS *= N (a lot of file IO) because file IO really consumes OS threads; details:
+	// https://groups.google.com/forum/#!msg/golang-nuts/jPb_h3TvlKE/rQwbg-etCAAJ
+	// https://github.com/golang/go/issues/6817
+	//
+	// XXX check how varying this affects performance
+	maxprocs := runtime.GOMAXPROCS(0)
+	runtime.GOMAXPROCS(maxprocs*8)		// XXX *8 is enough?
+
 
 	// XXX hack to use existing zodb storage for data
 	zstor, err := fs1.Open(context.Background(), argv[0])

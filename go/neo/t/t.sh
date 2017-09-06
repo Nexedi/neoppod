@@ -242,7 +242,7 @@ bench1() {
 		return
 	fi
 	go run zsha1.go --log_dir=$log $url
-	# TODO zsha1.go -prefetch=1
+	go run zsha1.go --log_dir=$log -useprefetch $url
 }
 
 echo -e "\n*** FileStorage"
@@ -275,50 +275,14 @@ done
 # xmysql -e "SHUTDOWN"
 # wait
 
-echo -e "\n*** NEO/go"
-NEOgo
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
-xneoctl set cluster stopping
-wait
+# echo -e "\n*** NEO/go"
+# NEOgo
+# for i in $N; do
+# 	bench1 neo://$cluster@$Mbind
+# done
+# xneoctl set cluster stopping
+# wait
 
 # all ok
 trap - EXIT
 exit
-
-# ----------------------------------------
-
-#Zpy $fs1/data.fs
-#sleep 1
-#time demo-zbigarray read zeo://$Zbind
-
-#Mpy --autostart=1
-## sleep 0.2
-#Sgo $fs1/data.fs
-
-
-
-NEOpylite
-#NEOpysql
-#time demo-zbigarray read neo://$cluster@$Mbind
-for i in `seq 2`; do
-	./zsha1.py neo://$cluster@$Mbind
-	go run zsha1.go neo://$cluster@$Mbind
-done
-xneoctl set cluster stopping
-#xmysql -e "SHUTDOWN"
-
-wait
-exit
-
-
-# --------
-
-# spawn Mpy + Sgo
-Mpy
-sleep 0.2 # XXX temp for debug: so master could start listening and first S connect try is not error
-Sgo ../../zodb/storage/fs1/testdata/1.fs
-Apy
-
-wait
