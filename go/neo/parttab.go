@@ -21,6 +21,7 @@ package neo
 // partition table
 
 import (
+	"bytes"
 	"fmt"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -217,6 +218,26 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 
 // ---- encode / decode PT to / from messages
 // XXX naming
+
+func (pt *PartitionTable) String() string {
+	buf := &bytes.Buffer{}
+
+	fmt.Fprintf(buf, "PT.%d[%d]\n", pt.PTid, len(pt.tab))
+	for i, cellv := range pt.tab {
+		fmt.Fprintf(buf, "%d:\t", i)
+		if len(cellv) == 0 {
+			fmt.Fprintf(buf, "ø\n")
+			continue
+		}
+
+		for _, cell := range cellv {
+			fmt.Fprintf(buf, " %s(%s)", cell.UUID, cell.State)
+		}
+		fmt.Fprintf(buf, "\n")
+	}
+
+	return buf.String()
+}
 
 // XXX -> RowList() ?
 func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struct ?

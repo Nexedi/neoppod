@@ -228,7 +228,9 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 }
 
 // recvMaster receives and handles notifications from master
-func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
+func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) (err error) {
+	defer task.Running(&ctx, "rx")(&err)
+
 	// XXX .nodeTab.Reset()
 
 	for {
@@ -286,15 +288,18 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 	}
 }
 
-func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) error {
+func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err error) {
+	defer task.Running(&ctx, "init")(&err)
+
 	// ask M for PT
 	rpt := neo.AnswerPartitionTable{}
-	err := mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
+	err = mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
 	if err != nil {
 		return err
 	}
 
 	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
+	log.Infof(ctx, "master initialized us with nex parttab:\n%s", pt)
 	c.node.StateMu.Lock()
 	c.node.PartTab = pt
 	c.node.StateMu.Unlock()

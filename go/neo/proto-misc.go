@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-//go:generate stringer -output zproto-str.go -type ErrorCode,ClusterState,NodeType,NodeState proto.go packed.go
+//go:generate stringer -output zproto-str.go -type ErrorCode,ClusterState,NodeType,NodeState,CellState proto.go packed.go
 
 package neo
 // supporting code for types defined in proto.go

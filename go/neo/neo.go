@@ -330,7 +330,7 @@ func (l *listener) Addr() net.Addr {
 func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformation) {
 	// XXX msg.IdTime ?
 	for _, nodeInfo := range msg.NodeList {
-		log.Infof(ctx, "rx node update: %v", nodeInfo)
+		log.Infof(ctx, "node update: %v", nodeInfo)
 		app.NodeTab.Update(nodeInfo)
 
 		// XXX we have to provide IdTime when requesting identification to other peers
@@ -357,13 +357,13 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *SendPartitionTable) {
 	pt := PartTabFromDump(msg.PTid, msg.RowList)
 	// XXX logging under lock
-	log.Infof(ctx, "rx parttab: %v", pt)
+	log.Infof(ctx, "parttab update: %v", pt)
 	app.PartTab = pt
 }
 
 // UpdateClusterState applies update to .ClusterState from message and logs change appropriately.
 func (app *NodeApp) UpdateClusterState(ctx context.Context, msg *NotifyClusterState) {
 	// XXX loging under lock
-	log.Infof(ctx, "rx state update: %v", msg.State)
+	log.Infof(ctx, "state update: %v", msg.State)
 	app.ClusterState.Set(msg.State)
 }
