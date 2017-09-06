@@ -17,9 +17,9 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package log provides logging with severity levels and tasks integration
+// Package log provides logging with severity levels and tasks integration.
 //
-// XXX inspired by cockrach
+// XXX inspired by cockroach
 // XXX just use cockroach/util/log directly?
 package log
 

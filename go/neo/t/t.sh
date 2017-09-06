@@ -1,5 +1,7 @@
 #!/bin/bash -e
 # run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
+# XXX neo/go - must be `go install'ed`
+# XXX neo/py, wendelin.core, ... - must be pip install'ed
 
 # port allocations
 Abind=127.0.0.1:5551

@@ -715,3 +715,122 @@ func TestHandshake(t *testing.T) {
 	}
 
 }
+
+// ---- benchmarks ----
+
+// rtt over chan - for comparision as base
+func BenchmarkChanRTT(b *testing.B) {
+	c12 := make(chan byte)
+	c21 := make(chan byte)
+
+	go func() {
+		for {
+			c, ok := <-c12
+			if !ok {
+				break
+			}
+
+			c21 <- c
+		}
+	}()
+
+	for i := 0; i < b.N; i++ {
+		c := byte(i)
+		c12 <- c
+		cc := <-c21
+		if cc != c {
+			b.Fatalf("sent %q != got %q", c, cc)
+		}
+	}
+
+	close(c12)
+}
+
+func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn) {
+	buf1 := make([]byte, 1)
+	buf2 := make([]byte, 1)
+
+	b.ResetTimer()
+
+	go func() {
+		defer xclose(c2)
+
+		for {
+			n, erx := c2.Read(buf2)
+			//fmt.Printf("2: rx %q\n", buf2[:n])
+			if n > 0 {
+				if n != 1 {
+					b.Fatalf("read -> %d bytes  ; want 1", n)
+				}
+
+				//fmt.Printf("2: tx %q\n", buf2)
+				_, etx := c2.Write(buf2)
+				if etx != nil {
+					b.Fatal(etx)
+				}
+			}
+
+			switch erx {
+			case nil:
+				// ok
+
+			case io.ErrClosedPipe, io.EOF:	// net.Pipe, TCP
+				return
+
+			default:
+				b.Fatal(erx) // XXX cannot call b.Fatal from non-main goroutine?
+			}
+		}
+	}()
+
+	for i := 0; i < b.N; i++ {
+		c := byte(i)
+		buf1[0] = c
+		//fmt.Printf("1: tx %q\n", buf1)
+		_, err := c1.Write(buf1)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		n, err := c1.Read(buf1)
+		//fmt.Printf("1: rx %q\n", buf1[:n])
+		if !(n == 1 && err == nil) {
+			b.Fatalf("read back: n=%v  err=%v", n, err)
+		}
+
+		if buf1[0] != c {
+			b.Fatalf("sent %q != got %q", c, buf1[0])
+		}
+	}
+
+	xclose(c1)
+}
+
+// rtt over net.Pipe - for comparision as base
+func BenchmarkNetPipeRTT(b *testing.B) {
+	c1, c2 := net.Pipe()
+	benchmarkNetConnRTT(b, c1, c2)
+}
+
+// rtt over TCP/loopback - for comparision as base
+func BenchmarkTCPloopback(b *testing.B) {
+	l, err := net.Listen("tcp", "localhost:")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	c1, err := net.Dial("tcp", l.Addr().String())
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	c2, err := l.Accept()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	xclose(l)
+	benchmarkNetConnRTT(b, c1, c2)
+}
+
+// XXX RTT over Ask1/Recv1
