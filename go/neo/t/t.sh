@@ -31,6 +31,18 @@ xmysql() {
 	mysql --defaults-file=$mycnf "$@"
 }
 
+# if we are abnormally terminating
+trap 'set +e
+echo "E: abnormal termination - stopping..."
+xneoctl set cluster stopping
+sleep 1
+xmysql -e "SHUTDOWN"
+sleep 1
+j="$(jobs -p)"
+test -z "$j" && exit
+echo "E: killing jobs..."
+jobs -l
+kill $j' EXIT
 
 # ---- start NEO nodes ----
 
@@ -271,6 +283,8 @@ done
 xneoctl set cluster stopping
 wait
 
+# all ok
+trap - EXIT
 exit
 
 # ----------------------------------------

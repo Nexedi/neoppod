@@ -163,7 +163,7 @@ func (c *Client) talkMaster(ctx context.Context) (err error) {
 	// XXX dup wrt Storage.talkMaster
 	for {
 		err := c.talkMaster1(ctx)
-		log.Error(ctx, err)
+		log.Warning(ctx, err)	// XXX Warning ok? -> Error?
 
 		// TODO if err = shutdown -> return
 

@@ -154,7 +154,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 	// XXX dup wrt Client.talkMaster
 	for {
 		err := stor.talkMaster1(ctx)
-		log.Error(ctx, err)
+		log.Warning(ctx, err)	// XXX Warning ok? -> Error?
 
 		// TODO if err = shutdown -> return
 
@@ -200,13 +200,13 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// let master initialize us. If successful this ends with StartOperation command.
 	reqStart, err := stor.m1initialize(ctx, mlink)
 	if err != nil {
-		log.Error(ctx, err)
+		//log.Error(ctx, err)
 		return err
 	}
 
 	// we got StartOperation command. Let master drive us during servicing phase.
 	err = stor.m1serve(ctx, reqStart)
-	log.Error(ctx, err)
+	//log.Error(ctx, err)
 	return err
 }
 
