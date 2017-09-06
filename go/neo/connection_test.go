@@ -28,12 +28,14 @@ import (
 	"testing"
 	"time"
 
+	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xsync"
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
 
-        "github.com/kylelemons/godebug/pretty"
+	"github.com/kylelemons/godebug/pretty"
+	"github.com/pkg/errors"
 )
 
 func xclose(c io.Closer) {
@@ -746,6 +748,7 @@ func BenchmarkChanRTT(b *testing.B) {
 	close(c12)
 }
 
+// rtt over net.Conn Read/Write
 func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn) {
 	buf1 := make([]byte, 1)
 	buf2 := make([]byte, 1)
@@ -812,25 +815,113 @@ func BenchmarkNetPipeRTT(b *testing.B) {
 	benchmarkNetConnRTT(b, c1, c2)
 }
 
-// rtt over TCP/loopback - for comparision as base
-func BenchmarkTCPloopback(b *testing.B) {
+// xtcpPipe creates two TCP connections connected to each other via loopback
+func xtcpPipe() (*net.TCPConn, *net.TCPConn) {
+	// NOTE go sets TCP_NODELAY by default for TCP sockets
 	l, err := net.Listen("tcp", "localhost:")
-	if err != nil {
-		b.Fatal(err)
-	}
+	exc.Raiseif(err)
 
 	c1, err := net.Dial("tcp", l.Addr().String())
-	if err != nil {
-		b.Fatal(err)
-	}
+	exc.Raiseif(err)
 
 	c2, err := l.Accept()
-	if err != nil {
-		b.Fatal(err)
-	}
+	exc.Raiseif(err)
 
 	xclose(l)
+	return c1.(*net.TCPConn), c2.(*net.TCPConn)
+}
+
+// rtt over TCP/loopback - for comparision as base
+func BenchmarkTCPloopback(b *testing.B) {
+	c1, c2 := xtcpPipe()
 	benchmarkNetConnRTT(b, c1, c2)
 }
 
-// XXX RTT over Ask1/Recv1
+
+// rtt over NodeLink via Ask1/Recv1
+func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
+	b.ResetTimer()
+
+	go func() {
+		defer xclose(l2)
+
+		for {
+			req, err := l2.Recv1()
+			if err != nil {
+				switch errors.Cause(err) {
+				case ErrLinkDown:
+					return
+
+				default:
+					b.Fatal(err)
+				}
+			}
+
+			switch msg := req.Msg.(type) {
+			default:
+				b.Fatalf("read -> unexpected message %T", msg)
+
+			case *GetObject:
+				err = req.Reply(&AnswerObject{
+					Oid:		msg.Oid,
+					Serial:		msg.Serial,
+					DataSerial:	msg.Tid,
+				})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	}()
+
+	get := &GetObject{}
+	obj := &AnswerObject{}
+
+	for i := 0; i < b.N; i++ {
+		get.Oid = zodb.Oid(i)
+		get.Serial = zodb.Tid(i+1)
+		get.Tid = zodb.Tid(i+2)
+
+		err := l1.Ask1(get, obj)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if !(obj.Oid == get.Oid && obj.Serial == get.Serial && obj.DataSerial == get.Tid) {
+			b.Fatalf("read back: %v  ; requested %v", obj, get)
+		}
+	}
+
+	xclose(l1)
+}
+
+// XXX RTT over Conn.Send/Recv		(no msg encoding/decoding)
+// XXX RTT over link.sendPkt/recvPkt	(no conn route)
+
+// xlinkPipe creates two links interconnected to each other via c1 and c2
+// XXX c1, c2 -> piper (who creates c1, c2) ?
+// XXX overlap with nodeLinkPipe
+func xlinkPipe(c1, c2 net.Conn) (*NodeLink, *NodeLink) {
+	var l1, l2 *NodeLink
+
+	wg := &xsync.WorkGroup{}
+	wg.Gox(func() {
+		l, err := Handshake(context.Background(), c1, LinkClient)
+		exc.Raiseif(err)
+		l1 = l
+	})
+	wg.Gox(func() {
+		l, err := Handshake(context.Background(), c2, LinkServer)
+		exc.Raiseif(err)
+		l2 = l
+	})
+	xwait(wg)
+
+	return l1, l2
+}
+
+func BenchmarkLinkTCPRTT(b *testing.B) {
+	c1, c2 := xtcpPipe()
+	l1, l2 := xlinkPipe(c1, c2)
+	benchmarkLinkRTT(b, l1, l2)
+}
