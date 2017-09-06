@@ -182,6 +182,11 @@ func MakePartTab(np int, nodev []*Node) *PartitionTable {
 //
 // XXX or keep not only NodeUUID in Cell - add *Node ?
 func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
+	// empty partition table is never operational
+	if len(pt.tab) == 0 {
+		return false
+	}
+
 	for _, ptEntry := range pt.tab {
 		if len(ptEntry) == 0 {
 			return false
