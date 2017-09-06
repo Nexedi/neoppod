@@ -246,6 +246,8 @@ func (l *listener) run() {
 		}
 
 		// XXX add backpressure on too much incoming connections without client .Accept ?
+		// XXX do not let err go to .accept() - handle here? (but here
+		// we do not know with which severety and context to log)
 		link, err := l.l.Accept()
 		go l.accept(link, err)
 	}
@@ -276,7 +278,7 @@ func (l *listener) accept(link *NodeLink, err error) {
 		}
 	}
 
-	if !ok {
+	if !ok && link != nil {
 		link.Close()
 	}
 }

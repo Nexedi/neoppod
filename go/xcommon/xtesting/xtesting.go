@@ -79,12 +79,12 @@ func (st *SyncTracer) Get1() *SyncTraceMsg {
 // XXX naming -> SyncTraceChecker
 // TraceChecker synchronously collects and checks tracing events from a SyncTracer
 type TraceChecker struct {
-	t  *testing.T
+	t  testing.TB
 	st *SyncTracer
 }
 
 // XXX doc
-func NewTraceChecker(t *testing.T, st *SyncTracer) *TraceChecker {
+func NewTraceChecker(t testing.TB, st *SyncTracer) *TraceChecker {
 	return &TraceChecker{t: t, st: st}
 }
 

@@ -877,7 +877,7 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 		select {
 		// XXX stub
 		case <-time.After(1*time.Second):
-			println(".")
+			//println(".")
 
 		case <-ctx.Done():
 			// XXX also send StopOperation?

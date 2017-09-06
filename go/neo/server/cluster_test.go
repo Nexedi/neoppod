@@ -34,6 +34,8 @@ import (
 	"testing"
 	"unsafe"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
@@ -548,4 +550,81 @@ func TestMasterStorage(t *testing.T) {
 	Mcancel()	// FIXME ctx cancel not fully handled
 	Scancel()	// ---- // ----
 	xwait(gwg)
+}
+
+
+func BenchmarkGetObject(b *testing.B) {
+	// create test cluster	<- XXX factor to utility func
+	net := pipenet.New("testnet")
+	Mhost := net.Host("m")
+	Shost := net.Host("s")
+	Chost := net.Host("c")
+
+	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
+
+	M := NewMaster("abc1", ":1", Mhost)
+	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
+	C := client.NewClient("abc1", "m:1", Chost)
+
+	// spawn M & S
+	ctx, cancel := context.WithCancel(context.Background())
+	wg, ctx := errgroup.WithContext(ctx)
+	defer wg.Wait()
+	defer cancel()
+
+	// XXX to wait for "ready to start" -> XXX add something to M api?
+	tracer := &MyTracer{xtesting.NewSyncTracer()}
+	tc := xtesting.NewTraceChecker(b, tracer.SyncTracer)
+	pg := &tracing.ProbeGroup{}
+	tracing.Lock()
+	traceMasterStartReady_Attach(pg, tracer.traceMasterStartReady)
+	tracing.Unlock()
+
+	wg.Go(func() error {
+		return M.Run(ctx)
+	})
+	wg.Go(func() error {
+		return S.Run(ctx)
+	})
+
+	// command M to start
+	tc.Expect(masterStartReady(M, true))	// <- XXX better with M api
+	pg.Done()
+
+	err := M.Start()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	xid1 := zodb.Xid{Oid: 1}
+	xid1.Tid = zodb.TidMax
+	xid1.TidBefore = true
+
+	data1, serial1, err := zstor.Load(ctx, xid1)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// C.Load(xid1)
+	xcload1 := func() {
+		cdata1, cserial1, err := C.Load(ctx, xid1)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if !(bytes.Equal(cdata1, data1) && cserial1 == serial1) {
+			b.Fatalf("C.Load first -> %q %v  ; want %q %v", cdata1, cserial1, data1, serial1)
+		}
+	}
+
+	// do first C.Load - this also implicitly waits for M & S to come up
+	// and C to connect to M and S.
+	xcload1()
+
+	// now start the benchmark
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		xcload1()
+	}
 }
