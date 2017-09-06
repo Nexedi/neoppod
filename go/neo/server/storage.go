@@ -420,7 +420,16 @@ func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *neo
 	for {
 		req, err := link.Recv1()
 		if err != nil {
-			log.Error(ctx, err)
+			switch errors.Cause(err) {
+			// XXX closed by main or peer down
+			// XXX review
+			case neo.ErrLinkDown, neo.ErrLinkClosed:
+				log.Info(ctx, err)
+				// ok
+
+			default:
+				log.Error(ctx, err)
+			}
 			return err
 		}
 
