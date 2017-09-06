@@ -381,6 +381,9 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
 	defer func() {
 		switch err.(type) {
+		case nil:
+			// ok (avoid allocation in xerr.Contextf() call for no-error case)
+
 		// keep zodb errors intact
 		// XXX ok? or requre users always call Cause?
 		case *zodb.ErrOidMissing:
@@ -398,7 +401,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 
 	// here we have cluster state operational and rlocked. Retrieve
 	// storages we might need to access and release the lock.
-	storv := make([]*neo.Node, 0)
+	storv := make([]*neo.Node, 0, 1)
 	for _, cell := range c.node.PartTab.Get(xid.Oid) {
 		if cell.Readable() {
 			stor := c.node.NodeTab.Get(cell.UUID)

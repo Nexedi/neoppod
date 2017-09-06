@@ -404,8 +404,10 @@ func (c *Conn) Close() error {
 			// ( we cannot reuse same connection since after it is marked as
 			//   closed Send refuses to work )
 			} else {
-				// c implicitly goes away from connTab
-				tmpclosed = nl.newConn(c.connId)
+				delete(nl.connTab, c.connId)
+				// XXX temp. disabled - costs a lot in 1req=1conn model
+				// // c implicitly goes away from connTab
+				// tmpclosed = nl.newConn(c.connId)
 			}
 		}
 		nl.connMu.Unlock()
