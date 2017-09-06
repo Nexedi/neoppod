@@ -31,6 +31,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -342,6 +343,12 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 			// XXX recheck locking
 			// XXX do .MyInfo = nodeInfo ?
 			app.MyInfo.IdTime = nodeInfo.IdTime
+
+			// FIXME hack - better it be separate command and handled cleanly
+			if nodeInfo.State == DOWN {
+				log.Info(ctx, "master told us to shutdown")
+				os.Exit(1)
+			}
 		}
 	}
 

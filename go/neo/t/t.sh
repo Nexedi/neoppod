@@ -40,7 +40,7 @@ xmysql -e "SHUTDOWN"
 sleep 1
 j="$(jobs -p)"
 test -z "$j" && exit
-echo "E: killing jobs..."
+echo "E: killing left jobs..."
 jobs -l
 kill $j' EXIT
 
