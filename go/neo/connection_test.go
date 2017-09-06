@@ -920,6 +920,12 @@ func xlinkPipe(c1, c2 net.Conn) (*NodeLink, *NodeLink) {
 	return l1, l2
 }
 
+func BenchmarkLinkNetPipeRTT(b *testing.B) {
+	c1, c2 := net.Pipe()
+	l1, l2 := xlinkPipe(c1, c2)
+	benchmarkLinkRTT(b, l1, l2)
+}
+
 func BenchmarkLinkTCPRTT(b *testing.B) {
 	c1, c2 := xtcpPipe()
 	l1, l2 := xlinkPipe(c1, c2)
