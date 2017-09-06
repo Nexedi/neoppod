@@ -269,6 +269,7 @@ func (stor *Storage) m1initialize(ctx context.Context, mlink *neo.NodeLink) (req
 
 		case *neo.SendPartitionTable:
 			// TODO M sends us whole PT -> save locally
+			stor.node.UpdatePartTab(ctx, msg)	// XXX lock?
 
 		case *neo.NotifyPartitionChanges:
 			// TODO M sends us δPT -> save locally?

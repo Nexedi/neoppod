@@ -250,8 +250,7 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) error {
 
 		// M sends whole PT
 		case *neo.SendPartitionTable:
-			pt := neo.PartTabFromDump(msg.PTid, msg.RowList)
-			c.node.PartTab = pt
+			c.node.UpdatePartTab(ctx, msg)
 
 		// M sends δPT
 		//case *neo.NotifyPartitionChanges:

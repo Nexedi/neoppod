@@ -326,10 +326,6 @@ func (l *listener) Addr() net.Addr {
 
 // ----------------------------------------
 
-// TODO functions to update:
-//	.PartTab	from NotifyPartitionTable msg
-
-
 // UpdateNodeTab applies updates to .NodeTab from message and logs changes appropriately.
 func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformation) {
 	// XXX msg.IdTime ?
@@ -355,6 +351,14 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 
 	// FIXME logging under lock (if caller took e.g. .StateMu before applying updates)
 	log.Infof(ctx, "full nodetab:\n%s", app.NodeTab)
+}
+
+// UpdatePartTab applies updates to .PartTab from message and logs changes appropriately.
+func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *SendPartitionTable) {
+	pt := PartTabFromDump(msg.PTid, msg.RowList)
+	// XXX logging under lock
+	log.Infof(ctx, "rx parttab: %v", pt)
+	app.PartTab = pt
 }
 
 // UpdateClusterState applies update to .ClusterState from message and logs change appropriately.
