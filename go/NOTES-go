@@ -9,13 +9,25 @@
 e870f06c (runtime: yield time slice to most recently readied G)
 ea0386f8 (runtime: improve randomized stealing logic)
 4bb491b1 (runtime: improve scheduler fairness)
+bc31bccc (runtime: preempt long-running goroutines)
+179d41fe (runtime: tune P retake logic)
+fb6f8a96 (runtime: remove unnecessary wakeups of worker threads)
 /s steal
 findrunnable
 runqsteal
 ? runqgrab
 schedule	<- top entry
 
+-> stopm()	// stop and restart m after waiting for work
+	notesleep(m.park)
+	notewakeup
+
+   startm()	(calls notewakeup(m.park)
+ ? wakep()	(calls startm(nil, ...)
+ ? startlockedm
+
 https://golang.org/s/go11sched	-> syscall/M partking and Unparking/Spinning
+runtime/HACKING.md
 
 ----------------------------------------
 
