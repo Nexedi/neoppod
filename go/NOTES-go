@@ -3,6 +3,20 @@
 
 ? random access -> mmap
 
+- scheduler won't use free P if a G is taking time and other Gs are queued after it on the same P:
+   https://groups.google.com/forum/#!topic/golang-nuts/8KYER1ALelg
+
+e870f06c (runtime: yield time slice to most recently readied G)
+ea0386f8 (runtime: improve randomized stealing logic)
+4bb491b1 (runtime: improve scheduler fairness)
+/s steal
+findrunnable
+runqsteal
+? runqgrab
+schedule	<- top entry
+
+https://golang.org/s/go11sched	-> syscall/M partking and Unparking/Spinning
+
 ----------------------------------------
 
 - TODO stats for events (packets received, errors, etc)

@@ -10,11 +10,24 @@ digraph {
 	Sgo -> load_serial_next;
 	Sgo -> Sgo_speed;
 
-	Sgo_speed -> Mmap_go;
-	Sgo_speed -> sha1_index;
 	//Sgo_speed -> B_link_recv;
 	Sgo_speed -> garbage;
-	Sgo_speed -> gosched;
+	//Sgo_speed -> gosched;
+	Sgo_speed -> diskio;
+	Sgo_speed -> ConnClose_notimer;
+
+	Sgo_speed -> QSgo_speed;
+
+	QSgo_speed -> Mmap_go;
+	QSgo_speed -> sha1_index;
+
+	garbage	-> pktbuf_alloc;
+	garbage -> msg_alloc;
+	garbage -> conn_alloc;
+
+	diskio	-> gosched;
+	diskio	-> GOMAXPROCS;
+
 
 	Cpy_r_Sgo -> Sgo;
 	//Cpy_r_Sgo -> Protog_fix;
@@ -33,12 +46,13 @@ digraph {
 	Mgo		[label=<M<sub>go</sub>> style=filled fillcolor=lightyellow];
 	SCgo_t		[label=<S<sub>go</sub>  / C<sub>go</sub>  tests> style=filled fillcolor=lightyellow];
 	Sgo_speed	[label=<S<sub>go</sub>  speed/latency>];
-	Cpy_r_Sgo	[label=<C<sub>py</sub>  read S<sub>go</sub>>];
-	Cgo_r_Sgo	[label=<C<sub>go</sub>  read S<sub>go</sub>>];
-	Cgo_r_Spy	[label=<C<sub>go</sub>  read S<sub>py</sub>>];
+	Cpy_r_Sgo	[label=<C<sub>py</sub>  read S<sub>go</sub>> style=filled fillcolor=lightyellow];
+	Cgo_r_Sgo	[label=<C<sub>go</sub>  read S<sub>go</sub>> style=filled fillcolor=lightyellow];
+	Cgo_r_Spy	[label=<C<sub>go</sub>  read S<sub>py</sub>> style=filled fillcolor=lightyellow];
 	Cleanup		[label="Cleanup history"];
+	Post		[label="Post"];
 	//Cpy_patch	[label=<py patch: ConnID py=go> style=filled fillcolor=lightyellow];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
-	Mmap_go		[label="io.ReaderAt via mmap"];
+	Mmap_go		[label="? io.ReaderAt via mmap"];
 	//Protog_fix	[label="proto(go/py) compat fix" style=filled fillcolor=lightyellow];
 	//Mpy_vs_Sgo	[label=<M<sub>py</sub> vs S<sub>go</sub>: try/fix> style=filled fillcolor=lightyellow];
 
@@ -52,4 +66,14 @@ digraph {
 
 	//Cgo -> Cgo_tasks;
 	//Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];
+
+	QSgo_speed	[label=<?>];
+
+	pktbuf_alloc	[label=<PktBuf>];
+	msg_alloc	[label=<Msg>];
+	conn_alloc	[label=<Conn>];
+
+	ConnClose_notimer	[label="Conn.Close\nno timer"];
+	diskio		[label="disk io"];
+	GOMAXPROCS	[label="? GOMAXPROCS"];
 }
