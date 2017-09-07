@@ -100,7 +100,7 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 	}
 	before := lastTid + 1	// XXX overflow ?
 
-	if true {
+	if false {
 		defer profile.Start(profile.TraceProfile).Stop()
 	}
 

@@ -1,0 +1,100 @@
+(@ 7 Sep 2017)
+
+(neo) (z-dev) (g.env) kirr@deco:~/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t$ time ./t.sh
+
+*** generating fs1 data...
+I: RAM:  7.48GB
+I: WORK: 0.06GB
+gen signal t=0...8.39e+06  float64  (= 0.06GB)
+gen signal blk [0:4194304]  (50.0%)
+gen signal blk [4194304:8388608]  (100.0%)
+VIRT: 344 MB    RSS: 104MB
+
+*** generating sqlite data...
+I: RAM:  7.48GB
+I: WORK: 0.06GB
+gen signal t=0...8.39e+06  float64  (= 0.06GB)
+gen signal blk [0:4194304]  (50.0%)
+gen signal blk [4194304:8388608]  (100.0%)
+VIRT: 471 MB    RSS: 149MB
+2017-09-07 10:15:12.4942 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** generating sql data...
+2017-09-07 10:15:12 140377545237376 [Note] /usr/sbin/mysqld (mysqld 10.1.26-MariaDB-1) starting as process 10026 ...
+2017-09-07 10:15:16 139835902292864 [Note] /usr/sbin/mysqld (mysqld 10.1.26-MariaDB-1) starting as process 10055 ...
+2017-09-07 10:15:19 140350144623488 [Note] /usr/sbin/mysqld (mysqld 10.1.26-MariaDB-1) starting as process 10085 ...
+2017-09-07 10:15:22 139936065475456 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 10112 ...
+I: RAM:  7.48GB
+I: WORK: 0.06GB
+gen signal t=0...8.39e+06  float64  (= 0.06GB)
+gen signal blk [0:4194304]  (50.0%)
+gen signal blk [4194304:8388608]  (100.0%)
+VIRT: 485 MB    RSS: 162MB
+2017-09-07 10:15:33.8986 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** FileStorage
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=0.292s (17.2μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=130.700046ms (7.69µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=159.584996ms (9.389µs / object)  x=zsha1.go +prefetch
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=0.289s (17.0μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=129.699956ms (7.631µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=157.831648ms (9.286µs / object)  x=zsha1.go +prefetch
+
+*** ZEO
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=5.532s (325.5μs / object)  x=zsha1.py
+(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=5.295s (311.6μs / object)  x=zsha1.py
+(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=5.470s (321.8μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=3.701967602s (217.814µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=2.347308074s (138.109µs / object)  x=zsha1.go +prefetch
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=5.512s (324.3μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=3.862412698s (227.254µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=2.35216104s (138.394µs / object)  x=zsha1.go +prefetch
+2017-09-07 10:16:17.7122 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-09-07 10:16:17 140308575191936 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 10486 ...
+2017-09-07 10:16:19.1711 ERROR     NEO        [           app:233] Connection to None lost
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=11.605s (682.8μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=8.211994021s (483.172µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=6.879179752s (404.752µs / object)  x=zsha1.go +prefetch
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=10.474s (616.3μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=7.878703192s (463.562µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=6.645186736s (390.985µs / object)  x=zsha1.go +prefetch
+2017-09-07 10:17:13.4350 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=3.271s (192.4μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=1.042710741s (61.35µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=607.029828ms (35.716µs / object)  x=zsha1.go +prefetch
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=3.140s (184.8μs / object)  x=zsha1.py
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=1.03721356s (61.026µs / object)  x=zsha1.go
+50aa58a7d47d168ec550762c25d7aaaed3f4177b   ; oid=0..16995  nread=68269354  t=634.242335ms (37.317µs / object)  x=zsha1.go +prefetch
+2017-09-07 10:17:28.5996 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+real    2m24,089s
+user    2m29,765s
+sys     0m22,275s
+
+
+--------
+
+t(getobject)	client    client    client
+                zsha1.py  zsha1.go  zsha1.go + prefetch
+server
+fs1		 17.0μs     7.6µs     9.3µs (*)
+zeo		311.6μs   -         -
+neo/sqlite	321.8μs   217.8µs   138.2µs
+neo/sql		616.3μs   463.5µs   391.0µs
+neo/go		184.8μs    61.0µs    37.3µs (+)
+
+(*) prefetch is not working good yet
+(+) Sgo (storage in neo/go) is not working good yet

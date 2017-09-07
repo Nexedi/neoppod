@@ -12,7 +12,9 @@ digraph {
 
 	Sgo_speed -> Mmap_go;
 	Sgo_speed -> sha1_index;
-	Sgo_speed -> B_link_recv;
+	//Sgo_speed -> B_link_recv;
+	Sgo_speed -> garbage;
+	Sgo_speed -> gosched;
 
 	Cpy_r_Sgo -> Sgo;
 	//Cpy_r_Sgo -> Protog_fix;
@@ -44,8 +46,9 @@ digraph {
 	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>>];
 
 	sha1_index	[label="? sha1 index"];
-
-	B_link_recv	[label="Bench link.Recv1/Ask1"];
+	//B_link_recv	[label="Bench link.Recv1/Ask1" style=filled fillcolor=lightyellow];
+	garbage		[label="garbage"];
+	gosched		[label="? go scheduling"];
 
 	//Cgo -> Cgo_tasks;
 	//Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];

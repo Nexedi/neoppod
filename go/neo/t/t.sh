@@ -48,6 +48,8 @@ kill $j' EXIT
 
 # M{py,go} ...	- spawn master
 Mpy() {
+	# XXX run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
+
 	# XXX --autostart=1 ?
 	exec -a Mpy \
 		neomaster --cluster=$cluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log $@ &
@@ -69,6 +71,8 @@ Spy() {
 
 # Sgo <data.fs>	- spawn NEO/go storage
 Sgo() {
+	# XXX use `go run ...` so it does not need go install?
+
 	# -alsologtostderr
 	exec -a Sgo \
 		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind $@ &
@@ -225,8 +229,8 @@ GENsql() {
 # ---- main driver ----
 
 GENfs
-#GENsqlite
-#GENsql
+GENsqlite
+GENsql
 
 wait
 sync
@@ -238,7 +242,7 @@ N=`seq 2`	# XXX repeat benchmarks N time
 bench1() {
 	url=$1
 #	time demo-zbigarray read $url
-#	./zsha1.py $url
+	./zsha1.py $url
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
@@ -252,38 +256,38 @@ for i in $N; do
 	bench1 $fs1/data.fs
 done
 
-# echo -e "\n*** ZEO"
-# Zpy $fs1/data.fs
-# for i in $N; do
-# 	bench1 zeo://$Zbind
-# done
-# killall runzeo
-# wait
+echo -e "\n*** ZEO"
+Zpy $fs1/data.fs
+for i in $N; do
+	bench1 zeo://$Zbind
+done
+killall runzeo
+wait
 
-# echo -e "\n*** NEO/py sqlite"
-# NEOpylite
-# for i in $N; do
-# 	bench1 neo://$cluster@$Mbind
-# done
-# xneoctl set cluster stopping
-# wait
+echo -e "\n*** NEO/py sqlite"
+NEOpylite
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+wait
 
-# echo -e "\n*** NEO/py sql"
-# NEOpysql
-# for i in $N; do
-# 	bench1 neo://$cluster@$Mbind
-# done
-# xneoctl set cluster stopping
-# xmysql -e "SHUTDOWN"
-# wait
+echo -e "\n*** NEO/py sql"
+NEOpysql
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+xmysql -e "SHUTDOWN"
+wait
 
-# echo -e "\n*** NEO/go"
-# NEOgo
-# for i in $N; do
-# 	bench1 neo://$cluster@$Mbind
-# done
-# xneoctl set cluster stopping
-# wait
+echo -e "\n*** NEO/go"
+NEOgo
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+wait
 
 # all ok
 trap - EXIT
