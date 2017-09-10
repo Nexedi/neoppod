@@ -233,6 +233,28 @@ echo -n "# "; uname -a
 echo -n "# "; python --version
 echo -n "# "; go version
 echo -n "# "; mysqld --version
+
+# pyver <egg> (<showas>) - print version of egg
+pyver() {
+	local egg=$1
+	local showas=$2
+	test "$showas" == "" && showas=$egg
+	local loc
+	local pyver
+	{
+		read loc
+		read pyver
+	} < <(python -c "import pkg_resources as p; e=p.require(\"$egg\")[0]; print(\"%s\n%s\" % (e.location, e.version))")
+	local gitver=$(git -C $loc describe --long --dirty 2>/dev/null)
+	local ver
+	test "$gitver" != "" && ver="$gitver" || ver="$pyver"
+	printf "# %-16s: %s\n" "$showas" "$ver"
+}
+pyver neoppod neo
+pyver zodb
+pyver zeo
+pyver mysqlclient
+pyver wendelin.core
 exit
 
 GENfs
