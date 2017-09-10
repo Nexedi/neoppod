@@ -23,29 +23,60 @@ package neo
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"unsafe"
+
+	"lab.nexedi.com/kirr/go123/xbytes"
 )
 
-// TODO organize rx buffers management (freelist etc)
-
-// PktBuf is a buffer with full raw packet (header + data)
+// PktBuf is a buffer with full raw packet (header + data).
 //
-// variables of type PktBuf are usually named "pkb" (packet buffer), similar to "skb" in Linux
+// variables of type PktBuf are usually named "pkb" (packet buffer), similar to "skb" in Linux.
+//
+// Allocate PktBuf via allocPkt() and free via PktBuf.Free().
 type PktBuf struct {
-	Data	[]byte	// whole packet data including all headers	XXX -> Buf ?
+	Data []byte // whole packet data including all headers
 }
 
-// Header returns pointer to packet header
+// Header returns pointer to packet header.
 func (pkt *PktBuf) Header() *PktHeader {
 	// XXX check len(Data) < PktHeader ? -> no, Data has to be allocated with cap >= pktHeaderLen
 	return (*PktHeader)(unsafe.Pointer(&pkt.Data[0]))
 }
 
-// Payload returns []byte representing packet payload
+// Payload returns []byte representing packet payload.
 func (pkt *PktBuf) Payload() []byte {
 	return pkt.Data[pktHeaderLen:]
 }
 
+// Resize resizes pkt to be of length n.
+//
+// semantic = xbytes.Resize.
+func (pkt *PktBuf) Resize(n int) {
+	pkt.Data = xbytes.Resize(pkt.Data, n)
+}
+
+// ---- PktBuf freelist ----
+
+// pktBufPool is sync.Pool<pktBuf>
+var pktBufPool = sync.Pool{New: func() interface{} {
+	return &PktBuf{Data: make([]byte, 0, 4096)}
+}}
+
+// pktAlloc allocates PktBuf with len=n
+func pktAlloc(n int) *PktBuf {
+	pkt := pktBufPool.Get().(*PktBuf)
+	pkt.Data = xbytes.Realloc(pkt.Data, n)
+	return pkt
+}
+
+// Free marks pkt as no longer needed.
+func (pkt *PktBuf) Free() {
+	pktBufPool.Put(pkt)
+}
+
+
+// ---- PktBuf dump ----
 
 // Strings dumps a packet in human-readable form
 func (pkt *PktBuf) String() string {
