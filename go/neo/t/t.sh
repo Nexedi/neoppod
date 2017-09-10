@@ -228,6 +228,7 @@ GENsql() {
 
 # ---- main driver ----
 
+# data/versions
 echo -n "# "; date --rfc-2822
 echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 echo -n "# "; uname -a
@@ -237,7 +238,7 @@ echo -n "# "; mysqld --version
 
 # pyver <egg> (<showas>) - print version of egg
 pyver() {
-	#return	# XXX temp to save time
+	return	# XXX temp to save time
 	local egg=$1
 	local showas=$2
 	test "$showas" == "" && showas=$egg
@@ -257,23 +258,23 @@ pyver zodb
 pyver zeo
 pyver mysqlclient
 pyver wendelin.core
-exit
 
+# generate test databases
 GENfs
 GENsqlite
 GENsql
-
 wait
 sync
 
 
+# run benchmarks
 N=`seq 2`	# XXX repeat benchmarks N time
 
 # time1 <url>	- run benchmarks on the URL once
 bench1() {
 	url=$1
 #	time demo-zbigarray read $url
-	./zsha1.py $url
+#	./zsha1.py $url
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
@@ -287,30 +288,30 @@ for i in $N; do
 	bench1 $fs1/data.fs
 done
 
-echo -e "\n*** ZEO"
-Zpy $fs1/data.fs
-for i in $N; do
-	bench1 zeo://$Zbind
-done
-killall runzeo
-wait
+# echo -e "\n*** ZEO"
+# Zpy $fs1/data.fs
+# for i in $N; do
+# 	bench1 zeo://$Zbind
+# done
+# killall runzeo
+# wait
 
-echo -e "\n*** NEO/py sqlite"
-NEOpylite
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
-xneoctl set cluster stopping
-wait
+# echo -e "\n*** NEO/py sqlite"
+# NEOpylite
+# for i in $N; do
+# 	bench1 neo://$cluster@$Mbind
+# done
+# xneoctl set cluster stopping
+# wait
 
-echo -e "\n*** NEO/py sql"
-NEOpysql
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
-xneoctl set cluster stopping
-xmysql -e "SHUTDOWN"
-wait
+# echo -e "\n*** NEO/py sql"
+# NEOpysql
+# for i in $N; do
+# 	bench1 neo://$cluster@$Mbind
+# done
+# xneoctl set cluster stopping
+# xmysql -e "SHUTDOWN"
+# wait
 
 echo -e "\n*** NEO/go"
 NEOgo
