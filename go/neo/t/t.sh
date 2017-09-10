@@ -52,7 +52,7 @@ Mpy() {
 
 	# XXX --autostart=1 ?
 	exec -a Mpy \
-		neomaster --cluster=$cluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log $@ &
+		neomaster --cluster=$cluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log "$@" &
 }
 
 Mgo() {
@@ -66,7 +66,7 @@ Spy() {
 	# --database=...
 	# --engine=...
 	exec -a Spy \
-		neostorage --cluster=$cluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log $@ &
+		neostorage --cluster=$cluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log "$@" &
 }
 
 # Sgo <data.fs>	- spawn NEO/go storage
@@ -75,20 +75,20 @@ Sgo() {
 
 	# -alsologtostderr
 	exec -a Sgo \
-		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind $@ &
+		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 
 # Apy ...	- spawn NEO/py admin
 Apy() {
 	exec -a Apy \
-		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind --logfile=$log/Apy.log $@ &
+		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind --logfile=$log/Apy.log "$@" &
 }
 
 # Zpy <data.fs> ...	- spawn ZEO
 Zpy() {
 	exec -a Zpy \
-		runzeo --address $Zbind --filename $@ 2>>$log/Zpy.log &
+		runzeo --address $Zbind --filename "$@" 2>>$log/Zpy.log &
 }
 
 
@@ -228,6 +228,7 @@ GENsql() {
 
 # ---- main driver ----
 
+echo -n "# "; date --rfc-2822
 echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 echo -n "# "; uname -a
 echo -n "# "; python --version
@@ -236,6 +237,7 @@ echo -n "# "; mysqld --version
 
 # pyver <egg> (<showas>) - print version of egg
 pyver() {
+	#return	# XXX temp to save time
 	local egg=$1
 	local showas=$2
 	test "$showas" == "" && showas=$egg
