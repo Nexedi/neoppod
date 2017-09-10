@@ -82,7 +82,7 @@ Sgo() {
 # Apy ...	- spawn NEO/py admin
 Apy() {
 	exec -a Apy \
-		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind $@ &
+		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind --logfile=$log/Apy.log $@ &
 }
 
 # Zpy <data.fs> ...	- spawn ZEO
@@ -227,6 +227,13 @@ GENsql() {
 
 
 # ---- main driver ----
+
+echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+echo -n "# "; uname -a
+echo -n "# "; python --version
+echo -n "# "; go version
+echo -n "# "; mysqld --version
+exit
 
 GENfs
 GENsqlite
