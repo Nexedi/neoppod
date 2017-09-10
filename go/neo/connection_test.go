@@ -36,8 +36,6 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
-
-	"runtime"
 )
 
 func xclose(c io.Closer) {
@@ -725,7 +723,6 @@ func TestHandshake(t *testing.T) {
 // rtt over chan - for comparision as base
 func benchmarkChanRTT(b *testing.B, c12, c21 chan byte) {
 	go func() {
-		runtime.LockOSThread()
 		for {
 			c, ok := <-c12
 			if !ok {
