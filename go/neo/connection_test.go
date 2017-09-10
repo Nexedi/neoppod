@@ -880,10 +880,11 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 		}
 	}()
 
-	get := &GetObject{}
-	obj := &AnswerObject{}
-
 	for i := 0; i < b.N; i++ {
+		// NOTE keeping inside loop to simulate what happens in real Load
+		get := &GetObject{}
+		obj := &AnswerObject{}
+
 		get.Oid = zodb.Oid(i)
 		get.Serial = zodb.Tid(i+1)
 		get.Tid = zodb.Tid(i+2)
