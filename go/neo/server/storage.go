@@ -94,6 +94,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 	// start serving incoming connections
 	wg := sync.WaitGroup{}
 	serveCtx, serveCancel := context.WithCancel(ctx)
+	stor.node.OnShutdown = serveCancel
 	wg.Add(1)
 	go func(ctx context.Context) (err error) {
 		defer wg.Done()

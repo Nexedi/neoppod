@@ -1,8 +1,10 @@
 // gmigrate - show number of times G migrates to another M (OS thread).
 // usage: `go tool trace -d <trace.out> |gmigrate`
-package main
 
 // +build ignore
+
+package main
+
 
 import (
 	"bufio"

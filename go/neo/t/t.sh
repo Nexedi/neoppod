@@ -75,7 +75,7 @@ Sgo() {
 
 	# -alsologtostderr
 	exec -a Sgo \
-		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -cpuprofile cpu.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 

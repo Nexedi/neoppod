@@ -31,7 +31,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -69,6 +68,9 @@ type NodeApp struct {
 	NodeTab		*NodeTable	// information about nodes in the cluster
 	PartTab		*PartitionTable	// information about data distribution in the cluster
 	ClusterState	ClusterState	// master idea about cluster state
+
+	// should be set by user so NodeApp can notify when master tells this node to shutdown
+	OnShutdown	func()
 }
 
 // NewNodeApp creates new node application
@@ -346,7 +348,9 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 			if nodeInfo.State == DOWN {
 				log.Info(ctx, "master told us to shutdown")
 				log.Flush()
-				os.Exit(1)
+				app.OnShutdown()
+				// os.Exit(1)
+				return
 			}
 		}
 	}

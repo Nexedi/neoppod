@@ -1,7 +1,7 @@
 // zsha1 - compute sha1 of whole latest objects stream in a ZODB database
-package main
-
 // +build ignore
+
+package main
 
 import (
 	"context"

@@ -1146,6 +1146,9 @@ func (c *Conn) Recv() (Msg, error) {
 
 	// TODO use free-list for decoded messages + when possible decode in-place
 	msg := reflect.New(msgType).Interface().(Msg)
+//	msg := reflect.NewAt(msgType, bufAlloc(msgType.Size())
+
+
 	_, err = msg.neoMsgDecode(pkt.Payload())
 	if err != nil {
 		return nil, &ConnError{Conn: c, Op: "decode", Err: err}	// XXX "decode:" is already in ErrDecodeOverflow

@@ -88,6 +88,7 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	// spawn background process which performs master talk
 	ctx, cancel := context.WithCancel(context.Background())
 	cli.talkMasterCancel = cancel
+	cli.node.OnShutdown = cancel // XXX ok?
 	go cli.talkMaster(ctx)
 
 	return cli
