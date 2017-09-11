@@ -56,7 +56,7 @@ type Index struct {
 	*fsb.Tree
 }
 
-// IndexNew creates new empty index
+// IndexNew creates new empty index.
 func IndexNew() *Index {
 	return &Index{TopPos: txnValidFrom, Tree: fsb.TreeNew()}
 }
@@ -171,7 +171,7 @@ out:
 	return &IndexSaveError{err}
 }
 
-// SaveFile saves index to a file @ path
+// SaveFile saves index to a file @ path.
 //
 // Index data is first saved to a temporary file and when complete the
 // temporary is renamed to be at requested path. This way file @ path will be
@@ -349,7 +349,7 @@ out:
 	return nil, &IndexLoadError{xio.Name(r), picklePos, err}
 }
 
-// LoadIndexFile loads index from a file @ path
+// LoadIndexFile loads index from a file @ path.
 func LoadIndexFile(path string) (fsi *Index, err error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -370,7 +370,7 @@ func LoadIndexFile(path string) (fsi *Index, err error) {
 
 // ----------------------------------------
 
-// Equal returns whether two indices are the same
+// Equal returns whether two indices are the same.
 func (a *Index) Equal(b *Index) bool {
 	if a.TopPos != b.TopPos {
 		return false
@@ -379,7 +379,7 @@ func (a *Index) Equal(b *Index) bool {
 	return treeEqual(a.Tree, b.Tree)
 }
 
-// treeEqual returns whether two fsb.Tree are the same
+// treeEqual returns whether two fsb.Tree are the same.
 func treeEqual(a, b *fsb.Tree) bool {
 	if a.Len() != b.Len() {
 		return false
@@ -527,7 +527,7 @@ func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, pro
 	return nil
 }
 
-// BuildIndex builds new in-memory index for data in r
+// BuildIndex builds new in-memory index for data in r.
 //
 // non-nil valid and consistent index is always returned - even in case of error
 // the index will describe data till top-position of highest transaction that
@@ -541,7 +541,7 @@ func BuildIndex(ctx context.Context, r io.ReaderAt, progress func(*IndexUpdatePr
 	return index, err
 }
 
-// BuildIndexForFile builds new in-memory index for data in file @ path
+// BuildIndexForFile builds new in-memory index for data in file @ path.
 //
 // See BuildIndex for semantic description.
 func BuildIndexForFile(ctx context.Context, path string, progress func(*IndexUpdateProgress)) (index *Index, err error) {

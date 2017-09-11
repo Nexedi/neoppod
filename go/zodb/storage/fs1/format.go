@@ -401,6 +401,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 }
 
 // LoadNext reads and decodes next transaction record header.
+//
 // prerequisite: txnh .Pos and .Len should be already initialized by:	XXX also .Tid
 //   - previous successful call to Load() initially		XXX ^^^
 //   - TODO
@@ -512,6 +513,7 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 }
 
 // LoadPrevRev reads and decodes previous revision data record header.
+//
 // prerequisite: dh .Oid .Tid .PrevRevPos are initialized:
 //   - TODO describe how
 // when there is no previous revision: io.EOF is returned
@@ -553,6 +555,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 }
 
 // LoadBackRef reads data for the data record and decodes it as backpointer reference.
+//
 // prerequisite: dh loaded and .LenData == 0 (data record with back-pointer)
 // XXX return backPos=-1 if err?
 // XXX unused?
@@ -578,6 +581,7 @@ func (dh *DataHeader) LoadBackRef(r io.ReaderAt) (backPos int64, err error) {
 }
 
 // LoadBack reads and decodes data header for revision linked via back-pointer.
+//
 // prerequisite: dh XXX     .DataLen == 0
 // if link is to zero (means deleted record) io.EOF is returned
 func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
@@ -617,6 +621,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 }
 
 // LoadNext reads and decodes data header for next data record in the same transaction.
+//
 // prerequisite: dh .Pos .DataLen are initialized
 // when there is no more data records: io.EOF is returned
 func (dh *DataHeader) LoadNext(r io.ReaderAt, txnh *TxnHeader) error {
@@ -661,6 +666,7 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 }
 
 // LoadData loads data for the data record taking backpointers into account.
+//
 // Data is loaded into *buf, which, if needed, is reallocated to hold whole loading data size.
 // NOTE on success dh state is changed to data header of original data transaction
 // NOTE "deleted" records are indicated via returning *buf=nil

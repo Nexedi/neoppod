@@ -103,9 +103,10 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 	}
 	before := lastTid + 1	// XXX overflow ?
 
-	if true {
+	if false {
 		//defer profile.Start(profile.TraceProfile).Stop()
-		defer profile.Start().Stop()
+		//defer profile.Start(profile.MemProfile).Stop()
+		defer profile.Start(profile.CPUProfile).Stop()
 	}
 
 for qqq := 0; qqq < 10; qqq++ {
@@ -142,7 +143,7 @@ loop:
 			return err
 		}
 
-		m.Write(data)
+		//m.Write(data)
 
 		//fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, m.Sum(nil))
 		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", data)

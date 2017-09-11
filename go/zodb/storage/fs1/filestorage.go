@@ -68,6 +68,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
@@ -224,6 +225,19 @@ func (e *ErrXidLoad) Error() string {
 	return fmt.Sprintf("loading %v: %v", e.Xid, e.Err)
 }
 
+// freelist(DataHeader)
+var dhPool = sync.Pool{New: func() interface{} { return &DataHeader{} }}
+
+// DataHeaderAlloc allocates DataHeader from freelist.
+func DataHeaderAlloc() *DataHeader {
+	return dhPool.Get().(*DataHeader)
+}
+
+// Free puts dh back into DataHeader freelist.
+func (dh *DataHeader) Free() {
+	dhPool.Put(dh)
+}
+
 func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
@@ -232,7 +246,14 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, tid z
 	}
 
 	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
-	dh := DataHeader{Oid: xid.Oid, Tid: zodb.TidMax, PrevRevPos: dataPos}
+	// XXX go compiler cannot deduce dh should be on stack here
+	//dh := DataHeader{Oid: xid.Oid, Tid: zodb.TidMax, PrevRevPos: dataPos}
+	dh := DataHeaderAlloc()
+	dh.Oid = xid.Oid
+	dh.Tid = zodb.TidMax
+	dh.PrevRevPos = dataPos
+	defer dh.Free()
+
 	tidBefore := xid.XTid.Tid
 	if !xid.XTid.TidBefore {
 		tidBefore++	// XXX recheck this is ok wrt overflow
