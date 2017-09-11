@@ -59,6 +59,14 @@ func init() {
 //
 // buffer memory is not initialized.
 func BufAlloc(size int) *Buf {
+	return BufAlloc64(int64(size))
+}
+
+func BufAlloc64(size int64) *Buf {
+	if size < 0 {
+		panic("invalid size")
+	}
+
 	// order = min i: 2^i >= size
 	order := xmath.CeilLog2(uint64(size))
 

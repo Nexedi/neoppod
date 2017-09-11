@@ -667,31 +667,29 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 
 // LoadData loads data for the data record taking backpointers into account.
 //
-// Data is loaded into *buf, which, if needed, is reallocated to hold whole loading data size.
 // NOTE on success dh state is changed to data header of original data transaction
 // NOTE "deleted" records are indicated via returning *buf=nil
-// TODO buf -> slab
-func (dh *DataHeader) LoadData(r io.ReaderAt, buf *[]byte)  error {
+func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 	// scan via backpointers
 	for dh.DataLen == 0 {
 		err := dh.LoadBack(r)
 		if err != nil {
 			if err == io.EOF {
-				*buf = nil // deleted
-				return nil
+				return nil, nil // deleted
 			}
-			return err	// XXX recheck
+			return nil, err	// XXX recheck
 		}
 	}
 
 	// now read actual data
-	*buf = xbytes.Realloc64(*buf, dh.DataLen)
-	_, err := r.ReadAt(*buf, dh.Pos + DataHeaderSize)
+	buf := zodb.BufAlloc64(dh.DataLen)
+	_, err := r.ReadAt(buf.Data, dh.Pos + DataHeaderSize)
 	if err != nil {
-		return dh.err("read data", noEOF(err))	// XXX recheck
+		buf.Free()
+		return nil, dh.err("read data", noEOF(err))	// XXX recheck
 	}
 
-	return nil
+	return buf, nil
 }
 
 // --- raw iteration ---

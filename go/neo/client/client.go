@@ -379,7 +379,7 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 	panic("TODO")
 }
 
-func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial zodb.Tid, err error) {
 	defer func() {
 		switch err.(type) {
 		case nil:
@@ -448,16 +448,21 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 
 	data = resp.Data
 
-	//checksum := sha1.Sum(data)
+	//checksum := sha1.Sum(data.Data)
 	//if checksum != resp.Checksum {
 	//	return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 	//}
 
 	if resp.Compression {
-		data, err = decompress(resp.Data, make([]byte, 0, len(resp.Data)))
+		data2 := zodb.BufAlloc(len(data.Data))
+		data2.Data = data2.Data[:0]
+		udata, err = decompress(resp.Data, data2)
+		data.Free()
 		if err != nil {
+			data2.Free()
 			return nil, 0, fmt.Errorf("data corrupt: %v", err)
 		}
+		data = data2
 	}
 
 	// reply.NextSerial

@@ -158,8 +158,7 @@ type IStorage interface {
 	//
 	// XXX currently deleted data is returned as data=nil	-- is it ok?
 	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
-	// TODO data []byte -> something allocated from slab ?
-	Load(ctx context.Context, xid Xid) (data []byte, serial Tid, err error)	// XXX -> StorageRecordInformation ?
+	Load(ctx context.Context, xid Xid) (data *Buf, serial Tid, err error)	// XXX -> StorageRecordInformation ?
 
 	// Prefetch(ctx, xid Xid)	(no error)
 

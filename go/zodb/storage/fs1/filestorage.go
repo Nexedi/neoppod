@@ -238,7 +238,7 @@ func (dh *DataHeader) Free() {
 	dhPool.Put(dh)
 }
 
-func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, tid zodb.Tid, err error) {
+func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data *zodb.Buf, tid zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
@@ -284,7 +284,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, tid z
 	tid = dh.Tid
 
 	// TODO data -> slab
-	err = dh.LoadData(fs.file, &data)
+	data, err = dh.LoadData(fs.file)
 	if err != nil {
 		return nil, 0, &ErrXidLoad{xid, err}
 	}

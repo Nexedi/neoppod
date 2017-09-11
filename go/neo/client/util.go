@@ -23,7 +23,7 @@ func lclose(ctx context.Context, c io.Closer) {
 // decompress decompresses data according to zlib encoding.
 //
 // out buffer, if there is enough capacity, is used for decompression destination.
-// if out has not not enough capacity a new buffer is allocated and used.
+// if out has not enough capacity a new buffer is allocated and used.
 //
 // return: destination buffer with full decompressed data or error.
 func decompress(in []byte, out []byte) (data []byte, err error) {

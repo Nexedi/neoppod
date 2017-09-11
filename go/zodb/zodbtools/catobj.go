@@ -34,12 +34,13 @@ import (
 // Catobj dumps content of one ZODB object
 // The object is printed in raw form without any headers (see Dumpobj)
 func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
-	data, _, err := stor.Load(ctx, xid)
+	buf, _, err := stor.Load(ctx, xid)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write(data)	// NOTE delted data are returned as err by Load
+	_, err = w.Write(buf.Data)	// NOTE deleted data are returned as err by Load
+	buf.Free()
 	return err		// XXX err ctx ?
 }
 
@@ -47,7 +48,7 @@ func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) 
 func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid, hashOnly bool) error {
 	var objInfo zodb.StorageRecordInformation
 
-	data, tid, err := stor.Load(ctx, xid)
+	buf, tid, err := stor.Load(ctx, xid)
 	if err != nil {
 		return err
 	}
@@ -55,11 +56,12 @@ func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid,
 	// XXX hack - TODO rework IStorage.Load to fill-in objInfo directly
 	objInfo.Oid = xid.Oid
 	objInfo.Tid = tid
-	objInfo.Data = data
+	objInfo.Data = buf.Data
 	objInfo.DataTid = tid	// XXX generally wrong
 
 	d := dumper{W: w, HashOnly: hashOnly}
 	err = d.DumpData(&objInfo)
+	buf.Free()
 	return err
 }
 
