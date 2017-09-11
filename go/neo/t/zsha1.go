@@ -8,6 +8,9 @@ import (
 	"crypto/sha1"
 	"flag"
 	"fmt"
+	"hash"
+	"hash/crc32"
+	"hash/adler32"
 	//"os"
 	"time"
 
@@ -100,12 +103,25 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 	}
 	before := lastTid + 1	// XXX overflow ?
 
-	if false {
-		defer profile.Start(profile.TraceProfile).Stop()
+	if true {
+		//defer profile.Start(profile.TraceProfile).Stop()
+		defer profile.Start().Stop()
 	}
 
+for qqq := 0; qqq < 10; qqq++ {
 	tstart := time.Now()
-	m := sha1.New()
+	var m hash.Hash
+	hashName := "crc32"
+	switch hashName {
+	case "sha1":
+		m = sha1.New()
+	case "crc32":
+		m = crc32.NewIEEE()
+	case "adler32":
+		m = adler32.New()
+	default:
+		panic(0)	// XXX
+	}
 
 	oid := zodb.Oid(0)
 	nread := 0
@@ -142,8 +158,9 @@ loop:
 	if useprefetch {
 		x += " +prefetch"
 	}
-	fmt.Printf("%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
-		m.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
+	fmt.Printf("%s:%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
+		hashName,m.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
+}
 
 	return nil
 }

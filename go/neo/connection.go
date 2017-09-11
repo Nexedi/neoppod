@@ -65,8 +65,8 @@ type NodeLink struct {
 
 	serveWg sync.WaitGroup	// for serve{Send,Recv}
 	acceptq chan *Conn	// queue of incoming connections for Accept
-	txq	chan txReq	// tx requests from Conns go via here
-				// (rx packets are routed to Conn.rxq)
+//	txq	chan txReq	// tx requests from Conns go via here
+//				// (rx packets are routed to Conn.rxq)
 
 	axdown  chan struct{}	// ready when accept is marked as no longer operational
 	axdown1 sync.Once	// CloseAccept may be called severall times
@@ -95,16 +95,16 @@ type Conn struct {
 	link      *NodeLink
 	connId    uint32
 	rxq	  chan *PktBuf	// received packets for this Conn go here
-	txerr     chan error	// transmit results for this Conn go back here
+//	txerr     chan error	// transmit results for this Conn go back here
 
-	txdown     chan struct{} // ready when Conn TX is marked as no longer operational
+//	txdown     chan struct{} // ready when Conn TX is marked as no longer operational
 	rxdown     chan struct{} // ----//---- RX
-	txdownOnce sync.Once	 // tx shutdown may be called by both Close and nodelink.shutdown
+//	txdownOnce sync.Once	 // tx shutdown may be called by both Close and nodelink.shutdown
 	rxdownOnce sync.Once	 // ----//----
 
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
 	rxclosed  int32		// whether CloseRecv was called
-	txclosed  int32		// whether CloseSend was called
+//	txclosed  int32		// whether CloseSend was called
 
 	errMsg	  *Error	// error message for peer if rx is down
 
@@ -176,7 +176,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		connTab:    map[uint32]*Conn{},
 		nextConnId: nextConnId,
 		acceptq:    make(chan *Conn),	// XXX +buf
-		txq:        make(chan txReq),
+		//txq:        make(chan txReq),
 		axdown:     make(chan struct{}),
 		down:       make(chan struct{}),
 	}
@@ -195,8 +195,8 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 	c := &Conn{link: nl,
 		connId: connId,
 		rxq:    make(chan *PktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf
-		txerr:  make(chan error, 1),	// NOTE non-blocking - see Conn.Send
-		txdown: make(chan struct{}),
+		//txerr:  make(chan error, 1),	// NOTE non-blocking - see Conn.Send
+		//txdown: make(chan struct{}),
 		rxdown: make(chan struct{}),
 	}
 	nl.connTab[connId] = c
@@ -328,9 +328,9 @@ func (c *Conn) shutdown() {
 }
 
 func (c *Conn) shutdownTX() {
-	c.txdownOnce.Do(func() {
-		close(c.txdown)
-	})
+	//c.txdownOnce.Do(func() {
+	//	close(c.txdown)
+	//})
 }
 
 // shutdownRX marks .rxq as no loner operational
@@ -389,7 +389,7 @@ func (c *Conn) Close() error {
 	nl := c.link
 	c.closeOnce.Do(func() {
 		atomic.StoreInt32(&c.rxclosed, 1)
-		atomic.StoreInt32(&c.txclosed, 1)
+		//atomic.StoreInt32(&c.txclosed, 1)
 		c.shutdown()
 
 		// adjust link.connTab
@@ -655,6 +655,7 @@ type txReq struct {
 	errch chan error
 }
 
+/*
 // errSendShutdown returns appropriate error when c.txdown is found ready in Send
 func (c *Conn) errSendShutdown() error {
 	switch {
@@ -672,6 +673,7 @@ func (c *Conn) errSendShutdown() error {
 		return ErrLinkDown
 	}
 }
+*/
 
 // sendPkt sends raw packet via connection.
 //
@@ -686,6 +688,7 @@ func (c *Conn) sendPkt(pkt *PktBuf) error {
 // https://github.com/golang/go/blob/go1.9-3-g099336988b/src/net/net.go#L109
 // https://github.com/golang/go/blob/go1.9-3-g099336988b/src/internal/poll/fd_unix.go#L14
 
+///*
 func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = hton32(c.connId)
@@ -702,6 +705,7 @@ func (c *Conn) sendPkt2(pkt *PktBuf) error {
 
 	return err
 }
+//*/
 
 /*
 func (c *Conn) sendPkt2(pkt *PktBuf) error {
@@ -1216,7 +1220,8 @@ func (c *Conn) Recv() (Msg, error) {
 	return msg, nil
 }
 
-// Send sends message
+// Send sends message.
+//
 // it encodes message into packet and sends it
 func (c *Conn) Send(msg Msg) error {
 	traceConnSendPre(c, msg)
