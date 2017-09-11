@@ -181,9 +181,10 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		down:       make(chan struct{}),
 	}
 	if role&linkNoRecvSend == 0 {
-		nl.serveWg.Add(2)
+		//nl.serveWg.Add(2)
+		nl.serveWg.Add(1)
 		go nl.serveRecv()
-		go nl.serveSend()
+		//go nl.serveSend()
 	}
 	return nl
 }
@@ -680,6 +681,29 @@ func (c *Conn) sendPkt(pkt *PktBuf) error {
 	return c.err("send", err)
 }
 
+// XXX serveSend is not needed - Conn.Write is already can be used by multiple
+// goroutines simultaneously and works atomically; (same for Conn.Read etc - see pool.FD)
+// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/net/net.go#L109
+// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/internal/poll/fd_unix.go#L14
+
+func (c *Conn) sendPkt2(pkt *PktBuf) error {
+	// set pkt connId associated with this connection
+	pkt.Header().ConnId = hton32(c.connId)
+
+	// XXX if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
+	err := c.link.sendPkt(pkt)
+	//fmt.Printf("sendPkt -> %v\n", err)
+
+	// on IO error framing over peerLink becomes broken
+	// so we shut down node link and all connections over it.
+	if err != nil {
+		c.link.shutdown()
+	}
+
+	return err
+}
+
+/*
 func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = hton32(c.connId)
@@ -719,11 +743,6 @@ func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	}
 }
 
-// XXX serveSend is not needed - Conn.Write is already can be used by multiple
-// goroutines simultaneously and works atomically; (same for Conn.Read etc - see pool.FD)
-// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/net/net.go#L109
-// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/internal/poll/fd_unix.go#L14
-
 // serveSend handles requests to transmit packets from client connections and
 // serially executes them over associated node link.
 func (nl *NodeLink) serveSend() {
@@ -752,6 +771,7 @@ func (nl *NodeLink) serveSend() {
 		}
 	}
 }
+*/
 
 
 // ---- raw IO ----
@@ -793,8 +813,6 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	if nl.rxbuf.Len() > 0 {
 		δn, _ := nl.rxbuf.Read(data[:pktHeaderLen])
 		n += δn
-		//n += copy(data[:pktHeaderLen], nl.rxbuf)
-		//nl.rxbuf = nl.rxbuf[n:]
 	}
 
 	// first read to read pkt header and hopefully rest of packet in 1 syscall
@@ -820,8 +838,6 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 	// we might have more data already prefetched in rxbuf
 	if nl.rxbuf.Len() > 0 {
 		δn, _ := nl.rxbuf.Read(data[n:pktLen])
-		//δn := copy(data[n:pktLen], nl.rxbuf)
-		//nl.rxbuf = nl.rxbuf[δn:]
 		n += δn
 	}
 

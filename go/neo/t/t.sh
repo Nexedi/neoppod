@@ -77,7 +77,7 @@ Sgo() {
 	# -cpuprofile cpu.out
 	# -trace trace.out
 	exec -a Sgo \
-		neo -trace trace.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 
