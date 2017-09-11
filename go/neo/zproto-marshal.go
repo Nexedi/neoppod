@@ -1966,7 +1966,7 @@ func (p *AnswerObject) neoMsgDecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += 8 + l
-		p.Data = zodb.BufAlloc(l)
+		p.Data = zodb.BufAlloc(int(l))
 		copy(p.Data.Data, data[:l])
 		data = data[l:]
 	}

@@ -454,14 +454,16 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial
 	//}
 
 	if resp.Compression {
+		// XXX cleanup mess vvv
 		data2 := zodb.BufAlloc(len(data.Data))
 		data2.Data = data2.Data[:0]
-		udata, err = decompress(resp.Data, data2)
+		udata, err := decompress(data.Data, data2.Data)
 		data.Free()
 		if err != nil {
 			data2.Free()
 			return nil, 0, fmt.Errorf("data corrupt: %v", err)
 		}
+		data2.Data = udata
 		data = data2
 	}
 
