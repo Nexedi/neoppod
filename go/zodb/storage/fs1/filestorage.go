@@ -283,7 +283,6 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data *zodb.Buf, ti
 	// be of first-found transaction
 	tid = dh.Tid
 
-	// TODO data -> slab
 	data, err = dh.LoadData(fs.file)
 	if err != nil {
 		return nil, 0, &ErrXidLoad{xid, err}
@@ -315,7 +314,7 @@ type zIter struct {
 	dhLoading DataHeader
 
 	sri	zodb.StorageRecordInformation // ptr to this will be returned by .NextData
-	dataBuf	[]byte
+	dataBuf	*zodb.Buf
 }
 
 type zIterFlags int
@@ -369,17 +368,22 @@ func (zi *zIter) NextData() (*zodb.StorageRecordInformation, error) {
 	// NOTE dh.LoadData() changes dh state while going through backpointers -
 	// - need to use separate dh because of this
 	zi.dhLoading = zi.iter.Datah
-	zi.sri.Data = zi.dataBuf
-	err = zi.dhLoading.LoadData(zi.iter.R, &zi.sri.Data)
+	if zi.dataBuf != nil {
+		zi.dataBuf.Free()
+		zi.dataBuf = nil
+	}
+//	zi.sri.Data = zi.dataBuf
+	zi.dataBuf, err = zi.dhLoading.LoadData(zi.iter.R)	//, &zi.sri.Data)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
 
-	// if memory was reallocated - use it next time
-	if cap(zi.sri.Data) > cap(zi.dataBuf) {
-		zi.dataBuf = zi.sri.Data
-	}
+//	// if memory was reallocated - use it next time
+//	if cap(zi.sri.Data) > cap(zi.dataBuf) {
+//		zi.dataBuf = zi.sri.Data
+//	}
 
+	zi.sri.Data = zi.dataBuf.Data
 	zi.sri.DataTid = zi.dhLoading.Tid
 	return &zi.sri, nil
 }

@@ -132,7 +132,7 @@ type DumperFsDump struct {
 
 	// for loading data
 	dhLoading fs1.DataHeader
-	data      []byte
+//	data      []byte
 }
 
 func (d *DumperFsDump) DumperName() string {
@@ -174,28 +174,28 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 
 		// load actual data
 		d.dhLoading = *dh
-		data := d.data
-		err = d.dhLoading.LoadData(it.R, &data)
+		dataBuf, err := d.dhLoading.LoadData(it.R)
 		if err != nil {
 			return err
 		}
-		// if memory was reallocated - use it next time
-		if cap(data) > cap(d.data) {
-			d.data = data
-		}
 
-		if data == nil {
+		if dataBuf == nil {
 			buf .S(" class=undo or abort of object creation")
 		} else {
-			fullclass := zodb.PyData(data).ClassName()
+			fullclass := zodb.PyData(dataBuf.Data).ClassName()
 
 			buf .S(" size=") .D64(d.dhLoading.DataLen)
 			buf .S(" class=") .S(fullclass)
 		}
 
-		if dh.DataLen == 0 && data != nil {
+		if dh.DataLen == 0 && dataBuf != nil {
 			// it was backpointer - print tid of transaction it points to
 			buf .S(" bp=") .V(d.dhLoading.Tid)
+		}
+
+		// XXX avoid `if != nil`
+		if dataBuf != nil {
+			dataBuf.Free()
 		}
 
 		buf .S("\n")

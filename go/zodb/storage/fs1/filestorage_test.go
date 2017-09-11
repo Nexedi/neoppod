@@ -75,15 +75,15 @@ type oidLoadedOk struct {
 
 // checkLoad verifies that fs.Load(xid) returns expected result
 func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) {
-	data, tid, err := fs.Load(context.Background(), xid)
+	buf, tid, err := fs.Load(context.Background(), xid)
 	if err != nil {
 		t.Errorf("load %v: %v", xid, err)
 	}
 	if tid != expect.tid {
 		t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
 	}
-	if !reflect.DeepEqual(data, expect.data) { // NOTE reflect to catch nil != ""
-		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, data, expect.data)
+	if !reflect.DeepEqual(buf.Data, expect.data) { // NOTE reflect to catch nil != ""
+		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, buf.Data, expect.data)
 	}
 }
 

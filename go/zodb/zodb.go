@@ -156,7 +156,7 @@ type IStorage interface {
 	//
 	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
 	//
-	// XXX currently deleted data is returned as data=nil	-- is it ok?
+	// XXX currently deleted data is returned as data.Data=nil	-- is it ok?
 	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
 	Load(ctx context.Context, xid Xid) (data *Buf, serial Tid, err error)	// XXX -> StorageRecordInformation ?
 
