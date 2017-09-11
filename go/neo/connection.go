@@ -33,8 +33,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/someonegg/gocontainer/rbuf"
+
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 
+	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
@@ -78,6 +81,8 @@ type NodeLink struct {
 
 	axclosed int32		// whether CloseAccept was called
 	closed   int32		// whether Close was called
+
+	rxbuf    rbuf.RingBuf	// buffer for reading from peerLink
 }
 
 // Conn is a connection established over NodeLink
@@ -714,6 +719,11 @@ func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	}
 }
 
+// XXX serveSend is not needed - Conn.Write is already can be used by multiple
+// goroutines simultaneously and works atomically; (same for Conn.Read etc - see pool.FD)
+// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/net/net.go#L109
+// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/internal/poll/fd_unix.go#L14
+
 // serveSend handles requests to transmit packets from client connections and
 // serially executes them over associated node link.
 func (nl *NodeLink) serveSend() {
@@ -772,34 +782,66 @@ var ErrPktTooBig = errors.New("packet too big")
 //
 // rx error, if any, is returned as is and is analyzed in serveRecv
 func (nl *NodeLink) recvPkt() (*PktBuf, error) {
-	// TODO organize rx buffers management (freelist etc)
-
-	// first read to read pkt header and hopefully up to page of data in 1 syscall
 	pkt := pktAlloc(4096)
-	// TODO reenable, but NOTE next packet can be also prefetched here -> use buffering ?
-	//n, err := io.ReadAtLeast(nl.peerLink, pkt.Data, pktHeaderLen)
-	n, err := io.ReadFull(nl.peerLink, pkt.Data[:pktHeaderLen])
-	if err != nil {
-		return nil, err
+	// len=4K but cap can be more since pkt is from pool - use all space to buffer reads
+	// XXX vvv -> pktAlloc() ?
+	data := pkt.Data[:cap(pkt.Data)]
+
+	n := 0 // number of pkt bytes obtained so far
+
+	// next packet could be already prefetched in part by previous read
+	if nl.rxbuf.Len() > 0 {
+		δn, _ := nl.rxbuf.Read(data[:pktHeaderLen])
+		n += δn
+		//n += copy(data[:pktHeaderLen], nl.rxbuf)
+		//nl.rxbuf = nl.rxbuf[n:]
+	}
+
+	// first read to read pkt header and hopefully rest of packet in 1 syscall
+	if n < pktHeaderLen {
+		δn, err := io.ReadAtLeast(nl.peerLink, data[n:], pktHeaderLen - n)
+		if err != nil {
+			return nil, err
+		}
+		n += δn
 	}
 
 	pkth := pkt.Header()
 
-	// XXX -> better PktHeader.Decode() ?
-	pktLen := pktHeaderLen + ntoh32(pkth.MsgLen) // .MsgLen is payload-only length without header
+	pktLen := int(pktHeaderLen + ntoh32(pkth.MsgLen)) // whole packet length
 	if pktLen > pktMaxSize {
 		return nil, ErrPktTooBig
 	}
 
-	pkt.Resize(int(pktLen))
+	// resize data if we don't have enough room in it
+	data = xbytes.Resize(data, pktLen)
+	data = data[:cap(data)]
+
+	// we might have more data already prefetched in rxbuf
+	if nl.rxbuf.Len() > 0 {
+		δn, _ := nl.rxbuf.Read(data[n:pktLen])
+		//δn := copy(data[n:pktLen], nl.rxbuf)
+		//nl.rxbuf = nl.rxbuf[δn:]
+		n += δn
+	}
 
 	// read rest of pkt data, if we need to
-	if n < len(pkt.Data) {
-		_, err = io.ReadFull(nl.peerLink, pkt.Data[n:])
+	if n < pktLen {
+		δn, err := io.ReadAtLeast(nl.peerLink, data[n:], pktLen - n)
 		if err != nil {
 			return nil, err
 		}
+		n += δn
 	}
+
+	// put overread data into rxbuf for next reader
+	if n > pktLen {
+		nl.rxbuf.Write(data[pktLen:n])
+	}
+
+	// fixup data/pkt
+	data = data[:n]
+	pkt.Data = data
 
 	if /* XXX temp show only tx */ true && dumpio {
 		// XXX -> log

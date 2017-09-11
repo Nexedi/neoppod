@@ -74,8 +74,10 @@ Sgo() {
 	# XXX use `go run ...` so it does not need go install?
 
 	# -alsologtostderr
+	# -cpuprofile cpu.out
+	# -trace trace.out
 	exec -a Sgo \
-		neo -cpuprofile cpu.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -trace trace.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 
@@ -268,7 +270,7 @@ sync
 
 
 # run benchmarks
-N=`seq 2`	# XXX repeat benchmarks N time
+N=`seq 4`	# XXX repeat benchmarks N time
 
 # time1 <url>	- run benchmarks on the URL once
 bench1() {

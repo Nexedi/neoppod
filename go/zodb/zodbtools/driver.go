@@ -28,6 +28,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 
 	//"lab.nexedi.com/kirr/neo/go/xcommon/log"
 )
@@ -126,6 +127,7 @@ func (prog *MainProg) main() {
 	flag.Usage = prog.usage
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to `file`")
 	memprofile := flag.String("memprofile", "", "write memory profile to `file`")
+	traceout := flag.String("trace", "", "write execution trace to `file`")
 	flag.Parse()
 	argv := flag.Args()
 
@@ -161,6 +163,22 @@ func (prog *MainProg) main() {
 			f.Close()
 		}
 	}()
+
+	if *traceout != "" {
+		f, err := os.Create(*traceout)
+		if err != nil {
+			Fatal("could not create trace: ", err)
+		}
+		defer func() {
+			if err := f.Close(); err != nil {
+				Fatal("could not close trace: ", err)
+			}
+		}()
+		if err := trace.Start(f); err != nil {
+			Fatal("could not start trace: ", err)
+		}
+		defer trace.Stop()
+	}
 
 
 	// help on a topic

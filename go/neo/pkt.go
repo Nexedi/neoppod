@@ -49,13 +49,6 @@ func (pkt *PktBuf) Payload() []byte {
 	return pkt.Data[pktHeaderLen:]
 }
 
-// Resize resizes pkt to be of length n.
-//
-// semantic = xbytes.Resize.
-func (pkt *PktBuf) Resize(n int) {
-	pkt.Data = xbytes.Resize(pkt.Data, n)
-}
-
 // ---- PktBuf freelist ----
 
 // pktBufPool is sync.Pool<pktBuf>
