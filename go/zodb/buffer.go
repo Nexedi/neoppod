@@ -21,7 +21,6 @@ package zodb
 // data buffers management
 
 import (
-	"math/bits"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/xmath"
@@ -46,7 +45,9 @@ var bufPoolv = [14]sync.Pool{} // buf size stop at 2^(4+14-1) (=128K)
 
 func init() {
 	for i := 0; i < len(bufPoolv); i++ {
+		i := i
 		bufPoolv[i].New = func() interface{} {
+			//println("X allocating for order", i)
 			// NOTE *Buf, not just buf, to avoid allocation when
 			// making interface{} from it (interface{} wants to always point to heap)
 			return &Buf{Data: make([]byte, 1 << (order0 + uint(i)))}
@@ -61,10 +62,14 @@ func BufAlloc(size int) *Buf {
 	// order = min i: 2^i >= size
 	order := xmath.CeilLog2(uint64(size))
 
+	//println("alloc", size, "order:", order)
+
 	order -= order0
 	if order < 0 {
 		order = 0
 	}
+
+	//println("\t->", order)
 
 	// if too big - allocate straightly from heap
 	if order >= len(bufPoolv) {
@@ -72,6 +77,7 @@ func BufAlloc(size int) *Buf {
 	}
 
 	buf := bufPoolv[order].Get().(*Buf)
+	//println("\tlen:", len(buf.Data), "cap:", cap(buf.Data))
 	buf.Data = buf.Data[:size] // leaving cap as is = 2^i
 	return buf
 }
@@ -81,7 +87,9 @@ func BufAlloc(size int) *Buf {
 // The caller must not use buf after call to Free.
 func (buf *Buf) Free() {
 	// order = max i: 2^i <= cap
-	order := bits.Len(uint(cap(buf.Data)))
+	//order := bits.Len(uint(cap(buf.Data)))
+	order := xmath.FloorLog2(uint64(cap(buf.Data)))
+	//println("YYY free", cap(buf.Data), "-> order:", order)
 
 	order -= order0
 	if order < 0 {
