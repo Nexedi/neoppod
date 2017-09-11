@@ -116,8 +116,8 @@ func typeName(typ types.Type) string {
 	return types.TypeString(typ, qf)
 }
 
-// type of neo.customCodec
-var neo_customCodec *types.Interface
+var neo_customCodec *types.Interface // type of neo.customCodec
+var zodbBuf         types.Type       // type of zodb.Buf
 
 // bytes.Buffer + bell & whistles
 type Buffer struct {
@@ -243,7 +243,7 @@ func main() {
 	log.SetFlags(0)
 
 	// go through proto.go and AST'ify & typecheck it
-	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go")
+	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go", "../zodb/buffer.go")
 	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go", "packed.go")
 
 	// extract neo.customCodec
@@ -256,6 +256,13 @@ func main() {
 	if !ok {
 		log.Fatal("customCodec is not interface  (got %v)", cc.Type())
 	}
+
+	// extract zodb.Buf
+	__ := zodbPkg.Scope().Lookup("Buf")
+	if __ == nil {
+		log.Fatal("cannot find `zodb.Buf`")
+	}
+	zodbBuf = __.Type()
 
 	// prologue
 	f := fileMap["proto.go"]
@@ -454,6 +461,9 @@ type CodeGenerator interface {
 	// either accessed or copied.
 	genArray1(path string, typ *types.Array)
 	genSlice1(path string, typ types.Type)
+
+	// zodb.Buf
+	genBuf(path string)
 
 	// generate code for a custom type which implements its own
 	// encoding/decoding via implementing neo.customCodec interface.
@@ -913,6 +923,33 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.emit("}")
 }
 
+// emit code to size/encode/decode zodb.Buf
+// same as slice1 but buffer is allocated via zodb.BufAlloc
+func (s *sizer) genBuf(path string) {
+	s.genSlice1(path + ".Data", nil)	// XXX typ unused
+}
+
+func (e *encoder) genBuf(path string) {
+	e.genSlice1(path + ".Data", nil)	// XXX typ unused
+}
+
+func (d *decoder) genBuf(path string) {
+	d.emit("{")
+	d.genBasic("l:", types.Typ[types.Uint32], nil)
+
+	d.resetPos()
+
+	d.overflowCheck()
+	d.overflow.AddExpr("l")
+
+	// TODO eventually do not copy but reference original
+	d.emit("%v= zodb.BufAlloc(l)", path)
+	d.emit("copy(%v.Data, data[:l])", path)
+
+	d.emit("data = data[l:]")
+	d.emit("}")
+}
+
 // emit code to size/encode/decode slice
 // len	u32
 // [len]item
@@ -1120,9 +1157,16 @@ func (d *decoder) genCustom(path string) {
 // obj is object that uses this type in source program (so in case of an error
 // we can point to source location for where it happened)
 func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGenerator) {
+	// neo.customCodec
 	if types.Implements(typ, neo_customCodec) ||
 		types.Implements(types.NewPointer(typ), neo_customCodec) {
 		codegen.genCustom(path)
+		return
+	}
+
+	// zodb.Buf
+	if tptr, ok := typ.Underlying().(*types.Pointer); ok && tptr.Elem() == zodbBuf {
+		codegen.genBuf(path)
 		return
 	}
 
@@ -1166,6 +1210,8 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGene
 
 	case *types.Map:
 		codegen.genMap(path, u, obj)
+
+	case *types.Pointer:
 
 	default:
 		log.Fatalf("%v: %v has unsupported type %v (%v)", pos(obj),

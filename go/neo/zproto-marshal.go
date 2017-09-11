@@ -1930,7 +1930,7 @@ func (*AnswerObject) neoMsgCode() uint16 {
 }
 
 func (p *AnswerObject) neoMsgEncodedLen() int {
-	return 57 + len(p.Data)
+	return 57 + len(p.Data.Data)
 }
 
 func (p *AnswerObject) neoMsgEncode(data []byte) {
@@ -1940,10 +1940,10 @@ func (p *AnswerObject) neoMsgEncode(data []byte) {
 	(data[24:])[0] = bool2byte(p.Compression)
 	copy(data[25:], p.Checksum[:])
 	{
-		l := uint32(len(p.Data))
+		l := uint32(len(p.Data.Data))
 		binary.BigEndian.PutUint32(data[45:], l)
 		data = data[49:]
-		copy(data, p.Data)
+		copy(data, p.Data.Data)
 		data = data[l:]
 	}
 	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))
@@ -1966,8 +1966,8 @@ func (p *AnswerObject) neoMsgDecode(data []byte) (int, error) {
 			goto overflow
 		}
 		nread += 8 + l
-		p.Data = make([]byte, l)
-		copy(p.Data, data[:l])
+		p.Data = zodb.BufAlloc(l)
+		copy(p.Data.Data, data[:l])
 		data = data[l:]
 	}
 	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
