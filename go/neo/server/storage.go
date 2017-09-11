@@ -94,7 +94,14 @@ func (stor *Storage) Run(ctx context.Context) error {
 	// start serving incoming connections
 	wg := sync.WaitGroup{}
 	serveCtx, serveCancel := context.WithCancel(ctx)
-	stor.node.OnShutdown = serveCancel
+
+	//stor.node.OnShutdown = serveCancel
+	// XXX hack: until ctx cancel is not handled properly by Recv/Send
+	stor.node.OnShutdown = func() {
+		serveCancel()
+		lclose(ctx, l)
+	}
+
 	wg.Add(1)
 	go func(ctx context.Context) (err error) {
 		defer wg.Done()
@@ -133,7 +140,8 @@ func (stor *Storage) Run(ctx context.Context) error {
 	}(serveCtx)
 
 	// connect to master and get commands and updates from it
-	err = stor.talkMaster(ctx)
+	//err = stor.talkMaster(ctx)
+	err = stor.talkMaster(serveCtx)		// XXX hack for shutdown
 	// XXX log err?
 
 	// we are done - shutdown
