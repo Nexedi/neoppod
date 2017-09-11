@@ -280,7 +280,7 @@ bench1() {
 		return
 	fi
 	go run zsha1.go --log_dir=$log $url
-	go run zsha1.go --log_dir=$log -useprefetch $url
+#	go run zsha1.go --log_dir=$log -useprefetch $url
 }
 
 echo -e "\n*** FileStorage"

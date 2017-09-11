@@ -22,7 +22,7 @@ package client
 
 import (
 	"context"
-	"crypto/sha1"
+	//"crypto/sha1"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -448,10 +448,10 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zo
 
 	data = resp.Data
 
-	checksum := sha1.Sum(data)
-	if checksum != resp.Checksum {
-		return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
-	}
+	//checksum := sha1.Sum(data)
+	//if checksum != resp.Checksum {
+	//	return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
+	//}
 
 	if resp.Compression {
 		data, err = decompress(resp.Data, make([]byte, 0, len(resp.Data)))
