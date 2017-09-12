@@ -77,7 +77,7 @@ Sgo() {
 	# -cpuprofile cpu.out
 	# -trace trace.out
 	exec -a Sgo \
-		neo -trace trace.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -cpuprofile cpu.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 
@@ -288,10 +288,10 @@ bench1() {
 #	go run zhash.go --log_dir=$log -$hashfunc -useprefetch $url
 }
 
-echo -e "\n*** FileStorage"
-for i in $N; do
-	bench1 $fs1/data.fs
-done
+# echo -e "\n*** FileStorage"
+# for i in $N; do
+# 	bench1 $fs1/data.fs
+# done
 
 # echo -e "\n*** ZEO"
 # Zpy $fs1/data.fs
@@ -318,13 +318,13 @@ done
 # xmysql -e "SHUTDOWN"
 # wait
 
-# echo -e "\n*** NEO/go"
-# NEOgo
-# for i in $N; do
-# 	bench1 neo://$cluster@$Mbind
-# done
-# xneoctl set cluster stopping
-# wait
+echo -e "\n*** NEO/go"
+NEOgo
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+wait
 
 # all ok
 trap - EXIT
