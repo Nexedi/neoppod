@@ -379,7 +379,7 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 	panic("TODO")
 }
 
-func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial zodb.Tid, err error) {
+func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
 	defer func() {
 		switch err.(type) {
 		case nil:
@@ -446,7 +446,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial
 		return nil, 0, err	// XXX err context
 	}
 
-	buf = resp.DataBuf
+	buf = resp.Data
 
 	//checksum := sha1.Sum(buf.Data)
 	//if checksum != resp.Checksum {
@@ -469,7 +469,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial
 
 	// reply.NextSerial
 	// reply.DataSerial
-	return data, resp.Serial, nil
+	return buf, resp.Serial, nil
 }
 
 func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {

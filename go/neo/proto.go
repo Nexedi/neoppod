@@ -646,7 +646,7 @@ type AnswerObject struct {
 	NextSerial      zodb.Tid	// XXX but there it is out of sync
 	Compression     bool
 	Checksum        Checksum
-	DataBuf         *zodb.Buf	// TODO encode -> separately (for writev)
+	Data            *zodb.Buf	// TODO encode -> separately (for writev)
 	DataSerial      zodb.Tid
 }
 

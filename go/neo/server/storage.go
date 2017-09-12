@@ -502,7 +502,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			xid.TidBefore = true
 		}
 
-		data, tid, err := stor.zstor.Load(ctx, xid)
+		buf, tid, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
 			return neo.ErrEncode(err)
@@ -513,8 +513,8 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			Serial: tid,
 
 			Compression:	false,
-			Data:		data,
-			//Checksum:	sha1.Sum(data),	// XXX computing every time
+			Data:		buf,
+			//Checksum:	sha1.Sum(buf.Data),	// XXX computing every time
 
 			// XXX .NextSerial
 			// XXX .DataSerial
