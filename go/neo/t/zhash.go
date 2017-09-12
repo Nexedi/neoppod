@@ -33,16 +33,32 @@ type hasher struct {
 	name      string
 }
 
+// hasher that discards data
+type nullHasher struct {}
+
+func (h nullHasher) Write(b []byte) (int, error)	{ return len(b), nil }
+func (h nullHasher) Sum(b []byte) []byte		{ return []byte{0} }
+func (h nullHasher) Reset()				{}
+func (h nullHasher) Size() int				{ return 1 }
+func (h nullHasher) BlockSize() int			{ return 1 }
+
 func main() {
 	defer log.Flush()
-	fadler32 := flag.Bool("adler32", false, "compute Adler32 checksum")
-	fcrc32   := flag.Bool("crc32", false, "compute CRC32 checksum")
-	fsha1    := flag.Bool("sha1", false, "compute SHA1 cryptographic hash")
+	fnull    := flag.Bool("null",	false, "don't compute hash - just read data")
+	fadler32 := flag.Bool("adler32",false, "compute Adler32 checksum")
+	fcrc32   := flag.Bool("crc32",	false, "compute CRC32 checksum")
+	fsha1    := flag.Bool("sha1",	false, "compute SHA1 cryptographic hash")
 	fsha256  := flag.Bool("sha256", false, "compute SHA256 cryptographic hash")
 	fsha512  := flag.Bool("sha512", false, "compute SHA512 cryptographic hash")
 	useprefetch := flag.Bool("useprefetch", false, "prefetch loaded objects")
 	flag.Parse()
-	url := flag.Args()[0]	// XXX dirty
+
+	if flag.NArg() != 1 {
+		flag.Usage()
+		// XXX exit
+	}
+
+	url := flag.Arg(0)
 
 	ctx := context.Background()
 
@@ -57,6 +73,7 @@ func main() {
 	}
 
 	switch {
+	case *fnull:	inith("null",	 func() hash.Hash { return nullHasher{} })
 	case *fadler32:	inith("adler32", func() hash.Hash { return adler32.New() })
 	case *fcrc32:	inith("crc32",   func() hash.Hash { return crc32.NewIEEE() })
 	case *fsha1:	inith("sha1",    sha1.New)
@@ -99,7 +116,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err err
 		}
 	}
 
-	load := func(ctx context.Context, xid zodb.Xid) ([]byte, zodb.Tid, error) {
+	load := func(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
 		if cache != nil {
 			return cache.Load(ctx, xid)
 		} else {
@@ -158,7 +175,7 @@ loop:
 		if xid.Oid % 8 == 0 {
 			prefetchBlk(ctx, xid)
 		}
-		data, _, err := load(ctx, xid)
+		buf, _, err := load(ctx, xid)
 		switch err.(type) {
 		case nil:
 			// ok
@@ -168,13 +185,15 @@ loop:
 			return err
 		}
 
-		h.Write(data)
+		h.Write(buf.Data)
 
 		//fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, h.Sum(nil))
-		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", data)
+		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", buf.Data)
 
-		nread += len(data)
+		nread += len(buf.Data)
 		oid += 1
+
+		buf.Free()
 	}
 
 	tend := time.Now()

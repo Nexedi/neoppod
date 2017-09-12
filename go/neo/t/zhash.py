@@ -14,6 +14,16 @@ import sys
 from time import time
 from getopt import getopt, GetoptError
 
+# hasher that discards data
+class NullHasher:
+    name = "null"
+
+    def update(self, data):
+        pass
+
+    def hexdigest(self):
+        return "00"
+
 # adler32 in hashlib interface
 class Adler32Hasher:
     name = "adler32"
@@ -42,6 +52,7 @@ class CRC32Hasher:
 
 # {} name -> hasher
 hashRegistry = {
+    "null":     NullHasher,
     "adler32":  Adler32Hasher,
     "crc32":    CRC32Hasher,
     "sha1":     hashlib.sha1,
@@ -55,6 +66,7 @@ def usage(w):
 
 options:
 
+    --null          don't compute hash - just read data
     --adler32       compute Adler32 checksum
     --crc32         compute CRC32 checksum
     --sha1          compute SHA1 cryptographic hash
@@ -72,6 +84,7 @@ def main():
 
     for opt, _ in optv:
         if opt in ("-h", "--help"):
+            print(__doc__)
             usage(sys.stdout)
             sys.exit()
 
@@ -80,6 +93,7 @@ def main():
         h = hctor()
 
     if len(argv) != 1:
+        print(__doc__)
         usage(sys.stderr)
         sys.exit(1)
 
