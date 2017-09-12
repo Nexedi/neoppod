@@ -13,7 +13,7 @@ import (
 	"hash"
 	"hash/crc32"
 	"hash/adler32"
-	//"os"
+	"os"
 	"time"
 
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -55,7 +55,7 @@ func main() {
 
 	if flag.NArg() != 1 {
 		flag.Usage()
-		// XXX exit
+		os.Exit(1)
 	}
 
 	url := flag.Arg(0)
@@ -193,7 +193,7 @@ loop:
 		nread += len(buf.Data)
 		oid += 1
 
-		buf.Free()
+		buf.Release()
 	}
 
 	tend := time.Now()
