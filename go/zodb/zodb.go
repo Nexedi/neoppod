@@ -17,9 +17,12 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// XXX partly based on ZODB/py
-
-// Package zodb defines types, interfaces and errors used in ZODB databases
+// Package zodb defines types, interfaces and errors to work with ZODB databases.
+//
+// ZODB (http://zodb.org) was originally created in Python world by Jim Fulton et al.
+// Data model this package provides is partly based on ZODB/py
+// (https://github.com/zopefoundation/ZODB) to maintain compatibility in
+// between Python and Go implementations.
 package zodb
 
 import (
@@ -27,12 +30,65 @@ import (
 	"fmt"
 )
 
-// ZODB types
-type Tid uint64  // transaction identifier
-type Oid uint64  // object identifier
+// ---- data model ----
 
-// XTid is "extended" transaction identifier. It defines a transaction for
-// oid lookup - either exactly by serial, or by < beforeTid.
+// Tid is transaction identifier.
+//
+// In ZODB transaction identifiers are unique 64-bit integer connected to time
+// when corresponding transaction was created.
+type Tid uint64
+
+// ZODB/py defines maxtid to be max signed int64 since baee84a6 (Jun 7 2016)
+// (XXX in neo: SQLite does not accept numbers above 2^63-1)
+
+const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
+
+// Oid is object identifier.
+//
+// In ZODB objects are uniquely identified by 64-bit integer.
+// Every object can have several revisions - each committed in different transaction.
+// The combination of object identifier and particular transaction (serial)
+// uniquely addresses corresponding data record.
+//
+// See also: Xid.
+type Oid uint64
+
+// TxnMeta is metadata information about one transaction.
+type TxnMeta struct {
+	Tid         Tid
+	Status      TxnStatus
+	User        []byte
+	Description []byte
+	Extension   []byte
+}
+
+// XXX +TxnInfo = TxnMeta + []DataInfo ?
+
+// DataInfo represents information about one data record.
+type DataInfo struct {
+	Oid	Oid
+	Tid	Tid
+	Data	[]byte	// nil means: deleted	XXX -> *Buf ?
+
+	// original tid data was committed (e.g. in case of undo)
+	//
+	// FIXME we don't really need this and this unnecessarily constraints interfaces.
+	DataTid	Tid
+}
+
+// TxnStatus represents status of a transaction
+type TxnStatus byte
+
+const (
+	TxnComplete TxnStatus = ' ' // completed transaction that hasn't been packed
+	TxnPacked             = 'p' // completed transaction that has been packed
+	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
+)
+
+
+// XTid is "extended" transaction identifier.
+//
+// It defines a transaction for oid lookup - either exactly by serial, or by < beforeTid.
 type XTid struct {
 	Tid
 	TidBefore bool	// XXX merge into Tid itself (high bit) ?
@@ -46,27 +102,10 @@ type Xid struct {
 
 // XXX add XidBefore() and XidSerial() as syntax convenience?
 
-const (
-	//Tid0	Tid = 0			// XXX -> simply Tid(0) ?
-	TidMax	Tid = 1<<63 - 1		// 0x7fffffffffffffff
-					// ZODB defines maxtid to be max signed int64 since baee84a6 (Jun 7 2016)
-					// (XXX in neo: SQLite does not accept numbers above 2^63-1)
-
-	//Oid0	Oid = 0			// XXX -> simply Oid(0)
-)
-
-func (tid Tid) Valid() bool {
-	// XXX if Tid becomes signed also check wrt 0
-	if tid <= TidMax {
-		return true
-	} else {
-		return false
-	}
-}
-
-// ----------------------------------------
+// ---- interfaces ----
 
 // ErrOidMissing is an error which tells that there is no such oid in the database at all
+//
 // XXX do we need distinction in between ErrOidMissing & ErrXidMissing ?
 // (think how client should handle error from Load ?)
 type ErrOidMissing struct {
@@ -87,51 +126,7 @@ func (e *ErrXidMissing) Error() string {
 	return fmt.Sprintf("%v: no matching data record found", e.Xid)
 }
 
-// ----------------------------------------
-
-// TxnStatus represents status of a transaction
-type TxnStatus byte
-
-const (
-	TxnComplete TxnStatus = ' ' // completed transaction that hasn't been packed
-	TxnPacked             = 'p' // completed transaction that has been packed
-	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
-)
-
-// Valid returns true if transaction status value is well-known and valid
-func (ts TxnStatus) Valid() bool {
-	switch ts {
-	case TxnComplete, TxnPacked, TxnInprogress:
-		return true
-
-	default:
-		return false
-	}
-}
-
-// Metadata information about single transaction
-type TxnInfo struct {
-	Tid         Tid
-	Status      TxnStatus
-	User        []byte
-	Description []byte
-	Extension   []byte
-}
-
-// Information about single storage record
-// XXX naming
-type StorageRecordInformation struct {
-	Oid	Oid
-	Tid	Tid
-	Data	[]byte	// nil means: deleted
-
-	// original tid data was committed (e.g. in case of undo)
-	// XXX we don't really need this
-	DataTid	Tid
-}
-
-
-
+// IStorage is the interface provided by ZODB storages
 type IStorage interface {
 	// XXX add invalidation channel
 
@@ -141,24 +136,30 @@ type IStorage interface {
 	// Close closes storage
 	Close() error
 
-	// History(oid, size=1)
+	// History(ctx, oid, size=1)
 
 	// LastTid returns the id of the last committed transaction.
+	//
 	// if no transactions have been committed yet, LastTid returns Tid zero value
 	LastTid(ctx context.Context) (Tid, error)
 
 	// LastOid returns highest object id of objects committed to storage.
-	// if there is no data committed yet, LastOid returns Oid zero value
-	// XXX ZODB/py does not define this in IStorage
+	//
+	// if there is no data committed yet, LastOid returns Oid zero value	XXX -> better -1
+	// XXX ZODB/py does not define this in IStorage.
 	LastOid(ctx context.Context) (Oid, error)
 
-	// LoadSerial and LoadBefore generalized into 1 Load  (see Xid for details)
+	// Load loads data from database.
+	//
+	// The object to load is addressed by xid.
+	//
+	// NOTE ZODB/py provides 2 entrypoints in IStorage: LoadSerial and
+	// LoadBefore. Load generalizes them into one (see Xid for details).
 	//
 	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
-	//
-	// XXX currently deleted data is returned as data.Data=nil	-- is it ok?
+	// XXX currently deleted data is returned as buf.Data=nil	-- is it ok?
 	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
-	Load(ctx context.Context, xid Xid) (data *Buf, serial Tid, err error)	// XXX -> StorageRecordInformation ?
+	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)	// XXX -> DataInfo ?
 
 	// Prefetch(ctx, xid Xid)	(no error)
 
@@ -171,23 +172,49 @@ type IStorage interface {
 	// tpc_finish(txn, callback)    XXX clarify about callback
 	// tpc_abort(txn)
 
+	// Iterate creates iterator to iterate storage in [tidMin, tidMax] range.
+	//
 	// XXX allow iteration both ways (forward & backward)
-	// XXX text
-	Iterate(tidMin, tidMax Tid) IStorageIterator	// XXX ctx , error ?
+	Iterate(tidMin, tidMax Tid) ITxnIterator	// XXX ctx , error ?
 }
 
-type IStorageIterator interface {
+// ITxnIterator is the interface to iterate transactions.
+type ITxnIterator interface {
 	// NextTxn yields information about next database transaction:
 	// 1. transaction metadata, and
-	// 2. iterator over transaction data records. 
+	// 2. iterator over transaction's data records. 
 	// transaction metadata stays valid until next call to NextTxn().
 	// end of iteration is indicated with io.EOF
-	NextTxn() (*TxnInfo, IStorageRecordIterator, error)	// XXX ctx
+	NextTxn() (*TxnMeta, IDataIterator, error)	// XXX ctx
 }
 
-type IStorageRecordIterator interface {         // XXX naming -> IRecordIterator
+// IDataIterator is the interface to iterate data records.
+type IDataIterator interface {
 	// NextData yields information about next storage data record.
 	// returned data stays valid until next call to NextData().
 	// end of iteration is indicated with io.EOF
-	NextData() (*StorageRecordInformation, error)	// XXX ctx
+	NextData() (*DataInfo, error)	// XXX ctx
+}
+
+// ---- misc ----
+
+// Valid returns whether tid is in valid transaction identifiers range
+func (tid Tid) Valid() bool {
+	// XXX if Tid becomes signed also check wrt 0
+	if tid <= TidMax {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Valid returns true if transaction status value is well-known and valid
+func (ts TxnStatus) Valid() bool {
+	switch ts {
+	case TxnComplete, TxnPacked, TxnInprogress:
+		return true
+
+	default:
+		return false
+	}
 }

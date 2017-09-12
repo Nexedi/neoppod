@@ -155,6 +155,7 @@ Error:
 }
 
 // ParseTidRange parses string of form "<tidmin>..<tidmax>" into tidMin, tidMax pair
+//
 // both <tidmin> and <tidmax> can be empty, in which case defaults 0 and TidMax are returned
 // XXX also check tidMin < tidMax here? or allow reverse ranges ?
 func ParseTidRange(s string) (tidMin, tidMax Tid, err error) {

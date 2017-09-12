@@ -54,6 +54,7 @@ type Dumper interface {
 }
 
 // Dump dumps content of a FileStorage file @ path.
+//
 // To do so it reads file header and then iterates over all transactions in the file.
 // The logic to actually output information and, if needed read/process data, is implemented by Dumper d.
 func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
@@ -132,7 +133,6 @@ type DumperFsDump struct {
 
 	// for loading data
 	dhLoading fs1.DataHeader
-//	data      []byte
 }
 
 func (d *DumperFsDump) DumperName() string {
@@ -174,31 +174,27 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 
 		// load actual data
 		d.dhLoading = *dh
-		dataBuf, err := d.dhLoading.LoadData(it.R)
+		dbuf, err := d.dhLoading.LoadData(it.R)
 		if err != nil {
 			return err
 		}
 
-		if dataBuf == nil {
+		if dbuf.Data == nil {
 			buf .S(" class=undo or abort of object creation")
 		} else {
-			fullclass := zodb.PyData(dataBuf.Data).ClassName()
+			fullclass := zodb.PyData(dbuf.Data).ClassName()
 
 			buf .S(" size=") .D64(d.dhLoading.DataLen)
 			buf .S(" class=") .S(fullclass)
 		}
 
-		if dh.DataLen == 0 && dataBuf != nil {
+		if dh.DataLen == 0 && dbuf.Data != nil {
 			// it was backpointer - print tid of transaction it points to
 			buf .S(" bp=") .V(d.dhLoading.Tid)
 		}
 
-		// XXX avoid `if != nil`
-		if dataBuf != nil {
-			dataBuf.Free()
-		}
-
 		buf .S("\n")
+		dbuf.Free()
 	}
 
 	return nil
