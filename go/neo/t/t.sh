@@ -270,7 +270,7 @@ sync
 
 
 # run benchmarks
-N=`seq 2`	# XXX repeat benchmarks N time
+N=`seq 1`	# XXX repeat benchmarks N time
 #hashfunc=sha1
 #hashfunc=adler32
 hashfunc=null
@@ -279,7 +279,7 @@ hashfunc=null
 bench1() {
 	url=$1
 #	time demo-zbigarray read $url
-	./zhash.py --$hashfunc $url
+#	./zhash.py --$hashfunc $url
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return

@@ -156,13 +156,13 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err err
 	}
 	before := lastTid + 1	// XXX overflow ?
 
-	if false {
+	if true {
 		//defer profile.Start(profile.TraceProfile).Stop()
 		//defer profile.Start(profile.MemProfile).Stop()
 		defer profile.Start(profile.CPUProfile).Stop()
 	}
 
-for qqq := 0; qqq < 10; qqq++ {
+for qqq := 0; qqq < 30; qqq++ {
 	tstart := time.Now()
 	h.Reset()	// XXX temp
 
@@ -203,8 +203,10 @@ loop:
 	if useprefetch {
 		x += " +prefetch"
 	}
+	if false {
 	fmt.Printf("%s:%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
 		h.name, h.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
+	}
 }
 
 	return nil
