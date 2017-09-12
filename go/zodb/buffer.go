@@ -40,7 +40,7 @@ type Buf struct {
 
 const order0 = 4 // buf sizes start from 2^4 (=16)
 
-var bufPoolv = [14]sync.Pool{} // buf size stop at 2^(4+14-1) (=128K)
+var bufPoolv = [19]sync.Pool{} // buf size stop at 2^(4+19-1) (=4M)
 
 
 func init() {

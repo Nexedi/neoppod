@@ -30,8 +30,7 @@ func sliceDataPtr(b []byte) unsafe.Pointer {
 }
 
 func TestBufAllocFree(t *testing.T) {
-	for i := uint(0); i < 20; i++ {
-		//if i < 7 { continue }
+	for i := uint(0); i < 25; i++ {
 		size := 1<<i - 1
 		xcap := 1<<i
 		buf := BufAlloc(size)
@@ -49,18 +48,22 @@ func TestBufAllocFree(t *testing.T) {
 			t.Errorf("%v: cap=%v  ; want %v", i, cap(buf.Data), xcap)
 		}
 
-		// this allocations are not from pool - memory won't be reused
-		if int(i) >= order0 + len(bufPoolv) {
-			continue
-		}
-
 		// free and allocate another buf -> it must be it
 		data := buf.Data
 		buf.Free()
 		buf2 := BufAlloc(size)
 
-		if !(buf2 == buf && sliceDataPtr(buf2.Data) == sliceDataPtr(data)) {
-			t.Errorf("%v: buffer not reused on free/realloc", i)
+		// from pool -> it must be the same
+		if int(i) < order0 + len(bufPoolv) {
+			if !(buf2 == buf && sliceDataPtr(buf2.Data) == sliceDataPtr(data)) {
+				t.Errorf("%v: buffer not reused on free/realloc", i)
+			}
+
+		// not from pool - memory won't be reused
+		} else {
+			if buf2 == buf || sliceDataPtr(buf2.Data) == sliceDataPtr(data) {
+				t.Errorf("%v: buffer reused but should not", i)
+			}
 		}
 	}
 }

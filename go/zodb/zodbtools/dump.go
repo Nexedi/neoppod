@@ -67,7 +67,7 @@ var _LF = []byte{'\n'}
 
 // DumpData dumps one data record
 // XXX naming -> DumpObj ?
-func (d *dumper) DumpData(datai *zodb.StorageRecordInformation) error {
+func (d *dumper) DumpData(datai *zodb.DataInfo) error {
 	buf := &d.buf
 	buf.Reset()
 
@@ -121,8 +121,8 @@ out:
 }
 
 // DumpTxn dumps one transaction record
-func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IStorageRecordIterator) error {
-	var datai *zodb.StorageRecordInformation
+func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IDataIterator) error {
+	var datai *zodb.DataInfo
 
 	// LF in-between txn records
 	vskip := "\n"
@@ -168,7 +168,7 @@ out:
 // Dump dumps transaction records in between tidMin..tidMax
 func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 	var txni     *zodb.TxnInfo
-	var dataIter zodb.IStorageRecordIterator
+	var dataIter zodb.IDataIterator
 	var err      error
 
 	iter := stor.Iterate(tidMin, tidMax)

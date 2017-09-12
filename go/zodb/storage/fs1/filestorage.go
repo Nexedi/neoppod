@@ -313,7 +313,7 @@ type zIter struct {
 	//   here to avoid allocations )
 	dhLoading DataHeader
 
-	sri	zodb.StorageRecordInformation // ptr to this will be returned by .NextData
+	datai	zodb.DataInfo // ptr to this will be returned by .NextData
 	dataBuf	*zodb.Buf
 }
 
@@ -324,7 +324,7 @@ const (
 )
 
 // NextTxn iterates to next/previous transaction record according to iteration direction
-func (zi *zIter) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
+func (zi *zIter) NextTxn() (*zodb.TxnInfo, zodb.IDataIterator, error) {
 	switch {
 	case zi.zFlags & zIterEOF != 0:
 		//println("already eof")
@@ -356,14 +356,14 @@ func (zi *zIter) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
 }
 
 // NextData iterates to next data record and loads data content
-func (zi *zIter) NextData() (*zodb.StorageRecordInformation, error) {
+func (zi *zIter) NextData() (*zodb.DataInfo, error) {
 	err := zi.iter.NextData()
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
 
-	zi.sri.Oid = zi.iter.Datah.Oid
-	zi.sri.Tid = zi.iter.Datah.Tid
+	zi.datai.Oid = zi.iter.Datah.Oid
+	zi.datai.Tid = zi.iter.Datah.Tid
 
 	// NOTE dh.LoadData() changes dh state while going through backpointers -
 	// - need to use separate dh because of this
@@ -372,20 +372,14 @@ func (zi *zIter) NextData() (*zodb.StorageRecordInformation, error) {
 		zi.dataBuf.Free()
 		zi.dataBuf = nil
 	}
-//	zi.sri.Data = zi.dataBuf
-	zi.dataBuf, err = zi.dhLoading.LoadData(zi.iter.R)	//, &zi.sri.Data)
+	zi.dataBuf, err = zi.dhLoading.LoadData(zi.iter.R)
 	if err != nil {
 		return nil, err	// XXX recheck
 	}
 
-//	// if memory was reallocated - use it next time
-//	if cap(zi.sri.Data) > cap(zi.dataBuf) {
-//		zi.dataBuf = zi.sri.Data
-//	}
-
-	zi.sri.Data = zi.dataBuf.Data
-	zi.sri.DataTid = zi.dhLoading.Tid
-	return &zi.sri, nil
+	zi.datai.Data = zi.dataBuf.Data
+	zi.datai.DataTid = zi.dhLoading.Tid
+	return &zi.datai, nil
 }
 
 
@@ -400,7 +394,7 @@ type iterStartError struct {
 	err error
 }
 
-func (e *iterStartError) NextTxn() (*zodb.TxnInfo, zodb.IStorageRecordIterator, error) {
+func (e *iterStartError) NextTxn() (*zodb.TxnInfo, zodb.IDataIterator, error) {
 	return nil, nil, e.err
 }
 
@@ -483,7 +477,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 }
 
 // Iterate creates zodb-level iterator for tidMin..tidMax range
-func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	//fmt.Printf("iterate %v..%v\n", tidMin, tidMax)
 
 	// when iterating use IO optimized for sequential access

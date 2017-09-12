@@ -472,7 +472,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial
 	return data, resp.Serial, nil
 }
 
-func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.IStorageIterator {
+func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	// see notes in ../NOTES:"On iteration"
 	panic("TODO")
 }

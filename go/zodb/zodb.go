@@ -53,8 +53,11 @@ const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 // See also: Xid.
 type Oid uint64
 
-// TxnMeta is metadata information about one transaction.
-type TxnMeta struct {
+// TxnInfo is metadata information about one transaction.
+//
+// XXX naming -> TxnMeta?
+// XXX +TxnInfo = TxnMeta + []DataInfo ?
+type TxnInfo struct {
 	Tid         Tid
 	Status      TxnStatus
 	User        []byte
@@ -62,7 +65,6 @@ type TxnMeta struct {
 	Extension   []byte
 }
 
-// XXX +TxnInfo = TxnMeta + []DataInfo ?
 
 // DataInfo represents information about one data record.
 type DataInfo struct {
@@ -185,7 +187,7 @@ type ITxnIterator interface {
 	// 2. iterator over transaction's data records. 
 	// transaction metadata stays valid until next call to NextTxn().
 	// end of iteration is indicated with io.EOF
-	NextTxn() (*TxnMeta, IDataIterator, error)	// XXX ctx
+	NextTxn() (*TxnInfo, IDataIterator, error)	// XXX ctx
 }
 
 // IDataIterator is the interface to iterate data records.

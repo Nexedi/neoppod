@@ -218,7 +218,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 
 			// assert datai pointes to where we expect - this will allow us
 			// not only to check oid/tid/data but also to check whole data header.
-			if datai != &fsi.sri {
+			if datai != &fsi.datai {
 				t.Fatal("unexpected datai pointer")
 			}
 

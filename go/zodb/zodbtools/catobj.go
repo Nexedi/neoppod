@@ -46,7 +46,7 @@ func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) 
 
 // Dumpobj dumps content of one ZODB object with zodbdump-like header
 func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid, hashOnly bool) error {
-	var objInfo zodb.StorageRecordInformation
+	var objInfo zodb.DataInfo
 
 	buf, tid, err := stor.Load(ctx, xid)
 	if err != nil {
