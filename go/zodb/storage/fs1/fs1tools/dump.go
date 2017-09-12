@@ -194,7 +194,7 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		}
 
 		buf .S("\n")
-		dbuf.Free()
+		dbuf.Release()
 	}
 
 	return nil

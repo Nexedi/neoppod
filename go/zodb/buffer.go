@@ -22,6 +22,7 @@ package zodb
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"lab.nexedi.com/kirr/go123/xmath"
 )
@@ -29,13 +30,19 @@ import (
 // Buf represents memory buffer.
 //
 // To lower pressure on Go garbage-collector allocate buffers with BufAlloc and
-// free them with Buf.Free.
+// free them with Buf.Release.
 //
 // Custom allocation functions affect only performance, not correctness -
 // everything should work if data buffer is allocated and/or free'ed
 // regular Go/GC-way.
 type Buf struct {
 	Data []byte
+
+	// reference counter.
+	//
+	// NOTE to allow both Bufs created via BufAlloc and via std new Buf is
+	// created with refcnt=0. The real number of references to Buf is thus .refcnt+1
+	refcnt int32
 }
 
 const order0 = 4 // buf sizes start from 2^4 (=16)
@@ -87,13 +94,27 @@ func BufAlloc64(size int64) *Buf {
 	buf := bufPoolv[order].Get().(*Buf)
 	//println("\tlen:", len(buf.Data), "cap:", cap(buf.Data))
 	buf.Data = buf.Data[:size] // leaving cap as is = 2^i
+	buf.refcnt = 0
 	return buf
 }
 
-// Free returns no-longer needed buf to freelist.
+// Release marks buf as no longer used by caller.
 //
-// The caller must not use buf after call to Free.
-func (buf *Buf) Free() {
+// It decrements buf reference-counter and if it reaches zero returns buf to
+// freelist.
+//
+// The caller must not use buf after call to Release.
+//
+// XXX naming? -> Free? -> Decref? -> Unref?
+func (buf *Buf) Release() {
+	rc := atomic.AddInt32(&buf.refcnt, -1)
+	if rc < -1 {
+		panic("Buf: refcnt < 0")
+	}
+	if rc > -1 {
+		return
+	}
+
 	// order = max i: 2^i <= cap
 	//order := bits.Len(uint(cap(buf.Data)))
 	order := xmath.FloorLog2(uint64(cap(buf.Data)))
@@ -109,4 +130,44 @@ func (buf *Buf) Free() {
 	}
 
 	bufPoolv[order].Put(buf)
+}
+
+// Incref increments buf's reference counter by 1.
+func (buf *Buf) Incref() {
+	atomic.AddInt32(&buf.refcnt, +1)
+}
+
+// XRelease releases buf it is != nil.
+func (buf *Buf) XRelease() {
+	if buf != nil {
+		buf.Release()
+	}
+}
+
+// XIncref increments buf's reference counter by 1 if buf != nil.
+func (buf *Buf) XIncref() {
+	if buf != nil {
+		buf.Incref()
+	}
+}
+
+
+// Len returns buf's len.
+//
+// it works even if buf=nil similarly to len() on nil []byte slice.
+func (buf *Buf) Len() int {
+	if buf != nil {
+		return len(buf.Data)
+	}
+	return 0
+}
+
+// Cap returns buf's cap.
+//
+// it works even if buf=nil similarly to len() on nil []byte slice.
+func (buf *Buf) Cap() int {
+	if buf != nil {
+		return cap(buf.Data)
+	}
+	return 0
 }

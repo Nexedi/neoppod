@@ -369,7 +369,7 @@ func (zi *zIter) NextData() (*zodb.DataInfo, error) {
 	// - need to use separate dh because of this
 	zi.dhLoading = zi.iter.Datah
 	if zi.dataBuf != nil {
-		zi.dataBuf.Free()
+		zi.dataBuf.Release()
 		zi.dataBuf = nil
 	}
 	zi.dataBuf, err = zi.dhLoading.LoadData(zi.iter.R)

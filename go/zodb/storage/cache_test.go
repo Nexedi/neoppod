@@ -50,9 +50,27 @@ type tOidData struct {
 	err    error    // e.g. io error
 }
 
-func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+// create new buffer with specified content copied there.
+func mkbuf(data []byte) *zodb.Buf {
+	buf := zodb.BufAlloc(len(data))
+	copy(buf.Data, data)
+	return buf
+}
+
+// check whether buffers hold same data or both are nil.
+//
+// NOTE we ignore refcnt here
+func bufSame(buf1, buf2 *zodb.Buf) bool {
+	if buf1 == nil {
+		return (buf2 == nil)
+	}
+
+	return reflect.DeepEqual(buf1.Data, buf2.Data)
+}
+
+func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
 	//fmt.Printf("> load(%v)\n", xid)
-	//defer func() { fmt.Printf("< %v, %v, %v\n", data, serial, err) }()
+	//defer func() { fmt.Printf("< %v, %v, %v\n", buf.XData(), serial, err) }()
 	tid := xid.Tid
 	if !xid.TidBefore {
 		tid++		// XXX overflow?
@@ -85,7 +103,7 @@ func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (data []byte, serial
 	if e != nil {
 		s = 0 // obey protocol of returning 0 with error
 	}
-	return datav[i].data, s, e
+	return mkbuf(datav[i].data), s, e
 }
 
 var ioerr = errors.New("input/output error")
@@ -142,15 +160,17 @@ func TestCache(t *testing.T) {
 		},
 	}
 
+	b := mkbuf
+
 	c := NewCache(tstor, 100 /* > Σ all data */)
 	ctx := context.Background()
 
-	checkLoad := func(xid zodb.Xid, data []byte, serial zodb.Tid, err error) {
+	checkLoad := func(xid zodb.Xid, buf *zodb.Buf, serial zodb.Tid, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
-		d, s, e := c.Load(ctx, xid)
-		if !reflect.DeepEqual(data, d) {
-			fmt.Fprintf(bad, "data:\n%s\n", pretty.Compare(data, d))
+		b, s, e := c.Load(ctx, xid)
+		if !bufSame(buf, b) {
+			fmt.Fprintf(bad, "buf:\n%s\n", pretty.Compare(buf, b))
 		}
 		if serial != s {
 			fmt.Fprintf(bad, "serial:\n%s\n", pretty.Compare(serial, s))
@@ -164,7 +184,7 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkRCE := func(rce *revCacheEntry, before, serial zodb.Tid, data []byte, err error) {
+	checkRCE := func(rce *revCacheEntry, before, serial zodb.Tid, buf *zodb.Buf, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		if rce.before != before {
@@ -173,8 +193,8 @@ func TestCache(t *testing.T) {
 		if rce.serial != serial {
 			fmt.Fprintf(bad, "serial:\n%s\n", pretty.Compare(serial, rce.serial))
 		}
-		if !reflect.DeepEqual(rce.data, data) {
-			fmt.Fprintf(bad, "data:\n%s\n", pretty.Compare(data, rce.data))
+		if !bufSame(rce.buf, buf) {
+			fmt.Fprintf(bad, "buf:\n%s\n", pretty.Compare(buf, rce.buf))
 		}
 		if !reflect.DeepEqual(rce.err, err) {
 			fmt.Fprintf(bad, "err:\n%s\n", pretty.Compare(err, rce.err))
@@ -209,7 +229,7 @@ func TestCache(t *testing.T) {
 					debug.Sprint(h), debug.Sprint(hp))
 			}
 			rce := h.rceFromInLRU()
-			size += len(rce.data)
+			size += rce.buf.Len()
 			mruv = append(mruv, rce)
 		}
 		if !reflect.DeepEqual(mruv, mruvOk) {
@@ -253,24 +273,24 @@ func TestCache(t *testing.T) {
 	checkMRU(0, rce1_b4)
 
 	// load <6 -> new rce entry with data
-	checkLoad(xidlt(1,6), hello, 4, nil)
+	checkLoad(xidlt(1,6), b(hello), 4, nil)
 	ok1(len(oce1.rcev) == 2)
 	rce1_b6 := oce1.rcev[1]
-	checkRCE(rce1_b6, 6, 4, hello, nil)
+	checkRCE(rce1_b6, 6, 4, b(hello), nil)
 	checkOCE(1, rce1_b4, rce1_b6)
 	checkMRU(5, rce1_b6, rce1_b4)
 
 	// load <5 -> <5 merged with <6
-	checkLoad(xidlt(1,5), hello, 4, nil)
+	checkLoad(xidlt(1,5), b(hello), 4, nil)
 	checkOCE(1, rce1_b4, rce1_b6)
 	checkMRU(5, rce1_b6, rce1_b4)
 
 	// load <7 -> <6 merged with <7
-	checkLoad(xidlt(1,7), hello, 4, nil)
+	checkLoad(xidlt(1,7), b(hello), 4, nil)
 	ok1(len(oce1.rcev) == 2)
 	rce1_b7 := oce1.rcev[1]
 	ok1(rce1_b7 != rce1_b6)
-	checkRCE(rce1_b7, 7, 4, hello, nil)
+	checkRCE(rce1_b7, 7, 4, b(hello), nil)
 	checkOCE(1, rce1_b4, rce1_b7)
 	checkMRU(5, rce1_b7, rce1_b4)
 
@@ -291,19 +311,19 @@ func TestCache(t *testing.T) {
 	checkMRU(5, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
 	// load <11 -> new data rce, not merged with ioerr @<10
-	checkLoad(xidlt(1,11), world, 10, nil)
+	checkLoad(xidlt(1,11), b(world), 10, nil)
 	ok1(len(oce1.rcev) == 5)
 	rce1_b11 := oce1.rcev[4]
-	checkRCE(rce1_b11, 11, 10, world, nil)
+	checkRCE(rce1_b11, 11, 10, b(world), nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b11)
 	checkMRU(12, rce1_b11, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
 	// load <12 -> <11 merged with <12
-	checkLoad(xidlt(1,12), world, 10, nil)
+	checkLoad(xidlt(1,12), b(world), 10, nil)
 	ok1(len(oce1.rcev) == 5)
 	rce1_b12 := oce1.rcev[4]
 	ok1(rce1_b12 != rce1_b11)
-	checkRCE(rce1_b12, 12, 10, world, nil)
+	checkRCE(rce1_b12, 12, 10, b(world), nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12)
 	checkMRU(12, rce1_b12, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
@@ -315,7 +335,7 @@ func TestCache(t *testing.T) {
 	rce1_b16, new16 := c.lookupRCE(xidlt(1,16))
 	ok1(new16)
 	rce1_b16.serial = 10
-	rce1_b16.data = world
+	rce1_b16.buf = mkbuf(world)
 	// here: first half of loadRCE(<16) before close(<16.ready)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b16)
 	ok1(!rce1_b16.loaded())
@@ -338,9 +358,9 @@ func TestCache(t *testing.T) {
 	//  <16 did not yet took oce lock so c.size is temporarily reduced and
 	//  <16 is not yet on LRU list)
 	c.loadRCE(ctx, rce1_b14, 1)
-	checkRCE(rce1_b14, 14, 10, world, nil)
-	checkRCE(rce1_b16, 16, 10, world, nil)
-	checkRCE(rce1_b12, 12, 10, world, nil)
+	checkRCE(rce1_b14, 14, 10, b(world), nil)
+	checkRCE(rce1_b16, 16, 10, b(world), nil)
+	checkRCE(rce1_b12, 12, 10, b(world), nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16)
 	checkMRU(5 /*was 12*/, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
@@ -359,7 +379,7 @@ func TestCache(t *testing.T) {
 
 	// (<17 loads but not yet takes oce lock)
 	rce1_b17.serial = 16
-	rce1_b17.data = zz
+	rce1_b17.buf = mkbuf(zz)
 	close(rce1_b17.ready)
 	ok1(rce1_b17.loaded())
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b17, rce1_b18)
@@ -367,8 +387,8 @@ func TestCache(t *testing.T) {
 
 	// (<18 loads and takes oce lock first - merge <17 with <18)
 	c.loadRCE(ctx, rce1_b18, 1)
-	checkRCE(rce1_b18, 18, 16, zz, nil)
-	checkRCE(rce1_b17, 17, 16, zz, nil)
+	checkRCE(rce1_b18, 18, 16, b(zz), nil)
+	checkRCE(rce1_b17, 17, 16, b(zz), nil)
 	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b18)
 	checkMRU(14, rce1_b18, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
@@ -377,15 +397,15 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 6)
 	rce1_b20 := oce1.rcev[5]
 	ok1(rce1_b20 != rce1_b18)
-	checkRCE(rce1_b20, 20, 16, zz, nil)
+	checkRCE(rce1_b20, 20, 16, b(zz), nil)
 	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b20)
 	checkMRU(14, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
 	// load =20 -> new <21
-	checkLoad(xideq(1,20), www, 20, nil)
+	checkLoad(xideq(1,20), b(www), 20, nil)
 	ok1(len(oce1.rcev) == 7)
 	rce1_b21 := oce1.rcev[6]
-	checkRCE(rce1_b21, 21, 20, www, nil)
+	checkRCE(rce1_b21, 21, 20, b(www), nil)
 	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b20, rce1_b21)
 	checkMRU(17, rce1_b21, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
@@ -394,7 +414,7 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 7)
 	rce1_b22 := oce1.rcev[6]
 	ok1(rce1_b22 != rce1_b21)
-	checkRCE(rce1_b22, 22, 20, www, nil)
+	checkRCE(rce1_b22, 22, 20, b(www), nil)
 	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b20, rce1_b22)
 	checkMRU(17, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
@@ -468,10 +488,10 @@ func TestCache(t *testing.T) {
 	// ---- verify how LRU changes for in-cache loads ----
 	checkMRU(17, rce1_b9, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
 
-	checkLoad(xidlt(1,7), hello, 4, nil)
+	checkLoad(xidlt(1,7), b(hello), 4, nil)
 	checkMRU(17, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b4)
 
-	checkLoad(xidlt(1,16), world, 10, nil)
+	checkLoad(xidlt(1,16), b(world), 10, nil)
 	checkMRU(17, rce1_b16, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b10, rce1_b8, rce1_b4)
 
 
@@ -517,7 +537,7 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 4)
 	rce1_b20_2 := oce1.rcev[3]
 	ok1(rce1_b20_2 != rce1_b20)
-	checkRCE(rce1_b20_2, 20, 16, zz, nil)
+	checkRCE(rce1_b20_2, 20, 16, b(zz), nil)
 	checkOCE(1,  rce1_b7, rce1_b9, rce1_b16, rce1_b20_2)
 	checkMRU(14, rce1_b20_2, rce1_b16, rce1_b7, rce1_b9)
 
@@ -531,7 +551,7 @@ func TestCache(t *testing.T) {
 	// - loaded  <78 (big, size=10)
 	ok1(len(oce1.rcev) == 2)
 	rce1_b78 := oce1.rcev[1]
-	checkRCE(rce1_b78, 78, 77, big, nil)
+	checkRCE(rce1_b78, 78, 77, b(big), nil)
 	checkOCE(1,  rce1_b20_2, rce1_b78)
 	checkMRU(12, rce1_b78, rce1_b20_2)
 
@@ -544,7 +564,7 @@ func TestCache(t *testing.T) {
 	// and still loading works (because even if though rce's are evicted
 	// they stay live while someone user waits and uses it)
 
-	checkLoad(xidlt(1,5), hello, 4, nil)
+	checkLoad(xidlt(1,5), b(hello), 4, nil)
 	tc.Expect(gcstart, gcfinish)
 	checkOCE(1)
 	checkMRU(0)

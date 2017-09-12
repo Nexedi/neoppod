@@ -40,7 +40,7 @@ func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) 
 	}
 
 	_, err = w.Write(buf.Data)	// NOTE deleted data are returned as err by Load
-	buf.Free()
+	buf.Release()
 	return err		// XXX err ctx ?
 }
 
@@ -61,7 +61,7 @@ func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid,
 
 	d := dumper{W: w, HashOnly: hashOnly}
 	err = d.DumpData(&objInfo)
-	buf.Free()
+	buf.Release()
 	return err
 }
 

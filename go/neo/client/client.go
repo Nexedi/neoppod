@@ -446,25 +446,25 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (data *zodb.Buf, serial
 		return nil, 0, err	// XXX err context
 	}
 
-	data = resp.Data
+	buf = resp.DataBuf
 
-	//checksum := sha1.Sum(data.Data)
+	//checksum := sha1.Sum(buf.Data)
 	//if checksum != resp.Checksum {
 	//	return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 	//}
 
 	if resp.Compression {
 		// XXX cleanup mess vvv
-		data2 := zodb.BufAlloc(len(data.Data))
-		data2.Data = data2.Data[:0]
-		udata, err := decompress(data.Data, data2.Data)
-		data.Free()
+		buf2 := zodb.BufAlloc(len(buf.Data))
+		buf2.Data = buf2.Data[:0]
+		udata, err := decompress(buf.Data, buf2.Data)
+		buf.Release()
 		if err != nil {
-			data2.Free()
+			buf2.Release()
 			return nil, 0, fmt.Errorf("data corrupt: %v", err)
 		}
-		data2.Data = udata
-		data = data2
+		buf2.Data = udata
+		buf = buf2
 	}
 
 	// reply.NextSerial

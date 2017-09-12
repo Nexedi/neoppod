@@ -685,7 +685,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 	buf := zodb.BufAlloc64(dh.DataLen)
 	_, err := r.ReadAt(buf.Data, dh.Pos + DataHeaderSize)
 	if err != nil {
-		buf.Free()
+		buf.Release()
 		return nil, dh.err("read data", noEOF(err))	// XXX recheck
 	}
 

@@ -96,8 +96,8 @@ type revCacheEntry struct {
 	// case when loadBefore with tid > cache.before was called.
 	before zodb.Tid
 
-	// loading result: object (data, serial) or error
-	data   []byte
+	// loading result: object (buf, serial) or error
+	buf    *zodb.Buf
 	serial zodb.Tid
 	err    error
 
@@ -108,7 +108,7 @@ type revCacheEntry struct {
 // StorLoader represents loading part of a storage.
 // XXX -> zodb?
 type StorLoader interface {
-	Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error)
+	Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error)
 }
 
 // lock order: Cache.mu   > oidCacheEntry
@@ -149,7 +149,7 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 // Load loads data from database via cache.
 //
 // If data is already in cache - cached content is returned.
-func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zodb.Tid, err error) {
+func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid)
 
 	// rce is already in cache - use it
@@ -177,7 +177,8 @@ func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (data []byte, serial zod
 		}
 	}
 
-	return rce.data, rce.serial, nil
+	rce.buf.XIncref()
+	return rce.buf, rce.serial, nil
 }
 
 // Prefetch arranges for data to be eventually present in cache.
@@ -293,19 +294,20 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 // loading completion is signalled by closing rce.ready.
 func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 	oce := rce.parent
-	data, serial, err := c.loader.Load(ctx, zodb.Xid{
+	buf, serial, err := c.loader.Load(ctx, zodb.Xid{
 		Oid:  oid,
 		XTid: zodb.XTid{Tid: rce.before, TidBefore: true},
 	})
 
-	// normalize data/serial if it was error
+	// normalize buf/serial if it was error
 	if err != nil {
 		// XXX err == canceled? -> ?
-		data = nil
+		buf.XRelease()
+		buf = nil
 		serial = 0
 	}
 	rce.serial = serial
-	rce.data = data
+	rce.buf = buf
 	rce.err = err
 	// verify db gives serial < before
 	if rce.serial >= rce.before {
@@ -313,7 +315,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 	}
 
 	close(rce.ready)
-	δsize := len(rce.data)
+	δsize := rce.buf.Len()
 
 	// merge rce with adjacent entries in parent
 	// ( e.g. loadBefore(3) and loadBefore(4) results in the same data loaded if
@@ -339,9 +341,10 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 	if i + 1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
 		if rceNext.loaded() && tryMerge(rce, rceNext, rce, oid) {
-			// not δsize -= len(rce.data)
-			// tryMerge can change rce.data if consistency is broken
+			// not δsize -= len(rce.buf.Data)
+			// tryMerge can change rce.buf if consistency is broken
 			δsize = 0
+			rce.buf.XRelease()
 			rce = rceNext
 			rceDropped = true
 		}
@@ -355,8 +358,9 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, oid) {
 			rcePrevDropped = rcePrev
 			if rcePrev.accounted {
-				δsize -= len(rcePrev.data)
+				δsize -= rcePrev.buf.Len()
 			}
+			rcePrev.buf.XRelease()
 		}
 	}
 
@@ -506,8 +510,9 @@ func (c *Cache) gc() {
 		i := oce.find(rce)
 		if i != -1 {	// rce could be already deleted by e.g. merge
 			oce.deli(i)
-			c.size -= len(rce.data)
-			//fmt.Printf("gc: free %d bytes\n", len(rce.data))
+			c.size -= rce.buf.Len()
+			//fmt.Printf("gc: free %d bytes\n", rce.buf.Len()))
+			rce.buf.XRelease()
 		}
 		oce.Unlock()
 
@@ -632,6 +637,7 @@ func errDB(oid zodb.Oid, format string, argv ...interface{}) error {
 // errDB marks rce with database inconsistency error
 func (rce *revCacheEntry) errDB(oid zodb.Oid, format string, argv ...interface{}) {
 	rce.err = errDB(oid, format, argv...)
-	rce.data = nil
+	rce.buf.XRelease()
+	rce.buf = nil
 	rce.serial = 0
 }
