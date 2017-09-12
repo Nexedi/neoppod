@@ -753,6 +753,40 @@ func BenchmarkBufChanRTT(b *testing.B) {
 	benchmarkChanRTT(b, make(chan byte, 1), make(chan byte, 1))
 }
 
+// rtt over (acceptq, rxq) & ack chans - base comparision for link.Accept + conn.Recv
+func BenchmarkBufChanAXRXRTT(b *testing.B) {
+	axq := make(chan chan byte)
+	ack := make(chan byte)
+	go func() {
+		for {
+			// accept
+			rxq, ok := <-axq
+			if !ok {
+				break
+			}
+
+			// recv
+			c := <-rxq
+
+			// send back
+			ack <- c
+		}
+	}()
+
+	rxq := make(chan byte, 1) // buffered
+	for i := 0; i < b.N; i++ {
+		c := byte(i)
+		axq <- rxq
+		rxq <- c
+		cc := <-ack
+		if cc != c {
+			b.Fatalf("sent %q != got %q", c, cc)
+		}
+	}
+
+	close(axq)
+}
+
 
 // rtt over net.Conn Read/Write
 func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn) {
