@@ -171,3 +171,11 @@ func (buf *Buf) Cap() int {
 	}
 	return 0
 }
+
+// XData return's buf.Data or nil if buf == nil.
+func (buf *Buf) XData() []byte {
+	if buf != nil {
+		return buf.Data
+	}
+	return nil
+}

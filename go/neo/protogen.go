@@ -926,11 +926,11 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 // emit code to size/encode/decode zodb.Buf
 // same as slice1 but buffer is allocated via zodb.BufAlloc
 func (s *sizer) genBuf(path string) {
-	s.genSlice1(path + ".Data", nil /* typ unused */)
+	s.genSlice1(path + ".XData()", nil /* typ unused */)
 }
 
 func (e *encoder) genBuf(path string) {
-	e.genSlice1(path + ".Data", nil /* typ unused */)
+	e.genSlice1(path + ".XData()", nil /* typ unused */)
 }
 
 func (d *decoder) genBuf(path string) {

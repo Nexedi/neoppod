@@ -1930,7 +1930,7 @@ func (*AnswerObject) neoMsgCode() uint16 {
 }
 
 func (p *AnswerObject) neoMsgEncodedLen() int {
-	return 57 + len(p.Data.Data)
+	return 57 + len(p.Data.XData())
 }
 
 func (p *AnswerObject) neoMsgEncode(data []byte) {
@@ -1940,10 +1940,10 @@ func (p *AnswerObject) neoMsgEncode(data []byte) {
 	(data[24:])[0] = bool2byte(p.Compression)
 	copy(data[25:], p.Checksum[:])
 	{
-		l := uint32(len(p.Data.Data))
+		l := uint32(len(p.Data.XData()))
 		binary.BigEndian.PutUint32(data[45:], l)
 		data = data[49:]
-		copy(data, p.Data.Data)
+		copy(data, p.Data.XData())
 		data = data[l:]
 	}
 	binary.BigEndian.PutUint64(data[0:], uint64(p.DataSerial))

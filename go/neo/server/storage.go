@@ -471,6 +471,12 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 			return
 		}
 
+		// XXX hack -> resp.Release()
+		// XXX req.Msg release too?
+		if resp, ok := resp.(*neo.AnswerObject); ok {
+			resp.Data.Release()
+		}
+
 		// keep on going in the same goroutine to avoid goroutine creation overhead
 		// TODO += timeout -> go away if inactive
 		req, err = link.Recv1()
