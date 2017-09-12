@@ -238,7 +238,7 @@ func (dh *DataHeader) Free() {
 	dhPool.Put(dh)
 }
 
-func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data *zodb.Buf, tid zodb.Tid, err error) {
+func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction who changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
@@ -283,17 +283,17 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (data *zodb.Buf, ti
 	// be of first-found transaction
 	tid = dh.Tid
 
-	data, err = dh.LoadData(fs.file)
+	buf, err = dh.LoadData(fs.file)
 	if err != nil {
 		return nil, 0, &ErrXidLoad{xid, err}
 	}
-	if data == nil {
+	if buf.Data == nil {
 		// data was deleted
-		// XXX or allow this and return via data=nil ?
+		// XXX or allow this and return via buf.Data=nil ?
 		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
 	}
 
-	return data, tid, nil
+	return buf, tid, nil
 }
 
 // --- ZODB-level iteration ---

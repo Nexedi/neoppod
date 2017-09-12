@@ -82,7 +82,12 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) 
 	if tid != expect.tid {
 		t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
 	}
-	if !reflect.DeepEqual(buf.Data, expect.data) { // NOTE reflect to catch nil != ""
+
+	switch {
+	case buf == nil:
+		t.Errorf("load %v: returned buf = nil", xid)
+
+	case !reflect.DeepEqual(buf.Data, expect.data): // NOTE reflect to catch nil != ""
 		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, buf.Data, expect.data)
 	}
 }

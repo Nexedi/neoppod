@@ -675,7 +675,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 		err := dh.LoadBack(r)
 		if err != nil {
 			if err == io.EOF {
-				return nil, nil // deleted
+				return &zodb.Buf{Data: nil}, nil // deleted
 			}
 			return nil, err	// XXX recheck
 		}
