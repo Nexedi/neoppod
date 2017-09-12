@@ -427,15 +427,15 @@ func TestMasterStorage(t *testing.T) {
 	// C starts loading first object ...
 	wg = &xsync.WorkGroup{}
 	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}}
-	data1, serial1, err := zstor.Load(bg, xid1)
+	buf1, serial1, err := zstor.Load(bg, xid1)
 	exc.Raiseif(err)
 	wg.Gox(func() {
-		data, serial, err := C.Load(bg, xid1)
+		buf, serial, err := C.Load(bg, xid1)
 		exc.Raiseif(err)
 
-		if !(bytes.Equal(data, data1) && serial==serial1) {
+		if !(bytes.Equal(buf.Data, buf1.Data) && serial==serial1) {
 			exc.Raisef("C.Load(%v) ->\ndata:\n%s\nserial:\n%s\n", xid1,
-				pretty.Compare(data1, data), pretty.Compare(serial1, serial))
+				pretty.Compare(buf1.Data, buf.Data), pretty.Compare(serial1, serial))
 		}
 	})
 
@@ -468,9 +468,9 @@ func TestMasterStorage(t *testing.T) {
 		Serial:		serial1,
 		NextSerial:	0,		// XXX
 		Compression:	false,
-		Data:		data1,
+		Data:		buf1,
 		DataSerial:	0,		// XXX
-		Checksum:	sha1.Sum(data1),
+		Checksum:	sha1.Sum(buf1.Data),
 	}))
 
 	xwait(wg)
@@ -509,18 +509,18 @@ func TestMasterStorage(t *testing.T) {
 					xid.Tid++
 				}
 
-				data, tid, err := C.Load(bg, xid)
+				buf, tid, err := C.Load(bg, xid)
 				if datai.Data != nil {
-					if !(bytes.Equal(data, datai.Data) && tid == datai.Tid && err == nil) {
+					if !(bytes.Equal(buf.Data, datai.Data) && tid == datai.Tid && err == nil) {
 						t.Fatalf("load: %v:\nhave: %v %v %q\nwant: %v nil %q",
-							xid, tid, err, data, datai.Tid, datai.Data)
+							xid, tid, err, buf.Data, datai.Tid, datai.Data)
 					}
 				} else {
 					// deleted
 					errWant := &zodb.ErrXidMissing{xid}
-					if !(data == nil && tid == 0 && reflect.DeepEqual(err, errWant)) {
+					if !(buf == nil && tid == 0 && reflect.DeepEqual(err, errWant)) {
 						t.Fatalf("load: %v:\nhave: %v, %#v, %#v\nwant: %v, %#v, %#v",
-							xid, tid, err, data, zodb.Tid(0), errWant, []byte(nil))
+							xid, tid, err, buf, zodb.Tid(0), errWant, []byte(nil))
 					}
 				}
 			}
@@ -600,20 +600,20 @@ func BenchmarkGetObject(b *testing.B) {
 	xid1.Tid = zodb.TidMax
 	xid1.TidBefore = true
 
-	data1, serial1, err := zstor.Load(ctx, xid1)
+	buf1, serial1, err := zstor.Load(ctx, xid1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// C.Load(xid1)
 	xcload1 := func() {
-		cdata1, cserial1, err := C.Load(ctx, xid1)
+		cbuf1, cserial1, err := C.Load(ctx, xid1)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		if !(bytes.Equal(cdata1, data1) && cserial1 == serial1) {
-			b.Fatalf("C.Load first -> %q %v  ; want %q %v", cdata1, cserial1, data1, serial1)
+		if !(bytes.Equal(cbuf1.Data, buf1.Data) && cserial1 == serial1) {
+			b.Fatalf("C.Load first -> %q %v  ; want %q %v", cbuf1.Data, cserial1, buf1.Data, serial1)
 		}
 	}
 
