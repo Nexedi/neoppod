@@ -1,4 +1,4 @@
-// zsha1 - compute sha1 of whole latest objects stream in a ZODB database
+// zhash - compute hash of whole latest objects stream in a ZODB database
 // +build ignore
 
 package main
@@ -6,6 +6,8 @@ package main
 import (
 	"context"
 	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
 	"flag"
 	"fmt"
 	"hash"
@@ -25,21 +27,55 @@ import (
 	"github.com/pkg/profile"
 )
 
+// hasher is hash.Hash which also knows its name
+type hasher struct {
+	hash.Hash
+	name      string
+}
+
 func main() {
 	defer log.Flush()
+	fadler32 := flag.Bool("adler32", false, "compute Adler32 checksum")
+	fcrc32   := flag.Bool("crc32", false, "compute CRC32 checksum")
+	fsha1    := flag.Bool("sha1", false, "compute SHA1 cryptographic hash")
+	fsha256  := flag.Bool("sha256", false, "compute SHA256 cryptographic hash")
+	fsha512  := flag.Bool("sha512", false, "compute SHA512 cryptographic hash")
 	useprefetch := flag.Bool("useprefetch", false, "prefetch loaded objects")
 	flag.Parse()
 	url := flag.Args()[0]	// XXX dirty
 
 	ctx := context.Background()
-	err := zsha1(ctx, url, *useprefetch)
+
+	var h hasher
+	inith := func(name string, ctor func() hash.Hash) {
+		if h.name != "" {
+			log.Fatalf(ctx, "duplicate hashes: %s and %s specified", h.name, name)
+		}
+
+		h.name = name
+		h.Hash = ctor()
+	}
+
+	switch {
+	case *fadler32:	inith("adler32", func() hash.Hash { return adler32.New() })
+	case *fcrc32:	inith("crc32",   func() hash.Hash { return crc32.NewIEEE() })
+	case *fsha1:	inith("sha1",    sha1.New)
+	case *fsha256:	inith("sha256",  sha256.New)
+	case *fsha512:	inith("sha512",  sha512.New)
+	}
+
+	if h.Hash == nil {
+		log.Fatal(ctx, "no hash function specified")
+	}
+
+	err := zhash(ctx, url, h, *useprefetch)
 	if err != nil {
 		log.Fatal(ctx, err)
 	}
 }
 
-func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
-	defer task.Running(&ctx, "zsha1")(&err)
+func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err error) {
+	defer task.Running(&ctx, "zhash")(&err)
 
 	stor, err := zodb.OpenStorageURL(ctx, url)
 	if err != nil {
@@ -111,18 +147,7 @@ func zsha1(ctx context.Context, url string, useprefetch bool) (err error) {
 
 for qqq := 0; qqq < 10; qqq++ {
 	tstart := time.Now()
-	var m hash.Hash
-	hashName := "crc32"
-	switch hashName {
-	case "sha1":
-		m = sha1.New()
-	case "crc32":
-		m = crc32.NewIEEE()
-	case "adler32":
-		m = adler32.New()
-	default:
-		panic(0)	// XXX
-	}
+	h.Reset()	// XXX temp
 
 	oid := zodb.Oid(0)
 	nread := 0
@@ -143,9 +168,9 @@ loop:
 			return err
 		}
 
-		//m.Write(data)
+		h.Write(data)
 
-		//fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, m.Sum(nil))
+		//fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, h.Sum(nil))
 		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", data)
 
 		nread += len(data)
@@ -160,7 +185,7 @@ loop:
 		x += " +prefetch"
 	}
 	fmt.Printf("%s:%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
-		hashName,m.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
+		h.name, h.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
 }
 
 	return nil
