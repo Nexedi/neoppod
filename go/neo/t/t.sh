@@ -270,19 +270,22 @@ sync
 
 
 # run benchmarks
-N=`seq 4`	# XXX repeat benchmarks N time
+N=`seq 2`	# XXX repeat benchmarks N time
+#hashfunc=sha1
+#hashfunc=adler32
+hashfunc=null
 
 # time1 <url>	- run benchmarks on the URL once
 bench1() {
 	url=$1
 #	time demo-zbigarray read $url
-#	./zsha1.py $url
+	./zhash.py --$hashfunc $url
 	if [[ $url == zeo://* ]]; then
-		echo "(skipping zsha1.go on ZEO -- Cgo does not support zeo:// protocol)"
+		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
 	fi
-	go run zsha1.go --log_dir=$log $url
-#	go run zsha1.go --log_dir=$log -useprefetch $url
+	go run zhash.go --log_dir=$log -$hashfunc $url
+#	go run zhash.go --log_dir=$log -$hashfunc -useprefetch $url
 }
 
 echo -e "\n*** FileStorage"
@@ -315,13 +318,13 @@ done
 # xmysql -e "SHUTDOWN"
 # wait
 
-echo -e "\n*** NEO/go"
-NEOgo
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
-xneoctl set cluster stopping
-wait
+# echo -e "\n*** NEO/go"
+# NEOgo
+# for i in $N; do
+# 	bench1 neo://$cluster@$Mbind
+# done
+# xneoctl set cluster stopping
+# wait
 
 # all ok
 trap - EXIT
