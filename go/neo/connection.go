@@ -58,7 +58,6 @@ import (
 type NodeLink struct {
 	peerLink net.Conn // raw conn to peer
 
-	connPool   connPool
 	connMu     sync.Mutex
 	connTab    map[uint32]*Conn // connId -> Conn associated with connId
 	nextConnId uint32           // next connId to use for Conn initiated by us
@@ -128,38 +127,6 @@ type Conn struct {
 	// (for Conn.Close to be valid called several times)
 	closeOnce sync.Once
 }
-
-// connPool is free-list for Conn
-type connPool struct {
-	sync.Pool
-}
-
-New := func() *Conn {
-	return &Conn{
-		rxq:    make(chan *PktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf
-
-}
-
-func (p *connPool) Get() *Conn {
-	c := p.Pool.Get().(*Conn)
-	c.reinit()
-	return c
-}
-
-func (c *Conn) reinit() {
-	c.connId = 0
-	c.rxqActive = 0
-	c.rxdownFlag = 0
-	// XXX rxerr*
-	// XXX errMsg
-
-	// XXX more
-}
-
-func (p *connPool) Put(c *Conn) {
-	p.Pool.Put(c)
-}
-
 
 var ErrLinkClosed   = errors.New("node link is closed")	// operations on closed NodeLink
 var ErrLinkDown     = errors.New("node link is down")	// e.g. due to IO error
@@ -234,16 +201,50 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 	return nl
 }
 
-// newConn creates new Conn with id=connId and registers it into connTab.
-// Must be called with connMu held.
-func (nl *NodeLink) newConn(connId uint32) *Conn {
-	c := &Conn{link: nl,
-		connId: connId,
+// connPool is freelist for Conn
+// XXX make it per-link?
+var connPool = sync.Pool{New: func() interface{} {
+	return &Conn{
 		rxq:    make(chan *PktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf
 		txerr:  make(chan error, 1),	// NOTE non-blocking - see Conn.Send
 		txdown: make(chan struct{}),
 		rxdown: make(chan struct{}),
 	}
+}}
+
+// connAlloc allocates Conn from freelist
+func connAlloc(link *NodeLink, connId uint32) *Conn {
+	c := connPool.Get().(*Conn)
+	c.reinit()
+	c.link = link
+	c.connId = connId
+	return c
+}
+
+// release releases connection to freelist
+func (c *Conn) release() {
+	c.reinit()	// XXX just in case
+	connPool.Put(c)
+}
+
+// FIXME
+// FIXME
+// FIXME
+func (c *Conn) reinit() {
+	// FIXME review and put everything here !!!
+	c.connId = 0
+	c.rxqActive = 0
+	c.rxdownFlag = 0
+	// XXX rxerr*
+	// XXX errMsg
+
+	// XXX more
+}
+
+// newConn creates new Conn with id=connId and registers it into connTab.
+// Must be called with connMu held.
+func (nl *NodeLink) newConn(connId uint32) *Conn {
+	c := connAlloc(nl, connId)
 	nl.connTab[connId] = c
 	return c
 }
@@ -419,11 +420,11 @@ loop:
 // "connection closed" if a packet comes in with same connID.
 var connKeepClosed = 1*time.Minute
 
-// release releases connection to freelist.
+// lightClose closes light connection.
 //
 // No Send or Recv must be in flight.
-// The caller must not use c after call to release.
-func (c *Conn) release() {
+// The caller must not use c after call to close - the connection is returned to freelist.
+func (c *Conn) lightClose() {
 	nl := c.link
 	nl.connMu.Lock()
 	if nl.connTab != nil {
@@ -433,8 +434,7 @@ func (c *Conn) release() {
 	}
 	nl.connMu.Unlock()
 
-	// XXX just in case
-	c.reinit()
+	c.release()
 }
 
 // CloseRecv closes reading end of connection.
@@ -1448,7 +1448,7 @@ func (req *Request) Release() {
 	//return req.conn.Close()
 	// XXX req.Msg.Release() ?
 	req.Msg = nil
-	req.conn.release()
+	req.conn.lightClose()
 	req.conn = nil // just in case
 }
 
@@ -1480,12 +1480,7 @@ func (link *NodeLink) Ask1(req Msg, resp Msg) (err error) {
 		return err
 	}
 
-	defer func() {
-		err2 := conn.Close()
-		if err == nil {
-			err = err2
-		}
-	}()
+	defer conn.lightClose()
 
 	err = conn.Send(req)
 	if err != nil {

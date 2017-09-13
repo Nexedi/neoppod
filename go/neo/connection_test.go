@@ -992,6 +992,9 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 		if !(obj.Oid == get.Oid && obj.Serial == get.Serial && obj.DataSerial == get.Tid) {
 			b.Fatalf("read back: %v  ; requested %v", obj, get)
 		}
+
+		// XXX must be obj.Release
+		obj.Data.XRelease()
 	}
 
 	xclose(l1)
