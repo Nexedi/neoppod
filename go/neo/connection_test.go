@@ -970,6 +970,8 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 					b.Fatal(err)
 				}
 			}
+
+			req.Release()
 		}
 	}()
 
