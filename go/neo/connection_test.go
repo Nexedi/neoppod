@@ -170,6 +170,7 @@ func nodeLinkPipe() (nl1, nl2 *NodeLink) {
 func TestNodeLink(t *testing.T) {
 	// TODO catch exception -> add proper location from it -> t.Fatal (see git-backup)
 
+	//println("000")
 	// Close vs recvPkt
 	nl1, nl2 := _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg := &xsync.WorkGroup{}
@@ -227,6 +228,7 @@ func TestNodeLink(t *testing.T) {
 	}
 	xclose(nl1)
 
+	//println("111")
 	// Close vs recvPkt on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
 	wg = &xsync.WorkGroup{}
@@ -255,6 +257,8 @@ func TestNodeLink(t *testing.T) {
 	}
 	xwait(wg)
 	xclose(nl1)
+
+	//println("222")
 
 	// raw exchange
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, linkNoRecvSend)
@@ -286,6 +290,7 @@ func TestNodeLink(t *testing.T) {
 	xwait(wg)
 	xwait(wgclose)
 
+	//println("333")
 
 	// ---- connections on top of nodelink ----
 
@@ -305,6 +310,8 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl1)
 	xclose(nl2)
 
+	//println("444")
+
 	// Close vs sendPkt
 	nl1, nl2 = _nodeLinkPipe(0, linkNoRecvSend)
 	c = xnewconn(nl1)
@@ -319,6 +326,8 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Conn.sendPkt() after close: err = %v", err)
 	}
 	xwait(wg)
+
+	//println("555")
 
 	// NodeLink.Close vs Conn.sendPkt/recvPkt
 	c11 := xnewconn(nl1)
@@ -343,6 +352,8 @@ func TestNodeLink(t *testing.T) {
 	xclose(c11)
 	xclose(c12)
 	xclose(nl2)
+
+	//println(600)
 
 	// NodeLink.Close vs Conn.sendPkt/recvPkt and Accept on another side
 	nl1, nl2 = _nodeLinkPipe(linkNoRecvSend, 0)
@@ -381,6 +392,7 @@ func TestNodeLink(t *testing.T) {
 	xclose(nl1)
 	xwait(wg)
 
+	//println(777)
 	// XXX denoise vvv
 
 	// NewConn after NodeLink shutdown
@@ -446,6 +458,7 @@ func TestNodeLink(t *testing.T) {
 		t.Fatalf("Accept after NodeLink close: %v", err)
 	}
 
+	//println(888)
 
 	xclose(c21)
 	xclose(c22)
@@ -462,6 +475,9 @@ func TestNodeLink(t *testing.T) {
 
 	saveKeepClosed := connKeepClosed
 	connKeepClosed = 10*time.Millisecond
+
+	//println(999)
+	//println()
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
@@ -519,7 +535,7 @@ func TestNodeLink(t *testing.T) {
 
 	})
 
-	//println("000")
+	//println("aaa")
 
 	c1 := xnewconn(nl1)
 	xsendPkt(c1, mkpkt(33, []byte("ping")))
@@ -574,7 +590,7 @@ func TestNodeLink(t *testing.T) {
 	}
 	nl2.connMu.Unlock()
 
-	//println("555")
+	//println("bbb")
 
 	xclose(c1)
 	xclose(c2)
