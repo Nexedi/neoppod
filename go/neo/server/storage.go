@@ -22,7 +22,7 @@ package server
 
 import (
 	"context"
-	//"crypto/sha1"
+	"crypto/sha1"
 	"fmt"
 	"sync"
 	"time"
@@ -520,7 +520,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 
 			Compression:	false,
 			Data:		buf,
-			//Checksum:	sha1.Sum(buf.Data),	// XXX computing every time
+			Checksum:	sha1.Sum(buf.Data),	// XXX computing every time
 
 			// XXX .NextSerial
 			// XXX .DataSerial
