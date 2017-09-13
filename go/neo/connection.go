@@ -99,19 +99,29 @@ type Conn struct {
 	rxqActive  int32	 // atomic: 1 while serveRecv is doing `rxq <- ...`
 	rxdownFlag int32	 // atomic: 1 when RX is marked no longer operational
 
-	// !light only
-	rxdown     chan struct{} // ready when RX is marked no longer operational
-	rxdownOnce sync.Once	 // ----//----	XXX review
-	rxclosed  int32		 // whether CloseRecv was called
-
-	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed
-	errMsg	  *Error	// error message for peer if rx is down
+	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed XXX !light?
+	errMsg	  *Error	// error message for peer if rx is down	XXX try to do without it
 
 	txerr     chan error	// transmit results for this Conn go back here
 
 	txdown     chan struct{} // ready when Conn TX is marked as no longer operational
 	txdownOnce sync.Once	 // tx shutdown may be called by both Close and nodelink.shutdown
 	txclosed  int32		// whether CloseSend was called
+
+	// there are two modes a Conn could be used:
+	// - full mode - where full Conn functionality is working, and
+	// - light mode - where only subset functionality is working
+	//
+	// the light mode is used to implement Recv1 & friends - there any
+	// connection is used max to send and/or receive only 1 packet and then
+	// has to be reused for efficiency ideally without reallocating anything.
+	//
+	// everything below is used during !light mode only.
+
+	rxdown     chan struct{} // ready when RX is marked no longer operational
+	rxdownOnce sync.Once	 // ----//----	XXX review
+	rxclosed  int32		 // whether CloseRecv was called
+
 
 	// closing Conn is shutdown + some cleanup work to remove it from
 	// link.connTab including arming timers etc. Let this work be spawned only once.
@@ -340,15 +350,14 @@ func (c *Conn) shutdownTX() {
 // shutdownRX marks .rxq as no loner operational and interrupts Recv.
 func (c *Conn) shutdownRX(errMsg *Error) {
 	c.rxdownOnce.Do(func() {
-		c.errMsg = errMsg
 		close(c.rxdown)	// wakeup Conn.Recv
-
-		c.downRX()
+		c.downRX(errMsg)
 	})
 }
 
-// downRX marks .rxq as no longer operational
-func (c *Conn) downRX() {
+// downRX marks .rxq as no longer operational.
+func (c *Conn) downRX(errMsg *Error) {
+	c.errMsg = errMsg
 	atomic.StoreInt32(&c.rxdownFlag, 1)
 
 	// dequeue all packets already queued in c.rxq
@@ -1365,10 +1374,10 @@ func (link *NodeLink) Recv1() (Request, error) {
 		return Request{}, err
 	}
 
-	// noone will be reading from conn anymore - shutdown rx so that if
+	// noone will be reading from conn anymore - mark rx down so that if
 	// peer sends any another packet with same .ConnID serveRecv does not
 	// deadlock trying to put it to conn.rxq.
-	conn.CloseRecv()
+	conn.downRX(errConnClosed)
 
 	return Request{Msg: msg, conn: conn}, nil
 }

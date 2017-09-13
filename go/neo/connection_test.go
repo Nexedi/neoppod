@@ -25,6 +25,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 
@@ -133,7 +134,7 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 }
 
 // Verify PktBuf to match expected message
-func xverifyMsg(pkt *PktBuf, connid uint32, msg Msg) {
+func xverifyPktMsg(pkt *PktBuf, connid uint32, msg Msg) {
 	data := make([]byte, msg.neoMsgEncodedLen())
 	msg.neoMsgEncode(data)
 	xverifyPkt(pkt, connid, msg.neoMsgCode(), data)
@@ -522,12 +523,12 @@ func TestNodeLink(t *testing.T) {
 		//println("X γγγ + 1")
 		pkt = xrecvPkt(c)
 		//println("X γγγ + 2")
-		xverifyMsg(pkt, c.connId, errConnRefused)
+		xverifyPktMsg(pkt, c.connId, errConnRefused)
 		xsendPkt(c, mkpkt(40, []byte("pong4"))) // once again
 		//println("X γγγ + 3")
 		pkt = xrecvPkt(c)
 		//println("X γγγ + 4")
-		xverifyMsg(pkt, c.connId, errConnRefused)
+		xverifyPktMsg(pkt, c.connId, errConnRefused)
 
 		//println("X zzz")
 
@@ -553,11 +554,11 @@ func TestNodeLink(t *testing.T) {
 	//println("111 + 1")
 	pkt = xrecvPkt(c1)
 	//println("111 + 2")
-	xverifyMsg(pkt, c1.connId, errConnClosed)
+	xverifyPktMsg(pkt, c1.connId, errConnClosed)
 	xsendPkt(c1, mkpkt(39, []byte("ping4"))) // once again
 	pkt = xrecvPkt(c1)
 	//println("111 + 4")
-	xverifyMsg(pkt, c1.connId, errConnClosed)
+	xverifyPktMsg(pkt, c1.connId, errConnClosed)
 	// XXX also should get EOF on recv
 
 	//println("222")
@@ -569,7 +570,7 @@ func TestNodeLink(t *testing.T) {
 	<-closed
 	xsendPkt(c2, mkpkt(41, []byte("ping6")))
 	pkt = xrecvPkt(c2)
-	xverifyMsg(pkt, c2.connId, errConnClosed)
+	xverifyPktMsg(pkt, c2.connId, errConnClosed)
 
 	//println("333 z")
 	xwait(wg)
@@ -732,6 +733,48 @@ func TestHandshake(t *testing.T) {
 		t.Errorf("handshake cancel: unexpected error: %#v", err1)
 	}
 
+}
+
+// ---- recv1 mode ----
+
+func xSend(c *Conn, msg Msg) {
+	err := c.Send(msg)
+	exc.Raiseif(err)
+}
+
+func xRecv(c *Conn) Msg {
+	msg, err := c.Recv()
+	exc.Raiseif(err)
+	return msg
+}
+
+func xRecv1(l *NodeLink) Request {
+	req, err := l.Recv1()
+	exc.Raiseif(err)
+	return req
+}
+
+func xverifyMsg(msg1, msg2 Msg) {
+	if !reflect.DeepEqual(msg1, msg2) {
+		exc.Raisef("messages differ:\n%s", pretty.Compare(msg1, msg2))
+	}
+}
+
+func TestRecv1Mode(t *testing.T) {
+	// Recv1: further packets with same connid are rejected with "connection closed"
+	nl1, nl2 := nodeLinkPipe()
+	wg := &xsync.WorkGroup{}
+	wg.Gox(func() {
+		c := xnewconn(nl2)
+
+		xSend(c, &Ping{})
+		xSend(c, &Ping{})
+		msg := xRecv(c)
+		xverifyMsg(msg, errConnClosed)
+	})
+
+	_ = xRecv1(nl1)
+	xwait(wg)
 }
 
 // ---- benchmarks ----
