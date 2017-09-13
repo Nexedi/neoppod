@@ -77,7 +77,7 @@ Sgo() {
 	# -cpuprofile cpu.out
 	# -trace trace.out
 	exec -a Sgo \
-		neo -cpuprofile cpu.out -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 
@@ -268,24 +268,47 @@ GENsql
 wait
 sync
 
+# build go client
+# (we run it several times and in parallel - for go build not to infere with benchmarking)
+go build -o zhash_go zhash.go
 
 # run benchmarks
 N=`seq 1`	# XXX repeat benchmarks N time
 #hashfunc=sha1
 #hashfunc=adler32
+#hashfunc=crc32
 hashfunc=null
+
+Npar=8		# run so many parallel clients in parallel phase
+# runpar ...	- run several program instances in parallel
+runpar() {
+	local jobv
+	for i in `seq $Npar`; do
+		"$@" &
+		jobv="$jobv $!"
+	done
+	wait $jobv
+}
 
 # time1 <url>	- run benchmarks on the URL once
 bench1() {
 	url=$1
 #	time demo-zbigarray read $url
+
 #	./zhash.py --$hashfunc $url
+#	echo -e "\n# ${Npar} clients in parallel"
+#	runpar ./zhash.py --$hashfunc $url
+
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
 	fi
-	go run zhash.go --log_dir=$log -$hashfunc $url
-#	go run zhash.go --log_dir=$log -$hashfunc -useprefetch $url
+	echo
+	./zhash_go --log_dir=$log -$hashfunc $url
+#	./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
+
+#	echo -e "\n# ${Npar} clients in parallel"
+#	runpar ./zhash_go --log_dir=$log -$hashfunc $url
 }
 
 # echo -e "\n*** FileStorage"

@@ -162,7 +162,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err err
 		//defer profile.Start(profile.CPUProfile).Stop()
 	}
 
-for qqq := 0; qqq < 10; qqq++ {
+for qqq := 0; qqq < 2; qqq++ {
 	tstart := time.Now()
 	h.Reset()	// XXX temp
 
