@@ -90,8 +90,8 @@ type traceNeoSend struct {
 	ConnID   uint32
 	Msg	 neo.Msg
 }
-func (t *MyTracer) traceNeoConnSendPre(c *neo.Conn, msg neo.Msg) {
-	t.Trace1(&traceNeoSend{c.Link().LocalAddr(), c.Link().RemoteAddr(), c.ConnID(), msg})
+func (t *MyTracer) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg neo.Msg) {
+	t.Trace1(&traceNeoSend{l.LocalAddr(), l.RemoteAddr(), connID, msg})
 }
 
 // cluster state changed
@@ -160,8 +160,8 @@ func TestMasterStorage(t *testing.T) {
 	defer pg.Done()
 
 	tracing.Lock()
-	//neo_traceConnRecv_Attach(pg, tracer.traceNeoConnRecv)
-	neo_traceConnSendPre_Attach(pg, tracer.traceNeoConnSendPre)
+	//neo_traceMsgRecv_Attach(pg, tracer.traceNeoMsgRecv)
+	neo_traceMsgSendPre_Attach(pg, tracer.traceNeoMsgSendPre)
 	neo_traceClusterStateChanged_Attach(pg, tracer.traceClusterState)
 	neo_traceNodeChanged_Attach(pg, tracer.traceNode)
 	traceMasterStartReady_Attach(pg, tracer.traceMasterStartReady)

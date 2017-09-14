@@ -281,10 +281,7 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) (err error
 		if err != nil {
 			return err
 		}
-		err = req.Close()
-		if err != nil {
-			return err
-		}
+		req.Close()
 
 		c.node.StateMu.Lock()
 
