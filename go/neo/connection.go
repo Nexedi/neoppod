@@ -29,6 +29,7 @@ import (
 	"math"
 	"net"
 	"reflect"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -687,19 +688,6 @@ func (c *Conn) recvPkt() (*PktBuf, error) {
 	return pkt, err
 }
 
-/*
-// recvPkt receives raw packet from connection
-func (c *Conn) recvPkt() (*PktBuf, error) {
-	select {
-	case <-c.rxdown:
-		return nil, c.err("recv", c.errRecvShutdown())
-
-	case pkt := <-c.rxq:
-		return pkt, nil
-	}
-}
-*/
-
 // serveRecv handles incoming packets routing them to either appropriate
 // already-established connection or, if node link is accepting incoming
 // connections, to new connection put to accept queue.
@@ -797,6 +785,13 @@ func (nl *NodeLink) serveRecv() {
 		}
 
 		//fmt.Printf("%p\tafter accept\n", nl)
+
+		// Normally serveRecv G will continue to run with G waking up
+		// on rxq/acceptq only being put into the runqueue of current proc.
+		// By default proc runq will execute only when sendRecv blocks
+		// next time deep in nl.recvPkt(), but let's force the switch
+		// now without additional wating to reduce latency.
+		runtime.Gosched()
 /*
 		// XXX goes away in favour of .rxdownFlag; reasons
 		// - no need to reallocate rxdown for light conn
