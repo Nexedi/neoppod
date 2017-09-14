@@ -98,7 +98,7 @@ type Conn struct {
 	rxdownFlag atomic32	 // 1 when RX is marked no longer operational
 
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed XXX !light?
-	errMsg	  *Error	// error message for peer if rx is down	XXX try to do without it
+//	errMsg	  *Error	// error message for peer if rx is down	XXX try to do without it
 
 	// there are two modes a Conn could be used:
 	// - full mode - where full Conn functionality is working, and
@@ -237,7 +237,7 @@ func (c *Conn) reinit() {
 	c.rxdownFlag.Set(0)	// ----//----
 
 	c.rxerrOnce = sync.Once{}	// XXX ok?
-	c.errMsg = nil		// XXX what here?
+//	c.errMsg = nil		// XXX what here?
 
 
 	// XXX vvv not strictly needed for light mode?
@@ -413,12 +413,13 @@ func (c *Conn) shutdownRX(errMsg *Error) {
 
 // downRX marks .rxq as no longer operational.
 func (c *Conn) downRX(errMsg *Error) {
-	c.errMsg = errMsg
+//	c.errMsg = errMsg
 	c.rxdownFlag.Set(1) // XXX cmpxchg and return if already down?
 
 	// dequeue all packets already queued in c.rxq
-	// (once serveRecv sees c.rxdown it won't try to put new packets into
+	// (once serveRecv sees c.rxdownFlag it won't try to put new packets into
 	//  c.rxq, but something finite could be already there)
+	// XXX also describe race we avoid with rxdownFlag / rxqActive dance
 	i := 0
 loop:
 	for {
@@ -435,7 +436,7 @@ loop:
 
 	// if something was queued already there - reply "connection closed"
 	if i != 0 {
-		go c.replyNoConn()
+		go c.link.replyNoConn(c.connId, errMsg)
 	}
 }
 
@@ -635,28 +636,24 @@ func (nl *NodeLink) serveRecv() {
 		// resetting it waits for us to finish.
 		conn := nl.connTab[connId]
 
-		tmpclosed := false
 		if conn == nil {
-			// "new" connection will be needed in all cases - e.g.
-			// even temporarily to reply "connection refused"
-			conn = nl.newConn(connId)
-
-			// message with connid that should be initiated by us
-			if connId % 2 == nl.nextConnId % 2 {
-				tmpclosed = true
-				delete(nl.connTab, conn.connId)
-
 			// message with connid for a stream initiated by peer
 			// it will be considered to be accepted (not if .axdown)
-			} else {
+			if connId % 2 != nl.nextConnId % 2 {
 				accept = true
+				conn = nl.newConn(connId)
 			}
+
+			// else it is message with connid that should be initiated by us
+			// leave conn=nil - we'll reply errConnClosed
 		}
 
 		nl.connMu.Unlock()
 
-		if tmpclosed {
-			conn.shutdownRX(errConnClosed)
+		if conn == nil {
+			// see ^^^ "message with connid that should be initiated by us"
+			go nl.replyNoConn(connId, errConnClosed)
+			continue
 		}
 
 		// route packet to serving goroutine handler
@@ -674,48 +671,13 @@ func (nl *NodeLink) serveRecv() {
 		}
 		conn.rxqActive.Set(0)
 
-/*
-		// XXX goes away in favour of .rxdownFlag; reasons
-		// - no need to reallocate rxdown for light conn
-		// - no select
 
-		// don't even try `conn.rxq <- ...` if conn.rxdown is ready
-		// ( else since select is picking random ready variant Recv/serveRecv
-		//   could receive something on rxdown Conn sometimes )
-		rxdown := false
-		select {
-		case <-conn.rxdown:
-			rxdown = true
-		default:
-			// ok
-		}
-
-		// route packet to serving goroutine handler
-		//
-		// TODO backpressure when Recv is not keeping up with Send on peer side?
-		//      (not to let whole link starve because of one connection)
-		//
-		// NOTE rxq must be buffered with at least 1 element so that
-		// queuing pkt succeeds for incoming connection that is not yet
-		// there in acceptq.
-		if !rxdown {
-			// XXX can avoid select here: if conn closer cares to drain rxq (?)
-			select {
-			case <-conn.rxdown:
-				rxdown = true
-
-			case conn.rxq <- pkt:
-				// ok
-			}
-		}
-*/
-
-		// we are not accepting packet in any way
+		// conn exists but rx is down - "connection closed"
+		// (this cannot happen for newly accepted connection)
 		if rxdown {
-			go conn.replyNoConn()
+			go nl.replyNoConn(connId, errConnClosed)
 			continue
 		}
-
 
 		// this packet established new connection - try to accept it
 		if accept {
@@ -751,6 +713,41 @@ func (nl *NodeLink) serveRecv() {
 				nl.connMu.Unlock()
 			}
 		}
+/*
+		// XXX goes away in favour of .rxdownFlag; reasons
+		// - no need to reallocate rxdown for light conn
+		// - no select
+
+		// don't even try `conn.rxq <- ...` if conn.rxdown is ready
+		// ( else since select is picking random ready variant Recv/serveRecv
+		//   could receive something on rxdown Conn sometimes )
+		rxdown := false
+		select {
+		case <-conn.rxdown:
+			rxdown = true
+		default:
+			// ok
+		}
+
+		// route packet to serving goroutine handler
+		//
+		// TODO backpressure when Recv is not keeping up with Send on peer side?
+		//      (not to let whole link starve because of one connection)
+		//
+		// NOTE rxq must be buffered with at least 1 element so that
+		// queuing pkt succeeds for incoming connection that is not yet
+		// there in acceptq.
+		if !rxdown {
+			// XXX can avoid select here: if conn closer cares to drain rxq (?)
+			select {
+			case <-conn.rxdown:
+				rxdown = true
+
+			case conn.rxq <- pkt:
+				// ok
+			}
+		}
+*/
 	}
 }
 
@@ -760,10 +757,10 @@ var errConnClosed  = &Error{PROTOCOL_ERROR, "connection closed"}
 var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
-func (c *Conn) replyNoConn() {
-	//fmt.Printf("%v: -> replyNoConn %v\n", c, c.errMsg)
-	c.Send(c.errMsg) // ignore errors
-	//fmt.Printf("%v: replyNoConn(%v) -> %v\n", c, c.errMsg, err)
+func (link *NodeLink) replyNoConn(connId uint32, errMsg Msg) {
+	//fmt.Printf("%s .%d: -> replyNoConn %v\n", link, connId, c.errMsg)
+	link.sendMsg(connId, errMsg) // ignore errors
+	//fmt.Printf("%s .%d: replyNoConn(%v) -> %v\n", link, connId, c.errMsg, err)
 }
 
 // ---- transmit ----
@@ -800,34 +797,12 @@ func (c *Conn) sendPkt(pkt *PktBuf) error {
 	return c.err("send", err)
 }
 
-// XXX serveSend is not needed - Conn.Write already can be used by multiple
-// goroutines simultaneously and works atomically; (same for Conn.Read etc - see pool.FD)
-// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/net/net.go#L109
-// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/internal/poll/fd_unix.go#L14
-
-/*
 func (c *Conn) sendPkt2(pkt *PktBuf) error {
-	// set pkt connId associated with this connection
-	pkt.Header().ConnId = hton32(c.connId)
-
-	// XXX if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
-	err := c.link.sendPkt(pkt)
-	//fmt.Printf("sendPkt -> %v\n", err)
-
-	// on IO error framing over peerLink becomes broken
-	// so we shut down node link and all connections over it.
-	if err != nil {
-		c.link.shutdown()
+	// connId must be set to one associated with this connection
+	if pkt.Header().ConnId != hton32(c.connId) {
+		panic("Conn.sendPkt: connId wrong")
 	}
 
-	return err
-}
-*/
-
-///*
-func (c *Conn) sendPkt2(pkt *PktBuf) error {
-	// set pkt connId associated with this connection
-	pkt.Header().ConnId = hton32(c.connId)
 	var err error
 
 	select {
@@ -885,6 +860,9 @@ func (nl *NodeLink) serveSend() {
 
 			// on IO error framing over peerLink becomes broken
 			// so we shut down node link and all connections over it.
+			//
+			// XXX dup wrt sendPktDirect
+			// XXX move to link.sendPkt?
 			if err != nil {
 				nl.shutdown()
 				return
@@ -892,7 +870,37 @@ func (nl *NodeLink) serveSend() {
 		}
 	}
 }
-//*/
+
+// ---- transmit direct mode ----
+
+// serveSend is not strictly needed - net.Conn.Write already can be used by multiple
+// goroutines simultaneously and works atomically; (same for Conn.Read etc - see pool.FD)
+// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/net/net.go#L109
+// https://github.com/golang/go/blob/go1.9-3-g099336988b/src/internal/poll/fd_unix.go#L14
+//
+// thus the only reason we use serveSend is so that Conn.Close can "interrupt" Conn.Send via .txdown .
+// however this adds overhead and is not needed in light mode.
+
+// sendPktDirect sends raw packet with appropriate connection ID directly via link.
+func (c *Conn) sendPktDirect(pkt *PktBuf) error {
+	// set pkt connId associated with this connection
+	pkt.Header().ConnId = hton32(c.connId)
+
+	// XXX if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
+	err := c.link.sendPkt(pkt)
+	//fmt.Printf("sendPkt -> %v\n", err)
+
+	// on IO error framing over peerLink becomes broken
+	// so we shut down node link and all connections over it.
+	//
+	// XXX dup wrt serveSend
+	// XXX move to link.sendPkt?
+	if err != nil {
+		c.link.shutdown()
+	}
+
+	return err
+}
 
 
 // ---- raw IO ----
@@ -1300,9 +1308,25 @@ func (c *Conn) err(op string, e error) error {
 
 // ---- exchange of messages ----
 
-//trace:event traceConnRecv(c *Conn, msg Msg)
-//trace:event traceConnSendPre(c *Conn, msg Msg)
+//trace:event traceMsgRecv(c *Conn, msg Msg)
+//trace:event traceMsgSendPre(l *NodeLink, connId uint32, msg Msg)
 // XXX do we also need traceConnSend?
+
+// msgPack allocates PktBuf and encodes msg into it.
+func msgPack(connId uint32, msg Msg) *PktBuf {
+	l := msg.neoMsgEncodedLen()
+	buf := pktAlloc(pktHeaderLen+l)
+
+	h := buf.Header()
+	h.ConnId = hton32(connId)
+	h.MsgCode = hton16(msg.neoMsgCode())
+	h.MsgLen = hton32(uint32(l)) // XXX casting: think again
+
+	msg.neoMsgEncode(buf.Payload())
+	return buf
+}
+
+// TODO msgUnpack
 
 // Recv receives message
 // it receives packet and decodes message from it
@@ -1333,28 +1357,28 @@ func (c *Conn) Recv() (Msg, error) {
 		return nil, c.err("decode", err) // XXX "decode:" is already in ErrDecodeOverflow
 	}
 
-	traceConnRecv(c, msg)
+	traceMsgRecv(c, msg)
 	return msg, nil
+}
+
+// sendMsg sends message with specified connection ID.
+//
+// it encodes message int packet, sets header appropriately and sends it.
+func (link *NodeLink) sendMsg(connId uint32, msg Msg) error {
+	traceMsgSendPre(link, connId, msg)
+
+	buf := msgPack(connId, msg)
+	return link.sendPkt(buf)	// XXX more context in err? (msg type)
 }
 
 // Send sends message.
 //
-// it encodes message into packet and sends it
+// it encodes message into packet and sends it.
 func (c *Conn) Send(msg Msg) error {
-	traceConnSendPre(c, msg)
+	traceMsgSendPre(c.link, c.connId, msg)
 
-	l := msg.neoMsgEncodedLen()
-	buf := pktAlloc(pktHeaderLen+l)
-
-	h := buf.Header()
-	// h.ConnId will be set by conn.sendPkt
-	h.MsgCode = hton16(msg.neoMsgCode())
-	h.MsgLen = hton32(uint32(l)) // XXX casting: think again
-
-	msg.neoMsgEncode(buf.Payload())
-
-	// XXX more context in err? (msg type)
-	return c.sendPkt(buf)
+	buf := msgPack(c.connId, msg)
+	return c.sendPkt(buf)		// XXX more context in err? (msg type)
 }
 
 

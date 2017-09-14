@@ -37,6 +37,8 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
+
+	//"runtime/debug"
 )
 
 func xclose(c io.Closer) {
@@ -106,9 +108,9 @@ func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	return pkt
 }
 
-func mkpkt(msgcode uint16, payload []byte) *PktBuf {
+func (c *Conn) mkpkt(msgcode uint16, payload []byte) *PktBuf {
 	// in Conn exchange connid is automatically set by Conn.sendPkt
-	return _mkpkt(0, msgcode, payload)
+	return _mkpkt(c.connId, msgcode, payload)
 }
 
 // Verify PktBuf is as expected
@@ -321,7 +323,7 @@ func TestNodeLink(t *testing.T) {
 		tdelay()
 		xclose(c)
 	})
-	pkt = &PktBuf{[]byte("data")}
+	pkt = c.mkpkt(0, []byte("data"))
 	err = c.sendPkt(pkt)
 	if xconnError(err) != ErrClosedConn {
 		t.Fatalf("Conn.sendPkt() after close: err = %v", err)
@@ -341,7 +343,7 @@ func TestNodeLink(t *testing.T) {
 		}
 	})
 	wg.Gox(func() {
-		pkt := &PktBuf{[]byte("data")}
+		pkt := c12.mkpkt(0, []byte("data"))
 		err := c12.sendPkt(pkt)
 		if xconnError(err) != ErrLinkClosed {
 			exc.Raisef("Conn.sendPkt() after NodeLink close: err = %v", err)
@@ -375,7 +377,7 @@ func TestNodeLink(t *testing.T) {
 		errRecv = cerr
 	})
 	wg.Gox(func() {
-		pkt := &PktBuf{[]byte("data")}
+		pkt := c22.mkpkt(0, []byte("data"))
 		err := c22.sendPkt(pkt)
 		want := io.ErrClosedPipe // always this in both due to peer close or recvPkt waking up and closing nl2
 		if xconnError(err) != want {
@@ -413,7 +415,7 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && xconnError(err) == errRecv) {
 		t.Fatalf("Conn.recvPkt 2 after peer NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
-	err = c23.sendPkt(&PktBuf{[]byte("data")})
+	err = c23.sendPkt(c23.mkpkt(0, []byte("data")))
 	if xconnError(err) != ErrLinkDown {
 		t.Fatalf("Conn.sendPkt 2 after peer NodeLink shutdown: %v", err)
 	}
@@ -423,7 +425,7 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && xconnError(err) == ErrLinkDown) {
 		t.Fatalf("Conn.recvPkt after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
-	err = c22.sendPkt(&PktBuf{[]byte("data")})
+	err = c22.sendPkt(c22.mkpkt(0, []byte("data")))
 	if xconnError(err) != ErrLinkDown {
 		t.Fatalf("Conn.sendPkt after NodeLink shutdown: %v", err)
 	}
@@ -434,7 +436,7 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
 		t.Fatalf("Conn.recvPkt after close but only stopped NodeLink: pkt = %v  err = %v", pkt, err)
 	}
-	err = c23.sendPkt(&PktBuf{[]byte("data")})
+	err = c23.sendPkt(c23.mkpkt(0, []byte("data")))
 	if xconnError(err) != ErrClosedConn {
 		t.Fatalf("Conn.sendPkt after close but only stopped NodeLink: %v", err)
 	}
@@ -445,7 +447,7 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && xconnError(err) == ErrLinkClosed) {
 		t.Fatalf("Conn.recvPkt after NodeLink shutdown: pkt = %v  err = %v", pkt, err)
 	}
-	err = c22.sendPkt(&PktBuf{[]byte("data")})
+	err = c22.sendPkt(c22.mkpkt(0, []byte("data")))
 	if xconnError(err) != ErrLinkClosed {
 		t.Fatalf("Conn.sendPkt after NodeLink shutdown: %v", err)
 	}
@@ -468,7 +470,7 @@ func TestNodeLink(t *testing.T) {
 	if !(pkt == nil && xconnError(err) == ErrClosedConn) {
 		t.Fatalf("Conn.recvPkt after close and NodeLink close: pkt = %v  err = %v", pkt, err)
 	}
-	err = c22.sendPkt(&PktBuf{[]byte("data")})
+	err = c22.sendPkt(c22.mkpkt(0, []byte("data")))
 	if xconnError(err) != ErrClosedConn {
 		t.Fatalf("Conn.sendPkt after close and NodeLink close: %v", err)
 	}
@@ -492,12 +494,12 @@ func TestNodeLink(t *testing.T) {
 		xverifyPkt(pkt, c.connId, 33, []byte("ping"))
 
 		// change pkt a bit and send it back
-		xsendPkt(c, mkpkt(34, []byte("pong")))
+		xsendPkt(c, c.mkpkt(34, []byte("pong")))
 
 		// one more time
 		pkt = xrecvPkt(c)
 		xverifyPkt(pkt, c.connId, 35, []byte("ping2"))
-		xsendPkt(c, mkpkt(36, []byte("pong2")))
+		xsendPkt(c, c.mkpkt(36, []byte("pong2")))
 
 		xclose(c)
 		closed <- 1
@@ -509,7 +511,7 @@ func TestNodeLink(t *testing.T) {
 		pkt = xrecvPkt(c2)
 		//println("X ααα + 2")
 		xverifyPkt(pkt, c2.connId, 41, []byte("ping5"))
-		xsendPkt(c2, mkpkt(42, []byte("pong5")))
+		xsendPkt(c2, c2.mkpkt(42, []byte("pong5")))
 
 		//println("X βββ")
 		c2.CloseRecv()
@@ -519,12 +521,12 @@ func TestNodeLink(t *testing.T) {
 
 		// "connection refused" when trying to connect to not-listening peer
 		c = xnewconn(nl2) // XXX should get error here?
-		xsendPkt(c, mkpkt(38, []byte("pong3")))
+		xsendPkt(c, c.mkpkt(38, []byte("pong3")))
 		//println("X γγγ + 1")
 		pkt = xrecvPkt(c)
 		//println("X γγγ + 2")
 		xverifyPktMsg(pkt, c.connId, errConnRefused)
-		xsendPkt(c, mkpkt(40, []byte("pong4"))) // once again
+		xsendPkt(c, c.mkpkt(40, []byte("pong4"))) // once again
 		//println("X γγγ + 3")
 		pkt = xrecvPkt(c)
 		//println("X γγγ + 4")
@@ -539,10 +541,10 @@ func TestNodeLink(t *testing.T) {
 	//println("aaa")
 
 	c1 := xnewconn(nl1)
-	xsendPkt(c1, mkpkt(33, []byte("ping")))
+	xsendPkt(c1, c1.mkpkt(33, []byte("ping")))
 	pkt = xrecvPkt(c1)
 	xverifyPkt(pkt, c1.connId, 34, []byte("pong"))
-	xsendPkt(c1, mkpkt(35, []byte("ping2")))
+	xsendPkt(c1, c1.mkpkt(35, []byte("ping2")))
 	pkt = xrecvPkt(c1)
 	xverifyPkt(pkt, c1.connId, 36, []byte("pong2"))
 
@@ -550,12 +552,12 @@ func TestNodeLink(t *testing.T) {
 	// "connection closed" after peer closed its end
 	<-closed
 	//println("111 + closed")
-	xsendPkt(c1, mkpkt(37, []byte("ping3")))
+	xsendPkt(c1, c1.mkpkt(37, []byte("ping3")))
 	//println("111 + 1")
 	pkt = xrecvPkt(c1)
 	//println("111 + 2")
 	xverifyPktMsg(pkt, c1.connId, errConnClosed)
-	xsendPkt(c1, mkpkt(39, []byte("ping4"))) // once again
+	xsendPkt(c1, c1.mkpkt(39, []byte("ping4"))) // once again
 	pkt = xrecvPkt(c1)
 	//println("111 + 4")
 	xverifyPktMsg(pkt, c1.connId, errConnClosed)
@@ -564,11 +566,11 @@ func TestNodeLink(t *testing.T) {
 	//println("222")
 	// one more time but now peer does only .CloseRecv()
 	c2 := xnewconn(nl1)
-	xsendPkt(c2, mkpkt(41, []byte("ping5")))
+	xsendPkt(c2, c2.mkpkt(41, []byte("ping5")))
 	pkt = xrecvPkt(c2)
 	xverifyPkt(pkt, c2.connId, 42, []byte("pong5"))
 	<-closed
-	xsendPkt(c2, mkpkt(41, []byte("ping6")))
+	xsendPkt(c2, c2.mkpkt(41, []byte("ping6")))
 	pkt = xrecvPkt(c2)
 	xverifyPktMsg(pkt, c2.connId, errConnClosed)
 
@@ -638,8 +640,8 @@ func TestNodeLink(t *testing.T) {
 
 	c1 = xnewconn(nl1)
 	c2 = xnewconn(nl1)
-	xsendPkt(c1, mkpkt(1, []byte("")))
-	xsendPkt(c2, mkpkt(2, []byte("")))
+	xsendPkt(c1, c1.mkpkt(1, []byte("")))
+	xsendPkt(c2, c2.mkpkt(2, []byte("")))
 
 	// replies must be coming in reverse order
 	xechoWait := func(c *Conn, msgCode uint16) {
@@ -754,16 +756,56 @@ func xRecv1(l *NodeLink) Request {
 	return req
 }
 
+func xSend1(l *NodeLink, msg Msg) {
+	err := l.Send1(msg)
+	exc.Raiseif(err)
+}
+
 func xverifyMsg(msg1, msg2 Msg) {
 	if !reflect.DeepEqual(msg1, msg2) {
+		//debug.PrintStack()
 		exc.Raisef("messages differ:\n%s", pretty.Compare(msg1, msg2))
 	}
 }
 
 func TestRecv1Mode(t *testing.T) {
-	// Recv1: further packets with same connid are rejected with "connection closed"
+	println("000")
+	// Send1
 	nl1, nl2 := nodeLinkPipe()
 	wg := &xsync.WorkGroup{}
+	wg.Gox(func() {
+		c := xaccept(nl2)
+		msg := xRecv(c)
+		xverifyMsg(msg, &Ping{})
+		xSend(c, &Pong{})
+		msg = xRecv(c)
+		xverifyMsg(msg, errConnClosed)
+		xclose(c)
+
+		println("X zzz")
+
+		c = xaccept(nl2)
+		msg = xRecv(c)
+		println("X zzz + 1")
+		xverifyMsg(msg, &Error{ACK, "hello up there"})
+		xSend(c, &Error{ACK, "hello to you too"})
+		msg = xRecv(c)
+		println("X zzz + 2")
+		xverifyMsg(msg, errConnClosed)
+		println("X zzz + 3")
+	})
+
+	println("aaa")
+	xSend1(nl1, &Ping{})
+	println("bbb")
+	xSend1(nl1, &Error{ACK, "hello up there"})
+	println("ccc")
+	xwait(wg)
+
+	println("111")
+
+	// Recv1: further packets with same connid are rejected with "connection closed"
+	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		c := xnewconn(nl2)
 
@@ -775,6 +817,8 @@ func TestRecv1Mode(t *testing.T) {
 
 	_ = xRecv1(nl1)
 	xwait(wg)
+
+	// TODO link.Close vs Recv1
 }
 
 // ---- benchmarks ----
