@@ -1523,7 +1523,7 @@ func (link *NodeLink) Ask1(req Msg, resp Msg) (err error) {
 
 	defer conn.lightClose()
 
-	err = conn.Send(req)
+	err = conn.sendMsgDirect(req)
 	if err != nil {
 		return err
 	}
