@@ -912,17 +912,60 @@ func BenchmarkBufChanAXRXRTT(b *testing.B) {
 
 
 // rtt over net.Conn Read/Write
-func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn) {
+// if serveRecv=t - do RX path with additional serveRecv-style goroutine
+func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool) {
 	buf1 := make([]byte, 1)
 	buf2 := make([]byte, 1)
+
+	// make func to recv from c into buf via selected rx strategy
+	mkrecv := func(c net.Conn, buf []byte) func() (int, error) {
+		var recv func() (int, error)
+		if serveRecv {
+			type rx struct {
+				n   int
+				erx error
+			}
+			rxq := make(chan rx)
+			go func() {
+				for {
+					n, erx := io.ReadFull(c, buf)
+					//fmt.Printf("(go) %p rx -> %v %v\n", c, n, erx)
+					rxq <- rx{n, erx}
+
+					// stop on first error
+					if erx != nil {
+						return
+					}
+				}
+			}()
+
+			recv = func() (int, error) {
+				r := <-rxq
+				return r.n, r.erx
+			}
+
+		} else {
+			recv = func() (int, error) {
+				return io.ReadFull(c, buf)
+			}
+		}
+		return recv
+	}
+
+	recv1 := mkrecv(c1, buf1)
+	recv2 := mkrecv(c2, buf2)
+
 
 	b.ResetTimer()
 
 	go func() {
-		defer xclose(c2)
+		defer func() {
+			//fmt.Printf("2: close\n")
+			xclose(c2)
+		}()
 
 		for {
-			n, erx := io.ReadFull(c2, buf2)
+			n, erx := recv2()
 			//fmt.Printf("2: rx %q\n", buf2[:n])
 			if n > 0 {
 				if n != len(buf2) {
@@ -958,7 +1001,7 @@ func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn) {
 			b.Fatal(err)
 		}
 
-		n, err := io.ReadFull(c1, buf1)
+		n, err := recv1()
 		//fmt.Printf("1: rx %q\n", buf1[:n])
 		if !(n == len(buf1) && err == nil) {
 			b.Fatalf("read back: n=%v  err=%v", n, err)
@@ -969,13 +1012,19 @@ func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn) {
 		}
 	}
 
+	//fmt.Printf("1: close\n")
 	xclose(c1)
 }
 
 // rtt over net.Pipe - for comparision as base
 func BenchmarkNetPipeRTT(b *testing.B) {
 	c1, c2 := net.Pipe()
-	benchmarkNetConnRTT(b, c1, c2)
+	benchmarkNetConnRTT(b, c1, c2, false)
+}
+
+func BenchmarkNetPipeRTTsr(b *testing.B) {
+	c1, c2 := net.Pipe()
+	benchmarkNetConnRTT(b, c1, c2, true)
 }
 
 // xtcpPipe creates two TCP connections connected to each other via loopback
@@ -995,9 +1044,14 @@ func xtcpPipe() (*net.TCPConn, *net.TCPConn) {
 }
 
 // rtt over TCP/loopback - for comparision as base
-func BenchmarkTCPloopback(b *testing.B) {
+func BenchmarkTCPlo(b *testing.B) {
 	c1, c2 := xtcpPipe()
-	benchmarkNetConnRTT(b, c1, c2)
+	benchmarkNetConnRTT(b, c1, c2, false)
+}
+
+func BenchmarkTCPlosr(b *testing.B) {
+	c1, c2 := xtcpPipe()
+	benchmarkNetConnRTT(b, c1, c2, true)
 }
 
 
