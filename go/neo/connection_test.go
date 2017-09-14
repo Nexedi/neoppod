@@ -1035,7 +1035,7 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 				}
 			}
 
-			req.Release()
+			req.Close()
 		}
 	}()
 

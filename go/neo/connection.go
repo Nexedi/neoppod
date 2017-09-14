@@ -1476,16 +1476,16 @@ func (link *NodeLink) Recv1() (Request, error) {
 //
 // XXX doc
 func (req *Request) Reply(resp Msg) error {
-	return req.conn.Send(resp)
+	return req.conn.sendMsgDirect(resp)
 	//err1 := req.conn.Send(resp)
 	//err2 := req.conn.Close()	// XXX no - only Send here?
 	//return xerr.First(err1, err2)
 }
 
-// Release must be called to free request resources.
+// Close must be called to free request resources.
 //
 // XXX doc
-func (req *Request) Release() {
+func (req *Request) Close() {	// XXX +error?
 	//return req.conn.Close()
 	// XXX req.Msg.Release() ?
 	req.Msg = nil
