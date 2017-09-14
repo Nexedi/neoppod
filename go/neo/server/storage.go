@@ -238,66 +238,77 @@ func (stor *Storage) m1initialize(ctx context.Context, mlink *neo.NodeLink) (req
 		if err != nil {
 			return nil, err
 		}
-
-		// XXX vvv move Send out of reply preparing logic
-
-		switch msg := req.Msg.(type) {
-		default:
-			return nil, fmt.Errorf("unexpected message: %T", msg)
-
-		case *neo.StartOperation:
-			// ok, transition to serve
+		err = stor.m1initialize1(ctx, req)
+		if err == cmdStart {
+			// start - transition to serve
 			return &req, nil
-
-		case *neo.Recovery:
-			err = req.Reply(&neo.AnswerRecovery{
-				PTid:		stor.node.PartTab.PTid,
-				BackupTid:	neo.INVALID_TID,
-				TruncateTid:	neo.INVALID_TID})
-
-		case *neo.AskPartitionTable:
-			// TODO initially read PT from disk
-			err = req.Reply(&neo.AnswerPartitionTable{
-				PTid:	 stor.node.PartTab.PTid,
-				RowList: stor.node.PartTab.Dump()})
-
-		case *neo.LockedTransactions:
-			// XXX r/o stub
-			err = req.Reply(&neo.AnswerLockedTransactions{})
-
-		// TODO AskUnfinishedTransactions
-
-		case *neo.LastIDs:
-			lastTid, zerr1 := stor.zstor.LastTid(ctx)
-			lastOid, zerr2 := stor.zstor.LastOid(ctx)
-			if zerr := xerr.First(zerr1, zerr2); zerr != nil {
-				return nil, zerr	// XXX send the error to M
-			}
-
-			err = req.Reply(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
-
-		case *neo.SendPartitionTable:
-			// TODO M sends us whole PT -> save locally
-			stor.node.UpdatePartTab(ctx, msg)	// XXX lock?
-
-		case *neo.NotifyPartitionChanges:
-			// TODO M sends us δPT -> save locally?
-
-		case *neo.NotifyNodeInformation:
-			// XXX check for myUUID and consider it a command (like neo/py) does?
-			stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
-
-		case *neo.NotifyClusterState:
-			stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
 		}
-
-		// XXX move req.Reply here and ^^^ only prepare reply
+		req.Close()
 		if err != nil {
 			return nil, err
 		}
-
-		req.Close() // XXX err?
 	}
+}
+
+var cmdStart = errors.New("start requested")
+
+// m1initialize1 handles one message from master from under m1initialize
+func (stor *Storage) m1initialize1(ctx context.Context, req neo.Request) error {
+	// XXX vvv move Send out of reply preparing logic
+	var err error
+
+	switch msg := req.Msg.(type) {
+	default:
+		return fmt.Errorf("unexpected message: %T", msg)
+
+	case *neo.StartOperation:
+		// ok, transition to serve
+		return cmdStart
+
+	case *neo.Recovery:
+		err = req.Reply(&neo.AnswerRecovery{
+			PTid:		stor.node.PartTab.PTid,
+			BackupTid:	neo.INVALID_TID,
+			TruncateTid:	neo.INVALID_TID})
+
+	case *neo.AskPartitionTable:
+		// TODO initially read PT from disk
+		err = req.Reply(&neo.AnswerPartitionTable{
+			PTid:	 stor.node.PartTab.PTid,
+			RowList: stor.node.PartTab.Dump()})
+
+	case *neo.LockedTransactions:
+		// XXX r/o stub
+		err = req.Reply(&neo.AnswerLockedTransactions{})
+
+	// TODO AskUnfinishedTransactions
+
+	case *neo.LastIDs:
+		lastTid, zerr1 := stor.zstor.LastTid(ctx)
+		lastOid, zerr2 := stor.zstor.LastOid(ctx)
+		if zerr := xerr.First(zerr1, zerr2); zerr != nil {
+			return zerr	// XXX send the error to M
+		}
+
+		err = req.Reply(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
+
+	case *neo.SendPartitionTable:
+		// TODO M sends us whole PT -> save locally
+		stor.node.UpdatePartTab(ctx, msg)	// XXX lock?
+
+	case *neo.NotifyPartitionChanges:
+		// TODO M sends us δPT -> save locally?
+
+	case *neo.NotifyNodeInformation:
+		// XXX check for myUUID and consider it a command (like neo/py) does?
+		stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
+
+	case *neo.NotifyClusterState:
+		stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
+	}
+
+	// XXX move req.Reply here and ^^^ only prepare reply
+	return err
 }
 
 // m1serve drives storage by master messages during service phase.
@@ -324,6 +335,7 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err er
 	// reply M we are ready
 	// XXX according to current neo/py this is separate send - not reply - and so we do here
 	err = reqStart.Reply(&neo.NotifyReady{})
+	reqStart.Close()
 	if err != nil {
 		return err
 	}
@@ -334,28 +346,36 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err er
 		if err != nil {
 			return err
 		}
-
-		req.Close() // XXX stub, err
-
-		switch msg := req.Msg.(type) {
-		default:
-			return fmt.Errorf("unexpected message: %T", msg)
-
-		case *neo.StopOperation:
-			return fmt.Errorf("stop requested")
-
-		// XXX SendPartitionTable?
-		// XXX NotifyPartitionChanges?
-
-		case *neo.NotifyNodeInformation:
-			stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
-
-		case *neo.NotifyClusterState:
-			stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
-
-		// TODO commit related messages
+		err = stor.m1serve1(ctx, req)
+		req.Close()
+		if err != nil {
+			return err
 		}
 	}
+}
+
+// m1serve1 handles one message from master under m1serve
+func (stor *Storage) m1serve1(ctx context.Context, req neo.Request) error {
+	switch msg := req.Msg.(type) {
+	default:
+		return fmt.Errorf("unexpected message: %T", msg)
+
+	case *neo.StopOperation:
+		return fmt.Errorf("stop requested")
+
+	// XXX SendPartitionTable?
+	// XXX NotifyPartitionChanges?
+
+	case *neo.NotifyNodeInformation:
+		stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
+
+	case *neo.NotifyClusterState:
+		stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
+
+	// TODO commit related messages
+	}
+
+	return nil
 }
 
 // --- serve incoming connections from other nodes ---
@@ -466,6 +486,7 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 	for {
 		resp := stor.serveClient1(ctx, req.Msg)
 		err := req.Reply(resp)
+		req.Close()
 		if err != nil {
 			log.Error(ctx, err)
 			return

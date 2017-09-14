@@ -1427,6 +1427,8 @@ func (c *Conn) Ask(req Msg, resp Msg) error {
 //
 // No Send or Recv must be in flight.
 // The caller must not use c after call to close - the connection is returned to freelist.
+//
+// XXX must be called only once.
 func (c *Conn) lightClose() {
 	nl := c.link
 	nl.connMu.Lock()
@@ -1460,7 +1462,7 @@ func (link *NodeLink) Recv1() (Request, error) {
 	// NOTE serveRecv guaranty that when a conn is accepted, there is 1 message in conn.rxq
 	msg, err := conn.Recv()		// XXX directly from <-rxq
 	if err != nil {
-		conn.Close() // XXX -> conn.release
+		conn.Close() // XXX -> conn.lightClose()
 		return Request{}, err
 	}
 

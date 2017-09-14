@@ -281,35 +281,45 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) (err error
 		if err != nil {
 			return err
 		}
+		err = c.recvMaster1(ctx, req)
 		req.Close()
-
-		c.node.StateMu.Lock()
-
-		switch msg := req.Msg.(type) {
-		default:
-			c.node.StateMu.Unlock()
-			return fmt.Errorf("unexpected message: %T", msg)
-
-		// M sends whole PT
-		case *neo.SendPartitionTable:
-			c.node.UpdatePartTab(ctx, msg)
-
-		// M sends δPT
-		//case *neo.NotifyPartitionChanges:
-			// TODO
-
-		case *neo.NotifyNodeInformation:
-			c.node.UpdateNodeTab(ctx, msg)
-
-		case *neo.NotifyClusterState:
-			c.node.UpdateClusterState(ctx, msg)
+		if err != nil {
+			return err
 		}
 
-		// update .operational + notify those who was waiting for it
-		opready := c.updateOperational()
-		c.node.StateMu.Unlock()
-		opready()
 	}
+}
+
+// recvMaster1 handles 1 message from master
+func (c *Client) recvMaster1(ctx context.Context, req neo.Request) error {
+	c.node.StateMu.Lock()
+
+	switch msg := req.Msg.(type) {
+	default:
+		c.node.StateMu.Unlock()
+		return fmt.Errorf("unexpected message: %T", msg)
+
+	// M sends whole PT
+	case *neo.SendPartitionTable:
+		c.node.UpdatePartTab(ctx, msg)
+
+	// M sends δPT
+	//case *neo.NotifyPartitionChanges:
+		// TODO
+
+	case *neo.NotifyNodeInformation:
+		c.node.UpdateNodeTab(ctx, msg)
+
+	case *neo.NotifyClusterState:
+		c.node.UpdateClusterState(ctx, msg)
+	}
+
+	// update .operational + notify those who was waiting for it
+	opready := c.updateOperational()
+	c.node.StateMu.Unlock()
+	opready()
+
+	return nil
 }
 
 func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err error) {

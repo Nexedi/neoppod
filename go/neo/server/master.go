@@ -860,7 +860,7 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 	//if err != nil {
 	//	return err
 	//}
-	//req.Close()
+	//req.Close()	XXX must be after req handling
 	//switch msg := req.Msg.(type) {
 	//case *neo.NotifyReady:
 	//	// ok
@@ -910,6 +910,7 @@ func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
 
 			resp := m.serveClient1(ctx, req.Msg)
 			err = req.Reply(resp)
+			req.Close()
 			if err != nil {
 				return err
 			}
