@@ -37,8 +37,6 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
-
-	//"runtime/debug"
 )
 
 func xclose(c io.Closer) {
@@ -763,55 +761,77 @@ func xSend1(l *NodeLink, msg Msg) {
 
 func xverifyMsg(msg1, msg2 Msg) {
 	if !reflect.DeepEqual(msg1, msg2) {
-		//debug.PrintStack()
 		exc.Raisef("messages differ:\n%s", pretty.Compare(msg1, msg2))
 	}
 }
 
 func TestRecv1Mode(t *testing.T) {
-	println("000")
+	//println("000")
 	// Send1
 	nl1, nl2 := nodeLinkPipe()
 	wg := &xsync.WorkGroup{}
+	sync := make(chan int)
 	wg.Gox(func() {
+		defer func() {
+			if e := recover(); e != nil {
+				panic(e)
+			}
+		}()
+
+		//println("X aaa")
 		c := xaccept(nl2)
+		//println("X aaa + 1")
 		msg := xRecv(c)
+		//println("X aaa + 2")
 		xverifyMsg(msg, &Ping{})
 		xSend(c, &Pong{})
+		//println("X aaa + 3")
 		msg = xRecv(c)
+		//println("X aaa + 4")
 		xverifyMsg(msg, errConnClosed)
 		xclose(c)
 
-		println("X zzz")
+		sync <- 1
+		//println("X zzz")
 
 		c = xaccept(nl2)
 		msg = xRecv(c)
-		println("X zzz + 1")
+		//fmt.Println("X zzz + 1", c, msg)
 		xverifyMsg(msg, &Error{ACK, "hello up there"})
 		xSend(c, &Error{ACK, "hello to you too"})
 		msg = xRecv(c)
-		println("X zzz + 2")
+		//println("X zzz + 2")
 		xverifyMsg(msg, errConnClosed)
-		println("X zzz + 3")
+		//println("X zzz + 3")
+		xclose(c)
 	})
 
-	println("aaa")
+	//println("aaa")
 	xSend1(nl1, &Ping{})
-	println("bbb")
+
+	// before next Send1 wait till peer receives errConnClosed from us
+	// otherwise peer could be already in accept while our errConnClosed is received
+	// and there is only one receiving thread there ^^^
+	<-sync
+	//println("bbb")
 	xSend1(nl1, &Error{ACK, "hello up there"})
-	println("ccc")
+	//println("ccc")
 	xwait(wg)
 
-	println("111")
+	//println("111\n")
 
 	// Recv1: further packets with same connid are rejected with "connection closed"
 	wg = &xsync.WorkGroup{}
 	wg.Gox(func() {
 		c := xnewconn(nl2)
 
+		//println("aaa")
 		xSend(c, &Ping{})
+		//println("bbb")
 		xSend(c, &Ping{})
+		//println("ccc")
 		msg := xRecv(c)
+		//println("ddd")
 		xverifyMsg(msg, errConnClosed)
 	})
 

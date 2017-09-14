@@ -613,7 +613,7 @@ func (nl *NodeLink) serveRecv() {
 		// receive 1 packet
 		// XXX if nl.peerLink was just closed by tx->shutdown we'll get ErrNetClosing
 		pkt, err := nl.recvPkt()
-		//fmt.Printf("recvPkt -> %v, %v\n", pkt, err)
+		//fmt.Printf("\n%p recvPkt -> %v, %v\n", nl, pkt, err)
 		if err != nil {
 			// on IO error framing over peerLink becomes broken
 			// so we shut down node link and all connections over it.
@@ -650,6 +650,7 @@ func (nl *NodeLink) serveRecv() {
 
 		nl.connMu.Unlock()
 
+		//fmt.Printf("%p\tconn: %v\n", nl, conn)
 		if conn == nil {
 			// see ^^^ "message with connid that should be initiated by us"
 			go nl.replyNoConn(connId, errConnClosed)
@@ -670,6 +671,8 @@ func (nl *NodeLink) serveRecv() {
 			conn.rxq <- pkt
 		}
 		conn.rxqActive.Set(0)
+
+		//fmt.Printf("%p\tconn.rxdown: %v\taccept: %v\n", nl, rxdown, accept)
 
 
 		// conn exists but rx is down - "connection closed"
@@ -701,6 +704,7 @@ func (nl *NodeLink) serveRecv() {
 					axdown = true
 
 				case nl.acceptq <- conn:
+					//fmt.Printf("%p\t.acceptq <- conn  ok\n", nl)
 					// ok
 				}
 			}
@@ -713,6 +717,8 @@ func (nl *NodeLink) serveRecv() {
 				nl.connMu.Unlock()
 			}
 		}
+
+		//fmt.Printf("%p\tafter accept\n", nl)
 /*
 		// XXX goes away in favour of .rxdownFlag; reasons
 		// - no need to reallocate rxdown for light conn
@@ -758,9 +764,9 @@ var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
 func (link *NodeLink) replyNoConn(connId uint32, errMsg Msg) {
-	//fmt.Printf("%s .%d: -> replyNoConn %v\n", link, connId, c.errMsg)
+	//fmt.Printf("%s .%d: -> replyNoConn %v\n", link, connId, errMsg)
 	link.sendMsg(connId, errMsg) // ignore errors
-	//fmt.Printf("%s .%d: replyNoConn(%v) -> %v\n", link, connId, c.errMsg, err)
+	//fmt.Printf("%s .%d: replyNoConn(%v) -> %v\n", link, connId, errMsg, err)
 }
 
 // ---- transmit ----
@@ -1513,7 +1519,8 @@ func (link *NodeLink) Send1(msg Msg) error {
 	conn.downRX(errConnClosed)	// FIXME just new conn this way
 
 	err = conn.Send(msg)
-	conn.release()
+	//conn.release()	XXX temp
+	conn.Close()
 	return err
 }
 
