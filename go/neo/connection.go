@@ -29,7 +29,7 @@ import (
 	"math"
 	"net"
 	"reflect"
-	"runtime"
+	//"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -791,7 +791,7 @@ func (nl *NodeLink) serveRecv() {
 		// By default proc runq will execute only when sendRecv blocks
 		// next time deep in nl.recvPkt(), but let's force the switch
 		// now without additional wating to reduce latency.
-		runtime.Gosched()
+		//runtime.Gosched()
 /*
 		// XXX goes away in favour of .rxdownFlag; reasons
 		// - no need to reallocate rxdown for light conn
