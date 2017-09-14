@@ -281,7 +281,13 @@ func (nl *NodeLink) newConn(connId uint32) *Conn {
 // NewConn creates new connection on top of node-node link.
 func (nl *NodeLink) NewConn() (*Conn, error) {
 	nl.connMu.Lock()
-	defer nl.connMu.Unlock()
+	//defer nl.connMu.Unlock()
+	c, err := nl._NewConn()
+	nl.connMu.Unlock()
+	return c, err
+}
+
+func (nl *NodeLink) _NewConn() (*Conn, error) {
 	if nl.connTab == nil {
 		if nl.closed.Get() != 0 {
 			return nil, nl.err("newconn", ErrLinkClosed)
@@ -1425,14 +1431,19 @@ func (c *Conn) Recv() (Msg, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer pkt.Free()
+	//defer pkt.Free()
+	msg, err := c._Recv(pkt)
+	pkt.Free()
+	return msg, err
+}
 
+func (c *Conn) _Recv(pkt *PktBuf) (Msg, error) {
 	// decode packet
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
 	msgType := msgTypeRegistry[msgCode]
 	if msgType == nil {
-		err = fmt.Errorf("invalid msgCode (%d)", msgCode)
+		err := fmt.Errorf("invalid msgCode (%d)", msgCode)
 		// XXX "decode" -> "recv: decode"?
 		return nil, c.err("decode", err)
 	}
@@ -1442,7 +1453,7 @@ func (c *Conn) Recv() (Msg, error) {
 //	msg := reflect.NewAt(msgType, bufAlloc(msgType.Size())
 
 
-	_, err = msg.neoMsgDecode(pkt.Payload())
+	_, err := msg.neoMsgDecode(pkt.Payload())
 	if err != nil {
 		return nil, c.err("decode", err) // XXX "decode:" is already in ErrDecodeOverflow
 	}
@@ -1491,14 +1502,19 @@ func (c *Conn) Expect(msgv ...Msg) (which int, err error) {
 	if err != nil {
 		return -1, err
 	}
-	defer pkt.Free()
+	//defer pkt.Free()
+	which, err = c._Expect(pkt, msgv...)
+	pkt.Free()
+	return which, err
+}
 
+func (c *Conn) _Expect(pkt *PktBuf, msgv ...Msg) (int, error) {
 	pkth := pkt.Header()
 	msgCode := ntoh16(pkth.MsgCode)
 
 	for i, msg := range msgv {
 		if msg.neoMsgCode() == msgCode {
-			_, err = msg.neoMsgDecode(pkt.Payload())
+			_, err := msg.neoMsgDecode(pkt.Payload())
 			if err != nil {
 				return -1, c.err("decode", err)
 			}
@@ -1642,9 +1658,14 @@ func (link *NodeLink) Ask1(req Msg, resp Msg) (err error) {
 		return err
 	}
 
-	defer conn.lightClose()
+	//defer conn.lightClose()
+	err = conn._Ask1(req, resp)
+	conn.lightClose()
+	return err
+}
 
-	err = conn.sendMsgDirect(req)
+func (conn *Conn) _Ask1(req Msg, resp Msg) error {
+	err := conn.sendMsgDirect(req)
 	if err != nil {
 		return err
 	}
