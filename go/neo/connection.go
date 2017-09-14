@@ -229,15 +229,13 @@ func (c *Conn) release() {
 
 // reinit reinitializes connection after reallocating it from freelist
 func (c *Conn) reinit() {
-	// .link	- already set	XXX set =nil	?
-	// .connId	- already set	XXX set =0	?
-	// .rxq		- set initially; does not change
+	c.link = nil
 	c.connId = 0
+	// .rxq		- set initially; does not change
 	c.rxqActive.Set(0)	// XXX store relaxed?
 	c.rxdownFlag.Set(0)	// ----//----
 
 	c.rxerrOnce = sync.Once{}	// XXX ok?
-//	c.errMsg = nil		// XXX what here?
 
 
 	// XXX vvv not strictly needed for light mode?
@@ -310,7 +308,7 @@ func (link *NodeLink) shutdownAX() {
 		close(link.axdown)
 
 		// dequeue all connections already queued in link.acceptq
-		// (once serveRecvs sees link.axdown it won't try to put new connections into
+		// (once serveRecv sees link.axdown it won't try to put new connections into
 		//  link.acceptq, but something finite could be already there)
 loop:
 		for {
@@ -413,7 +411,6 @@ func (c *Conn) shutdownRX(errMsg *Error) {
 
 // downRX marks .rxq as no longer operational.
 func (c *Conn) downRX(errMsg *Error) {
-//	c.errMsg = errMsg
 	c.rxdownFlag.Set(1) // XXX cmpxchg and return if already down?
 
 	// dequeue all packets already queued in c.rxq
@@ -444,23 +441,6 @@ loop:
 // time to keep record of a closed connection so that we can properly reply
 // "connection closed" if a packet comes in with same connID.
 var connKeepClosed = 1*time.Minute
-
-// lightClose closes light connection.
-//
-// No Send or Recv must be in flight.
-// The caller must not use c after call to close - the connection is returned to freelist.
-func (c *Conn) lightClose() {
-	nl := c.link
-	nl.connMu.Lock()
-	if nl.connTab != nil {
-		// XXX find way to keep initiated by us conn as closed for some time (see Conn.Close)
-		// but timer costs too much...
-		delete(nl.connTab, c.connId)
-	}
-	nl.connMu.Unlock()
-
-	c.release()
-}
 
 // CloseRecv closes reading end of connection.
 //
@@ -1451,7 +1431,22 @@ func (c *Conn) Ask(req Msg, resp Msg) error {
 // ---- exchange of 1-1 request-reply ----
 // (impedance matcher for current neo/py imlementation)
 
-// TODO Recv1/Reply/Send1/Ask1 tests
+// lightClose closes light connection.
+//
+// No Send or Recv must be in flight.
+// The caller must not use c after call to close - the connection is returned to freelist.
+func (c *Conn) lightClose() {
+	nl := c.link
+	nl.connMu.Lock()
+	if nl.connTab != nil {
+		// XXX find way to keep initiated by us conn as closed for some time (see Conn.Close)
+		// but timer costs too much...
+		delete(nl.connTab, c.connId)
+	}
+	nl.connMu.Unlock()
+
+	c.release()
+}
 
 // Request is a message received from the link + connection handle to make a reply.
 //
@@ -1519,8 +1514,7 @@ func (link *NodeLink) Send1(msg Msg) error {
 	conn.downRX(errConnClosed)	// FIXME just new conn this way
 
 	err = conn.Send(msg)
-	//conn.release()	XXX temp
-	conn.Close()
+	conn.lightClose()
 	return err
 }
 
