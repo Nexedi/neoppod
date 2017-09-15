@@ -45,10 +45,15 @@ type SyncTracer struct {
 
 // SyncTraceMsg represents message with 1 synchronous tracing communication.
 //
-// the goroutine which produced the message will wait for send on Ack before continue.
+// the goroutine which produced the message will wait for Ack before continue.
 type SyncTraceMsg struct {
 	Event interface {}
-	Ack   chan<- struct{}
+	ack   chan<- struct{}
+}
+
+// Ack acknowledges the event was processed and unpauses producer goroutine.
+func (m *SyncTraceMsg) Ack() {
+	close(m.ack)
 }
 
 // XXX doc
@@ -74,6 +79,7 @@ func (st *SyncTracer) Get1() *SyncTraceMsg {
 }
 
 
+// ----------------------------------------
 
 
 // XXX naming -> SyncTraceChecker
@@ -124,7 +130,7 @@ func (tc *TraceChecker) expect1(eventExpect interface{}) {
 			pretty.Compare(reventExpect.Interface(), revent.Interface()))
 	}
 
-	close(msg.Ack)
+	msg.Ack()
 }
 
 // Expect asks checker to expect next series of events to be from eventExpectV in specified order
@@ -152,7 +158,7 @@ loop:
 
 			// found matching event - good
 			eventExpectV = append(eventExpectV[:i], eventExpectV[i+1:]...)
-			close(msg.Ack)	// XXX -> send ack for all only when all collected?
+			msg.Ack()	// XXX -> send ack for all only when all collected?
 			continue loop
 		}
 
