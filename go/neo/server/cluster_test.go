@@ -627,6 +627,8 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
 		if !(bytes.Equal(cbuf1.Data, buf1.Data) && cserial1 == serial1) {
 			b.Fatalf("C.Load first -> %q %v  ; want %q %v", cbuf1.Data, cserial1, buf1.Data, serial1)
 		}
+
+		cbuf1.Release()
 	}
 
 	// do first C.Load - this also implicitly waits for M & S to come up
@@ -641,7 +643,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
 	}
 }
 
-func BenchmarkGetObjectPipe(b *testing.B) {
+func BenchmarkGetObjectNetPipe(b *testing.B) {
 	net := pipenet.New("testnet")
 	Mhost := net.Host("m")
 	Shost := net.Host("s")

@@ -170,7 +170,9 @@ func (m *Master) Run(ctx context.Context) (err error) {
 
 			req, idReq, err := l.Accept(ctx)
 			if err != nil {
-				log.Error(ctx, err)	// XXX throttle?
+				if !xcontext.Canceled(err) {
+					log.Error(ctx, err)	// XXX throttle?
+				}
 				continue
 			}
 

@@ -252,8 +252,13 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid
 	dh.Oid = xid.Oid
 	dh.Tid = zodb.TidMax
 	dh.PrevRevPos = dataPos
-	defer dh.Free()
+	//defer dh.Free()
+	buf, tid, err = fs._Load(dh, xid)
+	dh.Free()
+	return buf, tid, err
+}
 
+func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
 	tidBefore := xid.XTid.Tid
 	if !xid.XTid.TidBefore {
 		tidBefore++	// XXX recheck this is ok wrt overflow
@@ -261,7 +266,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid
 
 	// search backwards for when we first have data record with tid satisfying xid.XTid
 	for dh.Tid >= tidBefore {
-		err = dh.LoadPrevRev(fs.file)
+		err := dh.LoadPrevRev(fs.file)
 		if err != nil {
 			if err == io.EOF {
 				// no such oid revision
@@ -281,9 +286,9 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid
 
 	// even if we will scan back via backpointers, the tid returned should
 	// be of first-found transaction
-	tid = dh.Tid
+	tid := dh.Tid
 
-	buf, err = dh.LoadData(fs.file)
+	buf, err := dh.LoadData(fs.file)
 	if err != nil {
 		return nil, 0, &ErrXidLoad{xid, err}
 	}

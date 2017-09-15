@@ -26,6 +26,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -911,9 +912,21 @@ func BenchmarkBufChanAXRXRTT(b *testing.B) {
 }
 
 
+var gosched = make(chan struct{})
+
+// GoschedLocal is like runtime.Gosched but queus current goroutine on P-local
+// runqueue instead of global runqueu.
+// FIXME does not work - in the end goroutines appear on different Ps/Ms
+func GoschedLocal() {
+	go func() {
+		gosched <- struct{}{}
+	}()
+	<-gosched
+}
+
 // rtt over net.Conn Read/Write
 // if serveRecv=t - do RX path with additional serveRecv-style goroutine
-func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool) {
+func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool, ghandoff bool) {
 	buf1 := make([]byte, 1)
 	buf2 := make([]byte, 1)
 
@@ -925,22 +938,51 @@ func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool) {
 				n   int
 				erx error
 			}
-			rxq := make(chan rx)
-			go func() {
+			rxq := make(chan rx, 1)
+			rxghandoff := make(chan struct{})
+			var serveRx func()
+			serveRx = func() {
 				for {
 					n, erx := io.ReadFull(c, buf)
 					//fmt.Printf("(go) %p rx -> %v %v\n", c, n, erx)
 					rxq <- rx{n, erx}
 
+					// good: reduce switch to receiver G latency
+					// see comment about rxghandoff in serveRecv
+					// in case of TCP/loopback saves ~5μs
+					if ghandoff {
+						<-rxghandoff
+					}
+
 					// stop on first error
 					if erx != nil {
 						return
 					}
+
+					if false {
+						// bad - puts G in global runq and so it changes M
+						runtime.Gosched()
+					}
+					if false {
+						// bad - same as runtime.Gosched
+						GoschedLocal()
+					}
+
+					if false {
+						// bad - in the end Gs appear on different Ms
+						go serveRx()
+						return
+					}
 				}
-			}()
+			}
+
+			go serveRx()
 
 			recv = func() (int, error) {
 				r := <-rxq
+				if ghandoff {
+					rxghandoff <- struct{}{}
+				}
 				return r.n, r.erx
 			}
 
@@ -1019,12 +1061,17 @@ func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool) {
 // rtt over net.Pipe - for comparision as base
 func BenchmarkNetPipeRTT(b *testing.B) {
 	c1, c2 := net.Pipe()
-	benchmarkNetConnRTT(b, c1, c2, false)
+	benchmarkNetConnRTT(b, c1, c2, false, false)
 }
 
 func BenchmarkNetPipeRTTsr(b *testing.B) {
 	c1, c2 := net.Pipe()
-	benchmarkNetConnRTT(b, c1, c2, true)
+	benchmarkNetConnRTT(b, c1, c2, true, false)
+}
+
+func BenchmarkNetPipeRTTsrho(b *testing.B) {
+	c1, c2 := net.Pipe()
+	benchmarkNetConnRTT(b, c1, c2, true, true)
 }
 
 // xtcpPipe creates two TCP connections connected to each other via loopback
@@ -1046,12 +1093,17 @@ func xtcpPipe() (*net.TCPConn, *net.TCPConn) {
 // rtt over TCP/loopback - for comparision as base
 func BenchmarkTCPlo(b *testing.B) {
 	c1, c2 := xtcpPipe()
-	benchmarkNetConnRTT(b, c1, c2, false)
+	benchmarkNetConnRTT(b, c1, c2, false, false)
 }
 
 func BenchmarkTCPlosr(b *testing.B) {
 	c1, c2 := xtcpPipe()
-	benchmarkNetConnRTT(b, c1, c2, true)
+	benchmarkNetConnRTT(b, c1, c2, true, false)
+}
+
+func BenchmarkTCPlosrho(b *testing.B) {
+	c1, c2 := xtcpPipe()
+	benchmarkNetConnRTT(b, c1, c2, true, true)
 }
 
 

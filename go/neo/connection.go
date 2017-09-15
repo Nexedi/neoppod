@@ -86,7 +86,14 @@ type NodeLink struct {
 	closed   atomic32	// whether Close was called
 
 	rxbuf    rbuf.RingBuf	// buffer for reading from peerLink
+
+	// scheduling optimization: whenever serveRecv sends to Conn.rxq
+	// receiving side must ack here to receive G handoff.
+	// See comments in serveRecv for details.
+	rxghandoff chan struct{}
 }
+
+const rxghandoff = true	// XXX whether to do rxghandoff trick
 
 // Conn is a connection established over NodeLink
 //
@@ -197,6 +204,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		nextConnId: nextConnId,
 		acceptq:    make(chan *Conn),	// XXX +buf
 		txq:        make(chan txReq),
+		rxghandoff: make(chan struct{}),
 //		axdown:     make(chan struct{}),
 		down:       make(chan struct{}),
 	}
@@ -475,6 +483,7 @@ func (c *Conn) downRX(errMsg *Error) {
 
 		select {
 		case <-c.rxq:
+			c.rxack()
 			i++
 
 		default:
@@ -685,7 +694,21 @@ func (c *Conn) recvPkt() (*PktBuf, error) {
 	}
 
 	c.rxqRead.Add(-1)
+	if err == nil {
+		c.rxack()
+	}
 	return pkt, err
+}
+
+// rxack unblocks serveRecv after it handed G to us.
+// see comments about rxghandoff in serveRecv.
+func (c *Conn) rxack() {
+	if !rxghandoff {
+		return
+	}
+	//fmt.Printf("conn: rxack <- ...\n")
+	c.link.rxghandoff <- struct{}{}
+	//fmt.Printf("\tconn: rxack <- ... ok\n")
 }
 
 // serveRecv handles incoming packets routing them to either appropriate
@@ -781,6 +804,8 @@ func (nl *NodeLink) serveRecv() {
 				nl.connMu.Lock()
 				delete(nl.connTab, conn.connId)
 				nl.connMu.Unlock()
+
+				continue
 			}
 		}
 
@@ -789,9 +814,29 @@ func (nl *NodeLink) serveRecv() {
 		// Normally serveRecv G will continue to run with G waking up
 		// on rxq/acceptq only being put into the runqueue of current proc.
 		// By default proc runq will execute only when sendRecv blocks
-		// next time deep in nl.recvPkt(), but let's force the switch
+		// again next time deep in nl.recvPkt(), but let's force the switch
 		// now without additional wating to reduce latency.
+
+		// XXX bad - puts serveRecv to global runq thus with high p to switch M
 		//runtime.Gosched()
+
+		// handoff execution to receiving goroutine via channel.
+		// rest of serveRecv is put to current P local runq.
+		//
+		// details:
+		// - https://github.com/golang/go/issues/20168
+		// - https://github.com/golang/go/issues/15110
+		//
+		// see BenchmarkTCPlo* - for serveRecv style RX handoff there
+		// cuts RTT from 12.5μs to 6.6μs (RTT without serveRecv style G is 4.8μs)
+		//
+		// TODO report upstream
+		if rxghandoff {
+			//fmt.Printf("serveRecv: <-rxghandoff\n")
+			<-nl.rxghandoff
+			//fmt.Printf("\tserveRecv: <-rxghandoff ok\n")
+		}
+
 /*
 		// XXX goes away in favour of .rxdownFlag; reasons
 		// - no need to reallocate rxdown for light conn

@@ -387,22 +387,27 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 }
 
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
-	defer func() {
-		switch err.(type) {
-		case nil:
-			// ok (avoid allocation in xerr.Contextf() call for no-error case)
+	// defer func() ...
+	buf, serial, err = c._Load(ctx, xid)
 
-		// keep zodb errors intact
-		// XXX ok? or requre users always call Cause?
-		case *zodb.ErrOidMissing:
-		case *zodb.ErrXidMissing:
+	switch err.(type) {
+	case nil:
+		// ok (avoid allocation in xerr.Contextf() call for no-error case)
 
-		default:
-			xerr.Contextf(&err, "client: load %v", xid)
-		}
-	}()
+	// keep zodb errors intact
+	// XXX ok? or requre users always call Cause?
+	case *zodb.ErrOidMissing:
+	case *zodb.ErrXidMissing:
 
-	err = c.withOperational(ctx)
+	default:
+		xerr.Contextf(&err, "client: load %v", xid)
+	}
+
+	return buf, serial, err
+}
+
+func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
+	err := c.withOperational(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -453,7 +458,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial 
 		return nil, 0, err	// XXX err context
 	}
 
-	buf = resp.Data
+	buf := resp.Data
 
 	//checksum := sha1.Sum(buf.Data)
 	//if checksum != resp.Checksum {
