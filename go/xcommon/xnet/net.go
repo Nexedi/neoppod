@@ -47,6 +47,7 @@ type Networker interface {
 
 
 // NetPlain creates Networker corresponding to regular network accessors from std package net.
+//
 // network is "tcp", "tcp4", "tcp6", "unix", etc...
 func NetPlain(network string) Networker {
 	return netPlain(network)
@@ -68,6 +69,7 @@ func (n netPlain) Listen(laddr string) (net.Listener, error) {
 }
 
 // NetTLS wraps underlying networker with TLS layer according to config.
+//
 // The config must be valid:
 // - for tls.Client -- for Dial to work,
 // - for tls.Server -- for Listen to work.

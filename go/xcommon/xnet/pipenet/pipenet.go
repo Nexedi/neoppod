@@ -131,6 +131,7 @@ type dialReq struct {
 //trace:event traceNew(name string)
 
 // New creates new pipenet Network
+//
 // name is name of this network under "pipe" namespace, e.g. "α" will give full network name "pipeα".
 //
 // New does not check whether network name provided is unique.
@@ -143,7 +144,8 @@ func New(name string) *Network {
 //trace:event traceNewHost(host *Host)
 
 // Host returns network access point by name
-// if there was no such host before it creates new one
+//
+// If there was no such host before it creates new one.
 func (n *Network) Host(name string) *Host {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -183,6 +185,7 @@ func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 //trace:event traceListen(laddr string)
 
 // Listen starts new listener
+//
 // It either allocates free port if laddr is "" or with 0 port, or binds to laddr.
 // Once listener is started, Dials could connect to listening address.
 // Connection requests created by Dials could be accepted via Accept.
@@ -300,6 +303,7 @@ func (l *listener) Accept() (net.Conn, error) {
 //trace:event traceDial(addr string)
 
 // Dial dials address on the network
+//
 // It tries to connect to Accept called on listener corresponding to addr.
 func (h *Host) Dial(ctx context.Context, addr string) (net.Conn, error) {
 	traceDial(addr)
