@@ -57,15 +57,9 @@ class ClientServiceHandler(MasterHandler):
         conn.answer((Errors.Ack if app.tm.vote(app, *args) else
                      Errors.IncompleteTransaction)())
 
-    def askFinishTransaction(self, conn, ttid, oid_list, checked_list):
+    def askFinishTransaction(self, conn, ttid, *args):
         app = self.app
-        tid, node_list = app.tm.prepare(
-            app,
-            ttid,
-            oid_list,
-            checked_list,
-            conn.getPeerId(),
-        )
+        tid, node_list = app.tm.prepare(app, ttid, conn.getPeerId(), *args)
         if tid:
             p = Packets.AskLockInformation(ttid, tid)
             for node in node_list:

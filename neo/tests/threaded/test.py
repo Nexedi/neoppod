@@ -905,11 +905,16 @@ class Test(NEOThreadedTest):
     def testExternalInvalidation(self, cluster):
         # Initialize objects
         t1, c1 = cluster.getTransaction()
+        old_zodb = hasattr(c1, '_invalidated')
+        if old_zodb: # BBB: ZODB < 5
+            invalidations = lambda conn: conn._invalidated
+        else:
+            invalidations = lambda conn: conn._storage._invalidations
         c1.root()['x'] = x1 = PCounter()
         c1.root()['y'] = y = PCounter()
         y.value = 1
         t1.commit()
-        # Get pickle of y
+        # Get pickles of 0 and 1
         t1.begin()
         x = c1._storage.load(x1._p_oid)[0]
         y = c1._storage.load(y._p_oid)[0]
@@ -922,6 +927,10 @@ class Test(NEOThreadedTest):
             txn = transaction.Transaction()
             client.tpc_begin(None, txn)
             client.store(x1._p_oid, x1._p_serial, y, '', txn)
+            # At the same time, we check that there's no invalidation sent
+            # for new oids.
+            new_oid = client.new_oid()
+            client.store(new_oid, ZERO_TID, x, '', txn)
             # Delay invalidation for x
             with cluster.master.filterConnection(cluster.client) as m2c:
                 m2c.delayInvalidateObjects()
@@ -932,12 +941,21 @@ class Test(NEOThreadedTest):
                 x2 = c2.root()['x']
                 cache.clear() # bypass cache
                 self.assertEqual(x2.value, 0)
+                self.assertRaises(POSException.POSKeyError if old_zodb else
+                    POSException.ReadConflictError, c2.get, new_oid)
             x2._p_deactivate()
             t1.begin() # process invalidation and sync connection storage
+            if old_zodb:
+                self.assertEqual(c2.get(new_oid).value, 0)
+            else:
+                self.assertRaises(POSException.ReadConflictError,
+                                  c2.get, new_oid)
             self.assertEqual(x2.value, 0)
+            self.assertEqual({x2._p_oid}, invalidations(c2))
             # New testing transaction. Now we can see the last value of x.
             t2.begin()
             self.assertEqual(x2.value, 1)
+            self.assertEqual(c2.get(new_oid).value, 0)
 
             # Now test cache invalidation during a load from a storage
             ll = LockLock()
@@ -952,9 +970,9 @@ class Test(NEOThreadedTest):
             with ll, Patch(cluster.client, _loadFromStorage=break_after):
                 t = self.newThread(x2._p_activate)
                 ll()
-                # At this point, x could not be found the cache and the result
-                # from the storage (which is <value=1, next_tid=None>) is about
-                # to be processed.
+                # At this point, x could not be found in the cache and the
+                # result from the storage (which is <value=1, next_tid=None>)
+                # is about to be processed.
                 # Now modify x to receive an invalidation for it.
                 txn = transaction.Transaction()
                 client.tpc_begin(None, txn)
@@ -966,12 +984,6 @@ class Test(NEOThreadedTest):
             t.join()
             self.assertEqual(x2.value, 1)
             self.assertEqual(x1.value, 0)
-
-            def invalidations(conn):
-                try:
-                    return conn._storage._invalidations
-                except AttributeError: # BBB: ZODB < 5
-                    return conn._invalidated
 
             # Change x again from 0 to 1, while the checking connection c1
             # is suspended at the beginning of the transaction t1,

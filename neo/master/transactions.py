@@ -91,10 +91,10 @@ class Transaction(object):
 
     def getOIDList(self):
         """
-            Returns the list of OIDs used in the transaction
+            Returns the list of OIDs modified in the transaction
         """
 
-        return list(self._oid_list)
+        return self._oid_list
 
     def isPrepared(self):
         """
@@ -348,7 +348,7 @@ class TransactionManager(EventQueue):
             txn._failed = failed
         return True
 
-    def prepare(self, app, ttid, oid_list, checked_list, msg_id):
+    def prepare(self, app, ttid, msg_id, modified, checked, oid_list):
         """
             Prepare a transaction to be finished
         """
@@ -360,8 +360,9 @@ class TransactionManager(EventQueue):
             return None, None
         ready = app.getStorageReadySet(txn._storage_readiness)
         getPartition = pt.getPartition
+        oid_list += modified
         partition_set = set(map(getPartition, oid_list))
-        partition_set.update(map(getPartition, checked_list))
+        partition_set.update(map(getPartition, checked))
         partition_set.add(getPartition(ttid))
         node_list = []
         uuid_set = set()
@@ -394,7 +395,7 @@ class TransactionManager(EventQueue):
             self._queue.append(ttid)
         logging.debug('Finish TXN %s for %s (was %s)',
                       dump(tid), txn.getNode(), dump(ttid))
-        txn.prepare(tid, oid_list, uuid_set, msg_id)
+        txn.prepare(tid, modified, uuid_set, msg_id)
         # check if greater and foreign OID was stored
         if oid_list:
             self.setLastOID(max(oid_list))

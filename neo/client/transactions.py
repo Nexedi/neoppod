@@ -17,7 +17,7 @@
 from ZODB.POSException import StorageTransactionError
 from neo.lib.connection import ConnectionClosed
 from neo.lib.locking import SimpleQueue
-from neo.lib.protocol import Packets
+from neo.lib.protocol import Packets, ZERO_OID
 from .exception import NEOStorageError
 
 @apply
@@ -52,6 +52,8 @@ class Transaction(object):
         # if the id is still known by the NodeManager.
         # status: 0 -> check only, 1 -> store, 2 -> failed
         self.involved_nodes = {}            # {node_id: status}
+        # new oids
+        self.created_list = []
 
     def wakeup(self, conn):
         self.queue.put((conn, _WakeupPacket, {}))
@@ -128,6 +130,8 @@ class Transaction(object):
                 # would just flush it on tpc_finish. This also
                 # prevents memory errors for big transactions.
                 data = None
+            if serial == ZERO_OID:
+                self.created_list.append(oid)
         self.cache_dict[oid] = data
 
     def nodeLost(self, app, uuid):

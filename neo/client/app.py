@@ -647,12 +647,15 @@ class Application(ThreadedApplication):
             # Call finish on master
             txn_context = txn_container.pop(transaction)
             cache_dict = txn_context.cache_dict
-            checked_list = [oid for oid, data  in cache_dict.iteritems()
-                                if data is CHECKED_SERIAL]
-            for oid in checked_list:
+            checked = [oid for oid, data  in cache_dict.iteritems()
+                           if data is CHECKED_SERIAL]
+            for oid in checked:
                 del cache_dict[oid]
+            created = txn_context.created_list
+            modified = set(cache_dict)
+            modified.difference_update(created)
             ttid = txn_context.ttid
-            p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
+            p = Packets.AskFinishTransaction(ttid, modified, checked, created)
             try:
                 tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
                 assert tid
