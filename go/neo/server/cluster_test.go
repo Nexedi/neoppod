@@ -553,36 +553,48 @@ func TestMasterStorage(t *testing.T) {
 }
 
 
-func BenchmarkGetObject(b *testing.B) {
+func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
 	// create test cluster	<- XXX factor to utility func
-	net := pipenet.New("testnet")
-	Mhost := net.Host("m")
-	Shost := net.Host("s")
-	Chost := net.Host("c")
-
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
 
-	M := NewMaster("abc1", ":1", Mhost)
-	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
-	C := client.NewClient("abc1", "m:1", Chost)
-
-	// spawn M & S
 	ctx, cancel := context.WithCancel(context.Background())
 	wg, ctx := errgroup.WithContext(ctx)
 	defer wg.Wait()
 	defer cancel()
 
-	// XXX to wait for "ready to start" -> XXX add something to M api?
+	// spawn M
+	M := NewMaster("abc1", "", Mnet)
+
+	// XXX to wait for "M listens at ..." & "ready to start" -> XXX add something to M api?
 	tracer := &MyTracer{xtesting.NewSyncTracer()}
 	tc := xtesting.NewTraceChecker(b, tracer.SyncTracer)
 	pg := &tracing.ProbeGroup{}
 	tracing.Lock()
+	pnode := neo_traceNodeChanged_Attach(nil, tracer.traceNode)
 	traceMasterStartReady_Attach(pg, tracer.traceMasterStartReady)
 	tracing.Unlock()
 
 	wg.Go(func() error {
 		return M.Run(ctx)
 	})
+
+	// determing M serving address	XXX better with M api
+	ev := tracer.Get1()
+	mnode, ok := ev.Event.(*traceNode)
+	if !ok {
+		b.Fatal("after M start: got %T  ; want traceNode", ev.Event)
+	}
+	Maddr := mnode.NodeInfo.Addr.String()
+
+	tracing.Lock()
+	pnode.Detach()
+	tracing.Unlock()
+	ev.Ack()
+
+	// now after we know Maddr create S & C and start S serving
+	S := NewStorage("abc1", Maddr, "", Snet, zstor)
+	C := client.NewClient("abc1", Maddr, Cnet)
+
 	wg.Go(func() error {
 		return S.Run(ctx)
 	})
@@ -627,4 +639,17 @@ func BenchmarkGetObject(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		xcload1()
 	}
+}
+
+func BenchmarkGetObjectPipe(b *testing.B) {
+	net := pipenet.New("testnet")
+	Mhost := net.Host("m")
+	Shost := net.Host("s")
+	Chost := net.Host("c")
+	benchmarkGetObject(b, Mhost, Shost, Chost)
+}
+
+func BenchmarkGetObjectTCPlo(b *testing.B) {
+	net := xnet.NetPlain("tcp")
+	benchmarkGetObject(b, net, net, net)
 }
