@@ -96,7 +96,7 @@
 </g>
 <!-- garbage -->
 <g id="node8" class="node"><title>garbage</title>
-<ellipse fill="none" stroke="black" cx="277.242" cy="-98.8701" rx="38.1938" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="277.242" cy="-98.8701" rx="38.1938" ry="18"/>
 <text text-anchor="middle" x="277.242" y="-95.1701" font-family="Times,serif" font-size="14.00">garbage</text>
 </g>
 <!-- Sgo_speed&#45;&gt;garbage -->
@@ -116,7 +116,7 @@
 </g>
 <!-- ConnClose_notimer -->
 <g id="node10" class="node"><title>ConnClose_notimer</title>
-<ellipse fill="none" stroke="black" cx="606.242" cy="-98.8701" rx="56.6372" ry="26.7407"/>
+<ellipse fill="lightyellow" stroke="black" cx="606.242" cy="-98.8701" rx="56.6372" ry="26.7407"/>
 <text text-anchor="middle" x="606.242" y="-102.67" font-family="Times,serif" font-size="14.00">Conn.Close</text>
 <text text-anchor="middle" x="606.242" y="-87.6701" font-family="Times,serif" font-size="14.00">no timer</text>
 </g>
@@ -137,7 +137,7 @@
 </g>
 <!-- pktbuf_alloc -->
 <g id="node14" class="node"><title>pktbuf_alloc</title>
-<ellipse fill="none" stroke="black" cx="319.242" cy="-18" rx="35.9954" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="319.242" cy="-18" rx="35.9954" ry="18"/>
 <text text-anchor="start" x="299.742" y="-14.3" font-family="Times,serif" font-size="14.00">PktBuf</text>
 </g>
 <!-- garbage&#45;&gt;pktbuf_alloc -->
@@ -147,7 +147,7 @@
 </g>
 <!-- msg_alloc -->
 <g id="node15" class="node"><title>msg_alloc</title>
-<ellipse fill="none" stroke="black" cx="160.242" cy="-18" rx="27" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="160.242" cy="-18" rx="27" ry="18"/>
 <text text-anchor="start" x="147.742" y="-14.3" font-family="Times,serif" font-size="14.00">Msg</text>
 </g>
 <!-- garbage&#45;&gt;msg_alloc -->
@@ -157,7 +157,7 @@
 </g>
 <!-- conn_alloc -->
 <g id="node16" class="node"><title>conn_alloc</title>
-<ellipse fill="none" stroke="black" cx="235.242" cy="-18" rx="29.795" ry="18"/>
+<ellipse fill="lightyellow" stroke="black" cx="235.242" cy="-18" rx="29.795" ry="18"/>
 <text text-anchor="start" x="220.242" y="-14.3" font-family="Times,serif" font-size="14.00">Conn</text>
 </g>
 <!-- garbage&#45;&gt;conn_alloc -->
@@ -167,7 +167,7 @@
 </g>
 <!-- gosched -->
 <g id="node17" class="node"><title>gosched</title>
-<ellipse fill="none" stroke="black" cx="614.242" cy="-18" rx="66.0889" ry="18"/>
+<ellipse fill="#f2f2f2" stroke="black" cx="614.242" cy="-18" rx="66.0889" ry="18"/>
 <text text-anchor="middle" x="614.242" y="-14.3" font-family="Times,serif" font-size="14.00">? go scheduling</text>
 </g>
 <!-- diskio&#45;&gt;gosched -->
