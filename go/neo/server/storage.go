@@ -24,6 +24,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -518,6 +519,23 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 	}
 }
 
+// XXX for benchmarking: how much sha1 computation takes time from latency
+var xsha1skip bool
+func init() {
+	if os.Getenv("X_NEOGO_SHA1_SKIP") == "y" {
+		fmt.Fprintln(os.Stderr, "# NEO/go/storage: skipping SHA1 computations")
+		xsha1skip = true
+	}
+}
+
+func sha1Sum(b []byte) [sha1.Size]byte {
+	if !xsha1skip {
+		return sha1.Sum(b)
+	}
+
+	return [sha1.Size]byte{} // all 0
+}
+
 // serveClient1 prepares response for 1 request from client
 func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
 	switch req := req.(type) {
@@ -543,7 +561,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 
 			Compression:	false,
 			Data:		buf,
-			Checksum:	sha1.Sum(buf.Data),	// XXX computing every time
+			Checksum:	sha1Sum(buf.Data),	// XXX computing every time
 
 			// XXX .NextSerial
 			// XXX .DataSerial

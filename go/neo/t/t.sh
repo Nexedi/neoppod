@@ -290,7 +290,7 @@ runpar() {
 	wait $jobv
 }
 
-# time1 <url>	- run benchmarks on the URL once
+# bench1 <url>	- run benchmarks on the URL once
 bench1() {
 	url=$1
 #	time demo-zbigarray read $url
@@ -304,6 +304,12 @@ bench1() {
 		return
 	fi
 	echo
+	bench1_go $url
+}
+
+# go-only part of bench1
+bench1_go() {
+	url=$1
 	./zhash_go --log_dir=$log -$hashfunc $url
 #	./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
 
@@ -345,6 +351,14 @@ echo -e "\n*** NEO/go"
 NEOgo
 for i in $N; do
 	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+wait
+
+echo -e "\n*** NEO/go (sha1 disabled)"
+X_NEOGO_SHA1_SKIP=y NEOgo
+for i in $N; do
+	X_NEOGO_SHA1_SKIP=y bench1_go neo://$cluster@$Mbind
 done
 xneoctl set cluster stopping
 wait

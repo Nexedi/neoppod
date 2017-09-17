@@ -1,71 +1,79 @@
-# (sha1 checksum: Sgo=computes, Cgo=check-disabled)
-
-# Sun, 17 Sep 2017 17:58:48 +0300
+# Sun, 17 Sep 2017 19:30:16 +0300
 # Intel(R) Core(TM)2 CPU         T7200  @ 2.00GHz
 # Linux teco 4.12.0-1-amd64 #1 SMP Debian 4.12.6-1 (2017-08-12) x86_64 GNU/Linux
 # Python 2.7.13
 # go version go1.9 linux/amd64
-# 2017-09-17 17:58:48 139928702501760 [Note] Using unique option prefix 'key_buffer' is error-prone and can break in the future. Please use the full name 'key_buffer_size' instead.
+# 2017-09-17 19:30:16 140440190665600 [Note] Using unique option prefix 'key_buffer' is error-prone and can break in the future. Please use the full name 'key_buffer_size' instead.
 mysqld  Ver 10.1.26-MariaDB-1 for debian-linux-gnu on x86_64 (Debian unstable)
 
 *** FileStorage
-null:00   ; oid=0..16995  nread=68269354  t=0.855s (50.3μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=0.839s (49.4μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=0.839s (49.4μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=0.861s (50.7μs / object)  x=zsha1.py
 null:00   ; oid=0..16995  nread=68269354  t=0.842s (49.5μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=0.841s (49.5μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=0.845s (49.7μs / object)  x=zsha1.py
 
-null:00   ; oid=0..16995  nread=68269354  t=63.163386ms (3.716µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=62.370114ms (3.669µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=62.386597ms (3.67µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=62.303555ms (3.665µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=62.918559ms (3.701µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=62.283062ms (3.664µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=62.715946ms (3.69µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=62.315679ms (3.666µs / object)  x=zsha1.go
 
 *** ZEO
-null:00   ; oid=0..16995  nread=68269354  t=12.117s (712.9μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=12.227s (719.4μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=12.133s (713.9μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=12.143s (714.5μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=11.984s (705.1μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=12.094s (711.6μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=12.040s (708.4μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=12.054s (709.3μs / object)  x=zsha1.py
 (skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
 
 *** NEO/py sqlite
-null:00   ; oid=0..16995  nread=68269354  t=11.529s (678.3μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=11.414s (671.6μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=11.357s (668.2μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=11.400s (670.7μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=11.404s (671.0μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=11.272s (663.2μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=11.236s (661.1μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=11.283s (663.9μs / object)  x=zsha1.py
 
-null:00   ; oid=0..16995  nread=68269354  t=9.689085822s (570.08µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=9.645277702s (567.502µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=9.711805754s (571.417µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=9.647234694s (567.617µs / object)  x=zsha1.go
-2017-09-17 18:01:10.4941 ERROR     NEO        [           app: 91] primary master is down
+null:00   ; oid=0..16995  nread=68269354  t=9.794488902s (576.282µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=9.821048089s (577.844µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=9.792852917s (576.185µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=9.790910484s (576.071µs / object)  x=zsha1.go
+2017-09-17 19:32:38.0816 ERROR     NEO        [           app: 91] primary master is down
 Cluster state changed
 
 *** NEO/py sql
-2017-09-17 18:01:10 140276950737792 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 17330 ...
-2017-09-17 18:01:12.8057 ERROR     NEO        [       handler: 59] unexpected packet: Retry Later in PrimaryBootstrapHandler
-2017-09-17 18:01:12.8064 ERROR     NEO        [           app:233] Connection to None lost
-null:00   ; oid=0..16995  nread=68269354  t=21.701s (1276.8μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=20.720s (1219.1μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=20.498s (1206.0μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=20.468s (1204.3μs / object)  x=zsha1.py
+2017-09-17 19:32:38 139816084820864 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 20217 ...
+null:00   ; oid=0..16995  nread=68269354  t=21.093s (1241.1μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=20.041s (1179.2μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=20.232s (1190.4μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=20.365s (1198.2μs / object)  x=zsha1.py
 
-null:00   ; oid=0..16995  nread=68269354  t=17.739889308s (1.043768ms / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=17.799652484s (1.047284ms / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=17.931130639s (1.05502ms / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=17.937353129s (1.055386ms / object)  x=zsha1.go
-2017-09-17 18:03:49.0737 ERROR     NEO        [           app: 91] primary master is down
+null:00   ; oid=0..16995  nread=68269354  t=18.001507206s (1.059161ms / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=17.898319585s (1.05309ms / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=17.886995101s (1.052423ms / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=17.913446385s (1.05398ms / object)  x=zsha1.go
+2017-09-17 19:35:14.2594 ERROR     NEO        [           app: 91] primary master is down
 Cluster state changed
 
 *** NEO/go
-2017-09-17 18:03:52.6960 ERROR     NEO        [           app:233] Connection to None lost
-null:00   ; oid=0..16995  nread=68269354  t=7.191s (423.1μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=7.127s (419.3μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=7.155s (421.0μs / object)  x=zsha1.py
-null:00   ; oid=0..16995  nread=68269354  t=7.187s (422.9μs / object)  x=zsha1.py
+2017-09-17 19:35:17.4619 ERROR     NEO        [           app:233] Connection to None lost
+null:00   ; oid=0..16995  nread=68269354  t=7.108s (418.2μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=7.174s (422.1μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=7.236s (425.7μs / object)  x=zsha1.py
+null:00   ; oid=0..16995  nread=68269354  t=7.052s (414.9μs / object)  x=zsha1.py
 
-null:00   ; oid=0..16995  nread=68269354  t=2.027768216s (119.308µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=2.014421859s (118.523µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=2.024426598s (119.111µs / object)  x=zsha1.go
-null:00   ; oid=0..16995  nread=68269354  t=2.015051281s (118.56µs / object)  x=zsha1.go
-2017/09/17 18:04:30 talk master(127.0.0.1:5552): context canceled
-2017-09-17 18:04:30.9625 ERROR     NEO        [           app: 91] primary master is down
+null:00   ; oid=0..16995  nread=68269354  t=2.436500785s (143.357µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=2.489861135s (146.496µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=2.447422375s (143.999µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=2.436081637s (143.332µs / object)  x=zsha1.go
+2017-09-17 19:35:57.3706 ERROR     NEO        [           app: 91] primary master is down
 Cluster state changed
+2017/09/17 19:35:57 talk master(127.0.0.1:5552): context canceled
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+# NEO/go/client: skipping SHA1 checks
+null:00   ; oid=0..16995  nread=68269354  t=1.648859142s (97.014µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=1.667787596s (98.128µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=1.671822268s (98.365µs / object)  x=zsha1.go
+null:00   ; oid=0..16995  nread=68269354  t=1.659961404s (97.667µs / object)  x=zsha1.go
+2017-09-17 19:36:06.4982 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+E0917 19:36:06.515776   20294 storage.go:120] storage(127.0.0.1:5553): accept: accept tcp 127.0.0.1:5553: use of closed network connection
+2017/09/17 19:36:06 talk master(127.0.0.1:5552): context canceled

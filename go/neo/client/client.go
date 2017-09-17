@@ -22,10 +22,11 @@ package client
 
 import (
 	"context"
-	//"crypto/sha1"
+	"crypto/sha1"
 	"fmt"
 	"math/rand"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -406,6 +407,15 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial 
 	return buf, serial, err
 }
 
+// XXX for benchmarking: how much sha1 computation takes time from latency
+var xsha1skip bool
+func init() {
+	if os.Getenv("X_NEOGO_SHA1_SKIP") == "y" {
+		fmt.Fprintln(os.Stderr, "# NEO/go/client: skipping SHA1 checks")
+		xsha1skip = true
+	}
+}
+
 func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
 	err := c.withOperational(ctx)
 	if err != nil {
@@ -460,10 +470,12 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, 
 
 	buf := resp.Data
 
-	//checksum := sha1.Sum(buf.Data)
-	//if checksum != resp.Checksum {
-	//	return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
-	//}
+	if !xsha1skip {
+		checksum := sha1.Sum(buf.Data)
+		if checksum != resp.Checksum {
+			return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
+		}
+	}
 
 	if resp.Compression {
 		// XXX cleanup mess vvv
