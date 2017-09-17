@@ -295,7 +295,7 @@ bench1() {
 	url=$1
 #	time demo-zbigarray read $url
 
-#	./zhash.py --$hashfunc $url
+	./zhash.py --$hashfunc $url
 #	echo -e "\n# ${Npar} clients in parallel"
 #	runpar ./zhash.py --$hashfunc $url
 
@@ -311,35 +311,35 @@ bench1() {
 #	runpar ./zhash_go --log_dir=$log -$hashfunc $url
 }
 
-# echo -e "\n*** FileStorage"
-# for i in $N; do
-# 	bench1 $fs1/data.fs
-# done
+echo -e "\n*** FileStorage"
+for i in $N; do
+	bench1 $fs1/data.fs
+done
 
-# echo -e "\n*** ZEO"
-# Zpy $fs1/data.fs
-# for i in $N; do
-# 	bench1 zeo://$Zbind
-# done
-# killall runzeo
-# wait
+echo -e "\n*** ZEO"
+Zpy $fs1/data.fs
+for i in $N; do
+	bench1 zeo://$Zbind
+done
+killall runzeo
+wait
 
-# echo -e "\n*** NEO/py sqlite"
-# NEOpylite
-# for i in $N; do
-# 	bench1 neo://$cluster@$Mbind
-# done
-# xneoctl set cluster stopping
-# wait
+echo -e "\n*** NEO/py sqlite"
+NEOpylite
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+wait
 
-# echo -e "\n*** NEO/py sql"
-# NEOpysql
-# for i in $N; do
-# 	bench1 neo://$cluster@$Mbind
-# done
-# xneoctl set cluster stopping
-# xmysql -e "SHUTDOWN"
-# wait
+echo -e "\n*** NEO/py sql"
+NEOpysql
+for i in $N; do
+	bench1 neo://$cluster@$Mbind
+done
+xneoctl set cluster stopping
+xmysql -e "SHUTDOWN"
+wait
 
 echo -e "\n*** NEO/go"
 NEOgo
