@@ -89,7 +89,7 @@ on() {
 	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
 	path=${1:$((${#host} + 1))}		# path
 	test -z "$host" -o -z "$path" && die "on $1: invalid URL"
-	ssh $host bash -c "test -e $path/deployed || echo 1>&2 \"$url not yet deployed\";
+	ssh $host bash -c "test -e $path/deployed || echo 1>&2 \"$url not yet deployed\"; exit 1
 cd $path
 . env.sh
 cd src/lab.nexedi.com/kirr/neo/go/neo/t
