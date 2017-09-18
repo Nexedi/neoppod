@@ -1,0 +1,109 @@
+>>> bench-cluster neotest@teco:qq
+
+# server:
+# Mon, 18 Sep 2017 21:10:07 +0300
+# kirr@deco.navytux.spb.ru (2401:5180:0:37::1)
+# Intel(R) Core(TM) i7-6600U CPU @ 2.60GHz
+# Linux deco 4.12.0-1-amd64 #1 SMP Debian 4.12.6-1 (2017-08-12) x86_64 GNU/Linux
+# Python 2.7.13
+# go version go1.9 linux/amd64
+# mysqld  Ver 10.1.26-MariaDB-1 for debian-linux-gnu on x86_64 (Debian unstable)
+# neo             : v1.8-1210-g8305c836
+# zodb            : 5.2.0-9-gf0fe34791
+# zeo             : 4.2.0b1-336-gd5e82d48
+# mysqlclient     : 1.3.10
+# wendelin.core   : v0.11-4-g38fbc83
+
+# client:
+# Mon, 18 Sep 2017 21:10:09 +0300
+# neotest@teco.navytux.spb.ru (2401:5180:0:25::1)
+# Intel(R) Core(TM)2 CPU         T7200  @ 2.00GHz
+# Linux teco 4.12.0-1-amd64 #1 SMP Debian 4.12.6-1 (2017-08-12) x86_64 GNU/Linux
+# Python 2.7.13
+# go version go1.9 linux/amd64
+# mysqld  Ver 10.1.26-MariaDB-1 for debian-linux-gnu on x86_64 (Debian unstable)
+2017-09-18 21:10:09 140530539664256 [Note] Using unique option prefix 'key_buffer' is error-prone and can break in the future. Please use the full name 'key_buffer_size' instead.
+# neo             : v1.3-1608-g60b9e4ba
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+# link latency:
+# deco ⇄ teco
+PING teco(teco (2401:5180:0:25::1)) 56 data bytes
+
+--- teco ping statistics ---
+26176 packets transmitted, 26175 received, 0% packet loss, time 3000ms
+rtt min/avg/max/mdev = 0.074/0.109/0.780/0.010 ms, ipg/ewma 0.114/0.110 ms
+
+# teco ⇄ deco
+PING 2401:5180:0:37::1(2401:5180:0:37::1) 56 data bytes
+
+--- 2401:5180:0:37::1 ping statistics ---
+21558 packets transmitted, 21558 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.090/0.110/0.599/0.011 ms, ipg/ewma 0.139/0.109 ms
+
+
+*** ZEO
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.780s (1033.0μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.763s (1030.9μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.739s (1028.1μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.724s (1026.4μs / object)  x=zsha1.py
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.425s (991.1μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.329s (979.9μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.413s (989.7μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=8.317s (978.5μs / object)  x=zsha1.py
+
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.576886408s (891.398µs / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.765475029s (913.585µs / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.105124655s (835.897µs / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.129925071s (838.814µs / object)  x=zsha1.go
+2017-09-18 21:12:04.1574 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-09-18 21:12:04 139647647830912 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 14036 ...
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=10.739s (1263.5μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=10.870s (1278.9μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=10.887s (1280.9μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=11.026s (1297.2μs / object)  x=zsha1.py
+
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=10.325277208s (1.214738ms / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=10.788299199s (1.269211ms / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=10.379780499s (1.22115ms / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=11.202799217s (1.317976ms / object)  x=zsha1.go
+2017-09-18 21:13:35.6902 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.008s (824.4μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.031s (827.2μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=6.988s (822.1μs / object)  x=zsha1.py
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=7.042s (828.4μs / object)  x=zsha1.py
+
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=3.435905975s (404.224µs / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=4.026755047s (473.735µs / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=4.00155583s (470.771µs / object)  x=zsha1.go
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=3.999022429s (470.473µs / object)  x=zsha1.go
+2017-09-18 21:14:26.0605 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+E0918 21:14:26.069919   14080 storage.go:120] storage([2401:5180:0:37::1]:5554): accept: accept tcp [2401:5180:0:37::1]:5554: use of closed network connection
+2017/09/18 21:14:26 talk master([2401:5180:0:37::1]:5552): context canceled
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+# NEO/go/client: skipping SHA1 checks
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=2.971564235s (349.595µs / object)  x=zsha1.go
+# NEO/go/client: skipping SHA1 checks
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=3.10689318s (365.516µs / object)  x=zsha1.go
+# NEO/go/client: skipping SHA1 checks
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=3.065809796s (360.683µs / object)  x=zsha1.go
+# NEO/go/client: skipping SHA1 checks
+crc32:bf9deea9   ; oid=0..8499  nread=34134938  t=3.201959879s (376.701µs / object)  x=zsha1.go
+2017-09-18 21:14:39.7761 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+2017/09/18 21:14:39 talk master([2401:5180:0:37::1]:5552): context canceled
