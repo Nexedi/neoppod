@@ -86,6 +86,7 @@ esac
 
 # on <url> ...		- run ... on deployed url from inside dir of neotest
 on() {
+	#echo "on $@"
 	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
 	path=${1:$((${#host} + 1))}		# path
 	test -z "$host" -o -z "$path" && die "on $1: invalid URL"
@@ -93,6 +94,7 @@ on() {
 	ssh $host "bash -c \"test -e $path/deployed || { echo 1>&2 '$url not yet deployed'; exit 1; }
 cd $path
 . env.sh
+#set -x
 cd src/lab.nexedi.com/kirr/neo/go/neo/t
 $@
 \""
@@ -488,19 +490,19 @@ cmd_bench_cluster() {
 	url=$1
 	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
 
-	echo -e ">>> bench-cluster $url"
-	echo -e "\n# server:"
-	header
-	echo -e "\n# client:"
-	on $url ./neotest info-local
+	#echo -e ">>> bench-cluster $url"
+	#echo -e "\n# server:"
+	#header
+	#echo -e "\n# client:"
+	#on $url ./neotest info-local
 
 	echo -e "\n# link latency:"
-	peer=`python -c 'import urlparse as p; u=p.urlparse("$url"); print u.hostname'`
-	echo "# . ⇄ $peer"
-	ping -i0 -w 3 -q $peer
-	echo "# $peer ⇄ ."
-	# neotest  pts/3        2017-09-18 17:31 2401:5180:0:37::1
-	on $url 'ping -i0 -w3 -q who -m --ips | awk \'{print $5}\''
+	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
+	echo "# `hostname` ⇄ $peer"
+	ping -i200 -w 3 -q $peer	# XXX 200 -> 0
+	echo "# $peer ⇄ `hostname`"
+	on $url "ping -i200 -w3 -q \$(echo \${SSH_CONNECTION%% *})"	# XXX 200 -> 0
+	return
 
 	echo
 	install_trap
