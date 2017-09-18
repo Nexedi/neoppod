@@ -103,7 +103,7 @@ def main():
     last_tid = stor.lastTransaction()
     before = p64(u64(last_tid) + 1)
 
-    for zzz in range(4):
+    for zzz in range(1):
         tstart = time()
 
         # vvv h.reset() XXX temp

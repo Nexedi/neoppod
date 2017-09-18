@@ -1,13 +1,21 @@
 #!/bin/bash -e
 # run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
+
 # XXX neo/go - must be `go install'ed`
+# XXX use `go run ...` so it does not need go install?
 # XXX neo/py, wendelin.core, ... - must be pip install'ed
+# XXX neo/py: run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
+
 
 # port allocations
-Abind=127.0.0.1:5551
-Mbind=127.0.0.1:5552
-Sbind=127.0.0.1:5553
-Zbind=127.0.0.1:5554
+# XXX 127.0.0.1 -> `hostname`? (or `hostname -i`)? or use @addr option? (-> -bindif=...)
+Abind=127.0.0.1:5551	# NEO admin
+Mbind=127.0.0.1:5552	# NEO master
+Zbind=127.0.0.1:5553	# ZEO
+
+# NEO storage. bind not strictly needed but we make sure no 2 storages are
+# started at the same time
+Sbind=127.0.0.1:5554
 
 # disk allocation
 log=`pwd`/log;		mkdir -p $log
@@ -48,16 +56,14 @@ kill $j' EXIT
 
 # M{py,go} ...	- spawn master
 Mpy() {
-	# XXX run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
-
-	# XXX --autostart=1 ?
+	# --autostart=1
 	exec -a Mpy \
 		neomaster --cluster=$cluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log "$@" &
 }
 
 Mgo() {
 	exec -a Mgo \
-		neo --log_dir=$log master -cluster=$cluster -bind=$Mbind
+		neo --log_dir=$log master -cluster=$cluster -bind=$Mbind "$@" &
 }
 
 # Spy ...	- spawn NEO/py storage
@@ -71,15 +77,12 @@ Spy() {
 
 # Sgo <data.fs>	- spawn NEO/go storage
 Sgo() {
-	# XXX use `go run ...` so it does not need go install?
-
 	# -alsologtostderr
 	# -cpuprofile cpu.out
 	# -trace trace.out
 	exec -a Sgo \
 		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
 }
-
 
 # Apy ...	- spawn NEO/py admin
 Apy() {
@@ -110,7 +113,7 @@ NEOpylite() {
 	Apy
 }
 
-# spawn neo/py cluster working on mariadb
+# spawn NEO/py cluster working on mariadb
 NEOpysql() {
 	MDB
 	sleep 1	# XXX fragile
@@ -188,8 +191,8 @@ EOF
 export WENDELIN_CORE_ZBLK_FMT=ZBlk1
 
 # XXX 32 temp - raise
-#work=32	# array size generated (MB)
-work=64
+work=32	# array size generated (MB)
+#work=64
 #work=512	# array size generated (MB)
 
 # generate data in data.fs
@@ -273,13 +276,16 @@ sync
 go build -o zhash_go zhash.go
 
 # run benchmarks
-N=`seq 1`	# XXX repeat benchmarks N time
-#hashfunc=sha1
-#hashfunc=adler32
-#hashfunc=crc32
-hashfunc=null
-
+Nrun=4		# repeat benchmarks N time
 Npar=8		# run so many parallel clients in parallel phase
+
+# nrun ...	- run ... Nrun times
+nrun() {
+	for i in `seq $Nrun`; do
+		"$@"
+	done
+}
+
 # runpar ...	- run several program instances in parallel
 runpar() {
 	local jobv
@@ -290,12 +296,17 @@ runpar() {
 	wait $jobv
 }
 
-# bench1 <url>	- run benchmarks on the URL once
-bench1() {
-	url=$1
-#	time demo-zbigarray read $url
+#hashfunc=sha1
+#hashfunc=adler32
+#hashfunc=crc32
+hashfunc=null
 
-	./zhash.py --$hashfunc $url
+# bench <url>	- run benchmarks against URL
+bench() {
+	url=$1
+#	nrun time demo-zbigarray read $url
+
+	nrun ./zhash.py --$hashfunc $url
 #	echo -e "\n# ${Npar} clients in parallel"
 #	runpar ./zhash.py --$hashfunc $url
 
@@ -304,62 +315,50 @@ bench1() {
 		return
 	fi
 	echo
-	bench1_go $url
+	bench_go $url
 }
 
-# go-only part of bench1
-bench1_go() {
+# go-only part of bench
+bench_go() {
 	url=$1
-	./zhash_go --log_dir=$log -$hashfunc $url
-#	./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
+	nrun ./zhash_go --log_dir=$log -$hashfunc $url
+#	nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
 
 #	echo -e "\n# ${Npar} clients in parallel"
 #	runpar ./zhash_go --log_dir=$log -$hashfunc $url
 }
 
 echo -e "\n*** FileStorage"
-for i in $N; do
-	bench1 $fs1/data.fs
-done
+bench $fs1/data.fs
 
 echo -e "\n*** ZEO"
 Zpy $fs1/data.fs
-for i in $N; do
-	bench1 zeo://$Zbind
-done
+bench zeo://$Zbind
 killall runzeo
 wait
 
 echo -e "\n*** NEO/py sqlite"
 NEOpylite
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
+bench neo://$cluster@$Mbind
 xneoctl set cluster stopping
 wait
 
 echo -e "\n*** NEO/py sql"
 NEOpysql
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
+bench neo://$cluster@$Mbind
 xneoctl set cluster stopping
 xmysql -e "SHUTDOWN"
 wait
 
 echo -e "\n*** NEO/go"
 NEOgo
-for i in $N; do
-	bench1 neo://$cluster@$Mbind
-done
+bench neo://$cluster@$Mbind
 xneoctl set cluster stopping
 wait
 
 echo -e "\n*** NEO/go (sha1 disabled)"
 X_NEOGO_SHA1_SKIP=y NEOgo
-for i in $N; do
-	X_NEOGO_SHA1_SKIP=y bench1_go neo://$cluster@$Mbind
-done
+X_NEOGO_SHA1_SKIP=y bench_go neo://$cluster@$Mbind
 xneoctl set cluster stopping
 wait
 
