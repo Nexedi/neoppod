@@ -498,6 +498,13 @@ cmd_bench_cluster() {
 	wait
 }
 
+# command: run client workload against sepearate server
+cmd_run_client() {
+	url=$1
+	test -z "$url" && die "Usage: neotest run-client <url>"
+	bench $url
+}
+
 # ---- main driver ----
 
 usage() {
@@ -521,15 +528,18 @@ EOF
 
 case "$1" in
 bench-local)
-	cmd_bench_local
+	shift
+	cmd_bench_local "$@"
 	;;
 
-bench-client)
-	cmd_bench_client
+run-client)
+	shift
+	cmd_run_client "$@"
 	;;
 
 bench-cluster)
-	cmd_bench_cluster
+	shift
+	cmd_bench_cluster "$@"
 	;;
 
 
