@@ -89,12 +89,14 @@ on() {
 	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
 	path=${1:$((${#host} + 1))}		# path
 	test -z "$host" -o -z "$path" && die "on $1: invalid URL"
-	ssh $host bash -c "test -e $path/deployed || echo 1>&2 \"$url not yet deployed\"; exit 1
+	shift
+	ssh $host "bash -c \"test -e $path/deployed || { echo 1>&2 '$url not yet deployed'; exit 1; }
 cd $path
 . env.sh
+set -x
 cd src/lab.nexedi.com/kirr/neo/go/neo/t
 $@
-"
+\""
 }
 
 # ----------------------------------------
@@ -491,18 +493,63 @@ cmd_bench_cluster() {
 	header
 	gen_data
 
+	on $url ./neotest info-local
+
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
 	on $url ./neotest run-client zeo://$Zbind
 	killall runzeo
 	wait
+
+	echo -e "\n*** NEO/py sqlite"
+	NEOpylite
+	on $url ./neotest run-client neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/py sql"
+	NEOpysql
+	on $url ./neotest run-client neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	xmysql -e "SHUTDOWN"
+	wait
+
+	echo -e "\n*** NEO/go"
+	NEOgo
+	on $url ./neotest run-client neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/go (sha1 disabled)"
+	X_NEOGO_SHA1_SKIP=y NEOgo
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client-go --goonly neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait
+
+	# all ok
+	trap - EXIT
+	exit
 }
 
 # command: run client workload against sepearate server
 cmd_run_client() {
+	goonly=""
+	case "$1" in
+	--goonly)
+		goonly=y
+		shift
+		;;
+	esac
+
 	url=$1
 	test -z "$url" && die "Usage: neotest run-client <url>"
-	bench $url
+
+	test -z "$goonly" && bench $url || bench_go $url
+}
+
+# command: print information about local node
+cmd_info_local() {
+	header
 }
 
 # ---- main driver ----
@@ -519,10 +566,13 @@ The commands are:
 
 	bench-local	run benchmarks when client and server are both on the same localhost
 	bench-cluster	run benchmarks when server is local and client is on another node
+
 	run-client	run client benchmarks against separate server
 
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
+
+	info-local	print information about local deployment
 EOF
 }
 
@@ -542,6 +592,9 @@ bench-cluster)
 	cmd_bench_cluster "$@"
 	;;
 
+info-local)
+	shift
+	cmd_info_local "$@"
 
 -h)
 	usage
