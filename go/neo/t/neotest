@@ -1,5 +1,58 @@
 #!/bin/bash -e
-# neobench: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
+# neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
+
+# ---- deploy NEO for tests/benchmarks at a node ----
+
+# deploy [user@]<host>:<path>	- deploy NEO & needed software for tests there
+# ssh-key or password for access should be available
+deploy() {
+	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
+	path=${1:$((${#host} + 1))}		# path
+	test -z "$host" -o -z "$path" && echo 1>&2 "invalid URL" && exit 1
+	echo -e "\n*** deploying to $@ ..."
+	scp $0 $host:neotest
+	ssh $host ./neotest deploy-local "$path"
+}
+
+# deploy_local <path>		- deploy NEO & needed software for tests @path
+deploy_local() {
+	path=$1
+	test -e $path/deployed && echo "# already deployed" && return
+	mkdir -p $path
+
+	# python part
+	virtualenv $path/venv
+
+	cat >$path/env.sh << 'EOF'
+X=${1:-${BASH_SOURCE[0]}}       # path to original env.sh is explicitly passed
+X=$(cd `dirname $X` && pwd)     # when there is other env.sh wrapping us
+
+export GOPATH=$X:$GOPATH
+export PATH=$X/bin:$PATH
+export PS1="(`basename $X`) $PS1"
+
+# strip trailing : from $GOPATH
+GOPATH=${GOPATH%:}
+. $X/venv/bin/activate
+EOF
+}
+
+# jump to deploy early if we have to
+case "$1" in
+deploy)
+	shift
+	deploy "$@"
+	exit
+	;;
+
+deploy-local)
+	shift
+	deploy_local "$@"
+	exit
+	;;
+esac
+
+# ----------------------------------------
 
 # XXX neo/go - must be `go install'ed`
 # XXX use `go run ...` so it does not need go install?
