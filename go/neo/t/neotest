@@ -3,20 +3,21 @@
 
 # ---- deploy NEO for tests/benchmarks at a node ----
 
-# deploy [user@]<host>:<path>	- deploy NEO & needed software for tests there
+# cmd_deploy [user@]<host>:<path>	- deploy NEO & needed software for tests there
 # ssh-key or password for access should be available
-deploy() {
+cmd_deploy() {
 	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
 	path=${1:$((${#host} + 1))}		# path
-	test -z "$host" -o -z "$path" && echo 1>&2 "invalid URL" && exit 1
+	test -z "$host" -o -z "$path" && echo 1>&2 "Usage: neotest deploy [user@]<host>:<path>" && exit 1
 	echo -e "\n*** deploying to $@ ..."
 	scp $0 $host:neotest
 	ssh $host ./neotest deploy-local "$path"
 }
 
-# deploy_local <path>		- deploy NEO & needed software for tests @path
-deploy_local() {
+# cmd_deploy_local <path>		- deploy NEO & needed software for tests @path
+cmd_deploy_local() {
 	path=$1
+	test-z "$path" && echo 1>&2 "Usage: neotest deploy-local
 	test -e $path/deployed && echo "# already deployed" && return
 	mkdir -p $path
 	cd $path
@@ -62,13 +63,13 @@ EOF
 case "$1" in
 deploy)
 	shift
-	deploy "$@"
+	cmd_deploy "$@"
 	exit
 	;;
 
 deploy-local)
 	shift
-	deploy_local "$@"
+	cmd_deploy_local "$@"
 	exit
 	;;
 esac
@@ -114,7 +115,8 @@ xmysql() {
 }
 
 # if we are abnormally terminating
-trap 'set +e
+install_trap() {
+	trap 'set +e
 echo "E: abnormal termination - stopping..."
 xneoctl set cluster stopping
 sleep 1
@@ -125,6 +127,7 @@ test -z "$j" && exit
 echo "E: killing left jobs..."
 jobs -l
 kill $j' EXIT
+}
 
 # ---- start NEO nodes ----
 
@@ -409,8 +412,13 @@ bench_go() {
 }
 
 
-# benchmark when client and storage are on the same computer
-bench_local() {
+# command: benchmark when client and storage are on the same computer
+cmd_bench_local() {
+	install_trap
+
+	header
+	gen_data
+
 	echo -e "\n*** FileStorage"
 	bench $fs1/data.fs
 
@@ -444,13 +452,42 @@ bench_local() {
 	X_NEOGO_SHA1_SKIP=y bench_go neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
+
+	# all ok
+	trap - EXIT
+	exit
 }
 
 # ---- main driver ----
-header
-gen_data
-bench_local
 
-# all ok
-trap - EXIT
-exit
+usage() {
+cat 1>&2 << 'EOF'
+Neotest is a tool to functionally test and benchmark NEO.
+
+Usage:
+
+	neotest command [arguments]
+
+The commands are:
+
+	bench-local	run benchmarks when client and server are on the same host
+
+	deploy		deploy NEO & needed software for tests to remote host
+	deploy-local	deploy NEO & needed software for tests locally
+EOF
+}
+
+case "$1" in
+bench-local)
+	cmd_bench_local
+	;;
+
+-h)
+	usage
+	exit 0
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac
