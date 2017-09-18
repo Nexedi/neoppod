@@ -93,7 +93,6 @@ on() {
 	ssh $host "bash -c \"test -e $path/deployed || { echo 1>&2 '$url not yet deployed'; exit 1; }
 cd $path
 . env.sh
-set -x
 cd src/lab.nexedi.com/kirr/neo/go/neo/t
 $@
 \""
@@ -439,9 +438,9 @@ bench_go() {
 
 # command: benchmark when client and storage are on the same computer
 cmd_bench_local() {
-	# XXX print it is 'bench-local'
-	install_trap
+	echo -e ">>> bench-local"
 	header
+	install_trap
 	gen_data
 
 	echo -e "\n*** FileStorage"
@@ -488,9 +487,14 @@ cmd_bench_cluster() {
 	url=$1
 	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
 
-	# XXX print it is 'bench-cluster'
-	install_trap
+	echo -e ">>> bench-cluster $url"
+	echo -e "\n# server:"
 	header
+	echo -e "\n# client:"
+	on $url ./neotest info-local
+
+	echo
+	install_trap
 	gen_data
 
 	on $url ./neotest info-local
@@ -522,7 +526,7 @@ cmd_bench_cluster() {
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client-go --goonly neo://$cluster@$Mbind
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
