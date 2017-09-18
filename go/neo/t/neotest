@@ -3,12 +3,17 @@
 
 # ---- deploy NEO for tests/benchmarks at a node ----
 
+die() {
+	echo 2>&1 "$@"
+	exit 1
+}
+
 # cmd_deploy [user@]<host>:<path>	- deploy NEO & needed software for tests there
 # ssh-key or password for access should be available
 cmd_deploy() {
 	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
 	path=${1:$((${#host} + 1))}		# path
-	test -z "$host" -o -z "$path" && echo 1>&2 "Usage: neotest deploy [user@]<host>:<path>" && exit 1
+	test -z "$host" -o -z "$path" && die "Usage: neotest deploy [user@]<host>:<path>"
 	echo -e "\n*** deploying to $@ ..."
 	scp $0 $host:neotest
 	ssh $host ./neotest deploy-local "$path"
@@ -17,7 +22,7 @@ cmd_deploy() {
 # cmd_deploy_local <path>		- deploy NEO & needed software for tests @path
 cmd_deploy_local() {
 	path=$1
-	test -z "$path" && echo 1>&2 "Usage: neotest deploy-local <path>" && exit 1
+	test -z "$path" && die "Usage: neotest deploy-local <path>"
 	test -e $path/deployed && echo "# already deployed" && return
 	mkdir -p $path
 	cd $path
@@ -78,6 +83,19 @@ deploy-local)
 	exit
 	;;
 esac
+
+# on <url> ...		- run ... on deployed url from inside dir of neotest
+on() {
+	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
+	path=${1:$((${#host} + 1))}		# path
+	test -z "$host" -o -z "$path" && die "on $1: invalid URL"
+	ssh $host bash -c "test -e $path/deployed || echo 1>&2 \"$url not yet deployed\";
+cd $path
+. env.sh
+cd src/lab.nexedi.com/kirr/neo/go/neo/t
+$@
+"
+}
 
 # ----------------------------------------
 
@@ -419,8 +437,8 @@ bench_go() {
 
 # command: benchmark when client and storage are on the same computer
 cmd_bench_local() {
+	# XXX print it is 'bench-local'
 	install_trap
-
 	header
 	gen_data
 
@@ -463,6 +481,23 @@ cmd_bench_local() {
 	exit
 }
 
+# command: benchmark when server runs locally and client is on another node
+cmd_bench_cluster() {
+	url=$1
+	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
+
+	# XXX print it is 'bench-cluster'
+	install_trap
+	header
+	gen_data
+
+	echo -e "\n*** ZEO"
+	Zpy $fs1/data.fs
+	on $url ./neotest run-client zeo://$Zbind
+	killall runzeo
+	wait
+}
+
 # ---- main driver ----
 
 usage() {
@@ -475,7 +510,9 @@ Usage:
 
 The commands are:
 
-	bench-local	run benchmarks when client and server are on the same host
+	bench-local	run benchmarks when client and server are both on the same localhost
+	bench-cluster	run benchmarks when server is local and client is on another node
+	run-client	run client benchmarks against separate server
 
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
@@ -486,6 +523,15 @@ case "$1" in
 bench-local)
 	cmd_bench_local
 	;;
+
+bench-client)
+	cmd_bench_client
+	;;
+
+bench-cluster)
+	cmd_bench_cluster
+	;;
+
 
 -h)
 	usage
