@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
+# neobench: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
 
 # XXX neo/go - must be `go install'ed`
 # XXX use `go run ...` so it does not need go install?
@@ -230,16 +230,17 @@ GENsql() {
 	touch $var/generated.sql
 }
 
+# generate all test databases
+gen_data() {
+	GENfs
+	GENsqlite
+	GENsql
+	wait
+	sync
+}
+
 
 # ---- main driver ----
-
-# data/versions
-echo -n "# "; date --rfc-2822
-echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
-echo -n "# "; uname -a
-echo -n "# "; python --version
-echo -n "# "; go version
-echo -n "# "; mysqld --version
 
 # pyver <egg> (<showas>) - print version of egg
 pyver() {
@@ -258,18 +259,22 @@ pyver() {
 	test "$gitver" != "" && ver="$gitver" || ver="$pyver"
 	printf "# %-16s: %s\n" "$showas" "$ver"
 }
-pyver neoppod neo
-pyver zodb
-pyver zeo
-pyver mysqlclient
-pyver wendelin.core
 
-# generate test databases
-GENfs
-GENsqlite
-GENsql
-wait
-sync
+# show data/versions
+header() {
+	echo -n "# "; date --rfc-2822
+	echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+	echo -n "# "; uname -a
+	echo -n "# "; python --version
+	echo -n "# "; go version
+	echo -n "# "; mysqld --version
+
+	pyver neoppod neo
+	pyver zodb
+	pyver zeo
+	pyver mysqlclient
+	pyver wendelin.core
+}
 
 # build go client
 # (we run it several times and in parallel - for go build not to infere with benchmarking)
@@ -279,15 +284,15 @@ go build -o zhash_go zhash.go
 Nrun=4		# repeat benchmarks N time
 Npar=8		# run so many parallel clients in parallel phase
 
-# nrun ...	- run ... Nrun times
+# nrun ...	- run ... $Nrun times serially
 nrun() {
 	for i in `seq $Nrun`; do
 		"$@"
 	done
 }
 
-# runpar ...	- run several program instances in parallel
-runpar() {
+# nrunpar ...	- run $Npar ... instances in parallel and wait for completion
+nrunpar() {
 	local jobv
 	for i in `seq $Npar`; do
 		"$@" &
@@ -298,8 +303,8 @@ runpar() {
 
 #hashfunc=sha1
 #hashfunc=adler32
-#hashfunc=crc32
-hashfunc=null
+hashfunc=crc32
+#hashfunc=null
 
 # bench <url>	- run benchmarks against URL
 bench() {
@@ -308,7 +313,7 @@ bench() {
 
 	nrun ./zhash.py --$hashfunc $url
 #	echo -e "\n# ${Npar} clients in parallel"
-#	runpar ./zhash.py --$hashfunc $url
+#	nrunpar ./zhash.py --$hashfunc $url
 
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
@@ -325,42 +330,50 @@ bench_go() {
 #	nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
 
 #	echo -e "\n# ${Npar} clients in parallel"
-#	runpar ./zhash_go --log_dir=$log -$hashfunc $url
+#	nrunpar ./zhash_go --log_dir=$log -$hashfunc $url
 }
 
-echo -e "\n*** FileStorage"
-bench $fs1/data.fs
 
-echo -e "\n*** ZEO"
-Zpy $fs1/data.fs
-bench zeo://$Zbind
-killall runzeo
-wait
+# benchmark when client and storage are on the same computer
+bench_local() {
+	echo -e "\n*** FileStorage"
+	bench $fs1/data.fs
 
-echo -e "\n*** NEO/py sqlite"
-NEOpylite
-bench neo://$cluster@$Mbind
-xneoctl set cluster stopping
-wait
+	echo -e "\n*** ZEO"
+	Zpy $fs1/data.fs
+	bench zeo://$Zbind
+	killall runzeo
+	wait
 
-echo -e "\n*** NEO/py sql"
-NEOpysql
-bench neo://$cluster@$Mbind
-xneoctl set cluster stopping
-xmysql -e "SHUTDOWN"
-wait
+	echo -e "\n*** NEO/py sqlite"
+	NEOpylite
+	bench neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait
 
-echo -e "\n*** NEO/go"
-NEOgo
-bench neo://$cluster@$Mbind
-xneoctl set cluster stopping
-wait
+	echo -e "\n*** NEO/py sql"
+	NEOpysql
+	bench neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	xmysql -e "SHUTDOWN"
+	wait
 
-echo -e "\n*** NEO/go (sha1 disabled)"
-X_NEOGO_SHA1_SKIP=y NEOgo
-X_NEOGO_SHA1_SKIP=y bench_go neo://$cluster@$Mbind
-xneoctl set cluster stopping
-wait
+	echo -e "\n*** NEO/go"
+	NEOgo
+	bench neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/go (sha1 disabled)"
+	X_NEOGO_SHA1_SKIP=y NEOgo
+	X_NEOGO_SHA1_SKIP=y bench_go neo://$cluster@$Mbind
+	xneoctl set cluster stopping
+	wait
+}
+
+header()
+gen_data()
+bench_local()
 
 # all ok
 trap - EXIT
