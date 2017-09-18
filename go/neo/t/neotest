@@ -36,6 +36,9 @@ export PS1="(`basename $X`) $PS1"
 # strip trailing : from $GOPATH
 GOPATH=${GOPATH%:}
 . $X/venv/bin/activate
+
+# XXX for mysqld
+export PATH=$PATH:/usr/sbin
 EOF
 
 	. env.sh
@@ -55,8 +58,10 @@ EOF
 	popd
 
 	go get -v lab.nexedi.com/kirr/neo/go/...
+	go get -v github.com/pkg/profile		# used by zhash.go
 
 	echo ok >deployed
+	echo "# deployed ok"
 }
 
 # jump to deploy early if we have to
@@ -322,7 +327,7 @@ gen_data() {
 
 # pyver <egg> (<showas>) - print version of egg
 pyver() {
-	return	# XXX temp to save time
+	#return	# XXX temp to save time
 	local egg=$1
 	local showas=$2
 	test "$showas" == "" && showas=$egg
