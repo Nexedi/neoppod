@@ -107,16 +107,17 @@ $@
 # XXX neo/py, wendelin.core, ... - must be pip install'ed
 # XXX neo/py: run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
 
+# local IPv6 address
+myaddr6=$(getent hosts `hostname` |awk '{print $1}')
 
 # port allocations
-# XXX 127.0.0.1 -> `hostname`? (or `hostname -i`)? or use @addr option? (-> -bindif=...)
-Abind=127.0.0.1:5551	# NEO admin
-Mbind=127.0.0.1:5552	# NEO master
-Zbind=127.0.0.1:5553	# ZEO
+Abind=[$myaddr6]:5551	# NEO admin
+Mbind=[$myaddr6]:5552	# NEO master
+Zbind=[$myaddr6]:5553	# ZEO
 
 # NEO storage. bind not strictly needed but we make sure no 2 storages are
 # started at the same time
-Sbind=127.0.0.1:5554
+Sbind=[$myaddr6]:5554
 
 # disk allocation
 log=`pwd`/log;		mkdir -p $log
@@ -367,7 +368,7 @@ pyver() {
 # show data/versions
 header() {
 	echo -n "# "; date --rfc-2822
-	echo    "# `whoami`@`hostname --fqdn`";
+	echo    "# `whoami`@`hostname --fqdn` ($myaddr6)";
 	echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 	echo -n "# "; uname -a
 	echo -n "# "; python --version
