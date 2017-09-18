@@ -595,6 +595,7 @@ bench-cluster)
 info-local)
 	shift
 	cmd_info_local "$@"
+	;;
 
 -h)
 	usage
