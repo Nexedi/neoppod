@@ -490,19 +490,18 @@ cmd_bench_cluster() {
 	url=$1
 	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
 
-	#echo -e ">>> bench-cluster $url"
-	#echo -e "\n# server:"
-	#header
-	#echo -e "\n# client:"
-	#on $url ./neotest info-local
+	echo -e ">>> bench-cluster $url"
+	echo -e "\n# server:"
+	header
+	echo -e "\n# client:"
+	on $url ./neotest info-local
 
 	echo -e "\n# link latency:"
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
-	echo "# `hostname` ⇄ $peer"
-	ping -i200 -w 3 -q $peer	# XXX 200 -> 0
-	echo "# $peer ⇄ `hostname`"
-	on $url "ping -i200 -w3 -q \$(echo \${SSH_CONNECTION%% *})"	# XXX 200 -> 0
-	return
+	echo -e "# `hostname` ⇄ $peer"
+	sudo -n ping -i0 -w 3 -q $peer	|| echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"
+	echo -e "\n# $peer ⇄ `hostname`"
+	on $url "sudo -n ping -i0 -w3 -q \$(echo \${SSH_CONNECTION%% *}) || echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\""
 
 	echo
 	install_trap
