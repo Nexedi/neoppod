@@ -17,7 +17,7 @@ cmd_deploy() {
 # cmd_deploy_local <path>		- deploy NEO & needed software for tests @path
 cmd_deploy_local() {
 	path=$1
-	test-z "$path" && echo 1>&2 "Usage: neotest deploy-local
+	test -z "$path" && echo 1>&2 "Usage: neotest deploy-local <path>" && exit 1
 	test -e $path/deployed && echo "# already deployed" && return
 	mkdir -p $path
 	cd $path
