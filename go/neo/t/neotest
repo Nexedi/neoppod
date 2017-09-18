@@ -494,6 +494,14 @@ cmd_bench_cluster() {
 	echo -e "\n# client:"
 	on $url ./neotest info-local
 
+	echo -e "\n# link latency:"
+	peer=`python -c 'import urlparse as p; u=p.urlparse("$url"); print u.hostname'`
+	echo "# . ⇄ $peer"
+	ping -i0 -w 3 -q $peer
+	echo "# $peer ⇄ ."
+	# neotest  pts/3        2017-09-18 17:31 2401:5180:0:37::1
+	on $url 'ping -i0 -w3 -q who -m --ips | awk \'{print $5}\''
+
 	echo
 	install_trap
 	gen_data
