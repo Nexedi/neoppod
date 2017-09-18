@@ -19,11 +19,12 @@ deploy_local() {
 	path=$1
 	test -e $path/deployed && echo "# already deployed" && return
 	mkdir -p $path
+	cd $path
 
 	# python part
-	virtualenv $path/venv
+	virtualenv venv
 
-	cat >$path/env.sh << 'EOF'
+	cat >env.sh << 'EOF'
 X=${1:-${BASH_SOURCE[0]}}       # path to original env.sh is explicitly passed
 X=$(cd `dirname $X` && pwd)     # when there is other env.sh wrapping us
 
@@ -35,6 +36,26 @@ export PS1="(`basename $X`) $PS1"
 GOPATH=${GOPATH%:}
 . $X/venv/bin/activate
 EOF
+
+	. env.sh
+
+	pip install git+https://lab.nexedi.com/nexedi/wendelin.core.git@master	# XXX does not show git in ver
+	pip install zodbtools
+
+	mkdir -p src/lab.nexedi.com/kirr
+	pushd src/lab.nexedi.com/kirr
+	test -d neo || git clone -o kirr https://lab.nexedi.com/kirr/neo.git neo
+	cd neo
+	git fetch kirr refs/backup/t:refs/kirr-backup/t			# XXX temp
+	git checkout refs/kirr-backup/t
+
+	pip install -e .
+	pip install mysqlclient		# XXX better ^^^ `pip install .` pick this up
+	popd
+
+	go get -v lab.nexedi.com/kirr/neo/go/...
+
+	echo ok >deployed
 }
 
 # jump to deploy early if we have to
