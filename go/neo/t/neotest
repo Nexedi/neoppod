@@ -365,6 +365,7 @@ pyver() {
 # show data/versions
 header() {
 	echo -n "# "; date --rfc-2822
+	echo    "# `whoami`@`hostname --fqdn`";
 	echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 	echo -n "# "; uname -a
 	echo -n "# "; python --version
@@ -496,8 +497,6 @@ cmd_bench_cluster() {
 	echo
 	install_trap
 	gen_data
-
-	on $url ./neotest info-local
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
