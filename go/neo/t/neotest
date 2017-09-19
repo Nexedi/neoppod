@@ -40,7 +40,12 @@ export PS1="(`basename $X`) $PS1"
 
 # strip trailing : from $GOPATH
 GOPATH=${GOPATH%:}
+
+# python
 . $X/venv/bin/activate
+
+# lmbench
+export PATH=$X/lmbench/lmbench3/bin/`cd $X/lmbench/lmbench3/src; ../scripts/os`:$PATH
 
 # XXX for mysqld
 export PATH=$PATH:/usr/sbin
@@ -65,6 +70,12 @@ EOF
 
 	go get -v lab.nexedi.com/kirr/neo/go/...
 	go get -v github.com/pkg/profile		# used by zhash.go
+
+	git clone https://lab.nexedi.com/kirr/lmbench.git
+	pushd lmbench/lmbench3/src
+	make -j`nproc`
+	go build -o ../bin/`../scripts/os`/tcp_lat_go lat_tcp.go
+	popd
 
 	echo ok >deployed
 	echo "# deployed ok"
@@ -502,11 +513,27 @@ cmd_bench_cluster() {
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
 	sizev="56 1472"
 	for size in $sizev; do
-		echo -e "\n# `hostname` ⇄ $peer (${size}B)"
+		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
 		sudo -n ping -i0 -w 3 -s $size -q $peer	|| echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"
-		echo -e "\n# $peer ⇄ `hostname` (${size}B)"
+		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
 		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\""
 	done
+
+	echo -e "\n*** TCP latency:"
+	sizev="1 1472 4096"
+	for size in $sizev; do
+		echo -e "\n# `hostname` ⇄ $peer (lat_tcp ${size}B)"
+		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
+		nrun lat_tcp -m $size $peer
+		lat_tcp -S $peer
+
+		echo -e "\n# $peer ⇄ `hostname` (lat_tcp ${size}B)"
+		lat_tcp -s
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
+		lat_tcp -S localhost
+	done
+
+	return
 
 
 	echo
