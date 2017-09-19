@@ -522,18 +522,26 @@ cmd_bench_cluster() {
 	echo -e "\n*** TCP latency:"
 	sizev="1 1472 4096"
 	for size in $sizev; do
-		echo -e "\n# `hostname` ⇄ $peer (lat_tcp ${size}B)"
+		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
 		nrun lat_tcp -m $size $peer
 		lat_tcp -S $peer
 
-		echo -e "\n# $peer ⇄ `hostname` (lat_tcp ${size}B)"
+		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
+		nrun lat_tcp -m $size $peer
+		lat_tcp -S $peer
+
+		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		lat_tcp -s
 		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
 		lat_tcp -S localhost
-	done
 
-	return
+		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		lat_tcp_go -s 2>/dev/null &
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
+		lat_tcp -S localhost
+	done
 
 
 	echo
