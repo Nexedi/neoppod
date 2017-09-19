@@ -199,7 +199,7 @@ loop:
 	tend := time.Now()
 	δt := tend.Sub(tstart)
 
-	x := "zsha1.go"
+	x := "zhash.go"
 	if useprefetch {
 		x += " +prefetch"
 	}

@@ -131,7 +131,7 @@ def main():
         tend = time()
         dt = tend - tstart
 
-        print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=zsha1.py' % \
+        print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=zhash.py' % \
                 (h.name, h.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid))
 
 
