@@ -1,0 +1,88 @@
+>>> bench-local
+# Wed, 20 Sep 2017 21:57:02 +0200
+# test@neo1.kirr.nexedi.com (2001:67c:1254:e:d4::1)
+# Intel(R) Core(TM) i7 CPU         860  @ 2.80GHz
+# Linux neo1.kirr.nexedi.com 3.16.0-4-amd64 #1 SMP Debian 3.16.43-2+deb8u2 (2017-06-26) x86_64 GNU/Linux
+# Python 2.7.13
+# go version go1.9 linux/amd64
+# mysqld  Ver 10.1.26-MariaDB-1 for debian-linux-gnu on x86_64 (Debian unstable)
+# neo             : v1.8-1216-gded384c-dirty
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+*** FileStorage
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=0.265s (31.1μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=0.267s (31.5μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=0.262s (30.9μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=0.260s (30.6μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=31.703182ms (3.729µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=32.160185ms (3.783µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=31.594684ms (3.717µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=30.648963ms (3.605µs / object)  x=zhash.go
+
+*** ZEO
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.242s (499.0μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.323s (508.6μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.381s (515.4μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.358s (512.7μs / object)  x=zhash.py
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.681s (786.0μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.248s (617.4μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.854s (688.7μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.501s (647.2μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.584077566s (421.656µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.615560835s (425.36µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.58640449s (421.929µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.590392747s (422.399µs / object)  x=zhash.go
+2017-09-20 21:58:04.7122 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-09-20 21:58:04 139904481396672 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 26954 ...
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.674s (1491.1μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.315s (1448.8μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=13.238s (1557.4μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.275s (1444.1μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.5738772s (891.044µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.302343756s (859.099µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.533243474s (886.263µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.340975563s (863.644µs / object)  x=zhash.go
+2017-09-20 21:59:27.7717 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+2017-09-20 21:59:30.7949 ERROR     NEO        [           app:233] Connection to None lost
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.641s (310.7μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.051s (358.9μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.702s (317.9μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.037s (357.3μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=716.247199ms (84.264µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=688.002545ms (80.941µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=665.801638ms (78.329µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=616.612362ms (72.542µs / object)  x=zhash.go
+E0920 21:59:47.318996   27221 storage.go:120] storage([2001:67c:1254:e:d4::1]:5554): accept: accept tcp [2001:67c:1254:e:d4::1]:5554: use of closed network connection
+2017/09/20 21:59:47 talk master([2001:67c:1254:e:d4::1]:5552): context canceled
+2017-09-20 21:59:47.3177 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=427.740278ms (50.322µs / object)  x=zhash.go
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=415.336053ms (48.863µs / object)  x=zhash.go
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=406.922174ms (47.873µs / object)  x=zhash.go
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=439.575328ms (51.714µs / object)  x=zhash.go
+2017/09/20 21:59:51 talk master([2001:67c:1254:e:d4::1]:5552): context canceled
+2017-09-20 21:59:51.2409 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
