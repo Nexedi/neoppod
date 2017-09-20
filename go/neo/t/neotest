@@ -120,7 +120,7 @@ $@
 # XXX neo/py: run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
 
 # local IPv6 address
-myaddr6=$(getent hosts `hostname` |awk '{print $1}')
+myaddr6=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
 
 # port allocations
 Abind=[$myaddr6]:5551	# NEO admin
