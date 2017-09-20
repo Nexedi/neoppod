@@ -74,7 +74,7 @@ EOF
 	git clone https://lab.nexedi.com/kirr/lmbench.git
 	pushd lmbench/lmbench3/src
 	make -j`nproc`
-	go build -o ../bin/`../scripts/os`/tcp_lat_go lat_tcp.go
+	go build -o ../bin/`../scripts/os`/lat_tcp_go lat_tcp.go
 	popd
 
 	echo ok >deployed
