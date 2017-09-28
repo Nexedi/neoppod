@@ -456,6 +456,20 @@ nrunpar() {
 	wait $jobv
 }
 
+# bench_disk	- print disk identification and benchmark direct (uncached) and cached random reads
+bench_disk() {
+	echo -e "\n*** random direct (no kernel cache) 4K-read disk latency"
+	nrun ioping -D -i 0ms -s 4k -S 1024M -w 3s -q -k .
+
+	echo -e "\n*** random cached 4K-read disk latency"
+	# warmup so kernel puts the file into pagecache
+	for i in `seq 3`; do
+		cat ioping.tmp >/dev/null
+	done
+
+	nrun ioping -C -i 0ms -s 4k -S 1024M -w 3s -q -k .
+}
+
 #hashfunc=sha1
 #hashfunc=adler32
 hashfunc=crc32
@@ -493,6 +507,7 @@ bench_go() {
 cmd_bench-local() {
 	echo -e ">>> bench-local"
 	header
+	bench_disk
 	install_trap
 	gen_data
 
@@ -545,6 +560,9 @@ cmd_bench-cluster() {
 	header
 	echo -e "\n# client:"
 	on $url ./neotest info-local
+
+	echo -e "\n*** server disk:"
+	bench_disk
 
 	echo -e "\n*** link latency:"
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`

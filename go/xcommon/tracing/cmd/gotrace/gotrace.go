@@ -31,6 +31,10 @@ XXX tracepoints this package imports
 See package lab.nexedi.com/kirr/go123/tracing documentation on how to define
 and use trace events in programs. XXX
 
+TODO automatically turn every trace:event in an USDT probe so that they can be
+traced from outside of the process too.
+See e.g. https://github.com/iovisor/bcc/issues/327 for context.
+
 FIXME build tags not taken into account
 */
 package main
