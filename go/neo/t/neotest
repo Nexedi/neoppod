@@ -384,11 +384,44 @@ pyver() {
 	printf "# %-16s: %s\n" "$showas" "$ver"
 }
 
-# show data/versions
+# lspci1 <pcidev> <field>	- show <field> from lspci information about <pcidev>
+lspci1() {
+	lspci -vmm -s $1 |grep "^$2:\\s*" |sed -e "s/^$2:\\s*//"
+}
+
+# show date/hardware/versions
 header() {
 	echo -n "# "; date --rfc-2822
 	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
-	echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+	echo -n "# cpu: "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+
+	# disk under .
+	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
+	mntdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
+	blkdev=`echo $mntdev |sed -e 's/[0-9]*$//'`	# /dev/sda3 -> /dev/sda
+	blkdev1=`basename $blkdev`			# /dev/sda  -> sda
+	echo "# $blkdev1: `lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
+
+	# all NICs
+	find /sys/class/net -type l -not -lname '*virtual*' | \
+	while read nic; do
+		nicname=`basename $nic`		# /sys/class/net/eth0	-> eth0
+		echo -n "# $nicname: "
+		nicdev=`realpath $nic/device`	# /sys/class/net/eth0	-> /sys/devices/pci0000:00/0000:00:1f.6
+
+		case "$nicdev" in
+		*pci*)
+			pcidev=`basename $nicdev`	# /sys/devices/pci0000:00/0000:00:1f.6	-> 0000:00:1f.6
+			#lspci -s $pcidev
+			echo "`lspci1 $pcidev Vendor` `lspci1 $pcidev Device` rev `lspci1 $pcidev Rev`"
+			;;
+
+		*)
+			echo "$nicdev (TODO)"
+			;;
+		esac
+	done
+
 	echo -n "# "; uname -a
 	echo -n "# "; python --version
 	echo -n "# "; go version
