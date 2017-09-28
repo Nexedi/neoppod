@@ -47,9 +47,19 @@ GOPATH=${GOPATH%:}
 # lmbench
 export PATH=$X/lmbench/lmbench3/bin/`cd $X/lmbench/lmbench3/src; ../scripts/os`:$PATH
 
+# ioping
+export PATH=$X/ioping:$PATH
+
 # XXX for mysqld
 export PATH=$PATH:/usr/sbin
 EOF
+
+	# NOTE lmbench before env.sh becuase env.sh uses `scripts/os` from lmbench
+	git clone -o kirr -b x/kirr https://lab.nexedi.com/kirr/lmbench.git
+	pushd lmbench/lmbench3/src
+	make -j`nproc`
+	go build -o ../bin/`../scripts/os`/lat_tcp_go lat_tcp.go
+	popd
 
 	. env.sh
 
@@ -71,10 +81,9 @@ EOF
 	go get -v lab.nexedi.com/kirr/neo/go/...
 	go get -v github.com/pkg/profile		# used by zhash.go
 
-	git clone https://lab.nexedi.com/kirr/lmbench.git
-	pushd lmbench/lmbench3/src
+	git clone -o kirr -b x/hist https://lab.nexedi.com/kirr/ioping.git
+	pushd ioping
 	make -j`nproc`
-	go build -o ../bin/`../scripts/os`/lat_tcp_go lat_tcp.go
 	popd
 
 	echo ok >deployed
@@ -114,22 +123,20 @@ $@
 
 # ----------------------------------------
 
-# XXX neo/go - must be `go install'ed`
-# XXX use `go run ...` so it does not need go install?
 # XXX neo/py, wendelin.core, ... - must be pip install'ed
 # XXX neo/py: run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
 
-# local IPv6 address
-myaddr6=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
+# local external address IPv4 or IPv6
+myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
 
-# port allocations
-Abind=[$myaddr6]:5551	# NEO admin
-Mbind=[$myaddr6]:5552	# NEO master
-Zbind=[$myaddr6]:5553	# ZEO
+# port allocations ([] works for IPv4 too)
+Abind=[$myaddr]:5551	# NEO admin
+Mbind=[$myaddr]:5552	# NEO master
+Zbind=[$myaddr]:5553	# ZEO
 
 # NEO storage. bind not strictly needed but we make sure no 2 storages are
 # started at the same time
-Sbind=[$myaddr6]:5554
+Sbind=[$myaddr]:5554
 
 # disk allocation
 log=`pwd`/log;		mkdir -p $log
@@ -380,11 +387,12 @@ pyver() {
 # show data/versions
 header() {
 	echo -n "# "; date --rfc-2822
-	echo    "# `whoami`@`hostname --fqdn` ($myaddr6)";
+	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
 	echo -n "# "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 	echo -n "# "; uname -a
 	echo -n "# "; python --version
 	echo -n "# "; go version
+	echo -n "# "; python -c 'import sqlite3 as s; print "sqlite %s (py mod %s)" % (s.sqlite_version, s.version)'
 	echo -n "# "; mysqld --version
 
 	pyver neoppod neo
@@ -393,10 +401,6 @@ header() {
 	pyver mysqlclient
 	pyver wendelin.core
 }
-
-# build go client
-# (we run it several times and in parallel - for go build not to infere with benchmarking)
-go build -o zhash_go zhash.go
 
 # run benchmarks
 Nrun=4		# repeat benchmarks N time
@@ -453,7 +457,7 @@ bench_go() {
 
 
 # command: benchmark when client and storage are on the same computer
-cmd_bench_local() {
+cmd_bench-local() {
 	echo -e ">>> bench-local"
 	header
 	install_trap
@@ -499,7 +503,7 @@ cmd_bench_local() {
 }
 
 # command: benchmark when server runs locally and client is on another node
-cmd_bench_cluster() {
+cmd_bench-cluster() {
 	url=$1
 	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
 
@@ -585,7 +589,7 @@ cmd_bench_cluster() {
 }
 
 # command: run client workload against sepearate server
-cmd_run_client() {
+cmd_run-client() {
 	goonly=""
 	case "$1" in
 	--goonly)
@@ -601,14 +605,14 @@ cmd_run_client() {
 }
 
 # command: print information about local node
-cmd_info_local() {
+cmd_info-local() {
 	header
 }
 
 # ---- main driver ----
 
 usage() {
-cat 1>&2 << 'EOF'
+cat 1>&2 << EOF
 Neotest is a tool to functionally test and benchmark NEO.
 
 Usage:
@@ -630,24 +634,16 @@ EOF
 }
 
 case "$1" in
-bench-local)
-	shift
-	cmd_bench_local "$@"
-	;;
-
-run-client)
-	shift
-	cmd_run_client "$@"
-	;;
-
+# commands that require build
+bench-local	| \
+run-client	| \
 bench-cluster)
-	shift
-	cmd_bench_cluster "$@"
 	;;
 
 info-local)
 	shift
-	cmd_info_local "$@"
+	cmd_info-local "$@"
+	exit 0
 	;;
 
 -h)
@@ -659,3 +655,13 @@ info-local)
 	exit 1
 	;;
 esac
+
+
+# rebuild go bits
+go install -v lab.nexedi.com/kirr/neo/go/...
+go build -o zhash_go zhash.go
+
+# run the command
+cmd="$1"
+shift
+cmd_$cmd "$@"
