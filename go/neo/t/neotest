@@ -561,7 +561,7 @@ cmd_bench-cluster() {
 	echo -e "\n# client:"
 	on $url ./neotest info-local
 
-	echo -e "\n# server disk:"
+	echo -e "\n*** server disk:"
 	bench_disk
 
 	echo -e "\n*** link latency:"
