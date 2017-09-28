@@ -1,0 +1,453 @@
+>>> bench-cluster test@neo2:t2
+
+# server:
+# Thu, 28 Sep 2017 11:46:34 +0200
+# test@neo1.kirr.nexedi.com (192.168.102.20)
+# cpu: Intel(R) Core(TM) i7 CPU         860  @ 2.80GHz
+# sda: INTEL SSDSA2M080  rev 02HD 74.5G
+# eth0: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller rev 03
+# Linux neo1.kirr.nexedi.com 4.12.0-2-amd64 #1 SMP Debian 4.12.13-1 (2017-09-19) x86_64 GNU/Linux
+# Python 2.7.13
+# go version go1.9 linux/amd64
+# sqlite 3.20.1 (py mod 2.6.0)
+# mysqld  Ver 10.1.26-MariaDB-1 for debian-linux-gnu on x86_64 (Debian unstable)
+# neo             : v1.8-1224-g26c99ed
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+# client:
+# Thu, 28 Sep 2017 11:46:36 +0200
+# test@neo2.kirr.nexedi.com (192.168.102.21)
+# cpu: Intel(R) Core(TM) i7 CPU         860  @ 2.80GHz
+# sda: INTEL SSDSC2CW12  rev 400i 111.8G
+# eth0: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller rev 03
+# Linux neo2.kirr.nexedi.com 4.12.0-2-amd64 #1 SMP Debian 4.12.13-1 (2017-09-19) x86_64 GNU/Linux
+# Python 2.7.13
+# go version go1.9 linux/amd64
+# sqlite 3.20.1 (py mod 2.6.0)
+# mysqld  Ver 10.1.26-MariaDB-1 for debian-linux-gnu on x86_64 (Debian unstable)
+# neo             : v1.8-1224-g26c99ed
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+# server disk:
+
+*** random direct (no kernel cache) 4K-read disk latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+16.1 k requests completed in 2.97 s, 63.0 MiB read, 5.43 k iops, 21.2 MiB/s
+generated 16.1 k requests in 3.00 s, 63.0 MiB, 5.38 k iops, 21.0 MiB/s
+min/avg/max/mdev = 153.3 us / 184.0 us / 373.8 us / 14.9 us
+< 159.3 us	2	| 
+< 162.6 us	464	| *
+< 166.0 us	1646	| *****
+< 169.4 us	78	| 
+< 172.7 us	190	| 
+< 176.1 us	1242	| ***
+< 179.4 us	1337	| ****
+< 182.8 us	4643	| **************
+< 186.2 us	318	| 
+< 189.5 us	115	| 
+< 192.9 us	2050	| ******
+< 196.2 us	3165	| *********
+< 199.6 us	123	| 
+< 203.0 us	49	| 
+< 206.3 us	45	| 
+< 209.7 us	29	| 
+< 213.1 us	27	| 
+< 216.4 us	27	| 
+< 219.8 us	43	| 
+< 223.1 us	72	| 
+< 226.5 us	36	| 
+<       +∞	336	| *
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+15.8 k requests completed in 2.97 s, 61.9 MiB read, 5.34 k iops, 20.9 MiB/s
+generated 15.9 k requests in 3.00 s, 61.9 MiB, 5.28 k iops, 20.6 MiB/s
+min/avg/max/mdev = 149.8 us / 187.1 us / 561.2 us / 12.2 us
+< 159.3 us	6	| 
+< 163.6 us	305	| 
+< 167.8 us	98	| 
+< 172.1 us	122	| 
+< 176.3 us	331	| *
+< 180.6 us	3820	| ************
+< 184.8 us	3429	| **********
+< 189.1 us	138	| 
+< 193.3 us	3964	| ************
+< 197.5 us	3032	| *********
+< 201.8 us	68	| 
+< 206.0 us	44	| 
+< 210.3 us	22	| 
+< 214.5 us	21	| 
+< 218.8 us	23	| 
+< 223.0 us	52	| 
+< 227.2 us	29	| 
+< 231.5 us	46	| 
+< 235.7 us	53	| 
+< 240.0 us	32	| 
+< 244.2 us	27	| 
+<       +∞	88	| 
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+15.7 k requests completed in 2.94 s, 61.4 MiB read, 5.35 k iops, 20.9 MiB/s
+generated 15.7 k requests in 3.00 s, 61.4 MiB, 5.24 k iops, 20.5 MiB/s
+min/avg/max/mdev = 154.4 us / 186.8 us / 541.1 us / 14.2 us
+< 159.4 us	5	| 
+< 165.5 us	803	| **
+< 171.7 us	478	| *
+< 177.9 us	901	| **
+< 184.0 us	6272	| *******************
+< 190.2 us	279	| 
+< 196.3 us	5687	| ******************
+< 202.5 us	238	| 
+< 208.6 us	244	| 
+< 214.8 us	187	| 
+< 220.9 us	200	| 
+< 227.1 us	79	| 
+< 233.2 us	57	| 
+< 239.4 us	52	| 
+< 245.5 us	35	| 
+< 251.7 us	16	| 
+< 257.8 us	16	| 
+< 264.0 us	12	| 
+< 270.1 us	4	| 
+< 276.3 us	6	| 
+< 282.4 us	7	| 
+<       +∞	39	| 
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+16.6 k requests completed in 2.97 s, 64.8 MiB read, 5.58 k iops, 21.8 MiB/s
+generated 16.6 k requests in 3.00 s, 64.8 MiB, 5.53 k iops, 21.6 MiB/s
+min/avg/max/mdev = 149.2 us / 179.3 us / 585.5 us / 14.6 us
+< 159.1 us	8	| 
+< 165.9 us	4171	| ************
+< 172.7 us	354	| *
+< 179.6 us	4308	| ************
+< 186.4 us	3571	| **********
+< 193.2 us	1642	| ****
+< 200.0 us	1970	| *****
+< 206.8 us	70	| 
+< 213.6 us	56	| 
+< 220.4 us	45	| 
+< 227.2 us	109	| 
+< 234.0 us	47	| 
+< 240.8 us	39	| 
+< 247.6 us	20	| 
+< 254.4 us	11	| 
+< 261.2 us	6	| 
+< 268.0 us	17	| 
+< 274.8 us	5	| 
+< 281.6 us	18	| 
+< 288.4 us	6	| 
+< 295.2 us	6	| 
+<       +∞	11	| 
+
+*** random cached 4K-read disk latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+3.83 M requests completed in 2.74 s, 14.6 GiB read, 1.40 M iops, 5.34 GiB/s
+generated 3.83 M requests in 3.00 s, 14.6 GiB, 1.28 M iops, 4.87 GiB/s
+min/avg/max/mdev = 325 ns / 714 ns / 1.00 ms / 805 ns
+< 676 ns	1052117	| *************
+< 851 ns	2677101	| **********************************
+< 1.03 us	92664	| *
+< 1.20 us	5023	| 
+< 1.38 us	988	| 
+< 1.55 us	353	| 
+< 1.73 us	623	| 
+< 1.90 us	157	| 
+< 2.08 us	41	| 
+< 2.25 us	53	| 
+< 2.43 us	39	| 
+< 2.60 us	25	| 
+< 2.78 us	17	| 
+< 2.95 us	13	| 
+< 3.13 us	11	| 
+< 3.30 us	5	| 
+< 3.48 us	34	| 
+< 3.65 us	230	| 
+< 3.83 us	108	| 
+< 4.00 us	15	| 
+< 4.18 us	32	| 
+<       +∞	960	| 
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+3.84 M requests completed in 2.73 s, 14.7 GiB read, 1.41 M iops, 5.37 GiB/s
+generated 3.84 M requests in 3.00 s, 14.7 GiB, 1.28 M iops, 4.89 GiB/s
+min/avg/max/mdev = 318 ns / 710 ns / 150.8 us / 518 ns
+< 501 ns	17252	| 
+< 669 ns	957429	| ************
+< 838 ns	2747682	| ***********************************
+< 1.01 us	114555	| *
+< 1.18 us	4770	| 
+< 1.34 us	756	| 
+< 1.51 us	244	| 
+< 1.68 us	442	| 
+< 1.85 us	181	| 
+< 2.02 us	51	| 
+< 2.19 us	34	| 
+< 2.35 us	40	| 
+< 2.52 us	15	| 
+< 2.69 us	16	| 
+< 2.86 us	11	| 
+< 3.03 us	3	| 
+< 3.20 us	4	| 
+< 3.37 us	2	| 
+< 3.53 us	65	| 
+< 3.70 us	213	| 
+< 3.87 us	43	| 
+<       +∞	917	| 
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+3.86 M requests completed in 2.73 s, 14.7 GiB read, 1.41 M iops, 5.39 GiB/s
+generated 3.86 M requests in 3.00 s, 14.7 GiB, 1.29 M iops, 4.90 GiB/s
+min/avg/max/mdev = 317 ns / 708 ns / 117.5 us / 464 ns
+< 583 ns	56020	| 
+< 769 ns	3386705	| *******************************************
+< 956 ns	401441	| *****
+< 1.14 us	9444	| 
+< 1.33 us	777	| 
+< 1.52 us	193	| 
+< 1.70 us	448	| 
+< 1.89 us	139	| 
+< 2.08 us	43	| 
+< 2.26 us	18	| 
+< 2.45 us	17	| 
+< 2.63 us	11	| 
+< 2.82 us	6	| 
+< 3.01 us	2	| 
+< 3.19 us	5	| 
+< 3.38 us	0	| 
+< 3.57 us	85	| 
+< 3.75 us	206	| 
+< 3.94 us	28	| 
+< 4.13 us	14	| 
+< 4.32 us	13	| 
+<       +∞	832	| 
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+3.86 M requests completed in 2.73 s, 14.7 GiB read, 1.41 M iops, 5.39 GiB/s
+generated 3.86 M requests in 3.00 s, 14.7 GiB, 1.29 M iops, 4.90 GiB/s
+min/avg/max/mdev = 314 ns / 708 ns / 1.00 ms / 707 ns
+< 429 ns	895	| 
+< 629 ns	405804	| *****
+< 829 ns	3316455	| ******************************************
+< 1.03 us	128377	| *
+< 1.23 us	3175	| 
+< 1.43 us	364	| 
+< 1.63 us	444	| 
+< 1.83 us	279	| 
+< 2.03 us	43	| 
+< 2.23 us	33	| 
+< 2.43 us	16	| 
+< 2.63 us	14	| 
+< 2.83 us	14	| 
+< 3.03 us	5	| 
+< 3.23 us	3	| 
+< 3.44 us	8	| 
+< 3.63 us	151	| 
+< 3.83 us	83	| 
+< 4.04 us	12	| 
+< 4.24 us	21	| 
+< 4.44 us	24	| 
+<       +∞	830	| 
+
+*** link latency:
+
+# neo1.kirr.nexedi.com ⇄ neo2 (ping 56B)
+PING neo2.kirr.nexedi.com (192.168.102.21) 56(84) bytes of data.
+
+--- neo2.kirr.nexedi.com ping statistics ---
+67511 packets transmitted, 67511 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.029/0.037/0.185/0.007 ms, ipg/ewma 0.044/0.042 ms
+
+# neo2 ⇄ neo1.kirr.nexedi.com (ping 56B)
+PING 192.168.102.20 (192.168.102.20) 56(84) bytes of data.
+
+--- 192.168.102.20 ping statistics ---
+67906 packets transmitted, 67906 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.029/0.037/0.229/0.005 ms, ipg/ewma 0.044/0.042 ms
+
+# neo1.kirr.nexedi.com ⇄ neo2 (ping 1472B)
+PING neo2.kirr.nexedi.com (192.168.102.21) 1472(1500) bytes of data.
+
+--- neo2.kirr.nexedi.com ping statistics ---
+16778 packets transmitted, 16778 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.104/0.155/0.451/0.034 ms, ipg/ewma 0.178/0.185 ms
+
+# neo2 ⇄ neo1.kirr.nexedi.com (ping 1472B)
+PING 192.168.102.20 (192.168.102.20) 1472(1500) bytes of data.
+
+--- 192.168.102.20 ping statistics ---
+14857 packets transmitted, 14857 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.107/0.176/0.383/0.024 ms, ipg/ewma 0.201/0.194 ms
+
+*** TCP latency:
+
+# neo1.kirr.nexedi.com ⇄ neo2 (lat_tcp.c 1B  -> lat_tcp.c -s)
+TCP latency using neo2: 64.5426 microseconds
+TCP latency using neo2: 67.2138 microseconds
+TCP latency using neo2: 66.6049 microseconds
+TCP latency using neo2: 66.5293 microseconds
+
+# neo1.kirr.nexedi.com ⇄ neo2 (lat_tcp.c 1B  -> lat_tcp.go -s)
+TCP latency using neo2: 65.8450 microseconds
+TCP latency using neo2: 65.3238 microseconds
+TCP latency using neo2: 63.5993 microseconds
+TCP latency using neo2: 64.5213 microseconds
+
+# neo2 ⇄ neo1.kirr.nexedi.com (lat_tcp.c 1B  -> lat_tcp.c -s)
+TCP latency using 192.168.102.20: 66.1688 microseconds
+TCP latency using 192.168.102.20: 64.4794 microseconds
+TCP latency using 192.168.102.20: 66.4400 microseconds
+TCP latency using 192.168.102.20: 66.2380 microseconds
+
+# neo2 ⇄ neo1.kirr.nexedi.com (lat_tcp.c 1B  -> lat_tcp.go -s)
+TCP latency using 192.168.102.20: 64.6974 microseconds
+TCP latency using 192.168.102.20: 64.3504 microseconds
+TCP latency using 192.168.102.20: 66.9207 microseconds
+TCP latency using 192.168.102.20: 69.2184 microseconds
+
+# neo1.kirr.nexedi.com ⇄ neo2 (lat_tcp.c 1472B  -> lat_tcp.c -s)
+TCP latency using neo2: 454.3896 microseconds
+TCP latency using neo2: 455.7022 microseconds
+TCP latency using neo2: 456.0971 microseconds
+TCP latency using neo2: 455.4938 microseconds
+
+# neo1.kirr.nexedi.com ⇄ neo2 (lat_tcp.c 1472B  -> lat_tcp.go -s)
+TCP latency using neo2: 448.3746 microseconds
+TCP latency using neo2: 453.4797 microseconds
+TCP latency using neo2: 449.5157 microseconds
+TCP latency using neo2: 449.4843 microseconds
+
+# neo2 ⇄ neo1.kirr.nexedi.com (lat_tcp.c 1472B  -> lat_tcp.c -s)
+TCP latency using 192.168.102.20: 455.3659 microseconds
+TCP latency using 192.168.102.20: 451.6156 microseconds
+TCP latency using 192.168.102.20: 455.6074 microseconds
+TCP latency using 192.168.102.20: 454.3263 microseconds
+
+# neo2 ⇄ neo1.kirr.nexedi.com (lat_tcp.c 1472B  -> lat_tcp.go -s)
+TCP latency using 192.168.102.20: 433.7378 microseconds
+TCP latency using 192.168.102.20: 449.4013 microseconds
+TCP latency using 192.168.102.20: 448.9855 microseconds
+TCP latency using 192.168.102.20: 442.0598 microseconds
+
+# neo1.kirr.nexedi.com ⇄ neo2 (lat_tcp.c 4096B  -> lat_tcp.c -s)
+TCP latency using neo2: 355.3048 microseconds
+TCP latency using neo2: 414.8865 microseconds
+TCP latency using neo2: 391.9468 microseconds
+TCP latency using neo2: 355.6919 microseconds
+
+# neo1.kirr.nexedi.com ⇄ neo2 (lat_tcp.c 4096B  -> lat_tcp.go -s)
+TCP latency using neo2: 365.9183 microseconds
+TCP latency using neo2: 358.0050 microseconds
+TCP latency using neo2: 390.5290 microseconds
+TCP latency using neo2: 400.2108 microseconds
+
+# neo2 ⇄ neo1.kirr.nexedi.com (lat_tcp.c 4096B  -> lat_tcp.c -s)
+TCP latency using 192.168.102.20: 357.4107 microseconds
+TCP latency using 192.168.102.20: 357.4803 microseconds
+TCP latency using 192.168.102.20: 358.5964 microseconds
+TCP latency using 192.168.102.20: 354.9429 microseconds
+
+# neo2 ⇄ neo1.kirr.nexedi.com (lat_tcp.c 4096B  -> lat_tcp.go -s)
+TCP latency using 192.168.102.20: 368.3890 microseconds
+TCP latency using 192.168.102.20: 368.1584 microseconds
+TCP latency using 192.168.102.20: 409.9653 microseconds
+TCP latency using 192.168.102.20: 375.7489 microseconds
+
+
+*** generating fs1 data...
+I: RAM:  7.76GB
+I: WORK: 0.03GB
+gen signal t=0...4.19e+06  float64  (= 0.03GB) 
+gen signal blk [0:4194304]  (100.0%)
+VIRT: 469 MB	RSS: 70MB
+
+*** generating sqlite data...
+I: RAM:  7.76GB
+I: WORK: 0.03GB
+gen signal t=0...4.19e+06  float64  (= 0.03GB) 
+gen signal blk [0:4194304]  (100.0%)
+VIRT: 576 MB	RSS: 94MB
+2017-09-28 11:50:55.8062 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** generating sql data...
+2017-09-28 11:50:55 140392772095040 [Note] /usr/sbin/mysqld (mysqld 10.1.26-MariaDB-1) starting as process 11167 ...
+2017-09-28 11:51:00 139959526304832 [Note] /usr/sbin/mysqld (mysqld 10.1.26-MariaDB-1) starting as process 11195 ...
+2017-09-28 11:51:03 140074414480448 [Note] /usr/sbin/mysqld (mysqld 10.1.26-MariaDB-1) starting as process 11248 ...
+2017-09-28 11:51:06 140051951590464 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 11275 ...
+I: RAM:  7.76GB
+I: WORK: 0.03GB
+gen signal t=0...4.19e+06  float64  (= 0.03GB) 
+gen signal blk [0:4194304]  (100.0%)
+VIRT: 589 MB	RSS: 107MB
+2017-09-28 11:51:15.8913 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** ZEO
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.090s (834.1μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.369s (866.9μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.494s (881.6μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.626s (897.1μs / object)  x=zhash.py
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=8.837s (1039.7μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=9.150s (1076.5μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=8.983s (1056.9μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=8.528s (1003.3μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.880616823s (691.837µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.066526545s (713.709µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.251105565s (735.424µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.108025681s (718.591µs / object)  x=zhash.go
+2017-09-28 11:52:54.2945 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-09-28 11:52:54 140176286878784 [Note] mysqld (mysqld 10.1.26-MariaDB-1) starting as process 11370 ...
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=14.897s (1752.6μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=15.786s (1857.2μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=15.990s (1881.2μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=15.861s (1866.0μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.043039547s (1.416828ms / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.964459534s (1.52523ms / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.747952755s (1.499759ms / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=12.761572453s (1.501361ms / object)  x=zhash.go
+2017-09-28 11:54:51.1429 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.982s (586.1μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.208s (612.7μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.899s (576.3μs / object)  x=zhash.py
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.378s (750.3μs / object)  x=zhash.py
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.042316241s (357.919µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.176669108s (373.725µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.047860786s (358.571µs / object)  x=zhash.go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.209249171s (377.558µs / object)  x=zhash.go
+2017/09/28 11:55:30 talk master([192.168.102.20]:5552): context canceled
+2017-09-28 11:55:30.1818 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.568578028s (302.185µs / object)  x=zhash.go
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.651410607s (311.93µs / object)  x=zhash.go
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.317264318s (272.619µs / object)  x=zhash.go
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.44659516s (287.834µs / object)  x=zhash.go
+2017/09/28 11:55:41 talk master([192.168.102.20]:5552): context canceled
+2017-09-28 11:55:41.4945 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
