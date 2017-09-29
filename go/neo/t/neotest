@@ -384,6 +384,13 @@ pyver() {
 	printf "# %-16s: %s\n" "$showas" "$ver"
 }
 
+# fkghz file	- extract value from file (in KHz) and render it as GHz
+fkghz() {
+	v=$(echo "scale=2; `cat $1` / 1000000" |bc -l)
+	echo "${v}GHz"
+}
+
+
 # lspci1 <pcidev> <field>	- show <field> from lspci information about <pcidev>
 lspci1() {
 	lspci -vmm -s $1 |grep "^$2:\\s*" |sed -e "s/^$2:\\s*//"
@@ -393,7 +400,24 @@ lspci1() {
 header() {
 	echo -n "# "; date --rfc-2822
 	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
+
+	# cpu
+	# XXX review and read about CPU idle states more
 	echo -n "# cpu: "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+	find /sys/devices/system/cpu -name "cpu[0-9]*" | sort -n | \
+	while read cpu; do
+		cpuname=`basename $cpu`
+		f="$cpu/cpufreq"
+		echo "# $cpuname:"
+		echo -e "#\tFscale: `cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
+		echo -e "#\tenergy: `cat $f/energy_performance_preference`"
+		echo -en "#\tidle/latency:"
+		find $cpu/cpuidle -name "state[0-9]*" | sort -n | \
+		while read state; do
+			echo -n " `cat $state/name` (`cat $state/latency`μs)"
+		done
+		echo
+	done
 
 	# disk under .
 	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
