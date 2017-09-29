@@ -142,7 +142,7 @@ class StorageOperationHandler(EventHandler):
     #         if client tasks are finished)
 
     def getEventQueue(self):
-        return self.app.tm
+        return self.app.tm.read_queue
 
     @checkFeedingConnection(check=True)
     def askCheckTIDRange(self, conn, *args):

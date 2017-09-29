@@ -37,21 +37,7 @@ class NotRegisteredError(Exception):
         Raised when a ttid is not registered
     """
 
-class TransactionManagerEventKey(object):
-
-    def __init__(self, tid):
-        self.locking_tid = tid
-
-    def __lt__(self, other):
-        return self.locking_tid < other.locking_tid
-
-    def __repr__(self):
-        return "<%s(%s) at 0x%x>" % (
-            self.__class__.__name__,
-            dump(self.locking_tid),
-            id(self))
-
-class Transaction(TransactionManagerEventKey):
+class Transaction(object):
     """
         Container for a pending transaction
     """
@@ -61,7 +47,7 @@ class Transaction(TransactionManagerEventKey):
 
     def __init__(self, uuid, ttid):
         self._birth = time()
-        TransactionManagerEventKey.__init__(self, ttid)
+        self.locking_tid = ttid
         self.uuid = uuid
         self.serial_dict = {}
         self.store_dict = {}
@@ -76,6 +62,9 @@ class Transaction(TransactionManagerEventKey):
             dump(self.tid),
             time() - self._birth,
             id(self))
+
+    def __lt__(self, other):
+        return self.locking_tid < other.locking_tid
 
     def logDelay(self, ttid, locked, oid_serial):
         if self._delayed.get(oid_serial) != locked:
@@ -99,8 +88,7 @@ class TransactionManager(EventQueue):
     """
 
     def __init__(self, app):
-        EventQueue.__init__(self, lambda prev: TransactionManagerEventKey(
-            "" if prev is None else prev.locking_tid))
+        EventQueue.__init__(self)
         self.read_queue = EventQueue()
         self._app = app
         self._transaction_dict = {}
