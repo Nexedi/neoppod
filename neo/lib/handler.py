@@ -314,7 +314,8 @@ class _DelayedConnectionEvent(EventHandler):
 
 class EventQueue(object):
 
-    def __init__(self):
+    def __init__(self, new_key=lambda prev: None):
+        self._new_key = new_key
         self._event_queue = []
         self._executing_event = -1
 
@@ -327,10 +328,12 @@ class EventQueue(object):
 
     def queueEvent(self, func, conn=None, args=(), key=None):
         assert self._executing_event < 0, self._executing_event
-        self._event_queue.append((key, func if conn is None else
-            _DelayedConnectionEvent(func, conn, args)))
-        if key is not None:
-            self.sortQueuedEvents()
+        self._event_queue.append((
+            self._new_key(self._event_queue[-1][0] if self._event_queue else
+                          None) if key is None else key,
+            func if conn is None else _DelayedConnectionEvent(
+                func, conn, args)))
+        self.sortQueuedEvents()
 
     def sortAndExecuteQueuedEvents(self):
         if self._executing_event < 0:
@@ -369,8 +372,7 @@ class EventQueue(object):
                 self._executing_event = 0
                 # What sortAndExecuteQueuedEvents could not do immediately
                 # is done here:
-                if event[0] is not None:
-                    self.sortQueuedEvents()
+                self.sortQueuedEvents()
             self._executing_event = -1
 
     def logQueuedEvents(self):

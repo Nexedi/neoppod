@@ -256,11 +256,26 @@ class ReplicationTests(NEOThreadedTest):
         the backup cluster reacts very quickly to a new transaction.
         """
         upstream = backup.upstream
-        with upstream.master.filterConnection(upstream.storage) as f:
-            f.delayNotifyUnlockInformation()
-            upstream.importZODB()(1)
-            self.tic()
+        t1, c1 = upstream.getTransaction()
+        ob = c1.root()[''] = PCounterWithResolution()
+        t1.commit()
+        ob.value += 2
+        t2, c2 = upstream.getTransaction()
+        c2.root()[''].value += 3
         self.tic()
+        with upstream.master.filterConnection(upstream.storage) as f:
+            delay = f.delayNotifyUnlockInformation()
+            t1.commit()
+            self.tic()
+            def storeObject(orig, *args, **kw):
+                p.revert()
+                f.remove(delay)
+                return orig(*args, **kw)
+            with Patch(upstream.storage.tm, storeObject=storeObject) as p:
+                t2.commit()
+        self.tic()
+        t1.begin()
+        self.assertEqual(5, ob.value)
         self.assertEqual(1, self.checkBackup(backup))
 
     @with_cluster()
