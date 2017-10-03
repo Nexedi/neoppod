@@ -404,11 +404,12 @@ header() {
 	# cpu
 	# XXX review and read about CPU idle states more	XXX
 	# XXX +power consumption
-	# XXX show C states usage diff after each benchmark	XXX + same for P-states		XXX ? D-states ?
-	# XXX somehow show stats about turbo?
+	# XXX show C states usage diff after each benchmark	XXX + same for P-states
 	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
 	echo -n "# cpu: "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
-	find /sys/devices/system/cpu -name "cpu[0-9]*" | sort -n | \
+	syscpu=/sys/devices/system/cpu
+	sysidle=$syscpu/cpuidle
+	ls -vd $syscpu/cpu[0-9]* | \
 	while read cpu; do
 		# XXX deduplicate cpu info - if it is the same as prev - print "----//----"
 		cpuname=`basename $cpu`
@@ -416,13 +417,15 @@ header() {
 		echo "# $cpuname:"
 		echo -e "#\tfreq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
 		#echo -e "#\tenergy: `cat $f/energy_performance_preference`"
-		echo -en "#\tidle/latency:"
-		find $cpu/cpuidle -name "state[0-9]*" | sort -n | \
+		echo -en "#\tidle: `cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
+		ls -vd $cpu/cpuidle/state[0-9]* | \
 		while read state; do
+			# XXX add target residency? (clarify about its meaning)
 			echo -n " `cat $state/name`(`cat $state/latency`μs)"
 		done
 		echo
-		# XXX warn if != "performance"
+		# XXX warn if freq != stable
+		# XXX warn if idle latency is too much
 	done
 
 	# disk under .
