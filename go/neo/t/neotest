@@ -402,21 +402,27 @@ header() {
 	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
 
 	# cpu
-	# XXX review and read about CPU idle states more
+	# XXX review and read about CPU idle states more	XXX
+	# XXX +power consumption
+	# XXX show C states usage diff after each benchmark	XXX + same for P-states		XXX ? D-states ?
+	# XXX somehow show stats about turbo?
+	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
 	echo -n "# cpu: "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 	find /sys/devices/system/cpu -name "cpu[0-9]*" | sort -n | \
 	while read cpu; do
+		# XXX deduplicate cpu info - if it is the same as prev - print "----//----"
 		cpuname=`basename $cpu`
 		f="$cpu/cpufreq"
 		echo "# $cpuname:"
-		echo -e "#\tFscale: `cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
-		echo -e "#\tenergy: `cat $f/energy_performance_preference`"
+		echo -e "#\tfreq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
+		#echo -e "#\tenergy: `cat $f/energy_performance_preference`"
 		echo -en "#\tidle/latency:"
 		find $cpu/cpuidle -name "state[0-9]*" | sort -n | \
 		while read state; do
-			echo -n " `cat $state/name` (`cat $state/latency`μs)"
+			echo -n " `cat $state/name`(`cat $state/latency`μs)"
 		done
 		echo
+		# XXX warn if != "performance"
 	done
 
 	# disk under .
