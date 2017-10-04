@@ -785,6 +785,13 @@ cmd_info-local() {
 	header
 }
 
+# command: print information about remote node
+cmd_info() {
+	url="$1"
+	test -z "$url" && die "Usage neotest info [user@]<host>:<path>"
+	on $url ./neotest info-local
+}
+
 # ---- main driver ----
 
 usage() {
@@ -805,6 +812,7 @@ The commands are:
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
 
+	info		print information about a node
 	info-local	print information about local deployment
 EOF
 }
@@ -814,6 +822,12 @@ case "$1" in
 bench-local	| \
 run-client	| \
 bench-cluster)
+	;;
+
+info)
+	shift
+	cmd_info "$@"
+	exit 0
 	;;
 
 info-local)
