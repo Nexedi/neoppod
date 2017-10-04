@@ -1,8 +1,6 @@
 #!/bin/bash -e
 # neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
 
-PATH="$PATH:/sbin"	# for ethtool
-
 # ---- deploy NEO for tests/benchmarks at a node ----
 
 die() {
@@ -52,7 +50,7 @@ export PATH=$X/lmbench/lmbench3/bin/`cd $X/lmbench/lmbench3/src; ../scripts/os`:
 # ioping
 export PATH=$X/ioping:$PATH
 
-# XXX for mysqld
+# XXX for mysqld, ethtool
 export PATH=$PATH:/usr/sbin
 EOF
 
