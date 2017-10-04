@@ -482,7 +482,7 @@ header() {
 	idledump
 
 	test "$freqstable" = y || echo "# cpu: WARNING: frequency not fixed - benchmark timings won't be stable"
-	test "$latmax" -le 10  || echo "# cpu: WARNING: C-state exit-latency is max ${latmax}μs - that can add to networked request-reply latency (?)"
+	test "$latmax" -le 10  || echo "# cpu: WARNING: C-state exit-latency is max ${latmax}μs - that can add to networked(?) and IPC(?) request-reply latency"
 
 
 	# disk under .
