@@ -421,7 +421,9 @@ header() {
 		ls -vd $cpu/cpuidle/state[0-9]* | \
 		while read state; do
 			# XXX add target residency? (clarify about its meaning)
-			echo -n " `cat $state/name`(`cat $state/latency`μs)"
+			echo -n " "
+			test "`cat $state/disable`" = "1" && echo -n "!"
+			echo -n "`cat $state/name`(`cat $state/latency`μs)"
 		done
 		echo
 		# XXX warn if freq != stable
