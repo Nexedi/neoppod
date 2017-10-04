@@ -1,6 +1,8 @@
 #!/bin/bash -e
 # neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
 
+PATH="$PATH:/sbin"	# for ethtool
+
 # ---- deploy NEO for tests/benchmarks at a node ----
 
 die() {
