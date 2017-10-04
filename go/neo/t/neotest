@@ -51,7 +51,7 @@ export PATH=$X/lmbench/lmbench3/bin/`cd $X/lmbench/lmbench3/src; ../scripts/os`:
 export PATH=$X/ioping:$PATH
 
 # XXX for mysqld, ethtool
-export PATH=$PATH:/usr/sbin
+export PATH=$PATH:/sbin:/usr/sbin
 EOF
 
 	# NOTE lmbench before env.sh becuase env.sh uses `scripts/os` from lmbench
@@ -482,7 +482,7 @@ header() {
 	idledump
 
 	test "$freqstable" = y || echo "# cpu: WARNING: frequency not fixed - benchmark timings won't be stable"
-	test "$latmax" -gt 10  && echo "# cpu: WARNING: C-state exit-latency is max ${latmax}μs - that can add to networked request-reply latency (?)"
+	test "$latmax" -le 10  || echo "# cpu: WARNING: C-state exit-latency is max ${latmax}μs - that can add to networked request-reply latency (?)"
 
 
 	# disk under .
@@ -540,7 +540,7 @@ header() {
 
 		# warn if rx latency is too high
 		rxlat=$(($rxt>$rxt_irq?$rxt:$rxt_irq))
-		test "$rxlat" -gt 10 && echo "# $nicname: WARNING: RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency"
+		test "$rxlat" -le 10 || echo "# $nicname: WARNING: RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency"
 	done
 
 	echo -n "# "; python --version
