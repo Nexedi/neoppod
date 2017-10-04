@@ -481,8 +481,8 @@ header() {
 	< <(ls -vd $syscpu/cpu[0-9]*)
 	idledump
 
-	test "$freqstable" = y || echo "# WARNING: cpu frequency not fixed - benchmark timings won't be stable"
-	test "$latmax" -gt 10 && echo "# WARNING: cpu C-state exit-latency is max ${latmax}μs - that can add to networked request-reply latency (?)"
+	test "$freqstable" = y || echo "# cpu: WARNING: frequency not fixed - benchmark timings won't be stable"
+	test "$latmax" -gt 10  && echo "# cpu: WARNING: C-state exit-latency is max ${latmax}μs - that can add to networked request-reply latency (?)"
 
 
 	# disk under .
@@ -515,7 +515,7 @@ header() {
 		coalok=y
 		coal=`ethtool -c $nicname 2>/dev/null` || coalok=n
 		if [ $coalok != y ]; then
-			echo -e "\t(rx: ?  tx: ?)"
+			echo -e "\t(rxc: ?  txc: ?)"
 			continue
 		fi
 
@@ -533,10 +533,14 @@ header() {
 		txt_irq=`coal1 tx-usecs-irq`
 		txf_irq=`coal1 tx-frames-irq`
 
-		echo -en "\t(rx: ${rxt}μs/${rxf}f/${rxt_irq}μs-irq/${rxf_irq}f-irq"
-		echo -e  "   tx: ${txt}μs/${txf}f/${txt_irq}μs-irq/${txf_irq}f-irq)"
+		echo -en "\t(rxc: ${rxt}μs/${rxf}f/${rxt_irq}μs-irq/${rxf_irq}f-irq"
+		echo -e  "   txc: ${txt}μs/${txf}f/${txt_irq}μs-irq/${txf_irq}f-irq)"
 
 		# XXX also add -low and -high ?
+
+		# warn if rx latency is too high
+		rxlat=$(($rxt>$rxt_irq?$rxt:$rxt_irq))
+		test "$rxlat" -gt 10 && echo "# $nicname: WARNING: RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency"
 	done
 
 	echo -n "# "; python --version
