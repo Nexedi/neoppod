@@ -403,27 +403,43 @@ header() {
 	echo -n "# "; uname -a
 
 	# cpu
-	# XXX show C states usage diff after each benchmark	XXX + same for P-states
-	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
 	echo -n "# cpu: "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 	syscpu=/sys/devices/system/cpu
 	sysidle=$syscpu/cpuidle
+
+	cpuvabbrev() {	# cpuvabbrev cpu0 cpu1 cpu2 ... cpuN	-> cpu[0-N]
+		test $# -le 1 && echo "$@" && return
+
+		min=""
+		max=""
+		while [ $# -ne 0 ]; do
+			v=$1
+			shift
+			n=${v#cpu}
+
+			test -z "$min" && min=$n && max=$n continue
+			if (( $n != $max + 1 )); then
+				die "cpuvabbrev: assert: nonconsecutive $max $n"
+			fi
+			max=$n
+		done
+		echo "cpu[$min-$max]"
+	}
 
 	freqcpuv=()	# [] of cpu
 	freqstr=""	# text about cpufreq for cpus in ^^^
 	freqdump() {
 		test "${#freqcpuv[@]}" = 0 && return
-		echo "# ${freqcpuv[*]}: $freqstr"
+		echo "# `cpuvabbrev ${freqcpuv[*]}`: $freqstr"
 		freqcpuv=()
 		freqstr=""
 	}
 
-	# ----//---- for cpuidle
-	idlecpuv=()
+	idlecpuv=()	# ----//---- for cpuidle
 	idlestr=""
 	idledump() {
 		test "${#idlecpuv[@]}" = 0 && return
-		echo "# ${idlecpuv[*]}: $idlestr"
+		echo "# `cpuvabbrev ${idlecpuv[*]}`: $idlestr"
 		idlecpuv=()
 		idlestr=""
 	}
@@ -459,28 +475,6 @@ header() {
 	< <(ls -vd $syscpu/cpu[0-9]*)
 	idledump
 
-	#echo
-	#ls -vd $syscpu/cpu[0-9]* | \
-	#while read cpu; do
-	#	# XXX deduplicate cpu info - if it is the same as prev - print "----//----"
-	#	cpuname=`basename $cpu`
-	#	f="$cpu/cpufreq"
-	#	echo -n "# $cpuname: "
-	#	echo -e "freq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
-	#	#echo -e "#\tenergy: `cat $f/energy_performance_preference`"
-	#	echo -n "# $cpuname: "
-	#	echo -en "idle: `cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
-	#	ls -vd $cpu/cpuidle/state[0-9]* | \
-	#	while read state; do
-	#		# XXX add target residency?
-	#		echo -n " "
-	#		test "`cat $state/disable`" = "1" && echo -n "!"
-	#		echo -n "`cat $state/name`(`cat $state/latency`μs)"
-	#	done
-	#	echo
-	#	# XXX warn if freq != stable
-	#	# XXX warn if idle latency is too much
-	#done
 
 	# disk under .
 	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
@@ -563,6 +557,10 @@ hashfunc=crc32
 
 # bench <url>	- run benchmarks against URL
 bench() {
+	# XXX show C states usage diff after each benchmark	XXX + same for P-states
+	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
+	# XXX place=?
+
 	url=$1
 #	nrun time demo-zbigarray read $url
 
