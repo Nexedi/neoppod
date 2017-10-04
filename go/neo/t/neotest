@@ -71,8 +71,9 @@ EOF
 	pushd src/lab.nexedi.com/kirr
 	test -d neo || git clone -o kirr https://lab.nexedi.com/kirr/neo.git neo
 	cd neo
-	git fetch kirr refs/backup/t:refs/kirr-backup/t			# XXX temp
-	git checkout refs/kirr-backup/t
+	git config --add remote.kirr.fetch '+refs/backup/*:refs/remotes/kirr-backup/*'	# XXX temp
+	git fetch kirr									# XXX temp
+	git checkout -b t remotes/kirr-backup/t						# XXX temp
 
 	pip install -e .
 	pip install mysqlclient		# XXX better ^^^ `pip install .` pick this up
