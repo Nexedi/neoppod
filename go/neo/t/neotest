@@ -400,6 +400,7 @@ lspci1() {
 header() {
 	echo -n "# "; date --rfc-2822
 	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
+	echo -n "# "; uname -a
 
 	# cpu
 	# XXX review and read about CPU idle states more	XXX
@@ -457,7 +458,6 @@ header() {
 		esac
 	done
 
-	echo -n "# "; uname -a
 	echo -n "# "; python --version
 	echo -n "# "; go version
 	echo -n "# "; python -c 'import sqlite3 as s; print "sqlite %s (py mod %s)" % (s.sqlite_version, s.version)'
