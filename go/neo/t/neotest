@@ -444,25 +444,31 @@ header() {
 		idlestr=""
 	}
 
+	freqstable=y
 	while read cpu; do
 		f="$cpu/cpufreq"
-		fs="freq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
+		fmin=`fkghz $f/scaling_min_freq`
+		fmax=`fkghz $f/scaling_max_freq`
+		fs="freq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [$fmin - $fmax]"
 		if [ "$fs" != "$freqstr" ]; then
 			freqdump
 			freqstr="$fs"
 		fi
 		freqcpuv+=(`basename $cpu`)
+		test "$fmin" != "$fmax" && freqstable=n
 	done \
 	< <(ls -vd $syscpu/cpu[0-9]*)
 	freqdump
 
+	latmax=0
 	while read cpu; do
 		is="idle: `cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
 		while read state; do
 			# XXX add target residency?
 			is+=" "
-			test "`cat $state/disable`" = "1" && is+="!"
-			is+="`cat $state/name`(`cat $state/latency`μs)"
+			lat=`cat $state/latency`
+			test "`cat $state/disable`" = "1" && is+="!" || latmax=$(($lat>$latmax?$lat:$latmax))
+			is+="`cat $state/name`(${lat}μs)"
 		done \
 		< <(ls -vd $cpu/cpuidle/state[0-9]*)
 
@@ -474,6 +480,9 @@ header() {
 	done \
 	< <(ls -vd $syscpu/cpu[0-9]*)
 	idledump
+
+	test "$freqstable" = y || echo "# WARNING: cpu frequency not fixed - benchmark timings won't be stable"
+	test "$latmax" -gt 10 && echo "# WARNING: cpu C-state exit-latency is max ${latmax}μs - that can add to networked request-reply latency (?)"
 
 
 	# disk under .
@@ -494,13 +503,40 @@ header() {
 		*pci*)
 			pcidev=`basename $nicdev`	# /sys/devices/pci0000:00/0000:00:1f.6	-> 0000:00:1f.6
 			#lspci -s $pcidev
-			echo "`lspci1 $pcidev Vendor` `lspci1 $pcidev Device` rev `lspci1 $pcidev Rev`"
+			echo -n "`lspci1 $pcidev Vendor` `lspci1 $pcidev Device` rev `lspci1 $pcidev Rev`"
 			;;
 
 		*)
-			echo "$nicdev (TODO)"
+			echo -n "$nicdev (TODO)"
 			;;
 		esac
+
+		# show rx/tx coalescing latency
+		coalok=y
+		coal=`ethtool -c $nicname 2>/dev/null` || coalok=n
+		if [ $coalok != y ]; then
+			echo -e "\t(rx: ?  tx: ?)"
+			continue
+		fi
+
+		# coal1 name -> value
+		coal1() {
+			echo "$coal" |grep "^$1:\\s*" | sed -e "s/^$1:\\s*//"
+		}
+		rxt=`coal1 rx-usecs`
+		rxf=`coal1 rx-frames`
+		rxt_irq=`coal1 rx-usecs-irq`
+		rxf_irq=`coal1 rx-frames-irq`
+
+		txt=`coal1 tx-usecs`
+		txf=`coal1 tx-frames`
+		txt_irq=`coal1 tx-usecs-irq`
+		txf_irq=`coal1 tx-frames-irq`
+
+		echo -en "\t(rx: ${rxt}μs/${rxf}f/${rxt_irq}μs-irq/${rxf_irq}f-irq"
+		echo -e  "   tx: ${txt}μs/${txf}f/${txt_irq}μs-irq/${txf_irq}f-irq)"
+
+		# XXX also add -low and -high ?
 	done
 
 	echo -n "# "; python --version
