@@ -429,15 +429,18 @@ header() {
 	}
 
 	while read cpu; do
-		cpuname=`basename $cpu`
 		f="$cpu/cpufreq"
 		fs="freq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [`fkghz $f/scaling_min_freq` - `fkghz $f/scaling_max_freq`]"
 		if [ "$fs" != "$freqstr" ]; then
 			freqdump
 			freqstr="$fs"
 		fi
-		freqcpuv+=($cpuname)
+		freqcpuv+=(`basename $cpu`)
+	done \
+	< <(ls -vd $syscpu/cpu[0-9]*)
+	freqdump
 
+	while read cpu; do
 		is="idle: `cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
 		while read state; do
 			# XXX add target residency?
@@ -451,11 +454,9 @@ header() {
 			idledump
 			idlestr="$is"
 		fi
-		idlecpuv+=($cpuname)
+		idlecpuv+=(`basename $cpu`)
 	done \
 	< <(ls -vd $syscpu/cpu[0-9]*)
-
-	freqdump
 	idledump
 
 	#echo
