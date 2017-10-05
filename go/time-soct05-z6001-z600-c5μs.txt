@@ -1,0 +1,449 @@
+(with: `cpupower idle-set --disable-by-latency 5` on both hosts)
+
+>>> bench-cluster neotest@z600.ivan.nexedi.com:t2
+
+# server:
+# Thu, 05 Oct 2017 17:41:10 +0300
+# neotest@z6001.ivan.nexedi.com (2401:5180:0:6f::1)
+# Linux COMP-2784-z6001 4.10.0-35-generic #39~16.04.1-Ubuntu SMP Wed Sep 13 09:02:42 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+# cpu: Intel(R) Xeon(R) CPU           X5650  @ 2.67GHz
+# cpu[0-23]: freq: acpi-cpufreq/performance [1.59GHz - 2.66GHz]
+# cpu[0-23]: idle: intel_idle/menu: POLL(0μs) C1-NHM(3μs) !C1E-NHM(10μs) !C3-NHM(20μs) !C6-NHM(200μs)
+# cpu: WARNING: frequency not fixed - benchmark timings won't be stable
+# sda: ADATA SU800       rev 8BS  119,2G
+# enp1s0: Broadcom Corporation NetXtreme BCM5764M Gigabit Ethernet PCIe rev 10	(rxc: 20μs/5f/0μs-irq/5f-irq   txc: 72μs/53f/0μs-irq/5f-irq)
+# enp1s0: WARNING: RX coalesce latency is max 20μs - that will add to networked request-reply latency
+# Python 2.7.12
+# go version go1.9 linux/amd64
+# sqlite 3.11.0 (py mod 2.6.0)
+# mysqld  Ver 10.1.25-MariaDB-1 for debian-linux-gnu on x86_64 (Ubuntu 17.10)
+# neo             : v1.8-1258-g9c2b63c
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+# client:
+# Thu, 05 Oct 2017 17:41:13 +0300
+# neotest@z600.ivan.nexedi.com (2401:5180:0:10::1)
+# Linux COMP-2717-z600 4.4.0-62-generic #83-Ubuntu SMP Wed Jan 18 14:10:15 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+# cpu: Intel(R) Xeon(R) CPU           X5650  @ 2.67GHz
+# cpu[0-23]: freq: acpi-cpufreq/performance [1.59GHz - 2.66GHz]
+# cpu[0-23]: idle: intel_idle/menu: POLL(0μs) C1-NHM(3μs) !C1E-NHM(10μs) !C3-NHM(20μs) !C6-NHM(200μs)
+# cpu: WARNING: frequency not fixed - benchmark timings won't be stable
+# sda: INTEL SSDSC2CT18  rev 335t 167.7G
+# enp1s0: Broadcom Corporation NetXtreme BCM5764M Gigabit Ethernet PCIe rev 10	(rxc: 20μs/5f/0μs-irq/5f-irq   txc: 72μs/53f/0μs-irq/5f-irq)
+# enp1s0: WARNING: RX coalesce latency is max 20μs - that will add to networked request-reply latency
+# Python 2.7.12
+# go version go1.9 linux/amd64
+# sqlite 3.11.0 (py mod 2.6.0)
+# mysqld  Ver 10.1.25-MariaDB-1 for debian-linux-gnu on x86_64 (Ubuntu 17.10)
+# neo             : v1.8-1256-g42abaf7
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+*** server disk:
+
+*** random direct (no kernel cache) 4K-read disk latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+18.1 k requests completed in 2.97 s, 70.5 MiB read, 6.08 k iops, 23.8 MiB/s
+generated 18.1 k requests in 3.00 s, 70.5 MiB, 6.02 k iops, 23.5 MiB/s
+min/avg/max/mdev = 124.1 us / 164.3 us / 1.05 ms / 36.1 us
+< 124.9 us	31	| 
+< 129.6 us	6409	| *****************
+< 134.2 us	23	| 
+< 138.9 us	12	| 
+< 143.6 us	2	| 
+< 148.2 us	0	| 
+< 152.9 us	0	| 
+< 157.5 us	2	| 
+< 162.2 us	5874	| ****************
+< 166.8 us	53	| 
+< 171.5 us	8	| 
+< 176.2 us	1	| 
+< 180.8 us	1	| 
+< 185.5 us	1	| 
+< 190.1 us	0	| 
+< 194.8 us	0	| 
+< 199.4 us	0	| 
+< 204.1 us	0	| 
+< 208.8 us	0	| 
+< 213.4 us	4389	| ************
+< 218.1 us	1136	| ***
+<       +∞	17	| 
+# POLL·1 C1-NHM·36296 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+18.0 k requests completed in 2.97 s, 70.4 MiB read, 6.07 k iops, 23.7 MiB/s
+generated 18.0 k requests in 3.00 s, 70.4 MiB, 6.01 k iops, 23.5 MiB/s
+min/avg/max/mdev = 123.4 us / 164.6 us / 226.7 us / 35.0 us
+< 123.5 us	1	| 
+< 128.7 us	6167	| *****************
+< 133.8 us	162	| 
+< 139.0 us	6	| 
+< 144.1 us	5	| 
+< 149.3 us	0	| 
+< 154.5 us	0	| 
+< 159.6 us	4244	| ***********
+< 164.8 us	1701	| ****
+< 169.9 us	12	| 
+< 175.1 us	3	| 
+< 180.3 us	1	| 
+< 185.4 us	0	| 
+< 190.6 us	0	| 
+< 195.7 us	0	| 
+< 200.9 us	0	| 
+< 206.1 us	0	| 
+< 211.2 us	358	| 
+< 216.4 us	5250	| **************
+< 221.5 us	11	| 
+< 226.7 us	9	| 
+<       +∞	0	| 
+# POLL·5 C1-NHM·20803 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+18.0 k requests completed in 2.97 s, 70.4 MiB read, 6.07 k iops, 23.7 MiB/s
+generated 18.0 k requests in 3.00 s, 70.4 MiB, 6.01 k iops, 23.5 MiB/s
+min/avg/max/mdev = 123.5 us / 164.7 us / 1.11 ms / 35.8 us
+< 124.6 us	146	| 
+< 129.8 us	6118	| ****************
+< 135.1 us	17	| 
+< 140.4 us	12	| 
+< 145.7 us	0	| 
+< 150.9 us	0	| 
+< 156.2 us	0	| 
+< 161.5 us	5886	| ****************
+< 166.7 us	115	| 
+< 172 us	3	| 
+< 177.3 us	0	| 
+< 182.5 us	0	| 
+< 187.8 us	0	| 
+< 193.1 us	0	| 
+< 198.3 us	0	| 
+< 203.6 us	0	| 
+< 208.9 us	1	| 
+< 214.2 us	5349	| **************
+< 219.4 us	257	| 
+< 224.7 us	13	| 
+< 230.0 us	1	| 
+<       +∞	3	| 
+# POLL·3 C1-NHM·33479 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+18.1 k requests completed in 2.96 s, 70.5 MiB read, 6.10 k iops, 23.8 MiB/s
+generated 18.1 k requests in 3.00 s, 70.5 MiB, 6.02 k iops, 23.5 MiB/s
+min/avg/max/mdev = 122.4 us / 164.0 us / 879.6 us / 35.3 us
+< 122.4 us	0	| 
+< 126.9 us	3838	| **********
+< 131.4 us	2504	| ******
+< 135.9 us	11	| 
+< 140.4 us	6	| 
+< 145.0 us	1	| 
+< 149.5 us	0	| 
+< 154.0 us	0	| 
+< 158.5 us	2522	| ******
+< 163.0 us	3469	| *********
+< 167.5 us	11	| 
+< 172.0 us	3	| 
+< 176.6 us	0	| 
+< 181.1 us	0	| 
+< 185.6 us	0	| 
+< 190.1 us	0	| 
+< 194.6 us	0	| 
+< 199.1 us	0	| 
+< 203.6 us	1	| 
+< 208.1 us	0	| 
+< 212.7 us	4542	| ************
+<       +∞	1045	| **
+# POLL·3 C1-NHM·26683 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+*** random cached 4K-read disk latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.37 M requests completed in 2.82 s, 9.04 GiB read, 839.5 k iops, 3.20 GiB/s
+generated 2.37 M requests in 3.00 s, 9.04 GiB, 789.9 k iops, 3.01 GiB/s
+min/avg/max/mdev = 414 ns / 1.19 us / 84.7 us / 340 ns
+< 935 ns	172087	| ***
+< 977 ns	84976	| *
+< 1.02 us	79543	| *
+< 1.06 us	129432	| **
+< 1.10 us	173938	| ***
+< 1.15 us	235795	| ****
+< 1.19 us	258531	| *****
+< 1.23 us	288765	| ******
+< 1.27 us	263569	| *****
+< 1.31 us	219491	| ****
+< 1.36 us	154108	| ***
+< 1.40 us	117671	| **
+< 1.44 us	86045	| *
+< 1.48 us	50941	| *
+< 1.53 us	26744	| 
+< 1.57 us	12742	| 
+< 1.61 us	6071	| 
+< 1.65 us	3125	| 
+< 1.70 us	1610	| 
+< 1.74 us	877	| 
+< 1.78 us	557	| 
+<       +∞	2946	| 
+# POLL·0 C1-NHM·889 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.81 M requests completed in 2.79 s, 10.7 GiB read, 1.01 M iops, 3.83 GiB/s
+generated 2.81 M requests in 3.00 s, 10.7 GiB, 935.7 k iops, 3.57 GiB/s
+min/avg/max/mdev = 410 ns / 994 ns / 37.4 us / 271 ns
+< 905 ns	860240	| ***************
+< 939 ns	405465	| *******
+< 974 ns	350127	| ******
+< 1.01 us	233347	| ****
+< 1.04 us	166824	| **
+< 1.08 us	141839	| **
+< 1.11 us	120845	| **
+< 1.15 us	100460	| *
+< 1.18 us	87339	| *
+< 1.22 us	74883	| *
+< 1.25 us	64428	| *
+< 1.29 us	52726	| 
+< 1.32 us	42533	| 
+< 1.36 us	31142	| 
+< 1.39 us	22852	| 
+< 1.43 us	17695	| 
+< 1.46 us	12637	| 
+< 1.49 us	7805	| 
+< 1.53 us	5083	| 
+< 1.56 us	2994	| 
+< 1.60 us	1668	| 
+<       +∞	4146	| 
+# POLL·0 C1-NHM·1096 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.37 M requests completed in 2.82 s, 9.04 GiB read, 839.5 k iops, 3.20 GiB/s
+generated 2.37 M requests in 3.00 s, 9.04 GiB, 789.7 k iops, 3.01 GiB/s
+min/avg/max/mdev = 415 ns / 1.19 us / 80.2 us / 342 ns
+< 988 ns	271756	| *****
+< 1.04 us	135168	| **
+< 1.10 us	223040	| ****
+< 1.16 us	310667	| ******
+< 1.22 us	381370	| ********
+< 1.27 us	363172	| *******
+< 1.33 us	274610	| *****
+< 1.39 us	182822	| ***
+< 1.44 us	120639	| **
+< 1.50 us	61908	| *
+< 1.55 us	25461	| 
+< 1.61 us	9268	| 
+< 1.67 us	3722	| 
+< 1.73 us	1604	| 
+< 1.78 us	779	| 
+< 1.84 us	467	| 
+< 1.90 us	363	| 
+< 1.95 us	357	| 
+< 2.01 us	353	| 
+< 2.07 us	255	| 
+< 2.12 us	201	| 
+<       +∞	1102	| 
+# POLL·1 C1-NHM·1242 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.36 M requests completed in 2.82 s, 9.00 GiB read, 835.8 k iops, 3.19 GiB/s
+generated 2.36 M requests in 3.00 s, 9.00 GiB, 786.6 k iops, 3.00 GiB/s
+min/avg/max/mdev = 417 ns / 1.20 us / 43.8 us / 337 ns
+< 961 ns	211035	| ****
+< 1.00 us	81636	| *
+< 1.04 us	96725	| **
+< 1.09 us	143344	| ***
+< 1.13 us	212256	| ****
+< 1.17 us	229390	| ****
+< 1.21 us	297345	| ******
+< 1.25 us	267172	| *****
+< 1.30 us	261957	| *****
+< 1.34 us	176814	| ***
+< 1.38 us	131914	| **
+< 1.42 us	103286	| **
+< 1.47 us	68142	| *
+< 1.51 us	38271	| 
+< 1.55 us	19273	| 
+< 1.59 us	9150	| 
+< 1.63 us	4645	| 
+< 1.68 us	2279	| 
+< 1.72 us	1304	| 
+< 1.76 us	657	| 
+< 1.80 us	443	| 
+<       +∞	2732	| 
+# POLL·0 C1-NHM·924 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+*** link latency:
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (ping 56B)
+PING z600.ivan.nexedi.com (192.168.0.5) 56(84) bytes of data.
+
+--- z600.ivan.nexedi.com ping statistics ---
+35907 packets transmitted, 35906 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.058/0.076/0.129/0.011 ms, ipg/ewma 0.083/0.077 ms
+# POLL·3 C1-NHM·36628 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (ping 56B)
+PING 192.168.0.16 (192.168.0.16) 56(84) bytes of data.
+
+--- 192.168.0.16 ping statistics ---
+36594 packets transmitted, 36593 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.058/0.076/0.122/0.010 ms, ipg/ewma 0.081/0.077 ms
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (ping 1472B)
+PING z600.ivan.nexedi.com (192.168.0.5) 1472(1500) bytes of data.
+
+--- z600.ivan.nexedi.com ping statistics ---
+18634 packets transmitted, 18633 received, 0% packet loss, time 3000ms
+rtt min/avg/max/mdev = 0.136/0.153/0.186/0.007 ms, ipg/ewma 0.161/0.153 ms
+# POLL·2 C1-NHM·37813 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (ping 1472B)
+PING 192.168.0.16 (192.168.0.16) 1472(1500) bytes of data.
+
+--- 192.168.0.16 ping statistics ---
+18900 packets transmitted, 18900 received, 0% packet loss, time 2999ms
+rtt min/avg/max/mdev = 0.134/0.152/0.192/0.011 ms, ipg/ewma 0.158/0.152 ms
+
+*** TCP latency:
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (lat_tcp.c 1B  -> lat_tcp.c -s)
+TCP latency using z600.ivan.nexedi.com: 88.3230 microseconds	# POLL·1 C1-NHM·25415 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 89.1813 microseconds	# POLL·4 C1-NHM·25628 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 91.9254 microseconds	# POLL·4 C1-NHM·25861 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 89.3734 microseconds	# POLL·5 C1-NHM·24981 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (lat_tcp.c 1B  -> lat_tcp.go -s)
+TCP latency using z600.ivan.nexedi.com: 91.0650 microseconds	# POLL·1 C1-NHM·24832 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 91.1822 microseconds	# POLL·5 C1-NHM·24962 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 91.1535 microseconds	# POLL·1 C1-NHM·24878 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 91.0548 microseconds	# POLL·3 C1-NHM·25181 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (lat_tcp.c 1B  -> lat_tcp.c -s)
+TCP latency using 192.168.0.16: 87.7796 microseconds	# POLL·2 C1-NHM·25373 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 87.6383 microseconds	# POLL·3 C1-NHM·25992 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 87.3342 microseconds	# POLL·4 C1-NHM·25032 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 88.0860 microseconds	# POLL·3 C1-NHM·25703 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (lat_tcp.c 1B  -> lat_tcp.go -s)
+TCP latency using 192.168.0.16: 89.1220 microseconds	# POLL·4 C1-NHM·77114 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 88.6781 microseconds	# POLL·4 C1-NHM·75091 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 88.0335 microseconds	# POLL·5 C1-NHM·76406 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 88.8064 microseconds	# POLL·0 C1-NHM·69682 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (lat_tcp.c 1472B  -> lat_tcp.c -s)
+TCP latency using z600.ivan.nexedi.com: 179.4656 microseconds	# POLL·0 C1-NHM·35662 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 179.7674 microseconds	# POLL·4 C1-NHM·36031 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 179.6988 microseconds	# POLL·1 C1-NHM·36032 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 179.9858 microseconds	# POLL·1 C1-NHM·36794 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (lat_tcp.c 1472B  -> lat_tcp.go -s)
+TCP latency using z600.ivan.nexedi.com: 183.0101 microseconds	# POLL·5 C1-NHM·31654 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 196.5609 microseconds	# POLL·5 C1-NHM·33250 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 199.4464 microseconds	# POLL·9 C1-NHM·32111 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 183.7574 microseconds	# POLL·2 C1-NHM·33904 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (lat_tcp.c 1472B  -> lat_tcp.c -s)
+TCP latency using 192.168.0.16: 179.8243 microseconds	# POLL·4 C1-NHM·36069 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 180.1243 microseconds	# POLL·5 C1-NHM·36631 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 181.5981 microseconds	# POLL·0 C1-NHM·36674 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 180.5909 microseconds	# POLL·1 C1-NHM·35451 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (lat_tcp.c 1472B  -> lat_tcp.go -s)
+TCP latency using 192.168.0.16: 185.1563 microseconds	# POLL·2 C1-NHM·59006 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 185.3312 microseconds	# POLL·14 C1-NHM·59918 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 185.7391 microseconds	# POLL·1 C1-NHM·59676 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 185.5240 microseconds	# POLL·2 C1-NHM·59888 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (lat_tcp.c 4096B  -> lat_tcp.c -s)
+TCP latency using z600.ivan.nexedi.com: 223.2280 microseconds	# POLL·0 C1-NHM·27386 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 223.3229 microseconds	# POLL·0 C1-NHM·29009 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 223.7458 microseconds	# POLL·3 C1-NHM·28988 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 223.3031 microseconds	# POLL·2 C1-NHM·29643 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# COMP-2784-z6001 ⇄ z600.ivan.nexedi.com (lat_tcp.c 4096B  -> lat_tcp.go -s)
+TCP latency using z600.ivan.nexedi.com: 227.4116 microseconds	# POLL·1 C1-NHM·28599 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 227.6676 microseconds	# POLL·5 C1-NHM·28382 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 230.0738 microseconds	# POLL·8 C1-NHM·29181 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using z600.ivan.nexedi.com: 226.7283 microseconds	# POLL·2 C1-NHM·28450 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (lat_tcp.c 4096B  -> lat_tcp.c -s)
+TCP latency using 192.168.0.16: 224.0291 microseconds	# POLL·3 C1-NHM·29597 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 238.1416 microseconds	# POLL·5 C1-NHM·28375 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 228.9264 microseconds	# POLL·1 C1-NHM·28740 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 227.4836 microseconds	# POLL·3 C1-NHM·29991 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# z600.ivan.nexedi.com ⇄ COMP-2784-z6001 (lat_tcp.c 4096B  -> lat_tcp.go -s)
+TCP latency using 192.168.0.16: 231.1611 microseconds	# POLL·2 C1-NHM·45640 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 234.9076 microseconds	# POLL·6 C1-NHM·48273 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 230.1837 microseconds	# POLL·3 C1-NHM·48064 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+TCP latency using 192.168.0.16: 229.8460 microseconds	# POLL·4 C1-NHM·48709 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+
+*** ZEO
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.594s (658.1μs / object)  x=zhash.py	# POLL·115 C1-NHM·181563 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.592s (657.9μs / object)  x=zhash.py	# POLL·176 C1-NHM·183640 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.535s (651.2μs / object)  x=zhash.py	# POLL·164 C1-NHM·187430 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.615s (660.6μs / object)  x=zhash.py	# POLL·178 C1-NHM·182293 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.339s (628.1μs / object)  x=zhash.py	# POLL·129 C1-NHM·140507 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.494s (646.4μs / object)  x=zhash.py	# POLL·138 C1-NHM·128889 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.923s (696.8μs / object)  x=zhash.py	# POLL·186 C1-NHM·131674 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=5.321s (626.0μs / object)  x=zhash.py	# POLL·89 C1-NHM·143015 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.286171484s (504.255µs / object)  x=zhash.go	# POLL·102 C1-NHM·114849 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.280290237s (503.563µs / object)  x=zhash.go	# POLL·110 C1-NHM·120897 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.277884487s (503.28µs / object)  x=zhash.go	# POLL·158 C1-NHM·121354 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=4.278964926s (503.407µs / object)  x=zhash.go	# POLL·115 C1-NHM·119947 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-05 17:45:31.7507 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-10-05 17:45:31 140433697024256 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 31625 ...
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.886s (927.8μs / object)  x=zhash.py	# POLL·80 C1-NHM·154010 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.735s (909.9μs / object)  x=zhash.py	# POLL·84 C1-NHM·157609 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=7.936s (933.7μs / object)  x=zhash.py	# POLL·61 C1-NHM·143435 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=8.742s (1028.4μs / object)  x=zhash.py	# POLL·185 C1-NHM·141119 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.927761303s (815.03µs / object)  x=zhash.go	# POLL·165 C1-NHM·129358 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.855383243s (806.515µs / object)  x=zhash.go	# POLL·115 C1-NHM·124340 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.810244449s (801.205µs / object)  x=zhash.go	# POLL·105 C1-NHM·128526 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=6.809173566s (801.079µs / object)  x=zhash.go	# POLL·142 C1-NHM·134816 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-05 17:46:35.6905 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.656s (430.1μs / object)  x=zhash.py	# POLL·87 C1-NHM·116188 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.701s (435.4μs / object)  x=zhash.py	# POLL·85 C1-NHM·145817 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.746s (440.7μs / object)  x=zhash.py	# POLL·73 C1-NHM·135172 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=3.693s (434.4μs / object)  x=zhash.py	# POLL·74 C1-NHM·136113 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.831226573s (215.438µs / object)  x=zhash.go	# POLL·54 C1-NHM·62678 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.820355963s (214.159µs / object)  x=zhash.go	# POLL·32 C1-NHM·63835 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.83900094s (216.353µs / object)  x=zhash.go	# POLL·34 C1-NHM·64953 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=2.098209457s (246.848µs / object)  x=zhash.go	# POLL·364 C1-NHM·35696 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017/10/05 17:47:03 talk master([2401:5180:0:6f::1]:5552): context canceled
+2017-10-05 17:47:03.5479 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.651353903s (194.276µs / object)  x=zhash.go
+# POLL·73 C1-NHM·65021 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.651422754s (194.285µs / object)  x=zhash.go
+# POLL·39 C1-NHM·63417 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.668732766s (196.321µs / object)  x=zhash.go
+# POLL·73 C1-NHM·63583 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+crc32:83514ce0   ; oid=0..8499  nread=34159871  t=1.66851479s (196.295µs / object)  x=zhash.go
+# POLL·89 C1-NHM·62679 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+E1005 17:47:12.077824   31814 storage.go:120] storage([2401:5180:0:6f::1]:5554): accept: accept tcp [2401:5180:0:6f::1]:5554: use of closed network connection
+2017-10-05 17:47:12.0730 ERROR     NEO        [           app: 91] primary master is down
+2017/10/05 17:47:12 talk master([2401:5180:0:6f::1]:5552): context canceled
+Cluster state changed
