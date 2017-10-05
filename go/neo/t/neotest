@@ -600,7 +600,7 @@ cpustat() {
 	ustartv=( `statev_usage` )
 	#echo >&2 "--------"
 	#sleep 1
-	out="$("$@")"
+	out="$("$@" 2>&1)"
 	ret=$?
 	uendv=( `statev_usage` )
 
