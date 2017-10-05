@@ -601,6 +601,7 @@ cpustat() {
 	#echo >&2 "--------"
 	#sleep 1
 	out="$("$@")"
+	ret=$?
 	uendv=( `statev_usage` )
 
 	stat="#"
@@ -619,6 +620,8 @@ cpustat() {
 		echo -n "$out"
 		echo -e "\t$stat"
 	fi
+
+	return $ret
 }
 
 Nrun=4		# repeat benchmarks N time
@@ -765,8 +768,9 @@ cmd_bench-cluster() {
 	sizev="56 1472"
 	for size in $sizev; do
 		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
-		sudo -n ping -i0 -w 3 -s $size -q $peer	|| echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"
+		$profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"
 		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
+		# TODO profile remotely
 		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\""
 	done
 
@@ -774,22 +778,26 @@ cmd_bench-cluster() {
 	sizev="1 1472 4096"
 	for size in $sizev; do
 		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		# TODO profile remotely
 		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
 		nrun lat_tcp -m $size $peer
 		lat_tcp -S $peer
 
 		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		# TODO profile remotely
 		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
 		nrun lat_tcp -m $size $peer
 		lat_tcp -S $peer
 
 		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		lat_tcp -s
+		# TODO profile remotely
 		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
 		lat_tcp -S localhost
 
 		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
 		lat_tcp_go -s 2>/dev/null &
+		# TODO profile remotely
 		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
 		lat_tcp -S localhost
 	done
