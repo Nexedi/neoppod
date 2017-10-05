@@ -627,7 +627,7 @@ cpustat() {
 	return $ret
 }
 
-Nrun=4		# repeat benchmarks N time
+Nrun=5		# repeat benchmarks N time
 Npar=8		# run so many parallel clients in parallel phase
 
 #profile=
