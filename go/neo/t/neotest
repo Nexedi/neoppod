@@ -1,6 +1,25 @@
 #!/bin/bash -e
 # neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
 
+# Copyright (C) 2017  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+
 # ---- deploy NEO for tests/benchmarks at a node ----
 
 die() {
@@ -19,7 +38,7 @@ cmd_deploy() {
 	ssh $host ./neotest deploy-local "$path"
 }
 
-# cmd_deploy_local <path>		- deploy NEO & needed software for tests @path
+# cmd_deploy-local <path>		- deploy NEO & needed software for tests @path
 cmd_deploy_local() {
 	path=$1
 	test -z "$path" && die "Usage: neotest deploy-local <path>"
@@ -30,6 +49,7 @@ cmd_deploy_local() {
 	# python part
 	virtualenv venv
 
+	# env.sh for deployment
 	cat >env.sh << 'EOF'
 X=${1:-${BASH_SOURCE[0]}}       # path to original env.sh is explicitly passed
 X=$(cd `dirname $X` && pwd)     # when there is other env.sh wrapping us
@@ -93,15 +113,10 @@ EOF
 
 # jump to deploy early if we have to
 case "$1" in
-deploy)
+deploy|deploy-local)
+	cmd="$1"
 	shift
-	cmd_deploy "$@"
-	exit
-	;;
-
-deploy-local)
-	shift
-	cmd_deploy_local "$@"
+	cmd_$cmd "$@"
 	exit
 	;;
 esac
@@ -124,29 +139,34 @@ $@
 
 # ----------------------------------------
 
-# XXX neo/py, wendelin.core, ... - must be pip install'ed
-# XXX neo/py: run via relative path to neomaster? (../../neo/neomaster) so we do not need to `pip install -e` ?
+# NOTE neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 
-# local external address IPv4 or IPv6
-myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
+# init_net	- initialize networking
+init_net() {
+	# local our external address IPv4 or IPv6
+	myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
+	test -n "$myaddr" || die "init_net: cannot determiny my network address"
 
-# port allocations ([] works for IPv4 too)
-Abind=[$myaddr]:5551	# NEO admin
-Mbind=[$myaddr]:5552	# NEO master
-Zbind=[$myaddr]:5553	# ZEO
+	# port allocations ([] works for IPv4 too)
+	Abind=[$myaddr]:5551	# NEO admin
+	Mbind=[$myaddr]:5552	# NEO master
+	Zbind=[$myaddr]:5553	# ZEO
 
-# NEO storage. bind not strictly needed but we make sure no 2 storages are
-# started at the same time
-Sbind=[$myaddr]:5554
+	# NEO storage. bind not strictly needed but we make sure no 2 storages are
+	# started at the same time
+	Sbind=[$myaddr]:5554
+}
 
-# disk allocation
-log=`pwd`/log;		mkdir -p $log
-var=`pwd`/var;		mkdir -p $var
-fs1=$var/fs1;		mkdir -p $fs1		# FileStorage (and so ZEO and NEO/go) data
-neolite=$var/neo.sqlite				# NEO/py: sqlite
-neosql=$var/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
-mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
-mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
+# init_fs	- do initial disk allocations
+init_fs() {
+	log=`pwd`/log;		mkdir -p $log
+	var=`pwd`/var;		mkdir -p $var
+	fs1=$var/fs1;		mkdir -p $fs1		# FileStorage (and so ZEO and NEO/go) data
+	neolite=$var/neo.sqlite				# NEO/py: sqlite
+	neosql=$var/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
+	mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
+	mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
+}
 
 # cluster name
 cluster=pygotest
@@ -176,7 +196,7 @@ jobs -l
 kill $j' EXIT
 }
 
-# ---- start NEO nodes ----
+# ---- start NEO/ZEO nodes ----
 
 # M{py,go} ...	- spawn master
 Mpy() {
@@ -782,6 +802,7 @@ cmd_run-client() {
 
 # command: print information about local node
 cmd_info-local() {
+	init_net
 	header
 }
 
@@ -850,6 +871,10 @@ esac
 # rebuild go bits
 go install -v lab.nexedi.com/kirr/neo/go/...
 go build -o zhash_go zhash.go
+
+# setup network & fs environment
+init_net
+init_fs
 
 # run the command
 cmd="$1"
