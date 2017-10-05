@@ -698,7 +698,7 @@ bench() {
 bench_go() {
 	url=$1
 	nrun ./zhash_go --log_dir=$log -$hashfunc $url
-#	nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
+	nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
 
 #	echo -e "\n# ${Npar} clients in parallel"
 #	nrunpar ./zhash_go --log_dir=$log -$hashfunc $url
