@@ -613,10 +613,13 @@ cpustat() {
 		stat+=" $sname·$du"
 		#stat+=" $du·$sname"
 	done
+
 	if [ `echo "$out" | wc -l` -gt 1 ]; then
+		# multiline out - add another line
 		echo "$out"
 		echo "$stat"
 	else
+		# 1-line out	- add stats at line tail
 		echo -n "$out"
 		echo -e "\t$stat"
 	fi
