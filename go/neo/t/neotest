@@ -74,7 +74,7 @@ export PATH=$X/ioping:$PATH
 export PATH=$PATH:/sbin:/usr/sbin
 EOF
 
-	# NOTE lmbench before env.sh becuase env.sh uses `scripts/os` from lmbench
+	# NOTE lmbench before env.sh because env.sh uses `scripts/os` from lmbench
 	git clone -o kirr -b x/kirr https://lab.nexedi.com/kirr/lmbench.git
 	pushd lmbench/lmbench3/src
 	make -j`nproc`
@@ -137,15 +137,13 @@ $@
 \""
 }
 
-# ----------------------------------------
-
-# NOTE neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
+# ---- net/fs setup + processes control/teardown ----
 
 # init_net	- initialize networking
 init_net() {
 	# local our external address IPv4 or IPv6
 	myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
-	test -n "$myaddr" || die "init_net: cannot determiny my network address"
+	test -n "$myaddr" || die "init_net: cannot determine my network address"
 
 	# port allocations ([] works for IPv4 too)
 	Abind=[$myaddr]:5551	# NEO admin
@@ -356,7 +354,7 @@ GENsqlite() {
 	NEOpylite
 	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
 	xneoctl set cluster stopping
-	wait	# XXX fragile - won't work if there are childs spawned outside
+	wait	# XXX fragile - won't work if there are children spawned outside
 	sync
 	touch $var/generated.sqlite
 }
@@ -385,11 +383,10 @@ gen_data() {
 }
 
 
-# ---- main driver ----
+# ---- information about system ----
 
 # pyver <egg> (<showas>) - print version of egg
 pyver() {
-	#return	# XXX temp to save time
 	local egg=$1
 	local showas=$2
 	test "$showas" == "" && showas=$egg
@@ -411,14 +408,13 @@ fkghz() {
 	echo "${v}GHz"
 }
 
-
 # lspci1 <pcidev> <field>	- show <field> from lspci information about <pcidev>
 lspci1() {
 	lspci -vmm -s $1 |grep "^$2:\\s*" |sed -e "s/^$2:\\s*//"
 }
 
-# show date/hardware/versions
-header() {
+# show date/os/hardware/versions...
+system_info() {
 	echo -n "# "; date --rfc-2822
 	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
 	echo -n "# "; uname -a
@@ -576,7 +572,9 @@ header() {
 	pyver wendelin.core
 }
 
-# run benchmarks
+
+# ---- benchmarking ----
+
 Nrun=4		# repeat benchmarks N time
 Npar=8		# run so many parallel clients in parallel phase
 
@@ -651,7 +649,7 @@ bench_go() {
 # command: benchmark when client and storage are on the same computer
 cmd_bench-local() {
 	echo -e ">>> bench-local"
-	header
+	system_info
 	bench_disk
 	install_trap
 	gen_data
@@ -702,7 +700,7 @@ cmd_bench-cluster() {
 
 	echo -e ">>> bench-cluster $url"
 	echo -e "\n# server:"
-	header
+	system_info
 	echo -e "\n# client:"
 	on $url ./neotest info-local
 
@@ -784,7 +782,7 @@ cmd_bench-cluster() {
 	exit
 }
 
-# command: run client workload against sepearate server
+# command: run client workload against separate server
 cmd_run-client() {
 	goonly=""
 	case "$1" in
@@ -803,7 +801,7 @@ cmd_run-client() {
 # command: print information about local node
 cmd_info-local() {
 	init_net
-	header
+	system_info
 }
 
 # command: print information about remote node
@@ -869,6 +867,7 @@ esac
 
 
 # rebuild go bits
+# neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 go install -v lab.nexedi.com/kirr/neo/go/...
 go build -o zhash_go zhash.go
 
