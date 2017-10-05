@@ -166,7 +166,7 @@ init_fs() {
 	mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
 }
 
-# cluster name
+# NEO cluster name
 cluster=pygotest
 
 # control started NEO cluster
@@ -575,24 +575,77 @@ system_info() {
 
 # ---- benchmarking ----
 
+# cpustat ...	- run ... and print CPU C-states statistic
+cpustat() {
+	syscpu=/sys/devices/system/cpu
+	cpuv=( `ls -vd $syscpu/cpu[0-9]*` )
+	# XXX we assume cpuidle states are the same for all cpus and get list of them from cpu0
+	statev=( `ls -vd ${cpuv[0]}/cpuidle/state[0-9]* |xargs -n 1 basename` )
+
+	# get current [state]usage. usage for a state is summed accreso all cpus
+	statev_usage() {
+		usagev=()
+		for s in ${statev[*]}; do
+			#echo >&2 $s
+			susage=0
+			for u in `cat $syscpu/cpu[0-9]*/cpuidle/$s/usage`; do
+				#echo -e >&2 "\t$u"
+				((susage+=$u))
+			done
+			usagev+=($susage)
+		done
+		echo ${usagev[*]}
+	}
+
+	ustartv=( `statev_usage` )
+	#echo >&2 "--------"
+	#sleep 1
+	out="$("$@")"
+	uendv=( `statev_usage` )
+
+	stat="#"
+	for ((i=0;i<${#statev[*]};i++)); do
+		s=${statev[$i]}
+		sname=`cat ${cpuv[0]}/cpuidle/$s/name`
+		du=$((${uendv[$i]} - ${ustartv[$i]}))
+		#stat+=" $sname(+$du)"
+		stat+=" $sname·$du"
+		#stat+=" $du·$sname"
+	done
+	if [ `echo "$out" | wc -l` -gt 1 ]; then
+		echo "$out"
+		echo "$stat"
+	else
+		echo -n "$out"
+		echo -e "\t$stat"
+	fi
+}
+
 Nrun=4		# repeat benchmarks N time
 Npar=8		# run so many parallel clients in parallel phase
+
+#profile=
+profile=cpustat
 
 # nrun ...	- run ... $Nrun times serially
 nrun() {
 	for i in `seq $Nrun`; do
-		"$@"
+		$profile "$@"
 	done
 }
 
 # nrunpar ...	- run $Npar ... instances in parallel and wait for completion
-nrunpar() {
+_nrunpar() {
 	local jobv
 	for i in `seq $Npar`; do
 		"$@" &
 		jobv="$jobv $!"
 	done
 	wait $jobv
+}
+
+runpar() {
+	$profile _runpar "$@"
 }
 
 # bench_disk	- print disk identification and benchmark direct (uncached) and cached random reads
@@ -614,7 +667,7 @@ bench_disk() {
 hashfunc=crc32
 #hashfunc=null
 
-# bench <url>	- run benchmarks against URL
+# bench <url>	- run ZODB client benchmarks against URL
 bench() {
 	# XXX show C states usage diff after each benchmark	XXX + same for P-states
 	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
