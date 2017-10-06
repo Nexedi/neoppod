@@ -628,7 +628,7 @@ cpustat() {
 }
 
 Nrun=5		# repeat benchmarks N time
-Npar=8		# run so many parallel clients in parallel phase
+Npar=16		# run so many parallel clients in parallel phase
 
 #profile=
 profile=cpustat
@@ -650,8 +650,8 @@ _nrunpar() {
 	wait $jobv
 }
 
-runpar() {
-	$profile _runpar "$@"
+nrunpar() {
+	$profile _nrunpar "$@"
 }
 
 # bench_cpu	- microbenchmark CPU
@@ -693,8 +693,8 @@ bench() {
 #	nrun time demo-zbigarray read $url
 
 	nrun ./zhash.py --$hashfunc $url
-#	echo -e "\n# ${Npar} clients in parallel"
-#	nrunpar ./zhash.py --$hashfunc $url
+	echo -e "\n# ${Npar} clients in parallel"
+	nrunpar ./zhash.py --$hashfunc $url
 
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
@@ -708,11 +708,10 @@ bench() {
 bench_go() {
 	url=$1
 	nrun ./zhash_go --log_dir=$log -$hashfunc $url
-	# FIXME reenable - after fixing bug.txt
-	#nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
+	nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
 
-#	echo -e "\n# ${Npar} clients in parallel"
-#	nrunpar ./zhash_go --log_dir=$log -$hashfunc $url
+	echo -e "\n# ${Npar} clients in parallel"
+	nrunpar ./zhash_go --log_dir=$log -$hashfunc $url
 }
 
 
