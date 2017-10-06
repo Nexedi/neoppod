@@ -143,7 +143,9 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err err
 		}
 	}
 
-	// prefetchBlk prefetches block of 512 objects starting from xid
+	const nprefetch = 128	// XXX -> 512 ?
+
+	// prefetchBlk prefetches block of nprefetch objects starting from xid
 	//var tprevLoadBlkStart time.Time
 	prefetchBlk := func(ctx context.Context, xid zodb.Xid) {
 		if cache == nil {
@@ -151,8 +153,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err err
 		}
 
 		//t1 := time.Now()
-		//for i := 0; i < 512; i++ {
-		for i := 0; i < 8; i++ {
+		for i := 0; i < nprefetch; i++ {
 			prefetch(ctx, xid)
 			xid.Oid++
 		}
@@ -181,17 +182,14 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool) (err err
 		//defer profile.Start(profile.CPUProfile).Stop()
 	}
 
-for qqq := 0; qqq < 1; qqq++ {
 	tstart := time.Now()
-	h.Reset()	// XXX temp
 
 	oid := zodb.Oid(0)
 	nread := 0
 loop:
 	for {
 		xid := zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: before, TidBefore: true}}
-		//if xid.Oid % 512 == 0 {
-		if xid.Oid % 8 == 0 {
+		if xid.Oid % nprefetch == 0 {
 			prefetchBlk(ctx, xid)
 		}
 		buf, _, err := load(ctx, xid)
@@ -220,11 +218,10 @@ loop:
 
 	x := "zhash.go"
 	if useprefetch {
-		x += " +prefetch"
+		x += fmt.Sprintf(" +prefetch%d", nprefetch)
 	}
 	fmt.Printf("%s:%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
 		h.name, h.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
-}
 
 	return nil
 }

@@ -121,36 +121,29 @@ def main():
     last_tid = stor.lastTransaction()
     before = p64(u64(last_tid) + 1)
 
-    for zzz in range(1):
-        tstart = time()
+    tstart = time()
 
-        # vvv h.reset() XXX temp
+    oid = 0
+    nread = 0
+    while 1:
         try:
-            h = h.__class__()
-        except:
-            h = hashlib.new(h.name)
+            data, serial, _ = stor.loadBefore(p64(oid), before)
+        except POSKeyError:
+            break
 
-        oid = 0
-        nread = 0
-        while 1:
-            try:
-                data, serial, _ = stor.loadBefore(p64(oid), before)
-            except POSKeyError:
-                break
+        h.update(data)
 
-            h.update(data)
+        #print('%s @%s\tsha1: %s' % (oid, u64(serial), h.hexdigest()), file=sys.stderr)
+        #print('\tdata: %s' % (data.encode('hex'),), file=sys.stderr)
 
-            #print('%s @%s\tsha1: %s' % (oid, u64(serial), h.hexdigest()), file=sys.stderr)
-            #print('\tdata: %s' % (data.encode('hex'),), file=sys.stderr)
+        nread += len(data)
+        oid += 1
 
-            nread += len(data)
-            oid += 1
+    tend = time()
+    dt = tend - tstart
 
-        tend = time()
-        dt = tend - tstart
-
-        print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=zhash.py' % \
-                (h.name, h.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid))
+    print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=zhash.py' % \
+            (h.name, h.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid))
 
 
 if __name__ == '__main__':
