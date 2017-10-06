@@ -16,6 +16,7 @@ digraph {
 	Sgo_speed -> diskio;
 	Sgo_speed -> ConnClose_notimer;
 
+	Sgo_speed -> osnet_latency;
 	Sgo_speed -> QSgo_speed;
 
 	QSgo_speed -> Mmap_go;
@@ -62,7 +63,7 @@ digraph {
 	sha1_index	[label="? sha1 index"];
 	//B_link_recv	[label="Bench link.Recv1/Ask1" style=filled fillcolor=lightyellow];
 	garbage		[label="garbage" style=filled fillcolor=lightyellow];
-	gosched		[label="? go scheduling" style=filled fillcolor=grey95];
+	gosched		[label="?\ngo scheduling" style=filled fillcolor=grey95];
 
 	//Cgo -> Cgo_tasks;
 	//Cgo_tasks	[label="- talkMaster\n- update nodeTab/partTab\n- dial S on demand\n..." style=filled fillcolor=lightyellow];
@@ -75,5 +76,19 @@ digraph {
 
 	ConnClose_notimer	[label="Conn.Close\nno timer" style=filled fillcolor=lightyellow];
 	diskio		[label="disk io"];
-	GOMAXPROCS	[label="? GOMAXPROCS"];
+	GOMAXPROCS	[label="?\nGOMAXPROCS"];
+
+
+	osnet_latency	-> rx_no_delay;
+	osnet_latency	-> nocstates;
+	osnet_latency	-> tcp_latency;
+
+	rx_no_delay	-> rtl_patch;
+
+	osnet_latency	[label="OS/Network\nlatency"];
+	rx_no_delay	[label="net rx\nno delay" style=filled fillcolor=lightyellow];
+	nocstates	[label="disable >C1" style=filled fillcolor=lightyellow];
+	tcp_latency	[label="TCP RR\nlatency"];
+
+	rtl_patch	[label="r8169 patch\nethtool -C" style=filled fillcolor=lightyellow];
 }
