@@ -600,8 +600,8 @@ cpustat() {
 	ustartv=( `statev_usage` )
 	#echo >&2 "--------"
 	#sleep 1
-	out="$("$@" 2>&1)"
-	ret=$?
+	ret=0
+	out="$("$@" 2>&1)" || ret=$?
 	uendv=( `statev_usage` )
 
 	stat="#"
@@ -654,12 +654,22 @@ runpar() {
 	$profile _runpar "$@"
 }
 
-# bench_disk	- print disk identification and benchmark direct (uncached) and cached random reads
+# bench_cpu	- microbenchmark CPU
+bench_cpu() {
+	nrun sh -c "python -m test.pystone |tail -1"
+
+	nrun ./tsha1.py 1024
+	nrun ./tsha1_go 1024
+	nrun ./tsha1.py 4096
+	nrun ./tsha1_go 4096
+}
+
+# bench_disk	- benchmark direct (uncached) and cached random reads
 bench_disk() {
-	echo -e "\n*** random direct (no kernel cache) 4K-read disk latency"
+	echo -e "\n*** disk: random direct (no kernel cache) 4K-read latency"
 	nrun ioping -D -i 0ms -s 4k -S 1024M -w 3s -q -k .
 
-	echo -e "\n*** random cached 4K-read disk latency"
+	echo -e "\n*** disk: random cached 4K-read latency"
 	# warmup so kernel puts the file into pagecache
 	for i in `seq 3`; do
 		cat ioping.tmp >/dev/null
@@ -709,6 +719,8 @@ bench_go() {
 cmd_bench-local() {
 	echo -e ">>> bench-local"
 	system_info
+	echo -e "\n*** cpu:\n"
+	bench_cpu
 	bench_disk
 	install_trap
 	gen_data
@@ -762,6 +774,12 @@ cmd_bench-cluster() {
 	system_info
 	echo -e "\n# client:"
 	on $url ./neotest info-local
+
+	echo -e "\n*** server cpu:"
+	bench_cpu
+
+	echo -e "\n*** client cpu:"
+	on $url ./neotest bench-cpu
 
 	echo -e "\n*** server disk:"
 	bench_disk
@@ -862,6 +880,16 @@ cmd_run-client() {
 	test -z "$goonly" && bench $url || bench_go $url
 }
 
+# command: benchmark local disk
+cmd_bench-disk() {
+	bench_disk
+}
+
+# command: benchmark local cpu
+cmd_bench-cpu() {
+	bench_cpu
+}
+
 # command: print information about local node
 cmd_info-local() {
 	init_net
@@ -891,6 +919,8 @@ The commands are:
 	bench-cluster	run benchmarks when server is local and client is on another node
 
 	run-client	run client benchmarks against separate server
+	bench-disk	benchmark local disk (already part of bench-{local,cluster})
+	bench-cpu	benchmark local cpu  (already part of bench-{local,cluster})
 
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
@@ -903,8 +933,10 @@ EOF
 case "$1" in
 # commands that require build
 bench-local	| \
+bench-cluster	| \
 run-client	| \
-bench-cluster)
+bench-disk	| \
+bench-cpu)
 	;;
 
 info)
@@ -934,6 +966,7 @@ esac
 # neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 go install -v lab.nexedi.com/kirr/neo/go/...
 go build -o zhash_go zhash.go
+go build -o tsha1_go tsha1.go
 
 # setup network & fs environment
 init_net

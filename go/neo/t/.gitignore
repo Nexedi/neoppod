@@ -2,4 +2,6 @@
 /var
 /zhash
 /zhash_go
+/tsha1
+/tsha1_go
 /ioping.tmp
