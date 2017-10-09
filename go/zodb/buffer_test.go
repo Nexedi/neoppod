@@ -17,6 +17,11 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+// As of go19 sync.Pool under race-detector randomly drops items on the floor
+// https://github.com/golang/go/blob/ca360c39/src/sync/pool.go#L92
+// so it is not possible to verify we will get what we've just put there.
+// +build !race
+
 package zodb
 
 import (
@@ -53,16 +58,16 @@ func TestBufAllocFree(t *testing.T) {
 		}
 
 		if len(buf.Data) != size {
-			t.Errorf("%v: len=%v  ; want %v", i, len(buf.Data), size)
+			t.Fatalf("%v: len=%v  ; want %v", i, len(buf.Data), size)
 		}
 		if cap(buf.Data) != xcap {
-			t.Errorf("%v: cap=%v  ; want %v", i, cap(buf.Data), xcap)
+			t.Fatalf("%v: cap=%v  ; want %v", i, cap(buf.Data), xcap)
 		}
 
 		checkref := func(rc int32) {
 			t.Helper()
 			if buf.refcnt != rc {
-				t.Errorf("%v: refcnt=%v  ; want %v", i, buf.refcnt, rc)
+				t.Fatalf("%v: refcnt=%v  ; want %v", i, buf.refcnt, rc)
 			}
 		}
 
@@ -77,14 +82,14 @@ func TestBufAllocFree(t *testing.T) {
 		// not from pool - memory won't be reused
 		if int(i) >= order0 + len(bufPoolv) {
 			if buf2 == buf || sliceDataPtr(buf2.Data) == sliceDataPtr(data) {
-				t.Errorf("%v: buffer reused but should not", i)
+				t.Fatalf("%v: buffer reused but should not", i)
 			}
 			continue
 		}
 
 		// from pool -> it must be the same
 		if !(buf2 == buf && sliceDataPtr(buf2.Data) == sliceDataPtr(data)) {
-			t.Errorf("%v: buffer not reused on free/realloc", i)
+			t.Fatalf("%v: buffer not reused on free/realloc", i)
 		}
 		checkref(0)
 
@@ -99,7 +104,7 @@ func TestBufAllocFree(t *testing.T) {
 		checkref(0)
 
 		if buf2 == buf || sliceDataPtr(buf2.Data) == sliceDataPtr(data) {
-			t.Errorf("%v: buffer reused but should not", i)
+			t.Fatalf("%v: buffer reused but should not", i)
 		}
 
 		// release buf again -> should go to pool
@@ -107,7 +112,7 @@ func TestBufAllocFree(t *testing.T) {
 		checkref(-1)
 		buf2 = BufAlloc(size)
 		if !(buf2 == buf && sliceDataPtr(buf2.Data) == sliceDataPtr(data)) {
-			t.Errorf("%v: buffer not reused on free/realloc", i)
+			t.Fatalf("%v: buffer not reused on free/realloc", i)
 		}
 		checkref(0)
 	}
