@@ -842,6 +842,29 @@ func TestRecv1Mode(t *testing.T) {
 	// TODO link.Close vs Recv1
 }
 
+// test possible race-condition between link.shutdown and conn.lightClose:
+//
+// link.shutdown sets link.connTab=nil and under link.connMu and then iterates
+// read connTab without link.connMu held. If conn.lightClose does
+// conn.release() in parallel to link.shutdown() iterating connTab they can be
+// both writing/using e.g. conn.rxdownOnce.
+//
+// bug triggers under -race
+func TestLightCloseVsLinkShutdown(t *testing.T) {
+	nl1, nl2 := nodeLinkPipe()
+	wg := &xsync.WorkGroup{}
+
+	c := xnewconn(nl1)
+	nl1.shutdown()
+	wg.Gox(func() {
+		c.lightClose()
+	})
+
+	xwait(wg)
+	xclose(nl1)
+	xclose(nl2)
+}
+
 // ---- benchmarks ----
 
 // rtt over chan - for comparision as base

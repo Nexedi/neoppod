@@ -1606,15 +1606,25 @@ func (c *Conn) Ask(req Msg, resp Msg) error {
 // XXX must be called only once.
 func (c *Conn) lightClose() {
 	nl := c.link
+	releaseok := false
 	nl.connMu.Lock()
 	if nl.connTab != nil {
 		// XXX find way to keep initiated by us conn as closed for some time (see Conn.Close)
 		// but timer costs too much...
 		delete(nl.connTab, c.connId)
+		releaseok = true
 	}
 	nl.connMu.Unlock()
 
-	c.release()
+	// we can release c only if we removed it from connTab.
+	//
+	// if not - the scenario could be: nl.shutdown sets nl.connTab=nil and
+	// then iterates connTab snapshot taken under nl.connMu lock. If so
+	// this activity (which calls e.g. Conn.shutdown) could be running with
+	// us in parallel.
+	if releaseok {
+		c.release()
+	}
 }
 
 // Request is a message received from the link + connection handle to make a reply.
