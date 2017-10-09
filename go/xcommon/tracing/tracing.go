@@ -201,6 +201,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"lab.nexedi.com/kirr/neo/go/xcommon/tracing/internal/xruntime"
 )
 
 // big tracing lock
@@ -216,14 +218,18 @@ var traceLocked int32      // for cheap protective checks whether Lock is held
 // Lock returns with the world stopped.
 func Lock() {
 	traceMu.Lock()
-	runtime_stopTheWorld("tracing lock")
+	xruntime.StopTheWorld("tracing lock")
 	atomic.StoreInt32(&traceLocked, 1)
+	// we synchronized with everyone via stopping the world - there is now
+	// no other goroutines running to race with.
+	xruntime.RaceIgnoreBegin()
 }
 
 // Unlock is the opposite to Lock and returns with the world resumed
 func Unlock() {
+	xruntime.RaceIgnoreEnd()
 	atomic.StoreInt32(&traceLocked, 0)
-	runtime_startTheWorld()
+	xruntime.StartTheWorld()
 	traceMu.Unlock()
 }
 

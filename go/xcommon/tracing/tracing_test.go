@@ -21,7 +21,9 @@ package tracing
 
 import (
 	"reflect"
+	"runtime"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/kylelemons/godebug/pretty"
@@ -92,4 +94,52 @@ func TestAttachDetach(t *testing.T) {
 
 	detach(p3)
 	checkX()
+}
+
+// Test use vs concurent detach.
+//
+// Detach works under tracing lock (= world stopped) - so changing a probe list
+// should be ok, but since race detector does not know we stopped the world it
+// could complain.
+func TestUseDetach(t *testing.T) {
+	var traceX *Probe	// list head of a tracing event
+
+	// attach probe to traceX
+	probe := Probe{}
+	Lock()
+	AttachProbe(nil, &traceX, &probe)
+	Unlock()
+
+	// simulate traceX signalling and so probe usage and concurrent probe detach
+	go func() {
+		// delay a bit so that main goroutine first spins some time
+		// with non-empty probe list
+		time.Sleep(1*time.Millisecond)
+
+		Lock()
+		probe.Detach()
+		Unlock()
+	}()
+
+loop:
+	for {
+		np := 0
+		for p := traceX; p != nil; p = p.Next() {
+			np++
+		}
+
+		switch np {
+		case 1:
+			// ok - not yet detached
+		case 0:
+			// ok - detached
+			break loop
+		default:
+			t.Fatalf("probe seen %d times; must be either 1 or 0", np)
+		}
+
+		// XXX as of go19 tight loops are not preemptible (golang.org/issues/10958)
+		//     and Lock does stop-the-world -> make this loop explicitly preemtible.
+		runtime.Gosched()
+	}
 }
