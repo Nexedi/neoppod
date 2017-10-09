@@ -966,6 +966,7 @@ esac
 # neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 go install -v lab.nexedi.com/kirr/neo/go/...
 go build -o zhash_go zhash.go
+#go build -race -o zhash_go zhash.go
 go build -o tsha1_go tsha1.go
 
 # setup network & fs environment

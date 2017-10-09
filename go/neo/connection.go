@@ -112,7 +112,6 @@ type Conn struct {
 	// XXX ^^^ split to different cache lines?
 
 	rxerrOnce sync.Once     // rx error is reported only once - then it is link down or closed XXX !light?
-//	errMsg	  *Error	// error message for peer if rx is down	XXX try to do without it
 
 	// there are two modes a Conn could be used:
 	// - full mode - where full Conn functionality is working, and
@@ -202,7 +201,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 		peerLink:   conn,
 		connTab:    map[uint32]*Conn{},
 		nextConnId: nextConnId,
-		acceptq:    make(chan *Conn),	// XXX +buf
+		acceptq:    make(chan *Conn),	// XXX +buf ?
 		txq:        make(chan txReq),
 		rxghandoff: make(chan struct{}),
 //		axdown:     make(chan struct{}),
@@ -220,7 +219,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 // XXX make it per-link?
 var connPool = sync.Pool{New: func() interface{} {
 	return &Conn{
-		rxq:    make(chan *PktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf
+		rxq:    make(chan *PktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf ?
 		txerr:  make(chan error, 1),	// NOTE non-blocking - see Conn.Send
 		txdown: make(chan struct{}),
 //		rxdown: make(chan struct{}),
@@ -1690,7 +1689,7 @@ func (link *NodeLink) Send1(msg Msg) error {
 		return err
 	}
 
-	conn.downRX(errConnClosed) // XXX just new conn this way
+	conn.downRX(errConnClosed) // XXX just initially create conn this way
 
 	err = conn.sendMsgDirect(msg)
 	conn.lightClose()
