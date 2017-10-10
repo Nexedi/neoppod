@@ -19,6 +19,8 @@ digraph {
 	Sgo_speed -> osnet_latency;
 	Sgo_speed -> QSgo_speed;
 
+	QSgo_speed -> prefetch_slow;
+	QSgo_speed -> parallel_slow;
 	QSgo_speed -> Mmap_go;
 	QSgo_speed -> sha1_index;
 
@@ -93,4 +95,7 @@ digraph {
 	rtl_tcp_2eth	[label="RTL: TCP RR ↑ 400μs\n on 1 eth.f -> 2 eth.f"];
 
 	rtl_patch	[label="r8169 patch\nethtool -C" style=filled fillcolor=lightyellow];
+
+	prefetch_slow	[label="? prefetch\nslow"];
+	parallel_slow	[label="? many clients\nSgo slower"];
 }
