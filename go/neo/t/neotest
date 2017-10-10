@@ -520,44 +520,104 @@ system_info() {
 		*pci*)
 			pcidev=`basename $nicdev`	# /sys/devices/pci0000:00/0000:00:1f.6	-> 0000:00:1f.6
 			#lspci -s $pcidev
-			echo -n "`lspci1 $pcidev Vendor` `lspci1 $pcidev Device` rev `lspci1 $pcidev Rev`"
+			echo "`lspci1 $pcidev Vendor` `lspci1 $pcidev Device` rev `lspci1 $pcidev Rev`"
 			;;
 
 		*)
-			echo -n "$nicdev (TODO)"
+			echo "$nicdev (TODO)"
 			;;
 		esac
 
+		nicwarnv=()
+
+		# show relevant features
+		featok=y
+		feat=`ethtool -k $nicname 2>/dev/null` || featok=n
+		if [ $featok != y ]; then
+			echo "# $nicname: features: ?"
+		else
+			# feat1 name abbrev -> abbrev. value  (e.g. "tx" or "!tx")
+			feat1() {
+				# ntuple-filters: off [fixed]
+				v=`echo "$feat" |grep "^$1:\\s*" |awk '{print $2}'`
+				case $v in
+				on)
+					echo "$2"
+					;;
+				off)
+					echo "!$2"
+					;;
+				*)
+					echo "?($v)$2"
+					;;
+				esac
+			}
+
+			s="# $nicname: features:"
+			# NOTE feature abbrevs are those used by `ethtool -K` to set them
+			s+=" `feat1 rx-checksumming			rx`"
+			s+=" `feat1 tx-checksumming			tx`"
+			s+=" `feat1 scatter-gather			sg`"
+			tso="`feat1 tcp-segmentation-offload            tso`"
+			s+=" $tso"
+			s+=" `feat1 udp-fragmentation-offload		ufo`"
+			s+=" `feat1 generic-segmentation-offload	gso`"
+			s+=" `feat1 generic-receive-offload		gro`"
+			s+=" `feat1 large-receive-offload		lro`"
+			s+=" `feat1 rx-vlan-offload			rxvlan`"
+			s+=" `feat1 tx-vlan-offload			txvlan`"
+			s+=" `feat1 ntuple-filters			ntuple`"
+			s+=" `feat1 receive-hashing			rxhash`"
+
+			# ^^^ are the common features - others are specific to kernel/device
+			# XXX or list them all?
+			s+=" ..."
+
+			echo "$s"
+
+			# warn if !tso (linux starts enabling autocorking for e.g. small second segment and probably
+			# something else and lat_tcp latency grows stepwise from ~130μs to 500μs and more)
+			test "$tso" == "tso" || nicwarnv+=("TSO not enabled - TCP latency with packets > MSS will be poor")
+		fi
+
+
 		# show rx/tx coalescing latency
+		echo -n "# $nicname: coalesce:"
 		coalok=y
 		coal=`ethtool -c $nicname 2>/dev/null` || coalok=n
 		if [ $coalok != y ]; then
-			echo -e "\t(rxc: ?  txc: ?)"
-			continue
+			echo " rxc: ?,  txc: ?"
+		else
+			# coal1 name -> value
+			coal1() {
+				echo "$coal" |grep "^$1:\\s*" | sed -e "s/^$1:\\s*//"
+			}
+			rxt=`coal1 rx-usecs`
+			rxf=`coal1 rx-frames`
+			rxt_irq=`coal1 rx-usecs-irq`
+			rxf_irq=`coal1 rx-frames-irq`
+
+			txt=`coal1 tx-usecs`
+			txf=`coal1 tx-frames`
+			txt_irq=`coal1 tx-usecs-irq`
+			txf_irq=`coal1 tx-frames-irq`
+
+			echo -en  " rxc: ${rxt}μs/${rxf}f/${rxt_irq}μs-irq/${rxf_irq}f-irq,"
+			echo -e  "  txc: ${txt}μs/${txf}f/${txt_irq}μs-irq/${txf_irq}f-irq"
+
+			# XXX also add -low and -high ?
+
+			# warn if rx latency is too high
+			rxlat=$(($rxt>$rxt_irq?$rxt:$rxt_irq))
+			test "$rxlat" -le 10 || nicwarnv+=("RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency")
 		fi
 
-		# coal1 name -> value
-		coal1() {
-			echo "$coal" |grep "^$1:\\s*" | sed -e "s/^$1:\\s*//"
-		}
-		rxt=`coal1 rx-usecs`
-		rxf=`coal1 rx-frames`
-		rxt_irq=`coal1 rx-usecs-irq`
-		rxf_irq=`coal1 rx-frames-irq`
 
-		txt=`coal1 tx-usecs`
-		txf=`coal1 tx-frames`
-		txt_irq=`coal1 tx-usecs-irq`
-		txf_irq=`coal1 tx-frames-irq`
+		# emit NIC warnings
+		for warn in "${nicwarnv[@]}"; do
+			echo "# $nicname: WARNING: $warn"
+		done
 
-		echo -en "\t(rxc: ${rxt}μs/${rxf}f/${rxt_irq}μs-irq/${rxf_irq}f-irq"
-		echo -e  "   txc: ${txt}μs/${txf}f/${txt_irq}μs-irq/${txf_irq}f-irq)"
-
-		# XXX also add -low and -high ?
-
-		# warn if rx latency is too high
-		rxlat=$(($rxt>$rxt_irq?$rxt:$rxt_irq))
-		test "$rxlat" -le 10 || echo "# $nicname: WARNING: RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency"
 	done
 
 	echo -n "# "; python --version
