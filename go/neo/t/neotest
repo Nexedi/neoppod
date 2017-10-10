@@ -786,7 +786,11 @@ cmd_bench-cluster() {
 
 	echo -e "\n*** link latency:"
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
-	sizev="56 1472"
+	#   16 = minimum ping payload size at which it starts putting struct timeval into payload and print RTT
+	# 1472 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 8 (ICMPv4 header)
+	# 1452 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 8 (ICMPv6 header)
+	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
+	sizev="16 1452"	# max = min(IPv4, IPv6) so that it is always only 1 Ethernet frame on the wire
 	for size in $sizev; do
 		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
 		$profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"
@@ -796,7 +800,11 @@ cmd_bench-cluster() {
 	done
 
 	echo -e "\n*** TCP latency:"
-	sizev="1 1472 4096"
+	#    1 = minimum TCP payload
+	# 1460 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 20 (TCP header !options)
+	# 1440 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 20 (TCP header !options)
+	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
+	sizev="1 1400 1500 4096" # 1400 = 1440 - ε (1 eth frame); 1500 = 1440 + ε (2 eth frames); 4096 - just big 4K (3 eth frames)
 	for size in $sizev; do
 		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		# TODO profile remotely
