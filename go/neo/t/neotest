@@ -911,6 +911,11 @@ cmd_info() {
 	on $url ./neotest info-local
 }
 
+# utility: cpustat on running arbitrary command
+cmd_cpustat() {
+	cpustat "$@"
+}
+
 # ---- main driver ----
 
 usage() {
@@ -935,6 +940,10 @@ The commands are:
 
 	info		print information about a node
 	info-local	print information about local deployment
+
+Additional utility commands:
+
+	cpustat		run a command and print CPU-related statistics
 EOF
 }
 
@@ -956,6 +965,12 @@ info)
 info-local)
 	shift
 	cmd_info-local "$@"
+	exit 0
+	;;
+
+cpustat)
+	shift
+	cmd_cpustat "$@"
 	exit 0
 	;;
 
