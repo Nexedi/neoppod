@@ -612,6 +612,17 @@ system_info() {
 			test "$rxlat" -le 10 || nicwarnv+=("RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency")
 		fi
 
+		# show main parameters + GRO flush time
+		s="# $nicname:"
+		s+=" `cat $nic/operstate`"
+		speed=`cat $nic/speed 2>/dev/null` || speed=?	# returns EINVAL for wifi
+		s+=", speed=$speed"
+		s+=", mtu=`cat $nic/mtu`"
+		s+=", txqlen=`cat $nic/tx_queue_len`"
+		tgroflush_ns=`cat $nic/gro_flush_timeout`
+		s+=", gro_flush_timeout=`python -c "print '%.3f' % ($tgroflush_ns / 1E3)"`µs"
+		echo "$s"
+
 
 		# emit NIC warnings
 		for warn in "${nicwarnv[@]}"; do
