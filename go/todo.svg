@@ -339,7 +339,7 @@
 </g>
 <!-- rtl_tcp_2eth -->
 <g id="node30" class="node"><title>rtl_tcp_2eth</title>
-<ellipse fill="none" stroke="black" cx="839.747" cy="-26.8701" rx="102.561" ry="26.7407"/>
+<ellipse fill="oldlace" stroke="black" cx="839.747" cy="-26.8701" rx="102.561" ry="26.7407"/>
 <text text-anchor="middle" x="839.747" y="-30.6701" font-family="Times,serif" font-size="14.00">RTL: TCP RR ↑ 400μs</text>
 <text text-anchor="middle" x="839.747" y="-15.6701" font-family="Times,serif" font-size="14.00"> on 1 eth.f &#45;&gt; 2 eth.f</text>
 </g>

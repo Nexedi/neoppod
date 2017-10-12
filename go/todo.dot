@@ -92,7 +92,7 @@ digraph {
 	rx_no_delay	[label="net rx\nno delay" style=filled fillcolor=lightyellow];
 	nocstates	[label="disable >C1" style=filled fillcolor=lightyellow];
 	tcp_latency	[label="TCP RR\nlatency"];
-	rtl_tcp_2eth	[label="RTL: TCP RR ↑ 400μs\n on 1 eth.f -> 2 eth.f"];
+	rtl_tcp_2eth	[label="RTL: TCP RR ↑ 400μs\n on 1 eth.f -> 2 eth.f" style=filled fillcolor=oldlace];
 
 	rtl_patch	[label="r8169 patch\nethtool -C" style=filled fillcolor=lightyellow];
 
