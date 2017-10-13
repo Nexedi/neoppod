@@ -142,6 +142,7 @@ $@
 # init_net	- initialize networking
 init_net() {
 	# local our external address IPv4 or IPv6
+	# XXX better parse `ip addr`
 	myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
 	test -n "$myaddr" || die "init_net: cannot determine my network address"
 
@@ -507,9 +508,12 @@ system_info() {
 	mntdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
 	blkdev=`echo $mntdev |sed -e 's/[0-9]*$//'`	# /dev/sda3 -> /dev/sda
 	blkdev1=`basename $blkdev`			# /dev/sda  -> sda
+	# XXX lsblk: tmpfs: not a block device
+	# XXX lsblk: /dev/md: not a block device
 	echo "# $blkdev1: `lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
 
 	# all NICs
+	# XXX warn if ethtool is not there
 	find /sys/class/net -type l -not -lname '*virtual*' | \
 	while read nic; do
 		nicname=`basename $nic`		# /sys/class/net/eth0	-> eth0
@@ -622,6 +626,8 @@ system_info() {
 		tgroflush_ns=`cat $nic/gro_flush_timeout`
 		s+=", gro_flush_timeout=`python -c "print '%.3f' % ($tgroflush_ns / 1E3)"`µs"
 		echo "$s"
+
+		# XXX warn if gro_flush_timeout=0 ?
 
 
 		# emit NIC warnings
@@ -871,6 +877,15 @@ cmd_bench-cluster() {
 		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\""
 	done
 
+	# TODO
+	# echo 1 > /proc/sys/net/ipv4/tcp_low_latency
+	# netstat -s
+	# /sys/class/net/ethX/gro_flush_timeout
+	# /proc/sys/net/ipv4/tcp_limit_output_bytes
+	#  ( https://lwn.net/Articles/507065/	"The default value of this
+	#    limit is 128KB; it could be set lower on systems where latency is the primary concern" )
+	# ? tcp pacing
+	# net.ipv4.tcp_autocorking (f54b3111 "tcp: auto corking")
 	echo -e "\n*** TCP latency:"
 	#    1 = minimum TCP payload
 	# 1460 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 20 (TCP header !options)
