@@ -93,6 +93,13 @@ type NodeLink struct {
 	rxghandoff chan struct{}
 }
 
+// XXX rx handoff make latency better for serial request-reply scenario but
+// does a lot of harm for case when there are several parallel requests -
+// serveRecv after handing off is put to tail of current cpu runqueue - not
+// receiving next requests and not spawning handlers for them, thus essential
+// creating Head-of-line (HOL) blocking problem.
+//
+// XXX ^^^ problem reproducible on deco but not on z6001
 const rxghandoff = true	// XXX whether to do rxghandoff trick
 
 // Conn is a connection established over NodeLink
