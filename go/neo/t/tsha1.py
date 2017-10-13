@@ -25,6 +25,7 @@ from __future__ import print_function
 import sys
 import hashlib
 from time import time
+import socket
 
 def main():
     blksize = int(sys.argv[1])
@@ -45,7 +46,9 @@ def main():
     tend = time()
     dt = tend - tstart
 
-    print('sha1(%dB) ~= %.1fμs  x=tsha1.py' % (blksize, dt * 1E6 / n))
+    # hostname generally != fqdn[0] XXX clarify/refine
+    hostname = socket.getfqdn().split('.')[0]
+    print('Benchmarksha1/%s/py/%dB %d\t%.3f µs/op' % (hostname, blksize, n, dt * 1E6 / n))
 
 if __name__ == '__main__':
     main()

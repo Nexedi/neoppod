@@ -62,5 +62,10 @@ func main() {
 	tend := time.Now()
 	δt := tend.Sub(tstart)
 
-	fmt.Printf("sha1(%dB) ~= %s  x=tsha1.go\n", blksize, δt / time.Duration(n))
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "?"
+	}
+
+	fmt.Printf("Benchmarksha1/%s/go/%dB %d\t%.3f µs/op\n", hostname, blksize, n, float64(δt) / float64(n) / float64(time.Microsecond))
 }
