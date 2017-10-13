@@ -553,7 +553,7 @@ func TestMasterStorage(t *testing.T) {
 }
 
 
-func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
+func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit func(xcload1 func())) {
 	// create test cluster	<- XXX factor to utility func
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
 
@@ -638,9 +638,28 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
 	// now start the benchmark
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		xcload1()
-	}
+	benchit(xcload1)
+}
+
+func benchmarkGetObjectSerial(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
+	benchmarkGetObject(b, Mnet, Snet, Cnet, func(xcload1 func()) {
+		for i := 0; i < b.N; i++ {
+			xcload1()
+		}
+	})
+}
+
+func benchmarkGetObjectParallel(b *testing.B, Mnet, Snet, Cnet xnet.Networker) {
+	benchmarkGetObject(b, Mnet, Snet, Cnet, func(xcload1 func()) {
+		//println()
+		b.SetParallelism(32) // we are io-bound
+		b.RunParallel(func(pb *testing.PB) {
+			//print(".")
+			for pb.Next() {
+				xcload1()
+			}
+		})
+	})
 }
 
 func BenchmarkGetObjectNetPipe(b *testing.B) {
@@ -648,10 +667,23 @@ func BenchmarkGetObjectNetPipe(b *testing.B) {
 	Mhost := net.Host("m")
 	Shost := net.Host("s")
 	Chost := net.Host("c")
-	benchmarkGetObject(b, Mhost, Shost, Chost)
+	benchmarkGetObjectSerial(b, Mhost, Shost, Chost)
+}
+
+func BenchmarkGetObjectNetPipeParallel(b *testing.B) {
+	net := pipenet.New("testnet")
+	Mhost := net.Host("m")
+	Shost := net.Host("s")
+	Chost := net.Host("c")
+	benchmarkGetObjectParallel(b, Mhost, Shost, Chost)
 }
 
 func BenchmarkGetObjectTCPlo(b *testing.B) {
 	net := xnet.NetPlain("tcp")
-	benchmarkGetObject(b, net, net, net)
+	benchmarkGetObjectSerial(b, net, net, net)
+}
+
+func BenchmarkGetObjectTCPloParallel(b *testing.B) {
+	net := xnet.NetPlain("tcp")
+	benchmarkGetObjectParallel(b, net, net, net)
 }
