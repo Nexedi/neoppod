@@ -773,35 +773,37 @@ Benchmark$1-avg 1 \\3 \\4/op\
 hashfunc=crc32
 #hashfunc=null
 
-# bench <url>	- run ZODB client benchmarks against URL
+# bench <topic> <url>	- run ZODB client benchmarks against URL
 bench() {
 	# XXX show C states usage diff after each benchmark	XXX + same for P-states
 	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
 	# XXX place=?
 
-	url=$1
+	topic=$1
+	url=$2
 #	nrun time demo-zbigarray read $url
 
-	nrun ./zhash.py --$hashfunc $url
+	nrun ./zhash.py --bench=$topic/%s --$hashfunc $url
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash.py --$hashfunc $url
+	nrunpar ./zhash.py --bench=$topic/%s-P$Npar --$hashfunc $url
 
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
 	fi
 	echo
-	bench_go $url
+	bench_go $topic $url
 }
 
 # go-only part of bench
 bench_go() {
-	url=$1
-	nrun ./zhash_go --log_dir=$log -$hashfunc $url
-	nrun ./zhash_go --log_dir=$log -$hashfunc -useprefetch $url
+	topic=$1
+	url=$2
+	nrun ./zhash_go --bench=$topic/%s --log_dir=$log -$hashfunc $url
+	nrun ./zhash_go --bench=$topic/%s --log_dir=$log -$hashfunc -useprefetch $url
 
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash_go --log_dir=$log -$hashfunc $url
+	nrunpar ./zhash_go --bench=$topic/%s-P$Npar --log_dir=$log -$hashfunc $url
 }
 
 
@@ -816,36 +818,36 @@ cmd_bench-local() {
 	gen_data
 
 	echo -e "\n*** FileStorage"
-	bench $fs1/data.fs
+	bench `hostname`/fs1 $fs1/data.fs
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
-	bench zeo://$Zbind
+	bench `hostname`/zeo zeo://$Zbind
 	killall runzeo
 	wait
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	bench neo://$cluster@$Mbind
+	bench `hostname`/neo/py/sqlite neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	bench neo://$cluster@$Mbind
+	bench `hostname`/neo/py/sql neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	bench neo://$cluster@$Mbind
+	bench `hostname`/neo/go neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	X_NEOGO_SHA1_SKIP=y bench_go neo://$cluster@$Mbind
+	X_NEOGO_SHA1_SKIP=y bench_go "`hostname`/neo/go(!sha1)" neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
@@ -981,10 +983,11 @@ cmd_run-client() {
 		;;
 	esac
 
-	url=$1
-	test -z "$url" && die "Usage: neotest run-client <url>"
+	topic=$1
+	url=$2
+	test -z "$topic" -o -z "$url" && die "Usage: neotest run-client <topic> <url>"
 
-	test -z "$goonly" && bench $url || bench_go $url
+	test -z "$goonly" && bench $topic $url || bench_go $topic $url
 }
 
 # command: benchmark local disk

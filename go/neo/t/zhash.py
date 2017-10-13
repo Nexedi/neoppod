@@ -90,21 +90,28 @@ options:
     --sha1          compute SHA1 cryptographic hash
     --sha256        compute SHA256 cryptographic hash
     --sha512        compute SHA512 cryptographic hash
+
+    --bench=<topic> use benchmarking format for output
 """, file=w)
 
 def main():
     try:
-        optv, argv = getopt(sys.argv[1:], "h", ["help"] + hashRegistry.keys())
+        optv, argv = getopt(sys.argv[1:], "h", ["help", "bench="] + hashRegistry.keys())
     except GetoptError as e:
         print("E: %s" % e, file=sys.stderr)
         usage(sys.stderr)
         exit(1)
 
-    for opt, _ in optv:
+    bench=None
+    for opt, arg in optv:
         if opt in ("-h", "--help"):
             print(__doc__)
             usage(sys.stdout)
             sys.exit()
+
+        if opt in ("--bench"):
+            bench=arg
+            continue
 
         opt = opt.lstrip("-")
         hctor = hashRegistry[opt]
@@ -142,9 +149,14 @@ def main():
     tend = time()
     dt = tend - tstart
 
-    print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=zhash.py' % \
-            (h.name, h.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid))
-
+    x = "zhash.py"
+    if bench is None:
+        print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=%s' % \
+                (h.name, h.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid, x))
+    else:
+        topic = bench % x
+        print('Benchmark%s 1 %.1f µs/object\t# %s:%s  oid=0..%d  nread=%d  t=%.3fs' % \
+                (topic, dt * 1E6 / oid, h.name, h.hexdigest(), oid-1, nread, dt))
 
 if __name__ == '__main__':
     main()
