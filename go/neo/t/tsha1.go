@@ -67,5 +67,5 @@ func main() {
 		hostname = "?"
 	}
 
-	fmt.Printf("Benchmarksha1/%s/go/%dB %d\t%.3f µs/op\n", hostname, blksize, n, float64(δt) / float64(n) / float64(time.Microsecond))
+	fmt.Printf("Benchmark%s/sha1/go/%dB %d\t%.3f µs/op\n", hostname, blksize, n, float64(δt) / float64(n) / float64(time.Microsecond))
 }

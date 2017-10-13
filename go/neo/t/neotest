@@ -734,7 +734,7 @@ nrunpar() {
 # bench_cpu	- microbenchmark CPU
 bench_cpu() {
 	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
-		\"s|^This machine benchmarks at \([0-9]\+\) pystones/second$|Benchmarkpystone/`hostname` 1 \1 pystone/s|\""
+		\"s|^This machine benchmarks at \([0-9]\+\) pystones/second$|Benchmark`hostname`/pystone 1 \1 pystone/s|\""
 
 	nrun ./tsha1.py 1024
 	nrun ./tsha1_go 1024

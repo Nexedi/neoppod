@@ -46,9 +46,8 @@ def main():
     tend = time()
     dt = tend - tstart
 
-    # hostname generally != fqdn[0] XXX clarify/refine
-    hostname = socket.getfqdn().split('.')[0]
-    print('Benchmarksha1/%s/py/%dB %d\t%.3f µs/op' % (hostname, blksize, n, dt * 1E6 / n))
+    hostname = socket.gethostname()
+    print('Benchmark%s/sha1/py/%dB %d\t%.3f µs/op' % (hostname, blksize, n, dt * 1E6 / n))
 
 if __name__ == '__main__':
     main()
