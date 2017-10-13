@@ -744,8 +744,19 @@ bench_cpu() {
 
 # bench_disk	- benchmark direct (uncached) and cached random reads
 bench_disk() {
+	# ioping2bench <topic>	- converts timings from ioping to std benchmark
+	ioping2bench() {
+		# XXX normalize all units to µs (benchstat treats time and µs as different - XXX better improve benchstat)
+		sed -u -e \
+		"s|^min/avg/max/mdev = \([0-9.]\+\) \([^ ]\+\) / \([0-9.]\+\) \([^ ]\+\) / \([0-9.]\+\)\+ \([^ ]\+\) / \([0-9.]\+\) \([^ ]\+\)\$|&\n\
+Benchmark$1-min 1 \\1 \\2/op\n\
+Benchmark$1-avg 1 \\3 \\4/op\
+|"
+	}
+
 	echo -e "\n*** disk: random direct (no kernel cache) 4K-read latency"
-	nrun ioping -D -i 0ms -s 4k -S 1024M -w 3s -q -k .
+	nrun ioping -D -i 0ms -s 4k -S 1024M -w 3s -q -k . |\
+		ioping2bench "`hostname`/disk/randread/direct/4K"
 
 	echo -e "\n*** disk: random cached 4K-read latency"
 	# warmup so kernel puts the file into pagecache
@@ -753,7 +764,8 @@ bench_disk() {
 		cat ioping.tmp >/dev/null
 	done
 
-	nrun ioping -C -i 0ms -s 4k -S 1024M -w 3s -q -k .
+	nrun ioping -C -i 0ms -s 4k -S 1024M -w 3s -q -k . |\
+		ioping2bench "`hostname`/disk/randread/pagecache/4K"
 }
 
 #hashfunc=sha1
