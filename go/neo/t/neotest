@@ -103,6 +103,7 @@ EOF
 
 	go get -v lab.nexedi.com/kirr/neo/go/...
 	go get -v github.com/pkg/profile		# used by zhash.go
+	go get -v golang.org/x/perf/cmd/benchstat	# to summarize/diff benchmark results
 
 	git clone -o kirr -b x/hist https://lab.nexedi.com/kirr/ioping.git
 	pushd ioping
@@ -880,6 +881,7 @@ cmd_bench-cluster() {
 	bench_disk
 
 	echo -e "\n*** link latency:"
+	# XXX -> bench_link + bench_tcp
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
 
 	# ping2bench <topic>	- converts timings from ping to std benchmark format
@@ -967,32 +969,32 @@ Benchmark$1-avg 1 \\2 ms/op\
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
-	on $url ./neotest run-client zeo://$Zbind
+	on $url ./neotest run-client "`hostname`-$peer/zeo" zeo://$Zbind
 	killall runzeo
 	wait
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	on $url ./neotest run-client neo://$cluster@$Mbind
+	on $url ./neotest run-client "`hostname`-$peer/neo/py/sqlite" neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	on $url ./neotest run-client neo://$cluster@$Mbind
+	on $url ./neotest run-client "`hostname`-$peer/neo/py/sql" neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	on $url ./neotest run-client neo://$cluster@$Mbind
+	on $url ./neotest run-client "`hostname`-$peer/neo/go" neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$cluster@$Mbind
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" neo://$cluster@$Mbind
 	xneoctl set cluster stopping
 	wait
 
