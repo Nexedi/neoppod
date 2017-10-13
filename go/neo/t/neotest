@@ -882,7 +882,7 @@ cmd_bench-cluster() {
 	echo -e "\n*** link latency:"
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
 
-	# ping2bench <topic>	- converts timingss from ping to std benchmark
+	# ping2bench <topic>	- converts timings from ping to std benchmark format
 	ping2bench() {
 		# rtt min/avg/max/mdev = 0.028/0.031/0.064/0.007 ms, ipg/ewma 0.038/0.032 ms
 		# XXX normalize to µs
@@ -902,13 +902,13 @@ Benchmark$1-avg 1 \\2 ms/op\
 		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
 		{ $profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| \
 			echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"; } | \
-			ping2bench `hostname`-$peer/ping/${size}B
+			ping2bench `hostname`-$peer/pingrtt/${size}B
 
 		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
 		# TODO profile remotely
 		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || \
 			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\"" | \
-			ping2bench $peer-`hostname`/ping/${size}B
+			ping2bench $peer-`hostname`/pingrtt/${size}B
 	done
 
 	# TODO
@@ -921,6 +921,14 @@ Benchmark$1-avg 1 \\2 ms/op\
 	# ? tcp pacing
 	# net.ipv4.tcp_autocorking (f54b3111 "tcp: auto corking")
 	echo -e "\n*** TCP latency:"
+
+	# lattcp2bench <topic>	- convert timings from lat_tcp to std benchmark format
+	lattcp2bench() {
+		# TCP latency using neo2: 52.3468 microseconds
+		sed -u -e \
+		"s|^TCP latency using .*: \([0-9.]\+\) microseconds.*\$|Benchmark$1 1 \\1 µs/op\t# &|"
+	}
+
 	#    1 = minimum TCP payload
 	# 1460 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 20 (TCP header !options)
 	# 1440 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 20 (TCP header !options)
@@ -930,25 +938,25 @@ Benchmark$1-avg 1 \\2 ms/op\
 		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		# TODO profile remotely
 		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
-		nrun lat_tcp -m $size $peer
+		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-c)/${size}B"
 		lat_tcp -S $peer
 
 		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
 		# TODO profile remotely
 		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
-		nrun lat_tcp -m $size $peer
+		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-go)/${size}B"
 		lat_tcp -S $peer
 
 		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		lat_tcp -s
 		# TODO profile remotely
-		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-c)/${size}B"
 		lat_tcp -S localhost
 
 		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
 		lat_tcp_go -s 2>/dev/null &
 		# TODO profile remotely
-		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}"
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-go)/${size}B"
 		lat_tcp -S localhost
 	done
 
