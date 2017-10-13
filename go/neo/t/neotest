@@ -20,6 +20,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+set -o pipefail
+
 # ---- deploy NEO for tests/benchmarks at a node ----
 
 die() {
@@ -747,6 +749,7 @@ bench_disk() {
 	# ioping2bench <topic>	- converts timings from ioping to std benchmark
 	ioping2bench() {
 		# XXX normalize all units to µs (benchstat treats time and µs as different - XXX better improve benchstat)
+		# min/avg/max/mdev = 102.2 us / 138.6 us / 403.3 us / 12.2 us
 		sed -u -e \
 		"s|^min/avg/max/mdev = \([0-9.]\+\) \([^ ]\+\) / \([0-9.]\+\) \([^ ]\+\) / \([0-9.]\+\)\+ \([^ ]\+\) / \([0-9.]\+\) \([^ ]\+\)\$|&\n\
 Benchmark$1-min 1 \\1 \\2/op\n\
@@ -878,6 +881,18 @@ cmd_bench-cluster() {
 
 	echo -e "\n*** link latency:"
 	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
+
+	# ping2bench <topic>	- converts timingss from ping to std benchmark
+	ping2bench() {
+		# rtt min/avg/max/mdev = 0.028/0.031/0.064/0.007 ms, ipg/ewma 0.038/0.032 ms
+		# XXX normalize to µs
+		sed -u -e \
+		"s|^rtt min/avg/max/mdev = \([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\) ms.*\$|&\n\
+Benchmark$1-min 1 \\1 ms/op\n\
+Benchmark$1-avg 1 \\2 ms/op\
+|"
+	}
+
 	#   16 = minimum ping payload size at which it starts putting struct timeval into payload and print RTT
 	# 1472 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 8 (ICMPv4 header)
 	# 1452 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 8 (ICMPv6 header)
@@ -885,10 +900,15 @@ cmd_bench-cluster() {
 	sizev="16 1452"	# max = min(IPv4, IPv6) so that it is always only 1 Ethernet frame on the wire
 	for size in $sizev; do
 		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
-		$profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"
+		{ $profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| \
+			echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"; } | \
+			ping2bench `hostname`-$peer/ping/${size}B
+
 		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
 		# TODO profile remotely
-		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\""
+		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || \
+			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\"" | \
+			ping2bench $peer-`hostname`/ping/${size}B
 	done
 
 	# TODO
