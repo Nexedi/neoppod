@@ -234,7 +234,7 @@ loop:
 	}
 
 	if check != "" && hresult != check {
-		return fmt.Errof("%s: hash mismatch: expected %s  ; got %s\t# x=%s", url, check, hresult, x)
+		return fmt.Errorf("%s: hash mismatch: expected %s  ; got %s\t# x=%s", url, check, hresult, x)
 	}
 
 	return nil

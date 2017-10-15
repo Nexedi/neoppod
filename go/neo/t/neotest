@@ -106,6 +106,7 @@ EOF
 	go get -v lab.nexedi.com/kirr/neo/go/...
 	go get -v github.com/pkg/profile		# used by zhash.go
 	go get -v golang.org/x/perf/cmd/benchstat	# to summarize/diff benchmark results
+	#go get -v github.com/aclements/perflock/cmd/perflock
 
 	git clone -o kirr -b x/hist https://lab.nexedi.com/kirr/ioping.git
 	pushd ioping
