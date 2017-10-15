@@ -22,6 +22,8 @@
 
 set -o pipefail
 
+# FIXME warn if/when thermal throttling activates - XXX how?
+
 # ---- deploy NEO for tests/benchmarks at a node ----
 
 die() {
@@ -787,9 +789,9 @@ bench() {
 	url=$2
 #	nrun time demo-zbigarray read $url
 
-	nrun ./zhash.py --bench=$topic/%s --$hashfunc $url
+	nrun ./zhash.py --check=XXX --bench=$topic/%s --$hashfunc $url
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash.py --bench=$topic/%s-P$Npar --$hashfunc $url
+	nrunpar ./zhash.py --check=XXX --bench=$topic/%s-P$Npar --$hashfunc $url
 
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
@@ -803,11 +805,11 @@ bench() {
 bench_go() {
 	topic=$1
 	url=$2
-	nrun ./zhash_go --bench=$topic/%s --log_dir=$log -$hashfunc $url
-	nrun ./zhash_go --bench=$topic/%s --log_dir=$log -$hashfunc -useprefetch $url
+	nrun ./zhash_go -check=XXX --bench=$topic/%s --log_dir=$log -$hashfunc $url
+	nrun ./zhash_go -check=XXX --bench=$topic/%s --log_dir=$log -$hashfunc -useprefetch $url
 
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash_go --bench=$topic/%s-P$Npar --log_dir=$log -$hashfunc $url
+	nrunpar ./zhash_go -check=XXX --bench=$topic/%s-P$Npar --log_dir=$log -$hashfunc $url
 }
 
 

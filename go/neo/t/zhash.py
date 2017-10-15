@@ -84,25 +84,28 @@ def usage(w):
 
 options:
 
-    --null          don't compute hash - just read data
-    --adler32       compute Adler32 checksum
-    --crc32         compute CRC32 checksum
-    --sha1          compute SHA1 cryptographic hash
-    --sha256        compute SHA256 cryptographic hash
-    --sha512        compute SHA512 cryptographic hash
+    --null              don't compute hash - just read data
+    --adler32           compute Adler32 checksum
+    --crc32             compute CRC32 checksum
+    --sha1              compute SHA1 cryptographic hash
+    --sha256            compute SHA256 cryptographic hash
+    --sha512            compute SHA512 cryptographic hash
 
-    --bench=<topic> use benchmarking format for output
+    --check=<expected>  verify resulting hash to be = expected
+
+    --bench=<topic>     use benchmarking format for output
 """, file=w)
 
 def main():
     try:
-        optv, argv = getopt(sys.argv[1:], "h", ["help", "bench="] + hashRegistry.keys())
+        optv, argv = getopt(sys.argv[1:], "h", ["help", "check=", "bench="] + hashRegistry.keys())
     except GetoptError as e:
         print("E: %s" % e, file=sys.stderr)
         usage(sys.stderr)
         exit(1)
 
     bench=None
+    check=None
     for opt, arg in optv:
         if opt in ("-h", "--help"):
             print(__doc__)
@@ -111,6 +114,10 @@ def main():
 
         if opt in ("--bench"):
             bench=arg
+            continue
+
+        if opt in ("--check"):
+            check=arg
             continue
 
         opt = opt.lstrip("-")
@@ -150,13 +157,18 @@ def main():
     dt = tend - tstart
 
     x = "zhash.py"
+    hresult = "%s:%s" % (h.name, h.hexdigest())
     if bench is None:
-        print('%s:%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=%s' % \
-                (h.name, h.hexdigest(), oid-1, nread, dt, dt * 1E6 / oid, x))
+        print('%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=%s' % \
+                (hresult, oid-1, nread, dt, dt * 1E6 / oid, x))
     else:
         topic = bench % x
         print('Benchmark%s 1 %.1f µs/object\t# %s:%s  oid=0..%d  nread=%d  t=%.3fs' % \
-                (topic, dt * 1E6 / oid, h.name, h.hexdigest(), oid-1, nread, dt))
+                (topic, dt * 1E6 / oid, hresult, oid-1, nread, dt))
+
+    if check != None and hresult != check:
+        print("%s: hash mismatch: expected %s  ; got %s\t# x=%s" % (url, check, hresult, x), file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()

@@ -69,6 +69,7 @@ func main() {
 	fsha1    := flag.Bool("sha1",	false, "compute SHA1 cryptographic hash")
 	fsha256  := flag.Bool("sha256", false, "compute SHA256 cryptographic hash")
 	fsha512  := flag.Bool("sha512", false, "compute SHA512 cryptographic hash")
+	fcheck   := flag.String("check", "",   "verify resulting hash to be = expected")
 	fbench   := flag.String("bench", "",   "use benchmarking format for output")
 	useprefetch := flag.Bool("useprefetch", false, "prefetch loaded objects")
 	flag.Parse()
@@ -105,13 +106,13 @@ func main() {
 		log.Fatal(ctx, "no hash function specified")
 	}
 
-	err := zhash(ctx, url, h, *useprefetch, *fbench)
+	err := zhash(ctx, url, h, *useprefetch, *fbench, *fcheck)
 	if err != nil {
 		log.Fatal(ctx, err)
 	}
 }
 
-func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench string) (err error) {
+func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, check string) (err error) {
 	defer task.Running(&ctx, "zhash")(&err)
 
 	stor, err := zodb.OpenStorageURL(ctx, url)
@@ -221,14 +222,19 @@ loop:
 	if useprefetch {
 		x += fmt.Sprintf("+prefetch%d", nprefetch)
 	}
+	hresult := fmt.Sprintf("%s:%x", h.name, h.Sum(nil))
 	if bench == "" {
-		fmt.Printf("%s:%x   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
-			h.name, h.Sum(nil), oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
+		fmt.Printf("%s   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
+			hresult, oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
 	} else {
 		topic := fmt.Sprintf(bench, x)	// XXX -> better text/template
-		fmt.Printf("Benchmark%s 1 %.1f µs/object\t# %s:%x  oid=0..%d  nread=%d  t=%s\n",
+		fmt.Printf("Benchmark%s 1 %.1f µs/object\t# %s  oid=0..%d  nread=%d  t=%s\n",
 			topic, float64(δt) / float64(oid) / float64(time.Microsecond),
-			h.name, h.Sum(nil), oid-1, nread, δt)
+			hresult, oid-1, nread, δt)
+	}
+
+	if check != "" && hresult != check {
+		return fmt.Errof("%s: hash mismatch: expected %s  ; got %s\t# x=%s", url, check, hresult, x)
 	}
 
 	return nil
