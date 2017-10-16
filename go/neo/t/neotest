@@ -424,7 +424,7 @@ lspci1() {
 	lspci -vmm -s $1 |grep "^$2:\\s*" |sed -e "s/^$2:\\s*//"
 }
 
-# show date/os/hardware/versions...
+# show information about local system (os, hardware, versions, ...)
 system_info() {
 	echo -n "# "; date --rfc-2822
 	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
@@ -823,6 +823,16 @@ cmd_bench-local() {
 	bench_cpu
 	bench_disk
 	install_trap
+
+	zbench_local
+
+	# all ok
+	trap - EXIT
+	exit
+}
+
+# zodb part of cmd_bench-local
+zbench_local() {
 	gen_data
 
 	zhashok=`cat $var/zhash.ok`
@@ -860,10 +870,6 @@ cmd_bench-local() {
 	X_NEOGO_SHA1_SKIP=y zbench_go neo://$cluster@$Mbind "`hostname`/neo/go(!sha1)" $zhashok
 	xneoctl set cluster stopping
 	wait
-
-	# all ok
-	trap - EXIT
-	exit
 }
 
 # command: benchmark when server runs locally and client is on another node
@@ -968,9 +974,20 @@ Benchmark$1-avg 1 \\2 ms/op\
 		lat_tcp -S localhost
 	done
 
+	# zodb benchmarks
 
 	echo
 	install_trap
+
+	zbench_cluster
+
+	# all ok
+	trap - EXIT
+	exit
+}
+
+# zodb part of cmd_bench-cluster
+zbench_cluster() {
 	gen_data
 
 	zhashok=`cat $var/zhash.ok`
@@ -1005,10 +1022,6 @@ Benchmark$1-avg 1 \\2 ms/op\
 	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$cluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
-
-	# all ok
-	trap - EXIT
-	exit
 }
 
 # command: run client workload against separate server
