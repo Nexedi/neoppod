@@ -171,12 +171,14 @@ init_fs() {
 dataset=	# name of current dataset
 dataset_size=	# size parameter for current dataset
 ds=		# top-level dir of current dataset
+neocluster=	# NEO cluster name (different for different datasets to avoid confustion)
 
 # switch_dataset <name> <size>	- switch benchmarking dataset to named with size
 switch_dataset() {
 	dataset=$1
 	dataset_size=$2
 	ds=`echo $dataset $dataset_size |tr ' ' '-'`	# wczblk1 8 -> wczblk1-8
+	neocluster=pygotest-$ds
 	echo -e "\ndataset:\t$ds"
 	ds=$var/$ds
 
@@ -185,10 +187,8 @@ switch_dataset() {
 	neosql=$ds/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
 	mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
 	mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
-}
 
-# NEO cluster name
-cluster=pygotest
+}
 
 # control started NEO cluster
 xneoctl() {
@@ -221,12 +221,12 @@ kill $j' EXIT
 Mpy() {
 	# --autostart=1
 	exec -a Mpy \
-		neomaster --cluster=$cluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log "$@" &
+		neomaster --cluster=$neocluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log "$@" &
 }
 
 Mgo() {
 	exec -a Mgo \
-		neo --log_dir=$log master -cluster=$cluster -bind=$Mbind "$@" &
+		neo --log_dir=$log master -cluster=$neocluster -bind=$Mbind "$@" &
 }
 
 # Spy ...	- spawn NEO/py storage
@@ -235,7 +235,7 @@ Spy() {
 	# --database=...
 	# --engine=...
 	exec -a Spy \
-		neostorage --cluster=$cluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log "$@" &
+		neostorage --cluster=$neocluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log "$@" &
 }
 
 # Sgo <data.fs>	- spawn NEO/go storage
@@ -244,13 +244,13 @@ Sgo() {
 	# -cpuprofile cpu.out
 	# -trace trace.out
 	exec -a Sgo \
-		neo -log_dir=$log storage -cluster=$cluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -log_dir=$log storage -cluster=$neocluster -bind=$Sbind -masters=$Mbind "$@" &
 }
 
 # Apy ...	- spawn NEO/py admin
 Apy() {
 	exec -a Apy \
-		neoadmin --cluster=$cluster --bind=$Abind --masters=$Mbind --logfile=$log/Apy.log "$@" &
+		neoadmin --cluster=$neocluster --bind=$Abind --masters=$Mbind --logfile=$log/Apy.log "$@" &
 }
 
 # Zpy <data.fs> ...	- spawn ZEO
@@ -389,7 +389,7 @@ GENsqlite() {
 	test -e $ds/generated.sqlite && return
 	echo -e '\n*** generating sqlite data...'
 	NEOpylite
-	${dataset}_gen_data neo://$cluster@$Mbind $dataset_size
+	${dataset}_gen_data neo://$neocluster@$Mbind $dataset_size
 	xneoctl set cluster stopping
 	wait	# XXX fragile - won't work if there are children spawned outside
 	sync
@@ -401,7 +401,7 @@ GENsql() {
 	test -e $ds/generated.sql && return
 	echo -e '\n*** generating sql data...'
 	NEOpysql
-	${dataset}_gen_data neo://$cluster@$Mbind $dataset_size
+	${dataset}_gen_data neo://$neocluster@$Mbind $dataset_size
 	xneoctl set cluster stopping
 	sleep 1	# XXX fragile
 	xmysql -e "SHUTDOWN"
@@ -877,26 +877,26 @@ zbench_local() {
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	zbench neo://$cluster@$Mbind `hostname`/neo/py/sqlite $zhashok
+	zbench neo://$neocluster@$Mbind `hostname`/neo/py/sqlite $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	zbench neo://$cluster@$Mbind `hostname`/neo/py/sql $zhashok
+	zbench neo://$neocluster@$Mbind `hostname`/neo/py/sql $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	zbench neo://$cluster@$Mbind `hostname`/neo/go $zhashok
+	zbench neo://$neocluster@$Mbind `hostname`/neo/go $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$cluster@$Mbind "`hostname`/neo/go(!sha1)" $zhashok
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`hostname`/neo/go(!sha1)" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
@@ -1047,7 +1047,7 @@ zbench_cluster() {
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$cluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
