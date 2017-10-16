@@ -22,7 +22,7 @@
 
 set -o pipefail
 
-# FIXME warn if/when thermal throttling activates - XXX how?
+# FIXME warn if/when thermal throttling activates
 
 # ---- deploy NEO for tests/benchmarks at a node ----
 
@@ -104,9 +104,9 @@ EOF
 	popd
 
 	go get -v lab.nexedi.com/kirr/neo/go/...
-	go get -v github.com/pkg/profile		# used by zhash.go
-	go get -v golang.org/x/perf/cmd/benchstat	# to summarize/diff benchmark results
-	#go get -v github.com/aclements/perflock/cmd/perflock
+	go get -v github.com/pkg/profile			# used by zhash.go
+	go get -v golang.org/x/perf/cmd/benchstat		# to summarize/diff benchmark results
+	#go get -v github.com/aclements/perflock/cmd/perflock	# handy to fix CPU frequency/etc
 
 	git clone -o kirr -b x/hist https://lab.nexedi.com/kirr/ioping.git
 	pushd ioping
@@ -117,7 +117,7 @@ EOF
 	echo "# deployed ok"
 }
 
-# jump to deploy early if we have to
+# jump to deploy command early if we have to
 case "$1" in
 deploy|deploy-local)
 	cmd="$1"
@@ -147,8 +147,8 @@ $@
 
 # init_net	- initialize networking
 init_net() {
-	# local our external address IPv4 or IPv6
-	# XXX better parse `ip addr`
+	# our external address IPv4 or IPv6
+	# FIXME better parse `ip addr` - getent relies on /etc/hosts which needs to be manually setup
 	myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
 	test -n "$myaddr" || die "init_net: cannot determine my network address"
 
@@ -157,8 +157,8 @@ init_net() {
 	Mbind=[$myaddr]:5552	# NEO master
 	Zbind=[$myaddr]:5553	# ZEO
 
-	# NEO storage. bind not strictly needed but we make sure no 2 storages are
-	# started at the same time
+	# NEO storage. bind not strictly needed but this way we also make sure
+	# no 2 storages are started at the same time.
 	Sbind=[$myaddr]:5554
 }
 
@@ -352,6 +352,10 @@ GENfs() {
 	demo-zbigarray --worksize=$work gen $fs1/data.fs
 	sync
 	touch $var/generated.fs
+
+	# remember correct hash to later check in benchmarks
+	# crc32:1552c530   ; oid=0..2127  nread=8534126  t=0.033s (15.7μs / object)  x=zhash.py
+	./zhash.py --zhashfunc $fs1/data.fs |awk '{print $1}' >$var/zhash.ok
 }
 
 # generate data in sqlite
@@ -660,6 +664,8 @@ system_info() {
 
 # cpustat ...	- run ... and print CPU C-states statistic
 cpustat() {
+	# XXX +cpufreq transition statistics (CPU_FREQ_STAT) ?
+
 	syscpu=/sys/devices/system/cpu
 	cpuv=( `ls -vd $syscpu/cpu[0-9]*` )
 	# XXX we assume cpuidle states are the same for all cpus and get list of them from cpu0
@@ -724,6 +730,10 @@ nrun() {
 }
 
 # nrunpar ...	- run $Npar ... instances in parallel and wait for completion
+nrunpar() {
+	$profile _nrunpar "$@"
+}
+
 _nrunpar() {
 	local jobv
 	for i in `seq $Npar`; do
@@ -731,10 +741,6 @@ _nrunpar() {
 		jobv="$jobv $!"
 	done
 	wait $jobv
-}
-
-nrunpar() {
-	$profile _nrunpar "$@"
 }
 
 # bench_cpu	- microbenchmark CPU
@@ -775,42 +781,37 @@ Benchmark$1-avg 1 \\3 \\4/op\
 		ioping2bench "`hostname`/disk/randread/pagecache/4K"
 }
 
-#hashfunc=sha1
-#hashfunc=adler32
-hashfunc=crc32
-#hashfunc=null
+# hash function to compute via zhash in tests/benchmarks
+zhashfunc=crc32	# sha1, adler32, null, ...
 
-# bench <topic> <url>	- run ZODB client benchmarks against URL
-bench() {
-	# XXX show C states usage diff after each benchmark	XXX + same for P-states
-	# XXX +cpufreq transition statistics (CPU_FREQ_STAT)
-	# XXX place=?
-
-	topic=$1
-	url=$2
+# zbench <url> <topic> <zhashok>	- run ZODB client benchmarks against URL
+zbench() {
+	url=$1
+	topic=$2
+	zhashok=$3
 #	nrun time demo-zbigarray read $url
 
-	nrun ./zhash.py --check=XXX --bench=$topic/%s --$hashfunc $url
+	nrun ./zhash.py --check=$zhashok --bench=$topic/%s --$zhashfunc $url
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash.py --check=XXX --bench=$topic/%s-P$Npar --$hashfunc $url
+	nrunpar ./zhash.py --check=$zhashok --bench=$topic/%s-P$Npar --$zhashfunc $url
 
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
 		return
 	fi
 	echo
-	bench_go $topic $url
+	zbench_go $topic $url
 }
 
-# go-only part of bench
-bench_go() {
+# go-only part of zbench
+zbench_go() {
 	topic=$1
 	url=$2
-	nrun ./zhash_go -check=XXX --bench=$topic/%s --log_dir=$log -$hashfunc $url
-	nrun ./zhash_go -check=XXX --bench=$topic/%s --log_dir=$log -$hashfunc -useprefetch $url
+	nrun ./zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc $url
+	nrun ./zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc -useprefetch $url
 
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash_go -check=XXX --bench=$topic/%s-P$Npar --log_dir=$log -$hashfunc $url
+	nrunpar ./zhash_go -check=$zhashok --bench=$topic/%s-P$Npar --log_dir=$log -$zhashfunc $url
 }
 
 
@@ -824,37 +825,39 @@ cmd_bench-local() {
 	install_trap
 	gen_data
 
+	zhashok=`cat $var/zhash.ok`
+
 	echo -e "\n*** FileStorage"
-	bench `hostname`/fs1 $fs1/data.fs
+	zbench $fs1/data.fs `hostname`/fs1 $zhashok
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
-	bench `hostname`/zeo zeo://$Zbind
+	zbench zeo://$Zbind `hostname`/zeo $zhashok
 	killall runzeo
 	wait
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	bench `hostname`/neo/py/sqlite neo://$cluster@$Mbind
+	zbench neo://$cluster@$Mbind `hostname`/neo/py/sqlite neo://$cluster@$Mbind $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	bench `hostname`/neo/py/sql neo://$cluster@$Mbind
+	zbench neo://$cluster@$Mbind `hostname`/neo/py/sql neo://$cluster@$Mbind $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	bench `hostname`/neo/go neo://$cluster@$Mbind
+	zbench neo://$cluster@$Mbind `hostname`/neo/go $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	X_NEOGO_SHA1_SKIP=y bench_go "`hostname`/neo/go(!sha1)" neo://$cluster@$Mbind
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$cluster@$Mbind "`hostname`/neo/go(!sha1)" $zhashok
 	xneoctl set cluster stopping
 	wait
 
@@ -1020,7 +1023,7 @@ cmd_run-client() {
 	url=$2
 	test -z "$topic" -o -z "$url" && die "Usage: neotest run-client <topic> <url>"
 
-	test -z "$goonly" && bench $topic $url || bench_go $topic $url
+	test -z "$goonly" && zbench $topic $url || zbench_go $topic $url
 }
 
 # command: benchmark local disk
