@@ -147,7 +147,7 @@ $@
 
 # init_net	- initialize networking
 init_net() {
-	# our external address IPv4 or IPv6
+	# determine our external address IPv4 or IPv6
 	# FIXME better parse `ip addr` - getent relies on /etc/hosts which needs to be manually setup
 	myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
 	test -n "$myaddr" || die "init_net: cannot determine my network address"
@@ -166,9 +166,23 @@ init_net() {
 init_fs() {
 	log=`pwd`/log;		mkdir -p $log
 	var=`pwd`/var;		mkdir -p $var
-	fs1=$var/fs1;		mkdir -p $fs1		# FileStorage (and so ZEO and NEO/go) data
-	neolite=$var/neo.sqlite				# NEO/py: sqlite
-	neosql=$var/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
+}
+
+dataset=	# name of current dataset
+dataset_size=	# size parameter for current dataset
+ds=		# top-level dir of current dataset
+
+# switch_dataset <name> <size>	- switch benchmarking dataset to named with size
+switch_dataset() {
+	dataset=$1
+	dataset_size=$2
+	ds=`echo $dataset $dataset_size |tr ' ' '-'`	# wczblk1 8 -> wczblk1-8
+	echo -e "\ndataset:\t$ds"
+	ds=$var/$ds
+
+	fs1=$ds/fs1;		mkdir -p $fs1		# FileStorage (and so ZEO and NEO/go) data
+	neolite=$ds/neo.sqlite				# NEO/py: sqlite
+	neosql=$ds/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
 	mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
 	mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
 }
@@ -336,52 +350,64 @@ EOF
 
 # ---- generate test data ----
 
-# generate data with many small (4K) objects
-export WENDELIN_CORE_ZBLK_FMT=ZBlk1
+# dataset 1: wendelin.core array with many small (4K) objects
+wczblk1_gen_data() {
+	url=$1
+	size=$2
+	WENDELIN_CORE_ZBLK_FMT=ZBlk1 demo-zbigarray --worksize=$size gen $url
+}
 
-# XXX 32 temp - raise
-#work=8	# array size generated (MB)
-work=32	# array size generated (MB)
-#work=64
-#work=512	# array size generated (MB)
+# dataset 2: synthetic test database according to NEO PROD1 statistics
+prod1_gen_data() {
+	url=$1
+	size=$2
+	./zgenprod1.py $url $size
+}
+
+
+# run benchmarks on this datasets:
+datasetv=(
+	"wczblk1 8"	# size: array size (MB)		XXX raise 32,64,512...
+	"prod1   1024"	# size: # of transactions	XXX raise size
+)
 
 # generate data in data.fs
 GENfs() {
-	test -e $var/generated.fs && return
+	test -e $ds/generated.fs && return
 	echo -e '\n*** generating fs1 data...'
-	demo-zbigarray --worksize=$work gen $fs1/data.fs
+	${dataset}_gen_data $fs1/data.fs $dataset_size
 	sync
-	touch $var/generated.fs
+	touch $ds/generated.fs
 
 	# remember correct hash to later check in benchmarks
 	# crc32:1552c530   ; oid=0..2127  nread=8534126  t=0.033s (15.7μs / object)  x=zhash.py
-	./zhash.py --zhashfunc $fs1/data.fs |awk '{print $1}' >$var/zhash.ok
+	./zhash.py --$zhashfunc $fs1/data.fs |awk '{print $1}' >$ds/zhash.ok
 }
 
 # generate data in sqlite
 GENsqlite() {
-	test -e $var/generated.sqlite && return
+	test -e $ds/generated.sqlite && return
 	echo -e '\n*** generating sqlite data...'
 	NEOpylite
-	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
+	${dataset}_gen_data neo://$cluster@$Mbind $dataset_size
 	xneoctl set cluster stopping
 	wait	# XXX fragile - won't work if there are children spawned outside
 	sync
-	touch $var/generated.sqlite
+	touch $ds/generated.sqlite
 }
 
 # generate data in mariadb
 GENsql() {
-	test -e $var/generated.sql && return
+	test -e $ds/generated.sql && return
 	echo -e '\n*** generating sql data...'
 	NEOpysql
-	demo-zbigarray --worksize=$work gen neo://$cluster@$Mbind
+	${dataset}_gen_data neo://$cluster@$Mbind $dataset_size
 	xneoctl set cluster stopping
 	sleep 1	# XXX fragile
 	xmysql -e "SHUTDOWN"
 	wait	# XXX fragile
 	sync
-	touch $var/generated.sql
+	touch $ds/generated.sql
 }
 
 # generate all test databases
@@ -800,13 +826,14 @@ zbench() {
 		return
 	fi
 	echo
-	zbench_go $topic $url
+	zbench_go $url $topic $zhashok
 }
 
 # go-only part of zbench
 zbench_go() {
-	topic=$1
-	url=$2
+	url=$1
+	topic=$2
+	zhashok=$3
 	nrun ./zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc $url
 	nrun ./zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc -useprefetch $url
 
@@ -824,7 +851,10 @@ cmd_bench-local() {
 	bench_disk
 	install_trap
 
-	zbench_local
+	for d in "${datasetv[@]}" ; do
+		switch_dataset $d
+		zbench_local
+	done
 
 	# all ok
 	trap - EXIT
@@ -848,13 +878,13 @@ zbench_local() {
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	zbench neo://$cluster@$Mbind `hostname`/neo/py/sqlite neo://$cluster@$Mbind $zhashok
+	zbench neo://$cluster@$Mbind `hostname`/neo/py/sqlite $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	zbench neo://$cluster@$Mbind `hostname`/neo/py/sql neo://$cluster@$Mbind $zhashok
+	zbench neo://$cluster@$Mbind `hostname`/neo/py/sql $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
@@ -989,8 +1019,7 @@ Benchmark$1-avg 1 \\2 ms/op\
 # zodb part of cmd_bench-cluster
 zbench_cluster() {
 	gen_data
-
-	zhashok=`cat $var/zhash.ok`
+	zhashok=`cat $ds/zhash.ok`
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
