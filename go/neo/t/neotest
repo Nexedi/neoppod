@@ -864,8 +864,7 @@ cmd_bench-local() {
 # zodb part of cmd_bench-local
 zbench_local() {
 	gen_data
-
-	zhashok=`cat $var/zhash.ok`
+	zhashok=`cat $ds/zhash.ok`
 
 	echo -e "\n*** FileStorage"
 	zbench $fs1/data.fs `hostname`/fs1 $zhashok
