@@ -1004,11 +1004,13 @@ Benchmark$1-avg 1 \\2 ms/op\
 	done
 
 	# zodb benchmarks
-
 	echo
 	install_trap
 
-	zbench_cluster
+	for d in "${datasetv[@]}" ; do
+		switch_dataset $d
+		zbench_cluster
+	done
 
 	# all ok
 	trap - EXIT
