@@ -29,6 +29,7 @@ from ZODB.utils import p64, u64
 import hashlib
 from zlib import crc32, adler32
 import sys
+import logging
 from time import time
 from getopt import getopt, GetoptError
 
@@ -130,6 +131,10 @@ def main():
         sys.exit(1)
 
     url = argv[0]
+
+    # log -> stderr
+    l = logging.getLogger()
+    l.addHandler(logging.StreamHandler())
 
     stor = zodbtools.util.storageFromURL(url, read_only=True)
     last_tid = stor.lastTransaction()

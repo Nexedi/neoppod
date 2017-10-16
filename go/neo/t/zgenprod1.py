@@ -25,6 +25,7 @@ from neo.tests.stat_zodb import PROD1
 from random import Random
 import zodbtools.util
 import sys
+import logging
 
 def usage(w):
     print(\
@@ -40,6 +41,10 @@ def main():
 
     url = argv[0]
     n   = int(argv[1])
+
+    # log -> stderr
+    l = logging.getLogger()
+    l.addHandler(logging.StreamHandler())
 
     zin  = PROD1(Random(0)).as_storage(n)
     zout = zodbtools.util.storageFromURL(url)
