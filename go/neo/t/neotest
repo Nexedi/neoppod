@@ -973,34 +973,36 @@ Benchmark$1-avg 1 \\2 ms/op\
 	install_trap
 	gen_data
 
+	zhashok=`cat $var/zhash.ok`
+
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
-	on $url ./neotest run-client "`hostname`-$peer/zeo" zeo://$Zbind
+	on $url ./neotest run-client zeo://$Zbind "`hostname`-$peer/zeo" $zhashok
 	killall runzeo
 	wait
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	on $url ./neotest run-client "`hostname`-$peer/neo/py/sqlite" neo://$cluster@$Mbind
+	on $url ./neotest run-client neo://$cluster@$Mbind" `hostname`-$peer/neo/py/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	on $url ./neotest run-client "`hostname`-$peer/neo/py/sql" neo://$cluster@$Mbind
+	on $url ./neotest run-client neo://$cluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	on $url ./neotest run-client "`hostname`-$peer/neo/go" neo://$cluster@$Mbind
+	on $url ./neotest run-client neo://$cluster@$Mbind "`hostname`-$peer/neo/go" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" neo://$cluster@$Mbind
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$cluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 
@@ -1019,11 +1021,12 @@ cmd_run-client() {
 		;;
 	esac
 
-	topic=$1
-	url=$2
-	test -z "$topic" -o -z "$url" && die "Usage: neotest run-client <topic> <url>"
+	url=$1
+	topic=$2
+	zhashok=$3
+	test -z "$url" -o -z "$topic" -o -z "$zhashok" && die "Usage: neotest run-client <url> <topic> <zhashok>"
 
-	test -z "$goonly" && zbench $topic $url || zbench_go $topic $url
+	test -z "$goonly" && zbench $url $topic $zhashok || zbench_go $url $topic $zhashok
 }
 
 # command: benchmark local disk
