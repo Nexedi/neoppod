@@ -1030,20 +1030,20 @@ zbench_cluster() {
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	on $url ./neotest run-client neo://$cluster@$Mbind" `hostname`-$peer/neo/py/sqlite" $zhashok
+	on $url ./neotest run-client neo://$neocluster@$Mbind" `hostname`-$peer/neo/py/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	on $url ./neotest run-client neo://$cluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
+	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	on $url ./neotest run-client neo://$cluster@$Mbind "`hostname`-$peer/neo/go" $zhashok
+	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go" $zhashok
 	xneoctl set cluster stopping
 	wait
 
