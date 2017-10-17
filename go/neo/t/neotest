@@ -93,12 +93,8 @@ EOF
 
 	mkdir -p src/lab.nexedi.com/kirr
 	pushd src/lab.nexedi.com/kirr
-	test -d neo || git clone -o kirr https://lab.nexedi.com/kirr/neo.git neo
+	test -d neo || git clone -o kirr -b t https://lab.nexedi.com/kirr/neo.git neo	# XXX t is temp
 	cd neo
-	git config --add remote.kirr.fetch '+refs/backup/*:refs/remotes/kirr-backup/*'	# XXX temp
-	git fetch kirr									# XXX temp
-	git checkout -b t remotes/kirr-backup/t						# XXX temp
-
 	pip install -e .
 	pip install mysqlclient		# XXX better ^^^ `pip install .` pick this up
 	popd
