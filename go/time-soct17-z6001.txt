@@ -1,0 +1,1307 @@
+>>> bench-local
+# Tue, 17 Oct 2017 09:13:33 +0300
+# neotest@z6001.ivan.nexedi.com (2401:5180:0:6f::1)
+# Linux z6001 4.10.0-35-generic #39~16.04.1-Ubuntu SMP Wed Sep 13 09:02:42 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+# cpu: Intel(R) Xeon(R) CPU           X5650  @ 2.67GHz
+# cpu[0-23]: freq: acpi-cpufreq/performance [1.59GHz - 2.66GHz]
+# cpu[0-23]: idle: intel_idle/menu: POLL(0μs) C1-NHM(3μs) !C1E-NHM(10μs) !C3-NHM(20μs) !C6-NHM(200μs)
+# cpu: WARNING: frequency not fixed - benchmark timings won't be stable
+# sda: ADATA SU800       rev 8BS  119,2G
+# enp1s0: Broadcom Corporation NetXtreme BCM5764M Gigabit Ethernet PCIe rev 10
+# enp1s0: features: rx tx sg tso !ufo gso gro !lro rxvlan txvlan !ntuple !rxhash ...
+# enp1s0: coalesce: rxc: 1μs/0f/0μs-irq/0f-irq,  txc: 72μs/53f/0μs-irq/5f-irq
+# enp1s0: up, speed=1000, mtu=1500, txqlen=1000, gro_flush_timeout=20.000µs
+# Python 2.7.12
+# go version go1.9.1 linux/amd64
+# sqlite 3.11.0 (py mod 2.6.0)
+# mysqld  Ver 10.1.25-MariaDB-1 for debian-linux-gnu on x86_64 (Ubuntu 17.10)
+# neo             : v1.8-1319-gb36e669
+# zodb            : 5.3.0
+# zeo             : 5.1.0
+# mysqlclient     : 1.3.12
+# wendelin.core   : 0.11
+
+*** cpu:
+
+Benchmarkz6001/pystone 1 121627 pystone/s	# POLL·0 C1-NHM·497 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/pystone 1 120865 pystone/s	# POLL·0 C1-NHM·711 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/pystone 1 119917 pystone/s	# POLL·0 C1-NHM·519 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/pystone 1 122969 pystone/s	# POLL·1 C1-NHM·647 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/pystone 1 122087 pystone/s	# POLL·0 C1-NHM·538 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/1024B 1000000	2.326 µs/op	# POLL·1 C1-NHM·578 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/1024B 1000000	2.293 µs/op	# POLL·0 C1-NHM·659 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/1024B 1000000	2.201 µs/op	# POLL·0 C1-NHM·643 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/1024B 1000000	2.262 µs/op	# POLL·0 C1-NHM·605 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/1024B 1000000	2.210 µs/op	# POLL·3 C1-NHM·697 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/1024B 1000000	2.353 µs/op	# POLL·1 C1-NHM·903 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/1024B 1000000	2.354 µs/op	# POLL·4 C1-NHM·983 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/1024B 1000000	2.354 µs/op	# POLL·4 C1-NHM·935 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/1024B 1000000	2.353 µs/op	# POLL·0 C1-NHM·923 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/1024B 1000000	2.353 µs/op	# POLL·2 C1-NHM·998 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/4096B 250000	7.823 µs/op	# POLL·0 C1-NHM·1366 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/4096B 250000	7.897 µs/op	# POLL·0 C1-NHM·560 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/4096B 250000	7.895 µs/op	# POLL·3 C1-NHM·1102 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/4096B 250000	7.911 µs/op	# POLL·0 C1-NHM·1115 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/py/4096B 250000	7.844 µs/op	# POLL·3 C1-NHM·675 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/4096B 250000	9.364 µs/op	# POLL·0 C1-NHM·998 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/4096B 250000	9.366 µs/op	# POLL·0 C1-NHM·956 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/4096B 250000	9.364 µs/op	# POLL·0 C1-NHM·934 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/4096B 250000	9.366 µs/op	# POLL·0 C1-NHM·949 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/sha1/go/4096B 250000	9.365 µs/op	# POLL·0 C1-NHM·1137 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+*** disk: random direct (no kernel cache) 4K-read latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+24 k requests completed in 2.97 s, 93.8 MiB read, 8.07 k iops, 31.5 MiB/s
+generated 24.0 k requests in 3.00 s, 93.8 MiB, 8 k iops, 31.3 MiB/s
+min/avg/max/mdev = 121.3 us / 123.9 us / 133.2 us / 1.06 us
+Benchmarkz6001/disk/randread/direct/4K-min 1 121.3 us/op
+Benchmarkz6001/disk/randread/direct/4K-avg 1 123.9 us/op
+< 121.3 us	0	| 
+< 121.7 us	6	| 
+< 122.2 us	11	| 
+< 122.6 us	68	| 
+< 123.0 us	9313	| *******************
+< 123.5 us	2727	| *****
+< 123.9 us	861	| *
+< 124.3 us	188	| 
+< 124.8 us	4062	| ********
+< 125.2 us	5414	| ***********
+< 125.7 us	810	| *
+< 126.1 us	228	| 
+< 126.5 us	104	| 
+< 127.0 us	24	| 
+< 127.4 us	13	| 
+< 127.8 us	2	| 
+< 128.3 us	0	| 
+< 128.7 us	1	| 
+< 129.1 us	8	| 
+< 129.6 us	9	| 
+< 130.0 us	13	| 
+<       +∞	38	| 
+# POLL·275 C1-NHM·399367 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+23.7 k requests completed in 2.97 s, 92.7 MiB read, 7.98 k iops, 31.2 MiB/s
+generated 23.7 k requests in 3.00 s, 92.7 MiB, 7.91 k iops, 30.9 MiB/s
+min/avg/max/mdev = 122.7 us / 125.3 us / 136.3 us / 1.09 us
+Benchmarkz6001/disk/randread/direct/4K-min 1 122.7 us/op
+Benchmarkz6001/disk/randread/direct/4K-avg 1 125.3 us/op
+< 122.8 us	3	| 
+< 123.5 us	106	| 
+< 124.1 us	823	| *
+< 124.8 us	10635	| **********************
+< 125.5 us	1305	| **
+< 126.2 us	2475	| *****
+< 126.8 us	7362	| ***************
+< 127.5 us	640	| *
+< 128.2 us	193	| 
+< 128.9 us	23	| 
+< 129.6 us	3	| 
+< 130.2 us	1	| 
+< 130.9 us	0	| 
+< 131.6 us	8	| 
+< 132.3 us	6	| 
+< 132.9 us	7	| 
+< 133.6 us	12	| 
+< 134.3 us	4	| 
+< 135.0 us	11	| 
+< 135.7 us	4	| 
+< 136.3 us	4	| 
+<       +∞	0	| 
+# POLL·8 C1-NHM·48012 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+23.8 k requests completed in 2.97 s, 92.8 MiB read, 7.99 k iops, 31.2 MiB/s
+generated 23.8 k requests in 3.00 s, 92.8 MiB, 7.92 k iops, 30.9 MiB/s
+min/avg/max/mdev = 122.5 us / 125.2 us / 810.5 us / 4.59 us
+Benchmarkz6001/disk/randread/direct/4K-min 1 122.5 us/op
+Benchmarkz6001/disk/randread/direct/4K-avg 1 125.2 us/op
+< 122.8 us	34	| 
+< 123.0 us	93	| 
+< 123.3 us	65	| 
+< 123.6 us	94	| 
+< 123.8 us	408	| 
+< 124.1 us	836	| *
+< 124.4 us	5227	| ***********
+< 124.6 us	5205	| **********
+< 124.9 us	1606	| ***
+< 125.2 us	372	| 
+< 125.4 us	161	| 
+< 125.7 us	402	| 
+< 126.0 us	567	| *
+< 126.2 us	2129	| ****
+< 126.5 us	3857	| ********
+< 126.7 us	1751	| ***
+< 127.0 us	400	| 
+< 127.3 us	114	| 
+< 127.5 us	88	| 
+< 127.8 us	102	| 
+< 128.1 us	70	| 
+<       +∞	69	| 
+# POLL·2 C1-NHM·41956 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+23.7 k requests completed in 2.97 s, 92.7 MiB read, 7.98 k iops, 31.2 MiB/s
+generated 23.7 k requests in 3.00 s, 92.7 MiB, 7.91 k iops, 30.9 MiB/s
+min/avg/max/mdev = 122.6 us / 125.3 us / 679.5 us / 5.16 us
+Benchmarkz6001/disk/randread/direct/4K-min 1 122.6 us/op
+Benchmarkz6001/disk/randread/direct/4K-avg 1 125.3 us/op
+< 122.8 us	1	| 
+< 123.3 us	61	| 
+< 123.8 us	529	| *
+< 124.3 us	3435	| *******
+< 124.8 us	7978	| ****************
+< 125.3 us	1205	| **
+< 125.8 us	842	| *
+< 126.3 us	4303	| *********
+< 126.8 us	4309	| *********
+< 127.3 us	595	| *
+< 127.8 us	237	| 
+< 128.3 us	71	| 
+< 128.8 us	11	| 
+< 129.3 us	4	| 
+< 129.8 us	2	| 
+< 130.3 us	1	| 
+< 130.8 us	2	| 
+< 131.3 us	1	| 
+< 131.8 us	2	| 
+< 132.3 us	3	| 
+< 132.8 us	6	| 
+<       +∞	31	| 
+# POLL·8 C1-NHM·28659 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+23.7 k requests completed in 2.97 s, 92.6 MiB read, 7.97 k iops, 31.2 MiB/s
+generated 23.7 k requests in 3.00 s, 92.6 MiB, 7.90 k iops, 30.9 MiB/s
+min/avg/max/mdev = 122.6 us / 125.4 us / 139.7 us / 1.09 us
+Benchmarkz6001/disk/randread/direct/4K-min 1 122.6 us/op
+Benchmarkz6001/disk/randread/direct/4K-avg 1 125.4 us/op
+< 122.8 us	4	| 
+< 123.2 us	30	| 
+< 123.6 us	61	| 
+< 124.0 us	305	| 
+< 124.4 us	5200	| **********
+< 124.8 us	5119	| **********
+< 125.2 us	1976	| ****
+< 125.7 us	534	| *
+< 126.1 us	1211	| **
+< 126.5 us	5272	| ***********
+< 126.9 us	2629	| *****
+< 127.3 us	800	| *
+< 127.7 us	231	| 
+< 128.1 us	126	| 
+< 128.5 us	48	| 
+< 128.9 us	10	| 
+< 129.3 us	7	| 
+< 129.8 us	3	| 
+< 130.2 us	0	| 
+< 130.6 us	1	| 
+< 131.0 us	1	| 
+<       +∞	41	| 
+# POLL·4 C1-NHM·48053 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+*** disk: random cached 4K-read latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.31 M requests completed in 2.83 s, 8.80 GiB read, 816.0 k iops, 3.11 GiB/s
+generated 2.31 M requests in 3.00 s, 8.80 GiB, 769.1 k iops, 2.93 GiB/s
+min/avg/max/mdev = 412 ns / 1.23 us / 27.2 us / 248 ns
+Benchmarkz6001/disk/randread/pagecache/4K-min 1 412 ns/op
+Benchmarkz6001/disk/randread/pagecache/4K-avg 1 1.23 us/op
+< 1.15 us	591163	| ************
+< 1.18 us	258565	| *****
+< 1.22 us	335812	| *******
+< 1.26 us	302735	| ******
+< 1.30 us	286156	| ******
+< 1.34 us	171561	| ***
+< 1.38 us	122837	| **
+< 1.42 us	92064	| *
+< 1.46 us	62037	| *
+< 1.50 us	37932	| 
+< 1.53 us	21071	| 
+< 1.57 us	11288	| 
+< 1.61 us	5613	| 
+< 1.65 us	2847	| 
+< 1.69 us	1543	| 
+< 1.73 us	873	| 
+< 1.77 us	513	| 
+< 1.81 us	391	| 
+< 1.84 us	312	| 
+< 1.88 us	289	| 
+< 1.92 us	218	| 
+<       +∞	1373	| 
+# POLL·0 C1-NHM·1022 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.29 M requests completed in 2.83 s, 8.74 GiB read, 809.3 k iops, 3.09 GiB/s
+generated 2.29 M requests in 3.00 s, 8.74 GiB, 763.4 k iops, 2.91 GiB/s
+min/avg/max/mdev = 406 ns / 1.24 us / 31.3 us / 253 ns
+Benchmarkz6001/disk/randread/pagecache/4K-min 1 406 ns/op
+Benchmarkz6001/disk/randread/pagecache/4K-avg 1 1.24 us/op
+< 1.10 us	299825	| ******
+< 1.13 us	143783	| ***
+< 1.16 us	159481	| ***
+< 1.18 us	153728	| ***
+< 1.21 us	198554	| ****
+< 1.23 us	224994	| ****
+< 1.26 us	187760	| ****
+< 1.28 us	201164	| ****
+< 1.31 us	178789	| ***
+< 1.33 us	116950	| **
+< 1.36 us	98061	| **
+< 1.39 us	79559	| *
+< 1.41 us	61819	| *
+< 1.44 us	54037	| *
+< 1.46 us	41218	| 
+< 1.49 us	27895	| 
+< 1.51 us	20922	| 
+< 1.54 us	14475	| 
+< 1.56 us	8742	| 
+< 1.59 us	5487	| 
+< 1.62 us	3626	| 
+<       +∞	9134	| 
+# POLL·0 C1-NHM·960 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.96 M requests completed in 2.78 s, 11.3 GiB read, 1.06 M iops, 4.06 GiB/s
+generated 2.96 M requests in 3.00 s, 11.3 GiB, 986.1 k iops, 3.76 GiB/s
+min/avg/max/mdev = 409 ns / 939 ns / 41.2 us / 287 ns
+Benchmarkz6001/disk/randread/pagecache/4K-min 1 409 ns/op
+Benchmarkz6001/disk/randread/pagecache/4K-avg 1 939 ns/op
+< 906 ns	1180164	| *******************
+< 937 ns	501941	| ********
+< 968 ns	418663	| *******
+< 999 ns	267288	| ****
+< 1.03 us	171247	| **
+< 1.06 us	128145	| **
+< 1.09 us	98682	| *
+< 1.12 us	71223	| *
+< 1.15 us	46950	| 
+< 1.19 us	28497	| 
+< 1.22 us	16748	| 
+< 1.25 us	10091	| 
+< 1.28 us	5643	| 
+< 1.31 us	3502	| 
+< 1.34 us	2123	| 
+< 1.37 us	1301	| 
+< 1.40 us	867	| 
+< 1.43 us	587	| 
+< 1.47 us	499	| 
+< 1.50 us	421	| 
+< 1.53 us	391	| 
+<       +∞	3329	| 
+# POLL·0 C1-NHM·1888 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.97 M requests completed in 2.78 s, 11.3 GiB read, 1.07 M iops, 4.07 GiB/s
+generated 2.97 M requests in 3.00 s, 11.3 GiB, 989.3 k iops, 3.77 GiB/s
+min/avg/max/mdev = 409 ns / 936 ns / 52.5 us / 286 ns
+Benchmarkz6001/disk/randread/pagecache/4K-min 1 409 ns/op
+Benchmarkz6001/disk/randread/pagecache/4K-avg 1 936 ns/op
+< 779 ns	52794	| 
+< 810 ns	95526	| *
+< 841 ns	224558	| ***
+< 872 ns	364660	| ******
+< 903 ns	447011	| *******
+< 935 ns	498877	| ********
+< 966 ns	443109	| *******
+< 997 ns	269824	| ****
+< 1.03 us	167129	| **
+< 1.06 us	123633	| **
+< 1.09 us	96513	| *
+< 1.12 us	71670	| *
+< 1.15 us	44890	| 
+< 1.18 us	27145	| 
+< 1.22 us	15431	| 
+< 1.25 us	8818	| 
+< 1.28 us	5409	| 
+< 1.31 us	3075	| 
+< 1.34 us	1823	| 
+< 1.37 us	1147	| 
+< 1.40 us	754	| 
+<       +∞	4078	| 
+# POLL·3 C1-NHM·2288 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.31 M requests completed in 2.83 s, 8.80 GiB read, 815.2 k iops, 3.11 GiB/s
+generated 2.31 M requests in 3.00 s, 8.80 GiB, 768.5 k iops, 2.93 GiB/s
+min/avg/max/mdev = 409 ns / 1.23 us / 74.1 us / 258 ns
+Benchmarkz6001/disk/randread/pagecache/4K-min 1 409 ns/op
+Benchmarkz6001/disk/randread/pagecache/4K-avg 1 1.23 us/op
+< 1.08 us	242004	| *****
+< 1.12 us	227511	| ****
+< 1.17 us	286673	| ******
+< 1.22 us	361516	| *******
+< 1.26 us	359691	| *******
+< 1.31 us	299135	| ******
+< 1.35 us	195171	| ****
+< 1.40 us	132872	| **
+< 1.44 us	91272	| *
+< 1.49 us	53662	| *
+< 1.53 us	29542	| 
+< 1.58 us	13188	| 
+< 1.62 us	5832	| 
+< 1.67 us	2660	| 
+< 1.72 us	1224	| 
+< 1.76 us	713	| 
+< 1.81 us	461	| 
+< 1.85 us	355	| 
+< 1.90 us	272	| 
+< 1.94 us	246	| 
+< 1.99 us	198	| 
+<       +∞	1259	| 
+# POLL·1 C1-NHM·1480 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+dataset:	wczblk1-8
+
+*** generating fs1 data...
+I: RAM:  7.77GB
+I: WORK: 0.01GB
+gen signal t=0...1.05e+06  float64  (= 0.01GB) 
+gen signal blk [0:1048576]  (100.0%)
+VIRT: 1091 MB	RSS: 43MB
+
+*** generating sqlite data...
+2017-10-17 09:15:11.6459 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:12.6480 ERROR     NEO        [       handler:115] reject an alien cluster
+I: RAM:  7.77GB
+I: WORK: 0.01GB
+gen signal t=0...1.05e+06  float64  (= 0.01GB) 
+gen signal blk [0:1048576]  (100.0%)
+VIRT: 1184 MB	RSS: 54MB
+2017-10-17 09:15:12.9818 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** generating sql data...
+2017-10-17  9:15:13 140335786428672 [Note] /usr/sbin/mysqld (mysqld 10.1.25-MariaDB-1) starting as process 29897 ...
+2017-10-17  9:15:16 139761319295232 [Note] /usr/sbin/mysqld (mysqld 10.1.25-MariaDB-1) starting as process 29925 ...
+2017-10-17  9:15:19 140340012693760 [Note] /usr/sbin/mysqld (mysqld 10.1.25-MariaDB-1) starting as process 29954 ...
+2017-10-17  9:15:22 140650773661952 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 29986 ...
+2017-10-17 09:15:24.6533 ERROR     NEO        [       handler:115] reject an alien cluster
+I: RAM:  7.77GB
+I: WORK: 0.01GB
+gen signal t=0...1.05e+06  float64  (= 0.01GB) 
+gen signal blk [0:1048576]  (100.0%)
+VIRT: 1185 MB	RSS: 54MB
+2017-10-17 09:15:25.6553 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:25.6681 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** FileStorage
+Benchmarkz6001/fs1/zhash.py 1 35.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.076s	# POLL·0 C1-NHM·614 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.py 1 35.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.076s	# POLL·0 C1-NHM·699 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.py 1 35.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.076s	# POLL·1 C1-NHM·719 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.py 1 35.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.076s	# POLL·0 C1-NHM·719 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.py 1 35.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.076s	# POLL·0 C1-NHM·670 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+Benchmarkz6001/fs1/zhash.py-P16 1 38.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.083s
+Benchmarkz6001/fs1/zhash.py-P16 1 38.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.083s
+Benchmarkz6001/fs1/zhash.py-P16 1 43.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.093s
+Benchmarkz6001/fs1/zhash.py-P16 1 49.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.106s
+Benchmarkz6001/fs1/zhash.py-P16 1 44.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.094s
+Benchmarkz6001/fs1/zhash.py-P16 1 40.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.086s
+Benchmarkz6001/fs1/zhash.py-P16 1 42.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.090s
+Benchmarkz6001/fs1/zhash.py-P16 1 52.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.112s
+Benchmarkz6001/fs1/zhash.py-P16 1 36.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.077s
+Benchmarkz6001/fs1/zhash.py-P16 1 42.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.091s
+Benchmarkz6001/fs1/zhash.py-P16 1 53.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.113s
+Benchmarkz6001/fs1/zhash.py-P16 1 39.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.083s
+Benchmarkz6001/fs1/zhash.py-P16 1 44.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.094s
+Benchmarkz6001/fs1/zhash.py-P16 1 50.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.107s
+Benchmarkz6001/fs1/zhash.py-P16 1 44.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.095s
+Benchmarkz6001/fs1/zhash.py-P16 1 42.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.089s
+# POLL·1 C1-NHM·2362 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+Benchmarkz6001/fs1/zhash.go 1 3.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.053798ms	# POLL·1 C1-NHM·389 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 3.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.000723ms	# POLL·1 C1-NHM·392 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 3.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.991023ms	# POLL·0 C1-NHM·369 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 3.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.978717ms	# POLL·4 C1-NHM·405 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 3.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.977341ms	# POLL·2 C1-NHM·396 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 7.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=14.981816ms	# POLL·23 C1-NHM·4200 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 7.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=15.104222ms	# POLL·37 C1-NHM·3982 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 7.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=15.693223ms	# POLL·40 C1-NHM·4027 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 7.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=15.99643ms	# POLL·14 C1-NHM·4246 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 7.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=16.629876ms	# POLL·46 C1-NHM·4520 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+Benchmarkz6001/fs1/zhash.go-P16 1 3.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.5407ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.768922ms
+Benchmarkz6001/fs1/zhash.go-P16 1 4.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.734788ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.313993ms
+Benchmarkz6001/fs1/zhash.go-P16 1 4.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.590298ms
+Benchmarkz6001/fs1/zhash.go-P16 1 4.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.517687ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.374848ms
+Benchmarkz6001/fs1/zhash.go-P16 1 4.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=10.50911ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=10.648669ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=11.734138ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=11.716852ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=11.953281ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=11.149295ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=11.041861ms
+Benchmarkz6001/fs1/zhash.go-P16 1 5.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=11.233317ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.668096ms
+# POLL·37 C1-NHM·1633 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+*** ZEO
+Benchmarkz6001/zeo/zhash.py 1 489.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.042s	# POLL·4 C1-NHM·30468 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 482.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.027s	# POLL·2 C1-NHM·33504 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 489.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.043s	# POLL·8 C1-NHM·28503 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 495.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.053s	# POLL·5 C1-NHM·28982 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 483.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.029s	# POLL·4 C1-NHM·31214 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+Benchmarkz6001/zeo/zhash.py-P16 1 1478.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.146s
+Benchmarkz6001/zeo/zhash.py-P16 1 1483.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.156s
+Benchmarkz6001/zeo/zhash.py-P16 1 1485.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.160s
+Benchmarkz6001/zeo/zhash.py-P16 1 1511.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.217s
+Benchmarkz6001/zeo/zhash.py-P16 1 1504.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.203s
+Benchmarkz6001/zeo/zhash.py-P16 1 1509.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.211s
+Benchmarkz6001/zeo/zhash.py-P16 1 1506.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.206s
+Benchmarkz6001/zeo/zhash.py-P16 1 1489.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.170s
+Benchmarkz6001/zeo/zhash.py-P16 1 1790.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.810s
+Benchmarkz6001/zeo/zhash.py-P16 1 1860.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.959s
+Benchmarkz6001/zeo/zhash.py-P16 1 1898.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.040s
+Benchmarkz6001/zeo/zhash.py-P16 1 2003.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.264s
+Benchmarkz6001/zeo/zhash.py-P16 1 1951.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.153s
+Benchmarkz6001/zeo/zhash.py-P16 1 1967.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.186s
+Benchmarkz6001/zeo/zhash.py-P16 1 1962.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.176s
+Benchmarkz6001/zeo/zhash.py-P16 1 1956.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.164s
+# POLL·133 C1-NHM·409180 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+2017-10-17 09:15:43.6622 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 504.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.073s	# POLL·4 C1-NHM·22865 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:15:44.6640 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:45.6658 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 494.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.052s	# POLL·2 C1-NHM·22439 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:15:46.6674 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 473.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.007s	# POLL·0 C1-NHM·20880 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:15:47.6691 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:48.6719 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 490.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.045s	# POLL·1 C1-NHM·20815 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:15:49.6737 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 466.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.993s	# POLL·1 C1-NHM·22559 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:15:50.6756 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:51.6774 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:52.6792 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:53.6818 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:54.6837 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:55.6857 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:15:56.6875 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3105.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.609s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3149.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.703s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3158.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.721s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3160.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.725s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3160.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.725s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3168.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.742s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3168.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.743s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3170.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.747s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3170.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.748s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3166.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.739s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3170.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.747s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3168.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.743s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3170.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.746s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3150.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.703s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3146.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.695s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 3151.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.707s
+# POLL·55 C1-NHM·293964 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+2017-10-17 09:15:57.6893 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 370.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=788.233928ms	# POLL·15 C1-NHM·22322 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:15:58.6913 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 370.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=788.675264ms	# POLL·11 C1-NHM·22339 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:15:59.6932 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 373.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=793.86864ms	# POLL·15 C1-NHM·22354 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:00.6952 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 370.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=788.863774ms	# POLL·19 C1-NHM·22256 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 368.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=784.706538ms	# POLL·11 C1-NHM·22254 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:01.6972 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 202.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=430.450564ms	# POLL·43 C1-NHM·17455 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 196.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=417.30169ms	# POLL·51 C1-NHM·19845 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:02.6994 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 199.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=423.47929ms	# POLL·37 C1-NHM·19955 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 197.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=419.731817ms	# POLL·51 C1-NHM·19667 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:03.7018 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 193.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=411.549751ms	# POLL·50 C1-NHM·18951 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:16:04.7043 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:05.7062 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:06.7081 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:07.7100 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:08.7120 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:09.7139 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2918.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.211110714s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2926.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.228455834s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2926.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.22738635s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2926.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.227677698s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2931.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.237606733s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2933.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.241432197s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2931.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.237594462s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2934.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.245486194s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2937.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.251755717s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2935.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.245964715s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2935.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.246942223s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2675.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.692619433s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2677.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.698198454s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2677.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.697730948s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2681.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.705815026s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2681.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.706028987s
+# POLL·377 C1-NHM·311269 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:10.7157 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:10.7860 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-10-17  9:16:10 139754143537408 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 1141 ...
+2017-10-17 09:16:12.7180 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:13.7202 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 781.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.663s	# POLL·1 C1-NHM·31470 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:14.7222 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 535.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.139s	# POLL·2 C1-NHM·30319 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:15.7238 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:16.7257 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 521.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.110s	# POLL·6 C1-NHM·31191 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:17.7276 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 538.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.146s	# POLL·1 C1-NHM·29562 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:18.7292 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:19.7320 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 517.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.101s	# POLL·4 C1-NHM·30649 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:16:20.7339 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:21.7359 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:22.7379 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:23.7398 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:24.7418 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:25.7440 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:26.7461 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:27.7482 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:28.7512 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3952.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.410s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3959.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.425s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3960.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.428s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3960.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.428s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3964.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.436s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3961.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.430s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3961.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.430s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3963.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.434s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3960.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.427s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3959.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.425s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3954.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.415s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3946.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.397s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3946.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.398s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3936.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.377s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3941.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.387s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3932.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.368s
+# POLL·51 C1-NHM·435462 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+Benchmarkz6001/neo/py/sql/zhash.go 1 412.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=878.275148ms	# POLL·20 C1-NHM·30833 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:29.7530 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 414.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=881.484147ms	# POLL·4 C1-NHM·30774 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:30.7548 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 416.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=885.288351ms	# POLL·15 C1-NHM·30736 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:31.7566 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 416.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=886.440172ms	# POLL·13 C1-NHM·30587 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:32.7586 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 413.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=879.82991ms	# POLL·8 C1-NHM·30903 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:33.7609 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 251.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=534.228477ms	# POLL·50 C1-NHM·30273 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 248.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=529.371221ms	# POLL·50 C1-NHM·30060 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:34.7632 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 248.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=528.601886ms	# POLL·43 C1-NHM·30507 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 241.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=514.262367ms	# POLL·36 C1-NHM·29942 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:35.7652 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 240.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=511.9381ms	# POLL·40 C1-NHM·29042 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:16:36.7673 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:37.7694 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:38.7717 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:39.7741 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:40.7762 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:41.7792 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:42.7813 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:43.7834 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:44.7854 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3846.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.18492327s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3861.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.217184903s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3865.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.226294919s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3867.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.230521556s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3868.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.231500297s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3868.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.232374964s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3869.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.234678485s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3871.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.237965892s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3871.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.238419821s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3871.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.237930093s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3836.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.164599481s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3619.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.702560962s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3619.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.70317214s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3621.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.706821435s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3621.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.706117803s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3621.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.706556389s
+# POLL·1203 C1-NHM·445788 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:45.1403 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+2017-10-17 09:16:48.7879 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:49.7897 ERROR     NEO        [       handler:115] reject an alien cluster
+unexpected packet: Retry Later in PrimaryBootstrapHandler
+Connection to None lost
+Benchmarkz6001/neo/go/zhash.py 1 275.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.587s
+# POLL·1 C1-NHM·33141 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.py 1 275.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.585s	# POLL·2 C1-NHM·31854 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:50.7914 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 273.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.581s	# POLL·0 C1-NHM·31730 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:51.7932 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 305.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.651s	# POLL·5 C1-NHM·29048 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:52.7960 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 304.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.648s	# POLL·3 C1-NHM·29362 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:16:53.7983 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:16:54.8005 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py-P16 1 474.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.010s
+Benchmarkz6001/neo/go/zhash.py-P16 1 475.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.012s
+Benchmarkz6001/neo/go/zhash.py-P16 1 475.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.012s
+Benchmarkz6001/neo/go/zhash.py-P16 1 472.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.005s
+Benchmarkz6001/neo/go/zhash.py-P16 1 482.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.027s
+Benchmarkz6001/neo/go/zhash.py-P16 1 477.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.016s
+Benchmarkz6001/neo/go/zhash.py-P16 1 479.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.021s
+Benchmarkz6001/neo/go/zhash.py-P16 1 480.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.022s
+Benchmarkz6001/neo/go/zhash.py-P16 1 483.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.029s
+Benchmarkz6001/neo/go/zhash.py-P16 1 476.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.015s
+Benchmarkz6001/neo/go/zhash.py-P16 1 472.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.006s
+Benchmarkz6001/neo/go/zhash.py-P16 1 474.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.009s
+Benchmarkz6001/neo/go/zhash.py-P16 1 480.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.022s
+Benchmarkz6001/neo/go/zhash.py-P16 1 477.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.016s
+Benchmarkz6001/neo/go/zhash.py-P16 1 471.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.004s
+Benchmarkz6001/neo/go/zhash.py-P16 1 460.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.980s
+# POLL·4207 C1-NHM·242303 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+Benchmarkz6001/neo/go/zhash.go 1 74.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=158.685943ms	# POLL·20 C1-NHM·16373 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go 1 80.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=170.892675ms	# POLL·15 C1-NHM·17202 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:55.8023 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.go 1 81.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=172.959825ms	# POLL·18 C1-NHM·19446 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go 1 76.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=161.924034ms	# POLL·16 C1-NHM·15610 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go 1 81.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=172.87084ms	# POLL·23 C1-NHM·20148 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 37.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=79.977913ms	# POLL·57 C1-NHM·12096 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 36.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=76.605619ms	# POLL·65 C1-NHM·11524 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 37.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=78.648273ms	# POLL·59 C1-NHM·11844 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:56.8039 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 36.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=76.53457ms	# POLL·46 C1-NHM·11870 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 37.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=78.69676ms	# POLL·61 C1-NHM·12150 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:16:57.8055 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.go-P16 1 138.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=294.868824ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 140.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=299.50398ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 136.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=290.67232ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 137.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=292.306609ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 139.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=296.592685ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 140.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=298.756217ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 141.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=300.623003ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 141.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=300.567645ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 141.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=301.842098ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 142.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=303.522441ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 95.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=202.079341ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 94.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=201.247492ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 95.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=203.984802ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 94.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=201.160135ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 95.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=204.015148ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 96.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=205.767073ms
+# POLL·9980 C1-NHM·155804 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017/10/17 09:16:58 talk master([2401:5180:0:6f::1]:5552): context canceled
+2017-10-17 09:16:58.3417 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+2017-10-17 09:16:58.8072 ERROR     NEO        [       handler:115] reject an alien cluster
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 50.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=108.387596ms
+# POLL·4 C1-NHM·14883 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 61.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=130.391035ms
+# POLL·9 C1-NHM·15855 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:16:59.8089 ERROR     NEO        [       handler:115] reject an alien cluster
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 57.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=123.290504ms
+# POLL·22 C1-NHM·15868 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 60.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=128.250252ms
+# POLL·17 C1-NHM·16104 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 51.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=109.885023ms
+# POLL·11 C1-NHM·14962 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 27.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=58.046273ms
+# POLL·60 C1-NHM·10991 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 27.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=59.144357ms
+# POLL·61 C1-NHM·10870 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 27.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=58.740825ms
+# POLL·46 C1-NHM·10843 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 27.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=58.802708ms
+# POLL·45 C1-NHM·10981 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 28.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=60.453727ms
+# POLL·38 C1-NHM·10976 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:17:00.8112 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:01.8136 ERROR     NEO        [       handler:115] reject an alien cluster
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 124.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=264.775166ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 126.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=268.393077ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 128.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=274.217756ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 128.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=273.727281ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 128.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=272.930396ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 128.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=272.93278ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 131.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=278.960327ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 132.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=282.729212ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 135.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=288.418685ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 132.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=281.827818ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 78.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=166.979304ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 78.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=167.454935ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 78.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=166.420681ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 78.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=166.04062ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 79.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=168.741039ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 80.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=171.193816ms
+# POLL·9863 C1-NHM·123611 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+E1017 09:17:02.047124    4254 storage.go:120] storage([2401:5180:0:6f::1]:5554): accept: accept tcp [2401:5180:0:6f::1]:5554: use of closed network connection
+2017/10/17 09:17:02 talk master([2401:5180:0:6f::1]:5552): context canceled
+2017-10-17 09:17:02.0422 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+dataset:	prod1-1024
+
+*** generating fs1 data...
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761390 seconds in the future
+
+*** generating sqlite data...
+2017-10-17 09:17:04.8162 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:05.8178 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:06.8194 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:07.8210 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:08.8227 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:09.8243 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:10.8263 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:11.8279 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:12.8295 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:13.8311 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:14.8328 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:15.8345 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:16.8363 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:16.9475 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** generating sql data...
+2017-10-17  9:17:17 140651452782848 [Note] /usr/sbin/mysqld (mysqld 10.1.25-MariaDB-1) starting as process 5163 ...
+2017-10-17  9:17:20 140595092998400 [Note] /usr/sbin/mysqld (mysqld 10.1.25-MariaDB-1) starting as process 5191 ...
+2017-10-17  9:17:23 140589673072896 [Note] /usr/sbin/mysqld (mysqld 10.1.25-MariaDB-1) starting as process 5220 ...
+2017-10-17  9:17:26 140253713094912 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 5247 ...
+2017-10-17 09:17:27.8412 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:28.8434 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:29.8451 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:30.8468 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:31.8485 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:32.8501 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:33.8517 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:34.8532 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:35.8548 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:17:36.8033 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** FileStorage
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761354 seconds in the future
+Benchmarkz6001/fs1/zhash.py 1 29.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.113s
+# POLL·0 C1-NHM·730 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761354 seconds in the future
+Benchmarkz6001/fs1/zhash.py 1 30.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.114s
+# POLL·0 C1-NHM·693 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761353 seconds in the future
+Benchmarkz6001/fs1/zhash.py 1 29.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.113s
+# POLL·1 C1-NHM·613 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761353 seconds in the future
+Benchmarkz6001/fs1/zhash.py 1 29.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.112s
+# POLL·0 C1-NHM·640 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+Benchmarkz6001/fs1/zhash.py 1 30.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.114s
+# POLL·1 C1-NHM·617 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+/home/neotest/t4/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79586761352 seconds in the future
+Benchmarkz6001/fs1/zhash.py-P16 1 45.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.174s
+Benchmarkz6001/fs1/zhash.py-P16 1 35.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.136s
+Benchmarkz6001/fs1/zhash.py-P16 1 35.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.135s
+Benchmarkz6001/fs1/zhash.py-P16 1 30.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.116s
+Benchmarkz6001/fs1/zhash.py-P16 1 32.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.122s
+Benchmarkz6001/fs1/zhash.py-P16 1 35.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.133s
+Benchmarkz6001/fs1/zhash.py-P16 1 41.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.157s
+Benchmarkz6001/fs1/zhash.py-P16 1 40.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.153s
+Benchmarkz6001/fs1/zhash.py-P16 1 30.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.114s
+Benchmarkz6001/fs1/zhash.py-P16 1 37.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.140s
+Benchmarkz6001/fs1/zhash.py-P16 1 35.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.136s
+Benchmarkz6001/fs1/zhash.py-P16 1 43.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.164s
+Benchmarkz6001/fs1/zhash.py-P16 1 48.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.183s
+Benchmarkz6001/fs1/zhash.py-P16 1 41.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.155s
+Benchmarkz6001/fs1/zhash.py-P16 1 35.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.136s
+Benchmarkz6001/fs1/zhash.py-P16 1 36.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.140s
+# POLL·4 C1-NHM·2466 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+Benchmarkz6001/fs1/zhash.go 1 2.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.05662ms	# POLL·0 C1-NHM·400 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 2.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.033612ms	# POLL·0 C1-NHM·406 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 2.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.300038ms	# POLL·6 C1-NHM·387 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 2.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.252618ms	# POLL·5 C1-NHM·374 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go 1 2.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.112845ms	# POLL·0 C1-NHM·406 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 4.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.356482ms	# POLL·45 C1-NHM·3416 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 4.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.640534ms	# POLL·21 C1-NHM·3448 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 4.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.103881ms	# POLL·19 C1-NHM·2741 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 4.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.675158ms	# POLL·34 C1-NHM·3445 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/fs1/zhash.go+prefetch128 1 3.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.809678ms	# POLL·24 C1-NHM·2676 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+Benchmarkz6001/fs1/zhash.go-P16 1 2.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.783746ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.235701ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.647619ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.099331ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.195308ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.259823ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.361862ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.921527ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.936967ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.849401ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.004306ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.669595ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.364817ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.573606ms
+Benchmarkz6001/fs1/zhash.go-P16 1 3.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.342874ms
+Benchmarkz6001/fs1/zhash.go-P16 1 2.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.11408ms
+# POLL·26 C1-NHM·1651 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+*** ZEO
+Benchmarkz6001/zeo/zhash.py 1 475.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.802s	# POLL·7 C1-NHM·53353 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 448.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.701s	# POLL·2 C1-NHM·50897 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 478.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.812s	# POLL·3 C1-NHM·56789 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 467.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.772s	# POLL·0 C1-NHM·57013 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/zeo/zhash.py 1 482.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.828s	# POLL·14 C1-NHM·52674 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+Benchmarkz6001/zeo/zhash.py-P16 1 1225.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=4.644s
+Benchmarkz6001/zeo/zhash.py-P16 1 1239.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=4.697s
+Benchmarkz6001/zeo/zhash.py-P16 1 1301.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=4.933s
+Benchmarkz6001/zeo/zhash.py-P16 1 1308.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=4.958s
+Benchmarkz6001/zeo/zhash.py-P16 1 1440.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=5.459s
+Benchmarkz6001/zeo/zhash.py-P16 1 1455.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=5.515s
+Benchmarkz6001/zeo/zhash.py-P16 1 1518.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=5.755s
+Benchmarkz6001/zeo/zhash.py-P16 1 1562.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=5.922s
+Benchmarkz6001/zeo/zhash.py-P16 1 1604.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.082s
+Benchmarkz6001/zeo/zhash.py-P16 1 1576.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=5.974s
+Benchmarkz6001/zeo/zhash.py-P16 1 1615.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.121s
+Benchmarkz6001/zeo/zhash.py-P16 1 1616.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.127s
+Benchmarkz6001/zeo/zhash.py-P16 1 1672.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.338s
+Benchmarkz6001/zeo/zhash.py-P16 1 1681.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.372s
+Benchmarkz6001/zeo/zhash.py-P16 1 1682.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.375s
+Benchmarkz6001/zeo/zhash.py-P16 1 1725.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.539s
+# POLL·128 C1-NHM·745092 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+2017-10-17 09:18:01.8637 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:02.8661 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 426.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.618s	# POLL·2 C1-NHM·40711 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:03.8681 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:04.8702 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 429.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.628s	# POLL·3 C1-NHM·40739 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:05.8721 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:06.8748 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 437.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.657s	# POLL·4 C1-NHM·43721 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:07.8768 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:08.8788 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 427.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.620s	# POLL·1 C1-NHM·43790 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:09.8808 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:10.8827 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py 1 411.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.561s	# POLL·6 C1-NHM·43698 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:18:11.8845 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:12.8866 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:13.8885 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:14.8905 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:15.8925 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:16.8945 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:17.8965 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:18.8984 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:19.9005 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:20.9025 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:21.9046 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:22.9073 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2945.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.162s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2944.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.161s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2945.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.164s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2951.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.186s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2951.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.185s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2957.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.208s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2966.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.244s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2968.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.251s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2968.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.252s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2968.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.251s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2967.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.248s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2961.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.223s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2959.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.215s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2966.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.243s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2967.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.248s
+Benchmarkz6001/neo/py/sqlite/zhash.py-P16 1 2964.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.237s
+# POLL·62 C1-NHM·573328 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+2017-10-17 09:18:23.9093 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 243.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=922.959754ms	# POLL·18 C1-NHM·28926 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:24.9111 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 243.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=922.350295ms	# POLL·25 C1-NHM·29082 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:25.9131 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 243.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=924.223824ms	# POLL·11 C1-NHM·29117 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:26.9151 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 243.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=921.02518ms	# POLL·14 C1-NHM·29127 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:27.9171 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go 1 244.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=927.798013ms	# POLL·20 C1-NHM·29210 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 177.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=674.114016ms	# POLL·34 C1-NHM·29411 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:28.9192 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 173.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=657.506723ms	# POLL·47 C1-NHM·29607 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:29.9212 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 174.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=659.562133ms	# POLL·70 C1-NHM·29617 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 170.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=647.297726ms	# POLL·63 C1-NHM·29432 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:30.9232 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go+prefetch128 1 175.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=665.244896ms	# POLL·61 C1-NHM·30174 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:18:31.9251 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:32.9272 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:33.9293 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:34.9314 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:35.9335 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:36.9367 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:37.9388 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:38.9409 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:39.9429 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:40.9450 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:41.9479 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2793.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.586535329s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2797.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.603963331s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2801.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.617397613s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2799.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.611222969s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2800.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.614226251s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2802.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.620670849s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2801.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.616486762s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2801.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.619159473s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2801.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.618732552s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2804.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.627765405s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2692.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.204162109s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2691.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.200182555s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2692.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.202689011s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2692.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.204840806s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2691.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.201723053s
+Benchmarkz6001/neo/py/sqlite/zhash.go-P16 1 2692.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.202698924s
+# POLL·510 C1-NHM·394436 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:42.9497 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:43.0297 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2017-10-17  9:18:43 139840707410176 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 8846 ...
+2017-10-17 09:18:44.9521 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:45.9544 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:46.9565 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 697.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.643s	# POLL·3 C1-NHM·56184 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:47.9585 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:48.9605 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 475.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.803s	# POLL·2 C1-NHM·60121 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:49.9625 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:50.9648 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 471.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.788s	# POLL·3 C1-NHM·58716 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:51.9675 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:52.9699 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 471.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.788s	# POLL·11 C1-NHM·58337 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:18:53.9719 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:54.9739 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py 1 489.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.856s	# POLL·6 C1-NHM·56232 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:18:55.9763 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:56.9784 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:57.9805 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:58.9827 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:18:59.9848 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:00.9869 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:01.9902 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:02.9928 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:03.9952 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:04.9976 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:05.9997 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:07.0017 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:08.0041 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:09.0061 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:10.0082 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:11.0104 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3913.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.831s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3928.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.891s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3948.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.965s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3948.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.964s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3952.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.981s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3951.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.976s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3955.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.990s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3954.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.987s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3952.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.980s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3940.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.933s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3948.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.963s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3948.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.965s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3951.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.976s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3943.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.947s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3953.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.983s
+Benchmarkz6001/neo/py/sql/zhash.py-P16 1 3939.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=14.931s
+# POLL·74 C1-NHM·820559 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+2017-10-17 09:19:12.0126 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 297.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.127639535s	# POLL·16 C1-NHM·44177 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:13.0146 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 297.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.126243375s	# POLL·14 C1-NHM·44357 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:14.0166 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 301.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.14247777s	# POLL·14 C1-NHM·44388 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:15.0187 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 299.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.135225062s	# POLL·30 C1-NHM·44209 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:16.0203 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:17.0223 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go 1 300.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.137197725s	# POLL·12 C1-NHM·44274 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:18.0246 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 230.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=873.952741ms	# POLL·69 C1-NHM·45078 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 230.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=872.811123ms	# POLL·50 C1-NHM·44774 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:19.0267 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 230.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=874.053163ms	# POLL·70 C1-NHM·45333 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:20.0289 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 230.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=872.003294ms	# POLL·47 C1-NHM·45097 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:21.0309 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go+prefetch128 1 224.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=851.166584ms	# POLL·58 C1-NHM·45262 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:19:22.0331 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:23.0353 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:24.0372 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:25.0392 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:26.0412 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:27.0443 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:28.0464 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:29.0484 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:30.0505 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:31.0526 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:32.0559 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:33.0580 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:34.0603 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:35.0623 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:36.0648 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3654.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.851661263s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3660.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.873315746s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.888048761s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.886521485s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.886517335s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.887456275s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.889295846s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.889755473s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3664.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.889918219s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3665.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.89067444s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3555.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.474494294s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3556.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.480413681s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3555.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.475529729s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3555.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.476996606s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3555.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.477000507s
+Benchmarkz6001/neo/py/sql/zhash.go-P16 1 3555.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=13.476003601s
+# POLL·1769 C1-NHM·634849 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:36.3863 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go
+2017-10-17 09:19:40.0676 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:41.0694 ERROR     NEO        [       handler:115] reject an alien cluster
+unexpected packet: Retry Later in PrimaryBootstrapHandler
+Connection to None lost
+Benchmarkz6001/neo/go/zhash.py 1 269.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.022s
+# POLL·11 C1-NHM·69014 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:42.0710 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 266.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.011s	# POLL·0 C1-NHM·63666 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:43.0729 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:44.0759 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 262.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.995s	# POLL·12 C1-NHM·69444 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:45.0777 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 259.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.984s	# POLL·5 C1-NHM·69917 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:46.0794 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:47.0813 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py 1 299.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.135s	# POLL·8 C1-NHM·67898 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:19:48.0836 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:49.0867 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.py-P16 1 464.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.760s
+Benchmarkz6001/neo/go/zhash.py-P16 1 464.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.759s
+Benchmarkz6001/neo/go/zhash.py-P16 1 467.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.771s
+Benchmarkz6001/neo/go/zhash.py-P16 1 464.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.762s
+Benchmarkz6001/neo/go/zhash.py-P16 1 464.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.759s
+Benchmarkz6001/neo/go/zhash.py-P16 1 467.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.770s
+Benchmarkz6001/neo/go/zhash.py-P16 1 464.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.761s
+Benchmarkz6001/neo/go/zhash.py-P16 1 464.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.759s
+Benchmarkz6001/neo/go/zhash.py-P16 1 463.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.758s
+Benchmarkz6001/neo/go/zhash.py-P16 1 459.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.742s
+Benchmarkz6001/neo/go/zhash.py-P16 1 470.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.785s
+Benchmarkz6001/neo/go/zhash.py-P16 1 467.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.770s
+Benchmarkz6001/neo/go/zhash.py-P16 1 460.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.744s
+Benchmarkz6001/neo/go/zhash.py-P16 1 463.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.757s
+Benchmarkz6001/neo/go/zhash.py-P16 1 461.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.749s
+Benchmarkz6001/neo/go/zhash.py-P16 1 463.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.755s
+# POLL·6977 C1-NHM·473878 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+Benchmarkz6001/neo/go/zhash.go 1 58.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=219.857978ms	# POLL·18 C1-NHM·26706 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go 1 58.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=221.280677ms	# POLL·22 C1-NHM·26565 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:50.0888 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.go 1 59.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=224.064282ms	# POLL·14 C1-NHM·27002 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go 1 57.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=217.777257ms	# POLL·16 C1-NHM·26644 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go 1 57.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=219.511039ms	# POLL·16 C1-NHM·26470 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 24.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=91.803684ms	# POLL·56 C1-NHM·16860 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 24.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=91.331276ms	# POLL·97 C1-NHM·16683 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:51.0910 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 24.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=91.009485ms	# POLL·63 C1-NHM·16241 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 24.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=91.705235ms	# POLL·99 C1-NHM·17075 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+Benchmarkz6001/neo/go/zhash.go+prefetch128 1 24.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=91.354004ms	# POLL·82 C1-NHM·16383 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:19:52.0926 ERROR     NEO        [       handler:115] reject an alien cluster
+Benchmarkz6001/neo/go/zhash.go-P16 1 171.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=649.359769ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 175.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=663.356252ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 175.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=665.931206ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 173.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=658.820763ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 174.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=660.766179ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 175.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=665.177787ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 175.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=663.940823ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 175.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=664.355825ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 175.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=666.035657ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 176.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=669.285791ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 143.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=544.919919ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 73.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=278.985415ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 74.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=280.842998ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 73.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=278.290861ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 73.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=278.446178ms
+Benchmarkz6001/neo/go/zhash.go-P16 1 73.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=279.602707ms
+# POLL·13884 C1-NHM·249769 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017/10/17 09:19:52 talk master([2401:5180:0:6f::1]:5552): context canceled
+2017-10-17 09:19:52.8484 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go (sha1 disabled)
+# NEO/go/storage: skipping SHA1 computations
+2017-10-17 09:19:53.0943 ERROR     NEO        [       handler:115] reject an alien cluster
+2017-10-17 09:19:54.0960 ERROR     NEO        [       handler:115] reject an alien cluster
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 48.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=185.286531ms
+# POLL·7 C1-NHM·24302 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 49.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=187.153915ms
+# POLL·26 C1-NHM·23239 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 48.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=181.873765ms
+# POLL·18 C1-NHM·23780 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 49.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=187.0868ms
+# POLL·24 C1-NHM·24179 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go 1 47.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=178.914345ms
+# POLL·16 C1-NHM·23974 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017-10-17 09:19:55.0978 ERROR     NEO        [       handler:115] reject an alien cluster
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 22.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=83.530937ms
+# POLL·76 C1-NHM·15819 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 22.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=83.674193ms
+# POLL·102 C1-NHM·16782 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 21.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=82.91369ms
+# POLL·70 C1-NHM·16168 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 22.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=84.626871ms
+# POLL·76 C1-NHM·16511 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go+prefetch128 1 22.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=83.610162ms
+# POLL·81 C1-NHM·17207 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+
+# 16 clients in parallel
+2017-10-17 09:19:56.1001 ERROR     NEO        [       handler:115] reject an alien cluster
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+# NEO/go/client: skipping SHA1 checks
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 162.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=613.799889ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 163.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=620.328835ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 164.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=623.2788ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 164.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=621.870892ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 164.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=624.224496ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 165.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=626.710968ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 165.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=627.279678ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 165.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=628.575102ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 166.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=629.956329ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 166.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=629.671839ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 74.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=282.020179ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 73.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=277.36672ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 73.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=279.657976ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 74.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=281.685213ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 74.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=280.920179ms
+Benchmarkz6001/neo/go(!sha1)/zhash.go-P16 1 74.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=281.140478ms
+# POLL·16031 C1-NHM·249042 C1E-NHM·0 C3-NHM·0 C6-NHM·0
+2017/10/17 09:19:57 talk master([2401:5180:0:6f::1]:5552): context canceled
+2017-10-17 09:19:57.0761 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
