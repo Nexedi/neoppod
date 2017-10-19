@@ -143,10 +143,24 @@ $@
 
 # init_net	- initialize networking
 init_net() {
-	# determine our external address IPv4 or IPv6
-	# FIXME better parse `ip addr` - getent relies on /etc/hosts which needs to be manually setup
-	myaddr=$(getent hosts `hostname` |grep -v 127.0 |awk '{print $1}')
-	test -n "$myaddr" || die "init_net: cannot determine my network address"
+	# determine our external addresses IPv4 or IPv6
+	# 2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+	#     inet 192.168.102.52/24 brd 192.168.102.255 scope global dynamic wlan0
+	#        valid_lft 82495sec preferred_lft 82495sec
+	#
+	# 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 state UNKNOWN qlen 1000
+	#     inet6 2401:5180:0:37::1/64 scope global
+	#        valid_lft forever preferred_lft forever
+	# 2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
+	#     inet6 2401:5180:0:1d:429a:e612:c957:29/64 scope global noprefixroute dynamic
+	#        valid_lft 86232sec preferred_lft 14232sec
+	myaddr4v=(`ip -4 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`)
+	myaddr6v=(`ip -6 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`)
+	test "${#myaddr4v[@]}" -gt 0 || die "init_net: cannot determine my IPv4 network addresses"
+	test "${#myaddr6v[@]}" -gt 0 || die "init_net: cannot determine my IPv6 network addresses"
+
+	# prefer ipv4 for now
+	myaddr="${myaddr4v[0]}"
 
 	# port allocations ([] works for IPv4 too)
 	Abind=[$myaddr]:5551	# NEO admin
@@ -449,7 +463,12 @@ lspci1() {
 # show information about local system (os, hardware, versions, ...)
 system_info() {
 	echo -n "# "; date --rfc-2822
-	echo    "# `whoami`@`hostname --fqdn` ($myaddr)";
+	echo -n "# `whoami`@`hostname --fqdn` ("
+	echo -n "${myaddr6v[0]}"
+	test "${#myaddr6v[@]}" -eq 1 || echo -n " (+ $((${#myaddr6v[@]} - 1))·ipv6)"
+	echo -n " ${myaddr4v[0]}"
+	test "${#myaddr4v[@]}" -eq 1 || echo -n " (+ $((${#myaddr4v[@]} - 1))·ipv4)"
+	echo ")"
 	echo -n "# "; uname -a
 
 	# cpu
