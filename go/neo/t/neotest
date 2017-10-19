@@ -372,7 +372,7 @@ wczblk1_gen_data() {
 prod1_gen_data() {
 	url=$1
 	size=$2
-	./zgenprod1.py $url $size
+	zgenprod1.py $url $size
 }
 
 
@@ -1208,7 +1208,7 @@ cpustat)
 	;;
 esac
 
-# make sure zhash* and tsha1* are on PATH (because we could be invoked from another dir)
+# make sure zhash*, tsha1* and zgenprod are on PATH (because we could be invoked from another dir)
 X=$(cd `dirname $0` && pwd)
 export PATH=$X:$PATH
 
