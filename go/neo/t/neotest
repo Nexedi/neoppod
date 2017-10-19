@@ -556,12 +556,32 @@ system_info() {
 
 	# disk under .
 	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
-	mntdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
-	blkdev=`echo $mntdev |sed -e 's/[0-9]*$//'`	# /dev/sda3 -> /dev/sda
+	blkdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
 	blkdev1=`basename $blkdev`			# /dev/sda  -> sda
-	# XXX lsblk: tmpfs: not a block device
-	# XXX lsblk: /dev/md: not a block device
-	echo "# $blkdev1: `lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
+
+	# showblk1 <device>
+	showblk1() {
+		blkdev=$1
+		blkdev1=`basename $blkdev`			# /dev/sda  -> sda
+		# XXX lsblk: tmpfs: not a block device
+		echo "# $blkdev1: `lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
+	}
+
+	case "$blkdev1" in
+	md*)
+		# software raid
+		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
+		echo "# $blkdev1 (`cat /sys/class/block/$blkdev1/md/level`) -> $slavev"
+		for s in $slavev; do
+			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
+			showblk1 /dev/$s
+		done
+		;;
+	*)
+		blkdev_main=`echo $blkdev |sed -e 's/[0-9]*$//'`	# /dev/sda3 -> /dev/sda
+		showblk1 $blkdev_main
+		;;
+	esac
 
 	# all NICs
 	# XXX warn if ethtool is not there
