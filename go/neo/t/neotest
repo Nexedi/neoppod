@@ -694,11 +694,15 @@ system_info() {
 		s+=", speed=$speed"
 		s+=", mtu=`cat $nic/mtu`"
 		s+=", txqlen=`cat $nic/tx_queue_len`"
-		tgroflush_ns=`cat $nic/gro_flush_timeout`
-		s+=", gro_flush_timeout=`python -c "print '%.3f' % ($tgroflush_ns / 1E3)"`µs"
+		if test -e $nic/gro_flush_timeout ; then
+			tgroflush_ns=`cat $nic/gro_flush_timeout`
+			s+=", gro_flush_timeout=`python -c "print '%.3f' % ($tgroflush_ns / 1E3)"`µs"
+		else
+			s+=", !gro_flush_timeout"
+		fi
 		echo "$s"
 
-		# XXX warn if gro_flush_timeout=0 ?
+		# XXX warn if gro_flush_timeout=0 or unsupported ?
 
 
 		# emit NIC warnings
