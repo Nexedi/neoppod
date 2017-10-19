@@ -352,7 +352,8 @@ EOF
 	if ! test -e $neosql/data ; then
 		# XXX --cross-bootstrap only to avoid final large print notice
 		# XXX but cross-bootstrap filters out current host name from installed tables - is it ok?
-		mysql_install_db --defaults-file=$mycnf --cross-bootstrap
+		mysql_bin=$(dirname `which mysql`)	# XXX under slapos mysql_install_db cannot find its base automatically
+		mysql_install_db --basedir=${mysql_bin%/bin} --defaults-file=$mycnf --cross-bootstrap
 	fi
 
 	mysqld --defaults-file=$mycnf &
