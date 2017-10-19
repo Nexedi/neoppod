@@ -392,7 +392,7 @@ GENfs() {
 
 	# remember correct hash to later check in benchmarks
 	# crc32:1552c530   ; oid=0..2127  nread=8534126  t=0.033s (15.7μs / object)  x=zhash.py
-	./zhash.py --$zhashfunc $fs1/data.fs |awk '{print $1}' >$ds/zhash.ok
+	zhash.py --$zhashfunc $fs1/data.fs |awk '{print $1}' >$ds/zhash.ok
 }
 
 # generate data in sqlite
@@ -814,10 +814,10 @@ bench_cpu() {
 	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
 		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmark`hostname`/pystone 1 \1 pystone/s|\""
 
-	nrun ./tsha1.py 1024
-	nrun ./tsha1_go 1024
-	nrun ./tsha1.py 4096
-	nrun ./tsha1_go 4096
+	nrun tsha1.py 1024
+	nrun tsha1_go 1024
+	nrun tsha1.py 4096
+	nrun tsha1_go 4096
 }
 
 # bench_disk	- benchmark direct (uncached) and cached random reads
@@ -857,9 +857,9 @@ zbench() {
 	zhashok=$3
 #	nrun time demo-zbigarray read $url
 
-	nrun ./zhash.py --check=$zhashok --bench=$topic/%s --$zhashfunc $url
+	nrun zhash.py --check=$zhashok --bench=$topic/%s --$zhashfunc $url
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash.py --check=$zhashok --bench=$topic/%s-P$Npar --$zhashfunc $url
+	nrunpar zhash.py --check=$zhashok --bench=$topic/%s-P$Npar --$zhashfunc $url
 
 	if [[ $url == zeo://* ]]; then
 		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
@@ -874,11 +874,11 @@ zbench_go() {
 	url=$1
 	topic=$2
 	zhashok=$3
-	nrun ./zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc $url
-	nrun ./zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc -useprefetch $url
+	nrun zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc $url
+	nrun zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc -useprefetch $url
 
 	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar ./zhash_go -check=$zhashok --bench=$topic/%s-P$Npar --log_dir=$log -$zhashfunc $url
+	nrunpar zhash_go -check=$zhashok --bench=$topic/%s-P$Npar --log_dir=$log -$zhashfunc $url
 }
 
 
@@ -1208,13 +1208,16 @@ cpustat)
 	;;
 esac
 
+# make sure zhash* and tsha1* are on PATH (because we could be invoked from another dir)
+X=$(cd `dirname $0` && pwd)
+export PATH=$X:$PATH
 
 # rebuild go bits
 # neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 go install -v lab.nexedi.com/kirr/neo/go/...
-go build -o zhash_go zhash.go
-#go build -race -o zhash_go zhash.go
-go build -o tsha1_go tsha1.go
+go build -o $X/zhash_go $X/zhash.go
+#go build -race -o $X/zhash_go $X/zhash.go
+go build -o $X/tsha1_go $X/tsha1.go
 
 # setup network & fs environment
 init_net
