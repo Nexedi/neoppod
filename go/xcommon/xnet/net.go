@@ -29,7 +29,7 @@ import (
 
 // Networker is interface representing access-point to a streaming network
 type Networker interface {
-	// Network returns name of the network		XXX recheck
+	// Network returns name of the network
 	Network() string
 
 	// XXX +Addr() net.Addr	 -> address of this access-point on underlying network ?

@@ -127,21 +127,14 @@ type dialReq struct {
 
 // ----------------------------------------
 
-// FIXME temp for testing
-//trace:event traceNew(name string)
-
 // New creates new pipenet Network
 //
 // name is name of this network under "pipe" namespace, e.g. "α" will give full network name "pipeα".
 //
 // New does not check whether network name provided is unique.
 func New(name string) *Network {
-	traceNew(name)
 	return &Network{name: name, hostMap: make(map[string]*Host)}
 }
-
-//XXX temp
-//trace:event traceNewHost(host *Host)
 
 // Host returns network access point by name
 //
@@ -154,7 +147,6 @@ func (n *Network) Host(name string) *Host {
 	if host == nil {
 		host = &Host{network: n, name: name}
 		n.hostMap[name] = host
-		traceNewHost(host)
 	}
 
 	return host
@@ -181,16 +173,12 @@ func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 	return host, a.Port, nil
 }
 
-// XXX temp
-//trace:event traceListen(laddr string)
-
 // Listen starts new listener
 //
 // It either allocates free port if laddr is "" or with 0 port, or binds to laddr.
 // Once listener is started, Dials could connect to listening address.
 // Connection requests created by Dials could be accepted via Accept.
 func (h *Host) Listen(laddr string) (net.Listener, error) {
-	traceListen(laddr)
 	h.network.mu.Lock()
 	defer h.network.mu.Unlock()
 
@@ -267,9 +255,6 @@ func (l *listener) Close() error {
 	return nil
 }
 
-// XXX temp
-//trace:event traceAccept(conn net.Conn)
-
 // Accept tries to connect to Dial called with addr corresponding to our listener
 func (l *listener) Accept() (net.Conn, error) {
 	h := l.socket.host
@@ -294,19 +279,14 @@ func (l *listener) Accept() (net.Conn, error) {
 		n.mu.Unlock()
 
 		req.resp <- skc.conn
-		traceAccept(sks.conn)
 		return sks.conn, nil
 	}
 }
-
-// XXX temp
-//trace:event traceDial(addr string)
 
 // Dial dials address on the network
 //
 // It tries to connect to Accept called on listener corresponding to addr.
 func (h *Host) Dial(ctx context.Context, addr string) (net.Conn, error) {
-	traceDial(addr)
 	var netaddr net.Addr
 	derr := func(err error) error {
 		return &net.OpError{Op: "dial", Net: h.Network(), Addr: netaddr, Err: err}
