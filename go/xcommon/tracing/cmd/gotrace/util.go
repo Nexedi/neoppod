@@ -32,7 +32,7 @@ type Buffer struct {
 }
 
 func (b *Buffer) emit(format string, argv ...interface{}) {
-	fmt.Fprintf(b, format + "\n", argv...)
+	fmt.Fprintf(b, format+"\n", argv...)
 }
 
 

@@ -106,9 +106,9 @@ To get better understanding of what happens when it is possible to record
 events into a stream and later either visualize or postprocess them.
 This is similar to how Go execution tracer works:
 
-https://golang.org/s/go15trace
-https://golang.org/pkg/runtime/trace
-https://golang.org/cmd/trace
+	https://golang.org/s/go15trace
+	https://golang.org/pkg/runtime/trace
+	https://golang.org/cmd/trace
 
 though there it records only predefined set of events related to Go runtime.
 
@@ -146,7 +146,7 @@ a set of goroutines in tested code in question
 - produce events in correct order, and
 - at every event associated internal state is correct.
 
-TODO example
+TODO example.
 
 
 Cross package tracing
@@ -291,7 +291,7 @@ func AttachProbe(pg *ProbeGroup, listp **Probe, probe *Probe) {
 
 // Detach detaches probe from a tracepoint.
 //
-// Must be called under Lock
+// Must be called under Lock.
 func (p *Probe) Detach() {
 	verifyLocked()
 
@@ -326,7 +326,7 @@ type ProbeGroup struct {
 
 // Add adds a probe to the group.
 //
-// Must be called under Lock
+// Must be called under Lock.
 func (pg *ProbeGroup) Add(p *Probe) {
 	verifyLocked()
 	pg.probev = append(pg.probev, p)
@@ -334,7 +334,7 @@ func (pg *ProbeGroup) Add(p *Probe) {
 
 // Done detaches all probes registered to the group.
 //
-// Must be called under normal conditions, not under Lock
+// Must be called under normal conditions, not under Lock.
 func (pg *ProbeGroup) Done() {
 	verifyUnlocked()
 	Lock()

@@ -23,16 +23,13 @@ Gotrace is a program to support and interact with go tracing subsystem.
 Gotrace is a common entry to tracing and provides several subcommands:
 
 	gen	generate code according to tracing annotations and imports
-	list	lists tracepoints defined in a package
-
-XXX tracepoints this package defines
-XXX tracepoints this package imports
+	list	lists tracepoints defined by a package
 
 See package lab.nexedi.com/kirr/go123/tracing documentation on how to define
-and use trace events in programs. XXX
+and use trace events in programs.
 
-TODO automatically turn every trace:event in an USDT probe so that they can be
-traced from outside of the process too.
+TODO automatically turn every trace:event into an USDT probe so that they can
+be traced from outside of the process too.
 See e.g. https://github.com/iovisor/bcc/issues/327 for context.
 
 FIXME build tags not taken into account
@@ -49,6 +46,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -61,6 +59,7 @@ import (
 	"golang.org/x/tools/go/loader"
 
 	"lab.nexedi.com/kirr/go123/xerr"
+	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 )
 
 // traceEvent represents 1 trace:event declaration
@@ -118,8 +117,9 @@ type Package struct {
 	traceTypeInfo *types.Info    // typeinfo for ^^^
 }
 
-// parseTraceEvent parses trace event definition into traceEvent
-// text is text argument after "//trace:event "
+// parseTraceEvent parses trace event definition into traceEvent.
+//
+// text is text argument after "//trace:event ".
 func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text string) (*traceEvent, error) {
 	posErr := func(format string, argv ...interface{}) error {
 		return fmt.Errorf("%v: "+format, append([]interface{}{pos}, argv...)...)
@@ -189,11 +189,12 @@ func (p *Package) parseTraceEvent(srcfile *ast.File, pos token.Position, text st
 	return &traceEvent{Pos: pos, Pkgt: p, FuncDecl: declf}, nil
 }
 
-// parseTraceImport parses trace import directive into traceImport
-// text is text argument after "//trace:import "
+// parseTraceImport parses trace import directive into traceImport.
+//
+// text is text argument after "//trace:import ".
 func (p *Package) parseTraceImport(pos token.Position, text string) (*traceImport, error) {
 	// //trace:import "path/to/pkg"
-	// //traca:import name "path/to/pkg"
+	// //trace:import name "path/to/pkg"
 
 	if len(text) == 0 {
 		return nil, fmt.Errorf("%v: empty trace-import spec", pos)
@@ -211,7 +212,7 @@ func (p *Package) parseTraceImport(pos token.Position, text string) (*traceImpor
 		pkgqpath = textv[1]
 	}
 
-	// Unqote pkgqpath as in regular import does
+	// Unquote pkgqpath as regular import does
 	pkgpath, err := strconv.Unquote(pkgqpath)
 	if err != nil || pkgpath == "" || pkgpath[0] == '\'' {
 		return nil, fmt.Errorf("%v: invalid trace-import path %v", pos, pkgqpath)
@@ -256,18 +257,17 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 		DisableUnusedImportCheck: true,
 	}
 
-	//	tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
+	// tfset := token.NewFileSet() // XXX ok to separate or use original package fset?
+	tfset := prog.Fset
 	tpkg := types.NewPackage(pkgi.Pkg.Path(), pkgi.Pkg.Name())
 	tinfo := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
 
 	p := &Package{
 		Pkgi: pkgi,
-		//		traceFset:	tfset,
-		//		traceChecker:	types.NewChecker(tconf, tfset, tpkg, tinfo),
 
 		// XXX vvv do we need separate field for traceFset if it is = prog.Fset?
-		traceFset:     prog.Fset,
-		traceChecker:  types.NewChecker(tconf, prog.Fset, tpkg, tinfo),
+		traceFset:     tfset,
+		traceChecker:  types.NewChecker(tconf, tfset, tpkg, tinfo),
 		tracePkg:      tpkg,
 		traceTypeInfo: tinfo,
 	}
@@ -284,7 +284,7 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 	// FIXME we currently don't process cgo files as go/loader passes to us
 	// already preprocessed results with comments stripped, not original source.
 	// Maybe in some time it will be possible to have AST of original source:
-	// https://github.com/golang/go/issues/16623
+	// https://golang.org/issues/16623
 	for _, file := range pkgi.Files {                        // ast.File
 		for _, commgroup := range file.Comments {        // ast.CommentGroup
 			for _, comment := range commgroup.List { // ast.Comment
@@ -323,7 +323,7 @@ func packageTrace(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, err
 						return nil, err
 					}
 
-					// XXX needed here? - better append in parseTraceEvent
+					// XXX needed here? - better append in parseTraceImport
 					p.Importv = append(p.Importv, imported)
 
 				default:
@@ -401,13 +401,15 @@ func (te *traceEvent) Argv() string {
 	return strings.Join(argv, ", ")
 }
 
-// ArgvTyped returns argument list with types
+// ArgvTyped returns argument list with types.
+//
 // types are qualified relative to original package
 func (te *traceEvent) ArgvTyped() string {
 	return te.ArgvTypedRelativeTo(te.Pkgt.tracePkg, nil)
 }
 
-// ArgvTypedRelativeTo returns argument list with types qualified relative to specified package
+// ArgvTypedRelativeTo returns argument list with types qualified relative to specified package.
+//
 // importedAs specifies under which name a package was imported, if name was explicitly set
 func (te *traceEvent) ArgvTypedRelativeTo(pkg *types.Package, importedAs map[string]string /*pkgpath -> pkgname*/) string {
 	argv := []string{}
@@ -530,7 +532,8 @@ func init() { {{.ImportSpec.PkgName}}_trace_exporthash() }
 // magic begins all files generated by gotrace
 const magic = "// Code generated by lab.nexedi.com/kirr/go123/tracing/cmd/gotrace; DO NOT EDIT.\n"
 
-// checkCanWrite checks whether it is safe to write to file at path
+// checkCanWrite checks whether it is safe to write to file at path.
+//
 // it is safe to write when either
 // - the file does not exist, or
 // - it exits but was previously generated by us
@@ -575,7 +578,8 @@ func removeFile(path string) error {
 	return err
 }
 
-// Program represents loaded program for tracepoint analysis
+// Program represents loaded program for tracepoint analysis.
+//
 // It is generalization of loader.Program due to loader not allowing to
 // construct programs incrementally.
 type Program struct {
@@ -596,7 +600,7 @@ type Program struct {
 
 // NewProgram constructs new empty Program ready to load packages according to specified build context
 func NewProgram(ctxt *build.Context, cwd string) *Program {
-	// adjust build context to filter-out ztrace* files when disovering packages
+	// adjust build context to filter-out ztrace* files when discovering packages
 	//
 	// we don't load what should be generated by us for 2 reasons:
 	// - code generated could be wrong with older version of the
@@ -631,7 +635,7 @@ func NewProgram(ctxt *build.Context, cwd string) *Program {
 }
 
 // Import imports a package and returns associated package info and program
-// under which it was loaded
+// under which it was loaded.
 func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.PackageInfo, err error) {
 	// let's see - maybe it is already there
 	for _, prog := range p.progv {
@@ -660,7 +664,7 @@ func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.Pac
 }
 
 // ImportWithTests imports a package augmented with code from _test.go files +
-// imports external test package (if present)
+// imports external test package (if present).
 func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *loader.PackageInfo, xtestPkgi *loader.PackageInfo, err error) {
 	// NOTE always reimporting not to interfere with regular imports
 	p.loaderConf.ImportPkgs = nil
@@ -684,7 +688,9 @@ func (p *Program) ImportWithTests(pkgpath string) (prog *loader.Program, pkgi *l
 	return prog, pkgi, xtestPkgi, nil
 }
 
-// tracegen generates code according to tracing directives in a package @ pkgpath
+// ---- `gotrace gen` ----
+
+// tracegen generates code according to tracing directives in a package @ pkgpath.
 //
 // ctxt is build context for discovering packages
 // cwd is "current" directory for resolving local imports (e.g. packages like "./some/package")
@@ -729,7 +735,8 @@ func tracegen(pkgpath string, ctxt *build.Context, cwd string) error {
 	return xerr.Merge(err1, err2, err3)
 }
 
-// tracegen1 generates code according to tracing directives for a (sub)package @pkgpath
+// tracegen1 generates code according to tracing directives for a (sub)package @pkgpath.
+//
 // subpackage is either original package, testing code, or external test package
 func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 	var err error
@@ -881,7 +888,7 @@ func tracegen1(P *Program, tpkg *Package, pkgdir string, kind string) error {
 }
 
 // traceExport returns signatures of all tracing-related exports of a package
-// in canonical order as would be seen from universe scope
+// in canonical order as would be seen from universe scope.
 func traceExport(tpkg *Package, kind string) []byte {
 	pkgpath := tpkg.Pkgi.Pkg.Path()
 	pkgname := tpkg.Pkgi.Pkg.Name()
@@ -912,37 +919,130 @@ func traceExportHash(tpkg *Package, kind string) string {
 	return fmt.Sprintf("%x", sha1.Sum(traceExport(tpkg, kind)))
 }
 
+const genSummary = "generate code according to tracing annotations and imports"
 
-// TODO
-// func tracelist(...)
+func genUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: gotrace gen <package>
+Generate code according to tracing annotations and imports
 
-func main() {
-	log.SetFlags(0)
-	log.SetPrefix("gotrace: ")
+  options:
 
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr,
-`gotracegen [options] [package]
-TODO ...
+        -h --help       this help text.
 `)
-	}
+}
 
-	flag.Parse()
+func genMain(argv []string) {
+	flags := flag.FlagSet{Usage: func() { genUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.Parse(argv[1:])
 
-	argv := flag.Args()
+	argv = flags.Args()
 	if len(argv) < 1 {
-		flag.Usage()
-		os.Exit(2)
+		flags.Usage()
+		zt.Exit(2)
 	}
 	pkgpath := argv[0]
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		zt.Fatal(err)
 	}
 
 	err = tracegen(pkgpath, &build.Default, cwd)
 	if err != nil {
-		log.Fatal(err)
+		zt.Fatal(err)
 	}
+}
+
+
+// ---- `gotrace list` ----
+
+// tracelist lists trace-events defined by a package @ pkgpath.
+//
+// ctxt and cwd are tunables for discovering packages. See tracegen for details.
+//
+// TODO support listing by pkgspec (e.g. "./...")
+func tracelist(w io.Writer, pkgpath string, ctxt *build.Context, cwd string) error {
+	P := NewProgram(ctxt, cwd)
+
+	// NOTE only listing trace-events provided by main package, not tests or xtest
+	lprog, pkgi, err := P.Import(pkgpath)
+	if err != nil {
+		return err
+	}
+
+	tpkg, err := packageTrace(lprog, pkgi)
+	if err != nil {
+		return err // XXX err ctx
+	}
+
+	for _, event := range tpkg.Eventv {
+		_, err = fmt.Fprintf(w, "%s:%s\n", event.Pkgt.Pkgi.Pkg.Path(), event.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+const listSummary = "lists tracepoints defined by a package"
+
+func listUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: gotrace list <package>
+List tracepoints defined by a package
+
+  options:
+
+        -h --help       this help text.
+`)
+}
+
+func listMain(argv []string) {
+	flags := flag.FlagSet{Usage: func() { genUsage(os.Stderr) }}
+	flags.Init("", flag.ExitOnError)
+	flags.Parse(argv[1:])
+
+	argv = flags.Args()
+	if len(argv) < 1 {
+		flags.Usage()
+		zt.Exit(2)
+	}
+	pkgpath := argv[0]
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		zt.Fatal(err)
+	}
+
+	err = tracelist(os.Stdout, pkgpath, &build.Default, cwd)
+	if err != nil {
+		zt.Fatal(err)
+	}
+}
+
+// ---- main driver ----
+
+var commands = zt.CommandRegistry{
+	{"gen",	 genSummary,  genUsage,  genMain},
+	{"list", listSummary, listUsage, listMain},
+}
+
+var helpTopics = zt.HelpRegistry{
+        // XXX for now empty
+}
+
+var prog = zt.MainProg{
+	Name:       "gotrace",
+	Summary:    "Gotrace is a program to support and interact with go tracing subsystem",
+	Commands:   commands,
+	HelpTopics: helpTopics,
+}
+
+func main() {
+	log.SetFlags(0)
+	log.SetPrefix("gotrace: ")
+	prog.Main()
 }

@@ -23,5 +23,5 @@ package race
 
 // race ignore begin/end stubs
 
-func IgnoreBegin(racectx uintptr)	{}
-func IgnoreEnd(racectx uintptr)		{}
+func IgnoreBegin(racectx uintptr) {}
+func IgnoreEnd(racectx uintptr)   {}

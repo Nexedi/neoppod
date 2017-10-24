@@ -27,12 +27,15 @@ import "unsafe"
 // symbols are e.g. in go/src/runtime/race/race_linux_amd64.syso
 #cgo LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files
 
+// __tsan::ThreadIgnoreBegin(__tsan::ThreadState*, unsigned long)
+// __tsan::ThreadIgnoreEnd(__tsan::ThreadState*, unsigned long)
 extern void _ZN6__tsan17ThreadIgnoreBeginEPNS_11ThreadStateEm(void *, unsigned long);
 extern void _ZN6__tsan15ThreadIgnoreEndEPNS_11ThreadStateEm(void *, unsigned long);
 */
 import "C"
 
-// NOTE runtime.RaceDisable disables only "sync" part, not "read/write"
+// Ways to tell race-detector to ignore "read/write" events from current thread.
+// NOTE runtime.RaceDisable disables only "sync" part, not "read/write".
 
 func IgnoreBegin(racectx uintptr) {
 	C._ZN6__tsan17ThreadIgnoreBeginEPNS_11ThreadStateEm(unsafe.Pointer(racectx), 0)

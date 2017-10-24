@@ -21,5 +21,5 @@ package xruntime
 
 //go:generate ./g_typedef
 
-// getg returns pointer to current goroutine descriptor
+// getg returns pointer to current goroutine descriptor.
 func getg() *g

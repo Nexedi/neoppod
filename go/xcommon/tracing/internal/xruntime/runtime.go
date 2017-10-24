@@ -18,11 +18,10 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package xruntime
-// stop-the-world that should probably be in xruntime, but I'm (yet) hesitating
-// to expose the API to public.
+// stop-the-world that should probably be in public xruntime, but I'm (yet)
+// hesitating to expose the API to public.
 
 import _ "unsafe"
-
 
 //go:linkname runtime_stopTheWorld runtime.stopTheWorld
 //go:linkname runtime_startTheWorld runtime.startTheWorld
@@ -41,7 +40,7 @@ func StopTheWorld(reason string) {
 	runtime_stopTheWorld(reason)
 }
 
-// StartTheWorld restarts the world after it was stopped by StopTheWorld
+// StartTheWorld restarts the world after it was stopped by StopTheWorld.
 func StartTheWorld() {
 	runtime_startTheWorld()
 }

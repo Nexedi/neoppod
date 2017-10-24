@@ -10,7 +10,7 @@ govern=	# e.g. 109 for go1.9
 # goset <goexec> - set <goexec> as current go
 goset() {
 	goexec=$1
-	# go1.1 go1.2 go1.3 go1.4 go1.5 go1.6 go1.7 go1.8 go1.9 go1.10 -> go1.10`
+	# go1.1 go1.2 go1.3 go1.4 go1.5 go1.6 go1.7 go1.8 go1.9 go1.10 -> go1.10
 	gover=`$goexec list -f '{{ range context.ReleaseTags }} {{ .}}{{end}}' runtime |awk '{print $NF}'`
 	IFS=. read gomaj gomin < <(echo "$gover")
 	govern=$((${gomaj#go} * 100 + $gomin))

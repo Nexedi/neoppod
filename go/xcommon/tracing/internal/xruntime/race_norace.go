@@ -23,5 +23,5 @@ package xruntime
 
 // empty stubs for Race*()
 
-func RaceIgnoreBegin()	{}
-func RaceIgnoreEnd()	{}
+func RaceIgnoreBegin() {}
+func RaceIgnoreEnd()   {}

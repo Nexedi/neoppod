@@ -30,7 +30,7 @@ import (
 )
 
 func TestAttachDetach(t *testing.T) {
-	var traceX *Probe	// list head of a tracing event
+	var traceX *Probe // list head of a tracing event
 
 	// check that traceX probe list has such and such content and also that .prev
 	// pointers in all elements are right
@@ -102,7 +102,7 @@ func TestAttachDetach(t *testing.T) {
 // should be ok, but since race detector does not know we stopped the world it
 // could complain.
 func TestUseDetach(t *testing.T) {
-	var traceX *Probe	// list head of a tracing event
+	var traceX *Probe // list head of a tracing event
 
 	// attach probe to traceX
 	probe := Probe{}
@@ -114,7 +114,7 @@ func TestUseDetach(t *testing.T) {
 	go func() {
 		// delay a bit so that main goroutine first spins some time
 		// with non-empty probe list
-		time.Sleep(1*time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 
 		Lock()
 		probe.Detach()

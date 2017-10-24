@@ -1,6 +1,26 @@
+// Copyright (C) 2017  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 3, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Free Software licenses or any of the Open Source
+// Initiative approved licenses and Convey the resulting work. Corresponding
+// source of such a combination shall include the source code for all other
+// software used.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
+// See https://www.nexedi.com/licensing for rationale and options.
+
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/build"
 	"io/ioutil"
@@ -28,10 +48,11 @@ func xglob(t *testing.T, pattern string) []string {
 type TreePrepareMode int
 const (
 	TreePrepareGolden TreePrepareMode = iota // prepare golden tree - how `gotrace gen` result should look like
-	TreePrepareWork				 // prepare work tree - inital state for `gotrace gen` to run
+	TreePrepareWork                          // prepare work tree - inital state for `gotrace gen` to run
 )
 
-// prepareTestTree copies files from src to dst recursively processing *.ok and *.rm depending on mode
+// prepareTestTree copies files from src to dst recursively processing *.ok and *.rm depending on mode.
+//
 // dst should not initially exist
 func prepareTestTree(src, dst string, mode TreePrepareMode) error {
 	err := os.MkdirAll(dst, 0777)
@@ -113,12 +134,12 @@ func diffR(patha, pathb string) (diff string, err error) {
 	return string(out), err
 }
 
-func TestGoTraceGen(t *testing.T) {
+func TestGoTrace(t *testing.T) {
 	tmp, err := ioutil.TempDir("", "t-gotrace")
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer os.RemoveAll(tmp)
+	defer os.RemoveAll(tmp)
 
 	good := tmp + "/good"
 	work := tmp + "/work"
@@ -128,19 +149,19 @@ func TestGoTraceGen(t *testing.T) {
 
 	// test build context with GOPATH set to work tree
 	var tBuildCtx = &build.Context{
-				GOARCH:		"amd64",
-				GOOS:		"linux",
-				GOROOT:		runtime.GOROOT(),
-				GOPATH:		work,
-				CgoEnabled:	true,
-				Compiler:	runtime.Compiler,
+		GOARCH:     "amd64",
+		GOOS:       "linux",
+		GOROOT:     runtime.GOROOT(),
+		GOPATH:     work,
+		CgoEnabled: true,
+		Compiler:   runtime.Compiler,
 	}
 
 	// XXX autodetect (go list ?)
 	testv := []string{"a/pkg1", "b/pkg2", "c/pkg3", "d/pkg4"}
-	//testv := []string{"c/pkg3"}
 
 	for _, tpkg := range testv {
+		// verify `gotrace gen`
 		err = tracegen(tpkg, tBuildCtx, "" /* = local imorts disabled */)
 		if err != nil {
 			t.Errorf("%v: %v", tpkg, err)
@@ -153,6 +174,23 @@ func TestGoTraceGen(t *testing.T) {
 
 		if diff != "" {
 			t.Errorf("%v: gold & work differ:\n%s", tpkg, diff)
+		}
+
+		// verify `gotrace list`
+		var tlistBuf bytes.Buffer
+		err = tracelist(&tlistBuf, tpkg, tBuildCtx, "" /* = local imports disabled */)
+		if err != nil {
+			t.Fatalf("%v: %v", tpkg, err)
+		}
+
+		tlistOk, err := ioutil.ReadFile(work + "/src/" + tpkg + "/tracelist.txt")
+		if err != nil {
+			t.Fatalf("%v: %v", tpkg, err)
+		}
+
+		tlist := tlistBuf.Bytes()
+		if !bytes.Equal(tlist, tlistOk) {
+			t.Errorf("%v: tracelist differ:\nhave:\n%s\nwant:\n%s", tpkg, tlist, tlistOk)
 		}
 	}
 }
