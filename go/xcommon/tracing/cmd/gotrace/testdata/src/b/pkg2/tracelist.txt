@@ -1,1 +1,0 @@
-b/pkg2:traceDoSomething
