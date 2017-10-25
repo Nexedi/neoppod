@@ -31,7 +31,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
+	"lab.nexedi.com/kirr/go123/tracing"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 )
 

@@ -4,7 +4,7 @@ package server
 // code generated for tracepoints
 
 import (
-	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
+	"lab.nexedi.com/kirr/go123/tracing"
 	"unsafe"
 )
 

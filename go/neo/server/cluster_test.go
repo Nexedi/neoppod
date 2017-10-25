@@ -20,8 +20,7 @@
 package server
 // test interaction between nodes
 
-// XXX gotrace ... -> gotrace gen ...
-//go:generate sh -c "go run ../../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
+//go:generate gotrace gen .
 
 import (
 	"bytes"
@@ -44,13 +43,13 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/tracing"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet/pipenet"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xsync"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 
 	"lab.nexedi.com/kirr/go123/exc"
+	"lab.nexedi.com/kirr/go123/tracing"
 	"lab.nexedi.com/kirr/go123/xerr"
 
 	"fmt"

@@ -20,8 +20,7 @@
 package storage
 // cache management
 
-// XXX gotrace ... -> gotrace gen ...
-//go:generate sh -c "go run ../../xcommon/tracing/cmd/gotrace/{gotrace,util}.go ."
+//go:generate gotrace gen .
 
 import (
 	"context"
