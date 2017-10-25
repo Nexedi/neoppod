@@ -20,19 +20,19 @@
 // Package neotools provides tools for running and managing NEO databases.
 package neotools
 
-import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
+import "lab.nexedi.com/kirr/go123/prog"
 
-var commands = zodbtools.CommandRegistry{
+var commands = prog.CommandRegistry{
 	{"master",  masterSummary,  masterUsage,  masterMain},
 	{"storage", storageSummary, storageUsage, storageMain},
 }
 
-var helpTopics = zodbtools.HelpRegistry{
+var helpTopics = prog.HelpRegistry{
 	// XXX for now empty
 }
 
 // main neo driver
-var Prog = zodbtools.MainProg{
+var Prog = prog.MainProg{
         Name:       "neo",
         Summary:    "Neo is a tool for running NEO services and commands",
         Commands:   commands,

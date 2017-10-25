@@ -46,8 +46,8 @@ import (
 	"io"
 	"os"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xfmt"
-
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
@@ -234,7 +234,7 @@ func dumpMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		Exit(2)
+		prog.Exit(2)
 	}
 	storUrl := argv[0]
 
@@ -244,17 +244,17 @@ func dumpMain(argv []string) {
 
 	tidMin, tidMax, err := zodb.ParseTidRange(tidRange)
 	if err != nil {
-		Fatal(err)	// XXX recheck
+		prog.Fatal(err)	// XXX recheck
 	}
 
 	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
 	if err != nil {
-		Fatal(err)
+		prog.Fatal(err)
 	}
 	// TODO defer stor.Close()
 
 	err = Dump(os.Stdout, stor, tidMin, tidMax, hashOnly)
 	if err != nil {
-		Fatal(err)
+		prog.Fatal(err)
 	}
 }

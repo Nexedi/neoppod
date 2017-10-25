@@ -29,10 +29,10 @@ import (
 	"runtime"
 	"strings"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/neo/go/neo/server"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
-	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 )
 
 const storageSummary = "run storage node"
@@ -57,15 +57,15 @@ func storageMain(argv []string) {
 	flags.Parse(argv[1:])
 
 	if *cluster == "" {
-		zt.Fatal("cluster name must be provided")
+		prog.Fatal("cluster name must be provided")
 	}
 
 	masterv := strings.Split(*masters, ",")
 	if len(masterv) == 0 {
-		zt.Fatal("master list must be provided")
+		prog.Fatal("master list must be provided")
 	}
 	if len(masterv) > 1 {
-		zt.Fatal("BUG neo/go POC currently supports only 1 master")
+		prog.Fatal("BUG neo/go POC currently supports only 1 master")
 	}
 
 	master := masterv[0]
@@ -73,7 +73,7 @@ func storageMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 
 	// adjust GOMAXPROCS *= N (a lot of file IO) because file IO really consumes OS threads; details:
@@ -88,7 +88,7 @@ func storageMain(argv []string) {
 	// XXX hack to use existing zodb storage for data
 	zstor, err := fs1.Open(context.Background(), argv[0])
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
@@ -106,6 +106,6 @@ func storageMain(argv []string) {
 
 	err = storSrv.Run(ctx)
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 }

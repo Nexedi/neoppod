@@ -20,6 +20,8 @@
 package zodbtools
 // registry for all help topics
 
+import "lab.nexedi.com/kirr/go123/prog"
+
 const helpZURL =
 `Almost every zodb command works with a database.
 A database can be specified by way of providing URL for its storage.
@@ -57,7 +59,7 @@ const helpXid =
 
 // TODO dump format
 
-var helpTopics = HelpRegistry{
+var helpTopics = prog.HelpRegistry{
 	{"zurl", "specifying database URL", helpZURL},
 	{"xid",  "specifying object address", helpXid},
 }

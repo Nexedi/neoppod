@@ -27,9 +27,9 @@ import (
 	"io"
 	"os"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/neo/go/neo/server"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
-	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 )
 
 const masterSummary = "run master node"
@@ -53,13 +53,13 @@ func masterMain(argv []string) {
 	flags.Parse(argv[1:])
 
 	if *cluster == "" {
-		zt.Fatal("cluster name must be provided")
+		prog.Fatal("cluster name must be provided")
 	}
 
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
@@ -77,6 +77,6 @@ func masterMain(argv []string) {
 
 	err := masterSrv.Run(ctx)
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 }

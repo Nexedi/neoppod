@@ -28,6 +28,7 @@ import (
 	"io"
 	"os"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
@@ -116,7 +117,7 @@ func infoMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		Exit(2)
+		prog.Exit(2)
 	}
 	storUrl := argv[0]
 
@@ -124,11 +125,11 @@ func infoMain(argv []string) {
 
 	stor, err := zodb.OpenStorageURL(ctx, storUrl)	// TODO read-only
 	if err != nil {
-		Fatal(err)
+		prog.Fatal(err)
 	}
 
 	err = Info(ctx, os.Stdout, stor, argv[1:])
 	if err != nil {
-		Fatal(err)
+		prog.Fatal(err)
 	}
 }

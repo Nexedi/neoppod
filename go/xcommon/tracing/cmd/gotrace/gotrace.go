@@ -58,8 +58,8 @@ import (
 
 	"golang.org/x/tools/go/loader"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xerr"
-	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 )
 
 // traceEvent represents 1 trace:event declaration
@@ -940,18 +940,18 @@ func genMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 	pkgpath := argv[0]
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 
 	err = tracegen(pkgpath, &build.Default, cwd)
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 }
 
@@ -1008,33 +1008,33 @@ func listMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 	pkgpath := argv[0]
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 
 	err = tracelist(os.Stdout, pkgpath, &build.Default, cwd)
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 }
 
 // ---- main driver ----
 
-var commands = zt.CommandRegistry{
+var commands = prog.CommandRegistry{
 	{"gen",	 genSummary,  genUsage,  genMain},
 	{"list", listSummary, listUsage, listMain},
 }
 
-var helpTopics = zt.HelpRegistry{
+var helpTopics = prog.HelpRegistry{
         // XXX for now empty
 }
 
-var prog = zt.MainProg{
+var gotrace = prog.MainProg{
 	Name:       "gotrace",
 	Summary:    "Gotrace is a program to support and interact with go tracing subsystem",
 	Commands:   commands,
@@ -1044,5 +1044,5 @@ var prog = zt.MainProg{
 func main() {
 	log.SetFlags(0)
 	log.SetPrefix("gotrace: ")
-	prog.Main()
+	gotrace.Main()
 }

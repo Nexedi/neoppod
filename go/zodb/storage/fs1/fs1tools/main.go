@@ -20,9 +20,9 @@
 // Package fs1tools provides tools for managing and maintaining ZODB FileStorage v1 databases.
 package fs1tools
 
-import "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
+import "lab.nexedi.com/kirr/go123/prog"
 
-var commands = zodbtools.CommandRegistry{
+var commands = prog.CommandRegistry{
 	{"dump",    dumpSummary,    dumpUsage,    dumpMain},
 	{"tail",    tailSummary,    tailUsage,    tailMain},
 	// + fsstats?		(fsstats.py)
@@ -35,12 +35,12 @@ var commands = zodbtools.CommandRegistry{
 	// XXX repozo ?
 }
 
-var helpTopics = zodbtools.HelpRegistry{
+var helpTopics = prog.HelpRegistry{
 	// XXX for now empty
 }
 
 // main fs1 driver
-var Prog = zodbtools.MainProg{
+var Prog = prog.MainProg{
         Name:       "fs1",
         Summary:    "Fs1 is a tool for managing and maintaining ZODB FileStorage v1 databases",
         Commands:   commands,

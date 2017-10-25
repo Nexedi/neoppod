@@ -27,8 +27,8 @@ import (
 	"os"
 	"time"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
-	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 )
 
 // Reindex rebuilds index for FileStorage file @ path
@@ -73,13 +73,13 @@ func reindexMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 	storPath := argv[0]
 
 	fi, err := os.Stat(storPath)
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 
 	// progress display
@@ -124,7 +124,7 @@ func reindexMain(argv []string) {
 	}
 
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 
 	if !quiet {
@@ -176,7 +176,7 @@ func verifyIdxMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 	storPath := argv[0]
 
@@ -225,7 +225,7 @@ func verifyIdxMain(argv []string) {
 	}
 
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 
 	if !quiet {

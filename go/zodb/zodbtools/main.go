@@ -20,8 +20,10 @@
 // Package zodbtools provides tools for managing ZODB databases
 package zodbtools
 
+import "lab.nexedi.com/kirr/go123/prog"
+
 // registry of all zodbtools commands
-var commands = CommandRegistry{
+var commands = prog.CommandRegistry{
 	// NOTE the order commands are listed here is the order how they will appear in help
 	// TODO analyze ?
 	// TODO cmp
@@ -31,7 +33,7 @@ var commands = CommandRegistry{
 }
 
 // main zodbtools driver
-var Prog = MainProg{
+var Prog = prog.MainProg{
 	Name:       "zodb",
 	Summary:    "Zodb is a tool for managing ZODB databases",
 	Commands:   commands,

@@ -29,8 +29,8 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
-	zt "lab.nexedi.com/kirr/neo/go/zodb/zodbtools"
 
+	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xbytes"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xfmt"
@@ -309,7 +309,7 @@ func dumpMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 	storPath := argv[0]
 
@@ -322,7 +322,7 @@ func dumpMain(argv []string) {
 
 	err := Dump(os.Stdout, storPath, fs1.IterForward, d)
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 }
 
@@ -407,12 +407,12 @@ func tailMain(argv []string) {
 	argv = flags.Args()
 	if len(argv) < 1 {
 		flags.Usage()
-		zt.Exit(2)
+		prog.Exit(2)
 	}
 	storPath := argv[0]
 
 	err := Dump(os.Stdout, storPath, fs1.IterBackward, &DumperFsTail{Ntxn: ntxn})
 	if err != nil {
-		zt.Fatal(err)
+		prog.Fatal(err)
 	}
 }
