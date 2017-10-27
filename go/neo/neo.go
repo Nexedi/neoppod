@@ -33,11 +33,11 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	//"lab.nexedi.com/kirr/neo/go/xcommon/xio"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 

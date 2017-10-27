@@ -34,11 +34,11 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
 	"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/go123/xnet"
 )
 
 // Storage is NEO node that keeps data and provides read/write access to it via network.

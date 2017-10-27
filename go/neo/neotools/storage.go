@@ -30,8 +30,8 @@ import (
 	"strings"
 
 	"lab.nexedi.com/kirr/go123/prog"
+	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/neo/server"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 )
 

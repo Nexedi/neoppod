@@ -37,7 +37,7 @@ import (
 	"github.com/someonegg/gocontainer/rbuf"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
+	"lab.nexedi.com/kirr/go123/xnet"
 )
 
 // NodeLink is a node-node link in NEO

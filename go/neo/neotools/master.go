@@ -28,8 +28,8 @@ import (
 	"os"
 
 	"lab.nexedi.com/kirr/go123/prog"
+	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/neo/server"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xnet"
 )
 
 const masterSummary = "run master node"
