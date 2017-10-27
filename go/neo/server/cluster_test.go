@@ -43,7 +43,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xsync"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 
 	"lab.nexedi.com/kirr/go123/exc"
@@ -60,6 +59,10 @@ import (
 func xwait(w interface { Wait() error }) {
 	err := w.Wait()
 	exc.Raiseif(err)
+}
+
+func gox(wg interface { Go(func() error) }, xf func()) {
+	wg.Go(exc.Funcx(xf))
 }
 
 func xfs1stor(path string) *fs1.FileStorage {
@@ -227,14 +230,14 @@ func TestMasterStorage(t *testing.T) {
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 	Chost := xnet.NetTrace(net.Host("c"), tracer)
 
-	gwg := &xsync.WorkGroup{}
+	gwg := &errgroup.Group{}
 
 	// start master
 	Mclock := &vclock{}
 	M := NewMaster("abc1", ":1", Mhost)
 	M.monotime = Mclock.monotime
 	Mctx, Mcancel := context.WithCancel(bg)
-	gwg.Gox(func() {
+	gox(gwg, func() {
 		err := M.Run(Mctx)
 		fmt.Println("M err: ", err)
 		exc.Raiseif(err)
@@ -251,7 +254,7 @@ func TestMasterStorage(t *testing.T) {
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
 	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
 	Sctx, Scancel := context.WithCancel(bg)
-	gwg.Gox(func() {
+	gox(gwg, func() {
 		err := S.Run(Sctx)
 		fmt.Println("S err: ", err)
 		exc.Raiseif(err)
@@ -301,8 +304,8 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(masterStartReady(M, true))
 
 	// M <- start cmd
-	wg := &xsync.WorkGroup{}
-	wg.Gox(func() {
+	wg := &errgroup.Group{}
+	gox(wg, func() {
 		err := M.Start()
 		exc.Raiseif(err)
 	})
@@ -406,8 +409,8 @@ func TestMasterStorage(t *testing.T) {
 
 
 	// C asks M about last tid	XXX better master sends it itself on new client connected
-	wg = &xsync.WorkGroup{}
-	wg.Gox(func() {
+	wg = &errgroup.Group{}
+	gox(wg, func() {
 		cLastTid, err := C.LastTid(bg)
 		exc.Raiseif(err)
 
@@ -424,11 +427,11 @@ func TestMasterStorage(t *testing.T) {
 	xwait(wg)
 
 	// C starts loading first object ...
-	wg = &xsync.WorkGroup{}
+	wg = &errgroup.Group{}
 	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}}
 	buf1, serial1, err := zstor.Load(bg, xid1)
 	exc.Raiseif(err)
-	wg.Gox(func() {
+	gox(wg, func() {
 		buf, serial, err := C.Load(bg, xid1)
 		exc.Raiseif(err)
 

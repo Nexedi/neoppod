@@ -26,7 +26,8 @@ import (
 	//"log"
 )
 
-// SeqReaderAt implements buffering for a io.ReaderAt optimized for sequential access
+// SeqReaderAt implements buffering for a io.ReaderAt optimized for sequential access.
+//
 // Both forward, backward and interleaved forward/backward access patterns are supported
 //
 // NOTE SeqReaderAt is not safe to use from multiple goroutines concurrently.
