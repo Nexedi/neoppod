@@ -83,7 +83,7 @@ type netTLS struct {
 }
 
 func (n *netTLS) Network() string {
-	return n.inner.Network() + "+tls" // XXX is this a good idea?
+	return n.inner.Network() + "+tls"
 }
 
 func (n *netTLS) Dial(ctx context.Context, addr string) (net.Conn, error) {

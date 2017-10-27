@@ -19,7 +19,6 @@
 
 package xnet
 // network tracing
-// XXX move to xnet/trace ?
 
 import (
 	"context"
@@ -39,7 +38,9 @@ import (
 //    - because in case of pipenet tracing writes only is enough to get whole network exchange picture
 //
 // 2. Dial only (no Accept)
-// XXX text
+//    - for similar reasons.
+//
+// WARNING NetTrace functionality is currently very draft.
 func NetTrace(inner Networker, tracer Tracer) Networker {
 	return &netTrace{inner, tracer}
 }
@@ -72,7 +73,7 @@ type TraceTx struct {
 }
 
 // netTrace wraps underlying Networker such that whenever a connection is created
-// it is wrapped with traceConn
+// it is wrapped with traceConn.
 type netTrace struct {
 	inner  Networker
 	tracer Tracer
