@@ -130,13 +130,13 @@ const (
 
 type ClusterState int32
 const (
-	// Once the primary master is elected, the cluster has a state, which is
-	// initially ClusterRecovery, during which the master:
+	// The cluster is initially in the RECOVERING state, and it goes back to
+	// this state whenever the partition table becomes non-operational again.
+	// An election of the primary master always happens, in case of a network
+	// cut between a primary master and all other nodes. The primary master:
 	// - first recovers its own data by reading it from storage nodes;
 	// - waits for the partition table be operational;
 	// - automatically switch to ClusterVerifying if the cluster can be safely started. XXX not automatic
-	// Whenever the partition table becomes non-operational again, the cluster
-	// goes back to this state.
 	ClusterRecovering	ClusterState = iota
 	// Transient state, used to:
 	// - replay the transaction log, in case of unclean shutdown;
