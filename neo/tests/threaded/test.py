@@ -32,7 +32,7 @@ from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ConnectionClosed, \
     ServerConnection, MTClientConnection
 from neo.lib.exception import DatabaseFailure, StoppedOperation
-from neo.lib.handler import DelayEvent
+from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
@@ -2321,6 +2321,36 @@ class Test(NEOThreadedTest):
         self.assertTrue(m0.is_alive())
         self.assertFalse(m1.primary)
         self.assertTrue(m1.is_alive())
+
+    @with_cluster(start_cluster=0, master_count=2,
+                  partitions=2, storage_count=2, autostart=2)
+    def testSplitBrainAtCreation(self, cluster):
+        """
+        Check cluster creation when storage nodes are identified before all
+        masters see each other and elect a primary.
+        XXX: Do storage nodes need a node id before the cluster is created ?
+             Another solution is that they treat their ids as temporary as long
+             as the partition table is empty.
+        """
+        for m, s in zip((min, max), cluster.storage_list):
+            s.nm.remove(m(s.nm.getMasterList(),
+                key=lambda node: node.getAddress()))
+        with ConnectionFilter() as f:
+            f.add(lambda conn, packet:
+                isinstance(packet, Packets.RequestIdentification)
+                and packet.decode()[0] == NodeTypes.MASTER)
+            cluster.start(recovering=True)
+            neoctl = cluster.neoctl
+            getClusterState = neoctl.getClusterState
+            getStorageList = lambda: neoctl.getNodeList(NodeTypes.STORAGE)
+            self.assertEqual(getClusterState(), ClusterStates.RECOVERING)
+            self.assertEqual(1, len(getStorageList()))
+        with Patch(EventHandler, protocolError=lambda *_: sys.exit()):
+            self.tic()
+        expectedFailure(self.assertEqual)(neoctl.getClusterState(),
+                                          ClusterStates.RUNNING)
+        self.assertEqual({1: NodeStates.RUNNING, 2: NodeStates.RUNNING},
+            {x[2]: x[3] for x in neoctl.getNodeList(NodeTypes.STORAGE)})
 
     @with_cluster(partitions=2, storage_count=2)
     def testStorageBackendLastIDs(self, cluster):

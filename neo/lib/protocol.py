@@ -76,13 +76,13 @@ def ErrorCodes():
 
 @Enum
 def ClusterStates():
-    # Once the primary master is elected, the cluster has a state, which is
-    # initially RECOVERING, during which the master:
+    # The cluster is initially in the RECOVERING state, and it goes back to
+    # this state whenever the partition table becomes non-operational again.
+    # An election of the primary master always happens, in case of a network
+    # cut between a primary master and all other nodes. The primary master:
     # - first recovers its own data by reading it from storage nodes;
     # - waits for the partition table be operational;
     # - automatically switch to VERIFYING if the cluster can be safely started.
-    # Whenever the partition table becomes non-operational again, the cluster
-    # goes back to this state.
     RECOVERING
     # Transient state, used to:
     # - replay the transaction log, in case of unclean shutdown;

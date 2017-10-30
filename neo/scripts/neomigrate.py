@@ -45,7 +45,7 @@ def main(args=None):
     from neo.client.Storage import Storage as NEOStorage
     if os.path.exists(source):
         print("WARNING: This is not the recommended way to import data to NEO:"
-              " you should use Imported backend instead.\n"
+              " you should use the Importer backend instead.\n"
               "NEO also does not implement IStorageRestoreable interface,"
               " which means that undo information is not preserved when using"
               " this tool: conflict resolution could happen when undoing an"

@@ -307,7 +307,10 @@ class _SSLHandshake(_SSL):
         except ssl.SSLWantWriteError:
             return read_buf is not None
         except socket.error, e:
-            self._error('send' if read_buf is None else 'recv', e)
+            # OpenSSL 1.1 may raise socket.error(0)
+            # where previous versions raised SSLEOFError.
+            self._error('send' if read_buf is None else 'recv',
+                        e if e.errno else None)
         if not self.queued[0]:
             del self.queued[0]
         del self.receive, self.send

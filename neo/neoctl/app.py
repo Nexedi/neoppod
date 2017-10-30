@@ -67,8 +67,8 @@ class TerminalNeoCTL(object):
     asNode = staticmethod(uuid_int)
 
     def formatRowList(self, row_list):
-        return '\n'.join('%03d | %s' % (offset,
-            ''.join('%s - %s |' % (uuid_str(uuid), state)
+        return '\n'.join('%03d |%s' % (offset,
+            ''.join(' %s - %s |' % (uuid_str(uuid), state)
             for (uuid, state) in cell_list))
             for (offset, cell_list) in row_list)
 
