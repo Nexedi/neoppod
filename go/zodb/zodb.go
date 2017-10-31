@@ -36,10 +36,13 @@ import (
 //
 // In ZODB transaction identifiers are unique 64-bit integer connected to time
 // when corresponding transaction was created.
+//
+// See also: XTid.
 type Tid uint64
 
-// ZODB/py defines maxtid to be max signed int64 since baee84a6 (Jun 7 2016)
-// (XXX in neo: SQLite does not accept numbers above 2^63-1)
+// ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
+// https://github.com/zopefoundation/ZODB/commit/baee84a6
+// (XXX in neo/py: SQLite does not accept numbers above 2^63-1)
 
 const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 
@@ -54,14 +57,14 @@ const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 type Oid uint64
 
 // TxnInfo is metadata information about one transaction.
-//
-// XXX naming -> TxnMeta?
-// XXX +TxnInfo = TxnMeta + []DataInfo ?
 type TxnInfo struct {
 	Tid         Tid
 	Status      TxnStatus
 	User        []byte
 	Description []byte
+
+	// additional information about transaction. ZODB/py usually puts py
+	// dict here but it can be arbitrary raw bytes.
 	Extension   []byte
 }
 
@@ -130,7 +133,7 @@ func (e *ErrXidMissing) Error() string {
 
 // IStorage is the interface provided by ZODB storages
 type IStorage interface {
-	// XXX add invalidation channel
+	// TODO add invalidation channel
 
 	// StorageName returns storage name
 	StorageName() string
@@ -138,11 +141,9 @@ type IStorage interface {
 	// Close closes storage
 	Close() error
 
-	// History(ctx, oid, size=1)
-
 	// LastTid returns the id of the last committed transaction.
 	//
-	// if no transactions have been committed yet, LastTid returns Tid zero value
+	// If no transactions have been committed yet, LastTid returns Tid zero value.
 	LastTid(ctx context.Context) (Tid, error)
 
 	// LastOid returns highest object id of objects committed to storage.
@@ -169,10 +170,13 @@ type IStorage interface {
 	// XXX Restore ?
 	// CheckCurrentSerialInTransaction(oid Oid, serial Tid, txn ITransaction)   // XXX naming
 
+	// TODO:
 	// tpc_begin(txn)
 	// tpc_vote(txn)
 	// tpc_finish(txn, callback)    XXX clarify about callback
 	// tpc_abort(txn)
+
+	// TODO: History(ctx, oid, size=1)
 
 	// Iterate creates iterator to iterate storage in [tidMin, tidMax] range.
 	//
@@ -202,8 +206,7 @@ type IDataIterator interface {
 
 // Valid returns whether tid is in valid transaction identifiers range
 func (tid Tid) Valid() bool {
-	// XXX if Tid becomes signed also check wrt 0
-	if tid <= TidMax {
+	if 0 <= tid && tid <= TidMax {
 		return true
 	} else {
 		return false

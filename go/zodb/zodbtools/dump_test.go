@@ -45,7 +45,7 @@ func diff(a, b string) string {
 }
 
 // loadZdumpPy loads a zdump file and normalizes escaped strings to the way go
-// would escape them
+// would escape them.
 func loadZdumpPy(t *testing.T, path string) string {
 	dump, err := ioutil.ReadFile(path)
 	if err != nil {

@@ -28,6 +28,7 @@ from ZODB import DB
 from ZODB.POSException import UndoError
 from persistent import Persistent
 import transaction
+from zodbtools.util import escapeqq
 
 import struct
 import time
@@ -43,20 +44,6 @@ def unpack64(packed):
 
 def hex64(packed):
     return '0x%016x' % unpack64(packed)
-
-# escape string into valid "..." string
-# XXX dup in zodb/py/pyserialize-gen-testdata
-def escapeqq(s):
-    outv = []
-    # we don't want ' to be escaped
-    for _ in s.split("'"):
-        # this escape almost everything except " character
-        # NOTE string_escape does not do smartquotes and always uses ' for quoting
-        # (repr(str) is the same except it does smartquoting picking ' or " automatically)
-        q = _.encode("string_escape")
-        q = q.replace('"', r'\"')
-        outv.append(q)
-    return '"' + "'".join(outv) + '"'
 
 # make time.time() predictable
 _xtime = time.mktime(time.strptime("04 Jan 1979", "%d %b %Y"))

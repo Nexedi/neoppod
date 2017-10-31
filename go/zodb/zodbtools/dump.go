@@ -244,7 +244,7 @@ func dumpMain(argv []string) {
 
 	tidMin, tidMax, err := zodb.ParseTidRange(tidRange)
 	if err != nil {
-		prog.Fatal(err)	// XXX recheck
+		prog.Fatal(err)
 	}
 
 	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only

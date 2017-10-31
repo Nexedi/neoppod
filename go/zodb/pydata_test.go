@@ -19,7 +19,7 @@
 
 package zodb
 
-//go:generate ./py/pyserialize-gen-testdata
+//go:generate ./py/pydata-gen-testdata
 
 import (
 	"testing"

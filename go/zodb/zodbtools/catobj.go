@@ -32,7 +32,8 @@ import (
 )
 
 
-// Catobj dumps content of one ZODB object
+// Catobj dumps content of one ZODB object.
+//
 // The object is printed in raw form without any headers (see Dumpobj)
 func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) error {
 	buf, _, err := stor.Load(ctx, xid)
@@ -111,7 +112,7 @@ func catobjMain(argv []string) {
 	for _, arg := range argv[1:] {
 		xid, err := zodb.ParseXid(arg)
 		if err != nil {
-			prog.Fatal(err)	// XXX recheck
+			prog.Fatal(err)
 		}
 
 		xidv = append(xidv, xid)

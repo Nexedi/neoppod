@@ -18,7 +18,6 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// TODO what it is
 
 import "testing"
 

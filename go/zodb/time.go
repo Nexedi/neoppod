@@ -41,7 +41,6 @@ func (t TimeStamp) XFmtString(b []byte) []byte {
 }
 
 
-
 // Time converts tid to time
 func (tid Tid) Time() TimeStamp {
 	// the same as _parseRaw in TimeStamp/py

@@ -88,7 +88,6 @@ EOF
 	. env.sh
 
 	pip install git+https://lab.nexedi.com/nexedi/wendelin.core.git@master	# XXX does not show git in ver
-	pip install git+https://lab.nexedi.com/kirr/zodburi.git@master
 	pip install zodbtools
 
 	mkdir -p src/lab.nexedi.com/kirr

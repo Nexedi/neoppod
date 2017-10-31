@@ -30,22 +30,20 @@ import (
 )
 
 func (tid Tid) String() string {
-	// XXX also print "tid:" prefix ?
-	//return fmt.Sprintf("%016x", uint64(tid))
 	return string(tid.XFmtString(nil))
 }
 
 func (oid Oid) String() string {
-	// XXX also print "oid:" prefix ?
-	//return fmt.Sprintf("%016x", uint64(oid))
 	return string(oid.XFmtString(nil))
 }
 
 func (tid Tid) XFmtString(b []byte) []byte {
+	// XXX also print "tid:" prefix ?
 	return xfmt.AppendHex016(b, uint64(tid))
 }
 
 func (oid Oid) XFmtString(b []byte) []byte {
+	// XXX also print "oid:" prefix ?
 	return xfmt.AppendHex016(b, uint64(oid))
 }
 
@@ -79,9 +77,9 @@ func (xid Xid) XFmtString(b xfmt.Buffer) xfmt.Buffer {
 */
 
 
-// parseHex64 decode 16-character-wide hex-encoded string into uint64
-// XXX -> xfmt ?
+// parseHex64 decodes 16-character-wide hex-encoded string into uint64
 func parseHex64(subj, s string) (uint64, error) {
+	// XXX -> xfmt ?
 	// XXX like scanf("%016x") but scanf implicitly skips spaces without giving control to caller and is slower
 	var b[8]byte
 	if len(s) != 16 {
@@ -154,9 +152,10 @@ Error:
 	return Xid{}, fmt.Errorf("xid %q invalid", s)
 }
 
-// ParseTidRange parses string of form "<tidmin>..<tidmax>" into tidMin, tidMax pair
+// ParseTidRange parses string of form "<tidmin>..<tidmax>" into tidMin, tidMax pair.
 //
-// both <tidmin> and <tidmax> can be empty, in which case defaults 0 and TidMax are returned
+// Both <tidmin> and <tidmax> can be empty, in which case defaults 0 and TidMax are used.
+//
 // XXX also check tidMin < tidMax here? or allow reverse ranges ?
 func ParseTidRange(s string) (tidMin, tidMax Tid, err error) {
 	s1, s2, err := xstrings.Split2(s, "..")
@@ -186,13 +185,3 @@ func ParseTidRange(s string) (tidMin, tidMax Tid, err error) {
 Error:
 	return 0, 0, fmt.Errorf("tid range %q invalid", s)
 }
-
-/*
-func (tid Tid) String2() string {
-	var b [8+16]byte
-	binary.BigEndian.PutUint64(b[:], uint64(tid))
-	hex.Encode(b[8:], b[:8])
-	//return mem.String(b[:8])
-	return string(b[:8])
-}
-*/

@@ -58,8 +58,12 @@ const helpXid =
 `
 
 // TODO dump format
+const helpZDump =
+`TODO describe zodb dump format
+`
 
 var helpTopics = prog.HelpRegistry{
-	{"zurl", "specifying database URL", helpZURL},
-	{"xid",  "specifying object address", helpXid},
+	{"zurl",  "specifying database URL", helpZURL},
+	{"xid",   "specifying object address", helpXid},
+	{"zdump", "description of ZODB dump format", helpZDump},
 }
