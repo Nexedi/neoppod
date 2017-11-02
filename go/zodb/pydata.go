@@ -50,14 +50,14 @@ func (d PyData) ClassName() string {
 	}
 
 	if t, ok := xklass.(pickle.Tuple); ok {
-		if len(t) != 2 {	// (klass, args)
+		if len(t) != 2 { // (klass, args)
 			return "?.?"
 		}
 		xklass = t[0]
 		if t, ok := xklass.(pickle.Tuple); ok {
 			// py: "old style reference"
 			if len(t) != 2 {
-				return "?.?"	// (modname, classname)
+				return "?.?" // (modname, classname)
 			}
 			return fmt.Sprintf("%s.%s", t...)
 		}

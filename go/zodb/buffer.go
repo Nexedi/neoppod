@@ -34,7 +34,7 @@ import (
 //
 // Custom allocation functions affect only performance, not correctness -
 // everything should work if data buffer is allocated and/or free'ed
-// regular Go/GC-way.
+// via regular Go/GC-way.
 type Buf struct {
 	Data []byte
 
@@ -54,10 +54,9 @@ func init() {
 	for i := 0; i < len(bufPoolv); i++ {
 		i := i
 		bufPoolv[i].New = func() interface{} {
-			//println("X allocating for order", i)
 			// NOTE *Buf, not just buf, to avoid allocation when
 			// making interface{} from it (interface{} wants to always point to heap)
-			return &Buf{Data: make([]byte, 1 << (order0 + uint(i)))}
+			return &Buf{Data: make([]byte, 1<<(order0+uint(i)))}
 		}
 	}
 }
@@ -116,9 +115,7 @@ func (buf *Buf) Release() {
 	}
 
 	// order = max i: 2^i <= cap
-	//order := bits.Len(uint(cap(buf.Data)))
 	order := xmath.FloorLog2(uint64(cap(buf.Data)))
-	//println("YYY free", cap(buf.Data), "-> order:", order)
 
 	order -= order0
 	if order < 0 {

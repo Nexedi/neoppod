@@ -49,7 +49,7 @@ func TestParseXTid(t *testing.T) {
 	var testv = []struct {in string; xtid XTid; estr string} {
 		{"", XTid{}, `xtid "" invalid`},
 		{"a", XTid{}, `xtid "a" invalid`},
-		{"0123456789abcdef", XTid{}, `xtid "0123456789abcdef" invalid`},	// XXX or let it be < by default ?
+		{"0123456789abcdef", XTid{}, `xtid "0123456789abcdef" invalid`}, // XXX or let it be < by default ?
 		{"z0123456789abcdef", XTid{}, `xtid "z0123456789abcdef" invalid`},
 		{"=0123456789abcdef", XTid{0x0123456789abcdef, false}, ""},
 		{"<0123456789abcdef", XTid{0x0123456789abcdef, true}, ""},
@@ -59,7 +59,7 @@ func TestParseXTid(t *testing.T) {
 		xtid, err := ParseXTid(tt.in)
 		if !(xtid == tt.xtid && estr(err) == tt.estr) {
 			t.Errorf("parsextid: %v: test error:\nhave: %v %q\nwant: %v %q",
-					tt.in, xtid, err, tt.xtid, tt.estr)
+				tt.in, xtid, err, tt.xtid, tt.estr)
 		}
 	}
 }
@@ -68,7 +68,7 @@ func TestParseXid(t *testing.T) {
 	var testv = []struct {in string; xid Xid; estr string} {
 		{"", Xid{}, `xid "" invalid`},
 		{"a", Xid{}, `xid "a" invalid`},
-		{"0123456789abcdef", Xid{}, `xid "0123456789abcdef" invalid`},	// XXX or let it be < by default ?
+		{"0123456789abcdef", Xid{}, `xid "0123456789abcdef" invalid`}, // XXX or let it be < by default ?
 		{"z0123456789abcdef", Xid{}, `xid "z0123456789abcdef" invalid`},
 		{"=0123456789abcdef", Xid{}, `xid "=0123456789abcdef" invalid`},
 		{"<0123456789abcdef", Xid{}, `xid "<0123456789abcdef" invalid`},
@@ -84,7 +84,7 @@ func TestParseXid(t *testing.T) {
 		xid, err := ParseXid(tt.in)
 		if !(xid == tt.xid && estr(err) == tt.estr) {
 			t.Errorf("parsexid: %v: test error:\nhave: %v %q\nwant: %v %q",
-					tt.in, xid, err, tt.xid, tt.estr)
+				tt.in, xid, err, tt.xid, tt.estr)
 		}
 	}
 }

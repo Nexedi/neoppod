@@ -63,10 +63,10 @@ func (xtid XTid) String() string {
 }
 
 func (xid Xid) String() string {
-	return xid.XTid.String() + ":" + xid.Oid.String()	// XXX use "·" instead of ":" ?
+	return xid.XTid.String() + ":" + xid.Oid.String()
 }
 
-/* TODO reenable
+/* TODO reenable?
 func (xtid XTid) XFmtString(b []byte) []byte {
 	b .C("=<"[bint(xtid.TidBefore)]) .V(xtid.Tid)
 }

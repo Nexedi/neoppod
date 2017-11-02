@@ -51,9 +51,9 @@ func TestBufAllocFree(t *testing.T) {
 		xcap := 1<<i
 		buf := BufAlloc(size)
 		if i < order0 {
-			xcap = 1<<order0
+			xcap = 1 << order0
 		}
-		if int(i) >= order0 + len(bufPoolv) {
+		if int(i) >= order0+len(bufPoolv) {
 			xcap = size
 		}
 
@@ -80,7 +80,7 @@ func TestBufAllocFree(t *testing.T) {
 		buf2 := BufAlloc(size)
 
 		// not from pool - memory won't be reused
-		if int(i) >= order0 + len(bufPoolv) {
+		if int(i) >= order0+len(bufPoolv) {
 			if buf2 == buf || sliceDataPtr(buf2.Data) == sliceDataPtr(data) {
 				t.Fatalf("%v: buffer reused but should not", i)
 			}
