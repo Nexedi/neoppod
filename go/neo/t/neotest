@@ -442,7 +442,15 @@ pyver() {
 	{
 		read loc
 		read pyver
-	} < <(python -c "import pkg_resources as p; e=p.require(\"$egg\")[0]; print(\"%s\n%s\" % (e.location, e.version))")
+	} < <(python -c "
+import pkg_resources as p
+try:
+	e=p.require(\"$egg\")[0]
+except p.DistributionNotFound:
+	print(\"\nø\")
+else:
+	print(\"%s\n%s\" % (e.location, e.version))
+	")
 	local gitver=$(git -C $loc describe --long --dirty 2>/dev/null)
 	local ver
 	test "$gitver" != "" && ver="$gitver" || ver="$pyver"
