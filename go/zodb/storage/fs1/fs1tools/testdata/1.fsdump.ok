@@ -3,184 +3,184 @@ Trans #00000 tid=0285cbac258bf266 time=1979-01-03 21:00:08.800000 offset=52
   data #00000 oid=0000000000000000 size=61 class=persistent.mapping.PersistentMapping
 Trans #00001 tid=0285cbac3d0369e6 time=1979-01-03 21:00:14.300000 offset=256
     status=' ' user='user0.0' description='step 0.0'
-  data #00000 oid=0000000000000000 size=98 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000001 size=33 class=__main__.Object
-Trans #00002 tid=0285cbac41b4e833 time=1979-01-03 21:00:15.400000 offset=572
+  data #00000 oid=0000000000000000 size=117 class=persistent.mapping.PersistentMapping
+  data #00001 oid=0000000000000001 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00002 tid=0285cbac41b4e833 time=1979-01-03 21:00:15.400000 offset=610
     status=' ' user='user0.1' description='step 0.1'
-  data #00000 oid=0000000000000000 size=118 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000002 size=33 class=__main__.Object
-Trans #00003 tid=0285cbac46666680 time=1979-01-03 21:00:16.500000 offset=908
-    status=' ' user='user0.2' description='step 0.2'
   data #00000 oid=0000000000000000 size=137 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000003 size=33 class=__main__.Object
-Trans #00004 tid=0285cbac4b17e4cc time=1979-01-03 21:00:17.600000 offset=1263
-    status=' ' user='user0.3' description='step 0.3'
-  data #00000 oid=0000000000000002 size=33 class=__main__.Object
-Trans #00005 tid=0285cbac4fc96319 time=1979-01-03 21:00:18.700000 offset=1439
-    status=' ' user='user0.4' description='step 0.4'
+  data #00001 oid=0000000000000002 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00003 tid=0285cbac46666680 time=1979-01-03 21:00:16.500000 offset=984
+    status=' ' user='user0.2' description='step 0.2'
   data #00000 oid=0000000000000000 size=156 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000004 size=33 class=__main__.Object
-Trans #00006 tid=0285cbac547ae166 time=1979-01-03 21:00:19.800000 offset=1813
-    status=' ' user='user0.5' description='step 0.5'
+  data #00001 oid=0000000000000003 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00004 tid=0285cbac4b17e4cc time=1979-01-03 21:00:17.600000 offset=1377
+    status=' ' user='user0.3' description='step 0.3'
+  data #00000 oid=0000000000000002 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00005 tid=0285cbac4fc96319 time=1979-01-03 21:00:18.700000 offset=1572
+    status=' ' user='user0.4' description='step 0.4'
   data #00000 oid=0000000000000000 size=175 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000005 size=33 class=__main__.Object
-Trans #00007 tid=0285cbac592c5fb3 time=1979-01-03 21:00:20.900000 offset=2206
-    status=' ' user='user0.6' description='step 0.6'
-  data #00000 oid=0000000000000004 size=33 class=__main__.Object
-Trans #00008 tid=0285cbac5dddde00 time=1979-01-03 21:00:22.000000 offset=2382
-    status=' ' user='user0.7' description='step 0.7'
-  data #00000 oid=0000000000000005 size=33 class=__main__.Object
-Trans #00009 tid=0285cbac628f5c4c time=1979-01-03 21:00:23.100000 offset=2558
-    status=' ' user='user0.8' description='step 0.8'
+  data #00001 oid=0000000000000004 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00006 tid=0285cbac547ae166 time=1979-01-03 21:00:19.800000 offset=1984
+    status=' ' user='user0.5' description='step 0.5'
   data #00000 oid=0000000000000000 size=194 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000006 size=33 class=__main__.Object
-Trans #00010 tid=0285cbac6740da99 time=1979-01-03 21:00:24.200001 offset=2970
+  data #00001 oid=0000000000000005 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00007 tid=0285cbac592c5fb3 time=1979-01-03 21:00:20.900000 offset=2415
+    status=' ' user='user0.6' description='step 0.6'
+  data #00000 oid=0000000000000004 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00008 tid=0285cbac5dddde00 time=1979-01-03 21:00:22.000000 offset=2610
+    status=' ' user='user0.7' description='step 0.7'
+  data #00000 oid=0000000000000005 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00009 tid=0285cbac628f5c4c time=1979-01-03 21:00:23.100000 offset=2805
+    status=' ' user='user0.8' description='step 0.8'
+  data #00000 oid=0000000000000000 size=213 class=persistent.mapping.PersistentMapping
+  data #00001 oid=0000000000000006 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00010 tid=0285cbac6740da99 time=1979-01-03 21:00:24.200001 offset=3255
     status=' ' user='user0.9' description='step 0.9'
-  data #00000 oid=0000000000000006 size=33 class=__main__.Object
-Trans #00011 tid=0285cbac6bf258e6 time=1979-01-03 21:00:25.300001 offset=3148
+  data #00000 oid=0000000000000006 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00011 tid=0285cbac6bf258e6 time=1979-01-03 21:00:25.300001 offset=3452
     status=' ' user='user0.10' description='step 0.10'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00012 tid=0285cbac70a3d733 time=1979-01-03 21:00:26.400001 offset=3327
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00012 tid=0285cbac70a3d733 time=1979-01-03 21:00:26.400001 offset=3650
     status=' ' user='user0.11' description='step 0.11'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00013 tid=0285cbac75555580 time=1979-01-03 21:00:27.500001 offset=3506
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00013 tid=0285cbac75555580 time=1979-01-03 21:00:27.500001 offset=3848
     status=' ' user='user0.12' description='step 0.12'
-  data #00000 oid=0000000000000001 size=34 class=__main__.Object
-Trans #00014 tid=0285cbac7a06d3cc time=1979-01-03 21:00:28.600001 offset=3685
+  data #00000 oid=0000000000000001 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00014 tid=0285cbac7a06d3cc time=1979-01-03 21:00:28.600001 offset=4046
     status=' ' user='user0.13' description='step 0.13'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00015 tid=0285cbac7eb85219 time=1979-01-03 21:00:29.700001 offset=3864
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00015 tid=0285cbac7eb85219 time=1979-01-03 21:00:29.700001 offset=4244
     status=' ' user='user0.14' description='step 0.14'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00016 tid=0285cbac8369d066 time=1979-01-03 21:00:30.800001 offset=4043
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00016 tid=0285cbac8369d066 time=1979-01-03 21:00:30.800001 offset=4442
     status=' ' user='user0.15' description='step 0.15'
-  data #00000 oid=0000000000000006 size=34 class=__main__.Object
-Trans #00017 tid=0285cbac881b4eb3 time=1979-01-03 21:00:31.900001 offset=4222
+  data #00000 oid=0000000000000006 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00017 tid=0285cbac881b4eb3 time=1979-01-03 21:00:31.900001 offset=4640
     status=' ' user='user0.16' description='step 0.16'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00018 tid=0285cbac8ccccd00 time=1979-01-03 21:00:33.000001 offset=4401
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00018 tid=0285cbac8ccccd00 time=1979-01-03 21:00:33.000001 offset=4838
     status=' ' user='user0.17' description='step 0.17'
-  data #00000 oid=0000000000000004 size=34 class=__main__.Object
-Trans #00019 tid=0285cbac917e4b4c time=1979-01-03 21:00:34.100001 offset=4580
+  data #00000 oid=0000000000000004 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00019 tid=0285cbac917e4b4c time=1979-01-03 21:00:34.100001 offset=5036
     status=' ' user='user0.18' description='step 0.18'
-  data #00000 oid=0000000000000004 size=34 class=__main__.Object
-Trans #00020 tid=0285cbac962fc999 time=1979-01-03 21:00:35.200001 offset=4759
+  data #00000 oid=0000000000000004 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00020 tid=0285cbac962fc999 time=1979-01-03 21:00:35.200001 offset=5234
     status=' ' user='user0.19' description='step 0.19'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00021 tid=0285cbac9ae147e6 time=1979-01-03 21:00:36.300001 offset=4938
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00021 tid=0285cbac9ae147e6 time=1979-01-03 21:00:36.300001 offset=5432
     status=' ' user='user0.20' description='step 0.20'
-  data #00000 oid=0000000000000002 size=34 class=__main__.Object
-Trans #00022 tid=0285cbac9f92c633 time=1979-01-03 21:00:37.400001 offset=5117
+  data #00000 oid=0000000000000002 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00022 tid=0285cbac9f92c633 time=1979-01-03 21:00:37.400001 offset=5630
     status=' ' user='user0.21' description='step 0.21'
-  data #00000 oid=0000000000000002 size=34 class=__main__.Object
-Trans #00023 tid=0285cbaca4444480 time=1979-01-03 21:00:38.500001 offset=5296
+  data #00000 oid=0000000000000002 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00023 tid=0285cbaca4444480 time=1979-01-03 21:00:38.500001 offset=5828
     status=' ' user='user0.22' description='step 0.22'
-  data #00000 oid=0000000000000000 size=213 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000007 size=34 class=__main__.Object
-Trans #00024 tid=0285cbaca8f5c2cc time=1979-01-03 21:00:39.600001 offset=5730
+  data #00000 oid=0000000000000000 size=232 class=persistent.mapping.PersistentMapping
+  data #00001 oid=0000000000000007 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00024 tid=0285cbaca8f5c2cc time=1979-01-03 21:00:39.600001 offset=6300
     status=' ' user='user0.23' description='step 0.23'
-  data #00000 oid=0000000000000007 size=34 class=__main__.Object
-Trans #00025 tid=0285cbacada74119 time=1979-01-03 21:00:40.700001 offset=5909
+  data #00000 oid=0000000000000007 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00025 tid=0285cbacada74119 time=1979-01-03 21:00:40.700001 offset=6498
     status=' ' user='user0.24' description='step 0.24'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00026 tid=0285cbacb258bf66 time=1979-01-03 21:00:41.800001 offset=6151
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00026 tid=0285cbacb258bf66 time=1979-01-03 21:00:41.800001 offset=6759
     status=' ' user='root0.0\nYour\nMagesty ' description='undo 0.0\nmore detailed description\n\nzzz ...'
-  data #00000 oid=0000000000000007 size=34 class=__main__.Object bp=0285cbaca4444480
-Trans #00027 tid=0285cbacb70a3db3 time=1979-01-03 21:00:42.900001 offset=6368
+  data #00000 oid=0000000000000007 size=53 class=zodbtools.test.gen_testdata.Object bp=0285cbaca4444480
+Trans #00027 tid=0285cbacb70a3db3 time=1979-01-03 21:00:42.900001 offset=6976
     status=' ' user='root0.1\nYour\nMagesty ' description='undo 0.1\nmore detailed description\n\nzzz ...\t'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object bp=0285cbac70a3d733
-Trans #00028 tid=0285cbacbbbbbc00 time=1979-01-03 21:00:44.000001 offset=6460
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object bp=0285cbac70a3d733
+Trans #00028 tid=0285cbacbbbbbc00 time=1979-01-03 21:00:44.000001 offset=7068
     status=' ' user='' description='predelete 7'
-  data #00000 oid=0000000000000000 size=213 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000008 size=32 class=__main__.Object
-Trans #00029 tid=0285cbacc06d3a4c time=1979-01-03 21:00:45.100001 offset=6987
+  data #00000 oid=0000000000000000 size=232 class=persistent.mapping.PersistentMapping
+  data #00001 oid=0000000000000008 size=51 class=zodbtools.test.gen_testdata.Object
+Trans #00029 tid=0285cbacc06d3a4c time=1979-01-03 21:00:45.100001 offset=7633
     status=' ' user="root0\nYour\nRoyal\nMagesty' \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f" description='delete 0\nalpha beta gamma\'delta"lambda\n\nqqq ...'
   data #00000 oid=0000000000000007 class=undo or abort of object creation
-Trans #00030 tid=0285cbacfd70a433 time=1979-01-03 21:00:59.400001 offset=7138
+Trans #00030 tid=0285cbacfd70a433 time=1979-01-03 21:00:59.400001 offset=7784
     status=' ' user='user1.0' description='step 1.0'
-  data #00000 oid=0000000000000008 size=33 class=__main__.Object
-Trans #00031 tid=0285cbad02222280 time=1979-01-03 21:01:00.500001 offset=7314
+  data #00000 oid=0000000000000008 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00031 tid=0285cbad02222280 time=1979-01-03 21:01:00.500001 offset=7979
     status=' ' user='user1.1' description='step 1.1'
-  data #00000 oid=0000000000000006 size=33 class=__main__.Object
-Trans #00032 tid=0285cbad06d3a0cc time=1979-01-03 21:01:01.600001 offset=7490
+  data #00000 oid=0000000000000006 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00032 tid=0285cbad06d3a0cc time=1979-01-03 21:01:01.600001 offset=8174
     status=' ' user='user1.2' description='step 1.2'
-  data #00000 oid=0000000000000004 size=33 class=__main__.Object
-Trans #00033 tid=0285cbad0b851f19 time=1979-01-03 21:01:02.700001 offset=7666
+  data #00000 oid=0000000000000004 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00033 tid=0285cbad0b851f19 time=1979-01-03 21:01:02.700001 offset=8369
     status=' ' user='user1.3' description='step 1.3'
-  data #00000 oid=0000000000000003 size=33 class=__main__.Object
-Trans #00034 tid=0285cbad10369d66 time=1979-01-03 21:01:03.800001 offset=7842
+  data #00000 oid=0000000000000003 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00034 tid=0285cbad10369d66 time=1979-01-03 21:01:03.800001 offset=8564
     status=' ' user='user1.4' description='step 1.4'
-  data #00000 oid=0000000000000003 size=33 class=__main__.Object
-Trans #00035 tid=0285cbad14e81bb3 time=1979-01-03 21:01:04.900001 offset=8018
+  data #00000 oid=0000000000000003 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00035 tid=0285cbad14e81bb3 time=1979-01-03 21:01:04.900001 offset=8759
     status=' ' user='user1.5' description='step 1.5'
-  data #00000 oid=0000000000000008 size=33 class=__main__.Object
-Trans #00036 tid=0285cbad19999a00 time=1979-01-03 21:01:06.000001 offset=8194
+  data #00000 oid=0000000000000008 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00036 tid=0285cbad19999a00 time=1979-01-03 21:01:06.000001 offset=8954
     status=' ' user='user1.6' description='step 1.6'
-  data #00000 oid=0000000000000001 size=33 class=__main__.Object
-Trans #00037 tid=0285cbad1e4b184c time=1979-01-03 21:01:07.100001 offset=8370
+  data #00000 oid=0000000000000001 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00037 tid=0285cbad1e4b184c time=1979-01-03 21:01:07.100001 offset=9149
     status=' ' user='user1.7' description='step 1.7'
-  data #00000 oid=0000000000000002 size=33 class=__main__.Object
-Trans #00038 tid=0285cbad22fc9699 time=1979-01-03 21:01:08.200001 offset=8546
+  data #00000 oid=0000000000000002 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00038 tid=0285cbad22fc9699 time=1979-01-03 21:01:08.200001 offset=9344
     status=' ' user='user1.8' description='step 1.8'
-  data #00000 oid=0000000000000008 size=33 class=__main__.Object
-Trans #00039 tid=0285cbad27ae14e6 time=1979-01-03 21:01:09.300001 offset=8722
+  data #00000 oid=0000000000000008 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00039 tid=0285cbad27ae14e6 time=1979-01-03 21:01:09.300001 offset=9539
     status=' ' user='user1.9' description='step 1.9'
-  data #00000 oid=0000000000000008 size=33 class=__main__.Object
-Trans #00040 tid=0285cbad2c5f9333 time=1979-01-03 21:01:10.400002 offset=8900
+  data #00000 oid=0000000000000008 size=52 class=zodbtools.test.gen_testdata.Object
+Trans #00040 tid=0285cbad2c5f9333 time=1979-01-03 21:01:10.400002 offset=9736
     status=' ' user='user1.10' description='step 1.10'
-  data #00000 oid=0000000000000006 size=34 class=__main__.Object
-Trans #00041 tid=0285cbad31111180 time=1979-01-03 21:01:11.500002 offset=9079
+  data #00000 oid=0000000000000006 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00041 tid=0285cbad31111180 time=1979-01-03 21:01:11.500002 offset=9934
     status=' ' user='user1.11' description='step 1.11'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00042 tid=0285cbad35c28fcc time=1979-01-03 21:01:12.600002 offset=9258
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00042 tid=0285cbad35c28fcc time=1979-01-03 21:01:12.600002 offset=10132
     status=' ' user='user1.12' description='step 1.12'
-  data #00000 oid=0000000000000008 size=34 class=__main__.Object
-Trans #00043 tid=0285cbad3a740e19 time=1979-01-03 21:01:13.700002 offset=9437
+  data #00000 oid=0000000000000008 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00043 tid=0285cbad3a740e19 time=1979-01-03 21:01:13.700002 offset=10330
     status=' ' user='user1.13' description='step 1.13'
-  data #00000 oid=0000000000000006 size=34 class=__main__.Object
-Trans #00044 tid=0285cbad3f258c66 time=1979-01-03 21:01:14.800002 offset=9616
+  data #00000 oid=0000000000000006 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00044 tid=0285cbad3f258c66 time=1979-01-03 21:01:14.800002 offset=10528
     status=' ' user='user1.14' description='step 1.14'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00045 tid=0285cbad43d70ab3 time=1979-01-03 21:01:15.900002 offset=9795
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00045 tid=0285cbad43d70ab3 time=1979-01-03 21:01:15.900002 offset=10726
     status=' ' user='user1.15' description='step 1.15'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00046 tid=0285cbad48888900 time=1979-01-03 21:01:17.000002 offset=9974
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00046 tid=0285cbad48888900 time=1979-01-03 21:01:17.000002 offset=10924
     status=' ' user='user1.16' description='step 1.16'
-  data #00000 oid=0000000000000002 size=34 class=__main__.Object
-Trans #00047 tid=0285cbad4d3a074c time=1979-01-03 21:01:18.100002 offset=10153
+  data #00000 oid=0000000000000002 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00047 tid=0285cbad4d3a074c time=1979-01-03 21:01:18.100002 offset=11122
     status=' ' user='user1.17' description='step 1.17'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00048 tid=0285cbad51eb8599 time=1979-01-03 21:01:19.200002 offset=10332
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00048 tid=0285cbad51eb8599 time=1979-01-03 21:01:19.200002 offset=11320
     status=' ' user='user1.18' description='step 1.18'
-  data #00000 oid=0000000000000001 size=34 class=__main__.Object
-Trans #00049 tid=0285cbad569d03e6 time=1979-01-03 21:01:20.300002 offset=10511
+  data #00000 oid=0000000000000001 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00049 tid=0285cbad569d03e6 time=1979-01-03 21:01:20.300002 offset=11518
     status=' ' user='user1.19' description='step 1.19'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00050 tid=0285cbad5b4e8233 time=1979-01-03 21:01:21.400002 offset=10690
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00050 tid=0285cbad5b4e8233 time=1979-01-03 21:01:21.400002 offset=11716
     status=' ' user='user1.20' description='step 1.20'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00051 tid=0285cbad60000080 time=1979-01-03 21:01:22.500002 offset=10869
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00051 tid=0285cbad60000080 time=1979-01-03 21:01:22.500002 offset=11914
     status=' ' user='user1.21' description='step 1.21'
-  data #00000 oid=0000000000000003 size=34 class=__main__.Object
-Trans #00052 tid=0285cbad64b17ecc time=1979-01-03 21:01:23.600002 offset=11048
+  data #00000 oid=0000000000000003 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00052 tid=0285cbad64b17ecc time=1979-01-03 21:01:23.600002 offset=12112
     status=' ' user='user1.22' description='step 1.22'
-  data #00000 oid=0000000000000006 size=34 class=__main__.Object
-Trans #00053 tid=0285cbad6962fd19 time=1979-01-03 21:01:24.700002 offset=11227
+  data #00000 oid=0000000000000006 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00053 tid=0285cbad6962fd19 time=1979-01-03 21:01:24.700002 offset=12310
     status=' ' user='user1.23' description='step 1.23'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00054 tid=0285cbad6e147b66 time=1979-01-03 21:01:25.800002 offset=11406
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00054 tid=0285cbad6e147b66 time=1979-01-03 21:01:25.800002 offset=12508
     status=' ' user='user1.24' description='step 1.24'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object
-Trans #00055 tid=0285cbad77777800 time=1979-01-03 21:01:28.000002 offset=11649
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object
+Trans #00055 tid=0285cbad77777800 time=1979-01-03 21:01:28.000002 offset=12770
     status=' ' user='root1.0\nYour\nMagesty ' description='undo 1.0\nmore detailed description\n\nzzz ...\t'
-  data #00000 oid=0000000000000006 size=34 class=__main__.Object bp=0285cbad3a740e19
-Trans #00056 tid=0285cbad7c28f64c time=1979-01-03 21:01:29.100002 offset=11867
+  data #00000 oid=0000000000000006 size=53 class=zodbtools.test.gen_testdata.Object bp=0285cbad3a740e19
+Trans #00056 tid=0285cbad7c28f64c time=1979-01-03 21:01:29.100002 offset=12988
     status=' ' user='root1.1\nYour\nMagesty ' description='undo 1.1\nmore detailed description\n\nzzz ...\t\t'
-  data #00000 oid=0000000000000005 size=34 class=__main__.Object bp=0285cbad6962fd19
-Trans #00057 tid=0285cbad80da7499 time=1979-01-03 21:01:30.200002 offset=11959
+  data #00000 oid=0000000000000005 size=53 class=zodbtools.test.gen_testdata.Object bp=0285cbad6962fd19
+Trans #00057 tid=0285cbad80da7499 time=1979-01-03 21:01:30.200002 offset=13080
     status=' ' user='' description='predelete 6'
-  data #00000 oid=0000000000000000 size=213 class=persistent.mapping.PersistentMapping
-  data #00001 oid=0000000000000009 size=32 class=__main__.Object
-Trans #00058 tid=0285cbad858bf2e6 time=1979-01-03 21:01:31.300002 offset=12486
+  data #00000 oid=0000000000000000 size=232 class=persistent.mapping.PersistentMapping
+  data #00001 oid=0000000000000009 size=51 class=zodbtools.test.gen_testdata.Object
+Trans #00058 tid=0285cbad858bf2e6 time=1979-01-03 21:01:31.300002 offset=13645
     status=' ' user="root1\nYour\nRoyal\nMagesty' \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f" description='delete 1\nalpha beta gamma\'delta"lambda\n\nqqq ...'
   data #00000 oid=0000000000000006 class=undo or abort of object creation

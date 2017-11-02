@@ -47,6 +47,8 @@ Dump format:
 
 quote:      quote string with " with non-printable and control characters \-escaped
 hashfunc:   one of sha1, sha256, sha512 ...
+
+TODO also protect txn record by hash.
 */
 
 package zodbtools
