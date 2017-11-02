@@ -2,9 +2,9 @@
 file identifier: 'FS21'
 ============================================================
 offset: 4
-end pos: 151
+end pos: 155
 transaction id: 0285cbac258bf266
-trec len: 147
+trec len: 151
 status: ' '
 user: ''
 description: 'initial database creation'
@@ -15,1060 +15,1060 @@ oid: 0000000000000000
 revid: 0285cbac258bf266
 previous record offset: 0
 transaction offset: 4
-len(data): 57
-redundant trec len: 147
+len(data): 61
+redundant trec len: 151
 ============================================================
-offset: 159
-end pos: 458
+offset: 163
+end pos: 471
 transaction id: 0285cbac3d0369e6
-trec len: 299
+trec len: 308
 status: ' '
 user: 'user0.0'
 description: 'step 0.0'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 250
+offset: 256
 oid: 0000000000000000
 revid: 0285cbac3d0369e6
 previous record offset: 52
-transaction offset: 159
-len(data): 95
+transaction offset: 163
+len(data): 98
 ------------------------------------------------------------
-offset: 387
+offset: 396
 oid: 0000000000000001
 revid: 0285cbac3d0369e6
 previous record offset: 0
-transaction offset: 159
-len(data): 29
-redundant trec len: 299
+transaction offset: 163
+len(data): 33
+redundant trec len: 308
 ============================================================
-offset: 466
-end pos: 786
+offset: 479
+end pos: 807
 transaction id: 0285cbac41b4e833
-trec len: 320
+trec len: 328
 status: ' '
 user: 'user0.1'
 description: 'step 0.1'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 557
+offset: 572
 oid: 0000000000000000
 revid: 0285cbac41b4e833
-previous record offset: 250
-transaction offset: 466
-len(data): 116
+previous record offset: 256
+transaction offset: 479
+len(data): 118
 ------------------------------------------------------------
-offset: 715
+offset: 732
 oid: 0000000000000002
 revid: 0285cbac41b4e833
 previous record offset: 0
-transaction offset: 466
-len(data): 29
-redundant trec len: 320
+transaction offset: 479
+len(data): 33
+redundant trec len: 328
 ============================================================
-offset: 794
-end pos: 1134
+offset: 815
+end pos: 1162
 transaction id: 0285cbac46666680
-trec len: 340
+trec len: 347
 status: ' '
 user: 'user0.2'
 description: 'step 0.2'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 885
+offset: 908
 oid: 0000000000000000
 revid: 0285cbac46666680
-previous record offset: 557
-transaction offset: 794
-len(data): 136
+previous record offset: 572
+transaction offset: 815
+len(data): 137
 ------------------------------------------------------------
-offset: 1063
+offset: 1087
 oid: 0000000000000003
 revid: 0285cbac46666680
 previous record offset: 0
-transaction offset: 794
-len(data): 29
-redundant trec len: 340
+transaction offset: 815
+len(data): 33
+redundant trec len: 347
 ============================================================
-offset: 1142
-end pos: 1304
+offset: 1170
+end pos: 1338
 transaction id: 0285cbac4b17e4cc
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user0.3'
 description: 'step 0.3'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 1233
+offset: 1263
 oid: 0000000000000002
 revid: 0285cbac4b17e4cc
-previous record offset: 715
-transaction offset: 1142
-len(data): 29
-redundant trec len: 162
+previous record offset: 732
+transaction offset: 1170
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 1312
-end pos: 1672
+offset: 1346
+end pos: 1712
 transaction id: 0285cbac4fc96319
-trec len: 360
+trec len: 366
 status: ' '
 user: 'user0.4'
 description: 'step 0.4'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 1403
+offset: 1439
 oid: 0000000000000000
 revid: 0285cbac4fc96319
-previous record offset: 885
-transaction offset: 1312
+previous record offset: 908
+transaction offset: 1346
 len(data): 156
 ------------------------------------------------------------
-offset: 1601
+offset: 1637
 oid: 0000000000000004
 revid: 0285cbac4fc96319
 previous record offset: 0
-transaction offset: 1312
-len(data): 29
-redundant trec len: 360
+transaction offset: 1346
+len(data): 33
+redundant trec len: 366
 ============================================================
-offset: 1680
-end pos: 2060
+offset: 1720
+end pos: 2105
 transaction id: 0285cbac547ae166
-trec len: 380
+trec len: 385
 status: ' '
 user: 'user0.5'
 description: 'step 0.5'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 1771
+offset: 1813
 oid: 0000000000000000
 revid: 0285cbac547ae166
-previous record offset: 1403
-transaction offset: 1680
-len(data): 176
+previous record offset: 1439
+transaction offset: 1720
+len(data): 175
 ------------------------------------------------------------
-offset: 1989
+offset: 2030
 oid: 0000000000000005
 revid: 0285cbac547ae166
 previous record offset: 0
-transaction offset: 1680
-len(data): 29
-redundant trec len: 380
+transaction offset: 1720
+len(data): 33
+redundant trec len: 385
 ============================================================
-offset: 2068
-end pos: 2230
+offset: 2113
+end pos: 2281
 transaction id: 0285cbac592c5fb3
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user0.6'
 description: 'step 0.6'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 2159
+offset: 2206
 oid: 0000000000000004
 revid: 0285cbac592c5fb3
-previous record offset: 1601
-transaction offset: 2068
-len(data): 29
-redundant trec len: 162
+previous record offset: 1637
+transaction offset: 2113
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 2238
-end pos: 2400
+offset: 2289
+end pos: 2457
 transaction id: 0285cbac5dddde00
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user0.7'
 description: 'step 0.7'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 2329
+offset: 2382
 oid: 0000000000000005
 revid: 0285cbac5dddde00
-previous record offset: 1989
-transaction offset: 2238
-len(data): 29
-redundant trec len: 162
+previous record offset: 2030
+transaction offset: 2289
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 2408
-end pos: 2808
+offset: 2465
+end pos: 2869
 transaction id: 0285cbac628f5c4c
-trec len: 400
+trec len: 404
 status: ' '
 user: 'user0.8'
 description: 'step 0.8'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 2499
+offset: 2558
 oid: 0000000000000000
 revid: 0285cbac628f5c4c
-previous record offset: 1771
-transaction offset: 2408
-len(data): 196
+previous record offset: 1813
+transaction offset: 2465
+len(data): 194
 ------------------------------------------------------------
-offset: 2737
+offset: 2794
 oid: 0000000000000006
 revid: 0285cbac628f5c4c
 previous record offset: 0
-transaction offset: 2408
-len(data): 29
-redundant trec len: 400
+transaction offset: 2465
+len(data): 33
+redundant trec len: 404
 ============================================================
-offset: 2816
-end pos: 2978
+offset: 2877
+end pos: 3045
 transaction id: 0285cbac6740da99
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user0.9'
 description: 'step 0.9'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 2907
+offset: 2970
 oid: 0000000000000006
 revid: 0285cbac6740da99
-previous record offset: 2737
-transaction offset: 2816
-len(data): 29
-redundant trec len: 162
+previous record offset: 2794
+transaction offset: 2877
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 2986
-end pos: 3151
+offset: 3053
+end pos: 3224
 transaction id: 0285cbac6bf258e6
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.10'
 description: 'step 0.10'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 3079
+offset: 3148
 oid: 0000000000000003
 revid: 0285cbac6bf258e6
-previous record offset: 1063
-transaction offset: 2986
-len(data): 30
-redundant trec len: 165
+previous record offset: 1087
+transaction offset: 3053
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 3159
-end pos: 3324
+offset: 3232
+end pos: 3403
 transaction id: 0285cbac70a3d733
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.11'
 description: 'step 0.11'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 3252
+offset: 3327
 oid: 0000000000000003
 revid: 0285cbac70a3d733
-previous record offset: 3079
-transaction offset: 3159
-len(data): 30
-redundant trec len: 165
+previous record offset: 3148
+transaction offset: 3232
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 3332
-end pos: 3497
+offset: 3411
+end pos: 3582
 transaction id: 0285cbac75555580
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.12'
 description: 'step 0.12'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 3425
+offset: 3506
 oid: 0000000000000001
 revid: 0285cbac75555580
-previous record offset: 387
-transaction offset: 3332
-len(data): 30
-redundant trec len: 165
+previous record offset: 396
+transaction offset: 3411
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 3505
-end pos: 3670
+offset: 3590
+end pos: 3761
 transaction id: 0285cbac7a06d3cc
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.13'
 description: 'step 0.13'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 3598
+offset: 3685
 oid: 0000000000000005
 revid: 0285cbac7a06d3cc
-previous record offset: 2329
-transaction offset: 3505
-len(data): 30
-redundant trec len: 165
+previous record offset: 2382
+transaction offset: 3590
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 3678
-end pos: 3843
+offset: 3769
+end pos: 3940
 transaction id: 0285cbac7eb85219
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.14'
 description: 'step 0.14'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 3771
+offset: 3864
 oid: 0000000000000005
 revid: 0285cbac7eb85219
-previous record offset: 3598
-transaction offset: 3678
-len(data): 30
-redundant trec len: 165
+previous record offset: 3685
+transaction offset: 3769
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 3851
-end pos: 4016
+offset: 3948
+end pos: 4119
 transaction id: 0285cbac8369d066
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.15'
 description: 'step 0.15'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 3944
+offset: 4043
 oid: 0000000000000006
 revid: 0285cbac8369d066
-previous record offset: 2907
-transaction offset: 3851
-len(data): 30
-redundant trec len: 165
+previous record offset: 2970
+transaction offset: 3948
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 4024
-end pos: 4189
+offset: 4127
+end pos: 4298
 transaction id: 0285cbac881b4eb3
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.16'
 description: 'step 0.16'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 4117
+offset: 4222
 oid: 0000000000000005
 revid: 0285cbac881b4eb3
-previous record offset: 3771
-transaction offset: 4024
-len(data): 30
-redundant trec len: 165
+previous record offset: 3864
+transaction offset: 4127
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 4197
-end pos: 4362
+offset: 4306
+end pos: 4477
 transaction id: 0285cbac8ccccd00
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.17'
 description: 'step 0.17'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 4290
+offset: 4401
 oid: 0000000000000004
 revid: 0285cbac8ccccd00
-previous record offset: 2159
-transaction offset: 4197
-len(data): 30
-redundant trec len: 165
+previous record offset: 2206
+transaction offset: 4306
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 4370
-end pos: 4535
+offset: 4485
+end pos: 4656
 transaction id: 0285cbac917e4b4c
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.18'
 description: 'step 0.18'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 4463
+offset: 4580
 oid: 0000000000000004
 revid: 0285cbac917e4b4c
-previous record offset: 4290
-transaction offset: 4370
-len(data): 30
-redundant trec len: 165
+previous record offset: 4401
+transaction offset: 4485
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 4543
-end pos: 4708
+offset: 4664
+end pos: 4835
 transaction id: 0285cbac962fc999
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.19'
 description: 'step 0.19'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 4636
+offset: 4759
 oid: 0000000000000005
 revid: 0285cbac962fc999
-previous record offset: 4117
-transaction offset: 4543
-len(data): 30
-redundant trec len: 165
+previous record offset: 4222
+transaction offset: 4664
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 4716
-end pos: 4881
+offset: 4843
+end pos: 5014
 transaction id: 0285cbac9ae147e6
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.20'
 description: 'step 0.20'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 4809
+offset: 4938
 oid: 0000000000000002
 revid: 0285cbac9ae147e6
-previous record offset: 1233
-transaction offset: 4716
-len(data): 30
-redundant trec len: 165
+previous record offset: 1263
+transaction offset: 4843
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 4889
-end pos: 5054
+offset: 5022
+end pos: 5193
 transaction id: 0285cbac9f92c633
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.21'
 description: 'step 0.21'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 4982
+offset: 5117
 oid: 0000000000000002
 revid: 0285cbac9f92c633
-previous record offset: 4809
-transaction offset: 4889
-len(data): 30
-redundant trec len: 165
+previous record offset: 4938
+transaction offset: 5022
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 5062
-end pos: 5485
+offset: 5201
+end pos: 5627
 transaction id: 0285cbaca4444480
-trec len: 423
+trec len: 426
 status: ' '
 user: 'user0.22'
 description: 'step 0.22'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 5155
+offset: 5296
 oid: 0000000000000000
 revid: 0285cbaca4444480
-previous record offset: 2499
-transaction offset: 5062
-len(data): 216
+previous record offset: 2558
+transaction offset: 5201
+len(data): 213
 ------------------------------------------------------------
-offset: 5413
+offset: 5551
 oid: 0000000000000007
 revid: 0285cbaca4444480
 previous record offset: 0
-transaction offset: 5062
-len(data): 30
-redundant trec len: 423
+transaction offset: 5201
+len(data): 34
+redundant trec len: 426
 ============================================================
-offset: 5493
-end pos: 5658
+offset: 5635
+end pos: 5806
 transaction id: 0285cbaca8f5c2cc
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.23'
 description: 'step 0.23'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 5586
+offset: 5730
 oid: 0000000000000007
 revid: 0285cbaca8f5c2cc
-previous record offset: 5413
-transaction offset: 5493
-len(data): 30
-redundant trec len: 165
+previous record offset: 5551
+transaction offset: 5635
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 5666
-end pos: 5831
+offset: 5814
+end pos: 5985
 transaction id: 0285cbacada74119
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user0.24'
 description: 'step 0.24'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 5759
+offset: 5909
 oid: 0000000000000003
 revid: 0285cbacada74119
-previous record offset: 3252
-transaction offset: 5666
-len(data): 30
-redundant trec len: 165
+previous record offset: 3327
+transaction offset: 5814
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 5839
-end pos: 6045
+offset: 5993
+end pos: 6201
 transaction id: 0285cbacb258bf66
-trec len: 206
+trec len: 208
 status: ' '
 user: 'root0.0\nYour\nMagesty '
 description: 'undo 0.0\nmore detailed description\n\nzzz ...'
-len(extra): 69
+len(extra): 71
 ------------------------------------------------------------
-offset: 5995
+offset: 6151
 oid: 0000000000000007
 revid: 0285cbacb258bf66
-previous record offset: 5586
-transaction offset: 5839
+previous record offset: 5730
+transaction offset: 5993
 len(data): 0
-backpointer: 5413
-redundant trec len: 206
+backpointer: 5551
+redundant trec len: 208
 ============================================================
-offset: 6053
-end pos: 6260
+offset: 6209
+end pos: 6418
 transaction id: 0285cbacb70a3db3
-trec len: 207
+trec len: 209
 status: ' '
 user: 'root0.1\nYour\nMagesty '
 description: 'undo 0.1\nmore detailed description\n\nzzz ...\t'
-len(extra): 69
+len(extra): 71
 ------------------------------------------------------------
-offset: 6210
+offset: 6368
 oid: 0000000000000003
 revid: 0285cbacb70a3db3
-previous record offset: 5759
-transaction offset: 6053
+previous record offset: 5909
+transaction offset: 6209
 len(data): 0
-backpointer: 3252
-redundant trec len: 207
+backpointer: 3327
+redundant trec len: 209
 ============================================================
-offset: 6268
-end pos: 6630
+offset: 6426
+end pos: 6789
 transaction id: 0285cbacbbbbbc00
-trec len: 362
+trec len: 363
 status: ' '
 user: ''
 description: 'predelete 7'
 len(extra): 0
 ------------------------------------------------------------
-offset: 6302
+offset: 6460
 oid: 0000000000000000
 revid: 0285cbacbbbbbc00
-previous record offset: 5155
-transaction offset: 6268
-len(data): 216
+previous record offset: 5296
+transaction offset: 6426
+len(data): 213
 ------------------------------------------------------------
-offset: 6560
+offset: 6715
 oid: 0000000000000008
 revid: 0285cbacbbbbbc00
 previous record offset: 0
-transaction offset: 6268
-len(data): 28
-redundant trec len: 362
+transaction offset: 6426
+len(data): 32
+redundant trec len: 363
 ============================================================
-offset: 6638
-end pos: 6876
+offset: 6797
+end pos: 7037
 transaction id: 0285cbacc06d3a4c
-trec len: 238
+trec len: 240
 status: ' '
 user: "root0\nYour\nRoyal\nMagesty' \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
 description: 'delete 0\nalpha beta gamma\'delta"lambda\n\nqqq ...'
-len(extra): 60
+len(extra): 62
 ------------------------------------------------------------
-offset: 6826
+offset: 6987
 oid: 0000000000000007
 revid: 0285cbacc06d3a4c
-previous record offset: 5995
-transaction offset: 6638
+previous record offset: 6151
+transaction offset: 6797
 len(data): 0
 backpointer: 0
-redundant trec len: 238
+redundant trec len: 240
 ============================================================
-offset: 6884
-end pos: 7046
+offset: 7045
+end pos: 7213
 transaction id: 0285cbacfd70a433
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.0'
 description: 'step 1.0'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 6975
+offset: 7138
 oid: 0000000000000008
 revid: 0285cbacfd70a433
-previous record offset: 6560
-transaction offset: 6884
-len(data): 29
-redundant trec len: 162
+previous record offset: 6715
+transaction offset: 7045
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 7054
-end pos: 7216
+offset: 7221
+end pos: 7389
 transaction id: 0285cbad02222280
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.1'
 description: 'step 1.1'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 7145
+offset: 7314
 oid: 0000000000000006
 revid: 0285cbad02222280
-previous record offset: 3944
-transaction offset: 7054
-len(data): 29
-redundant trec len: 162
+previous record offset: 4043
+transaction offset: 7221
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 7224
-end pos: 7386
+offset: 7397
+end pos: 7565
 transaction id: 0285cbad06d3a0cc
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.2'
 description: 'step 1.2'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 7315
+offset: 7490
 oid: 0000000000000004
 revid: 0285cbad06d3a0cc
-previous record offset: 4463
-transaction offset: 7224
-len(data): 29
-redundant trec len: 162
+previous record offset: 4580
+transaction offset: 7397
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 7394
-end pos: 7556
+offset: 7573
+end pos: 7741
 transaction id: 0285cbad0b851f19
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.3'
 description: 'step 1.3'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 7485
+offset: 7666
 oid: 0000000000000003
 revid: 0285cbad0b851f19
-previous record offset: 6210
-transaction offset: 7394
-len(data): 29
-redundant trec len: 162
+previous record offset: 6368
+transaction offset: 7573
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 7564
-end pos: 7726
+offset: 7749
+end pos: 7917
 transaction id: 0285cbad10369d66
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.4'
 description: 'step 1.4'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 7655
+offset: 7842
 oid: 0000000000000003
 revid: 0285cbad10369d66
-previous record offset: 7485
-transaction offset: 7564
-len(data): 29
-redundant trec len: 162
+previous record offset: 7666
+transaction offset: 7749
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 7734
-end pos: 7896
+offset: 7925
+end pos: 8093
 transaction id: 0285cbad14e81bb3
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.5'
 description: 'step 1.5'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 7825
+offset: 8018
 oid: 0000000000000008
 revid: 0285cbad14e81bb3
-previous record offset: 6975
-transaction offset: 7734
-len(data): 29
-redundant trec len: 162
+previous record offset: 7138
+transaction offset: 7925
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 7904
-end pos: 8066
+offset: 8101
+end pos: 8269
 transaction id: 0285cbad19999a00
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.6'
 description: 'step 1.6'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 7995
+offset: 8194
 oid: 0000000000000001
 revid: 0285cbad19999a00
-previous record offset: 3425
-transaction offset: 7904
-len(data): 29
-redundant trec len: 162
+previous record offset: 3506
+transaction offset: 8101
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 8074
-end pos: 8236
+offset: 8277
+end pos: 8445
 transaction id: 0285cbad1e4b184c
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.7'
 description: 'step 1.7'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 8165
+offset: 8370
 oid: 0000000000000002
 revid: 0285cbad1e4b184c
-previous record offset: 4982
-transaction offset: 8074
-len(data): 29
-redundant trec len: 162
+previous record offset: 5117
+transaction offset: 8277
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 8244
-end pos: 8406
+offset: 8453
+end pos: 8621
 transaction id: 0285cbad22fc9699
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.8'
 description: 'step 1.8'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 8335
+offset: 8546
 oid: 0000000000000008
 revid: 0285cbad22fc9699
-previous record offset: 7825
-transaction offset: 8244
-len(data): 29
-redundant trec len: 162
+previous record offset: 8018
+transaction offset: 8453
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 8414
-end pos: 8576
+offset: 8629
+end pos: 8797
 transaction id: 0285cbad27ae14e6
-trec len: 162
+trec len: 168
 status: ' '
 user: 'user1.9'
 description: 'step 1.9'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 8505
+offset: 8722
 oid: 0000000000000008
 revid: 0285cbad27ae14e6
-previous record offset: 8335
-transaction offset: 8414
-len(data): 29
-redundant trec len: 162
+previous record offset: 8546
+transaction offset: 8629
+len(data): 33
+redundant trec len: 168
 ============================================================
-offset: 8584
-end pos: 8749
+offset: 8805
+end pos: 8976
 transaction id: 0285cbad2c5f9333
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.10'
 description: 'step 1.10'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 8677
+offset: 8900
 oid: 0000000000000006
 revid: 0285cbad2c5f9333
-previous record offset: 7145
-transaction offset: 8584
-len(data): 30
-redundant trec len: 165
+previous record offset: 7314
+transaction offset: 8805
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 8757
-end pos: 8922
+offset: 8984
+end pos: 9155
 transaction id: 0285cbad31111180
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.11'
 description: 'step 1.11'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 8850
+offset: 9079
 oid: 0000000000000005
 revid: 0285cbad31111180
-previous record offset: 4636
-transaction offset: 8757
-len(data): 30
-redundant trec len: 165
+previous record offset: 4759
+transaction offset: 8984
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 8930
-end pos: 9095
+offset: 9163
+end pos: 9334
 transaction id: 0285cbad35c28fcc
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.12'
 description: 'step 1.12'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 9023
+offset: 9258
 oid: 0000000000000008
 revid: 0285cbad35c28fcc
-previous record offset: 8505
-transaction offset: 8930
-len(data): 30
-redundant trec len: 165
+previous record offset: 8722
+transaction offset: 9163
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 9103
-end pos: 9268
+offset: 9342
+end pos: 9513
 transaction id: 0285cbad3a740e19
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.13'
 description: 'step 1.13'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 9196
+offset: 9437
 oid: 0000000000000006
 revid: 0285cbad3a740e19
-previous record offset: 8677
-transaction offset: 9103
-len(data): 30
-redundant trec len: 165
+previous record offset: 8900
+transaction offset: 9342
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 9276
-end pos: 9441
+offset: 9521
+end pos: 9692
 transaction id: 0285cbad3f258c66
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.14'
 description: 'step 1.14'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 9369
+offset: 9616
 oid: 0000000000000003
 revid: 0285cbad3f258c66
-previous record offset: 7655
-transaction offset: 9276
-len(data): 30
-redundant trec len: 165
+previous record offset: 7842
+transaction offset: 9521
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 9449
-end pos: 9614
+offset: 9700
+end pos: 9871
 transaction id: 0285cbad43d70ab3
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.15'
 description: 'step 1.15'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 9542
+offset: 9795
 oid: 0000000000000003
 revid: 0285cbad43d70ab3
-previous record offset: 9369
-transaction offset: 9449
-len(data): 30
-redundant trec len: 165
+previous record offset: 9616
+transaction offset: 9700
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 9622
-end pos: 9787
+offset: 9879
+end pos: 10050
 transaction id: 0285cbad48888900
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.16'
 description: 'step 1.16'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 9715
+offset: 9974
 oid: 0000000000000002
 revid: 0285cbad48888900
-previous record offset: 8165
-transaction offset: 9622
-len(data): 30
-redundant trec len: 165
+previous record offset: 8370
+transaction offset: 9879
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 9795
-end pos: 9960
+offset: 10058
+end pos: 10229
 transaction id: 0285cbad4d3a074c
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.17'
 description: 'step 1.17'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 9888
+offset: 10153
 oid: 0000000000000003
 revid: 0285cbad4d3a074c
-previous record offset: 9542
-transaction offset: 9795
-len(data): 30
-redundant trec len: 165
+previous record offset: 9795
+transaction offset: 10058
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 9968
-end pos: 10133
+offset: 10237
+end pos: 10408
 transaction id: 0285cbad51eb8599
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.18'
 description: 'step 1.18'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 10061
+offset: 10332
 oid: 0000000000000001
 revid: 0285cbad51eb8599
-previous record offset: 7995
-transaction offset: 9968
-len(data): 30
-redundant trec len: 165
+previous record offset: 8194
+transaction offset: 10237
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 10141
-end pos: 10306
+offset: 10416
+end pos: 10587
 transaction id: 0285cbad569d03e6
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.19'
 description: 'step 1.19'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 10234
+offset: 10511
 oid: 0000000000000005
 revid: 0285cbad569d03e6
-previous record offset: 8850
-transaction offset: 10141
-len(data): 30
-redundant trec len: 165
+previous record offset: 9079
+transaction offset: 10416
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 10314
-end pos: 10479
+offset: 10595
+end pos: 10766
 transaction id: 0285cbad5b4e8233
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.20'
 description: 'step 1.20'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 10407
+offset: 10690
 oid: 0000000000000003
 revid: 0285cbad5b4e8233
-previous record offset: 9888
-transaction offset: 10314
-len(data): 30
-redundant trec len: 165
+previous record offset: 10153
+transaction offset: 10595
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 10487
-end pos: 10652
+offset: 10774
+end pos: 10945
 transaction id: 0285cbad60000080
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.21'
 description: 'step 1.21'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 10580
+offset: 10869
 oid: 0000000000000003
 revid: 0285cbad60000080
-previous record offset: 10407
-transaction offset: 10487
-len(data): 30
-redundant trec len: 165
+previous record offset: 10690
+transaction offset: 10774
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 10660
-end pos: 10825
+offset: 10953
+end pos: 11124
 transaction id: 0285cbad64b17ecc
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.22'
 description: 'step 1.22'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 10753
+offset: 11048
 oid: 0000000000000006
 revid: 0285cbad64b17ecc
-previous record offset: 9196
-transaction offset: 10660
-len(data): 30
-redundant trec len: 165
+previous record offset: 9437
+transaction offset: 10953
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 10833
-end pos: 10998
+offset: 11132
+end pos: 11303
 transaction id: 0285cbad6962fd19
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.23'
 description: 'step 1.23'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 10926
+offset: 11227
 oid: 0000000000000005
 revid: 0285cbad6962fd19
-previous record offset: 10234
-transaction offset: 10833
-len(data): 30
-redundant trec len: 165
+previous record offset: 10511
+transaction offset: 11132
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 11006
-end pos: 11171
+offset: 11311
+end pos: 11482
 transaction id: 0285cbad6e147b66
-trec len: 165
+trec len: 171
 status: ' '
 user: 'user1.24'
 description: 'step 1.24'
-len(extra): 53
+len(extra): 55
 ------------------------------------------------------------
-offset: 11099
+offset: 11406
 oid: 0000000000000005
 revid: 0285cbad6e147b66
-previous record offset: 10926
-transaction offset: 11006
-len(data): 30
-redundant trec len: 165
+previous record offset: 11227
+transaction offset: 11311
+len(data): 34
+redundant trec len: 171
 ============================================================
-offset: 11179
-end pos: 11386
+offset: 11490
+end pos: 11699
 transaction id: 0285cbad77777800
-trec len: 207
+trec len: 209
 status: ' '
 user: 'root1.0\nYour\nMagesty '
 description: 'undo 1.0\nmore detailed description\n\nzzz ...\t'
-len(extra): 69
+len(extra): 71
 ------------------------------------------------------------
-offset: 11336
+offset: 11649
 oid: 0000000000000006
 revid: 0285cbad77777800
-previous record offset: 10753
-transaction offset: 11179
+previous record offset: 11048
+transaction offset: 11490
 len(data): 0
-backpointer: 9196
-redundant trec len: 207
+backpointer: 9437
+redundant trec len: 209
 ============================================================
-offset: 11394
-end pos: 11602
+offset: 11707
+end pos: 11917
 transaction id: 0285cbad7c28f64c
-trec len: 208
+trec len: 210
 status: ' '
 user: 'root1.1\nYour\nMagesty '
 description: 'undo 1.1\nmore detailed description\n\nzzz ...\t\t'
-len(extra): 69
+len(extra): 71
 ------------------------------------------------------------
-offset: 11552
+offset: 11867
 oid: 0000000000000005
 revid: 0285cbad7c28f64c
-previous record offset: 11099
-transaction offset: 11394
+previous record offset: 11406
+transaction offset: 11707
 len(data): 0
-backpointer: 10926
-redundant trec len: 208
+backpointer: 11227
+redundant trec len: 210
 ============================================================
-offset: 11610
-end pos: 11972
+offset: 11925
+end pos: 12288
 transaction id: 0285cbad80da7499
-trec len: 362
+trec len: 363
 status: ' '
 user: ''
 description: 'predelete 6'
 len(extra): 0
 ------------------------------------------------------------
-offset: 11644
+offset: 11959
 oid: 0000000000000000
 revid: 0285cbad80da7499
-previous record offset: 6302
-transaction offset: 11610
-len(data): 216
+previous record offset: 6460
+transaction offset: 11925
+len(data): 213
 ------------------------------------------------------------
-offset: 11902
+offset: 12214
 oid: 0000000000000009
 revid: 0285cbad80da7499
 previous record offset: 0
-transaction offset: 11610
-len(data): 28
-redundant trec len: 362
+transaction offset: 11925
+len(data): 32
+redundant trec len: 363
 ============================================================
-offset: 11980
-end pos: 12218
+offset: 12296
+end pos: 12536
 transaction id: 0285cbad858bf2e6
-trec len: 238
+trec len: 240
 status: ' '
 user: "root1\nYour\nRoyal\nMagesty' \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
 description: 'delete 1\nalpha beta gamma\'delta"lambda\n\nqqq ...'
-len(extra): 60
+len(extra): 62
 ------------------------------------------------------------
-offset: 12168
+offset: 12486
 oid: 0000000000000006
 revid: 0285cbad858bf2e6
-previous record offset: 11336
-transaction offset: 11980
+previous record offset: 11649
+transaction offset: 12296
 len(data): 0
 backpointer: 0
-redundant trec len: 238
+redundant trec len: 240

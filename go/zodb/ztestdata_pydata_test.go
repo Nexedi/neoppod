@@ -3,19 +3,19 @@ package zodb
 
 var _PyData_ClassName_Testv = [...]_PyDataClassName_TestEntry{
 	{
-		"((U\x18ZODB.tests.testSerializeq\x01U\x13ClassWithoutNewargsq\x02tNtq\x03.",
+		"\x80\x02U\x18ZODB.tests.testSerializeq\x01U\x13ClassWithoutNewargsq\x02\x86N\x86q\x03.",
 		"ZODB.tests.testSerialize.ClassWithoutNewargs",
 	},
 	{
-		"((U\x18ZODB.tests.testSerializeq\x01U\x10ClassWithNewargsq\x02t(K\x01tq\x03tq\x04.",
+		"\x80\x02U\x18ZODB.tests.testSerializeq\x01U\x10ClassWithNewargsq\x02\x86K\x01\x85q\x03\x86q\x04.",
 		"ZODB.tests.testSerialize.ClassWithNewargs",
 	},
 	{
-		"cZODB.tests.testSerialize\nClassWithoutNewargs\nq\x01.",
+		"\x80\x02cZODB.tests.testSerialize\nClassWithoutNewargs\nq\x01.",
 		"ZODB.tests.testSerialize.ClassWithoutNewargs",
 	},
 	{
-		"(cZODB.tests.testSerialize\nClassWithNewargs\nq\x01(K\x01tq\x02tq\x03.",
+		"\x80\x02cZODB.tests.testSerialize\nClassWithNewargs\nq\x01K\x01\x85q\x02\x86q\x03.",
 		"ZODB.tests.testSerialize.ClassWithNewargs",
 	},
 	{"aaa", "?.?"},

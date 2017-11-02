@@ -20,20 +20,33 @@
 /*
 Zodbdump - Tool to dump content of a ZODB database
 
-TODO sync text with zodbdump/py
+This program dumps content of a ZODB database.
+It uses ZODB Storage iteration API to get list of transactions and for every
+transaction prints transaction's header and information about changed objects.
 
-Format
-------
+The information dumped is complete raw information as stored in ZODB storage
+and should be suitable for restoring the database from the dump file bit-to-bit
+identical to its original. It is dumped in semi text-binary format where
+object data is output as raw binary and everything else is text.
 
-txn <tid> (<status>)	XXX escape status ?
-user <user|quote>
-description <description|quote>
-extension <extension|quote>
-obj <oid> (delete | from <tid> | sha1:<sha1> <size> (LF <content>)?) LF     XXX do we really need back <tid>
----- // ----
-LF
-txn ...
+There is also shortened mode activated via -hashonly where only hash of object
+data is printed without content.
 
+Dump format:
+
+    txn <tid> <status|quote>
+    user <user|quote>
+    description <description|quote>
+    extension <extension|quote>
+    obj <oid> (delete | from <tid> | <size> <hashfunc>:<hash> (-|LF <raw-content>)) LF
+    obj ...
+    ...
+    obj ...
+    LF
+    txn ...
+
+quote:      quote string with " with non-printable and control characters \-escaped
+hashfunc:   one of sha1, sha256, sha512 ...
 */
 
 package zodbtools
@@ -83,31 +96,39 @@ func (d *dumper) DumpData(datai *zodb.DataInfo) error {
 		buf .S("from ") .V(&datai.DataTid)
 
 	default:
+		// XXX sha1 is hardcoded for now. Dump format allows other hashes.
 		dataSha1 := sha1.Sum(datai.Data)
 		buf .D(len(datai.Data)) .S(" sha1:") .Xb(dataSha1[:])
 
 		writeData = true
 	}
 
-	buf .Cb('\n')
+	var data []byte
+	if writeData {
+		if d.HashOnly {
+			buf .S(" -")
+		} else {
+			buf .Cb('\n')
+			data = datai.Data
+		}
+	}
 
-	// TODO use writev(data, "\n") via net.Buffers (it is already available)
+	// TODO use writev(buf, data, "\n") via net.Buffers (it is already available)
 	_, err := d.W.Write(buf.Bytes())
 	if err != nil {
 		goto out
 	}
 
-	if writeData && !d.HashOnly {
+	if data != nil {
 		_, err = d.W.Write(datai.Data)
 		if err != nil {
 			goto out
 		}
+	}
 
-		// XXX maybe better to merge with next record ?
-		_, err = d.W.Write(_LF)
-		if err != nil {
-			goto out
-		}
+	_, err = d.W.Write(_LF)
+	if err != nil {
+		goto out
 	}
 
 out:
@@ -131,8 +152,8 @@ func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IDataIterator) error 
 		d.afterFirst = true
 	}
 
-	_, err := fmt.Fprintf(d.W, "%stxn %s (%c)\nuser %q\ndescription %q\nextension %q\n",
-			vskip, txni.Tid, txni.Status, txni.User, txni.Description, txni.Extension)
+	_, err := fmt.Fprintf(d.W, "%stxn %s %q\nuser %q\ndescription %q\nextension %q\n",
+			vskip, txni.Tid, string(txni.Status), txni.User, txni.Description, txni.Extension)
 	if err != nil {
 		goto out
 	}
