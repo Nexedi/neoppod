@@ -67,6 +67,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sync"
 
@@ -172,18 +173,22 @@ func Open(ctx context.Context, path string) (*FileStorage, error) {
 		return nil, err
 	}
 
-	// TODO recreate index if missing / not sane (cancel this job on ctx.Done)
-	index, err := LoadIndexFile(path + ".index")
+	err = fs.loadIndex()
 	if err != nil {
-		panic(err)	// XXX err
+		log.Print(err)
+		log.Printf("%s: index recompute...", path)
+		fs.index, err = fs.computeIndex(ctx)	// XXX better .reindex() which saves it?
+		if err != nil {
+			fs.file.Close()		// XXX lclose
+			return nil, err
+		}
 	}
 
 	// TODO verify index sane / topPos matches
-	if index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
+	// XXX place
+	if fs.index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
 		panic("inconsistent index topPos")	// XXX
 	}
-
-	fs.index = index
 
 	return fs, nil
 }
@@ -519,14 +524,16 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 // --- rebuilding index ---
 
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
+	// XXX lock?
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 	return BuildIndex(ctx, fsSeq, nil/*XXX no progress*/)
 }
 
 // loadIndex loads on-disk index to RAM
 func (fs *FileStorage) loadIndex() (err error) {
+	// XXX LoadIndexFile already contains "%s: index load"
 	// XXX lock?
-	defer xerr.Contextf(&err, "%s: index load", fs.file.Name())
+	defer xerr.Contextf(&err, "%s", fs.file.Name())
 
 	index, err := LoadIndexFile(fs.file.Name() + ".index")
 	if err != nil {

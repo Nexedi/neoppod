@@ -301,7 +301,7 @@ Dump transactions from a FileStorage
 
 func dumpMain(argv []string) {
 	var verbose bool
-	flags := flag.FlagSet{Usage: func() { tailUsage(os.Stderr) }}
+	flags := flag.FlagSet{Usage: func() { dumpUsage(os.Stderr) }}
 	flags.Init("", flag.ExitOnError)
 	flags.BoolVar(&verbose, "v", verbose, "verbose mode")
 	flags.Parse(argv[1:])

@@ -215,7 +215,7 @@ type IndexLoadError struct {
 
 func (e *IndexLoadError) Error() string {
 	s := "index load: "
-	if e.Filename != "" {
+	if e.Filename != "" && e.Pos != -1 /* not yet got to decoding - .Err is ~ os.PathError */ {
 		s += e.Filename + ": "
 	}
 	if e.Pos != -1 {

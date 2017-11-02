@@ -117,7 +117,7 @@ func reindexMain(argv []string) {
 
 	err = Reindex(context.Background(), storPath, progress)
 
-	if !quiet {
+	if !quiet && lastp != nil {
 		// (re-)display last update in case no progress was displayed so far
 		display(lastp)
 		fmt.Println()
@@ -218,7 +218,7 @@ func verifyIdxMain(argv []string) {
 
 	err := VerifyIndexFor(context.Background(), storPath, ntxn, progress)
 
-	if !quiet {
+	if !quiet && lastp != nil {
 		// (re-)display last update in case no progress was displayed so far
 		display(lastp)
 		fmt.Println()
