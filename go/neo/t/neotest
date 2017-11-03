@@ -466,8 +466,7 @@ proginfo() {
 
 # fkghz file	- extract value from file (in KHz) and render it as GHz
 fkghz() {
-	v=$(echo "scale=2; `cat $1` / 1000000" |bc -l)
-	echo "${v}GHz"
+	python -c "print '%.2fGHz' % (`cat $1` / 1E6)"
 }
 
 # lspci1 <pcidev> <field>	- show <field> from lspci information about <pcidev>
