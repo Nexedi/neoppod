@@ -572,6 +572,7 @@ system_info() {
 	# disk under .
 	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
 	blkdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
+	blkdev=`realpath $blkdev`			# /dev/mapper/vg0-root	-> /dev/dm-0
 	blkdev1=`basename $blkdev`			# /dev/sda  -> sda
 
 	# showblk1 <device>
@@ -587,6 +588,17 @@ system_info() {
 		# software raid
 		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
 		echo "# $blkdev1 (`cat /sys/class/block/$blkdev1/md/level`) -> $slavev"
+		# XXX dup wrt dm-*; move recursion to common place
+		for s in $slavev; do
+			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
+			showblk1 /dev/$s
+		done
+		;;
+	dm-*)
+		# device mapper
+		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
+		echo "# $blkdev1 (`cat /sys/class/block/$blkdev1/dm/name`) -> $slavev"
+		# XXX dup wrt md*; move recursion to common place
 		for s in $slavev; do
 			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
 			showblk1 /dev/$s
