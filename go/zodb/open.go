@@ -27,8 +27,13 @@ import (
 	"strings"
 )
 
+// OpenOptions describes options for OpenStorage
+type OpenOptions struct {
+	ReadOnly bool // whether to open storage as read-only
+}
+
 // StorageOpener is a function to open a storage
-type StorageOpener func (ctx context.Context, u *url.URL) (IStorage, error)
+type StorageOpener func (ctx context.Context, u *url.URL, opt *OpenOptions) (IStorage, error)
 
 // {} scheme -> StorageOpener
 var storageRegistry = map[string]StorageOpener{}
@@ -51,8 +56,7 @@ func RegisterStorage(scheme string, opener StorageOpener) {
 // Storage authors should register their storages with RegisterStorage.
 //
 // TODO automatically wrap a storage with Cache.
-// TODO readonly
-func OpenStorageURL(ctx context.Context, storageURL string) (IStorage, error) {
+func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (IStorage, error) {
 	// no scheme -> file://
 	if !strings.Contains(storageURL, "://") {
 		storageURL = "file://" + storageURL
@@ -63,10 +67,13 @@ func OpenStorageURL(ctx context.Context, storageURL string) (IStorage, error) {
 		return nil, err
 	}
 
+	// XXX commonly handle some options from url -> opt?
+	// (e.g. ?readonly=1 -> opt.ReadOnly=true + remove ?readonly=1 from URL)
+
 	opener, ok := storageRegistry[u.Scheme]
 	if !ok {
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
-	return opener(ctx, u)
+	return opener(ctx, u, opt)
 }

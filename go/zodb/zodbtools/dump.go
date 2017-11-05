@@ -270,7 +270,7 @@ func dumpMain(argv []string) {
 		prog.Fatal(err)
 	}
 
-	stor, err := zodb.OpenStorageURL(context.Background(), storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorage(context.Background(), storUrl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		prog.Fatal(err)
 	}

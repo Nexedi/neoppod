@@ -76,5 +76,4 @@ func (tid Tid) Time() TimeStamp {
 
 // TODO TidFromTime()
 // TODO TidFromTimeStamp()
-
 // TODO TidForNow() ?

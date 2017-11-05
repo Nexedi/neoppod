@@ -502,12 +502,17 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 }
 
 
-// TODO read-only support
-func openClientByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
+func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorage, error) {
 	// neo://name@master1,master2,...,masterN?options
 
 	if u.User == nil {
 		return nil, fmt.Errorf("neo: open %q: cluster name not specified")
+	}
+
+	// XXX readonly stub
+	// XXX place = ?
+	if !opt.ReadOnly {
+		return nil, fmt.Errorf("neo: %s: TODO write mode not implemented", u)
 	}
 
 	// XXX check/use other url fields

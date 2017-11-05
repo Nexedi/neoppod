@@ -40,7 +40,7 @@ type Buf struct {
 
 	// reference counter.
 	//
-	// NOTE to allow both Bufs created via BufAlloc and via std new Buf is
+	// NOTE to allow both Bufs created via BufAlloc and via std new, Buf is
 	// created with refcnt=0. The real number of references to Buf is thus .refcnt+1
 	refcnt int32
 }
@@ -68,6 +68,7 @@ func BufAlloc(size int) *Buf {
 	return BufAlloc64(int64(size))
 }
 
+// BufAlloc64 is same as BufAlloc but accepts int64 for size.
 func BufAlloc64(size int64) *Buf {
 	if size < 0 {
 		panic("invalid size")
@@ -76,14 +77,10 @@ func BufAlloc64(size int64) *Buf {
 	// order = min i: 2^i >= size
 	order := xmath.CeilLog2(uint64(size))
 
-	//println("alloc", size, "order:", order)
-
 	order -= order0
 	if order < 0 {
 		order = 0
 	}
-
-	//println("\t->", order)
 
 	// if too big - allocate straightly from heap
 	if order >= len(bufPoolv) {
@@ -91,7 +88,6 @@ func BufAlloc64(size int64) *Buf {
 	}
 
 	buf := bufPoolv[order].Get().(*Buf)
-	//println("\tlen:", len(buf.Data), "cap:", cap(buf.Data))
 	buf.Data = buf.Data[:size] // leaving cap as is = 2^i
 	buf.refcnt = 0
 	return buf

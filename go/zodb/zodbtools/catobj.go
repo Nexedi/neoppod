@@ -124,7 +124,7 @@ func catobjMain(argv []string) {
 
 	ctx := context.Background()
 
-	stor, err := zodb.OpenStorageURL(ctx, storUrl)	// TODO read-only
+	stor, err := zodb.OpenStorage(ctx, storUrl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		prog.Fatal(err)
 	}

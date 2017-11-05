@@ -53,7 +53,7 @@
 //
 // Unless one is doing something FileStorage-specific, it is advices not to use
 // fs1 package directly, and instead link-in lab.nexedi.com/kirr/neo/go/zodb/wks,
-// open storage by zodb.OpenStorageURL and use it by way of zodb.IStorage interface.
+// open storage by zodb.OpenStorage and use it by way of zodb.IStorage interface.
 //
 // The fs1 package exposes all FileStorage data format details and most of
 // internal workings so that it is possible to implement FileStorage-specific

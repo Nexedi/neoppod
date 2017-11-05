@@ -22,16 +22,24 @@ package fs1
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
-// TODO read-only support
-func openByURL(ctx context.Context, u *url.URL) (zodb.IStorage, error) {
+func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorage, error) {
 	// TODO handle query
 	// XXX u.Path is not always raw path - recheck and fix
-	return Open(ctx, u.Host + u.Path)
+	path := u.Host + u.Path
+
+	// XXX readonly stub
+	// XXX place = ?
+	if !opt.ReadOnly {
+		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
+	}
+
+	return Open(ctx, path)
 }
 
 func init() {

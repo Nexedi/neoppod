@@ -115,7 +115,7 @@ func main() {
 func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, check string) (err error) {
 	defer task.Running(&ctx, "zhash")(&err)
 
-	stor, err := zodb.OpenStorageURL(ctx, url)
+	stor, err := zodb.OpenStorage(ctx, url)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 		err = xerr.First(err, err2)
 	}()
 
-	// XXX always open storage with cache by zodb.OpenStorageURL
+	// XXX always open storage with cache by zodb.OpenStorage
 	var cache *storage.Cache
 	if useprefetch {
 		cache = storage.NewCache(stor, 16*1024*1024)

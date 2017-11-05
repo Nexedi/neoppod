@@ -34,7 +34,7 @@ import (
 
 // Tid is transaction identifier.
 //
-// In ZODB transaction identifiers are unique 64-bit integer connected to time
+// In ZODB transaction identifiers are unique 64-bit integers connected to time
 // when corresponding transaction was created.
 //
 // See also: XTid.
@@ -42,7 +42,7 @@ type Tid uint64
 
 // ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
 // https://github.com/zopefoundation/ZODB/commit/baee84a6
-// (XXX in neo/py: SQLite does not accept numbers above 2^63-1)
+// (same in neo/py with "SQLite does not accept numbers above 2^63-1" comment)
 
 const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 

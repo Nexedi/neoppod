@@ -29,10 +29,24 @@ import (
 	"lab.nexedi.com/kirr/go123/xstrings"
 )
 
+// String converts tid to string.
+//
+// Default tid string representation is 16-character hex string, e.g.:
+//
+//	0285cbac258bf266
+//
+// See also: ParseTid.
 func (tid Tid) String() string {
 	return string(tid.XFmtString(nil))
 }
 
+// String converts oid to string.
+//
+// Default oid string representation is 16-character hex string, e.g.:
+//
+//	0000000000000001
+//
+// See also: ParseOid.
 func (oid Oid) String() string {
 	return string(oid.XFmtString(nil))
 }
@@ -47,8 +61,9 @@ func (oid Oid) XFmtString(b []byte) []byte {
 	return xfmt.AppendHex016(b, uint64(oid))
 }
 
-// XXX move me out of here
-// bint converts bool to int with true => 1; false => 0
+// bint converts bool to int with true => 1; false => 0.
+//
+// XXX place = ?
 func bint(b bool) int {
 	if b {
 		return 1
@@ -57,11 +72,38 @@ func bint(b bool) int {
 	}
 }
 
+// String converts xtid to string.
+//
+// Default xtid string representation is:
+//
+//	- "=" or "<" character depending on whether xtid represents exact or "tid before" query
+//	- tid
+//
+// e.g.
+//
+//	=0285cbac258bf266	- exactly 0285cbac258bf266
+//	<0285cbac258bf266	- before  0285cbac258bf266
+//
+// See also: ParseXTid.
 func (xtid XTid) String() string {
 	// XXX also print "tid:" prefix ?
 	return fmt.Sprintf("%c%v", "=<"[bint(xtid.TidBefore)], xtid.Tid)
 }
 
+// String converts xid to string.
+//
+// Default xid string representation is:
+//
+//	- string of xtid
+//	- ":"
+//	- string of oid
+//
+// e.g.
+//
+//	=0285cbac258bf266:0000000000000001	- oid 1 at exactly 0285cbac258bf266 transaction
+//	<0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid < 0285cbac258bf266
+//
+// See also: ParseXid.
 func (xid Xid) String() string {
 	return xid.XTid.String() + ":" + xid.Oid.String()
 }
@@ -93,16 +135,25 @@ func parseHex64(subj, s string) (uint64, error) {
 	return binary.BigEndian.Uint64(b[:]), nil
 }
 
+// ParseTid parses tid from string.
+//
+// See also: Tid.String .
 func ParseTid(s string) (Tid, error) {
 	x, err := parseHex64("tid", s)
 	return Tid(x), err
 }
 
+// ParseOid parses oid from string.
+//
+// See also: Oid.String .
 func ParseOid(s string) (Oid, error) {
 	x, err := parseHex64("oid", s)
 	return Oid(x), err
 }
 
+// ParseXTid parses xtid from string.
+//
+// See also: XTid.String .
 func ParseXTid(s string) (XTid, error) {
 	if len(s) < 1 {
 		goto Error
@@ -132,6 +183,9 @@ Error:
 	return XTid{}, fmt.Errorf("xtid %q invalid", s)
 }
 
+// ParseXid parses xid from string.
+//
+// See also: Xid.String .
 func ParseXid(s string) (Xid, error) {
 	xtids, oids, err := xstrings.Split2(s, ":")
 	if err != nil {
