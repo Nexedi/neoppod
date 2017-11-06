@@ -226,11 +226,18 @@ kill $j' EXIT
 
 # ---- start NEO/ZEO nodes ----
 
+# neopy_log logname	- `--logfile ...` argument for logging from a NEO/py node
+# empty if $X_NEOPY_LOG_SKIP set
+neopy_log() {
+	test -z "$X_NEOPY_LOG_SKIP" || return
+	echo --logfile=$log/$1.log
+}
+
 # M{py,go} ...	- spawn master
 Mpy() {
 	# --autostart=1
 	exec -a Mpy \
-		neomaster --cluster=$neocluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 --logfile=$log/Mpy.log "$@" &
+		neomaster --cluster=$neocluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 `neopy_log Mpy` "$@" &
 }
 
 Mgo() {
@@ -244,7 +251,7 @@ Spy() {
 	# --database=...
 	# --engine=...
 	exec -a Spy \
-		neostorage --cluster=$neocluster --bind=$Sbind --masters=$Mbind --logfile=$log/Spy.log "$@" &
+		neostorage --cluster=$neocluster --bind=$Sbind --masters=$Mbind `neopy_log Spy` "$@" &
 }
 
 # Sgo <data.fs>	- spawn NEO/go storage
@@ -259,7 +266,7 @@ Sgo() {
 # Apy ...	- spawn NEO/py admin
 Apy() {
 	exec -a Apy \
-		neoadmin --cluster=$neocluster --bind=$Abind --masters=$Mbind --logfile=$log/Apy.log "$@" &
+		neoadmin --cluster=$neocluster --bind=$Abind --masters=$Mbind `neopy_log Apy` "$@" &
 }
 
 # Zpy <data.fs> ...	- spawn ZEO
@@ -946,9 +953,24 @@ zbench_local() {
 	xneoctl set cluster stopping
 	wait
 
+	# XXX JM asked to also have NEO/py with logging disabled
+	echo -e "\n*** NEO/py sqlite (logging disabled)"
+	X_NEOPY_LOG_SKIP=y NEOpylite
+	zbench neo://$neocluster@$Mbind "`hostname`/neo/py(!log)/sqlite" $zhashok
+	xneoctl set cluster stopping
+	wait
+
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
 	zbench neo://$neocluster@$Mbind `hostname`/neo/py/sql $zhashok
+	xneoctl set cluster stopping
+	xmysql -e "SHUTDOWN"
+	wait
+
+	# XXX JM asked to also have NEO/py with logging disabled
+	echo -e "\n*** NEO/py sql (logging disabled)"
+	X_NEOPY_LOG_SKIP=y NEOpysql
+	zbench neo://$neocluster@$Mbind "`hostname`/neo/py(!log)/sql" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
@@ -1095,13 +1117,28 @@ zbench_cluster() {
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	on $url ./neotest run-client neo://$neocluster@$Mbind" `hostname`-$peer/neo/py/sqlite" $zhashok
+	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sqlite" $zhashok
+	xneoctl set cluster stopping
+	wait
+
+	# XXX JM asked to also have NEO/py with logging disabled
+	echo -e "\n*** NEO/py sqlite (logging disabled)"
+	X_NEOPY_LOG_SKIP=y NEOpylite
+	on $url ./neotest run-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sqlite\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
 	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
+	xneoctl set cluster stopping
+	xmysql -e "SHUTDOWN"
+	wait
+
+	# XXX JM asked to also have NEO/py with logging disabled
+	echo -e "\n*** NEO/py sql (logging disabled)"
+	X_NEOPY_LOG_SKIP=y NEOpysql
+	on $url ./neotest run-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sql\\\"" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
