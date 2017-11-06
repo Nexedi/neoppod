@@ -1,0 +1,18 @@
+#!/bin/bash -e
+# benchstat-neopy-lognolog <file> - compare neo/py runs with and without log
+
+die() {
+	echo "$@" >&2
+	exit 1
+}
+
+test -n "$1" || die "Usage: benchstat-neopy-lognolog <file>"
+
+a=`mktemp -t lognolog.a.XXXXXX`
+b=`mktemp -t lognolog.b.XXXXXX`
+trap 'rm "$a" "$b"' EXIT
+
+egrep '^dataset:|^Benchmark.*neo/py/' $1 >"$a"
+egrep '^dataset:|^Benchmark.*neo/py\(!log\)/' $1 |sed -e 's/(!log)//g' >"$b"
+
+benchstat -split dataset "$a" "$b"
