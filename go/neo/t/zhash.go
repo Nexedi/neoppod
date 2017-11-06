@@ -115,7 +115,7 @@ func main() {
 func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, check string) (err error) {
 	defer task.Running(&ctx, "zhash")(&err)
 
-	stor, err := zodb.OpenStorage(ctx, url)
+	stor, err := zodb.OpenStorage(ctx, url, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		return err
 	}
