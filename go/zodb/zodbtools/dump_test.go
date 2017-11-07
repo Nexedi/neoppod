@@ -28,21 +28,12 @@ import (
 	"regexp"
 	"testing"
 
-	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 
-	"github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/kylelemons/godebug/diff"
 	"lab.nexedi.com/kirr/go123/exc"
 )
-
-// diff computes difference for two strings a and b
-// XXX -> xtesting ?
-// XXX dup in fstail_test.go
-func diff(a, b string) string {
-	dmp := diffmatchpatch.New()
-	diffv := dmp.DiffMain(a, b, /*checklines=*/false)
-	return dmp.DiffPrettyText(diffv)
-}
 
 // loadZdumpPy loads a zdump file and normalizes escaped strings to the way go
 // would escape them.
@@ -73,23 +64,22 @@ func loadZdumpPy(t *testing.T, path string) string {
 	return string(dump)
 }
 
-func withTestdata1Fs(t testing.TB, f func(fs *fs1.FileStorage)) {
-	// XXX -> zodb.OpenURL
-	fs, err := fs1.Open(context.Background(), "../../zodb/storage/fs1/testdata/1.fs")	// XXX read-only, path?
+func withTestdata1Fs(t testing.TB, f func(zstor zodb.IStorage)) {
+	zstor, err := zodb.OpenStorage(context.Background(), "../../zodb/storage/fs1/testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer exc.XRun(fs.Close)
+	defer exc.XRun(zstor.Close)
 
-	f(fs)
+	f(zstor)
 }
 
 func TestZodbDump(t *testing.T) {
-	withTestdata1Fs(t, func(fs *fs1.FileStorage) {
+	withTestdata1Fs(t, func(zstor zodb.IStorage) {
 		buf := bytes.Buffer{}
 
-		err := Dump(&buf, fs, 0, zodb.TidMax, false)
+		err := Dump(context.Background(), &buf, zstor, 0, zodb.TidMax, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +87,7 @@ func TestZodbDump(t *testing.T) {
 		dumpOk := loadZdumpPy(t, "testdata/1.zdump.pyok")
 
 		if dumpOk != buf.String() {
-			t.Errorf("dump different:\n%v", diff(dumpOk, buf.String()))
+			t.Errorf("dump different:\n%v", diff.Diff(dumpOk, buf.String()))
 		}
 	})
 }
@@ -105,11 +95,11 @@ func TestZodbDump(t *testing.T) {
 
 func BenchmarkZodbDump(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarking
-	withTestdata1Fs(b, func(fs *fs1.FileStorage) {
+	withTestdata1Fs(b, func(zstor zodb.IStorage) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			err := Dump(ioutil.Discard, fs, 0, zodb.TidMax, false)
+			err := Dump(context.Background(), ioutil.Discard, zstor, 0, zodb.TidMax, false)
 			if err != nil {
 				b.Fatal(err)
 			}

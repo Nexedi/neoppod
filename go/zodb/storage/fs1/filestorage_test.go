@@ -145,10 +145,11 @@ func TestLoad(t *testing.T) {
 
 // iterate tidMin..tidMax and expect db entries in expectv
 func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
+	ctx := context.Background()
 	iter := fs.Iterate(tidMin, tidMax)
 	fsi, ok := iter.(*zIter)
 	if !ok {
-		_, _, err := iter.NextTxn()
+		_, _, err := iter.NextTxn(ctx)
 		t.Errorf("iterating %v..%v: iter type is %T  ; want zIter\nNextTxn gives: _, _, %v", tidMin, tidMax, iter, err)
 		return
 	}
@@ -161,7 +162,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 			t.Errorf("%v: %v", subj, msg)
 		}
 
-		txni, dataIter, err := iter.NextTxn()
+		txni, dataIter, err := iter.NextTxn(ctx)
 		if err != nil {
 			if err == io.EOF {
 				if k != len(expectv) {
@@ -203,7 +204,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 				txnErrorf("%v: %v", dsubj, msg)
 			}
 
-			datai, err := dataIter.NextData()
+			datai, err := dataIter.NextData(ctx)
 			if err != nil {
 				if err == io.EOF {
 					if kdata != len(dbe.Entryv) {
@@ -293,12 +294,14 @@ func BenchmarkIterate(b *testing.B) {
 	fs := xfsopen(b, "testdata/1.fs")	// TODO open ro
 	defer exc.XRun(fs.Close)
 
+	ctx := context.Background()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		iter := fs.Iterate(zodb.Tid(0), zodb.TidMax)
 
 		for {
-			txni, dataIter, err := iter.NextTxn()
+			txni, dataIter, err := iter.NextTxn(ctx)
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -310,7 +313,7 @@ func BenchmarkIterate(b *testing.B) {
 			_ = txni.Tid
 
 			for {
-				datai, err := dataIter.NextData()
+				datai, err := dataIter.NextData(ctx)
 				if err != nil {
 					if err == io.EOF {
 						break

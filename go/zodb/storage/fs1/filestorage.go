@@ -205,19 +205,17 @@ func (fs *FileStorage) Close() error {
 
 
 func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
-	// XXX check we have transactions at all
-	// XXX what to return if not?
+	// XXX check we have transactions at all - what to return if not?
 	// XXX must be under lock
-	return fs.txnhMax.Tid, nil	// XXX error always nil ?
+	return fs.txnhMax.Tid, nil
 }
 
 func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
-	// XXX check we have objects at all?
-	// XXX what to return if not?
+	// XXX check we have objects at all - what to return if not?
 	// XXX must be under lock
 	// XXX what if an oid was deleted?
 	lastOid, _ := fs.index.Last() // returns zero-value, if empty
-	return lastOid, nil	// XXX error always nil?
+	return lastOid, nil
 }
 
 // ErrXidLoad is returned when there is an error while loading xid
@@ -334,7 +332,7 @@ const (
 )
 
 // NextTxn iterates to next/previous transaction record according to iteration direction
-func (zi *zIter) NextTxn() (*zodb.TxnInfo, zodb.IDataIterator, error) {
+func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, error) {
 	switch {
 	case zi.zFlags & zIterEOF != 0:
 		//println("already eof")
@@ -366,7 +364,7 @@ func (zi *zIter) NextTxn() (*zodb.TxnInfo, zodb.IDataIterator, error) {
 }
 
 // NextData iterates to next data record and loads data content
-func (zi *zIter) NextData() (*zodb.DataInfo, error) {
+func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	err := zi.iter.NextData()
 	if err != nil {
 		return nil, err	// XXX recheck
@@ -395,7 +393,8 @@ func (zi *zIter) NextData() (*zodb.DataInfo, error) {
 
 
 
-// iterStartError is the iterator created when there are preparatory errors
+// iterStartError is the iterator created when there are preparatory errors.
+//
 // this way we offload clients, besides handling NextTxn errors, from also
 // handling error cases from Iterate.
 //
@@ -404,7 +403,7 @@ type iterStartError struct {
 	err error
 }
 
-func (e *iterStartError) NextTxn() (*zodb.TxnInfo, zodb.IDataIterator, error) {
+func (e *iterStartError) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, error) {
 	return nil, nil, e.err
 }
 

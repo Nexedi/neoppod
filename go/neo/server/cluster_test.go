@@ -486,7 +486,7 @@ func TestMasterStorage(t *testing.T) {
 	pg.Done()
 
 	for {
-		_, dataIter, err := ziter.NextTxn()
+		_, dataIter, err := ziter.NextTxn(bg)
 		if err == io.EOF {
 			break
 		}
@@ -495,7 +495,7 @@ func TestMasterStorage(t *testing.T) {
 		}
 
 		for {
-			datai, err := dataIter.NextData()
+			datai, err := dataIter.NextData(bg)
 			if err == io.EOF {
 				break
 			}

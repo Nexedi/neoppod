@@ -144,7 +144,7 @@ out:
 }
 
 // DumpTxn dumps one transaction record
-func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IDataIterator) error {
+func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.IDataIterator) error {
 	var datai *zodb.DataInfo
 
 	// LF in-between txn records
@@ -162,7 +162,7 @@ func (d *dumper) DumpTxn(txni *zodb.TxnInfo, dataIter zodb.IDataIterator) error 
 
 	// data records
 	for {
-		datai, err = dataIter.NextData()
+		datai, err = dataIter.NextData(ctx)
 		if err != nil {
 			if err == io.EOF {
 				err = nil	// XXX -> okEOF ?
@@ -189,7 +189,7 @@ out:
 }
 
 // Dump dumps transaction records in between tidMin..tidMax
-func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
+func (d *dumper) Dump(ctx context.Context, stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 	var txni     *zodb.TxnInfo
 	var dataIter zodb.IDataIterator
 	var err      error
@@ -198,7 +198,7 @@ func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 
 	// transactions
 	for {
-		txni, dataIter, err = iter.NextTxn()
+		txni, dataIter, err = iter.NextTxn(ctx)
 		if err != nil {
 			if err == io.EOF {
 				err = nil	// XXX -> okEOF ?
@@ -207,7 +207,7 @@ func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 			break
 		}
 
-		err = d.DumpTxn(txni, dataIter)
+		err = d.DumpTxn(ctx, txni, dataIter)
 		if err != nil {
 			break
 		}
@@ -221,10 +221,11 @@ func (d *dumper) Dump(stor zodb.IStorage, tidMin, tidMax zodb.Tid) error {
 }
 
 // Dump dumps contents of a storage in between tidMin..tidMax range to a writer.
+//
 // see top-level documentation for the dump format.
-func Dump(w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
+func Dump(ctx context.Context, w io.Writer, stor zodb.IStorage, tidMin, tidMax zodb.Tid, hashOnly bool) error {
 	d := dumper{W: w, HashOnly: hashOnly}
-	return d.Dump(stor, tidMin, tidMax)
+	return d.Dump(ctx, stor, tidMin, tidMax)
 }
 
 // ----------------------------------------
@@ -270,13 +271,15 @@ func dumpMain(argv []string) {
 		prog.Fatal(err)
 	}
 
-	stor, err := zodb.OpenStorage(context.Background(), storUrl, &zodb.OpenOptions{ReadOnly: true})
+	ctx := context.Background()
+
+	stor, err := zodb.OpenStorage(ctx, storUrl, &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		prog.Fatal(err)
 	}
 	// TODO defer stor.Close()
 
-	err = Dump(os.Stdout, stor, tidMin, tidMax, hashOnly)
+	err = Dump(ctx, os.Stdout, stor, tidMin, tidMax, hashOnly)
 	if err != nil {
 		prog.Fatal(err)
 	}

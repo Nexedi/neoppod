@@ -31,8 +31,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
-	"github.com/sergi/go-diff/diffmatchpatch"
-	//diffpkg "github.com/kylelemons/godebug/diff"
+	"github.com/kylelemons/godebug/diff"
 )
 
 // XXX -> xtesting ?
@@ -42,14 +41,6 @@ func loadFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
-}
-
-// XXX -> xtesting ?
-// XXX dup in zodbdump_test.go
-func diff(a, b string) string {
-	dmp := diffmatchpatch.New()
-	diffv := dmp.DiffMain(a, b, /*checklines=*/false)
-	return dmp.DiffPrettyText(diffv)
 }
 
 func testDump(t *testing.T, dir fs1.IterDir, d Dumper) {
@@ -63,7 +54,7 @@ func testDump(t *testing.T, dir fs1.IterDir, d Dumper) {
 	dumpOk := loadFile(t, fmt.Sprintf("testdata/1.%s.ok", d.DumperName()))
 
 	if dumpOk != buf.String() {
-		t.Errorf("%s: dump different:\n%v", d.DumperName(), diff(dumpOk, buf.String()))
+		t.Errorf("%s: dump different:\n%v", d.DumperName(), diff.Diff(dumpOk, buf.String()))
 	}
 }
 

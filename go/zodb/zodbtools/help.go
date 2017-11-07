@@ -51,19 +51,20 @@ http://docs.pylonsproject.org/projects/zodburi/
 `
 
 const helpXid =
-`TODO describe
+`An object address for loading from ZODB should be specified as follows:
 
-	=tid:oid
-	<tid:oid
-`
+	- "=" or "<" character depending on whether it is exact or "tid before" query
+	- tid
+	- ":"
+	- oid
 
-// TODO dump format
-const helpZDump =
-`TODO describe zodb dump format
+for example
+
+	=0285cbac258bf266:0000000000000001	- oid 1 at exactly 0285cbac258bf266 transaction
+	<0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid < 0285cbac258bf266
 `
 
 var helpTopics = prog.HelpRegistry{
-	{"zurl",  "specifying database URL", helpZURL},
-	{"xid",   "specifying object address", helpXid},
-	{"zdump", "description of ZODB dump format", helpZDump},
+	{"zurl",  "specifying database URL",	helpZURL},
+	{"xid",   "specifying object address",	helpXid},
 }

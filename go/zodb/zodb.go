@@ -75,7 +75,7 @@ type DataInfo struct {
 	Tid	Tid
 	Data	[]byte	// nil means: deleted	XXX -> *Buf ?
 
-	// original tid data was committed (e.g. in case of undo)
+	// original tid data was committed at (e.g. in case of undo)
 	//
 	// FIXME we don't really need this and this unnecessarily constraints interfaces.
 	DataTid	Tid
@@ -133,8 +133,6 @@ func (e *ErrXidMissing) Error() string {
 
 // IStorage is the interface provided by ZODB storages
 type IStorage interface {
-	// TODO add invalidation channel
-
 	// StorageName returns storage name
 	StorageName() string
 
@@ -148,7 +146,7 @@ type IStorage interface {
 
 	// LastOid returns highest object id of objects committed to storage.
 	//
-	// if there is no data committed yet, LastOid returns Oid zero value	XXX -> better -1
+	// if there is no data committed yet, LastOid returns Oid zero value	XXX -> better -1 ?
 	// XXX ZODB/py does not define this in IStorage.
 	LastOid(ctx context.Context) (Oid, error)
 
@@ -165,6 +163,8 @@ type IStorage interface {
 	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)	// XXX -> DataInfo ?
 
 	// Prefetch(ctx, xid Xid)	(no error)
+
+	// TODO add invalidation channel (notify about changes made to DB not by us)
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
 	// XXX Restore ?
@@ -191,7 +191,7 @@ type ITxnIterator interface {
 	// 2. iterator over transaction's data records. 
 	// transaction metadata stays valid until next call to NextTxn().
 	// end of iteration is indicated with io.EOF
-	NextTxn() (*TxnInfo, IDataIterator, error)	// XXX ctx
+	NextTxn(ctx context.Context) (*TxnInfo, IDataIterator, error)
 }
 
 // IDataIterator is the interface to iterate data records.
@@ -199,7 +199,7 @@ type IDataIterator interface {
 	// NextData yields information about next storage data record.
 	// returned data stays valid until next call to NextData().
 	// end of iteration is indicated with io.EOF
-	NextData() (*DataInfo, error)	// XXX ctx
+	NextData(ctx context.Context) (*DataInfo, error)
 }
 
 // ---- misc ----
