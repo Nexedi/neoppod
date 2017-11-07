@@ -58,7 +58,7 @@ type Dumper interface {
 // To do so it reads file header and then iterates over all transactions in the file.
 // The logic to actually output information and, if needed read/process data, is implemented by Dumper d.
 func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
-	defer xerr.Contextf(&err, "%s: %s", path, d.DumperName())	// XXX ok?
+	defer xerr.Contextf(&err, "%s: %s", d.DumperName(), path)
 
 	it, f, err := fs1.IterateFile(path, dir)
 	if err != nil {
@@ -359,9 +359,10 @@ func (d *DumperFsTail) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	d.data = xbytes.Realloc64(d.data, dataLen)
 	_, err := it.R.ReadAt(d.data, txnh.DataPos())
 	if err != nil {
-		// XXX -> txnh.Err(...) ?
-		// XXX err = noEOF(err)
-		return &fs1.ErrTxnRecord{txnh.Pos, "read data payload", err}
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF	// XXX -> noEOF(err)
+		}
+		return &fs1.TxnError{txnh.Pos, "read data payload", err}
 	}
 
 	// print information about read txn record

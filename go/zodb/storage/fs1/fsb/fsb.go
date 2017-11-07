@@ -18,6 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package fsb specializes cznic/b.Tree for FileStorage index needs.
+//
 // See gen-fsbtree for details.
 package fsb
 

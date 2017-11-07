@@ -27,8 +27,8 @@ var commands = prog.CommandRegistry{
 	// NOTE the order commands are listed here is the order how they will appear in help
 	// TODO analyze ?
 	// TODO cmp
-	{"info",   infoSummary,   infoUsage,   infoMain},
-	{"dump",   dumpSummary,   dumpUsage,   dumpMain},
+	{"info", infoSummary, infoUsage, infoMain},
+	{"dump", dumpSummary, dumpUsage, dumpMain},
 	{"catobj", catobjSummary, catobjUsage, catobjMain},
 }
 

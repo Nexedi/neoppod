@@ -49,7 +49,7 @@ func loadZdumpPy(t *testing.T, path string) string {
 	// bugs.  Here we want to compare output ideally bit-to-bit but those
 	// \v vs \x0b glitches prevents that to be done directly. So here we
 	// are with this ugly hack:
-	var pyNoBackLetter = []struct {backNoLetterRe, backLetter string} {
+	var pyNoBackLetter = []struct{ backNoLetterRe, backLetter string }{
 		{`\\x07`, `\a`},
 		{`\\x08`, `\b`},
 		{`\\x0b`, `\v`},

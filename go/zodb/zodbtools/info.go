@@ -75,7 +75,7 @@ func Info(ctx context.Context, w io.Writer, stor zodb.IStorage, parameterv []str
 
 		out := ""
 		if wantnames {
-		    out += parameter + "="
+			out += parameter + "="
 		}
 		value, err := getParam(ctx, stor)
 		if err != nil {

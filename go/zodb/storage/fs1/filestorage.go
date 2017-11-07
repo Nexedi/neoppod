@@ -51,7 +51,7 @@
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/fsIndex.py
 //	https://github.com/zopefoundation/ZODB/commit/1bb14faf
 //
-// Unless one is doing something FileStorage-specific, it is advices not to use
+// Unless one is doing something FileStorage-specific, it is adviced not to use
 // fs1 package directly, and instead link-in lab.nexedi.com/kirr/neo/go/zodb/wks,
 // open storage by zodb.OpenStorage and use it by way of zodb.IStorage interface.
 //
@@ -89,10 +89,6 @@ type FileStorage struct {
 	// XXX keep loaded with LoadNoStrings ?
 	txnhMin	TxnHeader
 	txnhMax TxnHeader
-
-	// XXX topPos = txnhMax.Pos + txnhMax.Len
-	//topPos	int64	// position pointing just past last committed transaction
-	//			// (= size(.file) when no commit is in progress)
 }
 
 // IStorage
@@ -103,12 +99,14 @@ func (fs *FileStorage) StorageName() string {
 }
 
 // open opens FileStorage without loading index
+//
+// TODO read-write support
 func open(path string) (*FileStorage, error) {
 	fs := &FileStorage{}
 
-	f, err := os.Open(path)	// XXX opens in O_RDONLY
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, err	// XXX err more context ?
+		return nil, err
 	}
 	fs.file = f
 
@@ -119,22 +117,12 @@ func open(path string) (*FileStorage, error) {
 		return nil, err
 	}
 
-/*
-	// TODO recreate index if missing / not sane (cancel this job on ctx.Done)
-	// TODO verify index sane / topPos matches
-	topPos, index, err := LoadIndexFile(path + ".index")
-	if err != nil {
-		panic(err)	// XXX err
-	}
-	fs.index = index
-*/
-
 	// determine topPos from file size
 	// if it is invalid (e.g. a transaction committed only half-way) we'll catch it
 	// while loading/recreating index	XXX recheck this logic
 	fi, err := f.Stat()
 	if err != nil {
-		return nil, err	// XXX err ctx
+		return nil, err
 	}
 	topPos := fi.Size()
 
@@ -142,19 +130,19 @@ func open(path string) (*FileStorage, error) {
 	// FIXME support empty file case -> then both txnhMin and txnhMax stays invalid
 	err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)	// XXX txnValidFrom here -> ?
 	if err != nil {
-		return nil, err	// XXX +context
+		return nil, err
 	}
 	err = fs.txnhMax.Load(f, topPos, LoadAll)
 	// expect EOF but .LenPrev must be good
 	// FIXME ^^^ it will be no EOF if a txn was committed only partially
 	if err != io.EOF {
 		if err == nil {
-			err = fmt.Errorf("no EOF after topPos")	// XXX err context
+			err = fmt.Errorf("%s: no EOF after topPos", f.Name())
 		}
-		return nil, err	// XXX +context
+		return nil, fmt.Errorf("%s: %s", f.Name(), err)
 	}
 	if fs.txnhMax.LenPrev <= 0 {
-		panic("could not read LenPrev @topPos")	// XXX err
+		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
 	}
 
 	err = fs.txnhMax.LoadPrev(f, LoadAll)
@@ -166,35 +154,39 @@ func open(path string) (*FileStorage, error) {
 	return fs, nil
 }
 
-// Open opens FileStorage XXX text
+// Open opens FileStorage @path.
+//
+// TODO read-write support
 func Open(ctx context.Context, path string) (*FileStorage, error) {
+	// open data file
 	fs, err := open(path)
 	if err != nil {
 		return nil, err
 	}
 
+	// load/rebuild index
 	err = fs.loadIndex()
 	if err != nil {
 		log.Print(err)
 		log.Printf("%s: index recompute...", path)
-		fs.index, err = fs.computeIndex(ctx)	// XXX better .reindex() which saves it?
+		// XXX if !ro -> .reindex() which saves it
+		fs.index, err = fs.computeIndex(ctx)
 		if err != nil {
 			fs.file.Close()		// XXX lclose
 			return nil, err
 		}
 	}
 
-	// TODO verify index sane / topPos matches
-	// XXX place
+	// TODO verify index is sane / topPos matches
 	if fs.index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
-		panic("inconsistent index topPos")	// XXX
+		panic("TODO: inconsistent index topPos")	// XXX
 	}
 
 	return fs, nil
 }
 
 func (fs *FileStorage) Close() error {
-	// TODO dump index
+	// TODO dump index (if !ro ?)
 	err := fs.file.Close()
 	if err != nil {
 		return err
@@ -530,8 +522,8 @@ func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err erro
 
 // loadIndex loads on-disk index to RAM
 func (fs *FileStorage) loadIndex() (err error) {
-	// XXX LoadIndexFile already contains "%s: index load"
 	// XXX lock?
+	// XXX LoadIndexFile already contains "%s: index load"
 	defer xerr.Contextf(&err, "%s", fs.file.Name())
 
 	index, err := LoadIndexFile(fs.file.Name() + ".index")
@@ -563,7 +555,8 @@ func (fs *FileStorage) saveIndex() (err error) {
 	return nil
 }
 
-// IndexCorruptError is the error returned when index verification fails
+// indexCorruptError is the error returned when index verification fails.
+//
 // XXX but io errors during verification return not this
 type indexCorruptError struct {
 	index   *Index
@@ -576,6 +569,7 @@ func (e *indexCorruptError) Error() string {
 }
 
 // VerifyIndex verifies that index is correct
+//
 // XXX -> not exported @ fs1
 func (fs *FileStorage) verifyIndex(ctx context.Context) error {
 	// XXX lock appends?
@@ -596,6 +590,7 @@ func (fs *FileStorage) verifyIndex(ctx context.Context) error {
 
 
 // Reindex rebuilds the index
+//
 // XXX -> not exported @ fs1
 func (fs *FileStorage) reindex(ctx context.Context) error {
 	// XXX lock appends?

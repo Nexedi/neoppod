@@ -18,7 +18,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""generate reference database and index for tests"""
+"""generate reference fs1 database and index for tests"""
 
 from ZODB.FileStorage import FileStorage
 from zodbtools.test.gen_testdata import gen_testdb

@@ -94,38 +94,38 @@ const (
 	lenIterStart int64 = -0x1111111111111112	// = 0xeeeeeeeeeeeeeeee if unsigned
 )
 
-// ErrTxnRecord is returned on transaction record read / decode errors
-type ErrTxnRecord struct {
+// TxnError is returned on transaction record read / decode errors
+type TxnError struct {
 	Pos	int64	// position of transaction record
 	Subj	string	// about what .Err is
 	Err	error	// actual error
 }
 
-func (e *ErrTxnRecord) Error() string {
+func (e *TxnError) Error() string {
 	return fmt.Sprintf("transaction record @%v: %v: %v", e.Pos, e.Subj, e.Err)
 }
 
-// err creates ErrTxnRecord for transaction located at txnh.Pos
+// err creates TxnError for transaction located at txnh.Pos
 func (txnh *TxnHeader) err(subj string, err error) error {
-	return &ErrTxnRecord{txnh.Pos, subj, err}
+	return &TxnError{txnh.Pos, subj, err}
 }
 
 
-// ErrDataRecord is returned on data record read / decode errors
-type ErrDataRecord struct {
+// DataError is returned on data record read / decode errors
+type DataError struct {
 	Pos	int64	// position of data record
 	Subj	string	// about what .Err is
 	Err	error	// actual error
 }
 
-func (e *ErrDataRecord) Error() string {
+func (e *DataError) Error() string {
 	return fmt.Sprintf("data record @%v: %v: %v", e.Pos, e.Subj, e.Err)
 }
 
-// err creates ErrDataRecord for data record located at dh.Pos
+// err creates DataError for data record located at dh.Pos
 // XXX add link to containing txn? (check whether we can do it on data access) ?
 func (dh *DataHeader) err(subj string, err error) error {
-	return &ErrDataRecord{dh.Pos, subj, err}
+	return &DataError{dh.Pos, subj, err}
 }
 
 
@@ -159,12 +159,10 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 	_, err := r.ReadAt(fh.Magic[:], 0)
 	err = okEOF(err)
 	if err != nil {
-		//return fh.err("read", err)
-		return  err	// XXX err more context
+		return  err
 	}
 	if string(fh.Magic[:]) != Magic {
-		return fmt.Errorf("%s: invalid magic %q", xio.Name(r), fh.Magic) // XXX -> decode err
-		//return decodeErr(fh, "invalid magic %q", fh.Magic)
+		return fmt.Errorf("%s: invalid magic %q", xio.Name(r), fh.Magic)
 	}
 
 	return nil
@@ -385,7 +383,10 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	err := txnh.Load(r, txnh.Pos - lenPrev, flags)
 	if err != nil {
 		// EOF forward is unexpected here
-		return noEOF(err)
+		if err == io.EOF {
+			err = txnh.err("read", io.ErrUnexpectedEOF)
+		}
+		return err
 	}
 
 	if txnh.Len != lenPrev {
@@ -527,7 +528,7 @@ func (dh *DataHeader) LoadPrevRev(r io.ReaderAt) error {
 	err := dh.loadPrevRev(r)
 	if err != nil {
 		// data record @...: loading prev rev: data record @...: ...
-		err = &ErrDataRecord{posCur, "loading prev rev", err}
+		err = &DataError{posCur, "loading prev rev", err}
 	}
 	return err
 }
@@ -542,12 +543,12 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 	}
 
 	if dh.Oid != oid {
-		// XXX vvv valid only if ErrDataRecord prints oid
+		// XXX vvv valid only if DataError prints oid
 		return decodeErr(dh, "oid mismatch")
 	}
 
 	if dh.Tid >= tid {
-		// XXX vvv valid only if ErrDataRecord prints tid
+		// XXX vvv valid only if DataError prints tid
 		return decodeErr(dh, "tid mismatch")
 	}
 
@@ -614,7 +615,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 	}()
 
 	if err != nil {
-		err = &ErrDataRecord{posCur, "loading back rev", err}
+		err = &DataError{posCur, "loading back rev", err}
 	}
 
 	return err
@@ -644,7 +645,7 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 	}
 
 	if nextPos + DataHeaderSize > txnTailPos {
-		return &ErrDataRecord{nextPos, "decode", fmt.Errorf("data record header overlaps txn boundary")}	// XXX
+		return &DataError{nextPos, "decode", fmt.Errorf("data record header overlaps txn boundary")}	// XXX
 	}
 
 	err := dh.Load(r, nextPos)

@@ -41,9 +41,9 @@ func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) 
 		return err
 	}
 
-	_, err = w.Write(buf.Data)	// NOTE deleted data are returned as err by Load
+	_, err = w.Write(buf.Data) // NOTE deleted data are returned as err by Load
 	buf.Release()
-	return err		// XXX err ctx ?
+	return err // XXX err ctx ?
 }
 
 // Dumpobj dumps content of one ZODB object with zodbdump-like header
@@ -59,7 +59,7 @@ func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid,
 	objInfo.Oid = xid.Oid
 	objInfo.Tid = tid
 	objInfo.Data = buf.Data
-	objInfo.DataTid = tid	// XXX generally wrong
+	objInfo.DataTid = tid // XXX generally wrong
 
 	d := dumper{W: w, HashOnly: hashOnly}
 	err = d.DumpData(&objInfo)

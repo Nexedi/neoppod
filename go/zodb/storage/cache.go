@@ -34,6 +34,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontainer/list"
 )
 
+// XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
 
 // Cache adds RAM caching layer over a storage.
@@ -67,10 +68,6 @@ type oidCacheEntry struct {
 	//
 	// NOTE ^^^ .serial = 0 while loading is in progress
 	// NOTE ^^^ .serial = 0 if .err != nil
-	//
-	// XXX or?
-	// cached revisions in descending order
-	// .before > .serial >= next.before > next.serial ?
 	rcev []*revCacheEntry
 }
 
@@ -105,7 +102,7 @@ type revCacheEntry struct {
 }
 
 // StorLoader represents loading part of a storage.
-// XXX -> zodb?
+// XXX -> zodb.IStorageLoader (or zodb.Loader ?) ?
 type StorLoader interface {
 	Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error)
 }
@@ -208,7 +205,7 @@ func (c *Cache) Prefetch(ctx context.Context, xid zodb.Xid) {
 // rce will become ready.
 //
 // rceNew indicates whether rce is new and so loading on it has not been
-// initiated yet. If so rce should be loaded with loadRCE.
+// initiated yet. If so the caller should proceed to loading rce via loadRCE.
 func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	// loadSerial(serial) -> loadBefore(serial+1)
 	before := xid.Tid
@@ -463,7 +460,7 @@ func (c *Cache) gcsignal() {
 	default:
 		// also ok - .gcCh is created with size 1 so if we could not
 		// put something to it - there is already 1 element in there
-		// and so gc will get signal to run
+		// and so gc will get signal to run.
 	}
 }
 

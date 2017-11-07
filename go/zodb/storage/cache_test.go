@@ -37,8 +37,6 @@ import (
 
 // tStorage implements read-only storage for cache testing
 type tStorage struct {
-	//txnv []tTxnRecord	// transactions;  .tid↑
-
 	// oid -> [](.serial↑, .data)
 	dataMap map[zodb.Oid][]tOidData
 }
@@ -139,7 +137,6 @@ func TestCache(t *testing.T) {
 
 	__ := Checker{t}
 	ok1 := func(v bool) { t.Helper(); __.ok1(v) }
-	//eq  := func(a, b interface{}) { t.Helper(); __.assertEq(a, b) }
 
 	hello := []byte("hello")
 	world := []byte("world!!")
@@ -592,29 +589,3 @@ func (c *Checker) assertEq(a, b interface{}) {
 		c.t.Fatal("!eq:\n", pretty.Compare(a, b))
 	}
 }
-
-/*
-type tTxnRecord struct {
-	tid	zodb.Tid
-
-	// data records for oid changed in transaction
-	// .oid↑
-	datav []tDataRecord
-}
-
-type tDataRecord struct {
-	oid	zodb.Oid
-	data	[]byte
-}
-
-	if xid.TidBefore {
-		// find max txn with .tid < xid.Tid
-		n := len(s.txnv)
-		i := n - 1 - sort.Search(n, func(i int) bool {
-			return s.txnv[n - 1 - i].tid < xid.Tid
-		})
-		if i == -1 {
-			// XXX xid.Tid < all .tid - no such transaction
-		}
-	}
-*/
