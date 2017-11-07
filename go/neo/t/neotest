@@ -618,7 +618,7 @@ system_info() {
 
 	# all NICs
 	# XXX warn if ethtool is not there
-	find /sys/class/net -type l -not -lname '*virtual*' | \
+	find /sys/class/net -type l -not -lname '*virtual*' |sort | \
 	while read nic; do
 		nicname=`basename $nic`		# /sys/class/net/eth0	-> eth0
 		echo -n "# $nicname: "
