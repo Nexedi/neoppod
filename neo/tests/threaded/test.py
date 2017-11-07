@@ -37,8 +37,8 @@ from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
 from .. import expectedFailure, unpickle_state, Patch, TransactionalResource
-from . import ClientApplication, ConnectionFilter, LockLock, NEOThreadedTest, \
-    RandomConflictDict, ThreadId, with_cluster
+from . import ClientApplication, ConnectionFilter, LockLock, NEOCluster, \
+    NEOThreadedTest, RandomConflictDict, ThreadId, with_cluster
 from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
@@ -198,9 +198,9 @@ class Test(NEOThreadedTest):
     def testUndoConflictDuringStore(self, cluster):
         self._testUndoConflict(cluster, 1)
 
-    @with_cluster()
-    def testStorageDataLock(self, cluster):
-        if 1:
+    def testStorageDataLock(self, dedup=False):
+        with NEOCluster(dedup=dedup) as cluster:
+            cluster.start()
             storage = cluster.getZODBStorage()
             data_info = {}
 
@@ -212,8 +212,6 @@ class Test(NEOThreadedTest):
             r1 = storage.store(oid, None, data, '', txn)
             r2 = storage.tpc_vote(txn)
             tid = storage.tpc_finish(txn)
-            data_info[key] = 0
-            storage.sync()
 
             txn = [transaction.Transaction() for x in xrange(4)]
             for t in txn:
@@ -221,20 +219,20 @@ class Test(NEOThreadedTest):
                 storage.store(oid if tid else storage.new_oid(),
                               tid, data, '', t)
                 tid = None
-            data_info[key] = 4
-            storage.sync()
+            data_info[key] = 4 if dedup else 1
+            self.tic()
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn.pop())
             for t in txn:
                 storage.tpc_vote(t)
-            storage.sync()
-            data_info[key] -= 1
+            self.tic()
+            data_info[key] -= dedup
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn[1])
-            storage.sync()
-            data_info[key] -= 1
+            self.tic()
+            data_info[key] -= dedup
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             tid1 = storage.tpc_finish(txn[2])
@@ -243,9 +241,12 @@ class Test(NEOThreadedTest):
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
 
             storage.tpc_abort(txn[0])
-            storage.sync()
-            data_info[key] -= 1
+            self.tic()
+            data_info[key] -= dedup
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
+
+    def testStorageDataLockWithDeduplication(self, dedup=False):
+        self.testStorageDataLock(True)
 
     @with_cluster()
     def testStorageDataLock2(self, cluster):

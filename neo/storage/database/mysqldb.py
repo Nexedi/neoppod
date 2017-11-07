@@ -172,7 +172,7 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
 
-    def _setup(self):
+    def _setup(self, dedup=False):
         self._config.clear()
         q = self.query
         p = engine = self._engine
@@ -240,9 +240,9 @@ class MySQLDatabaseManager(DatabaseManager):
                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
-                 value MEDIUMBLOB NOT NULL,
-                 UNIQUE (hash, compression)
-             ) ENGINE=""" + engine)
+                 value MEDIUMBLOB NOT NULL%s
+             ) ENGINE=%s""" % (""",
+                 UNIQUE (hash, compression)""" if dedup else "", engine))
 
         q("""CREATE TABLE IF NOT EXISTS bigdata (
                  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

@@ -112,7 +112,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
-    def _setup(self):
+    def _setup(self, dedup=False):
         # SQLite does support transactional Data Definition Language statements
         # but unfortunately, the built-in Python binding automatically commits
         # between such statements. This anti-feature causes this method to be
@@ -179,9 +179,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL)
           """)
-        q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
-                 data(hash, compression)
-          """)
+        if dedup:
+            q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
+                    data(hash, compression)
+              """)
 
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (

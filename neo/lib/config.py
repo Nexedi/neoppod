@@ -147,3 +147,6 @@ class ConfigurationManager(object):
         n = self.__get('autostart', True)
         if n:
             return int(n)
+
+    def getDedup(self):
+        return self.__get('dedup', True)

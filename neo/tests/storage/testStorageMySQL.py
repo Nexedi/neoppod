@@ -39,7 +39,7 @@ class StorageMySQLdbTests(StorageDBTests):
         self.assertEqual(db.db, DB_PREFIX + '0')
         self.assertEqual(db.user, DB_USER)
         try:
-            db.setup(reset)
+            db.setup(reset, True)
         except NotSupportedError as m:
             code, m = m.args
             if code != UNKNOWN_STORAGE_ENGINE:

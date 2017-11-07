@@ -322,8 +322,8 @@ class ImporterDatabaseManager(DatabaseManager):
             for zodb in self.zodb:
                 zodb.close()
 
-    def setup(self, reset=0):
-        self.db.setup(reset)
+    def setup(self, reset=False, dedup=False):
+        self.db.setup(reset, dedup)
         zodb_state = self.getConfiguration("zodb")
         if zodb_state:
             logging.warning("Ignoring configuration file for oid mapping."

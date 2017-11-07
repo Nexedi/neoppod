@@ -69,7 +69,7 @@ class Application(BaseApplication):
         # operation related data
         self.operational = False
 
-        self.dm.setup(reset=config.getReset())
+        self.dm.setup(reset=config.getReset(), dedup=config.getDedup())
         self.loadConfiguration()
 
         # force node uuid from command line argument, for testing purpose only
