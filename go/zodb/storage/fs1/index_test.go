@@ -47,7 +47,7 @@ func (p byOid) Len() int           { return len(p) }
 func (p byOid) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p byOid) Less(i, j int) bool { return p[i].oid < p[j].oid }
 
-var indexTest1 = [...]indexEntry {
+var indexTest1 = [...]indexEntry{
 	{0x0000000000000000, 111},
 	{0x0000000000000001, 222},
 	{0x000000000000ffff, 333},
@@ -108,7 +108,7 @@ func TestIndexLookup(t *testing.T) {
 		}
 
 		// try non-existing entries too
-		oid := entry.oid ^ (1<<32)
+		oid := entry.oid ^ (1 << 32)
 		pos, ok = fsi.Get(oid)
 		if !(pos == 0 && ok == false) {
 			t.Errorf("fsi[%x] -> got (%x, %v)  ; want (0, false)", oid, pos, ok)
@@ -124,7 +124,7 @@ func TestIndexLookup(t *testing.T) {
 	sort.Sort(byOid(tt[:]))
 
 	i := 0
-	for ;; i++ {
+	for ; ; i++ {
 		oid, pos, errStop := e.Next()
 		if errStop != nil {
 			break
@@ -182,8 +182,7 @@ func TestIndexSaveLoad(t *testing.T) {
 	// {0xb000000000000000, 0x7fffffffffffffff}, // will cause 'entry position too large'
 }
 
-
-var _1fs_index = func () *Index {
+var _1fs_index = func() *Index {
 	idx := IndexNew()
 	idx.TopPos = _1fs_indexTopPos
 	setIndex(idx, _1fs_indexEntryv[:])
@@ -211,7 +210,7 @@ func TestIndexSaveToPy(t *testing.T) {
 	}
 
 	// now ask python part to compare testdata and saved-by-us index
-	cmd := exec.Command("./py/indexcmp", "testdata/1.fs.index", workdir + "/1.fs.index")
+	cmd := exec.Command("./py/indexcmp", "testdata/1.fs.index", workdir+"/1.fs.index")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -236,7 +235,7 @@ func TestIndexBuildVerify(t *testing.T) {
 	}
 
 	pos0, _ := index.Get(0)
-	index.Set(0, pos0 + 1)
+	index.Set(0, pos0+1)
 	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1, nil)
 	if err == nil {
 		t.Fatalf("index verify: expected error after tweak")

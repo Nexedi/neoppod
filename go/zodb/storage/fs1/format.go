@@ -41,10 +41,8 @@ type FileHeader struct {
 // TxnHeader represents header of a transaction record
 type TxnHeader struct {
 	Pos	int64	// position of transaction start
-	LenPrev	int64	// whole previous transaction record length
-			// (-1 if there is no previous txn record) XXX see rules in Load
-	Len	int64	// whole transaction record length	   XXX see rules in Load
-	// ^^^ FIXME make Len be raw len as stored on disk (currently it is len-on-disk + 8)
+	LenPrev	int64	// whole previous transaction record length (see EOF/error rules in Load)
+	Len	int64	// whole transaction record length          (see EOF/error rules in Load)
 
 	// transaction metadata itself
 	zodb.TxnInfo
@@ -60,7 +58,6 @@ type DataHeader struct {
 	Pos		int64	// position of data record start
 	Oid             zodb.Oid
 	Tid             zodb.Tid
-	// XXX -> .PosPrevRev  .PosTxn  .LenData?
 	PrevRevPos	int64	// position of this oid's previous-revision data record
 	TxnPos          int64	// position of transaction record this data record belongs to
 	//_		uint16	// 2-bytes with zero values. (Was version length.)
@@ -234,7 +231,6 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	}
 	work := txnh.workMem[:txnXHeaderFixSize]
 
-	// XXX recheck rules about error exit
 	txnh.Pos = pos
 	txnh.Len = 0		// read error
 	txnh.LenPrev = 0	// read error
@@ -292,11 +288,11 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 		return checkErr(txnh, "invalid txn record length: %v", tlen)
 	}
 	// XXX also check tlen to not go beyond file size ?
-	txnh.Len = tlen
+	// txnh.Len will be set =tlen at last - after checking other fields for correctness.
 
 	txnh.Status = zodb.TxnStatus(work[8+16])
 	if !txnh.Status.Valid() {
-		return checkErr(txnh, "invalid status: %v", txnh.Status)
+		return checkErr(txnh, "invalid status: %q", txnh.Status)
 	}
 
 
@@ -305,9 +301,13 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	lext  := binary.BigEndian.Uint16(work[8+21:])
 
 	lstr := int(luser) + int(ldesc) + int(lext)
-	if TxnHeaderFixSize + int64(lstr) + 8 > txnh.Len {
-		return checkErr(txnh, "strings overlap with txn boundary: %v / %v", lstr, txnh.Len)
+	if TxnHeaderFixSize + int64(lstr) + 8 > tlen {
+		return checkErr(txnh, "strings overlap with txn boundary: %v / %v", lstr, tlen)
 	}
+
+	// set .Len at last after doing all header checks
+	// this way we make sure we never return bad fixed TxnHeader with non-error .Len
+	txnh.Len = tlen
 
 	// NOTE we encode whole strings length into len(.workMem)
 	txnh.workMem = xbytes.Realloc(txnh.workMem, lstr)
@@ -352,12 +352,13 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
 
 // LoadPrev reads and decodes previous transaction record header.
 //
-// prerequisite: txnh .Pos, .LenPrev and .Len are initialized:	XXX (.Len for .Tid)
-//   - by successful call to Load() initially			XXX but EOF also works
-//   - by subsequent successful calls to LoadPrev / LoadNext	XXX recheck
+// prerequisites:
+//
+//	- txnh .Pos, .LenPrev are initialized
+//	- optionally if .Len is initialized and txnh was loaded - tid↓ will be also checked
 func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenPrev := txnh.LenPrev
-	switch lenPrev {	// XXX recheck states for: 1) LenPrev load error  2) EOF
+	switch lenPrev {
 	case 0:
 		bug(txnh, "LoadPrev() when .LenPrev == error")
 	case -1:
@@ -405,9 +406,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 
 // LoadNext reads and decodes next transaction record header.
 //
-// prerequisite: txnh .Pos and .Len should be already initialized by:	XXX also .Tid
-//   - previous successful call to Load() initially		XXX ^^^
-//   - TODO
+// prerequisite: txnh .Pos, .Len and .Tid should be already initialized.
 func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenCur := txnh.Len
 	posCur := txnh.Pos
@@ -440,7 +439,7 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 
 	// check tid↑
 	if txnh.Tid <= tidCur {
-		return checkErr(txnh, "tid monotonity broken: %v  ; prev: %v", txnh.Tid, tidCur)
+		return checkErr(txnh, "tid↑ broken: %v  ; prev: %v", txnh.Tid, tidCur)
 	}
 
 	return nil
@@ -452,7 +451,6 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 func (dh *DataHeader) Len() int64 {
 	dataLen := dh.DataLen
 	if dataLen == 0 {
-		// XXX -> .DataLen() ?
 		dataLen = 8 // back-pointer | oid removal
 	}
 
@@ -460,13 +458,14 @@ func (dh *DataHeader) Len() int64 {
 }
 
 
-// Load reads and decodes data record header.
+// Load reads and decodes data record header @ pos.
 //
-// pos: points to data header start
-// no prerequisite requirements are made to previous dh state
+// Only the data record header is loaded, not data itself.
+// See LoadData for actually loading record's data.
+//
+// No prerequisite requirements are made to previous dh state.
 func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
-	dh.Pos = pos
-	// XXX .Len = 0		= read error ?
+	dh.Pos = -1	// ~ error
 
 	if pos < dataValidFrom {
 		bug(dh, "Load() on invalid position")
@@ -513,14 +512,15 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 		return checkErr(dh, "invalid data len: %v", dh.DataLen)
 	}
 
+	dh.Pos = pos
 	return nil
 }
 
 // LoadPrevRev reads and decodes previous revision data record header.
 //
-// prerequisite: dh .Oid .Tid .PrevRevPos are initialized.
+// Prerequisite: dh .Oid .Tid .PrevRevPos are initialized.
 //
-// when there is no previous revision: io.EOF is returned
+// When there is no previous revision: io.EOF is returned.
 func (dh *DataHeader) LoadPrevRev(r io.ReaderAt) error {
 	if dh.PrevRevPos == 0 {
 		return io.EOF	// no more previous revisions
@@ -559,7 +559,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt, prevPos int64) error {
 
 // LoadBackRef reads data for the data record and decodes it as backpointer reference.
 //
-// prerequisite: dh loaded and .LenData == 0 (data record with back-pointer).
+// Prerequisite: dh loaded and .LenData == 0 (data record with back-pointer).
 func (dh *DataHeader) LoadBackRef(r io.ReaderAt) (backPos int64, err error) {
 	if dh.DataLen != 0 {
 		bug(dh, "LoadBack() on non-backpointer data header")
@@ -583,9 +583,9 @@ func (dh *DataHeader) LoadBackRef(r io.ReaderAt) (backPos int64, err error) {
 
 // LoadBack reads and decodes data header for revision linked via back-pointer.
 //
-// prerequisite: dh is loaded and .DataLen == 0
+// Prerequisite: dh is loaded and .DataLen == 0.
 //
-// if link is to zero (means deleted record) io.EOF is returned
+// If link is to zero (means deleted record) io.EOF is returned.
 func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 	backPos, err := dh.LoadBackRef(r)
 	if err != nil {
@@ -609,7 +609,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 
 // LoadNext reads and decodes data header for next data record in the same transaction.
 //
-// prerequisite: dh .Pos .DataLen are initialized.
+// Prerequisite: dh .Pos .DataLen are initialized.
 //
 // When there is no more data records: io.EOF is returned.
 func (dh *DataHeader) LoadNext(r io.ReaderAt, txnh *TxnHeader) error {
@@ -658,8 +658,8 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 
 // LoadData loads data for the data record taking backpointers into account.
 //
-// NOTE on success dh state is changed to data header of original data transaction
-// NOTE "deleted" records are indicated via returning *buf=nil
+// NOTE on success dh state is changed to data header of original data transaction.
+// NOTE "deleted" records are indicated via returning buf with .Data=nil.
 func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 	// scan via backpointers
 	for dh.DataLen == 0 {
@@ -668,7 +668,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 			if err == io.EOF {
 				return &zodb.Buf{Data: nil}, nil // deleted
 			}
-			return nil, err	// XXX recheck
+			return nil, err
 		}
 	}
 
@@ -677,7 +677,7 @@ func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 	_, err := r.ReadAt(buf.Data, dh.Pos + DataHeaderSize)
 	if err != nil {
 		buf.Release()
-		return nil, dh.err("read data", noEOF(err))	// XXX recheck
+		return nil, dh.err("read data", noEOF(err))
 	}
 
 	return buf, nil
@@ -701,6 +701,7 @@ const (
 )
 
 // NextTxn iterates to next/previous transaction record according to iteration direction.
+//
 // The data header is reset to iterate inside transaction record that becomes current.
 func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 	var err error
@@ -712,8 +713,6 @@ func (it *Iter) NextTxn(flags TxnLoadFlags) error {
 	default:
 		panic("Iter.Dir invalid")
 	}
-
-	//fmt.Printf("Iter.NextTxn  dir=%v -> %v\n", it.Dir, err)
 
 	if err != nil {
 		// reset .Datah to be invalid (just in case)
@@ -750,6 +749,7 @@ func Iterate(r io.ReaderAt, posStart int64, dir IterDir) *Iter {
 
 
 // IterateFile opens file @ path read-only and creates Iter to iterate over it.
+//
 // The iteration will use buffering over os.File optimized for sequential access.
 // You are responsible to eventually close the file after the iteration is done.
 func IterateFile(path string, dir IterDir) (iter *Iter, file *os.File, err error) {
@@ -774,6 +774,7 @@ func IterateFile(path string, dir IterDir) (iter *Iter, file *os.File, err error
 
 	case IterBackward:
 		// get file size as topPos and start iterating backward from it
+		// XXX half-committed transaction might be there.
 		fi, err := f.Stat()
 		if err != nil {
 			return nil, nil, err
