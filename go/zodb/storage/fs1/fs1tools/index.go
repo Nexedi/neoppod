@@ -41,7 +41,7 @@ func Reindex(ctx context.Context, path string, progress func(*fs1.IndexUpdatePro
 
 	err = index.SaveFile(path + ".index")	// XXX show progress during SaveFile?
 	if err != nil {
-		return err // XXX err ctx
+		return err
 	}
 
 	return nil
@@ -139,7 +139,7 @@ func VerifyIndexFor(ctx context.Context, path string, ntxn int, progress func(*f
 	// XXX lock path.lock ?
 	index, err := fs1.LoadIndexFile(path + ".index")
 	if err != nil {
-		return err	// XXX err ctx
+		return err
 	}
 
 	_, err = index.VerifyForFile(context.Background(), path, ntxn, progress)

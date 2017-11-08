@@ -98,103 +98,6 @@ func (fs *FileStorage) StorageName() string {
 	return "FileStorage v1"
 }
 
-// open opens FileStorage without loading index
-//
-// TODO read-write support
-func open(path string) (*FileStorage, error) {
-	fs := &FileStorage{}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	fs.file = f
-
-	// check file magic
-	fh := FileHeader{}
-	err = fh.Load(f)
-	if err != nil {
-		return nil, err
-	}
-
-	// determine topPos from file size
-	// if it is invalid (e.g. a transaction committed only half-way) we'll catch it
-	// while loading/recreating index	XXX recheck this logic
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	topPos := fi.Size()
-
-	// read tidMin/tidMax
-	// FIXME support empty file case -> then both txnhMin and txnhMax stays invalid
-	err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)	// XXX txnValidFrom here -> ?
-	if err != nil {
-		return nil, err
-	}
-	err = fs.txnhMax.Load(f, topPos, LoadAll)
-	// expect EOF but .LenPrev must be good
-	// FIXME ^^^ it will be no EOF if a txn was committed only partially
-	if err != io.EOF {
-		if err == nil {
-			err = fmt.Errorf("%s: no EOF after topPos", f.Name())
-		}
-		return nil, fmt.Errorf("%s: %s", f.Name(), err)
-	}
-	if fs.txnhMax.LenPrev <= 0 {
-		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
-	}
-
-	err = fs.txnhMax.LoadPrev(f, LoadAll)
-	if err != nil {
-		panic(err)	// XXX
-	}
-
-
-	return fs, nil
-}
-
-// Open opens FileStorage @path.
-//
-// TODO read-write support
-func Open(ctx context.Context, path string) (*FileStorage, error) {
-	// open data file
-	fs, err := open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// load/rebuild index
-	err = fs.loadIndex()
-	if err != nil {
-		log.Print(err)
-		log.Printf("%s: index recompute...", path)
-		// XXX if !ro -> .reindex() which saves it
-		fs.index, err = fs.computeIndex(ctx)
-		if err != nil {
-			fs.file.Close()		// XXX lclose
-			return nil, err
-		}
-	}
-
-	// TODO verify index is sane / topPos matches
-	if fs.index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
-		panic("TODO: inconsistent index topPos")	// XXX
-	}
-
-	return fs, nil
-}
-
-func (fs *FileStorage) Close() error {
-	// TODO dump index (if !ro ?)
-	err := fs.file.Close()
-	if err != nil {
-		return err
-	}
-	fs.file = nil
-	return nil
-}
-
 
 func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
 	// XXX check we have transactions at all - what to return if not?
@@ -220,7 +123,8 @@ func (e *ErrXidLoad) Error() string {
 	return fmt.Sprintf("loading %v: %v", e.Xid, e.Err)
 }
 
-// freelist(DataHeader)
+
+// freelist(DataHeader)		XXX move -> format.go ?
 var dhPool = sync.Pool{New: func() interface{} { return &DataHeader{} }}
 
 // DataHeaderAlloc allocates DataHeader from freelist.
@@ -229,6 +133,8 @@ func DataHeaderAlloc() *DataHeader {
 }
 
 // Free puts dh back into DataHeader freelist.
+//
+// Caller must not use dh after call to Free.
 func (dh *DataHeader) Free() {
 	dhPool.Put(dh)
 }
@@ -512,7 +418,115 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	return ziter
 }
 
-// --- rebuilding index ---
+// --- open + rebuild index ---	TODO review completely
+
+// open opens FileStorage without loading index
+func open(path string) (_ *FileStorage, err error) {
+	fs := &FileStorage{}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	fs.file = f
+	defer func() {
+		if err != nil {
+			f.Close()	// XXX -> lclose
+		}
+	}()
+
+	// check file magic
+	fh := FileHeader{}
+	err = fh.Load(f)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME rework opening logic to support case when last txn was committed only partially
+
+	// determine topPos from file size
+	// if it is invalid (e.g. a transaction committed only half-way) we'll catch it
+	// while loading/recreating index	XXX recheck this logic
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	topPos := fi.Size()
+
+	// read tidMin/tidMax
+	// FIXME support empty file case -> then both txnhMin and txnhMax stays invalid
+	err = fs.txnhMin.Load(f, txnValidFrom, LoadAll)	// XXX txnValidFrom here -> ?
+	if err != nil {
+		return nil, err
+	}
+	err = fs.txnhMax.Load(f, topPos, LoadAll)
+	// expect EOF but .LenPrev must be good
+	// FIXME ^^^ it will be no EOF if a txn was committed only partially
+	if err != io.EOF {
+		if err == nil {
+			err = fmt.Errorf("%s: no EOF after topPos", f.Name())
+		}
+		return nil, fmt.Errorf("%s: %s", f.Name(), err)
+	}
+	if fs.txnhMax.LenPrev <= 0 {
+		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
+	}
+
+	err = fs.txnhMax.LoadPrev(f, LoadAll)
+	if err != nil {
+		return nil, err
+	}
+
+
+	return fs, nil
+}
+
+// Open opens FileStorage @path.
+//
+// TODO read-write support
+func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
+	// open data file
+	fs, err := open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			fs.file.Close()	// XXX lclose
+		}
+	}()
+
+	// load/rebuild index
+	err = fs.loadIndex()
+	if err != nil {
+		log.Print(err)
+		log.Printf("%s: index recompute...", path)
+		// XXX if !ro -> .reindex() which saves it
+		fs.index, err = fs.computeIndex(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO verify index is sane / topPos matches
+	// XXX  zodb/py iirc scans 10 transactions back and verifies index against it
+	// XXX  also if index is not good - it has to be just rebuild without open error
+	if fs.index.TopPos != fs.txnhMax.Pos + fs.txnhMax.Len {
+		return nil, fmt.Errorf("%s: inconsistent index topPos (TODO rebuild index)", path)
+	}
+
+	return fs, nil
+}
+
+func (fs *FileStorage) Close() error {
+	// TODO dump index if !ro
+	err := fs.file.Close()
+	if err != nil {
+		return err
+	}
+	fs.file = nil
+	return nil
+}
 
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
 	// XXX lock?

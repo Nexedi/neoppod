@@ -33,7 +33,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xbytes"
 )
 
-// FileHeader represents file header
+// FileHeader represents header of whole data file
 type FileHeader struct {
 	Magic [4]byte
 }
@@ -51,7 +51,7 @@ type TxnHeader struct {
 
 	// underlying memory for header loading and for user/desc/extension strings
 	// invariant: after successful TxnHeader load len(.workMem) = lenUser + lenDesc + lenExt
-	//            as specified by on-disk header
+	//            as specified by on-disk header.
 	workMem	[]byte
 }
 
@@ -60,16 +60,12 @@ type DataHeader struct {
 	Pos		int64	// position of data record start
 	Oid             zodb.Oid
 	Tid             zodb.Tid
-	// XXX -> .PosPrevRev  .PosTxn  .LenData
-	PrevRevPos	int64	// position of this oid's previous-revision data record	XXX naming
+	// XXX -> .PosPrevRev  .PosTxn  .LenData?
+	PrevRevPos	int64	// position of this oid's previous-revision data record
 	TxnPos          int64	// position of transaction record this data record belongs to
 	//_		uint16	// 2-bytes with zero values. (Was version length.)
 	DataLen		int64	// length of following data. if 0 -> following = 8 bytes backpointer
 				// if backpointer == 0 -> oid deleted
-	//Data            []byte
-	//DataRecPos      uint64  // if Data == nil -> byte position of data record containing data
-
-	// XXX include word0 ?
 
 	// underlying memory for header loading (to avoid allocations)
 	workMem [DataHeaderSize]byte
@@ -84,8 +80,8 @@ const (
 	txnXHeaderFixSize	= 8 + TxnHeaderFixSize	// ^^^ with trail LenPrev from previous record
 	DataHeaderSize		= 8+8+8+8+2+8
 
-	// txn/data pos that are < vvv are for sure invalid
-	txnValidFrom	= int64(len(Magic))	// XXX = FileHeaderSize
+	// txn/data pos that if < vvv are for sure invalid
+	txnValidFrom	= FileHeaderSize
 	dataValidFrom	= txnValidFrom + TxnHeaderFixSize
 
 	// invalid length that indicates start of iteration for TxnHeader LoadNext/LoadPrev
@@ -123,14 +119,15 @@ func (e *DataError) Error() string {
 }
 
 // err creates DataError for data record located at dh.Pos
+//
 // XXX add link to containing txn? (check whether we can do it on data access) ?
 func (dh *DataHeader) err(subj string, err error) error {
 	return &DataError{dh.Pos, subj, err}
 }
 
 
-// ierr is an interface for something which can create errors
-// it is used by TxnHeader and DataHeader to create appropriate errors with their context
+// ierr is an interface for something which can create errors.
+// it is used by TxnHeader and DataHeader to create appropriate errors with their context.
 type ierr interface {
 	err(subj string, err error) error
 }
@@ -162,7 +159,7 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 		return  err
 	}
 	if string(fh.Magic[:]) != Magic {
-		return fmt.Errorf("%s: invalid magic %q", xio.Name(r), fh.Magic)
+		return fmt.Errorf("%s: invalid fs1 magic %q", xio.Name(r), fh.Magic)
 	}
 
 	return nil
@@ -557,9 +554,7 @@ func (dh *DataHeader) loadPrevRev(r io.ReaderAt) error {
 
 // LoadBackRef reads data for the data record and decodes it as backpointer reference.
 //
-// prerequisite: dh loaded and .LenData == 0 (data record with back-pointer)
-// XXX return backPos=-1 if err?
-// XXX unused?
+// prerequisite: dh loaded and .LenData == 0 (data record with back-pointer).
 func (dh *DataHeader) LoadBackRef(r io.ReaderAt) (backPos int64, err error) {
 	if dh.DataLen != 0 {
 		bug(dh, "LoadBack() on non-backpointer data header")
