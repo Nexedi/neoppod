@@ -146,6 +146,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid
 	}
 
 	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
+
 	// XXX go compiler cannot deduce dh should be on stack here
 	//dh := DataHeader{Oid: xid.Oid, Tid: zodb.TidMax, PrevRevPos: dataPos}
 	dh := DataHeaderAlloc()
@@ -264,7 +265,7 @@ func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, 
 func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	err := zi.iter.NextData()
 	if err != nil {
-		return nil, err	// XXX recheck
+		return nil, err
 	}
 
 	zi.datai.Oid = zi.iter.Datah.Oid
@@ -279,7 +280,7 @@ func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	}
 	zi.dataBuf, err = zi.dhLoading.LoadData(zi.iter.R)
 	if err != nil {
-		return nil, err	// XXX recheck
+		return nil, err
 	}
 
 	zi.datai.Data = zi.dataBuf.Data
@@ -318,7 +319,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	tmin.CloneFrom(&fs.txnhMin)
 	tmax.CloneFrom(&fs.txnhMax)
 
-	if tmax.Pos == 0 {	// XXX -> tmax.Valid() )?
+	if tmax.Pos == 0 {	// XXX -> tmax.Valid() ?
 		// empty database - no such record
 		return TxnHeader{}, nil
 	}
@@ -567,40 +568,6 @@ func (fs *FileStorage) saveIndex() (err error) {
 	// XXX fsync here?
 	return nil
 }
-
-// indexCorruptError is the error returned when index verification fails.
-//
-// XXX but io errors during verification return not this
-type indexCorruptError struct {
-	index   *Index
-	indexOk *Index
-}
-
-func (e *indexCorruptError) Error() string {
-	// TODO show delta ?
-	return "index corrupt"
-}
-
-// VerifyIndex verifies that index is correct
-//
-// XXX -> not exported @ fs1
-func (fs *FileStorage) verifyIndex(ctx context.Context) error {
-	// XXX lock appends?
-
-	// XXX if .index is not yet loaded - load it
-
-	indexOk, err := fs.computeIndex(ctx)
-	if err != nil {
-		return err	// XXX err ctx
-	}
-
-	if !indexOk.Equal(fs.index) {
-		err = &indexCorruptError{index: fs.index, indexOk: indexOk}
-	}
-
-	return err
-}
-
 
 // Reindex rebuilds the index
 //

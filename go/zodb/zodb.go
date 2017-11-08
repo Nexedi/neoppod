@@ -78,6 +78,7 @@ type DataInfo struct {
 	// original tid data was committed at (e.g. in case of undo)
 	//
 	// FIXME we don't really need this and this unnecessarily constraints interfaces.
+	// originates from: https://github.com/zopefoundation/ZODB/commit/2b0c9aa4
 	DataTid	Tid
 }
 
