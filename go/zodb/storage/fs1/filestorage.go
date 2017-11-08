@@ -124,14 +124,13 @@ func (e *ErrXidLoad) Error() string {
 }
 
 
-// freelist(DataHeader)		XXX move -> format.go ?
+// freelist(DataHeader)
 var dhPool = sync.Pool{New: func() interface{} { return &DataHeader{} }}
 
 // DataHeaderAlloc allocates DataHeader from freelist.
 func DataHeaderAlloc() *DataHeader {
 	return dhPool.Get().(*DataHeader)
 }
-
 // Free puts dh back into DataHeader freelist.
 //
 // Caller must not use dh after call to Free.

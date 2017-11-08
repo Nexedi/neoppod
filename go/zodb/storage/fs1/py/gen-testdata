@@ -62,12 +62,13 @@ def main():
         txnLenPrev = -1
         for txn in stor.iterator():     # txn is TransactionRecord
             # txn.extension is already depickled dict - we want to put raw data from file
-            # also we need to access txn record legth which is not provided by higher-level iterator
+            # also we need to access txn record length which is not provided by higher-level iterator
             # do deep-dive into FileStorage
             th = stor._read_txn_header(txn._tpos)
             assert th.tid == txn.tid
             assert th.tlen == txn._tend - txn._tpos
 
+            # fs1/go keeps in RAM whole txn length, not len-8 as it is on disk
             txnLen = th.tlen + 8
 
             emit("\t{")

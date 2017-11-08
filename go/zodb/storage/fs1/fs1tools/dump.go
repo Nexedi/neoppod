@@ -29,6 +29,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xbytes"
@@ -362,7 +363,8 @@ func (d *DumperFsTail) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF	// XXX -> noEOF(err)
 		}
-		return &fs1.TxnError{txnh.Pos, "read data payload", err}
+		// XXX dup wrt fs1.TxnHeader.err
+		return &fs1.RecordError{xio.Name(it.R), "transaction record", txnh.Pos, "read data payload", err}
 	}
 
 	// print information about read txn record
