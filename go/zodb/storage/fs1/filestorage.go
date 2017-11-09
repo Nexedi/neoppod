@@ -215,7 +215,7 @@ func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid,
 type zIter struct {
 	iter Iter
 
-	TidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on iter.dir
+	tidStop	zodb.Tid	// iterate up to tid <= tidStop | tid >= tidStop depending on iter.dir
 
 	zFlags	zIterFlags
 
@@ -258,8 +258,8 @@ func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, 
 	}
 
 	// XXX how to make sure last good txnh is preserved?
-	if (zi.iter.Dir == IterForward && zi.iter.Txnh.Tid > zi.TidStop) ||
-	   (zi.iter.Dir == IterBackward && zi.iter.Txnh.Tid < zi.TidStop) {
+	if (zi.iter.Dir == IterForward && zi.iter.Txnh.Tid > zi.tidStop) ||
+	   (zi.iter.Dir == IterBackward && zi.iter.Txnh.Tid < zi.tidStop) {
 		//println("-> EOF")
 		zi.zFlags |= zIterEOF
 		return nil, nil, io.EOF
@@ -321,15 +321,16 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 	//fmt.Printf("findTxn %v\n", tid)
 
 	// XXX read snapshot under lock
+
+	if fs.txnhMin.Len == 0 {
+		// empty database - no such record
+		return TxnHeader{}, nil
+	}
+
 	// NOTE cloning to unalias strings memory
 	var tmin, tmax TxnHeader
 	tmin.CloneFrom(&fs.txnhMin)
 	tmax.CloneFrom(&fs.txnhMax)
-
-	if tmax.Pos == 0 {	// XXX -> tmax.Valid() ?
-		// empty database - no such record
-		return TxnHeader{}, nil
-	}
 
 	// now we know the database is not empty and thus tmin & tmax are valid
 
@@ -417,10 +418,10 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	iter.Datah.Pos = txnh.DataPos()      // XXX dup wrt Iter.NextTxn
 	iter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 
-	iter.Dir = IterForward	// XXX allow both ways iteration at ZODB level
+	iter.Dir = IterForward	// TODO allow both ways iteration at ZODB level
 
 	ziter.zFlags |= zIterPreloaded
-	ziter.TidStop = tidMax
+	ziter.tidStop = tidMax
 
 	return ziter
 }
