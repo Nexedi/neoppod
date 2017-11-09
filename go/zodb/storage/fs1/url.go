@@ -39,7 +39,11 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.ISt
 		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
 	}
 
-	return Open(ctx, path)
+	fs, err := Open(ctx, path)
+	if fs != nil {
+		fs.url = u // FIXME move this inside Open
+	}
+	return fs, err
 }
 
 func init() {

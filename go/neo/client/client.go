@@ -67,12 +67,18 @@ type Client struct {
 	// protected by .node.StateMu
 	operational bool // XXX <- somehow move to NodeApp?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
+
+	url *url.URL // original URL we were opened with
 }
 
 var _ zodb.IStorage = (*Client)(nil)
 
 func (c *Client) StorageName() string {
 	return fmt.Sprintf("neo(%s)", c.node.ClusterName)
+}
+
+func (c *Client) URL() string {
+	return c.url.String()
 }
 
 // NewClient creates new client node.
@@ -521,7 +527,9 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zo
 	// XXX we are not passing ctx to NewClient - right?
 	//     as ctx for open can be done after open finishes - not covering
 	//     whole storage working lifetime.
-	return NewClient(u.User.Username(), u.Host, net), nil
+	c := NewClient(u.User.Username(), u.Host, net)
+	c.url = u	// FIXME move this inside NewClient
+	return c, nil
 }
 
 func init() {

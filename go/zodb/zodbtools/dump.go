@@ -214,7 +214,7 @@ func (d *dumper) Dump(ctx context.Context, stor zodb.IStorage, tidMin, tidMax zo
 	}
 
 	if err != nil {
-		return fmt.Errorf("%s: dumping %v..%v: %v", stor, tidMin, tidMax, err)
+		return fmt.Errorf("%s: dump %v..%v: %v", stor.URL(), tidMin, tidMax, err)
 	}
 
 	return nil

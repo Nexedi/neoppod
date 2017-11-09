@@ -38,7 +38,7 @@ type paramFunc func(ctx context.Context, stor zodb.IStorage) (string, error)
 var infov = []struct {name string; getParam paramFunc} {
 	// XXX e.g. stor.LastTid() should return err itself
 	{"name", func(ctx context.Context, stor zodb.IStorage) (string, error) {
-		return stor.StorageName(), nil
+		return stor.URL(), nil
 	}},
 // TODO reenable size
 //	{"size", func(stor zodb.IStorage) (string, error) { return stor.StorageSize(), nil }},

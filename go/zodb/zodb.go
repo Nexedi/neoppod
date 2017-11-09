@@ -134,8 +134,11 @@ func (e *ErrXidMissing) Error() string {
 
 // IStorage is the interface provided by ZODB storages
 type IStorage interface {
-	// StorageName returns storage name
-	StorageName() string
+	// URL returns URL of this storage
+	URL() string
+
+	// XXX also +StorageName() with storage driver name?
+
 
 	// Close closes storage
 	Close() error
