@@ -23,6 +23,12 @@ package fs1tools
 //go:generate sh -c "python2 -c 'from ZODB.FileStorage import fsdump; fsdump.main()' ../testdata/1.fs >testdata/1.fsdump.ok"
 //go:generate sh -c "python2 -c 'from ZODB.FileStorage.fsdump import Dumper; import sys; d = Dumper(sys.argv[1]); d.dump()' ../testdata/1.fs >testdata/1.fsdumpv.ok"
 
+// fstail.py crashes on empty.fs . The output should be empty file so generate it with just echo.
+////go:generate sh -c "python2 -m ZODB.scripts.fstail -n 1000000 ../testdata/empty.fs >testdata/empty.fstail.ok"
+//go:generate sh -c "echo -n >testdata/empty.fstail.ok"
+//go:generate sh -c "python2 -c 'from ZODB.FileStorage import fsdump; fsdump.main()' ../testdata/empty.fs >testdata/empty.fsdump.ok"
+//go:generate sh -c "python2 -c 'from ZODB.FileStorage.fsdump import Dumper; import sys; d = Dumper(sys.argv[1]); d.dump()' ../testdata/empty.fs >testdata/empty.fsdumpv.ok"
+
 import (
 	"bytes"
 	"fmt"
@@ -44,17 +50,22 @@ func loadFile(t *testing.T, path string) string {
 }
 
 func testDump(t *testing.T, dir fs1.IterDir, d Dumper) {
-	buf := bytes.Buffer{}
+	testv := []string{"1", "empty"}
+	for _, tt := range testv {
+		t.Run("db=" + tt, func(t *testing.T) {
+			buf := bytes.Buffer{}
 
-	err := Dump(&buf, "../testdata/1.fs", dir, d)
-	if err != nil {
-		t.Fatalf("%s: %v", d.DumperName(), err)
-	}
+			err := Dump(&buf, fmt.Sprintf("../testdata/%s.fs", tt), dir, d)
+			if err != nil {
+				t.Fatalf("%s: %v", d.DumperName(), err)
+			}
 
-	dumpOk := loadFile(t, fmt.Sprintf("testdata/1.%s.ok", d.DumperName()))
+			dumpOk := loadFile(t, fmt.Sprintf("testdata/%s.%s.ok", tt, d.DumperName()))
 
-	if dumpOk != buf.String() {
-		t.Errorf("%s: dump different:\n%v", d.DumperName(), diff.Diff(dumpOk, buf.String()))
+			if dumpOk != buf.String() {
+				t.Errorf("%s: dump different:\n%v", d.DumperName(), diff.Diff(dumpOk, buf.String()))
+			}
+		})
 	}
 }
 

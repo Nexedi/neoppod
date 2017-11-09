@@ -20,10 +20,12 @@
 package zodbtools
 
 //go:generate sh -c "python2 -m zodbtools.zodb dump ../../zodb/storage/fs1/testdata/1.fs >testdata/1.zdump.pyok"
+//go:generate sh -c "python2 -m zodbtools.zodb dump ../../zodb/storage/fs1/testdata/empty.fs >testdata/empty.zdump.pyok"
 
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"regexp"
 	"testing"
@@ -64,8 +66,8 @@ func loadZdumpPy(t *testing.T, path string) string {
 	return string(dump)
 }
 
-func withTestdata1Fs(t testing.TB, f func(zstor zodb.IStorage)) {
-	zstor, err := zodb.OpenStorage(context.Background(), "../../zodb/storage/fs1/testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
+func withTestdataFs(t testing.TB, db string, f func(zstor zodb.IStorage)) {
+	zstor, err := zodb.OpenStorage(context.Background(), fmt.Sprintf("../../zodb/storage/fs1/testdata/%s.fs", db), &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,26 +78,31 @@ func withTestdata1Fs(t testing.TB, f func(zstor zodb.IStorage)) {
 }
 
 func TestZodbDump(t *testing.T) {
-	withTestdata1Fs(t, func(zstor zodb.IStorage) {
-		buf := bytes.Buffer{}
+	testv := []string{"1", "empty"}
+	for _, tt := range testv {
+		t.Run("db=" + tt, func(t *testing.T) {
+			withTestdataFs(t, tt, func(zstor zodb.IStorage) {
+				buf := bytes.Buffer{}
 
-		err := Dump(context.Background(), &buf, zstor, 0, zodb.TidMax, false)
-		if err != nil {
-			t.Fatal(err)
-		}
+				err := Dump(context.Background(), &buf, zstor, 0, zodb.TidMax, false)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-		dumpOk := loadZdumpPy(t, "testdata/1.zdump.pyok")
+				dumpOk := loadZdumpPy(t, fmt.Sprintf("testdata/%s.zdump.pyok", tt))
 
-		if dumpOk != buf.String() {
-			t.Errorf("dump different:\n%v", diff.Diff(dumpOk, buf.String()))
-		}
-	})
+				if dumpOk != buf.String() {
+					t.Errorf("dump different:\n%v", diff.Diff(dumpOk, buf.String()))
+				}
+			})
+		})
+	}
 }
 
 
 func BenchmarkZodbDump(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarking
-	withTestdata1Fs(b, func(zstor zodb.IStorage) {
+	withTestdataFs(b, "1", func(zstor zodb.IStorage) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
