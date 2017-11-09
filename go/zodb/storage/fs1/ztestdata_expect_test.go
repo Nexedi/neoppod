@@ -21,7 +21,7 @@ var _1fs_dbEntryv = [...]dbEntry{
 	{
 		TxnHeader{
 			Pos:	  4,
-			LenPrev:  -1,
+			LenPrev:  0,
 			Len:	  159,
 			TxnInfo:	zodb.TxnInfo{
 				Tid:	0x0285cbac258bf266,

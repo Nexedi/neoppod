@@ -476,9 +476,9 @@ func open(path string) (_ *FileStorage, err error) {
 
 	// .LenPrev must be good or EOF backward
 	switch fs.txnhMax.LenPrev {
-	case 0:
-		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
 	case -1:
+		return nil, fmt.Errorf("%s: could not read LenPrev @%d (last transaction)", f.Name(), fs.txnhMax.Pos)
+	case 0:
 		// ok - EOF backward
 
 	default:

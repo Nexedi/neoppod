@@ -59,7 +59,7 @@ def main():
 
         # database records
         emit("\nvar _1fs_dbEntryv = [...]dbEntry{")
-        txnLenPrev = -1
+        txnLenPrev = 0
         for txn in stor.iterator():     # txn is TransactionRecord
             # txn.extension is already depickled dict - we want to put raw data from file
             # also we need to access txn record length which is not provided by higher-level iterator

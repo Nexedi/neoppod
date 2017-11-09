@@ -210,13 +210,13 @@ const (
 //
 // Rules for .Len/.LenPrev returns:
 //
-//	.Len ==  0			transaction header could not be read
-//	.Len == -1			EOF forward
-//	.Len >= TxnHeaderFixSize	transaction was read normally
+//	.Len = -1	transaction header could not be read
+//	.Len = 0	EOF forward
+//	.Len > 0 	transaction was read normally
 //
-//	.LenPrev == 0			prev record length could not be read
-//	.LenPrev == -1			EOF backward
-//	.LenPrev >= TxnHeaderFixSize	LenPrev was read/checked normally
+//	.LenPrev = -1	prev record length could not be read
+//	.LenPrev = 0	EOF backward
+//	.LenPrev > 0	LenPrev was read/checked normally
 //
 // For example when pos points to the end of file .Len will be returned = -1, but
 // .LenPrev will be usually valid if file has at least 1 transaction.
@@ -227,8 +227,8 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	work := txnh.workMem[:txnXHeaderFixSize]
 
 	txnh.Pos = pos
-	txnh.Len = 0		// read error
-	txnh.LenPrev = 0	// read error
+	txnh.Len = -1		// read error
+	txnh.LenPrev = -1	// read error
 
 	if pos < txnValidFrom {
 		bug(r, txnh, "Load() on invalid position")
@@ -258,13 +258,13 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	} else {
 		// read only current txn without previous record length
 		n, err = r.ReadAt(work[8:], pos)
-		txnh.LenPrev = -1	// EOF backward
+		txnh.LenPrev = 0	// EOF backward
 	}
 
 
 	if err != nil {
 		if err == io.EOF && n == 0 {
-			txnh.Len = -1	// EOF forward
+			txnh.Len = 0	// EOF forward
 			return err	// end of stream
 		}
 
@@ -354,9 +354,9 @@ func (txnh *TxnHeader) loadStrings(r io.ReaderAt) error {
 func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenPrev := txnh.LenPrev
 	switch lenPrev {
-	case 0:
-		bug(r, txnh, "LoadPrev() when .LenPrev == error")
 	case -1:
+		bug(r, txnh, "LoadPrev() when .LenPrev == error")
+	case 0:
 		return io.EOF
 
 	case lenIterStart:
@@ -364,7 +364,7 @@ func (txnh *TxnHeader) LoadPrev(r io.ReaderAt, flags TxnLoadFlags) error {
 		// read LenPrev @pos, then tail to LoadPrev
 		pos := txnh.Pos
 		err := txnh.Load(r, pos, flags)
-		if txnh.LenPrev == 0 {
+		if txnh.LenPrev == -1 {
 			if err == nil {
 				panic("nil err with txnh.LenPrev = error")
 			}
@@ -406,9 +406,9 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 	lenCur := txnh.Len
 	posCur := txnh.Pos
 	switch lenCur {
-	case 0:
-		bug(r, txnh, "LoadNext() when .Len == error")
 	case -1:
+		bug(r, txnh, "LoadNext() when .Len == error")
+	case 0:
 		return io.EOF
 
 	case lenIterStart:
@@ -423,7 +423,7 @@ func (txnh *TxnHeader) LoadNext(r io.ReaderAt, flags TxnLoadFlags) error {
 
 	// before checking loading error for next txn, let's first check redundant length
 	// NOTE also: err could be EOF
-	if txnh.LenPrev != 0 && txnh.LenPrev != lenCur {
+	if txnh.LenPrev >= 0 && txnh.LenPrev != lenCur {
 		t := &TxnHeader{Pos: posCur} // txn for which we discovered problem
 		return checkErr(r, t, "head/tail lengths mismatch: %v, %v", lenCur, txnh.LenPrev)
 	}
