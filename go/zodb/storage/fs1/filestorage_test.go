@@ -67,28 +67,51 @@ func (txe *txnEntry) DataTid() zodb.Tid {
 	return dataTid
 }
 
-// successfull result of load for an oid
-type oidLoadedOk struct {
+// state of an object in the database for some particular revision
+type objState struct {
 	tid	zodb.Tid
-	data	[]byte
+	data	[]byte   // nil if obj was deleted
 }
 
+
 // checkLoad verifies that fs.Load(xid) returns expected result
-func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect oidLoadedOk) {
+func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
+	t.Helper()
 	buf, tid, err := fs.Load(context.Background(), xid)
-	if err != nil {
-		t.Errorf("load %v: %v", xid, err)
-	}
-	if tid != expect.tid {
-		t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
-	}
 
-	switch {
-	case buf == nil:
-		t.Errorf("load %v: returned buf = nil", xid)
+	// deleted obj - it should load with "no data
+	if expect.data == nil {
+		errOk := &zodb.ErrXidMissing{Xid: xid}
+		e, ok := err.(*zodb.ErrXidMissing)
+		if !(ok && *e == *errOk) {
+			t.Errorf("load %v: returned err unexpected: %v  ; want: %v", xid, err, errOk)
+		}
 
-	case !reflect.DeepEqual(buf.Data, expect.data): // NOTE reflect to catch nil != ""
-		t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, buf.Data, expect.data)
+		if tid != 0 {
+			t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
+		}
+
+		if buf != nil {
+			t.Errorf("load %v: returned buf != nil", xid)
+		}
+
+	// regular load
+	} else {
+		if err != nil {
+			t.Errorf("load %v: returned err unexpected: %v  ; want: nil", xid, err)
+		}
+
+		if tid != expect.tid {
+			t.Errorf("load %v: returned tid unexpected: %v  ; want: %v", xid, tid, expect.tid)
+		}
+
+		switch {
+		case buf == nil:
+			t.Errorf("load %v: returned buf = nil", xid)
+
+		case !reflect.DeepEqual(buf.Data, expect.data): // NOTE reflect to catch nil != ""
+			t.Errorf("load %v: different data:\nhave: %q\nwant: %q", xid, buf.Data, expect.data)
+		}
 	}
 }
 
@@ -106,7 +129,7 @@ func TestLoad(t *testing.T) {
 
 	// current knowledge of what was "before" for an oid as we scan over
 	// data base entries
-	before := map[zodb.Oid]oidLoadedOk{}
+	before := map[zodb.Oid]objState{}
 
 	for _, dbe := range _1fs_dbEntryv {
 		for _, txe := range dbe.Entryv {
@@ -115,12 +138,10 @@ func TestLoad(t *testing.T) {
 			// XXX check Load finds data at correct .Pos / etc ?
 
 			// loadSerial
-			// TODO also test for getting error when not found
 			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
-			checkLoad(t, fs, xid, oidLoadedOk{txh.Tid, txe.Data()})
+			checkLoad(t, fs, xid, objState{txh.Tid, txe.Data()})
 
 			// loadBefore
-			// TODO also test for getting error when not found
 			xid = zodb.Xid{zodb.XTid{txh.Tid, true}, txh.Oid}
 			expect, ok := before[txh.Oid]
 			if ok {
@@ -129,9 +150,9 @@ func TestLoad(t *testing.T) {
 
 			// loadBefore to get current record
 			xid.Tid += 1
-			checkLoad(t, fs, xid, oidLoadedOk{txh.Tid, txe.Data()})
+			checkLoad(t, fs, xid, objState{txh.Tid, txe.Data()})
 
-			before[txh.Oid] = oidLoadedOk{txh.Tid, txe.Data()}
+			before[txh.Oid] = objState{txh.Tid, txe.Data()}
 
 		}
 	}
