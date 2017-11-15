@@ -423,7 +423,7 @@ class ImporterDatabaseManager(DatabaseManager):
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
         self._import = None
-        for x in """getObject getReplicationTIDList
+        for x in """getObject getReplicationTIDList getReplicationObjectList
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
@@ -514,6 +514,9 @@ class ImporterDatabaseManager(DatabaseManager):
         self.db._deleteRange(partition, min_tid, max_tid)
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
+        # This method is not tested and it is anyway
+        # useless without getReplicationObjectList.
+        raise BackendNotImplemented(self.getReplicationTIDList)
         p64 = util.p64
         tid = p64(self.zodb_tid)
         if min_tid <= tid:
