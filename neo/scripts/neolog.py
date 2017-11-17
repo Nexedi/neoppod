@@ -22,7 +22,7 @@ from bisect import insort
 from logging import getLevelName
 from zlib import decompress
 
-comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile)
+comp_dict = dict(bz2=bz2.BZ2File, gz=gzip.GzipFile, xz='xzcat')
 
 class Log(object):
 
@@ -46,9 +46,12 @@ class Log(object):
             os.stat(db_path) # do not create empty DB if file is missing
             self._db = sqlite3.connect(db_path)
         else:
-            import shutil, tempfile
+            import shutil, subprocess, tempfile
             with tempfile.NamedTemporaryFile() as f:
-                shutil.copyfileobj(ZipFile(db_path), f)
+                if type(ZipFile) is str:
+                    subprocess.check_call((ZipFile, db_path), stdout=f)
+                else:
+                    shutil.copyfileobj(ZipFile(db_path), f)
                 self._db = sqlite3.connect(f.name)
             name = name.rsplit(os.extsep, 1)[0]
         self._default_name = name
