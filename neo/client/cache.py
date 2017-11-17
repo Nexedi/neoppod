@@ -46,7 +46,7 @@ class ClientCache(object):
     """In-memory pickle cache based on Multi-Queue cache algorithm
 
       Multi-Queue algorithm for Second Level Buffer Caches:
-      http://www.usenix.org/event/usenix01/full_papers/zhou/zhou_html/index.html
+      https://www.usenix.org/event/usenix01/full_papers/zhou/zhou_html/index.html
 
       Quick description:
       - There are multiple "regular" queues, plus a history queue

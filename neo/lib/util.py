@@ -59,7 +59,7 @@ def packTID(higher, lower):
     # seconds (e.g. TZ=right/UTC), then the best we can do is to use
     # TID_LOW_MAX, because TID format was not designed to support them.
     # For more information about leap seconds on Unix, see:
-    #   http://en.wikipedia.org/wiki/Unix_time
+    #   https://en.wikipedia.org/wiki/Unix_time
     #   http://www.madore.org/~david/computers/unix-leap-seconds.html
     return pack('!LL', packed_higher, min(lower, TID_LOW_MAX))
 

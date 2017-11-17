@@ -62,7 +62,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     """This class manages a database on SQLite.
 
     CAUTION: Make sure we never use statement journal files, as explained at
-             http://www.sqlite.org/tempfiles.html for more information.
+             https://www.sqlite.org/tempfiles.html for more information.
              In other words, temporary files (by default in /var/tmp !) must
              never be used for small requests.
     """
