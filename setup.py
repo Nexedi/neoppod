@@ -89,6 +89,9 @@ setup(
             'neo = neo.client.zodburi:resolve_uri [client]',
         ],
     },
+    install_requires = [
+        'python-dateutil', # neolog --from
+        ],
     extras_require = extras_require,
     package_data = {
         'neo.client': [

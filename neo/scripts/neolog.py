@@ -241,17 +241,29 @@ def main():
     parser.add_option('-s', '--sleep-interval', type="float", default=1,
         help='with -f, sleep for approximately N seconds (default 1.0)'
               ' between iterations', metavar='N')
-    parser.add_option('--from', dest='filter_from', type="float",
+    parser.add_option('--from', dest='filter_from',
         help='show records more recent that timestamp N if N > 0,'
-             ' or now+N if N < 0', metavar='N')
+             ' or now+N if N < 0; N can also be a string that is'
+             ' parseable by dateutil ', metavar='N')
     options, args = parser.parse_args()
     if options.sleep_interval <= 0:
         parser.error("sleep_interval must be positive")
     if not args:
         parser.error("no log specified")
     filter_from = options.filter_from
-    if filter_from and filter_from < 0:
-        filter_from += time.time()
+    if filter_from:
+        try:
+            filter_from = float(options.filter_from)
+        except ValueError:
+            from dateutil.parser import parse
+            x = parse(filter_from)
+            if x.tzinfo:
+                filter_from = (x - x.fromtimestamp(0, x.tzinfo)).total_seconds()
+            else:
+                filter_from = time.mktime(x.timetuple()) + x.microsecond * 1e-6
+        else:
+            if filter_from < 0:
+                filter_from += time.time()
     node_list = options.node or []
     try:
         node_list.remove('-')
