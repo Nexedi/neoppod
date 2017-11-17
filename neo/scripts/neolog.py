@@ -41,8 +41,8 @@ class Log(object):
             name, ext = name.rsplit(os.extsep, 1)
             ZipFile = comp_dict[ext]
         except (KeyError, ValueError):
-            # WKRD: Python does not support URI so we can't open in read-only
-            #       mode. See http://bugs.python.org/issue13773
+            # BBB: Python 2 does not support URI so we can't open in read-only
+            #      mode. See https://bugs.python.org/issue13773
             os.stat(db_path) # do not create empty DB if file is missing
             self._db = sqlite3.connect(db_path)
         else:
