@@ -59,7 +59,8 @@ class Application(ThreadedApplication):
     # is unreachable.
     max_reconnection_to_master = float('inf')
 
-    def __init__(self, master_nodes, name, compress=True, **kw):
+    def __init__(self, master_nodes, name, compress=True, cache_size=None,
+                 **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
                                           name, **kw)
         # Internal Attributes common to all thread
@@ -69,7 +70,8 @@ class Application(ThreadedApplication):
         self.trying_master_node = None
 
         # no self-assigned UUID, primary master will supply us one
-        self._cache = ClientCache()
+        self._cache = ClientCache() if cache_size is None else \
+                      ClientCache(max_size=cache_size)
         self._loading_oid = None
         self.new_oid_list = ()
         self.last_oid = '\0' * 8
