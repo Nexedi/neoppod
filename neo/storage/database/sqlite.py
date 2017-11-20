@@ -163,10 +163,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (partition, tid, oid))
+                 PRIMARY KEY (partition, oid, tid))
           """)
         q("""CREATE INDEX IF NOT EXISTS _obj_i1 ON
-                 obj(partition, oid, tid)
+                 obj(partition, tid, oid)
           """)
         q("""CREATE INDEX IF NOT EXISTS _obj_i2 ON
                  obj(data_id)
