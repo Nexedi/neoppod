@@ -27,7 +27,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xmath"
 )
 
-// Buf represents memory buffer.
+// Buf is reference-counted memory buffer.
 //
 // To lower pressure on Go garbage-collector allocate buffers with BufAlloc and
 // free them with Buf.Release.

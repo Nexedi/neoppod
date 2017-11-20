@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// logic to open storages by URL
+// open storages by URL
 
 import (
 	"context"
@@ -55,7 +55,7 @@ func RegisterStorage(scheme string, opener StorageOpener) {
 //
 // Storage authors should register their storages with RegisterStorage.
 //
-// TODO automatically wrap a storage with Cache.
+// TODO automatically wrap opened storage with Cache.
 func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (IStorage, error) {
 	// no scheme -> file://
 	if !strings.Contains(storageURL, "://") {
