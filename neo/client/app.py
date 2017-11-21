@@ -201,6 +201,12 @@ class Application(ThreadedApplication):
                 else:
                     # Otherwise, check one by one.
                     master_list = self.nm.getMasterList()
+                    if not master_list:
+                        # XXX: On shutdown, it already happened that this list
+                        #      is empty, leading to ZeroDivisionError. This
+                        #      looks a minor issue so let's wait to have more
+                        #      information.
+                        logging.error('%r', self.__dict__)
                     index = (index + 1) % len(master_list)
                     node = master_list[index]
                 # Connect to master
