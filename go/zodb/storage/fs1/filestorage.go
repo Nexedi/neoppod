@@ -36,7 +36,8 @@
 //
 // In addition to append-only transaction/data log, an index is automatically
 // maintained mapping oid -> latest data record which modified this oid. The
-// index is used to implement zodb.IStorage.Load without linear scan.
+// index is used to implement zodb.IStorage.Load for latest data without linear
+// scan.
 //
 // The data format is bit-to-bit identical to FileStorage format implemented in ZODB/py.
 // Please see the following links for original FileStorage format definition:
@@ -88,7 +89,6 @@ type FileStorage struct {
 
 	// transaction headers for min/max transactions committed
 	// (both with .Len=0 & .Tid=0 if database is empty)
-	// XXX keep loaded with LoadNoStrings ?
 	txnhMin	TxnHeader
 	txnhMax TxnHeader
 
@@ -114,12 +114,12 @@ func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
 
 func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
 	// XXX must be under lock
-	// XXX what if an oid was deleted?
 	lastOid, _ := fs.index.Last() // returns zero-value, if empty
 	return lastOid, nil
 }
 
 // ErrXidLoad is returned when there is an error while loading xid
+// XXX -> zodb (common bits)
 type ErrXidLoad struct {
 	Xid	zodb.Xid
 	Err	error
@@ -128,6 +128,8 @@ type ErrXidLoad struct {
 func (e *ErrXidLoad) Error() string {
 	return fmt.Sprintf("loading %v: %v", e.Xid, e.Err)
 }
+
+// XXX +Cause
 
 
 // freelist(DataHeader)
@@ -145,13 +147,13 @@ func (dh *DataHeader) Free() {
 }
 
 func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid zodb.Tid, err error) {
-	// lookup in index position of oid data record within latest transaction who changed this oid
+	// lookup in index position of oid data record within latest transaction which changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
 		return nil, 0, &zodb.ErrOidMissing{Oid: xid.Oid}
 	}
 
-	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
+	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...	-> TODO reject tid out of range
 
 	// XXX go compiler cannot deduce dh should be on stack here
 	//dh := DataHeader{Oid: xid.Oid, Tid: zodb.TidMax, PrevRevPos: dataPos}
@@ -201,7 +203,6 @@ func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid,
 	}
 	if buf.Data == nil {
 		// data was deleted
-		// XXX or allow this and return via buf.Data=nil ?
 		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
 	}
 

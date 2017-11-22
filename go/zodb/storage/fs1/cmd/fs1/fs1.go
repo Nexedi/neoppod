@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// fs1 is a driver program for running & invoking fs1 subcommands.
+// fs1 is a driver program for running and invoking fs1 subcommands.
 package main
 
 import (

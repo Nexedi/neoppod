@@ -40,7 +40,6 @@ import (
 	"github.com/kylelemons/godebug/diff"
 )
 
-// XXX -> xtesting ?
 func loadFile(t *testing.T, path string) string {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {

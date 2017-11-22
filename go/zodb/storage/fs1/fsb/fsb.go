@@ -26,8 +26,8 @@ package fsb
 
 import "lab.nexedi.com/kirr/neo/go/zodb"
 
-// comparison function for fsbTree
-// kept short & inlineable
+// comparison function for fsbTree.
+// kept short & inlineable.
 func oidCmp(a, b zodb.Oid) int {
 	if a < b {
 		return -1

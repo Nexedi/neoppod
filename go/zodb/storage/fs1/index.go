@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package fs1
-// index for quickly finding oid -> latest data record
+// index for quickly finding oid -> oid's latest data record
 
 import (
 	"bufio"

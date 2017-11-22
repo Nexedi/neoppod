@@ -57,7 +57,7 @@ type Dumper interface {
 // Dump dumps content of a FileStorage file @ path.
 //
 // To do so it reads file header and then iterates over all transactions in the file.
-// The logic to actually output information and, if needed read/process data, is implemented by Dumper d.
+// The logic to actually output information and, if needed read/process data, should be implemented by Dumper d.
 func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
 	defer xerr.Contextf(&err, "%s: %s", d.DumperName(), path)
 
@@ -163,7 +163,7 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		err := it.NextData()
 		if err != nil {
 			if err == io.EOF {
-				break
+				err = nil	// XXX -> okEOF(err)
 			}
 			return err
 		}
@@ -197,8 +197,6 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		buf .S("\n")
 		dbuf.Release()
 	}
-
-	return nil
 }
 
 // DumperFsDumpVerbose implements a very verbose dumper with output identical

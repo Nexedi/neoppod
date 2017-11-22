@@ -93,7 +93,7 @@ type RecordError struct {
 	Path	string	// path of the data file
 	Record	string	// record kind - "file header", "transaction record", "data record", ...
 	Pos	int64	// position of record
-	Subj	string	// subject context for the error - e.g. "read", "check" or "bug"
+	Subj	string	// subject context for the error - e.g. "read" or "check"
 	Err	error	// actual error
 }
 
@@ -282,7 +282,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	if tlen < TxnHeaderFixSize {
 		return checkErr(r, txnh, "invalid txn record length: %v", tlen)
 	}
-	// XXX also check tlen to not go beyond file size ?
+	// NOTE no need to check tlen does not go beyon file size - loadStrings/LoadData or LoadNext will catch it.
 	// txnh.Len will be set =tlen at last - after checking other fields for correctness.
 
 	txnh.Status = zodb.TxnStatus(work[8+16])
