@@ -286,6 +286,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                 " WHERE nid=? AND rid=partition", args).next()[0]
         return trans, obj, None if oid is None else p64(oid)
 
+    def _getDataLastId(self, partition):
+        return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
+            % (partition << 48, (partition + 1) << 48)).fetchone()[0]
+
     def _getUnfinishedTIDDict(self):
         q = self.query
         return q("SELECT ttid, tid FROM ttrans"), (ttid
@@ -358,14 +362,16 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         for partition in offset_list:
             args = partition,
-            data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj" + where, args) if x]
+            data_id_list = [x for x, in q(
+                "SELECT DISTINCT data_id FROM obj%s AND data_id IS NOT NULL"
+                % where, args)]
             q("DELETE FROM obj" + where, args)
             q("DELETE FROM trans" + where, args)
             self._pruneData(data_id_list)
 
     def _getUnfinishedDataIdList(self):
-        return [x for x, in self.query("SELECT data_id FROM tobj") if x]
+        return [x for x, in self.query(
+            "SELECT data_id FROM tobj WHERE data_id IS NOT NULL")]
 
     def dropPartitionsTemporary(self, offset_list=None):
         where = "" if offset_list is None else \
@@ -428,12 +434,14 @@ class SQLiteDatabaseManager(DatabaseManager):
             return len(data_id_list)
         return 0
 
-    def storeData(self, checksum, data, compression,
+    def storeData(self, checksum, oid, data, compression,
             _dup=unique_constraint_message("data", "hash", "compression")):
         H = buffer(checksum)
+        p = self._getPartition(util.u64(oid))
+        r = self._data_last_ids[p]
         try:
-            return self.query("INSERT INTO data VALUES (NULL,?,?,?)",
-                (H, compression,  buffer(data))).lastrowid
+            self.query("INSERT INTO data VALUES (?,?,?,?)",
+                (r, H, compression,  buffer(data)))
         except sqlite3.IntegrityError, e:
             if e.args[0] == _dup:
                 (r, d), = self.query("SELECT id, value FROM data"
@@ -442,10 +450,12 @@ class SQLiteDatabaseManager(DatabaseManager):
                 if str(d) == data:
                     return r
             raise
+        self._data_last_ids[p] = r + 1
+        return r
 
     def loadData(self, data_id):
         return self.query("SELECT compression, hash, value"
-                          " FROM data where id=?", (data_id,)).fetchone()
+                          " FROM data WHERE id=?", (data_id,)).fetchone()
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getReadablePartition(oid)
@@ -474,7 +484,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         tid = u64(tid)
         ttid = u64(ttid)
         sql = " FROM tobj WHERE tid=?"
-        data_id_list = [x for x, in q("SELECT data_id" + sql, (ttid,)) if x]
+        data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
+                                      % sql, (ttid,))]
         q("INSERT INTO obj SELECT partition, oid, ?, data_id, value_tid" + sql,
           (tid, ttid))
         q("DELETE" + sql, (ttid,))
@@ -501,8 +512,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             sql += " AND tid=?"
             args.append(util.u64(serial))
         q = self.query
-        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
-                          if x]
+        data_id_list = [x for x, in q(
+            "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql, args)]
         q("DELETE" + sql, args)
         self._pruneData(data_id_list)
 
@@ -518,8 +529,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         q("DELETE FROM trans" + sql, args)
         sql = " FROM obj" + sql
-        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
-                          if x]
+        data_id_list = [x for x, in q(
+            "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql, args)]
         q("DELETE" + sql, args)
         self._pruneData(data_id_list)
 

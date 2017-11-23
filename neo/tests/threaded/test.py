@@ -1438,7 +1438,7 @@ class Test(NEOThreadedTest):
             bad = []
             ok = []
             def data_args(value):
-                return makeChecksum(value), value, 0
+                return makeChecksum(value), ZERO_OID, value, 0
             node_list = []
             for i, s in enumerate(cluster.storage_list):
                 node_list.append(s.uuid)

@@ -488,7 +488,11 @@ class DatabaseManager(object):
         existing data is first thrown away.
         """
 
-    @requires(_changePartitionTable)
+    def _getDataLastId(self, partition):
+        """
+        """
+
+    @requires(_changePartitionTable, _getDataLastId)
     def changePartitionTable(self, ptid, cell_list, reset=False):
         readable_set = self._readable_set
         if reset:
@@ -503,6 +507,10 @@ class DatabaseManager(object):
                 raise NonReadableCell
             self._getPartition = _getPartition
             self._getReadablePartition = _getReadablePartition
+            d = self._data_last_ids = []
+            for p in xrange(np):
+                i = self._getDataLastId(p)
+                d.append(p << 48 if i is None else i + 1)
         me = self.getUUID()
         for offset, nid, state in cell_list:
             if nid == me:
@@ -570,7 +578,7 @@ class DatabaseManager(object):
         """
 
     @abstract
-    def storeData(self, checksum, data, compression):
+    def storeData(self, checksum, oid, data, compression):
         """To be overridden by the backend to store object raw data
 
         If same data was already stored, the storage only has to check there's
