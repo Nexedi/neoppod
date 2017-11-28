@@ -112,6 +112,10 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
+    def _migrate1(self):
+        self._checkNoUnfinishedTransactions()
+        self.query("DROP TABLE IF EXISTS ttrans")
+
     def _setup(self, dedup=False):
         # SQLite does support transactional Data Definition Language statements
         # but unfortunately, the built-in Python binding automatically commits
@@ -126,14 +130,9 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("CREATE TABLE IF NOT EXISTS config ("
               "  name TEXT NOT NULL PRIMARY KEY,"
               "  value TEXT)")
+            self._setConfiguration("version", self.VERSION)
         else:
-            # Automatic migration.
-            version = self._getVersion()
-            if version < 1:
-                self._checkNoUnfinishedTransactions()
-                q("DROP TABLE IF EXISTS ttrans")
-
-        self._setConfiguration("version", self.VERSION)
+            self.migrate()
 
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (

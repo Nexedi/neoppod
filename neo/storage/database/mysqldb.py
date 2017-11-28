@@ -176,6 +176,10 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
 
+    def _migrate1(self):
+        self._checkNoUnfinishedTransactions()
+        self.query("DROP TABLE IF EXISTS ttrans")
+
     def _setup(self, dedup=False):
         self._config.clear()
         q = self.query
@@ -188,14 +192,9 @@ class MySQLDatabaseManager(DatabaseManager):
                      name VARBINARY(255) NOT NULL PRIMARY KEY,
                      value VARBINARY(255) NULL
                  ) ENGINE=""" + engine)
+            self._setConfiguration("version", self.VERSION)
         else:
-            # Automatic migration.
-            version = self._getVersion()
-            if version < 1:
-                self._checkNoUnfinishedTransactions()
-                q("DROP TABLE IF EXISTS ttrans")
-
-        self._setConfiguration("version", self.VERSION)
+            self.migrate()
 
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
