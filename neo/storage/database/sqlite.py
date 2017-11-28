@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import OrderedDict
 import os
 import sqlite3
 from hashlib import sha1
@@ -112,7 +113,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
-    def _migrate1(self):
+    def _migrate1(self, *_):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
@@ -123,27 +124,26 @@ class SQLiteDatabaseManager(DatabaseManager):
         # relatively slow; unit tests enables the UNSAFE boolean flag.
         self._config.clear()
         q = self.query
+        schema_dict = OrderedDict()
+        index_dict = {}
 
-        if self.nonempty("config") is None:
-            # The table "config" stores configuration
-            # parameters which affect the persistent data.
-            q("CREATE TABLE IF NOT EXISTS config ("
-              "  name TEXT NOT NULL PRIMARY KEY,"
-              "  value TEXT)")
-            self._setConfiguration("version", self.VERSION)
-        else:
-            self.migrate()
+        # The table "config" stores configuration
+        # parameters which affect the persistent data.
+        schema_dict['config'] = """CREATE TABLE %s (
+                 name TEXT NOT NULL PRIMARY KEY,
+                 value TEXT)
+            """
 
         # The table "pt" stores a partition table.
-        q("""CREATE TABLE IF NOT EXISTS pt (
+        schema_dict['pt'] = """CREATE TABLE %s (
                  rid INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
                  state INTEGER NOT NULL,
                  PRIMARY KEY (rid, nid))
-          """)
+            """
 
         # The table "trans" stores information on committed transactions.
-        q("""CREATE TABLE IF NOT EXISTS trans (
+        schema_dict['trans'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
                  packed BOOLEAN NOT NULL,
@@ -153,38 +153,34 @@ class SQLiteDatabaseManager(DatabaseManager):
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL,
                  PRIMARY KEY (partition, tid))
-          """)
+            """
 
         # The table "obj" stores committed object metadata.
-        q("""CREATE TABLE IF NOT EXISTS obj (
+        schema_dict['obj'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
                  PRIMARY KEY (partition, tid, oid))
-          """)
-        q("""CREATE INDEX IF NOT EXISTS _obj_i1 ON
-                 obj(partition, oid, tid)
-          """)
-        q("""CREATE INDEX IF NOT EXISTS _obj_i2 ON
-                 obj(data_id)
-          """)
+            """
+        index_dict['obj'] = (
+            "CREATE INDEX %s ON %s(partition, oid, tid)",
+            "CREATE INDEX %s ON %s(data_id)")
 
         # The table "data" stores object data.
-        q("""CREATE TABLE IF NOT EXISTS data (
+        schema_dict['data'] = """CREATE TABLE %s (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  hash BLOB NOT NULL,
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL)
-          """)
+            """
         if dedup:
-            q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
-                    data(hash, compression)
-              """)
+            index_dict['data'] = (
+                "CREATE UNIQUE INDEX %s ON %s(hash, compression)",)
 
         # The table "ttrans" stores information on uncommitted transactions.
-        q("""CREATE TABLE IF NOT EXISTS ttrans (
+        schema_dict['ttrans'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  tid INTEGER,
                  packed BOOLEAN NOT NULL,
@@ -193,17 +189,28 @@ class SQLiteDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL)
-          """)
+            """
 
         # The table "tobj" stores uncommitted object metadata.
-        q("""CREATE TABLE IF NOT EXISTS tobj (
+        schema_dict['tobj'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
                  PRIMARY KEY (tid, oid))
-          """)
+            """
+
+        if self.nonempty('config') is None:
+            q(schema_dict.pop('config') % 'config')
+            self._setConfiguration('version', self.VERSION)
+        else:
+            self.migrate(schema_dict, index_dict)
+
+        for table, schema in schema_dict.iteritems():
+            q(schema % ('IF NOT EXISTS ' + table))
+            for i, index in enumerate(index_dict.get(table, ()), 1):
+                q(index % ('IF NOT EXISTS _%s_i%s' % (table, i), table))
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))

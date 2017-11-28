@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from binascii import a2b_hex
+from collections import OrderedDict
 import MySQLdb
 from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
@@ -176,7 +177,7 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
 
-    def _migrate1(self):
+    def _migrate1(self, _):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
@@ -184,32 +185,29 @@ class MySQLDatabaseManager(DatabaseManager):
         self._config.clear()
         q = self.query
         p = engine = self._engine
+        schema_dict = OrderedDict()
 
-        if self.nonempty("config") is None:
-            # The table "config" stores configuration
-            # parameters which affect the persistent data.
-            q("""CREATE TABLE config (
-                     name VARBINARY(255) NOT NULL PRIMARY KEY,
-                     value VARBINARY(255) NULL
-                 ) ENGINE=""" + engine)
-            self._setConfiguration("version", self.VERSION)
-        else:
-            self.migrate()
+        # The table "config" stores configuration
+        # parameters which affect the persistent data.
+        schema_dict['config'] = """CREATE TABLE %s (
+                  name VARBINARY(255) NOT NULL PRIMARY KEY,
+                  value VARBINARY(255) NULL
+              ) ENGINE=""" + engine
 
         # The table "pt" stores a partition table.
-        q("""CREATE TABLE IF NOT EXISTS pt (
+        schema_dict['pt'] = """CREATE TABLE %s (
                  rid INT UNSIGNED NOT NULL,
                  nid INT NOT NULL,
                  state TINYINT UNSIGNED NOT NULL,
                  PRIMARY KEY (rid, nid)
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
 
         if self._use_partition:
             p += """ PARTITION BY LIST (`partition`) (
                 PARTITION dummy VALUES IN (NULL))"""
 
         # The table "trans" stores information on committed transactions.
-        q("""CREATE TABLE IF NOT EXISTS trans (
+        schema_dict['trans'] =  """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  packed BOOLEAN NOT NULL,
@@ -219,10 +217,10 @@ class MySQLDatabaseManager(DatabaseManager):
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL,
                  PRIMARY KEY (`partition`, tid)
-             ) ENGINE=""" + p)
+             ) ENGINE=""" + p
 
         # The table "obj" stores committed object metadata.
-        q("""CREATE TABLE IF NOT EXISTS obj (
+        schema_dict['obj'] = """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
@@ -231,7 +229,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  PRIMARY KEY (`partition`, tid, oid),
                  KEY (`partition`, oid, tid),
                  KEY (data_id)
-             ) ENGINE=""" + p)
+             ) ENGINE=""" + p
 
         if engine == "TokuDB":
             engine += " compression='tokudb_uncompressed'"
@@ -239,21 +237,21 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "data" stores object data.
         # We'd like to have partial index on 'hash' column (e.g. hash(4))
         # but 'UNIQUE' constraint would not work as expected.
-        q("""CREATE TABLE IF NOT EXISTS data (
+        schema_dict['data'] = """CREATE TABLE %%s (
                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
                  value MEDIUMBLOB NOT NULL%s
              ) ENGINE=%s""" % (""",
-                 UNIQUE (hash, compression)""" if dedup else "", engine))
+                 UNIQUE (hash, compression)""" if dedup else "", engine)
 
-        q("""CREATE TABLE IF NOT EXISTS bigdata (
+        schema_dict['bigdata'] = """CREATE TABLE %s (
                  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                  value MEDIUMBLOB NOT NULL
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
 
         # The table "ttrans" stores information on uncommitted transactions.
-        q("""CREATE TABLE IF NOT EXISTS ttrans (
+        schema_dict['ttrans'] = """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED,
                  packed BOOLEAN NOT NULL,
@@ -262,17 +260,26 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
 
         # The table "tobj" stores uncommitted object metadata.
-        q("""CREATE TABLE IF NOT EXISTS tobj (
+        schema_dict['tobj'] = """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
                  PRIMARY KEY (tid, oid)
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
+
+        if self.nonempty('config') is None:
+            q(schema_dict.pop('config') % 'config')
+            self._setConfiguration('version', self.VERSION)
+        else:
+            self.migrate(schema_dict)
+
+        for table, schema in schema_dict.iteritems():
+            q(schema % ('IF NOT EXISTS ' + table))
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))

@@ -161,13 +161,13 @@ class DatabaseManager(object):
                 "The database can not be upgraded because you have unfinished"
                 " transactions. Use an older version of NEO to verify them.")
 
-    def migrate(self):
+    def migrate(self, *args, **kw):
         version = int(self.getConfiguration("version") or 0)
         if self.VERSION < version:
             raise DatabaseFailure("The database can not be downgraded.")
         while version < self.VERSION:
             version += 1
-            getattr(self, '_migrate%s' % version)()
+            getattr(self, '_migrate%s' % version)(*args, **kw)
             self.setConfiguration("version", version)
 
     def doOperation(self, app):
