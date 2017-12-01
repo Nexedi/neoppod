@@ -24,7 +24,6 @@ from neo.lib.util import parseNodeAddress
 parser = getOptionParser()
 parser.add_option('-a', '--address', help = 'specify the address (ip:port) ' \
     'of an admin node', default = '127.0.0.1:9999')
-parser.add_option('--handler', help = 'specify the connection handler')
 
 def main(args=None):
     (options, args) = parser.parse_args(args=args)
