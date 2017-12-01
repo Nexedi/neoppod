@@ -157,7 +157,7 @@ class StorageOperationHandler(EventHandler):
                 conn.send(Packets.AnswerCheckTIDRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
-            yield
+            return; yield
         app.newTask(check())
 
     @checkFeedingConnection(check=True)
@@ -173,7 +173,7 @@ class StorageOperationHandler(EventHandler):
                 conn.send(Packets.AnswerCheckSerialRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
-            yield
+            return; yield
         app.newTask(check())
 
     @checkFeedingConnection(check=False)
@@ -209,9 +209,17 @@ class StorageOperationHandler(EventHandler):
                                 % partition), msg_id)
                             return
                         oid_list, user, desc, ext, packed, ttid = t
+                        # Sending such packet does not mark the connection
+                        # for writing if there's too little data in the buffer.
                         conn.send(Packets.AddTransaction(tid, user,
                             desc, ext, packed, ttid, oid_list), msg_id)
-                        yield
+                        # To avoid delaying several connections simultaneously,
+                        # and also prevent the backend from scanning different
+                        # parts of the DB at the same time, we ask the
+                        # scheduler not to switch to another background task.
+                        # Ideally, we are filling a buffer while the kernel
+                        # is flushing another one for a concurrent connection.
+                        yield conn.buffering
                 conn.send(Packets.AnswerFetchTransactions(
                     pack_tid, next_tid, peer_tid_set), msg_id)
                 yield
@@ -253,9 +261,10 @@ class StorageOperationHandler(EventHandler):
                             "partition %u dropped or truncated"
                             % partition), msg_id)
                         return
+                    # Same as in askFetchTransactions.
                     conn.send(Packets.AddObject(oid, serial, *object[2:]),
                               msg_id)
-                    yield
+                    yield conn.buffering
                 conn.send(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)
                 yield

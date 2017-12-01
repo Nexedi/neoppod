@@ -254,9 +254,8 @@ class Application(BaseApplication):
                 while task_queue:
                     try:
                         while isIdle():
-                            if task_queue[-1].next():
-                                _poll(0)
-                            task_queue.rotate()
+                            next(task_queue[-1]) or task_queue.rotate()
+                            _poll(0)
                         break
                     except StopIteration:
                         task_queue.pop()
@@ -270,10 +269,6 @@ class Application(BaseApplication):
             self.replicator.stop()
 
     def newTask(self, iterator):
-        try:
-            iterator.next()
-        except StopIteration:
-            return
         self.task_queue.appendleft(iterator)
 
     def closeClient(self, connection):

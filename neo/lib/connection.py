@@ -305,6 +305,7 @@ class Connection(BaseConnection):
 
     # XXX: rename isPending, hasPendingMessages & pending methods
 
+    buffering = False
     connecting = True
     client = False
     server = False
@@ -541,7 +542,15 @@ class Connection(BaseConnection):
     def _addPacket(self, packet):
         """Add a packet into the write buffer."""
         if self.connector.queue(packet.encode()):
-            # enable polling for writing.
+            if packet.nodelay or 65536 < self.connector.queue_size:
+                assert not self.buffering
+                # enable polling for writing.
+                self.em.addWriter(self)
+            else:
+                self.buffering = True
+        elif self.buffering and (65536 < self.connector.queue_size
+                                 or packet.nodelay):
+            self.buffering = False
             self.em.addWriter(self)
         logging.packet(self, packet, True)
 

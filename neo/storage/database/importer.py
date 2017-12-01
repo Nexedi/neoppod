@@ -388,7 +388,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 finish()
                 txn = z.transaction
                 tid = txn.tid
-                yield 1
+                yield
             zodb = z.zodb
             for r in z.transaction:
                 oid = p64(u64(r.oid) + zodb.shift_oid)
@@ -413,7 +413,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 # update 'obj' with 'object_list', some rows in 'data' may be
                 # unreferenced. This is not a problem because the leak is
                 # solved when resuming the migration.
-                yield 1
+                yield
             try:
                 z.next()
             except StopIteration:

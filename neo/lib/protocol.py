@@ -224,6 +224,7 @@ class Packet(object):
     _code = None
     _fmt = None
     _id = None
+    nodelay = True
     poll_thread = False
 
     def __init__(self, *args):
@@ -1441,6 +1442,8 @@ class AddTransaction(Packet):
     """
     S -> S
     """
+    nodelay = False
+
     _fmt = PStruct('add_transaction',
         PTID('tid'),
         PString('user'),
@@ -1480,6 +1483,8 @@ class AddObject(Packet):
     """
     S -> S
     """
+    nodelay = False
+
     _fmt = PStruct('add_object',
         POID('oid'),
         PTID('serial'),
