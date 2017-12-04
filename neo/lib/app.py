@@ -14,15 +14,56 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from . import logging
+from . import logging, util
+from .config import OptionList
 from .event import EventManager
 from .node import NodeManager
 
 
+def buildOptionParser(cls):
+    parser = cls.option_parser = cls.OptionList()
+    _ = parser.path
+    _('l', 'logfile',
+        help="log debugging information to specified SQLite DB")
+    _('ca',  help="(SSL) certificate authority in PEM format")
+    _('cert', help="(SSL) certificate in PEM format")
+    _('key', help="(SSL) private key in PEM format")
+    cls._buildOptionParser()
+    return cls
+
+
 class BaseApplication(object):
+
+    class OptionList(OptionList):
+
+        def parse(self, argv=None):
+            config = OptionList.parse(self, argv)
+            ssl = (
+                config.pop('ca', None),
+                config.pop('cert', None),
+                config.pop('key', None),
+            )
+            if any(ssl):
+                config['ssl'] = ssl
+            return config
 
     server = None
     ssl = None
+
+    @classmethod
+    def addCommonServerOptions(cls, section, bind, masters='127.0.0.1:10000'):
+        _ = cls.option_parser.group('server node')
+        _.path('f', 'file', help='specify a configuration file')
+        _('s', 'section', default=section,
+            help='specify a configuration section')
+        _('c', 'cluster', required=True, help='the cluster name')
+        _('m', 'masters', default=masters, parse=util.parseMasterList,
+            help='master node list')
+        _('b', 'bind', default=bind,
+            parse=lambda x: util.parseNodeAddress(x, 0),
+            help='the local address to bind to')
+        _.path('D', 'dynamic-master-list',
+            help='path of the file containing dynamic master node list')
 
     def __init__(self, ssl=None, dynamic_master_list=None):
         if ssl:

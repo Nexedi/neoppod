@@ -255,14 +255,14 @@ class NeoUnitTestBase(NeoTestBase):
         assert master_number >= 1 and master_number <= 10
         masters = ([(self.local_ip, 10010 + i)
                     for i in xrange(master_number)])
-        return Mock({
-                'getCluster': cluster,
-                'getBind': masters[0],
-                'getMasters': masters,
-                'getReplicas': replicas,
-                'getPartitions': partitions,
-                'getUUID': uuid,
-        })
+        return {
+                'cluster': cluster,
+                'bind': masters[0],
+                'masters': masters,
+                'replicas': replicas,
+                'partitions': partitions,
+                'uuid': uuid,
+        }
 
     def getStorageConfiguration(self, cluster='main', master_number=2,
             index=0, prefix=DB_PREFIX, uuid=None):
@@ -277,15 +277,15 @@ class NeoUnitTestBase(NeoTestBase):
             db = os.path.join(getTempDirectory(), 'test_neo%s.sqlite' % index)
         else:
             assert False, adapter
-        return Mock({
-                'getCluster': cluster,
-                'getBind': (masters[0], 10020 + index),
-                'getMasters': masters,
-                'getDatabase': db,
-                'getUUID': uuid,
-                'getReset': False,
-                'getAdapter': adapter,
-        })
+        return {
+                'cluster': cluster,
+                'bind': (masters[0], 10020 + index),
+                'masters': masters,
+                'database': db,
+                'uuid': uuid,
+                'adapter': adapter,
+                'wait': 0,
+        }
 
     def getNewUUID(self, node_type):
         """

@@ -122,9 +122,10 @@ class Process(object):
     _coverage_index = 0
     pid = 0
 
-    def __init__(self, command, arg_dict={}):
+    def __init__(self, command, *args, **kw):
         self.command = command
-        self.arg_dict = arg_dict
+        self.args = args
+        self.arg_dict = kw
 
     def _args(self):
         args = []
@@ -132,6 +133,7 @@ class Process(object):
             args.append('--' + arg)
             if param is not None:
                 args.append(str(param))
+        args += self.args
         return args
 
     def start(self):
@@ -239,8 +241,8 @@ class Process(object):
         self.pid = 0
         self.child_coverage()
         if result:
-            raise NodeProcessError('%r %r exited with status %r' % (
-                self.command, self.arg_dict, result))
+            raise NodeProcessError('%r %r %r exited with status %r' % (
+                self.command, self.args, self.arg_dict, result))
         return result
 
     def stop(self):
@@ -255,18 +257,18 @@ class Process(object):
 
 class NEOProcess(Process):
 
-    def __init__(self, command, uuid, arg_dict):
+    def __init__(self, command, *args, **kw):
         try:
             __import__('neo.scripts.' + command, level=0)
         except ImportError:
             raise NotFound(command + ' not found')
-        super(NEOProcess, self).__init__(command, arg_dict)
-        self.setUUID(uuid)
+        self.setUUID(kw.pop('uuid', None))
+        super(NEOProcess, self).__init__(command, *args, **kw)
 
     def _args(self):
         args = super(NEOProcess, self)._args()
         if self.uuid:
-            args += '--uuid', str(self.uuid)
+            args[:0] = '--uuid', str(self.uuid)
         return args
 
     def run(self):
@@ -360,7 +362,7 @@ class NEOCluster(object):
         if self.SSL:
             kw['ca'], kw['cert'], kw['key'] = self.SSL
         self.process_dict.setdefault(node_type, []).append(
-            NEOProcess(command_dict[node_type], uuid, kw))
+            NEOProcess(command_dict[node_type], uuid=uuid, **kw))
 
     def setupDB(self, clear_databases=True):
         if self.adapter == 'MySQL':

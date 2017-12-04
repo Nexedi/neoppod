@@ -14,139 +14,187 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-from optparse import OptionParser
-from ConfigParser import SafeConfigParser, NoOptionError
-from . import util
-from .util import parseNodeAddress
+import argparse, os, sys
+from functools import wraps
+from ConfigParser import SafeConfigParser
 
 
-def getOptionParser():
-    parser = OptionParser()
-    parser.add_option('-l', '--logfile',
-        help='log debugging information to specified SQLite DB')
-    parser.add_option('--ca', help='certificate authority in PEM format')
-    parser.add_option('--cert', help='certificate in PEM format')
-    parser.add_option('--key', help='private key in PEM format')
-    return parser
+class _Required(object):
 
-def getServerOptionParser():
-    parser = getOptionParser()
-    parser.add_option('-f', '--file', help='specify a configuration file')
-    parser.add_option('-s', '--section', help='specify a configuration section')
-    parser.add_option('-c', '--cluster', help='the cluster name')
-    parser.add_option('-m', '--masters', help='master node list')
-    parser.add_option('-b', '--bind', help='the local address to bind to')
-    parser.add_option('-D', '--dynamic-master-list',
-        help='path of the file containing dynamic master node list')
-    return parser
+    def __init__(self, *args):
+        self._option_list, self._name = args
 
+    def __nonzero__(self):
+        with_required = self._option_list._with_required
+        return with_required is not None and self._name not in with_required
 
-class ConfigurationManager(object):
-    """
-    Configuration manager that load options from a configuration file and
-    command line arguments
-    """
+class _Option(object):
 
-    def __init__(self, defaults, options, section):
-        self.argument_list = options = {k: v
-            for k, v in options.__dict__.iteritems()
-            if v is not None}
-        self.defaults = defaults
-        config_file = options.pop('file', None)
-        if config_file:
-            self.parser = SafeConfigParser(defaults)
-            self.parser.read(config_file)
+    def __init__(self, *args, **kw):
+        if len(args) > 1:
+            self.short, self.name = args
         else:
-            self.parser = None
-        self.section = options.pop('section', section)
+            self.name, = args
+        self.__dict__.update(kw)
 
-    def __get(self, key, optional=False):
-        value = self.argument_list.get(key)
-        if value is None:
-            if self.parser is None:
-                value = self.defaults.get(key)
-            else:
-                try:
-                    value = self.parser.get(self.section, key)
-                except NoOptionError:
-                    pass
-        if value is None and not optional:
-            raise RuntimeError("Option '%s' is undefined'" % (key, ))
+    def _asArgparse(self, parser, option_list):
+        kw = self._argument_kw()
+        args = ['--' + self.name]
+        try:
+            args.insert(0, '-' + self.short)
+        except AttributeError:
+            pass
+        kw['help'] = self.help
+        action = parser.add_argument(*args, **kw)
+        if action.required:
+            assert not hasattr(self, 'default')
+            action.required = _Required(option_list, self.name)
+
+    def fromConfigFile(self, cfg, section):
+        return self(cfg.get(section, self.name.replace('-', '_')))
+
+    @staticmethod
+    def parse(value):
         return value
 
-    def __getPath(self, *args, **kw):
-        path = self.__get(*args, **kw)
-        if path:
-            return os.path.expanduser(path)
+class BoolOption(_Option):
 
-    def getLogfile(self):
-        return self.__getPath('logfile', True)
+    def _argument_kw(self):
+        return {'action': 'store_true'}
 
-    def getSSL(self):
-        r = [self.__getPath(key, True) for key in ('ca', 'cert', 'key')]
-        if any(r):
-            return r
+    def __call__(self, value):
+        return value
 
-    def getMasters(self):
-        """ Get the master node list except itself """
-        return util.parseMasterList(self.__get('masters'))
+    def fromConfigFile(self, cfg, section):
+        return cfg.getboolean(section, self.name)
 
-    def getBind(self):
-        """ Get the address to bind to """
-        bind = self.__get('bind')
-        return parseNodeAddress(bind, 0)
+class Option(_Option):
 
-    def getDisableDropPartitions(self):
-        return self.__get('disable_drop_partitions', True)
+    @property
+    def __name__(self):
+        return self.type.__name__
 
-    def getDatabase(self):
-        return self.__get('database')
+    def _argument_kw(self):
+        kw = {'type': self}
+        for x in 'default', 'metavar', 'required', 'choices':
+            try:
+                kw[x] = getattr(self, x)
+            except AttributeError:
+                pass
+        return kw
 
-    def getEngine(self):
-        return self.__get('engine', True)
+    @staticmethod
+    def type(value):
+        if value:
+            return value
+        raise argparse.ArgumentTypeError('value is empty')
 
-    def getWait(self):
-        # XXX: see also DatabaseManager.__init__
-        return self.__get('wait')
+    def __call__(self, value):
+        return self.type(value)
 
-    def getDynamicMasterList(self):
-        return self.__getPath('dynamic_master_list', optional=True)
+class OptionGroup(object):
 
-    def getAdapter(self):
-        return self.__get('adapter')
+    def __init__(self, description=None):
+        self.description = description
+        self._options = []
 
-    def getCluster(self):
-        cluster = self.__get('cluster')
-        assert cluster != '', "Cluster name must be non-empty"
-        return cluster
+    def _asArgparse(self, parser, option_list):
+        g = parser.add_argument_group(self.description)
+        for option in self._options:
+            option._asArgparse(g, option_list)
 
-    def getReplicas(self):
-        return int(self.__get('replicas'))
+    def set_defaults(self, **kw):
+        option_dict = self.getOptionDict()
+        for k, v in kw.iteritems():
+            option_dict[k].default = v
 
-    def getPartitions(self):
-        return int(self.__get('partitions'))
+    def getOptionDict(self):
+        option_dict = {}
+        for option in self._options:
+            if isinstance(option, OptionGroup):
+                option_dict.update(option.getOptionDict())
+            else:
+                option_dict[option.name.replace('-', '_')] = option
+        return option_dict
 
-    def getReset(self):
-        # only from command line
-        return self.argument_list.get('reset', False)
+    def __call__(self, *args, **kw):
+        self._options.append(Option(*args, **kw))
 
-    def getUUID(self):
-        # only from command line
-        uuid = self.argument_list.get('uuid', None)
-        if uuid:
-            return int(uuid)
+    def __option_type(t):
+        return wraps(t)(lambda self, *args, **kw: self(type=t, *args, **kw))
 
-    def getUpstreamCluster(self):
-        return self.__get('upstream_cluster', True)
+    float = __option_type(float)
+    int   = __option_type(int)
+    path  = __option_type(os.path.expanduser)
 
-    def getUpstreamMasters(self):
-        return util.parseMasterList(self.__get('upstream_masters'))
+    def bool(self, *args, **kw):
+        self._options.append(BoolOption(*args, **kw))
 
-    def getAutostart(self):
-        n = self.__get('autostart', True)
-        if n:
-            return int(n)
+class Argument(Option):
 
-    def getDedup(self):
-        return self.__get('dedup', True)
+    def __init__(self, name, **kw):
+        super(Argument, self).__init__(name, **kw)
+
+    def _asArgparse(self, parser, option_list):
+        kw = {'help': self.help, 'type': self}
+        for x in 'default', 'metavar', 'nargs', 'choices':
+            try:
+                kw[x] = getattr(self, x)
+            except AttributeError:
+                pass
+        parser.add_argument(self.name, **kw)
+
+class OptionList(OptionGroup):
+
+    _with_required = None
+
+    def argument(self, *args, **kw):
+        self._options.append(Argument(*args, **kw))
+
+    def group(self, description):
+        group = OptionGroup(description)
+        self._options.append(group)
+        return group
+
+    def parse(self, argv=None):
+        parser = argparse.ArgumentParser(description=self.description,
+            argument_default=argparse.SUPPRESS,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        for option in self._options:
+            option._asArgparse(parser, self)
+        _format_help = parser.format_help
+        def format_help():
+            self._with_required = ()
+            try:
+                return _format_help()
+            finally:
+                del self._with_required
+        parser.format_help = format_help
+        if argv is None:
+            argv = sys.argv[1:]
+        args = parser.parse_args(argv)
+        option_dict = self.getOptionDict()
+        try:
+            config_file = args.file
+        except AttributeError:
+            d = ()
+        else:
+            cfg = SafeConfigParser()
+            cfg.read(config_file)
+            section = args.section
+            d = {}
+            for name in cfg.options(section):
+                try:
+                    option = option_dict[name]
+                except KeyError:
+                    continue
+                d[name] = option.fromConfigFile(cfg, section)
+            parser.set_defaults(**d)
+        self._with_required = d
+        try:
+            args = parser.parse_args(argv)
+        finally:
+            del self._with_required
+        return {name: option.parse(getattr(args, name))
+            for name, option in option_dict.iteritems()
+            if hasattr(args, name)}

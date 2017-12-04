@@ -17,51 +17,62 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.config import getOptionParser
+from __future__ import print_function
 import time
 import os
+from neo.lib.app import buildOptionParser
 
-# register options
-parser = getOptionParser()
-parser.add_option('-s', '--source', help='the source database')
-parser.add_option('-d', '--destination', help='the destination database')
-parser.add_option('-c', '--cluster', help='the NEO cluster name')
+import_warning = (
+    "WARNING: This is not the recommended way to import data to NEO:"
+    " you should use the Importer backend instead.\n"
+    "NEO also does not implement IStorageRestoreable interface, which"
+    " means that undo information is not preserved when using this tool:"
+    " conflict resolution could happen when undoing an old transaction."
+)
+
+@buildOptionParser
+class NEOMigrate(object):
+
+    from neo.lib.config import OptionList
+
+    @classmethod
+    def _buildOptionParser(cls):
+        parser = cls.option_parser
+        parser.description = "NEO <-> FileStorage conversion tool"
+        parser('c', 'cluster', required=True, help='the NEO cluster name')
+        parser.bool('q', 'quiet', help='print nothing to standard output')
+        parser.argument('source', help='the source database')
+        parser.argument('destination', help='the destination database')
+
+    def __init__(self, config):
+        self.name = config.pop('cluster')
+        self.source = config.pop('source')
+        self.destination = config.pop('destination')
+        self.quiet = config.pop('quiet', False)
+
+        from ZODB.FileStorage import FileStorage
+        from neo.client.Storage import Storage as NEOStorage
+        if os.path.exists(self.source):
+            if not self.quiet:
+                print(import_warning)
+            self.src = FileStorage(file_name=self.source, read_only=True)
+            self.dst = NEOStorage(master_nodes=self.destination, name=self.name,
+                                  **config)
+        else:
+            self.src = NEOStorage(master_nodes=self.source, name=self.name,
+                                  read_only=True, **config)
+            self.dst = FileStorage(file_name=self.destination)
+
+    def run(self):
+        if not self.quiet:
+            print("Migrating from %s to %s" % (self.source, self.destination))
+            start = time.time()
+        self.dst.copyTransactionsFrom(self.src)
+        if not self.quiet:
+            elapsed = time.time() - start
+            print("Migration done in %3.5f" % elapsed)
+
 
 def main(args=None):
-    # parse options
-    (options, args) = parser.parse_args(args=args)
-    source = options.source or None
-    destination = options.destination or None
-    cluster = options.cluster or None
-
-    # check options
-    if source is None or destination is None:
-        raise RuntimeError('Source and destination databases must be supplied')
-    if cluster is None:
-        raise RuntimeError('The NEO cluster name must be supplied')
-
-    # open storages
-    from ZODB.FileStorage import FileStorage
-    from neo.client.Storage import Storage as NEOStorage
-    if os.path.exists(source):
-        print("WARNING: This is not the recommended way to import data to NEO:"
-              " you should use the Importer backend instead.\n"
-              "NEO also does not implement IStorageRestoreable interface,"
-              " which means that undo information is not preserved when using"
-              " this tool: conflict resolution could happen when undoing an"
-              " old transaction.")
-        src = FileStorage(file_name=source, read_only=True)
-        dst = NEOStorage(master_nodes=destination, name=cluster,
-                         logfile=options.logfile)
-    else:
-        src = NEOStorage(master_nodes=source, name=cluster,
-                         logfile=options.logfile, read_only=True)
-        dst = FileStorage(file_name=destination)
-
-    # do the job
-    print "Migrating from %s to %s" % (source, destination)
-    start = time.time()
-    dst.copyTransactionsFrom(src)
-    elapsed = time.time() - start
-    print "Migration done in %3.5f" % (elapsed, )
-
+    config = NEOMigrate.option_parser.parse(args)
+    NEOMigrate(config).run()

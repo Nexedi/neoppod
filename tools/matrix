@@ -16,25 +16,28 @@ class MatrixImportBenchmark(BenchmarkRunner):
     _size = None
 
     def add_options(self, parser):
-        parser.add_option('-d', '--datafs')
-        parser.add_option('-z', '--zeo', action="store_true")
-        parser.add_option('', '--min-storages', type='int', default=1)
-        parser.add_option('', '--max-storages', type='int', default=2)
-        parser.add_option('', '--min-replicas', type='int', default=0)
-        parser.add_option('', '--max-replicas', type='int', default=1)
-        parser.add_option('', '--threaded', action="store_true")
+        _ = parser.add_argument
+        _('-d', '--datafs')
+        _('-z', '--zeo', action="store_true")
+        _('--min-storages', type=int, default=1)
+        _('--max-storages', type=int, default=2)
+        _('--min-replicas', type=int, default=0)
+        _('--max-replicas', type=int, default=1)
+        _('--repeat', type=int, default=1)
+        _('--threaded', action="store_true")
 
-    def load_options(self, options, args):
-        if options.datafs and not os.path.exists(options.datafs):
+    def load_options(self, args):
+        if args.datafs and not os.path.exists(args.datafs):
             sys.exit('Missing or wrong data.fs argument')
         return dict(
-            datafs = options.datafs,
-            min_s = options.min_storages,
-            max_s = options.max_storages,
-            min_r = options.min_replicas,
-            max_r = options.max_replicas,
-            threaded = options.threaded,
-            zeo = options.zeo,
+            datafs = args.datafs,
+            min_s = args.min_storages,
+            max_s = args.max_storages,
+            min_r = args.min_replicas,
+            max_r = args.max_replicas,
+            repeat = args.repeat,
+            threaded = args.threaded,
+            zeo = args.zeo,
         )
 
     def start(self):

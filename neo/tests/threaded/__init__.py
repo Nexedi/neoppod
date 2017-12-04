@@ -270,10 +270,6 @@ class TestSerialized(Serialized):
 
 class Node(object):
 
-    @staticmethod
-    def convertInitArgs(**kw):
-        return {'get' + k.capitalize(): v for k, v in kw.iteritems()}
-
     def getConnectionList(self, *peers):
         addr = lambda c: c and (c.addr if c.is_server else c.getAddress())
         addr_set = {addr(c.connector) for peer in peers
@@ -337,18 +333,17 @@ class ServerNode(Node):
         threading.Thread.__init__(self)
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
-        kw.update(getCluster=name, getBind=address,
-            getMasters=master_nodes and parseMasterList(master_nodes))
-        super(ServerNode, self).__init__(Mock(kw))
+        kw.update(cluster=name, bind=address,
+            masters=master_nodes and parseMasterList(master_nodes))
+        super(ServerNode, self).__init__(kw)
 
     def getVirtualAddress(self):
         return self._init_args['address']
 
     def resetNode(self, **kw):
         assert not self.is_alive()
-        kw = self.convertInitArgs(**kw)
         init_args = self._init_args
-        init_args['getReset'] = False
+        init_args['reset'] = False
         assert set(kw).issubset(init_args), (kw, init_args)
         init_args.update(kw)
         self.close()
@@ -403,7 +398,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             self.master_conn.close()
 
     def getAdapter(self):
-        return self._init_args['getAdapter']
+        return self._init_args['adapter']
 
     def getDataLockInfo(self):
         dm = self.dm
@@ -663,15 +658,15 @@ class NEOCluster(object):
         master_list = [MasterApplication.newAddress()
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
-        kw = Node.convertInitArgs(replicas=replicas, adapter=adapter,
+        kw = dict(replicas=replicas, adapter=adapter,
             partitions=partitions, reset=clear_databases, dedup=dedup)
         kw['cluster'] = weak_self = weakref.proxy(self)
-        kw['getSSL'] = self.SSL
+        kw['ssl'] = self.SSL
         if upstream is not None:
             self.upstream = weakref.proxy(upstream)
-            kw.update(getUpstreamCluster=upstream.name,
-                getUpstreamMasters=parseMasterList(upstream.master_nodes))
-        self.master_list = [MasterApplication(getAutostart=autostart,
+            kw.update(upstream_cluster=upstream.name,
+                upstream_masters=parseMasterList(upstream.master_nodes))
+        self.master_list = [MasterApplication(autostart=autostart,
                                               address=x, **kw)
                             for x in master_list]
         if db_list is None:
@@ -693,8 +688,9 @@ class NEOCluster(object):
             db = os.path.join(getTempDirectory(), '%s.conf')
             with open(db % tuple(db_list), "w") as f:
                 cfg.write(f)
-            kw["getAdapter"] = "Importer"
-        self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
+            kw["adapter"] = "Importer"
+        kw['wait'] = 0
+        self.storage_list = [StorageApplication(database=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
 
@@ -969,7 +965,7 @@ class NEOThreadedTest(NeoTestBase):
     @contextmanager
     def getLoopbackConnection(self):
         app = MasterApplication(address=BIND,
-            getSSL=NEOCluster.SSL, getReplicas=0, getPartitions=1)
+            ssl=NEOCluster.SSL, replicas=0, partitions=1)
         try:
             handler = EventHandler(app)
             app.listening_conn = ListeningConnection(app, handler, app.server)

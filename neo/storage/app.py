@@ -18,7 +18,7 @@ import sys
 from collections import deque
 
 from neo.lib import logging
-from neo.lib.app import BaseApplication
+from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.protocol import uuid_str, \
     CellStates, ClusterStates, NodeTypes, Packets
 from neo.lib.connection import ListeningConnection
@@ -27,35 +27,80 @@ from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 from .checker import Checker
-from .database import buildDatabaseManager
+from .database import buildDatabaseManager, DATABASE_MANAGER_DICT
 from .handlers import identification, initialization, master
 from .replicator import Replicator
 from .transactions import TransactionManager
 
 from neo.lib.debug import register as registerLiveDebugger
 
+option_defaults = {
+  'adapter': 'MySQL',
+  'wait': 0,
+}
+assert option_defaults['adapter'] in DATABASE_MANAGER_DICT
+
+@buildOptionParser
 class Application(BaseApplication):
     """The storage node application."""
 
     checker = replicator = tm = None
 
+    @classmethod
+    def _buildOptionParser(cls):
+        parser = cls.option_parser
+        parser.description = "NEO Storage node"
+        cls.addCommonServerOptions('storage', '127.0.0.1')
+
+        _ = parser.group('storage')
+        _('a', 'adapter', choices=sorted(DATABASE_MANAGER_DICT),
+            help="database adapter to use")
+        _('d', 'database', required=True,
+            help="database connections string")
+        _.float('w', 'wait',
+            help="seconds to wait for backend to be available,"
+                 " before erroring-out (-1 = infinite)")
+        _.bool('disable-drop-partitions',
+            help="do not delete data of discarded cells, which is useful for"
+                 " big databases because the current implementation is"
+                 " inefficient (this option should disappear in the future)")
+
+        _ = parser.group('database creation')
+        _.int('u', 'uuid',
+            help="specify an UUID to use for this process. Previously"
+                 " assigned UUID takes precedence (i.e. you should"
+                 " always use reset with this switch)")
+        _('e', 'engine', help="database engine (MySQL only)")
+        _.bool('dedup',
+            help="enable deduplication of data"
+                 " when setting up a new storage node")
+        # TODO: Forbid using "reset" along with any unneeded argument.
+        #       "reset" is too dangerous to let user a chance of accidentally
+        #       letting it slip through in a long option list.
+        #       It should even be forbidden in configuration files.
+        _.bool('reset',
+            help="remove an existing database if any, and exit")
+
+        parser.set_defaults(**option_defaults)
+
     def __init__(self, config):
         super(Application, self).__init__(
-            config.getSSL(), config.getDynamicMasterList())
+            config.get('ssl'), config.get('dynamic_master_list'))
         # set the cluster name
-        self.name = config.getCluster()
+        self.name = config['cluster']
 
-        self.dm = buildDatabaseManager(config.getAdapter(),
-            (config.getDatabase(), config.getEngine(), config.getWait()),
+        self.dm = buildDatabaseManager(config['adapter'],
+            (config['database'], config.get('engine'), config['wait']),
         )
-        self.disable_drop_partitions = config.getDisableDropPartitions()
+        self.disable_drop_partitions = config.get('disable_drop_partitions',
+                                                  False)
 
         # load master nodes
-        for master_address in config.getMasters():
+        for master_address in config['masters']:
             self.nm.createMaster(address=master_address)
 
         # set the bind address
-        self.server = config.getBind()
+        self.server = config['bind']
         logging.debug('IP address is %s, port is %d', *self.server)
 
         # The partition table is initialized after getting the number of
@@ -69,13 +114,14 @@ class Application(BaseApplication):
         # operation related data
         self.operational = False
 
-        self.dm.setup(reset=config.getReset(), dedup=config.getDedup())
+        self.dm.setup(reset=config.get('reset', False),
+                      dedup=config.get('dedup', False))
         self.loadConfiguration()
         self.devpath = self.dm.getTopologyPath()
 
         # force node uuid from command line argument, for testing purpose only
-        if config.getUUID() is not None:
-            self.uuid = config.getUUID()
+        if 'uuid' in config:
+            self.uuid = config['uuid']
 
         registerLiveDebugger(on_log=self.log)
 

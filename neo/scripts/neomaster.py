@@ -18,38 +18,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.config import getServerOptionParser, ConfigurationManager
-
-parser = getServerOptionParser()
-parser.add_option('-u', '--uuid', help='the node UUID (testing purpose)')
-parser.add_option('-r', '--replicas', help = 'replicas number')
-parser.add_option('-p', '--partitions', help = 'partitions number')
-parser.add_option('-A', '--autostart',
-    help='minimum number of pending storage nodes to automatically start'
-         ' new cluster (to avoid unwanted recreation of the cluster,'
-         ' this should be the total number of storage nodes)')
-parser.add_option('-C', '--upstream-cluster',
-    help='the name of cluster to backup')
-parser.add_option('-M', '--upstream-masters',
-    help='list of master nodes in cluster to backup')
-
-defaults = dict(
-    bind = '127.0.0.1:10000',
-    masters = '',
-    replicas = 0,
-    partitions = 100,
-)
 
 def main(args=None):
-    # build configuration dict from command line options
-    (options, args) = parser.parse_args(args=args)
-    config = ConfigurationManager(defaults, options, 'master')
+    from neo.master.app import Application
+    config = Application.option_parser.parse(args)
 
     # setup custom logging
-    logging.setup(config.getLogfile())
+    logging.setup(config.get('logfile'))
 
     # and then, load and run the application
-    from neo.master.app import Application
     app = Application(config)
     app.run()
-

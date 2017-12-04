@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from neo.lib.app import BaseApplication
+import argparse
+from neo.lib import util
+from neo.lib.app import BaseApplication, buildOptionParser
 from neo.lib.connection import ClientConnection, ConnectionClosed
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
 from .handler import CommandEventHandler
@@ -22,10 +24,23 @@ from .handler import CommandEventHandler
 class NotReadyException(Exception):
     pass
 
+@buildOptionParser
 class NeoCTL(BaseApplication):
 
     connection = None
     connected = False
+
+    @classmethod
+    def _buildOptionParser(cls):
+        # XXX: Use argparse sub-commands.
+        parser = cls.option_parser
+        parser.description = "NEO Control node"
+        parser('a', 'address', default='127.0.0.1:9999',
+            parse=lambda x: util.parseNodeAddress(x, 9999),
+            help="address of an admin node")
+        parser.argument('cmd', nargs=argparse.REMAINDER,
+            help="command to execute; if not supplied,"
+                 " the list of available commands is displayed")
 
     def __init__(self, address, **kw):
         super(NeoCTL, self).__init__(**kw)
