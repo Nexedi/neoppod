@@ -698,6 +698,21 @@ class MySQLDatabaseManager(DatabaseManager):
         if r:
             return [(p64(tid), length or 0) for tid, length in r]
 
+    def _fetchObject(self, oid, tid):
+        r = self.query(
+            'SELECT tid, compression, data.hash, value, value_tid'
+            ' FROM obj FORCE INDEX(`partition`)'
+            ' LEFT JOIN data ON (obj.data_id = data.id)'
+            ' WHERE `partition` = %d AND oid = %d AND tid = %d'
+            % (self._getReadablePartition(oid), oid, tid))
+        if r:
+            r = r[0]
+            compression = r[1]
+            if compression and compression & 0x80:
+                return (r[0], compression & 0x7f, r[2],
+                    ''.join(self._bigData(data)), r[4])
+            return r
+
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
             min_oid):
         u64 = util.u64

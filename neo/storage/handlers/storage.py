@@ -255,15 +255,14 @@ class StorageOperationHandler(EventHandler):
                             if not oid_set:
                                 del object_dict[serial]
                             continue
-                    object = dm.getObject(oid, serial)
+                    object = dm.fetchObject(oid, serial)
                     if not object:
                         conn.send(Errors.ReplicationError(
                             "partition %u dropped or truncated"
                             % partition), msg_id)
                         return
                     # Same as in askFetchTransactions.
-                    conn.send(Packets.AddObject(oid, serial, *object[2:]),
-                              msg_id)
+                    conn.send(Packets.AddObject(oid, *object), msg_id)
                     yield conn.buffering
                 conn.send(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)

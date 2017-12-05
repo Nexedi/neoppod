@@ -435,6 +435,20 @@ class DatabaseManager(object):
                 compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
+    @fallback
+    def _fetchObject(self, oid, tid):
+        r = self._getObject(oid, tid)
+        if r:
+            return r[:1] + r[2:]
+
+    def fetchObject(self, oid, tid):
+        u64 = util.u64
+        r = self._fetchObject(u64(oid), u64(tid))
+        if r:
+            serial, compression, checksum, data, data_serial = r
+            return (util.p64(serial), compression, checksum, data,
+                None if data_serial is None else util.p64(data_serial))
+
     @contextmanager
     def replicated(self, offset):
         readable_set = self._readable_set

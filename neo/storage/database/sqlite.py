@@ -532,6 +532,17 @@ class SQLiteDatabaseManager(DatabaseManager):
              self._getPackTID(), offset, length))
             ] or None
 
+    def _fetchObject(self, oid, tid):
+        for serial, compression, checksum, data, value_serial in self.query(
+                'SELECT tid, compression, data.hash, value, value_tid'
+                ' FROM obj LEFT JOIN data ON obj.data_id = data.id'
+                ' WHERE partition=? AND oid=? AND tid=?',
+                (self._getReadablePartition(oid), oid, tid)):
+            if checksum:
+                checksum = str(checksum)
+                data = str(data)
+            return serial, compression, checksum, data, value_serial
+
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
             min_oid):
         u64 = util.u64
