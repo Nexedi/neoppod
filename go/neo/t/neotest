@@ -869,6 +869,10 @@ Benchmark$1-avg 1 \\3 \\4/op\
 	nrun ioping -D -i 0ms -s 4k -S 1024M -w 3s -q -k . |\
 		ioping2bench "`hostname`/disk/randread/direct/4K"
 
+	echo -e "\n*** disk: random direct (no kernel cache) 1M-read latency"
+	nrun ioping -D -i 0ms -s 1M -S 1024M -w 3s -q -k . |\
+		ioping2bench "`hostname`/disk/randread/direct/1M"
+
 	echo -e "\n*** disk: random cached 4K-read latency"
 	# warmup so kernel puts the file into pagecache
 	for i in `seq 3`; do
@@ -877,6 +881,10 @@ Benchmark$1-avg 1 \\3 \\4/op\
 
 	nrun ioping -C -i 0ms -s 4k -S 1024M -w 3s -q -k . |\
 		ioping2bench "`hostname`/disk/randread/pagecache/4K"
+
+	echo -e "\n*** disk: random cached 1M-read latency"
+	nrun ioping -C -i 0ms -s 1M -S 1024M -w 3s -q -k . |\
+		ioping2bench "`hostname`/disk/randread/pagecache/1M"
 }
 
 # hash function to compute via zhash in tests/benchmarks
