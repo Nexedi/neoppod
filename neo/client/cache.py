@@ -94,13 +94,16 @@ class ClientCache(object):
     def _iterQueue(self, level):
         """for debugging purpose"""
         if level < len(self._queue_list):
-            item = head = self._queue_list[level]
-            if item:
-                while 1:
-                    yield item
-                    item = item.next
-                    if item is head:
-                        break
+            # Lockless iteration of the queue.
+            # XXX: In case of race condition, the result is wrong but at least,
+            #      it won't loop endlessly. If one want to collect accurate
+            #      statistics, a lock should be used.
+            expire = 0
+            item = self._queue_list[level]
+            while item and item.level == level and expire < item.expire:
+                yield item
+                expire = item.expire
+                item = item.next
 
     def _remove_from_oid_dict(self, item):
         item_list = self._oid_dict[item.oid]
