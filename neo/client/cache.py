@@ -82,13 +82,13 @@ class ClientCache(object):
         self._history_size = 0
 
     def __repr__(self):
-        return ("<%s history_size=%s oid_count=%s size=%s time=%s"
-                " queue_length=%r (life_time=%s max_history_size=%s"
-                " max_size=%s)>") % (
-            self.__class__.__name__, self._history_size,
+        return ("<%s oid_count=%s size=%s time=%s queue_length=%r"
+                " (life_time=%s max_history_size=%s max_size=%s)>") % (
+            self.__class__.__name__,
             len(self._oid_dict), self._size, self._time,
-            [sum(1 for _ in self._iterQueue(x))
-             for x in xrange(len(self._queue_list))],
+            [self._history_size] + [
+                sum(1 for _ in self._iterQueue(level))
+                for level in xrange(1, len(self._queue_list))],
             self._life_time, self._max_history_size, self._max_size)
 
     def _iterQueue(self, level):
