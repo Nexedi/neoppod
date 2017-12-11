@@ -133,7 +133,7 @@ class DatabaseManager(object):
     def erase(self):
         """"""
 
-    def _setup(self):
+    def _setup(self, dedup=False):
         """To be overridden by the backend to set up a database
 
         It must recover self._uncommitted_data from temporary object table.
@@ -144,14 +144,14 @@ class DatabaseManager(object):
         """
 
     @requires(_setup)
-    def setup(self, reset=0):
+    def setup(self, reset=False, dedup=False):
         """Set up a database, discarding existing data first if reset is True
         """
         if reset:
             self.erase()
         self._readable_set = set()
         self._uncommitted_data = defaultdict(int)
-        self._setup()
+        self._setup(dedup)
 
     @abstract
     def nonempty(self, table):
@@ -439,6 +439,20 @@ class DatabaseManager(object):
         return (util.p64(serial),
                 None if next_serial is None else util.p64(next_serial),
                 compression, checksum, data,
+                None if data_serial is None else util.p64(data_serial))
+
+    @fallback
+    def _fetchObject(self, oid, tid):
+        r = self._getObject(oid, tid)
+        if r:
+            return r[:1] + r[2:]
+
+    def fetchObject(self, oid, tid):
+        u64 = util.u64
+        r = self._fetchObject(u64(oid), u64(tid))
+        if r:
+            serial, compression, checksum, data, data_serial = r
+            return (util.p64(serial), compression, checksum, data,
                 None if data_serial is None else util.p64(data_serial))
 
     @contextmanager

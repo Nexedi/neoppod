@@ -1,6 +1,13 @@
 Change History
 ==============
 
+1.8.1 (2017-11-07)
+------------------
+
+- Add support for OpenSSL >= 1.1.
+- storage: fix possible crash when delaying replication requests.
+- mysql: fix performance issues on read operations by using more index hints.
+
 1.8 (2017-07-04)
 ----------------
 

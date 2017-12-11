@@ -202,9 +202,9 @@ Developers interested in NEO may refer to
 `NEO Web site <https://neo.nexedi.com/>`_ and subscribe to following mailing
 lists:
 
-- `neo-users <http://mail.tiolive.com/mailman/listinfo/neo-users>`_:
+- `neo-users <https://mail.tiolive.com/mailman/listinfo/neo-users>`_:
   users discussion
-- `neo-dev <http://mail.tiolive.com/mailman/listinfo/neo-dev>`_:
+- `neo-dev <https://mail.tiolive.com/mailman/listinfo/neo-dev>`_:
   developers discussion
 
 Automated test results are published at

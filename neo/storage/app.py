@@ -69,7 +69,7 @@ class Application(BaseApplication):
         # operation related data
         self.operational = False
 
-        self.dm.setup(reset=config.getReset())
+        self.dm.setup(reset=config.getReset(), dedup=config.getDedup())
         self.loadConfiguration()
 
         # force node uuid from command line argument, for testing purpose only
@@ -258,9 +258,8 @@ class Application(BaseApplication):
                     try:
                         # NOTE backup/importer processed under isIdle
                         while isIdle():
-                            if task_queue[-1].next():
-                                _poll(0)
-                            task_queue.rotate()
+                            next(task_queue[-1]) or task_queue.rotate()
+                            _poll(0)
                         break
                     except StopIteration:
                         task_queue.pop()
@@ -274,10 +273,6 @@ class Application(BaseApplication):
             self.replicator.stop()
 
     def newTask(self, iterator):
-        try:
-            iterator.next()
-        except StopIteration:
-            return
         self.task_queue.appendleft(iterator)
 
     def closeClient(self, connection):

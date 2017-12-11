@@ -322,8 +322,8 @@ class ImporterDatabaseManager(DatabaseManager):
             for zodb in self.zodb:
                 zodb.close()
 
-    def setup(self, reset=0):
-        self.db.setup(reset)
+    def setup(self, reset=False, dedup=False):
+        self.db.setup(reset, dedup)
         zodb_state = self.getConfiguration("zodb")
         if zodb_state:
             logging.warning("Ignoring configuration file for oid mapping."
@@ -388,7 +388,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 finish()
                 txn = z.transaction
                 tid = txn.tid
-                yield 1
+                yield
             zodb = z.zodb
             for r in z.transaction:
                 oid = p64(u64(r.oid) + zodb.shift_oid)
@@ -413,7 +413,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 # update 'obj' with 'object_list', some rows in 'data' may be
                 # unreferenced. This is not a problem because the leak is
                 # solved when resuming the migration.
-                yield 1
+                yield
             try:
                 z.next()
             except StopIteration:
@@ -423,7 +423,7 @@ class ImporterDatabaseManager(DatabaseManager):
         logging.warning("All data are imported. You should change"
             " your configuration to use the native backend and restart.")
         self._import = None
-        for x in """getObject getReplicationTIDList
+        for x in """getObject getReplicationTIDList getReplicationObjectList
                  """.split():
             setattr(self, x, getattr(self.db, x))
 
@@ -514,6 +514,9 @@ class ImporterDatabaseManager(DatabaseManager):
         self.db._deleteRange(partition, min_tid, max_tid)
 
     def getReplicationTIDList(self, min_tid, max_tid, length, partition):
+        # This method is not tested and it is anyway
+        # useless without getReplicationObjectList.
+        raise BackendNotImplemented(self.getReplicationTIDList)
         p64 = util.p64
         tid = p64(self.zodb_tid)
         if min_tid <= tid:

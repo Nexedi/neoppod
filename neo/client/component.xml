@@ -32,6 +32,13 @@
         Log debugging information to specified SQLite DB.
       </description>
     </key>
+    <key name="cache-size" datatype="byte-size" default="20MB">
+      <description>
+         Storage cache size in bytes. Records are cached uncompressed.
+         Optional ``KB``, ``MB`` or ``GB`` suffixes can (and usually are)
+         used to specify units other than bytes.
+      </description>
+    </key>
     <key name="dynamic_master_list" datatype="existing-dirpath">
       <description>
         The file designated by this option contains an updated list of master

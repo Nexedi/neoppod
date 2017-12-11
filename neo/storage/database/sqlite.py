@@ -62,7 +62,7 @@ class SQLiteDatabaseManager(DatabaseManager):
     """This class manages a database on SQLite.
 
     CAUTION: Make sure we never use statement journal files, as explained at
-             http://www.sqlite.org/tempfiles.html for more information.
+             https://www.sqlite.org/tempfiles.html for more information.
              In other words, temporary files (by default in /var/tmp !) must
              never be used for small requests.
     """
@@ -112,7 +112,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
-    def _setup(self):
+    def _setup(self, dedup=False):
         # SQLite does support transactional Data Definition Language statements
         # but unfortunately, the built-in Python binding automatically commits
         # between such statements. This anti-feature causes this method to be
@@ -179,9 +179,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL)
           """)
-        q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
-                 data(hash, compression)
-          """)
+        if dedup:
+            q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
+                    data(hash, compression)
+              """)
 
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
@@ -530,6 +531,17 @@ class SQLiteDatabaseManager(DatabaseManager):
             (self._getReadablePartition(oid), oid,
              self._getPackTID(), offset, length))
             ] or None
+
+    def _fetchObject(self, oid, tid):
+        for serial, compression, checksum, data, value_serial in self.query(
+                'SELECT tid, compression, data.hash, value, value_tid'
+                ' FROM obj LEFT JOIN data ON obj.data_id = data.id'
+                ' WHERE partition=? AND oid=? AND tid=?',
+                (self._getReadablePartition(oid), oid, tid)):
+            if checksum:
+                checksum = str(checksum)
+                data = str(data)
+            return serial, compression, checksum, data, value_serial
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
             min_oid):

@@ -72,11 +72,13 @@ class SocketConnector(object):
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.queued = [ENCODED_VERSION]
+        self.queue_size = len(ENCODED_VERSION)
         return self
 
     def queue(self, data):
         was_empty = not self.queued
         self.queued += data
+        self.queue_size += len(data)
         return was_empty
 
     def _error(self, op, exc=None):
@@ -183,8 +185,10 @@ class SocketConnector(object):
             #   could be sent.  # NOTE queue may grow up indefinitely in this case!
             if n != len(msg):
                 self.queued[:] = msg[n:],
+                self.queue_size -= n
                 return False
             del self.queued[:]
+            self.queue_size = 0
         else:
             assert not self.queued
         return True

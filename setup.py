@@ -60,7 +60,7 @@ else:
 
 setup(
     name = 'neoppod',
-    version = '1.8',
+    version = '1.8.1',
     description = __doc__.strip(),
     author = 'Nexedi SA',
     author_email = 'neo-dev@erp5.org',
@@ -89,6 +89,9 @@ setup(
             'neo = neo.client.zodburi:resolve_uri [client]',
         ],
     },
+    install_requires = [
+        'python-dateutil', # neolog --from
+        ],
     extras_require = extras_require,
     package_data = {
         'neo.client': [

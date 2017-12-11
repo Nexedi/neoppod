@@ -675,7 +675,7 @@ class NEOCluster(object):
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
                        db_user=DB_USER, db_password='', compress=True,
-                       importer=None, autostart=None):
+                       importer=None, autostart=None, dedup=False):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         self.compress = compress
@@ -684,7 +684,7 @@ class NEOCluster(object):
                        for _ in xrange(master_count)]
         self.master_nodes = ' '.join('%s:%s' % x for x in master_list)
         kw = Node.convertInitArgs(replicas=replicas, adapter=adapter,
-            partitions=partitions, reset=clear_databases)
+            partitions=partitions, reset=clear_databases, dedup=dedup)
         kw['cluster'] = weak_self = weakref.proxy(self)
         kw['getSSL'] = self.SSL
         if upstream is not None:

@@ -27,7 +27,7 @@ class StorageSQLiteTests(StorageDBTests):
 
     def getDB(self, reset=0):
         db = SQLiteDatabaseManager(':memory:')
-        db.setup(reset)
+        db.setup(reset, True)
         return db
 
     def test_lockDatabase(self):

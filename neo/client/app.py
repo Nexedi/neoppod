@@ -59,7 +59,8 @@ class Application(ThreadedApplication):
     # is unreachable.
     max_reconnection_to_master = float('inf')
 
-    def __init__(self, master_nodes, name, compress=True, **kw):
+    def __init__(self, master_nodes, name, compress=True, cache_size=None,
+                 **kw):
         super(Application, self).__init__(parseMasterList(master_nodes),
                                           name, **kw)
         # Internal Attributes common to all thread
@@ -69,7 +70,8 @@ class Application(ThreadedApplication):
         self.trying_master_node = None
 
         # no self-assigned UUID, primary master will supply us one
-        self._cache = ClientCache()
+        self._cache = ClientCache() if cache_size is None else \
+                      ClientCache(max_size=cache_size)
         self._loading_oid = None
         self.new_oid_list = ()
         self.last_oid = '\0' * 8
@@ -199,6 +201,12 @@ class Application(ThreadedApplication):
                 else:
                     # Otherwise, check one by one.
                     master_list = self.nm.getMasterList()
+                    if not master_list:
+                        # XXX: On shutdown, it already happened that this list
+                        #      is empty, leading to ZeroDivisionError. This
+                        #      looks a minor issue so let's wait to have more
+                        #      information.
+                        logging.error('%r', self.__dict__)
                     index = (index + 1) % len(master_list)
                     node = master_list[index]
                 # Connect to master
