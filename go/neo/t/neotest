@@ -846,10 +846,11 @@ bench_cpu() {
 	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
 		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmark`hostname`/pystone 1 \1 pystone/s|\""
 
-	nrun tsha1.py 1024
-	nrun tsha1_go 1024
-	nrun tsha1.py 4096
-	nrun tsha1_go 4096
+	sizev="1024 4096 $((2*1024*1024))"
+	for size in $sizev; do
+		nrun tsha1.py $size
+		nrun tsha1_go $size
+	done
 }
 
 # bench_disk	- benchmark direct (uncached) and cached random reads

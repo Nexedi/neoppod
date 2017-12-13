@@ -36,6 +36,20 @@ func dieusage() {
 	os.Exit(1)
 }
 
+const unitv = "BKMGT" // (2^10)^i represents by corresponding char suffix
+
+// fmtsize formats size in human readable form
+func fmtsize(size int) string {
+	const order = 1<<10
+	norder := 0
+	for size != 0 && (size % order) == 0 && (norder + 1 < len(unitv)) {
+		size /= order
+		norder += 1
+	}
+
+	return fmt.Sprintf("%d%c", size, unitv[norder])
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		dieusage()
@@ -67,5 +81,5 @@ func main() {
 		hostname = "?"
 	}
 
-	fmt.Printf("Benchmark%s/sha1/go/%dB %d\t%.3f µs/op\n", hostname, blksize, n, float64(δt) / float64(n) / float64(time.Microsecond))
+	fmt.Printf("Benchmark%s/sha1/go/%s %d\t%.3f µs/op\n", hostname, fmtsize(blksize), n, float64(δt) / float64(n) / float64(time.Microsecond))
 }

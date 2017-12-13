@@ -27,6 +27,18 @@ import hashlib
 from time import time
 import socket
 
+# fmtsize formats size in human readable form
+_unitv = "BKMGT" # (2^10)^i represents by corresponding char suffix
+def fmtsize(size):
+    order = 1<<10
+    norder = 0
+    while size and (size % order) == 0 and (norder + 1 < len(_unitv)):
+        size //= order
+        norder += 1
+
+    return "%d%s" % (size, _unitv[norder])
+
+
 def main():
     blksize = int(sys.argv[1])
     data = '\0'*blksize
@@ -47,7 +59,7 @@ def main():
     dt = tend - tstart
 
     hostname = socket.gethostname()
-    print('Benchmark%s/sha1/py/%dB %d\t%.3f µs/op' % (hostname, blksize, n, dt * 1E6 / n))
+    print('Benchmark%s/sha1/py/%s %d\t%.3f µs/op' % (hostname, fmtsize(blksize), n, dt * 1E6 / n))
 
 if __name__ == '__main__':
     main()
