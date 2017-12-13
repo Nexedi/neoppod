@@ -127,12 +127,15 @@ class ClientCache(object):
         if level:
             item.expire = self._time + self._life_time
         else:
-            self._size -= len(item.data)
-            item.data = None
+            self._empty(item)
             self._history_size += 1
             if self._max_history_size < self._history_size:
                 self._remove(head)
                 self._remove_from_oid_dict(head)
+
+    def _empty(self, item):
+        self._size -= len(item.data)
+        item.data = None
 
     def _remove(self, item):
         level = item.level
@@ -168,6 +171,7 @@ class ClientCache(object):
                 if head.level or head.counter:
                     self._add(head)
                 else:
+                    self._empty(head)
                     self._remove_from_oid_dict(head)
                 break
 
@@ -250,6 +254,7 @@ class ClientCache(object):
                             head.level = 0
                             self._add(head)
                         else:
+                            self._empty(head)
                             self._remove_from_oid_dict(head)
                         if self._size <= max_size:
                             return
@@ -271,6 +276,8 @@ class ClientCache(object):
         for oid, item_list in self._oid_dict.items():
             item = item_list[-1]
             if item.next_tid is None:
+                if item.level:
+                    self._empty(item)
                 self._remove(item)
                 del item_list[-1]
                 # We don't preserve statistics of removed items. This could be
@@ -297,10 +304,13 @@ def test(self):
     cache.store(1, *data)
     self.assertEqual(cache.load(1, None), data)
     cache.clear_current()
+    self.assertEqual(cache._size, 1)
     self.assertEqual(cache.load(1, None), None)
     cache.store(1, *data)
     cache.invalidate(1, 20)
+    self.assertEqual(cache._size, 3)
     cache.clear_current()
+    self.assertEqual(cache._size, 3)
     self.assertEqual(cache.load(1, 20), ('15', 15, 20))
     cache.store(1, '10', 10, 15)
     cache.store(1, '20', 20, 21)
@@ -312,8 +322,10 @@ def test(self):
     cache.clear()
     cache.store(1, '10*', 10, None)
     cache._max_size = cache._size
-    cache.store(2, '10', 10, None)
+    cache.store(2, '10', 10, 15)
     self.assertEqual(cache._queue_list[0].oid, 1)
+    cache.store(2, '15', 15, None)
+    self.assertEqual(cache._queue_list[2].oid, 2)
     data = '10', 10, 15
     cache.store(1, *data)
     self.assertEqual(cache.load(1, 15), data)
