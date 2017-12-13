@@ -386,6 +386,7 @@ prod1_gen_data() {
 datasetv=(
 	"wczblk1 8"	# size: array size (MB)		XXX raise 32,64,512...
 	"prod1   1024"	# size: # of transactions	XXX raise size
+	# TODO + wczblk0
 )
 
 # generate data in data.fs
@@ -576,6 +577,7 @@ system_info() {
 
 
 	# disk under .
+	# TODO show all disks and just mark which is current
 	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
 	blkdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
 	blkdev=`realpath $blkdev`			# /dev/mapper/vg0-root	-> /dev/dm-0
@@ -851,6 +853,9 @@ bench_cpu() {
 		nrun tsha1.py $size
 		nrun tsha1_go $size
 	done
+
+	# TODO bench compress/decompress
+	# XXX data: null4K, some real pickle
 }
 
 # bench_disk	- benchmark direct (uncached) and cached random reads
