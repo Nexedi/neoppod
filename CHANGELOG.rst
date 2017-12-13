@@ -42,7 +42,7 @@ Other changes:
   - Proper handling of incoming packets for closed/aborted connections.
   - An exception while processing an answer could leave the handler switcher
     in the bad state.
-  - In STOPPING cluster state, really wait for all transaction to be finished.
+  - In STOPPING cluster state, really wait for all transactions to be finished.
   - Several issues when undoing transactions with conflict resolutions
     have been fixed.
   - Delayed connection acceptation when the storage node is ready.

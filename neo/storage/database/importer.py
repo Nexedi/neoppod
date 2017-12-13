@@ -314,6 +314,7 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def commit(self):
         self.db.commit()
+        # XXX: This misses commits done internally by self.db (lockTransaction).
         self._last_commit = time.time()
 
     def close(self):
