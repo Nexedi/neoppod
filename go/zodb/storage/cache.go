@@ -43,9 +43,9 @@ type Cache struct {
 
 	mu sync.RWMutex
 
-	// cache is fully synchronized with storage for transactions with tid < before.
-	// XXX clarify ^^^ (it means if revCacheEntry.before=∞ it is Cache.before)
-	before	zodb.Tid
+	// cache is fully synchronized with storage for transactions with tid <= head.
+	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)
+	head	zodb.Tid
 
 	entryMap map[zodb.Oid]*oidCacheEntry	// oid -> oid's cache entries
 
@@ -64,7 +64,7 @@ type oidCacheEntry struct {
 	sync.Mutex
 
 	// cached revisions in ascending order
-	// [i].serial < [i].before <= [i+1].serial < [i+1].before
+	// [i].serial <= [i].head < [i+1].serial <= [i+1].head
 	//
 	// NOTE ^^^ .serial = 0 while loading is in progress
 	// NOTE ^^^ .serial = 0 if .err != nil
@@ -76,21 +76,21 @@ type revCacheEntry struct {
 	parent *oidCacheEntry	// oidCacheEntry holding us
 	inLRU  lruHead		// in Cache.lru; protected by Cache.gcMu
 
-	// we know that loadBefore(oid, .before) will give this .serial:oid.
+	// we know that load(oid, .head) will give this .serial:oid.
 	//
 	// this is only what we currently know - not necessarily covering
 	// whole correct range - e.g. if oid revisions in db are 1 and 5 if we
-	// query db with loadBefore(3) on return we'll get serial=1 and
-	// remember .before as 3. But for loadBefore(4) we have to redo
+	// query db with load(@3) on return we'll get serial=1 and
+	// remember .head as 3. But for load(@4) we have to redo
 	// database query again.
 	//
-	// if .before=∞ here, that actually means before is cache.before
-	// ( this way we do not need to bump .before to next tid in many
+	// if .head=∞ here, that actually means head is cache.head
+	// ( this way we do not need to bump .head to next tid in many
 	//   unchanged cache entries when a transaction invalidation comes )
 	//
-	// .before can be > cache.before and still finite - that represents a
-	// case when loadBefore with tid > cache.before was called.
-	before zodb.Tid
+	// .head can be > cache.head and still finite - that represents a
+	// case when load with tid > cache.head was called.
+	head zodb.Tid
 
 	// loading result: object (buf, serial) or error
 	buf    *zodb.Buf
@@ -166,13 +166,6 @@ func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial z
 		return nil, 0, rce.userErr(xid)
 	}
 
-	// for loadSerial - check we have exact hit - else "nodata"
-	if !xid.TidBefore {
-		if rce.serial != xid.Tid {
-			return nil, 0, &zodb.ErrXidMissing{xid}
-		}
-	}
-
 	rce.buf.XIncref()
 	return rce.buf, rce.serial, nil
 }
@@ -199,26 +192,15 @@ func (c *Cache) Prefetch(ctx context.Context, xid zodb.Xid) {
 
 // lookupRCE returns revCacheEntry corresponding to xid.
 //
-// If xid indicates loadSerial query (xid.TidBefore=false) then rce will be
-// lookuped and eventually loaded as if it was queried with <(serial+1).
-// It is caller responsibility to check loadSerial cases for exact hits after
-// rce will become ready.
-//
 // rceNew indicates whether rce is new and so loading on it has not been
 // initiated yet. If so the caller should proceed to loading rce via loadRCE.
 func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
-	// loadSerial(serial) -> loadBefore(serial+1)
-	before := xid.Tid
-	if !xid.TidBefore {
-		before++ // XXX overflow
-	}
-
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
-	// exit with oce locked and cache.before read consistently
+	// exit with oce locked and cache.syncedTo read consistently
 	c.mu.RLock()
 
 	oce := c.entryMap[xid.Oid]
-	cacheBefore := c.before
+	cacheHead := c.head
 
 	if oce != nil {
 		oce.Lock()
@@ -232,51 +214,51 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 			oce = &oidCacheEntry{}
 			c.entryMap[xid.Oid] = oce
 		}
-		cacheBefore = c.before // reload c.before because we relocked the cache
+		cacheHead = c.head // reload c.head because we relocked the cache
 		oce.Lock()
 		c.mu.Unlock()
 	}
 
-	// oce, before -> rce (revCacheEntry)
+	// oce, at -> rce (revCacheEntry)
 	l := len(oce.rcev)
 	i := sort.Search(l, func(i int) bool {
-		before_i := oce.rcev[i].before
-		if before_i == zodb.TidMax {
-			before_i = cacheBefore
+		head_i := oce.rcev[i].head
+		if head_i == zodb.TidMax {
+			head_i = cacheHead
 		}
-		return before <= before_i
+		return xid.At <= head_i
 	})
 
 	switch {
-	// not found - before > max(rcev.before) - insert new max entry
+	// not found - at > max(rcev.head) - insert new max entry
 	case i == l:
-		rce = oce.newRevEntry(i, before)
-		if rce.before == cacheBefore {
+		rce = oce.newRevEntry(i, xid.At)
+		if rce.head == cacheHead {
 			// FIXME better do this when the entry becomes loaded ?
 			// XXX vs concurrent invalidations?
-			rce.before = zodb.TidMax
+			rce.head = zodb.TidMax
 		}
 		rceNew = true
 
 	// found:
-	// before <= rcev[i].before
-	// before >  rcev[i-1].before
+	// at <= rcev[i].head
+	// at >  rcev[i-1].head
 
-	// exact match - we already have entry for this before
-	case before == oce.rcev[i].before:
+	// exact match - we already have entry for this at
+	case xid.At == oce.rcev[i].head:
 		rce = oce.rcev[i]
 
 	// non-exact match:
-	// - same entry if q(before) ∈ (serial, before]
-	// - we can also reuse this entry if q(before) < before and err="nodata"
+	// - same entry if q(at) ∈ [serial, head]
+	// - we can also reuse this entry if q(at) <= head and err="nodata"
 	case oce.rcev[i].loaded() && (
-		(oce.rcev[i].err == nil && oce.rcev[i].serial < before) ||
-		(isErrNoData(oce.rcev[i].err) && before < oce.rcev[i].before)):
+		(oce.rcev[i].err == nil && oce.rcev[i].serial <= xid.At) ||
+		(isErrNoData(oce.rcev[i].err) && xid.At <= oce.rcev[i].head)):
 		rce = oce.rcev[i]
 
 	// otherwise - insert new entry
 	default:
-		rce = oce.newRevEntry(i, before)
+		rce = oce.newRevEntry(i, xid.At)
 		rceNew = true
 	}
 
@@ -290,10 +272,7 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 // loading completion is signalled by closing rce.ready.
 func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 	oce := rce.parent
-	buf, serial, err := c.loader.Load(ctx, zodb.Xid{
-		Oid:  oid,
-		XTid: zodb.XTid{Tid: rce.before, TidBefore: true},
-	})
+	buf, serial, err := c.loader.Load(ctx, zodb.Xid{At: rce.head, Oid: oid})
 
 	// normalize buf/serial if it was error
 	if err != nil {
@@ -305,16 +284,16 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 	rce.serial = serial
 	rce.buf = buf
 	rce.err = err
-	// verify db gives serial < before
-	if rce.serial >= rce.before {
-		rce.errDB(oid, "load(<%v) -> %v", rce.before, serial)
+	// verify db gives serial <= head
+	if rce.serial > rce.head {
+		rce.errDB(oid, "load(@%v) -> %v", rce.head, serial)
 	}
 
 	close(rce.ready)
 	δsize := rce.buf.Len()
 
 	// merge rce with adjacent entries in parent
-	// ( e.g. loadBefore(3) and loadBefore(4) results in the same data loaded if
+	// ( e.g. load(@3) and load(@4) results in the same data loaded if
 	//   there are only revisions with serials 1 and 5 )
 	oce.Lock()
 	i := oce.find(rce)
@@ -391,7 +370,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 //
 // both prev and next must be already loaded.
 // prev and next must come adjacent to each other in parent.rcev with
-// prev.before < next.before .
+// prev.head < next.head .
 //
 // cur must be one of either prev or next and indicates which rce is current
 // and so may be adjusted with consistency check error.
@@ -406,31 +385,31 @@ func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
 	//		  can merge if    consistent if
 	//	                          (if merging)
 	//
-	//	Pok  Nok    Ns < Pb         Ps  = Ns
-	//	Pe   Nok    Ns < Pb         Pe != "nodata"	(e.g. it was IO loading error for P)
+	//	Pok  Nok    Ns <= Ph        Ps  = Ns
+	//	Pe   Nok    Ns <= Ph        Pe != "nodata"	(e.g. it was IO loading error for P)
 	//	Pok  Ne       ---
 	//	Ne   Pe     (Pe="nodata") && (Ne="nodata")	-> XXX vs deleteObject?
 	//							-> let deleted object actually read
 	//							-> as special non-error value
 	//
-	// b - before
+	// h - head
 	// s - serial
 	// e - error
 
-	if next.err == nil && next.serial < prev.before {
+	if next.err == nil && next.serial <= prev.head {
 		// drop prev
 		prev.parent.del(prev)
 
 		// check consistency
 		switch {
 		case prev.err == nil && prev.serial != next.serial:
-			cur.errDB(oid, "load(<%v) -> %v; load(<%v) -> %v",
-				prev.before, prev.serial, next.before, next.serial)
+			cur.errDB(oid, "load(@%v) -> %v; load(@%v) -> %v",
+				prev.head, prev.serial, next.head, next.serial)
 
 		case prev.err != nil && !isErrNoData(prev.err):
 			if cur.err == nil {
-				cur.errDB(oid, "load(<%v) -> %v; load(<%v) -> %v",
-					prev.before, prev.err, next.before, next.serial)
+				cur.errDB(oid, "load(@%v) -> %v; load(@%v) -> %v",
+					prev.head, prev.err, next.head, next.serial)
 			}
 		}
 
@@ -532,13 +511,13 @@ func isErrNoData(err error) bool {
 	return true
 }
 
-// newRevEntry creates new revCacheEntry with .before and inserts it into .rcev @i.
+// newRevEntry creates new revCacheEntry with .head and inserts it into .rcev @i.
 // (if i == len(oce.rcev) - entry is appended)
-func (oce *oidCacheEntry) newRevEntry(i int, before zodb.Tid) *revCacheEntry {
+func (oce *oidCacheEntry) newRevEntry(i int, head zodb.Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
 		serial: 0,
-		before: before,
+		head:   head,
 		ready:  make(chan struct{}),
 	}
 	rce.inLRU.Init() // initially not on Cache.lru list
@@ -596,7 +575,7 @@ func (rce *revCacheEntry) loaded() bool {
 // userErr returns error that, if any, needs to be returned to user from Cache.Load
 //
 // ( ErrXidMissing contains xid for which it is missing. In cache we keep such
-//   xid with max .before but users need to get ErrXidMissing with their own query )
+//   xid with max .head but users need to get ErrXidMissing with their own query )
 func (rce *revCacheEntry) userErr(xid zodb.Xid) error {
 	switch e := rce.err.(type) {
 	case *zodb.ErrXidMissing:

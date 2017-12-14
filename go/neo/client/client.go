@@ -36,6 +36,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
@@ -459,13 +460,11 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, 
 	// FIXME ^^^ slink.CloseAccept after really dialed (not to deadlock if
 	// S decides to send us something)
 
-	req := neo.GetObject{Oid: xid.Oid}
-	if xid.TidBefore {
-		req.Serial = neo.INVALID_TID
-		req.Tid = xid.Tid
-	} else {
-		req.Serial = xid.Tid
-		req.Tid = neo.INVALID_TID
+	// on the wire it comes as "before", not "at"
+	req := neo.GetObject{
+		Oid:    xid.Oid,
+		Tid:    common.At2Before(xid.At),
+		Serial: neo.INVALID_TID,
 	}
 
 	resp := neo.AnswerObject{}

@@ -62,7 +62,7 @@ func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid,
 	objInfo.Oid = xid.Oid
 	objInfo.Tid = tid
 	objInfo.Data = buf.Data
-	objInfo.DataTid = tid // XXX generally wrong
+	objInfo.DataTidHint = 0 // no copy detection at catobj - just dump raw content
 
 	d := dumper{W: w, HashOnly: hashOnly}
 	err = d.DumpData(&objInfo)

@@ -34,10 +34,12 @@ import (
 
 // Tid is transaction identifier.
 //
-// In ZODB transaction identifiers are unique 64-bit integers connected to time
-// when corresponding transaction was created.
+// In ZODB transaction identifiers are unique 64-bit integers corresponding to
+// time when transaction in question was committed.
 //
-// See also: XTid.
+// This way tid can also be used to specify whole database state constructed
+// by all cumulated transaction changes from database beginning up to, and
+// including, transaction specified by tid.
 type Tid uint64
 
 // ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
@@ -49,12 +51,28 @@ const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 // Oid is object identifier.
 //
 // In ZODB objects are uniquely identified by 64-bit integer.
-// Every object can have several revisions - each committed in different transaction.
+// An object can have several revisions - each committed in different transaction.
 // The combination of object identifier and particular transaction (serial)
 // uniquely addresses corresponding data record.
 //
 // See also: Xid.
 type Oid uint64
+
+// Xid is "extended" oid - that fully specifies object and query for its revision.
+//
+// At specifies whole database state at which object identified with Oid should
+// be looked up. The object revision is taken from latest transaction modifying
+// the object with tid <= At.
+//
+// Note that Xids are not unique - the same object revision can be addressed
+// with several xids.
+//
+// See also: Tid, Oid.
+type Xid struct {
+	At  Tid
+	Oid Oid
+}
+
 
 // TxnInfo is metadata information about one transaction.
 type TxnInfo struct {
@@ -75,11 +93,16 @@ type DataInfo struct {
 	Tid	Tid
 	Data	[]byte	// nil means: deleted	XXX -> *Buf ?
 
-	// original tid data was committed at (e.g. in case of undo)
+	// DataTidHint is optional hint from a storage that the same data was
+	// already originally committed in earlier transaction, for example in
+	// case of undo. It is 0 if there is no such hint.
 	//
-	// FIXME we don't really need this and this unnecessarily constraints interfaces.
-	// originates from: https://github.com/zopefoundation/ZODB/commit/2b0c9aa4
-	DataTid	Tid
+	// Storages are not obliged to provide this hint, and in particular it
+	// is valid for a storage to always return this as zero.
+	//
+	// In ZODB/py world this originates from
+	// https://github.com/zopefoundation/ZODB/commit/2b0c9aa4.
+	DataTidHint Tid
 }
 
 // TxnStatus represents status of a transaction
@@ -91,22 +114,6 @@ const (
 	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
 )
 
-
-// XTid is "extended" transaction identifier.
-//
-// It defines a transaction for oid lookup - either exactly by serial, or by < beforeTid.
-type XTid struct {
-	Tid
-	TidBefore bool	// XXX merge into Tid itself (high bit) ?
-}
-
-// Xid is "extended" oid = oid + serial/beforeTid, completely specifying object address query.
-type Xid struct {
-	XTid
-	Oid
-}
-
-// XXX add XidBefore() and XidSerial() as syntax convenience?
 
 // ---- interfaces ----
 
@@ -123,7 +130,7 @@ func (e ErrOidMissing) Error() string {
 }
 
 // ErrXidMissing is an error which tells that oid exists in the database,
-// but there is no its revision satisfying xid.XTid search criteria.
+// but there is no its revision satisfying xid.At search criteria.
 type ErrXidMissing struct {
 	Xid	Xid
 }
@@ -132,20 +139,17 @@ func (e *ErrXidMissing) Error() string {
 	return fmt.Sprintf("%v: no matching data record found", e.Xid)
 }
 
-// IStorage is the interface provided by ZODB storages
+// IStorage is the interface provided when a ZODB storage is opened
 type IStorage interface {
 	// URL returns URL of this storage
 	URL() string
-
-	// XXX also +StorageName() with storage driver name?
-
 
 	// Close closes storage
 	Close() error
 
 	// LastTid returns the id of the last committed transaction.
 	//
-	// If no transactions have been committed yet, LastTid returns Tid zero value.
+	// If no transactions have been committed yet, LastTid returns 0.
 	LastTid(ctx context.Context) (Tid, error)
 
 	// LastOid returns highest object id of objects committed to storage.
@@ -154,37 +158,51 @@ type IStorage interface {
 	// XXX ZODB/py does not define this in IStorage.
 	LastOid(ctx context.Context) (Oid, error)
 
-	// Load loads data from database.
+	// Load loads object data addressed by xid from database.
 	//
-	// The object to load is addressed by xid.
-	//
-	// NOTE ZODB/py provides 2 entrypoints in IStorage: LoadSerial and
-	// LoadBefore. Load generalizes them into one (see Xid for details).
-	//
-	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
 	// XXX currently deleted data is returned as buf.Data=nil	-- is it ok?
 	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
-	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)	// XXX -> DataInfo ?
+	//
+	// NOTE ZODB/py provides 2 entrypoints in IStorage for loading:
+	// LoadSerial and LoadBefore but in ZODB/go we have only Load which is
+	// a bit different from both:
+	//
+	//	- Load loads object data for object at database state specified by xid.At
+	//	- LoadBefore loads object data for object at database state previous to xid.At
+	//	  it is thus equivalent to Load(..., xid.At-1)
+	//	- LoadSerial loads object data from revision exactly modified
+	//	  by transaction with tid = xid.At.
+	//	  it is thus equivalent to Load(..., xid.At) with followup
+	//	  check that returned serial is exactly xid.At(*)
+	//
+	// (*) LoadSerial is used only in a few places in ZODB/py - mostly in
+	//     conflict resolution code where plain Load semantic - without
+	//     checking object was particularly modified at that revision - would
+	//     suffice.
+	//
+	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
+	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)
 
 	// Prefetch(ctx, xid Xid)	(no error)
 
-	// TODO add invalidation channel (notify about changes made to DB not by us)
+	// TODO: write mode
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
-	// XXX Restore ?
-	// CheckCurrentSerialInTransaction(oid Oid, serial Tid, txn ITransaction)   // XXX naming
+	// KeepCurrent(oid Oid, serial Tid, txn ITransaction)
 
-	// TODO:
-	// tpc_begin(txn)
-	// tpc_vote(txn)
-	// tpc_finish(txn, callback)    XXX clarify about callback
-	// tpc_abort(txn)
+	// TpcBegin(txn)
+	// TpcVote(txn)
+	// TpcFinish(txn, callback)
+	// TpcAbort(txn)
+
+	// TODO: invalidation channel (notify about changes made to DB not by us)
+
 
 	// TODO: History(ctx, oid, size=1)
 
 	// Iterate creates iterator to iterate storage in [tidMin, tidMax] range.
 	//
-	// XXX allow iteration both ways (forward & backward)
+	// TODO allow iteration both ways (forward & backward)
 	Iterate(tidMin, tidMax Tid) ITxnIterator	// XXX ctx , error ?
 }
 
@@ -210,7 +228,8 @@ type IDataIterator interface {
 
 // Valid returns whether tid is in valid transaction identifiers range
 func (tid Tid) Valid() bool {
-	if 0 <= tid && tid <= TidMax {
+	// NOTE 0 is invalid tid
+	if 0 < tid && tid <= TidMax {
 		return true
 	} else {
 		return false

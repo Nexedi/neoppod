@@ -39,6 +39,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/client"
+	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
@@ -428,7 +429,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// C starts loading first object ...
 	wg = &errgroup.Group{}
-	xid1 := zodb.Xid{Oid: 1, XTid: zodb.XTid{Tid: zodb.TidMax, TidBefore: true}}
+	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
 	buf1, serial1, err := zstor.Load(bg, xid1)
 	exc.Raiseif(err)
 	gox(wg, func() {
@@ -462,7 +463,7 @@ func TestMasterStorage(t *testing.T) {
 	// ... -> GetObject(xid1)
 	tc.Expect(conntx("c:2", "s:3", 3, &neo.GetObject{
 		Oid:	xid1.Oid,
-		Tid:	xid1.Tid,
+		Tid:	common.At2Before(xid1.At),
 		Serial: neo.INVALID_TID,
 	}))
 	tc.Expect(conntx("s:3", "c:2", 3, &neo.AnswerObject{
@@ -503,32 +504,24 @@ func TestMasterStorage(t *testing.T) {
 				t.Fatalf("ziter.NextData: %v", err)
 			}
 
-			for _, tidBefore := range []bool{false, true} {
-				xid := zodb.Xid{Oid: datai.Oid} // {=,<}tid:oid
-				xid.Tid = datai.Tid
-				xid.TidBefore = tidBefore
-				if tidBefore {
-					xid.Tid++
-				}
+			// TODO also test GetObject(tid=ø, serial=...) which originate from loadSerial on py side
+			xid := zodb.Xid{Oid: datai.Oid, At: datai.Tid}
 
-				buf, tid, err := C.Load(bg, xid)
-				if datai.Data != nil {
-					if !(bytes.Equal(buf.Data, datai.Data) && tid == datai.Tid && err == nil) {
-						t.Fatalf("load: %v:\nhave: %v %v %q\nwant: %v nil %q",
-							xid, tid, err, buf.Data, datai.Tid, datai.Data)
-					}
-				} else {
-					// deleted
-					errWant := &zodb.ErrXidMissing{xid}
-					if !(buf == nil && tid == 0 && reflect.DeepEqual(err, errWant)) {
-						t.Fatalf("load: %v:\nhave: %v, %#v, %#v\nwant: %v, %#v, %#v",
-							xid, tid, err, buf, zodb.Tid(0), errWant, []byte(nil))
-					}
+			buf, serial, err := C.Load(bg, xid)
+			if datai.Data != nil {
+				if !(bytes.Equal(buf.Data, datai.Data) && serial == datai.Tid && err == nil) {
+					t.Fatalf("load: %v:\nhave: %v %v %q\nwant: %v nil %q",
+						xid, serial, err, buf.Data, datai.Tid, datai.Data)
+				}
+			} else {
+				// deleted
+				errWant := &zodb.ErrXidMissing{xid}
+				if !(buf == nil && serial == 0 && reflect.DeepEqual(err, errWant)) {
+					t.Fatalf("load: %v:\nhave: %v, %#v, %#v\nwant: %v, %#v, %#v",
+						xid, serial, err, buf, zodb.Tid(0), errWant, []byte(nil))
 				}
 			}
-
 		}
-
 	}
 
 
@@ -610,9 +603,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 		b.Fatal(err)
 	}
 
-	xid1 := zodb.Xid{Oid: 1}
-	xid1.Tid = zodb.TidMax
-	xid1.TidBefore = true
+	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
 
 	buf1, serial1, err := zstor.Load(ctx, xid1)
 	if err != nil {

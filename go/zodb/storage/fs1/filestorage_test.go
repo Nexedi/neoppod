@@ -41,10 +41,10 @@ type dbEntry struct {
 
 // one entry inside transaction
 type txnEntry struct {
-	Header	 DataHeader
-	rawData	 []byte		// what is on disk, e.g. it can be backpointer
-	userData []byte		// data client should see on load; `sameAsRaw` means same as RawData
-	dataTid  zodb.Tid	// data tid client should see on iter; 0 means same as Header.Tid
+	Header	    DataHeader
+	rawData	    []byte	// what is on disk, e.g. it can be backpointer
+	userData    []byte	// data client should see on load; `sameAsRaw` means same as RawData
+	DataTidHint zodb.Tid	// data tid client should see on iter
 }
 
 var sameAsRaw = []byte{0}
@@ -56,15 +56,6 @@ func (txe *txnEntry) Data() []byte {
 		data = txe.rawData
 	}
 	return data
-}
-
-// DataTid returns data tid a client should see
-func (txe *txnEntry) DataTid() zodb.Tid {
-	dataTid := txe.dataTid
-	if dataTid == 0 {
-		dataTid = txe.Header.Tid
-	}
-	return dataTid
 }
 
 // state of an object in the database for some particular revision
@@ -137,29 +128,26 @@ func TestLoad(t *testing.T) {
 
 			// XXX check Load finds data at correct .Pos / etc ?
 
-			// loadSerial
-			xid := zodb.Xid{zodb.XTid{txh.Tid, false}, txh.Oid}
+			// ~ loadSerial
+			xid := zodb.Xid{txh.Tid, txh.Oid}
 			checkLoad(t, fs, xid, objState{txh.Tid, txe.Data()})
 
-			// loadBefore
-			xid = zodb.Xid{zodb.XTid{txh.Tid, true}, txh.Oid}
+			// ~ loadBefore
+			xid = zodb.Xid{txh.Tid - 1, txh.Oid}
 			expect, ok := before[txh.Oid]
 			if ok {
 				checkLoad(t, fs, xid, expect)
 			}
-
-			// loadBefore to get current record
-			xid.Tid += 1
-			checkLoad(t, fs, xid, objState{txh.Tid, txe.Data()})
 
 			before[txh.Oid] = objState{txh.Tid, txe.Data()}
 
 		}
 	}
 
-	// loadBefore with TidMax
+	// load at ∞ with TidMax
+	// XXX should we get "no such transaction" with at > head?
 	for oid, expect := range before {
-		xid := zodb.Xid{zodb.XTid{zodb.TidMax, true}, oid}
+		xid := zodb.Xid{zodb.TidMax, oid}
 		checkLoad(t, fs, xid, expect)
 	}
 }
@@ -268,8 +256,8 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 				dataErrorf("data mismatch:\nhave %q\nwant %q", datai.Data, txe.Data())
 			}
 
-			if datai.DataTid != txe.DataTid() {
-				dataErrorf("data tid mismatch: have %v;  want %v", datai.DataTid, txe.DataTid())
+			if datai.DataTidHint != txe.DataTidHint {
+				dataErrorf("data tid hint mismatch: have %v;  want %v", datai.DataTidHint, txe.DataTidHint)
 			}
 		}
 	}

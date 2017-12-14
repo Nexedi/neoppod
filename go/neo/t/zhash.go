@@ -176,7 +176,6 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 	if err != nil {
 		return err
 	}
-	before := lastTid + 1	// XXX overflow ?
 
 	if false {
 		defer profile.Start(profile.TraceProfile).Stop()
@@ -190,7 +189,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 	nread := 0
 loop:
 	for {
-		xid := zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: before, TidBefore: true}}
+		xid := zodb.Xid{Oid: oid, At: lastTid}
 		if xid.Oid % nprefetch == 0 {
 			prefetchBlk(ctx, xid)
 		}

@@ -31,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
@@ -542,22 +543,29 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 	case *neo.GetObject:
 		xid := zodb.Xid{Oid: req.Oid}
 		if req.Serial != neo.INVALID_TID {
-			xid.Tid = req.Serial
-			xid.TidBefore = false
+			xid.At = req.Serial
 		} else {
-			xid.Tid = req.Tid
-			xid.TidBefore = true
+			xid.At = common.Before2At(req.Tid)
 		}
 
-		buf, tid, err := stor.zstor.Load(ctx, xid)
+		buf, serial, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
 			return neo.ErrEncode(err)
 		}
 
+		// for loadSerial - check we have exact hit - else "nodata"
+		if req.Serial != neo.INVALID_TID {
+		        if serial != req.Serial {
+				// XXX actually show in error it was strict "=" load
+		                return neo.ErrEncode(&zodb.ErrXidMissing{xid})
+		        }
+		}
+
+
 		return &neo.AnswerObject{
 			Oid:	xid.Oid,
-			Serial: tid,
+			Serial: serial,
 
 			Compression:	false,
 			Data:		buf,

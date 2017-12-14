@@ -69,31 +69,22 @@ func bufSame(buf1, buf2 *zodb.Buf) bool {
 func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
 	//fmt.Printf("> load(%v)\n", xid)
 	//defer func() { fmt.Printf("< %v, %v, %v\n", buf.XData(), serial, err) }()
-	tid := xid.Tid
-	if !xid.TidBefore {
-		tid++		// XXX overflow?
-	}
 
 	datav := stor.dataMap[xid.Oid]
 	if datav == nil {
 		return nil, 0, &zodb.ErrOidMissing{xid.Oid}
 	}
 
-	// find max entry with .serial < tid
+	// find max entry with .serial <= xid.At
 	n := len(datav)
 	i := n - 1 - sort.Search(n, func(i int) bool {
-		v := datav[n - 1 - i].serial < tid
-		//fmt.Printf("@%d -> %v  (@%d; %v)\n", i, v, n - 1 -i, tid)
+		v := datav[n - 1 - i].serial <= xid.At
+		//fmt.Printf("@%d -> %v  (@%d; %v)\n", i, v, n - 1 -i, xid.At)
 		return v
 	})
 	//fmt.Printf("i: %d  n: %d\n", i, n)
 	if i == -1 {
-		// tid < all .serial - no such transaction
-		return nil, 0, &zodb.ErrXidMissing{xid}
-	}
-
-	// check we have exact match if it was loadSerial
-	if !xid.TidBefore && datav[i].serial != xid.Tid {
+		// xid.At < all .serial - no such transaction
 		return nil, 0, &zodb.ErrXidMissing{xid}
 	}
 
@@ -106,12 +97,8 @@ func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, seri
 
 var ioerr = errors.New("input/output error")
 
-func xidlt(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
-	return zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: tid, TidBefore: true}}
-}
-
-func xideq(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
-	return zodb.Xid{Oid: oid, XTid: zodb.XTid{Tid: tid, TidBefore: false}}
+func xidat(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
+	return zodb.Xid{Oid: oid, At: tid}
 }
 
 // tracer which collects tracing events from all needed-for-tests sources
@@ -181,11 +168,11 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkRCE := func(rce *revCacheEntry, before, serial zodb.Tid, buf *zodb.Buf, err error) {
+	checkRCE := func(rce *revCacheEntry, head, serial zodb.Tid, buf *zodb.Buf, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
-		if rce.before != before {
-			fmt.Fprintf(bad, "before:\n%s\n", pretty.Compare(before, rce.before))
+		if rce.head != head {
+			fmt.Fprintf(bad, "head:\n%s\n", pretty.Compare(head, rce.head))
 		}
 		if rce.serial != serial {
 			fmt.Fprintf(bad, "serial:\n%s\n", pretty.Compare(serial, rce.serial))
@@ -246,174 +233,174 @@ func TestCache(t *testing.T) {
 
 	checkMRU(0)
 
-	// load <3 -> new rce entry
-	checkLoad(xidlt(1,3), nil, 0, &zodb.ErrXidMissing{xidlt(1,3)})
+	// load @2 -> new rce entry
+	checkLoad(xidat(1,2), nil, 0, &zodb.ErrXidMissing{xidat(1,2)})
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.rcev) == 1)
-	rce1_b3 := oce1.rcev[0]
-	checkRCE(rce1_b3, 3, 0, nil, &zodb.ErrXidMissing{xidlt(1,3)})
-	checkMRU(0, rce1_b3)
+	rce1_h2 := oce1.rcev[0]
+	checkRCE(rce1_h2, 2, 0, nil, &zodb.ErrXidMissing{xidat(1,2)})
+	checkMRU(0, rce1_h2)
 
-	// load <4 -> <3 merged with <4
-	checkLoad(xidlt(1,4), nil, 0, &zodb.ErrXidMissing{xidlt(1,4)})
+	// load @3 -> 2] merged with 3]
+	checkLoad(xidat(1,3), nil, 0, &zodb.ErrXidMissing{xidat(1,3)})
 	ok1(len(oce1.rcev) == 1)
-	rce1_b4 := oce1.rcev[0]
-	ok1(rce1_b4 != rce1_b3) // rce1_b3 was merged into rce1_b4
-	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
-	checkMRU(0, rce1_b4)
+	rce1_h3 := oce1.rcev[0]
+	ok1(rce1_h3 != rce1_h2) // rce1_h2 was merged into rce1_h3
+	checkRCE(rce1_h3, 3, 0, nil, &zodb.ErrXidMissing{xidat(1,3)})
+	checkMRU(0, rce1_h3)
 
-	// load <2 -> <2 merged with <4
-	checkLoad(xidlt(1,2), nil, 0, &zodb.ErrXidMissing{xidlt(1,2)})
+	// load @1 -> 1] merged with 3]
+	checkLoad(xidat(1,1), nil, 0, &zodb.ErrXidMissing{xidat(1,1)})
 	ok1(len(oce1.rcev) == 1)
-	ok1(oce1.rcev[0] == rce1_b4)
-	checkRCE(rce1_b4, 4, 0, nil, &zodb.ErrXidMissing{xidlt(1,4)})
-	checkMRU(0, rce1_b4)
+	ok1(oce1.rcev[0] == rce1_h3)
+	checkRCE(rce1_h3, 3, 0, nil, &zodb.ErrXidMissing{xidat(1,3)})
+	checkMRU(0, rce1_h3)
 
-	// load <6 -> new rce entry with data
-	checkLoad(xidlt(1,6), b(hello), 4, nil)
+	// load @5 -> new rce entry with data
+	checkLoad(xidat(1,5), b(hello), 4, nil)
 	ok1(len(oce1.rcev) == 2)
-	rce1_b6 := oce1.rcev[1]
-	checkRCE(rce1_b6, 6, 4, b(hello), nil)
-	checkOCE(1, rce1_b4, rce1_b6)
-	checkMRU(5, rce1_b6, rce1_b4)
+	rce1_h5 := oce1.rcev[1]
+	checkRCE(rce1_h5, 5, 4, b(hello), nil)
+	checkOCE(1, rce1_h3, rce1_h5)
+	checkMRU(5, rce1_h5, rce1_h3)
 
-	// load <5 -> <5 merged with <6
-	checkLoad(xidlt(1,5), b(hello), 4, nil)
-	checkOCE(1, rce1_b4, rce1_b6)
-	checkMRU(5, rce1_b6, rce1_b4)
+	// load @4 -> 4] merged with 5]
+	checkLoad(xidat(1,4), b(hello), 4, nil)
+	checkOCE(1, rce1_h3, rce1_h5)
+	checkMRU(5, rce1_h5, rce1_h3)
 
-	// load <7 -> <6 merged with <7
-	checkLoad(xidlt(1,7), b(hello), 4, nil)
+	// load @6 -> 5] merged with 6]
+	checkLoad(xidat(1,6), b(hello), 4, nil)
 	ok1(len(oce1.rcev) == 2)
-	rce1_b7 := oce1.rcev[1]
-	ok1(rce1_b7 != rce1_b6)
-	checkRCE(rce1_b7, 7, 4, b(hello), nil)
-	checkOCE(1, rce1_b4, rce1_b7)
-	checkMRU(5, rce1_b7, rce1_b4)
+	rce1_h6 := oce1.rcev[1]
+	ok1(rce1_h6 != rce1_h5)
+	checkRCE(rce1_h6, 6, 4, b(hello), nil)
+	checkOCE(1, rce1_h3, rce1_h6)
+	checkMRU(5, rce1_h6, rce1_h3)
 
-	// load <8 -> ioerr + new rce
-	checkLoad(xidlt(1,8), nil, 0, ioerr)
+	// load @7 -> ioerr + new rce
+	checkLoad(xidat(1,7), nil, 0, ioerr)
 	ok1(len(oce1.rcev) == 3)
-	rce1_b8 := oce1.rcev[2]
-	checkRCE(rce1_b8, 8, 0, nil, ioerr)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8)
-	checkMRU(5, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h7 := oce1.rcev[2]
+	checkRCE(rce1_h7, 7, 0, nil, ioerr)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7)
+	checkMRU(5, rce1_h7, rce1_h6, rce1_h3)
 
-	// load <10 -> ioerr + new rce (IO errors are not merged)
-	checkLoad(xidlt(1,10), nil, 0, ioerr)
+	// load @9 -> ioerr + new rce (IO errors are not merged)
+	checkLoad(xidat(1,9), nil, 0, ioerr)
 	ok1(len(oce1.rcev) == 4)
-	rce1_b10 := oce1.rcev[3]
-	checkRCE(rce1_b10, 10, 0, nil, ioerr)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10)
-	checkMRU(5, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h9 := oce1.rcev[3]
+	checkRCE(rce1_h9, 9, 0, nil, ioerr)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9)
+	checkMRU(5, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// load <11 -> new data rce, not merged with ioerr @<10
-	checkLoad(xidlt(1,11), b(world), 10, nil)
+	// load @10 -> new data rce, not merged with ioerr at 9]
+	checkLoad(xidat(1,10), b(world), 10, nil)
 	ok1(len(oce1.rcev) == 5)
-	rce1_b11 := oce1.rcev[4]
-	checkRCE(rce1_b11, 11, 10, b(world), nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b11)
-	checkMRU(12, rce1_b11, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h10 := oce1.rcev[4]
+	checkRCE(rce1_h10, 10, 10, b(world), nil)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h10)
+	checkMRU(12, rce1_h10, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// load <12 -> <11 merged with <12
-	checkLoad(xidlt(1,12), b(world), 10, nil)
+	// load @11 -> 10] merged with 11]
+	checkLoad(xidat(1,11), b(world), 10, nil)
 	ok1(len(oce1.rcev) == 5)
-	rce1_b12 := oce1.rcev[4]
-	ok1(rce1_b12 != rce1_b11)
-	checkRCE(rce1_b12, 12, 10, b(world), nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12)
-	checkMRU(12, rce1_b12, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h11 := oce1.rcev[4]
+	ok1(rce1_h11 != rce1_h10)
+	checkRCE(rce1_h11, 11, 10, b(world), nil)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11)
+	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// simulate case where <14 (α) and <16 (β) were loaded in parallel, both are ready
-	// but <14 (α) takes oce lock first before <16 and so <12 is not yet merged
-	// with <16 -> <12 and <14 should be merged into <16.
+	// simulate case where 13] (α) and 15] (β) were loaded in parallel, both are ready
+	// but 13] (α) takes oce lock first before 15] and so 11] is not yet merged
+	// with 15] -> 11] and 13] should be merged into 15].
 
-	// (manually add rce1_b16 so it is not merged with <12)
-	rce1_b16, new16 := c.lookupRCE(xidlt(1,16))
-	ok1(new16)
-	rce1_b16.serial = 10
-	rce1_b16.buf = mkbuf(world)
-	// here: first half of loadRCE(<16) before close(<16.ready)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b16)
-	ok1(!rce1_b16.loaded())
-	checkMRU(12, rce1_b12, rce1_b10, rce1_b8, rce1_b7, rce1_b4) // no <16 yet
+	// (manually add rce1_h15 so it is not merged with 11])
+	rce1_h15, new15 := c.lookupRCE(xidat(1,15))
+	ok1(new15)
+	rce1_h15.serial = 10
+	rce1_h15.buf = mkbuf(world)
+	// here: first half of loadRCE(15]) before close(15].ready)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h15)
+	ok1(!rce1_h15.loaded())
+	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 15] yet
 
-	// (lookup <14 while <16 is not yet loaded so <16 is not picked
+	// (lookup 13] while 15] is not yet loaded so 15] is not picked
 	//  automatically at lookup phase)
-	rce1_b14, new14 := c.lookupRCE(xidlt(1,14))
-	ok1(new14)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b14, rce1_b16)
-	checkMRU(12, rce1_b12, rce1_b10, rce1_b8, rce1_b7, rce1_b4) // no <14 and <16 yet
+	rce1_h13, new13 := c.lookupRCE(xidat(1,13))
+	ok1(new13)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
+	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no <14 and <16 yet
 
-	// (now <16 becomes ready but not yet takes oce lock)
-	close(rce1_b16.ready)
-	ok1(rce1_b16.loaded())
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b12, rce1_b14, rce1_b16)
-	checkMRU(12, rce1_b12, rce1_b10, rce1_b8, rce1_b7, rce1_b4) // no <14 and <16 yet
+	// (now 15] becomes ready but not yet takes oce lock)
+	close(rce1_h15.ready)
+	ok1(rce1_h15.loaded())
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
+	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 13] and 15] yet
 
-	// (<14 also becomes ready and takes oce lock first, merging <12 and <14 into <16.
-	//  <16 did not yet took oce lock so c.size is temporarily reduced and
-	//  <16 is not yet on LRU list)
-	c.loadRCE(ctx, rce1_b14, 1)
-	checkRCE(rce1_b14, 14, 10, b(world), nil)
-	checkRCE(rce1_b16, 16, 10, b(world), nil)
-	checkRCE(rce1_b12, 12, 10, b(world), nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16)
-	checkMRU(5 /*was 12*/, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	// (13] also becomes ready and takes oce lock first, merging 11] and 13] into 15].
+	//  15] did not yet took oce lock so c.size is temporarily reduced and
+	//  15] is not yet on LRU list)
+	c.loadRCE(ctx, rce1_h13, 1)
+	checkRCE(rce1_h13, 13, 10, b(world), nil)
+	checkRCE(rce1_h15, 15, 10, b(world), nil)
+	checkRCE(rce1_h11, 11, 10, b(world), nil)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15)
+	checkMRU(5 /*was 12*/, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// (<16 takes oce lock and updates c.size and LRU list)
-	rce1_b16.ready = make(chan struct{}) // so loadRCE could run
-	c.loadRCE(ctx, rce1_b16, 1)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16)
-	checkMRU(12, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	// (15] takes oce lock and updates c.size and LRU list)
+	rce1_h15.ready = make(chan struct{}) // so loadRCE could run
+	c.loadRCE(ctx, rce1_h15, 1)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15)
+	checkMRU(12, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// similar race in between <17 and <18 but now β (<18) takes oce lock first:
+	// similar race in between 16] and 17] but now β (17]) takes oce lock first:
 
-	rce1_b17, new17 := c.lookupRCE(xidlt(1,17))
+	rce1_h16, new16 := c.lookupRCE(xidat(1,16))
+	ok1(new16)
+	rce1_h17, new17 := c.lookupRCE(xidat(1,17))
 	ok1(new17)
-	rce1_b18, new18 := c.lookupRCE(xidlt(1,18))
-	ok1(new18)
 
-	// (<17 loads but not yet takes oce lock)
-	rce1_b17.serial = 16
-	rce1_b17.buf = mkbuf(zz)
-	close(rce1_b17.ready)
-	ok1(rce1_b17.loaded())
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b17, rce1_b18)
-	checkMRU(12, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4) // no <17 and <18 yet
+	// (16] loads but not yet takes oce lock)
+	rce1_h16.serial = 16
+	rce1_h16.buf = mkbuf(zz)
+	close(rce1_h16.ready)
+	ok1(rce1_h16.loaded())
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h16, rce1_h17)
+	checkMRU(12, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 16] and 17] yet
 
-	// (<18 loads and takes oce lock first - merge <17 with <18)
-	c.loadRCE(ctx, rce1_b18, 1)
-	checkRCE(rce1_b18, 18, 16, b(zz), nil)
-	checkRCE(rce1_b17, 17, 16, b(zz), nil)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b18)
-	checkMRU(14, rce1_b18, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	// (17] loads and takes oce lock first - merge 16] with 17])
+	c.loadRCE(ctx, rce1_h17, 1)
+	checkRCE(rce1_h17, 17, 16, b(zz), nil)
+	checkRCE(rce1_h16, 16, 16, b(zz), nil)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h17)
+	checkMRU(14, rce1_h17, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// load =19 -> <18 merged with <20
-	checkLoad(xideq(1,19), nil, 0, &zodb.ErrXidMissing{xideq(1,19)})
+	// load @19 -> 17] merged with 19]
+	checkLoad(xidat(1,19), b(zz), 16, nil)
 	ok1(len(oce1.rcev) == 6)
-	rce1_b20 := oce1.rcev[5]
-	ok1(rce1_b20 != rce1_b18)
-	checkRCE(rce1_b20, 20, 16, b(zz), nil)
-	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b20)
-	checkMRU(14, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h19 := oce1.rcev[5]
+	ok1(rce1_h19 != rce1_h17)
+	checkRCE(rce1_h19, 19, 16, b(zz), nil)
+	checkOCE(1,  rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h19)
+	checkMRU(14, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// load =20 -> new <21
-	checkLoad(xideq(1,20), b(www), 20, nil)
+	// load @20 -> new 20]
+	checkLoad(xidat(1,20), b(www), 20, nil)
 	ok1(len(oce1.rcev) == 7)
-	rce1_b21 := oce1.rcev[6]
-	checkRCE(rce1_b21, 21, 20, b(www), nil)
-	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b20, rce1_b21)
-	checkMRU(17, rce1_b21, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h20 := oce1.rcev[6]
+	checkRCE(rce1_h20, 20, 20, b(www), nil)
+	checkOCE(1,  rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h19, rce1_h20)
+	checkMRU(17, rce1_h20, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	// load =21 -> <21 merged with <22
-	checkLoad(xideq(1,21), nil, 0, &zodb.ErrXidMissing{xideq(1,21)})
+	// load @21 -> 20] merged with 21]
+	checkLoad(xidat(1,21), b(www), 20, nil)
 	ok1(len(oce1.rcev) == 7)
-	rce1_b22 := oce1.rcev[6]
-	ok1(rce1_b22 != rce1_b21)
-	checkRCE(rce1_b22, 22, 20, b(www), nil)
-	checkOCE(1,  rce1_b4, rce1_b7, rce1_b8, rce1_b10, rce1_b16, rce1_b20, rce1_b22)
-	checkMRU(17, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	rce1_h21 := oce1.rcev[6]
+	ok1(rce1_h21 != rce1_h20)
+	checkRCE(rce1_h21, 21, 20, b(www), nil)
+	checkOCE(1,  rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
+	checkMRU(17, rce1_h21, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
 
 	// ---- verify rce lookup for must be cached entries ----
@@ -435,61 +422,47 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkLookup(xidlt(1,20), rce1_b20)
-	checkLookup(xideq(1,19), rce1_b20)
-	checkLookup(xidlt(1,19), rce1_b20)
-	checkLookup(xideq(1,18), rce1_b20)
-	checkLookup(xidlt(1,18), rce1_b20)
-	checkLookup(xideq(1,17), rce1_b20)
-	checkLookup(xidlt(1,17), rce1_b20)
-	checkLookup(xideq(1,16), rce1_b20)
-	checkLookup(xidlt(1,16), rce1_b16)
-	checkLookup(xideq(1,15), rce1_b16)
-	checkLookup(xidlt(1,15), rce1_b16)
-	checkLookup(xideq(1,12), rce1_b16)
-	checkLookup(xidlt(1,12), rce1_b16)
-	checkLookup(xideq(1,11), rce1_b16)
-	checkLookup(xidlt(1,11), rce1_b16)
-	checkLookup(xideq(1,10), rce1_b16)
-	checkLookup(xidlt(1,10), rce1_b10)
+	checkLookup(xidat(1,19), rce1_h19)
+	checkLookup(xidat(1,18), rce1_h19)
+	checkLookup(xidat(1,17), rce1_h19)
+	checkLookup(xidat(1,16), rce1_h19)
+	checkLookup(xidat(1,15), rce1_h15)
+	checkLookup(xidat(1,14), rce1_h15)
+	checkLookup(xidat(1,11), rce1_h15)
+	checkLookup(xidat(1,10), rce1_h15)
+	checkLookup(xidat(1,9), rce1_h9)
 
-	// <9 must be separate from <8 and <10 because it is IO error there
-	rce1_b9, new9 := c.lookupRCE(xidlt(1,9))
-	ok1(new9)
-	c.loadRCE(ctx, rce1_b9, 1)
-	checkRCE(rce1_b9, 9, 0, nil, ioerr)
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16, rce1_b20, rce1_b22)
-	checkMRU(17, rce1_b9, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	// 8] must be separate from 7] and 9] because it is IO error there
+	rce1_h8, new8 := c.lookupRCE(xidat(1,8))
+	ok1(new8)
+	c.loadRCE(ctx, rce1_h8, 1)
+	checkRCE(rce1_h8, 8, 0, nil, ioerr)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h8, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
+	checkMRU(17, rce1_h8, rce1_h21, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	checkLookup(xideq(1,8), rce1_b9)
-	checkLookup(xidlt(1,8), rce1_b8)
+	checkLookup(xidat(1,8), rce1_h8)
+	checkLookup(xidat(1,7), rce1_h7)
 
 	// have data exact and inexact hits
-	checkLookup(xideq(1,7), rce1_b8)
-	checkLookup(xidlt(1,7), rce1_b7)
-	checkLookup(xideq(1,6), rce1_b7)
-	checkLookup(xidlt(1,6), rce1_b7)
-	checkLookup(xideq(1,5), rce1_b7)
-	checkLookup(xidlt(1,5), rce1_b7)
-	checkLookup(xideq(1,4), rce1_b7)
+	checkLookup(xidat(1,7), rce1_h7)
+	checkLookup(xidat(1,6), rce1_h6)
+	checkLookup(xidat(1,5), rce1_h6)
+	checkLookup(xidat(1,4), rce1_h6)
 
 	// nodata exact and inexact hits
-	checkLookup(xidlt(1,4), rce1_b4)
-	checkLookup(xideq(1,3), rce1_b4)
-	checkLookup(xidlt(1,3), rce1_b4)
-	checkLookup(xideq(1,2), rce1_b4)
-	checkLookup(xidlt(1,2), rce1_b4)
-	checkLookup(xideq(1,1), rce1_b4)
-	checkLookup(xidlt(1,1), rce1_b4)
+	checkLookup(xidat(1,3), rce1_h3)
+	checkLookup(xidat(1,2), rce1_h3)
+	checkLookup(xidat(1,1), rce1_h3)
+	checkLookup(xidat(1,0), rce1_h3)
 
 	// ---- verify how LRU changes for in-cache loads ----
-	checkMRU(17, rce1_b9, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b7, rce1_b4)
+	checkMRU(17, rce1_h8, rce1_h21, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
-	checkLoad(xidlt(1,7), b(hello), 4, nil)
-	checkMRU(17, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b16, rce1_b10, rce1_b8, rce1_b4)
+	checkLoad(xidat(1,6), b(hello), 4, nil)
+	checkMRU(17, rce1_h6, rce1_h8, rce1_h21, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h3)
 
-	checkLoad(xidlt(1,16), b(world), 10, nil)
-	checkMRU(17, rce1_b16, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b10, rce1_b8, rce1_b4)
+	checkLoad(xidat(1,15), b(world), 10, nil)
+	checkMRU(17, rce1_h15, rce1_h6, rce1_h8, rce1_h21, rce1_h19, rce1_h9, rce1_h7, rce1_h3)
 
 
 	// ---- verify LRU eviction ----
@@ -511,46 +484,46 @@ func TestCache(t *testing.T) {
 	gcstart  := &evCacheGCStart{c}
 	gcfinish := &evCacheGCFinish{c}
 
-	checkOCE(1, rce1_b4, rce1_b7, rce1_b8, rce1_b9, rce1_b10, rce1_b16, rce1_b20, rce1_b22)
-	checkMRU(17, rce1_b16, rce1_b7, rce1_b9, rce1_b22, rce1_b20, rce1_b10, rce1_b8, rce1_b4)
+	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h8, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
+	checkMRU(17, rce1_h15, rce1_h6, rce1_h8, rce1_h21, rce1_h19, rce1_h9, rce1_h7, rce1_h3)
 
 	go c.SetSizeMax(16) // < c.size by 1 -> should trigger gc
 	tc.Expect(gcstart, gcfinish)
 
 	// evicted:
-	// - <4  (lru.1, nodata, size=0)	XXX ok to evict nodata & friends?
-	// - <8  (lru.2, ioerr, size=0)
-	// - <10 (lru.3, ioerr, size=0)
-	// - <20 (lru.4, zz, size=2)
-	checkOCE(1,  rce1_b7, rce1_b9, rce1_b16, rce1_b22)
-	checkMRU(15, rce1_b16, rce1_b7, rce1_b9, rce1_b22)
+	// - 3]  (lru.1, nodata, size=0)	XXX ok to evict nodata & friends?
+	// - 7]  (lru.2, ioerr, size=0)
+	// - 9]  (lru.3, ioerr, size=0)
+	// - 19] (lru.4, zz, size=2)
+	checkOCE(1,  rce1_h6, rce1_h8, rce1_h15, rce1_h21)
+	checkMRU(15, rce1_h15, rce1_h6, rce1_h8, rce1_h21)
 
-	// reload <20 -> <22 should be evicted
-	go c.Load(ctx, xidlt(1,20))
+	// reload 19] -> 21] should be evicted
+	go c.Load(ctx, xidat(1,19))
 	tc.Expect(gcstart, gcfinish)
 
-	// - evicted <22 (lru.1, www, size=3)
-	// - loaded  <20 (zz, size=2)
+	// - evicted 21] (lru.1, www, size=3)
+	// - loaded  19] (zz, size=2)
 	ok1(len(oce1.rcev) == 4)
-	rce1_b20_2 := oce1.rcev[3]
-	ok1(rce1_b20_2 != rce1_b20)
-	checkRCE(rce1_b20_2, 20, 16, b(zz), nil)
-	checkOCE(1,  rce1_b7, rce1_b9, rce1_b16, rce1_b20_2)
-	checkMRU(14, rce1_b20_2, rce1_b16, rce1_b7, rce1_b9)
+	rce1_h19_2 := oce1.rcev[3]
+	ok1(rce1_h19_2 != rce1_h19)
+	checkRCE(rce1_h19_2, 19, 16, b(zz), nil)
+	checkOCE(1,  rce1_h6, rce1_h8, rce1_h15, rce1_h19_2)
+	checkMRU(14, rce1_h19_2, rce1_h15, rce1_h6, rce1_h8)
 
-	// load big <78 -> several rce must be evicted
-	go c.Load(ctx, xidlt(1,78))
+	// load big 77] -> several rce must be evicted
+	go c.Load(ctx, xidat(1,77))
 	tc.Expect(gcstart, gcfinish)
 
-	// - evicted  <9 (lru.1, ioerr, size=0)
-	// - evicted  <7 (lru.2, hello, size=5)
-	// - evicted <16 (lru.3, world, size=7)
-	// - loaded  <78 (big, size=10)
+	// - evicted  8] (lru.1, ioerr, size=0)
+	// - evicted  6] (lru.2, hello, size=5)
+	// - evicted 15] (lru.3, world, size=7)
+	// - loaded  77] (big, size=10)
 	ok1(len(oce1.rcev) == 2)
-	rce1_b78 := oce1.rcev[1]
-	checkRCE(rce1_b78, 78, 77, b(big), nil)
-	checkOCE(1,  rce1_b20_2, rce1_b78)
-	checkMRU(12, rce1_b78, rce1_b20_2)
+	rce1_h77 := oce1.rcev[1]
+	checkRCE(rce1_h77, 77, 77, b(big), nil)
+	checkOCE(1,  rce1_h19_2, rce1_h77)
+	checkMRU(12, rce1_h77, rce1_h19_2)
 
 	// sizeMax=0 evicts everything from cache
 	go c.SetSizeMax(0)
@@ -561,7 +534,7 @@ func TestCache(t *testing.T) {
 	// and still loading works (because even if though rce's are evicted
 	// they stay live while someone user waits and uses it)
 
-	checkLoad(xidlt(1,5), b(hello), 4, nil)
+	checkLoad(xidat(1,4), b(hello), 4, nil)
 	tc.Expect(gcstart, gcfinish)
 	checkOCE(1)
 	checkMRU(0)

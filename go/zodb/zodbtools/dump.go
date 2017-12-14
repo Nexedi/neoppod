@@ -94,8 +94,8 @@ func (d *dumper) DumpData(datai *zodb.DataInfo) error {
 	case datai.Data == nil:
 		buf .S("delete")
 
-	case datai.Tid != datai.DataTid:
-		buf .S("from ") .V(&datai.DataTid)
+	case datai.DataTidHint != 0:
+		buf .S("from ") .V(&datai.DataTidHint)
 
 	default:
 		// XXX sha1 is hardcoded for now. Dump format allows other hashes.

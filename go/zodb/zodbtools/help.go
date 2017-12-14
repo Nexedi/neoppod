@@ -53,15 +53,13 @@ http://docs.pylonsproject.org/projects/zodburi/
 const helpXid =
 `An object address for loading from ZODB should be specified as follows:
 
-	- "=" or "<" character depending on whether it is exact or "tid before" query
 	- tid
 	- ":"
 	- oid
 
 for example
 
-	=0285cbac258bf266:0000000000000001	- oid 1 at exactly 0285cbac258bf266 transaction
-	<0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid < 0285cbac258bf266
+	0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid <= 0285cbac258bf266
 `
 
 var helpTopics = prog.HelpRegistry{

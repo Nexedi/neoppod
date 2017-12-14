@@ -168,13 +168,8 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid
 }
 
 func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
-	tidBefore := xid.XTid.Tid
-	if !xid.XTid.TidBefore {
-		tidBefore++	// XXX recheck this is ok wrt overflow
-	}
-
-	// search backwards for when we first have data record with tid satisfying xid.XTid
-	for dh.Tid >= tidBefore {
+	// search backwards for when we first have data record with tid satisfying xid.At
+	for {
 		err := dh.LoadPrevRev(fs.file)
 		if err != nil {
 			if err == io.EOF {
@@ -186,11 +181,10 @@ func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid,
 
 			return nil, 0, err
 		}
-	}
 
-	// found dh.Tid < tidBefore; check it really satisfies xid.XTid
-	if !xid.XTid.TidBefore && dh.Tid != xid.XTid.Tid {
-		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
+		if dh.Tid <= xid.At {
+			break
+		}
 	}
 
 	// even if we will scan back via backpointers, the tid returned should
@@ -274,7 +268,7 @@ func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	zi.datai.Tid = zi.iter.Datah.Tid
 
 	// NOTE dh.LoadData() changes dh state while going through backpointers -
-	// - need to use separate dh because of this
+	// - need to use separate dh because of this.
 	zi.dhLoading = zi.iter.Datah
 	if zi.dataBuf != nil {
 		zi.dataBuf.Release()
@@ -286,7 +280,11 @@ func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
 	}
 
 	zi.datai.Data = zi.dataBuf.Data
-	zi.datai.DataTid = zi.dhLoading.Tid
+	if zi.dhLoading.Tid != zi.datai.Tid {
+		zi.datai.DataTidHint = zi.dhLoading.Tid
+	} else {
+		zi.datai.DataTidHint = 0
+	}
 	return &zi.datai, nil
 }
 

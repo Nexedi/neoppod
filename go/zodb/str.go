@@ -61,60 +61,26 @@ func (oid Oid) XFmtString(b []byte) []byte {
 	return xfmt.AppendHex016(b, uint64(oid))
 }
 
-// bint converts bool to int with true => 1; false => 0.
-//
-// XXX place = ?
-func bint(b bool) int {
-	if b {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-// String converts xtid to string.
-//
-// Default xtid string representation is:
-//
-//	- "=" or "<" character depending on whether xtid represents exact or "tid before" query
-//	- tid
-//
-// e.g.
-//
-//	=0285cbac258bf266	- exactly 0285cbac258bf266
-//	<0285cbac258bf266	- before  0285cbac258bf266
-//
-// See also: ParseXTid.
-func (xtid XTid) String() string {
-	// XXX also print "tid:" prefix ?
-	return fmt.Sprintf("%c%v", "=<"[bint(xtid.TidBefore)], xtid.Tid)
-}
-
 // String converts xid to string.
 //
 // Default xid string representation is:
 //
-//	- string of xtid
+//	- string of at
 //	- ":"
 //	- string of oid
 //
 // e.g.
 //
-//	=0285cbac258bf266:0000000000000001	- oid 1 at exactly 0285cbac258bf266 transaction
-//	<0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid < 0285cbac258bf266
+//	0285cbac258bf266:0000000000000001	- oid 1 at first newest transaction changing it with tid <= 0285cbac258bf266
 //
 // See also: ParseXid.
 func (xid Xid) String() string {
-	return xid.XTid.String() + ":" + xid.Oid.String()
+	return xid.At.String() + ":" + xid.Oid.String()
 }
 
 /* TODO reenable?
-func (xtid XTid) XFmtString(b []byte) []byte {
-	b .C("=<"[bint(xtid.TidBefore)]) .V(xtid.Tid)
-}
-
 func (xid Xid) XFmtString(b xfmt.Buffer) xfmt.Buffer {
-	b .V(xid.XTid) .C(':') .V(xid.Oid)
+	b .V(xid.At) .C(':') .V(xid.Oid)
 }
 */
 
@@ -151,55 +117,23 @@ func ParseOid(s string) (Oid, error) {
 	return Oid(x), err
 }
 
-// ParseXTid parses xtid from string.
-//
-// See also: XTid.String .
-func ParseXTid(s string) (XTid, error) {
-	if len(s) < 1 {
-		goto Error
-	}
-
-	{
-		var tidBefore bool
-		switch s[0] {
-		case '<':
-			tidBefore = true
-		case '=':
-			tidBefore = false
-		default:
-			goto Error
-		}
-
-		tid, err := ParseTid(s[1:])
-		if err != nil {
-			goto Error
-		}
-
-		return XTid{tid, tidBefore}, nil
-	}
-
-
-Error:
-	return XTid{}, fmt.Errorf("xtid %q invalid", s)
-}
-
 // ParseXid parses xid from string.
 //
 // See also: Xid.String .
 func ParseXid(s string) (Xid, error) {
-	xtids, oids, err := xstrings.Split2(s, ":")
+	ats, oids, err := xstrings.Split2(s, ":")
 	if err != nil {
 		goto Error
 	}
 
 	{
-		xtid, err1 := ParseXTid(xtids)
+		at, err1 := ParseTid(ats)
 		oid, err2 := ParseOid(oids)
 		if err1 != nil || err2 != nil {
 			goto Error
 		}
 
-		return Xid{xtid, oid}, nil
+		return Xid{at, oid}, nil
 	}
 
 Error:

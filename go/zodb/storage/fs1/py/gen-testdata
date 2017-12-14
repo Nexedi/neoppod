@@ -119,11 +119,11 @@ def main():
                         datatid = "/* deleted */ 0"
                     else:
                         data = "[]byte(%s)" % escapeqq(drec.data)
-                        datatid = hex64(drec.data_txn)
+                        datatid = "/* copy from */ " + hex64(drec.data_txn)
                 else:
                     rawdata = drec.data
                     data = "/* same as ^^^ */ sameAsRaw"
-                    datatid = "/* same as ^^^ */ 0"
+                    datatid = "/* no copy */ 0"
 
                 emit("\t\t\t\t[]byte(%s)," % escapeqq(rawdata))
                 emit("\t\t\t\t%s," % data)
