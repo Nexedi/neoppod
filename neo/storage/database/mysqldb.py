@@ -705,7 +705,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def _fetchObject(self, oid, tid):
         r = self.query(
             'SELECT tid, compression, data.hash, value, value_tid'
-            ' FROM obj FORCE INDEX(`partition`)'
+            ' FROM obj FORCE INDEX(PRIMARY)'
             ' LEFT JOIN data ON (obj.data_id = data.id)'
             ' WHERE `partition` = %d AND oid = %d AND tid = %d'
             % (self._getReadablePartition(oid), oid, tid))
