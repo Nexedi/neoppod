@@ -89,10 +89,11 @@ func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, seri
 	}
 
 	s, e := datav[i].serial, datav[i].err
+	b := mkbuf(datav[i].data)
 	if e != nil {
-		s = 0 // obey protocol of returning 0 with error
+		b, s = nil, 0 // obey protocol of returning nil, 0 with error
 	}
-	return mkbuf(datav[i].data), s, e
+	return b, s, e
 }
 
 var ioerr = errors.New("input/output error")

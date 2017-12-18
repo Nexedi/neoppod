@@ -160,7 +160,6 @@ type IStorage interface {
 
 	// Load loads object data addressed by xid from database.
 	//
-	// XXX currently deleted data is returned as buf.Data=nil	-- is it ok?
 	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
 	//
 	// NOTE ZODB/py provides 2 entrypoints in IStorage for loading:

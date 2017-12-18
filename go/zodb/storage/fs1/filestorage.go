@@ -146,7 +146,7 @@ func (dh *DataHeader) Free() {
 	dhPool.Put(dh)
 }
 
-func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid zodb.Tid, err error) {
+func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
@@ -162,9 +162,9 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, tid
 	dh.Tid = zodb.TidMax
 	dh.PrevRevPos = dataPos
 	//defer dh.Free()
-	buf, tid, err = fs._Load(dh, xid)
+	buf, serial, err = fs._Load(dh, xid)
 	dh.Free()
-	return buf, tid, err
+	return buf, serial, err
 }
 
 func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
@@ -187,9 +187,9 @@ func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid,
 		}
 	}
 
-	// even if we will scan back via backpointers, the tid returned should
+	// even if we will scan back via backpointers, the serial returned should
 	// be of first-found transaction
-	tid := dh.Tid
+	serial := dh.Tid
 
 	buf, err := dh.LoadData(fs.file)
 	if err != nil {
@@ -200,7 +200,7 @@ func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid,
 		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
 	}
 
-	return buf, tid, nil
+	return buf, serial, nil
 }
 
 // --- ZODB-level iteration ---

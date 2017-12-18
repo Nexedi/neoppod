@@ -657,7 +657,7 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 // LoadData loads data for the data record taking backpointers into account.
 //
 // NOTE on success dh state is changed to data header of original data transaction.
-// NOTE "deleted" records are indicated via returning buf with .Data=nil.
+// NOTE "deleted" records are indicated via returning buf with .Data=nil without error.
 func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
 	// scan via backpointers
 	for dh.DataLen == 0 {
