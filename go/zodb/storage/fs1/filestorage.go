@@ -69,7 +69,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"sync"
 
@@ -91,21 +90,10 @@ type FileStorage struct {
 	// (both with .Len=0 & .Tid=0 if database is empty)
 	txnhMin	TxnHeader
 	txnhMax TxnHeader
-
-	url *url.URL // original URL we were opened with
 }
 
-// IStorage
-var _ zodb.IStorage = (*FileStorage)(nil)
-
-func (fs *FileStorage) StorageName() string {
-	return "FileStorage v1"
-}
-
-func (fs *FileStorage) URL() string {
-	return fs.url.String()
-}
-
+// IStorageDriver
+var _ zodb.IStorageDriver = (*FileStorage)(nil)
 
 func (fs *FileStorage) LastTid(_ context.Context) (zodb.Tid, error) {
 	// XXX must be under lock

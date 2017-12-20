@@ -58,7 +58,7 @@ type Storage struct {
 	//	    1 inbox/	(commit queues)
 	//	    2 ? (data.fs)
 	//	    3 packed/	(deltified objects)
-	zstor zodb.IStorage // underlying ZODB storage	XXX -> directly work with fs1 & friends
+	zstor zodb.IStorageDriver // underlying ZODB storage	XXX -> directly work with fs1 & friends
 
 	//nodeCome chan nodeCome	// node connected
 }
@@ -67,7 +67,7 @@ type Storage struct {
 //
 // The storage uses zstor as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorage) *Storage {
+func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorageDriver) *Storage {
 	stor := &Storage{
 		node:  neo.NewNodeApp(net, neo.STORAGE, clusterName, masterAddr, serveAddr),
 		zstor: zstor,

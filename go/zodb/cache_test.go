@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package storage
+package zodb
 
 import (
 	"bytes"
@@ -29,7 +29,6 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
-	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/tracing"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
@@ -38,19 +37,19 @@ import (
 // tStorage implements read-only storage for cache testing
 type tStorage struct {
 	// oid -> [](.serial↑, .data)
-	dataMap map[zodb.Oid][]tOidData
+	dataMap map[Oid][]tOidData
 }
 
 // data for oid for 1 revision
 type tOidData struct {
-	serial zodb.Tid
+	serial Tid
 	data   []byte
 	err    error    // e.g. io error
 }
 
 // create new buffer with specified content copied there.
-func mkbuf(data []byte) *zodb.Buf {
-	buf := zodb.BufAlloc(len(data))
+func mkbuf(data []byte) *Buf {
+	buf := BufAlloc(len(data))
 	copy(buf.Data, data)
 	return buf
 }
@@ -58,7 +57,7 @@ func mkbuf(data []byte) *zodb.Buf {
 // check whether buffers hold same data or both are nil.
 //
 // NOTE we ignore refcnt here
-func bufSame(buf1, buf2 *zodb.Buf) bool {
+func bufSame(buf1, buf2 *Buf) bool {
 	if buf1 == nil {
 		return (buf2 == nil)
 	}
@@ -66,13 +65,13 @@ func bufSame(buf1, buf2 *zodb.Buf) bool {
 	return reflect.DeepEqual(buf1.Data, buf2.Data)
 }
 
-func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
+func (stor *tStorage) Load(_ context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
 	//fmt.Printf("> load(%v)\n", xid)
 	//defer func() { fmt.Printf("< %v, %v, %v\n", buf.XData(), serial, err) }()
 
 	datav := stor.dataMap[xid.Oid]
 	if datav == nil {
-		return nil, 0, &zodb.ErrOidMissing{xid.Oid}
+		return nil, 0, &ErrOidMissing{xid.Oid}
 	}
 
 	// find max entry with .serial <= xid.At
@@ -85,7 +84,7 @@ func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, seri
 	//fmt.Printf("i: %d  n: %d\n", i, n)
 	if i == -1 {
 		// xid.At < all .serial - no such transaction
-		return nil, 0, &zodb.ErrXidMissing{xid}
+		return nil, 0, &ErrXidMissing{xid}
 	}
 
 	s, e := datav[i].serial, datav[i].err
@@ -98,8 +97,8 @@ func (stor *tStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, seri
 
 var ioerr = errors.New("input/output error")
 
-func xidat(oid zodb.Oid, tid zodb.Tid) zodb.Xid {
-	return zodb.Xid{Oid: oid, At: tid}
+func xidat(oid Oid, tid Tid) Xid {
+	return Xid{Oid: oid, At: tid}
 }
 
 // tracer which collects tracing events from all needed-for-tests sources
@@ -133,7 +132,7 @@ func TestCache(t *testing.T) {
 	big   := []byte("0123456789")
 
 	tstor := &tStorage{
-		dataMap: map[zodb.Oid][]tOidData{
+		dataMap: map[Oid][]tOidData{
 			1: {
 				{4, hello, nil},
 				{7, nil, ioerr},
@@ -150,7 +149,7 @@ func TestCache(t *testing.T) {
 	c := NewCache(tstor, 100 /* > Σ all data */)
 	ctx := context.Background()
 
-	checkLoad := func(xid zodb.Xid, buf *zodb.Buf, serial zodb.Tid, err error) {
+	checkLoad := func(xid Xid, buf *Buf, serial Tid, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		b, s, e := c.Load(ctx, xid)
@@ -169,7 +168,7 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkRCE := func(rce *revCacheEntry, head, serial zodb.Tid, buf *zodb.Buf, err error) {
+	checkRCE := func(rce *revCacheEntry, head, serial Tid, buf *Buf, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		if rce.head != head {
@@ -190,7 +189,7 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkOCE := func(oid zodb.Oid, rcev ...*revCacheEntry) {
+	checkOCE := func(oid Oid, rcev ...*revCacheEntry) {
 		t.Helper()
 		oce := c.entryMap[oid]
 		oceRcev := oce.rcev
@@ -235,26 +234,26 @@ func TestCache(t *testing.T) {
 	checkMRU(0)
 
 	// load @2 -> new rce entry
-	checkLoad(xidat(1,2), nil, 0, &zodb.ErrXidMissing{xidat(1,2)})
+	checkLoad(xidat(1,2), nil, 0, &ErrXidMissing{xidat(1,2)})
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.rcev) == 1)
 	rce1_h2 := oce1.rcev[0]
-	checkRCE(rce1_h2, 2, 0, nil, &zodb.ErrXidMissing{xidat(1,2)})
+	checkRCE(rce1_h2, 2, 0, nil, &ErrXidMissing{xidat(1,2)})
 	checkMRU(0, rce1_h2)
 
 	// load @3 -> 2] merged with 3]
-	checkLoad(xidat(1,3), nil, 0, &zodb.ErrXidMissing{xidat(1,3)})
+	checkLoad(xidat(1,3), nil, 0, &ErrXidMissing{xidat(1,3)})
 	ok1(len(oce1.rcev) == 1)
 	rce1_h3 := oce1.rcev[0]
 	ok1(rce1_h3 != rce1_h2) // rce1_h2 was merged into rce1_h3
-	checkRCE(rce1_h3, 3, 0, nil, &zodb.ErrXidMissing{xidat(1,3)})
+	checkRCE(rce1_h3, 3, 0, nil, &ErrXidMissing{xidat(1,3)})
 	checkMRU(0, rce1_h3)
 
 	// load @1 -> 1] merged with 3]
-	checkLoad(xidat(1,1), nil, 0, &zodb.ErrXidMissing{xidat(1,1)})
+	checkLoad(xidat(1,1), nil, 0, &ErrXidMissing{xidat(1,1)})
 	ok1(len(oce1.rcev) == 1)
 	ok1(oce1.rcev[0] == rce1_h3)
-	checkRCE(rce1_h3, 3, 0, nil, &zodb.ErrXidMissing{xidat(1,3)})
+	checkRCE(rce1_h3, 3, 0, nil, &ErrXidMissing{xidat(1,3)})
 	checkMRU(0, rce1_h3)
 
 	// load @5 -> new rce entry with data
@@ -407,7 +406,7 @@ func TestCache(t *testing.T) {
 	// ---- verify rce lookup for must be cached entries ----
 	// (this excersizes lookupRCE)
 
-	checkLookup := func(xid zodb.Xid, expect *revCacheEntry) {
+	checkLookup := func(xid Xid, expect *revCacheEntry) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		rce, rceNew := c.lookupRCE(xid)

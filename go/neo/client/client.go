@@ -68,19 +68,9 @@ type Client struct {
 	// protected by .node.StateMu
 	operational bool // XXX <- somehow move to NodeApp?
 	opReady	    chan struct{} // reinitialized each time state becomes non-operational
-
-	url *url.URL // original URL we were opened with
 }
 
-var _ zodb.IStorage = (*Client)(nil)
-
-func (c *Client) StorageName() string {
-	return fmt.Sprintf("neo(%s)", c.node.ClusterName)
-}
-
-func (c *Client) URL() string {
-	return c.url.String()
-}
+var _ zodb.IStorageDriver = (*Client)(nil)
 
 // NewClient creates new client node.
 //
@@ -507,7 +497,7 @@ func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 }
 
 
-func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorage, error) {
+func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorageDriver, error) {
 	// neo://name@master1,master2,...,masterN?options
 
 	if u.User == nil {
@@ -527,10 +517,9 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zo
 	//     as ctx for open can be done after open finishes - not covering
 	//     whole storage working lifetime.
 	c := NewClient(u.User.Username(), u.Host, net)
-	c.url = u	// FIXME move this inside NewClient
 	return c, nil
 }
 
 func init() {
-	zodb.RegisterStorage("neo", openClientByURL)
+	zodb.RegisterDriver("neo", openClientByURL)
 }

@@ -28,7 +28,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
-func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorage, error) {
+func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorageDriver, error) {
 	// TODO handle query
 	// XXX u.Path is not always raw path - recheck and fix
 	path := u.Host + u.Path
@@ -40,12 +40,9 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.ISt
 	}
 
 	fs, err := Open(ctx, path)
-	if fs != nil {
-		fs.url = u // FIXME move this inside Open
-	}
 	return fs, err
 }
 
 func init() {
-	zodb.RegisterStorage("file", openByURL)
+	zodb.RegisterDriver("file", openByURL)
 }

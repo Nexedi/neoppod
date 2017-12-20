@@ -32,19 +32,19 @@ type OpenOptions struct {
 	ReadOnly bool // whether to open storage as read-only
 }
 
-// StorageOpener is a function to open a storage
-type StorageOpener func (ctx context.Context, u *url.URL, opt *OpenOptions) (IStorage, error)
+// DriverOpener is a function to open a storage driver
+type DriverOpener func (ctx context.Context, u *url.URL, opt *OpenOptions) (IStorageDriver, error)
 
-// {} scheme -> StorageOpener
-var storageRegistry = map[string]StorageOpener{}
+// {} scheme -> DriverOpener
+var driverRegistry = map[string]DriverOpener{}
 
-// RegisterStorage registers opener to be used for URLs with scheme
-func RegisterStorage(scheme string, opener StorageOpener) {
-	if _, already := storageRegistry[scheme]; already {
+// RegisterDriver registers opener to be used for URLs with scheme
+func RegisterDriver(scheme string, opener DriverOpener) {
+	if _, already := driverRegistry[scheme]; already {
 		panic(fmt.Errorf("ZODB URL scheme %q was already registered", scheme))
 	}
 
-	storageRegistry[scheme] = opener
+	driverRegistry[scheme] = opener
 }
 
 // OpenStorage opens ZODB storage by URL.
@@ -54,8 +54,6 @@ func RegisterStorage(scheme string, opener StorageOpener) {
 // get support for well-known storages.
 //
 // Storage authors should register their storages with RegisterStorage.
-//
-// TODO automatically wrap opened storage with Cache.
 func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (IStorage, error) {
 	// no scheme -> file://
 	if !strings.Contains(storageURL, "://") {
@@ -70,10 +68,48 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 	// XXX commonly handle some options from url -> opt?
 	// (e.g. ?readonly=1 -> opt.ReadOnly=true + remove ?readonly=1 from URL)
 
-	opener, ok := storageRegistry[u.Scheme]
+	opener, ok := driverRegistry[u.Scheme]
 	if !ok {
 		return nil, fmt.Errorf("zodb: URL scheme \"%s://\" not supported", u.Scheme)
 	}
 
-	return opener(ctx, u, opt)
+	storDriver, err := opener(ctx, u, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &storage{
+		IStorageDriver: storDriver,
+
+		// small cache so that prefetch can work for loading
+		l1cache: NewCache(storDriver, 16 << 20),	// XXX 16MB hardcoded
+	}, nil
+}
+
+
+
+// storage represents storage opened via OpenStorage.
+//
+// it provides a small cache on top of raw storage driver to implement prefetch
+// and other storage-independed higher-level functionality.
+type storage struct {
+	IStorageDriver
+	l1cache *Cache
+	url     string		// URL this storage was opened via
+}
+
+
+// loading always goes through cache - this way prefetching can work
+
+func (s *storage) Load(ctx context.Context, xid Xid) (*Buf, Tid, error) {
+	return s.l1cache.Load(ctx, xid)
+}
+
+func (s *storage) Prefetch(ctx context.Context, xid Xid) {
+	s.l1cache.Prefetch(ctx, xid)
+}
+
+
+func (s *storage) URL() string {
+	return s.url
 }

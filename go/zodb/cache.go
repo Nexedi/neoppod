@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package storage
+package zodb
 // cache management
 
 //go:generate gotrace gen .
@@ -29,15 +29,13 @@ import (
 	"sync"
 	"unsafe"
 
-	"lab.nexedi.com/kirr/neo/go/zodb"
-
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontainer/list"
 )
 
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
 
-// Cache adds RAM caching layer over a storage.
+// Cache provides RAM caching layer that can be used over a storage.
 type Cache struct {
 	loader StorLoader
 
@@ -45,9 +43,9 @@ type Cache struct {
 
 	// cache is fully synchronized with storage for transactions with tid <= head.
 	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)
-	head	zodb.Tid
+	head	Tid
 
-	entryMap map[zodb.Oid]*oidCacheEntry	// oid -> oid's cache entries
+	entryMap map[Oid]*oidCacheEntry	// oid -> oid's cache entries
 
 	// garbage collection:
 	gcCh chan struct{} // signals gc to run
@@ -90,11 +88,11 @@ type revCacheEntry struct {
 	//
 	// .head can be > cache.head and still finite - that represents a
 	// case when load with tid > cache.head was called.
-	head zodb.Tid
+	head Tid
 
 	// loading result: object (buf, serial) or error
-	buf    *zodb.Buf
-	serial zodb.Tid
+	buf    *Buf
+	serial Tid
 	err    error
 
 	ready     chan struct{} // closed when loading finished
@@ -104,7 +102,7 @@ type revCacheEntry struct {
 // StorLoader represents loading part of a storage.
 // XXX -> zodb.IStorageLoader (or zodb.Loader ?) ?
 type StorLoader interface {
-	Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error)
+	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)
 }
 
 // lock order: Cache.mu   > oidCacheEntry
@@ -117,7 +115,7 @@ type StorLoader interface {
 func NewCache(loader StorLoader, sizeMax int) *Cache {
 	c := &Cache{
 		loader:   loader,
-		entryMap: make(map[zodb.Oid]*oidCacheEntry),
+		entryMap: make(map[Oid]*oidCacheEntry),
 		gcCh:     make(chan struct{}, 1), // 1 is important - see gcsignal
 		sizeMax:  sizeMax,
 	}
@@ -145,7 +143,7 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 // Load loads data from database via cache.
 //
 // If data is already in cache - cached content is returned.
-func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
+func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid)
 
 	// rce is already in cache - use it
@@ -175,7 +173,7 @@ func (c *Cache) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial z
 // If data is not yet in cache loading for it is started in the background.
 // Prefetch is not blocking operation and does not wait for loading, if any was
 // started, to complete.
-func (c *Cache) Prefetch(ctx context.Context, xid zodb.Xid) {
+func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
 	rce, rceNew := c.lookupRCE(xid)
 
 	// !rceNew -> no need to adjust LRU - it will be adjusted by further actual data Load
@@ -194,7 +192,7 @@ func (c *Cache) Prefetch(ctx context.Context, xid zodb.Xid) {
 //
 // rceNew indicates whether rce is new and so loading on it has not been
 // initiated yet. If so the caller should proceed to loading rce via loadRCE.
-func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
+func (c *Cache) lookupRCE(xid Xid) (rce *revCacheEntry, rceNew bool) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.syncedTo read consistently
 	c.mu.RLock()
@@ -223,7 +221,7 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 	l := len(oce.rcev)
 	i := sort.Search(l, func(i int) bool {
 		head_i := oce.rcev[i].head
-		if head_i == zodb.TidMax {
+		if head_i == TidMax {
 			head_i = cacheHead
 		}
 		return xid.At <= head_i
@@ -236,7 +234,7 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 		if rce.head == cacheHead {
 			// FIXME better do this when the entry becomes loaded ?
 			// XXX vs concurrent invalidations?
-			rce.head = zodb.TidMax
+			rce.head = TidMax
 		}
 		rceNew = true
 
@@ -270,9 +268,9 @@ func (c *Cache) lookupRCE(xid zodb.Xid) (rce *revCacheEntry, rceNew bool) {
 //
 // rce must be new just created by lookupRCE() with returned rceNew=true.
 // loading completion is signalled by closing rce.ready.
-func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
+func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	oce := rce.parent
-	buf, serial, err := c.loader.Load(ctx, zodb.Xid{At: rce.head, Oid: oid})
+	buf, serial, err := c.loader.Load(ctx, Xid{At: rce.head, Oid: oid})
 
 	// normalize buf/serial if it was error
 	if err != nil {
@@ -380,7 +378,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid zodb.Oid) {
 // must be called with .parent locked
 //
 // XXX move oid from args to revCacheEntry?
-func tryMerge(prev, next, cur *revCacheEntry, oid zodb.Oid) bool {
+func tryMerge(prev, next, cur *revCacheEntry, oid Oid) bool {
 
 	//		  can merge if    consistent if
 	//	                          (if merging)
@@ -505,15 +503,15 @@ func isErrNoData(err error) bool {
 	default:
 		return false
 
-	case *zodb.ErrOidMissing:
-	case *zodb.ErrXidMissing:
+	case *ErrOidMissing:
+	case *ErrXidMissing:
 	}
 	return true
 }
 
 // newRevEntry creates new revCacheEntry with .head and inserts it into .rcev @i.
 // (if i == len(oce.rcev) - entry is appended)
-func (oce *oidCacheEntry) newRevEntry(i int, head zodb.Tid) *revCacheEntry {
+func (oce *oidCacheEntry) newRevEntry(i int, head Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
 		serial: 0,
@@ -576,11 +574,11 @@ func (rce *revCacheEntry) loaded() bool {
 //
 // ( ErrXidMissing contains xid for which it is missing. In cache we keep such
 //   xid with max .head but users need to get ErrXidMissing with their own query )
-func (rce *revCacheEntry) userErr(xid zodb.Xid) error {
+func (rce *revCacheEntry) userErr(xid Xid) error {
 	switch e := rce.err.(type) {
-	case *zodb.ErrXidMissing:
+	case *ErrXidMissing:
 		if e.Xid != xid {
-			return &zodb.ErrXidMissing{xid}
+			return &ErrXidMissing{xid}
 		}
 	}
 
@@ -603,14 +601,14 @@ func (h *lruHead) rceFromInLRU() (rce *revCacheEntry) {
 }
 
 // errDB returns error about database being inconsistent
-func errDB(oid zodb.Oid, format string, argv ...interface{}) error {
+func errDB(oid Oid, format string, argv ...interface{}) error {
 	// XXX -> separate type?
 	return fmt.Errorf("cache: database inconsistency: oid: %v: " + format,
 		append([]interface{}{oid}, argv...)...)
 }
 
 // errDB marks rce with database inconsistency error
-func (rce *revCacheEntry) errDB(oid zodb.Oid, format string, argv ...interface{}) {
+func (rce *revCacheEntry) errDB(oid Oid, format string, argv ...interface{}) {
 	rce.err = errDB(oid, format, argv...)
 	rce.buf.XRelease()
 	rce.buf = nil

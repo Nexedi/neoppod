@@ -41,7 +41,6 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
-	"lab.nexedi.com/kirr/neo/go/zodb/storage"
 
 	"github.com/pkg/profile"
 )
@@ -124,39 +123,19 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 		err = xerr.First(err, err2)
 	}()
 
-	// XXX always open storage with cache by zodb.OpenStorage
-	var cache *storage.Cache
-	if useprefetch {
-		cache = storage.NewCache(stor, 16*1024*1024)
-	}
-
-	prefetch := func(ctx context.Context, xid zodb.Xid) {
-		if cache != nil {
-			//fmt.Printf("prefetch %v\n", xid)
-			cache.Prefetch(ctx, xid)
-		}
-	}
-
-	load := func(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
-		if cache != nil {
-			return cache.Load(ctx, xid)
-		} else {
-			return stor.Load(ctx, xid)
-		}
-	}
-
 	const nprefetch = 128	// XXX -> 512 ?
 
 	// prefetchBlk prefetches block of nprefetch objects starting from xid
 	//var tprevLoadBlkStart time.Time
 	prefetchBlk := func(ctx context.Context, xid zodb.Xid) {
-		if cache == nil {
+		if !useprefetch {
 			return
 		}
 
 		//t1 := time.Now()
 		for i := 0; i < nprefetch; i++ {
-			prefetch(ctx, xid)
+			//fmt.Printf("prefetch %v\n", xid)
+			stor.Prefetch(ctx, xid)
 			xid.Oid++
 		}
 		//t2 := time.Now()
@@ -193,7 +172,7 @@ loop:
 		if xid.Oid % nprefetch == 0 {
 			prefetchBlk(ctx, xid)
 		}
-		buf, _, err := load(ctx, xid)
+		buf, _, err := stor.Load(ctx, xid)
 		switch err.(type) {
 		case nil:
 			// ok

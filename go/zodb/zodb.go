@@ -139,11 +139,23 @@ func (e *ErrXidMissing) Error() string {
 	return fmt.Sprintf("%v: no matching data record found", e.Xid)
 }
 
-// IStorage is the interface provided when a ZODB storage is opened
+// IStorage is the interface provided by opened ZODB storage
 type IStorage interface {
-	// URL returns URL of this storage
+	IStorageDriver
+
+	// URL returns URL of how the storage was opened
 	URL() string
 
+	// Prefetch prefetches object addressed by xid.
+	//
+	// If data is not yet in cache loading for it is started in the background.
+	// Prefetch is not blocking operation and does not wait for loading, if any was
+	// started, to complete.
+	Prefetch(ctx context.Context, xid Xid)
+}
+
+// IStorageDriver is the raw interface provided by ZODB storage drivers
+type IStorageDriver interface {
 	// Close closes storage
 	Close() error
 
@@ -182,19 +194,17 @@ type IStorage interface {
 	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
 	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)
 
-	// Prefetch(ctx, xid Xid)	(no error)
-
 	// TODO: write mode
 
 	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
-	// KeepCurrent(oid Oid, serial Tid, txn ITransaction)
+	// StoreKeepCurrent(oid Oid, serial Tid, txn ITransaction)
 
 	// TpcBegin(txn)
 	// TpcVote(txn)
 	// TpcFinish(txn, callback)
 	// TpcAbort(txn)
 
-	// TODO: invalidation channel (notify about changes made to DB not by us)
+	// TODO: invalidation channel (notify about changes made to DB not by us from outside)
 
 
 	// TODO: History(ctx, oid, size=1)
