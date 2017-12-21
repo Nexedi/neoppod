@@ -103,10 +103,10 @@ func BufAlloc64(size int64) *Buf {
 // XXX naming? -> Free? -> Decref? -> Unref?
 func (buf *Buf) Release() {
 	rc := atomic.AddInt32(&buf.refcnt, -1)
-	if rc < -1 {
-		panic("Buf: refcnt < 0")
+	if rc < 0 - 1 {
+		panic("Buf.Release: refcnt < 0")
 	}
-	if rc > -1 {
+	if rc > 0 - 1 {
 		return
 	}
 
@@ -126,8 +126,13 @@ func (buf *Buf) Release() {
 }
 
 // Incref increments buf's reference counter by 1.
+//
+// buf must already have reference-counter > 0 before Incref call.
 func (buf *Buf) Incref() {
-	atomic.AddInt32(&buf.refcnt, +1)
+	rc := atomic.AddInt32(&buf.refcnt, +1)
+	if rc <= 1 - 1 {
+		panic("Buf.Incref: refcnt was < 1")
+	}
 }
 
 // XRelease releases buf it is != nil.

@@ -194,7 +194,7 @@ func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
 // initiated yet. If so the caller should proceed to loading rce via loadRCE.
 func (c *Cache) lookupRCE(xid Xid) (rce *revCacheEntry, rceNew bool) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
-	// exit with oce locked and cache.syncedTo read consistently
+	// exit with oce locked and cache.head read consistently
 	c.mu.RLock()
 
 	oce := c.entryMap[xid.Oid]
@@ -511,6 +511,8 @@ func isErrNoData(err error) bool {
 
 // newRevEntry creates new revCacheEntry with .head and inserts it into .rcev @i.
 // (if i == len(oce.rcev) - entry is appended)
+//
+// oce must be locked.
 func (oce *oidCacheEntry) newRevEntry(i int, head Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
@@ -529,6 +531,8 @@ func (oce *oidCacheEntry) newRevEntry(i int, head Tid) *revCacheEntry {
 
 // find finds rce in .rcev and returns its index
 // not found -> -1.
+//
+// oce must be locked.
 func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 	for i, r := range oce.rcev {
 		if r == rce {
@@ -539,6 +543,8 @@ func (oce *oidCacheEntry) find(rce *revCacheEntry) int {
 }
 
 // deli deletes .rcev[i]
+//
+// oce must be locked.
 func (oce *oidCacheEntry) deli(i int) {
 	n := len(oce.rcev) - 1
 	copy(oce.rcev[i:], oce.rcev[i+1:])
@@ -550,6 +556,8 @@ func (oce *oidCacheEntry) deli(i int) {
 
 // del delets rce from .rcev.
 // it panics if rce is not there.
+//
+// oce must be locked.
 func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 	i := oce.find(rce)
 	if i == -1 {
@@ -574,6 +582,8 @@ func (rce *revCacheEntry) loaded() bool {
 //
 // ( ErrXidMissing contains xid for which it is missing. In cache we keep such
 //   xid with max .head but users need to get ErrXidMissing with their own query )
+//
+// rce must be loaded.
 func (rce *revCacheEntry) userErr(xid Xid) error {
 	switch e := rce.err.(type) {
 	case *ErrXidMissing:

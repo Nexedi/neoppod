@@ -229,7 +229,7 @@ func TestCache(t *testing.T) {
 	}
 
 	// ---- verify cache behaviour for must be loaded/merged entries ----
-	// (this excercises mostly loadRCE/tryMerge)
+	// (this exercises mostly loadRCE/tryMerge)
 
 	checkMRU(0)
 
@@ -404,7 +404,7 @@ func TestCache(t *testing.T) {
 
 
 	// ---- verify rce lookup for must be cached entries ----
-	// (this excersizes lookupRCE)
+	// (this exercises lookupRCE)
 
 	checkLookup := func(xid Xid, expect *revCacheEntry) {
 		t.Helper()
@@ -470,7 +470,7 @@ func TestCache(t *testing.T) {
 	// (attach to Cache GC tracepoints)
 	tracer := &tTracer{xtesting.NewSyncTracer()}
 	pg := &tracing.ProbeGroup{}
-	defer pg.Done()
+	//defer pg.Done()
 
 	tracing.Lock()
 	traceCacheGCStart_Attach(pg, tracer.traceCacheGCStart)
@@ -538,6 +538,46 @@ func TestCache(t *testing.T) {
 	tc.Expect(gcstart, gcfinish)
 	checkOCE(1)
 	checkMRU(0)
+
+	// ---- Load vs concurrent GC ----
+
+	// in the following scenario if GC runs after Load completed lookupRCE
+	// but before Load increfs returned buf, the GC will actually return
+	// the buf to buffer pool and so Load will be returning wrong buffer:
+	//
+	// ---- 8< ----
+	// T1			Tgc
+	// Prefetch:
+	//   RCELookedUp
+	//   RCELoaded
+	//			# GC - on hold
+	// Load
+	//   RCELookedUp
+	//   -> pause T1
+	//			# GC - unpause
+	//			GCStart
+	//			GCStop
+	//   <- unpause T1
+	// # load completes
+	// ---- 8< ----
+	//
+	// it is hard to check this via stable tracepoints because, if done so,
+	// after the problem is fixed the test will deadlock.
+	// So test it probabilistically instead.
+	pg.Done()
+	c.SetSizeMax(0) // we want to GC to be constantly running
+	for i := 0; i < 1e4; i++ {
+		// issue Prefetch: this should create RCE and spawn loadRCE for it
+		c.Prefetch(ctx, xidat(1,4))
+
+		// issue Load: this should lookup the RCE and wait for it to be loaded.
+		// if GC runs in parallel to Load there are chances it will
+		// be running in between Load->lookupRCE and final rce.buf.XIncref()
+		//
+		// if something is incorrect with refcounting either
+		// buf.Incref() in Load or buf.Release() in GC will panic.
+		checkLoad(xidat(1,4), b(hello), 4, nil)
+	}
 
 
 	// XXX verify caching vs ctx cancel
