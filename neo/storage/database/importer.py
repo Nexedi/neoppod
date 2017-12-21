@@ -365,7 +365,9 @@ class ImporterDatabaseManager(DatabaseManager):
                 self.storeTransaction(tid, object_list, (
                     (x[0] for x in object_list),
                     str(txn.user), str(txn.description),
-                    cPickle.dumps(txn.extension), False, tid), False)
+                    cPickle.dumps(txn.extension),
+                    txn.status == 'p', tid),
+                    False)
                 self.releaseData(data_id_list)
                 logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
                     util.dump(tid), txn.user, txn.description, len(object_list))
