@@ -501,7 +501,7 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zo
 	// neo://name@master1,master2,...,masterN?options
 
 	if u.User == nil {
-		return nil, fmt.Errorf("neo: open %q: cluster name not specified")
+		return nil, fmt.Errorf("neo: open %q: cluster name not specified", u)
 	}
 
 	// XXX readonly stub

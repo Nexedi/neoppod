@@ -292,7 +292,7 @@ loop:
 
 		// unpack entry tuple -> oidPrefix, fsBucket
 		if len(v) != 2 {
-			return nil, fmt.Errorf("invalid entry: len = %i", len(v))
+			return nil, fmt.Errorf("invalid entry: len = %d", len(v))
 		}
 
 		// decode oidPrefix
@@ -302,7 +302,7 @@ loop:
 			return nil, fmt.Errorf("invalid oidPrefix: type %T", xoidPrefixStr)
 		}
 		if l := len(oidPrefixStr); l != 6 {
-			return nil, fmt.Errorf("invalid oidPrefix: len = %i", l)
+			return nil, fmt.Errorf("invalid oidPrefix: len = %d", l)
 		}
 		copy(oidb[:], oidPrefixStr)
 		oidPrefix := zodb.Oid(binary.BigEndian.Uint64(oidb[:]))
@@ -314,7 +314,7 @@ loop:
 			return nil, fmt.Errorf("invalid fsBucket: type %T", xkvStr)
 		}
 		if l := len(kvStr); l%8 != 0 {
-			return nil, fmt.Errorf("invalid fsBucket: len = %i", l)
+			return nil, fmt.Errorf("invalid fsBucket: len = %d", l)
 		}
 
 		// load btree from fsBucket entries
