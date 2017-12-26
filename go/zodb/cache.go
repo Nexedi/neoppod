@@ -96,7 +96,15 @@ type revCacheEntry struct {
 	err    error
 
 	ready     chan struct{} // closed when loading finished
-	accounted bool		// whether rce size accounted in cache size; protected by .parent's lock
+
+	// protected by .parent's lock:
+
+	accounted  bool  // whether rce size was accounted in cache size
+
+	// how many waiters for buf is there while rce is being loaded.
+	// after data for this RCE is loaded loadRCE will do .buf.XIncref() .waitBufRef times.
+	// = -1 after loading is complete.
+	waitBufRef int32
 }
 
 // StorLoader represents loading part of a storage.
@@ -144,7 +152,7 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 //
 // If data is already in cache - cached content is returned.
 func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
-	rce, rceNew := c.lookupRCE(xid)
+	rce, rceNew := c.lookupRCE(xid, +1)
 
 	// rce is already in cache - use it
 	if !rceNew {
@@ -164,7 +172,6 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err er
 		return nil, 0, rce.userErr(xid)
 	}
 
-	rce.buf.XIncref()
 	return rce.buf, rce.serial, nil
 }
 
@@ -174,10 +181,12 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err er
 // Prefetch is not blocking operation and does not wait for loading, if any was
 // started, to complete.
 func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
-	rce, rceNew := c.lookupRCE(xid)
+	rce, rceNew := c.lookupRCE(xid, +0)
 
-	// !rceNew -> no need to adjust LRU - it will be adjusted by further actual data Load
-	// XXX or it is better to adjust LRU here too?
+	// !rceNew -> no need to adjust LRU - it will be adjusted by further actual data Load.
+	// More: we must not expose not-yet-loaded RCEs to Cache.lru because
+	// their rce.waitBufRef was not yet synced to rce.buf.
+	// See loadRCE for details.
 
 	// spawn loading in the background if rce was not yet loaded
 	if rceNew {
@@ -192,7 +201,17 @@ func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
 //
 // rceNew indicates whether rce is new and so loading on it has not been
 // initiated yet. If so the caller should proceed to loading rce via loadRCE.
-func (c *Cache) lookupRCE(xid Xid) (rce *revCacheEntry, rceNew bool) {
+//
+// wantBufRef indicates how much caller wants returned rce.buf to be incref'ed.
+//
+// This increment will be done only after rce is loaded either by lookupRCE
+// here - if it find the rce to be already loaded, or by future loadRCE - if
+// rce is not loaded yet - to which the increment will be scheduled.
+//
+// In any way - either by lookupRCE or loadRCE - the increment will be done
+// consistently while under rce.parent lock - this way making sure concurrent gc
+// won't release rce.buf while it does not yet hold all its wanted references.
+func (c *Cache) lookupRCE(xid Xid, wantBufRef int) (rce *revCacheEntry, rceNew bool) {
 	// oid -> oce (oidCacheEntry)  ; create new empty oce if not yet there
 	// exit with oce locked and cache.head read consistently
 	c.mu.RLock()
@@ -260,6 +279,16 @@ func (c *Cache) lookupRCE(xid Xid) (rce *revCacheEntry, rceNew bool) {
 		rceNew = true
 	}
 
+	// wantBufRef -> either incref loaded buf, or schedule this incref to
+	// loadRCE to be done after loading is complete.
+	for ; wantBufRef > 0; wantBufRef-- {
+		if rce.loaded() {
+			rce.buf.XIncref()
+		} else {
+			rce.waitBufRef++
+		}
+	}
+
 	oce.Unlock()
 	return rce, rceNew
 }
@@ -284,24 +313,37 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	rce.err = err
 	// verify db gives serial <= head
 	if rce.serial > rce.head {
-		rce.errDB(oid, "load(@%v) -> %v", rce.head, serial)
+		rce.markAsDBError(oid, "load(@%v) -> %v", rce.head, serial)
 	}
 
-	close(rce.ready)
 	δsize := rce.buf.Len()
 
-	// merge rce with adjacent entries in parent
-	// ( e.g. load(@3) and load(@4) results in the same data loaded if
-	//   there are only revisions with serials 1 and 5 )
 	oce.Lock()
+
+	// sync .waitBufRef -> .buf
+	//
+	// this is needed so that we always put into Cache.lru an RCE with proper
+	// refcount = 1 for cache + n·Load waiters. If we do not account for
+	// n·Load waiters here - under .parent's lock, gc might run before Load
+	// resumes, see .buf.refcnt = 1 and return .buf to freelist -> oops.
+	for ; rce.waitBufRef > 0; rce.waitBufRef-- {
+		rce.buf.XIncref()
+	}
+	rce.waitBufRef = -1 // mark as loaded
+
 	i := oce.find(rce)
 	if i == -1 {
 		// rce was already dropped by merge / evicted
 		// (XXX recheck about evicted)
 		oce.Unlock()
+		close(rce.ready)
 		return
 	}
 
+	// merge rce with adjacent entries in parent
+	// ( e.g. load(@3) and load(@4) results in the same data loaded if
+	//   there are only revisions with serials 1 and 5 )
+	//
 	// if rce & rceNext cover the same range -> drop rce
 	//
 	// if we drop rce - do not update c.lru as:
@@ -310,6 +352,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	//
 	// if rceNext is not yet there on lru list its loadRCE is in progress
 	// and will update lru and cache size for it itself.
+	rceOrig := rce
 	rceDropped := false
 	if i + 1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
@@ -342,6 +385,11 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	}
 
 	oce.Unlock()
+
+	// now after .waitBufRef was synced to .buf notify to waiters that
+	// original rce in question was loaded. Do so outside .parent lock.
+	close(rceOrig.ready)
+
 
 	// update lru & cache size
 	gcrun := false
@@ -401,12 +449,12 @@ func tryMerge(prev, next, cur *revCacheEntry, oid Oid) bool {
 		// check consistency
 		switch {
 		case prev.err == nil && prev.serial != next.serial:
-			cur.errDB(oid, "load(@%v) -> %v; load(@%v) -> %v",
+			cur.markAsDBError(oid, "load(@%v) -> %v; load(@%v) -> %v",
 				prev.head, prev.serial, next.head, next.serial)
 
 		case prev.err != nil && !isErrNoData(prev.err):
 			if cur.err == nil {
-				cur.errDB(oid, "load(@%v) -> %v; load(@%v) -> %v",
+				cur.markAsDBError(oid, "load(@%v) -> %v; load(@%v) -> %v",
 					prev.head, prev.err, next.head, next.serial)
 			}
 		}
@@ -485,6 +533,12 @@ func (c *Cache) gc() {
 			oce.deli(i)
 			c.size -= rce.buf.Len()
 			//fmt.Printf("gc: free %d bytes\n", rce.buf.Len()))
+
+			// not-yet-loaded rce must not be on Cache.lru
+			if !rce.loaded() {
+				panic("cache: gc: found !loaded rce on lru")
+			}
+
 			rce.buf.XRelease()
 		}
 		oce.Unlock()
@@ -516,7 +570,6 @@ func isErrNoData(err error) bool {
 func (oce *oidCacheEntry) newRevEntry(i int, head Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
-		serial: 0,
 		head:   head,
 		ready:  make(chan struct{}),
 	}
@@ -569,13 +622,10 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 
 
 // loaded reports whether rce was already loaded
+//
+// must be called with rce.parent locked.
 func (rce *revCacheEntry) loaded() bool {
-	select {
-	case <-rce.ready:
-		return true
-	default:
-		return false
-	}
+	return (rce.waitBufRef == -1)
 }
 
 // userErr returns error that, if any, needs to be returned to user from Cache.Load
@@ -617,8 +667,12 @@ func errDB(oid Oid, format string, argv ...interface{}) error {
 		append([]interface{}{oid}, argv...)...)
 }
 
-// errDB marks rce with database inconsistency error
-func (rce *revCacheEntry) errDB(oid Oid, format string, argv ...interface{}) {
+// markAsDBError marks rce with database inconsistency error.
+//
+// Caller must be the only one to access rce.
+// In practice this means rce was just loaded but neither yet signalled to be
+// ready to waiter, nor yet made visible to GC (via adding to Cacle.lru list).
+func (rce *revCacheEntry) markAsDBError(oid Oid, format string, argv ...interface{}) {
 	rce.err = errDB(oid, format, argv...)
 	rce.buf.XRelease()
 	rce.buf = nil

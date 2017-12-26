@@ -316,7 +316,7 @@ func TestCache(t *testing.T) {
 	// with 15] -> 11] and 13] should be merged into 15].
 
 	// (manually add rce1_h15 so it is not merged with 11])
-	rce1_h15, new15 := c.lookupRCE(xidat(1,15))
+	rce1_h15, new15 := c.lookupRCE(xidat(1,15), +0)
 	ok1(new15)
 	rce1_h15.serial = 10
 	rce1_h15.buf = mkbuf(world)
@@ -327,12 +327,13 @@ func TestCache(t *testing.T) {
 
 	// (lookup 13] while 15] is not yet loaded so 15] is not picked
 	//  automatically at lookup phase)
-	rce1_h13, new13 := c.lookupRCE(xidat(1,13))
+	rce1_h13, new13 := c.lookupRCE(xidat(1,13), +0)
 	ok1(new13)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
 	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no <14 and <16 yet
 
-	// (now 15] becomes ready but not yet takes oce lock)
+	// (now 15] becomes ready but does not yet takes oce lock)
+	rce1_h15.waitBufRef = -1
 	close(rce1_h15.ready)
 	ok1(rce1_h15.loaded())
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
@@ -356,14 +357,15 @@ func TestCache(t *testing.T) {
 
 	// similar race in between 16] and 17] but now β (17]) takes oce lock first:
 
-	rce1_h16, new16 := c.lookupRCE(xidat(1,16))
+	rce1_h16, new16 := c.lookupRCE(xidat(1,16), +0)
 	ok1(new16)
-	rce1_h17, new17 := c.lookupRCE(xidat(1,17))
+	rce1_h17, new17 := c.lookupRCE(xidat(1,17), +0)
 	ok1(new17)
 
 	// (16] loads but not yet takes oce lock)
 	rce1_h16.serial = 16
 	rce1_h16.buf = mkbuf(zz)
+	rce1_h16.waitBufRef = -1
 	close(rce1_h16.ready)
 	ok1(rce1_h16.loaded())
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h16, rce1_h17)
@@ -409,7 +411,7 @@ func TestCache(t *testing.T) {
 	checkLookup := func(xid Xid, expect *revCacheEntry) {
 		t.Helper()
 		bad := &bytes.Buffer{}
-		rce, rceNew := c.lookupRCE(xid)
+		rce, rceNew := c.lookupRCE(xid, +0)
 		if rceNew {
 			fmt.Fprintf(bad, "rce must be already in cache\n")
 		}
@@ -433,7 +435,7 @@ func TestCache(t *testing.T) {
 	checkLookup(xidat(1,9), rce1_h9)
 
 	// 8] must be separate from 7] and 9] because it is IO error there
-	rce1_h8, new8 := c.lookupRCE(xidat(1,8))
+	rce1_h8, new8 := c.lookupRCE(xidat(1,8), +0)
 	ok1(new8)
 	c.loadRCE(ctx, rce1_h8, 1)
 	checkRCE(rce1_h8, 8, 0, nil, ioerr)
