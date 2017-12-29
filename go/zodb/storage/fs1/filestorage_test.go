@@ -31,8 +31,6 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 )
 
-// XXX -> testDbEntry ?
-
 // one database transaction record
 type dbEntry struct {
 	Header	TxnHeader

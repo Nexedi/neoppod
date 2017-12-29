@@ -52,12 +52,10 @@ func (oid Oid) String() string {
 }
 
 func (tid Tid) XFmtString(b []byte) []byte {
-	// XXX also print "tid:" prefix ?
 	return xfmt.AppendHex016(b, uint64(tid))
 }
 
 func (oid Oid) XFmtString(b []byte) []byte {
-	// XXX also print "oid:" prefix ?
 	return xfmt.AppendHex016(b, uint64(oid))
 }
 

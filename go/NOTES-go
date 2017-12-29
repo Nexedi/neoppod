@@ -1,4 +1,3 @@
-? Load vs "deleted" -> err or data=nil ?  -> stor.Conn flag
 ? IStorage.Load -> per storage connection
 
 ? random access -> mmap
@@ -17,6 +16,7 @@ findrunnable
 runqsteal
 ? runqgrab
 schedule	<- top entry
+868c8b37 (runtime: only sleep before stealing work from a running P)
 
 -> stopm()	// stop and restart m after waiting for work
 	notesleep(m.park)

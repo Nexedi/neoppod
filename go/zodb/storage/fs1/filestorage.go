@@ -127,6 +127,7 @@ var dhPool = sync.Pool{New: func() interface{} { return &DataHeader{} }}
 func DataHeaderAlloc() *DataHeader {
 	return dhPool.Get().(*DataHeader)
 }
+
 // Free puts dh back into DataHeader freelist.
 //
 // Caller must not use dh after call to Free.
