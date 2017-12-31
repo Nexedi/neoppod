@@ -17,6 +17,8 @@ runqsteal
 ? runqgrab
 schedule	<- top entry
 868c8b37 (runtime: only sleep before stealing work from a running P)
+b75b4d0e (runtime: skip netpoll check if there are no waiters)
+
 
 -> stopm()	// stop and restart m after waiting for work
 	notesleep(m.park)

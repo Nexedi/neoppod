@@ -128,7 +128,7 @@ func NewCache(loader StorLoader, sizeMax int) *Cache {
 		sizeMax:  sizeMax,
 	}
 	c.lru.Init()
-	go c.gcmain() // TODO stop it on .Close()
+	go c.gcmain()
 	return c
 }
 
@@ -146,6 +146,12 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 	if gcrun {
 		c.gcsignal()
 	}
+}
+
+// Close stops cache operation. It is illegal to use cache in any way after call to Close.
+// XXX temp - will be gone
+func (c *Cache) Close() {
+	close(c.gcCh)
 }
 
 // Load loads data from database via cache.
@@ -493,9 +499,13 @@ func (c *Cache) gcsignal() {
 func (c *Cache) gcmain() {
 	for {
 		select {
-		case <-c.gcCh:
+		case _, ok := <-c.gcCh:
+			// end of operation
+			if !ok {
+				return
+			}
+
 			// someone asks us to run GC
-			// XXX also check for quitting here
 			c.gc()
 		}
 	}

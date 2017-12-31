@@ -25,7 +25,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"sort"
+	"sync/atomic"
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
@@ -603,4 +605,217 @@ func (c *Checker) assertEq(a, b interface{}) {
 	if !reflect.DeepEqual(a, b) {
 		c.t.Fatal("!eq:\n", pretty.Compare(a, b))
 	}
+}
+
+// ----------------------------------------
+
+// noopStorage is dummy StorLoader which for any oid/xid always returns 1-byte data
+type noopStorage struct {}
+var noopData = []byte{0}
+
+func (s *noopStorage) Load(_ context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
+	return mkbuf(noopData), 1, nil
+}
+
+// benchLoad serially benchmarks a StorLoader - either storage directly or a cache on top of it
+//
+// oid accessed are [0, worksize)
+func benchLoad(b *testing.B, l StorLoader, worksize int) {
+	benchLoadN(b, b.N, l, worksize)
+}
+
+// worker for benchLoad, with n overridding b.N
+func benchLoadN(b *testing.B, n int, l StorLoader, worksize int) {
+	ctx := context.Background()
+
+	xid := Xid{At: 1, Oid: 0}
+	for i := 0; i < n; i++ {
+		buf, _, err := l.Load(ctx, xid)
+		if err != nil {
+			b.Fatal(err)
+		}
+		buf.XRelease()
+
+		xid.Oid++
+		if xid.Oid >= Oid(worksize) {
+			xid.Oid = 0
+		}
+	}
+}
+
+
+// benchmark storage under cache
+func BenchmarkNoopStorage(b *testing.B)		{ benchLoad(b, &noopStorage{}, b.N /* = ∞ */) }
+
+// cache sizes to benchmark (elements = bytes (we are using 1-byte element))
+var cachesizev = []int{0, 16, 128, 512, 4096}
+
+// benchEachCache runs benchmark f against caches with various sizes on top of noop storage
+func benchEachCache(b *testing.B, f func(b *testing.B, c *Cache)) {
+	s := &noopStorage{}
+	for _, size := range cachesizev {
+		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
+			c := NewCache(s, size)
+			f(b, c)
+			c.Close()
+		})
+	}
+}
+
+// benchmark cache while N(access) < N(cache-entries)
+func BenchmarkCacheStartup(b *testing.B) {
+	s := &noopStorage{}
+	c := NewCache(s, b.N)
+	benchLoad(b, c, b.N)
+	b.StopTimer()
+	c.Close()
+}
+
+// Serially benchmark cache overhead - the additional time cache adds for loading not-yet-cached entries.
+// cache is already started - N(access) > N(cache-entries).
+func BenchmarkCacheNoHit(b *testing.B) {
+	benchEachCache(b, func(b *testing.B, c *Cache) {
+		benchLoad(b, c, b.N /* = ∞ */)
+	})
+}
+
+// Serially benchmark t when load request hits cache.
+// cache is already started - N(access) > N(cache-entries)
+func BenchmarkCacheHit(b *testing.B) {
+	benchEachCache(b, func(b *testing.B, c *Cache) {
+		// warmup - load for cache size
+		benchLoadN(b, c.sizeMax, c, c.sizeMax)
+
+		b.ResetTimer()
+		benchLoad(b, c, c.sizeMax)
+	})
+}
+
+// ---- parallel benchmarks (many requests to 1 cache) ----
+
+// benchLoadPar is like benchLoad but issues loads in parallel
+func benchLoadPar(b *testing.B, l StorLoader, worksize int) {
+	ctx := context.Background()
+	np := runtime.GOMAXPROCS(0)
+	p := uint64(0)
+
+	b.RunParallel(func (pb *testing.PB) {
+		oid0 := Oid(atomic.AddUint64(&p, +1)) // all workers start/iterate at different oid
+		xid := Xid{At: 1, Oid: oid0 }
+		for pb.Next() {
+			buf, _, err := l.Load(ctx, xid)
+			if err != nil {
+				b.Fatal(err)
+			}
+			buf.XRelease()
+
+			xid.Oid += Oid(np)
+			if xid.Oid >= Oid(worksize) {
+				xid.Oid = oid0
+			}
+		}
+	})
+}
+
+func BenchmarkNoopStoragePar(b *testing.B)	{ benchLoadPar(b, &noopStorage{}, b.N /* = ∞ */) }
+
+func BenchmarkCacheStartupPar(b *testing.B) {
+	s := &noopStorage{}
+	c := NewCache(s, b.N)
+	benchLoadPar(b, c, b.N)
+	b.StopTimer()
+	c.Close()
+}
+
+func BenchmarkCacheNoHitPar(b *testing.B) {
+	benchEachCache(b, func(b *testing.B, c *Cache) {
+		benchLoadPar(b, c, b.N /* = ∞ */)
+	})
+}
+
+func BenchmarkCacheHitPar(b *testing.B) {
+	benchEachCache(b, func(b *testing.B, c *Cache) {
+		// warmup (serially) - load for cache size
+		benchLoadN(b, c.sizeMax, c, c.sizeMax)
+
+		b.ResetTimer()
+		benchLoadPar(b, c, c.sizeMax)
+	})
+}
+
+// ---- parallel benchmarks (many caches - each is handled serially, as if each is inside separate process) ----
+// XXX gc process is still only 1 shared.
+// XXX this benchmark part will probably go away
+
+// benchLoadProc is like benchLoad but works with PB, not B
+func benchLoadProc(pb *testing.PB, l StorLoader, worksize int) error {
+	ctx := context.Background()
+
+	xid := Xid{At: 1, Oid: 0}
+	for pb.Next() {
+		buf, _, err := l.Load(ctx, xid)
+		if err != nil {
+			return err
+		}
+		buf.XRelease()
+
+		xid.Oid++
+		if xid.Oid >= Oid(worksize) {
+			xid.Oid = 0
+		}
+	}
+
+	return nil
+}
+
+func BenchmarkNoopStorageProc(b *testing.B) {
+	b.RunParallel(func (pb *testing.PB) {
+		s := &noopStorage{}
+		err := benchLoadProc(pb, s, b.N)
+		if err != nil {
+			b.Fatal(err)
+		}
+	})
+}
+
+func BenchmarkCacheStartupProc(b *testing.B) {
+	b.RunParallel(func (pb *testing.PB) {
+		s := &noopStorage{}
+		c := NewCache(s, b.N)
+		err := benchLoadProc(pb, c, b.N)
+		if err != nil {
+			b.Fatal(err)
+		}
+		// XXX stop timer
+		c.Close()
+	})
+}
+
+func benchEachCacheProc(b *testing.B, f func(b *testing.B, pb *testing.PB, c *Cache) error) {
+	for _, size := range cachesizev {
+		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
+			b.RunParallel(func (pb *testing.PB) {
+				s := &noopStorage{}
+				c := NewCache(s, size)
+				err := f(b, pb, c)
+				c.Close()
+				if err != nil {
+					b.Fatal(err)
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkCacheNoHitProc(b *testing.B) {
+	benchEachCacheProc(b, func(b *testing.B, pb *testing.PB, c *Cache) error {
+		return benchLoadProc(pb, c, b.N)
+	})
+}
+
+func BenchmarkCacheHitProc(b *testing.B) {
+	benchEachCacheProc(b, func(b *testing.B, pb *testing.PB, c *Cache) error {
+		// XXX no warmup
+		return benchLoadProc(pb, c, c.sizeMax)
+	})
 }
