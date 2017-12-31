@@ -336,7 +336,7 @@ func TestCache(t *testing.T) {
 
 	// (now 15] becomes ready but does not yet takes oce lock)
 	rce1_h15.waitBufRef = -1
-	close(rce1_h15.ready)
+	rce1_h15.ready.Done()
 	ok1(rce1_h15.loaded())
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
 	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 13] and 15] yet
@@ -352,7 +352,7 @@ func TestCache(t *testing.T) {
 	checkMRU(5 /*was 12*/, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
 	// (15] takes oce lock and updates c.size and LRU list)
-	rce1_h15.ready = make(chan struct{}) // so loadRCE could run
+	rce1_h15.ready.Add(1) // so loadRCE could run
 	c.loadRCE(ctx, rce1_h15, 1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15)
 	checkMRU(12, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
@@ -368,7 +368,7 @@ func TestCache(t *testing.T) {
 	rce1_h16.serial = 16
 	rce1_h16.buf = mkbuf(zz)
 	rce1_h16.waitBufRef = -1
-	close(rce1_h16.ready)
+	rce1_h16.ready.Done()
 	ok1(rce1_h16.loaded())
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h16, rce1_h17)
 	checkMRU(12, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 16] and 17] yet

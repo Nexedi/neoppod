@@ -95,7 +95,10 @@ type revCacheEntry struct {
 	serial Tid
 	err    error
 
-	ready     chan struct{} // closed when loading finished
+	// done when loading finished
+	// (like closed-when-ready `chan struct{}` but does not allocate on
+	//  make and is faster)
+	ready sync.WaitGroup
 
 	// protected by .parent's lock:
 
@@ -162,7 +165,7 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err er
 
 	// rce is already in cache - use it
 	if !rceNew {
-		<-rce.ready
+		rce.ready.Wait()
 		c.gcMu.Lock()
 		rce.inLRU.MoveBefore(&c.lru.Head)
 		c.gcMu.Unlock()
@@ -302,7 +305,7 @@ func (c *Cache) lookupRCE(xid Xid, wantBufRef int) (rce *revCacheEntry, rceNew b
 // loadRCE performs data loading from database into rce.
 //
 // rce must be new just created by lookupRCE() with returned rceNew=true.
-// loading completion is signalled by closing rce.ready.
+// loading completion is signalled by marking rce.ready done.
 func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	oce := rce.parent
 	buf, serial, err := c.loader.Load(ctx, Xid{At: rce.head, Oid: oid})
@@ -342,7 +345,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 		// rce was already dropped by merge / evicted
 		// (XXX recheck about evicted)
 		oce.Unlock()
-		close(rce.ready)
+		rce.ready.Done()
 		return
 	}
 
@@ -394,7 +397,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 
 	// now after .waitBufRef was synced to .buf notify to waiters that
 	// original rce in question was loaded. Do so outside .parent lock.
-	close(rceOrig.ready)
+	rceOrig.ready.Done()
 
 
 	// update lru & cache size
@@ -581,8 +584,8 @@ func (oce *oidCacheEntry) newRevEntry(i int, head Tid) *revCacheEntry {
 	rce := &revCacheEntry{
 		parent: oce,
 		head:   head,
-		ready:  make(chan struct{}),
 	}
+	rce.ready.Add(1)
 	rce.inLRU.Init() // initially not on Cache.lru list
 
 	oce.rcev = append(oce.rcev, nil)
