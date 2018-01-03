@@ -503,7 +503,6 @@ func (fs *FileStorage) Close() error {
 	if err != nil {
 		return err
 	}
-	fs.file = nil
 
 	// TODO if opened !ro -> .saveIndex()
 
