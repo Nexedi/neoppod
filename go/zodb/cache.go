@@ -59,6 +59,8 @@ type Cache struct {
 
 // oidCacheEntry maintains cached revisions for 1 oid
 type oidCacheEntry struct {
+	oid Oid
+
 	sync.Mutex
 
 	// cached revisions in ascending order
@@ -174,7 +176,7 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err er
 	} else {
 		// XXX use connection poll
 		// XXX or it should be cared by loader?
-		c.loadRCE(ctx, rce, xid.Oid)
+		c.loadRCE(ctx, rce)
 	}
 
 	if rce.err != nil {
@@ -200,7 +202,7 @@ func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
 	// spawn loading in the background if rce was not yet loaded
 	if rceNew {
 		// XXX use connection poll
-		go c.loadRCE(ctx, rce, xid.Oid)
+		go c.loadRCE(ctx, rce)
 	}
 
 }
@@ -237,7 +239,7 @@ func (c *Cache) lookupRCE(xid Xid, wantBufRef int) (rce *revCacheEntry, rceNew b
 		c.mu.Lock()
 		oce = c.entryMap[xid.Oid]
 		if oce == nil {
-			oce = &oidCacheEntry{}
+			oce = &oidCacheEntry{oid: xid.Oid}
 			c.entryMap[xid.Oid] = oce
 		}
 		cacheHead = c.head // reload c.head because we relocked the cache
@@ -306,9 +308,9 @@ func (c *Cache) lookupRCE(xid Xid, wantBufRef int) (rce *revCacheEntry, rceNew b
 //
 // rce must be new just created by lookupRCE() with returned rceNew=true.
 // loading completion is signalled by marking rce.ready done.
-func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
+func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 	oce := rce.parent
-	buf, serial, err := c.loader.Load(ctx, Xid{At: rce.head, Oid: oid})
+	buf, serial, err := c.loader.Load(ctx, Xid{At: rce.head, Oid: oce.oid})
 
 	// normalize buf/serial if it was error
 	if err != nil {
@@ -322,7 +324,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	rce.err = err
 	// verify db gives serial <= head
 	if rce.serial > rce.head {
-		rce.markAsDBError(oid, "load(@%v) -> %v", rce.head, serial)
+		rce.markAsDBError("load(@%v) -> %v", rce.head, serial)
 	}
 
 	δsize := rce.buf.Len()
@@ -365,7 +367,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	rceDropped := false
 	if i + 1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
-		if rceNext.loaded() && tryMerge(rce, rceNext, rce, oid) {
+		if rceNext.loaded() && tryMerge(rce, rceNext, rce) {
 			// not δsize -= len(rce.buf.Data)
 			// tryMerge can change rce.buf if consistency is broken
 			δsize = 0
@@ -380,7 +382,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 	var rcePrevDropped *revCacheEntry
 	if i > 0 {
 		rcePrev := oce.rcev[i-1]
-		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce, oid) {
+		if rcePrev.loaded() && tryMerge(rcePrev, rce, rce) {
 			rcePrevDropped = rcePrev
 			if rcePrev.accounted {
 				δsize -= rcePrev.buf.Len()
@@ -433,9 +435,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry, oid Oid) {
 // return: true if merging done and thus prev was dropped from parent
 //
 // must be called with .parent locked
-//
-// XXX move oid from args to revCacheEntry?
-func tryMerge(prev, next, cur *revCacheEntry, oid Oid) bool {
+func tryMerge(prev, next, cur *revCacheEntry) bool {
 
 	//		  can merge if    consistent if
 	//	                          (if merging)
@@ -458,12 +458,12 @@ func tryMerge(prev, next, cur *revCacheEntry, oid Oid) bool {
 		// check consistency
 		switch {
 		case prev.err == nil && prev.serial != next.serial:
-			cur.markAsDBError(oid, "load(@%v) -> %v; load(@%v) -> %v",
+			cur.markAsDBError("load(@%v) -> %v; load(@%v) -> %v",
 				prev.head, prev.serial, next.head, next.serial)
 
 		case prev.err != nil && !isErrNoData(prev.err):
 			if cur.err == nil {
-				cur.markAsDBError(oid, "load(@%v) -> %v; load(@%v) -> %v",
+				cur.markAsDBError("load(@%v) -> %v; load(@%v) -> %v",
 					prev.head, prev.err, next.head, next.serial)
 			}
 		}
@@ -539,11 +539,16 @@ func (c *Cache) gc() {
 
 		rce := h.rceFromInLRU()
 		oce := rce.parent
+		oceFree := false // whether to GC whole rce.parent OCE cache entry
 
 		oce.Lock()
 		i := oce.find(rce)
 		if i != -1 {	// rce could be already deleted by e.g. merge
 			oce.deli(i)
+			if len(oce.rcev) == 0 {
+				oceFree = true
+			}
+
 			c.size -= rce.buf.Len()
 			//fmt.Printf("gc: free %d bytes\n", rce.buf.Len()))
 
@@ -558,6 +563,18 @@ func (c *Cache) gc() {
 
 		h.Delete()
 		c.gcMu.Unlock()
+
+		if oceFree {
+			c.mu.Lock()
+			oce.Lock()
+			// recheck once again oce is still not used
+			// (it could be looked up again in the meantime we were not holding its lock)
+			if len(oce.rcev) == 0 {
+				delete(c.entryMap, oce.oid)
+			}
+			oce.Unlock()
+			c.mu.Unlock()
+		}
 	}
 }
 
@@ -620,7 +637,7 @@ func (oce *oidCacheEntry) deli(i int) {
 	oce.rcev = oce.rcev[:n]
 }
 
-// del delets rce from .rcev.
+// del deletes rce from .rcev.
 // it panics if rce is not there.
 //
 // oce must be locked.
@@ -684,9 +701,9 @@ func errDB(oid Oid, format string, argv ...interface{}) error {
 //
 // Caller must be the only one to access rce.
 // In practice this means rce was just loaded but neither yet signalled to be
-// ready to waiter, nor yet made visible to GC (via adding to Cacle.lru list).
-func (rce *revCacheEntry) markAsDBError(oid Oid, format string, argv ...interface{}) {
-	rce.err = errDB(oid, format, argv...)
+// ready to waiter, nor yet made visible to GC (via adding to Cache.lru list).
+func (rce *revCacheEntry) markAsDBError(format string, argv ...interface{}) {
+	rce.err = errDB(rce.parent.oid, format, argv...)
 	rce.buf.XRelease()
 	rce.buf = nil
 	rce.serial = 0

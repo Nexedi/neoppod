@@ -170,6 +170,23 @@ func TestCache(t *testing.T) {
 		}
 	}
 
+	checkOIDV := func(oidvOk ...Oid) {
+		t.Helper()
+
+		var oidv []Oid
+		for oid := range c.entryMap {
+			oidv = append(oidv, oid)
+		}
+
+		sort.Slice(oidv, func(i, j int) bool {
+			return oidv[i] < oidv[j]
+		})
+
+		if !reflect.DeepEqual(oidv, oidvOk) {
+			t.Fatalf("oidv: %s", pretty.Compare(oidvOk, oidv))
+		}
+	}
+
 	checkRCE := func(rce *revCacheEntry, head, serial Tid, buf *Buf, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
@@ -193,7 +210,10 @@ func TestCache(t *testing.T) {
 
 	checkOCE := func(oid Oid, rcev ...*revCacheEntry) {
 		t.Helper()
-		oce := c.entryMap[oid]
+		oce, ok := c.entryMap[oid]
+		if !ok {
+			t.Fatalf("oce(%v): not present in cache", oid)
+		}
 		oceRcev := oce.rcev
 		if len(oceRcev) == 0 {
 			oceRcev = nil // nil != []{}
@@ -233,10 +253,12 @@ func TestCache(t *testing.T) {
 	// ---- verify cache behaviour for must be loaded/merged entries ----
 	// (this exercises mostly loadRCE/tryMerge)
 
+	checkOIDV()
 	checkMRU(0)
 
 	// load @2 -> new rce entry
 	checkLoad(xidat(1,2), nil, 0, &ErrXidMissing{xidat(1,2)})
+	checkOIDV(1)
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.rcev) == 1)
 	rce1_h2 := oce1.rcev[0]
@@ -245,6 +267,7 @@ func TestCache(t *testing.T) {
 
 	// load @3 -> 2] merged with 3]
 	checkLoad(xidat(1,3), nil, 0, &ErrXidMissing{xidat(1,3)})
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 1)
 	rce1_h3 := oce1.rcev[0]
 	ok1(rce1_h3 != rce1_h2) // rce1_h2 was merged into rce1_h3
@@ -253,6 +276,7 @@ func TestCache(t *testing.T) {
 
 	// load @1 -> 1] merged with 3]
 	checkLoad(xidat(1,1), nil, 0, &ErrXidMissing{xidat(1,1)})
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 1)
 	ok1(oce1.rcev[0] == rce1_h3)
 	checkRCE(rce1_h3, 3, 0, nil, &ErrXidMissing{xidat(1,3)})
@@ -260,6 +284,7 @@ func TestCache(t *testing.T) {
 
 	// load @5 -> new rce entry with data
 	checkLoad(xidat(1,5), b(hello), 4, nil)
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 2)
 	rce1_h5 := oce1.rcev[1]
 	checkRCE(rce1_h5, 5, 4, b(hello), nil)
@@ -268,11 +293,13 @@ func TestCache(t *testing.T) {
 
 	// load @4 -> 4] merged with 5]
 	checkLoad(xidat(1,4), b(hello), 4, nil)
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h5)
 	checkMRU(5, rce1_h5, rce1_h3)
 
 	// load @6 -> 5] merged with 6]
 	checkLoad(xidat(1,6), b(hello), 4, nil)
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 2)
 	rce1_h6 := oce1.rcev[1]
 	ok1(rce1_h6 != rce1_h5)
@@ -282,6 +309,7 @@ func TestCache(t *testing.T) {
 
 	// load @7 -> ioerr + new rce
 	checkLoad(xidat(1,7), nil, 0, ioerr)
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 3)
 	rce1_h7 := oce1.rcev[2]
 	checkRCE(rce1_h7, 7, 0, nil, ioerr)
@@ -290,6 +318,7 @@ func TestCache(t *testing.T) {
 
 	// load @9 -> ioerr + new rce (IO errors are not merged)
 	checkLoad(xidat(1,9), nil, 0, ioerr)
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 4)
 	rce1_h9 := oce1.rcev[3]
 	checkRCE(rce1_h9, 9, 0, nil, ioerr)
@@ -298,6 +327,7 @@ func TestCache(t *testing.T) {
 
 	// load @10 -> new data rce, not merged with ioerr at 9]
 	checkLoad(xidat(1,10), b(world), 10, nil)
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 5)
 	rce1_h10 := oce1.rcev[4]
 	checkRCE(rce1_h10, 10, 10, b(world), nil)
@@ -306,6 +336,7 @@ func TestCache(t *testing.T) {
 
 	// load @11 -> 10] merged with 11]
 	checkLoad(xidat(1,11), b(world), 10, nil)
+	checkOIDV(1)
 	ok1(len(oce1.rcev) == 5)
 	rce1_h11 := oce1.rcev[4]
 	ok1(rce1_h11 != rce1_h10)
@@ -323,6 +354,7 @@ func TestCache(t *testing.T) {
 	rce1_h15.serial = 10
 	rce1_h15.buf = mkbuf(world)
 	// here: first half of loadRCE(15]) before close(15].ready)
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h15)
 	ok1(!rce1_h15.loaded())
 	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 15] yet
@@ -331,6 +363,7 @@ func TestCache(t *testing.T) {
 	//  automatically at lookup phase)
 	rce1_h13, new13 := c.lookupRCE(xidat(1,13), +0)
 	ok1(new13)
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
 	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no <14 and <16 yet
 
@@ -338,13 +371,15 @@ func TestCache(t *testing.T) {
 	rce1_h15.waitBufRef = -1
 	rce1_h15.ready.Done()
 	ok1(rce1_h15.loaded())
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h11, rce1_h13, rce1_h15)
 	checkMRU(12, rce1_h11, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 13] and 15] yet
 
 	// (13] also becomes ready and takes oce lock first, merging 11] and 13] into 15].
 	//  15] did not yet took oce lock so c.size is temporarily reduced and
 	//  15] is not yet on LRU list)
-	c.loadRCE(ctx, rce1_h13, 1)
+	c.loadRCE(ctx, rce1_h13)
+	checkOIDV(1)
 	checkRCE(rce1_h13, 13, 10, b(world), nil)
 	checkRCE(rce1_h15, 15, 10, b(world), nil)
 	checkRCE(rce1_h11, 11, 10, b(world), nil)
@@ -353,7 +388,8 @@ func TestCache(t *testing.T) {
 
 	// (15] takes oce lock and updates c.size and LRU list)
 	rce1_h15.ready.Add(1) // so loadRCE could run
-	c.loadRCE(ctx, rce1_h15, 1)
+	c.loadRCE(ctx, rce1_h15)
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15)
 	checkMRU(12, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
 
@@ -370,11 +406,13 @@ func TestCache(t *testing.T) {
 	rce1_h16.waitBufRef = -1
 	rce1_h16.ready.Done()
 	ok1(rce1_h16.loaded())
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h16, rce1_h17)
 	checkMRU(12, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3) // no 16] and 17] yet
 
 	// (17] loads and takes oce lock first - merge 16] with 17])
-	c.loadRCE(ctx, rce1_h17, 1)
+	c.loadRCE(ctx, rce1_h17)
+	checkOIDV(1)
 	checkRCE(rce1_h17, 17, 16, b(zz), nil)
 	checkRCE(rce1_h16, 16, 16, b(zz), nil)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h17)
@@ -385,6 +423,7 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 6)
 	rce1_h19 := oce1.rcev[5]
 	ok1(rce1_h19 != rce1_h17)
+	checkOIDV(1)
 	checkRCE(rce1_h19, 19, 16, b(zz), nil)
 	checkOCE(1,  rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h19)
 	checkMRU(14, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
@@ -393,6 +432,7 @@ func TestCache(t *testing.T) {
 	checkLoad(xidat(1,20), b(www), 20, nil)
 	ok1(len(oce1.rcev) == 7)
 	rce1_h20 := oce1.rcev[6]
+	checkOIDV(1)
 	checkRCE(rce1_h20, 20, 20, b(www), nil)
 	checkOCE(1,  rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h19, rce1_h20)
 	checkMRU(17, rce1_h20, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
@@ -402,6 +442,7 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 7)
 	rce1_h21 := oce1.rcev[6]
 	ok1(rce1_h21 != rce1_h20)
+	checkOIDV(1)
 	checkRCE(rce1_h21, 21, 20, b(www), nil)
 	checkOCE(1,  rce1_h3, rce1_h6, rce1_h7, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
 	checkMRU(17, rce1_h21, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
@@ -439,7 +480,8 @@ func TestCache(t *testing.T) {
 	// 8] must be separate from 7] and 9] because it is IO error there
 	rce1_h8, new8 := c.lookupRCE(xidat(1,8), +0)
 	ok1(new8)
-	c.loadRCE(ctx, rce1_h8, 1)
+	c.loadRCE(ctx, rce1_h8)
+	checkOIDV(1)
 	checkRCE(rce1_h8, 8, 0, nil, ioerr)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h8, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
 	checkMRU(17, rce1_h8, rce1_h21, rce1_h19, rce1_h15, rce1_h9, rce1_h7, rce1_h6, rce1_h3)
@@ -488,6 +530,7 @@ func TestCache(t *testing.T) {
 	gcstart  := &evCacheGCStart{c}
 	gcfinish := &evCacheGCFinish{c}
 
+	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h8, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
 	checkMRU(17, rce1_h15, rce1_h6, rce1_h8, rce1_h21, rce1_h19, rce1_h9, rce1_h7, rce1_h3)
 
@@ -499,6 +542,7 @@ func TestCache(t *testing.T) {
 	// - 7]  (lru.2, ioerr, size=0)
 	// - 9]  (lru.3, ioerr, size=0)
 	// - 19] (lru.4, zz, size=2)
+	checkOIDV(1)
 	checkOCE(1,  rce1_h6, rce1_h8, rce1_h15, rce1_h21)
 	checkMRU(15, rce1_h15, rce1_h6, rce1_h8, rce1_h21)
 
@@ -511,6 +555,7 @@ func TestCache(t *testing.T) {
 	ok1(len(oce1.rcev) == 4)
 	rce1_h19_2 := oce1.rcev[3]
 	ok1(rce1_h19_2 != rce1_h19)
+	checkOIDV(1)
 	checkRCE(rce1_h19_2, 19, 16, b(zz), nil)
 	checkOCE(1,  rce1_h6, rce1_h8, rce1_h15, rce1_h19_2)
 	checkMRU(14, rce1_h19_2, rce1_h15, rce1_h6, rce1_h8)
@@ -525,6 +570,7 @@ func TestCache(t *testing.T) {
 	// - loaded  77] (big, size=10)
 	ok1(len(oce1.rcev) == 2)
 	rce1_h77 := oce1.rcev[1]
+	checkOIDV(1)
 	checkRCE(rce1_h77, 77, 77, b(big), nil)
 	checkOCE(1,  rce1_h19_2, rce1_h77)
 	checkMRU(12, rce1_h77, rce1_h19_2)
@@ -532,7 +578,7 @@ func TestCache(t *testing.T) {
 	// sizeMax=0 evicts everything from cache
 	go c.SetSizeMax(0)
 	tc.Expect(gcstart, gcfinish)
-	checkOCE(1)
+	checkOIDV()
 	checkMRU(0)
 
 	// and still loading works (because even if though rce's are evicted
@@ -540,7 +586,7 @@ func TestCache(t *testing.T) {
 
 	checkLoad(xidat(1,4), b(hello), 4, nil)
 	tc.Expect(gcstart, gcfinish)
-	checkOCE(1)
+	checkOIDV()
 	checkMRU(0)
 
 	// ---- Load vs concurrent GC ----
