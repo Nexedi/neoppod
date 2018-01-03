@@ -627,6 +627,14 @@ system_info() {
 		nicdev=`realpath $nic/device`	# /sys/class/net/eth0	-> /sys/devices/pci0000:00/0000:00:1f.6
 
 		case "$nicdev" in
+		*usb*)
+			# /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.6/2-1.6:1.6 -> .../usb2/2-1/2-1.6
+			usbdev="$nicdev/.."
+			usbdev=`cat $usbdev/busnum`:`cat $usbdev/devnum`	# ... -> 2:4
+			product=`lsusb -s $usbdev |sed -e 's/^Bus\s[0-9]*\sDevice\s[0-9]*:\sID\s[0-9a-f]*:[0-9a-f]*\s//'`
+			echo "$product (usb)"
+			;;
+
 		*pci*)
 			pcidev=`basename $nicdev`	# /sys/devices/pci0000:00/0000:00:1f.6	-> 0000:00:1f.6
 			#lspci -s $pcidev
