@@ -68,7 +68,7 @@ class SQLiteDatabaseManager(DatabaseManager):
              never be used for small requests.
     """
 
-    VERSION = 1
+    VERSION = 2
 
     def _parse(self, database):
         self.db = os.path.expanduser(database)
@@ -117,11 +117,25 @@ class SQLiteDatabaseManager(DatabaseManager):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
+    def _migrate2(self, schema_dict, index_dict):
+        # BBB: As explained in _setup, no transactional DDL
+        #      so let's do the same dance as for MySQL.
+        q = self.query
+        if self.nonempty('obj') is None:
+            if self.nonempty('new_obj') is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS new_obj")
+            q(schema_dict.pop('obj') % 'new_obj')
+            q("INSERT INTO new_obj SELECT * FROM obj")
+            q("DROP TABLE obj")
+        q("ALTER TABLE new_obj RENAME TO obj")
+
     def _setup(self, dedup=False):
-        # SQLite does support transactional Data Definition Language statements
-        # but unfortunately, the built-in Python binding automatically commits
-        # between such statements. This anti-feature causes this method to be
-        # relatively slow; unit tests enables the UNSAFE boolean flag.
+        # BBB: SQLite has transactional DDL but before Python 3.6,
+        #      the binding automatically commits between such statements.
+        #      This anti-feature causes this method to be relatively slow.
+        #      Unit tests enables the UNSAFE boolean flag.
         self._config.clear()
         q = self.query
         schema_dict = OrderedDict()
@@ -162,10 +176,10 @@ class SQLiteDatabaseManager(DatabaseManager):
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (partition, tid, oid))
+                 PRIMARY KEY (partition, oid, tid))
             """
         index_dict['obj'] = (
-            "CREATE INDEX %s ON %s(partition, oid, tid)",
+            "CREATE INDEX %s ON %s(partition, tid, oid)",
             "CREATE INDEX %s ON %s(data_id)")
 
         # The table "data" stores object data.
