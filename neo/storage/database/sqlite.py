@@ -184,7 +184,7 @@ class SQLiteDatabaseManager(DatabaseManager):
 
         # The table "data" stores object data.
         schema_dict['data'] = """CREATE TABLE %s (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 id INTEGER PRIMARY KEY,
                  hash BLOB NOT NULL,
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL)
