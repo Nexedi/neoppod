@@ -31,9 +31,6 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
-
-	"lab.nexedi.com/kirr/go123/tracing"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 )
 
 // tStorage implements read-only storage for cache testing
@@ -102,21 +99,6 @@ var ioerr = errors.New("input/output error")
 func xidat(oid Oid, tid Tid) Xid {
 	return Xid{Oid: oid, At: tid}
 }
-
-// tracer which collects tracing events from all needed-for-tests sources
-type tTracer struct {
-	*xtesting.SyncTracer
-}
-
-type evCacheGCStart struct {
-	c *Cache
-}
-func (t *tTracer) traceCacheGCStart(c *Cache)	{ t.Trace1(&evCacheGCStart{c}) }
-
-type evCacheGCFinish struct {
-	c *Cache
-}
-func (t *tTracer) traceCacheGCFinish(c *Cache)	{ t.Trace1(&evCacheGCFinish{c}) }
 
 func TestCache(t *testing.T) {
 	// XXX hack; place=ok?
@@ -513,29 +495,11 @@ func TestCache(t *testing.T) {
 
 	// ---- verify LRU eviction ----
 
-	// (attach to Cache GC tracepoints)
-	tracer := &tTracer{xtesting.NewSyncTracer()}
-	pg := &tracing.ProbeGroup{}
-	//defer pg.Done()
-
-	tracing.Lock()
-	traceCacheGCStart_Attach(pg, tracer.traceCacheGCStart)
-	traceCacheGCFinish_Attach(pg, tracer.traceCacheGCFinish)
-	tracing.Unlock()
-
-	// trace-checker for the events
-	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
-
-
-	gcstart  := &evCacheGCStart{c}
-	gcfinish := &evCacheGCFinish{c}
-
 	checkOIDV(1)
 	checkOCE(1, rce1_h3, rce1_h6, rce1_h7, rce1_h8, rce1_h9, rce1_h15, rce1_h19, rce1_h21)
 	checkMRU(17, rce1_h15, rce1_h6, rce1_h8, rce1_h21, rce1_h19, rce1_h9, rce1_h7, rce1_h3)
 
-	go c.SetSizeMax(16) // < c.size by 1 -> should trigger gc
-	tc.Expect(gcstart, gcfinish)
+	c.SetSizeMax(16) // < c.size by 1 -> should trigger gc
 
 	// evicted:
 	// - 3]  (lru.1, nodata, size=0)	XXX ok to evict nodata & friends?
@@ -547,8 +511,7 @@ func TestCache(t *testing.T) {
 	checkMRU(15, rce1_h15, rce1_h6, rce1_h8, rce1_h21)
 
 	// reload 19] -> 21] should be evicted
-	go c.Load(ctx, xidat(1,19))
-	tc.Expect(gcstart, gcfinish)
+	c.Load(ctx, xidat(1,19))
 
 	// - evicted 21] (lru.1, www, size=3)
 	// - loaded  19] (zz, size=2)
@@ -561,8 +524,7 @@ func TestCache(t *testing.T) {
 	checkMRU(14, rce1_h19_2, rce1_h15, rce1_h6, rce1_h8)
 
 	// load big 77] -> several rce must be evicted
-	go c.Load(ctx, xidat(1,77))
-	tc.Expect(gcstart, gcfinish)
+	c.Load(ctx, xidat(1,77))
 
 	// - evicted  8] (lru.1, ioerr, size=0)
 	// - evicted  6] (lru.2, hello, size=5)
@@ -576,16 +538,14 @@ func TestCache(t *testing.T) {
 	checkMRU(12, rce1_h77, rce1_h19_2)
 
 	// sizeMax=0 evicts everything from cache
-	go c.SetSizeMax(0)
-	tc.Expect(gcstart, gcfinish)
+	c.SetSizeMax(0)
 	checkOIDV()
 	checkMRU(0)
 
 	// and still loading works (because even if though rce's are evicted
 	// they stay live while someone user waits and uses it)
 
-	go checkLoad(xidat(1,4), b(hello), 4, nil)
-	tc.Expect(gcstart, gcfinish)
+	checkLoad(xidat(1,4), b(hello), 4, nil)
 	checkOIDV()
 	checkMRU(0)
 
@@ -614,7 +574,6 @@ func TestCache(t *testing.T) {
 	// it is hard to check this via stable tracepoints because, if done so,
 	// after the problem is fixed the test will deadlock.
 	// So test it probabilistically instead.
-	pg.Done()
 	c.SetSizeMax(0) // we want to GC to be constantly running
 	for i := 0; i < 1e4; i++ {
 		// issue Prefetch: this should create RCE and spawn loadRCE for it

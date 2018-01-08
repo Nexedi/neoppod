@@ -465,15 +465,10 @@ func tryMerge(prev, next, cur *revCacheEntry) bool {
 
 // ---- garbage collection ----
 
-//trace:event traceCacheGCStart(c *Cache)
-//trace:event traceCacheGCFinish(c *Cache)
-
 // gc performs garbage-collection.
 //
 // must be called with .gcMu locked.
 func (c *Cache) gc() {
-	traceCacheGCStart(c)
-	defer traceCacheGCFinish(c)
 	//fmt.Printf("\n> gc\n")
 	//defer fmt.Printf("< gc\n")
 
