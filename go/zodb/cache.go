@@ -47,9 +47,6 @@ type Cache struct {
 
 	entryMap map[Oid]*oidCacheEntry	// oid -> oid's cache entries
 
-	// garbage collection:
-	gcCh chan struct{} // signals gc to run
-
 	gcMu sync.Mutex
 	lru  lruHead	// revCacheEntries in LRU order
 	size int	// cached data size in bytes
@@ -129,34 +126,20 @@ func NewCache(loader StorLoader, sizeMax int) *Cache {
 	c := &Cache{
 		loader:   loader,
 		entryMap: make(map[Oid]*oidCacheEntry),
-		gcCh:     make(chan struct{}, 1), // 1 is important - see gcsignal
 		sizeMax:  sizeMax,
 	}
 	c.lru.Init()
-	go c.gcmain()
 	return c
 }
 
 // SetSizeMax adjusts how much RAM cache can use for cached data.
 func (c *Cache) SetSizeMax(sizeMax int) {
-	gcrun := false
-
 	c.gcMu.Lock()
 	c.sizeMax = sizeMax
 	if c.size > c.sizeMax {
-		gcrun = true
+		c.gc()
 	}
 	c.gcMu.Unlock()
-
-	if gcrun {
-		c.gcsignal()
-	}
-}
-
-// Close stops cache operation. It is illegal to use cache in any way after call to Close.
-// XXX temp - will be gone
-func (c *Cache) Close() {
-	close(c.gcCh)
 }
 
 // Load loads data from database via cache.
@@ -403,7 +386,6 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 
 
 	// update lru & cache size
-	gcrun := false
 	c.gcMu.Lock()
 
 	if rcePrevDropped != nil {
@@ -414,13 +396,10 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 	}
 	c.size += δsize
 	if c.size > c.sizeMax {
-		gcrun = true
+		c.gc()
 	}
 
 	c.gcMu.Unlock()
-	if gcrun {
-		c.gcsignal()
-	}
 }
 
 // tryMerge tries to merge rce prev into next
@@ -486,38 +465,12 @@ func tryMerge(prev, next, cur *revCacheEntry) bool {
 
 // ---- garbage collection ----
 
-// gcsignal tells cache gc to run
-func (c *Cache) gcsignal() {
-	select {
-	case c.gcCh <- struct{}{}:
-		// ok
-	default:
-		// also ok - .gcCh is created with size 1 so if we could not
-		// put something to it - there is already 1 element in there
-		// and so gc will get signal to run.
-	}
-}
-
-// gcmain is the process that cleans cache by evicting less-needed entries.
-func (c *Cache) gcmain() {
-	for {
-		select {
-		case _, ok := <-c.gcCh:
-			// end of operation
-			if !ok {
-				return
-			}
-
-			// someone asks us to run GC
-			c.gc()
-		}
-	}
-}
-
 //trace:event traceCacheGCStart(c *Cache)
 //trace:event traceCacheGCFinish(c *Cache)
 
-// gc performs garbage-collection
+// gc performs garbage-collection.
+//
+// must be called with .gcMu locked.
 func (c *Cache) gc() {
 	traceCacheGCStart(c)
 	defer traceCacheGCFinish(c)
@@ -525,9 +478,7 @@ func (c *Cache) gc() {
 	//defer fmt.Printf("< gc\n")
 
 	for {
-		c.gcMu.Lock()
 		if c.size <= c.sizeMax {
-			c.gcMu.Unlock()
 			return
 		}
 
@@ -562,7 +513,6 @@ func (c *Cache) gc() {
 		oce.Unlock()
 
 		h.Delete()
-		c.gcMu.Unlock()
 
 		if oceFree {
 			c.mu.Lock()

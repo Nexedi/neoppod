@@ -584,7 +584,7 @@ func TestCache(t *testing.T) {
 	// and still loading works (because even if though rce's are evicted
 	// they stay live while someone user waits and uses it)
 
-	checkLoad(xidat(1,4), b(hello), 4, nil)
+	go checkLoad(xidat(1,4), b(hello), 4, nil)
 	tc.Expect(gcstart, gcfinish)
 	checkOIDV()
 	checkMRU(0)
@@ -703,7 +703,6 @@ func benchEachCache(b *testing.B, f func(b *testing.B, c *Cache)) {
 		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
 			c := NewCache(s, size)
 			f(b, c)
-			c.Close()
 		})
 	}
 }
@@ -714,7 +713,6 @@ func BenchmarkCacheStartup(b *testing.B) {
 	c := NewCache(s, b.N)
 	benchLoad(b, c, b.N)
 	b.StopTimer()
-	c.Close()
 }
 
 // Serially benchmark cache overhead - the additional time cache adds for loading not-yet-cached entries.
@@ -770,7 +768,6 @@ func BenchmarkCacheStartupPar(b *testing.B) {
 	c := NewCache(s, b.N)
 	benchLoadPar(b, c, b.N)
 	b.StopTimer()
-	c.Close()
 }
 
 func BenchmarkCacheNoHitPar(b *testing.B) {
@@ -833,7 +830,6 @@ func BenchmarkCacheStartupProc(b *testing.B) {
 			b.Fatal(err)
 		}
 		// XXX stop timer
-		c.Close()
 	})
 }
 
@@ -844,7 +840,6 @@ func benchEachCacheProc(b *testing.B, f func(b *testing.B, pb *testing.PB, c *Ca
 				s := &noopStorage{}
 				c := NewCache(s, size)
 				err := f(b, pb, c)
-				c.Close()
 				if err != nil {
 					b.Fatal(err)
 				}
