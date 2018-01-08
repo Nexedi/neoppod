@@ -222,7 +222,7 @@ func (c *Cache) lookupRCE(xid Xid, wantBufRef int) (rce *revCacheEntry, rceNew b
 		c.mu.Lock()
 		oce = c.entryMap[xid.Oid]
 		if oce == nil {
-			oce = &oidCacheEntry{oid: xid.Oid}
+			oce = oceAlloc(xid.Oid)
 			c.entryMap[xid.Oid] = oce
 		}
 		cacheHead = c.head // reload c.head because we relocked the cache
@@ -516,11 +516,39 @@ func (c *Cache) gc() {
 			// (it could be looked up again in the meantime we were not holding its lock)
 			if len(oce.rcev) == 0 {
 				delete(c.entryMap, oce.oid)
+			} else {
+				oceFree = false
 			}
 			oce.Unlock()
 			c.mu.Unlock()
+
+			if oceFree {
+				oce.release()
+			}
 		}
 	}
+}
+
+// freelist(OCE)
+var ocePool = sync.Pool{New: func() interface{} { return &oidCacheEntry{} } }
+
+// oceAlloc allocates oidCacheEntry from freelist.
+func oceAlloc(oid Oid) *oidCacheEntry {
+	oce := ocePool.Get().(*oidCacheEntry)
+	oce.oid = oid
+	return oce
+}
+
+// release puts oce back into freelist.
+//
+// Oce must be empty and caller must not use oce after call to release.
+func (oce *oidCacheEntry) release() {
+	if len(oce.rcev) != 0 {
+		panic("oce.release: .rcev != []")
+	}
+
+	oce.oid = 0 // just in case
+	ocePool.Put(oce)
 }
 
 // ----------------------------------------
