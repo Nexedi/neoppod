@@ -82,7 +82,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		IStorageDriver: storDriver,
 
 		// small cache so that prefetch can work for loading
-		l1cache: NewCache(storDriver, 16 << 20),	// XXX 16MB hardcoded
+		l1cache: NewCache(storDriver, 128 * 4*1024),	// XXX 512K hardcoded (= ~ 128 · 4K-entries)
 	}, nil
 }
 

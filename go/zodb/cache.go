@@ -34,6 +34,7 @@ import (
 
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
+// TODO optimize cache more so that miss overhead becomes negligible
 
 // Cache provides RAM caching layer that can be used over a storage.
 type Cache struct {
