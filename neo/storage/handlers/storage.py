@@ -140,6 +140,9 @@ class StorageOperationHandler(EventHandler):
 
     # Server (all methods must set connection as server so that it isn't closed
     #         if client tasks are finished)
+    #
+    # These are all low-priority packets, in that we don't want to delay
+    # answers to clients, so tasks are used to postpone work when we're idle.
 
     def getEventQueue(self):
         return self.app.tm.read_queue
@@ -157,6 +160,9 @@ class StorageOperationHandler(EventHandler):
                 conn.send(Packets.AnswerCheckTIDRange(*r), msg_id)    # NOTE msg_id: out-of-order answer
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
+            # Splitting this task would cause useless overhead. However, a
+            # generator function is expected, hence the following fake yield
+            # so that iteration stops immediately.
             return; yield
         app.newTask(check())
 
@@ -173,7 +179,7 @@ class StorageOperationHandler(EventHandler):
                 conn.send(Packets.AnswerCheckSerialRange(*r), msg_id) # NOTE msg_id: out-of-order answer
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
-            return; yield
+            return; yield # same as in askCheckTIDRange
         app.newTask(check())
 
     @checkFeedingConnection(check=False)

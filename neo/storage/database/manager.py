@@ -401,9 +401,20 @@ class DatabaseManager(object):
             Identifier of object to retrieve.
         tid (int, None)
             Exact serial to retrieve.
-        before_tid (packed, None)
+        before_tid (int, None)
             Serial to retrieve is the highest existing one strictly below this
             value.
+
+        Return value:
+            None: oid doesn't exist at requested tid/before_tid (getObject
+                  takes care of checking if the oid exists at other serial)
+            6-tuple: Record content.
+                - record serial (int)
+                - serial or next record modifying object (int, None)
+                - compression (boolean-ish, None)
+                - checksum (binary string, None)
+                - data (binary string, None)
+                - data_serial (int, None)
         """
 
     @requires(_getObject)
@@ -424,7 +435,7 @@ class DatabaseManager(object):
                 - record serial (packed)
                 - serial or next record modifying object (packed, None)
                 - compression (boolean-ish, None)
-                - checksum (integer, None)
+                - checksum (binary string, None)
                 - data (binary string, None)
                 - data_serial (packed, None)
         """
@@ -443,11 +454,19 @@ class DatabaseManager(object):
 
     @fallback
     def _fetchObject(self, oid, tid):
+        """Specialized version of _getObject, for replication"""
         r = self._getObject(oid, tid)
         if r:
-            return r[:1] + r[2:]
+            return r[:1] + r[2:] # remove next_serial
 
     def fetchObject(self, oid, tid):
+        """
+        Specialized version of getObject, for replication:
+        - the oid can only be at an exact serial (parameter 'tid')
+        - next_serial is not part of the result
+        - if there's no result for the requested serial,
+          no need check if oid exists at other serial
+        """
         u64 = util.u64
         r = self._fetchObject(u64(oid), u64(tid))
         if r:

@@ -9,6 +9,32 @@ The prompt is accessible through network in case that the process is daemonized:
   <neo.master.app.Application object at 0x1fc9750>
 """
 
+import sys
+
+def app_set():
+    try:
+        return sys.modules['neo.lib.threaded_app'].app_set
+    except KeyError:
+        f = sys._getframe(4)
+        try:
+            while f.f_code.co_name != 'run' or \
+                  f.f_locals.get('self').__class__.__name__ != 'Application':
+                f = f.f_back
+            return f.f_locals['self'],
+        except AttributeError:
+            return ()
+
+def defer(task):
+    def wrapper():
+        from traceback import print_exc
+        try:
+            task(app)
+        except:
+            print_exc()
+    for app in app_set():
+        app.em.wakeup(wrapper)
+        break
+
 IF = 'pdb'
 if IF == 'pdb':
     # List of (module, callables) to break at.
@@ -19,7 +45,7 @@ if IF == 'pdb':
           #('ZPublisher.Publish', 'publish_module_standard'),
          )
 
-    import errno, socket, sys, threading, weakref
+    import errno, socket, threading, weakref
     # Unfortunately, IPython does not always print to given stdout.
     #from neo.lib.debug import getPdb
     from pdb import Pdb as getPdb
@@ -82,19 +108,7 @@ if IF == 'pdb':
         getPdb(stdin=_socket, stdout=_socket).set_trace()
         app # this is Application instance (see 'app_set' if there are several)
 
-    try:
-        app_set = sys.modules['neo.lib.threaded_app'].app_set
-    except KeyError:
-        f = sys._getframe(3)
-        try:
-            while f.f_code.co_name != 'run' or \
-                  f.f_locals.get('self').__class__.__name__ != 'Application':
-                f = f.f_back
-            app_set = f.f_locals['self'],
-        except AttributeError:
-            app_set = ()
-        finally:
-            del f
+    app_set = app_set()
 
     class setupBreakPoints(list):
 
@@ -144,7 +158,7 @@ if IF == 'pdb':
         threading.Thread(target=pdb).start()
 
 elif IF == 'frames':
-    import sys, traceback
+    import traceback
     write = sys.stderr.write
     for thread_id, frame in sys._current_frames().iteritems():
         write("Thread %s:\n" % thread_id)

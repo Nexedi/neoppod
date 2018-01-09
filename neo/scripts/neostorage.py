@@ -31,8 +31,9 @@ parser.add_option('-e', '--engine', help = 'database engine')
 parser.add_option('-w', '--wait', help='seconds to wait for backend to be '
     'available, before erroring-out (-1 = infinite)', type='float', default=0)
 parser.add_option('--dedup', action='store_true',
-                  help = 'enable deduplication of data'
-                         ' when setting up a new storage node')
+                  help = 'enable deduplication of data when setting'
+                         ' up a new storage node (for RocksDB, check'
+                         ' https://github.com/facebook/mysql-5.6/issues/702)')
 parser.add_option('--disable-drop-partitions', action='store_true',
                   help = 'do not delete data of discarded cells, which is'
                          ' useful for big databases because the current'

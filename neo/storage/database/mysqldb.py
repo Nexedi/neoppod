@@ -143,6 +143,10 @@ class MySQLDatabaseManager(DatabaseManager):
                 break
             except OperationalError as m:
                 code, m = m.args
+                # IDEA: Is it safe to retry in case of DISK_FULL ?
+                # XXX:  However, this would another case of failure that would
+                #       be unnoticed by other nodes (ADMIN & MASTER). When
+                #       there are replicas, it may be preferred to not retry.
                 if self._active or SERVER_GONE_ERROR != code != SERVER_LOST \
                    or not retry:
                     raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
@@ -705,7 +709,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def _fetchObject(self, oid, tid):
         r = self.query(
             'SELECT tid, compression, data.hash, value, value_tid'
-            ' FROM obj FORCE INDEX(`partition`)'
+            ' FROM obj FORCE INDEX(PRIMARY)'
             ' LEFT JOIN data ON (obj.data_id = data.id)'
             ' WHERE `partition` = %d AND oid = %d AND tid = %d'
             % (self._getReadablePartition(oid), oid, tid))

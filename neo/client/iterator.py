@@ -35,7 +35,8 @@ class Transaction(BaseStorage.TransactionRecord):
     """ Transaction object yielded by the NEO iterator """
 
     def __init__(self, app, txn):
-        super(Transaction, self).__init__(txn['id'], ' ',
+        super(Transaction, self).__init__(txn['id'],
+            'p' if txn['packed'] else ' ',
             txn['user_name'], txn['description'], txn['ext'])
         self.app = app
         self.oid_list = txn['oids']

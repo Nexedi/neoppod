@@ -791,7 +791,6 @@ class Application(ThreadedApplication):
             txn_info[k] = v
 
     def _getTransactionInformation(self, tid):
-        packet = Packets.AskTransactionInformation(tid)
         return self._askStorageForRead(tid,
             Packets.AskTransactionInformation(tid))
 
