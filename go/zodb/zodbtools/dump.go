@@ -81,7 +81,6 @@ var _LF = []byte{'\n'}
 
 
 // DumpData dumps one data record
-// XXX naming -> DumpObj ?
 func (d *dumper) DumpData(datai *zodb.DataInfo) error {
 	buf := &d.buf
 	buf.Reset()

@@ -30,6 +30,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
+	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xbytes"
 )
 
@@ -658,20 +659,20 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 //
 // NOTE on success dh state is changed to data header of original data transaction.
 // NOTE "deleted" records are indicated via returning buf with .Data=nil without error.
-func (dh *DataHeader) LoadData(r io.ReaderAt) (*zodb.Buf, error) {
+func (dh *DataHeader) LoadData(r io.ReaderAt) (*mem.Buf, error) {
 	// scan via backpointers
 	for dh.DataLen == 0 {
 		err := dh.LoadBack(r)
 		if err != nil {
 			if err == io.EOF {
-				return &zodb.Buf{Data: nil}, nil // deleted
+				return &mem.Buf{Data: nil}, nil // deleted
 			}
 			return nil, err
 		}
 	}
 
 	// now read actual data
-	buf := zodb.BufAlloc64(dh.DataLen)
+	buf := mem.BufAlloc64(dh.DataLen)
 	_, err := r.ReadAt(buf.Data, dh.Pos + DataHeaderSize)
 	if err != nil {
 		buf.Release()

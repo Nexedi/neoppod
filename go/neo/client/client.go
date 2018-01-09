@@ -32,6 +32,7 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 
@@ -384,7 +385,7 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 	panic("TODO")
 }
 
-func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
+func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// defer func() ...
 	buf, serial, err = c._Load(ctx, xid)
 
@@ -413,7 +414,7 @@ func init() {
 	}
 }
 
-func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
+func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	err := c.withOperational(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -474,7 +475,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*zodb.Buf, zodb.Tid, 
 
 	if resp.Compression {
 		// XXX cleanup mess vvv
-		buf2 := zodb.BufAlloc(len(buf.Data))
+		buf2 := mem.BufAlloc(len(buf.Data))
 		buf2.Data = buf2.Data[:0]
 		udata, err := decompress(buf.Data, buf2.Data)
 		buf.Release()

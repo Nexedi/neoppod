@@ -29,6 +29,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"lab.nexedi.com/kirr/go123/mem"
+
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontainer/list"
 )
 
@@ -91,7 +93,7 @@ type revCacheEntry struct {
 	head Tid
 
 	// loading result: object (buf, serial) or error
-	buf    *Buf
+	buf    *mem.Buf
 	serial Tid
 	err    error
 
@@ -113,7 +115,7 @@ type revCacheEntry struct {
 // StorLoader represents loading part of a storage.
 // XXX -> zodb.IStorageLoader (or zodb.Loader ?) ?
 type StorLoader interface {
-	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)
+	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
 }
 
 // lock order: Cache.mu   > oidCacheEntry
@@ -146,7 +148,7 @@ func (c *Cache) SetSizeMax(sizeMax int) {
 // Load loads data from database via cache.
 //
 // If data is already in cache - cached content is returned.
-func (c *Cache) Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
+func (c *Cache) Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error) {
 	rce, rceNew := c.lookupRCE(xid, +1)
 
 	// rce is already in cache - use it

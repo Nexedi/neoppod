@@ -75,6 +75,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 
+	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
@@ -135,7 +136,7 @@ func (dh *DataHeader) Free() {
 	dhPool.Put(dh)
 }
 
-func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, serial zodb.Tid, err error) {
+func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
@@ -156,7 +157,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *zodb.Buf, ser
 	return buf, serial, err
 }
 
-func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*zodb.Buf, zodb.Tid, error) {
+func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	// search backwards for when we first have data record with tid satisfying xid.At
 	for {
 		err := dh.LoadPrevRev(fs.file)
@@ -210,7 +211,7 @@ type zIter struct {
 	dhLoading DataHeader
 
 	datai	zodb.DataInfo // ptr to this will be returned by .NextData
-	dataBuf	*zodb.Buf
+	dataBuf	*mem.Buf
 }
 
 type zIterFlags int

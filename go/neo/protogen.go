@@ -117,7 +117,7 @@ func typeName(typ types.Type) string {
 }
 
 var neo_customCodec *types.Interface // type of neo.customCodec
-var zodbBuf         types.Type       // type of zodb.Buf
+var memBuf          types.Type       // type of mem.Buf
 
 // bytes.Buffer + bell & whistles
 type Buffer struct {
@@ -145,6 +145,10 @@ func (li *localImporter) Import(path string) (*types.Package, error) {
 	return li.Importer.Import(path)
 }
 
+// importer instance - only 1 so that for 2 top-level packages same dependent
+// packages are not reimported several times.
+var localImporterObj = &localImporter{importer.Default()}
+
 func loadPkg(pkgPath string, sources ...string) *types.Package {
 	var filev []*ast.File
 
@@ -162,7 +166,7 @@ func loadPkg(pkgPath string, sources ...string) *types.Package {
 	//return
 
 	// typecheck
-	conf := types.Config{Importer: &localImporter{importer.Default()}}
+	conf := types.Config{Importer: localImporterObj}
 	pkg, err := conf.Check(pkgPath, fset, filev, typeInfo)
 	if err != nil {
 		log.Fatalf("typecheck: %v", err)
@@ -243,7 +247,7 @@ func main() {
 	log.SetFlags(0)
 
 	// go through proto.go and AST'ify & typecheck it
-	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go", "../zodb/buffer.go")
+	zodbPkg = loadPkg("lab.nexedi.com/kirr/neo/go/zodb", "../zodb/zodb.go")
 	neoPkg  = loadPkg("lab.nexedi.com/kirr/neo/go/neo", "proto.go", "packed.go")
 
 	// extract neo.customCodec
@@ -257,12 +261,24 @@ func main() {
 		log.Fatal("customCodec is not interface  (got %v)", cc.Type())
 	}
 
-	// extract zodb.Buf
-	__ := zodbPkg.Scope().Lookup("Buf")
-	if __ == nil {
-		log.Fatal("cannot find `zodb.Buf`")
+	// extract mem.Buf
+	memPath := "lab.nexedi.com/kirr/go123/mem"
+	var memPkg *types.Package
+	for _, pkg := range zodbPkg.Imports() {
+		if pkg.Path() == memPath {
+			memPkg = pkg
+			break
+		}
 	}
-	zodbBuf = __.Type()
+	if memPkg == nil {
+		log.Fatalf("cannot find `%s` in zodb imports", memPath)
+	}
+
+	__ := memPkg.Scope().Lookup("Buf")
+	if __ == nil {
+		log.Fatal("cannot find `mem.Buf`")
+	}
+	memBuf = __.Type()
 
 	// prologue
 	f := fileMap["proto.go"]
@@ -277,6 +293,7 @@ import (
 	"reflect"
 	"sort"
 
+	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )`)
 
@@ -462,7 +479,7 @@ type CodeGenerator interface {
 	genArray1(path string, typ *types.Array)
 	genSlice1(path string, typ types.Type)
 
-	// zodb.Buf
+	// mem.Buf
 	genBuf(path string)
 
 	// generate code for a custom type which implements its own
@@ -923,8 +940,8 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.emit("}")
 }
 
-// emit code to size/encode/decode zodb.Buf
-// same as slice1 but buffer is allocated via zodb.BufAlloc
+// emit code to size/encode/decode mem.Buf
+// same as slice1 but buffer is allocated via mem.BufAlloc
 func (s *sizer) genBuf(path string) {
 	s.genSlice1(path + ".XData()", nil /* typ unused */)
 }
@@ -943,7 +960,7 @@ func (d *decoder) genBuf(path string) {
 	d.overflow.AddExpr("l")
 
 	// TODO eventually do not copy but reference original
-	d.emit("%v= zodb.BufAlloc(int(l))", path)
+	d.emit("%v= mem.BufAlloc(int(l))", path)
 	d.emit("copy(%v.Data, data[:l])", path)
 
 	d.emit("data = data[l:]")
@@ -1164,8 +1181,8 @@ func codegenType(path string, typ types.Type, obj types.Object, codegen CodeGene
 		return
 	}
 
-	// zodb.Buf
-	if tptr, ok := typ.Underlying().(*types.Pointer); ok && tptr.Elem() == zodbBuf {
+	// mem.Buf
+	if tptr, ok := typ.Underlying().(*types.Pointer); ok && tptr.Elem() == memBuf {
 		codegen.genBuf(path)
 		return
 	}

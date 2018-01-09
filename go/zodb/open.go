@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // OpenOptions describes options for OpenStorage
@@ -101,7 +103,7 @@ type storage struct {
 
 // loading always goes through cache - this way prefetching can work
 
-func (s *storage) Load(ctx context.Context, xid Xid) (*Buf, Tid, error) {
+func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	return s.l1cache.Load(ctx, xid)
 }
 

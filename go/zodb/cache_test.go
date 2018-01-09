@@ -30,6 +30,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"lab.nexedi.com/kirr/go123/mem"
+
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -47,8 +49,8 @@ type tOidData struct {
 }
 
 // create new buffer with specified content copied there.
-func mkbuf(data []byte) *Buf {
-	buf := BufAlloc(len(data))
+func mkbuf(data []byte) *mem.Buf {
+	buf := mem.BufAlloc(len(data))
 	copy(buf.Data, data)
 	return buf
 }
@@ -56,7 +58,7 @@ func mkbuf(data []byte) *Buf {
 // check whether buffers hold same data or both are nil.
 //
 // NOTE we ignore refcnt here
-func bufSame(buf1, buf2 *Buf) bool {
+func bufSame(buf1, buf2 *mem.Buf) bool {
 	if buf1 == nil {
 		return (buf2 == nil)
 	}
@@ -64,7 +66,7 @@ func bufSame(buf1, buf2 *Buf) bool {
 	return reflect.DeepEqual(buf1.Data, buf2.Data)
 }
 
-func (stor *tStorage) Load(_ context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
+func (stor *tStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error) {
 	//fmt.Printf("> load(%v)\n", xid)
 	//defer func() { fmt.Printf("< %v, %v, %v\n", buf.XData(), serial, err) }()
 
@@ -133,7 +135,7 @@ func TestCache(t *testing.T) {
 	c := NewCache(tstor, 100 /* > Σ all data */)
 	ctx := context.Background()
 
-	checkLoad := func(xid Xid, buf *Buf, serial Tid, err error) {
+	checkLoad := func(xid Xid, buf *mem.Buf, serial Tid, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		b, s, e := c.Load(ctx, xid)
@@ -169,7 +171,7 @@ func TestCache(t *testing.T) {
 		}
 	}
 
-	checkRCE := func(rce *revCacheEntry, head, serial Tid, buf *Buf, err error) {
+	checkRCE := func(rce *revCacheEntry, head, serial Tid, buf *mem.Buf, err error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		if rce.head != head {
@@ -618,7 +620,7 @@ func (c *Checker) assertEq(a, b interface{}) {
 type noopStorage struct {}
 var noopData = []byte{0}
 
-func (s *noopStorage) Load(_ context.Context, xid Xid) (buf *Buf, serial Tid, err error) {
+func (s *noopStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error) {
 	return mkbuf(noopData), 1, nil
 }
 

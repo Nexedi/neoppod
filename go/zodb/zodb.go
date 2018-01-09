@@ -28,6 +28,8 @@ package zodb
 import (
 	"context"
 	"fmt"
+
+	"lab.nexedi.com/kirr/go123/mem"
 )
 
 // ---- data model ----
@@ -192,7 +194,7 @@ type IStorageDriver interface {
 	//     suffice.
 	//
 	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
-	Load(ctx context.Context, xid Xid) (buf *Buf, serial Tid, err error)
+	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
 
 	// TODO: write mode
 

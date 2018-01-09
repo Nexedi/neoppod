@@ -51,6 +51,7 @@ package neo
 
 import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/go123/mem"
 
 	"encoding/binary"
 	"errors"
@@ -646,7 +647,7 @@ type AnswerObject struct {
 	NextSerial      zodb.Tid	// XXX but there it is out of sync
 	Compression     bool
 	Checksum        Checksum
-	Data            *zodb.Buf	// TODO encode -> separately (for writev)
+	Data            *mem.Buf	// TODO encode -> separately (for writev)
 	DataSerial      zodb.Tid
 }
 
