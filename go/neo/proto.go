@@ -643,8 +643,8 @@ type GetObject struct {
 
 type AnswerObject struct {
 	Oid             zodb.Oid
-	Serial		zodb.Tid	// XXX strictly is SerialStart/SerialEnd in proto.py
-	NextSerial      zodb.Tid	// XXX but there it is out of sync
+	Serial		zodb.Tid
+	NextSerial      zodb.Tid
 	Compression     bool
 	Checksum        Checksum
 	Data            *mem.Buf	// TODO encode -> separately (for writev)

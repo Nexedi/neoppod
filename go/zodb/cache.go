@@ -40,7 +40,10 @@ import (
 
 // Cache provides RAM caching layer that can be used over a storage.
 type Cache struct {
-	loader StorLoader
+	loader interface {
+		StorLoader
+		URL() string
+	}
 
 	mu sync.RWMutex
 
@@ -125,7 +128,7 @@ type StorLoader interface {
 // NewCache creates new cache backed up by loader.
 //
 // The cache will use not more than ~ sizeMax bytes of RAM for cached data.
-func NewCache(loader StorLoader, sizeMax int) *Cache {
+func NewCache(loader interface { StorLoader; URL() string }, sizeMax int) *Cache {
 	c := &Cache{
 		loader:   loader,
 		entryMap: make(map[Oid]*oidCacheEntry),
@@ -166,7 +169,7 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, er
 	}
 
 	if rce.err != nil {
-		return nil, 0, rce.userErr(xid)
+		return nil, 0, &LoadError{URL: c.loader.URL(), Xid: xid, Err: rce.err}
 	}
 
 	return rce.buf, rce.serial, nil
@@ -300,7 +303,12 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 
 	// normalize buf/serial if it was error
 	if err != nil {
-		// XXX err == canceled? -> ?
+		e := err.(*LoadError)	// XXX better driver return *LoadError explicitly
+
+		// only remember problem cause - full LoadError will be
+		// reconstructed in Load with actual requested there xid.
+		err = e.Err
+		// TODO err == canceled? -> don't remember
 		buf.XRelease()
 		buf = nil
 		serial = 0
@@ -563,8 +571,8 @@ func isErrNoData(err error) bool {
 	default:
 		return false
 
-	case *ErrOidMissing:
-	case *ErrXidMissing:
+	case *NoObjectError:
+	case *NoDataError:
 	}
 	return true
 }
@@ -632,23 +640,6 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 // must be called with rce.parent locked.
 func (rce *revCacheEntry) loaded() bool {
 	return (rce.waitBufRef == -1)
-}
-
-// userErr returns error that, if any, needs to be returned to user from Cache.Load
-//
-// ( ErrXidMissing contains xid for which it is missing. In cache we keep such
-//   xid with max .head but users need to get ErrXidMissing with their own query )
-//
-// rce must be loaded.
-func (rce *revCacheEntry) userErr(xid Xid) error {
-	switch e := rce.err.(type) {
-	case *ErrXidMissing:
-		if e.Xid != xid {
-			return &ErrXidMissing{xid}
-		}
-	}
-
-	return rce.err
 }
 
 // list head that knows it is in revCacheEntry.inLRU

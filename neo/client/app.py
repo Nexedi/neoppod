@@ -370,7 +370,7 @@ class Application(ThreadedApplication):
                 elif self._loading_invalidated:
                     # oid has just been invalidated.
                     if not next_tid:
-                        next_tid = self._loading_invalidated
+                        next_tid = self._loading_invalidated        # NOTE stores up to head
                     self._cache.store(oid, data, tid, next_tid)
                 # Else, we just reconnected to the master.
             finally:

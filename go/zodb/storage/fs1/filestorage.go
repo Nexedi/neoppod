@@ -107,19 +107,9 @@ func (fs *FileStorage) LastOid(_ context.Context) (zodb.Oid, error) {
 	return lastOid, nil
 }
 
-// ErrXidLoad is returned when there is an error while loading xid
-// XXX -> zodb (common bits)
-type ErrXidLoad struct {
-	Xid	zodb.Xid
-	Err	error
+func (fs *FileStorage) URL() string {
+	return fs.file.Name()
 }
-
-func (e *ErrXidLoad) Error() string {
-	return fmt.Sprintf("loading %v: %v", e.Xid, e.Err)
-}
-
-// XXX +Cause
-
 
 // freelist(DataHeader)
 var dhPool = sync.Pool{New: func() interface{} { return &DataHeader{} }}
@@ -137,13 +127,21 @@ func (dh *DataHeader) Free() {
 }
 
 func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
+	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
+	// -> TODO reject tid out of range
+	buf, serial, err = fs.load(xid)
+	if err != nil {
+		err = &zodb.LoadError{URL: fs.URL(), Xid: xid, Err: err}
+	}
+	return buf, serial, err
+}
+
+func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
-		return nil, 0, &zodb.ErrOidMissing{Oid: xid.Oid}
+		return nil, 0, &zodb.NoObjectError{Oid: xid.Oid}
 	}
-
-	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...	-> TODO reject tid out of range
 
 	// XXX go compiler cannot deduce dh should be on stack here
 	//dh := DataHeader{Oid: xid.Oid, Tid: zodb.TidMax, PrevRevPos: dataPos}
@@ -152,21 +150,19 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, seri
 	dh.Tid = zodb.TidMax
 	dh.PrevRevPos = dataPos
 	//defer dh.Free()
-	buf, serial, err = fs._Load(dh, xid)
+	buf, serial, err = fs._load(dh, xid)
 	dh.Free()
 	return buf, serial, err
 }
 
-func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
+func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	// search backwards for when we first have data record with tid satisfying xid.At
 	for {
 		err := dh.LoadPrevRev(fs.file)
 		if err != nil {
 			if err == io.EOF {
-				// no such oid revision
-				err = &zodb.ErrXidMissing{Xid: xid}
-			} else {
-				err = &ErrXidLoad{xid, err}
+				// object was created after xid.At
+				err = &zodb.NoDataError{Oid: xid.Oid, DeletedAt: 0}
 			}
 
 			return nil, 0, err
@@ -183,11 +179,11 @@ func (fs *FileStorage) _Load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, 
 
 	buf, err := dh.LoadData(fs.file)
 	if err != nil {
-		return nil, 0, &ErrXidLoad{xid, err}
+		return nil, 0, err
 	}
 	if buf.Data == nil {
-		// data was deleted
-		return nil, 0, &zodb.ErrXidMissing{Xid: xid}
+		// object was deleted
+		return nil, 0, &zodb.NoDataError{Oid: xid.Oid, DeletedAt: serial}
 	}
 
 	return buf, serial, nil

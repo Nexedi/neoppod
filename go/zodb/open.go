@@ -84,7 +84,8 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		IStorageDriver: storDriver,
 
 		// small cache so that prefetch can work for loading
-		l1cache: NewCache(storDriver, 128 * 4*1024),	// XXX 512K hardcoded (= ~ 128 · 4K-entries)
+		// XXX 512K hardcoded (= ~ 128 · 4K-entries)
+		l1cache: NewCache(storDriver, 128 * 4*1024),
 	}, nil
 }
 
@@ -97,21 +98,17 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 type storage struct {
 	IStorageDriver
 	l1cache *Cache
-	url     string		// URL this storage was opened via
 }
 
 
 // loading always goes through cache - this way prefetching can work
 
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
+	// XXX here: offload xid validation from cache and driver ?
+	// XXX here: offload wrapping err -> LoadError{err} ?
 	return s.l1cache.Load(ctx, xid)
 }
 
 func (s *storage) Prefetch(ctx context.Context, xid Xid) {
 	s.l1cache.Prefetch(ctx, xid)
-}
-
-
-func (s *storage) URL() string {
-	return s.url
 }

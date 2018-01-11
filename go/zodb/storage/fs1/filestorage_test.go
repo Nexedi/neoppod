@@ -68,11 +68,14 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
 	t.Helper()
 	buf, tid, err := fs.Load(context.Background(), xid)
 
-	// deleted obj - it should load with "no data
+	// deleted obj - it should load with "no data"
 	if expect.data == nil {
-		errOk := &zodb.ErrXidMissing{Xid: xid}
-		e, ok := err.(*zodb.ErrXidMissing)
-		if !(ok && *e == *errOk) {
+		errOk := &zodb.LoadError{
+			URL: fs.URL(),
+			Xid: xid,
+			Err: &zodb.NoDataError{Oid: xid.Oid , DeletedAt: expect.tid},
+		}
+		if !reflect.DeepEqual(err, errOk) {
 			t.Errorf("load %v: returned err unexpected: %v  ; want: %v", xid, err, errOk)
 		}
 

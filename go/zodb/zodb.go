@@ -89,11 +89,11 @@ type TxnInfo struct {
 }
 
 
-// DataInfo represents information about one data record.
+// DataInfo represents information about one object change.
 type DataInfo struct {
 	Oid	Oid
-	Tid	Tid
-	Data	[]byte	// nil means: deleted	XXX -> *Buf ?
+	Tid	Tid    // changed by this transaction
+	Data	[]byte // new object data; nil if object becomes deleted
 
 	// DataTidHint is optional hint from a storage that the same data was
 	// already originally committed in earlier transaction, for example in
@@ -119,45 +119,70 @@ const (
 
 // ---- interfaces ----
 
-// ErrOidMissing is an error which tells that there is no such oid in the database at all
-//
-// XXX do we need distinction in between ErrOidMissing & ErrXidMissing ?
-// (think how client should handle error from Load ?)
-type ErrOidMissing struct {
-	Oid	Oid
+// NoObjectError is the error which tells that there is no such object in the database at all
+type NoObjectError struct {
+	Oid Oid
 }
 
-func (e ErrOidMissing) Error() string {
-	return fmt.Sprintf("%v: no such oid", e.Oid)
+func (e NoObjectError) Error() string {
+	return fmt.Sprintf("%s: no such object", e.Oid)
 }
 
-// ErrXidMissing is an error which tells that oid exists in the database,
-// but there is no its revision satisfying xid.At search criteria.
-type ErrXidMissing struct {
-	Xid	Xid
+// NoDataError is the error which tells that object exists in the database,
+// but there is no its non-empty revision satisfying search criteria.
+type NoDataError struct {
+	Oid Oid
+
+	// DeletedAt explains object state wrt used search criteria:
+	// - 0:  object was not created at time of searched xid.At
+	// - !0: object was deleted by transaction with tid=DeletedAt
+	DeletedAt Tid
 }
 
-func (e *ErrXidMissing) Error() string {
-	return fmt.Sprintf("%v: no matching data record found", e.Xid)
+func (e *NoDataError) Error() string {
+	if e.DeletedAt == 0 {
+		return fmt.Sprintf("%s: object was not yet created", e.Oid)
+	} else {
+		return fmt.Sprintf("%s: object was deleted @%s", e.Oid, e.DeletedAt)
+	}
 }
+
+// LoadError is the error returned by IStorageDriver.Load
+type LoadError struct {
+	URL string
+	Xid Xid
+	Err error
+}
+
+func (e *LoadError) Error() string {
+	return fmt.Sprintf("%s: load %s: %v", e.URL, e.Xid, e.Err)
+}
+
+func (e *LoadError) Cause() error {
+	return e.Err
+}
+
+
 
 // IStorage is the interface provided by opened ZODB storage
 type IStorage interface {
 	IStorageDriver
-
-	// URL returns URL of how the storage was opened
-	URL() string
 
 	// Prefetch prefetches object addressed by xid.
 	//
 	// If data is not yet in cache loading for it is started in the background.
 	// Prefetch is not blocking operation and does not wait for loading, if any was
 	// started, to complete.
+	//
+	// Prefetch does not return any error.
 	Prefetch(ctx context.Context, xid Xid)
 }
 
 // IStorageDriver is the raw interface provided by ZODB storage drivers
 type IStorageDriver interface {
+	// URL returns URL of how the storage was opened
+	URL() string
+
 	// Close closes storage
 	Close() error
 
@@ -174,26 +199,44 @@ type IStorageDriver interface {
 
 	// Load loads object data addressed by xid from database.
 	//
-	// TODO specify error when data not found -> ErrOidMissing | ErrXidMissing
+	// Returned are:
 	//
-	// NOTE ZODB/py provides 2 entrypoints in IStorage for loading:
-	// LoadSerial and LoadBefore but in ZODB/go we have only Load which is
+	//	- if there is data to load: buf is non-empty, serial indicates
+	//	  transaction which matched xid criteria and err=nil.
+	//
+	// otherwise buf=nil, serial=0 and err is *LoadError with err.Err
+	// describing the error cause:
+	//
+	//	- *NoObjectError if there is no such object in database at all,
+	//	- *NoDataError   if object exists in database but there is no
+	//	                 its data matching xid,
+	//	- some other error indicating e.g. IO problem.
+	//
+	//
+	// NOTE 1: ZODB/py provides 2 entrypoints in IStorage for loading:
+	// loadSerial and loadBefore but in ZODB/go we have only Load which is
 	// a bit different from both:
 	//
 	//	- Load loads object data for object at database state specified by xid.At
-	//	- LoadBefore loads object data for object at database state previous to xid.At
+	//	- loadBefore loads object data for object at database state previous to xid.At
 	//	  it is thus equivalent to Load(..., xid.At-1)
-	//	- LoadSerial loads object data from revision exactly modified
+	//	- loadSerial loads object data from revision exactly modified
 	//	  by transaction with tid = xid.At.
 	//	  it is thus equivalent to Load(..., xid.At) with followup
 	//	  check that returned serial is exactly xid.At(*)
 	//
-	// (*) LoadSerial is used only in a few places in ZODB/py - mostly in
+	// (*) loadSerial is used only in a few places in ZODB/py - mostly in
 	//     conflict resolution code where plain Load semantic - without
 	//     checking object was particularly modified at that revision - would
 	//     suffice.
 	//
-	// XXX zodb.loadBefore() returns (data, serial, serial_next) -> add serial_next?
+	// NOTE 2: in ZODB/py loadBefore, in addition to serial, also returns
+	// serial_next, which constraints storage implementations unnecessarily
+	// and is used only in client cache.
+	//
+	// In ZODB/go Cache shows that it is possible to build efficient client
+	// cache without serial_next returned from Load. For this reason in ZODB/go
+	// Load specification comes without specifying serial_next return.
 	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
 
 	// TODO: write mode

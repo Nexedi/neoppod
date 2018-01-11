@@ -53,14 +53,14 @@ func Catobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid) 
 func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid, hashOnly bool) error {
 	var objInfo zodb.DataInfo
 
-	buf, tid, err := stor.Load(ctx, xid)
+	buf, serial, err := stor.Load(ctx, xid)
 	if err != nil {
 		return err
 	}
 
 	// XXX hack - TODO rework IStorage.Load to fill-in objInfo directly?
 	objInfo.Oid = xid.Oid
-	objInfo.Tid = tid
+	objInfo.Tid = serial
 	objInfo.Data = buf.Data
 	objInfo.DataTidHint = 0 // no copy detection at catobj - just dump raw content
 

@@ -551,14 +551,18 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 		buf, serial, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
-			return neo.ErrEncode(err)
+			e := err.(*zodb.LoadError)	// XXX move this to ErrEncode?
+			return neo.ErrEncode(e.Err)
 		}
 
+		// compatibility with py side:
 		// for loadSerial - check we have exact hit - else "nodata"
 		if req.Serial != neo.INVALID_TID {
 		        if serial != req.Serial {
-				// XXX actually show in error it was strict "=" load
-		                return neo.ErrEncode(&zodb.ErrXidMissing{xid})
+				return &neo.Error{
+					Code:    neo.OID_NOT_FOUND,
+					Message: fmt.Sprintf("%s: no data with serial %s", xid.Oid, req.Serial),
+				}
 		        }
 		}
 

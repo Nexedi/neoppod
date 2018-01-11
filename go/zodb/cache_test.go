@@ -66,13 +66,24 @@ func bufSame(buf1, buf2 *mem.Buf) bool {
 	return reflect.DeepEqual(buf1.Data, buf2.Data)
 }
 
+func (stor *tStorage) URL() string {
+	return "test"
+}
+
 func (stor *tStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error) {
 	//fmt.Printf("> load(%v)\n", xid)
 	//defer func() { fmt.Printf("< %v, %v, %v\n", buf.XData(), serial, err) }()
+	buf, serial, err = stor.load(xid)
+	if err != nil {
+		err = &LoadError{URL: stor.URL(), Xid: xid, Err: err}
+	}
+	return buf, serial, err
+}
 
+func (stor *tStorage) load(xid Xid) (buf *mem.Buf, serial Tid, err error) {
 	datav := stor.dataMap[xid.Oid]
 	if datav == nil {
-		return nil, 0, &ErrOidMissing{xid.Oid}
+		return nil, 0, &NoObjectError{xid.Oid}
 	}
 
 	// find max entry with .serial <= xid.At
@@ -85,7 +96,7 @@ func (stor *tStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid
 	//fmt.Printf("i: %d  n: %d\n", i, n)
 	if i == -1 {
 		// xid.At < all .serial - no such transaction
-		return nil, 0, &ErrXidMissing{xid}
+		return nil, 0, &NoDataError{Oid: xid.Oid, DeletedAt: 0}
 	}
 
 	s, e := datav[i].serial, datav[i].err
@@ -100,6 +111,10 @@ var ioerr = errors.New("input/output error")
 
 func xidat(oid Oid, tid Tid) Xid {
 	return Xid{Oid: oid, At: tid}
+}
+
+func nodata(oid Oid, deletedAt Tid) *NoDataError {
+	return &NoDataError{Oid: oid, DeletedAt: deletedAt}
 }
 
 func TestCache(t *testing.T) {
@@ -135,7 +150,7 @@ func TestCache(t *testing.T) {
 	c := NewCache(tstor, 100 /* > Σ all data */)
 	ctx := context.Background()
 
-	checkLoad := func(xid Xid, buf *mem.Buf, serial Tid, err error) {
+	checkLoad := func(xid Xid, buf *mem.Buf, serial Tid, errCause error) {
 		t.Helper()
 		bad := &bytes.Buffer{}
 		b, s, e := c.Load(ctx, xid)
@@ -144,6 +159,11 @@ func TestCache(t *testing.T) {
 		}
 		if serial != s {
 			fmt.Fprintf(bad, "serial:\n%s\n", pretty.Compare(serial, s))
+		}
+
+		var err error
+		if errCause != nil {
+			err = &LoadError{URL: "test", Xid: xid, Err: errCause}
 		}
 		if !reflect.DeepEqual(err, e) {
 			fmt.Fprintf(bad, "err:\n%s\n", pretty.Compare(err, e))
@@ -241,29 +261,29 @@ func TestCache(t *testing.T) {
 	checkMRU(0)
 
 	// load @2 -> new rce entry
-	checkLoad(xidat(1,2), nil, 0, &ErrXidMissing{xidat(1,2)})
+	checkLoad(xidat(1,2), nil, 0, nodata(1,0))
 	checkOIDV(1)
 	oce1 := c.entryMap[1]
 	ok1(len(oce1.rcev) == 1)
 	rce1_h2 := oce1.rcev[0]
-	checkRCE(rce1_h2, 2, 0, nil, &ErrXidMissing{xidat(1,2)})
+	checkRCE(rce1_h2, 2, 0, nil, nodata(1,0))
 	checkMRU(0, rce1_h2)
 
 	// load @3 -> 2] merged with 3]
-	checkLoad(xidat(1,3), nil, 0, &ErrXidMissing{xidat(1,3)})
+	checkLoad(xidat(1,3), nil, 0, nodata(1,0))
 	checkOIDV(1)
 	ok1(len(oce1.rcev) == 1)
 	rce1_h3 := oce1.rcev[0]
 	ok1(rce1_h3 != rce1_h2) // rce1_h2 was merged into rce1_h3
-	checkRCE(rce1_h3, 3, 0, nil, &ErrXidMissing{xidat(1,3)})
+	checkRCE(rce1_h3, 3, 0, nil, nodata(1,0))
 	checkMRU(0, rce1_h3)
 
 	// load @1 -> 1] merged with 3]
-	checkLoad(xidat(1,1), nil, 0, &ErrXidMissing{xidat(1,1)})
+	checkLoad(xidat(1,1), nil, 0, nodata(1,0))
 	checkOIDV(1)
 	ok1(len(oce1.rcev) == 1)
 	ok1(oce1.rcev[0] == rce1_h3)
-	checkRCE(rce1_h3, 3, 0, nil, &ErrXidMissing{xidat(1,3)})
+	checkRCE(rce1_h3, 3, 0, nil, nodata(1,0))
 	checkMRU(0, rce1_h3)
 
 	// load @5 -> new rce entry with data
@@ -619,6 +639,10 @@ func (c *Checker) assertEq(a, b interface{}) {
 // noopStorage is dummy StorLoader which for any oid/xid always returns 1-byte data
 type noopStorage struct {}
 var noopData = []byte{0}
+
+func (s *noopStorage) URL() string {
+	return "noop"
+}
 
 func (s *noopStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error) {
 	return mkbuf(noopData), 1, nil

@@ -388,20 +388,9 @@ func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// defer func() ...
 	buf, serial, err = c._Load(ctx, xid)
-
-	switch err.(type) {
-	case nil:
-		// ok (avoid allocation in xerr.Contextf() call for no-error case)
-
-	// keep zodb errors intact
-	// XXX ok? or requre users always call Cause?
-	case *zodb.ErrOidMissing:
-	case *zodb.ErrXidMissing:
-
-	default:
-		xerr.Contextf(&err, "client: load %v", xid)
+	if err != nil {
+		err = &zodb.LoadError{URL: c.URL(), Xid: xid, Err: err}
 	}
-
 	return buf, serial, err
 }
 
@@ -519,6 +508,13 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zo
 	//     whole storage working lifetime.
 	c := NewClient(u.User.Username(), u.Host, net)
 	return c, nil
+}
+
+func (c *Client) URL() string {
+	// XXX neos:// depending whether it was tls
+	// XXX options if such were given to open are discarded
+	//     (but we need to be able to contruct URL if Client was created via NewClient directly)
+	return fmt.Sprintf("neo://%s@%s", c.node.ClusterName, c.node.MasterAddr)
 }
 
 func init() {
