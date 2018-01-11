@@ -22,14 +22,14 @@
 // FileStorage is a single file organized as a simple append-only log of
 // transactions with data changes. Every transaction record consists of:
 //
-// - transaction record header represented by TxnHeader,
-// - several data records corresponding to modified objects,
-// - redundant transaction length at the end of transaction record.
+//	- transaction record header represented by TxnHeader,
+//	- several data records corresponding to modified objects,
+//	- redundant transaction length at the end of transaction record.
 //
 // Every data record consists of:
 //
-// - data record header represented by DataHeader,
-// - actual data following the header.
+//	- data record header represented by DataHeader,
+//	- actual data following the header.
 //
 // The "actual data" in addition to raw content, can be a back-pointer
 // indicating that the actual content should be retrieved from a past revision.
@@ -72,8 +72,8 @@ import (
 	"os"
 	"sync"
 
-	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -84,12 +84,12 @@ import (
 //
 // It is on-disk compatible with FileStorage from ZODB/py.
 type FileStorage struct {
-	file	*os.File
-	index	*Index	// oid -> data record position in transaction which last changed oid
+	file  *os.File
+	index *Index // oid -> data record position in transaction which last changed oid
 
 	// transaction headers for min/max transactions committed
 	// (both with .Len=0 & .Tid=0 if database is empty)
-	txnhMin	TxnHeader
+	txnhMin TxnHeader
 	txnhMax TxnHeader
 }
 
@@ -222,8 +222,8 @@ type zIter struct {
 	//   here to avoid allocations )
 	dhLoading DataHeader
 
-	datai	zodb.DataInfo // ptr to this will be returned by .NextData
-	dataBuf	*mem.Buf
+	datai   zodb.DataInfo // ptr to this will be returned by .NextData
+	dataBuf *mem.Buf
 }
 
 type zIterFlags int
@@ -332,7 +332,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 		return TxnHeader{}, io.EOF // no such record
 	}
 	if tmin.Tid >= tid {
-		return tmin, nil	// tmin satisfies
+		return tmin, nil // tmin satisfies
 	}
 
 	// now we know tid ∈ (tmin, tmax]
@@ -395,7 +395,7 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 	txnh, err := fs.findTxnRecord(fsSeq, tidMin)
 	switch {
 	case err == io.EOF:
-		ziter.zFlags |= zIterEOF        // empty
+		ziter.zFlags |= zIterEOF // empty
 		return ziter
 
 	case err != nil:
@@ -414,7 +414,7 @@ func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.
 	iter.Datah.Pos = txnh.DataPos()      // XXX dup wrt Iter.NextTxn
 	iter.Datah.DataLen = -DataHeaderSize // first iteration will go to first data record
 
-	iter.Dir = IterForward	// TODO allow both ways iteration at ZODB level
+	iter.Dir = IterForward // TODO allow both ways iteration at ZODB level
 
 	ziter.zFlags |= zIterPreloaded
 	ziter.tidStop = tidMax
@@ -435,7 +435,7 @@ func open(path string) (_ *FileStorage, err error) {
 	fs.file = f
 	defer func() {
 		if err != nil {
-			f.Close()	// XXX -> lclose
+			f.Close() // XXX -> lclose
 		}
 	}()
 
@@ -500,7 +500,7 @@ func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
 	}
 	defer func() {
 		if err != nil {
-			fs.file.Close()	// XXX lclose
+			fs.file.Close() // XXX lclose
 		}
 	}()
 

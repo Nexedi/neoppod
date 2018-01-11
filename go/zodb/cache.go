@@ -20,8 +20,6 @@
 package zodb
 // cache management
 
-//go:generate gotrace gen .
-
 import (
 	"context"
 	"fmt"

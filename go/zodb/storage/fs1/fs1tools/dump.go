@@ -102,7 +102,7 @@ func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
 		err = it.NextTxn(fs1.LoadAll)
 		if err != nil {
 			if err == io.EOF {
-				err = nil	// XXX -> okEOF(err)
+				err = nil
 			}
 			return err
 		}
@@ -110,7 +110,7 @@ func Dump(w io.Writer, path string, dir fs1.IterDir, d Dumper) (err error) {
 		err = d.DumpTxn(buf, it)
 		if err != nil {
 			if err == io.EOF {
-				err = nil	// XXX -> okEOF(err)
+				err = nil
 			}
 			return err
 		}
@@ -163,7 +163,7 @@ func (d *DumperFsDump) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 		err := it.NextData()
 		if err != nil {
 			if err == io.EOF {
-				err = nil	// XXX -> okEOF(err)
+				err = nil
 			}
 			return err
 		}
@@ -359,7 +359,7 @@ func (d *DumperFsTail) DumpTxn(buf *xfmt.Buffer, it *fs1.Iter) error {
 	_, err := it.R.ReadAt(d.data, txnh.DataPos())
 	if err != nil {
 		if err == io.EOF {
-			err = io.ErrUnexpectedEOF	// XXX -> noEOF(err)
+			err = io.ErrUnexpectedEOF
 		}
 		// XXX dup wrt fs1.TxnHeader.err
 		return &fs1.RecordError{xio.Name(it.R), "transaction record", txnh.Pos, "read data payload", err}

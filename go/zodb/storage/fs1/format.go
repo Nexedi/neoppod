@@ -26,9 +26,9 @@ import (
 	"io"
 	"os"
 
-	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xbytes"
@@ -41,9 +41,9 @@ type FileHeader struct {
 
 // TxnHeader represents header of a transaction record
 type TxnHeader struct {
-	Pos	int64	// position of transaction start
-	LenPrev	int64	// whole previous transaction record length (see EOF/error rules in Load)
-	Len	int64	// whole transaction record length          (see EOF/error rules in Load)
+	Pos     int64 // position of transaction start
+	LenPrev int64 // whole previous transaction record length (see EOF/error rules in Load)
+	Len     int64 // whole transaction record length          (see EOF/error rules in Load)
 
 	// transaction metadata itself
 	zodb.TxnInfo
@@ -51,51 +51,51 @@ type TxnHeader struct {
 	// underlying memory for header loading and for user/desc/extension strings
 	// invariant: after successful TxnHeader load len(.workMem) = lenUser + lenDesc + lenExt
 	//            as specified by on-disk header.
-	workMem	[]byte
+	workMem []byte
 }
 
 // DataHeader represents header of a data record
 type DataHeader struct {
-	Pos		int64	// position of data record start
-	Oid             zodb.Oid
-	Tid             zodb.Tid
-	PrevRevPos	int64	// position of this oid's previous-revision data record
-	TxnPos          int64	// position of transaction record this data record belongs to
-	//_		uint16	// 2-bytes with zero values. (Was version length.)
-	DataLen		int64	// length of following data. if 0 -> following = 8 bytes backpointer
-				// if backpointer == 0 -> oid deleted
+	Pos        int64    // position of data record start
+	Oid        zodb.Oid
+	Tid        zodb.Tid
+	PrevRevPos int64    // position of this oid's previous-revision data record
+	TxnPos     int64    // position of transaction record this data record belongs to
+	//_        uint16   // 2-bytes with zero values. (Was version length.)
+	DataLen    int64    // length of following data. if 0 -> following = 8 bytes backpointer
+	                    // if backpointer == 0 -> oid deleted
 
 	// underlying memory for header loading (to avoid allocations)
 	workMem [DataHeaderSize]byte
 }
 
 const (
-	Magic = "FS21"	// every FileStorage file starts with this
+	Magic = "FS21" // every FileStorage file starts with this
 
 	// on-disk sizes
-	FileHeaderSize		= 4
-	TxnHeaderFixSize	= 8+8+1+2+2+2		// without user/desc/ext strings
-	txnXHeaderFixSize	= 8 + TxnHeaderFixSize	// ^^^ with trail LenPrev from previous record
-	DataHeaderSize		= 8+8+8+8+2+8
+	FileHeaderSize    = 4
+	TxnHeaderFixSize  = 8 + 8 + 1 + 2 + 2 + 2 // without user/desc/ext strings
+	txnXHeaderFixSize = 8 + TxnHeaderFixSize  // ^^^ with trail LenPrev from previous record
+	DataHeaderSize    = 8 + 8 + 8 + 8 + 2 + 8
 
 	// txn/data pos that if < vvv are for sure invalid
-	txnValidFrom	= FileHeaderSize
-	dataValidFrom	= txnValidFrom + TxnHeaderFixSize
+	txnValidFrom  = FileHeaderSize
+	dataValidFrom = txnValidFrom + TxnHeaderFixSize
 
 	// invalid length that indicates start of iteration for TxnHeader LoadNext/LoadPrev
 	// NOTE load routines check loaded fields to be valid and .Len in particular,
 	//      so it can never come to us from outside to be this.
-	lenIterStart int64 = -0x1111111111111112	// = 0xeeeeeeeeeeeeeeee if unsigned
+	lenIterStart int64 = -0x1111111111111112 // = 0xeeeeeeeeeeeeeeee if unsigned
 )
 
 // RecordError represents error associated with operation on a record in
 // FileStorage data file.
 type RecordError struct {
-	Path	string	// path of the data file
-	Record	string	// record kind - "file header", "transaction record", "data record", ...
-	Pos	int64	// position of record
-	Subj	string	// subject context for the error - e.g. "read" or "check"
-	Err	error	// actual error
+	Path   string // path of the data file
+	Record string // record kind - "file header", "transaction record", "data record", ...
+	Pos    int64  // position of record
+	Subj   string // subject context for the error - e.g. "read" or "check"
+	Err    error  // actual error
 }
 
 func (e *RecordError) Cause() error {
@@ -148,7 +148,7 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 	_, err := r.ReadAt(fh.Magic[:], 0)
 	err = okEOF(err)
 	if err != nil {
-		return  err
+		return err
 	}
 	if string(fh.Magic[:]) != Magic {
 		return fmt.Errorf("%s: invalid fs1 magic %q", xio.Name(r), fh.Magic)
@@ -198,8 +198,8 @@ func (txnh *TxnHeader) CloneFrom(txnh2 *TxnHeader) {
 // flags for TxnHeader.Load
 type TxnLoadFlags int
 const (
-	LoadAll		TxnLoadFlags	= 0x00 // load whole transaction header
-	LoadNoStrings			= 0x01 // do not load user/desc/ext strings
+	LoadAll       TxnLoadFlags = 0x00 // load whole transaction header
+	LoadNoStrings              = 0x01 // do not load user/desc/ext strings
 )
 
 // Load reads and decodes transaction record header @ pos.
@@ -228,8 +228,8 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	work := txnh.workMem[:txnXHeaderFixSize]
 
 	txnh.Pos = pos
-	txnh.Len = -1		// read error
-	txnh.LenPrev = -1	// read error
+	txnh.Len = -1     // read error
+	txnh.LenPrev = -1 // read error
 
 	if pos < txnValidFrom {
 		bug(r, txnh, "Load() on invalid position")
@@ -241,7 +241,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	if pos - 8 >= txnValidFrom {
 		// read together with previous's txn record redundant length
 		n, err = r.ReadAt(work, pos - 8)
-		n -= 8	// relative to pos
+		n -= 8 // relative to pos
 		if n >= 0 {
 			lenPrev := 8 + int64(binary.BigEndian.Uint64(work[8-8:]))
 			if lenPrev < TxnHeaderFixSize {
@@ -259,14 +259,14 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 	} else {
 		// read only current txn without previous record length
 		n, err = r.ReadAt(work[8:], pos)
-		txnh.LenPrev = 0	// EOF backward
+		txnh.LenPrev = 0 // EOF backward
 	}
 
 
 	if err != nil {
 		if err == io.EOF && n == 0 {
-			txnh.Len = 0	// EOF forward
-			return err	// end of stream
+			txnh.Len = 0 // EOF forward
+			return err   // end of stream
 		}
 
 		// EOF after txn header is not good - because at least
@@ -291,8 +291,7 @@ func (txnh *TxnHeader) Load(r io.ReaderAt, pos int64, flags TxnLoadFlags) error 
 		return checkErr(r, txnh, "invalid status: %q", txnh.Status)
 	}
 
-
-        luser := binary.BigEndian.Uint16(work[8+17:])
+	luser := binary.BigEndian.Uint16(work[8+17:])
 	ldesc := binary.BigEndian.Uint16(work[8+19:])
 	lext  := binary.BigEndian.Uint16(work[8+21:])
 
@@ -461,7 +460,7 @@ func (dh *DataHeader) Len() int64 {
 //
 // No prerequisite requirements are made to previous dh state.
 func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
-	dh.Pos = -1	// ~ error
+	dh.Pos = -1 // ~ error
 
 	if pos < dataValidFrom {
 		bug(r, dh, "Load() on invalid position")
@@ -473,8 +472,8 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 	}
 
 	// XXX also check oid.Valid() ?
-	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(dh.workMem[0:]))	// XXX -> zodb.Oid.Decode() ?
-	dh.Tid = zodb.Tid(binary.BigEndian.Uint64(dh.workMem[8:]))	// XXX -> zodb.Tid.Decode() ?
+	dh.Oid = zodb.Oid(binary.BigEndian.Uint64(dh.workMem[0:]))
+	dh.Tid = zodb.Tid(binary.BigEndian.Uint64(dh.workMem[8:]))
 	if !dh.Tid.Valid() {
 		return checkErr(r, dh, "invalid tid: %v", dh.Tid)
 	}
@@ -488,7 +487,7 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 	if dh.TxnPos + TxnHeaderFixSize > pos {
 		return checkErr(r, dh, "txn position not decreasing: %v", dh.TxnPos)
 	}
-	if dh.PrevRevPos != 0 {	// zero means there is no previous revision
+	if dh.PrevRevPos != 0 { // zero means there is no previous revision
 		if dh.PrevRevPos < dataValidFrom {
 			return checkErr(r, dh, "invalid prev revision position: %v", dh.PrevRevPos)
 		}
@@ -519,7 +518,7 @@ func (dh *DataHeader) Load(r io.ReaderAt, pos int64) error {
 // When there is no previous revision: io.EOF is returned.
 func (dh *DataHeader) LoadPrevRev(r io.ReaderAt) error {
 	if dh.PrevRevPos == 0 {
-		return io.EOF	// no more previous revisions
+		return io.EOF // no more previous revisions
 	}
 
 	posCur := dh.Pos
@@ -590,7 +589,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 	}
 
 	if backPos == 0 {
-		return io.EOF	// oid was deleted
+		return io.EOF // oid was deleted
 	}
 
 	posCur := dh.Pos
@@ -686,16 +685,16 @@ func (dh *DataHeader) LoadData(r io.ReaderAt) (*mem.Buf, error) {
 
 // Iter is combined 2-level iterator over transaction and data records
 type Iter struct {
-	R	io.ReaderAt
-	Dir	IterDir
+	R   io.ReaderAt
+	Dir IterDir
 
-	Txnh	TxnHeader	// current transaction record information
-	Datah	DataHeader	// current data record information
+	Txnh  TxnHeader  // current transaction record information
+	Datah DataHeader // current data record information
 }
 
 type IterDir int
 const (
-	IterForward	IterDir = iota
+	IterForward IterDir = iota
 	IterBackward
 )
 

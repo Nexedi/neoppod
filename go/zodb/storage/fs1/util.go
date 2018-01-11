@@ -23,7 +23,6 @@ import (
 	"io"
 )
 
-// XXX -> xio ?
 // noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
 func noEOF(err error) error {
 	if err == io.EOF {

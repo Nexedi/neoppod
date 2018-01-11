@@ -239,8 +239,8 @@ type IStorageDriver interface {
 
 	// TODO: write mode
 
-	// Store(oid Oid, serial Tid, data []byte, txn ITransaction) error
-	// StoreKeepCurrent(oid Oid, serial Tid, txn ITransaction)
+	// Store(ctx, oid Oid, serial Tid, data []byte, txn ITransaction) error
+	// StoreKeepCurrent(ctx, oid Oid, serial Tid, txn ITransaction)
 
 	// TpcBegin(txn)
 	// TpcVote(txn)

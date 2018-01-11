@@ -33,16 +33,16 @@ import (
 
 // one database transaction record
 type dbEntry struct {
-	Header	TxnHeader
-	Entryv	[]txnEntry
+	Header TxnHeader
+	Entryv []txnEntry
 }
 
 // one entry inside transaction
 type txnEntry struct {
-	Header	    DataHeader
-	rawData	    []byte	// what is on disk, e.g. it can be backpointer
-	userData    []byte	// data client should see on load; `sameAsRaw` means same as RawData
-	DataTidHint zodb.Tid	// data tid client should see on iter
+	Header      DataHeader
+	rawData     []byte   // what is on disk, e.g. it can be backpointer
+	userData    []byte   // data client should see on load; `sameAsRaw` means same as RawData
+	DataTidHint zodb.Tid // data tid client should see on iter
 }
 
 var sameAsRaw = []byte{0}
@@ -58,8 +58,8 @@ func (txe *txnEntry) Data() []byte {
 
 // state of an object in the database for some particular revision
 type objState struct {
-	tid	zodb.Tid
-	data	[]byte   // nil if obj was deleted
+	tid  zodb.Tid
+	data []byte // nil if obj was deleted
 }
 
 
@@ -74,7 +74,7 @@ func checkLoad(t *testing.T, fs *FileStorage, xid zodb.Xid, expect objState) {
 			URL:  fs.URL(),
 			Op:   "load",
 			Args: xid,
-			Err:  &zodb.NoDataError{Oid: xid.Oid , DeletedAt: expect.tid},
+			Err:  &zodb.NoDataError{Oid: xid.Oid, DeletedAt: expect.tid},
 		}
 		if !reflect.DeepEqual(err, errOk) {
 			t.Errorf("load %v: returned err unexpected: %v  ; want: %v", xid, err, errOk)
@@ -117,7 +117,7 @@ func xfsopen(t testing.TB, path string) *FileStorage {
 }
 
 func TestLoad(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs")	// TODO open read-only
+	fs := xfsopen(t, "testdata/1.fs") // TODO open read-only
 	defer exc.XRun(fs.Close)
 
 	// current knowledge of what was "before" for an oid as we scan over
@@ -208,7 +208,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 		}
 
 		for kdata := 0; ; kdata++ {
-			dataErrorf := func(format string, a...interface{}) {
+			dataErrorf := func(format string, a ...interface{}) {
 				t.Helper()
 				dsubj := fmt.Sprintf("dstep %v#%v", kdata, len(dbe.Entryv))
 				msg   := fmt.Sprintf(format, a...)
@@ -266,7 +266,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 }
 
 func TestIterate(t *testing.T) {
-	fs := xfsopen(t, "testdata/1.fs")	// TODO open ro
+	fs := xfsopen(t, "testdata/1.fs") // TODO open ro
 	defer exc.XRun(fs.Close)
 
 	// all []tids in test database
@@ -302,7 +302,7 @@ func TestIterate(t *testing.T) {
 }
 
 func BenchmarkIterate(b *testing.B) {
-	fs := xfsopen(b, "testdata/1.fs")	// TODO open ro
+	fs := xfsopen(b, "testdata/1.fs") // TODO open ro
 	defer exc.XRun(fs.Close)
 
 	ctx := context.Background()
