@@ -21,9 +21,9 @@ package zodb
 // formatting and parsing for basic zodb types
 
 import (
-	"fmt"
-	"encoding/hex"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 
 	"lab.nexedi.com/kirr/go123/xfmt"
 	"lab.nexedi.com/kirr/go123/xstrings"
@@ -87,7 +87,7 @@ func (xid Xid) XFmtString(b xfmt.Buffer) xfmt.Buffer {
 func parseHex64(subj, s string) (uint64, error) {
 	// XXX -> xfmt ?
 	// XXX like scanf("%016x") but scanf implicitly skips spaces without giving control to caller and is slower
-	var b[8]byte
+	var b [8]byte
 	if len(s) != 16 {
 		return 0, fmt.Errorf("%s %q invalid", subj, s)
 	}

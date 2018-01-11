@@ -49,15 +49,14 @@ type Cache struct {
 
 	// cache is fully synchronized with storage for transactions with tid <= head.
 	// XXX clarify ^^^ (it means if revCacheEntry.head=∞ it is Cache.head)
-	head	Tid
+	head Tid
 
-	entryMap map[Oid]*oidCacheEntry	// oid -> oid's cache entries
+	entryMap map[Oid]*oidCacheEntry // oid -> oid's cache entries
 
-	gcMu sync.Mutex
-	lru  lruHead	// revCacheEntries in LRU order
-	size int	// cached data size in bytes
-
-	sizeMax int	// cache is allowed to occupy not more than this
+	gcMu    sync.Mutex
+	lru     lruHead // revCacheEntries in LRU order
+	size    int     // cached data size in bytes
+	sizeMax int     // cache is allowed to occupy not more than this
 }
 
 // oidCacheEntry maintains cached revisions for 1 oid
@@ -76,8 +75,8 @@ type oidCacheEntry struct {
 
 // revCacheEntry is information about 1 cached oid revision
 type revCacheEntry struct {
-	parent *oidCacheEntry	// oidCacheEntry holding us
-	inLRU  lruHead		// in Cache.lru; protected by Cache.gcMu
+	parent *oidCacheEntry // oidCacheEntry holding us
+	inLRU  lruHead        // in Cache.lru; protected by Cache.gcMu
 
 	// we know that load(oid, .head) will give this .serial:oid.
 	//
@@ -107,7 +106,7 @@ type revCacheEntry struct {
 
 	// protected by .parent's lock:
 
-	accounted  bool  // whether rce size was accounted in cache size
+	accounted bool // whether rce size was accounted in cache size
 
 	// how many waiters for buf is there while rce is being loaded.
 	// after data for this RCE is loaded loadRCE will do .buf.XIncref() .waitBufRef times.
@@ -163,8 +162,6 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, er
 
 	// rce is not in cache - this goroutine becomes responsible for loading it
 	} else {
-		// XXX use connection poll
-		// XXX or it should be cared by loader?
 		c.loadRCE(ctx, rce)
 	}
 
@@ -192,7 +189,6 @@ func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
 
 	// spawn loading in the background if rce was not yet loaded
 	if rceNew {
-		// XXX use connection poll
 		go c.loadRCE(ctx, rce)
 	}
 
@@ -305,7 +301,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 
 	// normalize buf/serial if it was error
 	if err != nil {
-		e := err.(*OpError)	// XXX better driver return *OpError explicitly
+		e := err.(*OpError) // XXX better driver return *OpError explicitly
 
 		// only remember problem cause - full OpError will be
 		// reconstructed in Load with actual requested there xid.
@@ -362,7 +358,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 	// and will update lru and cache size for it itself.
 	rceOrig := rce
 	rceDropped := false
-	if i + 1 < len(oce.rcev) {
+	if i+1 < len(oce.rcev) {
 		rceNext := oce.rcev[i+1]
 		if rceNext.loaded() && tryMerge(rce, rceNext, rce) {
 			// not δsize -= len(rce.buf.Data)
@@ -544,7 +540,7 @@ func (c *Cache) gc() {
 }
 
 // freelist(OCE)
-var ocePool = sync.Pool{New: func() interface{} { return &oidCacheEntry{} } }
+var ocePool = sync.Pool{New: func() interface{} { return &oidCacheEntry{} }}
 
 // oceAlloc allocates oidCacheEntry from freelist.
 func oceAlloc(oid Oid) *oidCacheEntry {
@@ -663,7 +659,7 @@ func (h *lruHead) rceFromInLRU() (rce *revCacheEntry) {
 // errDB returns error about database being inconsistent
 func errDB(oid Oid, format string, argv ...interface{}) error {
 	// XXX -> separate type?
-	return fmt.Errorf("cache: database inconsistency: oid: %v: " + format,
+	return fmt.Errorf("cache: database inconsistency: oid: %v: "+format,
 		append([]interface{}{oid}, argv...)...)
 }
 

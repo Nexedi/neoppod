@@ -52,7 +52,7 @@
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/fsIndex.py
 //	https://github.com/zopefoundation/ZODB/commit/1bb14faf
 //
-// Unless one is doing something FileStorage-specific, it is adviced not to use
+// Unless one is doing something FileStorage-specific, it is advised not to use
 // fs1 package directly, and instead link-in lab.nexedi.com/kirr/neo/go/zodb/wks,
 // open storage by zodb.OpenStorage and use it by way of zodb.IStorage interface.
 //
@@ -131,7 +131,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, seri
 	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
 	// -> TODO reject tid out of range
 
-	// FIXME kill Load_XXXWithNextSerial after neo/py cache does not depend on next_serial
+	// FIXME kill Load_XXXWithNextSerialXXX after neo/py cache does not depend on next_serial
 	buf, serial, _, err = fs.Load_XXXWithNextSerialXXX(nil, xid)
 	return buf, serial, err
 }
@@ -385,7 +385,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 }
 
 // Iterate creates zodb-level iterator for tidMin..tidMax range
-func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
+func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	// when iterating use IO optimized for sequential access
 	fsSeq := xbufio.NewSeqReaderAt(fs.file)
 	ziter := &zIter{iter: Iter{R: fsSeq}}
@@ -403,7 +403,7 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 			URL:  fs.URL(),
 			Op:   "iter",
 			// XXX (?) add TidRange type which prints as
-			// "tidmin..tidmax" with omiting ends if it is either 0 or ∞
+			// "tidmin..tidmax" with omitting ends if it is either 0 or ∞
 			Args: []zodb.Tid{tidMin, tidMax},
 			Err:  err,
 		}}

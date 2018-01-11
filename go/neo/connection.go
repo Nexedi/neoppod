@@ -72,7 +72,7 @@ type NodeLink struct {
 	axdownFlag atomic32	//  1 when AX is marked no longer operational
 
 //	axdown  chan struct{}	// ready when accept is marked as no longer operational
-	axdown1 sync.Once	// CloseAccept may be called severall times
+	axdown1 sync.Once	// CloseAccept may be called several times
 
 	down     chan struct{}  // ready when NodeLink is marked as no longer operational
 	downOnce sync.Once      // shutdown may be due to both Close and IO error
@@ -478,7 +478,7 @@ func (c *Conn) downRX(errMsg *Error) {
 	for {
 		// we set .rxdownFlag=1 above.
 		// now if serveRecv is outside `.rxq <- ...` critical section we know it is either:
-		// - before it	-> it will eventually see .rxdownFlag=1 and wont send pkt ro rxq.
+		// - before it	-> it will eventually see .rxdownFlag=1 and won't send pkt to rxq.
 		// - after it	-> it already sent pkt to rxq and won't touch
 		//		   rxq until next packet (where it will hit "before it").
 		//
@@ -509,7 +509,7 @@ func (c *Conn) downRX(errMsg *Error) {
 		// now if recvPkt is outside `... <- .rxq` critical section we know that it is either:
 		// - before it	-> it will eventually see .rxdownFlag=1 and won't try to read rxq.
 		// - after it	-> it already read pktfrom rxq and won't touch
-		//                 rxq until next recvPkt (where it will het "before it").
+		//                 rxq until next recvPkt (where it will hit "before it").
 		if c.rxqRead.Get() == 0 {
 			break
 		}
@@ -821,7 +821,7 @@ func (nl *NodeLink) serveRecv() {
 		// on rxq/acceptq only being put into the runqueue of current proc.
 		// By default proc runq will execute only when sendRecv blocks
 		// again next time deep in nl.recvPkt(), but let's force the switch
-		// now without additional wating to reduce latency.
+		// now without additional waiting to reduce latency.
 
 		// XXX bad - puts serveRecv to global runq thus with high p to switch M
 		//runtime.Gosched()
@@ -1602,7 +1602,7 @@ func (c *Conn) Ask(req Msg, resp Msg) error {
 }
 
 // ---- exchange of 1-1 request-reply ----
-// (impedance matcher for current neo/py imlementation)
+// (impedance matcher for current neo/py implementation)
 
 // lightClose closes light connection.
 //

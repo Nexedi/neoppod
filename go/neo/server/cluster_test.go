@@ -514,7 +514,7 @@ func TestMasterStorage(t *testing.T) {
 
 
 	// C loads every other {<,=}serial:oid - established link is reused
-	ziter := zstor.Iterate(0, zodb.TidMax)
+	ziter := zstor.Iterate(bg, 0, zodb.TidMax)
 
 	// XXX hack: disable tracing early so that C.Load() calls do not deadlock
 	// TODO refactor cluster creation into func

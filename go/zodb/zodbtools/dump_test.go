@@ -45,7 +45,7 @@ func loadZdumpPy(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 
-	// python qoutes "\v" as "\x0b", go as "\v"; same for "\f", "\a", "\b".
+	// python quotes "\v" as "\x0b", go as "\v"; same for "\f", "\a", "\b".
 	// XXX this is a bit hacky. We could compare quoted strings as decoded,
 	// but this would need zdump format parser which could contain other
 	// bugs.  Here we want to compare output ideally bit-to-bit but those

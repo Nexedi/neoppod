@@ -45,7 +45,7 @@ type tStorage struct {
 type tOidData struct {
 	serial Tid
 	data   []byte
-	err    error    // e.g. io error
+	err    error // e.g. io error
 }
 
 // create new buffer with specified content copied there.
@@ -208,7 +208,7 @@ func TestCache(t *testing.T) {
 		}
 
 		if bad.Len() != 0 {
-			t.Fatalf("rce:\n%s", bad.Bytes())	// XXX add oid?
+			t.Fatalf("rce:\n%s", bad.Bytes()) // XXX add oid?
 		}
 	}
 
@@ -466,7 +466,7 @@ func TestCache(t *testing.T) {
 			fmt.Fprintf(bad, "unexpected rce found:\n%s\n", pretty.Compare(expect, rce))
 		}
 
-		if bad.Len() != 0{
+		if bad.Len() != 0 {
 			t.Fatalf("lookupRCE(%v):\n%s", xid, bad.Bytes())
 		}
 	}
@@ -637,7 +637,7 @@ func (c *Checker) assertEq(a, b interface{}) {
 // ----------------------------------------
 
 // noopStorage is dummy StorLoader which for any oid/xid always returns 1-byte data
-type noopStorage struct {}
+type noopStorage struct{}
 var noopData = []byte{0}
 
 func (s *noopStorage) URL() string {
@@ -676,7 +676,7 @@ func benchLoadN(b *testing.B, n int, l StorLoader, worksize int) {
 
 
 // benchmark storage under cache
-func BenchmarkNoopStorage(b *testing.B)		{ benchLoad(b, &noopStorage{}, b.N /* = ∞ */) }
+func BenchmarkNoopStorage(b *testing.B) { benchLoad(b, &noopStorage{}, b.N /* = ∞ */) }
 
 // cache sizes to benchmark (elements = bytes (we are using 1-byte element))
 var cachesizev = []int{0, 16, 128, 512, 4096}
@@ -728,9 +728,9 @@ func benchLoadPar(b *testing.B, l StorLoader, worksize int) {
 	np := runtime.GOMAXPROCS(0)
 	p := uint64(0)
 
-	b.RunParallel(func (pb *testing.PB) {
+	b.RunParallel(func(pb *testing.PB) {
 		oid0 := Oid(atomic.AddUint64(&p, +1)) // all workers start/iterate at different oid
-		xid := Xid{At: 1, Oid: oid0 }
+		xid := Xid{At: 1, Oid: oid0}
 		for pb.Next() {
 			buf, _, err := l.Load(ctx, xid)
 			if err != nil {
@@ -746,7 +746,7 @@ func benchLoadPar(b *testing.B, l StorLoader, worksize int) {
 	})
 }
 
-func BenchmarkNoopStoragePar(b *testing.B)	{ benchLoadPar(b, &noopStorage{}, b.N /* = ∞ */) }
+func BenchmarkNoopStoragePar(b *testing.B) { benchLoadPar(b, &noopStorage{}, b.N /* = ∞ */) }
 
 func BenchmarkCacheStartupPar(b *testing.B) {
 	s := &noopStorage{}
@@ -797,7 +797,7 @@ func benchLoadProc(pb *testing.PB, l StorLoader, worksize int) error {
 }
 
 func BenchmarkNoopStorageProc(b *testing.B) {
-	b.RunParallel(func (pb *testing.PB) {
+	b.RunParallel(func(pb *testing.PB) {
 		s := &noopStorage{}
 		err := benchLoadProc(pb, s, b.N)
 		if err != nil {
@@ -807,7 +807,7 @@ func BenchmarkNoopStorageProc(b *testing.B) {
 }
 
 func BenchmarkCacheStartupProc(b *testing.B) {
-	b.RunParallel(func (pb *testing.PB) {
+	b.RunParallel(func(pb *testing.PB) {
 		s := &noopStorage{}
 		c := NewCache(s, b.N)
 		err := benchLoadProc(pb, c, b.N)
@@ -821,7 +821,7 @@ func BenchmarkCacheStartupProc(b *testing.B) {
 func benchEachCacheProc(b *testing.B, f func(b *testing.B, pb *testing.PB, c *Cache) error) {
 	for _, size := range cachesizev {
 		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
-			b.RunParallel(func (pb *testing.PB) {
+			b.RunParallel(func(pb *testing.PB) {
 				s := &noopStorage{}
 				c := NewCache(s, size)
 				err := f(b, pb, c)

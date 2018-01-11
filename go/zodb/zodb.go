@@ -88,8 +88,7 @@ type TxnInfo struct {
 	Extension   []byte
 }
 
-
-// DataInfo represents information about one object change.
+// DataInfo is information about one object change.
 type DataInfo struct {
 	Oid	Oid
 	Tid	Tid    // changed by this transaction
@@ -152,7 +151,7 @@ type OpError struct {
 	URL  string	 // URL of the storage
 	Op   string	 // operation that failed
 	Args interface{} // operation arguments, if any
-	Err  error	 // actual error that occured during the operation
+	Err  error	 // actual error that occurred during the operation
 }
 
 func (e *OpError) Error() string {
@@ -167,7 +166,6 @@ func (e *OpError) Error() string {
 func (e *OpError) Cause() error {
 	return e.Err
 }
-
 
 
 // IStorage is the interface provided by opened ZODB storage
@@ -256,8 +254,11 @@ type IStorageDriver interface {
 
 	// Iterate creates iterator to iterate storage in [tidMin, tidMax] range.
 	//
+	// Iterate does not return any error. If there was error when setting
+	// iteration up - it will be returned on first NextTxn call.
+	//
 	// TODO allow iteration both ways (forward & backward)
-	Iterate(tidMin, tidMax Tid) ITxnIterator	// XXX ctx , error ?
+	Iterate(ctx context.Context, tidMin, tidMax Tid) ITxnIterator
 }
 
 // ITxnIterator is the interface to iterate transactions.

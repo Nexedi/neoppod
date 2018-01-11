@@ -193,7 +193,7 @@ func (d *dumper) Dump(ctx context.Context, stor zodb.IStorage, tidMin, tidMax zo
 	var dataIter zodb.IDataIterator
 	var err      error
 
-	iter := stor.Iterate(tidMin, tidMax)
+	iter := stor.Iterate(ctx, tidMin, tidMax)
 
 	// transactions
 	for {

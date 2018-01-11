@@ -58,7 +58,6 @@ func Dumpobj(ctx context.Context, w io.Writer, stor zodb.IStorage, xid zodb.Xid,
 		return err
 	}
 
-	// XXX hack - TODO rework IStorage.Load to fill-in objInfo directly?
 	objInfo.Oid = xid.Oid
 	objInfo.Tid = serial
 	objInfo.Data = buf.Data

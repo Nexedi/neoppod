@@ -157,7 +157,7 @@ func TestLoad(t *testing.T) {
 // iterate tidMin..tidMax and expect db entries in expectv
 func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv []dbEntry) {
 	ctx := context.Background()
-	iter := fs.Iterate(tidMin, tidMax)
+	iter := fs.Iterate(ctx, tidMin, tidMax)
 	fsi, ok := iter.(*zIter)
 	if !ok {
 		_, _, err := iter.NextTxn(ctx)
@@ -233,7 +233,7 @@ func testIterate(t *testing.T, fs *FileStorage, tidMin, tidMax zodb.Tid, expectv
 			txe := dbe.Entryv[kdata]
 			dh  := txe.Header
 
-			// assert datai pointes to where we expect - this will allow us
+			// assert datai points to where we expect - this will allow us
 			// not only to check oid/tid/data but also to check whole data header.
 			if datai != &fsi.datai {
 				t.Fatal("unexpected datai pointer")
@@ -309,7 +309,7 @@ func BenchmarkIterate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		iter := fs.Iterate(zodb.Tid(0), zodb.TidMax)
+		iter := fs.Iterate(ctx, zodb.Tid(0), zodb.TidMax)
 
 		for {
 			txni, dataIter, err := iter.NextTxn(ctx)

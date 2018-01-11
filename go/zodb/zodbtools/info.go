@@ -126,6 +126,7 @@ func infoMain(argv []string) {
 	if err != nil {
 		prog.Fatal(err)
 	}
+	// TODO defer stor.Close()
 
 	err = Info(ctx, os.Stdout, stor, argv[1:])
 	if err != nil {

@@ -74,7 +74,7 @@ var _ zodb.IStorageDriver = (*Client)(nil)
 
 // NewClient creates new client node.
 //
-// It will connect to master @masterAddr and identify with sepcified cluster name.
+// It will connect to master @masterAddr and identify with specified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
 		node:        neo.NewNodeApp(net, neo.CLIENT, clusterName, masterAddr, ""),
@@ -479,7 +479,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 	return buf, resp.Serial, nil
 }
 
-func (c *Client) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
+func (c *Client) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	// see notes in ../NOTES:"On iteration"
 	panic("TODO")
 }
@@ -511,7 +511,7 @@ func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zo
 func (c *Client) URL() string {
 	// XXX neos:// depending whether it was tls
 	// XXX options if such were given to open are discarded
-	//     (but we need to be able to contruct URL if Client was created via NewClient directly)
+	//     (but we need to be able to construct URL if Client was created via NewClient directly)
 	return fmt.Sprintf("neo://%s@%s", c.node.ClusterName, c.node.MasterAddr)
 }
 
