@@ -131,7 +131,7 @@ func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, seri
 	// -> TODO reject tid out of range
 	buf, serial, err = fs.load(xid)
 	if err != nil {
-		err = &zodb.LoadError{URL: fs.URL(), Xid: xid, Err: err}
+		err = &zodb.OpError{URL: fs.URL(), Op: "load", Args: xid, Err: err}
 	}
 	return buf, serial, err
 }
@@ -218,6 +218,7 @@ const (
 
 // NextTxn iterates to next/previous transaction record according to iteration direction
 func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, error) {
+	// TODO err -> OpError("iter", tidmin..tidmax)
 	switch {
 	case zi.zFlags & zIterEOF != 0:
 		return nil, nil, io.EOF
@@ -245,6 +246,7 @@ func (zi *zIter) NextTxn(_ context.Context) (*zodb.TxnInfo, zodb.IDataIterator, 
 
 // NextData iterates to next data record and loads data content
 func (zi *zIter) NextData(_ context.Context) (*zodb.DataInfo, error) {
+	// TODO err -> OpError("iter", tidmin..tidmax)
 	err := zi.iter.NextData()
 	if err != nil {
 		return nil, err
@@ -381,7 +383,14 @@ func (fs *FileStorage) Iterate(tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 		return ziter
 
 	case err != nil:
-		return &iterStartError{err}
+		return &iterStartError{&zodb.OpError{
+			URL:  fs.URL(),
+			Op:   "iter",
+			// XXX (?) add TidRange type which prints as
+			// "tidmin..tidmax" with omiting ends if it is either 0 or ∞
+			Args: []zodb.Tid{tidMin, tidMax},
+			Err:  err,
+		}}
 	}
 
 	// setup iter from what findTxnRecord found
@@ -498,7 +507,7 @@ func Open(ctx context.Context, path string) (_ *FileStorage, err error) {
 func (fs *FileStorage) Close() error {
 	err := fs.file.Close()
 	if err != nil {
-		return err
+		return &zodb.OpError{URL: fs.URL(), Op: "close", Args: nil, Err: err}
 	}
 
 	// TODO if opened !ro -> .saveIndex()

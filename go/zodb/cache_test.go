@@ -75,7 +75,7 @@ func (stor *tStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid
 	//defer func() { fmt.Printf("< %v, %v, %v\n", buf.XData(), serial, err) }()
 	buf, serial, err = stor.load(xid)
 	if err != nil {
-		err = &LoadError{URL: stor.URL(), Xid: xid, Err: err}
+		err = &OpError{URL: stor.URL(), Op: "load", Args: xid, Err: err}
 	}
 	return buf, serial, err
 }
@@ -163,7 +163,7 @@ func TestCache(t *testing.T) {
 
 		var err error
 		if errCause != nil {
-			err = &LoadError{URL: "test", Xid: xid, Err: errCause}
+			err = &OpError{URL: "test", Op: "load", Args: xid, Err: errCause}
 		}
 		if !reflect.DeepEqual(err, e) {
 			fmt.Fprintf(bad, "err:\n%s\n", pretty.Compare(err, e))

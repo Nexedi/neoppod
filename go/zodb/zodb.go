@@ -147,18 +147,24 @@ func (e *NoDataError) Error() string {
 	}
 }
 
-// LoadError is the error returned by IStorageDriver.Load
-type LoadError struct {
-	URL string
-	Xid Xid
-	Err error
+// OpError is the error returned by IStorageDriver operations
+type OpError struct {
+	URL  string	 // URL of the storage
+	Op   string	 // operation that failed
+	Args interface{} // operation arguments, if any
+	Err  error	 // actual error that occured during the operation
 }
 
-func (e *LoadError) Error() string {
-	return fmt.Sprintf("%s: load %s: %v", e.URL, e.Xid, e.Err)
+func (e *OpError) Error() string {
+	s := e.URL + ": " + e.Op
+	if e.Args != nil {
+		s += fmt.Sprintf(" %s", e.Args)
+	}
+	s += ": " + e.Err.Error()
+	return s
 }
 
-func (e *LoadError) Cause() error {
+func (e *OpError) Cause() error {
 	return e.Err
 }
 
@@ -204,7 +210,7 @@ type IStorageDriver interface {
 	//	- if there is data to load: buf is non-empty, serial indicates
 	//	  transaction which matched xid criteria and err=nil.
 	//
-	// otherwise buf=nil, serial=0 and err is *LoadError with err.Err
+	// otherwise buf=nil, serial=0 and err is *OpError with err.Err
 	// describing the error cause:
 	//
 	//	- *NoObjectError if there is no such object in database at all,

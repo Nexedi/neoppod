@@ -105,7 +105,7 @@ type storage struct {
 
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?
-	// XXX here: offload wrapping err -> LoadError{err} ?
+	// XXX here: offload wrapping err -> OpError{"load", err} ?
 	return s.l1cache.Load(ctx, xid)
 }
 

@@ -169,7 +169,7 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, er
 	}
 
 	if rce.err != nil {
-		return nil, 0, &LoadError{URL: c.loader.URL(), Xid: xid, Err: rce.err}
+		return nil, 0, &OpError{URL: c.loader.URL(), Op: "load", Args: xid, Err: rce.err}
 	}
 
 	return rce.buf, rce.serial, nil
@@ -180,6 +180,8 @@ func (c *Cache) Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, er
 // If data is not yet in cache loading for it is started in the background.
 // Prefetch is not blocking operation and does not wait for loading, if any was
 // started, to complete.
+//
+// Prefetch does not return any error.
 func (c *Cache) Prefetch(ctx context.Context, xid Xid) {
 	rce, rceNew := c.lookupRCE(xid, +0)
 
@@ -303,10 +305,11 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 
 	// normalize buf/serial if it was error
 	if err != nil {
-		e := err.(*LoadError)	// XXX better driver return *LoadError explicitly
+		e := err.(*OpError)	// XXX better driver return *OpError explicitly
 
-		// only remember problem cause - full LoadError will be
+		// only remember problem cause - full OpError will be
 		// reconstructed in Load with actual requested there xid.
+		// XXX check .Op == "load" ?
 		err = e.Err
 		// TODO err == canceled? -> don't remember
 		buf.XRelease()

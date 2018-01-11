@@ -551,7 +551,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 		buf, serial, err := stor.zstor.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
-			e := err.(*zodb.LoadError)	// XXX move this to ErrEncode?
+			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
 			return neo.ErrEncode(e.Err)
 		}
 

@@ -33,7 +33,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
@@ -362,7 +361,11 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err e
 // --- user API calls ---
 
 func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
-	defer xerr.Context(&err, "client: lastTid")
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: c.URL(), Op: "last_tid", Args: nil, Err: err}
+		}
+	}()
 
 	// XXX or require full withOperational ?
 	mlink, err := c.masterLink(ctx)
@@ -389,7 +392,7 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial z
 	// defer func() ...
 	buf, serial, err = c._Load(ctx, xid)
 	if err != nil {
-		err = &zodb.LoadError{URL: c.URL(), Xid: xid, Err: err}
+		err = &zodb.OpError{URL: c.URL(), Op: "load", Args: xid, Err: err}
 	}
 	return buf, serial, err
 }

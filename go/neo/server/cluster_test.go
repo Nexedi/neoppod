@@ -515,10 +515,11 @@ func TestMasterStorage(t *testing.T) {
 				}
 			} else {
 				// deleted
-				errWant := &zodb.LoadError{
-					URL: C.URL(),
-					Xid: xid,
-					Err: &zodb.NoDataError{Oid: xid.Oid, DeletedAt: datai.Tid},
+				errWant := &zodb.OpError{
+					URL:  C.URL(),
+					Op:   "load",
+					Args: xid,
+					Err:  &zodb.NoDataError{Oid: xid.Oid, DeletedAt: datai.Tid},
 				}
 				if !(buf == nil && serial == 0 && reflect.DeepEqual(err, errWant)) {
 					t.Fatalf("load: %v ->\nbuf:\n%s\nserial:\n%s\nerr:\n%s\n", xid,
