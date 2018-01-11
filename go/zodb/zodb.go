@@ -197,12 +197,6 @@ type IStorageDriver interface {
 	// If no transactions have been committed yet, LastTid returns 0.
 	LastTid(ctx context.Context) (Tid, error)
 
-	// LastOid returns highest object id of objects committed to storage.
-	//
-	// if there is no data committed yet, LastOid returns Oid zero value	XXX -> better -1 ?
-	// XXX ZODB/py does not define this in IStorage.
-	LastOid(ctx context.Context) (Oid, error)
-
 	// Load loads object data addressed by xid from database.
 	//
 	// Returned are:

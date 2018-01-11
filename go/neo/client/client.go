@@ -383,11 +383,6 @@ func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
 	return reply.Tid, nil
 }
 
-func (c *Client) LastOid(ctx context.Context) (zodb.Oid, error) {
-	// XXX there is no LastOid in NEO/py
-	panic("TODO")
-}
-
 func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// defer func() ...
 	buf, serial, err = c._Load(ctx, xid)
