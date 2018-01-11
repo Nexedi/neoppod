@@ -469,7 +469,7 @@ func TestMasterStorage(t *testing.T) {
 	tc.Expect(conntx("s:3", "c:2", 3, &neo.AnswerObject{
 		Oid:		xid1.Oid,
 		Serial:		serial1,
-		NextSerial:	0,		// XXX
+		NextSerial:	neo.INVALID_TID,
 		Compression:	false,
 		Data:		buf1,
 		DataSerial:	0,		// XXX
@@ -477,6 +477,41 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	xwait(wg)
+
+	// verify NextSerial is properly returned in AnswerObject via trace-loading prev. revision of obj1
+	// (XXX we currently need NextSerial for neo/py client cache)
+	wg = &errgroup.Group{}
+	xid1prev := zodb.Xid{Oid: 1, At: serial1 - 1}
+	buf1prev, serial1prev, err := zstor.Load(bg, xid1prev)
+	exc.Raiseif(err)
+	gox(wg, func() {
+		buf, serial, err := C.Load(bg, xid1prev)
+		exc.Raiseif(err)
+
+		if !(bytes.Equal(buf.Data, buf1prev.Data) && serial==serial1prev) {
+			exc.Raisef("C.Load(%v) ->\ndata:\n%s\nserial:\n%s\n", xid1prev,
+				pretty.Compare(buf1prev.Data, buf.Data), pretty.Compare(serial1prev, serial))
+		}
+	})
+
+	// ... -> GetObject(xid1prev)
+	tc.Expect(conntx("c:2", "s:3", 5, &neo.GetObject{
+		Oid:	xid1prev.Oid,
+		Tid:	serial1,
+		Serial: neo.INVALID_TID,
+	}))
+	tc.Expect(conntx("s:3", "c:2", 5, &neo.AnswerObject{
+		Oid:		xid1prev.Oid,
+		Serial:		serial1prev,
+		NextSerial:	serial1,
+		Compression:	false,
+		Data:		buf1prev,
+		DataSerial:	0,		// XXX
+		Checksum:	sha1.Sum(buf1prev.Data),
+	}))
+
+	xwait(wg)
+
 
 	// C loads every other {<,=}serial:oid - established link is reused
 	ziter := zstor.Iterate(0, zodb.TidMax)

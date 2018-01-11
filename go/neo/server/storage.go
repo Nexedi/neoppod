@@ -33,6 +33,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
@@ -58,7 +59,15 @@ type Storage struct {
 	//	    1 inbox/	(commit queues)
 	//	    2 ? (data.fs)
 	//	    3 packed/	(deltified objects)
-	zstor zodb.IStorageDriver // underlying ZODB storage	XXX -> directly work with fs1 & friends
+	//
+	// XXX we currently depend on extra functionality FS provides over
+	// plain zodb.IStorage (e.g. loading with nextSerial) and even if
+	// nextSerial will be gone in the future, we will probably depend on
+	// particular layout more and more -> directly work with fs1 & friends.
+	//
+	// TODO -> abstract into backend interfaces so various backands are
+	// possible (e.g. +SQL)
+	zstor *fs1.FileStorage // underlying ZODB storage
 
 	//nodeCome chan nodeCome	// node connected
 }
@@ -67,7 +76,7 @@ type Storage struct {
 //
 // The storage uses zstor as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor zodb.IStorageDriver) *Storage {
+func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor *fs1.FileStorage) *Storage {
 	stor := &Storage{
 		node:  neo.NewNodeApp(net, neo.STORAGE, clusterName, masterAddr, serveAddr),
 		zstor: zstor,
@@ -548,7 +557,8 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			xid.At = common.Before2At(req.Tid)
 		}
 
-		buf, serial, err := stor.zstor.Load(ctx, xid)
+		// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
+		buf, serial, nextSerial, err := stor.zstor.Load_XXXWithNextSerialXXX(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
 			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
@@ -566,10 +576,15 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 		        }
 		}
 
+		// no next serial -> None
+		if nextSerial == zodb.TidMax {
+			nextSerial = neo.INVALID_TID
+		}
 
 		return &neo.AnswerObject{
-			Oid:	xid.Oid,
-			Serial: serial,
+			Oid:	    xid.Oid,
+			Serial:     serial,
+			NextSerial: nextSerial,
 
 			Compression:	false,
 			Data:		buf,

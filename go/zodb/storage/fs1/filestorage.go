@@ -126,21 +126,34 @@ func (dh *DataHeader) Free() {
 	dhPool.Put(dh)
 }
 
+
 func (fs *FileStorage) Load(_ context.Context, xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
 	// FIXME zodb.TidMax is only 7fff... tid from outside can be ffff...
 	// -> TODO reject tid out of range
-	buf, serial, err = fs.load(xid)
-	if err != nil {
-		err = &zodb.OpError{URL: fs.URL(), Op: "load", Args: xid, Err: err}
-	}
+
+	// FIXME kill Load_XXXWithNextSerial after neo/py cache does not depend on next_serial
+	buf, serial, _, err = fs.Load_XXXWithNextSerialXXX(nil, xid)
 	return buf, serial, err
 }
 
-func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err error) {
+// XXX temporary function - will go away:
+//
+// FIXME kill Load_XXXWithNextSerialXXX after neo/py cache does not depend on next_serial
+func (fs *FileStorage) Load_XXXWithNextSerialXXX(_ context.Context, xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error) {
+	buf, serial, nextSerial, err = fs.load(xid)
+	if err != nil {
+		err = &zodb.OpError{URL: fs.URL(), Op: "load", Args: xid, Err: err}
+	}
+	return buf, serial, nextSerial, err
+}
+
+
+// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
+func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error) {
 	// lookup in index position of oid data record within latest transaction which changed this oid
 	dataPos, ok := fs.index.Get(xid.Oid)
 	if !ok {
-		return nil, 0, &zodb.NoObjectError{Oid: xid.Oid}
+		return nil, 0, 0, &zodb.NoObjectError{Oid: xid.Oid}
 	}
 
 	// XXX go compiler cannot deduce dh should be on stack here
@@ -150,14 +163,17 @@ func (fs *FileStorage) load(xid zodb.Xid) (buf *mem.Buf, serial zodb.Tid, err er
 	dh.Tid = zodb.TidMax
 	dh.PrevRevPos = dataPos
 	//defer dh.Free()
-	buf, serial, err = fs._load(dh, xid)
+	buf, serial, nextSerial, err = fs._load(dh, xid)
 	dh.Free()
-	return buf, serial, err
+	return buf, serial, nextSerial, err
 }
 
-func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
+// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
+func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, zodb.Tid, error) {
 	// search backwards for when we first have data record with tid satisfying xid.At
+	var nextSerial zodb.Tid
 	for {
+		nextSerial = dh.Tid
 		err := dh.LoadPrevRev(fs.file)
 		if err != nil {
 			if err == io.EOF {
@@ -165,7 +181,7 @@ func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, 
 				err = &zodb.NoDataError{Oid: xid.Oid, DeletedAt: 0}
 			}
 
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 
 		if dh.Tid <= xid.At {
@@ -179,14 +195,14 @@ func (fs *FileStorage) _load(dh *DataHeader, xid zodb.Xid) (*mem.Buf, zodb.Tid, 
 
 	buf, err := dh.LoadData(fs.file)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 	if buf.Data == nil {
 		// object was deleted
-		return nil, 0, &zodb.NoDataError{Oid: xid.Oid, DeletedAt: serial}
+		return nil, 0, 0, &zodb.NoDataError{Oid: xid.Oid, DeletedAt: serial}
 	}
 
-	return buf, serial, nil
+	return buf, serial, nextSerial, nil
 }
 
 // --- ZODB-level iteration ---
