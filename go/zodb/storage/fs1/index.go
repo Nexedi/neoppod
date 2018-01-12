@@ -39,9 +39,8 @@ import (
 	pickle "github.com/kisielk/og-rek"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/go123/xbufio"
 	"lab.nexedi.com/kirr/go123/xerr"
-
-	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 )
 
 // Index is in-RAM Oid -> Data record position mapping used to associate Oid

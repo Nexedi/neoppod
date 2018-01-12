@@ -28,29 +28,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 )
 
-// CountedReader is an io.Reader that count total bytes read.
-type CountedReader struct {
-	r     io.Reader
-	nread int64
-}
-
-func (cr *CountedReader) Read(p []byte) (int, error) {
-	n, err := cr.r.Read(p)
-	cr.nread += int64(n)
-	return n, err
-}
-
-// InputOffset returns the number of bytes read.
-func (cr *CountedReader) InputOffset() int64 {
-	return cr.nread
-}
-
-// CountReader wraps r with CountedReader
-func CountReader(r io.Reader) *CountedReader {
-	return &CountedReader{r, 0}
-}
-
-
 // CloseWhenDone arranges for c to be closed either when ctx is cancelled or
 // surrounding function returns.
 //
