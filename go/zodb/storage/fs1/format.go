@@ -26,8 +26,6 @@ import (
 	"io"
 	"os"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -91,7 +89,7 @@ const (
 // RecordError represents error associated with operation on a record in
 // FileStorage data file.
 type RecordError struct {
-	Path   string // path of the data file
+	Path   string // path of the data file; present if used IO object was with .Name()
 	Record string // record kind - "file header", "transaction record", "data record", ...
 	Pos    int64  // position of record
 	Subj   string // subject context for the error - e.g. "read" or "check"
@@ -104,40 +102,45 @@ func (e *RecordError) Cause() error {
 
 func (e *RecordError) Error() string {
 	// XXX omit path: when .Err already contains it (e.g. when it is os.PathError)?
-	return fmt.Sprintf("%s: %s @%d: %s: %s", e.Path, e.Record, e.Pos, e.Subj, e.Err)
+	prefix := e.Path
+	if prefix != "" {
+		prefix += ": "
+	}
+	return fmt.Sprintf("%s%s @%d: %s: %s", prefix, e.Record, e.Pos, e.Subj, e.Err)
 }
 
-// err creates RecordError for transaction located at txnh.Pos
-func (txnh *TxnHeader) err(r io.ReaderAt, subj string, err error) error {
-	return &RecordError{xio.Name(r), "transaction record", txnh.Pos, subj, err}
+
+// err creates RecordError for transaction located at txnh.Pos in f
+func (txnh *TxnHeader) err(f interface{}, subj string, err error) error {
+	return &RecordError{ioname(f), "transaction record", txnh.Pos, subj, err}
 }
 
 
-// err creates RecordError for data record located at dh.Pos
-func (dh *DataHeader) err(r io.ReaderAt, subj string, err error) error {
-	return &RecordError{xio.Name(r), "data record", dh.Pos, subj, err}
+// err creates RecordError for data record located at dh.Pos in f
+func (dh *DataHeader) err(f interface{}, subj string, err error) error {
+	return &RecordError{ioname(f), "data record", dh.Pos, subj, err}
 }
 
 
 // ierr is an interface for something which can create errors.
 // it is used by TxnHeader and DataHeader to create appropriate errors with their context.
 type ierr interface {
-	err(r io.ReaderAt, subj string, err error) error
+	err(f interface{}, subj string, err error) error
 }
 
 // errf is syntactic shortcut for err and fmt.Errorf
-func errf(r io.ReaderAt, e ierr, subj, format string, a ...interface{}) error {
-	return e.err(r, subj, fmt.Errorf(format, a...))
+func errf(f interface{}, e ierr, subj, format string, a ...interface{}) error {
+	return e.err(f, subj, fmt.Errorf(format, a...))
 }
 
 // checkErr is syntactic shortcut for errf("check", ...)
-func checkErr(r io.ReaderAt, e ierr, format string, a ...interface{}) error {
-	return errf(r, e, "check", format, a...)
+func checkErr(f interface{}, e ierr, format string, a ...interface{}) error {
+	return errf(f, e, "check", format, a...)
 }
 
 // bug panics with errf("bug", ...)
-func bug(r io.ReaderAt, e ierr, format string, a ...interface{}) {
-	panic(errf(r, e, "bug", format, a...))
+func bug(f interface{}, e ierr, format string, a ...interface{}) {
+	panic(errf(f, e, "bug", format, a...))
 }
 
 
@@ -151,7 +154,7 @@ func (fh *FileHeader) Load(r io.ReaderAt) error {
 		return err
 	}
 	if string(fh.Magic[:]) != Magic {
-		return fmt.Errorf("%s: invalid fs1 magic %q", xio.Name(r), fh.Magic)
+		return fmt.Errorf("%sinvalid fs1 magic %q", ioprefix(r), fh.Magic)
 	}
 
 	return nil
@@ -527,7 +530,7 @@ func (dh *DataHeader) LoadPrevRev(r io.ReaderAt) error {
 	if err != nil {
 		// data record @...: -> (prev rev): data record @...: ...
 		// XXX dup wrt DataHeader.err
-		err = &RecordError{xio.Name(r), "data record", posCur, "-> (prev rev)", err}
+		err = &RecordError{ioname(r), "data record", posCur, "-> (prev rev)", err}
 	}
 	return err
 }
@@ -598,7 +601,7 @@ func (dh *DataHeader) LoadBack(r io.ReaderAt) error {
 	if err != nil {
 		// data record @...: -> (prev rev): data record @...: ...
 		// XXX dup wrt DataHeader.err
-		err = &RecordError{xio.Name(r), "data record", posCur, "-> (back)", err}
+		err = &RecordError{ioname(r), "data record", posCur, "-> (back)", err}
 	}
 
 	return err
@@ -630,7 +633,7 @@ func (dh *DataHeader) loadNext(r io.ReaderAt, txnh *TxnHeader) error {
 
 	if nextPos + DataHeaderSize > txnTailPos {
 		// XXX dup wrt DataHeader.err
-		return &RecordError{xio.Name(r), "data record", nextPos, "check",
+		return &RecordError{ioname(r), "data record", nextPos, "check",
 			fmt.Errorf("data record header [..., %d] overlaps txn boundary [..., %d)",
 				nextPos + DataHeaderSize, txnTailPos)}
 	}
@@ -764,7 +767,7 @@ func IterateFile(path string, dir IterDir) (iter *Iter, file *os.File, err error
 	}()
 
 	// use IO optimized for sequential access when iterating
-	fSeq := xbufio.NewSeqReaderAt(f)
+	fSeq := seqReadAt(f)
 
 	switch dir {
 	case IterForward:

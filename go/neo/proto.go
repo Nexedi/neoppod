@@ -107,7 +107,7 @@ type Msg interface {
 }
 
 // ErrDecodeOverflow is the error returned by neoMsgDecode when decoding hits buffer overflow
-var ErrDecodeOverflow = errors.New("decode: bufer overflow")
+var ErrDecodeOverflow = errors.New("decode: buffer overflow")
 
 // ---- messages ----
 

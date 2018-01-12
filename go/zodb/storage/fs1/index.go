@@ -42,7 +42,6 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
 // Index is in-RAM Oid -> Data record position mapping used to associate Oid
@@ -205,7 +204,7 @@ func (fsi *Index) SaveFile(path string) error {
 
 // IndexLoadError is the error type returned by index load routines
 type IndexLoadError struct {
-	Filename string
+	Filename string // present if used IO object was with .Name()
 	Pos      int64
 	Err      error
 }
@@ -241,7 +240,7 @@ func LoadIndex(r io.Reader) (fsi *Index, err error) {
 	var picklePos int64
 	defer func() {
 		if err != nil {
-			err = &IndexLoadError{xio.Name(r), picklePos, err}
+			err = &IndexLoadError{ioname(r), picklePos, err}
 		}
 	}()
 
@@ -429,7 +428,7 @@ type IndexUpdateProgress struct {
 // - topPos (if it is != -1), or
 // - r's position at which read got EOF (if topPos=-1).
 func (index *Index) Update(ctx context.Context, r io.ReaderAt, topPos int64, progress func(*IndexUpdateProgress)) (err error) {
-	defer xerr.Contextf(&err, "%s: reindex %v..%v", xio.Name(r), index.TopPos, topPos)
+	defer xerr.Contextf(&err, "%sreindex %v..%v", ioprefix(r), index.TopPos, topPos)
 
 	if topPos >= 0 && index.TopPos > topPos {
 		return fmt.Errorf("backward update requested")
@@ -543,7 +542,7 @@ func BuildIndexForFile(ctx context.Context, path string, progress func(*IndexUpd
 	}()
 
 	// use IO optimized for sequential access when building index
-	fSeq := xbufio.NewSeqReaderAt(f)
+	fSeq := seqReadAt(f)
 
 	return BuildIndex(ctx, fSeq, progress)
 }
@@ -553,16 +552,20 @@ func BuildIndexForFile(ctx context.Context, path string, progress func(*IndexUpd
 // IndexCorruptError is the error type returned by index verification routines
 // when index was found to not match original FileStorage data.
 type IndexCorruptError struct {
-	DataFileName string
+	DataFileName string // present if data IO object was with .Name()
 	Detail       string
 }
 
 func (e *IndexCorruptError) Error() string {
-	return fmt.Sprintf("%s: verify index: %s", e.DataFileName, e.Detail)
+	prefix := e.DataFileName
+	if prefix != "" {
+		prefix += ": "
+	}
+	return fmt.Sprintf("%sverify index: %s", prefix, e.Detail)
 }
 
-func indexCorrupt(r io.ReaderAt, format string, argv ...interface{}) *IndexCorruptError {
-	return &IndexCorruptError{DataFileName: xio.Name(r), Detail: fmt.Sprintf(format, argv...)}
+func indexCorrupt(f interface{}, format string, argv ...interface{}) *IndexCorruptError {
+	return &IndexCorruptError{DataFileName: ioname(f), Detail: fmt.Sprintf(format, argv...)}
 }
 
 // IndexVerifyProgress is data sent by Index.Verify to notify about progress
@@ -595,7 +598,7 @@ func (index *Index) Verify(ctx context.Context, r io.ReaderAt, ntxn int, progres
 			return // leave it as is
 		}
 
-		xerr.Contextf(&err, "%s: verify index @%v~{%v}", xio.Name(r), index.TopPos, ntxn)
+		xerr.Contextf(&err, "%sverify index @%v~{%v}", ioprefix(r), index.TopPos, ntxn)
 	}()
 
 	oidChecked = map[zodb.Oid]struct{}{} // Set<zodb.Oid>
@@ -709,7 +712,7 @@ func (index *Index) VerifyForFile(ctx context.Context, path string, ntxn int, pr
 	}
 
 	// use IO optimized for sequential access when verifying index
-	fSeq := xbufio.NewSeqReaderAt(f)
+	fSeq := seqReadAt(f)
 
 	return index.Verify(ctx, fSeq, ntxn, progress)
 }

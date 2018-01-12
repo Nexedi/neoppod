@@ -72,7 +72,6 @@ import (
 	"os"
 	"sync"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -387,7 +386,7 @@ func (fs *FileStorage) findTxnRecord(r io.ReaderAt, tid zodb.Tid) (TxnHeader, er
 // Iterate creates zodb-level iterator for tidMin..tidMax range
 func (fs *FileStorage) Iterate(_ context.Context, tidMin, tidMax zodb.Tid) zodb.ITxnIterator {
 	// when iterating use IO optimized for sequential access
-	fsSeq := xbufio.NewSeqReaderAt(fs.file)
+	fsSeq := seqReadAt(fs.file)
 	ziter := &zIter{iter: Iter{R: fsSeq}}
 	iter := &ziter.iter
 
@@ -533,8 +532,7 @@ func (fs *FileStorage) Close() error {
 
 func (fs *FileStorage) computeIndex(ctx context.Context) (index *Index, err error) {
 	// XXX lock?
-	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	return BuildIndex(ctx, fsSeq, nil/*no progress; XXX somehow log it? */)
+	return BuildIndex(ctx, seqReadAt(fs.file), nil/*no progress; XXX somehow log it? */)
 }
 
 // loadIndex loads on-disk index to RAM and verifies it against data lightly
@@ -553,8 +551,7 @@ func (fs *FileStorage) loadIndex(ctx context.Context) (err error) {
 	}
 
 	// quickly verify index sanity for last 100 transactions
-	fsSeq := xbufio.NewSeqReaderAt(fs.file)
-	_, err = index.Verify(ctx, fsSeq, 100, nil/*no progress*/)
+	_, err = index.Verify(ctx, seqReadAt(fs.file), 100, nil/*no progress*/)
 	if err != nil {
 		return err
 	}
