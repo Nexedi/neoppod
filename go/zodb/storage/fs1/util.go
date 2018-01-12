@@ -23,7 +23,7 @@ import (
 	"io"
 	"os"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xbufio"
+	"lab.nexedi.com/kirr/go123/xbufio"
 )
 
 // noEOF returns err, but changes io.EOF -> io.ErrUnexpectedEOF
