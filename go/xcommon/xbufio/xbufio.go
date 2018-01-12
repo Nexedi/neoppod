@@ -27,10 +27,10 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
-// Reader is a bufio.Reader + bell & whistles
+// Reader is a bufio.Reader that also reports current logical position in input stream.
 type Reader struct {
 	*bufio.Reader
-	cr *xio.CountReader
+	cr *xio.CountedReader
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -39,17 +39,16 @@ func NewReader(r io.Reader) *Reader {
 		return r
 	}
 
-	// idempotent(xio.CountReader)
-	cr, ok := r.(*xio.CountReader)
+	// idempotent(xio.CountedReader)
+	cr, ok := r.(*xio.CountedReader)
 	if !ok {
-		cr = &xio.CountReader{r, 0}
+		cr = xio.CountReader(r)
 	}
 
 	return &Reader{bufio.NewReader(cr), cr}
 }
 
-// InputOffset returns current position in input stream
-// XXX naming + define interface for getting current position
+// InputOffset returns current logical position in input stream.
 func (r *Reader) InputOffset() int64 {
-	return r.cr.Nread - int64(r.Reader.Buffered())
+	return r.cr.InputOffset() - int64(r.Reader.Buffered())
 }
