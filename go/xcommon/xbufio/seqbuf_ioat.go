@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package xbufio
-// bufferring for io.ReaderAt optimized for sequential access
+// buffering for io.ReaderAt optimized for sequential access
 
 import (
 	"io"
@@ -49,13 +49,14 @@ type SeqReaderAt struct {
 	//posLastIO	int64
 }
 
-// TODO text about syscall / memcpy etc
-const defaultSeqBufSize = 8192	// XXX retune - must be <= size(L1d) / 2
+const defaultSeqBufSize = 8192
 
+// NewSeqReaderAt wraps r with SeqReaderAt with buffer of default size.
 func NewSeqReaderAt(r io.ReaderAt) *SeqReaderAt {
 	return NewSeqReaderAtSize(r, defaultSeqBufSize)
 }
 
+// NewSeqReaderAtSize wraps r with SeqReaderAt with buffer of specified size.
 func NewSeqReaderAtSize(r io.ReaderAt, size int) *SeqReaderAt {
 	sb := &SeqReaderAt{r: r, buf: make([]byte, 0, size)} // all positions are zero initially
 	return sb
@@ -171,7 +172,7 @@ func (sb *SeqReaderAt) ReadAt(p []byte, pos int64) (int, error) {
 		// backward
 		xpos = pos
 
-		// if backward trend continues and bufferring would overlap with
+		// if backward trend continues and buffering would overlap with
 		// previous backward access - shift reading up right to it.
 		xLastBackward := posLastBackward - int64(ntail)	// adjusted for already read from buffer
 		if xpos < xLastBackward && xLastBackward < xpos + cap64(sb.buf) {
@@ -210,7 +211,7 @@ func (sb *SeqReaderAt) ReadAt(p []byte, pos int64) (int, error) {
 	if pBufOffset >= len64(sb.buf) {
 		// this can be only due to some IO error
 
-		// if original requst was narrower than buffer try to satisfy
+		// if original request was narrower than buffer try to satisfy
 		// it once again directly
 		if pos != xpos {
 			nn, err = sb.ioReadAt(p, pos)

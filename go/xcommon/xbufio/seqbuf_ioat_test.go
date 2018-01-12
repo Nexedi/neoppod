@@ -27,8 +27,8 @@ import (
 )
 
 
-// XReader is an io.ReaderAt that reads first 256 bytes with content_i = i
-// bytes in range [100, 104] give EIO on reading
+// XReader is an io.ReaderAt that reads first 256 bytes with content_i = i.
+// bytes in range [100, 104] give EIO on reading.
 type XReader struct {
 }
 
@@ -56,8 +56,6 @@ func (r *XReader) ReadAt(p []byte, pos int64) (n int, err error) {
 
 // read @pos/len -> rb.pos, len(rb.buf)
 var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
-	// TODO add trend / not trend everywhere
-	// TODO review
 	{40,  5, 40, 10},	// 1st access, forward by default
 	{45,  7, 50, 10},	// part taken from buf, part read next, forward (trend)
 	{52,  5, 50, 10},	// everything taken from buf
@@ -96,7 +94,7 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{188, 2, 184, 10},
 	{190, 3, 184, 10},
 
-	{182, 4, 174, 10},	// trendy backward access - part taken from buffer and buf refilled adjacet to previous backward IO
+	{182, 4, 174, 10},	// trendy backward access - part taken from buffer and buf refilled adjacent to previous backward IO
 
 	{168, 1, 168, 10},	// trendy backward access farther than cap(buf) - buf refilled right at @pos
 
@@ -129,7 +127,7 @@ var xSeqBufTestv = []struct {pos int64; Len int; bufPos int64; bufLen int} {
 	{245, 5, 240, 10},	// backward @245 (4)
 
 	{5, 4, 5, 10},		// forward near file start
-	{2, 3, 0, 10},		// backward: buf does not go beyong 0
+	{2, 3, 0, 10},		// backward: buf does not go beyond 0
 
 	{40, 0, 0, 10},		// zero-sized out-of-buffer read do not change buffer
 
