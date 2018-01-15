@@ -1,0 +1,40 @@
+[MASTER]
+# neo/protocol.py does __global__ magic.
+#init-hook="from neo import protocol"
+# Don't validate tests, they must be rewriten anyway.
+ignore=tests
+
+[MESSAGES CONTROL]
+# C0111 Disable "no docstring" for the moment
+# C0301 Disable "Line too long" for the moment
+# R0201 Disable "Method could be a function"
+disable-msg=R0201
+
+[DESIGN]
+# Some classes are just beautiful when defining only operators & such.
+min-public-methods=0
+# Handler classes need to export many methods. We do define a complex API.
+max-public-methods=100
+# Handler methods need a big number of parameters.
+max-args=10
+
+[BASIC]
+# Inspired by Debian's /usr/share/doc/pylint/examples/pylintrc_camelcase
+module-rgx=(([a-z][a-z0-9]*)|([A-Z][a-zA-Z0-9]+))$
+class-rgx=[A-Z][a-zA-Z0-9]+$
+function-rgx=((_+|[a-z]))(([a-zA-Z0-9]*)|([a-z0-9_]*))$
+method-rgx=((((_+|[a-z]))(([a-zA-Z0-9]*)|([a-z0-9_]*)))|(__.*__))$
+argument-rgx=[a-z][a-z0-9_]*$
+# variables can be:
+# - variables ([a-z][a-z0-9_]*$)
+# - method aliases (inner loop optimisation)
+variable-rgx=(([a-z][a-z0-9_]*)|(((((_+|[a-z]))(([a-zA-Z0-9]*)|([a-z0-9_]*)))|(__.*__))))$
+attr-rgx=[a-z_][a-z0-9_]*$
+# Consts (as detected by pylint) can be:
+# - functions
+# - class aliases (class Bar: pass; Foo = Bar)
+# - decorator functions
+# - real consts
+# For the moment, accept any name.
+const-rgx=.*
+

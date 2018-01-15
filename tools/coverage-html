@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+import os, re, sys, shutil
+from coverage.cmdline import main, CmdOptionParser
+
+sys.argv.insert(1, 'html')
+del CmdOptionParser.get_prog_name
+
+# https://bitbucket.org/ned/coveragepy/issues/474/javascript-in-html-captures-all-keys
+shutil_copyfile = shutil.copyfile
+def copyfile(src, dst):
+    if os.path.basename(dst) == 'coverage_html.js':
+        with open(src) as f:
+            js = f.read()
+        js = re.sub(r"(assign_shortkeys.*\{)", r"\1return;", js)
+        js = re.sub(r"^( *\.bind\('keydown',)", r"//\1", js, flags=re.M)
+        with open(dst, 'w') as f:
+            f.write(js)
+    else:
+        shutil_copyfile(src, dst)
+shutil.copyfile = copyfile
+
+main()

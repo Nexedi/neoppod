@@ -1,0 +1,65 @@
+<component prefix="neo.client.config">
+  <sectiontype name="NeoStorage" datatype=".NeoStorage"
+               implements="ZODB.storage">
+    <description>
+      A scalable storage for Zope
+    </description>
+    <key name="master_nodes" required="yes">
+      <description>
+        Give the list of the master node like ip:port ip:port...
+      </description>
+    </key>
+    <key name="name" required="yes">
+      <description>
+        Give the name of the cluster
+      </description>
+    </key>
+    <key name="compress" datatype="boolean">
+      <description>
+        If true, data is automatically compressed (unless compressed size is
+        not smaller). This is the default behaviour.
+      </description>
+    </key>
+    <key name="read-only" datatype="boolean">
+      <description>
+        If true, only reads may be executed against the storage.  Note
+        that the "pack" operation is not considered a write operation
+        and is still allowed on a read-only neostorage.
+      </description>
+    </key>
+    <key name="logfile" datatype="existing-dirpath">
+      <description>
+        Log debugging information to specified SQLite DB.
+      </description>
+    </key>
+    <key name="cache-size" datatype="byte-size" default="20MB">
+      <description>
+         Storage cache size in bytes. Records are cached uncompressed.
+         Optional ``KB``, ``MB`` or ``GB`` suffixes can (and usually are)
+         used to specify units other than bytes.
+      </description>
+    </key>
+    <key name="dynamic_master_list" datatype="existing-dirpath">
+      <description>
+        The file designated by this option contains an updated list of master
+        nodes which are known to be part of current cluster, so new nodes can
+        be added/removed without requiring a config change each time.
+      </description>
+    </key>
+    <key name="ca" datatype="existing-file">
+      <description>
+        Certificate authority in PEM format.
+      </description>
+    </key>
+    <key name="cert" datatype="existing-file">
+      <description>
+        Certificate in PEM format.
+      </description>
+    </key>
+    <key name="key" datatype="existing-file">
+      <description>
+        Private key in PEM format.
+      </description>
+    </key>
+  </sectiontype>
+</component>

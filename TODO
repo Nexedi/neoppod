@@ -1,0 +1,132 @@
+  Documentation
+    - Clarify the use of each error codes:
+      - NOT_READY removed (connection kept opened until ready)
+      - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)
+    - Add docstrings (think of doctests)
+
+  Code
+
+    Code changes often impact more than just one node. They are categorised by
+    node where the most important changes are needed.
+
+    General
+    - Review XXX/TODO code tags (CODE)
+    - When all cells are OUT_OF_DATE in backup mode, the one with most data
+      could become UP_TO_DATE with appropriate backup_tid, so that the cluster
+      stays operational. (FEATURE)
+    - Finish renaming UUID into NID everywhere (CODE)
+    - Delayed connection acceptation even when a storage node is not ready ?
+      Currently, any node that connects too early to another that is busy for
+      some reasons is immediately rejected with the 'not ready' error code.
+      This is mainly the case for :
+        - Client rejected before the cluster is operational
+        - Empty storages rejected during recovery process
+    - Implement transaction garbage collection API (FEATURE)
+      NEO packing implementation does not update transaction metadata when
+      deleting object revisions. This inconsistency must be made possible to
+      clean up from a client application, much in the same way garbage
+      collection part of packing is done.
+    - Factorise node initialisation for admin, client and storage (CODE)
+      The same code to ask/receive node list and partition table exists in too
+      many places.
+    - Clarify handler methods to call when a connection is accepted from a
+      listening connection and when remote node is identified
+      (cf. neo/lib/bootstrap.py).
+    - Review PENDING/SHUTDOWN states, don't use notifyNodeInformation()
+      to do a state-switch, use a exception-based mechanism ? (CODE)
+    - Review handler split (CODE)
+      The current handler split is the result of small incremental changes. A
+      global review is required to make them square.
+    - Review transactional isolation of various methods
+      Some methods might not implement proper transaction isolation when they
+      should. An example is object history (undoLog), which can see data
+      committed by future transactions.
+    - Add a 'devid' storage configuration so that master do not distribute
+      replicated partitions on storages with same 'devid'.
+
+    Storage
+    - Use libmysqld instead of a stand-alone MySQL server.
+    - In backup mode, 2 simultaneous replication should be possible so that:
+      - outdated cells does not block backup for too long time
+      - constantly modified partitions does not prevent outdated cells to
+        replicate
+      Current behaviour is undefined and the above 2 scenarios may happen.
+    - Create a specialized PartitionTable that know the database and replicator
+      to remove duplicates and remove logic from handlers (CODE)
+    - Make listening address and port optional, and if they are not provided
+      listen on all interfaces on any available port.
+    - Make replication speed configurable (HIGH AVAILABILITY)
+      In its current implementation, replication runs at lowest priority, to
+      not degrade performance for client nodes. But when there's only 1 storage
+      left for a partition, it may be wanted to guarantee a minimum speed to
+      avoid complete data loss if another failure happens too early.
+    - Find a way not to always start replication from the beginning. Currently,
+      a temporarily down nodes can't replicate from where it was interrupted,
+      which is an issue on big databases. (SPEED)
+    - Pack segmentation & throttling (HIGH AVAILABILITY)
+      In its current implementation, pack runs in one call on all storage nodes
+      at the same time, which locks down the whole cluster. This task should
+      be split in chunks and processed in "background" on storage nodes.
+      Packing throttling should probably be at the lowest possible priority
+      (below interactive use and below replication).
+    - Verify data checksum on reception (FUNCTIONALITY)
+      In current implementation, client generates a checksum before storing,
+      which is only checked upon load. This doesn't prevent from storing
+      altered data, which misses the point of having a checksum, and creates
+      weird decisions (ex: if checksum verification fails on load, what should
+      be done ? hope to find a storage with valid checksum ? assume that data
+      is correct in storage but was altered when it travelled through network
+      as we loaded it ?).
+    - Check replicas: (HIGH AVAILABILITY)
+      - Automatically tell corrupted cells to fix their data when a good source
+        is known.
+      - Add an option to also check all rows of trans/obj/data, instead of only
+        keys (trans.tid & obj.{tid,oid}).
+
+    Master
+    - Implement back-channel for invalidations in read-only mode,
+      so that clients of backup clusters are notified of new data.
+    - Master node data redundancy (HIGH AVAILABILITY)
+      Secondary master nodes should replicate primary master data (ie, primary
+      master should inform them of such changes).
+      This data takes too long to extract from storage nodes, and losing it
+      increases the risk of starting from underestimated values.
+      This risk is (currently) unavoidable when all nodes stop running, but this
+      case must be avoided.
+    - If the cluster can't start automatically because the last partition table
+      is not operational, allow the user to select an older operational one,
+      and truncate the DB.
+    - Optimize operational status check by recording which rows are ready
+      instead of parsing the whole partition table. (SPEED)
+
+    Client
+    - Race conditions on the partition table ?
+      (update by the poll thread vs. access by other threads)
+    - Merge Application into Storage (SPEED)
+    - Optimize cache.py by rewriting it either in C or Cython (LOAD LATENCY)
+    - Use generic bootstrap module (CODE)
+
+    Admin
+    - Make admin node able to monitor multiple clusters simultaneously
+    - Send notifications (ie: mail) when a storage or master node is lost
+    - Add ctl command to list last transactions, like fstail for FileStorage.
+
+    Tests
+    - Split neo/tests/threaded/test.py
+    - Use another mock library: Python 3.3+ has unittest.mock, which is
+      available for earlier versions at https://pypi.python.org/pypi/mock
+
+  Later
+    - Consider auto-generating cluster name upon initial startup (it might
+      actually be a partition property).
+    - Consider ways to centralise the configuration file, or make the
+      configuration updatable automatically on all nodes.
+    - Consider storing some metadata on master nodes (partition table [version],
+      ...). This data should be treated non-authoritatively, as a way to lower
+      the probability to use an outdated partition table.
+    - Decentralize primary master tasks as much as possible (consider
+      distributed lock mechanisms, ...)
+    - Choose how to compute the storage size
+    - Investigate delta compression for stored data
+      Idea would be to have a few most recent revisions being stored fully, and
+      older revision delta-compressed, in order to save space.

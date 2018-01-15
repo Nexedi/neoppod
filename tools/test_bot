@@ -1,0 +1,103 @@
+#!/usr/bin/python
+import errno, os, socket, subprocess, sys, time
+
+def clean():
+    for path, dir_list, file_list in os.walk('.'):
+        for file in file_list:
+            # delete *.pyc files so that deleted/moved files can not be imported
+            if file[-4:] in ('.pyc', '.pyo'):
+                os.remove(os.path.join(path, file))
+
+class GitError(EnvironmentError):
+    def __init__(self, err, out, returncode):
+        EnvironmentError.__init__(self, err)
+        self.stdout = out
+        self.returncode = returncode
+
+def _git(*args, **kw):
+    p = subprocess.Popen(('git',) + args, **kw)
+    out, err = p.communicate()
+    if p.returncode:
+        raise GitError(err, out, p.returncode)
+    return out
+
+def git(*args, **kw):
+    out = _git(stdout=subprocess.PIPE, stderr=subprocess.PIPE, *args, **kw)
+    return out.strip()
+
+def getRevision(*path):
+    return git('log', '-1', '--format=%H', '--', *path)
+
+def main():
+    if 'LANG' in os.environ:
+      del os.environ['LANG']
+    os.environ.setdefault('NEO_TEST_ZODB_FUNCTIONAL', '1')
+
+    arg_count = 1
+    while arg_count < len(sys.argv):
+        arg = sys.argv[arg_count]
+        if arg[:2] != '--':
+            break
+        arg_count += '=' in arg and 1 or 2
+
+    branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+    test_bot = os.path.realpath(__file__).split(os.getcwd())[1][1:]
+    test_bot_revision = getRevision(test_bot)
+    revision = 0
+
+    clean()
+    delay = None
+    while True:
+        delay = delay and time.sleep(delay) or 1800
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        try:
+            while True:
+                try:
+                    s.bind("\0neo.tools.test_bot")
+                    break
+                except socket.error, e:
+                    if e.errno != errno.EADDRINUSE:
+                        raise
+                    time.sleep(60)
+            old_revision = revision
+            try:
+                _git('fetch')
+                _git('reset', '--merge', '@{u}')
+            except GitError, e:
+                continue
+            revision = getRevision()
+            if revision == old_revision:
+                continue
+            if test_bot_revision != getRevision(test_bot):
+                break
+            delay = None
+            for test_home in sys.argv[arg_count:]:
+                test_home, tasks = test_home.rsplit('=', 1)
+                tests = ''.join(x for x in tasks if x in 'fuz')
+                bin = os.path.join(test_home, 'bin')
+                if subprocess.call((os.path.join(bin, 'buildout'), '-v'),
+                                   cwd=test_home):
+                    continue
+                for backend in 'SQLite', 'MySQL':
+                    os.environ['NEO_TESTS_ADAPTER'] = backend
+                    title = '[%s:%s-g%s:%s:%s]' % (branch,
+                        git('rev-list', '--topo-order', '--count', revision),
+                        revision[:7], os.path.basename(test_home), backend)
+                    if tests:
+                        subprocess.call([os.path.join(bin, 'neotestrunner'),
+                            '-v' + tests, '--title', 'NEO tests ' + title,
+                            ] + sys.argv[1:arg_count])
+                    if 'm' in tasks:
+                        subprocess.call([os.path.join(bin, 'python'),
+                            'tools/matrix', '--repeat=2',
+                            '--min-storages=1', '--max-storages=24',
+                            '--min-replicas=0', '--max-replicas=3',
+                            '--title', 'Matrix ' + title,
+                            ] + sys.argv[1:arg_count])
+        finally:
+            s.close()
+        clean()
+    os.execvp(sys.argv[0], sys.argv)
+
+if __name__ == '__main__':
+    sys.exit(main())

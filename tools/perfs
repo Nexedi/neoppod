@@ -1,0 +1,136 @@
+#! /usr/bin/env python
+
+import os
+import sys
+import platform
+import datetime
+import traceback
+from time import time
+from ZODB.FileStorage import FileStorage
+
+from neo.tests import DB_PREFIX
+from neo.tests.benchmark import BenchmarkRunner
+from neo.tests.functional import NEOCluster
+
+class ImportBenchmark(BenchmarkRunner):
+    """ Test import of a datafs """
+
+    def add_options(self, parser):
+        parser.add_option('-d', '--datafs')
+        parser.add_option('-m', '--masters')
+        parser.add_option('-s', '--storages')
+        parser.add_option('-p', '--partitions')
+        parser.add_option('-r', '--replicas')
+
+    def load_options(self, options, args):
+        if options.datafs and not os.path.exists(options.datafs):
+            sys.exit('Missing or wrong data.fs argument')
+        return dict(
+            datafs = options.datafs,
+            masters = int(options.masters or 1),
+            storages = int(options.storages or 1),
+            partitions = int(options.partitions or 10),
+            replicas = int(options.replicas or 0),
+        )
+
+    def start(self):
+        config = self._config
+        # start neo
+        neo = NEOCluster(
+            db_list=['%s_perfs_%u' % (DB_PREFIX, i)
+                     for i in xrange(config.storages)],
+            clear_databases=True,
+            partitions=config.partitions,
+            replicas=config.replicas,
+            master_count=config.masters,
+        )
+        # import datafs
+        try:
+            neo.start()
+            try:
+                result = self.buildReport(*self.runImport(neo))
+            finally:
+                neo.stop()
+            # Clear DB if no error happened.
+            neo.setupDB()
+            return result
+        except:
+            return 'Perf: import failed', ''.join(traceback.format_exc())
+
+    def runImport(self, neo):
+
+        def counter(wrapped, d):
+            def wrapper(*args, **kw):
+                # count number of tick per second
+                t = int(time())
+                d.setdefault(t, 0)
+                d[t] += 1
+                # call original method
+                wrapped(*args, **kw)
+            return wrapper
+
+        # open storages clients
+        datafs = self._config.datafs
+        neo_storage = neo.getZODBStorage()
+        if datafs:
+            dfs_storage = FileStorage(file_name=datafs)
+        else:
+            from neo.tests.stat_zodb import PROD1
+            from random import Random
+            dfs_storage = PROD1(Random(0)).as_storage(10000)
+
+        # monkey patch storage
+        txn_dict, obj_dict = {}, {}
+        neo_storage.app.tpc_begin = counter(neo_storage.app.tpc_begin, txn_dict)
+        neo_storage.app.store = counter(neo_storage.app.store, obj_dict)
+
+        # run import
+        start = time()
+        stats = neo_storage.copyTransactionsFrom(dfs_storage)
+        elapsed = time() - start
+
+        # return stats
+        stats = {
+            'Transactions': txn_dict.values(),
+            'Objects': obj_dict.values(),
+        }
+        return (dfs_storage.getSize(), elapsed, stats)
+
+    def buildReport(self, dfs_size, elapsed, stats):
+        """ build a report for the given import data """
+        config = self._config
+        dfs_size /= 1e3
+        size = dfs_size / 1e3
+        speed = dfs_size / elapsed
+
+        # configuration
+        self.add_status('Masters', config.masters)
+        self.add_status('Storages', config.storages)
+        self.add_status('Replicas', config.replicas)
+        self.add_status('Partitions', config.partitions)
+
+        # results
+        self.add_status('Input size', '%-.1f MB' % size)
+        self.add_status('Import duration', '%-d secs' % elapsed)
+        self.add_status('Average speed', '%-.1f KB/s' % speed)
+
+        # stats on objects and transactions
+        pat = '%19s | %8s | %5s | %5s | %5s \n'
+        sep = '%19s+%8s+%5s+%5s+%5s\n'
+        sep %= ('-' * 20, '-' * 10) + ('-' * 7, ) * 3
+        report = pat % ('', ' num ', 'min/s', 'avg/s', 'max/s')
+        for k, v in stats.items():
+            report += sep
+            s = sum(v)
+            report += pat % (k, s,  min(v), s / len(v), max(v))
+        report += sep
+
+        # build summary
+        summary = 'Perf : %.1f KB/s (%.1f MB)' % (speed, size)
+        return (summary, report)
+
+def main(args=None):
+    ImportBenchmark().run()
+
+if __name__ == "__main__":
+    main()
