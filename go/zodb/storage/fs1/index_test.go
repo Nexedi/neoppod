@@ -22,6 +22,7 @@ package fs1
 //go:generate ./py/gen-testdata
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -217,6 +218,30 @@ func TestIndexSaveToPy(t *testing.T) {
 		t.Fatalf("zodb/py read/compare index: %v", err)
 	}
 }
+
+func TestIndexBuildVerify(t *testing.T) {
+	index, err := BuildIndexForFile(context.Background(), "testdata/1.fs", nil)
+	if err != nil {
+		t.Fatalf("index build: %v", err)
+	}
+
+	if !index.Equal(_1fs_index) {
+		t.Fatal("computed index differ from expected")
+	}
+
+	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1, nil)
+	if err != nil {
+		t.Fatalf("index verify: %v", err)
+	}
+
+	pos0, _ := index.Get(0)
+	index.Set(0, pos0+1)
+	_, err = index.VerifyForFile(context.Background(), "testdata/1.fs", -1, nil)
+	if err == nil {
+		t.Fatalf("index verify: expected error after tweak")
+	}
+}
+
 
 func BenchmarkIndexLoad(b *testing.B) {
 	// FIXME small testdata/1.fs is not representative for benchmarks
