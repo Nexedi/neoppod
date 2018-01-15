@@ -1,0 +1,41 @@
+#!/usr/bin/env python2
+# Copyright (C) 2017  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+"""compare two ZODB FileStorage v1 index files"""
+
+from ZODB.fsIndex import fsIndex
+import sys
+
+def main():
+    path1, path2 = sys.argv[1:]
+
+    d1 = fsIndex.load(path1)
+    d2 = fsIndex.load(path2)
+
+    topPos1, fsi1 = d1["pos"], d1["index"]
+    topPos2, fsi2 = d2["pos"], d2["index"]
+
+    #print topPos1, topPos2
+    #print fsi1.items()
+    #print fsi2.items()
+    equal = (topPos1 == topPos2 and fsi1.items() == fsi2.items())
+    sys.exit(int(not equal))
+
+if __name__ == '__main__':
+    main()
