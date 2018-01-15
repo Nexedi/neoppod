@@ -1,0 +1,135 @@
+Notes on Input/Output
+---------------------
+
+Several options available here:
+
+pread
+~~~~~
+
+The kernel handles both disk I/O and caching (in pagecache).
+For hot cache case:
+
+Cost = C(pread(n)) = α + β⋅n
+
+α - syscall cost
+β - cost to copy 1 byte         (both src and dst is in cache)
+
+α is quite big ≈ (200 - 300) ns
+α/β ≈ 2-3.5 · 10^4
+
+see details here: https://github.com/golang/go/issues/19563
+
+thus:
+
+the cost to pread 1 page (n ≈ 4·10^3) is ~ (1.1 - 1.2) · α
+the cost to copy  1 page              is ~ (0.1 - 0.2) · α
+
+if there are many small reads and for each read syscall is made it works slow
+becaus α is big.
+
+
+pread + user-buffer
+~~~~~~~~~~~~~~~~~~~
+
+It is possible to mitigate high α and buffer data from bigger reads in
+user-space and for smaller client reads copy data from that buffer.
+
+math to get optimal parameters:
+( note here S is what α is above - syscall time, and C is what β is above - 1
+  byte copy time )
+
+- we are reading N bytes sequentially
+- consider 2 variants:
+
+  a) 1 syscall + 1 big copy + use the copy for smaller reads
+
+     cost: S + C⋅N + C⋅N
+
+  b) direct acces in x-byte chunks
+
+             N
+     cost: S⋅─ + C⋅N
+             x
+
+Q: when direct access is chaper?
+
+            N⋅S
+   -> x ≥ ───────       , or
+          C⋅N + S
+
+
+           α⋅N                S
+      x ≥ ─────         , α = ─
+          α + N               C
+
+Q: when reading direct in x-byte chunks: what is N so direct becomes cheaper?
+
+           α⋅x
+   -> N ≥ ─────
+          α - x
+
+
+----
+
+Performance depends on buffer hit/miss ratio and will be evaluated for simple
+1-page buffer.
+
+
+mmap
+~~~~
+
+The kernel handles both disk I/O and caching (in pagecache).
+
+XXX the cost of minor pagefault is ~ 5.5·α   http://marc.info/?l=linux-kernel&m=149002565506733&w=2
+
+Cost ~ α (FIXME see ^^^) is spent on first-time access.
+Future accesses to page, given it is still in page-cache, does not incur α cost.
+
+However I/O errors are reported as SIGBUS on memory access. Thus if for read
+requst pointer to mmaped-memory is returned, clients could get I/O errors as
+exceptions potentially everywhere.
+
+To get & check I/O errors on actual read request the read service will thus
+need to access and copy data from mmapped-memory to other buffer incurring β⋅n
+cost in hot-cache case.
+
+Not doing the copy can lead to situation where data was first read/checked by
+read service ok, then evicted from page-cache by kernel, then accessed by
+client which cause real disk I/O, and if this I/O fails -> client get SIGBUS.
+
+Another potential disadvantage: if memory access causes disk I/O whole thread
+is blocked, not only goroutine which issued the access.
+
+Note: madvice should be used to guide kernel cache read-ahead/backwards or
+where we are planning to access data next. madvice is syscall so this can add α
+back.
+
+Link on the subject - how to copy/catch SIGBUS & do not block calling thread:
+
+https://groups.google.com/d/msg/golang-nuts/11rdExWP6ac/226CPanVBAAJ
+
+...
+
+Direct I/O
+~~~~~~~~~~
+
+Kernel handles disk I/O directly to user-space memory.
+The kernel does not handle caching.
+
+Cache must be implemented in user-space.
+
+pros:
+
+  - kernel is accessed only when there is real need for disk IO.
+  - memory can be managed completely by "us" in userspace.
+  - what to cache and preload can be more integrated with client workload.
+  - various copy discipline for reads are possible,
+    including providing pointer to in-cache data to clients (though this
+    requires implementing ref-count and such)
+
+
+cons:
+
+  - harder to implement
+  - Linus dislikes Direct I/O very much
+  - probably more kernel bugs as this is kind of more exotic area
