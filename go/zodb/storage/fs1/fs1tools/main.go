@@ -25,6 +25,9 @@ import "lab.nexedi.com/kirr/go123/prog"
 var commands = prog.CommandRegistry{
 	{"dump",    dumpSummary,    dumpUsage,    dumpMain},
 	{"tail",    tailSummary,    tailUsage,    tailMain},
+
+	{"reindex", reindexSummary, reindexUsage, reindexMain},
+	{"verify-index", verifyIdxSummary, verifyIdxUsage, verifyIdxMain},
 }
 
 var helpTopics = prog.HelpRegistry{
