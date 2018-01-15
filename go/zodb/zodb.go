@@ -265,7 +265,7 @@ type IStorageDriver interface {
 type ITxnIterator interface {
 	// NextTxn yields information about next database transaction:
 	// 1. transaction metadata, and
-	// 2. iterator over transaction's data records. 
+	// 2. iterator over transaction's data records.
 	// transaction metadata stays valid until next call to NextTxn().
 	// end of iteration is indicated with io.EOF
 	NextTxn(ctx context.Context) (*TxnInfo, IDataIterator, error)
