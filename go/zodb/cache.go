@@ -28,8 +28,7 @@ import (
 	"unsafe"
 
 	"lab.nexedi.com/kirr/go123/mem"
-
-	"lab.nexedi.com/kirr/neo/go/xcommon/xcontainer/list"
+	"lab.nexedi.com/kirr/go123/xcontainer/list"
 )
 
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
