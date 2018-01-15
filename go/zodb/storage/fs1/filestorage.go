@@ -59,6 +59,9 @@
 // The fs1 package exposes all FileStorage data format details and most of
 // internal workings so that it is possible to implement FileStorage-specific
 // tools.
+//
+// See also package lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fs1tools and
+// associated fs1 command for basic tools related to FileStorage maintenance.
 package fs1
 
 import (
