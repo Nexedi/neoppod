@@ -1,0 +1,1074 @@
+************************************************************
+file identifier: 'FS21'
+============================================================
+offset: 4
+end pos: 155
+transaction id: 0285cbac258bf266
+trec len: 151
+status: ' '
+user: ''
+description: 'initial database creation'
+len(extra): 0
+------------------------------------------------------------
+offset: 52
+oid: 0000000000000000
+revid: 0285cbac258bf266
+previous record offset: 0
+transaction offset: 4
+len(data): 61
+redundant trec len: 151
+============================================================
+offset: 163
+end pos: 509
+transaction id: 0285cbac3d0369e6
+trec len: 346
+status: ' '
+user: 'user0.0'
+description: 'step 0.0'
+len(extra): 55
+------------------------------------------------------------
+offset: 256
+oid: 0000000000000000
+revid: 0285cbac3d0369e6
+previous record offset: 52
+transaction offset: 163
+len(data): 117
+------------------------------------------------------------
+offset: 415
+oid: 0000000000000001
+revid: 0285cbac3d0369e6
+previous record offset: 0
+transaction offset: 163
+len(data): 52
+redundant trec len: 346
+============================================================
+offset: 517
+end pos: 883
+transaction id: 0285cbac41b4e833
+trec len: 366
+status: ' '
+user: 'user0.1'
+description: 'step 0.1'
+len(extra): 55
+------------------------------------------------------------
+offset: 610
+oid: 0000000000000000
+revid: 0285cbac41b4e833
+previous record offset: 256
+transaction offset: 517
+len(data): 137
+------------------------------------------------------------
+offset: 789
+oid: 0000000000000002
+revid: 0285cbac41b4e833
+previous record offset: 0
+transaction offset: 517
+len(data): 52
+redundant trec len: 366
+============================================================
+offset: 891
+end pos: 1276
+transaction id: 0285cbac46666680
+trec len: 385
+status: ' '
+user: 'user0.2'
+description: 'step 0.2'
+len(extra): 55
+------------------------------------------------------------
+offset: 984
+oid: 0000000000000000
+revid: 0285cbac46666680
+previous record offset: 610
+transaction offset: 891
+len(data): 156
+------------------------------------------------------------
+offset: 1182
+oid: 0000000000000003
+revid: 0285cbac46666680
+previous record offset: 0
+transaction offset: 891
+len(data): 52
+redundant trec len: 385
+============================================================
+offset: 1284
+end pos: 1471
+transaction id: 0285cbac4b17e4cc
+trec len: 187
+status: ' '
+user: 'user0.3'
+description: 'step 0.3'
+len(extra): 55
+------------------------------------------------------------
+offset: 1377
+oid: 0000000000000002
+revid: 0285cbac4b17e4cc
+previous record offset: 789
+transaction offset: 1284
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 1479
+end pos: 1883
+transaction id: 0285cbac4fc96319
+trec len: 404
+status: ' '
+user: 'user0.4'
+description: 'step 0.4'
+len(extra): 55
+------------------------------------------------------------
+offset: 1572
+oid: 0000000000000000
+revid: 0285cbac4fc96319
+previous record offset: 984
+transaction offset: 1479
+len(data): 175
+------------------------------------------------------------
+offset: 1789
+oid: 0000000000000004
+revid: 0285cbac4fc96319
+previous record offset: 0
+transaction offset: 1479
+len(data): 52
+redundant trec len: 404
+============================================================
+offset: 1891
+end pos: 2314
+transaction id: 0285cbac547ae166
+trec len: 423
+status: ' '
+user: 'user0.5'
+description: 'step 0.5'
+len(extra): 55
+------------------------------------------------------------
+offset: 1984
+oid: 0000000000000000
+revid: 0285cbac547ae166
+previous record offset: 1572
+transaction offset: 1891
+len(data): 194
+------------------------------------------------------------
+offset: 2220
+oid: 0000000000000005
+revid: 0285cbac547ae166
+previous record offset: 0
+transaction offset: 1891
+len(data): 52
+redundant trec len: 423
+============================================================
+offset: 2322
+end pos: 2509
+transaction id: 0285cbac592c5fb3
+trec len: 187
+status: ' '
+user: 'user0.6'
+description: 'step 0.6'
+len(extra): 55
+------------------------------------------------------------
+offset: 2415
+oid: 0000000000000004
+revid: 0285cbac592c5fb3
+previous record offset: 1789
+transaction offset: 2322
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 2517
+end pos: 2704
+transaction id: 0285cbac5dddde00
+trec len: 187
+status: ' '
+user: 'user0.7'
+description: 'step 0.7'
+len(extra): 55
+------------------------------------------------------------
+offset: 2610
+oid: 0000000000000005
+revid: 0285cbac5dddde00
+previous record offset: 2220
+transaction offset: 2517
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 2712
+end pos: 3154
+transaction id: 0285cbac628f5c4c
+trec len: 442
+status: ' '
+user: 'user0.8'
+description: 'step 0.8'
+len(extra): 55
+------------------------------------------------------------
+offset: 2805
+oid: 0000000000000000
+revid: 0285cbac628f5c4c
+previous record offset: 1984
+transaction offset: 2712
+len(data): 213
+------------------------------------------------------------
+offset: 3060
+oid: 0000000000000006
+revid: 0285cbac628f5c4c
+previous record offset: 0
+transaction offset: 2712
+len(data): 52
+redundant trec len: 442
+============================================================
+offset: 3162
+end pos: 3349
+transaction id: 0285cbac6740da99
+trec len: 187
+status: ' '
+user: 'user0.9'
+description: 'step 0.9'
+len(extra): 55
+------------------------------------------------------------
+offset: 3255
+oid: 0000000000000006
+revid: 0285cbac6740da99
+previous record offset: 3060
+transaction offset: 3162
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 3357
+end pos: 3547
+transaction id: 0285cbac6bf258e6
+trec len: 190
+status: ' '
+user: 'user0.10'
+description: 'step 0.10'
+len(extra): 55
+------------------------------------------------------------
+offset: 3452
+oid: 0000000000000003
+revid: 0285cbac6bf258e6
+previous record offset: 1182
+transaction offset: 3357
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 3555
+end pos: 3745
+transaction id: 0285cbac70a3d733
+trec len: 190
+status: ' '
+user: 'user0.11'
+description: 'step 0.11'
+len(extra): 55
+------------------------------------------------------------
+offset: 3650
+oid: 0000000000000003
+revid: 0285cbac70a3d733
+previous record offset: 3452
+transaction offset: 3555
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 3753
+end pos: 3943
+transaction id: 0285cbac75555580
+trec len: 190
+status: ' '
+user: 'user0.12'
+description: 'step 0.12'
+len(extra): 55
+------------------------------------------------------------
+offset: 3848
+oid: 0000000000000001
+revid: 0285cbac75555580
+previous record offset: 415
+transaction offset: 3753
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 3951
+end pos: 4141
+transaction id: 0285cbac7a06d3cc
+trec len: 190
+status: ' '
+user: 'user0.13'
+description: 'step 0.13'
+len(extra): 55
+------------------------------------------------------------
+offset: 4046
+oid: 0000000000000005
+revid: 0285cbac7a06d3cc
+previous record offset: 2610
+transaction offset: 3951
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 4149
+end pos: 4339
+transaction id: 0285cbac7eb85219
+trec len: 190
+status: ' '
+user: 'user0.14'
+description: 'step 0.14'
+len(extra): 55
+------------------------------------------------------------
+offset: 4244
+oid: 0000000000000005
+revid: 0285cbac7eb85219
+previous record offset: 4046
+transaction offset: 4149
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 4347
+end pos: 4537
+transaction id: 0285cbac8369d066
+trec len: 190
+status: ' '
+user: 'user0.15'
+description: 'step 0.15'
+len(extra): 55
+------------------------------------------------------------
+offset: 4442
+oid: 0000000000000006
+revid: 0285cbac8369d066
+previous record offset: 3255
+transaction offset: 4347
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 4545
+end pos: 4735
+transaction id: 0285cbac881b4eb3
+trec len: 190
+status: ' '
+user: 'user0.16'
+description: 'step 0.16'
+len(extra): 55
+------------------------------------------------------------
+offset: 4640
+oid: 0000000000000005
+revid: 0285cbac881b4eb3
+previous record offset: 4244
+transaction offset: 4545
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 4743
+end pos: 4933
+transaction id: 0285cbac8ccccd00
+trec len: 190
+status: ' '
+user: 'user0.17'
+description: 'step 0.17'
+len(extra): 55
+------------------------------------------------------------
+offset: 4838
+oid: 0000000000000004
+revid: 0285cbac8ccccd00
+previous record offset: 2415
+transaction offset: 4743
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 4941
+end pos: 5131
+transaction id: 0285cbac917e4b4c
+trec len: 190
+status: ' '
+user: 'user0.18'
+description: 'step 0.18'
+len(extra): 55
+------------------------------------------------------------
+offset: 5036
+oid: 0000000000000004
+revid: 0285cbac917e4b4c
+previous record offset: 4838
+transaction offset: 4941
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 5139
+end pos: 5329
+transaction id: 0285cbac962fc999
+trec len: 190
+status: ' '
+user: 'user0.19'
+description: 'step 0.19'
+len(extra): 55
+------------------------------------------------------------
+offset: 5234
+oid: 0000000000000005
+revid: 0285cbac962fc999
+previous record offset: 4640
+transaction offset: 5139
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 5337
+end pos: 5527
+transaction id: 0285cbac9ae147e6
+trec len: 190
+status: ' '
+user: 'user0.20'
+description: 'step 0.20'
+len(extra): 55
+------------------------------------------------------------
+offset: 5432
+oid: 0000000000000002
+revid: 0285cbac9ae147e6
+previous record offset: 1377
+transaction offset: 5337
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 5535
+end pos: 5725
+transaction id: 0285cbac9f92c633
+trec len: 190
+status: ' '
+user: 'user0.21'
+description: 'step 0.21'
+len(extra): 55
+------------------------------------------------------------
+offset: 5630
+oid: 0000000000000002
+revid: 0285cbac9f92c633
+previous record offset: 5432
+transaction offset: 5535
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 5733
+end pos: 6197
+transaction id: 0285cbaca4444480
+trec len: 464
+status: ' '
+user: 'user0.22'
+description: 'step 0.22'
+len(extra): 55
+------------------------------------------------------------
+offset: 5828
+oid: 0000000000000000
+revid: 0285cbaca4444480
+previous record offset: 2805
+transaction offset: 5733
+len(data): 232
+------------------------------------------------------------
+offset: 6102
+oid: 0000000000000007
+revid: 0285cbaca4444480
+previous record offset: 0
+transaction offset: 5733
+len(data): 53
+redundant trec len: 464
+============================================================
+offset: 6205
+end pos: 6395
+transaction id: 0285cbaca8f5c2cc
+trec len: 190
+status: ' '
+user: 'user0.23'
+description: 'step 0.23'
+len(extra): 55
+------------------------------------------------------------
+offset: 6300
+oid: 0000000000000007
+revid: 0285cbaca8f5c2cc
+previous record offset: 6102
+transaction offset: 6205
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 6403
+end pos: 6593
+transaction id: 0285cbacada74119
+trec len: 190
+status: ' '
+user: 'user0.24'
+description: 'step 0.24'
+len(extra): 55
+------------------------------------------------------------
+offset: 6498
+oid: 0000000000000003
+revid: 0285cbacada74119
+previous record offset: 3650
+transaction offset: 6403
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 6601
+end pos: 6809
+transaction id: 0285cbacb258bf66
+trec len: 208
+status: ' '
+user: 'root0.0\nYour\nMagesty '
+description: 'undo 0.0\nmore detailed description\n\nzzz ...'
+len(extra): 71
+------------------------------------------------------------
+offset: 6759
+oid: 0000000000000007
+revid: 0285cbacb258bf66
+previous record offset: 6300
+transaction offset: 6601
+len(data): 0
+backpointer: 6102
+redundant trec len: 208
+============================================================
+offset: 6817
+end pos: 7026
+transaction id: 0285cbacb70a3db3
+trec len: 209
+status: ' '
+user: 'root0.1\nYour\nMagesty '
+description: 'undo 0.1\nmore detailed description\n\nzzz ...\t'
+len(extra): 71
+------------------------------------------------------------
+offset: 6976
+oid: 0000000000000003
+revid: 0285cbacb70a3db3
+previous record offset: 6498
+transaction offset: 6817
+len(data): 0
+backpointer: 3650
+redundant trec len: 209
+============================================================
+offset: 7034
+end pos: 7435
+transaction id: 0285cbacbbbbbc00
+trec len: 401
+status: ' '
+user: ''
+description: 'predelete 7'
+len(extra): 0
+------------------------------------------------------------
+offset: 7068
+oid: 0000000000000000
+revid: 0285cbacbbbbbc00
+previous record offset: 5828
+transaction offset: 7034
+len(data): 232
+------------------------------------------------------------
+offset: 7342
+oid: 0000000000000008
+revid: 0285cbacbbbbbc00
+previous record offset: 0
+transaction offset: 7034
+len(data): 51
+redundant trec len: 401
+============================================================
+offset: 7443
+end pos: 7683
+transaction id: 0285cbacc06d3a4c
+trec len: 240
+status: ' '
+user: "root0\nYour\nRoyal\nMagesty' \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
+description: 'delete 0\nalpha beta gamma\'delta"lambda\n\nqqq ...'
+len(extra): 62
+------------------------------------------------------------
+offset: 7633
+oid: 0000000000000007
+revid: 0285cbacc06d3a4c
+previous record offset: 6759
+transaction offset: 7443
+len(data): 0
+backpointer: 0
+redundant trec len: 240
+============================================================
+offset: 7691
+end pos: 7878
+transaction id: 0285cbacfd70a433
+trec len: 187
+status: ' '
+user: 'user1.0'
+description: 'step 1.0'
+len(extra): 55
+------------------------------------------------------------
+offset: 7784
+oid: 0000000000000008
+revid: 0285cbacfd70a433
+previous record offset: 7342
+transaction offset: 7691
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 7886
+end pos: 8073
+transaction id: 0285cbad02222280
+trec len: 187
+status: ' '
+user: 'user1.1'
+description: 'step 1.1'
+len(extra): 55
+------------------------------------------------------------
+offset: 7979
+oid: 0000000000000006
+revid: 0285cbad02222280
+previous record offset: 4442
+transaction offset: 7886
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 8081
+end pos: 8268
+transaction id: 0285cbad06d3a0cc
+trec len: 187
+status: ' '
+user: 'user1.2'
+description: 'step 1.2'
+len(extra): 55
+------------------------------------------------------------
+offset: 8174
+oid: 0000000000000004
+revid: 0285cbad06d3a0cc
+previous record offset: 5036
+transaction offset: 8081
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 8276
+end pos: 8463
+transaction id: 0285cbad0b851f19
+trec len: 187
+status: ' '
+user: 'user1.3'
+description: 'step 1.3'
+len(extra): 55
+------------------------------------------------------------
+offset: 8369
+oid: 0000000000000003
+revid: 0285cbad0b851f19
+previous record offset: 6976
+transaction offset: 8276
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 8471
+end pos: 8658
+transaction id: 0285cbad10369d66
+trec len: 187
+status: ' '
+user: 'user1.4'
+description: 'step 1.4'
+len(extra): 55
+------------------------------------------------------------
+offset: 8564
+oid: 0000000000000003
+revid: 0285cbad10369d66
+previous record offset: 8369
+transaction offset: 8471
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 8666
+end pos: 8853
+transaction id: 0285cbad14e81bb3
+trec len: 187
+status: ' '
+user: 'user1.5'
+description: 'step 1.5'
+len(extra): 55
+------------------------------------------------------------
+offset: 8759
+oid: 0000000000000008
+revid: 0285cbad14e81bb3
+previous record offset: 7784
+transaction offset: 8666
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 8861
+end pos: 9048
+transaction id: 0285cbad19999a00
+trec len: 187
+status: ' '
+user: 'user1.6'
+description: 'step 1.6'
+len(extra): 55
+------------------------------------------------------------
+offset: 8954
+oid: 0000000000000001
+revid: 0285cbad19999a00
+previous record offset: 3848
+transaction offset: 8861
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 9056
+end pos: 9243
+transaction id: 0285cbad1e4b184c
+trec len: 187
+status: ' '
+user: 'user1.7'
+description: 'step 1.7'
+len(extra): 55
+------------------------------------------------------------
+offset: 9149
+oid: 0000000000000002
+revid: 0285cbad1e4b184c
+previous record offset: 5630
+transaction offset: 9056
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 9251
+end pos: 9438
+transaction id: 0285cbad22fc9699
+trec len: 187
+status: ' '
+user: 'user1.8'
+description: 'step 1.8'
+len(extra): 55
+------------------------------------------------------------
+offset: 9344
+oid: 0000000000000008
+revid: 0285cbad22fc9699
+previous record offset: 8759
+transaction offset: 9251
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 9446
+end pos: 9633
+transaction id: 0285cbad27ae14e6
+trec len: 187
+status: ' '
+user: 'user1.9'
+description: 'step 1.9'
+len(extra): 55
+------------------------------------------------------------
+offset: 9539
+oid: 0000000000000008
+revid: 0285cbad27ae14e6
+previous record offset: 9344
+transaction offset: 9446
+len(data): 52
+redundant trec len: 187
+============================================================
+offset: 9641
+end pos: 9831
+transaction id: 0285cbad2c5f9333
+trec len: 190
+status: ' '
+user: 'user1.10'
+description: 'step 1.10'
+len(extra): 55
+------------------------------------------------------------
+offset: 9736
+oid: 0000000000000006
+revid: 0285cbad2c5f9333
+previous record offset: 7979
+transaction offset: 9641
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 9839
+end pos: 10029
+transaction id: 0285cbad31111180
+trec len: 190
+status: ' '
+user: 'user1.11'
+description: 'step 1.11'
+len(extra): 55
+------------------------------------------------------------
+offset: 9934
+oid: 0000000000000005
+revid: 0285cbad31111180
+previous record offset: 5234
+transaction offset: 9839
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 10037
+end pos: 10227
+transaction id: 0285cbad35c28fcc
+trec len: 190
+status: ' '
+user: 'user1.12'
+description: 'step 1.12'
+len(extra): 55
+------------------------------------------------------------
+offset: 10132
+oid: 0000000000000008
+revid: 0285cbad35c28fcc
+previous record offset: 9539
+transaction offset: 10037
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 10235
+end pos: 10425
+transaction id: 0285cbad3a740e19
+trec len: 190
+status: ' '
+user: 'user1.13'
+description: 'step 1.13'
+len(extra): 55
+------------------------------------------------------------
+offset: 10330
+oid: 0000000000000006
+revid: 0285cbad3a740e19
+previous record offset: 9736
+transaction offset: 10235
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 10433
+end pos: 10623
+transaction id: 0285cbad3f258c66
+trec len: 190
+status: ' '
+user: 'user1.14'
+description: 'step 1.14'
+len(extra): 55
+------------------------------------------------------------
+offset: 10528
+oid: 0000000000000003
+revid: 0285cbad3f258c66
+previous record offset: 8564
+transaction offset: 10433
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 10631
+end pos: 10821
+transaction id: 0285cbad43d70ab3
+trec len: 190
+status: ' '
+user: 'user1.15'
+description: 'step 1.15'
+len(extra): 55
+------------------------------------------------------------
+offset: 10726
+oid: 0000000000000003
+revid: 0285cbad43d70ab3
+previous record offset: 10528
+transaction offset: 10631
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 10829
+end pos: 11019
+transaction id: 0285cbad48888900
+trec len: 190
+status: ' '
+user: 'user1.16'
+description: 'step 1.16'
+len(extra): 55
+------------------------------------------------------------
+offset: 10924
+oid: 0000000000000002
+revid: 0285cbad48888900
+previous record offset: 9149
+transaction offset: 10829
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 11027
+end pos: 11217
+transaction id: 0285cbad4d3a074c
+trec len: 190
+status: ' '
+user: 'user1.17'
+description: 'step 1.17'
+len(extra): 55
+------------------------------------------------------------
+offset: 11122
+oid: 0000000000000003
+revid: 0285cbad4d3a074c
+previous record offset: 10726
+transaction offset: 11027
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 11225
+end pos: 11415
+transaction id: 0285cbad51eb8599
+trec len: 190
+status: ' '
+user: 'user1.18'
+description: 'step 1.18'
+len(extra): 55
+------------------------------------------------------------
+offset: 11320
+oid: 0000000000000001
+revid: 0285cbad51eb8599
+previous record offset: 8954
+transaction offset: 11225
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 11423
+end pos: 11613
+transaction id: 0285cbad569d03e6
+trec len: 190
+status: ' '
+user: 'user1.19'
+description: 'step 1.19'
+len(extra): 55
+------------------------------------------------------------
+offset: 11518
+oid: 0000000000000005
+revid: 0285cbad569d03e6
+previous record offset: 9934
+transaction offset: 11423
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 11621
+end pos: 11811
+transaction id: 0285cbad5b4e8233
+trec len: 190
+status: ' '
+user: 'user1.20'
+description: 'step 1.20'
+len(extra): 55
+------------------------------------------------------------
+offset: 11716
+oid: 0000000000000003
+revid: 0285cbad5b4e8233
+previous record offset: 11122
+transaction offset: 11621
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 11819
+end pos: 12009
+transaction id: 0285cbad60000080
+trec len: 190
+status: ' '
+user: 'user1.21'
+description: 'step 1.21'
+len(extra): 55
+------------------------------------------------------------
+offset: 11914
+oid: 0000000000000003
+revid: 0285cbad60000080
+previous record offset: 11716
+transaction offset: 11819
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 12017
+end pos: 12207
+transaction id: 0285cbad64b17ecc
+trec len: 190
+status: ' '
+user: 'user1.22'
+description: 'step 1.22'
+len(extra): 55
+------------------------------------------------------------
+offset: 12112
+oid: 0000000000000006
+revid: 0285cbad64b17ecc
+previous record offset: 10330
+transaction offset: 12017
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 12215
+end pos: 12405
+transaction id: 0285cbad6962fd19
+trec len: 190
+status: ' '
+user: 'user1.23'
+description: 'step 1.23'
+len(extra): 55
+------------------------------------------------------------
+offset: 12310
+oid: 0000000000000005
+revid: 0285cbad6962fd19
+previous record offset: 11518
+transaction offset: 12215
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 12413
+end pos: 12603
+transaction id: 0285cbad6e147b66
+trec len: 190
+status: ' '
+user: 'user1.24'
+description: 'step 1.24'
+len(extra): 55
+------------------------------------------------------------
+offset: 12508
+oid: 0000000000000005
+revid: 0285cbad6e147b66
+previous record offset: 12310
+transaction offset: 12413
+len(data): 53
+redundant trec len: 190
+============================================================
+offset: 12611
+end pos: 12820
+transaction id: 0285cbad77777800
+trec len: 209
+status: ' '
+user: 'root1.0\nYour\nMagesty '
+description: 'undo 1.0\nmore detailed description\n\nzzz ...\t'
+len(extra): 71
+------------------------------------------------------------
+offset: 12770
+oid: 0000000000000006
+revid: 0285cbad77777800
+previous record offset: 12112
+transaction offset: 12611
+len(data): 0
+backpointer: 10330
+redundant trec len: 209
+============================================================
+offset: 12828
+end pos: 13038
+transaction id: 0285cbad7c28f64c
+trec len: 210
+status: ' '
+user: 'root1.1\nYour\nMagesty '
+description: 'undo 1.1\nmore detailed description\n\nzzz ...\t\t'
+len(extra): 71
+------------------------------------------------------------
+offset: 12988
+oid: 0000000000000005
+revid: 0285cbad7c28f64c
+previous record offset: 12508
+transaction offset: 12828
+len(data): 0
+backpointer: 12310
+redundant trec len: 210
+============================================================
+offset: 13046
+end pos: 13447
+transaction id: 0285cbad80da7499
+trec len: 401
+status: ' '
+user: ''
+description: 'predelete 6'
+len(extra): 0
+------------------------------------------------------------
+offset: 13080
+oid: 0000000000000000
+revid: 0285cbad80da7499
+previous record offset: 7068
+transaction offset: 13046
+len(data): 232
+------------------------------------------------------------
+offset: 13354
+oid: 0000000000000009
+revid: 0285cbad80da7499
+previous record offset: 0
+transaction offset: 13046
+len(data): 51
+redundant trec len: 401
+============================================================
+offset: 13455
+end pos: 13695
+transaction id: 0285cbad858bf2e6
+trec len: 240
+status: ' '
+user: "root1\nYour\nRoyal\nMagesty' \x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
+description: 'delete 1\nalpha beta gamma\'delta"lambda\n\nqqq ...'
+len(extra): 62
+------------------------------------------------------------
+offset: 13645
+oid: 0000000000000006
+revid: 0285cbad858bf2e6
+previous record offset: 12770
+transaction offset: 13455
+len(data): 0
+backpointer: 0
+redundant trec len: 240

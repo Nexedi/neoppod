@@ -23,6 +23,8 @@ package fs1tools
 import "lab.nexedi.com/kirr/go123/prog"
 
 var commands = prog.CommandRegistry{
+	{"dump",    dumpSummary,    dumpUsage,    dumpMain},
+	{"tail",    tailSummary,    tailUsage,    tailMain},
 }
 
 var helpTopics = prog.HelpRegistry{
