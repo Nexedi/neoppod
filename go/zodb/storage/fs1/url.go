@@ -17,16 +17,32 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package wks links-in well-known ZODB storages.
-//
-// The only purpose of this package is so that users could import it
-//
-//	import _ "lab.nexedi.com/kirr/neo/go/zodb/wks"
-//
-// and this way automatically link in support for file:// ... and other
-// common storages.
-package wks
+package fs1
+// open by URL support
 
 import (
-	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	"context"
+	"fmt"
+	"net/url"
+
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
+
+func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorageDriver, error) {
+	// TODO handle query
+	// XXX u.Path is not always raw path - recheck and fix
+	path := u.Host + u.Path
+
+	// XXX readonly stub
+	// XXX place = ?
+	if !opt.ReadOnly {
+		return nil, fmt.Errorf("fs1: %s: TODO write mode not implemented", path)
+	}
+
+	fs, err := Open(ctx, path)
+	return fs, err
+}
+
+func init() {
+	zodb.RegisterDriver("file", openByURL)
+}
