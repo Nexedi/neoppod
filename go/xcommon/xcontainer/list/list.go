@@ -18,15 +18,22 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package list provides intrusive double-linked lists.
+//
+// Go standard library has container/list package which already provides
+// double-linked lists. However in that implementation list itself is kept
+// separate from data structures representing elements. This package provides
+// alternative approach where elements embed necessary list heads which is
+// sometimes more convenient, for example when one wants to move a list
+// element in O(1) starting from pointer to just its data.
+//
+// TODO doc how to get to container of list head via unsafe.OffsetOf.
 package list
 
 // Head is a list head entry for an element in an intrusive doubly-linked list.
 //
-// XXX doc how to get to container of this list head via unsafe.OffsetOf
-//
-// always call Init() to initialize a head before using it.
+// Zero HEAD value is NOT valid - always call Init() to initialize a head
+// before using it.
 type Head struct {
-	// XXX needs to be created with .next = .prev = self
 	next, prev *Head
 }
 
