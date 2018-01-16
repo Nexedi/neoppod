@@ -23,8 +23,10 @@ would be deadlock.
 
 Conflict:
 
-	oid1 S1 C1 C2
+	oid1 S1 C1 C2	(?) (S1 replies to C2 that C1 already "stored" oid1)
 	oid1 S2 C2 C1
+	oid2 S1 C2 C1
+	oid2 S2 C1 C2
 
 who wins?
 

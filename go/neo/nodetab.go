@@ -270,12 +270,12 @@ func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()
 
 // TODO review peer link dialing / setting / accepting.
 //
-//	Keep in mind that in NEO in general case it is not client/server but peer-to-perr
+//	Keep in mind that in NEO in general case it is not client/server but peer-to-peer
 //	e.g. when two S establish a link in between then to exchange/sync data.
 //
-//	Also the distinction beetween S and M should go away as every S should
+//	Also the distinction between S and M should go away as every S should
 //	be taught to also become M (and thus separate M nodes go away
-//	completely) with constant reelection being happenningin the background
+//	completely) with constant reelection being happening in the background
 //	like in raft.
 
 // SetLink sets link to peer node.

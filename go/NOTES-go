@@ -1,5 +1,3 @@
-? IStorage.Load -> per storage connection
-
 ? random access -> mmap
 
 - scheduler won't use free P if a G is taking time and other Gs are queued after it on the same P:
