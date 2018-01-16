@@ -86,7 +86,7 @@ GetObject  C -> S
 	.serial
 	.tid
 
-AnswerGetObject  S -> C
+AnswerObject  S -> C
 	.oid		OID
 	.serial_start	TID
 	.serial_end	TID

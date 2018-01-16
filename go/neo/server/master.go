@@ -523,7 +523,7 @@ var errClusterDegraded = stderrors.New("cluster became non-operatonal")
 //   which such transactions need to be either finished or rolled back.
 // - executes decided finishes and rollbacks on the storages.
 // - retrieve last ids from storages along the way.
-// - once we are done without loosing too much storages in the process (so that
+// - once we are done without losing too much storages in the process (so that
 //   partition table is still operational) we are ready to enter servicing state.
 
 // verify drives cluster during verification phase
