@@ -20,8 +20,6 @@ from neo.lib.exception import StoppedOperation
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets
 
-X = 0
-
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
@@ -39,17 +37,9 @@ class MasterHandler(EventHandler):
 
     def askRecovery(self, conn):
         app = self.app
-        backup_tid = app.backup_tid
-        pt_backup_tid = None
-        if backup_tid:
-            pt_backup_tid = app.pt.getBackupTid()
-        if X:
-            print 'MASTER askRecovery .backup_tid: %r  pt.getBackupTid(): %r' % (
-                    backup_tid, pt_backup_tid)
         conn.answer(Packets.AnswerRecovery(
             app.pt.getID(),
-            #app.backup_tid and app.pt.getBackupTid(),
-            backup_tid and pt_backup_tid,
+            app.backup_tid and app.pt.getBackupTid(),
             app.truncate_tid))
 
     def askLastIDs(self, conn):
