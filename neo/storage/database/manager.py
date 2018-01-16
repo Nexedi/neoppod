@@ -23,8 +23,6 @@ from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import abstract, requires
 from neo.lib.protocol import CellStates, NonReadableCell, ZERO_TID
 
-X = 0
-
 def lazymethod(func):
     def getter(self):
         cls = self.__class__
@@ -292,10 +290,6 @@ class DatabaseManager(object):
         return util.bin(self.getConfiguration('backup_tid'))
 
     def _setBackupTID(self, tid):
-        if X:
-            print
-            print 'SET backup_tid: %r' % tid
-            import traceback; traceback.print_stack()
         tid = util.dump(tid)
         logging.debug('backup_tid = %s', tid)
         return self._setConfiguration('backup_tid', tid)
