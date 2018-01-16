@@ -179,7 +179,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 
 			// for storages the only incoming connection is for RequestIdentification
 			// and then master only drives it. So close accept as noone will be
-			// listening for it on your side anymore.
+			// listening for it on our side anymore.
 			switch idReq.NodeType {
 			case neo.CLIENT:
 				// ok
@@ -214,7 +214,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 }
 
 // runMain is the process which implements main master cluster management logic: node tracking, cluster
-// state updates, scheduling data movement between storage nodes etc
+// state updates, scheduling data movement between storage nodes etc.
 func (m *Master) runMain(ctx context.Context) (err error) {
 	defer task.Running(&ctx, "main")(&err)
 
