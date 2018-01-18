@@ -1535,16 +1535,16 @@ class Truncate(Packet):
     _answer = Error
 
 
-StaticRegistry = {}
+_next_code = 0
 def register(request, ignore_when_closed=None):
     """ Register a packet in the packet registry """
-    code = len(StaticRegistry)
+    global _next_code
+    code = _next_code
+    assert code < RESPONSE_MASK
+    _next_code = code + 1
     if request is Error:
         code |= RESPONSE_MASK
     # register the request
-    StaticRegistry[code] = request
-    if request is None:
-        return # None registered only to skip a code number (for compatibility)
     request._code = code
     answer = request._answer
     if ignore_when_closed is None:
@@ -1557,32 +1557,28 @@ def register(request, ignore_when_closed=None):
     if answer in (Error, None):
         return request
     # build a class for the answer
-    answer = type('Answer%s' % (request.__name__, ), (Packet, ), {})
+    answer = type('Answer' + request.__name__, (Packet, ), {})
     answer._fmt = request._answer
     answer.poll_thread = request.poll_thread
-    # compute the answer code
-    code = code | RESPONSE_MASK
     answer._request = request
     assert answer._code is None, "Answer of %s is already used" % (request, )
-    answer._code = code
+    answer._code = code | RESPONSE_MASK
     request._answer = answer
-    # and register the answer packet
-    assert code not in StaticRegistry, "Duplicate response packet code"
-    StaticRegistry[code] = answer
-    return (request, answer)
+    return request, answer
 
 class Packets(dict):
     """
     Packet registry that checks packet code uniqueness and provides an index
     """
     def __metaclass__(name, base, d):
+        # this builds a "singleton"
+        cls = type('PacketRegistry', base, d)()
         for k, v in d.iteritems():
             if isinstance(v, type) and issubclass(v, Packet):
                 v.handler_method_name = k[0].lower() + k[1:]
-        # this builds a "singleton"
-        return type('PacketRegistry', base, d)(StaticRegistry)
+                cls[v._code] = v
+        return cls
 
-    # notifications
     Error = register(
                     Error)
     RequestIdentification, AcceptIdentification = register(
