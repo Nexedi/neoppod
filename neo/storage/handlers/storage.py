@@ -113,7 +113,7 @@ class StorageOperationHandler(EventHandler):
                               checksum, data, data_serial):
         dm = self.app.dm
         if data or checksum != ZERO_HASH:
-            data_id = dm.storeData(checksum, data, compression)
+            data_id = dm.storeData(checksum, oid, data, compression)
         else:
             data_id = None
         # Directly store the transaction.

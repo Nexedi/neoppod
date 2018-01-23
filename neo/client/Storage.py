@@ -136,9 +136,6 @@ class Storage(BaseStorage.BaseStorage,
     def supportsUndo(self):
         return True
 
-    def supportsTransactionalUndo(self):
-        return True
-
     def loadEx(self, oid, version):
         try:
             data, serial, _ = self.app.load(oid)

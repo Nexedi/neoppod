@@ -56,25 +56,28 @@ class ConnectionPool(object):
             logging.info('%r not ready', node)
         else:
             logging.info('Connected %r', node)
+            # Make sure this node will be considered for the next reads
+            # even if there was a previous recent failure.
+            self.node_failure_dict.pop(node.getUUID(), None)
             return conn
         self.node_failure_dict[node.getUUID()] = time.time() + MAX_FAILURE_AGE
 
     def getCellSortKey(self, cell, random=random.random):
-        # The use of 'random' suffles cells to randomise node to access.
-        uuid = cell.getUUID()
-        # First, prefer a connected node.
-        if uuid in self.connection_dict:
-            return random()
-        # Then one that didn't fail recently.
-        failure = self.node_failure_dict.get(uuid)
+        # Prefer a node that didn't fail recently.
+        failure = self.node_failure_dict.get(cell.getUUID())
         if failure:
             if time.time() < failure:
-                # At last, order by date of connection failure.
+                # Or order by date of connection failure.
                 return failure
             # Do not use 'del' statement: we didn't lock, so another
             # thread might have removed uuid from node_failure_dict.
-            self.node_failure_dict.pop(uuid, None)
-        return 1 + random()
+            self.node_failure_dict.pop(cell.getUUID(), None)
+        # A random one, connected or not, is a trivial and quite efficient way
+        # to distribute the load evenly. On write accesses, a client connects
+        # to all nodes of touched cells, but before that, or if a client is
+        # specialized to only do read-only accesses, it should not limit
+        # itself to only use the first connected nodes.
+        return random()
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node

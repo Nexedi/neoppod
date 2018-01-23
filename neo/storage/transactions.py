@@ -470,7 +470,7 @@ class TransactionManager(EventQueue):
         if data is None:
             data_id = None
         else:
-            data_id = self._app.dm.holdData(checksum, data, compression)
+            data_id = self._app.dm.holdData(checksum, oid, data, compression)
         transaction.store(oid, data_id, value_serial)
 
     def rebaseObject(self, ttid, oid):

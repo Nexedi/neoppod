@@ -19,6 +19,7 @@ from MySQLdb import NotSupportedError, OperationalError
 from MySQLdb.constants.ER import UNKNOWN_STORAGE_ENGINE
 from ..mock import Mock
 from neo.lib.exception import DatabaseFailure
+from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
 from .. import DB_PREFIX, DB_SOCKET, DB_USER
 from .testStorageDBTests import StorageDBTests
@@ -114,7 +115,7 @@ class StorageMySQLdbTests(StorageDBTests):
         self.assertEqual(2, max(len(self.db.escape(chr(x)))
                                 for x in xrange(256)))
         self.assertEqual(2, len(self.db.escape('\0')))
-        self.db.storeData('\0' * 20, '\0' * (2**24-1), 0)
+        self.db.storeData('\0' * 20, ZERO_OID, '\0' * (2**24-1), 0)
         size, = query_list
         max_allowed = self.db.__class__._max_allowed_packet
         self.assertTrue(max_allowed - 1024 < size <= max_allowed, size)
@@ -123,7 +124,7 @@ class StorageMySQLdbTests(StorageDBTests):
             self.db._max_allowed_packet = max_allowed_packet
             del query_list[:]
             self.db.storeTransaction(p64(0),
-                ((p64(1<<i),0,None) for i in xrange(10)), None)
+                ((p64(1<<i),1234,None) for i in xrange(10)), None)
             self.assertEqual(max(query_list), max_allowed_packet)
             self.assertEqual(len(query_list), count)
 
