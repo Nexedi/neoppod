@@ -972,7 +972,7 @@ type NotifyTransactionFinished struct {
 type Replicate struct {
 	Tid	     zodb.Tid
 	UpstreamName string
-	SourceDict   map[uint32/*PNumber*/]string	// partition -> address
+	SourceDict   map[uint32/*PNumber*/]string	// partition -> address	FIXME string -> Address
 }
 
 // Notify the master node that a partition has been successfully replicated

@@ -350,52 +350,6 @@ PACKET    x          #0x0003 GetObject                      > S1 (127.0.0.1:4452
 ...
 
 
-Replication communication
--------------------------
-
-replication types:
-
-- asynchronous	(e.g. to backup cluster or to replicate already committed data to newly added storage node)
-- synchronous	(on transaction commit - C stores data to all S assigned for
-		 oid in PT and waits for all stores to complete)
-
-XXX synchronous replication interracts with commit.
-XXX "OUT_OF_DATE -> UP_TO_DATE is done in several steps"	-> XXX which?
-
-XXX
-	""" A replicating node can not depend on other nodes to fetch the data
-	recently/being committed because that can not be done atomically: it could miss
-	writes between the processing of its request by a source node and the reception
-	of the answer. """
-
-XXX -> should not be the case with proper dump-stream based replication protocol.
-XXX -> jm: document example
-
-	Therefore, outdated cells are writable: a storage node asks the master for
-	transactions being committed and then it is expected to fully receive from the
-	client any transaction that is started after this answer.
-
-XXX -> recheck this is good idea.
-
-
-
-
-R = requester
-S = seeder
-
-item = Transaction(meta)  | Object(meta+data)
-
-R -> S	[]items	(which R already has)		XXX exact message
-R <- S  missing-item
-R <- S  missing-item
-...
-R <- S  missing-item
-R <- S  []items-to-delete
-
-
-
-
-
 Py: out-of-order answers
 ------------------------
 

@@ -219,7 +219,7 @@ class StorageOperationHandler(EventHandler):
                         # Sending such packet does not mark the connection
                         # for writing if there's too little data in the buffer.
                         conn.send(Packets.AddTransaction(tid, user,
-                            desc, ext, packed, ttid, oid_list), msg_id)
+                            desc, ext, packed, ttid, oid_list), msg_id) # NOTE msg_id: ooo answer
                         # To avoid delaying several connections simultaneously,
                         # and also prevent the backend from scanning different
                         # parts of the DB at the same time, we ask the
@@ -269,7 +269,7 @@ class StorageOperationHandler(EventHandler):
                             % partition), msg_id)
                         return
                     # Same as in askFetchTransactions.
-                    conn.send(Packets.AddObject(oid, *object), msg_id)
+                    conn.send(Packets.AddObject(oid, *object), msg_id)      # NOTE msg_id: ooo answer
                     yield conn.buffering
                 conn.send(Packets.AnswerFetchObjects(
                     pack_tid, next_tid, next_oid, object_dict), msg_id)     # NOTE msg_id: out-of-order answer
