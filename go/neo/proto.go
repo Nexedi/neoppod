@@ -244,7 +244,7 @@ func (a *Address) neoEncode(b []byte) int {
 	return n
 }
 
-func (a *Address) neoDecode(b []byte) (uint32, bool) {
+func (a *Address) neoDecode(b []byte) (uint64, bool) {
 	n, ok := string_neoDecode(&a.Host, b)
 	if !ok {
 		return 0, false
@@ -288,7 +288,7 @@ func (t IdTime) neoEncode(b []byte) int {
 	return 8
 }
 
-func (t *IdTime) neoDecode(data []byte) (uint32, bool) {
+func (t *IdTime) neoDecode(data []byte) (uint64, bool) {
 	if len(data) < 8 {
 		return 0, false
 	}
@@ -1055,7 +1055,7 @@ type Truncate struct {
 type customCodec interface {
 	neoEncodedLen() int
 	neoEncode(buf []byte) (nwrote int)
-	neoDecode(data []byte) (nread uint32, ok bool)	// XXX uint32 or int here?
+	neoDecode(data []byte) (nread uint64, ok bool)	// XXX uint64 or int here?
 }
 
 func byte2bool(b byte) bool {
@@ -1104,16 +1104,16 @@ func string_neoEncode(s string, data []byte) int {
 	return 4 + l
 }
 
-func string_neoDecode(sp *string, data []byte) (nread uint32, ok bool) {
+func string_neoDecode(sp *string, data []byte) (nread uint64, ok bool) {
 	if len(data) < 4 {
 		return 0, false
 	}
 	l := binary.BigEndian.Uint32(data)
 	data = data[4:]
-	if uint32(len(data)) < l {
+	if uint64(len(data)) < uint64(l) {
 		return 0, false
 	}
 
 	*sp = string(data[:l])
-	return 4 + l, true
+	return 4 + uint64(l), true
 }

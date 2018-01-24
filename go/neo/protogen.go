@@ -751,7 +751,7 @@ func (d *decoder) overflowCheck() {
 
 	//d.bufDone.emit("// overflow check point")
 	if !d.overflow.checkSize.IsZero() {
-		d.bufDone.emit("if uint32(len(data)) < %v { goto overflow }", &d.overflow.checkSize)
+		d.bufDone.emit("if uint64(len(data)) < %v { goto overflow }", &d.overflow.checkSize)
 
 		// if size for overflow check was only numeric - just
 		// accumulate it at generation time
@@ -816,7 +816,7 @@ func (d *decoder) generatedCode() string {
 	// prologue
 	code.emit("func (%s *%s) neoMsgDecode(data []byte) (int, error) {", d.recvName, d.typeName)
 	if d.varUsed["nread"] {
-		code.emit("var %v uint32", d.var_("nread"))
+		code.emit("var %v uint64", d.var_("nread"))
 	}
 
 	code.Write(d.bufDone.Bytes())
@@ -824,6 +824,10 @@ func (d *decoder) generatedCode() string {
 	// epilogue
 	retexpr := fmt.Sprintf("%v", d.nread)
 	if d.varUsed["nread"] {
+		// casting nread to int is ok even on 32 bit arches:
+		// if nread would overflow 32 bits it would be caught earlier,
+		// because on 32 bit arch len(data) is also 32 bit and in generated
+		// code len(data) is checked first to be less than encoded message.
 		retexpr += fmt.Sprintf(" + int(%v)", d.var_("nread"))
 	}
 	code.emit("return %v, nil", retexpr)
@@ -918,7 +922,7 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 	d.resetPos()
 
 	d.overflowCheck()
-	d.overflow.AddExpr("l")
+	d.overflow.AddExpr("uint64(l)")
 
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -957,7 +961,7 @@ func (d *decoder) genBuf(path string) {
 	d.resetPos()
 
 	d.overflowCheck()
-	d.overflow.AddExpr("l")
+	d.overflow.AddExpr("uint64(l)")
 
 	// TODO eventually do not copy but reference original
 	d.emit("%v= mem.BufAlloc(int(l))", path)
@@ -1022,7 +1026,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	if elemFixed {
 		d.overflowCheck()
-		d.overflow.AddExpr("l * %v", elemSize)
+		d.overflow.AddExpr("uint64(l) * %v", elemSize)
 		d.overflow.PushChecked(true)
 		defer d.overflow.PopChecked()
 	}
@@ -1036,7 +1040,7 @@ func (d *decoder) genSlice(assignto string, typ *types.Slice, obj types.Object) 
 
 	d.resetPos()
 	d.emit("}")
-	d.overflowCheckLoopExit("l")
+	d.overflowCheckLoopExit("uint64(l)")
 
 	d.emit("}")
 }
@@ -1107,7 +1111,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 	elemSize, elemFixed := typeSizeFixed(typ.Elem())
 	if keyFixed && elemFixed {
 		d.overflowCheck()
-		d.overflow.AddExpr("l * %v", keySize+elemSize)
+		d.overflow.AddExpr("uint64(l) * %v", keySize+elemSize)
 		d.overflow.PushChecked(true)
 		defer d.overflow.PopChecked()
 	}
@@ -1133,7 +1137,7 @@ func (d *decoder) genMap(assignto string, typ *types.Map, obj types.Object) {
 
 	d.resetPos()
 	d.emit("}")
-	d.overflowCheckLoopExit("l")
+	d.overflowCheckLoopExit("uint64(l)")
 
 	d.emit("}")
 }
