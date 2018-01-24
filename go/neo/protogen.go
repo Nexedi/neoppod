@@ -751,7 +751,12 @@ func (d *decoder) overflowCheck() {
 
 	//d.bufDone.emit("// overflow check point")
 	if !d.overflow.checkSize.IsZero() {
-		d.bufDone.emit("if uint64(len(data)) < %v { goto overflow }", &d.overflow.checkSize)
+		lendata := "len(data)"
+		if !d.overflow.checkSize.IsNumeric() {
+			// symbolic checksize has uint64 type
+			lendata = "uint64(" + lendata + ")"
+		}
+		d.bufDone.emit("if %s < %v { goto overflow }", lendata, &d.overflow.checkSize)
 
 		// if size for overflow check was only numeric - just
 		// accumulate it at generation time
