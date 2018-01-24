@@ -41,9 +41,9 @@ func (p *Error) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Code = ErrorCode(binary.BigEndian.Uint32(data[0:]))
+	p.Code = ErrorCode(binary.BigEndian.Uint32(data[0 : 0+4]))
 	{
-		l := binary.BigEndian.Uint32(data[4:])
+		l := binary.BigEndian.Uint32(data[4 : 4+4])
 		data = data[8:]
 		if uint64(len(data)) < uint64(l) {
 			goto overflow
@@ -93,8 +93,8 @@ func (p *RequestIdentification) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
-	p.UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
+	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+	p.UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 	data = data[8:]
 	{
 		n, ok := p.Address.neoDecode(data)
@@ -108,7 +108,7 @@ func (p *RequestIdentification) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l) {
 			goto overflow
@@ -153,11 +153,11 @@ func (p *AcceptIdentification) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 20 {
 		goto overflow
 	}
-	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
-	p.MyUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
-	p.NumPartitions = binary.BigEndian.Uint32(data[8:])
-	p.NumReplicas = binary.BigEndian.Uint32(data[12:])
-	p.YourUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[16:])))
+	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+	p.MyUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
+	p.NumPartitions = binary.BigEndian.Uint32(data[8 : 8+4])
+	p.NumReplicas = binary.BigEndian.Uint32(data[12 : 12+4])
+	p.YourUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[16 : 16+4])))
 	return 20, nil
 
 overflow:
@@ -250,7 +250,7 @@ func (p *AnswerPrimary) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 4 {
 		goto overflow
 	}
-	p.PrimaryNodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+	p.PrimaryNodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 	return 4, nil
 
 overflow:
@@ -294,9 +294,9 @@ func (p *NotPrimaryMaster) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Primary = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+	p.Primary = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 	{
-		l := binary.BigEndian.Uint32(data[4:])
+		l := binary.BigEndian.Uint32(data[4 : 4+4])
 		data = data[8:]
 		p.KnownMasterList = make([]struct{ Address }, l)
 		for i := 0; uint32(i) < l; i++ {
@@ -373,7 +373,7 @@ func (p *NotifyNodeInformation) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		p.NodeList = make([]NodeInfo, l)
 		for i := 0; uint32(i) < l; i++ {
@@ -381,7 +381,7 @@ func (p *NotifyNodeInformation) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 4 {
 				goto overflow
 			}
-			(*a).Type = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a).Type = NodeType(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 			{
 				n, ok := (*a).Addr.neoDecode(data)
@@ -394,8 +394,8 @@ func (p *NotifyNodeInformation) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 8 {
 				goto overflow
 			}
-			(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
-			(*a).State = NodeState(int32(binary.BigEndian.Uint32(data[4:])))
+			(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+			(*a).State = NodeState(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 			data = data[8:]
 			{
 				n, ok := (*a).IdTime.neoDecode(data)
@@ -451,9 +451,9 @@ func (p *AnswerRecovery) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 24 {
 		goto overflow
 	}
-	p.PTid = PTid(binary.BigEndian.Uint64(data[0:]))
-	p.BackupTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.TruncateTid = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.BackupTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.TruncateTid = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	return 24, nil
 
 overflow:
@@ -496,8 +496,8 @@ func (p *AnswerLastIDs) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.LastOid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.LastTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.LastOid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.LastTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -566,9 +566,9 @@ func (p *AnswerPartitionTable) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.PTid = PTid(binary.BigEndian.Uint64(data[0:]))
+	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
@@ -576,9 +576,9 @@ func (p *AnswerPartitionTable) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 8 {
 				goto overflow
 			}
-			(*a).Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4:])
+				l := binary.BigEndian.Uint32(data[4 : 4+4])
 				data = data[8:]
 				if uint64(len(data)) < uint64(l)*8 {
 					goto overflow
@@ -587,8 +587,8 @@ func (p *AnswerPartitionTable) neoMsgDecode(data []byte) (int, error) {
 				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
-					(*a).State = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+					(*a).State = CellState(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 					data = data[8:]
 				}
 			}
@@ -646,9 +646,9 @@ func (p *SendPartitionTable) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.PTid = PTid(binary.BigEndian.Uint64(data[0:]))
+	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
@@ -656,9 +656,9 @@ func (p *SendPartitionTable) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 8 {
 				goto overflow
 			}
-			(*a).Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4:])
+				l := binary.BigEndian.Uint32(data[4 : 4+4])
 				data = data[8:]
 				if uint64(len(data)) < uint64(l)*8 {
 					goto overflow
@@ -667,8 +667,8 @@ func (p *SendPartitionTable) neoMsgDecode(data []byte) (int, error) {
 				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
-					(*a).State = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+					(*a).State = CellState(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 					data = data[8:]
 				}
 			}
@@ -712,9 +712,9 @@ func (p *NotifyPartitionChanges) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.PTid = PTid(binary.BigEndian.Uint64(data[0:]))
+	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < uint64(l)*12 {
 			goto overflow
@@ -726,9 +726,9 @@ func (p *NotifyPartitionChanges) neoMsgDecode(data []byte) (int, error) {
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			(*a).Offset = binary.BigEndian.Uint32(data[0:])
-			(*a).CellInfo.UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
-			(*a).CellInfo.State = CellState(int32(binary.BigEndian.Uint32(data[8:])))
+			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
+			(*a).CellInfo.UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
+			(*a).CellInfo.State = CellState(int32(binary.BigEndian.Uint32(data[8 : 8+4])))
 			data = data[12:]
 		}
 	}
@@ -756,7 +756,7 @@ func (p *StartOperation) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 1 {
 		goto overflow
 	}
-	p.Backup = byte2bool((data[0:])[0])
+	p.Backup = byte2bool((data[0 : 0+1])[0])
 	return 1, nil
 
 overflow:
@@ -809,7 +809,7 @@ func (p *UnfinishedTransactions) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
@@ -818,7 +818,7 @@ func (p *UnfinishedTransactions) neoMsgDecode(data []byte) (int, error) {
 		p.RowList = make([]struct{ Offset uint32 }, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.RowList[i]
-			(*a).Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			data = data[4:]
 		}
 	}
@@ -857,9 +857,9 @@ func (p *AnswerUnfinishedTransactions) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -868,7 +868,7 @@ func (p *AnswerUnfinishedTransactions) neoMsgDecode(data []byte) (int, error) {
 		p.TidList = make([]struct{ UnfinishedTID zodb.Tid }, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TidList[i]
-			(*a).UnfinishedTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a).UnfinishedTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -929,7 +929,7 @@ func (p *AnswerLockedTransactions) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*16 {
 			goto overflow
@@ -938,8 +938,8 @@ func (p *AnswerLockedTransactions) neoMsgDecode(data []byte) (int, error) {
 		p.TidDict = make(map[zodb.Tid]zodb.Tid, l)
 		m := p.TidDict
 		for i := 0; uint32(i) < l; i++ {
-			key := zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-			m[key] = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+			key := zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+			m[key] = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 			data = data[16:]
 		}
 	}
@@ -967,7 +967,7 @@ func (p *FinalTID) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -992,7 +992,7 @@ func (p *AnswerFinalTID) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1018,8 +1018,8 @@ func (p *ValidateTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -1044,7 +1044,7 @@ func (p *BeginTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1069,7 +1069,7 @@ func (p *AnswerBeginTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1105,9 +1105,9 @@ func (p *FailedVote) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
@@ -1116,7 +1116,7 @@ func (p *FailedVote) neoMsgDecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeUUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 		}
 	}
@@ -1165,9 +1165,9 @@ func (p *FinishTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < 4+uint64(l)*8 {
 			goto overflow
@@ -1176,12 +1176,12 @@ func (p *FinishTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.OIDList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OIDList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -1190,7 +1190,7 @@ func (p *FinishTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.CheckedList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CheckedList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -1219,8 +1219,8 @@ func (p *AnswerTransactionFinished) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -1246,8 +1246,8 @@ func (p *LockInformation) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.Ttid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.Ttid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -1272,7 +1272,7 @@ func (p *AnswerInformationLocked) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Ttid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Ttid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1308,9 +1308,9 @@ func (p *InvalidateObjects) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -1319,7 +1319,7 @@ func (p *InvalidateObjects) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -1347,7 +1347,7 @@ func (p *NotifyUnlockInformation) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1372,7 +1372,7 @@ func (p *AskNewOIDs) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 4 {
 		goto overflow
 	}
-	p.NumOIDs = binary.BigEndian.Uint32(data[0:])
+	p.NumOIDs = binary.BigEndian.Uint32(data[0 : 0+4])
 	return 4, nil
 
 overflow:
@@ -1408,7 +1408,7 @@ func (p *AnswerNewOIDs) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -1417,7 +1417,7 @@ func (p *AnswerNewOIDs) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -1446,8 +1446,8 @@ func (p *NotifyDeadlock) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.LockingTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.LockingTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -1473,8 +1473,8 @@ func (p *RebaseTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.LockingTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.LockingTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -1510,7 +1510,7 @@ func (p *AnswerRebaseTransaction) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -1519,7 +1519,7 @@ func (p *AnswerRebaseTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -1548,8 +1548,8 @@ func (p *RebaseObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[8:]))
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -1585,12 +1585,12 @@ func (p *AnswerRebaseObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 41 {
 		goto overflow
 	}
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.ConflictSerial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Compression = byte2bool((data[16:])[0])
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.ConflictSerial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Compression = byte2bool((data[16 : 16+1])[0])
 	copy(p.Checksum[:], data[17:37])
 	{
-		l := binary.BigEndian.Uint32(data[37:])
+		l := binary.BigEndian.Uint32(data[37 : 37+4])
 		data = data[41:]
 		if uint64(len(data)) < uint64(l) {
 			goto overflow
@@ -1637,12 +1637,12 @@ func (p *StoreObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 41 {
 		goto overflow
 	}
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Compression = byte2bool((data[16:])[0])
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Compression = byte2bool((data[16 : 16+1])[0])
 	copy(p.Checksum[:], data[17:37])
 	{
-		l := binary.BigEndian.Uint32(data[37:])
+		l := binary.BigEndian.Uint32(data[37 : 37+4])
 		data = data[41:]
 		if uint64(len(data)) < 16+uint64(l) {
 			goto overflow
@@ -1652,8 +1652,8 @@ func (p *StoreObject) neoMsgDecode(data []byte) (int, error) {
 		copy(p.Data, data[:l])
 		data = data[l:]
 	}
-	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 41 + int(nread), nil
 
 overflow:
@@ -1678,7 +1678,7 @@ func (p *AnswerStoreObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Conflict = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Conflict = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1714,9 +1714,9 @@ func (p *AbortTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
@@ -1725,7 +1725,7 @@ func (p *AbortTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeUUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 		}
 	}
@@ -1785,9 +1785,9 @@ func (p *StoreTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -1797,7 +1797,7 @@ func (p *StoreTransaction) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -1807,7 +1807,7 @@ func (p *StoreTransaction) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -1817,7 +1817,7 @@ func (p *StoreTransaction) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -1826,7 +1826,7 @@ func (p *StoreTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -1871,7 +1871,7 @@ func (p *VoteTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -1915,9 +1915,9 @@ func (p *GetObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 24 {
 		goto overflow
 	}
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	return 24, nil
 
 overflow:
@@ -1955,13 +1955,13 @@ func (p *AnswerObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 49 {
 		goto overflow
 	}
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.NextSerial = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
-	p.Compression = byte2bool((data[24:])[0])
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.NextSerial = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
+	p.Compression = byte2bool((data[24 : 24+1])[0])
 	copy(p.Checksum[:], data[25:45])
 	{
-		l := binary.BigEndian.Uint32(data[45:])
+		l := binary.BigEndian.Uint32(data[45 : 45+4])
 		data = data[49:]
 		if uint64(len(data)) < 8+uint64(l) {
 			goto overflow
@@ -1971,7 +1971,7 @@ func (p *AnswerObject) neoMsgDecode(data []byte) (int, error) {
 		copy(p.Data.Data, data[:l])
 		data = data[l:]
 	}
-	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 49 + int(nread), nil
 
 overflow:
@@ -1998,9 +1998,9 @@ func (p *AskTIDs) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 20 {
 		goto overflow
 	}
-	p.First = binary.BigEndian.Uint64(data[0:])
-	p.Last = binary.BigEndian.Uint64(data[8:])
-	p.Partition = binary.BigEndian.Uint32(data[16:])
+	p.First = binary.BigEndian.Uint64(data[0 : 0+8])
+	p.Last = binary.BigEndian.Uint64(data[8 : 8+8])
+	p.Partition = binary.BigEndian.Uint32(data[16 : 16+4])
 	return 20, nil
 
 overflow:
@@ -2036,7 +2036,7 @@ func (p *AnswerTIDs) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -2045,7 +2045,7 @@ func (p *AnswerTIDs) neoMsgDecode(data []byte) (int, error) {
 		p.TIDList = make([]zodb.Tid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TIDList[i]
-			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -2073,7 +2073,7 @@ func (p *TransactionInformation) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -2131,9 +2131,9 @@ func (p *AnswerTransactionInformation) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -2143,7 +2143,7 @@ func (p *AnswerTransactionInformation) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -2153,7 +2153,7 @@ func (p *AnswerTransactionInformation) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 5+uint64(l) {
 			goto overflow
@@ -2162,9 +2162,9 @@ func (p *AnswerTransactionInformation) neoMsgDecode(data []byte) (int, error) {
 		p.Extension = string(data[:l])
 		data = data[l:]
 	}
-	p.Packed = byte2bool((data[0:])[0])
+	p.Packed = byte2bool((data[0 : 0+1])[0])
 	{
-		l := binary.BigEndian.Uint32(data[1:])
+		l := binary.BigEndian.Uint32(data[1 : 1+4])
 		data = data[5:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -2173,7 +2173,7 @@ func (p *AnswerTransactionInformation) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -2203,9 +2203,9 @@ func (p *ObjectHistory) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 24 {
 		goto overflow
 	}
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.First = binary.BigEndian.Uint64(data[8:])
-	p.Last = binary.BigEndian.Uint64(data[16:])
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.First = binary.BigEndian.Uint64(data[8 : 8+8])
+	p.Last = binary.BigEndian.Uint64(data[16 : 16+8])
 	return 24, nil
 
 overflow:
@@ -2242,9 +2242,9 @@ func (p *AnswerObjectHistory) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < uint64(l)*12 {
 			goto overflow
@@ -2256,8 +2256,8 @@ func (p *AnswerObjectHistory) neoMsgDecode(data []byte) (int, error) {
 		}, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.HistoryList[i]
-			(*a).Serial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-			(*a).Size = binary.BigEndian.Uint32(data[8:])
+			(*a).Serial = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+			(*a).Size = binary.BigEndian.Uint32(data[8 : 8+4])
 			data = data[12:]
 		}
 	}
@@ -2287,9 +2287,9 @@ func (p *PartitionList) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.MinOffset = binary.BigEndian.Uint32(data[0:])
-	p.MaxOffset = binary.BigEndian.Uint32(data[4:])
-	p.NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[8:])))
+	p.MinOffset = binary.BigEndian.Uint32(data[0 : 0+4])
+	p.MaxOffset = binary.BigEndian.Uint32(data[4 : 4+4])
+	p.NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[8 : 8+4])))
 	return 12, nil
 
 overflow:
@@ -2341,9 +2341,9 @@ func (p *AnswerPartitionList) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.PTid = PTid(binary.BigEndian.Uint64(data[0:]))
+	p.PTid = PTid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		p.RowList = make([]RowInfo, l)
 		for i := 0; uint32(i) < l; i++ {
@@ -2351,9 +2351,9 @@ func (p *AnswerPartitionList) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 8 {
 				goto overflow
 			}
-			(*a).Offset = binary.BigEndian.Uint32(data[0:])
+			(*a).Offset = binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4:])
+				l := binary.BigEndian.Uint32(data[4 : 4+4])
 				data = data[8:]
 				if uint64(len(data)) < uint64(l)*8 {
 					goto overflow
@@ -2362,8 +2362,8 @@ func (p *AnswerPartitionList) neoMsgDecode(data []byte) (int, error) {
 				(*a).CellList = make([]CellInfo, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &(*a).CellList[i]
-					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
-					(*a).State = CellState(int32(binary.BigEndian.Uint32(data[4:])))
+					(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+					(*a).State = CellState(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 					data = data[8:]
 				}
 			}
@@ -2394,7 +2394,7 @@ func (p *NodeList) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 4 {
 		goto overflow
 	}
-	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
+	p.NodeType = NodeType(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 	return 4, nil
 
 overflow:
@@ -2445,7 +2445,7 @@ func (p *AnswerNodeList) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		p.NodeList = make([]NodeInfo, l)
 		for i := 0; uint32(i) < l; i++ {
@@ -2453,7 +2453,7 @@ func (p *AnswerNodeList) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 4 {
 				goto overflow
 			}
-			(*a).Type = NodeType(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a).Type = NodeType(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 			{
 				n, ok := (*a).Addr.neoDecode(data)
@@ -2466,8 +2466,8 @@ func (p *AnswerNodeList) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 8 {
 				goto overflow
 			}
-			(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
-			(*a).State = NodeState(int32(binary.BigEndian.Uint32(data[4:])))
+			(*a).UUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+			(*a).State = NodeState(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 			data = data[8:]
 			{
 				n, ok := (*a).IdTime.neoDecode(data)
@@ -2505,8 +2505,8 @@ func (p *SetNodeState) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
-	p.NodeState = NodeState(int32(binary.BigEndian.Uint32(data[4:])))
+	p.NodeUUID = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
+	p.NodeState = NodeState(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 	return 8, nil
 
 overflow:
@@ -2542,7 +2542,7 @@ func (p *AddPendingNodes) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
@@ -2551,7 +2551,7 @@ func (p *AddPendingNodes) neoMsgDecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeUUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 		}
 	}
@@ -2590,7 +2590,7 @@ func (p *TweakPartitionTable) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
@@ -2599,7 +2599,7 @@ func (p *TweakPartitionTable) neoMsgDecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeUUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 		}
 	}
@@ -2627,7 +2627,7 @@ func (p *SetClusterState) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 4 {
 		goto overflow
 	}
-	p.State = ClusterState(int32(binary.BigEndian.Uint32(data[0:])))
+	p.State = ClusterState(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 	return 4, nil
 
 overflow:
@@ -2664,7 +2664,7 @@ func (p *Repair) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 1+uint64(l)*4 {
 			goto overflow
@@ -2673,11 +2673,11 @@ func (p *Repair) neoMsgDecode(data []byte) (int, error) {
 		p.NodeList = make([]NodeUUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.NodeList[i]
-			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 		}
 	}
-	p.repairFlags.DryRun = byte2bool((data[0:])[0])
+	p.repairFlags.DryRun = byte2bool((data[0 : 0+1])[0])
 	return 4 + int(nread), nil
 
 overflow:
@@ -2702,7 +2702,7 @@ func (p *RepairOne) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 1 {
 		goto overflow
 	}
-	p.repairFlags.DryRun = byte2bool((data[0:])[0])
+	p.repairFlags.DryRun = byte2bool((data[0 : 0+1])[0])
 	return 1, nil
 
 overflow:
@@ -2727,7 +2727,7 @@ func (p *NotifyClusterState) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 4 {
 		goto overflow
 	}
-	p.State = ClusterState(int32(binary.BigEndian.Uint32(data[0:])))
+	p.State = ClusterState(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 	return 4, nil
 
 overflow:
@@ -2769,7 +2769,7 @@ func (p *AnswerClusterState) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 4 {
 		goto overflow
 	}
-	p.State = ClusterState(int32(binary.BigEndian.Uint32(data[0:])))
+	p.State = ClusterState(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 	return 4, nil
 
 overflow:
@@ -2807,11 +2807,11 @@ func (p *ObjectUndoSerial) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 28 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.LTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.UndoneTID = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.LTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.UndoneTID = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	{
-		l := binary.BigEndian.Uint32(data[24:])
+		l := binary.BigEndian.Uint32(data[24 : 24+4])
 		data = data[28:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -2820,7 +2820,7 @@ func (p *ObjectUndoSerial) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -2866,7 +2866,7 @@ func (p *AnswerObjectUndoSerial) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*25 {
 			goto overflow
@@ -2879,15 +2879,15 @@ func (p *AnswerObjectUndoSerial) neoMsgDecode(data []byte) (int, error) {
 		}, l)
 		m := p.ObjectTIDDict
 		for i := 0; uint32(i) < l; i++ {
-			key := zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			key := zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			var v struct {
 				CurrentSerial zodb.Tid
 				UndoSerial    zodb.Tid
 				IsCurrent     bool
 			}
-			v.CurrentSerial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-			v.UndoSerial = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
-			v.IsCurrent = byte2bool((data[24:])[0])
+			v.CurrentSerial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+			v.UndoSerial = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
+			v.IsCurrent = byte2bool((data[24 : 24+1])[0])
 			m[key] = v
 			data = data[25:]
 		}
@@ -2919,10 +2919,10 @@ func (p *AskTIDsFrom) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 24 {
 		goto overflow
 	}
-	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Length = binary.BigEndian.Uint32(data[16:])
-	p.Partition = binary.BigEndian.Uint32(data[20:])
+	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Length = binary.BigEndian.Uint32(data[16 : 16+4])
+	p.Partition = binary.BigEndian.Uint32(data[20 : 20+4])
 	return 24, nil
 
 overflow:
@@ -2958,7 +2958,7 @@ func (p *AnswerTIDsFrom) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -2967,7 +2967,7 @@ func (p *AnswerTIDsFrom) neoMsgDecode(data []byte) (int, error) {
 		p.TidList = make([]zodb.Tid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TidList[i]
-			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -2995,7 +2995,7 @@ func (p *Pack) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -3020,7 +3020,7 @@ func (p *AnswerPack) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 1 {
 		goto overflow
 	}
-	p.Status = byte2bool((data[0:])[0])
+	p.Status = byte2bool((data[0 : 0+1])[0])
 	return 1, nil
 
 overflow:
@@ -3063,7 +3063,7 @@ func (p *CheckReplicas) neoMsgDecode(data []byte) (int, error) {
 		goto overflow
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 16+uint64(l)*8 {
 			goto overflow
@@ -3072,13 +3072,13 @@ func (p *CheckReplicas) neoMsgDecode(data []byte) (int, error) {
 		p.PartitionDict = make(map[uint32]NodeUUID, l)
 		m := p.PartitionDict
 		for i := 0; uint32(i) < l; i++ {
-			key := binary.BigEndian.Uint32(data[0:])
-			m[key] = NodeUUID(int32(binary.BigEndian.Uint32(data[4:])))
+			key := binary.BigEndian.Uint32(data[0 : 0+4])
+			m[key] = NodeUUID(int32(binary.BigEndian.Uint32(data[4 : 4+4])))
 			data = data[8:]
 		}
 	}
-	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 4 + int(nread), nil
 
 overflow:
@@ -3117,9 +3117,9 @@ func (p *CheckPartition) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Partition = binary.BigEndian.Uint32(data[0:])
+	p.Partition = binary.BigEndian.Uint32(data[0 : 0+4])
 	{
-		l := binary.BigEndian.Uint32(data[4:])
+		l := binary.BigEndian.Uint32(data[4 : 4+4])
 		data = data[8:]
 		if uint64(len(data)) < uint64(l) {
 			goto overflow
@@ -3139,8 +3139,8 @@ func (p *CheckPartition) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 24 + int(nread), nil
 
 overflow:
@@ -3168,10 +3168,10 @@ func (p *CheckTIDRange) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 24 {
 		goto overflow
 	}
-	p.Partition = binary.BigEndian.Uint32(data[0:])
-	p.Length = binary.BigEndian.Uint32(data[4:])
-	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.Partition = binary.BigEndian.Uint32(data[0 : 0+4])
+	p.Length = binary.BigEndian.Uint32(data[4 : 4+4])
+	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	return 24, nil
 
 overflow:
@@ -3198,9 +3198,9 @@ func (p *AnswerCheckTIDRange) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 32 {
 		goto overflow
 	}
-	p.Count = binary.BigEndian.Uint32(data[0:])
+	p.Count = binary.BigEndian.Uint32(data[0 : 0+4])
 	copy(p.Checksum[:], data[4:24])
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[24:]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[24 : 24+8]))
 	return 32, nil
 
 overflow:
@@ -3229,11 +3229,11 @@ func (p *CheckSerialRange) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 32 {
 		goto overflow
 	}
-	p.Partition = binary.BigEndian.Uint32(data[0:])
-	p.Length = binary.BigEndian.Uint32(data[4:])
-	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
-	p.MinOID = zodb.Oid(binary.BigEndian.Uint64(data[24:]))
+	p.Partition = binary.BigEndian.Uint32(data[0 : 0+4])
+	p.Length = binary.BigEndian.Uint32(data[4 : 4+4])
+	p.MinTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
+	p.MinOID = zodb.Oid(binary.BigEndian.Uint64(data[24 : 24+8]))
 	return 32, nil
 
 overflow:
@@ -3262,11 +3262,11 @@ func (p *AnswerCheckSerialRange) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 60 {
 		goto overflow
 	}
-	p.Count = binary.BigEndian.Uint32(data[0:])
+	p.Count = binary.BigEndian.Uint32(data[0 : 0+4])
 	copy(p.TidChecksum[:], data[4:24])
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[24:]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[24 : 24+8]))
 	copy(p.OidChecksum[:], data[32:52])
-	p.MaxOID = zodb.Oid(binary.BigEndian.Uint64(data[52:]))
+	p.MaxOID = zodb.Oid(binary.BigEndian.Uint64(data[52 : 52+8]))
 	return 60, nil
 
 overflow:
@@ -3302,9 +3302,9 @@ func (p *PartitionCorrupted) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Partition = binary.BigEndian.Uint32(data[0:])
+	p.Partition = binary.BigEndian.Uint32(data[0 : 0+4])
 	{
-		l := binary.BigEndian.Uint32(data[4:])
+		l := binary.BigEndian.Uint32(data[4 : 4+4])
 		data = data[8:]
 		if uint64(len(data)) < uint64(l)*4 {
 			goto overflow
@@ -3313,7 +3313,7 @@ func (p *PartitionCorrupted) neoMsgDecode(data []byte) (int, error) {
 		p.CellList = make([]NodeUUID, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.CellList[i]
-			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0:])))
+			(*a) = NodeUUID(int32(binary.BigEndian.Uint32(data[0 : 0+4])))
 			data = data[4:]
 		}
 	}
@@ -3375,7 +3375,7 @@ func (p *AnswerLastTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -3402,9 +3402,9 @@ func (p *CheckCurrentSerial) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 24 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[8:]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	return 24, nil
 
 overflow:
@@ -3429,7 +3429,7 @@ func (p *AnswerCheckCurrentSerial) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.AnswerStoreObject.Conflict = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.AnswerStoreObject.Conflict = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:
@@ -3455,8 +3455,8 @@ func (p *NotifyTransactionFinished) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 16 {
 		goto overflow
 	}
-	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.TTID = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.MaxTID = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	return 16, nil
 
 overflow:
@@ -3514,9 +3514,9 @@ func (p *Replicate) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -3526,7 +3526,7 @@ func (p *Replicate) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		p.SourceDict = make(map[uint32]string, l)
 		m := p.SourceDict
@@ -3534,9 +3534,9 @@ func (p *Replicate) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 8 {
 				goto overflow
 			}
-			key := binary.BigEndian.Uint32(data[0:])
+			key := binary.BigEndian.Uint32(data[0 : 0+4])
 			{
-				l := binary.BigEndian.Uint32(data[4:])
+				l := binary.BigEndian.Uint32(data[4 : 4+4])
 				data = data[8:]
 				if uint64(len(data)) < uint64(l) {
 					goto overflow
@@ -3573,8 +3573,8 @@ func (p *ReplicationDone) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Offset = binary.BigEndian.Uint32(data[0:])
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[4:]))
+	p.Offset = binary.BigEndian.Uint32(data[0 : 0+4])
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[4 : 4+8]))
 	return 12, nil
 
 overflow:
@@ -3613,12 +3613,12 @@ func (p *FetchTransactions) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 28 {
 		goto overflow
 	}
-	p.Partition = binary.BigEndian.Uint32(data[0:])
-	p.Length = binary.BigEndian.Uint32(data[4:])
-	p.MinTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.MaxTid = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
+	p.Partition = binary.BigEndian.Uint32(data[0 : 0+4])
+	p.Length = binary.BigEndian.Uint32(data[4 : 4+4])
+	p.MinTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.MaxTid = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	{
-		l := binary.BigEndian.Uint32(data[24:])
+		l := binary.BigEndian.Uint32(data[24 : 24+4])
 		data = data[28:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -3627,7 +3627,7 @@ func (p *FetchTransactions) neoMsgDecode(data []byte) (int, error) {
 		p.TxnKnownList = make([]zodb.Tid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TxnKnownList[i]
-			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -3667,10 +3667,10 @@ func (p *AnswerFetchTransactions) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 20 {
 		goto overflow
 	}
-	p.PackTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.NextTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
+	p.PackTid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.NextTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
 	{
-		l := binary.BigEndian.Uint32(data[16:])
+		l := binary.BigEndian.Uint32(data[16 : 16+4])
 		data = data[20:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -3679,7 +3679,7 @@ func (p *AnswerFetchTransactions) neoMsgDecode(data []byte) (int, error) {
 		p.TxnDeleteList = make([]zodb.Tid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.TxnDeleteList[i]
-			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -3740,13 +3740,13 @@ func (p *FetchObjects) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 36 {
 		goto overflow
 	}
-	p.Partition = binary.BigEndian.Uint32(data[0:])
-	p.Length = binary.BigEndian.Uint32(data[4:])
-	p.MinTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.MaxTid = zodb.Tid(binary.BigEndian.Uint64(data[16:]))
-	p.MinOid = zodb.Oid(binary.BigEndian.Uint64(data[24:]))
+	p.Partition = binary.BigEndian.Uint32(data[0 : 0+4])
+	p.Length = binary.BigEndian.Uint32(data[4 : 4+4])
+	p.MinTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.MaxTid = zodb.Tid(binary.BigEndian.Uint64(data[16 : 16+8]))
+	p.MinOid = zodb.Oid(binary.BigEndian.Uint64(data[24 : 24+8]))
 	{
-		l := binary.BigEndian.Uint32(data[32:])
+		l := binary.BigEndian.Uint32(data[32 : 32+4])
 		data = data[36:]
 		p.ObjKnownDict = make(map[zodb.Tid][]zodb.Oid, l)
 		m := p.ObjKnownDict
@@ -3754,10 +3754,10 @@ func (p *FetchObjects) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 12 {
 				goto overflow
 			}
-			key := zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			key := zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			var v []zodb.Oid
 			{
-				l := binary.BigEndian.Uint32(data[8:])
+				l := binary.BigEndian.Uint32(data[8 : 8+4])
 				data = data[12:]
 				if uint64(len(data)) < uint64(l)*8 {
 					goto overflow
@@ -3766,7 +3766,7 @@ func (p *FetchObjects) neoMsgDecode(data []byte) (int, error) {
 				v = make([]zodb.Oid, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &v[i]
-					(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+					(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 					data = data[8:]
 				}
 			}
@@ -3829,11 +3829,11 @@ func (p *AnswerFetchObjects) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 28 {
 		goto overflow
 	}
-	p.PackTid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
-	p.NextTid = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.NextOid = zodb.Oid(binary.BigEndian.Uint64(data[16:]))
+	p.PackTid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.NextTid = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.NextOid = zodb.Oid(binary.BigEndian.Uint64(data[16 : 16+8]))
 	{
-		l := binary.BigEndian.Uint32(data[24:])
+		l := binary.BigEndian.Uint32(data[24 : 24+4])
 		data = data[28:]
 		p.ObjDeleteDict = make(map[zodb.Tid][]zodb.Oid, l)
 		m := p.ObjDeleteDict
@@ -3841,10 +3841,10 @@ func (p *AnswerFetchObjects) neoMsgDecode(data []byte) (int, error) {
 			if len(data) < 12 {
 				goto overflow
 			}
-			key := zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+			key := zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			var v []zodb.Oid
 			{
-				l := binary.BigEndian.Uint32(data[8:])
+				l := binary.BigEndian.Uint32(data[8 : 8+4])
 				data = data[12:]
 				if uint64(len(data)) < uint64(l)*8 {
 					goto overflow
@@ -3853,7 +3853,7 @@ func (p *AnswerFetchObjects) neoMsgDecode(data []byte) (int, error) {
 				v = make([]zodb.Oid, l)
 				for i := 0; uint32(i) < l; i++ {
 					a := &v[i]
-					(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+					(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 					data = data[8:]
 				}
 			}
@@ -3919,9 +3919,9 @@ func (p *AddTransaction) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 12 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	{
-		l := binary.BigEndian.Uint32(data[8:])
+		l := binary.BigEndian.Uint32(data[8 : 8+4])
 		data = data[12:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -3931,7 +3931,7 @@ func (p *AddTransaction) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 4+uint64(l) {
 			goto overflow
@@ -3941,7 +3941,7 @@ func (p *AddTransaction) neoMsgDecode(data []byte) (int, error) {
 		data = data[l:]
 	}
 	{
-		l := binary.BigEndian.Uint32(data[0:])
+		l := binary.BigEndian.Uint32(data[0 : 0+4])
 		data = data[4:]
 		if uint64(len(data)) < 13+uint64(l) {
 			goto overflow
@@ -3950,10 +3950,10 @@ func (p *AddTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.Extension = string(data[:l])
 		data = data[l:]
 	}
-	p.Packed = byte2bool((data[0:])[0])
-	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[1:]))
+	p.Packed = byte2bool((data[0 : 0+1])[0])
+	p.TTid = zodb.Tid(binary.BigEndian.Uint64(data[1 : 1+8]))
 	{
-		l := binary.BigEndian.Uint32(data[9:])
+		l := binary.BigEndian.Uint32(data[9 : 9+4])
 		data = data[13:]
 		if uint64(len(data)) < uint64(l)*8 {
 			goto overflow
@@ -3962,7 +3962,7 @@ func (p *AddTransaction) neoMsgDecode(data []byte) (int, error) {
 		p.OidList = make([]zodb.Oid, l)
 		for i := 0; uint32(i) < l; i++ {
 			a := &p.OidList[i]
-			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
+			(*a) = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
 			data = data[8:]
 		}
 	}
@@ -4002,12 +4002,12 @@ func (p *AddObject) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 41 {
 		goto overflow
 	}
-	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0:]))
-	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8:]))
-	p.Compression = byte2bool((data[16:])[0])
+	p.Oid = zodb.Oid(binary.BigEndian.Uint64(data[0 : 0+8]))
+	p.Serial = zodb.Tid(binary.BigEndian.Uint64(data[8 : 8+8]))
+	p.Compression = byte2bool((data[16 : 16+1])[0])
 	copy(p.Checksum[:], data[17:37])
 	{
-		l := binary.BigEndian.Uint32(data[37:])
+		l := binary.BigEndian.Uint32(data[37 : 37+4])
 		data = data[41:]
 		if uint64(len(data)) < 8+uint64(l) {
 			goto overflow
@@ -4017,7 +4017,7 @@ func (p *AddObject) neoMsgDecode(data []byte) (int, error) {
 		copy(p.Data, data[:l])
 		data = data[l:]
 	}
-	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.DataSerial = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 41 + int(nread), nil
 
 overflow:
@@ -4042,7 +4042,7 @@ func (p *Truncate) neoMsgDecode(data []byte) (int, error) {
 	if len(data) < 8 {
 		goto overflow
 	}
-	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0:]))
+	p.Tid = zodb.Tid(binary.BigEndian.Uint64(data[0 : 0+8]))
 	return 8, nil
 
 overflow:

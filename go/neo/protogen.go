@@ -869,7 +869,11 @@ func (e *encoder) genBasic(path string, typ *types.Basic, userType types.Type) {
 
 func (d *decoder) genBasic(assignto string, typ *types.Basic, userType types.Type) {
 	basic := basicTypes[typ.Kind()]
-	dataptr := fmt.Sprintf("data[%v:]", d.n)
+
+	// XXX specifying :hi is not needed - it is only a workaround to help BCE.
+	//     see https://github.com/golang/go/issues/19126#issuecomment-358743715
+	dataptr := fmt.Sprintf("data[%v:%v+%d]", d.n, d.n, basic.wireSize)
+
 	decoded := fmt.Sprintf(basic.decode, dataptr)
 	if userType != typ && userType != nil {
 		// need to cast (like in encode case)
