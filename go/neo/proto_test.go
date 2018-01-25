@@ -294,6 +294,37 @@ func TestMsgMarshalAllOverflowLightly(t *testing.T) {
 	}
 }
 
+// Verify overflow handling on decode len checks
+func TestMsgDecodeLenOverflow(t *testing.T) {
+	var testv = []struct {
+		msg	Msg	// of type to decode into
+		data	string	// []byte - tricky data to exercise decoder u32 len checks overflow
+	} {
+		// [] with sizeof(item) = 8	-> len*sizeof(item) = 0 if u32
+		{&AnswerTIDs{},               u32(0x20000000)},
+
+		// {} with sizeof(key) = 8, sizeof(value) = 8	-> len*sizeof(key+value) = 0 if u32
+		{&AnswerLockedTransactions{}, u32(0x10000000)},
+	}
+
+	for _, tt := range testv {
+		data := []byte(tt.data)
+		func() {
+			defer func() {
+				if e := recover(); e != nil {
+					t.Errorf("%T: decode: panic on %x", tt.msg, data)
+				}
+			}()
+
+			n, err := tt.msg.neoMsgDecode(data)
+			if !(n == 0 && err == ErrDecodeOverflow) {
+				t.Errorf("%T: decode %x\nhave: %d, %v\nwant: %d, %v", tt.msg, data,
+					n, err, 0, ErrDecodeOverflow)
+			}
+		}()
+	}
+}
+
 func TestUUID(t *testing.T) {
 	var testv = []struct{typ NodeType; num int32; uuid uint32; str string}{
 		{STORAGE, 1, 0x00000001, "S1"},
