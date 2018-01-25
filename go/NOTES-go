@@ -3,6 +3,13 @@
 - scheduler won't use free P if a G is taking time and other Gs are queued after it on the same P:
    https://groups.google.com/forum/#!topic/golang-nuts/8KYER1ALelg
 
+   (  not quite so exactly. The scheduler is stealing one, but if GC wants to
+      stop the world, and one goroutine persists looping, others won't be run until
+      the looping one parks and GC performs.
+
+      From this point of view the above issues is actually about
+      https://github.com/golang/go/issues/10958 )
+
 e870f06c (runtime: yield time slice to most recently readied G)
 ea0386f8 (runtime: improve randomized stealing logic)
 4bb491b1 (runtime: improve scheduler fairness)
@@ -45,6 +52,11 @@ runtime/HACKING.md
 	io.ReadFull(r, ...)
 
   calls convI2I all the time (no caching) which is not negliable
+
+  ( recheck it is still true after https://github.com/golang/go/commit/3d1699ea:
+
+    -> it is still the case; convI2I cost is ~ 8ns - i.e. it is not big for
+    non-hot codepaths - uncontended mutex lock/unlock is 15-25ns. )
 
 
 

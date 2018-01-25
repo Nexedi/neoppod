@@ -38,7 +38,7 @@ digraph {
 	//Cpy_r_Sgo -> Mpy_vs_Sgo;
 
 	Cgo_r_Sgo -> Cgo;
-	Cgo_r_Sgo -> Sgo;		
+	Cgo_r_Sgo -> Sgo;
 
 	Cgo_r_Spy -> Cgo;
 	//Cgo_r_Spy -> Protog_fix;
