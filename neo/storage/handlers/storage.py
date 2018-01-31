@@ -97,15 +97,13 @@ class StorageOperationHandler(EventHandler):
             for serial, oid_list in object_dict.iteritems():
                 for oid in oid_list:
                     deleteObject(oid, serial)
-        # XXX: It should be possible not to commit here if it was the last
-        #      chunk, because we'll either commit again when updating
-        #      'backup_tid' or the partition table.
-        self.app.dm.commit()
         assert not pack_tid, "TODO"
         if next_tid:
+            self.app.dm.commit() # like in answerFetchTransactions
             # TODO also provide feedback to master about current replication state (tid)
             self.app.replicator.fetchObjects(next_tid, next_oid)
         else:
+            # This will also commit.
             self.app.replicator.finish()
 
     @checkConnectionIsReplicatorConnection

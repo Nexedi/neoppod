@@ -22,7 +22,7 @@ from struct import Struct
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 # the high order byte 0 is different from TLS Handshake (0x16).
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 ENCODED_VERSION = Struct('!L').pack(PROTOCOL_VERSION)
 
 # Avoid memory errors on corrupted data.
@@ -122,22 +122,22 @@ def NodeStates():
 
 @Enum
 def CellStates():
-    # Normal state: cell is writable/readable, and it isn't planned to drop it.
-    UP_TO_DATE
     # Write-only cell. Last transactions are missing because storage is/was down
     # for a while, or because it is new for the partition. It usually becomes
     # UP_TO_DATE when replication is done.
     OUT_OF_DATE
+    # Normal state: cell is writable/readable, and it isn't planned to drop it.
+    UP_TO_DATE
     # Same as UP_TO_DATE, except that it will be discarded as soon as another
     # node finishes to replicate it. It means a partition is moved from 1 node
     # to another. It is also discarded immediately if out-of-date.
     FEEDING
-    # Not really a state: only used in network packets to tell storages to drop
-    # partitions.
-    DISCARDED
     # A check revealed that data differs from other replicas. Cell is neither
     # readable nor writable.
     CORRUPTED
+    # Not really a state: only used in network packets to tell storages to drop
+    # partitions.
+    DISCARDED
 
 # used for logging
 node_state_prefix_dict = {
@@ -462,7 +462,7 @@ class PEnum(PStructItem):
     """
         Encapsulate an enumeration value
     """
-    _fmt = '!l'
+    _fmt = 'b'
 
     def __init__(self, name, enum):
         PStructItem.__init__(self, name)
@@ -1535,16 +1535,16 @@ class Truncate(Packet):
     _answer = Error
 
 
-StaticRegistry = {}
+_next_code = 0
 def register(request, ignore_when_closed=None):
     """ Register a packet in the packet registry """
-    code = len(StaticRegistry)
+    global _next_code
+    code = _next_code
+    assert code < RESPONSE_MASK
+    _next_code = code + 1
     if request is Error:
         code |= RESPONSE_MASK
     # register the request
-    StaticRegistry[code] = request
-    if request is None:
-        return # None registered only to skip a code number (for compatibility)
     request._code = code
     answer = request._answer
     if ignore_when_closed is None:
@@ -1557,32 +1557,28 @@ def register(request, ignore_when_closed=None):
     if answer in (Error, None):
         return request
     # build a class for the answer
-    answer = type('Answer%s' % (request.__name__, ), (Packet, ), {})
+    answer = type('Answer' + request.__name__, (Packet, ), {})
     answer._fmt = request._answer
     answer.poll_thread = request.poll_thread
-    # compute the answer code
-    code = code | RESPONSE_MASK
     answer._request = request
     assert answer._code is None, "Answer of %s is already used" % (request, )
-    answer._code = code
+    answer._code = code | RESPONSE_MASK
     request._answer = answer
-    # and register the answer packet
-    assert code not in StaticRegistry, "Duplicate response packet code"
-    StaticRegistry[code] = answer
-    return (request, answer)
+    return request, answer
 
 class Packets(dict):
     """
     Packet registry that checks packet code uniqueness and provides an index
     """
     def __metaclass__(name, base, d):
+        # this builds a "singleton"
+        cls = type('PacketRegistry', base, d)()
         for k, v in d.iteritems():
             if isinstance(v, type) and issubclass(v, Packet):
                 v.handler_method_name = k[0].lower() + k[1:]
-        # this builds a "singleton"
-        return type('PacketRegistry', base, d)(StaticRegistry)
+                cls[v._code] = v
+        return cls
 
-    # notifications
     Error = register(
                     Error)
     RequestIdentification, AcceptIdentification = register(

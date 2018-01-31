@@ -63,7 +63,7 @@ class InitializationHandler(BaseMasterHandler):
     def askLastIDs(self, conn):
         dm = self.app.dm
         dm.truncate()
-        ltid, _, _, loid = dm.getLastIDs()
+        ltid, loid = dm.getLastIDs()
         conn.answer(Packets.AnswerLastIDs(loid, ltid))
 
     def askPartitionTable(self, conn):
@@ -81,14 +81,6 @@ class InitializationHandler(BaseMasterHandler):
         dm.commit()
 
     def startOperation(self, conn, backup):
-        self.app.operational = True
         # XXX: see comment in protocol
-        dm = self.app.dm
-        if backup:
-            if dm.getBackupTID():
-                return
-            tid = dm.getLastIDs()[0] or ZERO_TID
-        else:
-            tid = None
-        dm._setBackupTID(tid)
-        dm.commit()
+        self.app.operational = True
+        self.app.replicator.startOperation(backup)

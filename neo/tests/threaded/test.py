@@ -718,8 +718,9 @@ class Test(NEOThreadedTest):
 
     @with_cluster()
     def testStorageUpgrade1(self, cluster):
-        if 1:
-            storage = cluster.storage
+        storage = cluster.storage
+        # Disable migration steps that aren't idempotent.
+        with Patch(storage.dm.__class__, _migrate3=lambda *_: None):
             t, c = cluster.getTransaction()
             storage.dm.setConfiguration("version", None)
             c.root()._p_changed = 1
@@ -1289,7 +1290,7 @@ class Test(NEOThreadedTest):
             s1.resetNode()
             with Patch(s1.dm, truncate=dieFirst(1)):
                 s1.start()
-                self.assertEqual(s0.dm.getLastIDs()[0], truncate_tid)
+                self.assertFalse(s0.dm.getLastIDs()[0])
                 self.assertEqual(s1.dm.getLastIDs()[0], r._p_serial)
                 self.tic()
                 self.assertEqual(calls, [1, 2])
@@ -2351,7 +2352,7 @@ class Test(NEOThreadedTest):
             oid, tid = big_id_list[i]
             for j, expected in (
                     (1 - i, (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs())),
-                    (i, (u64(tid), (tid, {}, {}, oid)))):
+                    (i, (u64(tid), (tid, oid)))):
                 oid, tid = big_id_list[j]
                 # Somehow we abuse 'storeTransaction' because we ask it to
                 # write data for unassigned partitions. This is not checked
