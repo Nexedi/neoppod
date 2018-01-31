@@ -462,7 +462,7 @@ class PEnum(PStructItem):
     """
         Encapsulate an enumeration value
     """
-    _fmt = '!l'
+    _fmt = 'b'
 
     def __init__(self, name, enum):
         PStructItem.__init__(self, name)
