@@ -44,7 +44,7 @@ runtime/HACKING.md
 
   -> go-slab
 
-- interfaces conversion in hot codepaths are costly:
+- interfaces conversion in very hot codepaths are costly:
 
   e.g. having r as io.ReadSeeker and converting it to io.Reader e.g. this way:
 

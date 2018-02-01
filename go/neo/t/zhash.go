@@ -42,6 +42,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 
+	"github.com/pkg/errors"
 	"github.com/pkg/profile"
 )
 
@@ -173,13 +174,13 @@ loop:
 			prefetchBlk(ctx, xid)
 		}
 		buf, _, err := stor.Load(ctx, xid)
-		switch err.(type) {
-		case nil:
-			// ok
-		case *zodb.ErrOidMissing:
-			break loop
-		default:
-			return err
+		if err != nil {
+			switch errors.Cause(err).(type) {
+			case *zodb.NoObjectError:
+				break loop
+			default:
+				return err
+			}
 		}
 
 		h.Write(buf.Data)

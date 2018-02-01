@@ -94,8 +94,7 @@ EOF
 	pushd src/lab.nexedi.com/kirr
 	test -d neo || git clone -o kirr -b t https://lab.nexedi.com/kirr/neo.git neo	# XXX t is temp
 	cd neo
-	pip install -e .
-	pip install mysqlclient		# XXX better ^^^ `pip install .` pick this up
+	pip install -e .[admin,client,ctl,master,storage-sqlite,storage-mysqldb]
 	popd
 
 	go get -v lab.nexedi.com/kirr/neo/go/...
@@ -314,7 +313,7 @@ datadir		= $neosql/data
 log_error	= $log/mdb.log
 
 # the following comes from
-# https://lab.nexedi.com/nexedi/slapos/blob/master/software/neoppod/my.cnf.in#L18
+# https://lab.nexedi.com/nexedi/slapos/blob/bd197876/software/neoppod/my.cnf.in#L18
 # ---- 8< ----
 
 # kirr: disabled
