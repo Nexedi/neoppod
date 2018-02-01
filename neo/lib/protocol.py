@@ -660,6 +660,7 @@ class Ping(Packet):
     """
     Empty request used as network barrier.
 
+    :scope: connection
     :nodes: * -> *
     """
     _answer = PFEmpty
@@ -668,6 +669,7 @@ class CloseClient(Packet):
     """
     Tell peer that it can close the connection if it has finished with us.
 
+    :scope: connection
     :nodes: * -> *
     """
 
@@ -676,6 +678,7 @@ class RequestIdentification(Packet):
     Request a node identification. This must be the first packet for any
     connection.
 
+    :scope: identification
     :nodes: * -> *
     """
     poll_thread = True
@@ -700,6 +703,7 @@ class PrimaryMaster(Packet):
     """
     Ask node identier of the current primary master.
 
+    :scope: administration
     :nodes: ctl -> A
     """
     _answer = PStruct('answer_primary',
@@ -711,6 +715,7 @@ class NotPrimaryMaster(Packet):
     Notify peer that I'm not the primary master. Attach any extra information
     to help the peer joining the cluster.
 
+    :scope: election, identification
     :nodes: SM -> *
     """
     _fmt = PStruct('not_primary_master',
@@ -725,6 +730,7 @@ class Recovery(Packet):
     Ask storage nodes data needed by master to recover.
     Reused by `neoctl print ids`.
 
+    :scope: recovery, administration
     :nodes: M -> S; ctl -> A -> M
     """
     _answer = PStruct('answer_recovery',
@@ -738,6 +744,7 @@ class LastIDs(Packet):
     Ask the last OID/TID so that a master can initialize its TransactionManager.
     Reused by `neoctl print ids`.
 
+    :scope: verification, administration
     :nodes: M -> S; ctl -> A -> M
     """
     _answer = PStruct('answer_last_ids',
@@ -750,6 +757,7 @@ class PartitionTable(Packet):
     Ask storage node the remaining data needed by master to recover.
     This is also how the clients get the full partition table on connection.
 
+    :scope: recovery, partitioning
     :nodes: M -> S; C -> M
     """
     _answer = PStruct('answer_partition_table',
@@ -761,6 +769,7 @@ class NotifyPartitionTable(Packet):
     """
     Send the full partition table to admin/storage nodes on connection.
 
+    :scope: partitioning
     :nodes: M -> A, S
     """
     _fmt = PStruct('send_partition_table',
@@ -772,6 +781,7 @@ class PartitionChanges(Packet):
     """
     Notify about changes in the partition table.
 
+    :scope: partitioning
     :nodes: M -> *
     """
     _fmt = PStruct('notify_partition_changes',
@@ -790,6 +800,7 @@ class StartOperation(Packet):
     Tell a storage node to start operation. Before this message, it must only
     communicate with the primary master.
 
+    :scope: operation
     :nodes: M -> S
     """
     _fmt = PStruct('start_operation',
@@ -803,6 +814,7 @@ class StopOperation(Packet):
     Notify that the cluster is not operational anymore. Any operation between
     nodes must be aborted.
 
+    :scope: operation
     :nodes: M -> S, C
     """
 
@@ -810,6 +822,7 @@ class UnfinishedTransactions(Packet):
     """
     Ask unfinished transactions, which will be replicated when they're finished.
 
+    :scope: replication
     :nodes: S -> M
     """
     _fmt = PStruct('ask_unfinished_transactions',
@@ -830,6 +843,7 @@ class LockedTransactions(Packet):
     Ask locked transactions to replay committed transactions that haven't been
     unlocked.
 
+    :scope: verification
     :nodes: M -> S
     """
     _answer = PStruct('answer_locked_transactions',
@@ -844,6 +858,7 @@ class FinalTID(Packet):
     Return final tid if ttid has been committed, to recover from certain
     failures during tpc_finish.
 
+    :scope: commit
     :nodes: M -> S; C -> M, S
     """
     _fmt = PStruct('final_tid',
@@ -858,6 +873,7 @@ class ValidateTransaction(Packet):
     """
     Do replay a committed transaction that was not unlocked.
 
+    :scope: verification
     :nodes: M -> S
     """
     _fmt = PStruct('validate_transaction',
@@ -869,6 +885,7 @@ class BeginTransaction(Packet):
     """
     Ask to begin a new transaction. This maps to `tpc_begin`.
 
+    :scope: commit
     :nodes: C -> M
     """
     _fmt = PStruct('ask_begin_transaction',
@@ -884,6 +901,7 @@ class FailedVote(Packet):
     Report storage nodes for which vote failed.
     True is returned if it's still possible to finish the transaction.
 
+    :scope: commit
     :nodes: C -> M
     """
     _fmt = PStruct('failed_vote',
@@ -898,6 +916,7 @@ class FinishTransaction(Packet):
     Finish a transaction. Return the TID of the committed transaction.
     This maps to `tpc_finish`.
 
+    :scope: commit
     :nodes: C -> M
     """
     poll_thread = True
@@ -919,6 +938,7 @@ class NotifyTransactionFinished(Packet):
     """
     Notify that a transaction blocking a replication is now finished.
 
+    :scope: replication
     :nodes: M -> S
     """
     _fmt = PStruct('notify_transaction_finished',
@@ -930,6 +950,7 @@ class LockInformation(Packet):
     """
     Commit a transaction. The new data is read-locked.
 
+    :scope: commit
     :nodes: M -> S
     """
     _fmt = PStruct('ask_lock_informations',
@@ -946,6 +967,7 @@ class InvalidateObjects(Packet):
     Notify about a new transaction modifying objects,
     invalidating client caches.
 
+    :scope: commit
     :nodes: M -> C
     """
     _fmt = PStruct('ask_finish_transaction',
@@ -958,6 +980,7 @@ class UnlockInformation(Packet):
     Notify about a successfully committed transaction. The new data can be
     unlocked.
 
+    :scope: commit
     :nodes: M -> S
     """
     _fmt = PStruct('notify_unlock_information',
@@ -968,6 +991,7 @@ class GenerateOIDs(Packet):
     """
     Ask new OIDs to create objects.
 
+    :scope: commit
     :nodes: C -> M
     """
     _fmt = PStruct('ask_new_oids',
@@ -983,6 +1007,7 @@ class Deadlock(Packet):
     Ask master to generate a new TTID that will be used by the client to solve
     a deadlock by rebasing the transaction on top of concurrent changes.
 
+    :scope: commit
     :nodes: S -> M -> C
     """
     _fmt = PStruct('notify_deadlock',
@@ -994,6 +1019,7 @@ class RebaseTransaction(Packet):
     """
     Rebase a transaction to solve a deadlock.
 
+    :scope: commit
     :nodes: C -> S
     """
     _fmt = PStruct('ask_rebase_transaction',
@@ -1009,6 +1035,7 @@ class RebaseObject(Packet):
     """
     Rebase an object change to solve a deadlock.
 
+    :scope: commit
     :nodes: C -> S
 
     XXX: It is a request packet to simplify the implementation. For more
@@ -1039,6 +1066,7 @@ class StoreObject(Packet):
 
     As for IStorage, 'serial' is ZERO_TID for new objects.
 
+    :scope: commit
     :nodes: C -> S
     """
     _fmt = PStruct('ask_store_object',
@@ -1059,6 +1087,7 @@ class AbortTransaction(Packet):
     """
     Abort a transaction. This maps to `tpc_abort`.
 
+    :scope: commit
     :nodes: C -> S; C -> M -> S
     """
     _fmt = PStruct('abort_transaction',
@@ -1070,6 +1099,7 @@ class StoreTransaction(Packet):
     """
     Ask to store a transaction. Implies vote.
 
+    :scope: commit
     :nodes: C -> S
     """
     _fmt = PStruct('ask_store_transaction',
@@ -1085,6 +1115,7 @@ class VoteTransaction(Packet):
     """
     Ask to vote a transaction.
 
+    :scope: commit
     :nodes: C -> S
     """
     _fmt = PStruct('ask_vote_transaction',
@@ -1097,6 +1128,7 @@ class GetObject(Packet):
     Ask a stored object by its OID, optionally at/before a specific tid.
     This maps to `load/loadBefore/loadSerial`.
 
+    :scope: read
     :nodes: C -> S
     """
     _fmt = PStruct('ask_object',
@@ -1120,6 +1152,7 @@ class TIDList(Packet):
     Ask for TIDs between a range of offsets. The order of TIDs is descending,
     and the range is [first, last). This maps to `undoLog`.
 
+    :scope: read
     :nodes: C -> S
     """
     _fmt = PStruct('ask_tids',
@@ -1137,6 +1170,7 @@ class TIDListFrom(Packet):
     Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
     Used by `iterator`.
 
+    :scope: read
     :nodes: C -> S
     """
     _fmt = PStruct('tid_list_from',
@@ -1154,6 +1188,7 @@ class TransactionInformation(Packet):
     """
     Ask for transaction metadata.
 
+    :scope: read
     :nodes: C -> S
     """
     _fmt = PStruct('ask_transaction_information',
@@ -1174,6 +1209,7 @@ class ObjectHistory(Packet):
     Ask history information for a given object. The order of serials is
     descending, and the range is [first, last]. This maps to `history`.
 
+    :scope: read
     :nodes: C -> S
     """
     _fmt = PStruct('ask_object_history',
@@ -1191,6 +1227,7 @@ class PartitionList(Packet):
     """
     Ask information about partitions.
 
+    :scope: administration
     :nodes: ctl -> A
     """
     _fmt = PStruct('ask_partition_list',
@@ -1208,6 +1245,7 @@ class NodeList(Packet):
     """
     Ask information about nodes.
 
+    :scope: administration
     :nodes: ctl -> A
     """
     _fmt = PStruct('ask_node_list',
@@ -1222,6 +1260,7 @@ class SetNodeState(Packet):
     """
     Change the state of a node.
 
+    :scope: operation
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('set_node_state',
@@ -1236,6 +1275,7 @@ class AddPendingNodes(Packet):
     Mark given pending nodes as running, for future inclusion when tweaking
     the partition table.
 
+    :scope: partitioning
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('add_pending_nodes',
@@ -1249,6 +1289,7 @@ class TweakPartitionTable(Packet):
     Ask the master to balance the partition table, optionally excluding
     specific nodes in anticipation of removing them.
 
+    :scope: partitioning
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('tweak_partition_table',
@@ -1261,6 +1302,7 @@ class NotifyNodeInformation(Packet):
     """
     Notify information about one or more nodes.
 
+    :scope: operation
     :nodes: M -> *
     """
     _fmt = PStruct('notify_node_informations',
@@ -1272,6 +1314,7 @@ class SetClusterState(Packet):
     """
     Set the cluster state.
 
+    :scope: operation
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('set_cluster_state',
@@ -1284,6 +1327,7 @@ class Repair(Packet):
     """
     Ask storage nodes to repair their databases.
 
+    :scope: maintenance
     :nodes: ctl -> A -> M
     """
     _flags = map(PBoolean, ('dry_run',
@@ -1300,6 +1344,7 @@ class RepairOne(Packet):
     Repair is translated to this message, asking a specific storage node to
     repair its database.
 
+    :scope: maintenance
     :nodes: M -> S
     """
     _fmt = PStruct('repair', *Repair._flags)
@@ -1308,6 +1353,7 @@ class ClusterInformation(Packet):
     """
     Notify about a cluster state change.
 
+    :scope: operation
     :nodes: M -> *
     """
     _fmt = PStruct('notify_cluster_information',
@@ -1318,6 +1364,7 @@ class ClusterState(Packet):
     """
     Ask the state of the cluster
 
+    :scope: administration
     :nodes: ctl -> A; A -> M
     """
 
@@ -1340,6 +1387,7 @@ class ObjectUndoSerial(Packet):
             is_current (bool)
                 If current_serial's data is current on storage.
 
+    :scope: read
     :nodes: C -> S
     """
     _fmt = PStruct('ask_undo_transaction',
@@ -1366,6 +1414,7 @@ class CheckCurrentSerial(Packet):
     this state is not altered until transaction ends.
     This maps to `checkCurrentSerialInTransaction`.
 
+    :scope: commit
     :nodes: C -> S
     """
     _fmt = PStruct('ask_check_current_serial',
@@ -1380,6 +1429,7 @@ class Pack(Packet):
     """
     Request a pack at given TID.
 
+    :scope: maintenance
     :nodes: C -> M -> S
     """
     _fmt = PStruct('ask_pack',
@@ -1395,6 +1445,7 @@ class CheckReplicas(Packet):
     Ask the cluster to search for mismatches between replicas, metadata only,
     and optionally within a specific range. Reference nodes can be specified.
 
+    :scope: maintenance
     :nodes: ctl -> A -> M
     """
     _fmt = PStruct('check_replicas',
@@ -1413,6 +1464,7 @@ class CheckPartition(Packet):
     Like for CheckReplicas, only metadata are checked, optionally within a
     specific range. A reference node can be specified.
 
+    :scope: maintenance
     :nodes: M -> S
     """
     _fmt = PStruct('check_partition',
@@ -1431,6 +1483,7 @@ class CheckTIDRange(Packet):
     Used to know if there are differences between a replicating node and
     reference node.
 
+    :scope: maintenance
     :nodes: S -> S
     """
     _fmt = PStruct('ask_check_tid_range',
@@ -1452,6 +1505,7 @@ class CheckSerialRange(Packet):
     Used to know if there are differences between a replicating node and
     reference node.
 
+    :scope: maintenance
     :nodes: S -> S
     """
     _fmt = PStruct('ask_check_serial_range',
@@ -1474,6 +1528,7 @@ class PartitionCorrupted(Packet):
     """
     Notify that mismatches were found while check replicas for a partition.
 
+    :scope: maintenance
     :nodes: S -> M
     """
     _fmt = PStruct('partition_corrupted',
@@ -1487,6 +1542,7 @@ class LastTransaction(Packet):
     """
     Ask last committed TID.
 
+    :scope: read, administration
     :nodes: C -> M; ctl -> A -> M
     """
     poll_thread = True
@@ -1499,6 +1555,7 @@ class NotifyReady(Packet):
     """
     Notify that we're ready to serve requests.
 
+    :scope: operation
     :nodes: S -> M
     """
 
@@ -1507,6 +1564,7 @@ class FetchTransactions(Packet):
     Ask a storage node to send all transaction data we don't have,
     and reply with the list of transactions we should not have.
 
+    :scope: replication
     :nodes: S -> S
     """
     _fmt = PStruct('ask_transaction_list',
@@ -1526,6 +1584,7 @@ class AddTransaction(Packet):
     """
     Send metadata of a transaction to a node that do not have them.
 
+    :scope: replication
     :nodes: S -> S
     """
     nodelay = False
@@ -1545,6 +1604,7 @@ class FetchObjects(Packet):
     Ask a storage node to send object records we don't have,
     and reply with the list of records we should not have.
 
+    :scope: replication
     :nodes: S -> S
     """
     _fmt = PStruct('ask_object_list',
@@ -1572,6 +1632,7 @@ class AddObject(Packet):
     """
     Send an object record to a node that do not have it.
 
+    :scope: replication
     :nodes: S -> S
     """
     nodelay = False
@@ -1594,6 +1655,7 @@ class Replicate(Packet):
     - address: address of the source storage node, or None if there's no new
                data up to 'tid' for the given partition
 
+    :scope: replication
     :nodes: M -> S
     """
     _fmt = PStruct('replicate',
@@ -1610,6 +1672,7 @@ class ReplicationDone(Packet):
     Notify the master node that a partition has been successfully replicated
     from a storage to another.
 
+    :scope: replication
     :nodes: S -> M
     """
     _fmt = PStruct('notify_replication_done',
@@ -1621,6 +1684,7 @@ class Truncate(Packet):
     """
     Request DB to be truncated. Also used to leave backup mode.
 
+    :scope: maintenance
     :nodes: ctl -> A -> M; M -> S
     """
     _fmt = PStruct('truncate',
