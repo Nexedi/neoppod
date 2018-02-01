@@ -754,7 +754,7 @@ system_info() {
 
 	done
 
-	echo -n "# "; proginfo python --version
+	echo -n "# "; proginfo python --version 2>&1	# https://bugs.python.org/issue18338
 	echo -n "# "; proginfo go version
 	echo -n "# "; proginfo python -c 'import sqlite3 as s; print "sqlite %s (py mod %s)" % (s.sqlite_version, s.version)'
 	echo -n "# "; proginfo mysqld --version
