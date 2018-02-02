@@ -1,0 +1,315 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+import subprocess
+from cgi import escape
+from urllib import FancyURLopener
+
+fancy_open = FancyURLopener().open
+
+class Protocol(object):
+
+  def __init__(self, ref='master'):
+    if ref:
+      response = fancy_open(
+        "https://lab.nexedi.com/nexedi/neoppod/raw/%s/neo/lib/protocol.py" % ref)
+    else:
+      response = open("neo/lib/protocol.py")
+    try:
+      source = response.read()
+    finally:
+      response.close()
+    exec(source, self.__dict__)
+
+
+  def _dot(self, gv):
+    cmd = "dot", "-Tsvg", "-Nfontname=inherit", "-Efontname=inherit"
+    process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    svg, _ = process.communicate(gv)
+    retcode = process.poll()
+    if retcode:
+        raise subprocess.CalledProcessError(retcode, cmd[0])
+    return svg
+
+  def renderClusterStates(self):
+    return self._dot("""digraph {
+  compound=true;
+  RECOVERING [peripheries=2]
+  subgraph cluster {
+    VERIFYING -> RUNNING
+    VERIFYING -> STARTING_BACKUP -> BACKINGUP -> { STARTING_BACKUP STOPPING_BACKUP }
+    { rank=same; BACKINGUP STOPPING_BACKUP }
+  }
+  RECOVERING -> { VERIFYING STOPPING }
+  RUNNING -> { rank=min; RECOVERING STOPPING } [ltail=cluster]
+}
+""")
+
+  def renderCellStates(self):
+    return self._dot("""digraph {
+  compound=true;
+  DISCARDED [style=dashed]
+  subgraph cluster {
+    OUT_OF_DATE [peripheries=2]
+    UP_TO_DATE [peripheries=2]
+    OUT_OF_DATE -> UP_TO_DATE [label=replicated]
+    UP_TO_DATE -> FEEDING [label=tweak,dir=both]
+    UP_TO_DATE -> OUT_OF_DATE [label="node lost"]
+    { UP_TO_DATE FEEDING } -> CORRUPTED [label=check]
+  }
+  UP_TO_DATE -> DISCARDED [ltail=cluster]
+}
+""")
+
+  def renderMessageTable(self):
+    types = set()
+    def arg(item):
+      if isinstance(item, self.PStruct):
+        x = '(%s)' % ', '.join(map(arg, item._items))
+        return x + '?' if isinstance(item, self.POption) else x
+      if isinstance(item, self.PList):
+        return '[%s]' % arg(item._item)
+      if isinstance(item, self.PDict):
+        return '{%s: %s}' % (arg(item._key), arg(item._value))
+      types.add(item.__class__)
+      return '%s&nbsp;<em>%s</em>' % (item.__class__.__name__, item._name)
+    def args(req):
+      x = p if req else answer
+      if x:
+        if i and x is self.Error:
+          return x.__name__,
+        x = x._fmt
+        return () if x is None else map(arg, x._items)
+      return '-'
+    def fmt(t):
+      return '<em>%s</em>' % t._fmt
+    Packets = self.Packets
+    total_count = sum(x < self.RESPONSE_MASK for x in Packets)
+    messages = []
+    response_count = 0
+    br_join = '<br>'.join
+    cbr_join = ',<br>'.join
+    for i in xrange(total_count):
+      p = Packets[i or self.RESPONSE_MASK]
+      answer = p._answer
+      if answer:
+        response_count += 1
+        arrow = '⇄'
+      else:
+        arrow = '→'
+      doc = p.__doc__.strip().splitlines()
+      description = []
+      scope = nodes = ''
+      doc = iter(doc)
+      for x in doc:
+        x = x.strip()
+        if not x:
+          break
+        description.append(x)
+      for x in doc:
+        x = x.strip()
+        if x.startswith(':scope: '):
+          scope = escape(x[8:])
+        elif x.startswith(':nodes: '):
+          nodes = br_join(escape(x.replace('->', arrow)).replace(' ', '&nbsp;')
+                          for x in x[8:].split('; '))
+      messages.append("""\
+  <tr>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s</td>
+  </tr>
+""" % (i, p.__name__, escape(' '.join(description)), scope, nodes,
+       cbr_join(args(i)), cbr_join(args(not i))))
+    t = sorted(types, key=lambda t: t.__name__)
+    types = []
+    for t in t:
+      none = None
+      if t is self.PChecksum:
+        encoding = 'SHA1 (20 bytes)'
+      elif t is self.PTID:
+        encoding = '8 bytes (TID or OID)'
+        none = self.INVALID_TID
+      elif issubclass(t, self.PString):
+        if t is self.PString:
+          encoding = 'size(%s), bytes' % fmt(t)
+        else:
+          assert t is self.PAddress, t
+          encoding = 'PString, port(<em>!H</em>)'
+      else:
+        assert issubclass(t, self.PStructItem), t
+        encoding = fmt(t)
+        if t is self.PEnum:
+          none = -1
+        elif issubclass(t, self.PStructItemOrNone):
+          none = t._None
+      types.append("""\
+  <tr>
+    <td>%s</td>
+    <td>%s</td>
+    <td>%s</td>
+  </tr>
+""" % (t.__name__, encoding, repr(none) if none else '-'))
+      enums = ['\n<li>%s<ol start="0">%s</ol></li>' % (name,
+                  ''.join("<li>%s</li>" % e for e in e))
+        for name, e in sorted((k, e) for k, e in vars(self).iteritems()
+                                     if isinstance(e, self.Enum))]
+    other = []
+    for k in (
+      'INVALID_TID',
+      'INVALID_OID',
+      'INVALID_PARTITION',
+      'ZERO_HASH',
+      'ZERO_TID',
+      'ZERO_OID',
+      'MAX_TID',
+      ):
+      v = getattr(self, k)
+      other.append("""\
+  <tr>
+    <td>%s</td>
+    <td>%s</td>
+  </tr>
+""" % (k, '0x%x' % v if type(v) is int else repr(v)))
+
+    return """
+<details open="">
+<p>The following table lists the %s different types of messages that can be exchanged.
+%s are them are requests with response packets.
+1 is a generic response packet for error handling.
+The remaining %s are notification packets.</p>
+<p>The <em>code (#)</em> of a response packet is the same as the corresponding request one, with the highest order bit set. Using Python language, it translates as follows:</p>
+<pre>response_code = request_code | 0x%x</pre>
+<p>The <em>format</em> columns refer to item types,
+which are described in the next table with Python literals, and in particular
+<a href="https://docs.python.org/2/library/struct.html#struct-format-strings">its struct format</a>.</p>
+</details>
+
+<details open="">
+<summary>Message Types</summary>
+<div style="overflow: auto; height: 50ex">
+<table>
+  <tr>
+    <th>#</th>
+    <th>Message</th>
+    <th>Description</th>
+    <th>Workflow</th>
+    <th>Nodes</th>
+    <th>Format</th>
+    <th>Answer Format</th>
+  </tr>
+%s</table>
+</div>
+</details>
+
+<details open="">
+<summary>Item Types</summary>
+<table>
+  <tr>
+    <th>Type</th>
+    <th>Encoding</th>
+    <th>Null (e.g. Python's None)</th>
+  </tr>
+  <tr>
+    <td>(...)</td>
+    <td>each item is encoded one after the other</td>
+    <td>-</td>
+  </tr>
+  <tr>
+    <td>[...]</td>
+    <td>count(%s), (...)</td>
+    <td>-</td>
+  </tr>
+  <tr>
+    <td>{keys: values}</td>
+    <td>[(key, value)]</td>
+    <td>-</td>
+  </tr>
+  <tr>
+    <td>(...)?</td>
+    <td><span>'\\1'</span>, (...)</td>
+    <td>'\\0'</td>
+  </tr>
+%s</table>
+<p><strong>Note:</strong> There's no UUID anymore in NEO and PUUID must renamed into PNID.</p>
+</details>
+
+<details open="">
+<summary>Enum Types</summary>
+<div style="overflow: auto; height: 40ex">
+<ul style="font-size: smaller; margin-top: 0">%s
+</ul>
+</div>
+<p style="margin-left: 2em;"><strong>Naming choice</strong>: For cell states, node states and node types, names are chosen to have unambiguous initials, which is useful to produce shorter logs or have a more compact user interface. This explains for example why <em>RUNNING</em> was preferred over <em>UP</em>.</p>
+</details>
+
+<details open="">
+<summary>Other Constants</summary>
+<table>
+%s</table>
+<p>MAX_TID could be bigger but in the Python implementation, TIDs are stored as integers and some storage backend may have no support for values above 2⁶³-1 (e.g. SQLite).</p>
+<p>Node ID namespaces are required to prevent conflicts when the master generates new ids before it knows those of existing storage nodes. The high-order byte of node ids is one the following values:</p>
+<table>
+<tr><td>Storage</td><td>0x00</td></tr>
+<tr><td>Master</td><td>-0x10</td></tr>
+<tr><td>Client</td><td>-0x20</td></tr>
+<tr><td>Admin</td><td>-0x30</td></tr>
+</table>
+<p>Actually, only the high order bit is really important and the 31 other bits could be random, but extra namespace information and non-randomness of 3 LOB help to read logs.</p>
+</details>
+""" % (total_count, response_count, total_count - response_count - 1,
+       self.RESPONSE_MASK, ''.join(messages),
+       fmt(self.PDict), ''.join(types), ''.join(enums), ''.join(other))
+
+if __name__ == '__main__':
+  import httplib, SimpleHTTPServer, SocketServer, sys, traceback
+
+  class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+
+    def do_GET(self):
+        path = self.path
+        try:
+            path, query = path.split('?', 1)
+        except ValueError:
+            query = None
+        if path == '/':
+            try:
+                protocol = Protocol(query)
+                messages = protocol.renderMessageTable()
+                cluster = protocol.renderClusterStates()
+                cell = protocol.renderCellStates()
+            except Exception:
+                traceback.print_exc()
+                self.send_error(httplib.INTERNAL_SERVER_ERROR)
+            else:
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html; charset=utf-8')
+                self.end_headers()
+                self.wfile.write("""<html><head><style>
+table { border-collapse: collapse }
+table, th, td { border: thin solid black }
+div { height: inherit !important }
+</style></head><body>
+<h1>Messages</h1>%s
+<h1>Cluster States</h1>%s
+<h1>Cell States</h1>%s
+</body></html>""" %
+                  (messages, cluster, cell))
+        else:
+            self.send_error(httplib.NOT_FOUND)
+
+  class HTTPD(SocketServer.TCPServer):
+    allow_reuse_address = True
+
+  if len(sys.argv) > 1:
+      host_port = sys.argv[1].rsplit(':', 1)
+      if len(host_port) > 1:
+          host_port = host_port[0], int(host_port[1])
+      else:
+          host_port = "localhost", int(host_port[0])
+  else:
+      host_port = "localhost", 80
+  HTTPD(host_port, Handler).serve_forever()
