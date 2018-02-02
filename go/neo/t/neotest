@@ -195,7 +195,14 @@ switch_dataset() {
 	neosql=$ds/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
 	mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
 	mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
+}
 
+# foreach_dataset <command>	- run command once for each dataset serially
+foreach_dataset() {
+	for d in "${datasetv[@]}" ; do
+		switch_dataset $d
+		"$@"
+	done
 }
 
 # control started NEO cluster
@@ -1034,16 +1041,17 @@ cmd_bench-local() {
 	echo -e "\n*** cpu:\n"
 	bench_cpu
 	bench_disk
+	cmd_zbench-local
+}
+
+# command: benchmark ZODB client/server over localhost
+cmd_zbench-local() {
 	install_trap
 
-	for d in "${datasetv[@]}" ; do
-		switch_dataset $d
-		zbench_local
-	done
+	foreach_dataset zbench_local
 
 	# all ok
 	trap - EXIT
-	exit
 }
 
 # zodb part of cmd_bench-local
@@ -1123,48 +1131,54 @@ cmd_bench-cluster() {
 
 	bench_net $url
 
-
 	# zodb benchmarks
 	echo
+	cmd_zbench-cluster $url
+}
+
+# command: benchmark ZODB client/server over network
+cmd_zbench-cluster() {
+	url=$1
+	test -z "$url" && die "Usage: neotest zbench-cluster [user@]<host>:<path>"
+
 	install_trap
 
-	for d in "${datasetv[@]}" ; do
-		switch_dataset $d
-		zbench_cluster
-	done
+	foreach_dataset zbench_cluster $url
 
 	# all ok
 	trap - EXIT
-	exit
 }
 
-# zodb part of cmd_bench-cluster
+# zbench_cluster <url>	- zodb part of cmd_bench-cluster
 zbench_cluster() {
+	url=$1
+	peer=`hostof $url`
+
 	gen_data
 	zhashok=`cat $ds/zhash.ok`
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
-	on $url ./neotest run-client zeo://$Zbind "`hostname`-$peer/zeo" $zhashok
+	on $url ./neotest zbench-client zeo://$Zbind "`hostname`-$peer/zeo" $zhashok
 	killall runzeo
 	wait
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sqlite" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	on $url ./neotest run-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sqlite\\\"" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sqlite\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
@@ -1172,26 +1186,26 @@ zbench_cluster() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	on $url ./neotest run-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sql\\\"" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sql\\\"" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go"
 	NEOgo
-	on $url ./neotest run-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgo
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest run-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
 
 # command: run client workload against separate server
-cmd_run-client() {
+cmd_zbench-client() {
 	goonly=""
 	case "$1" in
 	--goonly)
@@ -1203,7 +1217,7 @@ cmd_run-client() {
 	url=$1
 	topic=$2
 	zhashok=$3
-	test -z "$url" -o -z "$topic" -o -z "$zhashok" && die "Usage: neotest run-client <url> <topic> <zhashok>"
+	test -z "$url" -o -z "$topic" -o -z "$zhashok" && die "Usage: neotest zbench-client <url> <topic> <zhashok>"
 
 	test -z "$goonly" && zbench $url $topic $zhashok || zbench_go $url $topic $zhashok
 }
@@ -1255,14 +1269,16 @@ Usage:
 
 The commands are:
 
-	bench-local	run benchmarks when client and server are both on the same localhost
-	bench-cluster	run benchmarks when server is local and client is on another node
+	bench-local	run all benchmarks when client and server are both on the same localhost
+	bench-cluster	run all benchmarks when server is local and client is on another node
 
 	bench-cpu	benchmark local cpu	(part of bench-{local,cluster})
 	bench-disk	benchmark local disk	(part of bench-{local,cluster})
 	bench-net	benchmark network	(part of bench-cluster)
 
-	run-client	run client benchmarks against separate server
+	zbench-local	run ZODB benchmarks on localhost	(part of bench-local)
+	zbench-cluster	run ZODB benchmarks via network		(part of bench-cluster)
+	zbench-client	run ZODB client benchmarks against separate server (part of zbench-cluster)
 
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
@@ -1280,7 +1296,9 @@ case "$1" in
 # commands that require build
 bench-local	| \
 bench-cluster	| \
-run-client	| \
+zbench-local	| \
+zbench-cluster	| \
+zbench-client	| \
 bench-cpu	| \
 bench-disk	| \
 bench-net)
