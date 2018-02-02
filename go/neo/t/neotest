@@ -1064,9 +1064,10 @@ zbench_local() {
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
+	Zpy_job=$!
 	zbench zeo://$Zbind `hostname`/zeo $zhashok
-	killall runzeo
-	wait
+	kill $Zpy_job
+	wait $Zpy_job
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
@@ -1159,9 +1160,10 @@ zbench_cluster() {
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
+	Zpy_job=$!
 	on $url ./neotest zbench-client zeo://$Zbind "`hostname`-$peer/zeo" $zhashok
-	killall runzeo
-	wait
+	kill $Zpy_job
+	wait $Zpy_job
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
