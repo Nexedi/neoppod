@@ -1206,7 +1206,7 @@ zbench_cluster() {
 	wait
 }
 
-# command: run client workload against separate server
+# command: benchmark client workload against separate server
 cmd_zbench-client() {
 	goonly=""
 	case "$1" in
