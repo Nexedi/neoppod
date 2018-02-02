@@ -900,6 +900,98 @@ Benchmark$1-avg 1 \\3 \\4/op\
 	done
 }
 
+# hostof <url>		- return hostname part of <url>
+hostof() {
+	url=$1
+	python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"
+}
+
+# bench_net <url>	- benchmark network
+bench_net() {
+	url=$1
+	peer=`hostof $url`
+
+	echo -e "\n*** link latency:"
+
+	# ping2bench <topic>	- converts timings from ping to std benchmark format
+	ping2bench() {
+		# rtt min/avg/max/mdev = 0.028/0.031/0.064/0.007 ms, ipg/ewma 0.038/0.032 ms
+		sed -u -e \
+		"s|^rtt min/avg/max/mdev = \([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\) ms.*\$|&\n\
+Benchmark$1-min 1 \\1 ms/op\n\
+Benchmark$1-avg 1 \\2 ms/op\
+|"
+	}
+
+	#   16 = minimum ping payload size at which it starts putting struct timeval into payload and print RTT
+	# 1472 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 8 (ICMPv4 header)
+	# 1452 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 8 (ICMPv6 header)
+	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
+	sizev="16 1452"	# max = min(IPv4, IPv6) so that it is always only 1 Ethernet frame on the wire
+	for size in $sizev; do
+		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
+		{ $profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| \
+			echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"; } | \
+			ping2bench `hostname`-$peer/pingrtt/${size}B
+
+		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
+		# TODO profile remotely
+		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || \
+			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\"" | \
+			ping2bench $peer-`hostname`/pingrtt/${size}B
+	done
+
+	# TODO
+	# echo 1 > /proc/sys/net/ipv4/tcp_low_latency
+	# netstat -s
+	# /sys/class/net/ethX/gro_flush_timeout
+	# /proc/sys/net/ipv4/tcp_limit_output_bytes
+	#  ( https://lwn.net/Articles/507065/	"The default value of this
+	#    limit is 128KB; it could be set lower on systems where latency is the primary concern" )
+	# ? tcp pacing
+	# net.ipv4.tcp_autocorking (f54b3111 "tcp: auto corking")
+	echo -e "\n*** TCP latency:"
+
+	# lattcp2bench <topic>	- convert timings from lat_tcp to std benchmark format
+	lattcp2bench() {
+		# TCP latency using neo2: 52.3468 microseconds
+		sed -u -e \
+		"s|^TCP latency using .*: \([0-9.]\+\) microseconds.*\$|Benchmark$1 1 \\1 µs/op\t# &|"
+	}
+
+	#    1 = minimum TCP payload
+	# 1460 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 20 (TCP header !options)
+	# 1440 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 20 (TCP header !options)
+	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
+	sizev="1 1400 1500 4096" # 1400 = 1440 - ε (1 eth frame); 1500 = 1440 + ε (2 eth frames); 4096 - just big 4K (3 eth frames)
+	for size in $sizev; do
+		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		# TODO profile remotely
+		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
+		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-c)/${size}B"
+		lat_tcp -S $peer
+
+		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		# TODO profile remotely
+		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
+		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-go)/${size}B"
+		lat_tcp -S $peer
+
+		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		lat_tcp -s
+		# TODO profile remotely
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-c)/${size}B"
+		lat_tcp -S localhost
+
+		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		lat_tcp_go -s 2>/dev/null &
+		# TODO profile remotely
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-go)/${size}B"
+		lat_tcp -S localhost
+	done
+}
+
+
 # hash function to compute via zhash in tests/benchmarks
 zhashfunc=crc32	# sha1, adler32, null, ...
 
@@ -1029,86 +1121,8 @@ cmd_bench-cluster() {
 	echo -e "\n*** server disk:"
 	bench_disk
 
-	echo -e "\n*** link latency:"
-	# XXX -> bench_link + bench_tcp
-	peer=`python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"`
+	bench_net $url
 
-	# ping2bench <topic>	- converts timings from ping to std benchmark format
-	ping2bench() {
-		# rtt min/avg/max/mdev = 0.028/0.031/0.064/0.007 ms, ipg/ewma 0.038/0.032 ms
-		sed -u -e \
-		"s|^rtt min/avg/max/mdev = \([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\) ms.*\$|&\n\
-Benchmark$1-min 1 \\1 ms/op\n\
-Benchmark$1-avg 1 \\2 ms/op\
-|"
-	}
-
-	#   16 = minimum ping payload size at which it starts putting struct timeval into payload and print RTT
-	# 1472 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 8 (ICMPv4 header)
-	# 1452 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 8 (ICMPv6 header)
-	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
-	sizev="16 1452"	# max = min(IPv4, IPv6) so that it is always only 1 Ethernet frame on the wire
-	for size in $sizev; do
-		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
-		{ $profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| \
-			echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"; } | \
-			ping2bench `hostname`-$peer/pingrtt/${size}B
-
-		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
-		# TODO profile remotely
-		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || \
-			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\"" | \
-			ping2bench $peer-`hostname`/pingrtt/${size}B
-	done
-
-	# TODO
-	# echo 1 > /proc/sys/net/ipv4/tcp_low_latency
-	# netstat -s
-	# /sys/class/net/ethX/gro_flush_timeout
-	# /proc/sys/net/ipv4/tcp_limit_output_bytes
-	#  ( https://lwn.net/Articles/507065/	"The default value of this
-	#    limit is 128KB; it could be set lower on systems where latency is the primary concern" )
-	# ? tcp pacing
-	# net.ipv4.tcp_autocorking (f54b3111 "tcp: auto corking")
-	echo -e "\n*** TCP latency:"
-
-	# lattcp2bench <topic>	- convert timings from lat_tcp to std benchmark format
-	lattcp2bench() {
-		# TCP latency using neo2: 52.3468 microseconds
-		sed -u -e \
-		"s|^TCP latency using .*: \([0-9.]\+\) microseconds.*\$|Benchmark$1 1 \\1 µs/op\t# &|"
-	}
-
-	#    1 = minimum TCP payload
-	# 1460 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 20 (TCP header !options)
-	# 1440 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 20 (TCP header !options)
-	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
-	sizev="1 1400 1500 4096" # 1400 = 1440 - ε (1 eth frame); 1500 = 1440 + ε (2 eth frames); 4096 - just big 4K (3 eth frames)
-	for size in $sizev; do
-		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
-		# TODO profile remotely
-		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
-		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-c)/${size}B"
-		lat_tcp -S $peer
-
-		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
-		# TODO profile remotely
-		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
-		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-go)/${size}B"
-		lat_tcp -S $peer
-
-		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
-		lat_tcp -s
-		# TODO profile remotely
-		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-c)/${size}B"
-		lat_tcp -S localhost
-
-		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
-		lat_tcp_go -s 2>/dev/null &
-		# TODO profile remotely
-		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-go)/${size}B"
-		lat_tcp -S localhost
-	done
 
 	# zodb benchmarks
 	echo
@@ -1204,6 +1218,13 @@ cmd_bench-cpu() {
 	bench_cpu
 }
 
+# command: benchmark network
+cmd_bench-net() {
+	url=$1
+	test -z "$url" && die "Usage: neotest bench-net [user@]<host>:<path>"
+	bench_net $url
+}
+
 # command: print information about local node
 cmd_info-local() {
 	init_net
@@ -1237,9 +1258,11 @@ The commands are:
 	bench-local	run benchmarks when client and server are both on the same localhost
 	bench-cluster	run benchmarks when server is local and client is on another node
 
+	bench-cpu	benchmark local cpu	(part of bench-{local,cluster})
+	bench-disk	benchmark local disk	(part of bench-{local,cluster})
+	bench-net	benchmark network	(part of bench-cluster)
+
 	run-client	run client benchmarks against separate server
-	bench-disk	benchmark local disk (already part of bench-{local,cluster})
-	bench-cpu	benchmark local cpu  (already part of bench-{local,cluster})
 
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
@@ -1258,8 +1281,9 @@ case "$1" in
 bench-local	| \
 bench-cluster	| \
 run-client	| \
+bench-cpu	| \
 bench-disk	| \
-bench-cpu)
+bench-net)
 	;;
 
 info)
