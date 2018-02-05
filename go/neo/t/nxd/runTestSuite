@@ -125,6 +125,7 @@ def tee(fin, fout, buf):
             return  # EOF
 
         fout.write(data)
+        fout.flush()
         buf.append(data)
 
 
