@@ -25,7 +25,7 @@ neotest must be on $PATH.
 from erp5.util.taskdistribution import TaskDistributor
 from subprocess import Popen, PIPE
 from time import time, strftime, gmtime
-import os, sys, argparse, logging, traceback
+import os, sys, threading, argparse, logging, traceback
 
 
 def main():
@@ -76,19 +76,29 @@ def main():
 
         try:
             # NOTE runs with unchanged cwd. Instance wrapper cares to set cwd before running us.
-            p = Popen(argv, stdin=devnull, stdout=PIPE, stderr=PIPE)
+            # bufsize=1 means 'line buffered'
+            p = Popen(argv, stdin=devnull, stdout=PIPE, stderr=PIPE, bufsize=1)
         except:
             stdout, stderr = '', traceback.format_exc()
+            sys.stderr.write(stderr)
             ok = False
         else:
-            stdout, stderr = p.communicate()
+            # tee >stdout,stderr so we can also see in testnode logs
+            # (explicit teeing instead of p.communicate() to be able to see incremental progress)
+            buf_out = []
+            buf_err = []
+            tout = threading.Thread(target=tee, args=(p.stdout, sys.stdout, buf_out))
+            terr = threading.Thread(target=tee, args=(p.stderr, sys.stderr, buf_err))
+            tout.start()
+            terr.start()
+
+            tout.join(); stdout = ''.join(buf_out)
+            terr.join(); stderr = ''.join(buf_err)
+            p.wait()
             ok = (p.returncode == 0)
 
         tend = time()
 
-        # tee >stdout,stderr so we can also see in testnode logs
-        sys.stdout.write(stdout)
-        sys.stderr.write(stderr)
 
         # report result of test run back to master
         test_result_line.stop(
@@ -105,6 +115,17 @@ def main():
             skip_count      = 0,
             #html_test_result
         )
+
+# tee, similar to tee(1) utility, copies data from fin to fout appending them to buf.
+def tee(fin, fout, buf):
+    while 1:
+        # NOTE readline, not read, because file.read(N) actually waits for N
+        data = fin.readline(4096)
+        if not(data):
+            return  # EOF
+
+        fout.write(data)
+        buf.append(data)
 
 
 if __name__ == '__main__':
