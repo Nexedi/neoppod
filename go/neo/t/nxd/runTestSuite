@@ -25,7 +25,7 @@ neotest must be on $PATH.
 from erp5.util.taskdistribution import TaskDistributor
 from subprocess import Popen, PIPE
 from time import time, strftime, gmtime
-import os, sys, argparse, logging
+import os, sys, argparse, logging, traceback
 
 
 def main():
