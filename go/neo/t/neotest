@@ -491,7 +491,7 @@ lspci1() {
 # show information about local system (os, hardware, versions, ...)
 system_info() {
 	echo -n "# "; date --rfc-2822
-	echo -n "# `whoami`@`hostname --fqdn` ("
+	echo -n "# `whoami`@`hostname --fqdn 2>/dev/null || hostname` ("
 	echo -n "${myaddr6v[0]}"
 	test "${#myaddr6v[@]}" -eq 1 || echo -n " (+ $((${#myaddr6v[@]} - 1))·ipv6)"
 	echo -n " ${myaddr4v[0]}"
