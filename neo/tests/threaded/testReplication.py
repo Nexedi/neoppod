@@ -128,7 +128,7 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(np*nr, self.checkBackup(backup))
 
                 # Check that a backup cluster can be restarted.
-            # (U -> B propagation after restart)
+                # (U -> B propagation after restart)
                 backup.stop()
                 backup.start()
                 self.assertEqual(backup.neoctl.getClusterState(),
@@ -151,16 +151,17 @@ class ReplicationTests(NEOThreadedTest):
 
                 backup.stop()
 
-            # U -> B propagation with Mb -> Sb' (secondary, Replicate from primary Sb) delayed
-            # TODO also test: "U -> B propagation with Mb -> Sb (Replicate) delayed" ?
-            from neo.storage.database import manager as dbmanager
-            from neo.master import handlers as mhandler
-            #dbmanager.X = 1
-            #mhandler.X = 1
-                    #        (tid, upstream_name, source_dict)
-                    #return True
-                    #return not upstream_name and all(source_dict.itervalues())
-                    return upstream_name != ""
+                # U -> B propagation with Mb -> Sb' (secondary, Replicate from primary Sb) delayed
+                # TODO also test: "U -> B propagation with Mb -> Sb (Replicate) delayed" ?
+                # from neo.storage.database import manager as dbmanager
+                # from neo.master import handlers as mhandler
+                # #dbmanager.X = 1
+                # #mhandler.X = 1
+                #         #        (tid, upstream_name, source_dict)
+                #         #return True
+                #         #return not upstream_name and all(source_dict.itervalues())
+                #         return upstream_name != ""
+
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
@@ -193,7 +194,7 @@ class ReplicationTests(NEOThreadedTest):
                 dbmanager.X = 0
                 mhandler.X = 0
 
-            # S -> Sb (AddObject) delayed   XXX not only S -> Sb: also Sb -> Sb'
+                # S -> Sb (AddObject) delayed   XXX not only S -> Sb: also Sb -> Sb'
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 self.tic()
