@@ -137,6 +137,28 @@ $@
 \""
 }
 
+# ---- go/py unit tests ----
+cmd_test-go() {
+	go test lab.nexedi.com/kirr/neo/go/...
+}
+
+cmd_test-py() {
+	# NOTE testing with only sqlite should be ok to check for client correctness
+	NEO_TESTS_ADAPTER=SQLite python -m neo.scripts.runner -ufz
+}
+
+cmd_test-local() {
+	cmd_test-go
+	cmd_test-py
+}
+
+cmd_test() {
+	url="$1"
+	test -z "$url" && die "Usage neotest test [user@]<host>:<path>"
+	on $url ./neotest test-local
+}
+
+
 # ---- net/fs setup + processes control/teardown ----
 
 # init_net	- initialize networking
@@ -1263,13 +1285,20 @@ cmd_cpustat() {
 
 usage() {
 cat 1>&2 << EOF
-Neotest is a tool to functionally test and benchmark NEO.
+Neotest is a tool to test and benchmark NEO.
 
 Usage:
 
 	neotest command [arguments]
 
 The commands are:
+
+	test		run all tests on a remote host
+	test-local	run all tests locally
+
+	test-go		run NEO/go unit tests	(part of test-local)
+	test-py		run NEO/py unit tests	(part of test-local)
+
 
 	bench-local	run all benchmarks when client and server are both on the same localhost
 	bench-cluster	run all benchmarks when server is local and client is on another node
@@ -1281,6 +1310,7 @@ The commands are:
 	zbench-local	run ZODB benchmarks on localhost	(part of bench-local)
 	zbench-cluster	run ZODB benchmarks via network		(part of bench-cluster)
 	zbench-client	run ZODB client benchmarks against separate server (part of zbench-cluster)
+
 
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
@@ -1296,6 +1326,9 @@ EOF
 
 case "$1" in
 # commands that require build
+test-local	| \
+test-go		| \
+test-py		| \
 bench-local	| \
 bench-cluster	| \
 zbench-local	| \
