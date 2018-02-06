@@ -124,8 +124,14 @@ def main():
 # tee, similar to tee(1) utility, copies data from fin to fout appending them to buf.
 def tee(fin, fout, buf):
     while 1:
-        # NOTE readline, not read, because file.read(N) actually waits for N
-        data = fin.readline(4096)
+        # NOTE use raw os.read because it does not wait for full data to be available.
+        # ( we could use fin.readline(), but there are cases when e.g. progress
+        #   is reported via printing consequent dots on the same line and
+        #   readline() won't work for that.
+        #
+        #   besides when a lot of output is available it would be a waste to
+        #   read/flush it line-by-line. )
+        data = os.read(fin.fileno(), 4096)
         if not(data):
             return  # EOF
 
