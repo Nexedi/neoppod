@@ -62,6 +62,11 @@ def main():
         # a test run for given name and revision has already been completed
         return
 
+    # make sure we get output from subprocesses without delay.
+    # go does not buffer stdout/stderr by default, but python does for stdout.
+    # tell python not to buffer anything.
+    os.environ['PYTHONUNBUFFERED'] = 'y'
+
     # run the tests
     devnull = open(os.devnull)
     while 1:
