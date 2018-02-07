@@ -27,7 +27,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"io"
-	"math"
 	"net"
 	"reflect"
 	"testing"
@@ -42,7 +41,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtesting"
 
@@ -56,106 +54,83 @@ import (
 	"time"
 )
 
-// XXX dup from connection_test
-func xwait(w interface { Wait() error }) {
-	err := w.Wait()
-	exc.Raiseif(err)
-}
+// ---- events used in tests ----
 
-func gox(wg interface { Go(func() error) }, xf func()) {
-	wg.Go(exc.Funcx(xf))
-}
+// xnet.TraceConnect
+// xnet.TraceListen
 
-func xfs1stor(path string) *fs1.FileStorage {
-	zstor, err := fs1.Open(bg, path)
-	exc.Raiseif(err)
-	return zstor
-}
-
-var bg = context.Background()
-
-// XXX tracer which can collect tracing events from net + TODO master/storage/etc...
-// XXX naming
-type MyTracer struct {
-	*xtesting.SyncTracer
-}
-
-func (t *MyTracer) TraceNetConnect(ev *xnet.TraceConnect)	{ t.Trace1(ev) }
-func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)		{ t.Trace1(ev) }
-func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{}	// { t.Trace1(ev) }
-
-//type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
-//func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Trace1(&traceNeoRecv{c, msg}) }
-
-// tx via neo.Conn
-type traceNeoSend struct {
+// event: tx via neo.Conn
+type eventNeoSend struct {
 	Src, Dst net.Addr
 	ConnID   uint32
 	Msg	 neo.Msg
 }
-func (t *MyTracer) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg neo.Msg) {
-	t.Trace1(&traceNeoSend{l.LocalAddr(), l.RemoteAddr(), connID, msg})
-}
 
-// cluster state changed
-type traceClusterState struct {
+// event: cluster state changed
+type eventClusterState struct {
 	Ptr   *neo.ClusterState // pointer to variable which holds the state
 	State neo.ClusterState
 }
-func (t *MyTracer) traceClusterState(cs *neo.ClusterState) {
-	t.Trace1(&traceClusterState{cs, *cs})
-}
-func clusterState(cs *neo.ClusterState, v neo.ClusterState) *traceClusterState {
-	return &traceClusterState{cs, v}
+
+func clusterState(cs *neo.ClusterState, v neo.ClusterState) *eventClusterState {
+	return &eventClusterState{cs, v}
 }
 
-// nodetab entry changed
-type traceNode struct {
+// event: nodetab entry changed
+type eventNodeTab struct {
 	NodeTab  unsafe.Pointer	// *neo.NodeTable XXX not to noise test diff
 	NodeInfo neo.NodeInfo
 }
-func (t *MyTracer) traceNode(nt *neo.NodeTable, n *neo.Node) {
-	t.Trace1(&traceNode{unsafe.Pointer(nt), n.NodeInfo})
-}
 
-// master ready to start changed
-type traceMStartReady struct {
+// event: master ready to start changed
+type eventMStartReady struct {
 	Master  unsafe.Pointer // *Master XXX not to noise test diff
 	Ready   bool
 }
+
+func masterStartReady(m *Master, ready bool) *eventMStartReady {
+	return &eventMStartReady{unsafe.Pointer(m), ready}
+}
+
+
+// ----------------------------------------
+
+// XXX tracer which can collect tracing events from net + TODO master/storage/etc...
+// XXX naming
+type MyTracer struct {
+	*xtesting.SyncChan
+}
+
+func (t *MyTracer) TraceNetConnect(ev *xnet.TraceConnect)	{ t.Send(ev) }
+func (t *MyTracer) TraceNetListen(ev *xnet.TraceListen)		{ t.Send(ev) }
+func (t *MyTracer) TraceNetTx(ev *xnet.TraceTx)			{}	// { t.Send(ev) }
+
+//type traceNeoRecv struct {conn *neo.Conn; msg neo.Msg}
+//func (t *MyTracer) traceNeoConnRecv(c *neo.Conn, msg neo.Msg)	{ t.Send(&traceNeoRecv{c, msg}) }
+
+func (t *MyTracer) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg neo.Msg) {
+	t.Send(&eventNeoSend{l.LocalAddr(), l.RemoteAddr(), connID, msg})
+}
+
+func (t *MyTracer) traceClusterState(cs *neo.ClusterState) {
+	t.Send(&eventClusterState{cs, *cs})
+}
+
+func (t *MyTracer) traceNode(nt *neo.NodeTable, n *neo.Node) {
+	t.Send(&eventNodeTab{unsafe.Pointer(nt), n.NodeInfo})
+}
+
 func (t *MyTracer) traceMasterStartReady(m *Master, ready bool) {
-	t.Trace1(masterStartReady(m, ready))
-}
-func masterStartReady(m *Master, ready bool) *traceMStartReady {
-	return &traceMStartReady{unsafe.Pointer(m), ready}
+	t.Send(masterStartReady(m, ready))
 }
 
-
-// vclock is a virtual clock
-// XXX place -> util?
-type vclock struct {
-	t float64
-}
-
-func (c *vclock) monotime() float64 {
-	c.t += 1E-2
-	return c.t
-}
-
-func (c *vclock) tick() {	// XXX do we need tick?
-	t := math.Ceil(c.t)
-	if !(t > c.t) {
-		t += 1
-	}
-	c.t = t
-}
 
 //trace:import "lab.nexedi.com/kirr/neo/go/neo"
 
 // M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
-	tracer := &MyTracer{xtesting.NewSyncTracer()}
-	tc := xtesting.NewTraceChecker(t, tracer.SyncTracer)
+	tracer := &MyTracer{xtesting.NewSyncChan()}
+	tc := xtesting.NewEventChecker(t, tracer.SyncChan)
 
 	net := pipenet.New("testnet")	// test network
 
@@ -203,8 +178,8 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for net tx event over nodelink connection
-	conntx := func(src, dst string, connid uint32, msg neo.Msg) *traceNeoSend {
-		return &traceNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
+	conntx := func(src, dst string, connid uint32, msg neo.Msg) *eventNeoSend {
+		return &eventNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
 	}
 
 	// shortcut for NodeInfo
@@ -219,8 +194,8 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for nodetab change
-	node := func(x *neo.NodeApp, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtime neo.IdTime) *traceNode {
-		return &traceNode{
+	node := func(x *neo.NodeApp, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtime neo.IdTime) *eventNodeTab {
+		return &eventNodeTab{
 			NodeTab:  unsafe.Pointer(x.NodeTab),
 			NodeInfo: nodei(laddr, typ, num, state, idtime),
 		}
@@ -603,8 +578,8 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	M := NewMaster("abc1", "", Mnet)
 
 	// XXX to wait for "M listens at ..." & "ready to start" -> XXX add something to M api?
-	tracer := &MyTracer{xtesting.NewSyncTracer()}
-	tc := xtesting.NewTraceChecker(b, tracer.SyncTracer)
+	tracer := &MyTracer{xtesting.NewSyncChan()}
+	tc := xtesting.NewEventChecker(b, tracer.SyncChan)
 	pg := &tracing.ProbeGroup{}
 	tracing.Lock()
 	pnode := neo_traceNodeChanged_Attach(nil, tracer.traceNode)
@@ -616,10 +591,10 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	})
 
 	// determing M serving address	XXX better with M api
-	ev := tracer.Get1()
-	mnode, ok := ev.Event.(*traceNode)
+	ev := tracer.Recv()
+	mnode, ok := ev.Event.(*eventNodeTab)
 	if !ok {
-		b.Fatal("after M start: got %T  ; want traceNode", ev.Event)
+		b.Fatal("after M start: got %T  ; want eventNodeTab", ev.Event)
 	}
 	Maddr := mnode.NodeInfo.Addr.String()
 

@@ -195,7 +195,7 @@ func (c *Client) withOperational(ctx context.Context) error {
 // talkMaster connects to master, announces self and receives notifications.
 // it tries to persist master link reconnecting as needed.
 //
-// XXX C -> M for commit
+// XXX C -> M for commit	(-> another channel)
 //
 // XXX always error  (dup Storage.talkMaster) ?
 func (c *Client) talkMaster(ctx context.Context) (err error) {

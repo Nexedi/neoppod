@@ -21,89 +21,82 @@
 package xtesting
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
 )
 
-// XXX move -> tracing
-
-// TODO tests for this
-
-// XXX Tracer interface {Trace1} ?
-
-// SyncTracer provides base infrastructure for synchronous tracing
+// SyncChan provides synchronous channel with additional property that send
+// blocks until receiving side explicitly acknowledges message was received and
+// processed.
 //
-// Tracing events from several sources could be collected and sent for consumption via 1 channel.
-// For each event the goroutine which produced it will wait for ack before continue.
-type SyncTracer struct {
-	tracech chan *SyncTraceMsg
+// New channels must be created via NewSyncChan.
+//
+// It is safe to use SyncChan from multiple goroutines simultaneously.
+type SyncChan struct {
+	msgq chan *SyncMsg
 }
 
-// SyncTraceMsg represents message with 1 synchronous tracing communication.
+// Send sends event to a consumer and waits for ack.
+func (ch *SyncChan) Send(event interface{}) {
+	ack := make(chan struct{})
+	ch.msgq <- &SyncMsg{event, ack}
+	<-ack
+}
+
+// Recv receives message from a producer.
 //
-// the goroutine which produced the message will wait for Ack before continue.
-type SyncTraceMsg struct {
+// The consumer, after dealing with the message, must send back an ack.
+func (ch *SyncChan) Recv() *SyncMsg {
+	msg := <-ch.msgq
+	return msg
+}
+
+// SyncMsg represents message with 1 event sent over SyncChan.
+//
+// The goroutine which sent the message will wait for Ack before continue.
+type SyncMsg struct {
 	Event interface {}
 	ack   chan<- struct{}
 }
 
-// Ack acknowledges the event was processed and unpauses producer goroutine.
-func (m *SyncTraceMsg) Ack() {
+// Ack acknowledges the event was processed and unblocks producer goroutine.
+func (m *SyncMsg) Ack() {
 	close(m.ack)
 }
 
-// XXX doc
-func NewSyncTracer() *SyncTracer {
-	return &SyncTracer{tracech: make(chan *SyncTraceMsg)}
-}
-
-// Trace1 sends message with 1 tracing event to a consumer and waits for ack
-func (st *SyncTracer) Trace1(event interface{}) {
-	ack := make(chan struct{})
-	//fmt.Printf("trace: send: %T %v\n", event, event)
-	st.tracech <- &SyncTraceMsg{event, ack}
-	<-ack
-}
-
-// Get1 receives message with 1 tracing event from a producer.
-//
-// The consumer, after dealing with the message, must send back an ack.
-func (st *SyncTracer) Get1() *SyncTraceMsg {
-	msg := <-st.tracech
-	//fmt.Printf("trace: get1: %T %v\n", msg.Event, msg.Event)
-	return msg
+// NewSyncChan creates new SyncChan channel.
+func NewSyncChan() *SyncChan {
+	return &SyncChan{msgq: make(chan *SyncMsg)}
 }
 
 
 // ----------------------------------------
 
 
-// XXX naming -> SyncTraceChecker
-// TraceChecker synchronously collects and checks tracing events from a SyncTracer
-type TraceChecker struct {
+// EventChecker is testing utility to verify events coming from a SyncChan are as expected.
+type EventChecker struct {
 	t  testing.TB
-	st *SyncTracer
+	in *SyncChan
 }
 
-// XXX doc
-func NewTraceChecker(t testing.TB, st *SyncTracer) *TraceChecker {
-	return &TraceChecker{t: t, st: st}
+// NewEventChecker constructs new EventChecker that will retrieve events from
+// `in` and use `t` for tests reporting.
+func NewEventChecker(t testing.TB, in *SyncChan) *EventChecker {
+	return &EventChecker{t: t, in: in}
 }
 
 // get1 gets 1 event in place and checks it has expected type
+//
 // if checks do not pass - fatal testing error is raised
-// XXX merge back to expect1 ?
-func (tc *TraceChecker) xget1(eventp interface{}) *SyncTraceMsg {
-	tc.t.Helper()
-	msg := tc.st.Get1()
+func (evc *EventChecker) xget1(eventp interface{}) *SyncMsg {
+	evc.t.Helper()
+	msg := evc.in.Recv()
 
 	reventp := reflect.ValueOf(eventp)
 	if reventp.Type().Elem() != reflect.TypeOf(msg.Event) {
-		tc.t.Fatalf("expect: %s:  got %#v", reventp.Elem().Type(), msg.Event)
+		evc.t.Fatalf("expect: %s:  got %#v", reventp.Elem().Type(), msg.Event)
 	}
 
 	// *eventp = msg.Event
@@ -113,35 +106,56 @@ func (tc *TraceChecker) xget1(eventp interface{}) *SyncTraceMsg {
 }
 
 // expect1 asks checker to expect next event to be eventExpect (both type and value)
-// if checks do not pass - fatal testing error is raised
-// XXX merge back to expect?
-func (tc *TraceChecker) expect1(eventExpect interface{}) {
-	tc.t.Helper()
+//
+// if checks do not pass - fatal testing error is raised.
+func (evc *EventChecker) expect1(eventExpect interface{}) *SyncMsg {
+	evc.t.Helper()
 
 	reventExpect := reflect.ValueOf(eventExpect)
 
 	reventp := reflect.New(reventExpect.Type())
-	msg := tc.xget1(reventp.Interface())
+	msg := evc.xget1(reventp.Interface())
 	revent := reventp.Elem()
 
 	if !reflect.DeepEqual(revent.Interface(), reventExpect.Interface()) {
-		tc.t.Fatalf("expect: %s:\nwant: %v\nhave: %v\ndiff: %s",
+		evc.t.Fatalf("expect: %s:\nwant: %v\nhave: %v\ndiff: %s",
 			reventExpect.Type(), reventExpect, revent,
 			pretty.Compare(reventExpect.Interface(), revent.Interface()))
 	}
 
+	return msg
+}
+
+// Expect asks checker to receive next event and verify it to be equal to expected.
+//
+// If check is successful ACK is sent back to event producer.
+// If check does not pass - fatal testing error is raised.
+func (evc *EventChecker) Expect(expected interface{}) {
+	evc.t.Helper()
+
+	msg := evc.expect1(expected)
 	msg.Ack()
 }
 
-// Expect asks checker to expect next series of events to be from eventExpectV in specified order
-func (tc *TraceChecker) Expect(eventExpectV ...interface{}) {
-	tc.t.Helper()
+// ExpectNoACK asks checker to receive next event and verify it to be equal to
+// expected without sending back ACK.
+//
+// No ACK is sent back to event producer - the caller becomes responsible to
+// send ACK back by itself.
+//
+// If check does not pass - fatal testing error is raised.
+func (evc *EventChecker) ExpectNoACK(expected interface{}) *SyncMsg {
+	evc.t.Helper()
 
-	for _, eventExpect := range eventExpectV {
-		tc.expect1(eventExpect)
-	}
+	msg := evc.expect1(expected)
+	return msg
 }
 
+
+
+
+// XXX goes away? (if there is no happens-before for events - just check them one by one in dedicated goroutines ?)
+/*
 // ExpectPar asks checker to expect next series of events to be from eventExpectV in no particular order
 // XXX naming
 func (tc *TraceChecker) ExpectPar(eventExpectV ...interface{}) {
@@ -170,3 +184,4 @@ loop:
 		tc.t.Fatalf("expect:\nhave: %T %v\nwant: [%v]", msg.Event, msg.Event, strings.Join(strv, " | "))
 	}
 }
+*/
