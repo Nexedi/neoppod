@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,8 +17,39 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package xtesting provides addons to std package testing.
-package xtesting
+// Package tsync provides infrastructure for synchronous testing based on program tracing.
+// XXX naming -> ttest?
+//
+// A serial system can be verified by checking that its execution produces
+// expected serial stream of events. But concurrent systems cannot be verified
+// by exactly this way because events are only partly-ordered with respect to
+// each other by causality or so called happens-before relation.
+//
+// However in a concurrent system one can decompose all events into serial
+// streams in which events are strictly ordered by causality with respect to
+// each other. This decomposition in turn allows to verify that in every stream
+// events were as expected.
+//
+// Verification of events for all streams can be done by one *sequential*
+// process:
+//
+//	- if events A and B in different streams are unrelated to each other by
+// 	  causality, the sequence of checks models a particular possible flow of
+// 	  time. Notably since events are delivered synchronously and sender is
+// 	  blocked until receiver/checker explicitly confirms event has been
+// 	  processed, by checking either A then B, or B then A allows to check
+// 	  for a particular race-condition.
+//
+// 	- if events A and B in different streams are related to each other by
+// 	  causality (i.e. there is some happens-before relation for them) the
+// 	  sequence of checking should represent that ordering relation.
+//
+// XXX more text describing how to use the package.
+//
+// XXX (if tested system is serial only there is no need to use Dispatcher and
+// routing - the collector can send output directly to the only SyncChan with
+// only one EventChecker connected to it).
+package tsync
 
 import (
 	"reflect"
@@ -75,7 +106,8 @@ func NewSyncChan() *SyncChan {
 // ----------------------------------------
 
 
-// EventChecker is testing utility to verify events coming from a SyncChan are as expected.
+// EventChecker is testing utility to verify that sequence of events coming
+// from a single SyncChan are as expected.
 type EventChecker struct {
 	t  testing.TB
 	in *SyncChan
@@ -92,6 +124,7 @@ func NewEventChecker(t testing.TB, in *SyncChan) *EventChecker {
 // if checks do not pass - fatal testing error is raised
 func (evc *EventChecker) xget1(eventp interface{}) *SyncMsg {
 	evc.t.Helper()
+	// XXX handle deadlock timeout
 	msg := evc.in.Recv()
 
 	reventp := reflect.ValueOf(eventp)
@@ -151,9 +184,6 @@ func (evc *EventChecker) ExpectNoACK(expected interface{}) *SyncMsg {
 	return msg
 }
 
-
-
-
 // XXX goes away? (if there is no happens-before for events - just check them one by one in dedicated goroutines ?)
 /*
 // ExpectPar asks checker to expect next series of events to be from eventExpectV in no particular order
@@ -185,3 +215,44 @@ loop:
 	}
 }
 */
+
+
+// ----------------------------------------
+
+// EventRouter is the interface used for routing events to appropriate output SyncChan.
+type EventRouter interface {
+	// Route should return appropriate destination for event.
+	//
+	// If nil is returned default destination is used.	// XXX ok?
+	//
+	// It should be safe to call Route from multiple goroutines simultaneously.
+	Route(event interface{}) *SyncChan
+
+	// AllDst() []*SyncChan
+}
+
+// EventDispatcher dispatches events to appropriate SyncChan for checking
+// according to provided router.
+type EventDispatcher struct {
+	rt EventRouter
+}
+
+// NewEventDispatcher creates new dispatcher and provides router to it.
+func NewEventDispatcher(router EventRouter) *EventDispatcher {
+	return &EventDispatcher{rt: router}
+}
+
+// Dispatch dispatches event to appropriate output channel.
+//
+// It is safe to use Dispatch from multiple goroutines simultaneously.
+func (d *EventDispatcher) Dispatch(event interface{}) {
+	outch := d.rt.Route(event)
+	// XXX if nil?
+
+	// TODO timeout: deadlock? (print all-in-flight events on timout)
+	// XXX  or better ^^^ to do on receiver side?
+	//
+	// XXX -> if deadlock detection is done on receiver side (so in
+	// EventChecker) -> we don't need EventDispatcher at all?
+	outch.Send(event)
+}
