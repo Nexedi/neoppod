@@ -37,10 +37,10 @@ import (
 //
 //	UUID -> *Node
 //
-// mapping associating node uuid with information about a node.
+// mapping listing known nodes and associating their uuid with information
+// about a node.
 //
-// Primary use-case is that master maintains such table and provides it to
-// its peers to know each other:
+// Master maintains such table and provides it to its peers to know each other:
 //
 //	- Primary Master view of cluster.
 // 	- M tracks changes to nodeTab as nodes appear (connected to M) and go (disconnected from M).

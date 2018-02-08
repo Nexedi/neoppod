@@ -109,6 +109,8 @@ func (m *SyncMsg) Ack() {
 
 // NewSyncChan creates new SyncChan channel.
 func NewSyncChan(name string) *SyncChan {
+	// XXX somehow avoid channels with duplicate names
+	//     (only allow to create named channels from under dispatcher?)
 	return &SyncChan{msgq: make(chan *SyncMsg), name: name}
 }
 
@@ -232,8 +234,11 @@ func (evc *EventChecker) deadlock(eventp interface{}) {
 		default:
 		}
 
+		// XXX panic triggering disabled because if sender panics we have no chance to continue
+		// TODO retest this
+
 		// in any case close channel where futer Sends may arrive so that will panic too.
-		close(dst.msgq)
+		//close(dst.msgq)
 	}
 
 	// order channels by name
