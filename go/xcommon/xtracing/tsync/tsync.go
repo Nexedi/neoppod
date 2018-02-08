@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package tsync provides infrastructure for synchronous testing based on program tracing.
-// XXX naming -> ttest?
+// XXX naming -> ttest? tracetest?
 //
 // A serial system can be verified by checking that its execution produces
 // expected serial stream of events. But concurrent systems cannot be verified
@@ -52,8 +52,12 @@
 package tsync
 
 import (
+	"fmt"
+	"sort"
+	"strings"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/kylelemons/godebug/pretty"
 )
@@ -67,13 +71,19 @@ import (
 // It is safe to use SyncChan from multiple goroutines simultaneously.
 type SyncChan struct {
 	msgq chan *SyncMsg
+	name string
 }
 
 // Send sends event to a consumer and waits for ack.
+//
+// if main testing goroutine detects any problem Send panics.	XXX
 func (ch *SyncChan) Send(event interface{}) {
-	ack := make(chan struct{})
+	ack := make(chan bool)
 	ch.msgq <- &SyncMsg{event, ack}
-	<-ack
+	ok := <-ack
+	if !ok {
+		panic(fmt.Sprintf("%s: send: deadlock", ch.name))
+	}
 }
 
 // Recv receives message from a producer.
@@ -89,17 +99,17 @@ func (ch *SyncChan) Recv() *SyncMsg {
 // The goroutine which sent the message will wait for Ack before continue.
 type SyncMsg struct {
 	Event interface {}
-	ack   chan<- struct{}
+	ack   chan<- bool
 }
 
 // Ack acknowledges the event was processed and unblocks producer goroutine.
 func (m *SyncMsg) Ack() {
-	close(m.ack)
+	m.ack <- true
 }
 
 // NewSyncChan creates new SyncChan channel.
-func NewSyncChan() *SyncChan {
-	return &SyncChan{msgq: make(chan *SyncMsg)}
+func NewSyncChan(name string) *SyncChan {
+	return &SyncChan{msgq: make(chan *SyncMsg), name: name}
 }
 
 
@@ -107,25 +117,36 @@ func NewSyncChan() *SyncChan {
 
 
 // EventChecker is testing utility to verify that sequence of events coming
-// from a single SyncChan are as expected.
+// from a single SyncChan is as expected.
 type EventChecker struct {
 	t  testing.TB
 	in *SyncChan
+	dispatch *EventDispatcher
 }
 
 // NewEventChecker constructs new EventChecker that will retrieve events from
 // `in` and use `t` for tests reporting.
-func NewEventChecker(t testing.TB, in *SyncChan) *EventChecker {
-	return &EventChecker{t: t, in: in}
+//
+// XXX -> dispatch.NewChecker() ?
+func NewEventChecker(t testing.TB, dispatch *EventDispatcher, in *SyncChan) *EventChecker {
+	return &EventChecker{t: t, in: in, dispatch: dispatch}
 }
 
 // get1 gets 1 event in place and checks it has expected type
 //
 // if checks do not pass - fatal testing error is raised
+// XXX why eventp, not just event here?
 func (evc *EventChecker) xget1(eventp interface{}) *SyncMsg {
 	evc.t.Helper()
-	// XXX handle deadlock timeout
-	msg := evc.in.Recv()
+	var msg *SyncMsg
+
+	select {
+	case msg = <-evc.in.msgq:	// unwrapped Recv
+		// ok
+
+	case <-time.After(2*time.Second):	// XXX timeout hardcoded
+		evc.deadlock(eventp)
+	}
 
 	reventp := reflect.ValueOf(eventp)
 	if reventp.Type().Elem() != reflect.TypeOf(msg.Event) {
@@ -184,6 +205,54 @@ func (evc *EventChecker) ExpectNoACK(expected interface{}) *SyncMsg {
 	return msg
 }
 
+
+// deadlock reports diagnostic when retrieving event from .in timed out.
+//
+// timing out on recv means there is a deadlock either if no event was sent at
+// all, or some other event was sent to another channel/checker.
+//
+// report the full picture - what was expected and what was sent where.
+func (evc *EventChecker) deadlock(eventp interface{}) {
+	evc.t.Helper()
+
+	rt := evc.dispatch.rt
+	dstv := rt.AllRoutes()
+
+	bad := fmt.Sprintf("%s: deadlock waiting for %T\n", evc.in.name, eventp)
+	type sendInfo struct{dst *SyncChan; event interface{}}
+	var sendv []sendInfo
+	for _, dst := range dstv {
+		// check whether someone is sending on a dst without blocking.
+		// if yes - report to sender there is a problem - so it can cancel its task.
+		select {
+		case msg := <-dst.msgq:
+			sendv = append(sendv, sendInfo{dst, msg.Event})
+			//msg.ack <- false
+
+		default:
+		}
+
+		// in any case close channel where futer Sends may arrive so that will panic too.
+		close(dst.msgq)
+	}
+
+	// order channels by name
+	sort.Slice(sendv, func(i, j int) bool {
+		return strings.Compare(sendv[i].dst.name, sendv[j].dst.name) < 0
+	})
+
+	if len(sendv) == 0 {
+		bad += fmt.Sprintf("noone is sending\n")
+	} else {
+		bad += fmt.Sprintf("there are %d sender(s) on other channels:\n", len(sendv))
+		for _, __ := range sendv {
+			bad += fmt.Sprintf("%s:\t%T %v\n", __.dst.name, __.event, __.event)
+		}
+	}
+
+	evc.t.Fatal(bad)
+}
+
 // XXX goes away? (if there is no happens-before for events - just check them one by one in dedicated goroutines ?)
 /*
 // ExpectPar asks checker to expect next series of events to be from eventExpectV in no particular order
@@ -220,15 +289,14 @@ loop:
 // ----------------------------------------
 
 // EventRouter is the interface used for routing events to appropriate output SyncChan.
+//
+// It should be safe to use EventRouter from multiple goroutines simultaneously.
 type EventRouter interface {
 	// Route should return appropriate destination for event.
-	//
-	// If nil is returned default destination is used.	// XXX ok?
-	//
-	// It should be safe to call Route from multiple goroutines simultaneously.
 	Route(event interface{}) *SyncChan
 
-	// AllDst() []*SyncChan
+	// AllRoutes should return all routing destinations.
+	AllRoutes() []*SyncChan
 }
 
 // EventDispatcher dispatches events to appropriate SyncChan for checking

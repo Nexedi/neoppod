@@ -58,7 +58,12 @@ import (
 // ---- events used in tests ----
 
 // xnet.TraceConnect
+
 // xnet.TraceListen
+// event: node starts listening
+type eventNetListen struct {
+	Laddr	string
+}
 
 // event: tx via neo.Conn
 type eventNeoSend struct {
@@ -100,22 +105,73 @@ type EventRouter struct {
 	mu sync.Mutex
 
 	defaultq *tsync.SyncChan
+
+	// events specific to particular node - e.g. node starts listening
+	byNode map[string /*host*/]*tsync.SyncChan
+
+	//byLink
 }
 
 func NewEventRouter() *EventRouter {
-	return &EventRouter{defaultq: tsync.NewSyncChan()}
+	return &EventRouter{
+		defaultq:	tsync.NewSyncChan("default"),
+		byNode:		make(map[string]*tsync.SyncChan),
+	}
+}
+
+func (r *EventRouter) AllRoutes() []*tsync.SyncChan {
+	rtset := map[*tsync.SyncChan]int{}
+	rtset[r.defaultq] = 1
+	for _, dst := range r.byNode {
+		rtset[dst] = 1
+	}
+	// XXX byLink
+
+	var rtv []*tsync.SyncChan
+	for dst := range rtset {
+		rtv = append(rtv, dst)
+	}
+	return rtv
+}
+
+// hostport splits addr of for "host:port" into host and port.
+//
+// if the address has not the specified form returned are:
+// - host = addr
+// - port = ""
+func hostport(addr string) (host string, port string) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr, ""
+	}
+	return host, port
 }
 
 func (r *EventRouter) Route(event interface{}) *tsync.SyncChan {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	switch event.(type) {
-	// ...
-
+	switch ev := event.(type) {
+	case *eventNetListen:
+		host, _ := hostport(ev.Laddr)
+		dst := r.byNode[host]
+		if dst != nil {
+			return dst
+		}
 	}
 
 	return r.defaultq	// use default	XXX or better nil?
+}
+
+func (r *EventRouter) BranchNode(host string, dst *tsync.SyncChan) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, already := r.byNode[host]; already {
+		panic(fmt.Sprintf("event router: node %q already branched", host))
+	}
+
+	r.byNode[host] = dst
 }
 
 // ---- trace probes, etc -> events -> dispatcher ----
@@ -148,7 +204,11 @@ func (t *TraceCollector) Detach() {
 }
 
 func (t *TraceCollector) TraceNetConnect(ev *xnet.TraceConnect)	{ t.d.Dispatch(ev) }
-func (t *TraceCollector) TraceNetListen(ev *xnet.TraceListen)	{ t.d.Dispatch(ev) }
+
+func (t *TraceCollector) TraceNetListen(ev *xnet.TraceListen)	{
+	t.d.Dispatch(&eventNetListen{Laddr: ev.Laddr.String()})
+}
+
 func (t *TraceCollector) TraceNetTx(ev *xnet.TraceTx)		{} // we use traceNeoMsgSend instead
 
 func (t *TraceCollector) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg neo.Msg) {
@@ -181,7 +241,7 @@ func TestMasterStorage(t *testing.T) {
 	defer tracer.Detach()
 
 	// by default events go to g
-	g := tsync.NewEventChecker(t, rt.defaultq)
+	g := tsync.NewEventChecker(t, dispatch, rt.defaultq)
 
 
 
@@ -212,8 +272,12 @@ func TestMasterStorage(t *testing.T) {
 		return &xnet.TraceConnect{Src: xaddr(src), Dst: xaddr(dst), Dialed: dialed}
 	}
 
-	netlisten := func(laddr string) *xnet.TraceListen {
-		return &xnet.TraceListen{Laddr: xaddr(laddr)}
+	//netlisten := func(laddr string) *xnet.TraceListen {
+	//	return &xnet.TraceListen{Laddr: xaddr(laddr)}
+	//}
+
+	netlisten := func(laddr string) *eventNetListen {
+		return &eventNetListen{Laddr: laddr}
 	}
 
 	// shortcut for net tx event over nodelink connection
@@ -245,6 +309,13 @@ func TestMasterStorage(t *testing.T) {
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 //	Chost := xnet.NetTrace(net.Host("c"), tracer)
 
+	cm := tsync.NewSyncChan("m.local")	// trace of events local to M
+	cs := tsync.NewSyncChan("s.local")	// trace of events local to S XXX with cause root also on S
+	tm := tsync.NewEventChecker(t, dispatch, cm)
+	ts := tsync.NewEventChecker(t, dispatch, cs)
+	rt.BranchNode("m", cm)
+	rt.BranchNode("s", cs)
+
 	gwg := &errgroup.Group{}
 
 	// start master
@@ -258,13 +329,6 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 	})
 
-	// M starts listening
-	g.Expect(netlisten("m:1"))
-	g.Expect(node(M.node, "m:1", neo.MASTER, 1, neo.RUNNING, neo.IdTimeNone))
-	g.Expect(clusterState(&M.node.ClusterState, neo.ClusterRecovering))
-
-	// TODO create C; C tries connect to master - rejected ("not yet operational")
-
 	// start storage
 	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
 	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
@@ -275,8 +339,16 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 	})
 
+
+	// M starts listening
+	tm.Expect(netlisten("m:1"))
+	tm.Expect(node(M.node, "m:1", neo.MASTER, 1, neo.RUNNING, neo.IdTimeNone))
+	tm.Expect(clusterState(&M.node.ClusterState, neo.ClusterRecovering))
+
+	// TODO create C; C tries connect to master - rejected ("not yet operational")
+
 	// S starts listening
-	g.Expect(netlisten("s:1"))
+	ts.Expect(netlisten("s:1"))
 
 	// S connects M
 	g.Expect(netconnect("s:2", "m:2",  "m:1"))
