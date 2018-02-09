@@ -84,7 +84,7 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	}
 
 	// spawn background process which performs master talk
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())	// XXX bg hardcoded
 	cli.talkMasterCancel = cancel
 	cli.node.OnShutdown = cancel // XXX ok?
 	go cli.talkMaster(ctx)
@@ -170,6 +170,7 @@ func (c *Client) updateOperational() (sendReady func()) {
 // unlocked otherwise.
 //
 // The only error possible is if provided ctx cancel.
+// XXX and client stopped/closed? (ctx passed to Run cancelled)
 func (c *Client) withOperational(ctx context.Context) error {
 	for {
 		c.node.StateMu.RLock()
@@ -185,6 +186,9 @@ func (c *Client) withOperational(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+
+		// XXX case <-c.runctx.Done():
+		//	return "op on closed client ..." ?
 
 		case <-ready:
 			// ok - try to relock and read again.

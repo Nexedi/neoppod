@@ -617,7 +617,8 @@ func TestMasterStorage(t *testing.T) {
 
 	// ----------------------------------------
 
-	// XXX try creating clint from the beginning
+	// XXX try creating client from the beginning
+	return	// XXX temp
 
 	// create client
 	C := client.NewClient("abc1", "m:1", Chost)
