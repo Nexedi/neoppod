@@ -31,14 +31,14 @@ import (
 	//"reflect"
 	"sync"
 	"testing"
-//	"unsafe"
+	"unsafe"
 
 	"golang.org/x/sync/errgroup"
 
 	//"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
-	//"lab.nexedi.com/kirr/neo/go/neo/client"
+	"lab.nexedi.com/kirr/neo/go/neo/client"
 	//"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 
 	//"lab.nexedi.com/kirr/neo/go/zodb"
@@ -447,17 +447,24 @@ func TestMasterStorage(t *testing.T) {
 
 	Mhost := xnet.NetTrace(net.Host("m"), tracer)
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
-//	Chost := xnet.NetTrace(net.Host("c"), tracer)
+	Chost := xnet.NetTrace(net.Host("c"), tracer)
 
 	cM  := tsync.NewSyncChan("m.main") // trace of events local to M
 	cS  := tsync.NewSyncChan("s.main") // trace of events local to S XXX with cause root also on S
+//	cC  := tsync.NewSyncChan("c.main")
 	cMS := tsync.NewSyncChan("m-s")    // trace of events with cause root being m -> s send
 	cSM := tsync.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
+	cMC := tsync.NewSyncChan("m-c")
+	cCM := tsync.NewSyncChan("c-m")
 
 	tM := tsync.NewEventChecker(t, dispatch, cM)
 	tS := tsync.NewEventChecker(t, dispatch, cS)
+//	tC := tsync.NewEventChecker(t, dispatch, cC)
 	tMS := tsync.NewEventChecker(t, dispatch, cMS)
 	tSM := tsync.NewEventChecker(t, dispatch, cSM)
+	tMC := tsync.NewEventChecker(t, dispatch, cMC)
+	tCM := tsync.NewEventChecker(t, dispatch, cCM)
+	// XXX C-S
 
 	rt.BranchNode("m", cM)
 	rt.BranchNode("s", cS)
@@ -475,6 +482,8 @@ func TestMasterStorage(t *testing.T) {
 
 
 	gwg := &errgroup.Group{}
+
+	// ----------------------------------------
 
 	// start master
 	Mclock := &vclock{}
@@ -494,7 +503,7 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 	})
 
-	// >>> trace >>>
+	// trace
 
 	// M starts listening
 	tM.Expect(netlisten("m:1"))
@@ -546,8 +555,8 @@ func TestMasterStorage(t *testing.T) {
 	// M ready to start: new cluster, no in-progress S recovery
 	tM.Expect(masterStartReady("m", true))
 
-	// <<< trace <<<
 
+	// ----------------------------------------
 
 	// M <- start cmd
 	wg := &errgroup.Group{}
@@ -555,6 +564,8 @@ func TestMasterStorage(t *testing.T) {
 		err := M.Start()
 		exc.Raiseif(err)
 	})
+
+	// trace
 
 	tM.Expect(node("m", "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
 	xwait(wg)
@@ -599,23 +610,25 @@ func TestMasterStorage(t *testing.T) {
 	tMS.Expect(conntx("m:2", "s:2", 10, &neo.StartOperation{Backup: false}))
 	tMS.Expect(conntx("s:2", "m:2", 10, &neo.NotifyReady{}))
 
-
-	_ = Mcancel
-	_ = Scancel
-	return
-}
-
-/*
 	// TODO S leave while service
 	// TODO S join while service
 	// TODO M.Stop while service
 
+
+	// ----------------------------------------
+
+	// XXX try creating clint from the beginning
+
 	// create client
 	C := client.NewClient("abc1", "m:1", Chost)
+	Cnode := *(**neo.NodeApp)(unsafe.Pointer(C)) // XXX hack, fragile
+	tracer.RegisterNode(Cnode, "c")
+
+	// trace
 
 	// C connects M
-	tc.Expect(netconnect("c:1", "m:3",  "m:1"))
-	tc.Expect(conntx("c:1", "m:3", 1, &neo.RequestIdentification{
+	tCM.Expect(netconnect("c:1", "m:3",  "m:1"))
+	tCM.Expect(conntx("c:1", "m:3", 1, &neo.RequestIdentification{
 		NodeType:	neo.CLIENT,
 		UUID:		0,
 		Address:	xnaddr(""),
@@ -623,9 +636,9 @@ func TestMasterStorage(t *testing.T) {
 		IdTime:		neo.IdTimeNone,
 	}))
 
-	tc.Expect(node(M.node, "", neo.CLIENT, 1, neo.RUNNING, 0.02))
+	tM.Expect(node("m", "", neo.CLIENT, 1, neo.RUNNING, 0.02))
 
-	tc.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
+	tCM.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
 		NodeType:	neo.MASTER,
 		MyUUID:		neo.UUID(neo.MASTER, 1),
 		NumPartitions:	1,
@@ -635,8 +648,8 @@ func TestMasterStorage(t *testing.T) {
 
 	// C asks M about PT
 	// FIXME this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
-	tc.Expect(conntx("c:1", "m:3", 3, &neo.AskPartitionTable{}))
-	tc.Expect(conntx("m:3", "c:1", 3, &neo.AnswerPartitionTable{
+	tCM.Expect(conntx("c:1", "m:3", 3, &neo.AskPartitionTable{}))
+	tCM.Expect(conntx("m:3", "c:1", 3, &neo.AnswerPartitionTable{
 		PTid:		1,
 		RowList:	[]neo.RowInfo{
 			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
@@ -645,7 +658,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// C <- M NotifyNodeInformation C1,M1,S1
 	// FIXME this might come in parallel with ^^^ "C asks M about PT"
-	tc.Expect(conntx("m:3", "c:1", 0, &neo.NotifyNodeInformation{
+	tMC.Expect(conntx("m:3", "c:1", 0, &neo.NotifyNodeInformation{
 		IdTime:		neo.IdTimeNone,	// XXX ?
 		NodeList:	[]neo.NodeInfo{
 			nodei("m:1", neo.MASTER,  1, neo.RUNNING, neo.IdTimeNone),
@@ -654,10 +667,9 @@ func TestMasterStorage(t *testing.T) {
 		},
 	}))
 
-	Cnode := *(**neo.NodeApp)(unsafe.Pointer(C)) // XXX hack, fragile
-	tc.Expect(node(Cnode, "m:1", neo.MASTER,  1, neo.RUNNING, neo.IdTimeNone))
-	tc.Expect(node(Cnode, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
-	tc.Expect(node(Cnode, "",    neo.CLIENT,  1, neo.RUNNING, 0.02))
+	tMC.Expect(node("c", "m:1", neo.MASTER,  1, neo.RUNNING, neo.IdTimeNone))
+	tMC.Expect(node("c", "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	tMC.Expect(node("c", "",    neo.CLIENT,  1, neo.RUNNING, 0.02))
 
 
 	// C asks M about last tid	XXX better master sends it itself on new client connected
@@ -671,13 +683,19 @@ func TestMasterStorage(t *testing.T) {
 		}
 	})
 
-	tc.Expect(conntx("c:1", "m:3", 5, &neo.LastTransaction{}))
-	tc.Expect(conntx("m:3", "c:1", 5, &neo.AnswerLastTransaction{
+	tCM.Expect(conntx("c:1", "m:3", 5, &neo.LastTransaction{}))
+	tCM.Expect(conntx("m:3", "c:1", 5, &neo.AnswerLastTransaction{
 		Tid: lastTid,
 	}))
 
 	xwait(wg)
 
+	_ = Mcancel
+	_ = Scancel
+	return
+}
+
+/*
 	// C starts loading first object ...
 	wg = &errgroup.Group{}
 	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
