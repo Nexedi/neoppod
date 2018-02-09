@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package tsync provides infrastructure for synchronous testing based on program tracing.
-// XXX naming -> ttest? tracetest?
+// XXX naming -> ttest? tracetest? synctest?
 //
 // A serial system can be verified by checking that its execution produces
 // expected serial stream of events. But concurrent systems cannot be verified
@@ -152,7 +152,7 @@ func (evc *EventChecker) xget1(eventp interface{}) *SyncMsg {
 
 	reventp := reflect.ValueOf(eventp)
 	if reventp.Type().Elem() != reflect.TypeOf(msg.Event) {
-		evc.t.Fatalf("expect: %s:  got %#v", reventp.Elem().Type(), msg.Event)
+		evc.t.Fatalf("%s: expect: %s:  got %#v", evc.in.name, reventp.Elem().Type(), msg.Event)
 	}
 
 	// *eventp = msg.Event
@@ -174,7 +174,8 @@ func (evc *EventChecker) expect1(eventExpect interface{}) *SyncMsg {
 	revent := reventp.Elem()
 
 	if !reflect.DeepEqual(revent.Interface(), reventExpect.Interface()) {
-		evc.t.Fatalf("expect: %s:\nwant: %v\nhave: %v\ndiff: %s",
+		evc.t.Fatalf("%s: expect: %s:\nwant: %v\nhave: %v\ndiff: %s",
+			evc.in.name,
 			reventExpect.Type(), reventExpect, revent,
 			pretty.Compare(reventExpect.Interface(), revent.Interface()))
 	}

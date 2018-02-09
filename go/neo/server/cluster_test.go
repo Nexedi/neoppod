@@ -31,7 +31,7 @@ import (
 	//"reflect"
 	"sync"
 	"testing"
-	"unsafe"
+//	"unsafe"
 
 	"golang.org/x/sync/errgroup"
 
@@ -100,12 +100,14 @@ type eventNodeTab struct {
 
 // event: master ready to start changed
 type eventMStartReady struct {
-	Master  unsafe.Pointer // *Master XXX not to noise test diff
+	//Master  unsafe.Pointer // *Master XXX not to noise test diff
+	Where   string		// host (XXX name) of running node
 	Ready   bool
 }
 
-func masterStartReady(m *Master, ready bool) *eventMStartReady {
-	return &eventMStartReady{unsafe.Pointer(m), ready}
+func masterStartReady(where string, ready bool) *eventMStartReady {
+	//return &eventMStartReady{unsafe.Pointer(m), ready}
+	return &eventMStartReady{where, ready}
 }
 
 // ---- events routing ----
@@ -232,6 +234,9 @@ func (r *EventRouter) Route(event interface{}) (dst *tsync.SyncChan) {
 
 	case *eventClusterState:
 		dst = r.byNode[ev.Where]
+
+	case *eventMStartReady:
+		dst = r.byNode[ev.Where]
 	}
 
 	if dst == nil {
@@ -283,6 +288,7 @@ type TraceCollector struct {
 	pg *tracing.ProbeGroup
 	d  *tsync.EventDispatcher
 
+	node2Name	   map[*neo.NodeApp]string
 	nodeTab2Owner	   map[*neo.NodeTable]string
 	clusterState2Owner map[*neo.ClusterState]string
 }
@@ -292,6 +298,7 @@ func NewTraceCollector(dispatch *tsync.EventDispatcher) *TraceCollector {
 		pg:	&tracing.ProbeGroup{},
 		d:	dispatch,
 
+		node2Name:		make(map[*neo.NodeApp]string),
 		nodeTab2Owner:		make(map[*neo.NodeTable]string),
 		clusterState2Owner:	make(map[*neo.ClusterState]string),
 	}
@@ -324,6 +331,7 @@ func (t *TraceCollector) RegisterNode(node *neo.NodeApp, name string) {
 
 	// XXX verify there is no duplicate names
 	// XXX verify the same pointer is not registerd twice
+	t.node2Name[node] = name
 	t.nodeTab2Owner[node.NodeTab] = name
 	t.clusterState2Owner[&node.ClusterState] = name
 }
@@ -360,7 +368,9 @@ func (t *TraceCollector) traceNode(nt *neo.NodeTable, n *neo.Node) {
 }
 
 func (t *TraceCollector) traceMasterStartReady(m *Master, ready bool) {
-	t.d.Dispatch(masterStartReady(m, ready))
+	//t.d.Dispatch(masterStartReady(m, ready))
+	where := t.node2Name[m.node]
+	t.d.Dispatch(&eventMStartReady{where, ready})
 }
 
 // ----------------------------------------
@@ -556,7 +566,7 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	// M ready to start: new cluster, no in-progress S recovery
-	tM.Expect(masterStartReady(M, true))
+	tM.Expect(masterStartReady("m", true))
 
 	// <<< trace <<<
 
