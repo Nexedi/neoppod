@@ -249,7 +249,7 @@ func (evc *EventChecker) deadlock(eventp interface{}) {
 	if len(sendv) == 0 {
 		bad += fmt.Sprintf("noone is sending\n")
 	} else {
-		bad += fmt.Sprintf("there are %d sender(s) on other channels:\n", len(sendv))
+		bad += fmt.Sprintf("there are %d sender(s) on other channel(s):\n", len(sendv))
 		for _, __ := range sendv {
 			bad += fmt.Sprintf("%s:\t%T %v\n", __.dst.name, __.event, __.event)
 		}
