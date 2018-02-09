@@ -47,7 +47,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/tracing"
-	//"lab.nexedi.com/kirr/go123/xerr"
+	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xnet/pipenet"
 
@@ -222,6 +222,9 @@ func (r *EventRouter) Route(event interface{}) (dst *tsync.SyncChan) {
 			break // link not branched
 		}
 
+		// now as we ldst.a corresponds to who was dialer and ldst.b
+		// corresponds to who was listener, we can route by ConnID.
+		// (see neo.newNodeLink for details)
 		if ev.ConnID % 2 == 1 {
 			dst = ldst.a
 		} else {
@@ -406,33 +409,16 @@ func TestMasterStorage(t *testing.T) {
 		return a
 	}
 
-	// // shortcut for net tx event
-	// // XXX -> NetTx ?
-	// nettx := func(src, dst, pkt string) *xnet.TraceTx {
-	// 	return &xnet.TraceTx{Src: xaddr(src), Dst: xaddr(dst), Pkt: []byte(pkt)}
-	// }
-
 	// shortcut for net connect event
-	// XXX -> NetConnect ?
-	//netconnect := func(src, dst, dialed string) *xnet.TraceConnect {
-	//	return &xnet.TraceConnect{Src: xaddr(src), Dst: xaddr(dst), Dialed: dialed}
-	//}
 	netconnect := func(src, dst, dialed string) *eventNetConnect {
 		return &eventNetConnect{Src: src, Dst: dst, Dialed: dialed}
 	}
-
-	//netlisten := func(laddr string) *xnet.TraceListen {
-	//	return &xnet.TraceListen{Laddr: xaddr(laddr)}
-	//}
 
 	netlisten := func(laddr string) *eventNetListen {
 		return &eventNetListen{Laddr: laddr}
 	}
 
 	// shortcut for net tx event over nodelink connection
-	//conntx := func(src, dst string, connid uint32, msg neo.Msg) *eventNeoSend {
-	//	return &eventNeoSend{Src: xaddr(src), Dst: xaddr(dst), ConnID: connid, Msg: msg}
-	//}
 	conntx := func(src, dst string, connid uint32, msg neo.Msg) *eventNeoSend {
 		return &eventNeoSend{Src: src, Dst: dst, ConnID: connid, Msg: msg}
 	}
@@ -449,13 +435,6 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for nodetab change
-//	node := func(x *neo.NodeApp, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtime neo.IdTime) *eventNodeTab {
-//		return &eventNodeTab{
-//			NodeTab:  unsafe.Pointer(x.NodeTab),
-//			NodeInfo: nodei(laddr, typ, num, state, idtime),
-//		}
-//	}
-
 	node := func(where string, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtime neo.IdTime) *eventNodeTab {
 		return &eventNodeTab{
 			Where:    where,
@@ -537,7 +516,6 @@ func TestMasterStorage(t *testing.T) {
 		IdTime:		neo.IdTimeNone,
 	}))
 
-	// XXX try chaning order ^ v
 	tM.Expect(node("m", "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
 
 	tSM.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
@@ -570,12 +548,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// <<< trace <<<
 
-	_ = Mcancel
-	_ = Scancel
-	return
-}
 
-/*
 	// M <- start cmd
 	wg := &errgroup.Group{}
 	gox(wg, func() {
@@ -583,31 +556,31 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 	})
 
-	tc.Expect(node(M.node, "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	tM.Expect(node("m", "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
 	xwait(wg)
 
 	// XXX M.partTab <- S1
 
 	// M starts verification
-	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterVerifying))
+	tM.Expect(clusterState("m", neo.ClusterVerifying))
 
-	tc.Expect(conntx("m:2", "s:2", 4, &neo.SendPartitionTable{
+	tMS.Expect(conntx("m:2", "s:2", 4, &neo.SendPartitionTable{
 		PTid:		1,
 		RowList:	[]neo.RowInfo{
 			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
 		},
 	}))
 
-	tc.Expect(conntx("m:2", "s:2", 6, &neo.LockedTransactions{}))
-	tc.Expect(conntx("s:2", "m:2", 6, &neo.AnswerLockedTransactions{
+	tMS.Expect(conntx("m:2", "s:2", 6, &neo.LockedTransactions{}))
+	tMS.Expect(conntx("s:2", "m:2", 6, &neo.AnswerLockedTransactions{
 		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
 	}))
 
 	lastOid, err1 := zstor.LastOid(bg)
 	lastTid, err2 := zstor.LastTid(bg)
 	exc.Raiseif(xerr.Merge(err1, err2))
-	tc.Expect(conntx("m:2", "s:2", 8, &neo.LastIDs{}))
-	tc.Expect(conntx("s:2", "m:2", 8, &neo.AnswerLastIDs{
+	tMS.Expect(conntx("m:2", "s:2", 8, &neo.LastIDs{}))
+	tMS.Expect(conntx("s:2", "m:2", 8, &neo.AnswerLastIDs{
 		LastOid: lastOid,
 		LastTid: lastTid,
 	}))
@@ -620,13 +593,19 @@ func TestMasterStorage(t *testing.T) {
 	// TODO M.Stop() while verify
 
 	// verification ok; M start service
-	tc.Expect(clusterState(&M.node.ClusterState, neo.ClusterRunning))
+	tM.Expect(clusterState("m", neo.ClusterRunning))
 	// TODO ^^^ should be sent to S
 
-	tc.Expect(conntx("m:2", "s:2", 10, &neo.StartOperation{Backup: false}))
-	tc.Expect(conntx("s:2", "m:2", 10, &neo.NotifyReady{}))
+	tMS.Expect(conntx("m:2", "s:2", 10, &neo.StartOperation{Backup: false}))
+	tMS.Expect(conntx("s:2", "m:2", 10, &neo.NotifyReady{}))
 
 
+	_ = Mcancel
+	_ = Scancel
+	return
+}
+
+/*
 	// TODO S leave while service
 	// TODO S join while service
 	// TODO M.Stop while service
