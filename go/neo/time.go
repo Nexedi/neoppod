@@ -17,23 +17,20 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package server
-// misc utilities
+package neo
+// time related utilities
 
 import (
-	"context"
-	"io"
-
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"time"
 )
 
-
-// lclose closes c and logs closing error if there was any.
-// the error is otherwise ignored
-// XXX dup in neo, client
-func lclose(ctx context.Context, c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		log.Error(ctx, err)
-	}
+// monotime returns time passed since program start
+// it uses monothonic time for measurments and is robust to OS clock adjustments
+//
+// XXX better return time.Duration?
+func monotime() float64 {
+	// time.Sub uses monotonic clock readings for the difference
+	return time.Now().Sub(tstart).Seconds()
 }
+
+var tstart time.Time = time.Now()

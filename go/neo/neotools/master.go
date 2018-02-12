@@ -29,7 +29,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xnet"
-	"lab.nexedi.com/kirr/neo/go/neo/server"
+	"lab.nexedi.com/kirr/neo/go/neo"
 )
 
 const masterSummary = "run master node"
@@ -64,7 +64,7 @@ func masterMain(argv []string) {
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
-	masterSrv := server.NewMaster(*cluster, *bind, net)
+	masterSrv := neo.NewMaster(*cluster, *bind, net)
 
 	ctx := context.Background()
 	/*

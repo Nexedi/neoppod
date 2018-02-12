@@ -31,7 +31,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xnet"
-	"lab.nexedi.com/kirr/neo/go/neo/server"
+	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 )
 
@@ -93,7 +93,7 @@ func storageMain(argv []string) {
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
-	storSrv := server.NewStorage(*cluster, master, *bind, net, zstor)
+	storSrv := neo.NewStorage(*cluster, master, *bind, net, zstor)
 
 	ctx := context.Background()
 	/*

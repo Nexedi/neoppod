@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,16 +17,15 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package client provides ZODB storage interface for accessing NEO cluster.
-package client
+package neo
+
+// XXX old: Package client provides ZODB storage interface for accessing NEO cluster.
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
 	"math/rand"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
@@ -35,7 +34,6 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xnet"
 
-	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
@@ -47,7 +45,7 @@ import (
 
 // Client talks to NEO cluster and exposes access to it via ZODB interfaces.
 type Client struct {
-	node *neo.NodeApp
+	node *NodeApp
 
 	talkMasterCancel func()
 
@@ -79,7 +77,7 @@ var _ zodb.IStorageDriver = (*Client)(nil)
 // It will connect to master @masterAddr and identify with specified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
-		node:        neo.NewNodeApp(net, proto.CLIENT, clusterName, masterAddr, ""),
+		node:        NewNodeApp(net, proto.CLIENT, clusterName, masterAddr, ""),
 		mlinkReady:  make(chan struct{}),
 		operational: false,
 		opReady:     make(chan struct{}),
@@ -141,7 +139,7 @@ func (c *Client) masterLink(ctx context.Context) (*neonet.NodeLink, error) {
 // XXX move somehow -> NodeApp?
 func (c *Client) updateOperational() (sendReady func()) {
 	// XXX py client does not wait for cluster state = running
-	operational := // c.node.ClusterState == neo.ClusterRunning &&
+	operational := // c.node.ClusterState == ClusterRunning &&
 		c.node.PartTab.OperationalWith(c.node.NodeTab)
 
 	//fmt.Printf("\nupdateOperatinal: %v\n", operational)
@@ -336,7 +334,7 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (er
 		return err
 	}
 
-	pt := neo.PartTabFromDump(rpt.PTid, rpt.RowList)
+	pt := PartTabFromDump(rpt.PTid, rpt.RowList)
 	log.Infof(ctx, "master initialized us with next parttab:\n%s", pt)
 	c.node.StateMu.Lock()
 	c.node.PartTab = pt
@@ -348,8 +346,8 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (er
 	XXX don't need this in init?
 
 	// ask M about last_tid
-	rlastTxn := neo.AnswerLastTransaction{}
-	err = mlink.Ask1(&neo.LastTransaction{}, &rlastTxn)
+	rlastTxn := AnswerLastTransaction{}
+	err = mlink.Ask1(&LastTransaction{}, &rlastTxn)
 	if err != nil {
 		return err
 	}
@@ -398,15 +396,6 @@ func (c *Client) Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial z
 	return buf, serial, err
 }
 
-// XXX for benchmarking: how much sha1 computation takes time from latency
-var xsha1skip bool
-func init() {
-	if os.Getenv("X_NEOGO_SHA1_SKIP") == "y" {
-		fmt.Fprintln(os.Stderr, "# NEO/go/client: skipping SHA1 checks")
-		xsha1skip = true
-	}
-}
-
 func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	err := c.withOperational(ctx)
 	if err != nil {
@@ -415,7 +404,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 
 	// here we have cluster state operational and rlocked. Retrieve
 	// storages we might need to access and release the lock.
-	storv := make([]*neo.Node, 0, 1)
+	storv := make([]*Node, 0, 1)
 	for _, cell := range c.node.PartTab.Get(xid.Oid) {
 		if cell.Readable() {
 			stor := c.node.NodeTab.Get(cell.UUID)
@@ -460,7 +449,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 	buf := resp.Data
 
 	if !xsha1skip {
-		checksum := sha1.Sum(buf.Data)
+		checksum := sha1Sum(buf.Data)
 		if checksum != resp.Checksum {
 			return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 		}
@@ -489,6 +478,9 @@ func (c *Client) Iterate(ctx context.Context, tidMin, tidMax zodb.Tid) zodb.ITxn
 	// see notes in ../NOTES:"On iteration"
 	panic("TODO")
 }
+
+
+// ---- ZODB open/url support ----
 
 
 func openClientByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (zodb.IStorageDriver, error) {

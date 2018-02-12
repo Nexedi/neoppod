@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package server
+package neo
 // master node
 
 import (
@@ -33,7 +33,6 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xnet"
 
-	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -45,7 +44,7 @@ import (
 
 // Master is a node overseeing and managing how whole NEO cluster works
 type Master struct {
-	node *neo.NodeApp
+	node *NodeApp
 
 	// master manages node and partition tables and broadcast their updates
 	// to all nodes in cluster
@@ -75,7 +74,7 @@ type Master struct {
 // Use Run to actually start running the node.
 func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	m := &Master{
-		node: neo.NewNodeApp(net, proto.MASTER, clusterName, serveAddr, serveAddr),
+		node: NewNodeApp(net, proto.MASTER, clusterName, serveAddr, serveAddr),
 
 		ctlStart:	make(chan chan error),
 		ctlStop:	make(chan chan struct{}),
@@ -274,8 +273,8 @@ func (m *Master) runMain(ctx context.Context) (err error) {
 
 // storRecovery is result of 1 storage node passing recovery phase
 type storRecovery struct {
-	stor    *neo.Node
-	partTab *neo.PartitionTable
+	stor    *Node
+	partTab *PartitionTable
 	err     error
 
 	// XXX + backup_tid, truncate_tid ?
@@ -463,13 +462,13 @@ loop2:
 	// if we are starting for new cluster - create partition table
 	if m.node.PartTab.PTid == 0 {
 		// XXX -> m.nodeTab.StorageList(State > DOWN)
-		storv := []*neo.Node{}
+		storv := []*Node{}
 		for _, stor := range m.node.NodeTab.StorageList() {
 			if stor.State > proto.DOWN {
 				storv = append(storv, stor)
 			}
 		}
-		m.node.PartTab = neo.MakePartTab(1 /* XXX hardcoded */, storv)
+		m.node.PartTab = MakePartTab(1 /* XXX hardcoded */, storv)
 		m.node.PartTab.PTid = 1
 		log.Infof(ctx, "creating new partition table: %s", m.node.PartTab)
 	}
@@ -479,7 +478,7 @@ loop2:
 
 // storCtlRecovery drives a storage node during cluster recovering state
 // it retrieves various ids and partition table from as stored on the storage
-func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery) {
+func storCtlRecovery(ctx context.Context, stor *Node, res chan storRecovery) {
 	var err error
 	defer func() {
 		if err == nil {
@@ -507,7 +506,7 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 	}
 
 	// reconstruct partition table from response
-	pt := neo.PartTabFromDump(resp.PTid, resp.RowList)
+	pt := PartTabFromDump(resp.PTid, resp.RowList)
 	res <- storRecovery{stor: stor, partTab: pt}
 }
 
@@ -675,14 +674,14 @@ loop2:
 
 // storVerify is result of a storage node passing verification phase
 type storVerify struct {
-	stor    *neo.Node
+	stor    *Node
 	lastOid zodb.Oid
 	lastTid zodb.Tid
 	err	error
 }
 
 // storCtlVerify drives a storage node during cluster verifying (= starting) state
-func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, res chan storVerify) {
+func storCtlVerify(ctx context.Context, stor *Node, pt *PartitionTable, res chan storVerify) {
 	// XXX link.Close on err
 	// XXX cancel on ctx
 
@@ -739,7 +738,7 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 
 // serviceDone is the error returned after service-phase node handling is finished
 type serviceDone struct {
-	node *neo.Node
+	node *Node
 	err  error
 }
 
@@ -846,7 +845,7 @@ loop:
 }
 
 // storCtlService drives a storage node during cluster service state
-func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
+func storCtlService(ctx context.Context, stor *Node) (err error) {
 	slink := stor.Link()
 	defer task.Runningf(&ctx, "%s: stor service", slink.RemoteAddr())(&err)
 
@@ -893,7 +892,7 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 }
 
 // serveClient serves incoming client link
-func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
+func (m *Master) serveClient(ctx context.Context, cli *Node) (err error) {
 	clink := cli.Link()
 	defer task.Runningf(&ctx, "%s: client service", clink.RemoteAddr())(&err)
 
@@ -1026,7 +1025,7 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neonet.NodeLink) (er
 // If node identification is accepted .nodeTab is updated and corresponding node entry is returned.
 // Response message is constructed but not send back not to block the caller - it is
 // the caller responsibility to send the response to node which requested identification.
-func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp proto.Msg) {
+func (m *Master) identify(ctx context.Context, n nodeCome) (node *Node, resp proto.Msg) {
 	// XXX also verify ? :
 	// - NodeType valid
 	// - IdTime ?

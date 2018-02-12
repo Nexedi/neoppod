@@ -17,20 +17,17 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package server
+package neo
 // storage node
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
@@ -47,7 +44,7 @@ import (
 
 // Storage is NEO node that keeps data and provides read/write access to it via network.
 type Storage struct {
-	node *neo.NodeApp
+	node *NodeApp
 
 	// context for providing operational service
 	// it is renewed every time master tells us StartOpertion, so users
@@ -80,7 +77,7 @@ type Storage struct {
 // Use Run to actually start running the node.
 func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor *fs1.FileStorage) *Storage {
 	stor := &Storage{
-		node:  neo.NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
+		node:  NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
 		zstor: zstor,
 	}
 
@@ -529,23 +526,6 @@ func (stor *Storage) serveClient(ctx context.Context, req neonet.Request) {
 			return
 		}
 	}
-}
-
-// XXX for benchmarking: how much sha1 computation takes time from latency
-var xsha1skip bool
-func init() {
-	if os.Getenv("X_NEOGO_SHA1_SKIP") == "y" {
-		fmt.Fprintln(os.Stderr, "# NEO/go/storage: skipping SHA1 computations")
-		xsha1skip = true
-	}
-}
-
-func sha1Sum(b []byte) [sha1.Size]byte {
-	if !xsha1skip {
-		return sha1.Sum(b)
-	}
-
-	return [sha1.Size]byte{} // all 0
 }
 
 // serveClient1 prepares response for 1 request from client

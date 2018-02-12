@@ -17,8 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package server provides servers side of NEO.
-package server
+package neo
 
 // common parts for organizing network servers
 

@@ -17,21 +17,48 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package server
-// time related utilities
-// XXX -> neo ?
+package neo
 
 import (
-	"time"
+	"context"
+	"math"
+
+	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	"lab.nexedi.com/kirr/go123/exc"
 )
 
-// monotime returns time passed since program start
-// it uses monothonic time for measurments and is robust to OS clock adjustments
-//
-// XXX better return time.Duration?
-func monotime() float64 {
-	// time.Sub uses monotonic clock readings for the difference
-	return time.Now().Sub(tstart).Seconds()
+// XXX dup from connection_test
+func xwait(w interface { Wait() error }) {
+	err := w.Wait()
+	exc.Raiseif(err)
 }
 
-var tstart time.Time = time.Now()
+func gox(wg interface { Go(func() error) }, xf func()) {
+	wg.Go(exc.Funcx(xf))
+}
+
+func xfs1stor(path string) *fs1.FileStorage {
+	zstor, err := fs1.Open(bg, path)
+	exc.Raiseif(err)
+	return zstor
+}
+
+var bg = context.Background()
+
+// vclock is a virtual clock
+type vclock struct {
+	t float64
+}
+
+func (c *vclock) monotime() float64 {
+	c.t += 1E-2
+	return c.t
+}
+
+func (c *vclock) tick() {	// XXX do we need tick?
+	t := math.Ceil(c.t)
+	if !(t > c.t) {
+		t += 1
+	}
+	c.t = t
+}

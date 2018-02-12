@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package server
+package neo
 // test interaction between nodes
 
 //go:generate gotrace gen .
@@ -31,16 +31,13 @@ import (
 	//"reflect"
 	"sync"
 	"testing"
-	"unsafe"
 
 	"golang.org/x/sync/errgroup"
 
 	//"github.com/kylelemons/godebug/pretty"
 
-	"lab.nexedi.com/kirr/neo/go/neo"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	"lab.nexedi.com/kirr/neo/go/neo/client"
 	//"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 
 	//"lab.nexedi.com/kirr/neo/go/zodb"
@@ -293,8 +290,8 @@ type TraceCollector struct {
 	pg *tracing.ProbeGroup
 	d  *tsync.EventDispatcher
 
-	node2Name	   map[*neo.NodeApp]string
-	nodeTab2Owner	   map[*neo.NodeTable]string
+	node2Name	   map[*NodeApp]string
+	nodeTab2Owner	   map[*NodeTable]string
 	clusterState2Owner map[*proto.ClusterState]string
 }
 
@@ -303,13 +300,12 @@ func NewTraceCollector(dispatch *tsync.EventDispatcher) *TraceCollector {
 		pg:	&tracing.ProbeGroup{},
 		d:	dispatch,
 
-		node2Name:		make(map[*neo.NodeApp]string),
-		nodeTab2Owner:		make(map[*neo.NodeTable]string),
+		node2Name:		make(map[*NodeApp]string),
+		nodeTab2Owner:		make(map[*NodeTable]string),
 		clusterState2Owner:	make(map[*proto.ClusterState]string),
 	}
 }
 
-//trace:import "lab.nexedi.com/kirr/neo/go/neo"
 //trace:import "lab.nexedi.com/kirr/neo/go/neo/neonet"
 //trace:import "lab.nexedi.com/kirr/neo/go/neo/proto"
 
@@ -319,7 +315,7 @@ func (t *TraceCollector) Attach() {
 	//neo_traceMsgRecv_Attach(t.pg, t.traceNeoMsgRecv)
 	neonet_traceMsgSendPre_Attach(t.pg, t.traceNeoMsgSendPre)
 	proto_traceClusterStateChanged_Attach(t.pg, t.traceClusterState)
-	neo_traceNodeChanged_Attach(t.pg, t.traceNode)
+	traceNodeChanged_Attach(t.pg, t.traceNode)
 	traceMasterStartReady_Attach(t.pg, t.traceMasterStartReady)
 	tracing.Unlock()
 }
@@ -332,7 +328,7 @@ func (t *TraceCollector) Detach() {
 //
 // This way it can translate e.g. *NodeTable -> owner node name when creating
 // corresponding event.
-func (t *TraceCollector) RegisterNode(node *neo.NodeApp, name string) {
+func (t *TraceCollector) RegisterNode(node *NodeApp, name string) {
 	tracing.Lock()
 	defer tracing.Unlock()
 
@@ -368,7 +364,7 @@ func (t *TraceCollector) traceClusterState(cs *proto.ClusterState) {
 	t.d.Dispatch(&eventClusterState{where, *cs})
 }
 
-func (t *TraceCollector) traceNode(nt *neo.NodeTable, n *neo.Node) {
+func (t *TraceCollector) traceNode(nt *NodeTable, n *Node) {
 	//t.d.Dispatch(&eventNodeTab{unsafe.Pointer(nt), n.NodeInfo})
 	where := t.nodeTab2Owner[nt]
 	t.d.Dispatch(&eventNodeTab{where, n.NodeInfo})
@@ -476,7 +472,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// cluster nodes
 	M := NewMaster("abc1", ":1", Mhost)
-	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
+	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
 	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
 
 	// let tracer know how to map state addresses to node names
@@ -625,9 +621,8 @@ func TestMasterStorage(t *testing.T) {
 	return	// XXX temp
 
 	// create client
-	C := client.NewClient("abc1", "m:1", Chost)
-	Cnode := *(**neo.NodeApp)(unsafe.Pointer(C)) // XXX hack, fragile
-	tracer.RegisterNode(Cnode, "c")
+	C := NewClient("abc1", "m:1", Chost)
+	tracer.RegisterNode(C.node, "c")
 
 	// trace
 
@@ -868,7 +863,7 @@ func TestMasterStorage(t *testing.T) {
 /*
 func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit func(xcload1 func())) {
 	// create test cluster	<- XXX factor to utility func
-	zstor := xfs1stor("../../zodb/storage/fs1/testdata/1.fs")
+	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg, ctx := errgroup.WithContext(ctx)
@@ -883,7 +878,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	tc := tsync.NewEventChecker(b, tracer.SyncChan)
 	pg := &tracing.ProbeGroup{}
 	tracing.Lock()
-	pnode := neo_traceNodeChanged_Attach(nil, tracer.traceNode)
+	pnode := traceNodeChanged_Attach(nil, tracer.traceNode)
 	traceMasterStartReady_Attach(pg, tracer.traceMasterStartReady)
 	tracing.Unlock()
 
