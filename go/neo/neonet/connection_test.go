@@ -60,12 +60,12 @@ func xaccept(nl *NodeLink) *Conn {
 	return c
 }
 
-func xsendPkt(c interface { sendPkt(*PktBuf) error }, pkt *PktBuf) {
+func xsendPkt(c interface { sendPkt(*pktBuf) error }, pkt *pktBuf) {
 	err := c.sendPkt(pkt)
 	exc.Raiseif(err)
 }
 
-func xrecvPkt(c interface { recvPkt() (*PktBuf, error) }) *PktBuf {
+func xrecvPkt(c interface { recvPkt() (*pktBuf, error) }) *pktBuf {
 	pkt, err := c.recvPkt()
 	exc.Raiseif(err)
 	return pkt
@@ -103,9 +103,9 @@ func xconnError(err error) error {
 	return ce.Err
 }
 
-// Prepare PktBuf with content
-func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
-	pkt := &PktBuf{make([]byte, proto.PktHeaderLen + len(payload))}
+// Prepare pktBuf with content
+func _mkpkt(connid uint32, msgcode uint16, payload []byte) *pktBuf {
+	pkt := &pktBuf{make([]byte, proto.PktHeaderLen + len(payload))}
 	h := pkt.Header()
 	h.ConnId = packed.Hton32(connid)
 	h.MsgCode = packed.Hton16(msgcode)
@@ -114,13 +114,13 @@ func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
 	return pkt
 }
 
-func (c *Conn) mkpkt(msgcode uint16, payload []byte) *PktBuf {
+func (c *Conn) mkpkt(msgcode uint16, payload []byte) *pktBuf {
 	// in Conn exchange connid is automatically set by Conn.sendPkt
 	return _mkpkt(c.connId, msgcode, payload)
 }
 
-// Verify PktBuf is as expected
-func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
+// Verify pktBuf is as expected
+func xverifyPkt(pkt *pktBuf, connid uint32, msgcode uint16, payload []byte) {
 	errv := xerr.Errorv{}
 	h := pkt.Header()
 	// TODO include caller location
@@ -141,8 +141,8 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 	exc.Raiseif( errv.Err() )
 }
 
-// Verify PktBuf to match expected message
-func xverifyPktMsg(pkt *PktBuf, connid uint32, msg proto.Msg) {
+// Verify pktBuf to match expected message
+func xverifyPktMsg(pkt *pktBuf, connid uint32, msg proto.Msg) {
 	data := make([]byte, msg.NEOMsgEncodedLen())
 	msg.NEOMsgEncode(data)
 	xverifyPkt(pkt, connid, msg.NEOMsgCode(), data)
@@ -201,7 +201,7 @@ func TestNodeLink(t *testing.T) {
 		tdelay()
 		xclose(nl1)
 	})
-	pkt = &PktBuf{[]byte("data")}
+	pkt = &pktBuf{[]byte("data")}
 	err = nl1.sendPkt(pkt)
 	if err != io.ErrClosedPipe {
 		t.Fatalf("NodeLink.sendPkt() after close: err = %v", err)
@@ -259,7 +259,7 @@ func TestNodeLink(t *testing.T) {
 		tdelay()
 		xclose(nl2)
 	})
-	pkt = &PktBuf{[]byte("data")}
+	pkt = &pktBuf{[]byte("data")}
 	err = nl1.sendPkt(pkt)
 	if err != io.ErrClosedPipe { // NOTE io.ErrClosedPipe on Write per io.Pipe
 		t.Fatalf("NodeLink.sendPkt() after peer shutdown: pkt = %v  err = %v", pkt, err)

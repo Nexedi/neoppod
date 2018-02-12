@@ -32,50 +32,48 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
 )
 
-// PktBuf is a buffer with full raw packet (header + data).
+// pktBuf is a buffer with full raw packet (header + data).
 //
-// variables of type PktBuf are usually named "pkb" (packet buffer), similar to "skb" in Linux.
-//
-// Allocate PktBuf via pktAlloc() and free via PktBuf.Free().
-type PktBuf struct {
+// Allocate pktBuf via pktAlloc() and free via pktBuf.Free().
+type pktBuf struct {
 	Data []byte // whole packet data including all headers
 }
 
 // Header returns pointer to packet header.
-func (pkt *PktBuf) Header() *proto.PktHeader {
+func (pkt *pktBuf) Header() *proto.PktHeader {
 	// XXX check len(Data) < PktHeader ? -> no, Data has to be allocated with cap >= PktHeaderLen
 	return (*proto.PktHeader)(unsafe.Pointer(&pkt.Data[0]))
 }
 
 // Payload returns []byte representing packet payload.
-func (pkt *PktBuf) Payload() []byte {
+func (pkt *pktBuf) Payload() []byte {
 	return pkt.Data[proto.PktHeaderLen:]
 }
 
-// ---- PktBuf freelist ----
+// ---- pktBuf freelist ----
 
 // pktBufPool is sync.Pool<pktBuf>
 var pktBufPool = sync.Pool{New: func() interface{} {
-	return &PktBuf{Data: make([]byte, 0, 4096)}
+	return &pktBuf{Data: make([]byte, 0, 4096)}
 }}
 
-// pktAlloc allocates PktBuf with len=n
-func pktAlloc(n int) *PktBuf {
-	pkt := pktBufPool.Get().(*PktBuf)
+// pktAlloc allocates pktBuf with len=n
+func pktAlloc(n int) *pktBuf {
+	pkt := pktBufPool.Get().(*pktBuf)
 	pkt.Data = xbytes.Realloc(pkt.Data, n)
 	return pkt
 }
 
 // Free marks pkt as no longer needed.
-func (pkt *PktBuf) Free() {
+func (pkt *pktBuf) Free() {
 	pktBufPool.Put(pkt)
 }
 
 
-// ---- PktBuf dump ----
+// ---- pktBuf dump ----
 
 // Strings dumps a packet in human-readable form
-func (pkt *PktBuf) String() string {
+func (pkt *pktBuf) String() string {
 	if len(pkt.Data) < proto.PktHeaderLen {
 		return fmt.Sprintf("(! < PktHeaderLen) % x", pkt.Data)
 	}
@@ -110,7 +108,7 @@ func (pkt *PktBuf) String() string {
 }
 
 // Dump dumps a packet in raw form
-func (pkt *PktBuf) Dump() string {
+func (pkt *pktBuf) Dump() string {
 	if len(pkt.Data) < proto.PktHeaderLen {
 		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.Data)
 	}

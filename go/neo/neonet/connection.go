@@ -120,7 +120,7 @@ type Conn struct {
 	link      *NodeLink
 	connId    uint32
 
-	rxq	   chan *PktBuf	 // received packets for this Conn go here
+	rxq	   chan *pktBuf	 // received packets for this Conn go here
 	rxqWrite   atomic32	 //  1 while serveRecv is doing `rxq <- ...`
 	rxqRead    atomic32      // +1 while Conn.Recv is doing `... <- rxq`
 	rxdownFlag atomic32	 //  1 when RX is marked no longer operational
@@ -234,7 +234,7 @@ func newNodeLink(conn net.Conn, role LinkRole) *NodeLink {
 // XXX make it per-link?
 var connPool = sync.Pool{New: func() interface{} {
 	return &Conn{
-		rxq:    make(chan *PktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf ?
+		rxq:    make(chan *pktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf ?
 		txerr:  make(chan error, 1),	// NOTE non-blocking - see Conn.Send
 		txdown: make(chan struct{}),
 //		rxdown: make(chan struct{}),
@@ -681,7 +681,7 @@ func (c *Conn) errRecvShutdown() error {
 }
 
 // recvPkt receives raw packet from connection
-func (c *Conn) recvPkt() (*PktBuf, error) {
+func (c *Conn) recvPkt() (*pktBuf, error) {
 	// semantically equivalent to the following:
 	// (this is hot path and select is not used for performance reason)
 	//
@@ -693,7 +693,7 @@ func (c *Conn) recvPkt() (*PktBuf, error) {
 	// 	return pkt, nil
 	// }
 
-	var pkt *PktBuf
+	var pkt *pktBuf
 	var err error
 
 	c.rxqRead.Add(1)
@@ -943,7 +943,7 @@ func (link *NodeLink) replyNoConn(connId uint32, errMsg proto.Msg) {
 
 // txReq is request to transmit a packet. Result error goes back to errch
 type txReq struct {
-	pkt   *PktBuf
+	pkt   *pktBuf
 	errch chan error
 }
 
@@ -968,12 +968,12 @@ func (c *Conn) errSendShutdown() error {
 // sendPkt sends raw packet via connection.
 //
 // on success pkt is freed.
-func (c *Conn) sendPkt(pkt *PktBuf) error {
+func (c *Conn) sendPkt(pkt *pktBuf) error {
 	err := c.sendPkt2(pkt)
 	return c.err("send", err)
 }
 
-func (c *Conn) sendPkt2(pkt *PktBuf) error {
+func (c *Conn) sendPkt2(pkt *pktBuf) error {
 	// connId must be set to one associated with this connection
 	if pkt.Header().ConnId != packed.Hton32(c.connId) {
 		panic("Conn.sendPkt: connId wrong")
@@ -1058,7 +1058,7 @@ func (nl *NodeLink) serveSend() {
 // however this adds overhead and is not needed in light mode.
 
 // sendPktDirect sends raw packet with appropriate connection ID directly via link.
-func (c *Conn) sendPktDirect(pkt *PktBuf) error {
+func (c *Conn) sendPktDirect(pkt *pktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = packed.Hton32(c.connId)
 
@@ -1088,7 +1088,7 @@ const dumpio = false
 // tx error, if any, is returned as is and is analyzed in serveSend.
 //
 // XXX pkt should be freed always or only on error?
-func (nl *NodeLink) sendPkt(pkt *PktBuf) error {
+func (nl *NodeLink) sendPkt(pkt *pktBuf) error {
 	if dumpio {
 		// XXX -> log
 		fmt.Printf("%v > %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
@@ -1106,7 +1106,7 @@ var ErrPktTooBig = errors.New("packet too big")
 // recvPkt receives raw packet from peer.
 //
 // rx error, if any, is returned as is and is analyzed in serveRecv
-func (nl *NodeLink) recvPkt() (*PktBuf, error) {
+func (nl *NodeLink) recvPkt() (*pktBuf, error) {
 	pkt := pktAlloc(4096)
 	// len=4K but cap can be more since pkt is from pool - use all space to buffer reads
 	// XXX vvv -> pktAlloc() ?
@@ -1462,8 +1462,8 @@ func (c *Conn) err(op string, e error) error {
 //trace:event traceMsgSendPre(l *NodeLink, connId uint32, msg proto.Msg)
 // XXX do we also need traceConnSend?
 
-// msgPack allocates PktBuf and encodes msg into it.
-func msgPack(connId uint32, msg proto.Msg) *PktBuf {
+// msgPack allocates pktBuf and encodes msg into it.
+func msgPack(connId uint32, msg proto.Msg) *pktBuf {
 	l := msg.NEOMsgEncodedLen()
 	buf := pktAlloc(proto.PktHeaderLen+l)
 
@@ -1491,7 +1491,7 @@ func (c *Conn) Recv() (proto.Msg, error) {
 	return msg, err
 }
 
-func (c *Conn) _Recv(pkt *PktBuf) (proto.Msg, error) {
+func (c *Conn) _Recv(pkt *pktBuf) (proto.Msg, error) {
 	// decode packet
 	pkth := pkt.Header()
 	msgCode := packed.Ntoh16(pkth.MsgCode)
@@ -1562,7 +1562,7 @@ func (c *Conn) Expect(msgv ...proto.Msg) (which int, err error) {
 	return which, err
 }
 
-func (c *Conn) _Expect(pkt *PktBuf, msgv ...proto.Msg) (int, error) {
+func (c *Conn) _Expect(pkt *pktBuf, msgv ...proto.Msg) (int, error) {
 	pkth := pkt.Header()
 	msgCode := packed.Ntoh16(pkth.MsgCode)
 
