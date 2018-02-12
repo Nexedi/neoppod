@@ -34,6 +34,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -948,7 +949,7 @@ func (m *Master) serveClient1(ctx context.Context, req proto.Msg) (resp proto.Ms
 // ----------------------------------------
 
 // keepPeerUpdated sends cluster state updates to peer on the link
-func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err error) {
+func (m *Master) keepPeerUpdated(ctx context.Context, link *neonet.NodeLink) (err error) {
 	// link should be already in parent ctx (XXX and closed on cancel ?)
 	defer task.Runningf(&ctx, "keep updated")(&err)
 

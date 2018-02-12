@@ -31,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -244,7 +245,7 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 // return error indicates:
 // - nil:  initialization was ok and a command came from master to start operation.
 // - !nil: initialization was cancelled or failed somehow.
-func (stor *Storage) m1initialize(ctx context.Context, mlink *neo.NodeLink) (reqStart *neo.Request, err error) {
+func (stor *Storage) m1initialize(ctx context.Context, mlink *neonet.NodeLink) (reqStart *neonet.Request, err error) {
 	defer task.Runningf(&ctx, "init %v", mlink)(&err)
 
 	for {
@@ -267,7 +268,7 @@ func (stor *Storage) m1initialize(ctx context.Context, mlink *neo.NodeLink) (req
 var cmdStart = errors.New("start requested")
 
 // m1initialize1 handles one message from master from under m1initialize
-func (stor *Storage) m1initialize1(ctx context.Context, req neo.Request) error {
+func (stor *Storage) m1initialize1(ctx context.Context, req neonet.Request) error {
 	// XXX vvv move Send out of reply preparing logic
 	var err error
 
@@ -334,7 +335,7 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neo.Request) error {
 // it always returns with an error describing why serve has to be stopped -
 // either due to master commanding us to stop, or context cancel or some other
 // error.
-func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err error) {
+func (stor *Storage) m1serve(ctx context.Context, reqStart *neonet.Request) (err error) {
 	mlink := reqStart.Link()
 	defer task.Runningf(&ctx, "serve %v", mlink)(&err)
 
@@ -369,7 +370,7 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err er
 }
 
 // m1serve1 handles one message from master under m1serve
-func (stor *Storage) m1serve1(ctx context.Context, req neo.Request) error {
+func (stor *Storage) m1serve1(ctx context.Context, req neonet.Request) error {
 	switch msg := req.Msg.(type) {
 	default:
 		return fmt.Errorf("unexpected message: %T", msg)
@@ -436,7 +437,7 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 
 
 // serveLink serves incoming node-node link connection
-func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *proto.RequestIdentification) (err error) {
+func (stor *Storage) serveLink(ctx context.Context, req *neonet.Request, idReq *proto.RequestIdentification) (err error) {
 	link := req.Link()
 	defer task.Runningf(&ctx, "serve %s", link)(&err)
 	defer xio.CloseWhenDone(ctx, link)()
@@ -467,7 +468,7 @@ func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *pro
 			switch errors.Cause(err) {
 			// XXX closed by main or peer down
 			// XXX review
-			case neo.ErrLinkDown, neo.ErrLinkClosed:
+			case neonet.ErrLinkDown, neonet.ErrLinkClosed:
 				log.Info(ctx, err)
 				// ok
 
@@ -494,7 +495,7 @@ func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *pro
 //
 // XXX version that reuses goroutine to serve next client requests
 // XXX for py compatibility (py has no way to tell us Conn is closed)
-func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
+func (stor *Storage) serveClient(ctx context.Context, req neonet.Request) {
 	link := req.Link()
 
 	for {
@@ -519,7 +520,7 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 			switch errors.Cause(err) {
 			// XXX closed by main or peer down - all logged by main called
 			// XXX review
-			case neo.ErrLinkDown, neo.ErrLinkClosed:
+			case neonet.ErrLinkDown, neonet.ErrLinkClosed:
 				// ok
 
 			default:

@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2018  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -17,8 +17,13 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neo
-// Connection management
+// Package neonet provides service to establish links and exchange messages in
+// a NEO network.
+//
+// XXX text (Dial, Listen, ...)
+package neonet
+
+//go:generate gotrace gen .
 
 import (
 	"context"

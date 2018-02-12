@@ -39,6 +39,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	//"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
@@ -92,10 +93,10 @@ func NewNodeApp(net xnet.Networker, typ proto.NodeType, clusterName, masterAddr,
 //
 // Dial does not update .NodeTab or its node entries in any way.
 // For establishing links to peers present in .NodeTab use Node.Dial.
-func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr string) (_ *NodeLink, _ *proto.AcceptIdentification, err error) {
+func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr string) (_ *neonet.NodeLink, _ *proto.AcceptIdentification, err error) {
 	defer task.Runningf(&ctx, "dial %v (%v)", addr, peerType)(&err)
 
-	link, err := DialLink(ctx, app.Net, addr)
+	link, err := neonet.DialLink(ctx, app.Net, addr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,7 +160,7 @@ func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr stri
 // The node information about where it listens at is appropriately updated.
 func (app *NodeApp) Listen() (Listener, error) {
 	// start listening
-	ll, err := ListenLink(app.Net, app.MyInfo.Addr.String())
+	ll, err := neonet.ListenLink(app.Net, app.MyInfo.Addr.String())
 	if err != nil {
 		return nil, err	// XXX err ctx
 	}
@@ -205,17 +206,17 @@ type Listener interface {
 	// After successful accept it is the caller responsibility to reply the request.
 	//
 	// NOTE established link is Request.Link().
-	Accept(ctx context.Context) (*Request, *proto.RequestIdentification, error)
+	Accept(ctx context.Context) (*neonet.Request, *proto.RequestIdentification, error)
 }
 
 type listener struct {
-	l       LinkListener
+	l       neonet.LinkListener
 	acceptq chan accepted
 	closed  chan struct {}
 }
 
 type accepted struct {
-	req   *Request
+	req   *neonet.Request
 	idReq *proto.RequestIdentification
 	err   error
 }
@@ -243,7 +244,7 @@ func (l *listener) run() {
 	}
 }
 
-func (l *listener) accept(link *NodeLink, err error) {
+func (l *listener) accept(link *neonet.NodeLink, err error) {
 	res := make(chan accepted, 1)
 	go func() {
 		req, idReq, err := l.accept1(context.Background(), link, err)	// XXX ctx cancel on l close?
@@ -273,7 +274,7 @@ func (l *listener) accept(link *NodeLink, err error) {
 	}
 }
 
-func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *Request, _ *proto.RequestIdentification, err error) {
+func (l *listener) accept1(ctx context.Context, link *neonet.NodeLink, err0 error) (_ *neonet.Request, _ *proto.RequestIdentification, err error) {
 	if err0 != nil {
 		return nil, nil, err0
 	}
@@ -297,7 +298,7 @@ func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *
 	return nil, nil, emsg
 }
 
-func (l *listener) Accept(ctx context.Context) (*Request, *proto.RequestIdentification, error) {
+func (l *listener) Accept(ctx context.Context) (*neonet.Request, *proto.RequestIdentification, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it

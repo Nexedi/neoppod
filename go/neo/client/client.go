@@ -36,6 +36,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -53,7 +54,7 @@ type Client struct {
 	// link to master - established and maintained by talkMaster.
 	// users retrieve it via masterLink.
 	mlinkMu    sync.Mutex
-	mlink      *neo.NodeLink
+	mlink      *neonet.NodeLink
 	mlinkReady chan struct{} // reinitialized at each new talk cycle
 
 	// operational state in node is maintained by recvMaster.
@@ -108,7 +109,7 @@ func (c *Client) Close() error {
 // NOTE that even if masterLink returns != nil, the master link can become
 // non-operational at any later time. (such cases will be reported as
 // ErrLinkDown returned by all mlink operations)
-func (c *Client) masterLink(ctx context.Context) (*neo.NodeLink, error) {
+func (c *Client) masterLink(ctx context.Context) (*neonet.NodeLink, error) {
 	for {
 		c.mlinkMu.Lock()
 		mlink := c.mlink
@@ -274,7 +275,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 }
 
 // recvMaster receives and handles notifications from master
-func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) (err error) {
+func (c *Client) recvMaster(ctx context.Context, mlink *neonet.NodeLink) (err error) {
 	defer task.Running(&ctx, "rx")(&err)
 
 	// XXX .nodeTab.Reset()
@@ -294,7 +295,7 @@ func (c *Client) recvMaster(ctx context.Context, mlink *neo.NodeLink) (err error
 }
 
 // recvMaster1 handles 1 message from master
-func (c *Client) recvMaster1(ctx context.Context, req neo.Request) error {
+func (c *Client) recvMaster1(ctx context.Context, req neonet.Request) error {
 	c.node.StateMu.Lock()
 
 	switch msg := req.Msg.(type) {
@@ -325,7 +326,7 @@ func (c *Client) recvMaster1(ctx context.Context, req neo.Request) error {
 	return nil
 }
 
-func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err error) {
+func (c *Client) initFromMaster(ctx context.Context, mlink *neonet.NodeLink) (err error) {
 	defer task.Running(&ctx, "init")(&err)
 
 	// ask M for PT

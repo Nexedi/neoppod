@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -83,7 +84,7 @@ type Node struct {
 	proto.NodeInfo // .type, .addr, .uuid, ...	XXX also protect by mu?
 
 	linkMu sync.Mutex
-	link   *NodeLink // link to this peer; nil if not connected
+	link   *neonet.NodeLink // link to this peer; nil if not connected
 	dialT  time.Time // last dial finished at this time
 
 	// dialer notifies waiters via this; reinitialized at each redial; nil while not dialing
@@ -284,7 +285,7 @@ func (nt *NodeTable) SubscribeBuffered() (ch chan []proto.NodeInfo, unsubscribe 
 // XXX
 //
 // See also: Link, CloseLink, Dial.
-func (p *Node) SetLink(link *NodeLink) {
+func (p *Node) SetLink(link *neonet.NodeLink) {
 	// XXX see Link about locking - whether it is needed here or not
 	p.linkMu.Lock()
 	p.link = link
@@ -296,7 +297,7 @@ func (p *Node) SetLink(link *NodeLink) {
 // If the link is not yet established - Link returns nil.
 //
 // See also: Dial.
-func (p *Node) Link() *NodeLink {
+func (p *Node) Link() *neonet.NodeLink {
 	// XXX do we need lock here?
 	// XXX usages where Link is used (contrary to Dial) there is no need for lock
 	p.linkMu.Lock()
@@ -326,7 +327,7 @@ func (p *Node) CloseLink(ctx context.Context) {
 // dial does low-level work to dial peer
 // XXX p.* reading without lock - ok?
 // XXX app.MyInfo without lock - ok?
-func (p *Node) dial(ctx context.Context) (_ *NodeLink, err error) {
+func (p *Node) dial(ctx context.Context) (_ *neonet.NodeLink, err error) {
 	defer task.Runningf(&ctx, "connect %s", p.UUID)(&err)	// XXX "connect" good word here?
 
 	app := p.nodeTab.nodeApp
@@ -363,7 +364,7 @@ const δtRedial = 3 * time.Second
 
 // dialed is result of dialing a peer.
 type dialed struct {
-	link	*NodeLink
+	link	*neonet.NodeLink
 	err	error
 	ready	chan struct{}
 }
@@ -379,7 +380,7 @@ type dialed struct {
 //
 // In case Dial returns an error - future Dial will attempt to reconnect with
 // "don't reconnect too fast" throttling.
-func (p *Node) Dial(ctx context.Context) (*NodeLink, error) {
+func (p *Node) Dial(ctx context.Context) (*neonet.NodeLink, error) {
 	p.linkMu.Lock()
 
 	// ok if already connected
@@ -412,7 +413,7 @@ func (p *Node) Dial(ctx context.Context) (*NodeLink, error) {
 	p.linkMu.Unlock()
 
 	go func() {
-		link, err := func() (*NodeLink, error) {
+		link, err := func() (*neonet.NodeLink, error) {
 			// throttle redialing if too fast
 			δt := time.Now().Sub(dialT)
 			if δt < δtRedial && !dialT.IsZero() {
@@ -451,7 +452,7 @@ func (p *Node) Dial(ctx context.Context) (*NodeLink, error) {
 //
 // For established link Conn either creates new connection over the link,
 // XXX (currently inactive) or gets one from the pool of unused connections (see PutConn).
-func (p *Node) Conn(ctx context.Context) (*Conn, error) {
+func (p *Node) Conn(ctx context.Context) (*neonet.Conn, error) {
 	var err error
 
 /*

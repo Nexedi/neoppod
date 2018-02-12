@@ -38,6 +38,7 @@ import (
 	//"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/client"
 	//"lab.nexedi.com/kirr/neo/go/neo/internal/common"
@@ -309,13 +310,14 @@ func NewTraceCollector(dispatch *tsync.EventDispatcher) *TraceCollector {
 }
 
 //trace:import "lab.nexedi.com/kirr/neo/go/neo"
+//trace:import "lab.nexedi.com/kirr/neo/go/neo/neonet"
 //trace:import "lab.nexedi.com/kirr/neo/go/neo/proto"
 
 // Attach attaches the tracer to appropriate trace points.
 func (t *TraceCollector) Attach() {
 	tracing.Lock()
 	//neo_traceMsgRecv_Attach(t.pg, t.traceNeoMsgRecv)
-	neo_traceMsgSendPre_Attach(t.pg, t.traceNeoMsgSendPre)
+	neonet_traceMsgSendPre_Attach(t.pg, t.traceNeoMsgSendPre)
 	proto_traceClusterStateChanged_Attach(t.pg, t.traceClusterState)
 	neo_traceNodeChanged_Attach(t.pg, t.traceNode)
 	traceMasterStartReady_Attach(t.pg, t.traceMasterStartReady)
@@ -356,7 +358,7 @@ func (t *TraceCollector) TraceNetListen(ev *xnet.TraceListen)	{
 
 func (t *TraceCollector) TraceNetTx(ev *xnet.TraceTx)		{} // we use traceNeoMsgSend instead
 
-func (t *TraceCollector) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg proto.Msg) {
+func (t *TraceCollector) traceNeoMsgSendPre(l *neonet.NodeLink, connID uint32, msg proto.Msg) {
 	t.d.Dispatch(&eventNeoSend{l.LocalAddr().String(), l.RemoteAddr().String(), connID, msg})
 }
 

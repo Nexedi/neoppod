@@ -28,7 +28,7 @@ import (
 //	"net"
 	"sync"
 
-	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 
@@ -40,7 +40,7 @@ import (
 type Server interface {
 	// ServeLink serves already established nodelink (connection) in a blocking way.
 	// ServeLink is usually run in separate goroutine
-	ServeLink(ctx context.Context, link *neo.NodeLink)
+	ServeLink(ctx context.Context, link *neonet.NodeLink)
 }
 
 // Serve runs service on a listener
@@ -78,7 +78,7 @@ func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 // IdentifyPeer identifies peer on the link
 // it expects peer to send RequestIdentification packet and replies with AcceptIdentification if identification passes.
 // returns information about identified node or error.
-func IdentifyPeer(ctx context.Context, link *neo.NodeLink, myNodeType proto.NodeType) (nodeInfo proto.RequestIdentification, err error) {
+func IdentifyPeer(ctx context.Context, link *neonet.NodeLink, myNodeType proto.NodeType) (nodeInfo proto.RequestIdentification, err error) {
 	defer xerr.Contextf(&err, "%s: identify", link)
 
 	// the first conn must come with RequestIdentification packet
@@ -124,7 +124,7 @@ func IdentifyPeer(ctx context.Context, link *neo.NodeLink, myNodeType proto.Node
 
 // event: node connects
 type nodeCome struct {
-	req    *neo.Request
+	req    *neonet.Request
 	idReq  *proto.RequestIdentification // we received this identification request
 }
 
@@ -138,7 +138,7 @@ type nodeLeave struct {
 
 
 // reject sends rejective identification response and closes associated link
-func reject(ctx context.Context, req *neo.Request, resp proto.Msg) {
+func reject(ctx context.Context, req *neonet.Request, resp proto.Msg) {
 	// XXX cancel on ctx?
 	// log.Info(ctx, "identification rejected") ?
 	err1 := req.Reply(resp)
@@ -150,7 +150,7 @@ func reject(ctx context.Context, req *neo.Request, resp proto.Msg) {
 }
 
 // goreject spawns reject in separate goroutine properly added/done on wg
-func goreject(ctx context.Context, wg *sync.WaitGroup, req *neo.Request, resp proto.Msg) {
+func goreject(ctx context.Context, wg *sync.WaitGroup, req *neonet.Request, resp proto.Msg) {
 	wg.Add(1)
 	defer wg.Done()
 	go reject(ctx, req, resp)
@@ -158,7 +158,7 @@ func goreject(ctx context.Context, wg *sync.WaitGroup, req *neo.Request, resp pr
 
 // accept replies with acceptive identification response
 // XXX spawn ping goroutine from here?
-func accept(ctx context.Context, req *neo.Request, resp proto.Msg) error {
+func accept(ctx context.Context, req *neonet.Request, resp proto.Msg) error {
 	// XXX cancel on ctx
 	err1 := req.Reply(resp)
 	return err1	// XXX while trying to work on single conn
