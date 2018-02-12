@@ -21,6 +21,10 @@
 // a NEO network.
 //
 // XXX text (Dial, Listen, ...)
+//
+// XXX lightweight-mode
+//
+// XXX link -> lab.nexedi.com/kirr/neo/go/neo/proto
 package neonet
 
 //go:generate gotrace gen .
