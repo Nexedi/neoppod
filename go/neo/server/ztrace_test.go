@@ -8,24 +8,33 @@ import (
 	_ "unsafe"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
 // traceimport: "lab.nexedi.com/kirr/neo/go/neo"
 
 // rerun "gotrace gen" if you see link failure ↓↓↓
-//go:linkname neo_trace_exporthash lab.nexedi.com/kirr/neo/go/neo._trace_exporthash_933f43c04bbb1566c5d1e9ea518f9ed6e0f147a7
+//go:linkname neo_trace_exporthash lab.nexedi.com/kirr/neo/go/neo._trace_exporthash_470beceafeb4cecc8dee4072ee06329e20eef0f1
 func neo_trace_exporthash()
 func init() { neo_trace_exporthash() }
 
 
-//go:linkname neo_traceClusterStateChanged_Attach lab.nexedi.com/kirr/neo/go/neo.traceClusterStateChanged_Attach
-func neo_traceClusterStateChanged_Attach(*tracing.ProbeGroup, func(cs *neo.ClusterState)) *tracing.Probe
-
 //go:linkname neo_traceMsgRecv_Attach lab.nexedi.com/kirr/neo/go/neo.traceMsgRecv_Attach
-func neo_traceMsgRecv_Attach(*tracing.ProbeGroup, func(c *neo.Conn, msg neo.Msg)) *tracing.Probe
+func neo_traceMsgRecv_Attach(*tracing.ProbeGroup, func(c *neo.Conn, msg proto.Msg)) *tracing.Probe
 
 //go:linkname neo_traceMsgSendPre_Attach lab.nexedi.com/kirr/neo/go/neo.traceMsgSendPre_Attach
-func neo_traceMsgSendPre_Attach(*tracing.ProbeGroup, func(l *neo.NodeLink, connId uint32, msg neo.Msg)) *tracing.Probe
+func neo_traceMsgSendPre_Attach(*tracing.ProbeGroup, func(l *neo.NodeLink, connId uint32, msg proto.Msg)) *tracing.Probe
 
 //go:linkname neo_traceNodeChanged_Attach lab.nexedi.com/kirr/neo/go/neo.traceNodeChanged_Attach
 func neo_traceNodeChanged_Attach(*tracing.ProbeGroup, func(nt *neo.NodeTable, n *neo.Node)) *tracing.Probe
+
+// traceimport: "lab.nexedi.com/kirr/neo/go/neo/proto"
+
+// rerun "gotrace gen" if you see link failure ↓↓↓
+//go:linkname proto_trace_exporthash lab.nexedi.com/kirr/neo/go/neo/proto._trace_exporthash_20c3e52fbfabe08e304139ab4a6bbf7c569f0994
+func proto_trace_exporthash()
+func init() { proto_trace_exporthash() }
+
+
+//go:linkname proto_traceClusterStateChanged_Attach lab.nexedi.com/kirr/neo/go/neo/proto.traceClusterStateChanged_Attach
+func proto_traceClusterStateChanged_Attach(*tracing.ProbeGroup, func(cs *proto.ClusterState)) *tracing.Probe

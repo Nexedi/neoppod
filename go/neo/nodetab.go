@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
+
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 )
@@ -67,7 +69,7 @@ type NodeTable struct {
 
 	//storv	[]*Node // storages
 	nodev   []*Node // all other nodes
-	notifyv []chan NodeInfo // subscribers
+	notifyv []chan proto.NodeInfo // subscribers
 }
 
 //trace:event traceNodeChanged(nt *NodeTable, n *Node)
@@ -78,7 +80,7 @@ type NodeTable struct {
 type Node struct {
 	nodeTab *NodeTable // this node is part of
 
-	NodeInfo // .type, .addr, .uuid, ...	XXX also protect by mu?
+	proto.NodeInfo // .type, .addr, .uuid, ...	XXX also protect by mu?
 
 	linkMu sync.Mutex
 	link   *NodeLink // link to this peer; nil if not connected
@@ -115,7 +117,7 @@ func (nt *NodeTable) All() []*Node {
 }
 
 // Get finds node by uuid.
-func (nt *NodeTable) Get(uuid NodeUUID) *Node {
+func (nt *NodeTable) Get(uuid proto.NodeUUID) *Node {
 	// FIXME linear scan
 	for _, node := range nt.nodev {
 		if node.UUID == uuid {
@@ -130,7 +132,7 @@ func (nt *NodeTable) Get(uuid NodeUUID) *Node {
 // Update updates information about a node.
 //
 // it returns corresponding node entry for convenience.
-func (nt *NodeTable) Update(nodeInfo NodeInfo) *Node {
+func (nt *NodeTable) Update(nodeInfo proto.NodeInfo) *Node {
 	node := nt.Get(nodeInfo.UUID)
 	if node == nil {
 		node = &Node{nodeTab: nt}
@@ -156,7 +158,7 @@ func (nt *NodeTable) StorageList() []*Node {
 	// FIXME linear scan
 	sl := []*Node{}
 	for _, node := range nt.nodev {
-		if node.Type == STORAGE {
+		if node.Type == proto.STORAGE {
 			sl = append(sl, node)
 		}
 	}
@@ -165,7 +167,7 @@ func (nt *NodeTable) StorageList() []*Node {
 
 
 // XXX doc
-func (n *Node) SetState(state NodeState) {
+func (n *Node) SetState(state proto.NodeState) {
 	n.State = state
 	traceNodeChanged(n.nodeTab, n)
 	n.nodeTab.notify(n.NodeInfo)
@@ -188,7 +190,7 @@ func (nt *NodeTable) String() string {
 // ---- subscription to nodetab updates ----
 
 // notify notifies NodeTable subscribers that nodeInfo was updated
-func (nt *NodeTable) notify(nodeInfo NodeInfo) {
+func (nt *NodeTable) notify(nodeInfo proto.NodeInfo) {
 	// XXX rlock for .notifyv ?
 	for _, notify := range nt.notifyv {
 		notify <- nodeInfo
@@ -200,8 +202,8 @@ func (nt *NodeTable) notify(nodeInfo NodeInfo) {
 // It returns a channel via which updates will be delivered and function to unsubscribe.
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?
-func (nt *NodeTable) Subscribe() (ch chan NodeInfo, unsubscribe func()) {
-	ch = make(chan NodeInfo)		// XXX how to specify ch buf size if needed ?
+func (nt *NodeTable) Subscribe() (ch chan proto.NodeInfo, unsubscribe func()) {
+	ch = make(chan proto.NodeInfo)		// XXX how to specify ch buf size if needed ?
 	nt.notifyv = append(nt.notifyv, ch)
 
 	unsubscribe = func() {
@@ -227,12 +229,12 @@ func (nt *NodeTable) Subscribe() (ch chan NodeInfo, unsubscribe func()) {
 // to infinity - via e.g. detecting stuck connections and unsubscribing on shutdown.
 //
 // XXX locking: client for subscribe/unsubscribe	XXX ok?
-func (nt *NodeTable) SubscribeBuffered() (ch chan []NodeInfo, unsubscribe func()) {
+func (nt *NodeTable) SubscribeBuffered() (ch chan []proto.NodeInfo, unsubscribe func()) {
 	in, unsubscribe := nt.Subscribe()
-	ch = make(chan []NodeInfo)
+	ch = make(chan []proto.NodeInfo)
 
 	go func() {
-		var updatev []NodeInfo
+		var updatev []proto.NodeInfo
 		shutdown := false
 
 		for {

@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neo
+package proto
 // error related utilities
 
 import (
@@ -27,7 +27,8 @@ import (
 )
 
 
-// XXX place=?	-> methods of Error
+// XXX name -> zodbErrEncode, zodbErrDecode ?
+// XXX should be not in proto/ ?
 
 // ErrEncode translates an error into Error packet.
 // XXX more text describing relation with zodb errors

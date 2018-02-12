@@ -38,26 +38,15 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	//"lab.nexedi.com/kirr/neo/go/xcommon/xio"
-	"lab.nexedi.com/kirr/neo/go/zodb"
+
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
-
-const (
-	//INVALID_UUID UUID = 0
-
-	// XXX -> zodb?
-	INVALID_TID  zodb.Tid = 1<<64 - 1            // 0xffffffffffffffff
-	INVALID_OID  zodb.Oid = 1<<64 - 1
-
-	// OID_LEN = 8
-	// TID_LEN = 8
-)
-
 
 // NodeApp is base for implementing NEO node applications.
 //
 // XXX -> internal?
 type NodeApp struct {
-	MyInfo		NodeInfo
+	MyInfo		proto.NodeInfo
 	ClusterName	string
 
 	Net		xnet.Networker	// network AP we are sending/receiving on
@@ -66,22 +55,22 @@ type NodeApp struct {
 	StateMu		sync.RWMutex	// <- XXX just embed?
 	NodeTab		*NodeTable	// information about nodes in the cluster
 	PartTab		*PartitionTable	// information about data distribution in the cluster
-	ClusterState	ClusterState	// master idea about cluster state
+	ClusterState	proto.ClusterState	// master idea about cluster state
 
 	// should be set by user so NodeApp can notify when master tells this node to shutdown
 	OnShutdown	func()
 }
 
 // NewNodeApp creates new node application
-func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serveAddr string) *NodeApp {
+func NewNodeApp(net xnet.Networker, typ proto.NodeType, clusterName, masterAddr, serveAddr string) *NodeApp {
 	// convert serveAddr into neo format
-	addr, err := AddrString(net.Network(), serveAddr)
+	addr, err := proto.AddrString(net.Network(), serveAddr)
 	if err != nil {
 		panic(err)	// XXX
 	}
 
 	app := &NodeApp{
-		MyInfo:		NodeInfo{Type: typ, Addr: addr, IdTime: IdTimeNone},
+		MyInfo:		proto.NodeInfo{Type: typ, Addr: addr, IdTime: proto.IdTimeNone},
 		ClusterName:	clusterName,
 		Net:		net,
 		MasterAddr:	masterAddr,
@@ -103,7 +92,7 @@ func NewNodeApp(net xnet.Networker, typ NodeType, clusterName, masterAddr, serve
 //
 // Dial does not update .NodeTab or its node entries in any way.
 // For establishing links to peers present in .NodeTab use Node.Dial.
-func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_ *NodeLink, _ *AcceptIdentification, err error) {
+func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr string) (_ *NodeLink, _ *proto.AcceptIdentification, err error) {
 	defer task.Runningf(&ctx, "dial %v (%v)", addr, peerType)(&err)
 
 	link, err := DialLink(ctx, app.Net, addr)
@@ -125,14 +114,14 @@ func (app *NodeApp) Dial(ctx context.Context, peerType NodeType, addr string) (_
 		}
 	}()
 
-	req := &RequestIdentification{
+	req := &proto.RequestIdentification{
 		NodeType:	app.MyInfo.Type,
 		UUID:		app.MyInfo.UUID,
 		Address:	app.MyInfo.Addr,
 		ClusterName:	app.ClusterName,
 		IdTime:		app.MyInfo.IdTime,	// XXX ok?
 	}
-	accept := &AcceptIdentification{}
+	accept := &proto.AcceptIdentification{}
 	// FIXME error if peer sends us something with another connID
 	// (currently we ignore and serveRecv will deadlock)
 	//
@@ -179,7 +168,7 @@ func (app *NodeApp) Listen() (Listener, error) {
 	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
 	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
 	//	-> host is never empty
-	addr, err := Addr(ll.Addr())
+	addr, err := proto.Addr(ll.Addr())
 	if err != nil {
 		// XXX -> panic here ?
 		ll.Close()
@@ -216,7 +205,7 @@ type Listener interface {
 	// After successful accept it is the caller responsibility to reply the request.
 	//
 	// NOTE established link is Request.Link().
-	Accept(ctx context.Context) (*Request, *RequestIdentification, error)
+	Accept(ctx context.Context) (*Request, *proto.RequestIdentification, error)
 }
 
 type listener struct {
@@ -227,7 +216,7 @@ type listener struct {
 
 type accepted struct {
 	req   *Request
-	idReq *RequestIdentification
+	idReq *proto.RequestIdentification
 	err   error
 }
 
@@ -284,7 +273,7 @@ func (l *listener) accept(link *NodeLink, err error) {
 	}
 }
 
-func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *Request, _ *RequestIdentification, err error) {
+func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *Request, _ *proto.RequestIdentification, err error) {
 	if err0 != nil {
 		return nil, nil, err0
 	}
@@ -299,16 +288,16 @@ func (l *listener) accept1(ctx context.Context, link *NodeLink, err0 error) (_ *
 	}
 
 	switch msg := req.Msg.(type) {
-	case *RequestIdentification:
+	case *proto.RequestIdentification:
 		return &req, msg, nil
 	}
 
-	emsg := &Error{PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req.Msg)}
+	emsg := &proto.Error{proto.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req.Msg)}
 	req.Reply(emsg)	// XXX err
 	return nil, nil, emsg
 }
 
-func (l *listener) Accept(ctx context.Context) (*Request, *RequestIdentification, error) {
+func (l *listener) Accept(ctx context.Context) (*Request, *proto.RequestIdentification, error) {
 	select{
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
@@ -330,7 +319,7 @@ func (l *listener) Addr() net.Addr {
 // ----------------------------------------
 
 // UpdateNodeTab applies updates to .NodeTab from message and logs changes appropriately.
-func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformation) {
+func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *proto.NotifyNodeInformation) {
 	// XXX msg.IdTime ?
 	for _, nodeInfo := range msg.NodeList {
 		log.Infof(ctx, "node update: %v", nodeInfo)
@@ -344,7 +333,7 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 			app.MyInfo.IdTime = nodeInfo.IdTime
 
 			// FIXME hack - better it be separate command and handled cleanly
-			if nodeInfo.State == DOWN {
+			if nodeInfo.State == proto.DOWN {
 				log.Info(ctx, "master told us to shutdown")
 				log.Flush()
 				app.OnShutdown()
@@ -359,7 +348,7 @@ func (app *NodeApp) UpdateNodeTab(ctx context.Context, msg *NotifyNodeInformatio
 }
 
 // UpdatePartTab applies updates to .PartTab from message and logs changes appropriately.
-func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *SendPartitionTable) {
+func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *proto.SendPartitionTable) {
 	pt := PartTabFromDump(msg.PTid, msg.RowList)
 	// XXX logging under lock
 	log.Infof(ctx, "parttab update: %v", pt)
@@ -367,7 +356,7 @@ func (app *NodeApp) UpdatePartTab(ctx context.Context, msg *SendPartitionTable) 
 }
 
 // UpdateClusterState applies update to .ClusterState from message and logs change appropriately.
-func (app *NodeApp) UpdateClusterState(ctx context.Context, msg *NotifyClusterState) {
+func (app *NodeApp) UpdateClusterState(ctx context.Context, msg *proto.NotifyClusterState) {
 	// XXX loging under lock
 	log.Infof(ctx, "state update: %v", msg.State)
 	app.ClusterState.Set(msg.State)

@@ -21,19 +21,21 @@ package neo
 
 import (
 	"testing"
+
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
 func TestPartTabOperational(t *testing.T) {
-	s1 := UUID(STORAGE, 1)
-	s2 := UUID(STORAGE, 2)
+	s1 := proto.UUID(proto.STORAGE, 1)
+	s2 := proto.UUID(proto.STORAGE, 2)
 
 	// create nodeinfo for uuid/state
-	n := func(uuid NodeUUID, state NodeState) NodeInfo {
-		return NodeInfo{UUID: uuid, State: state}	// XXX .Type?
+	n := func(uuid proto.NodeUUID, state proto.NodeState) proto.NodeInfo {
+		return proto.NodeInfo{UUID: uuid, State: state}	// XXX .Type?
 	}
 
 	// create nodetab with [](uuid, state)
-	N := func(nodeiv ...NodeInfo) *NodeTable {
+	N := func(nodeiv ...proto.NodeInfo) *NodeTable {
 		nt := &NodeTable{}
 		for _, nodei := range nodeiv {
 			nt.Update(nodei)
@@ -42,8 +44,8 @@ func TestPartTabOperational(t *testing.T) {
 	}
 
 	// create cell with uuid/state
-	C := func(uuid NodeUUID, state CellState) Cell {
-		return Cell{CellInfo{UUID: uuid, State: state}}
+	C := func(uuid proto.NodeUUID, state proto.CellState) Cell {
+		return Cell{proto.CellInfo{UUID: uuid, State: state}}
 	}
 
 	// shortcut to create []Cell
@@ -57,14 +59,14 @@ func TestPartTabOperational(t *testing.T) {
 	var testv = []struct{pt *PartitionTable; nt *NodeTable; operational bool}{
 		// empty parttab is non-operational
 		{P(), N(), false},
-		{P(), N(n(s1, RUNNING)), false},
+		{P(), N(n(s1, proto.RUNNING)), false},
 
 		// parttab with 1 storage
-		{P(v(C(s1, UP_TO_DATE))),	N(), false},
-		{P(v(C(s1, UP_TO_DATE))),	N(n(s2, RUNNING)), false},
-		{P(v(C(s1, OUT_OF_DATE))),	N(n(s1, RUNNING)), false},
-		{P(v(C(s1, UP_TO_DATE))),	N(n(s1, RUNNING)), true},
-		{P(v(C(s1, FEEDING))),		N(n(s1, RUNNING)), true},
+		{P(v(C(s1, proto.UP_TO_DATE))),	N(), false},
+		{P(v(C(s1, proto.UP_TO_DATE))),	N(n(s2, proto.RUNNING)), false},
+		{P(v(C(s1, proto.OUT_OF_DATE))),N(n(s1, proto.RUNNING)), false},
+		{P(v(C(s1, proto.UP_TO_DATE))),	N(n(s1, proto.RUNNING)), true},
+		{P(v(C(s1, proto.FEEDING))),	N(n(s1, proto.RUNNING)), true},
 
 		// TODO more tests
 	}

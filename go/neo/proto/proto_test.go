@@ -17,8 +17,8 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neo
-// protocol tests
+package proto
+// NEO. protocol encoding tests
 
 import (
 	hexpkg "encoding/hex"
@@ -64,12 +64,12 @@ func u64(v uint64) string {
 }
 
 func TestPktHeader(t *testing.T) {
-	// make sure PktHeader is really packed and its size matches pktHeaderLen
+	// make sure PktHeader is really packed and its size matches PktHeaderLen
 	if unsafe.Sizeof(PktHeader{}) != 10 {
 		t.Fatalf("sizeof(PktHeader) = %v  ; want 10", unsafe.Sizeof(PktHeader{}))
 	}
-	if unsafe.Sizeof(PktHeader{}) != pktHeaderLen {
-		t.Fatalf("sizeof(PktHeader) = %v  ; want %v", unsafe.Sizeof(PktHeader{}), pktHeaderLen)
+	if unsafe.Sizeof(PktHeader{}) != PktHeaderLen {
+		t.Fatalf("sizeof(PktHeader) = %v  ; want %v", unsafe.Sizeof(PktHeader{}), PktHeaderLen)
 	}
 }
 
@@ -85,9 +85,9 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 	}()
 
 	// msg.encode() == expected
-	msgCode := msg.neoMsgCode()
-	n := msg.neoMsgEncodedLen()
-	msgType := msgTypeRegistry[msgCode]
+	msgCode := msg.NEOMsgCode()
+	n := msg.NEOMsgEncodedLen()
+	msgType := MsgType(msgCode)
 	if msgType != typ {
 		t.Errorf("%v: msgCode = %v  which corresponds to %v", typ, msgCode, msgType)
 	}
@@ -96,7 +96,7 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 	}
 
 	buf := make([]byte, n)
-	msg.neoMsgEncode(buf)
+	msg.NEOMsgEncode(buf)
 	if string(buf) != encoded {
 		t.Errorf("%v: encode result unexpected:", typ)
 		t.Errorf("\thave: %s", hexpkg.EncodeToString(buf))
@@ -126,13 +126,13 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 				}
 			}()
 
-			msg.neoMsgEncode(buf[:l])
+			msg.NEOMsgEncode(buf[:l])
 		}()
 	}
 
 	// msg.decode() == expected
 	data := []byte(encoded + "noise")
-	n, err := msg2.neoMsgDecode(data)
+	n, err := msg2.NEOMsgDecode(data)
 	if err != nil {
 		t.Errorf("%v: decode error %v", typ, err)
 	}
@@ -146,7 +146,7 @@ func testMsgMarshal(t *testing.T, msg Msg, encoded string) {
 
 	// decode must detect buffer overflow
 	for l := len(encoded)-1; l >= 0; l-- {
-		n, err = msg2.neoMsgDecode(data[:l])
+		n, err = msg2.NEOMsgDecode(data[:l])
 		if !(n==0 && err==ErrDecodeOverflow) {
 			t.Errorf("%v: decode overflow not detected on [:%v]", typ, l)
 		}
@@ -281,11 +281,11 @@ func TestMsgMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range msgTypeRegistry {
 		// zero-value for a type
 		msg := reflect.New(typ).Interface().(Msg)
-		l := msg.neoMsgEncodedLen()
+		l := msg.NEOMsgEncodedLen()
 		zerol := make([]byte, l)
 		// decoding will turn nil slice & map into empty allocated ones.
 		// we need it so that reflect.DeepEqual works for msg encode/decode comparison
-		n, err := msg.neoMsgDecode(zerol)
+		n, err := msg.NEOMsgDecode(zerol)
 		if !(n == l && err == nil) {
 			t.Errorf("%v: zero-decode unexpected: %v, %v  ; want %v, nil", typ, n, err, l)
 		}
@@ -316,7 +316,7 @@ func TestMsgDecodeLenOverflow(t *testing.T) {
 				}
 			}()
 
-			n, err := tt.msg.neoMsgDecode(data)
+			n, err := tt.msg.NEOMsgDecode(data)
 			if !(n == 0 && err == ErrDecodeOverflow) {
 				t.Errorf("%T: decode %x\nhave: %d, %v\nwant: %d, %v", tt.msg, data,
 					n, err, 0, ErrDecodeOverflow)

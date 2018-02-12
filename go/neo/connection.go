@@ -34,6 +34,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
+	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
+
 	"github.com/someonegg/gocontainer/rbuf"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
@@ -457,7 +460,7 @@ func (c *Conn) shutdownTX() {
 }
 
 // shutdownRX marks .rxq as no loner operational and interrupts Recv.
-func (c *Conn) shutdownRX(errMsg *Error) {
+func (c *Conn) shutdownRX(errMsg *proto.Error) {
 	c.rxdownOnce.Do(func() {
 //		close(c.rxdown)	// wakeup Conn.Recv
 		c.downRX(errMsg)
@@ -467,7 +470,7 @@ func (c *Conn) shutdownRX(errMsg *Error) {
 // downRX marks .rxq as no longer operational.
 //
 // used in shutdownRX and separately to mark RX down for light Conns.
-func (c *Conn) downRX(errMsg *Error) {
+func (c *Conn) downRX(errMsg *proto.Error) {
 	// let serveRecv know RX is down for this connection
 	c.rxdownFlag.Set(1) // XXX cmpxchg and return if already down?
 
@@ -740,7 +743,7 @@ func (nl *NodeLink) serveRecv() {
 		}
 
 		// pkt.ConnId -> Conn
-		connId := ntoh32(pkt.Header().ConnId)
+		connId := packed.Ntoh32(pkt.Header().ConnId)
 		accept := false
 
 		nl.connMu.Lock()
@@ -921,11 +924,11 @@ func (nl *NodeLink) serveRecv() {
 
 // ---- network replies for closed / refused connections ----
 
-var errConnClosed  = &Error{PROTOCOL_ERROR, "connection closed"}
-var errConnRefused = &Error{PROTOCOL_ERROR, "connection refused"}
+var errConnClosed  = &proto.Error{proto.PROTOCOL_ERROR, "connection closed"}
+var errConnRefused = &proto.Error{proto.PROTOCOL_ERROR, "connection refused"}
 
 // replyNoConn sends error message to peer when a packet was sent to closed / nonexistent connection
-func (link *NodeLink) replyNoConn(connId uint32, errMsg Msg) {
+func (link *NodeLink) replyNoConn(connId uint32, errMsg proto.Msg) {
 	//fmt.Printf("%s .%d: -> replyNoConn %v\n", link, connId, errMsg)
 	link.sendMsg(connId, errMsg) // ignore errors
 	//fmt.Printf("%s .%d: replyNoConn(%v) -> %v\n", link, connId, errMsg, err)
@@ -967,7 +970,7 @@ func (c *Conn) sendPkt(pkt *PktBuf) error {
 
 func (c *Conn) sendPkt2(pkt *PktBuf) error {
 	// connId must be set to one associated with this connection
-	if pkt.Header().ConnId != hton32(c.connId) {
+	if pkt.Header().ConnId != packed.Hton32(c.connId) {
 		panic("Conn.sendPkt: connId wrong")
 	}
 
@@ -1052,7 +1055,7 @@ func (nl *NodeLink) serveSend() {
 // sendPktDirect sends raw packet with appropriate connection ID directly via link.
 func (c *Conn) sendPktDirect(pkt *PktBuf) error {
 	// set pkt connId associated with this connection
-	pkt.Header().ConnId = hton32(c.connId)
+	pkt.Header().ConnId = packed.Hton32(c.connId)
 
 	// XXX if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
 	err := c.link.sendPkt(pkt)
@@ -1108,13 +1111,13 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 	// next packet could be already prefetched in part by previous read
 	if nl.rxbuf.Len() > 0 {
-		δn, _ := nl.rxbuf.Read(data[:pktHeaderLen])
+		δn, _ := nl.rxbuf.Read(data[:proto.PktHeaderLen])
 		n += δn
 	}
 
 	// first read to read pkt header and hopefully rest of packet in 1 syscall
-	if n < pktHeaderLen {
-		δn, err := io.ReadAtLeast(nl.peerLink, data[n:], pktHeaderLen - n)
+	if n < proto.PktHeaderLen {
+		δn, err := io.ReadAtLeast(nl.peerLink, data[n:], proto.PktHeaderLen - n)
 		if err != nil {
 			return nil, err
 		}
@@ -1123,8 +1126,8 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 
 	pkth := pkt.Header()
 
-	pktLen := int(pktHeaderLen + ntoh32(pkth.MsgLen)) // whole packet length
-	if pktLen > pktMaxSize {
+	pktLen := int(proto.PktHeaderLen + packed.Ntoh32(pkth.MsgLen)) // whole packet length
+	if pktLen > proto.PktMaxSize {
 		return nil, ErrPktTooBig
 	}
 
@@ -1171,7 +1174,7 @@ func (nl *NodeLink) recvPkt() (*PktBuf, error) {
 // On success raw connection is returned wrapped into NodeLink.
 // On error raw connection is closed.
 func Handshake(ctx context.Context, conn net.Conn, role LinkRole) (nl *NodeLink, err error) {
-	err = handshake(ctx, conn, ProtocolVersion)
+	err = handshake(ctx, conn, proto.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -1450,21 +1453,21 @@ func (c *Conn) err(op string, e error) error {
 
 // ---- exchange of messages ----
 
-//trace:event traceMsgRecv(c *Conn, msg Msg)
-//trace:event traceMsgSendPre(l *NodeLink, connId uint32, msg Msg)
+//trace:event traceMsgRecv(c *Conn, msg proto.Msg)
+//trace:event traceMsgSendPre(l *NodeLink, connId uint32, msg proto.Msg)
 // XXX do we also need traceConnSend?
 
 // msgPack allocates PktBuf and encodes msg into it.
-func msgPack(connId uint32, msg Msg) *PktBuf {
-	l := msg.neoMsgEncodedLen()
-	buf := pktAlloc(pktHeaderLen+l)
+func msgPack(connId uint32, msg proto.Msg) *PktBuf {
+	l := msg.NEOMsgEncodedLen()
+	buf := pktAlloc(proto.PktHeaderLen+l)
 
 	h := buf.Header()
-	h.ConnId = hton32(connId)
-	h.MsgCode = hton16(msg.neoMsgCode())
-	h.MsgLen = hton32(uint32(l)) // XXX casting: think again
+	h.ConnId = packed.Hton32(connId)
+	h.MsgCode = packed.Hton16(msg.NEOMsgCode())
+	h.MsgLen = packed.Hton32(uint32(l)) // XXX casting: think again
 
-	msg.neoMsgEncode(buf.Payload())
+	msg.NEOMsgEncode(buf.Payload())
 	return buf
 }
 
@@ -1472,7 +1475,7 @@ func msgPack(connId uint32, msg Msg) *PktBuf {
 
 // Recv receives message
 // it receives packet and decodes message from it
-func (c *Conn) Recv() (Msg, error) {
+func (c *Conn) Recv() (proto.Msg, error) {
 	pkt, err := c.recvPkt()
 	if err != nil {
 		return nil, err
@@ -1483,11 +1486,11 @@ func (c *Conn) Recv() (Msg, error) {
 	return msg, err
 }
 
-func (c *Conn) _Recv(pkt *PktBuf) (Msg, error) {
+func (c *Conn) _Recv(pkt *PktBuf) (proto.Msg, error) {
 	// decode packet
 	pkth := pkt.Header()
-	msgCode := ntoh16(pkth.MsgCode)
-	msgType := msgTypeRegistry[msgCode]
+	msgCode := packed.Ntoh16(pkth.MsgCode)
+	msgType := proto.MsgType(msgCode)
 	if msgType == nil {
 		err := fmt.Errorf("invalid msgCode (%d)", msgCode)
 		// XXX "decode" -> "recv: decode"?
@@ -1495,11 +1498,11 @@ func (c *Conn) _Recv(pkt *PktBuf) (Msg, error) {
 	}
 
 	// TODO use free-list for decoded messages + when possible decode in-place
-	msg := reflect.New(msgType).Interface().(Msg)
+	msg := reflect.New(msgType).Interface().(proto.Msg)
 //	msg := reflect.NewAt(msgType, bufAlloc(msgType.Size())
 
 
-	_, err := msg.neoMsgDecode(pkt.Payload())
+	_, err := msg.NEOMsgDecode(pkt.Payload())
 	if err != nil {
 		return nil, c.err("decode", err) // XXX "decode:" is already in ErrDecodeOverflow
 	}
@@ -1513,7 +1516,7 @@ func (c *Conn) _Recv(pkt *PktBuf) (Msg, error) {
 // it encodes message int packet, sets header appropriately and sends it.
 //
 // it is ok to call sendMsg in parallel with serveSend. XXX link to sendPktDirect for rationale?
-func (link *NodeLink) sendMsg(connId uint32, msg Msg) error {
+func (link *NodeLink) sendMsg(connId uint32, msg proto.Msg) error {
 	traceMsgSendPre(link, connId, msg)
 
 	buf := msgPack(connId, msg)
@@ -1524,14 +1527,14 @@ func (link *NodeLink) sendMsg(connId uint32, msg Msg) error {
 // Send sends message.
 //
 // it encodes message into packet and sends it.
-func (c *Conn) Send(msg Msg) error {
+func (c *Conn) Send(msg proto.Msg) error {
 	traceMsgSendPre(c.link, c.connId, msg)
 
 	buf := msgPack(c.connId, msg)
 	return c.sendPkt(buf)		// XXX more context in err? (msg type)
 }
 
-func (c *Conn) sendMsgDirect(msg Msg) error {
+func (c *Conn) sendMsgDirect(msg proto.Msg) error {
 	return c.link.sendMsg(c.connId, msg)
 }
 
@@ -1542,7 +1545,7 @@ func (c *Conn) sendMsgDirect(msg Msg) error {
 // which indicates index of received message.
 //
 // on error (-1, err) is returned
-func (c *Conn) Expect(msgv ...Msg) (which int, err error) {
+func (c *Conn) Expect(msgv ...proto.Msg) (which int, err error) {
 	// XXX a bit dup wrt Recv
 	pkt, err := c.recvPkt()
 	if err != nil {
@@ -1554,13 +1557,13 @@ func (c *Conn) Expect(msgv ...Msg) (which int, err error) {
 	return which, err
 }
 
-func (c *Conn) _Expect(pkt *PktBuf, msgv ...Msg) (int, error) {
+func (c *Conn) _Expect(pkt *PktBuf, msgv ...proto.Msg) (int, error) {
 	pkth := pkt.Header()
-	msgCode := ntoh16(pkth.MsgCode)
+	msgCode := packed.Ntoh16(pkth.MsgCode)
 
 	for i, msg := range msgv {
-		if msg.neoMsgCode() == msgCode {
-			_, err := msg.neoMsgDecode(pkt.Payload())
+		if msg.NEOMsgCode() == msgCode {
+			_, err := msg.NEOMsgDecode(pkt.Payload())
 			if err != nil {
 				return -1, c.err("decode", err)
 			}
@@ -1569,7 +1572,7 @@ func (c *Conn) _Expect(pkt *PktBuf, msgv ...Msg) (int, error) {
 	}
 
 	// unexpected message
-	msgType := msgTypeRegistry[msgCode]
+	msgType := proto.MsgType(msgCode)
 	if msgType == nil {
 		return -1, c.err("decode", fmt.Errorf("invalid msgCode (%d)", msgCode))
 	}
@@ -1583,19 +1586,19 @@ func (c *Conn) _Expect(pkt *PktBuf, msgv ...Msg) (int, error) {
 // It expects response to be exactly of resp type and errors otherwise
 // XXX clarify error semantic (when Error is decoded)
 // XXX do the same as Expect wrt respv ?
-func (c *Conn) Ask(req Msg, resp Msg) error {
+func (c *Conn) Ask(req proto.Msg, resp proto.Msg) error {
 	err := c.Send(req)
 	if err != nil {
 		return err
 	}
 
-	nerr := &Error{}
+	nerr := &proto.Error{}
 	which, err := c.Expect(resp, nerr)
 	switch which {
 	case 0:
 		return nil
 	case 1:
-		return ErrDecode(nerr)
+		return proto.ErrDecode(nerr)
 	}
 
 	return err
@@ -1637,7 +1640,7 @@ func (c *Conn) lightClose() {
 //
 // Request represents 1 request - 0|1 reply interaction model XXX
 type Request struct {
-	Msg  Msg
+	Msg  proto.Msg
 	conn *Conn
 }
 
@@ -1668,7 +1671,7 @@ func (link *NodeLink) Recv1() (Request, error) {
 // Reply sends response to request.
 //
 // XXX doc
-func (req *Request) Reply(resp Msg) error {
+func (req *Request) Reply(resp proto.Msg) error {
 	return req.conn.sendMsgDirect(resp)
 	//err1 := req.conn.Send(resp)
 	//err2 := req.conn.Close()	// XXX no - only Send here?
@@ -1690,7 +1693,7 @@ func (req *Request) Close() {	// XXX +error?
 // Send1 sends one message over link.
 //
 // XXX doc
-func (link *NodeLink) Send1(msg Msg) error {
+func (link *NodeLink) Send1(msg proto.Msg) error {
 	conn, err := link.NewConn()
 	if err != nil {
 		return err
@@ -1708,7 +1711,7 @@ func (link *NodeLink) Send1(msg Msg) error {
 //
 // See Conn.Ask for semantic details.
 // XXX doc
-func (link *NodeLink) Ask1(req Msg, resp Msg) (err error) {
+func (link *NodeLink) Ask1(req proto.Msg, resp proto.Msg) (err error) {
 	conn, err := link.NewConn()
 	if err != nil {
 		return err
@@ -1720,19 +1723,19 @@ func (link *NodeLink) Ask1(req Msg, resp Msg) (err error) {
 	return err
 }
 
-func (conn *Conn) _Ask1(req Msg, resp Msg) error {
+func (conn *Conn) _Ask1(req proto.Msg, resp proto.Msg) error {
 	err := conn.sendMsgDirect(req)
 	if err != nil {
 		return err
 	}
 
-	nerr := &Error{}
+	nerr := &proto.Error{}
 	which, err := conn.Expect(resp, nerr)
 	switch which {
 	case 0:
 		return nil
 	case 1:
-		return ErrDecode(nerr)
+		return proto.ErrDecode(nerr)
 	}
 
 	return err

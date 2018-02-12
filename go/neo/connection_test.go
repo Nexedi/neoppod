@@ -35,7 +35,10 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
 
+	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
+
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
@@ -103,11 +106,11 @@ func xconnError(err error) error {
 
 // Prepare PktBuf with content
 func _mkpkt(connid uint32, msgcode uint16, payload []byte) *PktBuf {
-	pkt := &PktBuf{make([]byte, pktHeaderLen + len(payload))}
+	pkt := &PktBuf{make([]byte, proto.PktHeaderLen + len(payload))}
 	h := pkt.Header()
-	h.ConnId = hton32(connid)
-	h.MsgCode = hton16(msgcode)
-	h.MsgLen = hton32(uint32(len(payload)))
+	h.ConnId = packed.Hton32(connid)
+	h.MsgCode = packed.Hton16(msgcode)
+	h.MsgLen = packed.Hton32(uint32(len(payload)))
 	copy(pkt.Payload(), payload)
 	return pkt
 }
@@ -122,14 +125,14 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 	errv := xerr.Errorv{}
 	h := pkt.Header()
 	// TODO include caller location
-	if ntoh32(h.ConnId) != connid {
-		errv.Appendf("header: unexpected connid %v  (want %v)", ntoh32(h.ConnId), connid)
+	if packed.Ntoh32(h.ConnId) != connid {
+		errv.Appendf("header: unexpected connid %v  (want %v)", packed.Ntoh32(h.ConnId), connid)
 	}
-	if ntoh16(h.MsgCode) != msgcode {
-		errv.Appendf("header: unexpected msgcode %v  (want %v)", ntoh16(h.MsgCode), msgcode)
+	if packed.Ntoh16(h.MsgCode) != msgcode {
+		errv.Appendf("header: unexpected msgcode %v  (want %v)", packed.Ntoh16(h.MsgCode), msgcode)
 	}
-	if ntoh32(h.MsgLen) != uint32(len(payload)) {
-		errv.Appendf("header: unexpected msglen %v  (want %v)", ntoh32(h.MsgLen), len(payload))
+	if packed.Ntoh32(h.MsgLen) != uint32(len(payload)) {
+		errv.Appendf("header: unexpected msglen %v  (want %v)", packed.Ntoh32(h.MsgLen), len(payload))
 	}
 	if !bytes.Equal(pkt.Payload(), payload) {
 		errv.Appendf("payload differ:\n%s",
@@ -140,10 +143,10 @@ func xverifyPkt(pkt *PktBuf, connid uint32, msgcode uint16, payload []byte) {
 }
 
 // Verify PktBuf to match expected message
-func xverifyPktMsg(pkt *PktBuf, connid uint32, msg Msg) {
-	data := make([]byte, msg.neoMsgEncodedLen())
-	msg.neoMsgEncode(data)
-	xverifyPkt(pkt, connid, msg.neoMsgCode(), data)
+func xverifyPktMsg(pkt *PktBuf, connid uint32, msg proto.Msg) {
+	data := make([]byte, msg.NEOMsgEncodedLen())
+	msg.NEOMsgEncode(data)
+	xverifyPkt(pkt, connid, msg.NEOMsgCode(), data)
 }
 
 // delay a bit
@@ -625,7 +628,7 @@ func TestNodeLink(t *testing.T) {
 
 			gox(wg, func() {
 				pkt := xrecvPkt(c)
-				n := ntoh16(pkt.Header().MsgCode)
+				n := packed.Ntoh16(pkt.Header().MsgCode)
 				x := replyOrder[n]
 
 				// wait before it is our turn & echo pkt back
@@ -743,12 +746,12 @@ func TestHandshake(t *testing.T) {
 
 // ---- recv1 mode ----
 
-func xSend(c *Conn, msg Msg) {
+func xSend(c *Conn, msg proto.Msg) {
 	err := c.Send(msg)
 	exc.Raiseif(err)
 }
 
-func xRecv(c *Conn) Msg {
+func xRecv(c *Conn) proto.Msg {
 	msg, err := c.Recv()
 	exc.Raiseif(err)
 	return msg
@@ -760,12 +763,12 @@ func xRecv1(l *NodeLink) Request {
 	return req
 }
 
-func xSend1(l *NodeLink, msg Msg) {
+func xSend1(l *NodeLink, msg proto.Msg) {
 	err := l.Send1(msg)
 	exc.Raiseif(err)
 }
 
-func xverifyMsg(msg1, msg2 Msg) {
+func xverifyMsg(msg1, msg2 proto.Msg) {
 	if !reflect.DeepEqual(msg1, msg2) {
 		exc.Raisef("messages differ:\n%s", pretty.Compare(msg1, msg2))
 	}
@@ -789,8 +792,8 @@ func TestRecv1Mode(t *testing.T) {
 		//println("X aaa + 1")
 		msg := xRecv(c)
 		//println("X aaa + 2")
-		xverifyMsg(msg, &Ping{})
-		xSend(c, &Pong{})
+		xverifyMsg(msg, &proto.Ping{})
+		xSend(c, &proto.Pong{})
 		//println("X aaa + 3")
 		msg = xRecv(c)
 		//println("X aaa + 4")
@@ -803,8 +806,8 @@ func TestRecv1Mode(t *testing.T) {
 		c = xaccept(nl2)
 		msg = xRecv(c)
 		//fmt.Println("X zzz + 1", c, msg)
-		xverifyMsg(msg, &Error{ACK, "hello up there"})
-		xSend(c, &Error{ACK, "hello to you too"})
+		xverifyMsg(msg, &proto.Error{proto.ACK, "hello up there"})
+		xSend(c, &proto.Error{proto.ACK, "hello to you too"})
 		msg = xRecv(c)
 		//println("X zzz + 2")
 		xverifyMsg(msg, errConnClosed)
@@ -813,14 +816,14 @@ func TestRecv1Mode(t *testing.T) {
 	})
 
 	//println("aaa")
-	xSend1(nl1, &Ping{})
+	xSend1(nl1, &proto.Ping{})
 
 	// before next Send1 wait till peer receives errConnClosed from us
 	// otherwise peer could be already in accept while our errConnClosed is received
 	// and there is only one receiving thread there ^^^
 	<-sync
 	//println("bbb")
-	xSend1(nl1, &Error{ACK, "hello up there"})
+	xSend1(nl1, &proto.Error{proto.ACK, "hello up there"})
 	//println("ccc")
 	xwait(wg)
 
@@ -832,9 +835,9 @@ func TestRecv1Mode(t *testing.T) {
 		c := xnewconn(nl2)
 
 		//println("aaa")
-		xSend(c, &Ping{})
+		xSend(c, &proto.Ping{})
 		//println("bbb")
-		xSend(c, &Ping{})
+		xSend(c, &proto.Ping{})
 		//println("ccc")
 		msg := xRecv(c)
 		//println("ddd")
@@ -1158,8 +1161,8 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 			default:
 				b.Fatalf("read -> unexpected message %T", msg)
 
-			case *GetObject:
-				err = req.Reply(&AnswerObject{
+			case *proto.GetObject:
+				err = req.Reply(&proto.AnswerObject{
 					Oid:		msg.Oid,
 					Serial:		msg.Serial,
 					DataSerial:	msg.Tid,
@@ -1175,8 +1178,8 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 
 	for i := 0; i < b.N; i++ {
 		// NOTE keeping inside loop to simulate what happens in real Load
-		get := &GetObject{}
-		obj := &AnswerObject{}
+		get := &proto.GetObject{}
+		obj := &proto.AnswerObject{}
 
 		get.Oid = zodb.Oid(i)
 		get.Serial = zodb.Tid(i+1)

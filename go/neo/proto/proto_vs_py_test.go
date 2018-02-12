@@ -17,8 +17,8 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neo
-// test wire protocol compatibility with python
+package proto
+// NEO. test wire protocol compatibility with python
 
 //go:generate ./py/pyneo-gen-testdata
 

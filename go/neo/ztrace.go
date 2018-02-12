@@ -6,84 +6,59 @@ package neo
 import (
 	"lab.nexedi.com/kirr/go123/tracing"
 	"unsafe"
+
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
-// traceevent: traceClusterStateChanged(cs *ClusterState)
-
-type _t_traceClusterStateChanged struct {
-	tracing.Probe
-	probefunc     func(cs *ClusterState)
-}
-
-var _traceClusterStateChanged *_t_traceClusterStateChanged
-
-func traceClusterStateChanged(cs *ClusterState) {
-	if _traceClusterStateChanged != nil {
-		_traceClusterStateChanged_run(cs)
-	}
-}
-
-func _traceClusterStateChanged_run(cs *ClusterState) {
-	for p := _traceClusterStateChanged; p != nil; p = (*_t_traceClusterStateChanged)(unsafe.Pointer(p.Next())) {
-		p.probefunc(cs)
-	}
-}
-
-func traceClusterStateChanged_Attach(pg *tracing.ProbeGroup, probe func(cs *ClusterState)) *tracing.Probe {
-	p := _t_traceClusterStateChanged{probefunc: probe}
-	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceClusterStateChanged)), &p.Probe)
-	return &p.Probe
-}
-
-// traceevent: traceMsgRecv(c *Conn, msg Msg)
+// traceevent: traceMsgRecv(c *Conn, msg proto.Msg)
 
 type _t_traceMsgRecv struct {
 	tracing.Probe
-	probefunc     func(c *Conn, msg Msg)
+	probefunc     func(c *Conn, msg proto.Msg)
 }
 
 var _traceMsgRecv *_t_traceMsgRecv
 
-func traceMsgRecv(c *Conn, msg Msg) {
+func traceMsgRecv(c *Conn, msg proto.Msg) {
 	if _traceMsgRecv != nil {
 		_traceMsgRecv_run(c, msg)
 	}
 }
 
-func _traceMsgRecv_run(c *Conn, msg Msg) {
+func _traceMsgRecv_run(c *Conn, msg proto.Msg) {
 	for p := _traceMsgRecv; p != nil; p = (*_t_traceMsgRecv)(unsafe.Pointer(p.Next())) {
 		p.probefunc(c, msg)
 	}
 }
 
-func traceMsgRecv_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg Msg)) *tracing.Probe {
+func traceMsgRecv_Attach(pg *tracing.ProbeGroup, probe func(c *Conn, msg proto.Msg)) *tracing.Probe {
 	p := _t_traceMsgRecv{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceMsgRecv)), &p.Probe)
 	return &p.Probe
 }
 
-// traceevent: traceMsgSendPre(l *NodeLink, connId uint32, msg Msg)
+// traceevent: traceMsgSendPre(l *NodeLink, connId uint32, msg proto.Msg)
 
 type _t_traceMsgSendPre struct {
 	tracing.Probe
-	probefunc     func(l *NodeLink, connId uint32, msg Msg)
+	probefunc     func(l *NodeLink, connId uint32, msg proto.Msg)
 }
 
 var _traceMsgSendPre *_t_traceMsgSendPre
 
-func traceMsgSendPre(l *NodeLink, connId uint32, msg Msg) {
+func traceMsgSendPre(l *NodeLink, connId uint32, msg proto.Msg) {
 	if _traceMsgSendPre != nil {
 		_traceMsgSendPre_run(l, connId, msg)
 	}
 }
 
-func _traceMsgSendPre_run(l *NodeLink, connId uint32, msg Msg) {
+func _traceMsgSendPre_run(l *NodeLink, connId uint32, msg proto.Msg) {
 	for p := _traceMsgSendPre; p != nil; p = (*_t_traceMsgSendPre)(unsafe.Pointer(p.Next())) {
 		p.probefunc(l, connId, msg)
 	}
 }
 
-func traceMsgSendPre_Attach(pg *tracing.ProbeGroup, probe func(l *NodeLink, connId uint32, msg Msg)) *tracing.Probe {
+func traceMsgSendPre_Attach(pg *tracing.ProbeGroup, probe func(l *NodeLink, connId uint32, msg proto.Msg)) *tracing.Probe {
 	p := _t_traceMsgSendPre{probefunc: probe}
 	tracing.AttachProbe(pg, (**tracing.Probe)(unsafe.Pointer(&_traceMsgSendPre)), &p.Probe)
 	return &p.Probe
@@ -117,4 +92,4 @@ func traceNodeChanged_Attach(pg *tracing.ProbeGroup, probe func(nt *NodeTable, n
 }
 
 // trace export signature
-func _trace_exporthash_933f43c04bbb1566c5d1e9ea518f9ed6e0f147a7() {}
+func _trace_exporthash_470beceafeb4cecc8dee4072ee06329e20eef0f1() {}

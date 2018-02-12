@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
 // PartitionTable represents object space partitioning in a cluster
@@ -118,12 +119,12 @@ type PartitionTable struct {
 
 	tab [][]Cell // [#Np] pid -> []Cell
 
-	PTid PTid // ↑ for versioning	XXX -> ver ?	XXX move out of here?
+	PTid proto.PTid // ↑ for versioning	XXX -> ver ?	XXX move out of here?
 }
 
 // Cell describes one storage in a pid entry in partition table
 type Cell struct {
-	CellInfo // .uuid + .state
+	proto.CellInfo // .uuid + .state
 
 //	XXX ? + .haveUpToTid  associated node has data up to such tid
 //			= uptodate if haveUpToTid == lastTid
@@ -149,7 +150,7 @@ func (pt *PartitionTable) Get(oid zodb.Oid) []Cell {
 // Readable reports whether it is ok to read data from a cell
 func (c *Cell) Readable() bool {
 	switch c.State {
-	case UP_TO_DATE, FEEDING:
+	case proto.UP_TO_DATE, proto.FEEDING:
 		return true
 	}
 	return false
@@ -165,7 +166,7 @@ func MakePartTab(np int, nodev []*Node) *PartitionTable {
 		node := nodev[j]
 		// XXX assert node.State > DOWN
 		//fmt.Printf("tab[%d] <- %v\n", i, node.UUID)
-		tab[i] = []Cell{{CellInfo: CellInfo{node.UUID, UP_TO_DATE /*XXX ok?*/}}}
+		tab[i] = []Cell{{CellInfo: proto.CellInfo{node.UUID, proto.UP_TO_DATE /*XXX ok?*/}}}
 	}
 
 	return &PartitionTable{tab: tab}
@@ -203,7 +204,7 @@ func (pt *PartitionTable) OperationalWith(nt *NodeTable) bool {
 				//
 				// We leave it as is for now.
 				node := nt.Get(cell.UUID)
-				if node == nil || node.State != RUNNING {	// XXX PENDING is also ok ?
+				if node == nil || node.State != proto.RUNNING {	// XXX PENDING is also ok ?
 					continue
 				}
 
@@ -245,20 +246,20 @@ func (pt *PartitionTable) String() string {
 }
 
 // XXX -> RowList() ?
-func (pt *PartitionTable) Dump() []RowInfo { // XXX also include .ptid? -> struct ?
-	rowv := make([]RowInfo, len(pt.tab))
+func (pt *PartitionTable) Dump() []proto.RowInfo { // XXX also include .ptid? -> struct ?
+	rowv := make([]proto.RowInfo, len(pt.tab))
 	for i, row := range pt.tab {
-		cellv := make([]CellInfo, len(row))
+		cellv := make([]proto.CellInfo, len(row))
 		for j, cell := range row {
 			cellv[j] = cell.CellInfo
 		}
 
-		rowv[i] = RowInfo{Offset: uint32(i), CellList: cellv}	// XXX cast?
+		rowv[i] = proto.RowInfo{Offset: uint32(i), CellList: cellv}	// XXX cast?
 	}
 	return rowv
 }
 
-func PartTabFromDump(ptid PTid, rowv []RowInfo) *PartitionTable {
+func PartTabFromDump(ptid proto.PTid, rowv []proto.RowInfo) *PartitionTable {
 	// reconstruct partition table from response
 	pt := &PartitionTable{}
 	pt.PTid = ptid

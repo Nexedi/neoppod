@@ -17,19 +17,28 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-//go:generate stringer -output zproto-str.go -type ErrorCode,ClusterState,NodeType,NodeState,CellState proto.go packed.go
+//go:generate stringer -output zproto-str.go -type ErrorCode,ClusterState,NodeType,NodeState,CellState proto.go
 
-package neo
+package proto
 // supporting code for types defined in proto.go
 
 import (
 	"fmt"
 	"math"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// MsgType looks up message type by message code.
+//
+// Nil is returned if message code is not valid.
+func MsgType(msgCode uint16) reflect.Type {
+	return msgTypeRegistry[msgCode]
+}
+
 
 // XXX or better translate to some other errors ?
 // XXX here - not in proto.go - because else stringer will be confused
@@ -44,6 +53,8 @@ func (e *Error) Error() string {
 
 // Set sets cluster state value to v.
 // Use Set instead of direct assignment for ClusterState tracing to work.
+//
+// XXX move this to neo.clusterState wrapping proto.ClusterState?
 func (cs *ClusterState) Set(v ClusterState) {
 	*cs = v
 	traceClusterStateChanged(cs)

@@ -38,6 +38,7 @@ import (
 	//"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/client"
 	//"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 
@@ -77,17 +78,17 @@ type eventNetListen struct {
 type eventNeoSend struct {
 	Src, Dst string
 	ConnID   uint32
-	Msg	 neo.Msg
+	Msg	 proto.Msg
 }
 
 // event: cluster state changed
 type eventClusterState struct {
 	//Ptr   *neo.ClusterState // pointer to variable which holds the state
 	Where string
-	State neo.ClusterState
+	State proto.ClusterState
 }
 
-func clusterState(where string, v neo.ClusterState) *eventClusterState {
+func clusterState(where string, v proto.ClusterState) *eventClusterState {
 	return &eventClusterState{where, v}
 }
 
@@ -95,7 +96,7 @@ func clusterState(where string, v neo.ClusterState) *eventClusterState {
 type eventNodeTab struct {
 	//NodeTab  unsafe.Pointer	// *neo.NodeTable XXX not to noise test diff
 	Where    string		// host of running node	XXX ok? XXX -> TabName?
-	NodeInfo neo.NodeInfo
+	NodeInfo proto.NodeInfo
 }
 
 // event: master ready to start changed
@@ -293,7 +294,7 @@ type TraceCollector struct {
 
 	node2Name	   map[*neo.NodeApp]string
 	nodeTab2Owner	   map[*neo.NodeTable]string
-	clusterState2Owner map[*neo.ClusterState]string
+	clusterState2Owner map[*proto.ClusterState]string
 }
 
 func NewTraceCollector(dispatch *tsync.EventDispatcher) *TraceCollector {
@@ -303,18 +304,19 @@ func NewTraceCollector(dispatch *tsync.EventDispatcher) *TraceCollector {
 
 		node2Name:		make(map[*neo.NodeApp]string),
 		nodeTab2Owner:		make(map[*neo.NodeTable]string),
-		clusterState2Owner:	make(map[*neo.ClusterState]string),
+		clusterState2Owner:	make(map[*proto.ClusterState]string),
 	}
 }
 
 //trace:import "lab.nexedi.com/kirr/neo/go/neo"
+//trace:import "lab.nexedi.com/kirr/neo/go/neo/proto"
 
 // Attach attaches the tracer to appropriate trace points.
 func (t *TraceCollector) Attach() {
 	tracing.Lock()
 	//neo_traceMsgRecv_Attach(t.pg, t.traceNeoMsgRecv)
 	neo_traceMsgSendPre_Attach(t.pg, t.traceNeoMsgSendPre)
-	neo_traceClusterStateChanged_Attach(t.pg, t.traceClusterState)
+	proto_traceClusterStateChanged_Attach(t.pg, t.traceClusterState)
 	neo_traceNodeChanged_Attach(t.pg, t.traceNode)
 	traceMasterStartReady_Attach(t.pg, t.traceMasterStartReady)
 	tracing.Unlock()
@@ -354,11 +356,11 @@ func (t *TraceCollector) TraceNetListen(ev *xnet.TraceListen)	{
 
 func (t *TraceCollector) TraceNetTx(ev *xnet.TraceTx)		{} // we use traceNeoMsgSend instead
 
-func (t *TraceCollector) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg neo.Msg) {
+func (t *TraceCollector) traceNeoMsgSendPre(l *neo.NodeLink, connID uint32, msg proto.Msg) {
 	t.d.Dispatch(&eventNeoSend{l.LocalAddr().String(), l.RemoteAddr().String(), connID, msg})
 }
 
-func (t *TraceCollector) traceClusterState(cs *neo.ClusterState) {
+func (t *TraceCollector) traceClusterState(cs *proto.ClusterState) {
 	//t.d.Dispatch(&eventClusterState{cs, *cs})
 	where := t.clusterState2Owner[cs]
 	t.d.Dispatch(&eventClusterState{where, *cs})
@@ -400,11 +402,11 @@ func TestMasterStorage(t *testing.T) {
 		exc.Raiseif(err)
 		return a
 	}
-	xnaddr := func(addr string) neo.Address {
+	xnaddr := func(addr string) proto.Address {
 		if addr == "" {
-			return neo.Address{}
+			return proto.Address{}
 		}
-		a, err := neo.Addr(xaddr(addr))
+		a, err := proto.Addr(xaddr(addr))
 		exc.Raiseif(err)
 		return a
 	}
@@ -419,23 +421,23 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 	// shortcut for net tx event over nodelink connection
-	conntx := func(src, dst string, connid uint32, msg neo.Msg) *eventNeoSend {
+	conntx := func(src, dst string, connid uint32, msg proto.Msg) *eventNeoSend {
 		return &eventNeoSend{Src: src, Dst: dst, ConnID: connid, Msg: msg}
 	}
 
 	// shortcut for NodeInfo
-	nodei := func(laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtime neo.IdTime) neo.NodeInfo {
-		return neo.NodeInfo{
+	nodei := func(laddr string, typ proto.NodeType, num int32, state proto.NodeState, idtime proto.IdTime) proto.NodeInfo {
+		return proto.NodeInfo{
 			Type:   typ,
 			Addr:   xnaddr(laddr),
-			UUID:   neo.UUID(typ, num),
+			UUID:   proto.UUID(typ, num),
 			State:  state,
 			IdTime: idtime,
 		}
 	}
 
 	// shortcut for nodetab change
-	node := func(where string, laddr string, typ neo.NodeType, num int32, state neo.NodeState, idtime neo.IdTime) *eventNodeTab {
+	node := func(where string, laddr string, typ proto.NodeType, num int32, state proto.NodeState, idtime proto.IdTime) *eventNodeTab {
 		return &eventNodeTab{
 			Where:    where,
 			NodeInfo: nodei(laddr, typ, num, state, idtime),
@@ -507,8 +509,8 @@ func TestMasterStorage(t *testing.T) {
 
 	// M starts listening
 	tM.Expect(netlisten("m:1"))
-	tM.Expect(node("m", "m:1", neo.MASTER, 1, neo.RUNNING, neo.IdTimeNone))
-	tM.Expect(clusterState("m", neo.ClusterRecovering))
+	tM.Expect(node("m", "m:1", proto.MASTER, 1, proto.RUNNING, proto.IdTimeNone))
+	tM.Expect(clusterState("m", proto.ClusterRecovering))
 
 	// TODO create C; C tries connect to master - rejected ("not yet operational")
 
@@ -517,39 +519,39 @@ func TestMasterStorage(t *testing.T) {
 
 	// S connects M
 	tSM.Expect(netconnect("s:2", "m:2",  "m:1"))
-	tSM.Expect(conntx("s:2", "m:2", 1, &neo.RequestIdentification{
-		NodeType:	neo.STORAGE,
+	tSM.Expect(conntx("s:2", "m:2", 1, &proto.RequestIdentification{
+		NodeType:	proto.STORAGE,
 		UUID:		0,
 		Address:	xnaddr("s:1"),
 		ClusterName:	"abc1",
-		IdTime:		neo.IdTimeNone,
+		IdTime:		proto.IdTimeNone,
 	}))
 
-	tM.Expect(node("m", "s:1", neo.STORAGE, 1, neo.PENDING, 0.01))
+	tM.Expect(node("m", "s:1", proto.STORAGE, 1, proto.PENDING, 0.01))
 
-	tSM.Expect(conntx("m:2", "s:2", 1, &neo.AcceptIdentification{
-		NodeType:	neo.MASTER,
-		MyUUID:		neo.UUID(neo.MASTER, 1),
+	tSM.Expect(conntx("m:2", "s:2", 1, &proto.AcceptIdentification{
+		NodeType:	proto.MASTER,
+		MyUUID:		proto.UUID(proto.MASTER, 1),
 		NumPartitions:	1,
 		NumReplicas:	1,
-		YourUUID:	neo.UUID(neo.STORAGE, 1),
+		YourUUID:	proto.UUID(proto.STORAGE, 1),
 	}))
 
 	// TODO test ID rejects (uuid already registered, ...)
 
 	// M starts recovery on S
-	tMS.Expect(conntx("m:2", "s:2", 0, &neo.Recovery{}))
-	tMS.Expect(conntx("s:2", "m:2", 0, &neo.AnswerRecovery{
+	tMS.Expect(conntx("m:2", "s:2", 0, &proto.Recovery{}))
+	tMS.Expect(conntx("s:2", "m:2", 0, &proto.AnswerRecovery{
 		// empty new node
 		PTid:		0,
-		BackupTid:	neo.INVALID_TID,
-		TruncateTid:	neo.INVALID_TID,
+		BackupTid:	proto.INVALID_TID,
+		TruncateTid:	proto.INVALID_TID,
 	}))
 
-	tMS.Expect(conntx("m:2", "s:2", 2, &neo.AskPartitionTable{}))
-	tMS.Expect(conntx("s:2", "m:2", 2, &neo.AnswerPartitionTable{
+	tMS.Expect(conntx("m:2", "s:2", 2, &proto.AskPartitionTable{}))
+	tMS.Expect(conntx("s:2", "m:2", 2, &proto.AnswerPartitionTable{
 		PTid:		0,
-		RowList:	[]neo.RowInfo{},
+		RowList:	[]proto.RowInfo{},
 	}))
 
 	// M ready to start: new cluster, no in-progress S recovery
@@ -567,31 +569,31 @@ func TestMasterStorage(t *testing.T) {
 
 	// trace
 
-	tM.Expect(node("m", "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
+	tM.Expect(node("m", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
 	xwait(wg)
 
 	// XXX M.partTab <- S1
 
 	// M starts verification
-	tM.Expect(clusterState("m", neo.ClusterVerifying))
+	tM.Expect(clusterState("m", proto.ClusterVerifying))
 
-	tMS.Expect(conntx("m:2", "s:2", 4, &neo.SendPartitionTable{
+	tMS.Expect(conntx("m:2", "s:2", 4, &proto.SendPartitionTable{
 		PTid:		1,
-		RowList:	[]neo.RowInfo{
-			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
+		RowList:	[]proto.RowInfo{
+			{0, []proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
 		},
 	}))
 
-	tMS.Expect(conntx("m:2", "s:2", 6, &neo.LockedTransactions{}))
-	tMS.Expect(conntx("s:2", "m:2", 6, &neo.AnswerLockedTransactions{
+	tMS.Expect(conntx("m:2", "s:2", 6, &proto.LockedTransactions{}))
+	tMS.Expect(conntx("s:2", "m:2", 6, &proto.AnswerLockedTransactions{
 		TidDict: nil,	// map[zodb.Tid]zodb.Tid{},
 	}))
 
 	lastOid, err1 := zstor.LastOid(bg)
 	lastTid, err2 := zstor.LastTid(bg)
 	exc.Raiseif(xerr.Merge(err1, err2))
-	tMS.Expect(conntx("m:2", "s:2", 8, &neo.LastIDs{}))
-	tMS.Expect(conntx("s:2", "m:2", 8, &neo.AnswerLastIDs{
+	tMS.Expect(conntx("m:2", "s:2", 8, &proto.LastIDs{}))
+	tMS.Expect(conntx("s:2", "m:2", 8, &proto.AnswerLastIDs{
 		LastOid: lastOid,
 		LastTid: lastTid,
 	}))
@@ -604,11 +606,11 @@ func TestMasterStorage(t *testing.T) {
 	// TODO M.Stop() while verify
 
 	// verification ok; M start service
-	tM.Expect(clusterState("m", neo.ClusterRunning))
+	tM.Expect(clusterState("m", proto.ClusterRunning))
 	// TODO ^^^ should be sent to S
 
-	tMS.Expect(conntx("m:2", "s:2", 10, &neo.StartOperation{Backup: false}))
-	tMS.Expect(conntx("s:2", "m:2", 10, &neo.NotifyReady{}))
+	tMS.Expect(conntx("m:2", "s:2", 10, &proto.StartOperation{Backup: false}))
+	tMS.Expect(conntx("s:2", "m:2", 10, &proto.NotifyReady{}))
 
 	// TODO S leave while service
 	// TODO S join while service
@@ -629,48 +631,48 @@ func TestMasterStorage(t *testing.T) {
 
 	// C connects M
 	tCM.Expect(netconnect("c:1", "m:3",  "m:1"))
-	tCM.Expect(conntx("c:1", "m:3", 1, &neo.RequestIdentification{
-		NodeType:	neo.CLIENT,
+	tCM.Expect(conntx("c:1", "m:3", 1, &proto.RequestIdentification{
+		NodeType:	proto.CLIENT,
 		UUID:		0,
 		Address:	xnaddr(""),
 		ClusterName:	"abc1",
-		IdTime:		neo.IdTimeNone,
+		IdTime:		proto.IdTimeNone,
 	}))
 
-	tM.Expect(node("m", "", neo.CLIENT, 1, neo.RUNNING, 0.02))
+	tM.Expect(node("m", "", proto.CLIENT, 1, proto.RUNNING, 0.02))
 
-	tCM.Expect(conntx("m:3", "c:1", 1, &neo.AcceptIdentification{
-		NodeType:	neo.MASTER,
-		MyUUID:		neo.UUID(neo.MASTER, 1),
+	tCM.Expect(conntx("m:3", "c:1", 1, &proto.AcceptIdentification{
+		NodeType:	proto.MASTER,
+		MyUUID:		proto.UUID(proto.MASTER, 1),
 		NumPartitions:	1,
 		NumReplicas:	1,
-		YourUUID:	neo.UUID(neo.CLIENT, 1),
+		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 
 	// C asks M about PT
 	// FIXME this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
-	tCM.Expect(conntx("c:1", "m:3", 3, &neo.AskPartitionTable{}))
-	tCM.Expect(conntx("m:3", "c:1", 3, &neo.AnswerPartitionTable{
+	tCM.Expect(conntx("c:1", "m:3", 3, &proto.AskPartitionTable{}))
+	tCM.Expect(conntx("m:3", "c:1", 3, &proto.AnswerPartitionTable{
 		PTid:		1,
-		RowList:	[]neo.RowInfo{
-			{0, []neo.CellInfo{{neo.UUID(neo.STORAGE, 1), neo.UP_TO_DATE}}},
+		RowList:	[]proto.RowInfo{
+			{0, []proto.CellInfo{{proto.UUID(proto.STORAGE, 1), proto.UP_TO_DATE}}},
 		},
 	}))
 
 	// C <- M NotifyNodeInformation C1,M1,S1
 	// FIXME this might come in parallel with ^^^ "C asks M about PT"
-	tMC.Expect(conntx("m:3", "c:1", 0, &neo.NotifyNodeInformation{
-		IdTime:		neo.IdTimeNone,	// XXX ?
-		NodeList:	[]neo.NodeInfo{
-			nodei("m:1", neo.MASTER,  1, neo.RUNNING, neo.IdTimeNone),
-			nodei("s:1", neo.STORAGE, 1, neo.RUNNING, 0.01),
-			nodei("",    neo.CLIENT,  1, neo.RUNNING, 0.02),
+	tMC.Expect(conntx("m:3", "c:1", 0, &proto.NotifyNodeInformation{
+		IdTime:		proto.IdTimeNone,	// XXX ?
+		NodeList:	[]proto.NodeInfo{
+			nodei("m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone),
+			nodei("s:1", proto.STORAGE, 1, proto.RUNNING, 0.01),
+			nodei("",    proto.CLIENT,  1, proto.RUNNING, 0.02),
 		},
 	}))
 
-	tMC.Expect(node("c", "m:1", neo.MASTER,  1, neo.RUNNING, neo.IdTimeNone))
-	tMC.Expect(node("c", "s:1", neo.STORAGE, 1, neo.RUNNING, 0.01))
-	tMC.Expect(node("c", "",    neo.CLIENT,  1, neo.RUNNING, 0.02))
+	tMC.Expect(node("c", "m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone))
+	tMC.Expect(node("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
+	tMC.Expect(node("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
 
 
 	// C asks M about last tid	XXX better master sends it itself on new client connected
@@ -684,8 +686,8 @@ func TestMasterStorage(t *testing.T) {
 		}
 	})
 
-	tCM.Expect(conntx("c:1", "m:3", 5, &neo.LastTransaction{}))
-	tCM.Expect(conntx("m:3", "c:1", 5, &neo.AnswerLastTransaction{
+	tCM.Expect(conntx("c:1", "m:3", 5, &proto.LastTransaction{}))
+	tCM.Expect(conntx("m:3", "c:1", 5, &proto.AnswerLastTransaction{
 		Tid: lastTid,
 	}))
 

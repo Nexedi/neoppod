@@ -27,26 +27,29 @@ import (
 	"unsafe"
 
 	"lab.nexedi.com/kirr/go123/xbytes"
+
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
+	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
 )
 
 // PktBuf is a buffer with full raw packet (header + data).
 //
 // variables of type PktBuf are usually named "pkb" (packet buffer), similar to "skb" in Linux.
 //
-// Allocate PktBuf via allocPkt() and free via PktBuf.Free().
+// Allocate PktBuf via pktAlloc() and free via PktBuf.Free().
 type PktBuf struct {
 	Data []byte // whole packet data including all headers
 }
 
 // Header returns pointer to packet header.
-func (pkt *PktBuf) Header() *PktHeader {
-	// XXX check len(Data) < PktHeader ? -> no, Data has to be allocated with cap >= pktHeaderLen
-	return (*PktHeader)(unsafe.Pointer(&pkt.Data[0]))
+func (pkt *PktBuf) Header() *proto.PktHeader {
+	// XXX check len(Data) < PktHeader ? -> no, Data has to be allocated with cap >= PktHeaderLen
+	return (*proto.PktHeader)(unsafe.Pointer(&pkt.Data[0]))
 }
 
 // Payload returns []byte representing packet payload.
 func (pkt *PktBuf) Payload() []byte {
-	return pkt.Data[pktHeaderLen:]
+	return pkt.Data[proto.PktHeaderLen:]
 }
 
 // ---- PktBuf freelist ----
@@ -73,25 +76,25 @@ func (pkt *PktBuf) Free() {
 
 // Strings dumps a packet in human-readable form
 func (pkt *PktBuf) String() string {
-	if len(pkt.Data) < pktHeaderLen {
-		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.Data)
+	if len(pkt.Data) < proto.PktHeaderLen {
+		return fmt.Sprintf("(! < PktHeaderLen) % x", pkt.Data)
 	}
 
 	h := pkt.Header()
-	s := fmt.Sprintf(".%d", ntoh32(h.ConnId))
+	s := fmt.Sprintf(".%d", packed.Ntoh32(h.ConnId))
 
-	msgCode := ntoh16(h.MsgCode)
-	msgLen  := ntoh32(h.MsgLen)
+	msgCode := packed.Ntoh16(h.MsgCode)
+	msgLen  := packed.Ntoh32(h.MsgLen)
 	data    := pkt.Payload()
-	msgType := msgTypeRegistry[msgCode]
+	msgType := proto.MsgType(msgCode)
 	if msgType == nil {
 		s += fmt.Sprintf(" ? (%d) #%d [%d]: % x", msgCode, msgLen, len(data), data)
 		return s
 	}
 
 	// XXX dup wrt Conn.Recv
-	msg := reflect.New(msgType).Interface().(Msg)
-	n, err := msg.neoMsgDecode(data)
+	msg := reflect.New(msgType).Interface().(proto.Msg)
+	n, err := msg.NEOMsgDecode(data)
 	if err != nil {
 		s += fmt.Sprintf(" (%s) %v; #%d [%d]: % x", msgType, err, msgLen, len(data), data)
 	}
@@ -108,12 +111,12 @@ func (pkt *PktBuf) String() string {
 
 // Dump dumps a packet in raw form
 func (pkt *PktBuf) Dump() string {
-	if len(pkt.Data) < pktHeaderLen {
+	if len(pkt.Data) < proto.PktHeaderLen {
 		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.Data)
 	}
 
 	h := pkt.Header()
 	data := pkt.Payload()
 	return fmt.Sprintf(".%d (%d) #%d [%d]: % x",
-		ntoh32(h.ConnId), ntoh16(h.MsgCode), ntoh32(h.MsgLen), len(data), data)
+		packed.Ntoh32(h.ConnId), packed.Ntoh16(h.MsgCode), packed.Ntoh32(h.MsgLen), len(data), data)
 }

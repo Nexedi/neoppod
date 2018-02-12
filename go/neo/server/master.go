@@ -34,6 +34,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
@@ -73,7 +74,7 @@ type Master struct {
 // Use Run to actually start running the node.
 func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
 	m := &Master{
-		node: neo.NewNodeApp(net, neo.MASTER, clusterName, serveAddr, serveAddr),
+		node: neo.NewNodeApp(net, proto.MASTER, clusterName, serveAddr, serveAddr),
 
 		ctlStart:	make(chan chan error),
 		ctlStop:	make(chan chan struct{}),
@@ -118,7 +119,7 @@ func (m *Master) Shutdown() error {
 
 
 // setClusterState sets .clusterState and notifies subscribers.
-func (m *Master) setClusterState(state neo.ClusterState) {
+func (m *Master) setClusterState(state proto.ClusterState) {
 	m.node.ClusterState.Set(state)
 
 	// TODO notify subscribers
@@ -136,19 +137,19 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	defer task.Runningf(&ctx, "master(%v)", l.Addr())(&err)
 
 	m.node.MasterAddr = l.Addr().String()
-	naddr, err := neo.Addr(l.Addr())
+	naddr, err := proto.Addr(l.Addr())
 	if err != nil {
 		// must be ok since l.Addr() is valid since it is listening
 		// XXX panic -> errors.Wrap?
 		panic(err)
 	}
 
-	m.node.MyInfo = neo.NodeInfo{
-		Type:	neo.MASTER,
+	m.node.MyInfo = proto.NodeInfo{
+		Type:	proto.MASTER,
 		Addr:	naddr,
-		UUID:	m.allocUUID(neo.MASTER),
-		State:	neo.RUNNING,
-		IdTime:	neo.IdTimeNone,	// XXX ok?
+		UUID:	m.allocUUID(proto.MASTER),
+		State:	proto.RUNNING,
+		IdTime:	proto.IdTimeNone,	// XXX ok?
 	}
 
 	// update nodeTab with self
@@ -181,10 +182,10 @@ func (m *Master) Run(ctx context.Context) (err error) {
 			// and then master only drives it. So close accept as noone will be
 			// listening for it on our side anymore.
 			switch idReq.NodeType {
-			case neo.CLIENT:
+			case proto.CLIENT:
 				// ok
 
-			case neo.STORAGE:
+			case proto.STORAGE:
 				fallthrough
 			default:
 				req.Link().CloseAccept()
@@ -287,7 +288,7 @@ type storRecovery struct {
 func (m *Master) recovery(ctx context.Context) (err error) {
 	defer task.Running(&ctx, "recovery")(&err)
 
-	m.setClusterState(neo.ClusterRecovering)
+	m.setClusterState(proto.ClusterRecovering)
 	ctx, rcancel := context.WithCancel(ctx)
 	defer rcancel()
 
@@ -301,7 +302,7 @@ func (m *Master) recovery(ctx context.Context) (err error) {
 	// start recovery on all storages we are currently in touch with
 	// XXX close links to clients
 	for _, stor := range m.node.NodeTab.StorageList() {
-		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+		if stor.State > proto.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			wg.Add(1)
 			go func() {
@@ -352,7 +353,7 @@ loop:
 
 				if !xcontext.Canceled(errors.Cause(r.err)) {
 					r.stor.CloseLink(ctx)
-					r.stor.SetState(neo.DOWN)
+					r.stor.SetState(proto.DOWN)
 				}
 
 			} else {
@@ -371,7 +372,7 @@ loop:
 				// recovery and there is no in-progress recovery running
 				nup := 0
 				for _, stor := range m.node.NodeTab.StorageList() {
-					if stor.State > neo.DOWN {
+					if stor.State > proto.DOWN {
 						nup++
 					}
 				}
@@ -436,7 +437,7 @@ loop2:
 
 			if !xcontext.Canceled(errors.Cause(r.err)) {
 				r.stor.CloseLink(ctx)
-				r.stor.SetState(neo.DOWN)
+				r.stor.SetState(proto.DOWN)
 			}
 
 		case <-done:
@@ -453,8 +454,8 @@ loop2:
 	// S PENDING -> RUNNING
 	// XXX recheck logic is ok for when starting existing cluster
 	for _, stor := range m.node.NodeTab.StorageList() {
-		if stor.State == neo.PENDING {
-			stor.SetState(neo.RUNNING)
+		if stor.State == proto.PENDING {
+			stor.SetState(proto.RUNNING)
 		}
 	}
 
@@ -463,7 +464,7 @@ loop2:
 		// XXX -> m.nodeTab.StorageList(State > DOWN)
 		storv := []*neo.Node{}
 		for _, stor := range m.node.NodeTab.StorageList() {
-			if stor.State > neo.DOWN {
+			if stor.State > proto.DOWN {
 				storv = append(storv, stor)
 			}
 		}
@@ -492,14 +493,14 @@ func storCtlRecovery(ctx context.Context, stor *neo.Node, res chan storRecovery)
 
 	// XXX cancel on ctx
 
-	recovery := neo.AnswerRecovery{}
-	err = slink.Ask1(&neo.Recovery{}, &recovery)
+	recovery := proto.AnswerRecovery{}
+	err = slink.Ask1(&proto.Recovery{}, &recovery)
 	if err != nil {
 		return
 	}
 
-	resp := neo.AnswerPartitionTable{}
-	err = slink.Ask1(&neo.AskPartitionTable{}, &resp)
+	resp := proto.AnswerPartitionTable{}
+	err = slink.Ask1(&proto.AskPartitionTable{}, &resp)
 	if err != nil {
 		return
 	}
@@ -536,7 +537,7 @@ var errClusterDegraded = stderrors.New("cluster became non-operatonal")
 func (m *Master) verify(ctx context.Context) (err error) {
 	defer task.Running(&ctx, "verify")(&err)
 
-	m.setClusterState(neo.ClusterVerifying)
+	m.setClusterState(proto.ClusterVerifying)
 	ctx, vcancel := context.WithCancel(ctx)
 	defer vcancel()
 
@@ -549,7 +550,7 @@ func (m *Master) verify(ctx context.Context) (err error) {
 
 	// start verification on all storages we are currently in touch with
 	for _, stor := range m.node.NodeTab.StorageList() {
-		if stor.State > neo.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
+		if stor.State > proto.DOWN {	// XXX state cmp ok ? XXX or stor.Link != nil ?
 			inprogress++
 			wg.Add(1)
 			go func() {
@@ -587,7 +588,7 @@ loop:
 
 		/*
 		case n := <-m.nodeLeave:
-			n.node.SetState(neo.DOWN)
+			n.node.SetState(proto.DOWN)
 
 			// if cluster became non-operational - we cancel verification
 			if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
@@ -611,7 +612,7 @@ loop:
 
 				if !xcontext.Canceled(errors.Cause(v.err)) {
 					v.stor.CloseLink(ctx)
-					v.stor.SetState(neo.DOWN)
+					v.stor.SetState(proto.DOWN)
 				}
 
 				// check partTab is still operational
@@ -660,7 +661,7 @@ loop2:
 
 			if !xcontext.Canceled(errors.Cause(v.err)) {
 				v.stor.CloseLink(ctx)
-				v.stor.SetState(neo.DOWN)
+				v.stor.SetState(proto.DOWN)
 			}
 
 		case <-done:
@@ -694,7 +695,7 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 	defer task.Runningf(&ctx, "%s: stor verify", slink)(&err)
 
 	// send just recovered parttab so storage saves it
-	err = slink.Send1(&neo.SendPartitionTable{
+	err = slink.Send1(&proto.SendPartitionTable{
 		PTid:    pt.PTid,
 		RowList: pt.Dump(),
 	})
@@ -702,8 +703,8 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 		return
 	}
 
-	locked := neo.AnswerLockedTransactions{}
-	err = slink.Ask1(&neo.LockedTransactions{}, &locked)
+	locked := proto.AnswerLockedTransactions{}
+	err = slink.Ask1(&proto.LockedTransactions{}, &locked)
 	if err != nil {
 		return
 	}
@@ -714,8 +715,8 @@ func storCtlVerify(ctx context.Context, stor *neo.Node, pt *neo.PartitionTable, 
 		return
 	}
 
-	last := neo.AnswerLastIDs{}
-	err = slink.Ask1(&neo.LastIDs{}, &last)
+	last := proto.AnswerLastIDs{}
+	err = slink.Ask1(&proto.LastIDs{}, &last)
 	if err != nil {
 		return
 	}
@@ -749,7 +750,7 @@ type serviceDone struct {
 func (m *Master) service(ctx context.Context) (err error) {
 	defer task.Running(&ctx, "service")(&err)
 
-	m.setClusterState(neo.ClusterRunning)
+	m.setClusterState(proto.ClusterRunning)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -758,7 +759,7 @@ func (m *Master) service(ctx context.Context) (err error) {
 
 	// spawn per-storage service driver
 	for _, stor := range m.node.NodeTab.StorageList() {
-		if stor.State == neo.RUNNING {	// XXX note PENDING - not adding to service; ok?
+		if stor.State == proto.RUNNING {	// XXX note PENDING - not adding to service; ok?
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -791,10 +792,10 @@ loop:
 				}
 
 				switch node.Type {
-				case neo.STORAGE:
+				case proto.STORAGE:
 					err = storCtlService(ctx, node)
 
-				case neo.CLIENT:
+				case proto.CLIENT:
 					err = m.serveClient(ctx, node)
 
 				// XXX ADMIN
@@ -810,7 +811,7 @@ loop:
 		/*
 		// XXX who sends here?
 		case n := <-m.nodeLeave:
-			n.node.SetState(neo.DOWN)
+			n.node.SetState(proto.DOWN)
 
 			// if cluster became non-operational - cancel service
 			if !m.node.PartTab.OperationalWith(m.node.NodeTab) {
@@ -853,9 +854,9 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 
 	// XXX current neo/py does StartOperation / NotifyReady as separate
 	//     sends, not exchange on the same conn. - fixed
-	ready := neo.NotifyReady{}
-	err = slink.Ask1(&neo.StartOperation{Backup: false}, &ready)
-	//err = slink.Send1(&neo.StartOperation{Backup: false})
+	ready := proto.NotifyReady{}
+	err = slink.Ask1(&proto.StartOperation{Backup: false}, &ready)
+	//err = slink.Send1(&proto.StartOperation{Backup: false})
 	//if err != nil {
 	//	return err
 	//}
@@ -865,9 +866,9 @@ func storCtlService(ctx context.Context, stor *neo.Node) (err error) {
 	//}
 	//req.Close()	XXX must be after req handling
 	//switch msg := req.Msg.(type) {
-	//case *neo.NotifyReady:
+	//case *proto.NotifyReady:
 	//	// ok
-	//case *neo.Error:
+	//case *proto.Error:
 	//	return msg
 	//default:
 	//	return fmt.Errorf("unexpected message %T", msg)
@@ -924,23 +925,23 @@ func (m *Master) serveClient(ctx context.Context, cli *neo.Node) (err error) {
 }
 
 // serveClient1 prepares response for 1 request from client
-func (m *Master) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
+func (m *Master) serveClient1(ctx context.Context, req proto.Msg) (resp proto.Msg) {
 	switch req := req.(type) {
-	case *neo.AskPartitionTable:
+	case *proto.AskPartitionTable:
 		m.node.StateMu.RLock()
-		rpt := &neo.AnswerPartitionTable{
+		rpt := &proto.AnswerPartitionTable{
 			PTid:	 m.node.PartTab.PTid,
 			RowList: m.node.PartTab.Dump(),
 		}
 		m.node.StateMu.RUnlock()
 		return rpt
 
-	case *neo.LastTransaction:
+	case *proto.LastTransaction:
 		// XXX lock
-		return &neo.AnswerLastTransaction{m.lastTid}
+		return &proto.AnswerLastTransaction{m.lastTid}
 
 	default:
-		return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req)}
+		return &proto.Error{proto.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req)}
 	}
 }
 
@@ -959,7 +960,7 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 	// XXX ^^^ + subscribe
 
 	nodev := m.node.NodeTab.All()
-	nodeiv := make([]neo.NodeInfo, len(nodev))
+	nodeiv := make([]proto.NodeInfo, len(nodev))
 	for i, node := range nodev {
 		// NOTE .NodeInfo is data not pointers - so won't change after we copy it to nodeiv
 		nodeiv[i] = node.NodeInfo
@@ -982,8 +983,8 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 	// first send the snapshot.
 
 	// XXX +ClusterState
-	err = link.Send1(&neo.NotifyNodeInformation{
-		IdTime:   neo.IdTimeNone,	// XXX what here?
+	err = link.Send1(&proto.NotifyNodeInformation{
+		IdTime:   proto.IdTimeNone,	// XXX what here?
 		NodeList: nodeiv,
 	})
 	if err != nil {
@@ -992,7 +993,7 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 
 	// now proxy the updates until we are done
 	for {
-		var msg neo.Msg
+		var msg proto.Msg
 
 		select {
 		case <-ctx.Done():
@@ -1001,8 +1002,8 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 		// XXX ClusterState
 
 		case nodeiv = <-nodech:
-			msg = &neo.NotifyNodeInformation{
-				IdTime:   neo.IdTimeNone, // XXX what here?
+			msg = &proto.NotifyNodeInformation{
+				IdTime:   proto.IdTimeNone, // XXX what here?
 				NodeList: nodeiv,
 			}
 		}
@@ -1024,7 +1025,7 @@ func (m *Master) keepPeerUpdated(ctx context.Context, link *neo.NodeLink) (err e
 // If node identification is accepted .nodeTab is updated and corresponding node entry is returned.
 // Response message is constructed but not send back not to block the caller - it is
 // the caller responsibility to send the response to node which requested identification.
-func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp neo.Msg) {
+func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp proto.Msg) {
 	// XXX also verify ? :
 	// - NodeType valid
 	// - IdTime ?
@@ -1032,9 +1033,9 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 	uuid := n.idReq.UUID
 	nodeType := n.idReq.NodeType
 
-	err := func() *neo.Error {
+	err := func() *proto.Error {
 		if n.idReq.ClusterName != m.node.ClusterName {
-			return &neo.Error{neo.PROTOCOL_ERROR, "cluster name mismatch"}
+			return &proto.Error{proto.PROTOCOL_ERROR, "cluster name mismatch"}
 		}
 
 		if uuid == 0 {
@@ -1048,23 +1049,23 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		if node != nil {
 			// reject - uuid is already occupied by someone else
 			// XXX check also for down state - it could be the same node reconnecting
-			return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("uuid %v already used by another node", uuid)}
+			return &proto.Error{proto.PROTOCOL_ERROR, fmt.Sprintf("uuid %v already used by another node", uuid)}
 		}
 
 		// accept only certain kind of nodes depending on .clusterState, e.g.
 		// XXX ok to have this logic inside identify? (better provide from outside ?)
 		switch nodeType {
-		case neo.CLIENT:
-			if m.node.ClusterState != neo.ClusterRunning {
-				return &neo.Error{neo.NOT_READY, "cluster not operational"}
+		case proto.CLIENT:
+			if m.node.ClusterState != proto.ClusterRunning {
+				return &proto.Error{proto.NOT_READY, "cluster not operational"}
 			}
 
-		case neo.STORAGE:
+		case proto.STORAGE:
 			// ok
 
 		// TODO +master, admin
 		default:
-			return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("not accepting node type %v", nodeType)}
+			return &proto.Error{proto.PROTOCOL_ERROR, fmt.Sprintf("not accepting node type %v", nodeType)}
 		}
 
 		return nil
@@ -1078,8 +1079,8 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 
 	log.Infof(ctx, "%s: accepting as %s", subj, uuid)
 
-	accept := &neo.AcceptIdentification{
-			NodeType:	neo.MASTER,
+	accept := &proto.AcceptIdentification{
+			NodeType:	proto.MASTER,
 			MyUUID:		m.node.MyInfo.UUID,
 			NumPartitions:	1,	// FIXME hardcoded
 			NumReplicas:	1,	// FIXME hardcoded
@@ -1087,22 +1088,22 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 		}
 
 	// update nodeTab
-	var nodeState neo.NodeState
+	var nodeState proto.NodeState
 	switch nodeType {
-	case neo.STORAGE:
+	case proto.STORAGE:
 		// FIXME py sets to RUNNING/PENDING depending on cluster state
-		nodeState = neo.PENDING
+		nodeState = proto.PENDING
 
 	default:
-		nodeState = neo.RUNNING
+		nodeState = proto.RUNNING
 	}
 
-	nodeInfo := neo.NodeInfo{
+	nodeInfo := proto.NodeInfo{
 		Type:	nodeType,
 		Addr:	n.idReq.Address,
 		UUID:	uuid,
 		State:	nodeState,
-		IdTime:	neo.IdTime(m.monotime()),
+		IdTime:	proto.IdTime(m.monotime()),
 	}
 
 	node = m.node.NodeTab.Update(nodeInfo) // NOTE this notifies all nodeTab subscribers
@@ -1113,9 +1114,9 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *neo.Node, resp
 // allocUUID allocates new node uuid for a node of kind nodeType
 // XXX it is bad idea for master to assign uuid to coming node
 // -> better nodes generate really unique UUID themselves and always show with them
-func (m *Master) allocUUID(nodeType neo.NodeType) neo.NodeUUID {
+func (m *Master) allocUUID(nodeType proto.NodeType) proto.NodeUUID {
 	for num := int32(1); num < 1<<24; num++ {
-		uuid := neo.UUID(nodeType, num)
+		uuid := proto.UUID(nodeType, num)
 		if m.node.NodeTab.Get(uuid) == nil {
 			return uuid
 		}

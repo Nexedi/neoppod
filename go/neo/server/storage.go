@@ -31,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
@@ -78,7 +79,7 @@ type Storage struct {
 // Use Run to actually start running the node.
 func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor *fs1.FileStorage) *Storage {
 	stor := &Storage{
-		node:  neo.NewNodeApp(net, neo.STORAGE, clusterName, masterAddr, serveAddr),
+		node:  neo.NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
 		zstor: zstor,
 	}
 
@@ -198,7 +199,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 	// XXX dup in Client.talkMaster1 ?
-	mlink, accept, err := stor.node.Dial(ctx, neo.MASTER, stor.node.MasterAddr)
+	mlink, accept, err := stor.node.Dial(ctx, proto.MASTER, stor.node.MasterAddr)
 	if err != nil {
 		return err
 	}
@@ -274,49 +275,49 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neo.Request) error {
 	default:
 		return fmt.Errorf("unexpected message: %T", msg)
 
-	case *neo.StartOperation:
+	case *proto.StartOperation:
 		// ok, transition to serve
 		return cmdStart
 
-	case *neo.Recovery:
-		err = req.Reply(&neo.AnswerRecovery{
+	case *proto.Recovery:
+		err = req.Reply(&proto.AnswerRecovery{
 			PTid:		stor.node.PartTab.PTid,
-			BackupTid:	neo.INVALID_TID,
-			TruncateTid:	neo.INVALID_TID})
+			BackupTid:	proto.INVALID_TID,
+			TruncateTid:	proto.INVALID_TID})
 
-	case *neo.AskPartitionTable:
+	case *proto.AskPartitionTable:
 		// TODO initially read PT from disk
-		err = req.Reply(&neo.AnswerPartitionTable{
+		err = req.Reply(&proto.AnswerPartitionTable{
 			PTid:	 stor.node.PartTab.PTid,
 			RowList: stor.node.PartTab.Dump()})
 
-	case *neo.LockedTransactions:
+	case *proto.LockedTransactions:
 		// XXX r/o stub
-		err = req.Reply(&neo.AnswerLockedTransactions{})
+		err = req.Reply(&proto.AnswerLockedTransactions{})
 
 	// TODO AskUnfinishedTransactions
 
-	case *neo.LastIDs:
+	case *proto.LastIDs:
 		lastTid, zerr1 := stor.zstor.LastTid(ctx)
 		lastOid, zerr2 := stor.zstor.LastOid(ctx)
 		if zerr := xerr.First(zerr1, zerr2); zerr != nil {
 			return zerr	// XXX send the error to M
 		}
 
-		err = req.Reply(&neo.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
+		err = req.Reply(&proto.AnswerLastIDs{LastTid: lastTid, LastOid: lastOid})
 
-	case *neo.SendPartitionTable:
+	case *proto.SendPartitionTable:
 		// TODO M sends us whole PT -> save locally
 		stor.node.UpdatePartTab(ctx, msg)	// XXX lock?
 
-	case *neo.NotifyPartitionChanges:
+	case *proto.NotifyPartitionChanges:
 		// TODO M sends us δPT -> save locally?
 
-	case *neo.NotifyNodeInformation:
+	case *proto.NotifyNodeInformation:
 		// XXX check for myUUID and consider it a command (like neo/py) does?
 		stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
 
-	case *neo.NotifyClusterState:
+	case *proto.NotifyClusterState:
 		stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
 	}
 
@@ -347,7 +348,7 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neo.Request) (err er
 
 	// reply M we are ready
 	// XXX according to current neo/py this is separate send - not reply - and so we do here
-	err = reqStart.Reply(&neo.NotifyReady{})
+	err = reqStart.Reply(&proto.NotifyReady{})
 	reqStart.Close()
 	if err != nil {
 		return err
@@ -373,16 +374,16 @@ func (stor *Storage) m1serve1(ctx context.Context, req neo.Request) error {
 	default:
 		return fmt.Errorf("unexpected message: %T", msg)
 
-	case *neo.StopOperation:
+	case *proto.StopOperation:
 		return fmt.Errorf("stop requested")
 
 	// XXX SendPartitionTable?
 	// XXX NotifyPartitionChanges?
 
-	case *neo.NotifyNodeInformation:
+	case *proto.NotifyNodeInformation:
 		stor.node.UpdateNodeTab(ctx, msg)	// XXX lock?
 
-	case *neo.NotifyClusterState:
+	case *proto.NotifyClusterState:
 		stor.node.UpdateClusterState(ctx, msg)	// XXX lock? what to do with it?
 
 	// TODO commit related messages
@@ -394,13 +395,13 @@ func (stor *Storage) m1serve1(ctx context.Context, req neo.Request) error {
 // --- serve incoming connections from other nodes ---
 
 // identify processes identification request from connected peer.
-func (stor *Storage) identify(idReq *neo.RequestIdentification) (neo.Msg, bool) {
+func (stor *Storage) identify(idReq *proto.RequestIdentification) (proto.Msg, bool) {
 	// XXX stub: we accept clients and don't care about their UUID
-	if idReq.NodeType != neo.CLIENT {
-		return &neo.Error{neo.PROTOCOL_ERROR, "only clients are accepted"}, false
+	if idReq.NodeType != proto.CLIENT {
+		return &proto.Error{proto.PROTOCOL_ERROR, "only clients are accepted"}, false
 	}
 	if idReq.ClusterName != stor.node.ClusterName {
-		return &neo.Error{neo.PROTOCOL_ERROR, "cluster name mismatch"}, false
+		return &proto.Error{proto.PROTOCOL_ERROR, "cluster name mismatch"}, false
 	}
 
 	// check operational
@@ -409,10 +410,10 @@ func (stor *Storage) identify(idReq *neo.RequestIdentification) (neo.Msg, bool) 
 	stor.opMu.Unlock()
 
 	if !operational {
-		return &neo.Error{neo.NOT_READY, "cluster not operational"}, false
+		return &proto.Error{proto.NOT_READY, "cluster not operational"}, false
 	}
 
-	return &neo.AcceptIdentification{
+	return &proto.AcceptIdentification{
 		NodeType:	stor.node.MyInfo.Type,
 		MyUUID:		stor.node.MyInfo.UUID,		// XXX lock wrt update
 		NumPartitions:	1,	// XXX
@@ -435,7 +436,7 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 
 
 // serveLink serves incoming node-node link connection
-func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *neo.RequestIdentification) (err error) {
+func (stor *Storage) serveLink(ctx context.Context, req *neo.Request, idReq *proto.RequestIdentification) (err error) {
 	link := req.Link()
 	defer task.Runningf(&ctx, "serve %s", link)(&err)
 	defer xio.CloseWhenDone(ctx, link)()
@@ -507,7 +508,7 @@ func (stor *Storage) serveClient(ctx context.Context, req neo.Request) {
 
 		// XXX hack -> resp.Release()
 		// XXX req.Msg release too?
-		if resp, ok := resp.(*neo.AnswerObject); ok {
+		if resp, ok := resp.(*proto.AnswerObject); ok {
 			resp.Data.Release()
 		}
 
@@ -547,11 +548,11 @@ func sha1Sum(b []byte) [sha1.Size]byte {
 }
 
 // serveClient1 prepares response for 1 request from client
-func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Msg) {
+func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp proto.Msg) {
 	switch req := req.(type) {
-	case *neo.GetObject:
+	case *proto.GetObject:
 		xid := zodb.Xid{Oid: req.Oid}
-		if req.Serial != neo.INVALID_TID {
+		if req.Serial != proto.INVALID_TID {
 			xid.At = req.Serial
 		} else {
 			xid.At = common.Before2At(req.Tid)
@@ -562,15 +563,15 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 		if err != nil {
 			// translate err to NEO protocol error codes
 			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
-			return neo.ErrEncode(e.Err)
+			return proto.ErrEncode(e.Err)
 		}
 
 		// compatibility with py side:
 		// for loadSerial - check we have exact hit - else "nodata"
-		if req.Serial != neo.INVALID_TID {
+		if req.Serial != proto.INVALID_TID {
 		        if serial != req.Serial {
-				return &neo.Error{
-					Code:    neo.OID_NOT_FOUND,
+				return &proto.Error{
+					Code:    proto.OID_NOT_FOUND,
 					Message: fmt.Sprintf("%s: no data with serial %s", xid.Oid, req.Serial),
 				}
 		        }
@@ -578,10 +579,10 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 
 		// no next serial -> None
 		if nextSerial == zodb.TidMax {
-			nextSerial = neo.INVALID_TID
+			nextSerial = proto.INVALID_TID
 		}
 
-		return &neo.AnswerObject{
+		return &proto.AnswerObject{
 			Oid:	    xid.Oid,
 			Serial:     serial,
 			NextSerial: nextSerial,
@@ -594,19 +595,19 @@ func (stor *Storage) serveClient1(ctx context.Context, req neo.Msg) (resp neo.Ms
 			// XXX .DataSerial
 		}
 
-	case *neo.LastTransaction:
+	case *proto.LastTransaction:
 		lastTid, err := stor.zstor.LastTid(ctx)
 		if err != nil {
-			return neo.ErrEncode(err)
+			return proto.ErrEncode(err)
 		}
 
-		return &neo.AnswerLastTransaction{lastTid}
+		return &proto.AnswerLastTransaction{lastTid}
 
 	//case *ObjectHistory:
 	//case *StoreObject:
 
 	default:
-		return &neo.Error{neo.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req)}
+		return &proto.Error{proto.PROTOCOL_ERROR, fmt.Sprintf("unexpected message %T", req)}
 	}
 
 	//req.Put(...)

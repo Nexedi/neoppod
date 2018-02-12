@@ -36,6 +36,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -77,7 +78,7 @@ var _ zodb.IStorageDriver = (*Client)(nil)
 // It will connect to master @masterAddr and identify with specified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	cli := &Client{
-		node:        neo.NewNodeApp(net, neo.CLIENT, clusterName, masterAddr, ""),
+		node:        neo.NewNodeApp(net, proto.CLIENT, clusterName, masterAddr, ""),
 		mlinkReady:  make(chan struct{}),
 		operational: false,
 		opReady:     make(chan struct{}),
@@ -225,7 +226,7 @@ func (c *Client) talkMaster(ctx context.Context) (err error) {
 }
 
 func (c *Client) talkMaster1(ctx context.Context) (err error) {
-	mlink, accept, err := c.node.Dial(ctx, neo.MASTER, c.node.MasterAddr)
+	mlink, accept, err := c.node.Dial(ctx, proto.MASTER, c.node.MasterAddr)
 	if err != nil {
 		// FIXME it is not only identification - e.g. ECONNREFUSED
 		return err
@@ -302,17 +303,17 @@ func (c *Client) recvMaster1(ctx context.Context, req neo.Request) error {
 		return fmt.Errorf("unexpected message: %T", msg)
 
 	// M sends whole PT
-	case *neo.SendPartitionTable:
+	case *proto.SendPartitionTable:
 		c.node.UpdatePartTab(ctx, msg)
 
 	// M sends δPT
-	//case *neo.NotifyPartitionChanges:
+	//case *proto.NotifyPartitionChanges:
 		// TODO
 
-	case *neo.NotifyNodeInformation:
+	case *proto.NotifyNodeInformation:
 		c.node.UpdateNodeTab(ctx, msg)
 
-	case *neo.NotifyClusterState:
+	case *proto.NotifyClusterState:
 		c.node.UpdateClusterState(ctx, msg)
 	}
 
@@ -328,8 +329,8 @@ func (c *Client) initFromMaster(ctx context.Context, mlink *neo.NodeLink) (err e
 	defer task.Running(&ctx, "init")(&err)
 
 	// ask M for PT
-	rpt := neo.AnswerPartitionTable{}
-	err = mlink.Ask1(&neo.AskPartitionTable{}, &rpt)
+	rpt := proto.AnswerPartitionTable{}
+	err = mlink.Ask1(&proto.AskPartitionTable{}, &rpt)
 	if err != nil {
 		return err
 	}
@@ -379,8 +380,8 @@ func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
 
 	// XXX mlink can become down while we are making the call.
 	// XXX do we want to return error or retry?
-	reply := neo.AnswerLastTransaction{}
-	err = mlink.Ask1(&neo.LastTransaction{}, &reply) // XXX Ask += ctx
+	reply := proto.AnswerLastTransaction{}
+	err = mlink.Ask1(&proto.LastTransaction{}, &reply) // XXX Ask += ctx
 	if err != nil {
 		return 0, err	// XXX err ctx
 	}
@@ -418,7 +419,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 		if cell.Readable() {
 			stor := c.node.NodeTab.Get(cell.UUID)
 			// this storage might not yet come up
-			if stor != nil && stor.State == neo.RUNNING {
+			if stor != nil && stor.State == proto.RUNNING {
 				storv = append(storv, stor)
 			}
 		}
@@ -443,13 +444,13 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 	// S decides to send us something)
 
 	// on the wire it comes as "before", not "at"
-	req := neo.GetObject{
+	req := proto.GetObject{
 		Oid:    xid.Oid,
 		Tid:    common.At2Before(xid.At),
-		Serial: neo.INVALID_TID,
+		Serial: proto.INVALID_TID,
 	}
 
-	resp := neo.AnswerObject{}
+	resp := proto.AnswerObject{}
 	err = slink.Ask1(&req, &resp)
 	if err != nil {
 		return nil, 0, err	// XXX err context
