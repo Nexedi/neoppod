@@ -41,7 +41,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tsync"
+	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest"
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/tracing"
@@ -116,14 +116,14 @@ func masterStartReady(where string, ready bool) *eventMStartReady {
 type EventRouter struct {
 	mu sync.Mutex
 
-	defaultq *tsync.SyncChan
+	defaultq *tracetest.SyncChan
 
 	// events specific to particular node - e.g. node starts listening,
 	// state on that node changes, etc...
-	byNode map[string /*host*/]*tsync.SyncChan
+	byNode map[string /*host*/]*tracetest.SyncChan
 
 	// state on host changes. Takes precendece over byNode.
-	byState map[string /*host*/]*tsync.SyncChan
+	byState map[string /*host*/]*tracetest.SyncChan
 
 	// event on a-b link
 	byLink map[string /*host-host*/]*linkDst
@@ -133,16 +133,16 @@ type EventRouter struct {
 
 func NewEventRouter() *EventRouter {
 	return &EventRouter{
-		defaultq:	tsync.NewSyncChan("default"),
-		byNode:		make(map[string]*tsync.SyncChan),
-		byState:	make(map[string]*tsync.SyncChan),
+		defaultq:	tracetest.NewSyncChan("default"),
+		byNode:		make(map[string]*tracetest.SyncChan),
+		byState:	make(map[string]*tracetest.SyncChan),
 		byLink:		make(map[string]*linkDst),
 		connected:	make(map[string]bool),
 	}
 }
 
-func (r *EventRouter) AllRoutes() []*tsync.SyncChan {
-	rtset := map[*tsync.SyncChan]int{}
+func (r *EventRouter) AllRoutes() []*tracetest.SyncChan {
+	rtset := map[*tracetest.SyncChan]int{}
 	rtset[r.defaultq] = 1
 	for _, dst := range r.byNode {
 		rtset[dst] = 1
@@ -155,7 +155,7 @@ func (r *EventRouter) AllRoutes() []*tsync.SyncChan {
 		rtset[ldst.b] = 1
 	}
 
-	var rtv []*tsync.SyncChan
+	var rtv []*tracetest.SyncChan
 	for dst := range rtset {
 		rtv = append(rtv, dst)
 	}
@@ -184,7 +184,7 @@ func host(addr string) string {
 }
 
 // Route routes events according to rules specified via Branch*()
-func (r *EventRouter) Route(event interface{}) (dst *tsync.SyncChan) {
+func (r *EventRouter) Route(event interface{}) (dst *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -258,7 +258,7 @@ func (r *EventRouter) Route(event interface{}) (dst *tsync.SyncChan) {
 }
 
 // routeState routes event corresponding to state change on host
-func (r *EventRouter) routeState(host string) (dst *tsync.SyncChan) {
+func (r *EventRouter) routeState(host string) (dst *tracetest.SyncChan) {
 	// lookup dst by state rules
 	dst = r.byState[host]
 	if dst != nil {
@@ -270,7 +270,7 @@ func (r *EventRouter) routeState(host string) (dst *tsync.SyncChan) {
 }
 
 // BranchNode branches events corresponding to host.
-func (r *EventRouter) BranchNode(host string, dst *tsync.SyncChan) {
+func (r *EventRouter) BranchNode(host string, dst *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -282,7 +282,7 @@ func (r *EventRouter) BranchNode(host string, dst *tsync.SyncChan) {
 }
 
 // BranchState branches events corresponding to state changes on host.
-func (r *EventRouter) BranchState(host string, dst *tsync.SyncChan) {
+func (r *EventRouter) BranchState(host string, dst *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -299,7 +299,7 @@ func (r *EventRouter) BranchState(host string, dst *tsync.SyncChan) {
 //
 // Event with networking cause root coming from a go to dsta, and with
 // networking cause root coming from b - go to dstb.
-func (r *EventRouter) BranchLink(link string, dsta, dstb *tsync.SyncChan) {
+func (r *EventRouter) BranchLink(link string, dsta, dstb *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -313,8 +313,8 @@ func (r *EventRouter) BranchLink(link string, dsta, dstb *tsync.SyncChan) {
 }
 
 type linkDst struct {
-	a *tsync.SyncChan // net cause was on dialer
-	b *tsync.SyncChan // net cause was on listener
+	a *tracetest.SyncChan // net cause was on dialer
+	b *tracetest.SyncChan // net cause was on listener
 }
 
 // ---- trace probes, etc -> events -> dispatcher ----
@@ -322,14 +322,14 @@ type linkDst struct {
 // TraceCollector connects to NEO-specific trace points via probes and sends events to dispatcher.
 type TraceCollector struct {
 	pg *tracing.ProbeGroup
-	d  *tsync.EventDispatcher
+	d  interface { Dispatch(interface{}) }
 
 	node2Name	   map[*NodeApp]string
 	nodeTab2Owner	   map[*NodeTable]string
 	clusterState2Owner map[*proto.ClusterState]string
 }
 
-func NewTraceCollector(dispatch *tsync.EventDispatcher) *TraceCollector {
+func NewTraceCollector(dispatch interface { Dispatch(interface{}) }) *TraceCollector {
 	return &TraceCollector{
 		pg:	&tracing.ProbeGroup{},
 		d:	dispatch,
@@ -415,18 +415,13 @@ func (t *TraceCollector) traceMasterStartReady(m *Master, ready bool) {
 // M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
 	rt	 := NewEventRouter()
-	dispatch := tsync.NewEventDispatcher(rt)
+	dispatch := tracetest.NewEventDispatcher(rt)
 	tracer   := NewTraceCollector(dispatch)
 
 	net := pipenet.New("testnet")	// test network
 
 	tracer.Attach()
 	defer tracer.Detach()
-
-	// by default events go to g
-	//g := tsync.NewEventChecker(t, dispatch, rt.defaultq)
-
-
 
 	// shortcut for addresses
 	xaddr := func(addr string) *pipenet.Addr {
@@ -483,23 +478,23 @@ func TestMasterStorage(t *testing.T) {
 	Shost := xnet.NetTrace(net.Host("s"), tracer)
 	Chost := xnet.NetTrace(net.Host("c"), tracer)
 
-	cM  := tsync.NewSyncChan("m.main") // trace of events local to M
-	cS  := tsync.NewSyncChan("s.main") // trace of events local to S XXX with cause root also on S
-//	cC  := tsync.NewSyncChan("c.main")
-	cMS := tsync.NewSyncChan("m-s")    // trace of events with cause root being m -> s send
-	cSM := tsync.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
-	cMC := tsync.NewSyncChan("m-c")	   // ----//---- m -> c
-	cCM := tsync.NewSyncChan("c-m")    // ----//---- c -> m
-	cCS := tsync.NewSyncChan("c-s")    // ----//---- c -> s
+	cM  := tracetest.NewSyncChan("m.main") // trace of events local to M
+	cS  := tracetest.NewSyncChan("s.main") // trace of events local to S XXX with cause root also on S
+//	cC  := tracetest.NewSyncChan("c.main")
+	cMS := tracetest.NewSyncChan("m-s")    // trace of events with cause root being m -> s send
+	cSM := tracetest.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
+	cMC := tracetest.NewSyncChan("m-c")	   // ----//---- m -> c
+	cCM := tracetest.NewSyncChan("c-m")    // ----//---- c -> m
+	cCS := tracetest.NewSyncChan("c-s")    // ----//---- c -> s
 
-	tM := tsync.NewEventChecker(t, dispatch, cM)
-	tS := tsync.NewEventChecker(t, dispatch, cS)
-//	tC := tsync.NewEventChecker(t, dispatch, cC)	// XXX no need
-	tMS := tsync.NewEventChecker(t, dispatch, cMS)
-	tSM := tsync.NewEventChecker(t, dispatch, cSM)
-	tMC := tsync.NewEventChecker(t, dispatch, cMC)
-	tCM := tsync.NewEventChecker(t, dispatch, cCM)
-	tCS := tsync.NewEventChecker(t, dispatch, cCS)
+	tM := tracetest.NewEventChecker(t, dispatch, cM)
+	tS := tracetest.NewEventChecker(t, dispatch, cS)
+//	tC := tracetest.NewEventChecker(t, dispatch, cC)	// XXX no need
+	tMS := tracetest.NewEventChecker(t, dispatch, cMS)
+	tSM := tracetest.NewEventChecker(t, dispatch, cSM)
+	tMC := tracetest.NewEventChecker(t, dispatch, cMC)
+	tCM := tracetest.NewEventChecker(t, dispatch, cCM)
+	tCS := tracetest.NewEventChecker(t, dispatch, cCS)
 
 
 	rt.BranchNode("m", cM)
@@ -910,7 +905,18 @@ func TestMasterStorage(t *testing.T) {
 }
 
 
-/*
+// dispatch1 dispatched directly to single output channel
+//
+// XXX hack - better we don't need it.
+// XXX -> with testenv.MkCluster() we won't need it
+type tdispatch1 struct {
+	outch *tracetest.SyncChan
+}
+
+func (d tdispatch1) Dispatch(event interface{}) {
+	d.outch.Send(event)
+}
+
 func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit func(xcload1 func())) {
 	// create test cluster	<- XXX factor to utility func
 	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
@@ -924,12 +930,13 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	M := NewMaster("abc1", "", Mnet)
 
 	// XXX to wait for "M listens at ..." & "ready to start" -> XXX add something to M api?
-	tracer := &TraceRouter{tsync.NewSyncChan()}
-	tc := tsync.NewEventChecker(b, tracer.SyncChan)
-	pg := &tracing.ProbeGroup{}
+	cG	  := tracetest.NewSyncChan("main")
+	tG	  := tracetest.NewEventChecker(b, nil /* XXX */, cG)
+
+	tracer    := NewTraceCollector(tdispatch1{cG})
 	tracing.Lock()
 	pnode := traceNodeChanged_Attach(nil, tracer.traceNode)
-	traceMasterStartReady_Attach(pg, tracer.traceMasterStartReady)
+	traceMasterStartReady_Attach(tracer.pg, tracer.traceMasterStartReady)
 	tracing.Unlock()
 
 	wg.Go(func() error {
@@ -937,7 +944,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	})
 
 	// determing M serving address	XXX better with M api
-	ev := tracer.Recv()
+	ev := cG.Recv()
 	mnode, ok := ev.Event.(*eventNodeTab)
 	if !ok {
 		b.Fatal("after M start: got %T  ; want eventNodeTab", ev.Event)
@@ -951,15 +958,15 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 
 	// now after we know Maddr create S & C and start S serving
 	S := NewStorage("abc1", Maddr, "", Snet, zstor)
-	C := client.NewClient("abc1", Maddr, Cnet)
+	C := NewClient("abc1", Maddr, Cnet)
 
 	wg.Go(func() error {
 		return S.Run(ctx)
 	})
 
 	// command M to start
-	tc.Expect(masterStartReady(M, true))	// <- XXX better with M api
-	pg.Done()
+	tG.Expect(masterStartReady("m", true))	// <- XXX better with M api
+	tracer.Detach()
 
 	err := M.Start()
 	if err != nil {
@@ -1043,4 +1050,3 @@ func BenchmarkGetObjectTCPloParallel(b *testing.B) {
 	net := xnet.NetPlain("tcp")
 	benchmarkGetObjectParallel(b, net, net, net)
 }
-*/

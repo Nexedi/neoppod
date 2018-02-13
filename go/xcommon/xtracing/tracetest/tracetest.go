@@ -17,8 +17,8 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package tsync provides infrastructure for synchronous testing based on program tracing.
-// XXX naming -> ttest? tracetest? synctest?
+// Package tracetest provides infrastructure for testing concurrent systems
+// based on synchronous events tracing.
 //
 // A serial system can be verified by checking that its execution produces
 // expected serial stream of events. But concurrent systems cannot be verified
@@ -28,7 +28,7 @@
 // However in a concurrent system one can decompose all events into serial
 // streams in which events are strictly ordered by causality with respect to
 // each other. This decomposition in turn allows to verify that in every stream
-// events were as expected.
+// events happenned as expected.
 //
 // Verification of events for all streams can be done by one *sequential*
 // process:
@@ -44,12 +44,37 @@
 // 	  causality (i.e. there is some happens-before relation for them) the
 // 	  sequence of checking should represent that ordering relation.
 //
+// The package should be used as follows:
+//
+//	- implement tracer that will be synchronously collecting events from
+//	  execution of your program. This can be done with package
+//	  lab.nexedi.com/kirr/go123/tracing or by other similar means.
+//
+//	  the tracer have to output events to dispatcher (see below).
+//
+//	- implement router that will be making decisions specific to your
+//	  particular testing scenario on to which stream an event should belong.
+//
+//	  the router will be consulted by dispatcher (see below) for its working.
+//
+//	- create Dispatcher. This is the central place where events are
+//	  delivered from tracer and are further delivered in accordance to what
+//	  router says.
+//
+//	- for every serial stream of events create synchronous delivery channel
+//	  (SyncChan) and event Checker. XXX
+//
+//
 // XXX more text describing how to use the package.
+//
+//
+// XXX say that checker will detect deadlock if there is no event or it or
+// another comes at different trace channel.
 //
 // XXX (if tested system is serial only there is no need to use Dispatcher and
 // routing - the collector can send output directly to the only SyncChan with
 // only one EventChecker connected to it).
-package tsync
+package tracetest
 
 import (
 	"fmt"
