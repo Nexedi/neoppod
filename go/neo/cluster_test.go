@@ -489,12 +489,12 @@ func TestMasterStorage(t *testing.T) {
 //	cC  := tsync.NewSyncChan("c.main")
 	cMS := tsync.NewSyncChan("m-s")    // trace of events with cause root being m -> s send
 	cSM := tsync.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
-	cMC := tsync.NewSyncChan("m-c")
-	cCM := tsync.NewSyncChan("c-m")
+	cMC := tsync.NewSyncChan("m-c")	   // ----//---- m -> c
+	cCM := tsync.NewSyncChan("c-m")    // ----//---- c -> m
 
 	tM := tsync.NewEventChecker(t, dispatch, cM)
 	tS := tsync.NewEventChecker(t, dispatch, cS)
-//	tC := tsync.NewEventChecker(t, dispatch, cC)
+//	tC := tsync.NewEventChecker(t, dispatch, cC)	// XXX no need
 	tMS := tsync.NewEventChecker(t, dispatch, cMS)
 	tSM := tsync.NewEventChecker(t, dispatch, cSM)
 	tMC := tsync.NewEventChecker(t, dispatch, cMC)
@@ -690,7 +690,7 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	// C asks M about PT
-	// FIXME this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
+	// NOTE this might come in parallel with vvv "C <- M NotifyNodeInformation C1,M1,S1"
 	tCM.Expect(conntx("c:1", "m:3", 3, &proto.AskPartitionTable{}))
 	tCM.Expect(conntx("m:3", "c:1", 3, &proto.AnswerPartitionTable{
 		PTid:		1,
@@ -700,7 +700,7 @@ func TestMasterStorage(t *testing.T) {
 	}))
 
 	// C <- M NotifyNodeInformation C1,M1,S1
-	// FIXME this might come in parallel with ^^^ "C asks M about PT"
+	// NOTE this might come in parallel with ^^^ "C asks M about PT"
 	tMC.Expect(conntx("m:3", "c:1", 0, &proto.NotifyNodeInformation{
 		IdTime:		proto.IdTimeNone,	// XXX ?
 		NodeList:	[]proto.NodeInfo{
