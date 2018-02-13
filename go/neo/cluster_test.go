@@ -23,9 +23,9 @@ package neo
 //go:generate gotrace gen .
 
 import (
-	//"bytes"
+	"bytes"
 	"context"
-	//"crypto/sha1"
+	"crypto/sha1"
 	//"io"
 	"net"
 	//"reflect"
@@ -34,13 +34,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	//"github.com/kylelemons/godebug/pretty"
+	"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	//"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 
-	//"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tsync"
 
@@ -491,6 +490,7 @@ func TestMasterStorage(t *testing.T) {
 	cSM := tsync.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
 	cMC := tsync.NewSyncChan("m-c")	   // ----//---- m -> c
 	cCM := tsync.NewSyncChan("c-m")    // ----//---- c -> m
+	cCS := tsync.NewSyncChan("c-s")    // ----//---- c -> s
 
 	tM := tsync.NewEventChecker(t, dispatch, cM)
 	tS := tsync.NewEventChecker(t, dispatch, cS)
@@ -499,12 +499,14 @@ func TestMasterStorage(t *testing.T) {
 	tSM := tsync.NewEventChecker(t, dispatch, cSM)
 	tMC := tsync.NewEventChecker(t, dispatch, cMC)
 	tCM := tsync.NewEventChecker(t, dispatch, cCM)
-	// XXX C-S
+	tCS := tsync.NewEventChecker(t, dispatch, cCS)
+
 
 	rt.BranchNode("m", cM)
 	rt.BranchNode("s", cS)
 	rt.BranchLink("s-m", cSM, cMS)
 	rt.BranchLink("c-m", cCM, cMC)
+	rt.BranchLink("c-s", cCS, rt.defaultq /* S never pushes to C */)
 	rt.BranchState("s", cMS) // state on S is controlled by M
 	rt.BranchState("c", cMC) // state on C is controlled by M
 
@@ -715,6 +717,8 @@ func TestMasterStorage(t *testing.T) {
 	tMC.Expect(node("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
 
 
+	// ----------------------------------------
+
 	// C asks M about last tid	XXX better master sends it itself on new client connected
 	wg = &errgroup.Group{}
 	gox(wg, func() {
@@ -731,15 +735,9 @@ func TestMasterStorage(t *testing.T) {
 		Tid: lastTid,
 	}))
 
-	xwait(wg)
 
-	_ = Mcancel
-	_ = Scancel
-	_ = Ccancel
-	return
-}
+	// ----------------------------------------
 
-/*
 	// C starts loading first object ...
 	wg = &errgroup.Group{}
 	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
@@ -755,40 +753,52 @@ func TestMasterStorage(t *testing.T) {
 		}
 	})
 
+	// trace
+
 	// ... -> connects to S
-	tc.Expect(netconnect("c:2", "s:3",  "s:1"))
-	tc.Expect(conntx("c:2", "s:3", 1, &neo.RequestIdentification{
-		NodeType:	neo.CLIENT,
-		UUID:		neo.UUID(neo.CLIENT, 1),
+	tCS.Expect(netconnect("c:2", "s:3",  "s:1"))
+	tCS.Expect(conntx("c:2", "s:3", 1, &proto.RequestIdentification{
+		NodeType:	proto.CLIENT,
+		UUID:		proto.UUID(proto.CLIENT, 1),
 		Address:	xnaddr(""),
 		ClusterName:	"abc1",
 		IdTime:		0.02,
 	}))
 
-	tc.Expect(conntx("s:3", "c:2", 1, &neo.AcceptIdentification{
-		NodeType:	neo.STORAGE,
-		MyUUID:		neo.UUID(neo.STORAGE, 1),
+	tCS.Expect(conntx("s:3", "c:2", 1, &proto.AcceptIdentification{
+		NodeType:	proto.STORAGE,
+		MyUUID:		proto.UUID(proto.STORAGE, 1),
 		NumPartitions:	1,
 		NumReplicas:	1,
-		YourUUID:	neo.UUID(neo.CLIENT, 1),
+		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 
 	// ... -> GetObject(xid1)
-	tc.Expect(conntx("c:2", "s:3", 3, &neo.GetObject{
+	tCS.Expect(conntx("c:2", "s:3", 3, &proto.GetObject{
 		Oid:	xid1.Oid,
-		Tid:	common.At2Before(xid1.At),
-		Serial: neo.INVALID_TID,
+		Tid:	at2Before(xid1.At),
+		Serial: proto.INVALID_TID,
 	}))
-	tc.Expect(conntx("s:3", "c:2", 3, &neo.AnswerObject{
+	tCS.Expect(conntx("s:3", "c:2", 3, &proto.AnswerObject{
 		Oid:		xid1.Oid,
 		Serial:		serial1,
-		NextSerial:	neo.INVALID_TID,
+		NextSerial:	proto.INVALID_TID,
 		Compression:	false,
 		Data:		buf1,
 		DataSerial:	0,		// XXX
 		Checksum:	sha1.Sum(buf1.Data),
 	}))
 
+
+	xwait(wg)
+
+	_ = Mcancel
+	_ = Scancel
+	_ = Ccancel
+	return
+}
+
+/*
 	xwait(wg)
 
 	// verify NextSerial is properly returned in AnswerObject via trace-loading prev. revision of obj1
