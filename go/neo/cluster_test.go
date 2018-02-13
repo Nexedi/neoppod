@@ -26,9 +26,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	//"io"
+	"io"
 	"net"
-	//"reflect"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -50,7 +50,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet/pipenet"
 
 	"fmt"
-	//"time"
+	"time"
 )
 
 // ---- events used in tests ----
@@ -831,13 +831,6 @@ func TestMasterStorage(t *testing.T) {
 
 	xwait(wg)
 
-	_ = Mcancel
-	_ = Scancel
-	_ = Ccancel
-	return
-}
-
-/*
 
 	// C loads every other {<,=}serial:oid - established link is reused
 	ziter := zstor.Iterate(bg, 0, zodb.TidMax)
@@ -845,7 +838,7 @@ func TestMasterStorage(t *testing.T) {
 	// XXX hack: disable tracing early so that C.Load() calls do not deadlock
 	// TODO refactor cluster creation into func
 	// TODO move client all loading tests into separate test where tracing will be off
-	pg.Done()
+	tracer.Detach()
 
 	for {
 		_, dataIter, err := ziter.NextTxn(bg)
@@ -912,9 +905,9 @@ func TestMasterStorage(t *testing.T) {
 
 	Mcancel()	// FIXME ctx cancel not fully handled
 	Scancel()	// ---- // ----
+	Ccancel()	// ---- // ----
 	xwait(gwg)
 }
-*/
 
 
 /*
