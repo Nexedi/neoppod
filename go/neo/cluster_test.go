@@ -468,16 +468,20 @@ func TestMasterStorage(t *testing.T) {
 
 	rt.BranchNode("m", cM)
 	rt.BranchNode("s", cS)
+	//rt.BranchNode("c", cC)	XXX - no
 	rt.BranchLink("s-m", cSM, cMS)
+	rt.BranchLink("c-m", cCM, cMC)
 
 	// cluster nodes
 	M := NewMaster("abc1", ":1", Mhost)
 	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
 	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
+	C := newClient("abc1", "m:1", Chost)
 
 	// let tracer know how to map state addresses to node names
 	tracer.RegisterNode(M.node, "m")	// XXX better Mhost.Name() ?
 	tracer.RegisterNode(S.node, "s")
+	tracer.RegisterNode(C.node, "c")
 
 
 
@@ -617,12 +621,15 @@ func TestMasterStorage(t *testing.T) {
 
 	// ----------------------------------------
 
-	// XXX try creating client from the beginning
-	return	// XXX temp
+	// XXX try starting client from the beginning
 
-	// create client
-	C := NewClient("abc1", "m:1", Chost)
-	tracer.RegisterNode(C.node, "c")
+	// start client
+	Cctx, Ccancel := context.WithCancel(bg)
+	gox(gwg, func() {
+		err := C.run(Cctx)
+		fmt.Println("C err: ", err)
+		exc.Raiseif(err)
+	})
 
 	// trace
 
@@ -692,6 +699,7 @@ func TestMasterStorage(t *testing.T) {
 
 	_ = Mcancel
 	_ = Scancel
+	_ = Ccancel
 	return
 }
 

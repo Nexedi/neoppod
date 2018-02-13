@@ -75,22 +75,28 @@ var _ zodb.IStorageDriver = (*Client)(nil)
 //
 // It will connect to master @masterAddr and identify with specified cluster name.
 func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
-	cli := &Client{
+	cli := newClient(clusterName, masterAddr, net)
+	go cli.run(context.Background())	// XXX bg hardcoded
+	return cli
+}
+
+func newClient(clusterName, masterAddr string, net xnet.Networker) *Client {
+	return &Client{
 		node:        NewNodeApp(net, proto.CLIENT, clusterName, masterAddr, ""),
 		mlinkReady:  make(chan struct{}),
 		operational: false,
 		opReady:     make(chan struct{}),
 	}
-
-	// spawn background process which performs master talk
-	ctx, cancel := context.WithCancel(context.Background())	// XXX bg hardcoded
-	cli.talkMasterCancel = cancel
-	cli.node.OnShutdown = cancel // XXX ok?
-	go cli.talkMaster(ctx)
-
-	return cli
 }
 
+// XXX make run public?
+func (cli *Client) run(ctx context.Context) error {
+	// run process which performs master talk
+	ctx, cancel := context.WithCancel(ctx)
+	cli.talkMasterCancel = cancel
+	cli.node.OnShutdown = cancel // XXX ok?
+	return cli.talkMaster(ctx)
+}
 
 func (c *Client) Close() error {
 	c.talkMasterCancel()
