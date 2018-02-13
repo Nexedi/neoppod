@@ -76,11 +76,6 @@ func xwait(w interface { Wait() error }) {
 	exc.Raiseif(err)
 }
 
-func xhandshake(ctx context.Context, c net.Conn, version uint32) {
-	err := handshake(ctx, c, version)
-	exc.Raiseif(err)
-}
-
 func gox(wg interface { Go(func() error) }, xf func()) {
 	wg.Go(exc.Funcx(xf))
 }
@@ -162,10 +157,10 @@ func tdelay() {
 }
 
 // create NodeLinks connected via net.Pipe
-func _nodeLinkPipe(flags1, flags2 LinkRole) (nl1, nl2 *NodeLink) {
+func _nodeLinkPipe(flags1, flags2 _LinkRole) (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
-	nl1 = newNodeLink(node1, LinkClient | flags1)
-	nl2 = newNodeLink(node2, LinkServer | flags2)
+	nl1 = newNodeLink(node1, _LinkClient | flags1)
+	nl2 = newNodeLink(node2, _LinkServer | flags2)
 	return nl1, nl2
 }
 
@@ -665,84 +660,6 @@ func TestNodeLink(t *testing.T) {
 }
 
 
-func TestHandshake(t *testing.T) {
-	bg := context.Background()
-	// handshake ok
-	p1, p2 := net.Pipe()
-	wg := &errgroup.Group{}
-	gox(wg, func() {
-		xhandshake(bg, p1, 1)
-	})
-	gox(wg, func() {
-		xhandshake(bg, p2, 1)
-	})
-	xwait(wg)
-	xclose(p1)
-	xclose(p2)
-
-	// version mismatch
-	p1, p2 = net.Pipe()
-	var err1, err2 error
-	wg = &errgroup.Group{}
-	gox(wg, func() {
-		err1 = handshake(bg, p1, 1)
-	})
-	gox(wg, func() {
-		err2 = handshake(bg, p2, 2)
-	})
-	xwait(wg)
-	xclose(p1)
-	xclose(p2)
-
-	err1Want := "pipe - pipe: handshake: protocol version mismatch: peer = 00000002  ; our side = 00000001"
-	err2Want := "pipe - pipe: handshake: protocol version mismatch: peer = 00000001  ; our side = 00000002"
-
-	if !(err1 != nil && err1.Error() == err1Want) {
-		t.Errorf("handshake ver mismatch: p1: unexpected error:\nhave: %v\nwant: %v", err1, err1Want)
-	}
-	if !(err2 != nil && err2.Error() == err2Want) {
-		t.Errorf("handshake ver mismatch: p2: unexpected error:\nhave: %v\nwant: %v", err2, err2Want)
-	}
-
-	// tx & rx problem
-	p1, p2 = net.Pipe()
-	err1, err2 = nil, nil
-	wg = &errgroup.Group{}
-	gox(wg, func() {
-		err1 = handshake(bg, p1, 1)
-	})
-	gox(wg, func() {
-		xclose(p2)
-	})
-	xwait(wg)
-	xclose(p1)
-
-	err11, ok := err1.(*HandshakeError)
-
-	if !ok || !(err11.Err == io.ErrClosedPipe /* on Write */ || err11.Err == io.ErrUnexpectedEOF /* on Read */) {
-		t.Errorf("handshake peer close: unexpected error: %#v", err1)
-	}
-
-	// ctx cancel
-	p1, p2 = net.Pipe()
-	ctx, cancel := context.WithCancel(bg)
-	gox(wg, func() {
-		err1 = handshake(ctx, p1, 1)
-	})
-	tdelay()
-	cancel()
-	xwait(wg)
-	xclose(p1)
-	xclose(p2)
-
-	err11, ok = err1.(*HandshakeError)
-
-	if !ok || !(err11.Err == context.Canceled) {
-		t.Errorf("handshake cancel: unexpected error: %#v", err1)
-	}
-
-}
-
 // ---- recv1 mode ----
 
 func xSend(c *Conn, msg proto.Msg) {
@@ -1211,12 +1128,12 @@ func xlinkPipe(c1, c2 net.Conn) (*NodeLink, *NodeLink) {
 
 	wg := &errgroup.Group{}
 	gox(wg, func() {
-		l, err := Handshake(context.Background(), c1, LinkClient)
+		l, err := _Handshake(context.Background(), c1, _LinkClient)
 		exc.Raiseif(err)
 		l1 = l
 	})
 	gox(wg, func() {
-		l, err := Handshake(context.Background(), c2, LinkServer)
+		l, err := _Handshake(context.Background(), c2, _LinkServer)
 		exc.Raiseif(err)
 		l2 = l
 	})
