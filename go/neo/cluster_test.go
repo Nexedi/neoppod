@@ -247,7 +247,7 @@ func (r *EventRouter) Route(event interface{}) (dst *tsync.SyncChan) {
 	return dst
 }
 
-// XXX doc
+// BranchNode branches events corresponsing to state on host.
 func (r *EventRouter) BranchNode(host string, dst *tsync.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -467,10 +467,11 @@ func TestMasterStorage(t *testing.T) {
 	// XXX C-S
 
 	rt.BranchNode("m", cM)
-	rt.BranchNode("s", cS)
-	//rt.BranchNode("c", cC)	XXX - no
 	rt.BranchLink("s-m", cSM, cMS)
 	rt.BranchLink("c-m", cCM, cMC)
+	//rt.BranchNode("s", cMS)	// state on S is controlled by M
+	rt.BranchNode("s", cS)	// XXX <- no
+	rt.BranchNode("c", cMC) // state on C is controlled by M
 
 	// cluster nodes
 	M := NewMaster("abc1", ":1", Mhost)
