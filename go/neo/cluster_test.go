@@ -735,6 +735,8 @@ func TestMasterStorage(t *testing.T) {
 		Tid: lastTid,
 	}))
 
+	xwait(wg)
+
 
 	// ----------------------------------------
 
@@ -792,14 +794,8 @@ func TestMasterStorage(t *testing.T) {
 
 	xwait(wg)
 
-	_ = Mcancel
-	_ = Scancel
-	_ = Ccancel
-	return
-}
 
-/*
-	xwait(wg)
+	// ----------------------------------------
 
 	// verify NextSerial is properly returned in AnswerObject via trace-loading prev. revision of obj1
 	// (XXX we currently need NextSerial for neo/py client cache)
@@ -818,12 +814,12 @@ func TestMasterStorage(t *testing.T) {
 	})
 
 	// ... -> GetObject(xid1prev)
-	tc.Expect(conntx("c:2", "s:3", 5, &neo.GetObject{
+	tCS.Expect(conntx("c:2", "s:3", 5, &proto.GetObject{
 		Oid:	xid1prev.Oid,
 		Tid:	serial1,
-		Serial: neo.INVALID_TID,
+		Serial: proto.INVALID_TID,
 	}))
-	tc.Expect(conntx("s:3", "c:2", 5, &neo.AnswerObject{
+	tCS.Expect(conntx("s:3", "c:2", 5, &proto.AnswerObject{
 		Oid:		xid1prev.Oid,
 		Serial:		serial1prev,
 		NextSerial:	serial1,
@@ -835,6 +831,13 @@ func TestMasterStorage(t *testing.T) {
 
 	xwait(wg)
 
+	_ = Mcancel
+	_ = Scancel
+	_ = Ccancel
+	return
+}
+
+/*
 
 	// C loads every other {<,=}serial:oid - established link is reused
 	ziter := zstor.Iterate(bg, 0, zodb.TidMax)
