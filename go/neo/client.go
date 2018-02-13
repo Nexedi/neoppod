@@ -36,7 +36,6 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
@@ -436,7 +435,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 	// on the wire it comes as "before", not "at"
 	req := proto.GetObject{
 		Oid:    xid.Oid,
-		Tid:    common.At2Before(xid.At),
+		Tid:    at2Before(xid.At),
 		Serial: proto.INVALID_TID,
 	}
 

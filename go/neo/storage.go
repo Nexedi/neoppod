@@ -30,7 +30,6 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	"lab.nexedi.com/kirr/neo/go/neo/internal/common"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -536,7 +535,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		if req.Serial != proto.INVALID_TID {
 			xid.At = req.Serial
 		} else {
-			xid.At = common.Before2At(req.Tid)
+			xid.At = before2At(req.Tid)
 		}
 
 		// FIXME kill nextSerial support after neo/py cache does not depend on next_serial

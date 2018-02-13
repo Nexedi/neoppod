@@ -28,6 +28,7 @@ import (
 	"io"
 	"os"
 
+	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 )
 
@@ -84,4 +85,34 @@ func sha1Sum(b []byte) [sha1.Size]byte {
 	}
 
 	return [sha1.Size]byte{} // all 0
+}
+
+
+// at2Before converts at to before for ZODB load semantics taking edge cases into account.
+//
+// For most values it is
+//
+//	before = at + 1		; at < ∞
+//
+// but at ∞ (zodb.TidMax) it is just
+//
+//	before = at		; at = ∞
+func at2Before(at zodb.Tid) (before zodb.Tid) {
+	if at < zodb.TidMax {
+		return at + 1
+	} else {
+		// XXX do we need to care here also for at > zodb.TidMax (zodb.Tid is currently unsigned)
+		return zodb.TidMax
+	}
+}
+
+// before2At is the reverse function to at2Before
+func before2At(before zodb.Tid) (at zodb.Tid) {
+	if before < zodb.TidMax {
+		// XXX before = 0 ?
+		return before - 1
+	} else {
+		// XXX before > zodb.TidMax (same as in at2Before) ?
+		return zodb.TidMax
+	}
 }
