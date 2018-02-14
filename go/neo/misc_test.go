@@ -23,7 +23,8 @@ import (
 	"context"
 	"math"
 
-	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	zfs1 "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	bfs1 "lab.nexedi.com/kirr/neo/go/neo/storage/fs1"
 	"lab.nexedi.com/kirr/go123/exc"
 )
 
@@ -37,10 +38,16 @@ func gox(wg interface { Go(func() error) }, xf func()) {
 	wg.Go(exc.Funcx(xf))
 }
 
-func xfs1stor(path string) *fs1.FileStorage {
-	zstor, err := fs1.Open(bg, path)
+func xfs1stor(path string) *zfs1.FileStorage {
+	stor, err := zfs1.Open(bg, path)
 	exc.Raiseif(err)
-	return zstor
+	return stor
+}
+
+func xfs1back(path string) *bfs1.FS1Backend {
+	back, err := bfs1.Open(bg, path)
+	exc.Raiseif(err)
+	return back
 }
 
 var bg = context.Background()

@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2018  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -31,17 +31,36 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
+	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 )
 
+// StorageBackend is the interface for actual storage service that is used by Storage node.
+type StorageBackend interface {
+	// LastTid should return the id of the last committed transaction.
+	//
+	// XXX same as in zodb.IStorageDriver
+	// XXX +viewAt ?
+	LastTid(ctx context.Context) (zodb.Tid, error)
+
+	// LastOid should return the max object id stored.
+	LastOid(ctx context.Context) (zodb.Oid, error)
+
+	// Load, similarly to zodb.IStorageDriver.Load should load object data addressed by xid.
+	// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
+	// XXX +viewAt ?
+	Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error)
+}
+
 // Storage is NEO node that keeps data and provides read/write access to it via network.
+//
+// Storage implements only NEO protocol logic with data being persisted via provided StorageBackend.
 type Storage struct {
 	node *NodeApp
 
@@ -51,33 +70,19 @@ type Storage struct {
 	opMu  sync.Mutex
 	opCtx context.Context
 
-	// TODO storage layout:
-	//	meta/
-	//	data/
-	//	    1 inbox/	(commit queues)
-	//	    2 ? (data.fs)
-	//	    3 packed/	(deltified objects)
-	//
-	// XXX we currently depend on extra functionality FS provides over
-	// plain zodb.IStorage (e.g. loading with nextSerial) and even if
-	// nextSerial will be gone in the future, we will probably depend on
-	// particular layout more and more -> directly work with fs1 & friends.
-	//
-	// TODO -> abstract into backend interfaces so various backands are
-	// possible (e.g. +SQL)
-	zstor *fs1.FileStorage // underlying ZODB storage
+	back StorageBackend
 
 	//nodeCome chan nodeCome	// node connected
 }
 
 // NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr.
 //
-// The storage uses zstor as underlying backend for storing data.
+// The storage uses back as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, zstor *fs1.FileStorage) *Storage {
+func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, back StorageBackend) *Storage {
 	stor := &Storage{
-		node:  NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
-		zstor: zstor,
+		node: NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
+		back: back,
 	}
 
 	// operational context is initially done (no service should be provided)
@@ -295,8 +300,8 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neonet.Request) erro
 	// TODO AskUnfinishedTransactions
 
 	case *proto.LastIDs:
-		lastTid, zerr1 := stor.zstor.LastTid(ctx)
-		lastOid, zerr2 := stor.zstor.LastOid(ctx)
+		lastTid, zerr1 := stor.back.LastTid(ctx)
+		lastOid, zerr2 := stor.back.LastOid(ctx)
 		if zerr := xerr.First(zerr1, zerr2); zerr != nil {
 			return zerr	// XXX send the error to M
 		}
@@ -539,7 +544,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		}
 
 		// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
-		buf, serial, nextSerial, err := stor.zstor.Load_XXXWithNextSerialXXX(ctx, xid)
+		buf, serial, nextSerial, err := stor.back.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
 			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
@@ -576,7 +581,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		}
 
 	case *proto.LastTransaction:
-		lastTid, err := stor.zstor.LastTid(ctx)
+		lastTid, err := stor.back.LastTid(ctx)
 		if err != nil {
 			return proto.ErrEncode(err)
 		}

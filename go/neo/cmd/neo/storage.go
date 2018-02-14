@@ -32,7 +32,7 @@ import (
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/neo"
-	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	"lab.nexedi.com/kirr/neo/go/neo/storage/fs1"
 )
 
 const storageSummary = "run storage node"
@@ -86,14 +86,14 @@ func storageMain(argv []string) {
 
 
 	// XXX hack to use existing zodb storage for data
-	zstor, err := fs1.Open(context.Background(), argv[0])
+	zback, err := fs1.Open(context.Background(), argv[0])
 	if err != nil {
 		prog.Fatal(err)
 	}
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
-	storSrv := neo.NewStorage(*cluster, master, *bind, net, zstor)
+	storSrv := neo.NewStorage(*cluster, master, *bind, net, zback)
 
 	ctx := context.Background()
 	/*

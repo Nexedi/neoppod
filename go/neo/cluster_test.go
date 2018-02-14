@@ -508,7 +508,8 @@ func TestMasterStorage(t *testing.T) {
 	// cluster nodes
 	M := NewMaster("abc1", ":1", Mhost)
 	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
-	S := NewStorage("abc1", "m:1", ":1", Shost, zstor)
+	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
+	S := NewStorage("abc1", "m:1", ":1", Shost, zback)
 	C := newClient("abc1", "m:1", Chost)
 
 	// let tracer know how to map state addresses to node names
@@ -919,7 +920,7 @@ func (d tdispatch1) Dispatch(event interface{}) {
 
 func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit func(xcload1 func())) {
 	// create test cluster	<- XXX factor to utility func
-	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
+	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg, ctx := errgroup.WithContext(ctx)
@@ -957,7 +958,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	ev.Ack()
 
 	// now after we know Maddr create S & C and start S serving
-	S := NewStorage("abc1", Maddr, "", Snet, zstor)
+	S := NewStorage("abc1", Maddr, "", Snet, zback)
 	C := NewClient("abc1", Maddr, Cnet)
 
 	wg.Go(func() error {
@@ -975,7 +976,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 
 	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
 
-	buf1, serial1, err := zstor.Load(ctx, xid1)
+	buf1, serial1, _, err := zback.Load(ctx, xid1)
 	if err != nil {
 		b.Fatal(err)
 	}
