@@ -30,37 +30,20 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
+	"lab.nexedi.com/kirr/neo/go/neo/storage"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
-	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 )
 
-// StorageBackend is the interface for actual storage service that is used by Storage node.
-type StorageBackend interface {
-	// LastTid should return the id of the last committed transaction.
-	//
-	// XXX same as in zodb.IStorageDriver
-	// XXX +viewAt ?
-	LastTid(ctx context.Context) (zodb.Tid, error)
-
-	// LastOid should return the max object id stored.
-	LastOid(ctx context.Context) (zodb.Oid, error)
-
-	// Load, similarly to zodb.IStorageDriver.Load should load object data addressed by xid.
-	// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
-	// XXX +viewAt ?
-	Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error)
-}
-
 // Storage is NEO node that keeps data and provides read/write access to it via network.
 //
-// Storage implements only NEO protocol logic with data being persisted via provided StorageBackend.
+// Storage implements only NEO protocol logic with data being persisted via provided storage.Backend.
 type Storage struct {
 	node *NodeApp
 
@@ -70,7 +53,7 @@ type Storage struct {
 	opMu  sync.Mutex
 	opCtx context.Context
 
-	back StorageBackend
+	back storage.Backend
 
 	//nodeCome chan nodeCome	// node connected
 }
@@ -79,7 +62,7 @@ type Storage struct {
 //
 // The storage uses back as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, back StorageBackend) *Storage {
+func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, back storage.Backend) *Storage {
 	stor := &Storage{
 		node: NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
 		back: back,

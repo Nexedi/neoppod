@@ -32,19 +32,32 @@ import (
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/neo/go/neo"
-	"lab.nexedi.com/kirr/neo/go/neo/storage/fs1"
+	"lab.nexedi.com/kirr/neo/go/neo/storage"
+
+	_ "lab.nexedi.com/kirr/neo/go/neo/storage/fs1"
+	_ "lab.nexedi.com/kirr/neo/go/neo/storage/sql"
 )
 
 const storageSummary = "run storage node"
 
 func storageUsage(w io.Writer) {
 	fmt.Fprintf(w,
-`Usage: neo storage [options] <data.fs>
+`Usage: neo storage [options] <data>
 Run NEO storage node.
 
-<data.fs> is a path to FileStorage v1 file.
+<data> is backend URL for data persistence.
 
+Available backends are:
+
+`)
+	for _, back := range storage.AvailableBackends() {
+		fmt.Fprintf(w, "- %s://\n", back)
+	}
+
+	fmt.Fprintf(w,
+`
 XXX currently storage is read-only.
+
 `)
 }
 
@@ -85,15 +98,14 @@ func storageMain(argv []string) {
 	runtime.GOMAXPROCS(maxprocs*8)		// XXX *8 is enough?
 
 
-	// XXX hack to use existing zodb storage for data
-	zback, err := fs1.Open(context.Background(), argv[0])
+	back, err := storage.OpenBackend(context.Background(), argv[0])
 	if err != nil {
 		prog.Fatal(err)
 	}
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
-	storSrv := neo.NewStorage(*cluster, master, *bind, net, zback)
+	storSrv := neo.NewStorage(*cluster, master, *bind, net, back)
 
 	ctx := context.Background()
 	/*

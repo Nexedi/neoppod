@@ -21,7 +21,7 @@
 //
 // Package neo itself provides protocol definition and common infrastructure.
 // See packages neo.client and neo.server for client and server sides respectively.
-// XXX text
+// FIXME text
 package neo
 
 //go:generate gotrace gen .

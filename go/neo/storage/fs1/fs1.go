@@ -22,10 +22,11 @@ package fs1
 
 import (
 	"context"
+	"net/url"
 
 	"lab.nexedi.com/kirr/go123/mem"
 
-	//"lab.nexedi.com/kirr/neo/go/neo"
+	"lab.nexedi.com/kirr/neo/go/neo/storage"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 )
@@ -48,9 +49,7 @@ type FS1Backend struct {
 	zstor *fs1.FileStorage // underlying ZODB storage
 }
 
-// XXX disabled not to create import cycle with neo(test)
-// XXX -> backend registry?
-//var _ neo.StorageBackend = (*FS1Backend)(nil)
+var _ storage.Backend = (*FS1Backend)(nil)
 
 func Open(ctx context.Context, path string) (*FS1Backend, error) {
 	zstor, err := fs1.Open(ctx, path)
@@ -72,4 +71,18 @@ func (f *FS1Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 func (f *FS1Backend) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, zodb.Tid, error) {
 	// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
 	return f.zstor.Load_XXXWithNextSerialXXX(ctx, xid)
+}
+
+
+// ---- open by URL ----
+
+func openURL(ctx context.Context, u *url.URL) (storage.Backend, error) {
+	// TODO handle query
+	// XXX u.Path is not always raw path - recheck and fix
+	path := u.Host + u.Path
+	return Open(ctx, path)
+}
+
+func init() {
+	storage.RegisterBackend("fs1", openURL)
 }
