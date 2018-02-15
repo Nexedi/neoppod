@@ -178,13 +178,23 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, 
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// XXX see if object exists at all
-			err = &zodb.NoDataError{
-				Oid:	   xid.Oid,
-				DeletedAt: 0,		// XXX hardcoded
-			}
+			// nothing found - check whether object exists at all
+			var __ zodb.Oid
+			err := b.query1(ctx,
+				"SELECT oid FROM obj WHERE partition=? AND oid=? LIMIT 1",
+				pid, xid.Oid) .Scan(&__)
 
-			err = &zodb.NoObjectError{Oid: xid.Oid}
+			switch {
+			case err == nil:
+				err = &zodb.NoDataError{
+					Oid:	   xid.Oid,
+					DeletedAt: 0,		// XXX hardcoded
+				}
+
+			case err == sql.ErrNoRows:
+				err = &zodb.NoObjectError{Oid: xid.Oid}
+
+			}
 		}
 
 		return nil, err
