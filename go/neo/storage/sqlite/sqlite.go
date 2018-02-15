@@ -158,7 +158,6 @@ func (b *Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
 			return 0, nil
 		}
 
-		// XXX ok to reuse zodb.OpError here? or better it should be storage.OpError ?
 		return 0, &zodb.OpError{URL: b.url, Op: "last_tid", Err: err}
 	}
 
@@ -166,7 +165,25 @@ func (b *Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
 }
 
 func (b *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
-	panic("TODO")
+	var lastOid zodb.Oid
+
+	// FIXME nodeID <- my node UUID
+	myID := proto.UUID(proto.STORAGE, 1)
+
+	err := b.query1(ctx,
+		"SELECT MAX(oid) FROM pt, obj WHERE nid=? AND rid=partition",
+		myID).Scan(lastOid)
+
+	if err != nil {
+		// no objects
+		if err == sql.ErrNoRows {
+			return proto.INVALID_OID, nil
+		}
+
+		return 0, &zodb.OpError{URL: b.url, Op: "last_oid", Err: err}
+	}
+
+	return lastOid, nil
 }
 
 func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject, err error) {
@@ -303,7 +320,7 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 	}
 
 
-	// config("version") vs version
+	// config("version")
 	// config("nid")
 	// config("partitions")
 	// config("replicas")

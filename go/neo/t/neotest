@@ -307,9 +307,16 @@ Zpy() {
 # ---- start NEO clusters ----
 
 # spawn NEO/go cluster (Sgo+Mpy+Apy) working on data.fs
-NEOgo() {
+NEOgofs1() {
 	Mpy --autostart=1
-	Sgo $fs1/data.fs
+	Sgo fs1://$fs1/data.fs
+	Apy
+}
+
+# spawn NEO/go cluster (Sgo+Mpy+Apy) working on sqlite db
+NEOgolite() {
+	Mpy --autostart=1
+	Sgo sqlite://$neolite
 	Apy
 }
 
@@ -1119,15 +1126,27 @@ zbench_local() {
 	xmysql -e "SHUTDOWN"
 	wait
 
-	echo -e "\n*** NEO/go"
-	NEOgo
-	zbench neo://$neocluster@$Mbind `hostname`/neo/go $zhashok
+	echo -e "\n*** NEO/go fs1"
+	NEOgofs1
+	zbench neo://$neocluster@$Mbind `hostname`/neo/go/fs1 $zhashok
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/go (sha1 disabled)"
-	X_NEOGO_SHA1_SKIP=y NEOgo
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`hostname`/neo/go(!sha1)" $zhashok
+	echo -e "\n*** NEO/go fs1 (sha1 disabled)"
+	X_NEOGO_SHA1_SKIP=y NEOgofs1
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`hostname`/neo/go/fs1(!sha1)" $zhashok
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/go sqlite"
+	NEOgolite
+	zbench neo://$neocluster@$Mbind `hostname`/neo/go/sqlite $zhashok
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/go sqlite (sha1 disabled)"
+	X_NEOGO_SHA1_SKIP=y NEOgolite
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`hostname`/neo/go/sqlite(!sha1)" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
@@ -1215,15 +1234,27 @@ zbench_cluster() {
 	xmysql -e "SHUTDOWN"
 	wait
 
-	echo -e "\n*** NEO/go"
-	NEOgo
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go" $zhashok
+	echo -e "\n*** NEO/go fs"
+	NEOgofs1
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go/fs1" $zhashok
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/go (sha1 disabled)"
-	X_NEOGO_SHA1_SKIP=y NEOgo
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go(!sha1)\\\"" $zhashok
+	echo -e "\n*** NEO/go fs1 (sha1 disabled)"
+	X_NEOGO_SHA1_SKIP=y NEOgofs1
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go/fs1(!sha1)\\\"" $zhashok
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/go sqlite"
+	NEOgolite
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go/sqlite" $zhashok
+	xneoctl set cluster stopping
+	wait
+
+	echo -e "\n*** NEO/go sqlite (sha1 disabled)"
+	X_NEOGO_SHA1_SKIP=y NEOgolite
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go/sqlite(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 }

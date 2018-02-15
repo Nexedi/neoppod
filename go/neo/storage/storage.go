@@ -32,6 +32,8 @@ import (
 )
 
 // Backend is the interface for actual storage service that is used by neo.Storage node.
+//
+// XXX ok to reuse zodb.OpError for errors? or better it should be storage.OpError?
 type Backend interface {
 	// LastTid should return the id of the last committed transaction.
 	//
