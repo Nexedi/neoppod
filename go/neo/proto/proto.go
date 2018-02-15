@@ -239,6 +239,8 @@ const (
 // order bit is really important and the 31 other bits could be random.
 // Extra namespace information and non-randomness of 3 LOB help to read logs.
 //
+// 0 is invalid NodeUUID	XXX correct?
+//
 // TODO -> back to 16-bytes randomly generated UUID
 type NodeUUID int32
 

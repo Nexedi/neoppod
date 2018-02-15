@@ -67,6 +67,7 @@ func Serve(ctx context.Context, l *neo.Listener, srv Server) error {
 }
 */
 
+/*
 // FIXME kill vvv
 // ----------------------------------------
 
@@ -81,7 +82,7 @@ func IdentifyPeer(ctx context.Context, link *neonet.NodeLink, myNodeType proto.N
 	defer xerr.Contextf(&err, "%s: identify", link)
 
 	// the first conn must come with RequestIdentification packet
-	conn, err := link.Accept(/*ctx*/)
+	conn, err := link.Accept() //+ctx
 	if err != nil {
 		return nodeInfo, err
 	}
@@ -117,6 +118,7 @@ func IdentifyPeer(ctx context.Context, link *neonet.NodeLink, myNodeType proto.N
 
 	return req, nil
 }
+*/
 
 
 // ----------------------------------------

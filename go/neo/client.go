@@ -18,6 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package neo
+// client node
 
 // XXX old: Package client provides ZODB storage interface for accessing NEO cluster.
 
@@ -43,20 +44,20 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
-// Client talks to NEO cluster and exposes access to it via ZODB interfaces.
+// Client is NEO node that talks to NEO cluster and exposes access to it via ZODB interfaces.
 type Client struct {
 	node *NodeApp
 
 	talkMasterCancel func()
 
 	// link to master - established and maintained by talkMaster.
-	// users retrieve it via masterLink.
+	// users retrieve it via masterLink().
 	mlinkMu    sync.Mutex
 	mlink      *neonet.NodeLink
 	mlinkReady chan struct{} // reinitialized at each new talk cycle
 
 	// operational state in node is maintained by recvMaster.
-	// users retrieve it via withOperational.
+	// users retrieve it via withOperational().
 	//
 	// NOTE being operational means:
 	// - link to master established and is ok
@@ -237,7 +238,7 @@ func (c *Client) talkMaster1(ctx context.Context) (err error) {
 		return err
 	}
 
-	// XXX vvv dup from Server.talkMaster1 ?
+	// FIXME vvv dup from Storage.talkMaster1
 
 	// XXX -> node.Dial ?
 	if accept.YourUUID != c.node.MyInfo.UUID {

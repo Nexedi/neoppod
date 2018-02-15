@@ -183,7 +183,7 @@ func (stor *Storage) talkMaster(ctx context.Context) (err error) {
 // it returns error describing why such cycle had to finish.
 // XXX distinguish between temporary problems and non-temporary ones?
 func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
-	// XXX dup in Client.talkMaster1 ?
+	// FIXME dup in Client.talkMaster1
 	mlink, accept, err := stor.node.Dial(ctx, proto.MASTER, stor.node.MasterAddr)
 	if err != nil {
 		return err
@@ -316,7 +316,7 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neonet.Request) erro
 // handling transaction commit (with master) and syncing data with other
 // storage nodes (XXX correct?).
 //
-// it always returns with an error describing why serve has to be stopped -
+// it always returns with an error describing why serve had to be stopped -
 // either due to master commanding us to stop, or context cancel or some other
 // error.
 func (stor *Storage) m1serve(ctx context.Context, reqStart *neonet.Request) (err error) {
@@ -420,7 +420,7 @@ func (stor *Storage) withWhileOperational(ctx context.Context) (context.Context,
 }
 
 
-// serveLink serves incoming node-node link connection
+// serveLink serves incoming node-node link connection.
 func (stor *Storage) serveLink(ctx context.Context, req *neonet.Request, idReq *proto.RequestIdentification) (err error) {
 	link := req.Link()
 	defer task.Runningf(&ctx, "serve %s", link)(&err)
@@ -526,7 +526,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 			xid.At = before2At(req.Tid)
 		}
 
-		resp, err := stor.back.Load(ctx, xid)
+		obj, err := stor.back.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
 			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
@@ -536,7 +536,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		// compatibility with py side:
 		// for loadSerial - check we have exact hit - else "nodata"
 		if req.Serial != proto.INVALID_TID {
-		        if resp.Serial != req.Serial {
+		        if obj.Serial != req.Serial {
 				return &proto.Error{
 					Code:    proto.OID_NOT_FOUND,
 					Message: fmt.Sprintf("%s: no data with serial %s", xid.Oid, req.Serial),
@@ -544,7 +544,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		        }
 		}
 
-		return resp
+		return obj
 
 	case *proto.LastTransaction:
 		lastTid, err := stor.back.LastTid(ctx)

@@ -49,7 +49,7 @@ type NodeApp struct {
 	ClusterName	string
 
 	Net		xnet.Networker	// network AP we are sending/receiving on
-	MasterAddr	string		// address of master	XXX -> Address ?
+	MasterAddr	string		// address of current master	XXX put under StateMu ?
 
 	StateMu		sync.RWMutex	// <- XXX just embed?
 	NodeTab		*NodeTable	// information about nodes in the cluster
@@ -69,7 +69,7 @@ func NewNodeApp(net xnet.Networker, typ proto.NodeType, clusterName, masterAddr,
 	}
 
 	app := &NodeApp{
-		MyInfo:		proto.NodeInfo{Type: typ, Addr: addr, IdTime: proto.IdTimeNone},
+		MyInfo:		proto.NodeInfo{Type: typ, Addr: addr, UUID: 0, IdTime: proto.IdTimeNone},
 		ClusterName:	clusterName,
 		Net:		net,
 		MasterAddr:	masterAddr,
@@ -86,8 +86,9 @@ func NewNodeApp(net xnet.Networker, typ proto.NodeType, clusterName, masterAddr,
 // Dial connects to another node in the cluster.
 //
 // It handshakes, requests identification and checks peer type. If successful returned are:
-// - established link
-// - accept identification reply
+//
+//	- established link
+//	- accept identification reply
 //
 // Dial does not update .NodeTab or its node entries in any way.
 // For establishing links to peers present in .NodeTab use Node.Dial.

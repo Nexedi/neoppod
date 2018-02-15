@@ -32,7 +32,7 @@ import (
 //
 // It is
 //
-//	Oid -> []Storage	# XXX actually oid -> []uuid
+//	oid -> []uuid
 //
 // mapping associating object id with list of storage nodes on where data for
 // this oid should be written-to/loaded-from. This mapping is organized as follows:
@@ -52,8 +52,8 @@ import (
 //
 // mapping so that
 //
-// - redundancy level set by R is met
-// - storages associated with adjacent pids are different
+//	- redundancy level set by R is met
+//	- storages associated with adjacent pids are different
 //
 // when such organization is reached the partition table is called operational
 // and non-operational otherwise.	XXX and if storages are ready

@@ -162,13 +162,19 @@ func (b *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 	panic("TODO")
 }
 
-func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, error) {
-	// XXX err ctx zodb.OpError{URL: b.url, Op: "load", Err: ...}
+func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject, err error) {
+	defer func() {
+		if err != nil {
+			err = &zodb.OpError{URL: b.url, Op: "load", Err: err}
+		}
+	}()
+
 	obj := &proto.AnswerObject{Oid: xid.Oid}
 	var data sql.RawBytes
 
-	// XXX pid = getReadablePartition (= oid % Np, raise if pid not readable)
-	err := b.query1(ctx,
+	// XXX pid = getReadablePartition (= oid % Np; error if pid not readable)
+
+	err = b.query1(ctx,
 		"SELECT tid, compression, data.hash, value, value_tid" +
 		" FROM obj LEFT JOIN data ON obj.data_id = data.id" +
 		" WHERE partition=? AND oid=? AND tid<=?" +
