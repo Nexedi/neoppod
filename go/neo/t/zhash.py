@@ -54,7 +54,7 @@ class Adler32Hasher:
         self.h = adler32(data, self.h)
 
     def hexdigest(self):
-        return '%x' % (self.h & 0xffffffff)
+        return '%08x' % (self.h & 0xffffffff)
 
 # crc32 in hashlib interface
 class CRC32Hasher:
@@ -67,7 +67,7 @@ class CRC32Hasher:
         self.h = crc32(data, self.h)
 
     def hexdigest(self):
-        return '%x' % (self.h & 0xffffffff)
+        return '%08x' % (self.h & 0xffffffff)
 
 # {} name -> hasher
 hashRegistry = {
@@ -152,7 +152,7 @@ def main():
 
         h.update(data)
 
-        #print('%s @%s\tsha1: %s' % (oid, u64(serial), h.hexdigest()), file=sys.stderr)
+        #print('%s @%s\t%s: %s' % (oid, u64(serial), h.name, h.hexdigest()), file=sys.stderr)
         #print('\tdata: %s' % (data.encode('hex'),), file=sys.stderr)
 
         nread += len(data)

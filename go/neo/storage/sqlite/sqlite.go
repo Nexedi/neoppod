@@ -344,7 +344,6 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 		return nil, fmt.Errorf("NEO/go POC: not ready to handle: %s", err)
 	}
 
-
 	// config("version")
 	// config("nid")
 	// config("partitions")
@@ -354,6 +353,22 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 	// config("backup_tid")
 	// config("truncate_tid")
 	// config("_pack_tid")
+
+	// check ttrans/tobj to be empty - else there are some unfinished, or
+	// not-yet-moved to trans/tobj transactions.
+	nttrans, ntobj := 0, 0
+	errv = xerr.Errorv{}
+	errv.Appendif( b.query1(ctx, "SELECT COUNT(*) FROM ttrans") .Scan(&nttrans) )
+	errv.Appendif( b.query1(ctx, "SELECT COUNT(*) FROM tobj")   .Scan(&ntobj) )
+
+	err = errv.Err()
+	if err != nil {
+		return nil, fmt.Errorf("NEO/go POC: checking ttrans/tobj: %s", err)
+	}
+
+	if !(nttrans==0 && ntobj==0) {
+		return nil, fmt.Errorf("NEO/go POC: not ready to handle: !empty ttrans/tobj")
+	}
 
 	return b, nil
 }

@@ -185,7 +185,7 @@ loop:
 
 		h.Write(buf.Data)
 
-		//fmt.Fprintf(os.Stderr, "%d @%s\tsha1: %x\n", uint(oid), serial, h.Sum(nil))
+		//fmt.Fprintf(os.Stderr, "%d @%s\t%s: %x\n", uint(oid), serial, h.name, h.Sum(nil))
 		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", buf.Data)
 
 		nread += len(buf.Data)
