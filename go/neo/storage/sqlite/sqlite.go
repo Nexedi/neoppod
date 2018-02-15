@@ -36,9 +36,9 @@ import (
         _ "github.com/mattn/go-sqlite3"
 )
 
-const version = 2
-
 // ---- schema ----
+
+const schemaVersion = 2
 
 // table "config" stores configuration parameters which affect the persistent data.
 //
@@ -79,7 +79,8 @@ const obj = `
 	tid		INTEGER NOT NULL,
 	data_id		INTEGER,		-- -> data.id
 	value_tid	INTEGER,		-- data_tid for zodb
-	
+						-- XXX ^^^ can be NOT NULL with 0 serving instead
+
 	PRIMARY KEY (partition, oid, tid)
 `
 //	`(partition, tid, oid)`
@@ -172,7 +173,7 @@ func (b *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 
 	err := b.query1(ctx,
 		"SELECT MAX(oid) FROM pt, obj WHERE nid=? AND rid=partition",
-		myID).Scan(lastOid)
+		myID).Scan(&lastOid)
 
 	if err != nil {
 		// no objects
@@ -193,11 +194,23 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject
 		}
 	}()
 
-	obj := &proto.AnswerObject{Oid: xid.Oid}
-	var data sql.RawBytes
+	obj := &proto.AnswerObject{Oid: xid.Oid, DataSerial: 0}
+	// TODO reenable, but XXX we have to use Query, not QueryRow for RawBytes support
+	//var data sql.RawBytes
+	var data []byte
+
+	// hash is variable-length BLOB - Scan refuses to put it into [20]byte
+	//var hash sql.RawBytes
+	var hash []byte
+
+	// obj.value_tid can be null
+	var valueTid sql.NullInt64	// XXX ok not to uint64 - max tid is max signed int64
 
 	// FIXME pid = getReadablePartition (= oid % Np; error if pid not readable)
 	pid := 0
+
+	// XXX somehow detect errors in sql misuse and log them as 500 without reporting to client?
+	// XXX such errors start with "unsupported Scan, "
 
 	err = b.query1(ctx,
 		"SELECT tid, compression, data.hash, value, value_tid" +
@@ -205,7 +218,7 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject
 		" WHERE partition=? AND oid=? AND tid<=?" +
 		" ORDER BY tid DESC LIMIT 1",
 		pid, xid.Oid, xid.At).
-		Scan(&obj.Serial, &obj.Compression, &obj.Checksum, &data, &obj.DataSerial)
+		Scan(&obj.Serial, &obj.Compression, &hash, &data, &valueTid)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -230,6 +243,18 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject
 
 		return nil, err
 	}
+
+	// hash -> obj.Checksum
+	if len(hash) != len(obj.Checksum) {
+		return nil, fmt.Errorf("data corrupt: len(hash) = %d", len(hash))
+	}
+	copy(obj.Checksum[:], hash)
+
+	// valueTid -> obj.DataSerial
+	if valueTid.Valid {
+		obj.DataSerial = zodb.Tid(valueTid.Int64)
+	}
+
 
 	// data -> obj.Data
 	obj.Data = mem.BufAlloc(len(data))
@@ -309,7 +334,7 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 		}
 	}
 
-	checkConfig("version",		version)
+	checkConfig("version",		schemaVersion)
 	checkConfig("nid",		proto.UUID(proto.STORAGE, 1))
 	checkConfig("partitions",	1)
 	checkConfig("replicas",		1)
