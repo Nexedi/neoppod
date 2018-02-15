@@ -25,6 +25,7 @@ import (
 
 	"lab.nexedi.com/kirr/go123/mem"
 
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/storage"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
@@ -161,8 +162,10 @@ func (b *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 	panic("TODO")
 }
 
-func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, zodb.Tid, error) {
+func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, error) {
 	// XXX err ctx zodb.OpError{URL: b.url, Op: "load", Err: ...}
+	obj := &proto.AnswerObject{Oid: xid.Oid}
+	var data sql.RawBytes
 
 	// XXX pid = getReadablePartition (= oid % Np, raise if pid not readable)
 	err := b.query1(ctx,
@@ -170,19 +173,26 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, z
 		" FROM obj LEFT JOIN data ON obj.data_id = data.id" +
 		" WHERE partition=? AND oid=? AND tid<=?" +
 		" ORDER BY tid DESC LIMIT 1",
-		pid, xid.Oid, xid.At)
-		.Scan(&serial, &compression, &hash, &data, &data_tid)
+		pid, xid.Oid, xid.At).
+		Scan(&obj.Serial, &obj.Compression, &obj.Checksum, &data, &obj.DataSerial)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// XXX see if object exists at all
-			err = zodb.ErrNoData | zodb.ErrNoObject
+			err = &zodb.NoDataError{
+				Oid:	   xid.Oid,
+				DeletedAt: 0,		// XXX hardcoded
+			}
+
+			err = &zodb.NoObjectError{Oid: xid.Oid}
 		}
 
-		return err
+		return nil, err
 	}
 
-	buf = 
+	// data -> obj.Data
+	obj.Data = mem.BufAlloc(len(data))
+	copy(obj.Data.Data, data)
 
 	// find out nextSerial
 	// XXX kill nextSerial support after neo/py cache does not need it
@@ -190,30 +200,22 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, z
 		"SELECT tid from obj" +
 		" WHERE partition=? AND oid=? AND tid>?" +
 		" ORDER BY tid LIMIT 1",
-		pid, xid.Oid, xid.At)
-		.Scan(&nextSerial)
+		pid, xid.Oid, xid.At).
+		Scan(&obj.NextSerial)
 
 	if err != nil {
-		if err == sql.ErrNoObject {
-			nextSerial = proto.INVALID_TID
+		if err == sql.ErrNoRows {
+			obj.NextSerial = proto.INVALID_TID
 		} else {
-			return err
+			return nil, err
 		}
 	}
 
-	return &proto.AnswerObject{
-		Oid:	    xid.Oid,
-		Serial:     serial,
-		NextSerial: nextSerial,
-
-		Compression:	compression,
-		Checksum:	hash,
-		Data:		buf,
-		DataSerial:	data_tid,
-	}
+	return obj, nil
 }
 
 
+/*
 func (b *Backend) config(key string) (..., error) {
 	// XXX cache
 	var value string
@@ -229,6 +231,7 @@ func (b *Backend) config(key string) (..., error) {
 
 	return value, nil
 }
+*/
 
 // ---- open by URL ----
 

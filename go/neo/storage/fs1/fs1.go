@@ -34,6 +34,7 @@ import (
 type Backend struct {
 	// TODO storage layout:
 	//	meta/
+	//		meta.fs
 	//	data/
 	//	    1 inbox/	(commit queues)
 	//	    2 ? (data.fs)
@@ -43,9 +44,6 @@ type Backend struct {
 	// plain zodb.IStorage (e.g. loading with nextSerial) and even if
 	// nextSerial will be gone in the future, we will probably depend on
 	// particular layout more and more -> directly work with fs1 & friends.
-	//
-	// TODO -> abstract into backend interfaces so various backands are
-	// possible (e.g. +SQL)
 	zstor *fs1.FileStorage // underlying ZODB storage
 }
 
