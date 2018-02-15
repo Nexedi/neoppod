@@ -325,7 +325,7 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 		case nil:
 			value := reflect.ValueOf(pvalue).Elem().Interface()
 			if value != expect {
-				err = fmt.Errorf("got %s; want %s", value, expect)
+				err = fmt.Errorf("got %v; want %v", value, expect)
 			}
 		}
 
@@ -369,6 +369,8 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 	if !(nttrans==0 && ntobj==0) {
 		return nil, fmt.Errorf("NEO/go POC: not ready to handle: !empty ttrans/tobj")
 	}
+
+	// TODO lock db by path so other process cannot start working with it
 
 	return b, nil
 }
