@@ -140,7 +140,6 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	naddr, err := proto.Addr(l.Addr())
 	if err != nil {
 		// must be ok since l.Addr() is valid since it is listening
-		// XXX panic -> errors.Wrap?
 		panic(err)
 	}
 
