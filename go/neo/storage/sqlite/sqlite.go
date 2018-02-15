@@ -224,7 +224,7 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject
 		if err == sql.ErrNoRows {
 			// nothing found - check whether object exists at all
 			var __ zodb.Oid
-			err := b.query1(ctx,
+			err = b.query1(ctx,
 				"SELECT oid FROM obj WHERE partition=? AND oid=? LIMIT 1",
 				pid, xid.Oid) .Scan(&__)
 
