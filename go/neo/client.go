@@ -34,6 +34,7 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xnet"
 
+	"lab.nexedi.com/kirr/neo/go/neo/internal/xsha1"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -453,8 +454,8 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 
 	buf := resp.Data
 
-	if !xsha1skip {
-		checksum := sha1Sum(buf.Data)
+	if !xsha1.Skip {
+		checksum := xsha1.Sum(buf.Data)
 		if checksum != resp.Checksum {
 			return nil, 0, fmt.Errorf("data corrupt: checksum mismatch")
 		}

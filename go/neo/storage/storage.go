@@ -27,7 +27,7 @@ import (
 	"sort"
 	"sync"
 
-	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
@@ -43,9 +43,7 @@ type Backend interface {
 	LastOid(ctx context.Context) (zodb.Oid, error)
 
 	// Load, similarly to zodb.IStorageDriver.Load should load object data addressed by xid.
-	// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
-	// XXX +viewAt ?
-	Load(ctx context.Context, xid zodb.Xid) (buf *mem.Buf, serial, nextSerial zodb.Tid, err error)
+	Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, error)
 }
 
 // BackendOpener is a function to open a NEO storage backend

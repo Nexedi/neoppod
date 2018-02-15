@@ -23,10 +23,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"crypto/sha1"
-	"fmt"
 	"io"
-	"os"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
@@ -68,23 +65,6 @@ func decompress(in []byte, out []byte) (data []byte, err error) {
 	}
 
 	return bout.Bytes(), nil
-}
-
-// XXX for benchmarking: how much sha1 computation takes time from latency
-var xsha1skip bool
-func init() {
-	if os.Getenv("X_NEOGO_SHA1_SKIP") == "y" {
-		fmt.Fprintf(os.Stderr, "# NEO/go (%s): skipping SHA1 computations\n", os.Args[0])
-		xsha1skip = true
-	}
-}
-
-func sha1Sum(b []byte) [sha1.Size]byte {
-	if !xsha1skip {
-		return sha1.Sum(b)
-	}
-
-	return [sha1.Size]byte{} // all 0
 }
 
 

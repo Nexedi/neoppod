@@ -24,14 +24,14 @@ import (
 	"context"
 	"net/url"
 
-	"lab.nexedi.com/kirr/go123/mem"
-
+	"lab.nexedi.com/kirr/neo/go/neo/internal/xsha1"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/neo/storage"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
 )
 
-type FS1Backend struct {
+type Backend struct {
 	// TODO storage layout:
 	//	meta/
 	//	data/
@@ -49,28 +49,49 @@ type FS1Backend struct {
 	zstor *fs1.FileStorage // underlying ZODB storage
 }
 
-var _ storage.Backend = (*FS1Backend)(nil)
+var _ storage.Backend = (*Backend)(nil)
 
-func Open(ctx context.Context, path string) (*FS1Backend, error) {
+func Open(ctx context.Context, path string) (*Backend, error) {
 	zstor, err := fs1.Open(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	return &FS1Backend{zstor: zstor}, nil
+	return &Backend{zstor: zstor}, nil
 }
 
 
-func (f *FS1Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
+func (f *Backend) LastTid(ctx context.Context) (zodb.Tid, error) {
 	return f.zstor.LastTid(ctx)
 }
 
-func (f *FS1Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
+func (f *Backend) LastOid(ctx context.Context) (zodb.Oid, error) {
 	return f.zstor.LastOid(ctx)
 }
 
-func (f *FS1Backend) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, zodb.Tid, error) {
+func (f *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, error) {
 	// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
-	return f.zstor.Load_XXXWithNextSerialXXX(ctx, xid)
+	buf, serial, nextSerial, err := f.zstor.Load_XXXWithNextSerialXXX(ctx, xid)
+	if err != nil {
+		return nil, err
+	}
+
+	// no next serial -> None
+	if nextSerial == zodb.TidMax {
+		nextSerial = proto.INVALID_TID
+	}
+
+
+	return &proto.AnswerObject{
+		Oid:	    xid.Oid,
+		Serial:     serial,
+		NextSerial: nextSerial,
+
+		Compression:	false,
+		Data:		buf,
+		Checksum:	xsha1.Sum(buf.Data),	// XXX computing every time
+
+		// XXX .DataSerial
+	}, nil
 }
 
 

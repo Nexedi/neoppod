@@ -976,10 +976,11 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 
 	xid1 := zodb.Xid{Oid: 1, At: zodb.TidMax}
 
-	buf1, serial1, _, err := zback.Load(ctx, xid1)
+	obj1, err := zback.Load(ctx, xid1)
 	if err != nil {
 		b.Fatal(err)
 	}
+	buf1, serial1 := obj1.Data, obj1.Serial
 
 	// C.Load(xid1)
 	xcload1 := func() {

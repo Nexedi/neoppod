@@ -368,17 +368,18 @@ Tables
 ------
 
 - config
-	.name	str
-	.value	str
+	.name	text !null	PK
+	.value	text
+
 	(name, nid, partitions, ptid, replicas, version, zodb=pickle...)
 
 # partition table
 - pt
-	.rid	int	// = row id = part of oid space
-	.nid	int
+	.rid	int !null	// = row id = part of oid space
+	.nid	int !null
 	.state	tinyint	// = cell state
 
-	pkey (rid, nid)
+	PK (rid, nid)
 
 # committed txns
 - trans

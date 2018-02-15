@@ -526,8 +526,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 			xid.At = before2At(req.Tid)
 		}
 
-		// FIXME kill nextSerial support after neo/py cache does not depend on next_serial
-		buf, serial, nextSerial, err := stor.back.Load(ctx, xid)
+		resp, err := stor.back.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
 			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
@@ -537,7 +536,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		// compatibility with py side:
 		// for loadSerial - check we have exact hit - else "nodata"
 		if req.Serial != proto.INVALID_TID {
-		        if serial != req.Serial {
+		        if resp.Serial != req.Serial {
 				return &proto.Error{
 					Code:    proto.OID_NOT_FOUND,
 					Message: fmt.Sprintf("%s: no data with serial %s", xid.Oid, req.Serial),
@@ -545,23 +544,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		        }
 		}
 
-		// no next serial -> None
-		if nextSerial == zodb.TidMax {
-			nextSerial = proto.INVALID_TID
-		}
-
-		return &proto.AnswerObject{
-			Oid:	    xid.Oid,
-			Serial:     serial,
-			NextSerial: nextSerial,
-
-			Compression:	false,
-			Data:		buf,
-			Checksum:	sha1Sum(buf.Data),	// XXX computing every time
-
-			// XXX .NextSerial
-			// XXX .DataSerial
-		}
+		return resp
 
 	case *proto.LastTransaction:
 		lastTid, err := stor.back.LastTid(ctx)

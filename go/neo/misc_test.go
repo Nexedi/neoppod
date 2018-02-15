@@ -44,7 +44,7 @@ func xfs1stor(path string) *zfs1.FileStorage {
 	return stor
 }
 
-func xfs1back(path string) *bfs1.FS1Backend {
+func xfs1back(path string) *bfs1.Backend {
 	back, err := bfs1.Open(bg, path)
 	exc.Raiseif(err)
 	return back

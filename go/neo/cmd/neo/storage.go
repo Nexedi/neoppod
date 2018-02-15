@@ -35,7 +35,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo/storage"
 
 	_ "lab.nexedi.com/kirr/neo/go/neo/storage/fs1"
-	_ "lab.nexedi.com/kirr/neo/go/neo/storage/sql"
+	_ "lab.nexedi.com/kirr/neo/go/neo/storage/sqlite"
 )
 
 const storageSummary = "run storage node"
