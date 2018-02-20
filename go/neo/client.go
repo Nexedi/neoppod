@@ -84,7 +84,7 @@ func NewClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 
 func newClient(clusterName, masterAddr string, net xnet.Networker) *Client {
 	return &Client{
-		node:        NewNodeApp(net, proto.CLIENT, clusterName, masterAddr, ""),
+		node:        NewNodeApp(net, proto.CLIENT, clusterName, masterAddr),
 		mlinkReady:  make(chan struct{}),
 		operational: false,
 		opReady:     make(chan struct{}),

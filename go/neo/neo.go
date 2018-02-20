@@ -61,15 +61,9 @@ type NodeApp struct {
 }
 
 // NewNodeApp creates new node application
-func NewNodeApp(net xnet.Networker, typ proto.NodeType, clusterName, masterAddr, serveAddr string) *NodeApp {
-	// convert serveAddr into neo format
-	addr, err := proto.AddrString(net.Network(), serveAddr)
-	if err != nil {
-		panic(err)	// XXX
-	}
-
+func NewNodeApp(net xnet.Networker, typ proto.NodeType, clusterName, masterAddr string) *NodeApp {
 	app := &NodeApp{
-		MyInfo:		proto.NodeInfo{Type: typ, Addr: addr, UUID: 0, IdTime: proto.IdTimeNone},
+		MyInfo:		proto.NodeInfo{Type: typ, Addr: proto.Address{}, UUID: 0, IdTime: proto.IdTimeNone},
 		ClusterName:	clusterName,
 		Net:		net,
 		MasterAddr:	masterAddr,
@@ -153,41 +147,8 @@ func (app *NodeApp) Dial(ctx context.Context, peerType proto.NodeType, addr stri
 }
 
 
-// Listen starts listening at node's listening address.
-//
-// If the address is empty one new free is automatically selected.
-// The node information about where it listens at is appropriately updated.
-func (app *NodeApp) Listen() (Listener, error) {
-	// start listening
-	ll, err := neonet.ListenLink(app.Net, app.MyInfo.Addr.String())
-	if err != nil {
-		return nil, err	// XXX err ctx
-	}
-
-	// now we know our listening address (in case it was autobind before)
-	// NOTE listen("tcp", ":1234") gives l.Addr 0.0.0.0:1234 and
-	//      listen("tcp6", ":1234") gives l.Addr [::]:1234
-	//	-> host is never empty
-	addr, err := proto.Addr(ll.Addr())
-	if err != nil {
-		// XXX -> panic here ?
-		ll.Close()
-		return nil, err	// XXX err ctx
-	}
-
-	app.MyInfo.Addr = addr
-
-	l := &listener{
-		l:	 ll,
-		acceptq: make(chan accepted),
-		closed:  make(chan struct{}),
-	}
-	go l.run()
-
-	return l, nil
-}
-
 // Listener is LinkListener adapted to return NodeLink with requested identification on Accept.
+// XXX name -> idListener?
 type Listener interface {
 	// from LinkListener:
 	Close() error
@@ -206,6 +167,18 @@ type Listener interface {
 	//
 	// NOTE established link is Request.Link().
 	Accept(ctx context.Context) (*neonet.Request, *proto.RequestIdentification, error)
+}
+
+// requireIdentifyHello wraps inner LinkListener into ^^^ Listener.
+func requireIdentifyHello(inner neonet.LinkListener) Listener {
+	l := &listener{
+		l:	 inner,
+		acceptq: make(chan accepted),
+		closed:  make(chan struct{}),
+	}
+	go l.run()
+
+	return l
 }
 
 type listener struct {

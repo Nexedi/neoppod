@@ -25,6 +25,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	stdnet "net"
 	"os"
 
 	"lab.nexedi.com/kirr/go123/prog"
@@ -57,14 +58,12 @@ func masterMain(argv []string) {
 	}
 
 	argv = flags.Args()
-	if len(argv) < 1 {
+	if len(argv) > 0 {
 		flags.Usage()
 		prog.Exit(2)
 	}
 
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-
-	masterSrv := neo.NewMaster(*cluster, *bind, net)
 
 	ctx := context.Background()
 	/*
@@ -75,7 +74,11 @@ func masterMain(argv []string) {
 	}()
 	*/
 
-	err := masterSrv.Run(ctx)
+	err := listenAndServe(ctx, net, *bind, func(ctx context.Context, l stdnet.Listener) error {
+		master := neo.NewMaster(*cluster, net)
+		return master.Run(ctx, l)
+	})
+
 	if err != nil {
 		prog.Fatal(err)
 	}

@@ -24,6 +24,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	stdnet "net"
 	"sync"
 	"time"
 
@@ -69,12 +70,12 @@ type Master struct {
 }
 
 
-// NewMaster creates new master node that will listen on serveAddr.
+// NewMaster creates new master node.
 //
 // Use Run to actually start running the node.
-func NewMaster(clusterName, serveAddr string, net xnet.Networker) *Master {
+func NewMaster(clusterName string, net xnet.Networker) *Master {
 	m := &Master{
-		node: NewNodeApp(net, proto.MASTER, clusterName, serveAddr, serveAddr),
+		node: NewNodeApp(net, proto.MASTER, clusterName, ""),
 
 		ctlStart:	make(chan chan error),
 		ctlStop:	make(chan chan struct{}),
@@ -127,22 +128,18 @@ func (m *Master) setClusterState(state proto.ClusterState) {
 
 
 // Run starts master node and runs it until ctx is cancelled or fatal error.
-func (m *Master) Run(ctx context.Context) (err error) {
-	// start listening
-	l, err := m.node.Listen()
+//
+// The master will be serving incoming connections on l.
+func (m *Master) Run(ctx context.Context, l stdnet.Listener) (err error) {
+	addr := l.Addr()
+	defer task.Runningf(&ctx, "master(%v)", addr)(&err)
+
+	// update our master & serving address in node
+	naddr, err := proto.Addr(addr)
 	if err != nil {
-		return err	// XXX err ctx
+		return err
 	}
-
-	defer task.Runningf(&ctx, "master(%v)", l.Addr())(&err)
-
-	m.node.MasterAddr = l.Addr().String()
-	naddr, err := proto.Addr(l.Addr())
-	if err != nil {
-		// must be ok since l.Addr() is valid since it is listening
-		panic(err)
-	}
-
+	m.node.MasterAddr = addr.String()
 	m.node.MyInfo = proto.NodeInfo{
 		Type:	proto.MASTER,
 		Addr:	naddr,
@@ -154,6 +151,9 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	// update nodeTab with self
 	m.node.NodeTab.Update(m.node.MyInfo)
 
+	// wrap listener with link / identificaton hello checker
+	ll := neonet.NewLinkListener(l)
+	lli := requireIdentifyHello(ll)
 
 	// accept incoming connections and pass them to main driver
 	wg := sync.WaitGroup{}
@@ -169,7 +169,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 				return ctx.Err()
 			}
 
-			req, idReq, err := l.Accept(ctx)
+			req, idReq, err := lli.Accept(ctx)
 			if err != nil {
 				if !xcontext.Canceled(err) {
 					log.Error(ctx, err)	// XXX throttle?
@@ -207,7 +207,7 @@ func (m *Master) Run(ctx context.Context) (err error) {
 	err = m.runMain(ctx)
 
 	serveCancel()
-	lclose(ctx, l)
+	lclose(ctx, lli)
 	wg.Wait()
 
 	return err

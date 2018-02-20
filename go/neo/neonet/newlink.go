@@ -155,14 +155,21 @@ func ListenLink(net xnet.Networker, laddr string) (LinkListener, error) {
 		return nil, err
 	}
 
+	return NewLinkListener(rawl), nil
+}
+
+// NewLinkListener creates LinkListener which accepts connections from an inner
+// net.Listener and wraps them as NodeLink.
+//
+// The listener accepts only those connections that pass NEO protocol handshake.
+func NewLinkListener(inner net.Listener) LinkListener {
 	l := &linkListener{
-		l:        rawl,
+		l:        inner,
 		acceptq:  make(chan linkAccepted),
 		closed:   make(chan struct{}),
 	}
 	go l.run()
-
-	return l, nil
+	return l
 }
 
 // LinkListener is net.Listener adapted to return handshaked NodeLink on Accept.

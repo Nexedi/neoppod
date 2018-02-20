@@ -285,8 +285,6 @@ Spy() {
 # Sgo <data.fs>	- spawn NEO/go storage
 Sgo() {
 	# -alsologtostderr
-	# -cpuprofile cpu.out
-	# -trace trace.out
 	exec -a Sgo \
 		neo -log_dir=$log storage -cluster=$neocluster -bind=$Sbind -masters=$Mbind "$@" &
 }

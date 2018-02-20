@@ -38,6 +38,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
+	"lab.nexedi.com/kirr/neo/go/neo/storage"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
@@ -67,6 +68,9 @@ type eventNetConnect struct {
 
 // xnet.TraceListen
 // event: node starts listening
+//
+// XXX  we don't actually need this event - nodes always start with already provided listener
+// TODO -> remove.
 type eventNetListen struct {
 	Laddr	string
 }
@@ -412,6 +416,54 @@ func (t *TraceCollector) traceMasterStartReady(m *Master, ready bool) {
 
 // ----------------------------------------
 
+// test-wrapper around Storage - to automatically listen by address, not provided listener.
+type tStorage struct {
+	*Storage
+	serveAddr string
+}
+
+func tNewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, back storage.Backend) *tStorage {
+	return &tStorage{
+		Storage:   NewStorage(clusterName, masterAddr, net, back),
+		serveAddr: serveAddr,
+	}
+}
+
+func (s *tStorage) Run(ctx context.Context) error {
+	l, err := s.node.Net.Listen(s.serveAddr)
+	if err != nil {
+		return err
+	}
+
+	return s.Storage.Run(ctx, l)
+}
+
+// test-wrapper around Master - to automatically listen by address, not provided listener.
+type tMaster struct {
+	*Master
+	serveAddr string
+}
+
+func tNewMaster(clusterName, serveAddr string, net xnet.Networker) *tMaster {
+	return &tMaster{
+		Master:   NewMaster(clusterName, net),
+		serveAddr: serveAddr,
+	}
+}
+
+func (m *tMaster) Run(ctx context.Context) error {
+	l, err := m.node.Net.Listen(m.serveAddr)
+	if err != nil {
+		return err
+	}
+
+	return m.Master.Run(ctx, l)
+}
+
+
+
+// ----------------------------------------
+
 // M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
 	rt	 := NewEventRouter()
@@ -506,10 +558,10 @@ func TestMasterStorage(t *testing.T) {
 	rt.BranchState("c", cMC) // state on C is controlled by M
 
 	// cluster nodes
-	M := NewMaster("abc1", ":1", Mhost)
+	M := tNewMaster("abc1", ":1", Mhost)
 	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
 	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
-	S := NewStorage("abc1", "m:1", ":1", Shost, zback)
+	S := tNewStorage("abc1", "m:1", ":1", Shost, zback)
 	C := newClient("abc1", "m:1", Chost)
 
 	// let tracer know how to map state addresses to node names
@@ -928,7 +980,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	defer cancel()
 
 	// spawn M
-	M := NewMaster("abc1", "", Mnet)
+	M := tNewMaster("abc1", "", Mnet)
 
 	// XXX to wait for "M listens at ..." & "ready to start" -> XXX add something to M api?
 	cG	  := tracetest.NewSyncChan("main")
@@ -958,7 +1010,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	ev.Ack()
 
 	// now after we know Maddr create S & C and start S serving
-	S := NewStorage("abc1", Maddr, "", Snet, zback)
+	S := tNewStorage("abc1", Maddr, "", Snet, zback)
 	C := NewClient("abc1", Maddr, Cnet)
 
 	wg.Go(func() error {

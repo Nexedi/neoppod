@@ -24,6 +24,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	stdnet "net"
 	"io"
 	"os"
 	"runtime"
@@ -97,16 +98,6 @@ func storageMain(argv []string) {
 	maxprocs := runtime.GOMAXPROCS(0)
 	runtime.GOMAXPROCS(maxprocs*8)		// XXX *8 is enough?
 
-
-	back, err := storage.OpenBackend(context.Background(), argv[0])
-	if err != nil {
-		prog.Fatal(err)
-	}
-
-	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
-
-	storSrv := neo.NewStorage(*cluster, master, *bind, net, back)
-
 	ctx := context.Background()
 	/*
 	ctx, cancel := context.WithCancel(context.Background())
@@ -116,7 +107,20 @@ func storageMain(argv []string) {
 	}()
 	*/
 
-	err = storSrv.Run(ctx)
+	back, err := storage.OpenBackend(ctx, argv[0])
+	if err != nil {
+		prog.Fatal(err)
+	}
+
+	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
+
+	err = listenAndServe(ctx, net, *bind, func(ctx context.Context, l stdnet.Listener) error {
+		stor := neo.NewStorage(*cluster, master, net, back)
+		return stor.Run(ctx, l)
+	})
+
+	// XXX back.Close
+
 	if err != nil {
 		prog.Fatal(err)
 	}

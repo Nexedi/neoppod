@@ -23,6 +23,7 @@ package neo
 import (
 	"context"
 	"fmt"
+	stdnet "net"
 	"sync"
 	"time"
 
@@ -58,13 +59,13 @@ type Storage struct {
 	//nodeCome chan nodeCome	// node connected
 }
 
-// NewStorage creates new storage node that will listen on serveAddr and talk to master on masterAddr.
+// NewStorage creates new storage node that will talk to master on masterAddr.
 //
 // The storage uses back as underlying backend for storing data.
 // Use Run to actually start running the node.
-func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, back storage.Backend) *Storage {
+func NewStorage(clusterName, masterAddr string, net xnet.Networker, back storage.Backend) *Storage {
 	stor := &Storage{
-		node: NewNodeApp(net, proto.STORAGE, clusterName, masterAddr, serveAddr),
+		node: NewNodeApp(net, proto.STORAGE, clusterName, masterAddr),
 		back: back,
 	}
 
@@ -79,14 +80,22 @@ func NewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, b
 
 // Run starts storage node and runs it until either ctx is cancelled or master
 // commands it to shutdown.
-func (stor *Storage) Run(ctx context.Context) error {
-	// start listening
-	l, err := stor.node.Listen()
-	if err != nil {
-		return err // XXX err ctx
-	}
+//
+// The storage will be serving incoming connections on l.
+func (stor *Storage) Run(ctx context.Context, l stdnet.Listener) (err error) {
+	addr := l.Addr()
+	defer task.Runningf(&ctx, "storage(%v)", addr)(&err)
 
-	defer task.Runningf(&ctx, "storage(%v)", l.Addr())(&err)
+	// update our serving address in node
+	naddr, err := proto.Addr(addr)
+	if err != nil {
+		return err
+	}
+	stor.node.MyInfo.Addr = naddr
+
+	// wrap listener with link / identificaton hello checker
+	ll := neonet.NewLinkListener(l)
+	lli := requireIdentifyHello(ll)
 
 	// start serving incoming connections
 	wg := sync.WaitGroup{}
@@ -96,7 +105,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 	// XXX hack: until ctx cancel is not handled properly by Recv/Send
 	stor.node.OnShutdown = func() {
 		serveCancel()
-		lclose(ctx, l)
+		lclose(ctx, lli)
 	}
 
 	wg.Add(1)
@@ -110,7 +119,7 @@ func (stor *Storage) Run(ctx context.Context) error {
 				return ctx.Err()
 			}
 
-			req, idReq, err := l.Accept(ctx)
+			req, idReq, err := lli.Accept(ctx)
 			if err != nil {
 				if !xcontext.Canceled(err) {
 					log.Error(ctx, err)	// XXX throttle?
