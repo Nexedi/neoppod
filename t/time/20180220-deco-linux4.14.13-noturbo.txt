@@ -1,0 +1,1873 @@
+>>> bench-local
+# Tue, 20 Feb 2018 17:52:53 +0300
+# kirr@deco.navytux.spb.ru (2401:5180:0:37::1 192.168.0.2)
+# Linux deco 4.14.0-3-amd64 #1 SMP Debian 4.14.13-1 (2018-01-14) x86_64 GNU/Linux
+# cpu: Intel(R) Core(TM) i7-6600U CPU @ 2.60GHz
+# cpu[0-3]: freq: intel_pstate/performance [2.60GHz - 2.60GHz]
+# cpu[0-3]: idle: intel_idle/menu: POLL(0μs) C1(2μs) C1E(10μs) C3(70μs) C6(85μs) C7s(124μs) C8(200μs) C9(480μs) C10(890μs)
+# cpu: WARNING: C-state exit-latency is max 890μs - up to that can add to networked and IPC request-reply latency
+# sda: SanDisk X400 M.2  rev 0012  477G
+# eth0: Intel Corporation Ethernet Connection I219-LM rev 21
+# eth0: features: rx tx sg tso !ufo gso gro !lro rxvlan txvlan !ntuple rxhash ...
+# eth0: coalesce: rxc: 3μs/0f/0μs-irq/0f-irq,  txc: 0μs/0f/0μs-irq/0f-irq
+# eth0: up, speed=1000, mtu=1500, txqlen=1000, gro_flush_timeout=0.000µs
+# wlan0: Intel Corporation Wireless 8260 rev 3a
+# wlan0: features: !rx !tx sg !tso !ufo gso gro !lro !rxvlan !txvlan !ntuple !rxhash ...
+# wlan0: coalesce: rxc: ?,  txc: ?
+# wlan0: down, speed=?, mtu=1500, txqlen=1000, gro_flush_timeout=0.000µs
+# wlan0: WARNING: TSO not enabled - TCP latency with packets > MSS will be poor
+# Python 2.7.14
+# go version go1.10 linux/amd64
+# sqlite 3.22.0 (py mod 2.6.0)
+# mysqld  Ver 10.1.29-MariaDB-6 for debian-linux-gnu on x86_64 (Debian buildd-unstable)
+# neo             : v1.8.1-1533-gda01e01e
+# zodb            : 5.3.0-11-gde1f24ca0
+# zeo             : 5.1.1-1-gfdcc2739
+# mysqlclient     : 1.3.12
+# wendelin.core   : v0.11-14-gc3cc8a9
+
+*** cpu:
+
+Benchmarkdeco/pystone 1 220364 pystone/s	# POLL·0 C1·2 C1E·6 C3·2 C6·51 C7s·0 C8·59 C9·0 C10·9
+Benchmarkdeco/pystone 1 217743 pystone/s	# POLL·0 C1·11 C1E·8 C3·18 C6·42 C7s·0 C8·60 C9·0 C10·7
+Benchmarkdeco/pystone 1 221506 pystone/s	# POLL·0 C1·2 C1E·11 C3·8 C6·54 C7s·0 C8·50 C9·0 C10·7
+Benchmarkdeco/pystone 1 218412 pystone/s	# POLL·0 C1·0 C1E·6 C3·17 C6·54 C7s·0 C8·53 C9·0 C10·8
+Benchmarkdeco/pystone 1 219697 pystone/s	# POLL·0 C1·1 C1E·7 C3·7 C6·46 C7s·0 C8·59 C9·0 C10·9
+Benchmarkdeco/sha1/py/1K 1000000	1.626 µs/op	# POLL·0 C1·32 C1E·9 C3·17 C6·49 C7s·0 C8·86 C9·0 C10·78
+Benchmarkdeco/sha1/py/1K 1000000	1.621 µs/op	# POLL·0 C1·3 C1E·5 C3·9 C6·37 C7s·0 C8·97 C9·0 C10·68
+Benchmarkdeco/sha1/py/1K 1000000	1.624 µs/op	# POLL·0 C1·0 C1E·15 C3·15 C6·59 C7s·0 C8·103 C9·0 C10·43
+Benchmarkdeco/sha1/py/1K 1000000	1.622 µs/op	# POLL·0 C1·1 C1E·8 C3·13 C6·37 C7s·0 C8·110 C9·0 C10·52
+Benchmarkdeco/sha1/py/1K 1000000	1.618 µs/op	# POLL·0 C1·0 C1E·5 C3·11 C6·50 C7s·0 C8·95 C9·0 C10·76
+Benchmarkdeco/sha1/go/1K 1000000	1.526 µs/op	# POLL·0 C1·5 C1E·103 C3·10 C6·57 C7s·3 C8·104 C9·0 C10·229
+Benchmarkdeco/sha1/go/1K 1000000	1.527 µs/op	# POLL·0 C1·5 C1E·67 C3·13 C6·67 C7s·0 C8·113 C9·0 C10·184
+Benchmarkdeco/sha1/go/1K 1000000	1.527 µs/op	# POLL·0 C1·15 C1E·84 C3·19 C6·65 C7s·0 C8·131 C9·0 C10·227
+Benchmarkdeco/sha1/go/1K 1000000	1.527 µs/op	# POLL·0 C1·0 C1E·73 C3·18 C6·63 C7s·0 C8·108 C9·0 C10·215
+Benchmarkdeco/sha1/go/1K 1000000	1.526 µs/op	# POLL·0 C1·5 C1E·64 C3·15 C6·46 C7s·0 C8·109 C9·0 C10·181
+Benchmarkdeco/sha1/py/4K 250000	5.786 µs/op	# POLL·0 C1·2 C1E·5 C3·14 C6·62 C7s·0 C8·123 C9·0 C10·94
+Benchmarkdeco/sha1/py/4K 250000	5.779 µs/op	# POLL·0 C1·2 C1E·11 C3·15 C6·71 C7s·0 C8·180 C9·0 C10·176
+Benchmarkdeco/sha1/py/4K 250000	5.781 µs/op	# POLL·0 C1·1 C1E·5 C3·11 C6·55 C7s·0 C8·121 C9·0 C10·153
+Benchmarkdeco/sha1/py/4K 250000	5.852 µs/op	# POLL·1 C1·1 C1E·21 C3·14 C6·54 C7s·0 C8·81 C9·0 C10·47
+Benchmarkdeco/sha1/py/4K 250000	5.771 µs/op	# POLL·0 C1·1 C1E·4 C3·9 C6·55 C7s·0 C8·94 C9·0 C10·17
+Benchmarkdeco/sha1/go/4K 250000	5.586 µs/op	# POLL·0 C1·2 C1E·66 C3·11 C6·54 C7s·0 C8·119 C9·0 C10·157
+Benchmarkdeco/sha1/go/4K 250000	5.588 µs/op	# POLL·0 C1·2 C1E·62 C3·17 C6·62 C7s·0 C8·102 C9·0 C10·157
+Benchmarkdeco/sha1/go/4K 250000	5.581 µs/op	# POLL·0 C1·5 C1E·70 C3·10 C6·63 C7s·0 C8·88 C9·0 C10·151
+Benchmarkdeco/sha1/go/4K 250000	5.583 µs/op	# POLL·0 C1·4 C1E·63 C3·12 C6·55 C7s·0 C8·99 C9·0 C10·158
+Benchmarkdeco/sha1/go/4K 250000	5.589 µs/op	# POLL·1 C1·4 C1E·75 C3·24 C6·83 C7s·0 C8·249 C9·0 C10·203
+Benchmarkdeco/sha1/py/2M 488	2817.470 µs/op	# POLL·0 C1·3 C1E·6 C3·10 C6·54 C7s·0 C8·110 C9·0 C10·57
+Benchmarkdeco/sha1/py/2M 488	2817.481 µs/op	# POLL·0 C1·2 C1E·2 C3·12 C6·47 C7s·0 C8·70 C9·0 C10·76
+Benchmarkdeco/sha1/py/2M 488	2816.805 µs/op	# POLL·1 C1·0 C1E·0 C3·11 C6·59 C7s·0 C8·77 C9·0 C10·42
+Benchmarkdeco/sha1/py/2M 488	2819.479 µs/op	# POLL·0 C1·4 C1E·7 C3·12 C6·39 C7s·0 C8·87 C9·0 C10·54
+Benchmarkdeco/sha1/py/2M 488	2819.188 µs/op	# POLL·0 C1·2 C1E·3 C3·13 C6·42 C7s·0 C8·86 C9·0 C10·66
+Benchmarkdeco/sha1/go/2M 488	2770.158 µs/op	# POLL·0 C1·3 C1E·63 C3·7 C6·69 C7s·0 C8·114 C9·0 C10·171
+Benchmarkdeco/sha1/go/2M 488	2772.080 µs/op	# POLL·0 C1·7 C1E·77 C3·18 C6·68 C7s·0 C8·116 C9·0 C10·167
+Benchmarkdeco/sha1/go/2M 488	2770.951 µs/op	# POLL·0 C1·2 C1E·62 C3·20 C6·56 C7s·0 C8·84 C9·0 C10·155
+Benchmarkdeco/sha1/go/2M 488	2771.598 µs/op	# POLL·0 C1·1 C1E·61 C3·10 C6·81 C7s·0 C8·70 C9·0 C10·143
+Benchmarkdeco/sha1/go/2M 488	2772.501 µs/op	# POLL·0 C1·3 C1E·59 C3·9 C6·64 C7s·0 C8·91 C9·0 C10·153
+
+*** disk: random direct (no kernel cache) 4K-read latency
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+21.4 k requests completed in 2.98 s, 83.4 MiB read, 7.16 k iops, 28.0 MiB/s
+generated 21.4 k requests in 3.00 s, 83.4 MiB, 7.12 k iops, 27.8 MiB/s
+min/avg/max/mdev = 102.0 us / 139.7 us / 733.2 us / 20.7 us
+Benchmarkdeco/disk/randread/direct/4K-min 1 102.0 us/op
+Benchmarkdeco/disk/randread/direct/4K-avg 1 139.7 us/op
+< 123.6 us	714	| *
+< 154.1 us	16947	| ***************************************
+< 184.6 us	3544	| ********
+< 215.1 us	3	| 
+< 245.5 us	8	| 
+< 276.0 us	4	| 
+< 306.5 us	0	| 
+< 337.0 us	14	| 
+< 367.5 us	6	| 
+< 397.9 us	3	| 
+< 428.4 us	2	| 
+< 458.9 us	3	| 
+< 489.4 us	2	| 
+< 519.9 us	0	| 
+< 550.4 us	2	| 
+< 580.8 us	2	| 
+< 611.3 us	2	| 
+< 641.8 us	1	| 
+< 672.3 us	2	| 
+< 702.8 us	0	| 
+< 733.2 us	0	| 
+<       +∞	0	| 
+# POLL·7 C1·1606 C1E·19777 C3·21 C6·61 C7s·3 C8·106 C9·2 C10·72
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+21.4 k requests completed in 2.98 s, 83.7 MiB read, 7.18 k iops, 28.1 MiB/s
+generated 21.4 k requests in 3.00 s, 83.7 MiB, 7.15 k iops, 27.9 MiB/s
+min/avg/max/mdev = 101.9 us / 139.2 us / 470.5 us / 14.0 us
+Benchmarkdeco/disk/randread/direct/4K-min 1 101.9 us/op
+Benchmarkdeco/disk/randread/direct/4K-avg 1 139.2 us/op
+< 102.9 us	16	| 
+< 106.7 us	528	| *
+< 110.5 us	19	| 
+< 114.3 us	0	| 
+< 118.1 us	0	| 
+< 121.9 us	0	| 
+< 125.7 us	1809	| ****
+< 129.5 us	3119	| *******
+< 133.2 us	2638	| ******
+< 137.0 us	3888	| *********
+< 140.8 us	1336	| ***
+< 144.6 us	798	| *
+< 148.4 us	137	| 
+< 152.2 us	1392	| ***
+< 156.0 us	3295	| *******
+< 159.8 us	1255	| **
+< 163.6 us	846	| *
+< 167.4 us	114	| 
+< 171.2 us	119	| 
+< 175.0 us	10	| 
+< 178.8 us	1	| 
+<       +∞	18	| 
+# POLL·5 C1·1527 C1E·19948 C3·11 C6·48 C7s·0 C8·118 C9·5 C10·70
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+21.4 k requests completed in 2.98 s, 83.6 MiB read, 7.17 k iops, 28.0 MiB/s
+generated 21.4 k requests in 3.00 s, 83.6 MiB, 7.14 k iops, 27.9 MiB/s
+min/avg/max/mdev = 101.7 us / 139.4 us / 2.52 ms / 21.3 us
+Benchmarkdeco/disk/randread/direct/4K-min 1 101.7 us/op
+Benchmarkdeco/disk/randread/direct/4K-avg 1 139.4 us/op
+< 103.2 us	51	| 
+< 108.8 us	528	| *
+< 114.3 us	2	| 
+< 119.8 us	1	| 
+< 125.3 us	1063	| **
+< 130.8 us	4299	| **********
+< 136.3 us	5550	| ************
+< 141.8 us	2071	| ****
+< 147.3 us	693	| *
+< 152.8 us	1819	| ****
+< 158.4 us	3837	| ********
+< 163.9 us	1138	| **
+< 169.4 us	193	| 
+< 174.9 us	52	| 
+< 180.4 us	1	| 
+< 185.9 us	0	| 
+< 191.4 us	4	| 
+< 196.9 us	0	| 
+< 202.4 us	0	| 
+< 208.0 us	0	| 
+< 213.5 us	1	| 
+<       +∞	9	| 
+# POLL·1 C1·1158 C1E·20286 C3·18 C6·43 C7s·3 C8·140 C9·0 C10·81
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+21.4 k requests completed in 2.98 s, 83.8 MiB read, 7.19 k iops, 28.1 MiB/s
+generated 21.4 k requests in 3.00 s, 83.8 MiB, 7.15 k iops, 27.9 MiB/s
+min/avg/max/mdev = 100.5 us / 139.1 us / 424.4 us / 13.6 us
+Benchmarkdeco/disk/randread/direct/4K-min 1 100.5 us/op
+Benchmarkdeco/disk/randread/direct/4K-avg 1 139.1 us/op
+< 103.3 us	51	| 
+< 106.6 us	500	| *
+< 109.9 us	19	| 
+< 113.2 us	0	| 
+< 116.5 us	0	| 
+< 119.8 us	0	| 
+< 123.1 us	25	| 
+< 126.4 us	2650	| ******
+< 129.7 us	2306	| *****
+< 133.0 us	2235	| *****
+< 136.3 us	3806	| ********
+< 139.6 us	1442	| ***
+< 142.9 us	893	| **
+< 146.2 us	313	| 
+< 149.5 us	138	| 
+< 152.8 us	1776	| ****
+< 156.1 us	2974	| ******
+< 159.4 us	1143	| **
+< 162.7 us	737	| *
+< 166.0 us	154	| 
+< 169.3 us	120	| 
+<       +∞	62	| 
+# POLL·3 C1·947 C1E·20513 C3·10 C6·62 C7s·1 C8·141 C9·0 C10·151
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+21.4 k requests completed in 2.98 s, 83.6 MiB read, 7.17 k iops, 28.0 MiB/s
+generated 21.4 k requests in 3.00 s, 83.6 MiB, 7.13 k iops, 27.9 MiB/s
+min/avg/max/mdev = 102.2 us / 139.4 us / 419.3 us / 13.6 us
+Benchmarkdeco/disk/randread/direct/4K-min 1 102.2 us/op
+Benchmarkdeco/disk/randread/direct/4K-avg 1 139.4 us/op
+< 103.4 us	50	| 
+< 106.8 us	449	| *
+< 110.2 us	15	| 
+< 113.6 us	0	| 
+< 117.0 us	1	| 
+< 120.3 us	0	| 
+< 123.7 us	194	| 
+< 127.1 us	3005	| *******
+< 130.5 us	2153	| *****
+< 133.9 us	2782	| ******
+< 137.3 us	3378	| *******
+< 140.7 us	1146	| **
+< 144.1 us	806	| *
+< 147.5 us	155	| 
+< 150.9 us	290	| 
+< 154.3 us	3209	| *******
+< 157.7 us	1993	| ****
+< 161.1 us	877	| **
+< 164.5 us	563	| *
+< 167.9 us	73	| 
+< 171.3 us	116	| 
+<       +∞	47	| 
+# POLL·5 C1·1221 C1E·20217 C3·20 C6·61 C7s·2 C8·99 C9·3 C10·116
+
+*** disk: random direct (no kernel cache) 2M-read latency
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+554 requests completed in 2.99 s, 1.08 GiB read, 185 iops, 370.2 MiB/s
+generated 555 requests in 3.00 s, 1.08 GiB, 184 iops, 369.8 MiB/s
+min/avg/max/mdev = 4.87 ms / 5.40 ms / 7.63 ms / 460.4 us
+Benchmarkdeco/disk/randread/direct/2M-min 1 4.87 ms/op
+Benchmarkdeco/disk/randread/direct/2M-avg 1 5.40 ms/op
+< 4.90 ms	5	| 
+< 5.04 ms	48	| ****
+< 5.17 ms	130	| ***********
+< 5.31 ms	93	| ********
+< 5.45 ms	36	| ***
+< 5.58 ms	38	| ***
+< 5.72 ms	33	| **
+< 5.85 ms	3	| 
+< 5.99 ms	4	| 
+< 6.13 ms	17	| *
+< 6.26 ms	6	| 
+< 6.40 ms	8	| 
+< 6.54 ms	13	| *
+< 6.67 ms	8	| 
+< 6.81 ms	10	| 
+< 6.95 ms	0	| 
+< 7.08 ms	2	| 
+< 7.22 ms	0	| 
+< 7.35 ms	0	| 
+< 7.49 ms	0	| 
+< 7.63 ms	0	| 
+<       +∞	0	| 
+# POLL·0 C1·13 C1E·46 C3·17 C6·123 C7s·470 C8·598 C9·68 C10·134
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+546 requests completed in 3.00 s, 1.07 GiB read, 182 iops, 364.5 MiB/s
+generated 547 requests in 3.00 s, 1.07 GiB, 182 iops, 364.2 MiB/s
+min/avg/max/mdev = 4.96 ms / 5.49 ms / 10.2 ms / 473.8 us
+Benchmarkdeco/disk/randread/direct/2M-min 1 4.96 ms/op
+Benchmarkdeco/disk/randread/direct/2M-avg 1 5.49 ms/op
+< 4.96 ms	0	| 
+< 5.22 ms	147	| *************
+< 5.48 ms	110	| **********
+< 5.74 ms	122	| ***********
+< 6.00 ms	6	| 
+< 6.26 ms	13	| *
+< 6.53 ms	28	| **
+< 6.79 ms	17	| *
+< 7.05 ms	3	| 
+< 7.31 ms	0	| 
+< 7.57 ms	0	| 
+< 7.83 ms	0	| 
+< 8.10 ms	0	| 
+< 8.36 ms	0	| 
+< 8.62 ms	0	| 
+< 8.88 ms	0	| 
+< 9.14 ms	0	| 
+< 9.40 ms	0	| 
+< 9.66 ms	0	| 
+< 9.93 ms	0	| 
+< 10.2 ms	0	| 
+<       +∞	0	| 
+# POLL·0 C1·7 C1E·30 C3·26 C6·117 C7s·392 C8·827 C9·78 C10·341
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+481 requests completed in 3.00 s, 962 MiB read, 160 iops, 321.0 MiB/s
+generated 482 requests in 3.01 s, 964 MiB, 160 iops, 320.8 MiB/s
+min/avg/max/mdev = 5.78 ms / 6.23 ms / 9.62 ms / 251.8 us
+Benchmarkdeco/disk/randread/direct/2M-min 1 5.78 ms/op
+Benchmarkdeco/disk/randread/direct/2M-avg 1 6.23 ms/op
+< 5.79 ms	2	| 
+< 5.85 ms	3	| 
+< 5.91 ms	2	| 
+< 5.97 ms	6	| 
+< 6.03 ms	3	| 
+< 6.09 ms	36	| ***
+< 6.14 ms	80	| ********
+< 6.20 ms	87	| *********
+< 6.26 ms	76	| *******
+< 6.32 ms	23	| **
+< 6.38 ms	20	| **
+< 6.44 ms	3	| 
+< 6.50 ms	3	| 
+< 6.56 ms	3	| 
+< 6.62 ms	8	| 
+< 6.68 ms	3	| 
+< 6.74 ms	2	| 
+< 6.80 ms	8	| 
+< 6.86 ms	7	| 
+< 6.92 ms	3	| 
+< 6.98 ms	1	| 
+<       +∞	2	| 
+# POLL·0 C1·7 C1E·36 C3·23 C6·77 C7s·97 C8·1029 C9·24 C10·199
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+546 requests completed in 2.99 s, 1.07 GiB read, 182 iops, 364.9 MiB/s
+generated 547 requests in 3.00 s, 1.07 GiB, 182 iops, 364.6 MiB/s
+min/avg/max/mdev = 4.92 ms / 5.48 ms / 8.52 ms / 481.7 us
+Benchmarkdeco/disk/randread/direct/2M-min 1 4.92 ms/op
+Benchmarkdeco/disk/randread/direct/2M-avg 1 5.48 ms/op
+< 5.03 ms	21	| *
+< 5.20 ms	143	| *************
+< 5.37 ms	66	| ******
+< 5.54 ms	64	| *****
+< 5.71 ms	96	| ********
+< 5.88 ms	4	| 
+< 6.05 ms	1	| 
+< 6.22 ms	10	| 
+< 6.39 ms	6	| 
+< 6.56 ms	13	| *
+< 6.73 ms	16	| *
+< 6.90 ms	4	| 
+< 7.07 ms	1	| 
+< 7.24 ms	0	| 
+< 7.41 ms	0	| 
+< 7.58 ms	0	| 
+< 7.75 ms	0	| 
+< 7.92 ms	0	| 
+< 8.08 ms	0	| 
+< 8.25 ms	0	| 
+< 8.42 ms	0	| 
+<       +∞	1	| 
+# POLL·0 C1·6 C1E·28 C3·23 C6·86 C7s·351 C8·786 C9·54 C10·200
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+524 requests completed in 2.99 s, 1.02 GiB read, 174 iops, 349.9 MiB/s
+generated 525 requests in 3.00 s, 1.03 GiB, 174 iops, 349.8 MiB/s
+min/avg/max/mdev = 4.99 ms / 5.72 ms / 10.5 ms / 508.2 us
+Benchmarkdeco/disk/randread/direct/2M-min 1 4.99 ms/op
+Benchmarkdeco/disk/randread/direct/2M-avg 1 5.72 ms/op
+< 5.00 ms	4	| 
+< 5.18 ms	64	| ******
+< 5.36 ms	89	| ********
+< 5.53 ms	17	| *
+< 5.71 ms	42	| ****
+< 5.89 ms	19	| *
+< 6.07 ms	36	| ***
+< 6.25 ms	136	| ************
+< 6.43 ms	16	| *
+< 6.60 ms	0	| 
+< 6.78 ms	0	| 
+< 6.96 ms	0	| 
+< 7.14 ms	0	| 
+< 7.32 ms	0	| 
+< 7.50 ms	0	| 
+< 7.67 ms	0	| 
+< 7.85 ms	0	| 
+< 8.03 ms	0	| 
+< 8.21 ms	0	| 
+< 8.39 ms	0	| 
+< 8.56 ms	0	| 
+<       +∞	1	| 
+# POLL·0 C1·7 C1E·16 C3·16 C6·82 C7s·200 C8·942 C9·29 C10·131
+
+*** disk: random cached 4K-read latency
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+3.13 M requests completed in 2.77 s, 11.9 GiB read, 1.13 M iops, 4.31 GiB/s
+generated 3.13 M requests in 3.00 s, 11.9 GiB, 1.04 M iops, 3.97 GiB/s
+min/avg/max/mdev = 492 ns / 885 ns / 61.3 us / 255 ns
+Benchmarkdeco/disk/randread/pagecache/4K-min 1 492 ns/op
+Benchmarkdeco/disk/randread/pagecache/4K-avg 1 885 ns/op
+< 859 ns	1612860	| *************************
+< 1.02 us	1337945	| *********************
+< 1.19 us	111896	| *
+< 1.35 us	38843	| 
+< 1.52 us	720	| 
+< 1.68 us	525	| 
+< 1.85 us	1100	| 
+< 2.01 us	586	| 
+< 2.18 us	511	| 
+< 2.34 us	423	| 
+< 2.51 us	537	| 
+< 2.67 us	2650	| 
+< 2.84 us	2787	| 
+< 3 us	603	| 
+< 3.17 us	658	| 
+< 3.33 us	592	| 
+< 3.50 us	1148	| 
+< 3.66 us	4184	| 
+< 3.82 us	632	| 
+< 3.99 us	335	| 
+< 4.15 us	372	| 
+<       +∞	5649	| 
+# POLL·0 C1·10 C1E·4 C3·17 C6·49 C7s·0 C8·236 C9·0 C10·83
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+3.13 M requests completed in 2.77 s, 11.9 GiB read, 1.13 M iops, 4.31 GiB/s
+generated 3.13 M requests in 3.00 s, 11.9 GiB, 1.04 M iops, 3.98 GiB/s
+min/avg/max/mdev = 490 ns / 885 ns / 159.0 us / 268 ns
+Benchmarkdeco/disk/randread/pagecache/4K-min 1 490 ns/op
+Benchmarkdeco/disk/randread/pagecache/4K-avg 1 885 ns/op
+< 862 ns	1719792	| ***************************
+< 888 ns	699192	| ***********
+< 914 ns	261251	| ****
+< 941 ns	165906	| **
+< 967 ns	59200	| 
+< 993 ns	26839	| 
+< 1.02 us	20477	| 
+< 1.05 us	18144	| 
+< 1.07 us	18674	| 
+< 1.10 us	19686	| 
+< 1.12 us	18233	| 
+< 1.15 us	18880	| 
+< 1.18 us	15118	| 
+< 1.20 us	18604	| 
+< 1.23 us	14131	| 
+< 1.26 us	6028	| 
+< 1.28 us	3237	| 
+< 1.31 us	1188	| 
+< 1.34 us	480	| 
+< 1.36 us	261	| 
+< 1.39 us	227	| 
+<       +∞	23719	| 
+# POLL·1 C1·4 C1E·9 C3·18 C6·49 C7s·0 C8·179 C9·0 C10·90
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+3.14 M requests completed in 2.77 s, 12.0 GiB read, 1.13 M iops, 4.32 GiB/s
+generated 3.14 M requests in 3.00 s, 12.0 GiB, 1.05 M iops, 3.99 GiB/s
+min/avg/max/mdev = 492 ns / 882 ns / 317.9 us / 329 ns
+Benchmarkdeco/disk/randread/pagecache/4K-min 1 492 ns/op
+Benchmarkdeco/disk/randread/pagecache/4K-avg 1 882 ns/op
+< 856 ns	1599879	| *************************
+< 879 ns	696469	| ***********
+< 902 ns	326671	| *****
+< 926 ns	170694	| **
+< 949 ns	95629	| *
+< 972 ns	35874	| 
+< 996 ns	21940	| 
+< 1.02 us	16765	| 
+< 1.04 us	15292	| 
+< 1.07 us	16589	| 
+< 1.09 us	16274	| 
+< 1.11 us	15283	| 
+< 1.14 us	16255	| 
+< 1.16 us	15484	| 
+< 1.18 us	12017	| 
+< 1.21 us	16808	| 
+< 1.23 us	12308	| 
+< 1.25 us	5262	| 
+< 1.28 us	3229	| 
+< 1.30 us	1403	| 
+< 1.32 us	568	| 
+<       +∞	24489	| 
+# POLL·0 C1·2 C1E·24 C3·18 C6·42 C7s·0 C8·191 C9·0 C10·92
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+3.13 M requests completed in 2.77 s, 11.9 GiB read, 1.13 M iops, 4.31 GiB/s
+generated 3.13 M requests in 3.00 s, 11.9 GiB, 1.04 M iops, 3.98 GiB/s
+min/avg/max/mdev = 493 ns / 884 ns / 177.8 us / 277 ns
+Benchmarkdeco/disk/randread/pagecache/4K-min 1 493 ns/op
+Benchmarkdeco/disk/randread/pagecache/4K-avg 1 884 ns/op
+< 838 ns	1161909	| ******************
+< 1.06 us	1823938	| *****************************
+< 1.29 us	115930	| *
+< 1.52 us	2097	| 
+< 1.75 us	889	| 
+< 1.98 us	1192	| 
+< 2.20 us	719	| 
+< 2.43 us	592	| 
+< 2.66 us	2130	| 
+< 2.88 us	3651	| 
+< 3.11 us	857	| 
+< 3.34 us	853	| 
+< 3.57 us	3184	| 
+< 3.79 us	2723	| 
+< 4.02 us	514	| 
+< 4.25 us	457	| 
+< 4.48 us	1912	| 
+< 4.71 us	1417	| 
+< 4.93 us	282	| 
+< 5.16 us	196	| 
+< 5.39 us	670	| 
+<       +∞	985	| 
+# POLL·0 C1·1 C1E·4 C3·13 C6·48 C7s·1 C8·275 C9·0 C10·92
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+3.13 M requests completed in 2.77 s, 11.9 GiB read, 1.13 M iops, 4.31 GiB/s
+generated 3.13 M requests in 3.00 s, 11.9 GiB, 1.04 M iops, 3.97 GiB/s
+min/avg/max/mdev = 493 ns / 884 ns / 25.2 us / 249 ns
+Benchmarkdeco/disk/randread/pagecache/4K-min 1 493 ns/op
+Benchmarkdeco/disk/randread/pagecache/4K-avg 1 884 ns/op
+< 829 ns	997202	| ***************
+< 856 ns	571670	| *********
+< 883 ns	762571	| ************
+< 910 ns	327240	| *****
+< 937 ns	175966	| **
+< 964 ns	72433	| *
+< 991 ns	27775	| 
+< 1.02 us	18793	| 
+< 1.04 us	16735	| 
+< 1.07 us	17676	| 
+< 1.10 us	17940	| 
+< 1.13 us	18300	| 
+< 1.15 us	19256	| 
+< 1.18 us	14848	| 
+< 1.21 us	19611	| 
+< 1.24 us	13487	| 
+< 1.26 us	5509	| 
+< 1.29 us	2972	| 
+< 1.32 us	992	| 
+< 1.34 us	405	| 
+< 1.37 us	267	| 
+<       +∞	23932	| 
+# POLL·0 C1·8 C1E·13 C3·9 C6·39 C7s·2 C8·196 C9·0 C10·89
+
+*** disk: random cached 2M-read latency
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+14.2 k requests completed in 3.00 s, 27.7 GiB read, 4.74 k iops, 9.25 GiB/s
+generated 14.2 k requests in 3.00 s, 27.7 GiB, 4.73 k iops, 9.25 GiB/s
+min/avg/max/mdev = 197.6 us / 211.2 us / 320.1 us / 8.20 us
+Benchmarkdeco/disk/randread/pagecache/2M-min 1 197.6 us/op
+Benchmarkdeco/disk/randread/pagecache/2M-avg 1 211.2 us/op
+< 204.8 us	405	| *
+< 207.3 us	8684	| ******************************
+< 209.8 us	640	| **
+< 212.3 us	419	| *
+< 214.8 us	80	| 
+< 217.4 us	59	| 
+< 219.9 us	34	| 
+< 222.4 us	501	| *
+< 224.9 us	2796	| *********
+< 227.4 us	216	| 
+< 229.9 us	159	| 
+< 232.5 us	33	| 
+< 235.0 us	12	| 
+< 237.5 us	12	| 
+< 240.0 us	14	| 
+< 242.5 us	12	| 
+< 245.1 us	8	| 
+< 247.6 us	1	| 
+< 250.1 us	0	| 
+< 252.6 us	3	| 
+< 255.1 us	4	| 
+<       +∞	9	| 
+# POLL·0 C1·4 C1E·20 C3·16 C6·56 C7s·0 C8·1949 C9·0 C10·19
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+14.2 k requests completed in 3.00 s, 27.8 GiB read, 4.75 k iops, 9.27 GiB/s
+generated 14.2 k requests in 3.00 s, 27.8 GiB, 4.75 k iops, 9.27 GiB/s
+min/avg/max/mdev = 202.8 us / 210.6 us / 359.1 us / 8.12 us
+Benchmarkdeco/disk/randread/pagecache/2M-min 1 202.8 us/op
+Benchmarkdeco/disk/randread/pagecache/2M-avg 1 210.6 us/op
+< 202.9 us	3	| 
+< 204.6 us	785	| **
+< 206.3 us	7474	| **************************
+< 208.0 us	1357	| ****
+< 209.7 us	285	| *
+< 211.4 us	273	| 
+< 213.1 us	78	| 
+< 214.8 us	49	| 
+< 216.5 us	43	| 
+< 218.2 us	28	| 
+< 219.9 us	21	| 
+< 221.6 us	218	| 
+< 223.3 us	2027	| *******
+< 225.0 us	1139	| ****
+< 226.7 us	136	| 
+< 228.4 us	106	| 
+< 230.1 us	32	| 
+< 231.7 us	21	| 
+< 233.4 us	12	| 
+< 235.1 us	4	| 
+< 236.8 us	7	| 
+<       +∞	38	| 
+# POLL·0 C1·9 C1E·8 C3·24 C6·56 C7s·0 C8·2015 C9·0 C10·35
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+14.2 k requests completed in 3.00 s, 27.8 GiB read, 4.74 k iops, 9.26 GiB/s
+generated 14.2 k requests in 3.00 s, 27.8 GiB, 4.74 k iops, 9.25 GiB/s
+min/avg/max/mdev = 181.0 us / 211.0 us / 525.9 us / 8.97 us
+Benchmarkdeco/disk/randread/pagecache/2M-min 1 181.0 us/op
+Benchmarkdeco/disk/randread/pagecache/2M-avg 1 211.0 us/op
+< 181.0 us	0	| 
+< 189.8 us	0	| 
+< 198.6 us	1	| 
+< 207.5 us	9309	| ********************************
+< 216.3 us	947	| ***
+< 225.1 us	3438	| ************
+< 233.9 us	339	| *
+< 242.7 us	49	| 
+< 251.5 us	13	| 
+< 260.3 us	8	| 
+< 269.2 us	1	| 
+< 278.0 us	3	| 
+< 286.8 us	1	| 
+< 295.6 us	0	| 
+< 304.4 us	0	| 
+< 313.2 us	0	| 
+< 322.1 us	0	| 
+< 330.9 us	0	| 
+< 339.7 us	0	| 
+< 348.5 us	0	| 
+< 357.3 us	0	| 
+<       +∞	2	| 
+# POLL·0 C1·1 C1E·17 C3·23 C6·89 C7s·1 C8·1768 C9·0 C10·227
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+14.2 k requests completed in 3.00 s, 27.8 GiB read, 4.74 k iops, 9.26 GiB/s
+generated 14.2 k requests in 3.00 s, 27.8 GiB, 4.74 k iops, 9.25 GiB/s
+min/avg/max/mdev = 202.8 us / 211.0 us / 306.5 us / 8.18 us
+Benchmarkdeco/disk/randread/pagecache/2M-min 1 202.8 us/op
+Benchmarkdeco/disk/randread/pagecache/2M-avg 1 211.0 us/op
+< 203.3 us	2	| 
+< 208.5 us	9558	| *********************************
+< 213.7 us	645	| **
+< 218.8 us	105	| 
+< 224.0 us	2732	| *********
+< 229.1 us	949	| ***
+< 234.3 us	61	| 
+< 239.4 us	27	| 
+< 244.6 us	15	| 
+< 249.7 us	5	| 
+< 254.9 us	3	| 
+< 260.1 us	4	| 
+< 265.2 us	0	| 
+< 270.4 us	2	| 
+< 275.5 us	0	| 
+< 280.7 us	0	| 
+< 285.8 us	0	| 
+< 291.0 us	0	| 
+< 296.1 us	0	| 
+< 301.3 us	0	| 
+< 306.5 us	1	| 
+<       +∞	0	| 
+# POLL·0 C1·4 C1E·28 C3·13 C6·75 C7s·2 C8·2225 C9·0 C10·25
+
+--- . (ext4 /dev/sda3) ioping statistics ---
+14.2 k requests completed in 3.00 s, 27.8 GiB read, 4.74 k iops, 9.27 GiB/s
+generated 14.2 k requests in 3.00 s, 27.8 GiB, 4.74 k iops, 9.26 GiB/s
+min/avg/max/mdev = 199.4 us / 210.8 us / 363.8 us / 8.26 us
+Benchmarkdeco/disk/randread/pagecache/2M-min 1 199.4 us/op
+Benchmarkdeco/disk/randread/pagecache/2M-avg 1 210.8 us/op
+< 203.7 us	35	| 
+< 211.7 us	10099	| ***********************************
+< 219.7 us	220	| 
+< 227.7 us	3590	| ************
+< 235.7 us	132	| 
+< 243.7 us	38	| 
+< 251.7 us	5	| 
+< 259.7 us	4	| 
+< 267.7 us	1	| 
+< 275.7 us	0	| 
+< 283.7 us	0	| 
+< 291.7 us	0	| 
+< 299.8 us	1	| 
+< 307.8 us	0	| 
+< 315.8 us	0	| 
+< 323.8 us	1	| 
+< 331.8 us	0	| 
+< 339.8 us	0	| 
+< 347.8 us	0	| 
+< 355.8 us	0	| 
+< 363.8 us	0	| 
+<       +∞	0	| 
+# POLL·0 C1·0 C1E·11 C3·18 C6·75 C7s·2 C8·1960 C9·0 C10·200
+
+dataset:	wczblk1-8
+
+*** FileStorage
+Benchmarkdeco/fs1/zhash.py 1 47.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.101s	# POLL·3 C1·517 C1E·432 C3·11 C6·42 C7s·2 C8·132 C9·0 C10·29
+Benchmarkdeco/fs1/zhash.py 1 19.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.041s	# POLL·0 C1·53 C1E·8 C3·24 C6·44 C7s·0 C8·100 C9·0 C10·39
+Benchmarkdeco/fs1/zhash.py 1 19.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.042s	# POLL·0 C1·45 C1E·5 C3·18 C6·44 C7s·0 C8·90 C9·0 C10·35
+Benchmarkdeco/fs1/zhash.py 1 19.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.042s	# POLL·0 C1·48 C1E·12 C3·16 C6·41 C7s·0 C8·94 C9·0 C10·32
+Benchmarkdeco/fs1/zhash.py 1 19.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.041s	# POLL·0 C1·57 C1E·9 C3·12 C6·59 C7s·0 C8·85 C9·0 C10·34
+
+# 16 clients in parallel
+Benchmarkdeco/fs1/zhash.py-P16 1 125.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.268s
+Benchmarkdeco/fs1/zhash.py-P16 1 121.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.258s
+Benchmarkdeco/fs1/zhash.py-P16 1 140.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.299s
+Benchmarkdeco/fs1/zhash.py-P16 1 135.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.289s
+Benchmarkdeco/fs1/zhash.py-P16 1 122.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.260s
+Benchmarkdeco/fs1/zhash.py-P16 1 120.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.256s
+Benchmarkdeco/fs1/zhash.py-P16 1 148.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.316s
+Benchmarkdeco/fs1/zhash.py-P16 1 128.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.273s
+Benchmarkdeco/fs1/zhash.py-P16 1 159.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.339s
+Benchmarkdeco/fs1/zhash.py-P16 1 165.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.352s
+Benchmarkdeco/fs1/zhash.py-P16 1 149.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.318s
+Benchmarkdeco/fs1/zhash.py-P16 1 146.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.311s
+Benchmarkdeco/fs1/zhash.py-P16 1 175.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.373s
+Benchmarkdeco/fs1/zhash.py-P16 1 171.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.364s
+Benchmarkdeco/fs1/zhash.py-P16 1 161.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.343s
+Benchmarkdeco/fs1/zhash.py-P16 1 159.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.339s
+# POLL·0 C1·6 C1E·12 C3·14 C6·53 C7s·0 C8·26 C9·0 C10·0
+
+Benchmarkdeco/fs1/zhash.go 1 3.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.440845ms	# POLL·0 C1·16 C1E·89 C3·18 C6·56 C7s·0 C8·56 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 3.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.364412ms	# POLL·0 C1·6 C1E·69 C3·5 C6·55 C7s·0 C8·35 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 3.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.417862ms	# POLL·0 C1·10 C1E·69 C3·21 C6·55 C7s·0 C8·27 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 3.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.367ms	# POLL·1 C1·12 C1E·57 C3·12 C6·68 C7s·0 C8·23 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 3.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.453855ms	# POLL·1 C1·6 C1E·65 C3·9 C6·59 C7s·0 C8·28 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 4.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.516993ms	# POLL·0 C1·46 C1E·116 C3·38 C6·72 C7s·0 C8·4 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 4.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.069837ms	# POLL·1 C1·76 C1E·126 C3·17 C6·71 C7s·0 C8·14 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 4.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.540823ms	# POLL·0 C1·41 C1E·101 C3·26 C6·60 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 5.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=10.551315ms	# POLL·1 C1·56 C1E·116 C3·22 C6·69 C7s·0 C8·14 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 3.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.897656ms	# POLL·1 C1·34 C1E·110 C3·39 C6·76 C7s·0 C8·9 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/fs1/zhash.go-P16 1 5.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=10.737187ms
+Benchmarkdeco/fs1/zhash.go-P16 1 15.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=31.825622ms
+Benchmarkdeco/fs1/zhash.go-P16 1 14.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=31.27886ms
+Benchmarkdeco/fs1/zhash.go-P16 1 14.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=31.072406ms
+Benchmarkdeco/fs1/zhash.go-P16 1 11.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=24.561446ms
+Benchmarkdeco/fs1/zhash.go-P16 1 23.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=49.334399ms
+Benchmarkdeco/fs1/zhash.go-P16 1 16.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=34.382379ms
+Benchmarkdeco/fs1/zhash.go-P16 1 9.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=19.323255ms
+Benchmarkdeco/fs1/zhash.go-P16 1 10.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=23.29647ms
+Benchmarkdeco/fs1/zhash.go-P16 1 11.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=24.664163ms
+Benchmarkdeco/fs1/zhash.go-P16 1 8.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=18.371176ms
+Benchmarkdeco/fs1/zhash.go-P16 1 15.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=33.666677ms
+Benchmarkdeco/fs1/zhash.go-P16 1 18.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=39.883698ms
+Benchmarkdeco/fs1/zhash.go-P16 1 19.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=41.783511ms
+Benchmarkdeco/fs1/zhash.go-P16 1 18.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=39.994856ms
+Benchmarkdeco/fs1/zhash.go-P16 1 11.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=23.745481ms
+# POLL·0 C1·5 C1E·4 C3·13 C6·64 C7s·0 C8·16 C9·0 C10·0
+
+*** ZEO
+Benchmarkdeco/zeo/zhash.py 1 378.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.804s	# POLL·2 C1·26319 C1E·86 C3·1938 C6·242 C7s·0 C8·209 C9·0 C10·61
+Benchmarkdeco/zeo/zhash.py 1 369.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.787s	# POLL·0 C1·26606 C1E·239 C3·2022 C6·148 C7s·0 C8·139 C9·0 C10·57
+Benchmarkdeco/zeo/zhash.py 1 370.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.788s	# POLL·15 C1·29211 C1E·144 C3·1706 C6·464 C7s·0 C8·197 C9·0 C10·65
+Benchmarkdeco/zeo/zhash.py 1 381.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.811s	# POLL·0 C1·25676 C1E·151 C3·1798 C6·337 C7s·0 C8·166 C9·0 C10·47
+Benchmarkdeco/zeo/zhash.py 1 375.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.799s	# POLL·3 C1·26938 C1E·78 C3·2019 C6·125 C7s·0 C8·142 C9·0 C10·65
+
+# 16 clients in parallel
+Benchmarkdeco/zeo/zhash.py-P16 1 2841.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.047s
+Benchmarkdeco/zeo/zhash.py-P16 1 2889.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.149s
+Benchmarkdeco/zeo/zhash.py-P16 1 2982.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.346s
+Benchmarkdeco/zeo/zhash.py-P16 1 3055.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.502s
+Benchmarkdeco/zeo/zhash.py-P16 1 3007.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.400s
+Benchmarkdeco/zeo/zhash.py-P16 1 3126.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.652s
+Benchmarkdeco/zeo/zhash.py-P16 1 3117.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.635s
+Benchmarkdeco/zeo/zhash.py-P16 1 3093.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.583s
+Benchmarkdeco/zeo/zhash.py-P16 1 3153.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.710s
+Benchmarkdeco/zeo/zhash.py-P16 1 3119.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.639s
+Benchmarkdeco/zeo/zhash.py-P16 1 3129.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.661s
+Benchmarkdeco/zeo/zhash.py-P16 1 3132.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.667s
+Benchmarkdeco/zeo/zhash.py-P16 1 3162.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.731s
+Benchmarkdeco/zeo/zhash.py-P16 1 3165.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.736s
+Benchmarkdeco/zeo/zhash.py-P16 1 3155.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.715s
+Benchmarkdeco/zeo/zhash.py-P16 1 3223.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.860s
+# POLL·28 C1·29363 C1E·4385 C3·355 C6·106 C7s·0 C8·33 C9·0 C10·0
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 400.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.853s	# POLL·4 C1·15127 C1E·4055 C3·2317 C6·1105 C7s·4 C8·148 C9·0 C10·59
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 404.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.861s	# POLL·1 C1·12858 C1E·5006 C3·1809 C6·976 C7s·0 C8·197 C9·0 C10·83
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 374.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.796s	# POLL·0 C1·15428 C1E·2159 C3·3092 C6·1701 C7s·0 C8·176 C9·0 C10·60
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 448.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.954s	# POLL·0 C1·4807 C1E·3826 C3·3857 C6·2173 C7s·0 C8·167 C9·0 C10·101
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 370.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.787s	# POLL·2 C1·15443 C1E·2689 C3·3113 C6·1337 C7s·0 C8·204 C9·0 C10·87
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3357.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.146s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3323.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.073s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3366.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.165s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3335.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.097s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3326.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.079s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3349.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.127s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3331.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.088s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3361.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.153s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3336.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.100s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3351.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.132s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3378.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.190s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3384.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.202s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3371.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.175s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3371.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.174s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3373.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.179s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3379.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=7.191s
+# POLL·10 C1·139200 C1E·15836 C3·233 C6·138 C7s·0 C8·46 C9·0 C10·3
+
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 275.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=585.783576ms	# POLL·117 C1·678 C1E·13186 C3·2625 C6·886 C7s·0 C8·74 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 274.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=584.594193ms	# POLL·138 C1·695 C1E·13000 C3·1806 C6·1240 C7s·0 C8·641 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 272.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=580.692596ms	# POLL·130 C1·720 C1E·12956 C3·2781 C6·740 C7s·0 C8·139 C9·0 C10·1
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 273.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=581.755259ms	# POLL·112 C1·558 C1E·13390 C3·2935 C6·563 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 273.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=581.412014ms	# POLL·123 C1·758 C1E·12906 C3·2232 C6·1261 C7s·0 C8·263 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 139.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=297.147295ms	# POLL·35 C1·1055 C1E·6695 C3·84 C6·221 C7s·0 C8·15 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 139.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=296.955841ms	# POLL·37 C1·953 C1E·6837 C3·153 C6·119 C7s·0 C8·12 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 139.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=297.031003ms	# POLL·58 C1·1255 C1E·7228 C3·125 C6·147 C7s·0 C8·12 C9·0 C10·1
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 139.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=297.739186ms	# POLL·13 C1·770 C1E·6807 C3·110 C6·186 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 145.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=310.546626ms	# POLL·44 C1·1597 C1E·7312 C3·151 C6·157 C7s·0 C8·12 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2397.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.102417876s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2402.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.11179404s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2406.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.120612587s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2410.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.128424803s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2409.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.126301389s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2412.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.132901724s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2412.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.133336464s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2412.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.134243193s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2412.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.133408582s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2413.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.135596223s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2412.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.134377585s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2413.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.135056228s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2413.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.13602632s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2413.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.135315815s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2414.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.1376699s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2008.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.273253688s
+# POLL·3163 C1·44455 C1E·140966 C3·758 C6·345 C7s·0 C8·10 C9·0 C10·4
+2018-02-20 17:55:30.6428 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sqlite (logging disabled)
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 378.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.805s	# POLL·1 C1·12586 C1E·3932 C3·2353 C6·1589 C7s·0 C8·159 C9·0 C10·61
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 352.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.751s	# POLL·4 C1·15783 C1E·2567 C3·3759 C6·460 C7s·0 C8·221 C9·0 C10·77
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 421.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.897s	# POLL·0 C1·9257 C1E·1086 C3·3269 C6·2388 C7s·0 C8·707 C9·0 C10·76
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 348.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.741s	# POLL·2 C1·15855 C1E·2918 C3·3860 C6·252 C7s·0 C8·232 C9·0 C10·93
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 355.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.756s	# POLL·2 C1·15315 C1E·2923 C3·3056 C6·825 C7s·0 C8·657 C9·0 C10·71
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3117.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.633s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3141.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.685s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3145.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.693s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3171.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.749s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3158.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.721s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3184.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.776s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3206.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.823s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3219.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.852s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3222.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.857s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3200.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.810s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3237.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.889s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3201.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.813s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3208.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.828s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3265.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.948s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3240.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.895s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 3229.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.873s
+# POLL·7 C1·108429 C1E·14519 C3·449 C6·120 C7s·0 C8·31 C9·0 C10·6
+
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 249.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=530.343897ms	# POLL·126 C1·600 C1E·14419 C3·1704 C6·411 C7s·0 C8·188 C9·0 C10·4
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 248.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=527.970084ms	# POLL·162 C1·746 C1E·14168 C3·1564 C6·752 C7s·0 C8·16 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 248.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=529.352364ms	# POLL·166 C1·771 C1E·14292 C3·1799 C6·392 C7s·0 C8·7 C9·0 C10·1
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 248.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=528.631361ms	# POLL·173 C1·759 C1E·14294 C3·1557 C6·658 C7s·0 C8·40 C9·0 C10·1
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 248.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=528.803314ms	# POLL·156 C1·821 C1E·14165 C3·1404 C6·417 C7s·0 C8·492 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 126.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=268.918127ms	# POLL·21 C1·1023 C1E·5407 C3·84 C6·88 C7s·0 C8·22 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 126.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=268.344323ms	# POLL·16 C1·634 C1E·5158 C3·86 C6·104 C7s·0 C8·52 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 124.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=265.82649ms	# POLL·14 C1·880 C1E·5749 C3·59 C6·153 C7s·0 C8·23 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 125.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=265.989633ms	# POLL·14 C1·832 C1E·5780 C3·62 C6·115 C7s·0 C8·17 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 125.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=267.789849ms	# POLL·14 C1·743 C1E·5747 C3·89 C6·75 C7s·0 C8·16 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2161.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.59974385s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2167.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.612791898s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2170.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.618810319s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2173.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.624889864s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2171.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.620830157s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2166.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.610105299s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2173.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.624267392s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2171.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.621225472s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2169.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.615610365s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2169.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.616681415s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2169.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.617304608s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2176.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.632365006s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2170.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.618493652s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2169.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.617394667s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2176.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.631901554s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 2172.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.62353407s
+# POLL·1744 C1·43143 C1E·116155 C3·115 C6·83 C7s·0 C8·10 C9·0 C10·1
+2018-02-20 17:55:54.3872 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2018-02-20 17:55:54 140410510368704 [Note] mysqld (mysqld 10.1.29-MariaDB-6) starting as process 11970 ...
+Benchmarkdeco/neo/py/sql/zhash.py 1 803.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.709s	# POLL·3 C1·16728 C1E·10398 C3·3655 C6·1649 C7s·18 C8·609 C9·17 C10·158
+Benchmarkdeco/neo/py/sql/zhash.py 1 412.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.879s	# POLL·0 C1·22160 C1E·5702 C3·1857 C6·909 C7s·2 C8·193 C9·0 C10·86
+Benchmarkdeco/neo/py/sql/zhash.py 1 431.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.917s	# POLL·4 C1·20476 C1E·6693 C3·3353 C6·1003 C7s·0 C8·252 C9·0 C10·128
+Benchmarkdeco/neo/py/sql/zhash.py 1 440.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.937s	# POLL·2 C1·14836 C1E·7863 C3·2345 C6·1238 C7s·0 C8·187 C9·0 C10·44
+Benchmarkdeco/neo/py/sql/zhash.py 1 430.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.915s	# POLL·2 C1·23873 C1E·5389 C3·1513 C6·1684 C7s·0 C8·177 C9·0 C10·134
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4519.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.618s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4540.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.662s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4547.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.677s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4540.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.663s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4556.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.696s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4564.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.714s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4554.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.692s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4550.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.684s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4557.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.698s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4557.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.699s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4566.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.717s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4559.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.703s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4557.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.699s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4562.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.708s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4567.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.720s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4567.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.719s
+# POLL·32 C1·287090 C1E·65404 C3·1293 C6·324 C7s·0 C8·37 C9·0 C10·0
+
+Benchmarkdeco/neo/py/sql/zhash.go 1 311.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=663.114089ms	# POLL·123 C1·4844 C1E·17604 C3·2896 C6·500 C7s·0 C8·16 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go 1 308.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=657.021441ms	# POLL·142 C1·4634 C1E·17526 C3·3033 C6·537 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go 1 312.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=665.491786ms	# POLL·138 C1·5307 C1E·16917 C3·2808 C6·782 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go 1 309.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=658.651699ms	# POLL·161 C1·4669 C1E·17908 C3·2553 C6·758 C7s·0 C8·9 C9·0 C10·1
+Benchmarkdeco/neo/py/sql/zhash.go 1 310.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=660.248602ms	# POLL·146 C1·4790 C1E·17702 C3·2677 C6·678 C7s·0 C8·15 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 203.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=432.533481ms	# POLL·368 C1·13126 C1E·8924 C3·258 C6·155 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 195.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=416.202842ms	# POLL·268 C1·13346 C1E·8415 C3·155 C6·115 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 195.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=416.182654ms	# POLL·324 C1·13143 C1E·8688 C3·138 C6·144 C7s·0 C8·6 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 199.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=424.375346ms	# POLL·362 C1·13458 C1E·8598 C3·170 C6·153 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 198.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=421.803411ms	# POLL·303 C1·13380 C1E·8562 C3·149 C6·172 C7s·0 C8·12 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3210.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.832695972s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3230.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.874017999s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3241.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.896845866s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3240.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.895290513s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3238.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.891838913s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3240.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.896174206s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3242.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.899506651s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3242.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.899642372s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3243.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.901351653s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3242.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.899134148s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3242.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.900028676s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3242.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.900707699s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3244.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.903504941s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3245.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.905731711s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 2847.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.058332766s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 2846.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.0582574s
+# POLL·5437 C1·176052 C1E·164381 C3·662 C6·274 C7s·0 C8·17 C9·0 C10·1
+2018-02-20 17:56:27.3352 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql (logging disabled)
+2018-02-20 17:56:29 140284909883328 [Note] mysqld (mysqld 10.1.29-MariaDB-6) starting as process 13456 ...
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 712.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.516s	# POLL·1 C1·17389 C1E·7746 C3·4000 C6·1937 C7s·0 C8·321 C9·0 C10·156
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 404.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.860s	# POLL·1 C1·17580 C1E·7354 C3·2500 C6·1042 C7s·0 C8·164 C9·0 C10·66
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 400.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.851s	# POLL·3 C1·18661 C1E·7839 C3·2009 C6·337 C7s·0 C8·218 C9·0 C10·76
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 398.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.849s	# POLL·0 C1·20095 C1E·6796 C3·3251 C6·872 C7s·0 C8·222 C9·0 C10·84
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 393.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.837s	# POLL·0 C1·20910 C1E·8259 C3·930 C6·1161 C7s·0 C8·129 C9·0 C10·76
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4210.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=8.960s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4267.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.082s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4277.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.101s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4249.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.042s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4264.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.075s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4266.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.079s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4263.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.073s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4262.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.070s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4272.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.091s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4269.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.086s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4268.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.084s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4271.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.090s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4270.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.087s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4270.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.087s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4269.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.085s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4278.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=9.105s
+# POLL·26 C1·286595 C1E·50287 C3·682 C6·198 C7s·0 C8·8 C9·0 C10·0
+
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 296.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=630.236148ms	# POLL·203 C1·5137 C1E·17400 C3·2623 C6·615 C7s·0 C8·14 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 288.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=614.375539ms	# POLL·139 C1·4405 C1E·18623 C3·1960 C6·824 C7s·0 C8·8 C9·0 C10·4
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 298.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=634.79945ms	# POLL·177 C1·5513 C1E·16876 C3·2612 C6·877 C7s·0 C8·5 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 292.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=623.120137ms	# POLL·193 C1·4910 C1E·18016 C3·2460 C6·447 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 295.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=629.73302ms	# POLL·190 C1·5539 C1E·16657 C3·2663 C6·914 C7s·0 C8·12 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 183.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=391.095921ms	# POLL·322 C1·12589 C1E·8433 C3·153 C6·128 C7s·0 C8·4 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 178.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=380.747696ms	# POLL·466 C1·12641 C1E·8353 C3·126 C6·73 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 182.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=388.834788ms	# POLL·389 C1·12531 C1E·8779 C3·116 C6·63 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 176.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=376.014671ms	# POLL·376 C1·12838 C1E·8307 C3·89 C6·92 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 178.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=380.037747ms	# POLL·369 C1·12646 C1E·8493 C3·95 C6·122 C7s·0 C8·11 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2988.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.360118434s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2993.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.370780864s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2994.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.372066691s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2991.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.364978209s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2996.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.377035138s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2997.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.378773974s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2995.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.373987969s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2995.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.375328789s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2994.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.37259157s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2996.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.376246811s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2997.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.377671393s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2997.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.378512515s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2995.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.373856735s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2995.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.375230149s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2996.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.376825797s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2995.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=6.374410765s
+# POLL·4029 C1·201518 C1E·136312 C3·403 C6·146 C7s·0 C8·4 C9·0 C10·2
+2018-02-20 17:57:00.2984 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1
+Connection to None lost
+Benchmarkdeco/neo/go/fs1/zhash.py 1 221.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.472s
+# POLL·281 C1·23879 C1E·5967 C3·1320 C6·1391 C7s·0 C8·246 C9·0 C10·156
+Benchmarkdeco/neo/go/fs1/zhash.py 1 213.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.454s	# POLL·191 C1·23948 C1E·5912 C3·1396 C6·1229 C7s·0 C8·149 C9·0 C10·25
+Benchmarkdeco/neo/go/fs1/zhash.py 1 214.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.456s	# POLL·254 C1·23703 C1E·6002 C3·1372 C6·885 C7s·0 C8·452 C9·0 C10·26
+Benchmarkdeco/neo/go/fs1/zhash.py 1 214.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.457s	# POLL·291 C1·24105 C1E·6006 C3·1838 C6·610 C7s·0 C8·85 C9·0 C10·62
+Benchmarkdeco/neo/go/fs1/zhash.py 1 209.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.445s	# POLL·254 C1·23586 C1E·6476 C3·1387 C6·235 C7s·0 C8·544 C9·0 C10·43
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1815.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.864s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1888.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.020s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1920.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.087s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1943.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.135s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1946.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.142s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2010.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.278s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1950.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.151s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1958.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.167s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2011.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.280s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2087.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.442s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2025.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.310s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2042.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.346s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1998.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.253s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2117.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.506s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2070.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.406s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2100.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=4.470s
+# POLL·11 C1·1045 C1E·141 C3·37 C6·92 C7s·0 C8·24 C9·0 C10·1
+
+Benchmarkdeco/neo/go/fs1/zhash.go 1 49.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=104.702015ms	# POLL·198 C1·12796 C1E·624 C3·26 C6·67 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 48.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=103.378792ms	# POLL·171 C1·12608 C1E·722 C3·27 C6·67 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 49.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=104.462089ms	# POLL·161 C1·12746 C1E·748 C3·22 C6·51 C7s·0 C8·5 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 49.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=104.755906ms	# POLL·175 C1·12891 C1E·631 C3·20 C6·58 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 49.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=104.737449ms	# POLL·181 C1·12967 C1E·683 C3·10 C6·61 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 23.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=50.891302ms	# POLL·80 C1·2346 C1E·547 C3·38 C6·50 C7s·0 C8·5 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 22.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=47.224155ms	# POLL·65 C1·2289 C1E·458 C3·16 C6·63 C7s·0 C8·16 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 23.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=50.397748ms	# POLL·98 C1·2131 C1E·616 C3·35 C6·55 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 23.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=50.49074ms	# POLL·108 C1·1851 C1E·559 C3·38 C6·83 C7s·0 C8·5 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 23.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=49.405651ms	# POLL·80 C1·1858 C1E·510 C3·31 C6·66 C7s·0 C8·6 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 303.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=645.077437ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 302.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=643.805159ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 304.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=646.839263ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 309.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=658.668485ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 315.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=671.498886ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 317.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=676.580127ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 326.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=694.000447ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 321.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=684.771348ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 326.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=695.290928ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 331.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=705.835793ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 331.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=706.029867ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 342.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=728.153727ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 336.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=715.108537ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 347.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=739.571984ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 341.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=725.767717ms
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 345.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=736.152033ms
+# POLL·126 C1·4008 C1E·268 C3·17 C6·49 C7s·1 C8·8 C9·0 C10·0
+2018/02/20 17:57:16 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 17:57:16.1754 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1 (sha1 disabled)
+# NEO/go (Sgo): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 33.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=71.769037ms
+# POLL·206 C1·10929 C1E·214 C3·29 C6·40 C7s·0 C8·130 C9·0 C10·79
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 33.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=70.912092ms
+# POLL·216 C1·11065 C1E·134 C3·19 C6·68 C7s·0 C8·3 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 33.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=71.640265ms
+# POLL·192 C1·11098 C1E·134 C3·11 C6·53 C7s·0 C8·13 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 33.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=70.376358ms
+# POLL·215 C1·10992 C1E·140 C3·18 C6·52 C7s·0 C8·11 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 33.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=70.655172ms
+# POLL·197 C1·11194 C1E·116 C3·22 C6·64 C7s·0 C8·3 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 15.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=32.203578ms
+# POLL·105 C1·2168 C1E·195 C3·25 C6·61 C7s·0 C8·9 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 14.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=31.510334ms
+# POLL·125 C1·2248 C1E·177 C3·14 C6·63 C7s·0 C8·10 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 14.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=31.794261ms
+# POLL·91 C1·2135 C1E·187 C3·30 C6·69 C7s·0 C8·6 C9·0 C10·1
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 15.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=32.019182ms
+# POLL·119 C1·2131 C1E·243 C3·25 C6·56 C7s·0 C8·12 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 15.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=33.685705ms
+# POLL·129 C1·2517 C1E·207 C3·24 C6·64 C7s·0 C8·6 C9·0 C10·0
+
+# 16 clients in parallel
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 184.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=393.506191ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 178.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=380.011882ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 187.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=397.927413ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 196.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=418.831581ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 196.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=417.926773ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 194.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=412.830114ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 198.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=423.107151ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 215.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=457.938477ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 206.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=438.542446ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 203.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=432.989214ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 218.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=465.366221ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 209.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=444.903412ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 214.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=456.615984ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 222.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=473.783975ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 40.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=86.997302ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 40.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=86.617099ms
+# POLL·493 C1·14256 C1E·138 C3·28 C6·72 C7s·0 C8·48 C9·0 C10·21
+2018/02/20 17:57:19 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 17:57:19.6050 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite
+Connection to None lost
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 293.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.625s
+# POLL·10 C1·25716 C1E·3861 C3·2855 C6·1110 C7s·0 C8·269 C9·0 C10·133
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 284.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.606s	# POLL·3 C1·25658 C1E·3725 C3·2892 C6·1201 C7s·0 C8·142 C9·0 C10·47
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 283.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.603s	# POLL·2 C1·24873 C1E·3776 C3·2333 C6·1756 C7s·0 C8·192 C9·0 C10·44
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 280.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.597s	# POLL·5 C1·25895 C1E·3698 C3·3119 C6·472 C7s·0 C8·595 C9·0 C10·38
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 290.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.618s	# POLL·5 C1·25996 C1E·3148 C3·2694 C6·1153 C7s·0 C8·373 C9·0 C10·42
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2456.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.228s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2518.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.360s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2470.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.257s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2562.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.453s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2581.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.494s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2587.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.506s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2506.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.334s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2558.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.444s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2611.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.558s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2625.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.587s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2520.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.363s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2533.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.392s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2530.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.385s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2533.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.392s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2602.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.537s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2621.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=5.578s
+# POLL·21 C1·2252 C1E·1096 C3·74 C6·126 C7s·0 C8·32 C9·0 C10·0
+
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 193.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=411.971393ms	# POLL·445 C1·5713 C1E·18753 C3·161 C6·161 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 193.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=412.646477ms	# POLL·470 C1·5715 C1E·18863 C3·75 C6·77 C7s·0 C8·66 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 195.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=416.106125ms	# POLL·449 C1·5606 C1E·18819 C3·110 C6·197 C7s·0 C8·20 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 194.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=412.972932ms	# POLL·402 C1·5442 C1E·19018 C3·166 C6·118 C7s·0 C8·12 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 194.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=414.401335ms	# POLL·457 C1·5667 C1E·18912 C3·105 C6·83 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 106.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=227.155113ms	# POLL·51 C1·1515 C1E·4329 C3·58 C6·98 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 105.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=224.512147ms	# POLL·57 C1·1798 C1E·4548 C3·55 C6·77 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 110.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=234.051703ms	# POLL·44 C1·1560 C1E·4684 C3·78 C6·100 C7s·0 C8·15 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 106.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=227.242359ms	# POLL·46 C1·1533 C1E·4415 C3·46 C6·85 C7s·0 C8·19 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 107.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=228.689229ms	# POLL·35 C1·1376 C1E·4717 C3·70 C6·72 C7s·0 C8·17 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1309.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.786313465s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1325.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.820202774s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1320.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.810570522s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1342.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.856870769s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1346.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.864274439s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1379.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.936057906s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1378.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.933068025s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1400.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.979698777s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1400.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.979195805s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1403.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.98625776s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1405.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.991841941s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1416.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.013395621s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1410.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.000527647s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1423.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.029304736s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1417.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.016168288s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 1422.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=3.02591048s
+# POLL·269 C1·10415 C1E·4976 C3·56 C6·65 C7s·0 C8·5 C9·0 C10·0
+2018/02/20 17:57:39 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 17:57:39.7881 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite (sha1 disabled)
+# NEO/go (Sgo): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 189.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=404.157899ms
+# POLL·366 C1·6622 C1E·18761 C3·94 C6·65 C7s·0 C8·145 C9·0 C10·39
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 186.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=397.417894ms
+# POLL·372 C1·6711 C1E·18468 C3·59 C6·108 C7s·0 C8·42 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 185.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=394.699ms
+# POLL·382 C1·6893 C1E·18149 C3·38 C6·209 C7s·0 C8·20 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 186.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=396.275857ms
+# POLL·396 C1·7044 C1E·18095 C3·151 C6·88 C7s·0 C8·6 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 185.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=393.784252ms
+# POLL·368 C1·6751 C1E·18447 C3·80 C6·82 C7s·0 C8·32 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 107.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=228.156041ms
+# POLL·50 C1·1669 C1E·4201 C3·66 C6·99 C7s·0 C8·23 C9·0 C10·1
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 101.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=216.855888ms
+# POLL·40 C1·1520 C1E·4018 C3·37 C6·94 C7s·0 C8·19 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 102.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=218.972236ms
+# POLL·72 C1·1585 C1E·4384 C3·50 C6·124 C7s·0 C8·23 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 105.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=224.658186ms
+# POLL·48 C1·1679 C1E·4623 C3·47 C6·108 C7s·0 C8·18 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 102.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=218.992144ms
+# POLL·36 C1·1507 C1E·4246 C3·70 C6·75 C7s·0 C8·18 C9·0 C10·0
+
+# 16 clients in parallel
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1302.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.771405065s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1311.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.791097227s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1315.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.798418324s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1333.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.837884307s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1353.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.879827126s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1341.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.855327405s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1350.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.874153654s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1349.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.87072121s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1354.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.882786298s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1355.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.885386395s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1364.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.904421058s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1371.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.918009288s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1380.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.937491438s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1382.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.941956328s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1385.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.947406746s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 1389.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=2.955890188s
+# POLL·269 C1·11872 C1E·5576 C3·60 C6·63 C7s·0 C8·11 C9·0 C10·1
+2018/02/20 17:57:47 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 17:57:47.6972 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+dataset:	prod1-1024
+
+*** FileStorage
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843747 seconds in the future
+Benchmarkdeco/fs1/zhash.py 1 39.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.148s
+# POLL·3 C1·189 C1E·263 C3·17 C6·49 C7s·76 C8·108 C9·1 C10·29
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843746 seconds in the future
+Benchmarkdeco/fs1/zhash.py 1 15.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.059s
+# POLL·0 C1·59 C1E·9 C3·12 C6·46 C7s·0 C8·102 C9·0 C10·29
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843746 seconds in the future
+Benchmarkdeco/fs1/zhash.py 1 15.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.059s
+# POLL·0 C1·47 C1E·8 C3·10 C6·52 C7s·0 C8·111 C9·0 C10·22
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843746 seconds in the future
+Benchmarkdeco/fs1/zhash.py 1 15.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.059s
+# POLL·0 C1·73 C1E·14 C3·10 C6·33 C7s·0 C8·95 C9·0 C10·30
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843745 seconds in the future
+Benchmarkdeco/fs1/zhash.py 1 15.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.059s
+# POLL·0 C1·64 C1E·25 C3·11 C6·42 C7s·0 C8·109 C9·0 C10·27
+
+# 16 clients in parallel
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+/home/kirr/src/neo/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79575843743 seconds in the future
+Benchmarkdeco/fs1/zhash.py-P16 1 136.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.518s
+Benchmarkdeco/fs1/zhash.py-P16 1 134.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.509s
+Benchmarkdeco/fs1/zhash.py-P16 1 122.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.465s
+Benchmarkdeco/fs1/zhash.py-P16 1 123.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.470s
+Benchmarkdeco/fs1/zhash.py-P16 1 126.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.479s
+Benchmarkdeco/fs1/zhash.py-P16 1 131.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.500s
+Benchmarkdeco/fs1/zhash.py-P16 1 130.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.496s
+Benchmarkdeco/fs1/zhash.py-P16 1 122.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.463s
+Benchmarkdeco/fs1/zhash.py-P16 1 119.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.452s
+Benchmarkdeco/fs1/zhash.py-P16 1 122.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.465s
+Benchmarkdeco/fs1/zhash.py-P16 1 137.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.520s
+Benchmarkdeco/fs1/zhash.py-P16 1 133.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.505s
+Benchmarkdeco/fs1/zhash.py-P16 1 129.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.492s
+Benchmarkdeco/fs1/zhash.py-P16 1 125.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.476s
+Benchmarkdeco/fs1/zhash.py-P16 1 129.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.490s
+Benchmarkdeco/fs1/zhash.py-P16 1 121.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.460s
+# POLL·0 C1·1 C1E·16 C3·14 C6·53 C7s·0 C8·27 C9·0 C10·0
+
+Benchmarkdeco/fs1/zhash.go 1 2.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.850447ms	# POLL·0 C1·9 C1E·71 C3·19 C6·53 C7s·0 C8·31 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 2.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.680948ms	# POLL·0 C1·11 C1E·64 C3·22 C6·63 C7s·0 C8·22 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 2.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.783958ms	# POLL·0 C1·4 C1E·70 C3·11 C6·57 C7s·0 C8·28 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 2.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.67053ms	# POLL·1 C1·11 C1E·70 C3·22 C6·61 C7s·0 C8·29 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go 1 2.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.831422ms	# POLL·0 C1·5 C1E·66 C3·23 C6·65 C7s·0 C8·21 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 3.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.693949ms	# POLL·1 C1·76 C1E·108 C3·38 C6·54 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 3.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.349484ms	# POLL·1 C1·91 C1E·97 C3·22 C6·52 C7s·0 C8·14 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 3.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=12.622167ms	# POLL·1 C1·38 C1E·138 C3·26 C6·61 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 3.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.560916ms	# POLL·0 C1·112 C1E·96 C3·37 C6·55 C7s·0 C8·6 C9·0 C10·0
+Benchmarkdeco/fs1/zhash.go+prefetch128 1 3.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.697661ms	# POLL·0 C1·81 C1E·124 C3·21 C6·58 C7s·0 C8·6 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/fs1/zhash.go-P16 1 6.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=23.568664ms
+Benchmarkdeco/fs1/zhash.go-P16 1 11.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=43.080471ms
+Benchmarkdeco/fs1/zhash.go-P16 1 6.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=22.837412ms
+Benchmarkdeco/fs1/zhash.go-P16 1 11.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=43.330071ms
+Benchmarkdeco/fs1/zhash.go-P16 1 9.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=36.053588ms
+Benchmarkdeco/fs1/zhash.go-P16 1 7.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=26.784327ms
+Benchmarkdeco/fs1/zhash.go-P16 1 13.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=50.605025ms
+Benchmarkdeco/fs1/zhash.go-P16 1 10.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=40.804126ms
+Benchmarkdeco/fs1/zhash.go-P16 1 9.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=33.971263ms
+Benchmarkdeco/fs1/zhash.go-P16 1 12.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=48.584076ms
+Benchmarkdeco/fs1/zhash.go-P16 1 12.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=45.811076ms
+Benchmarkdeco/fs1/zhash.go-P16 1 15.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=59.245009ms
+Benchmarkdeco/fs1/zhash.go-P16 1 16.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.513786ms
+Benchmarkdeco/fs1/zhash.go-P16 1 17.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=67.464224ms
+Benchmarkdeco/fs1/zhash.go-P16 1 9.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=34.214437ms
+Benchmarkdeco/fs1/zhash.go-P16 1 12.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=46.600906ms
+# POLL·0 C1·2 C1E·35 C3·18 C6·66 C7s·0 C8·17 C9·0 C10·0
+
+*** ZEO
+Benchmarkdeco/zeo/zhash.py 1 336.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.276s	# POLL·3 C1·48584 C1E·476 C3·3662 C6·178 C7s·2 C8·205 C9·0 C10·58
+Benchmarkdeco/zeo/zhash.py 1 354.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.343s	# POLL·0 C1·48203 C1E·400 C3·3555 C6·284 C7s·0 C8·162 C9·0 C10·81
+Benchmarkdeco/zeo/zhash.py 1 341.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.294s	# POLL·4 C1·45819 C1E·441 C3·3708 C6·143 C7s·0 C8·147 C9·0 C10·82
+Benchmarkdeco/zeo/zhash.py 1 342.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.298s	# POLL·5 C1·48492 C1E·408 C3·3679 C6·137 C7s·0 C8·155 C9·0 C10·92
+Benchmarkdeco/zeo/zhash.py 1 333.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.263s	# POLL·0 C1·46791 C1E·525 C3·3687 C6·159 C7s·0 C8·143 C9·0 C10·64
+
+# 16 clients in parallel
+Benchmarkdeco/zeo/zhash.py-P16 1 2843.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.777s
+Benchmarkdeco/zeo/zhash.py-P16 1 2851.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.808s
+Benchmarkdeco/zeo/zhash.py-P16 1 2885.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.935s
+Exception in thread ('192.168.0.2', 5553) zeo client networking thread (most likely raised during interpreter shutdown):
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/threading.py", line 801, in __bootstrap_inner
+  File "/usr/lib/python2.7/threading.py", line 754, in run
+  File "/home/kirr/src/wendelin/z/ZEO/src/ZEO/asyncio/client.py", line 872, in run
+  File "/home/kirr/src/wendelin/z/ZEO/src/ZEO/ClientStorage.py", line 431, in notify_disconnected
+<type 'exceptions.AttributeError'>: 'NoneType' object has no attribute 'info'
+Benchmarkdeco/zeo/zhash.py-P16 1 2878.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.908s
+Benchmarkdeco/zeo/zhash.py-P16 1 2911.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.036s
+Benchmarkdeco/zeo/zhash.py-P16 1 2915.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.050s
+Benchmarkdeco/zeo/zhash.py-P16 1 2980.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.296s
+Benchmarkdeco/zeo/zhash.py-P16 1 2947.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.169s
+Benchmarkdeco/zeo/zhash.py-P16 1 2971.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.263s
+Benchmarkdeco/zeo/zhash.py-P16 1 2967.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.246s
+Benchmarkdeco/zeo/zhash.py-P16 1 2973.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.268s
+Benchmarkdeco/zeo/zhash.py-P16 1 2981.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.301s
+Benchmarkdeco/zeo/zhash.py-P16 1 2993.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.344s
+Benchmarkdeco/zeo/zhash.py-P16 1 3020.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.449s
+Benchmarkdeco/zeo/zhash.py-P16 1 3008.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.403s
+Benchmarkdeco/zeo/zhash.py-P16 1 3035.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.504s
+# POLL·5 C1·71785 C1E·12433 C3·1306 C6·159 C7s·0 C8·48 C9·0 C10·0
+(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)
+
+*** NEO/py sqlite
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 365.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.384s	# POLL·3 C1·29932 C1E·5245 C3·4966 C6·1310 C7s·2 C8·286 C9·6 C10·93
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 343.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.300s	# POLL·1 C1·29169 C1E·6189 C3·5288 C6·2222 C7s·0 C8·184 C9·0 C10·78
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 334.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.269s	# POLL·1 C1·24631 C1E·8519 C3·5485 C6·1760 C7s·0 C8·218 C9·0 C10·74
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 328.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.246s	# POLL·4 C1·28317 C1E·6853 C3·3966 C6·1707 C7s·0 C8·1547 C9·0 C10·111
+Benchmarkdeco/neo/py/sqlite/zhash.py 1 331.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.256s	# POLL·1 C1·32078 C1E·5742 C3·5093 C6·1357 C7s·0 C8·477 C9·0 C10·122
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3088.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.705s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3123.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.838s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3116.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.811s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3132.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.872s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3113.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.799s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3112.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.798s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3113.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.799s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3130.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.865s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3094.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.727s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3103.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.763s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3112.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.796s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3107.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.778s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3113.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.801s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3111.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.791s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3114.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.803s
+Benchmarkdeco/neo/py/sqlite/zhash.py-P16 1 3126.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.849s
+# POLL·13 C1·271070 C1E·26436 C3·272 C6·142 C7s·0 C8·28 C9·0 C10·0
+
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 169.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=642.970775ms	# POLL·50 C1·2809 C1E·20310 C3·776 C6·427 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 169.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=641.94982ms	# POLL·57 C1·2765 C1E·20256 C3·612 C6·598 C7s·0 C8·165 C9·0 C10·1
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 170.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=644.3337ms	# POLL·44 C1·2802 C1E·20330 C3·742 C6·477 C7s·0 C8·56 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 169.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=642.80985ms	# POLL·38 C1·2882 C1E·20230 C3·748 C6·348 C7s·0 C8·158 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go 1 169.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=644.002989ms	# POLL·54 C1·2700 C1E·20354 C3·524 C6·413 C7s·0 C8·375 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 127.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=483.875885ms	# POLL·53 C1·2101 C1E·16197 C3·185 C6·217 C7s·0 C8·25 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 124.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=470.431634ms	# POLL·59 C1·1866 C1E·16333 C3·128 C6·220 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 126.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=478.138418ms	# POLL·40 C1·2132 C1E·15712 C3·168 C6·180 C7s·0 C8·53 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 124.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=469.851023ms	# POLL·44 C1·1992 C1E·16158 C3·165 C6·133 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/py/sqlite/zhash.go+prefetch128 1 123.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=468.082644ms	# POLL·50 C1·1748 C1E·16110 C3·170 C6·292 C7s·0 C8·21 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2087.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.91143911s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2112.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.004788505s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2120.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.03496826s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2118.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.028872174s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2117.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.026017859s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2118.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.030475303s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2118.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.030634881s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2118.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.030751394s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2119.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.032201279s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2119.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.03287402s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2120.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.036969887s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2120.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.0383637s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2120.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.037082911s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2122.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.043388136s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2121.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.039159481s
+Benchmarkdeco/neo/py/sqlite/zhash.go-P16 1 2121.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.039196439s
+# POLL·1610 C1·14219 C1E·289886 C3·413 C6·204 C7s·0 C8·23 C9·0 C10·0
+2018-02-20 17:58:50.6332 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sqlite (logging disabled)
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 326.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.239s	# POLL·1 C1·31329 C1E·6021 C3·4802 C6·1215 C7s·0 C8·772 C9·0 C10·69
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 317.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.204s	# POLL·0 C1·33278 C1E·4322 C3·3675 C6·3049 C7s·0 C8·344 C9·0 C10·98
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 321.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.219s	# POLL·5 C1·30990 C1E·6408 C3·5590 C6·858 C7s·0 C8·230 C9·0 C10·72
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 313.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.189s	# POLL·5 C1·21669 C1E·10354 C3·4789 C6·1831 C7s·0 C8·179 C9·0 C10·75
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py 1 327.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.241s	# POLL·4 C1·32949 C1E·5605 C3·4357 C6·2063 C7s·0 C8·366 C9·0 C10·115
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2871.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.883s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2923.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.082s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2916.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.054s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2909.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.027s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2927.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.094s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2932.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.112s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2955.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.200s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2939.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.139s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2965.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.239s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2938.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.138s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2960.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.220s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2974.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.272s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2950.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.184s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2960.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.218s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2963.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.232s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.py-P16 1 2965.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.238s
+# POLL·22 C1·210302 C1E·21436 C3·383 C6·137 C7s·0 C8·39 C9·0 C10·1
+
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 157.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=595.20389ms	# POLL·45 C1·2823 C1E·20553 C3·291 C6·331 C7s·0 C8·325 C9·0 C10·2
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 156.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=593.199028ms	# POLL·52 C1·2880 C1E·20593 C3·315 C6·414 C7s·0 C8·132 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 156.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=591.853812ms	# POLL·38 C1·2972 C1E·20561 C3·323 C6·522 C7s·0 C8·3 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 157.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=595.351281ms	# POLL·47 C1·2916 C1E·20701 C3·255 C6·422 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go 1 157.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=596.01328ms	# POLL·40 C1·2915 C1E·20733 C3·415 C6·288 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 109.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=415.137549ms	# POLL·41 C1·3514 C1E·13508 C3·225 C6·255 C7s·0 C8·20 C9·0 C10·1
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 110.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=417.449667ms	# POLL·61 C1·3568 C1E·14045 C3·304 C6·77 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 108.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=412.358049ms	# POLL·49 C1·3651 C1E·13750 C3·120 C6·170 C7s·0 C8·64 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 110.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=419.320655ms	# POLL·49 C1·3426 C1E·13951 C3·330 C6·127 C7s·0 C8·64 C9·0 C10·1
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go+prefetch128 1 108.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=410.487144ms	# POLL·62 C1·3476 C1E·13494 C3·166 C6·353 C7s·0 C8·130 C9·0 C10·1
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1869.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.086720854s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1873.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.101621098s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1875.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.107707836s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1877.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.11726123s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1878.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.118629354s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1877.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.115671572s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1880.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.127420573s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1878.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.12000573s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1876.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.11347871s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1878.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.118677662s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1880.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.126261556s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1878.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.117536493s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1879.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.123531944s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1877.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.114783346s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1878.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.117820054s
+Benchmarkdeco/neo/py(!log)/sqlite/zhash.go-P16 1 1904.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.215990482s
+# POLL·1719 C1·17561 C1E·281147 C3·256 C6·126 C7s·0 C8·18 C9·0 C10·2
+2018-02-20 17:59:24.5796 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql
+2018-02-20 17:59:24 139965273743296 [Note] mysqld (mysqld 10.1.29-MariaDB-6) starting as process 24835 ...
+Benchmarkdeco/neo/py/sql/zhash.py 1 646.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.450s	# POLL·3 C1·34733 C1E·14982 C3·4767 C6·2727 C7s·8 C8·856 C9·5 C10·207
+Benchmarkdeco/neo/py/sql/zhash.py 1 381.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.444s	# POLL·0 C1·39934 C1E·14277 C3·2761 C6·2336 C7s·0 C8·371 C9·0 C10·76
+Benchmarkdeco/neo/py/sql/zhash.py 1 379.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.437s	# POLL·9 C1·38380 C1E·15391 C3·3053 C6·1737 C7s·0 C8·240 C9·0 C10·141
+Benchmarkdeco/neo/py/sql/zhash.py 1 373.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.416s	# POLL·3 C1·38491 C1E·12403 C3·5606 C6·2453 C7s·0 C8·1353 C9·0 C10·92
+Benchmarkdeco/neo/py/sql/zhash.py 1 385.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.463s	# POLL·5 C1·44883 C1E·10244 C3·4278 C6·2503 C7s·0 C8·305 C9·0 C10·95
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4349.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.484s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4356.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.512s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4358.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.519s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4363.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.537s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4365.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.546s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4358.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.517s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4356.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.511s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4365.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.546s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4362.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.533s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4360.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.526s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4363.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.537s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4369.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.560s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4360.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.526s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4358.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.520s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4361.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.529s
+Benchmarkdeco/neo/py/sql/zhash.py-P16 1 4366.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=16.548s
+# POLL·56 C1·565805 C1E·118682 C3·1947 C6·459 C7s·0 C8·35 C9·0 C10·1
+
+Benchmarkdeco/neo/py/sql/zhash.go 1 218.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=827.46851ms	# POLL·63 C1·12018 C1E·24611 C3·2457 C6·503 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go 1 218.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=828.225901ms	# POLL·61 C1·11910 C1E·24361 C3·2660 C6·565 C7s·0 C8·10 C9·0 C10·1
+Benchmarkdeco/neo/py/sql/zhash.go 1 217.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=824.451711ms	# POLL·54 C1·11932 C1E·24366 C3·2192 C6·1052 C7s·0 C8·2 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go 1 219.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=832.517174ms	# POLL·53 C1·11971 C1E·24358 C3·2516 C6·697 C7s·0 C8·12 C9·0 C10·1
+Benchmarkdeco/neo/py/sql/zhash.go 1 217.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=825.754579ms	# POLL·67 C1·12057 C1E·24587 C3·2226 C6·721 C7s·0 C8·10 C9·0 C10·1
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 183.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=694.569472ms	# POLL·124 C1·14388 C1E·19999 C3·970 C6·532 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 183.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=694.0993ms	# POLL·167 C1·14603 C1E·19896 C3·851 C6·389 C7s·0 C8·12 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 179.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=679.893001ms	# POLL·141 C1·14675 C1E·19752 C3·778 C6·539 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 180.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=682.189777ms	# POLL·145 C1·14629 C1E·19801 C3·801 C6·443 C7s·0 C8·14 C9·0 C10·1
+Benchmarkdeco/neo/py/sql/zhash.go+prefetch128 1 180.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=683.71717ms	# POLL·142 C1·14676 C1E·19998 C3·847 C6·360 C7s·0 C8·9 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3026.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.470199617s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3031.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.488752675s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3032.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.492951461s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3034.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.498961011s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3031.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.490918802s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3031.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.490843617s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3033.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.494913455s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3031.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.490659126s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3032.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.493495546s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3034.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.499337028s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3032.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.492105118s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3032.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.494701527s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3032.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.494809054s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3034.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.501252471s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3033.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.496438007s
+Benchmarkdeco/neo/py/sql/zhash.go-P16 1 3033.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=11.497000497s
+# POLL·5918 C1·304333 C1E·235271 C3·10635 C6·1443 C7s·0 C8·43 C9·0 C10·3
+2018-02-20 18:00:13.8321 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql (logging disabled)
+2018-02-20 18:00:15 140630651641792 [Note] mysqld (mysqld 10.1.29-MariaDB-6) starting as process 26324 ...
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 574.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.178s	# POLL·1 C1·42916 C1E·13548 C3·4392 C6·1236 C7s·2 C8·247 C9·0 C10·170
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 373.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.414s	# POLL·4 C1·43040 C1E·14217 C3·2468 C6·802 C7s·0 C8·275 C9·0 C10·105
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 359.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.362s	# POLL·1 C1·43081 C1E·10409 C3·4692 C6·1709 C7s·0 C8·197 C9·0 C10·141
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 353.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.339s	# POLL·3 C1·42987 C1E·10781 C3·2708 C6·2210 C7s·0 C8·236 C9·0 C10·122
+Benchmarkdeco/neo/py(!log)/sql/zhash.py 1 359.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.361s	# POLL·5 C1·47558 C1E·9396 C3·3243 C6·975 C7s·0 C8·310 C9·0 C10·132
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4025.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.258s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4051.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.355s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4052.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.358s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4049.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.347s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4046.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.337s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4046.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.336s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4047.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.339s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4040.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.312s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4038.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.308s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4047.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.340s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4040.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.312s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4059.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.387s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4043.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.326s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4058.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.382s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4053.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.364s
+Benchmarkdeco/neo/py(!log)/sql/zhash.py-P16 1 4060.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=15.390s
+# POLL·41 C1·551476 C1E·87952 C3·937 C6·222 C7s·0 C8·19 C9·0 C10·1
+
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 197.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=748.512846ms	# POLL·73 C1·12397 C1E·25279 C3·1105 C6·626 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 198.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=750.829375ms	# POLL·61 C1·12420 C1E·25305 C3·1440 C6·268 C7s·0 C8·6 C9·0 C10·1
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 196.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=745.615091ms	# POLL·54 C1·12266 C1E·25568 C3·1218 C6·397 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 201.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=764.655278ms	# POLL·60 C1·12780 C1E·24680 C3·1179 C6·593 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go 1 198.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=751.791933ms	# POLL·59 C1·12319 C1E·25396 C3·1299 C6·413 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 162.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=614.694956ms	# POLL·71 C1·17478 C1E·17115 C3·573 C6·263 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 159.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=602.573484ms	# POLL·93 C1·18290 C1E·16333 C3·564 C6·257 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 161.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=610.899688ms	# POLL·97 C1·17538 C1E·16956 C3·477 C6·431 C7s·0 C8·12 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 161.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=610.079584ms	# POLL·89 C1·17660 C1E·17162 C3·334 C6·244 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/py(!log)/sql/zhash.go+prefetch128 1 161.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=612.645359ms	# POLL·82 C1·18009 C1E·16819 C3·382 C6·347 C7s·0 C8·9 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2650.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.04650598s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.058691001s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2655.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.063060939s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2652.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.052218769s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.061677486s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2653.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.054899454s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.059800175s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.061087269s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2653.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.058077005s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2656.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.066967897s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2655.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.06428299s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.058925972s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.06087849s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.061785338s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2654.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.062084971s
+Benchmarkdeco/neo/py(!log)/sql/zhash.go-P16 1 2655.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=10.063737344s
+# POLL·2243 C1·285817 C1E·262858 C3·1736 C6·661 C7s·0 C8·11 C9·0 C10·2
+2018-02-20 18:01:00.9105 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1
+Connection to None lost
+Benchmarkdeco/neo/go/fs1/zhash.py 1 213.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.808s
+# POLL·433 C1·57978 C1E·10341 C3·2427 C6·1443 C7s·0 C8·641 C9·0 C10·114
+Benchmarkdeco/neo/go/fs1/zhash.py 1 212.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.805s	# POLL·429 C1·56903 C1E·10325 C3·2875 C6·1579 C7s·0 C8·99 C9·0 C10·46
+Benchmarkdeco/neo/go/fs1/zhash.py 1 215.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.817s	# POLL·420 C1·56982 C1E·10665 C3·3043 C6·916 C7s·0 C8·111 C9·0 C10·43
+Benchmarkdeco/neo/go/fs1/zhash.py 1 213.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.810s	# POLL·415 C1·57575 C1E·10193 C3·2318 C6·1721 C7s·0 C8·622 C9·0 C10·52
+Benchmarkdeco/neo/go/fs1/zhash.py 1 213.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.811s	# POLL·436 C1·57660 C1E·9955 C3·2298 C6·2413 C7s·0 C8·135 C9·0 C10·35
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1821.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.903s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1843.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=6.986s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1850.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.015s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1926.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.300s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1911.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.244s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1885.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.147s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1925.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.297s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1902.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.210s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1914.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.255s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1989.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.539s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1960.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.431s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 2001.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.587s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1991.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.546s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1917.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.266s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1944.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.368s
+Benchmarkdeco/neo/go/fs1/zhash.py-P16 1 1952.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=7.400s
+# POLL·35 C1·7467 C1E·679 C3·87 C6·102 C7s·0 C8·24 C9·0 C10·1
+
+Benchmarkdeco/neo/go/fs1/zhash.go 1 38.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=144.149962ms	# POLL·311 C1·19347 C1E·575 C3·20 C6·62 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 37.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=142.246614ms	# POLL·305 C1·18978 C1E·596 C3·16 C6·63 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 37.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=141.312569ms	# POLL·322 C1·18910 C1E·647 C3·18 C6·56 C7s·0 C8·12 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 37.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=142.240365ms	# POLL·309 C1·19143 C1E·546 C3·12 C6·60 C7s·0 C8·8 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go 1 37.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=140.865448ms	# POLL·300 C1·19026 C1E·698 C3·26 C6·63 C7s·0 C8·7 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 15.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=58.865367ms	# POLL·109 C1·2502 C1E·574 C3·32 C6·61 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 14.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=55.927068ms	# POLL·117 C1·2516 C1E·452 C3·21 C6·75 C7s·0 C8·9 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 16.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=61.894642ms	# POLL·128 C1·2642 C1E·661 C3·26 C6·71 C7s·0 C8·7 C9·0 C10·1
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 15.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=58.148259ms	# POLL·107 C1·2696 C1E·533 C3·26 C6·58 C7s·0 C8·17 C9·0 C10·0
+Benchmarkdeco/neo/go/fs1/zhash.go+prefetch128 1 15.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=59.702512ms	# POLL·222 C1·2849 C1E·497 C3·40 C6·56 C7s·0 C8·10 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 285.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.082430502s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 279.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.060626811s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 279.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.060348335s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 287.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.087815028s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 290.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.102631955s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 292.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.109715711s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 296.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.123231358s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 299.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.13650412s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 299.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.134518328s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 301.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.141610157s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 309.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.172943212s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 310.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.174768197s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 308.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.168897268s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 310.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.177690753s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 312.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.185291236s
+Benchmarkdeco/neo/go/fs1/zhash.go-P16 1 313.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.187368385s
+# POLL·235 C1·8159 C1E·556 C3·27 C6·57 C7s·0 C8·7 C9·0 C10·0
+2018/02/20 18:01:21 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 18:01:21.7962 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1 (sha1 disabled)
+# NEO/go (Sgo): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 32.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=123.495629ms
+# POLL·378 C1·18340 C1E·236 C3·14 C6·65 C7s·0 C8·146 C9·0 C10·28
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 32.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=122.131387ms
+# POLL·353 C1·18595 C1E·201 C3·22 C6·48 C7s·0 C8·16 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 32.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=121.223782ms
+# POLL·345 C1·18308 C1E·207 C3·23 C6·58 C7s·0 C8·6 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 31.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=120.447014ms
+# POLL·312 C1·18271 C1E·196 C3·16 C6·61 C7s·0 C8·6 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go 1 31.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=120.584321ms
+# POLL·366 C1·18337 C1E·168 C3·15 C6·56 C7s·0 C8·15 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 12.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=45.973328ms
+# POLL·100 C1·2408 C1E·278 C3·21 C6·52 C7s·0 C8·8 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=50.935704ms
+# POLL·154 C1·2408 C1E·407 C3·16 C6·67 C7s·0 C8·7 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=49.283026ms
+# POLL·182 C1·2611 C1E·280 C3·15 C6·58 C7s·0 C8·6 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=52.032807ms
+# POLL·120 C1·2074 C1E·532 C3·43 C6·77 C7s·0 C8·8 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 12.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=46.306457ms
+# POLL·134 C1·2251 C1E·292 C3·19 C6·64 C7s·0 C8·12 C9·0 C10·0
+
+# 16 clients in parallel
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 243.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=924.189086ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 257.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=976.79229ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 250.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=947.410395ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 253.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=960.706972ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 259.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=983.905874ms
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 270.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.024881426s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 270.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.026635253s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 275.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.042705149s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 273.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.035271573s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 273.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.034701369s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 276.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.048063166s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 276.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.045930172s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 278.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.055771994s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 277.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.049829341s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 281.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.067648309s
+Benchmarkdeco/neo/go/fs1(!sha1)/zhash.go-P16 1 280.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.062553077s
+# POLL·233 C1·7460 C1E·822 C3·26 C6·64 C7s·0 C8·4 C9·0 C10·0
+2018/02/20 18:01:25 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 18:01:25.5643 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite
+unexpected packet: Retry Later in PrimaryBootstrapHandler
+Connection to None lost
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 263.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=1.000s
+# POLL·11 C1·51378 C1E·4200 C3·5699 C6·916 C7s·0 C8·448 C9·0 C10·101
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 245.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.930s	# POLL·12 C1·50307 C1E·6869 C3·3864 C6·2059 C7s·0 C8·270 C9·0 C10·46
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 242.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.920s	# POLL·10 C1·49548 C1E·7265 C3·4082 C6·1939 C7s·0 C8·189 C9·0 C10·34
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 252.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.957s	# POLL·8 C1·50737 C1E·5784 C3·4756 C6·1300 C7s·0 C8·438 C9·0 C10·39
+Benchmarkdeco/neo/go/sqlite/zhash.py 1 239.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.906s	# POLL·7 C1·49682 C1E·7715 C3·3567 C6·1455 C7s·0 C8·818 C9·0 C10·78
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2236.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.476s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2280.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.644s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2277.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.631s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2325.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.813s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2290.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.681s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2302.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.726s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2333.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.844s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2367.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.974s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2332.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.839s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2413.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.146s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2353.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.919s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2349.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.906s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2400.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=9.097s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2364.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.963s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2368.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.978s
+Benchmarkdeco/neo/go/sqlite/zhash.py-P16 1 2366.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=8.970s
+# POLL·51 C1·4326 C1E·1727 C3·98 C6·208 C7s·0 C8·39 C9·0 C10·1
+
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 106.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=404.416086ms	# POLL·425 C1·23624 C1E·12498 C3·30 C6·55 C7s·0 C8·13 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 106.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=402.580701ms	# POLL·418 C1·23980 C1E·12253 C3·40 C6·61 C7s·0 C8·15 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 105.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=400.335678ms	# POLL·424 C1·23792 C1E·12364 C3·19 C6·87 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 105.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=400.335094ms	# POLL·415 C1·23517 C1E·12478 C3·18 C6·71 C7s·0 C8·29 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go 1 105.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=401.190588ms	# POLL·386 C1·23767 C1E·12320 C3·26 C6·85 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 53.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=202.026713ms	# POLL·65 C1·2567 C1E·3116 C3·45 C6·83 C7s·0 C8·13 C9·0 C10·1
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 53.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=202.446615ms	# POLL·100 C1·2997 C1E·2947 C3·76 C6·78 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 54.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=207.93207ms	# POLL·121 C1·2593 C1E·3659 C3·51 C6·79 C7s·0 C8·10 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 52.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=198.330683ms	# POLL·44 C1·2194 C1E·2853 C3·57 C6·91 C7s·0 C8·11 C9·0 C10·0
+Benchmarkdeco/neo/go/sqlite/zhash.go+prefetch128 1 52.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=197.51906ms	# POLL·85 C1·2705 C1E·2882 C3·46 C6·86 C7s·0 C8·10 C9·0 C10·0
+
+# 16 clients in parallel
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 830.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.14838986s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 842.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.193996285s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 856.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.24647666s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 866.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.284246897s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 855.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.243364104s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 866.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.284938432s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 868.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.290271793s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 872.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.305027723s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 869.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.295923195s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 870.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.297354389s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 884.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.353289127s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 876.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.322119751s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 884.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.350594834s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 878.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.330274833s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 880.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.337288012s
+Benchmarkdeco/neo/go/sqlite/zhash.go-P16 1 881.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.340261635s
+# POLL·407 C1·20795 C1E·6025 C3·96 C6·135 C7s·0 C8·10 C9·0 C10·0
+2018/02/20 18:01:51 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 18:01:51.0698 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite (sha1 disabled)
+# NEO/go (Sgo): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 107.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=405.825278ms
+# POLL·434 C1·23633 C1E·12432 C3·50 C6·76 C7s·0 C8·116 C9·0 C10·50
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 104.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=397.515034ms
+# POLL·416 C1·24064 C1E·11792 C3·22 C6·76 C7s·0 C8·10 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 104.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=395.016153ms
+# POLL·401 C1·23808 C1E·11952 C3·18 C6·95 C7s·0 C8·14 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 104.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=397.413778ms
+# POLL·420 C1·24040 C1E·11837 C3·40 C6·65 C7s·0 C8·7 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go 1 104.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=394.866785ms
+# POLL·401 C1·23987 C1E·11837 C3·42 C6·77 C7s·0 C8·11 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 54.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=206.209322ms
+# POLL·98 C1·2684 C1E·3601 C3·50 C6·101 C7s·0 C8·10 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 51.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=194.151521ms
+# POLL·73 C1·2732 C1E·2988 C3·36 C6·73 C7s·0 C8·12 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 54.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=204.859796ms
+# POLL·85 C1·2657 C1E·3328 C3·50 C6·67 C7s·0 C8·15 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 52.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=199.904678ms
+# POLL·51 C1·2294 C1E·3188 C3·51 C6·75 C7s·0 C8·19 C9·0 C10·0
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go+prefetch128 1 51.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=196.378522ms
+# POLL·71 C1·2700 C1E·2909 C3·55 C6·63 C7s·0 C8·13 C9·0 C10·0
+
+# 16 clients in parallel
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+# NEO/go (zhash_go): skipping SHA1 computations
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 868.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.291879674s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 884.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.353300764s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 882.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.343943476s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 892.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.382799467s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 884.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.353491357s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 889.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.371201619s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 892.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.381066563s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 896.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.399178322s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 897.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.400979337s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 898.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.405361249s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 903.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.422250019s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 902.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.420702316s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 907.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.437939265s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 910.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.449082726s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 910.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.450203668s
+Benchmarkdeco/neo/go/sqlite(!sha1)/zhash.go-P16 1 911.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=3.454051374s
+# POLL·518 C1·24048 C1E·7676 C3·98 C6·126 C7s·0 C8·20 C9·0 C10·0
+2018/02/20 18:01:59 talk master([192.168.0.2]:5552): context canceled
+2018-02-20 18:01:59.3704 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
