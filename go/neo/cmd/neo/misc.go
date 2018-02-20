@@ -36,6 +36,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 
 
+	// for http://.../debug/pprof
 	_ "net/http/pprof"
 )
 
@@ -57,7 +58,7 @@ func neoMatch(r io.Reader) bool {
 // protocols, passes NEO connections to service and passes HTTP connection to
 // default HTTP mux.
 //
-// default HTTP mux can be assumed to contain /debug/pprof and the like.
+// Default HTTP mux can be assumed to contain /debug/pprof and the like.
 func listenAndServe(ctx context.Context, net xnet.Networker, laddr string, serve func(ctx context.Context, l stdnet.Listener) error) error {
 	l, err := net.Listen(laddr)
 	if err != nil {
