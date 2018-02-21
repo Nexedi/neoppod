@@ -23,8 +23,26 @@ package xzlib
 import (
 	"bytes"
 	"compress/zlib"
-	"io"
-	"sync"
+
+/* Czlib performs much faster, at least to decompress real data:
+
+name                        old time/op    new time/op    delta
+deco/unzlib/py/null-1K        2.12µs ± 1%    2.11µs ± 2%     ~     (p=0.841 n=5+5)
+deco/unzlib/go/null-1K        1.89µs ± 1%    2.27µs ± 1%  +20.03%  (p=0.008 n=5+5)
+deco/unzlib/py/null-4K        13.5µs ± 4%    13.3µs ± 0%     ~     (p=0.310 n=5+5)
+deco/unzlib/go/null-4K        8.54µs ± 0%    8.91µs ± 0%   +4.43%  (p=0.008 n=5+5)
+deco/unzlib/py/null-2M        5.20ms ±10%    5.31ms ± 1%     ~     (p=0.548 n=5+5)
+deco/unzlib/go/null-2M        2.58ms ± 1%    3.87ms ± 0%  +50.13%  (p=0.008 n=5+5)
+deco/unzlib/py/wczdata-avg    24.1µs ± 1%    23.9µs ± 0%     ~     (p=0.114 n=4+4)
+deco/unzlib/go/wczdata-avg    68.0µs ± 1%    20.9µs ± 0%  -69.29%  (p=0.008 n=5+5)
+deco/unzlib/py/wczdata-max    23.5µs ± 1%    23.5µs ± 0%     ~     (p=0.556 n=4+5)
+deco/unzlib/go/wczdata-max    67.8µs ± 0%    20.7µs ± 1%  -69.45%  (p=0.008 n=5+5)
+deco/unzlib/py/prod1-avg      4.47µs ± 2%    4.44µs ± 1%     ~     (p=0.341 n=5+5)
+deco/unzlib/go/prod1-avg      11.0µs ± 0%     4.1µs ± 1%  -62.39%  (p=0.016 n=5+4)
+deco/unzlib/py/prod1-max       326µs ± 0%     325µs ± 0%     ~     (p=0.095 n=5+5)
+deco/unzlib/go/prod1-max       542µs ± 0%     262µs ± 0%  -51.71%  (p=0.008 n=5+5)
+*/
+	"github.com/DataDog/czlib"
 )
 
 // Compress compresses data according to zlib encoding.
@@ -44,6 +62,14 @@ func Compress(data []byte) (zdata []byte) {
 	return b.Bytes()
 }
 
+// Decompress decompresses data according to zlib encoding.
+//
+// return: destination buffer with full decompressed data or error.
+func Decompress(zdata []byte) (data []byte, err error) {
+	return czlib.Decompress(zdata)
+}
+
+/*
 // ---- zlib.Reader pool ----
 // (creating zlib.NewReader for every decompress has high overhead for not large blocks)
 
@@ -108,3 +134,4 @@ func Decompress(zdata []byte, out []byte) (data []byte, err error) {
 
 	return bout.Bytes(), nil
 }
+*/

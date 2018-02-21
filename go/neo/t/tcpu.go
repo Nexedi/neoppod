@@ -115,10 +115,8 @@ func BenchmarkUnzlib(b *testing.B, zfile string) {
 
 	b.ResetTimer()
 
-	var data []byte
-	var err  error
 	for i := 0; i < b.N; i++ {
-		data, err = xzlib.Decompress(zdata, data)
+		_, err := xzlib.Decompress(zdata)
 		if err != nil {
 			log.Fatal(err)
 		}

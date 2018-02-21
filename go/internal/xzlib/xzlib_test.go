@@ -38,7 +38,7 @@ var ztestv = []struct{ in, out string }{
 
 func TestDecompress(t *testing.T) {
 	for _, tt := range ztestv {
-		got, err := Decompress([]byte(tt.in), nil)
+		got, err := Decompress([]byte(tt.in))
 		if err != nil {
 			t.Errorf("decompress err: %q", tt.in)
 			continue
