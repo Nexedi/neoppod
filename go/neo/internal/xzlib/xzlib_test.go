@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package neo
+package xzlib
 
 import (
 	"testing"
@@ -38,7 +38,7 @@ var ztestv = []struct{in, out string}{
 
 func TestDecompress(t *testing.T) {
 	for _, tt := range ztestv {
-		got, err := decompress([]byte(tt.in), nil)
+		got, err := Decompress([]byte(tt.in), nil)
 		if err != nil {
 			t.Errorf("decompress err: %q", tt.in)
 			continue

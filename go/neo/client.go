@@ -36,6 +36,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 
 	"lab.nexedi.com/kirr/neo/go/neo/internal/xsha1"
+	"lab.nexedi.com/kirr/neo/go/neo/internal/xzlib"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
@@ -466,7 +467,7 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 		// XXX cleanup mess vvv
 		buf2 := mem.BufAlloc(len(buf.Data))
 		buf2.Data = buf2.Data[:0]
-		udata, err := decompress(buf.Data, buf2.Data)
+		udata, err := xzlib.Decompress(buf.Data, buf2.Data)
 		buf.Release()
 		if err != nil {
 			buf2.Release()

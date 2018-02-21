@@ -1,0 +1,104 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+"""generate testdata/ files"""
+
+import zlib
+import zodbtools.util as zutil
+from tcpu import fmtsize
+
+K = 1024
+M = 1024*K
+
+sizev = (1*K, 4*K, 2*M)
+
+def writefile(path, data):
+    with open(path, 'w') as f:
+        f.write(data)
+
+
+def zcompress(data):
+    zdata = zlib.compress(data)
+    #print '%d -> %d  (%.1f%%)' % (len(data), len(zdata), 100. * len(zdata) / len(data))
+    return zdata
+
+def main():
+    # zlib/null
+    for size in sizev:
+        data = '\0' * size
+        zdata = zcompress(data)
+        writefile('testdata/zlib/null-%s' % fmtsize(size), zdata)
+
+
+    # representative ZODB objects
+    # (to regenerate this requires `neotest zbench-local` to be already run once)
+
+    # wendelin.core's ZData
+    zdatav = []
+    def update_zdata(objdata):
+        if 'ZData' in objdata:  # XXX hack
+            zdatav.append(objdata)
+    iter_zobjects('var/wczblk1-8/fs1/data.fs', update_zdata)
+    writeobjects('testdata/zlib/wczdata', zdatav)
+
+    # min avg max from prod1
+    prod1_objv = []
+    def update_prod1(objdata):
+        prod1_objv.append(objdata)
+
+    iter_zobjects('var/prod1-1024/fs1/data.fs', update_prod1)
+    writeobjects('testdata/zlib/prod1', prod1_objv)
+
+
+# writeobjects writes to prefix compressed objects with average and maximum uncompressed sizes.
+def writeobjects(prefix, objv):
+    objv.sort(key = lambda obj: len(obj))
+    lavg = sum(len(_) for _ in objv) // len(objv)
+
+    lo, hi = 0, len(objv)
+    while lo < hi:
+        #print lo, hi
+        i = (lo + hi) // 2
+        l = len(objv[i])
+        if l < lavg:
+            lo = i+1
+        else:
+            hi = i
+
+    objavg = objv[lo]
+    #print '[%d,%d] -> avgi=%d, avglen=%d maxlen=%d' % (0, len(objv), lo, len(objavg), len(objv[-1]))
+
+    writefile('%s-avg' % prefix, zcompress(objavg))
+    writefile('%s-max' % prefix, zcompress(objv[-1]))
+
+# iter_zobjects iterates throuh all non-nil object data from fs1@path.
+#
+# for every object f is called, and if it returns !false iteration is stopped.
+def iter_zobjects(path, f):
+    stor = zutil.storageFromURL(path, read_only=True)
+
+    for txn in stor.iterator():
+        for obj in txn:
+            if obj.data is not None:
+                if f(obj.data):
+                    return
+
+if __name__ == '__main__':
+    main()

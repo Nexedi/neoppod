@@ -891,12 +891,17 @@ bench_cpu() {
 
 	sizev="1024 4096 $((2*1024*1024))"
 	for size in $sizev; do
-		nrun tsha1.py $size
-		nrun tsha1_go $size
+		nrun tcpu.py sha1 $size
+		nrun tcpu_go sha1 $size
 	done
 
-	# TODO bench compress/decompress
-	# XXX data: null4K, some real pickle
+	datav="null-1K null-4K null-2M wczdata-avg wczdata-max prod1-avg prod1-max"
+	for data in $datav; do
+		nrun tcpu.py unzlib $data
+		nrun tcpu_go unzlib $data
+	done
+
+	# TODO bench compress
 }
 
 # bench_disk	- benchmark direct (uncached) and cached random reads
@@ -1396,7 +1401,7 @@ cpustat)
 	;;
 esac
 
-# make sure zhash*, tsha1* and zgenprod are on PATH (because we could be invoked from another dir)
+# make sure zhash*, tcpu* and zgenprod are on PATH (because we could be invoked from another dir)
 X=$(cd `dirname $0` && pwd)
 export PATH=$X:$PATH
 
@@ -1405,7 +1410,7 @@ export PATH=$X:$PATH
 go install -v lab.nexedi.com/kirr/neo/go/...
 go build -o $X/zhash_go $X/zhash.go
 #go build -race -o $X/zhash_go $X/zhash.go
-go build -o $X/tsha1_go $X/tsha1.go
+go build -o $X/tcpu_go $X/tcpu.go
 
 # setup network & fs environment
 init_net
