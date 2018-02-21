@@ -440,7 +440,9 @@ GENsqlite() {
 	test -e $ds/generated.sqlite && return
 	echo -e '\n*** generating sqlite data...'
 	NEOpylite
-	${dataset}_gen_data neo://$neocluster@$Mbind $dataset_size
+	# NOTE compression is disabled because when benchmarking server latency
+	# we do not want the time client(s) take to decompress data to interfere.
+	${dataset}_gen_data neo://$neocluster@$Mbind?compress=false $dataset_size
 	xneoctl set cluster stopping
 	wait	# XXX fragile - won't work if there are children spawned outside
 	sync
@@ -452,7 +454,8 @@ GENsql() {
 	test -e $ds/generated.sql && return
 	echo -e '\n*** generating sql data...'
 	NEOpysql
-	${dataset}_gen_data neo://$neocluster@$Mbind $dataset_size
+	# NOTE compression is disabled - see ^^^ (sqlite) for rationale.
+	${dataset}_gen_data neo://$neocluster@$Mbind?compress=false $dataset_size
 	xneoctl set cluster stopping
 	sleep 1	# XXX fragile
 	xmysql -e "SHUTDOWN"
