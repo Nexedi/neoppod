@@ -464,13 +464,10 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 	}
 
 	if resp.Compression {
-		// XXX cleanup mess vvv
-		buf2 := mem.BufAlloc(len(buf.Data))
-		buf2.Data = buf2.Data[:0]
-		udata, err := xzlib.Decompress(buf.Data, buf2.Data)
+		buf2 := &mem.Buf{Data: nil}
+		udata, err := xzlib.Decompress(buf.Data)
 		buf.Release()
 		if err != nil {
-			buf2.Release()
 			return nil, 0, fmt.Errorf("data corrupt: %v", err)
 		}
 		buf2.Data = udata

@@ -471,6 +471,8 @@ func (stor *Storage) serveLink(ctx context.Context, req *neonet.Request, idReq *
 			return err
 		}
 
+		// XXX this go + link.Recv1() in serveClient arrange for N(goroutine) ↑
+		// with O(1/nreq) rate (i.e. N(goroutine, nreq) ~ ln(nreq)).
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

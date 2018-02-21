@@ -65,12 +65,9 @@ func Compress(data []byte) (zdata []byte) {
 
 // Decompress decompresses data according to zlib encoding.
 //
-// out buffer, if there is enough capacity, is used for decompression destination.
-// if out has not enough capacity a new buffer is allocated and used.
-//
 // return: destination buffer with full decompressed data or error.
-func Decompress(in []byte, out []byte) (data []byte, err error) {
-	return czlib.Decompress(in)
+func Decompress(zdata []byte) (data []byte, err error) {
+	return czlib.Decompress(zdata)
 }
 
 /*
