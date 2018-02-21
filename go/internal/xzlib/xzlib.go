@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"io"
+	"sync"
 )
 
 // Compress compresses data according to zlib encoding.
@@ -43,6 +44,41 @@ func Compress(data []byte) (zdata []byte) {
 	return b.Bytes()
 }
 
+// ---- zlib.Reader pool ----
+// (creating zlib.NewReader for every decompress has high overhead for not large blocks)
+
+// znull is a small valid zlib stream.
+// we need it to create new zlib readers under sync.Pool .
+var znull = Compress(nil)
+
+var zrPool = sync.Pool{New: func() interface{} {
+	r, err := zlib.NewReader(bytes.NewReader(znull))
+	if err != nil {
+		panic(err) // must not happen - znull is valid stream
+	}
+	return r
+}}
+
+// interface actually implemented by what zlib.NewReader returns
+type zlibReader interface {
+	io.ReadCloser
+	zlib.Resetter
+}
+
+func zlibNewReader(r io.Reader) (zlibReader, error) {
+	zr := zrPool.Get().(zlibReader)
+	err := zr.Reset(r, nil)
+	if err != nil {
+		zlibFreeReader(zr)
+		return nil, err
+	}
+	return zr, nil
+}
+
+func zlibFreeReader(r zlibReader) {
+	zrPool.Put(r)
+}
+
 // Decompress decompresses data according to zlib encoding.
 //
 // out buffer, if there is enough capacity, is used for decompression destination.
@@ -51,7 +87,7 @@ func Compress(data []byte) (zdata []byte) {
 // return: destination buffer with full decompressed data or error.
 func Decompress(zdata []byte, out []byte) (data []byte, err error) {
 	bin := bytes.NewReader(zdata)
-	zr, err := zlib.NewReader(bin)
+	zr, err := zlibNewReader(bin)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +97,7 @@ func Decompress(zdata []byte, out []byte) (data []byte, err error) {
 			err = err2
 			data = nil
 		}
+		zlibFreeReader(zr)
 	}()
 
 	bout := bytes.NewBuffer(out[:0])
