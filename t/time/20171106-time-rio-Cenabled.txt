@@ -717,60 +717,60 @@ Cluster state changed
 
 *** NEO/go
 Connection to None lost
-Benchmarkrio/neo/go/zhash.py 1 192.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.409s
+Benchmarkrio/neo/go/fs1/zhash.py 1 192.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.409s
 # POLL·0 C1·19753 C1E·10609 C3·1140 C6·1550
-Benchmarkrio/neo/go/zhash.py 1 196.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.418s	# POLL·0 C1·13175 C1E·10750 C3·438 C6·2383
-Benchmarkrio/neo/go/zhash.py 1 188.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.402s	# POLL·4 C1·18485 C1E·12738 C3·624 C6·759
-Benchmarkrio/neo/go/zhash.py 1 184.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.393s	# POLL·8 C1·20123 C1E·12798 C3·276 C6·704
-Benchmarkrio/neo/go/zhash.py 1 188.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.402s	# POLL·2 C1·18585 C1E·12872 C3·513 C6·931
+Benchmarkrio/neo/go/fs1/zhash.py 1 196.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.418s	# POLL·0 C1·13175 C1E·10750 C3·438 C6·2383
+Benchmarkrio/neo/go/fs1/zhash.py 1 188.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.402s	# POLL·4 C1·18485 C1E·12738 C3·624 C6·759
+Benchmarkrio/neo/go/fs1/zhash.py 1 184.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.393s	# POLL·8 C1·20123 C1E·12798 C3·276 C6·704
+Benchmarkrio/neo/go/fs1/zhash.py 1 188.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=0.402s	# POLL·2 C1·18585 C1E·12872 C3·513 C6·931
 
 # 16 clients in parallel
-Benchmarkrio/neo/go/zhash.py-P16 1 713.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.517s
-Benchmarkrio/neo/go/zhash.py-P16 1 774.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.648s
-Benchmarkrio/neo/go/zhash.py-P16 1 812.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.730s
-Benchmarkrio/neo/go/zhash.py-P16 1 807.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.718s
-Benchmarkrio/neo/go/zhash.py-P16 1 756.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.609s
-Benchmarkrio/neo/go/zhash.py-P16 1 830.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.767s
-Benchmarkrio/neo/go/zhash.py-P16 1 854.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.818s
-Benchmarkrio/neo/go/zhash.py-P16 1 796.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.694s
-Benchmarkrio/neo/go/zhash.py-P16 1 830.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.768s
-Benchmarkrio/neo/go/zhash.py-P16 1 786.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.673s
-Benchmarkrio/neo/go/zhash.py-P16 1 781.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.663s
-Benchmarkrio/neo/go/zhash.py-P16 1 741.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.578s
-Benchmarkrio/neo/go/zhash.py-P16 1 761.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.620s
-Benchmarkrio/neo/go/zhash.py-P16 1 796.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.695s
-Benchmarkrio/neo/go/zhash.py-P16 1 753.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.603s
-Benchmarkrio/neo/go/zhash.py-P16 1 754.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.606s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 713.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.517s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 774.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.648s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 812.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.730s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 807.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.718s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 756.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.609s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 830.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.767s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 854.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.818s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 796.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.694s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 830.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.768s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 786.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.673s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 781.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.663s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 741.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.578s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 761.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.620s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 796.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.695s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 753.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.603s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 754.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=1.606s
 # POLL·149 C1·57027 C1E·870 C3·41 C6·126
 
-Benchmarkrio/neo/go/zhash.go 1 52.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.852706ms	# POLL·4 C1·3266 C1E·11873 C3·101 C6·70
-Benchmarkrio/neo/go/zhash.go 1 51.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.212195ms	# POLL·1 C1·3280 C1E·11874 C3·93 C6·49
-Benchmarkrio/neo/go/zhash.go 1 51.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.280775ms	# POLL·3 C1·3369 C1E·11680 C3·55 C6·111
-Benchmarkrio/neo/go/zhash.go 1 51.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.054662ms	# POLL·1 C1·3033 C1E·11933 C3·105 C6·93
-Benchmarkrio/neo/go/zhash.go 1 52.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=111.483621ms	# POLL·2 C1·3632 C1E·11322 C3·227 C6·152
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 27.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=59.128725ms	# POLL·17 C1·3477 C1E·2723 C3·62 C6·109
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 26.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=55.723858ms	# POLL·18 C1·4252 C1E·2749 C3·38 C6·118
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 25.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=54.294417ms	# POLL·13 C1·3782 C1E·2409 C3·55 C6·96
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 25.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=54.55389ms	# POLL·24 C1·3430 C1E·2520 C3·50 C6·96
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 27.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=59.30546ms	# POLL·17 C1·3743 C1E·2635 C3·66 C6·106
+Benchmarkrio/neo/go/fs1/zhash.go 1 52.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.852706ms	# POLL·4 C1·3266 C1E·11873 C3·101 C6·70
+Benchmarkrio/neo/go/fs1/zhash.go 1 51.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.212195ms	# POLL·1 C1·3280 C1E·11874 C3·93 C6·49
+Benchmarkrio/neo/go/fs1/zhash.go 1 51.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.280775ms	# POLL·3 C1·3369 C1E·11680 C3·55 C6·111
+Benchmarkrio/neo/go/fs1/zhash.go 1 51.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=110.054662ms	# POLL·1 C1·3033 C1E·11933 C3·105 C6·93
+Benchmarkrio/neo/go/fs1/zhash.go 1 52.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=111.483621ms	# POLL·2 C1·3632 C1E·11322 C3·227 C6·152
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 27.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=59.128725ms	# POLL·17 C1·3477 C1E·2723 C3·62 C6·109
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 26.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=55.723858ms	# POLL·18 C1·4252 C1E·2749 C3·38 C6·118
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 25.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=54.294417ms	# POLL·13 C1·3782 C1E·2409 C3·55 C6·96
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 25.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=54.55389ms	# POLL·24 C1·3430 C1E·2520 C3·50 C6·96
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 27.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=59.30546ms	# POLL·17 C1·3743 C1E·2635 C3·66 C6·106
 
 # 16 clients in parallel
-Benchmarkrio/neo/go/zhash.go-P16 1 241.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=513.140225ms
-Benchmarkrio/neo/go/zhash.go-P16 1 243.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=518.622221ms
-Benchmarkrio/neo/go/zhash.go-P16 1 248.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=528.72278ms
-Benchmarkrio/neo/go/zhash.go-P16 1 252.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=537.014467ms
-Benchmarkrio/neo/go/zhash.go-P16 1 250.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=533.765238ms
-Benchmarkrio/neo/go/zhash.go-P16 1 251.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=535.652914ms
-Benchmarkrio/neo/go/zhash.go-P16 1 254.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=541.896598ms
-Benchmarkrio/neo/go/zhash.go-P16 1 254.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=541.464563ms
-Benchmarkrio/neo/go/zhash.go-P16 1 262.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=558.33179ms
-Benchmarkrio/neo/go/zhash.go-P16 1 262.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=557.443411ms
-Benchmarkrio/neo/go/zhash.go-P16 1 262.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=557.892452ms
-Benchmarkrio/neo/go/zhash.go-P16 1 262.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=558.813693ms
-Benchmarkrio/neo/go/zhash.go-P16 1 264.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=563.34894ms
-Benchmarkrio/neo/go/zhash.go-P16 1 266.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=567.913598ms
-Benchmarkrio/neo/go/zhash.go-P16 1 267.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=568.399337ms
-Benchmarkrio/neo/go/zhash.go-P16 1 52.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=112.270604ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 241.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=513.140225ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 243.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=518.622221ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 248.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=528.72278ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 252.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=537.014467ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 250.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=533.765238ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 251.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=535.652914ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 254.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=541.896598ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 254.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=541.464563ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 262.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=558.33179ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 262.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=557.443411ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 262.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=557.892452ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 262.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=558.813693ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 264.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=563.34894ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 266.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=567.913598ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 267.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=568.399337ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 52.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=112.270604ms
 # POLL·290 C1·22300 C1E·14437 C3·96 C6·382
 2017/11/06 18:57:34 talk master([192.168.0.6]:5552): context canceled
 2017-11-06 18:57:34.8357 ERROR     NEO        [           app: 91] primary master is down
@@ -779,34 +779,34 @@ Cluster state changed
 *** NEO/go (sha1 disabled)
 # NEO/go/storage: skipping SHA1 computations
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 36.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=77.978826ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 36.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=77.978826ms
 # POLL·2 C1·6193 C1E·5416 C3·221 C6·385
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 34.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=73.200756ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 34.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=73.200756ms
 # POLL·10 C1·7155 C1E·4525 C3·47 C6·92
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 34.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=73.902793ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 34.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=73.902793ms
 # POLL·6 C1·6943 C1E·4648 C3·44 C6·134
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 35.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=75.119331ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 35.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=75.119331ms
 # POLL·1 C1·7192 C1E·4610 C3·98 C6·106
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 35.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=75.226674ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 35.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=75.226674ms
 # POLL·5 C1·7084 C1E·4703 C3·65 C6·105
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 17.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=37.649693ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 17.7 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=37.649693ms
 # POLL·15 C1·4394 C1E·1201 C3·34 C6·109
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 17.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=36.331152ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 17.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=36.331152ms
 # POLL·24 C1·3959 C1E·1235 C3·26 C6·137
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 17.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=37.362488ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 17.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=37.362488ms
 # POLL·14 C1·3994 C1E·1352 C3·33 C6·97
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 17.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=36.801181ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 17.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=36.801181ms
 # POLL·10 C1·4334 C1E·1363 C3·47 C6·77
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 17.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=36.214771ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 17.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=36.214771ms
 # POLL·14 C1·4162 C1E·1066 C3·42 C6·94
 
 # 16 clients in parallel
@@ -826,22 +826,22 @@ Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 17.0 µs/object	# crc32:146405
 # NEO/go/client: skipping SHA1 checks
 # NEO/go/client: skipping SHA1 checks
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 132.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=280.933605ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 140.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=298.618883ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 139.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=295.687703ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 148.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=316.594549ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 155.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=329.997845ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 151.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=322.503794ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 154.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=328.630885ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 156.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=333.980445ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 157.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=334.392775ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 158.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=337.364942ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 158.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=337.545443ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 161.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=343.660657ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 165.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=351.461849ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 88.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=189.203321ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 35.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=74.848104ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 35.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=74.835076ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 132.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=280.933605ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 140.3 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=298.618883ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 139.0 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=295.687703ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 148.8 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=316.594549ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 155.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=329.997845ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 151.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=322.503794ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 154.4 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=328.630885ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 156.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=333.980445ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 157.1 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=334.392775ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 158.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=337.364942ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 158.6 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=337.545443ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 161.5 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=343.660657ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 165.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=351.461849ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 88.9 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=189.203321ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 35.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=74.848104ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 35.2 µs/object	# crc32:14640593  oid=0..2127  nread=8540363  t=74.835076ms
 # POLL·489 C1·30992 C1E·6457 C3·60 C6·314
 2017/11/06 18:57:38 talk master([192.168.0.6]:5552): context canceled
 2017-11-06 18:57:38.0601 ERROR     NEO        [           app: 91] primary master is down
@@ -1210,60 +1210,60 @@ Cluster state changed
 
 *** NEO/go
 Connection to None lost
-Benchmarkrio/neo/go/zhash.py 1 179.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.681s
+Benchmarkrio/neo/go/fs1/zhash.py 1 179.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.681s
 # POLL·3 C1·47201 C1E·21938 C3·521 C6·1967
-Benchmarkrio/neo/go/zhash.py 1 177.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.672s	# POLL·3 C1·45163 C1E·20970 C3·760 C6·2190
-Benchmarkrio/neo/go/zhash.py 1 178.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.676s	# POLL·1 C1·44094 C1E·20700 C3·1538 C6·1638
-Benchmarkrio/neo/go/zhash.py 1 190.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.722s	# POLL·5 C1·27024 C1E·22940 C3·1192 C6·1879
-Benchmarkrio/neo/go/zhash.py 1 180.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.682s	# POLL·6 C1·45516 C1E·20044 C3·801 C6·2687
+Benchmarkrio/neo/go/fs1/zhash.py 1 177.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.672s	# POLL·3 C1·45163 C1E·20970 C3·760 C6·2190
+Benchmarkrio/neo/go/fs1/zhash.py 1 178.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.676s	# POLL·1 C1·44094 C1E·20700 C3·1538 C6·1638
+Benchmarkrio/neo/go/fs1/zhash.py 1 190.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.722s	# POLL·5 C1·27024 C1E·22940 C3·1192 C6·1879
+Benchmarkrio/neo/go/fs1/zhash.py 1 180.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=0.682s	# POLL·6 C1·45516 C1E·20044 C3·801 C6·2687
 
 # 16 clients in parallel
-Benchmarkrio/neo/go/zhash.py-P16 1 718.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.722s
-Benchmarkrio/neo/go/zhash.py-P16 1 733.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.778s
-Benchmarkrio/neo/go/zhash.py-P16 1 762.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.888s
-Benchmarkrio/neo/go/zhash.py-P16 1 703.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.668s
-Benchmarkrio/neo/go/zhash.py-P16 1 698.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.647s
-Benchmarkrio/neo/go/zhash.py-P16 1 719.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.726s
-Benchmarkrio/neo/go/zhash.py-P16 1 714.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.707s
-Benchmarkrio/neo/go/zhash.py-P16 1 695.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.637s
-Benchmarkrio/neo/go/zhash.py-P16 1 706.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.677s
-Benchmarkrio/neo/go/zhash.py-P16 1 698.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.648s
-Benchmarkrio/neo/go/zhash.py-P16 1 697.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.644s
-Benchmarkrio/neo/go/zhash.py-P16 1 712.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.700s
-Benchmarkrio/neo/go/zhash.py-P16 1 723.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.743s
-Benchmarkrio/neo/go/zhash.py-P16 1 755.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.862s
-Benchmarkrio/neo/go/zhash.py-P16 1 715.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.710s
-Benchmarkrio/neo/go/zhash.py-P16 1 722.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.737s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 718.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.722s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 733.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.778s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 762.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.888s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 703.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.668s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 698.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.647s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 719.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.726s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 714.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.707s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 695.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.637s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 706.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.677s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 698.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.648s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 697.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.644s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 712.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.700s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 723.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.743s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 755.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.862s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 715.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.710s
+Benchmarkrio/neo/go/fs1/zhash.py-P16 1 722.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=2.737s
 # POLL·219 C1·81668 C1E·1541 C3·82 C6·135
 
-Benchmarkrio/neo/go/zhash.go 1 37.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=142.234611ms	# POLL·2 C1·10361 C1E·10459 C3·104 C6·240
-Benchmarkrio/neo/go/zhash.go 1 37.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=140.348686ms	# POLL·1 C1·10486 C1E·10242 C3·187 C6·86
-Benchmarkrio/neo/go/zhash.go 1 36.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=138.686206ms	# POLL·3 C1·10723 C1E·9965 C3·65 C6·90
-Benchmarkrio/neo/go/zhash.go 1 36.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=136.385708ms	# POLL·5 C1·10577 C1E·9010 C3·63 C6·107
-Benchmarkrio/neo/go/zhash.go 1 37.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=142.613149ms	# POLL·6 C1·10907 C1E·10159 C3·67 C6·181
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 16.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.488617ms	# POLL·26 C1·6075 C1E·2543 C3·65 C6·111
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 16.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=61.721526ms	# POLL·29 C1·6379 C1E·2253 C3·38 C6·70
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 16.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=63.2278ms	# POLL·25 C1·5007 C1E·2493 C3·49 C6·113
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 16.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.75099ms	# POLL·28 C1·6343 C1E·2325 C3·33 C6·129
-Benchmarkrio/neo/go/zhash.go+prefetch128 1 16.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.450544ms	# POLL·21 C1·5851 C1E·2217 C3·45 C6·126
+Benchmarkrio/neo/go/fs1/zhash.go 1 37.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=142.234611ms	# POLL·2 C1·10361 C1E·10459 C3·104 C6·240
+Benchmarkrio/neo/go/fs1/zhash.go 1 37.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=140.348686ms	# POLL·1 C1·10486 C1E·10242 C3·187 C6·86
+Benchmarkrio/neo/go/fs1/zhash.go 1 36.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=138.686206ms	# POLL·3 C1·10723 C1E·9965 C3·65 C6·90
+Benchmarkrio/neo/go/fs1/zhash.go 1 36.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=136.385708ms	# POLL·5 C1·10577 C1E·9010 C3·63 C6·107
+Benchmarkrio/neo/go/fs1/zhash.go 1 37.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=142.613149ms	# POLL·6 C1·10907 C1E·10159 C3·67 C6·181
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 16.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.488617ms	# POLL·26 C1·6075 C1E·2543 C3·65 C6·111
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 16.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=61.721526ms	# POLL·29 C1·6379 C1E·2253 C3·38 C6·70
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 16.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=63.2278ms	# POLL·25 C1·5007 C1E·2493 C3·49 C6·113
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 16.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.75099ms	# POLL·28 C1·6343 C1E·2325 C3·33 C6·129
+Benchmarkrio/neo/go/fs1/zhash.go+prefetch128 1 16.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=62.450544ms	# POLL·21 C1·5851 C1E·2217 C3·45 C6·126
 
 # 16 clients in parallel
-Benchmarkrio/neo/go/zhash.go-P16 1 228.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=864.961504ms
-Benchmarkrio/neo/go/zhash.go-P16 1 233.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=884.002279ms
-Benchmarkrio/neo/go/zhash.go-P16 1 232.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=882.79557ms
-Benchmarkrio/neo/go/zhash.go-P16 1 232.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=881.550113ms
-Benchmarkrio/neo/go/zhash.go-P16 1 237.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=900.490407ms
-Benchmarkrio/neo/go/zhash.go-P16 1 236.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=896.354587ms
-Benchmarkrio/neo/go/zhash.go-P16 1 239.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=905.838195ms
-Benchmarkrio/neo/go/zhash.go-P16 1 241.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=915.281183ms
-Benchmarkrio/neo/go/zhash.go-P16 1 242.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=919.440507ms
-Benchmarkrio/neo/go/zhash.go-P16 1 242.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=920.716268ms
-Benchmarkrio/neo/go/zhash.go-P16 1 242.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=917.006832ms
-Benchmarkrio/neo/go/zhash.go-P16 1 242.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=919.132847ms
-Benchmarkrio/neo/go/zhash.go-P16 1 243.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=923.309012ms
-Benchmarkrio/neo/go/zhash.go-P16 1 243.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=922.93641ms
-Benchmarkrio/neo/go/zhash.go-P16 1 243.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=923.300466ms
-Benchmarkrio/neo/go/zhash.go-P16 1 36.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=139.088424ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 228.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=864.961504ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 233.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=884.002279ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 232.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=882.79557ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 232.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=881.550113ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 237.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=900.490407ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 236.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=896.354587ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 239.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=905.838195ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 241.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=915.281183ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 242.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=919.440507ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 242.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=920.716268ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 242.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=917.006832ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 242.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=919.132847ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 243.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=923.309012ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 243.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=922.93641ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 243.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=923.300466ms
+Benchmarkrio/neo/go/fs1/zhash.go-P16 1 36.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=139.088424ms
 # POLL·618 C1·48916 C1E·13145 C3·214 C6·245
 2017/11/06 19:01:23 talk master([192.168.0.6]:5552): context canceled
 2017-11-06 19:01:23.7286 ERROR     NEO        [           app: 91] primary master is down
@@ -1272,34 +1272,34 @@ Cluster state changed
 *** NEO/go (sha1 disabled)
 # NEO/go/storage: skipping SHA1 computations
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 34.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=130.093884ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 34.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=130.093884ms
 # POLL·5 C1·11299 C1E·8564 C3·175 C6·816
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 33.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=127.08436ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 33.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=127.08436ms
 # POLL·3 C1·11630 C1E·8273 C3·327 C6·138
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 32.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=122.037977ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 32.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=122.037977ms
 # POLL·7 C1·11218 C1E·7047 C3·68 C6·109
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 30.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=114.780543ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 30.3 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=114.780543ms
 # POLL·0 C1·12157 C1E·6912 C3·76 C6·220
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go 1 33.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=125.829402ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go 1 33.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=125.829402ms
 # POLL·9 C1·11162 C1E·7288 C3·416 C6·182
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 13.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=51.214151ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=51.214151ms
 # POLL·22 C1·5913 C1E·1609 C3·47 C6·81
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 13.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=51.732138ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.6 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=51.732138ms
 # POLL·30 C1·6246 C1E·1569 C3·52 C6·80
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 13.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=51.107152ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=51.107152ms
 # POLL·20 C1·6007 C1E·1537 C3·35 C6·82
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 13.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=52.100877ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.7 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=52.100877ms
 # POLL·33 C1·7167 C1E·1807 C3·42 C6·75
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 13.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=50.68732ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go+prefetch128 1 13.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=50.68732ms
 # POLL·35 C1·6585 C1E·1636 C3·29 C6·82
 
 # 16 clients in parallel
@@ -1319,22 +1319,22 @@ Benchmarkrio/neo/go(!sha1)/zhash.go+prefetch128 1 13.4 µs/object	# crc32:a50b90
 # NEO/go/client: skipping SHA1 checks
 # NEO/go/client: skipping SHA1 checks
 # NEO/go/client: skipping SHA1 checks
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 176.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=667.452301ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 181.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=686.567208ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 186.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=706.656142ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 185.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=701.54097ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 186.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=708.449803ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 188.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=714.485315ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 189.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=717.948812ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 192.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=728.449422ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 193.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=733.497065ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 195.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=739.267296ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 195.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=739.708394ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 195.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=742.039014ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 196.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=743.248534ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 197.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=749.894259ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 34.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=132.446534ms
-Benchmarkrio/neo/go(!sha1)/zhash.go-P16 1 35.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=132.805568ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 176.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=667.452301ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 181.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=686.567208ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 186.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=706.656142ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 185.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=701.54097ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 186.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=708.449803ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 188.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=714.485315ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 189.4 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=717.948812ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 192.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=728.449422ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 193.5 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=733.497065ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 195.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=739.267296ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 195.2 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=739.708394ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 195.8 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=742.039014ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 196.1 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=743.248534ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 197.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=749.894259ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 34.9 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=132.446534ms
+Benchmarkrio/neo/go/fs1(!sha1)/zhash.go-P16 1 35.0 µs/object	# crc32:a50b90dc  oid=0..3789  nread=4905351  t=132.805568ms
 # POLL·646 C1·51716 C1E·10180 C3·85 C6·287
 E1106 19:01:27.321596   20024 storage.go:120] storage(192.168.0.6:5554): accept: accept tcp 192.168.0.6:5554: use of closed network connection
 2017/11/06 19:01:27 talk master([192.168.0.6]:5552): context canceled
