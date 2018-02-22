@@ -96,7 +96,7 @@ func OpenBackend(ctx context.Context, backendURL string) (Backend, error) {
 
 	opener, ok := backRegistry[u.Scheme]
 	if !ok {
-		return nil, fmt.Errorf("neo: backend: URL scheme \"%s://\" not supported", u.Scheme)
+		return nil, fmt.Errorf("neo: backend: open %q: URL scheme \"%s://\" not supported", backendURL, u.Scheme)
 	}
 
 	return opener(ctx, u)
