@@ -23,10 +23,11 @@
 //
 //	import _ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 //
-// and this way automatically link in support for file:// ... and other
-// common storages.
+// and this way automatically link in support for file:// zeo:// ... and
+// other common storages.
 package wks
 
 import (
 	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/fs1"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/storage/zeo"
 )
