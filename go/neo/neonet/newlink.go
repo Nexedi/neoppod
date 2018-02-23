@@ -65,6 +65,7 @@ func (e *_HandshakeError) Error() string {
 }
 
 func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
+	// XXX simplify -> errgroup
 	errch := make(chan error, 2)
 
 	// tx handshake word

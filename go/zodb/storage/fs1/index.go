@@ -28,13 +28,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fsb"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 
 	pickle "github.com/kisielk/og-rek"
 
@@ -220,20 +220,6 @@ func (e *IndexLoadError) Error() string {
 	return s
 }
 
-// xint64 tries to convert unpickled value to int64
-func xint64(xv interface{}) (v int64, ok bool) {
-	switch v := xv.(type) {
-	case int64:
-		return v, true
-	case *big.Int:
-		if v.IsInt64() {
-			return v.Int64(), true
-		}
-	}
-
-	return 0, false
-}
-
 // LoadIndex loads index from a reader
 func LoadIndex(r io.Reader) (fsi *Index, err error) {
 	var picklePos int64
@@ -255,7 +241,7 @@ func LoadIndex(r io.Reader) (fsi *Index, err error) {
 	if err != nil {
 		return nil, err
 	}
-	topPos, ok := xint64(xtopPos)
+	topPos, ok := pickletools.Xint64(xtopPos)
 	if !ok {
 		return nil, fmt.Errorf("topPos is %T:%v  (expected int64)", xtopPos, xtopPos)
 	}

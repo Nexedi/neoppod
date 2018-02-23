@@ -1129,7 +1129,11 @@ var ErrPktTooBig = errors.New("packet too big")
 // recvPkt receives raw packet from peer.
 //
 // rx error, if any, is returned as is and is analyzed in serveRecv
+//
+// XXX dup in ZEO.
 func (nl *NodeLink) recvPkt() (*pktBuf, error) {
+	// FIXME if rxbuf is non-empty - first look there for header and then if
+	// we know size -> allocate pkt with that size.
 	pkt := pktAlloc(4096)
 	// len=4K but cap can be more since pkt is from pool - use all space to buffer reads
 	// XXX vvv -> pktAlloc() ?

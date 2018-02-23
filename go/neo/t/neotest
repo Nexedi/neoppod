@@ -1047,11 +1047,6 @@ zbench() {
 	nrun zhash.py --check=$zhashok --bench=$topic/%s --$zhashfunc $url
 	echo -e "\n# ${Npar} clients in parallel"
 	nrunpar zhash.py --check=$zhashok --bench=$topic/%s-P$Npar --$zhashfunc $url
-
-	if [[ $url == zeo://* ]]; then
-		echo "(skipping zhash.go on ZEO -- Cgo does not support zeo:// protocol)"
-		return
-	fi
 	echo
 	zbench_go $url $topic $zhashok
 }
