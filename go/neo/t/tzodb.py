@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2017  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -18,7 +18,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""zhash - compute hash of whole latest objects stream in a ZODB database"""
+"""tzodb - ZODB-related benchmarks"""
 
 from __future__ import print_function
 
@@ -81,7 +81,7 @@ hashRegistry = {
 
 def usage(w):
     print(\
-"""Usage: zhash [options] url
+"""Usage: tzodb zhash [options] url
 
 options:
 
@@ -97,9 +97,14 @@ options:
     --bench=<topic>     use benchmarking format for output
 """, file=w)
 
-def main():
+def zhash():
+    """zhash - compute hash of whole latest objects stream in a ZODB database"""
+    if len(sys.argv) < 2 or sys.argv[1] != "zhash":
+        usage(sys.stderr)
+        exit(1)
+
     try:
-        optv, argv = getopt(sys.argv[1:], "h", ["help", "check=", "bench="] + hashRegistry.keys())
+        optv, argv = getopt(sys.argv[2:], "h", ["help", "check=", "bench="] + hashRegistry.keys())
     except GetoptError as e:
         print("E: %s" % e, file=sys.stderr)
         usage(sys.stderr)
@@ -164,7 +169,7 @@ def main():
     x = "zhash.py"
     hresult = "%s:%s" % (h.name, h.hexdigest())
     if bench is None:
-        print('%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fμs / object)  x=%s' % \
+        print('%s   ; oid=0..%d  nread=%d  t=%.3fs (%.1fµs / object)  x=%s' % \
                 (hresult, oid-1, nread, dt, dt * 1E6 / oid, x))
     else:
         topic = bench % x
@@ -174,6 +179,10 @@ def main():
     if check != None and hresult != check:
         print("%s: hash mismatch: expected %s  ; got %s\t# x=%s" % (url, check, hresult, x), file=sys.stderr)
         sys.exit(1)
+
+
+def main():
+    zhash() # XXX stub
 
 if __name__ == '__main__':
     main()

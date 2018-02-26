@@ -179,6 +179,7 @@ type IStorage interface {
 	// started, to complete.
 	//
 	// Prefetch does not return any error.
+	// Prefetch is noop if storage was opened with NoCache option.
 	Prefetch(ctx context.Context, xid Xid)
 }
 

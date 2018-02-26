@@ -32,6 +32,7 @@ import (
 // OpenOptions describes options for OpenStorage
 type OpenOptions struct {
 	ReadOnly bool // whether to open storage as read-only
+	NoCache  bool // don't use cache for read/write operations
 }
 
 // DriverOpener is a function to open a storage driver
@@ -69,6 +70,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 
 	// XXX commonly handle some options from url -> opt?
 	// (e.g. ?readonly=1 -> opt.ReadOnly=true + remove ?readonly=1 from URL)
+	// ----//---- nocache
 
 	opener, ok := driverRegistry[u.Scheme]
 	if !ok {
@@ -80,12 +82,16 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 		return nil, err
 	}
 
-	return &storage{
-		IStorageDriver: storDriver,
-
+	var cache *Cache
+	if !opt.NoCache {
 		// small cache so that prefetch can work for loading
 		// XXX 512K hardcoded (= ~ 128 · 4K-entries)
-		l1cache: NewCache(storDriver, 128 * 4*1024),
+		cache = NewCache(storDriver, 128 * 4*1024)
+	}
+
+	return &storage{
+		IStorageDriver: storDriver,
+		l1cache:        cache,
 	}, nil
 }
 
@@ -97,7 +103,7 @@ func OpenStorage(ctx context.Context, storageURL string, opt *OpenOptions) (ISto
 // and other storage-independed higher-level functionality.
 type storage struct {
 	IStorageDriver
-	l1cache *Cache
+	l1cache *Cache // can be =nil, if opened with NoCache
 }
 
 
@@ -106,9 +112,15 @@ type storage struct {
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?
 	// XXX here: offload wrapping err -> OpError{"load", err} ?
-	return s.l1cache.Load(ctx, xid)
+	if s.l1cache != nil {
+		return s.l1cache.Load(ctx, xid)
+	} else {
+		return s.IStorageDriver.Load(ctx, xid)
+	}
 }
 
 func (s *storage) Prefetch(ctx context.Context, xid Xid) {
-	s.l1cache.Prefetch(ctx, xid)
+	if s.l1cache != nil {
+		s.l1cache.Prefetch(ctx, xid)
+	}
 }

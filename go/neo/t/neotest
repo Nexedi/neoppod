@@ -432,7 +432,7 @@ GENfs() {
 
 	# remember correct hash to later check in benchmarks
 	# crc32:1552c530   ; oid=0..2127  nread=8534126  t=0.033s (15.7μs / object)  x=zhash.py
-	zhash.py --$zhashfunc $fs1/data.fs |awk '{print $1}' >$ds/zhash.ok
+	tzodb.py zhash --$zhashfunc $fs1/data.fs |awk '{print $1}' >$ds/zhash.ok
 }
 
 # generate data in sqlite
@@ -860,8 +860,9 @@ cpustat() {
 	return $ret
 }
 
-Nrun=5		# repeat benchmarks N time
-Npar=16		# run so many parallel clients in parallel phase
+Nrun=5			# repeat benchmarks N time
+Nparv="1 2 4 8 16"	# run parallel zwrk benchmarks with so many clients (XXX +6, +12 ?)
+#Npar=16		# run so many parallel clients in parallel phase
 
 #profile=
 profile=cpustat
@@ -874,6 +875,7 @@ nrun() {
 }
 
 # nrunpar ...	- run $Npar ... instances in parallel and wait for completion
+# XXX running processes in parallel is deprecated in favour of zwrk.
 nrunpar() {
 	$profile _nrunpar "$@"
 }
@@ -1047,9 +1049,10 @@ zbench() {
 	zhashok=$3
 #	nrun time demo-zbigarray read $url
 
-	nrun zhash.py --check=$zhashok --bench=$topic/%s --$zhashfunc $url
-	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar zhash.py --check=$zhashok --bench=$topic/%s-P$Npar --$zhashfunc $url
+	nrun tzodb.py zhash --check=$zhashok --bench=$topic/%s --$zhashfunc $url
+# XXX running processes in parallel is deprecated in favour of zwrk.
+#	echo -e "\n# ${Npar} clients in parallel"
+#	nrunpar tzodb.py zhash --check=$zhashok --bench=$topic/%s-P$Npar --$zhashfunc $url
 	echo
 	zbench_go $url $topic $zhashok
 }
@@ -1059,11 +1062,17 @@ zbench_go() {
 	url=$1
 	topic=$2
 	zhashok=$3
-	nrun zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc $url
-	nrun zhash_go -check=$zhashok --bench=$topic/%s --log_dir=$log -$zhashfunc -useprefetch $url
+	nrun tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic/%s -$zhashfunc $url
+	nrun tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic/%s -$zhashfunc -useprefetch $url
 
-	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar zhash_go -check=$zhashok --bench=$topic/%s-P$Npar --log_dir=$log -$zhashfunc $url
+# XXX running processes in parallel is deprecated in favour of zwrk.
+#	echo -e "\n# ${Npar} clients in parallel"
+#	nrunpar tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic/%s-P$Npar -$zhashfunc $url
+
+	for i in ${Nparv}; do
+		echo -e "\n# $i clients in parallel"
+		nrun tzodb_go -log_dir=$log zwrk -nclient $i -check=$zhashok -bench=$topic/%s -$zhashfunc $url
+	done
 }
 
 
@@ -1402,15 +1411,15 @@ cpustat)
 	;;
 esac
 
-# make sure zhash*, tcpu* and zgenprod are on PATH (because we could be invoked from another dir)
+# make sure tzodb*, tcpu* and zgenprod are on PATH (because we could be invoked from another dir)
 X=$(cd `dirname $0` && pwd)
 export PATH=$X:$PATH
 
 # rebuild go bits
 # neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 go install -v lab.nexedi.com/kirr/neo/go/...
-go build -o $X/zhash_go $X/zhash.go
-#go build -race -o $X/zhash_go $X/zhash.go
+go build -o $X/tzodb_go $X/tzodb.go
+#go build -race -o $X/tzodb_go $X/tzodb.go
 go build -o $X/tcpu_go $X/tcpu.go
 
 # setup network & fs environment

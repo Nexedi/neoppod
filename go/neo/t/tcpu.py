@@ -24,7 +24,7 @@ from __future__ import print_function
 
 import sys
 import hashlib
-import zhash
+import tzodb
 import zlib
 from time import time
 from math import ceil, log10
@@ -125,8 +125,8 @@ def _bench_hasher(b, h, blksize):
         i += 1
 
 
-def bench_adler32(b, blksize):  _bench_hasher(b, zhash.Adler32Hasher(), blksize)
-def bench_crc32(b, blksize):    _bench_hasher(b, zhash.CRC32Hasher(), blksize)
+def bench_adler32(b, blksize):  _bench_hasher(b, tzodb.Adler32Hasher(), blksize)
+def bench_crc32(b, blksize):    _bench_hasher(b, tzodb.CRC32Hasher(), blksize)
 def bench_sha1(b, blksize):     _bench_hasher(b, hashlib.sha1(), blksize)
 
 

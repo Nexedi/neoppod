@@ -1,7 +1,7 @@
 /log
 /var
-/zhash
-/zhash_go
 /tcpu
 /tcpu_go
+/tzodb
+/tzodb_go
 /ioping.tmp

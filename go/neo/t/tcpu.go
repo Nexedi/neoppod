@@ -69,6 +69,8 @@ func prettyarg(arg string) string {
 
 // benchit runs the benchmark for benchf
 func benchit(benchname string, bencharg string, benchf func(*testing.B, string)) {
+	// FIXME testing.Benchmark does not allow to detect whether benchmark failed.
+	// (use log.Fatal, not {t,b}.Fatal as workaround)
 	r := testing.Benchmark(func (b *testing.B) {
 		benchf(b, bencharg)
 	})
@@ -86,7 +88,7 @@ func benchit(benchname string, bencharg string, benchf func(*testing.B, string))
 func benchHash(b *testing.B, h hash.Hash, arg string) {
 	blksize, err := strconv.Atoi(arg)
 	if err != nil {
-		b.Fatal(err)
+		log.Fatal(err)
 	}
 
 	data := make([]byte, blksize)
@@ -101,23 +103,23 @@ func BenchmarkAdler32(b *testing.B, arg string) { benchHash(b, adler32.New(), ar
 func BenchmarkCrc32(b *testing.B, arg string)   { benchHash(b, crc32.NewIEEE(), arg) }
 func BenchmarkSha1(b *testing.B, arg string)    { benchHash(b, sha1.New(), arg) }
 
-func xreadfile(t testing.TB, path string) []byte {
+func xreadfile(path string) []byte {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 	return data
 }
 
 func BenchmarkUnzlib(b *testing.B, zfile string) {
-	zdata := xreadfile(b, fmt.Sprintf("testdata/zlib/%s", zfile))
+	zdata := xreadfile(fmt.Sprintf("testdata/zlib/%s", zfile))
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		_, err := xzlib.Decompress(zdata)
 		if err != nil {
-			b.Fatal(err)
+			log.Fatal(err)
 		}
 	}
 }
