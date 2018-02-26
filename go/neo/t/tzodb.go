@@ -230,9 +230,9 @@ loop:
 			hresult, oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
 	} else {
 		topic := fmt.Sprintf(bench, x)	// XXX -> better text/template
-		fmt.Printf("Benchmark%s 1 %.1f µs/object\t# %s  oid=0..%d  nread=%d  t=%s\n",
-			topic, float64(δt) / float64(oid) / float64(time.Microsecond),
-			hresult, oid-1, nread, δt)
+		fmt.Printf("Benchmark%s %d %.1f µs/object\t# %s  nread=%d  t=%s\n",
+			topic, oid-1, float64(δt) / float64(oid) / float64(time.Microsecond),
+			hresult, nread, δt)
 	}
 
 	if check != "" && hresult != check {

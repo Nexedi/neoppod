@@ -173,8 +173,8 @@ def zhash():
                 (hresult, oid-1, nread, dt, dt * 1E6 / oid, x))
     else:
         topic = bench % x
-        print('Benchmark%s 1 %.1f µs/object\t# %s  oid=0..%d  nread=%d  t=%.3fs' % \
-                (topic, dt * 1E6 / oid, hresult, oid-1, nread, dt))
+        print('Benchmark%s %d %.1f µs/object\t# %s  nread=%d  t=%.3fs' % \
+                (topic, oid-1, dt * 1E6 / oid, hresult, nread, dt))
 
     if check != None and hresult != check:
         print("%s: hash mismatch: expected %s  ; got %s\t# x=%s" % (url, check, hresult, x), file=sys.stderr)
