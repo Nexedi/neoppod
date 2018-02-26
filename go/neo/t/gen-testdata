@@ -83,10 +83,14 @@ def writeobjects(prefix, objv):
             hi = i
 
     objavg = objv[lo]
-    #print '[%d,%d] -> avgi=%d, avglen=%d maxlen=%d' % (0, len(objv), lo, len(objavg), len(objv[-1]))
+    objmax = objv[-1]
+    #print '[%d,%d] -> avgi=%d, avglen=%d maxlen=%d' % (0, len(objv), lo, len(objavg), len(objmax))
 
-    writefile('%s-avg' % prefix, zcompress(objavg))
-    writefile('%s-max' % prefix, zcompress(objv[-1]))
+    if len(objavg) == len(objmax):  # it is so for wczdata
+        writefile('%s' % prefix, zcompress(objavg))
+    else:
+        writefile('%s-avg' % prefix, zcompress(objavg))
+        writefile('%s-max' % prefix, zcompress(objv[-1]))
 
 # iter_zobjects iterates throuh all non-nil object data from fs1@path.
 #

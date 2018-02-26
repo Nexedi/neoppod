@@ -898,7 +898,7 @@ bench_cpu() {
 		nrun tcpu_go sha1 $size
 	done
 
-	datav="null-1K null-4K null-2M wczdata-avg wczdata-max prod1-avg prod1-max"
+	datav="null-1K null-4K null-2M wczdata prod1-avg prod1-max"
 	for data in $datav; do
 		nrun tcpu.py unzlib $data
 		nrun tcpu_go unzlib $data
