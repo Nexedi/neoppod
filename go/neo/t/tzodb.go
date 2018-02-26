@@ -35,7 +35,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync/atomic"
+	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -240,8 +244,263 @@ loop:
 
 // ----------------------------------------
 
+const zwrkSummary = "benchmark database under parallel load from multiple clients."
+
+func zwrkUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: tzodb zwrk [options] <url>
+`)
+}
+
+func zwrkMain(argv []string) {
+	ctx := context.Background()
+	flags := flag.NewFlagSet("", flag.ExitOnError)
+	flags.Usage = func() { zwrkUsage(os.Stderr); flags.PrintDefaults() }
+
+	fhash    := hashFlags(flags)
+	fcheck   := flags.String("check", "",   "verify whole-database hash to be = expected")
+	fbench   := flags.String("bench", "",   "benchmarking format for output")
+	fnclient := flags.Int("nclient", 1,     "simulate so many clients")
+
+	flags.Parse(argv[1:])
+
+	if flags.NArg() != 1 {
+		flags.Usage()
+		os.Exit(1)
+	}
+
+	// XXX kill -bench and use labels in neotest
+	if *fbench == "" {
+		log.Fatal("-bench must be provided")
+	}
+
+	url := flags.Arg(0)
+
+	h := fhash()
+	if (*fcheck != "") != (h.Hash != nil) {
+		log.Fatal("-check and -<hash> must be used together")
+	}
+
+	err := zwrk(ctx, url, *fnclient, h, *fbench, *fcheck)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+
+// zwrk simulates database load from multiple clients.
+//
+// It first serially reads all objects and remember theirs per-object crc32
+// checksum. If h/check were provided, this phase, similarly to zhash, also
+// checks that the whole database content is as expected.
+//
+// Then parallel phase starts where nwrk separate connections to database are
+// opened and nwrk workers are run to perform database access over them in
+// parallel to each other.
+//
+// At every time when an object is loaded its crc32 checksum is verified to be
+// the same as was obtained during serial phase.
+func zwrk(ctx context.Context, url string, nwrk int, h hasher, bench, check string) (err error) {
+	at, objcheckv, err := zwrkPrepare(ctx, url, h, check)
+	if err != nil {
+		return err
+	}
+
+	// establish nwrk connections and warm them up
+	storv, err := zwrkPreconnect(ctx, url, at, nwrk)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		for _, stor := range storv {
+			if stor != nil {
+				err2 := stor.Close()
+				err = xerr.First(err, err2)
+			}
+		}
+	}()
+
+
+	// benchmark parallel loads
+	defer xerr.Contextf(&err, "zwrk-%d/bench", nwrk)
+	r := testing.Benchmark(func (b *testing.B) {
+		wg, ctx := errgroup.WithContext(ctx)
+		var n int64
+
+		for i := 0; i < nwrk; i++ {
+			stor := storv[i]
+			oid  := zodb.Oid(0)
+
+			wg.Go(func() error {
+				for {
+					n := atomic.AddInt64(&n, +1)
+					if n >= int64(b.N) {
+						return nil
+					}
+
+					xid := zodb.Xid{Oid: oid, At: at}
+					buf, _, err := stor.Load(ctx, xid)
+					if err != nil {
+						return err
+					}
+
+					csum := crc32.ChecksumIEEE(buf.Data)
+					if csum != objcheckv[oid] {
+						return fmt.Errorf("%s: %s: crc32 mismatch: got %08x  ; expect %08x",
+							url, oid, csum, objcheckv[oid])
+					}
+
+					buf.Release()
+
+					// XXX various scenarios are possible to select next object to read
+					oid = (oid + 1) % zodb.Oid(len(objcheckv))
+				}
+
+				return nil
+			})
+		}
+
+		err = wg.Wait()
+		if err != nil {
+			// XXX log. (not b.) - workaround for testing.Benchmark
+			// not allowing to detect failures.
+			log.Fatal(ctx, err)
+		}
+	})
+
+	// TODO latency distribution
+
+	tavg   := float64(r.T) / float64(r.N) / float64(time.Microsecond)
+	latavg := float64(nwrk) * tavg
+	rps    := float64(r.N) / r.T.Seconds()
+	topic := fmt.Sprintf(bench, "zwrk.go")
+	fmt.Printf("Benchmark%s·%d %d\t%.1f req/s  %.3f latency-µs/object\n",
+		topic, nwrk, r.N, rps, latavg)
+	return nil
+}
+
+// zwrkPreconnect establishes nwrk connections and warms them up.
+func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ []zodb.IStorage, err error) {
+	defer xerr.Contextf(&err, "zwrk-%d/preconnect", nwrk)
+	storv := make([]zodb.IStorage, nwrk)
+
+	wg, ctx := errgroup.WithContext(ctx)
+	for i := 0; i < nwrk; i++ {
+		i := i
+		wg.Go(func() error {
+			// open storage without caching - we need to take
+			// latency of every request into account, and a cache
+			// could be inhibiting (e.g. making significantly
+			// lower) it for some requests.
+			var opts = zodb.OpenOptions{
+				ReadOnly: true,
+				NoCache:  true,
+			}
+			stor, err := zodb.OpenStorage(ctx, url, &opts)
+			if err != nil {
+				return err
+			}
+			storv[i] = stor
+
+			// storage to warm-up the connection
+			// ( in case of NEO LastTid connects to master and Load
+			//   - to a storage )
+			_, err = stor.LastTid(ctx)
+			if err != nil {
+				return err
+			}
+
+			// load several first objects to warm up storages connection
+			// we need to load several objects so that in case of
+			// NEO cluster with several storage nodes, we warm-up
+			// connections to them all.
+			//
+			// FIXME 16 hardcoded
+			for oid := zodb.Oid(0); oid < 16; oid++ {
+				buf, _, err := stor.Load(ctx, zodb.Xid{Oid: oid, At: at})
+				buf.XRelease()
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	}
+
+	err = wg.Wait()
+	if err != nil {
+		for _, stor := range storv {
+			if stor != nil {
+				stor.Close() // XXX lclose
+			}
+		}
+		return nil, err
+	}
+
+	return storv, nil
+}
+
+// zwrkPrepare serially reads all objects and computes per-object crc32.
+func zwrkPrepare(ctx context.Context, url string, h hasher, check string) (at zodb.Tid, objcheckv []uint32, err error) {
+	defer xerr.Context(&err, "zwrk/prepare")
+
+	stor, err := zodb.OpenStorage(ctx, url, &zodb.OpenOptions{ReadOnly: true})
+	if err != nil {
+		return 0, nil, err
+	}
+	defer func() {
+		err2 := stor.Close()
+		err = xerr.First(err, err2)
+	}()
+
+	lastTid, err := stor.LastTid(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	oid := zodb.Oid(0)
+loop:
+	for {
+		xid := zodb.Xid{Oid: oid, At: lastTid}
+		buf, _, err := stor.Load(ctx, xid)
+		if err != nil {
+			switch errors.Cause(err).(type) {
+			case *zodb.NoObjectError:
+				break loop
+			default:
+				return 0, nil, err
+			}
+		}
+
+		// XXX Castagnoli is more strong and faster to compute
+		objcheckv = append(objcheckv, crc32.ChecksumIEEE(buf.Data))
+
+		if check != "" {
+			h.Write(buf.Data)
+		}
+		oid += 1
+		buf.Release()
+	}
+
+
+	// check the data read serially is indeed what was expected.
+	if check != "" {
+		hresult := fmt.Sprintf("%s:%x", h.name, h.Sum(nil))
+		if hresult != check {
+			return 0, nil, fmt.Errorf("%s: hash mismatch: expected %s  ; got %s", url, check, hresult)
+		}
+	}
+
+	return lastTid, objcheckv, nil
+}
+
+// ----------------------------------------
+
 var commands = prog.CommandRegistry{
 	{"zhash", zhashSummary, zhashUsage, zhashMain},
+	{"zwrk",  zwrkSummary,  zwrkUsage,  zwrkMain},
 }
 
 func main() {

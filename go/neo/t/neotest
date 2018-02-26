@@ -931,7 +931,8 @@ cpustat() {
 }
 
 Nrun=5			# repeat benchmarks N time
-Npar=16		# run so many parallel clients in parallel phase
+Nparv="1 2 3 4 8 12 16"	# run parallel zwrk benchmarks with so many clients
+Tzwrk1=1s		# time to run 1 zwrk iteration
 
 #profile=
 profile=cpustat
@@ -941,20 +942,6 @@ nrun() {
 	for i in `seq $Nrun`; do
 		$profile "$@"
 	done
-}
-
-# nrunpar ...	- run $Npar ... instances in parallel and wait for completion
-nrunpar() {
-	$profile _nrunpar "$@"
-}
-
-_nrunpar() {
-	local jobv
-	for i in `seq $Npar`; do
-		"$@" &
-		jobv="$jobv $!"
-	done
-	wait $jobv
 }
 
 # bench_cpu	- microbenchmark CPU
@@ -1118,8 +1105,6 @@ zbench() {
 	#nrun time demo-zbigarray read $url
 
 	nrun tzodb.py zhash --check=$zhashok --bench=$topic-%s --$zhashfunc $url
-	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar tzodb.py zhash --check=$zhashok --bench=$topic-%s·P$Npar --$zhashfunc $url
 	echo
 	zbench_go $url $topic $zhashok
 }
@@ -1140,8 +1125,11 @@ zbench_go() {
 	nrun tzodb_go zhash -check=$zhashok -bench=$topic -$zhashfunc $url
 	nrun tzodb_go zhash -check=$zhashok -bench=$topic -$zhashfunc -useprefetch $url
 
-	echo -e "\n# ${Npar} clients in parallel"
-	nrunpar tzodb_go zhash -check=$zhashok -bench=$topic·P$Npar -$zhashfunc $url
+	for i in ${Nparv}; do
+		echo -e "\n# $i clients in parallel"
+		nrun tzodb_go -test.benchtime $Tzwrk1 \
+			zwrk -nclient $i -check=$zhashok -bench=$topic -$zhashfunc $url
+	done
 }
 
 
