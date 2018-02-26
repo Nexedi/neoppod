@@ -27,6 +27,9 @@ import (
 	"crypto/sha1"
 	"flag"
 	"fmt"
+	"hash"
+	"hash/adler32"
+	"hash/crc32"
 	"io/ioutil"
 	"log"
 	"os"
@@ -79,21 +82,24 @@ func benchit(benchname string, bencharg string, benchf func(*testing.B, string))
 
 }
 
-func BenchmarkSha1(b *testing.B, arg string) {
+
+func benchHash(b *testing.B, h hash.Hash, arg string) {
 	blksize, err := strconv.Atoi(arg)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	data := make([]byte, blksize)
-	h := sha1.New()
-
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		h.Write(data)
 	}
 }
+
+func BenchmarkAdler32(b *testing.B, arg string) { benchHash(b, adler32.New(), arg) }
+func BenchmarkCrc32(b *testing.B, arg string)   { benchHash(b, crc32.NewIEEE(), arg) }
+func BenchmarkSha1(b *testing.B, arg string)    { benchHash(b, sha1.New(), arg) }
 
 func xreadfile(t testing.TB, path string) []byte {
 	data, err := ioutil.ReadFile(path)
@@ -118,6 +124,8 @@ func BenchmarkUnzlib(b *testing.B, zfile string) {
 
 
 var benchv = map[string]func(*testing.B, string) {
+	"adler32":	BenchmarkAdler32,
+	"crc32":	BenchmarkCrc32,
 	"sha1":		BenchmarkSha1,
 	"unzlib":	BenchmarkUnzlib,
 }

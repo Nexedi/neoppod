@@ -24,6 +24,7 @@ from __future__ import print_function
 
 import sys
 import hashlib
+import zhash
 import zlib
 from time import time
 from math import ceil, log10
@@ -111,11 +112,10 @@ def benchit(benchf, bencharg, ttarget = 1.):
 
 # ---- 8< ----
 
-def bench_sha1(b, blksize):
+def _bench_hasher(b, h, blksize):
     blksize = int(blksize)
     data = '\0'*blksize
 
-    h = hashlib.sha1()
     b.reset_timer()
 
     n = b.N
@@ -123,6 +123,11 @@ def bench_sha1(b, blksize):
     while i < n:
         h.update(data)
         i += 1
+
+
+def bench_adler32(b, blksize):  _bench_hasher(b, zhash.Adler32Hasher(), blksize)
+def bench_crc32(b, blksize):    _bench_hasher(b, zhash.CRC32Hasher(), blksize)
+def bench_sha1(b, blksize):     _bench_hasher(b, hashlib.sha1(), blksize)
 
 
 def readfile(path):

@@ -893,9 +893,12 @@ bench_cpu() {
 		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmark`hostname`/pystone 1 \1 pystone/s|\""
 
 	sizev="1024 4096 $((2*1024*1024))"
-	for size in $sizev; do
-		nrun tcpu.py sha1 $size
-		nrun tcpu_go sha1 $size
+	benchv="adler32 crc32 sha1"
+	for bench in $benchv; do
+		for size in $sizev; do
+			nrun tcpu.py $bench $size
+			nrun tcpu_go $bench $size
+		done
 	done
 
 	datav="null-1K null-4K null-2M wczdata prod1-avg prod1-max"
