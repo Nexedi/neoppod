@@ -1158,10 +1158,11 @@ func (nl *NodeLink) recvPkt() (*pktBuf, error) {
 
 	pkth := pkt.Header()
 
-	pktLen := int(proto.PktHeaderLen + packed.Ntoh32(pkth.MsgLen)) // whole packet length
-	if pktLen > proto.PktMaxSize {
+	msgLen := packed.Ntoh32(pkth.MsgLen)
+	if msgLen > proto.PktMaxSize - proto.PktHeaderLen {
 		return nil, ErrPktTooBig
 	}
+	pktLen := int(proto.PktHeaderLen + msgLen) // whole packet length
 
 	// resize data if we don't have enough room in it
 	data = xbytes.Resize(data, pktLen)
