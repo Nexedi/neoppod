@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+"""benchplot - make scalability & difference plots from neotest benchmarks"""
+
+import sys, re
+import matplotlib.pyplot as plt
+import matplotlib.patches
+from collections import OrderedDict
+from benchlib import load_file, Unit
+
+
+# BenchSeries represents several runs of a benchmark with different "-<n>".
+#
+# .series is [] of (n, Stats)
+class BenchSeries(object):
+    def __init__(self, name, series):
+        self.name   = name
+        self.series = series
+
+
+# SeriesSet is a collection of benchmark series.
+#
+# it is represented by {} name -> BenchSeries.
+# all series have the same unit.
+class SeriesSet(OrderedDict):
+    def __init__(self, unit):
+        super(SeriesSet, self).__init__()
+        self.unit = unit
+
+
+_n_re = re.compile(r'.*(-\d+)$')
+
+# seriesof extracts "-<n>" series from benchmark B.
+#
+# all values must have the same unit.
+#
+# returns -> SeriesSet | None.
+def seriesof(B):
+    S = SeriesSet(unit=None)
+    Bn = B.byname()
+    for name in Bn:
+        m = _n_re.match(name)
+        if m is None:
+            continue    # no -<n>
+
+        name_ = name[:m.start(1)]   # without -<n>
+        n = m.group(1)
+        n = n[1:]
+        n = int(n)
+
+        bs = S.get(name_)
+        if bs is None:
+            S[name_] = bs = BenchSeries(name_, [])
+
+        stats = Bn[name].stats()
+        if S.unit is None:
+            S.unit = stats.unit
+        if S.unit != stats.unit:
+            raise ValueError('seriesof: different units: (%s, %s)' % (S.unit, stats.unit))
+        bs.series.append((n, stats))
+
+    if S.unit is None:
+        return None # nothing found
+
+    return S
+
+
+# plotseries makes plot of benchmark series how they change by "-<n>"
+#
+# S should be {} name -> BenchSeries.
+#
+# The whole plot is labeled as labkey.
+def plotseries(labkey, S):
+    plt.title("XXX ZODB servers handling read requests")
+    for name in S:
+        bs = S[name]
+        x = [n for n,_ in bs.series]
+        y = [s.avg for _,s in bs.series]
+        err1 = [s.avg - s.min for _,s in bs.series]
+        err2 = [s.max - s.avg for _,s in bs.series]
+        # XXX ecolor='black'
+        plt.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name)
+
+        # XXX fmt for line
+        # XXX always use the same colors for the same lines (e.g. picking by hash)
+
+
+    # first legend showing labels from labkey
+    # https://matplotlib.org/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+    # r - invisible something
+    r = matplotlib.patches.Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
+    lh = [r] * len(labkey)
+    ltext = ['%s:%s' % (k,v) for k,v in labkey]
+    lablegend = plt.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
+    ax = plt.gca().add_artist(lablegend)
+
+    # main legend about lines
+    plt.legend(loc='upper left')
+
+    plt.ylabel(S.unit)
+    plt.xlabel("XXX number of clients running simultaneously")
+    plt.show()
+
+
+
+
+
+
+def main():
+    B = load_file(sys.argv[1])
+    splitby = ['dataset', 'cluster']    # XXX + neo server/backend
+
+    Bl = B.bylabel(splitby)
+    for labkey in Bl:
+        # XXX req/s hardcoded. XXX other units?
+        Bu = Bl[labkey].byunit()
+        S = seriesof(Bu[Unit('req/s')])
+        if S is None:
+            continue    # nothing found
+
+        # XXX hack just fs1 works very fast and makes seeing other variants hard
+        del S['deco/fs1/zwrk.go']
+
+        # only show !log for neo/py as this are faster
+        for k in S.keys():
+            m = re.match(r'.*(\(!log\)).*$', k)
+            if m is None:
+                continue
+
+            k_ = k[:m.start(1)] + k[m.end(1):]  # without "(!log)"
+            #print 'hide %s (have %s)' % (k_, k)
+            S.pop(k_, None) # discard
+
+
+
+
+        # XXX + nproc=...
+        plotseries(labkey, S)
+
+
+
+
+if __name__ == '__main__':
+    main()
