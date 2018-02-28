@@ -1107,7 +1107,7 @@ zbench_local() {
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
 	Zpy_job=$!
-	zbench zeo://$Zbind `hostname`/zeo $zhashok
+	zbench zeo://$Zbind `hostname`/zeo/py/fs1 $zhashok
 	kill $Zpy_job
 	wait $Zpy_job
 
@@ -1215,7 +1215,7 @@ zbench_cluster() {
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
 	Zpy_job=$!
-	on $url ./neotest zbench-client zeo://$Zbind "`hostname`-$peer/zeo" $zhashok
+	on $url ./neotest zbench-client zeo://$Zbind "`hostname`-$peer/zeo/py/fs1" $zhashok
 	kill $Zpy_job
 	wait $Zpy_job
 
