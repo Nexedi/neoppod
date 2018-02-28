@@ -873,7 +873,7 @@ cpustat() {
 }
 
 Nrun=5			# repeat benchmarks N time
-Nparv="1 2 4 8 16"	# run parallel zwrk benchmarks with so many clients (XXX +6, +12 ?)
+Nparv="1 2 3 4 8 12 16"	# run parallel zwrk benchmarks with so many clients
 #Npar=16		# run so many parallel clients in parallel phase
 
 #profile=

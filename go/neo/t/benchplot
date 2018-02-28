@@ -89,11 +89,13 @@ def seriesof(B):
 #
 # The whole plot is labeled as labkey.
 def plotseries(labkey, S):
-    plt.title("XXX ZODB server handling read requests")
+    plt.title("ZODB server handling read requests")
 
     # order plots (and thus their order in legend automatically) by value at "·1"
     namev = S.keys()
     namev.sort(key = lambda _: S[_].series[0][1].avg, reverse=True)
+    xticks  = set()
+    yticks0 = set()
 
     for name in namev:
         bs = S[name]
@@ -106,6 +108,15 @@ def plotseries(labkey, S):
 
         # XXX fmt for line
         # XXX always use the same colors for the same lines (e.g. picking by hash)
+
+        # remember n we saw in xticks
+        for _ in x:
+            xticks.add(_)
+
+        # remember first values in yticks0
+        for _ in y[:1]:     # XXX with [:2] it becomes too noisy
+            yticks0.add(int(_))
+
 
 
     # first legend showing labels from labkey
@@ -122,6 +133,36 @@ def plotseries(labkey, S):
 
     plt.ylabel(S.unit)
     plt.xlabel("XXX number of clients running simultaneously")
+
+    # mark every n we saw in xticks. we don't need other xticks besides that.
+    xtickv = list(xticks)
+    xtickv.sort()
+    plt.xticks(xtickv)
+
+    # mark first values with dedicated y ticks.
+    yticks = set(plt.yticks()[0])
+    yticks.update(yticks0)
+    ytickv = list(yticks)
+    ytickv.sort()
+    yticklabv = []
+    for i, _ in enumerate(ytickv):
+        if _ not in yticks0:
+            l = '%d' % _
+        else:
+            # smaller in size (not to overload / overlap)
+            # (NOTE our custom ticks are not at edges: i-1 and i+1 are always in range)
+            if _ - ytickv[i-1] > ytickv[i+1] - _:
+                d = '_' # shift a bit down
+            else:
+                d = '^' # shift a bit up
+
+            l = r'${}%s{%d}$' % (d, _)
+
+        yticklabv.append(l)
+
+    plt.yticks(ytickv, yticklabv)
+
+
     plt.show()
 
 
@@ -131,7 +172,7 @@ def plotseries(labkey, S):
 
 def main():
     B = load_file(sys.argv[1])
-    splitby = ['dataset', 'cluster']    # XXX + neo server/backend
+    splitby = ['dataset', 'cluster']
 
     Bl = B.bylabel(splitby)
     for labkey in Bl:
