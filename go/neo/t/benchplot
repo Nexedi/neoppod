@@ -89,8 +89,13 @@ def seriesof(B):
 #
 # The whole plot is labeled as labkey.
 def plotseries(labkey, S):
-    plt.title("XXX ZODB servers handling read requests")
-    for name in S:
+    plt.title("XXX ZODB server handling read requests")
+
+    # order plots (and thus their order in legend automatically) by value at "-1"
+    namev = S.keys()
+    namev.sort(key = lambda _: S[_].series[0][1].avg, reverse=True)
+
+    for name in namev:
         bs = S[name]
         x = [n for n,_ in bs.series]
         y = [s.avg for _,s in bs.series]
@@ -108,7 +113,7 @@ def plotseries(labkey, S):
     # r - invisible something
     r = matplotlib.patches.Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
     lh = [r] * len(labkey)
-    ltext = ['%s:%s' % (k,v) for k,v in labkey]
+    ltext = ['%s: %s' % (k,v) for k,v in labkey]
     lablegend = plt.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
     ax = plt.gca().add_artist(lablegend)
 
