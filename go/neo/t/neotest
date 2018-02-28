@@ -518,6 +518,18 @@ lspci1() {
 	lspci -vmm -s $1 |grep "^$2:\\s*" |sed -e "s/^$2:\\s*//"
 }
 
+# xhostname	- show short system host name
+xhostname() {
+	# prefer first part of FQDN for misconfigured systems like
+	# fqdn=z6001.ivan.nexedi.com, hostname=z6001-COMP-2784
+	fqdn=`hostname --fqdn 2>/dev/null || :`
+	if test -n "$fqdn"; then
+		echo "$fqdn" |sed -e 's/\./ /' |awk '{print $1}'
+	else
+		hostname
+	fi
+}
+
 # show information about local system (os, hardware, versions, ...)
 system_info() {
 	echo -n "# "; date --rfc-2822
@@ -892,7 +904,7 @@ _nrunpar() {
 # bench_cpu	- microbenchmark CPU
 bench_cpu() {
 	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
-		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmark`hostname`/pystone 1 \1 pystone/s|\""
+		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmark`xhostname`/pystone 1 \1 pystone/s|\""
 
 	sizev="1024 4096 $((2*1024*1024))"
 	benchv="adler32 crc32 sha1"
@@ -931,7 +943,7 @@ Benchmark$1-avg 1 \\3 \\4/op\
 	for size in $sizev; do
 		echo -e "\n*** disk: random direct (no kernel cache) $size-read latency"
 		nrun ioping -D -i 0ms -s $size -S 1024M -w $benchtime -q -k . |\
-			ioping2bench "`hostname`/disk/randread/direct/$size"
+			ioping2bench "`xhostname`/disk/randread/direct/$size"
 	done
 
 
@@ -943,7 +955,7 @@ Benchmark$1-avg 1 \\3 \\4/op\
 	for size in $sizev; do
 		echo -e "\n*** disk: random cached $size-read latency"
 		nrun ioping -C -i 0ms -s $size -S 1024M -w $benchtime -q -k . |\
-			ioping2bench "`hostname`/disk/randread/pagecache/$size"
+			ioping2bench "`xhostname`/disk/randread/pagecache/$size"
 	done
 }
 
@@ -976,16 +988,16 @@ Benchmark$1-avg 1 \\2 ms/op\
 	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
 	sizev="16 1452"	# max = min(IPv4, IPv6) so that it is always only 1 Ethernet frame on the wire
 	for size in $sizev; do
-		echo -e "\n# `hostname` ⇄ $peer (ping ${size}B)"
+		echo -e "\n# `xhostname` ⇄ $peer (ping ${size}B)"
 		{ $profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| \
-			echo "# skipped -> enable ping in sudo for `whoami`@`hostname`"; } | \
-			ping2bench `hostname`-$peer/pingrtt/${size}B
+			echo "# skipped -> enable ping in sudo for `whoami`@`xhostname`"; } | \
+			ping2bench `xhostname`-$peer/pingrtt/${size}B
 
-		echo -e "\n# $peer ⇄ `hostname` (ping ${size}B)"
+		echo -e "\n# $peer ⇄ `xhostname` (ping ${size}B)"
 		# TODO profile remotely
 		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || \
-			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`hostname\`\\\"" | \
-			ping2bench $peer-`hostname`/pingrtt/${size}B
+			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@\`xhostname\`\\\"" | \
+			ping2bench $peer-`xhostname`/pingrtt/${size}B
 	done
 
 	# TODO
@@ -1012,28 +1024,28 @@ Benchmark$1-avg 1 \\2 ms/op\
 	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
 	sizev="1 1400 1500 4096" # 1400 = 1440 - ε (1 eth frame); 1500 = 1440 + ε (2 eth frames); 4096 - just big 4K (3 eth frames)
 	for size in $sizev; do
-		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		echo -e "\n# `xhostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		# TODO profile remotely
 		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
-		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-c)/${size}B"
+		nrun lat_tcp -m $size $peer | lattcp2bench "`xhostname`-$peer/tcprtt(c-c)/${size}B"
 		lat_tcp -S $peer
 
-		echo -e "\n# `hostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		echo -e "\n# `xhostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
 		# TODO profile remotely
 		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
-		nrun lat_tcp -m $size $peer | lattcp2bench "`hostname`-$peer/tcprtt(c-go)/${size}B"
+		nrun lat_tcp -m $size $peer | lattcp2bench "`xhostname`-$peer/tcprtt(c-go)/${size}B"
 		lat_tcp -S $peer
 
-		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		echo -e "\n# $peer ⇄ `xhostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
 		lat_tcp -s
 		# TODO profile remotely
-		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-c)/${size}B"
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`xhostname`/tcprtt(c-c)/${size}B"
 		lat_tcp -S localhost
 
-		echo -e "\n# $peer ⇄ `hostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		echo -e "\n# $peer ⇄ `xhostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
 		lat_tcp_go -s 2>/dev/null &
 		# TODO profile remotely
-		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`hostname`/tcprtt(c-go)/${size}B"
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "$peer-`xhostname`/tcprtt(c-go)/${size}B"
 		lat_tcp -S localhost
 	done
 }
@@ -1102,31 +1114,31 @@ zbench_local() {
 	zhashok=`cat $ds/zhash.ok`
 
 	echo -e "\n*** FileStorage"
-	zbench $fs1/data.fs `hostname`/fs1 $zhashok
+	zbench $fs1/data.fs `xhostname`/fs1 $zhashok
 
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
 	Zpy_job=$!
-	zbench zeo://$Zbind `hostname`/zeo/py/fs1 $zhashok
+	zbench zeo://$Zbind `xhostname`/zeo/py/fs1 $zhashok
 	kill $Zpy_job
 	wait $Zpy_job
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	zbench neo://$neocluster@$Mbind `hostname`/neo/py/sqlite $zhashok
+	zbench neo://$neocluster@$Mbind `xhostname`/neo/py/sqlite $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	zbench neo://$neocluster@$Mbind "`hostname`/neo/py(!log)/sqlite" $zhashok
+	zbench neo://$neocluster@$Mbind "`xhostname`/neo/py(!log)/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	zbench neo://$neocluster@$Mbind `hostname`/neo/py/sql $zhashok
+	zbench neo://$neocluster@$Mbind `xhostname`/neo/py/sql $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
@@ -1134,32 +1146,32 @@ zbench_local() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	zbench neo://$neocluster@$Mbind "`hostname`/neo/py(!log)/sql" $zhashok
+	zbench neo://$neocluster@$Mbind "`xhostname`/neo/py(!log)/sql" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go fs1"
 	NEOgofs1
-	zbench neo://$neocluster@$Mbind `hostname`/neo/go/fs1 $zhashok
+	zbench neo://$neocluster@$Mbind `xhostname`/neo/go/fs1 $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go fs1 (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`hostname`/neo/go/fs1(!sha1)" $zhashok
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`xhostname`/neo/go/fs1(!sha1)" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite"
 	NEOgolite
-	zbench neo://$neocluster@$Mbind `hostname`/neo/go/sqlite $zhashok
+	zbench neo://$neocluster@$Mbind `xhostname`/neo/go/sqlite $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgolite
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`hostname`/neo/go/sqlite(!sha1)" $zhashok
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "`xhostname`/neo/go/sqlite(!sha1)" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
@@ -1215,26 +1227,26 @@ zbench_cluster() {
 	echo -e "\n*** ZEO"
 	Zpy $fs1/data.fs
 	Zpy_job=$!
-	on $url ./neotest zbench-client zeo://$Zbind "`hostname`-$peer/zeo/py/fs1" $zhashok
+	on $url ./neotest zbench-client zeo://$Zbind "`xhostname`-$peer/zeo/py/fs1" $zhashok
 	kill $Zpy_job
 	wait $Zpy_job
 
 	echo -e "\n*** NEO/py sqlite"
 	NEOpylite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sqlite" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`xhostname`-$peer/neo/py/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sqlite\\\"" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"`xhostname`-$peer/neo/py(!log)/sqlite\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/py sql"
 	NEOpysql
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/py/sql" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`xhostname`-$peer/neo/py/sql" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
@@ -1242,32 +1254,32 @@ zbench_cluster() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/py(!log)/sql\\\"" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"`xhostname`-$peer/neo/py(!log)/sql\\\"" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go fs"
 	NEOgofs1
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go/fs1" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`xhostname`-$peer/neo/go/fs1" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go fs1 (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go/fs1(!sha1)\\\"" $zhashok
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`xhostname`-$peer/neo/go/fs1(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite"
 	NEOgolite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`hostname`-$peer/neo/go/sqlite" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "`xhostname`-$peer/neo/go/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite (sha1 disabled)"
 	X_NEOGO_SHA1_SKIP=y NEOgolite
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`hostname`-$peer/neo/go/sqlite(!sha1)\\\"" $zhashok
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"`xhostname`-$peer/neo/go/sqlite(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
