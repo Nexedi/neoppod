@@ -153,10 +153,13 @@ def plotseries(labkey, S):
             # (NOTE our custom ticks are not at edges: i-1 and i+1 are always in range)
             if _ - ytickv[i-1] > ytickv[i+1] - _:
                 d = '_' # shift a bit down
+                #d = '_^' # shift a bit down
             else:
                 d = '^' # shift a bit up
+                #d = '^_' # shift a bit up
 
             l = r'${}%s{%d}$' % (d, _)
+            #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], _)
 
         yticklabv.append(l)
 
