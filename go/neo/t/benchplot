@@ -83,6 +83,25 @@ def seriesof(B):
     return S
 
 
+# yticklabel_forvalue returns text for ytick label dedicated to showing particular value.
+#
+# it is a bit smaller in size and cares not to overlap with neighbours.
+def yticklabel_forvalue(yv, yvprev, yvnext):
+    # smaller in size (not to overload / overlap)
+    # (NOTE our custom ticks are not at edges: i-1 and i+1 are always in range)
+    if yv - yvprev > yvnext - yv:
+        d = '_' # shift a bit down
+        #d = '_^' # shift a bit down
+    else:
+        d = '^' # shift a bit up
+        #d = '^_' # shift a bit up
+
+    l = r'${}%s{%d}$' % (d, yv)
+    #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], yv)
+
+    return l
+
+
 # plotseries makes plot of benchmark series how they change by "·<n>"
 #
 # S should be {} name -> BenchSeries.
@@ -96,6 +115,7 @@ def plotseries(labkey, S):
     namev.sort(key = lambda _: S[_].series[0][1].avg, reverse=True)
     xticks  = set()
     yticks0 = set()
+    yticks_ = set()
 
     for name in namev:
         bs = S[name]
@@ -113,9 +133,10 @@ def plotseries(labkey, S):
         for _ in x:
             xticks.add(_)
 
-        # remember first values in yticks0
+        # remember first and last values
         for _ in y[:1]:     # XXX with [:2] it becomes too noisy
             yticks0.add(int(_))
+        yticks_.add(int(y[-1]))
 
 
 
@@ -145,26 +166,35 @@ def plotseries(labkey, S):
     ytickv = list(yticks)
     ytickv.sort()
     yticklabv = []
+
     for i, _ in enumerate(ytickv):
         if _ not in yticks0:
             l = '%d' % _
         else:
-            # smaller in size (not to overload / overlap)
             # (NOTE our custom ticks are not at edges: i-1 and i+1 are always in range)
-            if _ - ytickv[i-1] > ytickv[i+1] - _:
-                d = '_' # shift a bit down
-                #d = '_^' # shift a bit down
-            else:
-                d = '^' # shift a bit up
-                #d = '^_' # shift a bit up
-
-            l = r'${}%s{%d}$' % (d, _)
-            #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], _)
+            l = yticklabel_forvalue(_, ytickv[i-1], ytickv[i+1])
 
         yticklabv.append(l)
 
     plt.yticks(ytickv, yticklabv)
 
+    # show on the right ticks for last y values
+    ax2 = plt.twinx()
+    yticks_.add(ytickv[0])  # min/max ticks from left, so that
+    yticks_.add(ytickv[-1]) # scales at left and right match
+    ytick_v = list(yticks_)
+    ytick_v.sort()
+    ytick_labv = []
+    for i, _ in enumerate(ytick_v):
+        if i in (0, len(ytick_v)-1):
+            l = '%d' % _    # first/last
+        else:
+            l = yticklabel_forvalue(_, ytick_v[i-1], ytick_v[i+1])
+
+        ytick_labv.append(l)
+
+    ax2.set_yticks(ytick_v)
+    ax2.set_yticklabels(ytick_labv)
 
     plt.show()
 
