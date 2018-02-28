@@ -414,7 +414,7 @@ func zwrk(ctx context.Context, url string, nwrk int, h hasher, bench, check stri
 	latavg := float64(nwrk) * tavg
 	rps    := float64(r.N) / r.T.Seconds()
 	topic := fmt.Sprintf(bench, "zwrk.go")
-	fmt.Printf("Benchmark%s-%d %d\t%.1f req/s  %.3f latency-µs/object\n",
+	fmt.Printf("Benchmark%s·%d %d\t%.1f req/s  %.3f latency-µs/object\n",
 		topic, nwrk, r.N, rps, latavg)
 	return nil
 }

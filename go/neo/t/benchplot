@@ -46,9 +46,9 @@ class SeriesSet(OrderedDict):
         self.unit = unit
 
 
-_n_re = re.compile(r'.*(-\d+)$')
+_n_re = re.compile(ur'.*(·\d+)$')
 
-# seriesof extracts "-<n>" series from benchmark B.
+# seriesof extracts "·<n>" series from benchmark B.
 #
 # all values must have the same unit.
 #
@@ -59,9 +59,9 @@ def seriesof(B):
     for name in Bn:
         m = _n_re.match(name)
         if m is None:
-            continue    # no -<n>
+            continue    # no ·<n>
 
-        name_ = name[:m.start(1)]   # without -<n>
+        name_ = name[:m.start(1)]   # without ·<n>
         n = m.group(1)
         n = n[1:]
         n = int(n)
@@ -83,7 +83,7 @@ def seriesof(B):
     return S
 
 
-# plotseries makes plot of benchmark series how they change by "-<n>"
+# plotseries makes plot of benchmark series how they change by "·<n>"
 #
 # S should be {} name -> BenchSeries.
 #
@@ -91,7 +91,7 @@ def seriesof(B):
 def plotseries(labkey, S):
     plt.title("XXX ZODB server handling read requests")
 
-    # order plots (and thus their order in legend automatically) by value at "-1"
+    # order plots (and thus their order in legend automatically) by value at "·1"
     namev = S.keys()
     namev.sort(key = lambda _: S[_].series[0][1].avg, reverse=True)
 
@@ -141,8 +141,8 @@ def main():
         if S is None:
             continue    # nothing found
 
-        # XXX hack just fs1 works very fast and makes seeing other variants hard
-        del S['deco/fs1/zwrk.go']
+        # working directly with fs1 is very fast and makes seeing other variants hard.
+        del S['fs1-zwrk.go']
 
         # only show !log for neo/py as this are faster
         for k in S.keys():
