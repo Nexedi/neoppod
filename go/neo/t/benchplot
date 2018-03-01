@@ -21,10 +21,13 @@
 """benchplot - make scalability & difference plots from neotest benchmarks"""
 
 import sys, re
-import matplotlib.pyplot as plt
-import matplotlib.patches
 from collections import OrderedDict
 from benchlib import load_file, Unit
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, \
+        TransformedBbox, BboxPatch, BboxConnectorPatch
 
 
 # BenchSeries represents several runs of a benchmark with different "-<n>".
@@ -101,14 +104,18 @@ def yticklabel_forvalue(yv, yvprev, yvnext):
 
     return l
 
+# r0 is invisible something
+# (useful as e.g. proxy in text-only legend)
+r0 = Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
 
 # plotseries makes plot of benchmark series how they change by "·<n>"
 #
 # S should be {} name -> BenchSeries.
 #
 # The whole plot is labeled as labkey.
-def plotseries(labkey, S):
-    plt.title("ZODB server handling read requests")
+def plotseries(ax, labkey, S):
+    #plt.title("ZODB server handling read requests")
+    #plt.title("----")   # XXX don't use vspace
 
     # order plots (and thus their order in legend automatically) by value at "·1"
     namev = S.keys()
@@ -124,7 +131,7 @@ def plotseries(labkey, S):
         err1 = [s.avg - s.min for _,s in bs.series]
         err2 = [s.max - s.avg for _,s in bs.series]
         # XXX ecolor='black'
-        plt.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name)
+        ax.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name)
 
         # XXX fmt for line
         # XXX always use the same colors for the same lines (e.g. picking by hash)
@@ -142,26 +149,24 @@ def plotseries(labkey, S):
 
     # first legend showing labels from labkey
     # https://matplotlib.org/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
-    # r - invisible something
-    r = matplotlib.patches.Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
-    lh = [r] * len(labkey)
+    lh = [r0] * len(labkey)
     ltext = ['%s: %s' % (k,v) for k,v in labkey]
-    lablegend = plt.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
-    ax = plt.gca().add_artist(lablegend)
+    #lablegend = plt.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
+    #ax = plt.gca().add_artist(lablegend)
 
     # main legend about lines
-    plt.legend(loc='upper left')
+    ax.legend(loc='upper left')
 
-    plt.ylabel(S.unit)
-    plt.xlabel("XXX number of clients running simultaneously")
+    #plt.ylabel('%s (higher is better)' % S.unit)   # XXX
+    #plt.xlabel("XXX number of clients running simultaneously")
 
     # mark every n we saw in xticks. we don't need other xticks besides that.
     xtickv = list(xticks)
     xtickv.sort()
-    plt.xticks(xtickv)
+    ax.set_xticks(xtickv)
 
     # mark first values with dedicated y ticks.
-    yticks = set(plt.yticks()[0])
+    yticks = set(ax.get_yticks())
     yticks.update(yticks0)
     ytickv = list(yticks)
     ytickv.sort()
@@ -171,36 +176,60 @@ def plotseries(labkey, S):
         if _ not in yticks0:
             l = '%d' % _
         else:
-            # (NOTE our custom ticks are not at edges: i-1 and i+1 are always in range)
-            l = yticklabel_forvalue(_, ytickv[i-1], ytickv[i+1])
+            yprev = (ytickv[i-1] if i > 0 else 0)
+            ynext = (ytickv[i+1] if i + 1 < len(ytickv) else float('inf'))
+            l = yticklabel_forvalue(_, yprev, ynext)
 
         yticklabv.append(l)
 
-    plt.yticks(ytickv, yticklabv)
+    ax.set_yticks(ytickv)
+    ax.set_yticklabels(yticklabv)
+
+
+    # always start y from 0 (it goes to -500 for latencies if auto)
+    ax.set_ylim(bottom=0)
+
 
     # show on the right ticks for last y values
-    ax2 = plt.twinx()
-    yticks_.add(ytickv[0])  # min/max ticks from left, so that
-    yticks_.add(ytickv[-1]) # scales at left and right match
+    ax2 = ax.twinx()
+    ax2.set_ylim(ax.get_ylim()) # same y scale as on ax
     ytick_v = list(yticks_)
     ytick_v.sort()
     ytick_labv = []
     for i, _ in enumerate(ytick_v):
-        if i in (0, len(ytick_v)-1):
-            l = '%d' % _    # first/last
-        else:
-            l = yticklabel_forvalue(_, ytick_v[i-1], ytick_v[i+1])
+        yprev = (ytick_v[i-1] if i > 0 else 0)
+        ynext = (ytick_v[i+1] if i + 1 < len(ytick_v) else float('inf'))
+        l = yticklabel_forvalue(_, yprev, ynext)
 
         ytick_labv.append(l)
 
     ax2.set_yticks(ytick_v)
     ax2.set_yticklabels(ytick_labv)
 
-    plt.show()
 
 
 
 
+# xseriesof, similarly to seriesof, extracts series from benchmark B, but omits non-interesting ones.
+def xseriesof(B):
+    S = seriesof(B)
+    if S is None:
+        return None
+
+    # working directly with fs1 is very fast and makes seeing other variants hard.
+    del S['fs1-zwrk.go']
+
+    # only show !log for neo/py as this are faster
+    for k in S.keys():
+        m = re.match(r'.*(\(!log\)).*$', k)
+        if m is None:
+            continue
+
+        k_ = k[:m.start(1)] + k[m.end(1):]  # without "(!log)"
+        #print 'hide %s (have %s)' % (k_, k)
+        S.pop(k_, None) # discard
+
+    return S
 
 
 def main():
@@ -209,30 +238,62 @@ def main():
 
     Bl = B.bylabel(splitby)
     for labkey in Bl:
-        # XXX req/s hardcoded. XXX other units?
+        # FIXME hack
+        if labkey == ():   # cpu benchmarks
+            continue
+
         Bu = Bl[labkey].byunit()
-        S = seriesof(Bu[Unit('req/s')])
-        if S is None:
-            continue    # nothing found
 
-        # working directly with fs1 is very fast and makes seeing other variants hard.
-        del S['fs1-zwrk.go']
-
-        # only show !log for neo/py as this are faster
-        for k in S.keys():
-            m = re.match(r'.*(\(!log\)).*$', k)
-            if m is None:
-                continue
-
-            k_ = k[:m.start(1)] + k[m.end(1):]  # without "(!log)"
-            #print 'hide %s (have %s)' % (k_, k)
-            S.pop(k_, None) # discard
+        fig = plt.figure(figsize=(2*8,10))       # XXX figsize - temp?
+        fig.suptitle("ZODB server handling read requests")
+        fig.text(0.5, 0.04, "XXX number of clients running simultaneously", ha='center')
 
 
+        ax1 = plt.subplot(121)
+        ax1.set_title(u'requests object/s  (↑ is better)')  # XXX add vspace between title and plot
+
+        # XXX req/s hardcoded. XXX other units?
+        Sreq = xseriesof(Bu[Unit('req/s')])
+        if Sreq is not None:
+            # XXX + nproc=...
+            plotseries(ax1, labkey, Sreq)
+        else:
+            plt.text("xxx not found")
 
 
-        # XXX + nproc=...
-        plotseries(labkey, S)
+        ax2 = plt.subplot(122)
+        ax2.set_title(u'latency µs/object  (↓ is better)')
+
+        Slat = xseriesof(Bu[Unit(u'latency-µs/object')])
+        if Slat is not None:
+            # XXX use same colors/styles for corresponding lines in ax1
+            plotseries(ax2, labkey, Slat)
+
+            # don't show legend in latency plot - instead show latency details for client=1
+            ax2.legend().set_visible(False)
+
+            ax21 = zoomed_inset_axes(ax2, 8, loc='upper left', borderpad=3.0)
+            zlatmax = 200   # XXX hardcoded
+            zxmin, zxmax = 0.8, 1.2     # XXX adjust?
+            ax21.set_ylim(0, zlatmax)
+            ax21.set_xlim(zxmin, zxmax)
+            ax21.set_xticks([])
+            ax21.set_xticklabels([])
+
+            # vvv a bit adjusted mark_inset(ax2, ax21, ...) - to connect box'es the way we need
+            rect = TransformedBbox(ax21.viewLim, ax2.transData)
+            ax2.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
+            ax2.add_patch(BboxConnectorPatch(ax21.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5))
+
+        else:
+            plt.text("xxx not found")
+
+
+        #fig.legend()
+        fig.legend([r0,r0], ["aaa", "bbb"])
+
+        plt.show()
+
 
 
 
