@@ -28,7 +28,6 @@ import tzodb
 import zlib
 from time import time
 from math import ceil, log10
-import socket
 
 # fmtsize formats size in human readable form
 _unitv = "BKMGT" # (2^10)^i represents by corresponding char suffix
@@ -102,13 +101,12 @@ def benchit(benchf, bencharg, ttarget = 1.):
         b.stop_timer()
         t = b.total_time()
 
-    hostname = socket.gethostname()
     benchname = benchf.__name__
     if benchname.startswith('bench_'):
         benchname = benchname[len('bench_'):]
 
-    print('Benchmark%s/%s/py/%s %d\t%.3f µs/op' %
-                (hostname, benchname, prettyarg(bencharg), n, t * 1E6 / n))
+    print('Benchmark%s/py/%s %d\t%.3f µs/op' %
+                (benchname, prettyarg(bencharg), n, t * 1E6 / n))
 
 # ---- 8< ----
 

@@ -75,12 +75,7 @@ func benchit(benchname string, bencharg string, benchf func(*testing.B, string))
 		benchf(b, bencharg)
 	})
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "?"
-	}
-
-	fmt.Printf("Benchmark%s/%s/go/%s %d\t%.3f µs/op\n", hostname, benchname, prettyarg(bencharg), r.N, float64(r.T) / float64(r.N) / float64(time.Microsecond))
+	fmt.Printf("Benchmark%s/go/%s %d\t%.3f µs/op\n", benchname, prettyarg(bencharg), r.N, float64(r.T) / float64(r.N) / float64(time.Microsecond))
 
 }
 

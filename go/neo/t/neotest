@@ -906,7 +906,7 @@ bench_cpu() {
 	echo -ne "node:\t"; xhostname
 	echo     "cluster:"
 	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
-		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmark`xhostname`/pystone 1 \1 pystone/s|\""
+		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmarkpystone 1 \1 pystone/s|\""
 
 	sizev="1024 4096 $((2*1024*1024))"
 	benchv="adler32 crc32 sha1"
