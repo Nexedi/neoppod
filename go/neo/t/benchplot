@@ -29,8 +29,6 @@ from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, \
         TransformedBbox, BboxPatch, BboxConnectorPatch
 
-from pprint import pprint
-
 
 # BenchSeries represents several runs of a benchmark with different "-<n>".
 #
@@ -226,6 +224,7 @@ def plotseries(ax, labkey, S):
     # show on the right ticks for last y values
     ax2 = ax.twinx()
     ax2.set_ylim(ax.get_ylim()) # same y scale as on ax
+    ax2.set_yticks([])          # no other ticks except for values
     add_yvalueticks(ax2, yticks_)
 
 
@@ -256,6 +255,32 @@ def plotlat1(ax, S):
 
 
 
+# labtext returns text representation of ordered label {}.
+def labtext(labels, nowarnings=False):
+    textv = []
+    for k,v in labels.items():
+        if k == 'WARNING':
+            if not nowarnings:
+                for warn in v:
+                    textv.append('WARNING: ' + warn)
+        else:
+            textv.append('%s: %s' % (k, v))
+    return '\n'.join(textv)
+
+# labwarn returns warning text, if any.
+def labwarn(labels):
+    warnv = labels.get('WARNING')
+    if not warnv:
+        return ''
+
+    textv = []
+    for warn in warnv:
+        textv.append('WARNING: ' + warn)
+    return '\n'.join(textv)
+
+
+
+
 
 
 def main():
@@ -266,8 +291,7 @@ def main():
     date = None
     for ext in extv:
         if 'xnode' not in ext:
-            textv = ['%s: %s' % (k,v) for k,v in ext.items()]
-            raise RuntimeError('ext block without xnode:\n%s' % ('\n'.join(textv),))
+            raise RuntimeError('ext block without xnode:\n%s' % labtext(ext))
         xnode = ext['xnode']
         # kirr@deco.navytux.spb.ru (...     XXX vvv hacky, not robust
         _ = xnode.split()[0]    # kirr@deco.navytux.spb.ru
@@ -275,7 +299,9 @@ def main():
         node = _.split('.')[0]
         nodemap[node] = ext
         if 'date' in ext:
-            date = ext['date']
+            if date is None:
+                date = ext['date']
+            del ext['date']
 
 
     # XXX if date = None -> warning "no date found"
@@ -287,8 +313,6 @@ def main():
 
     Bl = B.bylabel(splitby)
     for labkey in Bl:
-        print labkey
-
         # FIXME hack
         if labkey == ():   # cpu benchmarks
             continue
@@ -296,12 +320,15 @@ def main():
 
         Bu = Bl[labkey].byunit()
 
-        fig = plt.figure(figsize=(2*7.5,10))       # XXX figsize - temp?
-        fig.suptitle("ZODB server handling read requests")
-        fig.text(0.5, 0.04, "XXX number of clients running simultaneously", ha='center')
+        #fig = plt.figure(figsize=(2*7.5,10))       # XXX figsize - temp?
+        fig = plt.figure(figsize=(12,11))       # XXX figsize - temp?
+        fig.suptitle("ZODB server handling read requests", y=0.995)
+        #fig.text(0.5, 0.04, "XXX number of clients running simultaneously", ha='center')
+        fig.text(0.5, 0.204, "XXX number of clients running simultaneously", ha='center')
 
 
-        ax1 = plt.subplot(121)
+        #ax1 = plt.subplot(121)
+        ax1 = plt.subplot2grid((7,2), (0,0), rowspan=6)
         ax1.set_title(u'#requests,  object/s  (↑ is better)')  # XXX add vspace between title and plot
 
         # XXX req/s hardcoded. XXX other units?
@@ -313,7 +340,10 @@ def main():
             plt.text("xxx not found")
 
 
-        ax2 = plt.subplot(122)
+
+        #ax2 = plt.subplot(122)
+        #ax2 = plt.subplot2grid((1,2), (0,1))
+        ax2 = plt.subplot2grid((7,2), (0,1), rowspan=6)
         ax2.set_title(u'latency,  µs/object  (↓ is better)')
 
         Slat = xseriesof(Bu[Unit(u'latency-µs/object')])
@@ -352,14 +382,41 @@ def main():
 
         #fig.tight_layout()
         fig.subplots_adjust(
-                left=0.05,     # no big marging on the left
+                left=0.05,      # no big marging on the left
+                right=0.95,     # ----//---- r
+                top=1.00-0.045,
+                #bottom=0.05,
                 #wspace=0.1
         )
 
         # date
-        fig.text(0.003, 0.995, date, ha='left', va='top')
+        fig.text(0.003, 0.995, date, ha='left', va='top', fontsize=8)   # XXX fs -> 7
+
+        # text about nodes
+        # XXX also verify we have all nodes from `cluster`
+        assert len(nodemap) <= 2    # XXX fragile
+        nodemap['rio'] = nodemap['deco']    # FIXME temp
+        for i, node in enumerate(nodemap):
+            ax = plt.subplot2grid((7,2), (6,i), rowspan=1) # XXX 7,6 hardcoded
+            ax.set_axis_off()
+            h = 1.00 - 0.10
+            hmargin = 0.01
+            tsty = {'fontsize': 6, 'linespacing': 0.9, 'ha': 'left', 'va': 'top'}
+
+            warn = labwarn(nodemap[node])
+            if warn:
+                t = ax.text(0.01, h-hmargin, warn, color='red', **tsty)
+                #print t.get_position(), t.get_unitless_position()
+                #print t.get_window_extent(renderer=fig.canvas.get_renderer())
+                #print t.axes
+
+                h -= 0.08 * len(warn.split('\n'))    # XXX hack
+
+            ax.text(0.01, h-hmargin, labtext(nodemap[node], nowarnings=True), **tsty)
 
 
+
+        #plt.savefig('2.svg')
         plt.show()
         return      # XXX temp to show only first
 

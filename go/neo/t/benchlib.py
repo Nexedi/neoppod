@@ -27,7 +27,6 @@ from __future__ import print_function
 
 import re, io, numpy as np
 from collections import OrderedDict
-from cStringIO import StringIO
 
 
 # Benchmark is a collection of benchmark lines.
@@ -216,7 +215,7 @@ def xload(r):
 
     extv = []
     for lineno, text in xr.extblockv:
-        bext, lext = load(StringIO(text.encode('utf-8')))
+        bext, lext = load(io.StringIO(text))
         if len(bext) != 0:
             raise RuntimeError("%s:%d: neotest extension block contains benchmark line" \
                     % (getattr(r, name, '?'), lineno))
