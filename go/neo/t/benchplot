@@ -253,7 +253,13 @@ def plotlat1(ax, S):
             continue
 
         s = b[1]    # stats
-        ax.errorbar(1, s.avg, yerr=[[s.avg-s.min], [s.max-s.avg]], capsize=2, label=name, **stylefor[name])
+
+        # 1 hand-made error bar (cannot control line styles of cap lines with errorbar)
+        w = 0.15
+        lw = None
+        ax.plot([1-w, 1+w], [s.min]*2, lw=lw, **stylefor[name])
+        ax.plot([1-w, 1+w], [s.max]*2, lw=lw, **stylefor[name])
+        ax.plot([1]*2, [s.min, s.max], lw=lw, **stylefor[name])
 
         #ax.legend() # XXX temp
 
