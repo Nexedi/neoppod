@@ -22,12 +22,14 @@
 
 import sys, re
 from collections import OrderedDict
-from benchlib import load_file, Unit
+from benchlib import xload_file, Unit
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, \
         TransformedBbox, BboxPatch, BboxConnectorPatch
+
+from pprint import pprint
 
 
 # BenchSeries represents several runs of a benchmark with different "-<n>".
@@ -257,14 +259,40 @@ def plotlat1(ax, S):
 
 
 def main():
-    B = load_file(sys.argv[1])
+    B, _, extv = xload_file(sys.argv[1])
+
+    # extv -> node {}, date
+    nodemap = OrderedDict()
+    date = None
+    for ext in extv:
+        if 'xnode' not in ext:
+            textv = ['%s: %s' % (k,v) for k,v in ext.items()]
+            raise RuntimeError('ext block without xnode:\n%s' % ('\n'.join(textv),))
+        xnode = ext['xnode']
+        # kirr@deco.navytux.spb.ru (...     XXX vvv hacky, not robust
+        _ = xnode.split()[0]    # kirr@deco.navytux.spb.ru
+        _ = _.split('@')[1]     # deco.navytux.spb.ru
+        node = _.split('.')[0]
+        nodemap[node] = ext
+        if 'date' in ext:
+            date = ext['date']
+
+
+    # XXX if date = None -> warning "no date found"
+    if date is None:
+        date = "date: ?"
+
+
     splitby = ['dataset', 'cluster']
 
     Bl = B.bylabel(splitby)
     for labkey in Bl:
+        print labkey
+
         # FIXME hack
         if labkey == ():   # cpu benchmarks
             continue
+
 
         Bu = Bl[labkey].byunit()
 
@@ -315,13 +343,22 @@ def main():
             plt.text("xxx not found")
 
 
-        #fig.legend()
-        fig.legend([r0,r0], ["aaa", "bbb"])
+        # legend showing labels from labkey
+        # https://matplotlib.org/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+        lh = [r0] * len(labkey)
+        ltext = ['%s: %s' % (k,v) for k,v in labkey]
+        fig.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
+
+
         #fig.tight_layout()
         fig.subplots_adjust(
                 left=0.05,     # no big marging on the left
                 #wspace=0.1
         )
+
+        # date
+        fig.text(0.003, 0.995, date, ha='left', va='top')
+
 
         plt.show()
         return      # XXX temp to show only first

@@ -498,7 +498,7 @@ else:
 	local gitver=$(git -C $loc describe --long --dirty 2>/dev/null)
 	local ver
 	test "$gitver" != "" && ver="$gitver" || ver="$pyver"
-	printf "# %-16s: %s\n" "$showas" "$ver"
+	printf "sw/%-16s %s\n" "${showas}:" "$ver"
 }
 
 # proginfo <prog> ...	- run `prog ...` or print that prog is missing
@@ -532,21 +532,21 @@ xhostname() {
 
 # show information about local system (os, hardware, versions, ...)
 system_info() {
-	echo -n "# "; date --rfc-2822
-	echo -n "# `whoami`@`hostname --fqdn 2>/dev/null || hostname` ("
+	echo -ne "date:\t"; date --rfc-2822
+	echo -ne "xnode:\t`whoami`@`hostname --fqdn 2>/dev/null || hostname` ("
 	echo -n "${myaddr6v[0]}"
 	test "${#myaddr6v[@]}" -eq 1 || echo -n " (+ $((${#myaddr6v[@]} - 1))·ipv6)"
 	echo -n " ${myaddr4v[0]}"
 	test "${#myaddr4v[@]}" -eq 1 || echo -n " (+ $((${#myaddr4v[@]} - 1))·ipv4)"
 	echo ")"
-	echo -n "# "; uname -a
+	echo -ne "uname:\t"; uname -a	# XXX key name
 
 	# cpu
-	echo -n "# cpu: "; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+	echo -ne "cpu:\t"; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
 	syscpu=/sys/devices/system/cpu
 	sysidle=$syscpu/cpuidle
 
-	cpuvabbrev() {	# cpuvabbrev cpu0 cpu1 cpu2 ... cpuN	-> cpu[0-N]
+	cpuvabbrev() {	# cpuvabbrev cpu0 cpu1 cpu2 ... cpuN	-> cpu/[0-N]
 		test $# -le 1 && echo "$@" && return
 
 		min=""
@@ -562,14 +562,14 @@ system_info() {
 			fi
 			max=$n
 		done
-		echo "cpu[$min-$max]"
+		echo "cpu/[$min-$max]"
 	}
 
 	freqcpuv=()	# [] of cpu
 	freqstr=""	# text about cpufreq for cpus in ^^^
 	freqdump() {
 		test "${#freqcpuv[@]}" = 0 && return
-		echo "# `cpuvabbrev ${freqcpuv[*]}`: $freqstr"
+		echo "`cpuvabbrev ${freqcpuv[*]}`/freq: $freqstr"
 		freqcpuv=()
 		freqstr=""
 	}
@@ -578,7 +578,7 @@ system_info() {
 	idlestr=""
 	idledump() {
 		test "${#idlecpuv[@]}" = 0 && return
-		echo "# `cpuvabbrev ${idlecpuv[*]}`: $idlestr"
+		echo "`cpuvabbrev ${idlecpuv[*]}`/idle: $idlestr"
 		idlecpuv=()
 		idlestr=""
 	}
@@ -588,7 +588,7 @@ system_info() {
 		f="$cpu/cpufreq"
 		fmin=`fkghz $f/scaling_min_freq`
 		fmax=`fkghz $f/scaling_max_freq`
-		fs="freq: `cat $f/scaling_driver`/`cat $f/scaling_governor` [$fmin - $fmax]"
+		fs="`cat $f/scaling_driver`/`cat $f/scaling_governor` [$fmin - $fmax]"
 		if [ "$fs" != "$freqstr" ]; then
 			freqdump
 			freqstr="$fs"
@@ -601,7 +601,7 @@ system_info() {
 
 	latmax=0
 	while read cpu; do
-		is="idle: `cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
+		is="`cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
 		while read state; do
 			# XXX add target residency?
 			is+=" "
@@ -620,8 +620,8 @@ system_info() {
 	< <(ls -vd $syscpu/cpu[0-9]*)
 	idledump
 
-	test "$freqstable" = y || echo "# cpu: WARNING: frequency not fixed - benchmark timings won't be stable"
-	test "$latmax" -le 10  || echo "# cpu: WARNING: C-state exit-latency is max ${latmax}μs - up to that can add to networked and IPC request-reply latency"
+	test "$freqstable" = y || echo "WARNING: cpu: frequency not fixed - benchmark timings won't be stable"
+	test "$latmax" -le 10  || echo "WARNING: cpu: C-state exit-latency is max ${latmax}μs - up to that can add to networked and IPC request-reply latency"
 
 
 	# disk under .
@@ -636,14 +636,14 @@ system_info() {
 		blkdev=$1
 		blkdev1=`basename $blkdev`			# /dev/sda  -> sda
 		# XXX lsblk: tmpfs: not a block device
-		echo "# $blkdev1: `lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
+		printf "disk/%s: %s\n" "$blkdev1" "`lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
 	}
 
 	case "$blkdev1" in
 	md*)
 		# software raid
 		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
-		echo "# $blkdev1 (`cat /sys/class/block/$blkdev1/md/level`) -> $slavev"
+		printf "disk/%s:\t%s\n" "$blkdev1" "(`cat /sys/class/block/$blkdev1/md/level`) -> $slavev"
 		# XXX dup wrt dm-*; move recursion to common place
 		for s in $slavev; do
 			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
@@ -653,7 +653,7 @@ system_info() {
 	dm-*)
 		# device mapper
 		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
-		echo "# $blkdev1 (`cat /sys/class/block/$blkdev1/dm/name`) -> $slavev"
+		printf "disk/%s:\t%s\n" "$blkdev1" "(`cat /sys/class/block/$blkdev1/dm/name`) -> $slavev"
 		# XXX dup wrt md*; move recursion to common place
 		for s in $slavev; do
 			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
@@ -671,7 +671,7 @@ system_info() {
 	find /sys/class/net -type l -not -lname '*virtual*' |sort | \
 	while read nic; do
 		nicname=`basename $nic`		# /sys/class/net/eth0	-> eth0
-		echo -n "# $nicname: "
+		echo -n "nic/$nicname: "
 		nicdev=`realpath $nic/device`	# /sys/class/net/eth0	-> /sys/devices/pci0000:00/0000:00:1f.6
 
 		case "$nicdev" in
@@ -700,7 +700,7 @@ system_info() {
 		featok=y
 		feat=`ethtool -k $nicname 2>/dev/null` || featok=n
 		if [ $featok != y ]; then
-			echo "# $nicname: features: ?"
+			echo "nic/$nicname/features: ?"
 		else
 			# feat1 name abbrev -> abbrev. value  (e.g. "tx" or "!tx")
 			feat1() {
@@ -719,7 +719,7 @@ system_info() {
 				esac
 			}
 
-			s="# $nicname: features:"
+			s="nic/$nicname/features:"
 			# NOTE feature abbrevs are those used by `ethtool -K` to set them
 			s+=" `feat1 rx-checksumming			rx`"
 			s+=" `feat1 tx-checksumming			tx`"
@@ -748,7 +748,7 @@ system_info() {
 
 
 		# show rx/tx coalescing latency
-		echo -n "# $nicname: coalesce:"
+		echo -n "nic/$nicname/coalesce:"
 		coalok=y
 		coal=`ethtool -c $nicname 2>/dev/null` || coalok=n
 		if [ $coalok != y ]; then
@@ -779,7 +779,7 @@ system_info() {
 		fi
 
 		# show main parameters + GRO flush time
-		s="# $nicname:"
+		s="nic/$nicname/status:  "
 		s+=" `cat $nic/operstate`"
 		speed=`cat $nic/speed 2>/dev/null` || speed=?	# returns EINVAL for wifi
 		s+=", speed=$speed"
@@ -798,15 +798,16 @@ system_info() {
 
 		# emit NIC warnings
 		for warn in "${nicwarnv[@]}"; do
-			echo "# $nicname: WARNING: $warn"
+			echo "WARNING: nic/$nicname: $warn"
 		done
 
 	done
 
-	echo -n "# "; proginfo python --version 2>&1	# https://bugs.python.org/issue18338
-	echo -n "# "; proginfo go version
-	echo -n "# "; proginfo python -c 'import sqlite3 as s; print "sqlite %s (py mod %s)" % (s.sqlite_version, s.version)'
-	echo -n "# "; proginfo mysqld --version
+	printf "%-20s" "sw/python:";	proginfo python --version 2>&1	# https://bugs.python.org/issue18338
+	printf "%-20s" "sw/go:";	proginfo go version
+	printf "%-20s" "sw/sqlite:";	proginfo python -c \
+		'import sqlite3 as s; print "sqlite %s (py mod %s)" % (s.sqlite_version, s.version)'
+	printf "%-20s" "sw/mysqld:";	proginfo mysqld --version
 
 	pyver neoppod neo
 	pyver zodb
@@ -1101,6 +1102,7 @@ zbench_go() {
 # command: benchmark when client and storage are on the same computer
 cmd_bench-local() {
 	echo -e ">>> bench-local"
+	echo -e "\n*** neotest: node"
 	system_info
 	echo -e "\n*** cpu:\n"
 	bench_cpu
@@ -1195,9 +1197,9 @@ cmd_bench-cluster() {
 	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
 
 	echo -e ">>> bench-cluster $url"
-	echo -e "\n# server:"
+	echo -e "\n#*** neotest: node: (server)"
 	system_info
-	echo -e "\n# client:"
+	echo -e "\n#*** neotest: node: (client)"
 	on $url ./neotest info-local
 
 	echo -e "\n*** server cpu:"

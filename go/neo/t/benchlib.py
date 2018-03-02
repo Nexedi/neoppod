@@ -27,6 +27,7 @@ from __future__ import print_function
 
 import re, io, numpy as np
 from collections import OrderedDict
+from cStringIO import StringIO
 
 
 # Benchmark is a collection of benchmark lines.
@@ -87,24 +88,28 @@ class Stats(object):
 
 # ----------------------------------------
 
-# '<key>: <value>'
-_label_re = re.compile(r'(?P<key>\w+):\s*')
+_sp_re = re.compile(r'\s')
 
 # parse_label tries to parse line as label.
 #
 # returns (key, value).
 # if line does not match - (None, None) is returned.
 def parse_label(line):
-    m = _label_re.match(line)
-    if m is None:
+    colon = line.find(':')
+    if colon == -1:
+        return None, None
+
+    key, value = line[:colon], line[colon+1:]
+
+    # key must not contain space
+    if _sp_re.search(key):
         return None, None
 
     # FIXME key must be unicode lower
     # FIXME key must not contain upper or space
-    key   = m.group('key')
-    value = line[m.end():]
-    value = value.rstrip()  # XXX or rstrip only \n ?
+    # XXX also support 'WARNING'
 
+    value = value.strip()  # leading and traling \s XXX for trailing - rstrip only \n ?
     return key, value
 
 
@@ -155,7 +160,8 @@ def _parse_benchline(linev):
 #
 # r is required to implement `.readlines()`.
 #
-# returns -> Benchmark.
+# returns -> Benchmark, exit_labels.
+# (exit_labels is ordered {} with labels state at end of reading)
 def load(r):
     labels = OrderedDict()
     benchv = Benchmark() # of BenchLine
@@ -166,7 +172,11 @@ def load(r):
         if key is not None:
             labels = labels.copy()
             if value:
-                labels[key] = value
+                if key == 'WARNING':
+                    # warnings accumulate, not replace previous ones
+                    labels[key] = labels.get(key, ()) + (value,)
+                else:
+                    labels[key] = value
             else:
                 labels.pop(key, None)    # discard
             continue
@@ -178,16 +188,90 @@ def load(r):
             benchv.append(bl)
             continue
 
-        # XXX also extract warnings?
-
-    return benchv
+    return benchv, labels
 
 # load_file loads benchmark data from file @ path.
 #
-# returns -> Benchmark.
+# returns -> Benchmark, exit_labels.
 def load_file(path):
     with io.open(path, 'r', encoding='utf-8') as f:
         return load(f)
+
+
+# xload loads benchmark data from a reader with neotest extensions handling.
+#
+# neotest extensions:
+#
+# - a line starting with `*** neotest:` denotes start of neotest extension block.
+#   The block consists of labels describing hardware and software on that node.     XXX
+#   The block ends with a blank line.
+#   Labels in the block are not added to benchmarking lines from main stream.
+#   The block itself should not contain benchmark lines.
+#
+# returns -> Benchmark, exit_labels, []extlab.
+# (extlab is ordered {} with labels from an extension block)
+def xload(r):
+    xr = _neotestExtReader(r)
+    b, l = load(xr)
+
+    extv = []
+    for lineno, text in xr.extblockv:
+        bext, lext = load(StringIO(text.encode('utf-8')))
+        if len(bext) != 0:
+            raise RuntimeError("%s:%d: neotest extension block contains benchmark line" \
+                    % (getattr(r, name, '?'), lineno))
+        extv.append(lext)
+
+    return b, l, extv
+
+# _neotestExtReader is a reader that splits neotest extension data from
+# benchmarking data stream.
+#
+# A reader reading from _neotestExtReader sees original data stream with
+# extensions filtered-out. The list of extension blocks found can be accessed
+# at .extblockv.
+class _neotestExtReader(object):
+    def __init__(self, r):
+        self.r = r
+        self.extblockv = [] # of (lineno, text)
+        self._lineno = 0
+
+    def _readline(self):
+        l = self.r.readline()
+        if l:
+            self._lineno += 1
+        return l
+
+    def readline(self):
+        l = self._readline()
+        if not l.startswith('*** neotest:'):
+            return l    # EOF='' so also match here
+
+        # new extension block - read up to empty line or EOF
+        lineno, ext = self._lineno, [l]
+        while 1:
+            l = self._readline()
+            if l.strip() == "":
+                break
+            ext.append(l)
+
+        self.extblockv.append((lineno, ''.join(ext)))
+        return l
+
+    def readlines(self):
+        while 1:
+            l = self.readline()
+            yield l
+            if not l:
+                break   # EOF
+
+
+# xload_file loads benchmark data from file @ path with neotest extensions.
+#
+# returns -> Benchmark, exit_labels, []extlab.
+def xload_file(path):
+    with io.open(path, 'r', encoding='utf-8') as f:
+        return xload(f)
 
 
 
@@ -196,7 +280,6 @@ def method(cls):
     def deco(f):
         setattr(cls, f.func_name, f)
     return deco
-
 
 
 # bylabel splits Benchmark into several groups of Benchmarks with specified
@@ -386,7 +469,7 @@ def main():
     p.add_argument("--split", default="", help="split benchmarks by labels (default no split)")
     args = p.parse_args()
 
-    B = load_file(args.file)
+    B, _ = load_file(args.file)
     benchstat(sys.stdout, B, split=args.split.split(","))
 
 if __name__ == '__main__':
