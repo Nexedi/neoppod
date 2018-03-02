@@ -1080,18 +1080,20 @@ zbench() {
 # go-only part of zbench
 zbench_go() {
 	url=$1
-	topic=$2
+	topic=$2-%s
 	zhashok=$3
-	nrun tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic-%s -$zhashfunc $url
-	nrun tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic-%s -$zhashfunc -useprefetch $url
+	test "$X_NEOGO_SHA1_SKIP" = y && topic="$topic(!sha1)" || :
+
+	nrun tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic -$zhashfunc $url
+	nrun tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic -$zhashfunc -useprefetch $url
 
 # XXX running processes in parallel is deprecated in favour of zwrk.
 #	echo -e "\n# ${Npar} clients in parallel"
-#	nrunpar tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic-%s·P$Npar -$zhashfunc $url
+#	nrunpar tzodb_go -log_dir=$log zhash -check=$zhashok -bench=$topic·P$Npar -$zhashfunc $url
 
 	for i in ${Nparv}; do
 		echo -e "\n# $i clients in parallel"
-		nrun tzodb_go -log_dir=$log zwrk -nclient $i -check=$zhashok -bench=$topic-%s -$zhashfunc $url
+		nrun tzodb_go -log_dir=$log zwrk -nclient $i -check=$zhashok -bench=$topic -$zhashfunc $url
 	done
 }
 
@@ -1168,7 +1170,7 @@ zbench_local() {
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/go fs1 (sha1 disabled)"
+	echo -e "\n*** NEO/go fs1 (sha1 disabled on: storage, client)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
 	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/fs1(!sha1)" $zhashok
 	xneoctl set cluster stopping
@@ -1180,9 +1182,9 @@ zbench_local() {
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/go sqlite (sha1 disabled)"
-	X_NEOGO_SHA1_SKIP=y NEOgolite
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/sqlite(!sha1)" $zhashok
+	echo -e "\n*** NEO/go sqlite (sha1 disabled on: client)"
+	NEOgolite
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/sqlite" $zhashok
 	xneoctl set cluster stopping
 	wait
 }
@@ -1279,7 +1281,7 @@ zbench_cluster() {
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/go fs1 (sha1 disabled)"
+	echo -e "\n*** NEO/go fs1 (sha1 disabled on: storage, client)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
 	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/fs1(!sha1)\\\"" $zhashok
 	xneoctl set cluster stopping
@@ -1291,9 +1293,9 @@ zbench_cluster() {
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/go sqlite (sha1 disabled)"
-	X_NEOGO_SHA1_SKIP=y NEOgolite
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/sqlite(!sha1)\\\"" $zhashok
+	echo -e "\n*** NEO/go sqlite (sha1 disabled on: client)"
+	NEOgolite
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/sqlite\\\"" $zhashok
 	xneoctl set cluster stopping
 	wait
 }

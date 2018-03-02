@@ -85,6 +85,27 @@ def seriesof(B):
 
     return S
 
+# xseriesof, similarly to seriesof, extracts series from benchmark B, but omits non-interesting ones.
+def xseriesof(B):
+    S = seriesof(B)
+    if S is None:
+        return None
+
+    # working directly with fs1 is very fast and makes seeing other variants hard.
+    del S['fs1-zwrk.go']
+
+    # only show !log for neo/py as this are faster
+    for k in S.keys():
+        m = re.match(r'.*(\(!log\)).*$', k)
+        if m is None:
+            continue
+
+        k_ = k[:m.start(1)] + k[m.end(1):]  # without "(!log)"
+        #print 'hide %s (have %s)' % (k_, k)
+        S.pop(k_, None) # discard
+
+    return S
+
 
 # yticklabel_forvalue returns text for ytick label dedicated to showing particular value.
 #
@@ -104,6 +125,23 @@ def yticklabel_forvalue(yv, yvprev, yvnext):
 
     return l
 
+
+
+
+# stylefor is {} name -> Line2D style kw, so that we can always use e.g. the
+# same colors for plots for the same server.
+def _(**kw): return kw
+stylefor = {
+        'neo/go/fs1-zwrk.go':                   _(color='C0'),
+        'neo/go/fs1(!sha1)-zwrk.go(!sha1)':     _(color='C0', ls='dashed'),
+        'neo/go/sqlite-zwrk.go':                _(color='C1'),
+        'neo/go/sqlite-zwrk.go(!sha1)':         _(color='C1', ls='dashed'),
+        'zeo/py/fs1-zwrk.go':                   _(color='C2'),
+        'neo/py(!log)/sqlite-zwrk.go':          _(color='C3'), # ls='dashed'), # XXX dashed?
+        'neo/py(!log)/sql-zwrk.go':             _(color='C4'), # ls='dashed'), # XXX dashed?
+}
+del _
+
 # r0 is invisible something
 # (useful as e.g. proxy in text-only legend)
 r0 = Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
@@ -112,7 +150,7 @@ r0 = Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
 #
 # S should be {} name -> BenchSeries.
 #
-# The whole plot is labeled as labkey.
+# The whole plot is labeled as labkey.      XXX <- no longer so
 def plotseries(ax, labkey, S):
     #plt.title("ZODB server handling read requests")
     #plt.title("----")   # XXX don't use vspace
@@ -131,7 +169,7 @@ def plotseries(ax, labkey, S):
         err1 = [s.avg - s.min for _,s in bs.series]
         err2 = [s.max - s.avg for _,s in bs.series]
         # XXX ecolor='black'
-        ax.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name)
+        ax.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name, **stylefor[name])
 
         # XXX fmt for line
         # XXX always use the same colors for the same lines (e.g. picking by hash)
@@ -144,7 +182,6 @@ def plotseries(ax, labkey, S):
         for _ in y[:1]:     # XXX with [:2] it becomes too noisy
             yticks0.add(int(_))
         yticks_.add(int(y[-1]))
-
 
 
     # first legend showing labels from labkey
@@ -207,29 +244,22 @@ def plotseries(ax, labkey, S):
     ax2.set_yticklabels(ytick_labv)
 
 
-
-
-
-# xseriesof, similarly to seriesof, extracts series from benchmark B, but omits non-interesting ones.
-def xseriesof(B):
-    S = seriesof(B)
-    if S is None:
-        return None
-
-    # working directly with fs1 is very fast and makes seeing other variants hard.
-    del S['fs1-zwrk.go']
-
-    # only show !log for neo/py as this are faster
-    for k in S.keys():
-        m = re.match(r'.*(\(!log\)).*$', k)
-        if m is None:
+# plotlat1 makes plot of benchmark latencies for serial (1 client) case.
+def plotlat1(ax, S):
+    # XXX use the same color/style for name as in different plot
+    for name in S:
+        b = S[name].series[0]
+        if b[0] != 1:   # n
             continue
 
-        k_ = k[:m.start(1)] + k[m.end(1):]  # without "(!log)"
-        #print 'hide %s (have %s)' % (k_, k)
-        S.pop(k_, None) # discard
+        s = b[1]    # stats
+        ax.errorbar(1, s.avg, yerr=[[s.avg-s.min], [s.max-s.avg]], capsize=2, label=name, **stylefor[name])
 
-    return S
+        #ax.legend() # XXX temp
+
+
+
+
 
 
 def main():
@@ -244,13 +274,13 @@ def main():
 
         Bu = Bl[labkey].byunit()
 
-        fig = plt.figure(figsize=(2*8,10))       # XXX figsize - temp?
+        fig = plt.figure(figsize=(2*7.5,10))       # XXX figsize - temp?
         fig.suptitle("ZODB server handling read requests")
         fig.text(0.5, 0.04, "XXX number of clients running simultaneously", ha='center')
 
 
         ax1 = plt.subplot(121)
-        ax1.set_title(u'requests object/s  (↑ is better)')  # XXX add vspace between title and plot
+        ax1.set_title(u'#requests,  object/s  (↑ is better)')  # XXX add vspace between title and plot
 
         # XXX req/s hardcoded. XXX other units?
         Sreq = xseriesof(Bu[Unit('req/s')])
@@ -262,11 +292,11 @@ def main():
 
 
         ax2 = plt.subplot(122)
-        ax2.set_title(u'latency µs/object  (↓ is better)')
+        ax2.set_title(u'latency,  µs/object  (↓ is better)')
 
         Slat = xseriesof(Bu[Unit(u'latency-µs/object')])
         if Slat is not None:
-            # XXX use same colors/styles for corresponding lines in ax1
+            # FIXME use same colors/styles for corresponding lines in ax1
             plotseries(ax2, labkey, Slat)
 
             # don't show legend in latency plot - instead show latency details for client=1
@@ -285,14 +315,22 @@ def main():
             ax2.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
             ax2.add_patch(BboxConnectorPatch(ax21.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5))
 
+            plotlat1(ax21, Slat)
+
         else:
             plt.text("xxx not found")
 
 
         #fig.legend()
         fig.legend([r0,r0], ["aaa", "bbb"])
+        #fig.tight_layout()
+        fig.subplots_adjust(
+                left=0.05,     # no big marging on the left
+                #wspace=0.1
+        )
 
         plt.show()
+        return      # XXX temp to show only first
 
 
 
