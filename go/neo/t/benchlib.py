@@ -331,8 +331,7 @@ def benchstat(w, B, split=[]):
 
         Bl = Bu[unit].bylabel(split)
         for labkey in Bl:
-            for k,v in labkey:
-                emit('%s:%s' % (k, v))
+            emit(' '.join(['%s:%s' % (k, v) for k,v in labkey]))
 
             Bn = Bl[labkey].byname()
             for name in Bn:
