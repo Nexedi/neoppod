@@ -107,25 +107,37 @@ def xseriesof(B):
     return S
 
 
-# yticklabel_forvalue returns text for ytick label dedicated to showing particular value.
-#
-# it is a bit smaller in size and cares not to overlap with neighbours.
-def yticklabel_forvalue(yv, yvprev, yvnext):
-    # smaller in size (not to overload / overlap)
-    # (NOTE our custom ticks are not at edges: i-1 and i+1 are always in range)
-    if yv - yvprev > yvnext - yv:
-        d = '_' # shift a bit down
-        #d = '_^' # shift a bit down
-    else:
-        d = '^' # shift a bit up
-        #d = '^_' # shift a bit up
+# add_yvalueticks adds small yticks for values in yv.
+def add_yvalueticks(ax, yv):
+    ys0 = set(ax.get_yticks())
+    ys = ys0.copy()
+    ys.update(yv)
+    yv = list(ys)
+    yv.sort()
+    ylabv = []
 
-    l = r'${}%s{%d}$' % (d, yv)
-    #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], yv)
+    for i, y in enumerate(yv):
+        if y in ys0:
+            l = '%d' % y
+        else:
+            # choose ytick label for this to particular value.
+            # it is a bit smaller in size and cares not to overlap with neighbours.
+            yprev = (yv[i-1] if i > 0 else 0)
+            ynext = (yv[i+1] if i + 1 < len(yv) else float('inf'))
+            if y - yprev > ynext - y:
+                d = '_' # shift a bit down
+                #d = '_^' # shift a bit down
+            else:
+                d = '^' # shift a bit up
+                #d = '^_' # shift a bit up
 
-    return l
+            l = r'${}%s{%d}$' % (d, y)
+            #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], y)
 
+        ylabv.append(l)
 
+    ax.set_yticks(yv)
+    ax.set_yticklabels(ylabv)
 
 
 # stylefor is {} name -> Line2D style kw, so that we can always use e.g. the
@@ -203,25 +215,7 @@ def plotseries(ax, labkey, S):
     ax.set_xticks(xtickv)
 
     # mark first values with dedicated y ticks.
-    yticks = set(ax.get_yticks())
-    yticks.update(yticks0)
-    ytickv = list(yticks)
-    ytickv.sort()
-    yticklabv = []
-
-    for i, _ in enumerate(ytickv):
-        if _ not in yticks0:
-            l = '%d' % _
-        else:
-            yprev = (ytickv[i-1] if i > 0 else 0)
-            ynext = (ytickv[i+1] if i + 1 < len(ytickv) else float('inf'))
-            l = yticklabel_forvalue(_, yprev, ynext)
-
-        yticklabv.append(l)
-
-    ax.set_yticks(ytickv)
-    ax.set_yticklabels(yticklabv)
-
+    add_yvalueticks(ax, yticks0)
 
     # always start y from 0 (it goes to -500 for latencies if auto)
     ax.set_ylim(bottom=0)
@@ -230,29 +224,20 @@ def plotseries(ax, labkey, S):
     # show on the right ticks for last y values
     ax2 = ax.twinx()
     ax2.set_ylim(ax.get_ylim()) # same y scale as on ax
-    ytick_v = list(yticks_)
-    ytick_v.sort()
-    ytick_labv = []
-    for i, _ in enumerate(ytick_v):
-        yprev = (ytick_v[i-1] if i > 0 else 0)
-        ynext = (ytick_v[i+1] if i + 1 < len(ytick_v) else float('inf'))
-        l = yticklabel_forvalue(_, yprev, ynext)
+    add_yvalueticks(ax2, yticks_)
 
-        ytick_labv.append(l)
-
-    ax2.set_yticks(ytick_v)
-    ax2.set_yticklabels(ytick_labv)
 
 
 # plotlat1 makes plot of benchmark latencies for serial (1 client) case.
 def plotlat1(ax, S):
-    # XXX use the same color/style for name as in different plot
+    yticks0 = set()
     for name in S:
         b = S[name].series[0]
         if b[0] != 1:   # n
             continue
 
         s = b[1]    # stats
+        yticks0.add(s.avg)
 
         # 1 hand-made error bar (cannot control line styles of cap lines with errorbar)
         w = 0.15
@@ -262,6 +247,9 @@ def plotlat1(ax, S):
         ax.plot([1]*2, [s.min, s.max], lw=lw, **stylefor[name])
 
         #ax.legend() # XXX temp
+
+    # mark first values with dedicated y ticks
+    add_yvalueticks(ax, yticks0)
 
 
 
