@@ -399,6 +399,9 @@ def main():
         for i, node in enumerate(nodemap):
             ax = plt.subplot2grid((7,2), (6,i), rowspan=1) # XXX 7,6 hardcoded
             ax.set_axis_off()
+            #ax.set_ylabel(node)    # does not show when axis are off
+            ax.text(-0.02, 0.25, node, rotation='vertical', ha='center', va='center') # XXX font size?
+
             h = 1.00 - 0.10
             hmargin = 0.01
             tsty = {'fontsize': 6, 'linespacing': 0.9, 'ha': 'left', 'va': 'top'}
