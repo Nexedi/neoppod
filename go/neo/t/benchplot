@@ -210,11 +210,11 @@ def Bmerge(B, merger):
             for name_ in name_v:
                 b_ = Bname.get(name_)
                 if b_ is not None:
-                    # ok to merge if either probably same or the difference is < 1µs
+                    # ok to merge if either probably same or the difference is < 1µs    # XXX 0.5
                     s_ = b_.stats()
                     assert s.unit == s_.unit, (s.unit, s_.unit)
                     t = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
-                    if t.pvalue >= 0.3 or (s.unit == usop and abs(s.avg - s_.avg) < 1.0):
+                    if t.pvalue >= 0.3 or (s.unit == usop and abs(s.avg - s_.avg) < 0.5):
                         print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, t)
                         bmerge.extend(b_)
                         namev.append(name_)
@@ -248,6 +248,11 @@ def add_yvalueticks(ax, yv, fmt='%d'):
     yv.sort()
     ylabv = []
 
+    _, ycutoff = ax.get_ylim()
+    #print 'ycutoff:', ycutoff
+
+    yv = [y for y in yv if y <= ycutoff]# don't add ticks above ylim XXX explain
+
     for i, y in enumerate(yv):
         if y in ys0:
             l = '%d' % y
@@ -272,10 +277,10 @@ def add_yvalueticks(ax, yv, fmt='%d'):
     ax.set_yticklabels(ylabv)
 
 
-# stylefor is {} name -> Line2D style kw, so that we can always use e.g. the
+# _stylefor is {} name -> Line2D style kw, so that we can always use e.g. the
 # same colors for plots for the same server.
 def _(**kw): return kw
-stylefor = {
+_stylefor = {
         'neo/go/fs1-zwrk.go':                   _(color='C0'),
         'neo/go/fs1(!sha1)-zwrk.go(!sha1)':     _(color='C0', ls='dashed'),
         'neo/go/sqlite-zwrk.go':                _(color='C1'),
@@ -284,7 +289,32 @@ stylefor = {
         'neo/py(!log)/sqlite-zwrk.go':          _(color='C3'), # ls='dashed'), # XXX dashed?
         'neo/py(!log)/sql-zwrk.go':             _(color='C4'), # ls='dashed'), # XXX dashed?
 }
+
+_stylefor_re = [(re.compile(_), sty) for _,sty in [
+        ('crc32/.*/1K',          _(color='C5')),
+        ('crc32/.*/4K',          _(color='C5')), # XXX distinguish
+        ('sha1/.*/1K',           _(color='C6')),
+        ('sha1/.*/4K',           _(color='C6')), # XXX
+        ('unzlib/.*/null-1K',    _(color='C7')),
+        ('unzlib/.*/null-4K',    _(color='C7')), # XXX
+        ('unzlib/.*/wczdata',    _(color='C7')), # XXX
+        ('unzlib/.*/prod1-avg',  _(color='C7')), # XXX
+]]
 del _
+
+def stylefor(name):
+    sty = _stylefor.get(name)
+    if sty is not None:
+        return sty
+
+    for namere, sty in _stylefor_re:
+        if namere.search(name):
+            return sty
+
+    #print 'stylefor(%s) -> ?' % name
+    #return {}
+
+    raise RuntimeError('stylefor(%s) -> ?' % name)
 
 # r0 is invisible something
 # (useful as e.g. proxy in text-only legend)
@@ -313,7 +343,7 @@ def plotseries(ax, labkey, S):
         err1 = [s.avg - s.min for _,s in bs.series]
         err2 = [s.max - s.avg for _,s in bs.series]
         # XXX ecolor='black'
-        ax.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name, **stylefor[name])
+        ax.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name, **stylefor(name))
 
         # XXX fmt for line
         # XXX always use the same colors for the same lines (e.g. picking by hash)
@@ -376,16 +406,16 @@ def plotlat1(ax, S):
         # 1 hand-made error bar (cannot control line styles of cap lines with errorbar)
         w = 0.15
         lw = None
-        ax.plot([1-w, 1+w], [s.min]*2, lw=lw, **stylefor[name])
-        ax.plot([1-w, 1+w], [s.max]*2, lw=lw, **stylefor[name])
-        ax.plot([1]*2, [s.min, s.max], lw=lw, **stylefor[name])
+        ax.plot([1-w, 1+w], [s.min]*2, lw=lw, **stylefor(name))
+        ax.plot([1-w, 1+w], [s.max]*2, lw=lw, **stylefor(name))
+        ax.plot([1]*2, [s.min, s.max], lw=lw, **stylefor(name))
 
     # mark first values with dedicated y ticks
     add_yvalueticks(ax, yticks0)
 
 
 # plotnode1 plots latencies of base CPU/disk operations on the nodes.
-def plotnode1(ax, B):
+def plotnode1(ax, B, w=0.05):
     Bu = B.byunit()
     Bn = Bu[usop].byname()  # XXX µs/op hardcoded. FIXME disk/*
 
@@ -398,11 +428,11 @@ def plotnode1(ax, B):
         b = Bn[name]
         s = b.stats()
         yticks.add(s.avg)
-        c, w = 1.1, 0.05
+        c = 1.1
         lw = 0.5
-        ax.plot([c-w, c+w], [s.min]*2, lw=lw)  # XXX **stylefor[name]
-        ax.plot([c-w, c+w], [s.max]*2, lw=lw)  # XXX **stylefor[name]
-        ax.plot([c]*2, [s.min, s.max], lw=lw)  # XXX **stylefor[name]
+        ax.plot([c-w, c+w], [s.min]*2, lw=lw, **stylefor(name))
+        ax.plot([c-w, c+w], [s.max]*2, lw=lw, **stylefor(name))
+        ax.plot([c]*2, [s.min, s.max], lw=lw, **stylefor(name))
 
     # mark node-local values with ticks at right
     ax2 = ax.twinx()
@@ -540,7 +570,8 @@ def main():
         # don't show legend in latency plot - instead show latency details for client=1
         ax2.legend().set_visible(False)
 
-        ax21 = zoomed_inset_axes(ax2, 8, loc='upper left', borderpad=3.0)
+        #ax21 = zoomed_inset_axes(ax2, 8, loc='upper left', borderpad=3.0)
+        ax21 = zoomed_inset_axes(ax2, 8, loc='upper left', borderpad=1.0, bbox_to_anchor=(0.06, 1), bbox_transform=ax2.transAxes)
         zlatmax = 200   # XXX hardcoded
         zxmin, zxmax = 0.8, 1.2     # XXX adjust?
         ax21.set_ylim(0, zlatmax)
@@ -561,6 +592,23 @@ def main():
         plotnode1(ax21, B)
 
         # and same in detail
+        print
+        print ax2.bbox
+        print ax2.bbox.get_points()
+        print 'pos:', ax2.get_position()
+        bb = ax2.bbox.translated(0,0)      # .anchored((0,0))   #.anchored((3000,50))
+        print bb
+        print bb.get_points()
+        print '---'
+        ax211 = zoomed_inset_axes(ax2, 14*8, loc='upper left', borderpad=1.0, bbox_to_anchor=(0.33, 1), bbox_transform=ax2.transAxes)
+        #zlatmax = 25                # XXX hardcoded
+        zlatmax = 10                # XXX hardcoded
+        zxmin, zxmax = 1.09, 1.11   # XXX adjust?
+        ax211.set_ylim(0, zlatmax)
+        ax211.set_xlim(zxmin, zxmax)
+        ax211.set_xticks([])
+        ax211.set_xticklabels([])
+        plotnode1(ax211, B, w=0.007)
 
 
 
