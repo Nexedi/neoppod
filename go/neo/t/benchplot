@@ -660,11 +660,16 @@ def main():
         # text about nodes
         assert len(nodemap) <= 2    # XXX fragile
         nodemap['rio'] = nodemap['deco']    # FIXME temp
+        Bnode['rio'] = Bnode['deco']        # XXX temp
         for i, node in enumerate(nodemap):
             ax = plt.subplot2grid((7,2), (6,i), rowspan=1) # XXX 7,6 hardcoded
             ax.set_axis_off()
-            # XXX include pystone in vvv ylabel?
-            ax.text(-0.02, 0.25, node, rotation='vertical', ha='center', va='center') # XXX font size?
+            ax.text(-0.01, -0.10, node, rotation='vertical', ha='right', va='top', fontsize='large') # XXX font size?
+            # include pystone in ylabel     XXX good place?
+            pys = Bnode[node].byunit()[Unit(u'pystone/s')].stats()
+            pydelta = max(pys.max - pys.avg, pys.avg - pys.min)
+            ax.text(-0.01, -0.10, '  (%.1fk ±%2.0f%% pystone/s)' % (pys.avg / 1E3, 100. *pydelta / pys.avg),
+                    rotation='vertical', ha='right', va='bottom', fontsize=6)
 
             h = 1.00 - 0.10
             hmargin = 0.01
