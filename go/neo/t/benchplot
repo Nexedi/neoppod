@@ -22,15 +22,17 @@
 
 import sys, re
 from collections import OrderedDict
-from benchlib import xload_file, Unit
+from benchlib import xload_file, Unit, Benchmark, BenchLine
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, \
         TransformedBbox, BboxPatch, BboxConnectorPatch
 
+from scipy.stats import ttest_ind_from_stats
 
-# BenchSeries represents several runs of a benchmark with different "-<n>".
+
+# BenchSeries represents several runs of a benchmark with different "·<n>".
 #
 # .series is [] of (n, Stats)
 class BenchSeries(object):
@@ -105,6 +107,135 @@ def xseriesof(B):
         S.pop(k_, None) # discard
 
     return S
+
+
+# mergepygo merges <bench>/py/... with <bench>/go/... if their benchmark values
+# are close enough.
+#
+# returns -> Benchmark.
+_bench_py_re = re.compile(r'.*/(py|go)/.*$')
+_pygoswap = {'py': 'go', 'go': 'py'}
+class _pygomerger:
+    def candidates(self, name):
+        # ex: unzlib/py/null-1K
+        # ex: disk/randread/direct/4K-avg
+        m = _bench_py_re.match(name)
+        if m is None:
+            return None
+
+        name_ = name[:m.start(1)] + _pygoswap[m.group(1)] + name[m.end(1):]
+        return [name, name_]
+
+    def mergedname(self, name, namev):
+        m = _bench_py_re.match(name)
+        assert m is not None
+        # XXX should be actually checking namev
+        # XXX 'py,go' -> '*' ?
+        return name[:m.start(1)] + 'py,go' + name[m.end(1):]
+
+def mergepygo(B):
+    return Bmerge(B, _pygomerger())
+
+
+# mergebynode merges <bench> on several nodes into one if benchmark values on
+# several nodes are close enough.
+#
+# Bnode - ordered {} node -> Benchmark
+#
+# returns -> Benchmark with either '<node>/' or '*/' prefix prepended to benchmark names.
+class _prefixmerger:
+    def __init__(self, prefixv):
+        self.prefixv = prefixv
+    def candidates(self, name):
+        namev = name.split('/')
+        if len(namev) < 2:
+            return None
+        if namev[0] not in self.prefixv:
+            return None
+
+        tail = '/'.join(namev[1:])
+        return ['%s/%s' % (_, tail) for _ in self.prefixv]
+
+    def mergedname(self, name, namev):
+        # extract prefixes from namev
+        prefixv = []
+        tail = '/'.join(name.split('/')[1:])
+        for _ in namev:
+            _v = _.split('/')
+            _prefix = _v[0]
+            _tail = '/'.join(_v[1:])
+            assert tail == _tail, (tail, _tail)
+            prefixv.append(_prefix)
+
+        # XXX if set(prefixv) == set(self.prefixv) -> '*'
+        prefix = ','.join(prefixv)
+        return '%s/%s' % (prefix, tail)
+
+
+def mergebynode(Bnode):
+    # first get benchmarks on all nodes into one Benchmark with '<node>/' prefix.
+    B = Benchmark()
+    for node in Bnode:
+        for b in Bnode[node]:
+            B.append(BenchLine('%s/%s' % (node, b.name), b.niter, b.measurev, b.labels))
+
+    return Bmerge(B, _prefixmerger(Bnode.keys()))
+
+
+# Bmerge merges benchmarks in B according to merger if so selected
+# benchmark values are close enough.
+class merger:
+    # .candidates(name)         -> []name*  (reports names of candidate benchmarks to consider to be merged)
+    # .mergedname(name, namev)  -> name     (benchmark name should have mergedname when merged as part of namev)
+    pass
+def Bmerge(B, merger):
+    Bmerge = Benchmark()
+    Bname = B.byname()
+    usop = Unit(u'µs/op')
+    for name in Bname.keys():
+        bv = Bname.get(name)
+        if bv is None:
+            continue    # was merged/deleted
+
+        name_v = merger.candidates(name)
+        if name_v:
+            bmerge = bv[:]     # merged BenchLines
+            namev  = [name]    # merged names
+            s  = bv.stats()
+
+            if name in name_v:
+                name_v.remove(name) # already handled ^^^
+
+            for name_ in name_v:
+                b_ = Bname.get(name_)
+                if b_ is not None:
+                    # ok to merge if either probably same or the difference is < 1µs
+                    s_ = b_.stats()
+                    assert s.unit == s_.unit, (s.unit, s_.unit)
+                    t = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
+                    if t.pvalue >= 0.3 or (s.unit == usop and abs(s.avg - s_.avg) < 1.0):
+                        print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, t)
+                        bmerge.extend(b_)
+                        namev.append(name_)
+
+            # if something was merged we need to fixup benchline names
+            if len(namev) > 1:
+                bmerge = [BenchLine(_.name, _.niter, _.measurev, _.labels) for _ in bmerge] # clone BenchLines
+                for _ in bmerge:
+                    _.name = merger.mergedname(_.name, namev)
+                bv = bmerge
+
+                # so we never try to look again at something ahead that was merged
+                for name in namev:
+                    del Bname[name]
+
+
+        Bmerge.extend(bv)
+
+    return Bmerge
+
+
+
 
 
 # add_yvalueticks adds small yticks for values in yv.
@@ -228,9 +359,13 @@ def plotseries(ax, labkey, S):
     add_yvalueticks(ax2, yticks_)
 
 
-
 # plotlat1 makes plot of benchmark latencies for serial (1 client) case.
-def plotlat1(ax, S):
+#
+# it also shows latencies of base CPU/disk operations on the nodes involved.
+#
+# S     - latency-µs/object series
+# Bnode - {} node -> [] node-local basic benchmarks
+def plotlat1(ax, S, Bnode):
     yticks0 = set()
     for name in S:
         b = S[name].series[0]
@@ -247,10 +382,71 @@ def plotlat1(ax, S):
         ax.plot([1-w, 1+w], [s.max]*2, lw=lw, **stylefor[name])
         ax.plot([1]*2, [s.min, s.max], lw=lw, **stylefor[name])
 
-        #ax.legend() # XXX temp
-
     # mark first values with dedicated y ticks
     add_yvalueticks(ax, yticks0)
+
+
+    # --- node-local basic operations ---
+    B = mergebynode(Bnode)
+    B = mergepygo(B)
+
+    """
+    # {} node {} name -> Stats
+    Bnodename = OrderedDict()
+    for node in Bnode:
+        Sname = OrderedDict()   # {} name -> Stats
+        Bname = Bnode[node].byname()
+        for name in Bname:
+            if _lat1_skipname(name):
+                continue
+            Sname[name] = Bname[name].stats()
+
+        # try merge <bench>/py with <bench>/go
+        Smerge = OrderedDict()  # {} name -> Stats
+        for name in Sname.keys():
+            s = Sname.get(name)
+            if s is None:
+                continue    # was merged/deleted
+
+            # ex: unzlib/py/null-1K
+            # ex: disk/randread/direct/4K-avg
+            namev = name.split('/')
+            if len(namev) >= 2 and namev[1] in ('py', 'go'):
+                namev_ = namev[:]   # copy
+                namev_[1] = pygoswap[namev_[1]]
+                name_ = '/'.join(namev_)
+                s_ = Sname[name_]
+
+                # ok to merge if either probably same or the difference is < 1µs
+                _ = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
+                if _.pvalue >= 0.3 or abs(s.avg - s_.avg) < 1.0:
+                    print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, _)
+                    del Sname[name]
+                    del Sname[name_]
+
+                    bmerge = Benchmark(Bname[name] + Bname[name_])
+                    s = bmerge.stats()
+                    namev[1] = '*'
+                    name = '/'.join(namev)
+
+            Smerge[name] = s
+    """
+
+
+
+
+# benchmarks not to show
+_lat1_skipre_v = [re.compile(_) for _ in [
+        'adler32/.*',
+        '.*2M',
+        '.*/prod1-max',
+        '.*-min',
+]]
+def _lat1_skipname(name):
+    for skipre in _lat1_skipre_v:
+        if skipre.match(name):
+            return True
+    return False
 
 
 
@@ -286,7 +482,7 @@ def labwarn(labels):
 def main():
     B, _, extv = xload_file(sys.argv[1])
 
-    # extract neotest extension blocks with nodes
+    # nodemap: neotest extension blocks with nodes
     # extv -> node {}, date
     nodemap = OrderedDict()
     date = None
@@ -308,6 +504,15 @@ def main():
     if date is None:
         date = "date: ?"
 
+    # Bnode: {} node -> node-local benchmarks
+    Bnode = OrderedDict()
+    _ = B.bylabel(['node'])
+    for labkey in _:
+        if labkey == ():
+            continue        # benchmarks with no `node: ...`
+        node = labkey[0][1] # labkey = ('node', node)
+        Bnode[node] = _[labkey]
+
 
     Bl = B.bylabel(['dataset', 'cluster'])
     for labkey in Bl:
@@ -318,11 +523,14 @@ def main():
         _ = dict(labkey)
         dataset = _['dataset']
         cluster = _['cluster']
+        clusterv = cluster.split('-')   # nodes in cluster
 
         # check we have node info or nodes in cluster
-        for node in cluster.split('-'):
+        for node in clusterv:
             if node not in nodemap:
                 raise RuntimeError('%s: node %s: no node info' % (labkey, node))
+            if node not in Bnode:
+                raise RuntimeError('%s: node %s: no node-local benchmarks' % (labkey, node))
 
         Bu = Bl[labkey].byunit()
 
@@ -368,7 +576,7 @@ def main():
         ax2.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
         ax2.add_patch(BboxConnectorPatch(ax21.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5))
 
-        plotlat1(ax21, Slat)
+        plotlat1(ax21, Slat, Bnode)
 
 
 
@@ -397,6 +605,7 @@ def main():
         for i, node in enumerate(nodemap):
             ax = plt.subplot2grid((7,2), (6,i), rowspan=1) # XXX 7,6 hardcoded
             ax.set_axis_off()
+            # XXX include pystone in vvv ylabel?
             ax.text(-0.02, 0.25, node, rotation='vertical', ha='center', va='center') # XXX font size?
 
             h = 1.00 - 0.10
@@ -423,4 +632,7 @@ def main():
 
 
 if __name__ == '__main__':
+    # XXX hack, so that unicode -> str works out of the box
+    import sys; reload(sys)
+    sys.setdefaultencoding('UTF-8')
     main()

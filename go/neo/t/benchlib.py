@@ -38,11 +38,13 @@ class Benchmark(list):
 # it has name, niter and list of measurements with at least one measure.
 # it also has labels attached to it.
 class BenchLine(object):
-    def __init__(self, name, niter, measurev):
+    def __init__(self, name, niter, measurev, labels=None):
         self.name  = name
         self.niter = niter
         self.measurev = measurev
-        self.labels = OrderedDict()
+        if labels is None:
+            labels = OrderedDict()
+        self.labels = labels
 
     def set_labels(self, labels):
         self.labels = labels
