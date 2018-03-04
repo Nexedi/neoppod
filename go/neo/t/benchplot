@@ -620,14 +620,7 @@ def main():
         plotnode1(ax21, B)
 
         # and same in detail
-        print
-        print ax2.bbox
-        print ax2.bbox.get_points()
-        print 'pos:', ax2.get_position()
         bb = ax2.bbox.translated(0,0)      # .anchored((0,0))   #.anchored((3000,50))
-        print bb
-        print bb.get_points()
-        print '---'
         ax211 = zoomed_inset_axes(ax2, 14*8, loc='upper left', borderpad=1.0, bbox_to_anchor=(0.33, 1), bbox_transform=ax2.transAxes)
         #zlatmax = 25                # XXX hardcoded
         zlatmax = 10                # XXX hardcoded
@@ -637,6 +630,11 @@ def main():
         ax211.set_xticks([])
         ax211.set_xticklabels([])
         plotnode1(ax211, B, w=0.007, details=True)
+
+        # mark_inset(ax21, ax211, ...)
+        rect = TransformedBbox(ax211.viewLim, ax21.transData)
+        ax21.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
+        ax21.add_patch(BboxConnectorPatch(ax211.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5, clip_on=False))
 
 
 
