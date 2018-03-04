@@ -31,6 +31,8 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset,
 
 from scipy.stats import ttest_ind_from_stats
 
+usop = Unit(u'µs/op')
+
 
 # BenchSeries represents several runs of a benchmark with different "·<n>".
 #
@@ -191,7 +193,6 @@ class merger:
 def Bmerge(B, merger):
     Bmerge = Benchmark()
     Bname = B.byname()
-    usop = Unit(u'µs/op')
     for name in Bname.keys():
         bv = Bname.get(name)
         if bv is None:
@@ -385,59 +386,41 @@ def plotlat1(ax, S, Bnode):
     # mark first values with dedicated y ticks
     add_yvalueticks(ax, yticks0)
 
-
     # --- node-local basic operations ---
+    _plotnode1(ax, Bnode)
+
+
+def _plotnode1(ax, Bnode):
     B = mergebynode(Bnode)
     B = mergepygo(B)
+    Bu = B.byunit()
+    Bn = Bu[usop].byname()  # XXX µs/op hardcoded. FIXME disk/*
+    print
+    yticks = set()
+    for name in Bn:
+        if _lat1_skipname(name):
+            continue
+        print name
+        b = Bn[name]
+        s = b.stats()
+        yticks.add(s.avg)
+        c, w = 1.1, 0.05
+        lw = 0.5
+        ax.plot([c-w, c+w], [s.min]*2, lw=lw)  # XXX **stylefor[name]
+        ax.plot([c-w, c+w], [s.max]*2, lw=lw)  # XXX **stylefor[name]
+        ax.plot([c]*2, [s.min, s.max], lw=lw)  # XXX **stylefor[name]
 
-    """
-    # {} node {} name -> Stats
-    Bnodename = OrderedDict()
-    for node in Bnode:
-        Sname = OrderedDict()   # {} name -> Stats
-        Bname = Bnode[node].byname()
-        for name in Bname:
-            if _lat1_skipname(name):
-                continue
-            Sname[name] = Bname[name].stats()
-
-        # try merge <bench>/py with <bench>/go
-        Smerge = OrderedDict()  # {} name -> Stats
-        for name in Sname.keys():
-            s = Sname.get(name)
-            if s is None:
-                continue    # was merged/deleted
-
-            # ex: unzlib/py/null-1K
-            # ex: disk/randread/direct/4K-avg
-            namev = name.split('/')
-            if len(namev) >= 2 and namev[1] in ('py', 'go'):
-                namev_ = namev[:]   # copy
-                namev_[1] = pygoswap[namev_[1]]
-                name_ = '/'.join(namev_)
-                s_ = Sname[name_]
-
-                # ok to merge if either probably same or the difference is < 1µs
-                _ = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
-                if _.pvalue >= 0.3 or abs(s.avg - s_.avg) < 1.0:
-                    print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, _)
-                    del Sname[name]
-                    del Sname[name_]
-
-                    bmerge = Benchmark(Bname[name] + Bname[name_])
-                    s = bmerge.stats()
-                    namev[1] = '*'
-                    name = '/'.join(namev)
-
-            Smerge[name] = s
-    """
-
+    # mark node-local values with ticks at right
+    ax2 = ax.twinx()
+    ax2.set_ylim(ax.get_ylim())
+    ax2.set_yticks([])
+    add_yvalueticks(ax2, yticks)
 
 
 
 # benchmarks not to show
 _lat1_skipre_v = [re.compile(_) for _ in [
-        'adler32/.*',
+        '.*adler32/.*',
         '.*2M',
         '.*/prod1-max',
         '.*-min',
