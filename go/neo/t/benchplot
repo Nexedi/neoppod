@@ -240,7 +240,7 @@ def Bmerge(B, merger):
 
 
 # add_yvalueticks adds small yticks for values in yv.
-def add_yvalueticks(ax, yv):
+def add_yvalueticks(ax, yv, fmt='%d'):
     ys0 = set(ax.get_yticks())
     ys = ys0.copy()
     ys.update(yv)
@@ -263,7 +263,7 @@ def add_yvalueticks(ax, yv):
                 d = '^' # shift a bit up
                 #d = '^_' # shift a bit up
 
-            l = r'${}%s{%d}$' % (d, y)
+            l = (r'${}%%s{%s}$' % fmt) % (d, y)
             #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], y)
 
         ylabv.append(l)
@@ -362,11 +362,8 @@ def plotseries(ax, labkey, S):
 
 # plotlat1 makes plot of benchmark latencies for serial (1 client) case.
 #
-# it also shows latencies of base CPU/disk operations on the nodes involved.
-#
 # S     - latency-µs/object series
-# Bnode - {} node -> [] node-local basic benchmarks
-def plotlat1(ax, S, Bnode):
+def plotlat1(ax, S):
     yticks0 = set()
     for name in S:
         b = S[name].series[0]
@@ -386,15 +383,12 @@ def plotlat1(ax, S, Bnode):
     # mark first values with dedicated y ticks
     add_yvalueticks(ax, yticks0)
 
-    # --- node-local basic operations ---
-    _plotnode1(ax, Bnode)
 
-
-def _plotnode1(ax, Bnode):
-    B = mergebynode(Bnode)
-    B = mergepygo(B)
+# plotnode1 plots latencies of base CPU/disk operations on the nodes.
+def plotnode1(ax, B):
     Bu = B.byunit()
     Bn = Bu[usop].byname()  # XXX µs/op hardcoded. FIXME disk/*
+
     print
     yticks = set()
     for name in Bn:
@@ -414,7 +408,7 @@ def _plotnode1(ax, Bnode):
     ax2 = ax.twinx()
     ax2.set_ylim(ax.get_ylim())
     ax2.set_yticks([])
-    add_yvalueticks(ax2, yticks)
+    add_yvalueticks(ax2, yticks, fmt='%.1f')
 
 
 
@@ -559,7 +553,14 @@ def main():
         ax2.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
         ax2.add_patch(BboxConnectorPatch(ax21.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5))
 
-        plotlat1(ax21, Slat, Bnode)
+        plotlat1(ax21, Slat)
+
+        # also show sha1, unzip, ... latencies
+        B = mergebynode(Bnode)
+        B = mergepygo(B)
+        plotnode1(ax21, B)
+
+        # and same in detail
 
 
 
