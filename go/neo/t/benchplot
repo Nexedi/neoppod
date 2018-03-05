@@ -212,12 +212,12 @@ def Bmerge(B, merger):
             for name_ in name_v:
                 b_ = Bname.get(name_)
                 if b_ is not None:
-                    # ok to merge if either probably same or the difference is < 1µs    # XXX 0.5
+                    # ok to merge if either probably same or the difference is < 0.5µs
                     s_ = b_.stats()
                     assert s.unit == s_.unit, (s.unit, s_.unit)
                     t = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
                     if t.pvalue >= 0.3 or (s.unit == usop and abs(s.avg - s_.avg) < 0.5):
-                        print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, t)
+                        #print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, t)
                         bmerge.extend(b_)
                         namev.append(name_)
 
@@ -298,14 +298,17 @@ _stylefor = {
 }
 
 _stylefor_re = [(re.compile(_), sty) for _,sty in [
-        (r'crc32/(py|\*)/4K',           _(color='C5')),
-        (r'crc32/go/4K',                _(color='C5', ls='dashed')),
-        (r'sha1/(py\|*)/4K',            _(color='C6')),
-        (r'sha1/go/4K',                 _(color='C6', ls='dashed')),
-        (r'unzlib/(py|\*)/wczdata',     _(color='C7')),
-        (r'unzlib/go/wczdata',          _(color='C7', ls='dashed')),
-        (r'unzlib/(py|\*)/prod1-avg',   _(color='C8')),
-        (r'unzlib/go/prod1-avg',        _(color='C8', ls='dashed')),
+        (r'crc32/(py|\*)/4K',               _(color='C5')),
+        (r'crc32/go/4K',                    _(color='C5', ls='dashed')),
+        (r'sha1/(py\|*)/4K',                _(color='C6')),
+        (r'sha1/go/4K',                     _(color='C6', ls='dashed')),
+        (r'unzlib/(py|\*)/wczdata',         _(color='C7')),
+        (r'unzlib/go/wczdata',              _(color='C7', ls='dashed')),
+        (r'unzlib/(py|\*)/prod1-avg',       _(color='C8')),
+        (r'unzlib/go/prod1-avg',            _(color='C8', ls='dashed')),
+
+        (r'disk/randread/direct/4K-avg',    _(color='C9')),
+        (r'disk/randread/pagecache/4K-avg', _(color='C9', ls='dashed')),
 ]]
 del _
 
@@ -424,7 +427,7 @@ def plotlat1(ax, S):
 # plotnode1 plots latencies of base CPU/disk operations on the nodes.
 def plotnode1(ax, B, w=0.05, details=False):
     Bu = B.byunit()
-    Bn = Bu[usop].byname()  # XXX µs/op hardcoded. FIXME disk/*
+    Bn = Bu[Unit("s/op")].convert_unit(u"µs/op").byname()
     S  = dict((_, Bn[_].stats()) for _ in Bn)   # {} name -> stats
 
     yticks = set()
@@ -437,8 +440,10 @@ def plotnode1(ax, B, w=0.05, details=False):
     for name in namev:
         if _lat1_skipname(name):
             continue
-        b = Bn[name]
-        s = b.stats()
+
+        s = S[name]
+        #if details:
+        #    print '%s:\t%s' % (name, s)
 
         node, xname = name.split('/', 1)
         yticks.add(s.avg)
@@ -589,9 +594,9 @@ def main():
         ax2 = plt.subplot2grid((7,2), (0,1), rowspan=6)
         ax2.set_title(u'latency,  µs/object  (↓ is better)')
 
-        Slat = xseriesof(Bu[Unit(u'latency-µs/object')])
+        Slat = xseriesof(Bu[Unit(u'latency-s/object')].convert_unit(u'latency-µs/object'))
         if Slat is None:
-            raise RuntimeError('%s: latency-µs/object: series not found' % (labkey,))
+            raise RuntimeError('%s: latency-s/object: series not found' % (labkey,))
 
         plotseries(ax2, labkey, Slat)
 
@@ -630,6 +635,12 @@ def main():
         ax211.set_xticks([])
         ax211.set_xticklabels([])
         plotnode1(ax211, B, w=0.007, details=True)
+        # small title for ax211
+        #ax211.text(0.5, 1.005, 'basic ops, µs', ha='center', fontsize='x-small', transform=ax211.transAxes)
+        bb = ax211.get_legend().get_bbox_to_anchor()
+        xc, ymax = ax211.transAxes.inverted().transform(((bb.xmin + bb.xmax) / 2., bb.ymax))
+        xc += 1.5   # FIXME because bb.xmax = xmin
+        ax211.text(xc, ymax + 0.005, 'basic ops, µs/op', ha='center', fontsize='x-small', transform=ax211.transAxes)
 
         # mark_inset(ax21, ax211, ...)
         rect = TransformedBbox(ax211.viewLim, ax21.transData)

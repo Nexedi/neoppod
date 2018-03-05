@@ -58,7 +58,7 @@ class Measure(object):
 # Unit is a symbolic unit, like "ns/op", "µs/object" or "L1-miss-ns/op"
 class Unit(object):
     def __init__(self, unit):
-        self.unit = unit    # XXX normalize e.g. "µs" and "ns" to "time"
+        self.unit = unit
 
     # eq, hash - so that Unit can be used as key in dict or set
     def __eq__(self, other):
@@ -88,6 +88,13 @@ class Stats(object):
 
 
 # ----------------------------------------
+
+# method decorator allows to define methods separate from class.
+def method(cls):
+    def deco(f):
+        setattr(cls, f.func_name, f)
+    return deco
+
 
 _sp_re = re.compile(r'\s')
 
@@ -130,6 +137,7 @@ def parse_benchline(line):
     try:
         return _parse_benchline(linev)
     except Exception:
+        # FIXME -> more fine-grained catch, not to skip programming mistakes
         return None
 
 def _parse_benchline(linev):
@@ -152,9 +160,53 @@ def _parse_benchline(linev):
 
         value = float(value)
         unit  = Unit(unit)
-        measurev.append(Measure(value, unit))
+        unit, scale = unit.normalize()
+        measurev.append(Measure(value*scale, unit))
 
     return BenchLine(name, niter, measurev)
+
+
+# normalize converts unit into normalized Unit & scale.
+#
+# It returns base unit and scaling factor to convert values from original
+# unit to base one.
+#
+# For example
+#
+#	"µs"		-> "s",		1E-6
+#	"ms/op"		-> "s/op",     	1E-3
+#	"user-s/op"	-> "user-s/op",	1
+#
+# returns -> Unit, scale.
+@method(Unit)
+def normalize(self):
+    # split unit string into prefix and just unit
+    unit = self.unit
+    unitv = unit.rsplit('-', 1)     # "L1-miss-ns/op" -> "L1-miss-", "ns/op"
+    unit  = unitv[-1]
+
+    # unit -> nom/denom/... ; scale nom to base
+    fracv = unit.split('/', 1)
+    rescale = 1
+    _ = _unitTab.get(fracv[0])
+    if _ is not None:
+        fracv[0] = _[0]
+        rescale  = _[1]
+
+    # rebuild whole unit string
+    unitv[-1] = '/'.join(fracv)
+    unit = '-'.join(unitv)
+    return Unit(unit), rescale
+
+
+# {} unit -> (base_unit, rescale)
+_unitTab = {
+        "ns":   ("s", 1E-9),
+	u"µs":  ("s", 1E-6),
+	"us":   ("s", 1E-6),
+	"ms":   ("s", 1E-3),
+}
+
 
 
 # load loads benchmark data from a reader.
@@ -276,13 +328,6 @@ def xload_file(path):
 
 
 
-# method decorator allows to define methods separate from class.
-def method(cls):
-    def deco(f):
-        setattr(cls, f.func_name, f)
-    return deco
-
-
 # bylabel splits Benchmark into several groups of Benchmarks with specified
 # labels having same values across a given group.
 #
@@ -350,6 +395,30 @@ def byunit(self):
             bb.append(b)
 
     return byunit
+
+# convert_unit converts benchmark values to be in specified unit.
+#
+# all original values must have units compatible with the conversion.
+#
+# returns -> new Benchmark with converted units.
+@method(Benchmark)
+def convert_unit(self, unit):
+    B = Benchmark()
+    U = Unit(unit)
+    u, uscale = U.normalize()
+
+    for b in self:
+        measurev = []
+        for m in b.measurev:
+            mu, muscale = m.unit.normalize()
+            if mu != u:
+                raise ValueError('convert unit: units are not convertible: (%s, %s)' % (unit, m.unit))
+
+            measurev.append(Measure(m.value * muscale / uscale, U))
+
+        B.append(BenchLine(b.name, b.niter, measurev, b.labels))
+
+    return B
 
 
 # stats returns statistics about values in benchmark collection.
