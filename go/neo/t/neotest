@@ -909,8 +909,8 @@ bench_cpu() {
 	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
 		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmarkpystone 1 \1 pystone/s|\""
 
-	sizev="1024 4096 $((2*1024*1024))"
-	benchv="adler32 crc32 sha1"
+	sizev="4096"		# 1024 $((2*1024*1024))
+	benchv="crc32 sha1"	# adler32
 	for bench in $benchv; do
 		for size in $sizev; do
 			nrun tcpu.py $bench $size
@@ -918,7 +918,7 @@ bench_cpu() {
 		done
 	done
 
-	datav="null-1K null-4K null-2M wczdata prod1-avg prod1-max"
+	datav="wczdata prod1-avg"	# null-1K null-4K null-2M prod1-max
 	for data in $datav; do
 		nrun tcpu.py unzlib $data
 		nrun tcpu_go unzlib $data
@@ -941,8 +941,7 @@ Benchmark$1-avg 1 \\3 \\4/op\
 |"
 	}
 
-	#sizev="1K 4K 1M 2M"
-	sizev="4K 2M"
+	sizev="4K"	# 2M (XXX it is not linear, but we save benchmarking time for now)
 	benchtime=3s
 
 	for size in $sizev; do
@@ -1138,11 +1137,12 @@ zbench_local() {
 	kill $Zpy_job
 	wait $Zpy_job
 
-	echo -e "\n*** NEO/py sqlite"
-	NEOpylite
-	zbench neo://$neocluster@$Mbind neo/py/sqlite $zhashok
-	xneoctl set cluster stopping
-	wait
+	# XXX save time - we show only neo/py(!log)/sqlite
+	#echo -e "\n*** NEO/py sqlite"
+	#NEOpylite
+	#zbench neo://$neocluster@$Mbind neo/py/sqlite $zhashok
+	#xneoctl set cluster stopping
+	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
@@ -1151,12 +1151,13 @@ zbench_local() {
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/py sql"
-	NEOpysql
-	zbench neo://$neocluster@$Mbind neo/py/sql $zhashok
-	xneoctl set cluster stopping
-	xmysql -e "SHUTDOWN"
-	wait
+	# XXX save time - we show only neo/py(!log)/sql
+	#echo -e "\n*** NEO/py sql"
+	#NEOpysql
+	#zbench neo://$neocluster@$Mbind neo/py/sql $zhashok
+	#xneoctl set cluster stopping
+	#xmysql -e "SHUTDOWN"
+	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
@@ -1249,11 +1250,12 @@ zbench_cluster() {
 	kill $Zpy_job
 	wait $Zpy_job
 
-	echo -e "\n*** NEO/py sqlite"
-	NEOpylite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sqlite $zhashok
-	xneoctl set cluster stopping
-	wait
+	# XXX save time - we show only neo/py(!log)/sqlite
+	#echo -e "\n*** NEO/py sqlite"
+	#NEOpylite
+	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sqlite $zhashok
+	#xneoctl set cluster stopping
+	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
@@ -1262,12 +1264,13 @@ zbench_cluster() {
 	xneoctl set cluster stopping
 	wait
 
-	echo -e "\n*** NEO/py sql"
-	NEOpysql
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sql $zhashok
-	xneoctl set cluster stopping
-	xmysql -e "SHUTDOWN"
-	wait
+	# XXX save time - we show only neo/py(!log)/sql
+	#echo -e "\n*** NEO/py sql"
+	#NEOpysql
+	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sql $zhashok
+	#xneoctl set cluster stopping
+	#xmysql -e "SHUTDOWN"
+	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
