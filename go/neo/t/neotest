@@ -1197,9 +1197,9 @@ cmd_bench-cluster() {
 	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
 
 	echo -e ">>> bench-cluster $url"
-	echo -e "\n#*** neotest: node: (server)"
+	echo -e "\n*** neotest: node: (server)"
 	system_info
-	echo -e "\n#*** neotest: node: (client)"
+	echo -e "\n*** neotest: node: (client)"
 	on $url ./neotest info-local
 
 	echo -e "\n*** server cpu:"
