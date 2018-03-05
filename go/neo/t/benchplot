@@ -96,7 +96,7 @@ def xseriesof(B):
         return None
 
     # working directly with fs1 is very fast and makes seeing other variants hard.
-    del S['fs1-zwrk.go']
+    S.pop('fs1-zwrk.go', None)  # discard (not present in networked benchmarks)
 
     # only show !log for neo/py as this are faster
     for k in S.keys():
@@ -213,6 +213,7 @@ def Bmerge(B, merger):
                 b_ = Bname.get(name_)
                 if b_ is not None:
                     # ok to merge if either probably same or the difference is < 0.5µs
+                    # XXX allow to merge if e.g. 1-2 µs if value > 10µs (ex 26 and 27 for unzlib/py,go/wczdata)
                     s_ = b_.stats()
                     assert s.unit == s_.unit, (s.unit, s_.unit)
                     t = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
@@ -469,7 +470,7 @@ def plotnode1(ax, B, w=0.05, details=False):
 
     if details:
         ax.legend(loc='upper left', fontsize='x-small', #markerfirst=False,
-                bbox_transform=ax.transAxes, bbox_to_anchor=(1.3, 1), borderaxespad=0) # XXX hack to shift right
+                bbox_transform=ax.transAxes, bbox_to_anchor=(1.4, 1), borderaxespad=0) # XXX hack to shift right
 
 
 
@@ -557,13 +558,15 @@ def main():
     Bl = B.bylabel(['dataset', 'cluster'])
     for labkey in Bl:
         # FIXME hack
-        if labkey == ():   # cpu benchmarks
+        if labkey == ():    # cpu benchmarks
             continue
 
         _ = dict(labkey)
-        dataset = _['dataset']
         cluster = _['cluster']
         clusterv = cluster.split('-')   # nodes in cluster
+
+        if 'dataset' not in _:
+            continue        # networking benchmarks     XXX show them too in plotnode1
 
         # check we have node info or nodes in cluster
         for node in clusterv:
@@ -670,8 +673,6 @@ def main():
 
         # text about nodes
         assert len(nodemap) <= 2    # XXX fragile
-        nodemap['rio'] = nodemap['deco']    # FIXME temp
-        Bnode['rio'] = Bnode['deco']        # XXX temp
         for i, node in enumerate(nodemap):
             ax = plt.subplot2grid((7,2), (6,i), rowspan=1) # XXX 7,6 hardcoded
             ax.set_axis_off()
