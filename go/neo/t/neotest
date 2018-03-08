@@ -878,6 +878,7 @@ cpustat() {
 Nrun=5			# repeat benchmarks N time
 Nparv="1 2 3 4 8 12 16"	# run parallel zwrk benchmarks with so many clients
 #Npar=16		# run so many parallel clients in parallel phase
+Tzwrk1=1s		# time to run 1 zwrk iteration
 
 #profile=
 profile=cpustat
@@ -1095,7 +1096,8 @@ zbench_go() {
 
 	for i in ${Nparv}; do
 		echo -e "\n# $i clients in parallel"
-		nrun tzodb_go -log_dir=$log zwrk -nclient $i -check=$zhashok -bench=$topic -$zhashfunc $url
+		nrun tzodb_go -test.benchtime $Tzwrk1 -log_dir=$log \
+			zwrk -nclient $i -check=$zhashok -bench=$topic -$zhashfunc $url
 	done
 }
 
