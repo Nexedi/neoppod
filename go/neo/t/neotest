@@ -174,8 +174,8 @@ init_net() {
 	# 2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
 	#     inet6 2401:5180:0:1d:429a:e612:c957:29/64 scope global noprefixroute dynamic
 	#        valid_lft 86232sec preferred_lft 14232sec
-	myaddr4v=(`ip -4 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`)
-	myaddr6v=(`ip -6 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`)
+	myaddr4v=(`ip -4 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`) || :
+	myaddr6v=(`ip -6 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`) || :
 	test "${#myaddr4v[@]}" -gt 0 || die "init_net: cannot determine my IPv4 network addresses"
 	test "${#myaddr6v[@]}" -gt 0 || die "init_net: cannot determine my IPv6 network addresses"
 
