@@ -1,8 +1,8 @@
 #!/bin/bash -e
-# neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py{sql,sqlite}, NEO/go clusters
+# neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py and NEO/go clusters
 
-# Copyright (C) 2017  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -603,13 +603,15 @@ system_info() {
 	while read cpu; do
 		is="`cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
 		while read state; do
-			# XXX add target residency?
 			is+=" "
 			lat=`cat $state/latency`
+			res=`cat $state/residency`
 			test "`cat $state/disable`" = "1" && is+="!" || latmax=$(($lat>$latmax?$lat:$latmax))
-			is+="`cat $state/name`(${lat}μs)"
+			is+="`cat $state/name`·${lat}/${res}"
 		done \
 		< <(ls -vd $cpu/cpuidle/state[0-9]*)
+
+		is+=" # elat/tres µs"
 
 		if [ "$is" != "$idlestr" ]; then
 			idledump
