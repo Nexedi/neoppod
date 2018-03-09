@@ -1,0 +1,1889 @@
+>>> bench-local
+
+*** neotest: node
+date:	Thu, 08 Mar 2018 13:55:06 +0200
+xnode:	neotest@z6001.ivan.nexedi.com (2401:5180:0:6f::1 192.168.0.16)
+uname:	Linux z6001-COMP-2784 4.13.0-36-generic #40-Ubuntu SMP Fri Feb 16 20:07:48 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux
+cpu:	Intel(R) Xeon(R) CPU           X5650  @ 2.67GHz
+cpu/[0-23]/freq: acpi-cpufreq/performance [2.66GHz - 2.66GHz]
+cpu/[0-23]/idle: intel_idle/menu: POLL·0/0 C1·3/6 C1E·10/20 C3·20/80 C6·200/800 # elat/tres µs
+WARNING: cpu: C-state exit-latency is max 200μs - up to that can add to networked and IPC request-reply latency
+disk/sda: ADATA SU800       rev 8BS  119,2G
+nic/enp1s0: Broadcom Limited NetXtreme BCM5764M Gigabit Ethernet PCIe rev 10
+nic/enp1s0/features: rx tx sg tso !ufo gso gro !lro rxvlan txvlan !ntuple !rxhash ...
+nic/enp1s0/coalesce: rxc: 20μs/5f/0μs-irq/5f-irq,  txc: 72μs/53f/0μs-irq/5f-irq
+nic/enp1s0/status:   up, speed=1000, mtu=1500, txqlen=1000, gro_flush_timeout=0.000µs
+WARNING: nic/enp1s0: RX coalesce latency is max 20μs - that will add to networked request-reply latency
+sw/python:          Python 2.7.12
+sw/go:              go version go1.10 linux/amd64
+sw/sqlite:          sqlite 3.22.0 (py mod 2.6.0)
+sw/mysqld:          mysqld  Ver 10.1.25-MariaDB-1 for debian-linux-gnu on x86_64 (Ubuntu 17.10)
+sw/neo:             v1.8-1607-gca0d828
+sw/zodb:            5.3.0
+sw/zeo:             5.1.1
+sw/mysqlclient:     1.3.12
+sw/wendelin.core:   0.11
+
+*** cpu:
+
+node:	z6001
+cluster:
+Benchmarkpystone 1 114084 pystone/s	# POLL·0 C1·72 C1E·0 C3·23 C6·347
+Benchmarkpystone 1 114689 pystone/s	# POLL·0 C1·83 C1E·1 C3·15 C6·402
+Benchmarkpystone 1 113908 pystone/s	# POLL·2 C1·78 C1E·1 C3·15 C6·313
+Benchmarkpystone 1 113770 pystone/s	# POLL·0 C1·102 C1E·0 C3·13 C6·448
+Benchmarkpystone 1 115149 pystone/s	# POLL·0 C1·100 C1E·1 C3·22 C6·364
+Benchmarkcrc32/py/4K 198294	5.087 µs/op	# POLL·0 C1·83 C1E·0 C3·10 C6·387
+Benchmarkcrc32/py/4K 197909	5.105 µs/op	# POLL·0 C1·58 C1E·0 C3·14 C6·444
+Benchmarkcrc32/py/4K 198051	5.095 µs/op	# POLL·2 C1·88 C1E·1 C3·10 C6·356
+Benchmarkcrc32/py/4K 198409	5.080 µs/op	# POLL·3 C1·137 C1E·8 C3·18 C6·550
+Benchmarkcrc32/py/4K 197601	5.117 µs/op	# POLL·2 C1·65 C1E·1 C3·16 C6·378
+Benchmarkcrc32/go/4K 1000000	1.722 µs/op	# POLL·0 C1·121 C1E·128 C3·81 C6·932
+Benchmarkcrc32/go/4K 1000000	1.723 µs/op	# POLL·7 C1·158 C1E·123 C3·88 C6·714
+Benchmarkcrc32/go/4K 1000000	1.835 µs/op	# POLL·6 C1·164 C1E·118 C3·119 C6·996
+Benchmarkcrc32/go/4K 1000000	1.723 µs/op	# POLL·6 C1·157 C1E·116 C3·59 C6·877
+Benchmarkcrc32/go/4K 1000000	1.722 µs/op	# POLL·2 C1·232 C1E·121 C3·74 C6·853
+Benchmarksha1/py/4K 117326	14.529 µs/op	# POLL·0 C1·71 C1E·2 C3·18 C6·514
+Benchmarksha1/py/4K 117009	14.607 µs/op	# POLL·1 C1·74 C1E·1 C3·15 C6·396
+Benchmarksha1/py/4K 117046	14.596 µs/op	# POLL·1 C1·74 C1E·1 C3·6 C6·491
+Benchmarksha1/py/4K 116999	14.604 µs/op	# POLL·0 C1·91 C1E·0 C3·24 C6·427
+Benchmarksha1/py/4K 116891	14.630 µs/op	# POLL·4 C1·72 C1E·2 C3·8 C6·531
+Benchmarksha1/go/4K 200000	10.325 µs/op	# POLL·3 C1·168 C1E·133 C3·97 C6·1120
+Benchmarksha1/go/4K 200000	10.323 µs/op	# POLL·2 C1·177 C1E·134 C3·81 C6·1029
+Benchmarksha1/go/4K 200000	10.324 µs/op	# POLL·1 C1·150 C1E·141 C3·78 C6·1050
+Benchmarksha1/go/4K 200000	10.323 µs/op	# POLL·4 C1·185 C1E·125 C3·71 C6·1021
+Benchmarksha1/go/4K 200000	10.323 µs/op	# POLL·2 C1·154 C1E·152 C3·86 C6·1042
+Benchmarkunzlib/py/wczdata 33192	36.623 µs/op	# POLL·2 C1·54 C1E·2 C3·9 C6·389
+Benchmarkunzlib/py/wczdata 33242	36.192 µs/op	# POLL·3 C1·96 C1E·1 C3·12 C6·419
+Benchmarkunzlib/py/wczdata 33447	35.727 µs/op	# POLL·0 C1·97 C1E·1 C3·10 C6·450
+Benchmarkunzlib/py/wczdata 33151	36.420 µs/op	# POLL·0 C1·97 C1E·1 C3·16 C6·577
+Benchmarkunzlib/py/wczdata 33190	36.288 µs/op	# POLL·0 C1·111 C1E·0 C3·13 C6·383
+Benchmarkunzlib/go/wczdata 50000	31.592 µs/op	# POLL·3 C1·402 C1E·526 C3·131 C6·4017
+Benchmarkunzlib/go/wczdata 50000	31.581 µs/op	# POLL·1 C1·465 C1E·438 C3·122 C6·4019
+Benchmarkunzlib/go/wczdata 50000	31.483 µs/op	# POLL·1 C1·451 C1E·582 C3·174 C6·3987
+Benchmarkunzlib/go/wczdata 50000	31.576 µs/op	# POLL·5 C1·310 C1E·392 C3·72 C6·4073
+Benchmarkunzlib/go/wczdata 50000	31.430 µs/op	# POLL·3 C1·418 C1E·542 C3·101 C6·4058
+Benchmarkunzlib/py/prod1-avg 104398	18.399 µs/op	# POLL·1 C1·105 C1E·0 C3·14 C6·370
+Benchmarkunzlib/py/prod1-avg 104066	18.352 µs/op	# POLL·2 C1·104 C1E·2 C3·19 C6·453
+Benchmarkunzlib/py/prod1-avg 104408	18.293 µs/op	# POLL·0 C1·100 C1E·1 C3·17 C6·501
+Benchmarkunzlib/py/prod1-avg 105053	17.912 µs/op	# POLL·1 C1·97 C1E·0 C3·15 C6·493
+Benchmarkunzlib/py/prod1-avg 105197	17.962 µs/op	# POLL·0 C1·75 C1E·1 C3·4 C6·544
+Benchmarkunzlib/go/prod1-avg 200000	9.911 µs/op	# POLL·4 C1·238 C1E·387 C3·108 C6·4407
+Benchmarkunzlib/go/prod1-avg 200000	10.109 µs/op	# POLL·2 C1·320 C1E·438 C3·107 C6·4325
+Benchmarkunzlib/go/prod1-avg 200000	10.130 µs/op	# POLL·2 C1·308 C1E·462 C3·129 C6·4398
+Benchmarkunzlib/go/prod1-avg 200000	9.837 µs/op	# POLL·1 C1·309 C1E·514 C3·112 C6·4249
+Benchmarkunzlib/go/prod1-avg 200000	10.124 µs/op	# POLL·0 C1·245 C1E·553 C3·83 C6·4408
+node:	z6001
+cluster:
+
+*** disk: random direct (no kernel cache) 4K-read latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+13.8 k requests completed in 2.94 s, 53.9 MiB read, 4.69 k iops, 18.3 MiB/s
+generated 13.8 k requests in 3.00 s, 53.9 MiB, 4.60 k iops, 18.0 MiB/s
+min/avg/max/mdev = 134.9 us / 213.0 us / 355.9 us / 40.0 us
+Benchmarkdisk/randread/direct/4K-min 1 134.9 us/op
+Benchmarkdisk/randread/direct/4K-avg 1 213.0 us/op
+< 146.1 us	2	| 
+< 153.6 us	17	| 
+< 161.1 us	1130	| ****
+< 168.5 us	1645	| *****
+< 176.0 us	316	| *
+< 183.5 us	26	| 
+< 190.9 us	639	| **
+< 198.4 us	2704	| *********
+< 205.9 us	1057	| ***
+< 213.4 us	183	| 
+< 220.8 us	71	| 
+< 228.3 us	542	| *
+< 235.8 us	558	| **
+< 243.2 us	740	| **
+< 250.7 us	2105	| *******
+< 258.2 us	371	| *
+< 265.6 us	67	| 
+< 273.1 us	51	| 
+< 280.6 us	224	| 
+< 288.1 us	656	| **
+< 295.5 us	514	| *
+<       +∞	78	| 
+# POLL·1 C1·199 C1E·8969 C3·13382 C6·5774
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+15.4 k requests completed in 2.93 s, 60.2 MiB read, 5.25 k iops, 20.5 MiB/s
+generated 15.4 k requests in 3.00 s, 60.2 MiB, 5.13 k iops, 20.1 MiB/s
+min/avg/max/mdev = 127.5 us / 190.5 us / 309.1 us / 41.7 us
+Benchmarkdisk/randread/direct/4K-min 1 127.5 us/op
+Benchmarkdisk/randread/direct/4K-avg 1 190.5 us/op
+< 128.9 us	91	| 
+< 137.4 us	1307	| ****
+< 145.9 us	1742	| *****
+< 154.4 us	239	| 
+< 162.9 us	545	| *
+< 171.4 us	1548	| *****
+< 180.0 us	2481	| ********
+< 188.5 us	674	| **
+< 197.0 us	32	| 
+< 205.5 us	571	| *
+< 214.0 us	803	| **
+< 222.5 us	1623	| *****
+< 231.0 us	1578	| *****
+< 239.6 us	175	| 
+< 248.1 us	8	| 
+< 256.6 us	58	| 
+< 265.1 us	547	| *
+< 273.6 us	1145	| ***
+< 282.1 us	124	| 
+< 290.6 us	6	| 
+< 299.1 us	3	| 
+<       +∞	6	| 
+# POLL·1 C1·3989 C1E·5527 C3·4567 C6·1929
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+13.8 k requests completed in 2.94 s, 53.9 MiB read, 4.69 k iops, 18.3 MiB/s
+generated 13.8 k requests in 3.00 s, 53.9 MiB, 4.60 k iops, 18.0 MiB/s
+min/avg/max/mdev = 128.6 us / 213.1 us / 837.3 us / 42.8 us
+Benchmarkdisk/randread/direct/4K-min 1 128.6 us/op
+Benchmarkdisk/randread/direct/4K-avg 1 213.1 us/op
+< 146.1 us	214	| 
+< 153.5 us	123	| 
+< 161.0 us	954	| ***
+< 168.4 us	1696	| ******
+< 175.9 us	416	| *
+< 183.4 us	35	| 
+< 190.8 us	343	| *
+< 198.3 us	2305	| ********
+< 205.7 us	1298	| ****
+< 213.2 us	387	| *
+< 220.6 us	140	| 
+< 228.1 us	205	| 
+< 235.6 us	816	| **
+< 243.0 us	686	| **
+< 250.5 us	2104	| *******
+< 257.9 us	412	| *
+< 265.4 us	45	| 
+< 272.8 us	9	| 
+< 280.3 us	44	| 
+< 287.8 us	277	| *
+< 295.2 us	642	| **
+<       +∞	543	| *
+# POLL·4 C1·1015 C1E·7951 C3·11035 C6·7609
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+14.6 k requests completed in 2.96 s, 56.9 MiB read, 4.93 k iops, 19.3 MiB/s
+generated 14.6 k requests in 3.00 s, 56.9 MiB, 4.86 k iops, 19.0 MiB/s
+min/avg/max/mdev = 129.6 us / 202.8 us / 315.2 us / 39.2 us
+Benchmarkdisk/randread/direct/4K-min 1 129.6 us/op
+Benchmarkdisk/randread/direct/4K-avg 1 202.8 us/op
+< 146.1 us	23	| 
+< 153.7 us	2520	| ********
+< 161.3 us	638	| **
+< 169.0 us	160	| 
+< 176.6 us	15	| 
+< 184.2 us	1635	| *****
+< 191.8 us	2633	| *********
+< 199.4 us	551	| *
+< 207.0 us	19	| 
+< 214.6 us	128	| 
+< 222.2 us	1238	| ****
+< 229.8 us	375	| *
+< 237.4 us	1357	| ****
+< 245.0 us	1261	| ****
+< 252.6 us	251	| 
+< 260.2 us	5	| 
+< 267.8 us	158	| 
+< 275.4 us	1189	| ****
+< 283.0 us	284	| 
+< 290.6 us	4	| 
+< 298.2 us	18	| 
+<       +∞	11	| 
+# POLL·8 C1·2007 C1E·7289 C3·12134 C6·8475
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+15.7 k requests completed in 2.94 s, 61.3 MiB read, 5.34 k iops, 20.9 MiB/s
+generated 15.7 k requests in 3.00 s, 61.3 MiB, 5.23 k iops, 20.4 MiB/s
+min/avg/max/mdev = 126.5 us / 187.1 us / 848.5 us / 39.4 us
+Benchmarkdisk/randread/direct/4K-min 1 126.5 us/op
+Benchmarkdisk/randread/direct/4K-avg 1 187.1 us/op
+< 126.5 us	0	| 
+< 133.0 us	1080	| ***
+< 139.5 us	851	| **
+< 145.9 us	1324	| ****
+< 152.4 us	139	| 
+< 158.9 us	16	| 
+< 165.4 us	1443	| ****
+< 171.9 us	2285	| *******
+< 178.4 us	1345	| ****
+< 184.9 us	173	| 
+< 191.4 us	27	| 
+< 197.9 us	382	| *
+< 204.4 us	1102	| ***
+< 210.9 us	467	| *
+< 217.4 us	920	| **
+< 223.9 us	674	| **
+< 230.4 us	1348	| ****
+< 236.8 us	177	| 
+< 243.3 us	21	| 
+< 249.8 us	288	| 
+< 256.3 us	932	| **
+<       +∞	599	| *
+# POLL·5 C1·5118 C1E·4906 C3·2831 C6·3694
+
+*** disk: random cached 4K-read latency
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.07 M requests completed in 2.80 s, 7.90 GiB read, 738.9 k iops, 2.82 GiB/s
+generated 2.07 M requests in 3.00 s, 7.90 GiB, 689.9 k iops, 2.63 GiB/s
+min/avg/max/mdev = 780 ns / 1.35 us / 88.6 us / 268 ns
+Benchmarkdisk/randread/pagecache/4K-min 1 780 ns/op
+Benchmarkdisk/randread/pagecache/4K-avg 1 1.35 us/op
+< 1.22 us	389264	| *********
+< 1.44 us	1087330	| **************************
+< 1.66 us	534399	| ************
+< 1.88 us	54643	| *
+< 2.09 us	2743	| 
+< 2.31 us	418	| 
+< 2.53 us	62	| 
+< 2.75 us	9	| 
+< 2.97 us	4	| 
+< 3.19 us	2	| 
+< 3.41 us	0	| 
+< 3.63 us	0	| 
+< 3.85 us	0	| 
+< 4.07 us	1	| 
+< 4.29 us	0	| 
+< 4.51 us	0	| 
+< 4.72 us	0	| 
+< 4.94 us	0	| 
+< 5.16 us	0	| 
+< 5.38 us	0	| 
+< 5.60 us	0	| 
+<       +∞	699	| 
+# POLL·0 C1·71 C1E·1 C3·22 C6·796
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+1.93 M requests completed in 2.81 s, 7.36 GiB read, 685.4 k iops, 2.61 GiB/s
+generated 1.93 M requests in 3.00 s, 7.36 GiB, 643.1 k iops, 2.45 GiB/s
+min/avg/max/mdev = 788 ns / 1.46 us / 38.6 us / 340 ns
+Benchmarkdisk/randread/pagecache/4K-min 1 788 ns/op
+Benchmarkdisk/randread/pagecache/4K-avg 1 1.46 us/op
+< 1.29 us	299923	| *******
+< 1.50 us	870377	| **********************
+< 1.71 us	654556	| ****************
+< 1.91 us	96973	| **
+< 2.12 us	5640	| 
+< 2.33 us	772	| 
+< 2.54 us	103	| 
+< 2.75 us	12	| 
+< 2.96 us	2	| 
+< 3.16 us	1	| 
+< 3.37 us	0	| 
+< 3.58 us	1	| 
+< 3.79 us	0	| 
+< 4.00 us	0	| 
+< 4.21 us	0	| 
+< 4.42 us	1	| 
+< 4.62 us	0	| 
+< 4.83 us	0	| 
+< 5.04 us	0	| 
+< 5.25 us	0	| 
+< 5.46 us	0	| 
+<       +∞	715	| 
+# POLL·0 C1·109 C1E·0 C3·14 C6·744
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+1.95 M requests completed in 2.84 s, 7.44 GiB read, 687.3 k iops, 2.62 GiB/s
+generated 1.95 M requests in 3.00 s, 7.44 GiB, 649.8 k iops, 2.48 GiB/s
+min/avg/max/mdev = 803 ns / 1.45 us / 69.2 us / 328 ns
+Benchmarkdisk/randread/pagecache/4K-min 1 803 ns/op
+Benchmarkdisk/randread/pagecache/4K-avg 1 1.45 us/op
+< 1.14 us	21684	| 
+< 1.33 us	374066	| *********
+< 1.52 us	916047	| ***********************
+< 1.71 us	551483	| **************
+< 1.91 us	79036	| **
+< 2.10 us	5383	| 
+< 2.29 us	814	| 
+< 2.48 us	154	| 
+< 2.68 us	18	| 
+< 2.87 us	5	| 
+< 3.06 us	2	| 
+< 3.25 us	1	| 
+< 3.45 us	1	| 
+< 3.64 us	0	| 
+< 3.83 us	0	| 
+< 4.03 us	1	| 
+< 4.22 us	0	| 
+< 4.41 us	0	| 
+< 4.60 us	0	| 
+< 4.79 us	0	| 
+< 4.99 us	0	| 
+<       +∞	710	| 
+# POLL·9 C1·86 C1E·3 C3·21 C6·673
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+2.08 M requests completed in 2.83 s, 7.92 GiB read, 734.8 k iops, 2.80 GiB/s
+generated 2.08 M requests in 3.00 s, 7.92 GiB, 692.4 k iops, 2.64 GiB/s
+min/avg/max/mdev = 795 ns / 1.36 us / 76.9 us / 267 ns
+Benchmarkdisk/randread/pagecache/4K-min 1 795 ns/op
+Benchmarkdisk/randread/pagecache/4K-avg 1 1.36 us/op
+< 1.24 us	475505	| ***********
+< 1.27 us	231463	| *****
+< 1.30 us	211695	| *****
+< 1.33 us	155459	| ***
+< 1.37 us	105866	| **
+< 1.40 us	114534	| **
+< 1.43 us	134318	| ***
+< 1.46 us	140636	| ***
+< 1.50 us	133041	| ***
+< 1.53 us	118111	| **
+< 1.56 us	71844	| *
+< 1.59 us	53020	| *
+< 1.63 us	41361	| 
+< 1.66 us	28347	| 
+< 1.69 us	20727	| 
+< 1.72 us	15112	| 
+< 1.75 us	9165	| 
+< 1.79 us	5628	| 
+< 1.82 us	3747	| 
+< 1.85 us	2150	| 
+< 1.89 us	1468	| 
+<       +∞	4023	| 
+# POLL·1 C1·105 C1E·2 C3·34 C6·1326
+
+--- . (ext4 /dev/sda1) ioping statistics ---
+1.97 M requests completed in 2.84 s, 7.50 GiB read, 692.7 k iops, 2.64 GiB/s
+generated 1.97 M requests in 3.00 s, 7.50 GiB, 655.1 k iops, 2.50 GiB/s
+min/avg/max/mdev = 800 ns / 1.44 us / 65.8 us / 327 ns
+Benchmarkdisk/randread/pagecache/4K-min 1 800 ns/op
+Benchmarkdisk/randread/pagecache/4K-avg 1 1.44 us/op
+< 1.27 us	270841	| ******
+< 1.50 us	1015190	| *************************
+< 1.73 us	617977	| ***************
+< 1.96 us	57517	| *
+< 2.19 us	2573	| 
+< 2.42 us	408	| 
+< 2.64 us	32	| 
+< 2.87 us	3	| 
+< 3.10 us	3	| 
+< 3.33 us	0	| 
+< 3.56 us	0	| 
+< 3.79 us	0	| 
+< 4.02 us	0	| 
+< 4.25 us	0	| 
+< 4.47 us	0	| 
+< 4.70 us	0	| 
+< 4.93 us	0	| 
+< 5.16 us	0	| 
+< 5.39 us	0	| 
+< 5.62 us	0	| 
+< 5.85 us	0	| 
+<       +∞	718	| 
+# POLL·0 C1·79 C1E·4 C3·18 C6·570
+
+dataset:	wczblk1-8
+node:
+cluster:	z6001
+
+*** FileStorage
+Benchmarkfs1-zhash.py 2127 36.9 µs/object	# crc32:14640593  nread=8540363  t=0.079s	# POLL·2 C1·90 C1E·2 C3·9 C6·551
+Benchmarkfs1-zhash.py 2127 37.8 µs/object	# crc32:14640593  nread=8540363  t=0.080s	# POLL·0 C1·84 C1E·1 C3·28 C6·478
+Benchmarkfs1-zhash.py 2127 37.2 µs/object	# crc32:14640593  nread=8540363  t=0.079s	# POLL·0 C1·83 C1E·2 C3·13 C6·524
+Benchmarkfs1-zhash.py 2127 38.0 µs/object	# crc32:14640593  nread=8540363  t=0.081s	# POLL·2 C1·111 C1E·2 C3·16 C6·542
+Benchmarkfs1-zhash.py 2127 37.4 µs/object	# crc32:14640593  nread=8540363  t=0.080s	# POLL·0 C1·72 C1E·0 C3·17 C6·578
+
+Benchmarkfs1-zhash.go 2127 5.9 µs/object	# crc32:14640593  nread=8540363  t=12.565304ms	# POLL·0 C1·79 C1E·68 C3·25 C6·300
+Benchmarkfs1-zhash.go 2127 5.9 µs/object	# crc32:14640593  nread=8540363  t=12.644201ms	# POLL·2 C1·92 C1E·59 C3·27 C6·304
+Benchmarkfs1-zhash.go 2127 5.9 µs/object	# crc32:14640593  nread=8540363  t=12.634661ms	# POLL·1 C1·120 C1E·59 C3·37 C6·272
+Benchmarkfs1-zhash.go 2127 5.9 µs/object	# crc32:14640593  nread=8540363  t=12.641932ms	# POLL·3 C1·105 C1E·55 C3·43 C6·276
+Benchmarkfs1-zhash.go 2127 5.9 µs/object	# crc32:14640593  nread=8540363  t=12.613282ms	# POLL·0 C1·100 C1E·64 C3·22 C6·279
+Benchmarkfs1-zhash.go+prefetch128 2127 7.8 µs/object	# crc32:14640593  nread=8540363  t=16.567821ms	# POLL·1 C1·300 C1E·281 C3·284 C6·418
+Benchmarkfs1-zhash.go+prefetch128 2127 8.3 µs/object	# crc32:14640593  nread=8540363  t=17.747178ms	# POLL·2 C1·229 C1E·267 C3·305 C6·431
+Benchmarkfs1-zhash.go+prefetch128 2127 8.1 µs/object	# crc32:14640593  nread=8540363  t=17.23733ms	# POLL·0 C1·240 C1E·261 C3·341 C6·401
+Benchmarkfs1-zhash.go+prefetch128 2127 7.8 µs/object	# crc32:14640593  nread=8540363  t=16.546532ms	# POLL·0 C1·369 C1E·232 C3·319 C6·391
+Benchmarkfs1-zhash.go+prefetch128 2127 8.5 µs/object	# crc32:14640593  nread=8540363  t=18.013509ms	# POLL·3 C1·270 C1E·278 C3·391 C6·393
+
+# 1 clients in parallel
+Benchmarkfs1-zwrk.go·1 300000	226017.5 req/s  4.424 latency-µs/object	# POLL·2 C1·162 C1E·80 C3·85 C6·889
+Benchmarkfs1-zwrk.go·1 300000	220181.4 req/s  4.542 latency-µs/object	# POLL·3 C1·174 C1E·83 C3·57 C6·971
+Benchmarkfs1-zwrk.go·1 300000	230446.9 req/s  4.339 latency-µs/object	# POLL·4 C1·154 C1E·123 C3·50 C6·1160
+Benchmarkfs1-zwrk.go·1 300000	231277.1 req/s  4.324 latency-µs/object	# POLL·1 C1·161 C1E·85 C3·74 C6·926
+Benchmarkfs1-zwrk.go·1 300000	232675.5 req/s  4.298 latency-µs/object	# POLL·2 C1·134 C1E·77 C3·76 C6·876
+
+# 2 clients in parallel
+Benchmarkfs1-zwrk.go·2 1000000	441393.5 req/s  4.531 latency-µs/object	# POLL·5 C1·170 C1E·144 C3·79 C6·900
+Benchmarkfs1-zwrk.go·2 1000000	448860.0 req/s  4.456 latency-µs/object	# POLL·4 C1·181 C1E·110 C3·67 C6·1156
+Benchmarkfs1-zwrk.go·2 1000000	447131.5 req/s  4.473 latency-µs/object	# POLL·2 C1·104 C1E·106 C3·87 C6·1243
+Benchmarkfs1-zwrk.go·2 1000000	439317.1 req/s  4.553 latency-µs/object	# POLL·3 C1·138 C1E·95 C3·90 C6·1322
+Benchmarkfs1-zwrk.go·2 1000000	445260.0 req/s  4.492 latency-µs/object	# POLL·4 C1·165 C1E·100 C3·73 C6·1048
+
+# 3 clients in parallel
+Benchmarkfs1-zwrk.go·3 1000000	654370.1 req/s  4.585 latency-µs/object	# POLL·2 C1·192 C1E·101 C3·59 C6·1785
+Benchmarkfs1-zwrk.go·3 1000000	671307.7 req/s  4.469 latency-µs/object	# POLL·1 C1·138 C1E·80 C3·68 C6·1679
+Benchmarkfs1-zwrk.go·3 1000000	670972.4 req/s  4.471 latency-µs/object	# POLL·1 C1·159 C1E·83 C3·72 C6·1644
+Benchmarkfs1-zwrk.go·3 1000000	639476.3 req/s  4.691 latency-µs/object	# POLL·7 C1·149 C1E·95 C3·73 C6·1634
+Benchmarkfs1-zwrk.go·3 1000000	663896.8 req/s  4.519 latency-µs/object	# POLL·3 C1·143 C1E·69 C3·93 C6·1855
+
+# 4 clients in parallel
+Benchmarkfs1-zwrk.go·4 1000000	886578.8 req/s  4.512 latency-µs/object	# POLL·3 C1·161 C1E·99 C3·134 C6·1467
+Benchmarkfs1-zwrk.go·4 1000000	877821.6 req/s  4.557 latency-µs/object	# POLL·3 C1·180 C1E·111 C3·117 C6·1323
+Benchmarkfs1-zwrk.go·4 1000000	882768.6 req/s  4.531 latency-µs/object	# POLL·1 C1·129 C1E·96 C3·119 C6·1477
+Benchmarkfs1-zwrk.go·4 1000000	886068.1 req/s  4.514 latency-µs/object	# POLL·2 C1·176 C1E·123 C3·76 C6·1441
+Benchmarkfs1-zwrk.go·4 1000000	876338.6 req/s  4.564 latency-µs/object	# POLL·2 C1·161 C1E·96 C3·118 C6·1551
+
+# 8 clients in parallel
+Benchmarkfs1-zwrk.go·8 3000000	1773919.2 req/s  4.510 latency-µs/object	# POLL·0 C1·231 C1E·121 C3·140 C6·2113
+Benchmarkfs1-zwrk.go·8 3000000	1719877.9 req/s  4.651 latency-µs/object	# POLL·10 C1·169 C1E·152 C3·142 C6·2035
+Benchmarkfs1-zwrk.go·8 3000000	1763185.6 req/s  4.537 latency-µs/object	# POLL·0 C1·182 C1E·129 C3·133 C6·2387
+Benchmarkfs1-zwrk.go·8 3000000	1757801.8 req/s  4.551 latency-µs/object	# POLL·5 C1·213 C1E·132 C3·186 C6·1846
+Benchmarkfs1-zwrk.go·8 3000000	1737867.7 req/s  4.603 latency-µs/object	# POLL·6 C1·200 C1E·113 C3·146 C6·2157
+
+# 12 clients in parallel
+Benchmarkfs1-zwrk.go·12 3000000	2537477.9 req/s  4.729 latency-µs/object	# POLL·6 C1·158 C1E·139 C3·211 C6·1340
+Benchmarkfs1-zwrk.go·12 3000000	2485818.6 req/s  4.827 latency-µs/object	# POLL·8 C1·216 C1E·153 C3·194 C6·1352
+Benchmarkfs1-zwrk.go·12 5000000	2512350.9 req/s  4.776 latency-µs/object	# POLL·9 C1·279 C1E·121 C3·218 C6·1703
+Benchmarkfs1-zwrk.go·12 3000000	2426205.2 req/s  4.946 latency-µs/object	# POLL·3 C1·193 C1E·183 C3·201 C6·1419
+Benchmarkfs1-zwrk.go·12 3000000	2551203.9 req/s  4.704 latency-µs/object	# POLL·4 C1·224 C1E·139 C3·224 C6·1374
+
+# 16 clients in parallel
+Benchmarkfs1-zwrk.go·16 5000000	2864427.7 req/s  5.586 latency-µs/object	# POLL·10 C1·302 C1E·156 C3·316 C6·1396
+Benchmarkfs1-zwrk.go·16 5000000	2849173.9 req/s  5.616 latency-µs/object	# POLL·6 C1·267 C1E·197 C3·291 C6·1388
+Benchmarkfs1-zwrk.go·16 5000000	2897957.8 req/s  5.521 latency-µs/object	# POLL·6 C1·278 C1E·171 C3·277 C6·1525
+Benchmarkfs1-zwrk.go·16 5000000	2885240.1 req/s  5.545 latency-µs/object	# POLL·2 C1·261 C1E·196 C3·223 C6·1520
+Benchmarkfs1-zwrk.go·16 5000000	2898252.3 req/s  5.521 latency-µs/object	# POLL·4 C1·276 C1E·146 C3·277 C6·1445
+
+*** ZEO
+Benchmarkzeo/py/fs1-zhash.py 2127 606.2 µs/object	# crc32:14640593  nread=8540363  t=1.290s	# POLL·3 C1·25814 C1E·1992 C3·2421 C6·1262
+Benchmarkzeo/py/fs1-zhash.py 2127 695.6 µs/object	# crc32:14640593  nread=8540363  t=1.480s	# POLL·6 C1·12821 C1E·4268 C3·3956 C6·2609
+Benchmarkzeo/py/fs1-zhash.py 2127 677.1 µs/object	# crc32:14640593  nread=8540363  t=1.441s	# POLL·1 C1·14591 C1E·4701 C3·2613 C6·2322
+Benchmarkzeo/py/fs1-zhash.py 2127 663.1 µs/object	# crc32:14640593  nread=8540363  t=1.411s	# POLL·1 C1·15324 C1E·4854 C3·3454 C6·1470
+Benchmarkzeo/py/fs1-zhash.py 2127 665.1 µs/object	# crc32:14640593  nread=8540363  t=1.415s	# POLL·2 C1·14795 C1E·5377 C3·2295 C6·2204
+
+Benchmarkzeo/py/fs1-zhash.go 2127 276.0 µs/object	# crc32:14640593  nread=8540363  t=587.376445ms	# POLL·1 C1·159 C1E·4991 C3·4443 C6·2953
+Benchmarkzeo/py/fs1-zhash.go 2127 253.2 µs/object	# crc32:14640593  nread=8540363  t=538.761023ms	# POLL·3 C1·282 C1E·5187 C3·5156 C6·1820
+Benchmarkzeo/py/fs1-zhash.go 2127 287.6 µs/object	# crc32:14640593  nread=8540363  t=612.104045ms	# POLL·3 C1·147 C1E·3980 C3·6808 C6·1436
+Benchmarkzeo/py/fs1-zhash.go 2127 266.6 µs/object	# crc32:14640593  nread=8540363  t=567.388224ms	# POLL·4 C1·214 C1E·5311 C3·4241 C6·2684
+Benchmarkzeo/py/fs1-zhash.go 2127 251.7 µs/object	# crc32:14640593  nread=8540363  t=535.566575ms	# POLL·5 C1·122 C1E·5166 C3·4667 C6·2298
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 101.6 µs/object	# crc32:14640593  nread=8540363  t=216.195928ms	# POLL·10 C1·1824 C1E·6337 C3·835 C6·2487
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 100.6 µs/object	# crc32:14640593  nread=8540363  t=213.998491ms	# POLL·15 C1·1871 C1E·6533 C3·1302 C6·2038
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 101.0 µs/object	# crc32:14640593  nread=8540363  t=215.012092ms	# POLL·12 C1·1810 C1E·6759 C3·692 C6·2507
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 103.1 µs/object	# crc32:14640593  nread=8540363  t=219.349821ms	# POLL·16 C1·1487 C1E·6892 C3·615 C6·2803
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 103.2 µs/object	# crc32:14640593  nread=8540363  t=219.593098ms	# POLL·5 C1·1649 C1E·6649 C3·512 C6·2854
+
+# 1 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·1 5000	4198.0 req/s  238.209 latency-µs/object	# POLL·10 C1·2287 C1E·16002 C3·16999 C6·4920
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4619.0 req/s  216.496 latency-µs/object	# POLL·17 C1·5655 C1E·27491 C3·24826 C6·8819
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4449.1 req/s  224.766 latency-µs/object	# POLL·15 C1·5768 C1E·27284 C3·23466 C6·10589
+Benchmarkzeo/py/fs1-zwrk.go·1 5000	4555.9 req/s  219.495 latency-µs/object	# POLL·9 C1·3349 C1E·15264 C3·16610 C6·4918
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4395.8 req/s  227.487 latency-µs/object	# POLL·18 C1·4632 C1E·28454 C3·23609 C6·10659
+
+# 2 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	6313.6 req/s  316.776 latency-µs/object	# POLL·23 C1·1583 C1E·27788 C3·22833 C6·3888
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	6317.0 req/s  316.607 latency-µs/object	# POLL·16 C1·1526 C1E·27583 C3·21982 C6·4986
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	6322.9 req/s  316.311 latency-µs/object	# POLL·22 C1·1267 C1E·28570 C3·21717 C6·4461
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	6309.6 req/s  316.979 latency-µs/object	# POLL·15 C1·1601 C1E·28788 C3·20639 C6·5064
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	6312.7 req/s  316.823 latency-µs/object	# POLL·18 C1·1525 C1E·27533 C3·22069 C6·5186
+
+# 3 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	6912.5 req/s  433.997 latency-µs/object	# POLL·18 C1·2006 C1E·34379 C3·15186 C6·4540
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	6894.2 req/s  435.147 latency-µs/object	# POLL·24 C1·2189 C1E·33975 C3·15821 C6·4096
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	6878.5 req/s  436.144 latency-µs/object	# POLL·15 C1·1722 C1E·32240 C3·17228 C6·4673
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	6878.5 req/s  436.139 latency-µs/object	# POLL·33 C1·1864 C1E·32739 C3·16391 C6·5096
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	6882.3 req/s  435.902 latency-µs/object	# POLL·24 C1·1675 C1E·32853 C3·17164 C6·4403
+
+# 4 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7122.6 req/s  561.591 latency-µs/object	# POLL·20 C1·1717 C1E·33527 C3·16589 C6·4132
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7111.3 req/s  562.486 latency-µs/object	# POLL·24 C1·2118 C1E·33673 C3·17047 C6·3189
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7114.3 req/s  562.250 latency-µs/object	# POLL·16 C1·1630 C1E·34172 C3·16004 C6·4001
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7253.7 req/s  551.446 latency-µs/object	# POLL·28 C1·1766 C1E·34710 C3·16082 C6·3294
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7153.7 req/s  559.153 latency-µs/object	# POLL·26 C1·1955 C1E·34069 C3·15432 C6·4366
+
+# 8 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7578.9 req/s  1055.555 latency-µs/object	# POLL·21 C1·1857 C1E·37079 C3·14113 C6·2817
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7434.1 req/s  1076.126 latency-µs/object	# POLL·27 C1·2303 C1E·37388 C3·12115 C6·4449
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7455.9 req/s  1072.973 latency-µs/object	# POLL·27 C1·1966 C1E·35998 C3·15073 C6·2989
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7409.9 req/s  1079.631 latency-µs/object	# POLL·27 C1·2024 C1E·36420 C3·13578 C6·4073
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7429.4 req/s  1076.799 latency-µs/object	# POLL·23 C1·2173 C1E·35914 C3·14882 C6·3010
+
+# 12 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7536.1 req/s  1592.345 latency-µs/object	# POLL·26 C1·2047 C1E·38820 C3·11047 C6·4459
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7522.4 req/s  1595.235 latency-µs/object	# POLL·27 C1·2126 C1E·37442 C3·13429 C6·3076
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7533.6 req/s  1592.859 latency-µs/object	# POLL·27 C1·1855 C1E·37782 C3·12201 C6·4378
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7654.3 req/s  1567.749 latency-µs/object	# POLL·26 C1·2025 C1E·39634 C3·11512 C6·3046
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7504.2 req/s  1599.097 latency-µs/object	# POLL·18 C1·1834 C1E·39521 C3·10833 C6·4123
+
+# 16 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·16 10000	7448.7 req/s  2148.028 latency-µs/object	# POLL·23 C1·2180 C1E·37160 C3·13807 C6·3047
+Benchmarkzeo/py/fs1-zwrk.go·16 10000	7598.8 req/s  2105.587 latency-µs/object	# POLL·20 C1·2222 C1E·39789 C3·10405 C6·4181
+Benchmarkzeo/py/fs1-zwrk.go·16 10000	7540.8 req/s  2121.797 latency-µs/object	# POLL·32 C1·1973 C1E·38049 C3·13331 C6·2876
+Benchmarkzeo/py/fs1-zwrk.go·16 10000	7604.8 req/s  2103.938 latency-µs/object	# POLL·26 C1·1937 C1E·39690 C3·10518 C6·4294
+Benchmarkzeo/py/fs1-zwrk.go·16 10000	7550.8 req/s  2118.979 latency-µs/object	# POLL·22 C1·1947 C1E·38315 C3·12820 C6·3078
+
+*** NEO/py sqlite (logging disabled)
+Benchmarkneo/py(!log)/sqlite-zhash.py 2127 685.0 µs/object	# crc32:14640593  nread=8540363  t=1.458s	# POLL·2 C1·195 C1E·13 C3·8467 C6·907
+Benchmarkneo/py(!log)/sqlite-zhash.py 2127 683.2 µs/object	# crc32:14640593  nread=8540363  t=1.454s	# POLL·0 C1·181 C1E·8 C3·7866 C6·1233
+Benchmarkneo/py(!log)/sqlite-zhash.py 2127 692.8 µs/object	# crc32:14640593  nread=8540363  t=1.474s	# POLL·1 C1·170 C1E·4 C3·7610 C6·1485
+Benchmarkneo/py(!log)/sqlite-zhash.py 2127 680.3 µs/object	# crc32:14640593  nread=8540363  t=1.448s	# POLL·3 C1·180 C1E·9 C3·8066 C6·1140
+Benchmarkneo/py(!log)/sqlite-zhash.py 2127 716.9 µs/object	# crc32:14640593  nread=8540363  t=1.526s	# POLL·4 C1·199 C1E·9 C3·7167 C6·2037
+
+Benchmarkneo/py(!log)/sqlite-zhash.go 2127 261.6 µs/object	# crc32:14640593  nread=8540363  t=556.630687ms	# POLL·2 C1·110 C1E·7179 C3·3638 C6·2002
+Benchmarkneo/py(!log)/sqlite-zhash.go 2127 311.6 µs/object	# crc32:14640593  nread=8540363  t=663.135113ms	# POLL·0 C1·108 C1E·5000 C3·7855 C6·645
+Benchmarkneo/py(!log)/sqlite-zhash.go 2127 353.9 µs/object	# crc32:14640593  nread=8540363  t=753.024069ms	# POLL·1 C1·106 C1E·4215 C3·5969 C6·3811
+Benchmarkneo/py(!log)/sqlite-zhash.go 2127 304.4 µs/object	# crc32:14640593  nread=8540363  t=647.814505ms	# POLL·1 C1·117 C1E·8794 C3·3253 C6·3902
+Benchmarkneo/py(!log)/sqlite-zhash.go 2127 311.3 µs/object	# crc32:14640593  nread=8540363  t=662.384565ms	# POLL·3 C1·149 C1E·5767 C3·5893 C6·2266
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 2127 174.2 µs/object	# crc32:14640593  nread=8540363  t=370.605732ms	# POLL·9 C1·798 C1E·8184 C3·2063 C6·1519
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 2127 176.7 µs/object	# crc32:14640593  nread=8540363  t=376.036773ms	# POLL·8 C1·760 C1E·7598 C3·2470 C6·1486
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 2127 175.4 µs/object	# crc32:14640593  nread=8540363  t=373.304744ms	# POLL·7 C1·819 C1E·9041 C3·1595 C6·1535
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 2127 174.9 µs/object	# crc32:14640593  nread=8540363  t=372.277245ms	# POLL·3 C1·833 C1E·8532 C3·2583 C6·873
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 2127 176.8 µs/object	# crc32:14640593  nread=8540363  t=376.21276ms	# POLL·5 C1·744 C1E·8400 C3·2634 C6·944
+
+# 1 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3308.1 req/s  302.286 latency-µs/object	# POLL·9 C1·189 C1E·23900 C3·12006 C6·10174
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3443.0 req/s  290.441 latency-µs/object	# POLL·9 C1·195 C1E·18051 C3·19786 C6·5125
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	4088.7 req/s  244.574 latency-µs/object	# POLL·7 C1·2197 C1E·18950 C3·19050 C6·4616
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	4081.3 req/s  245.022 latency-µs/object	# POLL·8 C1·2906 C1E·20847 C3·14493 C6·4100
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3795.9 req/s  263.443 latency-µs/object	# POLL·2 C1·706 C1E·25296 C3·9650 C6·8449
+
+# 2 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5619.9 req/s  355.876 latency-µs/object	# POLL·4 C1·206 C1E·43740 C3·15414 C6·4650
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5601.6 req/s  357.043 latency-µs/object	# POLL·8 C1·170 C1E·36815 C3·19455 C6·5903
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5580.1 req/s  358.413 latency-µs/object	# POLL·5 C1·199 C1E·44803 C3·16387 C6·4395
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5562.4 req/s  359.558 latency-µs/object	# POLL·13 C1·299 C1E·37917 C3·20332 C6·4372
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5570.5 req/s  359.035 latency-µs/object	# POLL·3 C1·168 C1E·48956 C3·10062 C6·5673
+
+# 3 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5575.0 req/s  538.115 latency-µs/object	# POLL·4 C1·128 C1E·47809 C3·13160 C6·3242
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5617.0 req/s  534.091 latency-µs/object	# POLL·9 C1·168 C1E·50760 C3·11315 C6·5550
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5577.4 req/s  537.884 latency-µs/object	# POLL·5 C1·217 C1E·39281 C3·14922 C6·10099
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5567.3 req/s  538.865 latency-µs/object	# POLL·2 C1·305 C1E·43182 C3·15852 C6·7149
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5573.8 req/s  538.233 latency-µs/object	# POLL·6 C1·182 C1E·47710 C3·11961 C6·4130
+
+# 4 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5533.9 req/s  722.813 latency-µs/object	# POLL·6 C1·163 C1E·40626 C3·15074 C6·6924
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5558.8 req/s  719.574 latency-µs/object	# POLL·12 C1·590 C1E·43850 C3·15967 C6·4227
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5596.1 req/s  714.780 latency-µs/object	# POLL·19 C1·213 C1E·37249 C3·22399 C6·4855
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5542.8 req/s  721.651 latency-µs/object	# POLL·4 C1·136 C1E·45982 C3·14040 C6·6104
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5492.7 req/s  728.234 latency-µs/object	# POLL·3 C1·499 C1E·46433 C3·14833 C6·4793
+
+# 8 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5627.6 req/s  1421.568 latency-µs/object	# POLL·8 C1·254 C1E·48787 C3·11056 C6·4818
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5658.3 req/s  1413.861 latency-µs/object	# POLL·6 C1·260 C1E·36715 C3·20017 C6·5406
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5649.9 req/s  1415.965 latency-µs/object	# POLL·6 C1·370 C1E·48638 C3·12228 C6·6886
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5650.9 req/s  1415.710 latency-µs/object	# POLL·3 C1·241 C1E·39574 C3·17474 C6·6328
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5671.0 req/s  1410.685 latency-µs/object	# POLL·4 C1·322 C1E·50409 C3·10977 C6·10028
+
+# 12 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5604.0 req/s  2141.321 latency-µs/object	# POLL·7 C1·228 C1E·49602 C3·11867 C6·5296
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5575.6 req/s  2152.247 latency-µs/object	# POLL·10 C1·393 C1E·37172 C3·19572 C6·7255
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5578.0 req/s  2151.322 latency-µs/object	# POLL·14 C1·1339 C1E·45437 C3·15630 C6·4532
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5585.5 req/s  2148.425 latency-µs/object	# POLL·14 C1·1801 C1E·45684 C3·13271 C6·3525
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5605.3 req/s  2140.840 latency-µs/object	# POLL·5 C1·218 C1E·44384 C3·16413 C6·5869
+
+# 16 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5594.5 req/s  2859.931 latency-µs/object	# POLL·13 C1·174 C1E·48661 C3·12094 C6·5979
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5560.0 req/s  2877.701 latency-µs/object	# POLL·6 C1·307 C1E·38947 C3·19458 C6·7034
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5598.7 req/s  2857.809 latency-µs/object	# POLL·17 C1·272 C1E·29915 C3·25181 C6·3210
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5536.6 req/s  2889.838 latency-µs/object	# POLL·4 C1·410 C1E·37977 C3·20259 C6·5152
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5588.3 req/s  2863.106 latency-µs/object	# POLL·5 C1·162 C1E·35814 C3·23178 C6·5783
+2018-03-08 14:01:33.0103 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql (logging disabled)
+2018-03-08 14:01:33 140467970112896 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 12646 ...
+Benchmarkneo/py(!log)/sql-zhash.py 2127 1297.1 µs/object	# crc32:14640593  nread=8540363  t=2.760s	# POLL·4 C1·115 C1E·45 C3·12938 C6·7531
+Benchmarkneo/py(!log)/sql-zhash.py 2127 798.3 µs/object	# crc32:14640593  nread=8540363  t=1.699s	# POLL·4 C1·216 C1E·2586 C3·11867 C6·3491
+Benchmarkneo/py(!log)/sql-zhash.py 2127 915.7 µs/object	# crc32:14640593  nread=8540363  t=1.949s	# POLL·1 C1·194 C1E·1889 C3·12764 C6·3615
+Benchmarkneo/py(!log)/sql-zhash.py 2127 955.6 µs/object	# crc32:14640593  nread=8540363  t=2.034s	# POLL·1 C1·116 C1E·1100 C3·14539 C6·2475
+Benchmarkneo/py(!log)/sql-zhash.py 2127 991.5 µs/object	# crc32:14640593  nread=8540363  t=2.110s	# POLL·2 C1·93 C1E·1133 C3·11905 C6·5475
+
+Benchmarkneo/py(!log)/sql-zhash.go 2127 359.7 µs/object	# crc32:14640593  nread=8540363  t=765.501344ms	# POLL·4 C1·3603 C1E·8457 C3·3660 C6·7685
+Benchmarkneo/py(!log)/sql-zhash.go 2127 436.7 µs/object	# crc32:14640593  nread=8540363  t=929.21447ms	# POLL·1 C1·134 C1E·11495 C3·10625 C6·1268
+Benchmarkneo/py(!log)/sql-zhash.go 2127 386.5 µs/object	# crc32:14640593  nread=8540363  t=822.397769ms	# POLL·3 C1·1722 C1E·10103 C3·5913 C6·5820
+Benchmarkneo/py(!log)/sql-zhash.go 2127 360.5 µs/object	# crc32:14640593  nread=8540363  t=767.147466ms	# POLL·1 C1·2785 C1E·6789 C3·7282 C6·5527
+Benchmarkneo/py(!log)/sql-zhash.go 2127 340.5 µs/object	# crc32:14640593  nread=8540363  t=724.562825ms	# POLL·4 C1·3143 C1E·8322 C3·4952 C6·5749
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 2127 245.1 µs/object	# crc32:14640593  nread=8540363  t=521.613992ms	# POLL·9 C1·4868 C1E·8796 C3·3627 C6·4279
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 2127 301.2 µs/object	# crc32:14640593  nread=8540363  t=640.90424ms	# POLL·8 C1·1362 C1E·8895 C3·8831 C6·1917
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 2127 260.8 µs/object	# crc32:14640593  nread=8540363  t=554.974359ms	# POLL·4 C1·3443 C1E·6636 C3·8583 C6·2089
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 2127 242.1 µs/object	# crc32:14640593  nread=8540363  t=515.15184ms	# POLL·3 C1·4793 C1E·8129 C3·4491 C6·3734
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 2127 291.0 µs/object	# crc32:14640593  nread=8540363  t=619.250791ms	# POLL·9 C1·1841 C1E·8807 C3·6960 C6·3617
+
+# 1 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2634.9 req/s  379.515 latency-µs/object	# POLL·4 C1·1044 C1E·31242 C3·33553 C6·5956
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2743.2 req/s  364.533 latency-µs/object	# POLL·8 C1·7875 C1E·34654 C3·22451 C6·6242
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2482.8 req/s  402.765 latency-µs/object	# POLL·3 C1·9376 C1E·45792 C3·26492 C6·17909
+Benchmarkneo/py(!log)/sql-zwrk.go·1 3000	2504.3 req/s  399.313 latency-µs/object	# POLL·6 C1·926 C1E·23827 C3·22848 C6·2799
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2679.5 req/s  373.204 latency-µs/object	# POLL·7 C1·4609 C1E·37029 C3·29989 C6·7118
+
+# 2 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	4127.6 req/s  484.546 latency-µs/object	# POLL·10 C1·15265 C1E·17366 C3·18963 C6·15732
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3768.3 req/s  530.742 latency-µs/object	# POLL·6 C1·7123 C1E·25070 C3·28057 C6·8864
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	4089.1 req/s  489.106 latency-µs/object	# POLL·4 C1·11105 C1E·20761 C3·23088 C6·12908
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3928.9 req/s  509.050 latency-µs/object	# POLL·5 C1·7943 C1E·23111 C3·24725 C6·11989
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3461.9 req/s  577.725 latency-µs/object	# POLL·3 C1·7603 C1E·25236 C3·28159 C6·4553
+
+# 3 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3340.1 req/s  898.189 latency-µs/object	# POLL·8 C1·5342 C1E·25134 C3·29957 C6·8238
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3841.4 req/s  780.970 latency-µs/object	# POLL·5 C1·7029 C1E·23316 C3·28309 C6·6651
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	4092.1 req/s  733.113 latency-µs/object	# POLL·4 C1·9620 C1E·29557 C3·12193 C6·17574
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3543.8 req/s  846.543 latency-µs/object	# POLL·4 C1·5710 C1E·27489 C3·25350 C6·10461
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	4188.6 req/s  716.236 latency-µs/object	# POLL·2 C1·11101 C1E·21945 C3·21329 C6·13680
+
+# 4 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·4 10000	3718.0 req/s  1075.860 latency-µs/object	# POLL·11 C1·14616 C1E·39120 C3·39953 C6·16812
+Benchmarkneo/py(!log)/sql-zwrk.go·4 10000	3763.3 req/s  1062.900 latency-µs/object	# POLL·13 C1·16206 C1E·34428 C3·40668 C6·18497
+Benchmarkneo/py(!log)/sql-zwrk.go·4 10000	3772.5 req/s  1060.299 latency-µs/object	# POLL·14 C1·13745 C1E·37299 C3·44020 C6·17960
+Benchmarkneo/py(!log)/sql-zwrk.go·4 5000	3955.5 req/s  1011.238 latency-µs/object	# POLL·2 C1·8571 C1E·21779 C3·25581 C6·10729
+Benchmarkneo/py(!log)/sql-zwrk.go·4 5000	4056.5 req/s  986.069 latency-µs/object	# POLL·8 C1·11800 C1E·26878 C3·16584 C6·13073
+
+# 8 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	3700.3 req/s  2162.015 latency-µs/object	# POLL·7 C1·6755 C1E·22289 C3·31276 C6·9415
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	3440.5 req/s  2325.222 latency-µs/object	# POLL·5 C1·2452 C1E·30195 C3·23560 C6·9904
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	3356.6 req/s  2383.392 latency-µs/object	# POLL·8 C1·2042 C1E·31788 C3·25022 C6·10238
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	4093.2 req/s  1954.474 latency-µs/object	# POLL·7 C1·10740 C1E·24186 C3·23400 C6·7108
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	3617.6 req/s  2211.383 latency-µs/object	# POLL·10 C1·5186 C1E·33145 C3·24947 C6·7566
+
+# 12 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	3673.3 req/s  3266.822 latency-µs/object	# POLL·9 C1·6318 C1E·23541 C3·30301 C6·4396
+Benchmarkneo/py(!log)/sql-zwrk.go·12 10000	3837.1 req/s  3127.332 latency-µs/object	# POLL·10 C1·13809 C1E·48991 C3·40040 C6·9962
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	3588.3 req/s  3344.236 latency-µs/object	# POLL·10 C1·9442 C1E·19267 C3·32021 C6·4958
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	3462.7 req/s  3465.458 latency-µs/object	# POLL·8 C1·2977 C1E·27212 C3·29158 C6·7462
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	3561.9 req/s  3369.028 latency-µs/object	# POLL·5 C1·3807 C1E·29753 C3·28299 C6·9489
+
+# 16 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	4067.9 req/s  3933.225 latency-µs/object	# POLL·8 C1·11621 C1E·31362 C3·23346 C6·6350
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	4156.8 req/s  3849.146 latency-µs/object	# POLL·9 C1·13253 C1E·22246 C3·25452 C6·10058
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	4091.0 req/s  3910.997 latency-µs/object	# POLL·12 C1·9697 C1E·22944 C3·23082 C6·10227
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	3403.4 req/s  4701.143 latency-µs/object	# POLL·11 C1·3712 C1E·22726 C3·29611 C6·11525
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	3889.0 req/s  4114.153 latency-µs/object	# POLL·5 C1·6966 C1E·25871 C3·32139 C6·5746
+2018-03-08 14:03:32.9042 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1
+unexpected packet: Retry Later in PrimaryBootstrapHandler
+Connection to None lost
+Benchmarkneo/go/fs1-zhash.py 2127 511.3 µs/object	# crc32:14640593  nread=8540363  t=1.088s
+# POLL·7 C1·385 C1E·5599 C3·8210 C6·4141
+Benchmarkneo/go/fs1-zhash.py 2127 496.0 µs/object	# crc32:14640593  nread=8540363  t=1.055s	# POLL·1 C1·125 C1E·4704 C3·7730 C6·5088
+Benchmarkneo/go/fs1-zhash.py 2127 456.2 µs/object	# crc32:14640593  nread=8540363  t=0.971s	# POLL·4 C1·707 C1E·4353 C3·11831 C6·1476
+Benchmarkneo/go/fs1-zhash.py 2127 558.2 µs/object	# crc32:14640593  nread=8540363  t=1.188s	# POLL·1 C1·98 C1E·3042 C3·11213 C6·3841
+Benchmarkneo/go/fs1-zhash.py 2127 386.2 µs/object	# crc32:14640593  nread=8540363  t=0.822s	# POLL·3 C1·14339 C1E·4761 C3·3600 C6·7255
+
+Benchmarkneo/go/fs1-zhash.go 2127 101.5 µs/object	# crc32:14640593  nread=8540363  t=215.984141ms	# POLL·8 C1·1907 C1E·16867 C3·655 C6·917
+Benchmarkneo/go/fs1-zhash.go 2127 111.2 µs/object	# crc32:14640593  nread=8540363  t=236.700972ms	# POLL·7 C1·1291 C1E·17381 C3·1476 C6·471
+Benchmarkneo/go/fs1-zhash.go 2127 101.9 µs/object	# crc32:14640593  nread=8540363  t=216.882469ms	# POLL·3 C1·2004 C1E·17330 C3·463 C6·410
+Benchmarkneo/go/fs1-zhash.go 2127 97.8 µs/object	# crc32:14640593  nread=8540363  t=208.035363ms	# POLL·12 C1·1471 C1E·17272 C3·887 C6·526
+Benchmarkneo/go/fs1-zhash.go 2127 96.3 µs/object	# crc32:14640593  nread=8540363  t=204.883111ms	# POLL·6 C1·2776 C1E·16433 C3·500 C6·581
+Benchmarkneo/go/fs1-zhash.go+prefetch128 2127 37.7 µs/object	# crc32:14640593  nread=8540363  t=80.229526ms	# POLL·25 C1·4150 C1E·5290 C3·455 C6·583
+Benchmarkneo/go/fs1-zhash.go+prefetch128 2127 37.6 µs/object	# crc32:14640593  nread=8540363  t=79.991269ms	# POLL·33 C1·3981 C1E·5219 C3·512 C6·594
+Benchmarkneo/go/fs1-zhash.go+prefetch128 2127 36.4 µs/object	# crc32:14640593  nread=8540363  t=77.417072ms	# POLL·21 C1·4031 C1E·4971 C3·503 C6·622
+Benchmarkneo/go/fs1-zhash.go+prefetch128 2127 37.6 µs/object	# crc32:14640593  nread=8540363  t=79.93018ms	# POLL·18 C1·4389 C1E·4904 C3·457 C6·557
+Benchmarkneo/go/fs1-zhash.go+prefetch128 2127 36.6 µs/object	# crc32:14640593  nread=8540363  t=77.95041ms	# POLL·37 C1·4261 C1E·5019 C3·422 C6·531
+
+# 1 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·1 20000	10326.5 req/s  96.838 latency-µs/object	# POLL·33 C1·35581 C1E·237330 C3·5571 C6·9753
+Benchmarkneo/go/fs1-zwrk.go·1 20000	10517.1 req/s  95.083 latency-µs/object	# POLL·21 C1·34510 C1E·235484 C3·3774 C6·15267
+Benchmarkneo/go/fs1-zwrk.go·1 20000	11152.6 req/s  89.665 latency-µs/object	# POLL·21 C1·32445 C1E·221081 C3·3152 C6·15620
+Benchmarkneo/go/fs1-zwrk.go·1 20000	10443.1 req/s  95.757 latency-µs/object	# POLL·25 C1·27729 C1E·229509 C3·10098 C6·8043
+Benchmarkneo/go/fs1-zwrk.go·1 20000	10801.8 req/s  92.577 latency-µs/object	# POLL·26 C1·31483 C1E·226085 C3·9915 C6·7826
+
+# 2 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·2 30000	22483.5 req/s  88.954 latency-µs/object	# POLL·33 C1·21317 C1E·124649 C3·2489 C6·5642
+Benchmarkneo/go/fs1-zwrk.go·2 30000	22420.0 req/s  89.206 latency-µs/object	# POLL·48 C1·21100 C1E·124890 C3·3536 C6·4186
+Benchmarkneo/go/fs1-zwrk.go·2 30000	22163.4 req/s  90.239 latency-µs/object	# POLL·33 C1·20846 C1E·129142 C3·2340 C6·6055
+Benchmarkneo/go/fs1-zwrk.go·2 30000	22684.8 req/s  88.165 latency-µs/object	# POLL·43 C1·21730 C1E·131102 C3·3657 C6·3923
+Benchmarkneo/go/fs1-zwrk.go·2 30000	22457.6 req/s  89.057 latency-µs/object	# POLL·47 C1·21030 C1E·131542 C3·2728 C6·6115
+
+# 3 clients in parallel
+E0308 14:04:13.313725   15756 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:44288: 192.168.0.16:5554 - 192.168.0.16:44288: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·3 50000	32215.5 req/s  93.123 latency-µs/object	# POLL·77 C1·21224 C1E·157927 C3·3267 C6·3682
+Benchmarkneo/go/fs1-zwrk.go·3 50000	31803.9 req/s  94.328 latency-µs/object	# POLL·92 C1·21012 C1E·157377 C3·2460 C6·4361
+Benchmarkneo/go/fs1-zwrk.go·3 50000	31838.9 req/s  94.224 latency-µs/object	# POLL·75 C1·20246 C1E·158278 C3·3718 C6·3466
+Benchmarkneo/go/fs1-zwrk.go·3 50000	31812.9 req/s  94.301 latency-µs/object	# POLL·74 C1·20274 C1E·158971 C3·2524 C6·4282
+Benchmarkneo/go/fs1-zwrk.go·3 50000	31900.4 req/s  94.043 latency-µs/object	# POLL·83 C1·20523 C1E·159745 C3·3090 C6·3848
+
+# 4 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·4 100000	43221.7 req/s  92.546 latency-µs/object	# POLL·231 C1·21305 C1E·260974 C3·3611 C6·4424
+Benchmarkneo/go/fs1-zwrk.go·4 100000	43151.2 req/s  92.697 latency-µs/object	# POLL·213 C1·20870 C1E·262576 C3·2928 C6·5459
+Benchmarkneo/go/fs1-zwrk.go·4 100000	43271.0 req/s  92.441 latency-µs/object	# POLL·249 C1·21527 C1E·261599 C3·3639 C6·4003
+Benchmarkneo/go/fs1-zwrk.go·4 100000	43180.7 req/s  92.634 latency-µs/object	# POLL·219 C1·21446 C1E·262155 C3·4017 C6·4447
+Benchmarkneo/go/fs1-zwrk.go·4 100000	42998.9 req/s  93.026 latency-µs/object	# POLL·249 C1·21148 C1E·263457 C3·4980 C6·4034
+
+# 8 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·8 100000	78129.8 req/s  102.394 latency-µs/object	# POLL·6609 C1·78964 C1E·224731 C3·961 C6·1099
+Benchmarkneo/go/fs1-zwrk.go·8 100000	78264.0 req/s  102.218 latency-µs/object	# POLL·6837 C1·77907 C1E·223552 C3·956 C6·1459
+Benchmarkneo/go/fs1-zwrk.go·8 100000	78027.5 req/s  102.528 latency-µs/object	# POLL·6866 C1·75763 C1E·228106 C3·867 C6·1832
+E0308 14:04:44.931444   15756 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:44592: 192.168.0.16:5554 - 192.168.0.16:44592: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·8 100000	78214.0 req/s  102.283 latency-µs/object	# POLL·6957 C1·78586 C1E·225223 C3·1327 C6·1420
+Benchmarkneo/go/fs1-zwrk.go·8 100000	78176.2 req/s  102.333 latency-µs/object	# POLL·6817 C1·77269 C1E·227417 C3·1310 C6·1172
+
+# 12 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·12 200000	92094.9 req/s  130.300 latency-µs/object	# POLL·18147 C1·213545 C1E·145869 C3·1254 C6·1165
+Benchmarkneo/go/fs1-zwrk.go·12 200000	92484.7 req/s  129.751 latency-µs/object	# POLL·18581 C1·213749 C1E·144054 C3·677 C6·2098
+Benchmarkneo/go/fs1-zwrk.go·12 200000	92265.6 req/s  130.059 latency-µs/object	# POLL·18178 C1·213809 C1E·147093 C3·1128 C6·1366
+E0308 14:05:01.109453   15756 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:44828: 192.168.0.16:5554 - 192.168.0.16:44828: accept: node link is not listening for incoming connections
+E0308 14:05:01.109733   15756 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:44844: 192.168.0.16:5554 - 192.168.0.16:44844: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·12 200000	92339.7 req/s  129.955 latency-µs/object	# POLL·18782 C1·215582 C1E·143003 C3·710 C6·1620
+Benchmarkneo/go/fs1-zwrk.go·12 200000	92381.6 req/s  129.896 latency-µs/object	# POLL·18676 C1·216073 C1E·143576 C3·749 C6·1195
+
+# 16 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·16 200000	101758.4 req/s  157.235 latency-µs/object	# POLL·14934 C1·170997 C1E·93190 C3·1932 C6·1428
+Benchmarkneo/go/fs1-zwrk.go·16 200000	102591.0 req/s  155.959 latency-µs/object	# POLL·15069 C1·171225 C1E·92909 C3·1403 C6·939
+Benchmarkneo/go/fs1-zwrk.go·16 200000	102027.3 req/s  156.821 latency-µs/object	# POLL·15023 C1·169214 C1E·94430 C3·1131 C6·1040
+Benchmarkneo/go/fs1-zwrk.go·16 200000	102280.7 req/s  156.432 latency-µs/object	# POLL·15177 C1·170315 C1E·91072 C3·1566 C6·1677
+Benchmarkneo/go/fs1-zwrk.go·16 200000	102759.0 req/s  155.704 latency-µs/object	# POLL·14759 C1·167501 C1E·93419 C3·1035 C6·1414
+2018/03/08 14:05:21 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:05:21.7135 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1 (sha1 disabled on: storage, client)
+# NEO/go (Sgo): skipping SHA1 computations
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 2127 81.8 µs/object	# crc32:14640593  nread=8540363  t=174.021453ms
+# POLL·4 C1·3658 C1E·14215 C3·92 C6·1767
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 2127 70.9 µs/object	# crc32:14640593  nread=8540363  t=150.841139ms
+# POLL·12 C1·4393 C1E·12362 C3·201 C6·632
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 2127 72.3 µs/object	# crc32:14640593  nread=8540363  t=153.756422ms
+# POLL·7 C1·4529 C1E·12362 C3·231 C6·448
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 2127 69.6 µs/object	# crc32:14640593  nread=8540363  t=148.033449ms
+# POLL·6 C1·4921 C1E·11820 C3·291 C6·348
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 2127 70.7 µs/object	# crc32:14640593  nread=8540363  t=150.431175ms
+# POLL·12 C1·4198 C1E·11365 C3·204 C6·427
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 2127 26.6 µs/object	# crc32:14640593  nread=8540363  t=56.708518ms
+# POLL·37 C1·5793 C1E·2776 C3·589 C6·400
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 2127 28.7 µs/object	# crc32:14640593  nread=8540363  t=61.120627ms
+# POLL·49 C1·6069 C1E·2743 C3·729 C6·466
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 2127 27.3 µs/object	# crc32:14640593  nread=8540363  t=58.043766ms
+# POLL·45 C1·5827 C1E·2743 C3·892 C6·352
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 2127 25.7 µs/object	# crc32:14640593  nread=8540363  t=54.752757ms
+# POLL·41 C1·5706 C1E·2668 C3·634 C6·312
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 2127 26.3 µs/object	# crc32:14640593  nread=8540363  t=56.008557ms
+# POLL·44 C1·5643 C1E·2633 C3·672 C6·391
+
+# 1 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	15015.6 req/s  66.598 latency-µs/object
+# POLL·39 C1·72034 C1E·173938 C3·2710 C6·4632
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	15583.8 req/s  64.169 latency-µs/object
+# POLL·60 C1·79158 C1E·168220 C3·4086 C6·3410
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	15056.1 req/s  66.418 latency-µs/object
+# POLL·27 C1·74461 C1E·173259 C3·2675 C6·5168
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	14601.3 req/s  68.487 latency-µs/object
+# POLL·39 C1·73604 C1E·171960 C3·3766 C6·3352
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	14959.3 req/s  66.848 latency-µs/object
+# POLL·41 C1·74050 C1E·176291 C3·2191 C6·4914
+
+# 2 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	31680.3 req/s  63.131 latency-µs/object
+# POLL·68 C1·105141 C1E·93427 C3·6180 C6·6719
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	31438.5 req/s  63.616 latency-µs/object
+# POLL·104 C1·102778 C1E·96702 C3·4645 C6·8624
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	31440.4 req/s  63.612 latency-µs/object
+# POLL·75 C1·104107 C1E·93857 C3·6076 C6·6602
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	31395.6 req/s  63.703 latency-µs/object
+# POLL·88 C1·102500 C1E·98627 C3·6068 C6·7562
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	31220.0 req/s  64.062 latency-µs/object
+# POLL·100 C1·102074 C1E·96797 C3·5825 C6·7727
+
+# 3 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	44018.1 req/s  68.154 latency-µs/object
+# POLL·237 C1·127222 C1E·159109 C3·9473 C6·7532
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	43812.7 req/s  68.473 latency-µs/object
+# POLL·235 C1·126890 C1E·163636 C3·8523 C6·8549
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	43801.1 req/s  68.491 latency-µs/object
+# POLL·239 C1·125741 C1E·164252 C3·8957 C6·8169
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	43836.1 req/s  68.437 latency-µs/object
+# POLL·237 C1·129848 C1E·161576 C3·9676 C6·7149
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	43928.1 req/s  68.293 latency-µs/object
+# POLL·229 C1·127034 C1E·161363 C3·8720 C6·8116
+
+# 4 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	57461.7 req/s  69.612 latency-µs/object
+# POLL·334 C1·89949 C1E·164842 C3·7979 C6·6899
+E0308 14:06:04.134339   19234 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:45522: 192.168.0.16:5554 - 192.168.0.16:45522: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	57461.7 req/s  69.612 latency-µs/object
+# POLL·350 C1·90497 C1E·164094 C3·10708 C6·4970
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	57601.7 req/s  69.442 latency-µs/object
+# POLL·342 C1·90385 C1E·163786 C3·7953 C6·6968
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	57661.7 req/s  69.370 latency-µs/object
+# POLL·358 C1·91964 C1E·164122 C3·9916 C6·5643
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	57856.6 req/s  69.137 latency-µs/object
+# POLL·327 C1·89921 C1E·164893 C3·8348 C6·7220
+
+# 8 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	99891.0 req/s  80.087 latency-µs/object
+# POLL·7469 C1·200359 C1E·255824 C3·4990 C6·2991
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	100140.5 req/s  79.888 latency-µs/object
+# POLL·7537 C1·202451 C1E·255621 C3·6575 C6·2319
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	100486.2 req/s  79.613 latency-µs/object
+# POLL·7362 C1·201435 C1E·253773 C3·4646 C6·2619
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	100209.0 req/s  79.833 latency-µs/object
+# POLL·7746 C1·203522 C1E·253166 C3·4106 C6·3385
+E0308 14:06:26.260234   19234 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:45758: 192.168.0.16:5554 - 192.168.0.16:45758: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	100558.6 req/s  79.556 latency-µs/object
+# POLL·7577 C1·206062 C1E·250758 C3·4070 C6·3238
+
+# 12 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	115711.4 req/s  103.706 latency-µs/object
+# POLL·15269 C1·244446 C1E·98797 C3·1381 C6·1833
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	116490.7 req/s  103.013 latency-µs/object
+# POLL·15480 C1·245353 C1E·97278 C3·1328 C6·1529
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	116603.5 req/s  102.913 latency-µs/object
+# POLL·15228 C1·245390 C1E·96663 C3·945 C6·1749
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	116084.3 req/s  103.373 latency-µs/object
+# POLL·15197 C1·244374 C1E·97966 C3·1538 C6·1637
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	116212.5 req/s  103.259 latency-µs/object
+# POLL·15057 C1·243044 C1E·97890 C3·1251 C6·1631
+
+# 16 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	126094.2 req/s  126.889 latency-µs/object
+# POLL·13270 C1·189861 C1E·65562 C3·1106 C6·1553
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	126128.4 req/s  126.855 latency-µs/object
+# POLL·13201 C1·189111 C1E·64087 C3·1126 C6·1467
+E0308 14:06:50.741127   19234 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:46214: 192.168.0.16:5554 - 192.168.0.16:46214: accept: node link is not listening for incoming connections
+E0308 14:06:50.741128   19234 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:46214: 192.168.0.16:5554 - 192.168.0.16:46214: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	126696.0 req/s  126.287 latency-µs/object
+# POLL·13732 C1·190373 C1E·61730 C3·1027 C6·1511
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	126594.2 req/s  126.388 latency-µs/object
+# POLL·13748 C1·191181 C1E·61479 C3·1007 C6·1600
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	126242.8 req/s  126.740 latency-µs/object
+# POLL·13427 C1·192255 C1E·62735 C3·1266 C6·1690
+2018/03/08 14:06:57 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:06:57.1123 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite
+Connection to None lost
+Benchmarkneo/go/sqlite-zhash.py 2127 471.2 µs/object	# crc32:14640593  nread=8540363  t=1.003s
+# POLL·4 C1·2421 C1E·9071 C3·7492 C6·5644
+Benchmarkneo/go/sqlite-zhash.py 2127 509.3 µs/object	# crc32:14640593  nread=8540363  t=1.084s	# POLL·4 C1·266 C1E·8626 C3·9539 C6·3352
+Benchmarkneo/go/sqlite-zhash.py 2127 534.7 µs/object	# crc32:14640593  nread=8540363  t=1.138s	# POLL·8 C1·1110 C1E·7155 C3·9286 C6·4275
+Benchmarkneo/go/sqlite-zhash.py 2127 576.3 µs/object	# crc32:14640593  nread=8540363  t=1.226s	# POLL·1 C1·207 C1E·7282 C3·10797 C6·2400
+Benchmarkneo/go/sqlite-zhash.py 2127 534.3 µs/object	# crc32:14640593  nread=8540363  t=1.137s	# POLL·4 C1·175 C1E·6688 C3·8626 C6·5316
+
+Benchmarkneo/go/sqlite-zhash.go 2127 176.1 µs/object	# crc32:14640593  nread=8540363  t=374.71737ms	# POLL·7 C1·294 C1E·17500 C3·3866 C6·1911
+Benchmarkneo/go/sqlite-zhash.go 2127 224.7 µs/object	# crc32:14640593  nread=8540363  t=478.128219ms	# POLL·10 C1·201 C1E·14832 C3·5525 C6·4078
+Benchmarkneo/go/sqlite-zhash.go 2127 195.1 µs/object	# crc32:14640593  nread=8540363  t=415.241696ms	# POLL·4 C1·239 C1E·16004 C3·4219 C6·3690
+Benchmarkneo/go/sqlite-zhash.go 2127 168.1 µs/object	# crc32:14640593  nread=8540363  t=357.745818ms	# POLL·1 C1·205 C1E·18100 C3·4015 C6·1176
+Benchmarkneo/go/sqlite-zhash.go 2127 202.2 µs/object	# crc32:14640593  nread=8540363  t=430.206325ms	# POLL·10 C1·233 C1E·15850 C3·6875 C6·1175
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 2127 39.2 µs/object	# crc32:14640593  nread=8540363  t=83.436928ms	# POLL·46 C1·4312 C1E·4867 C3·986 C6·429
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 2127 41.0 µs/object	# crc32:14640593  nread=8540363  t=87.331779ms	# POLL·44 C1·4040 C1E·5289 C3·1030 C6·372
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 2127 39.6 µs/object	# crc32:14640593  nread=8540363  t=84.327655ms	# POLL·43 C1·3832 C1E·4697 C3·919 C6·603
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 2127 38.2 µs/object	# crc32:14640593  nread=8540363  t=81.247436ms	# POLL·58 C1·3945 C1E·4651 C3·841 C6·635
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 2127 39.8 µs/object	# crc32:14640593  nread=8540363  t=84.610035ms	# POLL·47 C1·3797 C1E·4902 C3·795 C6·770
+
+# 1 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	4813.5 req/s  207.747 latency-µs/object	# POLL·15 C1·705 C1E·93385 C3·24651 C6·17515
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	4683.0 req/s  213.540 latency-µs/object	# POLL·13 C1·578 C1E·88087 C3·34521 C6·13513
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5352.4 req/s  186.832 latency-µs/object	# POLL·10 C1·809 C1E·96481 C3·26624 C6·9601
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5434.1 req/s  184.024 latency-µs/object	# POLL·13 C1·1289 C1E·93733 C3·22587 C6·14446
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5036.8 req/s  198.538 latency-µs/object	# POLL·14 C1·801 C1E·86753 C3·33440 C6·12425
+
+# 2 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	11689.6 req/s  171.092 latency-µs/object	# POLL·90 C1·9703 C1E·164360 C3·29426 C6·20808
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	11654.2 req/s  171.612 latency-µs/object	# POLL·93 C1·10051 C1E·154632 C3·29515 C6·24994
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	11961.2 req/s  167.207 latency-µs/object	# POLL·78 C1·10617 C1E·160037 C3·31026 C6·19546
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	12072.8 req/s  165.662 latency-µs/object	# POLL·102 C1·10518 C1E·162498 C3·29528 C6·17704
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	11967.8 req/s  167.115 latency-µs/object	# POLL·80 C1·10294 C1E·164183 C3·26190 C6·17704
+
+# 3 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	18954.0 req/s  158.278 latency-µs/object	# POLL·132 C1·25027 C1E·133252 C3·23028 C6·15966
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	19024.6 req/s  157.691 latency-µs/object	# POLL·135 C1·25077 C1E·140335 C3·20162 C6·14155
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	18925.6 req/s  158.516 latency-µs/object	# POLL·137 C1·24642 C1E·134240 C3·22386 C6·13519
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	18868.1 req/s  158.999 latency-µs/object	# POLL·129 C1·24415 C1E·134382 C3·22153 C6·17937
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	19138.6 req/s  156.751 latency-µs/object	# POLL·127 C1·24727 C1E·135043 C3·22870 C6·11398
+
+# 4 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·4 30000	24774.9 req/s  161.454 latency-µs/object	# POLL·115 C1·18775 C1E·117052 C3·18434 C6·10756
+Benchmarkneo/go/sqlite-zwrk.go·4 30000	24459.7 req/s  163.534 latency-µs/object	# POLL·119 C1·18689 C1E·111551 C3·22604 C6·12911
+E0308 14:07:56.121144   22528 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:46684: 192.168.0.16:5554 - 192.168.0.16:46684: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·4 30000	24528.8 req/s  163.073 latency-µs/object	# POLL·140 C1·19655 C1E·113456 C3·23877 C6·12272
+Benchmarkneo/go/sqlite-zwrk.go·4 30000	24720.0 req/s  161.813 latency-µs/object	# POLL·116 C1·19634 C1E·115889 C3·18179 C6·9459
+Benchmarkneo/go/sqlite-zwrk.go·4 50000	24724.4 req/s  161.783 latency-µs/object	# POLL·182 C1·29405 C1E·165222 C3·25923 C6·16027
+
+# 8 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44743.1 req/s  178.799 latency-µs/object	# POLL·772 C1·30206 C1E·252484 C3·27402 C6·10193
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44771.1 req/s  178.687 latency-µs/object	# POLL·790 C1·30206 C1E·252202 C3·24687 C6·12203
+E0308 14:08:11.204784   22528 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:46846: 192.168.0.16:5554 - 192.168.0.16:46846: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44724.9 req/s  178.871 latency-µs/object	# POLL·762 C1·31024 C1E·251050 C3·26973 C6·11418
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44708.6 req/s  178.936 latency-µs/object	# POLL·812 C1·30739 C1E·253043 C3·24969 C6·11693
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44804.0 req/s  178.556 latency-µs/object	# POLL·809 C1·30501 C1E·254684 C3·23333 C6·11865
+
+# 12 clients in parallel
+E0308 14:08:22.612797   22528 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:46976: 192.168.0.16:5554 - 192.168.0.16:46976: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	56277.5 req/s  213.229 latency-µs/object	# POLL·4297 C1·75108 C1E·195009 C3·15009 C6·5185
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	56236.4 req/s  213.385 latency-µs/object	# POLL·4145 C1·74041 C1E·192648 C3·15998 C6·8589
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	56287.5 req/s  213.191 latency-µs/object	# POLL·4234 C1·74803 C1E·195732 C3·12764 C6·5821
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	56287.4 req/s  213.192 latency-µs/object	# POLL·4252 C1·75049 C1E·193835 C3·13834 C6·5720
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	56251.0 req/s  213.329 latency-µs/object	# POLL·4302 C1·75420 C1E·194535 C3·14008 C6·5318
+
+# 16 clients in parallel
+E0308 14:08:40.179328   22528 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:47240: 192.168.0.16:5554 - 192.168.0.16:47240: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	58310.9 req/s  274.391 latency-µs/object	# POLL·5172 C1·89919 C1E·123065 C3·12017 C6·5891
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	58221.2 req/s  274.814 latency-µs/object	# POLL·5046 C1·88352 C1E·122706 C3·14040 C6·3621
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	58108.9 req/s  275.345 latency-µs/object	# POLL·5179 C1·90707 C1E·122356 C3·17645 C6·3500
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	58047.9 req/s  275.635 latency-µs/object	# POLL·5258 C1·90833 C1E·121557 C3·14150 C6·4386
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	58302.6 req/s  274.430 latency-µs/object	# POLL·5192 C1·89923 C1E·122564 C3·12879 C6·5983
+2018/03/08 14:08:54 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:08:54.1608 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite (sha1 disabled on: client)
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 2127 223.6 µs/object	# crc32:14640593  nread=8540363  t=475.749856ms
+# POLL·6 C1·190 C1E·12199 C3·8356 C6·2287
+E0308 14:08:56.264503   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:47564: 192.168.0.16:5554 - 192.168.0.16:47564: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 2127 210.0 µs/object	# crc32:14640593  nread=8540363  t=446.775762ms
+# POLL·10 C1·201 C1E·13779 C3·8645 C6·1154
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 2127 146.4 µs/object	# crc32:14640593  nread=8540363  t=311.573384ms
+# POLL·3 C1·381 C1E·18487 C3·2333 C6·1173
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 2127 208.7 µs/object	# crc32:14640593  nread=8540363  t=444.083569ms
+# POLL·7 C1·194 C1E·13286 C3·7787 C6·2178
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 2127 184.2 µs/object	# crc32:14640593  nread=8540363  t=391.997027ms
+# POLL·2 C1·181 C1E·16122 C3·4397 C6·2389
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 2127 35.8 µs/object	# crc32:14640593  nread=8540363  t=76.239477ms
+# POLL·48 C1·4277 C1E·4314 C3·634 C6·629
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 2127 35.9 µs/object	# crc32:14640593  nread=8540363  t=76.445574ms
+# POLL·49 C1·4420 C1E·4689 C3·745 C6·640
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 2127 37.1 µs/object	# crc32:14640593  nread=8540363  t=78.898485ms
+# POLL·57 C1·4407 C1E·5261 C3·664 C6·701
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 2127 37.5 µs/object	# crc32:14640593  nread=8540363  t=79.76541ms
+# POLL·65 C1·4569 C1E·5078 C3·832 C6·811
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 2127 37.3 µs/object	# crc32:14640593  nread=8540363  t=79.355511ms
+# POLL·40 C1·4384 C1E·4598 C3·708 C6·798
+
+# 1 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5605.9 req/s  178.384 latency-µs/object
+# POLL·7 C1·1183 C1E·87766 C3·32785 C6·9055
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	6196.9 req/s  161.370 latency-µs/object
+# POLL·13 C1·1696 C1E·96362 C3·17327 C6·12272
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5696.3 req/s  175.554 latency-µs/object
+# POLL·14 C1·815 C1E·93454 C3·25012 C6·8666
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5603.6 req/s  178.457 latency-µs/object
+# POLL·4 C1·984 C1E·93429 C3·24193 C6·12043
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5471.7 req/s  182.758 latency-µs/object
+# POLL·14 C1·993 C1E·89925 C3·29761 C6·8392
+
+# 2 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	12906.6 req/s  154.960 latency-µs/object
+# POLL·115 C1·12865 C1E·140457 C3·29865 C6·21098
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	13223.7 req/s  151.243 latency-µs/object
+# POLL·102 C1·13069 C1E·140686 C3·25817 C6·26685
+E0308 14:09:17.764325   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:47674: 192.168.0.16:5554 - 192.168.0.16:47674: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	13283.3 req/s  150.565 latency-µs/object
+# POLL·116 C1·13152 C1E·138859 C3·35487 C6·21126
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	12819.2 req/s  156.016 latency-µs/object
+# POLL·97 C1·12324 C1E·141567 C3·35599 C6·19463
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	13523.7 req/s  147.889 latency-µs/object
+# POLL·115 C1·15493 C1E·146541 C3·21431 C6·22205
+
+# 3 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20362.6 req/s  147.329 latency-µs/object
+# POLL·180 C1·25162 C1E·130343 C3·28363 C6·18100
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20248.1 req/s  148.162 latency-µs/object
+# POLL·180 C1·25528 C1E·128233 C3·28911 C6·16968
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20572.7 req/s  145.825 latency-µs/object
+# POLL·190 C1·27416 C1E·131942 C3·21050 C6·18334
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20260.0 req/s  148.075 latency-µs/object
+# POLL·176 C1·25663 C1E·127016 C3·31100 C6·17526
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20528.2 req/s  146.141 latency-µs/object
+# POLL·187 C1·26675 C1E·129655 C3·21631 C6·21121
+
+# 4 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27212.8 req/s  146.990 latency-µs/object
+# POLL·330 C1·36790 C1E·160613 C3·30928 C6·14000
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27280.8 req/s  146.623 latency-µs/object
+# POLL·269 C1·38321 C1E·159768 C3·27533 C6·15167
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27174.0 req/s  147.199 latency-µs/object
+# POLL·288 C1·36573 C1E·161311 C3·28417 C6·16005
+E0308 14:09:46.202949   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:47852: 192.168.0.16:5554 - 192.168.0.16:47852: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	26949.2 req/s  148.427 latency-µs/object
+# POLL·291 C1·35754 C1E·160212 C3·30306 C6·18296
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27094.9 req/s  147.629 latency-µs/object
+# POLL·324 C1·36707 C1E·159933 C3·30460 C6·16822
+
+# 8 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	48199.6 req/s  165.976 latency-µs/object
+# POLL·834 C1·44371 C1E·217118 C3·31422 C6·11461
+E0308 14:09:55.760665   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:47958: 192.168.0.16:5554 - 192.168.0.16:47958: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	48307.0 req/s  165.607 latency-µs/object
+# POLL·827 C1·44749 C1E·212817 C3·34805 C6·11374
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	48198.3 req/s  165.981 latency-µs/object
+# POLL·845 C1·44889 C1E·219471 C3·30522 C6·12357
+E0308 14:10:03.311630   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:48042: 192.168.0.16:5554 - 192.168.0.16:48042: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	48279.1 req/s  165.703 latency-µs/object
+# POLL·874 C1·46037 C1E·215940 C3·32113 C6·13300
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	48361.3 req/s  165.421 latency-µs/object
+# POLL·785 C1·45094 C1E·219690 C3·26490 C6·13628
+
+# 12 clients in parallel
+E0308 14:10:10.294152   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:48114: 192.168.0.16:5554 - 192.168.0.16:48114: accept: node link is not listening for incoming connections
+E0308 14:10:10.294268   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:48128: 192.168.0.16:5554 - 192.168.0.16:48128: accept: node link is not listening for incoming connections
+E0308 14:10:10.294396   25873 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:48110: 192.168.0.16:5554 - 192.168.0.16:48110: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	60062.1 req/s  199.793 latency-µs/object
+# POLL·3244 C1·81838 C1E·176894 C3·13401 C6·6858
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	60260.4 req/s  199.136 latency-µs/object
+# POLL·3209 C1·80988 C1E·176748 C3·14956 C6·4815
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	60281.7 req/s  199.065 latency-µs/object
+# POLL·3167 C1·80820 C1E·175790 C3·17192 C6·5227
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	60272.2 req/s  199.097 latency-µs/object
+# POLL·3406 C1·81820 C1E·175714 C3·17297 C6·5757
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	60303.8 req/s  198.992 latency-µs/object
+# POLL·3278 C1·82186 C1E·174675 C3·14992 C6·6414
+
+# 16 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	61600.3 req/s  259.739 latency-µs/object
+# POLL·5514 C1·101594 C1E·104754 C3·17434 C6·3251
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	61653.5 req/s  259.515 latency-µs/object
+# POLL·5498 C1·100806 C1E·106360 C3·12025 C6·6716
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	61837.9 req/s  258.741 latency-µs/object
+# POLL·5383 C1·99605 C1E·109795 C3·12987 C6·3930
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	61594.5 req/s  259.764 latency-µs/object
+# POLL·5454 C1·100052 C1E·106921 C3·14936 C6·5149
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	61934.5 req/s  258.337 latency-µs/object
+# POLL·5407 C1·101204 C1E·108264 C3·14673 C6·5576
+2018/03/08 14:10:42 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:10:42.5204 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+dataset:	prod1-1024
+node:
+cluster:	z6001
+
+*** FileStorage
+/home/neotest/1/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79574471372 seconds in the future
+Benchmarkfs1-zhash.py 3789 30.0 µs/object	# crc32:a50b90dc  nread=4905351  t=0.114s
+# POLL·2 C1·75 C1E·3 C3·30 C6·606
+/home/neotest/1/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79574471371 seconds in the future
+Benchmarkfs1-zhash.py 3789 31.0 µs/object	# crc32:a50b90dc  nread=4905351  t=0.118s
+# POLL·0 C1·81 C1E·5 C3·24 C6·685
+/home/neotest/1/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79574471371 seconds in the future
+Benchmarkfs1-zhash.py 3789 30.0 µs/object	# crc32:a50b90dc  nread=4905351  t=0.114s
+# POLL·2 C1·99 C1E·8 C3·24 C6·654
+/home/neotest/1/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79574471370 seconds in the future
+Benchmarkfs1-zhash.py 3789 30.5 µs/object	# crc32:a50b90dc  nread=4905351  t=0.116s
+# POLL·0 C1·84 C1E·1 C3·17 C6·570
+/home/neotest/1/src/lab.nexedi.com/kirr/neo/go/neo/t/var/prod1-1024/fs1/data.fs Database records 79574471370 seconds in the future
+Benchmarkfs1-zhash.py 3789 30.2 µs/object	# crc32:a50b90dc  nread=4905351  t=0.114s
+# POLL·0 C1·83 C1E·1 C3·17 C6·479
+
+Benchmarkfs1-zhash.go 3789 4.6 µs/object	# crc32:a50b90dc  nread=4905351  t=17.28219ms	# POLL·1 C1·108 C1E·57 C3·23 C6·278
+Benchmarkfs1-zhash.go 3789 4.6 µs/object	# crc32:a50b90dc  nread=4905351  t=17.278949ms	# POLL·0 C1·86 C1E·70 C3·40 C6·274
+Benchmarkfs1-zhash.go 3789 4.5 µs/object	# crc32:a50b90dc  nread=4905351  t=17.139646ms	# POLL·3 C1·95 C1E·57 C3·39 C6·259
+Benchmarkfs1-zhash.go 3789 4.6 µs/object	# crc32:a50b90dc  nread=4905351  t=17.490618ms	# POLL·0 C1·113 C1E·59 C3·32 C6·252
+Benchmarkfs1-zhash.go 3789 4.5 µs/object	# crc32:a50b90dc  nread=4905351  t=17.103933ms	# POLL·0 C1·117 C1E·55 C3·30 C6·243
+Benchmarkfs1-zhash.go+prefetch128 3789 5.6 µs/object	# crc32:a50b90dc  nread=4905351  t=21.227426ms	# POLL·9 C1·275 C1E·648 C3·379 C6·450
+Benchmarkfs1-zhash.go+prefetch128 3789 6.1 µs/object	# crc32:a50b90dc  nread=4905351  t=22.961814ms	# POLL·5 C1·283 C1E·748 C3·473 C6·403
+Benchmarkfs1-zhash.go+prefetch128 3789 6.5 µs/object	# crc32:a50b90dc  nread=4905351  t=24.529187ms	# POLL·5 C1·236 C1E·707 C3·569 C6·553
+Benchmarkfs1-zhash.go+prefetch128 3789 5.7 µs/object	# crc32:a50b90dc  nread=4905351  t=21.659616ms	# POLL·2 C1·241 C1E·431 C3·483 C6·402
+Benchmarkfs1-zhash.go+prefetch128 3789 5.9 µs/object	# crc32:a50b90dc  nread=4905351  t=22.245266ms	# POLL·8 C1·301 C1E·913 C3·444 C6·417
+
+# 1 clients in parallel
+Benchmarkfs1-zwrk.go·1 500000	352748.8 req/s  2.835 latency-µs/object	# POLL·1 C1·129 C1E·81 C3·97 C6·896
+Benchmarkfs1-zwrk.go·1 500000	344487.3 req/s  2.903 latency-µs/object	# POLL·2 C1·129 C1E·76 C3·110 C6·1129
+Benchmarkfs1-zwrk.go·1 500000	341837.2 req/s  2.925 latency-µs/object	# POLL·3 C1·140 C1E·86 C3·84 C6·912
+Benchmarkfs1-zwrk.go·1 500000	349373.4 req/s  2.862 latency-µs/object	# POLL·2 C1·151 C1E·89 C3·79 C6·873
+Benchmarkfs1-zwrk.go·1 500000	348141.4 req/s  2.872 latency-µs/object	# POLL·6 C1·134 C1E·102 C3·135 C6·1212
+
+# 2 clients in parallel
+Benchmarkfs1-zwrk.go·2 1000000	670119.8 req/s  2.985 latency-µs/object	# POLL·10 C1·145 C1E·85 C3·123 C6·1050
+Benchmarkfs1-zwrk.go·2 1000000	666079.9 req/s  3.003 latency-µs/object	# POLL·7 C1·166 C1E·87 C3·73 C6·1079
+Benchmarkfs1-zwrk.go·2 1000000	664644.7 req/s  3.009 latency-µs/object	# POLL·3 C1·165 C1E·102 C3·81 C6·905
+Benchmarkfs1-zwrk.go·2 1000000	653577.7 req/s  3.060 latency-µs/object	# POLL·5 C1·180 C1E·161 C3·60 C6·1182
+Benchmarkfs1-zwrk.go·2 1000000	653645.8 req/s  3.060 latency-µs/object	# POLL·8 C1·155 C1E·120 C3·86 C6·1205
+
+# 3 clients in parallel
+Benchmarkfs1-zwrk.go·3 1000000	969230.4 req/s  3.095 latency-µs/object	# POLL·3 C1·131 C1E·86 C3·115 C6·1046
+Benchmarkfs1-zwrk.go·3 1000000	980108.1 req/s  3.061 latency-µs/object	# POLL·1 C1·196 C1E·103 C3·80 C6·1078
+Benchmarkfs1-zwrk.go·3 2000000	988846.9 req/s  3.034 latency-µs/object	# POLL·7 C1·164 C1E·112 C3·206 C6·2865
+Benchmarkfs1-zwrk.go·3 1000000	991039.2 req/s  3.027 latency-µs/object	# POLL·2 C1·196 C1E·100 C3·91 C6·1286
+Benchmarkfs1-zwrk.go·3 1000000	982058.6 req/s  3.055 latency-µs/object	# POLL·5 C1·170 C1E·97 C3·139 C6·1262
+
+# 4 clients in parallel
+Benchmarkfs1-zwrk.go·4 2000000	1317924.7 req/s  3.035 latency-µs/object	# POLL·1 C1·148 C1E·245 C3·168 C6·2485
+Benchmarkfs1-zwrk.go·4 2000000	1286189.2 req/s  3.110 latency-µs/object	# POLL·10 C1·191 C1E·111 C3·123 C6·2182
+Benchmarkfs1-zwrk.go·4 2000000	1296590.5 req/s  3.085 latency-µs/object	# POLL·10 C1·207 C1E·111 C3·134 C6·2076
+Benchmarkfs1-zwrk.go·4 2000000	1283988.2 req/s  3.115 latency-µs/object	# POLL·4 C1·177 C1E·115 C3·149 C6·2365
+Benchmarkfs1-zwrk.go·4 2000000	1302658.4 req/s  3.071 latency-µs/object	# POLL·7 C1·212 C1E·122 C3·104 C6·2352
+
+# 8 clients in parallel
+Benchmarkfs1-zwrk.go·8 5000000	2572953.5 req/s  3.109 latency-µs/object	# POLL·8 C1·226 C1E·106 C3·154 C6·2393
+Benchmarkfs1-zwrk.go·8 5000000	2628125.0 req/s  3.044 latency-µs/object	# POLL·8 C1·225 C1E·134 C3·140 C6·1906
+Benchmarkfs1-zwrk.go·8 3000000	2525829.1 req/s  3.167 latency-µs/object	# POLL·1 C1·209 C1E·213 C3·169 C6·1660
+Benchmarkfs1-zwrk.go·8 5000000	2570317.1 req/s  3.112 latency-µs/object	# POLL·14 C1·179 C1E·149 C3·171 C6·1476
+Benchmarkfs1-zwrk.go·8 5000000	2524950.4 req/s  3.168 latency-µs/object	# POLL·2 C1·211 C1E·131 C3·151 C6·1948
+
+# 12 clients in parallel
+Benchmarkfs1-zwrk.go·12 5000000	2788626.8 req/s  4.303 latency-µs/object	# POLL·11 C1·2173 C1E·5616 C3·3411 C6·18287
+Benchmarkfs1-zwrk.go·12 5000000	2789699.4 req/s  4.302 latency-µs/object	# POLL·7 C1·2895 C1E·5911 C3·4671 C6·15976
+Benchmarkfs1-zwrk.go·12 5000000	2817687.2 req/s  4.259 latency-µs/object	# POLL·1 C1·2510 C1E·5744 C3·3714 C6·16876
+Benchmarkfs1-zwrk.go·12 5000000	2863390.1 req/s  4.191 latency-µs/object	# POLL·5 C1·3338 C1E·5992 C3·4461 C6·15329
+Benchmarkfs1-zwrk.go·12 5000000	2866315.3 req/s  4.187 latency-µs/object	# POLL·8 C1·2960 C1E·5961 C3·4102 C6·16248
+
+# 16 clients in parallel
+Benchmarkfs1-zwrk.go·16 5000000	2842578.1 req/s  5.629 latency-µs/object	# POLL·46 C1·10034 C1E·22374 C3·23361 C6·25002
+Benchmarkfs1-zwrk.go·16 5000000	2833246.2 req/s  5.647 latency-µs/object	# POLL·47 C1·9595 C1E·21303 C3·18288 C6·29986
+Benchmarkfs1-zwrk.go·16 5000000	2777380.0 req/s  5.761 latency-µs/object	# POLL·41 C1·9179 C1E·20458 C3·19501 C6·30405
+Benchmarkfs1-zwrk.go·16 5000000	2818488.4 req/s  5.677 latency-µs/object	# POLL·33 C1·9328 C1E·19894 C3·21078 C6·27421
+Benchmarkfs1-zwrk.go·16 5000000	2815033.9 req/s  5.684 latency-µs/object	# POLL·52 C1·9798 C1E·22745 C3·15339 C6·33390
+
+*** ZEO
+Benchmarkzeo/py/fs1-zhash.py 3789 536.0 µs/object	# crc32:a50b90dc  nread=4905351  t=2.031s	# POLL·5 C1·37022 C1E·4127 C3·3923 C6·829
+Benchmarkzeo/py/fs1-zhash.py 3789 641.4 µs/object	# crc32:a50b90dc  nread=4905351  t=2.431s	# POLL·2 C1·26758 C1E·10031 C3·4335 C6·2810
+Benchmarkzeo/py/fs1-zhash.py 3789 653.6 µs/object	# crc32:a50b90dc  nread=4905351  t=2.477s	# POLL·1 C1·27345 C1E·10049 C3·4789 C6·1672
+Benchmarkzeo/py/fs1-zhash.py 3789 644.2 µs/object	# crc32:a50b90dc  nread=4905351  t=2.442s	# POLL·3 C1·29920 C1E·9654 C3·4712 C6·1363
+Benchmarkzeo/py/fs1-zhash.py 3789 600.8 µs/object	# crc32:a50b90dc  nread=4905351  t=2.277s	# POLL·1 C1·31714 C1E·8553 C3·4080 C6·1381
+
+Benchmarkzeo/py/fs1-zhash.go 3789 221.0 µs/object	# crc32:a50b90dc  nread=4905351  t=837.578301ms	# POLL·4 C1·588 C1E·10179 C3·7914 C6·2771
+Benchmarkzeo/py/fs1-zhash.go 3789 224.7 µs/object	# crc32:a50b90dc  nread=4905351  t=851.637076ms	# POLL·3 C1·383 C1E·10526 C3·7258 C6·3278
+Benchmarkzeo/py/fs1-zhash.go 3789 233.1 µs/object	# crc32:a50b90dc  nread=4905351  t=883.466783ms	# POLL·2 C1·628 C1E·9570 C3·7347 C6·3765
+Benchmarkzeo/py/fs1-zhash.go 3789 249.3 µs/object	# crc32:a50b90dc  nread=4905351  t=944.670769ms	# POLL·2 C1·313 C1E·8420 C3·9652 C6·3214
+Benchmarkzeo/py/fs1-zhash.go 3789 246.5 µs/object	# crc32:a50b90dc  nread=4905351  t=934.37034ms	# POLL·3 C1·201 C1E·9030 C3·9185 C6·2790
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 88.2 µs/object	# crc32:a50b90dc  nread=4905351  t=334.460045ms	# POLL·16 C1·3023 C1E·11445 C3·886 C6·3401
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 88.0 µs/object	# crc32:a50b90dc  nread=4905351  t=333.621978ms	# POLL·19 C1·2631 C1E·11745 C3·878 C6·3288
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 87.7 µs/object	# crc32:a50b90dc  nread=4905351  t=332.330909ms	# POLL·17 C1·2621 C1E·11616 C3·862 C6·3496
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 87.2 µs/object	# crc32:a50b90dc  nread=4905351  t=330.335629ms	# POLL·24 C1·3282 C1E·11744 C3·859 C6·3198
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 86.8 µs/object	# crc32:a50b90dc  nread=4905351  t=329.083471ms	# POLL·30 C1·3057 C1E·11641 C3·992 C6·2994
+
+# 1 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4916.4 req/s  203.401 latency-µs/object	# POLL·17 C1·3386 C1E·36655 C3·26795 C6·8435
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	5186.1 req/s  192.822 latency-µs/object	# POLL·13 C1·4612 C1E·35508 C3·27608 C6·7421
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4762.6 req/s  209.970 latency-µs/object	# POLL·22 C1·2686 C1E·36563 C3·26800 C6·10061
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4817.0 req/s  207.600 latency-µs/object	# POLL·18 C1·3253 C1E·32915 C3·31015 C6·7993
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	4817.8 req/s  207.565 latency-µs/object	# POLL·9 C1·3136 C1E·33790 C3·29882 C6·8637
+
+# 2 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8100.6 req/s  246.897 latency-µs/object	# POLL·16 C1·1701 C1E·44784 C3·12774 C6·5291
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8082.8 req/s  247.439 latency-µs/object	# POLL·25 C1·1480 C1E·43170 C3·15160 C6·4500
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8121.8 req/s  246.251 latency-µs/object	# POLL·17 C1·1546 C1E·45918 C3·12154 C6·4804
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8104.3 req/s  246.781 latency-µs/object	# POLL·16 C1·1493 C1E·42561 C3·15284 C6·4900
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8122.1 req/s  246.243 latency-µs/object	# POLL·25 C1·1817 C1E·43288 C3·15139 C6·3767
+
+# 3 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8921.9 req/s  336.253 latency-µs/object	# POLL·15 C1·3061 C1E·43621 C3·10380 C6·7154
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8940.3 req/s  335.559 latency-µs/object	# POLL·21 C1·3702 C1E·44538 C3·11352 C6·4318
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	9113.0 req/s  329.198 latency-µs/object	# POLL·15 C1·6584 C1E·41054 C3·7957 C6·8315
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	9179.1 req/s  326.829 latency-µs/object	# POLL·15 C1·5598 C1E·41393 C3·11440 C6·5105
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	9179.6 req/s  326.812 latency-µs/object	# POLL·18 C1·5985 C1E·41038 C3·9123 C6·7315
+
+# 4 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	9364.0 req/s  427.166 latency-µs/object	# POLL·27 C1·6322 C1E·39838 C3·10914 C6·6763
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	9387.2 req/s  426.111 latency-µs/object	# POLL·17 C1·6822 C1E·39607 C3·10616 C6·6375
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	9365.0 req/s  427.120 latency-µs/object	# POLL·28 C1·6825 C1E·38258 C3·11119 C6·7562
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	9357.8 req/s  427.449 latency-µs/object	# POLL·18 C1·5726 C1E·39939 C3·8129 C6·9614
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	9335.2 req/s  428.487 latency-µs/object	# POLL·23 C1·6648 C1E·40206 C3·10737 C6·5831
+
+# 8 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·8 20000	9934.9 req/s  805.238 latency-µs/object	# POLL·60 C1·18650 C1E·96999 C3·15383 C6·16318
+Benchmarkzeo/py/fs1-zwrk.go·8 20000	10202.8 req/s  784.095 latency-µs/object	# POLL·62 C1·20096 C1E·94846 C3·15203 C6·16938
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	9913.3 req/s  806.993 latency-µs/object	# POLL·22 C1·6122 C1E·37884 C3·9060 C6·10579
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	9928.9 req/s  805.730 latency-µs/object	# POLL·27 C1·5863 C1E·37963 C3·11929 C6·7617
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	9958.9 req/s  803.300 latency-µs/object	# POLL·19 C1·5841 C1E·39189 C3·9504 C6·8949
+
+# 12 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·12 20000	10158.2 req/s  1181.310 latency-µs/object	# POLL·57 C1·20764 C1E·94030 C3·14918 C6·16785
+Benchmarkzeo/py/fs1-zwrk.go·12 20000	10383.9 req/s  1155.635 latency-µs/object	# POLL·77 C1·21824 C1E·91161 C3·16587 C6·16933
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	8737.1 req/s  1373.456 latency-µs/object	# POLL·22 C1·3670 C1E·43696 C3·12429 C6·4250
+Benchmarkzeo/py/fs1-zwrk.go·12 20000	10146.3 req/s  1182.694 latency-µs/object	# POLL·51 C1·21535 C1E·94396 C3·15842 C6·15903
+Benchmarkzeo/py/fs1-zwrk.go·12 20000	10184.8 req/s  1178.228 latency-µs/object	# POLL·54 C1·20457 C1E·94876 C3·15653 C6·15577
+
+# 16 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·16 20000	10432.4 req/s  1533.686 latency-µs/object	# POLL·71 C1·22913 C1E·92768 C3·16817 C6·14399
+Benchmarkzeo/py/fs1-zwrk.go·16 20000	10469.4 req/s  1528.261 latency-µs/object	# POLL·63 C1·24070 C1E·93923 C3·14563 C6·14516
+Benchmarkzeo/py/fs1-zwrk.go·16 20000	10284.2 req/s  1555.782 latency-µs/object	# POLL·68 C1·23438 C1E·93426 C3·16027 C6·15078
+Benchmarkzeo/py/fs1-zwrk.go·16 20000	10158.3 req/s  1575.066 latency-µs/object	# POLL·57 C1·22844 C1E·94306 C3·14932 C6·16049
+Benchmarkzeo/py/fs1-zwrk.go·16 20000	10340.7 req/s  1547.279 latency-µs/object	# POLL·56 C1·21192 C1E·94426 C3·15856 C6·15593
+
+*** NEO/py sqlite (logging disabled)
+Benchmarkneo/py(!log)/sqlite-zhash.py 3789 649.1 µs/object	# crc32:a50b90dc  nread=4905351  t=2.460s	# POLL·0 C1·186 C1E·18 C3·13821 C6·2241
+Benchmarkneo/py(!log)/sqlite-zhash.py 3789 690.3 µs/object	# crc32:a50b90dc  nread=4905351  t=2.616s	# POLL·2 C1·116 C1E·7 C3·13605 C6·2297
+Benchmarkneo/py(!log)/sqlite-zhash.py 3789 651.2 µs/object	# crc32:a50b90dc  nread=4905351  t=2.468s	# POLL·2 C1·495 C1E·163 C3·13668 C6·2410
+Benchmarkneo/py(!log)/sqlite-zhash.py 3789 660.2 µs/object	# crc32:a50b90dc  nread=4905351  t=2.502s	# POLL·3 C1·159 C1E·6 C3·13759 C6·2193
+Benchmarkneo/py(!log)/sqlite-zhash.py 3789 639.7 µs/object	# crc32:a50b90dc  nread=4905351  t=2.424s	# POLL·1 C1·203 C1E·8 C3·12697 C6·3222
+
+Benchmarkneo/py(!log)/sqlite-zhash.go 3789 277.6 µs/object	# crc32:a50b90dc  nread=4905351  t=1.052239475s	# POLL·0 C1·153 C1E·8793 C3·10594 C6·1715
+Benchmarkneo/py(!log)/sqlite-zhash.go 3789 247.3 µs/object	# crc32:a50b90dc  nread=4905351  t=937.360915ms	# POLL·5 C1·117 C1E·8085 C3·9485 C6·2532
+Benchmarkneo/py(!log)/sqlite-zhash.go 3789 256.2 µs/object	# crc32:a50b90dc  nread=4905351  t=971.102511ms	# POLL·3 C1·1215 C1E·11504 C3·5613 C6·4193
+Benchmarkneo/py(!log)/sqlite-zhash.go 3789 257.1 µs/object	# crc32:a50b90dc  nread=4905351  t=974.496833ms	# POLL·2 C1·1320 C1E·11017 C3·4860 C6·4813
+Benchmarkneo/py(!log)/sqlite-zhash.go 3789 243.6 µs/object	# crc32:a50b90dc  nread=4905351  t=923.118379ms	# POLL·2 C1·417 C1E·8965 C3·10226 C6·1216
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 3789 161.4 µs/object	# crc32:a50b90dc  nread=4905351  t=611.541288ms	# POLL·16 C1·1275 C1E·14004 C3·3205 C6·2696
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 3789 161.1 µs/object	# crc32:a50b90dc  nread=4905351  t=610.640615ms	# POLL·10 C1·1369 C1E·13674 C3·3602 C6·2474
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 3789 161.0 µs/object	# crc32:a50b90dc  nread=4905351  t=610.152084ms	# POLL·12 C1·1396 C1E·14687 C3·3019 C6·2439
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 3789 161.7 µs/object	# crc32:a50b90dc  nread=4905351  t=612.808552ms	# POLL·11 C1·1335 C1E·12931 C3·4169 C6·2270
+Benchmarkneo/py(!log)/sqlite-zhash.go+prefetch128 3789 161.0 µs/object	# crc32:a50b90dc  nread=4905351  t=610.238358ms	# POLL·10 C1·1344 C1E·15554 C3·2353 C6·2754
+
+# 1 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3890.8 req/s  257.015 latency-µs/object	# POLL·14 C1·151 C1E·23196 C3·20092 C6·5236
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 10000	4308.4 req/s  232.102 latency-µs/object	# POLL·9 C1·5199 C1E·35359 C3·25354 C6·10483
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3757.7 req/s  266.120 latency-µs/object	# POLL·2 C1·1393 C1E·22699 C3·20056 C6·5971
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3440.9 req/s  290.619 latency-µs/object	# POLL·9 C1·698 C1E·27030 C3·20120 C6·5125
+Benchmarkneo/py(!log)/sqlite-zwrk.go·1 5000	3591.2 req/s  278.457 latency-µs/object	# POLL·7 C1·156 C1E·23253 C3·21048 C6·6031
+
+# 2 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5789.6 req/s  345.444 latency-µs/object	# POLL·9 C1·332 C1E·45544 C3·18964 C6·6418
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5790.2 req/s  345.412 latency-µs/object	# POLL·8 C1·242 C1E·46632 C3·18252 C6·6224
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5805.0 req/s  344.533 latency-µs/object	# POLL·7 C1·230 C1E·44393 C3·18714 C6·6496
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5827.8 req/s  343.183 latency-µs/object	# POLL·10 C1·557 C1E·39158 C3·21222 C6·6541
+Benchmarkneo/py(!log)/sqlite-zwrk.go·2 10000	5804.0 req/s  344.589 latency-µs/object	# POLL·3 C1·232 C1E·47377 C3·14752 C6·7326
+
+# 3 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5257.2 req/s  570.643 latency-µs/object	# POLL·9 C1·270 C1E·36566 C3·23596 C6·7804
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5153.0 req/s  582.182 latency-µs/object	# POLL·7 C1·165 C1E·39157 C3·21696 C6·8489
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5824.5 req/s  515.066 latency-µs/object	# POLL·2 C1·205 C1E·42391 C3·19086 C6·7174
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5818.1 req/s  515.632 latency-µs/object	# POLL·5 C1·196 C1E·42390 C3·24168 C6·4359
+Benchmarkneo/py(!log)/sqlite-zwrk.go·3 10000	5820.8 req/s  515.391 latency-µs/object	# POLL·5 C1·473 C1E·42884 C3·22827 C6·5390
+
+# 4 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5831.9 req/s  685.880 latency-µs/object	# POLL·3 C1·170 C1E·44526 C3·20482 C6·4864
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5802.0 req/s  689.413 latency-µs/object	# POLL·4 C1·300 C1E·45789 C3·15849 C6·8193
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5781.2 req/s  691.894 latency-µs/object	# POLL·6 C1·1636 C1E·44063 C3·20606 C6·5264
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5789.0 req/s  690.961 latency-µs/object	# POLL·4 C1·371 C1E·42129 C3·19115 C6·7406
+Benchmarkneo/py(!log)/sqlite-zwrk.go·4 10000	5818.1 req/s  687.504 latency-µs/object	# POLL·10 C1·200 C1E·49130 C3·16259 C6·7411
+
+# 8 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5837.7 req/s  1370.402 latency-µs/object	# POLL·14 C1·1401 C1E·41902 C3·23016 C6·3864
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5810.7 req/s  1376.775 latency-µs/object	# POLL·8 C1·228 C1E·48469 C3·18165 C6·5733
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5801.5 req/s  1378.963 latency-µs/object	# POLL·5 C1·901 C1E·44424 C3·21258 C6·5014
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5661.1 req/s  1413.150 latency-µs/object	# POLL·7 C1·1054 C1E·43023 C3·18618 C6·7097
+Benchmarkneo/py(!log)/sqlite-zwrk.go·8 10000	5796.7 req/s  1380.092 latency-µs/object	# POLL·19 C1·307 C1E·47837 C3·18774 C6·5307
+
+# 12 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5774.9 req/s  2077.963 latency-µs/object	# POLL·11 C1·240 C1E·45992 C3·17091 C6·7927
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5774.6 req/s  2078.049 latency-µs/object	# POLL·14 C1·248 C1E·42382 C3·19246 C6·7794
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5771.1 req/s  2079.337 latency-µs/object	# POLL·10 C1·945 C1E·44809 C3·20614 C6·6631
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5755.3 req/s  2085.018 latency-µs/object	# POLL·11 C1·432 C1E·47503 C3·17756 C6·6667
+Benchmarkneo/py(!log)/sqlite-zwrk.go·12 10000	5795.5 req/s  2070.580 latency-µs/object	# POLL·15 C1·364 C1E·43009 C3·23491 C6·6117
+
+# 16 clients in parallel
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5802.0 req/s  2757.653 latency-µs/object	# POLL·11 C1·794 C1E·46436 C3·20721 C6·5869
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5802.9 req/s  2757.265 latency-µs/object	# POLL·5 C1·485 C1E·43251 C3·21302 C6·6304
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5797.9 req/s  2759.629 latency-µs/object	# POLL·10 C1·405 C1E·45897 C3·18306 C6·8160
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5794.2 req/s  2761.393 latency-µs/object	# POLL·15 C1·355 C1E·45059 C3·19824 C6·6218
+Benchmarkneo/py(!log)/sqlite-zwrk.go·16 10000	5801.7 req/s  2757.831 latency-µs/object	# POLL·9 C1·1083 C1E·43778 C3·20332 C6·6775
+2018-03-08 14:16:04.6058 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/py sql (logging disabled)
+2018-03-08 14:16:04 140035208535424 [Note] mysqld (mysqld 10.1.25-MariaDB-1) starting as process 7264 ...
+Benchmarkneo/py(!log)/sql-zhash.py 3789 1348.3 µs/object	# crc32:a50b90dc  nread=4905351  t=5.110s	# POLL·0 C1·848 C1E·949 C3·26599 C6·7831
+Benchmarkneo/py(!log)/sql-zhash.py 3789 1018.2 µs/object	# crc32:a50b90dc  nread=4905351  t=3.859s	# POLL·3 C1·152 C1E·1480 C3·22620 C6·12078
+Benchmarkneo/py(!log)/sql-zhash.py 3789 906.9 µs/object	# crc32:a50b90dc  nread=4905351  t=3.437s	# POLL·1 C1·17314 C1E·2172 C3·19976 C6·11695
+Benchmarkneo/py(!log)/sql-zhash.py 3789 919.8 µs/object	# crc32:a50b90dc  nread=4905351  t=3.486s	# POLL·5 C1·115 C1E·3328 C3·26418 C6·1855
+Benchmarkneo/py(!log)/sql-zhash.py 3789 891.4 µs/object	# crc32:a50b90dc  nread=4905351  t=3.378s	# POLL·2 C1·170 C1E·4025 C3·25877 C6·1399
+
+Benchmarkneo/py(!log)/sql-zhash.go 3789 384.2 µs/object	# crc32:a50b90dc  nread=4905351  t=1.456266637s	# POLL·5 C1·169 C1E·15661 C3·17863 C6·2034
+Benchmarkneo/py(!log)/sql-zhash.go 3789 352.0 µs/object	# crc32:a50b90dc  nread=4905351  t=1.334099233s	# POLL·6 C1·5989 C1E·12634 C3·10869 C6·9045
+Benchmarkneo/py(!log)/sql-zhash.go 3789 383.5 µs/object	# crc32:a50b90dc  nread=4905351  t=1.453440487s	# POLL·2 C1·3632 C1E·13756 C3·10468 C6·9892
+Benchmarkneo/py(!log)/sql-zhash.go 3789 413.2 µs/object	# crc32:a50b90dc  nread=4905351  t=1.566064699s	# POLL·8 C1·731 C1E·17135 C3·15539 C6·4512
+Benchmarkneo/py(!log)/sql-zhash.go 3789 390.2 µs/object	# crc32:a50b90dc  nread=4905351  t=1.478858936s	# POLL·4 C1·2976 C1E·16303 C3·7526 C6·9828
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 3789 264.8 µs/object	# crc32:a50b90dc  nread=4905351  t=1.003549766s	# POLL·7 C1·6135 C1E·15822 C3·8705 C6·6419
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 3789 271.7 µs/object	# crc32:a50b90dc  nread=4905351  t=1.029843774s	# POLL·10 C1·4346 C1E·14701 C3·14162 C6·2999
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 3789 235.4 µs/object	# crc32:a50b90dc  nread=4905351  t=892.352228ms	# POLL·6 C1·8193 C1E·11055 C3·11787 C6·4796
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 3789 274.7 µs/object	# crc32:a50b90dc  nread=4905351  t=1.041210717s	# POLL·6 C1·4253 C1E·14788 C3·12923 C6·4489
+Benchmarkneo/py(!log)/sql-zhash.go+prefetch128 3789 269.0 µs/object	# crc32:a50b90dc  nread=4905351  t=1.019532436s	# POLL·5 C1·4939 C1E·15615 C3·11079 C6·5018
+
+# 1 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·1 3000	2655.6 req/s  376.565 latency-µs/object	# POLL·2 C1·1993 C1E·28480 C3·22327 C6·13736
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2903.6 req/s  344.399 latency-µs/object	# POLL·11 C1·20346 C1E·19852 C3·25506 C6·19973
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2332.9 req/s  428.654 latency-µs/object	# POLL·8 C1·7813 C1E·32115 C3·26342 C6·20200
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	3389.0 req/s  295.071 latency-µs/object	# POLL·3 C1·21361 C1E·25025 C3·20244 C6·18531
+Benchmarkneo/py(!log)/sql-zwrk.go·1 5000	2406.0 req/s  415.620 latency-µs/object	# POLL·8 C1·6544 C1E·33506 C3·25831 C6·20145
+
+# 2 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3942.8 req/s  507.259 latency-µs/object	# POLL·11 C1·10864 C1E·24887 C3·37379 C6·6212
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3540.5 req/s  564.896 latency-µs/object	# POLL·6 C1·3156 C1E·38176 C3·35449 C6·6539
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3415.1 req/s  585.627 latency-µs/object	# POLL·4 C1·2399 C1E·33179 C3·29841 C6·14425
+Benchmarkneo/py(!log)/sql-zwrk.go·2 5000	3613.7 req/s  553.450 latency-µs/object	# POLL·5 C1·4482 C1E·35426 C3·37690 C6·5412
+Benchmarkneo/py(!log)/sql-zwrk.go·2 10000	3954.4 req/s  505.759 latency-µs/object	# POLL·6 C1·14087 C1E·43338 C3·39119 C6·23792
+
+# 3 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3941.2 req/s  761.197 latency-µs/object	# POLL·10 C1·9296 C1E·31723 C3·23343 C6·16371
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3604.8 req/s  832.232 latency-µs/object	# POLL·12 C1·10819 C1E·25000 C3·25713 C6·17749
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3455.9 req/s  868.088 latency-µs/object	# POLL·6 C1·4964 C1E·34121 C3·26389 C6·17500
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3967.2 req/s  756.192 latency-µs/object	# POLL·2 C1·11179 C1E·25678 C3·29233 C6·13330
+Benchmarkneo/py(!log)/sql-zwrk.go·3 5000	3441.4 req/s  871.738 latency-µs/object	# POLL·7 C1·1787 C1E·32658 C3·39860 C6·5074
+
+# 4 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·4 5000	3437.1 req/s  1163.760 latency-µs/object	# POLL·8 C1·2195 C1E·32311 C3·38574 C6·6306
+Benchmarkneo/py(!log)/sql-zwrk.go·4 10000	3756.7 req/s  1064.758 latency-µs/object	# POLL·14 C1·15868 C1E·45004 C3·40419 C6·22863
+Benchmarkneo/py(!log)/sql-zwrk.go·4 5000	3697.2 req/s  1081.888 latency-µs/object	# POLL·3 C1·7433 C1E·26642 C3·34538 C6·9931
+Benchmarkneo/py(!log)/sql-zwrk.go·4 5000	4123.8 req/s  969.985 latency-µs/object	# POLL·3 C1·9276 C1E·32171 C3·24472 C6·15517
+Benchmarkneo/py(!log)/sql-zwrk.go·4 5000	3993.7 req/s  1001.580 latency-µs/object	# POLL·6 C1·8531 C1E·27757 C3·28972 C6·13829
+
+# 8 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	3701.9 req/s  2161.081 latency-µs/object	# POLL·12 C1·10793 C1E·26813 C3·28655 C6·14532
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	4292.5 req/s  1863.702 latency-µs/object	# POLL·4 C1·15718 C1E·23066 C3·27264 C6·14464
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	4182.5 req/s  1912.752 latency-µs/object	# POLL·10 C1·14923 C1E·26687 C3·23838 C6·16622
+Benchmarkneo/py(!log)/sql-zwrk.go·8 5000	4054.7 req/s  1973.005 latency-µs/object	# POLL·11 C1·15573 C1E·23812 C3·28321 C6·13718
+Benchmarkneo/py(!log)/sql-zwrk.go·8 10000	3449.6 req/s  2319.106 latency-µs/object	# POLL·15 C1·6194 C1E·50958 C3·40726 C6·23443
+
+# 12 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·12 10000	4033.5 req/s  2975.120 latency-µs/object	# POLL·11 C1·20895 C1E·40765 C3·40665 C6·21482
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	3547.4 req/s  3382.740 latency-µs/object	# POLL·9 C1·6998 C1E·28727 C3·31941 C6·12975
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	4244.3 req/s  2827.289 latency-µs/object	# POLL·4 C1·17044 C1E·22045 C3·25601 C6·16910
+Benchmarkneo/py(!log)/sql-zwrk.go·12 10000	4198.8 req/s  2857.930 latency-µs/object	# POLL·7 C1·22673 C1E·38176 C3·47305 C6·15354
+Benchmarkneo/py(!log)/sql-zwrk.go·12 5000	4174.4 req/s  2874.683 latency-µs/object	# POLL·4 C1·15150 C1E·25879 C3·33104 C6·8035
+
+# 16 clients in parallel
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	3453.6 req/s  4632.857 latency-µs/object	# POLL·20 C1·2277 C1E·39013 C3·38342 C6·5115
+Benchmarkneo/py(!log)/sql-zwrk.go·16 10000	4139.7 req/s  3865.046 latency-µs/object	# POLL·11 C1·20585 C1E·49506 C3·47057 C6·13915
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	4062.3 req/s  3938.644 latency-µs/object	# POLL·7 C1·8962 C1E·28810 C3·33501 C6·9402
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	3818.2 req/s  4190.438 latency-µs/object	# POLL·10 C1·7894 C1E·29888 C3·30985 C6·11966
+Benchmarkneo/py(!log)/sql-zwrk.go·16 5000	3646.5 req/s  4387.794 latency-µs/object	# POLL·6 C1·8605 C1E·27651 C3·27092 C6·16572
+2018-03-08 14:18:40.9553 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1
+Connection to None lost
+Benchmarkneo/go/fs1-zhash.py 3789 413.6 µs/object	# crc32:a50b90dc  nread=4905351  t=1.567s
+# POLL·2 C1·250 C1E·11018 C3·14115 C6·6879
+Benchmarkneo/go/fs1-zhash.py 3789 440.1 µs/object	# crc32:a50b90dc  nread=4905351  t=1.668s	# POLL·1 C1·4501 C1E·5176 C3·14518 C6·6821
+Benchmarkneo/go/fs1-zhash.py 3789 413.7 µs/object	# crc32:a50b90dc  nread=4905351  t=1.568s	# POLL·6 C1·6380 C1E·5464 C3·12332 C6·8487
+Benchmarkneo/go/fs1-zhash.py 3789 536.0 µs/object	# crc32:a50b90dc  nread=4905351  t=2.032s	# POLL·6 C1·190 C1E·4446 C3·17810 C6·6353
+Benchmarkneo/go/fs1-zhash.py 3789 503.9 µs/object	# crc32:a50b90dc  nread=4905351  t=1.910s	# POLL·1 C1·1099 C1E·4775 C3·16251 C6·7036
+
+Benchmarkneo/go/fs1-zhash.go 3789 79.4 µs/object	# crc32:a50b90dc  nread=4905351  t=301.005597ms	# POLL·9 C1·6557 C1E·23533 C3·637 C6·1212
+Benchmarkneo/go/fs1-zhash.go 3789 87.3 µs/object	# crc32:a50b90dc  nread=4905351  t=330.782462ms	# POLL·10 C1·5509 C1E·25393 C3·791 C6·1733
+Benchmarkneo/go/fs1-zhash.go 3789 81.7 µs/object	# crc32:a50b90dc  nread=4905351  t=309.585735ms	# POLL·5 C1·6218 C1E·24827 C3·899 C6·1101
+Benchmarkneo/go/fs1-zhash.go 3789 84.3 µs/object	# crc32:a50b90dc  nread=4905351  t=319.626551ms	# POLL·13 C1·5581 C1E·25524 C3·1390 C6·775
+Benchmarkneo/go/fs1-zhash.go 3789 81.9 µs/object	# crc32:a50b90dc  nread=4905351  t=310.272201ms	# POLL·12 C1·5834 C1E·24505 C3·1572 C6·507
+Benchmarkneo/go/fs1-zhash.go+prefetch128 3789 23.7 µs/object	# crc32:a50b90dc  nread=4905351  t=89.851484ms	# POLL·47 C1·6796 C1E·5855 C3·626 C6·700
+Benchmarkneo/go/fs1-zhash.go+prefetch128 3789 24.6 µs/object	# crc32:a50b90dc  nread=4905351  t=93.360421ms	# POLL·69 C1·6956 C1E·5579 C3·743 C6·633
+Benchmarkneo/go/fs1-zhash.go+prefetch128 3789 24.2 µs/object	# crc32:a50b90dc  nread=4905351  t=91.726463ms	# POLL·71 C1·6794 C1E·5878 C3·708 C6·655
+Benchmarkneo/go/fs1-zhash.go+prefetch128 3789 23.3 µs/object	# crc32:a50b90dc  nread=4905351  t=88.251131ms	# POLL·48 C1·7065 C1E·5462 C3·713 C6·611
+Benchmarkneo/go/fs1-zhash.go+prefetch128 3789 23.9 µs/object	# crc32:a50b90dc  nread=4905351  t=90.539938ms	# POLL·41 C1·6921 C1E·5870 C3·683 C6·600
+
+# 1 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·1 20000	13584.1 req/s  73.615 latency-µs/object	# POLL·44 C1·64759 C1E·201693 C3·4680 C6·8589
+Benchmarkneo/go/fs1-zwrk.go·1 20000	13946.4 req/s  71.703 latency-µs/object	# POLL·60 C1·67817 C1E·195259 C3·5919 C6·7032
+Benchmarkneo/go/fs1-zwrk.go·1 20000	13682.8 req/s  73.085 latency-µs/object	# POLL·63 C1·66479 C1E·197913 C3·6852 C6·6766
+Benchmarkneo/go/fs1-zwrk.go·1 20000	13915.2 req/s  71.864 latency-µs/object	# POLL·41 C1·67495 C1E·196305 C3·4218 C6·8525
+Benchmarkneo/go/fs1-zwrk.go·1 20000	13139.9 req/s  76.104 latency-µs/object	# POLL·62 C1·61837 C1E·202426 C3·7680 C6·8308
+
+# 2 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·2 50000	28046.1 req/s  71.311 latency-µs/object	# POLL·116 C1·82656 C1E·146512 C3·7942 C6·8567
+Benchmarkneo/go/fs1-zwrk.go·2 50000	28057.4 req/s  71.282 latency-µs/object	# POLL·130 C1·82565 C1E·149029 C3·5754 C6·10461
+Benchmarkneo/go/fs1-zwrk.go·2 50000	28157.4 req/s  71.029 latency-µs/object	# POLL·138 C1·83870 C1E·143696 C3·8174 C6·8120
+Benchmarkneo/go/fs1-zwrk.go·2 50000	28033.4 req/s  71.344 latency-µs/object	# POLL·146 C1·82640 C1E·154859 C3·7537 C6·9172
+Benchmarkneo/go/fs1-zwrk.go·2 50000	27920.5 req/s  71.632 latency-µs/object	# POLL·114 C1·83295 C1E·152046 C3·6214 C6·8957
+
+# 3 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·3 50000	40405.4 req/s  74.247 latency-µs/object	# POLL·126 C1·53606 C1E·123930 C3·6851 C6·5160
+E0308 14:19:26.417293   10483 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:51840: 192.168.0.16:5554 - 192.168.0.16:51840: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·3 50000	40166.3 req/s  74.690 latency-µs/object	# POLL·135 C1·51897 C1E·129442 C3·5214 C6·7301
+Benchmarkneo/go/fs1-zwrk.go·3 50000	40353.3 req/s  74.343 latency-µs/object	# POLL·125 C1·53001 C1E·126847 C3·6523 C6·5238
+Benchmarkneo/go/fs1-zwrk.go·3 50000	40225.6 req/s  74.579 latency-µs/object	# POLL·123 C1·54427 C1E·125902 C3·4310 C6·6689
+Benchmarkneo/go/fs1-zwrk.go·3 50000	40077.7 req/s  74.855 latency-µs/object	# POLL·125 C1·54244 C1E·124368 C3·5979 C6·5523
+
+# 4 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·4 100000	52822.7 req/s  75.725 latency-µs/object	# POLL·334 C1·64621 C1E·205414 C3·8033 C6·8605
+Benchmarkneo/go/fs1-zwrk.go·4 100000	52862.5 req/s  75.668 latency-µs/object	# POLL·346 C1·64506 C1E·204692 C3·9628 C6·6980
+Benchmarkneo/go/fs1-zwrk.go·4 100000	52756.8 req/s  75.820 latency-µs/object	# POLL·372 C1·64158 C1E·206249 C3·7352 C6·9248
+Benchmarkneo/go/fs1-zwrk.go·4 100000	52664.5 req/s  75.952 latency-µs/object	# POLL·376 C1·63978 C1E·207377 C3·10391 C6·6667
+E0308 14:19:44.356437   10483 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:51990: 192.168.0.16:5554 - 192.168.0.16:51990: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·4 100000	52804.5 req/s  75.751 latency-µs/object	# POLL·371 C1·63670 C1E·207653 C3·10347 C6·6537
+
+# 8 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·8 200000	90390.5 req/s  88.505 latency-µs/object	# POLL·8491 C1·166784 C1E·332673 C3·5244 C6·4257
+E0308 14:19:49.813828   10483 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:52058: 192.168.0.16:5554 - 192.168.0.16:52058: accept: node link is not listening for incoming connections
+E0308 14:19:49.813902   10483 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:52054: 192.168.0.16:5554 - 192.168.0.16:52054: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·8 200000	90189.1 req/s  88.703 latency-µs/object	# POLL·8624 C1·166295 C1E·330690 C3·6132 C6·2836
+Benchmarkneo/go/fs1-zwrk.go·8 200000	90429.7 req/s  88.467 latency-µs/object	# POLL·8491 C1·171499 C1E·327584 C3·5937 C6·3355
+Benchmarkneo/go/fs1-zwrk.go·8 200000	90595.6 req/s  88.305 latency-µs/object	# POLL·8519 C1·168388 C1E·328432 C3·5419 C6·3615
+Benchmarkneo/go/fs1-zwrk.go·8 200000	90781.9 req/s  88.123 latency-µs/object	# POLL·8508 C1·168871 C1E·330143 C3·6267 C6·3254
+
+# 12 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·12 100000	95017.3 req/s  126.293 latency-µs/object	# POLL·9471 C1·129952 C1E·89008 C3·3784 C6·1526
+Benchmarkneo/go/fs1-zwrk.go·12 200000	94880.4 req/s  126.475 latency-µs/object	# POLL·17519 C1·241713 C1E·143098 C3·3217 C6·2835
+E0308 14:20:09.756204   10483 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:52324: 192.168.0.16:5554 - 192.168.0.16:52324: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·12 200000	96695.8 req/s  124.100 latency-µs/object	# POLL·17892 C1·243955 C1E·139999 C3·2846 C6·2680
+Benchmarkneo/go/fs1-zwrk.go·12 100000	96509.8 req/s  124.340 latency-µs/object	# POLL·9464 C1·129720 C1E·87504 C3·2462 C6·2044
+Benchmarkneo/go/fs1-zwrk.go·12 100000	96320.0 req/s  124.585 latency-µs/object	# POLL·9209 C1·128917 C1E·87833 C3·2176 C6·2157
+
+# 16 clients in parallel
+Benchmarkneo/go/fs1-zwrk.go·16 100000	88573.8 req/s  180.640 latency-µs/object	# POLL·9075 C1·113927 C1E·73257 C3·3532 C6·2957
+Benchmarkneo/go/fs1-zwrk.go·16 100000	91136.1 req/s  175.562 latency-µs/object	# POLL·8595 C1·110353 C1E·70016 C3·3611 C6·2228
+Benchmarkneo/go/fs1-zwrk.go·16 100000	89677.5 req/s  178.417 latency-µs/object	# POLL·8521 C1·112237 C1E·71413 C3·3601 C6·2596
+E0308 14:20:26.034418   10483 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:52710: 192.168.0.16:5554 - 192.168.0.16:52710: accept: node link is not listening for incoming connections
+Benchmarkneo/go/fs1-zwrk.go·16 100000	89522.9 req/s  178.725 latency-µs/object	# POLL·8922 C1·112396 C1E·69953 C3·3463 C6·2688
+Benchmarkneo/go/fs1-zwrk.go·16 100000	90507.3 req/s  176.781 latency-µs/object	# POLL·8565 C1·111347 C1E·72358 C3·3959 C6·2174
+2018/03/08 14:20:29 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:20:29.0339 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go fs1 (sha1 disabled on: storage, client)
+# NEO/go (Sgo): skipping SHA1 computations
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 3789 77.3 µs/object	# crc32:a50b90dc  nread=4905351  t=292.949668ms
+# POLL·11 C1·5748 C1E·24412 C3·350 C6·1135
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 3789 71.2 µs/object	# crc32:a50b90dc  nread=4905351  t=269.720126ms
+# POLL·13 C1·8227 C1E·21417 C3·402 C6·1167
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 3789 66.7 µs/object	# crc32:a50b90dc  nread=4905351  t=252.654452ms
+# POLL·12 C1·9080 C1E·20207 C3·344 C6·868
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 3789 67.5 µs/object	# crc32:a50b90dc  nread=4905351  t=255.804953ms
+# POLL·14 C1·9026 C1E·20277 C3·345 C6·1145
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go(!sha1) 3789 66.0 µs/object	# crc32:a50b90dc  nread=4905351  t=250.090885ms
+# POLL·15 C1·9509 C1E·19484 C3·887 C6·576
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 3789 21.3 µs/object	# crc32:a50b90dc  nread=4905351  t=80.905317ms
+# POLL·59 C1·7803 C1E·4480 C3·954 C6·465
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 3789 21.2 µs/object	# crc32:a50b90dc  nread=4905351  t=80.533903ms
+# POLL·57 C1·7959 C1E·4041 C3·979 C6·404
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 3789 20.6 µs/object	# crc32:a50b90dc  nread=4905351  t=78.044322ms
+# POLL·52 C1·8091 C1E·4533 C3·951 C6·331
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 3789 20.7 µs/object	# crc32:a50b90dc  nread=4905351  t=78.510598ms
+# POLL·77 C1·7945 C1E·4661 C3·946 C6·294
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zhash.go+prefetch128(!sha1) 3789 21.2 µs/object	# crc32:a50b90dc  nread=4905351  t=80.175911ms
+# POLL·70 C1·7775 C1E·4591 C3·938 C6·338
+
+# 1 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	16328.4 req/s  61.243 latency-µs/object
+# POLL·56 C1·91496 C1E·166923 C3·3478 C6·6265
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	16483.7 req/s  60.666 latency-µs/object
+# POLL·59 C1·91715 C1E·164783 C3·5754 C6·4341
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	15735.9 req/s  63.549 latency-µs/object
+# POLL·36 C1·87550 C1E·171942 C3·2526 C6·7079
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	16375.6 req/s  61.066 latency-µs/object
+# POLL·32 C1·94944 C1E·165096 C3·4834 C6·4697
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·1 20000	16325.5 req/s  61.254 latency-µs/object
+# POLL·37 C1·92774 C1E·166976 C3·3356 C6·6736
+
+# 2 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	32993.5 req/s  60.618 latency-µs/object
+# POLL·109 C1·108318 C1E·104895 C3·9099 C6·7422
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	32907.0 req/s  60.777 latency-µs/object
+# POLL·144 C1·105300 C1E·105873 C3·7913 C6·8339
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	33026.5 req/s  60.557 latency-µs/object
+# POLL·110 C1·105651 C1E·106536 C3·7412 C6·7775
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	33104.4 req/s  60.415 latency-µs/object
+# POLL·162 C1·108171 C1E·107643 C3·7319 C6·8413
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·2 50000	33182.0 req/s  60.274 latency-µs/object
+# POLL·123 C1·106384 C1E·102706 C3·7907 C6·8110
+
+# 3 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	46377.0 req/s  64.687 latency-µs/object
+# POLL·302 C1·133835 C1E·159456 C3·11742 C6·9253
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	45983.1 req/s  65.241 latency-µs/object
+# POLL·271 C1·130170 C1E·162318 C3·10571 C6·11502
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	46105.9 req/s  65.068 latency-µs/object
+# POLL·259 C1·131636 C1E·160608 C3·11512 C6·9894
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	46080.6 req/s  65.103 latency-µs/object
+# POLL·260 C1·131995 C1E·159348 C3·12872 C6·8775
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·3 100000	46045.5 req/s  65.153 latency-µs/object
+# POLL·247 C1·129668 C1E·161876 C3·8885 C6·12719
+
+# 4 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	60031.0 req/s  66.632 latency-µs/object
+# POLL·417 C1·94217 C1E·165247 C3·11642 C6·7266
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	60241.7 req/s  66.399 latency-µs/object
+# POLL·387 C1·98563 C1E·161613 C3·11252 C6·7671
+E0308 14:21:14.213639   14230 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:53090: 192.168.0.16:5554 - 192.168.0.16:53090: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	59916.0 req/s  66.760 latency-µs/object
+# POLL·409 C1·95221 C1E·163798 C3·10852 C6·7991
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	60312.9 req/s  66.321 latency-µs/object
+# POLL·402 C1·96606 C1E·162664 C3·12030 C6·7085
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·4 100000	60296.9 req/s  66.338 latency-µs/object
+# POLL·400 C1·96143 C1E·163902 C3·11599 C6·7556
+
+# 8 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	98476.6 req/s  81.238 latency-µs/object
+# POLL·8094 C1·210809 C1E·259780 C3·6402 C6·4602
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	99179.3 req/s  80.662 latency-µs/object
+# POLL·8226 C1·213995 C1E·254384 C3·6803 C6·3764
+E0308 14:21:27.994219   14230 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:53234: 192.168.0.16:5554 - 192.168.0.16:53234: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	99063.1 req/s  80.757 latency-µs/object
+# POLL·8265 C1·212724 C1E·255061 C3·7826 C6·2981
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	99612.2 req/s  80.311 latency-µs/object
+# POLL·8285 C1·212155 C1E·253607 C3·6891 C6·3659
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·8 200000	99506.1 req/s  80.397 latency-µs/object
+# POLL·8194 C1·216545 C1E·253187 C3·6128 C6·4346
+
+# 12 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	103137.1 req/s  116.350 latency-µs/object
+# POLL·16779 C1·253475 C1E·125226 C3·2807 C6·3181
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	103126.9 req/s  116.362 latency-µs/object
+# POLL·16708 C1·255095 C1E·122179 C3·3233 C6·2519
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	103394.8 req/s  116.060 latency-µs/object
+# POLL·16383 C1·252314 C1E·120766 C3·3515 C6·2207
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	103009.2 req/s  116.494 latency-µs/object
+# POLL·16821 C1·254810 C1E·121164 C3·3491 C6·2329
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·12 200000	103166.2 req/s  116.317 latency-µs/object
+# POLL·16378 C1·251323 C1E·125682 C3·3359 C6·2691
+
+# 16 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	95348.8 req/s  167.805 latency-µs/object
+# POLL·16602 C1·219034 C1E·96926 C3·5466 C6·2486
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 100000	98172.9 req/s  162.978 latency-µs/object
+# POLL·8553 C1·116765 C1E·64001 C3·3854 C6·1707
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	97121.7 req/s  164.742 latency-µs/object
+# POLL·16342 C1·215259 C1E·97669 C3·5427 C6·2509
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	97124.5 req/s  164.737 latency-µs/object
+# POLL·16571 C1·215314 C1E·98757 C3·5212 C6·2308
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/fs1(!sha1)-zwrk.go(!sha1)·16 200000	98780.6 req/s  161.975 latency-µs/object
+# POLL·15841 C1·216311 C1E·95549 C3·4830 C6·2317
+2018/03/08 14:22:09 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:22:09.3632 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite
+Connection to None lost
+Benchmarkneo/go/sqlite-zhash.py 3789 551.4 µs/object	# crc32:a50b90dc  nread=4905351  t=2.090s
+# POLL·3 C1·830 C1E·14380 C3·17170 C6·6258
+Benchmarkneo/go/sqlite-zhash.py 3789 545.1 µs/object	# crc32:a50b90dc  nread=4905351  t=2.066s	# POLL·8 C1·824 C1E·13271 C3·15435 C6·8535
+Benchmarkneo/go/sqlite-zhash.py 3789 521.0 µs/object	# crc32:a50b90dc  nread=4905351  t=1.974s	# POLL·3 C1·259 C1E·12572 C3·18464 C6·5747
+Benchmarkneo/go/sqlite-zhash.py 3789 500.7 µs/object	# crc32:a50b90dc  nread=4905351  t=1.898s	# POLL·4 C1·5834 C1E·14474 C3·16134 C6·5802
+Benchmarkneo/go/sqlite-zhash.py 3789 587.7 µs/object	# crc32:a50b90dc  nread=4905351  t=2.227s	# POLL·2 C1·459 C1E·13615 C3·14648 C6·8847
+
+Benchmarkneo/go/sqlite-zhash.go 3789 157.1 µs/object	# crc32:a50b90dc  nread=4905351  t=595.541394ms	# POLL·13 C1·563 C1E·31603 C3·4689 C6·3515
+Benchmarkneo/go/sqlite-zhash.go 3789 196.8 µs/object	# crc32:a50b90dc  nread=4905351  t=745.918632ms	# POLL·9 C1·548 C1E·25360 C3·13455 C6·1819
+Benchmarkneo/go/sqlite-zhash.go 3789 173.7 µs/object	# crc32:a50b90dc  nread=4905351  t=658.447736ms	# POLL·7 C1·502 C1E·30539 C3·6975 C6·2718
+Benchmarkneo/go/sqlite-zhash.go 3789 199.7 µs/object	# crc32:a50b90dc  nread=4905351  t=756.989557ms	# POLL·10 C1·363 C1E·26195 C3·10046 C6·4885
+Benchmarkneo/go/sqlite-zhash.go 3789 177.7 µs/object	# crc32:a50b90dc  nread=4905351  t=673.506148ms	# POLL·5 C1·345 C1E·29946 C3·6823 C6·3939
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 3789 35.4 µs/object	# crc32:a50b90dc  nread=4905351  t=134.200115ms	# POLL·93 C1·5810 C1E·7697 C3·1149 C6·1214
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 3789 35.9 µs/object	# crc32:a50b90dc  nread=4905351  t=136.076483ms	# POLL·84 C1·6272 C1E·8658 C3·1092 C6·1176
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 3789 35.3 µs/object	# crc32:a50b90dc  nread=4905351  t=133.642486ms	# POLL·73 C1·5742 C1E·8476 C3·1035 C6·1211
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 3789 34.8 µs/object	# crc32:a50b90dc  nread=4905351  t=132.077012ms	# POLL·67 C1·6086 C1E·8689 C3·1045 C6·1175
+Benchmarkneo/go/sqlite-zhash.go+prefetch128 3789 36.0 µs/object	# crc32:a50b90dc  nread=4905351  t=136.257109ms	# POLL·96 C1·6043 C1E·9612 C3·1339 C6·884
+
+# 1 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5343.2 req/s  187.154 latency-µs/object	# POLL·11 C1·872 C1E·95279 C3·39692 C6·13736
+E0308 14:22:32.489204   17797 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:54010: 192.168.0.16:5554 - 192.168.0.16:54010: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5907.0 req/s  169.289 latency-µs/object	# POLL·14 C1·1854 C1E·107125 C3·25617 C6·10695
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5645.5 req/s  177.131 latency-µs/object	# POLL·13 C1·1400 C1E·101808 C3·26974 C6·16671
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	6128.9 req/s  163.162 latency-µs/object	# POLL·18 C1·1346 C1E·103763 C3·30012 C6·10740
+E0308 14:22:40.000425   17797 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:54038: 192.168.0.16:5554 - 192.168.0.16:54038: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·1 10000	5936.5 req/s  168.450 latency-µs/object	# POLL·18 C1·1256 C1E·105065 C3·28493 C6·11071
+
+# 2 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	13225.6 req/s  151.222 latency-µs/object	# POLL·133 C1·13548 C1E·152077 C3·33580 C6·25880
+E0308 14:22:46.229550   17797 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:54060: 192.168.0.16:5554 - 192.168.0.16:54060: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	13088.3 req/s  152.808 latency-µs/object	# POLL·128 C1·14033 C1E·160323 C3·35021 C6·20933
+E0308 14:22:49.233366   17797 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:54074: 192.168.0.16:5554 - 192.168.0.16:54074: accept: node link is not listening for incoming connections
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	13473.8 req/s  148.436 latency-µs/object	# POLL·131 C1·14679 C1E·154283 C3·32543 C6·21063
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	13285.5 req/s  150.541 latency-µs/object	# POLL·112 C1·15326 C1E·157968 C3·30234 C6·24281
+Benchmarkneo/go/sqlite-zwrk.go·2 20000	13311.3 req/s  150.248 latency-µs/object	# POLL·111 C1·14835 C1E·155715 C3·21993 C6·30194
+
+# 3 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	20232.5 req/s  148.276 latency-µs/object	# POLL·193 C1·25039 C1E·144077 C3·31244 C6·17105
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	20393.5 req/s  147.106 latency-µs/object	# POLL·197 C1·25910 C1E·144963 C3·30471 C6·15788
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	20321.1 req/s  147.630 latency-µs/object	# POLL·187 C1·25957 C1E·146407 C3·26003 C6·19843
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	20151.2 req/s  148.874 latency-µs/object	# POLL·228 C1·25400 C1E·147944 C3·25632 C6·18898
+Benchmarkneo/go/sqlite-zwrk.go·3 30000	20306.6 req/s  147.735 latency-µs/object	# POLL·176 C1·25519 C1E·144928 C3·31986 C6·16104
+
+# 4 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·4 50000	26432.1 req/s  151.331 latency-µs/object	# POLL·317 C1·34278 C1E·175575 C3·37998 C6·17025
+Benchmarkneo/go/sqlite-zwrk.go·4 50000	26140.6 req/s  153.019 latency-µs/object	# POLL·291 C1·34432 C1E·183044 C3·24523 C6·23542
+Benchmarkneo/go/sqlite-zwrk.go·4 50000	26307.8 req/s  152.046 latency-µs/object	# POLL·322 C1·35466 C1E·179134 C3·31089 C6·19409
+Benchmarkneo/go/sqlite-zwrk.go·4 50000	26609.4 req/s  150.323 latency-µs/object	# POLL·290 C1·35010 C1E·181159 C3·29020 C6·16303
+Benchmarkneo/go/sqlite-zwrk.go·4 50000	26637.8 req/s  150.163 latency-µs/object	# POLL·318 C1·35089 C1E·178073 C3·29562 C6·19729
+
+# 8 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	43883.8 req/s  182.300 latency-µs/object	# POLL·999 C1·43025 C1E·249918 C3·41818 C6·12107
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44614.4 req/s  179.314 latency-µs/object	# POLL·981 C1·43167 C1E·246065 C3·36210 C6·12610
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44597.9 req/s  179.380 latency-µs/object	# POLL·1004 C1·43230 C1E·243383 C3·37960 C6·14919
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44622.8 req/s  179.281 latency-µs/object	# POLL·1028 C1·43185 C1E·250139 C3·34136 C6·12043
+Benchmarkneo/go/sqlite-zwrk.go·8 100000	44766.8 req/s  178.704 latency-µs/object	# POLL·955 C1·42271 C1E·247857 C3·35349 C6·12075
+
+# 12 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	52658.3 req/s  227.884 latency-µs/object	# POLL·4236 C1·88071 C1E·206759 C3·20770 C6·6625
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	52486.5 req/s  228.630 latency-µs/object	# POLL·4158 C1·85466 C1E·201816 C3·26826 C6·8800
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	52558.9 req/s  228.315 latency-µs/object	# POLL·4332 C1·87574 C1E·205070 C3·24095 C6·6490
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	52622.9 req/s  228.037 latency-µs/object	# POLL·4313 C1·86637 C1E·206539 C3·21753 C6·6204
+Benchmarkneo/go/sqlite-zwrk.go·12 100000	52817.8 req/s  227.196 latency-µs/object	# POLL·4200 C1·86552 C1E·204438 C3·22997 C6·5743
+
+# 16 clients in parallel
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	48300.7 req/s  331.258 latency-µs/object	# POLL·6878 C1·112123 C1E·148458 C3·27298 C6·4162
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	48970.6 req/s  326.727 latency-µs/object	# POLL·6784 C1·111930 C1E·148263 C3·22987 C6·4319
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	48466.4 req/s  330.126 latency-µs/object	# POLL·7243 C1·116826 C1E·148977 C3·25343 C6·5812
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	48182.9 req/s  332.068 latency-µs/object	# POLL·7086 C1·115529 C1E·149927 C3·26265 C6·5972
+Benchmarkneo/go/sqlite-zwrk.go·16 100000	48925.2 req/s  327.030 latency-µs/object	# POLL·6601 C1·110569 C1E·146315 C3·26072 C6·6249
+2018/03/08 14:24:24 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:24:24.4207 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
+
+*** NEO/go sqlite (sha1 disabled on: client)
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 3789 156.9 µs/object	# crc32:a50b90dc  nread=4905351  t=594.690059ms
+# POLL·3 C1·761 C1E·30606 C3·4875 C6·4508
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 3789 185.0 µs/object	# crc32:a50b90dc  nread=4905351  t=701.096706ms
+# POLL·3 C1·348 C1E·28220 C3·7873 C6·4508
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 3789 158.7 µs/object	# crc32:a50b90dc  nread=4905351  t=601.649965ms
+# POLL·7 C1·515 C1E·32200 C3·4572 C6·3262
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 3789 145.7 µs/object	# crc32:a50b90dc  nread=4905351  t=552.335551ms
+# POLL·3 C1·874 C1E·31511 C3·5662 C6·1257
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go(!sha1) 3789 164.2 µs/object	# crc32:a50b90dc  nread=4905351  t=622.463396ms
+# POLL·5 C1·649 C1E·29291 C3·6702 C6·3152
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 3789 35.0 µs/object	# crc32:a50b90dc  nread=4905351  t=132.5761ms
+# POLL·66 C1·6468 C1E·7524 C3·1127 C6·1246
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 3789 35.3 µs/object	# crc32:a50b90dc  nread=4905351  t=133.6003ms
+# POLL·102 C1·6575 C1E·9079 C3·959 C6·1223
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 3789 35.4 µs/object	# crc32:a50b90dc  nread=4905351  t=134.280447ms
+# POLL·105 C1·6634 C1E·9450 C3·1063 C6·1031
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 3789 35.4 µs/object	# crc32:a50b90dc  nread=4905351  t=134.136913ms
+# POLL·115 C1·6548 C1E·9473 C3·1162 C6·1083
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zhash.go+prefetch128(!sha1) 3789 35.3 µs/object	# crc32:a50b90dc  nread=4905351  t=133.680513ms
+# POLL·101 C1·6630 C1E·8419 C3·1207 C6·1219
+
+# 1 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5093.4 req/s  196.332 latency-µs/object
+# POLL·15 C1·1358 C1E·92064 C3·39010 C6·13065
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	6156.4 req/s  162.433 latency-µs/object
+# POLL·24 C1·1646 C1E·102341 C3·27142 C6·13759
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	6271.9 req/s  159.442 latency-µs/object
+# POLL·19 C1·1851 C1E·104531 C3·28387 C6·9831
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5871.6 req/s  170.311 latency-µs/object
+# POLL·8 C1·1239 C1E·107332 C3·23488 C6·15300
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·1 10000	5661.2 req/s  176.642 latency-µs/object
+# POLL·15 C1·2107 C1E·100742 C3·30821 C6·10660
+
+# 2 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	12762.1 req/s  156.714 latency-µs/object
+# POLL·143 C1·13764 C1E·150138 C3·45011 C6·22076
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	12933.4 req/s  154.638 latency-µs/object
+# POLL·140 C1·14723 C1E·150324 C3·35977 C6·27254
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	13545.1 req/s  147.654 latency-µs/object
+# POLL·141 C1·16078 C1E·148346 C3·30803 C6·29534
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	13427.3 req/s  148.950 latency-µs/object
+# POLL·119 C1·15185 C1E·154238 C3·37169 C6·21577
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·2 20000	12908.1 req/s  154.941 latency-µs/object
+# POLL·148 C1·14604 C1E·147752 C3·39922 C6·21452
+
+# 3 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20400.6 req/s  147.054 latency-µs/object
+# POLL·178 C1·26420 C1E·136356 C3·32127 C6·24432
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20315.8 req/s  147.668 latency-µs/object
+# POLL·210 C1·26464 C1E·135884 C3·34127 C6·22002
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20662.6 req/s  145.190 latency-µs/object
+# POLL·209 C1·27869 C1E·139735 C3·34489 C6·16324
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20649.3 req/s  145.283 latency-µs/object
+# POLL·205 C1·27964 C1E·141533 C3·24001 C6·24485
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·3 30000	20522.3 req/s  146.182 latency-µs/object
+# POLL·191 C1·26818 C1E·134575 C3·37282 C6·20272
+
+# 4 clients in parallel
+E0308 14:25:13.729592   21480 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:55322: 192.168.0.16:5554 - 192.168.0.16:55322: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	26770.2 req/s  149.420 latency-µs/object
+# POLL·332 C1·38211 C1E·168395 C3·40297 C6·19338
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27369.3 req/s  146.149 latency-µs/object
+# POLL·302 C1·39291 C1E·171412 C3·35248 C6·16246
+E0308 14:25:19.499201   21480 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:55366: 192.168.0.16:5554 - 192.168.0.16:55366: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27321.1 req/s  146.407 latency-µs/object
+# POLL·308 C1·38973 C1E·171741 C3·25557 C6·25462
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27393.7 req/s  146.019 latency-µs/object
+# POLL·334 C1·39147 C1E·168500 C3·37300 C6·16804
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·4 50000	27232.9 req/s  146.881 latency-µs/object
+# POLL·316 C1·38175 C1E·170883 C3·34441 C6·18308
+
+# 8 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	45109.8 req/s  177.345 latency-µs/object
+# POLL·1059 C1·51486 C1E·236424 C3·44350 C6·11035
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	45144.7 req/s  177.208 latency-µs/object
+# POLL·1156 C1·51954 C1E·236359 C3·41264 C6·14113
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	45492.6 req/s  175.853 latency-µs/object
+# POLL·1096 C1·51704 C1E·238763 C3·41076 C6·12541
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	45358.1 req/s  176.374 latency-µs/object
+# POLL·1161 C1·51695 C1E·239592 C3·38979 C6·14051
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·8 100000	45311.4 req/s  176.556 latency-µs/object
+# POLL·1065 C1·52006 C1E·237586 C3·40558 C6·12063
+
+# 12 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	52912.3 req/s  226.790 latency-µs/object
+# POLL·4221 C1·92728 C1E·201769 C3·18104 C6·6135
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	53582.7 req/s  223.953 latency-µs/object
+# POLL·4266 C1·94368 C1E·196943 C3·21666 C6·7444
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	53277.9 req/s  225.234 latency-µs/object
+# POLL·4214 C1·92826 C1E·196791 C3·22988 C6·6569
+E0308 14:25:59.529439   21480 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:55758: 192.168.0.16:5554 - 192.168.0.16:55758: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	53308.0 req/s  225.107 latency-µs/object
+# POLL·4065 C1·90951 C1E·198847 C3·23028 C6·4463
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·12 100000	53564.5 req/s  224.029 latency-µs/object
+# POLL·4185 C1·92048 C1E·189497 C3·30792 C6·6532
+
+# 16 clients in parallel
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	49630.8 req/s  322.381 latency-µs/object
+# POLL·6746 C1·113417 C1E·140803 C3·28350 C6·4157
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	49942.5 req/s  320.369 latency-µs/object
+# POLL·6837 C1·114409 C1E·141393 C3·26238 C6·5083
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	50061.5 req/s  319.607 latency-µs/object
+# POLL·6629 C1·112213 C1E·140272 C3·24201 C6·5545
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	49998.8 req/s  320.008 latency-µs/object
+# POLL·6540 C1·111925 C1E·139966 C3·25013 C6·5022
+E0308 14:26:24.091862   21480 storage.go:522] storage(192.168.0.16:5554): accept: serve 192.168.0.16:5554 - 192.168.0.16:56200: 192.168.0.16:5554 - 192.168.0.16:56200: accept: node link is not listening for incoming connections
+# NEO/go (tzodb_go): skipping SHA1 computations
+Benchmarkneo/go/sqlite-zwrk.go(!sha1)·16 100000	49867.3 req/s  320.852 latency-µs/object
+# POLL·6659 C1·113207 C1E·142351 C3·23302 C6·5209
+E0308 14:26:24.254500   21480 storage.go:125] storage(192.168.0.16:5554): accept: mux: listener closed
+2018/03/08 14:26:24 accept tcp 192.168.0.16:5554: use of closed network connection
+2018-03-08 14:26:24.2449 ERROR     NEO        [           app: 91] primary master is down
+Cluster state changed
