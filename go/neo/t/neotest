@@ -605,7 +605,7 @@ system_info() {
 		while read state; do
 			is+=" "
 			lat=`cat $state/latency`
-			res=`cat $state/residency`
+			res=`cat $state/residency 2>/dev/null` || res="?"	# added in linux 3.15
 			test "`cat $state/disable`" = "1" && is+="!" || latmax=$(($lat>$latmax?$lat:$latmax))
 			is+="`cat $state/name`·${lat}/${res}"
 		done \
