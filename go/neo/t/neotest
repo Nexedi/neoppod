@@ -97,6 +97,8 @@ EOF
 	pip install -e .[admin,client,ctl,master,storage-sqlite,storage-mysqldb]
 	popd
 
+	pip install cython	# for tcpenalty.py
+
 	go get -v lab.nexedi.com/kirr/neo/go/...
 	go get -v github.com/pkg/profile			# used by zhash.go
 	go get -v golang.org/x/perf/cmd/benchstat		# to summarize/diff benchmark results
