@@ -201,7 +201,7 @@ init_fs() {
 dataset=	# name of current dataset
 dataset_size=	# size parameter for current dataset
 ds=		# top-level dir of current dataset
-neocluster=	# NEO cluster name (different for different datasets to avoid confustion)
+neocluster=	# NEO cluster name (different for different datasets to avoid confusion)
 
 # switch_dataset <name> <size>	- switch benchmarking dataset to named with size
 switch_dataset() {
@@ -539,7 +539,7 @@ system_info() {
 	echo -n " ${myaddr4v[0]}"
 	test "${#myaddr4v[@]}" -eq 1 || echo -n " (+ $((${#myaddr4v[@]} - 1))·ipv4)"
 	echo ")"
-	echo -ne "uname:\t"; uname -a	# XXX key name
+	echo -ne "uname:\t"; uname -a
 
 	# cpu
 	echo -ne "cpu:\t"; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
@@ -623,7 +623,10 @@ system_info() {
 	idledump
 
 	test "$freqstable" = y || echo "WARNING: cpu: frequency not fixed - benchmark timings won't be stable"
-	test "$latmax" -le 10  || echo "WARNING: cpu: C-state exit-latency is max ${latmax}μs - up to that can add to networked and IPC request-reply latency"
+	test "$latmax" -le 10  || {
+		echo "WARNING: cpu: C-state exit-latency is max ${latmax}μs - benchmark timings won't be stable"
+		echo "WARNING: cpu: (up to that might be adding to networked and IPC request-reply latency)"
+	}
 
 
 	# disk under .
@@ -830,7 +833,7 @@ cpustat() {
 	# XXX we assume cpuidle states are the same for all cpus and get list of them from cpu0
 	statev=( `ls -vd ${cpuv[0]}/cpuidle/state[0-9]* |xargs -n 1 basename` )
 
-	# get current [state]usage. usage for a state is summed accreso all cpus
+	# get current [state]usage. usage for a state is summed across all cpus
 	statev_usage() {
 		usagev=()
 		for s in ${statev[*]}; do
