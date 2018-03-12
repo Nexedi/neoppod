@@ -31,7 +31,7 @@ def main():
     cluster = NEOCluster(db_list=["testdata/1.sqlite"], name="test", adapter="SQLite", clear_databases=True)
     cluster.start()
 
-    zout = cluster.getZODBStorage()
+    zout = cluster.getZODBStorage(compress=False)
 
     zout.copyTransactionsFrom(zin)
     zout.close()
