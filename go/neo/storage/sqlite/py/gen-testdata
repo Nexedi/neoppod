@@ -1,0 +1,56 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+"""generate reference database for tests"""
+
+from zodbtools.util import storageFromURL
+from neo.tests.functional import NEOCluster
+import os
+from glob import glob
+
+def main():
+    zin  = storageFromURL("../../../zodb/storage/fs1/testdata/1.fs", read_only=True)
+
+    cluster = NEOCluster(db_list=["testdata/1.sqlite"], name="test", adapter="SQLite", clear_databases=True)
+    cluster.start()
+
+    zout = cluster.getZODBStorage()
+
+    zout.copyTransactionsFrom(zin)
+    zout.close()
+
+    cluster.stop()
+    cluster.waitAll()
+
+    # XXX current neo/go/sqlite limitation: it cannot reply !empty ttrans/tobj on open
+    # -> open/close storage to get t* flushed
+    cluster = NEOCluster(db_list=["testdata/1.sqlite"], name="test", adapter="SQLite", clear_databases=False)
+    cluster.start()
+    cluster.stop()
+    cluster.waitAll()
+
+    # remove sqlite journal     XXX ok?
+    for f in glob("testdata/*-journal"):
+        os.remove(f)
+
+
+
+if __name__ == '__main__':
+    main()

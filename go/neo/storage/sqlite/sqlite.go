@@ -408,16 +408,17 @@ func (b *Backend) Close() error {
 	return err	// XXX err ctx
 }
 
-// ---- open by URL ----
+// ---- open ----
 
-func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
-	url := u.String()
-	dburl := strings.TrimPrefix(url, u.Scheme+"://") // url with stripped sqlite://
+// Open opens Backend connected to SQLite3 database @ dburl.
+//
+// dburl can be just filesystem path or SQLite3 database URI.
+func Open(dburl string) (_ *Backend, err error) {
 	connFactory := func() (*sqlite3.Conn, error) {
 		return sqlite3.Open(dburl)
 	}
 
-	b := &Backend{pool: newConnPool(connFactory), url: url}
+	b := &Backend{pool: newConnPool(connFactory), url: "sqlite://" + dburl}
 
 	defer func() {
 		if err != nil {
@@ -501,6 +502,18 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 	return b, nil
 }
 
+
+func openURL(ctx context.Context, u *url.URL) (storage.Backend, error) {
+	url := u.String()
+	dburl := strings.TrimPrefix(url, u.Scheme+"://") // url with stripped sqlite://
+
+	b, err := Open(dburl)
+	if err == nil {
+		return b, nil
+	} else {
+		return nil, err	// XXX don't return just b -> will be !nil interface
+	}
+}
 
 func init() {
 	storage.RegisterBackend("sqlite", openURL)
