@@ -346,7 +346,8 @@ func (p *Node) dial(ctx context.Context) (_ *neonet.NodeLink, err error) {
 	case accept.YourUUID != app.MyInfo.UUID:
 		err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, app.MyInfo.UUID)
 
-	case !(accept.NumPartitions == 1 && accept.NumReplicas == 1):
+	// XXX NumReplicas: neo/py meaning for n(replica) = `n(real-replica) - 1`
+	case !(accept.NumPartitions == 1 && accept.NumReplicas == 0):
 		err = fmt.Errorf("connected but TODO peer works with !1x1 partition table.")
 	}
 

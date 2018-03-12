@@ -266,8 +266,10 @@ neopy_log() {
 # M{py,go} ...	- spawn master
 Mpy() {
 	# --autostart=1
+	# XXX neo/py meaning for --replicas is `n(real-replica) - 1`
 	exec -a Mpy \
-		neomaster --cluster=$neocluster --bind=$Mbind --masters=$Mbind -r 1 -p 1 `neopy_log Mpy` "$@" &
+		neomaster --cluster=$neocluster --bind=$Mbind --masters=$Mbind	\
+		--replicas 0 --partitions 1 `neopy_log Mpy` "$@" &
 }
 
 Mgo() {

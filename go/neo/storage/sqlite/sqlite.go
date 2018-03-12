@@ -463,7 +463,7 @@ func openURL(ctx context.Context, u *url.URL) (_ storage.Backend, err error) {
 	checkConfig("version",		schemaVersion)
 	checkConfig("nid",		int(proto.UUID(proto.STORAGE, 1)))
 	checkConfig("partitions",	1)
-	checkConfig("replicas",		1)
+	checkConfig("replicas",		0)	// XXX neo/py uses nreplicas as 1 + n(replica)
 
 	err = errv.Err()
 	if err != nil {

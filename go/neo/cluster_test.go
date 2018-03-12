@@ -621,7 +621,7 @@ func TestMasterStorage(t *testing.T) {
 		NodeType:	proto.MASTER,
 		MyUUID:		proto.UUID(proto.MASTER, 1),
 		NumPartitions:	1,
-		NumReplicas:	1,
+		NumReplicas:	0,
 		YourUUID:	proto.UUID(proto.STORAGE, 1),
 	}))
 
@@ -735,7 +735,7 @@ func TestMasterStorage(t *testing.T) {
 		NodeType:	proto.MASTER,
 		MyUUID:		proto.UUID(proto.MASTER, 1),
 		NumPartitions:	1,
-		NumReplicas:	1,
+		NumReplicas:	0,
 		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 
@@ -819,7 +819,7 @@ func TestMasterStorage(t *testing.T) {
 		NodeType:	proto.STORAGE,
 		MyUUID:		proto.UUID(proto.STORAGE, 1),
 		NumPartitions:	1,
-		NumReplicas:	1,
+		NumReplicas:	0,
 		YourUUID:	proto.UUID(proto.CLIENT, 1),
 	}))
 

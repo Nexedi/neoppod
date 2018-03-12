@@ -1082,7 +1082,7 @@ func (m *Master) identify(ctx context.Context, n nodeCome) (node *Node, resp pro
 			NodeType:	proto.MASTER,
 			MyUUID:		m.node.MyInfo.UUID,
 			NumPartitions:	1,	// FIXME hardcoded
-			NumReplicas:	1,	// FIXME hardcoded
+			NumReplicas:	0,	// FIXME hardcoded  (neo/py meaning for n(replica) is `n(real-replica) - 1`)
 			YourUUID:	uuid,
 		}
 

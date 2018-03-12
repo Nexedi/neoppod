@@ -202,7 +202,8 @@ func (stor *Storage) talkMaster1(ctx context.Context) (err error) {
 
 	// XXX add master UUID -> nodeTab ? or master will notify us with it himself ?
 
-	if !(accept.NumPartitions == 1 && accept.NumReplicas == 1) {
+	// NumReplicas: neo/py meaning for n(replica) = `n(real-replica) - 1`
+	if !(accept.NumPartitions == 1 && accept.NumReplicas == 0) {
 		return fmt.Errorf("TODO for 1-storage POC: Npt: %v  Nreplica: %v", accept.NumPartitions, accept.NumReplicas)
 	}
 
@@ -411,7 +412,7 @@ func (stor *Storage) identify(idReq *proto.RequestIdentification) (proto.Msg, bo
 		NodeType:	stor.node.MyInfo.Type,
 		MyUUID:		stor.node.MyInfo.UUID,		// XXX lock wrt update
 		NumPartitions:	1,	// XXX
-		NumReplicas:	1,	// XXX
+		NumReplicas:	0,	// XXX
 		YourUUID:	idReq.UUID,
 	}, true
 }
