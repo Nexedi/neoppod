@@ -1,6 +1,49 @@
 Change History
 ==============
 
+1.9 (2018-03-13)
+----------------
+
+A lot of performance improvements have been done on storage nodes for this
+release, and some of them required changes in the storage format. In short,
+the migration is done automatically, but you may want to read UPGRADE notes
+for more details.
+
+Performance:
+
+- Speed up replication by sending bigger network packets,
+  and by not getting object next_serial for nothing.
+- Speed up reads by indexing 'obj' primarily by 'oid' (instead of 'tid').
+- Optimize storage layout of raw data for replication.
+
+Other storage changes:
+
+- Disable data deduplication by default. --dedup option added.
+- importer: do not crash if a backup cluster tries to replicate.
+- importer: preserve 'packed' flag.
+
+Master:
+
+- Fix possible failure when reading data in a backup cluster with replicas.
+- Fix generation of TID.
+- Fix resumption of backup replication (internal or not).
+
+Client:
+
+- New 'cache-size' Storage option.
+- Cache hit/miss statistics.
+- Fix accounting of cache size.
+- Preserve 'packed' flag on iteration.
+- At startup, or after nodes are back, full load balancing could be prevented
+  until some data are written.
+
+Other:
+
+- neolog: --from option now also tries to parse with `dateutil`_.
+- neolog: add support for xz-compressed logs, using external xzcat commands.
+
+.. _dateutil: https://dateutil.readthedocs.io/
+
 1.8.1 (2017-11-07)
 ------------------
 
