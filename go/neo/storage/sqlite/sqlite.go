@@ -410,14 +410,69 @@ func (b *Backend) Close() error {
 
 // ---- open ----
 
+func openConn(dburl string) (*sqlite3.Conn, error) {
+	println("openconn", dburl)
+	conn, err := sqlite3.Open(dburl,
+		sqlite3.OpenNoMutex,	// we use connections only from 1 goroutine simultaneously
+		sqlite3.OpenReadWrite)	//, sqlite3.OpenSharedCache)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// we are the only process to work with the database.
+	// setting locking_mode to EXCLUSIVE avoids sqlite on every - even
+	// readonly - transaction to constantly take/release PENDING & SHARED
+	// file locks, stat "X-journal" and "X-wal", fstat the database file.
+	//
+	// here is how a simple read query looks under strace:
+	//
+	// fcntl(3, F_SETLK, {l_type=F_RDLCK, l_whence=SEEK_SET, l_start=1073741824, l_len=1}) = 0	lock PENDING
+	// fcntl(3, F_SETLK, {l_type=F_RDLCK, l_whence=SEEK_SET, l_start=1073741826, l_len=510}) = 0	lock SHARED
+	// fcntl(3, F_SETLK, {l_type=F_UNLCK, l_whence=SEEK_SET, l_start=1073741824, l_len=1}) = 0	unlock PENDING
+	// stat("...-journal", 0x7ffe31172430) = -1 ENOENT (No such file or directory)
+	// pread64(3, "\0\0\0}\0\0\tf\0\0\t&\0\0\0\27", 16, 24) = 16					read db seqno, etc...
+	//
+	// # here the actual data is read from sqlite3 pager cache (then
+	// # nothing in strace), or from the database file.
+	//
+	// stat("...-wal", 0x7ffe31172430) = -1 ENOENT (No such file or directory)
+	// fstat(3, {st_mode=S_IFREG|0644, st_size=9854976, ...}) = 0
+	// fcntl(3, F_SETLK, {l_type=F_UNLCK, l_whence=SEEK_SET, l_start=0, l_len=0}) = 0		unlock all (SHARED)
+	//
+	// avoiding fcntls + (f)stats saves ~ 5µs per query on deco.
+	//
+	// NOTE we can have multiple connections opened with EXCLUSIVE locking
+	// mode to the same database file from inside 1 process. This was
+	// tested with SQLite 3.23.0 to be working ok. The following comment from
+	// primary SQLite author also confirms it should be working normally:
+	// https://bugzilla.mozilla.org/show_bug.cgi?id=993556#c1
+	//
+	// XXX neo/py does not use locking_mode=EXCLUSIVE.
+	mode := "EXCLUSIVE"
+	mode_, err := conn.SetLockingMode("", mode)
+	if err != nil {
+		conn.Close()
+		return nil, err	// XXX or other error?
+	}
+
+	mode_ = strings.ToUpper(mode_)	// sqlite returns "exclusive"
+	if mode_ != mode {
+		conn.Close()
+		return nil, fmt.Errorf("sqlite: %s: tried to open with %q locking mode, got only %q",
+			dburl, mode, mode_)
+	}
+
+	return conn, nil
+}
+
 // Open opens Backend connected to SQLite3 database @ dburl.
 //
 // dburl can be just filesystem path or SQLite3 database URI.
 func Open(dburl string) (_ *Backend, err error) {
 	connFactory := func() (*sqlite3.Conn, error) {
-		return sqlite3.Open(dburl)
+		return openConn(dburl)
 	}
-
 	b := &Backend{pool: newConnPool(connFactory), url: "sqlite://" + dburl}
 
 	defer func() {
