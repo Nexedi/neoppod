@@ -39,7 +39,7 @@ import (
 	// NOTE github.com/gwenn/gosqlite is used for the following reasons:
 	//
 	// - it is used directly instead of using it via "database/sql" because for a
-	//   typical 5µs query quering through "database/sql", even in the most
+	//   typical 5µs query querying through "database/sql", even in the most
 	//   careful, hacky and unsafe way, adds at least 3µs and more.
 	//   see also: https://github.com/golang/go/issues/23879
 	//
@@ -52,7 +52,7 @@ import (
 	//
 	// --------
 	//
-	// NOTE 2: we do not interrupt requests on context cancelation:
+	// NOTE 2: we do not interrupt requests on context cancellation:
 	//
 	// - it is relatively expensive to support when using a CGo library - see e.g.
 	//   https://github.com/mattn/go-sqlite3/pull/530
@@ -61,7 +61,7 @@ import (
 	// - on Linux disk file IO, in contrast to e.g. network and pipes,
 	//   cannot be really interrupted.
 	//
-	// so we are ok for the cancel to be working on the granualarity of
+	// so we are ok for the cancel to be working on the granularity of
 	// whole query.
 	sqlite3 "github.com/gwenn/gosqlite"
 )
@@ -328,7 +328,7 @@ func (b *Backend) Load(ctx context.Context, xid zodb.Xid) (_ *proto.AnswerObject
 	// XXX somehow detect errors in sql misuse and log them as 500 without reporting to client?
 	// XXX such errors start with "unsupported Scan, "
 
-	// XXX use conn for severl query1 (see below) without intermediate returns to pool?
+	// XXX use conn for several query1 (see below) without intermediate returns to pool?
 
 	err = b.query1(
 		"SELECT tid, compression, data.hash, value, value_tid" +
@@ -411,7 +411,6 @@ func (b *Backend) Close() error {
 // ---- open ----
 
 func openConn(dburl string) (*sqlite3.Conn, error) {
-	println("openconn", dburl)
 	conn, err := sqlite3.Open(dburl,
 		sqlite3.OpenNoMutex,	// we use connections only from 1 goroutine simultaneously
 		sqlite3.OpenReadWrite)	//, sqlite3.OpenSharedCache)
@@ -462,6 +461,21 @@ func openConn(dburl string) (*sqlite3.Conn, error) {
 		return nil, fmt.Errorf("sqlite: %s: tried to open with %q locking mode, got only %q",
 			dburl, mode, mode_)
 	}
+
+	// TODO locking_mode=EXCLUSIVE means sqlite will acquire SHARED lock on
+	// first read operation and EXCLUSIVE lock on first write. It is better
+	// we downgrade EXCLUSIVE back to SHARED after transaction finish in
+	// order for separate processes (e.g. sqlite3 shell) to be able to still
+	// read data. Ways to downgrade could be:
+	//
+	// - to set locking_mode=normal and read something,
+	//   https://www.sqlite.org/pragma.html#pragma_locking_mode
+	//
+	// or
+	//
+	// - to patch sqlite and add something lie "EXCLUSIVE_READ" locking
+	//   mode. (see pager_end_transaction() and pagerUnlockDb(SHARED_LOCK)
+	//   call there in sqlite3 sources).
 
 	return conn, nil
 }
