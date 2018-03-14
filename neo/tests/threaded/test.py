@@ -137,27 +137,6 @@ class Test(NEOThreadedTest):
                     self.assertRaises(POSException.POSKeyError,
                         storage.load, oid, '')
 
-    @with_cluster()
-    def testCreationUndoneHistory(self, cluster):
-        if 1:
-            storage = cluster.getZODBStorage()
-            oid = storage.new_oid()
-            txn = transaction.Transaction()
-            storage.tpc_begin(txn)
-            storage.store(oid, None, 'foo', '', txn)
-            storage.tpc_vote(txn)
-            tid1 = storage.tpc_finish(txn)
-            storage.tpc_begin(txn)
-            storage.undo(tid1, txn)
-            tid2 = storage.tpc_finish(txn)
-            storage.tpc_begin(txn)
-            storage.undo(tid2, txn)
-            tid3 = storage.tpc_finish(txn)
-            expected = [(tid1, 3), (tid2, 0), (tid3, 3)]
-            for x in storage.history(oid, 10):
-                self.assertEqual((x['tid'], x['size']), expected.pop())
-            self.assertFalse(expected)
-
     def _testUndoConflict(self, cluster, *inc):
         def waitResponses(orig, *args):
             orig(*args)

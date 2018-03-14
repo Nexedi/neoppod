@@ -344,6 +344,35 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertTrue(backup.master.is_alive())
 
     @backup_test()
+    def testCreationUndone(self, backup):
+        """
+        Check both IStorage.history and replication when the DB contains a
+        deletion record.
+
+        XXX: This test reveals that without --dedup, the replication does not
+             preserve the deduplication that is done by the 'undo' code.
+        """
+        storage = backup.upstream.getZODBStorage()
+        oid = storage.new_oid()
+        txn = transaction.Transaction()
+        storage.tpc_begin(txn)
+        storage.store(oid, None, 'foo', '', txn)
+        storage.tpc_vote(txn)
+        tid1 = storage.tpc_finish(txn)
+        storage.tpc_begin(txn)
+        storage.undo(tid1, txn)
+        tid2 = storage.tpc_finish(txn)
+        storage.tpc_begin(txn)
+        storage.undo(tid2, txn)
+        tid3 = storage.tpc_finish(txn)
+        expected = [(tid1, 3), (tid2, 0), (tid3, 3)]
+        for x in storage.history(oid, 10):
+            self.assertEqual((x['tid'], x['size']), expected.pop())
+        self.assertFalse(expected)
+        self.tic()
+        self.assertEqual(1, self.checkBackup(backup))
+
+    @backup_test()
     def testBackupTid(self, backup):
         """
         Check that the backup cluster does not claim it has all the data just

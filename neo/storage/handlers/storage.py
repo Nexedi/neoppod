@@ -267,6 +267,8 @@ class StorageOperationHandler(EventHandler):
                             "partition %u dropped or truncated"
                             % partition), msg_id)
                         return
+                    if not object[2]: # creation undone
+                        object = object[0], 0, ZERO_HASH, '', object[4]
                     # Same as in askFetchTransactions.
                     conn.send(Packets.AddObject(oid, *object), msg_id)
                     yield conn.buffering
