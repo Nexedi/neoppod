@@ -1,0 +1,1755 @@
+diff --git a/go/neo/storage/sqlite/goquery.go b/go/neo/storage/sqlite/goquery.go
+new file mode 100644
+index 00000000..ce72a4d7
+--- /dev/null
++++ b/go/neo/storage/sqlite/goquery.go
+@@ -0,0 +1,1277 @@
++// Copyright (C) 2017-2018  Nexedi SA and Contributors.
++//                          Kirill Smelkov <kirr@nexedi.com>
++//
++// This program is free software: you can Use, Study, Modify and Redistribute
++// it under the terms of the GNU General Public License version 3, or (at your
++// option) any later version, as published by the Free Software Foundation.
++//
++// You can also Link and Combine this program with other software covered by
++// the terms of any of the Free Software licenses or any of the Open Source
++// Initiative approved licenses and Convey the resulting work. Corresponding
++// source of such a combination shall include the source code for all other
++// software used.
++//
++// This program is distributed WITHOUT ANY WARRANTY; without even the implied
++// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++//
++// See COPYING file for full licensing terms.
++// See https://www.nexedi.com/licensing for rationale and options.
++
++// +build ignore
++
++/*
++Goquery XXX
++
++Goquery was inspired by lab.nexedi.com/kirr/go123/tracing/cmd/gotrace.
++(https://lab.nexedi.com/kirr/go123/blob/master/tracing/cmd/gotrace/gotrace.go)
++
++FIXME FIXME FIXME factor-out special-comments parsing + writeout functionality
++into package common to gotrace & goquery to avoid duplicating code. FIXME FIXME FIXME !!!
++*/
++package main
++
++import (
++	"bufio"
++	"bytes"
++	"flag"
++	"fmt"
++	"go/ast"
++	"go/build"
++	"go/parser"
++	"go/token"
++	"go/types"
++	"io"
++	"io/ioutil"
++	"log"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++	"text/template"
++
++	"golang.org/x/tools/go/loader"
++
++	"lab.nexedi.com/kirr/go123/prog"
++	"lab.nexedi.com/kirr/go123/xerr"
++)
++
++
++// Query represent one sql:query1 declaration
++//
++// XXX + sql:exec & sql:query - all residing in one type
++type Query struct {
++	Pos  token.Position
++	Pkgq *Package // package this query is part of
++
++	// declaration of function to make the query.
++	// the declaration is constructe on the fly via converting e.g.
++	//
++	//	//sql:query1 sql_load(oid zodb.Oid, at zodb.Tid) (serial zodb.Tid, ...)
++	//
++	// into
++	//
++	//	func sql_load(oid zodb.Oid, at zodb.Tid) (serial zodb.Tid, ..., error)
++	//
++	// when sql:query1 is parsed the func declaration is not added anywhere
++	// in the sources - just its AST + package (XXX) is virtually
++	// constructed.
++	//
++	// See parseQuery for details.
++	*ast.FuncDecl
++
++	// query SQL text itself.
++	Sql string
++}
++
++
++// Package represents query-related information about a package.
++type Package struct {
++	Pkgi *loader.PackageInfo // original non-augmented package
++
++	Queryv []*Query // queries this package defines
++
++	// original package is augmented with query code
++	// information about query code is below:
++
++	queryFilev []*ast.File    // files for added sql:query1 + friends funcs
++	queryFset  *token.FileSet // fset for ^^^
++
++	queryChecker  *types.Checker // to typecheck ^^^
++	queryPkg      *types.Package // original package augmented with ^^^
++	queryTypeInfo *types.Info    // typeinfo for ^^^
++
++}
++
++// parseQuery parses query definition into Query.
++//
++// text is text argument after "//sql:query1 ".
++// XXX need prefix to decide whether it is exec or query or query1
++// XXX + sql text itself.
++func (p *Package) parseQuery(tag string, srcfile *ast.File, pos token.Position, text string) (*Query, error) {
++	posErr := func(format string, argv ...interface{}) error {
++		return fmt.Errorf("%v: "+format, append([]interface{}{pos}, argv...)...)
++	}
++
++	// prepare artificial package with query definition as func declaration
++	buf := &Buffer{}
++	buf.emit("package %s", p.Pkgi.Pkg.Name())
++
++	// add all imports from original source file
++	// so that inside it all looks like as if it was in original source context
++	buf.emit("\nimport (")
++
++	for _, imp := range srcfile.Imports {
++		impline := ""
++		if imp.Name != nil {
++			impline += imp.Name.Name + " "
++		}
++		impline += imp.Path.Value
++		buf.emit("\t%s", impline)
++	}
++
++	buf.emit(")")
++
++	// func itself
++	buf.emit("\nfunc " + text)
++
++	// now parse/typecheck
++	filename := fmt.Sprintf("%v:%v+%s %v", pos.Filename, pos.Line, tag, text)
++	//println("---- 8< ----", filename)
++	//println(buf.String())
++	//println("---- 8< ----")
++	tf, err := parser.ParseFile(p.queryFset, filename, buf.String(), 0)
++	if err != nil {
++		return nil, err // already has pos' as prefix
++	}
++
++	p.queryFilev = append(p.queryFilev, tf)
++
++	// must be:
++	// GenDecl{IMPORT}
++	// FuncDecl
++	if len(tf.Decls) != 2 {
++		return nil, posErr("%s must be func-like", tag)
++	}
++
++	declf, ok := tf.Decls[1].(*ast.FuncDecl)
++	if !ok {
++		return nil, posErr("%s must be func-like, not %v", tag, tf.Decls[0])
++	}
++	// XXX ok to allow methods (declf.Recv != nil) ?
++
++	// typecheck prepared file to get query func argument types
++	// (type information lands into p.queryTypeInfo)
++	err = p.queryChecker.Files([]*ast.File{tf})
++	if err != nil {
++		return nil, err // already has pos' as prefix
++	}
++
++	return &Query{Pos: pos, Pkgq: p, FuncDecl: declf}, nil
++}
++
++
++// progImporter is types.Importer that imports packages from loaded loader.Program
++type progImporter struct {
++	prog *loader.Program
++}
++
++func (pi *progImporter) Import(path string) (*types.Package, error) {
++	pkgi := pi.prog.Package(path)
++	if pkgi == nil {
++		return nil, fmt.Errorf("package %q not found", path)
++	}
++
++	return pkgi.Pkg, nil
++}
++
++// packageSQL returns information about SQL-queries defined by a package.
++func packageSQL(prog *loader.Program, pkgi *loader.PackageInfo) (*Package, error) {
++	// prepare Package with typechecker ready to typecheck query files
++	// (to get query func argument types)
++	qconf := &types.Config{
++		Importer: &progImporter{prog},
++
++		// to ignore query calls from original package code
++		IgnoreFuncBodies: true,
++
++		// we take imports from original source file verbatim,	XXX needed?
++		// but most of them probably won't be used.
++		DisableUnusedImportCheck: true,
++	}
++
++	qfset := prog.Fset
++	qpkg := types.NewPackage(pkgi.Pkg.Path(), pkgi.Pkg.Name())
++	qinfo := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
++
++	p := &Package{
++		Pkgi: pkgi,
++
++		// XXX vvv do we need separate field for queryFset if it is = prog.Fset?
++		queryFset:     qfset,
++		queryChecker:  types.NewChecker(qconf, qfset, qpkg, qinfo),
++		queryPkg:      qpkg,
++		queryTypeInfo: qinfo,
++	}
++
++	// preload original package files into query package
++	err := p.queryChecker.Files(p.Pkgi.Files)
++	if err != nil {
++		// must not happen
++		panic(fmt.Errorf("%v: error rechecking original package: %v", pkgi.Pkg.Path(), err))
++	}
++
++	// go through files of the original package and process //trace: directives
++	//
++	// FIXME we currently don't process cgo files as go/loader passes to us	XXX might be fixed already
++	// already preprocessed results with comments stripped, not original source.	XXX -> recheck
++	// Maybe in some time it will be possible to have AST of original source:
++	// https://golang.org/issues/16623
++	for _, file := range pkgi.Files { // ast.File
++		for _, commgroup := range file.Comments { // ast.CommentGroup
++			for i, comment := range commgroup.List { // ast.Comment
++				pos := prog.Fset.Position(comment.Slash)
++				//fmt.Printf("%v %q\n", pos, comment.Text)
++
++				// only directives starting from beginning of line
++				if pos.Column != 1 {
++					continue
++				}
++
++				if !strings.HasPrefix(comment.Text, "//sql:") {
++					continue
++				}
++
++				textv := strings.SplitN(comment.Text, " ", 2)
++				if len(textv) != 2 {
++					return nil, fmt.Errorf("%v: invalid directive format", pos)
++				}
++
++				directive, arg := textv[0], textv[1]
++				directive = directive[2:] // strip '^//'
++				switch directive {
++				case "sql:query1":
++					//fmt.Println("*", textv)
++					query, err := p.parseQuery(directive, file, pos, arg)
++					if err != nil {
++						return nil, err
++					}
++
++					// the rest of comment group becomes query text
++					for _, tail := range commgroup.List[i+1:] {
++						line := tail.Text
++						line = strings.TrimPrefix(line, "//")
++						line = strings.TrimPrefix(line, "\t")
++						if query.Sql != "" {
++							query.Sql += "\n"
++						}
++						query.Sql += line
++					}
++					// no trailing \n
++					query.Sql = strings.TrimSuffix(query.Sql, "\n")
++
++					// XXX needed here? - better append in parseTraceEvent
++					p.Queryv = append(p.Queryv, query)
++
++				default:
++					return nil, fmt.Errorf("%v: unknown directive %q", pos, directive)
++				}
++			}
++		}
++	}
++
++	// queries go in canonical order
++	sort.Sort(byQueryName(p.Queryv))
++
++	return p, nil
++}
++
++// byQueryName provides []*Query ordering by query name
++type byQueryName []*Query
++
++func (v byQueryName) Less(i, j int) bool { return v[i].Name.Name < v[j].Name.Name }
++func (v byQueryName) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
++func (v byQueryName) Len() int           { return len(v) }
++
++
++// ----------------------------------------
++
++// govar represents Go variable.
++//
++// It has name and type. A variable can be part of either passed or returned
++// arguments of a query.
++type govar struct {
++	Name	string
++	Type	types.Type
++}
++
++// Xargv returns query arguments as []govar
++func (q *Query) Xargv() (argv []govar) {
++	for _, field := range q.FuncDecl.Type.Params.List {
++		typ := q.Pkgq.queryTypeInfo.Types[field.Type].Type
++		for _, name := range field.Names {
++			argv = append(argv, govar{name.Name, typ})
++		}
++	}
++	return argv
++}
++
++// Xretv returns query results as []govar
++func (q *Query) Xretv() (retv []govar) {
++	for _, field := range q.FuncDecl.Type.Results.List {
++		typ := q.Pkgq.queryTypeInfo.Types[field.Type].Type
++		for _, name := range field.Names {
++			retv = append(retv, govar{name.Name, typ})
++		}
++	}
++	return retv
++}
++
++func fieldvStr(fieldv []*ast.Field) string {
++	argv := []string{}
++
++	for _, field := range fieldv {
++		for _, name := range field.Names {
++			argv = append(argv, name.Name)
++		}
++	}
++
++	return strings.Join(argv, ", ")
++}
++
++// Argv returns comma-separated argument-list		XXX neeed?
++func (q *Query) Argv() string {
++	return fieldvStr(q.FuncDecl.Type.Params.List)
++}
++
++// XXX
++func (q *Query) Retv() string {
++	return fieldvStr(q.FuncDecl.Type.Results.List)
++}
++
++// ArgvTyped returns argument list with types. 		XXX needed?
++//
++// types are qualified relative to original package.
++func (q *Query) ArgvTyped() string {
++	return q.ArgvTypedRelativeTo(q.Pkgq.queryPkg, nil)
++}
++
++// RetvTyped returns return list with types.
++//
++// types are qualified relative to original package.
++func (q *Query) RetvTyped() string {
++	return q.RetvTypedRelativeTo(q.Pkgq.queryPkg, nil)
++}
++
++// pkgQualifier returns qualifier that qualifies names relative to pkg.
++//
++// importedAs specifies under which name a package was imported, if name was explicitly set.
++func pkgQualifier(pkg *types.Package, importedAs map[string]string /*pkgpath -> pkgname*/) func(*types.Package) string {
++	return func(p *types.Package) string {
++		// specified package - unqualified
++		if p == pkg {
++			return ""
++		}
++
++		// qualify as explicitly named
++		pkgname := importedAs[p.Path()]
++		if pkgname != "" {
++			return pkgname
++		}
++
++		// default qualification
++		return p.Name()
++	}
++}
++
++// fieldv should be either params or results
++func (q *Query) fieldvTypedRelativeTo(fieldv []*ast.Field, pkg *types.Package, importedAs map[string]string /*pkgpath -> pkgname*/) string {
++	argv := []string{}
++
++	// default qualifier - relative to original package
++	qf := pkgQualifier(pkg, importedAs)
++
++	for _, field := range fieldv {
++		namev := []string{}
++		for _, name := range field.Names {
++			namev = append(namev, name.Name)
++		}
++
++		arg := strings.Join(namev, ", ")
++		typ := q.Pkgq.queryTypeInfo.Types[field.Type].Type
++		arg += " " + types.TypeString(typ, qf)
++
++		argv = append(argv, arg)
++	}
++
++	return strings.Join(argv, ", ")
++}
++
++// ArgvTypedRelativeTo returns argument list with types qualified relative to specified package.
++//
++// importedAs specifies under which name a package was imported, if name was explicitly set
++func (q *Query) ArgvTypedRelativeTo(pkg *types.Package, importedAs map[string]string /*pkgpath -> pkgname*/) string {
++	return q.fieldvTypedRelativeTo(q.FuncDecl.Type.Params.List, pkg, importedAs)
++}
++
++// XXX
++func (q *Query) RetvTypedRelativeTo(pkg *types.Package, importedAs map[string]string /*pkgpath -> pkgname*/) string {
++	return q.fieldvTypedRelativeTo(q.FuncDecl.Type.Results.List, pkg, importedAs)
++}
++
++// NeedPkgv returns packages that are needed for types used in query.
++func (q *Query) NeedPkgv() []string {
++	pkgset := StrSet{ /*pkgpath*/ }
++	qf := func(pkg *types.Package) string {
++		// if we are called - pkg is used
++		pkgset.Add(pkg.Path())
++		return "" // don't care
++	}
++
++	for _, field := range q.FuncDecl.Type.Params.List {
++		typ := q.Pkgq.queryTypeInfo.Types[field.Type].Type
++		_ = types.TypeString(typ, qf)
++	}
++	for _, field := range q.FuncDecl.Type.Results.List {
++		typ := q.Pkgq.queryTypeInfo.Types[field.Type].Type
++		_ = types.TypeString(typ, qf)
++	}
++
++	return pkgset.Itemv()
++}
++
++
++// xtmpl creates/parses template and panic if the template is invalid.
++func xtmpl(name, text string) *template.Template {
++	return template.Must(template.New(name).Funcs(template.FuncMap{
++		"add":		func(a, b int) int { return a + b },
++		"isarray":	isarray,
++		"asarray":	asarray,
++		"sqliteType":	sqliteType,
++		"sqliteBind":	sqliteBind,
++		"cstrlit":	cstrlit,
++	}).Parse(text))
++}
++
++// cstrlit converts string s to C string literal.
++func cstrlit(s string) string {
++	sv := strings.Split(s, "\n")
++	for i := range sv {
++		sv[i] = "\"" + sv[i] + "\""
++	}
++	return strings.Join(sv, "\n")
++}
++
++// query1GoTmpl is Go code template generated for one query1.
++var query1GoTmpl = xtmpl("query1/go", `
++// query1: {{.Name}}({{.Argv}}) ({{.Retv}})
++func {{.Name}}(_db db, {{.ArgvTyped}}) ({{.RetvTyped}}, err error) {
++	_conn, err := _db.getConn()
++	if err != nil {
++		return
++	}
++
++	_r := C.{{.Name}}(_conn
++		{{- range .Xargv -}}
++			, {{if eq .Type.String "string" -}}	{{/* no need to cast to C */ -}}
++				{{.Name}}
++			{{- else -}}
++				{{- /* cast to C */ -}}
++				C.{{- .Cinput.Ctype}}({{.Name}})
++			{{- end -}}
++		{{- end}})
++
++	_ = _r
++	_cp.putConn(_conn)
++	panic("TODO")
++}
++`)
++
++// query1CTmpl is C code template generated for one query1.
++var query1CTmpl = xtmpl("query1/c", `
++// query1: {{.Name}}({{.Argv}}) ({{.Retv}})
++
++{{/* result type for this query */ -}}
++typedef struct {
++{{- range .Xretv}}
++    {{- range .Coutput }}
++	{{.Ctype}}	{{.Cname}};
++    {{- end }}
++{{- end}}
++
++	int rc;
++} {{.Name}}_ret;
++
++{{/* function to perform the query */ -}}
++{{.Name}}_ret {{.Name}}(Conn *conn {{- range .Xargv -}}
++, {{.Cinput -}}
++{{end}}) {
++	{{.Name}}_ret r;
++	sqlite3_stmt *qstmt;
++	int rc;
++
++	qstmt = conn->_qstmt_{{.Name}};
++	conn->_qstmt_{{.Name}} = NULL;	// XXX just in case
++	if (!qstmt) {
++		rc = sqlite3_prepare_v2(conn->db,
++{{cstrlit .Sql}}, -1, &qstmt, NULL);
++		if (rc != SQLITE_OK) {
++			r.rc = rc;
++			return r;
++		}
++	}
++
++	// bind arguments
++	//
++	// NOTE for strings we pass SQLITE_STATIC which means to SQLite "that
++	// the content pointer is constant and will never change". It is valid
++	// to do so because we'll unbind all arguments when returning.
++{{- range $i, $_ := .Xargv}}
++    {{- $bind := .Type | sqliteBind -}}
++    {{- if eq $bind "text"}}  {{- /* go string */}}
++	rc = sqlite3_bind_text(qstmt, {{add $i 1}}, gostr_ptr({{.Name}}), gostr_len({{.Name}}), SQLITE_STATIC);
++    {{- else}}
++	rc = sqlite3_bind_{{$bind}}(qstmt, {{add $i 1}}, {{.Name}});
++    {{- end}}
++	OK(rc);
++{{- end}}
++
++	// run the query
++	rc = sqlite3_step(qstmt);
++	switch (rc) {
++	case SQLITE_ROW:
++		{{/* ok */ -}}
++		break;	// ok
++
++	case SQLITE_DONE:
++		{{/* nothing */ -}}
++		r.rc = rc;
++		goto out;
++
++	default:
++		{{/* not ok */ -}}
++		r.rc = rc;
++		goto out;
++	}
++
++	// we got data -> read columns
++{{- range $i, $_ := .Xretv}}
++	// ... {{.Name}}
++	switch ( sqlite3_column_type(qstmt, {{add $i 1}}) ) {
++	case {{.Type | sqliteType}}:
++		{{/* ok */ -}}
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++{{$bind := .Type | sqliteBind -}}
++    {{- if eq $bind "text"}}  {{- /* -> will be converted to go string by caller */}}
++	r.{{.Name}}_ptr = sqlite3_column_text (qstmt, {{add $i 1}});
++	r.{{.Name}}_len = sqlite3_column_bytes(qstmt, {{add $i 1}});
++    {{- else if eq $bind "blob"}}
++
++      {{- if .Type | isarray }}	{{- /* fixed size array*/}}
++	{{- $tarr := .Type | asarray}}
++	// array - check lenght matching + read directly here
++	if ({{$tarr.Len}} != sqlite3_column_bytes(qstmt, {{add $i 1}})) {
++		r.rc = SQLITE_MISMATCH;		// XXX detail
++		goto out;
++	}
++	memcpy(r.{{.Name}}, sqlite3_column_blob(qstmt, {{add $i 1}}), {{$tarr.Len}});
++
++      {{- else}}	{{- /* blob */}}
++	// TODO blob
++      {{- end}}
++    {{- else}}
++	r.{{.Name}} = sqlite3_column_{{.Type | sqliteBind}}(qstmt, {{add $i 1}});
++    {{- end}}
++{{end}}
++
++	r.rc = SQLITE_OK;
++
++out:
++	// clear bindings so that we put qstmt back with all arguments cleared.
++	// in particular we HAVE to unbind go strings memory (see bind part for why).
++	//
++	// ignore rc - sqlite3_clear_bindings always returns SQLITE_OK.
++	rc = sqlite3_clear_bindings(qstmt);
++	assert(rc == SQLITE_OK);
++
++	// reset the statement so it can be executed again.
++	// ignore rc as sqlite3_reset returns error of last sqlite3_step.
++	(void)sqlite3_reset(qstmt);
++
++	// put statment back to conn for reuse
++	conn->_qstmt_{{.Name}} = qstmt;
++
++	return r;
++}
++`)
++
++
++var cBasicTypes = map[types.BasicKind]string {
++	types.Int:	"int",
++	types.Int8:	"int8_t",
++	types.Int32:	"int32_t",
++	types.Int64:	"int64_t",
++	types.Uint:	"unsigned",
++	types.Uint8:	"uint8_t",
++	types.Uint32:	"uint32_t",
++	types.Uint64:	"uint64_t",
++
++	//types.String:	"_GoString_",	string is handled specially
++	// XXX more?
++}
++
++var sqliteBasicTypes = map[types.BasicKind]string {
++	types.Int:	"SQLITE_INTEGER",
++	types.Int8:	"SQLITE_INTEGER",
++	types.Int32:	"SQLITE_INTEGER",
++	types.Int64:	"SQLITE_INTEGER",
++	types.Uint:	"SQLITE_INTEGER",
++	types.Uint8:	"SQLITE_INTEGER",
++	types.Uint32:	"SQLITE_INTEGER",
++	types.Uint64:	"SQLITE_INTEGER",
++
++	types.String:	"SQLITE_TEXT",
++	// XXX more?
++}
++
++
++func isarray(typ types.Type) bool {
++	_, err := asarray(typ)
++	return err == nil
++}
++
++func asarray(typ types.Type) (*types.Array, error) {
++	atyp, ok := typ.Underlying().(*types.Array)
++	var err error
++	if !ok {
++		err = fmt.Errorf("type %q is not array", typ)
++	}
++	return atyp, err
++}
++
++// cvar represent C variable.
++//
++// It has C name and C type. A C-variable can be part of either passed or
++// returned arguments in C-part of query implementation.
++//
++// for arrays name, not type, contains trailing [n].	XXX ok?
++type cvar struct {
++	Cname	string
++	Ctype	string
++}
++
++func (v cvar) String() string {
++	return v.Ctype + " " + v.Cname
++}
++
++// Cinput converts Go variable to C variable as how it should be used for
++// implementing input parameters.
++func (v *govar) Cinput() (*cvar, error) {
++	cv, err := v.asC(false)
++	if err != nil {
++		return nil, err
++	} else {
++		return &cv[0], nil	// always only 1 element for input
++	}
++}
++
++// Coutput converts Go variable to list of C variables as how it should be used
++// for implementing return arguments.
++//
++// ( we need to potentially map 1 go varible to several C variables e.g. for
++//   returning string / slice: we cannot construct go string from in C code, so
++//   we return raw pointer and length, let corresponding go wrapper construct the
++//   go object, and call C part again to free the resources. )
++func (v *govar) Coutput() ([]cvar, error) {
++	return v.asC(true)
++}
++
++// asC is the worker for Cinput/Coutput
++func (v *govar) asC(output bool) (retv []cvar, _ error) {
++	ret := func(name, typ string) {
++		retv = append(retv, cvar{name, typ})
++	}
++
++	switch u := v.Type.Underlying().(type) {
++	case *types.Basic:
++		switch u.Kind() {
++		case types.String:
++			if output {
++				ret(v.Name + "_ptr", "const char *")
++				ret(v.Name + "_len", "size_t")
++			} else {
++				ret(v.Name, "_GoString_")
++			}
++
++		default:
++			cbasic, ok := cBasicTypes[u.Kind()]
++			if ok {
++				ret(v.Name, cbasic)
++			}
++		}
++
++	case *types.Array:
++		velem := govar{v.Name, u.Elem()}
++		celem, err := velem.Cinput()
++		if err == nil {
++			ret(fmt.Sprintf("%s[%d]", v.Name, u.Len()), celem.Ctype)
++		}
++
++	case *types.Slice:
++		elem, ok := u.Elem().(*types.Basic)
++		if ok && elem.Kind() == types.Byte {
++			if output {
++				ret(v.Name + "_ptr", "const char *")
++				ret(v.Name + "_len", "size_t")
++			} else {
++				// we are passing []byte as string via unsafe to C.
++				// reason: cgo allows to pass strings to C without copying.
++				ret(v.Name, "_GoString_")
++			}
++		}
++	}
++
++	var err error
++	if retv == nil {
++		err = fmt.Errorf("cannot map type %q to C", v.Type)
++	}
++	return retv, err
++}
++
++
++// sqliteType return SQLite type corresponding to typ.
++func sqliteType(typ types.Type) (string, error) {
++	switch u := typ.Underlying().(type) {
++	case *types.Basic:
++		sqliteBasic, ok := sqliteBasicTypes[u.Kind()]
++		if ok {
++			return sqliteBasic, nil
++		}
++
++	case *types.Array:
++		elem, ok := u.Elem().(*types.Basic)
++		if ok && elem.Kind() == types.Byte {
++			return "SQLITE_BLOB", nil
++		}
++
++	case *types.Slice:
++		elem, ok := u.Elem().(*types.Basic)
++		if ok && elem.Kind() == types.Byte {
++			return "SQLITE_BLOB", nil
++		}
++	}
++
++	return "", fmt.Errorf("cannot map type %q to SQLite", typ)
++}
++
++// {} sqliteType -> bind suffix
++var sqliteBindTab = map[string]string {
++	"SQLITE_INTEGER":	"int64",
++	"SQLITE_BLOB":		"blob",
++	"SQLITE_TEXT":		"text",
++
++	// XXX more?
++}
++
++// sqliteBind returns SQLite suffix that should be used in sqlite3_bind_* and
++// sqlite3_column_* for typ.
++func sqliteBind(typ types.Type) (string, error) {
++	styp, err := sqliteType(typ)
++	if err != nil {
++		return "", err
++	}
++
++	sbind, ok := sqliteBindTab[styp]
++	if ok {
++		return sbind, nil
++	}
++
++	return "", fmt.Errorf("cannot map type %q to SQLite bind", typ)
++}
++
++
++
++// ----------------------------------------
++
++// magic begins all files generated by goquery
++const magic = "// Code generated by lab.nexedi.com/kirr/neo/.../goquery; DO NOT EDIT.\n" // XXX
++
++// checkCanWrite checks whether it is safe to write to file at path.
++//
++// it is safe to write when either
++// - the file does not exist, or
++// - it exits but was previously generated by us
++func checkCanWrite(path string) error {
++	f, err := os.Open(path)
++	if e, ok := err.(*os.PathError); ok && os.IsNotExist(e.Err) {
++		return nil
++	}
++
++	defer f.Close()
++	bf := bufio.NewReader(f)
++
++	headline, err := bf.ReadString('\n')
++	if err != nil || headline != magic {
++		return fmt.Errorf("refusing to make output: %v exists but was not generated by goquery", path)
++	}
++
++	return nil
++}
++
++// writeFile writes data to a file at path after checking it is safe to write there
++func writeFile(path string, data []byte) error {
++	err := checkCanWrite(path)
++	if err != nil {
++		return err
++	}
++
++	return ioutil.WriteFile(path, data, 0666)
++}
++
++// removeFile make sure there is no file at path after checking it is safe to write to that file
++func removeFile(path string) error {
++	err := checkCanWrite(path)
++	if err != nil {
++		return err
++	}
++
++	err = os.Remove(path)
++	if e, ok := err.(*os.PathError); ok && os.IsNotExist(e.Err) {
++		err = nil
++	}
++	return err
++}
++
++// Program represents loaded program for tracepoint analysis.			XXX
++//
++// It is generalization of loader.Program due to loader not allowing to
++// construct programs incrementally.
++type Program struct {
++	// list of loader.Programs in use
++	//
++	// We generally need to have several programs because a package can
++	// trace:import another package which is not otherwise imported by
++	// original program.
++	//
++	// Since go/loader does not support incrementally augmenting loaded
++	// program with more packages, we work-around it with having several
++	// progs.
++	progv []*loader.Program
++
++	// config for loading programs
++	loaderConf *loader.Config
++}
++
++// NewProgram constructs new empty Program ready to load packages according to specified build context
++func NewProgram(ctxt *build.Context, cwd string) *Program {
++	// adjust build context to filter-out zquery* files when discovering packages
++	//
++	// we don't load what should be generated by us for 2 reasons:
++	// - code generated could be wrong with older version of the
++	//   tool - it should not prevent from regenerating.
++	// - generated code imports packages which might be not there
++	//   yet in gopath (lab.nexedi.com/kirr/go123/tracing)
++	ctxtReadDir := ctxt.ReadDir
++	if ctxtReadDir == nil {
++		ctxtReadDir = ioutil.ReadDir
++	}
++	ctxtNoZTrace := *ctxt
++	ctxtNoZTrace.ReadDir = func(dir string) ([]os.FileInfo, error) {
++		fv, err := ctxtReadDir(dir)
++		okv := fv[:0]
++		for _, f := range fv {
++			if !strings.HasPrefix(f.Name(), "zquery") {
++				okv = append(okv, f)
++			}
++		}
++		return okv, err
++	}
++
++	p := &Program{}
++	p.loaderConf = &loader.Config{
++		ParserMode:          parser.ParseComments,
++		TypeCheckFuncBodies: func(path string) bool { return false },
++		Build:               &ctxtNoZTrace,
++		Cwd:                 cwd,
++	}
++
++	return p
++}
++
++// Import imports a package and returns associated package info and program
++// under which it was loaded.
++func (p *Program) Import(pkgpath string) (prog *loader.Program, pkgi *loader.PackageInfo, err error) {
++	// let's see - maybe it is already there
++	for _, prog := range p.progv {
++		pkgi := prog.Package(pkgpath)
++		if pkgi != nil {
++			return prog, pkgi, nil
++		}
++	}
++
++	// not found - we have to load new program rooted at pkgpath
++	p.loaderConf.ImportPkgs = nil
++	p.loaderConf.Import(pkgpath)
++
++	prog, err = p.loaderConf.Load()
++	if err != nil {
++		return nil, nil, err
++	}
++
++	if !(len(prog.Created) == 0 && len(prog.Imported) == 1) {
++		panic("import")
++	}
++
++	p.progv = append(p.progv, prog)
++	pkgi = prog.InitialPackages()[0]
++	return prog, pkgi, nil
++}
++
++
++// ---- `goquery gen` ----
++
++// querygen generates code according to query directives in a package @ pkgpath.
++//
++// ctxt is build context for discovering packages
++// cwd is "current" directory for resolving local imports (e.g. packages like "./some/package")
++func querygen(pkgpath string, ctxt *build.Context, cwd string) error {
++	P := NewProgram(ctxt, cwd)
++
++	lprog, pkgi, err := P.Import(pkgpath)
++	if err != nil {
++		return err
++	}
++
++	// determine package directory
++	if len(pkgi.Files) == 0 {
++		return fmt.Errorf("package %s is empty", pkgi.Pkg.Path())
++	}
++
++	pkgdir := filepath.Dir(lprog.Fset.File(pkgi.Files[0].Pos()).Name())
++
++	// query info for this specified package
++	qpkg, err := packageSQL(lprog, pkgi)
++	if err != nil {
++		return err // XXX err ctx
++	}
++
++	// write zquery.{go,c} with code generated for queries
++	zquery_go := filepath.Join(pkgdir, "zquery.go")
++	zquery_h  := filepath.Join(pkgdir, "zquery.h")	// XXX -> .cinc ?
++	if len(qpkg.Queryv) == 0 {
++		err1 := removeFile(zquery_go)
++		err2 := removeFile(zquery_h)
++		return xerr.Merge(err1, err2)
++	}
++
++	// ---- zquery.go ----
++
++	// prologue
++	prologue := &Buffer{}
++	prologue.WriteString(magic)
++	prologue.emit("\npackage %v", qpkg.Pkgi.Pkg.Name())
++	prologue.emit(`// Go code generated for queries.
++
++// #cgo pkg-config: sqlite3
++// #include "./zquery.h"
++import "C"
++
++import (`)
++
++	// pkgpaths of all packages needed for used types
++	needPkg := StrSet{}
++
++	// some packages are imported with explicit name
++	importedAs := map[string]string{} // pkgpath -> pkgname
++
++	text := &Buffer{}
++
++	// code for query definitions
++	for _, query := range qpkg.Queryv {
++		needPkg.Add(query.NeedPkgv()...)
++		err = query1GoTmpl.Execute(text, query)
++		if err != nil {
++			panic(err)
++		}
++	}
++
++	needPkg.Delete(qpkg.Pkgi.Pkg.Path()) // our pkg - no need to import
++	needPkgv := needPkg.Itemv()
++	if len(needPkgv) > 0 {
++		prologue.emit("")
++	}
++
++	for _, needpkg := range needPkgv {
++		pkgname := importedAs[needpkg]
++		if pkgname != "" {
++			pkgname += " "
++		}
++		prologue.emit("\t%s%q", pkgname, needpkg)
++	}
++	prologue.emit(")")
++
++// XXX needed?
++//	// export something so that cgo generates _cgo_export.h
++//	prologue.emit("\n//export _")
++//	prologue.emit("func _() {}")
++
++	prologue.emit(`
++type conn C.Conn
++
++// db represents interface for accessing the database.
++//
++// Database connections can be opened (getConn) and put back to reuse (putConn).
++type db interface {
++	getConn() (*conn, error)
++	putConn(*conn)
++}
++
++func openConn(...) (*conn, error) {
++	// XXX
++}
++
++func (conn *conn) Close() error {
++	// XXX
++}
++`)
++
++	// write output
++	fulltext := append(prologue.Bytes(), text.Bytes()...)
++	err = writeFile(zquery_go, fulltext)
++	if err != nil {
++		return err
++	}
++
++	// ---- zquery.h ----
++
++	// prologue
++	prologue = &Buffer{}
++	prologue.WriteString(magic)
++	prologue.emit(`// C code generated for queries.
++
++#include <sqlite3.h>
++#include <stdint.h>
++#include <string.h>
++#include <assert.h>
++
++//#include "_cgo_export.h"
++
++#define OK(RC) if ((RC) != SQLITE_OK) {	\
++	r.rc = (RC);	\
++	goto out;	\
++}
++
++// cgo does not give us _GoStringPtr & friends in non-preamble.
++// we take it ourselves:
++static inline const char *gostr_ptr(_GoString_ s) { return s.p; }
++static inline size_t      gostr_len(_GoString_ s) { return s.n; }
++
++// Conn represents connection to sqlite database.
++//
++// Conn can be used by only one goroutine simultaneously.
++typedef struct {
++	sqlite3	*db;
++
++	// cached query statements`)
++
++	text = &Buffer{}
++
++	// code for query definitions
++	for _, query := range qpkg.Queryv {
++		needPkg.Add(query.NeedPkgv()...)
++		err = query1CTmpl.Execute(text, query)
++		if err != nil {
++			panic(err)
++		}
++
++		prologue.emit("\tsqlite3_stmt *_qstmt_%s;", query.Name)
++	}
++
++	prologue.emit(`} Conn;`)
++
++	// write output
++	fulltext = append(prologue.Bytes(), text.Bytes()...)
++	err = writeFile(zquery_h, fulltext)
++	if err != nil {
++		return err
++	}
++
++	return nil
++}
++
++const genSummary = "generate code according to query annotations"
++
++func genUsage(w io.Writer) {
++	fmt.Fprintf(w,
++		`Usage: goquery gen <package>
++Generate code according to query annotations
++
++  options:
++
++        -h --help       this help text.
++`)
++}
++
++func genMain(argv []string) {
++	flags := flag.FlagSet{Usage: func() { genUsage(os.Stderr) }}
++	flags.Init("", flag.ExitOnError)
++	flags.Parse(argv[1:])
++
++	argv = flags.Args()
++	if len(argv) < 1 {
++		flags.Usage()
++		prog.Exit(2)
++	}
++	pkgpath := argv[0]
++
++	cwd, err := os.Getwd()
++	if err != nil {
++		prog.Fatal(err)
++	}
++
++	err = querygen(pkgpath, &build.Default, cwd)
++	if err != nil {
++		prog.Fatal(err)
++	}
++}
++
++
++// ---- `goquery list` ----
++
++// querylist lists queries defined by a package @ pkgpath.
++//
++// ctxt and cwd are tunables for discovering packages. See querygen for details.
++//
++// TODO support listing by pkgspec (e.g. "./...")
++func querylist(w io.Writer, pkgpath string, ctxt *build.Context, cwd string, verbose bool) error {
++	P := NewProgram(ctxt, cwd)
++
++	// NOTE only listing queries provided by main package, not tests or xtest
++	lprog, pkgi, err := P.Import(pkgpath)
++	if err != nil {
++		return err
++	}
++
++	qpkg, err := packageSQL(lprog, pkgi)
++	if err != nil {
++		return err // XXX err ctx
++	}
++
++	for _, query := range qpkg.Queryv {
++		_, err = fmt.Fprintf(w, "%s:%s\n", query.Pkgq.Pkgi.Pkg.Path(), query.Name)
++		if err != nil {
++			return err
++		}
++		if verbose {
++			// XXX indent sql
++			_, err = fmt.Fprintf(w, "%s\n", query.Sql)
++			if err != nil {
++				return err
++			}
++		}
++	}
++
++	return nil
++}
++
++const listSummary = "lists queries defined by a package"
++
++func listUsage(w io.Writer) {
++	fmt.Fprintf(w,
++		`Usage: goquery list <package>
++List queries defined by a package
++
++  options:
++
++	-v		verbose output.
++	-h --help       this help text.
++`)
++}
++
++func listMain(argv []string) {
++	var verbose bool
++	flags := flag.FlagSet{Usage: func() { listUsage(os.Stderr) }}
++	flags.Init("", flag.ExitOnError)
++	flags.BoolVar(&verbose, "v", verbose, "verbose mode")
++	flags.Parse(argv[1:])
++
++	argv = flags.Args()
++	if len(argv) < 1 {
++		flags.Usage()
++		prog.Exit(2)
++	}
++	pkgpath := argv[0]
++
++	cwd, err := os.Getwd()
++	if err != nil {
++		prog.Fatal(err)
++	}
++
++	err = querylist(os.Stdout, pkgpath, &build.Default, cwd, verbose)
++	if err != nil {
++		prog.Fatal(err)
++	}
++}
++
++// ---- main driver ----
++
++var commands = prog.CommandRegistry{
++	{"gen", genSummary, genUsage, genMain},
++	{"list", listSummary, listUsage, listMain},
++}
++
++var goquery = prog.MainProg{
++	Name:     "goquery",
++	Summary:  "Goquery is a program to XXX", // XXX
++	Commands: commands,
++}
++
++func main() {
++	log.SetFlags(0)
++	log.SetPrefix("goquery: ")
++	goquery.Main()
++}
++
++// ---- from gotrace/util.go ----
++
++// Buffer is bytes.Buffer + syntatic sugar
++type Buffer struct {
++	bytes.Buffer
++}
++
++func (b *Buffer) emit(format string, argv ...interface{}) {
++	fmt.Fprintf(b, format+"\n", argv...)
++}
++
++// StrSet is set<string>
++type StrSet map[string]struct{}
++
++func (s StrSet) Add(itemv ...string) {
++	for _, item := range itemv {
++		s[item] = struct{}{}
++	}
++}
++
++func (s StrSet) Delete(item string) {
++	delete(s, item)
++}
++
++func (s StrSet) Has(item string) bool {
++	_, has := s[item]
++	return has
++}
++
++// Itemv returns ordered slice of set items
++func (s StrSet) Itemv() []string {
++	itemv := make([]string, 0, len(s))
++	for item := range s {
++		itemv = append(itemv, item)
++	}
++	sort.Strings(itemv)
++	return itemv
++}
+diff --git a/go/neo/storage/sqlite/pool.go b/go/neo/storage/sqlite/pool.go
+index afbed66c..2e608314 100644
+--- a/go/neo/storage/sqlite/pool.go
++++ b/go/neo/storage/sqlite/pool.go
+@@ -25,21 +25,19 @@ import (
+ 	"sync"
+ 
+ 	"lab.nexedi.com/kirr/go123/xerr"
+-
+-	sqlite3 "github.com/gwenn/gosqlite"
+ )
+ 
+-// connPool is a pool of sqlite3.Conn
++// connPool is a pool of connections.
+ type connPool struct {
+-	factory func() (*sqlite3.Conn, error) // =nil if pool closed
++	factory func() (*conn, error) // =nil if pool closed
+ 
+ 	mu     sync.Mutex
+-	connv  []*sqlite3.Conn // operated as stack
++	connv  []*conn // operated as stack
+ }
+ 
+ // newConnPool creates new connPool that will be using factory to create new
+ // connections.
+-func newConnPool(factory func() (*sqlite3.Conn, error)) *connPool {
++func newConnPool(factory func() (*conn, error)) *connPool {
+ 	return &connPool{factory: factory}
+ }
+ 
+@@ -64,7 +62,7 @@ var errClosedPool = errors.New("sqlite: pool: getConn on closed pool")
+ 
+ // getConn returns a connection - either from pool, or newly created if the
+ // pool was empty.
+-func (p *connPool) getConn() (conn *sqlite3.Conn, _ error) {
++func (p *connPool) getConn() (conn *conn, _ error) {
+ 	p.mu.Lock()
+ 
+ 	factory := p.factory
+@@ -93,10 +91,14 @@ func (p *connPool) getConn() (conn *sqlite3.Conn, _ error) {
+ // putConn puts a connection to pool.
+ //
+ // Caller must not directly use conn after call to putConn anymore.
+-func (p *connPool) putConn(conn *sqlite3.Conn) {
++func (p *connPool) putConn(conn *conn) {
+ 	p.mu.Lock()
+ 	if p.factory != nil { // forgiving putConn after close
+ 		p.connv = append(p.connv, conn)
+ 	}
+ 	p.mu.Unlock()
+ }
++
++
++
++// TODO +singleConn that exposes single connection via pool interface.
+diff --git a/go/neo/storage/sqlite/sqlite.go b/go/neo/storage/sqlite/sqlite.go
+index 4aae47b3..d935d66c 100644
+--- a/go/neo/storage/sqlite/sqlite.go
++++ b/go/neo/storage/sqlite/sqlite.go
+@@ -21,6 +21,8 @@
+ // Package sqlite provides NEO storage backend that uses SQLite database for persistence.
+ package sqlite
+ 
++//go:generate go run goquery.go gen .
++
+ import (
+ 	"context"
+ 	"errors"
+@@ -316,14 +318,9 @@ func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
+ 	//var data sql.RawBytes
+ 	var data []byte
+ 
+-	// XXX recheck vvv with sqlite3 direct
+-	// hash is variable-length BLOB - Scan refuses to put it into [20]byte
+-	//var hash sql.RawBytes
+-	var hash []byte
+-
+ 	// obj.value_tid can be null
+ 	//var valueTid sql.NullInt64	// XXX ok not to uint64 - max tid is max signed int64
+-	var valueTid int64	// XXX ok not to uint64 - max tid is max signed int64
++	var valueTid zodb.Tid	// XXX ok not to uint64 - max tid is max signed int64
+ 
+ 	// FIXME pid = getReadablePartition (= oid % Np; error if pid not readable)
+ 	pid := 0
+@@ -333,13 +330,18 @@ func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
+ 
+ 	// XXX use conn for several query1 (see below) without intermediate returns to pool?
+ 
+-	err := b.query1(
+-		"SELECT tid, compression, data.hash, value, value_tid" +
+-		" FROM obj LEFT JOIN data ON obj.data_id = data.id" +
+-		" WHERE partition=? AND oid=? AND tid<=?" +
+-		" ORDER BY tid DESC LIMIT 1",
+-		pid, xid.Oid, xid.At).
+-		Scan(&obj.Serial, &obj.Compression, &hash, &data, &valueTid)
++
++//sql:query1 sql_getObject(pid int, oid zodb.Oid, at zodb.Tid) (serial zodb.Tid, compression int, hash  proto.Checksum, value []byte, dataSerial zodb.Tid)
++//	SELECT tid, compression, data.hash, value, value_tid
++//		FROM obj LEFT JOIN data ON obj.data_id = data.id
++//		WHERE partition=? AND oid=? AND tid<=?
++//		ORDER BY tid DESC LIMIT 1
++//
++
++	var compression int
++	var err error
++	obj.Serial, compression, obj.Checksum, data, valueTid, err =
++		sql_getObject(b.pool, pid, xid.Oid, xid.At)
+ 
+ 	if err != nil {
+ 		if err == errNoRows {
+@@ -365,11 +367,7 @@ func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
+ 		return nil, err
+ 	}
+ 
+-	// hash -> obj.Checksum
+-	if len(hash) != len(obj.Checksum) {
+-		return nil, fmt.Errorf("data corrupt: len(hash) = %d", len(hash))
+-	}
+-	copy(obj.Checksum[:], hash)
++	obj.Compression = (compression != 0)
+ 
+ 	// valueTid -> obj.DataSerial
+ 	if valueTid != 0 {
+@@ -377,7 +375,7 @@ func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
+ 	}
+ 
+ 
+-	// data -> obj.Data
++	// data -> obj.Data	XXX do this directly in query
+ 	obj.Data = mem.BufAlloc(len(data))
+ 	copy(obj.Data.Data, data)
+ 
+@@ -403,6 +401,9 @@ func (b *Backend) load(xid zodb.Xid) (*proto.AnswerObject, error) {
+ 
+ 
+ func (b *Backend) config(key string, pvalue *string) error {
++//sql:query1 sql_getConfig(name string) (value string)
++//	SELECT value FROM config WHERE name=?
++
+ 	return b.query1("SELECT value FROM config WHERE name=?", key).Scan(pvalue)
+ }
+ 
+diff --git a/go/neo/storage/sqlite/zquery.go b/go/neo/storage/sqlite/zquery.go
+new file mode 100644
+index 00000000..3d5d049c
+--- /dev/null
++++ b/go/neo/storage/sqlite/zquery.go
+@@ -0,0 +1,53 @@
++// Code generated by lab.nexedi.com/kirr/neo/.../goquery; DO NOT EDIT.
++
++package sqlite
++// Go code generated for queries.
++
++// #cgo pkg-config: sqlite3
++// #include "./zquery.h"
++import "C"
++
++import (
++
++	"lab.nexedi.com/kirr/neo/go/neo/proto"
++	"lab.nexedi.com/kirr/neo/go/zodb"
++)
++
++type conn C.Conn
++
++// db represents interface for accessing the database.
++//
++// Database connections can be opened (getConn) and put back to reuse (putConn).
++type db interface {
++	getConn() (*conn, error)
++	putConn(*conn)
++}
++
++
++// query1: sql_getConfig(name) (value)
++func sql_getConfig(_db db, name string) (value string, err error) {
++	_conn, err := _db.getConn()
++	if err != nil {
++		return
++	}
++
++	_r := C.sql_getConfig(_conn, name)
++
++	_ = _r
++	_cp.putConn(_conn)
++	panic("TODO")
++}
++
++// query1: sql_getObject(pid, oid, at) (serial, compression, hash, value, dataSerial)
++func sql_getObject(_db db, pid int, oid zodb.Oid, at zodb.Tid) (serial zodb.Tid, compression int, hash proto.Checksum, value []byte, dataSerial zodb.Tid, err error) {
++	_conn, err := _db.getConn()
++	if err != nil {
++		return
++	}
++
++	_r := C.sql_getObject(_conn, C.int(pid), C.uint64_t(oid), C.uint64_t(at))
++
++	_ = _r
++	_cp.putConn(_conn)
++	panic("TODO")
++}
+diff --git a/go/neo/storage/sqlite/zquery.h b/go/neo/storage/sqlite/zquery.h
+new file mode 100644
+index 00000000..fa562837
+--- /dev/null
++++ b/go/neo/storage/sqlite/zquery.h
+@@ -0,0 +1,265 @@
++// Code generated by lab.nexedi.com/kirr/neo/.../goquery; DO NOT EDIT.
++// C code generated for queries.
++
++#include <sqlite3.h>
++#include <stdint.h>
++#include <string.h>
++#include <assert.h>
++
++//#include "_cgo_export.h"
++
++#define OK(RC) if ((RC) != SQLITE_OK) {	\
++	r.rc = (RC);	\
++	goto out;	\
++}
++
++// cgo does not give us _GoStringPtr & friends in non-preamble.
++// we take it ourselves:
++static inline const char *gostr_ptr(_GoString_ s) { return s.p; }
++static inline size_t      gostr_len(_GoString_ s) { return s.n; }
++
++// Conn represents connection to sqlite database.
++//
++// Conn can be used by only one goroutine simultaneously.
++typedef struct {
++	sqlite3	*db;
++
++	// cached query statements
++	sqlite3_stmt *_qstmt_sql_getConfig;
++	sqlite3_stmt *_qstmt_sql_getObject;
++} Conn;
++
++// query1: sql_getConfig(name) (value)
++
++typedef struct {
++	const char *	value_ptr;
++	size_t	value_len;
++
++	int rc;
++} sql_getConfig_ret;
++
++sql_getConfig_ret sql_getConfig(Conn *conn, _GoString_ name) {
++	sql_getConfig_ret r;
++	sqlite3_stmt *qstmt;
++	int rc;
++
++	qstmt = conn->_qstmt_sql_getConfig;
++	conn->_qstmt_sql_getConfig = NULL;	// XXX just in case
++	if (!qstmt) {
++		rc = sqlite3_prepare_v2(conn->db,
++"SELECT value FROM config WHERE name=?", -1, &qstmt, NULL);
++		if (rc != SQLITE_OK) {
++			r.rc = rc;
++			return r;
++		}
++	}
++
++	// bind arguments
++	//
++	// NOTE for strings we pass SQLITE_STATIC which means to SQLite "that
++	// the content pointer is constant and will never change". It is valid
++	// to do so because we'll unbind all arguments when returning.
++	rc = sqlite3_bind_text(qstmt, 1, gostr_ptr(name), gostr_len(name), SQLITE_STATIC);
++	OK(rc);
++
++	// run the query
++	rc = sqlite3_step(qstmt);
++	switch (rc) {
++	case SQLITE_ROW:
++		break;	// ok
++
++	case SQLITE_DONE:
++		r.rc = rc;
++		goto out;
++
++	default:
++		r.rc = rc;
++		goto out;
++	}
++
++	// we got data -> read columns
++	// ... value
++	switch ( sqlite3_column_type(qstmt, 1) ) {
++	case SQLITE_TEXT:
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++
++	r.value_ptr = sqlite3_column_text (qstmt, 1);
++	r.value_len = sqlite3_column_bytes(qstmt, 1);
++
++
++	r.rc = SQLITE_OK;
++
++out:
++	// clear bindings so that we put qstmt back with all arguments cleared.
++	// in particular we HAVE to unbind go strings memory (see bind part for why).
++	//
++	// ignore rc - sqlite3_clear_bindings always returns SQLITE_OK.
++	rc = sqlite3_clear_bindings(qstmt);
++	assert(rc == SQLITE_OK);
++
++	// reset the statement so it can be executed again.
++	// ignore rc as sqlite3_reset returns error of last sqlite3_step.
++	(void)sqlite3_reset(qstmt);
++
++	// put statment back to conn for reuse
++	conn->_qstmt_sql_getConfig = qstmt;
++
++	return r;
++}
++
++// query1: sql_getObject(pid, oid, at) (serial, compression, hash, value, dataSerial)
++
++typedef struct {
++	uint64_t	serial;
++	int	compression;
++	uint8_t	hash[20];
++	const char *	value_ptr;
++	size_t	value_len;
++	uint64_t	dataSerial;
++
++	int rc;
++} sql_getObject_ret;
++
++sql_getObject_ret sql_getObject(Conn *conn, int pid, uint64_t oid, uint64_t at) {
++	sql_getObject_ret r;
++	sqlite3_stmt *qstmt;
++	int rc;
++
++	qstmt = conn->_qstmt_sql_getObject;
++	conn->_qstmt_sql_getObject = NULL;	// XXX just in case
++	if (!qstmt) {
++		rc = sqlite3_prepare_v2(conn->db,
++"SELECT tid, compression, data.hash, value, value_tid"
++"	FROM obj LEFT JOIN data ON obj.data_id = data.id"
++"	WHERE partition=? AND oid=? AND tid<=?"
++"	ORDER BY tid DESC LIMIT 1", -1, &qstmt, NULL);
++		if (rc != SQLITE_OK) {
++			r.rc = rc;
++			return r;
++		}
++	}
++
++	// bind arguments
++	//
++	// NOTE for strings we pass SQLITE_STATIC which means to SQLite "that
++	// the content pointer is constant and will never change". It is valid
++	// to do so because we'll unbind all arguments when returning.
++	rc = sqlite3_bind_int64(qstmt, 1, pid);
++	OK(rc);
++	rc = sqlite3_bind_int64(qstmt, 2, oid);
++	OK(rc);
++	rc = sqlite3_bind_int64(qstmt, 3, at);
++	OK(rc);
++
++	// run the query
++	rc = sqlite3_step(qstmt);
++	switch (rc) {
++	case SQLITE_ROW:
++		break;	// ok
++
++	case SQLITE_DONE:
++		r.rc = rc;
++		goto out;
++
++	default:
++		r.rc = rc;
++		goto out;
++	}
++
++	// we got data -> read columns
++	// ... serial
++	switch ( sqlite3_column_type(qstmt, 1) ) {
++	case SQLITE_INTEGER:
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++
++	r.serial = sqlite3_column_int64(qstmt, 1);
++
++	// ... compression
++	switch ( sqlite3_column_type(qstmt, 2) ) {
++	case SQLITE_INTEGER:
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++
++	r.compression = sqlite3_column_int64(qstmt, 2);
++
++	// ... hash
++	switch ( sqlite3_column_type(qstmt, 3) ) {
++	case SQLITE_BLOB:
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++
++	// array - check lenght matching + read directly here
++	if (20 != sqlite3_column_bytes(qstmt, 3)) {
++		r.rc = SQLITE_MISMATCH;		// XXX detail
++		goto out;
++	}
++	memcpy(r.hash, sqlite3_column_blob(qstmt, 3), 20);
++
++	// ... value
++	switch ( sqlite3_column_type(qstmt, 4) ) {
++	case SQLITE_BLOB:
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++
++	// TODO blob
++
++	// ... dataSerial
++	switch ( sqlite3_column_type(qstmt, 5) ) {
++	case SQLITE_INTEGER:
++		// XXX also NULL?
++		break;
++
++	default:
++		r.rc = SQLITE_MISMATCH;		// XXX details
++		return r;
++	}
++
++	r.dataSerial = sqlite3_column_int64(qstmt, 5);
++
++
++	r.rc = SQLITE_OK;
++
++out:
++	// clear bindings so that we put qstmt back with all arguments cleared.
++	// in particular we HAVE to unbind go strings memory (see bind part for why).
++	//
++	// ignore rc - sqlite3_clear_bindings always returns SQLITE_OK.
++	rc = sqlite3_clear_bindings(qstmt);
++	assert(rc == SQLITE_OK);
++
++	// reset the statement so it can be executed again.
++	// ignore rc as sqlite3_reset returns error of last sqlite3_step.
++	(void)sqlite3_reset(qstmt);
++
++	// put statment back to conn for reuse
++	conn->_qstmt_sql_getObject = qstmt;
++
++	return r;
++}
