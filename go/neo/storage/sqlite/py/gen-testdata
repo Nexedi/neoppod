@@ -46,7 +46,7 @@ def main():
     cluster.stop()
     cluster.waitAll()
 
-    # remove sqlite journal     XXX ok?
+    # remove sqlite journal     XXX should not exist? (meaning the tranaction was not committed)
     for f in glob("testdata/*-journal"):
         os.remove(f)
 
