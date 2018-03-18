@@ -701,7 +701,7 @@ def main():
 
         #plt.savefig('2.svg')
         plt.show()
-        return      # XXX temp to show only first
+        #return      # XXX temp to show only first
 
 
 
