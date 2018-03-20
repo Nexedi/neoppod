@@ -116,36 +116,31 @@ class PortAllocator(object):
     __del__ = release
 
 
-class NEOProcess(object):
+class Process(object):
 
     _coverage_fd = None
     _coverage_prefix = os.path.join(getTempDirectory(), 'coverage-')
     _coverage_index = 0
     pid = 0
 
-    def __init__(self, command, uuid, arg_dict):
-        try:
-            __import__('neo.scripts.' + command, level=0)
-        except ImportError:
-            raise NotFound, '%s not found' % (command)
+    def __init__(self, command, arg_dict={}):
         self.command = command
         self.arg_dict = arg_dict
-        self.with_uuid = True
-        self.setUUID(uuid)
 
-    def start(self, with_uuid=True):
-        # Prevent starting when already forked and wait wasn't called.
-        if self.pid != 0:
-            raise AlreadyRunning, 'Already running with PID %r' % (self.pid, )
-        command = self.command
+    def _args(self):
         args = []
-        self.with_uuid = with_uuid
         for arg, param in self.arg_dict.iteritems():
             args.append('--' + arg)
             if param is not None:
                 args.append(str(param))
-        if with_uuid:
-            args += '--uuid', str(self.uuid)
+        return args
+
+    def start(self):
+        # Prevent starting when already forked and wait wasn't called.
+        if self.pid != 0:
+            raise AlreadyRunning('Already running with PID %r' % self.pid)
+        command = self.command
+        args = self._args()
         global coverage
         if coverage:
             cls = self.__class__
@@ -179,7 +174,7 @@ class NEOProcess(object):
                 os.close(self._coverage_fd)
                 os.write(w, '\0')
                 sys.argv = [command] + args
-                getattr(neo.scripts,  command).main()
+                self.run()
                 status = 0
             except SystemExit, e:
                 status = e.code
@@ -202,6 +197,9 @@ class NEOProcess(object):
                     os._exit(1)
         logging.info('pid %u: %s %s',
             self.pid, command, ' '.join(map(repr, args)))
+
+    def run(self):
+        raise NotImplementedError
 
     def child_coverage(self):
         r = self._coverage_fd
@@ -249,11 +247,32 @@ class NEOProcess(object):
         self.kill()
         self.wait()
 
-    def getPID(self):
-        return self.pid
+    def isAlive(self):
+        try:
+            return psutil.Process(self.pid).status() != psutil.STATUS_ZOMBIE
+        except psutil.NoSuchProcess:
+            return False
+
+class NEOProcess(Process):
+
+    def __init__(self, command, uuid, arg_dict):
+        try:
+            __import__('neo.scripts.' + command, level=0)
+        except ImportError:
+            raise NotFound(command + ' not found')
+        super(NEOProcess, self).__init__(command, arg_dict)
+        self.setUUID(uuid)
+
+    def _args(self):
+        args = super(NEOProcess, self)._args()
+        if self.uuid:
+            args += '--uuid', str(self.uuid)
+        return args
+
+    def run(self):
+        getattr(neo.scripts,  self.command).main()
 
     def getUUID(self):
-        assert self.with_uuid, 'UUID disabled on this process'
         return self.uuid
 
     def setUUID(self, uuid):
@@ -261,12 +280,6 @@ class NEOProcess(object):
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
-
-    def isAlive(self):
-        try:
-            return psutil.Process(self.pid).status() != psutil.STATUS_ZOMBIE
-        except psutil.NoSuchProcess:
-            return False
 
 class NEOCluster(object):
 
