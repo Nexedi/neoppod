@@ -67,7 +67,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
             stats[s] = z = {}
             for r in replicas:
                 if r < s:
-                    z[r] = self.runImport(1, s, r, 100)
+                    z[r] = self.runImport(1, s, r, 12*s//(1+r))
         return stats
 
     def runImport(self, masters, storages, replicas, partitions):
