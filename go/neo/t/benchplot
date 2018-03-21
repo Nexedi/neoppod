@@ -288,36 +288,29 @@ def add_yvalueticks(ax, yv, fmt='%d'):
 # _stylefor is {} name -> Line2D style kw, so that we can always use e.g. the
 # same colors for plots for the same server.
 def _(**kw): return kw
-_stylefor = {
-        'neo/go/fs1-zwrk.go':                   _(color='C0'),
-        'neo/go/fs1(!sha1)-zwrk.go(!sha1)':     _(color='C0', ls='dashed'),
-        'neo/go/sqlite-zwrk.go':                _(color='C1'),
-        'neo/go/sqlite-zwrk.go(!sha1)':         _(color='C1', ls='dashed'),
-        'zeo/py/fs1-zwrk.go':                   _(color='C2'),
-        'neo/py(!log)/sqlite-zwrk.go':          _(color='C3'), # ls='dashed'), # XXX dashed?
-        'neo/py(!log)/sql-zwrk.go':             _(color='C4'), # ls='dashed'), # XXX dashed?
-}
-
 _stylefor_re = [(re.compile(_), sty) for _,sty in [
-        (r'crc32/(py|\*)/4K',               _(color='C5')),
-        (r'crc32/go/4K',                    _(color='C5', ls='dashed')),
-        (r'sha1/(py\|*)/4K',                _(color='C6')),
-        (r'sha1/go/4K',                     _(color='C6', ls='dashed')),
-        (r'unzlib/(py|\*)/wczdata',         _(color='C7')),
-        (r'unzlib/go/wczdata',              _(color='C7', ls='dashed')),
-        (r'unzlib/(py|\*)/prod1-avg',       _(color='C8')),
-        (r'unzlib/go/prod1-avg',            _(color='C8', ls='dashed')),
+        (ur'neo/go/fs1(·P.*)?-zwrk.go',                     _(color='C0')),
+        (ur'neo/go/fs1\(!sha1\)(·P.*)?-zwrk.go\(!sha1\)',   _(color='C0', ls='dashed')),
+        (ur'neo/go/sqlite(·P.*)?-zwrk.go',                  _(color='C1')),
+        (ur'neo/go/sqlite(·P.*)?-zwrk.go\(!sha1\)',         _(color='C1', ls='dashed')),
+        (ur'zeo/py/fs1-zwrk.go',                            _(color='C2')),
+        (ur'neo/py\(!log\)/sqlite(·P.*)?-zwrk.go',          _(color='C3')), # ls='dashed'), # XXX dashed?
+        (ur'neo/py\(!log\)/sql(·P.*)?-zwrk.go',             _(color='C4')), # ls='dashed'), # XXX dashed?
+        (ur'crc32/(py|\*)/4K',                              _(color='C5')),
+        (ur'crc32/go/4K',                                   _(color='C5', ls='dashed')),
+        (ur'sha1/(py\|*)/4K',                               _(color='C6')),
+        (ur'sha1/go/4K',                                    _(color='C6', ls='dashed')),
+        (ur'unzlib/(py|\*)/wczdata',                        _(color='C7')),
+        (ur'unzlib/go/wczdata',                             _(color='C7', ls='dashed')),
+        (ur'unzlib/(py|\*)/prod1-avg',                      _(color='C8')),
+        (ur'unzlib/go/prod1-avg',                           _(color='C8', ls='dashed')),
 
-        (r'disk/randread/direct/4K-avg',    _(color='C9')),
-        (r'disk/randread/pagecache/4K-avg', _(color='C9', ls='dashed')),
+        (ur'disk/randread/direct/4K-avg',                   _(color='C9')),
+        (ur'disk/randread/pagecache/4K-avg',                _(color='C9', ls='dashed')),
 ]]
 del _
 
 def stylefor(name):
-    sty = _stylefor.get(name)
-    if sty is not None:
-        return sty
-
     for namere, sty in _stylefor_re:
         if namere.search(name):
             return sty
