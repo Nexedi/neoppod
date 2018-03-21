@@ -189,9 +189,13 @@ init_net() {
 	Mbind=[$myaddr]:5552	# NEO master
 	Zbind=[$myaddr]:5553	# ZEO
 
-	# NEO storage. bind not strictly needed but this way we also make sure
+}
+
+# Sbind n	- return bind address for storage #n	(n=1...)
+Sbind() {
+	# for NEO storage. bind not strictly needed but this way we also make sure
 	# no 2 storages are started at the same time.
-	Sbind=[$myaddr]:5554
+	echo "[$myaddr]:$((5554 + $1 - 1))"
 }
 
 # init_fs	- do initial disk allocations
@@ -215,11 +219,38 @@ switch_dataset() {
 	ds=$var/$ds
 
 	fs1=$ds/fs1;		mkdir -p $fs1		# FileStorage (and so ZEO and NEO/go) data
-	neolite=$ds/neo.sqlite				# NEO/py: sqlite
-	neosql=$ds/neo.sql;	mkdir -p $neosql	# NEO/py: mariadb
-	mycnf=$neosql/mariadb.cnf			# NEO/py: mariadb config
-	mysock=$(realpath $neosql)/my.sock		# NEO/py: mariadb socket
 }
+
+Pneo=1		# N(partition) for NEO (= N(S) nodes to run)
+# XXX switch_neo_P (like switch_dataset)
+
+
+# neolite n	- NEO: sqlite for partition n
+neolite() {
+	echo $ds/neo.sqlite·P$Pneo-$1
+}
+
+# neosql n	- NEO: mariadb directory for partition n
+neosql() {
+	local d=$ds/neo.sql·P$Pneo-$1;	mkdir -p $d
+	echo $d
+}
+
+# mycnf n	- NEO: mariadb config for partition n
+mycnf() {
+	echo `neosql $1`/mariadb.cnf
+}
+
+# mysock n	- NEO: mariadb socket for partition n
+mysock() {
+	echo $(realpath `neosql $1`)/my.sock
+}
+
+# mylog n	- NEO: mariadb log for partition n
+mylog() {
+	echo $log/mdb.log·P$Pneo-$1
+}
+
 
 # foreach_dataset <command>	- run command once for each dataset serially
 foreach_dataset() {
@@ -229,14 +260,16 @@ foreach_dataset() {
 	done
 }
 
-# control started NEO cluster
+# xneoctl ...	- control started NEO cluster
 xneoctl() {
 	neoctl -a $Abind "$@"
 }
 
-# control started MariaDB
+# xmysql ...	- control all started MariaDB servers
 xmysql() {
-	mysql --defaults-file=$mycnf "$@"
+	for i in `seq $Pneo`; do
+		mysql --defaults-file=`mycnf $i` "$@"
+	done
 }
 
 # if we are abnormally terminating
@@ -263,13 +296,15 @@ neopy_log() {
 	echo --logfile=$log/$1.log
 }
 
-# M{py,go} ...	- spawn master
+# M{py,go} n ...	- spawn master with N(partition) = n
 Mpy() {
-	# --autostart=1
+	local n=$1
+	shift
+
 	# XXX neo/py meaning for --replicas is `n(real-replica) - 1`
 	exec -a Mpy \
 		neomaster --cluster=$neocluster --bind=$Mbind --masters=$Mbind	\
-		--replicas 0 --partitions 1 `neopy_log Mpy` "$@" &
+		--replicas 0 --partitions $n `neopy_log Mpy` "$@" &
 }
 
 Mgo() {
@@ -277,20 +312,27 @@ Mgo() {
 		neo --log_dir=$log master -cluster=$neocluster -bind=$Mbind "$@" &
 }
 
-# Spy ...	- spawn NEO/py storage
+# Spy <n> ...	- spawn NEO/py storage handling partition #n
 Spy() {
+	local n=$1
+	shift
+
 	# --adapter=...
 	# --database=...
 	# --engine=...
 	exec -a Spy \
-		neostorage --cluster=$neocluster --bind=$Sbind --masters=$Mbind `neopy_log Spy` "$@" &
+		neostorage --cluster=$neocluster --bind=`Sbind $n` --masters=$Mbind `neopy_log Spy` "$@" &
 }
 
-# Sgo <data.fs>	- spawn NEO/go storage
+# Sgo <n>	- spawn NEO/go storage
 Sgo() {
+	local n=$1
+	shift
+	test $n = 1 || die "Sgo: TODO ·P<n>"
+
 	# -alsologtostderr
 	exec -a Sgo \
-		neo -log_dir=$log storage -cluster=$neocluster -bind=$Sbind -masters=$Mbind "$@" &
+		neo -log_dir=$log storage -cluster=$neocluster -bind=`Sbind $n` -masters=$Mbind "$@" &
 }
 
 # Apy ...	- spawn NEO/py admin
@@ -310,45 +352,53 @@ Zpy() {
 
 # spawn NEO/go cluster (Sgo+Mpy+Apy) working on data.fs
 NEOgofs1() {
-	Mpy --autostart=1
-	Sgo fs1://$fs1/data.fs
+	Mpy 1 --autostart=1
+	Sgo 1 fs1://$fs1/data.fs
 	Apy
 }
 
 # spawn NEO/go cluster (Sgo+Mpy+Apy) working on sqlite db
 NEOgolite() {
-	Mpy --autostart=1
-	Sgo sqlite://$neolite
+	test $Pneo == 1 || die "NEOgolite: Sgo not ready to handle ·P<n>"
+	Mpy 1 --autostart=1
+	Sgo 1 sqlite://`neolite 1`
 	Apy
 }
 
 # spawn NEO/py cluster working on sqlite db
 NEOpylite() {
-	Mpy --autostart=1
-	Spy --adapter=SQLite --database=$neolite
+	Mpy $Pneo --autostart=$Pneo
+	for i in `seq $Pneo`; do
+		Spy $i --adapter=SQLite --database=`neolite $i`
+	done
 	Apy
 }
 
 # spawn NEO/py cluster working on mariadb
 NEOpysql() {
-	MDB
+	for i in `seq $Pneo`; do
+		MDB $i
+	done
 	sleep 1	# XXX fragile
 	xmysql -e "CREATE DATABASE IF NOT EXISTS neo"
 
-	Mpy --autostart=1
-	Spy --adapter=MySQL --engine=InnoDB --database=root@neo$mysock
+	Mpy $Pneo --autostart=$Pneo
+	for i in `seq $Pneo`; do
+		Spy $i --adapter=MySQL --engine=InnoDB --database=root@neo`mysock $i`
+	done
 	Apy
 }
 
 
-# setup/spawn mariadb
+# MDB <n>	- setup/spawn mariadb for partition n
 MDB() {
-	cat >$mycnf <<EOF
+	local n=$1
+	cat >`mycnf $n` <<EOF
 [mysqld]
 skip_networking
-socket		= $mysock
-datadir		= $neosql/data
-log_error	= $log/mdb.log
+socket		= `mysock $n`
+datadir		= `neosql $n`/data
+log_error	= `mylog $n`
 
 # the following comes from
 # https://lab.nexedi.com/nexedi/slapos/blob/bd197876/software/neoppod/my.cnf.in#L18
@@ -387,19 +437,19 @@ character_set_server = utf8
 skip_character_set_client_handshake
 
 [client]
-socket = $mysock
+socket = `mysock $n`
 user = root
 EOF
 
 	# setup system tables on first run
-	if ! test -e $neosql/data ; then
+	if ! test -e `neosql $n`/data ; then
 		# XXX --cross-bootstrap only to avoid final large print notice
 		# XXX but cross-bootstrap filters out current host name from installed tables - is it ok?
 		mysql_bin=$(dirname `which mysql`)	# XXX under slapos mysql_install_db cannot find its base automatically
-		mysql_install_db --basedir=${mysql_bin%/bin} --defaults-file=$mycnf --cross-bootstrap
+		mysql_install_db --basedir=${mysql_bin%/bin} --defaults-file=`mycnf $n` --cross-bootstrap
 	fi
 
-	mysqld --defaults-file=$mycnf &
+	mysqld --defaults-file=`mycnf $n` &
 }
 
 # ---- generate test data ----
@@ -441,7 +491,7 @@ GENfs() {
 
 # generate data in sqlite
 GENsqlite() {
-	test -e $ds/generated.sqlite && return
+	test -e $ds/generated.sqlite·P$Pneo && return
 	echo -e '\n*** generating sqlite data...'
 	NEOpylite
 	# NOTE compression is disabled because when benchmarking server latency
@@ -450,12 +500,12 @@ GENsqlite() {
 	xneoctl set cluster stopping
 	wait	# XXX fragile - won't work if there are children spawned outside
 	sync
-	touch $ds/generated.sqlite
+	touch $ds/generated.sqlite·P$Pneo
 }
 
 # generate data in mariadb
 GENsql() {
-	test -e $ds/generated.sql && return
+	test -e $ds/generated.sql·P$Pneo && return
 	echo -e '\n*** generating sql data...'
 	NEOpysql
 	# NOTE compression is disabled - see ^^^ (sqlite) for rationale.
@@ -465,7 +515,7 @@ GENsql() {
 	xmysql -e "SHUTDOWN"
 	wait	# XXX fragile
 	sync
-	touch $ds/generated.sql
+	touch $ds/generated.sql·P$Pneo
 }
 
 # generate all test databases
@@ -1151,21 +1201,21 @@ zbench_local() {
 	# XXX save time - we show only neo/py(!log)/sqlite
 	#echo -e "\n*** NEO/py sqlite"
 	#NEOpylite
-	#zbench neo://$neocluster@$Mbind neo/py/sqlite $zhashok
+	#zbench neo://$neocluster@$Mbind neo/py/sqlite·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	zbench neo://$neocluster@$Mbind "neo/py(!log)/sqlite" $zhashok
+	zbench neo://$neocluster@$Mbind "neo/py(!log)/sqlite·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX save time - we show only neo/py(!log)/sql
 	#echo -e "\n*** NEO/py sql"
 	#NEOpysql
-	#zbench neo://$neocluster@$Mbind neo/py/sql $zhashok
+	#zbench neo://$neocluster@$Mbind neo/py/sql·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#xmysql -e "SHUTDOWN"
 	#wait
@@ -1173,34 +1223,42 @@ zbench_local() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	zbench neo://$neocluster@$Mbind "neo/py(!log)/sql" $zhashok
+	zbench neo://$neocluster@$Mbind "neo/py(!log)/sql·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go fs1"
 	NEOgofs1
-	zbench neo://$neocluster@$Mbind neo/go/fs1 $zhashok
+	zbench neo://$neocluster@$Mbind neo/go/fs1·P1 $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go fs1 (sha1 disabled on: storage, client)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/fs1(!sha1)" $zhashok
+	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/fs1(!sha1)·P1" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite"
-	NEOgolite
-	zbench neo://$neocluster@$Mbind neo/go/sqlite $zhashok
-	xneoctl set cluster stopping
-	wait
+	if [ $Pneo == 1 ]; then
+		NEOgolite
+		zbench neo://$neocluster@$Mbind neo/go/sqlite·P$Pneo $zhashok
+		xneoctl set cluster stopping
+		wait
+	else
+		echo "# skipping (NEO/go sqlite not yet ready to handle ·P<n>"
+	fi
 
 	echo -e "\n*** NEO/go sqlite (sha1 disabled on: client)"
-	NEOgolite
-	X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/sqlite" $zhashok
-	xneoctl set cluster stopping
-	wait
+	if [ $Pneo == 1 ]; then
+		NEOgolite
+		X_NEOGO_SHA1_SKIP=y zbench_go neo://$neocluster@$Mbind "neo/go/sqlite·P$Pneo" $zhashok
+		xneoctl set cluster stopping
+		wait
+	else
+		echo "# skipping (NEO/go sqlite not yet ready to handle ·P<n>"
+	fi
 }
 
 # command: benchmark when server runs locally and client is on another node
@@ -1264,21 +1322,21 @@ zbench_cluster() {
 	# XXX save time - we show only neo/py(!log)/sqlite
 	#echo -e "\n*** NEO/py sqlite"
 	#NEOpylite
-	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sqlite $zhashok
+	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sqlite·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#wait
 
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sqlite (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpylite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"neo/py(!log)/sqlite\\\"" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"neo/py(!log)/sqlite\\\"·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	# XXX save time - we show only neo/py(!log)/sql
 	#echo -e "\n*** NEO/py sql"
 	#NEOpysql
-	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sql $zhashok
+	#on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/py/sql·P$Pneo $zhashok
 	#xneoctl set cluster stopping
 	#xmysql -e "SHUTDOWN"
 	#wait
@@ -1286,34 +1344,42 @@ zbench_cluster() {
 	# XXX JM asked to also have NEO/py with logging disabled
 	echo -e "\n*** NEO/py sql (logging disabled)"
 	X_NEOPY_LOG_SKIP=y NEOpysql
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"neo/py(!log)/sql\\\"" $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind "\\\"neo/py(!log)/sql\\\"·P$Pneo" $zhashok
 	xneoctl set cluster stopping
 	xmysql -e "SHUTDOWN"
 	wait
 
 	echo -e "\n*** NEO/go fs"
 	NEOgofs1
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/go/fs1 $zhashok
+	on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/go/fs1·P1 $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go fs1 (sha1 disabled on: storage, client)"
 	X_NEOGO_SHA1_SKIP=y NEOgofs1
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/fs1(!sha1)\\\"" $zhashok
+	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/fs1(!sha1)\\\"·P1" $zhashok
 	xneoctl set cluster stopping
 	wait
 
 	echo -e "\n*** NEO/go sqlite"
-	NEOgolite
-	on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/go/sqlite $zhashok
-	xneoctl set cluster stopping
-	wait
+	if [ $Pneo == 1 ]; then
+		NEOgolite
+		on $url ./neotest zbench-client neo://$neocluster@$Mbind neo/go/sqlite·P$Pneo $zhashok
+		xneoctl set cluster stopping
+		wait
+	else
+		echo "# skipping (NEO/go sqlite not yet ready to handle ·P<n>"
+	fi
 
 	echo -e "\n*** NEO/go sqlite (sha1 disabled on: client)"
-	NEOgolite
-	on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/sqlite\\\"" $zhashok
-	xneoctl set cluster stopping
-	wait
+	if [ $Pneo == 1 ]; then
+		NEOgolite
+		on $url X_NEOGO_SHA1_SKIP=y ./neotest zbench-client --goonly neo://$neocluster@$Mbind "\\\"neo/go/sqlite\\\"·P$Pneo" $zhashok
+		xneoctl set cluster stopping
+		wait
+	else
+		echo "# skipping (NEO/go sqlite not yet ready to handle ·P<n>"
+	fi
 }
 
 # command: benchmark client workload against separate server

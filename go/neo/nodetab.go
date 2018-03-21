@@ -346,9 +346,18 @@ func (p *Node) dial(ctx context.Context) (_ *neonet.NodeLink, err error) {
 	case accept.YourUUID != app.MyInfo.UUID:
 		err = fmt.Errorf("connected, but peer gives us uuid %v (our is %v)", accept.YourUUID, app.MyInfo.UUID)
 
+	// XXX Node.Dial is currently used by Client only.
+	// XXX For Client it would be not correct to check #partition only at
+	// XXX connection time, but it has to be also checked after always as every
+	// XXX operation could coincide with cluster reconfiguration.
+	//
+	// FIXME for now we simply don't check N(p)
+	//
 	// XXX NumReplicas: neo/py meaning for n(replica) = `n(real-replica) - 1`
+	/*
 	case !(accept.NumPartitions == 1 && accept.NumReplicas == 0):
 		err = fmt.Errorf("connected but TODO peer works with !1x1 partition table.")
+	*/
 	}
 
 	if err != nil {
