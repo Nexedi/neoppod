@@ -686,7 +686,7 @@ system_info() {
 	# disk under .
 	# TODO show all disks and just mark which is current
 	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
-	blkdev=`findmnt -n -o source $mntpt`		# mountpoint -> device
+	blkdev=`findmnt -n -o source -v -u $mntpt`	# mountpoint -> device
 	blkdev=`realpath $blkdev`			# /dev/mapper/vg0-root	-> /dev/dm-0
 	blkdev1=`basename $blkdev`			# /dev/sda  -> sda
 
