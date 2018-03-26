@@ -140,7 +140,7 @@ func (r rpc) call(ctx context.Context, argv ...interface{}) (interface{}, error)
 
 	if r.zl.ver >= "5" {
 		// in ZEO5 exceptions are marked via flag
-		if (reply.flags & msgExcept != 0) {
+		if reply.flags & msgExcept != 0 {
 			return nil, r.zeo5Error(reply.arg)
 		}
 	} else {
