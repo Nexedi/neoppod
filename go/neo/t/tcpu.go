@@ -33,10 +33,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
+	"lab.nexedi.com/kirr/go123/my"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/xzlib"
 )
 
@@ -106,8 +108,10 @@ func xreadfile(path string) []byte {
 	return data
 }
 
+var __dir__ = filepath.Dir(my.File())
+
 func BenchmarkUnzlib(b *testing.B, zfile string) {
-	zdata := xreadfile(fmt.Sprintf("testdata/zlib/%s", zfile))
+	zdata := xreadfile(fmt.Sprintf("%s/testdata/zlib/%s", __dir__, zfile))
 
 	b.ResetTimer()
 

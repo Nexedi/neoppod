@@ -28,6 +28,7 @@ import tzodb
 import zlib
 from time import time
 from math import ceil, log10
+from os.path import dirname
 
 # fmtsize formats size in human readable form
 _unitv = "BKMGT" # (2^10)^i represents by corresponding char suffix
@@ -132,8 +133,11 @@ def readfile(path):
     with open(path, 'r') as f:
         return f.read()
 
+
+__dir__ = dirname(__file__)
+
 def bench_unzlib(b, zfile):
-    zdata = readfile('testdata/zlib/%s' % zfile)
+    zdata = readfile('%s/testdata/zlib/%s' % (__dir__, zfile))
     b.reset_timer()
 
     n = b.N
