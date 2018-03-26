@@ -25,6 +25,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 
 	pickle "github.com/kisielk/og-rek"
@@ -136,43 +137,140 @@ func (r rpc) call(ctx context.Context, argv ...interface{}) (interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	if reply.flags & msgExcept == 0 {
-		return reply.arg, nil
+
+	if r.zl.ver >= "5" {
+		// in ZEO5 exceptions are marked via flag
+		if reply.flags & msgExcept != 0 {
+			return nil, r.zeo5Error(reply.arg)
+		}
+	} else {
+		// in ZEO < 5 exceptions are represented by returning
+		// (exc_class, exc_inst) - check it
+		err = r.zeo4Error(reply.arg)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// exception - let's decode it
-	// ('type', (arg1, arg2, arg3, ...))
-	texc, ok := reply.arg.(pickle.Tuple)
-	if !ok || len(texc) != 2 {
-		return nil, r.ereplyf("except: got %#v; expect 2-tuple", reply.arg)
-	}
+	// it is not an exception
+	return reply.arg, nil
+}
 
-	exc, ok1 := texc[0].(string)
-	argv, ok2 := texc[1].(pickle.Tuple)
-	if !(ok1 && ok2) {
-		return nil, r.ereplyf("except: got (%T, %T); expect (str, tuple)", texc...)
-	}
-
+// excError returns error corresponding to an exception.
+//
+// well-known exceptions are mapped to corresponding well-known errors - e.g.
+// POSKeyError -> zodb.NoObjectError, and rest are returned wrapper into rpcExcept.
+func (r rpc) excError(exc string, argv []interface{}) error {
 	// translate well-known exceptions
 	switch exc {
 	case "ZODB.POSException.POSKeyError":
 		// POSKeyError(oid)
 		if len(argv) != 1 {
-			return nil, r.ereplyf("poskeyerror: got %#v; expect 1-tuple", argv...)
+			return r.ereplyf("poskeyerror: got %#v; expect 1-tuple", argv...)
 		}
 
 		oid, ok := oidUnpack(argv[0])
 		if !ok {
-			return nil, r.ereplyf("poskeyerror: got (%v); expect (oid)", argv[0])
+			return r.ereplyf("poskeyerror: got (%v); expect (oid)", argv[0])
 		}
 
 		// XXX POSKeyError does not allow to distinguish whether it is
 		// no object at all or object exists and its data was not found
 		// for tid_before. IOW we cannot translate to zodb.NoDataError
-		return nil, &zodb.NoObjectError{Oid: oid}
+		return &zodb.NoObjectError{Oid: oid}
 	}
 
-	return nil, &rpcExcept{exc, argv}
+	return &rpcExcept{exc, argv}
+}
+
+// zeo5Error decodes arg of reply with msgExcept flag set and returns
+// corresponding error.
+func (r rpc) zeo5Error(arg interface{}) error {
+	// ('type', (arg1, arg2, arg3, ...))
+	texc, ok := arg.(pickle.Tuple)
+	if !ok || len(texc) != 2 {
+		return r.ereplyf("except5: got %#v; expect 2-tuple", arg)
+	}
+
+	exc, ok1 := texc[0].(string)
+	argv, ok2 := texc[1].(pickle.Tuple)
+	if !(ok1 && ok2) {
+		return r.ereplyf("except5: got (%T, %T); expect (str, tuple)", texc...)
+	}
+
+	return r.excError(exc, argv)
+}
+
+// zeo4Error checks whether arg corresponds to exceptional reply, and if
+// yes, decodes it into corresponding error.
+//
+// nil is returned if arg does not represent an exception.
+func (r rpc) zeo4Error(arg interface{}) error {
+	// (exc_class, exc_inst), e.g.
+	// ogórek.Tuple{
+	//         ogórek.Class{Module:"ZODB.POSException", Name:"POSKeyError"},
+	//         ogórek.Call{
+	//                 Callable: ogórek.Class{Module:"ZODB.POSException", Name:"_recon"},
+	//                 Args:     ogórek.Tuple{
+	//                         ogórek.Class{Module:"ZODB.POSException", Name:"POSKeyError"},
+	//                         map[interface {}]interface {}{
+	//                                 "args":ogórek.Tuple{"\x00\x00\x00\x00\x00\x00\bP"}
+	//                         }
+	//                 }
+	//         }
+	// }
+	targ, ok := arg.(pickle.Tuple)
+	if !ok || len(targ) != 2 {
+		return nil
+	}
+
+	klass, ok := targ[0].(pickle.Class)
+	if !ok || !isPyExceptClass(klass) {
+		return nil
+	}
+	exc  := klass.Module + "." + klass.Name
+
+	// it is exception
+	call, ok := targ[1].(pickle.Call)
+	if !ok {
+		// not a call - the best we can do is to guess
+		return r.ereplyf("except4: %s: inst %#v; expect call", exc, targ[1:])
+	}
+
+	exc  = call.Callable.Module + "." + call.Callable.Name
+	argv := call.Args
+	if exc == "ZODB.POSException._recon" {
+		// args: (class, state)
+		if len(argv) != 2 {
+			return r.ereplyf("except4: %s: got %#v; expect 2-tuple", exc, argv)
+		}
+
+		klass, ok1 := argv[0].(pickle.Class)
+		state, ok2 := argv[1].(map[interface{}]interface{})
+		if !(ok1 && ok2) {
+			return r.ereplyf("except4: %s: got (%T, %T); expect (class, dict)", exc, argv[0], argv[1])
+		}
+
+		args, ok := state["args"].(pickle.Tuple)
+		if !ok {
+			return r.ereplyf("except4: %s: state.args = %#v; expect tuple", exc, state["args"])
+		}
+
+		exc  = klass.Module + "." + klass.Name
+		argv = args
+	}
+
+	return r.excError(exc, argv)
+}
+
+// isPyExceptClass returns whether klass represents python exception
+func isPyExceptClass(klass pickle.Class) bool {
+	// XXX this is approximation
+	if strings.HasSuffix(klass.Name, "Error") {
+		return true
+	}
+
+	return false
 }
 
 func (r rpc) ereplyf(format string, argv ...interface{}) *errorUnexpectedReply {
@@ -227,6 +325,16 @@ func openByURL(ctx context.Context, u *url.URL, opt *zodb.OpenOptions) (_ zodb.I
 	xlastTid, err := rpc.call(ctx, storageID, opt.ReadOnly)
 	if err != nil {
 		return nil, err
+	}
+
+	// register returns last_tid in ZEO5 but nothing earlier.
+	// if so we have to retrieve last_tid in another RPC.
+	if z.srv.ver < "5" {
+		rpc = z.rpc("lastTransaction")
+		xlastTid, err = rpc.call(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	lastTid, ok := tidUnpack(xlastTid) // XXX -> xlastTid -> scan
