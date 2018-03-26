@@ -42,10 +42,14 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
-const (
-	protocolVersion = "Z5"
-	pktHeaderLen	= 4
-)
+const pktHeaderLen	= 4
+
+// we can speak this protocol versions
+var protoVersions = []string{
+	"3101",	// last in ZEO3 series
+	"4",	// no longer call load.
+	"5",	// current in ZEO5 series.
+}
 
 
 // zLink is ZEO connection between client (local end) and server (remote end).
@@ -66,6 +70,8 @@ type zLink struct {
 	serveWg	 sync.WaitGroup	// for serveRecv
 	down1    sync.Once
 	errClose error		// error got from .link.Close()
+
+	ver string // protocol verision in use (without "Z" or "M" prefix)
 }
 
 // (called after handshake)
@@ -77,7 +83,7 @@ func (zl *zLink) start() {
 
 var errLinkClosed = errors.New("zlink is closed")
 
-// shutdown shuts zlink down and sets errror (XXX) which
+// shutdown shuts zlink down and sets error (XXX) which
 func (zl *zLink) shutdown(err error) {
 	zl.down1.Do(func() {
 		// XXX what with err?
@@ -164,7 +170,7 @@ type msg struct {
 type msgFlags int64
 const (
 	msgAsync  msgFlags = 1 // message does not need a reply
-	msgExcept          = 2 // exception was raised on remote side
+	msgExcept          = 2 // exception was raised on remote side (ZEO5)
 )
 
 func derrf(format string, argv ...interface{}) error {
@@ -265,7 +271,7 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 
 // ---- raw IO ----
 
-// pktBuf is buffer for preparing outgoind packet.
+// pktBuf is buffer for preparing outgoing packet.
 //
 // alloc via allocPkb and free via pkb.Free.
 // similar to skb in Linux.
@@ -273,7 +279,7 @@ type pktBuf struct {
 	data []byte
 }
 
-// Fixup fixes packet length in header acccording to current packet data.
+// Fixup fixes packet length in header according to current packet data.
 func (pkb *pktBuf) Fixup() {
 	binary.BigEndian.PutUint32(pkb.data, uint32(len(pkb.data) - pktHeaderLen))
 }
@@ -424,25 +430,54 @@ func handshake(ctx context.Context, conn net.Conn) (_ *zLink, err error) {
 
 	wg, ctx := errgroup.WithContext(ctx)
 
-	// tx/rx handshake packet
+	// rx/tx handshake packet
 	wg.Go(func() error {
-		pkb := allocPkb()
-		pkb.WriteString(protocolVersion)
+		// server first announces its preferred protocol
+		// it is e.g. "M5", "Z5", "Z4", "Z3101", ...
+		pkb, err := zl.recvPkt()
+		if err != nil {
+			return fmt.Errorf("rx: %s", err)
+		}
+
+		proto := string(pkb.Payload())
+		pkb.Free()
+		if !(len(proto) >= 2 && (proto[0] == 'Z' || proto[0] == 'M')) {
+			return fmt.Errorf("rx: invalid peer handshake: %q", proto)
+		}
+
+		// even if server announced it prefers 'M' (msgpack) it will
+		// accept 'Z' (pickles) as encoding. We always use 'Z'.
+		//
+		// extract peer version from protocol string and choose actual
+		// version to use as min(peer, mybest)
+		ver := proto[1:]
+		myBest := protoVersions[len(protoVersions)-1]
+		if ver > myBest {
+			ver = myBest
+		}
+
+		// verify ver is among protocol versions that we support.
+		there := false
+		for _, weSupport := range protoVersions {
+			if ver == weSupport {
+				there = true
+				break
+			}
+		}
+		if !there {
+			return fmt.Errorf("rx: unsupported peer version: %q", proto)
+		}
+
+		// version selected - now send it back to server as
+		// corresponding handshake reply.
+		pkb = allocPkb()
+		pkb.WriteString("Z" + ver)
 		err = zl.sendPkt(pkb)
 		if err != nil {
-			return err
+			return fmt.Errorf("tx: %s", err)
 		}
 
-		pkb, err = zl.recvPkt()
-		if err != nil {
-			return err
-		}
-		rxver := string(pkb.Payload())
-		pkb.Free()
-		if rxver != protocolVersion {
-			return fmt.Errorf("version mismatch: remote=%q, my=%q", rxver, protocolVersion)
-		}
-
+		zl.ver = ver
 		close(hok)
 		return nil
 	})
