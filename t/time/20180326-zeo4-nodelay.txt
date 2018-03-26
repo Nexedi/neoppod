@@ -1,0 +1,153 @@
+date:	Mon, 26 Mar 2018 21:03:25 +0300
+xnode:	kirr@deco.navytux.spb.ru (2401:5180:0:37::1 192.168.0.2)
+uname:	Linux deco 4.15.0-1-amd64 #1 SMP Debian 4.15.4-1 (2018-02-18) x86_64 GNU/Linux
+cpu:	Intel(R) Core(TM) i7-6600U CPU @ 2.60GHz
+cpu/[0-3]/freq: intel_pstate/performance [2.60GHz - 2.60GHz]
+cpu/[0-3]/idle: intel_idle/menu: POLL·0/0 C1·2/2 !C1E·10/20 !C3·70/100 !C6·85/200 !C7s·124/800 !C8·200/800 !C9·480/5000 !C10·890/5000 # elat/tres µs
+disk/sda: SanDisk X400 M.2  rev 0012  477G
+nic/eth0: Intel Corporation Ethernet Connection I219-LM rev 21
+nic/eth0/features: rx tx sg tso !ufo gso gro !lro rxvlan txvlan !ntuple rxhash ...
+nic/eth0/coalesce: rxc: 3μs/0f/0μs-irq/0f-irq,  txc: 0μs/0f/0μs-irq/0f-irq
+nic/eth0/status:   up, speed=1000, mtu=1500, txqlen=1000, gro_flush_timeout=0.000µs
+nic/wlan0: Intel Corporation Wireless 8260 rev 3a
+nic/wlan0/features: !rx !tx sg !tso !ufo gso gro !lro !rxvlan !txvlan !ntuple !rxhash ...
+nic/wlan0/coalesce: rxc: ?,  txc: ?
+nic/wlan0/status:   down, speed=?, mtu=1500, txqlen=1000, gro_flush_timeout=0.000µs
+WARNING: nic/wlan0: TSO not enabled - TCP latency with packets > MSS will be poor
+sw/python:          Python 2.7.14
+sw/go:              go version go1.10 linux/amd64
+sw/sqlite:          sqlite 3.23.0 (py mod 2.6.0)
+sw/mysqld:          mysqld  Ver 10.1.29-MariaDB-6 for debian-linux-gnu on x86_64 (Debian buildd-unstable)
+sw/neo:             v1.8.1-1628-g0edd5129-dirty
+sw/zodb:            4.4.5
+sw/zeo:             4.2.0b1-49-g47d3fbe8-dirty
+sw/mysqlclient:     1.3.12
+sw/wendelin.core:   v0.11-15-gf785ac0-dirty
+
+dataset:	wczblk1-8
+node:
+cluster:	deco
+
+*** ZEO
+Benchmarkzeo/py/fs1-zhash.py 2127 241.3 µs/object	# crc32:14640593  nread=8540363  t=0.513s	# POLL·0 C1·14195 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 2127 232.6 µs/object	# crc32:14640593  nread=8540363  t=0.495s	# POLL·0 C1·13548 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 2127 232.8 µs/object	# crc32:14640593  nread=8540363  t=0.495s	# POLL·1 C1·13187 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 2127 241.3 µs/object	# crc32:14640593  nread=8540363  t=0.514s	# POLL·0 C1·14537 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 2127 234.2 µs/object	# crc32:14640593  nread=8540363  t=0.498s	# POLL·0 C1·13966 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+Benchmarkzeo/py/fs1-zhash.go 2127 110.0 µs/object	# crc32:14640593  nread=8540363  t=234.00261ms	# POLL·6 C1·11094 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 2127 109.2 µs/object	# crc32:14640593  nread=8540363  t=232.293603ms	# POLL·2 C1·11104 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 2127 107.7 µs/object	# crc32:14640593  nread=8540363  t=229.20666ms	# POLL·4 C1·11047 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 2127 107.7 µs/object	# crc32:14640593  nread=8540363  t=229.138839ms	# POLL·0 C1·11057 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 2127 108.9 µs/object	# crc32:14640593  nread=8540363  t=231.787491ms	# POLL·3 C1·11042 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 70.3 µs/object	# crc32:14640593  nread=8540363  t=149.64885ms	# POLL·58 C1·7060 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 71.9 µs/object	# crc32:14640593  nread=8540363  t=152.913183ms	# POLL·46 C1·6738 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 70.3 µs/object	# crc32:14640593  nread=8540363  t=149.621876ms	# POLL·35 C1·7018 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 70.4 µs/object	# crc32:14640593  nread=8540363  t=149.863715ms	# POLL·21 C1·6839 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 2127 69.0 µs/object	# crc32:14640593  nread=8540363  t=146.856311ms	# POLL·57 C1·6608 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 1 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9501.0 req/s  105.252 latency-µs/object	# POLL·7 C1·62412 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9432.4 req/s  106.018 latency-µs/object	# POLL·13 C1·62607 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9337.8 req/s  107.091 latency-µs/object	# POLL·11 C1·62506 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9411.0 req/s  106.259 latency-µs/object	# POLL·8 C1·62430 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9484.8 req/s  105.432 latency-µs/object	# POLL·13 C1·62378 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 2 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8792.2 req/s  227.474 latency-µs/object	# POLL·621 C1·131743 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8818.8 req/s  226.788 latency-µs/object	# POLL·601 C1·132036 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8866.5 req/s  225.568 latency-µs/object	# POLL·661 C1·132129 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8837.4 req/s  226.310 latency-µs/object	# POLL·622 C1·131856 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	8800.5 req/s  227.259 latency-µs/object	# POLL·645 C1·132223 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 3 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8073.0 req/s  371.609 latency-µs/object	# POLL·628 C1·163982 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8092.8 req/s  370.700 latency-µs/object	# POLL·626 C1·163886 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8003.8 req/s  374.821 latency-µs/object	# POLL·644 C1·164776 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8036.2 req/s  373.310 latency-µs/object	# POLL·617 C1·164424 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8046.8 req/s  372.817 latency-µs/object	# POLL·611 C1·164645 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 4 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7942.1 req/s  503.648 latency-µs/object	# POLL·591 C1·166851 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7896.8 req/s  506.536 latency-µs/object	# POLL·611 C1·166564 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7911.1 req/s  505.620 latency-µs/object	# POLL·657 C1·166915 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7949.7 req/s  503.164 latency-µs/object	# POLL·628 C1·166906 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	7813.7 req/s  511.923 latency-µs/object	# POLL·637 C1·167084 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 8 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7747.9 req/s  1032.532 latency-µs/object	# POLL·619 C1·167282 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7766.5 req/s  1030.066 latency-µs/object	# POLL·649 C1·167573 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7679.1 req/s  1041.794 latency-µs/object	# POLL·604 C1·167510 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7768.3 req/s  1029.825 latency-µs/object	# POLL·648 C1·167505 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7767.8 req/s  1029.893 latency-µs/object	# POLL·653 C1·167197 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 12 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7592.7 req/s  1580.466 latency-µs/object	# POLL·658 C1·171535 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7520.1 req/s  1595.714 latency-µs/object	# POLL·679 C1·169977 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7455.5 req/s  1609.546 latency-µs/object	# POLL·680 C1·169997 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7070.0 req/s  1697.324 latency-µs/object	# POLL·721 C1·153844 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7583.6 req/s  1582.354 latency-µs/object	# POLL·643 C1·172001 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+dataset:	prod1-1024
+node:
+cluster:	deco
+
+*** ZEO
+Benchmarkzeo/py/fs1-zhash.py 3789 225.4 µs/object	# crc32:a50b90dc  nread=4905351  t=0.854s	# POLL·4 C1·25430 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 3789 223.6 µs/object	# crc32:a50b90dc  nread=4905351  t=0.848s	# POLL·3 C1·24123 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 3789 224.3 µs/object	# crc32:a50b90dc  nread=4905351  t=0.850s	# POLL·3 C1·24801 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 3789 227.2 µs/object	# crc32:a50b90dc  nread=4905351  t=0.861s	# POLL·0 C1·24027 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.py 3789 226.5 µs/object	# crc32:a50b90dc  nread=4905351  t=0.859s	# POLL·1 C1·25103 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+Benchmarkzeo/py/fs1-zhash.go 3789 102.3 µs/object	# crc32:a50b90dc  nread=4905351  t=387.864527ms	# POLL·8 C1·19528 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 3789 101.8 µs/object	# crc32:a50b90dc  nread=4905351  t=385.64423ms	# POLL·3 C1·19401 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 3789 102.6 µs/object	# crc32:a50b90dc  nread=4905351  t=388.981004ms	# POLL·1 C1·19617 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 3789 102.8 µs/object	# crc32:a50b90dc  nread=4905351  t=389.759094ms	# POLL·1 C1·19720 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go 3789 102.6 µs/object	# crc32:a50b90dc  nread=4905351  t=388.97668ms	# POLL·5 C1·19560 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 63.1 µs/object	# crc32:a50b90dc  nread=4905351  t=239.139066ms	# POLL·62 C1·11192 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 64.9 µs/object	# crc32:a50b90dc  nread=4905351  t=246.002245ms	# POLL·69 C1·12276 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 65.2 µs/object	# crc32:a50b90dc  nread=4905351  t=247.02833ms	# POLL·60 C1·11792 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 64.0 µs/object	# crc32:a50b90dc  nread=4905351  t=242.638288ms	# POLL·52 C1·11365 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zhash.go+prefetch128 3789 64.2 µs/object	# crc32:a50b90dc  nread=4905351  t=243.488299ms	# POLL·48 C1·11944 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 1 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9949.1 req/s  100.512 latency-µs/object	# POLL·12 C1·71044 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9958.4 req/s  100.417 latency-µs/object	# POLL·10 C1·70941 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 10000	9958.0 req/s  100.422 latency-µs/object	# POLL·8 C1·71159 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 20000	10055.1 req/s  99.452 latency-µs/object	# POLL·19 C1·171941 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·1 20000	9963.7 req/s  100.364 latency-µs/object	# POLL·16 C1·171943 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 2 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	9084.1 req/s  220.166 latency-µs/object	# POLL·735 C1·140720 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	9175.3 req/s  217.976 latency-µs/object	# POLL·770 C1·140179 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	9136.1 req/s  218.912 latency-µs/object	# POLL·812 C1·141674 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	9213.5 req/s  217.072 latency-µs/object	# POLL·785 C1·140655 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·2 10000	9181.6 req/s  217.827 latency-µs/object	# POLL·884 C1·141217 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 3 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8286.0 req/s  362.055 latency-µs/object	# POLL·634 C1·170518 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8242.1 req/s  363.985 latency-µs/object	# POLL·661 C1·171901 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8342.3 req/s  359.613 latency-µs/object	# POLL·685 C1·172954 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8265.2 req/s  362.967 latency-µs/object	# POLL·671 C1·172071 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·3 10000	8170.1 req/s  367.195 latency-µs/object	# POLL·709 C1·170953 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 4 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	8044.6 req/s  497.231 latency-µs/object	# POLL·681 C1·174465 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	8200.1 req/s  487.800 latency-µs/object	# POLL·638 C1·175621 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	8203.8 req/s  487.579 latency-µs/object	# POLL·650 C1·175687 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	8119.0 req/s  492.672 latency-µs/object	# POLL·601 C1·176374 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·4 10000	8099.5 req/s  493.858 latency-µs/object	# POLL·634 C1·176396 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 8 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7938.0 req/s  1007.811 latency-µs/object	# POLL·671 C1·177085 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7974.6 req/s  1003.183 latency-µs/object	# POLL·661 C1·177455 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7945.6 req/s  1006.852 latency-µs/object	# POLL·683 C1·177611 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	7932.4 req/s  1008.521 latency-µs/object	# POLL·659 C1·177714 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·8 10000	8022.4 req/s  997.205 latency-µs/object	# POLL·678 C1·177253 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+
+# 12 clients in parallel
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7788.5 req/s  1540.740 latency-µs/object	# POLL·717 C1·181672 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7823.7 req/s  1533.808 latency-µs/object	# POLL·703 C1·181005 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7811.7 req/s  1536.150 latency-µs/object	# POLL·696 C1·181344 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7809.5 req/s  1536.594 latency-µs/object	# POLL·614 C1·181350 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
+Benchmarkzeo/py/fs1-zwrk.go·12 10000	7760.0 req/s  1546.401 latency-µs/object	# POLL·650 C1·181654 C1E·0 C3·0 C6·0 C7s·0 C8·0 C9·0 C10·0
