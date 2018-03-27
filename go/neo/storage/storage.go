@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 	"sync"
 
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
@@ -49,7 +50,7 @@ type Backend interface {
 }
 
 // BackendOpener is a function to open a NEO storage backend
-type BackendOpener func (ctx context.Context, u *url.URL) (Backend, error)
+type BackendOpener func (ctx context.Context, path string) (Backend, error)
 
 // {} scheme -> BackendOpener
 var backMu sync.Mutex
@@ -99,5 +100,7 @@ func OpenBackend(ctx context.Context, backendURL string) (Backend, error) {
 		return nil, fmt.Errorf("neo: backend: open %q: URL scheme \"%s://\" not supported", backendURL, u.Scheme)
 	}
 
-	return opener(ctx, u)
+	// open via raw path with only scheme:// stripped
+	path := strings.TrimPrefix(backendURL, u.Scheme+"://")
+	return opener(ctx, path)
 }

@@ -292,7 +292,7 @@ func zwrkMain(argv []string) {
 // zwrk simulates database load from multiple clients.
 //
 // It first serially reads all objects and remember theirs per-object crc32
-// checksum. If h/check were provided this phase, similarly to zhash, also
+// checksum. If h/check were provided, this phase, similarly to zhash, also
 // checks that the whole database content is as expected.
 //
 // Then parallel phase starts where nwrk separate connections to database are
@@ -414,7 +414,7 @@ func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ [
 
 			// load several first objects to warm up storages connection
 			// we need to load several objects so that in case of
-			// NEO cluster with several storage nodes we warm-up
+			// NEO cluster with several storage nodes, we warm-up
 			// connections to them all.
 			//
 			// FIXME 16 hardcoded

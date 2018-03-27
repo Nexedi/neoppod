@@ -22,7 +22,6 @@ package fs1
 
 import (
 	"context"
-	"net/url"
 
 	"lab.nexedi.com/kirr/neo/go/neo/internal/xsha1"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
@@ -93,15 +92,17 @@ func (f *Backend) Load(ctx context.Context, xid zodb.Xid) (*proto.AnswerObject, 
 }
 
 
-// ---- open by URL ----
+// ---- open ----
 
-func openURL(ctx context.Context, u *url.URL) (storage.Backend, error) {
-	// TODO handle query
-	// XXX u.Path is not always raw path - recheck and fix
-	path := u.Host + u.Path
-	return Open(ctx, path)
+func openBackend(ctx context.Context, path string) (storage.Backend, error) {
+	b, err := Open(ctx, path)
+	if err == nil {
+		return b, nil
+	} else {
+		return nil, err	// XXX don't return just b -> will be !nil interface
+	}
 }
 
 func init() {
-	storage.RegisterBackend("fs1", openURL)
+	storage.RegisterBackend("fs1", openBackend)
 }

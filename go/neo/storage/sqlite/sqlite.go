@@ -25,7 +25,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	//"reflect"
 
@@ -416,6 +415,7 @@ func (b *Backend) Close() error {
 func openConn(dburl string) (*sqlite3.Conn, error) {
 	conn, err := sqlite3.Open(dburl,
 		sqlite3.OpenNoMutex,	// we use connections only from 1 goroutine simultaneously
+		sqlite3.OpenUri,	// handle file:... URIs
 		sqlite3.OpenReadWrite)	//, sqlite3.OpenSharedCache)
 
 	if err != nil {
@@ -540,7 +540,7 @@ func Open(dburl string) (_ *Backend, err error) {
 
 	err = errv.Err()
 	if err != nil {
-		return nil, fmt.Errorf("NEO/go POC: not ready to handle: %s", err)
+		return nil, fmt.Errorf("%s: NEO/go POC: not ready to handle: %s", dburl, err)
 	}
 
 	// config("version")
@@ -562,11 +562,11 @@ func Open(dburl string) (_ *Backend, err error) {
 
 	err = errv.Err()
 	if err != nil {
-		return nil, fmt.Errorf("NEO/go POC: checking ttrans/tobj: %s", err)
+		return nil, fmt.Errorf("%s: NEO/go POC: checking ttrans/tobj: %s", dburl, err)
 	}
 
 	if !(nttrans==0 && ntobj==0) {
-		return nil, fmt.Errorf("NEO/go POC: not ready to handle: !empty ttrans/tobj")
+		return nil, fmt.Errorf("%s: NEO/go POC: not ready to handle: !empty ttrans/tobj", dburl)
 	}
 
 	// TODO lock db by path so other process cannot start working with it
@@ -575,10 +575,7 @@ func Open(dburl string) (_ *Backend, err error) {
 }
 
 
-func openURL(ctx context.Context, u *url.URL) (storage.Backend, error) {
-	url := u.String()
-	dburl := strings.TrimPrefix(url, u.Scheme+"://") // url with stripped sqlite://
-
+func openBackend(ctx context.Context, dburl string) (storage.Backend, error) {
 	b, err := Open(dburl)
 	if err == nil {
 		return b, nil
@@ -588,5 +585,5 @@ func openURL(ctx context.Context, u *url.URL) (storage.Backend, error) {
 }
 
 func init() {
-	storage.RegisterBackend("sqlite", openURL)
+	storage.RegisterBackend("sqlite", openBackend)
 }
