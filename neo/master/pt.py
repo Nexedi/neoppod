@@ -384,13 +384,18 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 if cell.isReadable():
                     if cell.getNode().isRunning():
                         lost = None
-                    else :
+                    else:
                         cell_list.append(cell)
             for cell in cell_list:
-                if cell.getNode() is not lost:
-                    cell.setState(CellStates.OUT_OF_DATE)
-                    change_list.append((offset, cell.getUUID(),
-                        CellStates.OUT_OF_DATE))
+                node = cell.getNode()
+                if node is not lost:
+                    if cell.isFeeding():
+                        self.removeCell(offset, node)
+                        state = CellStates.DISCARDED
+                    else:
+                        state = CellStates.OUT_OF_DATE
+                        cell.setState(state)
+                    change_list.append((offset, node.getUUID(), state))
         if fully_readable and change_list:
             logging.warning(self._first_outdated_message)
         return change_list

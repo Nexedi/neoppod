@@ -130,7 +130,7 @@ def CellStates():
     OUT_OF_DATE
     # Same as UP_TO_DATE, except that it will be discarded as soon as another
     # node finishes to replicate it. It means a partition is moved from 1 node
-    # to another.
+    # to another. It is also discarded immediately if out-of-date.
     FEEDING
     # Not really a state: only used in network packets to tell storages to drop
     # partitions.
