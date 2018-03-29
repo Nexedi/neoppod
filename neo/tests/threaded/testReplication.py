@@ -404,19 +404,16 @@ class ReplicationTests(NEOThreadedTest):
             orig(*args)
             sys.exit()
         s0, s1, s2 = cluster.storage_list
-        if 1:
-            cluster.start([s0, s1])
-            s2.start()
+        cluster.start([s0, s1])
+        s2.start()
+        self.tic()
+        cluster.enableStorageList([s2])
+        # 2 UP_TO_DATE cells become FEEDING:
+        # they are dropped only when the replication is done,
+        # so that 1 storage can still die without data loss.
+        with Patch(s0.dm, changePartitionTable=changePartitionTable):
+            cluster.neoctl.tweakPartitionTable()
             self.tic()
-            cluster.enableStorageList([s2])
-            # 2 UP_TO_DATE cells become FEEDING:
-            # they are dropped only when the replication is done,
-            # so that 1 storage can still die without data loss.
-            with Patch(s0.dm, changePartitionTable=changePartitionTable):
-                cluster.neoctl.tweakPartitionTable()
-                self.tic()
-            self.assertEqual(cluster.neoctl.getClusterState(),
-                             ClusterStates.RUNNING)
 
     @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
     def testReplicationAbortedBySource(self, cluster):
