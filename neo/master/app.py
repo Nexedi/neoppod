@@ -520,7 +520,7 @@ class Application(BaseApplication):
         for client_node in self.nm.getClientList(only_identified=True):
             if client_node is transaction_node:
                 client_node.send(Packets.AnswerTransactionFinished(ttid, tid),
-                                 msg_id=txn.getMessageId())                       # NOTE msgid: out-of-order answer
+                                 msg_id=txn.getMessageId())
             else:
                 # NOTE notifies all clients irregardless of whether who was subscribed
                 client_node.send(invalidate_objects)

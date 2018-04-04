@@ -63,7 +63,6 @@ class AdministrationHandler(MasterHandler):
                 raise ProtocolError('Cannot exit recovery without any '
                     'storage node')
             for node in storage_list:
-                # XXX note vvv ^^^
                 assert node.isPending(), node
                 if node.getConnection().isPending():
                     # XXX: It's wrong to use ProtocolError here. We must reply

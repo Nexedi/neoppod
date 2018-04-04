@@ -80,7 +80,6 @@ class InitializationHandler(BaseMasterHandler):
         dm.unlockTransaction(tid, ttid)
         dm.commit()
 
-    # NOTE M -> S "start operational"
     def startOperation(self, conn, backup):
         self.app.operational = True
         # XXX: see comment in protocol

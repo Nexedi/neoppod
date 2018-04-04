@@ -140,7 +140,7 @@ class ThreadedApplication(BaseApplication):
         _handlePacket = self._handlePacket
         while True:
             qconn, qpacket, kw = get(True)
-            if conn is qconn and msg_id == qpacket.getId():    # NOTE selector on msg_id
+            if conn is qconn and msg_id == qpacket.getId():
                 _handlePacket(qconn, qpacket, kw, handler)
                 break
             _handlePacket(qconn, qpacket, kw)

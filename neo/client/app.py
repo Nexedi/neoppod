@@ -228,8 +228,7 @@ class Application(ThreadedApplication):
                     "Too many connection failures to the primary master")
             logging.info('Connected to %s', self.primary_master_node)
             try:
-                # NOTE
-                # Request identification and required informations to be
+                # Request identification and required informations to be        NOTE
                 # operational. Might raise ConnectionClosed so that the new
                 # primary can be looked-up again.
                 logging.info('Initializing from master')

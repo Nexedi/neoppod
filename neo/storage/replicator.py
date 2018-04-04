@@ -57,7 +57,7 @@ transactions being committed and then it is expected to fully receive from the
 client any transaction that is started after this answer.
 
 Which has in turn other consequences:
-- The client must not fail to write to a storage node after the above request   <-- FIXME bad ?
+- The client must not fail to write to a storage node after the above request   <-- FIXME bad -> proper consensus protocol
   to the master: for this, the storage must have announced it is ready, and it
   must delay identification of unknown clients (those for which it hasn't
   received yet a notification from the master).

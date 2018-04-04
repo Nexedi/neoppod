@@ -157,7 +157,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkTIDRange(*args)
             try:
-                conn.send(Packets.AnswerCheckTIDRange(*r), msg_id)    # NOTE msg_id: out-of-order answer
+                conn.send(Packets.AnswerCheckTIDRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             # Splitting this task would cause useless overhead. However, a
@@ -176,7 +176,7 @@ class StorageOperationHandler(EventHandler):
         def check():
             r = app.dm.checkSerialRange(*args)
             try:
-                conn.send(Packets.AnswerCheckSerialRange(*r), msg_id) # NOTE msg_id: out-of-order answer
+                conn.send(Packets.AnswerCheckSerialRange(*r), msg_id)
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
             return; yield # same as in askCheckTIDRange
@@ -186,7 +186,6 @@ class StorageOperationHandler(EventHandler):
     def askFetchTransactions(self, conn, partition, length, min_tid, max_tid,
             tid_list):
         app = self.app
-        # NOTE XXX
         if app.tm.isLockedTid(max_tid):
             # Wow, backup cluster is fast. Requested transactions are still in
             # ttrans/ttobj so wait a little.
@@ -219,7 +218,7 @@ class StorageOperationHandler(EventHandler):
                         # Sending such packet does not mark the connection
                         # for writing if there's too little data in the buffer.
                         conn.send(Packets.AddTransaction(tid, user,
-                            desc, ext, packed, ttid, oid_list), msg_id) # NOTE msg_id: ooo answer
+                            desc, ext, packed, ttid, oid_list), msg_id)
                         # To avoid delaying several connections simultaneously,
                         # and also prevent the backend from scanning different
                         # parts of the DB at the same time, we ask the
@@ -228,7 +227,7 @@ class StorageOperationHandler(EventHandler):
                         # is flushing another one for a concurrent connection.
                         yield conn.buffering
                 conn.send(Packets.AnswerFetchTransactions(
-                    pack_tid, next_tid, peer_tid_set), msg_id)          # NOTE msg_id: out-of-order answer
+                    pack_tid, next_tid, peer_tid_set), msg_id)
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
                 pass
@@ -269,10 +268,10 @@ class StorageOperationHandler(EventHandler):
                             % partition), msg_id)
                         return
                     # Same as in askFetchTransactions.
-                    conn.send(Packets.AddObject(oid, *object), msg_id)      # NOTE msg_id: ooo answer
+                    conn.send(Packets.AddObject(oid, *object), msg_id)
                     yield conn.buffering
                 conn.send(Packets.AnswerFetchObjects(
-                    pack_tid, next_tid, next_oid, object_dict), msg_id)     # NOTE msg_id: out-of-order answer
+                    pack_tid, next_tid, next_oid, object_dict), msg_id)
                 yield
             except (weakref.ReferenceError, ConnectionClosed):
                 pass

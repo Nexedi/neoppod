@@ -430,7 +430,6 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                 except AttributeError:
                     pass
 
-    # NOTE
     def setBackupTidDict(self, backup_tid_dict):
         for row in self.partition_list:
             for cell in row:
