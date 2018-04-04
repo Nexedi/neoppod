@@ -141,7 +141,7 @@ class EpollEventManager(object):
             # to wake up (which may not even happen, and lead to EMFILE).
             connector.shutdown()()
 
-    def isIdle(self):   # NOTE
+    def isIdle(self):
         return not (self._pending_processing or self.writer_set)
 
     def _addPendingConnection(self, conn):

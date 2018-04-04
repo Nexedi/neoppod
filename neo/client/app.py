@@ -228,7 +228,7 @@ class Application(ThreadedApplication):
                     "Too many connection failures to the primary master")
             logging.info('Connected to %s', self.primary_master_node)
             try:
-                # Request identification and required informations to be        NOTE
+                # Request identification and required informations to be
                 # operational. Might raise ConnectionClosed so that the new
                 # primary can be looked-up again.
                 logging.info('Initializing from master')
@@ -369,7 +369,7 @@ class Application(ThreadedApplication):
                 elif self._loading_invalidated:
                     # oid has just been invalidated.
                     if not next_tid:
-                        next_tid = self._loading_invalidated        # NOTE stores up to head
+                        next_tid = self._loading_invalidated
                     self._cache.store(oid, data, tid, next_tid)
                 # Else, we just reconnected to the master.
             finally:

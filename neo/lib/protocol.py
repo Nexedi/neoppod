@@ -684,8 +684,8 @@ class RequestIdentification(Packet):
     _answer = PStruct('accept_identification',
         PFNodeType,
         PUUID('my_uuid'),
-        PNumber('num_partitions'),      # XXX why here, not in pt updates ?
-        PNumber('num_replicas'),        # XXX -> because current neo/py cannot change Npt at runtime
+        PNumber('num_partitions'),
+        PNumber('num_replicas'),
         PUUID('your_uuid'),
     )
 
@@ -738,7 +738,6 @@ class PartitionTable(Packet):
         PFRowList,
     )
 
-# XXX dup wrt PartitionChanges ? -> no: here it is "send all rows" of PT
 class NotifyPartitionTable(Packet):
     """
     Send rows in a partition table to update other nodes. PM -> S, C.
@@ -748,7 +747,6 @@ class NotifyPartitionTable(Packet):
         PFRowList,
     )
 
-# XXX dup wrt NotifyPartitionTable ? -> no: here it s "send changes" of PT
 class PartitionChanges(Packet):
     """
     Notify a subset of a partition table. This is used to notify changes.
