@@ -46,7 +46,7 @@
 
     Storage
     - Use libmysqld instead of a stand-alone MySQL server.
-    - In backup mode, 2 simultaneous replication should be possible so that:    NOTE
+    - In backup mode, 2 simultaneous replication should be possible so that:
       - outdated cells does not block backup for too long time
       - constantly modified partitions does not prevent outdated cells to
         replicate
@@ -60,7 +60,7 @@
       not degrade performance for client nodes. But when there's only 1 storage
       left for a partition, it may be wanted to guarantee a minimum speed to
       avoid complete data loss if another failure happens too early.
-    - Find a way not to always start replication from the beginning. Currently, NOTE
+    - Find a way not to always start replication from the beginning. Currently,
       a temporarily down nodes can't replicate from where it was interrupted,
       which is an issue on big databases. (SPEED)
     - Pack segmentation & throttling (HIGH AVAILABILITY)
@@ -80,7 +80,7 @@
     - Check replicas: (HIGH AVAILABILITY)
       - Automatically tell corrupted cells to fix their data when a good source
         is known.
-      - Add an option to also check all rows of trans/obj/data, instead of only     NOTE
+      - Add an option to also check all rows of trans/obj/data, instead of only
         keys (trans.tid & obj.{tid,oid}).
 
     Master
