@@ -1019,7 +1019,7 @@ class NEOThreadedTest(NeoTestBase):
         finally:
             app.close()
 
-    def getUnpickler(self, conn):   # XXX not used?
+    def getUnpickler(self, conn):
         reader = conn._reader
         def unpickler(data, compression=False):
             if compression:
