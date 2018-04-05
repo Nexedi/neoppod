@@ -153,14 +153,6 @@ class ReplicationTests(NEOThreadedTest):
 
                 # U -> B propagation with Mb -> Sb' (secondary, Replicate from primary Sb) delayed
                 # TODO also test: "U -> B propagation with Mb -> Sb (Replicate) delayed" ?
-                # from neo.storage.database import manager as dbmanager
-                # from neo.master import handlers as mhandler
-                # #dbmanager.X = 1
-                # #mhandler.X = 1
-                #         #        (tid, upstream_name, source_dict)
-                #         #return True
-                #         #return not upstream_name and all(source_dict.itervalues())
-                #         return upstream_name != ""
 
                 backup.start()
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
