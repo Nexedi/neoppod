@@ -701,35 +701,8 @@ class NEOCluster(object):
 class NEOFunctionalTest(NeoTestBase):
 
     def setUp(self):
-        # FIXME with SSL we get many errors like
-        #   Traceback (most recent call last):
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/tests/functional/__init__.py", line 183, in start
-        #       getattr(neo.scripts,  command).main()
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/scripts/neomaster.py", line 54, in main
-        #       app.run()
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/master/app.py", line 126, in run
-        #       self._run()
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/master/app.py", line 143, in _run
-        #       self.electPrimary()
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/master/app.py", line 192, in electPrimary
-        #       self.em.poll(1)
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/lib/event.py", line 150, in poll
-        #       self._poll(blocking)
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/lib/event.py", line 215, in _poll
-        #       if conn.readable():
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/lib/connection.py", line 470, in readable
-        #       if self.connector.receive(read_buf):
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/lib/connector.py", line 272, in receive
-        #       self._error('SSL handshake', e)
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/lib/connector.py", line 246, in _error
-        #       SocketConnector._error(self, op, exc)
-        #     File "/home/kirr/src/wendelin/neo/neoppod/neo/lib/connector.py", line 71, in _error
-        #       op, self, errno.errorcode[exc.errno], exc.strerror)
-        #   KeyError: 0
-        #
-        # and then many timeouts & other failures
-        #if random.randint(0, 1):
-        #    NEOCluster.SSL = SSL
+        if random.randint(0, 1):
+            NEOCluster.SSL = SSL
         super(NEOFunctionalTest, self).setUp()
 
     def _tearDown(self, success):
