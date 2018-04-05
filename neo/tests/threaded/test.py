@@ -193,7 +193,7 @@ class Test(NEOThreadedTest):
         with Patch(PCounterWithResolution, _p_resolveConflict=resolve):
             self.assertEqual(self._testUndoConflict(cluster, 1, 3).x, big)
 
-    @expectedFailure(POSException.ConflictError)    # TODO recheck
+    @expectedFailure(POSException.ConflictError)
     @with_cluster()
     def testUndoConflictDuringStore(self, cluster):
         self._testUndoConflict(cluster, 1)
@@ -812,7 +812,7 @@ class Test(NEOThreadedTest):
 
     @with_cluster()
     @with_cluster()
-    def test2Clusters(self, cluster1, cluster2):    # NOTE
+    def test2Clusters(self, cluster1, cluster2):
         if 1:
             t1, c1 = cluster1.getTransaction()
             t2, c2 = cluster2.getTransaction()
@@ -840,7 +840,6 @@ class Test(NEOThreadedTest):
 
     @with_cluster(master_count=3, partitions=10, replicas=1, storage_count=3)
     def testShutdown(self, cluster):
-        # NOTE vvv
         def before_finish(_):
             # tell admin to shutdown the cluster
             cluster.neoctl.setClusterState(ClusterStates.STOPPING)
@@ -1047,7 +1046,7 @@ class Test(NEOThreadedTest):
             c.getConnection().close()
             c, = cluster.storage.nm.getClientList()
             c.getConnection().close()
-            #self.tic()     # NOTE works ok with tic() commented
+            self.tic()
 
             # modify x with another client
             with cluster.newClient() as client:
@@ -1055,7 +1054,7 @@ class Test(NEOThreadedTest):
                 client.tpc_begin(None, txn)
                 client.store(x1._p_oid, x1._p_serial, y, '', txn)
                 tid = client.tpc_finish(txn)
-            #self.tic()     # NOTE ----//----
+            self.tic()
 
             # Check reconnection to the master and storage.
             self.assertTrue(cluster.client.history(x1._p_oid))
