@@ -34,8 +34,8 @@ class SSLMixin:
 
 class SSLTests(SSLMixin, test.Test):
     # exclude expected failures
-    testStorageDataLock2 = None			# XXX why this fails?
-    testUndoConflictDuringStore = None		# XXX why this fails?
+    testStorageDataLock2 = None
+    testUndoConflictDuringStore = None
 
     def testAbortConnection(self, after_handshake=1):
         with self.getLoopbackConnection() as conn:
@@ -72,7 +72,7 @@ class SSLTests(SSLMixin, test.Test):
 
 class SSLReplicationTests(SSLMixin, testReplication.ReplicationTests):
     # do not repeat slowest tests with SSL
-    testBackupNodeLost = testBackupNormalCase = None        # TODO recheck
+    testBackupNodeLost = testBackupNormalCase = None
 
 
 if __name__ == "__main__":
