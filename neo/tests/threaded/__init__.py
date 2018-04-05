@@ -230,7 +230,6 @@ class Serialized(object):
             self._busy.add(self) # block tic until app waits for polling
 
     def __getattr__(self, attr):
-        # to original .app.epoll.xxx(
         if attr in ('close', 'modify', 'register', 'unregister'):
             return getattr(self._epoll, attr)
         return self.__getattribute__(attr)
@@ -323,7 +322,7 @@ class ServerNode(Node):
 
     @classmethod
     def newAddress(cls):
-        address = cls._virtual_ip, len(cls._node_list)  # NOTE addr is vip, #node
+        address = cls._virtual_ip, len(cls._node_list)  # NOTE addr is (vip, #node)
         cls._node_list.append(None)
         return address
 
@@ -505,7 +504,7 @@ class ConnectionFilter(object):
     _addPacket = Connection._addPacket
 
     @contextmanager
-    def __new__(cls, conn_list=()):     # NOTE conn_list=() -> for all connections
+    def __new__(cls, conn_list=()):     # NOTE conn_list=() means "for all connections"
         self = object.__new__(cls)
         self.filter_dict = {}
         self.conn_list = frozenset(conn_list)

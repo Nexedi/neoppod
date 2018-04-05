@@ -57,7 +57,6 @@ def main(args=None):
     config = ConfigurationManager(defaults, options, 'storage')
 
     # setup custom logging
-#   logging.backlog(max_size=None)      # log without delay
     logging.setup(config.getLogfile())
 
     # and then, load and run the application
