@@ -200,7 +200,7 @@ class Serialized(object):
                 with cls._busy_cond:
                     while cls._busy:
                         cls._busy_cond.wait()
-            for app in check_timeout:   # XXX hack (?), used only in 1 place
+            for app in check_timeout:   # XXX hack?, used only in 1 place (testBackupUpstreamStorageDead)
                 app.em.epoll.check_timeout = True
                 app.em.wakeup()
                 del app

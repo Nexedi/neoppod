@@ -750,7 +750,7 @@ class NotifyPartitionTable(Packet):
 class PartitionChanges(Packet):
     """
     Notify a subset of a partition table. This is used to notify changes.
-    PM -> S, C.     XXX also -> A (see RecoveryManager)
+    PM -> S, C.
     """
     _fmt = PStruct('notify_partition_changes',
         PPTID('ptid'),

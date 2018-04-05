@@ -494,7 +494,7 @@ class NodeManager(EventQueue):
                 map(Node.asTuple, self._node_set), ' * ')))
         self.logQueuedEvents()
 
-# node_type -> node_klass
+# {} node_type -> node_klass
 @apply
 def NODE_TYPE_MAPPING():
     def setmethod(cls, attr, value):
