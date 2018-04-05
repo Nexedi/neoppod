@@ -209,12 +209,21 @@ class BackupApplication(object):
             except IndexError:
                 last_max_tid = prev_tid
             if offset in partition_set:
-                self.tid_list[offset].append(tid)   # XXX check tid is ↑
+                primary_list = []
                 node_list = []
-                for cell in pt.getCellList(offset, readable=True):
+                cell_list = pt.getCellList(offset, readable=True)
+                for cell in cell_list:
                     node = cell.getNode()
                     assert node.isConnected(), node
                     if cell.backup_tid == prev_tid:
+                        if prev_tid == tid:
+                            # Connecting to upstream: any node is that is
+                            # up-to-date wrt upstream is candidate for being
+                            # primary.
+                            assert self.ignore_invalidations
+                            if app.isStorageReady(node.getUUID()):
+                                primary_list.append(node)
+                            continue
                         # Let's given 4 TID t0,t1,t2,t3: if a cell is only
                         # modified by t0 & t3 and has all data for t0, 4 values
                         # are possible for its 'backup_tid' until it replicates
@@ -234,12 +243,19 @@ class BackupApplication(object):
                             cell.backup_tid, last_max_tid, prev_tid, tid)
                     if app.isStorageReady(node.getUUID()):
                         node_list.append(node)
-                assert node_list
-                trigger_set.update(node_list)
                 # Make sure we have a primary storage for this partition.
                 if offset not in self.primary_partition_dict:
                     self.primary_partition_dict[offset] = \
-                        random.choice(node_list)
+                        random.choice(primary_list or node_list)
+                if node_list:
+                    self.tid_list[offset].append(tid)   # XXX check tid is ↑
+                    if primary_list:
+                        # Resume replication to secondary cells.
+                        self._triggerSecondary(
+                            self.primary_partition_dict[offset],
+                            offset, tid, cell_list)
+                    else:
+                        trigger_set.update(node_list)
             else:
                 # Partition not touched, so increase 'backup_tid' of all
                 # "up-to-date" replicas, without having to replicate.
@@ -339,15 +355,18 @@ class BackupApplication(object):
             if app.getClusterState() == ClusterStates.BACKINGUP:
                 self.triggerBackup(node)
             if primary:
-                # Notify secondary storages that they can replicate from
-                # primary ones, even if they are already replicating.
-                p = Packets.Replicate(tid, '', {offset: node.getAddress()})
-                for cell in cell_list:
-                    if max(cell.backup_tid, cell.replicating) < tid:
-                        cell.replicating = tid
-                        logging.debug(
-                            "ask %s to replicate partition %u up to %s from %s",
-                            uuid_str(cell.getUUID()), offset,
-                            dump(tid), uuid_str(node.getUUID()))
-                        cell.getNode().send(p)
+                self._triggerSecondary(node, offset, tid, cell_list)
         return result
+
+    def _triggerSecondary(self, node, offset, tid, cell_list):
+        # Notify secondary storages that they can replicate from
+        # primary ones, even if they are already replicating.
+        p = Packets.Replicate(tid, '', {offset: node.getAddress()})
+        for cell in cell_list:
+            if max(cell.backup_tid, cell.replicating) < tid:
+                cell.replicating = tid
+                logging.debug(
+                    "ask %s to replicate partition %u up to %s from %s",
+                    uuid_str(cell.getUUID()), offset,
+                    dump(tid), uuid_str(node.getUUID()))
+                cell.getNode().send(p)

@@ -147,6 +147,7 @@ class ReplicationTests(NEOThreadedTest):
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.RUNNING)
 
+                # Restart and switch to BACKINGUP mode again.
                 backup.stop()
 
                 # U -> B propagation with Mb -> Sb' (secondary, Replicate from primary Sb) delayed
@@ -158,6 +159,9 @@ class ReplicationTests(NEOThreadedTest):
                 u_last_tid0 = upstream.last_tid
                 self.assertEqual(backup.backup_tid, u_last_tid0)
                 self.assertEqual(backup.last_tid,   u_last_tid0)
+
+                # Leave BACKINGUP mode when 1 replica is late. The cluster
+                # remains in STOPPING_BACKUP state until it catches up.
                 with backup.master.filterConnection(*backup.storage_list) as f:
                     f.add(delaySecondary)
                     while not f.filtered_count:
@@ -182,6 +186,9 @@ class ReplicationTests(NEOThreadedTest):
                     max_tid=backup.last_tid))
 
                 self.assertEqual(np*nr, self.checkBackup(backup, max_tid=backup.last_tid))
+
+                # Again but leave BACKINGUP mode when a storage node is
+                # receiving data from the upstream cluster.
                 backup.stop()
 
                 # S -> Sb, Sb -> Sb' (AddObject) delayed
@@ -207,6 +214,48 @@ class ReplicationTests(NEOThreadedTest):
                     max_tid=backup.last_tid))
                 self.assertEqual(backup.last_tid,   u_last_tid1)  # truncated after recovery
                 self.assertEqual(np*nr, self.checkBackup(backup, max_tid=backup.last_tid))
+
+                storage = upstream.getZODBStorage()
+
+                # Check that replication from upstream is resumed even if
+                # upstream is idle.
+                backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
+                self.tic()
+                x = backup.master.backup_app.primary_partition_dict
+                new_oid_storage = x[0]
+                with upstream.moduloTID(next(p for p, n in x.iteritems()
+                                               if n is not new_oid_storage)), \
+                     ConnectionFilter() as f:
+                    f.delayAddObject()
+                    # Transaction that touches 2 primary cells on 2 different
+                    # nodes.
+                    txn = transaction.Transaction()
+                    tid = storage.load(ZERO_OID)[1]
+                    storage.tpc_begin(txn)
+                    storage.store(ZERO_OID, tid, '', '', txn)
+                    storage.tpc_vote(txn)
+                    storage.tpc_finish(txn)
+                    self.tic()
+                    # Stop when exactly 1 of the 2 cells is synced with
+                    # upstream.
+                    backup.stop()
+                backup.start()
+                self.assertEqual(np*nr, self.checkBackup(backup,
+                    max_tid=backup.last_tid))
+
+                # Check that replication to secondary cells is resumed even if
+                # upstream is idle.
+                with backup.master.filterConnection(*backup.storage_list) as f:
+                    f.add(delaySecondary)
+                    txn = transaction.Transaction()
+                    storage.tpc_begin(txn)
+                    storage.tpc_finish(txn)
+                    self.tic()
+                    backup.stop()
+                backup.start()
+                self.assertEqual(np*nr, self.checkBackup(backup,
+                    max_tid=backup.last_tid))
+
 
     @predictable_random()
     def testBackupNodeLost(self):

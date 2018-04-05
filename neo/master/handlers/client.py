@@ -150,5 +150,5 @@ class ClientReadOnlyServiceHandler(ClientServiceHandler):
     # like in MasterHandler but returns backup_tid instead of last_tid
     def askLastTransaction(self, conn):
         assert self.app.backup_tid is not None   # we are in BACKUPING mode
-        backup_tid = self.app.pt.getBackupTid()
+        backup_tid = self.app.pt.getBackupTid(min)
         conn.answer(Packets.AnswerLastTransaction(backup_tid))
