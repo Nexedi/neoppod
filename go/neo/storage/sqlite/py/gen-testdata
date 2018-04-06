@@ -39,7 +39,7 @@ def main():
     cluster.stop()
     cluster.waitAll()
 
-    # XXX current neo/go/sqlite limitation: it cannot reply !empty ttrans/tobj on open
+    # XXX current neo/go/sqlite limitation: it cannot replay !empty ttrans/tobj on open
     # -> open/close storage to get t* flushed
     cluster = NEOCluster(db_list=["testdata/1.sqlite"], name="test", adapter="SQLite", clear_databases=False)
     cluster.start()

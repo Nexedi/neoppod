@@ -53,14 +53,14 @@ digraph {
 	Cgo_r_Sgo	[label=<C<sub>go</sub>  read S<sub>go</sub>> style=filled fillcolor=lightyellow];
 	Cgo_r_Spy	[label=<C<sub>go</sub>  read S<sub>py</sub>> style=filled fillcolor=lightyellow];
 	Cleanup		[label="Cleanup history"];
-	Post		[label="Post"];
+	Post		[label="Post" style=filled fillcolor=lightyellow];
 	//Cpy_patch	[label=<py patch: ConnID py=go> style=filled fillcolor=lightyellow];	// C<sub>py</sub>  patch for ConnID interop. with S<sub>go</sub>>];
 	Mmap_go		[label="? io.ReaderAt via mmap"];
 	//Protog_fix	[label="proto(go/py) compat fix" style=filled fillcolor=lightyellow];
 	//Mpy_vs_Sgo	[label=<M<sub>py</sub> vs S<sub>go</sub>: try/fix> style=filled fillcolor=lightyellow];
 
 	io_cancel		[label="? conn IO vs ctx cancel"];
-	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>>];
+	load_serial_next	[label=<? GetObject return += serial<sub>next</sub>> style=filled fillcolor=lightyellow];
 
 	sha1_index	[label="? sha1 index"];
 	//B_link_recv	[label="Bench link.Recv1/Ask1" style=filled fillcolor=lightyellow];

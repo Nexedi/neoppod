@@ -40,26 +40,6 @@ runtime/HACKING.md
 
 - TODO stats for events (packets received, errors, etc)
 
-- custom memory manager is required to avoid performance hit on e.g. []byte alloc/dealloc
-
-  -> go-slab
-
-- interfaces conversion in very hot codepaths are costly:
-
-  e.g. having r as io.ReadSeeker and converting it to io.Reader e.g. this way:
-
-
-	io.ReadFull(r, ...)
-
-  calls convI2I all the time (no caching) which is not negliable
-
-  ( recheck it is still true after https://github.com/golang/go/commit/3d1699ea:
-
-    -> it is still the case; convI2I cost is ~ 8ns - i.e. it is not big for
-    non-hot codepaths - uncontended mutex lock/unlock is 15-25ns. )
-
-
-
 - x/net/trace to trace requests and connection logging (and packets ?)
 - packet log; general log -> glog ?
 
