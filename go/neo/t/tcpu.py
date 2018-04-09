@@ -52,8 +52,8 @@ def prettyarg(arg):
 
 # ---- 8< ---- from wendelin.core/t/py.bench
 
-# benchmarking timer/request passed to benchmarks as fixture
-# similar to https://golang.org/pkg/testing/#B
+# B is benchmarking timer/request passed to benchmarks as fixture
+# similar to https://golang.org/pkg/testing/#B.
 class B:
 
     def __init__(self):

@@ -99,13 +99,6 @@ func storageMain(argv []string) {
 	runtime.GOMAXPROCS(maxprocs*8)		// XXX *8 is enough?
 
 	ctx := context.Background()
-	/*
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(3 * time.Second)
-		cancel()
-	}()
-	*/
 
 	back, err := storage.OpenBackend(ctx, argv[0])
 	if err != nil {

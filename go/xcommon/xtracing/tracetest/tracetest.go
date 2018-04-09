@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package tracetest provides infrastructure for testing concurrent systems
-// based on synchronous events tracing.
+// based on synchronous event tracing.
 //
 // A serial system can be verified by checking that its execution produces
 // expected serial stream of events. But concurrent systems cannot be verified

@@ -324,7 +324,7 @@ func (stor *Storage) m1initialize1(ctx context.Context, req neonet.Request) erro
 //
 // Service is regular phase serving requests from clients to load/save objects,
 // handling transaction commit (with master) and syncing data with other
-// storage nodes (XXX correct?).
+// storage nodes.
 //
 // it always returns with an error describing why serve had to be stopped -
 // either due to master commanding us to stop, or context cancel or some other
@@ -342,7 +342,7 @@ func (stor *Storage) m1serve(ctx context.Context, reqStart *neonet.Request) (err
 	defer opCancel()
 
 	// reply M we are ready
-	// XXX according to current neo/py this is separate send - not reply - and so we do here
+	// XXX NEO/py sends NotifyReady on another conn; we patched py; see 4eaaf186 for context
 	err = reqStart.Reply(&proto.NotifyReady{})
 	reqStart.Close()
 	if err != nil {

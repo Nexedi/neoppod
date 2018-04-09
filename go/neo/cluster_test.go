@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+	"fmt"
 	"io"
 	"net"
 	"reflect"
@@ -50,7 +51,6 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xnet/pipenet"
 
-	"fmt"
 	"time"
 )
 

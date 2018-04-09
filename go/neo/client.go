@@ -18,9 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package neo
-// client node
-
-// XXX old: Package client provides ZODB storage interface for accessing NEO cluster.
+// client node with ZODB storage interface for accessing NEO cluster.
 
 import (
 	"context"
@@ -103,7 +101,7 @@ func (cli *Client) run(ctx context.Context) error {
 
 func (c *Client) Close() error {
 	c.talkMasterCancel()
-	// XXX wait talkMaster finishes
+	// XXX wait talkMaster finishes -> XXX return err from that?
 	// XXX what else?
 	return nil
 }

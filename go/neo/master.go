@@ -43,7 +43,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 )
 
-// Master is a node overseeing and managing how whole NEO cluster works
+// Master is a node overseeing and managing how whole NEO cluster works.
 type Master struct {
 	node *NodeApp
 

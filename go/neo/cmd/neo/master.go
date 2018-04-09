@@ -66,13 +66,6 @@ func masterMain(argv []string) {
 	net := xnet.NetPlain("tcp")	// TODO + TLS; not only "tcp" ?
 
 	ctx := context.Background()
-	/*
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(3 * time.Second)
-		cancel()
-	}()
-	*/
 
 	err := listenAndServe(ctx, net, *bind, func(ctx context.Context, l stdnet.Listener) error {
 		master := neo.NewMaster(*cluster, net)
