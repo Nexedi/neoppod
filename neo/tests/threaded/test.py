@@ -23,7 +23,6 @@ import unittest
 from collections import defaultdict
 from contextlib import contextmanager
 from thread import get_ident
-from zlib import compress
 from persistent import Persistent, GHOST
 from transaction.interfaces import TransientError
 from ZODB import DB, POSException
@@ -66,6 +65,7 @@ class Test(NEOThreadedTest):
             storage = cluster.getZODBStorage()
             storage.sync()
             storage.app.max_reconnection_to_master = 0
+            compress = storage.app.compress._compress
             data_info = {}
             compressible = 'x' * 20
             compressed = compress(compressible)

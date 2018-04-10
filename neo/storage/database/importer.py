@@ -25,7 +25,7 @@ from ZODB.POSException import POSKeyError
 
 from . import buildDatabaseManager
 from .manager import DatabaseManager
-from neo.lib import logging, patch, util
+from neo.lib import compress, logging, patch, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import implements
 from neo.lib.protocol import BackendNotImplemented, MAX_TID
@@ -297,7 +297,11 @@ class ImporterDatabaseManager(DatabaseManager):
         main = {'adapter': 'MySQL', 'wait': 0}
         main.update(config.items(sections.pop(0)))
         self.zodb = ((x, dict(config.items(x))) for x in sections)
-        self.compress = main.get('compress', 1)
+        x = main.get('compress')
+        try:
+            self.compress = bool(x and ('false', 'true').index(x))
+        except ValueError:
+            self.compress = compress.parseOption(x)
         self.db = buildDatabaseManager(main['adapter'],
             (main['database'], main.get('engine'), main['wait']))
         for x in """getConfiguration _setConfiguration setNumPartitions
@@ -375,11 +379,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 if self._last_commit + 1 < time.time():
                     self.commit()
                 self.zodb_tid = u64(tid)
-        if self.compress:
-            from zlib import compress
-        else:
-            compress = None
-            compression = 0
+        _compress = compress.getCompress(self.compress)
         object_list = []
         data_id_list = []
         while zodb_list:
@@ -399,12 +399,7 @@ class ImporterDatabaseManager(DatabaseManager):
                 if data_tid or r.data is None:
                     data_id = None
                 else:
-                    data = zodb.repickle(r.data)
-                    if compress:
-                        compressed_data = compress(data)
-                        compression = len(compressed_data) < len(data)
-                        if compression:
-                            data = compressed_data
+                    _, compression, data = _compress(zodb.repickle(r.data))
                     data_id = self.holdData(util.makeChecksum(data), oid, data,
                                             compression)
                     data_id_list.append(data_id)

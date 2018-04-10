@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from cPickle import dumps, loads
-from zlib import compress, decompress
 import heapq
 import time
 
@@ -26,6 +25,7 @@ if OLD_ZODB:
 from persistent.TimeStamp import TimeStamp
 
 from neo.lib import logging
+from neo.lib.compress import decompress_list, getCompress
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, MAX_TID, ZERO_HASH, ZERO_TID
 from neo.lib.util import makeChecksum, dump
@@ -49,7 +49,6 @@ except ImportError:
 if SignalHandler:
     import signal
     SignalHandler.registerHandler(signal.SIGUSR2, logging.reopen)
-
 
 class Application(ThreadedApplication):
     """The client node application."""
@@ -99,7 +98,7 @@ class Application(ThreadedApplication):
         # _connecting_to_master_node is used to prevent simultaneous master
         # node connection attempts
         self._connecting_to_master_node = Lock()
-        self.compress = compress
+        self.compress = getCompress(compress)
 
     def __getattr__(self, attr):
         if attr in ('last_tid', 'pt'):
@@ -387,7 +386,7 @@ class Application(ThreadedApplication):
                     logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
                     raise NEOStorageReadRetry(False)
-                return (decompress(data) if compression else data,
+                return (decompress_list[compression](data),
                         tid, next_tid, data_tid)
             raise NEOStorageCreationUndoneError(dump(oid))
         return self._askStorageForRead(oid,
@@ -434,17 +433,7 @@ class Application(ThreadedApplication):
             checksum = ZERO_HASH
         else:
             assert data_serial is None
-            size = len(data)
-            if self.compress:
-                compressed_data = compress(data)
-                if size <= len(compressed_data):
-                    compressed_data = data
-                    compression = 0
-                else:
-                    compression = 1
-            else:
-                compression = 0
-                compressed_data = data
+            size, compression, compressed_data = self.compress(data)
             checksum = makeChecksum(compressed_data)
             txn_context.data_size += size
         # Store object in tmp cache

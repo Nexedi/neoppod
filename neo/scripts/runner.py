@@ -65,6 +65,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.client.testZODBURI',
     # light functional tests
     'neo.tests.threaded.test',
+    'neo.tests.threaded.testConfig',
     'neo.tests.threaded.testImporter',
     'neo.tests.threaded.testReplication',
     'neo.tests.threaded.testSSL',
