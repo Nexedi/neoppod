@@ -473,7 +473,9 @@ class MySQLDatabaseManager(DatabaseManager):
             serial, compression, checksum, data, value_serial = r[0]
         except IndexError:
             return None
-        if compression and compression & 0x80:
+        if compression is None:
+            compression = 0
+        elif compression & 0x80:
             compression &= 0x7f
             data = ''.join(self._bigData(data))
         return (serial, self._getNextTID(partition, oid, serial),

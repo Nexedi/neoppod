@@ -331,7 +331,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             checksum = str(checksum)
             data = str(data)
         return (serial, self._getNextTID(partition, oid, serial),
-                compression, checksum, data, value_serial)
+                compression or 0, checksum, data, value_serial)
 
     def _changePartitionTable(self, cell_list, reset=False):
         q = self.query

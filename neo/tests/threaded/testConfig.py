@@ -21,6 +21,7 @@ from ZODB.config import databaseFromString
 from .. import Patch
 from . import ClientApplication, NEOThreadedTest, with_cluster
 from neo.client import Storage
+from neo.lib.compress import zstd
 
 def databaseFromDict(**kw):
     return databaseFromString("%%import neo.client\n"
@@ -52,6 +53,11 @@ class ConfigTests(NEOThreadedTest):
     def testCompress(self, cluster):
         kw = self.dummy_required.copy()
         valid = ['false', 'true', 'zlib', 'zlib=9']
+        if zstd:
+            valid.append('zstd')
+        else:
+            kw['compress'] = 'zstd'
+            self.assertRaises(ImportError, databaseFromDict, **kw)
         for kw['compress'] in '9', 'best', 'zlib=0', 'zlib=100':
             self.assertRaises(ConfigurationSyntaxError, databaseFromDict, **kw)
         for compress in valid:

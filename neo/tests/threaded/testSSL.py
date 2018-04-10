@@ -40,7 +40,7 @@ class SSLTests(SSLMixin, test.Test):
     # With MySQL, this test is expensive.
     # Let's check deduplication of big oids here.
     def testBasicStore(self):
-        super(SSLTests, self).testBasicStore(True)
+        super(SSLTests, self).testBasicStore(dedup=True)
 
     def testAbortConnection(self, after_handshake=1):
         with self.getLoopbackConnection() as conn:

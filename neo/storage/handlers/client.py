@@ -95,7 +95,7 @@ class ClientOperationHandler(BaseHandler):
 
     def askStoreObject(self, conn, oid, serial,
             compression, checksum, data, data_serial, ttid):
-        if 1 < compression:
+        if 2 < compression:
             raise ProtocolError('invalid compression value')
         # register the transaction
         self.app.tm.register(conn, ttid)

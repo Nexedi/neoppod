@@ -439,7 +439,7 @@ class DatabaseManager(object):
             6-tuple: Record content.
                 - record serial (int)
                 - serial or next record modifying object (int, None)
-                - compression (boolean-ish, None)
+                - compression (tiny integer, None)
                 - checksum (binary string, None)
                 - data (binary string, None)
                 - data_serial (int, None)
@@ -462,7 +462,7 @@ class DatabaseManager(object):
             6-tuple: Record content.
                 - record serial (packed)
                 - serial or next record modifying object (packed, None)
-                - compression (boolean-ish, None)
+                - compression (tiny integer, None)
                 - checksum (binary string, None)
                 - data (binary string, None)
                 - data_serial (packed, None)
@@ -706,7 +706,7 @@ class DatabaseManager(object):
 
         If 'checksum_or_id' is a checksum, it must be the result of
         makeChecksum(data) and extra parameters must be (data, compression)
-        where 'compression' indicates if 'data' is compressed.
+        where 'compression' indicates how 'data' is compressed.
         A volatile reference is set to this data until 'releaseData' is called
         with this checksum.
         If called with only an id, it only increment the volatile

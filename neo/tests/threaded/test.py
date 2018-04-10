@@ -32,7 +32,7 @@ from neo.lib.connection import ConnectionClosed, \
     ServerConnection, MTClientConnection
 from neo.lib.exception import StoppedOperation
 from neo.lib.handler import DelayEvent, EventHandler
-from neo.lib import logging
+from neo.lib import compress, logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
     Packets, Packet, uuid_str, ZERO_OID, ZERO_TID, MAX_TID)
 from .. import expectedFailure, unpickle_state, Patch, TransactionalResource
@@ -60,8 +60,8 @@ class PCounterWithResolution(PCounter):
 
 class Test(NEOThreadedTest):
 
-    def testBasicStore(self, dedup=False):
-        with NEOCluster(dedup=dedup) as cluster:
+    def testBasicStore(self, compress_alg=0, dedup=False):
+        with NEOCluster(compress=(compress_alg,None)) as cluster:
             cluster.start()
             storage = cluster.getZODBStorage()
             storage.sync()
@@ -71,7 +71,7 @@ class Test(NEOThreadedTest):
             compressible = 'x' * 20
             compressed = compress(compressible)
             oid_list = []
-            if cluster.storage.getAdapter() == 'SQLite':
+            if cluster.storage.getAdapter() == 'SQLite' or compress_alg:
                 big = None
                 data = 'foo', '', 'foo', compressed, compressible
             else:
@@ -83,7 +83,7 @@ class Test(NEOThreadedTest):
             self.assertFalse(cluster.storage.sqlCount('data'))
             for data in data:
                 if data is compressible:
-                    key = makeChecksum(compressed), 1
+                    key = makeChecksum(compressed), 1 + compress_alg
                 else:
                     key = makeChecksum(data), 0
                 oid = storage.new_oid()
@@ -115,6 +115,10 @@ class Test(NEOThreadedTest):
             if big:
                 self.assertFalse(cluster.storage.sqlCount('bigdata'))
             self.assertFalse(cluster.storage.sqlCount('data'))
+
+    @unittest.skipIf(compress.zstd is None, compress.no_zstd)
+    def testBasicStoreZstd(self):
+        self.testBasicStore(1)
 
     @with_cluster()
     def testDeleteObject(self, cluster):

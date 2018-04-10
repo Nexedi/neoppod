@@ -17,7 +17,7 @@
     <key name="compress" datatype=".compress">
       <description>
         The value is either of 'boolean' type or an explicit algorithm that
-        matches the regex 'zlib(=\d+)?', where the optional number is
+        matches the regex '(zlib|zstd)(=\d+)?', where the optional number is
         the compression level.
         Any record that is not smaller once compressed is stored uncompressed.
         True is the default and its meaning may change over time:

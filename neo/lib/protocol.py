@@ -22,7 +22,7 @@ from struct import Struct
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 # the high order byte 0 is different from TLS Handshake (0x16).
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 ENCODED_VERSION = Struct('!L').pack(PROTOCOL_VERSION)
 
 # Avoid memory errors on corrupted data.
@@ -526,6 +526,12 @@ class PBoolean(PStructItem):
     """
     _fmt = '!?'
 
+class PByte(PStructItem):
+    """
+        A 8-bits integer number
+    """
+    _fmt = '!B'
+
 class PNumber(PStructItem):
     """
         A integer number (4-bytes length)
@@ -1026,7 +1032,7 @@ class RebaseObject(Packet):
             PTID('serial'),
             PTID('conflict_serial'),
             POption('data',
-                PBoolean('compression'),
+                PByte('compression'),
                 PChecksum('checksum'),
                 PString('data'),
             ),
@@ -1044,7 +1050,7 @@ class StoreObject(Packet):
     _fmt = PStruct('ask_store_object',
         POID('oid'),
         PTID('serial'),
-        PBoolean('compression'),
+        PByte('compression'),
         PChecksum('checksum'),
         PString('data'),
         PTID('data_serial'),
@@ -1109,7 +1115,7 @@ class GetObject(Packet):
         POID('oid'),
         PTID('serial_start'),
         PTID('serial_end'),
-        PBoolean('compression'),
+        PByte('compression'),
         PChecksum('checksum'),
         PString('data'),
         PTID('data_serial'),
@@ -1579,7 +1585,7 @@ class AddObject(Packet):
     _fmt = PStruct('add_object',
         POID('oid'),
         PTID('serial'),
-        PBoolean('compression'),
+        PByte('compression'),
         PChecksum('checksum'),
         PString('data'),
         PTID('data_serial'),

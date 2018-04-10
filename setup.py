@@ -39,6 +39,7 @@ extras_require = {
     'storage-sqlite': [],
     'storage-mysqldb': ['mysqlclient'],
     'storage-importer': zodb_require + ['msgpack>=0.5.6', 'setproctitle'],
+    'zstd': ['cython-zstd'],
 }
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
