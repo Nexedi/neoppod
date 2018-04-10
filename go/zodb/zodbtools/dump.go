@@ -81,7 +81,15 @@ var _LF = []byte{'\n'}
 
 
 // DumpData dumps one data record
-func (d *dumper) DumpData(datai *zodb.DataInfo) error {
+func (d *dumper) DumpData(datai *zodb.DataInfo) (err error) {
+	// XXX do we need this context ?
+	// see for rationale in similar place in DumpTxn
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%v: %v", datai.Oid, err)
+		}
+	}()
+
 	buf := &d.buf
 	buf.Reset()
 
@@ -115,35 +123,33 @@ func (d *dumper) DumpData(datai *zodb.DataInfo) error {
 	}
 
 	// TODO use writev(buf, data, "\n") via net.Buffers (it is already available)
-	_, err := d.W.Write(buf.Bytes())
+	_, err = d.W.Write(buf.Bytes())
 	if err != nil {
-		goto out
+		return err
 	}
 
 	if data != nil {
 		_, err = d.W.Write(datai.Data)
 		if err != nil {
-			goto out
+			return err
 		}
 	}
 
 	_, err = d.W.Write(_LF)
-	if err != nil {
-		goto out
-	}
-
-out:
-	// XXX do we need this context ?
-	// see for rationale in similar place in DumpTxn
-	if err != nil {
-		return fmt.Errorf("%v: %v", datai.Oid, err)
-	}
-
-	return nil
+	return err
 }
 
 // DumpTxn dumps one transaction record
-func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.IDataIterator) error {
+func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.IDataIterator) (err error) {
+	// XXX do we need this context ?
+	// rationale: dataIter.NextData() if error in db - will include db context
+	// if error is in writer - it will include its own context
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%v: %v", txni.Tid, err)
+		}
+	}()
+
 	var datai *zodb.DataInfo
 
 	// LF in-between txn records
@@ -153,10 +159,10 @@ func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.
 		d.afterFirst = true
 	}
 
-	_, err := fmt.Fprintf(d.W, "%stxn %s %q\nuser %q\ndescription %q\nextension %q\n",
+	_, err = fmt.Fprintf(d.W, "%stxn %s %q\nuser %q\ndescription %q\nextension %q\n",
 			vskip, txni.Tid, string(txni.Status), txni.User, txni.Description, txni.Extension)
 	if err != nil {
-		goto out
+		return err
 	}
 
 	// data records
@@ -176,15 +182,7 @@ func (d *dumper) DumpTxn(ctx context.Context, txni *zodb.TxnInfo, dataIter zodb.
 		}
 	}
 
-out:
-	// XXX do we need this context ?
-	// rationale: dataIter.NextData() if error in db - will include db context
-	// if error is in writer - it will include its own context
-	if err != nil {
-		return fmt.Errorf("%v: %v", txni.Tid, err)
-	}
-
-	return nil
+	return err
 }
 
 // Dump dumps transaction records in between tidMin..tidMax
