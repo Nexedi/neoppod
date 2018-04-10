@@ -421,7 +421,7 @@ class ReplicationTests(NEOThreadedTest):
         s0.resetNode()
         s0.start()
         self.tic()
-        self.assertPartitionTable(cluster, 'UU.|U.U|.UU')
+        self.assertPartitionTable(cluster, 'UU.|U.U|.UU', sort_by_nid=True)
 
     @with_cluster(start_cluster=0, partitions=3, replicas=1, storage_count=3)
     def testReplicationAbortedBySource(self, cluster):

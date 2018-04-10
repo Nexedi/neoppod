@@ -1025,8 +1025,12 @@ class NEOThreadedTest(NeoTestBase):
         with Patch(client, _getFinalTID=lambda *_: None):
             self.assertRaises(ConnectionClosed, txn.commit)
 
-    def assertPartitionTable(self, cluster, expected, pt_node=None):
-        index = [x.uuid for x in cluster.storage_list].index
+    def assertPartitionTable(self, cluster, expected, pt_node=None,
+                                   sort_by_nid=False):
+        if sort_by_nid:
+            index = lambda x: x
+        else:
+            index = [x.uuid for x in cluster.storage_list].index
         super(NEOThreadedTest, self).assertPartitionTable(
             (pt_node or cluster.admin).pt, expected,
             lambda x: index(x.getUUID()))
