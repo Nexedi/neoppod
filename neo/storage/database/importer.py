@@ -405,7 +405,6 @@ class ImporterDatabaseManager(DatabaseManager):
                         compression = len(compressed_data) < len(data)
                         if compression:
                             data = compressed_data
-                    checksum = util.makeChecksum(data)
                     data_id = self.holdData(util.makeChecksum(data), oid, data,
                                             compression)
                     data_id_list.append(data_id)
