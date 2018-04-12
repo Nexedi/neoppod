@@ -437,7 +437,7 @@ class Application(ThreadedApplication):
             size = len(data)
             if self.compress:
                 compressed_data = compress(data)
-                if size < len(compressed_data):
+                if size <= len(compressed_data):
                     compressed_data = data
                     compression = 0
                 else:
