@@ -115,7 +115,7 @@ def add64(packed, offset):
 def dump(s):
     """Dump a binary string in hex."""
     if s is not None:
-        if isinstance(s, str):
+        if isinstance(s, bytes):
             return b2a_hex(s)
         return repr(s)
 

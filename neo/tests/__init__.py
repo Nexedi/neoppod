@@ -29,7 +29,10 @@ import MySQLdb
 import transaction
 
 from cStringIO import StringIO
-from cPickle import Unpickler
+try:
+    from ZODB._compat import Unpickler
+except ImportError:
+    from cPickle import Unpickler
 from functools import wraps
 from inspect import isclass
 from .mock import Mock
