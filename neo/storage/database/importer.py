@@ -146,7 +146,7 @@ class Repickler(pickle.Unpickler):
         args = self.stack[k+1:]
         self.stack[k:] = self._obj(klass, *args),
 
-    del dispatch[pickle.NEWOBJ] # ZODB has never used protocol 2
+    del dispatch[pickle.NEWOBJ] # ZODB < 5 has never used protocol 2
 
     @_noload
     def find_class(self, args):
@@ -221,7 +221,7 @@ class ZODB(object):
                 oid = u64(obj[0])
                 # If this oid pointed to a mount point, drop 2nd item because
                 # it's probably different than the real class of the new oid.
-            elif isinstance(obj, str):
+            elif isinstance(obj, bytes):
                 oid = u64(obj)
             else:
                 raise NotImplementedError(
@@ -232,7 +232,7 @@ class ZODB(object):
                 if not self.shift_oid:
                     return obj # common case for root db
             oid = p64(oid + self.shift_oid)
-            return oid if isinstance(obj, str) else (oid, obj[1])
+            return oid if isinstance(obj, bytes) else (oid, obj[1])
         self.repickle = Repickler(map_oid)
         return self.repickle(data)
 

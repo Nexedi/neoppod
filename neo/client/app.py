@@ -273,7 +273,8 @@ class Application(ThreadedApplication):
     def _askStorageForRead(self, object_id, packet, askStorage=None):
         cp = self.cp
         pt = self.pt
-        if type(object_id) is str:
+        # BBB: On Py2, it can be a subclass of bytes (binary from zodbpickle).
+        if isinstance(object_id, bytes):
             object_id = pt.getPartition(object_id)
         if askStorage is None:
             askStorage = self._askStorage

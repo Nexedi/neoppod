@@ -19,12 +19,14 @@ from cStringIO import StringIO
 from itertools import islice, izip_longest
 import os, shutil, unittest
 import neo, transaction, ZODB
+from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
 from neo.lib.util import u64
 from neo.storage.database.importer import Repickler
 from ..fs2zodb import Inode
-from .. import getTempDirectory
+from .. import expectedFailure, getTempDirectory
 from . import NEOCluster, NEOThreadedTest
+from ZODB import serialize
 from ZODB.FileStorage import FileStorage
 
 
@@ -232,6 +234,10 @@ class ImporterTests(NEOThreadedTest):
                 for x, y, z in os.walk(src_root)))
             t.commit()
 
+    if getattr(serialize, '_protocol', 1) > 1:
+        # XXX: With ZODB5, we should at least keep a working test that does not
+        #      merge several DB.
+        test = expectedFailure(NEOPrimaryMasterLost)(test)
 
 if __name__ == "__main__":
     unittest.main()

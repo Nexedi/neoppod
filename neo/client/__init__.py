@@ -44,7 +44,7 @@ def patch():
         # <patch>
         serial = self._storage.tpc_finish(transaction, callback)
         if serial is not None:
-            assert isinstance(serial, str), repr(serial)
+            assert isinstance(serial, bytes), repr(serial)
             for oid_iterator in (self._modified, self._creating):
                 for oid in oid_iterator:
                     obj = self._cache.get(oid, None)
