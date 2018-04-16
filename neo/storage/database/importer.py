@@ -356,7 +356,7 @@ class ImporterDatabaseManager(DatabaseManager):
     def _import(self):
         p64 = util.p64
         u64 = util.u64
-        tid = p64(self.zodb_tid + 1)
+        tid = p64(self.zodb_tid + 1) if self.zodb_tid else None
         zodb_list = []
         for zodb in self.zodb:
             try:
