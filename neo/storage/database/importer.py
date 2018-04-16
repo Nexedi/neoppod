@@ -20,7 +20,8 @@ from bisect import bisect, insort
 from collections import deque
 from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
-from ZODB.config import storageFromString
+from ZConfig import loadConfigFile
+from ZODB.config import getStorageSchema
 from ZODB.POSException import POSKeyError
 
 from . import buildDatabaseManager, DatabaseFailure
@@ -191,7 +192,28 @@ class ZODB(object):
 
     def connect(self, storage):
         self.data_tid = {}
-        self.storage = storageFromString(storage)
+        config, _ = loadConfigFile(getStorageSchema(), StringIO(storage))
+        section = config.storage
+        if 'read_only' in section.config.getSectionAttributes():
+            has_next_oid = section.config.read_only = hasattr(self, 'next_oid')
+            if not has_next_oid:
+                import gc
+                # This will reopen read-only as soon as we know the last oid.
+                def new_oid():
+                    del self.new_oid
+                    new_oid = self.storage.new_oid()
+                    self.storage.close()
+                    # A FileStorage index can be huge, and close() does not
+                    # delete it. Stop reference it before loading it again,
+                    # to avoid having it twice in memory.
+                    del self.storage
+                    gc.collect()  # to be sure (maybe only required for PyPy,
+                                  #             if one day we support it)
+                    section.config.read_only = True
+                    self.storage = section.open()
+                    return new_oid
+                self.new_oid = new_oid
+        self.storage = section.open()
 
     def setup(self, zodb_dict, shift_oid=0):
         self.shift_oid = shift_oid
