@@ -52,10 +52,9 @@ def speedupFileStorageTxnLookup():
                     tindex[x >> 32].append(x & 0xffffffff)
                 index = self._tidindex = []
                 for h, l in sorted(tindex.iteritems()):
-                    x = array('I')
-                    x.fromlist(sorted(l))
-                    l = self._read_data_header(h << 32 | x[0])
-                    index.append((l.tid, h, x))
+                    l = array(typecode, sorted(l))
+                    x = self._read_data_header(h << 32 | l[0])
+                    index.append((x.tid, h, l))
             x = bisect(index, (start,)) - 1
             if x >= 0:
                 x, h, index = index[x]
