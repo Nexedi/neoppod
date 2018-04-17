@@ -22,7 +22,7 @@ PROD1 = lambda random=random: DummyZODB(6.04237779991, 1.55811487853,
 def DummyData(random=random):
     # returns data that gzip at about 28.5 %
     # make sure sample is bigger than dictionary of compressor
-    data = ''.join(chr(int(random.gauss(0, .8)) % 256) for x in xrange(100000))
+    data = bytearray(int(random.gauss(0, .8)) % 256 for x in xrange(100000))
     return StringIO(data)
 
 
