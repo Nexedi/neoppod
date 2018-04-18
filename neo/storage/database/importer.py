@@ -297,9 +297,9 @@ class ImporterDatabaseManager(DatabaseManager):
         main = {'adapter': 'MySQL', 'wait': 0}
         main.update(config.items(sections.pop(0)))
         self.zodb = ((x, dict(config.items(x))) for x in sections)
-        x = main.get('compress')
+        x = main.get('compress', 'true')
         try:
-            self.compress = bool(x and ('false', 'true').index(x))
+            self.compress = bool(('false', 'true').index(x))
         except ValueError:
             self.compress = compress.parseOption(x)
         self.db = buildDatabaseManager(main['adapter'],
