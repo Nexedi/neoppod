@@ -30,7 +30,7 @@ from ZODB.DB import TransactionalUndo
 from neo.storage.transactions import TransactionManager, ConflictError
 from neo.lib.connection import ConnectionClosed, \
     ServerConnection, MTClientConnection
-from neo.lib.exception import DatabaseFailure, StoppedOperation
+from neo.lib.exception import StoppedOperation
 from neo.lib.handler import DelayEvent, EventHandler
 from neo.lib import logging
 from neo.lib.protocol import (CellStates, ClusterStates, NodeStates, NodeTypes,
@@ -42,6 +42,7 @@ from neo.lib.util import add64, makeChecksum, p64, u64
 from neo.client.exception import NEOPrimaryMasterLost, NEOStorageError
 from neo.client.transactions import Transaction
 from neo.master.handlers.client import ClientServiceHandler
+from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler

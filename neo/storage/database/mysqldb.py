@@ -16,6 +16,7 @@
 
 from binascii import a2b_hex
 from collections import OrderedDict
+from functools import wraps
 import MySQLdb
 from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
@@ -33,17 +34,54 @@ import struct
 import sys
 import time
 
-from . import LOG_QUERIES
+from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
-from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import implements
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+
+
+class MysqlError(DatabaseFailure):
+
+    def __init__(self, exc, query=None):
+        self.exc = exc
+        self.query = query
+
+    code = property(lambda self: self.exc.args[0])
+
+    def __str__(self):
+        msg = 'MySQL error %s: %s' % self.exc.args
+        return msg if self.query is None else '%s\nQuery: %s' % (
+            msg, getPrintableQuery(self.query[:1000]))
 
 
 def getPrintableQuery(query, max=70):
     return ''.join(c if c in string.printable and c not in '\t\x0b\x0c\r'
         else '\\x%02x' % ord(c) for c in query)
+
+def auto_reconnect(wrapped):
+    def wrapper(self, *args):
+        # Try 3 times at most. When it fails too often for the same
+        # query then the disconnection is likely caused by this query.
+        # We don't want to enter into an infinite loop.
+        retry = 2
+        while 1:
+            try:
+                return wrapped(self, *args)
+            except OperationalError as m:
+                # IDEA: Is it safe to retry in case of DISK_FULL ?
+                # XXX:  However, this would another case of failure that would
+                #       be unnoticed by other nodes (ADMIN & MASTER). When
+                #       there are replicas, it may be preferred to not retry.
+                if (self._active
+                    or SERVER_GONE_ERROR != m.args[0] != SERVER_LOST
+                    or not retry):
+                    raise MysqlError(m, *args)
+                logging.info('the MySQL server is gone; reconnecting')
+                assert not self._deferred
+                self.close()
+                retry -= 1
+    return wraps(wrapped)(wrapper)
 
 
 @implements
@@ -65,9 +103,18 @@ class MySQLDatabaseManager(DatabaseManager):
             '(?:([^:]+)(?::(.*))?@)?([^~./]+)(.+)?$', database).groups()
 
     def _close(self):
-        self.conn.close()
+        try:
+            conn = self.__dict__.pop('conn')
+        except KeyError:
+            return
+        conn.close()
 
-    def _connect(self):
+    def __getattr__(self, attr):
+        if attr == 'conn':
+            self._tryConnect()
+        return DatabaseManager.__getattr__(self, attr)
+
+    def _tryConnect(self):
         kwd = {'db' : self.db, 'user' : self.user}
         if self.passwd is not None:
             kwd['passwd'] = self.passwd
@@ -118,43 +165,26 @@ class MySQLDatabaseManager(DatabaseManager):
                 % (name, self._max_allowed_packet // 1024))
         self._max_allowed_packet = int(value)
 
+    _connect = auto_reconnect(_tryConnect)
+
     def _commit(self):
         self.conn.commit()
         self._active = 0
 
+    @auto_reconnect
     def query(self, query):
         """Query data from a database."""
         if LOG_QUERIES:
             logging.debug('querying %s...',
                 getPrintableQuery(query.split('\n', 1)[0][:70]))
-        # Try 3 times at most. When it fails too often for the same
-        # query then the disconnection is likely caused by this query.
-        # We don't want to enter into an infinite loop.
-        retry = 2
-        while 1:
-            conn = self.conn
-            try:
-                conn.query(query)
-                if query.startswith("SELECT "):
-                    r = conn.store_result()
-                    return tuple([
-                        tuple([d.tostring() if isinstance(d, array) else d
-                              for d in row])
-                        for row in r.fetch_row(r.num_rows())])
-                break
-            except OperationalError as m:
-                code, m = m.args
-                # IDEA: Is it safe to retry in case of DISK_FULL ?
-                # XXX:  However, this would another case of failure that would
-                #       be unnoticed by other nodes (ADMIN & MASTER). When
-                #       there are replicas, it may be preferred to not retry.
-                if self._active or SERVER_GONE_ERROR != code != SERVER_LOST \
-                   or not retry:
-                    raise DatabaseFailure('MySQL error %d: %s\nQuery: %s'
-                        % (code, m, getPrintableQuery(query[:1000])))
-                logging.info('the MySQL server is gone; reconnecting')
-                self._connect()
-                retry -= 1
+        conn = self.conn
+        conn.query(query)
+        if query.startswith("SELECT "):
+            r = conn.store_result()
+            return tuple([
+                tuple([d.tostring() if isinstance(d, array) else d
+                      for d in row])
+                for row in r.fetch_row(r.num_rows())])
         r = query.split(None, 1)[0]
         if r in ("INSERT", "REPLACE", "DELETE", "UPDATE"):
             self._active = 1
@@ -444,9 +474,9 @@ class MySQLDatabaseManager(DatabaseManager):
                     PARTITION p%u VALUES IN (%u))""" % (offset, offset)
                 for table in 'trans', 'obj':
                     try:
-                        self.conn.query(add % table)
-                    except OperationalError as e:
-                        if e.args[0] != SAME_NAME_PARTITION:
+                        self.query(add % table)
+                    except MysqlError as e:
+                        if e.code != SAME_NAME_PARTITION:
                             raise
 
     def dropPartitions(self, offset_list):
@@ -468,9 +498,9 @@ class MySQLDatabaseManager(DatabaseManager):
                 ','.join(' p%u' % i for i in offset_list)
             for table in 'trans', 'obj':
                 try:
-                    self.conn.query(drop % table)
-                except OperationalError as e:
-                    if e.args[0] != DROP_LAST_PARTITION:
+                    self.query(drop % table)
+                except MysqlError as e:
+                    if e.code != DROP_LAST_PARTITION:
                         raise
 
     def _getUnfinishedDataIdList(self):

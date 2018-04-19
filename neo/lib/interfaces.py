@@ -22,14 +22,14 @@ def check_signature(reference, function):
     a, b, c, d = inspect.getargspec(function)
     x = len(A) - len(a)
     if x < 0: # ignore extra default parameters
-        if x + len(d) < 0:
+        if B or x + len(d) < 0:
             return False
         del a[x:]
         d = d[:x] or None
     elif x: # different signature
         # We have no need yet to support methods with default parameters.
         return a == A[:-x] and (b or a and c) and not (d or D)
-    return a == A and b == B and c == C and d == D
+    return a == A and (b or not B) and (c or not C) and d == D
 
 def implements(obj, ignore=()):
     ignore = set(ignore)

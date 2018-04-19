@@ -23,10 +23,9 @@ from ConfigParser import SafeConfigParser
 from ZODB.config import storageFromString
 from ZODB.POSException import POSKeyError
 
-from . import buildDatabaseManager
+from . import buildDatabaseManager, DatabaseFailure
 from .manager import DatabaseManager
 from neo.lib import compress, logging, patch, util
-from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import implements
 from neo.lib.protocol import BackendNotImplemented, MAX_TID
 

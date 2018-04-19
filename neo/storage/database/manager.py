@@ -19,9 +19,9 @@ from collections import defaultdict
 from contextlib import contextmanager
 from functools import wraps
 from neo.lib import logging, util
-from neo.lib.exception import DatabaseFailure
 from neo.lib.interfaces import abstract, requires
 from neo.lib.protocol import CellStates, NonReadableCell, ZERO_TID
+from . import DatabaseFailure
 
 def lazymethod(func):
     def getter(self):

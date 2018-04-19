@@ -15,14 +15,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from MySQLdb import NotSupportedError, OperationalError
+from MySQLdb import NotSupportedError, OperationalError, ProgrammingError
 from MySQLdb.constants.ER import UNKNOWN_STORAGE_ENGINE
 from ..mock import Mock
-from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import ZERO_OID
 from neo.lib.util import p64
-from .. import DB_PREFIX, DB_SOCKET, DB_USER
+from .. import DB_PREFIX, DB_SOCKET, DB_USER, Patch
 from .testStorageDBTests import StorageDBTests
+from neo.storage.database import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 
 
@@ -72,18 +72,11 @@ class StorageMySQLdbTests(StorageDBTests):
         from MySQLdb.constants.CR import SERVER_GONE_ERROR
         class FakeConn(object):
             def query(*args):
+                p.revert()
                 raise OperationalError(SERVER_GONE_ERROR, 'this is a test')
-        self.db.conn = FakeConn()
-        self.connect_called = False
-        def connect_hook():
-            # mock object, break raise/connect loop
-            self.db.conn = Mock()
-            self.connect_called = True
-        self.db._connect = connect_hook
-        # make a query, exception will be raised then connect() will be
-        # called and the second query will use the mock object
-        self.db.query('INSERT')
-        self.assertTrue(self.connect_called)
+        with Patch(self.db, conn=FakeConn()) as p:
+            self.assertRaises(ProgrammingError, self.db.query, 'QUERY')
+            self.assertFalse(p.applied)
 
     def test_query3(self):
         # OperationalError > raise DatabaseFailure exception
