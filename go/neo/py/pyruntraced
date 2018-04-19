@@ -154,7 +154,10 @@ class Tracer(object):
     #
     # it sends the event to tracer and awaits commands from it to either
     # inspect current state or continue execution.
-    def trace1(self, eventname, event):
+    #
+    # globals/locals are the mapping used in eval, if driver asks to inspect
+    # program state.
+    def trace1(self, eventname, event, globals, locals):
         # send trace event
         evstr = json.dumps(event)
         assert '\n' not in evstr
@@ -172,14 +175,20 @@ class Tracer(object):
                 return  # probe finishes - continue execution of original code
 
             # eval python in context of probed function
-            # g = ...
-            # l = ...
             try:
-                r = eval(line[1:], g, l)    # FIXME context wrong
+                r = eval(line[1:], globals, locals)
             except Exception as e:
-                self._send('E %s' % json.dumps(str(e)))
+                reply = 'E %s' % json.dumps(str(e))
             else:
-                self._send('R %s' % json.dumps(r))
+                try:
+                    reply = 'R %s' % json.dumps(r)
+                except Exception as e:
+                    # some types are not json-serializable
+                    # XXX ok to play such games here?
+                    # XXX too many objects are not JSON-serializable.
+                    reply = 'E %s' % json.dumps(str(e))
+
+            self._send(reply)
 
 
 # RxQueue represents receive queue for 1 thread
@@ -215,7 +224,7 @@ def trace_entry(func, eventname):
         @wraps(func)
         def probe(self, *args, **kw):
             event = f(self, *args, **kw)
-            gtracer.trace1(eventname, event)
+            gtracer.trace1(eventname, event, func.func_globals, {'self': self, 'args': args, 'kw': kw})
             return func(self, *args, **kw)
 
         setattr(klass, fname, probe)
