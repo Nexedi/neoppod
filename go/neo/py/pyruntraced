@@ -42,7 +42,7 @@ Implementation notes
 
 The channel for tracing communication in between driver and traced process is
 passed as opened file descriptor by driver, and its number is specified via
-$PYRUNTRACED_FD environment variable.
+<fd> commandline argument.
 
 The protocol in between driver and traced process is as follows (from the point
 of view of traced process):
@@ -50,13 +50,17 @@ of view of traced process):
     > tid T eventname event # event happenned on a thread
     < tid C                 # driver tells tracee to continue execution
     < tid !...              # driver asks tracee to evaluate ... in context where probe is attached
-    > tid E problem         # tracee reports result as exception
+    > tid E exception       # tracee reports result as exception
     > tid R result          # tracee reports result
 
 eventname is just regular string
-event, problem, result are JSON-encoded objects.
+event, exception, result are JSON-encoded objects.
 
 Fork is not allowed in order not to confuse the driver(*).
+
+Tracepoints and probes definitions are provided in separate files that are
+passed as <trace>* command line arguments.
+
 
 (*) fork could be supported by making every new process to reattach to the
     driver via new file descriptor - e.g. connecting via socket.
@@ -217,26 +221,57 @@ def trace_entry(func, eventname):
 
 import os, sys, code, runpy
 
+def usage(out):
+    print >>out, "Usage: pyruntraced <fd> <trace>* -- ..."
+
+def die(msg):
+    print >>sys.stderr, msg
+    sys.exit(2)
+
 # main mimics `python ...`,
 # but with tracepoints already attached.
 def main():
+    argv = sys.argv[1:]
+    if not argv:
+        usage(sys.stderr)
+        sys.exit(2)
+
     # setup global tracer
     global gtracer
-    fdtrace = os.getenv("PYRUNTRACED_FD")
-    if fdtrace is None:
-        print >>sys.stderr, "$PYRUNTRACED_FD must be set"
-        sys.exit(1)
+    fdtrace = argv[0]
     fdtrace = int(fdtrace)
     ftrace  = os.fdopen(fdtrace, 'r+')
     gtracer = Tracer(ftrace)
+    argv = argv[1:]
 
     # forbid fork   (see top-level description about why)
     def nofork(): raise RuntimeError('pyruntraced: fork forbidden')
     os.fork    = nofork
     os.forkpty = nofork
 
+    # load trace probes
+    # NOTE list of trace files to load might be empty
+    tracev = []
+    dashdash = False
+    for i, arg in enumerate(argv):
+        if arg == '--':
+            dashdash = True
+            break
+        if arg.startswith('-'):
+            die("option '%s' goes before '--'" % arg)
+        tracev.append(arg)
+
+    if not dashdash:
+        die("no '--' found")
+    argv = argv[i+1:]
+
+    for t in tracev:
+        # load in current context so that e.g. @trace_entry is visible in the
+        # tracing code.
+        execfile(t, globals())
+
+
     # now mimic `python ...`
-    argv = sys.argv[1:]
 
     # interactive console
     if not argv:
@@ -260,8 +295,7 @@ def main():
         runpy.run_module(sys.argv[0], init_globals={'__doc__': None}, run_name='__main__')
 
     elif argv[0].startswith('-'):
-        print >>sys.stderr, "invalid option '%s'" % argv[0]
-        sys.exit(2)
+        die("invalid option '%s'" % argv[0])
 
     # file
     else:
