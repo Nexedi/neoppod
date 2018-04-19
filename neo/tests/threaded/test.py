@@ -60,9 +60,9 @@ class PCounterWithResolution(PCounter):
 
 class Test(NEOThreadedTest):
 
-    @with_cluster()
-    def testBasicStore(self, cluster):
-        if 1:
+    def testBasicStore(self, dedup=False):
+        with NEOCluster(dedup=dedup) as cluster:
+            cluster.start()
             storage = cluster.getZODBStorage()
             storage.sync()
             storage.app.max_reconnection_to_master = 0

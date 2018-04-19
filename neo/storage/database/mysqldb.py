@@ -164,6 +164,13 @@ class MySQLDatabaseManager(DatabaseManager):
                 " Minimal value must be %uk."
                 % (name, self._max_allowed_packet // 1024))
         self._max_allowed_packet = int(value)
+        try:
+            self._dedup = bool(query(
+                "SHOW INDEX FROM data WHERE key_name='hash'"))
+        except ProgrammingError as e:
+            if e.args[0] != NO_SUCH_TABLE:
+                raise
+            self._dedup = None
 
     _connect = auto_reconnect(_tryConnect)
 
@@ -321,6 +328,9 @@ class MySQLDatabaseManager(DatabaseManager):
 
         for table, schema in schema_dict.iteritems():
             q(schema % ('IF NOT EXISTS ' + table))
+
+        if self._dedup is None:
+            self._dedup = dedup
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))
@@ -608,18 +618,19 @@ class MySQLDatabaseManager(DatabaseManager):
         if 0x1000000 <= len(data): # 16M (MEDIUMBLOB limit)
             compression |= 0x80
             q = self.query
-            for r, d in q("SELECT id, value FROM data"
-                          " WHERE hash='%s' AND compression=%s"
-                          % (checksum, compression)):
-                i = 0
-                for d in self._bigData(d):
-                    j = i + len(d)
-                    if data[i:j] != d:
+            if self._dedup:
+                for r, d in q("SELECT id, value FROM data"
+                              " WHERE hash='%s' AND compression=%s"
+                              % (checksum, compression)):
+                    i = 0
+                    for d in self._bigData(d):
+                        j = i + len(d)
+                        if data[i:j] != d:
+                            raise IntegrityError(DUP_ENTRY)
+                        i = j
+                    if j != len(data):
                         raise IntegrityError(DUP_ENTRY)
-                    i = j
-                if j != len(data):
-                    raise IntegrityError(DUP_ENTRY)
-                return r
+                    return r
             i = 'NULL'
             length = len(data)
             for j in xrange(0, length, 0x800000): # 8M
