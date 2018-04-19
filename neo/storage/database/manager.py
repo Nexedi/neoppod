@@ -17,6 +17,7 @@
 import os, errno, socket, struct, sys, threading
 from collections import defaultdict
 from contextlib import contextmanager
+from copy import copy
 from functools import wraps
 from neo.lib import logging, util
 from neo.lib.interfaces import abstract, requires
@@ -60,7 +61,7 @@ class DatabaseManager(object):
     LOCKED = "error: database is locked"
 
     _deferred = 0
-    _duplicating = _repairing = None
+    _repairing = None
 
     def __init__(self, database, engine=None, wait=None):
         """
@@ -75,29 +76,55 @@ class DatabaseManager(object):
         #      But for unit tests, we really want to never retry.
         self._wait = wait or 0
         self._parse(database)
+        self._init_attrs = tuple(self.__dict__)
         self._connect()
 
-    def __getattr__(self, attr):
-        if self._duplicating is None:
-            return self.__getattribute__(attr)
-        value = getattr(self._duplicating, attr)
-        setattr(self, attr, value)
-        return value
+    def __getstate__(self):
+        state = {x: getattr(self, x) for x in self._init_attrs}
+        assert state # otherwise, __setstate__ is not called
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # For the moment, no need to duplicate secondary connections.
+        #self._init_attrs = tuple(self.__dict__)
+        # Secondary connections don't lock.
+        self.LOCK = None
+        self._connect()
 
     @contextmanager
     def _duplicate(self):
-        cls = self.__class__
-        db = cls.__new__(cls)
-        db.LOCK = None
-        db._duplicating = self
-        try:
-            db._connect()
-        finally:
-            del db._duplicating
+        db = copy(self)
         try:
             yield db
         finally:
             db.close()
+
+    def __getattr__(self, attr):
+        if attr in ('_readable_set', '_getPartition', '_getReadablePartition'):
+            self._updateReadable()
+        return self.__getattribute__(attr)
+
+    def _partitionTableChanged(self):
+        try:
+            del (self._readable_set,
+                 self._getPartition,
+                 self._getReadablePartition)
+        except AttributeError:
+            pass
+
+    def __enter__(self):
+        assert not self.LOCK, "not a secondary connection"
+        # XXX: All config caching should be done in this class,
+        #      rather than in backend classes.
+        self._config.clear()
+        self._partitionTableChanged()
+
+    def __exit__(self, t, v, tb):
+        if v is None:
+            # Deferring commits make no sense for secondary connections.
+            assert not self._deferred
+            self._commit()
 
     @abstract
     def _parse(self, database):
@@ -106,6 +133,17 @@ class DatabaseManager(object):
     @abstract
     def _connect(self):
         """Connect to the database"""
+
+    def autoReconnect(self, f):
+        """
+        Placeholder for backends that may lose connection to the underlying
+        database: although a primary connection is reestablished transparently
+        when possible, secondary connections use transactions and they must
+        restart from the beginning.
+        For other backends, there's no expected transient failure so the
+        default implementation is to execute the given task exactly once.
+        """
+        f()
 
     def lock(self, db_path):
         if self.LOCK:
@@ -147,7 +185,6 @@ class DatabaseManager(object):
         """
         if reset:
             self.erase()
-        self._readable_set = set()
         self._uncommitted_data = defaultdict(int)
         self._setup(dedup)
 
@@ -250,10 +287,7 @@ class DatabaseManager(object):
             Store the number of partitions into a database.
         """
         self.setConfiguration('partitions', num_partitions)
-        try:
-            del self._getPartition, self._getReadablePartition
-        except AttributeError:
-            pass
+        self._partitionTableChanged()
 
     def getNumReplicas(self):
         """
@@ -319,6 +353,15 @@ class DatabaseManager(object):
         """Return a whole partition table as a sequence of rows. Each row
         is again a tuple of an offset (row ID), the NID of a storage
         node, and a cell state."""
+
+    def _getAssignedPartitionList(self, *states):
+        nid = self.getUUID()
+        if nid is None:
+            return ()
+        if states:
+            return [nid for nid, state in self.getPartitionTable(nid)
+                        if state in states]
+        return [x[0] for x in self.getPartitionTable(nid)]
 
     @abstract
     def getLastTID(self, max_tid):
@@ -492,11 +535,12 @@ class DatabaseManager(object):
         """
         """
 
-    @requires(_changePartitionTable, _getDataLastId)
-    def changePartitionTable(self, ptid, cell_list, reset=False):
-        readable_set = self._readable_set
-        if reset:
-            readable_set.clear()
+    @requires(_getDataLastId)
+    def _updateReadable(self):
+        try:
+            readable_set = self.__dict__['_readable_set']
+        except KeyError:
+            readable_set = self._readable_set = set()
             np = self.getNumPartitions()
             def _getPartition(x, np=np):
                 return x % np
@@ -511,14 +555,15 @@ class DatabaseManager(object):
             for p in xrange(np):
                 i = self._getDataLastId(p)
                 d.append(p << 48 if i is None else i + 1)
-        me = self.getUUID()
-        for offset, nid, state in cell_list:
-            if nid == me:
-                if CellStates.UP_TO_DATE != state != CellStates.FEEDING:
-                    readable_set.discard(offset)
-                else:
-                    readable_set.add(offset)
+        else:
+            readable_set.clear()
+        readable_set.update(self._getAssignedPartitionList(
+            CellStates.UP_TO_DATE, CellStates.FEEDING))
+
+    @requires(_changePartitionTable)
+    def changePartitionTable(self, ptid, cell_list, reset=False):
         self._changePartitionTable(cell_list, reset)
+        self._updateReadable()
         assert isinstance(ptid, (int, long)), ptid
         self._setConfiguration('ptid', str(ptid))
 

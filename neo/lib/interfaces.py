@@ -27,8 +27,7 @@ def check_signature(reference, function):
         del a[x:]
         d = d[:x] or None
     elif x: # different signature
-        # We have no need yet to support methods with default parameters.
-        return a == A[:-x] and (b or a and c) and not (d or D)
+        return a == A[:-x] and (b or a and c) and (d or ()) == (D or ())[:-x]
     return a == A and (b or not B) and (c or not C) and d == D
 
 def implements(obj, ignore=()):
@@ -55,7 +54,7 @@ def implements(obj, ignore=()):
         while 1:
             name, func = base.pop()
             x = getattr(obj, name)
-            if x.im_class is tobj:
+            if type(getattr(x, '__self__', None)) is tobj:
                 x = x.__func__
                 if x is func:
                     try:

@@ -21,7 +21,8 @@ from collections import deque
 from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
 from ZConfig import loadConfigFile
-from ZODB.config import getStorageSchema
+from ZODB import BaseStorage
+from ZODB.config import getStorageSchema, storageFromString
 from ZODB.POSException import POSKeyError
 
 from . import buildDatabaseManager, DatabaseFailure
@@ -295,9 +296,12 @@ class ZODBIterator(object):
             and self.zodb.shift_oid < other.zodb.shift_oid
 
 
+is_true = ('false', 'true').index
+
 class ImporterDatabaseManager(DatabaseManager):
     """Proxy that transparently imports data from a ZODB storage
     """
+    _writeback = None
     _last_commit = 0
 
     def __init__(self, *args, **kw):
@@ -315,34 +319,58 @@ class ImporterDatabaseManager(DatabaseManager):
         config.read(os.path.expanduser(database))
         sections = config.sections()
         # XXX: defaults copy & pasted from elsewhere - refactoring needed
-        main = {'adapter': 'MySQL', 'wait': 0}
+        main = self._conf = {'adapter': 'MySQL', 'wait': 0}
         main.update(config.items(sections.pop(0)))
-        self.zodb = ((x, dict(config.items(x))) for x in sections)
+        self.zodb = [(x, dict(config.items(x))) for x in sections]
         x = main.get('compress', 'true')
         try:
-            self.compress = bool(('false', 'true').index(x))
+            self.compress = bool(is_true(x))
         except ValueError:
             self.compress = compress.parseOption(x)
-        self.db = buildDatabaseManager(main['adapter'],
-            (main['database'], main.get('engine'), main['wait']))
+        if is_true(main.get('writeback', 'false')):
+            if len(self.zodb) > 1:
+                raise Exception(
+                    "Can not forward new transactions to splitted DB.")
+            self._writeback = self.zodb[0][1]['storage']
+
+    def _connect(self):
+        conf = self._conf
+        db = self.db = buildDatabaseManager(conf['adapter'],
+            (conf['database'], conf.get('engine'), conf['wait']))
         for x in """getConfiguration _setConfiguration setNumPartitions
-                    query erase getPartitionTable changePartitionTable
+                    query erase getPartitionTable
                     getUnfinishedTIDDict dropUnfinishedData abortTransaction
-                    storeTransaction lockTransaction unlockTransaction
+                    storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
                     dropPartitionsTemporary
                  """.split():
-            setattr(self, x, getattr(self.db, x))
+            setattr(self, x, getattr(db, x))
+        if self._writeback:
+            self._writeback = WriteBack(db, self._writeback)
+        db_commit = db.commit
+        def commit():
+            db_commit()
+            self._last_commit = time.time()
+            if self._writeback:
+                self._writeback.committed()
+        self.commit = db.commit = commit
 
-    def _connect(self):
-        pass
+    def _updateReadable(self):
+        raise AssertionError
 
-    def commit(self):
-        self.db.commit()
-        # XXX: This misses commits done internally by self.db (lockTransaction).
-        self._last_commit = time.time()
+    def changePartitionTable(self, *args, **kw):
+        self.db.changePartitionTable(*args, **kw)
+        if self._writeback:
+            self._writeback.changed()
+
+    def unlockTransaction(self, *args):
+        self.db.unlockTransaction(*args)
+        if self._writeback:
+            self._writeback.changed()
 
     def close(self):
+        if self._writeback:
+            self._writeback.close()
         self.db.close()
         if isinstance(self.zodb, list): # _setup called
             for zodb in self.zodb:
@@ -576,3 +604,120 @@ class ImporterDatabaseManager(DatabaseManager):
 
     def pack(self, *args, **kw):
         raise BackendNotImplemented(self.pack)
+
+
+class WriteBack(object):
+
+    _changed = False
+    _process = None
+    threading = False
+
+    def __init__(self, db, storage):
+        self._db = db
+        self._storage = storage
+
+    def close(self):
+        if self._process:
+            self._stop.set()
+            self._event.set()
+            self._process.join()
+
+    def changed(self):
+        self._changed = True
+
+    def committed(self):
+        if self._changed:
+            self._changed = False
+            if self._process:
+                self._event.set()
+            else:
+                if self.threading:
+                    from threading import Thread as Process, Event
+                else:
+                    from multiprocessing import Process, Event
+                self._event = Event()
+                self._idle = Event()
+                self._stop = Event()
+                self._np = self._db.getNumPartitions()
+                self._db = cPickle.dumps(self._db, 2)
+                self._process = Process(target=self._run)
+                self._process.daemon = True
+                self._process.start()
+
+    @property
+    def wait(self):
+        # For unit tests.
+        return self._idle.wait
+
+    def _run(self):
+        self._db = cPickle.loads(self._db)
+        try:
+            @self._db.autoReconnect
+            def _():
+                # Unfortunately, copyTransactionsFrom does not abort in case
+                # of failure, so we have to reopen.
+                zodb = storageFromString(self._storage)
+                try:
+                    self.min_tid = util.add64(zodb.lastTransaction(), 1)
+                    zodb.copyTransactionsFrom(self)
+                finally:
+                    zodb.close()
+        finally:
+            self._idle.set()
+            self._db.close()
+
+    def iterator(self):
+        db = self._db
+        np = self._np
+        chunk_size = max(2, 1000 // np)
+        offset_list = xrange(np)
+        while 1:
+            with db:
+                # Check the partition table at the beginning of every
+                # transaction. Once the import is finished and at least one
+                # cell is replicated, it is possible that some of this node
+                # get outdated. In this case, wait for the next PT change.
+                if np == len(db._readable_set):
+                    while 1:
+                        tid_list = []
+                        loop = False
+                        for offset in offset_list:
+                            x = db.getReplicationTIDList(
+                                self.min_tid, MAX_TID, chunk_size, offset)
+                            tid_list += x
+                            if len(x) == chunk_size:
+                                loop = True
+                        if tid_list:
+                            tid_list.sort()
+                            for tid in tid_list:
+                                if self._stop.is_set():
+                                    return
+                                yield TransactionRecord(db, tid)
+                            self.min_tid = util.add64(tid, 1)
+                            if loop:
+                                continue
+                        break
+            if not self._event.is_set():
+                self._idle.set()
+                self._event.wait()
+                self._idle.clear()
+            self._event.clear()
+            if self._stop.is_set():
+                break
+
+
+class TransactionRecord(BaseStorage.TransactionRecord):
+
+    def __init__(self, db, tid):
+        self._oid_list, user, desc, ext, _, _ = db.getTransaction(tid)
+        super(TransactionRecord, self).__init__(tid, ' ', user, desc,
+            cPickle.loads(ext) if ext else {})
+        self._db = db
+
+    def __iter__(self):
+        tid = self.tid
+        for oid in self._oid_list:
+            _, compression, _, data, data_tid = self._db.fetchObject(oid, tid)
+            if data is not None:
+                data = compress.decompress_list[compression](data)
+            yield BaseStorage.DataRecord(oid, tid, data, data_tid)

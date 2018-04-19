@@ -76,7 +76,9 @@ def auto_reconnect(wrapped):
                 if (self._active
                     or SERVER_GONE_ERROR != m.args[0] != SERVER_LOST
                     or not retry):
-                    raise MysqlError(m, *args)
+                    if self.LOCK:
+                        raise MysqlError(m, *args)
+                    raise # caught upper for secondary connections
                 logging.info('the MySQL server is gone; reconnecting')
                 assert not self._deferred
                 self.close()
@@ -112,7 +114,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def __getattr__(self, attr):
         if attr == 'conn':
             self._tryConnect()
-        return DatabaseManager.__getattr__(self, attr)
+        return super(MySQLDatabaseManager, self).__getattr__(attr)
 
     def _tryConnect(self):
         kwd = {'db' : self.db, 'user' : self.user}
@@ -171,8 +173,29 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
             self._dedup = None
+        if not self.LOCK:
+            # Prevent automatic reconnection for secondary connections.
+            self._active = 1
+            self._commit = self.conn.commit
 
     _connect = auto_reconnect(_tryConnect)
+
+    def autoReconnect(self, f):
+        assert self._active and not self.LOCK
+        @auto_reconnect
+        def try_once(self):
+            if self._active:
+                try:
+                    f()
+                finally:
+                    self._active = 0
+                return True
+        while not try_once(self):
+            # Avoid reconnecting too often.
+            # Since this is used to wrap an arbitrary long process and
+            # not just a single query, we can't limit the number of retries.
+            time.sleep(5)
+            self._connect()
 
     def _commit(self):
         self.conn.commit()
@@ -370,12 +393,6 @@ class MySQLDatabaseManager(DatabaseManager):
         if nid:
             return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
         return self.query("SELECT * FROM pt")
-
-    def _getAssignedPartitionList(self):
-        nid = self.getUUID()
-        if nid is None:
-            return ()
-        return [p for p, in self.query("SELECT rid FROM pt WHERE nid=%s" % nid)]
 
     def _sqlmax(self, sql, arg_list):
         q = self.query

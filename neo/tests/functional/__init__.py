@@ -29,7 +29,6 @@ import tempfile
 import traceback
 import threading
 import psutil
-from ConfigParser import SafeConfigParser
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
@@ -38,8 +37,8 @@ from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
 from neo.lib.util import dump
 from .. import (ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL,
-    buildUrlFromString, cluster, getTempDirectory, NeoTestBase, Patch,
-    setupMySQLdb)
+    buildUrlFromString, cluster, getTempDirectory, setupMySQLdb,
+    ImporterConfigParser, NeoTestBase, Patch)
 from neo.client.Storage import Storage
 from neo.storage.database import manager, buildDatabaseManager
 
@@ -154,7 +153,7 @@ class Process(object):
             if args:
                 os.close(w)
                 os.kill(os.getpid(), signal.SIGSTOP)
-        self.pid = logging.fork()
+        self.pid = os.fork()
         if self.pid:
             # Wait that the signal to kill the child is set up.
             os.close(w)
@@ -317,14 +316,8 @@ class NEOCluster(object):
             IP_VERSION_FORMAT_DICT[self.address_type]
         self.setupDB(clear_databases)
         if importer:
-            cfg = SafeConfigParser()
-            cfg.add_section("neo")
-            cfg.set("neo", "adapter", adapter)
+            cfg = ImporterConfigParser(adapter, **importer)
             cfg.set("neo", "database", self.db_template(*db_list))
-            for name, zodb in importer:
-                cfg.add_section(name)
-                for x in zodb.iteritems():
-                    cfg.set(name, *x)
             importer_conf = os.path.join(temp_dir, 'importer.cfg')
             with open(importer_conf, 'w') as f:
                 cfg.write(f)

@@ -17,13 +17,15 @@
 from cPickle import Pickler, Unpickler
 from cStringIO import StringIO
 from itertools import izip_longest
-import os, random, shutil, unittest
+import os, random, shutil, time, unittest
 import transaction, ZODB
 from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
 from neo.lib.util import u64
-from neo.storage.database.importer import Repickler
-from .. import expectedFailure, getTempDirectory, random_tree
+from neo.storage.database import getAdapterKlass, manager
+from neo.storage.database.importer import \
+    Repickler, TransactionRecord, WriteBack
+from .. import expectedFailure, getTempDirectory, random_tree, Patch
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
 from ZODB.FileStorage import FileStorage
@@ -159,7 +161,8 @@ class ImporterTests(NEOThreadedTest):
                 if r:
                     transaction.commit()
         # Get oids of mount points and close.
-        importer = []
+        zodb = []
+        importer = {'zodb': zodb}
         for db, r, cfg in db_list:
             if db == 'root':
                 if multi:
@@ -169,13 +172,14 @@ class ImporterTests(NEOThreadedTest):
                     h = random_tree.hashTree(r)
                     h()
                     self.assertEqual(import_hash, h.hexdigest())
+                    importer['writeback'] = 'true'
             else:
                 cfg["oid"] = str(u64(r[db]._p_oid))
                 db = '_%s' % db
             r._p_jar.db().close()
-            importer.append((db, cfg))
+            zodb.append((db, cfg))
         del db_list, iter_list
-        #del importer[0][1][importer.pop()[0]]
+        #del zodb[0][1][zodb.pop()[0]]
         # Start NEO cluster with transparent import.
         with NEOCluster(importer=importer) as cluster:
             # Suspend import for a while, so that import
@@ -226,12 +230,50 @@ class ImporterTests(NEOThreadedTest):
             assert i < last_import * 3 < 2 * i, (last_import, i)
             self.assertFalse(cluster.storage.dm._import)
             storage._cache.clear()
-            h = random_tree.hashTree(r)
-            self.assertEqual(93, h())
-            self.assertEqual('6bf0f0cb2d6c1aae9e52c412ef0e25b6', h.hexdigest())
+            def finalCheck(r):
+                h = random_tree.hashTree(r)
+                self.assertEqual(93, h())
+                self.assertEqual('6bf0f0cb2d6c1aae9e52c412ef0e25b6',
+                                 h.hexdigest())
+            finalCheck(r)
+            if dm._writeback:
+                dm.commit()
+                dm._writeback.wait()
+        if dm._writeback:
+            db = ZODB.DB(FileStorage(fs_path, read_only=True))
+            finalCheck(db.open().root()['tree'])
+            db.close()
 
     def test1(self):
         self._importFromFileStorage()
+
+    def testThreadedWriteback(self):
+        # Also check reconnection to the underlying DB for relevant backends.
+        tid_list = []
+        def __init__(orig, tr, db, tid):
+            orig(tr, db, tid)
+            tid_list.append(tid)
+        def fetchObject(orig, db, *args):
+            if len(tid_list) == 5:
+                if isinstance(db, getAdapterKlass('MySQL')):
+                    from neo.tests.storage.testStorageMySQL import ServerGone
+                    with ServerGone(db):
+                        orig(db, *args)
+                    self.fail()
+                else:
+                    tid_list.append(None)
+                    p.revert()
+            return orig(db, *args)
+        def sleep(orig, seconds):
+            self.assertEqual(len(tid_list), 5)
+            p.revert()
+        with Patch(WriteBack, threading=True), \
+             Patch(TransactionRecord, __init__=__init__), \
+             Patch(manager.DatabaseManager, fetchObject=fetchObject), \
+             Patch(time, sleep=sleep) as p:
+            self._importFromFileStorage()
+            self.assertFalse(p.applied)
+        self.assertEqual(len(tid_list), 11)
 
     def testMerge(self):
         multi = 1, 2, 3

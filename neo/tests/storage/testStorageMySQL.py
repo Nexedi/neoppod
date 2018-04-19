@@ -15,7 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from contextlib import contextmanager
 from MySQLdb import NotSupportedError, OperationalError, ProgrammingError
+from MySQLdb.constants.CR import SERVER_GONE_ERROR
 from MySQLdb.constants.ER import UNKNOWN_STORAGE_ENGINE
 from ..mock import Mock
 from neo.lib.protocol import ZERO_OID
@@ -24,6 +26,19 @@ from .. import DB_PREFIX, DB_SOCKET, DB_USER, Patch
 from .testStorageDBTests import StorageDBTests
 from neo.storage.database import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
+
+
+class ServerGone(object):
+
+    @contextmanager
+    def __new__(cls, db):
+        self = object.__new__(cls)
+        with Patch(db, conn=self) as self._p:
+            yield self._p
+
+    def query(self, *args):
+        self._p.revert()
+        raise OperationalError(SERVER_GONE_ERROR, 'this is a test')
 
 
 class StorageMySQLdbTests(StorageDBTests):
@@ -67,14 +82,7 @@ class StorageMySQLdbTests(StorageDBTests):
         calls[0].checkArgs('SELECT ')
 
     def test_query2(self):
-        # test the OperationalError exception
-        # fake object, raise exception during the first call
-        from MySQLdb.constants.CR import SERVER_GONE_ERROR
-        class FakeConn(object):
-            def query(*args):
-                p.revert()
-                raise OperationalError(SERVER_GONE_ERROR, 'this is a test')
-        with Patch(self.db, conn=FakeConn()) as p:
+        with ServerGone(self.db) as p:
             self.assertRaises(ProgrammingError, self.db.query, 'QUERY')
             self.assertFalse(p.applied)
 

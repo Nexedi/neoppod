@@ -28,6 +28,7 @@ import weakref
 import MySQLdb
 import transaction
 
+from ConfigParser import SafeConfigParser
 from cStringIO import StringIO
 try:
     from ZODB._compat import Unpickler
@@ -154,6 +155,18 @@ def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
     cursor.close()
     conn.commit()
     conn.close()
+
+def ImporterConfigParser(adapter, zodb, **kw):
+    cfg = SafeConfigParser()
+    cfg.add_section("neo")
+    cfg.set("neo", "adapter", adapter)
+    for x in kw.iteritems():
+        cfg.set("neo", *x)
+    for name, zodb in zodb:
+        cfg.add_section(name)
+        for x in zodb.iteritems():
+            cfg.set(name, *x)
+    return cfg
 
 class NeoTestBase(unittest.TestCase):
 

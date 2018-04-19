@@ -227,6 +227,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def test_changePartitionTable(self):
         db = self.getDB()
+        db.setNumPartitions(3)
         ptid = 1
         uuid = self.getStorageUUID()
         cell1 = 0, uuid, CellStates.OUT_OF_DATE

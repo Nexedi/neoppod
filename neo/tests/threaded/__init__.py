@@ -19,7 +19,6 @@
 import os, random, select, socket, sys, tempfile
 import thread, threading, time, traceback, weakref
 from collections import deque
-from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from itertools import count
 from functools import partial, wraps
@@ -37,8 +36,9 @@ from neo.lib.handler import EventHandler
 from neo.lib.locking import SimpleQueue
 from neo.lib.protocol import ClusterStates, Enum, NodeStates, NodeTypes, Packets
 from neo.lib.util import cached_property, parseMasterList, p64
-from .. import NeoTestBase, Patch, getTempDirectory, setupMySQLdb, \
-    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER
+from .. import (getTempDirectory, setupMySQLdb,
+    ImporterConfigParser, NeoTestBase, Patch,
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_SOCKET, DB_USER)
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
@@ -685,14 +685,8 @@ class NEOCluster(object):
         else:
             assert False, adapter
         if importer:
-            cfg = SafeConfigParser()
-            cfg.add_section("neo")
-            cfg.set("neo", "adapter", adapter)
+            cfg = ImporterConfigParser(adapter, **importer)
             cfg.set("neo", "database", db % tuple(db_list))
-            for name, zodb in importer:
-                cfg.add_section(name)
-                for x in zodb.iteritems():
-                    cfg.set(name, *x)
             db = os.path.join(getTempDirectory(), '%s.conf')
             with open(db % tuple(db_list), "w") as f:
                 cfg.write(f)
