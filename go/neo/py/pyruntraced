@@ -18,10 +18,9 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""pyruntraced ... - run python ... with NEO tracepoints attached
+"""pyruntraced ... - run python ... with tracepoints attached
 
-This program runs python code with tracepoints equivalent to NEO/go activated
-on NEO/py side.
+This program runs Python code with tracepoints activated.
 
 Whenever a tracepoint is reached, attached probe sends corresponding trace event
 to driving process and awaits further commands from it. Commands could be:
@@ -31,6 +30,11 @@ to driving process and awaits further commands from it. Commands could be:
 
 Overall this allows Go driver process to test several concurrent child
 subprocesses via tracetest, the same way to how it is done in pure NEO/go.
+
+Please see documentation for next Go packages for context:
+
+    - lab.nexedi.com/kirr/go123/tracing
+    - lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest     # XXX correct link
 
 
 Implementation notes
@@ -49,10 +53,15 @@ of view of traced process):
     > tid E problem         # tracee reports result as exception
     > tid R result          # tracee reports result
 
-eventname is just regulat string
+eventname is just regular string
 event, problem, result are JSON-encoded objects.
 
-Fork is not allowed in order not to confuse the driver.
+Fork is not allowed in order not to confuse the driver(*).
+
+(*) fork could be supported by making every new process to reattach to the
+    driver via new file descriptor - e.g. connecting via socket.
+
+    We don't currently do that for simplicity.
 """
 
 from functools import wraps
@@ -116,7 +125,7 @@ class Tracer(object):
             self.rxlock.acquire()
             rxq = self.rxtab.get(tid)
             if rxq is None:
-                self.rxtab[tid] = rxq = RxQueue()
+                rxq = self.rxtab[tid] = RxQueue()
             if len(rxq.lineq) > 0:
                 # data was already queued for us
                 line = rxq.lineq.pop(0)
@@ -128,7 +137,7 @@ class Tracer(object):
             self.rxlock.release()
             rxq.event.wait()
 
-            # woke up -> retry to dequeue data
+            # woken up -> retry to dequeue data
 
 
     # trace1 handles 1 trace event.
@@ -153,8 +162,10 @@ class Tracer(object):
                 return  # probe finishes - continue execution of original code
 
             # eval python in context of probed function
+            # g = ...
+            # l = ...
             try:
-                r = eval(line[1:], g, l)
+                r = eval(line[1:], g, l)    # FIXME context wrong
             except Exception as e:
                 self._send('E %s' % json.dumps(str(e)))
             else:
@@ -172,7 +183,20 @@ class RxQueue(object):
 gtracer = None  # Tracer
 
 
-# trace_entry marks entry to func with tracepoint and attaches probe to run XXX
+# trace_entry attaches probe to func entry.
+#
+# For example
+#
+#   class MyClass:
+#       def meth(self, x, y):
+#           ...
+#
+#   @trace_entry(MyClass.meth, 'MyEvent')
+#   def _(self, x, y):
+#       return {'x': x, 'y': y}
+#
+# will emit event 'MyEvent' with corresponding x/y dict on every call entry to
+# MyClass.meth() .
 def trace_entry(func, eventname):
     klass = func.im_class
     fname = func.im_func.func_name
@@ -187,38 +211,6 @@ def trace_entry(func, eventname):
         setattr(klass, fname, probe)
 
     return deco
-
-
-# trace events
-from neo.lib.connection import Connection
-import socket
-
-# sk_addr converts socket address tuple for family to string
-def sk_addr(addr, family):
-    if family == socket.AF_INET:
-        host, port = addr
-        return '%s:%s' % (host, port)
-
-    else:
-        raise RuntimError('sk_addr: TODO: %s' % family)
-
-def sk_localaddr(sk):
-    return sk_addr( sk.getsockname(), sk.family )
-
-def sk_remoteaddr(sk):
-    return sk_addr( sk.getpeername(), sk.family )
-
-
-@trace_entry(Connection._addPacket, 'MsgSendPre')
-def _(self, packet):
-    sk = self.connector.socket
-    pkth, data = packet.encode()
-    return {'src':  sk_localaddr(sk),
-            'dst':  sk_remoteaddr(sk),
-            # XXX pkt goes as quoted to avoid UTF-8 decode problem on json.dump
-            'pktq': `pkth+data`}
-            #'pktq': (pkth+data).encode('hex')}
-
 
 
 # ----------------------------------------
@@ -238,7 +230,7 @@ def main():
     ftrace  = os.fdopen(fdtrace, 'r+')
     gtracer = Tracer(ftrace)
 
-    # forbid fork
+    # forbid fork   (see top-level description about why)
     def nofork(): raise RuntimeError('pyruntraced: fork forbidden')
     os.fork    = nofork
     os.forkpty = nofork
