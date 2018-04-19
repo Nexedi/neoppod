@@ -78,11 +78,17 @@ import thread, threading
 # See top-level module description for details.
 class Tracer(object):
 
-    def __init__(self, ftrace):
-        self.ftrace = ftrace            # file object to communicate with tracer
-        self.txlock = threading.Lock()  # serializes writes to .ftrace
+    def __init__(self, ftracetx, ftracerx):
+        self.ftx    = ftracetx          # file object to send data to tracer
+        self.txlock = threading.Lock()  # serializes writes to .ftx
+
+        self.frx    = ftracerx          # file object to receive data from tracer
         self.rxtab  = {}                # {} tid -> RxQueue
         self.rxlock = threading.Lock()  # serializes access to .rxtab
+
+        # NOTE 2 separate ftx/frx file objects are used because python for
+        # stdio objects does locking and this way if it would be only 1 file
+        # object readline in _serve_recv() would block tx until readline wakes up.
 
         self.trecv = threading.Thread(target=self._serve_recv)
         self.trecv.daemon = True    # XXX better to gracefully stop it?
@@ -95,18 +101,18 @@ class Tracer(object):
         tid = thread.get_ident()
         self.txlock.acquire()
         try:
-            self.ftrace.write(('%d ' % tid) + line + '\n')
-            self.ftrace.flush()
+            self.ftx.write(('%d ' % tid) + line + '\n')
+            self.ftx.flush()
         finally:
             self.txlock.release()
 
-    # _serve_recv receives lines from .ftrace and multiplexes them to
+    # _serve_recv receives lines from .frx and multiplexes them to
     # destination threads RX queues.
     #
     # runs in a dedicated thread.
     def _serve_recv(self):
         while 1:
-            line = self.ftrace.readline()
+            line = self.frx.readline()
             # tid SP rest \n
             tid, line = line.split(None, 1)
             line = line.rstrip('\n')
@@ -240,8 +246,9 @@ def main():
     global gtracer
     fdtrace = argv[0]
     fdtrace = int(fdtrace)
-    ftrace  = os.fdopen(fdtrace, 'r+')
-    gtracer = Tracer(ftrace)
+    ttx = os.fdopen(fdtrace, 'w')
+    trx = os.fdopen(fdtrace, 'r')
+    gtracer = Tracer(ttx, trx)
     argv = argv[1:]
 
     # forbid fork   (see top-level description about why)
