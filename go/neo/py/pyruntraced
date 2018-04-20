@@ -61,6 +61,8 @@ Fork is not allowed in order not to confuse the driver(*).
 Tracepoints and probes definitions are provided in separate files that are
 passed as <trace>* command line arguments.
 
+See trace_entry() for documentation on how to define probes.
+
 
 (*) fork could be supported by making every new process to reattach to the
     driver via new file descriptor - e.g. connecting via socket.

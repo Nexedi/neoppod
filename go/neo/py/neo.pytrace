@@ -27,6 +27,17 @@ Must be used with pyruntraced.
 from neo.lib.connection import Connection
 import socket
 
+@trace_entry(Connection._addPacket, 'MsgSendPre')
+def _(self, packet):
+    sk = self.connector.socket
+    pkth, data = packet.encode()
+    return {'src':  sk_localaddr(sk),
+            'dst':  sk_remoteaddr(sk),
+            # XXX pkt goes as quoted to avoid UTF-8 decode problem on json.dump
+            'pktq': `pkth+data`}
+            #'pktq': (pkth+data).encode('hex')}
+
+
 # sk_addr converts socket address tuple for family to string
 def sk_addr(addr, family):
     if family == socket.AF_INET:
@@ -41,14 +52,3 @@ def sk_localaddr(sk):
 
 def sk_remoteaddr(sk):
     return sk_addr( sk.getpeername(), sk.family )
-
-
-@trace_entry(Connection._addPacket, 'MsgSendPre')
-def _(self, packet):
-    sk = self.connector.socket
-    pkth, data = packet.encode()
-    return {'src':  sk_localaddr(sk),
-            'dst':  sk_remoteaddr(sk),
-            # XXX pkt goes as quoted to avoid UTF-8 decode problem on json.dump
-            'pktq': `pkth+data`}
-            #'pktq': (pkth+data).encode('hex')}
