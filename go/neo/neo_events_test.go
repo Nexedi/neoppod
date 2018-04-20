@@ -30,6 +30,8 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
+// ---- events ----
+
 // NOTE to ease testing we use strings only to reprsent addresses or where
 // event happenned - not e.g. net.Addr or *NodeTab.
 
