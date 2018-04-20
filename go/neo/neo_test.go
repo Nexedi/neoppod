@@ -117,6 +117,8 @@ func masterStartReady(where string, ready bool) *eventMStartReady {
 // ---- events routing ----
 
 // EventRouter implements NEO-specific routing of events to trace test channels.
+//
+// A test has to define routing rules using BranchNode, BranchState and BranchLink XXX
 type EventRouter struct {
 	mu sync.Mutex
 
@@ -132,6 +134,8 @@ type EventRouter struct {
 	// event on a-b link
 	byLink map[string /*host-host*/]*linkDst
 
+	// who connected who, so that it is possible to determine by looking at
+	// connID who initiated the exchange.
 	connected map[string /*addr-addr*/]bool
 }
 
@@ -187,7 +191,7 @@ func host(addr string) string {
 	return host
 }
 
-// Route routes events according to rules specified via Branch*()
+// Route routes events according to rules specified via Branch*().
 func (r *EventRouter) Route(event interface{}) (dst *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -316,6 +320,10 @@ func (r *EventRouter) BranchLink(link string, dsta, dstb *tracetest.SyncChan) {
 	r.byLink[link] = &linkDst{dsta, dstb}
 }
 
+// linkDst represents destination for events on a network link.
+//
+// Events go to either a or b depending on which side initiated particular
+// connection on top of the link.
 type linkDst struct {
 	a *tracetest.SyncChan // net cause was on dialer
 	b *tracetest.SyncChan // net cause was on listener
