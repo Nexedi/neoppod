@@ -148,6 +148,7 @@ func (t IdTime) String() string {
 // ----------------------------------------
 
 // Addr converts network address string into NEO Address
+//
 // TODO make neo.Address just string without host:port split
 func AddrString(network, addr string) (Address, error) {
 	// empty is always empty

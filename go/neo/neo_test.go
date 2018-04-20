@@ -108,54 +108,6 @@ func TestMasterStorage(t *testing.T) {
 	tracer.Attach()
 	defer tracer.Detach()
 
-	// shortcut for addresses
-	xaddr := func(addr string) *pipenet.Addr {
-		a, err := net.ParseAddr(addr)
-		exc.Raiseif(err)
-		return a
-	}
-	xnaddr := func(addr string) proto.Address {
-		if addr == "" {
-			return proto.Address{}
-		}
-		a, err := proto.Addr(xaddr(addr))
-		exc.Raiseif(err)
-		return a
-	}
-
-	// shortcut for net connect event
-	netconnect := func(src, dst, dialed string) *eventNetConnect {
-		return &eventNetConnect{Src: src, Dst: dst, Dialed: dialed}
-	}
-
-	netlisten := func(laddr string) *eventNetListen {
-		return &eventNetListen{Laddr: laddr}
-	}
-
-	// shortcut for net tx event over nodelink connection
-	conntx := func(src, dst string, connid uint32, msg proto.Msg) *eventNeoSend {
-		return &eventNeoSend{Src: src, Dst: dst, ConnID: connid, Msg: msg}
-	}
-
-	// shortcut for NodeInfo
-	nodei := func(laddr string, typ proto.NodeType, num int32, state proto.NodeState, idtime proto.IdTime) proto.NodeInfo {
-		return proto.NodeInfo{
-			Type:   typ,
-			Addr:   xnaddr(laddr),
-			UUID:   proto.UUID(typ, num),
-			State:  state,
-			IdTime: idtime,
-		}
-	}
-
-	// shortcut for nodetab change
-	node := func(where string, laddr string, typ proto.NodeType, num int32, state proto.NodeState, idtime proto.IdTime) *eventNodeTab {
-		return &eventNodeTab{
-			Where:    where,
-			NodeInfo: nodei(laddr, typ, num, state, idtime),
-		}
-	}
-
 	// XXX -> M = testenv.NewMaster("m")  (mkhost, chan, register to tracer ...)
 	// XXX ----//---- S, C
 
@@ -230,7 +182,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// M starts listening
 	tM.Expect(netlisten("m:1"))
-	tM.Expect(node("m", "m:1", proto.MASTER, 1, proto.RUNNING, proto.IdTimeNone))
+	tM.Expect(δnode("m", "m:1", proto.MASTER, 1, proto.RUNNING, proto.IdTimeNone))
 	tM.Expect(clusterState("m", proto.ClusterRecovering))
 
 	// TODO create C; C tries connect to master - rejected ("not yet operational")
@@ -248,7 +200,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTime:		proto.IdTimeNone,
 	}))
 
-	tM.Expect(node("m", "s:1", proto.STORAGE, 1, proto.PENDING, 0.01))
+	tM.Expect(δnode("m", "s:1", proto.STORAGE, 1, proto.PENDING, 0.01))
 
 	tSM.Expect(conntx("m:2", "s:2", 1, &proto.AcceptIdentification{
 		NodeType:	proto.MASTER,
@@ -290,7 +242,7 @@ func TestMasterStorage(t *testing.T) {
 
 	// trace
 
-	tM.Expect(node("m", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
+	tM.Expect(δnode("m", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
 	xwait(wg)
 
 	// XXX M.partTab <- S1
@@ -362,7 +314,7 @@ func TestMasterStorage(t *testing.T) {
 		IdTime:		proto.IdTimeNone,
 	}))
 
-	tM.Expect(node("m", "", proto.CLIENT, 1, proto.RUNNING, 0.02))
+	tM.Expect(δnode("m", "", proto.CLIENT, 1, proto.RUNNING, 0.02))
 
 	tCM.Expect(conntx("m:3", "c:1", 1, &proto.AcceptIdentification{
 		NodeType:	proto.MASTER,
@@ -393,9 +345,9 @@ func TestMasterStorage(t *testing.T) {
 		},
 	}))
 
-	tMC.Expect(node("c", "m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone))
-	tMC.Expect(node("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
-	tMC.Expect(node("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
+	tMC.Expect(δnode("c", "m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone))
+	tMC.Expect(δnode("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
+	tMC.Expect(δnode("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
 
 
 	// ----------------------------------------

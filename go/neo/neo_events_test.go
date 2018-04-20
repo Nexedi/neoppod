@@ -88,6 +88,55 @@ func masterStartReady(where string, ready bool) *eventMStartReady {
 
 // TODO eventPartTab
 
+// ---- shortcuts ----
+
+// shortcut for net connect event
+func netconnect(src, dst, dialed string) *eventNetConnect {
+	return &eventNetConnect{Src: src, Dst: dst, Dialed: dialed}
+}
+
+func netlisten(laddr string) *eventNetListen {
+	return &eventNetListen{Laddr: laddr}
+}
+
+// shortcut for net tx event over nodelink connection
+func conntx(src, dst string, connid uint32, msg proto.Msg) *eventNeoSend {
+	return &eventNeoSend{Src: src, Dst: dst, ConnID: connid, Msg: msg}
+}
+
+// shortcut for address
+func xnaddr(addr string) proto.Address {
+	if addr == "" {
+		return proto.Address{}
+	}
+	// during testing we pretend addr is always of host:port form
+	a, err := proto.AddrString("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
+// shortcut for NodeInfo
+func nodei(laddr string, typ proto.NodeType, num int32, state proto.NodeState, idtime proto.IdTime) proto.NodeInfo {
+	return proto.NodeInfo{
+		Type:   typ,
+		Addr:   xnaddr(laddr),
+		UUID:   proto.UUID(typ, num),
+		State:  state,
+		IdTime: idtime,
+	}
+}
+
+// shortcut for nodetab change
+func δnode(where string, laddr string, typ proto.NodeType, num int32, state proto.NodeState, idtime proto.IdTime) *eventNodeTab {
+	return &eventNodeTab{
+		Where:    where,
+		NodeInfo: nodei(laddr, typ, num, state, idtime),
+	}
+}
+
+
 // ---- events routing ----
 
 // EventRouter implements NEO-specific routing of events to trace test channels.

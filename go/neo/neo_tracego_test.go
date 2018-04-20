@@ -31,6 +31,8 @@ import (
 )
 
 // TraceCollector connects to NEO-specific trace points via probes and sends events to dispatcher.
+//
+// XXX naming -> GoTracer	(and PyTracer for NEO/py)
 type TraceCollector struct {
 	pg *tracing.ProbeGroup
 	d  interface { Dispatch(interface{}) }
