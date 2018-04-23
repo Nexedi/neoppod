@@ -122,6 +122,3 @@ func (t *TraceCollector) traceMasterStartReady(m *Master, ready bool) {
 	where := t.node2Name[m.node]
 	t.d.Dispatch(&eventMStartReady{where, ready})
 }
-
-// ----------------------------------------
-

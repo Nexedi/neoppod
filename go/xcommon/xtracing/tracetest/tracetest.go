@@ -66,6 +66,7 @@
 //
 //
 // XXX more text describing how to use the package.
+// XXX link to example.
 //
 //
 // XXX say that checker will detect deadlock if there is no event or it or
