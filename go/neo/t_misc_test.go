@@ -18,6 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package neo
+// misc testing utilities.
 
 import (
 	"context"

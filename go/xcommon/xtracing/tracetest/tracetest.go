@@ -349,6 +349,29 @@ func (d *EventDispatcher) Dispatch(event interface{}) {
 	outch := d.rt.Route(event)
 	// XXX if nil?
 
+	// TODO it is possible to emperically detect here if a test incorrectly
+	// decomposed its system into serial streams: consider unrelated to each
+	// other events A and B are incorrectly routed to the same channel. It
+	// could be so happenning that the order of checks on the test side is
+	// almost always correct and so the error is not visible. However
+	//
+	//	if we add delays to delivery of either A or B
+	//	and test both combinations
+	//
+	// we will for sure detect the error as, if A and B are indeed
+	// unrelated, one of the delay combination will result in events
+	// delivered to test in different to what it expects order.
+	//
+	// the time for delay could be taken as follows:
+	//
+	//	- run the test without delay; collect δt between events on particular stream
+	//	- take delay = max(δt)·10
+	//
+	// to make sure there is indeed no different orderings possible on the
+	// stream, rerun the test N(event-on-stream) times, and during i'th run
+	// delay i'th event.
+
+
 	// TODO timeout: deadlock? (print all-in-flight events on timout)
 	// XXX  or better ^^^ to do on receiver side?
 	//

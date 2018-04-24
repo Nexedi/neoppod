@@ -154,6 +154,13 @@ type EventRouter struct {
 	byNode map[string /*host*/]*tracetest.SyncChan
 
 	// state on host changes. Takes precendece over byNode.
+	//
+	// XXX not needed? ( I was once considering state change events on C to
+	//	be routed to MC, because state change on C is due to M sends.
+	//	However everything is correct if we put those C state changes on to
+	//	byNode("C") and simply verify events on tMC and then tC in that order.
+	//	keeping events local to C on tC, not tMC helps TestCluster to
+	//	organize trace channels in uniform way )
 	byState map[string /*host*/]*tracetest.SyncChan
 
 	// event on a-b link
@@ -264,7 +271,7 @@ func (r *EventRouter) Route(event interface{}) (dst *tracetest.SyncChan) {
 			break // link not branched
 		}
 
-		// now as we ldst.a corresponds to who was dialer and ldst.b
+		// now as ldst.a corresponds to who was dialer and ldst.b
 		// corresponds to who was listener, we can route by ConnID.
 		// (see neo.newNodeLink for details)
 		if ev.ConnID % 2 == 1 {
@@ -315,6 +322,8 @@ func (r *EventRouter) BranchNode(host string, dst *tracetest.SyncChan) {
 }
 
 // BranchState branches events corresponding to state changes on host.
+//
+// XXX not needed?
 func (r *EventRouter) BranchState(host string, dst *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

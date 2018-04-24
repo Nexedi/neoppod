@@ -97,6 +97,73 @@ func (m *tMaster) Run(ctx context.Context) error {
 
 // ----------------------------------------
 
+/*
+func TestMasterStorage0(t0 *testing.T) {
+	t := NewTestCluster(t0, "abc1")
+	defer t.Stop()
+
+	M := t.NewMaster("m")
+	S := t.NewStorage("s")	//, "m:1")	// XXX do we need to provide Mlist here?
+	C := t.NewClient("c")
+
+
+	tM  := t.Checker("m.main")
+	tMS := t.Checker("m-s")
+	tSM := t.Checker("s-m")
+
+	// M starts listening
+	tM.Expect(netlisten("m:1"))
+	tM.Expect(δnode("m", "m:1", proto.MASTER, 1, proto.RUNNING, proto.IdTimeNone))
+	tM.Expect(clusterState("m", proto.ClusterRecovering))
+
+	// TODO create C; C tries connect to master - rejected ("not yet operational")
+
+	// S starts listening
+	tS.Expect(netlisten("s:1"))
+
+	// S connects M
+	tSM.Expect(netconnect("s:2", "m:2",  "m:1"))
+	tSM.Expect(conntx("s:2", "m:2", 1, &proto.RequestIdentification{
+		NodeType:	proto.STORAGE,
+		UUID:		0,
+		Address:	xnaddr("s:1"),
+		ClusterName:	"abc1",
+		IdTime:		proto.IdTimeNone,
+	}))
+
+	tM.Expect(δnode("m", "s:1", proto.STORAGE, 1, proto.PENDING, 0.01))
+
+	tSM.Expect(conntx("m:2", "s:2", 1, &proto.AcceptIdentification{
+		NodeType:	proto.MASTER,
+		MyUUID:		proto.UUID(proto.MASTER, 1),
+		NumPartitions:	1,
+		NumReplicas:	0,
+		YourUUID:	proto.UUID(proto.STORAGE, 1),
+	}))
+
+	// TODO test ID rejects (uuid already registered, ...)
+
+	// M starts recovery on S
+	tMS.Expect(conntx("m:2", "s:2", 0, &proto.Recovery{}))
+	tMS.Expect(conntx("s:2", "m:2", 0, &proto.AnswerRecovery{
+		// empty new node
+		PTid:		0,
+		BackupTid:	proto.INVALID_TID,
+		TruncateTid:	proto.INVALID_TID,
+	}))
+
+	tMS.Expect(conntx("m:2", "s:2", 2, &proto.AskPartitionTable{}))
+	tMS.Expect(conntx("s:2", "m:2", 2, &proto.AnswerPartitionTable{
+		PTid:		0,
+		RowList:	[]proto.RowInfo{},
+	}))
+
+	// M ready to start: new cluster, no in-progress S recovery
+	tM.Expect(masterStartReady("m", true))
+
+}
+*/
+
 // M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
 func TestMasterStorage(t *testing.T) {
 	rt	 := NewEventRouter()
@@ -117,16 +184,16 @@ func TestMasterStorage(t *testing.T) {
 
 	cM  := tracetest.NewSyncChan("m.main") // trace of events local to M
 	cS  := tracetest.NewSyncChan("s.main") // trace of events local to S XXX with cause root also on S
-//	cC  := tracetest.NewSyncChan("c.main")
+	cC  := tracetest.NewSyncChan("c.main")
 	cMS := tracetest.NewSyncChan("m-s")    // trace of events with cause root being m -> s send
 	cSM := tracetest.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
-	cMC := tracetest.NewSyncChan("m-c")	   // ----//---- m -> c
+	cMC := tracetest.NewSyncChan("m-c")    // ----//---- m -> c
 	cCM := tracetest.NewSyncChan("c-m")    // ----//---- c -> m
 	cCS := tracetest.NewSyncChan("c-s")    // ----//---- c -> s
 
 	tM := tracetest.NewEventChecker(t, dispatch, cM)
 	tS := tracetest.NewEventChecker(t, dispatch, cS)
-//	tC := tracetest.NewEventChecker(t, dispatch, cC)	// XXX no need
+	tC := tracetest.NewEventChecker(t, dispatch, cC)
 	tMS := tracetest.NewEventChecker(t, dispatch, cMS)
 	tSM := tracetest.NewEventChecker(t, dispatch, cSM)
 	tMC := tracetest.NewEventChecker(t, dispatch, cMC)
@@ -139,8 +206,9 @@ func TestMasterStorage(t *testing.T) {
 	rt.BranchLink("s-m", cSM, cMS)
 	rt.BranchLink("c-m", cCM, cMC)
 	rt.BranchLink("c-s", cCS, rt.defaultq /* S never pushes to C */)
-	rt.BranchState("s", cMS) // state on S is controlled by M
-	rt.BranchState("c", cMC) // state on C is controlled by M
+//	rt.BranchState("s", cMS) // state on S is controlled by M
+//	rt.BranchState("c", cMC) // state on C is controlled by M
+	rt.BranchNode("c", cC)
 
 	// cluster nodes
 	M := tNewMaster("abc1", ":1", Mhost)
@@ -345,9 +413,9 @@ func TestMasterStorage(t *testing.T) {
 		},
 	}))
 
-	tMC.Expect(δnode("c", "m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone))
-	tMC.Expect(δnode("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
-	tMC.Expect(δnode("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
+	tC.Expect(δnode("c", "m:1", proto.MASTER,  1, proto.RUNNING, proto.IdTimeNone))
+	tC.Expect(δnode("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
+	tC.Expect(δnode("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
 
 
 	// ----------------------------------------
