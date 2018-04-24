@@ -55,7 +55,9 @@ func TestMasterStorage0(t0 *testing.T) {
 	defer t.Stop()
 
 	M := t.NewMaster("m")
-	S := t.NewStorage("s")	//, "m:1")	// XXX do we need to provide Mlist here?
+	//zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
+	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
+	S := t.NewStorage("s", "m:1", zback)	// XXX do we need to provide Mlist here?
 	C := t.NewClient("c")
 
 

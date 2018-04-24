@@ -167,18 +167,17 @@ func (t *TestCluster) registerNewNode(name string) *tNode {
 // XXX error of creating py process?
 func (t *TestCluster) NewMaster(name string) ITestMaster {
 	node := t.registerNewNode(name)
-	//...	XXX
-
-	m := tNewMaster(t.name, ":1", node.net)
-	return m
+	return tNewMaster(t.name, ":1", node.net)
 }
 
-func (t *TestCluster) NewStorage(node string) ITestStorage {
-	panic("TODO")
+func (t *TestCluster) NewStorage(name, masterAddr string, back storage.Backend) ITestStorage {
+	node := t.registerNewNode(name)
+	return tNewStorage(t.name, masterAddr, ":1", node.net, back)
 }
 
-func (t *TestCluster) NewClient(node string) ITestClient {
-	panic("TODO")
+func (t *TestCluster) NewClient(name, masterAddr string) ITestClient {
+	node := t.registerNewNode(name)
+	return newClient(t.name, masterAddr, node.net)
 }
 
 
