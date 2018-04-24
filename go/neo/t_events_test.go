@@ -338,9 +338,12 @@ func (r *EventRouter) BranchState(host string, dst *tracetest.SyncChan) {
 // BranchLink branches events corresponding to link in between a-b.
 //
 // Link should be of "a-b" form with b listening and a dialing.
+// XXX do we need to require that b listens / a dials?
 //
 // Event with networking cause root coming from a go to dsta, and with
 // networking cause root coming from b - go to dstb.
+//
+// XXX extend to support multiple ongoing streams (e.g. prefetch) ?
 func (r *EventRouter) BranchLink(link string, dsta, dstb *tracetest.SyncChan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

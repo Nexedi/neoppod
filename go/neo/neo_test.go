@@ -34,7 +34,6 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	"lab.nexedi.com/kirr/neo/go/neo/storage"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
@@ -49,53 +48,6 @@ import (
 	"time"
 )
 
-// test-wrapper around Storage - to automatically listen by address, not provided listener.
-type tStorage struct {
-	*Storage
-	serveAddr string
-}
-
-func tNewStorage(clusterName, masterAddr, serveAddr string, net xnet.Networker, back storage.Backend) *tStorage {
-	return &tStorage{
-		Storage:   NewStorage(clusterName, masterAddr, net, back),
-		serveAddr: serveAddr,
-	}
-}
-
-func (s *tStorage) Run(ctx context.Context) error {
-	l, err := s.node.Net.Listen(s.serveAddr)
-	if err != nil {
-		return err
-	}
-
-	return s.Storage.Run(ctx, l)
-}
-
-// test-wrapper around Master - to automatically listen by address, not provided listener.
-type tMaster struct {
-	*Master
-	serveAddr string
-}
-
-func tNewMaster(clusterName, serveAddr string, net xnet.Networker) *tMaster {
-	return &tMaster{
-		Master:   NewMaster(clusterName, net),
-		serveAddr: serveAddr,
-	}
-}
-
-func (m *tMaster) Run(ctx context.Context) error {
-	l, err := m.node.Net.Listen(m.serveAddr)
-	if err != nil {
-		return err
-	}
-
-	return m.Master.Run(ctx, l)
-}
-
-
-
-// ----------------------------------------
 
 /*
 func TestMasterStorage0(t0 *testing.T) {
@@ -107,7 +59,8 @@ func TestMasterStorage0(t0 *testing.T) {
 	C := t.NewClient("c")
 
 
-	tM  := t.Checker("m.main")
+	tM  := t.Checker("m")
+	tS  := t.Checker("s")
 	tMS := t.Checker("m-s")
 	tSM := t.Checker("s-m")
 
