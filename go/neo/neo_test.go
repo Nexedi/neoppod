@@ -49,160 +49,42 @@ import (
 )
 
 
-/*
-func TestMasterStorage0(t0 *testing.T) {
+// M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
+func TestMasterStorage(t0 *testing.T) {
 	t := NewTestCluster(t0, "abc1")
 	defer t.Stop()
 
 	M := t.NewMaster("m")
-	//zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
+	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
 	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
 	S := t.NewStorage("s", "m:1", zback)	// XXX do we need to provide Mlist here?
-	C := t.NewClient("c")
+	C := t.NewClient("c", "m:1")
 
+	// start nodes		XXX move starting to TestCluster?
+	gwg, gctx := errgroup.WithContext(bg)
+	//defer xwait(gwg)	XXX not yet correctly stopped on context cancel
+
+	gwg.Go(func() error {
+		return M.Run(gctx)
+	})
+	gwg.Go(func() error {
+		return S.Run(gctx)
+	})
+	gwg.Go(func() error {
+		return C.run(gctx)
+	})
 
 	tM  := t.Checker("m")
 	tS  := t.Checker("s")
+	tC  := t.Checker("c")
 	tMS := t.Checker("m-s")
 	tSM := t.Checker("s-m")
-
-	// M starts listening
-	tM.Expect(netlisten("m:1"))
-	tM.Expect(δnode("m", "m:1", proto.MASTER, 1, proto.RUNNING, proto.IdTimeNone))
-	tM.Expect(clusterState("m", proto.ClusterRecovering))
-
-	// TODO create C; C tries connect to master - rejected ("not yet operational")
-
-	// S starts listening
-	tS.Expect(netlisten("s:1"))
-
-	// S connects M
-	tSM.Expect(netconnect("s:2", "m:2",  "m:1"))
-	tSM.Expect(conntx("s:2", "m:2", 1, &proto.RequestIdentification{
-		NodeType:	proto.STORAGE,
-		UUID:		0,
-		Address:	xnaddr("s:1"),
-		ClusterName:	"abc1",
-		IdTime:		proto.IdTimeNone,
-	}))
-
-	tM.Expect(δnode("m", "s:1", proto.STORAGE, 1, proto.PENDING, 0.01))
-
-	tSM.Expect(conntx("m:2", "s:2", 1, &proto.AcceptIdentification{
-		NodeType:	proto.MASTER,
-		MyUUID:		proto.UUID(proto.MASTER, 1),
-		NumPartitions:	1,
-		NumReplicas:	0,
-		YourUUID:	proto.UUID(proto.STORAGE, 1),
-	}))
-
-	// TODO test ID rejects (uuid already registered, ...)
-
-	// M starts recovery on S
-	tMS.Expect(conntx("m:2", "s:2", 0, &proto.Recovery{}))
-	tMS.Expect(conntx("s:2", "m:2", 0, &proto.AnswerRecovery{
-		// empty new node
-		PTid:		0,
-		BackupTid:	proto.INVALID_TID,
-		TruncateTid:	proto.INVALID_TID,
-	}))
-
-	tMS.Expect(conntx("m:2", "s:2", 2, &proto.AskPartitionTable{}))
-	tMS.Expect(conntx("s:2", "m:2", 2, &proto.AnswerPartitionTable{
-		PTid:		0,
-		RowList:	[]proto.RowInfo{},
-	}))
-
-	// M ready to start: new cluster, no in-progress S recovery
-	tM.Expect(masterStartReady("m", true))
-
-}
-*/
-
-// M drives cluster with 1 S & C through recovery -> verification -> service -> shutdown
-func TestMasterStorage(t *testing.T) {
-	rt	 := NewEventRouter()
-	dispatch := tracetest.NewEventDispatcher(rt)
-	tracer   := NewTraceCollector(dispatch)
-
-	net := pipenet.New("testnet")	// test network
-
-	tracer.Attach()
-	defer tracer.Detach()
-
-	// XXX -> M = testenv.NewMaster("m")  (mkhost, chan, register to tracer ...)
-	// XXX ----//---- S, C
-
-	Mhost := xnet.NetTrace(net.Host("m"), tracer)
-	Shost := xnet.NetTrace(net.Host("s"), tracer)
-	Chost := xnet.NetTrace(net.Host("c"), tracer)
-
-	cM  := tracetest.NewSyncChan("m.main") // trace of events local to M
-	cS  := tracetest.NewSyncChan("s.main") // trace of events local to S XXX with cause root also on S
-	cC  := tracetest.NewSyncChan("c.main")
-	cMS := tracetest.NewSyncChan("m-s")    // trace of events with cause root being m -> s send
-	cSM := tracetest.NewSyncChan("s-m")    // trace of events with cause root being s -> m send
-	cMC := tracetest.NewSyncChan("m-c")    // ----//---- m -> c
-	cCM := tracetest.NewSyncChan("c-m")    // ----//---- c -> m
-	cCS := tracetest.NewSyncChan("c-s")    // ----//---- c -> s
-
-	tM := tracetest.NewEventChecker(t, dispatch, cM)
-	tS := tracetest.NewEventChecker(t, dispatch, cS)
-	tC := tracetest.NewEventChecker(t, dispatch, cC)
-	tMS := tracetest.NewEventChecker(t, dispatch, cMS)
-	tSM := tracetest.NewEventChecker(t, dispatch, cSM)
-	tMC := tracetest.NewEventChecker(t, dispatch, cMC)
-	tCM := tracetest.NewEventChecker(t, dispatch, cCM)
-	tCS := tracetest.NewEventChecker(t, dispatch, cCS)
-
-
-	rt.BranchNode("m", cM)
-	rt.BranchNode("s", cS)
-	rt.BranchLink("s-m", cSM, cMS)
-	rt.BranchLink("c-m", cCM, cMC)
-	rt.BranchLink("c-s", cCS, rt.defaultq /* S never pushes to C */)
-//	rt.BranchState("s", cMS) // state on S is controlled by M
-//	rt.BranchState("c", cMC) // state on C is controlled by M
-	rt.BranchNode("c", cC)
-
-	// cluster nodes
-	M := tNewMaster("abc1", ":1", Mhost)
-	zstor := xfs1stor("../zodb/storage/fs1/testdata/1.fs")
-	zback := xfs1back("../zodb/storage/fs1/testdata/1.fs")
-	S := tNewStorage("abc1", "m:1", ":1", Shost, zback)
-	C := newClient("abc1", "m:1", Chost)
-
-	// let tracer know how to map state addresses to node names
-	tracer.RegisterNode(M.node, "m")	// XXX better Mhost.Name() ?
-	tracer.RegisterNode(S.node, "s")
-	tracer.RegisterNode(C.node, "c")
-
-
-
-	gwg := &errgroup.Group{}
+	tCM := t.Checker("c-m")
+	tMC := t.Checker("m-c")
+	tCS := t.Checker("c-s")
 
 	// ----------------------------------------
 
-	// start master
-	Mclock := &vclock{}
-	M.monotime = Mclock.monotime
-	Mctx, Mcancel := context.WithCancel(bg)
-	gox(gwg, func() {
-		err := M.Run(Mctx)
-		fmt.Println("M err: ", err)
-		exc.Raiseif(err)
-	})
-
-	// start storage
-	Sctx, Scancel := context.WithCancel(bg)
-	gox(gwg, func() {
-		err := S.Run(Sctx)
-		fmt.Println("S err: ", err)
-		exc.Raiseif(err)
-	})
-
-	// trace
-
 	// M starts listening
 	tM.Expect(netlisten("m:1"))
 	tM.Expect(δnode("m", "m:1", proto.MASTER, 1, proto.RUNNING, proto.IdTimeNone))
@@ -213,7 +95,9 @@ func TestMasterStorage(t *testing.T) {
 	// S starts listening
 	tS.Expect(netlisten("s:1"))
 
+
 	// S connects M
+	tSM.Expect(netdial("s", "m:1"))
 	tSM.Expect(netconnect("s:2", "m:2",  "m:1"))
 	tSM.Expect(conntx("s:2", "m:2", 1, &proto.RequestIdentification{
 		NodeType:	proto.STORAGE,
@@ -222,6 +106,7 @@ func TestMasterStorage(t *testing.T) {
 		ClusterName:	"abc1",
 		IdTime:		proto.IdTimeNone,
 	}))
+
 
 	tM.Expect(δnode("m", "s:1", proto.STORAGE, 1, proto.PENDING, 0.01))
 
@@ -252,7 +137,6 @@ func TestMasterStorage(t *testing.T) {
 
 	// M ready to start: new cluster, no in-progress S recovery
 	tM.Expect(masterStartReady("m", true))
-
 
 	// ----------------------------------------
 
@@ -312,22 +196,12 @@ func TestMasterStorage(t *testing.T) {
 	// TODO S join while service
 	// TODO M.Stop while service
 
-
 	// ----------------------------------------
 
-	// XXX try starting client from the beginning
-
-	// start client
-	Cctx, Ccancel := context.WithCancel(bg)
-	gox(gwg, func() {
-		err := C.run(Cctx)
-		fmt.Println("C err: ", err)
-		exc.Raiseif(err)
-	})
-
-	// trace
+	// trace of client start
 
 	// C connects M
+	tCM.Expect(netdial("c", "m:1"))
 	tCM.Expect(netconnect("c:1", "m:3",  "m:1"))
 	tCM.Expect(conntx("c:1", "m:3", 1, &proto.RequestIdentification{
 		NodeType:	proto.CLIENT,
@@ -372,7 +246,6 @@ func TestMasterStorage(t *testing.T) {
 	tC.Expect(δnode("c", "s:1", proto.STORAGE, 1, proto.RUNNING, 0.01))
 	tC.Expect(δnode("c", "",    proto.CLIENT,  1, proto.RUNNING, 0.02))
 
-
 	// ----------------------------------------
 
 	// C asks M about last tid	XXX better master sends it itself on new client connected
@@ -414,6 +287,7 @@ func TestMasterStorage(t *testing.T) {
 	// trace
 
 	// ... -> connects to S
+	tCS.Expect(netdial("c", "s:1"))
 	tCS.Expect(netconnect("c:2", "s:3",  "s:1"))
 	tCS.Expect(conntx("c:2", "s:3", 1, &proto.RequestIdentification{
 		NodeType:	proto.CLIENT,
@@ -449,7 +323,6 @@ func TestMasterStorage(t *testing.T) {
 
 
 	xwait(wg)
-
 
 	// ----------------------------------------
 
@@ -494,7 +367,7 @@ func TestMasterStorage(t *testing.T) {
 	// XXX hack: disable tracing early so that C.Load() calls do not deadlock
 	// TODO refactor cluster creation into func
 	// TODO move client all loading tests into separate test where tracing will be off
-	tracer.Detach()
+	t.gotracer.Detach()
 
 	for {
 		_, dataIter, err := ziter.NextTxn(bg)
@@ -542,9 +415,6 @@ func TestMasterStorage(t *testing.T) {
 	}
 
 
-
-
-
 	// TODO S.Stop() or Scancel()
 	// expect:
 	// M.nodeTab -= S
@@ -557,12 +427,6 @@ func TestMasterStorage(t *testing.T) {
 	// (M needs to resend to all storages recovery messages just from start)
 
 	time.Sleep(100*time.Millisecond) // XXX temp so net tx'ers could actually tx
-	return
-
-	Mcancel()	// FIXME ctx cancel not fully handled
-	Scancel()	// ---- // ----
-	Ccancel()	// ---- // ----
-	xwait(gwg)
 }
 
 

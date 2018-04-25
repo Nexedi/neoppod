@@ -35,6 +35,12 @@ import (
 // NOTE to ease testing we use strings only to reprsent addresses or where
 // event happenned - not e.g. net.Addr or *NodeTab.
 
+// xnet.TraceDial
+// event: network dial starts
+type eventNetDial struct {
+	Dialer, Addr string
+}
+
 // xnet.TraceConnect
 // event: network connection was made
 type eventNetConnect struct {
@@ -91,6 +97,10 @@ func masterStartReady(where string, ready bool) *eventMStartReady {
 // TODO eventPartTab
 
 // ---- shortcuts ----
+
+func netdial(dialer, addr string) *eventNetDial {
+	return &eventNetDial{Dialer: dialer, Addr: addr}
+}
 
 // shortcut for net connect event
 func netconnect(src, dst, dialed string) *eventNetConnect {
@@ -229,9 +239,19 @@ func (r *EventRouter) Route(event interface{}) (dst *tracetest.SyncChan) {
 	defer r.mu.Unlock()
 
 	switch ev := event.(type) {
+	default:
+		panic(fmt.Sprintf("event router: unexpected event %T", ev))
+
 	// networking
 	case *eventNetListen:
 		dst = r.byNode[host(ev.Laddr)]
+
+	case *eventNetDial:
+		link := ev.Dialer + "-" + host(ev.Addr)
+		ldst := r.byLink[link]
+		if ldst != nil {
+			dst = ldst.a
+		}
 
 	case *eventNetConnect:
 		link := host(ev.Src) + "-" + host(ev.Dst)

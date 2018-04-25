@@ -86,6 +86,12 @@ func (t *TraceCollector) RegisterNode(node *NodeApp, name string) {
 	t.clusterState2Owner[&node.ClusterState] = name
 }
 
+func (t *TraceCollector) TraceNetDial(ev *xnet.TraceDial) {
+	t.d.Dispatch(&eventNetDial{
+		Dialer: ev.Dialer,
+		Addr:   ev.Addr,
+	})
+}
 
 func (t *TraceCollector) TraceNetConnect(ev *xnet.TraceConnect)	{
 	t.d.Dispatch(&eventNetConnect{

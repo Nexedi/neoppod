@@ -32,6 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest"
 
 	"lab.nexedi.com/kirr/neo/go/neo/storage"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
 
@@ -50,7 +51,7 @@ type TestCluster struct {
 	nodeTab	  map[string/*node*/]*tNode
 	checkTab  map[string/*node*/]*tracetest.EventChecker
 
-	ttest	testing.TB	// original testing env this cluster was created at
+	testing.TB	// original testing env this cluster was created at
 }
 
 // tNode represents information about a test node ... XXX
@@ -59,9 +60,20 @@ type tNode struct {
 }
 
 // XXX stub
-type ITestMaster interface {}
-type ITestStorage interface {}
-type ITestClient interface {}
+type ITestMaster interface {
+	Run(ctx context.Context) error
+	Start() error
+}
+
+type ITestStorage interface {
+	Run(ctx context.Context) error
+}
+
+type ITestClient interface {
+	run(ctx context.Context) error
+
+	zodb.IStorageDriver
+}
 
 // NewTestCluster creates new NEO test cluster.
 //
@@ -77,7 +89,7 @@ func NewTestCluster(ttest testing.TB, name string) *TestCluster {
 		checkTab: make(map[string]*tracetest.EventChecker),
 
 		//...			XXX
-		ttest:	ttest,
+		TB:	ttest,
 	}
 
 	t.erouter	= NewEventRouter()
@@ -134,7 +146,7 @@ func (t *TestCluster) registerNewNode(name string) *tNode {
 	// tracechecker for events on node
 	c1 := tracetest.NewSyncChan(name) // trace of events local to node
 	t.erouter.BranchNode(name, c1)
-	t.checkTab[name] = tracetest.NewEventChecker(t.ttest, t.edispatch, c1)
+	t.checkTab[name] = tracetest.NewEventChecker(t.TB, t.edispatch, c1)
 
 	// tracecheckers for events on links of all node1-node2 pairs
 	for name2 := range t.nodeTab {
@@ -143,8 +155,8 @@ func (t *TestCluster) registerNewNode(name string) *tNode {
 		// ----//---- node2 -> node1 send
 		c21 := tracetest.NewSyncChan(name2 + "-" + name)
 
-		t12 := tracetest.NewEventChecker(t.ttest, t.edispatch, c12)
-		t21 := tracetest.NewEventChecker(t.ttest, t.edispatch, c21)
+		t12 := tracetest.NewEventChecker(t.TB, t.edispatch, c12)
+		t21 := tracetest.NewEventChecker(t.TB, t.edispatch, c21)
 
 		t.erouter.BranchLink(name + "-" + name2, c12, c21)
 		t.checkTab[name + "-" + name2] = t12
@@ -167,22 +179,33 @@ func (t *TestCluster) registerNewNode(name string) *tNode {
 // XXX error of creating py process?
 func (t *TestCluster) NewMaster(name string) ITestMaster {
 	node := t.registerNewNode(name)
-	return tNewMaster(t.name, ":1", node.net)
+	m := tNewMaster(t.name, ":1", node.net)
+
+	// let tracer know how to map state addresses to node names
+	t.gotracer.RegisterNode(m.node, name)
+
+	return m
 }
 
 func (t *TestCluster) NewStorage(name, masterAddr string, back storage.Backend) ITestStorage {
 	node := t.registerNewNode(name)
-	return tNewStorage(t.name, masterAddr, ":1", node.net, back)
+	s := tNewStorage(t.name, masterAddr, ":1", node.net, back)
+	t.gotracer.RegisterNode(s.node, name)
+	return s
 }
 
 func (t *TestCluster) NewClient(name, masterAddr string) ITestClient {
 	node := t.registerNewNode(name)
-	return newClient(t.name, masterAddr, node.net)
+	c := newClient(t.name, masterAddr, node.net)
+	t.gotracer.RegisterNode(c.node, name)
+	return c
 }
 
 
 
-// test-wrapper around Storage - to automatically listen by address, not provided listener.
+// tStorage is test-wrapper around Storage.
+//
+// - to automatically listen by address, not provided listener.
 type tStorage struct {
 	*Storage
 	serveAddr string
@@ -204,7 +227,7 @@ func (s *tStorage) Run(ctx context.Context) error {
 	return s.Storage.Run(ctx, l)
 }
 
-// test-wrapper around Master
+// tMaster is test-wrapper around Master.
 //
 // - automatically listens by address, not provided listener.
 // - uses virtual clock.
