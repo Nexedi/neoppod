@@ -78,6 +78,7 @@
 package tracetest
 
 import (
+	"flag"
 	"fmt"
 	"sort"
 	"strings"
@@ -87,6 +88,8 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 )
+
+var chatty = flag.Bool("tracetest.v", false, "verbose: print events as they are sent on trace channels")
 
 // SyncChan provides synchronous channel with additional property that send
 // blocks until receiving side explicitly acknowledges message was received and
@@ -104,6 +107,9 @@ type SyncChan struct {
 //
 // if main testing goroutine detects any problem Send panics.	XXX
 func (ch *SyncChan) Send(event interface{}) {
+	if *chatty {
+		fmt.Printf("%s <- %T %v\n", ch.name, event, event)
+	}
 	ack := make(chan bool)
 	ch.msgq <- &SyncMsg{event, ack}
 	ok := <-ack
@@ -284,38 +290,6 @@ func (evc *EventChecker) deadlock(eventp interface{}) {
 
 	evc.t.Fatal(bad)
 }
-
-// XXX goes away? (if there is no happens-before for events - just check them one by one in dedicated goroutines ?)
-/*
-// ExpectPar asks checker to expect next series of events to be from eventExpectV in no particular order
-// XXX naming
-func (tc *TraceChecker) ExpectPar(eventExpectV ...interface{}) {
-	tc.t.Helper()
-
-loop:
-	for len(eventExpectV) > 0 {
-		msg := tc.st.Get1()
-
-		for i, eventExpect := range eventExpectV {
-			if !reflect.DeepEqual(msg.Event, eventExpect) {
-				continue
-			}
-
-			// found matching event - good
-			eventExpectV = append(eventExpectV[:i], eventExpectV[i+1:]...)
-			msg.Ack()	// XXX -> send ack for all only when all collected?
-			continue loop
-		}
-
-		// matching event not found - bad
-		strv := []string{}
-		for _, e := range eventExpectV {
-			strv = append(strv, fmt.Sprintf("%T %v", e, e))
-		}
-		tc.t.Fatalf("expect:\nhave: %T %v\nwant: [%v]", msg.Event, msg.Event, strings.Join(strv, " | "))
-	}
-}
-*/
 
 
 // ----------------------------------------
