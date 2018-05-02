@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import cPickle, pickle, time
+import cPickle, pickle, sys, time
 from bisect import bisect, insort
 from collections import deque
 from cStringIO import StringIO
@@ -32,6 +32,9 @@ from neo.lib.interfaces import implements
 from neo.lib.protocol import BackendNotImplemented, MAX_TID
 
 patch.speedupFileStorageTxnLookup()
+
+FORK = sys.platform != 'win32'
+
 
 class Reference(object):
 
@@ -396,13 +399,70 @@ class ImporterDatabaseManager(DatabaseManager):
         zodb = self.zodb[-1]
         self.zodb_loid = zodb.shift_oid + zodb.next_oid - 1
         self.zodb_tid = self.db.getLastTID(self.zodb_ltid) or 0
-        self._import = self._import()
+        if callable(self._import):
+            self._import = self._import()
 
     def doOperation(self, app):
         if self._import:
             app.newTask(self._import)
 
     def _import(self):
+        u64 = util.u64
+        if FORK:
+            from multiprocessing import Process
+            from ..shared_queue import Queue
+            queue = Queue(1<<24)
+            process = self._import_process = Process(
+                target=lambda: queue(self._iter_zodb()))
+            process.daemon = True
+            process.start()
+        else:
+            queue = self._iter_zodb()
+            process = None
+        object_list = []
+        data_id_list = []
+        for txn in queue:
+            if txn is None:
+                break
+            if len(txn) == 3:
+                oid, data_id, data_tid = txn
+                if data_id is not None:
+                    checksum, data, compression = data_id
+                    data_id = self.holdData(checksum, oid, data, compression)
+                    data_id_list.append(data_id)
+                object_list.append((oid, data_id, data_tid))
+                # Give the main loop the opportunity to process requests
+                # from other nodes. In particular, clients may commit. If the
+                # storage node exits after such commit, and before we actually
+                # update 'obj' with 'object_list', some rows in 'data' may be
+                # unreferenced. This is not a problem because the leak is
+                # solved when resuming the migration.
+                # XXX: The leak was solved by the deduplication,
+                #      but it was disabled by default.
+            else:
+                tid = txn[-1]
+                self.storeTransaction(tid, object_list,
+                    ((x[0] for x in object_list),) + txn,
+                    False)
+                self.releaseData(data_id_list)
+                logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
+                    util.dump(tid), txn[0], txn[1], len(object_list))
+                del object_list[:], data_id_list[:]
+                if self._last_commit + 1 < time.time():
+                    self.commit()
+                self.zodb_tid = u64(tid)
+            yield
+        if process:
+            process.join()
+        self.commit()
+        logging.warning("All data are imported. You should change"
+            " your configuration to use the native backend and restart.")
+        self._import = None
+        for x in """getObject getReplicationTIDList getReplicationObjectList
+                 """.split():
+            setattr(self, x, getattr(self.db, x))
+
+    def _iter_zodb(self):
         p64 = util.p64
         u64 = util.u64
         tid = p64(self.zodb_tid + 1) if self.zodb_tid else None
@@ -412,66 +472,40 @@ class ImporterDatabaseManager(DatabaseManager):
                 zodb_list.append(ZODBIterator(zodb, tid, p64(self.zodb_ltid)))
             except StopIteration:
                 pass
-        tid = None
-        def finish():
-            if tid:
-                self.storeTransaction(tid, object_list, (
-                    (x[0] for x in object_list),
-                    str(txn.user), str(txn.description),
-                    cPickle.dumps(txn.extension),
-                    txn.status == 'p', tid),
-                    False)
-                self.releaseData(data_id_list)
-                logging.debug("TXN %s imported (user=%r, desc=%r, len(oid)=%s)",
-                    util.dump(tid), txn.user, txn.description, len(object_list))
-                del object_list[:], data_id_list[:]
-                if self._last_commit + 1 < time.time():
-                    self.commit()
-                self.zodb_tid = u64(tid)
-        _compress = compress.getCompress(self.compress)
-        object_list = []
-        data_id_list = []
-        while zodb_list:
-            zodb_list.sort()
-            z = zodb_list[0]
-            # Merge transactions with same tid. Only
-            # user/desc/ext from first ZODB are kept.
-            if tid != z.tid:
-                finish()
-                txn = z.transaction
-                tid = txn.tid
-                yield
-            zodb = z.zodb
-            for r in z.transaction:
-                oid = p64(u64(r.oid) + zodb.shift_oid)
-                data_tid = r.data_txn
-                if data_tid or r.data is None:
-                    data_id = None
-                else:
-                    _, compression, data = _compress(zodb.repickle(r.data))
-                    data_id = self.holdData(util.makeChecksum(data), oid, data,
-                                            compression)
-                    data_id_list.append(data_id)
-                object_list.append((oid, data_id, data_tid))
-                # Give the main loop the opportunity to process requests
-                # from other nodes. In particular, clients may commit. If the
-                # storage node exits after such commit, and before we actually
-                # update 'obj' with 'object_list', some rows in 'data' may be
-                # unreferenced. This is not a problem because the leak is
-                # solved when resuming the migration.
-                yield
-            try:
-                z.next()
-            except StopIteration:
-                del zodb_list[0]
-        self._last_commit = 0
-        finish()
-        logging.warning("All data are imported. You should change"
-            " your configuration to use the native backend and restart.")
-        self._import = None
-        for x in """getObject getReplicationTIDList getReplicationObjectList
-                 """.split():
-            setattr(self, x, getattr(self.db, x))
+        if zodb_list:
+            tid = None
+            _compress = compress.getCompress(self.compress)
+            while 1:
+                zodb_list.sort()
+                z = zodb_list[0]
+                # Merge transactions with same tid. Only
+                # user/desc/ext from first ZODB are kept.
+                if tid != z.tid:
+                    if tid:
+                        yield txn
+                    txn = z.transaction
+                    tid = txn.tid
+                    txn = (str(txn.user), str(txn.description),
+                        cPickle.dumps(txn.extension),
+                        txn.status == 'p', tid)
+                zodb = z.zodb
+                for r in z.transaction:
+                    oid = p64(u64(r.oid) + zodb.shift_oid)
+                    data_tid = r.data_txn
+                    if data_tid or r.data is None:
+                        data = None
+                    else:
+                        _, compression, data = _compress(zodb.repickle(r.data))
+                        data = util.makeChecksum(data), data, compression
+                    yield oid, data, data_tid
+                try:
+                    z.next()
+                except StopIteration:
+                    del zodb_list[0]
+                    if not zodb_list:
+                        break
+            yield txn
+        yield
 
     def inZodb(self, oid, tid=None, before_tid=None):
         return oid <= self.zodb_loid and (
@@ -610,7 +644,6 @@ class WriteBack(object):
 
     _changed = False
     _process = None
-    threading = False
 
     def __init__(self, db, storage):
         self._db = db
@@ -631,10 +664,10 @@ class WriteBack(object):
             if self._process:
                 self._event.set()
             else:
-                if self.threading:
-                    from threading import Thread as Process, Event
-                else:
+                if FORK:
                     from multiprocessing import Process, Event
+                else:
+                    from threading import Thread as Process, Event
                 self._event = Event()
                 self._idle = Event()
                 self._stop = Event()

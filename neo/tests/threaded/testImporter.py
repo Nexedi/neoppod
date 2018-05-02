@@ -22,14 +22,12 @@ import transaction, ZODB
 from neo.client.exception import NEOPrimaryMasterLost
 from neo.lib import logging
 from neo.lib.util import u64
-from neo.storage.database import getAdapterKlass, manager
-from neo.storage.database.importer import \
-    Repickler, TransactionRecord, WriteBack
+from neo.storage.database import getAdapterKlass, importer, manager
+from neo.storage.database.importer import Repickler, TransactionRecord
 from .. import expectedFailure, getTempDirectory, random_tree, Patch
 from . import NEOCluster, NEOThreadedTest
 from ZODB import serialize
 from ZODB.FileStorage import FileStorage
-
 
 class Equal:
 
@@ -244,6 +242,7 @@ class ImporterTests(NEOThreadedTest):
             finalCheck(db.open().root()['tree'])
             db.close()
 
+    @unittest.skipUnless(importer.FORK, 'no os.fork')
     def test1(self):
         self._importFromFileStorage()
 
@@ -267,7 +266,7 @@ class ImporterTests(NEOThreadedTest):
         def sleep(orig, seconds):
             self.assertEqual(len(tid_list), 5)
             p.revert()
-        with Patch(WriteBack, threading=True), \
+        with Patch(importer, FORK=False), \
              Patch(TransactionRecord, __init__=__init__), \
              Patch(manager.DatabaseManager, fetchObject=fetchObject), \
              Patch(time, sleep=sleep) as p:
