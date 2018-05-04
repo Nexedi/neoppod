@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from functools import partial
 import zlib
 
 decompress_list = (
@@ -40,7 +39,8 @@ def getCompress(value):
         alg, level = (0, None) if value is True else value
         _compress = zlib.compress
         if level:
-            _compress = partial(_compress, level=level)
+            zlib_compress = _compress
+            _compress = lambda data: zlib_compress(data, level)
         alg += 1
         assert 0 < alg < len(decompress_list), 'invalid compression algorithm'
         def compress(data):

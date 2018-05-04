@@ -55,8 +55,8 @@ class ConfigTests(NEOThreadedTest):
         for kw['compress'] in '9', 'best', 'zlib=0', 'zlib=100':
             self.assertRaises(ConfigurationSyntaxError, databaseFromDict, **kw)
         for compress in valid:
-            with self._db(cluster, compress=compress):
-                pass
+            with self._db(cluster, compress=compress) as db:
+                self.assertEqual((0,0,''), db.storage.app.compress(''))
 
 if __name__ == "__main__":
     unittest.main()
