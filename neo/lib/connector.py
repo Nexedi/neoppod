@@ -78,7 +78,8 @@ class SocketConnector(object):
     def queue(self, data):
         was_empty = not self.queued
         self.queued += data
-        self.queue_size += len(data)
+        for data in data:
+            self.queue_size += len(data)
         return was_empty
 
     def _error(self, op, exc=None):
