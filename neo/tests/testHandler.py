@@ -33,9 +33,9 @@ class HandlerTests(NeoUnitTestBase):
 
     def getFakePacket(self):
         p = Mock({
-            'decode': (),
             '__repr__': 'Fake Packet',
         })
+        p._args = ()
         p.handler_method_name = 'fake_method'
         return p
 
@@ -53,13 +53,6 @@ class HandlerTests(NeoUnitTestBase):
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
-        # raise PacketMalformedError
-        conn.mockCalledMethods = {}
-        def fake(c):
-            raise PacketMalformedError('message')
-        self.setFakeMethod(fake)
-        self.handler.dispatch(conn, packet)
-        self.checkClosed(conn)
         # raise NotReadyError
         conn.mockCalledMethods = {}
         def fake(c):

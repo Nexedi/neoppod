@@ -17,7 +17,7 @@
 import unittest
 import socket
 from . import NeoUnitTestBase
-from neo.lib.util import ReadBuffer, parseNodeAddress
+from neo.lib.util import parseNodeAddress
 
 class UtilTests(NeoUnitTestBase):
 
@@ -39,24 +39,6 @@ class UtilTests(NeoUnitTestBase):
         local_address = lambda port: (('127.0.0.1', port), ('::1', port))
         self.assertIn(parseNodeAddress('localhost'), local_address(0))
         self.assertIn(parseNodeAddress('localhost:10'), local_address(10))
-
-    def testReadBufferRead(self):
-        """ Append some chunk then consume the data """
-        buf = ReadBuffer()
-        self.assertEqual(len(buf), 0)
-        buf.append('abc')
-        self.assertEqual(len(buf), 3)
-        # no enough data
-        self.assertEqual(buf.read(4), None)
-        self.assertEqual(len(buf), 3)
-        buf.append('def')
-        # consume a part
-        self.assertEqual(len(buf), 6)
-        self.assertEqual(buf.read(4), 'abcd')
-        self.assertEqual(len(buf), 2)
-        # consume the rest
-        self.assertEqual(buf.read(3), None)
-        self.assertEqual(buf.read(2), 'ef')
 
 if __name__ == "__main__":
     unittest.main()
