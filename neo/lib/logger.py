@@ -152,7 +152,8 @@ class NEOLogger(Logger):
 
     def _setup(self, filename=None, reset=False):
         from . import protocol as p
-        global uuid_str
+        global packb, uuid_str
+        packb =  p.packb
         uuid_str = p.uuid_str
         if self._db is not None:
             self._db.close()
@@ -250,7 +251,7 @@ class NEOLogger(Logger):
                 '>' if r.outgoing else '<', uuid_str(r.uuid), ip, port)
             msg = r.msg
             if msg is not None:
-                msg = buffer(msg)
+                msg = buffer(msg if type(msg) is bytes else packb(msg))
             q = "INSERT INTO packet VALUES (?,?,?,?,?,?)"
             x = [r.created, nid, r.msg_id, r.code, peer, msg]
         else:
@@ -299,9 +300,14 @@ class NEOLogger(Logger):
 
     def packet(self, connection, packet, outgoing):
         if self._db is not None:
-            body = packet._body
-            if self._max_packet and self._max_packet < len(body):
-                body = None
+            if self._max_packet and self._max_packet < packet.size:
+                args = None
+            else:
+                args = packet._args
+                try:
+                    hash(args)
+                except TypeError:
+                    args = packb(args)
             self._queue(PacketRecord(
                 created=time(),
                 msg_id=packet._id,
@@ -309,7 +315,7 @@ class NEOLogger(Logger):
                 outgoing=outgoing,
                 uuid=connection.getUUID(),
                 addr=connection.getAddress(),
-                msg=body))
+                msg=args))
 
     def node(self, *cluster_nid):
         name = self.name and str(self.name)

@@ -23,7 +23,7 @@ NOBODY = []
 class _ConnectionClosed(object):
 
     handler_method_name = 'connectionClosed'
-    decode = tuple
+    _args = ()
 
     class getId(object):
         def __eq__(self, other):
