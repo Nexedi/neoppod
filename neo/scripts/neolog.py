@@ -157,27 +157,49 @@ class Log(object):
         for x in 'uuid_str', 'Packets', 'PacketMalformedError':
             setattr(self, x, g[x])
         x = {}
+        try:
+            Unpacker = g['Unpacker']
+        except KeyError:
+            unpackb = None
+        else:
+            from msgpack import ExtraData, UnpackException
+            def unpackb(data):
+                u = Unpacker()
+                u.feed(data)
+                data = u.unpack()
+                if u.read_bytes(1):
+                    raise ExtraData
+                return data
+            self.PacketMalformedError = UnpackException
+        self.unpackb = unpackb
         if self._decode > 1:
-            PStruct = g['PStruct']
-            PBoolean = g['PBoolean']
-            def hasData(item):
-                items = item._items
-                for i, item in enumerate(items):
-                    if isinstance(item, PStruct):
-                        j = hasData(item)
-                        if j:
-                            return (i,) + j
-                    elif (isinstance(item, PBoolean)
-                          and item._name == 'compression'
-                          and i + 2 < len(items)
-                          and items[i+2]._name == 'data'):
-                        return i,
-            for p in self.Packets.itervalues():
-                if p._fmt is not None:
-                    path = hasData(p._fmt)
-                    if path:
-                        assert not hasattr(p, '_neolog'), p
-                        x[p._code] = path
+            try:
+                PStruct = g['PStruct']
+            except KeyError:
+                for p in self.Packets.itervalues():
+                    data_path = getattr(p, 'data_path', (None,))
+                    if p._code >> 15 == data_path[0]:
+                        x[p._code] = data_path[1:]
+            else:
+                PBoolean = g['PBoolean']
+                def hasData(item):
+                    items = item._items
+                    for i, item in enumerate(items):
+                        if isinstance(item, PStruct):
+                            j = hasData(item)
+                            if j:
+                                return (i,) + j
+                        elif (isinstance(item, PBoolean)
+                              and item._name == 'compression'
+                              and i + 2 < len(items)
+                              and items[i+2]._name == 'data'):
+                            return i,
+                for p in self.Packets.itervalues():
+                    if p._fmt is not None:
+                        path = hasData(p._fmt)
+                        if path:
+                            assert not hasattr(p, '_neolog'), p
+                            x[p._code] = path
         self._getDataPath = x.get
 
         try:
@@ -215,11 +237,13 @@ class Log(object):
         if body is not None:
             log = getattr(p, '_neolog', None)
             if log or self._decode:
-                p = p()
-                p._id = msg_id
-                p._body = body
                 try:
-                    args = p.decode()
+                    if self.unpackb:
+                        args = self.unpackb(body)
+                    else:
+                        p = p()
+                        p._body = body
+                        args = p.decode()
                 except self.PacketMalformedError:
                     msg.append("Can't decode packet")
                 else:

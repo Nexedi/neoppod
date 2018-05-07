@@ -73,7 +73,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.service.answerPack(conn2, False)
         packet = self.checkNotifyPacket(client_conn, Packets.AnswerPack)
         # TODO: verify packet peer id
-        self.assertTrue(packet.decode()[0])
+        self.assertTrue(packet._args[0])
         self.assertEqual(self.app.packing, None)
 
 if __name__ == '__main__':
