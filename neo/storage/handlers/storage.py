@@ -212,7 +212,7 @@ class StorageOperationHandler(EventHandler):
                         # Sending such packet does not mark the connection
                         # for writing if there's too little data in the buffer.
                         conn.send(Packets.AddTransaction(tid, user,
-                            desc, ext, packed, ttid, oid_list), msg_id)
+                            desc, ext, bool(packed), ttid, oid_list), msg_id)
                         # To avoid delaying several connections simultaneously,
                         # and also prevent the backend from scanning different
                         # parts of the DB at the same time, we ask the
@@ -248,7 +248,7 @@ class StorageOperationHandler(EventHandler):
                 for serial, oid in object_list:
                     oid_set = object_dict.get(serial)
                     if oid_set:
-                        if type(oid_set) is list:
+                        if type(oid_set) is tuple:
                             object_dict[serial] = oid_set = set(oid_set)
                         if oid in oid_set:
                             oid_set.remove(oid)

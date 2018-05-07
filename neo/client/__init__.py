@@ -85,6 +85,13 @@ def patch():
         self._flush_invalidations()
     Connection.afterCompletion = afterCompletion
 
+    # For msgpack & Py2/ZODB5.
+    try:
+        from zodbpickle import binary
+        binary._pack = bytes.__str__
+    except ImportError:
+        pass
+
 patch()
 
 import app # set up signal handlers early enough to do it in the main thread

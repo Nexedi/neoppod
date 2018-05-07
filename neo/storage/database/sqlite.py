@@ -461,8 +461,12 @@ class SQLiteDatabaseManager(DatabaseManager):
         return r
 
     def loadData(self, data_id):
-        return self.query("SELECT compression, hash, value"
-                          " FROM data WHERE id=?", (data_id,)).fetchone()
+        compression, checksum, data = self.query(
+            "SELECT compression, hash, value  FROM data WHERE id=?",
+            (data_id,)).fetchone()
+        if checksum:
+            return compression, str(checksum), str(data)
+        return compression, checksum, data
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getReadablePartition(oid)
