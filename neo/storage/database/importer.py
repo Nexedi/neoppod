@@ -463,6 +463,7 @@ class ImporterDatabaseManager(DatabaseManager):
             setattr(self, x, getattr(self.db, x))
 
     def _iter_zodb(self):
+        util.setproctitle('neostorage: import')
         p64 = util.p64
         u64 = util.u64
         tid = p64(self.zodb_tid + 1) if self.zodb_tid else None
@@ -683,6 +684,7 @@ class WriteBack(object):
         return self._idle.wait
 
     def _run(self):
+        util.setproctitle('neostorage: write back')
         self._db = cPickle.loads(self._db)
         try:
             @self._db.autoReconnect
