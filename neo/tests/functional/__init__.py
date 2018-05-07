@@ -35,7 +35,7 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
     UUID_NAMESPACES
-from neo.lib.util import dump
+from neo.lib.util import dump, setproctitle
 from .. import (ADDRESS_TYPE, DB_SOCKET, DB_USER, IP_VERSION_FORMAT_DICT, SSL,
     buildUrlFromString, cluster, getTempDirectory, setupMySQLdb,
     ImporterConfigParser, NeoTestBase, Patch)
@@ -173,6 +173,7 @@ class Process(object):
                 os.close(self._coverage_fd)
                 os.write(w, '\0')
                 sys.argv = [command] + args
+                setproctitle(self.command)
                 self.run()
                 status = 0
             except SystemExit, e:
