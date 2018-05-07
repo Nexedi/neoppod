@@ -68,7 +68,7 @@ class EventHandler(object):
                 method = getattr(self, packet.handler_method_name)
             except AttributeError:
                 raise UnexpectedPacketError('no handler found')
-            args = packet.decode() or ()
+            args = packet._args
             method(conn, *args, **kw)
         except DelayEvent, e:
             assert not kw, kw
@@ -76,9 +76,6 @@ class EventHandler(object):
         except UnexpectedPacketError, e:
             if not conn.isClosed():
                 self.__unexpectedPacket(conn, packet, *e.args)
-        except PacketMalformedError, e:
-            logging.error('malformed packet from %r: %s', conn, e)
-            conn.close()
         except NotReadyError, message:
             if not conn.isClosed():
                 if not message.args:
