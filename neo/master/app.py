@@ -578,7 +578,9 @@ class Application(BaseApplication):
         self.tm.executeQueuedEvents()
 
     def startStorage(self, node):
-        node.send(Packets.StartOperation(self.backup_tid))
+        # XXX: Is this boolean 'backup' field needed ?
+        #      Maybe this can be deduced from cluster state.
+        node.send(Packets.StartOperation(bool(self.backup_tid)))
         uuid = node.getUUID()
         assert uuid not in self.storage_starting_set
         if uuid not in self.storage_ready_dict:
