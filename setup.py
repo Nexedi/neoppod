@@ -38,7 +38,7 @@ extras_require = {
     'master': [],
     'storage-sqlite': [],
     'storage-mysqldb': ['mysqlclient'],
-    'storage-importer': zodb_require + ['msgpack>=0.5.6', 'setproctitle'],
+    'storage-importer': zodb_require + ['setproctitle'],
 }
 extras_require['tests'] = ['coverage', 'zope.testing', 'psutil>=2',
     'neoppod[%s]' % ', '.join(extras_require)]
@@ -90,6 +90,7 @@ setup(
         ],
     },
     install_requires = [
+        'msgpack>=0.5.6',
         'python-dateutil', # neolog --from
         ],
     extras_require = extras_require,

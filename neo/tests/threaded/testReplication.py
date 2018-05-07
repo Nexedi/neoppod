@@ -101,7 +101,7 @@ class ReplicationTests(NEOThreadedTest):
             importZODB(3)
             def delaySecondary(conn, packet):
                 if isinstance(packet, Packets.Replicate):
-                    tid, upstream_name, source_dict = packet.decode()
+                    tid, upstream_name, source_dict = packet._args
                     return not upstream_name and all(source_dict.itervalues())
             with NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
                             upstream=upstream) as backup:
@@ -441,7 +441,7 @@ class ReplicationTests(NEOThreadedTest):
         """
         def delayAskFetch(conn, packet):
             return isinstance(packet, delayed) and \
-                   packet.decode()[0] == offset and \
+                   packet._args[0] == offset and \
                    conn in s1.getConnectionList(s0)
         def changePartitionTable(orig, ptid, cell_list):
             if (offset, s0.uuid, CellStates.DISCARDED) in cell_list:
@@ -669,7 +669,7 @@ class ReplicationTests(NEOThreadedTest):
         def logReplication(conn, packet):
             if isinstance(packet, (Packets.AskFetchTransactions,
                                    Packets.AskFetchObjects)):
-                ask.append(packet.decode()[2:])
+                ask.append(packet._args[2:])
         def getTIDList():
             return [t.tid for t in c.db().storage.iterator()]
         s0, s1 = cluster.storage_list
@@ -770,7 +770,7 @@ class ReplicationTests(NEOThreadedTest):
                     return True
             elif not isinstance(packet, Packets.AskFetchTransactions):
                 return
-            ask.append(packet.decode())
+            ask.append(packet._args)
         conn, = upstream.master.getConnectionList(backup.master)
         with ConnectionFilter() as f, Patch(replicator.Replicator,
                 _nextPartitionSortKey=lambda orig, self, offset: offset):

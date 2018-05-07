@@ -76,7 +76,7 @@ class Application(ThreadedApplication):
         self._cache = ClientCache() if cache_size is None else \
                       ClientCache(max_size=cache_size)
         self._loading_oid = None
-        self.new_oid_list = ()
+        self.new_oids = ()
         self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
@@ -178,7 +178,7 @@ class Application(ThreadedApplication):
             with self._connecting_to_master_node:
                 result = self.master_conn
                 if result is None:
-                    self.new_oid_list = ()
+                    self.new_oids = ()
                     result = self.master_conn = self._connectToPrimaryNode()
         return result
 
@@ -256,15 +256,19 @@ class Application(ThreadedApplication):
         """Get a new OID."""
         self._oid_lock_acquire()
         try:
-            if not self.new_oid_list:
+            for oid in self.new_oids:
+                break
+            else:
                 # Get new oid list from master node
                 # we manage a list of oid here to prevent
                 # from asking too many time new oid one by one
                 # from master node
                 self._askPrimary(Packets.AskNewOIDs(100))
-                if not self.new_oid_list:
+                for oid in self.new_oids:
+                    break
+                else:
                     raise NEOStorageError('new_oid failed')
-            self.last_oid = oid = self.new_oid_list.pop()
+            self.last_oid = oid
             return oid
         finally:
             self._oid_lock_release()
@@ -552,7 +556,7 @@ class Application(ThreadedApplication):
         # user and description are cast to str in case they're unicode.
         # BBB: This is not required anymore with recent ZODB.
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), ext, txn_context.cache_dict)
+            str(transaction.description), ext, list(txn_context.cache_dict))
         queue = txn_context.queue
         involved_nodes = txn_context.involved_nodes
         # Ask in parallel all involved storage nodes to commit object metadata.
@@ -618,7 +622,7 @@ class Application(ThreadedApplication):
         else:
             try:
                 notify(Packets.AbortTransaction(txn_context.ttid,
-                                                txn_context.involved_nodes))
+                    list(txn_context.involved_nodes)))
             except ConnectionClosed:
                 pass
         # We don't need to flush queue, as it won't be reused by future
@@ -657,7 +661,8 @@ class Application(ThreadedApplication):
             for oid in checked_list:
                 del cache_dict[oid]
             ttid = txn_context.ttid
-            p = Packets.AskFinishTransaction(ttid, cache_dict, checked_list)
+            p = Packets.AskFinishTransaction(ttid, list(cache_dict),
+                                             checked_list)
             try:
                 tid = self._askPrimary(p, cache_dict=cache_dict, callback=f)
                 assert tid

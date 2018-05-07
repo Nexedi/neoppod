@@ -24,7 +24,7 @@ from .exception import NEOStorageError
 class _WakeupPacket(object):
 
     handler_method_name = 'pong'
-    decode = tuple
+    _args = ()
     getId = int
 
 class Transaction(object):

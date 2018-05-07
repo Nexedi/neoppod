@@ -252,7 +252,7 @@ class StorageOperationHandler(EventHandler):
                 for serial, oid in object_list:
                     oid_set = object_dict.get(serial)
                     if oid_set:
-                        if type(oid_set) is list:
+                        if type(oid_set) is tuple:
                             object_dict[serial] = oid_set = set(oid_set)
                         if oid in oid_set:
                             oid_set.remove(oid)

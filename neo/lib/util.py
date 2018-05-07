@@ -152,65 +152,6 @@ def parseMasterList(masters):
     return map(parseNodeAddress, masters.split())
 
 
-class ReadBuffer(object):
-    """
-        Implementation of a lazy buffer. Main purpose if to reduce useless
-        copies of data by storing chunks and join them only when the requested
-        size is available.
-
-        TODO: For better performance, use:
-        - socket.recv_into (64kiB blocks)
-        - struct.unpack_from
-        - and a circular buffer of dynamic size (initial size:
-          twice the length passed to socket.recv_into ?)
-        """
-
-    def __init__(self):
-        self.size = 0
-        self.content = deque()
-
-    def append(self, data):
-        """ Append some data and compute the new buffer size """
-        self.size += len(data)
-        self.content.append(data)
-
-    def __len__(self):
-        """ Return the current buffer size """
-        return self.size
-
-    def read(self, size):
-        """ Read and consume size bytes """
-        if self.size < size:
-            return None
-        self.size -= size
-        chunk_list = []
-        pop_chunk = self.content.popleft
-        append_data = chunk_list.append
-        to_read = size
-        # select required chunks
-        while to_read > 0:
-            chunk_data = pop_chunk()
-            to_read -= len(chunk_data)
-            append_data(chunk_data)
-        if to_read < 0:
-            # too many bytes consumed, cut the last chunk
-            last_chunk = chunk_list[-1]
-            keep, let = last_chunk[:to_read], last_chunk[to_read:]
-            self.content.appendleft(let)
-            chunk_list[-1] = keep
-        # join all chunks (one copy)
-        data = ''.join(chunk_list)
-        assert len(data) == size
-        return data
-
-    def clear(self):
-        """ Erase all buffer content """
-        self.size = 0
-        self.content.clear()
-
-dummy_read_buffer = ReadBuffer()
-dummy_read_buffer.append = lambda _: None
-
 class cached_property(object):
     """
     A property that is only computed once per instance and then replaces itself

@@ -16,12 +16,19 @@
 
 from functools import wraps
 from time import time
+import msgpack
+from msgpack.exceptions import UnpackValueError
 
 from . import attributeTracker, logging
 from .connector import ConnectorException, ConnectorDelayedConnection
 from .locking import RLock
-from .protocol import uuid_str, Errors, PacketMalformedError, Packets
-from .util import dummy_read_buffer, ReadBuffer
+from .protocol import uuid_str, Errors, PacketMalformedError, Packets, \
+    Unpacker
+
+@apply
+class dummy_read_buffer(msgpack.Unpacker):
+    def feed(self, _):
+        pass
 
 class ConnectionClosed(Exception):
     pass
@@ -310,12 +317,12 @@ class Connection(BaseConnection):
     client = False
     server = False
     peer_id = None
-    _parser_state = None
+    _total_unpacked = 0
     _timeout = None
 
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
-        self.read_buf = ReadBuffer()
+        self.read_buf = Unpacker()
         self.cur_id = 0
         self.aborted = False
         self.uuid = None
@@ -424,42 +431,36 @@ class Connection(BaseConnection):
             self._closure()
 
     def _parse(self):
-        read = self.read_buf.read
-        version = read(4)
-        if version is None:
-            return
-        from .protocol import (ENCODED_VERSION, MAX_PACKET_SIZE,
-                               PACKET_HEADER_FORMAT, Packets)
+        from .protocol import ENCODED_VERSION, Packets
+        read_buf = self.read_buf
+        version = read_buf.read_bytes(4)
         if version != ENCODED_VERSION:
+            if len(version) < 4: # unlikely so tested last
+                # Not enough data and there's no API to know it in advance.
+                # Put it back.
+                read_buf.feed(version)
+                return
             logging.warning('Protocol version mismatch with %r', self)
             raise ConnectorException
-        header_size = PACKET_HEADER_FORMAT.size
-        unpack = PACKET_HEADER_FORMAT.unpack
+        read_next = read_buf.next
+        read_pos = read_buf.tell
         def parse():
-            state = self._parser_state
-            if state is None:
-                header = read(header_size)
-                if header is None:
-                    return
-                msg_id, msg_type, msg_len = unpack(header)
-                try:
-                    packet_klass = Packets[msg_type]
-                except KeyError:
-                    raise PacketMalformedError('Unknown packet type')
-                if msg_len > MAX_PACKET_SIZE:
-                    raise PacketMalformedError('message too big (%d)' % msg_len)
-            else:
-                msg_id, packet_klass, msg_len = state
-            data = read(msg_len)
-            if data is None:
-                # Not enough.
-                if state is None:
-                    self._parser_state = msg_id, packet_klass, msg_len
-            else:
-                self._parser_state = None
-                packet = packet_klass()
-                packet.setContent(msg_id, data)
-                return packet
+            try:
+                msg_id, msg_type, args = read_next()
+            except StopIteration:
+                return
+            except UnpackValueError as e:
+                raise PacketMalformedError(str(e))
+            try:
+                packet_klass = Packets[msg_type]
+            except KeyError:
+                raise PacketMalformedError('Unknown packet type')
+            pos = read_pos()
+            packet = packet_klass(*args)
+            packet.setId(msg_id)
+            packet.size = pos - self._total_unpacked
+            self._total_unpacked = pos
+            return packet
         self._parse = parse
         return parse()
 
@@ -512,7 +513,7 @@ class Connection(BaseConnection):
     def close(self):
         if self.connector is None:
             assert self._on_close is None
-            assert not self.read_buf
+            assert not self.read_buf.read_bytes(1)
             assert not self.isPending()
             return
         # process the network events with the last registered handler to
@@ -523,7 +524,7 @@ class Connection(BaseConnection):
         if self._on_close is not None:
             self._on_close()
             self._on_close = None
-        self.read_buf.clear()
+        self.read_buf = dummy_read_buffer
         try:
             if self.connecting:
                 handler.connectionFailed(self)

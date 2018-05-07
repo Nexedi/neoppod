@@ -77,9 +77,8 @@ class SocketConnector(object):
 
     def queue(self, data):
         was_empty = not self.queued
-        self.queued += data
-        for data in data:
-            self.queue_size += len(data)
+        self.queued.append(data)
+        self.queue_size += len(data)
         return was_empty
 
     def _error(self, op, exc=None):
@@ -168,12 +167,12 @@ class SocketConnector(object):
         except socket.error, e:
             self._error('recv', e)
         if data:
-            read_buf.append(data)
+            read_buf.feed(data)
             return
         self._error('recv')
 
     def send(self):
-        # XXX: unefficient for big packets
+        # XXX: inefficient for big packets
         msg = ''.join(self.queued)
         if msg:
             try:
@@ -271,7 +270,7 @@ class _SSL:
     def receive(self, read_buf):
         try:
             while 1:
-                read_buf.append(self.socket.recv(4096))
+                read_buf.feed(self.socket.recv(4096))
         except ssl.SSLWantReadError:
             pass
         except socket.error, e:

@@ -165,8 +165,7 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         self.app.setHandlerData(ttid)
 
     def answerNewOIDs(self, conn, oid_list):
-        oid_list.reverse()
-        self.app.new_oid_list = oid_list
+        self.app.new_oids = iter(oid_list)
 
     def incompleteTransaction(self, conn, message):
         raise NEOStorageError("storage nodes for which vote failed can not be"
