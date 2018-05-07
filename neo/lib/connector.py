@@ -19,7 +19,7 @@ import ssl
 import errno
 from time import time
 from . import logging
-from .protocol import ENCODED_VERSION
+from .protocol import HANDSHAKE_PACKET
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
@@ -74,15 +74,14 @@ class SocketConnector(object):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         # disable Nagle algorithm to reduce latency
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self.queued = [ENCODED_VERSION]
-        self.queue_size = len(ENCODED_VERSION)
+        self.queued = [HANDSHAKE_PACKET]
+        self.queue_size = len(HANDSHAKE_PACKET)
         return self
 
     def queue(self, data):
         was_empty = not self.queued
-        self.queued += data
-        for data in data:
-            self.queue_size += len(data)
+        self.queued.append(data)
+        self.queue_size += len(data)
         return was_empty
 
     def _error(self, op, exc=None):
@@ -172,7 +171,7 @@ class SocketConnector(object):
         except socket.error, e:
             self._error('recv', e)
         if data:
-            read_buf.append(data)
+            read_buf.feed(data)
             return
         self._error('recv')
 
@@ -278,7 +277,7 @@ class _SSL:
     def receive(self, read_buf):
         try:
             while 1:
-                read_buf.append(self.socket.recv(4096))
+                read_buf.feed(self.socket.recv(4096))
         except ssl.SSLWantReadError:
             pass
         except socket.error, e:
