@@ -74,8 +74,10 @@ func (r *sqliteRegistry) Close() (err error) {
 	return r.dbpool.Close()
 }
 
-func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
-	// XXX dup
+// withConn runs f on a dbpool connection.
+//
+// connection is first allocated from dbpool and put back after call to f.
+func (r *sqliteRegistry) withConn(ctx context.Context, f func(*sqlite.Conn) error) error {
 	conn := r.dbpool.Get(ctx.Done())
 	if conn == nil {
 		// either ctx cancel or dbpool close
@@ -85,50 +87,48 @@ func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
 		return errRegistryDown // db closed
 	}
 	defer r.dbpool.Put(conn)
+	return f(conn)
+}
 
-	err = sqliteutil.ExecScript(conn, `
-		CREATE TABLE IF NOT EXISTS hosts (
-			hostname	TEXT NON NULL PRIMARY KEY,
-			osladdr		TEXT NON NULL
-		);
+func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
+	return r.withConn(ctx, func(conn *sqlite.Conn) error {
+		err := sqliteutil.ExecScript(conn, `
+			CREATE TABLE IF NOT EXISTS hosts (
+				hostname	TEXT NON NULL PRIMARY KEY,
+				osladdr		TEXT NON NULL
+			);
 
-		CREATE TABLE IF NOT EXISTS meta (
-			name		TEXT NON NULL PRIMARY KEY,
-			value		TEXT NON NULL
-		);
-	`)
-	if err != nil {
-		return err
-	}
+			CREATE TABLE IF NOT EXISTS meta (
+				name		TEXT NON NULL PRIMARY KEY,
+				value		TEXT NON NULL
+			);
+		`)
+		if err != nil {
+			return err
+		}
 
-	// XXX check schemaver
-	// XXX check network name
+		// XXX check schemaver
+		// XXX check network name
 
-	return nil
+		return nil
+	})
 }
 
 func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string) (err error) {
 	defer r.regerr(&err, "announce", hostname, osladdr)
 
-	// XXX dup
-	conn := r.dbpool.Get(ctx.Done())
-	if conn == nil {
-		// either ctx cancel or dbpool close
-		if ctx.Err() != nil {
-			return ctx.Err()
+	return r.withConn(ctx, func(conn *sqlite.Conn) error {
+		err := sqliteutil.Exec(conn,
+			"INSERT INTO hosts (hostname, osladdr) VALUES (?, ?)", nil,
+			hostname, osladdr)
+
+		switch sqlite.ErrCode(err) {
+		case sqlite.SQLITE_CONSTRAINT_UNIQUE:	// XXX test
+			err = errHostDup
 		}
-		return errRegistryDown // db closed
-	}
-	defer r.dbpool.Put(conn)
 
-	err = sqliteutil.Exec(conn, "INSERT INTO hosts (hostname, osladdr) VALUES (?, ?)", nil, hostname, osladdr)
-
-	switch sqlite.ErrCode(err) {
-	case sqlite.SQLITE_CONSTRAINT_UNIQUE:	// XXX test
-		err = errHostDup
-	}
-
-	return err
+		return err
+	})
 }
 
 var errRegDup = errors.New("registry broken: duplicate host entries")
@@ -136,34 +136,29 @@ var errRegDup = errors.New("registry broken: duplicate host entries")
 func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr string, err error) {
 	defer r.regerr(&err, "query", hostname)
 
-	// XXX dup
-	conn := r.dbpool.Get(ctx.Done())
-	if conn == nil {
-		// either ctx cancel or dbpool close
-		if ctx.Err() != nil {
-			return "", ctx.Err()
+	err = r.withConn(ctx, func(conn *sqlite.Conn) error {
+		nrow := 0
+		err := sqliteutil.Exec(conn, "SELECT osladdr FROM hosts WHERE hostname = ?",
+			func (stmt *sqlite.Stmt) error {
+				osladdr = stmt.ColumnText(0)
+				nrow++
+				return nil
+			}, hostname)
+
+		if err != nil {
+			return err
 		}
-		return "", errRegistryDown // db closed
-	}
-	defer r.dbpool.Put(conn)
 
-	nrow := 0
-	err = sqliteutil.Exec(conn, "SELECT osladdr FROM hosts WHERE hostname = ?", func (stmt *sqlite.Stmt) error {
-		osladdr = stmt.ColumnText(0)
-		nrow++
+		if nrow == 0 {
+			return errNoHost
+		} else if nrow > 1 {
+			// hostname is PK - we should not get several results
+			osladdr = ""
+			return errRegDup
+		}
+
 		return nil
-	}, hostname)
-
-	if err != nil {
-		return "", err
-	}
-
-	if nrow == 0 {
-		return "", errNoHost
-	} else if nrow > 1 {
-		// hostname is PK - we should not get several results
-		return "", errRegDup
-	}
+	})
 
 	return osladdr, err
 }

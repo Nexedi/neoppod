@@ -42,7 +42,7 @@ func TestRegistrySQLite(t *testing.T) {
 	r, err := openRegistrySQLite(ctx, dbpath)
 	X(err)
 
-	// quert checks that result of Query(hostname) is as expect
+	// query checks that result of Query(hostname) is as expected.
 	//
 	// if expect is error - it checks that Query returns error with cause == expect.
 	// otherwise expect must be string and it will check that Query
@@ -54,7 +54,7 @@ func TestRegistrySQLite(t *testing.T) {
 		osladdr, err := r.Query(ctx, hostname)
 		if ewant, iserr := expect.(error); iserr {
 			// error expected
-			// XXX construct full registry error around ewant + reflect.DeepCompare
+			// XXX construct full registry error around ewant + reflect.DeepCompare?
 			e, ok := err.(*registryError)
 			if !(ok && e.Err == ewant && osladdr == "") {
 				t.Fatalf("%s: query %q:\nwant: \"\", %v\nhave: %q, %v",
@@ -70,7 +70,7 @@ func TestRegistrySQLite(t *testing.T) {
 		}
 	}
 
-	// announce checks that result of Announce(hostname, osladdr) is as expected
+	// announce checks that result of Announce(hostname, osladdr) is as expected.
 	//
 	// if len(errv) == 1 - it checks that Announce returns error with cause == errv[0].
 	// otherwise it will check that Announce succeeds and returns nil error.
@@ -86,7 +86,7 @@ func TestRegistrySQLite(t *testing.T) {
 		}
 		if ewant != nil {
 			// error expected
-			// XXX construct full registry error around ewant + reflect.DeepCompare
+			// XXX construct full registry error around ewant + reflect.DeepCompare?
 			e, ok := err.(*registryError)
 			if (!ok && e.Err == ewant) {
 				t.Fatalf("%s: announce %q %q:\nwant %v\nhave: %v",
@@ -128,5 +128,9 @@ func TestRegistrySQLite(t *testing.T) {
 	announce(r, "γ", "gamma:qqq", errRegistryDown)
 	query(r, "γ", errRegistryDown)
 
+	query(r2, "α", "alpha:1234")
+
 	X(r2.Close())
+
+	query(r2, "α", errRegistryDown)
 }
