@@ -19,16 +19,37 @@
 
 // FIXME kill dup from pipenet!
 
-// Package lonet provides TCP network on top of localhost TCP loopback.
+// Package lonet provides TCP network simulated on top of localhost TCP loopback.
 //
-// XXX write that several hosts could be created with different names (virtual
-// address) and that port allocation is virtual too (e.g. α:1 could correspond to 127.0.0.1:4567)
+// For testing distributed systems it is sometimes handy to imitate network of
+// several TCP hosts. It is also handy that port allocated on Dial/Listen/Accept on
+// that hosts be predictable - that would help tests to verify network events
+// against expected sequence. When whole system could be imitated in 1 OS-level
+// process, package lab.nexedi.com/kirr/go123/xnet/pipenet serves the task via
+// providing TCP-like synchronous in-memory network of net.Pipes.  However
+// pipenet cannot be used for cases where tested system consists of 2 or more
+// OS-level processes. This is where lonet comes into play:
 //
-// Example:
+// Similarly to pipenet addresses on lonet are host:port pairs and several
+// hosts could be created with different names. A host is xnet.Networker and
+// so can be worked with similarly to regular TCP network with
+// Dial/Listen/Accept.  Host's ports allocation is predictable: ports of a host
+// are contiguous integer sequence starting from 1 that are all initially free,
+// and whenever autobind is requested the first free port of the host will be
+// used.
 //
-//	net := lonet.New("")
-//	h1 := net.Host("abc")
-//	h2 := net.Host("def")
+// Internally lonet network maintains registry of hosts so that lonet
+// addresses could be resolved to OS-level addresses, for example α:1 and β:1
+// to 127.0.0.1:4567 and 127.0.0.1:8765, and once lonet connection is
+// established it becomes served by OS-level TCP connection over loopback.
+//
+// XXX several networks = possible. (or document in New?)
+//
+// Example:			TODO adjust
+//
+//	net := lonet.New("")	// XXX network name
+//	h1 := net.Host("abc")	// XXX err
+//	h2 := net.Host("def")	// ...
 //
 //	// XXX inject 127.0.0.1 to example...
 //	// starts listening on address "abc:10" (which gets mapped to "127.0.0.1:xxx")
@@ -38,9 +59,11 @@
 //	}()
 //	ccli, err := h2.Dial("abc:10")   // ccli will have RemoteAddr "def:10"
 //
-// Lonet is similar to pipenet, but since it works via OS TCP stack it could be
-// handy for testing networked application when there are several OS-level
-// processes involved.
+// Once again lonet is similar to pipenet, but since it works via OS TCP stack
+// it could be handy for testing networked application when there are several
+// OS-level processes involved.
+//
+// See also shipped lonet.py for accessing lonet networks from Python.
 package lonet
 
 /*
