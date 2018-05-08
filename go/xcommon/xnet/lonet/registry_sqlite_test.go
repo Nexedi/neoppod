@@ -110,23 +110,23 @@ func TestRegistrySQLite(t *testing.T) {
 	announce(r, "α", "alpha:1234", errHostDup)
 	announce(r, "α", "alpha:1235", errHostDup)
 	query(r, "α", "alpha:1234")
-	// r.Query("β") == ø
+	query(r, "β", ø)
 
 	r2, err := openRegistrySQLite(ctx, dbpath)
 	// r2.Network() == ...
-	// r2.Query("α") == "alpha:1234"
-	// r2.Query("β") == ø
-	// r2.Announce("β", "beta:zzz")
-	// r2.Query("β") == "beta:zzz")
+	query(r2, "α", "alpha:1234")
+	query(r2, "β", ø)
+	announce(r2, "β", "beta:zzz")
+	query(r2, "β", "beta:zzz")
 
-	// r.Query("β") == "beta:zzz")
+	query(r, "β", "beta:zzz")
 
 	X(r.Close())
 
-	// r.Query("α") == errRegistryDown
-	// r.Query("β") == errRegistryDown
-	// r.Announce("γ", "gamma:qqq") == errRegistryDown
-	// r.Query("γ") == errRegistryDown
+	query(r, "α", errRegistryDown)
+	query(r, "β", errRegistryDown)
+	announce(r, "γ", "gamma:qqq", errRegistryDown)
+	query(r, "γ", errRegistryDown)
 
 	X(r2.Close())
 }
