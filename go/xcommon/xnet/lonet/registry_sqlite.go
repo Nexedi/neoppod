@@ -22,6 +22,7 @@ package lonet
 
 import (
 	"context"
+	"errors"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqliteutil"
@@ -130,6 +131,8 @@ func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string)
 	return err
 }
 
+var errRegDup = errors.New("registry broken: duplicate host entries")
+
 func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr string, err error) {
 	defer r.regerr(&err, "query", hostname)
 
@@ -144,23 +147,23 @@ func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr st
 	}
 	defer r.dbpool.Put(conn)
 
+	nrow := 0
 	err = sqliteutil.Exec(conn, "SELECT osladdr FROM hosts WHERE hostname = ?", func (stmt *sqlite.Stmt) error {
 		osladdr = stmt.ColumnText(0)
+		nrow++
 		return nil
 	})
 
-	/* XXX reenable
-	switch sqlite.ErrCode(err) {
-	case sqlite.XXXNOROW:
-		err = errNoHost
-	}
-	*/
-
-	/*
 	if err != nil {
 		return "", err
 	}
-	*/
+
+	if nrow == 0 {
+		return "", errNoHost
+	} else if nrow > 1 {
+		// hostname is PK - we should not get several results
+		return "", errRegDup
+	}
 
 	return osladdr, err
 }
