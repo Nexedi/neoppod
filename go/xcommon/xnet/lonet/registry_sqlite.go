@@ -19,3 +19,145 @@
 
 package lonet
 // registry implemented as shared SQLite file
+
+import (
+	"context"
+
+	"crawshaw.io/sqlite"
+	"crawshaw.io/sqlite/sqliteutil"
+)
+
+// registry schema
+//
+// hosts:
+//	hostname	text !null PK
+//	osladdr		text !null
+//
+// meta:
+//	name		text !null PK
+//	value		text !null
+//
+// "schemaver"	str(int) - version of schema.
+// "network"    text     - name of lonet network this registry serves.
+
+type sqliteRegistry struct {
+	dbpool *sqlite.Pool
+
+	uri    string	// URI db was originally opened with
+}
+
+// openRegistrySqlite opens SQLite registry located at dburi.
+// XXX network name?
+func openRegistrySQLite(dburi string) (_ *sqliteRegistry, err error) {
+	r := &sqliteRegistry{uri: dburi}
+	defer r.regerr(&err, "open")
+
+	dbpool, err := sqlite.Open(dburi, 0, /* poolSize= */16)	// XXX pool size ok?
+	if err != nil {
+		return nil, err
+	}
+
+	r.dbpool = dbpool
+	return r, nil
+
+	// XXX setup
+}
+
+func (r *sqliteRegistry) Close() (err error) {
+	defer r.regerr(&err, "close")
+	return r.dbpool.Close()
+}
+
+func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
+	defer r.regerr(&err, "setup")	// XXX args?
+
+	// XXX get conn
+	var conn *sqlite.Conn
+
+	err = sqliteutil.ExecScript(conn, `
+		CREATE TABLE IF NOT EXISTS hosts (
+			hostname	TEXT NON NULL PRIMARY KEY,
+			osladdr		TEXT NON NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS meta (
+			name		TEXT NON NULL PRIMARY KEY,
+			value		TEXT NON NULL
+		);
+	`)
+	if err != nil {
+		return err
+	}
+
+	// XXX check schemaver
+	// XXX check network name
+
+	return nil
+}
+
+func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string) (err error) {
+	defer r.regerr(&err, "announce", hostname, osladdr)
+
+	conn := r.dbpool.Get(ctx.Done())
+	if conn == nil {
+		// either ctx cancel or dbpool close
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return errRegistryDown // db closed
+	}
+	defer r.dbpool.Put(conn)
+
+	//sqliteutil.Exec(conn, "SELECT hostname, osladdr FROM hosts WHERE hostname = ?", func (stmt *sqlite.Stmt) error {
+	err = sqliteutil.Exec(conn, "INSERT INTO hosts (hostname, osladdr) VALUES (?, ?)", nil, hostname, osladdr)
+
+	// XXX -> errNoHost
+	switch sqlite.ErrCode(err) {
+	case sqlite.SQLITE_CONSTRAINT_UNIQUE:	// XXX test
+		err = errHostDup
+	}
+
+	return err
+}
+
+func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr string, err error) {
+	defer r.regerr(&err, "query", hostname)
+
+	// XXX get conn
+	var conn *sqlite.Conn
+
+	err = sqliteutil.Exec(conn, "SELECT osladdr FROM hosts WHERE hostname = ?", func (stmt *sqlite.Stmt) error {
+		osladdr = stmt.ColumnText(0)
+		return nil
+	})
+
+	/* XXX reenable
+	switch sqlite.ErrCode(err) {
+	case sqlite.XXXNOROW:
+		err = errNoHost
+	}
+	*/
+
+	/*
+	if err != nil {
+		return "", err
+	}
+	*/
+
+	return osladdr, err
+}
+
+// regerr is syntatic sugar to wrap !nil *errp into registryError.
+func (r *sqliteRegistry) regerr(errp *error, op string, args ...interface{}) {
+	if *errp == nil {
+		return
+	}
+
+	// XXX name of the network
+	*errp = &registryError{
+		Registry: r.uri,
+		Op:       op,
+		Args:     args,
+		Err:      *errp,
+	}
+}

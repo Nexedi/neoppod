@@ -21,6 +21,7 @@ package lonet
 // registry of network hosts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
@@ -51,7 +52,7 @@ type registry interface {
 	//	- errRegistryDown if registry cannot be accessed	XXX (and its underlying cause?)
 	//	- errHostDup
 	//	- some other error indicating e.g. IO problem.
-	Announce(hostname, osladdr string) error
+	Announce(ctx context.Context, hostname, osladdr string) error
 
 	// Query queries registry for host.
 	//
@@ -64,7 +65,14 @@ type registry interface {
 	//	- errRegistryDown ...	XXX
 	//	- errNoHost       if hostname was not announced to registry,
 	//	- some other error indicating e.g. IO problem.
-	Query(hostname string) (osladdr string, _ error)
+	Query(ctx context.Context, hostname string) (osladdr string, _ error)
+
+	// Close closes access to registry.
+	//
+	// Close interrupts all in-fligh Announce and Query requests started
+	// via closed registry connection. Those interrupted requests will
+	// return with errRegistryDown error cause.
+	Close() error
 }
 
 var errRegistryDown = errors.New("registry is down")
@@ -72,7 +80,7 @@ var errNoHost       = errors.New("no such host")
 var errHostDup      = errors.New("host already registered")
 
 type registryError struct {
-	// XXX name of the network?
+	// XXX name of the network? - XXX yes
 	Registry string		// name of the registry
 	Op       string		// operation that failed
 	Args     interface{}	// operation arguments, if any
