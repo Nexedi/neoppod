@@ -48,7 +48,7 @@ type sqliteRegistry struct {
 
 // openRegistrySqlite opens SQLite registry located at dburi.
 // XXX network name?
-func openRegistrySQLite(dburi string) (_ *sqliteRegistry, err error) {
+func openRegistrySQLite(ctx context.Context, dburi string) (_ *sqliteRegistry, err error) {
 	r := &sqliteRegistry{uri: dburi}
 	defer r.regerr(&err, "open")
 
@@ -58,9 +58,14 @@ func openRegistrySQLite(dburi string) (_ *sqliteRegistry, err error) {
 	}
 
 	r.dbpool = dbpool
-	return r, nil
 
-	// XXX setup
+	err = r.setup(ctx)
+	if err != nil {
+		r.Close()
+		return nil, err
+	}
+
+	return r, nil
 }
 
 func (r *sqliteRegistry) Close() (err error) {
@@ -69,10 +74,16 @@ func (r *sqliteRegistry) Close() (err error) {
 }
 
 func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
-	defer r.regerr(&err, "setup")	// XXX args?
-
-	// XXX get conn
-	var conn *sqlite.Conn
+	// XXX dup
+	conn := r.dbpool.Get(ctx.Done())
+	if conn == nil {
+		// either ctx cancel or dbpool close
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return errRegistryDown // db closed
+	}
+	defer r.dbpool.Put(conn)
 
 	err = sqliteutil.ExecScript(conn, `
 		CREATE TABLE IF NOT EXISTS hosts (
@@ -98,6 +109,7 @@ func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
 func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string) (err error) {
 	defer r.regerr(&err, "announce", hostname, osladdr)
 
+	// XXX dup
 	conn := r.dbpool.Get(ctx.Done())
 	if conn == nil {
 		// either ctx cancel or dbpool close
@@ -108,10 +120,8 @@ func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string)
 	}
 	defer r.dbpool.Put(conn)
 
-	//sqliteutil.Exec(conn, "SELECT hostname, osladdr FROM hosts WHERE hostname = ?", func (stmt *sqlite.Stmt) error {
 	err = sqliteutil.Exec(conn, "INSERT INTO hosts (hostname, osladdr) VALUES (?, ?)", nil, hostname, osladdr)
 
-	// XXX -> errNoHost
 	switch sqlite.ErrCode(err) {
 	case sqlite.SQLITE_CONSTRAINT_UNIQUE:	// XXX test
 		err = errHostDup
@@ -123,8 +133,16 @@ func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string)
 func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr string, err error) {
 	defer r.regerr(&err, "query", hostname)
 
-	// XXX get conn
-	var conn *sqlite.Conn
+	// XXX dup
+	conn := r.dbpool.Get(ctx.Done())
+	if conn == nil {
+		// either ctx cancel or dbpool close
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		return "", errRegistryDown // db closed
+	}
+	defer r.dbpool.Put(conn)
 
 	err = sqliteutil.Exec(conn, "SELECT osladdr FROM hosts WHERE hostname = ?", func (stmt *sqlite.Stmt) error {
 		osladdr = stmt.ColumnText(0)

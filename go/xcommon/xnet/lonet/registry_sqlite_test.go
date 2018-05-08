@@ -37,7 +37,9 @@ func TestRegistrySQLite(t *testing.T) {
 
 	dbpath := work + "/1.db"
 
-	r, err := openRegistrySQLite(dbpath)
+	ctx := context.Background()
+
+	r, err := openRegistrySQLite(ctx, dbpath)
 	X(err)
 
 	// quert checks that result of Query(hostname) is as expect
@@ -49,7 +51,7 @@ func TestRegistrySQLite(t *testing.T) {
 		// XXX ^^^ -> `r registry` (needs .Network() to get network name) ?
 		t.Helper()
 
-		osladdr, err := r.Query(context.Background(), hostname)
+		osladdr, err := r.Query(ctx, hostname)
 		if cause, iserr := expect.(error); iserr {
 			// error expected
 			e, ok := err.(*registryError)
@@ -76,7 +78,7 @@ func TestRegistrySQLite(t *testing.T) {
 	// r.Query("α") == "alpha:1234")
 	// r.Query("β") == ø
 
-	r2, err := openRegistrySQLite(dbpath)
+	r2, err := openRegistrySQLite(ctx, dbpath)
 	// r2.Network() == ...
 	// r2.Query("α") == "alpha:1234"
 	// r2.Query("β") == ø
