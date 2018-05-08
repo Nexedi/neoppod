@@ -20,6 +20,7 @@
 package lonet
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -39,8 +40,38 @@ func TestRegistrySQLite(t *testing.T) {
 	r, err := openRegistrySQLite(dbpath)
 	X(err)
 
+	// quert checks that result of Query(hostname) is as expect
+	//
+	// if expect is error - it checks that Query returns error with cause == expect.
+	// otherwise expect must be string and it will check that Query
+	// succeeds and returns osladdr == expect.
+	query := func(r *sqliteRegistry, hostname string, expect interface{}) {
+		// XXX ^^^ -> `r registry` (needs .Network() to get network name) ?
+		t.Helper()
+
+		osladdr, err := r.Query(context.Background(), hostname)
+		if cause, iserr := expect.(error); iserr {
+			// error expected
+			e, ok := err.(*registryError)
+			if !(ok && e.Err == cause && osladdr == "") {
+				t.Fatalf("%s: query %q:\nwant: \"\", %v\nhave: %q, %v",
+					r.uri, hostname, cause, osladdr, err)
+			}
+		} else {
+			// !error expected
+			laddr := expect.(string)
+			if !(osladdr == laddr && err == nil) {
+				t.Fatalf("%s: query %q:\nwant: %q, nil\nhave: %q, %v",
+					r.uri, hostname, laddr, osladdr, err)
+			}
+		}
+	}
+
+	ø := errNoHost
+
 	// r.Network() == ...
 	// r.Query("α") == ø
+	query(r, "α", ø)
 	// r.Announce("α", "alpha:1234")
 	// r.Query("α") == "alpha:1234")
 	// r.Query("β") == ø

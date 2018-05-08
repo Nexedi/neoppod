@@ -41,6 +41,8 @@ import (
 //	- shared memory or file,
 //	- ...
 type registry interface {
+	// XXX + network name?
+
 	// Announce announces host to registry.
 	//
 	// The host is named as hostname on lonet network and is listening for
