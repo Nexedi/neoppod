@@ -54,6 +54,7 @@ func TestRegistrySQLite(t *testing.T) {
 		osladdr, err := r.Query(ctx, hostname)
 		if ewant, iserr := expect.(error); iserr {
 			// error expected
+			// XXX construct full registry error around ewant + reflect.DeepCompare
 			e, ok := err.(*registryError)
 			if !(ok && e.Err == ewant && osladdr == "") {
 				t.Fatalf("%s: query %q:\nwant: \"\", %v\nhave: %q, %v",
@@ -85,6 +86,7 @@ func TestRegistrySQLite(t *testing.T) {
 		}
 		if ewant != nil {
 			// error expected
+			// XXX construct full registry error around ewant + reflect.DeepCompare
 			e, ok := err.(*registryError)
 			if (!ok && e.Err == ewant) {
 				t.Fatalf("%s: announce %q %q:\nwant %v\nhave: %v",

@@ -152,7 +152,7 @@ func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr st
 		osladdr = stmt.ColumnText(0)
 		nrow++
 		return nil
-	})
+	}, hostname)
 
 	if err != nil {
 		return "", err
