@@ -122,6 +122,7 @@ class MySQLDatabaseManager(DatabaseManager):
             kwd['unix_socket'] = os.path.expanduser(self.socket)
         logging.info('connecting to MySQL on the database %s with user %s',
                      self.db, self.user)
+        self._active = 0
         if self._wait < 0:
             timeout_at = None
         else:
@@ -142,7 +143,6 @@ class MySQLDatabaseManager(DatabaseManager):
                     log = logging.exception
                 log('Connection to MySQL failed, retrying.')
                 time.sleep(1)
-        self._active = 0
         self._config = {}
         conn = self.conn
         conn.autocommit(False)
