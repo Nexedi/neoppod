@@ -90,6 +90,32 @@ func (r *sqliteRegistry) withConn(ctx context.Context, f func(*sqlite.Conn) erro
 	return f(conn)
 }
 
+var errNoRows   = errors.New("query1: empty result")
+var errManyRows = errors.New("query1: multiple results")
+
+// query1 is like sqliteutil.Exec but checks that exactly 1 row is returned.
+//
+// if query results in no rows - errNoRows is returned.
+// if query results in more than 1 row - errManyRows is returned.
+func query1(conn *sqlite.Conn, query string, resultf func(stmt *sqlite.Stmt), argv ...interface{}) error {
+	nrow := 0
+	err := sqliteutil.Exec(conn, query, func(stmt *sqlite.Stmt) error {
+		if nrow == 1 {
+			return errManyRows
+		}
+		nrow++
+		resultf(stmt)
+		return nil
+	}, argv...)
+	if err != nil {
+		return err
+	}
+	if nrow == 0 {
+		return errNoRows
+	}
+	return nil
+}
+
 func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
 	return r.withConn(ctx, func(conn *sqlite.Conn) error {
 		err := sqliteutil.ExecScript(conn, `
@@ -137,33 +163,28 @@ func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr st
 	defer r.regerr(&err, "query", hostname)
 
 	err = r.withConn(ctx, func(conn *sqlite.Conn) error {
-		nrow := 0
-		err := sqliteutil.Exec(conn, "SELECT osladdr FROM hosts WHERE hostname = ?",
-			func (stmt *sqlite.Stmt) error {
+		err := query1(conn, "SELECT osladdr FROM hosts WHERE hostname = ?",
+			func (stmt *sqlite.Stmt) {
 				osladdr = stmt.ColumnText(0)
-				nrow++
-				return nil
 			}, hostname)
 
-		if err != nil {
-			return err
-		}
-
-		if nrow == 0 {
+		switch err {
+		case errNoRows:
 			return errNoHost
-		} else if nrow > 1 {
+
+		case errManyRows:
 			// hostname is PK - we should not get several results
 			osladdr = ""
 			return errRegDup
 		}
 
-		return nil
+		return err
 	})
 
 	return osladdr, err
 }
 
-// regerr is syntatic sugar to wrap !nil *errp into registryError.
+// regerr is syntactic sugar to wrap !nil *errp into registryError.
 func (r *sqliteRegistry) regerr(errp *error, op string, args ...interface{}) {
 	if *errp == nil {
 		return
