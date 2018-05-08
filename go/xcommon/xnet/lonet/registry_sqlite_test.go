@@ -52,12 +52,12 @@ func TestRegistrySQLite(t *testing.T) {
 		t.Helper()
 
 		osladdr, err := r.Query(ctx, hostname)
-		if cause, iserr := expect.(error); iserr {
+		if ewant, iserr := expect.(error); iserr {
 			// error expected
 			e, ok := err.(*registryError)
-			if !(ok && e.Err == cause && osladdr == "") {
+			if !(ok && e.Err == ewant && osladdr == "") {
 				t.Fatalf("%s: query %q:\nwant: \"\", %v\nhave: %q, %v",
-					r.uri, hostname, cause, osladdr, err)
+					r.uri, hostname, ewant, osladdr, err)
 			}
 		} else {
 			// !error expected
@@ -69,13 +69,45 @@ func TestRegistrySQLite(t *testing.T) {
 		}
 	}
 
+	// announce checks that result of Announce(hostname, osladdr) is as expected
+	//
+	// if len(errv) == 1 - it checks that Announce returns error with cause == errv[0].
+	// otherwise it will check that Announce succeeds and returns nil error.
+	announce := func(r *sqliteRegistry, hostname, osladdr string, errv ...error) {
+		t.Helper()
+		err := r.Announce(ctx, hostname, osladdr)
+		var ewant error
+		if len(errv) > 0 {
+			ewant = errv[0]
+			if len(errv) > 1 {
+				panic("only 1 error allowed in announce check")
+			}
+		}
+		if ewant != nil {
+			// error expected
+			e, ok := err.(*registryError)
+			if (!ok && e.Err == ewant) {
+				t.Fatalf("%s: announce %q %q:\nwant %v\nhave: %v",
+					r.uri, hostname, osladdr, ewant, err)
+			}
+		} else {
+			// !error expected
+			if err != nil {
+				t.Fatalf("%s: announce %q %q: %s", r.uri, hostname, osladdr, err)
+			}
+		}
+	}
+
+
+
 	ø := errNoHost
 
 	// r.Network() == ...
-	// r.Query("α") == ø
 	query(r, "α", ø)
-	// r.Announce("α", "alpha:1234")
-	// r.Query("α") == "alpha:1234")
+	announce(r, "α", "alpha:1234")
+	announce(r, "α", "alpha:1234", errHostDup)
+	announce(r, "α", "alpha:1235", errHostDup)
+	query(r, "α", "alpha:1234")
 	// r.Query("β") == ø
 
 	r2, err := openRegistrySQLite(ctx, dbpath)
