@@ -21,6 +21,7 @@ package lonet
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -39,7 +40,7 @@ func TestRegistrySQLite(t *testing.T) {
 
 	ctx := context.Background()
 
-	r, err := openRegistrySQLite(ctx, dbpath)
+	r, err := openRegistrySQLite(ctx, dbpath, "aaa")
 	X(err)
 
 	// query checks that result of Query(hostname) is as expected.
@@ -112,7 +113,7 @@ func TestRegistrySQLite(t *testing.T) {
 	query(r, "α", "alpha:1234")
 	query(r, "β", ø)
 
-	r2, err := openRegistrySQLite(ctx, dbpath)
+	r2, err := openRegistrySQLite(ctx, dbpath, "aaa")
 	// r2.Network() == ...
 	query(r2, "α", "alpha:1234")
 	query(r2, "β", ø)
@@ -133,4 +134,15 @@ func TestRegistrySQLite(t *testing.T) {
 	X(r2.Close())
 
 	query(r2, "α", errRegistryDown)
+
+
+	// verify network mismatch detection works
+	r3, err := openRegistrySQLite(ctx, dbpath, "bbb")
+	if !(r3 == nil && err != nil) {
+		t.Fatalf("network mismatch: not detected")
+	}
+	errWant := fmt.Sprintf(`%s: open []: network name mismatch: want "bbb"; have "aaa"`, dbpath)
+	if err.Error() != errWant {
+		t.Fatalf("network mismatch: error:\nhave: %q\nwant: %q", err.Error(), errWant)
+	}
 }

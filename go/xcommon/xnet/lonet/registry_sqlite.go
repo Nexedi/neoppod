@@ -23,9 +23,12 @@ package lonet
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqliteutil"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // registry schema
@@ -41,6 +44,8 @@ import (
 // "schemaver"	str(int) - version of schema.
 // "network"    text     - name of lonet network this registry serves.
 
+const schemaVer = "lonet.1"
+
 type sqliteRegistry struct {
 	dbpool *sqlite.Pool
 
@@ -48,8 +53,9 @@ type sqliteRegistry struct {
 }
 
 // openRegistrySqlite opens SQLite registry located at dburi.
-// XXX network name?
-func openRegistrySQLite(ctx context.Context, dburi string) (_ *sqliteRegistry, err error) {
+//
+// the registry is setup/verified to be serving specified lonet network.
+func openRegistrySQLite(ctx context.Context, dburi, network string) (_ *sqliteRegistry, err error) {
 	r := &sqliteRegistry{uri: dburi}
 	defer r.regerr(&err, "open")
 
@@ -60,7 +66,7 @@ func openRegistrySQLite(ctx context.Context, dburi string) (_ *sqliteRegistry, e
 
 	r.dbpool = dbpool
 
-	err = r.setup(ctx)
+	err = r.setup(ctx, network)
 	if err != nil {
 		r.Close()
 		return nil, err
@@ -90,8 +96,8 @@ func (r *sqliteRegistry) withConn(ctx context.Context, f func(*sqlite.Conn) erro
 	return f(conn)
 }
 
-var errNoRows   = errors.New("query1: empty result")
-var errManyRows = errors.New("query1: multiple results")
+var errNoRows   = errors.New("query: empty result")
+var errManyRows = errors.New("query: multiple results")
 
 // query1 is like sqliteutil.Exec but checks that exactly 1 row is returned.
 //
@@ -116,9 +122,9 @@ func query1(conn *sqlite.Conn, query string, resultf func(stmt *sqlite.Stmt), ar
 	return nil
 }
 
-func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
-	return r.withConn(ctx, func(conn *sqlite.Conn) error {
-		err := sqliteutil.ExecScript(conn, `
+func (r *sqliteRegistry) setup(ctx context.Context, network string) error {
+	return r.withConn(ctx, func(conn *sqlite.Conn) (err error) {
+		err = sqliteutil.ExecScript(conn, `
 			CREATE TABLE IF NOT EXISTS hosts (
 				hostname	TEXT NON NULL PRIMARY KEY,
 				osladdr		TEXT NON NULL
@@ -133,11 +139,77 @@ func (r *sqliteRegistry) setup(ctx context.Context) (err error) {
 			return err
 		}
 
-		// XXX check schemaver
-		// XXX check network name
+		// do check/init under transaction
+		defer sqliteutil.Save(conn)(&err)
+
+		// XXX vvv review error handling
+
+		// check/init schema version
+		ver, err := r.config(conn, "schemaver")
+		if err != nil {
+			return err
+		}
+		if ver == "" {
+			ver = schemaVer
+			err = r.setConfig(conn, "schemaver", ver)
+			if err != nil {
+				return err
+			}
+		}
+		if ver != schemaVer {
+			return fmt.Errorf("schema version mismatch: want %q; have %q", schemaVer, ver)
+		}
+
+		// check/init network name
+		dbnetwork, err := r.config(conn, "network")
+		if err != nil {
+			return err
+		}
+		if dbnetwork == "" {
+			dbnetwork = network
+			err = r.setConfig(conn, "network", dbnetwork)
+			if err != nil {
+				return err
+			}
+		}
+		if dbnetwork != network {
+			return fmt.Errorf("network name mismatch: want %q; have %q", network, dbnetwork)
+		}
+
 
 		return nil
 	})
+}
+
+// config gets one registry configuration value by name.
+//
+// if there is no record corresponding to name ("", nil) is returned.
+// XXX add ok ret to indicate presence of value?
+func (r *sqliteRegistry) config(conn *sqlite.Conn, name string) (value string, err error) {
+	defer xerr.Contextf(&err, "config: get %q", name)
+
+	err = query1(conn, "SELECT value FROM meta WHERE name = ?", func(stmt *sqlite.Stmt) {
+		value = stmt.ColumnText(0)
+	}, name)
+
+	switch err {
+	case errNoRows:
+		return "", nil
+	case errManyRows:
+		value = ""
+	}
+
+	return value, err
+}
+
+// setConfig sets one registry configuration value by name.
+func (r *sqliteRegistry) setConfig(conn *sqlite.Conn, name, value string) (err error) {
+	defer xerr.Contextf(&err, "config: set %q = %q", name, value)
+
+	err = sqliteutil.Exec(conn,
+		"INSERT OR REPLACE INTO meta (name, value) VALUES (?, ?)", nil,
+		name, value)
+	return err
 }
 
 func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string) (err error) {
@@ -149,7 +221,7 @@ func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string)
 			hostname, osladdr)
 
 		switch sqlite.ErrCode(err) {
-		case sqlite.SQLITE_CONSTRAINT_UNIQUE:	// XXX test
+		case sqlite.SQLITE_CONSTRAINT_UNIQUE:
 			err = errHostDup
 		}
 

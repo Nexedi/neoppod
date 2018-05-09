@@ -22,7 +22,7 @@
 // Package lonet provides TCP network simulated on top of localhost TCP loopback.
 //
 // For testing distributed systems it is sometimes handy to imitate network of
-// several TCP hosts. It is also handy that port allocated on Dial/Listen/Accept on
+// several TCP hosts. It is also handy that ports allocated on Dial/Listen/Accept on
 // that hosts be predictable - that would help tests to verify network events
 // against expected sequence. When whole system could be imitated in 1 OS-level
 // process, package lab.nexedi.com/kirr/go123/xnet/pipenet serves the task via
@@ -32,7 +32,7 @@
 //
 // Similarly to pipenet addresses on lonet are host:port pairs and several
 // hosts could be created with different names. A host is xnet.Networker and
-// so can be worked with similarly to regular TCP network with
+// so can be worked with similarly to regular TCP network access-point with
 // Dial/Listen/Accept.  Host's ports allocation is predictable: ports of a host
 // are contiguous integer sequence starting from 1 that are all initially free,
 // and whenever autobind is requested the first free port of the host will be
