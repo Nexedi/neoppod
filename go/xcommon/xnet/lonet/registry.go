@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package lonet
-// registry of network hosts
+// registry of network hosts.
 
 import (
 	"context"
@@ -51,8 +51,8 @@ type registry interface {
 	// Returned error, if !nil, is *registryError with .Err describing the
 	// error cause:
 	//
-	//	- errRegistryDown if registry cannot be accessed	XXX (and its underlying cause?)
-	//	- errHostDup
+	//	- errRegistryDown  if registry cannot be accessed,	XXX (and its underlying cause?)
+	//	- errHostDup       if hostname was already announced,
 	//	- some other error indicating e.g. IO problem.
 	Announce(ctx context.Context, hostname, osladdr string) error
 
@@ -64,15 +64,15 @@ type registry interface {
 	// Returned error, if !nil, is *registryError with .Err describing the
 	// error cause:
 	//
-	//	- errRegistryDown ...	XXX
-	//	- errNoHost       if hostname was not announced to registry,
+	//	- errRegistryDown  if registry cannot be accessed,	XXX ^^^
+	//	- errNoHost        if hostname was not announced to registry,
 	//	- some other error indicating e.g. IO problem.
 	Query(ctx context.Context, hostname string) (osladdr string, _ error)
 
 	// Close closes access to registry.
 	//
-	// Close interrupts all in-fligh Announce and Query requests started
-	// via closed registry connection. Those interrupted requests will
+	// Close interrupts all in-flight Announce and Query requests started
+	// via closing registry connection. Those interrupted requests will
 	// return with errRegistryDown error cause.
 	Close() error
 }
@@ -81,6 +81,7 @@ var errRegistryDown = errors.New("registry is down")
 var errNoHost       = errors.New("no such host")
 var errHostDup      = errors.New("host already registered")
 
+// registryError represents an error of a registry operation.
 type registryError struct {
 	// XXX name of the network? - XXX yes
 	Registry string		// name of the registry

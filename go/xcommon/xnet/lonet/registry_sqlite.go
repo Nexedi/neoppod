@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package lonet
-// registry implemented as shared SQLite file
+// registry implemented as shared SQLite file.
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-// registry schema
+// registry schema	(keep in sync wrt .setup())
 //
 // hosts:
 //	hostname	text !null PK
@@ -41,8 +41,8 @@ import (
 //	name		text !null PK
 //	value		text !null
 //
-// "schemaver"	str(int) - version of schema.
-// "network"    text     - name of lonet network this registry serves.
+// "schemaver"  text	- version of db schema.
+// "network"    text	- name of lonet network this registry serves.
 
 const schemaVer = "lonet.1"
 
@@ -52,7 +52,7 @@ type sqliteRegistry struct {
 	uri    string	// URI db was originally opened with
 }
 
-// openRegistrySqlite opens SQLite registry located at dburi.
+// openRegistrySQLite opens SQLite registry located at dburi.
 //
 // the registry is setup/verified to be serving specified lonet network.
 func openRegistrySQLite(ctx context.Context, dburi, network string) (_ *sqliteRegistry, err error) {
@@ -66,6 +66,7 @@ func openRegistrySQLite(ctx context.Context, dburi, network string) (_ *sqliteRe
 
 	r.dbpool = dbpool
 
+	// initialize/check db
 	err = r.setup(ctx, network)
 	if err != nil {
 		r.Close()
@@ -75,6 +76,7 @@ func openRegistrySQLite(ctx context.Context, dburi, network string) (_ *sqliteRe
 	return r, nil
 }
 
+// Close implements registry.
 func (r *sqliteRegistry) Close() (err error) {
 	defer r.regerr(&err, "close")
 	return r.dbpool.Close()
@@ -122,8 +124,12 @@ func query1(conn *sqlite.Conn, query string, resultf func(stmt *sqlite.Stmt), ar
 	return nil
 }
 
-func (r *sqliteRegistry) setup(ctx context.Context, network string) error {
+// setup initializes/checks registry database to be of expected schema and configuration.
+func (r *sqliteRegistry) setup(ctx context.Context, network string) (err error) {
+	defer xerr.Contextf(&err, "setup %q", network)
+
 	return r.withConn(ctx, func(conn *sqlite.Conn) (err error) {
+		// NOTE: keep in sync wrt top-level text.
 		err = sqliteutil.ExecScript(conn, `
 			CREATE TABLE IF NOT EXISTS hosts (
 				hostname	TEXT NON NULL PRIMARY KEY,
@@ -139,10 +145,9 @@ func (r *sqliteRegistry) setup(ctx context.Context, network string) error {
 			return err
 		}
 
-		// do check/init under transaction
+		// do whole checks/init under transaction, so that there is
+		// e.g. no race wrt another process setting config.
 		defer sqliteutil.Save(conn)(&err)
-
-		// XXX vvv review error handling
 
 		// check/init schema version
 		ver, err := r.config(conn, "schemaver")
@@ -183,7 +188,7 @@ func (r *sqliteRegistry) setup(ctx context.Context, network string) error {
 
 // config gets one registry configuration value by name.
 //
-// if there is no record corresponding to name ("", nil) is returned.
+// if there is no record corresponding to name - ("", nil) is returned.
 // XXX add ok ret to indicate presence of value?
 func (r *sqliteRegistry) config(conn *sqlite.Conn, name string) (value string, err error) {
 	defer xerr.Contextf(&err, "config: get %q", name)
@@ -212,6 +217,7 @@ func (r *sqliteRegistry) setConfig(conn *sqlite.Conn, name, value string) (err e
 	return err
 }
 
+// Announce implements registry.
 func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string) (err error) {
 	defer r.regerr(&err, "announce", hostname, osladdr)
 
@@ -231,6 +237,7 @@ func (r *sqliteRegistry) Announce(ctx context.Context, hostname, osladdr string)
 
 var errRegDup = errors.New("registry broken: duplicate host entries")
 
+// Query implements registry.
 func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr string, err error) {
 	defer r.regerr(&err, "query", hostname)
 
@@ -257,6 +264,10 @@ func (r *sqliteRegistry) Query(ctx context.Context, hostname string) (osladdr st
 }
 
 // regerr is syntactic sugar to wrap !nil *errp into registryError.
+//
+// intended too be used like
+//
+//	defer r.regerr(&err, "operation", arg1, arg2, ...)
 func (r *sqliteRegistry) regerr(errp *error, op string, args ...interface{}) {
 	if *errp == nil {
 		return

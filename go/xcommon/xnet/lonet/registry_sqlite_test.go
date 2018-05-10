@@ -141,7 +141,7 @@ func TestRegistrySQLite(t *testing.T) {
 	if !(r3 == nil && err != nil) {
 		t.Fatalf("network mismatch: not detected")
 	}
-	errWant := fmt.Sprintf(`%s: open []: network name mismatch: want "bbb"; have "aaa"`, dbpath)
+	errWant := fmt.Sprintf(`%s: open []: setup "bbb": network name mismatch: want "bbb"; have "aaa"`, dbpath)
 	if err.Error() != errWant {
 		t.Fatalf("network mismatch: error:\nhave: %q\nwant: %q", err.Error(), errWant)
 	}
