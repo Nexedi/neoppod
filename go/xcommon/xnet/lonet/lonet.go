@@ -67,9 +67,14 @@
 package lonet
 
 import (
+	"context"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 
+	"lab.nexedi.com/kirr/go123/xerr"
 	//"lab.nexedi.com/kirr/go123/xnet"
 )
 
@@ -92,8 +97,8 @@ type Addr struct {
 // XXX text
 type SubNetwork struct {
 	// name of full network under "lonet" namespace -> e.g. ""
-	// full network name will be reported as "lonet"+name.
-	name string
+	// full network name will be reported as "lonet"+network.
+	network string
 
 	// registry of whole lonet network
 	registry registry
@@ -145,20 +150,46 @@ type conn struct {
 
 // Join joins or creates new lonet network with given name.
 //
-// Name is name of this network under "lonet" namespace, e.g. "α" will give
-// full network name "lonetα".
+// Network is the name of this network under "lonet" namespace, e.g. "α" will
+// give full network name "lonetα".
 //
-// If name is "" new network with random unique name will be created.
+// If network is "" new network with random unique name will be created.
 //
 // Join returns new subnetwork on the joined network.
-//
-// XXX
-func Join(name string) (*SubNetwork, error) {
-	// TODO create/join registry under /tmp/lonet/XXX/registry.db
-	var registry registry
+func Join(ctx context.Context, network string) (_ *SubNetwork, err error) {
+	defer xerr.Contextf(&err, "lonet: join %q", network)
 
-	// XXX "" -> create new with temp name.
-	return &SubNetwork{name: name, registry: registry, hostMap: make(map[string]*Host)}, nil
+	// create/join registry under /tmp/lonet/<network>/registry.db
+	lonet := os.TempDir() + "/lonet"
+	err = os.MkdirAll(lonet, 0777 | os.ModeSticky)
+	if err != nil {
+		return nil, err
+	}
+
+	var netdir string
+	if network != "" {
+		netdir = lonet + "/" + network
+		err = os.MkdirAll(netdir, 0700)
+	} else {
+		// new with random name
+		netdir, err = ioutil.TempDir(lonet, "")
+		network = filepath.Base(netdir)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	registry, err := openRegistrySQLite(ctx, netdir + "/registry.db", network)
+	if err != nil {
+		return nil, err
+	}
+
+	// joined ok
+	return &SubNetwork{
+		network:  network,
+		registry: registry,
+		hostMap:  make(map[string]*Host),
+	}, nil
 }
 
 // NewHost creates new lonet network access point with given name.
@@ -206,8 +237,8 @@ func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 }
 
 
-// Network returns full network name this segment is part of.
-func (n *SubNetwork) Network() string { return NetPrefix + n.name }
+// Network returns full network name this subnetwork is part of.
+func (n *SubNetwork) Network() string { return NetPrefix + n.network }
 
 // Network returns full network name of underlying network.
 func (h *Host) Network() string { return h.subnet.Network() }
