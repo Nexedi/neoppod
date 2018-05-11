@@ -66,7 +66,13 @@
 // See also shipped lonet.py for accessing lonet networks from Python.
 package lonet
 
-/*
+import (
+	"net"
+	"sync"
+
+	//"lab.nexedi.com/kirr/go123/xnet"
+)
+
 const NetPrefix = "lonet" // lonet package creates only "lonet*" networks
 
 // Addr represents address of a lonet endpoint.
@@ -76,41 +82,52 @@ type Addr struct {
 	Port int    // port on host
 }
 
-// Network implements ... XXX
-type Network struct {
-	// name of this network under "lonet" namespace -> e.g. ""
-	// full network name will be reported as "lonet"+name
+// SubNetwork represents one segment of a lonet network.
+//
+// Multiple Hosts could be created on one segment.
+// There can be other network segments in the same process or in another OS-level processes.
+//
+// Host names are unique through whole lonet network.
+//
+// XXX text
+type SubNetwork struct {
+	// name of full network under "lonet" namespace -> e.g. ""
+	// full network name will be reported as "lonet"+name.
 	name string
 
-	// big network lock for everything dynamic under Network
+	// registry of whole lonet network
+	registry registry
+
+	// big network lock for everything dynamic under SubNetwork
 	// (e.g. Host.socketv too)	XXX
 	mu sync.Mutex
 
 	hostMap map[string]*Host
 }
 
-// Host represents named access point on Network
+// Host represents named access point on Network	XXX
 type Host struct {
-	network *Network
+	subnet *SubNetwork
 	name    string
 
-	// NOTE protected by Network.mu
+	// NOTE protected by subnet.mu		XXX
 	socketv []*socket // port -> listener | conn  ; [0] is always nil
 }
 
-var _ xnet.Networker = (*Host)(nil)
+// XXX reenable
+//var _ xnet.Networker = (*Host)(nil)
 
-// socket represents one endpoint entry on Network
+// socket represents one endpoint entry on Network	XXX
 // it can be either already connected or listening
 type socket struct {
 	host *Host // host/port this socket is bound to
 	port int
 
 	conn     *conn     // connection endpoint is here if != nil
-	listener *listener // listener is waiting here if != nil
+//	listener *listener // listener is waiting here if != nil
 }
 
-// conn represents one endpoint of connection created under Network
+// conn represents one endpoint of connection created under Network	XXX
 type conn struct {
 	socket *socket
 	peersk *socket // the other side of this connection
@@ -126,34 +143,49 @@ type conn struct {
 
 // ----------------------------------------
 
-// New creates new lonet Network.
+// Join joins or creates new lonet network with given name.
 //
-// name is name of this network under "lonet" namespace, e.g. "α" will give full network name "lonetα".
+// Name is name of this network under "lonet" namespace, e.g. "α" will give
+// full network name "lonetα".
 //
-// New does not check whether network name provided is unique.
-func New(name string) *Network {
-	return &Network{name: name, hostMap: make(map[string]*Host)}
+// If name is "" new network with random unique name will be created.
+//
+// Join returns new subnetwork on the joined network.
+//
+// XXX
+func Join(name string) (*SubNetwork, error) {
+	// TODO create/join registry under /tmp/lonet/XXX/registry.db
+	var registry registry
+
+	// XXX "" -> create new with temp name.
+	return &SubNetwork{name: name, registry: registry, hostMap: make(map[string]*Host)}, nil
 }
 
-// Host returns network access point by name.
+// NewHost creates new lonet network access point with given name.
 //
-// If there was no such host before it creates new one.
-func (n *Network) Host(name string) *Host {
+// Serving of created host will be done though SubNetwork via which it was
+// created.	XXX
+//
+// XXX errors
+func (n *SubNetwork) NewHost(name string) (*Host, error) {
+	// XXX redo for lonet
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
 	host := n.hostMap[name]
 	if host == nil {
-		host = &Host{network: n, name: name}
+		host = &Host{subnet: n, name: name}
 		n.hostMap[name] = host
 	}
 
-	return host
+	return host, nil
 }
 
 // resolveAddr resolves addr on the network from the host point of view
-// must be called with Network.mu held
+// must be called with Network.mu held	XXX
 func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
+	panic("TODO")
+/*
 	a, err := h.network.ParseAddr(addr)
 	if err != nil {
 		return nil, 0, err
@@ -170,5 +202,15 @@ func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
 	}
 
 	return host, a.Port, nil
-}
 */
+}
+
+
+// Network returns full network name this segment is part of.
+func (n *SubNetwork) Network() string { return NetPrefix + n.name }
+
+// Network returns full network name of underlying network.
+func (h *Host) Network() string { return h.subnet.Network() }
+
+// Name returns host name.
+func (h *Host) Name() string { return h.name }

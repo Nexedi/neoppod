@@ -18,3 +18,13 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 # TODO doc, code
+
+
+class SQLiteRegistry(object):
+
+    def __init__(self, dburi, network):
+        # XXX open
+        self.setup(network)
+
+
+# TODO
