@@ -100,8 +100,7 @@ func listenAndServe(ctx context.Context, net xnet.Networker, laddr string, serve
 			}
 
 			// got something unexpected - grab the header (which we
-			// already have read), log it and reject the
-			// connection.
+			// already have read), log it and reject the connection.
 			b := make([]byte, 1024)
 			// must not block as some data is already there in cmux buffer
 			n, _ := conn.Read(b)
