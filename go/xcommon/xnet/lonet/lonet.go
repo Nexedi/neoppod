@@ -72,13 +72,16 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/xerr"
-	//"lab.nexedi.com/kirr/go123/xnet"
+	"lab.nexedi.com/kirr/go123/xnet"
 )
 
 const NetPrefix = "lonet" // lonet package creates only "lonet*" networks
+
+// XXX errors
 
 // Addr represents address of a lonet endpoint.
 type Addr struct {
@@ -119,30 +122,40 @@ type Host struct {
 	socketv []*socket // port -> listener | conn  ; [0] is always nil
 }
 
-// XXX reenable
-//var _ xnet.Networker = (*Host)(nil)
+var _ xnet.Networker = (*Host)(nil)
 
-// socket represents one endpoint entry on Network	XXX
-// it can be either already connected or listening
+// socket represents one endpoint entry on Host.
+//
+// it can be either already connected or listening.
 type socket struct {
 	host *Host // host/port this socket is bound to
 	port int
 
 	conn     *conn     // connection endpoint is here if != nil
-//	listener *listener // listener is waiting here if != nil
+	listener *listener // listener is waiting here if != nil
 }
 
-// conn represents one endpoint of connection created under Network	XXX
+// conn represents one endpoint of connection created under lonet network.
 type conn struct {
-	socket *socket
-	peersk *socket // the other side of this connection
+	socket   *socket // local socket
+	peerAddr *Addr   // lonet address of the remote side of this connection
 
 	net.Conn
 
 	closeOnce sync.Once
 }
 
-// XXX listener
+// listener implements net.Listener for Host.
+type listener struct {
+	// subnetwork/host/port we are listening on
+	socket *socket
+
+//	dialq chan dialReq  // Dial requests to our port go here
+	down  chan struct{} // Close -> down=ready
+
+	closeOnce sync.Once
+}
+
 
 // XXX dialReq
 
@@ -212,30 +225,76 @@ func (n *SubNetwork) NewHost(name string) (*Host, error) {
 	return host, nil
 }
 
-// resolveAddr resolves addr on the network from the host point of view
-// must be called with Network.mu held	XXX
-func (h *Host) resolveAddr(addr string) (host *Host, port int, err error) {
+// XXX Host.resolveAddr
+
+// XXX
+func (h *Host) Listen(laddr string) (net.Listener, error) {
 	panic("TODO")
-/*
-	a, err := h.network.ParseAddr(addr)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// local host if host name omitted
-	if a.Host == "" {
-		a.Host = h.name
-	}
-
-	host = h.network.hostMap[a.Host]
-	if host == nil {
-		return nil, 0, &net.AddrError{Err: "no such host", Addr: addr}
-	}
-
-	return host, a.Port, nil
-*/
 }
 
+// XXX
+func (h *Host) Dial(ctx context.Context, addr string) (net.Conn, error) {
+	panic("TODO")
+}
+
+// Close closes network endpoint and unregisters conn from Host.
+//
+// All currently in-flight blocked IO is interrupted with an error
+func (c *conn) Close() (err error) {
+	c.closeOnce.Do(func() {
+		err = c.Conn.Close()
+
+		sk := c.socket
+		h := sk.host
+		n := h.subnet
+
+		n.mu.Lock()
+		defer n.mu.Unlock()
+
+		sk.conn = nil
+		if sk.empty() {
+			h.socketv[sk.port] = nil
+		}
+	})
+
+	return err
+}
+
+// LocalAddr returns address of local end of connection.
+func (c *conn) LocalAddr() net.Addr {
+	return c.socket.addr()
+}
+
+// RemoteAddr returns address of remote end of connection.
+func (c *conn) RemoteAddr() net.Addr {
+	return c.peerAddr
+}
+
+// ----------------------------------------
+
+// XXX Host.allocFreeSocket
+
+// empty checks whether socket's both conn and listener are all nil.
+// XXX recheck we really need this.
+func (sk *socket) empty() bool {
+	return sk.conn == nil && sk.listener == nil
+}
+
+// addr returns address corresponding to socket.
+func (sk *socket) addr() *Addr {
+	h := sk.host
+	return &Addr{Net: h.Network(), Host: h.name, Port: sk.port}
+}
+
+func (a *Addr) Network() string { return a.Net }
+func (a *Addr) String() string  { return net.JoinHostPort(a.Host, strconv.Itoa(a.Port)) }
+
+// XXX ParseAddr
+
+// Addr returns address where listener is accepting incoming connections.
+func (l *listener) Addr() net.Addr {
+	return l.socket.addr()
+}
 
 // Network returns full network name this subnetwork is part of.
 func (n *SubNetwork) Network() string { return NetPrefix + n.network }
