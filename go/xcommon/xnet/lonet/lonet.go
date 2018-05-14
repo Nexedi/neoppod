@@ -106,11 +106,16 @@ type SubNetwork struct {
 	// registry of whole lonet network
 	registry registry
 
+	// OS-level listener of this subnetwork.
+	// whenever connection to subnet's host is tried to be established it goes here.
+	oslistener net.Listener
+
 	// big network lock for everything dynamic under SubNetwork
 	// (e.g. Host.socketv too)	XXX
 	mu sync.Mutex
 
-	hostMap map[string]*Host
+//	hostMap map[string]*Host	// XXX lonet: not needed (registry instead)
+//	XXX track all hosts so SubNetwork.Shutdown shuts them down?
 }
 
 // Host represents named access point on Network	XXX
@@ -197,32 +202,38 @@ func Join(ctx context.Context, network string) (_ *SubNetwork, err error) {
 		return nil, err
 	}
 
+	// start OS listener
+	oslistener, err := net.Listen("tcp4", "127.0.0.1:")
+	if err != nil {
+		registry.Close()	// XXX lclose?
+		return nil, err
+	}
+
 	// joined ok
 	return &SubNetwork{
-		network:  network,
-		registry: registry,
-		hostMap:  make(map[string]*Host),
+		network:    network,
+		registry:   registry,
+		oslistener: oslistener,
+//		hostMap:  make(map[string]*Host),
 	}, nil
 }
 
-// NewHost creates new lonet network access point with given name.
+// NewHost creates new lonet Host with given name.
 //
 // Serving of created host will be done though SubNetwork via which it was
 // created.	XXX
 //
 // XXX errors
-func (n *SubNetwork) NewHost(name string) (*Host, error) {
-	// XXX redo for lonet
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	host := n.hostMap[name]
-	if host == nil {
-		host = &Host{subnet: n, name: name}
-		n.hostMap[name] = host
+//	errHostDup	if host name was already registered.
+func (n *SubNetwork) NewHost(ctx context.Context, name string) (*Host, error) {
+	// announce host name to registry
+	err := n.registry.Announce(ctx, name, n.oslistener.Addr().String())
+	if err != nil {
+		return nil, err // registry error has enough context
 	}
 
-	return host, nil
+	// announced ok -> host can be created
+	return &Host{subnet: n, name: name}, nil
 }
 
 // XXX Host.resolveAddr
