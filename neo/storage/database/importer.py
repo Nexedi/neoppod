@@ -24,6 +24,11 @@ from ZConfig import loadConfigFile
 from ZODB import BaseStorage
 from ZODB.config import getStorageSchema, storageFromString
 from ZODB.POSException import POSKeyError
+try:
+    from ZODB._compat import dumps, loads, _protocol
+except ImportError:
+    from cPickle import dumps, loads
+    _protocol = 1
 
 from . import buildDatabaseManager, DatabaseFailure
 from .manager import DatabaseManager
@@ -34,6 +39,12 @@ from neo.lib.protocol import BackendNotImplemented, MAX_TID
 patch.speedupFileStorageTxnLookup()
 
 FORK = sys.platform != 'win32'
+
+def transactionAsTuple(txn):
+    ext = txn.extension
+    return (txn.user, txn.description,
+        dumps(ext, _protocol) if ext else '',
+        txn.status == 'p', txn.tid)
 
 
 class Reference(object):
@@ -484,11 +495,8 @@ class ImporterDatabaseManager(DatabaseManager):
                 if tid != z.tid:
                     if tid:
                         yield txn
-                    txn = z.transaction
-                    tid = txn.tid
-                    txn = (str(txn.user), str(txn.description),
-                        cPickle.dumps(txn.extension),
-                        txn.status == 'p', tid)
+                    txn = transactionAsTuple(z.transaction)
+                    tid = txn[-1]
                 zodb = z.zodb
                 for r in z.transaction:
                     oid = p64(u64(r.oid) + zodb.shift_oid)
@@ -577,8 +585,7 @@ class ImporterDatabaseManager(DatabaseManager):
                     p64 = util.p64
                     shift_oid = zodb.shift_oid
                     return ([p64(u64(x.oid) + shift_oid) for x in txn],
-                        txn.user, txn.description,
-                        cPickle.dumps(txn.extension), 0, tid)
+                           ) + transactionAsTuple(txn)
         else:
             return self.db.getTransaction(tid, all)
 
@@ -746,7 +753,7 @@ class TransactionRecord(BaseStorage.TransactionRecord):
     def __init__(self, db, tid):
         self._oid_list, user, desc, ext, _, _ = db.getTransaction(tid)
         super(TransactionRecord, self).__init__(tid, ' ', user, desc,
-            cPickle.loads(ext) if ext else {})
+            loads(ext) if ext else {})
         self._db = db
 
     def __iter__(self):

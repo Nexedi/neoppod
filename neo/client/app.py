@@ -14,10 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from cPickle import dumps, loads
 import heapq
 import time
 
+try:
+    from ZODB._compat import dumps, loads, _protocol
+except ImportError:
+    from cPickle import dumps, loads
+    _protocol = 1
 from ZODB.POSException import UndoError, ConflictError, ReadConflictError
 from . import OLD_ZODB
 if OLD_ZODB:
@@ -543,9 +547,12 @@ class Application(ThreadedApplication):
         txn_context = self._txn_container.get(transaction)
         self.waitStoreResponses(txn_context)
         ttid = txn_context.ttid
+        ext = transaction._extension
+        ext = dumps(ext, _protocol) if ext else ''
+        # user and description are cast to str in case they're unicode.
+        # BBB: This is not required anymore with recent ZODB.
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
-            str(transaction.description), dumps(transaction._extension),
-            txn_context.cache_dict)
+            str(transaction.description), ext, txn_context.cache_dict)
         queue = txn_context.queue
         involved_nodes = txn_context.involved_nodes
         # Ask in parallel all involved storage nodes to commit object metadata.
@@ -775,10 +782,6 @@ class Application(ThreadedApplication):
         self.waitStoreResponses(txn_context)
         return None, txn_oid_list
 
-    def _insertMetadata(self, txn_info, extension):
-        for k, v in loads(extension).items():
-            txn_info[k] = v
-
     def _getTransactionInformation(self, tid):
         return self._askStorageForRead(tid,
             Packets.AskTransactionInformation(tid))
@@ -818,7 +821,8 @@ class Application(ThreadedApplication):
             if filter is None or filter(txn_info):
                 txn_info.pop('packed')
                 txn_info.pop("oids")
-                self._insertMetadata(txn_info, txn_ext)
+                if txn_ext:
+                    txn_info.update(loads(txn_ext))
                 append(txn_info)
                 if len(undo_info) >= last - first:
                     break
@@ -846,7 +850,7 @@ class Application(ThreadedApplication):
         tid = None
         for tid in tid_list:
             (txn_info, txn_ext) = self._getTransactionInformation(tid)
-            txn_info['ext'] = loads(txn_ext)
+            txn_info['ext'] = loads(txn_ext) if txn_ext else {}
             append(txn_info)
         return (tid, txn_list)
 
@@ -865,7 +869,8 @@ class Application(ThreadedApplication):
                 txn_info['size'] = size
                 if filter is None or filter(txn_info):
                     result.append(txn_info)
-                self._insertMetadata(txn_info, txn_ext)
+                if txn_ext:
+                    txn_info.update(loads(txn_ext))
         return result
 
     def importFrom(self, storage, source):
