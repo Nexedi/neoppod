@@ -891,10 +891,9 @@ class NEOCluster(object):
         if dummy_zodb is None:
             from ..stat_zodb import PROD1
             dummy_zodb = PROD1(random)
-        preindex = {}
         as_storage = dummy_zodb.as_storage
-        return lambda count: self.getZODBStorage().importFrom(
-            as_storage(count), preindex=preindex)
+        return lambda count: self.getZODBStorage().copyTransactionsFrom(
+            as_storage(count))
 
     def populate(self, transaction_list, tid=lambda i: p64(i+1),
                                          oid=lambda i: p64(i+1)):

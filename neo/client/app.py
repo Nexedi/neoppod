@@ -868,20 +868,25 @@ class Application(ThreadedApplication):
                 self._insertMetadata(txn_info, txn_ext)
         return result
 
-    def importFrom(self, storage, source, start, stop, preindex=None):
+    def importFrom(self, storage, source):
         # TODO: The main difference with BaseStorage implementation is that
         #       preindex can't be filled with the result 'store' (tid only
         #       known after 'tpc_finish'. This method could be dropped if we
         #       implemented IStorageRestoreable (a wrapper around source would
         #       still be required for partial import).
-        if preindex is None:
-            preindex = {}
-        for transaction in source.iterator(start, stop):
+        preindex = {}
+        for transaction in source.iterator():
             tid = transaction.tid
             self.tpc_begin(storage, transaction, tid, transaction.status)
             for r in transaction:
                 oid = r.oid
-                pre = preindex.get(oid)
+                try:
+                    pre = preindex[oid]
+                except KeyError:
+                    try:
+                        pre = self.load(oid)[1]
+                    except NEOStorageNotFoundError:
+                        pre = ZERO_TID
                 self.store(oid, pre, r.data, r.version, transaction)
                 preindex[oid] = tid
             conflicted = self.tpc_vote(transaction)
