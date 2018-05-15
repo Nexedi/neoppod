@@ -21,3 +21,9 @@ package lonet
 
 // TODO test go-go
 // TODO test go-py
+
+// XXX handshake:
+// - ok,
+// - econnrefused (no such host, port not listening)
+// - network mismatch
+// - invalid request

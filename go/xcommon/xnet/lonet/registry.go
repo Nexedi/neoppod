@@ -28,8 +28,8 @@ import (
 
 // registry represents access to lonet network registry.
 //
-// The registry holds information about hosts available on the network and
-// for each host its OS listening address. Whenever host α needs to establish
+// The registry holds information about hosts available on the network, and
+// for each host its OS listening address. Whenever host α needs to establish	XXX dup with lonet.go
 // connection to address on host β, it queries the registry for β and further
 // talks to β on that address. Correspondingly when a host joins the network,
 // it announces itself to the registry so that other hosts could see it.

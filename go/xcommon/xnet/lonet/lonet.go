@@ -41,21 +41,18 @@
 // to 127.0.0.1:4567 and 127.0.0.1:8765, and once lonet connection is
 // established it becomes served by OS-level TCP connection over loopback.
 //
-// XXX several networks = possible. (or document in New?)
-//
-// Example:			TODO adjust
+// Example:
 //
 //	net, err := lonet.Join(ctx, "mynet")
-//	h1, err := net.NewHost("abc")
-//	h2, err := net.NewHost("def")	// ...
+//	hα, err := net.NewHost(ctx, "α")
+//	hβ, err := net.NewHost(ctx, "β")
 //
-//	// XXX inject 127.0.0.1 to example...
-//	// starts listening on address "abc:10" (which gets mapped to "127.0.0.1:xxx")
-//	l, err := h1.Listen(":10")
+//	// starts listening on address "α:10"
+//	l, err := hα.Listen(":10")
 //	go func() {
-//		csrv, err := l.Accept()  // csrv will have LocalAddr "abc:10"
+//		csrv, err := l.Accept()   // csrv will have LocalAddr "α:11"
 //	}()
-//	ccli, err := h2.Dial("abc:10")   // ccli will have RemoteAddr "def:10"
+//	ccli, err := hβ.Dial(ctx, "α:10") // ccli will be connection between "β:1" - "α:11"
 //
 // Once again lonet is similar to pipenet, but since it works via OS TCP stack
 // it could be handy for testing networked application when there are several
@@ -64,17 +61,47 @@
 // See also shipped lonet.py for accessing lonet networks from Python.
 package lonet
 
-// XXX document lonet organization, protocol
-
-// > lonet "network" dial <src> <dst>
-// < lonet "network" connected <dst'>
-//                   E connrefused
+// lonet organization
 //
-//                   E wrong network|op|...
+// For every lonet network there is a registry with information about hosts
+// available on the network, and for each host its OS-level listening address.
+// The registry is kept as SQLite database under
 //
-// - protocol error
-// - wrong network
-// - wrong op
+//	/<tmp>/lonet/<network>/registry.db
+//
+// Whenever host α needs to establish connection to address on host β, it
+// queries the registry for β and further talks to β on that address.
+// Correspondingly when a host joins the network, it announces itself to the
+// registry so that other hosts could see it.
+//
+//
+// handshake protocol
+//
+// After α establishes OS-level connection to β via main β port, it sends
+// request to further establish lonet connection on top of that:
+//
+//	> lonet "<network>" dial <α:portα> <β:portβ> \n
+//
+// β checks whether portβ is listening, and if yes, accepts the connection on
+// corresponding on-β listener with giving feedback to α that connection was
+// accepted:
+//
+//	< lonet "<network>" connected <β:portβ'> \n
+//
+// After that connection is considered to be lonet-established and all further
+// exchange on it is directly controlled by corresponding lonet-level
+// Read/Write on α and β.
+//
+// If, on the other hand, lonet-level connection cannot be established, β replies:
+//
+//	< lonet "<networkβ>" E "<error>" \n
+//
+// where <error> could be:
+//
+//	- connrefused		if <β:portβ> is not listening
+//	- network mismatch	if β thinks it works on different lonet network than α
+//	- protocol error	if β thinks that α send incorrect dial request
+//	- ...
 
 import (
 	"context"
@@ -298,7 +325,7 @@ func (n *SubNetwork) serve() {	// XXX error?
 
 // loaccept handles incoming OS-level connection.
 //
-// it performs lonet protocol handshake and if successfull further conveys
+// it performs lonet protocol handshake and if successful further conveys
 // accepted connection to lonet-level Accept.
 func (n *SubNetwork) loaccept(osconn net.Conn) (err error) {
 	defer xerr.Contextf(&err, "lonet %q: handshake", n.network)
@@ -311,7 +338,7 @@ func (n *SubNetwork) loaccept(osconn net.Conn) (err error) {
 	}
 
 	var network, src, dst string
-	_, err = fmt.Sscanf(line, "lonet %q dial %s %s\n", &network, &src, &dst)
+	_, err = fmt.Sscanf(line, "> lonet %q dial %s %s\n", &network, &src, &dst)
 	if err != nil {
 		ereply("protocol error")
 		return err
