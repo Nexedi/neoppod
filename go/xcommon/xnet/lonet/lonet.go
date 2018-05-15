@@ -126,8 +126,8 @@ const NetPrefix = "lonet" // lonet package creates only "lonet*" networks
 
 var (
 //	errNetClosed       = stderrors.New("network connection closed")
-//	errAddrAlreadyUsed = stderrors.New("address already in use")
-//	errAddrNoListen    = stderrors.New("cannot listen on requested address")
+	errAddrAlreadyUsed = stderrors.New("address already in use")
+	errAddrNoListen    = stderrors.New("cannot listen on requested address")
 	errConnRefused     = stderrors.New("connection refused")
 )
 
@@ -306,9 +306,71 @@ func (n *SubNetwork) NewHost(ctx context.Context, name string) (*Host, error) {
 
 // XXX Host.resolveAddr
 
-// XXX
-func (h *Host) Listen(laddr string) (net.Listener, error) {
-	panic("TODO")
+// Listen starts new listener on the host.
+//
+// It either allocates free port if laddr is "" or with 0 port, or binds to laddr.
+// Once listener is started, Dials could connect to listening address.
+// Connection requests created by Dials could be accepted via Accept.
+func (h *Host) Listen(laddr string) (_ net.Listener, err error) {
+	h.subnet.mu.Lock()
+	defer h.subnet.mu.Unlock()
+
+	var sk *socket
+
+	if laddr == "" {
+		laddr = ":0"
+	}
+
+	var netladdr net.Addr
+	defer func() {
+		if err != nil {
+			err = &net.OpError{Op: "listen", Net: h.Network(), Addr: netladdr, Err: err}
+		}
+	}()
+
+	// XXX cannot use full resolvaAddr here - it talks to registry and is blocking
+	a, err := h.subnet.parseAddr(laddr)
+	return nil, err
+
+	// local host if host name omitted
+	if a.Host == "" {
+		a.Host = h.name
+	}
+
+	netladdr = a
+
+	if a.Host != h.name {
+		return nil, errAddrNoListen
+	}
+
+	// find first free port if autobind requested
+	if a.Port == 0 {
+		sk = h.allocFreeSocket()
+
+	// else allocate socket in-place
+	} else {
+		// grow if needed
+		for a.Port >= len(h.socketv) {
+			h.socketv = append(h.socketv, nil)
+		}
+
+		if h.socketv[a.Port] != nil {
+			return nil, errAddrAlreadyUsed
+		}
+
+		sk = &socket{host: h, port: a.Port}
+		h.socketv[a.Port] = sk
+	}
+
+	// create listener under socket
+	l := &listener{
+		socket: sk,
+		dialq:  make(chan dialReq),
+		down:   make(chan struct{}),
+	}
+	sk.listener = l
+
+	return l, nil
 }
 
 // serve serves incomming OS-level connection to this subnetwork.
@@ -502,7 +564,28 @@ func (c *conn) RemoteAddr() net.Addr {
 
 // ----------------------------------------
 
-// XXX Host.allocFreeSocket
+// allocFreeSocket finds first free port and allocates socket entry for it.
+//
+// must be called with SubNetwork.mu held
+func (h *Host) allocFreeSocket() *socket {
+	// find first free port
+	port := 1 // never allocate port 0 - it is used for autobind on listen only
+	for ; port < len(h.socketv); port++ {
+		if h.socketv[port] == nil {
+			break
+		}
+	}
+	// if all busy it exits with port >= len(h.socketv)
+
+	// grow if needed
+	for port >= len(h.socketv) {
+		h.socketv = append(h.socketv, nil)
+	}
+
+	sk := &socket{host: h, port: port}
+	h.socketv[port] = sk
+	return sk
+}
 
 // empty checks whether socket's both conn and listener are all nil.
 // XXX recheck we really need this.
