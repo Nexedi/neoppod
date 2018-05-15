@@ -328,7 +328,7 @@ func (h *Host) Listen(laddr string) (_ net.Listener, err error) {
 		}
 	}()
 
-	// XXX cannot use full resolvaAddr here - it talks to registry and is blocking
+	// NOTE cannot use full resolvaAddr here - it talks to registry and is blocking
 	a, err := h.subnet.parseAddr(laddr)
 	return nil, err
 
