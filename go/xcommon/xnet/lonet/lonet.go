@@ -61,7 +61,7 @@
 // See also shipped lonet.py for accessing lonet networks from Python.
 package lonet
 
-// lonet organization
+// Lonet organization
 //
 // For every lonet network there is a registry with information about hosts
 // available on the network, and for each host its OS-level listening address.
@@ -75,9 +75,9 @@ package lonet
 // registry so that other hosts could see it.
 //
 //
-// handshake protocol
+// Handshake protocol
 //
-// After α establishes OS-level connection to β via main β port, it sends
+// After α establishes OS-level connection to β via main β address, it sends
 // request to further establish lonet connection on top of that:
 //
 //	> lonet "<network>" dial <α:portα> <β:portβ> \n
