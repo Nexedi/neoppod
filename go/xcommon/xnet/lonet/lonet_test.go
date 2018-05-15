@@ -19,6 +19,13 @@
 
 package lonet
 
+import (
+	"context"
+	"testing"
+
+	"lab.nexedi.com/kirr/go123/exc"
+)
+
 // TODO test go-go
 // TODO test go-py
 
@@ -27,3 +34,19 @@ package lonet
 // - econnrefused (no such host, port not listening)
 // - network mismatch
 // - invalid request
+
+
+func TestLonet(t *testing.T) {
+	X := exc.Raiseif
+	ctx := context.Background()
+
+	subnet, err := Join(ctx, "")
+	X(err)
+	// XXX defer shutdown/rm this lonet fully?
+
+	hα, err := subnet.NewHost(ctx, "α")
+	X(err)
+
+	hβ, err := subnet.NewHost(ctx, "β")
+	X(err)
+}

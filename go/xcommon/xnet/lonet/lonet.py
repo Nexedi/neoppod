@@ -18,6 +18,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 # TODO doc, code
+# XXX see lonet.go for lonet organization and protocol.
 
 
 class SQLiteRegistry(object):
