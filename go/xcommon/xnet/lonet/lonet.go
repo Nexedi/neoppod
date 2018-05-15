@@ -105,7 +105,7 @@ package lonet
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -116,6 +116,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 )
@@ -123,10 +125,10 @@ import (
 const NetPrefix = "lonet" // lonet package creates only "lonet*" networks
 
 var (
-//	errNetClosed       = errors.New("network connection closed")
-//	errAddrAlreadyUsed = errors.New("address already in use")
-//	errAddrNoListen    = errors.New("cannot listen on requested address")
-	errConnRefused     = errors.New("connection refused")
+//	errNetClosed       = stderrors.New("network connection closed")
+//	errAddrAlreadyUsed = stderrors.New("address already in use")
+//	errAddrNoListen    = stderrors.New("cannot listen on requested address")
+	errConnRefused     = stderrors.New("connection refused")
 )
 
 // Addr represents address of a lonet endpoint.
@@ -324,7 +326,7 @@ func (n *SubNetwork) serve() {	// XXX error?
 
 		go func() {
 			err := n.loaccept(osconn)	// XXX + ctx?
-			if err != nil {
+			if err != nil && errors.Cause(err) != errConnRefused {
 				log.Print(err)	// XXX ok?
 			}
 		}()
@@ -345,7 +347,7 @@ func (n *SubNetwork) loaccept(osconn net.Conn) (err error) {
 		}
 	}()
 
-	defer xerr.Contextf(&err, "lonet %q: handshake", n.network)
+	defer xerr.Contextf(&err, "lonet %q: accept", n.network)
 
 	// read handshake line and parse it
 	line, err := readline(osconn, 1024) // limit line length not to cause memory dos
@@ -395,6 +397,8 @@ func (n *SubNetwork) loaccept(osconn net.Conn) (err error) {
 	if err != nil {
 		return ereplyf("dst address invalid")
 	}
+
+	defer xerr.Contextf(&err, "%s -> %s", src, dst)
 
 	// check dst host:port in .hostMap
 	n.mu.Lock()
