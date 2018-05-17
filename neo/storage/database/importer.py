@@ -348,7 +348,7 @@ class ImporterDatabaseManager(DatabaseManager):
     def __init__(self, *args, **kw):
         super(ImporterDatabaseManager, self).__init__(*args, **kw)
         implements(self, """_getNextTID checkSerialRange checkTIDRange
-            deleteObject deleteTransaction dropPartitions getLastTID
+            deleteObject deleteTransaction dropPartitions _getLastTID
             getReplicationObjectList _getTIDList nonempty""".split())
 
     _getPartition = property(lambda self: self.db._getPartition)
@@ -379,9 +379,9 @@ class ImporterDatabaseManager(DatabaseManager):
         db = self.db = buildDatabaseManager(conf['adapter'],
             (conf['database'], conf.get('engine'), conf['wait']))
         for x in """getConfiguration _setConfiguration setNumPartitions
-                    query erase getPartitionTable
-                    getUnfinishedTIDDict dropUnfinishedData abortTransaction
-                    storeTransaction lockTransaction
+                    query erase getPartitionTable _iterAssignedCells
+                    updateCellTID getUnfinishedTIDDict dropUnfinishedData
+                    abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
                     dropPartitionsTemporary
                  """.split():
@@ -552,8 +552,8 @@ class ImporterDatabaseManager(DatabaseManager):
         return zodb, oid - zodb.shift_oid
 
     def getLastIDs(self):
-        tid, _, _, oid = self.db.getLastIDs()
-        return (max(tid, util.p64(self.zodb_ltid)), None, None,
+        tid, oid = self.db.getLastIDs()
+        return (max(tid, util.p64(self.zodb_ltid)),
                 max(oid, util.p64(self.zodb_loid)))
 
     def getObject(self, oid, tid=None, before_tid=None):
@@ -623,7 +623,7 @@ class ImporterDatabaseManager(DatabaseManager):
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         # Even if everything is imported, we can't truncate below
         # because it would import again if we restart with this backend.
-        if u64(min_tid) < self.zodb_ltid:
+        if min_tid < self.zodb_ltid:
             raise NotImplementedError
         self.db._deleteRange(partition, min_tid, max_tid)
 

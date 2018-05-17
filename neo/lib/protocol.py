@@ -122,22 +122,22 @@ def NodeStates():
 
 @Enum
 def CellStates():
-    # Normal state: cell is writable/readable, and it isn't planned to drop it.
-    UP_TO_DATE
     # Write-only cell. Last transactions are missing because storage is/was down
     # for a while, or because it is new for the partition. It usually becomes
     # UP_TO_DATE when replication is done.
     OUT_OF_DATE
+    # Normal state: cell is writable/readable, and it isn't planned to drop it.
+    UP_TO_DATE
     # Same as UP_TO_DATE, except that it will be discarded as soon as another
     # node finishes to replicate it. It means a partition is moved from 1 node
     # to another. It is also discarded immediately if out-of-date.
     FEEDING
-    # Not really a state: only used in network packets to tell storages to drop
-    # partitions.
-    DISCARDED
     # A check revealed that data differs from other replicas. Cell is neither
     # readable nor writable.
     CORRUPTED
+    # Not really a state: only used in network packets to tell storages to drop
+    # partitions.
+    DISCARDED
 
 # used for logging
 node_state_prefix_dict = {

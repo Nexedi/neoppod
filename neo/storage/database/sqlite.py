@@ -25,7 +25,7 @@ from . import LOG_QUERIES
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.interfaces import implements
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import ZERO_OID, ZERO_TID, ZERO_HASH
 
 def unique_constraint_message(table, *columns):
     c = sqlite3.connect(":memory:")
@@ -68,7 +68,7 @@ class SQLiteDatabaseManager(DatabaseManager):
              never be used for small requests.
     """
 
-    VERSION = 2
+    VERSION = 3
 
     def _parse(self, database):
         self.db = os.path.expanduser(database)
@@ -135,6 +135,12 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _migrate2(self, schema_dict, index_dict):
         self._alterTable(schema_dict, 'obj')
 
+    def _migrate3(self, schema_dict, index_dict):
+        self._alterTable(schema_dict, 'pt', "rid, nid, CASE state"
+            " WHEN 0 THEN -1"  # UP_TO_DATE
+            " WHEN 2 THEN -2"  # FEEDING
+            " ELSE 1-state END")
+
     def _setup(self, dedup=False):
         # BBB: SQLite has transactional DDL but before Python 3.6,
         #      the binding automatically commits between such statements.
@@ -154,10 +160,10 @@ class SQLiteDatabaseManager(DatabaseManager):
 
         # The table "pt" stores a partition table.
         schema_dict['pt'] = """CREATE TABLE %s (
-                 rid INTEGER NOT NULL,
+                 partition INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
-                 state INTEGER NOT NULL,
-                 PRIMARY KEY (rid, nid))
+                 tid INTEGER NOT NULL,
+                 PRIMARY KEY (partition, nid))
             """
 
         # The table "trans" stores information on committed transactions.
@@ -254,42 +260,23 @@ class SQLiteDatabaseManager(DatabaseManager):
         else:
             q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
 
-    def getPartitionTable(self, *nid):
-        if nid:
-            return self.query("SELECT rid, state FROM pt WHERE nid=?", nid)
+    def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
-    # A test with a table of 20 million lines and SQLite 3.8.7.1 shows that
-    # it's not worth changing getLastTID:
-    # - It already returns the result in less than 2 seconds, without reading
-    #   the whole table (this is 4-7 times faster than MySQL).
-    # - Strangely, a "GROUP BY partition" clause makes SQLite almost twice
-    #   slower.
-    # - Getting MAX(tid) is immediate with a "AND partition=?" condition so one
-    #   way to speed up the following 2 methods is to repeat the queries for
-    #   each partition (and finish in Python with max() for getLastTID).
+    def _getLastTID(self, partition, max_tid=None):
+        x = self.query
+        if max_tid is None:
+            x = x("SELECT MAX(tid) FROM trans WHERE partition=?", (partition,))
+        else:
+            x = x("SELECT MAX(tid) FROM trans WHERE partition=? AND tid<=?",
+                  (partition, max_tid))
+        return x.next()[0]
 
-    def getLastTID(self, max_tid):
-        return self.query(
-            "SELECT MAX(tid) FROM pt, trans"
-            " WHERE nid=? AND rid=partition AND tid<=?",
-            (self.getUUID(), max_tid,)).next()[0]
-
-    def _getLastIDs(self):
-        p64 = util.p64
+    def _getLastIDs(self, *args):
         q = self.query
-        args = self.getUUID(),
-        trans = {partition: p64(tid)
-            for partition, tid in q(
-                "SELECT partition, MAX(tid) FROM pt, trans"
-                " WHERE nid=? AND rid=partition GROUP BY partition", args)}
-        obj = {partition: p64(tid)
-            for partition, tid in q(
-                "SELECT partition, MAX(tid) FROM pt, obj"
-                " WHERE nid=? AND rid=partition GROUP BY partition", args)}
-        oid = q("SELECT MAX(oid) oid FROM pt, obj"
-                " WHERE nid=? AND rid=partition", args).next()[0]
-        return trans, obj, None if oid is None else p64(oid)
+        (oid,), = q("SELECT MAX(oid) FROM obj WHERE `partition`=?", args)
+        (tid,), = q("SELECT MAX(tid) FROM obj WHERE `partition`=?", args)
+        return tid, oid
 
     def _getDataLastId(self, partition):
         return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
@@ -357,8 +344,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             #       whereas we try to replace only 1 value ?
             #       We don't want to remove the 'NOT NULL' constraint
             #       so we must simulate a "REPLACE OR FAIL".
-            q("DELETE FROM pt WHERE rid=? AND nid=?", (offset, nid))
-            if state != CellStates.DISCARDED:
+            q("DELETE FROM pt WHERE partition=? AND nid=?", (offset, nid))
+            if state is not None:
                 q("INSERT OR FAIL INTO pt VALUES (?,?,?)",
                   (offset, nid, int(state)))
 
@@ -525,12 +512,12 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         sql = " WHERE partition=?"
         args = [partition]
-        if min_tid:
+        if min_tid is not None:
             sql += " AND ? < tid"
-            args.append(util.u64(min_tid))
-        if max_tid:
+            args.append(min_tid)
+        if max_tid is not None:
             sql += " AND tid <= ?"
-            args.append(util.u64(max_tid))
+            args.append(max_tid)
         q = self.query
         q("DELETE FROM trans" + sql, args)
         sql = " FROM obj" + sql

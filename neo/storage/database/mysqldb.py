@@ -38,7 +38,7 @@ from . import LOG_QUERIES, DatabaseFailure
 from .manager import DatabaseManager, splitOIDField
 from neo.lib import logging, util
 from neo.lib.interfaces import implements
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
+from neo.lib.protocol import ZERO_OID, ZERO_TID, ZERO_HASH
 
 
 class MysqlError(DatabaseFailure):
@@ -90,7 +90,7 @@ def auto_reconnect(wrapped):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    VERSION = 2
+    VERSION = 3
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
@@ -257,6 +257,14 @@ class MySQLDatabaseManager(DatabaseManager):
     def _migrate2(self, schema_dict):
         self._alterTable(schema_dict, 'obj')
 
+    def _migrate3(self, schema_dict):
+        self._alterTable(schema_dict, 'pt', "rid as `partition`, nid,"
+            " CASE state"
+            " WHEN 0 THEN -1"  # UP_TO_DATE
+            " WHEN 2 THEN -2"  # FEEDING
+            " ELSE 1-state"
+            " END as tid")
+
     def _setup(self, dedup=False):
         self._config.clear()
         q = self.query
@@ -272,10 +280,10 @@ class MySQLDatabaseManager(DatabaseManager):
 
         # The table "pt" stores a partition table.
         schema_dict['pt'] = """CREATE TABLE %s (
-                 rid INT UNSIGNED NOT NULL,
+                 `partition` SMALLINT UNSIGNED NOT NULL,
                  nid INT NOT NULL,
-                 state TINYINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (rid, nid)
+                 tid BIGINT NOT NULL,
+                 PRIMARY KEY (`partition`, nid)
              ) ENGINE=""" + engine
 
         if self._use_partition:
@@ -394,36 +402,23 @@ class MySQLDatabaseManager(DatabaseManager):
             q("ALTER TABLE config MODIFY value VARBINARY(%s) NULL" % len(value))
             q(sql)
 
-    def getPartitionTable(self, *nid):
-        if nid:
-            return self.query("SELECT rid, state FROM pt WHERE nid=%u" % nid)
+    def _getPartitionTable(self):
         return self.query("SELECT * FROM pt")
 
-    def _sqlmax(self, sql, arg_list):
-        q = self.query
-        x = [x for x in arg_list for x, in q(sql % x) if x is not None]
-        if x: return max(x)
+    def _getLastTID(self, partition, max_tid=None):
+        x = "WHERE `partition`=%s" % partition
+        if max_tid:
+            x += " AND tid<=%s" % max_tid
+        (tid,), = self.query(
+            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)" + x)
+        return tid
 
-    def getLastTID(self, max_tid):
-        return self._sqlmax(
-            "SELECT MAX(tid) as t FROM trans FORCE INDEX (PRIMARY)"
-            " WHERE tid<=%s and `partition`=%%s" % max_tid,
-            self._getAssignedPartitionList())
-
-    def _getLastIDs(self):
-        offset_list = self._getAssignedPartitionList()
-        p64 = util.p64
+    def _getLastIDs(self, partition):
         q = self.query
-        sql = "SELECT MAX(tid) FROM %s WHERE `partition`=%s"
-        trans, obj = ({partition: p64(tid)
-            for partition in offset_list
-            for tid, in q(sql % (t, partition))
-            if tid is not None}
-            for t in ('trans FORCE INDEX (PRIMARY)', 'obj FORCE INDEX (tid)'))
-        oid = self._sqlmax(
-            "SELECT MAX(oid) FROM obj FORCE INDEX (PRIMARY)"
-            " WHERE `partition`=%s", offset_list)
-        return trans, obj, None if oid is None else p64(oid)
+        x = "WHERE `partition`=%s" % partition
+        (oid,), = q("SELECT MAX(oid) FROM obj FORCE INDEX (PRIMARY)" + x)
+        (tid,), = q("SELECT MAX(tid) FROM obj FORCE INDEX (tid)" + x)
+        return tid, oid
 
     def _getDataLastId(self, partition):
         return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
@@ -489,17 +484,17 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         if reset:
             q("DELETE FROM pt")
-        for offset, nid, state in cell_list:
+        for offset, nid, tid in cell_list:
             # TODO: this logic should move out of database manager
             # add 'dropCells(cell_list)' to API and use one query
-            if state == CellStates.DISCARDED:
-                q("DELETE FROM pt WHERE rid = %d AND nid = %d"
+            if tid is None:
+                q("DELETE FROM pt WHERE `partition` = %d AND nid = %d"
                   % (offset, nid))
             else:
                 offset_list.append(offset)
                 q("INSERT INTO pt VALUES (%d, %d, %d)"
-                  " ON DUPLICATE KEY UPDATE state = %d"
-                  % (offset, nid, state, state))
+                  " ON DUPLICATE KEY UPDATE tid = %d"
+                  % (offset, nid, tid, tid))
         if self._use_partition:
             for offset in offset_list:
                 add = """ALTER TABLE %%s ADD PARTITION (
@@ -750,10 +745,10 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _deleteRange(self, partition, min_tid=None, max_tid=None):
         sql = " WHERE `partition`=%d" % partition
-        if min_tid:
-            sql += " AND %d < tid" % util.u64(min_tid)
-        if max_tid:
-            sql += " AND tid <= %d" % util.u64(max_tid)
+        if min_tid is not None:
+            sql += " AND %d < tid" % min_tid
+        if max_tid is not None:
+            sql += " AND tid <= %d" % max_tid
         q = self.query
         q("DELETE FROM trans" + sql)
         sql = " FROM obj" + sql

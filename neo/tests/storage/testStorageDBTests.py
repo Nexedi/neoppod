@@ -254,7 +254,7 @@ class StorageDBTests(NeoUnitTestBase):
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         # nothing in database
-        self.assertEqual(self.db.getLastIDs(), (None, {}, {}, None))
+        self.assertEqual(self.db.getLastIDs(), (None, None))
         self.assertEqual(self.db.getUnfinishedTIDDict(), {})
         self.assertEqual(self.db.getObject(oid1), None)
         self.assertEqual(self.db.getObject(oid2), None)
@@ -320,13 +320,17 @@ class StorageDBTests(NeoUnitTestBase):
             expected = [(t, oid_list[offset+i]) for t in tids for i in (0, np)]
             self.assertEqual(self.db.getReplicationObjectList(ZERO_TID,
                 MAX_TID, len(expected) + 1, offset, ZERO_OID), expected)
-        self.db._deleteRange(0, MAX_TID)
-        self.db._deleteRange(0, max_tid=ZERO_TID)
+        def deleteRange(partition, min_tid=None, max_tid=None):
+            self.db._deleteRange(partition,
+                None if min_tid is None else u64(min_tid),
+                None if max_tid is None else u64(max_tid))
+        deleteRange(0, MAX_TID)
+        deleteRange(0, max_tid=ZERO_TID)
         check(0, [], t1, t2, t3)
-        self.db._deleteRange(0);             check(0, [])
-        self.db._deleteRange(1, t2);         check(1, [t1], t1, t2)
-        self.db._deleteRange(2, max_tid=t2); check(2, [], t3)
-        self.db._deleteRange(3, t1, t2);     check(3, [t3], t1, t3)
+        deleteRange(0);             check(0, [])
+        deleteRange(1, t2);         check(1, [t1], t1, t2)
+        deleteRange(2, max_tid=t2); check(2, [], t3)
+        deleteRange(3, t1, t2);     check(3, [t3], t1, t3)
 
     def test_getTransaction(self):
         oid1, oid2 = self.getOIDs(2)
