@@ -237,20 +237,25 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
 
+    def _alterTable(self, schema_dict, table, select="*"):
+        q = self.query
+        new = 'new_' + table
+        if self.nonempty(table) is None:
+            if self.nonempty(new) is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS " + new)
+            q(schema_dict.pop(table) % new
+              + " SELECT %s FROM %s" % (select, table))
+            q("DROP TABLE " + table)
+        q("ALTER TABLE %s RENAME TO %s" % (new, table))
+
     def _migrate1(self, _):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
     def _migrate2(self, schema_dict):
-        q = self.query
-        if self.nonempty('obj') is None:
-            if self.nonempty('new_obj') is None:
-                return
-        else:
-            q("DROP TABLE IF EXISTS new_obj")
-            q(schema_dict.pop('obj') % 'new_obj' + " SELECT * FROM obj")
-            q("DROP TABLE obj")
-        q("ALTER TABLE new_obj RENAME TO obj")
+        self._alterTable(schema_dict, 'obj')
 
     def _setup(self, dedup=False):
         self._config.clear()

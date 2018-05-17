@@ -113,23 +113,27 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
+    def _alterTable(self, schema_dict, table, select="*"):
+        # BBB: As explained in _setup, no transactional DDL
+        #      so let's do the same dance as for MySQL.
+        q = self.query
+        new = 'new_' + table
+        if self.nonempty(table) is None:
+            if self.nonempty(new) is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS " + new)
+            q(schema_dict.pop(table) % new)
+            q("INSERT INTO %s SELECT %s FROM %s" % (new, select, table))
+            q("DROP TABLE " + table)
+        q("ALTER TABLE %s RENAME TO %s" % (new, table))
+
     def _migrate1(self, *_):
         self._checkNoUnfinishedTransactions()
         self.query("DROP TABLE IF EXISTS ttrans")
 
     def _migrate2(self, schema_dict, index_dict):
-        # BBB: As explained in _setup, no transactional DDL
-        #      so let's do the same dance as for MySQL.
-        q = self.query
-        if self.nonempty('obj') is None:
-            if self.nonempty('new_obj') is None:
-                return
-        else:
-            q("DROP TABLE IF EXISTS new_obj")
-            q(schema_dict.pop('obj') % 'new_obj')
-            q("INSERT INTO new_obj SELECT * FROM obj")
-            q("DROP TABLE obj")
-        q("ALTER TABLE new_obj RENAME TO obj")
+        self._alterTable(schema_dict, 'obj')
 
     def _setup(self, dedup=False):
         # BBB: SQLite has transactional DDL but before Python 3.6,
