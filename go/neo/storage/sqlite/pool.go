@@ -99,4 +99,6 @@ func (p *connPool) putConn(conn *sqlite3.Conn) {
 		p.connv = append(p.connv, conn)
 	}
 	p.mu.Unlock()
+
+	// XXX Close conn that is put after pool.Close()
 }
