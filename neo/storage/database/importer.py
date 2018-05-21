@@ -616,7 +616,7 @@ class ImporterDatabaseManager(DatabaseManager):
             return self.db.getTransaction(tid, all)
 
     def getFinalTID(self, ttid):
-        if u64(ttid) <= self.zodb_ltid and self._import:
+        if util.u64(ttid) <= self.zodb_ltid and self._import:
             raise NotImplementedError
         return self.db.getFinalTID(ttid)
 
