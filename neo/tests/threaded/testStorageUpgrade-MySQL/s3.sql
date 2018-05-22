@@ -10,12 +10,11 @@ CREATE TABLE `config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 INSERT INTO `config` VALUES ('name','testStorageUpgrade'),('nid','3'),('partitions','3'),('ptid','8'),('replicas','1');
 CREATE TABLE `data` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL,
   `hash` binary(20) NOT NULL,
   `compression` tinyint(3) unsigned DEFAULT NULL,
   `value` mediumblob NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `hash` (`hash`,`compression`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 CREATE TABLE `obj` (
   `partition` smallint(5) unsigned NOT NULL,

@@ -10,14 +10,13 @@ CREATE TABLE `config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 INSERT INTO `config` VALUES ('name','testStorageUpgrade'),('nid','1'),('partitions','3'),('ptid','9'),('replicas','1');
 CREATE TABLE `data` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) unsigned NOT NULL,
   `hash` binary(20) NOT NULL,
   `compression` tinyint(3) unsigned DEFAULT NULL,
   `value` mediumblob NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `hash` (`hash`,`compression`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-INSERT INTO `data` VALUES (1,0x0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33,0,0x666F6F);
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+INSERT INTO `data` VALUES (0,0x0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33,0,0x666F6F);
 CREATE TABLE `obj` (
   `partition` smallint(5) unsigned NOT NULL,
   `oid` bigint(20) unsigned NOT NULL,
@@ -28,7 +27,7 @@ CREATE TABLE `obj` (
   KEY `partition` (`partition`,`oid`,`tid`),
   KEY `data_id` (`data_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-INSERT INTO `obj` VALUES (0,0,231616946283203125,1,NULL);
+INSERT INTO `obj` VALUES (0,0,231616946283203125,0,NULL);
 CREATE TABLE `pt` (
   `rid` int(10) unsigned NOT NULL,
   `nid` int(11) NOT NULL,
@@ -55,7 +54,7 @@ CREATE TABLE `trans` (
   `ttid` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`partition`,`tid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-INSERT INTO `trans` VALUES (1,231616946283203125,0,'\0\0\0\0\0\0\0\0','','','(dp1\n.',231616946283203125);
+INSERT INTO `trans` VALUES (1,231616946283203125,0,'\0\0\0\0\0\0\0\0','','','',231616946283203125);
 CREATE TABLE `ttrans` (
   `partition` smallint(5) unsigned NOT NULL,
   `tid` bigint(20) unsigned NOT NULL,

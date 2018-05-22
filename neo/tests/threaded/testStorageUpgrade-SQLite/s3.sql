@@ -8,7 +8,7 @@ INSERT INTO "config" VALUES('partitions','3');
 INSERT INTO "config" VALUES('replicas','1');
 INSERT INTO "config" VALUES('ptid','8');
 CREATE TABLE data (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 id INTEGER PRIMARY KEY,
                  hash BLOB NOT NULL,
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL);
@@ -30,7 +30,6 @@ INSERT INTO "pt" VALUES(1,1,0);
 INSERT INTO "pt" VALUES(2,2,0);
 INSERT INTO "pt" VALUES(1,3,0);
 INSERT INTO "pt" VALUES(2,3,0);
-DELETE FROM "sqlite_sequence";
 CREATE TABLE tobj (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
@@ -62,8 +61,5 @@ CREATE INDEX _obj_i1 ON
           ;
 CREATE INDEX _obj_i2 ON
                  obj(data_id)
-          ;
-CREATE UNIQUE INDEX _data_i1 ON
-                 data(hash, compression)
           ;
 COMMIT;

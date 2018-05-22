@@ -8,11 +8,11 @@ INSERT INTO "config" VALUES('partitions','3');
 INSERT INTO "config" VALUES('replicas','1');
 INSERT INTO "config" VALUES('ptid','9');
 CREATE TABLE data (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 id INTEGER PRIMARY KEY,
                  hash BLOB NOT NULL,
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL);
-INSERT INTO "data" VALUES(1,X'0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33',0,X'666F6F');
+INSERT INTO "data" VALUES(0,X'0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33',0,X'666F6F');
 CREATE TABLE obj (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE obj (
                  data_id INTEGER,
                  value_tid INTEGER,
                  PRIMARY KEY (partition, tid, oid));
-INSERT INTO "obj" VALUES(0,0,231616946283203125,1,NULL);
+INSERT INTO "obj" VALUES(0,0,231616946283203125,0,NULL);
 CREATE TABLE pt (
                  rid INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
@@ -32,8 +32,6 @@ INSERT INTO "pt" VALUES(0,2,0);
 INSERT INTO "pt" VALUES(2,2,0);
 INSERT INTO "pt" VALUES(1,3,1);
 INSERT INTO "pt" VALUES(2,3,1);
-DELETE FROM "sqlite_sequence";
-INSERT INTO "sqlite_sequence" VALUES('data',1);
 CREATE TABLE tobj (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
@@ -51,7 +49,7 @@ CREATE TABLE trans (
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL,
                  PRIMARY KEY (partition, tid));
-INSERT INTO "trans" VALUES(1,231616946283203125,0,X'0000000000000000',X'',X'',X'286470310A2E',231616946283203125);
+INSERT INTO "trans" VALUES(1,231616946283203125,0,X'0000000000000000',X'',X'',X'',231616946283203125);
 CREATE TABLE ttrans (
                  partition INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
@@ -66,8 +64,5 @@ CREATE INDEX _obj_i1 ON
           ;
 CREATE INDEX _obj_i2 ON
                  obj(data_id)
-          ;
-CREATE UNIQUE INDEX _data_i1 ON
-                 data(hash, compression)
           ;
 COMMIT;
