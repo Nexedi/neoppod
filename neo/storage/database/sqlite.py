@@ -223,7 +223,8 @@ class SQLiteDatabaseManager(DatabaseManager):
 
         for table, schema in schema_dict.iteritems():
             q(schema % ('IF NOT EXISTS ' + table))
-            for i, index in enumerate(index_dict.get(table, ()), 1):
+        for table, index in index_dict.iteritems():
+            for i, index in enumerate(index, 1):
                 q(index % ('IF NOT EXISTS _%s_i%s' % (table, i), table))
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
