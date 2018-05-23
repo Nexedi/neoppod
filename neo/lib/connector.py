@@ -90,10 +90,10 @@ class SocketConnector(object):
         raise ConnectorException
 
     # Threaded tests monkey-patch the following 2 operations.
-    _connect = lambda self, addr: self.socket.connect(addr)
-    _bind = lambda self, addr: self.socket.bind(addr)
+    _connect = lambda self, addr: self.socket.connect(addr) # XXX test: -> lonet.dial
+    _bind = lambda self, addr: self.socket.bind(addr)       # XXX test: ~> lonet.listen
 
-    def makeClientConnection(self):
+    def makeClientConnection(self):     # XXX test: -> lonet.dial
         assert self.is_closed is None
         addr = self.addr
         try:
@@ -117,7 +117,7 @@ class SocketConnector(object):
             self._error('connect', e)
         return True
 
-    def makeListeningConnection(self):
+    def makeListeningConnection(self):  # XXX test: -> lonet.listen()
         assert self.is_closed is None
         self.is_closed = False
         try:
