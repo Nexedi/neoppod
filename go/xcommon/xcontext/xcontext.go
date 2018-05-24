@@ -29,9 +29,10 @@ import (
 // Merge merges 2 contexts into 1.
 //
 // The result context:
-// - is done when ctx1 or ctx2 is done, or cancel called, whichever happens first,
-// - has deadline = min(ctx1.Deadline, ctx2.Deadline),
-// - has associated values merged from ctx1 and ctx2.
+//
+//	- is done when ctx1 or ctx2 is done, or cancel called, whichever happens first,
+//	- has deadline = min(ctx1.Deadline, ctx2.Deadline),
+//	- has associated values merged from ctx1 and ctx2.
 //
 // Canceling this context releases resources associated with it, so code should
 // call cancel as soon as the operations running in this Context complete.
