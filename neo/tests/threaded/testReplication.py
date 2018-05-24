@@ -248,6 +248,7 @@ class ReplicationTests(NEOThreadedTest):
                 storage_list = [x.uuid for x in backup.storage_list]
                 slave = set(xrange(len(storage_list))).difference
                 for event in xrange(10):
+                    logging.info("event=%s", event)
                     counts = [0]
                     if event == 5:
                         p = Patch(upstream.master.tm,
