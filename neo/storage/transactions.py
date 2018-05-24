@@ -521,7 +521,6 @@ class TransactionManager(EventQueue):
             assert not even_if_locked
             # See how the master processes AbortTransaction from the client.
             return
-        logging.debug('Abort TXN %s', dump(ttid))
         transaction = self._transaction_dict[ttid]
         locked = transaction.tid
         # if the transaction is locked, ensure we can drop it
@@ -529,6 +528,7 @@ class TransactionManager(EventQueue):
             if not even_if_locked:
                 return
         else:
+            logging.debug('Abort TXN %s', dump(ttid))
             dm = self._app.dm
             dm.abortTransaction(ttid)
             dm.releaseData([x[1] for x in transaction.store_dict.itervalues()],
