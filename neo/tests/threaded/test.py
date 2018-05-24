@@ -2361,6 +2361,44 @@ class Test(NEOThreadedTest):
                 self.assertEqual(expected,
                     (dm.getLastTID(u64(MAX_TID)), dm.getLastIDs()))
 
+    def testStorageUpgrade(self):
+        path = os.path.join(os.path.dirname(__file__),
+                            self._testMethodName + '-%s',
+                            's%s.sql')
+        dump_dict = {}
+        def switch(s):
+            dm = s.dm
+            dm.commit()
+            dump_dict[s.uuid] = dm.dump()
+            dm.erase()
+            with open(path % (s.getAdapter(), s.uuid)) as f:
+                dm.restore(f.read())
+        with NEOCluster(storage_count=3, partitions=3, replicas=1,
+                        name=self._testMethodName) as cluster:
+            s1, s2, s3 = cluster.storage_list
+            cluster.start(storage_list=(s1,))
+            for s in s2, s3:
+                s.start()
+                self.tic()
+                cluster.neoctl.enableStorageList([s.uuid])
+                cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            nid_list = [s.uuid for s in cluster.storage_list]
+            switch(s3)
+            s3.stop()
+            storage = cluster.getZODBStorage()
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn, p64(85**9)) # partition 1
+            storage.store(p64(0), None, 'foo', '', txn)
+            storage.tpc_vote(txn)
+            storage.tpc_finish(txn)
+            self.tic()
+            switch(s1)
+            switch(s2)
+            cluster.stop()
+            for i, s in zip(nid_list, cluster.storage_list):
+                self.assertMultiLineEqual(s.dm.dump(), dump_dict[i])
+
 
 if __name__ == "__main__":
     unittest.main()

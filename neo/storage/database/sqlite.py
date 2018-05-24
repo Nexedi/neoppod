@@ -694,3 +694,24 @@ class SQLiteDatabaseManager(DatabaseManager):
                     sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
         return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
+
+    def dump(self):
+        main = []
+        data = []
+        for line in self.conn.iterdump():
+            if line.startswith('INSERT '):
+                assert line.endswith(';'), line
+                data.append(line)
+                continue
+            if line.startswith('CREATE TABLE '):
+                # ALTER TABLE adds quotes.
+                create, table, name, tail = line.split(' ', 3)
+                line = ' '.join((create, table, name.strip('"'), tail))
+            main.append(line)
+        assert line == 'COMMIT;', line
+        data.sort()
+        main[-1:-1] = data
+        return '\n'.join(main) + '\n'
+
+    def restore(self, sql):
+        self.conn.executescript(sql)

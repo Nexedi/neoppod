@@ -652,8 +652,8 @@ class NEOCluster(object):
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
                        db_user=DB_USER, db_password='', compress=True,
-                       importer=None, autostart=None, dedup=False):
-        self.name = 'neo_%s' % self._allocate('name',
+                       importer=None, autostart=None, dedup=False, name=None):
+        self.name = name or 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         self.compress = compress
         self.num_partitions = partitions

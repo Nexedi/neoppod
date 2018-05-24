@@ -170,6 +170,8 @@ def ImporterConfigParser(adapter, zodb, **kw):
 
 class NeoTestBase(unittest.TestCase):
 
+    maxDiff = None
+
     def setUp(self):
         logging.name = self.setupLog()
         unittest.TestCase.setUp(self)

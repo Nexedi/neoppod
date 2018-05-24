@@ -944,3 +944,25 @@ class MySQLDatabaseManager(DatabaseManager):
                     sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
         return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
+
+    def _cmdline(self):
+        for x in ('u', self.user), ('p', self.passwd), ('S', self.socket):
+            if x[1]:
+                yield '-%s%s' % x
+        yield self.db
+
+    def dump(self):
+        import subprocess
+        cmd = ['mysqldump', '--compact', '--hex-blob']
+        cmd += self._cmdline()
+        return subprocess.check_output(cmd)
+
+    def restore(self, sql):
+        import subprocess
+        cmd = ['mysql']
+        cmd += self._cmdline()
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+        p.communicate(sql)
+        retcode = p.wait()
+        if retcode:
+            raise subprocess.CalledProcessError(retcode, cmd)
