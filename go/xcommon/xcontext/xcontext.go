@@ -178,6 +178,53 @@ func (mc *mergeCtx) Value(key interface{}) interface{} {
 	return mc.ctx2.Value(key)
 }
 
+// ----------------------------------------
+
+// chanCtx wraps channel into context.Context interface.
+type chanCtx struct {
+	done <-chan struct{}
+}
+
+// MergeChan merges context and channel into 1 context.
+//
+// MergeChan, similarly to Merge, provides resulting context which:
+//
+//	- is done when ctx1 is done or done2 is closed, or cancel called, whichever happens first,
+//	- has the same deadline as ctx1,
+//	- has the same associated values as ctx1.
+//
+// Canceling this context releases resources associated with it, so code should
+// call cancel as soon as the operations running in this Context complete.
+func MergeChan(ctx1 context.Context, done2 <-chan struct{}) (context.Context, context.CancelFunc) {
+	return Merge(ctx1, chanCtx{done2})
+}
+
+// Done implements context.Context .
+func (c chanCtx) Done() <-chan struct{} {
+	return c.done
+}
+
+// Err implements context.Context .
+func (c chanCtx) Err() error {
+	select {
+	case <-c.done:
+		return context.Canceled
+	default:
+		return nil
+	}
+}
+
+// Deadline implements context.Context .
+func (c chanCtx) Deadline() (time.Time, bool) {
+	return time.Time{}, false
+}
+
+// Value implements context.Context .
+func (c chanCtx) Value(key interface{}) interface{} {
+	return nil
+}
+
+
 
 // Cancelled reports whether an error is due to a canceled context.
 //
