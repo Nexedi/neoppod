@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -27,7 +27,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 )
 
-// Task represents currently running operation
+// Task represents currently running operation.
 type Task struct {
 	Parent *Task
 	Name   string
@@ -35,17 +35,18 @@ type Task struct {
 
 type taskKey struct{}
 
-// Running creates new task and returns new context with that task set to current
+// Running creates new task and returns new context with that task set to current.
 func Running(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, taskKey{}, &Task{Parent: Current(ctx), Name: name})
 }
 
-// Runningf is Running cousin with formatting support
+// Runningf is Running cousin with formatting support.
 func Runningf(ctx context.Context, format string, argv ...interface{}) context.Context {
 	return Running(ctx, fmt.Sprintf(format, argv...))
 }
 
 // Current returns current task represented by context.
+//
 // if there is no current task - it returns nil.
 func Current(ctx context.Context) *Task {
 	task, _ := ctx.Value(taskKey{}).(*Task)
@@ -53,6 +54,7 @@ func Current(ctx context.Context) *Task {
 }
 
 // ErrContext adds current task name to error on error return.
+//
 // To work as intended it should be called under defer like this:
 //
 //      func myfunc(ctx, ...) (..., err error) {

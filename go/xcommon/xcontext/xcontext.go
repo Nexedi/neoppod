@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -18,6 +18,35 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package xcontext provides addons to std package context.
+//
+// Merging contexts
+//
+// Merge and MergeChan could be handy in situations where spawned job needs to
+// be canceled whenever any of 2 contexts becomes done. This frequently arises
+// with service methods which accept context as argument, and the service
+// itself, on another control line, could be instructed to become
+// non-operational. For example:
+//
+//	func (srv *Service) DoSomething(ctx context.Context) error {
+//		// srv.down is chan struct{} that becomes ready when service is closed.
+//		ctxDown, down := xcontext.MergeChan(ctx, srv.down)
+//		defer down()
+//
+//		err := doJob(ctxDown)
+//		if ctxDown.Err() != nil && ctx.Err() == nil {
+//			err = ErrDueToServiceDown
+//		}
+//
+//		...
+//	}
+//
+//
+//
+// XXX docs:
+//	- Canceled
+//	- Merge
+//
+//	- WhenDone
 package xcontext
 
 import (
@@ -25,6 +54,17 @@ import (
 	"sync"
 	"time"
 )
+
+// mergeCtx represents 2 context merged into 1.
+type mergeCtx struct {
+	ctx1, ctx2 context.Context
+
+	done    chan struct{}
+	doneErr error
+
+	cancelCh   chan struct{}
+	cancelOnce sync.Once
+}
 
 // Merge merges 2 contexts into 1.
 //
@@ -36,9 +76,6 @@ import (
 //
 // Canceling this context releases resources associated with it, so code should
 // call cancel as soon as the operations running in this Context complete.
-//
-// XXX let Merge do only merge, not create another cancel; optimize it for
-// cases when a source context is not cancellable
 func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 	mc := &mergeCtx{
 		ctx1:     ctx1,
@@ -46,15 +83,6 @@ func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 		done:     make(chan struct{}),
 		cancelCh: make(chan struct{}),
 	}
-
-/*
-	// ctx1 will never be canceled?
-	switch ctx1.Done() {
-	case nil, context.Background().Done():
-		bg1 = true
-	}
-	// ----//---- same for ctx2?
-*/
 
 	// if src ctx is already cancelled - make mc cancelled right after creation
 	//
@@ -80,16 +108,6 @@ func Merge(ctx1, ctx2 context.Context) (context.Context, context.CancelFunc) {
 	return mc, mc.cancel
 }
 
-type mergeCtx struct {
-	ctx1, ctx2 context.Context
-
-	done    chan struct{}
-	doneErr error
-
-	cancelCh   chan struct{}
-	cancelOnce sync.Once
-}
-
 // wait waits when .ctx1 or .ctx2 is done and then mark mergeCtx as done
 func (mc *mergeCtx) wait() {
 	select {
@@ -106,18 +124,21 @@ func (mc *mergeCtx) wait() {
 	close(mc.done)
 }
 
-// cancel sends signal to wait to shutdown
-// cancel is the context.CancelFunc returned for mergeCtx by Merge
+// cancel sends signal to wait to shutdown.
+//
+// cancel is the context.CancelFunc returned for mergeCtx by Merge.
 func (mc *mergeCtx) cancel() {
 	mc.cancelOnce.Do(func() {
 		close(mc.cancelCh)
 	})
 }
 
+// Done implements context.Context .
 func (mc *mergeCtx) Done() <-chan struct{} {
 	return mc.done
 }
 
+// Err implements context.Context .
 func (mc *mergeCtx) Err() error {
 	// synchronize on .done to avoid .doneErr read races
 	select {
@@ -132,6 +153,7 @@ func (mc *mergeCtx) Err() error {
 	return mc.doneErr
 }
 
+// Deadline implements context.Context .
 func (mc *mergeCtx) Deadline() (time.Time, bool) {
 	d1, ok1 := mc.ctx1.Deadline()
 	d2, ok2 := mc.ctx2.Deadline()
@@ -147,6 +169,7 @@ func (mc *mergeCtx) Deadline() (time.Time, bool) {
 	}
 }
 
+// Value implements context.Context .
 func (mc *mergeCtx) Value(key interface{}) interface{} {
 	v := mc.ctx1.Value(key)
 	if v != nil {
