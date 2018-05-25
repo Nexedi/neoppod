@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	"fmt"
 	"io"
 	"reflect"
 	"testing"
