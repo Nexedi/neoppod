@@ -23,7 +23,7 @@
 //
 // Merge and MergeChan could be handy in situations where spawned job needs to
 // be canceled whenever any of 2 contexts becomes done. This frequently arises
-// with service methods which accept context as argument, and the service
+// with service methods that accept context as argument, and the service
 // itself, on another control line, could be instructed to become
 // non-operational. For example:
 //
@@ -72,7 +72,7 @@ type mergeCtx struct {
 //
 //	- is done when ctx1 or ctx2 is done, or cancel called, whichever happens first,
 //	- has deadline = min(ctx1.Deadline, ctx2.Deadline),
-//	- has associated values merged from ctx1 and ctx2.
+//	- has associated values merged from ctx1 and ctx2, with ctx1 taking precedence.
 //
 // Canceling this context releases resources associated with it, so code should
 // call cancel as soon as the operations running in this Context complete.
