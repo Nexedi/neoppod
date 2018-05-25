@@ -35,9 +35,10 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/xcommon/log"
 	"lab.nexedi.com/kirr/neo/go/xcommon/task"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
+	xxcontext "lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
 	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
 
+	"lab.nexedi.com/kirr/go123/xcontext"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 )
@@ -121,7 +122,7 @@ func (stor *Storage) Run(ctx context.Context, l stdnet.Listener) (err error) {
 
 			req, idReq, err := lli.Accept(ctx)
 			if err != nil {
-				if !xcontext.Canceled(err) {
+				if !xxcontext.Canceled(err) {
 					log.Error(ctx, err)	// XXX throttle?
 				}
 				continue
