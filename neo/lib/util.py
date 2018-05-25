@@ -20,7 +20,7 @@ from binascii import a2b_hex, b2a_hex
 from datetime import timedelta, datetime
 from hashlib import sha1
 from Queue import deque
-from struct import pack, unpack
+from struct import pack, unpack, Struct
 from time import gmtime
 
 TID_LOW_OVERFLOW = 2**32
@@ -102,11 +102,10 @@ def addTID(ptid, offset):
         higher = (d.year, d.month, d.day, d.hour, d.minute)
     return packTID(higher, lower)
 
-def u64(s):
-    return unpack('!Q', s)[0]
-
-def p64(n):
-    return pack('!Q', n)
+p64, u64 = (lambda unpack: (
+    unpack.__self__.pack,
+    lambda s: unpack(s)[0]
+))(Struct('!Q').unpack)
 
 def add64(packed, offset):
     """Add a python number to a 64-bits packed value"""
