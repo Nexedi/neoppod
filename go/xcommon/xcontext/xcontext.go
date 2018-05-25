@@ -29,8 +29,8 @@
 //
 //	func (srv *Service) DoSomething(ctx context.Context) error {
 //		// srv.down is chan struct{} that becomes ready when service is closed.
-//		ctxDown, down := xcontext.MergeChan(ctx, srv.down)
-//		defer down()
+//		ctxDown, cancel := xcontext.MergeChan(ctx, srv.down)
+//		defer cancel()
 //
 //		err := doJob(ctxDown)
 //		if ctxDown.Err() != nil && ctx.Err() == nil {
