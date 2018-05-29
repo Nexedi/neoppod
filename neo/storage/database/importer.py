@@ -591,7 +591,7 @@ class ImporterDatabaseManager(DatabaseManager):
             checksum = util.makeChecksum(value)
         else:
             # CAVEAT: Although we think loadBefore should not return an empty
-            #         value for a deleted object (see comment in NEO Storage),
+            #         value for a deleted object (BBB: fixed in ZODB4),
             #         there's no need to distinguish this case in the above
             #         except clause because it would be crazy to import a
             #         NEO DB using this backend.
