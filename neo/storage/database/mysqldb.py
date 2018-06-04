@@ -800,7 +800,7 @@ class MySQLDatabaseManager(DatabaseManager):
             compression = r[1]
             if compression and compression & 0x80:
                 return (r[0], compression & 0x7f, r[2],
-                    ''.join(self._bigData(data)), r[4])
+                    ''.join(self._bigData(r[3])), r[4])
             return r
 
     def getReplicationObjectList(self, min_tid, max_tid, length, partition,
