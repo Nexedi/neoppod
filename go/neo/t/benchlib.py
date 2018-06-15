@@ -28,6 +28,10 @@ from __future__ import print_function
 import re, io, numpy as np
 from collections import OrderedDict
 
+import gopath
+golang = gopath.gimport('lab.nexedi.com/kirr/go123/golang')
+method  = golang.method
+
 
 # Benchmark is a collection of benchmark lines.
 class Benchmark(list):
@@ -88,13 +92,6 @@ class Stats(object):
 
 
 # ----------------------------------------
-
-# method decorator allows to define methods separate from class.
-def method(cls):
-    def deco(f):
-        setattr(cls, f.func_name, f)
-    return deco
-
 
 _sp_re = re.compile(r'\s')
 
