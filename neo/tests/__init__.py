@@ -190,6 +190,8 @@ class NeoTestBase(unittest.TestCase):
         # Note we don't even abort them because it may require a valid
         # connection to a master node (see Storage.sync()).
         transaction.manager.__init__()
+        if logging._max_size is not None:
+            logging.flush()
 
     class failureException(AssertionError):
         def __init__(self, msg=None):
