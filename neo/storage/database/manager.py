@@ -167,6 +167,15 @@ class DatabaseManager(object):
                     raise
                 sys.exit(self.LOCKED)
 
+    def _getDevPath(self):
+        """
+        """
+
+    @requires(_getDevPath)
+    def getTopologyPath(self):
+        # On Windows, st_dev only exists since Python 3.4
+        return socket.gethostname(), str(os.stat(self._getDevPath()).st_dev)
+
     @abstract
     def erase(self):
         """"""

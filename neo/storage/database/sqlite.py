@@ -86,6 +86,9 @@ class SQLiteDatabaseManager(DatabaseManager):
             q("PRAGMA journal_mode = MEMORY")
         self._config = {}
 
+    def _getDevPath(self):
+        return self.db
+
     def _commit(self):
         retry_if_locked(self.conn.commit)
 

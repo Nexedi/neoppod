@@ -226,6 +226,11 @@ class MySQLDatabaseManager(DatabaseManager):
         """Escape special characters in a string."""
         return self.conn.escape_string
 
+    def _getDevPath(self):
+        # BBB: MySQL is moving to Performance Schema.
+        return self.query("SELECT * FROM information_schema.global_variables"
+                          " WHERE variable_name='datadir'")[0][1]
+
     def erase(self):
         self.query("DROP TABLE IF EXISTS"
             " config, pt, trans, obj, data, bigdata, ttrans, tobj")

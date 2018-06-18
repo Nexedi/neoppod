@@ -24,7 +24,7 @@ from ..app import monotonic_time
 class IdentificationHandler(EventHandler):
 
     def requestIdentification(self, conn, node_type, uuid,
-                              address, name, id_timestamp):
+                              address, name, devpath, id_timestamp):
         app = self.app
         self.checkClusterName(name)
         if address == app.server:
@@ -101,6 +101,8 @@ class IdentificationHandler(EventHandler):
                 uuid=uuid, address=address)
         else:
             node.setUUID(uuid)
+        if devpath:
+            node.devpath = tuple(devpath)
         node.id_timestamp = monotonic_time()
         node.setState(state)
         conn.setHandler(handler)
@@ -120,7 +122,7 @@ class IdentificationHandler(EventHandler):
 class SecondaryIdentificationHandler(EventHandler):
 
     def requestIdentification(self, conn, node_type, uuid,
-                              address, name, id_timestamp):
+                              address, name, devpath, id_timestamp):
         app = self.app
         self.checkClusterName(name)
         if address == app.server:

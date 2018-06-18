@@ -218,7 +218,7 @@ class Application(ThreadedApplication):
                         node=node,
                         dispatcher=self.dispatcher)
                 p = Packets.RequestIdentification(
-                    NodeTypes.CLIENT, self.uuid, None, self.name, None)
+                    NodeTypes.CLIENT, self.uuid, None, self.name, (), None)
                 try:
                     ask(conn, p, handler=handler)
                 except ConnectionClosed:

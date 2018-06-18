@@ -171,6 +171,8 @@ class Serialized(object):
             #      a single-core CPU, other threads are still busy and haven't
             #      sent anything yet on the network. This causes tic() to
             #      return prematurely. Passing a non-zero value is a hack.
+            #      We also increase SocketConnector.SOMAXCONN in tests so that
+            #      a connection attempt is never delayed inside the kernel.
             timeout=0):
         # If you're in a pdb here, 'n' switches to another thread
         # (the following lines are not supposed to be debugged into)
@@ -612,6 +614,7 @@ class NEOCluster(object):
         Patch(BaseConnection, getTimeout=lambda orig, self: None),
         Patch(SimpleQueue, __init__=__init__),
         Patch(SocketConnector, CONNECT_LIMIT=0),
+        Patch(SocketConnector, SOMAXCONN=128), # see Serialized.tic comment
         Patch(SocketConnector, _bind=lambda orig, self, addr: orig(self, BIND)),
         Patch(SocketConnector, _connect = lambda orig, self, addr:
             orig(self, ServerNode.resolv(addr))))
@@ -771,7 +774,7 @@ class NEOCluster(object):
             else NodeStates.RUNNING)
         for node in self.storage_list if storage_list is None else storage_list:
             state = self.getNodeState(node)
-            assert state == expected_state, (node, state)
+            assert state == expected_state, (repr(node), state)
 
     def stop(self, clear_database=False, __print_exc=traceback.print_exc, **kw):
         if self.started:

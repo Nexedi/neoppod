@@ -383,7 +383,7 @@ class ImporterDatabaseManager(DatabaseManager):
                     updateCellTID getUnfinishedTIDDict dropUnfinishedData
                     abortTransaction storeTransaction lockTransaction
                     loadData storeData getOrphanList _pruneData deferCommit
-                    dropPartitionsTemporary
+                    _getDevPath dropPartitionsTemporary
                  """.split():
             setattr(self, x, getattr(db, x))
         if self._writeback:

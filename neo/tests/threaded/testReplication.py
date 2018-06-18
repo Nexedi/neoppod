@@ -20,10 +20,12 @@ from ZODB.POSException import ReadOnlyError, POSKeyError
 import unittest
 from collections import defaultdict
 from functools import wraps
+from itertools import product
 from neo.lib import logging
 from neo.client.exception import NEOStorageError
 from neo.master.handlers.backup import BackupHandler
 from neo.storage.checker import CHECK_COUNT
+from neo.storage.database.manager import DatabaseManager
 from neo.storage import replicator
 from neo.lib.connector import SocketConnector
 from neo.lib.connection import ClientConnection
@@ -523,6 +525,29 @@ class ReplicationTests(NEOThreadedTest):
         for s in cluster.storage_list:
             self.assertTrue(s.is_alive())
         self.checkReplicas(cluster)
+
+    def testTopology(self):
+        """
+        In addition to MasterPartitionTableTests.test_19_topology, this checks
+        correct propagation of the paths from storage nodes to tweak().
+        """
+        with Patch(DatabaseManager, getTopologyPath=lambda *_: next(topology)):
+            for topology, expected in (
+                    (iter("0" * 9),
+                        'UU.......|..UU.....|....UU...|'
+                        '......UU.|U.......U|.UU......|'
+                        '...UU....|.....UU..|.......UU'),
+                    (product("012", "012"),
+                        'U..U.....|.U....U..|..U.U....|'
+                        '.....U.U.|U.......U|.U.U.....|'
+                        '..U...U..|....U..U.|.....U..U'),
+                ):
+                with NEOCluster(replicas=1, partitions=9,
+                                storage_count=9) as cluster:
+                    for i, s in enumerate(cluster.storage_list, 1):
+                        s.uuid = i
+                    cluster.start()
+                    self.assertPartitionTable(cluster, expected)
 
     @with_cluster(start_cluster=0, replicas=1, storage_count=4, partitions=2)
     def testTweakVsReplication(self, cluster, done=False):
