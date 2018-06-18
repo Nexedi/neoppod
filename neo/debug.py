@@ -164,3 +164,17 @@ elif IF == 'frames':
         write("Thread %s:\n" % thread_id)
         traceback.print_stack(frame)
     write("End of dump\n")
+
+elif IF == 'profile':
+    DURATION = 60
+    def stop(prof, path):
+        prof.disable()
+        prof.dump_stats(path)
+    @defer
+    def profile(app):
+        import cProfile, threading, time
+        from .lib.protocol import uuid_str
+        path = 'neo-%s-%s.prof' % (uuid_str(app.uuid), time.time())
+        prof = cProfile.Profile()
+        threading.Timer(DURATION, stop, (prof, path)).start()
+        prof.enable()
