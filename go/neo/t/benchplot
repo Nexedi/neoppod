@@ -22,7 +22,7 @@
 
 import sys, re
 from collections import OrderedDict
-from benchlib import xload_file, Unit, Benchmark, BenchLine
+from golang.x.perf.benchlib import xload_file, Unit, Benchmark, BenchLine
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
