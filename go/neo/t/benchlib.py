@@ -28,9 +28,7 @@ from __future__ import print_function
 import re, io, numpy as np
 from collections import OrderedDict
 
-import gopath
-golang = gopath.gimport('lab.nexedi.com/kirr/go123/golang')
-method  = golang.method
+from golang import method
 
 
 # Benchmark is a collection of benchmark lines.
