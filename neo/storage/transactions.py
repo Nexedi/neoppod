@@ -314,12 +314,15 @@ class TransactionManager(EventQueue):
             Unlock transaction
         """
         try:
-            tid = self._transaction_dict[ttid].tid
+            transaction = self._transaction_dict[ttid]
         except KeyError:
             raise ProtocolError("unknown ttid %s" % dump(ttid))
+        tid = transaction.tid
         logging.debug('Unlock TXN %s (ttid=%s)', dump(tid), dump(ttid))
         dm = self._app.dm
-        dm.unlockTransaction(tid, ttid)
+        dm.unlockTransaction(tid, ttid,
+            transaction.voted == 2,
+            transaction.store_dict)
         self._app.em.setTimeout(time() + 1, dm.deferCommit())
         self.abort(ttid, even_if_locked=True)
 

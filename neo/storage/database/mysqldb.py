@@ -705,18 +705,21 @@ class MySQLDatabaseManager(DatabaseManager):
                    % (u64(tid), u64(ttid)))
         self.commit()
 
-    def unlockTransaction(self, tid, ttid):
+    def unlockTransaction(self, tid, ttid, trans, obj):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
+        if trans:
+            q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
+            q("DELETE FROM ttrans WHERE tid=%d" % tid)
+            if not obj:
+                return
         sql = " FROM tobj WHERE tid=%d" % u64(ttid)
         data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
                                       % sql)]
         q("INSERT INTO obj SELECT `partition`, oid, %d, data_id, value_tid %s"
           % (tid, sql))
         q("DELETE" + sql)
-        q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
-        q("DELETE FROM ttrans WHERE tid=%d" % tid)
         self.releaseData(data_id_list)
 
     def abortTransaction(self, ttid):

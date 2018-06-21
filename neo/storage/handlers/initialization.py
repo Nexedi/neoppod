@@ -77,7 +77,7 @@ class InitializationHandler(BaseMasterHandler):
     def validateTransaction(self, conn, ttid, tid):
         dm = self.app.dm
         dm.lockTransaction(tid, ttid)
-        dm.unlockTransaction(tid, ttid)
+        dm.unlockTransaction(tid, ttid, True, True)
         dm.commit()
 
     def startOperation(self, conn, backup):

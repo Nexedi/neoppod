@@ -470,10 +470,15 @@ class SQLiteDatabaseManager(DatabaseManager):
                    (u64(tid), u64(ttid)))
         self.commit()
 
-    def unlockTransaction(self, tid, ttid):
+    def unlockTransaction(self, tid, ttid, trans, obj):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
+        if trans:
+            q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
+            q("DELETE FROM ttrans WHERE tid=?", (tid,))
+            if not obj:
+                return
         ttid = u64(ttid)
         sql = " FROM tobj WHERE tid=?"
         data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
@@ -481,8 +486,6 @@ class SQLiteDatabaseManager(DatabaseManager):
         q("INSERT INTO obj SELECT partition, oid, ?, data_id, value_tid" + sql,
           (tid, ttid))
         q("DELETE" + sql, (ttid,))
-        q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=?", (tid,))
-        q("DELETE FROM ttrans WHERE tid=?", (tid,))
         self.releaseData(data_id_list)
 
     def abortTransaction(self, ttid):

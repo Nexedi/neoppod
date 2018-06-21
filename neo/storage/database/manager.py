@@ -828,7 +828,7 @@ class DatabaseManager(object):
         """
 
     @abstract
-    def unlockTransaction(self, tid, ttid):
+    def unlockTransaction(self, tid, ttid, trans, obj):
         """Finalize a transaction by moving data to a finished area."""
 
     @abstract
