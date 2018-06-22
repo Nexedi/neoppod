@@ -289,7 +289,7 @@ def main():
         execfile(t, globals())
 
 
-    # now mimic `python ...`
+    # now mimic `python ...`        # XXX -> mimicpython(argv) ? pythonmain(argv) ?
 
     # interactive console
     if not argv:
