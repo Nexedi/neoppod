@@ -812,6 +812,48 @@ class ReplicationTests(NEOThreadedTest):
         self.tic()
         self.assertEqual(2, self.checkBackup(backup))
 
+    @with_cluster(start_cluster=0, replicas=1)
+    def testStoppingDuringReplication(self, cluster):
+        """
+        When a node is stopped while it is replicating obj from ZERO_TID,
+        check that replication does not resume from the beginning.
+        """
+        s1, s2 = cluster.storage_list
+        cluster.start(storage_list=(s1,))
+        t, c = cluster.getTransaction()
+        r = c.root()
+        r._p_changed = 1
+        t.commit()
+        ltid = r._p_serial
+        trans = []
+        obj = []
+        with ConnectionFilter() as f, Patch(replicator, FETCH_COUNT=1):
+            @f.add
+            def delayReplicate(conn, packet):
+                if isinstance(packet, Packets.AskFetchTransactions):
+                    trans.append(packet.decode()[2])
+                elif isinstance(packet, Packets.AskFetchObjects):
+                    if obj:
+                        return True
+                    obj.append(packet.decode()[2])
+            s2.start()
+            self.tic()
+            cluster.neoctl.enableStorageList([s2.uuid])
+            cluster.neoctl.tweakPartitionTable()
+            self.tic()
+            self.assertEqual(trans, [ZERO_TID, ltid])
+            self.assertEqual(obj, [ZERO_TID])
+            self.assertPartitionTable(cluster, 'UO')
+            s2.stop()
+            cluster.join((s2,))
+            s2.resetNode()
+            del trans[:], obj[:]
+            s2.start()
+            self.tic()
+            self.assertEqual(trans, [ltid])
+            self.assertEqual(obj, [ltid])
+            self.assertPartitionTable(cluster, 'UU')
+
     @with_cluster(start_cluster=0, replicas=1, partitions=2)
     def testReplicationBlockedByUnfinished1(self, cluster,
                                             delay_replication=False):

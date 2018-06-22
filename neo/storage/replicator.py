@@ -366,6 +366,9 @@ class Replicator(object):
         offset = self.current_partition
         p = self.partition_dict[offset]
         if min_tid:
+            # More than one chunk ? This could be a full replication so avoid
+            # restarting from the beginning by committing now.
+            self.app.dm.commit()
             p.next_trans = min_tid
         else:
             try:
@@ -390,13 +393,17 @@ class Replicator(object):
         offset = self.current_partition
         p = self.partition_dict[offset]
         max_tid = self.replicate_tid
+        dm = self.app.dm
         if min_tid:
             p.next_obj = min_tid
+            self.updateBackupTID()
+            dm.updateCellTID(offset, add64(min_tid, -1))
+            dm.commit() # like in fetchTransactions
         else:
             min_tid = p.next_obj
             p.next_trans = add64(max_tid, 1)
         object_dict = {}
-        for serial, oid in self.app.dm.getReplicationObjectList(min_tid,
+        for serial, oid in dm.getReplicationObjectList(min_tid,
                 max_tid, FETCH_COUNT, offset, min_oid):
             try:
                 object_dict[serial].append(oid)
