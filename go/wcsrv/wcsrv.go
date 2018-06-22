@@ -38,7 +38,9 @@
 // bigfile data.
 //
 //
-// Filesystem structure
+// Filesystem organization
+//
+// XXX write that directories appear only after client creates <bigfileX> and @<tidX>.
 //
 // Top-level structure of provided filesystem is as follows:
 //
