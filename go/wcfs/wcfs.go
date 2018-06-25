@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package wcsrv provides filesystem server with file data backed by wendelin.core arrays.
+// Package wcfs provides filesystem server with file data backed by wendelin.core arrays.
 //
 // Intro
 //
@@ -92,8 +92,8 @@
 //
 // Invalidation protocol
 //
-// In order to support isolation wcsrv implements invalidation protocol that
-// must be cooperatively followed by both wcsrv and client:
+// In order to support isolation wcfs implements invalidation protocol that
+// must be cooperatively followed by both wcfs and client:
 //
 // The filesystem server itself will receive information about changed data
 // from ZODB server through regular ZODB invalidation channel (as it is ZODB
@@ -130,8 +130,8 @@
 // modified. Knowing this it knows which data it dirtied and so can write this
 // data back to ZODB itself, without filesystem server providing write support.
 //
-// 2. write to wcsrv
+// 2. write to wcfs
 //
 // XXX we later could implement "write-directly" mode where clients would write
 // data directly into the file.
-package wcsrv
+package wcfs
