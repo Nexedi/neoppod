@@ -137,7 +137,7 @@
 package wcfs
 
 
-// FUSE. Notes on pagecache control:
+// Notes on OS pagecache control:
 //
 // the cache of snapshotted bigfile can be pre-made hot, if invalidated region
 // was already in pagecache of head/data:
@@ -158,3 +158,19 @@ package wcfs
 // we can currently workaround it with using writeback mode (see !is_wb in the
 // link above), but better we have proper FUSE flag for filesystem server to
 // tell the kernel it is fully responsible for invalidating pagecache.
+
+
+// Notes on invalidation vs faulty / slow clients:
+//
+// it should be possible for wcfs to stop a client with ptrace and change its
+// address space in a style similar to e.g. VirtualAllocEx on windows. Hacky
+// example how this could be done on Linux:
+//
+// https://gist.github.com/rofl0r/1073739/63f0f788a4923e26fcf743dd9a8411d4916f0ac0
+//
+// this way there is no way for a client to block wcfs indefinitely waiting for
+// client's ack.
+//
+//
+// However for simplicity the plan is to go first without ptrace and just kill
+// a slow client on, say 30 seconds, timeout.
