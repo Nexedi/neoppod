@@ -135,3 +135,26 @@
 // XXX we later could implement "write-directly" mode where clients would write
 // data directly into the file.
 package wcfs
+
+
+// FUSE. Notes on pagecache control:
+//
+// the cache of snapshotted bigfile can be pre-made hot, if invalidated region
+// was already in pagecache of head/data:
+//
+// - we can retrieve a region from pagecache of head/data with FUSE_NOTIFY_RETRIEVE.
+// - we can store that retrieved data into pagecache region of @<tidX>/ with FUSE_NOTIFY_STORE.
+// - we can invalidate a region from pagecache of head/data with FUSE_NOTIFY_INVAL_INODE.
+//
+// we have to disable FUSE_AUTO_INVAL_DATA to tell the kernel we are fully
+// responsible for invalidating pagecache. If we don't, the kernel will be
+// clearing whole cache of head/data on e.g. its mtime change.
+//
+// XXX FUSE_AUTO_INVAL_DATA does not fully prevent kernel from automatically
+// invalidating pagecache - e.g. it will invalidate whole cache on file size changes:
+//
+// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/fuse/inode.c?id=e0bc833d10#n233
+//
+// we can currently workaround it with using writeback mode (see !is_wb in the
+// link above), but better we have proper FUSE flag for filesystem server to
+// tell the kernel it is fully responsible for invalidating pagecache.

@@ -29,7 +29,7 @@ type fileHandle struct {
 }
 
 
-
+// XXX recheck whether Lookup is needed
 func (d *dir) Lookup(out *fuse.Attr, name string, _ *fuse.Context) (*nodefs.Inode, fuse.Status) {
 	ientry := d.Inode().GetChild(name)
 	if ientry == nil {
