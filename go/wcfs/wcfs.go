@@ -40,8 +40,6 @@
 //
 // Filesystem organization
 //
-// XXX write that directories appear only after client creates <bigfileX> and @<tidX>.
-//
 // Top-level structure of provided filesystem is as follows:
 //
 //	bigfile/
@@ -51,7 +49,7 @@
 //			...
 //		...
 //
-// where for every bigfileX there is bigfile/<oid(bigfileX)>/ directory, with
+// where for a bigfileX there is bigfile/<oid(bigfileX)>/ directory, with
 // oid(bigfileX) being ZODB object-id of corresponding ZBigFile object formatted with %016x.
 //
 // Each bigfileX/ has the following structure:
@@ -89,21 +87,26 @@
 //
 // where /data represents bigfile data as of transaction <tidX>.
 //
+// bigfile/<bigfileX>/ should be created by client via mkdir. Unless explicitly
+// created bigfile/<bigfileX>/ are not automatically visible in wcfs
+// filesystem. Similarly bigfile/<bigfileX>/@<tidX>/ should be too created by
+// client.
+//
 //
 // Invalidation protocol
 //
 // In order to support isolation wcfs implements invalidation protocol that
 // must be cooperatively followed by both wcfs and client:
 //
-// The filesystem server itself will receive information about changed data
+// The filesystem server itself receives information about changed data
 // from ZODB server through regular ZODB invalidation channel (as it is ZODB
 // client itself). Then, before actually updating bigfile/<bigfileX>/head/data
-// content in changed part, it will notify through bigfile/<bigfileX>/head/invalidations
+// content in changed part, it notifies through bigfile/<bigfileX>/head/invalidations
 // to clients that had opened this file (separately to each client) about the changes
 //
 //	XXX notification message
 //
-// and wait until they confirm that changed file part can be updated in global
+// and waits until they confirm that changed file part can be updated in global
 // OS cache.
 //
 //	XXX client reply
@@ -130,7 +133,27 @@
 // modified. Knowing this it knows which data it dirtied and so can write this
 // data back to ZODB itself, without filesystem server providing write support.
 //
-// 2. write to wcfs
+// 2. mmap(MAP_SHARED, PROT_READ) + write-tracking & writeout by client
+//
+// In this scheme bigfile data is mmaped in MAP_SHARED mode with read-only pages
+// protection. Then whenever write fault occurs, client allocates RAM from
+// shmfs, copies faulted page to it, and then mmaps RAM page with RW protection
+// in place of original bigfile page. Writeout implementation should be similar
+// to "1", only here client already knows the pages it dirtied, and this way
+// there is no need to consult /proc/self/pagemap.
+//
+// The advantage of this scheme over mmap(MAP_PRIVATE) is that in case
+// there are several mappings of the same bigfile with overlapping in-file
+// ranges, changes in one mapping will be visible in another mapping.
+// Contrary: whenever a MAP_PRIVATE mapping is modified, the kernel COWs
+// faulted page into a page completely private to this mapping, so that other
+// MAP_PRIVATE mappings of this file, including ones created from the same
+// process, do not see changes made to the first mapping.
+//
+// Since wendelin.core needs to provide coherency in between different slices
+// of the same array, this is the mode wendelin.core actually uses.
+//
+// 3. write to wcfs
 //
 // XXX we later could implement "write-directly" mode where clients would write
 // data directly into the file.
