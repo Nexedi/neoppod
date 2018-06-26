@@ -131,7 +131,7 @@
 // from ZODB server through regular ZODB invalidation channel (as it is ZODB
 // client itself). Then, before actually updating bigfile/<bigfileX>/head/data
 // content in changed part, it notifies through bigfile/<bigfileX>/head/invalidations
-// to clients that had opened this file (separately to each client) about the changes
+// to clients that had opened this file (separately to each client) about the changes:
 //
 //	S: have <Sat>, δR(Sat_prev, Sat)
 //
@@ -150,8 +150,8 @@
 //
 // When clients are done with bigfile/<bigfileX>/@<Cat>/data (i.e. Cat
 // transaction ends and array is unmapped), the server sees number of opened
-// files to bigfile/<bigfileX>/@<Cat>/data is zero, and automatically destroys
-// bigfile/<bigfileX>/@<Cat>/ directory	after reasonable timeout.
+// files to bigfile/<bigfileX>/@<Cat>/data drops to zero, and automatically
+// destroys bigfile/<bigfileX>/@<Cat>/ directory after reasonable timeout.
 //
 //
 // Protection against slow or faulty clients
