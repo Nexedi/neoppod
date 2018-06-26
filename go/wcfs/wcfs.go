@@ -96,7 +96,36 @@
 // Invalidation protocol
 //
 // In order to support isolation wcfs implements invalidation protocol that
-// must be cooperatively followed by both wcfs and client:
+// must be cooperatively followed by both wcfs and client.
+//
+// First, before client wants to mmap bigfile, it opens
+// bigfile/<bigfileX>/head/invalidations and tells wcfs through it for which
+// ZODB state it wants to get bigfile view. The server in turn reports for
+// which ZODB state head/data is current, δ describing changed bigfile region
+// between those revisions, or "wait" flag if server state is earlier compared
+// to what client wants:
+//
+//	C: want <Cat>
+//	S: have <Sat>, wait		; Sat < Cat
+//	S: have <Sat>, δR(Cat,Sat)	; Sat ≥ Cat
+//
+// If server reply was "wait" the client does nothing and waits for next server
+// message which must come without "wait" flag set. When client receives have
+// message with δR(Cat,Sat) it has the guarantee from wcfs that head/data
+// content is for Sat ZODB revision and won't change until client sends ack
+// back to the server. The client in turn now can mmap head/data and
+// @<Cat>/data to get bigfile view as of Cat:
+//
+//	mmap(bigfile/<bigfileX>/head/data)
+//	mmap(bigfile/<bigfileX>/@<Cat>/data, δR(Cat,Sat), MAP_FIXED)  # mmaped at addresses corresponding to δR(Cat,Sat)
+//
+// When client completes its initiall mmapping it sends ack back to the server:
+//
+//	C: ack
+//
+// From now on the server will be processing updates to bigfile coming from
+// ZODB as follows:
+//
 //
 // The filesystem server itself receives information about changed data
 // from ZODB server through regular ZODB invalidation channel (as it is ZODB
@@ -104,19 +133,49 @@
 // content in changed part, it notifies through bigfile/<bigfileX>/head/invalidations
 // to clients that had opened this file (separately to each client) about the changes
 //
-//	XXX notification message
+//	S: have <Sat>, δR(Sat_prev, Sat)
 //
-// and waits until they confirm that changed file part can be updated in global
-// OS cache.
+// where Sat_prev is ZODB revision last reported to client for this bigfile,
+// and waits until they all confirm that changed file part can be updated in
+// global OS cache.
 //
-//	XXX client reply
+// The clients in turn can now re-mmap invalidated regions to bigfile@Cat
 //
-// The clients in turn are advised to re-mmap invalidated regions to
-// bigfile/<bigfileX>/@<client-tid>/data, where <client-tid> is transaction-id
-// of current client view of the database.
+//	# mmapped at addresses corresponding to δR(Sat_prev, Sat)
+//	mmap(bigfile/<bigfileX>/@<Cat>/data, δR(Sat_prev, Sat), MAP_FIXED)
 //
-// XXX protection against slow / faulty client - those that don't reply
-// promptly to invalidation notification.
+// and must send ack back to the server when they are done:
+//
+//	C: ack
+//
+// when clients are done with bigfile/<bigfileX>/@<Cat>/data (i.e. Cat
+// transaction ends and array is unmapped), the server sees number of opened
+// files to bigfile/<bigfileX>/@<Cat>/data and automatically destroys
+// bigfile/<bigfileX>/@<Cat>/ directory	after reasonable timeout.
+//
+//
+// Protection against slow or faulty clients
+//
+// If a client, on purpose or due to a bug or being stopped, is slow to
+// respond with ack to invalidation notification, it creates a problem because
+// head/data updates will be blocked and thus all other clients that try to
+// work with current data will get stuck.
+//
+// To avoid this problem it should be possible for wcfs to stop a client with
+// ptrace and change its address space in a style similar to e.g.
+// VirtualAllocEx on windows. Here is hacky example how this could be done on Linux:
+//
+// https://gist.github.com/rofl0r/1073739/63f0f788a4923e26fcf743dd9a8411d4916f0ac0
+//
+// this way there should be no possibility for a client to block wcfs
+// indefinitely waiting for client's ack.
+//
+// Similarly for initiall mmapings client could first mmap head/data, then open
+// head/invalidations and tell the server that it wants Cat revision, with
+// the server then remmaping blocks to get to Cat state via ptrace.
+//
+// However for simplicity the plan is to go first without ptrace and just kill
+// a slow client on, say 30 seconds, timeout.
 //
 //
 // Writes
@@ -181,19 +240,3 @@ package wcfs
 // we can currently workaround it with using writeback mode (see !is_wb in the
 // link above), but better we have proper FUSE flag for filesystem server to
 // tell the kernel it is fully responsible for invalidating pagecache.
-
-
-// Notes on invalidation vs faulty / slow clients:
-//
-// it should be possible for wcfs to stop a client with ptrace and change its
-// address space in a style similar to e.g. VirtualAllocEx on windows. Hacky
-// example how this could be done on Linux:
-//
-// https://gist.github.com/rofl0r/1073739/63f0f788a4923e26fcf743dd9a8411d4916f0ac0
-//
-// this way there is no way for a client to block wcfs indefinitely waiting for
-// client's ack.
-//
-//
-// However for simplicity the plan is to go first without ptrace and just kill
-// a slow client on, say 30 seconds, timeout.
