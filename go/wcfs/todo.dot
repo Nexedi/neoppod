@@ -1,0 +1,19 @@
+digraph {
+	wcfs		-> wcfs_simple;
+	wcfs		-> ZODB_go_inv;
+	wcfs		-> Sinvtree;
+	wcfs		-> δR;
+
+	wcfs_simple	-> Btree_read;
+	wcfs_simple	-> ZBlk_read;
+
+
+	wcfs		[label="wcfs full"]
+	wcfs_simple	[label="wcfs no invalidations"]
+
+	ZODB_go_inv	[label="ZODB/go invalidations"]
+	Btree_read	[label="BTree read"]
+	ZBlk_read	[label="ZBigFile / ZBlk* read"]
+	Sinvtree	[label="server: inv. tree"]
+	δR		[label="δR encoding"]
+}
