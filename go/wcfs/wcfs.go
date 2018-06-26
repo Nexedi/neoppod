@@ -70,15 +70,15 @@
 //
 //	bigfile/<bigfileX>/head/
 //		data		; latest bigfile data
-//		serial		; last update to data was at this transaction
+//		at		; data is bigfile view as of this ZODB transaction
 //		invalidations	; channel that describes invalidated data regions
 //
-// where /data represents latest bigfile data as stored in upstream ZODB. As there
-// can be some lag receiving updates from the database, /serial describes
-// precisely currently exposed bigfile revision. Whenever bigfile data is changed in
-// upstream ZODB, information about the changes is first propagated to
-// /invalidations, and only after that /data and /serial are updated. See
-// "Invalidation protocol" for details.
+// where /data represents latest bigfile data as stored in upstream ZODB. As
+// there can be some lag receiving updates from the database, /at describes
+// precisely ZODB state for which bigfile data is currently exposed. Whenever
+// bigfile data is changed in upstream ZODB, information about the changes is
+// first propagated to /invalidations, and only after that /data is
+// updated. See "Invalidation protocol" for details.
 //
 // @<tidX>/ has the following structure:
 //
@@ -139,18 +139,18 @@
 // and waits until they all confirm that changed file part can be updated in
 // global OS cache.
 //
-// The clients in turn can now re-mmap invalidated regions to bigfile@Cat
+// The client in turn can now re-mmap invalidated regions to bigfile@Cat
 //
 //	# mmapped at addresses corresponding to δR(Sat_prev, Sat)
 //	mmap(bigfile/<bigfileX>/@<Cat>/data, δR(Sat_prev, Sat), MAP_FIXED)
 //
-// and must send ack back to the server when they are done:
+// and must send ack back to the server when it is done:
 //
 //	C: ack
 //
-// when clients are done with bigfile/<bigfileX>/@<Cat>/data (i.e. Cat
+// When clients are done with bigfile/<bigfileX>/@<Cat>/data (i.e. Cat
 // transaction ends and array is unmapped), the server sees number of opened
-// files to bigfile/<bigfileX>/@<Cat>/data and automatically destroys
+// files to bigfile/<bigfileX>/@<Cat>/data is zero, and automatically destroys
 // bigfile/<bigfileX>/@<Cat>/ directory	after reasonable timeout.
 //
 //
@@ -163,11 +163,11 @@
 //
 // To avoid this problem it should be possible for wcfs to stop a client with
 // ptrace and change its address space in a style similar to e.g.
-// VirtualAllocEx on windows. Here is hacky example how this could be done on Linux:
+// VirtualAllocEx on Windows. Here is hacky example how this could be done on Linux:
 //
 // https://gist.github.com/rofl0r/1073739/63f0f788a4923e26fcf743dd9a8411d4916f0ac0
 //
-// this way there should be no possibility for a client to block wcfs
+// This way there should be no possibility for a client to block wcfs
 // indefinitely waiting for client's ack.
 //
 // Similarly for initiall mmapings client could first mmap head/data, then open
@@ -202,8 +202,8 @@
 // there is no need to consult /proc/self/pagemap.
 //
 // The advantage of this scheme over mmap(MAP_PRIVATE) is that in case
-// there are several mappings of the same bigfile with overlapping in-file
-// ranges, changes in one mapping will be visible in another mapping.
+// there are several in-process mappings of the same bigfile with overlapping
+// in-file ranges, changes in one mapping will be visible in another mapping.
 // Contrary: whenever a MAP_PRIVATE mapping is modified, the kernel COWs
 // faulted page into a page completely private to this mapping, so that other
 // MAP_PRIVATE mappings of this file, including ones created from the same
