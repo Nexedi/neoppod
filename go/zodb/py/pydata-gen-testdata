@@ -22,7 +22,7 @@
 
 from ZODB.tests import testSerialize
 from ZODB import serialize
-from zodbtools.util import escapeqq
+from zodbtools.util import escapeqq as qq
 
 def main():
     # dump to go what to expect
@@ -46,8 +46,8 @@ def main():
         emit("\nvar _PyData_ClassName_Testv = [...]_PyDataClassName_TestEntry{")
         for test in testv:
             emit("\t{")
-            emit("\t\t%s," % escapeqq(test))
-            emit("\t\t%s," % escapeqq(r.getClassName(test)))
+            emit("\t\t%s," % qq(test))
+            emit("\t\t%s," % qq(r.getClassName(test)))
             emit("\t},")
         emit('\t{"aaa", "?.?"},') # invalid
         emit("}")
