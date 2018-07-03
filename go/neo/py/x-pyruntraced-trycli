@@ -1,4 +1,0 @@
-#!/bin/sh
-# XXX temp. cli debugging for pyruntraced
-
-socat EXEC:"./pyruntraced 3 neo.trace.py -- ../../../t/backup-play/N1-writer",fdin=3,fdout=3 TCP:localhost:8888
