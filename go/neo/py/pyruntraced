@@ -34,7 +34,7 @@ subprocesses via tracetest, the same way to how it is done in pure NEO/go.
 Please see documentation for next Go packages for context:
 
     - lab.nexedi.com/kirr/go123/tracing
-    - lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest     # XXX correct link
+    - lab.nexedi.com/kirr/go123/tracing/tracetest
 
 
 Implementation notes
