@@ -23,6 +23,30 @@
 // Data model this package provides is partly based on ZODB/py
 // (https://github.com/zopefoundation/ZODB) to maintain compatibility in
 // between Python and Go implementations.
+//
+// Data model
+//
+// Tid, Oid, ? Xid.
+//
+//
+// Operation
+//
+// Load(oid, at), iteration.
+// OpenStorage
+//
+//
+// Python data
+//
+// PyData, PyObject, ...
+//
+//
+// Storage drivers
+//
+// IStorageDriver, RegisterDriver + wks (FileStorage, ZEO and NEO).
+//
+// ----
+//
+// XXX link to zodbtools / `zodb` cmd?
 package zodb
 
 import (
@@ -106,7 +130,7 @@ type DataInfo struct {
 	DataTidHint Tid
 }
 
-// TxnStatus represents status of a transaction
+// TxnStatus represents status of a transaction.
 type TxnStatus byte
 
 const (
@@ -118,7 +142,7 @@ const (
 
 // ---- interfaces ----
 
-// NoObjectError is the error which tells that there is no such object in the database at all
+// NoObjectError is the error which tells that there is no such object in the database at all.
 type NoObjectError struct {
 	Oid Oid
 }

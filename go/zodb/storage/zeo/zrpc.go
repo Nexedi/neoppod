@@ -271,7 +271,7 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 
 // ---- raw IO ----
 
-// pktBuf is buffer for preparing outgoing packet.
+// pktBuf is buffer with packet data.
 //
 // alloc via allocPkb and free via pkb.Free.
 // similar to skb in Linux.

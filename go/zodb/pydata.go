@@ -106,6 +106,7 @@ func normPyClass(xklass interface{}) (pickle.Class, error) {
 		if len(t) != 2 {
 			return pickle.Class{}, errInvalidPyClass
 		}
+		// XXX newargs is ignored (zodb/py uses it only for persistent classes)
 		xklass = t[0]
 		if t, ok := xklass.(pickle.Tuple); ok {
 			// t = (modname, classname)

@@ -234,7 +234,7 @@ func (r rpc) zeo4Error(arg interface{}) error {
 	call, ok := targ[1].(pickle.Call)
 	if !ok {
 		// not a call - the best we can do is to guess
-		return r.ereplyf("excep4: %s: inst %#v; expect call", exc, targ[1:])
+		return r.ereplyf("except4: %s: inst %#v; expect call", exc, targ[1:])
 	}
 
 	exc  = call.Callable.Module + "." + call.Callable.Name
