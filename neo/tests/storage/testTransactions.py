@@ -57,7 +57,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.manager.storeObject(locking_serial, ram_serial, oid, 0, "3" * 20,
             'bar', None)
         holdData = self.app.dm.mockGetNamedCalls('holdData')
-        self.assertEqual(holdData.pop(0).params, ("3" * 20, 'bar', 0))
+        self.assertEqual(holdData.pop(0).params, ("3" * 20, oid, 'bar', 0))
         orig_object = self.manager.getObjectFromTransaction(locking_serial,
             oid)
         self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)

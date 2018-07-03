@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import OrderedDict
 import os
 import sqlite3
 from hashlib import sha1
@@ -67,7 +68,7 @@ class SQLiteDatabaseManager(DatabaseManager):
              never be used for small requests.
     """
 
-    VERSION = 1
+    VERSION = 2
 
     def _parse(self, database):
         self.db = os.path.expanduser(database)
@@ -112,39 +113,51 @@ class SQLiteDatabaseManager(DatabaseManager):
             if not e.args[0].startswith("no such table:"):
                 raise
 
+    def _migrate1(self, *_):
+        self._checkNoUnfinishedTransactions()
+        self.query("DROP TABLE IF EXISTS ttrans")
+
+    def _migrate2(self, schema_dict, index_dict):
+        # BBB: As explained in _setup, no transactional DDL
+        #      so let's do the same dance as for MySQL.
+        q = self.query
+        if self.nonempty('obj') is None:
+            if self.nonempty('new_obj') is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS new_obj")
+            q(schema_dict.pop('obj') % 'new_obj')
+            q("INSERT INTO new_obj SELECT * FROM obj")
+            q("DROP TABLE obj")
+        q("ALTER TABLE new_obj RENAME TO obj")
+
     def _setup(self, dedup=False):
-        # SQLite does support transactional Data Definition Language statements
-        # but unfortunately, the built-in Python binding automatically commits
-        # between such statements. This anti-feature causes this method to be
-        # relatively slow; unit tests enables the UNSAFE boolean flag.
+        # BBB: SQLite has transactional DDL but before Python 3.6,
+        #      the binding automatically commits between such statements.
+        #      This anti-feature causes this method to be relatively slow.
+        #      Unit tests enables the UNSAFE boolean flag.
         self._config.clear()
         q = self.query
+        schema_dict = OrderedDict()
+        index_dict = {}
 
-        if self.nonempty("config") is None:
-            # The table "config" stores configuration
-            # parameters which affect the persistent data.
-            q("CREATE TABLE IF NOT EXISTS config ("
-              "  name TEXT NOT NULL PRIMARY KEY,"
-              "  value TEXT)")
-        else:
-            # Automatic migration.
-            version = self._getVersion()
-            if version < 1:
-                self._checkNoUnfinishedTransactions()
-                q("DROP TABLE IF EXISTS ttrans")
-
-        self._setConfiguration("version", self.VERSION)
+        # The table "config" stores configuration
+        # parameters which affect the persistent data.
+        schema_dict['config'] = """CREATE TABLE %s (
+                 name TEXT NOT NULL PRIMARY KEY,
+                 value TEXT)
+            """
 
         # The table "pt" stores a partition table.
-        q("""CREATE TABLE IF NOT EXISTS pt (
+        schema_dict['pt'] = """CREATE TABLE %s (
                  rid INTEGER NOT NULL,
                  nid INTEGER NOT NULL,
                  state INTEGER NOT NULL,
                  PRIMARY KEY (rid, nid))
-          """)
+            """
 
         # The table "trans" stores information on committed transactions.
-        q("""CREATE TABLE IF NOT EXISTS trans (
+        schema_dict['trans'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
                  packed BOOLEAN NOT NULL,
@@ -154,38 +167,34 @@ class SQLiteDatabaseManager(DatabaseManager):
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL,
                  PRIMARY KEY (partition, tid))
-          """)
+            """
 
         # The table "obj" stores committed object metadata.
-        q("""CREATE TABLE IF NOT EXISTS obj (
+        schema_dict['obj'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
-                 PRIMARY KEY (partition, tid, oid))
-          """)
-        q("""CREATE INDEX IF NOT EXISTS _obj_i1 ON
-                 obj(partition, oid, tid)
-          """)
-        q("""CREATE INDEX IF NOT EXISTS _obj_i2 ON
-                 obj(data_id)
-          """)
+                 PRIMARY KEY (partition, oid, tid))
+            """
+        index_dict['obj'] = (
+            "CREATE INDEX %s ON %s(partition, tid, oid)",
+            "CREATE INDEX %s ON %s(data_id)")
 
         # The table "data" stores object data.
-        q("""CREATE TABLE IF NOT EXISTS data (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+        schema_dict['data'] = """CREATE TABLE %s (
+                 id INTEGER PRIMARY KEY,
                  hash BLOB NOT NULL,
                  compression INTEGER NOT NULL,
                  value BLOB NOT NULL)
-          """)
+            """
         if dedup:
-            q("""CREATE UNIQUE INDEX IF NOT EXISTS _data_i1 ON
-                    data(hash, compression)
-              """)
+            index_dict['data'] = (
+                "CREATE UNIQUE INDEX %s ON %s(hash, compression)",)
 
         # The table "ttrans" stores information on uncommitted transactions.
-        q("""CREATE TABLE IF NOT EXISTS ttrans (
+        schema_dict['ttrans'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  tid INTEGER,
                  packed BOOLEAN NOT NULL,
@@ -194,17 +203,28 @@ class SQLiteDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid INTEGER NOT NULL)
-          """)
+            """
 
         # The table "tobj" stores uncommitted object metadata.
-        q("""CREATE TABLE IF NOT EXISTS tobj (
+        schema_dict['tobj'] = """CREATE TABLE %s (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
                  tid INTEGER NOT NULL,
                  data_id INTEGER,
                  value_tid INTEGER,
                  PRIMARY KEY (tid, oid))
-          """)
+            """
+
+        if self.nonempty('config') is None:
+            q(schema_dict.pop('config') % 'config')
+            self._setConfiguration('version', self.VERSION)
+        else:
+            self.migrate(schema_dict, index_dict)
+
+        for table, schema in schema_dict.iteritems():
+            q(schema % ('IF NOT EXISTS ' + table))
+            for i, index in enumerate(index_dict.get(table, ()), 1):
+                q(index % ('IF NOT EXISTS _%s_i%s' % (table, i), table))
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))
@@ -265,6 +285,10 @@ class SQLiteDatabaseManager(DatabaseManager):
         oid = q("SELECT MAX(oid) oid FROM pt, obj"
                 " WHERE nid=? AND rid=partition", args).next()[0]
         return trans, obj, None if oid is None else p64(oid)
+
+    def _getDataLastId(self, partition):
+        return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
+            % (partition << 48, (partition + 1) << 48)).fetchone()[0]
 
     def _getUnfinishedTIDDict(self):
         q = self.query
@@ -338,14 +362,16 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         for partition in offset_list:
             args = partition,
-            data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj" + where, args) if x]
+            data_id_list = [x for x, in q(
+                "SELECT DISTINCT data_id FROM obj%s AND data_id IS NOT NULL"
+                % where, args)]
             q("DELETE FROM obj" + where, args)
             q("DELETE FROM trans" + where, args)
             self._pruneData(data_id_list)
 
     def _getUnfinishedDataIdList(self):
-        return [x for x, in self.query("SELECT data_id FROM tobj") if x]
+        return [x for x, in self.query(
+            "SELECT data_id FROM tobj WHERE data_id IS NOT NULL")]
 
     def dropPartitionsTemporary(self, offset_list=None):
         where = "" if offset_list is None else \
@@ -408,12 +434,14 @@ class SQLiteDatabaseManager(DatabaseManager):
             return len(data_id_list)
         return 0
 
-    def storeData(self, checksum, data, compression,
+    def storeData(self, checksum, oid, data, compression,
             _dup=unique_constraint_message("data", "hash", "compression")):
         H = buffer(checksum)
+        p = self._getPartition(util.u64(oid))
+        r = self._data_last_ids[p]
         try:
-            return self.query("INSERT INTO data VALUES (NULL,?,?,?)",
-                (H, compression,  buffer(data))).lastrowid
+            self.query("INSERT INTO data VALUES (?,?,?,?)",
+                (r, H, compression,  buffer(data)))
         except sqlite3.IntegrityError, e:
             if e.args[0] == _dup:
                 (r, d), = self.query("SELECT id, value FROM data"
@@ -422,10 +450,12 @@ class SQLiteDatabaseManager(DatabaseManager):
                 if str(d) == data:
                     return r
             raise
+        self._data_last_ids[p] = r + 1
+        return r
 
     def loadData(self, data_id):
         return self.query("SELECT compression, hash, value"
-                          " FROM data where id=?", (data_id,)).fetchone()
+                          " FROM data WHERE id=?", (data_id,)).fetchone()
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getReadablePartition(oid)
@@ -454,7 +484,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         tid = u64(tid)
         ttid = u64(ttid)
         sql = " FROM tobj WHERE tid=?"
-        data_id_list = [x for x, in q("SELECT data_id" + sql, (ttid,)) if x]
+        data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
+                                      % sql, (ttid,))]
         q("INSERT INTO obj SELECT partition, oid, ?, data_id, value_tid" + sql,
           (tid, ttid))
         q("DELETE" + sql, (ttid,))
@@ -481,8 +512,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             sql += " AND tid=?"
             args.append(util.u64(serial))
         q = self.query
-        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
-                          if x]
+        data_id_list = [x for x, in q(
+            "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql, args)]
         q("DELETE" + sql, args)
         self._pruneData(data_id_list)
 
@@ -498,8 +529,8 @@ class SQLiteDatabaseManager(DatabaseManager):
         q = self.query
         q("DELETE FROM trans" + sql, args)
         sql = " FROM obj" + sql
-        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
-                          if x]
+        data_id_list = [x for x, in q(
+            "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql, args)]
         q("DELETE" + sql, args)
         self._pruneData(data_id_list)
 

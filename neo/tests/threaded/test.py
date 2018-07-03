@@ -480,17 +480,18 @@ class Test(NEOThreadedTest):
     def test_notifyNodeInformation(self, cluster):
         # translated from MasterNotificationsHandlerTests
         # (neo.tests.client.testMasterHandler)
+        good = [1, 0].pop
         if 1:
             cluster.db # open DB
             s0, s1 = cluster.client.nm.getStorageList()
             conn = s0.getConnection()
             self.assertFalse(conn.isClosed())
             getCellSortKey = cluster.client.cp.getCellSortKey
-            self.assertEqual(getCellSortKey(s0, int), 0)
+            self.assertEqual(getCellSortKey(s0, good), 0)
             cluster.neoctl.dropNode(s0.getUUID())
             self.assertEqual([s1], cluster.client.nm.getStorageList())
             self.assertTrue(conn.isClosed())
-            self.assertEqual(getCellSortKey(s0, int), 1)
+            self.assertEqual(getCellSortKey(s0, good), 1)
             # XXX: the test originally checked that 'unregister' method
             #      was called (even if it's useless in this case),
             #      but we would need an API to do that easily.
@@ -1438,7 +1439,7 @@ class Test(NEOThreadedTest):
             bad = []
             ok = []
             def data_args(value):
-                return makeChecksum(value), value, 0
+                return makeChecksum(value), ZERO_OID, value, 0
             node_list = []
             for i, s in enumerate(cluster.storage_list):
                 node_list.append(s.uuid)

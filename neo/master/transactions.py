@@ -234,29 +234,16 @@ class TransactionManager(EventQueue):
         tid = tidFromTime(time())
         min_tid = self._last_tid
         if tid <= min_tid:
-            tid  = addTID(min_tid, 1)
-            # We know we won't have room to adjust by decreasing.
-            try_decrease = False
-        else:
-            try_decrease = True
+            tid = addTID(min_tid, 1)
         if ttid is not None:
-            assert isinstance(ttid, basestring), repr(ttid)
-            assert isinstance(divisor, (int, long)), repr(divisor)
-            ref_remainder = u64(ttid) % divisor
-            remainder = u64(tid) % divisor
-            if ref_remainder != remainder:
-                if try_decrease:
-                    new_tid = addTID(tid, ref_remainder - divisor - remainder)
-                    assert u64(new_tid) % divisor == ref_remainder, (dump(new_tid),
-                        ref_remainder)
-                    if new_tid <= min_tid:
-                        new_tid = addTID(new_tid, divisor)
-                else:
-                    if ref_remainder > remainder:
-                        ref_remainder += divisor
-                    new_tid = addTID(tid, ref_remainder - remainder)
-                assert min_tid < new_tid, (dump(min_tid), dump(tid), dump(new_tid))
-                tid = new_tid
+            remainder = u64(ttid) % divisor
+            delta_remainder = remainder - u64(tid) % divisor
+            if delta_remainder:
+                tid = addTID(tid, delta_remainder)
+                if tid <= min_tid:
+                    tid = addTID(tid, divisor)
+                assert u64(tid) % divisor == remainder, (dump(tid), remainder)
+                assert min_tid < tid, (dump(min_tid), dump(tid))
         self._last_tid = tid
         return self._last_tid
 

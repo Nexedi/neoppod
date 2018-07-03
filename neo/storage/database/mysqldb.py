@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from binascii import a2b_hex
+from collections import OrderedDict
 import MySQLdb
 from MySQLdb import DataError, IntegrityError, \
     OperationalError, ProgrammingError
@@ -49,7 +50,7 @@ def getPrintableQuery(query, max=70):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    VERSION = 1
+    VERSION = 2
     ENGINES = "InnoDB", "RocksDB", "TokuDB"
     _engine = ENGINES[0] # default engine
 
@@ -176,41 +177,48 @@ class MySQLDatabaseManager(DatabaseManager):
             if e.args[0] != NO_SUCH_TABLE:
                 raise
 
+    def _migrate1(self, _):
+        self._checkNoUnfinishedTransactions()
+        self.query("DROP TABLE IF EXISTS ttrans")
+
+    def _migrate2(self, schema_dict):
+        q = self.query
+        if self.nonempty('obj') is None:
+            if self.nonempty('new_obj') is None:
+                return
+        else:
+            q("DROP TABLE IF EXISTS new_obj")
+            q(schema_dict.pop('obj') % 'new_obj' + " SELECT * FROM obj")
+            q("DROP TABLE obj")
+        q("ALTER TABLE new_obj RENAME TO obj")
+
     def _setup(self, dedup=False):
         self._config.clear()
         q = self.query
         p = engine = self._engine
+        schema_dict = OrderedDict()
 
-        if self.nonempty("config") is None:
-            # The table "config" stores configuration
-            # parameters which affect the persistent data.
-            q("""CREATE TABLE config (
-                     name VARBINARY(255) NOT NULL PRIMARY KEY,
-                     value VARBINARY(255) NULL
-                 ) ENGINE=""" + engine)
-        else:
-            # Automatic migration.
-            version = self._getVersion()
-            if version < 1:
-                self._checkNoUnfinishedTransactions()
-                q("DROP TABLE IF EXISTS ttrans")
-
-        self._setConfiguration("version", self.VERSION)
+        # The table "config" stores configuration
+        # parameters which affect the persistent data.
+        schema_dict['config'] = """CREATE TABLE %s (
+                  name VARBINARY(255) NOT NULL PRIMARY KEY,
+                  value VARBINARY(255) NULL
+              ) ENGINE=""" + engine
 
         # The table "pt" stores a partition table.
-        q("""CREATE TABLE IF NOT EXISTS pt (
+        schema_dict['pt'] = """CREATE TABLE %s (
                  rid INT UNSIGNED NOT NULL,
                  nid INT NOT NULL,
                  state TINYINT UNSIGNED NOT NULL,
                  PRIMARY KEY (rid, nid)
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
 
         if self._use_partition:
             p += """ PARTITION BY LIST (`partition`) (
                 PARTITION dummy VALUES IN (NULL))"""
 
         # The table "trans" stores information on committed transactions.
-        q("""CREATE TABLE IF NOT EXISTS trans (
+        schema_dict['trans'] =  """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  packed BOOLEAN NOT NULL,
@@ -220,19 +228,19 @@ class MySQLDatabaseManager(DatabaseManager):
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL,
                  PRIMARY KEY (`partition`, tid)
-             ) ENGINE=""" + p)
+             ) ENGINE=""" + p
 
         # The table "obj" stores committed object metadata.
-        q("""CREATE TABLE IF NOT EXISTS obj (
+        schema_dict['obj'] = """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (`partition`, tid, oid),
-                 KEY (`partition`, oid, tid),
+                 PRIMARY KEY (`partition`, oid, tid),
+                 KEY tid (`partition`, tid, oid),
                  KEY (data_id)
-             ) ENGINE=""" + p)
+             ) ENGINE=""" + p
 
         if engine == "TokuDB":
             engine += " compression='tokudb_uncompressed'"
@@ -240,21 +248,21 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "data" stores object data.
         # We'd like to have partial index on 'hash' column (e.g. hash(4))
         # but 'UNIQUE' constraint would not work as expected.
-        q("""CREATE TABLE IF NOT EXISTS data (
-                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        schema_dict['data'] = """CREATE TABLE %%s (
+                 id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
                  hash BINARY(20) NOT NULL,
                  compression TINYINT UNSIGNED NULL,
                  value MEDIUMBLOB NOT NULL%s
              ) ENGINE=%s""" % (""",
-                 UNIQUE (hash, compression)""" if dedup else "", engine))
+                 UNIQUE (hash, compression)""" if dedup else "", engine)
 
-        q("""CREATE TABLE IF NOT EXISTS bigdata (
+        schema_dict['bigdata'] = """CREATE TABLE %s (
                  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                  value MEDIUMBLOB NOT NULL
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
 
         # The table "ttrans" stores information on uncommitted transactions.
-        q("""CREATE TABLE IF NOT EXISTS ttrans (
+        schema_dict['ttrans'] = """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED,
                  packed BOOLEAN NOT NULL,
@@ -263,17 +271,26 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  ttid BIGINT UNSIGNED NOT NULL
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
 
         # The table "tobj" stores uncommitted object metadata.
-        q("""CREATE TABLE IF NOT EXISTS tobj (
+        schema_dict['tobj'] = """CREATE TABLE %s (
                  `partition` SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
                  value_tid BIGINT UNSIGNED NULL,
                  PRIMARY KEY (tid, oid)
-             ) ENGINE=""" + engine)
+             ) ENGINE=""" + engine
+
+        if self.nonempty('config') is None:
+            q(schema_dict.pop('config') % 'config')
+            self._setConfiguration('version', self.VERSION)
+        else:
+            self.migrate(schema_dict)
+
+        for table, schema in schema_dict.iteritems():
+            q(schema % ('IF NOT EXISTS ' + table))
 
         self._uncommitted_data.update(q("SELECT data_id, count(*)"
             " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id"))
@@ -335,17 +352,20 @@ class MySQLDatabaseManager(DatabaseManager):
         offset_list = self._getAssignedPartitionList()
         p64 = util.p64
         q = self.query
-        sql = ("SELECT MAX(tid) FROM %s FORCE INDEX (PRIMARY)"
-               " WHERE `partition`=%s")
+        sql = "SELECT MAX(tid) FROM %s WHERE `partition`=%s"
         trans, obj = ({partition: p64(tid)
             for partition in offset_list
             for tid, in q(sql % (t, partition))
             if tid is not None}
-            for t in ('trans', 'obj'))
+            for t in ('trans FORCE INDEX (PRIMARY)', 'obj FORCE INDEX (tid)'))
         oid = self._sqlmax(
-            "SELECT MAX(oid) FROM obj FORCE INDEX (`partition`)"
+            "SELECT MAX(oid) FROM obj FORCE INDEX (PRIMARY)"
             " WHERE `partition`=%s", offset_list)
         return trans, obj, None if oid is None else p64(oid)
+
+    def _getDataLastId(self, partition):
+        return self.query("SELECT MAX(id) FROM data WHERE %s <= id AND id < %s"
+            % (partition << 48, (partition + 1) << 48))[0][0]
 
     def _getUnfinishedTIDDict(self):
         q = self.query
@@ -363,7 +383,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getLastObjectTID(self, oid):
         oid = util.u64(oid)
-        r = self.query("SELECT tid FROM obj FORCE INDEX(`partition`)"
+        r = self.query("SELECT tid FROM obj FORCE INDEX(PRIMARY)"
                        " WHERE `partition`=%d AND oid=%d"
                        " ORDER BY tid DESC LIMIT 1"
                        % (self._getReadablePartition(oid), oid))
@@ -371,7 +391,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _getNextTID(self, *args): # partition, oid, tid
         r = self.query("SELECT tid FROM obj"
-                       " FORCE INDEX(`partition`)"
+                       " FORCE INDEX(PRIMARY)"
                        " WHERE `partition`=%d AND oid=%d AND tid>%d"
                        " ORDER BY tid LIMIT 1" % args)
         return r[0][0] if r else None
@@ -380,7 +400,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         partition = self._getReadablePartition(oid)
         sql = ('SELECT tid, compression, data.hash, value, value_tid'
-               ' FROM obj FORCE INDEX(`partition`)'
+               ' FROM obj FORCE INDEX(PRIMARY)'
                ' LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE `partition` = %d AND oid = %d') % (partition, oid)
         if before_tid is not None:
@@ -437,9 +457,8 @@ class MySQLDatabaseManager(DatabaseManager):
         for partition in offset_list:
             where = " WHERE `partition`=%d" % partition
             data_id_list = [x for x, in
-                q("SELECT DISTINCT data_id FROM obj FORCE INDEX(PRIMARY)"
-                  + where)
-                if x]
+                q("SELECT DISTINCT data_id FROM obj FORCE INDEX(tid)"
+                  "%s AND data_id IS NOT NULL" % where)]
             if not self._use_partition:
                 q("DELETE FROM obj" + where)
                 q("DELETE FROM trans" + where)
@@ -455,7 +474,8 @@ class MySQLDatabaseManager(DatabaseManager):
                         raise
 
     def _getUnfinishedDataIdList(self):
-        return [x for x, in self.query("SELECT data_id FROM tobj") if x]
+        return [x for x, in self.query(
+            "SELECT data_id FROM tobj WHERE data_id IS NOT NULL")]
 
     def dropPartitionsTemporary(self, offset_list=None):
         where = "" if offset_list is None else \
@@ -491,7 +511,9 @@ class MySQLDatabaseManager(DatabaseManager):
             else:
                 value_serial = 'NULL'
             value = "(%s,%s,%s,%s,%s)," % (
-                partition, oid, tid, data_id or 'NULL', value_serial)
+                partition, oid, tid,
+                'NULL' if data_id is None else data_id,
+                value_serial)
             values_size += len(value)
             # actually: max_values < values_size + EXTRA - len(final comma)
             # (test_max_allowed_packet checks that EXTRA == 2)
@@ -550,7 +572,7 @@ class MySQLDatabaseManager(DatabaseManager):
             for i in xrange(bigdata_id,
                             bigdata_id + (length + 0x7fffff >> 23)))
 
-    def storeData(self, checksum, data, compression, _pack=_structLL.pack):
+    def storeData(self, checksum, oid, data, compression, _pack=_structLL.pack):
         e = self.escape
         checksum = e(checksum)
         if 0x1000000 <= len(data): # 16M (MEDIUMBLOB limit)
@@ -577,9 +599,11 @@ class MySQLDatabaseManager(DatabaseManager):
                     i = bigdata_id = self.conn.insert_id()
                 i += 1
             data = _pack(bigdata_id, length)
+        p = self._getPartition(util.u64(oid))
+        r = self._data_last_ids[p]
         try:
-            self.query("INSERT INTO data VALUES (NULL, '%s', %d, '%s')" %
-                       (checksum, compression,  e(data)))
+            self.query("INSERT INTO data VALUES (%s, '%s', %d, '%s')" %
+                       (r, checksum, compression,  e(data)))
         except IntegrityError as e:
             if e.args[0] == DUP_ENTRY:
                 (r, d), = self.query("SELECT id, value FROM data"
@@ -588,7 +612,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 if d == data:
                     return r
             raise
-        return self.conn.insert_id()
+        self._data_last_ids[p] = r + 1
+        return r
 
     def loadData(self, data_id):
         compression, hash, value = self.query(
@@ -602,7 +627,7 @@ class MySQLDatabaseManager(DatabaseManager):
     del _structLL
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT tid, value_tid FROM obj FORCE INDEX(`partition`)'
+        sql = ('SELECT tid, value_tid FROM obj FORCE INDEX(PRIMARY)'
                ' WHERE `partition` = %d AND oid = %d'
               ) % (self._getReadablePartition(oid), oid)
         if tid is not None:
@@ -627,7 +652,8 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         tid = u64(tid)
         sql = " FROM tobj WHERE tid=%d" % u64(ttid)
-        data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
+        data_id_list = [x for x, in q("SELECT data_id%s AND data_id IS NOT NULL"
+                                      % sql)]
         q("INSERT INTO obj SELECT `partition`, oid, %d, data_id, value_tid %s"
           % (tid, sql))
         q("DELETE" + sql)
@@ -654,7 +680,8 @@ class MySQLDatabaseManager(DatabaseManager):
         if serial:
             sql += ' AND tid=%d' % u64(serial)
         q = self.query
-        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql) if x]
+        data_id_list = [x for x, in q(
+            "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql)]
         q("DELETE" + sql)
         self._pruneData(data_id_list)
 
@@ -667,7 +694,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         q("DELETE FROM trans" + sql)
         sql = " FROM obj" + sql
-        data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql) if x]
+        data_id_list = [x for x, in q(
+            "SELECT DISTINCT data_id%s AND data_id IS NOT NULL" % sql)]
         q("DELETE" + sql)
         self._pruneData(data_id_list)
 
@@ -693,7 +721,7 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         r = self.query("SELECT tid, IF(compression < 128, LENGTH(value),"
             "  CAST(CONV(HEX(SUBSTR(value, 5, 4)), 16, 10) AS INT))"
-            " FROM obj FORCE INDEX(`partition`)"
+            " FROM obj FORCE INDEX(PRIMARY)"
             " LEFT JOIN data ON (obj.data_id = data.id)"
             " WHERE `partition` = %d AND oid = %d AND tid >= %d"
             " ORDER BY tid DESC LIMIT %d, %d" %
@@ -722,7 +750,7 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         p64 = util.p64
         min_tid = u64(min_tid)
-        r = self.query('SELECT tid, oid FROM obj FORCE INDEX(PRIMARY)'
+        r = self.query('SELECT tid, oid FROM obj FORCE INDEX(tid)'
                        ' WHERE `partition` = %d AND tid <= %d'
                        ' AND (tid = %d AND %d <= oid OR %d < tid)'
                        ' ORDER BY tid ASC, oid ASC LIMIT %d' % (
@@ -787,7 +815,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         self._setPackTID(tid)
         for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid, MAX(tid)"
-                                        " FROM obj FORCE INDEX(`partition`)"
+                                        " FROM obj FORCE INDEX(PRIMARY)"
                                         " WHERE tid <= %d GROUP BY oid"
                                         % tid):
             partition = getPartition(oid)
@@ -838,7 +866,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # last grouped value, instead of the greatest one.
         r = self.query(
             """SELECT tid, oid
-               FROM obj FORCE INDEX(PRIMARY)
+               FROM obj FORCE INDEX(tid)
                WHERE `partition` = %(partition)s
                  AND tid <= %(max_tid)d
                  AND (tid > %(min_tid)d OR

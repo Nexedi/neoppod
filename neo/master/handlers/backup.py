@@ -35,7 +35,7 @@ class BackupHandler(EventHandler):
     def answerLastTransaction(self, conn, tid):
         app = self.app
         prev_tid = app.app.getLastTransaction()
-        if prev_tid < tid:
+        if prev_tid <= tid:
             # Since we don't know which partitions were modified during our
             # absence, we must force replication on all storages. As long as
             # they haven't done this first check, our backup tid will remain
@@ -43,8 +43,12 @@ class BackupHandler(EventHandler):
             #   >= app.app.getLastTransaction()
             #   < tid
             # but passing 'tid' is good enough.
+            # A special case is when prev_tid == tid: even in this case, we
+            # must restore the state of the backup app so that any interrupted
+            # replication (internal or not) is resumed, otherwise the global
+            # backup_tid could remain stuck to an old tid if upstream is idle.
             app.invalidatePartitions(tid, tid, xrange(app.pt.getPartitions()))
-        elif prev_tid != tid:
+        else:
             raise RuntimeError("upstream DB truncated")
         app.ignore_invalidations = False
 

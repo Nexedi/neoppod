@@ -1,3 +1,22 @@
+NEO 1.9
+=======
+
+The `obj` table in MySQL/SQLite backends is automatically upgraded at startup.
+
+Note however that rewritting this table can take a lot of time if you have a
+lot of object records.
+
+This migration is reversible but you'd have to dig into the migration code
+(``DatabaseManager._migrate2()``) and do manually the opposite SQL queries.
+
+The change in the `data` table is such that no migration is done (like for NEO
+1.4, it's optional and it would cost too much). For optimal performance, you
+may prefer to set up new nodes (and drop the old ones once the replication
+is finished).
+
+Because there's no change in the protocol, it's actually possible to mix nodes
+with versions 1.8.1 and 1.9, and avoid any downtime because of the migration.
+
 NEO 1.6
 =======
 
