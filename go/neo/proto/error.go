@@ -26,7 +26,6 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
-
 // XXX name -> zodbErrEncode, zodbErrDecode ?
 // XXX should be not in proto/ ?
 
@@ -71,7 +70,7 @@ func ErrDecode(e *Error) error {
 		return &zodb.NoDataError{Oid: oid, DeletedAt: del}
 
 	case OID_DOES_NOT_EXIST:
-		oid, err := zodb.ParseOid(e.Message)	// XXX abusing message for oid
+		oid, err := zodb.ParseOid(e.Message) // XXX abusing message for oid
 		if err == nil {
 			return &zodb.NoObjectError{oid}
 		}

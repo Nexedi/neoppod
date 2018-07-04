@@ -89,7 +89,7 @@ var typeInfo = &types.Info{
 }
 
 // complete position of something with .Pos()
-func pos(x interface { Pos() token.Pos }) token.Position {
+func pos(x interface{ Pos() token.Pos }) token.Position {
 	return fset.Position(x.Pos())
 }
 
@@ -234,8 +234,8 @@ func (v BySerial) Less(i, j int) bool {
 	return (v[i].msgSerial < v[j].msgSerial) ||
 		(v[i].msgSerial == v[j].msgSerial && !v[i].answer && v[j].answer)
 }
-func (v BySerial) Swap(i, j int)	{ v[i], v[j] = v[j], v[i] }
-func (v BySerial) Len() int		{ return len(v) }
+func (v BySerial) Swap(i, j int) { v[i], v[j] = v[j], v[i] }
+func (v BySerial) Len() int      { return len(v) }
 
 // ----------------------------------------
 
@@ -326,7 +326,7 @@ import (
 			}
 
 			// `//neo:proto ...` annotation for this particular type
-			specAnnotation := declAnnotation  // inheriting from decl
+			specAnnotation := declAnnotation // inheriting from decl
 			specAnnotation.parse(typespec.Doc)
 
 			// type only -> don't generate message interface for it
@@ -954,11 +954,11 @@ func (d *decoder) genSlice1(assignto string, typ types.Type) {
 // emit code to size/encode/decode mem.Buf
 // same as slice1 but buffer is allocated via mem.BufAlloc
 func (s *sizer) genBuf(path string) {
-	s.genSlice1(path + ".XData()", nil /* typ unused */)
+	s.genSlice1(path+".XData()", nil /* typ unused */)
 }
 
 func (e *encoder) genBuf(path string) {
-	e.genSlice1(path + ".XData()", nil /* typ unused */)
+	e.genSlice1(path+".XData()", nil /* typ unused */)
 }
 
 func (d *decoder) genBuf(path string) {
@@ -1092,7 +1092,7 @@ func (e *encoder) genMap(path string, typ *types.Map, obj types.Object) {
 
 	// output keys in sorted order on the wire
 	// (easier for debugging & deterministic for testing)
-	e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key()))	// FIXME do not throw old slice away -> do xslice.Realloc()
+	e.emit("keyv := make([]%s, 0, l)", typeName(typ.Key())) // FIXME do not throw old slice away -> do xslice.Realloc()
 	e.emit("for key := range %s {", path)
 	e.emit("  keyv = append(keyv, key)")
 	e.emit("}")

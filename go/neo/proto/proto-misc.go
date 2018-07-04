@@ -79,15 +79,13 @@ func (nodeUUID NodeUUID) String() string {
 	//temp := typ&(1 << 7) != 0
 	//typ &= 1<<7 - 1
 	//nodeType := typ >> 4
-	typ := uint8(-int8(nodeUUID >> 24)) >> 4
-
+	typ := uint8(-int8(nodeUUID>>24)) >> 4
 
 	if typ < 4 {
 		return fmt.Sprintf("%c%d", nodeTypeChar[typ], num)
 	}
 
 	return fmt.Sprintf("?(%d)%d", typ, num)
-
 
 	/*
 	// 's1', 'm2', for temporary nids
@@ -101,11 +99,11 @@ func (nodeUUID NodeUUID) String() string {
 
 
 // XXX goes out of sync wrt NodeType constants
-var nodeTypeNum = [...]int8 {
-    STORAGE: 0x00,
-    MASTER: -0x10,
-    CLIENT: -0x20,
-    ADMIN:  -0x30,
+var nodeTypeNum = [...]int8{
+	STORAGE:  0x00,
+	MASTER:  -0x10,
+	CLIENT:  -0x20,
+	ADMIN:   -0x30,
 }
 // UUID creates node uuid from node type and number.
 func UUID(typ NodeType, num int32) NodeUUID {
@@ -124,12 +122,12 @@ func UUID(typ NodeType, num int32) NodeUUID {
 
 	typn := nodeTypeNum[typ]
 
-	if (num < 0) || num >> 24 != 0 {
+	if (num < 0) || num>>24 != 0 {
 		panic("node number out of range")
 	}
 
 	//uuid := temp << (7 + 3*8) | uint32(typ) << (4 + 3*8) | uint32(num)
-	uuid := uint32(uint8(typn)) << (3*8) | uint32(num)
+	uuid := uint32(uint8(typn))<<(3*8) | uint32(num)
 	return NodeUUID(uuid)
 }
 
