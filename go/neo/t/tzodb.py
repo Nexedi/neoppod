@@ -182,7 +182,8 @@ def zhash():
 
 
 def main():
-    zhash() # XXX stub
+    # XXX stub (no zhash/zwrk dispatching here)
+    zhash()
 
 if __name__ == '__main__':
     main()
