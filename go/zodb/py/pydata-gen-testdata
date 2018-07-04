@@ -22,7 +22,7 @@
 
 from ZODB.tests import testSerialize
 from ZODB import serialize
-from zodbtools.util import escapeqq as qq
+from golang.gcompat import qq
 
 def main():
     # dump to go what to expect
