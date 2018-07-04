@@ -48,7 +48,8 @@ from glob import glob
 from os.path import basename
 from time import time
 
-from tcpu import B, readfile
+from golang.testing import B
+from tcpu import readfile
 
 
 # PipeChan is `chan float` which uses OS pipe for communication.
