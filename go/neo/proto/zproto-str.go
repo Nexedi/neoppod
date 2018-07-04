@@ -2,7 +2,7 @@
 
 package proto
 
-import "fmt"
+import "strconv"
 
 const _ErrorCode_name = "ACKNOT_READYOID_NOT_FOUNDTID_NOT_FOUNDOID_DOES_NOT_EXISTPROTOCOL_ERRORREPLICATION_ERRORCHECKING_ERRORBACKEND_NOT_IMPLEMENTEDNON_READABLE_CELLREAD_ONLY_ACCESSINCOMPLETE_TRANSACTION"
 
@@ -10,7 +10,7 @@ var _ErrorCode_index = [...]uint8{0, 3, 12, 25, 38, 56, 70, 87, 101, 124, 141, 1
 
 func (i ErrorCode) String() string {
 	if i >= ErrorCode(len(_ErrorCode_index)-1) {
-		return fmt.Sprintf("ErrorCode(%d)", i)
+		return "ErrorCode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ErrorCode_name[_ErrorCode_index[i]:_ErrorCode_index[i+1]]
 }
@@ -21,7 +21,7 @@ var _ClusterState_index = [...]uint8{0, 17, 33, 47, 62, 77, 86, 101}
 
 func (i ClusterState) String() string {
 	if i < 0 || i >= ClusterState(len(_ClusterState_index)-1) {
-		return fmt.Sprintf("ClusterState(%d)", i)
+		return "ClusterState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ClusterState_name[_ClusterState_index[i]:_ClusterState_index[i+1]]
 }
@@ -32,7 +32,7 @@ var _NodeType_index = [...]uint8{0, 6, 13, 19, 24}
 
 func (i NodeType) String() string {
 	if i < 0 || i >= NodeType(len(_NodeType_index)-1) {
-		return fmt.Sprintf("NodeType(%d)", i)
+		return "NodeType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _NodeType_name[_NodeType_index[i]:_NodeType_index[i+1]]
 }
@@ -43,7 +43,7 @@ var _NodeState_index = [...]uint8{0, 7, 11, 18, 25}
 
 func (i NodeState) String() string {
 	if i < 0 || i >= NodeState(len(_NodeState_index)-1) {
-		return fmt.Sprintf("NodeState(%d)", i)
+		return "NodeState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _NodeState_name[_NodeState_index[i]:_NodeState_index[i+1]]
 }
@@ -54,7 +54,7 @@ var _CellState_index = [...]uint8{0, 10, 21, 28, 37, 46}
 
 func (i CellState) String() string {
 	if i < 0 || i >= CellState(len(_CellState_index)-1) {
-		return fmt.Sprintf("CellState(%d)", i)
+		return "CellState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _CellState_name[_CellState_index[i]:_CellState_index[i+1]]
 }

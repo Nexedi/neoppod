@@ -135,8 +135,6 @@ type localImporter struct {
 }
 
 func (li *localImporter) Import(path string) (*types.Package, error) {
-//	xpath := strings.TrimPrefix(path, "../") // ../zodb -> zodb
-//	pkg := pkgMap[xpath]
 	pkg := pkgMap[path]
 	if pkg != nil {
 		return pkg, nil

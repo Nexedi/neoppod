@@ -29,7 +29,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-// verify that message codes are the same in between py and go
+// verify that message codes are the same in between py and go.
 func TestMsgCodeVsPy(t *testing.T) {
 	goMsgRegistry := map[uint16]string{} // code -> packet name
 	for code, pktType := range msgTypeRegistry{

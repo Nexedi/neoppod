@@ -191,7 +191,7 @@ const (
 
 type NodeType int32
 const (
-	MASTER NodeType = iota
+	MASTER  NodeType = iota
 	STORAGE
 	CLIENT
 	ADMIN

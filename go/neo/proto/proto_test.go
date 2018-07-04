@@ -275,7 +275,7 @@ func TestMsgMarshal(t *testing.T) {
 	}
 }
 
-// For all message types: same as testMsgMarshal but zero-values only
+// For all message types: same as testMsgMarshal but zero-values only.
 // this way we additionally lightly check encode / decode overflow behaviour for all types.
 func TestMsgMarshalAllOverflowLightly(t *testing.T) {
 	for _, typ := range msgTypeRegistry {

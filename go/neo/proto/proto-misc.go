@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -40,9 +40,9 @@ func MsgType(msgCode uint16) reflect.Type {
 }
 
 
-// XXX or better translate to some other errors ?
-// XXX here - not in proto.go - because else stringer will be confused
 func (e *Error) Error() string {
+	// NOTE here, not in proto.go - because else stringer will be confused.
+	// XXX better translate to some other errors?
 	s := e.Code.String()
 	if e.Message != "" {
 		s += ": " + e.Message
@@ -52,6 +52,7 @@ func (e *Error) Error() string {
 
 
 // Set sets cluster state value to v.
+//
 // Use Set instead of direct assignment for ClusterState tracing to work.
 //
 // XXX move this to neo.clusterState wrapping proto.ClusterState?
@@ -60,10 +61,11 @@ func (cs *ClusterState) Set(v ClusterState) {
 	traceClusterStateChanged(cs)
 }
 
-//const nodeTypeChar = "MSCA????"	// keep in sync with NodeType constants
-const nodeTypeChar = "SMCA"	// XXX neo/py does this out of sync with NodeType constants
+// node type -> character representing it.
+const nodeTypeChar = "SMCA" // NOTE neo/py does this out of sync with NodeType constants.
 
 // String returns string representation of a node uuid.
+//
 // It returns ex 'S1', 'M2', ...
 func (nodeUUID NodeUUID) String() string {
 	if nodeUUID == 0 {
@@ -133,6 +135,7 @@ func UUID(typ NodeType, num int32) NodeUUID {
 
 // ----------------------------------------
 
+// IdTimeNone represents None passed as identification time.
 var IdTimeNone = IdTime(math.Inf(-1))
 
 func (t IdTime) String() string {
@@ -147,7 +150,7 @@ func (t IdTime) String() string {
 
 // ----------------------------------------
 
-// Addr converts network address string into NEO Address
+// AddrString converts network address string into NEO Address.
 //
 // TODO make neo.Address just string without host:port split
 func AddrString(network, addr string) (Address, error) {
@@ -181,12 +184,12 @@ func AddrString(network, addr string) (Address, error) {
 	return Address{Host: host, Port: uint16(port)}, nil
 }
 
-// Addr converts net.Addr into NEO Address
+// Addr converts net.Addr into NEO Address.
 func Addr(addr net.Addr) (Address, error) {
 	return AddrString(addr.Network(), addr.String())
 }
 
-// String formats Address to networked address string
+// String formats Address to networked address string.
 func (addr Address) String() string {
 	// XXX in py if .Host == "" -> whole Address is assumed to be empty
 
