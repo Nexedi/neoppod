@@ -96,7 +96,6 @@ const (
 
 	//INVALID_UUID UUID = 0
 
-	// XXX -> zodb?
 	INVALID_TID  zodb.Tid = 1<<64 - 1            // 0xffffffffffffffff
 	INVALID_OID  zodb.Oid = 1<<64 - 1
 )
@@ -299,7 +298,7 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64
 
-// IdTime represents time of identification
+// IdTime represents time of identification.
 type IdTime float64
 
 func (t IdTime) neoEncodedLen() int {
@@ -329,14 +328,15 @@ func (t *IdTime) neoDecode(data []byte) (uint64, bool) {
 	return 8, true
 }
 
-// NodeInfo is information about a node
+// NodeInfo is information about a node.
+//
 //neo:proto typeonly
 type NodeInfo struct {
 	Type	NodeType
 	Addr	Address		// serving address
 	UUID	NodeUUID
 	State	NodeState
-	IdTime	IdTime		// FIXME clarify semantic where it is used
+	IdTime	IdTime		// XXX clarify semantic where it is used
 }
 
 //neo:proto typeonly
@@ -410,7 +410,7 @@ type NotPrimaryMaster struct {
 
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
-	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
+	// NOTE in py this is monotonic_time() of call to broadcastNodesInformation() & friends
 	IdTime		IdTime
 	NodeList	[]NodeInfo
 }
@@ -531,7 +531,7 @@ type FailedVote struct {
 	Tid	 zodb.Tid
 	NodeList []NodeUUID
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Finish a transaction. C -> PM.
@@ -559,7 +559,6 @@ type AnswerInformationLocked struct {
 }
 
 // Invalidate objects. PM -> C.
-// XXX ask_finish_transaction ?
 type InvalidateObjects struct {
 	Tid     zodb.Tid
 	OidList []zodb.Oid
@@ -601,6 +600,11 @@ type AnswerRebaseTransaction struct {
 }
 
 // Rebase object. C -> S.
+//
+// XXX: It is a request packet to simplify the implementation. For more
+//      efficiency, this should be turned into a notification, and the
+//      RebaseTransaction should answered once all objects are rebased
+//      (so that the client can still wait on something).
 type RebaseObject struct {
 	TTid	zodb.Tid
 	Oid	zodb.Oid
@@ -684,8 +688,8 @@ type AnswerObject struct {
 // and the range is [first, last). C -> S.
 // Answer the requested TIDs. S -> C.
 type AskTIDs struct {
-	First           uint64  // PIndex       XXX this is TID actually ? -> no it is offset in list
-	Last            uint64  // PIndex       ----//----
+	First           uint64  // PIndex	[first, last) are offsets that define
+	Last            uint64  // PIndex	range in tid list on remote.
 	Partition       uint32  // PNumber
 }
 
@@ -713,8 +717,8 @@ type AnswerTransactionInformation struct {
 // Answer history information (serial, size) for an object. S -> C.
 type ObjectHistory struct {
 	Oid     zodb.Oid
-	First   uint64  // PIndex       XXX this is actually TID
-	Last    uint64  // PIndex       ----//----
+	First   uint64  // PIndex
+	Last    uint64  // PIndex
 }
 
 type AnswerObjectHistory struct {
@@ -756,28 +760,28 @@ type SetNodeState struct {
 	NodeUUID
 	NodeState
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Ask the primary to include some pending node in the partition table
 type AddPendingNodes struct {
 	NodeList []NodeUUID
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Ask the primary to optimize the partition table. A -> PM.
 type TweakPartitionTable struct {
 	NodeList []NodeUUID
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Set the cluster state
 type SetClusterState struct {
 	State   ClusterState
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 //neo:proto typeonly
@@ -785,7 +789,7 @@ type repairFlags struct {
 	DryRun   bool
 	// pruneOrphan bool
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Ask storage nodes to repair their databases. ctl -> A -> M
@@ -880,7 +884,7 @@ type CheckReplicas struct {
 	MinTID  zodb.Tid
 	MaxTID  zodb.Tid
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // M -> S
@@ -1073,7 +1077,7 @@ type AddObject struct {
 type Truncate struct {
 	Tid zodb.Tid
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // ---- runtime support for protogen and custom codecs ----
