@@ -24,7 +24,7 @@ import (
 	"io"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
 )
 
 // lclose closes c and logs closing error if there was any.

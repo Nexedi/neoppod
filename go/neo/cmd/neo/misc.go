@@ -33,7 +33,7 @@ import (
 	"github.com/soheilhy/cmux"
 
 	"lab.nexedi.com/kirr/go123/xnet"
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
 
 
 	// for http://.../debug/pprof

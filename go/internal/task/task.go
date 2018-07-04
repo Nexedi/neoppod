@@ -24,8 +24,8 @@ import (
         "context"
         "fmt"
 
-        taskctx "lab.nexedi.com/kirr/neo/go/xcommon/xcontext/task"
-        "lab.nexedi.com/kirr/neo/go/xcommon/log"
+        taskctx "lab.nexedi.com/kirr/neo/go/internal/xcontext/task"
+        "lab.nexedi.com/kirr/neo/go/internal/log"
 )
 
 // Running is syntactic sugar to push new task to operational stack, log it and

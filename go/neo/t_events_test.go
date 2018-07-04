@@ -25,7 +25,7 @@ import (
 	"net"
 	"sync"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest"
+	"lab.nexedi.com/kirr/neo/go/internal/xtracing/tracetest"
 
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )

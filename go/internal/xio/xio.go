@@ -24,8 +24,8 @@ import (
 	"context"
 	"io"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
+	"lab.nexedi.com/kirr/neo/go/internal/xcontext"
 )
 
 // CloseWhenDone arranges for c to be closed either when ctx is cancelled or

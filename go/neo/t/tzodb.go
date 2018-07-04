@@ -42,8 +42,8 @@ import (
 
 	"lab.nexedi.com/kirr/go123/prog"
 	"lab.nexedi.com/kirr/go123/xerr"
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
-	"lab.nexedi.com/kirr/neo/go/xcommon/task"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
+	"lab.nexedi.com/kirr/neo/go/internal/task"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"

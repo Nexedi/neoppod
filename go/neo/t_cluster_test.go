@@ -29,7 +29,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xnet"
 	"lab.nexedi.com/kirr/go123/xnet/pipenet"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest"
+	"lab.nexedi.com/kirr/neo/go/internal/xtracing/tracetest"
 
 	"lab.nexedi.com/kirr/neo/go/neo/storage"
 	"lab.nexedi.com/kirr/neo/go/zodb"

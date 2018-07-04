@@ -57,7 +57,7 @@ import (
 	"time"
 
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
+	"lab.nexedi.com/kirr/neo/go/internal/packed"
 
 	"github.com/someonegg/gocontainer/rbuf"
 

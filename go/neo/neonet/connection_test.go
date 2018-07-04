@@ -34,7 +34,7 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/xerr"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
+	"lab.nexedi.com/kirr/neo/go/internal/packed"
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"

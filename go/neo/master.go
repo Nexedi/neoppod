@@ -37,10 +37,10 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
-	"lab.nexedi.com/kirr/neo/go/xcommon/task"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xcontext"
-	"lab.nexedi.com/kirr/neo/go/xcommon/xio"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
+	"lab.nexedi.com/kirr/neo/go/internal/task"
+	"lab.nexedi.com/kirr/neo/go/internal/xcontext"
+	"lab.nexedi.com/kirr/neo/go/internal/xio"
 )
 
 // Master is a node overseeing and managing how whole NEO cluster works.

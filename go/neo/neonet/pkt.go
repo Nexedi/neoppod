@@ -29,7 +29,7 @@ import (
 	"lab.nexedi.com/kirr/go123/xbytes"
 
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
-	"lab.nexedi.com/kirr/neo/go/xcommon/packed"
+	"lab.nexedi.com/kirr/neo/go/internal/packed"
 )
 
 // pktBuf is a buffer with full raw packet (header + data).

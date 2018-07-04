@@ -30,8 +30,8 @@ import (
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
-	"lab.nexedi.com/kirr/neo/go/xcommon/task"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
+	"lab.nexedi.com/kirr/neo/go/internal/task"
 )
 
 // NodeTable represents known nodes in a cluster.

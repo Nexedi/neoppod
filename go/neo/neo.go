@@ -33,9 +33,9 @@ import (
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/go123/xnet"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/log"
-	"lab.nexedi.com/kirr/neo/go/xcommon/task"
-	//"lab.nexedi.com/kirr/neo/go/xcommon/xio"
+	"lab.nexedi.com/kirr/neo/go/internal/log"
+	"lab.nexedi.com/kirr/neo/go/internal/task"
+	//"lab.nexedi.com/kirr/neo/go/internal/xio"
 
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"

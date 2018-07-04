@@ -36,7 +36,7 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 
-	"lab.nexedi.com/kirr/neo/go/xcommon/xtracing/tracetest"
+	"lab.nexedi.com/kirr/neo/go/internal/xtracing/tracetest"
 
 	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/go123/tracing"
