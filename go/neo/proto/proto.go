@@ -346,7 +346,7 @@ type CellInfo struct {
 
 //neo:proto typeonly
 type RowInfo struct {
-	Offset   uint32		// PNumber	XXX -> Pid
+	Offset   uint32 // PNumber	XXX -> Pid
 	CellList []CellInfo
 }
 
@@ -365,20 +365,20 @@ type Error struct {
 // Request a node identification. This must be the first message for any
 // connection. Any -> Any.
 type RequestIdentification struct {
-	NodeType        NodeType        // XXX name
-	UUID		NodeUUID
-	Address		Address		// where requesting node is also accepting connections
-	ClusterName	string
-	IdTime		IdTime
+	NodeType    NodeType // XXX name
+	UUID        NodeUUID
+	Address     Address // where requesting node is also accepting connections
+	ClusterName string
+	IdTime      IdTime
 }
 
 //neo:proto answer
 type AcceptIdentification struct {
-	NodeType        NodeType        // XXX name
-	MyUUID		NodeUUID
-	NumPartitions   uint32          // PNumber
-	NumReplicas     uint32          // PNumber
-	YourUUID	NodeUUID
+	NodeType      NodeType // XXX name
+	MyUUID        NodeUUID
+	NumPartitions uint32 // PNumber
+	NumReplicas   uint32 // PNumber
+	YourUUID      NodeUUID
 }
 
 // Check if a peer is still alive. Any -> Any.
