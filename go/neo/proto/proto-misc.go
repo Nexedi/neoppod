@@ -26,10 +26,19 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// MsgType looks up message type by message code.
+//
+// Nil is returned if message code is not valid.
+func MsgType(msgCode uint16) reflect.Type {
+	return msgTypeRegistry[msgCode]
+}
+
 
 func (e *Error) Error() string {
 	// NOTE here, not in proto.go - because else stringer will be confused.
