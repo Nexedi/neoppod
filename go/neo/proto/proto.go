@@ -67,8 +67,8 @@ package proto
 // TODO work this out
 
 import (
-	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"lab.nexedi.com/kirr/neo/go/internal/packed"
 
@@ -93,12 +93,11 @@ const (
 	// answerBit is set in message code in answer messages for compatibility with neo/py
 	answerBit = 0x8000
 
-
 	//INVALID_UUID UUID = 0
 
 	// XXX -> zodb?
-	INVALID_TID  zodb.Tid = 1<<64 - 1            // 0xffffffffffffffff
-	INVALID_OID  zodb.Oid = 1<<64 - 1
+	INVALID_TID zodb.Tid = 1<<64 - 1 // 0xffffffffffffffff
+	INVALID_OID zodb.Oid = 1<<64 - 1
 )
 
 // PktHeader represents header of a raw packet.
@@ -107,9 +106,9 @@ const (
 //
 //neo:proto typeonly
 type PktHeader struct {
-	ConnId  packed.BE32	// NOTE is .msgid in py
-	MsgCode packed.BE16	// payload message code
-	MsgLen  packed.BE32	// payload message length (excluding packet header)
+	ConnId  packed.BE32 // NOTE is .msgid in py
+	MsgCode packed.BE16 // payload message code
+	MsgLen  packed.BE32 // payload message length (excluding packet header)
 }
 
 // Msg is the interface implemented by all NEO messages.
@@ -165,7 +164,7 @@ const (
 	// - first recovers its own data by reading it from storage nodes;
 	// - waits for the partition table be operational;
 	// - automatically switch to ClusterVerifying if the cluster can be safely started. XXX not automatic
-	ClusterRecovering	ClusterState = iota
+	ClusterRecovering ClusterState = iota
 	// Transient state, used to:
 	// - replay the transaction log, in case of unclean shutdown;
 	// - and actually truncate the DB if the user asked to do so.
@@ -191,7 +190,7 @@ const (
 
 type NodeType int32
 const (
-	MASTER  NodeType = iota
+	MASTER NodeType = iota
 	STORAGE
 	CLIENT
 	ADMIN
@@ -332,11 +331,11 @@ func (t *IdTime) neoDecode(data []byte) (uint64, bool) {
 // NodeInfo is information about a node
 //neo:proto typeonly
 type NodeInfo struct {
-	Type	NodeType
-	Addr	Address		// serving address
-	UUID	NodeUUID
-	State	NodeState
-	IdTime	IdTime		// FIXME clarify semantic where it is used
+	Type   NodeType
+	Addr   Address // serving address
+	UUID   NodeUUID
+	State  NodeState
+	IdTime IdTime // FIXME clarify semantic where it is used
 }
 
 //neo:proto typeonly
@@ -359,7 +358,7 @@ type RowInfo struct {
 //
 //neo:proto answer
 type Error struct {
-	Code    ErrorCode  // PNumber
+	Code    ErrorCode // PNumber
 	Message string
 }
 
@@ -383,10 +382,10 @@ type AcceptIdentification struct {
 }
 
 // Check if a peer is still alive. Any -> Any.
-type Ping struct {}
+type Ping struct{}
 
 //neo:proto answer
-type Pong struct {}
+type Pong struct{}
 
 // Tell peer it can close the connection if it has finished with us. Any -> Any
 type CloseClient struct {
@@ -402,7 +401,7 @@ type AnswerPrimary struct {
 
 // Send list of known master nodes. SM -> Any.
 type NotPrimaryMaster struct {
-	Primary         NodeUUID	// XXX PSignedNull in py
+	Primary         NodeUUID // XXX PSignedNull in py
 	KnownMasterList []struct {
 		Address
 	}
@@ -411,8 +410,8 @@ type NotPrimaryMaster struct {
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
 	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
-	IdTime		IdTime
-	NodeList	[]NodeInfo
+	IdTime   IdTime
+	NodeList []NodeInfo
 }
 
 // Ask all data needed by master to recover. PM -> S, S -> PM.
@@ -477,14 +476,14 @@ type StopOperation struct {
 // Ask unfinished transactions  S -> PM.
 // Answer unfinished transactions  PM -> S.
 type UnfinishedTransactions struct {
-	RowList []struct{
-		Offset uint32	// PNumber	XXX -> Pid
+	RowList []struct {
+		Offset uint32 // PNumber	XXX -> Pid
 	}
 }
 
 type AnswerUnfinishedTransactions struct {
 	MaxTID  zodb.Tid
-	TidList []struct{
+	TidList []struct {
 		UnfinishedTID zodb.Tid
 	}
 }
@@ -495,16 +494,16 @@ type LockedTransactions struct {
 }
 
 type AnswerLockedTransactions struct {
-	TidDict map[zodb.Tid]zodb.Tid     // ttid -> tid
+	TidDict map[zodb.Tid]zodb.Tid // ttid -> tid
 }
 
 // Return final tid if ttid has been committed. * -> S. C -> PM.
 type FinalTID struct {
-	TTID    zodb.Tid
+	TTID zodb.Tid
 }
 
 type AnswerFinalTID struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
 // Commit a transaction. PM -> S.
@@ -517,18 +516,18 @@ type ValidateTransaction struct {
 // Ask to begin a new transaction. C -> PM.
 // Answer when a transaction begin, give a TID if necessary. PM -> C.
 type BeginTransaction struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
 type AnswerBeginTransaction struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
 
 // Report storage nodes for which vote failed. C -> M
 // True is returned if it's still possible to finish the transaction.
 type FailedVote struct {
-	Tid	 zodb.Tid
+	Tid      zodb.Tid
 	NodeList []NodeUUID
 
 	// XXX _answer = Error
@@ -543,8 +542,8 @@ type FinishTransaction struct {
 }
 
 type AnswerTransactionFinished struct {
-	TTid    zodb.Tid
-	Tid     zodb.Tid
+	TTid zodb.Tid
+	Tid  zodb.Tid
 }
 
 // Lock information on a transaction. PM -> S.
@@ -568,13 +567,13 @@ type InvalidateObjects struct {
 // Unlock information on a transaction. PM -> S.
 // XXX -> InformationUnlocked?
 type NotifyUnlockInformation struct {
-	TTID    zodb.Tid
+	TTID zodb.Tid
 }
 
 // Ask new object IDs. C -> PM.
 // Answer new object IDs. PM -> C.
 type AskNewOIDs struct {
-	NumOIDs uint32  // PNumber
+	NumOIDs uint32 // PNumber
 }
 
 type AnswerNewOIDs struct {
@@ -586,30 +585,30 @@ type AnswerNewOIDs struct {
 // to rebase a transaction. S -> PM -> C
 // XXX -> Deadlocked?
 type NotifyDeadlock struct {
-	TTid		zodb.Tid
-	LockingTid	zodb.Tid
+	TTid       zodb.Tid
+	LockingTid zodb.Tid
 }
 
 // Rebase transaction. C -> S.
 type RebaseTransaction struct {
-	TTid		zodb.Tid
-	LockingTid	zodb.Tid
+	TTid       zodb.Tid
+	LockingTid zodb.Tid
 }
 
 type AnswerRebaseTransaction struct {
-	OidList	[]zodb.Oid
+	OidList []zodb.Oid
 }
 
 // Rebase object. C -> S.
 type RebaseObject struct {
-	TTid	zodb.Tid
-	Oid	zodb.Oid
+	TTid zodb.Tid
+	Oid  zodb.Oid
 }
 
 type AnswerRebaseObject struct {
 	// FIXME POption('conflict')
-        Serial		zodb.Tid
-        ConflictSerial	zodb.Tid
+	Serial         zodb.Tid
+	ConflictSerial zodb.Tid
 	// FIXME POption('data')
 		Compression	bool
 		Checksum	Checksum
@@ -621,72 +620,72 @@ type AnswerRebaseObject struct {
 // transaction ID, and data. C -> S.
 // As for IStorage, 'serial' is ZERO_TID for new objects.
 type StoreObject struct {
-	Oid             zodb.Oid
-	Serial          zodb.Tid
-	Compression     bool
-	Checksum        Checksum
-	Data            []byte	 // TODO -> msg.Buf, separately (for writev)
-	DataSerial      zodb.Tid
-	Tid             zodb.Tid
+	Oid         zodb.Oid
+	Serial      zodb.Tid
+	Compression bool
+	Checksum    Checksum
+	Data        []byte // TODO -> msg.Buf, separately (for writev)
+	DataSerial  zodb.Tid
+	Tid         zodb.Tid
 }
 
 type AnswerStoreObject struct {
-	Conflict	zodb.Tid
+	Conflict zodb.Tid
 }
 
 // Abort a transaction. C -> S and C -> PM -> S.
 type AbortTransaction struct {
-	Tid		zodb.Tid
-	NodeList	[]NodeUUID		// unused for * -> S
+	Tid      zodb.Tid
+	NodeList []NodeUUID // unused for * -> S
 }
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type StoreTransaction struct {
-	Tid	     zodb.Tid
-	User            string
-	Description     string
-	Extension       string
-	OidList         []zodb.Oid
+	Tid         zodb.Tid
+	User        string
+	Description string
+	Extension   string
+	OidList     []zodb.Oid
 }
 
-type AnswerStoreTransaction struct {}
+type AnswerStoreTransaction struct{}
 
 // Ask to store a transaction. C -> S.
 // Answer if transaction has been stored. S -> C.
 type VoteTransaction struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
-type AnswerVoteTransaction struct {}
+type AnswerVoteTransaction struct{}
 
 // Ask a stored object by its OID and a serial or a TID if given. If a serial
 // is specified, the specified revision of an object will be returned. If
 // a TID is specified, an object right before the TID will be returned. C -> S.
 // Answer the requested object. S -> C.
 type GetObject struct {
-	Oid     zodb.Oid
-	Serial  zodb.Tid
-	Tid     zodb.Tid
+	Oid    zodb.Oid
+	Serial zodb.Tid
+	Tid    zodb.Tid
 }
 
 type AnswerObject struct {
-	Oid             zodb.Oid
-	Serial		zodb.Tid
-	NextSerial      zodb.Tid
-	Compression     bool
-	Checksum        Checksum
-	Data            *mem.Buf	// TODO encode -> separately (for writev)
-	DataSerial      zodb.Tid
+	Oid         zodb.Oid
+	Serial      zodb.Tid
+	NextSerial  zodb.Tid
+	Compression bool
+	Checksum    Checksum
+	Data        *mem.Buf // TODO encode -> separately (for writev)
+	DataSerial  zodb.Tid
 }
 
 // Ask for TIDs between a range of offsets. The order of TIDs is descending,
 // and the range is [first, last). C -> S.
 // Answer the requested TIDs. S -> C.
 type AskTIDs struct {
-	First           uint64  // PIndex       XXX this is TID actually ? -> no it is offset in list
-	Last            uint64  // PIndex       ----//----
-	Partition       uint32  // PNumber
+	First     uint64 // PIndex       XXX this is TID actually ? -> no it is offset in list
+	Last      uint64 // PIndex       ----//----
+	Partition uint32 // PNumber
 }
 
 type AnswerTIDs struct {
@@ -696,32 +695,32 @@ type AnswerTIDs struct {
 // Ask information about a transaction. Any -> S.
 // Answer information (user, description) about a transaction. S -> Any.
 type TransactionInformation struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
 type AnswerTransactionInformation struct {
-	Tid             zodb.Tid
-	User            string
-	Description     string
-	Extension       string
-	Packed          bool
-	OidList         []zodb.Oid
+	Tid         zodb.Tid
+	User        string
+	Description string
+	Extension   string
+	Packed      bool
+	OidList     []zodb.Oid
 }
 
 // Ask history information for a given object. The order of serials is
 // descending, and the range is [first, last]. C -> S.
 // Answer history information (serial, size) for an object. S -> C.
 type ObjectHistory struct {
-	Oid     zodb.Oid
-	First   uint64  // PIndex       XXX this is actually TID
-	Last    uint64  // PIndex       ----//----
+	Oid   zodb.Oid
+	First uint64 // PIndex       XXX this is actually TID
+	Last  uint64 // PIndex       ----//----
 }
 
 type AnswerObjectHistory struct {
 	Oid         zodb.Oid
 	HistoryList []struct {
-	        Serial  zodb.Tid
-	        Size    uint32  // PNumber
+		Serial zodb.Tid
+		Size   uint32 // PNumber
 	}
 }
 
@@ -729,9 +728,9 @@ type AnswerObjectHistory struct {
 // Ask information about partition
 // Answer information about partition
 type PartitionList struct {
-	MinOffset   uint32      // PNumber
-	MaxOffset   uint32      // PNumber
-	NodeUUID    NodeUUID
+	MinOffset uint32 // PNumber
+	MaxOffset uint32 // PNumber
+	NodeUUID  NodeUUID
 }
 
 type AnswerPartitionList struct {
@@ -775,14 +774,14 @@ type TweakPartitionTable struct {
 
 // Set the cluster state
 type SetClusterState struct {
-	State   ClusterState
+	State ClusterState
 
 	// XXX _answer = Error
 }
 
 //neo:proto typeonly
 type repairFlags struct {
-	DryRun   bool
+	DryRun bool
 	// pruneOrphan bool
 
 	// XXX _answer = Error
@@ -801,7 +800,7 @@ type RepairOne struct {
 
 // Notify information about the cluster state
 type NotifyClusterState struct {
-	State   ClusterState
+	State ClusterState
 }
 
 // Ask state of the cluster
@@ -810,7 +809,7 @@ type AskClusterState struct {
 }
 
 type AnswerClusterState struct {
-	State   ClusterState
+	State ClusterState
 }
 
 
@@ -829,17 +828,17 @@ type AnswerClusterState struct {
 //             If current_serial's data is current on storage.
 // S -> C
 type ObjectUndoSerial struct {
-	Tid             zodb.Tid
-	LTID            zodb.Tid
-	UndoneTID       zodb.Tid
-	OidList         []zodb.Oid
+	Tid       zodb.Tid
+	LTID      zodb.Tid
+	UndoneTID zodb.Tid
+	OidList   []zodb.Oid
 }
 
 type AnswerObjectUndoSerial struct {
 	ObjectTIDDict map[zodb.Oid]struct {
-		CurrentSerial   zodb.Tid
-		UndoSerial      zodb.Tid
-		IsCurrent       bool
+		CurrentSerial zodb.Tid
+		UndoSerial    zodb.Tid
+		IsCurrent     bool
 	}
 }
 
@@ -847,10 +846,10 @@ type AnswerObjectUndoSerial struct {
 // C -> S.
 // Answer the requested TIDs. S -> C
 type AskTIDsFrom struct {
-	MinTID          zodb.Tid
-	MaxTID          zodb.Tid
-	Length          uint32  // PNumber
-	Partition       uint32  // PNumber
+	MinTID    zodb.Tid
+	MaxTID    zodb.Tid
+	Length    uint32 // PNumber
+	Partition uint32 // PNumber
 }
 
 type AnswerTIDsFrom struct {
@@ -865,33 +864,33 @@ type AnswerTIDsFrom struct {
 // S -> M
 // M -> C
 type Pack struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
 type AnswerPack struct {
-	Status  bool
+	Status bool
 }
 
 
 // ctl -> A
 // A -> M
 type CheckReplicas struct {
-	PartitionDict map[uint32]NodeUUID        // partition -> source	(PNumber)
-	MinTID  zodb.Tid
-	MaxTID  zodb.Tid
+	PartitionDict map[uint32]NodeUUID // partition -> source	(PNumber)
+	MinTID        zodb.Tid
+	MaxTID        zodb.Tid
 
 	// XXX _answer = Error
 }
 
 // M -> S
 type CheckPartition struct {
-	Partition uint32  // PNumber
+	Partition uint32 // PNumber
 	Source    struct {
 		UpstreamName string
 		Address      Address
 	}
-	MinTID    zodb.Tid
-	MaxTID    zodb.Tid
+	MinTID zodb.Tid
+	MaxTID zodb.Tid
 }
 
 
@@ -904,14 +903,14 @@ type CheckPartition struct {
 // reference node.
 // S -> S
 type CheckTIDRange struct {
-	Partition uint32        // PNumber
-	Length    uint32        // PNumber
+	Partition uint32 // PNumber
+	Length    uint32 // PNumber
 	MinTID    zodb.Tid
 	MaxTID    zodb.Tid
 }
 
 type AnswerCheckTIDRange struct {
-	Count    uint32         // PNumber
+	Count    uint32 // PNumber
 	Checksum Checksum
 	MaxTID   zodb.Tid
 }
@@ -925,25 +924,25 @@ type AnswerCheckTIDRange struct {
 // reference node.
 // S -> S
 type CheckSerialRange struct {
-	Partition       uint32  // PNumber
-	Length          uint32  // PNumber
-	MinTID          zodb.Tid
-	MaxTID          zodb.Tid
-	MinOID          zodb.Oid
+	Partition uint32 // PNumber
+	Length    uint32 // PNumber
+	MinTID    zodb.Tid
+	MaxTID    zodb.Tid
+	MinOID    zodb.Oid
 }
 
 type AnswerCheckSerialRange struct {
-	Count           uint32  // PNumber
-	TidChecksum     Checksum
-	MaxTID          zodb.Tid
-	OidChecksum     Checksum
-	MaxOID          zodb.Oid
+	Count       uint32 // PNumber
+	TidChecksum Checksum
+	MaxTID      zodb.Tid
+	OidChecksum Checksum
+	MaxOID      zodb.Oid
 }
 
 // S -> M
 type PartitionCorrupted struct {
-	Partition       uint32  // PNumber
-	CellList        []NodeUUID
+	Partition uint32 // PNumber
+	CellList  []NodeUUID
 }
 
 // Notify that node is ready to serve requests.
@@ -960,7 +959,7 @@ type LastTransaction struct {
 }
 
 type AnswerLastTransaction struct {
-	Tid     zodb.Tid
+	Tid zodb.Tid
 }
 
 // Verifies if given serial is current for object oid in the database, and
@@ -970,9 +969,9 @@ type AnswerLastTransaction struct {
 // Same structure as AnswerStoreObject, to handle the same way, except there
 // is nothing to invalidate in any client's cache.
 type CheckCurrentSerial struct {
-	Tid     zodb.Tid
-	Oid     zodb.Oid
-	Serial  zodb.Tid
+	Tid    zodb.Tid
+	Oid    zodb.Oid
+	Serial zodb.Tid
 }
 
 type AnswerCheckCurrentSerial struct {
@@ -984,8 +983,8 @@ type AnswerCheckCurrentSerial struct {
 // Notify that a transaction blocking a replication is now finished
 // M -> S
 type NotifyTransactionFinished struct {
-	TTID    zodb.Tid
-	MaxTID  zodb.Tid
+	TTID   zodb.Tid
+	MaxTID zodb.Tid
 }
 
 
@@ -999,7 +998,7 @@ type NotifyTransactionFinished struct {
 // - address: address of the source storage node, or None if there's no new
 //            data up to 'tid' for the given partition
 type Replicate struct {
-	Tid	     zodb.Tid
+	Tid          zodb.Tid
 	UpstreamName string
 	SourceDict   map[uint32/*PNumber*/]string	// partition -> address	FIXME string -> Address
 }
@@ -1008,50 +1007,50 @@ type Replicate struct {
 // from a storage to another.
 // S -> M
 type ReplicationDone struct {
-	Offset	uint32	 // PNumber
-	Tid	zodb.Tid
+	Offset uint32 // PNumber
+	Tid    zodb.Tid
 }
 
 // S -> S
 type FetchTransactions struct {
-	Partition    uint32	// PNumber
-	Length	     uint32	// PNumber
-	MinTid	     zodb.Tid
+	Partition    uint32 // PNumber
+	Length       uint32 // PNumber
+	MinTid       zodb.Tid
 	MaxTid       zodb.Tid
-	TxnKnownList []zodb.Tid	// already known transactions
+	TxnKnownList []zodb.Tid // already known transactions
 }
 
 type AnswerFetchTransactions struct {
 	PackTid       zodb.Tid
 	NextTid       zodb.Tid
-	TxnDeleteList []zodb.Tid	// transactions to delete
+	TxnDeleteList []zodb.Tid // transactions to delete
 }
 
 // S -> S
 type FetchObjects struct {
-	Partition uint32	// PNumber
-	Length    uint32	// PNumber
+	Partition uint32 // PNumber
+	Length    uint32 // PNumber
 	MinTid    zodb.Tid
 	MaxTid    zodb.Tid
 	MinOid    zodb.Oid
 
 	// already known objects
-	ObjKnownDict map[zodb.Tid][]zodb.Oid	// serial -> []oid
+	ObjKnownDict map[zodb.Tid][]zodb.Oid // serial -> []oid
 }
 
 type AnswerFetchObjects struct {
-	PackTid	zodb.Tid
-	NextTid	zodb.Tid
-	NextOid	zodb.Oid
+	PackTid zodb.Tid
+	NextTid zodb.Tid
+	NextOid zodb.Oid
 
 	// objects to delete
-	ObjDeleteDict map[zodb.Tid][]zodb.Oid	// serial -> []oid
+	ObjDeleteDict map[zodb.Tid][]zodb.Oid // serial -> []oid
 }
 
 // S -> S
 type AddTransaction struct {
 	Tid         zodb.Tid
-	User	    string
+	User        string
 	Description string
 	Extension   string
 	Packed      bool
@@ -1065,7 +1064,7 @@ type AddObject struct {
 	Serial      zodb.Tid
 	Compression bool
 	Checksum    Checksum
-	Data	    *mem.Buf
+	Data        *mem.Buf
 	DataSerial  zodb.Tid
 }
 
@@ -1084,7 +1083,7 @@ type Truncate struct {
 type customCodec interface {
 	neoEncodedLen() int
 	neoEncode(buf []byte) (nwrote int)
-	neoDecode(data []byte) (nread uint64, ok bool)	// XXX uint64 or int here?
+	neoDecode(data []byte) (nread uint64, ok bool) // XXX uint64 or int here?
 }
 
 func byte2bool(b byte) bool {

@@ -32,7 +32,7 @@ import (
 // verify that message codes are the same in between py and go.
 func TestMsgCodeVsPy(t *testing.T) {
 	goMsgRegistry := map[uint16]string{} // code -> packet name
-	for code, pktType := range msgTypeRegistry{
+	for code, pktType := range msgTypeRegistry {
 		goMsgRegistry[code] = pktType.Name()
 	}
 
