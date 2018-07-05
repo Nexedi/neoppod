@@ -455,8 +455,8 @@ type SendPartitionTable struct {
 type NotifyPartitionChanges struct {
 	PTid
 	CellList []struct {
-		Offset    uint32	// PNumber	XXX -> Pid
-		CellInfo  CellInfo
+		Offset   uint32 // PNumber	XXX -> Pid
+		CellInfo CellInfo
 	}
 }
 
@@ -536,7 +536,7 @@ type FailedVote struct {
 // Finish a transaction. C -> PM.
 // Answer when a transaction is finished. PM -> C.
 type FinishTransaction struct {
-	Tid	    zodb.Tid	// XXX this is ttid
+	Tid         zodb.Tid // XXX this is ttid
 	OIDList     []zodb.Oid
 	CheckedList []zodb.Oid
 }
@@ -610,9 +610,9 @@ type AnswerRebaseObject struct {
 	Serial         zodb.Tid
 	ConflictSerial zodb.Tid
 	// FIXME POption('data')
-		Compression	bool
-		Checksum	Checksum
-		Data		*mem.Buf
+		Compression bool
+		Checksum    Checksum
+		Data        *mem.Buf
 }
 
 
@@ -1000,7 +1000,7 @@ type NotifyTransactionFinished struct {
 type Replicate struct {
 	Tid          zodb.Tid
 	UpstreamName string
-	SourceDict   map[uint32/*PNumber*/]string	// partition -> address	FIXME string -> Address
+	SourceDict   map[uint32/*PNumber*/]string // partition -> address	FIXME string -> Address
 }
 
 // Notify the master node that a partition has been successfully replicated
