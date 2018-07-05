@@ -327,7 +327,8 @@ func (t *IdTime) neoDecode(data []byte) (uint64, bool) {
 	return 8, true
 }
 
-// NodeInfo is information about a node
+// NodeInfo is information about a node.
+//
 //neo:proto typeonly
 type NodeInfo struct {
 	Type   NodeType
