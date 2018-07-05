@@ -687,8 +687,8 @@ type AnswerObject struct {
 // and the range is [first, last). C -> S.
 // Answer the requested TIDs. S -> C.
 type AskTIDs struct {
-	First     uint64 // PIndex       XXX this is TID actually ? -> no it is offset in list
-	Last      uint64 // PIndex       ----//----
+	First     uint64 // PIndex       [first, last) are offsets that define
+	Last      uint64 // PIndex       range in tid list on remote.
 	Partition uint32 // PNumber
 }
 
@@ -716,8 +716,8 @@ type AnswerTransactionInformation struct {
 // Answer history information (serial, size) for an object. S -> C.
 type ObjectHistory struct {
 	Oid   zodb.Oid
-	First uint64 // PIndex       XXX this is actually TID
-	Last  uint64 // PIndex       ----//----
+	First uint64 // PIndex
+	Last  uint64 // PIndex
 }
 
 type AnswerObjectHistory struct {
