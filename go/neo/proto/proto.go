@@ -95,7 +95,6 @@ const (
 
 	//INVALID_UUID UUID = 0
 
-	// XXX -> zodb?
 	INVALID_TID zodb.Tid = 1<<64 - 1 // 0xffffffffffffffff
 	INVALID_OID zodb.Oid = 1<<64 - 1
 )
@@ -298,7 +297,7 @@ type Checksum [20]byte
 // Zero value means "invalid id" (<-> None in py.PPTID)
 type PTid uint64
 
-// IdTime represents time of identification
+// IdTime represents time of identification.
 type IdTime float64
 
 func (t IdTime) neoEncodedLen() int {
