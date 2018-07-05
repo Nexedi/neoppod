@@ -335,7 +335,7 @@ type NodeInfo struct {
 	Addr   Address // serving address
 	UUID   NodeUUID
 	State  NodeState
-	IdTime IdTime // FIXME clarify semantic where it is used
+	IdTime IdTime // XXX clarify semantic where it is used
 }
 
 //neo:proto typeonly
@@ -409,7 +409,7 @@ type NotPrimaryMaster struct {
 
 // Notify information about one or more nodes. PM -> Any.
 type NotifyNodeInformation struct {
-	// XXX in py this is monotonic_time() of call to broadcastNodesInformation() & friends
+	// NOTE in py this is monotonic_time() of call to broadcastNodesInformation() & friends
 	IdTime   IdTime
 	NodeList []NodeInfo
 }
@@ -530,7 +530,7 @@ type FailedVote struct {
 	Tid      zodb.Tid
 	NodeList []NodeUUID
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Finish a transaction. C -> PM.
@@ -755,28 +755,28 @@ type SetNodeState struct {
 	NodeUUID
 	NodeState
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Ask the primary to include some pending node in the partition table
 type AddPendingNodes struct {
 	NodeList []NodeUUID
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Ask the primary to optimize the partition table. A -> PM.
 type TweakPartitionTable struct {
 	NodeList []NodeUUID
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Set the cluster state
 type SetClusterState struct {
 	State ClusterState
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 //neo:proto typeonly
@@ -784,7 +784,7 @@ type repairFlags struct {
 	DryRun bool
 	// pruneOrphan bool
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // Ask storage nodes to repair their databases. ctl -> A -> M
@@ -879,7 +879,7 @@ type CheckReplicas struct {
 	MinTID        zodb.Tid
 	MaxTID        zodb.Tid
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // M -> S
@@ -1072,7 +1072,7 @@ type AddObject struct {
 type Truncate struct {
 	Tid zodb.Tid
 
-	// XXX _answer = Error
+	// answer = Error
 }
 
 // ---- runtime support for protogen and custom codecs ----
