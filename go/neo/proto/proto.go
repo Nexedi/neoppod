@@ -558,7 +558,6 @@ type AnswerInformationLocked struct {
 }
 
 // Invalidate objects. PM -> C.
-// XXX ask_finish_transaction ?
 type InvalidateObjects struct {
 	Tid     zodb.Tid
 	OidList []zodb.Oid
@@ -600,6 +599,11 @@ type AnswerRebaseTransaction struct {
 }
 
 // Rebase object. C -> S.
+//
+// XXX: It is a request packet to simplify the implementation. For more
+//      efficiency, this should be turned into a notification, and the
+//      RebaseTransaction should answered once all objects are rebased
+//      (so that the client can still wait on something).
 type RebaseObject struct {
 	TTid zodb.Tid
 	Oid  zodb.Oid
