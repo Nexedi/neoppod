@@ -669,7 +669,6 @@ func TestRecv1Mode(t *testing.T) {
 
 		c = xaccept(nl2)
 		msg = xRecv(c)
-		//fmt.Println("X zzz + 1", c, msg)
 		xverifyMsg(msg, &proto.Error{proto.ACK, "hello up there"})
 		xSend(c, &proto.Error{proto.ACK, "hello to you too"})
 		msg = xRecv(c)
