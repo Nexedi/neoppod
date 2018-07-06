@@ -28,8 +28,8 @@ import (
 
 	"lab.nexedi.com/kirr/go123/xbytes"
 
-	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/internal/packed"
+	"lab.nexedi.com/kirr/neo/go/neo/proto"
 )
 
 // pktBuf is a buffer with full raw packet (header + payload).
@@ -103,7 +103,7 @@ func (pkt *pktBuf) String() string {
 		s += fmt.Sprintf(" (%s) %v; #%d [%d]: % x", msgType, err, msgLen, len(data), data)
 	}
 
-	s += fmt.Sprintf(" %s %v", msgType.Name(), msg)	// XXX or %+v better?
+	s += fmt.Sprintf(" %s %v", msgType.Name(), msg) // XXX or %+v better?
 
 	if n < len(data) {
 		tail := data[n:]
