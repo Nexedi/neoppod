@@ -80,7 +80,6 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 		txWg.Done()
 	}()
 
-
 	// rx handshake word
 	go func() {
 		var b [4]byte
@@ -100,9 +99,9 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 	connClosed := false
 	defer func() {
 		// make sure our version is always sent on the wire, if possible,
-		// so that peer does not see just closed connection when on rx we see version mismatch
+		// so that peer does not see just closed connection when on rx we see version mismatch.
 		//
-		// NOTE if cancelled tx goroutine will wake up without delay
+		// NOTE if cancelled tx goroutine will wake up without delay.
 		txWg.Wait()
 
 		// don't forget to close conn if returning with error + add handshake err context
@@ -113,7 +112,6 @@ func handshake(ctx context.Context, conn net.Conn, version uint32) (err error) {
 			}
 		}
 	}()
-
 
 	for i := 0; i < 2; i++ {
 		select {
@@ -165,9 +163,9 @@ func ListenLink(net xnet.Networker, laddr string) (LinkListener, error) {
 // The listener accepts only those connections that pass NEO protocol handshake.
 func NewLinkListener(inner net.Listener) LinkListener {
 	l := &linkListener{
-		l:        inner,
-		acceptq:  make(chan linkAccepted),
-		closed:   make(chan struct{}),
+		l:       inner,
+		acceptq: make(chan linkAccepted),
+		closed:  make(chan struct{}),
 	}
 	go l.run()
 	return l
@@ -184,15 +182,16 @@ type LinkListener interface {
 	Accept() (*NodeLink, error)
 }
 
+// linkListener implements LinkListener.
 type linkListener struct {
 	l       net.Listener
 	acceptq chan linkAccepted
-	closed  chan struct {}
+	closed  chan struct{}
 }
 
 type linkAccepted struct {
-	link  *NodeLink
-	err   error
+	link *NodeLink
+	err  error
 }
 
 func (l *linkListener) Close() error {
@@ -252,7 +251,7 @@ func (l *linkListener) accept1(ctx context.Context, conn net.Conn, err error) (*
 }
 
 func (l *linkListener) Accept() (*NodeLink, error) {
-	select{
+	select {
 	case <-l.closed:
 		// we know raw listener is already closed - return proper error about it
 		_, err := l.l.Accept()
