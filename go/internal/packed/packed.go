@@ -29,26 +29,25 @@ package packed
 //	https://github.com/golang/go/issues/15925
 //
 // so in the end we use hand-crafted array-like byte-structs.
-type BE16 struct { _0, _1 byte }
-type BE32 struct { _0, _1, _2, _3 byte }
-
+type BE16 struct{ _0, _1 byte }
+type BE32 struct{ _0, _1, _2, _3 byte }
 
 func Ntoh16(v BE16) uint16 {
 	// XXX not as good as BigEndian.Uint16
 	// (unnecessary MOVBLZX AL, AX + shifts not combined into ROLW $8)
-	return  uint16(v._1) | uint16(v._0)<<8
+	return uint16(v._1) | uint16(v._0)<<8
 }
 
 func Hton16(v uint16) BE16 {
-	return BE16{byte(v>>8), byte(v)}
+	return BE16{byte(v >> 8), byte(v)}
 }
 
 func Ntoh32(v BE32) uint32 {
 	// XXX not as good as BigEndian.Uint32
 	// (unnecessary MOVBLZX AL, AX + shifts not combined into BSWAPL)
-	return  uint32(v._3) | uint32(v._2)<<8 | uint32(v._1)<<16 | uint32(v._0)<<24
+	return uint32(v._3) | uint32(v._2)<<8 | uint32(v._1)<<16 | uint32(v._0)<<24
 }
 
 func Hton32(v uint32) BE32 {
-	return BE32{byte(v>>24), byte(v>>16), byte(v>>8), byte(v)}
+	return BE32{byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v)}
 }
