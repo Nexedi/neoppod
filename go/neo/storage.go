@@ -542,8 +542,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 		obj, err := stor.back.Load(ctx, xid)
 		if err != nil {
 			// translate err to NEO protocol error codes
-			e := err.(*zodb.OpError)	// XXX move this to ErrEncode?
-			return proto.ErrEncode(e.Err)
+			return proto.ZODBErrEncode(err)
 		}
 
 		// compatibility with py side:
@@ -562,7 +561,7 @@ func (stor *Storage) serveClient1(ctx context.Context, req proto.Msg) (resp prot
 	case *proto.LastTransaction:
 		lastTid, err := stor.back.LastTid(ctx)
 		if err != nil {
-			return proto.ErrEncode(err)
+			return proto.ZODBErrEncode(err)
 		}
 
 		return &proto.AnswerLastTransaction{lastTid}

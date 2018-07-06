@@ -388,6 +388,7 @@ func (c *Client) LastTid(ctx context.Context) (_ zodb.Tid, err error) {
 	reply := proto.AnswerLastTransaction{}
 	err = mlink.Ask1(&proto.LastTransaction{}, &reply) // XXX Ask += ctx
 	if err != nil {
+		// XXX ZODBErrDecode?
 		return 0, err	// XXX err ctx
 	}
 	return reply.Tid, nil
@@ -449,6 +450,9 @@ func (c *Client) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, e
 	resp := proto.AnswerObject{}
 	err = slink.Ask1(&req, &resp)
 	if err != nil {
+		if e, ok := err.(*proto.Error); ok {
+			err = proto.ZODBErrDecode(e)
+		}
 		return nil, 0, err	// XXX err context
 	}
 

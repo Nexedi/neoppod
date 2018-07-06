@@ -467,7 +467,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 		return M.Run(ctx)
 	})
 
-	// determing M serving address	XXX better with M api
+	// determining M serving address	XXX better with M api
 	ev := cG.Recv()
 	mnode, ok := ev.Event.(*eventNodeTab)
 	if !ok {

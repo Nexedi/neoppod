@@ -1411,12 +1411,14 @@ func (c *Conn) _Expect(pkt *pktBuf, msgv ...proto.Msg) (int, error) {
 	return -1, c.err("recv", fmt.Errorf("unexpected message: %v", msgType))
 }
 
-// Ask sends request and receives response.
+// Ask sends request and receives a response.
 //
-// It expects response to be exactly of resp type and errors otherwise.
+// It expects response to be either of resp type or proto.Error:
 //
-// XXX clarify error semantic (when Error is decoded)
-// XXX do the same as Expect wrt respv ?
+// If resp-type message is received, it is decoded inplace and nil is returned.
+// If proto.Error message is received, it is returned as error.
+//
+// Otherwise returned error describes the problem.
 func (c *Conn) Ask(req proto.Msg, resp proto.Msg) error {
 	err := c.Send(req)
 	if err != nil {
@@ -1429,7 +1431,7 @@ func (c *Conn) Ask(req proto.Msg, resp proto.Msg) error {
 	case 0:
 		return nil
 	case 1:
-		return proto.ErrDecode(nerr)
+		return nerr
 	}
 
 	return err
@@ -1566,7 +1568,7 @@ func (conn *Conn) _Ask1(req proto.Msg, resp proto.Msg) error {
 	case 0:
 		return nil
 	case 1:
-		return proto.ErrDecode(nerr)
+		return nerr
 	}
 
 	return err

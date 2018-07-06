@@ -26,15 +26,22 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb"
 )
 
-// XXX name -> zodbErrEncode, zodbErrDecode ?
 // XXX should be not in proto/ ?
 
-// ErrEncode translates an error into Error packet.
-// XXX more text describing relation with zodb errors
-func ErrEncode(err error) *Error {
+// ZODBErrEncode translates a ZODB error into Error packet.
+//
+// ZODB errors (e.g. zodb.NoDataError) are specifically encoded, so that on
+// receiver side they can be recreated with ErrDecode. If err is zodb.OpError,
+// only its inner cause is encoded.
+//
+// If err is not ZODB error -> it is incoded as "503".
+func ZODBErrEncode(err error) *Error {
+	e, ok := err.(*zodb.OpError)
+	if ok {
+		err = e.Err
+	}
+
 	switch err := err.(type) {
-	case *Error:
-		return err
 	case *zodb.NoDataError:
 		// XXX abusing message for oid, deletedAt
 		return &Error{
@@ -52,9 +59,11 @@ func ErrEncode(err error) *Error {
 
 }
 
-// ErrDecode decodes error from Error packet.
-// XXX more text describing relation with zodb errors
-func ErrDecode(e *Error) error {
+// ZODBErrDecode decodes an error from Error packet.
+//
+// If it was ZODB error - it is decoded from the packet and returned.
+// Otherwise e is returned as is.
+func ZODBErrDecode(e *Error) error {
 	switch e.Code {
 	case OID_NOT_FOUND:
 		// XXX abusing message for oid, deletedAt
