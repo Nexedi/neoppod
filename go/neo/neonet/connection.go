@@ -983,13 +983,13 @@ func (link *NodeLink) replyNoConn(connId uint32, errMsg proto.Msg) {
 
 // ---- transmit ----
 
-// txReq is request to transmit a packet. Result error goes back to errch
+// txReq is request to transmit a packet. Result error goes back to errch.
 type txReq struct {
 	pkt   *pktBuf
 	errch chan error
 }
 
-// errSendShutdown returns appropriate error when c.txdown is found ready in Send
+// errSendShutdown returns appropriate error when c.txdown is found ready in Send.
 func (c *Conn) errSendShutdown() error {
 	switch {
 	case c.txclosed.Get() != 0:
@@ -1074,6 +1074,8 @@ func (nl *NodeLink) serveSend() {
 			// FIXME if several goroutines call conn.Send
 			// simultaneously - c.txerr even if buffered(1) will be
 			// overflown and thus deadlock here.
+			//
+			// -> require "Conn.Send must not be used concurrently"?
 			txreq.errch <- err
 
 			// on IO error framing over peerLink becomes broken
@@ -1104,7 +1106,7 @@ func (c *Conn) sendPktDirect(pkt *pktBuf) error {
 	// set pkt connId associated with this connection
 	pkt.Header().ConnId = packed.Hton32(c.connId)
 
-	// XXX if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
+	// NOTE if n.peerLink was just closed by rx->shutdown we'll get ErrNetClosing
 	err := c.link.sendPkt(pkt)
 	//fmt.Printf("sendPkt -> %v\n", err)
 
@@ -1211,7 +1213,7 @@ func (nl *NodeLink) recvPkt() (*pktBuf, error) {
 	data = data[:n]
 	pkt.data = data
 
-	if /* XXX temp show only tx */ true && dumpio {
+	if dumpio {
 		// XXX -> log
 		fmt.Printf("%v < %v: %v\n", nl.peerLink.LocalAddr(), nl.peerLink.RemoteAddr(), pkt)
 	}
@@ -1343,7 +1345,7 @@ func (c *Conn) _Recv(pkt *pktBuf) (proto.Msg, error) {
 
 // sendMsg sends message with specified connection ID.
 //
-// it encodes message int packet, sets header appropriately and sends it.
+// it encodes message into packet, sets header appropriately and sends it.
 //
 // it is ok to call sendMsg in parallel with serveSend. XXX link to sendPktDirect for rationale?
 func (link *NodeLink) sendMsg(connId uint32, msg proto.Msg) error {
@@ -1367,7 +1369,7 @@ func (c *Conn) sendMsgDirect(msg proto.Msg) error {
 }
 
 
-// Expect receives message and checks it is one of expected types
+// Expect receives message and checks it is one of expected types.
 //
 // If verification is successful the message is decoded inplace and returned
 // which indicates index of received message.
