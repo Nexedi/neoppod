@@ -36,31 +36,37 @@ import (
 //
 // Allocate pktBuf via pktAlloc() and free via pktBuf.Free().
 type pktBuf struct {
-	Data []byte // whole packet data including all headers
+	data []byte // whole packet data including all headers
 }
 
 // Header returns pointer to packet header.
 func (pkt *pktBuf) Header() *proto.PktHeader {
-	// XXX check len(Data) < PktHeader ? -> no, Data has to be allocated with cap >= PktHeaderLen
-	return (*proto.PktHeader)(unsafe.Pointer(&pkt.Data[0]))
+	// NOTE no need to check len(.data) < PktHeader:
+	// .data is always allocated with cap >= PktHeaderLen
+	return (*proto.PktHeader)(unsafe.Pointer(&pkt.data[0]))
 }
 
 // Payload returns []byte representing packet payload.
 func (pkt *pktBuf) Payload() []byte {
-	return pkt.Data[proto.PktHeaderLen:]
+	return pkt.data[proto.PktHeaderLen:]
 }
 
 // ---- pktBuf freelist ----
 
 // pktBufPool is sync.Pool<pktBuf>
 var pktBufPool = sync.Pool{New: func() interface{} {
-	return &pktBuf{Data: make([]byte, 0, 4096)}
+	return &pktBuf{data: make([]byte, 0, 4096)}
 }}
 
-// pktAlloc allocates pktBuf with len=n
+// pktAlloc allocates pktBuf with len=n.
+//
+// n must be >= sizeof(proto.PktHeader).
 func pktAlloc(n int) *pktBuf {
+	if n < proto.PktHeaderLen {
+		panic("pktAlloc: n < sizeof(PktHeader)")
+	}
 	pkt := pktBufPool.Get().(*pktBuf)
-	pkt.Data = xbytes.Realloc(pkt.Data, n)
+	pkt.data = xbytes.Realloc(pkt.data, n)
 	return pkt
 }
 
@@ -74,8 +80,8 @@ func (pkt *pktBuf) Free() {
 
 // Strings dumps a packet in human-readable form
 func (pkt *pktBuf) String() string {
-	if len(pkt.Data) < proto.PktHeaderLen {
-		return fmt.Sprintf("(! < PktHeaderLen) % x", pkt.Data)
+	if len(pkt.data) < proto.PktHeaderLen {
+		return fmt.Sprintf("(! < PktHeaderLen) % x", pkt.data)
 	}
 
 	h := pkt.Header()
@@ -109,8 +115,8 @@ func (pkt *pktBuf) String() string {
 
 // Dump dumps a packet in raw form
 func (pkt *pktBuf) Dump() string {
-	if len(pkt.Data) < proto.PktHeaderLen {
-		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.Data)
+	if len(pkt.data) < proto.PktHeaderLen {
+		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.data)
 	}
 
 	h := pkt.Header()

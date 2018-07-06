@@ -1119,7 +1119,7 @@ func (nl *NodeLink) sendPkt(pkt *pktBuf) error {
 	}
 
 	// NOTE Write writes data in full, or it is error
-	_, err := nl.peerLink.Write(pkt.Data)
+	_, err := nl.peerLink.Write(pkt.data)
 	pkt.Free()
 	return err
 }
@@ -1137,7 +1137,7 @@ func (nl *NodeLink) recvPkt() (*pktBuf, error) {
 	pkt := pktAlloc(4096)
 	// len=4K but cap can be more since pkt is from pool - use all space to buffer reads
 	// XXX vvv -> pktAlloc() ?
-	data := pkt.Data[:cap(pkt.Data)]
+	data := pkt.data[:cap(pkt.data)]
 
 	n := 0 // number of pkt bytes obtained so far
 
@@ -1190,7 +1190,7 @@ func (nl *NodeLink) recvPkt() (*pktBuf, error) {
 
 	// fixup data/pkt
 	data = data[:n]
-	pkt.Data = data
+	pkt.data = data
 
 	if /* XXX temp show only tx */ true && dumpio {
 		// XXX -> log
