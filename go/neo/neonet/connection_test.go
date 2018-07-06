@@ -80,7 +80,7 @@ func gox(wg interface { Go(func() error) }, xf func()) {
 	wg.Go(exc.Funcx(xf))
 }
 
-// xlinkError verifies that err is *LinkError and returns err.Err
+// xlinkError verifies that err is *LinkError and returns err.Err .
 func xlinkError(err error) error {
 	le, ok := err.(*LinkError)
 	if !ok {
@@ -89,7 +89,7 @@ func xlinkError(err error) error {
 	return le.Err
 }
 
-// xconnError verifies that err is *ConnError and returns err.Err
+// xconnError verifies that err is *ConnError and returns err.Err .
 func xconnError(err error) error {
 	ce, ok := err.(*ConnError)
 	if !ok {
@@ -98,7 +98,7 @@ func xconnError(err error) error {
 	return ce.Err
 }
 
-// Prepare pktBuf with content
+// Prepare pktBuf with content.
 func _mkpkt(connid uint32, msgcode uint16, payload []byte) *pktBuf {
 	pkt := &pktBuf{make([]byte, proto.PktHeaderLen + len(payload))}
 	h := pkt.Header()
@@ -114,7 +114,7 @@ func (c *Conn) mkpkt(msgcode uint16, payload []byte) *pktBuf {
 	return _mkpkt(c.connId, msgcode, payload)
 }
 
-// Verify pktBuf is as expected
+// Verify pktBuf is as expected.
 func xverifyPkt(pkt *pktBuf, connid uint32, msgcode uint16, payload []byte) {
 	errv := xerr.Errorv{}
 	h := pkt.Header()
@@ -136,14 +136,15 @@ func xverifyPkt(pkt *pktBuf, connid uint32, msgcode uint16, payload []byte) {
 	exc.Raiseif( errv.Err() )
 }
 
-// Verify pktBuf to match expected message
+// Verify pktBuf to match expected message.
 func xverifyPktMsg(pkt *pktBuf, connid uint32, msg proto.Msg) {
 	data := make([]byte, msg.NEOMsgEncodedLen())
 	msg.NEOMsgEncode(data)
 	xverifyPkt(pkt, connid, msg.NEOMsgCode(), data)
 }
 
-// delay a bit
+// delay a bit.
+//
 // needed e.g. to test Close interaction with waiting read or write
 // (we cannot easily sync and make sure e.g. read is started and became asleep)
 //
@@ -709,7 +710,7 @@ func TestRecv1Mode(t *testing.T) {
 // conn.release() in parallel to link.shutdown() iterating connTab they can be
 // both writing/using e.g. conn.rxdownOnce.
 //
-// bug triggers under -race
+// bug triggers under -race.
 func TestLightCloseVsLinkShutdown(t *testing.T) {
 	nl1, nl2 := nodeLinkPipe()
 	wg := &errgroup.Group{}
@@ -727,7 +728,7 @@ func TestLightCloseVsLinkShutdown(t *testing.T) {
 
 // ---- benchmarks ----
 
-// rtt over chan - for comparision as base
+// rtt over chan - for comparison as base.
 func benchmarkChanRTT(b *testing.B, c12, c21 chan byte) {
 	go func() {
 		for {
@@ -760,7 +761,7 @@ func BenchmarkBufChanRTT(b *testing.B) {
 	benchmarkChanRTT(b, make(chan byte, 1), make(chan byte, 1))
 }
 
-// rtt over (acceptq, rxq) & ack chans - base comparision for link.Accept + conn.Recv
+// rtt over (acceptq, rxq) & ack channels - base comparison for link.Accept + conn.Recv .
 func BenchmarkBufChanAXRXRTT(b *testing.B) {
 	axq := make(chan chan byte)
 	ack := make(chan byte)
@@ -797,8 +798,8 @@ func BenchmarkBufChanAXRXRTT(b *testing.B) {
 
 var gosched = make(chan struct{})
 
-// GoschedLocal is like runtime.Gosched but queus current goroutine on P-local
-// runqueue instead of global runqueu.
+// GoschedLocal is like runtime.Gosched but queues current goroutine on P-local
+// runqueue instead of global runqueue.
 // FIXME does not work - in the end goroutines appear on different Ps/Ms
 func GoschedLocal() {
 	go func() {
@@ -941,7 +942,7 @@ func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool, ghandoff
 	xclose(c1)
 }
 
-// rtt over net.Pipe - for comparision as base
+// rtt over net.Pipe - for comparison as base.
 func BenchmarkNetPipeRTT(b *testing.B) {
 	c1, c2 := net.Pipe()
 	benchmarkNetConnRTT(b, c1, c2, false, false)
@@ -957,7 +958,7 @@ func BenchmarkNetPipeRTTsrho(b *testing.B) {
 	benchmarkNetConnRTT(b, c1, c2, true, true)
 }
 
-// xtcpPipe creates two TCP connections connected to each other via loopback
+// xtcpPipe creates two TCP connections connected to each other via loopback.
 func xtcpPipe() (*net.TCPConn, *net.TCPConn) {
 	// NOTE go sets TCP_NODELAY by default for TCP sockets
 	l, err := net.Listen("tcp", "localhost:")
@@ -973,7 +974,7 @@ func xtcpPipe() (*net.TCPConn, *net.TCPConn) {
 	return c1.(*net.TCPConn), c2.(*net.TCPConn)
 }
 
-// rtt over TCP/loopback - for comparision as base
+// rtt over TCP/loopback - for comparison as base.
 func BenchmarkTCPlo(b *testing.B) {
 	c1, c2 := xtcpPipe()
 	benchmarkNetConnRTT(b, c1, c2, false, false)
@@ -1056,7 +1057,8 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 // XXX RTT over Conn.Send/Recv		(no msg encoding/decoding)
 // XXX RTT over link.sendPkt/recvPkt	(no conn route)
 
-// xlinkPipe creates two links interconnected to each other via c1 and c2
+// xlinkPipe creates two links interconnected to each other via c1 and c2.
+//
 // XXX c1, c2 -> piper (who creates c1, c2) ?
 // XXX overlap with nodeLinkPipe
 func xlinkPipe(c1, c2 net.Conn) (*NodeLink, *NodeLink) {

@@ -652,6 +652,7 @@ func (link *NodeLink) errAcceptShutdownAX() error {
 		return ErrLinkNoListen
 
 	default:
+		// XXX do the same as in errRecvShutdown (check link.errRecv)
 		return ErrLinkDown
 	}
 }
@@ -890,6 +891,12 @@ func (nl *NodeLink) serveRecv() {
 		// XXX goes away in favour of .rxdownFlag; reasons
 		// - no need to reallocate rxdown for light conn
 		// - no select
+		//
+		// XXX review synchronization via flags for correctness (e.g.
+		// if both G were on the same runqueue, spinning in G1 will
+		// prevent G2 progress)
+		//
+		// XXX maybe we'll need select if we add ctx into Send/Recv.
 
 		// don't even try `conn.rxq <- ...` if conn.rxdown is ready
 		// ( else since select is picking random ready variant Recv/serveRecv
