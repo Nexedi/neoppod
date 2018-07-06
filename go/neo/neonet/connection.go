@@ -40,7 +40,25 @@
 //
 // Lightweight mode
 //
-// XXX document
+// In situations when created connections are used to only send/receive 1
+// request/response, the overhead to create/shutdown full connections could be
+// too much. Unfortunately this is exactly the mode that is currently
+// primarily used for compatibility with NEO/py. To help mitigate the overhead
+// in such scenarios, lightweight connections mode is provided:
+//
+// At requester side, one message can be sent over node link with link.Send1 .
+// Inside a connection will be created and then shut down, but since the
+// code manages whole process internally and does not show the connection to
+// user, it can optimize those operations significantly. Similarly link.Ask1
+// sends 1 request, receives 1 response, and then puts the connection back into
+// pool for later reuse.
+//
+// At receiver side, link.Recv1 accepts a connection with the first message
+// remote peer sent us when establishing it, and wraps the result into Request
+// object. The Request contains the message received and internally the
+// connection. A response can be sent back via Request.Reply. Then once
+// Request.Close is called the connection object that was accepted is
+// immediately put back into pool for later reuse.
 package neonet
 
 // XXX neonet compatibility with NEO/py depends on the following small NEO/py patch:
@@ -1419,6 +1437,8 @@ func (c *Conn) _Expect(pkt *pktBuf, msgv ...proto.Msg) (int, error) {
 // If proto.Error message is received, it is returned as error.
 //
 // Otherwise returned error describes the problem.
+//
+// XXX return proto.Error explicitly?
 func (c *Conn) Ask(req proto.Msg, resp proto.Msg) error {
 	err := c.Send(req)
 	if err != nil {
@@ -1443,9 +1463,9 @@ func (c *Conn) Ask(req proto.Msg, resp proto.Msg) error {
 // lightClose closes light connection.
 //
 // No Send or Recv must be in flight.
-// The caller must not use c after call to close - the connection is returned to freelist.
+// The caller must not use c after call to lightClose - the connection is returned to freelist.
 //
-// XXX must be called only once.
+// Must be called only once.
 func (c *Conn) lightClose() {
 	nl := c.link
 	releaseok := false
@@ -1469,7 +1489,7 @@ func (c *Conn) lightClose() {
 	}
 }
 
-// Request is a message received from the link + connection handle to make a reply.
+// Request is a message received from the link + (internally) connection handle to make a reply.
 //
 // Request represents 1 request - 0|1 reply interaction model XXX
 type Request struct {
@@ -1487,14 +1507,14 @@ func (link *NodeLink) Recv1() (Request, error) {
 	}
 
 	// NOTE serveRecv guaranty that when a conn is accepted, there is 1 message in conn.rxq
-	msg, err := conn.Recv()		// XXX directly from <-rxq
+	msg, err := conn.Recv()		// XXX better directly from <-rxq ?
 	if err != nil {
 		conn.Close() // XXX -> conn.lightClose()
 		return Request{}, err
 	}
 
 	// noone will be reading from conn anymore - mark rx down so that if
-	// peer sends any another packet with same .ConnID serveRecv does not
+	// peer sends any another packet with same .connID, serveRecv does not
 	// deadlock trying to put it to conn.rxq.
 	conn.downRX(errConnClosed)
 
