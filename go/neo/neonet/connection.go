@@ -1491,15 +1491,17 @@ func (c *Conn) lightClose() {
 
 // Request is a message received from the link + (internally) connection handle to make a reply.
 //
-// Request represents 1 request - 0|1 reply interaction model XXX
+// Request represents 1 request - 0|1 reply interaction model.
+//
+// See "Lightweight mode" in top-level package doc for overview.
 type Request struct {
 	Msg  proto.Msg
 	conn *Conn
 }
 
-// Recv1 receives message from link and wraps it into Request.
+// Recv1 accepts a connection with the first message peer sent us when establishing it.
 //
-// XXX doc
+// See "Lightweight mode" in top-level package doc for overview.
 func (link *NodeLink) Recv1() (Request, error) {
 	conn, err := link.Accept()
 	if err != nil {
@@ -1523,7 +1525,7 @@ func (link *NodeLink) Recv1() (Request, error) {
 
 // Reply sends response to request.
 //
-// XXX doc
+// See "Lightweight mode" in top-level package doc for overview.
 func (req *Request) Reply(resp proto.Msg) error {
 	return req.conn.sendMsgDirect(resp)
 	//err1 := req.conn.Send(resp)
@@ -1533,9 +1535,11 @@ func (req *Request) Reply(resp proto.Msg) error {
 
 // Close must be called to free request resources.
 //
-// XXX doc
+// Close must be called exactly once.
+// The request object cannot be used any more after call to Close.
+//
+// See "Lightweight mode" in top-level package doc for overview.
 func (req *Request) Close() {	// XXX +error?
-	//return req.conn.Close()
 	// XXX req.Msg.Release() ?
 	req.Msg = nil
 	req.conn.lightClose()
@@ -1543,9 +1547,12 @@ func (req *Request) Close() {	// XXX +error?
 }
 
 
-// Send1 sends one message over link.
+// Send1 sends one message over new connection.
 //
-// XXX doc
+// It creates new connection itself internally, and shuts down it after
+// transmission completes.
+//
+// See "Lightweight mode" in top-level package doc for overview.
 func (link *NodeLink) Send1(msg proto.Msg) error {
 	conn, err := link.NewConn()
 	if err != nil {
@@ -1560,10 +1567,11 @@ func (link *NodeLink) Send1(msg proto.Msg) error {
 }
 
 
-// Ask1 sends request and receives response.	XXX in 1-1 model
+// Ask1 sends request and receives response in 1-1 model.
 //
 // See Conn.Ask for semantic details.
-// XXX doc
+//
+// See "Lightweight mode" in top-level package doc for overview.
 func (link *NodeLink) Ask1(req proto.Msg, resp proto.Msg) (err error) {
 	conn, err := link.NewConn()
 	if err != nil {
