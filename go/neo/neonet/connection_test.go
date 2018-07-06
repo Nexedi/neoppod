@@ -36,8 +36,8 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/internal/packed"
 
-	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
@@ -60,23 +60,23 @@ func xaccept(nl *NodeLink) *Conn {
 	return c
 }
 
-func xsendPkt(c interface { sendPkt(*pktBuf) error }, pkt *pktBuf) {
+func xsendPkt(c interface{ sendPkt(*pktBuf) error }, pkt *pktBuf) {
 	err := c.sendPkt(pkt)
 	exc.Raiseif(err)
 }
 
-func xrecvPkt(c interface { recvPkt() (*pktBuf, error) }) *pktBuf {
+func xrecvPkt(c interface{ recvPkt() (*pktBuf, error) }) *pktBuf {
 	pkt, err := c.recvPkt()
 	exc.Raiseif(err)
 	return pkt
 }
 
-func xwait(w interface { Wait() error }) {
+func xwait(w interface{ Wait() error }) {
 	err := w.Wait()
 	exc.Raiseif(err)
 }
 
-func gox(wg interface { Go(func() error) }, xf func()) {
+func gox(wg interface{ Go(func() error) }, xf func()) {
 	wg.Go(exc.Funcx(xf))
 }
 
@@ -100,7 +100,7 @@ func xconnError(err error) error {
 
 // Prepare pktBuf with content.
 func _mkpkt(connid uint32, msgcode uint16, payload []byte) *pktBuf {
-	pkt := &pktBuf{make([]byte, proto.PktHeaderLen + len(payload))}
+	pkt := &pktBuf{make([]byte, proto.PktHeaderLen+len(payload))}
 	h := pkt.Header()
 	h.ConnId = packed.Hton32(connid)
 	h.MsgCode = packed.Hton16(msgcode)
@@ -133,7 +133,7 @@ func xverifyPkt(pkt *pktBuf, connid uint32, msgcode uint16, payload []byte) {
 			pretty.Compare(string(payload), string(pkt.Payload())))
 	}
 
-	exc.Raiseif( errv.Err() )
+	exc.Raiseif(errv.Err())
 }
 
 // Verify pktBuf to match expected message.
@@ -154,14 +154,14 @@ func xverifyPktMsg(pkt *pktBuf, connid uint32, msg proto.Msg) {
 //   -> this way we can know that it is already blocking and thus sleep-hack can be avoided
 // this can be done via runtime/pprof -> "goroutine" predefined profile
 func tdelay() {
-	time.Sleep(1*time.Millisecond)
+	time.Sleep(1 * time.Millisecond)
 }
 
 // create NodeLinks connected via net.Pipe
 func _nodeLinkPipe(flags1, flags2 _LinkRole) (nl1, nl2 *NodeLink) {
 	node1, node2 := net.Pipe()
-	nl1 = newNodeLink(node1, _LinkClient | flags1)
-	nl2 = newNodeLink(node2, _LinkServer | flags2)
+	nl1 = newNodeLink(node1, _LinkClient|flags1)
+	nl2 = newNodeLink(node2, _LinkServer|flags2)
 	return nl1, nl2
 }
 
@@ -354,7 +354,7 @@ func TestNodeLink(t *testing.T) {
 	var errRecv error
 	gox(wg, func() {
 		pkt, err := c21.recvPkt()
-		want1 := io.EOF		  // if recvPkt wakes up due to peer close
+		want1 := io.EOF           // if recvPkt wakes up due to peer close
 		want2 := io.ErrClosedPipe // if recvPkt wakes up due to sendPkt wakes up first and closes nl1
 		cerr := xconnError(err)
 		if !(pkt == nil && (cerr == want1 || cerr == want2)) {
@@ -461,8 +461,7 @@ func TestNodeLink(t *testing.T) {
 
 
 	saveKeepClosed := connKeepClosed
-	connKeepClosed = 10*time.Millisecond
-
+	connKeepClosed = 10 * time.Millisecond
 
 	// Conn accept + exchange
 	nl1, nl2 = nodeLinkPipe()
@@ -563,8 +562,8 @@ func TestNodeLink(t *testing.T) {
 	nl1, nl2 = nodeLinkPipe()
 	wg = &errgroup.Group{}
 	replyOrder := map[uint16]struct { // "order" in which to process requests
-		start chan struct{}       // processing starts when start chan is ready
-		next  uint16              // after processing this switch to next
+		start chan struct{} // processing starts when start chan is ready
+		next  uint16        // after processing this switch to next
 	}{
 		2: {make(chan struct{}), 1},
 		1: {make(chan struct{}), 0},
@@ -908,7 +907,7 @@ func benchmarkNetConnRTT(b *testing.B, c1, c2 net.Conn, serveRecv bool, ghandoff
 			case nil:
 				// ok
 
-			case io.ErrClosedPipe, io.EOF:	// net.Pipe, TCP
+			case io.ErrClosedPipe, io.EOF: // net.Pipe, TCP
 				return
 
 			default:
@@ -1015,9 +1014,9 @@ func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
 
 			case *proto.GetObject:
 				err = req.Reply(&proto.AnswerObject{
-					Oid:		msg.Oid,
-					Serial:		msg.Serial,
-					DataSerial:	msg.Tid,
+					Oid:        msg.Oid,
+					Serial:     msg.Serial,
+					DataSerial: msg.Tid,
 				})
 				if err != nil {
 					b.Fatal(err)
