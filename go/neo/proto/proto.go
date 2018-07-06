@@ -31,7 +31,8 @@
 // A message type can be looked up by message code with MsgType.
 //
 // The proto packages provides only message definitions and low-level
-// primitives for their marshalling.
+// primitives for their marshalling. Package lab.nexedi.com/kirr/neo/go/neo/neonet
+// provides actual service for message exchange over network.
 package proto
 
 // This file defines everything that relates to messages on the wire.
