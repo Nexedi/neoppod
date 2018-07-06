@@ -30,7 +30,6 @@ import (
 	"lab.nexedi.com/kirr/go123/exc"
 )
 
-
 func xhandshake(ctx context.Context, c net.Conn, version uint32) {
 	err := handshake(ctx, c, version)
 	exc.Raiseif(err)
