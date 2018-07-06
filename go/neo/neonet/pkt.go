@@ -32,7 +32,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/internal/packed"
 )
 
-// pktBuf is a buffer with full raw packet (header + data).
+// pktBuf is a buffer with full raw packet (header + payload).
 //
 // Allocate pktBuf via pktAlloc() and free via pktBuf.Free().
 type pktBuf struct {
@@ -42,7 +42,7 @@ type pktBuf struct {
 // Header returns pointer to packet header.
 func (pkt *pktBuf) Header() *proto.PktHeader {
 	// NOTE no need to check len(.data) < PktHeader:
-	// .data is always allocated with cap >= PktHeaderLen
+	// .data is always allocated with cap >= PktHeaderLen.
 	return (*proto.PktHeader)(unsafe.Pointer(&pkt.data[0]))
 }
 
@@ -53,7 +53,7 @@ func (pkt *pktBuf) Payload() []byte {
 
 // ---- pktBuf freelist ----
 
-// pktBufPool is sync.Pool<pktBuf>
+// pktBufPool is sync.Pool<pktBuf>.
 var pktBufPool = sync.Pool{New: func() interface{} {
 	return &pktBuf{data: make([]byte, 0, 4096)}
 }}
@@ -78,7 +78,7 @@ func (pkt *pktBuf) Free() {
 
 // ---- pktBuf dump ----
 
-// Strings dumps a packet in human-readable form
+// String dumps a packet in human-readable form.
 func (pkt *pktBuf) String() string {
 	if len(pkt.data) < proto.PktHeaderLen {
 		return fmt.Sprintf("(! < PktHeaderLen) % x", pkt.data)
@@ -113,7 +113,7 @@ func (pkt *pktBuf) String() string {
 	return s
 }
 
-// Dump dumps a packet in raw form
+// Dump dumps a packet in raw form.
 func (pkt *pktBuf) Dump() string {
 	if len(pkt.data) < proto.PktHeaderLen {
 		return fmt.Sprintf("(! < pktHeaderLen) % x", pkt.data)
