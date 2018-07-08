@@ -1,0 +1,317 @@
+#!/bin/bash -e
+# neotest: run tests and benchmarks against FileStorage, ZEO and various NEO/py and NEO/go clusters
+
+# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+
+set -o pipefail
+
+# ---- deploy NEO for tests/benchmarks at a node ----
+
+die() {
+	echo 2>&1 "$@"
+	exit 1
+}
+
+# cmd_deploy [user@]<host>:<path>	- deploy NEO & needed software for tests there
+# ssh-key or password for access should be available
+cmd_deploy() {
+	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
+	path=${1:$((${#host} + 1))}		# path
+	test -z "$host" -o -z "$path" && die "Usage: neotest deploy [user@]<host>:<path>"
+	echo -e "\n*** deploying to $@ ..."
+	scp $0 $host:neotest
+	ssh $host ./neotest deploy-local "$path"
+}
+
+# cmd_deploy-local <path>		- deploy NEO & needed software for tests @path
+cmd_deploy-local() {
+	path=$1
+	test -z "$path" && die "Usage: neotest deploy-local <path>"
+	test -e $path/deployed && echo "# already deployed" && return
+	mkdir -p $path
+	cd $path
+
+	# python part
+	virtualenv venv
+
+	# env.sh for deployment
+	cat >env.sh << 'EOF'
+X=${1:-${BASH_SOURCE[0]}}       # path to original env.sh is explicitly passed
+X=$(cd `dirname $X` && pwd)     # when there is other env.sh wrapping us
+
+export GOPATH=$X:$GOPATH
+export PATH=$X/bin:$PATH
+export PS1="(`basename $X`) $PS1"
+
+# strip trailing : from $GOPATH
+GOPATH=${GOPATH%:}
+
+# python
+. $X/venv/bin/activate
+
+# XXX for mysqld
+export PATH=$PATH:/sbin:/usr/sbin
+EOF
+
+	. env.sh
+
+	mkdir -p src/lab.nexedi.com/kirr
+	pushd src/lab.nexedi.com/kirr
+	test -d neo || git clone -o kirr https://lab.nexedi.com/kirr/neo.git neo
+	cd neo
+	pip install -e .[admin,client,ctl,master,storage-sqlite,storage-mysqldb]
+	popd
+
+	go get -v -t lab.nexedi.com/kirr/neo/go/...
+	go get -v golang.org/x/perf/cmd/benchstat		# to summarize/diff benchmark results
+	#go get -v github.com/aclements/perflock/cmd/perflock	# handy to fix CPU frequency/etc
+
+	echo ok >deployed
+	echo "# deployed ok"
+}
+
+# jump to deploy command early if we have to
+case "$1" in
+deploy|deploy-local)
+	cmd="$1"
+	shift
+	cmd_$cmd "$@"
+	exit
+	;;
+esac
+
+# on <url> ...		- run ... on deployed url from inside dir of neotest
+on() {
+	#echo "on $@"
+	host=`echo $1 |sed -e 's/:[^:]*$//'`	# user@host
+	path=${1:$((${#host} + 1))}		# path
+	test -z "$host" -o -z "$path" && die "on $1: invalid URL"
+	shift
+	ssh $host "bash -c \"test -e $path/deployed || { echo 1>&2 '$url not yet deployed'; exit 1; }
+cd $path
+. env.sh
+#set -x
+cd src/lab.nexedi.com/kirr/neo/go/neo/t
+$@
+\""
+}
+
+# ---- go/py unit tests ----
+cmd_test-go() {
+	go test lab.nexedi.com/kirr/neo/go/...
+}
+
+cmd_test-py() {
+	# NOTE testing with only sqlite should be ok to check for client correctness
+	NEO_TESTS_ADAPTER=SQLite python -m neo.scripts.runner -ufz
+}
+
+cmd_test-local() {
+	cmd_test-go
+	cmd_test-py
+}
+
+cmd_test() {
+	url="$1"
+	test -z "$url" && die "Usage neotest test [user@]<host>:<path>"
+	on $url ./neotest test-local
+}
+
+
+# ---- net/fs setup + processes control/teardown ----
+
+# init_net	- initialize networking
+init_net() {
+	# determine our external addresses IPv4 or IPv6
+	# 2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+	#     inet 192.168.102.52/24 brd 192.168.102.255 scope global dynamic wlan0
+	#        valid_lft 82495sec preferred_lft 82495sec
+	#
+	# 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 state UNKNOWN qlen 1000
+	#     inet6 2401:5180:0:37::1/64 scope global
+	#        valid_lft forever preferred_lft forever
+	# 2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
+	#     inet6 2401:5180:0:1d:429a:e612:c957:29/64 scope global noprefixroute dynamic
+	#        valid_lft 86232sec preferred_lft 14232sec
+	myaddr4v=(`ip -4 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`) || :
+	myaddr6v=(`ip -6 addr show scope global |grep inet |awk '{print $2}' |sed -e 's|/.*$||'`) || :
+	test "${#myaddr4v[@]}" -gt 0 || die "init_net: cannot determine my IPv4 network addresses"
+	test "${#myaddr6v[@]}" -gt 0 || die "init_net: cannot determine my IPv6 network addresses"
+
+	# prefer ipv4 for now
+	myaddr="${myaddr4v[0]}"
+}
+
+# if we are abnormally terminating
+install_trap() {
+	trap 'set +e
+echo "E: abnormal termination - stopping..."
+j="$(jobs -p)"
+test -z "$j" && exit
+echo "E: killing left jobs..."
+jobs -l
+kill $j' EXIT
+}
+
+# ---- information about system ----
+
+# pyver <egg> (<showas>) - print version of egg
+pyver() {
+	local egg=$1
+	local showas=$2
+	test "$showas" == "" && showas=$egg
+	local loc
+	local pyver
+	{
+		read loc
+		read pyver
+	} < <(python -c "
+import pkg_resources as p
+try:
+	e=p.require(\"$egg\")[0]
+except p.DistributionNotFound:
+	print(\"\nø\")
+else:
+	print(\"%s\n%s\" % (e.location, e.version))
+	")
+	local gitver=$(git -C $loc describe --long --dirty 2>/dev/null)
+	local ver
+	test "$gitver" != "" && ver="$gitver" || ver="$pyver"
+	printf "sw/%-16s %s\n" "${showas}:" "$ver"
+}
+
+# proginfo <prog> ...	- run `prog ...` or print that prog is missing
+proginfo() {
+	prog=$1
+	shift
+	which $prog >/dev/null 2>&1 && $prog "$@" || printf "%-16s: ø\n" "$prog"
+}
+
+# show information about local system (os, hardware, versions, ...)
+system_info() {
+	echo -ne "date:\t"; date --rfc-2822
+	echo -ne "xnode:\t`whoami`@`hostname --fqdn 2>/dev/null || hostname` ("
+	echo -n "${myaddr6v[0]}"
+	test "${#myaddr6v[@]}" -eq 1 || echo -n " (+ $((${#myaddr6v[@]} - 1))·ipv6)"
+	echo -n " ${myaddr4v[0]}"
+	test "${#myaddr4v[@]}" -eq 1 || echo -n " (+ $((${#myaddr4v[@]} - 1))·ipv4)"
+	echo ")"
+	echo -ne "uname:\t"; uname -a
+
+	printf "%-20s" "sw/python:";	proginfo python --version 2>&1	# https://bugs.python.org/issue18338
+	printf "%-20s" "sw/go:";	proginfo go version
+	printf "%-20s" "sw/sqlite:";	proginfo python -c \
+		'import sqlite3 as s; print "sqlite %s (py mod %s)" % (s.sqlite_version, s.version)'
+	printf "%-20s" "sw/mysqld:";	proginfo mysqld --version
+
+	pyver neoppod neo
+	pyver zodb
+	pyver zeo
+	pyver mysqlclient
+}
+
+
+
+# command: print information about local node
+cmd_info-local() {
+	system_info
+}
+
+# command: print information about remote node
+cmd_info() {
+	url="$1"
+	test -z "$url" && die "Usage neotest info [user@]<host>:<path>"
+	on $url ./neotest info-local
+}
+
+# ---- main driver ----
+
+usage() {
+cat 1>&2 << EOF
+Neotest is a tool to test and benchmark NEO.
+
+Usage:
+
+	neotest command [arguments]
+
+The commands are:
+
+	test		run all tests on a remote host
+	test-local	run all tests locally
+
+	test-go		run NEO/go unit tests	(part of test-local)
+	test-py		run NEO/py unit tests	(part of test-local)
+
+
+	deploy		deploy NEO & needed software for tests to remote host
+	deploy-local	deploy NEO & needed software for tests locally
+
+	info		print information about a node
+	info-local	print information about local deployment
+EOF
+}
+
+# commands and their flags:
+#
+# build: needs to rebuild NEO stuff
+# net:   needs init_net
+case "$1" in
+test)		f=(                     );;
+test-local)	f=(build                );;
+test-go)	f=(build                );;
+test-py)	f=(                     );;
+
+info)		f=(                     );;
+info-local)	f=(      net            );;
+
+-h)
+	usage
+	exit 0
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac
+
+
+for flag in ${f[*]}; do
+	case "$flag" in
+	build)
+		# rebuild go bits
+		# neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
+		go install -v lab.nexedi.com/kirr/neo/go/...
+		;;
+
+	net)
+		# setup network environment
+		init_net
+		;;
+
+	*)
+		die "internal-error: command $1: invalid flag: $flag"
+		;;
+	esac
+done
+
+# run the command
+cmd="$1"
+shift
+cmd_$cmd "$@"
