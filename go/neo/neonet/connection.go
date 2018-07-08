@@ -286,8 +286,8 @@ func newNodeLink(conn net.Conn, role _LinkRole) *NodeLink {
 // XXX make it per-link?
 var connPool = sync.Pool{New: func() interface{} {
 	return &Conn{
-		rxq:    make(chan *pktBuf, 1),	// NOTE non-blocking - see serveRecv XXX +buf ?
-		txerr:  make(chan error, 1),	// NOTE non-blocking - see Conn.Send
+		rxq:    make(chan *pktBuf, 1), // NOTE non-blocking - see serveRecv XXX +buf ?
+		txerr:  make(chan error, 1),   // NOTE non-blocking - see Conn.Send
 		txdown: make(chan struct{}),
 //		rxdown: make(chan struct{}),
 	}
