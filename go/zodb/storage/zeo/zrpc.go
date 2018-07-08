@@ -46,9 +46,9 @@ const pktHeaderLen	= 4
 
 // we can speak this protocol versions
 var protoVersions = []string{
-	"3101",	// last in ZEO3 series
-	"4",	// no longer call load.
-	"5",	// current in ZEO5 series.
+	"3101", // last in ZEO3 series
+	"4",    // no longer call load.
+	"5",    // current in ZEO5 series.
 }
 
 
@@ -187,7 +187,7 @@ func pktDecode(pkb *pktBuf) (msg, error) {
 		return m, err
 	}
 
-	tpkt, ok := xpkt.(pickle.Tuple)	// XXX also list?
+	tpkt, ok := xpkt.(pickle.Tuple) // XXX also list?
 	if !ok {
 		return m, derrf("got %T; expected tuple", xpkt)
 	}
@@ -249,7 +249,7 @@ func (zl *zLink) _call(ctx context.Context, method string, argv ...interface{}) 
 	}
 
 	// ok, pkt is ready to go
-	err = zl.sendPkt(pkb)		// XXX ctx cancel
+	err = zl.sendPkt(pkb) // XXX ctx cancel
 	if err != nil {
 		return msg{}, err
 	}
@@ -301,7 +301,7 @@ var pkbPool = sync.Pool{New: func() interface{} {
 func allocPkb() *pktBuf {
 	pkb := pkbPool.Get().(*pktBuf)
 	pkb.data = pkb.data[:0]
-	pkb.Write([]byte("\x00\x00\x00\x00"))	// room for header (= pktHeaderLen)
+	pkb.Write([]byte("\x00\x00\x00\x00")) // room for header (= pktHeaderLen)
 	return pkb
 }
 

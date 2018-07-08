@@ -40,7 +40,7 @@ type zeo struct {
 	srv *zLink
 
 	// state we get from server by way of server notifications.
-	mu	sync.Mutex
+	mu      sync.Mutex
 	lastTid zodb.Tid
 
 
@@ -65,7 +65,7 @@ func (z *zeo) Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error
 
 func (z *zeo) _Load(ctx context.Context, xid zodb.Xid) (*mem.Buf, zodb.Tid, error) {
 	rpc := z.rpc("loadBefore")
-	xres, err := rpc.call(ctx, oidPack(xid.Oid), tidPack(xid.At+1))	// XXX at2Before
+	xres, err := rpc.call(ctx, oidPack(xid.Oid), tidPack(xid.At+1)) // XXX at2Before
 	if err != nil {
 		return nil, 0, err
 	}
