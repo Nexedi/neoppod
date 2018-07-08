@@ -17,9 +17,11 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package neonet provides service to exchange messages in a NEO network.
+// Package neonet provides service to establish links and exchange messages in
+// a NEO network.
 //
-// A NEO node - node
+// A NEO node - node link can be established with DialLink and ListenLink
+// similarly to how it is done in standard package net. Once established, a
 // link (NodeLink) provides service for multiplexing several communication
 // connections on top of it. Connections (Conn) in turn provide service to
 // exchange NEO protocol messages.
@@ -186,6 +188,8 @@ type ConnError struct {
 }
 
 // _LinkRole is a role an end of NodeLink is intended to play.
+//
+// XXX _LinkRole will need to become public again if _Handshake does.
 type _LinkRole int
 const (
 	_LinkServer _LinkRole = iota // link created as server
@@ -207,6 +211,9 @@ const (
 //
 // Usually server role should be used for connections created via
 // net.Listen/net.Accept and client role for connections created via net.Dial.
+//
+// Though it is possible to wrap just-established raw connection into NodeLink,
+// users should always use Handshake which performs protocol handshaking first.
 func newNodeLink(conn net.Conn, role _LinkRole) *NodeLink {
 	var nextConnId uint32
 	switch role &^ linkFlagsMask {
