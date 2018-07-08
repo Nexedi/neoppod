@@ -34,9 +34,9 @@ import (
 
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	"lab.nexedi.com/kirr/neo/go/zodb/storage/fs1/fsb"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 
 	pickle "github.com/kisielk/og-rek"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xbufio"
