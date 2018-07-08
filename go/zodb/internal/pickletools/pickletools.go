@@ -17,7 +17,9 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Utilities related to python pickles
+// Package pickletools provides utilities related to python pickles.
+//
+// It complements package ogórek (github.com/kisielk/og-rek).
 package pickletools
 
 import (
