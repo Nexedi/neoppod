@@ -24,6 +24,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"reflect"
 	"runtime"
 	"testing"
 	"time"
@@ -36,8 +37,10 @@ import (
 	"lab.nexedi.com/kirr/neo/go/internal/packed"
 
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/pkg/errors"
 )
 
 func xclose(c io.Closer) {
@@ -611,6 +614,116 @@ func TestNodeLink(t *testing.T) {
 }
 
 
+// ---- recv1 mode ----
+
+func xSend(c *Conn, msg proto.Msg) {
+	err := c.Send(msg)
+	exc.Raiseif(err)
+}
+
+func xRecv(c *Conn) proto.Msg {
+	msg, err := c.Recv()
+	exc.Raiseif(err)
+	return msg
+}
+
+func xRecv1(l *NodeLink) Request {
+	req, err := l.Recv1()
+	exc.Raiseif(err)
+	return req
+}
+
+func xSend1(l *NodeLink, msg proto.Msg) {
+	err := l.Send1(msg)
+	exc.Raiseif(err)
+}
+
+func xverifyMsg(msg1, msg2 proto.Msg) {
+	if !reflect.DeepEqual(msg1, msg2) {
+		exc.Raisef("messages differ:\n%s", pretty.Compare(msg1, msg2))
+	}
+}
+
+func TestRecv1Mode(t *testing.T) {
+	// Send1
+	nl1, nl2 := nodeLinkPipe()
+	wg := &errgroup.Group{}
+	sync := make(chan int)
+	gox(wg, func() {
+		defer func() {
+			if e := recover(); e != nil {
+				panic(e)
+			}
+		}()
+
+		c := xaccept(nl2)
+		msg := xRecv(c)
+		xverifyMsg(msg, &proto.Ping{})
+		xSend(c, &proto.Pong{})
+		msg = xRecv(c)
+		xverifyMsg(msg, errConnClosed)
+		xclose(c)
+
+		sync <- 1
+
+		c = xaccept(nl2)
+		msg = xRecv(c)
+		xverifyMsg(msg, &proto.Error{proto.ACK, "hello up there"})
+		xSend(c, &proto.Error{proto.ACK, "hello to you too"})
+		msg = xRecv(c)
+		xverifyMsg(msg, errConnClosed)
+		xclose(c)
+	})
+
+	xSend1(nl1, &proto.Ping{})
+
+	// before next Send1 wait till peer receives errConnClosed from us
+	// otherwise peer could be already in accept while our errConnClosed is received
+	// and there is only one receiving thread there ^^^
+	<-sync
+	xSend1(nl1, &proto.Error{proto.ACK, "hello up there"})
+	xwait(wg)
+
+	// Recv1: further packets with same connid are rejected with "connection closed"
+	wg = &errgroup.Group{}
+	gox(wg, func() {
+		c := xnewconn(nl2)
+
+		xSend(c, &proto.Ping{})
+		xSend(c, &proto.Ping{})
+		msg := xRecv(c)
+		xverifyMsg(msg, errConnClosed)
+	})
+
+	_ = xRecv1(nl1)
+	xwait(wg)
+
+	// TODO link.Close vs Recv1
+}
+
+// test possible race-condition between link.shutdown and conn.lightClose:
+//
+// link.shutdown sets link.connTab=nil and under link.connMu and then iterates
+// read connTab without link.connMu held. If conn.lightClose does
+// conn.release() in parallel to link.shutdown() iterating connTab they can be
+// both writing/using e.g. conn.rxdownOnce.
+//
+// bug triggers under -race.
+func TestLightCloseVsLinkShutdown(t *testing.T) {
+	nl1, nl2 := nodeLinkPipe()
+	wg := &errgroup.Group{}
+
+	c := xnewconn(nl1)
+	nl1.shutdown()
+	gox(wg, func() {
+		c.lightClose()
+	})
+
+	xwait(wg)
+	xclose(nl1)
+	xclose(nl2)
+}
+
 // ---- benchmarks ----
 
 // rtt over chan - for comparison as base.
@@ -873,4 +986,106 @@ func BenchmarkTCPlosr(b *testing.B) {
 func BenchmarkTCPlosrho(b *testing.B) {
 	c1, c2 := xtcpPipe()
 	benchmarkNetConnRTT(b, c1, c2, true, true)
+}
+
+
+// rtt over NodeLink via Ask1/Recv1
+func benchmarkLinkRTT(b *testing.B, l1, l2 *NodeLink) {
+	b.ResetTimer()
+
+	go func() {
+		defer xclose(l2)
+
+		for {
+			req, err := l2.Recv1()
+			if err != nil {
+				switch errors.Cause(err) {
+				case ErrLinkDown:
+					return
+
+				default:
+					b.Fatal(err)
+				}
+			}
+
+			switch msg := req.Msg.(type) {
+			default:
+				b.Fatalf("read -> unexpected message %T", msg)
+
+			case *proto.GetObject:
+				err = req.Reply(&proto.AnswerObject{
+					Oid:        msg.Oid,
+					Serial:     msg.Serial,
+					DataSerial: msg.Tid,
+				})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+
+			req.Close()
+		}
+	}()
+
+	for i := 0; i < b.N; i++ {
+		// NOTE keeping inside loop to simulate what happens in real Load
+		get := &proto.GetObject{}
+		obj := &proto.AnswerObject{}
+
+		get.Oid = zodb.Oid(i)
+		get.Serial = zodb.Tid(i+1)
+		get.Tid = zodb.Tid(i+2)
+
+		err := l1.Ask1(get, obj)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if !(obj.Oid == get.Oid && obj.Serial == get.Serial && obj.DataSerial == get.Tid) {
+			b.Fatalf("read back: %v  ; requested %v", obj, get)
+		}
+
+		// XXX must be obj.Release
+		obj.Data.XRelease()
+	}
+
+	xclose(l1)
+}
+
+// XXX RTT over Conn.Send/Recv		(no msg encoding/decoding)
+// XXX RTT over link.sendPkt/recvPkt	(no conn route)
+
+// xlinkPipe creates two links interconnected to each other via c1 and c2.
+//
+// XXX c1, c2 -> piper (who creates c1, c2) ?
+// XXX overlap with nodeLinkPipe
+func xlinkPipe(c1, c2 net.Conn) (*NodeLink, *NodeLink) {
+	var l1, l2 *NodeLink
+
+	wg := &errgroup.Group{}
+	gox(wg, func() {
+		l, err := _Handshake(context.Background(), c1, _LinkClient)
+		exc.Raiseif(err)
+		l1 = l
+	})
+	gox(wg, func() {
+		l, err := _Handshake(context.Background(), c2, _LinkServer)
+		exc.Raiseif(err)
+		l2 = l
+	})
+	xwait(wg)
+
+	return l1, l2
+}
+
+func BenchmarkLinkNetPipeRTT(b *testing.B) {
+	c1, c2 := net.Pipe()
+	l1, l2 := xlinkPipe(c1, c2)
+	benchmarkLinkRTT(b, l1, l2)
+}
+
+func BenchmarkLinkTCPRTT(b *testing.B) {
+	c1, c2 := xtcpPipe()
+	l1, l2 := xlinkPipe(c1, c2)
+	benchmarkLinkRTT(b, l1, l2)
 }
