@@ -226,7 +226,7 @@ type ConnError struct {
 	Err    error
 }
 
-// _LinkRole is a role an end of NodeLink is intended to play
+// _LinkRole is a role an end of NodeLink is intended to play.
 //
 // XXX _LinkRole will need to become public again if _Handshake does.
 type _LinkRole int
