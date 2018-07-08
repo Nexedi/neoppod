@@ -42,7 +42,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
-const pktHeaderLen	= 4
+const pktHeaderLen = 4
 
 // we can speak this protocol versions
 var protoVersions = []string{
