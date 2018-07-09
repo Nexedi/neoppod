@@ -99,7 +99,7 @@ EOF
 
 	pip install cython	# for tcpenalty.py
 
-	go get -v lab.nexedi.com/kirr/neo/go/...
+	go get -v -t lab.nexedi.com/kirr/neo/go/...
 	go get -v golang.org/x/perf/cmd/benchstat		# to summarize/diff benchmark results
 	#go get -v github.com/aclements/perflock/cmd/perflock	# handy to fix CPU frequency/etc
 
