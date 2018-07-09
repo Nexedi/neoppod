@@ -1418,7 +1418,6 @@ cmd_bench-net() {
 
 # command: print information about local node
 cmd_info-local() {
-	init_net
 	system_info
 }
 
