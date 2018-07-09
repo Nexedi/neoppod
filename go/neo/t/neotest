@@ -66,6 +66,9 @@ GOPATH=${GOPATH%:}
 # python
 . $X/venv/bin/activate
 
+# ioping
+export PATH=$X/ioping:$PATH
+
 # XXX for mysqld
 export PATH=$PATH:/sbin:/usr/sbin
 EOF
@@ -84,6 +87,11 @@ EOF
 	go get -v -t lab.nexedi.com/kirr/neo/go/...
 	go get -v golang.org/x/perf/cmd/benchstat		# to summarize/diff benchmark results
 	#go get -v github.com/aclements/perflock/cmd/perflock	# handy to fix CPU frequency/etc
+
+	git clone -o kirr -b x/hist https://lab.nexedi.com/kirr/ioping.git
+	pushd ioping
+	make -j`nproc`
+	popd
 
 	echo ok >deployed
 	echo "# deployed ok"
@@ -159,6 +167,12 @@ init_net() {
 
 	# prefer ipv4 for now
 	myaddr="${myaddr4v[0]}"
+}
+
+# init_fs	- do initial disk allocations
+init_fs() {
+	log=`pwd`/log;		mkdir -p $log
+	var=`pwd`/var;		mkdir -p $var
 }
 
 # if we are abnormally terminating
@@ -321,6 +335,49 @@ system_info() {
 		echo "WARNING: cpu: (up to that might be adding to networked and IPC request-reply latency)"
 	}
 
+
+	# disk under .
+	# TODO show all disks and just mark which is current
+	mntpt=`stat -c '%m' .`				# mountpoint of current filesystem
+	blkdev=`findmnt -n -o source -v -u $mntpt`	# mountpoint -> device
+	blkdev=`realpath $blkdev`			# /dev/mapper/vg0-root	-> /dev/dm-0
+	blkdev1=`basename $blkdev`			# /dev/sda  -> sda
+
+	# showblk1 <device>
+	showblk1() {
+		blkdev=$1
+		blkdev1=`basename $blkdev`			# /dev/sda  -> sda
+		# XXX lsblk: tmpfs: not a block device
+		printf "disk/%s: %s\n" "$blkdev1" "`lsblk -dn -o MODEL $blkdev`  rev `lsblk -dn -o REV,SIZE $blkdev`"
+	}
+
+	case "$blkdev1" in
+	md*)
+		# software raid
+		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
+		printf "disk/%s:\t%s\n" "$blkdev1" "(`cat /sys/class/block/$blkdev1/md/level`) -> $slavev"
+		# XXX dup wrt dm-*; move recursion to common place
+		for s in $slavev; do
+			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
+			showblk1 /dev/$s
+		done
+		;;
+	dm-*)
+		# device mapper
+		slavev=`ls -x /sys/class/block/$blkdev1/slaves`
+		printf "disk/%s:\t%s\n" "$blkdev1" "(`cat /sys/class/block/$blkdev1/dm/name`) -> $slavev"
+		# XXX dup wrt md*; move recursion to common place
+		for s in $slavev; do
+			s=`echo $s |sed -e 's/[0-9]*$//'`	# sda3 -> sda
+			showblk1 /dev/$s
+		done
+		;;
+	*)
+		blkdev_main=`echo $blkdev |sed -e 's/[0-9]*$//'`	# /dev/sda3 -> /dev/sda
+		showblk1 $blkdev_main
+		;;
+	esac
+
 	printf "%-20s" "sw/python:";	proginfo python --version 2>&1	# https://bugs.python.org/issue18338
 	printf "%-20s" "sw/go:";	proginfo go version
 	printf "%-20s" "sw/sqlite:";	proginfo python -c \
@@ -419,7 +476,48 @@ bench_cpu() {
 	done
 }
 
+# bench_disk	- benchmark direct (uncached) and cached random reads
+bench_disk() {
+	echo -ne "node:\t"; xhostname
+	echo     "cluster:"
+	# ioping2bench <topic>	- converts timings from ioping to std benchmark
+	ioping2bench() {
+		# min/avg/max/mdev = 102.2 us / 138.6 us / 403.3 us / 12.2 us
+		sed -u -e \
+		"s|^min/avg/max/mdev = \([0-9.]\+\) \([^ ]\+\) / \([0-9.]\+\) \([^ ]\+\) / \([0-9.]\+\)\+ \([^ ]\+\) / \([0-9.]\+\) \([^ ]\+\)\$|&\n\
+Benchmark$1-min 1 \\1 \\2/op\n\
+Benchmark$1-avg 1 \\3 \\4/op\
+|"
+	}
 
+	sizev="4K"	# 2M (XXX it is not linear, but we save benchmarking time for now)
+	benchtime=3s
+
+	for size in $sizev; do
+		echo -e "\n*** disk: random direct (no kernel cache) $size-read latency"
+		nrun ioping -D -i 0ms -s $size -S 1024M -w $benchtime -q -k . |\
+			ioping2bench "disk/randread/direct/$size"
+	done
+
+
+	# warmup so kernel puts the file into pagecache
+	for i in `seq 3`; do
+		cat ioping.tmp >/dev/null
+	done
+
+	for size in $sizev; do
+		echo -e "\n*** disk: random cached $size-read latency"
+		nrun ioping -C -i 0ms -s $size -S 1024M -w $benchtime -q -k . |\
+			ioping2bench "disk/randread/pagecache/$size"
+	done
+}
+
+
+
+# command: benchmark local disk
+cmd_bench-disk() {
+	bench_disk
+}
 
 # command: benchmark local cpu
 cmd_bench-cpu() {
@@ -463,6 +561,7 @@ The commands are:
 
 
 	bench-cpu	benchmark local cpu
+	bench-disk	benchmark local disk
 
 
 	deploy		deploy NEO & needed software for tests to remote host
@@ -481,6 +580,7 @@ EOF
 #
 # build: needs to rebuild NEO stuff
 # net:   needs init_net
+# fs:    needs init_fs
 case "$1" in
 test)		f=(                     );;
 test-local)	f=(build                );;
@@ -488,6 +588,7 @@ test-go)	f=(build                );;
 test-py)	f=(                     );;
 
 bench-cpu)	f=(build                );;
+bench-disk)	f=(          fs         );;
 
 info)		f=(                     );;
 info-local)	f=(      net            );;
@@ -521,6 +622,11 @@ for flag in ${f[*]}; do
 	net)
 		# setup network environment
 		init_net
+		;;
+
+	fs)
+		# setup fs environment
+		init_fs
 		;;
 
 	*)
