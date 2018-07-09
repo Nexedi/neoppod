@@ -66,12 +66,22 @@ GOPATH=${GOPATH%:}
 # python
 . $X/venv/bin/activate
 
+# lmbench
+export PATH=$X/lmbench/lmbench3/bin/`cd $X/lmbench/lmbench3/src; ../scripts/os`:$PATH
+
 # ioping
 export PATH=$X/ioping:$PATH
 
-# XXX for mysqld
+# XXX for mysqld, ethtool
 export PATH=$PATH:/sbin:/usr/sbin
 EOF
+
+	# NOTE lmbench before env.sh because env.sh uses `scripts/os` from lmbench
+	git clone -o kirr -b x/kirr https://lab.nexedi.com/kirr/lmbench.git
+	pushd lmbench/lmbench3/src
+	make -j`nproc`
+	go build -o ../bin/`../scripts/os`/lat_tcp_go lat_tcp.go
+	popd
 
 	. env.sh
 
@@ -223,6 +233,11 @@ proginfo() {
 # fkghz file	- extract value from file (in KHz) and render it as GHz
 fkghz() {
 	python -c "print '%.2fGHz' % (`cat $1` / 1E6)"
+}
+
+# lspci1 <pcidev> <field>	- show <field> from lspci information about <pcidev>
+lspci1() {
+	lspci -vmm -s $1 |grep "^$2:\\s*" |sed -e "s/^$2:\\s*//"
 }
 
 # xhostname	- show short system host name
@@ -378,6 +393,143 @@ system_info() {
 		;;
 	esac
 
+	# all NICs
+	# XXX warn if ethtool is not there
+	find /sys/class/net -type l -not -lname '*virtual*' |sort | \
+	while read nic; do
+		nicname=`basename $nic`		# /sys/class/net/eth0	-> eth0
+		echo -n "nic/$nicname: "
+		nicdev=`realpath $nic/device`	# /sys/class/net/eth0	-> /sys/devices/pci0000:00/0000:00:1f.6
+
+		case "$nicdev" in
+		*usb*)
+			# /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.6/2-1.6:1.6 -> .../usb2/2-1/2-1.6
+			usbdev="$nicdev/.."
+			usbdev=`cat $usbdev/busnum`:`cat $usbdev/devnum`	# ... -> 2:4
+			product=`lsusb -s $usbdev |sed -e 's/^Bus\s[0-9]*\sDevice\s[0-9]*:\sID\s[0-9a-f]*:[0-9a-f]*\s//'`
+			echo "$product (usb)"
+			;;
+
+		*pci*)
+			pcidev=`basename $nicdev`	# /sys/devices/pci0000:00/0000:00:1f.6	-> 0000:00:1f.6
+			#lspci -s $pcidev
+			echo "`lspci1 $pcidev Vendor` `lspci1 $pcidev Device` rev `lspci1 $pcidev Rev`"
+			;;
+
+		*)
+			echo "$nicdev (TODO)"
+			;;
+		esac
+
+		nicwarnv=()
+
+		# show relevant features
+		featok=y
+		feat=`ethtool -k $nicname 2>/dev/null` || featok=n
+		if [ $featok != y ]; then
+			echo "nic/$nicname/features: ?"
+		else
+			# feat1 name abbrev -> abbrev. value  (e.g. "tx" or "!tx")
+			feat1() {
+				# ntuple-filters: off [fixed]
+				v=`echo "$feat" |grep "^$1:\\s*" |awk '{print $2}'`
+				case $v in
+				on)
+					echo "$2"
+					;;
+				off)
+					echo "!$2"
+					;;
+				*)
+					echo "?($v)$2"
+					;;
+				esac
+			}
+
+			s="nic/$nicname/features:"
+			# NOTE feature abbrevs are those used by `ethtool -K` to set them
+			s+=" `feat1 rx-checksumming			rx`"
+			s+=" `feat1 tx-checksumming			tx`"
+			s+=" `feat1 scatter-gather			sg`"
+			tso="`feat1 tcp-segmentation-offload            tso`"
+			s+=" $tso"
+			s+=" `feat1 udp-fragmentation-offload		ufo`"
+			s+=" `feat1 generic-segmentation-offload	gso`"
+			s+=" `feat1 generic-receive-offload		gro`"
+			s+=" `feat1 large-receive-offload		lro`"
+			s+=" `feat1 rx-vlan-offload			rxvlan`"
+			s+=" `feat1 tx-vlan-offload			txvlan`"
+			s+=" `feat1 ntuple-filters			ntuple`"
+			s+=" `feat1 receive-hashing			rxhash`"
+
+			# ^^^ are the common features - others are specific to kernel/device
+			# XXX or list them all?
+			s+=" ..."
+
+			echo "$s"
+
+			# warn if !tso (linux starts enabling autocorking for e.g. small second segment and probably
+			# something else and lat_tcp latency grows stepwise from ~130μs to 500μs and more)
+			test "$tso" == "tso" || nicwarnv+=("TSO not enabled - TCP latency with packets > MSS will be poor")
+		fi
+
+
+		# show rx/tx coalescing latency
+		echo -n "nic/$nicname/coalesce:"
+		coalok=y
+		coal=`ethtool -c $nicname 2>/dev/null` || coalok=n
+		if [ $coalok != y ]; then
+			echo " rxc: ?,  txc: ?"
+		else
+			# coal1 name -> value
+			coal1() {
+				echo "$coal" |grep "^$1:\\s*" | sed -e "s/^$1:\\s*//"
+			}
+			rxt=`coal1 rx-usecs`
+			rxf=`coal1 rx-frames`
+			rxt_irq=`coal1 rx-usecs-irq`
+			rxf_irq=`coal1 rx-frames-irq`
+
+			txt=`coal1 tx-usecs`
+			txf=`coal1 tx-frames`
+			txt_irq=`coal1 tx-usecs-irq`
+			txf_irq=`coal1 tx-frames-irq`
+
+			echo -en  " rxc: ${rxt}μs/${rxf}f/${rxt_irq}μs-irq/${rxf_irq}f-irq,"
+			echo -e  "  txc: ${txt}μs/${txf}f/${txt_irq}μs-irq/${txf_irq}f-irq"
+
+			# XXX also add -low and -high ?
+
+			# warn if rx latency is too high
+			rxlat=$(($rxt>$rxt_irq?$rxt:$rxt_irq))
+			test "$rxlat" -le 10 || nicwarnv+=("RX coalesce latency is max ${rxlat}μs - that will add to networked request-reply latency")
+		fi
+
+		# show main parameters + GRO flush time
+		s="nic/$nicname/status:  "
+		s+=" `cat $nic/operstate`"
+		speed=`cat $nic/speed 2>/dev/null` || speed=?	# returns EINVAL for wifi
+		s+=", speed=$speed"
+		s+=", mtu=`cat $nic/mtu`"
+		s+=", txqlen=`cat $nic/tx_queue_len`"
+		if test -e $nic/gro_flush_timeout ; then
+			tgroflush_ns=`cat $nic/gro_flush_timeout`
+			s+=", gro_flush_timeout=`python -c "print '%.3f' % ($tgroflush_ns / 1E3)"`µs"
+		else
+			s+=", !gro_flush_timeout"
+		fi
+		echo "$s"
+
+		# XXX warn if gro_flush_timeout=0 or unsupported ?
+
+
+		# emit NIC warnings
+		for warn in "${nicwarnv[@]}"; do
+			echo "WARNING: nic/$nicname: $warn"
+		done
+
+	done
+
 	printf "%-20s" "sw/python:";	proginfo python --version 2>&1	# https://bugs.python.org/issue18338
 	printf "%-20s" "sw/go:";	proginfo go version
 	printf "%-20s" "sw/sqlite:";	proginfo python -c \
@@ -512,6 +664,101 @@ Benchmark$1-avg 1 \\3 \\4/op\
 	done
 }
 
+# hostof <url>		- return hostname part of <url>
+hostof() {
+	url=$1
+	python -c "import urlparse as p; u=p.urlparse(\"scheme://$url\"); print u.hostname"
+}
+
+# bench_net <url>	- benchmark network
+bench_net() {
+	url=$1
+	peer=`hostof $url`
+	shortpeer=`echo $peer |sed -e 's/\./ /' |awk '{print $1}'`	# name.domain -> name
+
+	echo    "node:"
+	echo -e "cluster:\t`xhostname`-$shortpeer"
+
+	echo -e "\n*** link latency:"
+
+	# ping2bench <topic>	- converts timings from ping to std benchmark format
+	ping2bench() {
+		# rtt min/avg/max/mdev = 0.028/0.031/0.064/0.007 ms, ipg/ewma 0.038/0.032 ms
+		sed -u -e \
+		"s|^rtt min/avg/max/mdev = \([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\)/\([0-9.]\+\) ms.*\$|&\n\
+Benchmark$1-min 1 \\1 ms/op\n\
+Benchmark$1-avg 1 \\2 ms/op\
+|"
+	}
+
+	#   16 = minimum ping payload size at which it starts putting struct timeval into payload and print RTT
+	# 1472 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 8 (ICMPv4 header)
+	# 1452 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 8 (ICMPv6 header)
+	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
+	sizev="16 1452"	# max = min(IPv4, IPv6) so that it is always only 1 Ethernet frame on the wire
+	for size in $sizev; do
+		echo -e "\n# `xhostname` ⇄ $peer (ping ${size}B)"
+		{ $profile sudo -n ping -i0 -w 3 -s $size -q $peer	|| \
+			echo "# skipped -> enable ping in sudo for `whoami`@`xhostname`"; } | \
+			ping2bench pingrtt-/${size}B
+
+		echo -e "\n# $peer ⇄ `xhostname` (ping ${size}B)"
+		# TODO profile remotely
+		on $url "sudo -n ping -i0 -w3 -s ${size} -q \$(echo \${SSH_CONNECTION%% *}) || \
+			echo \\\"# skipped -> enable ping in sudo for \`whoami\`@${peer}\\\"" | \
+			ping2bench -pingrtt/${size}B
+	done
+
+	# TODO
+	# echo 1 > /proc/sys/net/ipv4/tcp_low_latency
+	# netstat -s
+	# /sys/class/net/ethX/gro_flush_timeout
+	# /proc/sys/net/ipv4/tcp_limit_output_bytes
+	#  ( https://lwn.net/Articles/507065/	"The default value of this
+	#    limit is 128KB; it could be set lower on systems where latency is the primary concern" )
+	# ? tcp pacing
+	# net.ipv4.tcp_autocorking (f54b3111 "tcp: auto corking")
+	echo -e "\n*** TCP latency:"
+
+	# lattcp2bench <topic>	- convert timings from lat_tcp to std benchmark format
+	lattcp2bench() {
+		# TCP latency using neo2: 52.3468 microseconds
+		sed -u -e \
+		"s|^TCP latency using .*: \([0-9.]\+\) microseconds.*\$|Benchmark$1 1 \\1 µs/op\t# &|"
+	}
+
+	#    1 = minimum TCP payload
+	# 1460 = 1500 (Ethernet MTU) - 20 (IPv4 header !options) - 20 (TCP header !options)
+	# 1440 = 1500 (Ethernet MTU) - 40 (IPv6 header !options) - 20 (TCP header !options)
+	# FIXME somehow IPv6 uses lower MTU than 1500 - recheck
+	sizev="1 1400 1500 4096" # 1400 = 1440 - ε (1 eth frame); 1500 = 1440 + ε (2 eth frames); 4096 - just big 4K (3 eth frames)
+	for size in $sizev; do
+		echo -e "\n# `xhostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		# TODO profile remotely
+		on $url "nohup lat_tcp -s </dev/null >/dev/null 2>/dev/null &"
+		nrun lat_tcp -m $size $peer | lattcp2bench "tcprtt(c_c)-/${size}B"
+		lat_tcp -S $peer
+
+		echo -e "\n# `xhostname` ⇄ $peer (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		# TODO profile remotely
+		on $url "nohup lat_tcp_go -s </dev/null >/dev/null 2>/dev/null &"
+		nrun lat_tcp -m $size $peer | lattcp2bench "tcprtt(c_go)-/${size}B"
+		lat_tcp -S $peer
+
+		echo -e "\n# $peer ⇄ `xhostname` (lat_tcp.c ${size}B  -> lat_tcp.c -s)"
+		lat_tcp -s
+		# TODO profile remotely
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "-tcprtt(c_c)/${size}B"
+		lat_tcp -S localhost
+
+		echo -e "\n# $peer ⇄ `xhostname` (lat_tcp.c ${size}B  -> lat_tcp.go -s)"
+		lat_tcp_go -s 2>/dev/null &
+		# TODO profile remotely
+		nrun on $url "lat_tcp -m $size \${SSH_CONNECTION%% *}" | lattcp2bench "-tcprtt(c_go)/${size}B"
+		lat_tcp -S localhost
+	done
+}
+
 
 
 # command: benchmark local disk
@@ -522,6 +769,13 @@ cmd_bench-disk() {
 # command: benchmark local cpu
 cmd_bench-cpu() {
 	bench_cpu
+}
+
+# command: benchmark network
+cmd_bench-net() {
+	url=$1
+	test -z "$url" && die "Usage: neotest bench-net [user@]<host>:<path>"
+	bench_net $url
 }
 
 # command: print information about local node
@@ -562,6 +816,7 @@ The commands are:
 
 	bench-cpu	benchmark local cpu
 	bench-disk	benchmark local disk
+	bench-net	benchmark network
 
 
 	deploy		deploy NEO & needed software for tests to remote host
@@ -589,6 +844,7 @@ test-py)	f=(                     );;
 
 bench-cpu)	f=(build                );;
 bench-disk)	f=(          fs         );;
+bench-net)	f=(      net            );;
 
 info)		f=(                     );;
 info-local)	f=(      net            );;
