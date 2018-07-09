@@ -1482,21 +1482,24 @@ EOF
 # net:   needs init_net
 # fs:    needs init_fs
 case "$1" in
-info)		f=(                     );;
-info-local)	f=(      net            );;
 test)		f=(                     );;
-test-local)	f=(build		);;
-test-go)	f=(build              	);;
+test-local)	f=(build                );;
+test-go)	f=(build                );;
 test-py)	f=(                     );;
-bench-local)	f=(build net fs		);;
-bench-cluster)	f=(build net fs       	);;
-zbench-local)	f=(build net fs       	);;
-zbench-cluster)	f=(build net fs       	);;
-zbench-client)	f=(build              	);;
-bench-cpu)	f=(build              	);;
+
+bench-local)	f=(build net fs         );;
+bench-cluster)	f=(build net fs         );;
+bench-cpu)	f=(build                );;
 bench-disk)	f=(          fs         );;
 bench-net)	f=(      net            );;
-cpustat)        f=(                     );;
+zbench-local)	f=(build net fs         );;
+zbench-cluster)	f=(build net fs         );;
+zbench-client)	f=(build                );;
+
+info)		f=(                     );;
+info-local)	f=(      net            );;
+
+cpustat)	f=(                     );;
 
 -h)
 	usage
