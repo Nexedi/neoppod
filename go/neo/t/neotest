@@ -1538,6 +1538,7 @@ for flag in ${f[*]}; do
 
 	*)
 		die "internal-error: command $1: invalid flag: $flag"
+		;;
 	esac
 done
 
