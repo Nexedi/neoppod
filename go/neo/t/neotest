@@ -89,6 +89,7 @@ EOF
 
 	pip install git+https://lab.nexedi.com/nexedi/wendelin.core.git@master	# XXX does not show git in ver
 	pip install zodbtools
+	pip install pygolang	# for tcpu.py
 
 	mkdir -p src/lab.nexedi.com/kirr
 	pushd src/lab.nexedi.com/kirr
