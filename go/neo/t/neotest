@@ -1477,38 +1477,27 @@ Additional utility commands:
 EOF
 }
 
+# commands and their flags:
+#
+# build: needs to rebuild NEO stuff
+# net:   needs init_net
+# fs:    needs init_fs
 case "$1" in
-# commands that require build
-test-local	| \
-test-go		| \
-test-py		| \
-bench-local	| \
-bench-cluster	| \
-zbench-local	| \
-zbench-cluster	| \
-zbench-client	| \
-bench-cpu	| \
-bench-disk	| \
-bench-net)
-	;;
-
-info)
-	shift
-	cmd_info "$@"
-	exit 0
-	;;
-
-info-local)
-	shift
-	cmd_info-local "$@"
-	exit 0
-	;;
-
-cpustat)
-	shift
-	cmd_cpustat "$@"
-	exit 0
-	;;
+info)		f=(                     );;
+info-local)	f=(      net            );;
+test)		f=(                     );;
+test-local)	f=(build		);;
+test-go)	f=(build              	);;
+test-py)	f=(                     );;
+bench-local)	f=(build net fs		);;
+bench-cluster)	f=(build net fs       	);;
+zbench-local)	f=(build net fs       	);;
+zbench-cluster)	f=(build net fs       	);;
+zbench-client)	f=(build              	);;
+bench-cpu)	f=(build              	);;
+bench-disk)	f=(          fs         );;
+bench-net)	f=(      net            );;
+cpustat)        f=(                     );;
 
 -h)
 	usage
@@ -1520,20 +1509,35 @@ cpustat)
 	;;
 esac
 
-# make sure tzodb*, tcpu* and zgenprod are on PATH (because we could be invoked from another dir)
-X=$(cd `dirname $0` && pwd)
-export PATH=$X:$PATH
 
-# rebuild go bits
-# neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
-go install -v lab.nexedi.com/kirr/neo/go/...
-go build -o $X/tzodb_go $X/tzodb.go
-#go build -race -o $X/tzodb_go $X/tzodb.go
-go build -o $X/tcpu_go $X/tcpu.go
+for flag in ${f[*]}; do
+	case "$flag" in
+	build)
+		# make sure tzodb*, tcpu* and zgenprod are on PATH (because we could be invoked from another dir)
+		X=$(cd `dirname $0` && pwd)
+		export PATH=$X:$PATH
 
-# setup network & fs environment
-init_net
-init_fs
+		# rebuild go bits
+		# neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
+		go install -v lab.nexedi.com/kirr/neo/go/...
+		go build -o $X/tzodb_go $X/tzodb.go
+		go build -o $X/tcpu_go $X/tcpu.go
+		;;
+
+	net)
+		# setup network environment
+		init_net
+		;;
+
+	fs)
+		# setup fs environment
+		init_fs
+		;;
+
+	*)
+		die "internal-error: command $1: invalid flag: $flag"
+	esac
+done
 
 # run the command
 cmd="$1"
