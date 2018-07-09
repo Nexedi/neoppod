@@ -27,7 +27,7 @@ from ZODB.POSException import POSKeyError
 from ZODB.utils import p64, u64
 
 import hashlib
-from zlib import crc32, adler32
+from tcpu import Adler32Hasher, CRC32Hasher
 import sys
 import logging
 from time import time
@@ -42,32 +42,6 @@ class NullHasher:
 
     def hexdigest(self):
         return "00"
-
-# adler32 in hashlib interface
-class Adler32Hasher:
-    name = "adler32"
-
-    def __init__(self):
-        self.h = adler32('')
-
-    def update(self, data):
-        self.h = adler32(data, self.h)
-
-    def hexdigest(self):
-        return '%08x' % (self.h & 0xffffffff)
-
-# crc32 in hashlib interface
-class CRC32Hasher:
-    name = "crc32"
-
-    def __init__(self):
-        self.h = crc32('')
-
-    def update(self, data):
-        self.h = crc32(data, self.h)
-
-    def hexdigest(self):
-        return '%08x' % (self.h & 0xffffffff)
 
 # {} name -> hasher
 hashRegistry = {
