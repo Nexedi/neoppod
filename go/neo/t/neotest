@@ -72,6 +72,8 @@ EOF
 
 	. env.sh
 
+	pip install pygolang	# for tcpu.py
+
 	mkdir -p src/lab.nexedi.com/kirr
 	pushd src/lab.nexedi.com/kirr
 	test -d neo || git clone -o kirr https://lab.nexedi.com/kirr/neo.git neo
@@ -204,6 +206,23 @@ proginfo() {
 	which $prog >/dev/null 2>&1 && $prog "$@" || printf "%-16s: ø\n" "$prog"
 }
 
+# fkghz file	- extract value from file (in KHz) and render it as GHz
+fkghz() {
+	python -c "print '%.2fGHz' % (`cat $1` / 1E6)"
+}
+
+# xhostname	- show short system host name
+xhostname() {
+	# prefer first part of FQDN for misconfigured systems like
+	# fqdn=z6001.ivan.nexedi.com, hostname=z6001-COMP-2784
+	fqdn=`hostname --fqdn 2>/dev/null || :`
+	if test -n "$fqdn"; then
+		echo "$fqdn" |sed -e 's/\./ /' |awk '{print $1}'
+	else
+		hostname
+	fi
+}
+
 # show information about local system (os, hardware, versions, ...)
 system_info() {
 	echo -ne "date:\t"; date --rfc-2822
@@ -214,6 +233,93 @@ system_info() {
 	test "${#myaddr4v[@]}" -eq 1 || echo -n " (+ $((${#myaddr4v[@]} - 1))·ipv4)"
 	echo ")"
 	echo -ne "uname:\t"; uname -a
+
+	# cpu
+	echo -ne "cpu:\t"; grep "^model name" /proc/cpuinfo |head -1 |sed -e 's/model name\s*: //'
+	syscpu=/sys/devices/system/cpu
+	sysidle=$syscpu/cpuidle
+
+	cpuvabbrev() {	# cpuvabbrev cpu0 cpu1 cpu2 ... cpuN	-> cpu/[0-N]
+		test $# -le 1 && echo "$@" && return
+
+		min=""
+		max=""
+		while [ $# -ne 0 ]; do
+			v=$1
+			shift
+			n=${v#cpu}
+
+			test -z "$min" && min=$n && max=$n continue
+			if (( $n != $max + 1 )); then
+				die "cpuvabbrev: assert: nonconsecutive $max $n"
+			fi
+			max=$n
+		done
+		echo "cpu/[$min-$max]"
+	}
+
+	freqcpuv=()	# [] of cpu
+	freqstr=""	# text about cpufreq for cpus in ^^^
+	freqdump() {
+		test "${#freqcpuv[@]}" = 0 && return
+		echo "`cpuvabbrev ${freqcpuv[*]}`/freq: $freqstr"
+		freqcpuv=()
+		freqstr=""
+	}
+
+	idlecpuv=()	# ----//---- for cpuidle
+	idlestr=""
+	idledump() {
+		test "${#idlecpuv[@]}" = 0 && return
+		echo "`cpuvabbrev ${idlecpuv[*]}`/idle: $idlestr"
+		idlecpuv=()
+		idlestr=""
+	}
+
+	freqstable=y
+	while read cpu; do
+		f="$cpu/cpufreq"
+		fmin=`fkghz $f/scaling_min_freq`
+		fmax=`fkghz $f/scaling_max_freq`
+		fs="`cat $f/scaling_driver`/`cat $f/scaling_governor` [$fmin - $fmax]"
+		if [ "$fs" != "$freqstr" ]; then
+			freqdump
+			freqstr="$fs"
+		fi
+		freqcpuv+=(`basename $cpu`)
+		test "$fmin" != "$fmax" && freqstable=n
+	done \
+	< <(ls -vd $syscpu/cpu[0-9]*)
+	freqdump
+
+	latmax=0
+	while read cpu; do
+		is="`cat $sysidle/current_driver`/`cat $sysidle/current_governor_ro`:"
+		while read state; do
+			is+=" "
+			lat=`cat $state/latency`
+			res=`cat $state/residency 2>/dev/null` || res="?"	# added in linux 3.15
+			test "`cat $state/disable`" = "1" && is+="!" || latmax=$(($lat>$latmax?$lat:$latmax))
+			is+="`cat $state/name`·${lat}/${res}"
+		done \
+		< <(ls -vd $cpu/cpuidle/state[0-9]*)
+
+		is+=" # elat/tres µs"
+
+		if [ "$is" != "$idlestr" ]; then
+			idledump
+			idlestr="$is"
+		fi
+		idlecpuv+=(`basename $cpu`)
+	done \
+	< <(ls -vd $syscpu/cpu[0-9]*)
+	idledump
+
+	test "$freqstable" = y || echo "WARNING: cpu: frequency not fixed - benchmark timings won't be stable"
+	test "$latmax" -le 10  || {
+		echo "WARNING: cpu: C-state exit-latency is max ${latmax}μs - benchmark timings won't be stable"
+		echo "WARNING: cpu: (up to that might be adding to networked and IPC request-reply latency)"
+	}
 
 	printf "%-20s" "sw/python:";	proginfo python --version 2>&1	# https://bugs.python.org/issue18338
 	printf "%-20s" "sw/go:";	proginfo go version
@@ -228,6 +334,97 @@ system_info() {
 }
 
 
+# ---- benchmarking ----
+
+# cpustat ...	- run ... and print CPU C-states statistic
+cpustat() {
+	# XXX +cpufreq transition statistics (CPU_FREQ_STAT) ?
+
+	syscpu=/sys/devices/system/cpu
+	cpuv=( `ls -vd $syscpu/cpu[0-9]*` )
+	# XXX we assume cpuidle states are the same for all cpus and get list of them from cpu0
+	statev=( `ls -vd ${cpuv[0]}/cpuidle/state[0-9]* |xargs -n 1 basename` )
+
+	# get current [state]usage. usage for a state is summed across all cpus
+	statev_usage() {
+		usagev=()
+		for s in ${statev[*]}; do
+			#echo >&2 $s
+			susage=0
+			for u in `cat $syscpu/cpu[0-9]*/cpuidle/$s/usage`; do
+				#echo -e >&2 "\t$u"
+				((susage+=$u))
+			done
+			usagev+=($susage)
+		done
+		echo ${usagev[*]}
+	}
+
+	ustartv=( `statev_usage` )
+	#echo >&2 "--------"
+	#sleep 1
+	ret=0
+	out="$("$@" 2>&1)" || ret=$?
+	uendv=( `statev_usage` )
+
+	stat="#"
+	for ((i=0;i<${#statev[*]};i++)); do
+		s=${statev[$i]}
+		sname=`cat ${cpuv[0]}/cpuidle/$s/name`
+		du=$((${uendv[$i]} - ${ustartv[$i]}))
+		#stat+=" $sname(+$du)"
+		stat+=" $sname·$du"
+		#stat+=" $du·$sname"
+	done
+
+	if [ `echo "$out" | wc -l` -gt 1 ]; then
+		# multiline out - add another line
+		echo "$out"
+		echo "$stat"
+	else
+		# 1-line out	- add stats at line tail
+		echo -n "$out"
+		echo -e "\t$stat"
+	fi
+
+	return $ret
+}
+
+Nrun=5			# repeat benchmarks N time
+
+#profile=
+profile=cpustat
+
+# nrun ...	- run ... $Nrun times serially
+nrun() {
+	for i in `seq $Nrun`; do
+		$profile "$@"
+	done
+}
+
+# bench_cpu	- microbenchmark CPU
+bench_cpu() {
+	echo -ne "node:\t"; xhostname
+	echo     "cluster:"
+	nrun sh -c "python -m test.pystone |tail -1 |sed -e \
+		\"s|^This machine benchmarks at \([0-9.]\+\) pystones/second$|Benchmarkpystone 1 \1 pystone/s|\""
+
+	sizev="4096"		# 1024 $((2*1024*1024))
+	benchv="crc32 sha1"	# adler32
+	for bench in $benchv; do
+		for size in $sizev; do
+			nrun tcpu.py $bench $size
+			nrun tcpu_go $bench $size
+		done
+	done
+}
+
+
+
+# command: benchmark local cpu
+cmd_bench-cpu() {
+	bench_cpu
+}
 
 # command: print information about local node
 cmd_info-local() {
@@ -239,6 +436,11 @@ cmd_info() {
 	url="$1"
 	test -z "$url" && die "Usage neotest info [user@]<host>:<path>"
 	on $url ./neotest info-local
+}
+
+# utility: cpustat on running arbitrary command
+cmd_cpustat() {
+	cpustat "$@"
 }
 
 # ---- main driver ----
@@ -260,11 +462,18 @@ The commands are:
 	test-py		run NEO/py unit tests	(part of test-local)
 
 
+	bench-cpu	benchmark local cpu
+
+
 	deploy		deploy NEO & needed software for tests to remote host
 	deploy-local	deploy NEO & needed software for tests locally
 
 	info		print information about a node
 	info-local	print information about local deployment
+
+Additional utility commands:
+
+	cpustat		run a command and print CPU-related statistics
 EOF
 }
 
@@ -278,8 +487,12 @@ test-local)	f=(build                );;
 test-go)	f=(build                );;
 test-py)	f=(                     );;
 
+bench-cpu)	f=(build                );;
+
 info)		f=(                     );;
 info-local)	f=(      net            );;
+
+cpustat)	f=(                     );;
 
 -h)
 	usage
@@ -295,9 +508,14 @@ esac
 for flag in ${f[*]}; do
 	case "$flag" in
 	build)
+		# make sure tcpu* is on PATH (because we could be invoked from another dir)
+		X=$(cd `dirname $0` && pwd)
+		export PATH=$X:$PATH
+
 		# rebuild go bits
 		# neo/py, wendelin.core, ... - must be pip install'ed - `neotest deploy` cares about that
 		go install -v lab.nexedi.com/kirr/neo/go/...
+		go build -o $X/tcpu_go $X/tcpu.go
 		;;
 
 	net)
