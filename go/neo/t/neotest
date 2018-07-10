@@ -1127,7 +1127,8 @@ zbench() {
 	url=$1
 	topic=$2
 	zhashok=$3
-#	nrun time demo-zbigarray read $url
+
+	#nrun time demo-zbigarray read $url
 
 	nrun tzodb.py zhash --check=$zhashok --bench=$topic-%s --$zhashfunc $url
 # XXX running processes in parallel is deprecated in favour of zwrk.
