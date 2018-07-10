@@ -1,0 +1,259 @@
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
+//
+// This program is free software: you can Use, Study, Modify and Redistribute
+// it under the terms of the GNU General Public License version 3, or (at your
+// option) any later version, as published by the Free Software Foundation.
+//
+// You can also Link and Combine this program with other software covered by
+// the terms of any of the Free Software licenses or any of the Open Source
+// Initiative approved licenses and Convey the resulting work. Corresponding
+// source of such a combination shall include the source code for all other
+// software used.
+//
+// This program is distributed WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//
+// See COPYING file for full licensing terms.
+// See https://www.nexedi.com/licensing for rationale and options.
+
+// +build ignore
+
+// tzodb - ZODB-related benchmarks
+package main
+
+import (
+	"context"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"flag"
+	"fmt"
+	"hash"
+	"hash/adler32"
+	"hash/crc32"
+	"io"
+	"log"
+	"os"
+	"time"
+
+	"lab.nexedi.com/kirr/go123/prog"
+	"lab.nexedi.com/kirr/go123/xerr"
+
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
+
+	"github.com/pkg/errors"
+)
+
+// hasher is hash.Hash which also knows its name
+type hasher struct {
+	hash.Hash
+	name string
+}
+
+// hasher that discards data
+type nullHasher struct {}
+
+func (h nullHasher) Write(b []byte) (int, error) { return len(b), nil }
+func (h nullHasher) Sum(b []byte) []byte         { return []byte{0} }
+func (h nullHasher) Reset()                      {}
+func (h nullHasher) Size() int                   { return 1 }
+func (h nullHasher) BlockSize() int              { return 1 }
+
+
+// hashFlags installs common hash flags and returns function to retrieve selected hasher.
+func hashFlags(flags *flag.FlagSet) func() hasher {
+	fnull    := flags.Bool("null",	false, "don't compute hash - just read data")
+	fadler32 := flags.Bool("adler32",false, "compute Adler32 checksum")
+	fcrc32   := flags.Bool("crc32",	false, "compute CRC32 checksum")
+	fsha1    := flags.Bool("sha1",	false, "compute SHA1 cryptographic hash")
+	fsha256  := flags.Bool("sha256", false, "compute SHA256 cryptographic hash")
+	fsha512  := flags.Bool("sha512", false, "compute SHA512 cryptographic hash")
+
+	return func() hasher {
+		var h hasher
+		inith := func(name string, ctor func() hash.Hash) {
+			if h.name != "" {
+				log.Fatalf("duplicate hashes: %s and %s specified", h.name, name)
+			}
+
+			h.name = name
+			h.Hash = ctor()
+		}
+
+		switch {
+		case *fnull:	inith("null",	 func() hash.Hash { return nullHasher{} })
+		case *fadler32:	inith("adler32", func() hash.Hash { return adler32.New() })
+		case *fcrc32:	inith("crc32",   func() hash.Hash { return crc32.NewIEEE() })
+		case *fsha1:	inith("sha1",    sha1.New)
+		case *fsha256:	inith("sha256",  sha256.New)
+		case *fsha512:	inith("sha512",  sha512.New)
+		}
+
+		return h
+	}
+}
+
+
+// ----------------------------------------
+
+const zhashSummary = "compute hash of whole latest objects stream in a ZODB database."
+
+func zhashUsage(w io.Writer) {
+	fmt.Fprintf(w,
+`Usage: tzodb zhash [options] <url>
+`)
+}
+
+func zhashMain(argv []string) {
+	ctx := context.Background()
+	flags := flag.NewFlagSet("", flag.ExitOnError)
+	flags.Usage = func() { zhashUsage(os.Stderr); flags.PrintDefaults() }
+
+	fhash    := hashFlags(flags)
+	fcheck   := flags.String("check", "",   "verify resulting hash to be = expected")
+	fbench   := flags.String("bench", "",   "use benchmarking format for output")
+	useprefetch := flags.Bool("useprefetch", false, "prefetch loaded objects")
+
+	flags.Parse(argv[1:])
+
+	if flags.NArg() != 1 {
+		flags.Usage()
+		os.Exit(1)
+	}
+
+	url := flags.Arg(0)
+
+	h := fhash()
+	if h.Hash == nil {
+		log.Fatal("no hash function specified")
+	}
+
+	err := zhash(ctx, url, h, *useprefetch, *fbench, *fcheck)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, check string) (err error) {
+	defer xerr.Context(&err, "zhash")
+
+	stor, err := zodb.OpenStorage(ctx, url, &zodb.OpenOptions{ReadOnly: true})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err2 := stor.Close()
+		err = xerr.First(err, err2)
+	}()
+
+	const nprefetch = 128 // XXX -> 512 ?
+
+	// prefetchBlk prefetches block of nprefetch objects starting from xid
+	//var tprevLoadBlkStart time.Time
+	prefetchBlk := func(ctx context.Context, xid zodb.Xid) {
+		if !useprefetch {
+			return
+		}
+
+		//t1 := time.Now()
+		for i := 0; i < nprefetch; i++ {
+			//fmt.Printf("prefetch %v\n", xid)
+			stor.Prefetch(ctx, xid)
+			xid.Oid++
+		}
+		//t2 := time.Now()
+		//δt := t2.Sub(t1)
+		//fmt.Printf("tprefetch: %s", δt)
+		//if !tprevLoadBlkStart.IsZero() {
+		//	fmt.Printf("\ttprevload: %s", t1.Sub(tprevLoadBlkStart))
+		//}
+		//fmt.Printf("\n")
+		//
+		//tprevLoadBlkStart = t2
+	}
+
+
+
+	lastTid, err := stor.LastTid(ctx)
+	if err != nil {
+		return err
+	}
+
+	tstart := time.Now()
+
+	oid := zodb.Oid(0)
+	nread := 0
+loop:
+	for {
+		xid := zodb.Xid{Oid: oid, At: lastTid}
+		if xid.Oid % nprefetch == 0 {
+			prefetchBlk(ctx, xid)
+		}
+		buf, _, err := stor.Load(ctx, xid)
+		if err != nil {
+			switch errors.Cause(err).(type) {
+			case *zodb.NoObjectError:
+				break loop
+			default:
+				return err
+			}
+		}
+
+		h.Write(buf.Data)
+
+		//fmt.Fprintf(os.Stderr, "%d @%s\t%s: %x\n", uint(oid), serial, h.name, h.Sum(nil))
+		//fmt.Fprintf(os.Stderr, "\tdata: %x\n", buf.Data)
+
+		nread += len(buf.Data)
+		oid += 1
+
+		buf.Release()
+	}
+
+	tend := time.Now()
+	δt := tend.Sub(tstart)
+
+	x := "zhash.go"
+	if useprefetch {
+		x += fmt.Sprintf("+prefetch%d", nprefetch)
+	}
+	hresult := fmt.Sprintf("%s:%x", h.name, h.Sum(nil))
+	if bench == "" {
+		fmt.Printf("%s   ; oid=0..%d  nread=%d  t=%s (%s / object)  x=%s\n",
+			hresult, oid-1, nread, δt, δt / time.Duration(oid), x) // XXX /oid cast ?
+	} else {
+		topic := fmt.Sprintf(bench, x)	// XXX -> better text/template
+		fmt.Printf("Benchmark%s %d %.1f µs/object\t# %s  nread=%d  t=%s\n",
+			topic, oid-1, float64(δt) / float64(oid) / float64(time.Microsecond),
+			hresult, nread, δt)
+	}
+
+	if check != "" && hresult != check {
+		return fmt.Errorf("%s: hash mismatch: expected %s  ; got %s\t# x=%s", url, check, hresult, x)
+	}
+
+	return nil
+}
+
+
+// ----------------------------------------
+
+var commands = prog.CommandRegistry{
+	{"zhash", zhashSummary, zhashUsage, zhashMain},
+}
+
+func main() {
+	log.SetPrefix("tzodb: ")
+	log.SetFlags(0)
+
+	prog := prog.MainProg{
+		Name:       "tzodb",
+		Summary:    "tzodb is a tool to run ZODB-related benchmarks",
+		Commands:   commands,
+		HelpTopics: nil,
+	}
+
+	prog.Main()
+}
