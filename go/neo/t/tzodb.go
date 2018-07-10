@@ -29,10 +29,10 @@ import (
 	"crypto/sha512"
 	"flag"
 	"fmt"
-	"io"
 	"hash"
-	"hash/crc32"
 	"hash/adler32"
+	"hash/crc32"
+	"io"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -54,17 +54,17 @@ import (
 // hasher is hash.Hash which also knows its name
 type hasher struct {
 	hash.Hash
-	name      string
+	name string
 }
 
 // hasher that discards data
 type nullHasher struct {}
 
-func (h nullHasher) Write(b []byte) (int, error)	{ return len(b), nil }
-func (h nullHasher) Sum(b []byte) []byte		{ return []byte{0} }
-func (h nullHasher) Reset()				{}
-func (h nullHasher) Size() int				{ return 1 }
-func (h nullHasher) BlockSize() int			{ return 1 }
+func (h nullHasher) Write(b []byte) (int, error) { return len(b), nil }
+func (h nullHasher) Sum(b []byte) []byte         { return []byte{0} }
+func (h nullHasher) Reset()                      {}
+func (h nullHasher) Size() int                   { return 1 }
+func (h nullHasher) BlockSize() int              { return 1 }
 
 
 // hashFlags installs common hash flags and returns function to retrieve selected hasher.
@@ -153,7 +153,7 @@ func zhash(ctx context.Context, url string, h hasher, useprefetch bool, bench, c
 		err = xerr.First(err, err2)
 	}()
 
-	const nprefetch = 128	// XXX -> 512 ?
+	const nprefetch = 128 // XXX -> 512 ?
 
 	// prefetchBlk prefetches block of nprefetch objects starting from xid
 	//var tprevLoadBlkStart time.Time
@@ -434,7 +434,7 @@ func zwrkPreconnect(ctx context.Context, url string, at zodb.Tid, nwrk int) (_ [
 	if err != nil {
 		for _, stor := range storv {
 			if stor != nil {
-				stor.Close()	// XXX lclose
+				stor.Close() // XXX lclose
 			}
 		}
 		return nil, err
@@ -506,10 +506,10 @@ var commands = prog.CommandRegistry{
 
 func main() {
 	prog := prog.MainProg{
-		Name:		"tzodb",
-		Summary:	"tzodb is a tool to run ZODB-related benchmarks",
-		Commands:	commands,
-		HelpTopics:	nil,
+		Name:       "tzodb",
+		Summary:    "tzodb is a tool to run ZODB-related benchmarks",
+		Commands:   commands,
+		HelpTopics: nil,
 	}
 
 	defer log.Flush()

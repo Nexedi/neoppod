@@ -32,14 +32,15 @@ import (
 	"lab.nexedi.com/kirr/neo/go/internal/xcontext/task"
 )
 
-// withTask prepends string describing current operational task stack to argv and returns it
+// withTask prepends string describing current operational task stack to argv and returns it.
+//
 // handy to use this way:
 //
 //	func info(ctx, argv ...interface{}) {
 //		glog.Info(withTask(ctx, argv...)...)
 //	}
 //
-// see https://golang.org/issues/21388
+// see https://golang.org/issues/21388.
 func withTask(ctx context.Context, argv ...interface{}) []interface{} {
 	task := task.Current(ctx).String()
 	if task == "" {
