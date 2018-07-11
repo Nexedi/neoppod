@@ -33,8 +33,8 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 	"lab.nexedi.com/kirr/go123/xnet"
 
+	"lab.nexedi.com/kirr/neo/go/internal/xzlib"
 	"lab.nexedi.com/kirr/neo/go/neo/internal/xsha1"
-	"lab.nexedi.com/kirr/neo/go/neo/internal/xzlib"
 	"lab.nexedi.com/kirr/neo/go/neo/neonet"
 	"lab.nexedi.com/kirr/neo/go/neo/proto"
 	"lab.nexedi.com/kirr/neo/go/zodb"

@@ -39,7 +39,7 @@ import (
 	"time"
 
 	"lab.nexedi.com/kirr/go123/my"
-	"lab.nexedi.com/kirr/neo/go/neo/internal/xzlib"
+	"lab.nexedi.com/kirr/neo/go/internal/xzlib"
 )
 
 func dieusage() {

@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package xsha1, similarly to crypto/sha1, provides SHA1 computation, but
-// makes it a noop if requested  from environment.
+// makes it a noop if requested so from environment.
 package xsha1
 
 import (
