@@ -25,7 +25,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-var ztestv = []struct{in, out string}{
+var ztestv = []struct{ in, out string }{
 	{
 		in:  "x\x9c\xf3H\xcd\xc9\xc9W\x08\xcf/\xcaIQ\x04\x00\x1cI\x04>",
 		out: "Hello World!",

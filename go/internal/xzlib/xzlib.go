@@ -45,20 +45,19 @@ deco/unzlib/go/prod1-max       542µs ± 0%     262µs ± 0%  -51.71%  (p=0.008 
 	"github.com/DataDog/czlib"
 )
 
-
 // Compress compresses data according to zlib encoding.
 //
-// XXX default level is used, etc.
+// default level and dictionary are used.
 func Compress(data []byte) (zdata []byte) {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
 	_, err := w.Write(data)
 	if err != nil {
-		panic(err)	// bytes.Buffer.Write never return error
+		panic(err) // bytes.Buffer.Write never return error
 	}
 	err = w.Close()
 	if err != nil {
-		panic(err)	// ----//----
+		panic(err) // ----//----
 	}
 	return b.Bytes()
 }
@@ -112,8 +111,8 @@ func zlibFreeReader(r zlibReader) {
 // if out has not enough capacity a new buffer is allocated and used.
 //
 // return: destination buffer with full decompressed data or error.
-func Decompress(in []byte, out []byte) (data []byte, err error) {
-	bin := bytes.NewReader(in)
+func Decompress(zdata []byte, out []byte) (data []byte, err error) {
+	bin := bytes.NewReader(zdata)
 	zr, err := zlibNewReader(bin)
 	if err != nil {
 		return nil, err
@@ -127,7 +126,7 @@ func Decompress(in []byte, out []byte) (data []byte, err error) {
 		zlibFreeReader(zr)
 	}()
 
-	bout := bytes.NewBuffer(out)
+	bout := bytes.NewBuffer(out[:0])
 	_, err = io.Copy(bout, zr)
 	if err != nil {
 		return nil, err
