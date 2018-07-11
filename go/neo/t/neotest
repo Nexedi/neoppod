@@ -1141,6 +1141,17 @@ zbench_go() {
 }
 
 
+# command: benchmark when client and storage are on the same computer
+cmd_bench-local() {
+	echo -e ">>> bench-local"
+	echo -e "\n*** neotest: node"
+	system_info
+	echo -e "\n*** cpu:\n"
+	bench_cpu
+	bench_disk
+	cmd_zbench-local
+}
+
 # command: benchmark ZODB client/server over localhost
 cmd_zbench-local() {
 	install_trap
@@ -1233,6 +1244,33 @@ zbench_local() {
 		echo "# skipping (NEO/go sqlite not yet ready to handle ·P<n>"
 	fi
 EOF
+}
+
+# command: benchmark when server runs locally and client is on another node
+cmd_bench-cluster() {
+	url=$1
+	test -z "$url" && die "Usage: neotest bench-cluster [user@]<host>:<path>"
+
+	echo -e ">>> bench-cluster $url"
+	echo -e "\n*** neotest: node: (server)"
+	system_info
+	echo -e "\n*** neotest: node: (client)"
+	on $url ./neotest info-local
+
+	echo -e "\n*** server cpu:"
+	bench_cpu
+
+	echo -e "\n*** client cpu:"
+	on $url ./neotest bench-cpu
+
+	echo -e "\n*** server disk:"
+	bench_disk
+
+	bench_net $url
+
+	# zodb benchmarks
+	echo
+	cmd_zbench-cluster $url
 }
 
 # command: benchmark ZODB client/server over network
@@ -1403,12 +1441,15 @@ The commands are:
 	test-py		run NEO/py unit tests	(part of test-local)
 
 
-	bench-cpu	benchmark local cpu
-	bench-disk	benchmark local disk
-	bench-net	benchmark network
+	bench-local	run all benchmarks when client and server are both on the same localhost
+	bench-cluster	run all benchmarks when server is local and client is on another node
 
-	zbench-local	run ZODB benchmarks on localhost
-	zbench-cluster	run ZODB benchmarks via network
+	bench-cpu	benchmark local cpu	(part of bench-{local,cluster})
+	bench-disk	benchmark local disk	(part of bench-{local,cluster})
+	bench-net	benchmark network	(part of bench-cluster)
+
+	zbench-local	run ZODB benchmarks on localhost	(part of bench-local)
+	zbench-cluster	run ZODB benchmarks via network		(part of bench-cluster)
 	zbench-client	run ZODB client benchmarks against separate server (part of zbench-cluster)
 
 
@@ -1435,6 +1476,8 @@ test-local)	f=(build                );;
 test-go)	f=(build                );;
 test-py)	f=(                     );;
 
+bench-local)	f=(build net fs         );;
+bench-cluster)	f=(build net fs         );;
 bench-cpu)	f=(build                );;
 bench-disk)	f=(          fs         );;
 bench-net)	f=(      net            );;
