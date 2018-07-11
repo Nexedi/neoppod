@@ -1,0 +1,706 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright (C) 2018  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+"""benchplot - make scalability & difference plots from neotest benchmarks"""
+
+import sys, re
+from collections import OrderedDict
+from golang.x.perf.benchlib import xload_file, Unit, Benchmark, BenchLine
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, \
+        TransformedBbox, BboxPatch, BboxConnectorPatch
+
+from scipy.stats import ttest_ind_from_stats
+
+usop = Unit(u'µs/op')
+
+
+# BenchSeries represents several runs of a benchmark with different "·<n>".
+#
+# .series is [] of (n, Stats)
+class BenchSeries(object):
+    def __init__(self, name, series):
+        self.name   = name
+        self.series = series
+
+
+# SeriesSet is a collection of benchmark series.
+#
+# it is represented by {} name -> BenchSeries.
+# all series have the same unit.
+class SeriesSet(OrderedDict):
+    def __init__(self, unit):
+        super(SeriesSet, self).__init__()
+        self.unit = unit
+
+
+_n_re = re.compile(ur'.*(·\d+)$')
+
+# seriesof extracts "·<n>" series from benchmark B.
+#
+# all values must have the same unit.
+#
+# returns -> SeriesSet | None.
+def seriesof(B):
+    S = SeriesSet(unit=None)
+    Bn = B.byname()
+    for name in Bn:
+        m = _n_re.match(name)
+        if m is None:
+            continue    # no ·<n>
+
+        name_ = name[:m.start(1)]   # without ·<n>
+        n = m.group(1)
+        n = n[1:]
+        n = int(n)
+
+        bs = S.get(name_)
+        if bs is None:
+            S[name_] = bs = BenchSeries(name_, [])
+
+        stats = Bn[name].stats()
+        if S.unit is None:
+            S.unit = stats.unit
+        if S.unit != stats.unit:
+            raise ValueError('seriesof: different units: (%s, %s)' % (S.unit, stats.unit))
+        bs.series.append((n, stats))
+
+    if S.unit is None:
+        return None # nothing found
+
+    return S
+
+# xseriesof, similarly to seriesof, extracts series from benchmark B, but omits non-interesting ones.
+def xseriesof(B):
+    S = seriesof(B)
+    if S is None:
+        return None
+
+    # working directly with fs1 is very fast and makes seeing other variants hard.
+    S.pop('fs1-zwrk.go', None)  # discard (not present in networked benchmarks)
+
+    # only show !log for neo/py as this are faster
+    for k in S.keys():
+        m = re.match(r'.*(\(!log\)).*$', k)
+        if m is None:
+            continue
+
+        k_ = k[:m.start(1)] + k[m.end(1):]  # without "(!log)"
+        #print 'hide %s (have %s)' % (k_, k)
+        S.pop(k_, None) # discard
+
+    return S
+
+
+# mergepygo merges <bench>/py/... with <bench>/go/... if their benchmark values
+# are close enough.
+#
+# returns -> Benchmark.
+_bench_py_re = re.compile(r'.*/(py|go)/.*$')
+_pygoswap = {'py': 'go', 'go': 'py'}
+class _pygomerger:
+    def candidates(self, name):
+        # ex: unzlib/py/null-1K
+        # ex: disk/randread/direct/4K-avg
+        m = _bench_py_re.match(name)
+        if m is None:
+            return None
+
+        name_ = name[:m.start(1)] + _pygoswap[m.group(1)] + name[m.end(1):]
+        return [name, name_]
+
+    def mergedname(self, name, namev):
+        m = _bench_py_re.match(name)
+        assert m is not None
+        # XXX should be actually checking namev
+        # XXX 'py,go' <-> '*' ?
+        return name[:m.start(1)] + '*' + name[m.end(1):]
+
+def mergepygo(B):
+    return Bmerge(B, _pygomerger())
+
+
+# mergebynode merges <bench> on several nodes into one if benchmark values on
+# several nodes are close enough.
+#
+# Bnode - ordered {} node -> Benchmark
+#
+# returns -> Benchmark with either '<node>/' or '*/' prefix prepended to benchmark names.
+class _prefixmerger:
+    def __init__(self, prefixv):
+        self.prefixv = prefixv
+    def candidates(self, name):
+        namev = name.split('/')
+        if len(namev) < 2:
+            return None
+        if namev[0] not in self.prefixv:
+            return None
+
+        tail = '/'.join(namev[1:])
+        return ['%s/%s' % (_, tail) for _ in self.prefixv]
+
+    def mergedname(self, name, namev):
+        # extract prefixes from namev
+        prefixv = []
+        tail = '/'.join(name.split('/')[1:])
+        for _ in namev:
+            _v = _.split('/')
+            _prefix = _v[0]
+            _tail = '/'.join(_v[1:])
+            assert tail == _tail, (tail, _tail)
+            prefixv.append(_prefix)
+
+        if set(prefixv) == set(self.prefixv):
+            prefix = '*'
+        else:
+            prefix = ','.join(prefixv)
+        return '%s/%s' % (prefix, tail)
+
+
+def mergebynode(Bnode):
+    # first get benchmarks on all nodes into one Benchmark with '<node>/' prefix.
+    B = Benchmark()
+    for node in Bnode:
+        for b in Bnode[node]:
+            B.append(BenchLine('%s/%s' % (node, b.name), b.niter, b.measurev, b.labels))
+
+    return Bmerge(B, _prefixmerger(Bnode.keys()))
+
+
+# Bmerge merges benchmarks in B according to merger if so selected
+# benchmark values are close enough.
+class merger:
+    # .candidates(name)         -> []name*  (reports names of candidate benchmarks to consider to be merged)
+    # .mergedname(name, namev)  -> name     (benchmark name should have mergedname when merged as part of namev)
+    pass
+def Bmerge(B, merger):
+    Bmerge = Benchmark()
+    Bname = B.byname()
+    for name in Bname.keys():
+        bv = Bname.get(name)
+        if bv is None:
+            continue    # was merged/deleted
+
+        name_v = merger.candidates(name)
+        if name_v:
+            bmerge = bv[:]     # merged BenchLines
+            namev  = [name]    # merged names
+            s  = bv.stats()
+
+            if name in name_v:
+                name_v.remove(name) # already handled ^^^
+
+            for name_ in name_v:
+                b_ = Bname.get(name_)
+                if b_ is not None:
+                    # ok to merge if either probably same or the difference is < 0.5µs
+                    # XXX allow to merge if e.g. 1-2 µs if value > 10µs (ex 26 and 27 for unzlib/py,go/wczdata)
+                    s_ = b_.stats()
+                    assert s.unit == s_.unit, (s.unit, s_.unit)
+                    t = ttest_ind_from_stats(s.avg, s.std, s.ninliers, s_.avg, s_.std, s_.ninliers)
+                    if t.pvalue >= 0.3 or (s.unit == usop and abs(s.avg - s_.avg) < 0.5):
+                        #print 'merging %s (%s)\t+ %s (%s)  (%s)' % (name, s, name_, s_, t)
+                        bmerge.extend(b_)
+                        namev.append(name_)
+
+            # if something was merged we need to fixup benchline names
+            if len(namev) > 1:
+                bmerge = [BenchLine(_.name, _.niter, _.measurev, _.labels) for _ in bmerge] # clone BenchLines
+                for _ in bmerge:
+                    _.name = merger.mergedname(_.name, namev)
+                bv = bmerge
+
+                # so we never try to look again at something ahead that was merged
+                for name in namev:
+                    del Bname[name]
+
+
+        Bmerge.extend(bv)
+
+    return Bmerge
+
+
+
+
+
+# add_yvalueticks adds small yticks for values in yv.
+def add_yvalueticks(ax, yv, fmt='%d'):
+    ys0 = set(ax.get_yticks())
+    ys = ys0.copy()
+    ys.update(yv)
+    yv = list(ys)
+    yv.sort()
+    ylabv = []
+
+    _, ycutoff = ax.get_ylim()
+    #print 'ycutoff:', ycutoff
+
+    yv = [y for y in yv if y <= ycutoff]# don't add ticks above ylim XXX explain
+
+    for i, y in enumerate(yv):
+        if y in ys0:
+            l = '%d' % y
+        else:
+            # choose ytick label for this to particular value.
+            # it is a bit smaller in size and cares not to overlap with neighbours.
+            yprev = (yv[i-1] if i > 0 else 0)
+            ynext = (yv[i+1] if i + 1 < len(yv) else float('inf'))
+            if y - yprev > ynext - y:
+                d = '_' # shift a bit down
+                #d = '_^' # shift a bit down
+            else:
+                d = '^' # shift a bit up
+                #d = '^_' # shift a bit up
+
+            if isinstance(fmt, (str, unicode)):
+                ytext = fmt % y
+            else:
+                ytext = fmt(y)
+
+            l = r'${}%s{%s}$' % (d, ytext)
+            #l = r'${}%s{{}%s{%d}}$' % (d[0], d[1], y)
+
+        ylabv.append(l)
+
+    ax.set_yticks(yv)
+    ax.set_yticklabels(ylabv)
+
+
+# _stylefor is {} name -> Line2D style kw, so that we can always use e.g. the
+# same colors for plots for the same server.
+def _(**kw): return kw
+_stylefor_re = [(re.compile(_), sty) for _,sty in [
+        (ur'neo/go/fs1(·P.*)?-zwrk.go',                     _(color='C0')),
+        (ur'neo/go/fs1\(!sha1\)(·P.*)?-zwrk.go\(!sha1\)',   _(color='C0', ls='dashed')),
+        (ur'neo/go/sqlite(·P.*)?-zwrk.go',                  _(color='C1')),
+        (ur'neo/go/sqlite(·P.*)?-zwrk.go\(!sha1\)',         _(color='C1', ls='dashed')),
+        (ur'zeo/py/fs1-zwrk.go',                            _(color='C2')),
+        (ur'neo/py\(!log\)/sqlite(·P.*)?-zwrk.go',          _(color='C3')), # ls='dashed'), # XXX dashed?
+        (ur'neo/py\(!log\)/sql(·P.*)?-zwrk.go',             _(color='C4')), # ls='dashed'), # XXX dashed?
+        (ur'crc32/(py|\*)/4K',                              _(color='C5')),
+        (ur'crc32/go/4K',                                   _(color='C5', ls='dashed')),
+        (ur'sha1/(py|\*)/4K',                               _(color='C6')),
+        (ur'sha1/go/4K',                                    _(color='C6', ls='dashed')),
+        (ur'unzlib/(py|\*)/wczdata',                        _(color='C7')),
+        (ur'unzlib/go/wczdata',                             _(color='C7', ls='dashed')),
+        (ur'unzlib/(py|\*)/prod1-avg',                      _(color='C8')),
+        (ur'unzlib/go/prod1-avg',                           _(color='C8', ls='dashed')),
+
+        (ur'disk/randread/direct/4K-avg',                   _(color='C9')),
+        (ur'disk/randread/pagecache/4K-avg',                _(color='C9', ls='dashed')),
+]]
+del _
+
+def stylefor(name):
+    for namere, sty in _stylefor_re:
+        if namere.search(name):
+            return sty
+
+    #print 'stylefor(%s) -> ?' % name
+    #return {}
+
+    raise RuntimeError('stylefor(%s) -> ?' % name)
+
+# r0 is invisible something
+# (useful as e.g. proxy in text-only legend)
+r0 = Rectangle((0,0), 1, 1, fill=False, edgecolor='none', visible=False)
+
+# plotseries makes plot of benchmark series how they change by "·<n>"
+#
+# S should be {} name -> BenchSeries.
+#
+# The whole plot is labeled as labkey.      XXX <- no longer so
+def plotseries(ax, labkey, S):
+    #plt.title("ZODB server handling read requests")
+    #plt.title("----")   # XXX don't use vspace
+
+    # order plots (and thus their order in legend automatically) by value at "·1"
+    namev = S.keys()
+    namev.sort(key = lambda _: S[_].series[0][1].avg, reverse=True)
+    xticks  = set()
+    yticks0 = set()
+    yticks_ = set()
+
+    for name in namev:
+        bs = S[name]
+        x = [n for n,_ in bs.series]
+        y = [s.avg for _,s in bs.series]
+        err1 = [s.avg - s.min for _,s in bs.series]
+        err2 = [s.max - s.avg for _,s in bs.series]
+        # XXX ecolor='black'
+        ax.errorbar(x, y, yerr=[err1, err2], capsize=2, label=name, **stylefor(name))
+
+        # XXX fmt for line
+        # XXX always use the same colors for the same lines (e.g. picking by hash)
+
+        # remember n we saw in xticks
+        for _ in x:
+            xticks.add(_)
+
+        # remember first and last values
+        for _ in y[:1]:     # XXX with [:2] it becomes too noisy
+            yticks0.add(int(_))
+        yticks_.add(int(y[-1]))
+
+
+    # first legend showing labels from labkey
+    # https://matplotlib.org/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+    lh = [r0] * len(labkey)
+    ltext = ['%s: %s' % (k,v) for k,v in labkey]
+    #lablegend = plt.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
+    #ax = plt.gca().add_artist(lablegend)
+
+    # main legend about lines
+    ax.legend(loc='upper left')
+
+    #plt.ylabel('%s (higher is better)' % S.unit)   # XXX
+    #plt.xlabel("XXX number of clients running simultaneously")
+
+    # mark every n we saw in xticks. we don't need other xticks besides that.
+    xtickv = list(xticks)
+    xtickv.sort()
+    ax.set_xticks(xtickv)
+
+    # mark first values with dedicated y ticks.
+    add_yvalueticks(ax, yticks0)
+
+    # always start y from 0 (it goes to -500 for latencies if auto)
+    ax.set_ylim(bottom=0)
+
+
+    # show on the right ticks for last y values
+    ax2 = ax.twinx()
+    ax2.set_ylim(ax.get_ylim()) # same y scale as on ax
+    ax2.set_yticks([])          # no other ticks except for values
+    add_yvalueticks(ax2, yticks_)
+
+
+# plotlat1 makes plot of benchmark latencies for serial (1 client) case.
+#
+# S     - latency-µs/object series
+def plotlat1(ax, S):
+    yticks0 = set()
+    for name in S:
+        b = S[name].series[0]
+        if b[0] != 1:   # n
+            continue
+
+        s = b[1]    # stats
+        yticks0.add(s.avg)
+
+        # 1 hand-made error bar (cannot control line styles of cap lines with errorbar)
+        w = 0.15
+        lw = None
+        ax.plot([1-w, 1+w], [s.min]*2, lw=lw, **stylefor(name))
+        ax.plot([1-w, 1+w], [s.max]*2, lw=lw, **stylefor(name))
+        ax.plot([1]*2, [s.min, s.max], lw=lw, **stylefor(name))
+
+    # mark first values with dedicated y ticks
+    add_yvalueticks(ax, yticks0)
+
+
+# plotnode1 plots latencies of base CPU/disk operations on the nodes.
+def plotnode1(ax, B, w=0.05, details=False):
+    Bu = B.byunit()
+    Bn = Bu[Unit("s/op")].convert_unit(u"µs/op").byname()
+    S  = dict((_, Bn[_].stats()) for _ in Bn)   # {} name -> stats
+
+    yticks = set()
+    yticknames = {} # ytick -> []name
+
+    # order plots (and thus their order in legend) by value
+    namev = S.keys()
+    namev.sort(key = lambda _: S[_].avg, reverse=True)
+
+    for name in namev:
+        if _lat1_skipname(name):
+            continue
+
+        s = S[name]
+        #if details:
+        #    print '%s:\t%s' % (name, s)
+
+        node, xname = name.split('/', 1)
+        yticks.add(s.avg)
+        yticknames.setdefault(s.avg, []).append(node)   # XXX name
+        c = 1.1
+        lw = 0.5
+        if details:
+            lw = 1.5
+        ax.plot([c-w, c+w], [s.min]*2, lw=lw, label=xname, **stylefor(name))
+        ax.plot([c-w, c+w], [s.max]*2, lw=lw, **stylefor(name))
+        ax.plot([c]*2, [s.min, s.max], lw=lw, **stylefor(name))
+
+    # mark node-local values with ticks at right
+    ax2 = ax.twinx()
+    ax2.set_ylim(ax.get_ylim())
+    ax2.set_yticks([])
+    fmt='%d'
+    if details:
+        def fmt(y):
+            namev = yticknames[y]
+            return r'%.1f\ %s' % (y, ', '.join(namev))
+    add_yvalueticks(ax2, yticks, fmt=fmt)
+
+    if details:
+        ax.legend(loc='upper left', fontsize='x-small', #markerfirst=False,
+                bbox_transform=ax.transAxes, bbox_to_anchor=(1.4, 1), borderaxespad=0) # XXX hack to shift right
+
+
+
+# benchmarks not to show
+_lat1_skipre_v = [re.compile(_) for _ in [
+        '.*adler32/.*',
+        '.*1K',
+        '.*2M',
+        '.*/unzlib/.*null',
+        '.*/prod1-max',
+        '.*-min',
+]]
+def _lat1_skipname(name):
+    for skipre in _lat1_skipre_v:
+        if skipre.match(name):
+            return True
+    return False
+
+
+
+
+# labtext returns text representation of ordered label {}.
+def labtext(labels, nowarnings=False):
+    textv = []
+    for k,v in labels.items():
+        if k == 'WARNING':
+            if not nowarnings:
+                for warn in v:
+                    textv.append('WARNING: ' + warn)
+        else:
+            textv.append('%s: %s' % (k, v))
+    return '\n'.join(textv)
+
+# labwarn returns warning text, if any.
+def labwarn(labels):
+    warnv = labels.get('WARNING')
+    if not warnv:
+        return ''
+
+    textv = []
+    for warn in warnv:
+        textv.append('WARNING: ' + warn)
+    return '\n'.join(textv)
+
+
+
+
+
+
+def main():
+    B, _, extv = xload_file(sys.argv[1])
+
+    # nodemap: neotest extension blocks with nodes
+    # extv -> node {}, date
+    nodemap = OrderedDict()
+    date = None
+    for ext in extv:
+        if 'xnode' not in ext:
+            raise RuntimeError('ext block without xnode:\n%s' % labtext(ext))
+        xnode = ext['xnode']
+        # kirr@deco.navytux.spb.ru (...     XXX vvv hacky, not robust
+        _ = xnode.split()[0]    # kirr@deco.navytux.spb.ru
+        _ = _.split('@')[1]     # deco.navytux.spb.ru
+        node = _.split('.')[0]
+        nodemap[node] = ext
+        if 'date' in ext:
+            if date is None:
+                date = ext['date']
+            # XXX also check dates on client/server are close enough to each other?
+            del ext['date']
+
+    if date is None:
+        date = "date: ?"
+
+    # Bnode: {} node -> node-local benchmarks
+    Bnode = OrderedDict()
+    _ = B.bylabel(['node'])
+    for labkey in _:
+        if labkey == ():
+            continue        # benchmarks with no `node: ...`
+        node = labkey[0][1] # labkey = ('node', node)
+        Bnode[node] = _[labkey]
+
+
+    Bl = B.bylabel(['dataset', 'cluster'])
+    for labkey in Bl:
+        # FIXME hack
+        if labkey == ():    # cpu benchmarks
+            continue
+
+        _ = dict(labkey)
+        cluster = _['cluster']
+        clusterv = cluster.split('-')   # nodes in cluster
+
+        if 'dataset' not in _:
+            continue        # networking benchmarks     XXX show them too in plotnode1
+
+        # check we have node info or nodes in cluster
+        for node in clusterv:
+            if node not in nodemap:
+                raise RuntimeError('%s: node %s: no node info' % (labkey, node))
+            if node not in Bnode:
+                raise RuntimeError('%s: node %s: no node-local benchmarks' % (labkey, node))
+
+        Bu = Bl[labkey].byunit()
+
+        #fig = plt.figure(figsize=(2*7.5,10))       # XXX figsize - temp?
+        fig = plt.figure(figsize=(12,11))       # XXX figsize - temp?
+        fig.suptitle("ZODB server handling read requests", y=0.995)
+        #fig.text(0.5, 0.04, "XXX number of clients running simultaneously", ha='center')
+        fig.text(0.5, 0.204, "XXX number of clients running simultaneously", ha='center')
+
+        ax1 = plt.subplot2grid((7,2), (0,0), rowspan=6)
+        ax1.set_title(u'#requests,  object/s  (↑ is better)')  # XXX add vspace between title and plot
+
+        # XXX req/s hardcoded. XXX other units?
+        Sreq = xseriesof(Bu[Unit('req/s')])
+        if Sreq is None:
+            raise RuntimeError('%s: req/s: series not found' % (labkey,))
+
+        plotseries(ax1, labkey, Sreq)
+
+
+        ax2 = plt.subplot2grid((7,2), (0,1), rowspan=6)
+        ax2.set_title(u'latency,  µs/object  (↓ is better)')
+
+        Slat = xseriesof(Bu[Unit(u'latency-s/object')].convert_unit(u'latency-µs/object'))
+        if Slat is None:
+            raise RuntimeError('%s: latency-s/object: series not found' % (labkey,))
+
+        plotseries(ax2, labkey, Slat)
+
+        # don't show legend in latency plot - instead show latency details for client=1
+        ax2.legend().set_visible(False)
+
+        #ax21 = zoomed_inset_axes(ax2, 8, loc='upper left', borderpad=3.0)
+        ax21 = zoomed_inset_axes(ax2, 8, loc='upper left', borderpad=1.0, bbox_to_anchor=(0.06, 1), bbox_transform=ax2.transAxes)
+        zlatmax = 200   # XXX hardcoded
+        zxmin, zxmax = 0.8, 1.2     # XXX adjust?
+        ax21.set_ylim(0, zlatmax)
+        ax21.set_xlim(zxmin, zxmax)
+        ax21.set_xticks([])
+        ax21.set_xticklabels([])
+
+        # vvv a bit adjusted mark_inset(ax2, ax21, ...) - to connect box'es the way we need
+        rect = TransformedBbox(ax21.viewLim, ax2.transData)
+        ax2.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
+        ax2.add_patch(BboxConnectorPatch(ax21.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5))
+
+        plotlat1(ax21, Slat)
+
+        # also show sha1, unzip, ... latencies
+        B = mergebynode(Bnode)
+        B = mergepygo(B)
+        plotnode1(ax21, B)
+
+        # and same in detail
+        bb = ax2.bbox.translated(0,0)      # .anchored((0,0))   #.anchored((3000,50))
+        ax211 = zoomed_inset_axes(ax2, 14*8, loc='upper left', borderpad=1.0, bbox_to_anchor=(0.33, 1), bbox_transform=ax2.transAxes)
+        #zlatmax = 25                # XXX hardcoded
+        zlatmax = 10                # XXX hardcoded
+        zxmin, zxmax = 1.09, 1.11   # XXX adjust?
+        ax211.set_ylim(0, zlatmax)
+        ax211.set_xlim(zxmin, zxmax)
+        ax211.set_xticks([])
+        ax211.set_xticklabels([])
+        plotnode1(ax211, B, w=0.007, details=True)
+        # small title for ax211
+        #ax211.text(0.5, 1.005, 'basic ops, µs', ha='center', fontsize='x-small', transform=ax211.transAxes)
+        bb = ax211.get_legend().get_bbox_to_anchor()
+        xc, ymax = ax211.transAxes.inverted().transform(((bb.xmin + bb.xmax) / 2., bb.ymax))
+        xc += 1.5   # FIXME because bb.xmax = xmin
+        ax211.text(xc, ymax + 0.005, 'basic ops, µs/op', ha='center', fontsize='x-small', transform=ax211.transAxes)
+
+        # mark_inset(ax21, ax211, ...)
+        rect = TransformedBbox(ax211.viewLim, ax21.transData)
+        ax21.add_patch(BboxPatch(rect, fill=False, fc="none", ec="0.5", lw=0.5))
+        ax21.add_patch(BboxConnectorPatch(ax211.bbox, rect, 3,2, 4,1, ec="0.5", lw=0.5, clip_on=False))
+
+
+
+        # figure-global legend showing labels from labkey
+        # https://matplotlib.org/tutorials/intermediate/legend_guide.html#multiple-legends-on-the-same-axes
+        lh = [r0] * len(labkey)
+        ltext = ['%s: %s' % (k,v) for k,v in labkey]
+        fig.legend(lh, ltext, handlelength=0, handletextpad=0, loc="upper right")
+
+
+        # reduce margins
+        fig.subplots_adjust(
+                left=0.05,      # no big marging on the left
+                right=0.95,     # ----//---- r
+                top=1.00-0.045,
+                #bottom=0.05,
+                #wspace=0.1
+        )
+
+        # date
+        fig.text(0.003, 0.995, date, ha='left', va='top', fontsize=8)   # XXX fs -> 7
+
+        # text about nodes
+        assert len(nodemap) <= 2    # XXX fragile
+        for i, node in enumerate(nodemap):
+            ax = plt.subplot2grid((7,2), (6,i), rowspan=1) # XXX 7,6 hardcoded
+            ax.set_axis_off()
+            ax.text(-0.01, -0.10, node, rotation='vertical', ha='right', va='top', fontsize='large') # XXX font size?
+            # include pystone in ylabel     XXX good place?
+            pys = Bnode[node].byunit()[Unit(u'pystone/s')].stats()
+            pydelta = max(pys.max - pys.avg, pys.avg - pys.min)
+            ax.text(-0.01, -0.10, '  (%.1fk ±%2.0f%% pystone/s)' % (pys.avg / 1E3, 100. *pydelta / pys.avg),
+                    rotation='vertical', ha='right', va='bottom', fontsize=6)
+
+            h = 1.00 - 0.10
+            hmargin = 0.01
+            tsty = {'fontsize': 6, 'linespacing': 0.9, 'ha': 'left', 'va': 'top'}
+
+            warn = labwarn(nodemap[node])
+            if warn:
+                t = ax.text(0.01, h-hmargin, warn, color='red', **tsty)
+                #print t.get_position(), t.get_unitless_position()
+                #print t.get_window_extent(renderer=fig.canvas.get_renderer())
+                #print t.axes
+                h -= 0.08 * len(warn.split('\n'))    # XXX hack
+
+            ax.text(0.01, h-hmargin, labtext(nodemap[node], nowarnings=True), **tsty)
+
+
+
+        #plt.savefig('2.svg')
+        plt.show()
+        #return      # XXX temp to show only first
+
+
+
+
+if __name__ == '__main__':
+    # XXX hack, so that unicode -> str works out of the box
+    import sys; reload(sys)
+    sys.setdefaultencoding('UTF-8')
+    main()
