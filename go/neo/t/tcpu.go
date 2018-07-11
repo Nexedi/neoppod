@@ -18,6 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // +build ignore
+//go:generate ./gen-testdata
 
 // tcpu - cpu-related benchmarks
 package main
@@ -29,11 +30,16 @@ import (
 	"hash"
 	"hash/adler32"
 	"hash/crc32"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
+
+	"lab.nexedi.com/kirr/go123/my"
+	"lab.nexedi.com/kirr/neo/go/internal/xzlib"
 )
 
 func dieusage() {
@@ -94,11 +100,37 @@ func BenchmarkAdler32(b *testing.B, arg string) { benchHash(b, adler32.New(), ar
 func BenchmarkCrc32(b *testing.B, arg string)   { benchHash(b, crc32.NewIEEE(), arg) }
 func BenchmarkSha1(b *testing.B, arg string)    { benchHash(b, sha1.New(), arg) }
 
+func xreadfile(path string) []byte {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return data
+}
+
+var __dir__ = filepath.Dir(my.File())
+
+func BenchmarkUnzlib(b *testing.B, zfile string) {
+	zdata := xreadfile(fmt.Sprintf("%s/testdata/zlib/%s", __dir__, zfile))
+
+	b.ResetTimer()
+
+	var data []byte
+	var err  error
+	for i := 0; i < b.N; i++ {
+		data, err = xzlib.Decompress(zdata, data)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
 
 var benchv = map[string]func(*testing.B, string) {
 	"adler32":	BenchmarkAdler32,
 	"crc32":	BenchmarkCrc32,
 	"sha1":		BenchmarkSha1,
+	"unzlib":	BenchmarkUnzlib,
 }
 
 

@@ -959,6 +959,14 @@ bench_cpu() {
 			nrun tcpu_go $bench $size
 		done
 	done
+
+	datav="wczdata prod1-avg"	# null-1K null-4K null-2M prod1-max
+	for data in $datav; do
+		nrun tcpu.py unzlib $data
+		nrun tcpu_go unzlib $data
+	done
+
+	# TODO bench compress
 }
 
 # bench_disk	- benchmark direct (uncached) and cached random reads

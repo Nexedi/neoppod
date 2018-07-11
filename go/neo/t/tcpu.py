@@ -24,7 +24,9 @@ from __future__ import print_function
 
 import sys
 import hashlib
+import zlib
 from zlib import crc32, adler32
+from os.path import dirname
 
 from golang import testing
 
@@ -104,6 +106,24 @@ def _bench_hasher(b, h, blksize):
 def bench_adler32(b, blksize):  _bench_hasher(b, Adler32Hasher(), blksize)
 def bench_crc32(b, blksize):    _bench_hasher(b, CRC32Hasher(), blksize)
 def bench_sha1(b, blksize):     _bench_hasher(b, hashlib.sha1(), blksize)
+
+
+def readfile(path):
+    with open(path, 'r') as f:
+        return f.read()
+
+
+__dir__ = dirname(__file__)
+
+def bench_unzlib(b, zfile):
+    zdata = readfile('%s/testdata/zlib/%s' % (__dir__, zfile))
+    b.reset_timer()
+
+    n = b.N
+    i = 0
+    while i < n:
+        zlib.decompress(zdata)
+        i += 1
 
 
 def main():
