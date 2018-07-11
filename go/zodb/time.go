@@ -41,7 +41,7 @@ func (t TimeStamp) XFmtString(b []byte) []byte {
 }
 
 
-// Time converts tid to time
+// Time converts tid to time.
 func (tid Tid) Time() TimeStamp {
 	// the same as _parseRaw in TimeStamp/py
 	// https://github.com/zopefoundation/persistent/blob/aba23595/persistent/timestamp.py#L75

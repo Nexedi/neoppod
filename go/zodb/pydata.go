@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2018  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -27,10 +27,10 @@ import (
 	pickle "github.com/kisielk/og-rek"
 )
 
-// PyData represents data stored into ZODB by Python applications.
+// PyData represents raw data stored into ZODB by Python applications.
 //
 // The format is based on python pickles. Basically every serialized object has
-// two parts: class description and object state. See
+// two parts: pickle with class description and pickle with object state. See
 //
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/serialize.py
 //

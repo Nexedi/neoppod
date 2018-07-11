@@ -35,13 +35,13 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-// tStorage implements read-only storage for cache testing
+// tStorage implements read-only storage for cache testing.
 type tStorage struct {
 	// oid -> [](.serial↑, .data)
 	dataMap map[Oid][]tOidData
 }
 
-// data for oid for 1 revision
+// data for oid for 1 revision.
 type tOidData struct {
 	serial Tid
 	data   []byte

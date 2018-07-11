@@ -56,7 +56,7 @@ type Cache struct {
 	sizeMax int     // cache is allowed to occupy not more than this
 }
 
-// oidCacheEntry maintains cached revisions for 1 oid
+// oidCacheEntry maintains cached revisions for 1 oid.
 type oidCacheEntry struct {
 	oid Oid
 
@@ -70,7 +70,7 @@ type oidCacheEntry struct {
 	rcev []*revCacheEntry
 }
 
-// revCacheEntry is information about 1 cached oid revision
+// revCacheEntry is information about 1 cached oid revision.
 type revCacheEntry struct {
 	parent *oidCacheEntry // oidCacheEntry holding us
 	inLRU  lruHead        // in Cache.lru; protected by Cache.gcMu
@@ -409,7 +409,7 @@ func (c *Cache) loadRCE(ctx context.Context, rce *revCacheEntry) {
 	c.gcMu.Unlock()
 }
 
-// tryMerge tries to merge rce prev into next
+// tryMerge tries to merge rce prev into next.
 //
 // both prev and next must be already loaded.
 // prev and next must come adjacent to each other in parent.rcev with
@@ -561,7 +561,7 @@ func (oce *oidCacheEntry) release() {
 // ----------------------------------------
 
 // isErrNoData returns whether an error is due to "there is no such data in
-// database", not e.g. some IO loading error
+// database", not e.g. some IO loading error.
 func isErrNoData(err error) bool {
 	switch err.(type) {
 	default:
@@ -631,7 +631,7 @@ func (oce *oidCacheEntry) del(rce *revCacheEntry) {
 }
 
 
-// loaded reports whether rce was already loaded
+// loaded reports whether rce was already loaded.
 //
 // must be called with rce.parent locked.
 func (rce *revCacheEntry) loaded() bool {
@@ -653,7 +653,7 @@ func (h *lruHead) rceFromInLRU() (rce *revCacheEntry) {
 	return (*revCacheEntry)(urce)
 }
 
-// errDB returns error about database being inconsistent
+// errDB returns error about database being inconsistent.
 func errDB(oid Oid, format string, argv ...interface{}) error {
 	// XXX -> separate type?
 	return fmt.Errorf("cache: database inconsistency: oid: %v: "+format,
