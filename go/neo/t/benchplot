@@ -298,7 +298,7 @@ _stylefor_re = [(re.compile(_), sty) for _,sty in [
         (ur'neo/py\(!log\)/sql(·P.*)?-zwrk.go',             _(color='C4')), # ls='dashed'), # XXX dashed?
         (ur'crc32/(py|\*)/4K',                              _(color='C5')),
         (ur'crc32/go/4K',                                   _(color='C5', ls='dashed')),
-        (ur'sha1/(py\|*)/4K',                               _(color='C6')),
+        (ur'sha1/(py|\*)/4K',                               _(color='C6')),
         (ur'sha1/go/4K',                                    _(color='C6', ls='dashed')),
         (ur'unzlib/(py|\*)/wczdata',                        _(color='C7')),
         (ur'unzlib/go/wczdata',                             _(color='C7', ls='dashed')),
