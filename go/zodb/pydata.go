@@ -22,6 +22,7 @@ package zodb
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	pickle "github.com/kisielk/og-rek"
@@ -35,7 +36,59 @@ import (
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/serialize.py
 //
 // for format description.
+//
+// PyData can be decoded into PyObject.
 type PyData []byte
+
+//type PyClass struct {
+//	Module string
+//	Name   string
+//}
+// XXX + String = Module + "." + Name
+
+// PyObject represents persistent Python object.
+//
+// PyObject can be decoded from PyData.
+type PyObject struct {
+	//oid	Oid
+	//serial	Tid
+
+	// XXX + Oid, Serial ?	(_p_oid, _p_serial)
+	pyClass pickle.Class // python class of this object	XXX -> ro
+	State   interface{}  // object state. python passes this to pyclass.__new__().__setstate__()
+}
+
+
+// PyLoader is like Loader by returns decoded Python objects instead of raw data.
+type PyLoader interface {
+	// XXX returned pyobject, contrary to Loader, can be modified, because
+	// it is not shared. right?
+	Load(ctx, xid Xid) (*PyObject, error)
+}
+
+
+// Decode decodes raw ZODB python data into PyObject.	XXX -> (pyclass, pystate)
+//func (d PyData) Decode() (*PyObject, error) {
+func (d PyData) Decode() (pyclass PyClass, pystate interface{}, error) {
+	p := pickle.NewDecoder(bytes.NewReader([]byte(d)))
+	xklass, err := p.Decode()
+	if err != nil {
+		return nil, fmt.Errorf("pydata: decode: class description: %s", err)
+	}
+
+	klass, err := normPyClass(xklass)
+	if err != nil {
+		return nil, fmt.Errorf("pydata: decode: class description: %s", err)
+	}
+
+	state, err := p.Decode()
+	if err != nil {
+		return nil, fmt.Errorf("pydata: decode: object state: %s", err)
+	}
+
+	return &PyObject{pyClass: klass, State: state}, nil
+}
+
 
 // ClassName returns fully-qualified python class name used for object type.
 //
@@ -49,23 +102,55 @@ func (d PyData) ClassName() string {
 		return "?.?"
 	}
 
+	klass, err := normPyClass(xklass)
+	if err != nil {
+		return "?.?"
+	}
+
+	return klass.Module + "." + klass.Name
+}
+
+var errInvalidPyClass = errors.New("invalid py class description")
+
+// normPyClass normalizes py class that has just been decoded from a serialized
+// ZODB object or reference.
+func normPyClass(xklass interface{}) (pickle.Class, error) {
+	// class description:
+	//
+	//	- type(obj), or
+	//	- (xklass, newargs|None)	; xklass = type(obj) | (modname, classname)
+
 	if t, ok := xklass.(pickle.Tuple); ok {
-		if len(t) != 2 { // (klass, args)
-			return "?.?"
+		// t = (xklass, newargs|None)
+		if len(t) != 2 {
+			return pickle.Class{}, errInvalidPyClass
 		}
+		// XXX newargs is ignored (zodb/py uses it only for persistent classes)
 		xklass = t[0]
 		if t, ok := xklass.(pickle.Tuple); ok {
-			// py: "old style reference"
+			// t = (modname, classname)
 			if len(t) != 2 {
-				return "?.?" // (modname, classname)
+				return pickle.Class{}, errInvalidPyClass
 			}
-			return fmt.Sprintf("%s.%s", t...)
+			modname, ok1 := t[0].(string)
+			classname, ok2 := t[1].(string)
+			if !(ok1 && ok2) {
+				return pickle.Class{}, errInvalidPyClass
+			}
+
+			return pickle.Class{Module: modname, Name: classname}, nil
 		}
 	}
 
 	if klass, ok := xklass.(pickle.Class); ok {
-		return klass.Module + "." + klass.Name
+		// klass = type(obj)
+		return klass, nil
 	}
 
-	return "?.?"
+	return pickle.Class{}, errInvalidPyClass
+}
+
+// PyClass returns Python class of the object.
+func (pyobj *PyObject) PyClass() pickle.Class {
+	return pyobj.pyClass
 }

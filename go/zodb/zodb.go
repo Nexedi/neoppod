@@ -55,6 +55,15 @@
 // documentation of IStorage, and other interfaces it embeds, for details.
 //
 //
+// Python data
+//
+// PyData, PyObject, ...
+//
+//
+// Storage drivers
+//
+// IStorageDriver, RegisterDriver + wks (FileStorage, ZEO and NEO).
+//
 // --------
 //
 // See also package lab.nexedi.com/kirr/neo/go/zodb/zodbtools and associated
@@ -208,6 +217,13 @@ func (e *OpError) Cause() error {
 type IStorage interface {
 	IStorageDriver
 
+	//Loader
+	Prefetcher
+	//Iterator
+}
+
+// XXX
+type Prefetcher interface {
 	// Prefetch prefetches object addressed by xid.
 	//
 	// If data is not yet in cache loading for it is started in the background.
@@ -232,12 +248,20 @@ type IStorageDriver interface {
 	// If no transactions have been committed yet, LastTid returns 0.
 	LastTid(ctx context.Context) (Tid, error)
 
+	Loader
+	Iterator
+}
+
+// Loader exposes functionality to load objects.
+type Loader interface {
 	// Load loads object data addressed by xid from database.
 	//
 	// Returned are:
 	//
 	//	- if there is data to load: buf is non-empty, serial indicates
 	//	  transaction which matched xid criteria and err=nil.
+	//
+	//	  caller must not modify buf memory.
 	//
 	// otherwise buf=nil, serial=0 and err is *OpError with err.Err
 	// describing the error cause:
@@ -273,7 +297,10 @@ type IStorageDriver interface {
 	// cache without serial_next returned from Load. For this reason in ZODB/go
 	// Load specification comes without specifying serial_next return.
 	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
+}
 
+// Committer exposes functionality to commit transactions.
+type Committer interface {
 	// TODO: write mode
 
 	// Store(ctx, oid Oid, serial Tid, data []byte, txn ITransaction) error
@@ -283,12 +310,19 @@ type IStorageDriver interface {
 	// TpcVote(txn)
 	// TpcFinish(txn, callback)
 	// TpcAbort(txn)
+}
 
+
+// Notifier allows to be notified of database changes made by other clients.
+type Notifier interface {
 	// TODO: invalidation channel (notify about changes made to DB not by us from outside)
+}
 
 
 	// TODO: History(ctx, oid, size=1)
 
+// Iterator provides functionality to iterate through storage transactions sequentially.
+type Iterator interface {
 	// Iterate creates iterator to iterate storage in [tidMin, tidMax] range.
 	//
 	// Iterate does not return any error. If there was error when setting

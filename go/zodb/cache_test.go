@@ -636,7 +636,7 @@ func (c *Checker) assertEq(a, b interface{}) {
 
 // ----------------------------------------
 
-// noopStorage is dummy StorLoader which for any oid/xid always returns 1-byte data
+// noopStorage is dummy Loader which for any oid/xid always returns 1-byte data.
 type noopStorage struct{}
 var noopData = []byte{0}
 
@@ -648,15 +648,15 @@ func (s *noopStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid
 	return mkbuf(noopData), 1, nil
 }
 
-// benchLoad serially benchmarks a StorLoader - either storage directly or a cache on top of it
+// benchLoad serially benchmarks a Loader - either storage directly or a cache on top of it.
 //
 // oid accessed are [0, worksize)
-func benchLoad(b *testing.B, l StorLoader, worksize int) {
+func benchLoad(b *testing.B, l Loader, worksize int) {
 	benchLoadN(b, b.N, l, worksize)
 }
 
 // worker for benchLoad, with n overridding b.N
-func benchLoadN(b *testing.B, n int, l StorLoader, worksize int) {
+func benchLoadN(b *testing.B, n int, l Loader, worksize int) {
 	ctx := context.Background()
 
 	xid := Xid{At: 1, Oid: 0}
@@ -723,7 +723,7 @@ func BenchmarkCacheHit(b *testing.B) {
 // ---- parallel benchmarks (many requests to 1 cache) ----
 
 // benchLoadPar is like benchLoad but issues loads in parallel
-func benchLoadPar(b *testing.B, l StorLoader, worksize int) {
+func benchLoadPar(b *testing.B, l Loader, worksize int) {
 	ctx := context.Background()
 	np := runtime.GOMAXPROCS(0)
 	p := uint64(0)
@@ -776,7 +776,7 @@ func BenchmarkCacheHitPar(b *testing.B) {
 // XXX this benchmark part will probably go away
 
 // benchLoadProc is like benchLoad but works with PB, not B
-func benchLoadProc(pb *testing.PB, l StorLoader, worksize int) error {
+func benchLoadProc(pb *testing.PB, l Loader, worksize int) error {
 	ctx := context.Background()
 
 	xid := Xid{At: 1, Oid: 0}
