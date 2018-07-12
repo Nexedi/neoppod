@@ -29,19 +29,19 @@ import (
 	"lab.nexedi.com/kirr/go123/mem"
 )
 
-// OpenOptions describes options for OpenStorage
+// OpenOptions describes options for OpenStorage.
 type OpenOptions struct {
 	ReadOnly bool // whether to open storage as read-only
 	NoCache  bool // don't use cache for read/write operations
 }
 
-// DriverOpener is a function to open a storage driver
+// DriverOpener is a function to open a storage driver.
 type DriverOpener func (ctx context.Context, u *url.URL, opt *OpenOptions) (IStorageDriver, error)
 
 // {} scheme -> DriverOpener
 var driverRegistry = map[string]DriverOpener{}
 
-// RegisterDriver registers opener to be used for URLs with scheme
+// RegisterDriver registers opener to be used for URLs with scheme.
 func RegisterDriver(scheme string, opener DriverOpener) {
 	if _, already := driverRegistry[scheme]; already {
 		panic(fmt.Errorf("ZODB URL scheme %q was already registered", scheme))
@@ -107,7 +107,7 @@ type storage struct {
 }
 
 
-// loading always goes through cache - this way prefetching can work
+// loading goes through cache - this way prefetching can work
 
 func (s *storage) Load(ctx context.Context, xid Xid) (*mem.Buf, Tid, error) {
 	// XXX here: offload xid validation from cache and driver ?

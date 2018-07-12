@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017  Nexedi SA and Contributors.
+// Copyright (C) 2016-2018  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -26,27 +26,39 @@
 //
 // Data model
 //
-// Tid, Oid, ? Xid.
+// A ZODB database is conceptually modeled as transactional log of changes to objects.
+// Oid identifies an object and Tid - a transaction. A transaction can change
+// several objects and also has metadata, like user and description, associated
+// with it. If an object is changed by transaction, it is said that there is
+// revision of the object with particular object state committed by that transaction.
+// Object revision is the same as tid of transaction that modified the object.
+// The combination of object identifier and particular revision (serial)
+// uniquely addresses corresponding data record.
+//
+// Tids of consecutive database transactions are monotonically increasing and
+// are connected with time when transaction in question was committed.
+// This way, besides identifying a transaction with changes, Tid can also be
+// used to specify whole database state constructed by all cumulated
+// transaction changes from database beginning up to, and including,
+// transaction specified by it. Xid is "extended" oid that specifies particular
+// object state: it is (oid, at) pair that is mapped to object's latest
+// revision with serial ≤ at.
+//
+// Object state data is generally opaque, but is traditionally based on Python
+// pickles in ZODB/py world.
 //
 //
-// Operation
+// Operations
 //
-// Load(oid, at), iteration.
-// OpenStorage
-//
-//
-// Python data
-//
-// PyData, PyObject, ...
+// A ZODB database can be opened with OpenStorage. Once opened IStorage
+// interface is returned that represents access to the database. Please see
+// documentation of IStorage, and other interfaces it embeds, for details.
 //
 //
-// Storage drivers
+// --------
 //
-// IStorageDriver, RegisterDriver + wks (FileStorage, ZEO and NEO).
-//
-// ----
-//
-// XXX link to zodbtools / `zodb` cmd?
+// See also package lab.nexedi.com/kirr/neo/go/zodb/zodbtools and associated
+// zodb command that provide tools for managing ZODB databases.
 package zodb
 
 import (
@@ -88,7 +100,7 @@ type Oid uint64
 //
 // At specifies whole database state at which object identified with Oid should
 // be looked up. The object revision is taken from latest transaction modifying
-// the object with tid <= At.
+// the object with tid ≤ At.
 //
 // Note that Xids are not unique - the same object revision can be addressed
 // with several xids.
@@ -306,7 +318,7 @@ type IDataIterator interface {
 
 // ---- misc ----
 
-// Valid returns whether tid is in valid transaction identifiers range
+// Valid returns whether tid is in valid transaction identifiers range.
 func (tid Tid) Valid() bool {
 	// NOTE 0 is invalid tid
 	if 0 < tid && tid <= TidMax {
@@ -316,7 +328,7 @@ func (tid Tid) Valid() bool {
 	}
 }
 
-// Valid returns true if transaction status value is well-known and valid
+// Valid returns true if transaction status value is well-known and valid.
 func (ts TxnStatus) Valid() bool {
 	switch ts {
 	case TxnComplete, TxnPacked, TxnInprogress:

@@ -83,7 +83,7 @@ func (xid Xid) XFmtString(b xfmt.Buffer) xfmt.Buffer {
 */
 
 
-// parseHex64 decodes 16-character-wide hex-encoded string into uint64
+// parseHex64 decodes 16-character-wide hex-encoded string into uint64.
 func parseHex64(subj, s string) (uint64, error) {
 	// XXX -> xfmt ?
 	// XXX like scanf("%016x") but scanf implicitly skips spaces without giving control to caller and is slower

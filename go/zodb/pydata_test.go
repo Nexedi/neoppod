@@ -30,8 +30,6 @@ type _PyDataClassName_TestEntry struct {
 	className string
 }
 
-// XXX + test with zodbpickle.binary (see 12ee41c4 in ZODB)
-
 func TestPyClassName(t *testing.T) {
 	for _, tt := range _PyData_ClassName_Testv {
 		className := PyData(tt.pydata).ClassName()
@@ -40,8 +38,4 @@ func TestPyClassName(t *testing.T) {
 				tt.pydata, className, tt.className)
 		}
 	}
-}
-
-func TestPyDecode(t *testing.T) {
-	// XXX
 }
