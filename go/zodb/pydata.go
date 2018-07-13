@@ -23,11 +23,12 @@ package zodb
 import (
 	"bytes"
 	"errors"
-	//"fmt"
+	"fmt"
 
 	pickle "github.com/kisielk/og-rek"
 )
 
+/*
 // XXX move out of py
 // Object is in-process representaion of a ZODB object.
 type Object interface {
@@ -73,7 +74,7 @@ type Connection interface {
 
 	// XXX Close() error
 }
-
+*/
 
 
 
@@ -103,11 +104,12 @@ type PyData []byte
 //}
 // XXX + String = Module + "." + Name
 
+/*
 // PyObject represents persistent Python object.
 //
 // PyObject can be decoded from PyData.		XXX
 type PyObject struct {
-	Jar     *Connection	// XXX -> ro
+	//Jar     *Connection	// XXX -> ro
 	Oid	Oid		// XXX -> ro
 	Serial	Tid		// XXX -> ro
 
@@ -123,32 +125,30 @@ type PyLoader interface {
 	// it is not shared. right?
 	Load(ctx, xid Xid) (*PyObject, error)
 }
+*/
 
 
-/*
-// Decode decodes raw ZODB python data into PyObject.	XXX -> (pyclass, pystate)
-//func (d PyData) Decode() (*PyObject, error) {
+// Decode decodes raw ZODB python data into Python class and state.
 func (d PyData) Decode() (pyclass pickle.Class, pystate interface{}, _ error) {
 	p := pickle.NewDecoder(bytes.NewReader([]byte(d)))
 	xklass, err := p.Decode()
 	if err != nil {
-		return nil, nil, fmt.Errorf("pydata: decode: class description: %s", err)
+		return pickle.Class{}, nil, fmt.Errorf("pydata: decode: class description: %s", err)
 	}
 
 	klass, err := normPyClass(xklass)
 	if err != nil {
-		return nil, nil, fmt.Errorf("pydata: decode: class description: %s", err)
+		return pickle.Class{}, nil, fmt.Errorf("pydata: decode: class description: %s", err)
 	}
 
 	state, err := p.Decode()
 	if err != nil {
-		return nil, fmt.Errorf("pydata: decode: object state: %s", err)
+		return pickle.Class{}, nil, fmt.Errorf("pydata: decode: object state: %s", err)
 	}
 
 	//return &PyObject{pyClass: klass, State: state}, nil
 	return klass, state, nil
 }
-*/
 
 
 // ClassName returns fully-qualified python class name used for object type.
