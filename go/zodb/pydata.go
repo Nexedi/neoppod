@@ -23,10 +23,67 @@ package zodb
 import (
 	"bytes"
 	"errors"
-	"fmt"
+	//"fmt"
 
 	pickle "github.com/kisielk/og-rek"
 )
+
+// XXX move out of py
+// Object is in-process representaion of a ZODB object.
+type Object interface {
+	Jar()		*Connection
+	Oid()		Oid
+	Serial()	Tid
+
+	Data()	*mem.Buf	// XXX for raw, py -> PyObject
+
+	// XXX register(jar, oid) - register to database ? (for Connection.Add)
+
+	// PActivate
+	// PDeactivate
+	// PInvalidate
+}
+
+// XXX
+type DataManager interface {
+	//LoadObject(obj Object)
+	//LoadObject(oid Oid)
+	LoadState(obj)
+
+	// XXX oldstate(oid, tid)
+	// XXX register(obj)
+}
+
+
+
+// Connection represent client-visible part of a connection to ZODB database.
+//
+// XXX consitent view for some `at`.
+// XXX not needed? (just DB.Open() -> root object and connection not be visible)?
+type Connection interface {
+	// Get returns object by oid.
+	// XXX multiple calls to Get with same oid return the same object.
+	// XXX root object has oid=0.
+	Get(ctx context.Context, oid Oid) (Object, error)
+
+	// XXX Add(obj Object) -> add obj to database and assign it an oid
+	// obj must be not yet added
+
+	// XXX ReadCurrent(obj)
+
+	// XXX Close() error
+}
+
+
+
+
+
+
+
+
+
+
+
 
 // PyData represents raw data stored into ZODB by Python applications.
 //
@@ -48,14 +105,15 @@ type PyData []byte
 
 // PyObject represents persistent Python object.
 //
-// PyObject can be decoded from PyData.
+// PyObject can be decoded from PyData.		XXX
 type PyObject struct {
-	//oid	Oid
-	//serial	Tid
+	Jar     *Connection	// XXX -> ro
+	Oid	Oid		// XXX -> ro
+	Serial	Tid		// XXX -> ro
 
 	// XXX + Oid, Serial ?	(_p_oid, _p_serial)
-	pyClass pickle.Class // python class of this object	XXX -> ro
-	State   interface{}  // object state. python passes this to pyclass.__new__().__setstate__()
+	PyClass pickle.Class // python class of this object	XXX -> ro	?
+	PyState interface{}  // object state. python passes this to pyclass.__new__().__setstate__()
 }
 
 
@@ -67,18 +125,19 @@ type PyLoader interface {
 }
 
 
+/*
 // Decode decodes raw ZODB python data into PyObject.	XXX -> (pyclass, pystate)
 //func (d PyData) Decode() (*PyObject, error) {
-func (d PyData) Decode() (pyclass PyClass, pystate interface{}, _ error) {
+func (d PyData) Decode() (pyclass pickle.Class, pystate interface{}, _ error) {
 	p := pickle.NewDecoder(bytes.NewReader([]byte(d)))
 	xklass, err := p.Decode()
 	if err != nil {
-		return nil, fmt.Errorf("pydata: decode: class description: %s", err)
+		return nil, nil, fmt.Errorf("pydata: decode: class description: %s", err)
 	}
 
 	klass, err := normPyClass(xklass)
 	if err != nil {
-		return nil, fmt.Errorf("pydata: decode: class description: %s", err)
+		return nil, nil, fmt.Errorf("pydata: decode: class description: %s", err)
 	}
 
 	state, err := p.Decode()
@@ -86,8 +145,10 @@ func (d PyData) Decode() (pyclass PyClass, pystate interface{}, _ error) {
 		return nil, fmt.Errorf("pydata: decode: object state: %s", err)
 	}
 
-	return &PyObject{pyClass: klass, State: state}, nil
+	//return &PyObject{pyClass: klass, State: state}, nil
+	return klass, state, nil
 }
+*/
 
 
 // ClassName returns fully-qualified python class name used for object type.
@@ -150,7 +211,7 @@ func normPyClass(xklass interface{}) (pickle.Class, error) {
 	return pickle.Class{}, errInvalidPyClass
 }
 
-// PyClass returns Python class of the object.
-func (pyobj *PyObject) PyClass() pickle.Class {
-	return pyobj.pyClass
-}
+// // PyClass returns Python class of the object.
+// func (pyobj *PyObject) PyClass() pickle.Class {
+// 	return pyobj.pyClass
+// }

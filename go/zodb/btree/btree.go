@@ -18,40 +18,51 @@
 // XXX name -> zbtree ?
 package btree
 
-// ZBucket mimics ?OBucket from btree/py, with ? being any integer.
+import (
+	"context"
+	"sort"
+
+	"lab.nexedi.com/kirr/neo/go/zodb"
+)
+
+// XXX temp
+type KEY int64
+
+
+// Bucket mimics ?OBucket from btree/py, with ? being any integer.
 //
-// py description:
+// original py description:
 //
 // A Bucket wraps contiguous vectors of keys and values.  Keys are unique,
 // and stored in sorted order.  The 'values' pointer may be NULL if the
 // Bucket is used to implement a set.  Buckets serving as leafs of BTrees
 // are chained together via 'next', so that the entire BTree contents
 // can be traversed in sorted order quickly and easily.
-type ZBucket struct {
+type Bucket struct {
 	pyobj *zodb.PyObject
 
-	next   *ZBucket		// the bucket with the next-larger keys
+	next   *Bucket		// the bucket with the next-larger keys
 	keys   []KEY		// 'len' keys, in increasing order
 	values []interface{}	// 'len' corresponding values		XXX merge k/v ?
 }
 
 // zBTreeItem mimics BTreeItem from btree/py.
-type zBTreeItem {
+type zBTreeItem struct {
 	key	KEY
-	child	interface{}	// ZBTree or ZBucket
+	child	interface{}	// BTree or Bucket
 }
 
-// ZBTree mimics ?OBTree from btree/py, with ? being any integer.
+// BTree mimics ?OBTree from btree/py, with ? being any integer.
 //
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
 // for details.
-type ZBTree struct {
+type BTree struct {
 	pyobj *zodb.PyObject
 
 	// firstbucket points to the bucket containing the smallest key in
 	// the BTree.  This is found by traversing leftmost child pointers
 	// (data[0].child) until reaching a Bucket.
-	firstbucket *ZBucket
+	firstbucket *Bucket
 
 	// The BTree points to 'len' children, via the "child" fields of the data
 	// array.  There are len-1 keys in the 'key' fields, stored in increasing
@@ -66,7 +77,7 @@ type ZBTree struct {
 //
 // It loads intermediate BTree nodes from database on demand as needed.
 // XXX ok -> ErrKeyNotFound?
-func (t *ZBTree) Get(ctx context.Context, key KEY) (interface{}, bool, error) {
+func (t *BTree) Get(ctx context.Context, key KEY) (interface{}, bool, error) {
 	t.PActivate(ctx)	// XXX err
 
 	if len(t.data) == 0 {
@@ -85,14 +96,15 @@ func (t *ZBTree) Get(ctx context.Context, key KEY) (interface{}, bool, error) {
 		})
 
 		switch child := t.data[i].child.(type) {
-		case *ZBTree:
+		case *BTree:
 			// XXX t.PAllowDeactivate
 			t = child
 			t.PActivate(ctx)	// XXX err
 
-		case *ZBucket:
+		case *Bucket:
 			child.PActivate(ctx)	// XXX err
-			return child.Get(key), nil
+			x, ok := child.get(key)
+			return x, ok, nil
 		}
 	}
 }
@@ -100,12 +112,12 @@ func (t *ZBTree) Get(ctx context.Context, key KEY) (interface{}, bool, error) {
 // get searches Bucket by key.
 //
 // no loading from database is done. The bucket must be already activated.
-func (b *ZBucket) get(key KEY) (interface{}, bool) {
+func (b *Bucket) get(key KEY) (interface{}, bool) {
 	// XXX b.PActivate ?	XXX better caller? (or inside if get -> Get)
 
 	// search i: K(i-1) < k ≤ K(i)		; K(-1) = -∞, K(len) = +∞
 	i := sort.Search(len(b.keys), func(i int) bool {
-		return key <= t.data[i].key
+		return key <= b.keys[i]
 	})
 
 	if i == len(b.keys) || b.keys[i] != key {
@@ -142,10 +154,8 @@ func (b *ZBucket) get(key KEY) (interface{}, bool) {
 // In the above, key[i] means self->data[i].key, and similarly for child[i].
 
 
-// XXX ZBTree.Get(key)
-
-// XXX ZBucket.MinKey ?
-// XXX ZBucket.MaxKey ?
+// XXX Bucket.MinKey ?
+// XXX Bucket.MaxKey ?
 
 
 // from https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BucketTemplate.c#L1195:

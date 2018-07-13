@@ -35,6 +35,8 @@ import (
 // TODO maintain nhit / nmiss + way to read cache stats
 // TODO optimize cache more so that miss overhead becomes negligible
 
+// TODO Drop(xid) -> make sure data for xid is no longer in cache
+
 // Cache provides RAM caching layer that can be used over a storage.
 type Cache struct {
 	loader interface {
