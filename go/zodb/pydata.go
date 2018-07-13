@@ -69,7 +69,7 @@ type PyLoader interface {
 
 // Decode decodes raw ZODB python data into PyObject.	XXX -> (pyclass, pystate)
 //func (d PyData) Decode() (*PyObject, error) {
-func (d PyData) Decode() (pyclass PyClass, pystate interface{}, error) {
+func (d PyData) Decode() (pyclass PyClass, pystate interface{}, _ error) {
 	p := pickle.NewDecoder(bytes.NewReader([]byte(d)))
 	xklass, err := p.Decode()
 	if err != nil {
