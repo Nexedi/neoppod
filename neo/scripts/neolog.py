@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import bz2, gzip, errno, optparse, os, signal, sqlite3, sys, time
+import argparse, bz2, gzip, errno, os, signal, sqlite3, sys, time
 from bisect import insort
 from logging import getLevelName
 from zlib import decompress
@@ -225,38 +225,38 @@ def emit_many(log_list):
                 insort(event_list, (-event[0], next, emit, event))
 
 def main():
-    parser = optparse.OptionParser()
-    parser.add_option('-a', '--all', action="store_true",
+    parser = argparse.ArgumentParser(description='NEO Log Reader')
+    _ = parser.add_argument
+    _('-a', '--all', action="store_true",
         help='decode body of packets')
-    parser.add_option('-A', '--decompress', action="store_true",
+    _('-A', '--decompress', action="store_true",
         help='decompress data when decode body of packets (implies --all)')
-    parser.add_option('-d', '--date', metavar='FORMAT',
+    _('-d', '--date', metavar='FORMAT',
         help='custom date format, according to strftime(3)')
-    parser.add_option('-f', '--follow', action="store_true",
+    _('-f', '--follow', action="store_true",
         help='output appended data as the file grows')
-    parser.add_option('-F', '--flush', action="append", type="int",
+    _('-F', '--flush', action="append", type=int, metavar='PID',
         help='with -f, tell process PID to flush logs approximately N'
-              ' seconds (see -s)', metavar='PID')
-    parser.add_option('-n', '--node', action="append",
+              ' seconds (see -s)')
+    _('-n', '--node', action="append",
         help='only show log entries from the given node'
              ' (only useful for logs produced by threaded tests),'
              " special value '-' hides the column")
-    parser.add_option('-s', '--sleep-interval', type="float", default=1,
+    _('-s', '--sleep-interval', type=float, default=1, metavar='N',
         help='with -f, sleep for approximately N seconds (default 1.0)'
-              ' between iterations', metavar='N')
-    parser.add_option('--from', dest='filter_from',
-        help='show records more recent that timestamp N if N > 0,'
-             ' or now+N if N < 0; N can also be a string that is'
-             ' parseable by dateutil ', metavar='N')
-    options, args = parser.parse_args()
-    if options.sleep_interval <= 0:
+             ' between iterations')
+    _('--from', dest='filter_from', metavar='N',
+        help='show records more recent that timestamp N if N > 0, or now+N'
+             ' if N < 0; N can also be a string that is parseable by dateutil')
+    _('file', nargs='+',
+        help='log file, compressed (gz, bz2 or xz) or not')
+    args = parser.parse_args()
+    if args.sleep_interval <= 0:
         parser.error("sleep_interval must be positive")
-    if not args:
-        parser.error("no log specified")
-    filter_from = options.filter_from
+    filter_from = args.filter_from
     if filter_from:
         try:
-            filter_from = float(options.filter_from)
+            filter_from = float(args.filter_from)
         except ValueError:
             from dateutil.parser import parse
             x = parse(filter_from)
@@ -267,24 +267,24 @@ def main():
         else:
             if filter_from < 0:
                 filter_from += time.time()
-    node_list = options.node or []
+    node_list = args.node or []
     try:
         node_list.remove('-')
         node_column = False
     except ValueError:
         node_column = True
     log_list = [Log(db_path,
-                    2 if options.decompress else 1 if options.all else 0,
-                    options.date, filter_from, node_column, node_list)
-                for db_path in args]
-    if options.follow:
+                    2 if args.decompress else 1 if args.all else 0,
+                    args.date, filter_from, node_column, node_list)
+                for db_path in args.file]
+    if args.follow:
         try:
-            pid_list = options.flush or ()
+            pid_list = args.flush or ()
             while True:
                 emit_many(log_list)
                 for pid in pid_list:
                     os.kill(pid, signal.SIGRTMIN)
-                time.sleep(options.sleep_interval)
+                time.sleep(args.sleep_interval)
         except KeyboardInterrupt:
             pass
     else:
