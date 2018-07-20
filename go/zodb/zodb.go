@@ -182,7 +182,7 @@ func (e *NoDataError) Error() string {
 	}
 }
 
-// OpError is the error returned by IStorageDriver operations
+// OpError is the error returned by IStorageDriver operations.
 type OpError struct {
 	URL  string	 // URL of the storage
 	Op   string	 // operation that failed
@@ -204,7 +204,7 @@ func (e *OpError) Cause() error {
 }
 
 
-// IStorage is the interface provided by opened ZODB storage
+// IStorage is the interface provided by opened ZODB storage.
 type IStorage interface {
 	IStorageDriver
 
@@ -219,7 +219,7 @@ type IStorage interface {
 	Prefetch(ctx context.Context, xid Xid)
 }
 
-// IStorageDriver is the raw interface provided by ZODB storage drivers
+// IStorageDriver is the raw interface provided by ZODB storage drivers.
 type IStorageDriver interface {
 	// URL returns URL of how the storage was opened
 	URL() string

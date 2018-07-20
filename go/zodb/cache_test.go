@@ -636,7 +636,7 @@ func (c *Checker) assertEq(a, b interface{}) {
 
 // ----------------------------------------
 
-// noopStorage is dummy StorLoader which for any oid/xid always returns 1-byte data
+// noopStorage is dummy StorLoader which for any oid/xid always returns 1-byte data.
 type noopStorage struct{}
 var noopData = []byte{0}
 
@@ -648,7 +648,7 @@ func (s *noopStorage) Load(_ context.Context, xid Xid) (buf *mem.Buf, serial Tid
 	return mkbuf(noopData), 1, nil
 }
 
-// benchLoad serially benchmarks a StorLoader - either storage directly or a cache on top of it
+// benchLoad serially benchmarks a StorLoader - either storage directly or a cache on top of it.
 //
 // oid accessed are [0, worksize)
 func benchLoad(b *testing.B, l StorLoader, worksize int) {
