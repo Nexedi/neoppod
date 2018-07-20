@@ -11,8 +11,12 @@
 // WARRANTIES OF TITLE, MERCHANTABILITY, AGAINST INFRINGEMENT, AND FITNESS
 // FOR A PARTICULAR PURPOSE
 
-package main
-// ZODB BTree handling			XXX -> zodb
+// Package btree provides B⁺ Trees for ZODB.
+//
+// It is modelled and data compatible with BTree/py package:
+//
+//	https://github.com/zopefoundation/BTrees
+package btree
 
 import (
 	"context"
@@ -27,7 +31,7 @@ import (
 type KEY int64
 
 
-// ZBucket mimics ?OBucket from btree/py, with ? being any integer.
+// Bucket mimics ?OBucket from btree/py, with ? being any integer.
 //
 // py description:
 //
@@ -36,10 +40,10 @@ type KEY int64
 // Bucket is used to implement a set.  Buckets serving as leafs of BTrees
 // are chained together via 'next', so that the entire BTree contents
 // can be traversed in sorted order quickly and easily.
-type ZBucket struct {
+type Bucket struct {
 	*zodb.PyPersistent
 
-	next   *ZBucket		// the bucket with the next-larger keys
+	next   *Bucket		// the bucket with the next-larger keys
 	keys   []KEY		// 'len' keys, in increasing order
 	values []interface{}	// 'len' corresponding values
 }
@@ -47,20 +51,20 @@ type ZBucket struct {
 // zBTreeItem mimics BTreeItem from btree/py.
 type zBTreeItem struct {
 	key	KEY
-	child	interface{}	// ZBTree or ZBucket
+	child	interface{}	// BTree or Bucket
 }
 
-// ZBTree mimics ?OBTree from btree/py, with ? being any integer.
+// BTree mimics ?OBTree from btree/py, with ? being any integer.
 //
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
 // for details.
-type ZBTree struct {
+type BTree struct {
 	*zodb.PyPersistent
 
 	// firstbucket points to the bucket containing the smallest key in
 	// the BTree.  This is found by traversing leftmost child pointers
 	// (data[0].child) until reaching a Bucket.
-	firstbucket *ZBucket
+	firstbucket *Bucket
 
 	// The BTree points to 'len' children, via the "child" fields of the data
 	// array.  There are len-1 keys in the 'key' fields, stored in increasing
@@ -74,7 +78,7 @@ type ZBTree struct {
 // Get searches BTree by key.
 //
 // It loads intermediate BTree nodes from database on demand as needed.
-func (t *ZBTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
+func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %s", t.POid(), key)	// XXX + url?
 	err = t.PActivate(ctx)
 	if err != nil {
@@ -98,7 +102,7 @@ func (t *ZBTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err e
 		})
 
 		switch child := t.data[i].child.(type) {
-		case *ZBTree:
+		case *BTree:
 			t.PDeactivate()
 			t = child
 			err = t.PActivate(ctx)
@@ -106,7 +110,7 @@ func (t *ZBTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err e
 				return nil, false, err
 			}
 
-		case *ZBucket:
+		case *Bucket:
 			t.PDeactivate()
 			return child.Get(ctx, key)
 		}
@@ -114,7 +118,7 @@ func (t *ZBTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err e
 }
 
 // Get searches Bucket by key.
-func (b *ZBucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
+func (b *Bucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "bucket(%s): get %s", b.POid(), key)	// XXX + url?
 	err = b.PActivate(ctx)
 	if err != nil {
@@ -129,7 +133,7 @@ func (b *ZBucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err 
 // get searches Bucket by key.
 //
 // no loading from database is done. The bucket must be already activated.
-func (b *ZBucket) get(key KEY) (interface{}, bool) {
+func (b *Bucket) get(key KEY) (interface{}, bool) {
 	// search i: K(i-1) < k ≤ K(i)		; K(-1) = -∞, K(len) = +∞
 	i := sort.Search(len(b.keys), func(i int) bool {
 		return key <= b.keys[i]
@@ -141,8 +145,8 @@ func (b *ZBucket) get(key KEY) (interface{}, bool) {
 	return b.values[i], true
 }
 
-// XXX ZBucket.MinKey ?
-// XXX ZBucket.MaxKey ?
+// XXX Bucket.MinKey ?
+// XXX Bucket.MaxKey ?
 
 
 // ---- serialization ----
@@ -174,13 +178,13 @@ func (b *ZBucket) get(key KEY) (interface{}, bool) {
 // In the above, key[i] means self->data[i].key, and similarly for child[i].
 
 // DropState implements Stateful.
-func (t *ZBTree) DropState() {
+func (t *BTree) DropState() {
 	t.firstbucket = nil
 	t.data = nil
 }
 
 // PySetState implements PyStateful to set btree data from pystate.
-func (bt *ZBTree) PySetState(pystate interface{}) error {
+func (bt *BTree) PySetState(pystate interface{}) error {
 	// empty btree
 	if _, ok := pystate.(pickle.None); ok {
 		bt.firstbucket = nil
@@ -195,7 +199,7 @@ func (bt *ZBTree) PySetState(pystate interface{}) error {
 
 	// btree with 1 child bucket without oid
 	if len(t) == 1 {
-		bucket := &ZBucket{PyPersistent: nil /* FIXME */}
+		bucket := &Bucket{PyPersistent: nil /* FIXME */}
 		err := bucket.PySetState(t[0])
 		if err != nil {
 			// XXX
@@ -212,7 +216,7 @@ func (bt *ZBTree) PySetState(pystate interface{}) error {
 		// XXX
 	}
 
-	bt.firstbucket, ok = t[1].(*ZBucket)
+	bt.firstbucket, ok = t[1].(*Bucket)
 	if !ok {
 		// XXX
 	}
@@ -236,8 +240,8 @@ func (bt *ZBTree) PySetState(pystate interface{}) error {
 		default:
 			// XXX
 
-		case *ZBTree:  // ok
-		case *ZBucket: // ok
+		case *BTree:  // ok
+		case *Bucket: // ok
 		}
 
 		bt.data = append(bt.data, zBTreeItem{key: KEY(key), child: child})
@@ -261,14 +265,14 @@ func (bt *ZBTree) PySetState(pystate interface{}) error {
 //	)
 
 // DropState implements Stateful to discard bucket state.
-func (b *ZBucket) DropState() {
+func (b *Bucket) DropState() {
 	b.next = nil
 	b.keys = nil
 	b.values = nil
 }
 
 // PySetState implements PyStateful to set bucket data from pystate.
-func (b *ZBucket) PySetState(pystate interface{}) error {
+func (b *Bucket) PySetState(pystate interface{}) error {
 	t, ok := pystate.(pickle.Tuple)
 	if !ok || !(1 <= len(t) && len(t) <= 2) {
 		// XXX complain
@@ -276,7 +280,7 @@ func (b *ZBucket) PySetState(pystate interface{}) error {
 
 	// .next present
 	if len(t) == 2 {
-		next, ok := t[1].(*ZBucket)
+		next, ok := t[1].(*Bucket)
 		if !ok {
 			// XXX
 		}
@@ -312,8 +316,8 @@ func (b *ZBucket) PySetState(pystate interface{}) error {
 
 // ---- register classes to ZODB ----
 
-func bucketNew(base *zodb.PyPersistent) zodb.IPyPersistent	{ return &ZBucket{PyPersistent: base}	}
-func btreeNew(base *zodb.PyPersistent) zodb.IPyPersistent	{ return &ZBTree{PyPersistent: base}	}
+func bucketNew(base *zodb.PyPersistent) zodb.IPyPersistent	{ return &Bucket{PyPersistent: base}	}
+func btreeNew(base *zodb.PyPersistent) zodb.IPyPersistent	{ return &BTree{PyPersistent: base}	}
 
 func init() {
 	zodb.PyRegisterClass("zodb.BTree.LOBucket", bucketNew)
