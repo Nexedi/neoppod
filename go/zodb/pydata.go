@@ -28,64 +28,6 @@ import (
 	pickle "github.com/kisielk/og-rek"
 )
 
-/*
-// XXX move out of py
-// Object is in-process representaion of a ZODB object.
-type Object interface {
-	Jar()		*Connection
-	Oid()		Oid
-	Serial()	Tid
-
-	Data()	*mem.Buf	// XXX for raw, py -> PyObject
-
-	// XXX register(jar, oid) - register to database ? (for Connection.Add)
-
-	// PActivate
-	// PDeactivate
-	// PInvalidate
-}
-
-// XXX
-type DataManager interface {
-	//LoadObject(obj Object)
-	//LoadObject(oid Oid)
-	LoadState(obj)
-
-	// XXX oldstate(oid, tid)
-	// XXX register(obj)
-}
-
-
-
-// Connection represent client-visible part of a connection to ZODB database.
-//
-// XXX consitent view for some `at`.
-// XXX not needed? (just DB.Open() -> root object and connection not be visible)?
-type Connection interface {
-	// Get returns object by oid.
-	// XXX multiple calls to Get with same oid return the same object.
-	// XXX root object has oid=0.
-	Get(ctx context.Context, oid Oid) (Object, error)
-
-	// XXX Add(obj Object) -> add obj to database and assign it an oid
-	// obj must be not yet added
-
-	// XXX ReadCurrent(obj)
-
-	// XXX Close() error
-}
-*/
-
-
-
-
-
-
-
-
-
-
-
 // PyData represents raw data stored into ZODB by Python applications.
 //
 // The format is based on python pickles. Basically every serialized object has
@@ -104,28 +46,6 @@ type PyData []byte
 //}
 // XXX + String = Module + "." + Name
 
-/*
-// PyObject represents persistent Python object.
-//
-// PyObject can be decoded from PyData.		XXX
-type PyObject struct {
-	//Jar     *Connection	// XXX -> ro
-	Oid	Oid		// XXX -> ro
-	Serial	Tid		// XXX -> ro
-
-	// XXX + Oid, Serial ?	(_p_oid, _p_serial)
-	PyClass pickle.Class // python class of this object	XXX -> ro	?
-	PyState interface{}  // object state. python passes this to pyclass.__new__().__setstate__()
-}
-
-
-// PyLoader is like Loader by returns decoded Python objects instead of raw data.
-type PyLoader interface {
-	// XXX returned pyobject, contrary to Loader, can be modified, because
-	// it is not shared. right?
-	Load(ctx, xid Xid) (*PyObject, error)
-}
-*/
 
 
 // Decode decodes raw ZODB python data into Python class and state.

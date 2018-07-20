@@ -87,6 +87,8 @@ import (
 // This way tid can also be used to specify whole database state constructed
 // by all cumulated transaction changes from database beginning up to, and
 // including, transaction specified by tid.
+//
+// 0 is invalid Tid.
 type Tid uint64
 
 // ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
@@ -101,6 +103,8 @@ const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 // An object can have several revisions - each committed in different transaction.
 // The combination of object identifier and particular transaction (serial)
 // uniquely addresses corresponding data record.
+//
+// 0 is valid Oid and represents root database object.
 //
 // See also: Xid.
 type Oid uint64
@@ -191,7 +195,7 @@ func (e *NoDataError) Error() string {
 	}
 }
 
-// OpError is the error returned by IStorageDriver operations
+// OpError is the error returned by IStorageDriver operations.
 type OpError struct {
 	URL  string	 // URL of the storage
 	Op   string	 // operation that failed
@@ -213,16 +217,14 @@ func (e *OpError) Cause() error {
 }
 
 
-// IStorage is the interface provided by opened ZODB storage
+// IStorage is the interface provided by opened ZODB storage.
 type IStorage interface {
 	IStorageDriver
 
-	//Loader
 	Prefetcher
-	//Iterator
 }
 
-// XXX
+// Prefetcher provides functionality to prefetch objects.
 type Prefetcher interface {
 	// Prefetch prefetches object addressed by xid.
 	//
@@ -235,7 +237,7 @@ type Prefetcher interface {
 	Prefetch(ctx context.Context, xid Xid)
 }
 
-// IStorageDriver is the raw interface provided by ZODB storage drivers
+// IStorageDriver is the raw interface provided by ZODB storage drivers.
 type IStorageDriver interface {
 	// URL returns URL of how the storage was opened
 	URL() string
@@ -252,7 +254,7 @@ type IStorageDriver interface {
 	Iterator
 }
 
-// Loader exposes functionality to load objects.
+// Loader provides functionality to load objects.
 type Loader interface {
 	// Load loads object data addressed by xid from database.
 	//
@@ -299,7 +301,7 @@ type Loader interface {
 	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
 }
 
-// Committer exposes functionality to commit transactions.
+// Committer provides functionality to commit transactions.
 type Committer interface {
 	// TODO: write mode
 
