@@ -212,6 +212,11 @@ func (e *OpError) Cause() error {
 type IStorage interface {
 	IStorageDriver
 
+	Prefetcher
+}
+
+// Prefetcher provides functionality to prefetch objects.
+type Prefetcher interface {
 	// Prefetch prefetches object addressed by xid.
 	//
 	// If data is not yet in cache loading for it is started in the background.
@@ -236,6 +241,12 @@ type IStorageDriver interface {
 	// If no transactions have been committed yet, LastTid returns 0.
 	LastTid(ctx context.Context) (Tid, error)
 
+	Loader
+	Iterator
+}
+
+// Loader provides functionality to load objects.
+type Loader interface {
 	// Load loads object data addressed by xid from database.
 	//
 	// Returned are:
@@ -277,7 +288,10 @@ type IStorageDriver interface {
 	// cache without serial_next returned from Load. For this reason in ZODB/go
 	// Load specification comes without specifying serial_next return.
 	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
+}
 
+// Committer provides functionality to commit transactions.
+type Committer interface {
 	// TODO: write mode
 
 	// Store(ctx, oid Oid, serial Tid, data []byte, txn ITransaction) error
@@ -287,12 +301,19 @@ type IStorageDriver interface {
 	// TpcVote(txn)
 	// TpcFinish(txn, callback)
 	// TpcAbort(txn)
+}
 
+
+// Notifier allows to be notified of database changes made by other clients.
+type Notifier interface {
 	// TODO: invalidation channel (notify about changes made to DB not by us from outside)
+}
 
 
 	// TODO: History(ctx, oid, size=1)
 
+// Iterator provides functionality to iterate through storage transactions sequentially.
+type Iterator interface {
 	// Iterate creates iterator to iterate storage in [tidMin, tidMax] range.
 	//
 	// Iterate does not return any error. If there was error when setting

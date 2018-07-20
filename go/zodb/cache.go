@@ -38,7 +38,7 @@ import (
 // Cache provides RAM caching layer that can be used over a storage.
 type Cache struct {
 	loader interface {
-		StorLoader
+		Loader
 		URL() string
 	}
 
@@ -111,12 +111,6 @@ type revCacheEntry struct {
 	waitBufRef int32
 }
 
-// StorLoader represents loading part of a storage.
-// XXX -> zodb.IStorageLoader (or zodb.Loader ?) ?
-type StorLoader interface {
-	Load(ctx context.Context, xid Xid) (buf *mem.Buf, serial Tid, err error)
-}
-
 // lock order: Cache.mu   > oidCacheEntry
 //             Cache.gcMu > oidCacheEntry
 
@@ -124,7 +118,7 @@ type StorLoader interface {
 // NewCache creates new cache backed up by loader.
 //
 // The cache will use not more than ~ sizeMax bytes of RAM for cached data.
-func NewCache(loader interface { StorLoader; URL() string }, sizeMax int) *Cache {
+func NewCache(loader interface { Loader; URL() string }, sizeMax int) *Cache {
 	c := &Cache{
 		loader:   loader,
 		entryMap: make(map[Oid]*oidCacheEntry),
