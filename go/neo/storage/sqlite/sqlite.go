@@ -415,7 +415,7 @@ func (b *Backend) Close() error {
 func openConn(dburl string) (*sqlite3.Conn, error) {
 	conn, err := sqlite3.Open(dburl,
 		sqlite3.OpenNoMutex,	// we use connections only from 1 goroutine simultaneously
-		sqlite3.OpenUri,	// handle file:... URIs
+		sqlite3.OpenURI,	// handle file:... URIs
 		sqlite3.OpenReadWrite)	//, sqlite3.OpenSharedCache)
 
 	if err != nil {
