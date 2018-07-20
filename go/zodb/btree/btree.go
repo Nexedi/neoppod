@@ -177,13 +177,13 @@ func (b *Bucket) get(key KEY) (interface{}, bool) {
 //
 // In the above, key[i] means self->data[i].key, and similarly for child[i].
 
-// DropState implements Stateful.
+// DropState implements zodb.Stateful.
 func (t *BTree) DropState() {
 	t.firstbucket = nil
 	t.data = nil
 }
 
-// PySetState implements PyStateful to set btree data from pystate.
+// PySetState implements zodb.PyStateful to set btree data from pystate.
 func (bt *BTree) PySetState(pystate interface{}) error {
 	// empty btree
 	if _, ok := pystate.(pickle.None); ok {

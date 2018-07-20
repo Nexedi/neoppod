@@ -50,9 +50,11 @@
 //
 // Operations
 //
-// A ZODB database can be opened with OpenStorage. Once opened IStorage
-// interface is returned that represents access to the database. Please see
-// documentation of IStorage, and other interfaces it embeds, for details.
+// At storage level a ZODB database can be opened with OpenStorage. Once opened
+// IStorage interface is returned that represents access to the database. Please
+// see documentation of IStorage, and other interfaces it embeds, for details.
+//
+// XXX DB + Connection.
 //
 //
 // Python data
