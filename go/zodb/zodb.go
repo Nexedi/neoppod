@@ -78,6 +78,8 @@ import (
 // This way tid can also be used to specify whole database state constructed
 // by all cumulated transaction changes from database beginning up to, and
 // including, transaction specified by tid.
+//
+// 0 is invalid Tid.
 type Tid uint64
 
 // ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
@@ -92,6 +94,8 @@ const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 // An object can have several revisions - each committed in different transaction.
 // The combination of object identifier and particular transaction (serial)
 // uniquely addresses corresponding data record.
+//
+// 0 is valid Oid and represents root database object.
 //
 // See also: Xid.
 type Oid uint64
