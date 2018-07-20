@@ -254,6 +254,8 @@ type Loader interface {
 	//	- if there is data to load: buf is non-empty, serial indicates
 	//	  transaction which matched xid criteria and err=nil.
 	//
+	//	  caller must not modify buf memory.
+	//
 	// otherwise buf=nil, serial=0 and err is *OpError with err.Err
 	// describing the error cause:
 	//
