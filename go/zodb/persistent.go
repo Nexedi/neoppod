@@ -11,15 +11,15 @@
 // WARRANTIES OF TITLE, MERCHANTABILITY, AGAINST INFRINGEMENT, AND FITNESS
 // FOR A PARTICULAR PURPOSE
 
-package main
-// Bits that should be in ZODB		XXX -> zodb
+package zodb
+// persistent objects.
 
 import (
 	"context"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
 // IPersistent is the interface that every in-RAM object representing any database object implements.
@@ -31,11 +31,11 @@ import (
 // but is not exactly equal to it.
 type IPersistent interface {
 	PJar()    *Connection	// Connection this in-RAM object is part of.
-	POid()    zodb.Oid	// object ID in the database.
+	POid()    Oid		// object ID in the database.
 
 	// object serial in the database as of particular Connection (PJar) view.
 	// 0 (invalid tid) if not yet loaded (XXX ok?)
-	PSerial() zodb.Tid
+	PSerial() Tid
 
 
 	// PActivate brings object to live state.
@@ -117,8 +117,8 @@ const (
 // Persistent is common base implementation for in-RAM representation of database objects.
 type Persistent struct {
 	jar	*Connection
-	oid	zodb.Oid
-	serial	zodb.Tid
+	oid	Oid
+	serial	Tid
 
 	mu	 sync.Mutex
 	state	 ObjectState
@@ -128,8 +128,8 @@ type Persistent struct {
 }
 
 func (obj *Persistent) PJar() *Connection	{ return obj.jar	}
-func (obj *Persistent) POid() zodb.Oid		{ return obj.oid	}
-func (obj *Persistent) PSerial() zodb.Tid	{ return obj.serial	}
+func (obj *Persistent) POid() Oid		{ return obj.oid	}
+func (obj *Persistent) PSerial() Tid		{ return obj.serial	}
 
 // loadState indicates object's load state/result.
 //
@@ -172,8 +172,8 @@ type Stateful interface {
 //
 // XXX ^^^ better must be safe - use case: e.g. prefetch.
 type Connection struct {
-	stor	zodb.IStorage	// underlying storage
-	at	zodb.Tid	// current view of database
+	stor	IStorage	// underlying storage
+	at	Tid		// current view of database
 
 	// {} oid -> obj
 	//
@@ -223,7 +223,7 @@ type Connection struct {
 	// NOTE2 finalizers don't run on when they are attached to an object in cycle.
 	// Hopefully we don't have cycles with ZBTree/ZBucket	XXX verify this
 	objmu  sync.Mutex
-	objtab map[zodb.Oid]*WeakRef	// oid -> WeakRef(IPersistent)
+	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
 	// hooks for application to influence live caching decisions.
 	cacheControl LiveCacheControl
@@ -357,6 +357,6 @@ func (obj *Persistent) PInvalidate() {
 // load loads object specified by oid.
 //
 // XXX must be called ... (XXX e.g. outside transaction boundary) so that there is no race on .at .
-func (conn *Connection) load(ctx context.Context, oid zodb.Oid) (_ *mem.Buf, serial zodb.Tid, _ error) {
-	return conn.stor.Load(ctx, zodb.Xid{Oid: oid, At: conn.at})
+func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
+	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 }

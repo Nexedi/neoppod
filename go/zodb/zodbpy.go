@@ -11,15 +11,15 @@
 // WARRANTIES OF TITLE, MERCHANTABILITY, AGAINST INFRINGEMENT, AND FITNESS
 // FOR A PARTICULAR PURPOSE
 
-package main
-// Bits that should be in ZODB		XXX -> zodb
+package zodb
+// Support for python objects/data in ZODB.
 
 import (
 	"context"
 	"fmt"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 
 	pickle "github.com/kisielk/og-rek"
 )
@@ -70,7 +70,7 @@ func (pyobj *PyPersistent) pyinstance() IPyPersistent {
 }
 
 func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
-	pyclass, pystate, err := zodb.PyData(state.Data).Decode()
+	pyclass, pystate, err := PyData(state.Data).Decode()
 	if err != nil {
 		return err	// XXX err ctx
 	}
@@ -94,17 +94,17 @@ type pyClassNewFunc func(base *PyPersistent) IPyPersistent
 // path(pyclass) -> new(pyobj)
 var pyClassTab = make(map[string]pyClassNewFunc)
 
-// registerPyClass registers python class to be transformed to Go instance
+// PyRegisterClass registers python class to be transformed to Go instance
 // created via classNew.
 //
 // must be called from global init().
-func registerPyClass(pyClassPath string, classNew pyClassNewFunc) {
+func PyRegisterClass(pyClassPath string, classNew pyClassNewFunc) {
 	pyClassTab[pyClassPath] = classNew
-	// XXX + register so that zodb.PyData decode handles pyClassPath
+	// XXX + register so that PyData decode handles pyClassPath
 }
 
 // newGhost creates new ghost object corresponding to pyclass and oid.
-func (conn *Connection) newGhost(pyclass pickle.Class, oid zodb.Oid) IPyPersistent {
+func (conn *Connection) newGhost(pyclass pickle.Class, oid Oid) IPyPersistent {
 	pyobj := &PyPersistent{
 		Persistent:  Persistent{jar: conn, oid: oid, serial: 0, state: GHOST},
 		pyclass: pyclass,
@@ -151,7 +151,7 @@ func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
 //
 // The object's data is not neccessarily loaded after Get returns. Use
 // PActivate to make sure the object ifs fully loaded.
-func (conn *Connection) Get(ctx context.Context, oid zodb.Oid) (IPyPersistent, error) {
+func (conn *Connection) Get(ctx context.Context, oid Oid) (IPyPersistent, error) {
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
 	var xobj interface{}
@@ -205,7 +205,7 @@ func (e *wrongClassError) Error() string {
 //
 // Use-case: in ZODB references are (pyclass, oid), so new ghost is created
 // without further loading anything.
-func (conn *Connection) get(pyclass pickle.Class, oid zodb.Oid) (IPyPersistent, error) {
+func (conn *Connection) get(pyclass pickle.Class, oid Oid) (IPyPersistent, error) {
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
 	var pyobj IPyPersistent
@@ -217,7 +217,7 @@ func (conn *Connection) get(pyclass pickle.Class, oid zodb.Oid) (IPyPersistent, 
 	}
 	if pyobj == nil {
 		pyobj = conn.newGhost(pyclass, oid)
-		conn.objtab[oid] = NewWeakRef(pyobj)
+		conn.objtab[oid] = weak.NewRef(pyobj)
 	} else {
 		checkClass = true
 	}
@@ -225,7 +225,7 @@ func (conn *Connection) get(pyclass pickle.Class, oid zodb.Oid) (IPyPersistent, 
 
 	if checkClass {
 		if cls := pyobj.PyClass(); pyclass != cls {
-			return nil, &zodb.OpError{
+			return nil, &OpError{
 				URL:  conn.stor.URL(),
 				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse
 				Args: oid,
@@ -241,15 +241,15 @@ func (conn *Connection) get(pyclass pickle.Class, oid zodb.Oid) (IPyPersistent, 
 //
 // loadpy does not create any in-RAM object associated with Connection.
 // It only returns decoded database data.
-func (conn *Connection) loadpy(ctx context.Context, oid zodb.Oid) (pyclass pickle.Class, pystate interface{}, serial zodb.Tid, _ error) {
-	buf, serial, err := conn.stor.Load(ctx, zodb.Xid{Oid: oid, At: conn.at})
+func (conn *Connection) loadpy(ctx context.Context, oid Oid) (pyclass pickle.Class, pystate interface{}, serial Tid, _ error) {
+	buf, serial, err := conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 	if err != nil {
 		return pickle.Class{}, nil, 0, err
 	}
 
 	defer buf.Release()
 
-	pyclass, pystate, err = zodb.PyData(buf.Data).Decode()
+	pyclass, pystate, err = PyData(buf.Data).Decode()
 	if err != nil {
 		return pickle.Class{}, nil, 0, err	// XXX err ctx
 	}

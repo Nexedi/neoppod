@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-package main
+package weak
 
 import (
 	"runtime"
@@ -58,7 +58,7 @@ func TestWeakRef(t *testing.T) {
 	type T struct { _ [8]int64 }	// large enough not to go into tinyalloc
 
 	p := new(T)
-	w := NewWeakRef(p)
+	w := NewRef(p)
 	pptr := uintptr(unsafe.Pointer(p))
 
 	assertEq := func(a, b interface{}) {

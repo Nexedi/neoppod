@@ -22,8 +22,6 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package weak provides weak references for Go.
-//
-// XXX
 package weak
 
 import (
@@ -40,24 +38,24 @@ type iface struct {
 	data uintptr // data
 }
 
-// weakRefState represents current state of an object WeakRef points to.
+// weakRefState represents current state of an object Ref points to.
 type weakRefState int32
 
 const (
-	objGot      weakRefState = +1 // WeakRef.Get returned !nil
+	objGot      weakRefState = +1 // Ref.Get returned !nil
 	objLive     weakRefState =  0 // object is alive, Get did not run yet in this GC cycle
 	objReleased weakRefState = -1 // the finalizer marked object as released
 )
 
 
-// WeakRef is a weak reference.
+// Ref is a weak reference.
 //
-// Create one with NewWeakRef and retrieve referenced object with Get.
+// Create one with NewRef and retrieve referenced object with Get.
 //
 // There must be no more than 1 weak reference to any object.
 // Weak references must not be attached to an object on which runtime.SetFinalizer is also used.
 // Weak references must not be copied.
-type WeakRef struct {
+type Ref struct {
 	iface
 
 	// XXX try to do without mutex and only with atomics
@@ -65,14 +63,14 @@ type WeakRef struct {
 	state weakRefState
 }
 
-// NewWeakRef creates new weak reference pointing to obj.
+// NewRef creates new weak reference pointing to obj.
 //
 // XXX + onrelease callback?
-func NewWeakRef(obj interface{}) *WeakRef {
+func NewRef(obj interface{}) *Ref {
 	// since starting from ~ Go1.4 the GC is precise, we can save interface
 	// pointers to uintptr and that won't prevent GC from garbage
 	// collecting the object.
-	w := &WeakRef{
+	w := &Ref{
 		iface: *(*iface)(unsafe.Pointer(&obj)),
 		state: objLive,
 	}
@@ -81,7 +79,7 @@ func NewWeakRef(obj interface{}) *WeakRef {
 	release = func(obj interface{}) {
 		// GC decided that the object is no longer reachable and
 		// scheduled us to run as finalizer. During the time till we
-		// actually run, WeakRef.Get might have been come to run and
+		// actually run, Ref.Get might have been come to run and
 		// "rematerializing" the object for use. Check if we do not
 		// race with any Get in progress, and reschedule us to retry at
 		// next GC if we do.
@@ -103,7 +101,7 @@ func NewWeakRef(obj interface{}) *WeakRef {
 //
 // If original object is still alive - it is returned.
 // If not - nil is returned.
-func (w *WeakRef) Get() (obj interface{}) {
+func (w *Ref) Get() (obj interface{}) {
 	w.mu.Lock()
 	if w.state != objReleased {
 		w.state = objGot

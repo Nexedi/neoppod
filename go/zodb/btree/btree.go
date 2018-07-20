@@ -19,7 +19,7 @@ import (
 	"sort"
 
 	"lab.nexedi.com/kirr/go123/xerr"
-	//"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb"
 	pickle "github.com/kisielk/og-rek"
 )
 
@@ -37,7 +37,7 @@ type KEY int64
 // are chained together via 'next', so that the entire BTree contents
 // can be traversed in sorted order quickly and easily.
 type ZBucket struct {
-	*PyPersistent
+	*zodb.PyPersistent
 
 	next   *ZBucket		// the bucket with the next-larger keys
 	keys   []KEY		// 'len' keys, in increasing order
@@ -55,7 +55,7 @@ type zBTreeItem struct {
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
 // for details.
 type ZBTree struct {
-	*PyPersistent
+	*zodb.PyPersistent
 
 	// firstbucket points to the bucket containing the smallest key in
 	// the BTree.  This is found by traversing leftmost child pointers
@@ -312,10 +312,10 @@ func (b *ZBucket) PySetState(pystate interface{}) error {
 
 // ---- register classes to ZODB ----
 
-func bucketNew(base *PyPersistent) IPyPersistent	{ return &ZBucket{PyPersistent: base}	}
-func btreeNew(base *PyPersistent) IPyPersistent		{ return &ZBTree{PyPersistent: base}	}
+func bucketNew(base *zodb.PyPersistent) zodb.IPyPersistent	{ return &ZBucket{PyPersistent: base}	}
+func btreeNew(base *zodb.PyPersistent) zodb.IPyPersistent	{ return &ZBTree{PyPersistent: base}	}
 
 func init() {
-	registerPyClass("zodb.BTree.LOBucket", bucketNew)
-	registerPyClass("zodb.BTree.LOBtree",  btreeNew)
+	zodb.PyRegisterClass("zodb.BTree.LOBucket", bucketNew)
+	zodb.PyRegisterClass("zodb.BTree.LOBtree",  btreeNew)
 }
