@@ -11,7 +11,7 @@
 // WARRANTIES OF TITLE, MERCHANTABILITY, AGAINST INFRINGEMENT, AND FITNESS
 // FOR A PARTICULAR PURPOSE.
 
-// Package transaction provides transaction management via Two-Phase transaction protocol.
+// Package transaction provides transaction management via Two-Phase commit protocol.
 //
 // It is modelled after Python transaction package:
 //
@@ -31,6 +31,9 @@ type Manager interface {
 	// XXX
 	//
 	// XXX There must be no existing in progress transaction.
+	// XXX kill ^^^ - we should support many simultaneous transactions.
+	//
+	// XXX + ctx, errror -> yes, i.e. it needs to sync fetch last tid from db
 	Begin() Transaction
 
 	// RegisterSynch registers synchronizer.
@@ -57,26 +60,35 @@ type Transaction interface {
 	// Commit finalizes the transaction.
 	//
 	// This executes the two-phase commit algorithm for all
-        // IDataManager objects associated with the transaction.	XXX
+        // DataManager objects associated with the transaction.
 	Commit(ctx context.Context) error
 
         // Abort aborts the transaction.
 	//
-        // This is called from the application.  This can only be called	XXX
-        // before the two-phase commit protocol has been started.		XXX
+        // This is called from the application. This can only be called	XXX
+        // before the two-phase commit protocol has been started.	XXX
 	Abort()
 
 	// XXX + Doom?
 
-	// Add a data manager to the transaction.				XXX
+	// Join associates a data manager to the transaction.
+	//
+	// Only associated data managers will participate in the transaction commit.
+	//
+	// XXX -> JoinCommit?
 	Join(dm DataManager)
 
-	// XXX SetData(oid zodb.Oid, data interface{}
-	// XXX GetData(oid zodb.Oid) interface{}
+	// XXX SetData(key interface{}, data interface{})
+	// XXX GetData(key interface{}) interface{}, ok
 }
 
 
-// DataManager represents transactional storage.	// XXX -> transaction.Storage?
+// DataManager represents transactional storage.
+//
+// If DataManager is registered to transaction via Transaction.Join, it will
+// participate in that transaction commit.
+//
+// XXX -> TPCCommitter?
 type DataManager interface {
 	// TPCBegin should begin commit of a transaction, starting the two-phase commit.
 	TPCBegin(txn Transaction)	// XXX +ctx, error ?
@@ -107,6 +119,15 @@ type DataManager interface {
         // serious error.
 	TPCFinish(ctx context.Context, txn Transaction) // XXX error?
 
+	// TPCAbort should Abort a transaction.
+	//
+        // This is called by a transaction manager to end a two-phase commit on
+        // the data manager.  Abandon all changes to objects modified by this
+        // transaction.
+	//
+        // This should never fail.
+	TPCAbort(ctx context.Context, txn Transaction) // XXX error?
+
 	// XXX SortKey() string ?
 }
 
@@ -121,5 +142,6 @@ type Synchronizer interface {
 
 	// NewTransaction is called at the start of a transaction.
 	// XXX -> TxnStart ?
+	// XXX + ctx, error (it neeeds to ask storage for last tid)
 	NewTransaction(txn Transaction)
 }
