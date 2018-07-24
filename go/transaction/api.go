@@ -145,12 +145,16 @@ type Transaction interface {
 	//
 	// Commit completes the transaction by executing the two-phase commit
 	// algorithm for all DataManagers associated with the transaction.
+	//
+	// Commit must not be called after transaction completion began.
 	Commit(ctx context.Context) error
 
         // Abort aborts the transaction.
 	//
 	// Abort completes the transaction by executing Abort on all
 	// DataManagers associated with it.
+	//
+	// Abort must not be called after transaction completion began.
 	Abort()	// XXX + ctx, error?
 
 	// XXX + Doom?

@@ -27,7 +27,7 @@ func TestBasic(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r == nil {
-				t.Fatal("Current(ø) -> not paniced")
+				t.Fatal("Current(ø) -> no panic")
 			}
 
 			if want := "transaction: no current transaction"; r != want {
@@ -50,7 +50,7 @@ func TestBasic(t *testing.T) {
 		defer func() {
 			r := recover()
 			if r == nil {
-				t.Fatal("New(!ø) -> not paniced")
+				t.Fatal("New(!ø) -> no panic")
 			}
 
 			if want := "transaction: new: nested transactions not supported"; r != want {
@@ -99,5 +99,18 @@ func TestAbort(t *testing.T) {
 		t.Fatalf("abort: nabort=%d; txn.Status=%v", dm.nabort, txn.Status())
 	}
 
-	// txn.Abort() -> panic	XXX
+	// Abort 2nd time -> panic
+	func() {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("Abort2 -> no panic")
+			}
+			if want := "transaction: abort: transaction completion already began"; r != want {
+				t.Fatalf("Abort2 -> %q;  want %q", r, want)
+			}
+		}()
+
+		txn.Abort()
+	}()
 }
