@@ -15,6 +15,7 @@ package transaction
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 )
 
@@ -38,12 +39,13 @@ func TestBasic(t *testing.T) {
 	}()
 
 
+	// New
 	txn, ctx := New(ctx)
 	if txn_ := Current(ctx); txn_ != txn {
 		t.Fatalf("New inconsistent with Current: txn = %#v;  txn_ = %#v", txn, txn_)
 	}
 
-	// subtransactions not allowed
+	// New(!ø) -> panic
 	func () {
 		defer func() {
 			r := recover()
@@ -58,4 +60,35 @@ func TestBasic(t *testing.T) {
 
 		_, _ = New(ctx)
 	}()
+}
+
+// DataManager that verifies abort path.
+type dmAbortOnly struct {
+	t      *testing.T
+	txn    Transaction
+	nabort int32
+}
+
+func (d *dmAbortOnly) Abort(txn Transaction) {
+	if txn != d.txn {
+		d.t.Fatalf("abort: txn is different")
+	}
+	atomic.AddInt32(&d.nabort, +1)
+}
+
+func (d *dmAbortOnly) bug() { d.t.Fatal("must not be called on abort") }
+func (d *dmAbortOnly) TPCBegin(_ Transaction)				{ d.bug(); panic(0) }
+func (d *dmAbortOnly) Commit(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCVote(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCFinish(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCAbort(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
+
+func TestAbort(t *testing.T) {
+	txn, _ := New(context.Background())
+	dm := &dmAbortOnly{t: t, txn: txn}
+
+	txn.Abort()
+	if dm.nabort != 1 {
+		t.Fatalf("abort: nabort=%d;  want=1", dm.nabort)
+	}
 }
