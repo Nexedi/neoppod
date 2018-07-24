@@ -51,9 +51,12 @@ import (
 // 	UnregisterSynch(synch Synchronizer)
 // }
 
-// Transaction represents running transaction.
+// Transaction represents a transaction.
 //
-// ... and should be completed by either Commit or Abort.
+// ... and should be completed by user via either Commit or Abort.
+//
+// Before completion, if there are changes to managed data, corresponding
+// DataManager(s) must join the transaction to participate in the completion.
 type Transaction interface {
 	User() string		// user name associated with transaction
 	Description() string	// description of transaction
@@ -63,35 +66,36 @@ type Transaction interface {
 
 	// Commit finalizes the transaction.
 	//
-	// This executes the two-phase commit algorithm for all DataManagers
-	// associated with the transaction.
+	// Commit completes the transaction by executing the two-phase commit
+	// algorithm for all DataManagers associated with the transaction.
 	Commit(ctx context.Context) error
 
         // Abort aborts the transaction.
 	//
-        // This is called from the application. This can only be called	XXX
-        // before the two-phase commit protocol has been started.	XXX
+	// Abort completes the transaction by executing Abort on all
+	// DataManagers associated with it.
 	Abort()
 
 	// XXX + Doom?
 
 	// Join associates a DataManager to the transaction.
 	//
-	// Only associated data managers will participate in the transaction commit.
+	// Only associated data managers will participate in the transaction
+	// completion - commit or abort.
+	//
+	// Join must be called before transaction completion begins.
 	Join(DataManager)
 
 	// XXX SetData(key interface{}, data interface{})
 	// XXX GetData(key interface{}) interface{}, ok
 }
 
-// // XXX
-// type Participant interface {
-// }
-
 // DataManager manages data and can transactionally persist it.
 //
 // If DataManager is registered to transaction via Transaction.Join, it will
-// participate in that transaction commit or abort.
+// participate in that transaction completion - commit or abort. In other words
+// a data manager should join to corresponding transaction when it sees there
+// are modifications to data it manages.
 type DataManager interface {
 	// Abort should abort all modifications to managed data.
 	//
@@ -110,15 +114,15 @@ type DataManager interface {
 	// commits (if TPCFinish is called later). If TPCAbort is called
 	// later, changes must not persist.
 	//
-        // This includes conflict detection and handling. If no conflicts or
-        // errors occur, the committer should be prepared to make the
-        // changes persist when TPCFinish is called.
+	// This should include conflict detection and handling. If no conflicts
+	// or errors occur, the data manager should be prepared to make the
+	// changes persist when TPCFinish is called.
 	Commit(ctx context.Context, txn Transaction) error
 
-        // TPCVote should verify that a committer can commit the transaction.
+        // TPCVote should verify that a data manager can commit the transaction.
 	//
-        // This is the last chance for a committer to vote 'no'.  A
-        // committer votes 'no' by returning an error.
+	// This is the last chance for a data manager to vote 'no'. A data
+	// manager votes 'no' by returning an error.
 	TPCVote(ctx context.Context, txn Transaction) error
 
         // TPCFinish should indicate confirmation that the transaction is done.
@@ -152,8 +156,7 @@ type Synchronizer interface {
 	// AfterCompletion is called by the transaction after completing a commit.
 	AfterCompletion(txn Transaction)
 
-	// NewTransaction is called at the start of a transaction.
-	// XXX -> TxnStart ?
-	// XXX + ctx, error (it needs to ask storage for last tid)
-	NewTransaction(txn Transaction)
+	// // NewTransaction is called at the start of a transaction.
+	// // XXX + ctx, error (it needs to ask storage for last tid)
+	// NewTransaction(txn Transaction)
 }
