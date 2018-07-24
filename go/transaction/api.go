@@ -117,7 +117,9 @@ const (
 	Committing           // transaction commit started
 	Committed            // transaction commit finished successfully
 	// XXX CommitFailed  // transaction commit resulted in error
-	// XXX Aborted       // transaction was aborted by user
+	Aborting             // transaction abort started
+	Aborted              // transaction was aborted by user
+	// XXX AbortFailed ? // transaction abort resulted in error
 	// XXX Doomed        // transaction was doomed
 )
 

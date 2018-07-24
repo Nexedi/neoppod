@@ -16,6 +16,8 @@ package transaction
 import (
 	"context"
 	"sync"
+
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // transaction implements Transaction.
@@ -78,13 +80,88 @@ func (txn *transaction) Commit(ctx context.Context) error {
 
 // Abort implements Transaction.
 func (txn *transaction) Abort() {
-	panic("TODO")
+	ctx := context.Background()	// FIXME stub
+
+	var datav []DataManager
+	var syncv []Synchronizer
+
+	// under lock: change state to aborting; extract datav/syncv
+	func() {
+		txn.mu.Lock()
+		defer txn.mu.Unlock()
+
+		txn.checkNotYetCompleting("abort")
+		txn.status = Aborting
+
+		datav = txn.datav; txn.datav = nil
+		syncv = txn.syncv; txn.syncv = nil
+	}()
+
+	// lock released
+
+	// sync.BeforeCompletion -> errBeforeCompletion
+	n := len(syncv)
+	wg := sync.WaitGroup{}
+	wg.Add(n)
+	errv := make([]error, n)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+
+			errv[i] = syncv[i].BeforeCompletion(ctx, txn)
+		}()
+	}
+	wg.Wait()
+
+	ev := xerr.Errorv{}
+	for _, err := range errv {
+		ev.Appendif(err)
+	}
+	errBeforeCompletion := ev.Err()
+	xerr.Context(&errBeforeCompletion, "transaction: abort:")
+
+	// XXX if before completion = err -> skip data.Abort()? state -> AbortFailed?
+
+	// data.Abort
+	n = len(datav)
+	wg = sync.WaitGroup{}
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+
+			datav[i].Abort(txn)	// XXX err?
+		}()
+	}
+	wg.Wait()
+
+	// XXX set txn status
+
+	// sync.AfterCompletion
+	n = len(syncv)
+	wg = sync.WaitGroup{}
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+
+			syncv[i].AfterCompletion(txn)
+		}()
+	}
+
+	// XXX return error?
 }
+
 
 // checkNotYetCompleting asserts that transaction completion has not yet began.
 //
 // and panics if the assert fails.
 // must be called with .mu held.
+//
+// XXX place
 func (txn *transaction) checkNotYetCompleting(who string) {
 	switch txn.status {
 	case Active:	// XXX + Doomed ?
@@ -93,7 +170,6 @@ func (txn *transaction) checkNotYetCompleting(who string) {
 		panic("transaction: " + who + ": transaction completion already began")
 	}
 }
-
 
 // Join implements Transaction.
 func (txn *transaction) Join(dm DataManager) {

@@ -69,6 +69,10 @@ type dmAbortOnly struct {
 	nabort int32
 }
 
+func (d *dmAbortOnly) Modify() {
+	d.txn.Join(d)
+}
+
 func (d *dmAbortOnly) Abort(txn Transaction) {
 	if txn != d.txn {
 		d.t.Fatalf("abort: txn is different")
@@ -81,14 +85,19 @@ func (d *dmAbortOnly) TPCBegin(_ Transaction)				{ d.bug(); panic(0) }
 func (d *dmAbortOnly) Commit(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
 func (d *dmAbortOnly) TPCVote(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
 func (d *dmAbortOnly) TPCFinish(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
-func (d *dmAbortOnly) TPCAbort(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCAbort(_ context.Context, _ Transaction)	{ d.bug(); panic(0) }
 
 func TestAbort(t *testing.T) {
-	txn, _ := New(context.Background())
-	dm := &dmAbortOnly{t: t, txn: txn}
+	txn, ctx := New(context.Background())
+	dm := &dmAbortOnly{t: t, txn: Current(ctx)}
+	dm.Modify()
+
+	// XXX +sync
 
 	txn.Abort()
 	if dm.nabort != 1 {
 		t.Fatalf("abort: nabort=%d;  want=1", dm.nabort)
 	}
+
+	// txn.Abort() -> panic	XXX
 }
