@@ -19,37 +19,30 @@
 //	https://github.com/zopefoundation/transaction
 //
 // but is not exactly equal to it.
+//
+//
+// Overview
+//
+// XXX
+//
+// Transactions are created with New()
 package transaction
 
 import (
 	"context"
 )
 
-// // Manager manages sequence of transactions.
-// type Manager interface {
-// 
-// 	// Begin begins new transaction.
-// 	//
-// 	// XXX
-// 	//
-// 	// XXX There must be no existing in progress transaction.
-// 	// XXX kill ^^^ - we should support many simultaneous transactions.
-// 	//
-// 	// XXX + ctx, error -> yes, i.e. it needs to sync fetch last tid from db
-// 	Begin() Transaction
-// 
-// 	// RegisterSynch registers synchronizer.
-// 	//
-// 	// Synchronizers are notified about major events in a transaction's life.
-// 	// See Synchronizer for details.
-// 	RegisterSynch(synch Synchronizer)
-// 
-// 	// UnregisterSynch unregisters synchronizer.
-// 	//
-// 	// XXX synchronizer must be already registered?
-// 	// XXX or make RegisterSynch return something that will allow to unregister via that?
-// 	UnregisterSynch(synch Synchronizer)
-// }
+// Status describes status of a transaction.
+type Status int
+
+const (
+	Active Status = iota // transaction is in progress
+	Committing           // transaction commit started
+	Committed            // transaction commit finished successfully
+	// XXX CommitFailed  // transaction commit resulted in error
+	// XXX Aborted       // transaction was aborted by user
+	// XXX Doomed        // transaction was doomed
+)
 
 // Transaction represents a transaction.
 //
@@ -64,6 +57,11 @@ type Transaction interface {
 	// XXX map[string]interface{}	(objects must be simple values serialized with pickle or json, not "instances")
 	Extension() string
 
+
+
+	// Status returns current status of the transaction.
+	Status() Status
+
 	// Commit finalizes the transaction.
 	//
 	// Commit completes the transaction by executing the two-phase commit
@@ -74,9 +72,13 @@ type Transaction interface {
 	//
 	// Abort completes the transaction by executing Abort on all
 	// DataManagers associated with it.
-	Abort()
+	Abort()	// XXX + ctx, error?
 
 	// XXX + Doom?
+
+
+	// ---- part for data managers & friends ----
+	// XXX move to separate interface?
 
 	// Join associates a DataManager to the transaction.
 	//
@@ -84,17 +86,37 @@ type Transaction interface {
 	// completion - commit or abort.
 	//
 	// Join must be called before transaction completion begins.
-	Join(DataManager)
+	Join(dm DataManager)
+
+	// RegisterSync registers sync to be notified in this transaction boundary events.
+	//
+	// See Synchronizer for details.
+	RegisterSync(sync Synchronizer)
 
 	// XXX SetData(key interface{}, data interface{})
 	// XXX GetData(key interface{}) interface{}, ok
 }
 
+// New creates new transaction.
+//
+// XXX the transaction will be associated with ctx (txnCtx derives from ctx + associates txn)
+func New(ctx context.Context) (txn Transaction, txnCtx context.Context) {
+	return newTxn(ctx)
+}
+
+// Current returns current transaction.
+//
+// It panics if there is no transaction associated with provided context.
+func Current(ctx context.Context) Transaction {
+	return currentTxn(ctx)
+}
+
+
 // DataManager manages data and can transactionally persist it.
 //
 // If DataManager is registered to transaction via Transaction.Join, it will
 // participate in that transaction completion - commit or abort. In other words
-// a data manager should join to corresponding transaction when it sees there
+// a data manager have to join to corresponding transaction when it sees there
 // are modifications to data it manages.
 type DataManager interface {
 	// Abort should abort all modifications to managed data.
@@ -146,17 +168,17 @@ type DataManager interface {
 	// XXX SortKey() string ?
 }
 
-
 // Synchronizer is the interface to participate in transaction-boundary notifications.
 type Synchronizer interface {
-	// BeforeCompletion is called by the transaction at the start of a commit.
-	// XXX -> PreCommit ?
-	BeforeCompletion(txn Transaction)
+	// BeforeCompletion is called before corresponding transaction is going to be completed.
+	//
+	// The transaction manager calls BeforeCompletion before txn is going
+	// to be completed - either committed or aborted.
+	BeforeCompletion(ctx context.Context, txn Transaction) error
 
-	// AfterCompletion is called by the transaction after completing a commit.
-	AfterCompletion(txn Transaction)
-
-	// // NewTransaction is called at the start of a transaction.
-	// // XXX + ctx, error (it needs to ask storage for last tid)
-	// NewTransaction(txn Transaction)
+	// AfterCompletion is called after corresponding transaction was completed.
+	//
+	// The transaction manager calls AfterCompletion after txn is completed
+	// - either committed or aborted.
+	AfterCompletion(txn Transaction) // XXX +ctx, error?
 }
