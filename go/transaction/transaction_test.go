@@ -12,3 +12,50 @@
 // FOR A PARTICULAR PURPOSE.
 
 package transaction
+
+import (
+	"context"
+	"testing"
+)
+
+func TestBasic(t *testing.T) {
+	ctx := context.Background()
+
+	// Current(ø) -> panic
+	func() {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("Current(ø) -> not paniced")
+			}
+
+			if want := "transaction: no current transaction"; r != want {
+				t.Fatalf("Current(ø) -> %q;  want %q", r, want)
+			}
+		}()
+
+		Current(ctx)
+	}()
+
+
+	txn, ctx := New(ctx)
+	if txn_ := Current(ctx); txn_ != txn {
+		t.Fatalf("New inconsistent with Current: txn = %#v;  txn_ = %#v", txn, txn_)
+	}
+
+	// subtransactions not allowed
+	func () {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("New(!ø) -> not paniced")
+			}
+
+			if want := "transaction: new: nested transactions not supported"; r != want {
+				t.Fatalf("New(!ø) -> %q;  want %q", r, want)
+			}
+		}()
+
+		_, _ = New(ctx)
+	}()
+}

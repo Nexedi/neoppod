@@ -56,7 +56,7 @@ func currentTxn(ctx context.Context) Transaction {
 // newTxn serves New.
 func newTxn(ctx context.Context) (Transaction, context.Context) {
 	if getTxn(ctx) != nil {
-		panic("transaction: nested transactions are not supported")
+		panic("transaction: new: nested transactions not supported")
 	}
 
 	txn := &transaction{status: Active}
