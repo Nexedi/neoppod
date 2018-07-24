@@ -41,11 +41,11 @@
 // That might be useful to pass transactions through API boundaries.
 //
 //
-// Contrary to transaction/py there is no relation in between transaction and current thread -
-// a transaction scope is managed completely by programmer. In particular it is
-// possible to use one transaction in several goroutines simultaneously.
-//
-// There can be also several in-progress transactions running simultaneously.
+// Contrary to transaction/py there is no relation in between transaction and
+// current thread - a transaction scope is managed completely by programmer. In
+// particular it is possible to use one transaction in several goroutines
+// simultaneously. There can be also several in-progress transactions running
+// simultaneously, even in one goroutine.
 //
 //
 // Two-phase commit
@@ -259,7 +259,7 @@ type Synchronizer interface {
 	//
 	// The transaction manager calls BeforeCompletion before txn is going
 	// to be completed - either committed or aborted.
-	BeforeCompletion(ctx context.Context, txn Transaction) error
+	BeforeCompletion(txn Transaction) // XXX +ctx, error?
 
 	// AfterCompletion is called after corresponding transaction was completed.
 	//

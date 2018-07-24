@@ -17,7 +17,7 @@ import (
 	"context"
 	"sync"
 
-	"lab.nexedi.com/kirr/go123/xerr"
+	//"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // transaction implements Transaction.
@@ -80,8 +80,6 @@ func (txn *transaction) Commit(ctx context.Context) error {
 
 // Abort implements Transaction.
 func (txn *transaction) Abort() {
-	ctx := context.Background()	// FIXME stub
-
 	var datav []DataManager
 	var syncv []Synchronizer
 
@@ -103,23 +101,24 @@ func (txn *transaction) Abort() {
 	n := len(syncv)
 	wg := sync.WaitGroup{}
 	wg.Add(n)
-	errv := make([]error, n)
+	//errv := make([]error, n)
 	for i := 0; i < n; i++ {
 		i := i
 		go func() {
 			defer wg.Done()
 
-			errv[i] = syncv[i].BeforeCompletion(ctx, txn)
+			syncv[i].BeforeCompletion(txn)
+			//errv[i] = syncv[i].BeforeCompletion(ctx, txn)
 		}()
 	}
 	wg.Wait()
 
-	ev := xerr.Errorv{}
-	for _, err := range errv {
-		ev.Appendif(err)
-	}
-	errBeforeCompletion := ev.Err()
-	xerr.Context(&errBeforeCompletion, "transaction: abort:")
+	//ev := xerr.Errorv{}
+	//for _, err := range errv {
+	//	ev.Appendif(err)
+	//}
+	//errBeforeCompletion := ev.Err()
+	//xerr.Context(&errBeforeCompletion, "transaction: abort:")
 
 	// XXX if before completion = err -> skip data.Abort()? state -> AbortFailed?
 
