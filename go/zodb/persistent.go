@@ -108,9 +108,9 @@ type IPersistent interface {
 type ObjectState int
 
 const (
-	GHOST ObjectState = -1
-	UPTODATE          = 0
-	CHANGED           = 1
+	GHOST     ObjectState = -1
+	UPTODATE  ObjectState = 0
+	CHANGED   ObjectState = 1
 	// no STICKY - we pin objects in RAM with PActivate
 )
 
