@@ -38,12 +38,14 @@
 //
 //	txn := transaction.Current(ctx)
 //
-// That might be used to pass transactions through API boundaries.
+// That might be useful to pass transactions through API boundaries.
 //
 //
 // Contrary to transaction/py there is no relation in between transaction and current thread -
 // a transaction scope is managed completely by programmer. In particular it is
 // possible to use one transaction in several goroutines simultaneously.
+//
+// There can be also several in-progress transactions running simultaneously.
 //
 //
 // Two-phase commit
@@ -61,17 +63,46 @@
 // transaction.
 //
 // The details of interaction between transaction manager and a backend are in
-// DataManager interface. A backend must join the transaction when it detects
-// its data is modified. As backends usually provide specific API to users for
+// DataManager interface. As backends usually provide specific API to users for
 // accessing its data, the following example is relevant:
 //
 //	func (b *MyBackend) ChangeID(ctx context.Context, newID int) {
 //		b.id = newID
 //
-//		// join the transaction to participate in commit.
+//		// data changed - join the transaction to participate in commit.
 //		txn := transaction.Current(ctx)
 //		txn.Join(b)
 //	}
+//
+//
+// Synchronization
+//
+// An object, e.g. a backend, might want to be notified of transaction completion events.
+// For example
+//
+//	- backends that do not have hooks installed to every access of its
+//	  data, might want to check data dirtiness before transaction
+//	  completion starts,
+//
+//	- backends might need to free some resources after transaction
+//	  completes.
+//
+// Transaction.RegisterSync provides the way to be notified of such
+// synchronization points. Please see Synchronizer interface for details.
+//
+// Notice: transaction/py also provides "new transaction" synchronization point,
+// but there is no need for it in transaction/go:
+//
+//	- the only place where it is used is in zodb/py because data backend
+//	  (Connection) is opened while there is no yet transaction started:
+//
+//	  https://github.com/zopefoundation/ZODB/blob/3.10.7-4-gb8d7a8567/src/ZODB/collaborations.txt#L25-L29
+//
+//	- the way transaction/go works is to first start a transaction, and
+//	  then, under it, open all backends, e.g. ZODB connections. This way
+//	  when backend open happens, there is already transaction object
+//	  available in the context, and thus there is no need to be notified of
+//	  when transaction is created.
 package transaction
 
 import (
