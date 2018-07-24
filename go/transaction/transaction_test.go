@@ -95,8 +95,8 @@ func TestAbort(t *testing.T) {
 	// XXX +sync
 
 	txn.Abort()
-	if dm.nabort != 1 {
-		t.Fatalf("abort: nabort=%d;  want=1", dm.nabort)
+	if !(dm.nabort == 1 && txn.Status() == Aborted) {
+		t.Fatalf("abort: nabort=%d; txn.Status=%v", dm.nabort, txn.Status())
 	}
 
 	// txn.Abort() -> panic	XXX

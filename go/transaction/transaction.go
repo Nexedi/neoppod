@@ -138,6 +138,10 @@ func (txn *transaction) Abort() {
 	wg.Wait()
 
 	// XXX set txn status
+	txn.mu.Lock()
+	// assert .status == Aborting
+	txn.status = Aborted			// XXX what if errBeforeCompletion?
+	txn.mu.Unlock()
 
 	// sync.AfterCompletion
 	n = len(syncv)
