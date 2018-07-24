@@ -23,9 +23,55 @@
 //
 // Overview
 //
-// XXX
+// Transactions are represented by Transaction interface. A transaction can be
+// started with New, which creates transaction object and remembers it in a
+// child of provided context:
 //
-// Transactions are created with New()
+//	txn, ctx := transaction.New(ctx)
+//
+// The transaction should be eventually completed by user - either committed or aborted, e.g.
+//
+//	... // do something with data
+//	err := txn.Commit(ctx)
+//
+// As transactions are associated with contexts, Current returns that associated transaction:
+//
+//	txn := transaction.Current(ctx)
+//
+// That might be used to pass transactions through API boundaries.
+//
+//
+// Contrary to transaction/py there is no relation in between transaction and current thread -
+// a transaction scope is managed completely by programmer. In particular it is
+// possible to use one transaction in several goroutines simultaneously.
+//
+//
+// Two-phase commit
+//
+// Transactions this package manages, support committing data into several
+// backends simultaneously. The way it is organized is via employing two-phase
+// commit protocol:
+//
+//	https://en.wikipedia.org/wiki/Two-phase_commit_protocol
+//
+// For this scheme to work, every data backend (e.g. database connection) which
+// participates in a transaction, must first let the transaction know when the
+// data it manages was modified. Then at commit time the transaction manager
+// will perform two-phase commit related calls to the backends that joined the
+// transaction.
+//
+// The details of interaction between transaction manager and a backend are in
+// DataManager interface. A backend must join the transaction when it detects
+// its data is modified. As backends usually provide specific API to users for
+// accessing its data, the following example is relevant:
+//
+//	func (b *MyBackend) ChangeID(ctx context.Context, newID int) {
+//		b.id = newID
+//
+//		// join the transaction to participate in commit.
+//		txn := transaction.Current(ctx)
+//		txn.Join(b)
+//	}
 package transaction
 
 import (
