@@ -149,8 +149,8 @@ func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
 //
 // The scope of the object returned is the Connection.	XXX ok?
 //
-// The object's data is not neccessarily loaded after Get returns. Use
-// PActivate to make sure the object ifs fully loaded.
+// The object's data is not necessarily loaded after Get returns. Use
+// PActivate to make sure the object is fully loaded.
 func (conn *Connection) Get(ctx context.Context, oid Oid) (IPyPersistent, error) {
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
@@ -198,7 +198,7 @@ func (e *wrongClassError) Error() string {
 // If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
 // Otherwise new in-RAM object is created according to specified class.
 //
-// The object's data is not neccessarily loaded after get returns. Use
+// The object's data is not necessarily loaded after get returns. Use
 // PActivate to make sure the object is fully loaded.
 //
 // XXX object scope.
