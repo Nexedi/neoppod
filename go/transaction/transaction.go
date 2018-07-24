@@ -11,7 +11,7 @@
 // WARRANTIES OF TITLE, MERCHANTABILITY, AGAINST INFRINGEMENT, AND FITNESS
 // FOR A PARTICULAR PURPOSE.
 
-// Package transaction provides transaction management via Two-Phase commit protocol.
+// Package transaction provides transaction management via two-phase commit protocol.
 //
 // It is modelled after Python transaction package:
 //
