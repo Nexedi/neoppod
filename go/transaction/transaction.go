@@ -81,14 +81,40 @@ func (txn *transaction) Abort() {
 	panic("TODO")
 }
 
+// checkNotYetCompleting asserts that transaction completion has not yet began.
+//
+// and panics if the assert fails.
+// must be called with .mu held.
+func (txn *transaction) checkNotYetCompleting(who string) {
+	switch txn.status {
+	case Active:	// XXX + Doomed ?
+		// ok
+	default:
+		panic("transaction: " + who + ": transaction completion already began")
+	}
+}
+
+
 // Join implements Transaction.
 func (txn *transaction) Join(dm DataManager) {
-	panic("TODO")
+	txn.mu.Lock()
+	defer txn.mu.Unlock()
+
+	txn.checkNotYetCompleting("join")
+
+	// XXX forbid double join?
+	txn.datav = append(txn.datav, dm)
 }
 
 // RegisterSync implements Transaction.
 func (txn *transaction) RegisterSync(sync Synchronizer) {
-	panic("TODO")
+	txn.mu.Lock()
+	defer txn.mu.Unlock()
+
+	txn.checkNotYetCompleting("register sync")
+
+	// XXX forbid double register?
+	txn.syncv = append(txn.syncv, sync)
 }
 
 

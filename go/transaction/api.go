@@ -168,6 +168,8 @@ type Transaction interface {
 	// RegisterSync registers sync to be notified in this transaction boundary events.
 	//
 	// See Synchronizer for details.
+	//
+	// RegisterSync must be called before transaction completion begins.
 	RegisterSync(sync Synchronizer)
 
 	// XXX SetData(key interface{}, data interface{})
@@ -243,7 +245,10 @@ type DataManager interface {
         // This should never fail.
 	TPCAbort(ctx context.Context, txn Transaction) // XXX error?
 
-	// XXX SortKey() string ?
+
+	// XXX better do without SortKey - with it it is assumed that
+	// datamanagers are processed serially.
+	// SortKey() string
 }
 
 // Synchronizer is the interface to participate in transaction-boundary notifications.
