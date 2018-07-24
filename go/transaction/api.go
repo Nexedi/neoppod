@@ -177,6 +177,7 @@ type Transaction interface {
 // New creates new transaction.
 //
 // XXX the transaction will be associated with ctx (txnCtx derives from ctx + associates txn)
+// XXX nested transactions are not supported.
 func New(ctx context.Context) (txn Transaction, txnCtx context.Context) {
 	return newTxn(ctx)
 }

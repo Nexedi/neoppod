@@ -64,26 +64,29 @@ func newTxn(ctx context.Context) (Transaction, context.Context) {
 	return txn, txnCtx
 }
 
-
+// Status implements Transaction.
 func (txn *transaction) Status() Status {
 	txn.mu.Lock()
 	defer txn.mu.Unlock()
 	return txn.status
 }
 
+// Commit implements Transaction.
 func (txn *transaction) Commit(ctx context.Context) error {
 	panic("TODO")
 }
 
+// Abort implements Transaction.
 func (txn *transaction) Abort() {
 	panic("TODO")
 }
 
-
+// Join implements Transaction.
 func (txn *transaction) Join(dm DataManager) {
 	panic("TODO")
 }
 
+// RegisterSync implements Transaction.
 func (txn *transaction) RegisterSync(sync Synchronizer) {
 	panic("TODO")
 }
