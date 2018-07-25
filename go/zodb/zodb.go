@@ -18,6 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 // Package zodb defines types, interfaces and errors to work with ZODB databases.
+// XXX ... provides access to ZODB databases?
 //
 // ZODB (http://zodb.org) was originally created in Python world by Jim Fulton et al.
 // Data model this package provides is partly based on ZODB/py
@@ -55,13 +56,42 @@
 //
 // At storage level a ZODB database can be opened with OpenStorage. Once opened
 // IStorage interface is returned that represents access to the database.
-// Operations at storage layer work with raw-bytes buffers. Please see
-// documentation of IStorage, and other interfaces it embeds, for details.
+// Please see documentation of IStorage, and other interfaces it embeds, for
+// details.
 //
 //
 // Application layer
 //
+// The application layer provides access to a ZODB database in terms of in-RAM
+// objects whose in-RAM state is synchronized with data in the database. For
+// the synchronization to work, objects must be explicitly activated before
+// access (contrary to zodb/py where activation is implicit hooked into
+// __getattr__), for example:
+//
+//	// make sure object's in-RAM data is present.
+//	//
+//	// ZODB will load corresponding data and decode it into obj.
+//	// On success, obj will be live and application can use its state.
+//	err := obj.PActivate(ctx)
+//	if err != nil {
+//		return ... // handle error
+//	}
+//
+//	... // use object.
+//
+//	// tell persistency layer we no longer need obj's in-RAM data to be present.
+//	obj.PDeactivate()
+//
+// See IPersistent interface for details of the activation protocol.
+//
+//
 // XXX DB + Connection.
+//
+// XXX access from several threads is ok.
+//
+// XXX The details of the activation protocol are documented in IPersistent
+// interface which all ZODB in-RAM objects implement.
+//
 //
 //
 // Python data
@@ -71,7 +101,7 @@
 //
 // Storage drivers
 //
-// IStorageDriver, RegisterDriver + wks (FileStorage, ZEO and NEO).
+// IStorageDriver, RegisterDriver + DriverOpener, wks (FileStorage, ZEO and NEO).
 //
 // --------
 //
@@ -204,7 +234,7 @@ func (e *NoDataError) Error() string {
 	}
 }
 
-// OpError is the error returned by IStorageDriver operations.
+// OpError is the error returned by IStorageDriver operations.	XXX -> by ZODB operations?
 type OpError struct {
 	URL  string	 // URL of the storage
 	Op   string	 // operation that failed

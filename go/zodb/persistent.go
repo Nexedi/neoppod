@@ -108,9 +108,9 @@ type IPersistent interface {
 type ObjectState int
 
 const (
-	GHOST     ObjectState = -1
-	UPTODATE  ObjectState = 0
-	CHANGED   ObjectState = 1
+	GHOST     ObjectState = -1 // object data is not yet loaded from the database
+	UPTODATE  ObjectState = 0  // object is live and in-RAM data is the same as in database
+	CHANGED   ObjectState = 1  // object is live and in-RAM data was changed
 	// no STICKY - we pin objects in RAM with PActivate
 )
 
