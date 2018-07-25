@@ -41,6 +41,16 @@
 // That might be useful to pass transactions through API boundaries.
 //
 //
+// For convenience With is also provided to run a function in a new
+// transaction, and either commit or abort it, depending on that function
+// result:
+//
+//	ok, err := transaction.With(ctx, func(ctx context.Context) error {
+//		...        // do something
+//		return err // the transaction will be committed on nil; aborted on !nil
+//	})
+//
+//
 // Contrary to transaction/py there is no relation in between transaction and
 // current thread - a transaction scope is managed completely by programmer. In
 // particular it is possible to use one transaction in several goroutines
@@ -270,4 +280,26 @@ type Synchronizer interface {
 	// The transaction manager calls AfterCompletion after txn is completed
 	// - either committed or aborted.
 	AfterCompletion(txn Transaction) // XXX +ctx, error?
+}
+
+// ---- syntactic sugar ----
+
+// With runs f in a new transaction, and either commits or aborts it depending on f result.
+//
+// If f succeeds - the transaction is committed.
+// If f fails - the transaction is aborted.
+//
+// On return ok indicates whether f succeeded, and the error, depending on ok,
+// is either the error from f, or the error from transaction commit.
+//
+// XXX + note?
+func With(ctx context.Context, f func(context.Context) error) (ok bool, _ error) {
+	txn, ctx := New(ctx)
+	err := f(ctx)
+	if err != nil {
+		txn.Abort()	// XXX err
+		return false, err
+	}
+
+	return true, txn.Commit(ctx)
 }
