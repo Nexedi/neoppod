@@ -31,7 +31,7 @@
 // several objects and also has metadata, like user and description, associated
 // with it. If an object is changed by transaction, it is said that there is
 // revision of the object with particular object state committed by that transaction.
-// Object revision is the same as tid of transaction that modified the object.
+// Object revision is the same as tid of the transaction that modified the object.
 // The combination of object identifier and particular revision (serial)
 // uniquely addresses corresponding data record.
 //
@@ -48,11 +48,18 @@
 // pickles in ZODB/py world.
 //
 //
-// Operations
+// Storage layer
+//
+// The storage layer provides access to a ZODB database in terms of database
+// records with raw bytes for payload.
 //
 // At storage level a ZODB database can be opened with OpenStorage. Once opened
-// IStorage interface is returned that represents access to the database. Please
-// see documentation of IStorage, and other interfaces it embeds, for details.
+// IStorage interface is returned that represents access to the database.
+// Operations at storage layer work with raw-bytes buffers. Please see
+// documentation of IStorage, and other interfaces it embeds, for details.
+//
+//
+// Application layer
 //
 // XXX DB + Connection.
 //

@@ -14,6 +14,8 @@
 package zodb
 // Support for python objects/data in ZODB.
 
+// XXX + PyData.referencesf ?
+
 import (
 	"context"
 	"fmt"
