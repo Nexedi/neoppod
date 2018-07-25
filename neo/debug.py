@@ -178,3 +178,68 @@ elif IF == 'profile':
         prof = cProfile.Profile()
         threading.Timer(DURATION, stop, (prof, path)).start()
         prof.enable()
+
+elif IF == 'trace-cache':
+    from struct import Struct
+    from .client.cache import ClientCache
+    from .lib.protocol import uuid_str, ZERO_TID as z64
+
+    class CacheTracer(object):
+
+        _pack2 = Struct('!B8s8s').pack
+        _pack4 = Struct('!B8s8s8sL').pack
+
+        def __init__(self, cache, path):
+            self._cache = cache
+            self._trace_file = open(path, 'a')
+
+        def close(self):
+            self._trace_file.close()
+            return self._cache
+
+        def _trace(self, op, x, y=z64, z=z64):
+            self._trace_file.write(self._pack(op, x, y, z))
+
+        def __repr__(self):
+            return repr(self._cache)
+
+        @property
+        def max_size(self):
+            return self._cache.max_size
+
+        def clear(self):
+            self._trace_file.write('\0')
+            self._cache.clear()
+
+        def clear_current(self):
+            self._trace_file.write('\1')
+            self._cache.clear_current()
+
+        def load(self, oid, before_tid=None):
+            r = self._cache.load(oid, before_tid)
+            self._trace_file.write(self._pack2(
+                3 if r else 2, oid, before_tid or z64))
+            return r
+
+        def store(self, oid, data, tid, next_tid):
+            self._trace_file.write(self._pack4(
+                4, oid, tid, next_tid or z64, len(data)))
+            self._cache.store(oid, data, tid, next_tid)
+
+        def invalidate(self, oid, tid):
+            self._trace_file.write(self._pack2(5, oid, tid))
+            self._cache.invalidate(oid, tid)
+
+    @defer
+    def profile(app):
+        app._cache_lock_acquire()
+        try:
+            cache = app._cache
+            if type(cache) is ClientCache:
+                app._cache = CacheTracer(cache, '%s-%s.neo-cache-trace' %
+                                          (app.name, uuid_str(app.uuid)))
+                app._cache.clear()
+            else:
+                app._cache = cache.close()
+        finally:
+            app._cache_lock_release()
