@@ -168,9 +168,9 @@ type DataInfo struct {
 type TxnStatus byte
 
 const (
-	TxnComplete TxnStatus = ' ' // completed transaction that hasn't been packed
-	TxnPacked             = 'p' // completed transaction that has been packed
-	TxnInprogress         = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
+	TxnComplete   TxnStatus = ' ' // completed transaction that hasn't been packed
+	TxnPacked     TxnStatus = 'p' // completed transaction that has been packed
+	TxnInprogress TxnStatus = 'c' // checkpoint -- a transaction in progress; it's been thru vote() but not finish()
 )
 
 
