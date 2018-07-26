@@ -127,6 +127,8 @@
 // All DB, Connection and object activation protocol is safe to access from
 // multiple goroutines simultaneously.
 //
+// XXX reference to package lab.nexedi.com/kirr/neo/go/transaction.
+//
 // (*) if both objects are from the same database.
 //
 // Python data
