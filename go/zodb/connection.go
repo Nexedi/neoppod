@@ -23,6 +23,9 @@ package zodb
 // Connection is safe to access from multiple goroutines simultaneously.
 //
 // XXX ^^^ modifications?
+//
+// Connection and objects obtained from it must be used by application only
+// inside transaction where Connection was opened.
 type Connection struct {
 	stor	IStorage	// underlying storage
 	at	Tid		// current view of database
@@ -95,3 +98,12 @@ type LiveCacheControl interface {
 }
 
 
+// XXX Connection.{Get,get} without py dependency?
+// but then how to create a ghost of correct class? -> reflect.Type?
+
+// load loads object specified by oid.
+//
+// XXX must be called ... (XXX e.g. outside transaction boundary) so that there is no race on .at .
+func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
+	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
+}

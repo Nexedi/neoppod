@@ -267,16 +267,3 @@ func (obj *Persistent) PInvalidate() {
 	obj.state = GHOST
 	obj.loading = nil
 }
-
-
-// ----------------------------------------
-
-// XXX Connection.{Get,get} without py dependency?
-// but then how to create a ghost of correct class? -> reflect.Type?
-
-// load loads object specified by oid.
-//
-// XXX must be called ... (XXX e.g. outside transaction boundary) so that there is no race on .at .
-func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
-	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
-}
