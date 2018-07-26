@@ -17,11 +17,10 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package zodb defines types, interfaces and errors to work with ZODB databases.
-// XXX ... provides access to ZODB databases?
+// Package zodb provides API to work with ZODB databases.
 //
 // ZODB (http://zodb.org) was originally created in Python world by Jim Fulton et al.
-// Data model this package provides is partly based on ZODB/py
+// Data model and API this package provides are partly based on ZODB/py
 // (https://github.com/zopefoundation/ZODB) to maintain compatibility in
 // between Python and Go implementations.
 //
@@ -48,25 +47,29 @@
 // Object state data is generally opaque, but is traditionally based on Python
 // pickles in ZODB/py world.
 //
+// An object can reference other objects in the database by their oid.
+//
 //
 // Storage layer
 //
 // The storage layer provides access to a ZODB database in terms of database
-// records with raw bytes for payload.
+// records with raw bytes payload.
 //
 // At storage level a ZODB database can be opened with OpenStorage. Once opened
 // IStorage interface is returned that represents access to the database.
-// Please see documentation of IStorage, and other interfaces it embeds, for
-// details.
+// Please see IStorage, and interfaces it embeds, for details.
 //
 //
 // Application layer
 //
 // The application layer provides access to a ZODB database in terms of in-RAM
-// objects whose in-RAM state is synchronized with data in the database. For
+// application-level objects whose in-RAM state is synchronized with data in the database. For
 // the synchronization to work, objects must be explicitly activated before
-// access (contrary to zodb/py where activation is implicit hooked into
+// access (contrary to zodb/py where activation is implicit, hooked into
 // __getattr__), for example:
+//
+//	var obj *MyObject // *MyObject must implement IPersistent (see below)
+//	... // init obj pointer, usually by traversing from another persistent object.
 //
 //	// make sure object's in-RAM data is present.
 //	//
@@ -77,15 +80,33 @@
 //		return ... // handle error
 //	}
 //
-//	... // use object.
+//	obj.xxx       // use object.
+//	if ... {
+//		obj.xxx++     // change object.
+//		obj.PModify() // let persistency layer know we modified the object.
+//	}
 //
 //	// tell persistency layer we no longer need obj's in-RAM data to be present.
+//	// if obj was not modified, its in-RAM state might go away after.
 //	obj.PDeactivate()
 //
-// See IPersistent interface for details of the activation protocol.
+// IPersistent interface describes the details of the activation protocol.
+//
+// In-RAM application objects are handled in groups. During the scope of
+// corresponding in-progress transaction, a group corresponds to particular
+// view of the database (at) and has isolation guarantee from further database
+// transactions, and from in-progress changes to in-RAM objects in other
+// groups.
+//
+// If object₁ references object₂ in the database, the database reference will
+// be represented with corresponding reference between in-RAM application
+// objects. If there are multiple database references to one object, it will be
+// represented by several references to single in-RAM application object.
+// Reference cycles are also allowed. In general objects graph in the database
+// is isomorphly mapped to application objects graph in RAM.
 //
 //
-// XXX DB + Connection.
+// XXX Connection + DB.
 //
 // XXX access from several threads is ok.
 //
