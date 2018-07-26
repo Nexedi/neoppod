@@ -18,10 +18,8 @@ package zodb
 
 import (
 	"context"
-	"fmt"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 
 	pickle "github.com/kisielk/og-rek"
 )
@@ -88,6 +86,7 @@ func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
 
 // TODO PyPersistent.GetState
 
+/*
 // ---- pyclass -> new ghost ----
 
 // function representing new of a class.
@@ -139,6 +138,7 @@ func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
 	d.pystate = pystate
 	return nil
 }
+*/
 
 
 // ----------------------------------------
@@ -184,59 +184,6 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPyPersistent, error)
 	// TODO -> use (pystate, serial) to activate.
 	_, _ = pystate, serial
 	return obj, nil
-}
-
-// wrongClassError is the error cause returned when python object's class is not what was expected.
-type wrongClassError struct {
-	want, have pickle.Class
-}
-
-func (e *wrongClassError) Error() string {
-	return fmt.Sprintf("wrong class: want %q; have %q", e.want, e.have)
-}
-
-// get returns in-RAM object corresponding to specified ZODB object according to current database view.
-//
-// If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
-// Otherwise new in-RAM object is created according to specified class.
-//
-// The object's data is not necessarily loaded after get returns. Use
-// PActivate to make sure the object is fully loaded.
-//
-// XXX object scope.
-//
-// Use-case: in ZODB references are (pyclass, oid), so new ghost is created
-// without further loading anything.
-func (conn *Connection) get(pyclass pickle.Class, oid Oid) (IPyPersistent, error) {
-	conn.objmu.Lock()		// XXX -> rlock
-	wobj := conn.objtab[oid]
-	var pyobj IPyPersistent
-	checkClass := false
-	if wobj != nil {
-		if xobj := wobj.Get(); xobj != nil {
-			pyobj = xobj.(IPyPersistent)
-		}
-	}
-	if pyobj == nil {
-		pyobj = conn.newGhost(pyclass, oid)
-		conn.objtab[oid] = weak.NewRef(pyobj)
-	} else {
-		checkClass = true
-	}
-	conn.objmu.Unlock()
-
-	if checkClass {
-		if cls := pyobj.PyClass(); pyclass != cls {
-			return nil, &OpError{
-				URL:  conn.stor.URL(),
-				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse
-				Args: oid,
-				Err:  &wrongClassError{pyclass, cls},
-			}
-		}
-	}
-
-	return pyobj, nil
 }
 
 // loadpy loads object specified by oid and decodes it as a ZODB Python object.

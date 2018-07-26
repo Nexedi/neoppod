@@ -16,6 +16,7 @@ package zodb
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -104,6 +105,122 @@ type LiveCacheControl interface {
 	// unconditionally.
 	WantEvict(obj IPersistent) (ok bool)
 }
+
+
+// ---- class -> new ghost ----
+
+// XXX type Class string ?
+
+// function representing new of a class.
+type classNewFunc func(base *PyPersistent) IPyPersistent	// XXX Py -> ø
+
+// {} class -> new(pyobj XXX)
+var classTab = make(map[string]classNewFunc)
+
+// RegisterClass registers ZODB class to be transformed to Go instance
+// created via classNew.
+//
+// Must be called from global init().
+func RegisterClass(class string, classNew classNewFunc) {
+	classTab[class] = classNew
+	// XXX + register so that PyData decode handles class
+}
+
+
+// newGhost creates new ghost object corresponding to class and oid.
+func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
+	pyobj := &PyPersistent{
+		Persistent:  Persistent{jar: conn, oid: oid, serial: 0, state: GHOST},
+		pyclass: pyclass,
+	}
+
+	// switch on pyclass and transform e.g. "zodb.BTree.Bucket" -> *ZBucket
+	classNew := classTab[class]
+	var instance IPersistent
+	if classNew != nil {
+		instance = classNew(pyobj)
+	} else {
+		instance = &Broken{PyPersistent: pyobj}
+	}
+
+	pyobj.instance = instance
+	return instance
+}
+
+// Broken is used for classes that were not registered.
+type Broken struct {
+	*Persistent
+	pystate interface{}	// XXX py -> ø ?
+}
+
+func (b *Broken) DropState() {
+	b.pystate = nil
+}
+
+func (b *Broken) PySetState(pystate interface{}) error	{
+	b.pystate = pystate
+	return nil
+}
+
+// ----------------------------------------
+
+// wrongClassError is the error cause returned when ZODB object's class is not what was expected.
+type wrongClassError struct {
+	want, have string
+}
+
+func (e *wrongClassError) Error() string {
+	return fmt.Sprintf("wrong class: want %q; have %q", e.want, e.have)
+}
+
+
+// get returns in-RAM object corresponding to specified ZODB object according to current database view.
+//
+// If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
+// Otherwise new in-RAM object is created according to specified class.
+//
+// The object's data is not necessarily loaded after get returns. Use
+// PActivate to make sure the object is fully loaded.
+//
+// XXX object scope.
+//
+// Use-case: in ZODB references are (pyclass, oid), so new ghost is created
+// without further loading anything.
+func (conn *Connection) get(class string, oid Oid) (IPyPersistent, error) {
+	conn.objmu.Lock()		// XXX -> rlock
+	wobj := conn.objtab[oid]
+	var pyobj IPyPersistent
+	checkClass := false
+	if wobj != nil {
+		if xobj := wobj.Get(); xobj != nil {
+			pyobj = xobj.(IPyPersistent)
+		}
+	}
+	if pyobj == nil {
+		pyobj = conn.newGhost(class, oid)
+		conn.objtab[oid] = weak.NewRef(pyobj)
+	} else {
+		checkClass = true
+	}
+	conn.objmu.Unlock()
+
+	if checkClass {
+		if cls := pyobj.PyClass(); class != cls {
+			return nil, &OpError{
+				URL:  conn.stor.URL(),
+				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse
+				Args: oid,
+				Err:  &wrongClassError{class, cls},
+			}
+		}
+	}
+
+	return pyobj, nil
+}
+
+
+
+
 
 
 // XXX Connection.{Get,get} without py dependency?
