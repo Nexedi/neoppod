@@ -186,26 +186,27 @@ func (e *wrongClassError) Error() string {
 //
 // Use-case: in ZODB references are (pyclass, oid), so new ghost is created
 // without further loading anything.
-func (conn *Connection) get(class string, oid Oid) (IPyPersistent, error) {
+func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
-	var pyobj IPyPersistent
+	var obj IPersistent
 	checkClass := false
 	if wobj != nil {
 		if xobj := wobj.Get(); xobj != nil {
-			pyobj = xobj.(IPyPersistent)
+			obj = xobj.(IPersistent)
 		}
 	}
-	if pyobj == nil {
-		pyobj = conn.newGhost(class, oid)
-		conn.objtab[oid] = weak.NewRef(pyobj)
+	if obj == nil {
+		obj = conn.newGhost(class, oid)
+		conn.objtab[oid] = weak.NewRef(obj)
 	} else {
 		checkClass = true
 	}
 	conn.objmu.Unlock()
 
 	if checkClass {
-		if cls := pyobj.PyClass(); class != cls {
+		// XXX get obj class via reflection?
+		if cls := obj.PyClass(); class != cls {
 			return nil, &OpError{
 				URL:  conn.stor.URL(),
 				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse
@@ -215,9 +216,52 @@ func (conn *Connection) get(class string, oid Oid) (IPyPersistent, error) {
 		}
 	}
 
-	return pyobj, nil
+	return obj, nil
 }
 
+
+// Get returns in-RAM object corresponding to specified ZODB object according to current database view.
+//
+// If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
+// Otherwise new in-RAM object is created and filled with object's class loaded from the database.
+//
+// The scope of the object returned is the Connection.	XXX ok?
+//
+// The object's data is not necessarily loaded after Get returns. Use
+// PActivate to make sure the object is fully loaded.
+func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
+	conn.objmu.Lock()		// XXX -> rlock
+	wobj := conn.objtab[oid]
+	var xobj interface{}
+	if wobj != nil {
+		xobj = wobj.Get()
+	}
+	conn.objmu.Unlock()
+
+	// object was already there in objtab.
+	if xobj != nil {
+		return xobj.(IPersistent), nil
+	}
+
+	// object is not there in objtab - raw load it, get its class -> get(pyclass, oid)
+	// XXX py hardcoded
+	pyclass, pystate, serial, err := conn.loadpy(ctx, oid)
+	if err != nil {
+		return nil, err		// XXX errctx
+	}
+
+	obj, err := conn.get(pyclass.Module + "." + pyclass.Name, oid)
+	if err != nil {
+		return nil, err
+	}
+
+	// XXX we are dropping just loaded pystate. Usually Get should be used
+	// to only load root object, so maybe that is ok.
+	//
+	// TODO -> use (pystate, serial) to activate.
+	_, _ = pystate, serial
+	return obj, nil
+}
 
 
 

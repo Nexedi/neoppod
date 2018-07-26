@@ -144,48 +144,6 @@ func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
 // ----------------------------------------
 
 
-// Get returns in-RAM object corresponding to specified ZODB object according to current database view.
-//
-// If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
-// Otherwise new in-RAM object is created and filled with object's class loaded from the database.
-//
-// The scope of the object returned is the Connection.	XXX ok?
-//
-// The object's data is not necessarily loaded after Get returns. Use
-// PActivate to make sure the object is fully loaded.
-func (conn *Connection) Get(ctx context.Context, oid Oid) (IPyPersistent, error) {
-	conn.objmu.Lock()		// XXX -> rlock
-	wobj := conn.objtab[oid]
-	var xobj interface{}
-	if wobj != nil {
-		xobj = wobj.Get()
-	}
-	conn.objmu.Unlock()
-
-	// object was already there in objtab.
-	if xobj != nil {
-		return xobj.(IPyPersistent), nil	// XXX if just IPersistent ?
-	}
-
-	// object is not there in objtab - raw load it, get its class -> get(pyclass, oid)
-	pyclass, pystate, serial, err := conn.loadpy(ctx, oid)
-	if err != nil {
-		return nil, err		// XXX errctx
-	}
-
-	obj, err := conn.get(pyclass, oid)
-	if err != nil {
-		return nil, err
-	}
-
-	// XXX we are dropping just loaded pystate. Usually Get should be used
-	// to only load root object, so maybe that is ok.
-	//
-	// TODO -> use (pystate, serial) to activate.
-	_, _ = pystate, serial
-	return obj, nil
-}
-
 // loadpy loads object specified by oid and decodes it as a ZODB Python object.
 //
 // loadpy does not create any in-RAM object associated with Connection.
