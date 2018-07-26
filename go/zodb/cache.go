@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// cache management
+// cache of raw storage data.
 
 import (
 	"context"

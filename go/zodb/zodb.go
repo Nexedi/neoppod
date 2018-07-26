@@ -241,7 +241,7 @@ const (
 )
 
 
-// ---- interfaces ----
+// ---- storage interfaces ----
 
 // NoObjectError is the error which tells that there is no such object in the database at all.
 type NoObjectError struct {
