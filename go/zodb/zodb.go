@@ -80,7 +80,7 @@
 //		return ... // handle error
 //	}
 //
-//	obj.xxx       // use object.
+//	obj.xxx // use object.
 //	if ... {
 //		obj.xxx++     // change object.
 //		obj.PModify() // let persistency layer know we modified the object.
@@ -102,18 +102,32 @@
 // be represented with corresponding reference between in-RAM application
 // objects. If there are multiple database references to one object, it will be
 // represented by several references to single in-RAM application object.
+// An in-RAM application object can have reference to another in-RAM
+// application object only from the same group(*).
 // Reference cycles are also allowed. In general objects graph in the database
 // is isomorphly mapped to application objects graph in RAM.
 //
+// A particular view of the database together with corresponding group of
+// application objects isolated for modifications is represented by Connection.
+// Connection is also sometimes called a "jar" in ZODB terminology.
 //
-// XXX Connection + DB.
+// DB represents a handle to database at application level and contains a pool
+// of connections. If application opens connection via DB.Open, the connection
+// will be automatically put back into DB pool for future reuse after
+// corresponding transaction is complete. DB thus provides service to maintain
+// live objects cache and reuse live objects from transaction to transaction.
 //
-// XXX access from several threads is ok.
+// Note that it is possible to have several DB handles to the same database.
+// This might be useful if application accesses distinctly different set of
+// objects in different transactions and knows beforehand which set it will be
+// next time. Then, to avoid huge cache misses, it makes sense to keep DB
+// handles opened for every possible case of application access.
 //
-// XXX The details of the activation protocol are documented in IPersistent
-// interface which all ZODB in-RAM objects implement.
 //
+// All DB, Connection and object activation protocol is safe to access from
+// multiple goroutines simultaneously.
 //
+// (*) if both objects are from the same database.
 //
 // Python data
 //
