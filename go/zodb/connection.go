@@ -14,6 +14,14 @@
 package zodb
 // application-level database connection.
 
+import (
+	"context"
+	"sync"
+
+	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
+)
+
 // Connection represents a view of ZODB database.
 //
 // The view is representing state of ZODB objects as of `at` transaction.

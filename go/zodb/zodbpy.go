@@ -164,7 +164,7 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPyPersistent, error)
 
 	// object was already there in objtab.
 	if xobj != nil {
-		return xobj.(IPyPersistent), nil
+		return xobj.(IPyPersistent), nil	// XXX if just IPersistent ?
 	}
 
 	// object is not there in objtab - raw load it, get its class -> get(pyclass, oid)

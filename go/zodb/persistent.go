@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
-	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
 // IPersistent is the interface that every in-RAM object representing any database object implements.
