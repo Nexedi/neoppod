@@ -101,7 +101,7 @@
 // If object₁ references object₂ in the database, the database reference will
 // be represented with corresponding reference between in-RAM application
 // objects. If there are multiple database references to one object, it will be
-// represented by several references to single in-RAM application object.
+// represented by the same number of references to only one in-RAM application object.
 // An in-RAM application object can have reference to another in-RAM
 // application object only from the same group(*).
 // Reference cycles are also allowed. In general objects graph in the database
@@ -118,7 +118,7 @@
 // live objects cache and reuse live objects from transaction to transaction.
 //
 // Note that it is possible to have several DB handles to the same database.
-// This might be useful if application accesses distinctly different set of
+// This might be useful if application accesses distinctly different sets of
 // objects in different transactions and knows beforehand which set it will be
 // next time. Then, to avoid huge cache misses, it makes sense to keep DB
 // handles opened for every possible case of application access.
