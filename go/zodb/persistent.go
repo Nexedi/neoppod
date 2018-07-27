@@ -31,6 +31,8 @@ import (
 //
 // XXX safe to access from multiple goroutines simultaneously.
 type IPersistent interface {
+	zclass() string	// ZODB class of this object. XXX remove from IPersistent?
+
 	PJar()    *Connection	// Connection this in-RAM object is part of.
 	POid()    Oid		// object ID in the database.
 
@@ -117,6 +119,8 @@ const (
 
 // Persistent is common base implementation for in-RAM representation of database objects.
 type Persistent struct {
+	class   string // zodb class of this object. XXX try not to store and retrieve via reflect?
+
 	jar	*Connection
 	oid	Oid
 	serial	Tid
@@ -128,6 +132,7 @@ type Persistent struct {
 	loading  *loadState
 }
 
+func (obj *Persistent) zclass() string		{ return obj.class	}
 func (obj *Persistent) PJar() *Connection	{ return obj.jar	}
 func (obj *Persistent) POid() Oid		{ return obj.oid	}
 func (obj *Persistent) PSerial() Tid		{ return obj.serial	}

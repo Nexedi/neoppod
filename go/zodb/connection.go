@@ -112,7 +112,7 @@ type LiveCacheControl interface {
 // XXX type Class string ?
 
 // function representing new of a class.
-type classNewFunc func(base *PyPersistent) IPyPersistent	// XXX Py -> ø
+type classNewFunc func(base *Persistent) IPersistent
 
 // {} class -> new(pyobj XXX)
 var classTab = make(map[string]classNewFunc)
@@ -129,36 +129,36 @@ func RegisterClass(class string, classNew classNewFunc) {
 
 // newGhost creates new ghost object corresponding to class and oid.
 func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
-	pyobj := &PyPersistent{
-		Persistent:  Persistent{jar: conn, oid: oid, serial: 0, state: GHOST},
-		pyclass: pyclass,
-	}
+	base := &Persistent{class: class, jar: conn, oid: oid, serial: 0, state: GHOST}
 
 	// switch on pyclass and transform e.g. "zodb.BTree.Bucket" -> *ZBucket
 	classNew := classTab[class]
 	var instance IPersistent
 	if classNew != nil {
-		instance = classNew(pyobj)
+		instance = classNew(base)
 	} else {
-		instance = &Broken{PyPersistent: pyobj}
+		instance = &Broken{Persistent: base}
 	}
 
-	pyobj.instance = instance
+	base.instance = instance
 	return instance
 }
 
 // Broken is used for classes that were not registered.
 type Broken struct {
 	*Persistent
-	pystate interface{}	// XXX py -> ø ?
+	state *mem.Buf
 }
 
 func (b *Broken) DropState() {
-	b.pystate = nil
+	b.state.XRelease()
+	b.state = nil
 }
 
-func (b *Broken) PySetState(pystate interface{}) error	{
-	b.pystate = pystate
+func (b *Broken) SetState(state *mem.Buf) error	{
+	b.state.XRelease()
+	state.Incref()
+	b.state = state
 	return nil
 }
 
@@ -206,7 +206,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 
 	if checkClass {
 		// XXX get obj class via reflection?
-		if cls := obj.PyClass(); class != cls {
+		if cls := obj.zclass(); class != cls {
 			return nil, &OpError{
 				URL:  conn.stor.URL(),
 				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse

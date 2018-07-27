@@ -28,7 +28,7 @@ import (
 type IPyPersistent interface {
 	IPersistent
 
-	PyClass() pickle.Class // python class of this object
+	//PyClass() pickle.Class // python class of this object
 //	PyState() interface{}  // object state. python passes this to pyclass.__new__().__setstate__()
 
 	// IPyPersistent must be stateful for persistency to work
@@ -44,7 +44,7 @@ type PyPersistent struct {
 	pyclass pickle.Class
 }
 
-func (pyobj *PyPersistent) PyClass() pickle.Class	{ return pyobj.pyclass	}
+//func (pyobj *PyPersistent) PyClass() pickle.Class	{ return pyobj.pyclass	}
 //func (pyobj *PyPersistent) PyState() interface{}	{ return pyobj.pystate	}
 
 // PyStateful is the interface describing in-RAM object whose data state can be
@@ -75,10 +75,11 @@ func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
 		return err	// XXX err ctx
 	}
 
-	if pyclass != pyobj.pyclass {
+	class := pyclassPath(pyclass)
+	if class != pyobj.class {
 		// complain that pyclass changed
 		// (both ref and object data use pyclass so it indeed can be different)
-		return &wrongClassError{want: pyobj.pyclass, have: pyclass} // XXX + err ctx
+		return &wrongClassError{want: pyobj.class, have: class} // XXX + err ctx
 	}
 
 	return pyobj.pyinstance().PySetState(pystate)	// XXX err ctx = ok?
@@ -143,6 +144,12 @@ func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
 
 // ----------------------------------------
 
+// pyclassPath returns full path for a python class.
+//
+// for example class "ABC" in module "wendelin.lib" has its full path as "wendelin.lib.ABC".
+func pyclassPath(pyclass pickle.Class) string {
+	return pyclass.Module + "." + pyclass.Name
+}
 
 // loadpy loads object specified by oid and decodes it as a ZODB Python object.
 //
@@ -156,11 +163,10 @@ func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pyst
 
 	defer buf.Release()
 
-	pyclass, pystate, err = PyData(buf.Data).Decode()
+	pyclass, pystate, err := PyData(buf.Data).Decode()
 	if err != nil {
 		return "", nil, 0, err	// XXX err ctx
 	}
 
-	class := pyclass.Module + "." + pyclass.Name // full pyclass path
-	return class, pystate, serial, nil
+	return pyclassPath(pyclass), pystate, serial, nil
 }
