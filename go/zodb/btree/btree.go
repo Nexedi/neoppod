@@ -178,14 +178,16 @@ func (b *Bucket) get(key KEY) (interface{}, bool) {
 //
 // In the above, key[i] means self->data[i].key, and similarly for child[i].
 
+type btreeState BTree // hide state methods from public API
+
 // DropState implements zodb.Stateful.
-func (t *BTree) DropState() {
+func (t *btreeState) DropState() {
 	t.firstbucket = nil
 	t.data = nil
 }
 
 // PySetState implements zodb.PyStateful to set btree data from pystate.
-func (bt *BTree) PySetState(pystate interface{}) error {
+func (bt *btreeState) PySetState(pystate interface{}) error {
 	// empty btree
 	if _, ok := pystate.(pickle.None); ok {
 		bt.firstbucket = nil
@@ -201,7 +203,7 @@ func (bt *BTree) PySetState(pystate interface{}) error {
 	// btree with 1 child bucket without oid
 	if len(t) == 1 {
 		bucket := &Bucket{PyPersistent: nil /* FIXME */}
-		err := bucket.PySetState(t[0])
+		err := (*bucketState)(bucket).PySetState(t[0])
 		if err != nil {
 			// XXX
 		}
@@ -265,15 +267,17 @@ func (bt *BTree) PySetState(pystate interface{}) error {
 //	     <self->next iff non-NULL>
 //	)
 
+type bucketState Bucket // hide state methods from public API
+
 // DropState implements Stateful to discard bucket state.
-func (b *Bucket) DropState() {
+func (b *bucketState) DropState() {
 	b.next = nil
 	b.keys = nil
 	b.values = nil
 }
 
 // PySetState implements PyStateful to set bucket data from pystate.
-func (b *Bucket) PySetState(pystate interface{}) error {
+func (b *bucketState) PySetState(pystate interface{}) error {
 	t, ok := pystate.(pickle.Tuple)
 	if !ok || !(1 <= len(t) && len(t) <= 2) {
 		// XXX complain
@@ -318,6 +322,7 @@ func (b *Bucket) PySetState(pystate interface{}) error {
 // ---- register classes to ZODB ----
 
 func init() {
-	zodb.RegisterClass("zodb.BTree.LOBucket", reflect.TypeOf(Bucket{}))
-	zodb.RegisterClass("zodb.BTree.LOBtree",  reflect.TypeOf(BTree{}))
+	t := reflect.TypeOf
+	zodb.RegisterClass("zodb.BTree.LOBucket", t(Bucket{}), t(bucketState{}))
+	zodb.RegisterClass("zodb.BTree.LOBtree",  t(BTree{}),  t(btreeState{}))
 }

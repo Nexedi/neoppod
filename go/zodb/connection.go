@@ -110,8 +110,8 @@ type LiveCacheControl interface {
 
 // ---- class <-> type; new ghost ----
 
-var class2Type = make(map[string]reflect.Type) // {} class -> type
-var type2Class = make(map[reflect.Type]string) // {} type -> class
+var class2Type = make(map[string]reflect.Type) // {} class -> (type, stateType)
+var type2Class = make(map[reflect.Type]string) // {} type -> (class, stateType)
 
 // zclassOf returns ZODB class of a Go object.
 //
@@ -128,11 +128,17 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 
 // RegisterClass registers ZODB class to correspond to Go type.
 //
-// type must embed IPersistent.
-// *type must implement IPersistent, Ghostable and either Stateful or PyStateful.
+// typ must embed IPersistent; *typ must implement IPersistent.
+//
+// typ must be convertible to stateType; stateType must implement Ghostable and
+// either Stateful or PyStateful(*)
 //
 // Must be called from global init().
-func RegisterClass(class string, typ reflect.Type) {
+//
+// (*) the rationale for stateType coming separately is that this way for
+// application types it is possible not to expose Ghostable and Stateful
+// methods in their public API.
+func RegisterClass(class string, typ, stateType reflect.Type) {
 	badf := func(format string, argv ...interface{}) {
 		msg := fmt.Sprintf(format, argv...)
 		panic(fmt.Sprintf("zodb: register class (%q, %q): %s", class, typ, msg))
@@ -146,6 +152,8 @@ func RegisterClass(class string, typ reflect.Type) {
 	}
 
 	// typ must have IPersistent embedded
+	// TODO later change to directly embedding non-pointer Persistent | PyPersistent
+	// (optimize memory + less allocation)
 	basef, ok := typ.FieldByName("IPersistent")
 	if !(ok && basef.Anonymous && basef.Type == rIPersistent) {
 		badf("type does not embed IPersistent")
