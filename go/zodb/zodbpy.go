@@ -65,7 +65,7 @@ type PyStateful interface {
 // pyinstance returns .instance upcasted to IPyPersistent.
 //
 // this should be always safe because we always create pyObjects via
-// newGhost which passes IPyPersistent as instance to IPersistent.
+// newGhost which passes IPyPersistent as instance to IPersistent.	XXX no longer true
 func (pyobj *PyPersistent) pyinstance() IPyPersistent {
 	return pyobj.instance.(IPyPersistent)
 }
@@ -88,59 +88,6 @@ func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
 
 // TODO PyPersistent.GetState
 
-/*
-// ---- pyclass -> new ghost ----
-
-// function representing new of a class.
-type pyClassNewFunc func(base *PyPersistent) IPyPersistent
-
-// path(pyclass) -> new(pyobj)
-var pyClassTab = make(map[string]pyClassNewFunc)
-
-// PyRegisterClass registers python class to be transformed to Go instance
-// created via classNew.
-//
-// must be called from global init().
-func PyRegisterClass(pyClassPath string, classNew pyClassNewFunc) {
-	pyClassTab[pyClassPath] = classNew
-	// XXX + register so that PyData decode handles pyClassPath
-}
-
-// newGhost creates new ghost object corresponding to pyclass and oid.
-func (conn *Connection) newGhost(pyclass pickle.Class, oid Oid) IPyPersistent {
-	pyobj := &PyPersistent{
-		Persistent:  Persistent{jar: conn, oid: oid, serial: 0, state: GHOST},
-		pyclass: pyclass,
-	}
-
-	// switch on pyclass and transform e.g. "zodb.BTree.Bucket" -> *ZBucket
-	classNew := pyClassTab[pyclass.Module + "." + pyclass.Name]
-	var instance IPyPersistent
-	if classNew != nil {
-		instance = classNew(pyobj)
-	} else {
-		instance = &dummyPyInstance{PyPersistent: pyobj}
-	}
-
-	pyobj.instance = instance
-	return instance
-}
-
-// dummyPyInstance is used for python classes that were not registered.
-type dummyPyInstance struct {
-	*PyPersistent
-	pystate interface{}
-}
-
-func (d *dummyPyInstance) DropState() {
-	d.pystate = nil
-}
-
-func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
-	d.pystate = pystate
-	return nil
-}
-*/
 
 
 // ----------------------------------------

@@ -40,13 +40,6 @@ import (
 // PyData can be decoded into PyObject.
 type PyData []byte
 
-//type PyClass struct {
-//	Module string
-//	Name   string
-//}
-// XXX + String = Module + "." + Name
-
-
 
 // Decode decodes raw ZODB python data into Python class and state.
 func (d PyData) Decode() (pyclass pickle.Class, pystate interface{}, _ error) {
@@ -130,8 +123,3 @@ func normPyClass(xklass interface{}) (pickle.Class, error) {
 
 	return pickle.Class{}, errInvalidPyClass
 }
-
-// // PyClass returns Python class of the object.
-// func (pyobj *PyObject) PyClass() pickle.Class {
-// 	return pyobj.pyClass
-// }
