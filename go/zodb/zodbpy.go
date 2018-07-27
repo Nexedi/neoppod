@@ -77,13 +77,15 @@ func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
 	}
 
 	class := pyclassPath(pyclass)
-	if class != pyobj.class {
+	obj   := pyobj.pyinstance()
+
+	if objClass := zclassOf(obj); class != objClass {
 		// complain that pyclass changed
 		// (both ref and object data use pyclass so it indeed can be different)
-		return &wrongClassError{want: pyobj.class, have: class} // XXX + err ctx
+		return &wrongClassError{want: objClass, have: class} // XXX + err ctx
 	}
 
-	return pyobj.pyinstance().PySetState(pystate)	// XXX err ctx = ok?
+	return obj.PySetState(pystate)	// XXX err ctx = ok?
 }
 
 // TODO PyPersistent.GetState

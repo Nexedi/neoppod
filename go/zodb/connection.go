@@ -149,6 +149,13 @@ func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
 var class2Type = make(map[string]reflect.Type) // {} class -> type
 var type2Class = make(map[reflect.Type]string) // {} type -> class
 
+// zclassOf returns ZODB class of a Go object.
+//
+// If ZODB class was not registered for obj's type, "" is returned.
+func zclassOf(obj IPersistent) string {
+	return type2Class[reflect.TypeOf(obj)]
+}
+
 // RegisterClass registers ZODB class to correspond to Go type.
 //
 // *type must implement IPersistent. XXX and either Stateful or PyStateful
@@ -169,6 +176,8 @@ func RegisterClass(class string, typ reflect.Type) {
 	// XXX check typ has IPersistent embedded
 	// XXX check *typ implements Stateful
 
+	// XXX check if class was already registered
+	// XXX check class != ""
 
 	class2Type[class] = typ
 	type2Class[typ] = class
@@ -186,14 +195,14 @@ func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
 		xpobj = reflect.New(typ)
 	}
 
-	base  := &Persistent{class: class, jar: conn, oid: oid, serial: 0, state: GHOST}
+	base  := &Persistent{jar: conn, oid: oid, serial: 0, state: GHOST}
 	xobj  := xpobj.Elem() // typ
 	xobjBase := xobj.FieldByName("IPersistent")
 	xobjBase.Set(reflect.ValueOf(base))
 
 	obj := xpobj.Interface()
 	base.instance = obj.(interface{IPersistent; Stateful})
-	return obj.(IPersistent)
+	return base.instance
 }
 
 // Broken is used for classes that were not registered.
@@ -258,8 +267,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	conn.objmu.Unlock()
 
 	if checkClass {
-		// XXX get obj class via reflection?
-		if cls := obj.zclass(); class != cls {
+		if cls := zclassOf(obj); class != cls {
 			return nil, &OpError{
 				URL:  conn.stor.URL(),
 				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse
