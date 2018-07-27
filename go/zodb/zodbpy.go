@@ -26,7 +26,7 @@ import (
 
 // PyPersistent is common base implementation for in-RAM representation of ZODB Python objects.
 type PyPersistent struct {
-	*Persistent		// XXX remove ptr
+	Persistent
 }
 
 //func (pyobj *PyPersistent) PyClass() pickle.Class	{ return pyobj.pyclass	}
@@ -46,13 +46,11 @@ type PyStateful interface {
 
 // ---- PyPersistent <-> Persistent state exchange ----
 
-// pyinstance returns .instance upcasted to IPyPersistent.
+// pyinstance returns .instance upcasted to XXXPy.
 //
 // this should be always safe because we always create pyObjects via
 // newGhost which passes IPyPersistent as instance to IPersistent.	XXX no longer true
-//func (pyobj *PyPersistent) pyinstance() IPyPersistent {
 func (pyobj *PyPersistent) pyinstance() interface {IPersistent; Ghostable; PyStateful} {
-	//return pyobj.instance.(IPyPersistent)
 	return pyobj.instance.(interface {IPersistent; Ghostable; PyStateful})
 }
 
