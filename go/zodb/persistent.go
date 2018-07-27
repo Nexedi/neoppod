@@ -102,9 +102,9 @@ type IPersistent interface {
 	//PState()  ObjectState	// in-RAM object state.
 
 
-	// Object must be stateful for persistency to work.
-	// XXX try to move out of IPersistent?
-	Stateful
+//	// Object must be stateful for persistency to work.
+//	// XXX try to move out of IPersistent?
+//	Stateful
 }
 
 // ObjectState describes state of in-RAM object.
@@ -119,6 +119,7 @@ const (
 
 // Persistent is common base implementation for in-RAM representation of database objects.
 type Persistent struct {
+	// XXX kill here; move -> Broken
 	class   string // zodb class of this object. XXX try not to store and retrieve via reflect?
 
 	jar	*Connection
@@ -128,7 +129,8 @@ type Persistent struct {
 	mu	 sync.Mutex
 	state	 ObjectState
 	refcnt	 int32
-	instance IPersistent	// Persistent should be the base for the instance
+//	instance IPersistent	// Persistent should be the base for the instance	XXX -> Stateful
+	instance interface{IPersistent; Stateful} // Persistent should be the base for the instance
 	loading  *loadState
 }
 

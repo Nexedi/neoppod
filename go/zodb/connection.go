@@ -17,6 +17,7 @@ package zodb
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -117,6 +118,7 @@ type classNewFunc func(base *Persistent) IPersistent
 // {} class -> new(pyobj XXX)
 var classTab = make(map[string]classNewFunc)
 
+/*
 // RegisterClass registers ZODB class to be transformed to Go instance
 // created via classNew.
 //
@@ -125,7 +127,6 @@ func RegisterClass(class string, classNew classNewFunc) {
 	classTab[class] = classNew
 	// XXX + register so that PyData decode handles class
 }
-
 
 // newGhost creates new ghost object corresponding to class and oid.
 func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
@@ -143,10 +144,62 @@ func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
 	base.instance = instance
 	return instance
 }
+*/
+
+var class2Type = make(map[string]reflect.Type) // {} class -> type
+var type2Class = make(map[reflect.Type]string) // {} type -> class
+
+// RegisterClass registers ZODB class to correspond to Go type.
+//
+// *type must implement IPersistent. XXX and either Stateful or PyStateful
+//
+// Must be called from global init().
+func RegisterClass(class string, typ reflect.Type) {
+	rIPersistent := reflect.TypeOf(IPersistent(nil))
+	if !typ.Implements(rIPersistent) {
+		panic(fmt.Sprintf("zodb: register class: %q does not implement IPersistent", typ))
+	}
+
+	// find out if typ implements PyStateful and, if yes, use PyPersistent as base
+	rPyStateful := reflect.TypeOf(PyStateful(nil))
+	if typ.Implements(rPyStateful) {
+		// XXX
+	}
+
+	// XXX check typ has IPersistent embedded
+	// XXX check *typ implements Stateful
+
+
+	class2Type[class] = typ
+	type2Class[typ] = class
+}
+
+
+// newGhost creates new ghost object corresponding to class and oid.
+func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
+	// switch on class and transform e.g. "zodb.BTree.Bucket" -> btree.Bucket
+	var xpobj reflect.Value // *typ
+	typ := class2Type[class]
+	if typ == nil {
+		xpobj = reflect.ValueOf(&Broken{class: class})
+	} else {
+		xpobj = reflect.New(typ)
+	}
+
+	base  := &Persistent{class: class, jar: conn, oid: oid, serial: 0, state: GHOST}
+	xobj  := xpobj.Elem() // typ
+	xobjBase := xobj.FieldByName("IPersistent")
+	xobjBase.Set(reflect.ValueOf(base))
+
+	obj := xpobj.Interface()
+	base.instance = obj.(interface{IPersistent; Stateful})
+	return obj.(IPersistent)
+}
 
 // Broken is used for classes that were not registered.
 type Broken struct {
 	*Persistent
+	class string
 	state *mem.Buf
 }
 
