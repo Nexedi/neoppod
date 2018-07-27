@@ -25,6 +25,7 @@ import (
 )
 
 // IPyPersistent is the interface that every in-RAM object representing Python ZODB object implements.
+// XXX kill
 type IPyPersistent interface {
 	IPersistent
 
@@ -40,8 +41,8 @@ type IPyPersistent interface {
 
 // PyPersistent is common base implementation for in-RAM representation of ZODB Python objects.
 type PyPersistent struct {
-	Persistent
-	pyclass pickle.Class
+	*Persistent		// XXX remove ptr
+	pyclass pickle.Class	// XXX kill
 }
 
 //func (pyobj *PyPersistent) PyClass() pickle.Class	{ return pyobj.pyclass	}
