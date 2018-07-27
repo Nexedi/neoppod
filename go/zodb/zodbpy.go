@@ -56,7 +56,7 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf) error {
 	return obj.PySetState(pystate)	// XXX err ctx = ok?
 }
 
-// TODO PyPersistent.GetState
+// TODO pyGetState
 
 
 
