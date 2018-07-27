@@ -24,23 +24,6 @@ import (
 	pickle "github.com/kisielk/og-rek"
 )
 
-// IPyPersistent is the interface that every in-RAM object representing Python ZODB object implements.
-// XXX kill
-type IPyPersistent interface {
-	IPersistent
-
-	//PyClass() pickle.Class // python class of this object
-//	PyState() interface{}  // object state. python passes this to pyclass.__new__().__setstate__()
-
-/*
-	// IPyPersistent must be stateful for persistency to work
-	// XXX try to move out of IPyPersistent? Rationale: we do not want e.g. PySetState to
-	// be available to user who holds IPyPersistent interface: it is confusing to have
-	// both PActivate and PySetState at the same time.
-	PyStateful
-*/
-}
-
 // PyPersistent is common base implementation for in-RAM representation of ZODB Python objects.
 type PyPersistent struct {
 	*Persistent		// XXX remove ptr
@@ -68,9 +51,9 @@ type PyStateful interface {
 // this should be always safe because we always create pyObjects via
 // newGhost which passes IPyPersistent as instance to IPersistent.	XXX no longer true
 //func (pyobj *PyPersistent) pyinstance() IPyPersistent {
-func (pyobj *PyPersistent) pyinstance() interface {IPyPersistent; Ghostable; PyStateful} {
+func (pyobj *PyPersistent) pyinstance() interface {IPersistent; Ghostable; PyStateful} {
 	//return pyobj.instance.(IPyPersistent)
-	return pyobj.instance.(interface {IPyPersistent; Ghostable; PyStateful})
+	return pyobj.instance.(interface {IPersistent; Ghostable; PyStateful})
 }
 
 func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
