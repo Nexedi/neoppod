@@ -20,6 +20,7 @@ package btree
 
 import (
 	"context"
+	"reflect"
 	"sort"
 
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -316,17 +317,7 @@ func (b *Bucket) PySetState(pystate interface{}) error {
 
 // ---- register classes to ZODB ----
 
-func bucketNew(base *zodb.Persistent) zodb.IPersistent {
-	// XXX simplify vvv
-	return &Bucket{PyPersistent: &zodb.PyPersistent{Persistent: base}}
-}
-
-func btreeNew(base *zodb.Persistent) zodb.IPersistent {
-	// XXX simplify vvv
-	return &BTree{PyPersistent: &zodb.PyPersistent{Persistent: base}}
-}
-
 func init() {
-	zodb.RegisterClass("zodb.BTree.LOBucket", bucketNew)
-	zodb.RegisterClass("zodb.BTree.LOBtree",  btreeNew)
+	zodb.RegisterClass("zodb.BTree.LOBucket", reflect.TypeOf(Bucket{}))
+	zodb.RegisterClass("zodb.BTree.LOBtree",  reflect.TypeOf(BTree{}))
 }

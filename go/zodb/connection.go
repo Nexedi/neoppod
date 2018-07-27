@@ -108,43 +108,7 @@ type LiveCacheControl interface {
 }
 
 
-// ---- class -> new ghost ----
-
-// XXX type Class string ?
-
-// function representing new of a class.
-type classNewFunc func(base *Persistent) IPersistent
-
-// {} class -> new(pyobj XXX)
-var classTab = make(map[string]classNewFunc)
-
-/*
-// RegisterClass registers ZODB class to be transformed to Go instance
-// created via classNew.
-//
-// Must be called from global init().
-func RegisterClass(class string, classNew classNewFunc) {
-	classTab[class] = classNew
-	// XXX + register so that PyData decode handles class
-}
-
-// newGhost creates new ghost object corresponding to class and oid.
-func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
-	base := &Persistent{class: class, jar: conn, oid: oid, serial: 0, state: GHOST}
-
-	// switch on pyclass and transform e.g. "zodb.BTree.Bucket" -> *ZBucket
-	classNew := classTab[class]
-	var instance IPersistent
-	if classNew != nil {
-		instance = classNew(base)
-	} else {
-		instance = &Broken{Persistent: base}
-	}
-
-	base.instance = instance
-	return instance
-}
-*/
+// ---- class <-> type; new ghost ----
 
 var class2Type = make(map[string]reflect.Type) // {} class -> type
 var type2Class = make(map[reflect.Type]string) // {} type -> class
@@ -156,25 +120,57 @@ func zclassOf(obj IPersistent) string {
 	return type2Class[reflect.TypeOf(obj)]
 }
 
+var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)
+var rGhostable   = reflect.TypeOf((*Ghostable)(nil)).Elem()   // typeof(Ghostable)
+var rStateful    = reflect.TypeOf((*Stateful)(nil)).Elem()    // typeof(Stateful)
+var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStateful)
+
+
 // RegisterClass registers ZODB class to correspond to Go type.
 //
-// *type must implement IPersistent. XXX and either Stateful or PyStateful
+// type must embed IPersistent.
+// *type must implement IPersistent, Ghostable and either Stateful or PyStateful.
 //
 // Must be called from global init().
 func RegisterClass(class string, typ reflect.Type) {
-	rIPersistent := reflect.TypeOf(IPersistent(nil))
-	if !typ.Implements(rIPersistent) {
-		panic(fmt.Sprintf("zodb: register class: %q does not implement IPersistent", typ))
+	badf := func(format string, argv ...interface{}) {
+		msg := fmt.Sprintf(format, argv...)
+		panic(fmt.Sprintf("zodb: register class (%q, %q): %s", class, typ, msg))
+	}
+
+	if class == "" {
+		badf("class must be not empty")
+	}
+	if typ, already := class2Type[class]; already {
+		badf("class already registered for %q", typ)
+	}
+
+	// typ must have IPersistent embedded
+	basef, ok := typ.FieldByName("IPersistent")
+	if !(ok && basef.Anonymous && basef.Type == rIPersistent) {
+		badf("type does not embed IPersistent")
+	}
+
+	switch {
+	case !typ.Implements(rIPersistent):
+		// typ must not override IPersistent methods with e.g. different signature
+		badf("does not implement IPersistent")
+
+	case !typ.Implements(rGhostable):
+		badf("does not implement Ghostable")
+	}
+
+	stateful := typ.Implements(rStateful)
+	pystateful := typ.Implements(rPyStateful)
+	if !(stateful || pystateful) {
+		badf("does not implement any of Stateful or PyStateful")
 	}
 
 	// find out if typ implements PyStateful and, if yes, use PyPersistent as base
-	rPyStateful := reflect.TypeOf(PyStateful(nil))
-	if typ.Implements(rPyStateful) {
+	if pystateful {
 		// XXX
 	}
 
-	// XXX check typ has IPersistent embedded
-	// XXX check *typ implements Stateful
 
 	// XXX check if class was already registered
 	// XXX check class != ""
@@ -201,7 +197,7 @@ func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
 	xobjBase.Set(reflect.ValueOf(base))
 
 	obj := xpobj.Interface()
-	base.instance = obj.(interface{IPersistent; Stateful})
+	base.instance = obj.(interface{IPersistent; Ghostable; Stateful})
 	return base.instance
 }
 

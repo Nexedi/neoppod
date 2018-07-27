@@ -31,8 +31,6 @@ import (
 //
 // XXX safe to access from multiple goroutines simultaneously.
 type IPersistent interface {
-	//zclass() string	// ZODB class of this object. XXX remove from IPersistent?
-
 	PJar()    *Connection	// Connection this in-RAM object is part of.
 	POid()    Oid		// object ID in the database.
 
@@ -100,11 +98,6 @@ type IPersistent interface {
 
 	// XXX probably don't need this.
 	//PState()  ObjectState	// in-RAM object state.
-
-
-//	// Object must be stateful for persistency to work.
-//	// XXX try to move out of IPersistent?
-//	Stateful
 }
 
 // ObjectState describes state of in-RAM object.
@@ -119,9 +112,6 @@ const (
 
 // Persistent is common base implementation for in-RAM representation of database objects.
 type Persistent struct {
-//	// XXX kill here; move -> Broken
-//	class   string // zodb class of this object. XXX try not to store and retrieve via reflect?
-
 	jar	*Connection
 	oid	Oid
 	serial	Tid
@@ -129,11 +119,10 @@ type Persistent struct {
 	mu	 sync.Mutex
 	state	 ObjectState
 	refcnt	 int32
-	instance interface{IPersistent; Stateful} // Persistent should be the base for the instance
+	instance interface{IPersistent; Ghostable; Stateful} // Persistent should be the base for the instance
 	loading  *loadState
 }
 
-//func (obj *Persistent) zclass() string		{ return obj.class	}
 func (obj *Persistent) PJar() *Connection	{ return obj.jar	}
 func (obj *Persistent) POid() Oid		{ return obj.oid	}
 func (obj *Persistent) PSerial() Tid		{ return obj.serial	}
@@ -150,13 +139,15 @@ type loadState struct {
 	err   error
 }
 
+// Ghostable is the interface describin in-RAM object who can release its in-RAM state.
+type Ghostable interface {
+	// DropState should discard in-RAM object state.
+	DropState()
+}
+
 // Stateful is the interface describing in-RAM object whose data state can be
 // exchanged as raw bytes.
 type Stateful interface {
-	// DropState should discard in-RAM object state.
-	// XXX move out of Stateful? -> Ghostable?
-	DropState()
-
 	// SetState should set state of the in-RAM object from raw data.
 	//
 	// state ownership is not passed to SetState, so if state needs to be
