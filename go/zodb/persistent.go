@@ -16,6 +16,7 @@ package zodb
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -115,6 +116,8 @@ const (
 //
 // XXX it requires it to embed and provide Ghostable + Stateful.
 type Persistent struct {
+	zclass  *zclass // ZODB class of this object.
+
 	jar	*Connection
 	oid	Oid
 	serial	Tid
@@ -124,8 +127,8 @@ type Persistent struct {
 	refcnt	 int32
 
 	// Persistent should be the base for the instance.
-	// instance is additionally either Stateful | PyStateful.
-	instance interface{IPersistent; Ghostable}	// XXX Ghostable also not good here
+	// instance is additionally Ghostable and (Stateful | PyStateful).
+	instance IPersistent	// XXX Ghostable also not good here
 	loading  *loadState
 }
 
@@ -209,13 +212,12 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	// try to pass loaded state to object
 	if err == nil {
-		// XXX wrong: obj.instance is not Stateful (not to show it to public API)
-		switch inst := obj.instance.(type) {
+		switch istate := obj.istate().(type) {
 		case Stateful:
-			err = inst.SetState(state)	// XXX err ctx
+			err = istate.SetState(state)	// XXX err ctx
 
 		case PyStateful:
-			err = pySetState(inst, state)	// XXX err ctx
+			err = pySetState(istate, obj.zclass.class, state)	// XXX err ctx
 
 		default:
 			panic("!stateful instance")
@@ -260,7 +262,7 @@ func (obj *Persistent) PDeactivate() {
 	}
 
 	obj.serial = 0
-	obj.instance.DropState()
+	obj.istate().DropState()
 	obj.state = GHOST
 	obj.loading = nil
 }
@@ -276,7 +278,16 @@ func (obj *Persistent) PInvalidate() {
 	}
 
 	obj.serial = 0
-	obj.instance.DropState()
+	obj.istate().DropState()
 	obj.state = GHOST
 	obj.loading = nil
+}
+
+
+// istate returns .instance casted to corresponding stateType.
+//
+// returns: Ghostable + (Stateful | PyStateful).
+func (obj *Persistent) istate() Ghostable {
+	xstateful := reflect.ValueOf(obj.instance).Convert(reflect.PtrTo(obj.zclass.stateType))
+	return xstateful.Interface().(Ghostable)
 }

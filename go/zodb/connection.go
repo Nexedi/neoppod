@@ -132,6 +132,7 @@ func zclassOf(obj IPersistent) string {
 }
 
 var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)
+var rPersistent  = reflect.TypeOf(Persistent{})               // typeof(Persistent)
 var rGhostable   = reflect.TypeOf((*Ghostable)(nil)).Elem()   // typeof(Ghostable)
 var rStateful    = reflect.TypeOf((*Stateful)(nil)).Elem()    // typeof(Stateful)
 var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStateful)
@@ -139,7 +140,7 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 
 // RegisterClass registers ZODB class to correspond to Go type.
 //
-// typ must embed IPersistent; *typ must implement IPersistent.
+// typ must embed Persistent; *typ must implement IPersistent.
 //
 // typ must be convertible to stateType; stateType must implement Ghostable and
 // either Stateful or PyStateful(*)
@@ -152,7 +153,7 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 func RegisterClass(class string, typ, stateType reflect.Type) {
 	badf := func(format string, argv ...interface{}) {
 		msg := fmt.Sprintf(format, argv...)
-		panic(fmt.Sprintf("zodb: register class (%q, %q): %s", class, typ, msg))
+		panic(fmt.Sprintf("zodb: register class (%q, %q, %q): %s", class, typ, stateType, msg))
 	}
 
 	if class == "" {
@@ -162,37 +163,28 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 		badf("class already registered for %q", zc.typ)
 	}
 
-	// typ must have IPersistent embedded
-	// TODO later change to directly embedding non-pointer Persistent | PyPersistent
-	// (optimize memory + less allocation)
-	basef, ok := typ.FieldByName("IPersistent")
-	if !(ok && basef.Anonymous && basef.Type == rIPersistent) {
-		badf("type does not embed IPersistent")
+	// typ must embed Persistent
+	basef, ok := typ.FieldByName("Persistent")
+	if !(ok && basef.Anonymous && basef.Type == rPersistent) {
+		badf("%q does not embed Persistent", typ)
 	}
+
+	ptype := reflect.PtrTo(typ)
+	ptstate := reflect.PtrTo(stateType)
 
 	switch {
-	case !typ.Implements(rIPersistent):
-		// typ must not override IPersistent methods with e.g. different signature
-		badf("does not implement IPersistent")
+	case !ptype.Implements(rIPersistent):
+		badf("%q does not implement IPersistent", ptype)
 
-	case !typ.Implements(rGhostable):
-		badf("does not implement Ghostable")
+	case !ptstate.Implements(rGhostable):
+		badf("%q does not implement Ghostable", ptstate)
 	}
 
-	stateful := typ.Implements(rStateful)
-	pystateful := typ.Implements(rPyStateful)
+	stateful := ptstate.Implements(rStateful)
+	pystateful := ptstate.Implements(rPyStateful)
 	if !(stateful || pystateful) {
-		badf("does not implement any of Stateful or PyStateful")
+		badf("%q does not implement any of Stateful or PyStateful", ptstate)
 	}
-
-	// find out if typ implements PyStateful and, if yes, use PyPersistent as base
-	if pystateful {
-		// XXX
-	}
-
-
-	// XXX check if class was already registered
-	// XXX check class != ""
 
 	zc := &zclass{class: class, typ: typ, stateType: stateType}
 	classTab[class] = zc
