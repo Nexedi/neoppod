@@ -42,7 +42,7 @@ type KEY int64
 // are chained together via 'next', so that the entire BTree contents
 // can be traversed in sorted order quickly and easily.
 type Bucket struct {
-	*zodb.PyPersistent
+	zodb.Persistent
 
 	next   *Bucket		// the bucket with the next-larger keys
 	keys   []KEY		// 'len' keys, in increasing order
@@ -60,7 +60,7 @@ type zBTreeItem struct {
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
 // for details.
 type BTree struct {
-	*zodb.PyPersistent
+	zodb.Persistent
 
 	// firstbucket points to the bucket containing the smallest key in
 	// the BTree.  This is found by traversing leftmost child pointers
@@ -202,7 +202,7 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 
 	// btree with 1 child bucket without oid
 	if len(t) == 1 {
-		bucket := &Bucket{PyPersistent: nil /* FIXME */}
+		bucket := &Bucket{/* FIXME */}
 		err := (*bucketState)(bucket).PySetState(t[0])
 		if err != nil {
 			// XXX
