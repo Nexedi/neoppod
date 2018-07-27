@@ -110,7 +110,10 @@ const (
 	// no STICKY - we pin objects in RAM with PActivate
 )
 
-// Persistent is common base implementation for in-RAM representation of database objects.
+// Persistent is common base IPersistent implementation for in-RAM
+// representation of database objects.
+//
+// XXX it requires it to embed and provide Ghostable + Stateful.
 type Persistent struct {
 	jar	*Connection
 	oid	Oid
@@ -119,7 +122,10 @@ type Persistent struct {
 	mu	 sync.Mutex
 	state	 ObjectState
 	refcnt	 int32
-	instance interface{IPersistent; Ghostable; Stateful} // Persistent should be the base for the instance
+
+	// Persistent should be the base for the instance.
+	// instance is additionally either Stateful | PyStateful.
+	instance interface{IPersistent; Ghostable}	// XXX Ghostable also not good here
 	loading  *loadState
 }
 
@@ -203,7 +209,18 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	// try to pass loaded state to object
 	if err == nil {
-		err = obj.instance.SetState(state)	// XXX err ctx
+		// XXX wrong: obj.instance is not Stateful (not to show it to public API)
+		switch inst := obj.instance.(type) {
+		case Stateful:
+			err = inst.SetState(state)	// XXX err ctx
+
+		case PyStateful:
+			err = pySetState(inst, state)	// XXX err ctx
+
+		default:
+			panic("!stateful instance")
+		}
+
 		state.Release()
 		if err == nil {
 			obj.state = UPTODATE

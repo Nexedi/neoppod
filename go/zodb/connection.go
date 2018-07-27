@@ -110,14 +110,25 @@ type LiveCacheControl interface {
 
 // ---- class <-> type; new ghost ----
 
-var class2Type = make(map[string]reflect.Type) // {} class -> (type, stateType)
-var type2Class = make(map[reflect.Type]string) // {} type -> (class, stateType)
+// zclass describes one ZODB class in relation to Go type.
+type zclass struct {
+	class     string
+	typ       reflect.Type // application go type corresponding to class
+	stateType reflect.Type // *typ and *stateType are convertible; *stateType provides Statufl & co.
+}
+
+var classTab = make(map[string]*zclass)       // {} class -> zclass
+var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
 
 // zclassOf returns ZODB class of a Go object.
 //
 // If ZODB class was not registered for obj's type, "" is returned.
 func zclassOf(obj IPersistent) string {
-	return type2Class[reflect.TypeOf(obj)]
+	zc, ok := typeTab[reflect.TypeOf(obj)]
+	if !ok {
+		return ""
+	}
+	return zc.class
 }
 
 var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)
@@ -133,7 +144,7 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 // typ must be convertible to stateType; stateType must implement Ghostable and
 // either Stateful or PyStateful(*)
 //
-// Must be called from global init().
+// RegisterClass must be called from global init().
 //
 // (*) the rationale for stateType coming separately is that this way for
 // application types it is possible not to expose Ghostable and Stateful
@@ -147,8 +158,8 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 	if class == "" {
 		badf("class must be not empty")
 	}
-	if typ, already := class2Type[class]; already {
-		badf("class already registered for %q", typ)
+	if zc, already := classTab[class]; already {
+		badf("class already registered for %q", zc.typ)
 	}
 
 	// typ must have IPersistent embedded
@@ -183,8 +194,9 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 	// XXX check if class was already registered
 	// XXX check class != ""
 
-	class2Type[class] = typ
-	type2Class[typ] = class
+	zc := &zclass{class: class, typ: typ, stateType: stateType}
+	classTab[class] = zc
+	typeTab[typ] = zc
 }
 
 
@@ -192,11 +204,11 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
 	// switch on class and transform e.g. "zodb.BTree.Bucket" -> btree.Bucket
 	var xpobj reflect.Value // *typ
-	typ := class2Type[class]
-	if typ == nil {
+	zc := classTab[class]
+	if zc == nil {
 		xpobj = reflect.ValueOf(&Broken{class: class})
 	} else {
-		xpobj = reflect.New(typ)
+		xpobj = reflect.New(zc.typ)
 	}
 
 	base  := &Persistent{jar: conn, oid: oid, serial: 0, state: GHOST}
@@ -216,12 +228,14 @@ type Broken struct {
 	state *mem.Buf
 }
 
-func (b *Broken) DropState() {
+type brokenState Broken
+
+func (b *brokenState) DropState() {
 	b.state.XRelease()
 	b.state = nil
 }
 
-func (b *Broken) SetState(state *mem.Buf) error	{
+func (b *brokenState) SetState(state *mem.Buf) error	{
 	b.state.XRelease()
 	state.Incref()
 	b.state = state

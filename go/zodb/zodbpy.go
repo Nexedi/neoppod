@@ -24,14 +24,6 @@ import (
 	pickle "github.com/kisielk/og-rek"
 )
 
-// PyPersistent is common base implementation for in-RAM representation of ZODB Python objects.
-type PyPersistent struct {
-	Persistent
-}
-
-//func (pyobj *PyPersistent) PyClass() pickle.Class	{ return pyobj.pyclass	}
-//func (pyobj *PyPersistent) PyState() interface{}	{ return pyobj.pystate	}
-
 // PyStateful is the interface describing in-RAM object whose data state can be
 // exchanged as Python data.
 type PyStateful interface {
@@ -44,24 +36,15 @@ type PyStateful interface {
 	//PyGetState() interface{}	TODO
 }
 
-// ---- PyPersistent <-> Persistent state exchange ----
-
-// pyinstance returns .instance upcasted to XXXPy.
-//
-// this should be always safe because we always create pyObjects via
-// newGhost which passes IPyPersistent as instance to IPersistent.	XXX no longer true
-func (pyobj *PyPersistent) pyinstance() interface {IPersistent; Ghostable; PyStateful} {
-	return pyobj.instance.(interface {IPersistent; Ghostable; PyStateful})
-}
-
-func (pyobj *PyPersistent) SetState(state *mem.Buf) error {
+// pySetState decodes raw state as zodb/py serialized stream, and sets decoded
+// state on PyStateful obj.
+func pySetState(obj PyStateful, state *mem.Buf) error {
 	pyclass, pystate, err := PyData(state.Data).Decode()
 	if err != nil {
 		return err	// XXX err ctx
 	}
 
 	class := pyclassPath(pyclass)
-	obj   := pyobj.pyinstance()
 
 	if objClass := zclassOf(obj); class != objClass {
 		// complain that pyclass changed
