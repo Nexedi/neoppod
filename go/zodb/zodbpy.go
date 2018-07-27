@@ -148,18 +148,19 @@ func (d *dummyPyInstance) PySetState(pystate interface{}) error	{
 //
 // loadpy does not create any in-RAM object associated with Connection.
 // It only returns decoded database data.
-func (conn *Connection) loadpy(ctx context.Context, oid Oid) (pyclass pickle.Class, pystate interface{}, serial Tid, _ error) {
+func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pystate interface{}, serial Tid, _ error) {
 	buf, serial, err := conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 	if err != nil {
-		return pickle.Class{}, nil, 0, err
+		return "", nil, 0, err
 	}
 
 	defer buf.Release()
 
 	pyclass, pystate, err = PyData(buf.Data).Decode()
 	if err != nil {
-		return pickle.Class{}, nil, 0, err	// XXX err ctx
+		return "", nil, 0, err	// XXX err ctx
 	}
 
-	return pyclass, pystate, serial, nil
+	class := pyclass.Module + "." + pyclass.Name // full pyclass path
+	return class, pystate, serial, nil
 }

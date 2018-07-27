@@ -23,7 +23,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
-// Connection represents a view of ZODB database.
+// Connection represents a view of ZODB database. XXX + live application objects.
 //
 // The view is representing state of ZODB objects as of `at` transaction.
 //
@@ -245,12 +245,12 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
 
 	// object is not there in objtab - raw load it, get its class -> get(pyclass, oid)
 	// XXX py hardcoded
-	pyclass, pystate, serial, err := conn.loadpy(ctx, oid)
+	class, pystate, serial, err := conn.loadpy(ctx, oid)
 	if err != nil {
 		return nil, err		// XXX errctx
 	}
 
-	obj, err := conn.get(pyclass.Module + "." + pyclass.Name, oid)
+	obj, err := conn.get(class, oid)
 	if err != nil {
 		return nil, err
 	}
