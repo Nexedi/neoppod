@@ -450,4 +450,3 @@ func (b *brokenState) SetState(state *mem.Buf) error	{
 	b.state = state
 	return nil
 }
-
