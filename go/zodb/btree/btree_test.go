@@ -22,17 +22,53 @@ package btree
 //go:generate ./py/gen-testdata
 
 import (
+	"context"
 	"testing"
+
+	"lab.nexedi.com/kirr/neo/go/transaction"
+	"lab.nexedi.com/kirr/neo/go/zodb"
+	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
 )
 
+// kv is one (key, value) pair.
 type kv struct {
-	key   int64
+	key   KEY
 	value interface{}
 }
 
+// testEntry is information about 1 Bucket or BTree (XXX) object.
 type testEntry struct {
 	oid   zodb.Oid
 	itemv []kv
 }
 
-// TODO
+func TestBucket(t *testing.T) {
+	ctx := context.Background()
+	stor, err := zodb.OpenStorage(ctx, "testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := zodb.NewDB(stor)
+
+	txn, ctx := transaction.New(ctx)
+	defer txn.Abort()
+
+	conn, err := db.Open(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range _1fs_testEntry {
+		xobj, err := conn.Get(ctx, tt.oid)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		obj, ok := xobj.(*Bucket)
+		if !ok {
+			t.Fatalf("%s: got %T;  want Bucket", tt.oid, xobj)
+		}
+
+		_ = obj
+	}
+}
