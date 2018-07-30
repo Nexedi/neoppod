@@ -61,10 +61,12 @@ func NewDB(stor IStorage) *DB {
 	return &DB{stor: stor}
 }
 
-// Open opens new connection to the database. XXX @lastTid
+// Open opens new connection to the database.
 //
-// XXX must be called under transaction.
-// XXX connectin must be used under the same transaction only.
+// The connection is opened to current latest database state.
+//
+// Open must be called under transaction.
+// Opened connection must be used under the same transaction only.
 //
 // XXX text
 //
@@ -189,6 +191,8 @@ func (csync *connTxnSync) BeforeCompletion(txn transaction.Transaction) {
 func (csync *connTxnSync) AfterCompletion(txn transaction.Transaction) {
 	conn := (*Connection)(csync)
 	conn.checkTxn(txn, "AfterCompletion")
+
+	// XXX check that conn was explicitly closed by user?
 
 	conn.db.put(conn)
 }

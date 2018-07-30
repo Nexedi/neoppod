@@ -337,7 +337,10 @@ type IStorageDriver interface {
 	// To simplify drivets, there must be only 1 logical user of
 	// storage-driver level notifier interface. Ccontrary IStorage allows
 	// for several users of notification channel.	XXX ok?
-	Notifier() Notifier
+	//
+	// XXX -> nil, if driver does not support notifications?
+	// XXX or always support them, even with FileStorage (inotify)?
+	//Notifier() Notifier
 }
 
 // Loader provides functionality to load objects.

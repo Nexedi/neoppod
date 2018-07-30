@@ -39,6 +39,8 @@ import (
 //
 // Connection and objects obtained from it must be used by application only
 // inside transaction where Connection was opened.
+//
+// Use DB.Open to open a connection.
 type Connection struct {
 	stor	IStorage	// underlying storage
 	db      *DB		// Connection is part of this DB
