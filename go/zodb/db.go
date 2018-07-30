@@ -133,7 +133,7 @@ func (db *DB) get(at Tid) *Connection {
 	// nothing found or too distant
 	const Tnear = 10*time.Minute // XXX hardcoded
 	if jδmin < 0 || tabs(δtid(at, db.connv[jδmin].at)) > Tnear {
-		return &Connection{stor: db.stor, db: db}
+		return &Connection{stor: db.stor, db: db, at: at}
 	}
 
 	// reuse the connection
@@ -142,8 +142,13 @@ func (db *DB) get(at Tid) *Connection {
 	db.connv[l-1] = nil
 	db.connv = db.connv[:l-1]
 
-	// XXX assert conn.txn == nil
-	// XXX assert conn.db == db
+	if !(conn.db == db && conn.txn == nil) {
+		panic("DB.get: foreign/live connection in the pool")
+	}
+
+	if conn.at != at {
+		panic("DB.get: TODO: invalidations")
+	}
 
 	return conn
 }
