@@ -19,9 +19,20 @@
 
 package btree
 
+//go:generate ./py/gen-testdata
+
 import (
-	//"testing"
+	"testing"
 )
 
+type kv struct {
+	key   int64
+	value interface{}
+}
+
+type testEntry struct {
+	oid   zodb.Oid
+	itemv []kv
+}
 
 // TODO
