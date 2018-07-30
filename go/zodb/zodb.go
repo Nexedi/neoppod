@@ -328,6 +328,16 @@ type IStorageDriver interface {
 
 	Loader
 	Iterator
+
+	// Notifier returns storage driver notifier.
+	//
+	// The notifier represents invalidation channel (notify about changes
+	// made to DB not by us from outside).	XXX
+	//
+	// To simplify drivets, there must be only 1 logical user of
+	// storage-driver level notifier interface. Ccontrary IStorage allows
+	// for several users of notification channel.	XXX ok?
+	Notifier() Notifier
 }
 
 // Loader provides functionality to load objects.
@@ -391,9 +401,14 @@ type Committer interface {
 }
 
 
-// Notifier allows to be notified of database changes made by other clients.
+// Notifier allows to be notified of changes made to database by other clients.
 type Notifier interface {
-	// TODO: invalidation channel (notify about changes made to DB not by us from outside)
+
+	// Read returns next notification event.
+	//
+	// XXX ...
+	// XXX overflow -> special error
+	Read(ctx context.Context) (Tid, []Oid, error)
 }
 
 

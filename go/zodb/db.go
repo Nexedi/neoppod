@@ -43,6 +43,7 @@ type DB struct {
 	connv	[]*Connection // order by ↑= .at
 
 	// information about invalidations
+	// XXX -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
 	invTab	[]invEntry // order by ↑= .tid
 }
 
@@ -81,10 +82,13 @@ func (db *DB) Open(ctx context.Context) (*Connection, error) {
 	}
 
 	// wait till .invTab is up to date covering ≥ lastTid
+	// XXX reenable
+/*
 	err = db.invTab.Wait(ctx, at)
 	if err != nil {
 		return nil, err
 	}
+*/
 
 	// now we have both at and invalidation data covering it -> proceed to
 	// get connection from the pool.
