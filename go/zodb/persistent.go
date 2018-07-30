@@ -437,7 +437,7 @@ type Broken struct {
 	state *mem.Buf
 }
 
-type brokenState Broken
+type brokenState Broken // hide state methods from public API
 
 func (b *brokenState) DropState() {
 	b.state.XRelease()

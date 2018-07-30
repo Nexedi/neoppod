@@ -37,8 +37,9 @@ type PyStateful interface {
 }
 
 // pySetState decodes raw state as zodb/py serialized stream, and sets decoded
-// state on PyStateful obj. It is an error if decoded state has python class
-// not as specified.
+// state on PyStateful obj.
+//
+// It is an error if decoded state has python class not as specified.
 func pySetState(obj PyStateful, objClass string, state *mem.Buf) error {
 	pyclass, pystate, err := PyData(state.Data).Decode()
 	if err != nil {

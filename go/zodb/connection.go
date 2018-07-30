@@ -23,7 +23,9 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
-// Connection represents an isolated view of ZODB database. XXX + live application objects.
+// Connection represents an isolated application-level view of ZODB database. XXX + live application objects.
+//
+// The view is represented by IPersistent objects associated with the connection.
 //
 // The view is representing state of ZODB objects as of `at` transaction.
 //
