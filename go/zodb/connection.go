@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/neo/go/transaction"
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
@@ -40,6 +41,8 @@ import (
 // inside transaction where Connection was opened.
 type Connection struct {
 	stor	IStorage	// underlying storage
+	db      *DB		// Connection is part of this DB
+	txn	transaction.Transaction	// opened under this txn; nil if idle in DB pool.
 
 	// current view of database; stable inside a transaction.
 	at	Tid
@@ -123,19 +126,13 @@ func (e *wrongClassError) Error() string {
 }
 
 
-// get returns in-RAM object corresponding to specified ZODB object according to current database view.
-//
-// If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
-// Otherwise new in-RAM object is created according to specified class.
-//
-// The object's data is not necessarily loaded after get returns. Use
-// PActivate to make sure the object is fully loaded.
-//
-// XXX object scope.
+// get is like Get, but used when we already know object class.
 //
 // Use-case: in ZODB references are (pyclass, oid), so new ghost is created
 // without further loading anything.
 func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
+	// XXX txn check
+
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
 	var obj IPersistent
@@ -178,6 +175,8 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 // The object's data is not necessarily loaded after Get returns. Use
 // PActivate to make sure the object is fully loaded.
 func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
+	// XXX txn check
+
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
 	var xobj interface{}
@@ -217,5 +216,7 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
 //
 // XXX must be called ... (XXX e.g. outside transaction boundary) so that there is no race on .at .
 func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
+	// XXX txn check
+
 	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 }
