@@ -114,9 +114,27 @@ const (
 // Persistent is common base IPersistent implementation for in-RAM
 // representation of database objects.
 //
-// XXX it requires it to embed and provide Ghostable + Stateful.
+// To use - a class needs to embed Persistent and register itself additionally
+// providing Ghostable and (Py)Stateful methods. For example:
+//
+//	type MyObject struct {
+//		Persistent
+//		...
+//	}
+//
+//	type myObjectState MyObject
+//
+//	func (o *myObjectState) DropState() { ... }
+//	func (o *myObjectState) PySetState(pystate interface{}) { ... }
+//
+//	func init() {
+//		t := reflect.TypeOf
+//		zodb.RegisterClass("mymodule.MyObject", t(MyObject{}), t(myObjectState))
+//	}
 type Persistent struct {
-	zclass  *zclass // ZODB class of this object.
+	// ZODB class of this object.
+	// XXX it could be deduced via typeTab[reflect.TypeOf(.instance)]
+	zclass  *zclass
 
 	jar	*Connection
 	oid	Oid
@@ -126,9 +144,9 @@ type Persistent struct {
 	state	 ObjectState
 	refcnt	 int32
 
-	// Persistent should be the base for the instance.
-	// instance is additionally Ghostable and (Stateful | PyStateful).
-	instance IPersistent	// XXX Ghostable also not good here
+	// Persistent is the base for the instance.
+	// instance, via its state type, is additionally Ghostable and (Stateful | PyStateful).
+	instance IPersistent
 	loading  *loadState
 }
 

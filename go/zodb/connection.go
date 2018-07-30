@@ -24,7 +24,7 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
-// Connection represents a view of ZODB database. XXX + live application objects.
+// Connection represents an isolated view of ZODB database. XXX + live application objects.
 //
 // The view is representing state of ZODB objects as of `at` transaction.
 //
@@ -38,7 +38,9 @@ import (
 // inside transaction where Connection was opened.
 type Connection struct {
 	stor	IStorage	// underlying storage
-	at	Tid		// current view of database
+
+	// current view of database; stable inside a transaction.
+	at	Tid
 
 	// {} oid -> obj
 	//
@@ -140,6 +142,13 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 
 // RegisterClass registers ZODB class to correspond to Go type.
 //
+// Only registered classes can be saved to database, and are converted to
+// corresponding application-level objects on load. When ZODB loads an object
+// whose class is not know, it will represent it as Broken object.
+//
+// class is a full class path for registered class, e.g. "BTrees.LOBTree.LOBucket".
+// typ is Go type corresponding to class.
+//
 // typ must embed Persistent; *typ must implement IPersistent.
 //
 // typ must be convertible to stateType; stateType must implement Ghostable and
@@ -213,9 +222,12 @@ func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
 	return base.instance
 }
 
-// Broken is used for classes that were not registered.
+// Broken objects are used to represend ZODB objects with classes that were not
+// registered to zodb Go package.
+//
+// See RegisterClass for details.
 type Broken struct {
-	*Persistent
+	Persistent
 	class string
 	state *mem.Buf
 }
@@ -335,11 +347,6 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
 }
 
 
-
-
-
-// XXX Connection.{Get,get} without py dependency?
-// but then how to create a ghost of correct class? -> reflect.Type?
 
 // load loads object specified by oid.
 //
