@@ -37,7 +37,7 @@ type IPersistent interface {
 	POid()    Oid		// object ID in the database.
 
 	// object serial in the database as of particular Connection (PJar) view.
-	// 0 (invalid tid) if not yet loaded (XXX ok?)
+	// 0 (invalid tid) if not yet loaded.
 	PSerial() Tid
 
 
@@ -313,7 +313,7 @@ func (obj *Persistent) istate() Ghostable {
 
 // ---- class <-> type; new ghost ----
 
-// zclass describes one ZODB class in relation to Go type.
+// zclass describes one ZODB class in relation to a Go type.
 type zclass struct {
 	class     string
 	typ       reflect.Type // application go type corresponding to class
@@ -404,9 +404,11 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 
 // newGhost creates new ghost object corresponding to class, oid and jar.
 //
-// returned object's PJar is set to provided jar. However the object is not
+// Returned object's PJar is set to provided jar. However the object is not
 // registered to jar in any way. The caller must complete created object
 // registration to jar by himself.
+//
+// If class was not registered, a Broken object is returned.
 func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	// switch on class and transform e.g. "BTrees.Bucket" -> btree.Bucket
 	var xpobj reflect.Value // *typ
@@ -419,11 +421,12 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 
 	base  := &Persistent{jar: jar, oid: oid, serial: 0, state: GHOST}
 	xobj  := xpobj.Elem() // typ
-	xobjBase := xobj.FieldByName("IPersistent")
+	xobjBase := xobj.FieldByName("IPersistent") // FIXME -> Persistent
 	xobjBase.Set(reflect.ValueOf(base))
 
 	obj := xpobj.Interface()
-	base.instance = obj.(interface{IPersistent; Ghostable; Stateful})
+	//base.instance = obj.(interface{IPersistent; Ghostable; Stateful})
+	base.instance = obj.(IPersistent)
 	return base.instance
 }
 
