@@ -109,13 +109,16 @@ func (db *DB) put(conn *Connection) {
 
 type connTxnSync Connection // hide from public API
 
-func (conn *connTxnSync) BeforeCompletion(txn transaction.Transaction) {
-	// XXX check txn
+func (csync *connTxnSync) BeforeCompletion(txn transaction.Transaction) {
+	conn := (*Connection)(csync)
+	conn.checkTxn(txn, "BeforeCompletion")
 	// nothing
 }
 
-func (conn *connTxnSync) AfterCompletion(txn transaction.Transaction) {
-	// XXX check txn
+func (csync *connTxnSync) AfterCompletion(txn transaction.Transaction) {
+	conn := (*Connection)(csync)
+	conn.checkTxn(txn, "AfterCompletion")
 
-	conn.db.put((*Connection)(conn))
+	// put conn back into db pool.
+	conn.db.put(conn)
 }

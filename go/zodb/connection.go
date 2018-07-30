@@ -176,7 +176,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 // The object's data is not necessarily loaded after Get returns. Use
 // PActivate to make sure the object is fully loaded.
 func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
-	conn.checkTxn(ctx, "Get")
+	conn.checkTxnCtx(ctx, "Get")
 
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
@@ -215,7 +215,7 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
 
 // load loads object specified by oid.
 func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
-	conn.checkTxn(ctx, "load")
+	conn.checkTxnCtx(ctx, "load")
 
 	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 }
@@ -223,10 +223,14 @@ func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial T
 
 // ----------------------------------------
 
-// checkTxn asserts that current transaction is the same as conn.txn .
-func (conn *Connection) checkTxn(ctx context.Context, who string) {
-	if txn := transaction.Current(ctx); txn != conn.txn {
+// checkTxnCtx asserts that current transaction is the same as conn.txn .
+func (conn *Connection) checkTxnCtx(ctx context.Context, who string) {
+	conn.checkTxn(transaction.Current(ctx), who)
+}
+
+// checkTxn asserts that specified "current" transaction is the same as conn.txn .
+func (conn *Connection) checkTxn(txn transaction.Transaction, who string) {
+	if txn != conn.txn {
 		panic("connection: " + who + "current transaction is different from connection transaction")
 	}
-
 }
