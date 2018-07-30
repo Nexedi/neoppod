@@ -17,7 +17,6 @@ package zodb
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
@@ -110,142 +109,6 @@ type LiveCacheControl interface {
 }
 
 
-// ---- class <-> type; new ghost ----
-
-// zclass describes one ZODB class in relation to Go type.
-type zclass struct {
-	class     string
-	typ       reflect.Type // application go type corresponding to class
-	stateType reflect.Type // *typ and *stateType are convertible; *stateType provides Statufl & co.
-}
-
-var classTab = make(map[string]*zclass)       // {} class -> zclass
-var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
-
-// zclassOf returns ZODB class of a Go object.
-//
-// If ZODB class was not registered for obj's type, "" is returned.
-func zclassOf(obj IPersistent) string {
-	zc, ok := typeTab[reflect.TypeOf(obj)]
-	if !ok {
-		return ""
-	}
-	return zc.class
-}
-
-var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)
-var rPersistent  = reflect.TypeOf(Persistent{})               // typeof(Persistent)
-var rGhostable   = reflect.TypeOf((*Ghostable)(nil)).Elem()   // typeof(Ghostable)
-var rStateful    = reflect.TypeOf((*Stateful)(nil)).Elem()    // typeof(Stateful)
-var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStateful)
-
-
-// RegisterClass registers ZODB class to correspond to Go type.
-//
-// Only registered classes can be saved to database, and are converted to
-// corresponding application-level objects on load. When ZODB loads an object
-// whose class is not know, it will represent it as Broken object.
-//
-// class is a full class path for registered class, e.g. "BTrees.LOBTree.LOBucket".
-// typ is Go type corresponding to class.
-//
-// typ must embed Persistent; *typ must implement IPersistent.
-//
-// typ must be convertible to stateType; stateType must implement Ghostable and
-// either Stateful or PyStateful(*)
-//
-// RegisterClass must be called from global init().
-//
-// (*) the rationale for stateType coming separately is that this way for
-// application types it is possible not to expose Ghostable and Stateful
-// methods in their public API.
-func RegisterClass(class string, typ, stateType reflect.Type) {
-	badf := func(format string, argv ...interface{}) {
-		msg := fmt.Sprintf(format, argv...)
-		panic(fmt.Sprintf("zodb: register class (%q, %q, %q): %s", class, typ, stateType, msg))
-	}
-
-	if class == "" {
-		badf("class must be not empty")
-	}
-	if zc, already := classTab[class]; already {
-		badf("class already registered for %q", zc.typ)
-	}
-
-	// typ must embed Persistent
-	basef, ok := typ.FieldByName("Persistent")
-	if !(ok && basef.Anonymous && basef.Type == rPersistent) {
-		badf("%q does not embed Persistent", typ)
-	}
-
-	ptype := reflect.PtrTo(typ)
-	ptstate := reflect.PtrTo(stateType)
-
-	switch {
-	case !ptype.Implements(rIPersistent):
-		badf("%q does not implement IPersistent", ptype)
-
-	case !ptstate.Implements(rGhostable):
-		badf("%q does not implement Ghostable", ptstate)
-	}
-
-	stateful := ptstate.Implements(rStateful)
-	pystateful := ptstate.Implements(rPyStateful)
-	if !(stateful || pystateful) {
-		badf("%q does not implement any of Stateful or PyStateful", ptstate)
-	}
-
-	zc := &zclass{class: class, typ: typ, stateType: stateType}
-	classTab[class] = zc
-	typeTab[typ] = zc
-}
-
-
-// newGhost creates new ghost object corresponding to class and oid.
-func (conn *Connection) newGhost(class string, oid Oid) IPersistent {
-	// switch on class and transform e.g. "zodb.BTree.Bucket" -> btree.Bucket
-	var xpobj reflect.Value // *typ
-	zc := classTab[class]
-	if zc == nil {
-		xpobj = reflect.ValueOf(&Broken{class: class})
-	} else {
-		xpobj = reflect.New(zc.typ)
-	}
-
-	base  := &Persistent{jar: conn, oid: oid, serial: 0, state: GHOST}
-	xobj  := xpobj.Elem() // typ
-	xobjBase := xobj.FieldByName("IPersistent")
-	xobjBase.Set(reflect.ValueOf(base))
-
-	obj := xpobj.Interface()
-	base.instance = obj.(interface{IPersistent; Ghostable; Stateful})
-	return base.instance
-}
-
-// Broken objects are used to represend ZODB objects with classes that were not
-// registered to zodb Go package.
-//
-// See RegisterClass for details.
-type Broken struct {
-	Persistent
-	class string
-	state *mem.Buf
-}
-
-type brokenState Broken
-
-func (b *brokenState) DropState() {
-	b.state.XRelease()
-	b.state = nil
-}
-
-func (b *brokenState) SetState(state *mem.Buf) error	{
-	b.state.XRelease()
-	state.Incref()
-	b.state = state
-	return nil
-}
-
 // ----------------------------------------
 
 // wrongClassError is the error cause returned when ZODB object's class is not what was expected.
@@ -281,7 +144,7 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 		}
 	}
 	if obj == nil {
-		obj = conn.newGhost(class, oid)
+		obj = newGhost(class, oid, conn)
 		conn.objtab[oid] = weak.NewRef(obj)
 	} else {
 		checkClass = true

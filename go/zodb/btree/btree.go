@@ -323,6 +323,6 @@ func (b *bucketState) PySetState(pystate interface{}) error {
 
 func init() {
 	t := reflect.TypeOf
-	zodb.RegisterClass("zodb.BTree.LOBucket", t(Bucket{}), t(bucketState{}))
-	zodb.RegisterClass("zodb.BTree.LOBtree",  t(BTree{}),  t(btreeState{}))
+	zodb.RegisterClass("BTrees.LOBTree.LOBucket", t(Bucket{}), t(bucketState{}))
+	zodb.RegisterClass("BTrees.LOBTree.LOBTree",  t(BTree{}),  t(btreeState{}))
 }
