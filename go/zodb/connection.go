@@ -132,6 +132,7 @@ func (e *wrongClassError) Error() string {
 // without further loading anything.
 func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	// XXX txn check
+	//conn.checkTxn("get")
 
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
@@ -170,12 +171,12 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 // If there is already in-RAM object that corresponds to oid, that in-RAM object is returned.
 // Otherwise new in-RAM object is created and filled with object's class loaded from the database.
 //
-// The scope of the object returned is the Connection.	XXX ok?
+// The scope of the object returned is the Connection.
 //
 // The object's data is not necessarily loaded after Get returns. Use
 // PActivate to make sure the object is fully loaded.
 func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
-	// XXX txn check
+	conn.checkTxn(ctx, "Get")
 
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
@@ -213,10 +214,19 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
 
 
 // load loads object specified by oid.
-//
-// XXX must be called ... (XXX e.g. outside transaction boundary) so that there is no race on .at .
 func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
-	// XXX txn check
+	conn.checkTxn(ctx, "load")
 
 	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
+}
+
+
+// ----------------------------------------
+
+// checkTxn asserts that current transaction is the same as conn.txn .
+func (conn *Connection) checkTxn(ctx context.Context, who string) {
+	if txn := transaction.Current(ctx); txn != conn.txn {
+		panic("connection: " + who + "current transaction is different from connection transaction")
+	}
+
 }
