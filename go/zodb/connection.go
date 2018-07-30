@@ -224,6 +224,8 @@ func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial T
 // ----------------------------------------
 
 // checkTxnCtx asserts that current transaction is the same as conn.txn .
+//
+// XXX swap naming?
 func (conn *Connection) checkTxnCtx(ctx context.Context, who string) {
 	conn.checkTxn(transaction.Current(ctx), who)
 }
