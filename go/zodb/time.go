@@ -77,3 +77,20 @@ func (tid Tid) Time() TimeStamp {
 // TODO TidFromTime()
 // TODO TidFromTimeStamp()
 // TODO TidForNow() ?
+
+
+// δtid returns distance from tid1 to tid2 in term of time.
+//
+// it can be thought as (tid2 - tid1).
+func δtid(tid1, tid2 Tid) time.Duration {
+	d := tid2.Time().Sub(tid1.Time().Time)
+	return d
+}
+
+// tabs returns abs value of time.Duration .
+func tabs(δt time.Duration) time.Duration {
+	if δt < 0 {
+		δt = -δt
+	}
+	return δt
+}
