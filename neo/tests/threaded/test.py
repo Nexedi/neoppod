@@ -1939,7 +1939,7 @@ class Test(NEOThreadedTest):
         def changes(r1, r2, r3):
             r1['b'].value = 1
             r1['d'].value = 2
-            r2['a'].value = '*' * r2._p_jar.db().storage._cache._max_size
+            r2['a'].value = '*' * r2._p_jar.db().storage._cache.max_size
             r2['b'].value = 3
             r2['c'].value = 4
             r3['a'].value = 5

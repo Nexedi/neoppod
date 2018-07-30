@@ -1046,7 +1046,7 @@ class ReplicationTests(NEOThreadedTest):
 
                 # try to commit something to backup storage and make sure it is
                 # really read-only
-                Zb._cache._max_size = 0     # make store() do work in sync way
+                Zb._cache.max_size = 0     # make store() do work in sync way
                 txn = transaction.Transaction()
                 self.assertRaises(ReadOnlyError, Zb.tpc_begin, txn)
                 self.assertRaises(ReadOnlyError, Zb.new_oid)

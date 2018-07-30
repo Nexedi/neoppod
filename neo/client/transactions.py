@@ -121,7 +121,7 @@ class Transaction(object):
             size = len(data)
             self.data_size -= size
             size += self.cache_size
-            if size < app._cache._max_size:
+            if size < app._cache.max_size:
                 self.cache_size = size
             else:
                 # Do not cache data past cache max size, as it

@@ -425,7 +425,7 @@ class ClientApplication(Node, neo.client.app.Application):
         self.poll_thread.node_name = name
         # Smaller cache to speed up tests that checks behaviour when it's too
         # small. See also NEOCluster.cache_size
-        self._cache._max_size //= 1024
+        self._cache.max_size //= 1024
 
     def _run(self):
         try:
@@ -733,7 +733,7 @@ class NEOCluster(object):
 
     @property
     def cache_size(self):
-        return self.client._cache._max_size
+        return self.client._cache.max_size
     ###
 
     def __enter__(self):

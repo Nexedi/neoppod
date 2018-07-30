@@ -447,7 +447,7 @@ class Application(ThreadedApplication):
         txn_context.data_dict[oid] = data, serial, txn_context.write(
             self, packet, oid, oid=oid)
 
-        while txn_context.data_size >= self._cache._max_size:
+        while txn_context.data_size >= self._cache.max_size:
             self._waitAnyTransactionMessage(txn_context)
         self._waitAnyTransactionMessage(txn_context, False)
 
