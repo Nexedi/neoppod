@@ -23,13 +23,14 @@ import (
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
 
-// Connection represents an isolated application-level view of ZODB database. XXX + live application objects.
+// Connection represents application-level view of a ZODB database.
 //
 // The view is represented by IPersistent objects associated with the connection.
-//
-// The view is representing state of ZODB objects as of `at` transaction.
-//
 // Connection changes are private and are isolated from changes in other Connections.
+//
+// The view corresponds to particular database state and is thus isolated from
+// further database transactions.
+//
 //
 // Connection is safe to access from multiple goroutines simultaneously.
 //
@@ -109,7 +110,6 @@ type LiveCacheControl interface {
 	// unconditionally.
 	WantEvict(obj IPersistent) (ok bool)
 }
-
 
 // ----------------------------------------
 

@@ -440,6 +440,8 @@ type Broken struct {
 	state *mem.Buf
 }
 
+// XXX register (Broken, brokenState) ?
+
 type brokenState Broken // hide state methods from public API
 
 func (b *brokenState) DropState() {

@@ -111,7 +111,7 @@
 // application objects isolated for modifications is represented by Connection.
 // Connection is also sometimes called a "jar" in ZODB terminology.
 //
-// DB represents a handle to database at application level and contains a pool
+// DB represents a handle to database at application level and contains pool
 // of connections. If application opens connection via DB.Open, the connection
 // will be automatically put back into DB pool for future reuse after
 // corresponding transaction is complete. DB thus provides service to maintain
