@@ -167,7 +167,7 @@ type loadState struct {
 	err   error
 }
 
-// Ghostable is the interface describin in-RAM object who can release its in-RAM state.
+// Ghostable is the interface describing in-RAM object who can release its in-RAM state.
 type Ghostable interface {
 	// DropState should discard in-RAM object state.
 	DropState()
@@ -317,7 +317,7 @@ func (obj *Persistent) istate() Ghostable {
 type zclass struct {
 	class     string
 	typ       reflect.Type // application go type corresponding to class
-	stateType reflect.Type // *typ and *stateType are convertible; *stateType provides Statufl & co.
+	stateType reflect.Type // *typ and *stateType are convertible; *stateType provides Stateful & co.
 }
 
 var classTab = make(map[string]*zclass)       // {} class -> zclass
@@ -404,7 +404,7 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 
 // newGhost creates new ghost object corresponding to class, oid and jar.
 //
-// returned objects's PJar is set to provided jar. However the object is not
+// returned object's PJar is set to provided jar. However the object is not
 // registered to jar in any way. The caller must complete created object
 // registration to jar by himself.
 func newGhost(class string, oid Oid, jar *Connection) IPersistent {
@@ -427,7 +427,7 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	return base.instance
 }
 
-// Broken objects are used to represend ZODB objects with classes that were not
+// Broken objects are used to represent ZODB objects with classes that were not
 // registered to zodb Go package.
 //
 // See RegisterClass for details.
