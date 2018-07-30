@@ -68,18 +68,31 @@ func NewDB(stor IStorage) *DB {
 // XXX text
 //
 // XXX +OpenAt ?
-func (db *DB) Open(ctx context.Context) *Connection {
+func (db *DB) Open(ctx context.Context) (*Connection, error) {
+	// XXX err ctx
+
 	txn := transaction.Current(ctx)
 
-	// XXX sync storage for lastTid
-	var lastTid Tid
-	// XXX wait till invTab.Head() >= lastTid
-	conn := db.get(lastTid)
+	// sync storage for lastTid
+	// XXX open option not to sync and just get lastTid as .invTab.Head() ?
+	at, err := db.stor.LastTid(ctx)
+	if err != nil {
+		return nil, err
+	}
 
+	// wait till .invTab is up to date covering ≥ lastTid
+	err = db.invTab.Wait(ctx, at)
+	if err != nil {
+		return nil, err
+	}
+
+	// now we have both at and invalidation data covering it -> proceed to
+	// get connection from the pool.
+	conn := db.get(at)
 	conn.txn = txn
 	txn.RegisterSync((*connTxnSync)(conn))
 
-	return conn
+	return conn, nil
 }
 
 // get returns connection from db pool most close to at.
@@ -89,9 +102,11 @@ func (db *DB) get(at Tid) *Connection {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	l := len(db.connv)
+
 	// find connv index corresponding to at:
 	// [i-1].at ≤ at < [i].at
-	i := sort.Search(len(db.connv), func(i int) bool {
+	i := sort.Search(l, func(i int) bool {
 		return at < db.connv[i].at
 	})
 
@@ -108,7 +123,7 @@ func (db *DB) get(at Tid) *Connection {
 		}
 
 		// TODO search for max N(live) - N(live, that will need to be invalidated)
-		jδmin = j // XXX stub
+		jδmin = j // XXX stub (using rightmost j)
 	}
 
 	// nothing found or too distant
@@ -117,23 +132,15 @@ func (db *DB) get(at Tid) *Connection {
 		return &Connection{stor: db.stor, db: db}
 	}
 
+	// reuse the connection
+	conn := db.connv[jδmin]
+	copy(db.connv[jδmin:], db.connv[jδmin+1:])
+	db.connv[l-1] = nil
+	db.connv = db.connv[:l-1]
 
-
-	var conn *Connection
-	if l := len(db.connv); l > 0 {
-		// pool is !empty - use latest closed conn.
-		// XXX zodb/py orders conn ↑ by conn._cache.cache_non_ghost_count.
-		// XXX this way top of the stack is the "most live".
-		conn = db.connv[l - 1]
-		db.connv[l - 1] = nil
-		db.connv = db.connv[:l-1]
-
-		// XXX assert conn.txn == nil
-	} else {
-		conn = &Connection{stor: db.stor, db: db}
-	}
-
+	// XXX assert conn.txn == nil
 	// XXX assert conn.db == db
+
 	return conn
 }
 
