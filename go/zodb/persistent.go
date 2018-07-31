@@ -403,6 +403,21 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 	typeTab[typ] = zc
 }
 
+// NewPersistent creates new instance of persistent type.
+//
+// typ must embed Persistent and must be registered with RegisterClass.
+//
+// Created instance will be associated with jar, but will have no oid assigned
+// until transaction commit.
+func NewPersistent(typ reflect.Type, jar *Connection) IPersistent {
+	zc := typeTab[typ]
+	if zc == nil {
+		panic(fmt.Sprintf("new persistent: type %s not registered", typ))
+	}
+
+	xpobj := reflect.New(zc.typ)
+	return persistentInit(xpobj, zc, jar, InvalidOid, InvalidTid, UPTODATE/*XXX ok?*/)
+}
 
 // newGhost creates new ghost object corresponding to class, oid and jar.
 //
@@ -422,13 +437,25 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 		xpobj = reflect.New(zc.typ)
 	}
 
+	return persistentInit(xpobj, zc, jar, oid, InvalidTid, GHOST)
+}
+
+// persistentInit inits Persistent embedded into an object
+// and returns .instance .
+func persistentInit(xpobj reflect.Value, zc *zclass, jar *Connection, oid Oid, serial Tid, state ObjectState) IPersistent {
 	xobj  := xpobj.Elem() // typ
 	pbase := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
 	pbase.zclass = zc
 	pbase.jar = jar
 	pbase.oid = oid
-	pbase.serial = 0
-	pbase.state = GHOST
+	pbase.serial = serial
+	pbase.state = state
+
+	if state > GHOST {
+		// if state is not ghost, init loading state so that activate works.
+		pbase.loading = &loadState{ready: make(chan struct{})}
+		close(pbase.loading.ready)
+	}
 
 	obj := xpobj.Interface()
 	pbase.instance = obj.(IPersistent)

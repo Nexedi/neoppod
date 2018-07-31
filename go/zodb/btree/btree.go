@@ -267,7 +267,7 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 
 	// btree with 1 child bucket without oid
 	if len(t) == 1 {
-		bucket := &Bucket{/* FIXME */}
+		bucket := zodb.NewPersistent(reflect.TypeOf(Bucket{}), bt.PJar()).(*Bucket)
 		err := (*bucketState)(bucket).PySetState(t[0])
 		if err != nil {
 			// XXX

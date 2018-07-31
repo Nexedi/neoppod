@@ -107,12 +107,12 @@ func TestBucket(t *testing.T) {
 			}
 
 			if !ok {
-				t.Errorf("get %v -> ø;  want %v", kv.key, kv.value)
+				t.Errorf("%s: get %v -> ø;  want %v", tt.oid, kv.key, kv.value)
 				continue
 			}
 
 			if value != kv.value {
-				t.Errorf("get %v -> %v;  want %v", kv.key, value, kv.value)
+				t.Errorf("%s: get %v -> %v;  want %v", tt.oid, kv.key, value, kv.value)
 			}
 
 			// XXX .next == nil
