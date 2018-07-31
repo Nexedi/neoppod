@@ -66,13 +66,13 @@ func TestPersistent(t *testing.T) {
 	}
 
 	// XXX .zclass ?
-	assert.Equal(obj.jar, nil)
-	assert.Equal(obj.oid, 11)
-	assert.Equal(obj.serial, 0)
-	assert.Equal(obj.state, GHOST)
-	assert.Equal(obj.refcnt, 0)
-	assert.Equal(obj.instance, obj)
-	assert.Equal(obj.loading, nil)
+	assert.Equal(obj.jar,		(*Connection)(nil))
+	assert.Equal(obj.oid,		Oid(11))
+	assert.Equal(obj.serial,	Tid(0))
+	assert.Equal(obj.state,		GHOST)
+	assert.Equal(obj.refcnt,	int32(0))
+	assert.Equal(obj.instance,	obj)
+	assert.Equal(obj.loading,	(*loadState)(nil))
 }
 
 // XXX reenable
@@ -91,7 +91,7 @@ func _TestBroken(t *testing.T) {
 	assert.Equal(obj.class, "t.unknown")
 	assert.Equal(obj.state, nil)
 
-	assert.Equal(obj.jar, nil)
+	assert.Equal(obj.jar, (*Connection)(nil))
 	assert.Equal(obj.oid, 11)
 	assert.Equal(obj.serial, 0)
 	assert.Equal(obj.state, GHOST)

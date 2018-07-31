@@ -421,10 +421,12 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 		xpobj = reflect.New(zc.typ)
 	}
 
-	base  := &Persistent{jar: jar, oid: oid, serial: 0, state: GHOST}
 	xobj  := xpobj.Elem() // typ
-	xobjBase := xobj.FieldByName("IPersistent") // FIXME -> Persistent
-	xobjBase.Set(reflect.ValueOf(base))
+	base := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
+	base.jar = jar
+	base.oid = oid
+	base.serial = 0
+	base.state = GHOST
 
 	obj := xpobj.Interface()
 	//base.instance = obj.(interface{IPersistent; Ghostable; Stateful})
