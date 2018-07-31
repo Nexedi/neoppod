@@ -31,7 +31,9 @@ import (
 //
 // but is not exactly equal to it.
 //
-// XXX safe to access from multiple goroutines simultaneously.
+// It is safe to access IPersistent from multiple goroutines simultaneously.
+//
+// Use Persistent as the base for application-level types that need to provide persistency.
 type IPersistent interface {
 	PJar()    *Connection	// Connection this in-RAM object is part of.
 	POid()    Oid		// object ID in the database.
@@ -126,7 +128,7 @@ const (
 //	type myObjectState MyObject
 //
 //	func (o *myObjectState) DropState() { ... }
-//	func (o *myObjectState) PySetState(pystate interface{}) { ... }
+//	func (o *myObjectState) PySetState(pystate interface{}) error { ... }
 //
 //	func init() {
 //		t := reflect.TypeOf
