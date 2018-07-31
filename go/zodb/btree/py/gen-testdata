@@ -28,6 +28,8 @@ import os, transaction
 from golang.gcompat import qq
 
 def main():
+    import zodbtools.test.gen_testdata  # to make time predictable (XXX)
+
     outfs = "testdata/1.fs"
     os.remove(outfs)
     db = DB(outfs)
@@ -53,6 +55,11 @@ def main():
             for k, v in b.items():
                 if isinstance(v, str):
                     v = qq(v)
+                elif isinstance(v, int):
+                    v = "int64(%d)" % v
+                else:
+                    raise RuntimeError("unsupported value type: %r" % v)
+
                 s += "{%s, %s}, " % (k, v)
             s += "}},"
             emit("\t"+s)
