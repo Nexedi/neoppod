@@ -81,7 +81,7 @@ type BTree struct {
 //
 // It loads intermediate BTree nodes from database on demand as needed.
 func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "btree(%s): get %s", t.POid(), key)	// XXX + url?
+	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)	// XXX + url?
 	err = t.PActivate(ctx)
 	if err != nil {
 		return nil, false, err
@@ -283,6 +283,13 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 
 	// btree with 1 child bucket without oid
 	if len(t) == 1 {
+		t, ok := t[0].(pickle.Tuple)
+		if !ok {
+			return fmt.Errorf("bucket1: expect [1](); got %T", t[0])
+		}
+		if len(t) != 1 {
+			return fmt.Errorf("bucket1: expect [1](); got [%d]()", len(t))
+		}
 		bucket := zodb.NewPersistent(reflect.TypeOf(Bucket{}), bt.PJar()).(*Bucket)
 		err := (*bucketState)(bucket).PySetState(t[0])
 		if err != nil {
