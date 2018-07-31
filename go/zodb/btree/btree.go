@@ -302,17 +302,17 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 	}
 
 	// regular btree
+	bt.firstbucket, ok = t[1].(*Bucket)
+	if !ok {
+		return fmt.Errorf("first bucket: must be Bucket; got %T", t[1])
+	}
+
 	t, ok = t[0].(pickle.Tuple)
 	if !ok {
 		return fmt.Errorf("data: expect (...); got %T", t[0])
 	}
 	if len(t) % 2 == 0 {
 		return fmt.Errorf("data: expect [!%%2](); got [%d]()", len(t))
-	}
-
-	bt.firstbucket, ok = t[1].(*Bucket)
-	if !ok {
-		return fmt.Errorf("first bucket: must be Bucket; got %T", t[1])
 	}
 
 	n := (len(t) + 1) / 2
