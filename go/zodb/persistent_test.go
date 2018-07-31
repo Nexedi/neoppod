@@ -61,15 +61,23 @@ func TestPersistent(t *testing.T) {
 
 	// checkObj verifies current state of persistent object.
 	checkObj := func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+		t.Helper()
 		xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 		pbase := xbase.Addr().Interface().(*Persistent)
 
 		badf := func(format string, argv ...interface{}) {
+			t.Helper()
 			msg := fmt.Sprintf(format, argv...)
 			t.Fatalf("%#v: %s", obj, msg)
 		}
 
-		// XXX .zclass ?
+		zc := pbase.zclass
+		//zc.class
+		if typ := reflect.TypeOf(obj).Elem(); typ != zc.typ {
+			badf("invalid zclass: .typ = %s  ; want %s", zc.typ, typ)
+		}
+		//zc.stateType
+
 		if pbase.jar != jar {
 			badf("invalid jar")
 		}

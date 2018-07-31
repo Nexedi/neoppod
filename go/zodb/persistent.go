@@ -416,6 +416,7 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	var xpobj reflect.Value // *typ
 	zc := classTab[class]
 	if zc == nil {
+		zc = brokenZClass
 		xpobj = reflect.ValueOf(&Broken{class: class})
 	} else {
 		xpobj = reflect.New(zc.typ)
@@ -423,6 +424,7 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 
 	xobj  := xpobj.Elem() // typ
 	pbase := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
+	pbase.zclass = zc
 	pbase.jar = jar
 	pbase.oid = oid
 	pbase.serial = 0
@@ -457,4 +459,11 @@ func (b *brokenState) SetState(state *mem.Buf) error	{
 	state.Incref()
 	b.state = state
 	return nil
+}
+
+// brokenZClass is used for Persistent.zclass for Broken objects.
+var brokenZClass = &zclass{
+	class:		"",
+	typ:		reflect.TypeOf(Broken{}),
+	stateType:	reflect.TypeOf(brokenState{}),
 }
