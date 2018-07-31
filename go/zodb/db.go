@@ -135,7 +135,7 @@ func (db *DB) get(at Tid) *Connection {
 	// nothing found or too distant
 	const Tnear = 10*time.Minute // XXX hardcoded
 	if jδmin < 0 || tabs(δtid(at, db.connv[jδmin].at)) > Tnear {
-		return &Connection{stor: db.stor, db: db, at: at}
+		return newConnection(db, at)
 	}
 
 	// reuse the connection

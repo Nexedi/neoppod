@@ -118,6 +118,16 @@ type LiveCacheControl interface {
 
 // ----------------------------------------
 
+// newConnection creates new Connection associated with db.
+func newConnection(db *DB, at Tid) *Connection {
+	return &Connection{
+		stor:	db.stor,
+		db:	db,
+		at:	at,
+		objtab:	make(map[Oid]*weak.Ref),
+	}
+}
+
 // wrongClassError is the error cause returned when ZODB object's class is not what was expected.
 type wrongClassError struct {
 	want, have string
