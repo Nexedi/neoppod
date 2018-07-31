@@ -36,7 +36,7 @@ type kv struct {
 	value interface{}
 }
 
-// testEntry is information about 1 Bucket or BTree (XXX) object.
+// testEntry is information about a Bucket or a BTree.
 type testEntry struct {
 	oid   zodb.Oid
 	itemv []kv
@@ -69,6 +69,21 @@ func TestBucket(t *testing.T) {
 			t.Fatalf("%s: got %T;  want Bucket", tt.oid, xobj)
 		}
 
-		_ = obj
+		for _, kv := range tt.itemv {
+			value, ok, err := obj.Get(ctx, kv.key)
+			if err != nil {
+				t.Error(err)
+				continue
+			}
+
+			if !ok {
+				t.Errorf("get %v -> ø;  want %v", kv.key, kv.value)
+				continue
+			}
+
+			if value != kv.value {
+				t.Errorf("get %v -> %v;  want %v", kv.key, value, kv.value)
+			}
+		}
 	}
 }
