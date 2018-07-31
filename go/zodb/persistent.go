@@ -134,6 +134,11 @@ const (
 //		t := reflect.TypeOf
 //		zodb.RegisterClass("mymodule.MyObject", t(MyObject{}), t(myObjectState))
 //	}
+//
+// A new instance of the class that embeds Persistent must be created via
+// NewPersistent, for example:
+//
+//	obj := zodb.NewPersistent(reflect.TypeOf(MyObject{}), jar).(*MyObject)
 type Persistent struct {
 	// ZODB class of this object.
 	// XXX it could be deduced via typeTab[reflect.TypeOf(.instance)]
