@@ -2,7 +2,7 @@
 package btree
 
 
-var _bucketTestv = [...]testEntry{
+var smallTestv = [...]testEntry{
 	testEntry{oid: 6, kind: kindBucket, itemv: []kv{}},
 	testEntry{oid: 3, kind: kindBucket, itemv: []kv{{10, int64(17)}, }},
 	testEntry{oid: 1, kind: kindBucket, itemv: []kv{{15, int64(1)}, {23, "hello"}, }},
@@ -10,3 +10,6 @@ var _bucketTestv = [...]testEntry{
 	testEntry{oid: 7, kind: kindBTree, itemv: []kv{{5, int64(4)}, }},
 	testEntry{oid: 4, kind: kindBTree, itemv: []kv{{7, int64(3)}, {9, "world"}, }},
 }
+
+const B3_oid = 5
+const B3_maxkey = 9999

@@ -70,17 +70,13 @@ def main():
             s += "}},"
             emit("\t"+s)
 
-        emit("\nvar _bucketTestv = [...]testEntry{")
+        emit("\nvar smallTestv = [...]testEntry{")
         for b in (b0, b1, b2, B0, B1, B2):
             emititems(b)
         emit("}")
 
-        # emit("\nvar _btreeTestv = [...]testEntry{")
-        # for B in (B0, B1, B2):  # XXX + B3
-        #     emititems(B)
-        # emit("}")
-
-        # XXX B3
+        emit("\nconst B3_oid = %s" % u64(B3._p_oid))
+        emit("const B3_maxkey = %d" % B3.maxKey())
 
 
     conn.close()

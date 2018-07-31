@@ -54,7 +54,7 @@ type bmapping interface {
 	Get(context.Context, KEY) (interface{}, bool, error)
 }
 
-func TestBucket(t *testing.T) {
+func TestBTree(t *testing.T) {
 	ctx := context.Background()
 	stor, err := zodb.OpenStorage(ctx, "testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestBucket(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tt := range _bucketTestv {
+	for _, tt := range smallTestv {
 		xobj, err := conn.Get(ctx, tt.oid)
 		if err != nil {
 			t.Fatal(err)
@@ -119,4 +119,30 @@ func TestBucket(t *testing.T) {
 			// XXX check keys, values directly (i.e. there is nothing else)
 		}
 	}
+
+
+	// B3 is a large BTree with {i: i} data.
+	xB3, err := conn.Get(ctx, B3_oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	B3, ok := xB3.(*BTree)
+	if !ok {
+		t.Fatalf("B3: %v; got %T;  want BTree", B3_oid, xB3)
+	}
+
+	for i := KEY(0); i <= B3_maxkey; i++ {
+		v, ok, err := B3.Get(ctx, i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatalf("B3: get %v -> ø;  want %v", i, i)
+		}
+		if int64(i) != v {
+			t.Fatalf("B3: get %v -> %v;  want %v", i, v, i)
+		}
+	}
+
+	// XXX check links
 }
