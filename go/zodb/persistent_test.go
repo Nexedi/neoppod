@@ -56,23 +56,50 @@ func init() {
 }
 
 func TestPersistent(t *testing.T) {
-	assert := require.New(t)
+	checkObj := func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
+		xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
+		pbase := xbase.Addr().Interface().(*Persistent)
+
+		badf := func(format string, argv ...interface{}) {
+			msg := fmt.Sprintf(format, argv...)
+			t.Fatalf("%#v: %s", obj, msg)
+		}
+
+		// XXX .zclass ?
+		if pbase.jar != jar {
+			badf("invalid jar")
+		}
+		if pbase.oid != oid {
+			badf("invalid oid: %s  ; want %s", pbase.oid, oid)
+		}
+		if pbase.serial != serial {
+			badf("invalid serial: %s  ; want %s", pbase.serial, serial)
+		}
+		if pbase.state != state {
+			badf("invalid state: %s  ; want %s", pbase.state, state)
+		}
+		if pbase.refcnt != refcnt {
+			badf("invalid refcnt: %s  ; want %s", pbase.refcnt, refcnt)
+		}
+		if pbase.instance != obj {
+			badf("base.instance != obj")
+		}
+		// XXX loading too?
+	}
 
 	xobj := newGhost("t.zodb.MyObject", 11, nil)
-
 	obj, ok := xobj.(*MyObject)
 	if !ok {
 		t.Fatalf("unknown -> %T;  want Broken", xobj)
 	}
 
-	// XXX .zclass ?
-	assert.Equal(obj.jar,		(*Connection)(nil))
-	assert.Equal(obj.oid,		Oid(11))
-	assert.Equal(obj.serial,	Tid(0))
-	assert.Equal(obj.state,		GHOST)
-	assert.Equal(obj.refcnt,	int32(0))
-	assert.Equal(obj.instance,	obj)
-	assert.Equal(obj.loading,	(*loadState)(nil))
+	checkObj(obj, nil, 11, 0, GHOST, 0, nil)
+
+
+	// TODO activate	- jar has to load, state changes
+	// TODO activate again	- refcnt++
+	// TODO deactivate	- refcnt--
+	// TODO deactivate	- state dropped
 }
 
 // XXX reenable

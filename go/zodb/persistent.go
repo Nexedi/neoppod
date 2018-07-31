@@ -422,16 +422,15 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	}
 
 	xobj  := xpobj.Elem() // typ
-	base := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
-	base.jar = jar
-	base.oid = oid
-	base.serial = 0
-	base.state = GHOST
+	pbase := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
+	pbase.jar = jar
+	pbase.oid = oid
+	pbase.serial = 0
+	pbase.state = GHOST
 
 	obj := xpobj.Interface()
-	//base.instance = obj.(interface{IPersistent; Ghostable; Stateful})
-	base.instance = obj.(IPersistent)
-	return base.instance
+	pbase.instance = obj.(IPersistent)
+	return pbase.instance
 }
 
 // Broken objects are used to represent loaded ZODB objects with classes that
