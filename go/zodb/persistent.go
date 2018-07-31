@@ -432,8 +432,8 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	return base.instance
 }
 
-// Broken objects are used to represent ZODB objects with classes that were not
-// registered to zodb Go package.
+// Broken objects are used to represent loaded ZODB objects with classes that
+// were not registered to zodb Go package.
 //
 // See RegisterClass for details.
 type Broken struct {
