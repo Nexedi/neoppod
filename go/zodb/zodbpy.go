@@ -40,8 +40,9 @@ type PyStateful interface {
 // state on PyStateful obj.
 //
 // It is an error if decoded state has python class not as specified.
-func pySetState(obj PyStateful, objClass string, state *mem.Buf) error {
-	pyclass, pystate, err := PyData(state.Data).Decode()
+// jar is used to resolve persistent references.
+func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection) error {
+	pyclass, pystate, err := PyData(state.Data).decode(jar)
 	if err != nil {
 		return err	// XXX err ctx
 	}
@@ -82,7 +83,7 @@ func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pyst
 
 	defer buf.Release()
 
-	pyclass, pystate, err := PyData(buf.Data).Decode()
+	pyclass, pystate, err := PyData(buf.Data).decode(conn)
 	if err != nil {
 		return "", nil, 0, err	// XXX err ctx
 	}

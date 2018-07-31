@@ -22,9 +22,11 @@ package zodb
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
+	"lab.nexedi.com/kirr/go123/xerr"
 	pickle "github.com/kisielk/og-rek"
 )
 
@@ -40,26 +42,79 @@ import (
 // PyData can be decoded into PyObject.
 type PyData []byte
 
+// xoid verifies and extracts oid from unpickled value.
+// XXX place?
+func xoid(x interface{}) (Oid, error) {
+	s, ok := x.(string)
+	if !ok {
+		return InvalidOid, fmt.Errorf("xoid: expect str; got %T", x)
+	}
+	if len(s) != 8 {
+		return InvalidOid, fmt.Errorf("xoid: expect [8]str; got [%d]str", len(s))
+	}
 
-// Decode decodes raw ZODB python data into Python class and state.
-func (d PyData) Decode() (pyclass pickle.Class, pystate interface{}, _ error) {
-	p := pickle.NewDecoder(bytes.NewReader([]byte(d)))
+	return Oid(binary.BigEndian.Uint64([]byte(s))), nil
+}
+
+// loadref loads persistent references resolving them through jar.
+//
+// https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/serialize.py#L80
+//
+// XXX place?
+func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
+	defer xerr.Context(&err, "loadref")
+
+	// TODO add support for ref formats besides (oid, class)
+
+	t, ok := ref.Pid.(pickle.Tuple)
+	if !ok {
+		return nil, fmt.Errorf("expect (); got %T", ref.Pid)
+	}
+	if len(t) != 2 {
+		return nil, fmt.Errorf("expect (oid, class); got [%d]()", len(t))
+	}
+
+	oid, err := xoid(t[0])
+	if err != nil {
+		return nil, err	// XXX err ctx
+	}
+
+	pyclass, err := normPyClass(t[1])
+	if err != nil {
+		return nil, err // XXX err ctx
+	}
+
+	class := pyclassPath(pyclass)
+
+	return jar.get(class, oid)
+}
+
+// decode decodes raw ZODB python data into Python class and state.
+//
+// jar is used to resolve persistent references.
+func (d PyData) decode(jar *Connection) (pyclass pickle.Class, pystate interface{}, err error) {
+	defer xerr.Context(&err, "pydata: decode")
+
+	p := pickle.NewDecoderWithConfig(
+		bytes.NewReader([]byte(d)),
+		&pickle.DecoderConfig{PersistentLoad: jar.loadref},
+	)
+
 	xklass, err := p.Decode()
 	if err != nil {
-		return pickle.Class{}, nil, fmt.Errorf("pydata: decode: class description: %s", err)
+		return pickle.Class{}, nil, fmt.Errorf("class description: %s", err)
 	}
 
 	klass, err := normPyClass(xklass)
 	if err != nil {
-		return pickle.Class{}, nil, fmt.Errorf("pydata: decode: class description: %s", err)
+		return pickle.Class{}, nil, fmt.Errorf("class description: %s", err)
 	}
 
 	state, err := p.Decode()
 	if err != nil {
-		return pickle.Class{}, nil, fmt.Errorf("pydata: decode: object state: %s", err)
+		return pickle.Class{}, nil, fmt.Errorf("object state: %s", err)
 	}
 
-	//return &PyObject{pyClass: klass, State: state}, nil
 	return klass, state, nil
 }
 
@@ -81,7 +136,7 @@ func (d PyData) ClassName() string {
 		return "?.?"
 	}
 
-	return klass.Module + "." + klass.Name
+	return pyclassPath(klass)
 }
 
 var errInvalidPyClass = errors.New("invalid py class description")

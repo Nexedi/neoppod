@@ -243,7 +243,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 			err = istate.SetState(state)	// XXX err ctx
 
 		case PyStateful:
-			err = pySetState(istate, obj.zclass.class, state)	// XXX err ctx
+			err = pySetState(istate, obj.zclass.class, state, obj.jar)	// XXX err ctx
 
 		default:
 			panic("!stateful instance")
