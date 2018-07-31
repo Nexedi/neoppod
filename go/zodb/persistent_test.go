@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"testing"
 
+	"lab.nexedi.com/kirr/go123/mem"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,6 +57,9 @@ func init() {
 }
 
 func TestPersistent(t *testing.T) {
+	assert := require.New(t)
+
+	// checkObj verifies current state of persistent object.
 	checkObj := func(obj IPersistent, jar *Connection, oid Oid, serial Tid, state ObjectState, refcnt int32, loading *loadState) {
 		xbase := reflect.ValueOf(obj).Elem().FieldByName("Persistent")
 		pbase := xbase.Addr().Interface().(*Persistent)
@@ -87,7 +91,20 @@ func TestPersistent(t *testing.T) {
 		// XXX loading too?
 	}
 
-	xobj := newGhost("t.zodb.MyObject", 11, nil)
+	// unknown type -> Broken
+	xobj := newGhost("t.unknown", 10, nil)
+	b, ok := xobj.(*Broken)
+	if !ok {
+		t.Fatalf("unknown -> %T;  want Broken", xobj)
+	}
+
+	checkObj(b, nil, 10, 0, GHOST, 0, nil)
+	assert.Equal(b.class, "t.unknown")
+	assert.Equal(b.state, (*mem.Buf)(nil))
+
+
+	// t.zodb.MyObject -> *MyObject
+	xobj = newGhost("t.zodb.MyObject", 11, nil)
 	obj, ok := xobj.(*MyObject)
 	if !ok {
 		t.Fatalf("unknown -> %T;  want Broken", xobj)
@@ -100,29 +117,4 @@ func TestPersistent(t *testing.T) {
 	// TODO activate again	- refcnt++
 	// TODO deactivate	- refcnt--
 	// TODO deactivate	- state dropped
-}
-
-// XXX reenable
-func _TestBroken(t *testing.T) {
-	assert := require.New(t)
-
-	// unknown type -> Broken
-	xobj := newGhost("t.unknown", 11, nil)
-
-	obj, ok := xobj.(*Broken)
-	if !ok {
-		t.Fatalf("unknown -> %T;  want Broken", xobj)
-	}
-
-	// XXX .zclass ?
-	assert.Equal(obj.class, "t.unknown")
-	assert.Equal(obj.state, nil)
-
-	assert.Equal(obj.jar, (*Connection)(nil))
-	assert.Equal(obj.oid, 11)
-	assert.Equal(obj.serial, 0)
-	assert.Equal(obj.state, GHOST)
-	assert.Equal(obj.refcnt, 0)
-	assert.Equal(obj.instance, obj)
-	assert.Equal(obj.loading, nil)
 }
