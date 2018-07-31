@@ -20,6 +20,7 @@ package btree
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
 
@@ -175,24 +176,34 @@ func (b *bucketState) DropState() {
 }
 
 // PySetState implements PyStateful to set bucket data from pystate.
-func (b *bucketState) PySetState(pystate interface{}) error {
+func (b *bucketState) PySetState(pystate interface{}) (err error) {
+	defer xerr.Contextf(&err, "bucket(%s): setstate", b.POid())
+
 	t, ok := pystate.(pickle.Tuple)
-	if !ok || !(1 <= len(t) && len(t) <= 2) {
-		// XXX complain
+	if !ok {
+		return fmt.Errorf("top: expect (...); got %T", pystate)
+	}
+	if !(1 <= len(t) && len(t) <= 2) {
+		return fmt.Errorf("top: expect [1..2](); got [%d]()", len(t))
 	}
 
 	// .next present
 	if len(t) == 2 {
 		next, ok := t[1].(*Bucket)
 		if !ok {
-			// XXX
+			return fmt.Errorf(".next must be Bucket; got %T", t[1])
 		}
 		b.next = next
 	}
 
 	// main part
 	t, ok = t[0].(pickle.Tuple)
-	// XXX if !ok || (len(t) % 2 != 0)
+	if !ok {
+		return fmt.Errorf("data: expect (...); got %T", t[0])
+	}
+	if len(t) % 2 != 0 {
+		return fmt.Errorf("data: expect [%%2](); got [%d]()", len(t))
+	}
 
 	// reset arrays just in case
 	n := len(t) / 2
@@ -205,7 +216,7 @@ func (b *bucketState) PySetState(pystate interface{}) error {
 
 		k, ok := xk.(int64)	// XXX use KEY	XXX -> Xint64
 		if !ok {
-			// XXX
+			return fmt.Errorf("data: [%d]: key must be integer; got %T", i, xk)
 		}
 
 		// XXX check keys are sorted?
@@ -252,7 +263,9 @@ func (t *btreeState) DropState() {
 }
 
 // PySetState implements zodb.PyStateful to set btree data from pystate.
-func (bt *btreeState) PySetState(pystate interface{}) error {
+func (bt *btreeState) PySetState(pystate interface{}) (err error) {
+	defer xerr.Contextf(&err, "btree(%s): setstate", bt.POid())
+
 	// empty btree
 	if _, ok := pystate.(pickle.None); ok {
 		bt.firstbucket = nil
@@ -261,8 +274,11 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 	}
 
 	t, ok := pystate.(pickle.Tuple)
-	if !ok || !(1 <= len(t) && len(t) <= 2) {
-		// XXX
+	if !ok {
+		return fmt.Errorf("top: expect (...); got %T", pystate)
+	}
+	if !(1 <= len(t) && len(t) <= 2) {
+		return fmt.Errorf("top: expect [1..2](); got [%d]()", len(t))
 	}
 
 	// btree with 1 child bucket without oid
@@ -270,7 +286,7 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 		bucket := zodb.NewPersistent(reflect.TypeOf(Bucket{}), bt.PJar()).(*Bucket)
 		err := (*bucketState)(bucket).PySetState(t[0])
 		if err != nil {
-			// XXX
+			return fmt.Errorf("bucket1: %s", err)
 		}
 
 		bt.firstbucket = bucket
@@ -280,13 +296,16 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 
 	// regular btree
 	t, ok = t[0].(pickle.Tuple)
-	if !(ok && len(t) % 2 == 0) {
-		// XXX
+	if !ok {
+		return fmt.Errorf("data: expect (...); got %T", t[0])
+	}
+	if len(t) % 2 != 0 {
+		return fmt.Errorf("data: expect [%%2](); got [%d]()", len(t))
 	}
 
 	bt.firstbucket, ok = t[1].(*Bucket)
 	if !ok {
-		// XXX
+		return fmt.Errorf("first bucket: must be Bucket; got %T", t[1])
 	}
 
 	n := len(t) / 2
@@ -297,7 +316,7 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 			// key[0] is unused and not saved
 			key, ok = t[idx].(int64)	// XXX Xint
 			if ! ok {
-				// XXX
+				return fmt.Errorf("data: [%d]: key must be integer; got %T", i, t[idx])
 			}
 			idx++
 		}
@@ -306,7 +325,7 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 
 		switch child.(type) {
 		default:
-			// XXX
+			return fmt.Errorf("data: [%d]: child must be BTree|Bucket; got %T", i, child)
 
 		case *BTree:  // ok
 		case *Bucket: // ok
