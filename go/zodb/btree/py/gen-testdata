@@ -21,7 +21,7 @@
 """generate test data for btree serialization tests"""
 
 from ZODB.DB import DB
-from BTrees.LOBTree import LOBucket
+from BTrees.LOBTree import LOBucket, LOBTree
 from ZODB.utils import u64
 import os, transaction
 
@@ -40,6 +40,12 @@ def main():
     root['b1'] = b1 = LOBucket([(10, 17)])               # 1k -> 1v
     root['b2'] = b2 = LOBucket([(15, 1), (23, "hello")]) # 2k -> 2v
 
+    root['B0'] = B0 = LOBTree()                          # empty btree
+    root['B1'] = B1 = LOBTree({5: 4})                    # btree with 1 bucket (1kv)
+    root['B2'] = B2 = LOBTree({7: 3, 9: "world"})        # btree with 1 bucket (2kv)
+
+    root['B3'] = B3 = LOBTree(dict([(_, _) for _ in range(10000)]))
+
     transaction.commit()
 
     with open("ztestdata_expect_test.go", "w") as f:
@@ -49,9 +55,9 @@ def main():
         emit("package btree\n")
         #emit("import \"lab.nexedi.com/kirr/neo/go/zodb\"\n")
 
-        emit("\nvar _bucketTestv = [...]testEntry{")
-        for b in (b0, b1, b2):
-            s = "testEntry{oid: %s, itemv: []kv{" % u64(b._p_oid)
+        def emititems(b):
+            s = "testEntry{oid: %s, kind: %s, itemv: []kv{" \
+                    % (u64(b._p_oid), "kind%s" % type(b).__name__[2:])
             for k, v in b.items():
                 if isinstance(v, str):
                     v = qq(v)
@@ -63,7 +69,18 @@ def main():
                 s += "{%s, %s}, " % (k, v)
             s += "}},"
             emit("\t"+s)
+
+        emit("\nvar _bucketTestv = [...]testEntry{")
+        for b in (b0, b1, b2, B0, B1, B2):
+            emititems(b)
         emit("}")
+
+        # emit("\nvar _btreeTestv = [...]testEntry{")
+        # for B in (B0, B1, B2):  # XXX + B3
+        #     emititems(B)
+        # emit("}")
+
+        # XXX B3
 
 
     conn.close()

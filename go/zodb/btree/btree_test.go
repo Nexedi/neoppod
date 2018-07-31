@@ -36,10 +36,22 @@ type kv struct {
 	value interface{}
 }
 
+type bkind int
+const (
+	kindBucket bkind = iota
+	kindBTree
+)
+
 // testEntry is information about a Bucket or a BTree.
 type testEntry struct {
 	oid   zodb.Oid
+	kind  bkind
 	itemv []kv
+}
+
+// bmapping represents Get of Bucket or BTree.
+type bmapping interface {
+	Get(context.Context, KEY) (interface{}, bool, error)
 }
 
 func TestBucket(t *testing.T) {
@@ -64,9 +76,27 @@ func TestBucket(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		obj, ok := xobj.(*Bucket)
+		obj, ok := xobj.(bmapping)
 		if !ok {
-			t.Fatalf("%s: got %T;  want Bucket", tt.oid, xobj)
+			t.Fatalf("%s: got %T;  want Bucket|BTree", tt.oid, xobj)
+		}
+
+		want := ""
+		switch tt.kind {
+		case kindBucket:
+			if _, ok = obj.(*Bucket); !ok {
+				want = "Bucket"
+			}
+		case kindBTree:
+			if _, ok = obj.(*BTree); !ok {
+				want = "BTree"
+			}
+		default:
+			panic(0)
+		}
+
+		if want != "" {
+			t.Fatalf("%s: got %T;  want %s", tt.oid, obj, want)
 		}
 
 		for _, kv := range tt.itemv {
@@ -84,6 +114,9 @@ func TestBucket(t *testing.T) {
 			if value != kv.value {
 				t.Errorf("get %v -> %v;  want %v", kv.key, value, kv.value)
 			}
+
+			// XXX .next == nil
+			// XXX check keys, values directly (i.e. there is nothing else)
 		}
 	}
 }
