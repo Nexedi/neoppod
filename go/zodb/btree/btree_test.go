@@ -58,7 +58,7 @@ func TestBucket(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tt := range _1fs_testEntry {
+	for _, tt := range _bucketTestv {
 		xobj, err := conn.Get(ctx, tt.oid)
 		if err != nil {
 			t.Fatal(err)

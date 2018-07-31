@@ -146,11 +146,76 @@ func (b *Bucket) get(key KEY) (interface{}, bool) {
 	return b.values[i], true
 }
 
-// XXX Bucket.MinKey ?
-// XXX Bucket.MaxKey ?
+// TODO Bucket.MinKey
+// TODO Bucket.MaxKey
 
 
 // ---- serialization ----
+
+// from https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BucketTemplate.c#L1195:
+//
+// For a mapping bucket (self->values is not NULL), a one-tuple or two-tuple.
+// The first element is a tuple interleaving keys and values, of length
+// 2 * self->len.  The second element is the next bucket, present iff next is
+// non-NULL:
+//
+//	(
+//	     (keys[0], values[0], keys[1], values[1], ...,
+//	                          keys[len-1], values[len-1]),
+//	     <self->next iff non-NULL>
+//	)
+
+type bucketState Bucket // hide state methods from public API
+
+// DropState implements Stateful to discard bucket state.
+func (b *bucketState) DropState() {
+	b.next = nil
+	b.keys = nil
+	b.values = nil
+}
+
+// PySetState implements PyStateful to set bucket data from pystate.
+func (b *bucketState) PySetState(pystate interface{}) error {
+	t, ok := pystate.(pickle.Tuple)
+	if !ok || !(1 <= len(t) && len(t) <= 2) {
+		// XXX complain
+	}
+
+	// .next present
+	if len(t) == 2 {
+		next, ok := t[1].(*Bucket)
+		if !ok {
+			// XXX
+		}
+		b.next = next
+	}
+
+	// main part
+	t, ok = t[0].(pickle.Tuple)
+	// XXX if !ok || (len(t) % 2 != 0)
+
+	// reset arrays just in case
+	n := len(t) / 2
+	b.keys = make([]KEY, 0, n)
+	b.values = make([]interface{}, 0, n)
+
+	for i := 0; i < n; i++ {
+		xk := t[2*i]
+		v := t[2*i+1]
+
+		k, ok := xk.(int64)	// XXX use KEY	XXX -> Xint64
+		if !ok {
+			// XXX
+		}
+
+		// XXX check keys are sorted?
+		b.keys = append(b.keys, KEY(k))		// XXX cast
+		b.values = append(b.values, v)
+	}
+
+	return nil
+}
+
 
 // from https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeTemplate.c#L1087:
 //
@@ -248,71 +313,6 @@ func (bt *btreeState) PySetState(pystate interface{}) error {
 		}
 
 		bt.data = append(bt.data, zBTreeItem{key: KEY(key), child: child})
-	}
-
-	return nil
-}
-
-
-// from https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BucketTemplate.c#L1195:
-//
-// For a mapping bucket (self->values is not NULL), a one-tuple or two-tuple.
-// The first element is a tuple interleaving keys and values, of length
-// 2 * self->len.  The second element is the next bucket, present iff next is
-// non-NULL:
-//
-//	(
-//	     (keys[0], values[0], keys[1], values[1], ...,
-//	                          keys[len-1], values[len-1]),
-//	     <self->next iff non-NULL>
-//	)
-
-type bucketState Bucket // hide state methods from public API
-
-// DropState implements Stateful to discard bucket state.
-func (b *bucketState) DropState() {
-	b.next = nil
-	b.keys = nil
-	b.values = nil
-}
-
-// PySetState implements PyStateful to set bucket data from pystate.
-func (b *bucketState) PySetState(pystate interface{}) error {
-	t, ok := pystate.(pickle.Tuple)
-	if !ok || !(1 <= len(t) && len(t) <= 2) {
-		// XXX complain
-	}
-
-	// .next present
-	if len(t) == 2 {
-		next, ok := t[1].(*Bucket)
-		if !ok {
-			// XXX
-		}
-		b.next = next
-	}
-
-	// main part
-	t, ok = t[0].(pickle.Tuple)
-	// XXX if !ok || (len(t) % 2 != 0)
-
-	// reset arrays just in case
-	n := len(t) / 2
-	b.keys = make([]KEY, 0, n)
-	b.values = make([]interface{}, 0, n)
-
-	for i := 0; i < n; i++ {
-		xk := t[2*i]
-		v := t[2*i+1]
-
-		k, ok := xk.(int64)	// XXX use KEY	XXX -> Xint64
-		if !ok {
-			// XXX
-		}
-
-		// XXX check keys are sorted?
-		b.keys = append(b.keys, KEY(k))		// XXX cast
-		b.values = append(b.values, v)
 	}
 
 	return nil

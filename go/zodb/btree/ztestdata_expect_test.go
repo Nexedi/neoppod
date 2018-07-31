@@ -2,7 +2,7 @@
 package btree
 
 
-var _1fs_testEntry = [...]testEntry{
+var _bucketTestv = [...]testEntry{
 	testEntry{oid: 1, itemv: []kv{}},
 	testEntry{oid: 2, itemv: []kv{{10, int64(17)}, }},
 	testEntry{oid: 3, itemv: []kv{{15, int64(1)}, {23, "hello"}, }},

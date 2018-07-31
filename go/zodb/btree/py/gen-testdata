@@ -49,7 +49,7 @@ def main():
         emit("package btree\n")
         #emit("import \"lab.nexedi.com/kirr/neo/go/zodb\"\n")
 
-        emit("\nvar _1fs_testEntry = [...]testEntry{")
+        emit("\nvar _bucketTestv = [...]testEntry{")
         for b in (b0, b1, b2):
             s = "testEntry{oid: %s, itemv: []kv{" % u64(b._p_oid)
             for k, v in b.items():
