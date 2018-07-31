@@ -106,7 +106,7 @@ func TestPersistent(t *testing.T) {
 		t.Fatalf("unknown -> %T;  want Broken", xobj)
 	}
 
-	checkObj(b, nil, 10, 0, GHOST, 0, nil)
+	checkObj(b, nil, 10, InvalidTid, GHOST, 0, nil)
 	assert.Equal(b.class, "t.unknown")
 	assert.Equal(b.state, (*mem.Buf)(nil))
 
@@ -118,7 +118,7 @@ func TestPersistent(t *testing.T) {
 		t.Fatalf("unknown -> %T;  want Broken", xobj)
 	}
 
-	checkObj(obj, nil, 11, 0, GHOST, 0, nil)
+	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
 
 
 	// TODO activate	- jar has to load, state changes
