@@ -144,5 +144,5 @@ func TestBTree(t *testing.T) {
 		}
 	}
 
-	// XXX check links
+	// XXX check links (e.g. .firstbucket)
 }

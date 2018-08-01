@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/neo/go/transaction"
 	"lab.nexedi.com/kirr/neo/go/zodb/internal/weak"
 )
@@ -187,8 +188,9 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 //
 // The object's data is not necessarily loaded after Get returns. Use
 // PActivate to make sure the object is fully loaded.
-func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
+func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err error) {
 	conn.checkTxnCtx(ctx, "Get")
+	defer xerr.Contextf(&err, "Get %s", oid)
 
 	conn.objmu.Lock()		// XXX -> rlock
 	wobj := conn.objtab[oid]
@@ -207,12 +209,12 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (IPersistent, error) {
 	// XXX py hardcoded
 	class, pystate, serial, err := conn.loadpy(ctx, oid)
 	if err != nil {
-		return nil, err		// XXX errctx
+		return nil, err
 	}
 
 	obj, err := conn.get(class, oid)
 	if err != nil {
-		return nil, err
+		return nil, err	// XXX double err ctx? (see get)
 	}
 
 	// XXX we are dropping just loaded pystate. Usually Get should be used

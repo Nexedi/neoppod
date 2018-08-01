@@ -281,6 +281,11 @@ func (obj *Persistent) PDeactivate() {
 		return
 	}
 
+	// TODO try to keep some pool of object in live state
+	// TODO so that there is no constant load/unload on object access.
+	// XXX  -> MRU cache?
+	// NOTE wcfs manages its objects explicitly and does not need this.
+
 	if cc := obj.jar.cacheControl; cc != nil {
 		if !cc.WantEvict(obj.instance) {
 			return
@@ -334,7 +339,7 @@ var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
 //
 // If ZODB class was not registered for obj's type, "" is returned.
 func zclassOf(obj IPersistent) string {
-	zc, ok := typeTab[reflect.TypeOf(obj)]
+	zc, ok := typeTab[reflect.TypeOf(obj).Elem()]
 	if !ok {
 		return ""
 	}
