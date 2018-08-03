@@ -471,7 +471,7 @@ func benchmarkGetObject(b *testing.B, Mnet, Snet, Cnet xnet.Networker, benchit f
 	ev := cG.Recv()
 	mnode, ok := ev.Event.(*eventNodeTab)
 	if !ok {
-		b.Fatal("after M start: got %T  ; want eventNodeTab", ev.Event)
+		b.Fatalf("after M start: got %T  ; want eventNodeTab", ev.Event)
 	}
 	Maddr := mnode.NodeInfo.Addr.String()
 

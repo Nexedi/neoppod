@@ -121,7 +121,7 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 
 // Get searches Bucket by key.
 func (b *Bucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "bucket(%s): get %s", b.POid(), key)	// XXX + url?
+	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)	// XXX + url?
 	err = b.PActivate(ctx)
 	if err != nil {
 		return nil, false, err
