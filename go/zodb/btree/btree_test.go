@@ -25,6 +25,7 @@ import (
 	"context"
 	"testing"
 
+	"lab.nexedi.com/kirr/go123/exc"
 	"lab.nexedi.com/kirr/neo/go/transaction"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
@@ -55,6 +56,7 @@ type bmapping interface {
 }
 
 func TestBTree(t *testing.T) {
+	X := exc.Raiseif
 	ctx := context.Background()
 	stor, err := zodb.OpenStorage(ctx, "testdata/1.fs", &zodb.OpenOptions{ReadOnly: true})
 	if err != nil {
@@ -70,6 +72,9 @@ func TestBTree(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// XXX close db/stor
+
+	// go through small test Buckets/BTrees and verify that Get(key) is as expected.
 	for _, tt := range smallTestv {
 		xobj, err := conn.Get(ctx, tt.oid)
 		if err != nil {
@@ -122,6 +127,7 @@ func TestBTree(t *testing.T) {
 
 
 	// B3 is a large BTree with {i: i} data.
+	// verify Get(key) and that different bucket links lead to the same in-RAM object.
 	xB3, err := conn.Get(ctx, B3_oid)
 	if err != nil {
 		t.Fatal(err)
@@ -144,5 +150,32 @@ func TestBTree(t *testing.T) {
 		}
 	}
 
-	// XXX check links (e.g. .firstbucket)
+	// verifyFirstBucket verifies that b.firstbucket is correct and returns it.
+	var verifyFirstBucket func(b *BTree) *Bucket
+	verifyFirstBucket = func(b *BTree) *Bucket {
+		err := b.PActivate(ctx);	X(err)
+		defer b.PDeactivate()
+
+		var firstbucket *Bucket
+
+		switch child := b.data[0].child.(type) {
+		default:
+			t.Fatalf("btree(%s): child[0] is %T", b.POid(), b.data[0].child)
+
+		case *BTree:
+			firstbucket = verifyFirstBucket(child)
+
+		case *Bucket:
+			firstbucket = child
+		}
+
+		if firstbucket != b.firstbucket {
+			t.Fatalf("btree(%s): firstbucket -> %p (oid: %s); actual first bucket = %p (oid: %s)",
+				b.POid(), b.firstbucket, b.firstbucket.POid(), firstbucket, firstbucket.POid())
+		}
+
+		return firstbucket
+	}
+
+	verifyFirstBucket(B3)
 }
