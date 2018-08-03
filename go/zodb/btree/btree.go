@@ -177,8 +177,6 @@ func (b *bucketState) DropState() {
 
 // PySetState implements PyStateful to set bucket data from pystate.
 func (b *bucketState) PySetState(pystate interface{}) (err error) {
-	defer xerr.Contextf(&err, "bucket(%s): setstate", b.POid())
-
 	t, ok := pystate.(pickle.Tuple)
 	if !ok {
 		return fmt.Errorf("top: expect (...); got %T", pystate)
@@ -264,8 +262,6 @@ func (t *btreeState) DropState() {
 
 // PySetState implements zodb.PyStateful to set btree data from pystate.
 func (bt *btreeState) PySetState(pystate interface{}) (err error) {
-	defer xerr.Contextf(&err, "btree(%s): setstate", bt.POid())
-
 	// empty btree
 	if _, ok := pystate.(pickle.None); ok {
 		bt.firstbucket = nil

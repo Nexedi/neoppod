@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"lab.nexedi.com/kirr/go123/mem"
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // IPersistent is the interface that every in-RAM object representing any database object implements.
@@ -187,6 +188,9 @@ type Stateful interface {
 	//
 	// state ownership is not passed to SetState, so if state needs to be
 	// retained after SetState returns it needs to be incref'ed.
+	//
+	// The error returned does not need to have object/setstate prefix -
+	// persistent machinery is adding such prefix automatically.
 	SetState(state *mem.Buf) error
 
 	// GetState should return state of the in-RAM object as raw data.
@@ -240,10 +244,13 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 	if err == nil {
 		switch istate := obj.istate().(type) {
 		case Stateful:
-			err = istate.SetState(state)	// XXX err ctx
+			err = istate.SetState(state)
+			xerr.Contextf(&err, "%s(%s): setstate", obj.zclass.class, obj.oid)
 
 		case PyStateful:
-			err = pySetState(istate, obj.zclass.class, state, obj.jar)	// XXX err ctx
+			err = pySetState(istate, obj.zclass.class, state, obj.jar)
+			xerr.Contextf(&err, "%s(%s): pysetstate", obj.zclass.class, obj.oid)
+
 
 		default:
 			panic("!stateful instance")

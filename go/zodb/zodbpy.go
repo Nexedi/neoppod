@@ -28,7 +28,11 @@ import (
 // exchanged as Python data.
 type PyStateful interface {
 	// PySetState should set state of the in-RAM object from Python data.
-	// Analog of __setstate__() in Python.
+	//
+	// It is analog of __setstate__() in Python.
+	//
+	// The error returned does not need to have object/setstate prefix -
+	// persistent machinery is adding such prefix automatically.
 	PySetState(pystate interface{}) error
 
 	// PyGetState should return state of the in-RAM object as Python data.
@@ -44,7 +48,7 @@ type PyStateful interface {
 func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection) error {
 	pyclass, pystate, err := PyData(state.Data).decode(jar)
 	if err != nil {
-		return err	// XXX err ctx
+		return err
 	}
 
 	class := pyclassPath(pyclass)
@@ -52,10 +56,10 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection
 	if class != objClass {
 		// complain that pyclass changed
 		// (both ref and object data use pyclass so it indeed can be different)
-		return &wrongClassError{want: objClass, have: class} // XXX + err ctx
+		return &wrongClassError{want: objClass, have: class}
 	}
 
-	return obj.PySetState(pystate)	// XXX err ctx = ok?
+	return obj.PySetState(pystate)
 }
 
 // TODO pyGetState
