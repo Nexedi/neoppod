@@ -174,7 +174,11 @@ class SocketConnector(object):
         self._error('recv')
 
     def send(self):
-        # XXX: unefficient for big packets
+        # XXX: Inefficient for big packets. In any case, we should make sure
+        #      that 'msg' does not exceed 2GB with SSL (OverflowError).
+        #      Before commit 1a064725b81a702a124d672dba2bcae498980c76,
+        #      this happened when many big AddObject packets were sent
+        #      for a single replication chunk.
         msg = ''.join(self.queued)
         if msg:
             try:
