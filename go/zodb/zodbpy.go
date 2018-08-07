@@ -20,14 +20,10 @@
 package zodb
 // Support for python objects/data in ZODB.
 
-// XXX + PyData.referencesf ?
-
 import (
 	"context"
 
 	"lab.nexedi.com/kirr/go123/mem"
-
-	pickle "github.com/kisielk/og-rek"
 )
 
 // PyStateful is the interface describing in-RAM object whose data state can be
@@ -71,15 +67,6 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection
 // TODO pyGetState
 
 
-
-// ----------------------------------------
-
-// pyclassPath returns full path for a python class.
-//
-// for example class "ABC" in module "wendelin.lib" has its full path as "wendelin.lib.ABC".
-func pyclassPath(pyclass pickle.Class) string {
-	return pyclass.Module + "." + pyclass.Name
-}
 
 // loadpy loads object specified by oid and decodes it as a ZODB Python object.
 //
