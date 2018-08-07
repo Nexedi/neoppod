@@ -44,7 +44,6 @@ func TestBasic(t *testing.T) {
 		Current(ctx)
 	}()
 
-
 	// New
 	txn, ctx := New(ctx)
 	if txn_ := Current(ctx); txn_ != txn {
@@ -52,7 +51,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	// New(!ø) -> panic
-	func () {
+	func() {
 		defer func() {
 			r := recover()
 			if r == nil {
@@ -86,12 +85,12 @@ func (d *dmAbortOnly) Abort(txn Transaction) {
 	atomic.AddInt32(&d.nabort, +1)
 }
 
-func (d *dmAbortOnly) bug() { d.t.Fatal("must not be called on abort") }
-func (d *dmAbortOnly) TPCBegin(_ Transaction)				{ d.bug(); panic(0) }
-func (d *dmAbortOnly) Commit(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
-func (d *dmAbortOnly) TPCVote(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
-func (d *dmAbortOnly) TPCFinish(_ context.Context, _ Transaction) error	{ d.bug(); panic(0) }
-func (d *dmAbortOnly) TPCAbort(_ context.Context, _ Transaction)	{ d.bug(); panic(0) }
+func (d *dmAbortOnly) bug()                                             { d.t.Fatal("must not be called on abort") }
+func (d *dmAbortOnly) TPCBegin(_ Transaction)                           { d.bug(); panic(0) }
+func (d *dmAbortOnly) Commit(_ context.Context, _ Transaction) error    { d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCVote(_ context.Context, _ Transaction) error   { d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCFinish(_ context.Context, _ Transaction) error { d.bug(); panic(0) }
+func (d *dmAbortOnly) TPCAbort(_ context.Context, _ Transaction)        { d.bug(); panic(0) }
 
 func TestAbort(t *testing.T) {
 	txn, ctx := New(context.Background())

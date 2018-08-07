@@ -28,13 +28,13 @@ import (
 
 // transaction implements Transaction.
 type transaction struct {
-	mu	sync.Mutex
-	status	Status
-	datav	[]DataManager
-	syncv	[]Synchronizer
+	mu     sync.Mutex
+	status Status
+	datav  []DataManager
+	syncv  []Synchronizer
 
 	// metadata
-	user	    string
+	user        string
 	description string
 	extension   string // XXX
 }
@@ -137,7 +137,7 @@ func (txn *transaction) Abort() {
 		go func() {
 			defer wg.Done()
 
-			datav[i].Abort(txn)	// XXX err?
+			datav[i].Abort(txn) // XXX err?
 		}()
 	}
 	wg.Wait()
@@ -145,7 +145,7 @@ func (txn *transaction) Abort() {
 	// XXX set txn status
 	txn.mu.Lock()
 	// assert .status == Aborting
-	txn.status = Aborted			// XXX what if errBeforeCompletion?
+	txn.status = Aborted // XXX what if errBeforeCompletion?
 	txn.mu.Unlock()
 
 	// sync.AfterCompletion
@@ -192,16 +192,15 @@ func (txn *transaction) RegisterSync(sync Synchronizer) {
 // must be called with .mu held.
 func (txn *transaction) checkNotYetCompleting(who string) {
 	switch txn.status {
-	case Active:	// XXX + Doomed ?
+	case Active: // XXX + Doomed ?
 		// ok
 	default:
 		panic("transaction: " + who + ": transaction completion already began")
 	}
 }
 
-
 // ---- meta ----
 
-func (txn *transaction) User() string		{ return txn.user		}
-func (txn *transaction) Description() string	{ return txn.description	}
-func (txn *transaction) Extension() string	{ return txn.extension		}
+func (txn *transaction) User() string        { return txn.user }
+func (txn *transaction) Description() string { return txn.description }
+func (txn *transaction) Extension() string   { return txn.extension }
