@@ -50,8 +50,8 @@ type Bucket struct {
 	values []interface{}	// 'len' corresponding values
 }
 
-// zBTreeItem mimics BTreeItem from btree/py.
-type zBTreeItem struct {
+// _BTreeItem mimics BTreeItem from btree/py.
+type _BTreeItem struct {
 	key	KEY
 	child	interface{}	// BTree or Bucket
 }
@@ -72,14 +72,15 @@ type BTree struct {
 	// array.  There are len-1 keys in the 'key' fields, stored in increasing
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
-	// endpoints pretending that data[0].key is minus infinity and
-	// data[len].key is positive infinity.
-	data	[]zBTreeItem
+	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
+	data	[]_BTreeItem
 }
 
 // Get searches BTree by key.
 //
 // It loads intermediate BTree nodes from database on demand as needed.
+//
+// t need not be activated beforehand for Get to work.
 func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)	// XXX + url?
 	err = t.PActivate(ctx)
@@ -293,7 +294,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		}
 
 		bt.firstbucket = bucket
-		bt.data = []zBTreeItem{{key: 0, child: bucket}}
+		bt.data = []_BTreeItem{{key: 0, child: bucket}}
 		return nil
 	}
 
@@ -312,7 +313,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 	}
 
 	n := (len(t) + 1) / 2
-	bt.data = make([]zBTreeItem, 0, n)
+	bt.data = make([]_BTreeItem, 0, n)
 	for i, idx := 0, 0; i < n; i++ {
 		key := int64(0)
 		if i > 0 {
@@ -334,7 +335,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		case *Bucket: // ok
 		}
 
-		bt.data = append(bt.data, zBTreeItem{key: KEY(key), child: child})
+		bt.data = append(bt.data, _BTreeItem{key: KEY(key), child: child})
 	}
 
 	return nil

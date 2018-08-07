@@ -231,6 +231,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	// do the loading outside of obj lock
 	state, serial, err := obj.jar.load(ctx, obj.oid)
+	xerr.Contextf(&err, "%s(%s): load", obj.zclass.class, obj.oid)
 
 	// relock the object
 	obj.mu.Lock()
