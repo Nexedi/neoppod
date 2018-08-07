@@ -38,8 +38,6 @@ import (
 //	https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/serialize.py
 //
 // for format description.
-//
-// PyData can be decoded into PyObject.
 type PyData []byte
 
 // xoid verifies and extracts oid from unpickled value.
