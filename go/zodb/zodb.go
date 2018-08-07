@@ -92,6 +92,9 @@
 //
 // IPersistent interface describes the details of the activation protocol.
 //
+// For MyObject to implement IPersistent it must embed Persistent type.
+// MyObject also has to register itself to persistency machinery with RegisterClass.
+//
 // In-RAM application objects are handled in groups. During the scope of
 // corresponding in-progress transaction(*), a group corresponds to particular
 // view of the database (at) and has isolation guarantee from further database
@@ -135,8 +138,19 @@
 //
 // Python data
 //
-// PyData, PyObject, ...
+// To maintain database data compatibility with ZODB/py, ZODB/go provides
+// first class support for Python data. At storage-level PyData provides way to
+// treat raw data record content as serialized by ZODB/py, and at application
+// level types that are registered with state type providing PyStateful (see
+// RegisterClass) are automatically (de)serialized as Python pickles.
 //
+// An example of application-level type with ZODB/py compatibility can be seen in
+// package lab.nexedi.com/kirr/neo/go/zodb/btree which provides BTree handling
+// for ZODB/go.
+//
+// --------
+//
+// (*) for pickle support package github.com/kisielk/og-rek is used.
 //
 // Storage drivers
 //
