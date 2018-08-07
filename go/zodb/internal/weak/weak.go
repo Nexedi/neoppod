@@ -65,7 +65,7 @@ type Ref struct {
 
 // NewRef creates new weak reference pointing to obj.
 //
-// XXX + onrelease callback?
+// TODO + onrelease callback?
 func NewRef(obj interface{}) *Ref {
 	// since starting from ~ Go1.4 the GC is precise, we can save interface
 	// pointers to uintptr and that won't prevent GC from garbage

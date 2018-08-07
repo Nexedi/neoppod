@@ -53,9 +53,8 @@ func TestIface(t *testing.T) {
 	}
 }
 
-
 func TestWeakRef(t *testing.T) {
-	type T struct { _ [8]int64 }	// large enough not to go into tinyalloc
+	type T struct{ _ [8]int64 } // large enough not to go into tinyalloc
 
 	p := new(T)
 	w := NewRef(p)
@@ -68,15 +67,14 @@ func TestWeakRef(t *testing.T) {
 		}
 	}
 
-	// perform GC + give finalizers a chancet to run.
+	// perform GC + give finalizers a chance to run.
 	GC := func() {
 		runtime.GC()
 
 		// GC only queues finalizers, not runs them directly. Give it
 		// some time so that finalizers could have been run.
-		time.Sleep(10*time.Millisecond) // XXX hack
+		time.Sleep(10 * time.Millisecond) // XXX hack
 	}
-
 
 	assertEq(w.state, objLive)
 	assertEq(w.Get(), p)
