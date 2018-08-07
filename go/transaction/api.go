@@ -140,12 +140,13 @@ const (
 // Before completion, if there are changes to managed data, corresponding
 // DataManager(s) must join the transaction to participate in the completion.
 type Transaction interface {
-	User() string		// user name associated with transaction
+	User() string	// user name associated with transaction
 	Description() string	// description of transaction
 
 	// XXX map[string]interface{}	(objects must be simple values serialized with pickle or json, not "instances")
 	Extension() string
 
+	// XXX +Note, SetUser, ...
 
 
 	// Status returns current status of the transaction.
@@ -181,7 +182,7 @@ type Transaction interface {
 	// Join must be called before transaction completion begins.
 	Join(dm DataManager)
 
-	// RegisterSync registers sync to be notified in this transaction boundary events.
+	// RegisterSync registers sync to be notified of this transaction boundary events.
 	//
 	// See Synchronizer for details.
 	//
@@ -194,8 +195,8 @@ type Transaction interface {
 
 // New creates new transaction.
 //
-// XXX the transaction will be associated with ctx (txnCtx derives from ctx + associates txn)
-// XXX nested transactions are not supported.
+// The transaction will be associated with new context derived from ctx.
+// Nested transactions are not supported.
 func New(ctx context.Context) (txn Transaction, txnCtx context.Context) {
 	return newTxn(ctx)
 }
@@ -247,9 +248,8 @@ type DataManager interface {
 	//
         // It should make all changes to data modified by this transaction persist.
 	//
-        // This should never fail. If this returns an error, the	XXX
-        // database is not expected to maintain consistency; it's a
-        // serious error.
+	// This should never fail. If this returns an error, the database is
+	// not expected to maintain consistency; it's a serious error.
 	TPCFinish(ctx context.Context, txn Transaction) error
 
 	// TPCAbort should Abort a transaction.
@@ -291,8 +291,6 @@ type Synchronizer interface {
 //
 // On return ok indicates whether f succeeded, and the error, depending on ok,
 // is either the error from f, or the error from transaction commit.
-//
-// XXX + note?
 func With(ctx context.Context, f func(context.Context) error) (ok bool, _ error) {
 	txn, ctx := New(ctx)
 	err := f(ctx)
