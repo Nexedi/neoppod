@@ -210,6 +210,8 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 			obj.PDeactivate()
 		}
 	}()
+	//fmt.Printf("activate %p(%v)\t%T(%s): refcnt=%d state=%v\n",
+	//	obj, obj.zclass, obj.instance, obj.oid, obj.refcnt, obj.state)
 	if !doload {
 		// someone else is already activated/activating the object.
 		// wait for its loading to complete and we are done.
