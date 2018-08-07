@@ -93,7 +93,7 @@
 // IPersistent interface describes the details of the activation protocol.
 //
 // In-RAM application objects are handled in groups. During the scope of
-// corresponding in-progress transaction, a group corresponds to particular
+// corresponding in-progress transaction(*), a group corresponds to particular
 // view of the database (at) and has isolation guarantee from further database
 // transactions, and from in-progress changes to in-RAM objects in other
 // groups.
@@ -103,7 +103,7 @@
 // objects. If there are multiple database references to one object, it will be
 // represented by the same number of references to only one in-RAM application object.
 // An in-RAM application object can have reference to another in-RAM
-// application object only from the same group(*).
+// application object only from the same group(+).
 // Reference cycles are also allowed. In general objects graph in the database
 // is isomorphly mapped to application objects graph in RAM.
 //
@@ -127,9 +127,11 @@
 // All DB, Connection and object activation protocol is safe to access from
 // multiple goroutines simultaneously.
 //
-// XXX reference to package lab.nexedi.com/kirr/neo/go/transaction.
 //
-// (*) if both objects are from the same database.
+// --------
+//
+// (*) see package lab.nexedi.com/kirr/neo/go/transaction.
+// (+) if both objects are from the same database.
 //
 // Python data
 //
