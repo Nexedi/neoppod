@@ -43,7 +43,9 @@ import (
 type PyData []byte
 
 // xoid verifies and extracts oid from unpickled value.
-// XXX place?
+//
+// XXX +zobdpickle.binary support
+// XXX -> shared place
 func xoid(x interface{}) (Oid, error) {
 	s, ok := x.(string)
 	if !ok {
