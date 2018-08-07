@@ -142,7 +142,7 @@
 // first class support for Python data. At storage-level PyData provides way to
 // treat raw data record content as serialized by ZODB/py, and at application
 // level types that are registered with state type providing PyStateful (see
-// RegisterClass) are automatically (de)serialized as Python pickles.
+// RegisterClass) are automatically (de)serialized as Python pickles(*).
 //
 // An example of application-level type with ZODB/py compatibility can be seen in
 // package lab.nexedi.com/kirr/neo/go/zodb/btree which provides BTree handling
@@ -152,11 +152,16 @@
 //
 // (*) for pickle support package github.com/kisielk/og-rek is used.
 //
+//
 // Storage drivers
 //
-// IStorageDriver, RegisterDriver + DriverOpener, wks (FileStorage, ZEO and NEO).
+// To implement a ZODB storage one need to provide IStorageDriver interface and
+// register it to ZODB with RegisterDriver. Package
+// lab.nexedi.com/kirr/neo/go/zodb/wks links-in and registers support for
+// well-known ZODB storages, such as FileStorage, ZEO and NEO.
 //
-// --------
+//
+// Miscellaneous
 //
 // See also package lab.nexedi.com/kirr/neo/go/zodb/zodbtools and associated
 // zodb command that provide tools for managing ZODB databases.
