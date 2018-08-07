@@ -29,11 +29,15 @@ import (
 	pickle "github.com/kisielk/og-rek"
 )
 
+// KEY is the type for BTree keys.
+//
 // XXX -> template
 type KEY int64
 
 
-// Bucket mimics ?OBucket from btree/py, with ? being any integer.
+// Bucket is a leaf node of a B⁺ tree.
+//
+// It mimics ?OBucket from btree/py, with ? being any integer.
 //
 // py description:
 //
@@ -51,12 +55,16 @@ type Bucket struct {
 }
 
 // _BTreeItem mimics BTreeItem from btree/py.
+//
+// XXX export for BTree.Children?
 type _BTreeItem struct {
 	key	KEY
 	child	interface{}	// BTree or Bucket
 }
 
-// BTree mimics ?OBTree from btree/py, with ? being any integer.
+// BTree is a non-leaf node of a B⁺ tree.
+//
+// It mimics ?OBTree from btree/py, with ? being any integer.
 //
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
 // for details.
