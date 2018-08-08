@@ -64,9 +64,8 @@ type invEntry struct {
 
 
 // NewDB creates new database handle.
-//
-// XXX text, options.
 func NewDB(stor IStorage) *DB {
+	// XXX db options?
 	return &DB{stor: stor}
 }
 
