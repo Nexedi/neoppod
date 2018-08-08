@@ -33,10 +33,10 @@ import (
 )
 
 // DB represents a handle to database at application level and contains pool
-// of connections. If application opens connection via DB.Open, the connection
-// will be automatically put back into DB pool for future reuse after
-// corresponding transaction is complete. DB thus provides service to maintain
-// live objects cache and reuse live objects from transaction to transaction.
+// of connections. DB.Open opens database connection. The connection will be
+// automatically put back into DB pool for future reuse after corresponding
+// transaction is complete. DB thus provides service to maintain live objects
+// cache and reuse live objects from transaction to transaction.
 //
 // Note that it is possible to have several DB handles to the same database.
 // This might be useful if application accesses distinctly different sets of
