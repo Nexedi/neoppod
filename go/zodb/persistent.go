@@ -44,7 +44,7 @@ import (
 //	type myObjectState MyObject
 //
 //	func (o *myObjectState) DropState() { ... }
-//	func (o *myObjectState) PySetState(pystate interface{}) error { ... }
+//	func (o *myObjectState) SetState(state *mem.Buf) error { ... }
 //
 //	func init() {
 //		t := reflect.TypeOf
@@ -192,7 +192,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 		}
 	}
 
-	// XXX set state to load error?
+	// XXX set state to load error? (to avoid panic on second activate after load error)
 	loading.err = err
 
 	obj.mu.Unlock()
@@ -242,7 +242,7 @@ func (obj *Persistent) PInvalidate() {
 
 	if obj.refcnt != 0 {
 		// object is currently in use
-		panic(obj.badf("invalidate: refcnt != 0"))	// XXX
+		panic(obj.badf("invalidate: refcnt != 0  (= %d)", obj.refcnt))
 	}
 
 	obj.serial = InvalidTid
