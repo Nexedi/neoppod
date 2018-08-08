@@ -145,10 +145,7 @@ func (e *wrongClassError) Error() string {
 // Use-case: in ZODB references are (pyclass, oid), so new ghost is created
 // without further loading anything.
 func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
-	// XXX txn check
-	//conn.checkTxn("get")
-
-	conn.objmu.Lock()		// XXX -> rlock
+	conn.objmu.Lock() // XXX -> rlock?
 	wobj := conn.objtab[oid]
 	var obj IPersistent
 	checkClass := false
@@ -167,12 +164,9 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 
 	if checkClass {
 		if cls := zclassOf(obj); class != cls {
-			return nil, &OpError{
-				URL:  conn.stor.URL(),
-				Op:   fmt.Sprintf("@%s: get", conn.at), // XXX abuse
-				Args: oid,
-				Err:  &wrongClassError{class, cls},
-			}
+			var err error = &wrongClassError{class, cls}
+			xerr.Contextf(&err, "get %s", Xid{conn.at, oid})
+			return nil, err
 		}
 	}
 
@@ -193,7 +187,7 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err er
 	conn.checkTxnCtx(ctx, "Get")
 	defer xerr.Contextf(&err, "Get %s", oid)
 
-	conn.objmu.Lock()		// XXX -> rlock
+	conn.objmu.Lock() // XXX -> rlock?
 	wobj := conn.objtab[oid]
 	var xobj interface{}
 	if wobj != nil {
@@ -207,15 +201,16 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err er
 	}
 
 	// object is not there in objtab - raw load it, get its class -> get(pyclass, oid)
-	// XXX py hardcoded
+	// XXX "py always" hardcoded
 	class, pystate, serial, err := conn.loadpy(ctx, oid)
 	if err != nil {
+		xerr.Contextf(&err, "Get %s", Xid{conn.at, oid})
 		return nil, err
 	}
 
 	obj, err := conn.get(class, oid)
 	if err != nil {
-		return nil, err	// XXX double err ctx? (see get)
+		return nil, err
 	}
 
 	// XXX we are dropping just loaded pystate. Usually Get should be used
@@ -239,8 +234,6 @@ func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial T
 // ----------------------------------------
 
 // checkTxnCtx asserts that current transaction is the same as conn.txn .
-//
-// XXX swap naming?
 func (conn *Connection) checkTxnCtx(ctx context.Context, who string) {
 	conn.checkTxn(transaction.Current(ctx), who)
 }
