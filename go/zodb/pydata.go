@@ -23,7 +23,6 @@ package zodb
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"lab.nexedi.com/kirr/go123/xerr"
@@ -52,7 +51,7 @@ func (d PyData) ClassName() string {
 		return "?.?"
 	}
 
-	klass, err := normPyClass(xklass)
+	klass, err := xpyclass(xklass)
 	if err != nil {
 		return "?.?"
 	}
@@ -78,7 +77,7 @@ func (d PyData) decode(jar *Connection) (pyclass pickle.Class, pystate interface
 		return pickle.Class{}, nil, fmt.Errorf("class description: %s", err)
 	}
 
-	klass, err := normPyClass(xklass)
+	klass, err := xpyclass(xklass)
 	if err != nil {
 		return pickle.Class{}, nil, fmt.Errorf("class description: %s", err)
 	}
@@ -110,12 +109,12 @@ func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
 
 	oid, err := xoid(t[0])
 	if err != nil {
-		return nil, err	// XXX err ctx
+		return nil, err
 	}
 
-	pyclass, err := normPyClass(t[1])
+	pyclass, err := xpyclass(t[1])
 	if err != nil {
-		return nil, err // XXX err ctx
+		return nil, err
 	}
 
 	class := pyclassPath(pyclass)
@@ -125,32 +124,34 @@ func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
 
 
 
-var errInvalidPyClass = errors.New("invalid py class description")
-
-// normPyClass normalizes py class that has just been decoded from a serialized
-// ZODB object or reference.
-func normPyClass(xklass interface{}) (pickle.Class, error) {
-	// class description:
-	//
-	//	- type(obj), or
-	//	- (xklass, newargs|None)	; xklass = type(obj) | (modname, classname)
+// xpyclass verifies and extracts py class from unpickled value.
+//
+// it normalizes py class that has just been decoded from a serialized ZODB
+// object or reference.
+//
+// class description:
+//
+//	- type(obj), or
+//	- (xklass, newargs|None)	; xklass = type(obj) | (modname, classname)
+func xpyclass(xklass interface{}) (_ pickle.Class, err error) {
+	defer xerr.Context(&err, "class")
 
 	if t, ok := xklass.(pickle.Tuple); ok {
 		// t = (xklass, newargs|None)
 		if len(t) != 2 {
-			return pickle.Class{}, errInvalidPyClass
+			return pickle.Class{}, fmt.Errorf("top: expect [2](); got [%d]()", len(t))
 		}
 		// XXX newargs is ignored (zodb/py uses it only for persistent classes)
 		xklass = t[0]
 		if t, ok := xklass.(pickle.Tuple); ok {
 			// t = (modname, classname)
 			if len(t) != 2 {
-				return pickle.Class{}, errInvalidPyClass
+				return pickle.Class{}, fmt.Errorf("xklass: expect [2](); got [%d]()", len(t))
 			}
 			modname, ok1 := t[0].(string)
 			classname, ok2 := t[1].(string)
 			if !(ok1 && ok2) {
-				return pickle.Class{}, errInvalidPyClass
+				return pickle.Class{}, fmt.Errorf("xklass: expect (str, str); got (%T, %T)", t[0], t[1])
 			}
 
 			return pickle.Class{Module: modname, Name: classname}, nil
@@ -162,7 +163,24 @@ func normPyClass(xklass interface{}) (pickle.Class, error) {
 		return klass, nil
 	}
 
-	return pickle.Class{}, errInvalidPyClass
+	return pickle.Class{}, fmt.Errorf("expect type; got %T", xklass)
+}
+
+// xoid verifies and extracts oid from unpickled value.
+//
+// TODO +zobdpickle.binary support
+func xoid(x interface{}) (_ Oid, err error) {
+	defer xerr.Context(&err, "oid")
+
+	s, ok := x.(string)
+	if !ok {
+		return InvalidOid, fmt.Errorf("expect str; got %T", x)
+	}
+	if len(s) != 8 {
+		return InvalidOid, fmt.Errorf("expect [8]str; got [%d]str", len(s))
+	}
+
+	return Oid(binary.BigEndian.Uint64([]byte(s))), nil
 }
 
 // pyclassPath returns full path for a python class.
@@ -170,20 +188,4 @@ func normPyClass(xklass interface{}) (pickle.Class, error) {
 // for example class "ABC" in module "wendelin.lib" has its full path as "wendelin.lib.ABC".
 func pyclassPath(pyclass pickle.Class) string {
 	return pyclass.Module + "." + pyclass.Name
-}
-
-// xoid verifies and extracts oid from unpickled value.
-//
-// XXX +zobdpickle.binary support
-// XXX -> shared place
-func xoid(x interface{}) (Oid, error) {
-	s, ok := x.(string)
-	if !ok {
-		return InvalidOid, fmt.Errorf("xoid: expect str; got %T", x)
-	}
-	if len(s) != 8 {
-		return InvalidOid, fmt.Errorf("xoid: expect [8]str; got [%d]str", len(s))
-	}
-
-	return Oid(binary.BigEndian.Uint64([]byte(s))), nil
 }
