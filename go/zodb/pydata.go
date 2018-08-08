@@ -25,8 +25,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"lab.nexedi.com/kirr/go123/xerr"
 	pickle "github.com/kisielk/og-rek"
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // PyData represents raw data stored into ZODB by Python applications.
@@ -121,8 +121,6 @@ func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
 
 	return jar.get(class, oid)
 }
-
-
 
 // xpyclass verifies and extracts py class from unpickled value.
 //
