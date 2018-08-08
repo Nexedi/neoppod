@@ -48,9 +48,7 @@ type Connection struct {
 	stor	IStorage	// underlying storage
 	db      *DB		// Connection is part of this DB
 	txn	transaction.Transaction	// opened under this txn; nil if idle in DB pool.
-
-	// current view of database; stable inside a transaction.
-	at	Tid
+	at	Tid	// current view of database; stable inside a transaction.
 
 	// {} oid -> obj
 	//
@@ -65,7 +63,8 @@ type Connection struct {
 	// references to it from other objects:
 	//
 	//	- deactivate will release obj state (ok)
-	//	- but there will be still reference from connection `oid -> obj` map to this object.
+	//	- but there will be still reference from connection `oid -> obj` map to this object,
+	//	  which means the object won't be garbage-collected.
 	//
 	// -> we can solve it by using "weak" pointers in the map.
 	//
@@ -98,7 +97,7 @@ type Connection struct {
 	// https://groups.google.com/forum/#!topic/golang-nuts/PYWxjT2v6ps
 	//
 	// NOTE2 finalizers don't run on when they are attached to an object in cycle.
-	// Hopefully we don't have cycles with ZBTree/ZBucket	XXX verify this
+	// Hopefully we don't have cycles with BTree/Bucket.
 	objmu  sync.Mutex
 	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
 
