@@ -311,6 +311,7 @@ func (e *OpError) Error() string {
 	if e.Args != nil {
 		s += fmt.Sprintf(" %s", e.Args)
 	}
+	// XXX if e.Err = OpError with the same URL - don't print URL twice.
 	s += ": " + e.Err.Error()
 	return s
 }

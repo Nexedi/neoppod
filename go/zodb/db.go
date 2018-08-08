@@ -20,8 +20,11 @@
 package zodb
 // application-level database handle.
 
+// TODO: handle invalidations
+
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -81,8 +84,27 @@ type ConnOptions struct {
 // Open must be called under transaction.
 // Opened connection must be used only under the same transaction and only
 // until that transaction is complete.
-func (db *DB) Open(ctx context.Context, opt *ConnOptions) (*Connection, error) {
-	// XXX err ctx
+func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		var argv []interface{}
+		if opt.At != 0 {
+			argv = append(argv, fmt.Sprintf("at=%s", opt.At))
+		}
+		if opt.NoSync {
+			argv = append(argv, "nosync")
+		}
+
+		err = &OpError{
+			URL:  db.stor.URL(),
+			Op:   "open db",
+			Args: argv,
+			Err:  err,
+		}
+	}()
 
 	txn := transaction.Current(ctx)
 
@@ -140,6 +162,7 @@ func (db *DB) get(at Tid) *Connection {
 	// search through window of X previous connections and find out the one
 	// with minimal distance to get to state @at. If all connections are to
 	// distant - create connection anew.
+	//
 	// XXX search not only previous, but future too? (we can get back to
 	// past by invalidating what was later changed)
 	const X = 10 // XXX hardcoded
@@ -168,7 +191,7 @@ func (db *DB) get(at Tid) *Connection {
 	if conn.db != db {
 		panic("DB.get: foreign connection in the pool")
 	}
-	if conn.txn != nil) {
+	if conn.txn != nil {
 		panic("DB.get: live connection in the pool")
 	}
 
