@@ -147,9 +147,15 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 		}
 	}
 
+	if obj.loading != nil {
+		obj.mu.Unlock()
+		panic(fmt.Sprintf("%s(%s): activate: need to load, but .loading != nil",
+			obj.zclass.class, obj.oid))
+	}
+
 	// we become responsible for loading the object
 	loading := &loadState{ready: make(chan struct{})}
-	obj.loading = loading	// XXX assert before it was = nil ?
+	obj.loading = loading
 	obj.mu.Unlock()
 
 	// do the loading outside of obj lock
@@ -158,8 +164,12 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 	// relock the object
 	obj.mu.Lock()
 
-	// XXX assert obj.loading == loading
-	// XXX assert obj.state   == GHOST
+	if l, s := obj.loading, obj.state; !(l == loading && s == GHOST) {
+		obj.mu.Unlock()
+		panic(fmt.Sprintf("%s(%s): activate: after load: object state unexpected: " +
+			"%v (want %v); .loading = %p (want %p)",
+			obj.zclass.class, obj.oid, s, GHOST, l, loading))
+	}
 
 	obj.serial  = serial
 
