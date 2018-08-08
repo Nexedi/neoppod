@@ -73,7 +73,8 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection
 // loadpy does not create any in-RAM object associated with Connection.
 // It only returns decoded database data.
 func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pystate interface{}, serial Tid, _ error) {
-	buf, serial, err := conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
+	xid := Xid{Oid: oid, At: conn.at}
+	buf, serial, err := conn.stor.Load(ctx, xid)
 	if err != nil {
 		return "", nil, 0, err
 	}
@@ -82,7 +83,13 @@ func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pyst
 
 	pyclass, pystate, err := PyData(buf.Data).decode(conn)
 	if err != nil {
-		return "", nil, 0, err	// XXX err ctx
+		err = &OpError{
+			URL:  conn.stor.URL(),
+			Op:   "loadpy",
+			Args: xid,
+			Err:  err,
+		}
+		return "", nil, 0, err
 	}
 
 	return pyclassPath(pyclass), pystate, serial, nil
