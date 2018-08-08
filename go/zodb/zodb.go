@@ -185,7 +185,7 @@ import (
 // by all cumulated transaction changes from database beginning up to, and
 // including, transaction specified by tid.
 //
-// 0 is invalid Tid, but canonical invalid Tid value is InvalidTid.	XXX ok? (-∞ ?)
+// 0 is invalid Tid, but canonical invalid Tid value is InvalidTid.
 type Tid uint64
 
 // ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
