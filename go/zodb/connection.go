@@ -45,10 +45,10 @@ import (
 //
 // Use DB.Open to open a connection.
 type Connection struct {
-	stor	IStorage	// underlying storage
-	db      *DB		// Connection is part of this DB
-	txn	transaction.Transaction	// opened under this txn; nil if idle in DB pool.
-	at	Tid	// current view of database; stable inside a transaction.
+	stor IStorage                // underlying storage
+	db   *DB                     // Connection is part of this DB
+	txn  transaction.Transaction // opened under this txn; nil if idle in DB pool.
+	at   Tid                     // current view of database; stable inside a transaction.
 
 	// {} oid -> obj
 	//
@@ -123,10 +123,10 @@ type LiveCacheControl interface {
 // newConnection creates new Connection associated with db.
 func newConnection(db *DB, at Tid) *Connection {
 	return &Connection{
-		stor:	db.stor,
-		db:	db,
-		at:	at,
-		objtab:	make(map[Oid]*weak.Ref),
+		stor:   db.stor,
+		db:     db,
+		at:     at,
+		objtab: make(map[Oid]*weak.Ref),
 	}
 }
 
@@ -138,7 +138,6 @@ type wrongClassError struct {
 func (e *wrongClassError) Error() string {
 	return fmt.Sprintf("wrong class: want %q; have %q", e.want, e.have)
 }
-
 
 // get is like Get, but used when we already know object class.
 //
@@ -172,7 +171,6 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 
 	return obj, nil
 }
-
 
 // Get returns in-RAM object corresponding to specified ZODB object according to current database view.
 //
@@ -221,15 +219,11 @@ func (conn *Connection) Get(ctx context.Context, oid Oid) (_ IPersistent, err er
 	return obj, nil
 }
 
-
-
 // load loads object specified by oid.
 func (conn *Connection) load(ctx context.Context, oid Oid) (_ *mem.Buf, serial Tid, _ error) {
 	conn.checkTxnCtx(ctx, "load")
-
 	return conn.stor.Load(ctx, Xid{Oid: oid, At: conn.at})
 }
-
 
 // ----------------------------------------
 
