@@ -67,7 +67,7 @@ func TestBTree(t *testing.T) {
 	txn, ctx := transaction.New(ctx)
 	defer txn.Abort()
 
-	conn, err := db.Open(ctx)
+	conn, err := db.Open(ctx, &zodb.ConnOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

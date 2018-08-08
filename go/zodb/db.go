@@ -67,28 +67,42 @@ func NewDB(stor IStorage) *DB {
 	return &DB{stor: stor}
 }
 
+// ConnOptions describes options to DB.Open .
+type ConnOptions struct {
+	At     Tid  // if !0, open Connection bound to `at` view of database; not latest.
+	NoSync bool // don't sync with storage to get its last tid.
+}
+
 // Open opens new connection to the database.
 //
-// The connection is opened to current latest database state.
+// By default the connection is opened to current latest database state; opt.At
+// can be specified to open connection bound to particular view of the database.
 //
 // Open must be called under transaction.
 // Opened connection must be used only under the same transaction and only
 // until that transaction is complete.
-//
-// XXX text
-//
-// XXX +OpenAt ?
-func (db *DB) Open(ctx context.Context) (*Connection, error) {
+func (db *DB) Open(ctx context.Context, opt *ConnOptions) (*Connection, error) {
 	// XXX err ctx
 
 	txn := transaction.Current(ctx)
 
-	// sync storage for lastTid
-	// XXX open option not to sync and just get lastTid as .invTab.Head() ?
-	at, err := db.stor.LastTid(ctx)
-	if err != nil {
-		return nil, err
+	at := opt.At
+	if at == 0 {
+		// XXX init head from current DB.head (head of .invTab)
+		var head Tid
+		var err error
+
+		// sync storage for lastTid
+		if !opt.NoSync {
+			head, err = db.stor.LastTid(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		at = head
 	}
+
 
 	// wait till .invTab is up to date covering ≥ lastTid
 	// XXX reenable
