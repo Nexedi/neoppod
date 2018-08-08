@@ -1,5 +1,5 @@
-// Copyright (C) 2017  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2017-2018  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -32,7 +32,7 @@ import (
 // OpenOptions describes options for OpenStorage.
 type OpenOptions struct {
 	ReadOnly bool // whether to open storage as read-only
-	NoCache  bool // don't use cache for read/write operations
+	NoCache  bool // don't use cache for read/write operations; prefetch will be noop
 }
 
 // DriverOpener is a function to open a storage driver.
