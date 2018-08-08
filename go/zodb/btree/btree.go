@@ -28,16 +28,15 @@ import (
 	"reflect"
 	"sort"
 
+	pickle "github.com/kisielk/og-rek"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/neo/go/zodb"
-	pickle "github.com/kisielk/og-rek"
 )
 
 // KEY is the type for BTree keys.
 //
 // XXX -> template?
 type KEY int64
-
 
 // Bucket is a leaf node of a B⁺ tree.
 //
@@ -53,17 +52,17 @@ type Bucket struct {
 	// are chained together via 'next', so that the entire BTree contents
 	// can be traversed in sorted order quickly and easily.
 
-	next   *Bucket		// the bucket with the next-larger keys
-	keys   []KEY		// 'len' keys, in increasing order
-	values []interface{}	// 'len' corresponding values
+	next   *Bucket       // the bucket with the next-larger keys
+	keys   []KEY         // 'len' keys, in increasing order
+	values []interface{} // 'len' corresponding values
 }
 
 // _BTreeItem mimics BTreeItem from btree/py.
 //
 // XXX export for BTree.Children?
 type _BTreeItem struct {
-	key	KEY
-	child	interface{}	// BTree or Bucket
+	key   KEY
+	child interface{} // BTree or Bucket
 }
 
 // BTree is a non-leaf node of a B⁺ tree.
@@ -86,7 +85,7 @@ type BTree struct {
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
-	data	[]_BTreeItem
+	data []_BTreeItem
 }
 
 // Get searches BTree by key.
@@ -112,7 +111,7 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 		i := sort.Search(len(t.data), func(i int) bool {
 			j := i + 1
 			if j == len(t.data) {
-				return true	// [len].key = +∞
+				return true // [len].key = +∞
 			}
 			return key < t.data[j].key
 		})
@@ -216,7 +215,7 @@ func (b *bucketState) PySetState(pystate interface{}) (err error) {
 	if !ok {
 		return fmt.Errorf("data: expect (...); got %T", t[0])
 	}
-	if len(t) % 2 != 0 {
+	if len(t)%2 != 0 {
 		return fmt.Errorf("data: expect [%%2](); got [%d]()", len(t))
 	}
 
@@ -229,13 +228,13 @@ func (b *bucketState) PySetState(pystate interface{}) (err error) {
 		xk := t[2*i]
 		v := t[2*i+1]
 
-		k, ok := xk.(int64)	// XXX use KEY	XXX -> Xint64
+		k, ok := xk.(int64) // XXX use KEY	XXX -> Xint64
 		if !ok {
 			return fmt.Errorf("data: [%d]: key must be integer; got %T", i, xk)
 		}
 
 		// XXX check keys are sorted?
-		b.keys = append(b.keys, KEY(k))		// XXX cast
+		b.keys = append(b.keys, KEY(k)) // XXX cast
 		b.values = append(b.values, v)
 	}
 
@@ -324,7 +323,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 	if !ok {
 		return fmt.Errorf("data: expect (...); got %T", t[0])
 	}
-	if len(t) % 2 == 0 {
+	if len(t)%2 == 0 {
 		return fmt.Errorf("data: expect [!%%2](); got [%d]()", len(t))
 	}
 
@@ -334,8 +333,8 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		key := int64(0)
 		if i > 0 {
 			// key[0] is unused and not saved
-			key, ok = t[idx].(int64)	// XXX Xint
-			if ! ok {
+			key, ok = t[idx].(int64) // XXX Xint
+			if !ok {
 				return fmt.Errorf("data: [%d]: key must be integer; got %T", i, t[idx])
 			}
 			idx++
