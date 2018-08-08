@@ -62,7 +62,7 @@ type Persistent struct {
 
 	jar	*Connection
 	oid	Oid
-	serial	Tid
+	serial	Tid // also protected by mu
 
 	mu	 sync.Mutex
 	state	 ObjectState
@@ -76,7 +76,12 @@ type Persistent struct {
 
 func (obj *Persistent) PJar() *Connection	{ return obj.jar	}
 func (obj *Persistent) POid() Oid		{ return obj.oid	}
-func (obj *Persistent) PSerial() Tid		{ return obj.serial	}
+
+func (obj *Persistent) PSerial() Tid {
+	obj.mu.Lock()
+	defer obj.mu.Unlock()
+	return obj.serial
+}
 
 // loadState indicates object's load state/result.
 //
@@ -123,6 +128,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
 			obj.PDeactivate()
+			xerr.Contextf(&err, "%s(%s): activate", obj.zclass.class, obj.oid)
 		}
 	}()
 	//fmt.Printf("activate %p(%v)\t%T(%s): refcnt=%d state=%v\n",
@@ -135,9 +141,9 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err()	// XXX err ctx
+			return ctx.Err()
 		case <-loading.ready:
-			return loading.err	// XXX err ctx?
+			return loading.err
 		}
 	}
 
@@ -148,7 +154,6 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	// do the loading outside of obj lock
 	state, serial, err := obj.jar.load(ctx, obj.oid)
-	xerr.Contextf(&err, "%s(%s): load", obj.zclass.class, obj.oid)
 
 	// relock the object
 	obj.mu.Lock()
@@ -163,12 +168,11 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 		switch istate := obj.istate().(type) {
 		case Stateful:
 			err = istate.SetState(state)
-			xerr.Contextf(&err, "%s(%s): setstate", obj.zclass.class, obj.oid)
+			xerr.Context(&err, "setstate")
 
 		case PyStateful:
 			err = pySetState(istate, obj.zclass.class, state, obj.jar)
-			xerr.Contextf(&err, "%s(%s): pysetstate", obj.zclass.class, obj.oid)
-
+			xerr.Context(&err, "pysetstate")
 
 		default:
 			panic("!stateful instance")
@@ -185,7 +189,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 	obj.mu.Unlock()
 	close(loading.ready)
 
-	return err	// XXX err ctx
+	return err
 }
 
 // PDeactivate implements IPersistent.
