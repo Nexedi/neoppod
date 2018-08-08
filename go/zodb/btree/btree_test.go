@@ -19,7 +19,7 @@
 
 package btree
 
-//go:generate ./py/gen-testdata
+//go:generate ./testdata/gen-testdata
 
 import (
 	"context"
