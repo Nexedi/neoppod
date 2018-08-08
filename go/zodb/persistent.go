@@ -58,15 +58,15 @@ import (
 type Persistent struct {
 	// ZODB class of this object.
 	// XXX it could be deduced via typeTab[reflect.TypeOf(.instance)]
-	zclass  *zclass
+	zclass *zclass
 
-	jar	*Connection
-	oid	Oid
-	serial	Tid // also protected by mu
+	jar    *Connection
+	oid    Oid
+	serial Tid // also protected by mu
 
-	mu	 sync.Mutex
-	state	 ObjectState
-	refcnt	 int32
+	mu     sync.Mutex
+	state  ObjectState
+	refcnt int32
 
 	// Persistent is the base for the instance.
 	// instance, via its state type, is additionally Ghostable and (Stateful | PyStateful).
@@ -74,8 +74,8 @@ type Persistent struct {
 	loading  *loadState
 }
 
-func (obj *Persistent) PJar() *Connection	{ return obj.jar	}
-func (obj *Persistent) POid() Oid		{ return obj.oid	}
+func (obj *Persistent) PJar() *Connection { return obj.jar }
+func (obj *Persistent) POid() Oid         { return obj.oid }
 
 func (obj *Persistent) PSerial() Tid {
 	obj.mu.Lock()
@@ -92,7 +92,7 @@ type loadState struct {
 
 	// error from the load.
 	// if there was no error, loaded data goes to object state.
-	err   error
+	err error
 }
 
 // Ghostable is the interface describing in-RAM object who can release its in-RAM state.
@@ -165,11 +165,11 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	if l, s := obj.loading, obj.state; !(l == loading && s == GHOST) {
 		obj.mu.Unlock()
-		panic(obj.badf("activate: after load: object state unexpected: " +
+		panic(obj.badf("activate: after load: object state unexpected: "+
 			"%v (want %v); .loading = %p (want %p)", s, GHOST, l, loading))
 	}
 
-	obj.serial  = serial
+	obj.serial = serial
 
 	// try to pass loaded state to object
 	if err == nil {
@@ -251,7 +251,6 @@ func (obj *Persistent) PInvalidate() {
 	obj.loading = nil
 }
 
-
 // istate returns .instance casted to corresponding stateType.
 //
 // returns: Ghostable + (Stateful | PyStateful).
@@ -262,7 +261,7 @@ func (obj *Persistent) istate() Ghostable {
 
 // badf returns formatted error prefixed with obj's class and oid.
 func (obj *Persistent) badf(format string, argv ...interface{}) error {
-	return fmt.Errorf("%s(%s): " + format,
+	return fmt.Errorf("%s(%s): "+format,
 		append([]interface{}{obj.zclass.class, obj.oid}, argv...))
 }
 
@@ -295,7 +294,6 @@ var rPersistent  = reflect.TypeOf(Persistent{})               // typeof(Persiste
 var rGhostable   = reflect.TypeOf((*Ghostable)(nil)).Elem()   // typeof(Ghostable)
 var rStateful    = reflect.TypeOf((*Stateful)(nil)).Elem()    // typeof(Stateful)
 var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStateful)
-
 
 // RegisterClass registers ZODB class to correspond to Go type.
 //
@@ -370,7 +368,7 @@ func NewPersistent(typ reflect.Type, jar *Connection) IPersistent {
 	}
 
 	xpobj := reflect.New(zc.typ)
-	return persistentInit(xpobj, zc, jar, InvalidOid, InvalidTid, UPTODATE/*XXX ok?*/)
+	return persistentInit(xpobj, zc, jar, InvalidOid, InvalidTid, UPTODATE /*XXX ok?*/)
 }
 
 // newGhost creates new ghost object corresponding to class, oid and jar.
@@ -396,7 +394,7 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 
 // persistentInit inits Persistent embedded into an object and returns .instance .
 func persistentInit(xpobj reflect.Value, zc *zclass, jar *Connection, oid Oid, serial Tid, state ObjectState) IPersistent {
-	xobj  := xpobj.Elem() // typ
+	xobj := xpobj.Elem() // typ
 	pbase := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
 	pbase.zclass = zc
 	pbase.jar = jar
@@ -434,7 +432,7 @@ func (b *brokenState) DropState() {
 	b.state = nil
 }
 
-func (b *brokenState) SetState(state *mem.Buf) error	{
+func (b *brokenState) SetState(state *mem.Buf) error {
 	b.state.XRelease()
 	state.Incref()
 	b.state = state
@@ -443,7 +441,7 @@ func (b *brokenState) SetState(state *mem.Buf) error	{
 
 // brokenZClass is used for Persistent.zclass for Broken objects.
 var brokenZClass = &zclass{
-	class:		"",
-	typ:		reflect.TypeOf(Broken{}),
-	stateType:	reflect.TypeOf(brokenState{}),
+	class:     "",
+	typ:       reflect.TypeOf(Broken{}),
+	stateType: reflect.TypeOf(brokenState{}),
 }
