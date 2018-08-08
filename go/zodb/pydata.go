@@ -97,6 +97,7 @@ func (d PyData) decode(jar *Connection) (pyclass pickle.Class, pystate interface
 func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
 	defer xerr.Context(&err, "loadref")
 
+	// ref = (oid, class)
 	// TODO add support for ref formats besides (oid, class)
 
 	t, ok := ref.Pid.(pickle.Tuple)
