@@ -79,14 +79,17 @@ import (
 // by all cumulated transaction changes from database beginning up to, and
 // including, transaction specified by tid.
 //
-// 0 is invalid Tid.
+// 0 is invalid Tid, but canonical invalid Tid value is InvalidTid.
 type Tid uint64
 
 // ZODB/py defines maxtid to be max signed int64 since Jun 7 2016:
 // https://github.com/zopefoundation/ZODB/commit/baee84a6
 // (same in neo/py with "SQLite does not accept numbers above 2^63-1" comment)
 
-const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
+const (
+	TidMax     Tid = 1<<63 - 1 // 0x7fffffffffffffff
+	InvalidTid Tid = 1<<64 - 1 // 0xffffffffffffffff
+)
 
 // Oid is object identifier.
 //
@@ -96,9 +99,12 @@ const TidMax Tid = 1<<63 - 1 // 0x7fffffffffffffff
 // uniquely addresses corresponding data record.
 //
 // 0 is valid Oid and represents root database object.
+// InvalidOid represents an invalid Oid.
 //
 // See also: Xid.
 type Oid uint64
+
+const InvalidOid Oid = 1<<64 - 1 // 0xffffffffffffffff
 
 // Xid is "extended" oid - that fully specifies object and query for its revision.
 //
