@@ -20,7 +20,7 @@
 package btree
 
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
-// for details BTree & Bucket organization details.
+// for BTree & Bucket organization details.
 
 import (
 	"context"
@@ -35,7 +35,7 @@ import (
 
 // KEY is the type for BTree keys.
 //
-// XXX -> template
+// XXX -> template?
 type KEY int64
 
 
@@ -45,7 +45,7 @@ type KEY int64
 type Bucket struct {
 	zodb.Persistent
 
-	// py description:
+	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
 	//
 	// A Bucket wraps contiguous vectors of keys and values.  Keys are unique,
 	// and stored in sorted order.  The 'values' pointer may be NULL if the
@@ -72,11 +72,15 @@ type _BTreeItem struct {
 type BTree struct {
 	zodb.Persistent
 
+	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L205:
+	//
 	// firstbucket points to the bucket containing the smallest key in
 	// the BTree.  This is found by traversing leftmost child pointers
 	// (data[0].child) until reaching a Bucket.
 	firstbucket *Bucket
 
+	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L211:
+	//
 	// The BTree points to 'len' children, via the "child" fields of the data
 	// array.  There are len-1 keys in the 'key' fields, stored in increasing
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
@@ -130,6 +134,9 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 }
 
 // Get searches Bucket by key.
+//
+// TODO Bucket.Get should not get ctx argument and just require that the bucket
+// must be already activated. Correspondingly there should be no error returned.
 func (b *Bucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
 	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)
 	err = b.PActivate(ctx)
@@ -163,7 +170,7 @@ func (b *Bucket) get(key KEY) (interface{}, bool) {
 
 // ---- serialization ----
 
-// from https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BucketTemplate.c#L1195:
+// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BucketTemplate.c#L1195:
 //
 // For a mapping bucket (self->values is not NULL), a one-tuple or two-tuple.
 // The first element is a tuple interleaving keys and values, of length
@@ -236,7 +243,7 @@ func (b *bucketState) PySetState(pystate interface{}) (err error) {
 }
 
 
-// from https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeTemplate.c#L1087:
+// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeTemplate.c#L1087:
 //
 // For an empty BTree (self->len == 0), None.
 //
