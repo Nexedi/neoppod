@@ -216,7 +216,7 @@ func (obj *Persistent) PDeactivate() {
 		}
 	}
 
-	obj.serial = 0
+	obj.serial = InvalidTid
 	obj.istate().DropState()
 	obj.state = GHOST
 	obj.loading = nil
@@ -232,7 +232,7 @@ func (obj *Persistent) PInvalidate() {
 		panic("invalidate: refcnt != 0")
 	}
 
-	obj.serial = 0
+	obj.serial = InvalidTid
 	obj.istate().DropState()
 	obj.state = GHOST
 	obj.loading = nil

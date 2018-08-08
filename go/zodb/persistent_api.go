@@ -30,11 +30,11 @@ import (
 //
 // Use Persistent as the base for application-level types that need to provide persistency.
 type IPersistent interface {
-	PJar()    *Connection	// Connection this in-RAM object is part of.
-	POid()    Oid		// object ID in the database.
+	PJar() *Connection // Connection this in-RAM object is part of.
+	POid() Oid         // object ID in the database.
 
 	// object serial in the database as of particular Connection (PJar) view.
-	// 0 (invalid tid) if not yet loaded.
+	// InvalidTid if not yet loaded.
 	PSerial() Tid
 
 
@@ -103,8 +103,8 @@ type IPersistent interface {
 type ObjectState int
 
 const (
-	GHOST     ObjectState = -1 // object data is not yet loaded from the database
-	UPTODATE  ObjectState = 0  // object is live and in-RAM data is the same as in database
-	CHANGED   ObjectState = 1  // object is live and in-RAM data was changed
+	GHOST    ObjectState = -1 // object data is not yet loaded from the database
+	UPTODATE ObjectState = 0  // object is live and in-RAM data is the same as in database
+	CHANGED  ObjectState = 1  // object is live and in-RAM data was changed
 	// no STICKY - we pin objects in RAM with PActivate
 )
