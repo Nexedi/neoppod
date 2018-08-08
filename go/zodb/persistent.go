@@ -149,8 +149,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	if obj.loading != nil {
 		obj.mu.Unlock()
-		panic(fmt.Sprintf("%s(%s): activate: need to load, but .loading != nil",
-			obj.zclass.class, obj.oid))
+		panic(obj.badf("activate: need to load, but .loading != nil"))
 	}
 
 	// we become responsible for loading the object
@@ -166,9 +165,8 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 
 	if l, s := obj.loading, obj.state; !(l == loading && s == GHOST) {
 		obj.mu.Unlock()
-		panic(fmt.Sprintf("%s(%s): activate: after load: object state unexpected: " +
-			"%v (want %v); .loading = %p (want %p)",
-			obj.zclass.class, obj.oid, s, GHOST, l, loading))
+		panic(obj.badf("activate: after load: object state unexpected: " +
+			"%v (want %v); .loading = %p (want %p)", s, GHOST, l, loading))
 	}
 
 	obj.serial  = serial
@@ -185,7 +183,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 			xerr.Context(&err, "pysetstate")
 
 		default:
-			panic("!stateful instance")
+			panic(obj.badf("activate: !stateful instance"))
 		}
 
 		state.Release()
@@ -194,6 +192,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 		}
 	}
 
+	// XXX set state to load error?
 	loading.err = err
 
 	obj.mu.Unlock()
@@ -209,7 +208,7 @@ func (obj *Persistent) PDeactivate() {
 
 	obj.refcnt--
 	if obj.refcnt < 0 {
-		panic("deactivate: refcnt < 0")
+		panic(obj.badf("deactivate: refcnt < 0"))
 	}
 	if obj.refcnt > 0 {
 		return // users still left
@@ -243,7 +242,7 @@ func (obj *Persistent) PInvalidate() {
 
 	if obj.refcnt != 0 {
 		// object is currently in use
-		panic("invalidate: refcnt != 0")
+		panic(obj.badf("invalidate: refcnt != 0"))	// XXX
 	}
 
 	obj.serial = InvalidTid
@@ -260,6 +259,13 @@ func (obj *Persistent) istate() Ghostable {
 	xstateful := reflect.ValueOf(obj.instance).Convert(reflect.PtrTo(obj.zclass.stateType))
 	return xstateful.Interface().(Ghostable)
 }
+
+// badf returns formatted error prefixed with obj's class and oid.
+func (obj *Persistent) badf(format string, argv ...interface{}) error {
+	return fmt.Errorf("%s(%s): " + format,
+		append([]interface{}{obj.zclass.class, obj.oid}, argv...))
+}
+
 
 // ---- class <-> type; new ghost ----
 
