@@ -394,8 +394,7 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	return persistentInit(xpobj, zc, jar, oid, InvalidTid, GHOST)
 }
 
-// persistentInit inits Persistent embedded into an object
-// and returns .instance .
+// persistentInit inits Persistent embedded into an object and returns .instance .
 func persistentInit(xpobj reflect.Value, zc *zclass, jar *Connection, oid Oid, serial Tid, state ObjectState) IPersistent {
 	xobj  := xpobj.Elem() // typ
 	pbase := xobj.FieldByName("Persistent").Addr().Interface().(*Persistent)
