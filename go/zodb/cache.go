@@ -31,11 +31,11 @@ import (
 	"lab.nexedi.com/kirr/go123/xcontainer/list"
 )
 
+// TODO handle invalidations from the database.
+
 // XXX managing LRU under 1 big gcMu might be bad for scalability.
 // TODO maintain nhit / nmiss + way to read cache stats
 // TODO optimize cache more so that miss overhead becomes negligible
-
-// TODO Drop(xid) -> make sure data for xid is no longer in cache
 
 // Cache provides RAM caching layer that can be used over a storage.
 type Cache struct {
