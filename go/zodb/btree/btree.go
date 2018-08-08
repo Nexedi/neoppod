@@ -15,8 +15,12 @@
 //
 // It is modelled and data compatible with BTree/py package:
 //
+//	http://btrees.readthedocs.io
 //	https://github.com/zopefoundation/BTrees
 package btree
+
+// See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
+// for details BTree & Bucket organization details.
 
 import (
 	"context"
@@ -38,16 +42,16 @@ type KEY int64
 // Bucket is a leaf node of a B⁺ tree.
 //
 // It mimics ?OBucket from btree/py, with ? being any integer.
-//
-// py description:
-//
-// A Bucket wraps contiguous vectors of keys and values.  Keys are unique,
-// and stored in sorted order.  The 'values' pointer may be NULL if the
-// Bucket is used to implement a set.  Buckets serving as leafs of BTrees
-// are chained together via 'next', so that the entire BTree contents
-// can be traversed in sorted order quickly and easily.
 type Bucket struct {
 	zodb.Persistent
+
+	// py description:
+	//
+	// A Bucket wraps contiguous vectors of keys and values.  Keys are unique,
+	// and stored in sorted order.  The 'values' pointer may be NULL if the
+	// Bucket is used to implement a set.  Buckets serving as leafs of BTrees
+	// are chained together via 'next', so that the entire BTree contents
+	// can be traversed in sorted order quickly and easily.
 
 	next   *Bucket		// the bucket with the next-larger keys
 	keys   []KEY		// 'len' keys, in increasing order
@@ -65,9 +69,6 @@ type _BTreeItem struct {
 // BTree is a non-leaf node of a B⁺ tree.
 //
 // It mimics ?OBTree from btree/py, with ? being any integer.
-//
-// See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
-// for details.
 type BTree struct {
 	zodb.Persistent
 
@@ -90,7 +91,7 @@ type BTree struct {
 //
 // t need not be activated beforehand for Get to work.
 func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)	// XXX + url?
+	defer xerr.Contextf(&err, "btree(%s): get %v", t.POid(), key)
 	err = t.PActivate(ctx)
 	if err != nil {
 		return nil, false, err
@@ -130,7 +131,7 @@ func (t *BTree) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err er
 
 // Get searches Bucket by key.
 func (b *Bucket) Get(ctx context.Context, key KEY) (_ interface{}, _ bool, err error) {
-	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)	// XXX + url?
+	defer xerr.Contextf(&err, "bucket(%s): get %v", b.POid(), key)
 	err = b.PActivate(ctx)
 	if err != nil {
 		return nil, false, err
