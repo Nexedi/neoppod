@@ -123,7 +123,7 @@
 // Note that it is possible to have several DB handles to the same database.
 // This might be useful if application accesses distinctly different sets of
 // objects in different transactions and knows beforehand which set it will be
-// next time. Then, to avoid huge cache misses, it makes sense to keep DB
+// next time. Then, to avoid huge live cache misses, it makes sense to keep DB
 // handles opened for every possible case of application access.
 //
 //
