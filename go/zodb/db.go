@@ -46,20 +46,20 @@ import (
 //
 // DB is safe to access from multiple goroutines simultaneously.
 type DB struct {
-	stor	IStorage
+	stor IStorage
 
-	mu	sync.Mutex
-	connv	[]*Connection // order by ↑= .at
+	mu    sync.Mutex
+	connv []*Connection // order by ↑= .at
 
 	// information about invalidations
 	// XXX -> Storage. XXX or -> Cache? (so it is not duplicated many times for many DB case)
-	invTab	[]invEntry // order by ↑= .tid
+	invTab []invEntry // order by ↑= .tid
 }
 
 // invEntry describes invalidations caused by a database transaction.
 type invEntry struct {
-	tid	Tid
-	oidv	[]Oid
+	tid  Tid
+	oidv []Oid
 }
 
 
@@ -123,7 +123,6 @@ func (db *DB) Open(ctx context.Context, opt *ConnOptions) (_ *Connection, err er
 
 		at = head
 	}
-
 
 	// wait till .invTab is up to date covering ≥ lastTid
 	// XXX reenable
