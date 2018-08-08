@@ -35,14 +35,10 @@ import (
 //
 // The view is represented by IPersistent objects associated with the connection.
 // Connection changes are private and are isolated from changes in other Connections.
-//
-// The view corresponds to particular database state and is thus isolated from
-// further database transactions.
-//
+// Connection's view corresponds to particular database state and is thus
+// isolated from further database transactions.
 //
 // Connection is safe to access from multiple goroutines simultaneously.
-//
-// XXX ^^^ modifications?
 //
 // Connection and objects obtained from it must be used by application only
 // inside transaction where Connection was opened.

@@ -18,7 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 package zodb
-// application-level database connection.
+// application-level database handle.
 
 import (
 	"context"
