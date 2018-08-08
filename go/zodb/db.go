@@ -165,8 +165,11 @@ func (db *DB) get(at Tid) *Connection {
 	db.connv[l-1] = nil
 	db.connv = db.connv[:l-1]
 
-	if !(conn.db == db && conn.txn == nil) {
-		panic("DB.get: foreign/live connection in the pool")
+	if conn.db != db {
+		panic("DB.get: foreign connection in the pool")
+	}
+	if conn.txn != nil) {
+		panic("DB.get: live connection in the pool")
 	}
 
 	if conn.at != at {
