@@ -72,7 +72,8 @@ func NewDB(stor IStorage) *DB {
 // The connection is opened to current latest database state.
 //
 // Open must be called under transaction.
-// Opened connection must be used under the same transaction only.
+// Opened connection must be used only under the same transaction and only
+// until that transaction is complete.
 //
 // XXX text
 //
@@ -163,7 +164,10 @@ func (db *DB) get(at Tid) *Connection {
 
 // put puts connection back into db pool.
 func (db *DB) put(conn *Connection) {
-	// XXX assert conn.db == db
+	if conn.db != db {
+		panic("DB.put: conn.db != db")
+	}
+
 	conn.txn = nil
 
 	db.mu.Lock()
