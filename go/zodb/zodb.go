@@ -47,6 +47,8 @@
 // Object state data is generally opaque, but is traditionally based on Python
 // pickles in ZODB/py world.
 //
+// An object can reference other objects in the database by their oid.
+//
 //
 // Operations
 //
