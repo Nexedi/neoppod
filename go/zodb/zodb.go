@@ -60,6 +60,42 @@
 // Please see IStorage, and interfaces it embeds, for details.
 //
 //
+// Application layer
+//
+// The application layer provides access to a ZODB database in terms of in-RAM
+// application-level objects whose in-RAM state is synchronized with data in the database. For
+// the synchronization to work, objects must be explicitly activated before
+// access (contrary to zodb/py where activation is implicit, hooked into
+// __getattr__), for example:
+//
+//	var obj *MyObject // *MyObject must implement IPersistent
+//	... // init obj pointer, usually by traversing from another persistent object.
+//
+//	// make sure object's in-RAM data is present.
+//	//
+//	// ZODB will load corresponding data and decode it into obj.
+//	// On success, obj will be live and application can use its state.
+//	err := obj.PActivate(ctx)
+//	if err != nil {
+//		return ... // handle error
+//	}
+//
+//	obj.xxx // use object.
+//	if ... {
+//		obj.xxx++     // change object.
+//		obj.PModify() // let persistency layer know we modified the object.
+//	}
+//
+//	// tell persistency layer we no longer need obj's in-RAM data to be present.
+//	// if obj was not modified, its in-RAM state might go away after.
+//	obj.PDeactivate()
+//
+// IPersistent interface describes the details of the activation protocol.
+//
+// Object activation protocol is safe to access from
+// multiple goroutines simultaneously.
+//
+//
 // Storage drivers
 //
 // To implement a ZODB storage one need to provide IStorageDriver interface and
