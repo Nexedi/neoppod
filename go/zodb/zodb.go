@@ -17,10 +17,10 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package zodb defines types, interfaces and errors to work with ZODB databases.
+// Package zodb provides API to work with ZODB databases.
 //
 // ZODB (http://zodb.org) was originally created in Python world by Jim Fulton et al.
-// Data model this package provides is partly based on ZODB/py
+// Data model and API this package provides are partly based on ZODB/py
 // (https://github.com/zopefoundation/ZODB) to maintain compatibility in
 // between Python and Go implementations.
 //
@@ -31,7 +31,7 @@
 // several objects and also has metadata, like user and description, associated
 // with it. If an object is changed by transaction, it is said that there is
 // revision of the object with particular object state committed by that transaction.
-// Object revision is the same as tid of transaction that modified the object.
+// Object revision is the same as tid of the transaction that modified the object.
 // The combination of object identifier and particular revision (serial)
 // uniquely addresses corresponding data record.
 //
