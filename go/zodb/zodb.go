@@ -60,7 +60,7 @@
 // Please see IStorage, and interfaces it embeds, for details.
 //
 //
-// --------
+// Miscellaneous
 //
 // See also package lab.nexedi.com/kirr/neo/go/zodb/zodbtools and associated
 // zodb command that provide tools for managing ZODB databases.
