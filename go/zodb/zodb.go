@@ -99,6 +99,19 @@
 // multiple goroutines simultaneously.
 //
 //
+// Python data
+//
+// To maintain database data compatibility with ZODB/py, ZODB/go provides
+// first class support for Python data. At storage-level PyData provides way to
+// treat raw data record content as serialized by ZODB/py, and at application
+// level types that are registered with state type providing PyStateful (see
+// RegisterClass) are automatically (de)serialized as Python pickles(*).
+//
+// --------
+//
+// (*) for pickle support package github.com/kisielk/og-rek is used.
+//
+//
 // Storage drivers
 //
 // To implement a ZODB storage one need to provide IStorageDriver interface and

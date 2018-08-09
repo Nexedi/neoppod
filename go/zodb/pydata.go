@@ -58,6 +58,33 @@ func (d PyData) ClassName() string {
 	return pyclassPath(klass)
 }
 
+// decode decodes raw ZODB python data into Python class and state.
+func (d PyData) decode() (pyclass pickle.Class, pystate interface{}, err error) {
+	defer xerr.Context(&err, "pydata: decode")
+
+	p := pickle.NewDecoderWithConfig(
+		bytes.NewReader([]byte(d)),
+		&pickle.DecoderConfig{/* TODO: handle persistent references */},
+	)
+
+	xklass, err := p.Decode()
+	if err != nil {
+		return pickle.Class{}, nil, fmt.Errorf("class description: %s", err)
+	}
+
+	klass, err := xpyclass(xklass)
+	if err != nil {
+		return pickle.Class{}, nil, fmt.Errorf("class description: %s", err)
+	}
+
+	state, err := p.Decode()
+	if err != nil {
+		return pickle.Class{}, nil, fmt.Errorf("object state: %s", err)
+	}
+
+	return klass, state, nil
+}
+
 // xpyclass verifies and extracts py class from unpickled value.
 //
 // it normalizes py class that has just been decoded from a serialized ZODB

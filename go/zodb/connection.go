@@ -22,6 +22,7 @@ package zodb
 
 import (
 	"context"
+	"fmt"
 
 	"lab.nexedi.com/kirr/go123/mem"
 )
@@ -30,6 +31,15 @@ import (
 type Connection struct {
 	stor IStorage                // underlying storage
 	at   Tid                     // current view of database; stable inside a transaction.
+}
+
+// wrongClassError is the error cause returned when ZODB object's class is not what was expected.
+type wrongClassError struct {
+	want, have string
+}
+
+func (e *wrongClassError) Error() string {
+	return fmt.Sprintf("wrong class: want %q; have %q", e.want, e.have)
 }
 
 // load loads object specified by oid.

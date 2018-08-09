@@ -34,7 +34,7 @@ import (
 // representation of database objects.
 //
 // To use - a class needs to embed Persistent and register itself additionally
-// providing Ghostable and Stateful methods. For example:
+// providing Ghostable and (Py)Stateful methods. For example:
 //
 //	type MyObject struct {
 //		Persistent
@@ -69,7 +69,7 @@ type Persistent struct {
 	refcnt int32
 
 	// Persistent is the base for the instance.
-	// instance, via its state type, is additionally Ghostable and Stateful.
+	// instance, via its state type, is additionally Ghostable and (Stateful | PyStateful).
 	instance IPersistent
 	loading  *loadState
 }
@@ -178,6 +178,10 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 			err = istate.SetState(state)
 			xerr.Context(&err, "setstate")
 
+		case PyStateful:
+			err = pySetState(istate, obj.zclass.class, state)
+			xerr.Context(&err, "pysetstate")
+
 		default:
 			panic(obj.badf("activate: !stateful instance"))
 		}
@@ -242,7 +246,7 @@ func (obj *Persistent) PInvalidate() {
 
 // istate returns .instance casted to corresponding stateType.
 //
-// returns: Ghostable + Stateful.
+// returns: Ghostable + (Stateful | PyStateful).
 func (obj *Persistent) istate() Ghostable {
 	xstateful := reflect.ValueOf(obj.instance).Convert(reflect.PtrTo(obj.zclass.stateType))
 	return xstateful.Interface().(Ghostable)
@@ -282,6 +286,7 @@ var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersist
 var rPersistent  = reflect.TypeOf(Persistent{})               // typeof(Persistent)
 var rGhostable   = reflect.TypeOf((*Ghostable)(nil)).Elem()   // typeof(Ghostable)
 var rStateful    = reflect.TypeOf((*Stateful)(nil)).Elem()    // typeof(Stateful)
+var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStateful)
 
 // RegisterClass registers ZODB class to correspond to Go type.
 //
@@ -295,7 +300,7 @@ var rStateful    = reflect.TypeOf((*Stateful)(nil)).Elem()    // typeof(Stateful
 // typ must embed Persistent; *typ must implement IPersistent.
 //
 // typ must be convertible to stateType; stateType must implement Ghostable and
-// Stateful(*).
+// either Stateful or PyStateful(*).
 //
 // RegisterClass must be called from global init().
 //
@@ -333,8 +338,9 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 	}
 
 	stateful := ptstate.Implements(rStateful)
-	if !stateful {
-		badf("%q does not implement Stateful", ptstate)
+	pystateful := ptstate.Implements(rPyStateful)
+	if !(stateful || pystateful) {
+		badf("%q does not implement any of Stateful or PyStateful", ptstate)
 	}
 
 	zc := &zclass{class: class, typ: typ, stateType: stateType}
