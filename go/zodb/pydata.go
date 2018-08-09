@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	pickle "github.com/kisielk/og-rek"
+	"lab.nexedi.com/kirr/go123/xerr"
 )
 
 // PyData represents raw data stored into ZODB by Python applications.
@@ -49,23 +50,59 @@ func (d PyData) ClassName() string {
 		return "?.?"
 	}
 
+	klass, err := xpyclass(xklass)
+	if err != nil {
+		return "?.?"
+	}
+
+	return pyclassPath(klass)
+}
+
+// xpyclass verifies and extracts py class from unpickled value.
+//
+// it normalizes py class that has just been decoded from a serialized ZODB
+// object or reference.
+//
+// class description:
+//
+//	- type(obj), or
+//	- (xklass, newargs|None)	; xklass = type(obj) | (modname, classname)
+func xpyclass(xklass interface{}) (_ pickle.Class, err error) {
+	defer xerr.Context(&err, "class")
+
 	if t, ok := xklass.(pickle.Tuple); ok {
-		if len(t) != 2 { // (klass, args)
-			return "?.?"
+		// t = (xklass, newargs|None)
+		if len(t) != 2 {
+			return pickle.Class{}, fmt.Errorf("top: expect [2](); got [%d]()", len(t))
 		}
+		// XXX newargs is ignored (zodb/py uses it only for persistent classes)
 		xklass = t[0]
 		if t, ok := xklass.(pickle.Tuple); ok {
-			// py: "old style reference"
+			// t = (modname, classname)
 			if len(t) != 2 {
-				return "?.?" // (modname, classname)
+				return pickle.Class{}, fmt.Errorf("xklass: expect [2](); got [%d]()", len(t))
 			}
-			return fmt.Sprintf("%s.%s", t...)
+			modname, ok1 := t[0].(string)
+			classname, ok2 := t[1].(string)
+			if !(ok1 && ok2) {
+				return pickle.Class{}, fmt.Errorf("xklass: expect (str, str); got (%T, %T)", t[0], t[1])
+			}
+
+			return pickle.Class{Module: modname, Name: classname}, nil
 		}
 	}
 
 	if klass, ok := xklass.(pickle.Class); ok {
-		return klass.Module + "." + klass.Name
+		// klass = type(obj)
+		return klass, nil
 	}
 
-	return "?.?"
+	return pickle.Class{}, fmt.Errorf("expect type; got %T", xklass)
+}
+
+// pyclassPath returns full path for a python class.
+//
+// for example class "ABC" in module "wendelin.lib" has its full path as "wendelin.lib.ABC".
+func pyclassPath(pyclass pickle.Class) string {
+	return pyclass.Module + "." + pyclass.Name
 }
