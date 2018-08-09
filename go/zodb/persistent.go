@@ -307,7 +307,7 @@ var rPyStateful  = reflect.TypeOf((*PyStateful)(nil)).Elem()  // typeof(PyStatef
 // typ must embed Persistent; *typ must implement IPersistent.
 //
 // typ must be convertible to stateType; stateType must implement Ghostable and
-// either Stateful or PyStateful(*)
+// either Stateful or PyStateful(*).
 //
 // RegisterClass must be called from global init().
 //
