@@ -179,7 +179,7 @@ func (obj *Persistent) PActivate(ctx context.Context) (err error) {
 			xerr.Context(&err, "setstate")
 
 		case PyStateful:
-			err = pySetState(istate, obj.zclass.class, state)
+			err = pySetState(istate, obj.zclass.class, state, obj.jar)
 			xerr.Context(&err, "pysetstate")
 
 		default:

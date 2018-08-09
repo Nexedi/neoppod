@@ -95,9 +95,33 @@
 // For MyObject to implement IPersistent it must embed Persistent type.
 // MyObject also has to register itself to persistency machinery with RegisterClass.
 //
-// Object activation protocol is safe to access from
+// In-RAM application objects are handled in groups.
+// A group corresponds to particular
+// view of the database (at) and has isolation guarantee from further database
+// transactions, and from in-progress changes to in-RAM objects in other
+// groups.
+//
+// If object₁ references object₂ in the database, the database reference will
+// be represented with corresponding reference between in-RAM application
+// objects. If there are multiple database references to one object, it will be
+// represented by the same number of references to only one in-RAM application object.
+// An in-RAM application object can have reference to another in-RAM
+// application object only from the same group(+).
+// Reference cycles are also allowed. In general objects graph in the database
+// is isomorphly mapped to application objects graph in RAM.
+//
+// A particular view of the database together with corresponding group of
+// application objects isolated for modifications is represented by Connection.
+// Connection is also sometimes called a "jar" in ZODB terminology.
+//
+//
+// Both Connection and object activation protocol is safe to access from
 // multiple goroutines simultaneously.
 //
+//
+// --------
+//
+// (+) if both objects are from the same database.
 //
 // Python data
 //

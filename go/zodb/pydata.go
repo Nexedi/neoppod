@@ -22,6 +22,7 @@ package zodb
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 
 	pickle "github.com/kisielk/og-rek"
@@ -58,13 +59,17 @@ func (d PyData) ClassName() string {
 	return pyclassPath(klass)
 }
 
+// TODO PyData.referencesf
+
 // decode decodes raw ZODB python data into Python class and state.
-func (d PyData) decode() (pyclass pickle.Class, pystate interface{}, err error) {
+//
+// jar is used to resolve persistent references.
+func (d PyData) decode(jar *Connection) (pyclass pickle.Class, pystate interface{}, err error) {
 	defer xerr.Context(&err, "pydata: decode")
 
 	p := pickle.NewDecoderWithConfig(
 		bytes.NewReader([]byte(d)),
-		&pickle.DecoderConfig{/* TODO: handle persistent references */},
+		&pickle.DecoderConfig{PersistentLoad: jar.loadref},
 	)
 
 	xklass, err := p.Decode()
@@ -83,6 +88,38 @@ func (d PyData) decode() (pyclass pickle.Class, pystate interface{}, err error) 
 	}
 
 	return klass, state, nil
+}
+
+// loadref loads persistent references resolving them through jar.
+//
+// https://github.com/zopefoundation/ZODB/blob/a89485c1/src/ZODB/serialize.py#L80
+func (jar *Connection) loadref(ref pickle.Ref) (_ interface{}, err error) {
+	defer xerr.Context(&err, "loadref")
+
+	// ref = (oid, class)
+	// TODO add support for ref formats besides (oid, class)
+
+	t, ok := ref.Pid.(pickle.Tuple)
+	if !ok {
+		return nil, fmt.Errorf("expect (); got %T", ref.Pid)
+	}
+	if len(t) != 2 {
+		return nil, fmt.Errorf("expect (oid, class); got [%d]()", len(t))
+	}
+
+	oid, err := xoid(t[0])
+	if err != nil {
+		return nil, err
+	}
+
+	pyclass, err := xpyclass(t[1])
+	if err != nil {
+		return nil, err
+	}
+
+	class := pyclassPath(pyclass)
+
+	return jar.get(class, oid)
 }
 
 // xpyclass verifies and extracts py class from unpickled value.
@@ -125,6 +162,23 @@ func xpyclass(xklass interface{}) (_ pickle.Class, err error) {
 	}
 
 	return pickle.Class{}, fmt.Errorf("expect type; got %T", xklass)
+}
+
+// xoid verifies and extracts oid from unpickled value.
+//
+// TODO +zobdpickle.binary support
+func xoid(x interface{}) (_ Oid, err error) {
+	defer xerr.Context(&err, "oid")
+
+	s, ok := x.(string)
+	if !ok {
+		return InvalidOid, fmt.Errorf("expect str; got %T", x)
+	}
+	if len(s) != 8 {
+		return InvalidOid, fmt.Errorf("expect [8]str; got [%d]str", len(s))
+	}
+
+	return Oid(binary.BigEndian.Uint64([]byte(s))), nil
 }
 
 // pyclassPath returns full path for a python class.

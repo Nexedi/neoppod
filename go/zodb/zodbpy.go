@@ -21,6 +21,8 @@ package zodb
 // Support for python objects/data in ZODB.
 
 import (
+	"context"
+
 	"lab.nexedi.com/kirr/go123/mem"
 )
 
@@ -44,8 +46,9 @@ type PyStateful interface {
 // state on PyStateful obj.
 //
 // It is an error if decoded state has python class not as specified.
-func pySetState(obj PyStateful, objClass string, state *mem.Buf) error {
-	pyclass, pystate, err := PyData(state.Data).decode()
+// jar is used to resolve persistent references.
+func pySetState(obj PyStateful, objClass string, state *mem.Buf, jar *Connection) error {
+	pyclass, pystate, err := PyData(state.Data).decode(jar)
 	if err != nil {
 		return err
 	}
@@ -62,3 +65,32 @@ func pySetState(obj PyStateful, objClass string, state *mem.Buf) error {
 }
 
 // TODO pyGetState
+
+
+
+// loadpy loads object specified by oid and decodes it as a ZODB Python object.
+//
+// loadpy does not create any in-RAM object associated with Connection.
+// It only returns decoded database data.
+func (conn *Connection) loadpy(ctx context.Context, oid Oid) (class string, pystate interface{}, serial Tid, _ error) {
+	xid := Xid{Oid: oid, At: conn.at}
+	buf, serial, err := conn.stor.Load(ctx, xid)
+	if err != nil {
+		return "", nil, 0, err
+	}
+
+	defer buf.Release()
+
+	pyclass, pystate, err := PyData(buf.Data).decode(conn)
+	if err != nil {
+		err = &OpError{
+			URL:  conn.stor.URL(),
+			Op:   "loadpy",
+			Args: xid,
+			Err:  err,
+		}
+		return "", nil, 0, err
+	}
+
+	return pyclassPath(pyclass), pystate, serial, nil
+}
