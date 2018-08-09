@@ -50,11 +50,14 @@
 // An object can reference other objects in the database by their oid.
 //
 //
-// Operations
+// Storage layer
 //
-// A ZODB database can be opened with OpenStorage. Once opened IStorage
-// interface is returned that represents access to the database. Please see
-// documentation of IStorage, and other interfaces it embeds, for details.
+// The storage layer provides access to a ZODB database in terms of database
+// records with raw bytes payload.
+//
+// At storage level a ZODB database can be opened with OpenStorage. Once opened
+// IStorage interface is returned that represents access to the database.
+// Please see IStorage, and interfaces it embeds, for details.
 //
 //
 // --------
@@ -164,7 +167,7 @@ const (
 )
 
 
-// ---- interfaces ----
+// ---- storage interfaces ----
 
 // NoObjectError is the error which tells that there is no such object in the database at all.
 type NoObjectError struct {
