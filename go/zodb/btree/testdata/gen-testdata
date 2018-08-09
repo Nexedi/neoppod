@@ -23,15 +23,20 @@
 from ZODB.DB import DB
 from BTrees.LOBTree import LOBucket, LOBTree
 from ZODB.utils import u64
-import os, transaction
+import os, os.path, transaction
 
 from golang.gcompat import qq
+
+def rm_f(path):
+    if os.path.exists(path):
+        os.remove(path)
 
 def main():
     import zodbtools.test.gen_testdata  # to make time predictable (XXX)
 
     outfs = "testdata/1.fs"
-    os.remove(outfs)
+    rm_f(outfs)
+    rm_f(outfs + ".index")
     db = DB(outfs)
     conn = db.open()
     root = conn.root()
