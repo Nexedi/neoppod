@@ -68,7 +68,7 @@
 // access (contrary to zodb/py where activation is implicit, hooked into
 // __getattr__), for example:
 //
-//	var obj *MyObject // *MyObject must implement IPersistent
+//	var obj *MyObject // *MyObject must implement IPersistent (see below)
 //	... // init obj pointer, usually by traversing from another persistent object.
 //
 //	// make sure object's in-RAM data is present.
@@ -91,6 +91,9 @@
 //	obj.PDeactivate()
 //
 // IPersistent interface describes the details of the activation protocol.
+//
+// For MyObject to implement IPersistent it must embed Persistent type.
+// MyObject also has to register itself to persistency machinery with RegisterClass.
 //
 // Object activation protocol is safe to access from
 // multiple goroutines simultaneously.
