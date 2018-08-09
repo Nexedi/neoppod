@@ -95,8 +95,8 @@
 // For MyObject to implement IPersistent it must embed Persistent type.
 // MyObject also has to register itself to persistency machinery with RegisterClass.
 //
-// In-RAM application objects are handled in groups.
-// A group corresponds to particular
+// In-RAM application objects are handled in groups. During the scope of
+// corresponding in-progress transaction(*), a group corresponds to particular
 // view of the database (at) and has isolation guarantee from further database
 // transactions, and from in-progress changes to in-RAM objects in other
 // groups.
@@ -114,13 +114,26 @@
 // application objects isolated for modifications is represented by Connection.
 // Connection is also sometimes called a "jar" in ZODB terminology.
 //
+// DB represents a handle to database at application level and contains pool
+// of connections. DB.Open opens database connection. The connection will be
+// automatically put back into DB pool for future reuse after corresponding
+// transaction is complete. DB thus provides service to maintain live objects
+// cache and reuse live objects from transaction to transaction.
 //
-// Both Connection and object activation protocol is safe to access from
+// Note that it is possible to have several DB handles to the same database.
+// This might be useful if application accesses distinctly different sets of
+// objects in different transactions and knows beforehand which set it will be
+// next time. Then, to avoid huge live cache misses, it makes sense to keep DB
+// handles opened for every possible case of application access.
+//
+//
+// All DB, Connection and object activation protocol is safe to access from
 // multiple goroutines simultaneously.
 //
 //
 // --------
 //
+// (*) see package lab.nexedi.com/kirr/neo/go/transaction.
 // (+) if both objects are from the same database.
 //
 // Python data
