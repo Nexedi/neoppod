@@ -144,6 +144,10 @@
 // level types that are registered with state type providing PyStateful (see
 // RegisterClass) are automatically (de)serialized as Python pickles(*).
 //
+// An example of application-level type with ZODB/py compatibility can be seen in
+// package lab.nexedi.com/kirr/neo/go/zodb/btree which provides BTree handling
+// for ZODB/go.
+//
 // --------
 //
 // (*) for pickle support package github.com/kisielk/og-rek is used.
