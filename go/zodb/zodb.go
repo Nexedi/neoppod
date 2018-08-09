@@ -60,6 +60,14 @@
 // Please see IStorage, and interfaces it embeds, for details.
 //
 //
+// Storage drivers
+//
+// To implement a ZODB storage one need to provide IStorageDriver interface and
+// register it to ZODB with RegisterDriver. Package
+// lab.nexedi.com/kirr/neo/go/zodb/wks links-in and registers support for
+// well-known ZODB storages, such as FileStorage and ZEO.
+//
+//
 // Miscellaneous
 //
 // See also package lab.nexedi.com/kirr/neo/go/zodb/zodbtools and associated
