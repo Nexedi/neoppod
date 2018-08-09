@@ -221,6 +221,13 @@ func (obj *Persistent) PDeactivate() {
 
 	// TODO try to keep some pool of object in live state so that there is
 	// no constant load/unload on object access. XXX  -> MRU cache?
+	// NOTE wcfs manages its objects explicitly and does not need this.
+
+	if cc := obj.jar.cacheControl; cc != nil {
+		if !cc.WantEvict(obj.instance) {
+			return
+		}
+	}
 
 	obj.serial = InvalidTid
 	obj.istate().DropState()

@@ -92,6 +92,22 @@ type Connection struct {
 	// Hopefully we don't have cycles with BTree/Bucket.
 	objmu  sync.Mutex
 	objtab map[Oid]*weak.Ref // oid -> weak.Ref(IPersistent)
+
+	// hooks for application to influence live caching decisions.
+	cacheControl LiveCacheControl
+}
+
+// LiveCacheControl is the interface that allows applications to influence
+// Connection's decisions with respect to Connection's live cache.
+type LiveCacheControl interface {
+	// WantEvict is called when object is going to be evicted from live
+	// cache on deactivation and made ghost.
+	//
+	// If !ok the object will remain live.
+	//
+	// NOTE on invalidation invalidated objects are evicted from live cache
+	// unconditionally.
+	WantEvict(obj IPersistent) (ok bool)
 }
 
 // ----------------------------------------
