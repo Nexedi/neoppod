@@ -155,6 +155,10 @@ func (conn *Connection) get(class string, oid Oid) (IPersistent, error) {
 	}
 	if obj == nil {
 		obj = newGhost(class, oid, conn)
+		//if obj == nil {
+		//	conn.objmu.Unlock()
+		//	return nil, fmt.Errorf("get %s: class %q not supported", Xid{conn.at, oid}, class)
+		//}
 		conn.objtab[oid] = weak.NewRef(obj)
 	} else {
 		checkClass = true

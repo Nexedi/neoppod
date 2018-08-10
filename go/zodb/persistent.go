@@ -383,6 +383,7 @@ func newGhost(class string, oid Oid, jar *Connection) IPersistent {
 	var xpobj reflect.Value // *typ
 	zc := classTab[class]
 	if zc == nil {
+		//return nil
 		zc = brokenZClass
 		xpobj = reflect.ValueOf(&Broken{class: class})
 	} else {
@@ -437,6 +438,11 @@ func (b *brokenState) SetState(state *mem.Buf) error {
 	state.Incref()
 	b.state = state
 	return nil
+}
+
+// XXX how to print zodb.Broken("BTrees.IOBTree.IOBTree"), but not long noise for types that don't define GoString?
+func (b *Broken) GoString() string {
+	return fmt.Sprintf("&zodb.Broken(%q)", b.class)
 }
 
 // brokenZClass is used for Persistent.zclass for Broken objects.
