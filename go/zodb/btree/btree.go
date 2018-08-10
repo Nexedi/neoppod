@@ -17,6 +17,15 @@
 //
 //	http://btrees.readthedocs.io
 //	https://github.com/zopefoundation/BTrees
+//
+// A B⁺ tree consists of nodes. Only leaf tree nodes point to data.
+// Intermediate tree nodes contains keys and pointer to next-level tree nodes.
+// B⁺ always have uniform height - that is the path to any leaf node from the
+// tree root is the same.
+//
+// BTree.Get(key) performs point-query.
+//
+// B⁺ Trees
 package btree
 
 // See https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/Development.txt#L198
@@ -25,6 +34,7 @@ package btree
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 
@@ -37,33 +47,6 @@ import (
 //
 // XXX -> template?
 type KEY int64
-
-// Bucket is a leaf node of a B⁺ tree.
-//
-// It mimics ?OBucket from btree/py, with ? being any integer.
-type Bucket struct {
-	zodb.Persistent
-
-	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
-	//
-	// A Bucket wraps contiguous vectors of keys and values.  Keys are unique,
-	// and stored in sorted order.  The 'values' pointer may be NULL if the
-	// Bucket is used to implement a set.  Buckets serving as leafs of BTrees
-	// are chained together via 'next', so that the entire BTree contents
-	// can be traversed in sorted order quickly and easily.
-
-	next   *Bucket       // the bucket with the next-larger keys
-	keys   []KEY         // 'len' keys, in increasing order
-	values []interface{} // 'len' corresponding values
-}
-
-// _BTreeItem mimics BTreeItem from btree/py.
-//
-// XXX export for BTree.Children?
-type _BTreeItem struct {
-	key   KEY
-	child interface{} // BTree or Bucket
-}
 
 // BTree is a non-leaf node of a B⁺ tree.
 //
@@ -85,8 +68,61 @@ type BTree struct {
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
-	data []_BTreeItem
+	data []Entry
 }
+
+// Bucket is a leaf node of a B⁺ tree.
+//
+// It mimics ?OBucket from btree/py, with ? being any integer.
+type Bucket struct {
+	zodb.Persistent
+
+	// https://github.com/zopefoundation/BTrees/blob/4.5.0-1-gc8bf24e/BTrees/BTreeModuleTemplate.c#L179:
+	//
+	// A Bucket wraps contiguous vectors of keys and values.  Keys are unique,
+	// and stored in sorted order.  The 'values' pointer may be NULL if the
+	// Bucket is used to implement a set.  Buckets serving as leafs of BTrees
+	// are chained together via 'next', so that the entire BTree contents
+	// can be traversed in sorted order quickly and easily.
+
+	next   *Bucket       // the bucket with the next-larger keys
+	keys   []KEY         // 'len' keys, in increasing order
+	values []interface{} // 'len' corresponding values
+}
+
+// Entry is one BTree node entry.
+//
+// It contains key and child, who is either BTree or Bucket.
+//
+// Key limits child's keys - see BTree.Entryv for details.
+type Entry struct {
+	key   KEY
+	child interface{} // BTree or Bucket
+}
+
+// Key returns BTree entry key.
+func (i *Entry) Key() KEY { return i.key }
+
+// Child returns BTree entry child.
+func (i *Entry) Child() interface{} { return i.child }
+
+// Entryv returns entries of BTree node.
+//
+// Entries keys limit the keys of all children reachable from an entry:
+//
+//	[i].Key ≤ [i].Child.*.Key < [i+1].Key		i ∈ [0, len([]))
+//
+//	[0].Key       = -∞	; always returned so
+//	[len(ev)].Key = +∞	; should be assumed so
+//
+//
+// Children of all entries are guaranteed to be of the same kind - either all BTree, or all Bucket.
+//
+// The caller must not modify returned array.
+func (t *BTree) Entryv() []Entry {
+	return t.data
+}
+
 
 // Get searches BTree by key.
 //
@@ -309,7 +345,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		}
 
 		bt.firstbucket = bucket
-		bt.data = []_BTreeItem{{key: 0, child: bucket}}
+		bt.data = []Entry{{key: 0, child: bucket}}
 		return nil
 	}
 
@@ -328,9 +364,9 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 	}
 
 	n := (len(t) + 1) / 2
-	bt.data = make([]_BTreeItem, 0, n)
+	bt.data = make([]Entry, 0, n)
 	for i, idx := 0, 0; i < n; i++ {
-		key := int64(0)
+		key := int64(math.MinInt64) // int64(-∞)   (qualifies for ≤)
 		if i > 0 {
 			// key[0] is unused and not saved
 			key, ok = t[idx].(int64) // XXX Xint
@@ -346,11 +382,12 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		default:
 			return fmt.Errorf("data: [%d]: child must be BTree|Bucket; got %T", i, child)
 
+		// XXX check all children are of the same type
 		case *BTree:  // ok
 		case *Bucket: // ok
 		}
 
-		bt.data = append(bt.data, _BTreeItem{key: KEY(key), child: child})
+		bt.data = append(bt.data, Entry{key: KEY(key), child: child})
 	}
 
 	return nil
