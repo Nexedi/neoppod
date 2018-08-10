@@ -71,6 +71,16 @@ type BTree struct {
 	data []Entry
 }
 
+// Entry is one BTree node entry.
+//
+// It contains key and child, who is either BTree or Bucket.
+//
+// Key limits child's keys - see BTree.Entryv for details.
+type Entry struct {
+	key   KEY
+	child interface{} // BTree or Bucket
+}
+
 // Bucket is a leaf node of a B⁺ tree.
 //
 // It mimics ?OBucket from btree/py, with ? being any integer.
@@ -90,23 +100,22 @@ type Bucket struct {
 	values []interface{} // 'len' corresponding values
 }
 
-// Entry is one BTree node entry.
+// BucketEntry is one Bucket node entry.
 //
-// It contains key and child, who is either BTree or Bucket.
-//
-// Key limits child's keys - see BTree.Entryv for details.
-type Entry struct {
+// It contains key and value.
+type BucketEntry struct {
 	key   KEY
-	child interface{} // BTree or Bucket
+	value interface{}
 }
 
+
 // Key returns BTree entry key.
-func (i *Entry) Key() KEY { return i.key }
+func (e *Entry) Key() KEY { return e.key }
 
 // Child returns BTree entry child.
-func (i *Entry) Child() interface{} { return i.child }
+func (e *Entry) Child() interface{} { return e.child }
 
-// Entryv returns entries of BTree node.
+// Entryv returns entries of a BTree node.
 //
 // Entries keys limit the keys of all children reachable from an entry:
 //
@@ -121,6 +130,23 @@ func (i *Entry) Child() interface{} { return i.child }
 // The caller must not modify returned array.
 func (t *BTree) Entryv() []Entry {
 	return t.data
+}
+
+// Key returns Bucket entry key.
+func (e *BucketEntry) Key() KEY { return e.key }
+
+// Value returns Bucket entry value.
+func (e *BucketEntry) Value() interface{} { return e.value }
+
+// Entryv returns entries of a Bucket node.
+//
+// XXX
+func (b *Bucket) Entryv() []BucketEntry {
+	ev := make([]BucketEntry, len(b.keys))
+	for i, k := range b.keys {
+		ev[i] = BucketEntry{k, b.values[i]}
+	}
+	return ev
 }
 
 
