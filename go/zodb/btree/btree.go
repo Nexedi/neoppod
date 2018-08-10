@@ -428,6 +428,7 @@ func init() {
 	zodb.RegisterClass("BTrees.LOBTree.LOBTree",  t(BTree{}),  t(btreeState{}))
 
 	// XXX "I" means int32 in ZODB; we reuse int64 for now
+	// XXX should be caught by RegisterClass as invalid? (typ registered twice)
 	zodb.RegisterClass("BTrees.IOBTree.IOBucket", t(Bucket{}), t(bucketState{}))
 	zodb.RegisterClass("BTrees.IOBTree.IOBTree",  t(BTree{}),  t(btreeState{}))
 }
