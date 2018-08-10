@@ -426,4 +426,8 @@ func init() {
 	t := reflect.TypeOf
 	zodb.RegisterClass("BTrees.LOBTree.LOBucket", t(Bucket{}), t(bucketState{}))
 	zodb.RegisterClass("BTrees.LOBTree.LOBTree",  t(BTree{}),  t(btreeState{}))
+
+	// XXX "I" means int32 in ZODB; we reuse int64 for now
+	zodb.RegisterClass("BTrees.IOBTree.IOBucket", t(Bucket{}), t(bucketState{}))
+	zodb.RegisterClass("BTrees.IOBTree.IOBTree",  t(BTree{}),  t(btreeState{}))
 }
