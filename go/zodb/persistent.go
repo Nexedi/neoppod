@@ -324,7 +324,10 @@ func RegisterClass(class string, typ, stateType reflect.Type) {
 		badf("class must be not empty")
 	}
 	if zc, already := classTab[class]; already {
-		badf("class already registered for %q", zc.typ)
+		badf("class already registered for type %q", zc.typ)
+	}
+	if zc, already := typeTab[typ]; already {
+		badf("type already registered for class %q", zc.class)
 	}
 
 	// typ must embed Persistent
