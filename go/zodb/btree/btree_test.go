@@ -83,18 +83,18 @@ func TestBTree(t *testing.T) {
 
 		obj, ok := xobj.(bmapping)
 		if !ok {
-			t.Fatalf("%s: got %T;  want Bucket|BTree", tt.oid, xobj)
+			t.Fatalf("%s: got %T;  want LOBucket|LOBTree", tt.oid, xobj)
 		}
 
 		want := ""
 		switch tt.kind {
 		case kindBucket:
 			if _, ok = obj.(*LOBucket); !ok {
-				want = "Bucket"
+				want = "LOBucket"
 			}
 		case kindBTree:
 			if _, ok = obj.(*LOBTree); !ok {
-				want = "BTree"
+				want = "LOBTree"
 			}
 		default:
 			panic(0)
@@ -134,7 +134,7 @@ func TestBTree(t *testing.T) {
 	}
 	B3, ok := xB3.(*LOBTree)
 	if !ok {
-		t.Fatalf("B3: %v; got %T;  want BTree", B3_oid, xB3)
+		t.Fatalf("B3: %v; got %T;  want LOBTree", B3_oid, xB3)
 	}
 
 	for i := int64(0); i <= B3_maxkey; i++ {
@@ -176,6 +176,8 @@ func TestBTree(t *testing.T) {
 
 		return firstbucket
 	}
+
+	// XXX verify Entryv ?
 
 	verifyFirstBucket(B3)
 }
