@@ -238,6 +238,9 @@ class ClientTests(NEOFunctionalTest):
         self.neo.start()
         neo_db, neo_conn = self.neo.getZODBConnection()
         self.__checkTree(neo_conn.root()['trees'])
+        # BUG: The following check is sometimes done whereas the import is not
+        #      finished, resulting in a failure because getReplicationTIDList
+        #      is not implemented by the Importer backend.
         self.assertEqual(dump, self.__dump(neo_db.storage, list))
 
     def testIPv6Client(self):
