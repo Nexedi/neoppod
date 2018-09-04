@@ -34,7 +34,7 @@ import (
 //
 // It contains []IOEntry in ↑ key order.
 //
-// It mimics ?OBTree from btree/py, with ? being any integer.
+// It mimics IOBTree from btree/py.
 type IOBTree struct {
 	zodb.Persistent
 
@@ -69,7 +69,7 @@ type IOEntry struct {
 //
 // It contains []IOBucketEntry in ↑ key order.
 //
-// It mimics ?OBucket from btree/py, with ? being any integer.
+// It mimics IOBucket from btree/py.
 type IOBucket struct {
 	zodb.Persistent
 
@@ -125,8 +125,6 @@ func (e *IOBucketEntry) Key() int32 { return e.key }
 func (e *IOBucketEntry) Value() interface{} { return e.value }
 
 // Entryv returns entries of a IOBucket node.
-//
-// XXX
 func (b *IOBucket) Entryv() []IOBucketEntry {
 	ev := make([]IOBucketEntry, len(b.keys))
 	for i, k := range b.keys {
@@ -272,17 +270,27 @@ func (b *iobucketState) PySetState(pystate interface{}) (err error) {
 	b.keys = make([]int32, 0, n)
 	b.values = make([]interface{}, 0, n)
 
+	var kprev int64
 	for i := 0; i < n; i++ {
 		xk := t[2*i]
 		v := t[2*i+1]
 
-		k, ok := xk.(int64) // XXX use int32	XXX -> Xint64
+		k, ok := xk.(int64) // XXX -> Xint64
 		if !ok {
 			return fmt.Errorf("data: [%d]: key must be integer; got %T", i, xk)
 		}
 
-		// XXX check keys are sorted
-		b.keys = append(b.keys, int32(k)) // XXX cast
+		kk := int32(k)
+		if int64(kk) != k {
+			return fmt.Errorf("data: [%d]: key overflows %T", i, kk)
+		}
+
+		if i > 0 && !(k > kprev) {
+			return fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = k
+
+		b.keys = append(b.keys, kk)
 		b.values = append(b.values, v)
 	}
 
@@ -377,8 +385,10 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 
 	n := (len(t) + 1) / 2
 	bt.data = make([]IOEntry, 0, n)
+	var kprev int64
+	var childrenKind int // 1 - IOBTree, 2 - IOBucket
 	for i, idx := 0, 0; i < n; i++ {
-		key := int64(math.MinInt64) // int64(-∞)   (qualifies for ≤)
+		key := int64(math.MinInt32) // int32(-∞)   (qualifies for ≤)
 		if i > 0 {
 			// key[0] is unused and not saved
 			key, ok = t[idx].(int64) // XXX Xint
@@ -390,17 +400,36 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 		child := t[idx]
 		idx++
 
+		kkey := int32(key)
+		if int64(kkey) != key {
+			return fmt.Errorf("data: [%d]: key overflows %T", i, kkey)
+		}
+
+		if i > 1 && !(key > kprev) {
+			fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = key
+
+		// check all children are of the same type
+		var kind int // see childrenKind ^^^
 		switch child.(type) {
 		default:
 			return fmt.Errorf("data: [%d]: child must be IOBTree|IOBucket; got %T", i, child)
 
-		// XXX check all children are of the same type
-		case *IOBTree:  // ok
-		case *IOBucket: // ok
+		case *IOBTree:
+			kind = 1
+		case *IOBucket:
+			kind = 2
 		}
 
-		// XXX check key ↑
-		bt.data = append(bt.data, IOEntry{key: int32(key), child: child})
+		if i == 0 {
+			childrenKind = kind
+		}
+		if kind != childrenKind {
+			fmt.Errorf("data: [%d]: children must be of the same type", i)
+		}
+
+		bt.data = append(bt.data, IOEntry{key: kkey, child: child})
 	}
 
 	return nil

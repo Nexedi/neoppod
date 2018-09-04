@@ -32,7 +32,7 @@ import (
 //
 // It contains []Entry in ↑ key order.
 //
-// It mimics ?OBTree from btree/py, with ? being any integer.
+// It mimics BTree from btree/py.
 type BTree struct {
 	zodb.Persistent
 
@@ -67,7 +67,7 @@ type Entry struct {
 //
 // It contains []BucketEntry in ↑ key order.
 //
-// It mimics ?OBucket from btree/py, with ? being any integer.
+// It mimics Bucket from btree/py.
 type Bucket struct {
 	zodb.Persistent
 
@@ -123,8 +123,6 @@ func (e *BucketEntry) Key() KEY { return e.key }
 func (e *BucketEntry) Value() interface{} { return e.value }
 
 // Entryv returns entries of a Bucket node.
-//
-// XXX
 func (b *Bucket) Entryv() []BucketEntry {
 	ev := make([]BucketEntry, len(b.keys))
 	for i, k := range b.keys {
@@ -270,17 +268,27 @@ func (b *bucketState) PySetState(pystate interface{}) (err error) {
 	b.keys = make([]KEY, 0, n)
 	b.values = make([]interface{}, 0, n)
 
+	var kprev int64
 	for i := 0; i < n; i++ {
 		xk := t[2*i]
 		v := t[2*i+1]
 
-		k, ok := xk.(int64) // XXX use KEY	XXX -> Xint64
+		k, ok := xk.(int64) // XXX -> Xint64
 		if !ok {
 			return fmt.Errorf("data: [%d]: key must be integer; got %T", i, xk)
 		}
 
-		// XXX check keys are sorted
-		b.keys = append(b.keys, KEY(k)) // XXX cast
+		kk := KEY(k)
+		if int64(kk) != k {
+			return fmt.Errorf("data: [%d]: key overflows %T", i, kk)
+		}
+
+		if i > 0 && !(k > kprev) {
+			return fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = k
+
+		b.keys = append(b.keys, kk)
 		b.values = append(b.values, v)
 	}
 
@@ -375,8 +383,10 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 
 	n := (len(t) + 1) / 2
 	bt.data = make([]Entry, 0, n)
+	var kprev int64
+	var childrenKind int // 1 - BTree, 2 - Bucket
 	for i, idx := 0, 0; i < n; i++ {
-		key := int64(math.MinInt64) // int64(-∞)   (qualifies for ≤)
+		key := int64(math.Min<Key>) // KEY(-∞)   (qualifies for ≤)
 		if i > 0 {
 			// key[0] is unused and not saved
 			key, ok = t[idx].(int64) // XXX Xint
@@ -388,17 +398,36 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		child := t[idx]
 		idx++
 
+		kkey := KEY(key)
+		if int64(kkey) != key {
+			return fmt.Errorf("data: [%d]: key overflows %T", i, kkey)
+		}
+
+		if i > 1 && !(key > kprev) {
+			fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = key
+
+		// check all children are of the same type
+		var kind int // see childrenKind ^^^
 		switch child.(type) {
 		default:
 			return fmt.Errorf("data: [%d]: child must be BTree|Bucket; got %T", i, child)
 
-		// XXX check all children are of the same type
-		case *BTree:  // ok
-		case *Bucket: // ok
+		case *BTree:
+			kind = 1
+		case *Bucket:
+			kind = 2
 		}
 
-		// XXX check key ↑
-		bt.data = append(bt.data, Entry{key: KEY(key), child: child})
+		if i == 0 {
+			childrenKind = kind
+		}
+		if kind != childrenKind {
+			fmt.Errorf("data: [%d]: children must be of the same type", i)
+		}
+
+		bt.data = append(bt.data, Entry{key: kkey, child: child})
 	}
 
 	return nil

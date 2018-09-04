@@ -26,6 +26,7 @@ KEY=$2
 out=$3
 
 kind=${KIND,,}	# IO -> io
+Key=${KEY^}
 
 input=$(dirname $0)/btree.go.in
 
@@ -36,6 +37,7 @@ sed	\
 	-e "s/<kind>/$kind/g"		\
 	-e "s/<KIND>/$KIND/g"		\
 	-e "s/KEY/$KEY/g"		\
+	-e "s/<Key>/$Key/g"		\
 	-e "s/\bBTree\b/${KIND}BTree/g"			\
 	-e "s/\bEntry\b/${KIND}Entry/g"			\
 	-e "s/\bBucket\b/${KIND}Bucket/g"		\

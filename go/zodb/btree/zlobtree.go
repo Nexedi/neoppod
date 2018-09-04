@@ -34,7 +34,7 @@ import (
 //
 // It contains []LOEntry in ↑ key order.
 //
-// It mimics ?OBTree from btree/py, with ? being any integer.
+// It mimics LOBTree from btree/py.
 type LOBTree struct {
 	zodb.Persistent
 
@@ -69,7 +69,7 @@ type LOEntry struct {
 //
 // It contains []LOBucketEntry in ↑ key order.
 //
-// It mimics ?OBucket from btree/py, with ? being any integer.
+// It mimics LOBucket from btree/py.
 type LOBucket struct {
 	zodb.Persistent
 
@@ -125,8 +125,6 @@ func (e *LOBucketEntry) Key() int64 { return e.key }
 func (e *LOBucketEntry) Value() interface{} { return e.value }
 
 // Entryv returns entries of a LOBucket node.
-//
-// XXX
 func (b *LOBucket) Entryv() []LOBucketEntry {
 	ev := make([]LOBucketEntry, len(b.keys))
 	for i, k := range b.keys {
@@ -272,17 +270,27 @@ func (b *lobucketState) PySetState(pystate interface{}) (err error) {
 	b.keys = make([]int64, 0, n)
 	b.values = make([]interface{}, 0, n)
 
+	var kprev int64
 	for i := 0; i < n; i++ {
 		xk := t[2*i]
 		v := t[2*i+1]
 
-		k, ok := xk.(int64) // XXX use int64	XXX -> Xint64
+		k, ok := xk.(int64) // XXX -> Xint64
 		if !ok {
 			return fmt.Errorf("data: [%d]: key must be integer; got %T", i, xk)
 		}
 
-		// XXX check keys are sorted
-		b.keys = append(b.keys, int64(k)) // XXX cast
+		kk := int64(k)
+		if int64(kk) != k {
+			return fmt.Errorf("data: [%d]: key overflows %T", i, kk)
+		}
+
+		if i > 0 && !(k > kprev) {
+			return fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = k
+
+		b.keys = append(b.keys, kk)
 		b.values = append(b.values, v)
 	}
 
@@ -377,6 +385,8 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 
 	n := (len(t) + 1) / 2
 	bt.data = make([]LOEntry, 0, n)
+	var kprev int64
+	var childrenKind int // 1 - LOBTree, 2 - LOBucket
 	for i, idx := 0, 0; i < n; i++ {
 		key := int64(math.MinInt64) // int64(-∞)   (qualifies for ≤)
 		if i > 0 {
@@ -390,17 +400,36 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 		child := t[idx]
 		idx++
 
+		kkey := int64(key)
+		if int64(kkey) != key {
+			return fmt.Errorf("data: [%d]: key overflows %T", i, kkey)
+		}
+
+		if i > 1 && !(key > kprev) {
+			fmt.Errorf("data: [%d]: key not ↑", i)
+		}
+		kprev = key
+
+		// check all children are of the same type
+		var kind int // see childrenKind ^^^
 		switch child.(type) {
 		default:
 			return fmt.Errorf("data: [%d]: child must be LOBTree|LOBucket; got %T", i, child)
 
-		// XXX check all children are of the same type
-		case *LOBTree:  // ok
-		case *LOBucket: // ok
+		case *LOBTree:
+			kind = 1
+		case *LOBucket:
+			kind = 2
 		}
 
-		// XXX check key ↑
-		bt.data = append(bt.data, LOEntry{key: int64(key), child: child})
+		if i == 0 {
+			childrenKind = kind
+		}
+		if kind != childrenKind {
+			fmt.Errorf("data: [%d]: children must be of the same type", i)
+		}
+
+		bt.data = append(bt.data, LOEntry{key: kkey, child: child})
 	}
 
 	return nil
