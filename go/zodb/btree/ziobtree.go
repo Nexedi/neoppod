@@ -28,6 +28,7 @@ import (
 	pickle "github.com/kisielk/og-rek"
 	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/neo/go/zodb"
+	"lab.nexedi.com/kirr/neo/go/zodb/internal/pickletools"
 )
 
 // IOBTree is a non-leaf node of a B⁺ tree.
@@ -275,7 +276,7 @@ func (b *iobucketState) PySetState(pystate interface{}) (err error) {
 		xk := t[2*i]
 		v := t[2*i+1]
 
-		k, ok := xk.(int64) // XXX -> Xint64
+		k, ok := pickletools.Xint64(xk)
 		if !ok {
 			return fmt.Errorf("data: [%d]: key must be integer; got %T", i, xk)
 		}
