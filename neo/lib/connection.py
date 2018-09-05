@@ -333,6 +333,7 @@ class Connection(BaseConnection):
         return r, flags
 
     def setOnClose(self, callback):
+        assert not self.isClosed(), self
         self._on_close = callback
 
     def isClient(self):

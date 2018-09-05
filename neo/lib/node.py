@@ -130,6 +130,10 @@ class Node(object):
             # the full-fledged functionality, and it is simpler this way.
             if not force or conn.getPeerId() is not None or \
                type(conn.getHandler()) is not type(connection.getHandler()):
+                # It may also happen in case of a network failure that is only
+                # noticed by the peer. We'd like to accept the new connection
+                # immediately but it's quite complicated. At worst (keepalive
+                # packets dropped), 'conn' will be closed in ~ 1 minute.
                 raise ProtocolError("already connected")
             def on_closed():
                 self._connection = connection
@@ -137,7 +141,6 @@ class Node(object):
                 self.setIdentified()
             conn.setOnClose(on_closed)
             conn.close()
-        assert not connection.isClosed(), connection
         connection.setOnClose(self.onConnectionClosed)
 
     def getConnection(self):
