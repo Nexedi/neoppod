@@ -562,7 +562,7 @@ class Application(ThreadedApplication):
         for uuid, status in involved_nodes.iteritems():
             if status == 1 and uuid not in trans_nodes:
                 self._askStorageForWrite(txn_context, uuid, packet)
-        self.waitResponses(txn_context.queue)
+        self.waitStoreResponses(txn_context)
         # If there are failed nodes, ask the master whether they can be
         # disconnected while keeping the cluster operational. If possible,
         # this will happen during tpc_finish.

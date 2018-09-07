@@ -1652,6 +1652,32 @@ class Test(NEOThreadedTest):
                 self.tic()
                 self.assertPartitionTable(cluster, pt)
 
+    @with_cluster(partitions=2, storage_count=2)
+    def testMasterArbitratingVoteAfterFailedVoteTransaction(self, cluster):
+        """
+        Check that master arbitrating the vote when a failure happens at the
+        end of the first phase (VoteTransaction).
+        """
+        t, c = cluster.getTransaction()
+        tid = cluster.client.last_tid
+        r = c.root()
+        r[0] = ''
+        delayed = []
+        with cluster.moduloTID(1), ConnectionFilter() as f:
+            @f.delayAskVoteTransaction
+            def _(conn):
+                delayed.append(None)
+                s, = (s for s in cluster.storage_list if conn.uuid == s.uuid)
+                conn, = s.getConnectionList(cluster.client)
+                conn.em.wakeup(conn.close)
+                return False
+            self.assertRaises(NEOStorageError, t.commit)
+        self.tic()
+        self.assertEqual(len(delayed), 1)
+        self.assertEqual(tid, cluster.client.last_tid)
+        self.assertEqual(cluster.neoctl.getClusterState(),
+                         ClusterStates.RUNNING)
+
     @with_cluster()
     def testAbortTransaction(self, cluster):
         t, c = cluster.getTransaction()
