@@ -91,7 +91,7 @@ class Transaction(object):
             'no storage available for write to partition %s' % object_id)
 
     def written(self, app, uuid, oid):
-        # When a node that is being disconnected by the master because it was
+        # When a node is being disconnected by the master because it was
         # not part of the transaction that caused a conflict, we may receive a
         # positive answer (not to be confused with lockless stores) before the
         # conflict. Because we have no way to identify such case, we must keep

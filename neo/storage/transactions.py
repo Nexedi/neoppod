@@ -152,9 +152,9 @@ class TransactionManager(EventQueue):
         store_lock_dict = self._store_lock_dict
         replicated = self._replicated
         notify = {x[0] for x in replicated.iteritems() if x[1]}
-        # We sort transactions so that in case of muliple stores/checks for the
-        # same oid, the lock is taken by the highest locking ttid, which will
-        # delay new transactions.
+        # We sort transactions so that in case of multiple stores/checks
+        # for the same oid, the lock is taken by the highest locking ttid,
+        # which will delay new transactions.
         for txn, ttid in sorted((txn, ttid) for ttid, txn in
                                 self._transaction_dict.iteritems()):
             if txn.locking_tid == MAX_TID:
