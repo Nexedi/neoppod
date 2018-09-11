@@ -23,7 +23,6 @@ from contextlib import contextmanager
 from itertools import count
 from functools import partial, wraps
 from zlib import decompress
-from ..mock import Mock
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
