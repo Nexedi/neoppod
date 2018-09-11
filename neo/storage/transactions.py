@@ -573,14 +573,14 @@ class TransactionManager(EventQueue):
         self.read_queue.executeQueuedEvents()
         self.executeQueuedEvents()
 
-    def abortFor(self, uuid):
+    def abortFor(self, uuid, even_if_voted=False):
         """
             Abort any non-locked transaction of a node
         """
-        logging.debug('Abort for %s', uuid_str(uuid))
         # abort any non-locked transaction of this node
         for ttid, transaction in self._transaction_dict.items():
-            if transaction.uuid == uuid:
+            if transaction.uuid == uuid and (
+               even_if_voted or not transaction.voted):
                 self.abort(ttid)
 
     def isLockedTid(self, tid):

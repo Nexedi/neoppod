@@ -29,6 +29,24 @@ SLOW_STORE = 2
 
 class ClientOperationHandler(BaseHandler):
 
+    def connectionClosed(self, conn):
+        logging.debug('connection closed for %r', conn)
+        app = self.app
+        if app.operational:
+            # Even if in most cases, abortFor is called from both this method
+            # and BaseMasterHandler.notifyPartitionChanges (especially since
+            # storage nodes disconnects unknown clients on their own), these 2
+            # handlers also cover distinct scenarios, so neither of them is
+            # redundant:
+            # - A client node may have network issues with this particular
+            #   storage node and remain RUNNING: we may still be involved in
+            #   the second phase so we only abort non-voted transactions here.
+            #   By not taking part to any further deadlock avoidance,
+            #   not releasing write-locks now would lead to a deadlock.
+            # - A client node may be disconnected from the master, whereas
+            #   there are still voted (and not locked) transactions to abort.
+            app.tm.abortFor(conn.getUUID())
+
     def askTransactionInformation(self, conn, tid):
         t = self.app.dm.getTransaction(tid)
         if t is None:
