@@ -515,15 +515,12 @@ class Application(ThreadedApplication):
                     self._store(txn_context, oid, serial, data)
 
     def _askStorageForWrite(self, txn_context, uuid, packet):
-          node = self.nm.getByUUID(uuid)
-          if node is not None:
-              conn = self.cp.getConnForNode(node)
-              if conn is not None:
-                  try:
-                      return conn.ask(packet, queue=txn_context.queue)
-                  except ConnectionClosed:
-                      pass
-          txn_context.involved_nodes[uuid] = 2
+          conn = txn_context.conn_dict[uuid]
+          try:
+              return conn.ask(packet, queue=txn_context.queue)
+          except ConnectionClosed:
+              txn_context.involved_nodes[uuid] = 2
+              del txn_context.conn_dict[uuid]
 
     def waitResponses(self, queue):
         """Wait for all requests to be answered (or their connection to be
@@ -600,10 +597,10 @@ class Application(ThreadedApplication):
         # condition. The consequence would be that storage nodes lock oids
         # forever.
         p = Packets.AbortTransaction(txn_context.ttid, ())
-        for uuid in txn_context.involved_nodes:
+        for conn in txn_context.conn_dict.itervalues():
             try:
-                self.cp.connection_dict[uuid].send(p)
-            except (KeyError, ConnectionClosed):
+                conn.send(p)
+            except ConnectionClosed:
                 pass
         # Because we want to be sure that the involved nodes are notified,
         # we still have to send the full list to the master. Most of the

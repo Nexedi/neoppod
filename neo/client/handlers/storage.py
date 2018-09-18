@@ -18,6 +18,7 @@ from ZODB.TimeStamp import TimeStamp
 
 from neo.lib import logging
 from neo.lib.compress import decompress_list
+from neo.lib.connection import ConnectionClosed
 from neo.lib.protocol import Packets, uuid_str
 from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
@@ -95,7 +96,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 conn.ask(Packets.AskRebaseObject(ttid, oid),
                          queue=queue, oid=oid)
         except ConnectionClosed:
-            txn_context.involved_nodes[conn.getUUID()] = 2
+            uuid = conn.getUUID()
+            txn_context.involved_nodes[uuid] = 2
+            del txn_context.conn_dict[uuid]
 
     def answerRebaseObject(self, conn, conflict, oid):
         if conflict:
@@ -107,8 +110,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 cached = txn_context.cache_dict.pop(oid)
             except KeyError:
                 if resolved:
-                    # We should still be waiting for an answer from this node.
-                    assert conn.uuid in txn_context.data_dict[oid][2]
+                    # We should still be waiting for an answer from this node,
+                    # unless we lost connection.
+                    assert conn.uuid in txn_context.data_dict[oid][2] or \
+                           txn_context.involved_nodes[conn.uuid] == 2
                     return
                 assert oid in txn_context.data_dict
                 if serial <= txn_context.conflict_dict.get(oid, ''):
@@ -136,7 +141,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     if cached:
                         assert cached == data
                         txn_context.cache_size -= size
-                txn_context.data_dict[oid] = data, serial, None
+                txn_context.data_dict[oid] = data, serial, []
             txn_context.conflict_dict[oid] = conflict
 
     def answerStoreTransaction(self, conn):
@@ -145,6 +150,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
     answerVoteTransaction = answerStoreTransaction
 
     def connectionClosed(self, conn):
+        # only called if we were waiting for an answer
         txn_context = self.app.getHandlerData()
         if type(txn_context) is Transaction:
             txn_context.nodeLost(self.app, conn.getUUID())

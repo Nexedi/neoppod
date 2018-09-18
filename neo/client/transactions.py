@@ -52,6 +52,7 @@ class Transaction(object):
         # if the id is still known by the NodeManager.
         # status: 0 -> check only, 1 -> store, 2 -> failed
         self.involved_nodes = {}            # {node_id: status}
+        self.conn_dict = {}                 # {node_id: connection}
 
     def wakeup(self, conn):
         self.queue.put((conn, _WakeupPacket, {}))
@@ -69,7 +70,10 @@ class Transaction(object):
                 involved[uuid] = store
             elif status > 1:
                 continue
-            conn = app.cp.getConnForNode(node)
+            if status < 0:
+                conn = self.conn_dict[uuid] = app.cp.getConnForNode(node)
+            else:
+                conn = self.conn_dict[uuid]
             if conn is not None:
                 try:
                     if status < 0 and self.locking_tid and 'oid' in kw:
@@ -84,6 +88,7 @@ class Transaction(object):
                     continue
                 except ConnectionClosed:
                     pass
+            del self.conn_dict[uuid]
             involved[uuid] = 2
         if uuid_list:
             return uuid_list
@@ -131,7 +136,9 @@ class Transaction(object):
         self.cache_dict[oid] = data
 
     def nodeLost(self, app, uuid):
+        # The following 2 lines are sometimes redundant with the 2 in write().
         self.involved_nodes[uuid] = 2
+        self.conn_dict.pop(uuid, None)
         for oid in list(self.data_dict):
             self.written(app, uuid, oid)
 
