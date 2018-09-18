@@ -61,8 +61,8 @@ class testTransactionManager(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tm.begin(node1, 0, tid1)
-        tm.clientLost(node1)
-        self.assertTrue(tid1 not in tm)
+        self.assertEqual(1, len(list(tm.clientLost(node1))))
+        self.assertNotIn(tid1, tm)
 
 if __name__ == '__main__':
     unittest.main()

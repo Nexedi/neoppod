@@ -596,3 +596,12 @@ class Application(BaseApplication):
     def getStorageReadySet(self, readiness=float('inf')):
         return {k for k, v in self.storage_ready_dict.iteritems()
                   if v <= readiness}
+
+    def notifyTransactionAborted(self, ttid, uuids):
+        uuid_set = self.getStorageReadySet()
+        uuid_set.intersection_update(uuids)
+        if uuid_set:
+            p = Packets.AbortTransaction(ttid, ())
+            getByUUID = self.nm.getByUUID
+            for uuid in uuid_set:
+                getByUUID(uuid).send(p)
