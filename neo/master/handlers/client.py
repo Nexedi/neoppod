@@ -27,7 +27,8 @@ class ClientServiceHandler(MasterHandler):
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
         assert node is not None, conn
-        app.tm.clientLost(node)
+        for x in app.tm.clientLost(node):
+            app.notifyTransactionAborted(*x)
         node.setUnknown()
         app.broadcastNodesInformation([node])
 
@@ -118,12 +119,7 @@ class ClientServiceHandler(MasterHandler):
         app = self.app
         involved = app.tm.abort(tid, conn.getUUID())
         involved.update(uuid_list)
-        involved.intersection_update(app.getStorageReadySet())
-        if involved:
-            p = Packets.AbortTransaction(tid, ())
-            getByUUID = app.nm.getByUUID
-            for involved in involved:
-                getByUUID(involved).send(p)
+        app.notifyTransactionAborted(tid, involved)
 
 
 # like ClientServiceHandler but read-only & only for tid <= backup_tid

@@ -444,7 +444,9 @@ class TransactionManager(EventQueue):
     def clientLost(self, node):
         for txn in self._ttid_dict.values():
             if txn.clientLost(node):
-                del self[txn.getTTID()]
+                tid = txn.getTTID()
+                del self[tid]
+                yield tid, txn.getNotificationUUIDList()
 
     def log(self):
         logging.info('Transactions:')
