@@ -556,8 +556,11 @@ class TransactionManager(EventQueue):
                     x = (oid, ttid, write_locking_tid,
                          self._replicated, transaction.lockless)
                 lockless = oid in transaction.lockless
-                assert oid in other.serial_dict and lockless == bool(
-                    self._replicated.get(self.getPartition(oid))), x
+                # If there were multiple lockless writes, lockless can be
+                # False (after a rebase) whereas the partition is still not
+                # notified as replicated.
+                assert oid in other.serial_dict and not (lockless and
+                    not self._replicated.get(self.getPartition(oid))), x
                 if not lockless:
                     assert not locked, x
                     continue # unresolved deadlock
