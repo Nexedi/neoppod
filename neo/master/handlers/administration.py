@@ -46,6 +46,13 @@ class AdministrationHandler(MasterHandler):
         if node is not None:
             self.app.nm.remove(node)
 
+    def flushLog(self, conn):
+        p = Packets.FlushLog()
+        for node in self.app.nm.getConnectedList():
+            c = node.getConnection()
+            c is conn or c.send(p)
+        super(AdministrationHandler, self).flushLog(conn)
+
     def setClusterState(self, conn, state):
         app = self.app
         # check request

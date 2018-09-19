@@ -1630,6 +1630,13 @@ class Truncate(Packet):
 
     _answer = Error
 
+class FlushLog(Packet):
+    """
+    Request all nodes to flush their logs.
+
+    :nodes: ctl -> A -> M -> *
+    """
+
 
 _next_code = 0
 def register(request, ignore_when_closed=None):
@@ -1805,6 +1812,8 @@ class Packets(dict):
                     AddObject)
     Truncate = register(
                     Truncate)
+    FlushLog = register(
+                    FlushLog)
 
 def Errors():
     registry_dict = {}

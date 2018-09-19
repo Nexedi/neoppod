@@ -201,6 +201,9 @@ class EventHandler(object):
         if not conn.client:
             conn.close()
 
+    def flushLog(self, conn):
+        logging.flush()
+
     # Error packet handlers.
 
     def error(self, conn, code, message, **kw):

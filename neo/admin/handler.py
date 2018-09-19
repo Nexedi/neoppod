@@ -62,6 +62,11 @@ class AdminEventHandler(EventHandler):
         master_node = self.app.master_node
         conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
 
+    @check_primary_master
+    def flushLog(self, conn):
+        self.app.master_conn.send(Packets.FlushLog())
+        super(AdminEventHandler, self).flushLog(conn)
+
     askLastIDs = forward_ask(Packets.AskLastIDs)
     askLastTransaction = forward_ask(Packets.AskLastTransaction)
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
