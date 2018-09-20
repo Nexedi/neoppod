@@ -352,6 +352,9 @@ class TransactionManager(EventQueue):
             # replicate, and we're expected to store it in full.
             # Since there's at least 1 other (readable) cell that will do this
             # check, we accept this store/check without taking a lock.
+            if transaction.locking_tid == MAX_TID:
+                # Deadlock avoidance. Still no new locking_tid from the client.
+                raise DelayEvent(transaction)
             transaction.lockless.add(oid)
             return
         locked = self._store_lock_dict.get(oid)
