@@ -98,7 +98,13 @@ class ConnectionPool(object):
                         conn = self._initNodeConnection(node)
                         if conn is not None:
                             self.connection_dict[uuid] = conn
-                            return conn
+                            if not conn.isClosed():
+                                return conn
+                            # conn was closed just after the reception of
+                            # AnswerRequestIdentification (e.g. RST upon ACK),
+                            # and removeConnection may have been called (by the
+                            # poll thread) before we add it to connection_dict.
+                            self.connection_dict.pop(uuid, None)
 
     def removeConnection(self, node):
         self.connection_dict.pop(node.getUUID(), None)
