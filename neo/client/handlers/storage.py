@@ -19,7 +19,7 @@ from ZODB.TimeStamp import TimeStamp
 from neo.lib import logging
 from neo.lib.compress import decompress_list
 from neo.lib.connection import ConnectionClosed
-from neo.lib.protocol import Packets, uuid_str
+from neo.lib.protocol import Packets, uuid_str, ZERO_TID
 from neo.lib.util import dump, makeChecksum
 from neo.lib.exception import NodeNotReady
 from neo.lib.handler import MTEventHandler
@@ -63,6 +63,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerStoreObject(self, conn, conflict, oid):
         txn_context = self.app.getHandlerData()
         if conflict:
+            if conflict == ZERO_TID:
+                txn_context.written(self.app, conn.getUUID(), oid, True)
+                return
             # Conflicts can not be resolved now because 'conn' is locked.
             # We must postpone the resolution (by queuing the conflict in
             # 'conflict_dict') to avoid any deadlock with another thread that

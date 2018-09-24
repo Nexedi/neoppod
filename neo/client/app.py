@@ -560,17 +560,35 @@ class Application(ThreadedApplication):
             if status == 1 and uuid not in trans_nodes:
                 self._askStorageForWrite(txn_context, uuid, packet)
         self.waitStoreResponses(txn_context)
-        # If there are failed nodes, ask the master whether they can be
-        # disconnected while keeping the cluster operational. If possible,
-        # this will happen during tpc_finish.
-        failed = [node.getUUID()
-            for node in self.nm.getStorageList()
-            if node.isRunning() and involved_nodes.get(node.getUUID()) == 2]
-        if failed:
-            try:
-                self._askPrimary(Packets.FailedVote(ttid, failed))
-            except ConnectionClosed:
-                pass
+        if 2 in involved_nodes.itervalues(): # unlikely
+            # If some writes failed, we must first check whether
+            # all oids have been locked by at least one node.
+            failed = {node.getUUID(): node.isRunning()
+                for node in self.nm.getStorageList()
+                if involved_nodes.get(node.getUUID()) == 2}
+            if txn_context.lockless_dict:
+                getCellList = self.pt.getCellList
+                for offset, uuid_set in txn_context.lockless_dict.iteritems():
+                    for cell in getCellList(offset):
+                        uuid = cell.getUUID()
+                        if not (uuid in failed or uuid in uuid_set):
+                            break
+                    else:
+                        # Very unlikely. Instead of raising, we could recover
+                        # the transaction by doing something similar to
+                        # deadlock avoidance; that would be done before voting.
+                        # But it's not worth the complexity.
+                        raise NEOStorageError(
+                            'partition %s not fully write-locked' % offset)
+            failed = [uuid for uuid, running in failed.iteritems() if running]
+            # If there are running nodes for which some writes failed, ask the
+            # master whether they can be disconnected while keeping the cluster
+            # operational. If possible, this will happen during tpc_finish.
+            if failed:
+                try:
+                    self._askPrimary(Packets.FailedVote(ttid, failed))
+                except ConnectionClosed:
+                    pass
         txn_context.voted = True
         # We must not go further if connection to master was lost since
         # tpc_begin, to lower the probability of failing during tpc_finish.
