@@ -19,7 +19,7 @@ from neo.lib import logging
 from neo.lib.handler import DelayEvent, EventQueue
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, NonReadableCell, \
-    uuid_str, MAX_TID
+    uuid_str, MAX_TID, ZERO_TID
 
 class ConflictError(Exception):
     """
@@ -407,7 +407,7 @@ class TransactionManager(EventQueue):
                 assert oid in transaction.serial_dict, transaction
                 logging.info('Transaction %s checking %s more than once',
                              dump(ttid), dump(oid))
-                return
+                return True
             if previous_serial is None:
                 # 2 valid cases:
                 # - the previous undo resulted in a resolved conflict
@@ -420,7 +420,7 @@ class TransactionManager(EventQueue):
                 # we are down, and the client would stop writing to us.
                 logging.info('Transaction %s storing %s more than once',
                              dump(ttid), dump(oid))
-                return
+                return True
         elif transaction.locking_tid == MAX_TID:
             # Deadlock avoidance. Still no new locking_tid from the client.
             raise DelayEvent(transaction)
@@ -452,14 +452,17 @@ class TransactionManager(EventQueue):
             raise ConflictError(previous_serial)
         logging.debug('Transaction %s locking %s', dump(ttid), dump(oid))
         self._store_lock_dict[oid] = ttid
+        return True
 
     def checkCurrentSerial(self, ttid, oid, serial):
         try:
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        self.lockObject(ttid, serial, oid)
+        locked = self.lockObject(ttid, serial, oid)
         transaction.serial_dict[oid] = serial
+        if not locked:
+            return ZERO_TID
 
     def storeObject(self, ttid, serial, oid, compression, checksum, data,
             value_serial):
@@ -470,7 +473,7 @@ class TransactionManager(EventQueue):
             transaction = self._transaction_dict[ttid]
         except KeyError:
             raise NotRegisteredError
-        self.lockObject(ttid, serial, oid)
+        locked = self.lockObject(ttid, serial, oid)
         transaction.serial_dict[oid] = serial
         # store object
         if data is None:
@@ -478,6 +481,8 @@ class TransactionManager(EventQueue):
         else:
             data_id = self._app.dm.holdData(checksum, oid, data, compression)
         transaction.store(oid, data_id, value_serial)
+        if not locked:
+            return ZERO_TID
 
     def rebaseObject(self, ttid, oid):
         try:
