@@ -133,8 +133,8 @@ func (fsi *Index) Save(w io.Writer) (err error) {
 			if oidPrefix != oidPrefixCur || errStop != nil {
 				// emit (oid[0:6], oid[6:8]oid[6:8]...pos[2:8]pos[2:8]...)
 				binary.BigEndian.PutUint64(oidb[:], uint64(oidPrefixCur))
-				t[0] = oidb[0:6]
-				t[1] = bytes.Join([][]byte{oidBuf, posBuf}, nil)
+				t[0] = string(oidb[0:6])
+				t[1] = string(bytes.Join([][]byte{oidBuf, posBuf}, nil))
 				err = p.Encode(pickle.Tuple(t[:]))
 				if err != nil {
 					return err
