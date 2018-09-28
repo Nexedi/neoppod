@@ -981,24 +981,22 @@ class Test(NEOThreadedTest):
 
     @with_cluster(storage_count=2, partitions=2)
     def testReadVerifyingStorage(self, cluster):
-        if 1:
-            t1, c1 = cluster.getTransaction()
-            c1.root()['x'] = x = PCounter()
-            t1.commit()
-            # We need a second client for external invalidations.
-            with cluster.newClient(1) as db:
-                t2, c2 = cluster.getTransaction(db)
-                r = c2.root()
-                r['y'] = None
-                self.readCurrent(r['x'])
-                # Force the new tid to be even, like the modified oid and
-                # unlike the oid on which we used readCurrent. Thus we check
-                # that the node containing only the partition 1 is also
-                # involved in tpc_finish.
-                with cluster.moduloTID(0):
-                    t2.commit()
-                for storage in cluster.storage_list:
-                    self.assertFalse(storage.tm._transaction_dict)
+        t1, c1 = cluster.getTransaction()
+        c1.root()['x'] = x = PCounter()
+        t1.commit()
+        # We need a second client for external invalidations.
+        with cluster.newClient(1) as db:
+            t2, c2 = cluster.getTransaction(db)
+            r = c2.root()
+            r['y'] = None
+            self.readCurrent(r['x'])
+            # Force the new tid to be even, like the modified oid and unlike
+            # the oid on which we used readCurrent. Thus we check that the node
+            # containing only the partition 1 is also involved in tpc_finish.
+            with cluster.moduloTID(0):
+                t2.commit()
+            for storage in cluster.storage_list:
+                self.assertFalse(storage.tm._transaction_dict)
             # Check we didn't get an invalidation, which would cause an
             # assertion failure in the cache. Connection does the same check in
             # _setstate_noncurrent so this could be also done by starting a
