@@ -20,6 +20,8 @@
 // Package pickletools provides utilities related to python pickles.
 //
 // It complements package ogórek (github.com/kisielk/og-rek).
+//
+// XXX dup in wcfs/internal/pycompat .
 package pickletools
 
 import (
