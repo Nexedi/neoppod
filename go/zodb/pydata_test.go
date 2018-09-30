@@ -31,6 +31,7 @@ type _PyDataClassName_TestEntry struct {
 }
 
 // XXX + test with zodbpickle.binary (see 12ee41c4 in ZODB)
+// NOTE zodbpickle.binary pickles as just bytes which ~> ogórek.Bytes
 
 func TestPyClassName(t *testing.T) {
 	for _, tt := range _PyData_ClassName_Testv {
