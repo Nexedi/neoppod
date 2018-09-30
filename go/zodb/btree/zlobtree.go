@@ -231,14 +231,14 @@ func (b *LOBucket) get(key int64) (interface{}, bool) {
 
 type lobucketState LOBucket // hide state methods from public API
 
-// DropState implements Stateful to discard bucket state.
+// DropState implements zodb.Stateful to discard bucket state.
 func (b *lobucketState) DropState() {
 	b.next = nil
 	b.keys = nil
 	b.values = nil
 }
 
-// PySetState implements PyStateful to set bucket data from pystate.
+// PySetState implements zodb.PyStateful to set bucket data from pystate.
 func (b *lobucketState) PySetState(pystate interface{}) (err error) {
 	t, ok := pystate.(pickle.Tuple)
 	if !ok {
