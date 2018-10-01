@@ -36,8 +36,17 @@ func (t TimeStamp) String() string {
 }
 
 func (t TimeStamp) XFmtString(b []byte) []byte {
-	// NOTE UTC() in case we get TimeStamp with modified from-outside location
-	return t.UTC().AppendFormat(b, "2006-01-02 15:04:05.000000")
+	// round to microsecond on formatting: zodb/py does this, and without rounding it is sometimes
+	// not exactly bit-to-bit the same in text output compared to zodb/py. Example:
+	// 037969f722a53488: timeStr = "2008-10-24 05:11:08.119999"  ; want "2008-10-24 05:11:08.120000"
+	//
+	// This happens because Go's time.Format() does not perform rounding,
+	// and so even if t = 0.999, formatting it with .00 won't give 0.10.
+	//
+	// NOTE UTC() in case we get TimeStamp with modified from-outside location.
+	tµs := t.UTC().Round(time.Microsecond)
+
+	return tµs.AppendFormat(b, "2006-01-02 15:04:05.000000")
 }
 
 
@@ -64,11 +73,6 @@ func (tid Tid) Time() TimeStamp {
 		int(sec),
 		int(nsec),
 		time.UTC)
-
-	// round to microsecond: zodb/py does this, and without rounding it is sometimes
-	// not exactly bit-to-bit the same in text output compared to zodb/py. Example:
-	// 037969f722a53488: timeStr = "2008-10-24 05:11:08.119999"  ; want "2008-10-24 05:11:08.120000"
-	t = t.Round(time.Microsecond)
 
 	return TimeStamp{t}
 }
