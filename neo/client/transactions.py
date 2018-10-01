@@ -49,36 +49,26 @@ class Transaction(object):
         self.conflict_dict = {}             # {oid: serial}
         # resolved conflicts
         self.resolved_dict = {}             # {oid: serial}
-        # Keys are node ids instead of Node objects because a node may
-        # disappear from the cluster. In any case, we always have to check
-        # if the id is still known by the NodeManager.
-        # status: 0 -> check only, 1 -> store, 2 -> failed
-        self.involved_nodes = {}            # {node_id: status}
+        # involved storage nodes; connection is None is connection was lost
         self.conn_dict = {}                 # {node_id: connection}
 
     def wakeup(self, conn):
         self.queue.put((conn, _WakeupPacket, {}))
 
-    def write(self, app, packet, object_id, store=1, **kw):
+    def write(self, app, packet, object_id, **kw):
         uuid_list = []
         pt = app.pt
-        involved = self.involved_nodes
+        conn_dict = self.conn_dict
         object_id = pt.getPartition(object_id)
         for cell in pt.getCellList(object_id):
             node = cell.getNode()
             uuid = node.getUUID()
-            status = involved.get(uuid, -1)
-            if status < store:
-                involved[uuid] = store
-            elif status > 1:
-                continue
-            if status < 0:
-                conn = self.conn_dict[uuid] = app.cp.getConnForNode(node)
-            else:
-                conn = self.conn_dict[uuid]
-            if conn is not None:
+            try:
                 try:
-                    if status < 0 and self.locking_tid and 'oid' in kw:
+                    conn = conn_dict[uuid]
+                except KeyError:
+                    conn = conn_dict[uuid] = app.cp.getConnForNode(node)
+                    if self.locking_tid and 'oid' in kw:
                         # A deadlock happened but this node is not aware of it.
                         # Tell it to write-lock with the same locking tid as
                         # for the other nodes. The condition on kw is to
@@ -86,13 +76,13 @@ class Transaction(object):
                         # transaction metadata.
                         conn.ask(Packets.AskRebaseTransaction(
                             self.ttid, self.locking_tid), queue=self.queue)
-                    conn.ask(packet, queue=self.queue, **kw)
-                    uuid_list.append(uuid)
-                    continue
-                except ConnectionClosed:
-                    pass
-            del self.conn_dict[uuid]
-            involved[uuid] = 2
+                conn.ask(packet, queue=self.queue, **kw)
+                uuid_list.append(uuid)
+            except AttributeError:
+                if conn is not None:
+                    raise
+            except ConnectionClosed:
+                conn_dict[uuid] = None
         if uuid_list:
             return uuid_list
         raise NEOStorageError(
@@ -146,9 +136,9 @@ class Transaction(object):
         self.cache_dict[oid] = data
 
     def nodeLost(self, app, uuid):
-        # The following 2 lines are sometimes redundant with the 2 in write().
-        self.involved_nodes[uuid] = 2
-        self.conn_dict.pop(uuid, None)
+        # The following line is sometimes redundant
+        # with the one in `except ConnectionClosed:` clauses.
+        self.conn_dict[uuid] = None
         for oid in list(self.data_dict):
             self.written(app, uuid, oid)
 
