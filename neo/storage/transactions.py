@@ -308,6 +308,8 @@ class TransactionManager(EventQueue):
             dict.fromkeys(transaction.store_dict, ttid))
         if transaction.voted == 2:
             self._app.dm.lockTransaction(tid, ttid)
+        else:
+            assert transaction.voted
 
     def unlock(self, ttid):
         """

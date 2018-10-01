@@ -557,7 +557,7 @@ class Application(ThreadedApplication):
         trans_nodes = txn_context.write(self, packet, ttid)
         packet = Packets.AskVoteTransaction(ttid)
         for uuid, status in involved_nodes.iteritems():
-            if status == 1 and uuid not in trans_nodes:
+            if status < 2 and uuid not in trans_nodes:
                 self._askStorageForWrite(txn_context, uuid, packet)
         self.waitStoreResponses(txn_context)
         if 2 in involved_nodes.itervalues(): # unlikely
