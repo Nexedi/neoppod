@@ -981,6 +981,7 @@ class Test(NEOThreadedTest):
 
     @with_cluster(storage_count=2, partitions=2)
     def testReadVerifyingStorage(self, cluster):
+        s1, s2 = cluster.sortStorageList()
         t1, c1 = cluster.getTransaction()
         c1.root()['x'] = x = PCounter()
         t1.commit()
@@ -988,7 +989,7 @@ class Test(NEOThreadedTest):
         with cluster.newClient(1) as db:
             t2, c2 = cluster.getTransaction(db)
             r = c2.root()
-            r['y'] = None
+            r._p_changed = 1
             self.readCurrent(r['x'])
             # Force the new tid to be even, like the modified oid and unlike
             # the oid on which we used readCurrent. Thus we check that the node
@@ -1003,11 +1004,35 @@ class Test(NEOThreadedTest):
             # transaction before the last one, and clearing the cache before
             # reloading x.
             c1._storage.load(x._p_oid)
-            t0, t1, t2 = c1.db().storage.iterator()
-            self.assertEqual(map(u64, t0.oid_list), [0])
-            self.assertEqual(map(u64, t1.oid_list), [0, 1])
-            # Check oid 1 is part of transaction metadata.
-            self.assertEqual(t2.oid_list, t1.oid_list)
+            # In particular, check oid 1 is listed in the last transaction.
+            self.assertEqual([[0], [0, 1], [0, 1]],
+                [map(u64, t.oid_list) for t in c1.db().storage.iterator()])
+
+            # Another test, this time to check we also vote to storage nodes
+            # that are only involved in checking current serial.
+            t1.begin()
+            s2c2, = s2.getConnectionList(db.storage.app)
+            def t1_vote(txn):
+                # Check that the storage hasn't answered to the store,
+                # which means that a lock is still taken for r['x'] by t2.
+                self.tic()
+                txn_context = cluster.client._txn_container.get(txn)
+                empty = txn_context.queue.empty()
+                ll()
+                self.assertTrue(empty)
+            def t2_vote(_):
+                s2c2.close()
+                commit1.start()
+                ll()
+            TransactionalResource(t1, 0, tpc_vote=t1_vote)
+            x.value += 1
+            TransactionalResource(t2, 1, tpc_vote=t2_vote)
+            r._p_changed = 1
+            self.readCurrent(r['x'])
+            with cluster.moduloTID(0), LockLock() as ll:
+                commit1 = self.newPausedThread(t1.commit)
+                t2.commit()
+            commit1.join()
 
     @with_cluster()
     def testClientReconnection(self, cluster):
