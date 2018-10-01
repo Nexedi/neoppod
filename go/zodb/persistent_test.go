@@ -120,7 +120,7 @@ func TestPersistent(t *testing.T) {
 
 	checkObj(obj, nil, 11, InvalidTid, GHOST, 0, nil)
 
-	assert.Equal(zclassOf(obj), "t.zodb.MyObject")
+	assert.Equal(ClassOf(obj), "t.zodb.MyObject")
 
 
 	// TODO activate	- jar has to load, state changes

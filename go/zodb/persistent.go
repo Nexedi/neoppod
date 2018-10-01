@@ -278,15 +278,33 @@ type zclass struct {
 var classTab = make(map[string]*zclass)       // {} class -> zclass
 var typeTab  = make(map[reflect.Type]*zclass) // {} type  -> zclass
 
-// zclassOf returns ZODB class of a Go object.
+// ClassOf returns ZODB class of a Go object.
 //
-// If ZODB class was not registered for obj's type, "" is returned.
-func zclassOf(obj IPersistent) string {
-	zc, ok := typeTab[reflect.TypeOf(obj).Elem()]
-	if !ok {
-		return ""
+// If ZODB class was not registered for obj's type, "" is returned.	// XXX
+// XXX -> keep obj IPersistent and add TypeOf(interface{}) ?
+//func ClassOf(obj IPersistent) string {
+func ClassOf(obj interface{}) string {
+	zb, broken := obj.(*Broken)
+	if broken {
+		return fmt.Sprintf("ZODB.Broken(%q)", zb.class)
 	}
-	return zc.class
+
+	typ := reflect.TypeOf(obj)
+	zc, ok := typeTab[typ.Elem()]
+	if ok {
+		return zc.class
+	}
+
+	// XXX can we get vvv at all if obj is IPersistent? -> yes, if type was not registered.
+
+	// not Broken and type not registered to ZODB -> Broken(fullGoType(obj))
+	fullType := "go:" + typ.PkgPath()
+	if typ.PkgPath() != "" { // it could be builtin type, e.g. string
+		fullType += "."
+	}
+	fullType += typ.Name()
+	//return fmt.Sprintf("ZODB.Broken(%q)", fullType)
+	return fullType
 }
 
 var rIPersistent = reflect.TypeOf((*IPersistent)(nil)).Elem() // typeof(IPersistent)
@@ -476,9 +494,10 @@ func (b *brokenState) SetState(state *mem.Buf) error {
 }
 
 // XXX how to print zodb.Broken("BTrees.IOBTree.IOBTree"), but not long noise for types that don't define GoString?
-func (b *Broken) GoString() string {
-	return fmt.Sprintf("&zodb.Broken(%q)", b.class)
-}
+// XXX -> zodb.ClassOf
+// func (b *Broken) GoString() string {
+// 	return fmt.Sprintf("&zodb.Broken(%q)", b.class)
+// }
 
 // brokenZClass is used for Persistent.zclass for Broken objects.
 var brokenZClass = &zclass{
