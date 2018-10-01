@@ -99,9 +99,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 conn.ask(Packets.AskRebaseObject(ttid, oid),
                          queue=queue, oid=oid)
         except ConnectionClosed:
-            uuid = conn.getUUID()
-            txn_context.involved_nodes[uuid] = 2
-            del txn_context.conn_dict[uuid]
+            txn_context.conn_dict[conn.getUUID()] = None
 
     def answerRebaseObject(self, conn, conflict, oid):
         if conflict:
@@ -116,7 +114,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
                     # We should still be waiting for an answer from this node,
                     # unless we lost connection.
                     assert conn.uuid in txn_context.data_dict[oid][2] or \
-                           txn_context.involved_nodes[conn.uuid] == 2
+                           txn_context.conn_dict[conn.uuid] is None
                     return
                 assert oid in txn_context.data_dict
                 if serial <= txn_context.conflict_dict.get(oid, ''):

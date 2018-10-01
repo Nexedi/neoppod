@@ -482,9 +482,8 @@ class Application(ThreadedApplication):
                   ' with new locking TID %s', dump(ttid), dump(serial))
                 txn_context.locking_tid = serial
                 packet = Packets.AskRebaseTransaction(ttid, serial)
-                for uuid, status in txn_context.involved_nodes.iteritems():
-                    if status < 2:
-                        self._askStorageForWrite(txn_context, uuid, packet)
+                for uuid in txn_context.conn_dict:
+                    self._askStorageForWrite(txn_context, uuid, packet)
             else:
                 if data is CHECKED_SERIAL:
                     raise ReadConflictError(oid=oid,
@@ -518,9 +517,11 @@ class Application(ThreadedApplication):
           conn = txn_context.conn_dict[uuid]
           try:
               return conn.ask(packet, queue=txn_context.queue)
+          except AttributeError:
+              if conn is not None:
+                  raise
           except ConnectionClosed:
-              txn_context.involved_nodes[uuid] = 2
-              del txn_context.conn_dict[uuid]
+              txn_context.conn_dict[uuid] = None
 
     def waitResponses(self, queue):
         """Wait for all requests to be answered (or their connection to be
@@ -551,21 +552,21 @@ class Application(ThreadedApplication):
         packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), ext, txn_context.cache_dict)
         queue = txn_context.queue
-        involved_nodes = txn_context.involved_nodes
+        conn_dict = txn_context.conn_dict
         # Ask in parallel all involved storage nodes to commit object metadata.
         # Nodes that store the transaction metadata get a special packet.
         trans_nodes = txn_context.write(self, packet, ttid)
         packet = Packets.AskVoteTransaction(ttid)
-        for uuid, status in involved_nodes.iteritems():
-            if status < 2 and uuid not in trans_nodes:
+        for uuid in conn_dict:
+            if uuid not in trans_nodes:
                 self._askStorageForWrite(txn_context, uuid, packet)
         self.waitStoreResponses(txn_context)
-        if 2 in involved_nodes.itervalues(): # unlikely
+        if None in conn_dict.itervalues(): # unlikely
             # If some writes failed, we must first check whether
             # all oids have been locked by at least one node.
             failed = {node.getUUID(): node.isRunning()
                 for node in self.nm.getStorageList()
-                if involved_nodes.get(node.getUUID()) == 2}
+                if conn_dict.get(node.getUUID(), 0) is None}
             if txn_context.lockless_dict:
                 getCellList = self.pt.getCellList
                 for offset, uuid_set in txn_context.lockless_dict.iteritems():
@@ -616,10 +617,11 @@ class Application(ThreadedApplication):
         # forever.
         p = Packets.AbortTransaction(txn_context.ttid, ())
         for conn in txn_context.conn_dict.itervalues():
-            try:
-                conn.send(p)
-            except ConnectionClosed:
-                pass
+            if conn is not None:
+                try:
+                    conn.send(p)
+                except ConnectionClosed:
+                    pass
         # Because we want to be sure that the involved nodes are notified,
         # we still have to send the full list to the master. Most of the
         # time, the storage nodes get 2 AbortTransaction packets, and the
@@ -633,7 +635,7 @@ class Application(ThreadedApplication):
         else:
             try:
                 notify(Packets.AbortTransaction(txn_context.ttid,
-                                                txn_context.involved_nodes))
+                                                txn_context.conn_dict))
             except ConnectionClosed:
                 pass
         # We don't need to flush queue, as it won't be reused by future
@@ -742,7 +744,7 @@ class Application(ThreadedApplication):
                     # conflicts. For example, if a network failure happened
                     # only between the client and the storage, the latter would
                     # still be readable until we commit.
-                    if txn_context.involved_nodes.get(cell.getUUID(), 0) < 2]
+                    if txn_context.conn_dict.get(cell.getUUID(), 0) is not None]
                 storage_conn = getConnForNode(
                     min(cell_list, key=getCellSortKey).getNode())
                 storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
@@ -949,6 +951,6 @@ class Application(ThreadedApplication):
         assert oid not in txn_context.data_dict, oid
         packet = Packets.AskCheckCurrentSerial(ttid, oid, serial)
         txn_context.data_dict[oid] = CHECKED_SERIAL, serial, txn_context.write(
-            self, packet, oid, 0, oid=oid)
+            self, packet, oid, oid=oid)
         self._waitAnyTransactionMessage(txn_context, False)
 
