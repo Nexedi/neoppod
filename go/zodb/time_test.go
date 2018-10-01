@@ -22,18 +22,25 @@ package zodb
 import "testing"
 
 func TestTidTime(t *testing.T) {
-	var testv = []struct {tid Tid; timeStr string} {
-		{0x0000000000000000, "1900-01-01 00:00:00.000000"},
-		{0x0285cbac258bf266, "1979-01-03 21:00:08.800000"},
-		{0x0285cbad27ae14e6, "1979-01-03 21:01:09.300001"},
-		{0x037969f722a53488, "2008-10-24 05:11:08.120000"},
-		{0x03b84285d71c57dd, "2016-07-01 09:41:50.416574"},
+	var testv = []struct {tid Tid; timeStr string; timeFloat float64} {
+		{0x0000000000000000, "1900-01-01 00:00:00.000000", -2208988800.000000000},
+		{0x0285cbac258bf266, "1979-01-03 21:00:08.800000",   284245208.800000191},
+		{0x0285cbad27ae14e6, "1979-01-03 21:01:09.300001",   284245269.300001502},
+		{0x037969f722a53488, "2008-10-24 05:11:08.120000",  1224825068.120000124},
+		{0x03b84285d71c57dd, "2016-07-01 09:41:50.416574",  1467366110.416574001},
+		{0x03caa84275fc1166, "2018-10-01 16:34:27.652650",  1538411667.652650118},
 	}
 
 	for _, tt := range testv {
-		timeStr := tt.tid.Time().String()
+		tidtime := tt.tid.Time()
+		timeStr := tidtime.String()
 		if timeStr != tt.timeStr {
 			t.Errorf("%v: timeStr = %q  ; want %q", tt.tid, timeStr, tt.timeStr)
+		}
+
+		timeFloat := float64(tidtime.UnixNano()) * 1E-9
+		if timeFloat != tt.timeFloat {
+			t.Errorf("%v: timeFloat = %.9f  ; want %.9f", tt.tid, timeFloat, tt.timeFloat)
 		}
 	}
 }
