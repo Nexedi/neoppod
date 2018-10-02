@@ -130,6 +130,12 @@ func newConnection(db *DB, at Tid) *Connection {
 	}
 }
 
+// At returns database state corresponding to the connection.
+func (conn *Connection) At() Tid {
+	conn.checkLive("at")
+	return conn.at
+}
+
 // wrongClassError is the error cause returned when ZODB object's class is not what was expected.
 type wrongClassError struct {
 	want, have string
@@ -236,5 +242,13 @@ func (conn *Connection) checkTxnCtx(ctx context.Context, who string) {
 func (conn *Connection) checkTxn(txn transaction.Transaction, who string) {
 	if txn != conn.txn {
 		panic("connection: " + who + "current transaction is different from connection transaction")
+	}
+}
+
+// checkLive asserts that the connection is alive - the transaction under which
+// it has been opened is not yet complete.
+func (conn *Connection) checkLive(who string) {
+	if conn.txn == nil {
+		panic("connection: " + who + ": connection is not live")
 	}
 }
