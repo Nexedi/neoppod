@@ -119,6 +119,10 @@ class Transaction(object):
             if not lockless:
                 lockless = self.lockless_dict = defaultdict(set)
             lockless[app.pt.getPartition(oid)].add(uuid)
+            if oid in self.conflict_dict:
+                # In the case of a rebase, uuid_list may not contain the id
+                # of the node reporting a conflict.
+                return
         if uuid_list:
             return
         del self.data_dict[oid]
@@ -140,7 +144,10 @@ class Transaction(object):
         # with the one in `except ConnectionClosed:` clauses.
         self.conn_dict[uuid] = None
         for oid in list(self.data_dict):
-            self.written(app, uuid, oid)
+            # Exclude case of 1 conflict error immediately followed by a
+            # connection loss, possibly with lockless writes to replicas.
+            if oid not in self.conflict_dict:
+                self.written(app, uuid, oid)
 
 
 class TransactionContainer(dict):
