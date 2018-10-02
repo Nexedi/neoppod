@@ -22,7 +22,7 @@ from struct import Struct
 # The protocol version must be increased whenever upgrading a node may require
 # to upgrade other nodes. It is encoded as a 4-bytes big-endian integer and
 # the high order byte 0 is different from TLS Handshake (0x16).
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 ENCODED_VERSION = Struct('!L').pack(PROTOCOL_VERSION)
 
 # Avoid memory errors on corrupted data.
