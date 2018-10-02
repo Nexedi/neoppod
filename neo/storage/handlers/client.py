@@ -18,7 +18,7 @@ from neo.lib import logging
 from neo.lib.handler import DelayEvent
 from neo.lib.util import dump, makeChecksum, add64
 from neo.lib.protocol import Packets, Errors, NonReadableCell, ProtocolError, \
-    ZERO_HASH, INVALID_PARTITION
+    ZERO_HASH, ZERO_TID, INVALID_PARTITION
 from ..transactions import ConflictError, NotRegisteredError
 from . import BaseHandler
 import time
@@ -90,26 +90,27 @@ class ClientOperationHandler(BaseHandler):
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
             data_serial, ttid, request_time):
         try:
-            self.app.tm.storeObject(ttid, serial, oid, compression,
+            locked = self.app.tm.storeObject(ttid, serial, oid, compression,
                     checksum, data, data_serial)
         except ConflictError, err:
             # resolvable or not
-            conn.answer(Packets.AnswerStoreObject(err.tid))
-            return
+            locked = err.tid
         except NonReadableCell:
             logging.info('Ignore store of %s:%s by %s: unassigned partition',
                 dump(oid), dump(serial), dump(ttid))
+            locked = ZERO_TID
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget store of %s:%s by %s delayed by %s',
                     dump(oid), dump(serial), dump(ttid),
                     dump(self.app.tm.getLockingTID(oid)))
+            locked = ZERO_TID
         else:
             if request_time and SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('StoreObject delay: %.02fs', duration)
-        conn.answer(Packets.AnswerStoreObject(None))
+        conn.answer(Packets.AnswerStoreObject(locked))
 
     def askStoreObject(self, conn, oid, serial,
             compression, checksum, data, data_serial, ttid):
@@ -216,25 +217,26 @@ class ClientOperationHandler(BaseHandler):
 
     def _askCheckCurrentSerial(self, conn, ttid, oid, serial, request_time):
         try:
-            self.app.tm.checkCurrentSerial(ttid, oid, serial)
+            locked = self.app.tm.checkCurrentSerial(ttid, oid, serial)
         except ConflictError, err:
             # resolvable or not
-            conn.answer(Packets.AnswerCheckCurrentSerial(err.tid))
-            return
+            locked = err.tid
         except NonReadableCell:
             logging.info('Ignore check of %s:%s by %s: unassigned partition',
                 dump(oid), dump(serial), dump(ttid))
+            locked = ZERO_TID
         except NotRegisteredError:
             # transaction was aborted, cancel this event
             logging.info('Forget serial check of %s:%s by %s delayed by %s',
                 dump(oid), dump(serial), dump(ttid),
                 dump(self.app.tm.getLockingTID(oid)))
+            locked = ZERO_TID
         else:
             if request_time and SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
                     logging.info('CheckCurrentSerial delay: %.02fs', duration)
-        conn.answer(Packets.AnswerCheckCurrentSerial(None))
+        conn.answer(Packets.AnswerCheckCurrentSerial(locked))
 
 
 # like ClientOperationHandler but read-only & only for tid <= backup_tid

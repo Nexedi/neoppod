@@ -39,6 +39,7 @@ action_dict = {
     'kill': 'killNode',
     'prune_orphan': 'pruneOrphan',
     'truncate': 'truncate',
+    'flush_log': 'flushLog',
 }
 
 uuid_int = (lambda ns: lambda uuid:
@@ -252,6 +253,15 @@ class TerminalNeoCTL(object):
                 np = len(self.neoctl.getPartitionRowList()[1])
                 partition_dict = dict.fromkeys(xrange(np), source)
         self.neoctl.checkReplicas(partition_dict, min_tid, max_tid)
+
+    def flushLog(self, params):
+        """
+          Ask all nodes in the cluster to flush their logs.
+
+          If there are backup clusters, only their primary masters flush.
+        """
+        assert not params
+        self.neoctl.flushLog()
 
 class Application(object):
     """The storage node application."""

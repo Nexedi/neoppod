@@ -1678,6 +1678,48 @@ class Test(NEOThreadedTest):
         self.assertEqual(cluster.neoctl.getClusterState(),
                          ClusterStates.RUNNING)
 
+    @with_cluster(storage_count=2, replicas=1)
+    def testPartitionNotFullyWriteLocked(self, cluster):
+        """
+        Make sure all oids are write-locked at least once, which is not
+        guaranteed by just the storage/master nodes when a readable cell
+        becomes OUT_OF_DATE during a commit. This scenario is special in that
+        the other readable cell was only writable at the beginning of the
+        transaction and the replication finished just before the node failure.
+        The test uses a conflict to detect lockless writes.
+        """
+        s0, s1 = cluster.storage_list
+        t, c = cluster.getTransaction()
+        r = c.root()
+        x = r[''] = PCounterWithResolution()
+        t.commit()
+        s1c, = s1.getConnectionList(cluster.client)
+        s0.stop()
+        cluster.join((s0,))
+        s0.resetNode()
+        x.value += 2
+        def vote(_):
+            f.remove(delay)
+            self.tic()
+            s1.stop()
+            cluster.join((s1,))
+        TransactionalResource(t, 0, tpc_vote=vote)
+        with ConnectionFilter() as f, cluster.newClient(1) as db:
+            t2, c2 = cluster.getTransaction(db)
+            c2.root()[''].value += 3
+            t2.commit()
+            f.delayAnswerStoreObject(lambda conn: conn is s1c)
+            delay = f.delayAskFetchTransactions()
+            s0.start()
+            self.tic()
+            self.assertRaisesRegexp(NEOStorageError,
+                                    '^partition 0 not fully write-locked$',
+                                    t.commit)
+        cluster.client._cache.clear()
+        t.begin()
+        x._p_deactivate()
+        self.assertEqual(x.value, 3)
+
     @with_cluster()
     def testAbortTransaction(self, cluster):
         t, c = cluster.getTransaction()

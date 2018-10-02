@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import defaultdict
 from ZODB.POSException import StorageTransactionError
 from neo.lib.connection import ConnectionClosed
 from neo.lib.locking import SimpleQueue
@@ -35,6 +36,7 @@ class Transaction(object):
     locking_tid = None
     voted = False
     ttid = None     # XXX: useless, except for testBackupReadOnlyAccess
+    lockless_dict = None                    # {partition: {uuid}}
 
     def __init__(self, txn):
         self.queue = SimpleQueue()
@@ -79,8 +81,9 @@ class Transaction(object):
                     if status < 0 and self.locking_tid and 'oid' in kw:
                         # A deadlock happened but this node is not aware of it.
                         # Tell it to write-lock with the same locking tid as
-                        # for the other nodes. The condition on kw is because
-                        # we don't need that for transaction metadata.
+                        # for the other nodes. The condition on kw is to
+                        # distinguish whether we're writing an oid or
+                        # transaction metadata.
                         conn.ask(Packets.AskRebaseTransaction(
                             self.ttid, self.locking_tid), queue=self.queue)
                     conn.ask(packet, queue=self.queue, **kw)
@@ -95,7 +98,7 @@ class Transaction(object):
         raise NEOStorageError(
             'no storage available for write to partition %s' % object_id)
 
-    def written(self, app, uuid, oid):
+    def written(self, app, uuid, oid, lockless=False):
         # When a node is being disconnected by the master because it was
         # not part of the transaction that caused a conflict, we may receive a
         # positive answer (not to be confused with lockless stores) before the
@@ -119,6 +122,13 @@ class Transaction(object):
             # - answer to resolved conflict before the first answer from a
             #   node that was being disconnected by the master
             return
+        if lockless:
+            # It's safe to do this after the above excepts: either the cell is
+            # already marked as lockless or the node will be reported as failed.
+            lockless = self.lockless_dict
+            if not lockless:
+                lockless = self.lockless_dict = defaultdict(set)
+            lockless[app.pt.getPartition(oid)].add(uuid)
         if uuid_list:
             return
         del self.data_dict[oid]

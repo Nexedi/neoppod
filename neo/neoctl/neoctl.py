@@ -204,3 +204,9 @@ class NeoCTL(BaseApplication):
         if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
             raise RuntimeError(response)
         return response[2]
+
+    def flushLog(self):
+        conn = self.__getConnection()
+        conn.send(Packets.FlushLog())
+        while conn.pending():
+            self.em.poll(1)
