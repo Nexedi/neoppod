@@ -157,8 +157,6 @@ class TransactionManager(EventQueue):
         # which will delay new transactions.
         for txn, ttid in sorted((txn, ttid) for ttid, txn in
                                 self._transaction_dict.iteritems()):
-            if txn.locking_tid == MAX_TID:
-                break # all remaining transactions are resolving a deadlock
             assert txn.lockless.issubset(txn.serial_dict), (
                 txn.lockless, txn.serial_dict)
             for oid in txn.lockless:
@@ -224,17 +222,22 @@ class TransactionManager(EventQueue):
                 if locked == ttid:
                     del self._store_lock_dict[oid]
             lockless = transaction.lockless
-            # There's nothing to rebase for lockless stores to replicating
-            # partitions because there's no lock taken yet. In other words,
-            # rebasing such stores would do nothing. Other lockless stores
-            # become normal ones: this transaction does not block anymore
-            # replicated partitions from being marked as UP_TO_DATE.
-            oid = [oid
-                for oid in lockless.intersection(transaction.serial_dict)
-                if self.getPartition(oid) not in self._replicating]
-            if oid:
-                lockless.difference_update(oid)
-                self._notifyReplicated()
+            if locking_tid == MAX_TID:
+                if lockless:
+                    lockless.clear()
+                    self._notifyReplicated()
+            else:
+                # There's nothing to rebase for lockless stores to replicating
+                # partitions because there's no lock taken yet. In other words,
+                # rebasing such stores would do nothing. Other lockless stores
+                # become normal ones: this transaction does not block anymore
+                # replicated partitions from being marked as UP_TO_DATE.
+                oid = [oid
+                    for oid in lockless.intersection(transaction.serial_dict)
+                    if self.getPartition(oid) not in self._replicating]
+                if oid:
+                    lockless.difference_update(oid)
+                    self._notifyReplicated()
         # Some locks were released, some pending locks may now succeed.
         # We may even have delayed stores for this transaction, like the one
         # that triggered the deadlock. They must also be sorted again because

@@ -46,6 +46,7 @@ from neo.storage.database import DatabaseFailure
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
+from neo.storage.replicator import Replicator
 
 class PCounter(Persistent):
     value = 0
@@ -2207,6 +2208,62 @@ class Test(NEOThreadedTest):
             thread.join()
         t2.begin()
         self.assertEqual([4, 6], [r[x].value for x in 'ab'])
+
+    @with_cluster(replicas=1, partitions=2)
+    def testNotifyReplicated3(self, cluster):
+        s0, s1 = cluster.storage_list
+        t1, c1 = cluster.getTransaction()
+        r = c1.root()
+        r[''] = PCounter()
+        t1.commit()
+        s1.stop()
+        cluster.join((s1,))
+        s1.resetNode()
+        nonlocal_ = [0]
+        class Abort(Exception):
+            pass
+        with cluster.newClient(1) as db, Patch(Replicator,
+                _nextPartitionSortKey=lambda orig, self, offset: offset):
+            t3, c3 = cluster.getTransaction(db)
+            with ConnectionFilter() as f, self.noConnection(c3, s0):
+                @f.delayAnswerFetchObjects
+                def delay(_):
+                    if nonlocal_:
+                        return nonlocal_.pop()
+                s1.start()
+                self.tic()
+                r[''].value += 1
+                r._p_changed = 1
+                t2, c2 = cluster.getTransaction()
+                c2.root()._p_changed = 1
+                def t1_rebase(*args, **kw):
+                    self.tic()
+                    f.remove(delay)
+                    yield 0
+                @self.newPausedThread
+                def commit23():
+                    t2.commit()
+                    c3.root()[''].value += 3
+                    with self.assertRaises(Abort) as cm:
+                        t3.commit()
+                    self.assertTrue(*cm.exception.args)
+                def t3_commit(txn):
+                    # Check that the storage hasn't answered to the store,
+                    # which means that a lock is still taken for r[''] by t1.
+                    self.tic()
+                    txn_context = db.storage.app._txn_container.get(txn)
+                    raise Abort(txn_context.queue.empty())
+                TransactionalResource(t3, 1, commit=t3_commit)
+                with self.thread_switcher((commit23,),
+                    (1, 1, 0, 0, t1_rebase, 0, 0, 0, 1, 1, 1, 1, 0),
+                    ('tpc_begin', 'tpc_begin', 0, 1, 0,
+                      'RebaseTransaction', 'RebaseTransaction',
+                      'AnswerRebaseTransaction', 'AnswerRebaseTransaction',
+                      'StoreTransaction', 'tpc_begin', 1, 'tpc_abort')) as end:
+                    self.assertRaises(POSException.ConflictError, t1.commit)
+                    commit23.join()
+        self.assertEqual(end, {0: ['tpc_abort']})
+        self.assertPartitionTable(cluster, 'UU|UU')
 
     @with_cluster(storage_count=2, partitions=2)
     def testDeadlockAvoidanceBeforeInvolvingAnotherNode(self, cluster):
