@@ -93,6 +93,7 @@ type BucketEntry struct {
 	value interface{}
 }
 
+// ---- access []entry ----
 
 // Key returns BTree entry key.
 func (e *Entry) Key() KEY { return e.key }
@@ -132,6 +133,7 @@ func (b *Bucket) Entryv() []BucketEntry {
 	return ev
 }
 
+// ---- point query ----
 
 // Get searches BTree by key.
 //
@@ -208,9 +210,93 @@ func (b *Bucket) get(key KEY) (interface{}, bool) {
 	return b.values[i], true
 }
 
-// TODO Bucket.MinKey
-// TODO Bucket.MaxKey
+// ---- min/max key ----
 
+// XXX
+func (t *BTree) MinKey(ctx context.Context) (_ KEY, _ bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err	// XXX 0 ok?
+	}
+
+	if len(t.data) == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	for {
+		child := t.data[0].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *BTree:
+			t = child
+
+		case *Bucket:
+			k, ok := child.MinKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// XXX
+func (t *BTree) MaxKey(ctx context.Context) (_ KEY, _ bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err	// XXX 0 ok?
+	}
+
+	l := len(t.data)
+	if l == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	for {
+		child := t.data[l-1].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *BTree:
+			t = child
+
+		case *Bucket:
+			k, ok := child.MaxKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// XXX
+func (b *Bucket) MinKey() (KEY, bool) {
+	if len(b.keys) == 0 {
+		return 0, false
+	}
+	return b.keys[0], true
+}
+
+// XXX
+func (b *Bucket) MaxKey() (KEY, bool) {
+	l := len(b.keys)
+	if l == 0 {
+		return 0, false
+	}
+	return b.keys[l-1], true
+}
 
 // ---- serialization ----
 

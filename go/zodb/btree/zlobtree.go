@@ -95,6 +95,7 @@ type LOBucketEntry struct {
 	value interface{}
 }
 
+// ---- access []entry ----
 
 // Key returns LOBTree entry key.
 func (e *LOEntry) Key() int64 { return e.key }
@@ -134,6 +135,7 @@ func (b *LOBucket) Entryv() []LOBucketEntry {
 	return ev
 }
 
+// ---- point query ----
 
 // Get searches LOBTree by key.
 //
@@ -210,9 +212,93 @@ func (b *LOBucket) get(key int64) (interface{}, bool) {
 	return b.values[i], true
 }
 
-// TODO LOBucket.MinKey
-// TODO LOBucket.MaxKey
+// ---- min/max key ----
 
+// XXX
+func (t *LOBTree) MinKey(ctx context.Context) (_ int64, _ bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): minkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err	// XXX 0 ok?
+	}
+
+	if len(t.data) == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	for {
+		child := t.data[0].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *LOBTree:
+			t = child
+
+		case *LOBucket:
+			k, ok := child.MinKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// XXX
+func (t *LOBTree) MaxKey(ctx context.Context) (_ int64, _ bool, err error) {
+	defer xerr.Contextf(&err, "btree(%s): maxkey", t.POid())
+	err = t.PActivate(ctx)
+	if err != nil {
+		return 0, false, err	// XXX 0 ok?
+	}
+
+	l := len(t.data)
+	if l == 0 {
+		// empty btree
+		t.PDeactivate()
+		return 0, false, nil
+	}
+
+	for {
+		child := t.data[l-1].child.(zodb.IPersistent)
+		t.PDeactivate()
+		err = child.PActivate(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+
+		switch child := child.(type) {
+		case *LOBTree:
+			t = child
+
+		case *LOBucket:
+			k, ok := child.MaxKey()
+			child.PDeactivate()
+			return k, ok, nil
+		}
+	}
+}
+
+// XXX
+func (b *LOBucket) MinKey() (int64, bool) {
+	if len(b.keys) == 0 {
+		return 0, false
+	}
+	return b.keys[0], true
+}
+
+// XXX
+func (b *LOBucket) MaxKey() (int64, bool) {
+	l := len(b.keys)
+	if l == 0 {
+		return 0, false
+	}
+	return b.keys[l-1], true
+}
 
 // ---- serialization ----
 

@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"lab.nexedi.com/kirr/go123/exc"
+	"lab.nexedi.com/kirr/go123/xerr"
 	"lab.nexedi.com/kirr/neo/go/transaction"
 	"lab.nexedi.com/kirr/neo/go/zodb"
 	_ "lab.nexedi.com/kirr/neo/go/zodb/wks"
@@ -50,9 +51,48 @@ type testEntry struct {
 	itemv []kv
 }
 
-// bmapping represents Get of Bucket or BTree.
+// bmapping represents LOBTree or a LOBucket wrapper.
 type bmapping interface {
 	Get(context.Context, int64) (interface{}, bool, error)
+	MinKey(context.Context) (int64, bool, error)
+	MaxKey(context.Context) (int64, bool, error)
+}
+
+type bucketWrap struct {
+	*LOBucket
+}
+
+// withBucket runs f with b.LOBucket activated.
+func (b *bucketWrap) withBucket(ctx context.Context, f func()) error {
+	err := b.LOBucket.PActivate(ctx)
+	if err != nil {
+		return err
+	}
+	defer b.LOBucket.PDeactivate()
+
+	f()
+	return nil
+}
+
+func (b *bucketWrap) Get(ctx context.Context, key int64) (v interface{}, ok bool, err error) {
+	err = b.withBucket(ctx, func() {
+		v, ok = b.LOBucket.get(key)	// XXX -> Get
+	})
+	return
+}
+
+func (b *bucketWrap) MinKey(ctx context.Context) (k int64, ok bool, err error) {
+	err = b.withBucket(ctx, func() {
+		k, ok = b.LOBucket.MinKey()
+	})
+	return
+}
+
+func (b *bucketWrap) MaxKey(ctx context.Context) (k int64, ok bool, err error) {
+	err = b.withBucket(ctx, func() {
+		k, ok = b.LOBucket.MaxKey()
+	})
+	return
 }
 
 func TestBTree(t *testing.T) {
@@ -81,19 +121,18 @@ func TestBTree(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		obj, ok := xobj.(bmapping)
-		if !ok {
-			t.Fatalf("%s: got %T;  want LOBucket|LOBTree", tt.oid, xobj)
-		}
-
 		want := ""
 		switch tt.kind {
 		case kindBucket:
-			if _, ok = obj.(*LOBucket); !ok {
+			bobj, ok := xobj.(*LOBucket)
+			if !ok {
 				want = "LOBucket"
+			} else {
+				// bucket wrapper that accepts ctx on Get, MinKey etc
+				xobj = &bucketWrap{bobj}
 			}
 		case kindBTree:
-			if _, ok = obj.(*LOBTree); !ok {
+			if _, ok := xobj.(*LOBTree); !ok {
 				want = "LOBTree"
 			}
 		default:
@@ -101,8 +140,10 @@ func TestBTree(t *testing.T) {
 		}
 
 		if want != "" {
-			t.Fatalf("%s: got %T;  want %s", tt.oid, obj, want)
+			t.Fatalf("%s: got %T;  want %s", tt.oid, xobj, want)
 		}
+
+		obj := xobj.(bmapping)
 
 		for _, kv := range tt.itemv {
 			value, ok, err := obj.Get(ctx, kv.key)
@@ -122,6 +163,27 @@ func TestBTree(t *testing.T) {
 
 			// XXX .next == nil
 			// XXX check keys, values directly (i.e. there is nothing else)
+		}
+
+		// {Min,Max}Key
+		kmin, okmin, emin := obj.MinKey(ctx)
+		kmax, okmax, emax := obj.MaxKey(ctx)
+		if err := xerr.Merge(emin, emax); err != nil {
+			t.Error(err)
+			continue
+		}
+
+		ok := false
+		ka, kb := int64(0), int64(0)
+		if l := len(tt.itemv); l != 0 {
+			ok = true
+			ka = tt.itemv[0].key
+			kb = tt.itemv[l-1].key
+		}
+
+		if !(kmin == ka && kmax == kb && okmin == ok && okmax == ok) {
+			t.Errorf("%s: min/max key wrong: got [%v, %v] (%v, %v);  want [%v, %v] (%v, %v)",
+				tt.oid, kmin, kmax, okmin, okmax, ka, kb, ok, ok)
 		}
 	}
 
