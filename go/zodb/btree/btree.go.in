@@ -31,6 +31,8 @@ import (
 
 // BTree is a non-leaf node of a B⁺ tree.
 //
+// It contains []Entry in ↑ key order.
+//
 // It mimics BTree from btree/py.
 type BTree struct {
 	zodb.Persistent
@@ -49,18 +51,22 @@ type BTree struct {
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
-	data []_BTreeItem
+	data []Entry
 }
 
-// _BTreeItem mimics BTreeItem from btree/py.
+// Entry is one BTree node entry.
 //
-// XXX export for BTree.Children?
-type _BTreeItem struct {
+// It contains key and child, who is either BTree or Bucket.
+//
+// Key limits child's keys - see BTree.Entryv for details.
+type Entry struct {
 	key   KEY
 	child interface{} // BTree or Bucket
 }
 
 // Bucket is a leaf node of a B⁺ tree.
+//
+// It contains []BucketEntry in ↑ key order.
 //
 // It mimics Bucket from btree/py.
 type Bucket struct {
@@ -78,6 +84,54 @@ type Bucket struct {
 	keys   []KEY         // 'len' keys, in increasing order
 	values []interface{} // 'len' corresponding values
 }
+
+// BucketEntry is one Bucket node entry.
+//
+// It contains key and value.
+type BucketEntry struct {
+	key   KEY
+	value interface{}
+}
+
+
+// Key returns BTree entry key.
+func (e *Entry) Key() KEY { return e.key }
+
+// Child returns BTree entry child.
+func (e *Entry) Child() interface{} { return e.child }
+
+// Entryv returns entries of a BTree node.
+//
+// Entries keys limit the keys of all children reachable from an entry:
+//
+//	[i].Key ≤ [i].Child.*.Key < [i+1].Key		i ∈ [0, len([]))
+//
+//	[0].Key       = -∞	; always returned so
+//	[len(ev)].Key = +∞	; should be assumed so
+//
+//
+// Children of all entries are guaranteed to be of the same kind - either all BTree, or all Bucket.
+//
+// The caller must not modify returned array.
+func (t *BTree) Entryv() []Entry {
+	return t.data
+}
+
+// Key returns Bucket entry key.
+func (e *BucketEntry) Key() KEY { return e.key }
+
+// Value returns Bucket entry value.
+func (e *BucketEntry) Value() interface{} { return e.value }
+
+// Entryv returns entries of a Bucket node.
+func (b *Bucket) Entryv() []BucketEntry {
+	ev := make([]BucketEntry, len(b.keys))
+	for i, k := range b.keys {
+		ev[i] = BucketEntry{k, b.values[i]}
+	}
+	return ev
+}
+
 
 // Get searches BTree by key.
 //
@@ -310,7 +364,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 		}
 
 		bt.firstbucket = bucket
-		bt.data = []_BTreeItem{{key: 0, child: bucket}}
+		bt.data = []Entry{{key: 0, child: bucket}}
 		return nil
 	}
 
@@ -329,7 +383,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 	}
 
 	n := (len(t) + 1) / 2
-	bt.data = make([]_BTreeItem, 0, n)
+	bt.data = make([]Entry, 0, n)
 	var kprev int64
 	var childrenKind int // 1 - BTree, 2 - Bucket
 	for i, idx := 0, 0; i < n; i++ {
@@ -374,7 +428,7 @@ func (bt *btreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, _BTreeItem{key: kkey, child: child})
+		bt.data = append(bt.data, Entry{key: kkey, child: child})
 	}
 
 	return nil

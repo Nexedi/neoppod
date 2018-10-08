@@ -22,6 +22,8 @@
 //
 // node.Get(key) performs point-query.
 //
+// node.Entryv() returns [] of (key, child/value).
+//
 // --------
 //
 // (*) https://github.com/zopefoundation/ZODB/blob/3.10.7-4-gb8d7a8567/src/BTrees/Development.txt#L211

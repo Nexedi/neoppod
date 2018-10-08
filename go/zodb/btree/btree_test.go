@@ -177,5 +177,7 @@ func TestBTree(t *testing.T) {
 		return firstbucket
 	}
 
+	// XXX verify Entryv ?
+
 	verifyFirstBucket(B3)
 }

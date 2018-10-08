@@ -33,6 +33,8 @@ import (
 
 // LOBTree is a non-leaf node of a B⁺ tree.
 //
+// It contains []LOEntry in ↑ key order.
+//
 // It mimics LOBTree from btree/py.
 type LOBTree struct {
 	zodb.Persistent
@@ -51,18 +53,22 @@ type LOBTree struct {
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
-	data []_LOBTreeItem
+	data []LOEntry
 }
 
-// _LOBTreeItem mimics BTreeItem from btree/py.
+// LOEntry is one LOBTree node entry.
 //
-// XXX export for LOBTree.Children?
-type _LOBTreeItem struct {
+// It contains key and child, who is either LOBTree or LOBucket.
+//
+// Key limits child's keys - see LOBTree.Entryv for details.
+type LOEntry struct {
 	key   int64
 	child interface{} // LOBTree or LOBucket
 }
 
 // LOBucket is a leaf node of a B⁺ tree.
+//
+// It contains []LOBucketEntry in ↑ key order.
 //
 // It mimics LOBucket from btree/py.
 type LOBucket struct {
@@ -80,6 +86,54 @@ type LOBucket struct {
 	keys   []int64         // 'len' keys, in increasing order
 	values []interface{} // 'len' corresponding values
 }
+
+// LOBucketEntry is one LOBucket node entry.
+//
+// It contains key and value.
+type LOBucketEntry struct {
+	key   int64
+	value interface{}
+}
+
+
+// Key returns LOBTree entry key.
+func (e *LOEntry) Key() int64 { return e.key }
+
+// Child returns LOBTree entry child.
+func (e *LOEntry) Child() interface{} { return e.child }
+
+// Entryv returns entries of a LOBTree node.
+//
+// Entries keys limit the keys of all children reachable from an entry:
+//
+//	[i].Key ≤ [i].Child.*.Key < [i+1].Key		i ∈ [0, len([]))
+//
+//	[0].Key       = -∞	; always returned so
+//	[len(ev)].Key = +∞	; should be assumed so
+//
+//
+// Children of all entries are guaranteed to be of the same kind - either all LOBTree, or all LOBucket.
+//
+// The caller must not modify returned array.
+func (t *LOBTree) Entryv() []LOEntry {
+	return t.data
+}
+
+// Key returns LOBucket entry key.
+func (e *LOBucketEntry) Key() int64 { return e.key }
+
+// Value returns LOBucket entry value.
+func (e *LOBucketEntry) Value() interface{} { return e.value }
+
+// Entryv returns entries of a LOBucket node.
+func (b *LOBucket) Entryv() []LOBucketEntry {
+	ev := make([]LOBucketEntry, len(b.keys))
+	for i, k := range b.keys {
+		ev[i] = LOBucketEntry{k, b.values[i]}
+	}
+	return ev
+}
+
 
 // Get searches LOBTree by key.
 //
@@ -312,7 +366,7 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 		}
 
 		bt.firstbucket = bucket
-		bt.data = []_LOBTreeItem{{key: 0, child: bucket}}
+		bt.data = []LOEntry{{key: 0, child: bucket}}
 		return nil
 	}
 
@@ -331,7 +385,7 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 	}
 
 	n := (len(t) + 1) / 2
-	bt.data = make([]_LOBTreeItem, 0, n)
+	bt.data = make([]LOEntry, 0, n)
 	var kprev int64
 	var childrenKind int // 1 - LOBTree, 2 - LOBucket
 	for i, idx := 0, 0; i < n; i++ {
@@ -376,7 +430,7 @@ func (bt *lobtreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, _LOBTreeItem{key: kkey, child: child})
+		bt.data = append(bt.data, LOEntry{key: kkey, child: child})
 	}
 
 	return nil

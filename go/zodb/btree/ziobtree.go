@@ -33,6 +33,8 @@ import (
 
 // IOBTree is a non-leaf node of a B⁺ tree.
 //
+// It contains []IOEntry in ↑ key order.
+//
 // It mimics IOBTree from btree/py.
 type IOBTree struct {
 	zodb.Persistent
@@ -51,18 +53,22 @@ type IOBTree struct {
 	// order.  data[0].key is unused.  For i in 0 .. len-1, all keys reachable
 	// from data[i].child are >= data[i].key and < data[i+1].key, at the
 	// endpoints pretending that data[0].key is -∞ and data[len].key is +∞.
-	data []_IOBTreeItem
+	data []IOEntry
 }
 
-// _IOBTreeItem mimics BTreeItem from btree/py.
+// IOEntry is one IOBTree node entry.
 //
-// XXX export for IOBTree.Children?
-type _IOBTreeItem struct {
+// It contains key and child, who is either IOBTree or IOBucket.
+//
+// Key limits child's keys - see IOBTree.Entryv for details.
+type IOEntry struct {
 	key   int32
 	child interface{} // IOBTree or IOBucket
 }
 
 // IOBucket is a leaf node of a B⁺ tree.
+//
+// It contains []IOBucketEntry in ↑ key order.
 //
 // It mimics IOBucket from btree/py.
 type IOBucket struct {
@@ -80,6 +86,54 @@ type IOBucket struct {
 	keys   []int32         // 'len' keys, in increasing order
 	values []interface{} // 'len' corresponding values
 }
+
+// IOBucketEntry is one IOBucket node entry.
+//
+// It contains key and value.
+type IOBucketEntry struct {
+	key   int32
+	value interface{}
+}
+
+
+// Key returns IOBTree entry key.
+func (e *IOEntry) Key() int32 { return e.key }
+
+// Child returns IOBTree entry child.
+func (e *IOEntry) Child() interface{} { return e.child }
+
+// Entryv returns entries of a IOBTree node.
+//
+// Entries keys limit the keys of all children reachable from an entry:
+//
+//	[i].Key ≤ [i].Child.*.Key < [i+1].Key		i ∈ [0, len([]))
+//
+//	[0].Key       = -∞	; always returned so
+//	[len(ev)].Key = +∞	; should be assumed so
+//
+//
+// Children of all entries are guaranteed to be of the same kind - either all IOBTree, or all IOBucket.
+//
+// The caller must not modify returned array.
+func (t *IOBTree) Entryv() []IOEntry {
+	return t.data
+}
+
+// Key returns IOBucket entry key.
+func (e *IOBucketEntry) Key() int32 { return e.key }
+
+// Value returns IOBucket entry value.
+func (e *IOBucketEntry) Value() interface{} { return e.value }
+
+// Entryv returns entries of a IOBucket node.
+func (b *IOBucket) Entryv() []IOBucketEntry {
+	ev := make([]IOBucketEntry, len(b.keys))
+	for i, k := range b.keys {
+		ev[i] = IOBucketEntry{k, b.values[i]}
+	}
+	return ev
+}
+
 
 // Get searches IOBTree by key.
 //
@@ -312,7 +366,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 		}
 
 		bt.firstbucket = bucket
-		bt.data = []_IOBTreeItem{{key: 0, child: bucket}}
+		bt.data = []IOEntry{{key: 0, child: bucket}}
 		return nil
 	}
 
@@ -331,7 +385,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 	}
 
 	n := (len(t) + 1) / 2
-	bt.data = make([]_IOBTreeItem, 0, n)
+	bt.data = make([]IOEntry, 0, n)
 	var kprev int64
 	var childrenKind int // 1 - IOBTree, 2 - IOBucket
 	for i, idx := 0, 0; i < n; i++ {
@@ -376,7 +430,7 @@ func (bt *iobtreeState) PySetState(pystate interface{}) (err error) {
 			fmt.Errorf("data: [%d]: children must be of the same type", i)
 		}
 
-		bt.data = append(bt.data, _IOBTreeItem{key: kkey, child: child})
+		bt.data = append(bt.data, IOEntry{key: kkey, child: child})
 	}
 
 	return nil
